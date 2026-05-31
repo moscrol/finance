@@ -2,6 +2,22 @@
 
 A股量化复盘+研究工具集。通过 fupanhui.com API 获取市场数据，写入飞书 Bitable，结合 iFinD 数据做深度分析。
 
+## Git Branch Safety Rules（强制）
+
+`main` 是当前共享基线，不代表已经完美稳定；本项目仍在持续修缮。任何 agent 开始工作时必须先执行并汇报：
+
+```bash
+git status --short
+git branch --show-current
+```
+
+规则：
+- **大任务默认不开在 `main` 上做**：baseline 批次、PDF ingest 规则/脚本、Theme Radar 规则、数据源脚本、DuckDB/飞书写入逻辑、批量生成或跨仓库修改，都必须先从最新 `main` 新建任务分支。
+- 推荐流程：`git checkout main` → `git pull` → `git checkout -b <type>/<short-task>` → 工作 → commit → push 分支；合并回 `main` 必须等用户明确确认。
+- 小型文档/规则修补可以直接在 `main` 做，但提交前仍要检查风险文件。
+- 分支命名：`baseline/<批次或公司名>`、`pdf-ingest/<日期或材料名>`、`theme-radar/<题材或能力>`、`data-source/<来源名>`、`fix/<问题>`。
+- commit 前必须检查不要提交：`.env*`、`mcp_config.json`、`feishu_config.json`、`*.pdf`、`*.zip`、`*.duckdb`、`*.db`、`*.sqlite*`、`*.pptx`、`.DS_Store`、`__MACOSX/`、`._*`、缓存和虚拟环境。
+
 ## 核心工作流
 
 1. **每日复盘** → 加载 `web-access` skill → 打开 fupanhui.com → 调 API 取市场数据 → hover K线取周均线/偏离度 → 格式化输出 → 写入飞书（每日指标+板块趋势）→ `verify_and_patch.py` → `advancers-chart sync`
