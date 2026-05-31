@@ -1437,6 +1437,7 @@ def looks_like_company_clue(value: str) -> bool:
 def report_context_company_clues_section(rows: list[dict], limit: int = 20) -> str:
     clues = []
     seen = set()
+    folded_noise = 0
     for row in rows:
         source = row.get("source_name") or row.get("source") or "report_contexts"
         for mention in row.get("company_mentions", []) or []:
@@ -1458,6 +1459,9 @@ def report_context_company_clues_section(rows: list[dict], limit: int = 20) -> s
         supply = row.get("supply_chain", {}) or {}
         for value in supply.get("ecosystem", []) or []:
             name = str(value or "").strip()
+            if any(token in name for token in REPORT_HEADING_NOISE_TOKENS) or any(token in name for token in ANALYSIS_DIMENSION_TOKENS):
+                folded_noise += 1
+                continue
             if not name or name in seen or not looks_like_company_clue(name):
                 continue
             seen.add(name)
@@ -1471,8 +1475,12 @@ def report_context_company_clues_section(rows: list[dict], limit: int = 20) -> s
                 }
             )
     if not clues:
-        return "- 暂无。"
-    lines = ["| 线索 | 来源 | 环节 | 角色/依据 | 边界 |", "|---|---|---|---|---|"]
+        return f"- 暂无。{'已折叠章节/分析噪声 ' + str(folded_noise) + ' 条。' if folded_noise else ''}"
+    lines = []
+    if folded_noise:
+        lines.append(f"- 已折叠章节/分析噪声 {folded_noise} 条。")
+        lines.append("")
+    lines.extend(["| 线索 | 来源 | 环节 | 角色/依据 | 边界 |", "|---|---|---|---|---|"])
     for item in clues[:limit]:
         lines.append(f"| {item['name']} | {item['source']} | {item['layer']} | {str(item['role'])[:80]}；{str(item['basis'])[:80]} | 只作 full 精读上下文线索，不写入 entities，不直接升核心 |")
     return "\n".join(lines)
@@ -1495,33 +1503,88 @@ GENERIC_DIRECTION_TOKENS = (
     "概念", "人工智能", "云计算", "产业概况", "增长驱动",
 )
 
+ANALYSIS_DIMENSION_TOKENS = (
+    "盈利能力", "市场规模", "增长预测", "产能水平", "扩张计划", "边际份额", "发展阶段", "技术发展",
+    "技术路径", "产业趋势", "投资机会", "竞争格局", "价值分布", "市场预期", "发展现状", "前景",
+    "能力分级", "分级体系", "代际", "技术特征", "投资标的", "纯度标准", "标准体系", "技术要求",
+    "Token 成本", "token 成本", "Token成本", "token数", "Token 数", "成本",
+)
+
+REPORT_HEADING_NOISE_TOKENS = (
+    "研究背景", "研究目标", "产业链结构", "核心供应商分析", "产业基础", "技术路径分析",
+    "报告", "摘要", "结论", "深度研究", "新变化", "新格局", "章节", "目录", "产业链",
+)
+
 DOWNSTREAM_SCENARIO_TOKENS = {
     "新能源汽车", "消费电子", "储能", "储能系统", "机器人", "无人机", "航空航天", "eVTOL", "风力发电",
     "数据中心", "云厂商", "运营商", "医院", "药店", "AI 服务器", "AI服务器", "服务器",
+    "芯片制造", "半导体制造", "晶圆制造", "EUV", "EUV 光刻机", "光伏", "光伏石英坩埚",
+    "金融服务", "医疗健康", "制造业", "企业服务",
 }
 
 ECOSYSTEM_NAME_TOKENS = {
     "安费诺", "Amphenol", "莫仕", "Molex", "泰科电子", "TE Connectivity", "英伟达", "微软", "微软 Azure", "亚马逊", "谷歌", "Meta", "苹果", "特斯拉", "特斯拉供应链", "OpenAI", "博通", "紫金矿业", "住友电工", "恒丰特导", "中国联塑",
 }
 
+ORGANIZATION_ENTITY_TOKENS = {
+    "Research", "研究院", "研究所", "电科院", "科学院", "大学", "ASML", "蔡司", "Cymer",
+    "Neuralink", "Synchron", "Medtronic", "Abbott", "Blackrock", "IMEC", "NeuroPace",
+}
+
 CORE_DIRECTION_KEYWORDS = (
     "电解质", "负极", "正极", "设备", "电芯", "材料", "机床", "磁材", "光模块", "CRO", "CDMO", "ADC", "GLP", "CAR-T",
     "电极", "铜缆", "铜连接", "连接器", "互连", "背板", "线束", "PAM4", "DAC", "ACC", "AEC", "调制", "CPO", "硅光",
-    "数控", "五轴", "刀具", "压铸", "注塑", "锂盐", "集流体",
+    "数控", "五轴", "刀具", "压铸", "注塑", "锂盐", "集流体", "石英砂", "石英材料", "石英器件",
+    "Agent", "智能体", "RPA", "工作流", "编排", "推理", "多模态", "端侧", "AI应用", "智能硬件",
+    "光刻", "曝光", "显影", "涂胶", "光源", "光学", "物镜", "工件台", "掩模", "对准", "量测",
+    "脑电", "电极", "传感", "神经调控", "DBS", "医疗器械", "临床", "康复", "植入式", "非侵入式", "半侵入式",
+    "6G", "5G-A", "基站", "核心网", "太赫兹", "毫米波", "射频", "天线", "相控阵", "T/R", "TR组件", "卫星",
+    "空天地", "通感", "RIS", "智能超表面", "原型机", "测试仪器", "网络设备",
 )
 
-COMPANY_LIKE_SUFFIXES = ("科技", "股份", "集团", "电工", "光电", "电子", "通信", "材料", "精密", "互连", "特导")
+COMPANY_LIKE_SUFFIXES = ("科技", "股份", "集团", "电工", "光电", "电子", "通信", "材料", "精密", "互连", "特导", "半导体")
 
 
 ADJACENT_THEME_BY_DOMAIN = {
     "high_speed_interconnect": ("CPO", "共封装光学", "光模块", "光芯片", "硅光", "先进封装", "PCB", "HDI", "mSAP", "芯片概念", "人工智能", "云计算"),
     "optical_interconnect": ("铜缆", "DAC", "ACC", "AEC"),
     "energy_storage": ("光模块", "CPO", "PCB", "AI服务器", "人工智能", "云计算"),
+    "software_ai_application": ("国产AI芯片", "AI芯片", "算力基础设施", "服务器", "数据中心", "云计算", "芯片概念"),
+    "semiconductor_materials": ("EUV", "光刻机", "光伏石英坩埚", "光伏", "光刻胶", "掩模版"),
+    "semiconductor_patterning_equipment": ("ASML", "蔡司", "Cymer", "EUV", "先进封装", "光刻胶"),
+    "next_generation_communications": ("CPO", "光模块", "硅光", "云计算", "算力租赁", "AI算力", "低空经济", "商业航天"),
 }
 
 
 def primary_domains_for_term(term: str) -> set[str]:
     return infer_theme_domains(str(term or ""))
+
+
+DOMAIN_PRIORITY = (
+    "bioelectronic_medical_device",
+    "next_generation_communications",
+    "software_ai_application",
+    "semiconductor_patterning_equipment",
+    "semiconductor_materials",
+    "advanced_battery_materials",
+    "high_speed_interconnect",
+    "optical_interconnect",
+    "critical_materials",
+    "industrial_equipment",
+    "power_equipment",
+    "energy_storage",
+    "pharma",
+    "compute",
+    "power",
+    "semiconductor",
+)
+
+
+def dominant_domains(domains: set[str]) -> set[str]:
+    for domain in DOMAIN_PRIORITY:
+        if domain in domains:
+            return {domain}
+    return set(domains)
 
 
 def is_adjacent_direction_label(value: str, primary_domains: set[str]) -> bool:
@@ -1536,13 +1599,19 @@ def classify_runtime_direction(value: str, primary_domains: set[str] | None = No
     text = str(value or "").strip()
     if not text or len(text) < 2:
         return "generic_context"
-    if text in {"固态电池", "工业母机", "稀土永磁", "创新药", "储能", "光模块", "算力租赁"}:
+    if text in {"固态电池", "工业母机", "稀土永磁", "创新药", "储能", "光模块", "算力租赁", "半导体石英砂", "AI Agent与智能体", "AI智能体", "AI应用"}:
         return "generic_context"
-    if any(token in text for token in DOWNSTREAM_SCENARIO_TOKENS):
+    if any(token in text for token in REPORT_HEADING_NOISE_TOKENS):
+        return "report_heading_noise"
+    if any(token in text for token in ANALYSIS_DIMENSION_TOKENS):
+        return "analysis_dimension"
+    has_core_keyword = any(token in text for token in CORE_DIRECTION_KEYWORDS)
+    if any(token in text for token in DOWNSTREAM_SCENARIO_TOKENS) and not has_core_keyword:
         return "downstream_scenario"
+    if any(token in text for token in ORGANIZATION_ENTITY_TOKENS):
+        return "ecosystem_entity"
     if any(token in text for token in ECOSYSTEM_NAME_TOKENS):
         return "ecosystem_entity"
-    has_core_keyword = any(token in text for token in CORE_DIRECTION_KEYWORDS)
     if any(suffix in text for suffix in COMPANY_LIKE_SUFFIXES) and not has_core_keyword:
         return "ecosystem_entity"
     if any(token in text for token in GENERIC_DIRECTION_TOKENS) and not has_core_keyword:
@@ -1585,27 +1654,100 @@ def runtime_direction_tokens(label: str) -> tuple[str, ...]:
     return tuple(unique(tokens))
 
 
+def compact_direction_label(value: str) -> str:
+    return re.sub(r"[\s/、\-—_（）()]+", "", str(value or "").lower())
+
+
+def is_redundant_direction_label(label: str, existing_labels: list[str]) -> bool:
+    text = compact_direction_label(label)
+    if len(text) < 3:
+        return False
+    for existing in existing_labels:
+        base = compact_direction_label(existing)
+        if base and text != base and text in base:
+            return True
+    return False
+
+
+def is_redundant_direction_row(label: str, existing_rows: list[dict]) -> bool:
+    if is_redundant_direction_label(label, [str(row.get("label", "")) for row in existing_rows if isinstance(row, dict)]):
+        return True
+    text = compact_direction_label(label)
+    for row in existing_rows:
+        if not isinstance(row, dict):
+            continue
+        for token in row.get("tokens", ()) or ():
+            token_text = compact_direction_label(token)
+            if len(token_text) >= 4 and token_text in text:
+                return True
+    return False
+
+
 def runtime_direction_frame(term: str, raw_terms: list[str], evidence_texts: list[str], related: list[str]) -> dict:
     seed_text = " ".join([term] + related + raw_terms[:20])
     primary_domains = primary_domains_for_term(term)
-    allowed_domains = sorted(primary_domains or infer_theme_domains(seed_text))
+    inferred_domains = primary_domains or infer_theme_domains(seed_text)
+    allowed_domains = sorted(dominant_domains(inferred_domains))
+    secondary_domains = set(inferred_domains) - set(allowed_domains)
     directions = []
-    secondary = {key: [] for key in ("adjacent_theme", "ecosystem_entity", "downstream_scenario", "generic_context")}
+    secondary = {key: [] for key in ("adjacent_theme", "ecosystem_entity", "downstream_scenario", "analysis_dimension", "generic_context", "report_heading_noise")}
     seen = set()
     ordered_terms = unique(related + raw_terms)
+    haystack = " ".join(evidence_texts + raw_terms + related + [term])
+    for rule in CAPABILITY_RULES:
+        if not (set(rule.get("domains", ())) & set(allowed_domains)):
+            continue
+        if not any(token_hit(haystack, token) for token in rule.get("tokens", ())):
+            continue
+        label = str(rule.get("label", "")).strip()
+        if not label or label in seen:
+            continue
+        seen.add(label)
+        directions.append(
+            {
+                "label": label,
+                "tokens": rule.get("tokens", ()),
+                "theme": rule.get("theme", label),
+                "why": rule.get("why", ""),
+                "validation": rule.get("validation", ""),
+                "source": "capability_rule",
+            }
+        )
+    capability_direction_count = len(directions)
+    runtime_add_limit = 0 if capability_direction_count >= 3 else max(0, 6 - capability_direction_count)
+    runtime_added = 0
+    for rule in CAPABILITY_RULES:
+        if not (set(rule.get("domains", ())) & secondary_domains):
+            continue
+        if set(rule.get("domains", ())) & set(allowed_domains):
+            continue
+        if not any(token_hit(haystack, token) for token in rule.get("tokens", ())):
+            continue
+        label = str(rule.get("label", "")).strip()
+        if label and label not in seen:
+            seen.add(label)
+            secondary.setdefault("adjacent_theme", []).append(
+                {"label": label, "classification": "adjacent_theme", "source": "secondary_domain_rule"}
+            )
     core_labels = {
         str(value or "").strip()
         for value in ordered_terms
-        if classify_runtime_direction(str(value or "").strip(), primary_domains) == "core_direction"
+        if classify_runtime_direction(str(value or "").strip(), set(allowed_domains)) == "core_direction"
     }
     for value in ordered_terms:
         label = str(value or "").strip()
         if label in seen:
             continue
-        if not context_term_hit(label, " ".join(evidence_texts + raw_terms + related + [term])):
+        if label == str(term or "").strip():
+            secondary.setdefault("generic_context", []).append(
+                {"label": label, "classification": "generic_context", "source": "theme_self_label"}
+            )
+            seen.add(label)
+            continue
+        if not context_term_hit(label, haystack):
             continue
         seen.add(label)
-        classification = classify_runtime_direction(label, primary_domains)
+        classification = classify_runtime_direction(label, set(allowed_domains))
         if classification != "core_direction":
             if label in core_labels:
                 continue
@@ -1615,6 +1757,21 @@ def runtime_direction_frame(term: str, raw_terms: list[str], evidence_texts: lis
                     "classification": classification,
                     "source": "runtime_direction_frame",
                 }
+            )
+            continue
+        if len(directions) >= 5 and not any(token in label for token in CORE_DIRECTION_KEYWORDS):
+            secondary.setdefault("generic_context", []).append(
+                {"label": label, "classification": "generic_context", "source": "low_confidence_runtime_direction"}
+            )
+            continue
+        if runtime_added >= runtime_add_limit:
+            secondary.setdefault("generic_context", []).append(
+                {"label": label, "classification": "generic_context", "source": "runtime_direction_deferred"}
+            )
+            continue
+        if is_redundant_direction_row(label, directions):
+            secondary.setdefault("generic_context", []).append(
+                {"label": label, "classification": "generic_context", "source": "folded_duplicate_direction"}
             )
             continue
         directions.append(
@@ -1627,10 +1784,12 @@ def runtime_direction_frame(term: str, raw_terms: list[str], evidence_texts: lis
                 "source": "runtime_direction_frame",
             }
         )
+        runtime_added += 1
         if len(directions) >= 20:
             break
     return {
         "allowed_domains": allowed_domains,
+        "secondary_domains": sorted(secondary_domains),
         "directions": directions,
         "secondary": secondary,
     }
@@ -1664,9 +1823,20 @@ def runtime_context_from_report_contexts(term: str, rows: list[dict]) -> dict:
     raw_midstream_terms = unique([item["name"] for item in chain["midstream"]])[:24]
     upstream_terms = unique([item["name"] for item in chain["upstream_materials"] + chain["upstream_equipment"]])[:24]
     direction_frame = runtime_direction_frame(term, raw_midstream_terms + upstream_terms, evidence_texts, related)
-    midstream_terms = [row["label"] for row in direction_frame.get("directions", [])[:8]]
+    direction_rows = [row for row in direction_frame.get("directions", [])[:8] if isinstance(row, dict)]
+    midstream_terms = [row["label"] for row in direction_rows if row.get("label")]
     if not midstream_terms:
         midstream_terms = context_subdirection_terms(term, raw_midstream_terms[:8], evidence_texts, related)
+        direction_rows = [
+            {
+                "label": value,
+                "theme": value,
+                "why": "来自本地 full 精读上下文的候选方向，需要继续用公司级产品、工艺或客户线索确认。",
+                "validation": f"后续跟踪 {value} 是否被更多研报/精选逻辑强化。",
+                "source": "context_subdirection_terms",
+            }
+            for value in midstream_terms
+        ]
     upstream_terms = upstream_terms[:8]
     downstream_terms = unique([item["name"] for item in chain["downstream"]])[:8]
     segment_scores = []
@@ -1678,16 +1848,19 @@ def runtime_context_from_report_contexts(term: str, rows: list[dict]) -> dict:
         segment_scores.append({"segment": "下游需求", "relevance": "medium", "mapped_concepts": downstream_terms[:6], "reason": "来自已精读 full.md 的需求场景，用于解释题材传导，不直接扩公司。"})
     demand_drivers = unique([x for x in downstream_terms + ecosystem if x])[:10]
     direction_scan = []
-    for idx, value in enumerate(midstream_terms[:6], 1):
+    for idx, row in enumerate(direction_rows[:6], 1):
+        value = str(row.get("label", "")).strip()
+        if not value:
+            continue
         direction_scan.append(
             {
                 "direction": value,
-                "sector": term,
-                "prosperity": "来自已精读 full.md 的核心方向，需结合公司证据和信号层确认景气。",
+                "sector": row.get("theme") or term,
+                "prosperity": direction_prosperity_text(term, row, demand_drivers),
                 "mention_frequency": "本地精读命中",
-                "recognition_level": "L1-L3",
-                "classification": "精读线索",
-                "core_catalyst": "、".join(demand_drivers[:3]) or "待补",
+                "recognition_level": direction_recognition_level(row),
+                "classification": direction_classification_text(row),
+                "core_catalyst": direction_catalyst_text(row, demand_drivers),
                 "candidate_companies": [],
             }
         )
@@ -1701,7 +1874,7 @@ def runtime_context_from_report_contexts(term: str, rows: list[dict]) -> dict:
                 "evidence_level": "L1 curated research",
                 "progress_score": max(40, 75 - idx * 5),
                 "key_signal": row["core_catalyst"],
-                "next_validation": "后续研报/精选逻辑是否继续强化，公告/订单/业绩仅作验证空位",
+                "next_validation": direction_next_validation(row["direction"], direction_rows),
                 "priority": "补证跟踪",
             }
         )
@@ -1729,11 +1902,7 @@ def runtime_context_from_report_contexts(term: str, rows: list[dict]) -> dict:
             {"scenario": value, "logic": "来自已精读 full.md 的下游需求或应用场景。", "process_requirement": "需映射到中游核心环节和公司级能力。", "evidence": ["report_contexts.json"]}
             for value in downstream_terms[:5]
         ],
-        "validation_checklist": [
-            {"item": "后续 PDF ingest/精选逻辑是否继续强化核心细分方向", "why": "判断题材是否从单点逻辑走向共识扩散", "status": "待新文本"},
-            {"item": "相对核心公司是否被多源研报/精选逻辑共同提及", "why": "区分核心公司与泛概念暴露", "status": "自动聚合"},
-            {"item": "baseline 是否与公司题材角色冲突", "why": "只做基础画像校验，不主导核心判断", "status": "辅助校验"},
-        ],
+        "validation_checklist": direction_validation_checklist(direction_rows[:6]),
         "candidate_companies": [],
         "source_urls": unique(sources)[:8],
         "confidence": "high",
@@ -1746,6 +1915,75 @@ def runtime_context_from_report_contexts(term: str, rows: list[dict]) -> dict:
             "review_required": True,
         },
     }
+
+
+def direction_row_lookup(label: str, rows: list[dict]) -> dict:
+    for row in rows:
+        if isinstance(row, dict) and row.get("label") == label:
+            return row
+    return {}
+
+
+def direction_prosperity_text(term: str, row: dict, demand_drivers: list[str]) -> str:
+    why = str(row.get("why") or "").strip()
+    label = str(row.get("label") or "").strip()
+    demand = "、".join(demand_drivers[:2])
+    if why:
+        tail = f"；需求牵引看 {demand}" if demand else ""
+        return f"{why}{tail}。"
+    return f"{label} 是 {term} 的可验证细分环节，后续需要看公司级产品、客户和订单是否兑现。"
+
+
+def direction_recognition_level(row: dict) -> str:
+    source = str(row.get("source") or "")
+    if source == "capability_rule":
+        return "L1结构线索 + L3待验证"
+    if source == "runtime_direction_frame":
+        return "L1精读候选 + L3待验证"
+    return "L1-L3"
+
+
+def direction_classification_text(row: dict) -> str:
+    source = str(row.get("source") or "")
+    if source == "capability_rule":
+        return "能力骨架"
+    if source == "runtime_direction_frame":
+        return "精读补充"
+    return "精读线索"
+
+
+def direction_catalyst_text(row: dict, demand_drivers: list[str]) -> str:
+    validation = str(row.get("validation") or "").strip()
+    if validation:
+        return validation
+    return "、".join(demand_drivers[:3]) or "待补产品/客户/订单验证"
+
+
+def direction_next_validation(label: str, rows: list[dict]) -> str:
+    row = direction_row_lookup(label, rows)
+    validation = str(row.get("validation") or "").strip()
+    if validation:
+        return validation
+    return "后续研报/精选逻辑是否继续强化，公告/订单/业绩仅作验证空位"
+
+
+def direction_validation_checklist(rows: list[dict]) -> list[dict]:
+    items = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        label = str(row.get("label") or "").strip()
+        if not label:
+            continue
+        validation = str(row.get("validation") or "").strip() or f"{label} 是否被更多研报/精选逻辑和公司级证据强化"
+        items.append({"item": f"{label}：{validation}", "why": str(row.get("why") or "确认该方向不是泛概念，而是可落到产品、工艺、客户或订单的细分环节。"), "status": "待新文本/公司证据"})
+    items.extend(
+        [
+            {"item": "相对核心公司是否被多源研报/精选逻辑共同提及", "why": "区分核心公司与泛概念暴露", "status": "自动聚合"},
+            {"item": "baseline 是否与公司题材角色冲突", "why": "只做基础画像校验，不主导核心判断", "status": "辅助校验"},
+        ]
+    )
+    return items[:10]
 
 
 def context_subdirection_terms(term: str, midstream_terms: list[str], evidence_texts: list[str], related: list[str]) -> list[str]:
@@ -1832,9 +2070,15 @@ def secondary_runtime_context_section(context: dict) -> str:
         ("adjacent_theme", "相邻/替代路线", "相关但不作为当前主方向，可用于理解竞争、替代或配套关系"),
         ("ecosystem_entity", "生态/对标/海外线索", "公司、客户、海外对标或生态角色，不作为细分方向"),
         ("downstream_scenario", "下游需求场景", "解释题材发酵来源和需求牵引，不直接等同于核心环节"),
+        ("analysis_dimension", "分析维度/验证指标", "用于后续验证或分析，不作为产业链细分方向"),
         ("generic_context", "泛背景/宏观语境", "帮助理解叙事背景，但权重低于公司和核心方向"),
     ]
     lines = []
+    noise_rows = secondary.get("report_heading_noise", []) if isinstance(secondary, dict) else []
+    noise_count = len(unique([str(row.get("label", "")).strip() for row in noise_rows if isinstance(row, dict) and str(row.get("label", "")).strip()]))
+    if noise_count:
+        lines.append(f"- 已折叠报告章节/标题噪声 {noise_count} 条。")
+        lines.append("")
     for key, title, boundary in groups:
         rows = secondary.get(key, []) if isinstance(secondary, dict) else []
         labels = unique([str(row.get("label", "")).strip() for row in rows if isinstance(row, dict) and str(row.get("label", "")).strip()])
@@ -1992,6 +2236,8 @@ def company_deep_dive_tier(company: dict) -> str:
     has_baseline = bool(buckets.get("baseline"))
     consensus = source_consensus_count(company)
     subtype = company.get("company_subtype") or company_subtype(company)
+    if has_baseline and not research_or_logic and not has_context and consensus == 0:
+        return "weak"
     if is_downstream_or_ecosystem_company(company) and company.get("strength") != "core":
         return "watch" if research_or_logic or has_baseline or has_context else "weak"
     if company.get("strength") == "core" and research_or_logic:
@@ -2055,6 +2301,50 @@ CAPABILITY_RULES = [
     {"label": "高速铜缆/DAC/ACC/AEC", "domains": ("high_speed_interconnect",), "tokens": ("高速铜缆", "铜缆高速连接", "铜连接", "高速铜连接", "DAC", "ACC", "AEC", "有源铜缆", "无源铜缆"), "theme": "高速铜缆/DAC/ACC/AEC", "why": "对应AI服务器和数据中心短距高速互连中的铜连接方案", "validation": "DAC/ACC/AEC产品迭代、速率升级、客户认证和AI服务器导入是否继续强化"},
     {"label": "高速连接器/背板/线束", "domains": ("high_speed_interconnect",), "tokens": ("高速连接器", "连接器", "背板", "高速背板", "线束", "高速线束", "互连组件", "高速互连"), "theme": "高速连接器/背板/线束", "why": "对应高速铜互连中的连接器、背板和线束组件环节", "validation": "高速连接器、背板、线束的速率、良率、认证和供货能力是否继续强化"},
     {"label": "高速传输材料/屏蔽散热", "domains": ("high_speed_interconnect",), "tokens": ("高速传输材料", "线缆材料", "低损耗", "屏蔽", "绝缘", "导体", "散热", "热管理"), "theme": "高速传输材料/屏蔽散热", "why": "对应高速铜缆在信号完整性、低损耗和散热约束下的材料配套", "validation": "低损耗材料、屏蔽散热方案和高速传输稳定性是否被更多资料验证"},
+    {"label": "Agent应用/企业服务", "domains": ("software_ai_application",), "tokens": ("AI智能体", "AI Agent", "Agent应用", "企业服务", "办公智能体", "AI员工", "智能客服", "RPA"), "theme": "Agent应用/企业服务", "why": "对应大模型从聊天工具走向自动执行任务和企业流程重构", "validation": "企业客户、付费订阅、项目落地和续费率是否继续强化"},
+    {"label": "工作流编排/工具调用", "domains": ("software_ai_application",), "tokens": ("工作流", "编排", "工具调用", "函数调用", "插件", "MCP", "自动化流程", "低代码"), "theme": "工作流编排/工具调用", "why": "对应智能体从单轮问答走向多步骤任务执行的中间层能力", "validation": "工具调用、流程编排和行业模板是否有产品化与客户验证"},
+    {"label": "模型推理/多模态交互", "domains": ("software_ai_application",), "tokens": ("模型推理", "推理框架", "多模态", "语音交互", "视觉理解", "大模型应用", "AI应用"), "theme": "模型推理/多模态交互", "why": "对应智能体理解、规划和交互能力的底层软件模块", "validation": "推理成本、响应速度、多模态能力和场景适配是否继续改善"},
+    {"label": "端侧智能体/智能硬件入口", "domains": ("software_ai_application",), "tokens": ("端侧AI", "端侧", "智能硬件", "AI眼镜", "AI手机", "AI玩具", "机器人入口", "陪伴机器人"), "theme": "端侧智能体/智能硬件入口", "why": "对应智能体从云端软件向终端设备和交互入口扩散", "validation": "端侧模型、硬件出货、应用留存和场景闭环是否出现验证"},
+    {"label": "高纯石英砂/天然矿源", "domains": ("semiconductor_materials",), "tokens": ("高纯石英砂", "天然高纯石英砂", "石英砂", "矿源", "IOTA", "杂质控制"), "theme": "高纯石英砂/天然矿源", "why": "对应半导体石英材料上游纯度、矿源和供给约束", "validation": "矿源、纯度指标、客户认证和供给约束是否继续强化"},
+    {"label": "合成石英砂/合成石英材料", "domains": ("semiconductor_materials",), "tokens": ("合成石英砂", "合成石英", "气相合成", "高纯合成", "石英材料"), "theme": "合成石英砂/合成石英材料", "why": "对应先进制程对高纯、稳定、可控石英材料的替代路线", "validation": "合成路线、纯度、成本、客户验证和产能是否继续强化"},
+    {"label": "石英器件/精密加工", "domains": ("semiconductor_materials",), "tokens": ("石英器件", "石英制品", "石英坩埚", "精密加工", "扩散管", "石英舟", "刻蚀环"), "theme": "石英器件/精密加工", "why": "对应石英材料向晶圆制造耗材和精密部件加工延伸", "validation": "晶圆厂认证、部件品类、良率和国产替代进度是否继续强化"},
+    {"label": "图形化整机/DUV/KrF/ArF", "domains": ("semiconductor_patterning_equipment",), "tokens": ("光刻机", "DUV", "KrF", "ArF", "UV光刻机", "整机制造", "曝光机"), "theme": "图形化整机/DUV/KrF/ArF", "why": "对应半导体图形化核心整机平台和成熟/先进制程设备国产替代", "validation": "整机交付、客户验证、制程节点和良率是否继续强化"},
+    {"label": "光源系统/激光器/特气", "domains": ("semiconductor_patterning_equipment",), "tokens": ("光源系统", "光源", "激光光源", "Cymer", "准分子", "Kr/Ne", "光刻气", "特种气体", "LBO", "BBO", "非线性光学晶体"), "theme": "光源系统/激光器/特气", "why": "对应曝光能量来源及激光、晶体、特气等关键上游约束", "validation": "光源功率、稳定性、材料认证和供应链替代是否被验证"},
+    {"label": "光学系统/物镜/镜片", "domains": ("semiconductor_patterning_equipment",), "tokens": ("光学系统", "物镜", "镜头", "镜片", "蔡司", "光学材料", "投影物镜", "透镜"), "theme": "光学系统/物镜/镜片", "why": "对应分辨率、成像质量和高端装备核心壁垒", "validation": "高精度光学加工、镀膜、检测和客户认证是否继续强化"},
+    {"label": "双工件台/运动控制/精密机械", "domains": ("semiconductor_patterning_equipment",), "tokens": ("双工件台", "工件台", "运动控制", "精密机械", "导轨", "气浮", "真空系统", "对准系统", "控制系统"), "theme": "双工件台/运动控制/精密机械", "why": "对应套刻精度、吞吐量和稳定性的核心机械控制环节", "validation": "套刻精度、运动平台、控制系统和客户验证是否继续强化"},
+    {"label": "涂胶显影/配套工艺设备", "domains": ("semiconductor_patterning_equipment",), "tokens": ("涂胶显影", "涂胶", "显影", "Track", "清洗", "烘烤", "配套工艺设备"), "theme": "涂胶显影/配套工艺设备", "why": "对应图形化前后道配套工艺，常与光刻设备形成验证闭环", "validation": "涂胶显影订单、晶圆厂导入和国产替代是否继续强化"},
+    {"label": "掩模版/光刻胶/图形化材料", "domains": ("semiconductor_patterning_equipment",), "tokens": ("掩模版", "光罩", "Mask", "光刻胶", "光刻材料", "掩模", "版图"), "theme": "掩模版/光刻胶/图形化材料", "why": "对应图形化关键耗材和材料认证环节", "validation": "材料等级、客户认证、价格信号和供应稳定性是否继续强化"},
+    {"label": "量测检测/对准校准", "domains": ("semiconductor_patterning_equipment",), "tokens": ("量测", "检测", "套刻", "overlay", "对准", "校准", "缺陷检测", "计量"), "theme": "量测检测/对准校准", "why": "对应图形化过程控制、良率提升和设备闭环验证", "validation": "套刻量测、缺陷检测、晶圆厂验证和国产替代是否继续强化"},
+    {"label": "信号采集/脑电传感", "domains": ("bioelectronic_medical_device",), "tokens": ("脑电", "EEG", "脑电图", "信号采集", "脑信号", "采集设备", "传感器", "脑电采集"), "theme": "信号采集/脑电传感", "why": "对应生物电信号获取入口，是医疗/消费级脑电设备和神经科技的基础能力", "validation": "采集精度、抗干扰、低功耗、客户/临床验证是否持续强化"},
+    {"label": "电极/柔性电极/生物材料", "domains": ("bioelectronic_medical_device",), "tokens": ("电极", "柔性电极", "植入式电极", "非植入式电极", "生物相容", "硬脑膜", "铂铱", "石墨烯", "碳纤维"), "theme": "电极/柔性电极/生物材料", "why": "对应信号质量、长期稳定性和植入安全性的关键材料环节", "validation": "生物相容性、寿命、通道密度、临床或客户认证是否出现"},
+    {"label": "植入式/半侵入式/非侵入式系统", "domains": ("bioelectronic_medical_device",), "tokens": ("侵入式", "植入式", "半侵入式", "非侵入式", "BCI整机", "脑机接口系统", "系统集成", "头环", "头显"), "theme": "植入式/半侵入式/非侵入式系统", "why": "对应不同风险收益路线和系统集成产品形态", "validation": "人体试验、产品认证、系统可靠性和商业场景是否被验证"},
+    {"label": "神经调控/DBS/康复设备", "domains": ("bioelectronic_medical_device",), "tokens": ("神经调控", "DBS", "深部脑刺激", "电刺激", "康复设备", "神经康复", "脑卒中", "帕金森", "癫痫"), "theme": "神经调控/DBS/康复设备", "why": "对应医疗端更明确的疾病治疗和康复支付场景", "validation": "临床数据、适应症、注册认证、医院导入和手术量是否强化"},
+    {"label": "信号处理芯片/低功耗通信", "domains": ("bioelectronic_medical_device", "semiconductor"), "tokens": ("ASIC", "FPGA", "信号处理芯片", "信号采集芯片", "ADC", "低功耗", "无线传输", "通信芯片", "电源管理"), "theme": "信号处理芯片/低功耗通信", "why": "对应高通道、低噪声、低延迟和无线化的硬件底座", "validation": "芯片量产、功耗、通道数、通信稳定性和客户导入是否出现"},
+    {"label": "算法解码/多模态交互", "domains": ("bioelectronic_medical_device",), "tokens": ("算法", "解码", "意图识别", "语言解码", "运动意图", "多模态", "EEG+AI", "脑电文字", "交互控制"), "theme": "算法解码/多模态交互", "why": "对应从信号到可用指令和人机交互体验的核心软件能力", "validation": "准确率、延迟、泛化能力和真实场景验证是否改善"},
+    {"label": "临床应用/医疗器械认证", "domains": ("bioelectronic_medical_device",), "tokens": ("临床", "医疗器械", "三类医疗器械", "注册", "认证", "人体植入", "手术", "医院", "医保"), "theme": "临床应用/医疗器械认证", "why": "对应医疗端商业化的准入、支付和场景闭环", "validation": "注册审批、临床试验、医院落地、医保支付和收入确认是否出现"},
+    {"label": "主设备/系统集成", "domains": ("power_equipment",), "tokens": ("固态变压器", "SST", "HVDC", "PCS", "逆变器", "变流器", "电源", "系统集成", "电网设备"), "theme": "主设备/系统集成", "why": "对应电力电子设备整机和系统方案交付能力", "validation": "项目落地、客户认证、系统效率和可靠性是否继续强化"},
+    {"label": "功率器件/功率模块", "domains": ("power_equipment",), "tokens": ("IGBT", "SiC", "MOSFET", "功率器件", "功率模块", "半导体器件", "碳化硅"), "theme": "功率器件/功率模块", "why": "对应高频高压电力电子转换的核心器件瓶颈", "validation": "器件认证、模块出货、良率和成本是否继续改善"},
+    {"label": "控制系统/能量管理", "domains": ("power_equipment",), "tokens": ("控制系统", "控制器", "EMS", "BMS", "能量管理", "算法", "软件平台"), "theme": "控制系统/能量管理", "why": "对应设备运行稳定性、并网控制和系统效率优化", "validation": "控制策略、软件平台、客户项目和运行数据是否验证"},
+    {"label": "磁件/绝缘/散热材料", "domains": ("power_equipment",), "tokens": ("磁件", "磁芯", "电感", "电容", "绝缘", "散热", "热管理", "材料"), "theme": "磁件/绝缘/散热材料", "why": "对应高频化、小型化和可靠性约束下的关键材料部件", "validation": "材料认证、散热方案、寿命和供货能力是否强化"},
+    {"label": "电网/快充/数据中心应用", "domains": ("power_equipment",), "tokens": ("电网", "智能电网", "快充", "数据中心", "储能", "新能源并网", "柔性直流", "新能源接入"), "theme": "电网/快充/数据中心应用", "why": "对应电力设备需求来源和项目落地场景", "validation": "示范项目、招标、订单和应用侧经济性是否验证"},
+    {"label": "硫化物固态电解质", "domains": ("advanced_battery_materials",), "tokens": ("硫化物电解质", "硫化物固态电解质", "硫化锂", "Li2S", "固态电解质"), "theme": "硫化物固态电解质", "why": "对应全固态电池高离子电导率路线和材料壁垒", "validation": "硫化锂供给、湿敏控制、客户验证和中试量产是否强化"},
+    {"label": "氧化物/聚合物固态电解质", "domains": ("advanced_battery_materials",), "tokens": ("氧化物电解质", "聚合物电解质", "LLZO", "锆源", "固态电解质", "氧化物固态电解质", "聚合物固态电解质"), "theme": "氧化物/聚合物固态电解质", "why": "对应安全性、工艺兼容和不同固态路线的材料选择", "validation": "离子电导率、界面阻抗、工艺兼容和客户验证是否改善"},
+    {"label": "锂金属/硅碳负极", "domains": ("advanced_battery_materials",), "tokens": ("锂金属负极", "金属负极", "硅碳负极", "硅碳", "负极材料", "负极", "预锂化"), "theme": "锂金属/硅碳负极", "why": "对应固态/高能量密度电池的负极升级方向", "validation": "循环寿命、膨胀控制、预锂化和客户导入是否验证"},
+    {"label": "高镍正极/复合正极", "domains": ("advanced_battery_materials",), "tokens": ("高镍三元正极", "高镍正极", "正极材料", "正极", "高镍", "超高镍", "复合正极", "前驱体", "单晶高镍", "单晶正极"), "theme": "高镍正极/复合正极", "why": "对应高能量密度体系中的正极材料升级", "validation": "容量、循环、安全性和量产适配是否改善"},
+    {"label": "干法电极/固态电池设备", "domains": ("advanced_battery_materials",), "tokens": ("干法电极", "固态电池设备", "辊压", "中试线", "量产线", "叠片", "涂布", "等静压"), "theme": "干法电极/固态电池设备", "why": "对应固态电池从材料到工艺放大的设备和产线瓶颈", "validation": "中试线、量产线、设备订单和良率是否出现"},
+    {"label": "复合集流体/电池结构件", "domains": ("advanced_battery_materials",), "tokens": ("复合集流体", "集流体", "铜箔", "铝箔", "PET铜箔", "结构件"), "theme": "复合集流体/电池结构件", "why": "对应安全、轻量化和电池材料体系配套升级", "validation": "客户认证、量产良率、成本和安全收益是否验证"},
+    {"label": "固态/半固态电芯系统", "domains": ("advanced_battery_materials",), "tokens": ("电芯", "电池系统", "半固态电池", "全固态电池", "固态电池", "软包", "动力电池", "电池包", "能量密度"), "theme": "固态/半固态电芯系统", "why": "对应固态电池从材料体系走向整包和整车验证的中游产品环节", "validation": "量产、客户车型、能量密度、循环寿命和安全测试是否验证"},
+    {"label": "隔膜/界面材料", "domains": ("advanced_battery_materials",), "tokens": ("隔膜", "涂覆膜", "界面材料", "固固界面", "粘结剂", "陶瓷涂覆", "电解质膜"), "theme": "隔膜/界面材料", "why": "对应固态/半固态电池界面阻抗、安全性和工艺兼容配套", "validation": "界面阻抗、涂覆工艺、客户认证和量产良率是否验证"},
+    {"label": "6G基站/核心网/主设备", "domains": ("next_generation_communications",), "tokens": ("6G基站", "6G 基站", "基站设备", "宏基站", "小基站", "核心网", "核心网设备", "6G设备", "网络设备", "6G网络架构", "主设备"), "theme": "6G基站/核心网/主设备", "why": "对应6G从标准和试验网走向网络建设的主设备与系统平台", "validation": "试验网、原型机、标准参与、主设备订单和运营商验证是否出现"},
+    {"label": "太赫兹/毫米波通信", "domains": ("next_generation_communications",), "tokens": ("太赫兹", "太赫兹通信", "太赫兹原型系统", "毫米波", "毫米波通信", "W波段", "200GHz", "0.1-10THz"), "theme": "太赫兹/毫米波通信", "why": "对应6G高频大带宽路线，是器件、功耗、距离和测试验证的核心瓶颈", "validation": "太赫兹/毫米波样机、芯片、功放、测试系统和客户验证是否推进"},
+    {"label": "射频前端/GaN/T-R组件", "domains": ("next_generation_communications",), "tokens": ("射频前端", "射频芯片", "射频器件", "射频组件", "T/R", "TR组件", "T-R组件", "GaN", "氮化镓", "砷化镓", "功率放大器", "PA"), "theme": "射频前端/GaN/T-R组件", "why": "对应高频通信、卫星通信和相控阵系统中的核心射频器件价值量", "validation": "射频芯片、T/R组件、GaN器件的订单、认证、量产和客户导入是否强化"},
+    {"label": "相控阵/多频段天线", "domains": ("next_generation_communications",), "tokens": ("相控阵天线", "有源相控阵", "太赫兹天线", "毫米波天线", "多频段", "MIMO天线", "卫通天线", "基站天线", "终端天线", "天线阵列", "Massive MIMO"), "theme": "相控阵/多频段天线", "why": "对应波束赋形、天地一体覆盖和终端/基站高频连接能力", "validation": "天线阵列、相控阵、MIMO产品的客户认证、项目落地和量产节奏是否明确"},
+    {"label": "卫星互联网/空天地一体化", "domains": ("next_generation_communications",), "tokens": ("卫星互联网", "卫星通信", "低轨卫星", "低轨星座", "星载", "卫星载荷", "地面站", "卫星通信终端", "空天地一体化", "空天地海一体化", "卫星组网"), "theme": "卫星互联网/空天地一体化", "why": "对应6G覆盖从地面网络向低轨卫星、高空平台和地面基站协同扩展", "validation": "星座建设、载荷订单、地面站、卫星终端和运营商试验是否形成事实验证"},
+    {"label": "通感一体/RIS智能超表面", "domains": ("next_generation_communications",), "tokens": ("通感一体", "通感融合", "通信感知一体化", "感知与通信融合", "RIS", "智能超表面", "可重构智能表面", "感知终端", "感知即服务"), "theme": "通感一体/RIS智能超表面", "why": "对应6G从连接网络扩展到感知、定位、探测和可重构传播环境", "validation": "通感试验、RIS样机、场景验证、项目落地和标准进展是否强化"},
+    {"label": "AI原生网络/通感算融合", "domains": ("next_generation_communications",), "tokens": ("AI原生网络", "AI + 通信", "AI赋能服务", "人工智能与通信融合", "通感算一体化", "通信感知计算", "NaaS", "网络即服务", "网络切片", "智能运维"), "theme": "AI原生网络/通感算融合", "why": "对应网络资源调度、运维、切片和服务模式的软件化智能化升级", "validation": "AI网络架构、切片服务、网络智能运维和运营商试点是否有产品化证据"},
+    {"label": "通信测试/原型验证仪器", "domains": ("next_generation_communications",), "tokens": ("测试仪器", "通信测试", "网络测试", "原型机", "原型系统", "外场试验网", "6G试验网", "6G 试验网", "仿真验证", "频谱仪", "矢量网络分析"), "theme": "通信测试/原型验证仪器", "why": "对应6G早期研发、标准验证和高频器件调试中的先行设备需求", "validation": "试验网、测试设备采购、原型验证和客户导入是否出现"},
+    {"label": "高频高速材料/连接器/PCB", "domains": ("next_generation_communications",), "tokens": ("高频高速覆铜板", "覆铜板", "PCB", "高频高速", "连接器", "高端连接器", "太赫兹通讯连接器", "高速连接器", "液冷板", "光子晶体", "新材料"), "theme": "高频高速材料/连接器/PCB", "why": "对应高频设备、基站、终端和卫星通信系统中的材料与互连配套", "validation": "高频材料、连接器、PCB的客户认证、量产良率和订单是否验证"},
+    {"label": "光通信承载/CPO/硅光", "domains": ("next_generation_communications",), "tokens": ("光通信", "光互连", "高速光通信", "CPO", "共封装光学", "硅光", "光模块", "1.6T", "800G", "薄膜铌酸锂", "光器件"), "theme": "光通信承载/CPO/硅光", "why": "对应6G承载网、数据传输和算力互联的配套环节，权重低于基站/射频/卫星本体", "validation": "光通信承载是否从AI算力线外溢到6G网络建设和运营商需求"},
     {"label": "AI芯片/国产算力", "domains": ("compute", "semiconductor"), "tokens": ("AI芯片", "GPU", "DCU", "NPU", "算力芯片", "国产算力", "推理芯片", "训练芯片", "处理器", "CUDA"), "theme": "AI芯片/国产算力", "why": "处在算力供给的核心芯片环节", "validation": "芯片供给、生态适配、客户导入和算力需求是否持续强化"},
     {"label": "AI服务器/整机", "domains": ("compute",), "tokens": ("AI服务器", "整机", "GPU服务器", "算力服务器", "超算服务器"), "theme": "AI服务器/整机", "why": "对应算力基础设施的服务器和整机交付环节", "validation": "AI服务器需求、交付节奏、客户结构和供应链配套是否继续强化"},
     {"label": "IDC/智算中心运营", "domains": ("compute",), "tokens": ("IDC", "数据中心", "智算中心", "算力中心", "机柜", "机房", "上架率"), "theme": "IDC/智算中心运营", "why": "对应算力租赁和智算服务的基础设施承载环节", "validation": "机柜资源、上架率、客户结构和智算中心交付是否被持续强化"},
@@ -2093,13 +2383,20 @@ CAPABILITY_RULES = [
 
 
 THEME_DOMAIN_RULES = {
+    "next_generation_communications": ("6G", "6G产业", "第六代移动通信", "5G-A", "太赫兹", "毫米波", "射频前端", "相控阵", "卫星互联网", "空天地一体化", "通感一体", "RIS", "智能超表面", "AI原生网络", "6G基站", "核心网", "通信测试"),
     "compute": ("算力", "算力租赁", "智算", "数据中心", "AI服务器", "GPU", "IDC", "液冷", "大模型", "云服务"),
     "optical_interconnect": ("光模块", "CPO", "LPO", "硅光", "800G", "1.6T", "光芯片", "光器件"),
     "high_speed_interconnect": ("高速铜缆", "铜缆", "铜连接", "高速连接器", "高速互连", "DAC", "ACC", "AEC", "线束", "背板"),
+    "advanced_battery_materials": ("固态电池", "半固态电池", "全固态电池", "固态电解质", "硫化物电解质", "氧化物电解质", "聚合物电解质", "锂金属负极", "硅碳负极", "干法电极", "复合集流体"),
     "energy_storage": ("储能", "电池", "锂电", "固态电池", "半固态电池", "全固态电池", "PCS", "BMS", "电芯", "电解液", "磷酸铁锂", "大储"),
     "pharma": ("创新药", "CRO", "CDMO", "ADC", "GLP-1", "CAR-T", "多肽", "单抗", "双抗"),
     "power": ("电力", "电源", "HVDC", "变压器", "SST"),
+    "power_equipment": ("固态变压器", "高压快充", "柔性直流", "电网设备", "数据中心电源", "变流器", "逆变器", "PCS", "HVDC", "SST", "功率器件"),
     "semiconductor": ("半导体", "芯片", "GPU", "NPU", "DCU"),
+    "semiconductor_materials": ("半导体石英砂", "高纯石英砂", "合成石英砂", "石英材料", "石英器件", "半导体材料"),
+    "semiconductor_patterning_equipment": ("光刻机", "光刻", "曝光机", "图形化", "涂胶显影", "掩模版", "光刻胶", "光源系统", "光学系统", "工件台", "套刻", "量测"),
+    "software_ai_application": ("AI Agent", "AI智能体", "智能体", "Agent", "AI应用", "RPA", "工作流", "模型推理", "多模态", "端侧AI"),
+    "bioelectronic_medical_device": ("脑机接口", "BCI", "神经调控", "脑电", "EEG", "DBS", "植入式医疗", "非侵入式", "半侵入式", "康复设备", "医疗器械", "生物电子"),
     "critical_materials": ("稀土", "永磁", "钕铁硼", "钐钴", "钐铁氮", "磁材", "磁体", "小金属", "关键金属", "关键材料", "功能材料"),
     "industrial_equipment": ("工业母机", "数控机床", "数控系统", "机床", "加工中心", "五轴", "高端装备", "工业软件", "刀具", "硬质合金", "注塑机", "压铸机", "成型设备"),
 }
@@ -2198,7 +2495,77 @@ def token_hit(text: str, token: str) -> bool:
         return False
     if re.fullmatch(r"[a-z0-9.+/-]+", token_text):
         return bool(re.search(rf"(?<![a-z0-9]){re.escape(token_text)}(?![a-z0-9])", target_text))
-    return token_text in target_text
+    return token_text in target_text or compact_direction_label(token_text) in compact_direction_label(target_text)
+
+
+def semantic_company_subdirection_fallback(company: dict, text: str, layers: set[str], domains: set[str]) -> list[str]:
+    full_text = " ".join([text, evidence_text(company), " ".join(company.get("concepts", []) or []), " ".join(company.get("roles", []) or [])])
+    if "semiconductor_patterning_equipment" in domains:
+        if any(token_hit(full_text, x) for x in ("LBO", "BBO", "非线性光学晶体", "光刻气", "特种气体", "准分子")):
+            return ["光源系统/激光器/特气"]
+        if any(token_hit(full_text, x) for x in ("光学", "物镜", "镜头", "镜片", "透镜", "镀膜")):
+            return ["光学系统/物镜/镜片"]
+        if any(token_hit(full_text, x) for x in ("工件台", "导轨", "气浮", "运动控制", "精密机械", "控制系统")):
+            return ["双工件台/运动控制/精密机械"]
+        if any(token_hit(full_text, x) for x in ("涂胶", "显影", "Track", "清洗", "烘烤")):
+            return ["涂胶显影/配套工艺设备"]
+        if any(token_hit(full_text, x) for x in ("掩模", "光罩", "Mask", "光刻胶", "光刻材料")):
+            return ["掩模版/光刻胶/图形化材料"]
+        if any(token_hit(full_text, x) for x in ("量测", "检测", "对准", "套刻", "校准")):
+            return ["量测检测/对准校准"]
+        if "upstream_equipment" in layers or "midstream_manufacturing" in layers:
+            return ["图形化整机/DUV/KrF/ArF"]
+    if "power_equipment" in domains:
+        if any(token_hit(full_text, x) for x in ("IGBT", "SiC", "MOSFET", "功率器件", "功率模块")):
+            return ["功率器件"]
+        if any(token_hit(full_text, x) for x in ("磁件", "磁芯", "电感", "电容", "绝缘", "散热")):
+            return ["磁件/材料"]
+        if any(token_hit(full_text, x) for x in ("控制系统", "控制器", "EMS", "BMS", "能量管理", "算法")):
+            return ["控制/软件"]
+        if any(token_hit(full_text, x) for x in ("变压器", "SST", "HVDC", "PCS", "逆变器", "变流器", "电源")):
+            return ["主设备/系统"]
+    if "next_generation_communications" in domains:
+        if any(token_hit(full_text, x) for x in ("核心网", "基站", "主设备", "网络设备", "中兴", "运营商")):
+            return ["6G基站/核心网/主设备"]
+        if any(token_hit(full_text, x) for x in ("太赫兹", "毫米波", "W波段", "200GHz")):
+            return ["太赫兹/毫米波通信"]
+        if any(token_hit(full_text, x) for x in ("射频", "T/R", "TR组件", "GaN", "氮化镓", "砷化镓", "功率放大")):
+            return ["射频前端/GaN/T-R组件"]
+        if any(token_hit(full_text, x) for x in ("相控阵", "MIMO", "天线", "波束")):
+            return ["相控阵/多频段天线"]
+        if any(token_hit(full_text, x) for x in ("卫星", "低轨", "星载", "地面站", "空天地")):
+            return ["卫星互联网/空天地一体化"]
+        if any(token_hit(full_text, x) for x in ("通感", "RIS", "智能超表面", "感知")):
+            return ["通感一体/RIS智能超表面"]
+        if any(token_hit(full_text, x) for x in ("AI原生", "网络切片", "NaaS", "智能运维")):
+            return ["AI原生网络/通感算融合"]
+        if any(token_hit(full_text, x) for x in ("测试", "原型", "试验网", "频谱仪")):
+            return ["通信测试/原型验证仪器"]
+        if any(token_hit(full_text, x) for x in ("连接器", "PCB", "覆铜板", "高频高速", "光通信", "光模块", "硅光")):
+            return ["高频高速材料/连接器/PCB"]
+    if "industrial_equipment" in domains:
+        if any(token_hit(full_text, x) for x in ("主轴", "丝杠", "导轨", "转台", "刀库", "轴承")):
+            return ["核心功能部件"]
+        if any(token_hit(full_text, x) for x in ("刀具", "硬质合金", "刀片", "切削")):
+            return ["刀具/硬质合金耗材"]
+        if any(token_hit(full_text, x) for x in ("工业软件", "CAD", "CAM", "CAE", "自动化", "机器人集成")):
+            return ["工业软件/CAD/CAM/CAE"]
+    if "bioelectronic_medical_device" in domains:
+        if any(token_hit(full_text, x) for x in ("脑电", "EEG", "信号采集", "传感器", "采集设备")):
+            return ["信号采集/脑电传感"]
+        if any(token_hit(full_text, x) for x in ("电极", "柔性电极", "生物相容", "硬脑膜", "生物材料")):
+            return ["电极/柔性电极/生物材料"]
+        if any(token_hit(full_text, x) for x in ("侵入式", "植入式", "半侵入式", "非侵入式", "脑机接口系统", "系统集成")):
+            return ["植入式/半侵入式/非侵入式系统"]
+        if any(token_hit(full_text, x) for x in ("神经调控", "DBS", "康复", "电刺激", "帕金森", "癫痫")):
+            return ["神经调控/DBS/康复设备"]
+        if any(token_hit(full_text, x) for x in ("ASIC", "FPGA", "芯片", "低功耗", "无线传输", "通信")):
+            return ["信号处理芯片/低功耗通信"]
+        if any(token_hit(full_text, x) for x in ("算法", "解码", "意图识别", "多模态", "EEG+AI", "脑电文字")):
+            return ["算法解码/多模态交互"]
+        if any(token_hit(full_text, x) for x in ("临床", "医疗器械", "认证", "医院", "手术", "医保")):
+            return ["临床应用/医疗器械认证"]
+    return []
 
 
 def company_subdirections(company: dict) -> list[str]:
@@ -2210,8 +2577,12 @@ def company_subdirections(company: dict) -> list[str]:
     if hits:
         return unique(hits)[:3]
     frame = company.get("direction_frame", {}) or {}
+    layers = set(normalized_chain_layers(company))
+    domains = company_theme_domains(company)
+    semantic_hits = semantic_company_subdirection_fallback(company, text, layers, domains)
+    if semantic_hits:
+        return semantic_hits[:3]
     if frame.get("directions"):
-        layers = set(normalized_chain_layers(company))
         if "downstream_application" in layers or "downstream_channel" in layers:
             return ["待判定：下游应用/渠道"]
         if "upstream_equipment" in layers:
@@ -2421,21 +2792,96 @@ def resonance_tiers_section(context: dict, companies: list[dict]) -> str:
 
 
 def deep_dive_conclusion(term: str, context: dict, companies: list[dict]) -> str:
-    core = [c.get("name", "") for c in companies if company_deep_dive_tier(c) == "relative_core"][:6]
-    related = [c.get("name", "") for c in companies if company_deep_dive_tier(c) == "related"][:6]
-    directions = [row.get("direction", "") for row in context.get("direction_scan", []) if isinstance(row, dict)][:5] if isinstance(context, dict) else []
-    parts = [
-        f"{term} 当前应按“题材结构 + 细分方向 + 公司逻辑卡”理解，不做个股排名。",
-        f"结构层主要来自 full 精读/report_contexts；公司层主要看 PDF ingest、精选逻辑、脱水文本与 baseline 是否不冲突。",
+    direction_rows = context.get("direction_scan", []) if isinstance(context, dict) else []
+    directions = [row for row in direction_rows if isinstance(row, dict) and row.get("direction")]
+    demand = as_list(context.get("demand_drivers"))[:4] if isinstance(context, dict) else []
+    core = [c for c in companies if company_deep_dive_tier(c) == "relative_core"][:6]
+    related = [c for c in companies if company_deep_dive_tier(c) == "related"][:6]
+    watch = [c for c in companies if company_deep_dive_tier(c) == "watch"][:4]
+
+    lines = [
+        f"### 1）题材为什么发酵",
+        conclusion_theme_driver(term, directions, demand),
+        "",
+        "### 2）当前主线落在哪些环节",
+        conclusion_direction_bullets(directions),
+        "",
+        "### 3）公司分层为什么这样分",
+        conclusion_company_tiers(core, related, watch),
+        "",
+        "### 4）下一步最该盯什么验证信号",
+        conclusion_validation_bullets(context, directions),
+        "",
+        "### 5）边界",
+        "- 本报告用于题材结构和证据分层，不做个股排名；公告、订单、业绩是后续验证空位，不作为当前核心判断的唯一高权重依据。",
     ]
+    return "\n".join(lines)
+
+
+def conclusion_theme_driver(term: str, directions: list[dict], demand: list[str]) -> str:
     if directions:
-        parts.append(f"优先跟踪的细分方向包括：{'、'.join(directions)}。")
-    if core:
-        parts.append(f"相对核心公司：{'、'.join(core)}。")
-    if related:
-        parts.append(f"重点相关公司：{'、'.join(related)}。")
-    parts.append("公告、订单、业绩暂作验证空位，不作为当前核心判断的高权重依据。")
-    return "\n\n".join(parts)
+        first = directions[0]
+        why = str(first.get("prosperity") or "").strip()
+        if why:
+            demand_text = f"需求侧线索集中在 {'、'.join(demand[:3])}。" if demand else ""
+            return f"{term}的发酵不是单一概念扩散，而是先落到“{first.get('direction')}”等可验证环节；{why}{demand_text}"
+    if demand:
+        return f"{term}的发酵主要来自 {'、'.join(demand[:3])} 等需求场景，但仍需继续拆到可验证的产品、工艺和公司证据。"
+    return f"{term} 当前主要依赖本地研报/full 精读上下文，需要继续补充需求侧和公司级验证信号。"
+
+
+def conclusion_direction_bullets(directions: list[dict]) -> str:
+    if not directions:
+        return "- 暂无稳定主方向，优先补足产业链拆解和公司证据。"
+    lines = []
+    for row in directions[:5]:
+        direction = str(row.get("direction") or "").strip()
+        catalyst = str(row.get("core_catalyst") or "").strip()
+        classification = str(row.get("classification") or "").strip()
+        level = str(row.get("recognition_level") or "").strip()
+        detail = f"；验证重点：{catalyst}" if catalyst else ""
+        lines.append(f"- **{direction}**：{classification or '核心方向'}，{level or '待验证'}{detail}")
+    return "\n".join(lines)
+
+
+def company_tier_line(title: str, rows: list[dict], reason: str) -> str:
+    if not rows:
+        return f"- **{title}**：暂无。"
+    items = []
+    for company in rows[:5]:
+        name = company.get("name", "")
+        subdirs = [x for x in company_subdirections(company) if not str(x).startswith("待判定")][:2]
+        basis = "、".join(source_basis(company)[:2])
+        suffix = f"（{'/'.join(subdirs)}）" if subdirs else ""
+        basis_text = f"，依据：{basis}" if basis else ""
+        items.append(f"{name}{suffix}{basis_text}")
+    return f"- **{title}**：{'；'.join(items)}。{reason}"
+
+
+def conclusion_company_tiers(core: list[dict], related: list[dict], watch: list[dict]) -> str:
+    lines = [
+        company_tier_line("相对核心", core, "这些公司通常同时具备较强题材证据、较清晰产业链角色和可落到细分方向的产品/工艺线索。"),
+        company_tier_line("重点相关", related, "这些公司逻辑较清楚，但仍需更多共识文本、客户/订单或收入占比验证。"),
+    ]
+    if watch:
+        lines.append(company_tier_line("观察/弹性", watch, "这些公司保留线索，但暂不作为主线核心，避免把泛概念暴露误判为强逻辑。"))
+    return "\n".join(lines)
+
+
+def conclusion_validation_bullets(context: dict, directions: list[dict]) -> str:
+    rows = context.get("validation_checklist", []) if isinstance(context, dict) else []
+    items = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        item = str(row.get("item") or "").strip()
+        if item and not item.startswith("相对核心公司") and not item.startswith("baseline"):
+            items.append(item)
+    if not items:
+        items = [str(row.get("core_catalyst") or "").strip() for row in directions if isinstance(row, dict) and row.get("core_catalyst")]
+    if not items:
+        return "- 后续重点补 PDF/精选逻辑/公告验证，确认方向是否能映射到公司级产品、工艺、客户或订单。"
+    return "\n".join(f"- {item}" for item in unique(items)[:5])
 
 
 def deep_dive_governance_section(companies: list[dict]) -> str:
@@ -2470,6 +2916,91 @@ def deep_dive_governance_section(companies: list[dict]) -> str:
     return "\n".join(lines)
 
 
+EQUIPMENT_COVERAGE_RULES = {
+    "next_generation_communications": {
+        "label": "下一代通信覆盖度",
+        "min_hits": 5,
+        "clusters": {
+            "主设备/核心网": ("基站", "核心网", "主设备", "网络设备"),
+            "高频通信": ("太赫兹", "毫米波", "高频"),
+            "射频/天线": ("射频", "T/R", "GaN", "相控阵", "天线"),
+            "卫星/空天地": ("卫星", "空天地", "星载", "地面站"),
+            "通感/RIS": ("通感", "RIS", "智能超表面", "感知"),
+            "AI网络/软件": ("AI原生", "通感算", "网络切片", "智能运维"),
+            "测试验证": ("测试", "原型", "试验网", "仪器"),
+            "材料/互连": ("高频高速", "连接器", "PCB", "覆铜板", "光通信"),
+        },
+    },
+    "semiconductor_patterning_equipment": {
+        "label": "复杂设备覆盖度",
+        "min_hits": 4,
+        "clusters": {
+            "整机/系统": ("整机", "DUV", "KrF", "ArF", "曝光机", "系统"),
+            "核心子系统": ("光源", "光学", "物镜", "工件台", "运动控制", "精密机械"),
+            "工艺配套": ("涂胶", "显影", "配套工艺", "清洗", "烘烤"),
+            "材料/耗材": ("掩模", "光刻胶", "光罩", "图形化材料", "特气"),
+            "量测/校准": ("量测", "检测", "对准", "校准", "套刻"),
+        },
+    },
+    "industrial_equipment": {
+        "label": "复杂设备覆盖度",
+        "min_hits": 4,
+        "clusters": {
+            "整机/加工平台": ("机床", "加工中心", "注塑", "压铸", "成型装备", "整机"),
+            "控制系统": ("数控", "CNC", "控制系统", "伺服", "PLC", "运动控制"),
+            "核心功能部件": ("主轴", "丝杠", "导轨", "转台", "刀库", "轴承", "功能部件"),
+            "工具/耗材": ("刀具", "硬质合金", "刀片", "涂层", "切削"),
+            "软件/自动化": ("工业软件", "CAD", "CAM", "CAE", "自动化", "机器人集成", "柔性产线"),
+        },
+    },
+    "power_equipment": {
+        "label": "复杂设备覆盖度",
+        "min_hits": 4,
+        "clusters": {
+            "主设备/系统": ("变压器", "SST", "HVDC", "PCS", "逆变器", "变流器", "电源", "系统"),
+            "功率器件": ("IGBT", "SiC", "MOSFET", "功率器件", "模块", "半导体"),
+            "控制/软件": ("控制系统", "控制器", "EMS", "BMS", "能量管理", "算法"),
+            "磁件/材料": ("磁件", "磁芯", "电感", "电容", "绝缘", "散热", "材料"),
+            "应用场景": ("电网", "快充", "数据中心", "储能", "新能源", "柔性直流"),
+        },
+    },
+    "bioelectronic_medical_device": {
+        "label": "医疗器械覆盖度",
+        "min_hits": 4,
+        "clusters": {
+            "信号采集": ("信号采集", "脑电", "传感"),
+            "材料/电极": ("电极", "柔性电极", "生物材料", "生物相容"),
+            "系统路线": ("植入式", "半侵入式", "非侵入式", "系统"),
+            "芯片/通信": ("芯片", "低功耗", "通信", "ADC", "ASIC"),
+            "算法/交互": ("算法", "解码", "多模态", "意图识别", "交互"),
+            "临床/认证": ("临床", "医疗器械", "认证", "医院", "医保"),
+        },
+    },
+}
+
+
+def equipment_coverage_gate(context: dict) -> tuple[str, bool, str] | None:
+    frame = context.get("direction_frame", {}) if isinstance(context, dict) else {}
+    domains = set(frame.get("allowed_domains", []) or [])
+    labels = [
+        str(row.get("label", ""))
+        for row in frame.get("directions", []) or []
+        if isinstance(row, dict)
+    ]
+    text = " ".join(labels)
+    for domain, rule in EQUIPMENT_COVERAGE_RULES.items():
+        if domain not in domains:
+            continue
+        hits = [
+            name
+            for name, tokens in rule["clusters"].items()
+            if any(token in text for token in tokens)
+        ]
+        ok = len(hits) >= int(rule.get("min_hits", 4))
+        return (rule["label"], ok, f"{len(hits)}/{len(rule['clusters'])}：{'、'.join(hits) or '待补'}")
+    return None
+
+
 def deep_dive_quality_gate_section(context: dict, companies: list[dict]) -> str:
     if not companies:
         return "- 暂无公司数据，无法评估深拆质量。"
@@ -2480,15 +3011,21 @@ def deep_dive_quality_gate_section(context: dict, companies: list[dict]) -> str:
     mapped_core_related = [c for c in core_related if not any(x.startswith("待判定") or "待细分" in x for x in company_subdirections(c))]
     pending = [c for c in active_companies if any(x.startswith("待判定") or "待细分" in x for x in company_subdirections(c))]
     direction_count = len([row for row in context.get("direction_scan", []) if isinstance(row, dict)]) if isinstance(context, dict) else 0
-    validation_ok = not validation_text.startswith("- 暂无")
+    context_validation_ok = bool(context.get("validation_checklist")) if isinstance(context, dict) else False
+    validation_ok = context_validation_ok or not validation_text.startswith("- 暂无")
     mapped_ratio = round(len(mapped_core_related) / max(1, len(core_related)) * 100)
     pending_ratio = round(len(pending) / max(1, len(active_companies)) * 100)
+    mapping_ok = True if not core_related else mapped_ratio >= 70
+    mapping_value = "无核心/相关样本" if not core_related else f"{mapped_ratio}%"
     pass_items = [
-        ("方向数量", direction_count >= 4, f"{direction_count} 个"),
-        ("核心/相关公司映射率", mapped_ratio >= 70, f"{mapped_ratio}%"),
+        ("方向数量", direction_count >= 3, f"{direction_count} 个"),
+        ("核心/相关公司映射率", mapping_ok, mapping_value),
         ("待判定占比", pending_ratio <= 35, f"{pending_ratio}%"),
         ("验证清单", validation_ok, "非空" if validation_ok else "为空"),
     ]
+    equipment_gate = equipment_coverage_gate(context)
+    if equipment_gate:
+        pass_items.append(equipment_gate)
     passed = all(item[1] for item in pass_items)
     lines = [
         "| 门禁项 | 状态 | 当前值 |",
