@@ -1016,6 +1016,235 @@ def as_list(value) -> list[str]:
     return [str(value).strip()]
 
 
+def read_theme_information_jsonl(path: Path, term: str) -> list[dict]:
+    if not path or not path.exists():
+        return []
+    rows = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            theme = str(row.get("theme") or "").strip()
+            if theme and term and term not in theme and theme not in term:
+                continue
+            rows.append(row)
+    return rows
+
+
+def theme_info_types(row: dict) -> set[str]:
+    values = row.get("info_types") or [row.get("primary_info_type")]
+    return {str(v) for v in values if v}
+
+
+def theme_info_source_label(row: dict) -> str:
+    systems = row.get("source_systems") or []
+    systems = [str(x) for x in systems if str(x).strip()]
+    if len(set(systems)) > 1:
+        return "多源"
+    return systems[0] if systems else "未知"
+
+
+def theme_info_score(row: dict) -> int:
+    types = theme_info_types(row)
+    score = {"high": 8, "medium": 4, "low": 0}.get(str(row.get("specificity") or ""), 0)
+    if row.get("entity_name"):
+        score += 3
+    if row.get("ticker"):
+        score += 2
+    if "segment_mapping" in types:
+        score += 8
+    if "relationship" in types:
+        score += 7
+    if "marginal_change" in types:
+        score += 3
+    if theme_info_source_label(row) == "多源":
+        score += 4
+    text = " ".join(str(row.get(k) or "") for k in ("segment", "component", "claim", "chain_position"))
+    for token in ("上游", "中游", "下游", "供应", "客户", "导入", "量产", "出货", "认证", "设备", "材料", "芯片", "器件"):
+        if token in text:
+            score += 1
+    for token in ("建议关注", "买入评级", "长期看好", "graph_only"):
+        if token in text:
+            score -= 4
+    return score
+
+
+def theme_info_chain_bucket(row: dict) -> str:
+    text = " ".join(str(row.get(k) or "") for k in ("chain_position", "segment", "component"))
+    if "下游" in text or "云厂商" in text or "数据中心" in text:
+        return "downstream"
+    if "设备" in text or "测试" in text or "仪器" in text or "贴片" in text:
+        return "upstream_equipment"
+    if "上游" in text or any(t in text for t in ("EML", "CW", "InP", "磷化铟", "光芯片", "材料", "隔离器", "MPO")):
+        return "upstream_materials"
+    return "midstream"
+
+
+def theme_info_short(text: str, limit: int = 80) -> str:
+    text = " ".join(str(text or "").split()).replace("|", "/")
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def build_theme_information_context(term: str, rows: list[dict]) -> dict:
+    if not rows:
+        return {}
+    selected = [r for r in rows if theme_info_score(r) >= 12 and theme_info_types(r) & {"segment_mapping", "relationship"}]
+    by_segment: dict[str, list[dict]] = {}
+    for row in selected:
+        seg = str(row.get("segment") or row.get("chain_position") or "未分段").strip()
+        if not seg:
+            continue
+        by_segment.setdefault(seg, []).append(row)
+    if not by_segment:
+        return {}
+
+    chain = {key: [] for key in ["downstream", "midstream", "upstream_materials", "upstream_equipment"]}
+    direction_scan = []
+    progress_ranking = []
+    segment_rows = []
+    relationship_rows = []
+    sorted_segments = sorted(by_segment.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    for idx, (seg, items) in enumerate(sorted_segments[:24], 1):
+        bucket = theme_info_chain_bucket(items[0])
+        companies = unique([str(r.get("entity_name") or "") for r in sorted(items, key=theme_info_score, reverse=True)[:8]])
+        mapping_count = sum(1 for r in items if "segment_mapping" in theme_info_types(r))
+        relationship_count = sum(1 for r in items if "relationship" in theme_info_types(r))
+        chain[bucket].append(
+            {
+                "name": seg,
+                "evidence_type": "theme_information_pool",
+                "role": bucket,
+                "companies": companies[:5],
+            }
+        )
+        direction_scan.append(
+            {
+                "direction": seg,
+                "sector": term,
+                "prosperity": f"统一信息池命中 {len(items)} 条，其中题材地图 {mapping_count} 条、上下游关系 {relationship_count} 条。",
+                "mention_frequency": "IMA/Obsidian 信息池命中",
+                "recognition_level": "L1结构线索 + 展示层待复核",
+                "classification": "细颗粒题材地图",
+                "core_catalyst": "继续观察该环节是否被更多来源确认，并映射到公司级产品/客户/量产线索。",
+                "candidate_companies": companies[:6],
+            }
+        )
+        progress_ranking.append(
+            {
+                "direction": seg,
+                "stage": "结构补全",
+                "recognition_level": "信息池结构线索",
+                "evidence_level": "theme_information_pool",
+                "progress_score": max(35, 85 - idx),
+                "key_signal": f"细颗粒地图/上下游关系合计 {mapping_count + relationship_count} 条。",
+                "next_validation": "人工确认是否进入正式产业链全景图；公司级事实另行用公告/订单/业绩验证。",
+                "priority": "地图补强",
+            }
+        )
+        segment_rows.append(
+            {
+                "segment": seg,
+                "total": len(items),
+                "mapping_count": mapping_count,
+                "relationship_count": relationship_count,
+                "companies": companies[:6],
+                "bucket": bucket,
+            }
+        )
+
+    relation_candidates = [
+        r for r in selected
+        if "relationship" in theme_info_types(r) and str(r.get("entity_name") or "").strip()
+    ]
+    for row in sorted(relation_candidates, key=lambda r: theme_info_score(r)+(20 if 'IMA' in set(r.get('source_systems') or []) else 0)-(20 if str(r.get('claim') or '').count('/')>5 else 0), reverse=True)[:16]:
+        relationship_rows.append(
+            {
+                "segment": row.get("segment") or row.get("chain_position") or "未分段",
+                "entity": row.get("entity_name") or "",
+                "ticker": row.get("ticker") or "",
+                "claim": row.get("claim") or "",
+                "specificity": row.get("specificity") or "",
+                "source": theme_info_source_label(row),
+            }
+        )
+
+    return {
+        "theme_information_pool": {
+            "enabled": True,
+            "total_rows": len(rows),
+            "selected_rows": len(selected),
+            "segments": segment_rows,
+            "relationships": relationship_rows,
+            "note": "只读接入 IMA/Obsidian 统一信息池；用于题材地图和上下游关系，不写入 entities，不升级公司事实。",
+        },
+        "industry_chain_map": chain,
+        "direction_scan": direction_scan[:12],
+        "progress_ranking": progress_ranking[:12],
+        "related_terms": [row["segment"] for row in segment_rows[:24]],
+        "capability_stack": [row["segment"] for row in segment_rows[:12]],
+    }
+
+
+def merge_theme_information_context(context: dict, theme_context: dict) -> dict:
+    if not theme_context:
+        return context or {}
+    merged = dict(context or {})
+    merged["theme_information_pool"] = theme_context.get("theme_information_pool", {})
+    for key in ("related_terms", "capability_stack"):
+        merged[key] = unique(as_list(merged.get(key)) + as_list(theme_context.get(key)))
+    for key in ("direction_scan", "progress_ranking"):
+        merged[key] = (merged.get(key) or []) + (theme_context.get(key) or [])
+    base_chain = merged.get("industry_chain_map") if isinstance(merged.get("industry_chain_map"), dict) else {}
+    add_chain = theme_context.get("industry_chain_map") if isinstance(theme_context.get("industry_chain_map"), dict) else {}
+    chain = {}
+    for bucket in ["downstream", "midstream", "upstream_materials", "upstream_equipment"]:
+        seen = set()
+        rows = []
+        for item in (base_chain.get(bucket, []) or []) + (add_chain.get(bucket, []) or []):
+            name = item.get("name") if isinstance(item, dict) else str(item)
+            if name and name not in seen:
+                seen.add(name)
+                rows.append(item if isinstance(item, dict) else {"name": name})
+        chain[bucket] = rows[:16]
+    merged["industry_chain_map"] = chain
+    return merged
+
+
+def theme_information_pool_section(context: dict) -> str:
+    pool = context.get("theme_information_pool", {}) if isinstance(context, dict) else {}
+    if not isinstance(pool, dict) or not pool.get("enabled"):
+        return "- 未接入 IMA/Obsidian 统一信息池。"
+    lines = [
+        f"- 信息池：全量 {pool.get('total_rows', 0)} 条；进入题材地图/上下游展示层 {pool.get('selected_rows', 0)} 条。",
+        f"- 边界：{pool.get('note', '')}",
+        "",
+        "### 细颗粒题材地图",
+        "",
+        "| 细分环节 | 层级 | 信息项 | 地图项 | 关系项 | 代表主体 |",
+        "|---|---|---:|---:|---:|---|",
+    ]
+    for row in pool.get("segments", [])[:24]:
+        lines.append(
+            f"| {row.get('segment','')} | {row.get('bucket','')} | {row.get('total',0)} | {row.get('mapping_count',0)} | {row.get('relationship_count',0)} | {'、'.join(row.get('companies') or [])} |"
+        )
+    relationships = pool.get("relationships", []) or []
+    if relationships:
+        lines.extend(["", "### 上下游关系样例", "", "| 细分环节 | 主体 | 具体度 | 来源 | 关系/位置 |", "|---|---|---|---|---|"])
+        for row in relationships[:12]:
+            name = str(row.get("entity", ""))
+            if row.get("ticker"):
+                name = f"{name} ({row.get('ticker')})"
+            lines.append(
+                f"| {row.get('segment','')} | {name} | {row.get('specificity','')} | {row.get('source','')} | {theme_info_short(row.get('claim'), 110)} |"
+            )
+    return "\n".join(lines)
+
+
 def context_definition(context: dict) -> str:
     return str(context.get("definition") or "").strip() if isinstance(context, dict) else ""
 
@@ -3037,7 +3266,7 @@ def deep_dive_quality_gate_section(context: dict, companies: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def build_theme_state(term: str, vault: Path, definition: str = "", context: dict | None = None) -> dict:
+def build_theme_state(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None) -> dict:
     rel_dir = vault / "relations"
     graph = load_json(rel_dir / RELATION_FILES["concept_graph"], {"concepts": {}, "relations": []})
     exposures = load_json(rel_dir / RELATION_FILES["entity_exposures"], {"entities": {}})
@@ -3048,6 +3277,7 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
     report_contexts = load_json(rel_dir / RELATION_FILES["report_contexts"], {"version": 1, "reports": {}})
     concepts = graph.get("concepts", {})
     context = context or {}
+    theme_info_context = build_theme_information_context(term, theme_info_rows or [])
     if not definition.strip():
         definition = context_definition(context)
     external_search_text = " ".join(x for x in [definition, context_search_text(context)] if x.strip())
@@ -3064,6 +3294,7 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         context = runtime_context_from_report_contexts(term, local_report_contexts)
         if not definition.strip():
             definition = context_definition(context)
+    context = merge_theme_information_context(context, theme_info_context)
     match_scope = matches or ([primary] if primary in concepts else [])
     rels = related_concepts(primary, match_scope, graph)
     all_scope = unique(match_scope + rels[:12])
@@ -3121,11 +3352,12 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         "patterns": patterns,
         "broadened_company_scope": broadened_company_scope,
         "dropped_generic_companies": dropped_generic_companies,
+        "theme_info_context": theme_info_context,
     }
 
 
-def build_deep_dive_report(term: str, vault: Path, definition: str = "", context: dict | None = None) -> str:
-    state = build_theme_state(term, vault, definition, context)
+def build_deep_dive_report(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None) -> str:
+    state = build_theme_state(term, vault, definition, context, theme_info_rows)
     context = state["context"]
     companies = state["companies"]
     for company in companies:
@@ -3151,6 +3383,10 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 ## 三、产业链全景图
 
 {industry_chain_map_section(context)}
+
+### IMA/Obsidian 统一信息池：细颗粒地图与上下游关系
+
+{theme_information_pool_section(context)}
 
 ### 本地 full 精读 / report_contexts 上下文
 
@@ -3498,6 +3734,7 @@ def main() -> int:
     parser.add_argument("--definition", default="", help="外部定义/技术拆解摘要，可来自 web access")
     parser.add_argument("--definition-file", help="外部定义摘要文件路径")
     parser.add_argument("--context-json", help="外部新词画像 JSON 路径")
+    parser.add_argument("--theme-info-jsonl", help="IMA/Obsidian 统一题材信息池 JSONL，只读接入题材地图/上下游关系")
     parser.add_argument("--out", help="optional markdown output path")
     parser.add_argument("--mode", choices=["radar", "qc", "deep-dive"], default="radar", help="输出模式：radar/qc=底层雷达与QC；deep-dive=题材深拆")
     args = parser.parse_args()
@@ -3511,9 +3748,13 @@ def main() -> int:
         context_path = Path(args.context_json).expanduser()
         context = load_json(context_path, {})
 
+    theme_info_rows = []
+    if args.theme_info_jsonl:
+        theme_info_rows = read_theme_information_jsonl(Path(args.theme_info_jsonl).expanduser(), args.term)
+
     vault = Path(args.vault).expanduser()
     if args.mode == "deep-dive":
-        report = build_deep_dive_report(args.term, vault, definition, context)
+        report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows)
     else:
         report = build_report(args.term, vault, definition, context)
     if args.out:
