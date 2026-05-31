@@ -108,11 +108,13 @@ def radar_score(row: dict) -> int:
     if "marginal_change" in types:
         score += 6
     if "relationship" in types:
-        score += 5
+        score += 7
     if "theme_driver" in types:
         score += 3
     if "segment_mapping" in types:
-        score += 2
+        score += 8
+    if row.get("segment") and row.get("segment") not in ("未分段", "中游-光模块/CPO", "上游-光芯片"):
+        score += 4
     score += min(12, hit_count(text, STRONG_SIGNAL_TOKENS) * 2)
     score += min(6, hit_count(text, CHAIN_SIGNAL_TOKENS))
     score -= min(14, hit_count(text, WEAK_NOISE_TOKENS) * 4)
@@ -127,6 +129,21 @@ def radar_score(row: dict) -> int:
     if len(claim) > 420:
         score -= 2
     return score
+
+
+def section_min_score(info_type: str, min_score: int) -> int:
+    if info_type == "segment_mapping":
+        return min(min_score, 12)
+    if info_type == "relationship":
+        return min(min_score, 18)
+    if info_type == "marginal_change":
+        return min_score
+    return min_score
+
+
+def row_display_min_score(row: dict, min_score: int) -> int:
+    types = row.get("info_types") or [row.get("primary_info_type")]
+    return min(section_min_score(t, min_score) for t in types if t)
 
 
 def radar_tier(row: dict) -> str:
@@ -191,14 +208,31 @@ def item_sort_key(row: dict):
     )
 
 
+def section_sort_key(row: dict, info_type: str):
+    section_bonus = 0
+    if row.get("primary_info_type") == info_type:
+        section_bonus += 20
+    if info_type == "segment_mapping" and (row.get("segment") or row.get("chain_position")):
+        section_bonus += 8
+    if info_type == "relationship":
+        section_bonus += hit_count(row_text(row), ("上游", "中游", "下游", "供应", "客户", "导入", "配套", "环节", "产业链")) * 2
+    return (
+        -(radar_score(row) + section_bonus),
+        -rank_specificity(row.get("specificity")),
+        0 if row.get("entity_name") else 1,
+        -len(row.get("source_refs") or []),
+        row.get("entity_name") or "",
+    )
+
+
 def section_rows(rows: list[dict], info_type: str, limit: int, profile: str, min_score: int, used: set | None = None) -> list[dict]:
     selected = [r for r in rows if r.get("primary_info_type") == info_type or info_type in (r.get("info_types") or [])]
     if profile == "radar-clean":
-        selected = [r for r in selected if radar_score(r) >= min_score]
+        selected = [r for r in selected if radar_score(r) >= section_min_score(info_type, min_score)]
     picked = []
     seen = set()
     entity_counts = Counter()
-    for row in sorted(selected, key=item_sort_key):
+    for row in sorted(selected, key=lambda r: section_sort_key(r, info_type)):
         key = norm_claim(row.get("claim"))
         if key in seen:
             continue
@@ -243,7 +277,7 @@ def render_table(rows: list[dict], profile: str) -> list[str]:
 
 
 def cleaned_rows(rows: list[dict], min_score: int) -> list[dict]:
-    return [r for r in rows if radar_score(r) >= min_score]
+    return [r for r in rows if radar_score(r) >= row_display_min_score(r, min_score)]
 
 
 def render_segment(segment: str, rows: list[dict], limit_each: int, profile: str, min_score: int) -> list[str]:
@@ -257,17 +291,18 @@ def render_segment(segment: str, rows: list[dict], limit_each: int, profile: str
         lines.append(f"信息项：{len(rows)}；主体数：{len({r.get('entity_name') for r in rows if r.get('entity_name')})}")
     lines.append("")
     used = set() if profile == "radar-clean" else None
-    for title, info_type in [("边际变化", "marginal_change"), ("上下游/关系", "relationship"), ("题材驱动", "theme_driver")]:
-        picked = section_rows(rows, info_type, limit_each, profile, min_score, used)
+    sections = [
+        ("题材地图/位置", "segment_mapping", limit_each),
+        ("上下游/关系", "relationship", limit_each),
+        ("边际变化", "marginal_change", max(3, limit_each // 2) if profile == "radar-clean" else limit_each),
+        ("题材驱动", "theme_driver", max(3, limit_each // 2) if profile == "radar-clean" else limit_each),
+    ]
+    for title, info_type, section_limit in sections:
+        picked = section_rows(rows, info_type, section_limit, profile, min_score, used)
         if not picked:
             continue
         lines.append(f"### {title}")
         lines.extend(render_table(picked, profile))
-        lines.append("")
-    other = section_rows(rows, "segment_mapping", max(5, limit_each // 2), profile, min_score, used)
-    if other:
-        lines.append("### 细分行业/位置")
-        lines.extend(render_table(other, profile))
         lines.append("")
     return lines
 
