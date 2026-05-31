@@ -1,0 +1,60 @@
+# macOS
+.DS_Store
+._*
+__MACOSX/
+**/._*
+**/__MACOSX/
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.crt
+*.token
+*.secret
+credentials.json
+cookie*
+
+# Local agent configs
+.claude/settings.json
+.claude/settings.local.json
+.claude/mcp.json
+.codex/hooks.json
+.superpowers/
+
+# Python/cache
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Logs/temp
+*.log
+tmp/
+temp/
+*.tmp
+
+# Databases
+db/
+*.duckdb
+*.db
+*.sqlite
+*.sqlite3
+
+# Local iFinD MCP package/config may contain auth_token
+ifind-finance-data/
+skills/ifind/mcp_config.json
+
+# Archives / large binaries
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+*.pdf
+*.pptx

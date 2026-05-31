@@ -1,0 +1,148 @@
+# 金融项目
+
+A股量化复盘+研究工具集。通过 fupanhui.com API 获取市场数据，写入飞书 Bitable，结合 iFinD 数据做深度分析。
+
+## 核心工作流
+
+1. **每日复盘** → 加载 `web-access` skill → 打开 fupanhui.com → 调 API 取市场数据 → hover K线取周均线/偏离度 → 格式化输出 → 写入飞书（每日指标+板块趋势）→ `verify_and_patch.py` → `advancers-chart sync`
+2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
+3. **涨幅排行** → `top-gainers` skill：iFinD个股涨幅 + AKShare板块涨幅并行
+4. **策略回测** → `scripts/detect_turning_points.py` 检测信号 → `scripts/backfill_sector_marginal.py` 抓板块边际量 → DuckDB 本地分析
+5. **概念入库** → 加载 `concept-ingest` skill → 先判断 is_concept → 检索 raw 文件 → web 补充信息 → LLM 提取 v3 JSON（含 core_thesis/key_insights/key_data/risks）→ `concept_writer.py` 去重+代码匹配+交叉对比 → 写入 Obsidian vault
+6. **公司边际变化入库** → 加载 `entity-delta-ingest` skill → 读取早知道/评级日报/纪要/公告 → 抽取公司边际变化 JSON → `entity_delta_writer.py` 更新 Obsidian `entities/`，纯榜单进观察列表
+
+## 本地数据库 (DuckDB)
+
+位置：`db/market.duckdb`，schema 定义在 `db/schema.sql`。
+
+| 表 | 说明 | 数据来源 |
+|----|------|---------|
+| advancers | 涨家数走势（MA5锚点） | 飞书同步 |
+| daily_market | 每日市场指标 | 飞书同步 |
+| sector_marginal | 板块每日边际量 | fupanhui API 回填 |
+| stocks | 强势股+大成交池 | 飞书同步 |
+
+### 同步命令
+
+```bash
+python3 scripts/sync_to_local.py              # 全量同步飞书→DuckDB
+python3 scripts/sync_to_local.py --incremental # 增量同步
+```
+
+### 信号检测
+
+```bash
+python3 scripts/detect_turning_points.py           # 全部历史
+python3 scripts/detect_turning_points.py --from 2026-04-01  # 指定起始
+```
+
+三种触发条件：大盘放量>10%、大盘涨幅>0.8%（待补数据）、MA5峰/谷次日。
+
+### 板块边际量回填
+
+```bash
+python3 scripts/backfill_sector_marginal.py <逗号分隔日期> <CDP_target_id>
+# 输出 JSON 到 stdout，由主 agent 写入 DuckDB
+```
+
+回填策略：每批4-7天，子 agent 并行抓取（只抓不写），主 agent 串行写入 DuckDB → Bitable → 电子表格。
+
+当前覆盖：67个交易日（2026-02-02 ~ 2026-05-21），~15K条记录。2月14天（春节02-16~02-20无交易），3月22天，4月21天，5月10天。
+
+### 板块回测
+
+```bash
+python3 scripts/backtest_sector.py              # 默认参数
+python3 scripts/backtest_sector.py --scan        # 参数扫描
+python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
+```
+
+## Skills 目录
+
+| Skill | 触发词 |
+|-------|--------|
+| market-overview | 复盘、市场总览、今日行情 |
+| limit-advance | 晋级、连板 |
+| top-gainers | 涨幅排行、涨幅前N |
+| high-volume-gainers | 放量上涨 |
+| advancers-chart | 涨家数走势 |
+| up-line | UP线、UP线更新 |
+| watchlist-ma | 自选股均线 |
+| ifind | iFinD数据查询 |
+| hithink-market-query | 同花顺市场查询 |
+| report-search | 研报搜索 |
+| sector-data | 边际量、板块数据、抓取板块 |
+| 公司画像页 | 公司画像PPT |
+| 行业概览 | 行业概览 |
+| concept-ingest | concept ingest、概念入库、新概念、提取概念 |
+| entity-delta-ingest | entity delta、公司边际变化、更新entity、早知道入库 |
+
+## 关键约束
+
+- 飞书写入**必须先查重**，存在则跳过
+- 连板晋级写入**必须串行**（从旧到新），禁止并行写入飞书
+- fupanhui API 用浏览器内 XHR 调用（通过 CDP proxy），自动携带 session cookie
+- 周均线/偏离度通过 hover K线 tooltip 获取后，需用上证日收盘价交叉验证偏离符号
+- 所有联网操作必须通过 `web-access` skill
+
+## 知识库回填与 theme-radar 红线
+
+- `raw/*full.md` 研报回填默认不能写实体正文；只有公告/订单/合同/中标/认证/量产/投产/扩产/产能/客户导入/项目落地等硬公司事实，或带金额/数量口径的公司级财务与出货事实，才允许进入 `## 边际变化`。
+- 核心个股表、产业链名单、龙头/市占率/应用前景、仅百分比同比增长等 L1 研报判断，默认降级为 `graph_only` / `exposure_only`，用于 theme-radar 图谱和报告上下文，不污染实体正文。
+- iFinD baseline 属于 L2：只写真实主营业务、主营产品、收入结构/毛利率等基础画像；不要把短期催化、新闻、规划或 unsupported `core` 混进 baseline。
+- Baseline 弱映射统一用 `弱相关，待验证`，不要硬编模板化产业链角色；直接主营产品可以给 `core/high`。
+- 不要盲跑下一批 baseline。若上一批质量/回填清理未完成，先审计 payload、实体页和 relations，再继续。
+
+## PDF ingest / Theme Radar 对齐基准（2026-05-28）
+
+脱水研报/强势脱水/评级日报/卖方材料默认 `source_quality=broker_research_high`，不直接写 `hard_fact` 或 `delta`，不把二手材料写进 `## 边际变化`。
+
+三种路由：
+- **curated_research**：`fact_hardness=review_candidate`，`evidence_layer=L1_L3_candidate`，写入 `## 高信度研究线索`，必须有注释
+- **graph_only**：`fact_hardness=research_claim`，`strength=peripheral`，不写 entity markdown，source note 放 `## 仅更新图谱`
+- **observation_only**：只放 `## 观察列表`，不进 entity_exposures
+
+概念页规则：broker 源新建概念用 `## 高信度研究线索`，不用 `## 边际变化`。
+
+Lint 能力（`pdf_ingest_lint.py`）：除 relations 检查外，还检查 concept page section、entity annotation、source note classification、graph_only consistency、evidence_index coverage。
+
+回归样本集：0412评级日报/0412强势股脱水/0412脱水研报/0331强势脱水/0331脱水研报/0331评级日报（6篇全部 PASS）。
+
+## 数据源
+
+- **fupanhui.com**：市场数据、AI摘要、板块、连板梯队（内部 REST API）
+- **iFinD**：个股查询、行业、概念板块（Node.js call-node.js）
+- **AKShare**：板块历史涨幅（Python）
+- **飞书 Bitable**：`pcnyt9i9lfme.feishu.cn/base/RnRfbT9F1asuFFsQpAyccMmHn2b`
+
+## 飞书表
+
+| 用途 | 表 | ID |
+|------|-----|-----|
+| 每日市场指标 | Bitable 每日指标 | `tbljGvjtl1IC44hb` |
+| 板块趋势 | Bitable 板块趋势 | `tblshRMmRnQYrM4K` |
+| 连板晋级 | Bitable 连板晋级 | （limit-advance skill 管理） |
+| 板块每日涨跌幅+成交额 | Bitable sector_daily | `tblXqyf9Av1rGg0n` |
+| 板块每日边际量 | 电子表格 sector_marginal_sheet | token `AHqIwJyMKiglO2kokwYcHRjJnWd`, sheet `e8a204` |
+
+电子表格列序约定：新日期数据**写到最后一列**（最右侧空列），列排序由用户手动完成，**禁止自动插入/移位**。
+
+## 凭证
+
+飞书凭证：`~/.claude/shared/feishu_config.json`
+
+## 本地工具链
+
+- **DuckDB**：`db/market.duckdb`（列存、零配置、单文件），同一时间只有一个写入连接
+- **CDP Proxy**：`localhost:3456`，通过用户 Chrome 携带 fupanhui 登录态调用 API
+- **Python 脚本**：`scripts/` 目录，依赖 duckdb、urllib（标准库）
+
+## 回填注意事项
+
+- fupanhui API 有周/月调用上限（429 限流），大批量回填需分批
+- CDP eval 用 IIFE `(function(){...})()` 包裹 + try/catch，避免页面 JS 异常中断
+- sector_marginal 表的 fupanhui API 字段：`diff_ratio`（边际量%）、`amount`（成交额亿）、`pct_chg`（涨幅%）
+- 早期日期（2025年10-11月）只有 212 个板块有数据，后期扩展到 227 个
+- **Kline API diff_ratio 偶发全零**：fupanhui sector-cycle kline API 偶尔返回所有板块 diff_ratio=0（显示错误）。workaround：用相邻交易日 amount 手动计算 `(today_amt - prev_amt) / prev_amt * 100`
+- **DuckDB sector 名称不一致**：2-4月数据用 `.TI` 代码存储，5月数据用中文名存储。查询时需双路查找（先中文名、再代码、再模糊匹配）
+- **电子表格条件格式**：公式用 `$A1` 引用板块名（非 `$A2`），每15个板块一条 `=OR()` 规则，单条过长会静默失效。公式汇总见 `条件格式公式.md`

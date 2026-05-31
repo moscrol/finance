@@ -1,0 +1,512 @@
+[
+  {
+    "name": "长电科技",
+    "code": "600584",
+    "score": 360,
+    "hits": 12,
+    "reports": [
+      "AI应用产业分析与A股上市公司投资机会研究",
+      "AI端侧产业新变化和新格局深度研究报告",
+      "AI算力产业新格局与供应链深度研究报告",
+      "AI算力核心赛道：ASIC芯片产业链深度研究报告",
+      "AI芯片产业新变化和新格局研究分析报告",
+      "GPU产业新格局与A股上市公司投资价值分析报告",
+      "HBM产业新变化与新格局深度研究分析报告",
+      "RISC-V产业新变化与新格局深度研究报告",
+      "SOC产业新变化与新格局深度研究报告",
+      "先进封装产业新格局与投资机会深度研究报告",
+      "华为昇腾产业新格局深度研究：千亿级市场爆发与供应链投资机会分析",
+      "华为芯片产业新格局深度研究报告：自主可控突破与供应链重构"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "通富微电",
+    "code": "002156",
+    "score": 315,
+    "hits": 9,
+    "reports": [
+      "AI硬件产业新格局分析与A股上市公司投资机会研究",
+      "AI端侧产业新变化和新格局深度研究报告",
+      "AI算力产业新格局与供应链深度研究报告",
+      "AI算力核心赛道：ASIC芯片产业链深度研究报告",
+      "CANN产业新变化和新格局研究分析",
+      "SOC产业新变化与新格局深度研究报告",
+      "传感器产业新变化与新格局研究分析报告",
+      "华为昇腾产业新格局深度研究：千亿级市场爆发与供应链投资机会分析",
+      "华为芯片产业新格局深度研究报告：自主可控突破与供应链重构"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "海光信息",
+    "code": "688041",
+    "score": 285,
+    "hits": 7,
+    "reports": [
+      "AI应用产业分析与A股上市公司投资机会研究",
+      "AI智能体产业链深度研究报告",
+      "AI硬件产业新格局分析与A股上市公司投资机会研究",
+      "AI算力产业新格局与供应链深度研究报告",
+      "AI算力核心赛道：ASIC芯片产业链深度研究报告",
+      "AI芯片产业新变化和新格局研究分析报告",
+      "信创产业新变化与新格局深度研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "浪潮信息",
+    "code": "000977",
+    "score": 270,
+    "hits": 6,
+    "reports": [
+      "AI应用产业分析与A股上市公司投资机会研究",
+      "AI智能体产业链深度研究报告",
+      "AI硬件产业新格局分析与A股上市公司投资机会研究",
+      "AI算力产业新格局与供应链深度研究报告",
+      "CANN产业新变化和新格局研究分析",
+      "信创产业新变化与新格局深度研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "沪电股份",
+    "code": "002463",
+    "score": 240,
+    "hits": 4,
+    "reports": [
+      "6G产业深度研究报告：技术变革驱动产业链重构与投资机会分析",
+      "AI算力驱动下的交换机产业深度研究报告",
+      "AI算力驱动下的交换机产业深度研究报告：技术升级、国产替代与投资机遇",
+      "PCB产业新变化与新格局研究分析报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "韦尔股份",
+    "code": "603501",
+    "score": 240,
+    "hits": 4,
+    "reports": [
+      "AI眼镜产业链深度研究报告：市场前景、核心环节与投资机会分析",
+      "AR眼镜产业新变化与新格局研究报告",
+      "传感器产业新变化与新格局研究分析报告",
+      "全景相机产业研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "瑞芯微",
+    "code": "603893",
+    "score": 240,
+    "hits": 4,
+    "reports": [
+      "AI眼镜产业链深度研究报告：市场前景、核心环节与投资机会分析",
+      "AI端侧产业新变化和新格局深度研究报告",
+      "AR眼镜产业新变化与新格局研究报告",
+      "SOC产业新变化与新格局深度研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "英维克",
+    "code": "002837",
+    "score": 240,
+    "hits": 4,
+    "reports": [
+      "AI应用产业分析与A股上市公司投资机会研究",
+      "AI硬件产业新格局分析与A股上市公司投资机会研究",
+      "AI算力产业新格局与供应链深度研究报告",
+      "CANN产业新变化和新格局研究分析"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "歌尔股份",
+    "code": "002241",
+    "score": 240,
+    "hits": 4,
+    "reports": [
+      "AI耳机产业新变化与新格局研究分析",
+      "AR眼镜产业新变化与新格局研究报告",
+      "传感器产业新变化与新格局研究分析报告",
+      "全景相机产业研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "立讯精密",
+    "code": "002475",
+    "score": 225,
+    "hits": 3,
+    "reports": [
+      "AI眼镜产业链深度研究报告：市场前景、核心环节与投资机会分析",
+      "AR眼镜产业新变化与新格局研究报告",
+      "人脑工程产业新变化与新格局研究分析报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "沪硅产业",
+    "code": "688126",
+    "score": 225,
+    "hits": 3,
+    "reports": [
+      "AI端侧产业新变化和新格局深度研究报告",
+      "AI芯片产业新变化和新格局研究分析报告",
+      "SOC产业新变化与新格局深度研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "锐捷网络",
+    "code": "301165",
+    "score": 225,
+    "hits": 3,
+    "reports": [
+      "AI算力驱动下的交换机产业深度研究报告",
+      "AI算力驱动下的交换机产业深度研究报告：技术升级、国产替代与投资机遇",
+      "信创产业新变化与新格局深度研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "芯原股份",
+    "code": "688521",
+    "score": 225,
+    "hits": 3,
+    "reports": [
+      "AI算力产业新格局与供应链深度研究报告",
+      "AI算力核心赛道：ASIC芯片产业链深度研究报告",
+      "RISC-V产业新变化与新格局深度研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "深南电路",
+    "code": "002916",
+    "score": 225,
+    "hits": 3,
+    "reports": [
+      "AI硬件产业新格局分析与A股上市公司投资机会研究",
+      "CANN产业新变化和新格局研究分析",
+      "PCB产业新变化与新格局研究分析报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "阳光电源",
+    "code": "300274",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "储能产业新变化与新格局研究分析报告",
+      "光伏产业新变化和新格局深度分析报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "汉威科技",
+    "code": "300007",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "人脑工程产业新变化与新格局研究分析报告",
+      "传感器产业新变化与新格局研究分析报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "铖昌科技",
+    "code": "001270",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "卫星产业新变化和新格局深度研究报告",
+      "商业航天产业新变化与新格局研究分析"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "鹏鼎控股",
+    "code": "002938",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "AI算力驱动下的交换机产业深度研究报告",
+      "AI算力驱动下的交换机产业深度研究报告：技术升级、国产替代与投资机遇"
+    ],
+    "tiers": [
+      "core"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "长盈精密",
+    "code": "300115",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "AR眼镜产业新变化与新格局研究报告",
+      "全景相机产业研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "胜宏科技",
+    "code": "300476",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "AI硬件产业新格局分析与A股上市公司投资机会研究",
+      "PCB产业新变化与新格局研究分析报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "源杰科技",
+    "code": "688498",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "CPO产业新变化与新格局深度研究报告",
+      "光模块产业新变化和新格局研究分析报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "立昂微",
+    "code": "605358",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "AI端侧产业新变化和新格局深度研究报告",
+      "SOC产业新变化与新格局深度研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "科华数据",
+    "code": "002335",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "AI算力产业新格局与供应链深度研究报告",
+      "固态变压器产业新变化与新格局研究分析"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "盛美上海",
+    "code": "688082",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "SOC产业新变化与新格局深度研究报告",
+      "先进封装产业新格局与投资机会深度研究报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "石英股份",
+    "code": "603688",
+    "score": 210,
+    "hits": 2,
+    "reports": [
+      "光伏玻璃产业新格局深度研究：技术迭代驱动供应链重塑与投资机会分析",
+      "光缆产业新变化和新格局深度研究分析报告"
+    ],
+    "tiers": [
+      "core",
+      "related"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "芯源微",
+    "code": "688037",
+    "score": 195,
+    "hits": 1,
+    "reports": [
+      "光刻胶产业新变化与新格局深度研究报告"
+    ],
+    "tiers": [
+      "core"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "水晶光电",
+    "code": "002273",
+    "score": 195,
+    "hits": 1,
+    "reports": [
+      "AR眼镜产业新变化与新格局研究报告"
+    ],
+    "tiers": [
+      "core"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "麦格米特",
+    "code": "002851",
+    "score": 195,
+    "hits": 1,
+    "reports": [
+      "AI硬件产业新格局分析与A股上市公司投资机会研究"
+    ],
+    "tiers": [
+      "core"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "鸿远电子",
+    "code": "603267",
+    "score": 195,
+    "hits": 1,
+    "reports": [
+      "卫星产业新变化和新格局深度研究报告"
+    ],
+    "tiers": [
+      "core"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  },
+  {
+    "name": "金盘科技",
+    "code": "688676",
+    "score": 195,
+    "hits": 1,
+    "reports": [
+      "固态变压器产业新变化与新格局研究分析"
+    ],
+    "tiers": [
+      "core"
+    ],
+    "graph_only": false,
+    "exposure_only": false
+  }
+]
