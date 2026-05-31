@@ -141,7 +141,9 @@ def display_weight(specificity: str) -> str:
 def build_item(theme: str, vault: Path, path: Path, line_no: int, heading: str, hits: list[str], snippet: str):
     rel = str(path.relative_to(vault))
     companies = detect_companies(snippet + " " + path.stem)
-    entity = companies[0] if companies else path.stem
+    entity = companies[0] if companies else ""
+    if not entity and "/concepts/" in f"/{rel}":
+        entity = path.stem
     ticker = COMPANY_TICKERS.get(entity, "")
     segment = infer_segment(snippet + " " + path.name)
     info_types = infer_info_types(snippet)
