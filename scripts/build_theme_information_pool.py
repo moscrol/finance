@@ -25,8 +25,15 @@ def sha_id(*parts: str) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
 
 
+def clean_text(value: str) -> str:
+    s = str(value or "").strip()
+    s = re.sub(r"<br\s*/?>", "；", s)
+    s = re.sub(r"\*\*(.*?)\*\*", r"\1", s)
+    return s.strip()
+
+
 def split_md_row(line: str) -> list[str]:
-    return [c.strip() for c in line.strip().strip("|").split("|")]
+    return [clean_text(c) for c in line.strip().strip("|").split("|")]
 
 
 def is_separator(line: str) -> bool:
@@ -38,6 +45,8 @@ def parse_theme(text: str, fallback: str) -> str:
     for line in text.splitlines():
         if line.startswith("# "):
             title = line.lstrip("#").strip()
+            title = re.sub(r"(?:_)?题材雷达数据抽取$", "", title).strip()
+            title = re.sub(r"题材\s*Deep\s*Dive\s*数据抽取报告$", "", title).strip()
             for sep in (" — ", "—", "-", "：", ":"):
                 if sep in title:
                     return title.split(sep, 1)[0].strip() or fallback
@@ -96,7 +105,60 @@ def bool_like(v):
         return True
     if s in {"否", "false", "no", "0"}:
         return False
+    if s.startswith("是"):
+        return True
+    if s.startswith("否"):
+        return False
     return None
+
+
+def split_values(value: str) -> list[str]:
+    s = clean_text(value)
+    if not s or s in {"—", "-", "无", "unknown"}:
+        return []
+    return [re.sub(r"等$", "", x.strip()).strip() for x in re.split(r"[、,，/]+", s) if x.strip()]
+
+
+def entity_pairs(names: str, tickers: str) -> list[tuple[str, str]]:
+    ns = split_values(names)
+    ts = split_values(tickers)
+    if not ns:
+        return [("", "")]
+    out = []
+    for idx, name in enumerate(ns):
+        ticker = ts[idx] if idx < len(ts) else (ts[0] if len(ts) == 1 and len(ns) == 1 else "")
+        out.append((name, ticker))
+    return out
+
+
+def field_map(row_entries: list[dict]) -> dict:
+    out = {}
+    for entry in row_entries:
+        row = entry["row"]
+        key = clean_text(row.get("字段", ""))
+        if key:
+            out[key] = clean_text(row.get("内容", ""))
+    return out
+
+
+def backfill_tickers(items: list[dict]) -> None:
+    name_to_ticker = {}
+    for item in items:
+        name = str(item.get("entity_name") or "").strip()
+        ticker = str(item.get("ticker") or "").strip()
+        if name and ticker and ticker not in {"—", "-", "unknown"}:
+            name_to_ticker.setdefault(name, ticker)
+    for item in items:
+        name = str(item.get("entity_name") or "").strip()
+        if name and not str(item.get("ticker") or "").strip() and name in name_to_ticker:
+            item["ticker"] = name_to_ticker[name]
+
+
+def deep_source_type(source: str) -> str:
+    source = source or ""
+    if "公告" in source or "互动易" in source:
+        return "公告/互动易"
+    return infer_source_type(source) or "研报/资料"
 
 
 def infer_source_type(title: str) -> str:
@@ -150,6 +212,69 @@ def display_weight(specificity: str) -> str:
     return "low" if specificity == "low" else "normal"
 
 
+def make_item(
+    meta: dict,
+    *,
+    entity: str = "",
+    ticker: str = "",
+    chain_position: str = "",
+    segment: str = "",
+    component: str = "",
+    claim: str = "",
+    info_types=None,
+    primary_info_type: str = "",
+    source_title: str = "",
+    source_type: str = "",
+    source_date: str = "",
+    confidence_raw: str = "",
+    needs_review_raw=None,
+    evidence_level: str = "",
+    suggested_use: str = "",
+    risk_note: str = "",
+    source_record_type: str = "markdown_table",
+    raw_row=None,
+) -> dict:
+    info_types = info_types or infer_info_types(claim, segment, entity)
+    primary_info_type = primary_info_type or info_types[0]
+    specificity = infer_specificity(claim, entity, ticker)
+    return {
+        "item_id": sha_id(meta["theme"], entity, ticker, segment, claim, meta["line_no"], source_record_type),
+        "theme": meta["theme"],
+        "entity_name": entity,
+        "ticker": ticker,
+        "chain_position": chain_position,
+        "segment": segment,
+        "component": component,
+        "claim": claim,
+        "info_types": info_types,
+        "primary_info_type": primary_info_type,
+        "specificity": specificity,
+        "display_weight": display_weight(specificity),
+        "source_systems": [meta["source_system"]],
+        "source_refs": [{
+            "system": meta["source_system"],
+            "path": meta["source_file"],
+            "section": meta.get("section", ""),
+            "line_no": meta["line_no"],
+            "source_title": source_title,
+            "source_type": source_type,
+            "source_date": source_date,
+        }],
+        "source_title": source_title,
+        "source_type": source_type,
+        "source_date": source_date,
+        "confidence_raw": confidence_raw,
+        "confidence": normalize_confidence(confidence_raw),
+        "needs_review_raw": needs_review_raw,
+        "needs_review": bool_like(needs_review_raw),
+        "evidence_level": evidence_level,
+        "suggested_use": suggested_use,
+        "risk_note": risk_note,
+        "source_record_type": source_record_type,
+        "raw_row": raw_row or {},
+    }
+
+
 def item_from_chain_row(row: dict, meta: dict) -> dict:
     entity = row.get("相关公司", "")
     ticker = row.get("公司证券代码", "")
@@ -195,25 +320,269 @@ def item_from_chain_row(row: dict, meta: dict) -> dict:
     }
 
 
+def items_from_catalyst_row(row: dict, meta: dict) -> list[dict]:
+    claim = row.get("具体内容", "")
+    segment = row.get("影响的产业链环节", "")
+    source_title = row.get("来源", "")
+    return [
+        make_item(
+            meta,
+            entity=entity,
+            ticker=ticker,
+            chain_position=segment,
+            segment=segment,
+            claim=claim,
+            info_types=["theme_driver", "marginal_change"],
+            primary_info_type="marginal_change",
+            source_title=source_title,
+            source_type=deep_source_type(source_title),
+            source_date=row.get("时间窗口", ""),
+            confidence_raw=row.get("可信度", ""),
+            needs_review_raw=row.get("needs_review", ""),
+            evidence_level="curated_research",
+            suggested_use="deep_dive",
+            source_record_type="deep_dive_catalyst",
+            raw_row=row,
+        )
+        for entity, ticker in entity_pairs(row.get("相关公司", ""), "")
+    ]
+
+
+def items_from_chain_path_row(row: dict, meta: dict) -> list[dict]:
+    claim = "；".join(x for x in [row.get("传导路径", ""), row.get("瓶颈或价值量", ""), row.get("下游驱动", "")] if x)
+    segment = row.get("对应环节", "")
+    component = row.get("关键材料/零部件/设备/软件/工艺", "")
+    source_title = row.get("来源", "")
+    return [
+        make_item(
+            meta,
+            entity=entity,
+            ticker=ticker,
+            chain_position=segment,
+            segment=segment,
+            component=component,
+            claim=claim,
+            info_types=["segment_mapping", "theme_driver"],
+            primary_info_type="segment_mapping",
+            source_title=source_title,
+            source_type=deep_source_type(source_title),
+            source_date=row.get("时间", ""),
+            confidence_raw=row.get("可信度", ""),
+            needs_review_raw=row.get("needs_review", ""),
+            evidence_level="curated_research",
+            suggested_use="deep_dive",
+            source_record_type="deep_dive_chain_path",
+            raw_row=row,
+        )
+        for entity, ticker in entity_pairs(row.get("代表公司", ""), row.get("证券代码", ""))
+    ]
+
+
+def items_from_subdirection_row(row: dict, meta: dict) -> list[dict]:
+    segment = row.get("细分方向", "")
+    claim = "；".join(x for x in [row.get("为什么重要", ""), row.get("关键证据", ""), row.get("下一步验证", "")] if x)
+    source_title = row.get("来源", "")
+    return [
+        make_item(
+            meta,
+            entity=entity,
+            ticker=ticker,
+            chain_position=row.get("所属产业链环节", ""),
+            segment=segment,
+            claim=claim,
+            info_types=["segment_mapping", "relationship"],
+            primary_info_type="segment_mapping",
+            source_title=source_title,
+            source_type=deep_source_type(source_title),
+            source_date=row.get("时间", ""),
+            confidence_raw=row.get("可信度", ""),
+            needs_review_raw=row.get("needs_review", ""),
+            evidence_level="curated_research",
+            suggested_use="deep_dive",
+            source_record_type="deep_dive_subdirection",
+            raw_row=row,
+        )
+        for entity, ticker in entity_pairs(row.get("代表公司", ""), row.get("证券代码", ""))
+    ]
+
+
+def item_from_company_field_table(section: str, rows: list[dict], meta: dict):
+    m = re.match(r"(.+?)（([^）]+)）$", section.strip())
+    if not m:
+        return None
+    data = field_map(rows)
+    claim = data.get("题材相关性一句话", "")
+    if not claim:
+        return None
+    source_title = data.get("证据来源", "")
+    evidence_raw = data.get("题材暴露类型", "")
+    if "hard_fact" in evidence_raw:
+        evidence_level = "hard_fact_candidate"
+    elif "exposure_only" in evidence_raw:
+        evidence_level = "exposure_only"
+    elif "review" in evidence_raw:
+        evidence_level = "review_candidate"
+    else:
+        evidence_level = "curated_research"
+    return make_item(
+        meta,
+        entity=m.group(1).strip(),
+        ticker=m.group(2).strip(),
+        chain_position=data.get("所属产业链环节", ""),
+        segment=data.get("对应细分方向", "") or data.get("所属产业链环节", ""),
+        component=data.get("相关产品/技术/服务", ""),
+        claim=claim,
+        info_types=infer_info_types(" ".join([claim, data.get("原文摘录", "")]), data.get("对应细分方向", ""), m.group(1)),
+        primary_info_type="segment_mapping",
+        source_title=source_title,
+        source_type=deep_source_type(source_title),
+        source_date=data.get("证据日期", ""),
+        confidence_raw=data.get("可信度", ""),
+        needs_review_raw="true" if data.get("是否建议进入entities/*.md") != "是" else data.get("是否建议进入entities/*.md"),
+        evidence_level=evidence_level,
+        suggested_use="deep_dive" if data.get("是否建议进入Deep Dive") == "是" else "theme_radar",
+        risk_note=data.get("风险提示", ""),
+        source_record_type="deep_dive_company_mapping",
+        raw_row=data,
+    )
+
+
+def item_from_theme_anchor_table(rows: list[dict], meta: dict):
+    data = field_map(rows)
+    claim = data.get("一句话定锚", "") or data.get("核心定义", "")
+    if not claim:
+        return None
+    source_title = data.get("来源", "")
+    return make_item(
+        meta,
+        segment="题材定锚",
+        claim=claim,
+        info_types=["theme_anchor", "theme_driver"],
+        primary_info_type="theme_anchor",
+        source_title=source_title,
+        source_type=deep_source_type(source_title),
+        source_date=data.get("时间", ""),
+        confidence_raw=data.get("可信度", ""),
+        needs_review_raw=data.get("是否需要人工核验", ""),
+        evidence_level="curated_research",
+        suggested_use="deep_dive",
+        risk_note=data.get("排除项", ""),
+        source_record_type="deep_dive_theme_anchor",
+        raw_row=data,
+    )
+
+
+def item_from_watchlist_row(row: dict, meta: dict) -> dict:
+    return make_item(
+        meta,
+        entity=row.get("公司", ""),
+        ticker=row.get("代码", ""),
+        chain_position=row.get("环节", ""),
+        segment=row.get("环节", ""),
+        claim=row.get("原因", ""),
+        info_types=[row.get("暴露类型", "") or "exposure_only"],
+        primary_info_type=row.get("暴露类型", "") or "exposure_only",
+        confidence_raw="低",
+        needs_review_raw=True,
+        evidence_level=row.get("暴露类型", "") or "exposure_only",
+        suggested_use="watchlist_only",
+        risk_note=row.get("原因", ""),
+        source_record_type="deep_dive_watchlist",
+        raw_row=row,
+    )
+
+
+def item_from_marginal_row(row: dict, meta: dict) -> dict:
+    source_title = row.get("来源", "")
+    return make_item(
+        meta,
+        entity=row.get("公司", ""),
+        ticker=row.get("证券代码", ""),
+        chain_position=row.get("所属环节", ""),
+        segment=row.get("所属环节", ""),
+        claim=row.get("具体内容", ""),
+        info_types=["marginal_change"],
+        primary_info_type="marginal_change",
+        source_title=source_title,
+        source_type=deep_source_type(source_title),
+        source_date=row.get("时间窗口", ""),
+        confidence_raw="中" if row.get("是否为公司级硬边际") == "是" else "低",
+        needs_review_raw=row.get("建议进入entity delta", ""),
+        evidence_level="review_candidate" if row.get("是否为公司级硬边际") != "是" else "hard_fact_candidate",
+        suggested_use="deep_dive",
+        risk_note="" if row.get("是否为公司级硬边际") == "是" else "边际变化来源需核验",
+        source_record_type="deep_dive_marginal_change",
+        raw_row=row,
+    )
+
+
+def item_from_hard_fact_row(row: dict, meta: dict) -> dict:
+    source_title = row.get("来源", "")
+    return make_item(
+        meta,
+        entity=row.get("公司", ""),
+        ticker=row.get("证券代码", ""),
+        segment=row.get("事实类型", ""),
+        claim=row.get("事实内容", ""),
+        info_types=["relationship", "marginal_change"],
+        primary_info_type="relationship",
+        source_title=source_title,
+        source_type=deep_source_type(source_title),
+        source_date=row.get("时间", ""),
+        confidence_raw="中",
+        needs_review_raw=row.get("是否仍需人工核验", ""),
+        evidence_level="hard_fact_candidate",
+        suggested_use="entity_delta_candidate",
+        source_record_type="deep_dive_hard_fact_candidate",
+        raw_row=row,
+    )
+
+
+def item_from_exposure_row(row: dict, meta: dict) -> dict:
+    source_title = row.get("来源", "")
+    level = row.get("建议evidence_level", "") or "exposure_only"
+    return make_item(
+        meta,
+        entity=row.get("公司", ""),
+        ticker=row.get("证券代码", ""),
+        claim=row.get("线索内容", ""),
+        info_types=[level],
+        primary_info_type=level,
+        source_title=source_title,
+        source_type=deep_source_type(source_title),
+        source_date=row.get("时间", ""),
+        confidence_raw="低" if level in {"review_candidate", "exposure_only"} else "中",
+        needs_review_raw=True,
+        evidence_level=level,
+        suggested_use="theme_radar" if row.get("建议进入Theme Radar") == "是" else "watchlist_only",
+        risk_note=row.get("为什么不能直接作为hard_fact", ""),
+        source_record_type="deep_dive_exposure_line",
+        raw_row=row,
+    )
+
+
 def item_from_jsonl(rec: dict, meta: dict) -> dict:
     entity = rec.get("entity_name", "")
     ticker = rec.get("ticker", "")
-    segment = rec.get("chain_segment") or rec.get("sub_theme") or ""
+    chain_position = rec.get("chain_position") or ""
+    segment = rec.get("segment") or rec.get("chain_segment") or rec.get("sub_theme") or ""
+    component = rec.get("component") or rec.get("sub_theme") or ""
     claim = rec.get("claim", "")
     specificity = infer_specificity(claim, entity, ticker)
-    info_types = infer_info_types(claim, segment, entity)
+    info_types = rec.get("info_types") or infer_info_types(claim, segment, entity)
+    primary_info_type = rec.get("primary_info_type") or info_types[0]
     system = rec.get("source_system") or meta["source_system"]
     return {
         "item_id": sha_id(meta["theme"], entity, ticker, segment, claim, meta["line_no"]),
         "theme": rec.get("theme") or meta["theme"],
         "entity_name": entity,
         "ticker": ticker,
-        "chain_position": segment,
+        "chain_position": chain_position,
         "segment": segment,
-        "component": rec.get("sub_theme", ""),
+        "component": component,
         "claim": claim,
         "info_types": info_types,
-        "primary_info_type": info_types[0],
+        "primary_info_type": primary_info_type,
         "specificity": specificity,
         "display_weight": display_weight(specificity),
         "source_systems": [system],
@@ -233,6 +602,7 @@ def item_from_jsonl(rec: dict, meta: dict) -> dict:
         "confidence": normalize_confidence(rec.get("confidence", "")),
         "needs_review_raw": rec.get("needs_review"),
         "needs_review": bool_like(rec.get("needs_review")),
+        "evidence_level": rec.get("evidence_level", ""),
         "suggested_use": rec.get("suggested_use", ""),
         "risk_note": rec.get("risk_note", ""),
         "source_record_type": "jsonl_appendix",
@@ -303,6 +673,30 @@ def build_outputs(path: Path, source_system: str) -> tuple[dict, list[str]]:
             meta = {"theme": theme, "source_system": source_system, "source_file": str(path), "section": table["section"], "line_no": r["line_no"]}
             if CHAIN_HEADERS.issubset(headers):
                 items.append(item_from_chain_row(r["row"], meta))
+            elif {"催化类型", "具体内容", "影响的产业链环节", "相关公司"}.issubset(headers):
+                items.extend(items_from_catalyst_row(r["row"], meta))
+            elif {"起点", "传导路径", "对应环节", "代表公司", "证券代码"}.issubset(headers):
+                items.extend(items_from_chain_path_row(r["row"], meta))
+            elif {"细分方向", "所属产业链环节", "为什么重要", "代表公司", "证券代码"}.issubset(headers):
+                items.extend(items_from_subdirection_row(r["row"], meta))
+            elif {"公司", "代码", "环节", "原因", "暴露类型"}.issubset(headers):
+                items.append(item_from_watchlist_row(r["row"], meta))
+            elif {"公司", "证券代码", "所属环节", "边际变化类型", "具体内容"}.issubset(headers):
+                items.append(item_from_marginal_row(r["row"], meta))
+            elif {"公司", "证券代码", "事实类型", "事实内容"}.issubset(headers):
+                items.append(item_from_hard_fact_row(r["row"], meta))
+            elif {"公司", "证券代码", "线索内容", "建议evidence_level"}.issubset(headers):
+                items.append(item_from_exposure_row(r["row"], meta))
+            elif headers == {"字段", "内容"}:
+                if "题材定锚" in table["section"]:
+                    item = item_from_theme_anchor_table(table["rows"], meta)
+                    if item:
+                        items.append(item)
+                        break
+                item = item_from_company_field_table(table["section"], table["rows"], meta)
+                if item:
+                    items.append(item)
+                    break
             elif SOURCE_HEADERS.issubset(headers):
                 sources.append(source_from_row(r["row"], meta))
             elif QUESTION_HEADERS.issubset(headers):
@@ -314,6 +708,7 @@ def build_outputs(path: Path, source_system: str) -> tuple[dict, list[str]]:
         meta = {"theme": theme, "source_system": source_system, "source_file": str(path), "line_no": r["line_no"]}
         items.append(item_from_jsonl(r["record"], meta))
 
+    backfill_tickers(items)
     definition = extract_theme_definition(text, theme, str(path), source_system)
     summary = {
         "theme": theme,

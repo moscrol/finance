@@ -1041,6 +1041,24 @@ def theme_info_types(row: dict) -> set[str]:
     return {str(v) for v in values if v}
 
 
+def theme_info_anchor(rows: list[dict]) -> str:
+    candidates = []
+    for row in rows:
+        if "theme_anchor" not in theme_info_types(row) and row.get("source_record_type") != "deep_dive_theme_anchor":
+            continue
+        claim = str(row.get("claim") or "").strip()
+        if not claim:
+            continue
+        score = theme_info_score(row)
+        if row.get("suggested_use") == "deep_dive":
+            score += 4
+        candidates.append((score, claim))
+    if not candidates:
+        return ""
+    candidates.sort(reverse=True)
+    return candidates[0][1]
+
+
 def theme_info_source_label(row: dict) -> str:
     systems = row.get("source_systems") or []
     systems = [str(x) for x in systems if str(x).strip()]
@@ -1093,6 +1111,20 @@ def theme_info_short(text: str, limit: int = 80) -> str:
 def build_theme_information_context(term: str, rows: list[dict]) -> dict:
     if not rows:
         return {}
+    catalyst_rows = [
+        r for r in rows
+        if r.get("source_record_type") == "deep_dive_catalyst" or "theme_driver" in theme_info_types(r)
+    ]
+    demand_drivers = unique([
+        theme_info_short(r.get("claim"), 120)
+        for r in sorted(catalyst_rows, key=theme_info_score, reverse=True)
+        if str(r.get("claim") or "").strip()
+    ])[:10]
+    verification_nodes = unique([
+        theme_info_short((r.get("raw_row") or {}).get("下一步验证"), 120)
+        for r in rows
+        if isinstance(r.get("raw_row"), dict) and (r.get("raw_row") or {}).get("下一步验证")
+    ])[:10]
     selected = [r for r in rows if theme_info_score(r) >= 12 and theme_info_types(r) & {"segment_mapping", "relationship"}]
     by_segment: dict[str, list[dict]] = {}
     for row in selected:
@@ -1101,7 +1133,15 @@ def build_theme_information_context(term: str, rows: list[dict]) -> dict:
             continue
         by_segment.setdefault(seg, []).append(row)
     if not by_segment:
-        return {}
+        anchor = theme_info_anchor(rows)
+        out = {}
+        if anchor:
+            out["definition"] = anchor
+        if demand_drivers:
+            out["demand_drivers"] = demand_drivers
+        if verification_nodes:
+            out["verification_nodes"] = verification_nodes
+        return out
 
     chain = {key: [] for key in ["downstream", "midstream", "upstream_materials", "upstream_equipment"]}
     direction_scan = []
@@ -1173,7 +1213,7 @@ def build_theme_information_context(term: str, rows: list[dict]) -> dict:
             }
         )
 
-    return {
+    out = {
         "theme_information_pool": {
             "enabled": True,
             "total_rows": len(rows),
@@ -1187,13 +1227,30 @@ def build_theme_information_context(term: str, rows: list[dict]) -> dict:
         "progress_ranking": progress_ranking[:12],
         "related_terms": [row["segment"] for row in segment_rows[:24]],
         "capability_stack": [row["segment"] for row in segment_rows[:12]],
+        "core_benefit_links": [
+            f"{row['segment']}：{ '、'.join(row.get('companies') or []) }"
+            for row in segment_rows[:12]
+            if row.get("segment")
+        ],
     }
+    if demand_drivers:
+        out["demand_drivers"] = demand_drivers
+    if verification_nodes:
+        out["verification_nodes"] = verification_nodes
+    anchor = theme_info_anchor(rows)
+    if anchor:
+        out["definition"] = anchor
+    return out
 
 
 def merge_theme_information_context(context: dict, theme_context: dict) -> dict:
     if not theme_context:
         return context or {}
     merged = dict(context or {})
+    if theme_context.get("definition"):
+        merged["definition"] = theme_context.get("definition")
+    for key in ("demand_drivers", "core_benefit_links", "verification_nodes"):
+        merged[key] = unique(as_list(theme_context.get(key)) + as_list(merged.get(key)))[:16]
     merged["theme_information_pool"] = theme_context.get("theme_information_pool", {})
     for key in ("related_terms", "capability_stack"):
         merged[key] = unique(as_list(merged.get(key)) + as_list(theme_context.get(key)))
@@ -3277,7 +3334,10 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
     report_contexts = load_json(rel_dir / RELATION_FILES["report_contexts"], {"version": 1, "reports": {}})
     concepts = graph.get("concepts", {})
     context = context or {}
+    explicit_definition = bool(definition.strip())
     theme_info_context = build_theme_information_context(term, theme_info_rows or [])
+    if not explicit_definition and theme_info_context.get("definition"):
+        definition = theme_info_context.get("definition", "")
     if not definition.strip():
         definition = context_definition(context)
     external_search_text = " ".join(x for x in [definition, context_search_text(context)] if x.strip())
@@ -3295,6 +3355,8 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         if not definition.strip():
             definition = context_definition(context)
     context = merge_theme_information_context(context, theme_info_context)
+    if not explicit_definition and theme_info_context.get("definition"):
+        definition = theme_info_context.get("definition", "")
     match_scope = matches or ([primary] if primary in concepts else [])
     rels = related_concepts(primary, match_scope, graph)
     all_scope = unique(match_scope + rels[:12])
