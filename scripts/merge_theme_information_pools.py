@@ -43,6 +43,47 @@ def norm_text(s: str) -> str:
     return s[:120]
 
 
+# C: 共享 segment 词表（IMA 与 Obsidian 对齐），使跨源可归并/互证
+SEGMENT_TAXONOMY = [
+    ("上游-光芯片", ["光芯片", "EML", "DFB", "VCSEL", "CW激光", "磷化铟", "InP"]),
+    ("上游-光器件/材料", ["光器件", "光引擎", "隔离器", "法拉第", "旋光", "MPO", "FAU", "AWG", "陶瓷基板", "衬底", "晶体"]),
+    ("中游-光模块/CPO", ["光模块", "CPO", "NPO", "LPO", "800G", "1.6T", "3.2T", "设计制造", "封装测试", "封装代工"]),
+    ("中游-OCS/DCI", ["OCS", "DCI", "相干", "光交换", "光电路交换"]),
+    ("配套-设备/测试", ["耦合设备", "测试设备", "自动化设备", "贴片", "AOI", "固晶", "共晶", "精密制造", "仪器"]),
+    ("下游-算力/云厂商", ["算力", "云厂", "英伟达", "谷歌", "Meta", "AWS", "微软", "TPU", "GPU", "数据中心"]),
+]
+
+
+def canonical_segment(*texts: str) -> str:
+    t = " ".join(str(x or "") for x in texts)
+    for seg, keys in SEGMENT_TAXONOMY:
+        if any(k in t for k in keys):
+            return seg
+    return "未分段"
+
+
+def annotate_corroboration(merged: list[dict]) -> dict:
+    """实体×segment 级别的跨源互证：同一公司同一环节被多个 source_system 覆盖。"""
+    groups = defaultdict(set)
+    for r in merged:
+        e = norm_text(r.get("entity_name"))
+        if not e:
+            continue
+        groups[(e, r.get("segment") or "")].update(r.get("source_systems") or [])
+    pairs = [k for k, v in groups.items() if len(v) > 1]
+    ents = sorted({k[0] for k in pairs})
+    for r in merged:
+        e = norm_text(r.get("entity_name"))
+        if not e:
+            r["cross_source"] = False
+            continue
+        sysset = groups[(e, r.get("segment") or "")]
+        r["entity_segment_sources"] = sorted(sysset)
+        r["cross_source"] = len(sysset) > 1
+    return {"cross_source_entity_segment_pairs": len(pairs),
+            "cross_source_entities": len(ents)}
+
+
 def merge_key(row: dict) -> tuple:
     entity = row.get("entity_name") or ""
     ticker = row.get("ticker") or ""
@@ -174,8 +215,15 @@ def main() -> int:
             return 1
         rows.extend(read_jsonl(path))
 
+    # C: 对齐 segment 词表（对所有源统一），跨源才能归并与互证
+    for r in rows:
+        r["segment_raw"] = r.get("segment", "")
+        r["segment"] = canonical_segment(r.get("segment"), r.get("chain_position"), r.get("component"), r.get("claim"))
+
     merged = merge_rows(rows)
+    corr = annotate_corroboration(merged)
     summary = build_summary(rows, merged)
+    summary.update(corr)
     preview = build_segment_preview(merged)
 
     out = Path(args.out_dir).expanduser()
