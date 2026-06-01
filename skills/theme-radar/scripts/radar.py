@@ -1108,13 +1108,70 @@ def theme_info_short(text: str, limit: int = 80) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+GENERIC_THEME_INFO_SEGMENTS = {
+    "收入",
+    "订单",
+    "产能",
+    "客户",
+    "认证",
+    "量产",
+    "交付",
+    "送样",
+    "并购",
+    "并购公告",
+    "合作协议公告",
+    "产品发布",
+    "项目上线",
+    "技术融合",
+    "收入确认",
+    "订单数据",
+    "认证/运营",
+    "海外扩张",
+    "复购",
+    "产品线",
+    "涨价/订单",
+    "瓶颈缓解",
+    "明确合作",
+    "合作",
+    "市占率",
+    "资本开支",
+    "出货",
+    "出货量",
+    "收入结构",
+    "客户/覆盖",
+    "研发投入",
+    "市场预测",
+    "产品",
+    "良率",
+    "项目落地",
+    "中标",
+    "收入增速",
+    "业务数据",
+    "产能/装机",
+    "年报（收入/利润/业务）",
+    "并购/整合",
+    "业绩",
+    "估值",
+    "股价",
+    "其他",
+    "待核验",
+    "未分段",
+}
+
+
+def is_generic_theme_info_segment(segment: str) -> bool:
+    s = str(segment or "").strip()
+    if not s:
+        return True
+    if s in GENERIC_THEME_INFO_SEGMENTS:
+        return True
+    return s.startswith(("全产业链", "全T链", "全链条"))
+
+
 def build_theme_information_context(term: str, rows: list[dict]) -> dict:
     if not rows:
         return {}
-    catalyst_rows = [
-        r for r in rows
-        if r.get("source_record_type") == "deep_dive_catalyst" or "theme_driver" in theme_info_types(r)
-    ]
+    catalyst_rows = [r for r in rows if r.get("source_record_type") == "deep_dive_catalyst"]
     demand_drivers = unique([
         theme_info_short(r.get("claim"), 120)
         for r in sorted(catalyst_rows, key=theme_info_score, reverse=True)
@@ -1125,7 +1182,11 @@ def build_theme_information_context(term: str, rows: list[dict]) -> dict:
         for r in rows
         if isinstance(r.get("raw_row"), dict) and (r.get("raw_row") or {}).get("下一步验证")
     ])[:10]
-    selected = [r for r in rows if theme_info_score(r) >= 12 and theme_info_types(r) & {"segment_mapping", "relationship"}]
+    selected_all = [r for r in rows if theme_info_score(r) >= 12 and theme_info_types(r) & {"segment_mapping", "relationship"}]
+    selected = [
+        r for r in selected_all
+        if not is_generic_theme_info_segment(r.get("segment") or r.get("chain_position") or "")
+    ]
     by_segment: dict[str, list[dict]] = {}
     for row in selected:
         seg = str(row.get("segment") or row.get("chain_position") or "未分段").strip()
@@ -1151,7 +1212,10 @@ def build_theme_information_context(term: str, rows: list[dict]) -> dict:
     sorted_segments = sorted(by_segment.items(), key=lambda kv: (-len(kv[1]), kv[0]))
     for idx, (seg, items) in enumerate(sorted_segments[:24], 1):
         bucket = theme_info_chain_bucket(items[0])
-        companies = unique([str(r.get("entity_name") or "") for r in sorted(items, key=theme_info_score, reverse=True)[:8]])
+        companies = unique([
+            name for name in [str(r.get("entity_name") or "").strip() for r in sorted(items, key=theme_info_score, reverse=True)[:8]]
+            if name and name not in {"—", "-", "无", "unknown"}
+        ])
         mapping_count = sum(1 for r in items if "segment_mapping" in theme_info_types(r))
         relationship_count = sum(1 for r in items if "relationship" in theme_info_types(r))
         chain[bucket].append(
@@ -1213,11 +1277,23 @@ def build_theme_information_context(term: str, rows: list[dict]) -> dict:
             }
         )
 
+    catalyst_preview = [
+        {
+            "claim": theme_info_short(r.get("claim"), 100),
+            "source": theme_info_source_label(r),
+            "confidence": r.get("confidence") or "",
+        }
+        for r in sorted(catalyst_rows, key=theme_info_score, reverse=True)[:8]
+        if str(r.get("claim") or "").strip()
+    ]
     out = {
         "theme_information_pool": {
             "enabled": True,
             "total_rows": len(rows),
             "selected_rows": len(selected),
+            "filtered_generic_rows": len(selected_all) - len(selected),
+            "catalysts": catalyst_preview,
+            "verification_nodes": verification_nodes[:8],
             "segments": segment_rows,
             "relationships": relationship_rows,
             "note": "只读接入 IMA/Obsidian 统一信息池；用于题材地图和上下游关系，不写入 entities，不升级公司事实。",
@@ -1230,7 +1306,7 @@ def build_theme_information_context(term: str, rows: list[dict]) -> dict:
         "core_benefit_links": [
             f"{row['segment']}：{ '、'.join(row.get('companies') or []) }"
             for row in segment_rows[:12]
-            if row.get("segment")
+            if row.get("segment") and row.get("companies")
         ],
     }
     if demand_drivers:
@@ -1277,14 +1353,21 @@ def theme_information_pool_section(context: dict) -> str:
     if not isinstance(pool, dict) or not pool.get("enabled"):
         return "- 未接入 IMA/Obsidian 统一信息池。"
     lines = [
-        f"- 信息池：全量 {pool.get('total_rows', 0)} 条；进入题材地图/上下游展示层 {pool.get('selected_rows', 0)} 条。",
+        f"- 信息池：全量 {pool.get('total_rows', 0)} 条；进入题材地图/上下游展示层 {pool.get('selected_rows', 0)} 条；过滤泛化分段 {pool.get('filtered_generic_rows', 0)} 条。",
         f"- 边界：{pool.get('note', '')}",
+    ]
+    catalysts = pool.get("catalysts", []) or []
+    if catalysts:
+        lines.extend(["", "### IMA 催化事件", "", "| 催化/边际变化 | 可信度 | 来源 |", "|---|---|---|"])
+        for row in catalysts[:8]:
+            lines.append(f"| {row.get('claim','')} | {row.get('confidence','')} | {row.get('source','')} |")
+    lines.extend([
         "",
-        "### 细颗粒题材地图",
+        "### IMA 细颗粒题材地图",
         "",
         "| 细分环节 | 层级 | 信息项 | 地图项 | 关系项 | 代表主体 |",
         "|---|---|---:|---:|---:|---|",
-    ]
+    ])
     for row in pool.get("segments", [])[:24]:
         lines.append(
             f"| {row.get('segment','')} | {row.get('bucket','')} | {row.get('total',0)} | {row.get('mapping_count',0)} | {row.get('relationship_count',0)} | {'、'.join(row.get('companies') or [])} |"
@@ -1299,6 +1382,10 @@ def theme_information_pool_section(context: dict) -> str:
             lines.append(
                 f"| {row.get('segment','')} | {name} | {row.get('specificity','')} | {row.get('source','')} | {theme_info_short(row.get('claim'), 110)} |"
             )
+    verification_nodes = pool.get("verification_nodes", []) or []
+    if verification_nodes:
+        lines.extend(["", "### IMA 后续验证节点", ""])
+        lines.extend([f"- {x}" for x in verification_nodes[:8]])
     return "\n".join(lines)
 
 
