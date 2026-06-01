@@ -99,12 +99,15 @@ FIELD_MAPS = {
         "时间": "time_window",
         "时间窗口": "time_window",
         "事件": "event",
+        "验证事项": "event",
         "类型": "event_type",
         "事件类型": "event_type",
         "影响方向": "direction",
         "相关公司": "related_entities",
+        "对应编号": "related_validation_refs",
         "影响逻辑": "impact_logic",
         "下一步观察": "next_watch",
+        "核心观察点": "next_watch",
         "证据摘要": "evidence_summary",
         "来源": "source",
         "来源/日期": "source",
@@ -144,6 +147,11 @@ FIELD_MAPS = {
     "action_plan": {
         "优先级": "priority_bucket",
         "方向": "direction",
+        "标的": "target_entity",
+        "环节": "direction",
+        "景气判断": "prosperity_judgment",
+        "提及频率": "mention_frequency",
+        "认知层级": "recognition_level",
         "核心逻辑": "core_logic",
         "操作思路": "action_thesis",
         "等待条件": "wait_for",
@@ -243,6 +251,10 @@ def infer_section_from_headers(section: str, headers: list[str], source_file: st
         return "validation_items"
     if "事件" in header_set and "影响方向" in header_set and "下一步观察" in header_set:
         return "catalyst_calendar"
+    if "验证事项" in header_set and "核心观察点" in header_set and "时间" in header_set:
+        return "catalyst_calendar"
+    if "标的" in header_set and "环节" in header_set and "核心逻辑" in header_set:
+        return "action_plan"
     if "产业链景气度" in source_name and "景气判断" in header_set and "代表公司" in header_set:
         return "material_process_scan"
     return ""
@@ -337,6 +349,15 @@ def classify_material_process(row: dict[str, Any]) -> str:
     return "观察"
 
 
+def infer_action_priority(row: dict[str, Any]) -> str:
+    text = " ".join(str(row.get(k) or "") for k in ("prosperity_judgment", "mention_frequency", "recognition_level", "core_logic"))
+    if "高频" in text and any(token in text for token in ("L2-L3", "L3", "L2")) and any(token in text for token in ("高景气", "爆发")):
+        return "最优先"
+    if "高频" in text or any(token in text for token in ("L2-L3", "L3", "L2")):
+        return "次优先"
+    return "观察"
+
+
 def split_source_date(value: str) -> tuple[str, str]:
     text = clean_text(value)
     matches = re.findall(r"(?:20\d{2}[./-]\d{1,2}(?:[./-]\d{1,2})?|20\d{2}[./-]\d{1,2}|20\d{2})", text)
@@ -427,17 +448,36 @@ def normalize_row(section_key: str, raw: dict[str, str], theme: str, source_file
     if section_key == "catalyst_calendar":
         row.setdefault("evidence_summary", row.get("impact_logic", ""))
         if not row.get("direction"):
-            row["direction"] = infer_direction_from_section(section) or theme
+            inferred_direction = infer_direction_from_section(section)
+            if "验证节点日历" in inferred_direction:
+                inferred_direction = theme
+            row["direction"] = inferred_direction or theme
+        if not row.get("event_type"):
+            row["event_type"] = "关键验证" if row.get("related_validation_refs") else "产业催化"
         if not row.get("impact_logic"):
-            row["impact_logic"] = row.get("event", "")
+            row["impact_logic"] = row.get("next_watch", "") or row.get("event", "")
         if not row.get("next_watch"):
             row["next_watch"] = row.get("event", "")
         if not row.get("evidence_summary"):
-            row["evidence_summary"] = row.get("impact_logic", "") or row.get("event", "")
+            row["evidence_summary"] = row.get("impact_logic", "") or row.get("next_watch", "") or row.get("event", "")
         if row.get("source") and not row.get("source_date"):
             source, source_date = split_source_date(row.get("source", ""))
             row["source"] = source
             row["source_date"] = source_date
+    if section_key == "action_plan":
+        row.setdefault("priority_bucket", infer_action_priority(row))
+        if not row.get("core_logic"):
+            row["core_logic"] = row.get("evidence_summary", "") or row.get("prosperity_judgment", "")
+        target = row.get("target_entity", "")
+        direction = row.get("direction", "")
+        if not row.get("action_thesis"):
+            row["action_thesis"] = "；".join([item for item in (f"重点跟踪：{target}" if target else "", row.get("prosperity_judgment", ""), row.get("mention_frequency", ""), row.get("recognition_level", "")) if item])
+        if not row.get("wait_for"):
+            row["wait_for"] = "结合最新财报、公告、订单和客户导入进展二次验证。"
+        if not row.get("risk_warning"):
+            row["risk_warning"] = "来自补充数据池的研究线索，非公告硬事实，需复核。"
+        if not row.get("evidence_summary"):
+            row["evidence_summary"] = "；".join([item for item in (target, direction, row.get("core_logic", "")) if item])
     if not row.get("source"):
         row["source"] = Path(source_file).stem
     if not row.get("source_date") and default_source_date:
