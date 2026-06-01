@@ -1425,9 +1425,16 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
         demand = "、".join(as_list(row.get("demand_sources")))
         bottleneck = "、".join(as_list(row.get("bottlenecks_solved")))
         verification = direction_pool_first_verification(row)
+        hierarchy = row.get("sector_hierarchy", {}) if isinstance(row.get("sector_hierarchy"), dict) else {}
         scan_rows.append({
             "direction": row.get("direction", ""),
-            "sector": row.get("parent_sector", ""),
+            "sector": row.get("primary_sector") or row.get("parent_sector", ""),
+            "sector_hierarchy": hierarchy,
+            "primary_sector": row.get("primary_sector") or row.get("parent_sector", ""),
+            "secondary_sectors": as_list(row.get("secondary_sectors")),
+            "sector_confidence": row.get("sector_confidence", ""),
+            "sector_match_reason": row.get("sector_match_reason", ""),
+            "sector_source": row.get("sector_source", ""),
             "prosperity": "；".join(x for x in [f"需求：{demand}" if demand else "", f"瓶颈：{bottleneck}" if bottleneck else "", evidence_label] if x),
             "mention_frequency": f"方向池命中 {profile.get('item_count', 0)} 条",
             "recognition_level": row.get("recognition_stage", ""),
@@ -2611,16 +2618,23 @@ def direction_scan_section(context: dict) -> str:
     if not isinstance(rows, list) or not rows:
         return "- 待补：需要从主题向下扫描工艺、材料、设备、应用等细分方向。"
     lines = [
-        "| 细分方向 | 所属赛道 | 景气判断 | 提及频率 | 认知层级 | 分类 | 核心催化 | 候选公司 |",
-        "|---|---|---|---|---|---|---|---|",
+        "| 细分方向 | 一级产业 | 二级赛道 | 三级主题 | 次级相关 | 景气判断 | 提及频率 | 认知层级 | 分类 | 核心催化 | 候选公司 |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in rows:
         if not isinstance(row, dict):
             continue
+        hierarchy = row.get("sector_hierarchy", {}) if isinstance(row.get("sector_hierarchy"), dict) else {}
+        level_1 = hierarchy.get("level_1") or row.get("sector", "")
+        level_2 = hierarchy.get("level_2") or row.get("primary_sector") or row.get("sector", "")
+        level_3 = hierarchy.get("level_3") or ""
         lines.append(
-            "| {direction} | {sector} | {prosperity} | {mention_frequency} | {recognition_level} | {classification} | {core_catalyst} | {companies} |".format(
+            "| {direction} | {level_1} | {level_2} | {level_3} | {secondary} | {prosperity} | {mention_frequency} | {recognition_level} | {classification} | {core_catalyst} | {companies} |".format(
                 direction=row.get("direction", ""),
-                sector=row.get("sector", ""),
+                level_1=level_1,
+                level_2=level_2,
+                level_3=level_3,
+                secondary="、".join(as_list(row.get("secondary_sectors"))),
                 prosperity=row.get("prosperity", ""),
                 mention_frequency=row.get("mention_frequency", "待补"),
                 recognition_level=row.get("recognition_level", "待补"),

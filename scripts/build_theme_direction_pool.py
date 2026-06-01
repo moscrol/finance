@@ -154,6 +154,93 @@ def match_rules(text: str, rules: list[tuple[str, list[str]]]) -> list[str]:
     return [label for label, keys in rules if any(key in text for key in keys)]
 
 
+def taxonomy_terms(entry: dict[str, Any]) -> list[str]:
+    terms = [
+        entry.get("level_1", ""),
+        entry.get("level_2", ""),
+        entry.get("level_3", ""),
+        entry.get("level_4", ""),
+    ]
+    terms.extend(as_list(entry.get("keywords")))
+    terms.extend(as_list(entry.get("representative_entities")))
+    return unique([str(term) for term in terms])
+
+
+def taxonomy_score(text: str, entry: dict[str, Any]) -> tuple[int, list[str]]:
+    hits = [term for term in taxonomy_terms(entry) if term and term in text]
+    score = 0
+    for term in hits:
+        if term == entry.get("level_4"):
+            score += 12
+        elif term in {entry.get("level_3"), entry.get("level_2")}:
+            score += 8
+        elif term in as_list(entry.get("keywords")):
+            score += 5
+        else:
+            score += 2
+    return score, hits
+
+
+def match_sector_taxonomy(theme: str, direction: str, items: list[dict[str, Any]], taxonomy: dict[str, Any]) -> dict[str, Any]:
+    text = " ".join([theme, direction] + [str(i.get(k) or "") for i in items for k in ("segment", "component", "claim", "chain_position", "entity_name")])
+    entries = taxonomy.get("taxonomy", []) if isinstance(taxonomy, dict) else []
+    alias_rules = taxonomy.get("alias_rules", []) if isinstance(taxonomy, dict) else []
+    cross_map = taxonomy.get("cross_sector_map", []) if isinstance(taxonomy, dict) else []
+    alias_hits = []
+    for rule in alias_rules:
+        if not isinstance(rule, dict):
+            continue
+        canonical = str(rule.get("canonical_direction") or "")
+        aliases = [str(x) for x in as_list(rule.get("aliases"))]
+        if canonical and (canonical in text or any(alias and alias in text for alias in aliases)):
+            alias_hits.append(canonical)
+            text = f"{text} {canonical} {' '.join(aliases)}"
+    candidates = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        score, hits = taxonomy_score(text, entry)
+        if score:
+            candidates.append((score, hits, entry))
+    if not candidates:
+        fallback = infer_parent_sector(theme, direction, items)
+        return {
+            "sector_hierarchy": {"level_1": fallback, "level_2": fallback, "level_3": "", "level_4": direction},
+            "primary_sector": fallback,
+            "secondary_sectors": [],
+            "sector_confidence": "low",
+            "sector_match_reason": "fallback_parent_sector",
+            "sector_source": "legacy_infer_parent_sector",
+        }
+    score, hits, entry = sorted(candidates, key=lambda x: (-x[0], -len(x[1]), str(x[2].get("level_4", ""))))[0]
+    primary_sector = str(entry.get("level_2") or entry.get("level_1") or "")
+    secondary = []
+    relation_types = []
+    for relation in cross_map:
+        if not isinstance(relation, dict):
+            continue
+        target = str(relation.get("direction") or "")
+        if target and (target == entry.get("level_4") or target in text or target in alias_hits):
+            secondary.extend(str(x) for x in as_list(relation.get("secondary_sectors")))
+            if relation.get("relation_type"):
+                relation_types.append(str(relation.get("relation_type")))
+    confidence = "high" if score >= 12 else "medium" if score >= 6 else "low"
+    return {
+        "sector_hierarchy": {
+            "level_1": str(entry.get("level_1") or ""),
+            "level_2": str(entry.get("level_2") or ""),
+            "level_3": str(entry.get("level_3") or ""),
+            "level_4": str(entry.get("level_4") or direction),
+        },
+        "primary_sector": primary_sector,
+        "secondary_sectors": unique(secondary)[:8],
+        "sector_confidence": confidence,
+        "sector_match_reason": f"taxonomy_match:{'、'.join(hits[:6])}",
+        "sector_relation_types": unique(relation_types)[:6],
+        "sector_source": "theme_sector_taxonomy",
+    }
+
+
 def infer_direction_type(direction: str, items: list[dict[str, Any]]) -> str:
     text = " ".join([direction] + [str(i.get(k) or "") for i in items for k in ("segment", "component", "claim", "chain_position")])
     hits = match_rules(text, DIRECTION_TYPE_RULES)
@@ -456,6 +543,7 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
     graph = load_json(relations_dir / "concept_graph.json", {"concepts": {}})
     exposures = load_json(relations_dir / "entity_exposures.json", {"entities": {}})
     evidence_index = load_json(relations_dir / "evidence_index.json", {"items": []})
+    sector_taxonomy = load_json(relations_dir / "theme_sector_taxonomy.json", {})
     filtered = [r for r in rows if theme_matches(r, theme)]
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in filtered:
@@ -473,12 +561,20 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
         representatives = representative_entities_from_items(ranked_items, exposures, evidence_index)
         profile = evidence_profile(ranked_items, representatives)
         source_ids = [str(i.get("item_id")) for i in ranked_items if i.get("item_id")]
+        sector_match = match_sector_taxonomy(theme, direction, ranked_items, sector_taxonomy)
         directions.append({
             "direction": direction,
             "raw_directions": raw_directions[:20],
             "direction_type": infer_direction_type(direction, ranked_items),
             "chain_bucket": infer_chain_bucket(direction, ranked_items),
-            "parent_sector": infer_parent_sector(theme, direction, ranked_items),
+            "parent_sector": sector_match.get("primary_sector") or infer_parent_sector(theme, direction, ranked_items),
+            "sector_hierarchy": sector_match.get("sector_hierarchy", {}),
+            "primary_sector": sector_match.get("primary_sector", ""),
+            "secondary_sectors": sector_match.get("secondary_sectors", []),
+            "sector_confidence": sector_match.get("sector_confidence", ""),
+            "sector_match_reason": sector_match.get("sector_match_reason", ""),
+            "sector_relation_types": sector_match.get("sector_relation_types", []),
+            "sector_source": sector_match.get("sector_source", ""),
             "demand_sources": match_rules(text, DEMAND_RULES),
             "bottlenecks_solved": match_rules(text, BOTTLENECK_RULES),
             "beneficiary_links": unique([str(i.get("chain_position") or i.get("segment") or "") for i in ranked_items])[:8],
@@ -516,6 +612,7 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
             "concept_graph_loaded": bool(graph.get("concepts")),
             "entity_exposures_loaded": bool(exposures.get("entities")),
             "evidence_index_items": len(evidence_index.get("items", [])) if isinstance(evidence_index, dict) else 0,
+            "theme_sector_taxonomy_loaded": bool(sector_taxonomy.get("taxonomy")) if isinstance(sector_taxonomy, dict) else False,
         },
     }
 
@@ -562,18 +659,23 @@ def write_markdown(path: Path, pool: dict[str, Any], limit: int) -> None:
         "",
         "## 方向扫描",
         "",
-        "| 方向 | 类型 | 链条位置 | 认知水位 | 需求来源 | 技术瓶颈 | 代表实体 | 证据画像 | 下一步验证 |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| 方向 | 一级产业 | 二级赛道 | 三级主题 | 次级相关 | 类型 | 链条位置 | 认知水位 | 需求来源 | 技术瓶颈 | 代表实体 | 证据画像 | 下一步验证 |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ])
     for row in pool.get("directions", [])[:limit]:
         entities = "、".join(e.get("name", "") for e in row.get("representative_entities", [])[:5] if e.get("name"))
         profile = row.get("evidence_profile", {})
+        hierarchy = row.get("sector_hierarchy", {}) if isinstance(row.get("sector_hierarchy"), dict) else {}
         evidence = f"{profile.get('item_count', 0)}条/{profile.get('highest_evidence_layer', '')}"
         verify = row.get("verification_items", [])
         lines.append(
             "| "
             + " | ".join([
                 str(row.get("direction", "")),
+                str(hierarchy.get("level_1", "")),
+                str(hierarchy.get("level_2", "")),
+                str(hierarchy.get("level_3", "")),
+                "、".join(row.get("secondary_sectors", []) or []),
                 str(row.get("direction_type", "")),
                 str(row.get("chain_bucket", "")),
                 str(row.get("recognition_stage", "")),
