@@ -57,6 +57,7 @@ FIELD_MAPS = {
         "是否需核验": "needs_review",
     },
     "material_process_scan": {
+        "序号": "sequence",
         "工艺/材料/零部件名称": "name",
         "工艺/材料名称": "name",
         "工艺材料名称": "name",
@@ -77,6 +78,7 @@ FIELD_MAPS = {
         "是否需核验": "needs_review",
     },
     "validation_items": {
+        "#": "sequence",
         "方向": "direction",
         "验证事项": "item",
         "验证类型": "validation_type",
@@ -87,13 +89,17 @@ FIELD_MAPS = {
         "当前状态": "status",
         "证据摘要": "evidence_summary",
         "来源": "source",
+        "来源/日期": "source",
         "日期": "source_date",
         "可信度": "confidence",
         "是否需核验": "needs_review",
     },
     "catalyst_calendar": {
+        "#": "sequence",
+        "时间": "time_window",
         "时间窗口": "time_window",
         "事件": "event",
+        "类型": "event_type",
         "事件类型": "event_type",
         "影响方向": "direction",
         "相关公司": "related_entities",
@@ -101,6 +107,7 @@ FIELD_MAPS = {
         "下一步观察": "next_watch",
         "证据摘要": "evidence_summary",
         "来源": "source",
+        "来源/日期": "source",
         "日期": "source_date",
         "可信度": "confidence",
         "是否需核验": "needs_review",
@@ -222,7 +229,26 @@ def normalize_section(section: str) -> str:
     return ""
 
 
-def parse_markdown_tables(text: str) -> list[dict[str, Any]]:
+def infer_section_from_headers(section: str, headers: list[str], source_file: str) -> str:
+    normalized = normalize_section(section)
+    if normalized:
+        return normalized
+    header_set = set(headers)
+    source_name = Path(source_file).name
+    if {"需求场景", "下游驱动", "传导逻辑"} & header_set and "需求场景" in header_set:
+        return "demand_scenarios"
+    if "工艺/材料/零部件名称" in header_set and "景气判断" in header_set:
+        return "material_process_scan"
+    if "验证事项" in header_set and "升级条件" in header_set and "降级条件" in header_set:
+        return "validation_items"
+    if "事件" in header_set and "影响方向" in header_set and "下一步观察" in header_set:
+        return "catalyst_calendar"
+    if "产业链景气度" in source_name and "景气判断" in header_set and "代表公司" in header_set:
+        return "material_process_scan"
+    return ""
+
+
+def parse_markdown_tables(text: str, source_file: str = "") -> list[dict[str, Any]]:
     lines = text.splitlines()
     tables = []
     section = ""
@@ -242,7 +268,7 @@ def parse_markdown_tables(text: str) -> list[dict[str, Any]]:
                 row = {headers[j]: cells[j] if j < len(cells) else "" for j in range(len(headers))}
                 rows.append({"line_no": i + 1, "row": row})
                 i += 1
-            tables.append({"section": section, "section_key": normalize_section(section), "headers": headers, "rows": rows})
+            tables.append({"section": section, "section_key": infer_section_from_headers(section, headers, source_file), "headers": headers, "rows": rows, "source_file": source_file})
             continue
         i += 1
     return tables
@@ -254,11 +280,80 @@ def parse_theme(text: str, fallback: str) -> str:
             title = clean_text(line.lstrip("#"))
             title = re.sub(r"Theme\s*Radar\s*补充数据", "", title, flags=re.I).strip()
             title = re.sub(r"题材雷达.*$", "", title).strip()
+            for sep in (" /", "—", "-", "_"):
+                if sep in title:
+                    title = title.split(sep, 1)[0].strip()
             return title or fallback
     stem = fallback
     stem = re.sub(r"_?ThemeRadar_?补充数据$", "", stem)
     stem = re.sub(r"_?theme_supplement_pool$", "", stem)
     return stem
+
+
+def infer_direction_from_section(section: str) -> str:
+    value = clean_text(section)
+    value = re.sub(r"^\d+(?:\.\d+)?[、.\s]*", "", value)
+    value = re.sub(r"^[一二三四五六七八九十]+[、.\s]*", "", value)
+    value = re.sub(r"（.*?）", "", value)
+    return value.strip()
+
+
+def infer_validation_type(text: str) -> str:
+    value = clean_text(text)
+    mapping = [
+        ("订单", "订单"),
+        ("招标", "订单"),
+        ("中标", "订单"),
+        ("产能", "产能"),
+        ("投产", "产能"),
+        ("ASP", "ASP"),
+        ("价格", "价格"),
+        ("良率", "良率"),
+        ("认证", "客户认证"),
+        ("客户", "客户认证"),
+        ("收入", "收入占比"),
+        ("占比", "收入占比"),
+        ("国产", "国产替代"),
+        ("政策", "政策"),
+        ("量产", "量产"),
+        ("交付", "交付"),
+        ("发射", "发射进度"),
+        ("回收", "技术验证"),
+    ]
+    for token, label in mapping:
+        if token in value:
+            return label
+    return "综合验证"
+
+
+def classify_material_process(row: dict[str, Any]) -> str:
+    text = " ".join(str(row.get(k) or "") for k in ("prosperity_judgment", "prosperity_reason", "core_catalyst"))
+    if any(token in text for token in ("高景气", "爆发", "供不应求", "放量", "快速提升")):
+        return "发酵"
+    if any(token in text for token in ("景气上行", "稳健增长", "验证", "确定性")):
+        return "布局"
+    if any(token in text for token in ("景气启动", "从0到1", "早期", "认知差")):
+        return "观察"
+    return "观察"
+
+
+def split_source_date(value: str) -> tuple[str, str]:
+    text = clean_text(value)
+    matches = re.findall(r"(?:20\d{2}[./-]\d{1,2}(?:[./-]\d{1,2})?|20\d{2}[./-]\d{1,2}|20\d{2})", text)
+    if not matches:
+        return text, ""
+    source_date = matches[-1].replace(".", "-").replace("/", "-")
+    source = text.rsplit(matches[-1], 1)[0].strip(" /，,；;")
+    return source or text, source_date
+
+
+def extract_default_date(text: str) -> str:
+    for line in text.splitlines()[:20]:
+        if any(token in line for token in ("更新日期", "最近更新", "覆盖时段", "更新窗口")):
+            matches = re.findall(r"(?:20\d{2}[./-]\d{1,2}(?:[./-]\d{1,2})?|20\d{2}[./-]\d{1,2}|20\d{2})", line)
+            if matches:
+                return matches[-1].replace(".", "-").replace("/", "-")
+    return ""
 
 
 def split_list(value: str) -> list[str]:
@@ -271,7 +366,7 @@ def split_list(value: str) -> list[str]:
 
 def normalize_bool(value: str) -> bool:
     text = clean_text(value).lower()
-    return text in {"是", "yes", "y", "true", "1", "需核验", "需要", "需要核验"}
+    return text in {"是", "yes", "y", "true", "1", "需核验", "需要", "需要核验", "✅", "✔", "✓"}
 
 
 def normalize_confidence(value: str) -> str:
@@ -293,7 +388,7 @@ def normalize_stage_position(value: str) -> int | str:
     return mapping.get(text, text)
 
 
-def normalize_row(section_key: str, raw: dict[str, str], theme: str, source_file: str, line_no: int) -> dict[str, Any]:
+def normalize_row(section_key: str, raw: dict[str, str], theme: str, source_file: str, line_no: int, section: str = "", default_source_date: str = "") -> dict[str, Any]:
     field_map = FIELD_MAPS.get(section_key, {})
     row: dict[str, Any] = {}
     for key, value in raw.items():
@@ -308,16 +403,47 @@ def normalize_row(section_key: str, raw: dict[str, str], theme: str, source_file
             row[target] = normalize_stage_position(value)
         else:
             row[target] = clean_text(value)
-    evidence_text = row.get("evidence_summary") or row.get("event") or row.get("item") or row.get("scenario") or row.get("name") or row.get("direction") or row.get("term") or ""
-    row["item_id"] = sha_id(theme, section_key, evidence_text, row.get("source", ""), row.get("source_date", ""), str(line_no))
     row["source_file"] = source_file
     row["line_no"] = line_no
+    row["section"] = clean_text(section)
     row["section_type"] = section_key
     row["raw_row"] = raw
     if "confidence" not in row:
         row["confidence"] = "medium"
     if "needs_review" not in row:
         row["needs_review"] = True
+    if section_key == "material_process_scan":
+        row.setdefault("chain_position", infer_direction_from_section(section))
+        if not row.get("daily_review_frequency"):
+            row["daily_review_frequency"] = "未统计"
+        row.setdefault("classification", classify_material_process(row))
+    if section_key == "validation_items":
+        row.setdefault("direction", infer_direction_from_section(section))
+        row.setdefault("validation_type", infer_validation_type(row.get("item", "")))
+        if row.get("source") and not row.get("source_date"):
+            source, source_date = split_source_date(row.get("source", ""))
+            row["source"] = source
+            row["source_date"] = source_date
+    if section_key == "catalyst_calendar":
+        row.setdefault("evidence_summary", row.get("impact_logic", ""))
+        if not row.get("direction"):
+            row["direction"] = infer_direction_from_section(section) or theme
+        if not row.get("impact_logic"):
+            row["impact_logic"] = row.get("event", "")
+        if not row.get("next_watch"):
+            row["next_watch"] = row.get("event", "")
+        if not row.get("evidence_summary"):
+            row["evidence_summary"] = row.get("impact_logic", "") or row.get("event", "")
+        if row.get("source") and not row.get("source_date"):
+            source, source_date = split_source_date(row.get("source", ""))
+            row["source"] = source
+            row["source_date"] = source_date
+    if not row.get("source"):
+        row["source"] = Path(source_file).stem
+    if not row.get("source_date") and default_source_date:
+        row["source_date"] = default_source_date
+    evidence_text = row.get("evidence_summary") or row.get("event") or row.get("item") or row.get("scenario") or row.get("name") or row.get("direction") or row.get("term") or ""
+    row["item_id"] = sha_id(theme, section_key, evidence_text, row.get("source", ""), row.get("source_date", ""), str(line_no))
     return row
 
 
@@ -354,14 +480,24 @@ def definition_profile_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def markdown_paths(path: Path) -> list[Path]:
+    if path.is_dir():
+        return sorted(p for p in path.glob("*.md") if p.is_file())
+    return [path]
+
+
 def build_pool(path: Path, theme_arg: str = "") -> dict[str, Any]:
-    text = path.read_text(encoding="utf-8")
-    theme = theme_arg or parse_theme(text, path.stem)
+    paths = markdown_paths(path)
+    if not paths:
+        raise FileNotFoundError(f"no markdown files found under {path}")
+    texts = [(p, p.read_text(encoding="utf-8")) for p in paths]
+    theme = theme_arg or parse_theme(texts[0][1], texts[0][0].stem)
     pool: dict[str, Any] = {
         "version": 1,
         "theme": theme,
         "generated_at": date.today().isoformat(),
         "source_file": str(path),
+        "source_files": [str(p) for p, _text in texts],
         "definition_profile": {},
         "definition_profile_rows": [],
         "demand_scenarios": [],
@@ -376,20 +512,26 @@ def build_pool(path: Path, theme_arg: str = "") -> dict[str, Any]:
         "evidence_items": [],
         "unmapped_tables": [],
     }
-    for table in parse_markdown_tables(text):
-        section_key = table.get("section_key") or ""
-        if not section_key:
-            pool["unmapped_tables"].append({"section": table.get("section", ""), "headers": table.get("headers", []), "row_count": len(table.get("rows", []))})
-            continue
-        for item in table.get("rows", []):
-            row = normalize_row(section_key, item["row"], theme, str(path), int(item["line_no"]))
-            pool[section_key].append(row)
-            pool["evidence_items"].append(evidence_item_from_row(theme, row))
+    for source_path, text in texts:
+        source_theme = parse_theme(text, source_path.stem)
+        default_source_date = extract_default_date(text)
+        if not theme_arg and source_theme and source_theme != theme and (theme not in source_theme and source_theme not in theme):
+            pass
+        for table in parse_markdown_tables(text, str(source_path)):
+            section_key = table.get("section_key") or ""
+            if not section_key:
+                pool["unmapped_tables"].append({"section": table.get("section", ""), "headers": table.get("headers", []), "row_count": len(table.get("rows", [])), "source_file": str(source_path)})
+                continue
+            for item in table.get("rows", []):
+                row = normalize_row(section_key, item["row"], theme, str(source_path), int(item["line_no"]), table.get("section", ""), default_source_date)
+                pool[section_key].append(row)
+                pool["evidence_items"].append(evidence_item_from_row(theme, row))
     pool["definition_profile"] = definition_profile_from_rows(pool["definition_profile_rows"])
     counts = {key: len(pool.get(key, [])) for key in FIELD_MAPS}
     pool["summary"] = {
         "theme": theme,
         "source_file": str(path),
+        "source_file_count": len(paths),
         "row_count": sum(counts.values()),
         "table_counts": counts,
         "evidence_item_count": len(pool["evidence_items"]),
