@@ -91,12 +91,21 @@ def business_scope(raw):
 
 def split_products(text):
     candidates = []
-    product_text = text
-    product_text = re.sub(r"的研发[、,，]?生产与销售.*", "", product_text)
+    product_text = str(text or "")
+    product_text = product_text.replace("以及", "、").replace("及其", "及其")
+    product_text = product_text.strip("。；; ")
+    product_text = re.sub(r"^(从事|主要从事|公司从事)", "", product_text).strip()
+    product_text = re.sub(r"(的)?(研发|开发|生产|销售|工程安装|售后服务|设计|制造|服务)([、,，和及与]*(研发|开发|生产|销售|工程安装|售后服务|设计|制造|服务))*业务?[。；;]*$", "", product_text)
+    product_text = re.sub(r"四个领域产品.*$", "", product_text)
     product_text = re.sub(r"(主要)?包括[:：]", "、", product_text)
     for item in re.split(r"[、,，;；/]+", product_text):
         item = item.strip()
         item = re.sub(r"^(公司|主营业务|一般项目|许可项目)[:：]?", "", item).strip()
+        item = item.strip("。；; ")
+        item = re.sub(r"(的)?(研发|开发|生产|销售|工程安装|售后服务|设计|制造|服务|生产及|销售及|和销售)$", "", item).strip()
+        item = item.strip("。；; 及与和")
+        if item in {"研发", "开发", "生产", "销售", "制造", "服务", "经营", "业务", "产品", "设计"}:
+            continue
         if 2 <= len(item) <= 24 and item not in candidates:
             candidates.append(item)
     return candidates[:12]
@@ -115,6 +124,12 @@ def infer_concepts(seed_concepts, main_biz, products, industry):
         ("卫星互联网", ["卫星", "卫星通信", "卫星导航", "低轨"]),
         ("惯性导航", ["惯性", "导航", "光纤惯组"]),
         ("集成电路", ["集成电路", "芯片", "半导体"]),
+        ("化工", ["基础化工", "化学制品", "聚氨酯", "异氰酸酯"]),
+        ("高温合金", ["高温合金"]),
+        ("医药生物", ["医药生物", "生物制品", "微生态制剂"]),
+        ("电池材料", ["锂离子电池材料", "电池化学品"]),
+        ("电子信息材料", ["电子信息材料"]),
+        ("智能交通", ["智能交通"]),
         ("机器人", ["机器人", "伺服", "减速器"]),
         ("固态电池", ["固态电池"]),
         ("光模块", ["光模块", "光通信"]),
@@ -126,8 +141,50 @@ def infer_concepts(seed_concepts, main_biz, products, industry):
     return concepts[:8]
 
 
+def concept_support(concept, main_biz, products, industry):
+    text = f"{main_biz} {' '.join(products)} {industry}"
+    if concept and concept in text:
+        return "medium"
+    aliases = {
+        "化工": ["基础化工", "化学制品", "聚氨酯", "异氰酸酯", "MDI"],
+        "光学材料": ["聚氨酯", "异氰酸酯", "化学制品"],
+        "光学塑料": ["聚氨酯", "异氰酸酯", "化学制品"],
+        "高温合金": ["高温合金"],
+        "医药生物": ["医药生物", "生物制品", "微生态制剂"],
+        "电池材料": ["锂离子电池材料", "电池化学品"],
+        "电子信息材料": ["电子信息材料"],
+        "半导体材料": ["电子信息材料"],
+        "智能交通": ["智能交通"],
+    }
+    hits = aliases.get(concept, [])
+    if any(hit in text for hit in hits):
+        return "low"
+    return ""
+
+
 def infer_role(company, concept, main_biz, products):
     text = f"{company} {concept} {main_biz} {' '.join(products)}"
+    if "高温合金" in text and any(k in concept for k in ("航空发动机", "单晶叶片", "航空航天", "军工", "增材制造", "3D打印")):
+        return "高温合金材料及航空航天相关材料供应商"
+    if "聚氨酯" in text or "异氰酸酯" in text:
+        if any(k in concept for k in ("光学材料", "光学塑料", "COC", "PMMA", "化工")):
+            return "聚氨酯/异氰酸酯等化工材料供应商"
+    if "锂离子电池材料" in text and any(k in concept for k in ("磷酸铁锂", "LFP", "电池")):
+        return "锂离子电池材料供应商"
+    if "电子信息材料" in text and any(k in concept for k in ("光刻胶", "半导体材料", "光刻胶单体", "光刻胶树脂", "光致产酸剂")):
+        return "电子信息材料与光刻胶相关材料供应商"
+    if "电子信息材料" in text and "电子信息材料" in concept:
+        return "电子信息材料供应商"
+    if "电池材料" in concept and "锂离子电池材料" in text:
+        return "锂离子电池材料供应商"
+    if "化工" in concept and ("聚氨酯" in text or "异氰酸酯" in text):
+        return "聚氨酯/异氰酸酯等化工材料供应商"
+    if "智能交通" in text and "激光雷达" in concept:
+        return "智能交通与激光雷达相关产品供应商"
+    if "智能交通" in text and "智能交通" in concept:
+        return "智能交通产品与解决方案供应商"
+    if concept and (concept in main_biz or any(concept in p or p in concept for p in products)):
+        return f"{concept}相关产品/材料供应商"
     if "无人" in concept or "无人" in text:
         return "无人系统相关产品与装备供应商"
     if "航天" in concept or "卫星" in concept:
@@ -161,12 +218,19 @@ def build_update(raw, raw_path, seed_concepts):
     main_biz = main_business(raw)
     scope = business_scope(raw)
     products = split_products(main_biz) or split_products(scope)
-    concepts = infer_concepts(seed_concepts, main_biz, products, industry_text)
+    candidate_concepts = infer_concepts(seed_concepts, main_biz, products, industry_text)
+    concepts = []
+    unsupported_seed_concepts = []
+    for concept in candidate_concepts:
+        if concept_support(concept, main_biz, products, industry_text):
+            concepts.append(concept)
+        elif concept in (seed_concepts or []):
+            unsupported_seed_concepts.append(concept)
     exposures = []
     for concept in concepts:
         role = infer_role(company, concept, main_biz, products)
         chain_layer = infer_chain_layer(role, main_biz, products)
-        confidence = "medium" if concept in main_biz or any(concept in p or p in concept for p in products) else "low"
+        confidence = concept_support(concept, main_biz, products, industry_text) or "low"
         strength = "related" if confidence == "medium" else "peripheral"
         exposures.append({
             "concept": concept,
@@ -183,6 +247,9 @@ def build_update(raw, raw_path, seed_concepts):
     raw["products"] = products
     raw["industry"] = {"F10行业": industry_text} if industry_text else {}
     Path(raw_path).write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    open_questions = ["该公司相关题材暴露是否已有订单、客户认证、收入占比或产能等L3官方验证？"]
+    if unsupported_seed_concepts:
+        open_questions.append(f"已有标签/概念 {', '.join(unsupported_seed_concepts[:8])} 未由本次F10主营或行业字段直接支撑，需公告、年报或专题资料复核后再写入图谱。")
     return {
         "company": company,
         "code": code,
@@ -199,7 +266,7 @@ def build_update(raw, raw_path, seed_concepts):
         "exposures": exposures,
         "key_data": [],
         "risks": ["F10/公开资料为L2 baseline，核心程度需后续公告、年报或订单验证。"],
-        "open_questions": ["该公司相关题材暴露是否已有订单、客户认证、收入占比或产能等L3官方验证？"],
+        "open_questions": open_questions,
     }
 
 

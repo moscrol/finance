@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import date
@@ -46,8 +47,12 @@ def run_json(cmd):
 
 
 def batch_number():
-    existing = sorted(SUMMARY_DIR.glob("batch*-summary.md"))
-    return len(existing) + 1
+    numbers = []
+    for path in SUMMARY_DIR.glob("batch*"):
+        match = re.match(r"batch(\d+)", path.name)
+        if match:
+            numbers.append(int(match.group(1)))
+    return max(numbers, default=0) + 1
 
 
 def merge_payloads(paths, source_name):
