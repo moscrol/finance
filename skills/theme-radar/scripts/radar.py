@@ -1380,6 +1380,12 @@ def direction_pool_evidence_label(profile: dict) -> str:
 
 
 def direction_pool_score(row: dict) -> int:
+    recognition = row.get("recognition_profile", {}) if isinstance(row, dict) else {}
+    if isinstance(recognition, dict) and recognition.get("score") is not None:
+        try:
+            return int(recognition.get("score"))
+        except Exception:
+            pass
     profile = row.get("evidence_profile", {}) if isinstance(row, dict) else {}
     stage = str(row.get("recognition_stage") or "")
     stage_score = {"暗流": 30, "萌芽": 45, "第一轮": 60, "催化共振": 78, "一致认同": 90}.get(stage, 35)
@@ -1426,6 +1432,10 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
         bottleneck = "、".join(as_list(row.get("bottlenecks_solved")))
         verification = direction_pool_first_verification(row)
         hierarchy = row.get("sector_hierarchy", {}) if isinstance(row.get("sector_hierarchy"), dict) else {}
+        recognition = row.get("recognition_profile", {}) if isinstance(row.get("recognition_profile"), dict) else {}
+        recognition_stage = recognition.get("stage") or row.get("recognition_stage", "")
+        recognition_score = recognition.get("score", "")
+        recognition_label = f"{recognition_stage}（{recognition_score}）" if recognition_score != "" else recognition_stage
         scan_rows.append({
             "direction": row.get("direction", ""),
             "sector": row.get("primary_sector") or row.get("parent_sector", ""),
@@ -1437,15 +1447,19 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
             "sector_source": row.get("sector_source", ""),
             "prosperity": "；".join(x for x in [f"需求：{demand}" if demand else "", f"瓶颈：{bottleneck}" if bottleneck else "", evidence_label] if x),
             "mention_frequency": f"方向池命中 {profile.get('item_count', 0)} 条",
-            "recognition_level": row.get("recognition_stage", ""),
+            "recognition_level": recognition_label,
+            "recognition_profile": recognition,
             "classification": f"{row.get('direction_type','')}/{row.get('chain_bucket','')}",
             "core_catalyst": verification,
             "candidate_companies": companies,
         })
         ranking_rows.append({
             "direction": row.get("direction", ""),
-            "stage": row.get("recognition_stage", ""),
-            "recognition_level": row.get("recognition_stage", ""),
+            "stage": recognition_stage,
+            "recognition_level": recognition_label,
+            "stage_reason": "；".join(as_list(recognition.get("stage_reason"))[:3]) if isinstance(recognition, dict) else "",
+            "upgrade_triggers": "；".join(as_list(recognition.get("upgrade_triggers"))[:2]) if isinstance(recognition, dict) else "",
+            "downgrade_risks": "；".join(as_list(recognition.get("downgrade_risks"))[:2]) if isinstance(recognition, dict) else "",
             "evidence_level": profile.get("highest_evidence_layer", "direction_pool"),
             "progress_score": direction_pool_score(row),
             "key_signal": evidence_label,
@@ -2712,19 +2726,21 @@ def progress_ranking_section(context: dict) -> str:
             return 0
     rows = sorted([r for r in rows if isinstance(r, dict)], key=score, reverse=True)
     lines = [
-        "| 序号 | 方向 | 阶段 | 认知层级 | 证据等级 | 内部进度 | 关键信号 | 下一验证 | 优先级 |",
-        "|---:|---|---|---|---|---:|---|---|---|",
+        "| 序号 | 方向 | 阶段 | 评分 | 阶段理由 | 证据等级 | 关键信号 | 升级触发 | 降级风险 | 下一验证 | 优先级 |",
+        "|---:|---|---|---:|---|---|---|---|---|---|---|",
     ]
     for idx, row in enumerate(rows, 1):
         lines.append(
-            "| {idx} | {direction} | {stage} | {recognition_level} | {evidence_level} | {progress_score} | {key_signal} | {next_validation} | {priority} |".format(
+            "| {idx} | {direction} | {stage} | {progress_score} | {stage_reason} | {evidence_level} | {key_signal} | {upgrade_triggers} | {downgrade_risks} | {next_validation} | {priority} |".format(
                 idx=idx,
                 direction=row.get("direction", ""),
                 stage=row.get("stage", "待补"),
-                recognition_level=row.get("recognition_level", "待补"),
                 evidence_level=row.get("evidence_level", "待补"),
                 progress_score=row.get("progress_score", ""),
+                stage_reason=row.get("stage_reason", ""),
                 key_signal=row.get("key_signal", ""),
+                upgrade_triggers=row.get("upgrade_triggers", ""),
+                downgrade_risks=row.get("downgrade_risks", ""),
                 next_validation=row.get("next_validation", ""),
                 priority=row.get("priority", "待补"),
             )

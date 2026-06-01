@@ -405,27 +405,111 @@ def evidence_profile(items: list[dict[str, Any]], representative_entities: list[
     }
 
 
-def recognition_stage(profile: dict[str, Any], items: list[dict[str, Any]]) -> str:
-    score = 0
-    if profile.get("item_count", 0) >= 8:
-        score += 2
-    elif profile.get("item_count", 0) >= 3:
-        score += 1
-    if profile.get("has_multi_source_support"):
-        score += 2
-    if profile.get("has_official_evidence"):
-        score += 2
-    if any("marginal_change" in set(as_list(i.get("info_types"))) for i in items):
-        score += 1
-    if any(str(i.get("source_date") or "") for i in items):
-        score += 1
-    if score >= 7:
+def stage_from_score(score: int) -> str:
+    if score >= 85:
+        return "一致认同"
+    if score >= 70:
         return "催化共振"
-    if score >= 5:
+    if score >= 50:
         return "第一轮"
-    if score >= 3:
+    if score >= 30:
         return "萌芽"
     return "暗流"
+
+
+def recognition_stage(profile: dict[str, Any], items: list[dict[str, Any]]) -> str:
+    return stage_from_score(recognition_profile(profile, items, [], [], [], [])["score"])
+
+
+def recognition_profile(
+    profile: dict[str, Any],
+    items: list[dict[str, Any]],
+    representative_entities: list[dict[str, Any]],
+    catalysts: list[dict[str, Any]],
+    verification_items: list[dict[str, Any]],
+    risks: list[str],
+) -> dict[str, Any]:
+    item_count = int(profile.get("item_count") or 0)
+    layer = str(profile.get("highest_evidence_layer") or "")
+    score = min(item_count * 3, 20)
+    stage_reason = []
+    positive_signals = []
+    missing_confirmations = []
+    upgrade_triggers = []
+    downgrade_risks = list(risks)
+    if item_count:
+        stage_reason.append(f"方向池命中 {item_count} 条信息项")
+    layer_score = {
+        "L1": 24,
+        "L2": 20,
+        "L2_candidate": 16,
+        "L1_L3_candidate": 16,
+        "L3": 14,
+        "L3_candidate": 10,
+        "curated_research": 10,
+        "review_candidate": 8,
+        "graph_only": 3,
+        "exposure_only": 3,
+    }.get(layer, 6)
+    score += layer_score
+    if layer:
+        stage_reason.append(f"最高证据层级 {layer}")
+    if profile.get("has_official_evidence"):
+        score += 12
+        positive_signals.append("已有官方/公司一手证据参与画像")
+    else:
+        missing_confirmations.append("缺少公告、定期报告、官网或监管披露等一手证据")
+        upgrade_triggers.append("出现公告/定期报告/客户认证/订单/量产/收入占比等官方证据")
+        score -= 4
+    if profile.get("has_multi_source_support"):
+        score += 10
+        positive_signals.append("存在多源互证或跨来源支持")
+    else:
+        missing_confirmations.append("仍需 IMA/Obsidian/公告/研报之间的跨源互证")
+        upgrade_triggers.append("出现第二个独立来源确认同一方向和公司级链条")
+    if representative_entities:
+        score += min(len(representative_entities) * 2, 8)
+        stage_reason.append(f"代表实体 {len(representative_entities)} 个")
+    else:
+        missing_confirmations.append("缺少可落地到公司级的代表实体")
+    if catalysts:
+        score += 8
+        positive_signals.append("已有催化或边际变化线索")
+    else:
+        missing_confirmations.append("缺少明确催化事件或边际变化")
+    if verification_items:
+        score += 5
+        positive_signals.append("已有下一步验证节点")
+    else:
+        missing_confirmations.append("缺少可跟踪验证节点")
+    if any("marginal_change" in set(as_list(i.get("info_types") or i.get("primary_info_type"))) for i in items):
+        score += 5
+        positive_signals.append("包含边际变化类信息")
+    if any(str(i.get("source_date") or "") for i in items):
+        score += 3
+    review_count = int(profile.get("review_required_count") or 0)
+    graph_only_count = int(profile.get("graph_only_count") or 0)
+    if review_count:
+        score -= min(review_count * 3, 9)
+        downgrade_risks.append(f"{review_count} 条信息需要人工复核")
+    if graph_only_count:
+        score -= min(graph_only_count * 2, 8)
+        downgrade_risks.append(f"{graph_only_count} 条 graph_only/exposure_only 弱证据")
+    score = max(0, min(99, score))
+    stage = stage_from_score(score)
+    if stage in {"暗流", "萌芽"}:
+        upgrade_triggers.append("方向密度继续提升，并形成公司级产品/客户/订单/产能验证")
+    if stage in {"催化共振", "一致认同"}:
+        downgrade_risks.append("若后续公告或产业反馈低于预期，阶段可能回落")
+    return {
+        "score": score,
+        "stage": stage,
+        "stage_reason": unique(stage_reason)[:8],
+        "positive_signals": unique(positive_signals)[:8],
+        "missing_confirmations": unique(missing_confirmations)[:8],
+        "upgrade_triggers": unique(upgrade_triggers)[:8],
+        "downgrade_risks": unique(downgrade_risks)[:8],
+    }
 
 
 def catalysts_from_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -562,6 +646,10 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
         profile = evidence_profile(ranked_items, representatives)
         source_ids = [str(i.get("item_id")) for i in ranked_items if i.get("item_id")]
         sector_match = match_sector_taxonomy(theme, direction, ranked_items, sector_taxonomy)
+        catalysts = catalysts_from_items(ranked_items)
+        verification_items = verification_items_from_items(ranked_items)
+        risks = risks_from_items(ranked_items, profile)
+        recognition = recognition_profile(profile, ranked_items, representatives, catalysts, verification_items, risks)
         directions.append({
             "direction": direction,
             "raw_directions": raw_directions[:20],
@@ -580,10 +668,11 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
             "beneficiary_links": unique([str(i.get("chain_position") or i.get("segment") or "") for i in ranked_items])[:8],
             "representative_entities": representatives,
             "evidence_profile": profile,
-            "recognition_stage": recognition_stage(profile, ranked_items),
-            "catalysts": catalysts_from_items(ranked_items),
-            "verification_items": verification_items_from_items(ranked_items),
-            "risks": risks_from_items(ranked_items, profile),
+            "recognition_stage": recognition.get("stage", ""),
+            "recognition_profile": recognition,
+            "catalysts": catalysts,
+            "verification_items": verification_items,
+            "risks": risks,
             "source_items": source_ids[:30],
             "sample_claims": [short_text(i.get("claim"), 120) for i in ranked_items[:5] if i.get("claim")],
         })
@@ -659,13 +748,14 @@ def write_markdown(path: Path, pool: dict[str, Any], limit: int) -> None:
         "",
         "## 方向扫描",
         "",
-        "| 方向 | 一级产业 | 二级赛道 | 三级主题 | 次级相关 | 类型 | 链条位置 | 认知水位 | 需求来源 | 技术瓶颈 | 代表实体 | 证据画像 | 下一步验证 |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| 方向 | 一级产业 | 二级赛道 | 三级主题 | 次级相关 | 类型 | 链条位置 | 认知水位 | 评分 | 阶段理由 | 需求来源 | 技术瓶颈 | 代表实体 | 证据画像 | 下一步验证 |",
+        "|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|",
     ])
     for row in pool.get("directions", [])[:limit]:
         entities = "、".join(e.get("name", "") for e in row.get("representative_entities", [])[:5] if e.get("name"))
         profile = row.get("evidence_profile", {})
         hierarchy = row.get("sector_hierarchy", {}) if isinstance(row.get("sector_hierarchy"), dict) else {}
+        recognition = row.get("recognition_profile", {}) if isinstance(row.get("recognition_profile"), dict) else {}
         evidence = f"{profile.get('item_count', 0)}条/{profile.get('highest_evidence_layer', '')}"
         verify = row.get("verification_items", [])
         lines.append(
@@ -679,6 +769,8 @@ def write_markdown(path: Path, pool: dict[str, Any], limit: int) -> None:
                 str(row.get("direction_type", "")),
                 str(row.get("chain_bucket", "")),
                 str(row.get("recognition_stage", "")),
+                str(recognition.get("score", "")),
+                short_text("；".join(recognition.get("stage_reason", []) or []), 90),
                 "、".join(row.get("demand_sources", []) or []),
                 "、".join(row.get("bottlenecks_solved", []) or []),
                 entities,
