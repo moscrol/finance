@@ -4045,9 +4045,14 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
         company["direction_frame"] = context.get("direction_frame", {}) if isinstance(context, dict) else {}
     definition_profile = context.get("definition_profile", {}) if isinstance(context, dict) and isinstance(context.get("definition_profile"), dict) else {}
     state_definition = state["definition"].strip()
-    if state_definition in {"从既有Markdown关系表重建"} and definition_profile.get("one_line_anchor"):
-        state_definition = ""
-    definition_text = state_definition or definition_profile.get("one_line_anchor", "") or context_definition(context) or f"{term}：待从 full 精读/PDF ingest 中补一句话定锚。"
+    supplement_anchor = str(definition_profile.get("one_line_anchor", "")).strip()
+    explicit_definition = bool(definition.strip())
+    if explicit_definition:
+        definition_text = definition.strip()
+    elif supplement_anchor:
+        definition_text = supplement_anchor
+    else:
+        definition_text = state_definition or context_definition(context) or f"{term}：待从 full 精读/PDF ingest 中补一句话定锚。"
     return f"""# {term} 题材深拆
 
 生成日期：{date.today().isoformat()}
