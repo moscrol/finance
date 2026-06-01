@@ -295,12 +295,26 @@ def split_values(value: str) -> list[str]:
     if not s or s in {"—", "-", "无", "unknown", "全产业链", "全板块"}:
         return []
     out = []
-    for x in re.split(r"[、,，/；;]+", s):
+    parts = []
+    buf = []
+    depth = 0
+    for ch in s:
+        if ch in "（(":
+            depth += 1
+        elif ch in "）)" and depth > 0:
+            depth -= 1
+        if depth == 0 and ch in "、,，/；;":
+            parts.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    parts.append("".join(buf))
+    for x in parts:
         item = re.sub(r"^[^：:]{1,12}[：:]", "", x.strip()).strip()
         item = re.sub(r"[（(][^）)]*$", "", item).strip()
         if re.search(r"[）)]", item) and not re.search(r"[（(]", item):
             continue
-        item = re.sub(r"等$", "", item).strip()
+        item = re.sub(r"等(?:头部企业|公司|企业|主体|标的)?.*$", "", item).strip()
         if item:
             out.append(item)
     return out
@@ -310,6 +324,9 @@ def split_inline_ticker(name: str) -> tuple[str, str]:
     s = re.sub(r"[（(](?:CXMT|未上市|非上市|非A股|[^）)]*IPO[^）)]*)[）)]", "", str(name or "").strip()).strip()
     s = re.sub(r"[（(]参股[^）)]*[）)]", "", s).strip()
     s = re.sub(r"参股.+$", "", s).strip()
+    m = re.match(r"^(.+?)[（(]([0-9A-Za-z.]+)(?:[，,].*)?[）)]", s)
+    if m:
+        return m.group(1).strip(), normalize_ticker(m.group(2).strip())
     m = re.match(r"^(.+?)[（(]([0-9A-Za-z.]+)(?:[，,].*)?[）)](?:\s*[-—–].*)?$", s)
     if m:
         return m.group(1).strip(), normalize_ticker(m.group(2).strip())
@@ -317,21 +334,59 @@ def split_inline_ticker(name: str) -> tuple[str, str]:
     return s, ""
 
 
-def normalize_ticker(ticker: str) -> str:
+def normalize_ticker_single(ticker: str) -> str:
     s = str(ticker or "").strip()
+    if s in {"—", "-", "无", "unknown", "板块", "全行业", "全板块", "CXO", "未在A股上市", "已退市", "非A股", "非上市", "未上市"}:
+        return ""
     m = re.match(r"^(\d{6})(?:\.(?:SH|SZ|BJ))?$", s, flags=re.I)
-    return m.group(1) if m else s
+    if m:
+        return m.group(1)
+    m = re.match(r"^(\d{4,5})\.HK$", s, flags=re.I)
+    if m:
+        return f"{m.group(1)}.HK"
+    return s
+
+
+def split_ticker_values(ticker: str) -> list[str]:
+    return [normalize_ticker_single(x) for x in re.split(r"\s*[、,，/；;]\s*", str(ticker or "").strip()) if x.strip()]
+
+
+def normalize_ticker(ticker: str) -> str:
+    parts = split_ticker_values(ticker)
+    if len(parts) > 1:
+        for part in parts:
+            if re.match(r"^\d{6}$", part):
+                return part
+        return parts[0]
+    return parts[0] if parts else ""
 
 
 def normalize_entity_name(name: str, ticker: str = "") -> str:
     s = str(name or "").strip()
     ticker = str(ticker or "").strip()
+    s = re.sub(r"^#+\s*", "", s).strip()
     s = re.sub(r"^\d+\.\d+\s+", "", s).strip()
+    s = re.sub(r"^公司[：:]", "", s).strip()
+    if ticker and re.search(r"[：:]", s):
+        s = re.split(r"[：:]", s)[-1].strip()
+    if re.match(r"^[0-9A-Za-z]{3,8}\.(?:SH|SZ|BJ|HK|NDAQ)$", s, flags=re.I):
+        return ""
     if s in {
         "—", "-", "无", "unknown", "全产业链", "全板块", "全行业", "氧化镨钕",
         "所有涉出口小金属公司", "全品种相关公司", "所有战略金属品种", "全部小金属A股标的",
-        "尤其政商务相关",
+        "尤其政商务相关", "全创新药企业", "全Biotech", "多家公司", "国家药监局", "医保目录",
+        "创新药BD", "临床前CRO", "科创板创新药", "不达标中小散户及部分集团落后产能",
+        "利好合规龙头企业", "中小散户及落后产能", "25家头部企业被纳入产能调控范围",
+        "全行业受益", "焦煤企业", "山西区域煤企", "所有动力煤企业", "低估值煤企",
+        "所有磷矿持有企业", "待确认涉及企业", "磷矿石全行业", "磷酸铁锂全行业",
+        "全板块受益", "全板块", "铜价", "美国关税", "铜箔行业", "铜行业", "铜精矿TC/RC",
     }:
+        return ""
+    if re.match(r"^(所有动力煤企业|焦煤企业|动力煤企业|全行业|全板块|全产业链|山西区域煤企|进口依赖度低的煤企受益更大)", s):
+        return ""
+    if re.search(r"(待确认|全行业|所有|vs\s*外采|外采原料企业)", s):
+        return ""
+    if re.search(r"(产量大增|受益更大)$", s):
         return ""
     s = re.sub(r"^尤其", "", s).strip()
     s = {
@@ -370,6 +425,14 @@ def field_map(row_entries: list[dict]) -> dict:
         if key:
             out[key] = clean_text(row.get("内容", ""))
     return out
+
+
+def get_first(data: dict, *keys: str) -> str:
+    for key in keys:
+        value = data.get(key, "")
+        if value:
+            return value
+    return ""
 
 
 def backfill_tickers(items: list[dict]) -> None:
@@ -470,6 +533,8 @@ def make_item(
     info_types = info_types or infer_info_types(claim, segment, entity)
     primary_info_type = primary_info_type or info_types[0]
     specificity = infer_specificity(claim, entity, ticker)
+    if suggested_use in {"watchlist_only", "graph_only"}:
+        specificity = "low"
     return {
         "item_id": sha_id(meta["theme"], entity, ticker, segment, claim, meta["line_no"], source_record_type),
         "theme": meta["theme"],
@@ -656,14 +721,24 @@ def items_from_subdirection_row(row: dict, meta: dict) -> list[dict]:
 def item_from_company_field_table(section: str, rows: list[dict], meta: dict):
     m = re.match(r"(.+?)（([^）]+)）$", section.strip())
     if not m:
-        return None
+        return []
     data = field_map(rows)
     claim = data.get("题材相关性一句话", "")
     if not claim:
-        return None
+        return []
+    name_raw = m.group(1).strip()
+    ticker_raw = m.group(2).strip()
+    name_parts = [x.strip() for x in re.split(r"\s*/\s*", name_raw) if x.strip()]
+    ticker_parts = split_ticker_values(ticker_raw)
+    if len(name_parts) > 1 and len(ticker_parts) >= len(name_parts):
+        pairs = list(zip(name_parts, ticker_parts))
+    else:
+        pairs = [(name_raw, normalize_ticker(ticker_raw))]
     source_title = data.get("证据来源", "")
     evidence_raw = data.get("题材暴露类型", "")
-    if "hard_fact" in evidence_raw:
+    if "watchlist" in evidence_raw:
+        evidence_level = "watchlist_only"
+    elif "hard_fact" in evidence_raw:
         evidence_level = "hard_fact_candidate"
     elif "exposure_only" in evidence_raw:
         evidence_level = "exposure_only"
@@ -671,27 +746,34 @@ def item_from_company_field_table(section: str, rows: list[dict], meta: dict):
         evidence_level = "review_candidate"
     else:
         evidence_level = "curated_research"
-    return make_item(
-        meta,
-        entity=m.group(1).strip(),
-        ticker=m.group(2).strip(),
-        chain_position=data.get("所属产业链环节", ""),
-        segment=data.get("对应细分方向", "") or data.get("所属产业链环节", ""),
-        component=data.get("相关产品/技术/服务", ""),
-        claim=claim,
-        info_types=infer_info_types(" ".join([claim, data.get("原文摘录", "")]), data.get("对应细分方向", ""), m.group(1)),
-        primary_info_type="segment_mapping",
-        source_title=source_title,
-        source_type=deep_source_type(source_title),
-        source_date=data.get("证据日期", ""),
-        confidence_raw=data.get("可信度", ""),
-        needs_review_raw="true" if data.get("是否建议进入entities/*.md") != "是" else data.get("是否建议进入entities/*.md"),
-        evidence_level=evidence_level,
-        suggested_use="deep_dive" if data.get("是否建议进入Deep Dive") == "是" else "theme_radar",
-        risk_note=data.get("风险提示", ""),
-        source_record_type="deep_dive_company_mapping",
-        raw_row=data,
-    )
+    deep_dive_raw = get_first(data, "是否建议进入Deep Dive", "是否建议进入 Deep Dive")
+    suggested_use = "deep_dive" if deep_dive_raw == "是" else "theme_radar"
+    if evidence_level == "watchlist_only" or re.search(r"(已退市|剔除|非A股|港股)", " ".join([evidence_raw, deep_dive_raw, data.get("风险提示", "")])):
+        suggested_use = "watchlist_only"
+    return [
+        make_item(
+            meta,
+            entity=entity,
+            ticker=ticker,
+            chain_position=data.get("所属产业链环节", ""),
+            segment=data.get("对应细分方向", "") or data.get("所属产业链环节", ""),
+            component=data.get("相关产品/技术/服务", ""),
+            claim=claim,
+            info_types=infer_info_types(" ".join([claim, data.get("原文摘录", "")]), data.get("对应细分方向", ""), entity),
+            primary_info_type="segment_mapping",
+            source_title=source_title,
+            source_type=deep_source_type(source_title),
+            source_date=data.get("证据日期", ""),
+            confidence_raw=data.get("可信度", ""),
+            needs_review_raw="true" if get_first(data, "是否建议进入entities/*.md", "是否建议进入 entities/*.md") != "是" else get_first(data, "是否建议进入entities/*.md", "是否建议进入 entities/*.md"),
+            evidence_level=evidence_level,
+            suggested_use=suggested_use,
+            risk_note=data.get("风险提示", ""),
+            source_record_type="deep_dive_company_mapping",
+            raw_row=data,
+        )
+        for entity, ticker in pairs
+    ]
 
 
 def item_from_theme_anchor_table(rows: list[dict], meta: dict):
@@ -1003,9 +1085,9 @@ def build_outputs(path: Path, source_system: str) -> tuple[dict, list[str]]:
                 elif {"细分方向", "为什么重要", "代表公司"}.issubset(data) and ("所属产业链环节" in data or "产业链环节" in data or "所属环节" in data or "环节" in data):
                     items.extend(items_from_subdirection_row(data, meta))
                     break
-                item = item_from_company_field_table(table["section"], table["rows"], meta)
-                if item:
-                    items.append(item)
+                company_items = item_from_company_field_table(table["section"], table["rows"], meta)
+                if company_items:
+                    items.extend(company_items)
                     break
             elif SOURCE_HEADERS.issubset(headers):
                 sources.append(source_from_row(r["row"], meta))
@@ -1014,9 +1096,7 @@ def build_outputs(path: Path, source_system: str) -> tuple[dict, list[str]]:
 
     for section in parse_bullet_field_sections(text):
         meta = {"theme": theme, "source_system": source_system, "source_file": str(path), "section": section["section"], "line_no": section["line_no"]}
-        item = item_from_company_field_table(section["section"], section["rows"], meta)
-        if item:
-            items.append(item)
+        items.extend(item_from_company_field_table(section["section"], section["rows"], meta))
 
     for section in parse_subdirection_bullet_sections(text):
         meta = {"theme": theme, "source_system": source_system, "source_file": str(path), "section": section["section"], "line_no": section["line_no"]}
