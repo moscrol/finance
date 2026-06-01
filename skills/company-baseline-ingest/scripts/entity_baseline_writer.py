@@ -27,10 +27,11 @@ FORBIDDEN_PHRASES = {
     "公司是行业主流的",
     "automatic batch",
 }
-RAW_SOURCE_RE = re.compile(r"^raw/(ifind|akshare|cninfo|eastmoney|manual-verified)-baseline/[^/]+\.json$")
+RAW_SOURCE_RE = re.compile(r"^raw/(ifind|akshare|a-stock|cninfo|eastmoney|manual-verified)-baseline/[^/]+\.json$")
 SOURCE_LABELS = {
     "ifind": "iFinD 基础资料 / 公司摘要",
     "akshare": "AkShare 公开资料 / 主营构成",
+    "a-stock": "a-stock-data / mootdx F10 / AkShare fallback",
     "cninfo": "巨潮资讯 / 定期报告",
     "eastmoney": "东方财富公开资料 / 公司资料",
     "manual-verified": "人工核验公开资料",
