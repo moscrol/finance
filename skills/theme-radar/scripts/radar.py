@@ -1422,6 +1422,7 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
     ranking_rows = []
     catalyst_rows = []
     validation_rows = []
+    opportunity_rows = []
     for row in directions:
         if not isinstance(row, dict):
             continue
@@ -1434,6 +1435,7 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
         hierarchy = row.get("sector_hierarchy", {}) if isinstance(row.get("sector_hierarchy"), dict) else {}
         recognition = row.get("recognition_profile", {}) if isinstance(row.get("recognition_profile"), dict) else {}
         validation_plan = row.get("validation_plan", {}) if isinstance(row.get("validation_plan"), dict) else {}
+        opportunity = row.get("opportunity_profile", {}) if isinstance(row.get("opportunity_profile"), dict) else {}
         recognition_stage = recognition.get("stage") or row.get("recognition_stage", "")
         recognition_score = recognition.get("score", "")
         recognition_label = f"{recognition_stage}（{recognition_score}）" if recognition_score != "" else recognition_stage
@@ -1461,11 +1463,21 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
             "stage_reason": "；".join(as_list(recognition.get("stage_reason"))[:3]) if isinstance(recognition, dict) else "",
             "upgrade_triggers": "；".join(as_list(recognition.get("upgrade_triggers"))[:2]) if isinstance(recognition, dict) else "",
             "downgrade_risks": "；".join(as_list(recognition.get("downgrade_risks"))[:2]) if isinstance(recognition, dict) else "",
+            "tier": opportunity.get("tier", ""),
             "evidence_level": profile.get("highest_evidence_layer", "direction_pool"),
-            "progress_score": direction_pool_score(row),
+            "progress_score": opportunity.get("opportunity_score") or direction_pool_score(row),
             "key_signal": evidence_label,
             "next_validation": verification,
-            "priority": "优先跟踪" if direction_pool_score(row) >= 60 else "观察验证",
+            "priority": opportunity.get("follow_up_priority") or ("优先跟踪" if direction_pool_score(row) >= 60 else "观察验证"),
+        })
+        opportunity_rows.append({
+            "direction": row.get("direction", ""),
+            "tier": opportunity.get("tier", ""),
+            "follow_up_priority": opportunity.get("follow_up_priority", ""),
+            "opportunity_score": opportunity.get("opportunity_score", ""),
+            "supporting_evidence": "；".join(as_list(opportunity.get("supporting_evidence"))[:3]),
+            "missing_proof": "；".join(as_list(opportunity.get("missing_proof"))[:3]),
+            "next_actions": "；".join(as_list(opportunity.get("next_actions"))[:3]),
         })
         for catalyst in validation_plan.get("occurred_catalysts") or row.get("catalysts") or []:
             if not isinstance(catalyst, dict):
@@ -1499,6 +1511,7 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
         },
         "direction_scan": scan_rows,
         "progress_ranking": ranking_rows,
+        "opportunity_priorities": opportunity_rows,
         "catalyst_calendar": catalyst_rows[:30],
         "validation_checklist": validation_rows[:30],
         "demand_bottleneck_map": demand_map,
@@ -1514,10 +1527,10 @@ def merge_theme_direction_pool_context(context: dict, direction_context: dict) -
         return context or {}
     merged = dict(context or {})
     merged["theme_direction_pool"] = direction_context.get("theme_direction_pool", {})
-    for key in ("direction_scan", "progress_ranking", "catalyst_calendar", "validation_checklist", "demand_bottleneck_map"):
+    for key in ("direction_scan", "progress_ranking", "opportunity_priorities", "catalyst_calendar", "validation_checklist", "demand_bottleneck_map"):
         existing = merged.get(key) if isinstance(merged.get(key), list) else []
         incoming = direction_context.get(key) if isinstance(direction_context.get(key), list) else []
-        if key in ("direction_scan", "progress_ranking"):
+        if key in ("direction_scan", "progress_ranking", "opportunity_priorities"):
             seen = set()
             rows = []
             for item in incoming + existing:
@@ -2734,15 +2747,16 @@ def progress_ranking_section(context: dict) -> str:
             return 0
     rows = sorted([r for r in rows if isinstance(r, dict)], key=score, reverse=True)
     lines = [
-        "| 序号 | 方向 | 阶段 | 评分 | 阶段理由 | 证据等级 | 关键信号 | 升级触发 | 降级风险 | 下一验证 | 优先级 |",
-        "|---:|---|---|---:|---|---|---|---|---|---|---|",
+        "| 序号 | 方向 | 阶段 | Tier | 评分 | 阶段理由 | 证据等级 | 关键信号 | 升级触发 | 降级风险 | 下一验证 | 优先级 |",
+        "|---:|---|---|---|---:|---|---|---|---|---|---|---|",
     ]
     for idx, row in enumerate(rows, 1):
         lines.append(
-            "| {idx} | {direction} | {stage} | {progress_score} | {stage_reason} | {evidence_level} | {key_signal} | {upgrade_triggers} | {downgrade_risks} | {next_validation} | {priority} |".format(
+            "| {idx} | {direction} | {stage} | {tier} | {progress_score} | {stage_reason} | {evidence_level} | {key_signal} | {upgrade_triggers} | {downgrade_risks} | {next_validation} | {priority} |".format(
                 idx=idx,
                 direction=row.get("direction", ""),
                 stage=row.get("stage", "待补"),
+                tier=row.get("tier", ""),
                 evidence_level=row.get("evidence_level", "待补"),
                 progress_score=row.get("progress_score", ""),
                 stage_reason=row.get("stage_reason", ""),
@@ -2753,6 +2767,22 @@ def progress_ranking_section(context: dict) -> str:
                 priority=row.get("priority", "待补"),
             )
         )
+    return "\n".join(lines)
+
+
+def opportunity_priorities_section(context: dict) -> str:
+    rows = context.get("opportunity_priorities", []) if isinstance(context, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return "- 待补：需要把细分方向按研究跟踪优先级分层。"
+    def score(row):
+        try:
+            return float(row.get("opportunity_score", 0))
+        except Exception:
+            return 0
+    rows = sorted([r for r in rows if isinstance(r, dict)], key=score, reverse=True)
+    lines = ["| 方向 | Tier | 跟踪优先级 | 机会评分 | 支撑证据 | 缺口 | 下一步动作 |", "|---|---|---|---:|---|---|---|"]
+    for row in rows:
+        lines.append(f"| {row.get('direction','')} | {row.get('tier','')} | {row.get('follow_up_priority','')} | {row.get('opportunity_score','')} | {row.get('supporting_evidence','')} | {row.get('missing_proof','')} | {row.get('next_actions','')} |")
     return "\n".join(lines)
 
 
@@ -3829,6 +3859,10 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 ## 七、发酵进度与预期差
 
 {progress_ranking_section(context)}
+
+### 跟踪优先级
+
+{opportunity_priorities_section(context)}
 
 ### 催化日历
 

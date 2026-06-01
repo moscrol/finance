@@ -577,6 +577,35 @@ def validation_plan_for_direction(direction: str, profile: dict[str, Any], catal
     return {"validation_window": window, "occurred_catalysts": occurred[:6], "upcoming_catalysts": verification_items[:6], "upgrade_conditions": upgrades, "downgrade_conditions": downgrades, "key_tracking_items": tracking, "evidence_to_watch": ["公告/定报/官网/监管披露", "客户认证/订单/量产/收入占比", "第二独立来源互证"], "status": "待验证"}
 
 
+def opportunity_profile_for_direction(profile: dict[str, Any], recognition: dict[str, Any], validation: dict[str, Any], representatives: list[dict[str, Any]], risks: list[str]) -> dict[str, Any]:
+    score = int(recognition.get("score") or 0)
+    if validation.get("occurred_catalysts"):
+        score += 8
+    if validation.get("upcoming_catalysts"):
+        score += 6
+    if representatives:
+        score += min(len(representatives) * 2, 10)
+    if profile.get("has_official_evidence"):
+        score += 8
+    if profile.get("has_multi_source_support"):
+        score += 6
+    score -= min(int(profile.get("graph_only_count") or 0) * 3, 12)
+    score -= min(int(profile.get("review_required_count") or 0) * 2, 10)
+    score = max(0, min(99, score))
+    if score >= 70:
+        tier, priority = "Tier 1", "high"
+    elif score >= 50:
+        tier, priority = "Tier 2", "medium_high"
+    elif score >= 25:
+        tier, priority = "Tier 3", "medium"
+    else:
+        tier, priority = "Watchlist", "low"
+    supporting = unique(as_list(recognition.get("positive_signals")) + as_list(recognition.get("stage_reason")) + [f"代表实体 {len(representatives)} 个" if representatives else ""])[:6]
+    missing = unique(as_list(recognition.get("missing_confirmations")) + as_list(validation.get("evidence_to_watch")))[:6]
+    next_actions = unique(as_list(validation.get("key_tracking_items")) + as_list(validation.get("upgrade_conditions")))[:6]
+    return {"tier": tier, "follow_up_priority": priority, "opportunity_score": score, "supporting_evidence": supporting, "missing_proof": missing, "key_risks": unique(risks + as_list(recognition.get("downgrade_risks")))[:6], "next_actions": next_actions}
+
+
 def aggregate_direction_profiles(rows: list[dict[str, Any]]) -> dict[str, Any]:
     profiles = [row.get("evidence_profile", {}) for row in rows if isinstance(row.get("evidence_profile"), dict)]
     layers = [str(p.get("highest_evidence_layer") or "") for p in profiles if p.get("highest_evidence_layer")]
@@ -664,6 +693,7 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
         risks = risks_from_items(ranked_items, profile)
         recognition = recognition_profile(profile, ranked_items, representatives, catalysts, verification_items, risks)
         validation = validation_plan_for_direction(direction, profile, catalysts, verification_items, recognition, risks)
+        opportunity = opportunity_profile_for_direction(profile, recognition, validation, representatives, risks)
         directions.append({
             "direction": direction,
             "raw_directions": raw_directions[:20],
@@ -684,6 +714,7 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
             "evidence_profile": profile,
             "recognition_stage": recognition.get("stage", ""),
             "recognition_profile": recognition,
+            "opportunity_profile": opportunity,
             "catalysts": catalysts,
             "verification_items": verification_items,
             "validation_plan": validation,
@@ -763,14 +794,15 @@ def write_markdown(path: Path, pool: dict[str, Any], limit: int) -> None:
         "",
         "## 方向扫描",
         "",
-        "| 方向 | 一级产业 | 二级赛道 | 三级主题 | 次级相关 | 类型 | 链条位置 | 认知水位 | 评分 | 阶段理由 | 需求来源 | 技术瓶颈 | 代表实体 | 证据画像 | 下一步验证 |",
-        "|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|",
+        "| 方向 | 一级产业 | 二级赛道 | 三级主题 | 次级相关 | 类型 | 链条位置 | 认知水位 | 认知评分 | Tier | 机会评分 | 阶段理由 | 需求来源 | 技术瓶颈 | 代表实体 | 证据画像 | 下一步验证 |",
+        "|---|---|---|---|---|---|---|---:|---:|---|---:|---|---|---|---|---|---|",
     ])
     for row in pool.get("directions", [])[:limit]:
         entities = "、".join(e.get("name", "") for e in row.get("representative_entities", [])[:5] if e.get("name"))
         profile = row.get("evidence_profile", {})
         hierarchy = row.get("sector_hierarchy", {}) if isinstance(row.get("sector_hierarchy"), dict) else {}
         recognition = row.get("recognition_profile", {}) if isinstance(row.get("recognition_profile"), dict) else {}
+        opportunity = row.get("opportunity_profile", {}) if isinstance(row.get("opportunity_profile"), dict) else {}
         evidence = f"{profile.get('item_count', 0)}条/{profile.get('highest_evidence_layer', '')}"
         verify = row.get("verification_items", [])
         lines.append(
@@ -785,6 +817,8 @@ def write_markdown(path: Path, pool: dict[str, Any], limit: int) -> None:
                 str(row.get("chain_bucket", "")),
                 str(row.get("recognition_stage", "")),
                 str(recognition.get("score", "")),
+                str(opportunity.get("tier", "")),
+                str(opportunity.get("opportunity_score", "")),
                 short_text("；".join(recognition.get("stage_reason", []) or []), 90),
                 "、".join(row.get("demand_sources", []) or []),
                 "、".join(row.get("bottlenecks_solved", []) or []),
