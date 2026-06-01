@@ -89,6 +89,19 @@ def business_scope(raw):
     return first_between(f10_text(raw), "经营范围", ["主营业务", "公司简介", "├", "└"])
 
 
+def akshare_products(raw):
+    products = []
+    for item in raw.get("akshare_fallback", []) or []:
+        for row in item.get("content", []) or []:
+            for key in ("产品名称", "产品类型"):
+                value = str(row.get(key) or "").strip()
+                for part in re.split(r"[、,，;；/]+", value):
+                    part = part.strip()
+                    if 2 <= len(part) <= 24 and part not in products:
+                        products.append(part)
+    return products[:12]
+
+
 def split_products(text):
     candidates = []
     product_text = str(text or "")
@@ -102,8 +115,14 @@ def split_products(text):
         item = item.strip()
         item = re.sub(r"^(公司|主营业务|一般项目|许可项目)[:：]?", "", item).strip()
         item = item.strip("。；; ")
-        item = re.sub(r"(的)?(研发|开发|生产|销售|工程安装|售后服务|设计|制造|服务|生产及|销售及|和销售)$", "", item).strip()
+        item = re.sub(r"(的)?(研发|开发|生产|销售|工程安装|售后服务|设计|制造|服务|生产及|销售及|和销售|的生产)$", "", item).strip()
+        for suffix in ("的生产", "的销售", "的研发", "的开发", "的制造"):
+            if item.endswith(suffix):
+                item = item[: -len(suffix)].strip()
         item = item.strip("。；; 及与和")
+        for suffix in ("的生产", "的销售", "的研发", "的开发", "的制造"):
+            if item.endswith(suffix):
+                item = item[: -len(suffix)].strip()
         if item in {"研发", "开发", "生产", "销售", "制造", "服务", "经营", "业务", "产品", "设计"}:
             continue
         if 2 <= len(item) <= 24 and item not in candidates:
@@ -130,6 +149,10 @@ def infer_concepts(seed_concepts, main_biz, products, industry):
         ("电池材料", ["锂离子电池材料", "电池化学品"]),
         ("电子信息材料", ["电子信息材料"]),
         ("智能交通", ["智能交通"]),
+        ("网络安全", ["网络安全", "互联网安全", "数字安全"]),
+        ("数据安全", ["数据安全", "互联网数据服务", "数字安全"]),
+        ("电子化学品", ["电子化学品"]),
+        ("电镀添加剂", ["电镀化学品", "表面工程专用化学品"]),
         ("机器人", ["机器人", "伺服", "减速器"]),
         ("固态电池", ["固态电池"]),
         ("光模块", ["光模块", "光通信"]),
@@ -155,6 +178,10 @@ def concept_support(concept, main_biz, products, industry):
         "电子信息材料": ["电子信息材料"],
         "半导体材料": ["电子信息材料"],
         "智能交通": ["智能交通"],
+        "网络安全": ["网络安全", "互联网安全", "数字安全"],
+        "数据安全": ["数据安全", "互联网数据服务", "数字安全"],
+        "电子化学品": ["电子化学品"],
+        "电镀添加剂": ["电镀化学品", "表面工程专用化学品"],
     }
     hits = aliases.get(concept, [])
     if any(hit in text for hit in hits):
@@ -183,6 +210,10 @@ def infer_role(company, concept, main_biz, products):
         return "智能交通与激光雷达相关产品供应商"
     if "智能交通" in text and "智能交通" in concept:
         return "智能交通产品与解决方案供应商"
+    if concept in ("网络安全", "数据安全"):
+        return "数字安全与互联网安全产品/服务商"
+    if concept in ("电子化学品", "电镀添加剂"):
+        return "表面工程专用化学品与电子化学品供应商"
     if concept and (concept in main_biz or any(concept in p or p in concept for p in products)):
         return f"{concept}相关产品/材料供应商"
     if "无人" in concept or "无人" in text:
@@ -217,7 +248,7 @@ def build_update(raw, raw_path, seed_concepts):
     industry_text = f10_industry(raw)
     main_biz = main_business(raw)
     scope = business_scope(raw)
-    products = split_products(main_biz) or split_products(scope)
+    products = akshare_products(raw) or split_products(main_biz) or split_products(scope)
     candidate_concepts = infer_concepts(seed_concepts, main_biz, products, industry_text)
     concepts = []
     unsupported_seed_concepts = []
