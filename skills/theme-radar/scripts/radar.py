@@ -1049,6 +1049,16 @@ def read_theme_direction_pool(path: Path, term: str) -> dict:
     return data
 
 
+def read_theme_supplement_pool(path: Path, term: str) -> dict:
+    if not path or not path.exists():
+        return {}
+    data = load_json(path, {})
+    theme = str(data.get("theme") or "").strip()
+    if theme and term and term not in theme and theme not in term:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def theme_info_types(row: dict) -> set[str]:
     values = row.get("info_types") or [row.get("primary_info_type")]
     return {str(v) for v in values if v}
@@ -1585,6 +1595,86 @@ def merge_theme_direction_pool_context(context: dict, direction_context: dict) -
     return merged
 
 
+def build_theme_supplement_pool_context(pool: dict) -> dict:
+    if not isinstance(pool, dict) or not pool:
+        return {}
+    context = {
+        "theme_supplement_pool": {
+            "enabled": True,
+            "theme": pool.get("theme", ""),
+            "generated_at": pool.get("generated_at", ""),
+            "source_file": pool.get("source_file", ""),
+            "summary": pool.get("summary", {}),
+        },
+        "definition_profile": pool.get("definition_profile", {}) if isinstance(pool.get("definition_profile"), dict) else {},
+        "demand_scenarios": pool.get("demand_scenarios", []) if isinstance(pool.get("demand_scenarios"), list) else [],
+        "material_process_scan": pool.get("material_process_scan", []) if isinstance(pool.get("material_process_scan"), list) else [],
+        "industry_chain_panorama": pool.get("industry_chain_panorama", []) if isinstance(pool.get("industry_chain_panorama"), list) else [],
+        "recognition_timeline": pool.get("recognition_timeline", []) if isinstance(pool.get("recognition_timeline"), list) else [],
+        "action_plan": pool.get("action_plan", []) if isinstance(pool.get("action_plan"), list) else [],
+        "progress_ruler": pool.get("progress_ruler", []) if isinstance(pool.get("progress_ruler"), list) else [],
+        "supplement_evidence_items": pool.get("evidence_items", []) if isinstance(pool.get("evidence_items"), list) else [],
+    }
+    validation_rows = []
+    for row in pool.get("validation_items", []) if isinstance(pool.get("validation_items"), list) else []:
+        if not isinstance(row, dict):
+            continue
+        validation_rows.append({
+            "direction": row.get("direction", ""),
+            "item": row.get("item", ""),
+            "window": row.get("validation_window", ""),
+            "upgrade_condition": row.get("upgrade_condition", ""),
+            "downgrade_condition": row.get("downgrade_condition", ""),
+            "status": row.get("status", "待验证"),
+            "validation_type": row.get("validation_type", ""),
+            "source": row.get("source", ""),
+            "source_date": row.get("source_date", ""),
+            "item_id": row.get("item_id", ""),
+        })
+    catalyst_rows = []
+    for row in pool.get("catalyst_calendar", []) if isinstance(pool.get("catalyst_calendar"), list) else []:
+        if not isinstance(row, dict):
+            continue
+        catalyst_rows.append({
+            "direction": row.get("direction", ""),
+            "time": row.get("time_window", ""),
+            "event": row.get("event", ""),
+            "event_type": row.get("event_type", ""),
+            "evidence": row.get("evidence_summary", ""),
+            "watch_item": row.get("next_watch", ""),
+            "source": row.get("source", ""),
+            "source_date": row.get("source_date", ""),
+            "item_id": row.get("item_id", ""),
+        })
+    context["validation_checklist"] = validation_rows
+    context["catalyst_calendar"] = catalyst_rows
+    return context
+
+
+def merge_theme_supplement_pool_context(context: dict, supplement_context: dict) -> dict:
+    if not supplement_context:
+        return context or {}
+    merged = dict(context or {})
+    merged["theme_supplement_pool"] = supplement_context.get("theme_supplement_pool", {})
+    if supplement_context.get("definition_profile"):
+        merged["definition_profile"] = supplement_context.get("definition_profile", {})
+    for key in (
+        "demand_scenarios",
+        "material_process_scan",
+        "industry_chain_panorama",
+        "recognition_timeline",
+        "action_plan",
+        "progress_ruler",
+        "supplement_evidence_items",
+        "catalyst_calendar",
+        "validation_checklist",
+    ):
+        existing = merged.get(key) if isinstance(merged.get(key), list) else []
+        incoming = supplement_context.get(key) if isinstance(supplement_context.get(key), list) else []
+        merged[key] = incoming + existing
+    return merged
+
+
 def theme_information_pool_section(context: dict) -> str:
     pool = context.get("theme_information_pool", {}) if isinstance(context, dict) else {}
     if not isinstance(pool, dict) or not pool.get("enabled"):
@@ -1643,6 +1733,24 @@ def theme_direction_pool_section(context: dict) -> str:
     if isinstance(by_type, dict) and by_type:
         lines.append(f"- 方向类型分布：{'; '.join(f'{k}={v}' for k, v in by_type.items())}")
     return "\n".join(lines)
+
+
+def theme_supplement_pool_section(context: dict) -> str:
+    pool = context.get("theme_supplement_pool", {}) if isinstance(context, dict) else {}
+    if not isinstance(pool, dict) or not pool.get("enabled"):
+        return "- 未接入 Theme Radar 补充数据池。"
+    summary = pool.get("summary", {}) if isinstance(pool.get("summary"), dict) else {}
+    table_counts = summary.get("table_counts", {}) if isinstance(summary.get("table_counts"), dict) else {}
+    parts = [
+        f"- 补充数据池：{summary.get('row_count', 0)} 条结构化记录；证据项 {summary.get('evidence_item_count', 0)} 条。",
+        f"- 来源文件：{pool.get('source_file', '')}",
+    ]
+    missing = summary.get("missing_required_sections", []) if isinstance(summary.get("missing_required_sections"), list) else []
+    if missing:
+        parts.append(f"- P0 缺失：{', '.join(str(x) for x in missing)}")
+    if table_counts:
+        parts.append("- 表覆盖：" + "；".join(f"{k}={v}" for k, v in table_counts.items() if v))
+    return "\n".join(parts)
 
 
 def demand_bottleneck_map_section(context: dict) -> str:
@@ -2659,12 +2767,43 @@ def demand_scenarios_section(context: dict) -> str:
     rows = context.get("demand_scenarios", []) if isinstance(context, dict) else []
     if not isinstance(rows, list) or not rows:
         return "- 待补：需要抽取需求场景、传导逻辑和工艺要求。"
-    lines = ["| 需求场景 | 逻辑 | 工艺要求 | 证据 |", "|---|---|---|---|"]
+    lines = ["| 需求场景 | 下游驱动 | 传导逻辑 | 工艺要求 | 受益环节 | 代表公司 | 下一步验证 | 证据 |", "|---|---|---|---|---|---|---|---|"]
     for row in rows:
         if not isinstance(row, dict):
             continue
         lines.append(
-            f"| {row.get('scenario','')} | {row.get('logic','')} | {row.get('process_requirement','')} | {'；'.join(as_list(row.get('evidence'))[:2])} |"
+            f"| {row.get('scenario','')} | {row.get('downstream_driver','')} | {row.get('transmission_logic') or row.get('logic','')} | {row.get('process_requirement','')} | {'、'.join(as_list(row.get('beneficiary_links')))} | {'、'.join(as_list(row.get('representative_entities')))} | {row.get('next_validation','')} | {theme_info_short(row.get('evidence_summary') or '；'.join(as_list(row.get('evidence'))), 100)} |"
+        )
+    return "\n".join(lines)
+
+
+def material_process_scan_section(context: dict) -> str:
+    rows = context.get("material_process_scan", []) if isinstance(context, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return "- 待补：需要补充工艺/材料/零部件扫描表。"
+    lines = [
+        "| 工艺/材料/零部件 | 大赛道 | 环节 | 景气判断 | 提及频率 | 认知层级 | 分类 | 核心催化 | 代表公司 | 下一步验证 |",
+        "|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        lines.append(
+            f"| {row.get('name','')} | {row.get('major_track','')} | {row.get('chain_position','')} | {theme_info_short(row.get('prosperity_judgment',''), 70)} | {row.get('daily_review_frequency','')} | {row.get('cognition_level','')} | {row.get('classification','')} | {theme_info_short(row.get('core_catalyst',''), 70)} | {'、'.join(as_list(row.get('representative_entities')))} | {theme_info_short(row.get('next_validation',''), 80)} |"
+        )
+    return "\n".join(lines)
+
+
+def industry_chain_panorama_section(context: dict) -> str:
+    rows = context.get("industry_chain_panorama", []) if isinstance(context, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return industry_chain_map_section(context)
+    lines = ["| 层级 | 环节 | 关键要素 | 代表公司 | 市场空间/价值量/产能 | 供需状态 | 产业逻辑 |", "|---|---|---|---|---|---|---|"]
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        lines.append(
+            f"| {row.get('layer','')} | {row.get('segment','')} | {'、'.join(as_list(row.get('key_elements')))} | {'、'.join(as_list(row.get('representative_entities')))} | {theme_info_short(row.get('market_value_capacity',''), 70)} | {row.get('supply_demand_status','')} | {theme_info_short(row.get('industry_logic',''), 100)} |"
         )
     return "\n".join(lines)
 
@@ -2820,6 +2959,66 @@ def evidence_trace_section(context: dict) -> str:
             continue
         lines.append(
             f"| {row.get('direction','')} | {row.get('entity','')} | {theme_info_short(row.get('claim',''), 80)} | {row.get('evidence_level','')} | {row.get('confidence','')} | {row.get('source','')} | {row.get('source_date','')} | {row.get('item_id','')} | {row.get('needs_review','')} | {row.get('source_ref','')} |"
+        )
+    return "\n".join(lines)
+
+
+def recognition_timeline_section(context: dict) -> str:
+    rows = context.get("recognition_timeline", []) if isinstance(context, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return "- 待补：需要补充从暗流到一致认同的认知演变时间线。"
+    lines = ["| 时间窗口 | 事件 | 认知阶段 | 认同度 | 事实等级 | 相关方向 | 相关公司 | 证据 |", "|---|---|---|---:|---|---|---|---|"]
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        lines.append(
+            f"| {row.get('time_window','')} | {theme_info_short(row.get('event',''), 90)} | {row.get('recognition_stage','')} | {row.get('market_consensus','')} | {row.get('fact_level','')} | {row.get('direction','')} | {'、'.join(as_list(row.get('related_entities')))} | {theme_info_short(row.get('evidence_summary',''), 90)} |"
+        )
+    return "\n".join(lines)
+
+
+def progress_ruler_section(context: dict) -> str:
+    rows = context.get("progress_ruler", []) if isinstance(context, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return "- 待补：需要补充相邻方向横向对比表，或由历史快照生成发酵进度标尺。"
+    lines = ["| 方向 | 当前阶段 | 阶段位置 | 阶段理由 | 领先/落后 | 相关催化 | 下一步验证 |", "|---|---|---:|---|---|---|---|"]
+    def stage_position(row: dict) -> int:
+        value = row.get("stage_position", 0)
+        try:
+            return int(value)
+        except Exception:
+            return 0
+    for row in sorted([r for r in rows if isinstance(r, dict)], key=stage_position, reverse=True):
+        lines.append(
+            f"| {row.get('direction','')} | {row.get('current_stage','')} | {row.get('stage_position','')} | {theme_info_short(row.get('stage_reason',''), 80)} | {row.get('relative_position','')} | {theme_info_short(row.get('related_catalyst',''), 70)} | {theme_info_short(row.get('next_validation',''), 70)} |"
+        )
+    return "\n".join(lines)
+
+
+def action_plan_section(context: dict) -> str:
+    rows = context.get("action_plan", []) if isinstance(context, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return "- 待补：需要补充最优先/次优先/观察方向的操作建议表。"
+    priority_rank = {"最优先": 0, "次优先": 1, "观察": 2, "暂不跟": 3}
+    rows = sorted([r for r in rows if isinstance(r, dict)], key=lambda x: priority_rank.get(str(x.get("priority_bucket") or ""), 9))
+    lines = ["| 优先级 | 方向 | 核心逻辑 | 操作思路 | 等待条件 | 风险提示 |", "|---|---|---|---|---|---|"]
+    for row in rows:
+        lines.append(
+            f"| {row.get('priority_bucket','')} | {row.get('direction','')} | {theme_info_short(row.get('core_logic',''), 90)} | {theme_info_short(row.get('action_thesis',''), 90)} | {theme_info_short(row.get('wait_for',''), 80)} | {theme_info_short(row.get('risk_warning',''), 80)} |"
+        )
+    return "\n".join(lines)
+
+
+def supplement_evidence_section(context: dict) -> str:
+    rows = context.get("supplement_evidence_items", []) if isinstance(context, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return "- 待补：补充数据池暂无独立证据项。"
+    lines = ["| 模块 | 对象 | 证据 | 来源 | 日期 | 可信度 | 需复核 | item_id |", "|---|---|---|---|---|---|---|---|"]
+    for row in rows[:40]:
+        if not isinstance(row, dict):
+            continue
+        lines.append(
+            f"| {row.get('section_type','')} | {row.get('target','')} | {theme_info_short(row.get('evidence',''), 90)} | {row.get('source','')} | {row.get('source_date','')} | {row.get('confidence','')} | {'是' if row.get('needs_review') else '否'} | {row.get('item_id','')} |"
         )
     return "\n".join(lines)
 
@@ -3736,7 +3935,7 @@ def deep_dive_quality_gate_section(context: dict, companies: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def build_theme_state(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None) -> dict:
+def build_theme_state(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None, theme_supplement_pool: dict | None = None) -> dict:
     rel_dir = vault / "relations"
     graph = load_json(rel_dir / RELATION_FILES["concept_graph"], {"concepts": {}, "relations": []})
     exposures = load_json(rel_dir / RELATION_FILES["entity_exposures"], {"entities": {}})
@@ -3770,6 +3969,8 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
     context = merge_theme_information_context(context, theme_info_context)
     direction_pool_context = build_theme_direction_pool_context(theme_direction_pool or {})
     context = merge_theme_direction_pool_context(context, direction_pool_context)
+    supplement_pool_context = build_theme_supplement_pool_context(theme_supplement_pool or {})
+    context = merge_theme_supplement_pool_context(context, supplement_pool_context)
     if not explicit_definition and theme_info_context.get("definition"):
         definition = theme_info_context.get("definition", "")
     match_scope = matches or ([primary] if primary in concepts else [])
@@ -3831,17 +4032,22 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         "dropped_generic_companies": dropped_generic_companies,
         "theme_info_context": theme_info_context,
         "theme_direction_pool": theme_direction_pool or {},
+        "theme_supplement_pool": theme_supplement_pool or {},
     }
 
 
-def build_deep_dive_report(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None) -> str:
-    state = build_theme_state(term, vault, definition, context, theme_info_rows, theme_direction_pool)
+def build_deep_dive_report(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None, theme_supplement_pool: dict | None = None) -> str:
+    state = build_theme_state(term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
     context = state["context"]
     companies = state["companies"]
     for company in companies:
         company["deep_dive_term"] = term
         company["direction_frame"] = context.get("direction_frame", {}) if isinstance(context, dict) else {}
-    definition_text = state["definition"].strip() or context_definition(context) or f"{term}：待从 full 精读/PDF ingest 中补一句话定锚。"
+    definition_profile = context.get("definition_profile", {}) if isinstance(context, dict) and isinstance(context.get("definition_profile"), dict) else {}
+    state_definition = state["definition"].strip()
+    if state_definition in {"从既有Markdown关系表重建"} and definition_profile.get("one_line_anchor"):
+        state_definition = ""
+    definition_text = state_definition or definition_profile.get("one_line_anchor", "") or context_definition(context) or f"{term}：待从 full 精读/PDF ingest 中补一句话定锚。"
     return f"""# {term} 题材深拆
 
 生成日期：{date.today().isoformat()}
@@ -3864,7 +4070,7 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 ## 三、产业链全景图
 
-{industry_chain_map_section(context)}
+{industry_chain_panorama_section(context)}
 
 ### IMA/Obsidian 统一信息池：细颗粒地图与上下游关系
 
@@ -3874,6 +4080,10 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 {theme_direction_pool_section(context)}
 
+### Theme Radar 补充数据池：截图功能对齐层
+
+{theme_supplement_pool_section(context)}
+
 ### 本地 full 精读 / report_contexts 上下文
 
 {report_contexts_section(state["local_report_contexts"])}
@@ -3881,6 +4091,10 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 ## 四、细分方向扫描
 
 {direction_scan_section(context)}
+
+### 工艺/材料/零部件扫描
+
+{material_process_scan_section(context)}
 
 ### 降权但保留的背景/生态线索
 
@@ -3898,6 +4112,14 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 {progress_ranking_section(context)}
 
+### 认知演变时间线
+
+{recognition_timeline_section(context)}
+
+### 多方向发酵进度横向对比
+
+{progress_ruler_section(context)}
+
 ### 跟踪优先级
 
 {opportunity_priorities_section(context)}
@@ -3905,6 +4127,10 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 ### 证据追踪表
 
 {evidence_trace_section(context)}
+
+### 补充数据证据表
+
+{supplement_evidence_section(context)}
 
 ### 催化日历
 
@@ -3939,6 +4165,12 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 {validation_checklist_section(context)}
 
 ## 十二、核心结论
+
+### 操作建议汇总
+
+{action_plan_section(context)}
+
+### 结论摘要
 
 {deep_dive_conclusion(term, context, companies)}
 
@@ -4234,6 +4466,7 @@ def main() -> int:
     parser.add_argument("--context-json", help="外部新词画像 JSON 路径")
     parser.add_argument("--theme-info-jsonl", help="IMA/Obsidian 统一题材信息池 JSONL，只读接入题材地图/上下游关系")
     parser.add_argument("--theme-direction-pool", help="标准细分方向池 JSON，只读接入细分方向扫描/发酵进度/验证清单")
+    parser.add_argument("--theme-supplement-pool", help="Theme Radar 补充数据池 JSON，只读接入截图对齐层：需求场景/工艺材料/验证/催化/认知演变/操作建议")
     parser.add_argument("--out", help="optional markdown output path")
     parser.add_argument("--mode", choices=["radar", "qc", "deep-dive"], default="radar", help="输出模式：radar/qc=底层雷达与QC；deep-dive=题材深拆")
     args = parser.parse_args()
@@ -4253,10 +4486,13 @@ def main() -> int:
     theme_direction_pool = {}
     if args.theme_direction_pool:
         theme_direction_pool = read_theme_direction_pool(Path(args.theme_direction_pool).expanduser(), args.term)
+    theme_supplement_pool = {}
+    if args.theme_supplement_pool:
+        theme_supplement_pool = read_theme_supplement_pool(Path(args.theme_supplement_pool).expanduser(), args.term)
 
     vault = Path(args.vault).expanduser()
     if args.mode == "deep-dive":
-        report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool)
+        report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
     else:
         report = build_report(args.term, vault, definition, context)
     if args.out:
