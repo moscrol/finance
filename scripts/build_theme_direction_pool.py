@@ -564,6 +564,19 @@ def risks_from_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> li
     return unique(risks)[:5]
 
 
+def validation_window_for_stage(stage: str) -> str:
+    return {"第一轮": "1-2个公告/定报周期内跟踪官方确认", "萌芽": "2-3个公告/定报周期内观察是否形成多源验证", "催化共振": "1个公告/定报周期内跟踪兑现情况", "一致认同": "1个公告/定报周期内跟踪兑现情况"}.get(stage, "后续新研报/公告/产业事件出现后再提高跟踪频率")
+
+
+def validation_plan_for_direction(direction: str, profile: dict[str, Any], catalysts: list[dict[str, Any]], verification_items: list[dict[str, Any]], recognition: dict[str, Any], risks: list[str]) -> dict[str, Any]:
+    window = validation_window_for_stage(str(recognition.get("stage") or ""))
+    upgrades = unique([str(v.get("upgrade_condition") or "") for v in verification_items if isinstance(v, dict)] + [str(x) for x in as_list(recognition.get("upgrade_triggers"))])[:8]
+    downgrades = unique([str(v.get("downgrade_condition") or "") for v in verification_items if isinstance(v, dict)] + [str(x) for x in as_list(recognition.get("downgrade_risks"))] + risks)[:8]
+    tracking = unique([str(v.get("item") or "") for v in verification_items if isinstance(v, dict)] + [f"{direction} 是否继续获得多源文本、公司公告或产业事件验证"])[:8]
+    occurred = [dict(c, event_type="occurred_catalyst", next_watch="观察是否继续带来订单、客户、产能、收入占比或多源验证。") for c in catalysts if isinstance(c, dict)]
+    return {"validation_window": window, "occurred_catalysts": occurred[:6], "upcoming_catalysts": verification_items[:6], "upgrade_conditions": upgrades, "downgrade_conditions": downgrades, "key_tracking_items": tracking, "evidence_to_watch": ["公告/定报/官网/监管披露", "客户认证/订单/量产/收入占比", "第二独立来源互证"], "status": "待验证"}
+
+
 def aggregate_direction_profiles(rows: list[dict[str, Any]]) -> dict[str, Any]:
     profiles = [row.get("evidence_profile", {}) for row in rows if isinstance(row.get("evidence_profile"), dict)]
     layers = [str(p.get("highest_evidence_layer") or "") for p in profiles if p.get("highest_evidence_layer")]
@@ -650,6 +663,7 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
         verification_items = verification_items_from_items(ranked_items)
         risks = risks_from_items(ranked_items, profile)
         recognition = recognition_profile(profile, ranked_items, representatives, catalysts, verification_items, risks)
+        validation = validation_plan_for_direction(direction, profile, catalysts, verification_items, recognition, risks)
         directions.append({
             "direction": direction,
             "raw_directions": raw_directions[:20],
@@ -672,6 +686,7 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
             "recognition_profile": recognition,
             "catalysts": catalysts,
             "verification_items": verification_items,
+            "validation_plan": validation,
             "risks": risks,
             "source_items": source_ids[:30],
             "sample_claims": [short_text(i.get("claim"), 120) for i in ranked_items[:5] if i.get("claim")],

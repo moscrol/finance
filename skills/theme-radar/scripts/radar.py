@@ -1433,6 +1433,7 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
         verification = direction_pool_first_verification(row)
         hierarchy = row.get("sector_hierarchy", {}) if isinstance(row.get("sector_hierarchy"), dict) else {}
         recognition = row.get("recognition_profile", {}) if isinstance(row.get("recognition_profile"), dict) else {}
+        validation_plan = row.get("validation_plan", {}) if isinstance(row.get("validation_plan"), dict) else {}
         recognition_stage = recognition.get("stage") or row.get("recognition_stage", "")
         recognition_score = recognition.get("score", "")
         recognition_label = f"{recognition_stage}（{recognition_score}）" if recognition_score != "" else recognition_stage
@@ -1466,21 +1467,28 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
             "next_validation": verification,
             "priority": "优先跟踪" if direction_pool_score(row) >= 60 else "观察验证",
         })
-        for catalyst in row.get("catalysts") or []:
+        for catalyst in validation_plan.get("occurred_catalysts") or row.get("catalysts") or []:
             if not isinstance(catalyst, dict):
                 continue
             catalyst_rows.append({
+                "direction": row.get("direction", ""),
                 "time": catalyst.get("time_window", ""),
                 "event": catalyst.get("event", ""),
-                "watch_item": row.get("direction", ""),
+                "event_type": catalyst.get("event_type", "occurred_catalyst"),
+                "evidence": evidence_label,
+                "watch_item": catalyst.get("next_watch") or row.get("direction", ""),
             })
-        for item in row.get("verification_items") or []:
+        fallback_downgrade = "；".join(as_list(validation_plan.get("downgrade_conditions"))[:2])
+        for item in validation_plan.get("upcoming_catalysts") or row.get("verification_items") or []:
             if not isinstance(item, dict):
                 continue
             validation_rows.append({
-                "item": item.get("item", ""),
-                "why": row.get("direction", ""),
-                "status": "待验证",
+                "direction": row.get("direction", ""),
+                "item": item.get("event") or item.get("item", ""),
+                "window": item.get("time_window") or validation_plan.get("validation_window", ""),
+                "upgrade_condition": item.get("next_watch") or item.get("upgrade_condition", ""),
+                "downgrade_condition": fallback_downgrade or item.get("downgrade_condition", ""),
+                "status": validation_plan.get("status", "待验证"),
             })
     return {
         "theme_direction_pool": {
@@ -2664,11 +2672,11 @@ def catalyst_calendar_section(context: dict) -> str:
     rows = context.get("catalyst_calendar", []) if isinstance(context, dict) else []
     if not isinstance(rows, list) or not rows:
         return "- 待补：需要把后续验证点拆成时间、事件和观察项。"
-    lines = ["| 时间 | 事件 | 观察项 |", "|---|---|---|"]
+    lines = ["| 方向 | 时间/窗口 | 催化/验证事件 | 类型 | 当前证据 | 下一步观察 |", "|---|---|---|---|---|---|"]
     for row in rows:
         if not isinstance(row, dict):
             continue
-        lines.append(f"| {row.get('time','')} | {row.get('event','')} | {row.get('watch_item','')} |")
+        lines.append(f"| {row.get('direction','')} | {row.get('time','')} | {row.get('event','')} | {row.get('event_type','')} | {row.get('evidence','')} | {row.get('watch_item','')} |")
     return "\n".join(lines)
 
 
@@ -2676,11 +2684,11 @@ def validation_checklist_section(context: dict) -> str:
     rows = context.get("validation_checklist", []) if isinstance(context, dict) else []
     if not isinstance(rows, list) or not rows:
         return "- 待补：需要列出订单、价格、客户认证、量产、收入占比等验证事项。"
-    lines = ["| 验证事项 | 重要性 | 当前状态 |", "|---|---|---|"]
+    lines = ["| 方向 | 验证事项 | 窗口 | 升级条件 | 降级条件 | 当前状态 |", "|---|---|---|---|---|---|"]
     for row in rows:
         if not isinstance(row, dict):
             continue
-        lines.append(f"| {row.get('item','')} | {row.get('why','')} | {row.get('status','待验证')} |")
+        lines.append(f"| {row.get('direction','')} | {row.get('item','')} | {row.get('window','')} | {row.get('upgrade_condition') or row.get('why','')} | {row.get('downgrade_condition','')} | {row.get('status','待验证')} |")
     return "\n".join(lines)
 
 
@@ -3821,6 +3829,10 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 ## 七、发酵进度与预期差
 
 {progress_ranking_section(context)}
+
+### 催化日历
+
+{catalyst_calendar_section(context)}
 
 ## 八、相对核心个股逻辑卡
 
