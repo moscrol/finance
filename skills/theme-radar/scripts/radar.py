@@ -1036,6 +1036,19 @@ def read_theme_information_jsonl(path: Path, term: str) -> list[dict]:
     return rows
 
 
+def read_theme_direction_pool(path: Path, term: str) -> dict:
+    if not path or not path.exists():
+        return {}
+    data = load_json(path, {})
+    theme = str(data.get("theme") or "").strip()
+    if theme and term and term not in theme and theme not in term:
+        return {}
+    directions = data.get("directions", [])
+    if not isinstance(directions, list):
+        return {}
+    return data
+
+
 def theme_info_types(row: dict) -> set[str]:
     values = row.get("info_types") or [row.get("primary_info_type")]
     return {str(v) for v in values if v}
@@ -1348,6 +1361,145 @@ def merge_theme_information_context(context: dict, theme_context: dict) -> dict:
     return merged
 
 
+def direction_pool_entities(row: dict, limit: int = 6) -> list[str]:
+    return unique([
+        str(entity.get("name") or "").strip()
+        for entity in (row.get("representative_entities") or [])
+        if isinstance(entity, dict) and str(entity.get("name") or "").strip()
+    ])[:limit]
+
+
+def direction_pool_evidence_label(profile: dict) -> str:
+    if not isinstance(profile, dict):
+        return "direction_pool"
+    layer = profile.get("highest_evidence_layer", "direction_pool")
+    count = profile.get("item_count", 0)
+    systems = "、".join(as_list(profile.get("source_systems"))[:3])
+    official = "；含官方证据" if profile.get("has_official_evidence") else ""
+    return f"{count}条/{layer}/{systems}{official}".strip("/")
+
+
+def direction_pool_score(row: dict) -> int:
+    profile = row.get("evidence_profile", {}) if isinstance(row, dict) else {}
+    stage = str(row.get("recognition_stage") or "")
+    stage_score = {"暗流": 30, "萌芽": 45, "第一轮": 60, "催化共振": 78, "一致认同": 90}.get(stage, 35)
+    try:
+        item_count = int(profile.get("item_count", 0))
+    except Exception:
+        item_count = 0
+    score = stage_score + min(item_count, 10)
+    if profile.get("has_multi_source_support"):
+        score += 5
+    if profile.get("has_official_evidence"):
+        score += 8
+    if row.get("verification_items"):
+        score += 3
+    return min(score, 99)
+
+
+def direction_pool_first_verification(row: dict) -> str:
+    verification = row.get("verification_items") or []
+    if verification and isinstance(verification[0], dict):
+        return str(verification[0].get("item") or "")
+    catalysts = row.get("catalysts") or []
+    if catalysts and isinstance(catalysts[0], dict):
+        return str(catalysts[0].get("event") or "")
+    return ""
+
+
+def build_theme_direction_pool_context(pool: dict) -> dict:
+    directions = pool.get("directions", []) if isinstance(pool, dict) else []
+    if not isinstance(directions, list) or not directions:
+        return {}
+    scan_rows = []
+    ranking_rows = []
+    catalyst_rows = []
+    validation_rows = []
+    for row in directions:
+        if not isinstance(row, dict):
+            continue
+        profile = row.get("evidence_profile", {}) if isinstance(row.get("evidence_profile"), dict) else {}
+        companies = direction_pool_entities(row)
+        evidence_label = direction_pool_evidence_label(profile)
+        demand = "、".join(as_list(row.get("demand_sources")))
+        bottleneck = "、".join(as_list(row.get("bottlenecks_solved")))
+        verification = direction_pool_first_verification(row)
+        scan_rows.append({
+            "direction": row.get("direction", ""),
+            "sector": row.get("parent_sector", ""),
+            "prosperity": "；".join(x for x in [f"需求：{demand}" if demand else "", f"瓶颈：{bottleneck}" if bottleneck else "", evidence_label] if x),
+            "mention_frequency": f"方向池命中 {profile.get('item_count', 0)} 条",
+            "recognition_level": row.get("recognition_stage", ""),
+            "classification": f"{row.get('direction_type','')}/{row.get('chain_bucket','')}",
+            "core_catalyst": verification,
+            "candidate_companies": companies,
+        })
+        ranking_rows.append({
+            "direction": row.get("direction", ""),
+            "stage": row.get("recognition_stage", ""),
+            "recognition_level": row.get("recognition_stage", ""),
+            "evidence_level": profile.get("highest_evidence_layer", "direction_pool"),
+            "progress_score": direction_pool_score(row),
+            "key_signal": evidence_label,
+            "next_validation": verification,
+            "priority": "优先跟踪" if direction_pool_score(row) >= 60 else "观察验证",
+        })
+        for catalyst in row.get("catalysts") or []:
+            if not isinstance(catalyst, dict):
+                continue
+            catalyst_rows.append({
+                "time": catalyst.get("time_window", ""),
+                "event": catalyst.get("event", ""),
+                "watch_item": row.get("direction", ""),
+            })
+        for item in row.get("verification_items") or []:
+            if not isinstance(item, dict):
+                continue
+            validation_rows.append({
+                "item": item.get("item", ""),
+                "why": row.get("direction", ""),
+                "status": "待验证",
+            })
+    return {
+        "theme_direction_pool": {
+            "enabled": True,
+            "theme": pool.get("theme", ""),
+            "generated_at": pool.get("generated_at", ""),
+            "summary": pool.get("summary", {}),
+        },
+        "direction_scan": scan_rows,
+        "progress_ranking": ranking_rows,
+        "catalyst_calendar": catalyst_rows[:30],
+        "validation_checklist": validation_rows[:30],
+    }
+
+
+def merge_theme_direction_pool_context(context: dict, direction_context: dict) -> dict:
+    if not direction_context:
+        return context or {}
+    merged = dict(context or {})
+    merged["theme_direction_pool"] = direction_context.get("theme_direction_pool", {})
+    for key in ("direction_scan", "progress_ranking", "catalyst_calendar", "validation_checklist"):
+        existing = merged.get(key) if isinstance(merged.get(key), list) else []
+        incoming = direction_context.get(key) if isinstance(direction_context.get(key), list) else []
+        if key in ("direction_scan", "progress_ranking"):
+            seen = set()
+            rows = []
+            for item in incoming + existing:
+                if not isinstance(item, dict):
+                    continue
+                direction = str(item.get("direction") or "")
+                if direction and direction in seen:
+                    continue
+                if direction:
+                    seen.add(direction)
+                rows.append(item)
+            merged[key] = rows
+        else:
+            merged[key] = incoming + existing
+    return merged
+
+
 def theme_information_pool_section(context: dict) -> str:
     pool = context.get("theme_information_pool", {}) if isinstance(context, dict) else {}
     if not isinstance(pool, dict) or not pool.get("enabled"):
@@ -1386,6 +1538,25 @@ def theme_information_pool_section(context: dict) -> str:
     if verification_nodes:
         lines.extend(["", "### IMA 后续验证节点", ""])
         lines.extend([f"- {x}" for x in verification_nodes[:8]])
+    return "\n".join(lines)
+
+
+def theme_direction_pool_section(context: dict) -> str:
+    pool = context.get("theme_direction_pool", {}) if isinstance(context, dict) else {}
+    if not isinstance(pool, dict) or not pool.get("enabled"):
+        return "- 未接入标准细分方向池。"
+    summary = pool.get("summary", {}) if isinstance(pool.get("summary"), dict) else {}
+    lines = [
+        f"- 方向池：{summary.get('direction_count', 0)} 个方向；匹配 {summary.get('matched_row_count', 0)} / 输入 {summary.get('input_row_count', 0)} 条信息池记录。",
+        f"- 生成日期：{pool.get('generated_at', '')}",
+        f"- 边界：{summary.get('safety_statement', '')}",
+    ]
+    by_stage = summary.get("directions_by_recognition_stage", {})
+    if isinstance(by_stage, dict) and by_stage:
+        lines.append(f"- 认知水位分布：{'; '.join(f'{k}={v}' for k, v in by_stage.items())}")
+    by_type = summary.get("directions_by_type", {})
+    if isinstance(by_type, dict) and by_type:
+        lines.append(f"- 方向类型分布：{'; '.join(f'{k}={v}' for k, v in by_type.items())}")
     return "\n".join(lines)
 
 
@@ -3410,7 +3581,7 @@ def deep_dive_quality_gate_section(context: dict, companies: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def build_theme_state(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None) -> dict:
+def build_theme_state(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None) -> dict:
     rel_dir = vault / "relations"
     graph = load_json(rel_dir / RELATION_FILES["concept_graph"], {"concepts": {}, "relations": []})
     exposures = load_json(rel_dir / RELATION_FILES["entity_exposures"], {"entities": {}})
@@ -3442,6 +3613,8 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         if not definition.strip():
             definition = context_definition(context)
     context = merge_theme_information_context(context, theme_info_context)
+    direction_pool_context = build_theme_direction_pool_context(theme_direction_pool or {})
+    context = merge_theme_direction_pool_context(context, direction_pool_context)
     if not explicit_definition and theme_info_context.get("definition"):
         definition = theme_info_context.get("definition", "")
     match_scope = matches or ([primary] if primary in concepts else [])
@@ -3502,11 +3675,12 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         "broadened_company_scope": broadened_company_scope,
         "dropped_generic_companies": dropped_generic_companies,
         "theme_info_context": theme_info_context,
+        "theme_direction_pool": theme_direction_pool or {},
     }
 
 
-def build_deep_dive_report(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None) -> str:
-    state = build_theme_state(term, vault, definition, context, theme_info_rows)
+def build_deep_dive_report(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None) -> str:
+    state = build_theme_state(term, vault, definition, context, theme_info_rows, theme_direction_pool)
     context = state["context"]
     companies = state["companies"]
     for company in companies:
@@ -3536,6 +3710,10 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 ### IMA/Obsidian 统一信息池：细颗粒地图与上下游关系
 
 {theme_information_pool_section(context)}
+
+### 标准细分方向池：方向级中间层
+
+{theme_direction_pool_section(context)}
 
 ### 本地 full 精读 / report_contexts 上下文
 
@@ -3884,6 +4062,7 @@ def main() -> int:
     parser.add_argument("--definition-file", help="外部定义摘要文件路径")
     parser.add_argument("--context-json", help="外部新词画像 JSON 路径")
     parser.add_argument("--theme-info-jsonl", help="IMA/Obsidian 统一题材信息池 JSONL，只读接入题材地图/上下游关系")
+    parser.add_argument("--theme-direction-pool", help="标准细分方向池 JSON，只读接入细分方向扫描/发酵进度/验证清单")
     parser.add_argument("--out", help="optional markdown output path")
     parser.add_argument("--mode", choices=["radar", "qc", "deep-dive"], default="radar", help="输出模式：radar/qc=底层雷达与QC；deep-dive=题材深拆")
     args = parser.parse_args()
@@ -3900,10 +4079,13 @@ def main() -> int:
     theme_info_rows = []
     if args.theme_info_jsonl:
         theme_info_rows = read_theme_information_jsonl(Path(args.theme_info_jsonl).expanduser(), args.term)
+    theme_direction_pool = {}
+    if args.theme_direction_pool:
+        theme_direction_pool = read_theme_direction_pool(Path(args.theme_direction_pool).expanduser(), args.term)
 
     vault = Path(args.vault).expanduser()
     if args.mode == "deep-dive":
-        report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows)
+        report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool)
     else:
         report = build_report(args.term, vault, definition, context)
     if args.out:
