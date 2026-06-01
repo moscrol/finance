@@ -66,7 +66,9 @@ def sina_income_periods(session, code, num=4):
         params={"paperCode": prefix + code, "source": "lrb", "type": "0", "page": "1", "num": str(num)},
         timeout=15,
     )
-    report_list = payload.get("result", {}).get("data", {}).get("report_list", {}) or {}
+    result_data = payload.get("result") or {}
+    data = result_data.get("data") if isinstance(result_data, dict) else {}
+    report_list = (data or {}).get("report_list", {}) if isinstance(data, dict) else {}
     return {"ok": bool(report_list), "error": error, "periods": sorted(report_list.keys(), reverse=True)[:num]}
 
 

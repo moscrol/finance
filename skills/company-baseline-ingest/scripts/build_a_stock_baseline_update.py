@@ -137,8 +137,11 @@ def split_products(text):
 
 def infer_concepts(seed_concepts, main_biz, products, industry):
     concepts = []
+    generic_concepts = {"研发", "开发", "生产", "销售", "制造", "服务", "经营", "业务", "产品", "设计"}
     for item in seed_concepts or []:
         item = str(item or "").strip()
+        if item in generic_concepts:
+            continue
         if item and item not in concepts:
             concepts.append(item)
     text = f"{main_biz} {' '.join(products)} {industry}"

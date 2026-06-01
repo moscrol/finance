@@ -110,6 +110,30 @@ def write_state(path, event):
     path.write_text(json.dumps(event, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def selected_after_status(queue_path, selected):
+    rows = load_queue(queue_path)
+    out = []
+    for before in selected:
+        company = before.get("company")
+        code = str(before.get("code") or "").strip()
+        match = next(
+            (
+                row
+                for row in rows
+                if row.get("company") == company
+                or (code and str(row.get("code") or "").strip() == code)
+            ),
+            {},
+        )
+        out.append({
+            "company": company,
+            "code": code,
+            "status": match.get("status", "missing"),
+            "reason": match.get("reason", ""),
+        })
+    return out
+
+
 def run_next(args):
     before = pending_rows(args.queue, args.batch_size)
     event = run_batch(args)
@@ -123,9 +147,12 @@ def run_next(args):
         return 1
     writer_result = validate_with_writer(event["payload"])
     quality = quality_gate(event["payload"])
+    selected_status = selected_after_status(args.queue, before)
+    failed_selected = [row for row in selected_status if row.get("status") == "failed"]
     event["writer_validation"] = writer_result
     event["quality_gate"] = quality
-    event["status"] = "passed" if not writer_result["bad"] and not quality["issues"] else "gate_failed"
+    event["selected_status"] = selected_status
+    event["status"] = "passed" if not writer_result["bad"] and not quality["issues"] and not failed_selected else "gate_failed"
     event["next_pending"] = pending_rows(args.queue, args.batch_size)
     append_run_log(args.run_log, event)
     write_state(args.state, event)
@@ -137,6 +164,7 @@ def run_next(args):
         "selected": [(r.get("company"), r.get("code")) for r in before],
         "writer_bad": writer_result["bad"],
         "quality_issues": quality["issues"],
+        "failed_selected": failed_selected,
         "summary": quality["summaries"],
         "payload": event.get("payload"),
         "summary_file": event.get("summary"),
