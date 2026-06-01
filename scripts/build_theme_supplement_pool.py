@@ -13,14 +13,19 @@ from typing import Any
 SECTION_MAP = {
     "概念定锚表": "definition_profile_rows",
     "需求场景表": "demand_scenarios",
+    "需求场景传导表": "demand_scenarios",
+    "需求场景与产业链传导表": "demand_scenarios",
     "工艺材料扫描表": "material_process_scan",
     "工艺/材料/零部件扫描表": "material_process_scan",
     "工艺/材料扫描表": "material_process_scan",
     "工艺材料零部件扫描表": "material_process_scan",
     "方向级验证清单": "validation_items",
     "催化日历": "catalyst_calendar",
+    "催化事件跟踪表": "catalyst_calendar",
+    "催化事件表": "catalyst_calendar",
     "产业链全景表": "industry_chain_panorama",
     "认知演变时间线": "recognition_timeline",
+    "认知演进时间线": "recognition_timeline",
     "操作建议表": "action_plan",
     "V1V2增量比较表": "snapshot_diff_rows",
     "V1/V2增量比较表": "snapshot_diff_rows",
@@ -47,10 +52,13 @@ FIELD_MAPS = {
         "下游驱动": "downstream_driver",
         "传导逻辑": "transmission_logic",
         "对应工艺/材料/设备要求": "process_requirement",
+        "对应工艺/材料/设备": "process_requirement",
+        "工艺/材料/设备": "process_requirement",
         "受益环节": "beneficiary_links",
         "代表公司": "representative_entities",
         "证据摘要": "evidence_summary",
         "来源": "source",
+        "来源/日期": "source",
         "日期": "source_date",
         "下一步验证": "next_validation",
         "可信度": "confidence",
@@ -81,13 +89,20 @@ FIELD_MAPS = {
         "#": "sequence",
         "方向": "direction",
         "验证事项": "item",
+        "关键验证指标": "item",
         "验证类型": "validation_type",
         "验证窗口": "validation_window",
         "对应公司": "related_entities",
+        "代表公司": "related_entities",
         "升级条件": "upgrade_condition",
+        "下一步验证": "upgrade_condition",
         "降级条件": "downgrade_condition",
+        "证伪信号": "downgrade_condition",
         "当前状态": "status",
+        "当前验证状态": "status",
         "证据摘要": "evidence_summary",
+        "已有证据": "evidence_summary",
+        "证据等级": "evidence_level",
         "来源": "source",
         "来源/日期": "source",
         "日期": "source_date",
@@ -99,14 +114,17 @@ FIELD_MAPS = {
         "时间": "time_window",
         "时间窗口": "time_window",
         "事件": "event",
+        "催化事件": "event",
         "验证事项": "event",
         "类型": "event_type",
         "事件类型": "event_type",
+        "强度": "event_type",
         "影响方向": "direction",
         "相关公司": "related_entities",
         "对应编号": "related_validation_refs",
         "影响逻辑": "impact_logic",
         "下一步观察": "next_watch",
+        "下一步验证": "next_watch",
         "核心观察点": "next_watch",
         "证据摘要": "evidence_summary",
         "来源": "source",
@@ -253,7 +271,11 @@ def infer_section_from_headers(section: str, headers: list[str], source_file: st
         return "material_process_scan"
     if "验证事项" in header_set and "升级条件" in header_set and "降级条件" in header_set:
         return "validation_items"
+    if "方向" in header_set and "关键验证指标" in header_set and "证伪信号" in header_set:
+        return "validation_items"
     if "事件" in header_set and "影响方向" in header_set and "下一步观察" in header_set:
+        return "catalyst_calendar"
+    if "催化事件" in header_set and "影响方向" in header_set:
         return "catalyst_calendar"
     if "验证事项" in header_set and "核心观察点" in header_set and "时间" in header_set:
         return "catalyst_calendar"
@@ -434,6 +456,58 @@ def normalize_stage_position(value: str) -> int | str:
     return mapping.get(text, text)
 
 
+def validation_window_from_status(status: str) -> str:
+    text = clean_text(status)
+    if "量产" in text or "订单" in text or "交付" in text:
+        return "1-2个公告/定报周期内跟踪兑现情况"
+    if "送样" in text or "认证" in text or "小批量" in text:
+        return "2-3个公告/定报周期内跟踪定点、订单和收入确认"
+    if "结构线索" in text:
+        return "后续公告、定报、产业会议或多源证据出现后再提高跟踪频率"
+    return "后续公告、定报或产业事件出现后持续验证"
+
+
+def derive_material_process_scan(theme: str, rows: list[dict[str, Any]], source_file: str = "") -> list[dict[str, Any]]:
+    derived = []
+    for idx, row in enumerate(rows, 1):
+        if not isinstance(row, dict):
+            continue
+        process_requirement = clean_text(row.get("process_requirement") or "")
+        beneficiary_links = row.get("beneficiary_links") if isinstance(row.get("beneficiary_links"), list) else split_list(str(row.get("beneficiary_links") or ""))
+        name = process_requirement or "、".join(beneficiary_links[:3]) or row.get("scenario", "")
+        if not name:
+            continue
+        evidence = row.get("evidence_summary") or row.get("downstream_driver") or row.get("transmission_logic") or row.get("scenario", "")
+        item = {
+            "sequence": str(idx),
+            "name": name,
+            "major_track": row.get("scenario", "") or theme,
+            "chain_position": "、".join(beneficiary_links[:3]) or row.get("scenario", "") or theme,
+            "prosperity_judgment": "景气跟踪",
+            "prosperity_reason": row.get("downstream_driver", "") or row.get("transmission_logic", ""),
+            "daily_review_frequency": "未统计",
+            "cognition_level": "L2",
+            "classification": "布局",
+            "core_catalyst": row.get("next_validation", "") or row.get("scenario", ""),
+            "representative_entities": row.get("representative_entities", []),
+            "evidence_summary": evidence,
+            "source": "派生自需求场景传导表",
+            "source_date": row.get("source_date", ""),
+            "next_validation": row.get("next_validation", ""),
+            "confidence": row.get("confidence", "medium"),
+            "needs_review": bool(row.get("needs_review", True)),
+            "section": "派生：工艺材料扫描",
+            "section_type": "material_process_scan",
+            "source_file": source_file,
+            "line_no": row.get("line_no", ""),
+            "raw_row": row.get("raw_row", {}),
+            "derived": True,
+        }
+        item["item_id"] = sha_id(theme, "material_process_scan", evidence, item["source"], item["source_date"], str(item["line_no"]))
+        derived.append(item)
+    return derived
+
+
 def normalize_row(section_key: str, raw: dict[str, str], theme: str, source_file: str, line_no: int, section: str = "", default_source_date: str = "") -> dict[str, Any]:
     field_map = FIELD_MAPS.get(section_key, {})
     row: dict[str, Any] = {}
@@ -458,6 +532,9 @@ def normalize_row(section_key: str, raw: dict[str, str], theme: str, source_file
         row["confidence"] = "medium"
     if "needs_review" not in row:
         row["needs_review"] = True
+    if section_key == "demand_scenarios":
+        if not row.get("evidence_summary"):
+            row["evidence_summary"] = row.get("downstream_driver", "") or row.get("transmission_logic", "") or row.get("scenario", "")
     if section_key == "material_process_scan":
         row.setdefault("chain_position", infer_direction_from_section(section))
         if not row.get("daily_review_frequency"):
@@ -466,6 +543,8 @@ def normalize_row(section_key: str, raw: dict[str, str], theme: str, source_file
     if section_key == "validation_items":
         row.setdefault("direction", infer_direction_from_section(section))
         row.setdefault("validation_type", infer_validation_type(row.get("item", "")))
+        if not row.get("validation_window"):
+            row["validation_window"] = validation_window_from_status(row.get("status", ""))
         if row.get("source") and not row.get("source_date"):
             source, source_date = split_source_date(row.get("source", ""))
             row["source"] = source
@@ -514,6 +593,10 @@ def normalize_row(section_key: str, raw: dict[str, str], theme: str, source_file
             row["direction"] = infer_direction_from_section(section) or theme
         if not row.get("evidence_summary"):
             row["evidence_summary"] = row.get("event", "")
+        if not row.get("source_date"):
+            match = re.search(r"20\d{2}", str(row.get("time_window") or ""))
+            if match:
+                row["source_date"] = match.group(0)
     if not row.get("source"):
         row["source"] = Path(source_file).stem
     if not row.get("source_date") and default_source_date:
@@ -685,6 +768,13 @@ def build_pool(path: Path, theme_arg: str = "") -> dict[str, Any]:
                 pool["evidence_items"].append(evidence_item_from_row(theme, row))
     pool["definition_profile"] = definition_profile_from_rows(pool["definition_profile_rows"])
     derived_sections = []
+    if not pool["material_process_scan"] and pool["demand_scenarios"]:
+        derived = derive_material_process_scan(theme, pool["demand_scenarios"], str(path))
+        if derived:
+            pool["material_process_scan"] = derived
+            for row in derived:
+                pool["evidence_items"].append(evidence_item_from_row(theme, row))
+            derived_sections.append("material_process_scan")
     if not pool["industry_chain_panorama"] and pool["material_process_scan"]:
         derived = derive_industry_chain_panorama(theme, pool["material_process_scan"], str(path))
         if derived:
