@@ -53,6 +53,8 @@ def clean_table_text(text):
 
 
 def f10_company_name(raw, code):
+    if str(raw.get("company") or "").strip():
+        return str(raw.get("company")).strip()
     text = str(result_content(raw, "mootdx_f10").get("公司概况", ""))
     marker = f"◇{code} "
     idx = text.find(marker)
@@ -91,12 +93,15 @@ def business_scope(raw):
 
 def akshare_products(raw):
     products = []
+    generic = {"研发", "开发", "生产", "销售", "制造", "服务", "经营", "业务", "产品", "设计"}
     for item in raw.get("akshare_fallback", []) or []:
         for row in item.get("content", []) or []:
             for key in ("产品名称", "产品类型"):
                 value = str(row.get(key) or "").strip()
                 for part in re.split(r"[、,，;；/]+", value):
                     part = part.strip()
+                    if part in generic:
+                        continue
                     if 2 <= len(part) <= 24 and part not in products:
                         products.append(part)
     return products[:12]

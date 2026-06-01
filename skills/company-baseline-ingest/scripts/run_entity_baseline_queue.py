@@ -140,14 +140,17 @@ def main():
     data = merge_payloads(payload_paths, f"a-stock baseline {date.today().isoformat()} batch{batch}") if payload_paths else {"source_name": f"a-stock baseline {date.today().isoformat()} batch{batch}", "updates": []}
     valid_payload, skipped = validate_payload(data)
     valid_companies = {item.get("company") for item in valid_payload.get("updates", [])}
+    valid_codes = {str(item.get("code") or "").strip() for item in valid_payload.get("updates", []) if str(item.get("code") or "").strip()}
     skipped_companies = {item.get("company") for item in skipped}
+    skipped_codes = {str(item.get("code") or "").strip() for item in skipped if str(item.get("code") or "").strip()}
     for row in pending:
-        if row.get("company") in valid_companies:
+        row_code = str(row.get("code") or "").strip()
+        if row.get("company") in valid_companies or (row_code and row_code in valid_codes):
             row["status"] = "dry_run_ready"
             row["reason"] = "payload_validated"
-        elif row.get("company") in skipped_companies:
+        elif row.get("company") in skipped_companies or (row_code and row_code in skipped_codes):
             row["status"] = "skipped"
-            match = next((item for item in skipped if item.get("company") == row.get("company")), {})
+            match = next((item for item in skipped if item.get("company") == row.get("company") or (row_code and str(item.get("code") or "").strip() == row_code)), {})
             row["reason"] = match.get("reason", "payload_validation_failed")
     batch_payload = RAW_DIR / f"baseline-updates-{date.today().isoformat()}-batch{batch:03d}.json"
     batch_payload.parent.mkdir(parents=True, exist_ok=True)
