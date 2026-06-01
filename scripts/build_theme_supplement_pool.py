@@ -556,6 +556,87 @@ def definition_profile_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+CHAIN_LAYER_ORDER = ["上游材料", "上游设备", "上游", "中游制造", "中游", "下游应用 / 软件服务", "下游应用", "下游"]
+
+
+def derive_industry_chain_panorama(theme: str, rows: list[dict[str, Any]], source_file: str = "") -> list[dict[str, Any]]:
+    groups: dict[tuple[str, str], dict[str, list]] = {}
+    order: list[tuple[str, str]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        layer = clean_text(row.get("chain_position") or "")
+        if not layer:
+            continue
+        segment = clean_text(row.get("major_track") or "") or layer
+        key = (layer, segment)
+        if key not in groups:
+            groups[key] = {"names": [], "entities": [], "prosperity": [], "evidence": [], "catalyst": [], "source_date": []}
+            order.append(key)
+        g = groups[key]
+        if row.get("name"):
+            g["names"].append(clean_text(row.get("name")))
+        for entity in row.get("representative_entities") or []:
+            if entity and entity not in g["entities"]:
+                g["entities"].append(entity)
+        if row.get("prosperity_judgment"):
+            g["prosperity"].append(clean_text(row.get("prosperity_judgment")))
+        if row.get("evidence_summary"):
+            g["evidence"].append(clean_text(row.get("evidence_summary")))
+        if row.get("core_catalyst"):
+            g["catalyst"].append(clean_text(row.get("core_catalyst")))
+        if row.get("source_date"):
+            g["source_date"].append(clean_text(row.get("source_date")))
+
+    def layer_rank(key: tuple[str, str]) -> int:
+        layer = key[0]
+        for idx, name in enumerate(CHAIN_LAYER_ORDER):
+            if name in layer or layer in name:
+                return idx
+        return len(CHAIN_LAYER_ORDER)
+
+    result = []
+    for key in sorted(order, key=layer_rank):
+        layer, segment = key
+        g = groups[key]
+        prosperity = unique_keep(g["prosperity"])[:3]
+        industry_logic = "；".join(prosperity) or "；".join(g["catalyst"][:2]) or f"{segment} 环节景气跟踪"
+        evidence = max(g["evidence"], key=len) if g["evidence"] else f"{segment} 环节产业链分布：{('、'.join(g['names'][:5]))}"
+        source_date = max(g["source_date"]) if g["source_date"] else ""
+        row = {
+            "layer": layer,
+            "segment": segment,
+            "key_elements": g["names"][:12],
+            "representative_entities": g["entities"][:12],
+            "market_value_capacity": "",
+            "supply_demand_status": "",
+            "industry_logic": industry_logic,
+            "evidence_summary": evidence,
+            "source": "派生自产业链景气度跟踪表",
+            "source_date": source_date,
+            "confidence": "medium",
+            "needs_review": True,
+            "section": "派生：产业链全景",
+            "section_type": "industry_chain_panorama",
+            "source_file": source_file,
+            "line_no": "",
+            "derived": True,
+        }
+        row["item_id"] = sha_id(theme, "industry_chain_panorama", evidence, row["source"], source_date, segment)
+        result.append(row)
+    return result
+
+
+def unique_keep(values: list[str]) -> list[str]:
+    seen = set()
+    out = []
+    for value in values:
+        if value and value not in seen:
+            seen.add(value)
+            out.append(value)
+    return out
+
+
 def markdown_paths(path: Path) -> list[Path]:
     if path.is_dir():
         return sorted(p for p in path.glob("*.md") if p.is_file())
@@ -603,6 +684,14 @@ def build_pool(path: Path, theme_arg: str = "") -> dict[str, Any]:
                 pool[section_key].append(row)
                 pool["evidence_items"].append(evidence_item_from_row(theme, row))
     pool["definition_profile"] = definition_profile_from_rows(pool["definition_profile_rows"])
+    derived_sections = []
+    if not pool["industry_chain_panorama"] and pool["material_process_scan"]:
+        derived = derive_industry_chain_panorama(theme, pool["material_process_scan"], str(path))
+        if derived:
+            pool["industry_chain_panorama"] = derived
+            for row in derived:
+                pool["evidence_items"].append(evidence_item_from_row(theme, row))
+            derived_sections.append("industry_chain_panorama")
     counts = {key: len(pool.get(key, [])) for key in FIELD_MAPS}
     pool["summary"] = {
         "theme": theme,
@@ -612,6 +701,7 @@ def build_pool(path: Path, theme_arg: str = "") -> dict[str, Any]:
         "table_counts": counts,
         "evidence_item_count": len(pool["evidence_items"]),
         "missing_required_sections": [key for key in REQUIRED_SECTIONS if not pool.get(key)],
+        "derived_sections": derived_sections,
         "unmapped_table_count": len(pool["unmapped_tables"]),
         "confidence_distribution": dict(Counter(str(item.get("confidence", "")) for item in pool["evidence_items"])),
         "needs_review_count": sum(1 for item in pool["evidence_items"] if item.get("needs_review")),
