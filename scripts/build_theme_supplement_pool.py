@@ -131,15 +131,19 @@ FIELD_MAPS = {
         "是否需核验": "needs_review",
     },
     "recognition_timeline": {
+        "#": "sequence",
+        "时间": "time_window",
         "时间窗口": "time_window",
         "事件": "event",
         "认知阶段": "recognition_stage",
         "市场认同度": "market_consensus",
         "事实等级": "fact_level",
         "相关方向": "direction",
+        "影响方向": "direction",
         "相关公司": "related_entities",
         "证据摘要": "evidence_summary",
         "来源": "source",
+        "来源/日期": "source",
         "日期": "source_date",
         "可信度": "confidence",
         "是否需核验": "needs_review",
@@ -255,6 +259,8 @@ def infer_section_from_headers(section: str, headers: list[str], source_file: st
         return "catalyst_calendar"
     if "标的" in header_set and "环节" in header_set and "核心逻辑" in header_set:
         return "action_plan"
+    if "认知阶段" in header_set and "事实等级" in header_set and "事件" in header_set:
+        return "recognition_timeline"
     if "产业链景气度" in source_name and "景气判断" in header_set and "代表公司" in header_set:
         return "material_process_scan"
     return ""
@@ -347,6 +353,25 @@ def classify_material_process(row: dict[str, Any]) -> str:
     if any(token in text for token in ("景气启动", "从0到1", "早期", "认知差")):
         return "观察"
     return "观察"
+
+
+RECOGNITION_CONSENSUS_MAP = {"暗流": "L1", "萌芽": "L2", "第一轮": "L3", "催化共振": "L4", "一致认同": "L5"}
+
+
+def recognition_consensus(stage: str) -> str:
+    text = clean_text(stage)
+    if not text:
+        return ""
+    segments = [seg for seg in re.split(r"[→←—\->~/、]+", text) if seg.strip()]
+    for seg in reversed(segments):
+        seg = seg.strip()
+        if seg in RECOGNITION_CONSENSUS_MAP:
+            return RECOGNITION_CONSENSUS_MAP[seg]
+    best = ""
+    for key, level in RECOGNITION_CONSENSUS_MAP.items():
+        if key in text and level > best:
+            best = level
+    return best
 
 
 def infer_action_priority(row: dict[str, Any]) -> str:
@@ -478,6 +503,17 @@ def normalize_row(section_key: str, raw: dict[str, str], theme: str, source_file
             row["risk_warning"] = "来自补充数据池的研究线索，非公告硬事实，需复核。"
         if not row.get("evidence_summary"):
             row["evidence_summary"] = "；".join([item for item in (target, direction, row.get("core_logic", "")) if item])
+    if section_key == "recognition_timeline":
+        if row.get("source") and not row.get("source_date"):
+            source, source_date = split_source_date(row.get("source", ""))
+            row["source"] = source
+            row["source_date"] = source_date
+        if not row.get("market_consensus"):
+            row["market_consensus"] = recognition_consensus(row.get("recognition_stage", ""))
+        if not row.get("direction"):
+            row["direction"] = infer_direction_from_section(section) or theme
+        if not row.get("evidence_summary"):
+            row["evidence_summary"] = row.get("event", "")
     if not row.get("source"):
         row["source"] = Path(source_file).stem
     if not row.get("source_date") and default_source_date:
