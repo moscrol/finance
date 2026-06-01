@@ -1423,6 +1423,7 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
     catalyst_rows = []
     validation_rows = []
     opportunity_rows = []
+    evidence_trace_rows = []
     for row in directions:
         if not isinstance(row, dict):
             continue
@@ -1436,6 +1437,7 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
         recognition = row.get("recognition_profile", {}) if isinstance(row.get("recognition_profile"), dict) else {}
         validation_plan = row.get("validation_plan", {}) if isinstance(row.get("validation_plan"), dict) else {}
         opportunity = row.get("opportunity_profile", {}) if isinstance(row.get("opportunity_profile"), dict) else {}
+        evidence_trace = row.get("evidence_trace", []) if isinstance(row.get("evidence_trace"), list) else []
         recognition_stage = recognition.get("stage") or row.get("recognition_stage", "")
         recognition_score = recognition.get("score", "")
         recognition_label = f"{recognition_stage}（{recognition_score}）" if recognition_score != "" else recognition_stage
@@ -1479,6 +1481,24 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
             "missing_proof": "；".join(as_list(opportunity.get("missing_proof"))[:3]),
             "next_actions": "；".join(as_list(opportunity.get("next_actions"))[:3]),
         })
+        for trace in evidence_trace[:4]:
+            if not isinstance(trace, dict):
+                continue
+            source_ref = str(trace.get("source_path") or "")
+            if trace.get("line_no"):
+                source_ref = f"{source_ref}:{trace.get('line_no')}" if source_ref else str(trace.get("line_no"))
+            evidence_trace_rows.append({
+                "direction": row.get("direction", ""),
+                "entity": trace.get("entity", ""),
+                "claim": trace.get("claim", ""),
+                "evidence_level": trace.get("evidence_level", ""),
+                "confidence": trace.get("confidence", ""),
+                "source": trace.get("source_title") or trace.get("source_system", ""),
+                "source_date": trace.get("source_date", ""),
+                "item_id": trace.get("item_id", ""),
+                "needs_review": "是" if trace.get("needs_review") else "否",
+                "source_ref": source_ref,
+            })
         for catalyst in validation_plan.get("occurred_catalysts") or row.get("catalysts") or []:
             if not isinstance(catalyst, dict):
                 continue
@@ -1512,6 +1532,7 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
         "direction_scan": scan_rows,
         "progress_ranking": ranking_rows,
         "opportunity_priorities": opportunity_rows,
+        "evidence_trace": evidence_trace_rows[:80],
         "catalyst_calendar": catalyst_rows[:30],
         "validation_checklist": validation_rows[:30],
         "demand_bottleneck_map": demand_map,
@@ -1527,7 +1548,7 @@ def merge_theme_direction_pool_context(context: dict, direction_context: dict) -
         return context or {}
     merged = dict(context or {})
     merged["theme_direction_pool"] = direction_context.get("theme_direction_pool", {})
-    for key in ("direction_scan", "progress_ranking", "opportunity_priorities", "catalyst_calendar", "validation_checklist", "demand_bottleneck_map"):
+    for key in ("direction_scan", "progress_ranking", "opportunity_priorities", "evidence_trace", "catalyst_calendar", "validation_checklist", "demand_bottleneck_map"):
         existing = merged.get(key) if isinstance(merged.get(key), list) else []
         incoming = direction_context.get(key) if isinstance(direction_context.get(key), list) else []
         if key in ("direction_scan", "progress_ranking", "opportunity_priorities"):
@@ -2786,6 +2807,23 @@ def opportunity_priorities_section(context: dict) -> str:
     return "\n".join(lines)
 
 
+def evidence_trace_section(context: dict) -> str:
+    rows = context.get("evidence_trace", []) if isinstance(context, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return "- 待补：需要把方向结论映射到 item_id、来源和原文位置。"
+    lines = [
+        "| 方向 | 实体 | 证据摘要 | 证据层级 | 置信度 | 来源 | 日期 | item_id | 需复核 | 原文位置 |",
+        "|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        lines.append(
+            f"| {row.get('direction','')} | {row.get('entity','')} | {theme_info_short(row.get('claim',''), 80)} | {row.get('evidence_level','')} | {row.get('confidence','')} | {row.get('source','')} | {row.get('source_date','')} | {row.get('item_id','')} | {row.get('needs_review','')} | {row.get('source_ref','')} |"
+        )
+    return "\n".join(lines)
+
+
 def candidate_company_section(context: dict, companies: list[dict]) -> str:
     candidates = as_list(context.get("candidate_companies")) if isinstance(context, dict) else []
     if not candidates:
@@ -3863,6 +3901,10 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 ### 跟踪优先级
 
 {opportunity_priorities_section(context)}
+
+### 证据追踪表
+
+{evidence_trace_section(context)}
 
 ### 催化日历
 

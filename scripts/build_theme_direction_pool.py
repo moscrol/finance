@@ -564,6 +564,36 @@ def risks_from_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> li
     return unique(risks)[:5]
 
 
+def evidence_trace_from_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = []
+    seen = set()
+    for item in sorted(items, key=row_score, reverse=True):
+        item_id = str(item.get("item_id") or "")
+        if item_id and item_id in seen:
+            continue
+        if item_id:
+            seen.add(item_id)
+        refs = item.get("source_refs") if isinstance(item.get("source_refs"), list) else []
+        first_ref = refs[0] if refs and isinstance(refs[0], dict) else {}
+        rows.append({
+            "item_id": item_id,
+            "entity": str(item.get("entity_name") or ""),
+            "ticker": str(item.get("ticker") or ""),
+            "claim": short_text(item.get("claim"), 160),
+            "evidence_level": str(item.get("evidence_level") or ""),
+            "confidence": str(item.get("confidence") or item.get("confidence_raw") or ""),
+            "needs_review": bool(item.get("needs_review")),
+            "source_title": str(item.get("source_title") or first_ref.get("source_title") or ""),
+            "source_type": str(item.get("source_type") or first_ref.get("source_type") or ""),
+            "source_date": str(item.get("source_date") or first_ref.get("source_date") or ""),
+            "source_system": str((as_list(item.get("source_systems")) or [first_ref.get("system", "")])[0] or ""),
+            "source_path": str(first_ref.get("path") or ""),
+            "line_no": first_ref.get("line_no", ""),
+            "record_type": str(item.get("source_record_type") or ""),
+        })
+    return rows[:12]
+
+
 def validation_window_for_stage(stage: str) -> str:
     return {"第一轮": "1-2个公告/定报周期内跟踪官方确认", "萌芽": "2-3个公告/定报周期内观察是否形成多源验证", "催化共振": "1个公告/定报周期内跟踪兑现情况", "一致认同": "1个公告/定报周期内跟踪兑现情况"}.get(stage, "后续新研报/公告/产业事件出现后再提高跟踪频率")
 
@@ -691,6 +721,7 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
         catalysts = catalysts_from_items(ranked_items)
         verification_items = verification_items_from_items(ranked_items)
         risks = risks_from_items(ranked_items, profile)
+        evidence_trace = evidence_trace_from_items(ranked_items)
         recognition = recognition_profile(profile, ranked_items, representatives, catalysts, verification_items, risks)
         validation = validation_plan_for_direction(direction, profile, catalysts, verification_items, recognition, risks)
         opportunity = opportunity_profile_for_direction(profile, recognition, validation, representatives, risks)
@@ -718,6 +749,7 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
             "catalysts": catalysts,
             "verification_items": verification_items,
             "validation_plan": validation,
+            "evidence_trace": evidence_trace,
             "risks": risks,
             "source_items": source_ids[:30],
             "sample_claims": [short_text(i.get("claim"), 120) for i in ranked_items[:5] if i.get("claim")],
