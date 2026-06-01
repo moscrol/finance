@@ -1411,6 +1411,7 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
     directions = pool.get("directions", []) if isinstance(pool, dict) else []
     if not isinstance(directions, list) or not directions:
         return {}
+    demand_map = pool.get("demand_bottleneck_map", []) if isinstance(pool.get("demand_bottleneck_map"), list) else []
     scan_rows = []
     ranking_rows = []
     catalyst_rows = []
@@ -1471,6 +1472,11 @@ def build_theme_direction_pool_context(pool: dict) -> dict:
         "progress_ranking": ranking_rows,
         "catalyst_calendar": catalyst_rows[:30],
         "validation_checklist": validation_rows[:30],
+        "demand_bottleneck_map": demand_map,
+        "demand_drivers": unique([str(row.get("demand_source") or "") for row in demand_map if isinstance(row, dict) and row.get("demand_source")]),
+        "bottlenecks": unique([str(row.get("bottleneck") or "") for row in demand_map if isinstance(row, dict) and row.get("bottleneck")]),
+        "core_benefit_links": unique([str(link) for row in demand_map if isinstance(row, dict) for link in as_list(row.get("chain_links"))]),
+        "verification_nodes": unique([str(item) for row in demand_map if isinstance(row, dict) for item in as_list(row.get("verification_items"))])[:20],
     }
 
 
@@ -1479,7 +1485,7 @@ def merge_theme_direction_pool_context(context: dict, direction_context: dict) -
         return context or {}
     merged = dict(context or {})
     merged["theme_direction_pool"] = direction_context.get("theme_direction_pool", {})
-    for key in ("direction_scan", "progress_ranking", "catalyst_calendar", "validation_checklist"):
+    for key in ("direction_scan", "progress_ranking", "catalyst_calendar", "validation_checklist", "demand_bottleneck_map"):
         existing = merged.get(key) if isinstance(merged.get(key), list) else []
         incoming = direction_context.get(key) if isinstance(direction_context.get(key), list) else []
         if key in ("direction_scan", "progress_ranking"):
@@ -1495,8 +1501,24 @@ def merge_theme_direction_pool_context(context: dict, direction_context: dict) -
                     seen.add(direction)
                 rows.append(item)
             merged[key] = rows
+        elif key == "demand_bottleneck_map":
+            seen = set()
+            rows = []
+            for item in incoming + existing:
+                if not isinstance(item, dict):
+                    continue
+                map_key = (str(item.get("demand_source") or ""), str(item.get("bottleneck") or ""))
+                if map_key in seen:
+                    continue
+                seen.add(map_key)
+                rows.append(item)
+            merged[key] = rows
         else:
             merged[key] = incoming + existing
+    for key in ("demand_drivers", "core_benefit_links", "verification_nodes", "bottlenecks"):
+        existing = as_list(merged.get(key))
+        incoming = as_list(direction_context.get(key))
+        merged[key] = unique([str(item) for item in incoming + existing if str(item).strip()])
     return merged
 
 
@@ -1557,6 +1579,33 @@ def theme_direction_pool_section(context: dict) -> str:
     by_type = summary.get("directions_by_type", {})
     if isinstance(by_type, dict) and by_type:
         lines.append(f"- 方向类型分布：{'; '.join(f'{k}={v}' for k, v in by_type.items())}")
+    return "\n".join(lines)
+
+
+def demand_bottleneck_map_section(context: dict) -> str:
+    rows = context.get("demand_bottleneck_map", []) if isinstance(context, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return "- 待补：需要方向池生成 demand_bottleneck_map。"
+    lines = [
+        "| 需求来源 | 技术瓶颈 | 受益环节/方向 | 代表实体 | 证据画像 | 下一步验证 |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in rows[:18]:
+        if not isinstance(row, dict):
+            continue
+        profile = row.get("evidence_profile", {}) if isinstance(row.get("evidence_profile"), dict) else {}
+        evidence = direction_pool_evidence_label(profile)
+        verification = "；".join(as_list(row.get("verification_items"))[:2])
+        lines.append(
+            "| {demand} | {bottleneck} | {links} | {entities} | {evidence} | {verification} |".format(
+                demand=row.get("demand_source", ""),
+                bottleneck=row.get("bottleneck", ""),
+                links="、".join(as_list(row.get("chain_links"))[:6]),
+                entities="、".join(as_list(row.get("beneficiary_entities"))[:6]),
+                evidence=evidence,
+                verification=verification,
+            )
+        )
     return "\n".join(lines)
 
 
@@ -3698,6 +3747,10 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 ## 二、为什么现在发酵
 
 {demand_drivers_section(context)}
+
+### 需求-瓶颈-环节传导表
+
+{demand_bottleneck_map_section(context)}
 
 ### 需求场景表
 

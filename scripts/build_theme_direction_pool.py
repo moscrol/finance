@@ -34,6 +34,11 @@ DEMAND_RULES = [
     ("存储/DDR/HBM", ["DDR", "HBM", "存储", "内存", "DRAM"]),
     ("国产替代", ["国产替代", "国产化", "进口替代", "自主可控"]),
     ("低空/机器人/新能源等终端", ["机器人", "低空", "eVTOL", "新能源", "汽车", "智驾"]),
+    ("商业发射", ["商业发射", "火箭发射", "发射场", "发射服务", "可回收火箭"]),
+    ("卫星制造", ["卫星制造", "整星", "总装", "太阳翼", "星敏感器", "卫星载荷"]),
+    ("低轨星座建设", ["低轨", "星座", "千帆", "GW星网", "中国星网", "星链"]),
+    ("卫星通信/终端", ["卫星通信", "卫星互联网", "终端", "相控阵", "T/R", "核心网", "基带", "连接器"]),
+    ("太空能源", ["太空光伏", "砷化镓", "HJT", "太阳翼", "钙钛矿"]),
 ]
 
 BOTTLENECK_RULES = [
@@ -43,6 +48,10 @@ BOTTLENECK_RULES = [
     ("良率/可靠性", ["良率", "可靠性", "稳定性", "一致性", "验证"]),
     ("国产替代/供应链安全", ["国产替代", "国产化", "替代", "供应链", "自主"]),
     ("成本/量产", ["成本", "量产", "放量", "产能", "扩产", "规模化"]),
+    ("宇航级可靠性", ["宇航", "星载", "抗辐照", "航天级", "空间环境", "卫星"]),
+    ("轻量化/结构强度", ["轻量化", "结构件", "箭体", "贮箱", "碳纤维", "钛合金", "铝合金"]),
+    ("射频通信/高速传输", ["射频", "相控阵", "T/R", "基带", "高压缩比", "视频传输", "连接器", "天线"]),
+    ("发射降本/复用", ["可回收", "复用", "液氧甲烷", "推力室", "发动机", "商业发射"]),
 ]
 
 CANONICAL_DIRECTION_RULES = [
@@ -69,8 +78,10 @@ CANONICAL_DIRECTION_RULES = [
 ]
 
 GENERIC_SEGMENTS = {
-    "", "未分段", "收入", "订单", "产能", "客户", "认证", "量产", "交付", "送样", "并购", "产品", "良率", "其他", "待核验",
+    "", "unknown", "未知", "未分段", "收入", "订单", "产能", "客户", "认证", "量产", "交付", "送样", "并购", "产品", "良率", "其他", "待核验",
 }
+
+GENERIC_CHAIN_LINKS = {"", "unknown", "未知", "上游", "中游", "下游", "配套", "生态", "产业链", "全链条"}
 
 EVIDENCE_LAYER_RANK = {
     "graph_only": 0,
@@ -382,6 +393,65 @@ def risks_from_items(items: list[dict[str, Any]], profile: dict[str, Any]) -> li
     return unique(risks)[:5]
 
 
+def aggregate_direction_profiles(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    profiles = [row.get("evidence_profile", {}) for row in rows if isinstance(row.get("evidence_profile"), dict)]
+    layers = [str(p.get("highest_evidence_layer") or "") for p in profiles if p.get("highest_evidence_layer")]
+    systems = unique([str(system) for p in profiles for system in as_list(p.get("source_systems"))])
+    return {
+        "direction_count": len(rows),
+        "item_count": sum(int(p.get("item_count") or 0) for p in profiles),
+        "source_systems": systems,
+        "highest_evidence_layer": max(layers, key=evidence_rank) if layers else "direction_pool",
+        "has_official_evidence": any(p.get("has_official_evidence") for p in profiles),
+        "has_multi_source_support": any(p.get("has_multi_source_support") for p in profiles) or len(systems) > 1,
+        "review_required_count": sum(int(p.get("review_required_count") or 0) for p in profiles),
+    }
+
+
+def build_demand_bottleneck_map(directions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for row in directions:
+        if not isinstance(row, dict):
+            continue
+        demands = as_list(row.get("demand_sources"))
+        bottlenecks = as_list(row.get("bottlenecks_solved"))
+        if not demands and not bottlenecks:
+            continue
+        if not demands:
+            demands = ["题材主线需求"]
+        if not bottlenecks:
+            bottlenecks = ["待验证瓶颈"]
+        for demand in demands[:2]:
+            for bottleneck in bottlenecks[:2]:
+                grouped[(str(demand), str(bottleneck))].append(row)
+    rows = []
+    for (demand, bottleneck), linked in grouped.items():
+        entities = []
+        for direction in linked:
+            entities.extend(entity.get("name", "") for entity in direction.get("representative_entities", []) if isinstance(entity, dict))
+        verifications = []
+        for direction in linked:
+            verifications.extend(item.get("item", "") for item in direction.get("verification_items", []) if isinstance(item, dict))
+        catalysts = []
+        for direction in linked:
+            catalysts.extend(item.get("event", "") for item in direction.get("catalysts", []) if isinstance(item, dict))
+        source_items = []
+        for direction in linked:
+            source_items.extend(str(item) for item in direction.get("source_items", []) if item)
+        rows.append({
+            "demand_source": demand,
+            "bottleneck": bottleneck,
+            "chain_links": unique([direction.get("direction", "") for direction in linked if str(direction.get("direction", "")).strip() not in GENERIC_CHAIN_LINKS] + [link for direction in linked for link in as_list(direction.get("beneficiary_links")) if str(link).strip() not in GENERIC_CHAIN_LINKS])[:12],
+            "directions": unique([direction.get("direction", "") for direction in linked])[:12],
+            "beneficiary_entities": unique(entities)[:12],
+            "evidence_profile": aggregate_direction_profiles(linked),
+            "verification_items": unique(verifications)[:8],
+            "catalysts": unique(catalysts)[:8],
+            "source_items": unique(source_items)[:40],
+        })
+    return sorted(rows, key=lambda row: (row["evidence_profile"]["item_count"], row["evidence_profile"]["direction_count"]), reverse=True)
+
+
 def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: Path, min_score: int) -> dict[str, Any]:
     graph = load_json(relations_dir / "concept_graph.json", {"concepts": {}})
     exposures = load_json(relations_dir / "entity_exposures.json", {"entities": {}})
@@ -421,10 +491,12 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
             "source_items": source_ids[:30],
             "sample_claims": [short_text(i.get("claim"), 120) for i in ranked_items[:5] if i.get("claim")],
         })
+    demand_bottleneck_map = build_demand_bottleneck_map(directions)
     summary = {
         "theme": theme,
         "generated_at": date.today().isoformat(),
         "direction_count": len(directions),
+        "demand_bottleneck_map_count": len(demand_bottleneck_map),
         "input_row_count": len(rows),
         "matched_row_count": len(filtered),
         "min_score": min_score,
@@ -439,6 +511,7 @@ def build_direction_pool(theme: str, rows: list[dict[str, Any]], relations_dir: 
         "generated_at": summary["generated_at"],
         "summary": summary,
         "directions": directions,
+        "demand_bottleneck_map": demand_bottleneck_map,
         "relation_inputs": {
             "concept_graph_loaded": bool(graph.get("concepts")),
             "entity_exposures_loaded": bool(exposures.get("entities")),
@@ -461,14 +534,37 @@ def write_markdown(path: Path, pool: dict[str, Any], limit: int) -> None:
         "## 摘要",
         "",
         f"- 方向数：{pool['summary']['direction_count']}",
+        f"- 需求-瓶颈映射数：{pool['summary'].get('demand_bottleneck_map_count', 0)}",
         f"- 匹配条目：{pool['summary']['matched_row_count']} / 输入条目：{pool['summary']['input_row_count']}",
         f"- 安全边界：{pool['summary']['safety_statement']}",
+        "",
+        "## 需求-瓶颈-环节传导",
+        "",
+        "| 需求来源 | 技术瓶颈 | 受益环节 | 代表实体 | 证据画像 | 下一步验证 |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in pool.get("demand_bottleneck_map", [])[:limit]:
+        profile = row.get("evidence_profile", {})
+        evidence = f"{profile.get('item_count', 0)}条/{profile.get('highest_evidence_layer', '')}"
+        lines.append(
+            "| "
+            + " | ".join([
+                str(row.get("demand_source", "")),
+                str(row.get("bottleneck", "")),
+                "、".join(row.get("chain_links", [])[:6]),
+                "、".join(row.get("beneficiary_entities", [])[:6]),
+                evidence,
+                short_text((row.get("verification_items") or [""])[0], 80),
+            ])
+            + " |"
+        )
+    lines.extend([
         "",
         "## 方向扫描",
         "",
         "| 方向 | 类型 | 链条位置 | 认知水位 | 需求来源 | 技术瓶颈 | 代表实体 | 证据画像 | 下一步验证 |",
         "|---|---|---|---|---|---|---|---|---|",
-    ]
+    ])
     for row in pool.get("directions", [])[:limit]:
         entities = "、".join(e.get("name", "") for e in row.get("representative_entities", [])[:5] if e.get("name"))
         profile = row.get("evidence_profile", {})
