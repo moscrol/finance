@@ -72,7 +72,10 @@ def _plain_code(ts_code: str) -> str:
     return str(ts_code).split(".")[0]
 
 
-def _tencent_prefix(code: str) -> str:
+def _tencent_symbol(ts_code: str) -> str:
+    code = _plain_code(ts_code)
+    if str(ts_code).upper().endswith(".BJ"):
+        return f"bj{code}"
     if code.startswith(("6", "9")):
         return f"sh{code}"
     if code.startswith("8"):
@@ -81,34 +84,36 @@ def _tencent_prefix(code: str) -> str:
 
 
 def _tencent_market_caps(ts_codes: list[str]) -> dict[str, dict]:
-    codes = [_plain_code(c) for c in ts_codes if c]
-    if not codes:
+    symbols = [_tencent_symbol(c) for c in ts_codes if c]
+    if not symbols:
         return {}
-    url = "https://qt.gtimg.cn/q=" + ",".join(_tencent_prefix(c) for c in codes)
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    text = urllib.request.urlopen(req, timeout=10).read().decode("gbk", "ignore")
     out: dict[str, dict] = {}
-    for line in text.strip().split(";"):
-        if not line.strip() or '="' not in line:
-            continue
-        key = line.split("=")[0].split("_")[-1]
-        vals = line.split('"')[1].split("~")
-        if len(vals) < 46:
-            continue
-        code = key[2:]
-        ts_code = f"{code}.SH" if key.startswith("sh") else (f"{code}.BJ" if key.startswith("bj") else f"{code}.SZ")
+    for i in range(0, len(symbols), 80):
+        batch = symbols[i:i + 80]
+        url = "https://qt.gtimg.cn/q=" + ",".join(batch)
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        text = urllib.request.urlopen(req, timeout=10).read().decode("gbk", "ignore")
+        for line in text.strip().split(";"):
+            if not line.strip() or '="' not in line:
+                continue
+            key = line.split("=")[0].split("_")[-1]
+            vals = line.split('"')[1].split("~")
+            if len(vals) < 46:
+                continue
+            code = key[2:]
+            ts_code = f"{code}.SH" if key.startswith("sh") else (f"{code}.BJ" if key.startswith("bj") else f"{code}.SZ")
 
-        def num(idx):
-            try:
-                return float(vals[idx]) if vals[idx] else None
-            except (TypeError, ValueError, IndexError):
-                return None
+            def num(idx):
+                try:
+                    return float(vals[idx]) if vals[idx] else None
+                except (TypeError, ValueError, IndexError):
+                    return None
 
-        out[ts_code] = {
-            "float_mcap_yi": num(44),
-            "total_mcap_yi": num(45),
-            "mcap_source": "tencent",
-        }
+            out[ts_code] = {
+                "float_mcap_yi": num(44),
+                "total_mcap_yi": num(45),
+                "mcap_source": "tencent",
+            }
     return out
 
 
