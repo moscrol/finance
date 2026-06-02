@@ -21,9 +21,28 @@ DEFAULT_KEYWORDS = [
     "磷化铟", "InP", "陶瓷基板", "DSP", "DFP",
 ]
 
-SKIP_DIRS = {".obsidian", ".git", "node_modules", "__pycache__", "archive", "source-backups", "auto-hbs-rollback"}
-SKIP_FILES = {"AGENTS.md", "CLAUDE.md", "log.md", "index.md"}
-SKIP_PATH_KEYWORDS = {"theme-radar-验收", "theme-radar/regression"}
+SKIP_DIRS = {".obsidian", ".git", "node_modules", "__pycache__", "archive", "source-backups", "auto-hbs-rollback", "prompts"}
+SKIP_FILES = {"AGENTS.md", "CLAUDE.md", "log.md", "index.md", "entity-template.md", "README.md", "skills-lock.json"}
+SKIP_PATH_KEYWORDS = {"theme-radar-验收", "theme-radar/regression", "entity-delta-backfill", "review-queue", "raw/theme-radar", "/disclosures/", "/prompts/"}
+
+# 噪音片段：提示词规则、schema/JSON 片段、纯链接模板、基本无中文实体信息
+NOISE_RE = re.compile(
+    r"(role\s*只写|禁止|update_type|evidence_layer|chain_layer|graph_only|exposure_only"
+    r"|_candidates\"|\"[A-Za-z_]+\"\s*:\s*[\[{\"]|^\s*[\[{])"
+)
+
+
+def is_noise(snippet: str) -> bool:
+    s = (snippet or "").strip()
+    if not s:
+        return True
+    if NOISE_RE.search(s):
+        return True
+    if s.count("[[") >= 3 and len(s) < 160:  # 纯 wikilink 列表模板
+        return True
+    if len(re.findall(r"[\u4e00-\u9fff]", s)) < 4:  # 基本无中文信息（多为代码/英文 schema）
+        return True
+    return False
 
 SEGMENT_RULES = [
     ("上游-光芯片", ["光芯片", "EML", "CW激光器", "DFB", "VCSEL", "磷化铟", "InP"]),
@@ -82,6 +101,8 @@ def line_blocks(text: str, keywords: list[str], window: int = 1):
             continue
         seen.add(key)
         snippet = normalize_text("\n".join(lines[start:end]))
+        if is_noise(snippet):
+            continue
         heading = nearest_heading(lines, idx)
         yield idx + 1, heading, hits, snippet
 
@@ -142,8 +163,9 @@ def build_item(theme: str, vault: Path, path: Path, line_no: int, heading: str, 
     rel = str(path.relative_to(vault))
     companies = detect_companies(snippet + " " + path.stem)
     entity = companies[0] if companies else ""
+    concept_name = ""
     if not entity and "/concepts/" in f"/{rel}":
-        entity = path.stem
+        concept_name = path.stem  # concept 页不当作实体，避免 entity_name 污染
     ticker = COMPANY_TICKERS.get(entity, "")
     segment = infer_segment(snippet + " " + path.name)
     info_types = infer_info_types(snippet)
@@ -152,6 +174,7 @@ def build_item(theme: str, vault: Path, path: Path, line_no: int, heading: str, 
         "item_id": sha_id(theme, rel, line_no, snippet),
         "theme": theme,
         "entity_name": entity,
+        "concept_name": concept_name,
         "ticker": ticker,
         "chain_position": segment,
         "segment": segment,
