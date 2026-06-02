@@ -61,6 +61,15 @@ CREATE TABLE IF NOT EXISTS fact_market_daily (
     strength_status          TEXT,
     strength_source          TEXT,
     strength_updated_at      TIMESTAMP,
+    stock_high_count_history INTEGER,
+    stock_high_count_3y      INTEGER,
+    stock_high_count_2y      INTEGER,
+    stock_high_count_1y      INTEGER,
+    stock_high_count_120d    INTEGER,
+    stock_high_count_60d     INTEGER,
+    stock_high_count_20d     INTEGER,
+    stock_high_source        TEXT,
+    stock_high_updated_at    TIMESTAMP,
     note                     TEXT,
     source                   TEXT,
     updated_at               TIMESTAMP
@@ -136,6 +145,34 @@ CREATE TABLE IF NOT EXISTS fact_stock_daily (
 );
 CREATE INDEX IF NOT EXISTS idx_fact_stock_daily_date ON fact_stock_daily(trade_date);
 CREATE INDEX IF NOT EXISTS idx_fact_stock_daily_stock ON fact_stock_daily(stock_ts_code);
+
+CREATE TABLE IF NOT EXISTS fact_stock_high_daily (
+    trade_date              DATE,
+    stock_ts_code           TEXT,
+    stock_name              TEXT,
+    primary_high_period     TEXT,
+    primary_high_label      TEXT,
+    high_periods_json       TEXT,
+    is_new                  BOOLEAN,
+    price                   DOUBLE,
+    pct_chg                 DOUBLE,
+    pct_chg_10d             DOUBLE,
+    amount                  DOUBLE,
+    market_cap              DOUBLE,
+    fund_today              DOUBLE,
+    limit_status            TEXT,
+    limit_times             INTEGER,
+    sw_l1                   TEXT,
+    sw_l2                   TEXT,
+    plate                   TEXT,
+    whitelist_sectors_json  TEXT,
+    source                  TEXT,
+    updated_at              TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_stock_high_date ON fact_stock_high_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_stock_high_stock ON fact_stock_high_daily(stock_ts_code);
+CREATE INDEX IF NOT EXISTS idx_fact_stock_high_period ON fact_stock_high_daily(primary_high_period);
 
 CREATE TABLE IF NOT EXISTS fact_high_volume_gainers (
     start_date         DATE,

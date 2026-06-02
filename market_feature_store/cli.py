@@ -96,6 +96,18 @@ def cmd_sync_market_strength(args) -> int:
     return 0
 
 
+def cmd_sync_stock_high(args) -> int:
+    from .sync.sync_fupanhui_stock_high_daily import sync_fupanhui_stock_high
+
+    stats = sync_fupanhui_stock_high(trade_date=args.trade_date, page_size=args.page_size)
+    print(f"交易日: {stats['trade_date']} | 个股新高写入: {stats['unique_stocks']} 只")
+    print("周期抓取: " + ", ".join(f"{k}={v}" for k, v in stats["fetched_by_period"].items()))
+    print("市场新高家数: " + ", ".join(f"{k}={v}" for k, v in stats["counts"].items()))
+    print(f"fact_stock_high_daily: {stats['table_total']} 行, {stats['table_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    print(f"其中 primary=历史新高: {stats['history_rows']} 行")
+    return 0
+
+
 def cmd_sync_sector_marginal(_args) -> int:
     from .sync.sync_feishu_sector_marginal import sync_sector_marginal
 
@@ -314,6 +326,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_ms.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
     p_ms.add_argument("--days", type=int, default=120, help="回看天数, 默认120")
     p_ms.set_defaults(func=cmd_sync_market_strength)
+
+    p_sh = sub.add_parser("sync-stock-high", help="同步复盘会个股新高状态与市场新高家数")
+    p_sh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
+    p_sh.add_argument("--page-size", type=int, default=200, help="复盘会分页大小, 默认200")
+    p_sh.set_defaults(func=cmd_sync_stock_high)
 
     sub.add_parser("sync-sector-marginal", help="回填飞书边际量电子表格到 fact_sector_daily.diff_ratio").set_defaults(func=cmd_sync_sector_marginal)
 
