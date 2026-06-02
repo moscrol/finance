@@ -6,7 +6,9 @@
 """
 from __future__ import annotations
 
+import json
 import time
+import urllib.request
 from datetime import datetime, date
 
 from ..db import connect, init_db
@@ -49,14 +51,78 @@ def _resolve_sector(dim, sector: str):
     return None
 
 
+def _ensure_columns(con):
+    cols = {
+        "pct_chg_3d": "DOUBLE",
+        "high_status": "TEXT",
+        "high_status_label": "TEXT",
+        "limit_times": "INTEGER",
+        "role_tags_json": "TEXT",
+        "circ_mv": "DOUBLE",
+        "float_mcap_yi": "DOUBLE",
+        "total_mcap_yi": "DOUBLE",
+        "free_float_mcap_yi": "DOUBLE",
+        "mcap_source": "TEXT",
+    }
+    for name, typ in cols.items():
+        con.execute(f"ALTER TABLE fact_sector_stock_daily ADD COLUMN IF NOT EXISTS {name} {typ}")
+
+
+def _plain_code(ts_code: str) -> str:
+    return str(ts_code).split(".")[0]
+
+
+def _tencent_prefix(code: str) -> str:
+    if code.startswith(("6", "9")):
+        return f"sh{code}"
+    if code.startswith("8"):
+        return f"bj{code}"
+    return f"sz{code}"
+
+
+def _tencent_market_caps(ts_codes: list[str]) -> dict[str, dict]:
+    codes = [_plain_code(c) for c in ts_codes if c]
+    if not codes:
+        return {}
+    url = "https://qt.gtimg.cn/q=" + ",".join(_tencent_prefix(c) for c in codes)
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    text = urllib.request.urlopen(req, timeout=10).read().decode("gbk", "ignore")
+    out: dict[str, dict] = {}
+    for line in text.strip().split(";"):
+        if not line.strip() or '="' not in line:
+            continue
+        key = line.split("=")[0].split("_")[-1]
+        vals = line.split('"')[1].split("~")
+        if len(vals) < 46:
+            continue
+        code = key[2:]
+        ts_code = f"{code}.SH" if key.startswith("sh") else (f"{code}.BJ" if key.startswith("bj") else f"{code}.SZ")
+
+        def num(idx):
+            try:
+                return float(vals[idx]) if vals[idx] else None
+            except (TypeError, ValueError, IndexError):
+                return None
+
+        out[ts_code] = {
+            "float_mcap_yi": num(44),
+            "total_mcap_yi": num(45),
+            "mcap_source": "tencent",
+        }
+    return out
+
+
 UPSERT_SQL = """
     INSERT INTO fact_sector_stock_daily
         (trade_date, sector_ts_code, sector_name, sw_l1,
          stock_ts_code, stock_name, price, pct_chg, amount,
-         pct_chg_5d, pct_chg_10d, pct_chg_20d,
+         pct_chg_3d, pct_chg_5d, pct_chg_10d, pct_chg_20d,
+         high_status, high_status_label, limit_times,
          fund_flow_1d, fund_flow_5d, sw_industry,
-         leader_plate, leader_sub_plate, source, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         leader_plate, leader_sub_plate, role_tags_json,
+         circ_mv, float_mcap_yi, total_mcap_yi, free_float_mcap_yi, mcap_source,
+         source, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT (trade_date, sector_ts_code, stock_ts_code) DO UPDATE SET
         sector_name = excluded.sector_name,
         sw_l1 = excluded.sw_l1,
@@ -64,13 +130,24 @@ UPSERT_SQL = """
         price = excluded.price,
         pct_chg = excluded.pct_chg,
         amount = excluded.amount,
+        pct_chg_3d = excluded.pct_chg_3d,
         pct_chg_5d = excluded.pct_chg_5d,
         pct_chg_10d = excluded.pct_chg_10d,
         pct_chg_20d = excluded.pct_chg_20d,
+        high_status = excluded.high_status,
+        high_status_label = excluded.high_status_label,
+        limit_times = excluded.limit_times,
         fund_flow_1d = excluded.fund_flow_1d,
         fund_flow_5d = excluded.fund_flow_5d,
         sw_industry = excluded.sw_industry,
         leader_plate = excluded.leader_plate,
+        leader_sub_plate = excluded.leader_sub_plate,
+        role_tags_json = excluded.role_tags_json,
+        circ_mv = excluded.circ_mv,
+        float_mcap_yi = excluded.float_mcap_yi,
+        total_mcap_yi = excluded.total_mcap_yi,
+        free_float_mcap_yi = excluded.free_float_mcap_yi,
+        mcap_source = excluded.mcap_source,
         source = excluded.source,
         updated_at = excluded.updated_at
 """
@@ -96,6 +173,7 @@ def sync_fact_sector_stock_daily(
     init_db()
     con = connect()
     try:
+        _ensure_columns(con)
         dim = _load_sector_dim(con)
         td = _parse_date(trade_date) if trade_date else _latest_trade_date(con)
         done = set()
@@ -143,17 +221,24 @@ def sync_fact_sector_stock_daily(
                 failures.append((ts_code, str(e)))
                 continue
             snap_date = _parse_date(payload.get("trade_date")) or td
+            stocks = payload.get("stocks", [])
+            cap_map = _tencent_market_caps([s.get("ts_code") for s in stocks if s.get("ts_code")])
             rows = []
-            for s in payload.get("stocks", []):
+            for s in stocks:
                 code = s.get("ts_code")
                 if not code:
                     continue
+                cap = cap_map.get(code, {})
                 rows.append((
                     snap_date, ts_code, name, sw_l1,
                     code, s.get("name"), s.get("price"), s.get("pct_chg"), s.get("amount"),
-                    s.get("pct_chg_5d"), s.get("pct_chg_10d"), s.get("pct_chg_20d"),
+                    s.get("pct_chg_3d"), s.get("pct_chg_5d"), s.get("pct_chg_10d"), s.get("pct_chg_20d"),
+                    s.get("high_status"), s.get("high_status_label"), s.get("limit_times"),
                     s.get("fund_flow_1d"), s.get("fund_flow_5d"), s.get("sw_industry"),
-                    s.get("leader_plate"), None, "fupanhui", now,
+                    s.get("leader_plate"), None, json.dumps(s.get("role_tags") or [], ensure_ascii=False),
+                    s.get("circ_mv"),
+                    cap.get("float_mcap_yi"), cap.get("total_mcap_yi"), None, cap.get("mcap_source"),
+                    "fupanhui", now,
                 ))
             con.execute("BEGIN TRANSACTION")
             con.execute(
