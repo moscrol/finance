@@ -380,6 +380,7 @@ def normalize_entity_name(name: str, ticker: str = "") -> str:
         "全行业受益", "焦煤企业", "山西区域煤企", "所有动力煤企业", "低估值煤企",
         "所有磷矿持有企业", "待确认涉及企业", "磷矿石全行业", "磷酸铁锂全行业",
         "全板块受益", "全板块", "铜价", "美国关税", "铜箔行业", "铜行业", "铜精矿TC/RC",
+        "低估值龙头", "利好技术领先的国产龙头", "多家", "全板块龙头",
     }:
         return ""
     if re.match(r"^(所有动力煤企业|焦煤企业|动力煤企业|全行业|全板块|全产业链|山西区域煤企|进口依赖度低的煤企受益更大)", s):
@@ -653,11 +654,11 @@ def items_from_catalyst_field_table(rows: list[dict], meta: dict) -> list[dict]:
 def items_from_chain_path_row(row: dict, meta: dict) -> list[dict]:
     claim = "；".join(x for x in [row.get("传导路径", "") or row.get("起点→终点", "") or row.get("起点->终点", ""), row.get("瓶颈或价值量", "") or row.get("瓶颈/价值量", "") or row.get("瓶颈", "") or row.get("价值量分布", ""), row.get("下游驱动", "")] if x)
     segment = row.get("对应环节", "") or row.get("所属环节", "") or row.get("环节", "") or re.sub(r"^传导链\d+[：:]\s*", "", str(meta.get("section", ""))).strip()
-    component = row.get("关键材料/零部件/设备/软件/工艺", "") or row.get("关键材料/零部件/设备/软件", "") or row.get("关键材料/设备/软件", "") or row.get("关键材料/设备", "") or row.get("关键材料/产品", "") or row.get("关键产品", "") or row.get("关键材料/技术", "") or row.get("关键工艺/平台", "") or row.get("关键产品/材料", "")
+    component = row.get("关键材料/零部件/设备/软件/工艺", "") or row.get("关键材料/零部件/设备/软件", "") or row.get("关键材料/设备/软件", "") or row.get("关键材料/设备", "") or row.get("关键材料/产品", "") or row.get("关键产品", "") or row.get("关键产品/指标", "") or row.get("关键材料/技术", "") or row.get("关键工艺/平台", "") or row.get("关键产品/材料", "")
     source_title = row.get("来源", "")
     ticker_raw = row.get("证券代码", "") or row.get("代码", "")
     needs_review_raw = row.get("needs_review", "") or row.get("需核验", "") or row.get("是否需要人工核验", "")
-    company_raw = row.get("代表公司", "") or row.get("代表公司（A股）", "") or row.get("代表公司(A股)", "") or row.get("代表公司A股", "")
+    company_raw = row.get("代表公司", "") or row.get("代表公司/证券代码", "") or row.get("代表公司（A股）", "") or row.get("代表公司(A股)", "") or row.get("代表公司A股", "")
     return [
         make_item(
             meta,
@@ -1055,7 +1056,7 @@ def build_outputs(path: Path, source_system: str) -> tuple[dict, list[str]]:
                 items.append(item_from_chain_row(r["row"], meta))
             elif {"催化类型", "具体内容", "相关公司"}.issubset(headers) and ("影响的产业链环节" in headers or "影响产业链环节" in headers or "影响环节" in headers):
                 items.extend(items_from_catalyst_row(r["row"], meta))
-            elif ({"起点", "传导路径", "对应环节"}.issubset(headers) and ("代表公司" in headers or "代表公司（A股）" in headers or "代表公司(A股)" in headers or "代表公司A股" in headers)) or ({"环节"}.issubset(headers) and ("代表公司" in headers or "代表公司（A股）" in headers or "代表公司(A股)" in headers or "代表公司A股" in headers) and ("证券代码" in headers or "代码" in headers) and ("关键材料/技术" in headers or "关键工艺/平台" in headers or "关键产品/材料" in headers or "关键材料/设备" in headers)):
+            elif ({"起点", "传导路径", "对应环节"}.issubset(headers) and ("代表公司" in headers or "代表公司/证券代码" in headers or "代表公司（A股）" in headers or "代表公司(A股)" in headers or "代表公司A股" in headers)) or ({"环节"}.issubset(headers) and ("代表公司" in headers or "代表公司/证券代码" in headers or "代表公司（A股）" in headers or "代表公司(A股)" in headers or "代表公司A股" in headers) and ("证券代码" in headers or "代码" in headers) and ("关键材料/技术" in headers or "关键工艺/平台" in headers or "关键产品/材料" in headers or "关键材料/设备" in headers)):
                 items.extend(items_from_chain_path_row(r["row"], meta))
             elif {"细分方向", "为什么重要", "代表公司"}.issubset(headers) and ("证券代码" in headers or "代码" in headers) and ("所属产业链环节" in headers or "产业链环节" in headers or "所属环节" in headers or "环节" in headers):
                 items.extend(items_from_subdirection_row(r["row"], meta))
@@ -1079,7 +1080,7 @@ def build_outputs(path: Path, source_system: str) -> tuple[dict, list[str]]:
                 elif {"具体内容", "相关公司"}.issubset(data) and ("影响的产业链环节" in data or "影响产业链环节" in data or "影响环节" in data):
                     items.extend(items_from_catalyst_field_table(table["rows"], meta))
                     break
-                elif {"起点", "传导路径", "代表公司"}.issubset(data):
+                elif {"起点", "传导路径"}.issubset(data) and ("代表公司" in data or "代表公司/证券代码" in data):
                     items.extend(items_from_chain_path_field_table(table["rows"], meta))
                     break
                 elif {"细分方向", "为什么重要", "代表公司"}.issubset(data) and ("所属产业链环节" in data or "产业链环节" in data or "所属环节" in data or "环节" in data):
