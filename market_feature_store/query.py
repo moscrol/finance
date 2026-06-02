@@ -49,6 +49,16 @@ def health() -> dict:
             "date_max": str(s[4]) if s[4] else None,
             "null_stock_code": s[5] or 0, "null_sw_l1": s[6] or 0,
         }
+        # fact_market_daily
+        m = con.execute(
+            "SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),"
+            " SUM(CASE WHEN total_amount IS NULL THEN 1 ELSE 0 END)"
+            " FROM fact_market_daily"
+        ).fetchone()
+        out["fact_market_daily"] = {
+            "rows": m[0], "dates": m[1], "date_min": str(m[2]) if m[2] else None,
+            "date_max": str(m[3]) if m[3] else None, "null_total_amount": m[4] or 0,
+        }
         # 完整度: 最新交易日 dim_sector 覆盖了多少板块有成分股
         latest = out["fact_sector_stock_daily"]["date_max"]
         if latest:

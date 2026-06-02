@@ -95,6 +95,9 @@ def cmd_check(_args) -> int:
     ss = h["fact_sector_stock_daily"]
     print(f"[fact_sector_stock_daily] {ss['rows']} 行, {ss['dates']} 交易日, "
           f"{ss['sectors']} 板块, {ss['stocks']} 个股, 空code {ss['null_stock_code']}, 空sw_l1 {ss['null_sw_l1']}")
+    md = h["fact_market_daily"]
+    print(f"[fact_market_daily] {md['rows']} 行, {md['dates']} 交易日 "
+          f"({md['date_min']}~{md['date_max']}), 空成交额 {md['null_total_amount']}")
     if "coverage_latest" in h:
         c = h["coverage_latest"]
         print(f"[最新日 {c['date']}] 有成分股板块 {c['sectors_with_stocks']}/{c['dim_sector_total']}")
