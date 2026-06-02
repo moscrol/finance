@@ -52,6 +52,25 @@ def cmd_sync_sector_daily(args) -> int:
     return 0
 
 
+def cmd_sync_sector_stocks(args) -> int:
+    from .sync.sync_fupanhui_sector_stock_daily import sync_fact_sector_stock_daily
+
+    stats = sync_fact_sector_stock_daily(
+        trade_date=args.trade_date,
+        sector=args.sector,
+        limit=args.limit,
+        only_missing=not args.refresh,
+        sleep=args.sleep,
+    )
+    print(f"交易日: {stats['trade_date']}")
+    print(f"本次抓取板块: {stats['processed']} | 写入行: {stats['rows_written']}")
+    print(f"当日已完成板块: {stats['sectors_done_today']}/{stats['sectors_total']} | 剩余: {stats['sectors_remaining']}")
+    print(f"fact_sector_stock_daily 总数: {stats['table_total']}")
+    if stats["failures"]:
+        print(f"失败 {len(stats['failures'])}: " + ", ".join(c for c, _ in stats['failures'][:10]))
+    return 0
+
+
 def cmd_info(_args) -> int:
     if not DB_PATH.exists():
         print(f"数据库不存在: {DB_PATH}", file=sys.stderr)
@@ -87,6 +106,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_sd.add_argument("--trade-date", default=None, help="截止交易日 YYYY-MM-DD, 留空取最新")
     p_sd.add_argument("--days", type=int, default=25, help="每板块回看天数, 默认25")
     p_sd.set_defaults(func=cmd_sync_sector_daily)
+
+    p_ss = sub.add_parser("sync-sector-stocks", help="逐板块回补成分股快照到 fact_sector_stock_daily")
+    p_ss.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_ss.add_argument("--sector", default=None, help="只抓单个板块 (代码或名称)")
+    p_ss.add_argument("--limit", type=int, default=None, help="本次最多抓多少个板块")
+    p_ss.add_argument("--refresh", action="store_true", help="不跳过已抓板块, 强制重抓")
+    p_ss.add_argument("--sleep", type=float, default=0.3, help="板块间隔秒数, 默认0.3")
+    p_ss.set_defaults(func=cmd_sync_sector_stocks)
 
     return parser
 

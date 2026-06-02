@@ -192,6 +192,49 @@ def get_sector_klines_batch(
         raise FupanhuiError(f"批量板块 K 线解析失败: {raw[:200]}") from e
 
 
+def get_sector_stocks_batch(
+    ts_codes: list,
+    trade_date: str | None = None,
+    batch: int = 8,
+    timeout: int = 180,
+) -> dict:
+    """批量抓取多个板块在某交易日的成分股 (已裁剪 pattern 等大字段)。
+
+    返回 {ts_code: {trade_date, name, stock_count, stocks:[{...slim...}]}}。
+    调用方应分块 (chunk) 传入, 控制单次 eval 响应大小。
+    """
+    codes_json = json.dumps(ts_codes)
+    td_param = f"?trade_date={trade_date}" if trade_date else ""
+    js = (
+        "(async()=>{"
+        "const sectors=" + codes_json + ";"
+        "const out={};"
+        f"const BATCH={batch};"
+        "for(let i=0;i<sectors.length;i+=BATCH){"
+        "const b=sectors.slice(i,i+BATCH);"
+        "const ps=b.map(ts=>"
+        "fetch('/api/v1/client/reviews/sector-cycle/'+ts+'/stocks" + td_param + "')"
+        ".then(r=>r.json()).then(d=>{"
+        "const dd=d.data||{};"
+        "const arr=(dd.stocks||[]).map(s=>({c:s.ts_code,n:s.name,p:s.price,"
+        "pc:s.pct_chg,a:s.amount,p5:s.pct_chg_5d,p10:s.pct_chg_10d,p20:s.pct_chg_20d,"
+        "f1:s.fund_flow_1d,f5:s.fund_flow_5d,sw:s.sw_industry,lp:s.leader_plate}));"
+        "out[ts]={td:dd.trade_date,nm:dd.name,sc:dd.stock_count,st:arr};"
+        "}).catch(()=>{out[ts]={st:[]};}));"
+        "await Promise.all(ps);"
+        "}"
+        "return JSON.stringify(out);"
+        "})()"
+    )
+    raw = cdp_eval(js, timeout=timeout)
+    if not raw:
+        raise FupanhuiError("批量成分股返回空")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise FupanhuiError(f"批量成分股解析失败: {raw[:200]}") from e
+
+
 def get_sector_stocks(ts_code: str, trade_date: str | None = None) -> dict:
     """返回 {trade_date, name, stock_count, stocks:[...]}。"""
     params = {}
