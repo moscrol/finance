@@ -83,6 +83,42 @@ def cmd_sync_market_daily(_args) -> int:
     return 0
 
 
+def cmd_sync_stock_daily(args) -> int:
+    from .sync.sync_mootdx_stock_daily import sync_fact_stock_daily
+
+    stats = sync_fact_stock_daily(
+        start_date=args.start_date,
+        offset=args.offset,
+        limit=args.limit,
+        only_missing=not args.refresh,
+        sleep=args.sleep,
+    )
+    print(f"起始日: {stats['start_date']} | 全A股池: {stats['universe']}")
+    print(f"本次抓取: {stats['processed']} 只 | 写入行: {stats['rows_written']}")
+    print(f"已覆盖个股: {stats['stocks_done']}/{stats['universe']} | 剩余: {stats['stocks_remaining']}")
+    print(f"fact_stock_daily: {stats['table_total']} 行, {stats['distinct_stocks']} 股, "
+          f"{stats['distinct_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    if stats["failures"]:
+        print(f"失败 {len(stats['failures'])}: " + ", ".join(c for c, _ in stats['failures'][:10]))
+    return 0
+
+
+def cmd_weighted_gainers(args) -> int:
+    from .query import weighted_gainers
+
+    res = weighted_gainers(args.start, args.end, top=args.top, min_amount=args.min_amount)
+    print(f"加权涨幅排行 {res['start']}~{res['end']} (实际数据 {res['actual_start']}~{res['actual_end']}, "
+          f"日均成交≥{res['min_amount']}亿, Top{args.top})")
+    print(f"{'排名':<4}{'代码':<11}{'简称':<10}{'日均成交(亿)':>12}{'区间涨幅%':>10}{'加权涨幅':>10}")
+    for i, s in enumerate(res["stocks"], 1):
+        name = s["stock_name"] or ""
+        print(f"{i:<4}{s['stock_ts_code']:<11}{name:<10}"
+              f"{s['avg_amount']:>12.1f}{s['interval_gain']:>10.2f}{s['weighted_gain']:>10.2f}")
+    if not res["stocks"]:
+        print("  (无数据, 先运行 sync-stock-daily 回补该区间)")
+    return 0
+
+
 def cmd_check(_args) -> int:
     from .query import health
 
@@ -98,6 +134,9 @@ def cmd_check(_args) -> int:
     md = h["fact_market_daily"]
     print(f"[fact_market_daily] {md['rows']} 行, {md['dates']} 交易日 "
           f"({md['date_min']}~{md['date_max']}), 空成交额 {md['null_total_amount']}")
+    sk = h["fact_stock_daily"]
+    print(f"[fact_stock_daily] {sk['rows']} 行, {sk['stocks']} 股, {sk['dates']} 交易日 "
+          f"({sk['date_min']}~{sk['date_max']}), 空close {sk['null_close']}")
     if "coverage_latest" in h:
         c = h["coverage_latest"]
         print(f"[最新日 {c['date']}] 有成分股板块 {c['sectors_with_stocks']}/{c['dim_sector_total']}")
@@ -199,7 +238,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("sync-market-daily", help="同步飞书每日指标表到 fact_market_daily").set_defaults(func=cmd_sync_market_daily)
 
+    p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
+    p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
+    p_skd.add_argument("--offset", type=int, default=180, help="每只股票拉取日线根数, 默认180(~8个月)")
+    p_skd.add_argument("--limit", type=int, default=None, help="本次最多抓多少只 (续跑用)")
+    p_skd.add_argument("--refresh", action="store_true", help="不跳过已抓股票, 强制重抓")
+    p_skd.add_argument("--sleep", type=float, default=0.0, help="股票间隔秒数, 默认0")
+    p_skd.set_defaults(func=cmd_sync_stock_daily)
+
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
+
+    p_wg = sub.add_parser("weighted-gainers", help="区间加权涨幅排行 (本地计算)")
+    p_wg.add_argument("--start", required=True, help="区间起始交易日 YYYY-MM-DD")
+    p_wg.add_argument("--end", required=True, help="区间结束交易日 YYYY-MM-DD")
+    p_wg.add_argument("--top", type=int, default=20, help="返回前 N 只, 默认20")
+    p_wg.add_argument("--min-amount", type=float, default=1.0, help="区间日均成交额下限(亿), 默认1.0")
+    p_wg.set_defaults(func=cmd_weighted_gainers)
 
     p_q1 = sub.add_parser("sector-stocks", help="板块→个股: 查某板块成分股")
     p_q1.add_argument("sector", help="板块代码或名称, 如 885537.TI 或 3D打印")

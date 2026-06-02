@@ -59,6 +59,18 @@ def health() -> dict:
             "rows": m[0], "dates": m[1], "date_min": str(m[2]) if m[2] else None,
             "date_max": str(m[3]) if m[3] else None, "null_total_amount": m[4] or 0,
         }
+        # fact_stock_daily
+        sk = con.execute(
+            "SELECT COUNT(*), COUNT(DISTINCT trade_date), COUNT(DISTINCT stock_ts_code),"
+            " MIN(trade_date), MAX(trade_date),"
+            " SUM(CASE WHEN close IS NULL THEN 1 ELSE 0 END)"
+            " FROM fact_stock_daily"
+        ).fetchone()
+        out["fact_stock_daily"] = {
+            "rows": sk[0], "dates": sk[1], "stocks": sk[2],
+            "date_min": str(sk[3]) if sk[3] else None,
+            "date_max": str(sk[4]) if sk[4] else None, "null_close": sk[5] or 0,
+        }
         # 完整度: 最新交易日 dim_sector 覆盖了多少板块有成分股
         latest = out["fact_sector_stock_daily"]["date_max"]
         if latest:
@@ -249,5 +261,60 @@ def top_sectors(trade_date: str | None = None, top: int = 20,
         cols = ["sector_name", "sw_l1", "pct_chg", "diff_ratio", "amount"]
         return {"trade_date": str(td), "order_by": order_by,
                 "sectors": [dict(zip(cols, r)) for r in rows]}
+    finally:
+        con.close()
+
+
+def weighted_gainers(start: str, end: str, top: int = 20,
+                     min_amount: float = 1.0) -> dict:
+    """区间加权涨幅排行 (本地计算自 fact_stock_daily)。
+
+    加权涨幅 = 区间日均成交额(亿) × 区间前复权涨跌幅(%) / 100
+    区间涨跌幅 = 期末close / 区间首日pre_close - 1  (前复权, 含除权调整)
+    min_amount: 区间日均成交额下限(亿), 默认1.0 (对齐 high-volume-gainers 的 >1亿 门槛)。
+    """
+    con = connect(read_only=True)
+    try:
+        rng = con.execute(
+            "SELECT MIN(trade_date), MAX(trade_date) FROM fact_stock_daily"
+            " WHERE trade_date >= ? AND trade_date <= ?",
+            [start, end],
+        ).fetchone()
+        rows = con.execute(
+            """
+            WITH w AS (
+                SELECT stock_ts_code, stock_name, trade_date, close, pre_close, amount,
+                       ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY trade_date) AS rn_asc,
+                       ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY trade_date DESC) AS rn_desc,
+                       AVG(amount) OVER (PARTITION BY stock_ts_code) AS avg_amt,
+                       COUNT(*) OVER (PARTITION BY stock_ts_code) AS ndays
+                FROM fact_stock_daily
+                WHERE trade_date >= ? AND trade_date <= ?
+            ),
+            agg AS (
+                SELECT stock_ts_code, stock_name, avg_amt, ndays,
+                       MAX(CASE WHEN rn_asc = 1 THEN pre_close END) AS base_close,
+                       MAX(CASE WHEN rn_desc = 1 THEN close END) AS end_close
+                FROM w GROUP BY stock_ts_code, stock_name, avg_amt, ndays
+            )
+            SELECT stock_ts_code, stock_name, ndays, avg_amt,
+                   (end_close / base_close - 1) * 100 AS interval_gain,
+                   avg_amt * ((end_close / base_close - 1) * 100) / 100 AS weighted_gain
+            FROM agg
+            WHERE base_close IS NOT NULL AND base_close > 0 AND avg_amt >= ?
+            ORDER BY weighted_gain DESC
+            LIMIT ?
+            """,
+            [start, end, min_amount, top],
+        ).fetchall()
+        cols = ["stock_ts_code", "stock_name", "ndays", "avg_amount",
+                "interval_gain", "weighted_gain"]
+        return {
+            "start": start, "end": end,
+            "actual_start": str(rng[0]) if rng[0] else None,
+            "actual_end": str(rng[1]) if rng[1] else None,
+            "min_amount": min_amount,
+            "stocks": [dict(zip(cols, r)) for r in rows],
+        }
     finally:
         con.close()
