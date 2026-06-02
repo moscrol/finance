@@ -99,6 +99,21 @@ def cmd_sync_sector_marginal(_args) -> int:
     return 0
 
 
+def cmd_sync_sector_daily_metrics(_args) -> int:
+    from .sync.sync_feishu_sector_daily import sync_sector_daily_metrics
+
+    s = sync_sector_daily_metrics()
+    print(f"板块每日表 {s['table_id']}: 记录 {s['records']} 行")
+    print(f"回填(pct_chg/amount, 仅补NULL): {s['rows_written']} 行")
+    if s["unmatched_sectors"]:
+        print(f"未匹配板块 {len(s['unmatched_sectors'])}: " + ", ".join(s["unmatched_sectors"][:15]))
+    if s["bad_labels"]:
+        print(f"无法解析的日期列 {len(s['bad_labels'])}: {s['bad_labels'][:10]}")
+    print(f"fact_sector_daily: {s['table_total']} 行, {s['table_dates']} 交易日 ({s['date_min']}~{s['date_max']})"
+          f" | 非空 pct={s['table_pct']} amount={s['table_amount']} diff={s['table_diff']}")
+    return 0
+
+
 def cmd_sync_limit_advance(_args) -> int:
     from .sync.sync_feishu_limit_advance import sync_limit_advance
 
@@ -271,6 +286,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("sync-sector-marginal", help="回填飞书边际量电子表格到 fact_sector_daily.diff_ratio").set_defaults(func=cmd_sync_sector_marginal)
 
     sub.add_parser("sync-limit-advance", help="同步飞书连板晋级表到 fact_limit_advance_presence").set_defaults(func=cmd_sync_limit_advance)
+
+    sub.add_parser("sync-sector-daily-metrics", help="回填飞书板块每日表的 pct_chg/amount 到 fact_sector_daily").set_defaults(func=cmd_sync_sector_daily_metrics)
 
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
