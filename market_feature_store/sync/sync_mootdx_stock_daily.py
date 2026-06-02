@@ -33,22 +33,23 @@ A_SHARE_PREFIXES = (
     "870", "871", "872", "873", "920",
 )
 
-FLUSH_EVERY = 100  # 每抓多少只 flush 一次
+FLUSH_EVERY = 200  # 每抓多少只 flush 一次
 
-UPSERT_SQL = """
-    INSERT INTO fact_stock_daily
-        (trade_date, stock_ts_code, stock_name, close, pre_close,
-         pct_chg, amount, turnover, source, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?)
+COLS = ["trade_date", "stock_ts_code", "stock_name", "close", "pre_close",
+        "pct_chg", "amount", "turnover", "source", "updated_at"]
+
+# 一次性批量 upsert (INSERT ... SELECT from DataFrame), 远快于逐行 executemany
+BULK_UPSERT_SQL = """
+    INSERT INTO fact_stock_daily SELECT * FROM _buf_df
     ON CONFLICT (trade_date, stock_ts_code) DO UPDATE SET
-        stock_name = excluded.stock_name,
-        close = excluded.close,
-        pre_close = excluded.pre_close,
-        pct_chg = excluded.pct_chg,
-        amount = excluded.amount,
-        turnover = excluded.turnover,
-        source = excluded.source,
-        updated_at = excluded.updated_at
+        stock_name = EXCLUDED.stock_name,
+        close = EXCLUDED.close,
+        pre_close = EXCLUDED.pre_close,
+        pct_chg = EXCLUDED.pct_chg,
+        amount = EXCLUDED.amount,
+        turnover = EXCLUDED.turnover,
+        source = EXCLUDED.source,
+        updated_at = EXCLUDED.updated_at
 """
 
 
@@ -78,8 +79,11 @@ def get_universe(client) -> list[tuple[str, str]]:
     return [(str(c), str(n).strip()) for c, n in zip(uni["code"], uni["name"])]
 
 
-def _build_rows(df, code: str, name: str, start_date: str, now: datetime) -> list[tuple]:
+def _build_rows(df, code: str, name: str, start_date: str, now: datetime,
+                source: str) -> list[tuple]:
     """把 mootdx 日线 df 转成 fact_stock_daily 行 (只保留 >= start_date)。"""
+    # mootdx 裸价模式下 datetime 同时是索引和列, 先 drop 索引消除歧义
+    df = df.reset_index(drop=True)
     if "datetime" not in df.columns or "close" not in df.columns:
         return []
     df = df.sort_values("datetime")
@@ -114,7 +118,7 @@ def _build_rows(df, code: str, name: str, start_date: str, now: datetime) -> lis
                 round(pre_close, 3) if pre_close is not None else None,
                 round(pct, 2) if pct is not None else None,
                 round(amt_yi, 4) if amt_yi is not None else None,
-                None, "mootdx:qfq", now,
+                None, source, now,
             ))
         prev_close = close
     return rows
@@ -122,16 +126,19 @@ def _build_rows(df, code: str, name: str, start_date: str, now: datetime) -> lis
 
 def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
                           limit: int | None = None, only_missing: bool = True,
-                          sleep: float = 0.0) -> dict:
-    """回补全A股前复权日线到 fact_stock_daily。
+                          sleep: float = 0.0, qfq: bool = False) -> dict:
+    """回补全A股日线到 fact_stock_daily。
 
     start_date: 起始交易日 (YYYY-MM-DD), 默认对齐 fact_market_daily 最早日。
     offset: 每只股票拉取的日线根数 (>= 区间交易日数, 默认180 ≈ 8个月)。
     limit: 本次最多抓多少只 (续跑用)。
     only_missing: True 时跳过区间内已抓的股票 (可续跑)。
+    qfq: True 用前复权(慢, mootdx 除权重算很吃CPU); 默认 False 用裸收盘价(快)。
+         短区间加权涨幅 裸价≈前复权, 个别除权股误差微小。
     """
     from mootdx.quotes import Quotes
 
+    source = "mootdx:qfq" if qfq else "mootdx"
     init_db()
     con = connect()
     try:
@@ -165,22 +172,29 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
             nonlocal rows_written
             if not buf:
                 return
-            con.execute("BEGIN TRANSACTION")
-            con.executemany(UPSERT_SQL, buf)
-            con.execute("COMMIT")
+            import pandas as pd
+            _buf_df = pd.DataFrame(buf, columns=COLS)  # noqa: F841 (DuckDB 替换扫描引用)
+            con.register("_buf_df", _buf_df)
+            try:
+                con.execute(BULK_UPSERT_SQL)
+            finally:
+                con.unregister("_buf_df")
             rows_written += len(buf)
             buf.clear()
 
         for code, name in pending:
             try:
-                df = client.bars(symbol=code, frequency=9, offset=offset, adjust="qfq")
+                if qfq:
+                    df = client.bars(symbol=code, frequency=9, offset=offset, adjust="qfq")
+                else:
+                    df = client.bars(symbol=code, frequency=9, offset=offset)
             except Exception as e:  # noqa: BLE001
                 failures.append((code, f"bars:{type(e).__name__}"))
                 continue
             if df is None or len(df) == 0:
                 failures.append((code, "empty"))
                 continue
-            recs = _build_rows(df, code, name, start_date, now)
+            recs = _build_rows(df, code, name, start_date, now, source)
             buf.extend(recs)
             processed += 1
             if processed % FLUSH_EVERY == 0:

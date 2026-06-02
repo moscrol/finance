@@ -92,6 +92,7 @@ def cmd_sync_stock_daily(args) -> int:
         limit=args.limit,
         only_missing=not args.refresh,
         sleep=args.sleep,
+        qfq=args.qfq,
     )
     print(f"起始日: {stats['start_date']} | 全A股池: {stats['universe']}")
     print(f"本次抓取: {stats['processed']} 只 | 写入行: {stats['rows_written']}")
@@ -244,6 +245,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_skd.add_argument("--limit", type=int, default=None, help="本次最多抓多少只 (续跑用)")
     p_skd.add_argument("--refresh", action="store_true", help="不跳过已抓股票, 强制重抓")
     p_skd.add_argument("--sleep", type=float, default=0.0, help="股票间隔秒数, 默认0")
+    p_skd.add_argument("--qfq", action="store_true", help="用前复权(慢, 吃CPU); 默认裸收盘价(快)")
     p_skd.set_defaults(func=cmd_sync_stock_daily)
 
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
