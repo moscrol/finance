@@ -71,6 +71,59 @@ def cmd_sync_sector_stocks(args) -> int:
     return 0
 
 
+def cmd_check(_args) -> int:
+    from .query import health
+
+    h = health()
+    ds = h["dim_sector"]
+    print(f"[dim_sector] {ds['total']} 板块, 映射申万一级 {ds['mapped_sw_l1']}")
+    sd = h["fact_sector_daily"]
+    print(f"[fact_sector_daily] {sd['rows']} 行, {sd['dates']} 交易日 "
+          f"({sd['date_min']}~{sd['date_max']}), 空diff {sd['null_diff_ratio']}, 空sw_l1 {sd['null_sw_l1']}")
+    ss = h["fact_sector_stock_daily"]
+    print(f"[fact_sector_stock_daily] {ss['rows']} 行, {ss['dates']} 交易日, "
+          f"{ss['sectors']} 板块, {ss['stocks']} 个股, 空code {ss['null_stock_code']}, 空sw_l1 {ss['null_sw_l1']}")
+    if "coverage_latest" in h:
+        c = h["coverage_latest"]
+        print(f"[最新日 {c['date']}] 有成分股板块 {c['sectors_with_stocks']}/{c['dim_sector_total']}")
+    return 0
+
+
+def cmd_sector_stocks(args) -> int:
+    from .query import sector_stocks
+
+    res = sector_stocks(args.sector, trade_date=args.trade_date, top=args.top, order_by=args.order_by)
+    print(f"{res['sector']} 成分股 @{res['trade_date']} (按{args.order_by}排序, Top{args.top})")
+    for s in res["stocks"]:
+        print(f"  {s['stock_name']:<8} {s['stock_ts_code']:<11} 涨{s['pct_chg']} 额{s['amount']}亿 "
+              f"5日{s['pct_chg_5d']} {s['sw_industry']} 资金1d{s['fund_flow_1d']}")
+    if not res["stocks"]:
+        print("  (无数据, 检查板块名/代码或先同步该日成分股)")
+    return 0
+
+
+def cmd_stock_sectors(args) -> int:
+    from .query import stock_sectors
+
+    res = stock_sectors(args.stock, trade_date=args.trade_date)
+    print(f"{res['stock']} 所属板块 @{res['trade_date']} (共{len(res['sectors'])}个)")
+    for s in res["sectors"]:
+        print(f"  {s['sector_name']:<12} ({s['sw_l1']}) 板块涨{s['pct_chg']} 额{s['amount']}亿")
+    if not res["sectors"]:
+        print("  (无数据, 检查个股名/代码或先同步该日成分股)")
+    return 0
+
+
+def cmd_top_sectors(args) -> int:
+    from .query import top_sectors
+
+    res = top_sectors(trade_date=args.trade_date, top=args.top, order_by=args.order_by)
+    print(f"板块排行 @{res['trade_date']} (按{res['order_by']}排序, Top{args.top})")
+    for s in res["sectors"]:
+        print(f"  {s['sector_name']:<12} ({s['sw_l1']}) 涨{s['pct_chg']} 边际{s['diff_ratio']} 额{s['amount']}亿")
+    return 0
+
+
 def cmd_info(_args) -> int:
     if not DB_PATH.exists():
         print(f"数据库不存在: {DB_PATH}", file=sys.stderr)
@@ -114,6 +167,27 @@ def build_parser() -> argparse.ArgumentParser:
     p_ss.add_argument("--refresh", action="store_true", help="不跳过已抓板块, 强制重抓")
     p_ss.add_argument("--sleep", type=float, default=0.3, help="板块间隔秒数, 默认0.3")
     p_ss.set_defaults(func=cmd_sync_sector_stocks)
+
+    sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
+
+    p_q1 = sub.add_parser("sector-stocks", help="板块→个股: 查某板块成分股")
+    p_q1.add_argument("sector", help="板块代码或名称, 如 885537.TI 或 3D打印")
+    p_q1.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
+    p_q1.add_argument("--top", type=int, default=20, help="返回前 N 只, 默认20")
+    p_q1.add_argument("--order-by", default="amount",
+                      help="排序字段: amount/pct_chg/pct_chg_5d/fund_flow_1d 等")
+    p_q1.set_defaults(func=cmd_sector_stocks)
+
+    p_q2 = sub.add_parser("stock-sectors", help="个股→板块: 查某个股归属板块")
+    p_q2.add_argument("stock", help="个股代码或名称, 如 300620.SZ 或 寒武纪")
+    p_q2.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
+    p_q2.set_defaults(func=cmd_stock_sectors)
+
+    p_q3 = sub.add_parser("top-sectors", help="板块排行: 按边际量/涨幅/成交额")
+    p_q3.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
+    p_q3.add_argument("--top", type=int, default=20, help="返回前 N 个, 默认20")
+    p_q3.add_argument("--order-by", default="diff_ratio", help="排序字段: diff_ratio/pct_chg/amount")
+    p_q3.set_defaults(func=cmd_top_sectors)
 
     return parser
 
