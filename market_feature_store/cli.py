@@ -252,6 +252,55 @@ def cmd_stock_sectors(args) -> int:
     return 0
 
 
+def _fmt_num(value, digits=2):
+    if value is None:
+        return "-"
+    try:
+        return f"{float(value):.{digits}f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def cmd_stock_highs(args) -> int:
+    from .query import stock_highs
+
+    res = stock_highs(
+        trade_date=args.trade_date,
+        period=args.period,
+        top=args.top,
+        sector_top=args.sector_top,
+    )
+    suffix = f" | 周期={args.period}" if args.period else ""
+    print(f"新高个股 @{res['trade_date']}{suffix} | 个股 {res['stock_count']} 只 | 一级行业 {res['group_count']} 个")
+    if res["market_counts"]:
+        print("市场新高家数: " + ", ".join(f"{k}={v}" for k, v in res["market_counts"].items()))
+    if not res["groups"]:
+        print("  (无数据, 请先运行 sync-stock-high 回填该交易日)")
+        return 0
+    for group in res["groups"]:
+        sectors = "、".join(group["top_sectors"][:args.sector_top]) if group["top_sectors"] else "-"
+        print(f"\n## {group['sw_l1']} | 新高 {group['count']} 只 | 历史新高 {group['history_count']} 只 | 代表板块: {sectors}")
+        for stock in group["stocks"][:args.top]:
+            period_labels = "、".join(
+                p.get("label") or p.get("period")
+                for p in stock["high_periods"]
+                if isinstance(p, dict)
+            ) or stock["primary_high_label"]
+            line = (
+                f"  {stock['stock_name']:<8} {stock['stock_ts_code']:<11} "
+                f"{period_labels} 涨{_fmt_num(stock['pct_chg'])}% "
+                f"10日{_fmt_num(stock['pct_chg_10d'])}% "
+                f"额{_fmt_num(stock['amount'])}亿 "
+                f"市值{_fmt_num(stock['market_cap'])}亿"
+            )
+            if args.with_sectors:
+                names = [s["sector_name"] for s in stock["sectors"] if s.get("sector_name")]
+                if names:
+                    line += " | 板块: " + "、".join(names[:args.sector_top])
+            print(line)
+    return 0
+
+
 def cmd_advancers_extrema(args) -> int:
     from .query import advancers_extrema
 
@@ -370,6 +419,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_q2.add_argument("stock", help="个股代码或名称, 如 300620.SZ 或 寒武纪")
     p_q2.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
     p_q2.set_defaults(func=cmd_stock_sectors)
+
+    p_qh = sub.add_parser("query-stock-high", help="按一级行业回溯查询某日新高个股")
+    p_qh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_qh.add_argument("--period", default=None,
+                      choices=["history", "3y", "2y", "1y", "120d", "60d", "20d"],
+                      help="只看命中某周期的新高个股")
+    p_qh.add_argument("--group-by", default="sw_l1", choices=["sw_l1"], help="聚合维度, 当前支持 sw_l1")
+    p_qh.add_argument("--top", type=int, default=10, help="每个一级行业最多展示个股数, 默认10")
+    p_qh.add_argument("--sector-top", type=int, default=5, help="每只个股/行业展示板块数, 默认5")
+    p_qh.add_argument("--with-sectors", action="store_true", help="打印每只个股所属复盘会板块")
+    p_qh.set_defaults(func=cmd_stock_highs)
 
     p_ae = sub.add_parser("advancers-extrema", help="涨家数波峰/波谷识别 (ZigZag)")
     p_ae.add_argument("--delta", type=float, default=1500, help="确认反转的最小摆幅(家数), 默认1500")

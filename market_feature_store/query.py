@@ -4,6 +4,9 @@
 """
 from __future__ import annotations
 
+import json
+from collections import Counter, defaultdict
+
 from .db import connect
 
 
@@ -138,6 +141,144 @@ def stock_sectors(stock: str, trade_date: str | None = None) -> dict:
                 "sectors": [dict(zip(cols, r)) for r in rows]}
     finally:
         con.close()
+
+
+def _json_loads_list(raw: str | None) -> list:
+    if not raw:
+        return []
+    try:
+        val = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    return val if isinstance(val, list) else []
+
+
+def stock_highs(trade_date: str | None = None, period: str | None = None,
+                top: int = 20, sector_top: int = 5) -> dict:
+    con = connect(read_only=True)
+    try:
+        td = trade_date or _latest_date(con, "fact_stock_high_daily")
+        market = con.execute(
+            """
+            SELECT stock_high_count_history, stock_high_count_3y, stock_high_count_2y,
+                   stock_high_count_1y, stock_high_count_120d, stock_high_count_60d,
+                   stock_high_count_20d
+            FROM fact_market_daily WHERE trade_date = ?
+            """,
+            [td],
+        ).fetchone()
+        high_rows = con.execute(
+            """
+            SELECT stock_ts_code, stock_name, primary_high_period, primary_high_label,
+                   high_periods_json, is_new, price, pct_chg, pct_chg_10d, amount,
+                   market_cap, fund_today, limit_status, limit_times, sw_l1, sw_l2, plate
+            FROM fact_stock_high_daily
+            WHERE trade_date = ?
+            ORDER BY amount DESC NULLS LAST, market_cap DESC NULLS LAST
+            """,
+            [td],
+        ).fetchall()
+        sector_rows = con.execute(
+            """
+            SELECT ss.stock_ts_code, ss.sector_name, ss.sector_ts_code, ss.sw_l1,
+                   ss.pct_chg, ss.amount
+            FROM fact_sector_stock_daily ss
+            JOIN fact_stock_high_daily h
+              ON ss.trade_date = h.trade_date AND ss.stock_ts_code = h.stock_ts_code
+            WHERE h.trade_date = ?
+            ORDER BY ss.stock_ts_code, ss.amount DESC NULLS LAST
+            """,
+            [td],
+        ).fetchall()
+    finally:
+        con.close()
+
+    sectors_by_stock = defaultdict(list)
+    for code, sector_name, sector_ts_code, sw_l1, pct_chg, amount in sector_rows:
+        sectors_by_stock[code].append({
+            "sector_name": sector_name,
+            "sector_ts_code": sector_ts_code,
+            "sw_l1": sw_l1,
+            "pct_chg": pct_chg,
+            "amount": amount,
+        })
+
+    stocks = []
+    for row in high_rows:
+        (code, name, primary_period, primary_label, periods_raw, is_new, price,
+         pct_chg, pct_chg_10d, amount, market_cap, fund_today, limit_status,
+         limit_times, sw_l1, sw_l2, plate) = row
+        periods = _json_loads_list(periods_raw)
+        period_names = [str(p.get("period")) for p in periods if isinstance(p, dict)]
+        if period and period not in period_names and period != primary_period:
+            continue
+        sectors = sectors_by_stock.get(code, [])[:max(sector_top, 0)]
+        mapped_sw_l1 = sw_l1 or next((s["sw_l1"] for s in sectors if s.get("sw_l1")), None) or "未映射"
+        stocks.append({
+            "stock_ts_code": code,
+            "stock_name": name,
+            "sw_l1": mapped_sw_l1,
+            "api_sw_l1": sw_l1,
+            "sw_l2": sw_l2,
+            "plate": plate,
+            "primary_high_period": primary_period,
+            "primary_high_label": primary_label,
+            "high_periods": periods,
+            "is_new": is_new,
+            "price": price,
+            "pct_chg": pct_chg,
+            "pct_chg_10d": pct_chg_10d,
+            "amount": amount,
+            "market_cap": market_cap,
+            "fund_today": fund_today,
+            "limit_status": limit_status,
+            "limit_times": limit_times,
+            "sectors": sectors,
+        })
+
+    groups = []
+    grouped = defaultdict(list)
+    for stock in stocks:
+        grouped[stock["sw_l1"]].append(stock)
+    for sw_l1, items in grouped.items():
+        sector_counter = Counter()
+        history_count = 0
+        for stock in items:
+            if any(p.get("period") == "history" for p in stock["high_periods"] if isinstance(p, dict)):
+                history_count += 1
+            for sector in stock["sectors"]:
+                if sector.get("sector_name"):
+                    sector_counter[sector["sector_name"]] += 1
+        ranked = sorted(items, key=lambda x: (x["amount"] is not None, x["amount"] or 0), reverse=True)
+        groups.append({
+            "sw_l1": sw_l1,
+            "count": len(items),
+            "history_count": history_count,
+            "top_sectors": [name for name, _cnt in sector_counter.most_common(8)],
+            "stocks": ranked[:top],
+        })
+    groups.sort(key=lambda x: (x["count"], x["history_count"]), reverse=True)
+
+    counts = None
+    if market:
+        counts = {
+            "history": market[0],
+            "3y": market[1],
+            "2y": market[2],
+            "1y": market[3],
+            "120d": market[4],
+            "60d": market[5],
+            "20d": market[6],
+        }
+    return {
+        "trade_date": str(td) if td else None,
+        "period": period,
+        "market_counts": counts,
+        "stock_count": len(stocks),
+        "group_count": len(groups),
+        "groups": groups,
+        "stocks": stocks[:top],
+    }
 
 
 def _zigzag(values: list[float], delta: float) -> list[tuple[int, str]]:
