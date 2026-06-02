@@ -568,6 +568,16 @@ def normalize_row(section_key: str, raw: dict[str, str], theme: str, source_file
             source, source_date = split_source_date(row.get("source", ""))
             row["source"] = source
             row["source_date"] = source_date
+        if not row.get("source_date"):
+            match = re.search(r"20\d{2}\s*(?:Q[1-4]|H[12])?", str(row.get("time_window") or ""), re.IGNORECASE)
+            if match:
+                row["source_date"] = re.sub(r"\s+", "-", match.group(0).strip()).upper()
+            else:
+                match = re.search(r"(\d{1,2})月(?:(\d{1,2})日)?", str(row.get("time_window") or ""))
+                if match:
+                    month = int(match.group(1))
+                    day = match.group(2)
+                    row["source_date"] = f"{date.today().year}-{month:02d}" + (f"-{int(day):02d}" if day else "")
     if section_key == "action_plan":
         row.setdefault("priority_bucket", infer_action_priority(row))
         if not row.get("core_logic"):
