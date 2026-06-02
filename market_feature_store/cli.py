@@ -25,6 +25,22 @@ def cmd_init(_args) -> int:
     return 0
 
 
+def cmd_sync_sectors(args) -> int:
+    from .sync.sync_fupanhui_sectors import sync_dim_sector
+
+    stats = sync_dim_sector(trade_date=args.trade_date)
+    print(f"拉取板块: {stats['fetched']}")
+    print(f"dim_sector 总数: {stats['dim_sector_total']}")
+    print(f"已映射申万一级: {stats['mapped_sw_l1']}")
+    print(f"基准日期: {stats['seen_date']}")
+    unmapped = stats["unmapped_names"]
+    if unmapped:
+        print(f"未映射板块 ({len(unmapped)}): {', '.join(unmapped)}")
+    else:
+        print("未映射板块: 0")
+    return 0
+
+
 def cmd_info(_args) -> int:
     if not DB_PATH.exists():
         print(f"数据库不存在: {DB_PATH}", file=sys.stderr)
@@ -51,6 +67,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("init", help="初始化 schema (幂等)").set_defaults(func=cmd_init)
     sub.add_parser("info", help="查看库内表与行数").set_defaults(func=cmd_info)
+
+    p_sectors = sub.add_parser("sync-sectors", help="同步复盘会板块清单到 dim_sector")
+    p_sectors.add_argument("--trade-date", default=None, help="交易日期 YYYY-MM-DD, 留空取最新")
+    p_sectors.set_defaults(func=cmd_sync_sectors)
+
     return parser
 
 
