@@ -281,6 +281,86 @@ def stock_highs(trade_date: str | None = None, period: str | None = None,
     }
 
 
+def limit_heat(trade_date: str | None = None, theme: str | None = None,
+               top: int = 20, with_stocks: bool = False, stock_top: int = 20) -> dict:
+    con = connect(read_only=True)
+    try:
+        td = trade_date or _latest_date(con, "fact_theme_limit_heat_daily")
+        params = [td]
+        where = "WHERE trade_date = ?"
+        if theme:
+            where += " AND (sector_ts_code = ? OR sector_name = ?)"
+            params.extend([theme, theme])
+        heat_rows = con.execute(
+            f"""
+            SELECT sector_ts_code, sector_name, dimension, scope, data_stage,
+                   is_realtime, source_update_time, market_limit_up_count,
+                   limit_up_count, total_count, limit_up_ratio, market_share,
+                   fd_amount, rank, top_stocks_json
+            FROM fact_theme_limit_heat_daily
+            {where}
+            ORDER BY rank ASC NULLS LAST, limit_up_count DESC NULLS LAST
+            LIMIT ?
+            """,
+            params + [top],
+        ).fetchall()
+        cols = [
+            "sector_ts_code", "sector_name", "dimension", "scope", "data_stage",
+            "is_realtime", "source_update_time", "market_limit_up_count",
+            "limit_up_count", "total_count", "limit_up_ratio", "market_share",
+            "fd_amount", "rank", "top_stocks_json",
+        ]
+        heats = []
+        for row in heat_rows:
+            item = dict(zip(cols, row))
+            item["top_stocks"] = _json_loads_list(item.pop("top_stocks_json"))
+            item["stocks"] = []
+            heats.append(item)
+        if with_stocks and heats:
+            codes = [h["sector_ts_code"] for h in heats if h.get("sector_ts_code")]
+            placeholders = ",".join("?" for _ in codes)
+            stock_rows = con.execute(
+                f"""
+                SELECT sector_ts_code, stock_ts_code, stock_name, price, pct_chg,
+                       pct_chg_3d, pct_chg_5d, pct_chg_10d, pct_chg_20d,
+                       amount, circ_mv, total_mv, sw_l1, sw_l2, ths_concept_top,
+                       fund_flow_1d, fund_flow_5d, limit_times, limit_status,
+                       first_limit_time, last_limit_time, open_times,
+                       leader_plate, leader_sub_plate, theme_names_json,
+                       up_stat, high_status_label, fd_amount
+                FROM fact_theme_limit_stock_daily
+                WHERE trade_date = ? AND sector_ts_code IN ({placeholders})
+                ORDER BY sector_ts_code, limit_times DESC NULLS LAST,
+                         fd_amount DESC NULLS LAST, amount DESC NULLS LAST
+                """,
+                [td] + codes,
+            ).fetchall()
+            stock_cols = [
+                "sector_ts_code", "stock_ts_code", "stock_name", "price", "pct_chg",
+                "pct_chg_3d", "pct_chg_5d", "pct_chg_10d", "pct_chg_20d",
+                "amount", "circ_mv", "total_mv", "sw_l1", "sw_l2", "ths_concept_top",
+                "fund_flow_1d", "fund_flow_5d", "limit_times", "limit_status",
+                "first_limit_time", "last_limit_time", "open_times",
+                "leader_plate", "leader_sub_plate", "theme_names_json",
+                "up_stat", "high_status_label", "fd_amount",
+            ]
+            by_sector = defaultdict(list)
+            for row in stock_rows:
+                stock = dict(zip(stock_cols, row))
+                stock["theme_names"] = _json_loads_list(stock.pop("theme_names_json"))
+                by_sector[stock["sector_ts_code"]].append(stock)
+            for item in heats:
+                item["stocks"] = by_sector.get(item["sector_ts_code"], [])[:stock_top]
+        return {
+            "trade_date": str(td) if td else None,
+            "theme": theme,
+            "count": len(heats),
+            "heats": heats,
+        }
+    finally:
+        con.close()
+
+
 def _zigzag(values: list[float], delta: float) -> list[tuple[int, str]]:
     """ZigZag 摆动检测: 返回交替的 (index, '峰'|'谷')。
 

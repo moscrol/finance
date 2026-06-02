@@ -174,6 +174,76 @@ CREATE INDEX IF NOT EXISTS idx_fact_stock_high_date ON fact_stock_high_daily(tra
 CREATE INDEX IF NOT EXISTS idx_fact_stock_high_stock ON fact_stock_high_daily(stock_ts_code);
 CREATE INDEX IF NOT EXISTS idx_fact_stock_high_period ON fact_stock_high_daily(primary_high_period);
 
+CREATE TABLE IF NOT EXISTS fact_theme_limit_heat_daily (
+    trade_date             DATE,
+    sector_ts_code         TEXT,
+    sector_name            TEXT,
+    dimension              TEXT,
+    scope                  TEXT,
+    data_stage             TEXT,
+    is_realtime            BOOLEAN,
+    source_update_time     TIMESTAMP,
+    market_limit_up_count  INTEGER,
+    limit_up_count         INTEGER,
+    total_count            INTEGER,
+    limit_up_ratio         DOUBLE,
+    market_share           DOUBLE,
+    fd_amount              DOUBLE,
+    rank                   INTEGER,
+    top_stocks_json        TEXT,
+    source                 TEXT,
+    updated_at             TIMESTAMP,
+    PRIMARY KEY (trade_date, sector_ts_code, dimension, scope)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_theme_limit_heat_date ON fact_theme_limit_heat_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_theme_limit_heat_sector ON fact_theme_limit_heat_daily(sector_ts_code);
+CREATE INDEX IF NOT EXISTS idx_fact_theme_limit_heat_rank ON fact_theme_limit_heat_daily(trade_date, rank);
+
+CREATE TABLE IF NOT EXISTS fact_theme_limit_stock_daily (
+    trade_date             DATE,
+    sector_ts_code         TEXT,
+    sector_name            TEXT,
+    stock_ts_code          TEXT,
+    stock_name             TEXT,
+    price                  DOUBLE,
+    pct_chg                DOUBLE,
+    pct_chg_3d             DOUBLE,
+    pct_chg_5d             DOUBLE,
+    pct_chg_10d            DOUBLE,
+    pct_chg_20d            DOUBLE,
+    amount                 DOUBLE,
+    vol                    DOUBLE,
+    circ_mv                DOUBLE,
+    total_mv               DOUBLE,
+    sw_l1                  TEXT,
+    sw_l2                  TEXT,
+    sw_l3                  TEXT,
+    ths_concept_top        TEXT,
+    fund_flow_1d           DOUBLE,
+    fund_flow_5d           DOUBLE,
+    limit_times            INTEGER,
+    limit_status           TEXT,
+    first_limit_time       TEXT,
+    last_limit_time        TEXT,
+    open_times             INTEGER,
+    leader_plate           TEXT,
+    leader_sub_plate       TEXT,
+    theme_names_json       TEXT,
+    up_stat                TEXT,
+    up_stat_days           INTEGER,
+    up_stat_boards         INTEGER,
+    high_status            TEXT,
+    high_status_label      TEXT,
+    fd_amount              DOUBLE,
+    limit_update_time      TIMESTAMP,
+    source                 TEXT,
+    updated_at             TIMESTAMP,
+    PRIMARY KEY (trade_date, sector_ts_code, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_theme_limit_stock_date ON fact_theme_limit_stock_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_theme_limit_stock_sector ON fact_theme_limit_stock_daily(sector_ts_code);
+CREATE INDEX IF NOT EXISTS idx_fact_theme_limit_stock_stock ON fact_theme_limit_stock_daily(stock_ts_code);
+
 CREATE TABLE IF NOT EXISTS fact_high_volume_gainers (
     start_date         DATE,
     end_date           DATE,

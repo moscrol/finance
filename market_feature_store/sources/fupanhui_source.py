@@ -88,11 +88,13 @@ def api_get(api_path: str, params: dict | None = None, timeout: int = 60):
         items = [(k, v) for k, v in params.items() if v is not None]
         if items:
             query = "?" + urllib.parse.urlencode(items)
-    url = api_path + query
+    url = json.dumps(api_path + query)
     js = (
         "(function(){"
         "var x=new XMLHttpRequest();"
-        f"x.open('GET','{url}',false);"
+        f"x.open('GET',{url},false);"
+        "var token=localStorage.getItem('user_token');"
+        "if(token){x.setRequestHeader('Authorization','Bearer '+token);}"
         "x.send();"
         "return x.responseText;"
         "})()"

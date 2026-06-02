@@ -108,6 +108,27 @@ def cmd_sync_stock_high(args) -> int:
     return 0
 
 
+def cmd_sync_limit_heat(args) -> int:
+    from .sync.sync_fupanhui_limit_heat_daily import sync_fupanhui_limit_heat
+
+    stats = sync_fupanhui_limit_heat(
+        trade_date=args.trade_date,
+        dimension=args.dimension,
+        scope=args.scope,
+        sector=args.sector,
+        limit=args.limit,
+        sleep=args.sleep,
+        detail_chunk=args.detail_chunk,
+    )
+    print(f"交易日: {stats['trade_date']} | 涨停热力题材写入: {stats['heat_rows']} 个 | 涨停股明细写入: {stats['stock_rows']} 行")
+    print(f"市场涨停家数: {stats['market_limit_up_count']} | 接口题材: {stats['items_total']} | 处理题材: {stats['items_processed']}")
+    print(f"fact_theme_limit_heat_daily: {stats['table_total']} 行, {stats['table_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    print(f"fact_theme_limit_stock_daily: {stats['stock_table_total']} 行, {stats['stock_table_dates']} 交易日, {stats['stock_table_stocks']} 股")
+    if stats["failures"]:
+        print(f"失败 {len(stats['failures'])}: " + ", ".join(f"{c}/{n}" for c, n, _e in stats["failures"][:10]))
+    return 0
+
+
 def cmd_sync_sector_marginal(_args) -> int:
     from .sync.sync_feishu_sector_marginal import sync_sector_marginal
 
@@ -301,6 +322,43 @@ def cmd_stock_highs(args) -> int:
     return 0
 
 
+def cmd_limit_heat(args) -> int:
+    from .query import limit_heat
+
+    res = limit_heat(
+        trade_date=args.trade_date,
+        theme=args.theme,
+        top=args.top,
+        with_stocks=args.with_stocks,
+        stock_top=args.stock_top,
+    )
+    suffix = f" | 题材={args.theme}" if args.theme else ""
+    print(f"涨停热力 @{res['trade_date']}{suffix} | 题材 {res['count']} 个")
+    if not res["heats"]:
+        print("  (无数据, 请先运行 sync-limit-heat 回填该交易日)")
+        return 0
+    for item in res["heats"]:
+        fd_yi = (item["fd_amount"] or 0) / 10000
+        print(
+            f"\n{item['rank']}. {item['sector_name']} {item['sector_ts_code']} | "
+            f"涨停 {item['limit_up_count']}/{item['total_count']} | "
+            f"占全市场 {item['market_share']}% | 封单 {fd_yi:.2f}亿"
+        )
+        names = [s.get("name") for s in item["top_stocks"] if isinstance(s, dict) and s.get("name")]
+        if names:
+            print("  代表股: " + "、".join(names))
+        if args.with_stocks:
+            for stock in item["stocks"]:
+                sfd = (stock["fd_amount"] or 0) / 10000
+                print(
+                    f"  {stock['stock_name']:<8} {stock['stock_ts_code']:<11} "
+                    f"{stock['limit_times'] or '-'}板 涨{_fmt_num(stock['pct_chg'])}% "
+                    f"封单{sfd:.2f}亿 {stock['sw_l1'] or '-'} "
+                    f"{stock['leader_plate'] or ''}"
+                )
+    return 0
+
+
 def cmd_advancers_extrema(args) -> int:
     from .query import advancers_extrema
 
@@ -381,6 +439,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_sh.add_argument("--page-size", type=int, default=200, help="复盘会分页大小, 默认200")
     p_sh.set_defaults(func=cmd_sync_stock_high)
 
+    p_lh = sub.add_parser("sync-limit-heat", help="同步复盘会涨停热力图题材汇总与涨停股明细")
+    p_lh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
+    p_lh.add_argument("--dimension", default="sector", choices=["sector"], help="热力图维度, 默认sector")
+    p_lh.add_argument("--scope", default="all", help="热力图范围, 默认all")
+    p_lh.add_argument("--sector", default=None, help="只同步单个题材/板块代码或名称")
+    p_lh.add_argument("--limit", type=int, default=None, help="最多处理前 N 个题材, 用于小样验证")
+    p_lh.add_argument("--sleep", type=float, default=0.1, help="题材明细接口间隔秒数, 默认0.1")
+    p_lh.add_argument("--detail-chunk", type=int, default=12, help="每批明细题材数, 默认12")
+    p_lh.set_defaults(func=cmd_sync_limit_heat)
+
     sub.add_parser("sync-sector-marginal", help="回填飞书边际量电子表格到 fact_sector_daily.diff_ratio").set_defaults(func=cmd_sync_sector_marginal)
 
     sub.add_parser("sync-limit-advance", help="同步飞书连板晋级表到 fact_limit_advance_presence").set_defaults(func=cmd_sync_limit_advance)
@@ -430,6 +498,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_qh.add_argument("--sector-top", type=int, default=5, help="每只个股/行业展示板块数, 默认5")
     p_qh.add_argument("--with-sectors", action="store_true", help="打印每只个股所属复盘会板块")
     p_qh.set_defaults(func=cmd_stock_highs)
+
+    p_qlh = sub.add_parser("query-limit-heat", help="查询复盘会涨停热力题材榜")
+    p_qlh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_qlh.add_argument("--theme", default=None, help="题材/板块代码或名称")
+    p_qlh.add_argument("--top", type=int, default=20, help="展示前 N 个题材, 默认20")
+    p_qlh.add_argument("--with-stocks", action="store_true", help="展示题材内涨停股明细")
+    p_qlh.add_argument("--stock-top", type=int, default=20, help="每个题材展示涨停股数, 默认20")
+    p_qlh.set_defaults(func=cmd_limit_heat)
 
     p_ae = sub.add_parser("advancers-extrema", help="涨家数波峰/波谷识别 (ZigZag)")
     p_ae.add_argument("--delta", type=float, default=1500, help="确认反转的最小摆幅(家数), 默认1500")
