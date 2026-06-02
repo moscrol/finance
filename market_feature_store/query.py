@@ -165,26 +165,35 @@ def _zigzag(values: list[float], delta: float) -> list[tuple[int, str]]:
     return pivots
 
 
-def _rolling_mean(values: list[float], window: int) -> list[float]:
-    """居中滚动均值, 边界用可用窗口 (min_periods=1)。"""
+def _rolling_mean(values: list[float], window: int, mode: str = "trailing") -> list[float]:
+    """滚动均值, 边界用可用窗口 (min_periods=1)。
+
+    mode='trailing': MA[i]=mean(values[i-window+1 .. i]), 与飞书 chart 表 MA5 口径一致。
+    mode='center':   居中均值, 峰谷无滞后, 适合纯历史分析。
+    """
     if window <= 1:
         return list(values)
     n = len(values)
-    half = window // 2
     out = []
-    for i in range(n):
-        lo = max(0, i - half)
-        hi = min(n, i + half + 1)
-        seg = values[lo:hi]
-        out.append(sum(seg) / len(seg))
+    if mode == "center":
+        half = window // 2
+        for i in range(n):
+            seg = values[max(0, i - half):min(n, i + half + 1)]
+            out.append(sum(seg) / len(seg))
+    else:  # trailing
+        for i in range(n):
+            seg = values[max(0, i - window + 1):i + 1]
+            out.append(sum(seg) / len(seg))
     return out
 
 
-def advancers_extrema(delta: float = 1500, smooth: int = 1) -> dict:
+def advancers_extrema(delta: float = 1500, smooth: int = 1,
+                      smooth_mode: str = "trailing") -> dict:
     """涨家数序列的波峰/波谷识别 (ZigZag 摆动检测)。
 
     delta: 确认反转所需的最小摆幅 (家数), 越大越只保留大波段。
-    smooth: 居中滚动均值窗口, >1 时先平滑再检测 (减少日间毛刺), 默认1=不平滑。
+    smooth: 滚动均值窗口, >1 时先平滑再检测; 默认1=裸涨家数。
+    smooth_mode: 'trailing'(默认, 同飞书MA5) 或 'center'。
     返回交替的枢轴列表, 每个含原始涨家数与(如平滑)平滑值。
     """
     con = connect(read_only=True)
@@ -197,12 +206,12 @@ def advancers_extrema(delta: float = 1500, smooth: int = 1) -> dict:
         con.close()
     dates = [r[0] for r in rows]
     raw = [float(r[1]) for r in rows]
-    series = _rolling_mean(raw, smooth) if smooth > 1 else raw
+    series = _rolling_mean(raw, smooth, smooth_mode) if smooth > 1 else raw
     pivots = _zigzag(series, delta)
     out = []
     prev_val = None
     for idx, kind in pivots:
-        val = raw[idx]
+        val = series[idx]  # 摆幅按检测所用序列(裸或MA)度量
         swing = None if prev_val is None else round(val - prev_val)
         out.append({
             "date": str(dates[idx]),

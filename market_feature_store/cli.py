@@ -132,8 +132,9 @@ def cmd_stock_sectors(args) -> int:
 def cmd_advancers_extrema(args) -> int:
     from .query import advancers_extrema
 
-    res = advancers_extrema(delta=args.delta, smooth=args.smooth)
-    print(f"涨家数波峰/波谷 (ZigZag, delta={res['delta']}, smooth={res['smooth']}, "
+    res = advancers_extrema(delta=args.delta, smooth=args.smooth, smooth_mode=args.smooth_mode)
+    base = f"MA{res['smooth']}({args.smooth_mode})" if res["smooth"] > 1 else "裸涨家数"
+    print(f"涨家数波峰/波谷 (ZigZag on {base}, delta={res['delta']}, "
           f"{res['n_days']}个交易日): 波峰{res['peaks']} 波谷{res['troughs']}")
     for p in res["pivots"]:
         sm = f" MA{res['smooth']}≈{p['smoothed']}" if p["smoothed"] is not None else ""
@@ -215,7 +216,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_ae = sub.add_parser("advancers-extrema", help="涨家数波峰/波谷识别 (ZigZag)")
     p_ae.add_argument("--delta", type=float, default=1500, help="确认反转的最小摆幅(家数), 默认1500")
-    p_ae.add_argument("--smooth", type=int, default=1, help="居中滚动均值窗口, 默认1(不平滑)")
+    p_ae.add_argument("--smooth", type=int, default=1, help="滚动均值窗口, 如5=MA5; 默认1(裸涨家数)")
+    p_ae.add_argument("--smooth-mode", default="trailing", choices=["trailing", "center"],
+                      help="trailing(同飞书MA5,默认) 或 center(无滞后)")
     p_ae.set_defaults(func=cmd_advancers_extrema)
 
     p_q3 = sub.add_parser("top-sectors", help="板块排行: 按边际量/涨幅/成交额")
