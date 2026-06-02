@@ -83,6 +83,19 @@ def cmd_sync_market_daily(_args) -> int:
     return 0
 
 
+def cmd_sync_market_strength(args) -> int:
+    from .sync.sync_fupanhui_market_daily import sync_fupanhui_market_strength
+
+    stats = sync_fupanhui_market_strength(trade_date=args.trade_date, days=args.days)
+    print(f"交易日: {stats['trade_date']} | 写入强度序列: {stats['rows_written']} 行")
+    print(f"fact_market_daily 总数: {stats['table_total']} ({stats['date_min']} ~ {stats['date_max']})")
+    print(f"强度覆盖: avg={stats['strength_avg_count']} amount_pct={stats['strength_amount_pct_count']} marginal={stats['strength_marginal_count']}")
+    if stats["current"]:
+        avg, amount_pct, amount, marginal, status = stats["current"]
+        print(f"当前强度: 加权涨幅={avg}% 成交占比={amount_pct}% 成交额={amount}亿 成交环比={marginal}% 状态={status}")
+    return 0
+
+
 def cmd_sync_sector_marginal(_args) -> int:
     from .sync.sync_feishu_sector_marginal import sync_sector_marginal
 
@@ -282,6 +295,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_ss.set_defaults(func=cmd_sync_sector_stocks)
 
     sub.add_parser("sync-market-daily", help="同步飞书每日指标表到 fact_market_daily").set_defaults(func=cmd_sync_market_daily)
+
+    p_ms = sub.add_parser("sync-market-strength", help="同步复盘会市场强度到 fact_market_daily")
+    p_ms.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
+    p_ms.add_argument("--days", type=int, default=120, help="回看天数, 默认120")
+    p_ms.set_defaults(func=cmd_sync_market_strength)
 
     sub.add_parser("sync-sector-marginal", help="回填飞书边际量电子表格到 fact_sector_daily.diff_ratio").set_defaults(func=cmd_sync_sector_marginal)
 
