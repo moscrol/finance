@@ -83,6 +83,22 @@ def cmd_sync_market_daily(_args) -> int:
     return 0
 
 
+def cmd_sync_sector_marginal(_args) -> int:
+    from .sync.sync_feishu_sector_marginal import sync_sector_marginal
+
+    s = sync_sector_marginal()
+    print(f"电子表格 {s['sheet_token']} (sheet {s['sheet_id']})")
+    print(f"日期列: {s['date_cols']} ({s['sheet_date_min']}~{s['sheet_date_max']})")
+    print(f"板块: {s['sectors']} | 写入(回填diff_ratio): {s['rows_written']} 行")
+    if s["unmatched_sectors"]:
+        print(f"未匹配板块 {len(s['unmatched_sectors'])}: " + ", ".join(s["unmatched_sectors"][:15]))
+    if s["bad_headers"]:
+        print(f"无法解析的日期表头 {len(s['bad_headers'])}: {s['bad_headers'][:10]}")
+    print(f"fact_sector_daily: {s['table_total']} 行, {s['table_dates']} 交易日, "
+          f"{s['table_sectors']} 板块 ({s['table_date_min']}~{s['table_date_max']}), 空diff {s['table_null_diff']}")
+    return 0
+
+
 def cmd_sync_stock_daily(args) -> int:
     from .sync.sync_mootdx_stock_daily import sync_fact_stock_daily
 
@@ -238,6 +254,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_ss.set_defaults(func=cmd_sync_sector_stocks)
 
     sub.add_parser("sync-market-daily", help="同步飞书每日指标表到 fact_market_daily").set_defaults(func=cmd_sync_market_daily)
+
+    sub.add_parser("sync-sector-marginal", help="回填飞书边际量电子表格到 fact_sector_daily.diff_ratio").set_defaults(func=cmd_sync_sector_marginal)
 
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
