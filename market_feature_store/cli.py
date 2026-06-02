@@ -41,6 +41,17 @@ def cmd_sync_sectors(args) -> int:
     return 0
 
 
+def cmd_sync_sector_daily(args) -> int:
+    from .sync.sync_fupanhui_sector_daily import sync_fact_sector_daily
+
+    stats = sync_fact_sector_daily(trade_date=args.trade_date, days=args.days)
+    print(f"板块数: {stats['sectors']} (空序列 {stats['empty_sectors']})")
+    print(f"写入行: {stats['rows_written']}")
+    print(f"fact_sector_daily 总数: {stats['fact_sector_daily_total']}")
+    print(f"覆盖交易日: {stats['distinct_dates']} ({stats['date_min']} ~ {stats['date_max']})")
+    return 0
+
+
 def cmd_info(_args) -> int:
     if not DB_PATH.exists():
         print(f"数据库不存在: {DB_PATH}", file=sys.stderr)
@@ -71,6 +82,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_sectors = sub.add_parser("sync-sectors", help="同步复盘会板块清单到 dim_sector")
     p_sectors.add_argument("--trade-date", default=None, help="交易日期 YYYY-MM-DD, 留空取最新")
     p_sectors.set_defaults(func=cmd_sync_sectors)
+
+    p_sd = sub.add_parser("sync-sector-daily", help="同步板块日行情+边际量到 fact_sector_daily")
+    p_sd.add_argument("--trade-date", default=None, help="截止交易日 YYYY-MM-DD, 留空取最新")
+    p_sd.add_argument("--days", type=int, default=25, help="每板块回看天数, 默认25")
+    p_sd.set_defaults(func=cmd_sync_sector_daily)
 
     return parser
 

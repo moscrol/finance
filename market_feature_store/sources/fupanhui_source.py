@@ -136,7 +136,8 @@ def list_sectors(trade_date: str | None = None) -> list:
 
 
 def get_sector_kline(ts_code: str, trade_date: str | None = None, days: int = 20) -> list:
-    """返回板块 K 线列表, 每项含 trade_date/pct_chg/diff_ratio/amount。"""
+    """返回板块 K 线列表, 每项含 date/pct_chg/diff_ratio/amount。days 下限20。"""
+    days = max(int(days), 20)
     params = {"days": days, "period": "daily", "mode": "auto"}
     if trade_date:
         params["trade_date"] = trade_date
@@ -144,6 +145,51 @@ def get_sector_kline(ts_code: str, trade_date: str | None = None, days: int = 20
     if isinstance(data, dict):
         return data.get("kline") or []
     return []
+
+
+def get_sector_klines_batch(
+    ts_codes: list,
+    trade_date: str | None = None,
+    days: int = 25,
+    batch: int = 12,
+    timeout: int = 180,
+) -> dict:
+    """批量抓取多个板块的 K 线序列。
+
+    一次 eval 内用 Promise.all 分批并发, 返回
+    {ts_code: [{trade_date, pct_chg, diff_ratio, amount}, ...]}。
+    复盘会 kline 要求 days>=20, 这里强制下限。
+    """
+    days = max(int(days), 20)
+    codes_json = json.dumps(ts_codes)
+    td_param = f"&trade_date={trade_date}" if trade_date else ""
+    js = (
+        "(async()=>{"
+        "const sectors=" + codes_json + ";"
+        "const results={};"
+        f"const BATCH={batch};"
+        "for(let i=0;i<sectors.length;i+=BATCH){"
+        "const b=sectors.slice(i,i+BATCH);"
+        "const ps=b.map(ts=>"
+        "fetch('/api/v1/client/reviews/sector-cycle/'+ts+'/kline"
+        f"?days={days}&period=daily&mode=auto{td_param}')"
+        ".then(r=>r.json()).then(d=>{"
+        "const k=d.data&&d.data.kline?d.data.kline:[];"
+        "results[ts]=k.map(x=>({trade_date:(x.date||x.trade_date),pct_chg:x.pct_chg,"
+        "diff_ratio:x.diff_ratio,amount:x.amount}));"
+        "}).catch(()=>{results[ts]=[];}));"
+        "await Promise.all(ps);"
+        "}"
+        "return JSON.stringify(results);"
+        "})()"
+    )
+    raw = cdp_eval(js, timeout=timeout)
+    if not raw:
+        raise FupanhuiError("批量板块 K 线返回空")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise FupanhuiError(f"批量板块 K 线解析失败: {raw[:200]}") from e
 
 
 def get_sector_stocks(ts_code: str, trade_date: str | None = None) -> dict:
