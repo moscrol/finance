@@ -128,6 +128,96 @@ def stock_sectors(stock: str, trade_date: str | None = None) -> dict:
         con.close()
 
 
+def _zigzag(values: list[float], delta: float) -> list[tuple[int, str]]:
+    """ZigZag 摆动检测: 返回交替的 (index, '峰'|'谷')。
+
+    delta 为确认反转所需的最小摆幅 (绝对值)。分别跟踪 running max/min,
+    当价格自极值反向回撤 >= delta 时确认前一个极值为枢轴。
+    """
+    n = len(values)
+    if n == 0:
+        return []
+    pivots: list[tuple[int, str]] = []
+    trend = 0  # 0 未定, 1 上行(找峰), -1 下行(找谷)
+    mx = mn = 0
+    for i in range(1, n):
+        v = values[i]
+        if trend == 0:
+            if v > values[mx]:
+                mx = i
+            if v < values[mn]:
+                mn = i
+            if v <= values[mx] - delta:
+                pivots.append((mx, "峰")); trend = -1; mn = i
+            elif v >= values[mn] + delta:
+                pivots.append((mn, "谷")); trend = 1; mx = i
+        elif trend == 1:
+            if v >= values[mx]:
+                mx = i
+            elif v <= values[mx] - delta:
+                pivots.append((mx, "峰")); trend = -1; mn = i
+        else:
+            if v <= values[mn]:
+                mn = i
+            elif v >= values[mn] + delta:
+                pivots.append((mn, "谷")); trend = 1; mx = i
+    pivots.append((mx, "峰") if trend == 1 else (mn, "谷"))
+    return pivots
+
+
+def _rolling_mean(values: list[float], window: int) -> list[float]:
+    """居中滚动均值, 边界用可用窗口 (min_periods=1)。"""
+    if window <= 1:
+        return list(values)
+    n = len(values)
+    half = window // 2
+    out = []
+    for i in range(n):
+        lo = max(0, i - half)
+        hi = min(n, i + half + 1)
+        seg = values[lo:hi]
+        out.append(sum(seg) / len(seg))
+    return out
+
+
+def advancers_extrema(delta: float = 1500, smooth: int = 1) -> dict:
+    """涨家数序列的波峰/波谷识别 (ZigZag 摆动检测)。
+
+    delta: 确认反转所需的最小摆幅 (家数), 越大越只保留大波段。
+    smooth: 居中滚动均值窗口, >1 时先平滑再检测 (减少日间毛刺), 默认1=不平滑。
+    返回交替的枢轴列表, 每个含原始涨家数与(如平滑)平滑值。
+    """
+    con = connect(read_only=True)
+    try:
+        rows = con.execute(
+            "SELECT trade_date, advancers FROM fact_market_daily"
+            " WHERE advancers IS NOT NULL ORDER BY trade_date"
+        ).fetchall()
+    finally:
+        con.close()
+    dates = [r[0] for r in rows]
+    raw = [float(r[1]) for r in rows]
+    series = _rolling_mean(raw, smooth) if smooth > 1 else raw
+    pivots = _zigzag(series, delta)
+    out = []
+    prev_val = None
+    for idx, kind in pivots:
+        val = raw[idx]
+        swing = None if prev_val is None else round(val - prev_val)
+        out.append({
+            "date": str(dates[idx]),
+            "type": kind,
+            "advancers": int(raw[idx]),
+            "smoothed": round(series[idx]) if smooth > 1 else None,
+            "swing_from_prev": swing,
+        })
+        prev_val = val
+    peaks = sum(1 for p in out if p["type"] == "峰")
+    troughs = sum(1 for p in out if p["type"] == "谷")
+    return {"delta": delta, "smooth": smooth, "n_days": len(raw),
+            "peaks": peaks, "troughs": troughs, "pivots": out}
+
+
 def top_sectors(trade_date: str | None = None, top: int = 20,
                 order_by: str = "diff_ratio") -> dict:
     """板块排行: 某日按边际量/涨幅/成交额排序。"""

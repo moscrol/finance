@@ -129,6 +129,19 @@ def cmd_stock_sectors(args) -> int:
     return 0
 
 
+def cmd_advancers_extrema(args) -> int:
+    from .query import advancers_extrema
+
+    res = advancers_extrema(delta=args.delta, smooth=args.smooth)
+    print(f"涨家数波峰/波谷 (ZigZag, delta={res['delta']}, smooth={res['smooth']}, "
+          f"{res['n_days']}个交易日): 波峰{res['peaks']} 波谷{res['troughs']}")
+    for p in res["pivots"]:
+        sm = f" MA{res['smooth']}≈{p['smoothed']}" if p["smoothed"] is not None else ""
+        sw = f" 摆幅{p['swing_from_prev']:+d}" if p["swing_from_prev"] is not None else ""
+        print(f"  {p['date']} {p['type']} 涨家数{p['advancers']}{sm}{sw}")
+    return 0
+
+
 def cmd_top_sectors(args) -> int:
     from .query import top_sectors
 
@@ -199,6 +212,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_q2.add_argument("stock", help="个股代码或名称, 如 300620.SZ 或 寒武纪")
     p_q2.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
     p_q2.set_defaults(func=cmd_stock_sectors)
+
+    p_ae = sub.add_parser("advancers-extrema", help="涨家数波峰/波谷识别 (ZigZag)")
+    p_ae.add_argument("--delta", type=float, default=1500, help="确认反转的最小摆幅(家数), 默认1500")
+    p_ae.add_argument("--smooth", type=int, default=1, help="居中滚动均值窗口, 默认1(不平滑)")
+    p_ae.set_defaults(func=cmd_advancers_extrema)
 
     p_q3 = sub.add_parser("top-sectors", help="板块排行: 按边际量/涨幅/成交额")
     p_q3.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
