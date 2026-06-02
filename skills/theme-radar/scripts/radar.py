@@ -1141,6 +1141,7 @@ GENERIC_THEME_INFO_SEGMENTS = {
     "交付",
     "送样",
     "并购",
+    "公告",
     "并购公告",
     "合作协议公告",
     "产品发布",
@@ -1165,13 +1166,25 @@ GENERIC_THEME_INFO_SEGMENTS = {
     "研发投入",
     "市场预测",
     "产品",
+    "材料",
+    "电池",
     "良率",
     "项目落地",
     "中标",
     "收入增速",
     "业务数据",
+    "业绩预告",
+    "产量数据",
     "产能/装机",
     "年报（收入/利润/业务）",
+    "年报数据",
+    "季报数据",
+    "ipo",
+    "IPO",
+    "设备",
+    "上游材料",
+    "Capex",
+    "capex",
     "并购/整合",
     "业绩",
     "估值",
@@ -1179,6 +1192,16 @@ GENERIC_THEME_INFO_SEGMENTS = {
     "其他",
     "待核验",
     "未分段",
+    "明确产能",
+    "明确收入结构",
+    "明确合作协议",
+    "明确合作协议/并购",
+    "明确库存",
+    "明确成本",
+    "明确资源储量",
+    "明确项目",
+    "明确项目落地",
+    "明确分红",
 }
 
 
@@ -1187,6 +1210,8 @@ def is_generic_theme_info_segment(segment: str) -> bool:
     if not s:
         return True
     if s in GENERIC_THEME_INFO_SEGMENTS:
+        return True
+    if s.startswith("明确"):
         return True
     return s.startswith(("全产业链", "全T链", "全链条"))
 
@@ -1342,6 +1367,34 @@ def build_theme_information_context(term: str, rows: list[dict]) -> dict:
     return out
 
 
+def supplement_demand_drivers(rows: list[dict]) -> list[str]:
+    out = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        scenario = str(row.get("scenario") or "").strip()
+        driver = str(row.get("downstream_driver") or "").strip()
+        if scenario and driver:
+            out.append(f"{scenario}：{driver}")
+        elif scenario:
+            out.append(scenario)
+    return unique(out)[:12]
+
+
+def supplement_core_benefit_links(rows: list[dict]) -> list[str]:
+    out = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        links = "、".join(as_list(row.get("beneficiary_links"))[:4])
+        entities = "、".join(as_list(row.get("representative_entities"))[:6])
+        if links and entities:
+            out.append(f"{links}：{entities}")
+        elif links:
+            out.append(links)
+    return unique(out)[:12]
+
+
 def merge_theme_information_context(context: dict, theme_context: dict) -> dict:
     if not theme_context:
         return context or {}
@@ -1349,7 +1402,10 @@ def merge_theme_information_context(context: dict, theme_context: dict) -> dict:
     if theme_context.get("definition"):
         merged["definition"] = theme_context.get("definition")
     for key in ("demand_drivers", "core_benefit_links", "verification_nodes"):
-        merged[key] = unique(as_list(theme_context.get(key)) + as_list(merged.get(key)))[:16]
+        if theme_context.get(key):
+            merged[key] = unique(as_list(theme_context.get(key)))[:16]
+        else:
+            merged[key] = unique(as_list(merged.get(key)))[:16]
     merged["theme_information_pool"] = theme_context.get("theme_information_pool", {})
     for key in ("related_terms", "capability_stack"):
         merged[key] = unique(as_list(merged.get(key)) + as_list(theme_context.get(key)))
@@ -1615,6 +1671,75 @@ def build_theme_supplement_pool_context(pool: dict) -> dict:
         "progress_ruler": pool.get("progress_ruler", []) if isinstance(pool.get("progress_ruler"), list) else [],
         "supplement_evidence_items": pool.get("evidence_items", []) if isinstance(pool.get("evidence_items"), list) else [],
     }
+    context["demand_drivers"] = supplement_demand_drivers(context["demand_scenarios"])
+    context["core_benefit_links"] = supplement_core_benefit_links(context["demand_scenarios"])
+    scan_rows = []
+    ranking_rows = []
+    for idx, row in enumerate(context["material_process_scan"]):
+        if not isinstance(row, dict) or not row.get("name"):
+            continue
+        prosperity = "；".join(
+            x for x in [
+                str(row.get("prosperity_judgment") or "").strip(),
+                str(row.get("core_catalyst") or "").strip(),
+            ] if x
+        )
+        scan_rows.append({
+            "direction": row.get("name", ""),
+            "sector": row.get("major_track", ""),
+            "sector_hierarchy": {
+                "level_1": row.get("major_track", ""),
+                "level_2": row.get("chain_position", ""),
+                "level_3": row.get("name", ""),
+            },
+            "primary_sector": row.get("major_track", ""),
+            "secondary_sectors": [row.get("chain_position", "")] if row.get("chain_position") else [],
+            "prosperity": prosperity,
+            "mention_frequency": row.get("daily_review_frequency", ""),
+            "recognition_level": row.get("cognition_level", ""),
+            "classification": row.get("classification", ""),
+            "core_catalyst": row.get("next_validation") or row.get("core_catalyst", ""),
+            "candidate_companies": as_list(row.get("representative_entities")),
+        })
+        ranking_rows.append({
+            "direction": row.get("name", ""),
+            "stage": row.get("cognition_level", ""),
+            "recognition_level": row.get("cognition_level", ""),
+            "stage_reason": prosperity,
+            "evidence_level": "theme_supplement_pool",
+            "progress_score": max(40, 85 - idx),
+            "key_signal": row.get("core_catalyst", ""),
+            "next_validation": row.get("next_validation", ""),
+            "priority": row.get("daily_review_frequency", ""),
+        })
+    context["direction_scan"] = scan_rows
+    context["progress_ranking"] = ranking_rows
+    context["direction_frame"] = {
+        "allowed_domains": [],
+        "directions": [
+            {
+                "label": row.get("direction", ""),
+                "tokens": [
+                    x for x in [
+                        row.get("direction", ""),
+                        row.get("sector", ""),
+                        row.get("primary_sector", ""),
+                        row.get("classification", ""),
+                        row.get("core_catalyst", ""),
+                        *as_list(row.get("secondary_sectors")),
+                        *as_list(row.get("candidate_companies")),
+                    ] if x
+                ],
+                "theme": row.get("sector", "") or row.get("direction", ""),
+                "why": row.get("prosperity", ""),
+                "validation": row.get("core_catalyst", ""),
+                "source": "theme_supplement_pool",
+            }
+            for row in scan_rows
+        ],
+        "secondary": {},
+        "source": "theme_supplement_pool",
+    }
     validation_rows = []
     for row in pool.get("validation_items", []) if isinstance(pool.get("validation_items"), list) else []:
         if not isinstance(row, dict):
@@ -1658,6 +1783,11 @@ def merge_theme_supplement_pool_context(context: dict, supplement_context: dict)
     merged["theme_supplement_pool"] = supplement_context.get("theme_supplement_pool", {})
     if supplement_context.get("definition_profile"):
         merged["definition_profile"] = supplement_context.get("definition_profile", {})
+    generic_direction_labels = {"年报", "起点", "明确产能", "明确项目", "明确合作协议", "待确认", "应用"}
+    if supplement_context.get("demand_drivers"):
+        merged["demand_drivers"] = supplement_context.get("demand_drivers", [])
+    if supplement_context.get("core_benefit_links"):
+        merged["core_benefit_links"] = supplement_context.get("core_benefit_links", [])
     for key in (
         "demand_scenarios",
         "material_process_scan",
@@ -1666,11 +1796,53 @@ def merge_theme_supplement_pool_context(context: dict, supplement_context: dict)
         "action_plan",
         "progress_ruler",
         "supplement_evidence_items",
+        "direction_frame",
+        "direction_scan",
+        "progress_ranking",
         "catalyst_calendar",
         "validation_checklist",
     ):
+        if key == "direction_frame":
+            incoming_frame = supplement_context.get(key) if isinstance(supplement_context.get(key), dict) else {}
+            if incoming_frame.get("directions"):
+                merged[key] = incoming_frame
+            continue
         existing = merged.get(key) if isinstance(merged.get(key), list) else []
         incoming = supplement_context.get(key) if isinstance(supplement_context.get(key), list) else []
+        if incoming and key == "demand_scenarios":
+            existing = [
+                row for row in existing
+                if not (isinstance(row, dict) and "report_contexts.json" in as_list(row.get("evidence")))
+            ]
+        if incoming and key == "direction_scan":
+            existing = [
+                row for row in existing
+                if not (
+                    isinstance(row, dict)
+                    and (
+                        row.get("mention_frequency") == "本地精读命中"
+                        or str(row.get("direction") or "").strip() in generic_direction_labels
+                        or is_generic_theme_info_segment(row.get("direction") or "")
+                    )
+                )
+            ]
+        if incoming and key == "progress_ranking":
+            existing = [
+                row for row in existing
+                if not (
+                    isinstance(row, dict)
+                    and (
+                        row.get("evidence_level") == "L1 curated research"
+                        or str(row.get("direction") or "").strip() in generic_direction_labels
+                        or is_generic_theme_info_segment(row.get("direction") or "")
+                    )
+                )
+            ]
+        if incoming and key == "validation_checklist":
+            existing = [
+                row for row in existing
+                if not (isinstance(row, dict) and not row.get("direction") and not row.get("source"))
+            ]
         merged[key] = incoming + existing
     return merged
 
@@ -1687,7 +1859,7 @@ def theme_information_pool_section(context: dict) -> str:
     if catalysts:
         lines.extend(["", "### IMA 催化事件", "", "| 催化/边际变化 | 可信度 | 来源 |", "|---|---|---|"])
         for row in catalysts[:8]:
-            lines.append(f"| {row.get('claim','')} | {row.get('confidence','')} | {row.get('source','')} |")
+            lines.append(f"| {compact_text(row.get('claim',''), 120)} | {row.get('confidence','')} | {compact_text(row.get('source',''), 80)} |")
     lines.extend([
         "",
         "### IMA 细颗粒题材地图",
@@ -1707,7 +1879,7 @@ def theme_information_pool_section(context: dict) -> str:
             if row.get("ticker"):
                 name = f"{name} ({row.get('ticker')})"
             lines.append(
-                f"| {row.get('segment','')} | {name} | {row.get('specificity','')} | {row.get('source','')} | {theme_info_short(row.get('claim'), 110)} |"
+                f"| {row.get('segment','')} | {name} | {row.get('specificity','')} | {compact_text(row.get('source',''), 80)} | {theme_info_short(compact_text(row.get('claim'), 130), 110)} |"
             )
     verification_nodes = pool.get("verification_nodes", []) or []
     if verification_nodes:
@@ -2109,11 +2281,6 @@ def match_report_contexts(term: str, primary: str, matches: list[str], report_co
 
 def should_skip_report_context(term: str, source_name: str, ctx: dict) -> bool:
     query = normalize(term)
-    if "创新药" not in query:
-        return False
-    explicit_rwa = any(token in query for token in ("rwa", "真实世界资产", "区块链", "web3", "数字资产"))
-    if explicit_rwa:
-        return False
     haystack = " ".join(
         [
             str(source_name or ""),
@@ -2123,11 +2290,40 @@ def should_skip_report_context(term: str, source_name: str, ctx: dict) -> bool:
             " ".join(str(ev.get("text", "")) for ev in (ctx.get("evidence", []) or []) if isinstance(ev, dict)),
         ]
     ).lower()
+    if "黄金" in query:
+        gold_context_tokens = (
+            "金价",
+            "金矿",
+            "矿产金",
+            "央行购金",
+            "黄金储备",
+            "黄金etf",
+            "黄金股",
+            "金饰",
+            "金条",
+            "金币",
+            "贵金属",
+            "comex",
+            "lbma",
+            "上海金",
+            "au9999",
+            "伦敦金",
+            "实际利率",
+            "美元指数",
+            "美联储",
+            "避险",
+        )
+        return not any(token in haystack for token in gold_context_tokens)
+    if "创新药" not in query:
+        return False
+    explicit_rwa = any(token in query for token in ("rwa", "真实世界资产", "区块链", "web3", "数字资产"))
+    if explicit_rwa:
+        return False
     off_topic_tokens = ("rwa", "真实世界资产", "区块链", "web3", "数字资产", "kucoin", "交易所")
     return any(token in haystack for token in off_topic_tokens)
 
 
-def filtered_report_context_values(values: list[str]) -> list[str]:
+def filtered_report_context_values(values: list[str], term: str = "") -> list[str]:
     noise_tokens = (
         "生态",
         "国产化率",
@@ -2137,6 +2333,16 @@ def filtered_report_context_values(values: list[str]) -> list[str]:
         "下游应用层",
         "主战场",
     )
+    term_text = str(term or "")
+    off_topic_tokens = []
+    if not any(token in term_text for token in ("光伏", "太阳能", "电池")):
+        off_topic_tokens.extend(["TOPCon", "HJT", "PERC", "钙钛矿", "光伏电池", "太阳能电池"])
+    if "3D打印" not in term_text:
+        off_topic_tokens.append("3D打印钛合金")
+    if "通信" not in term_text and "6G" not in term_text:
+        off_topic_tokens.append("6G产业")
+    if not any(token in term_text for token in ("光伏", "硅片", "硅料", "电池")):
+        off_topic_tokens.append("210尺寸")
     out = []
     for value in values:
         text = str(value or "").strip()
@@ -2146,11 +2352,13 @@ def filtered_report_context_values(values: list[str]) -> list[str]:
             continue
         if any(token == text for token in noise_tokens):
             continue
+        if any(token in text for token in off_topic_tokens):
+            continue
         out.append(text)
     return out[:8]
 
 
-def report_contexts_section(rows: list[dict]) -> str:
+def report_contexts_section(rows: list[dict], term: str = "") -> str:
     if not rows:
         return "- 本地研报上下文暂未命中。"
     labels = {
@@ -2164,7 +2372,7 @@ def report_contexts_section(rows: list[dict]) -> str:
     for row in rows:
         chain = row.get("supply_chain", {}) or {}
         for key in ["downstream", "midstream", "upstream_materials", "upstream_equipment", "ecosystem"]:
-            values = filtered_report_context_values([str(v) for v in chain.get(key, []) if str(v).strip()])
+            values = filtered_report_context_values([str(v) for v in chain.get(key, []) if str(v).strip()], term)
             if values:
                 lines.append(
                     f"| [[{row.get('source_name','')}]] | {row.get('concept','')} | {labels.get(key, key)} | {'、'.join(values)} |"
@@ -2772,7 +2980,7 @@ def demand_scenarios_section(context: dict) -> str:
         if not isinstance(row, dict):
             continue
         lines.append(
-            f"| {row.get('scenario','')} | {row.get('downstream_driver','')} | {row.get('transmission_logic') or row.get('logic','')} | {row.get('process_requirement','')} | {'、'.join(as_list(row.get('beneficiary_links')))} | {'、'.join(as_list(row.get('representative_entities')))} | {row.get('next_validation','')} | {theme_info_short(row.get('evidence_summary') or '；'.join(as_list(row.get('evidence'))), 100)} |"
+            f"| {row.get('scenario','')} | {row.get('downstream_driver','')} | {row.get('transmission_logic') or row.get('logic','')} | {row.get('process_requirement','')} | {'、'.join(as_list(row.get('beneficiary_links')))} | {'、'.join(as_list(row.get('representative_entities')))} | {row.get('next_validation','')} | {theme_info_short(compact_text(row.get('evidence_summary') or '；'.join(as_list(row.get('evidence'))), 120), 100)} |"
         )
     return "\n".join(lines)
 
@@ -2789,7 +2997,7 @@ def material_process_scan_section(context: dict) -> str:
         if not isinstance(row, dict):
             continue
         lines.append(
-            f"| {row.get('name','')} | {row.get('major_track','')} | {row.get('chain_position','')} | {theme_info_short(row.get('prosperity_judgment',''), 70)} | {row.get('daily_review_frequency','')} | {row.get('cognition_level','')} | {row.get('classification','')} | {theme_info_short(row.get('core_catalyst',''), 70)} | {'、'.join(as_list(row.get('representative_entities')))} | {theme_info_short(row.get('next_validation',''), 80)} |"
+            f"| {display_label(row.get('name',''), context)} | {display_label(row.get('major_track',''), context)} | {display_label(row.get('chain_position',''), context)} | {theme_info_short(row.get('prosperity_judgment',''), 70)} | {row.get('daily_review_frequency','')} | {row.get('cognition_level','')} | {display_label(row.get('classification',''), context)} | {theme_info_short(row.get('core_catalyst',''), 70)} | {'、'.join(as_list(row.get('representative_entities')))} | {theme_info_short(row.get('next_validation',''), 80)} |"
         )
     return "\n".join(lines)
 
@@ -2802,8 +3010,11 @@ def industry_chain_panorama_section(context: dict) -> str:
     for row in rows:
         if not isinstance(row, dict):
             continue
+        segment = str(row.get("segment") or "").strip()
+        if is_generic_theme_info_segment(segment):
+            continue
         lines.append(
-            f"| {row.get('layer','')} | {row.get('segment','')} | {'、'.join(as_list(row.get('key_elements')))} | {'、'.join(as_list(row.get('representative_entities')))} | {theme_info_short(row.get('market_value_capacity',''), 70)} | {row.get('supply_demand_status','')} | {theme_info_short(row.get('industry_logic',''), 100)} |"
+            f"| {row.get('layer','')} | {row.get('segment','')} | {'、'.join(as_list(row.get('key_elements')))} | {'、'.join(as_list(row.get('representative_entities')))} | {theme_info_short(compact_text(row.get('market_value_capacity',''), 90), 70)} | {row.get('supply_demand_status','')} | {theme_info_short(compact_text(row.get('industry_logic',''), 120), 100)} |"
         )
     return "\n".join(lines)
 
@@ -2825,15 +3036,15 @@ def direction_scan_section(context: dict) -> str:
         level_3 = hierarchy.get("level_3") or ""
         lines.append(
             "| {direction} | {level_1} | {level_2} | {level_3} | {secondary} | {prosperity} | {mention_frequency} | {recognition_level} | {classification} | {core_catalyst} | {companies} |".format(
-                direction=row.get("direction", ""),
-                level_1=level_1,
-                level_2=level_2,
-                level_3=level_3,
-                secondary="、".join(as_list(row.get("secondary_sectors"))),
+                direction=display_label(row.get("direction", ""), context),
+                level_1=display_label(level_1, context),
+                level_2=display_label(level_2, context),
+                level_3=display_label(level_3, context),
+                secondary="、".join(display_label(x, context) for x in as_list(row.get("secondary_sectors"))),
                 prosperity=row.get("prosperity", ""),
                 mention_frequency=row.get("mention_frequency", "待补"),
                 recognition_level=row.get("recognition_level", "待补"),
-                classification=row.get("classification", "待补"),
+                classification=display_label(row.get("classification", "待补"), context),
                 core_catalyst=row.get("core_catalyst", ""),
                 companies="、".join(as_list(row.get("candidate_companies"))),
             )
@@ -2849,7 +3060,7 @@ def catalyst_calendar_section(context: dict) -> str:
     for row in rows:
         if not isinstance(row, dict):
             continue
-        lines.append(f"| {row.get('direction','')} | {row.get('time','')} | {row.get('event','')} | {row.get('event_type','')} | {row.get('evidence','')} | {row.get('watch_item','')} |")
+        lines.append(f"| {compact_text(row.get('direction',''), 80)} | {compact_text(row.get('time',''), 40)} | {compact_text(row.get('event',''), 120)} | {compact_text(row.get('event_type',''), 60)} | {compact_text(row.get('evidence',''), 120)} | {compact_text(row.get('watch_item',''), 120)} |")
     return "\n".join(lines)
 
 
@@ -2861,7 +3072,7 @@ def validation_checklist_section(context: dict) -> str:
     for row in rows:
         if not isinstance(row, dict):
             continue
-        lines.append(f"| {row.get('direction','')} | {row.get('item','')} | {row.get('window','')} | {row.get('upgrade_condition') or row.get('why','')} | {row.get('downgrade_condition','')} | {row.get('status','待验证')} |")
+        lines.append(f"| {compact_text(row.get('direction',''), 80)} | {compact_text(row.get('item',''), 120)} | {compact_text(row.get('window',''), 40)} | {compact_text(row.get('upgrade_condition') or row.get('why',''), 120)} | {compact_text(row.get('downgrade_condition',''), 120)} | {compact_text(row.get('status','待验证'), 120)} |")
     return "\n".join(lines)
 
 
@@ -2914,9 +3125,9 @@ def progress_ranking_section(context: dict) -> str:
         lines.append(
             "| {idx} | {direction} | {stage} | {tier} | {progress_score} | {stage_reason} | {evidence_level} | {key_signal} | {upgrade_triggers} | {downgrade_risks} | {next_validation} | {priority} |".format(
                 idx=idx,
-                direction=row.get("direction", ""),
-                stage=row.get("stage", "待补"),
-                tier=row.get("tier", ""),
+                direction=display_label(row.get("direction", ""), context),
+                stage=display_label(row.get("stage", "待补"), context),
+                tier=display_label(row.get("tier", ""), context),
                 evidence_level=row.get("evidence_level", "待补"),
                 progress_score=row.get("progress_score", ""),
                 stage_reason=row.get("stage_reason", ""),
@@ -2924,7 +3135,7 @@ def progress_ranking_section(context: dict) -> str:
                 upgrade_triggers=row.get("upgrade_triggers", ""),
                 downgrade_risks=row.get("downgrade_risks", ""),
                 next_validation=row.get("next_validation", ""),
-                priority=row.get("priority", "待补"),
+                priority=display_label(row.get("priority", "待补"), context),
             )
         )
     return "\n".join(lines)
@@ -2971,8 +3182,16 @@ def recognition_timeline_section(context: dict) -> str:
     for row in rows:
         if not isinstance(row, dict):
             continue
+        time_window = compact_text(row.get("time_window", ""), 40)
+        event = theme_info_short(compact_text(row.get("event", ""), 120), 90)
+        recognition_stage = compact_text(row.get("recognition_stage", ""), 40)
+        market_consensus = compact_text(row.get("market_consensus", ""), 30)
+        fact_level = compact_text(row.get("fact_level", ""), 40)
+        direction = compact_text(row.get("direction", ""), 80)
+        related_entities = compact_text("、".join(as_list(row.get("related_entities"))), 80)
+        evidence_summary = theme_info_short(compact_text(row.get("evidence_summary", ""), 120), 90)
         lines.append(
-            f"| {row.get('time_window','')} | {theme_info_short(row.get('event',''), 90)} | {row.get('recognition_stage','')} | {row.get('market_consensus','')} | {row.get('fact_level','')} | {row.get('direction','')} | {'、'.join(as_list(row.get('related_entities')))} | {theme_info_short(row.get('evidence_summary',''), 90)} |"
+            f"| {time_window} | {event} | {recognition_stage} | {market_consensus} | {fact_level} | {direction} | {related_entities} | {evidence_summary} |"
         )
     return "\n".join(lines)
 
@@ -3004,7 +3223,7 @@ def action_plan_section(context: dict) -> str:
     lines = ["| 优先级 | 方向 | 核心逻辑 | 操作思路 | 等待条件 | 风险提示 |", "|---|---|---|---|---|---|"]
     for row in rows:
         lines.append(
-            f"| {row.get('priority_bucket','')} | {row.get('direction','')} | {theme_info_short(row.get('core_logic',''), 90)} | {theme_info_short(row.get('action_thesis',''), 90)} | {theme_info_short(row.get('wait_for',''), 80)} | {theme_info_short(row.get('risk_warning',''), 80)} |"
+            f"| {compact_text(display_label(row.get('priority_bucket',''), context), 40)} | {compact_text(display_label(row.get('direction',''), context), 80)} | {theme_info_short(compact_text(row.get('core_logic',''), 120), 90)} | {theme_info_short(compact_text(row.get('action_thesis',''), 120), 90)} | {theme_info_short(compact_text(row.get('wait_for',''), 100), 80)} | {theme_info_short(compact_text(row.get('risk_warning',''), 100), 80)} |"
         )
     return "\n".join(lines)
 
@@ -3018,7 +3237,7 @@ def supplement_evidence_section(context: dict) -> str:
         if not isinstance(row, dict):
             continue
         lines.append(
-            f"| {row.get('section_type','')} | {row.get('target','')} | {theme_info_short(row.get('evidence',''), 90)} | {row.get('source','')} | {row.get('source_date','')} | {row.get('confidence','')} | {'是' if row.get('needs_review') else '否'} | {row.get('item_id','')} |"
+            f"| {row.get('section_type','')} | {row.get('target','')} | {theme_info_short(compact_text(row.get('evidence',''), 120), 90)} | {compact_text(row.get('source',''), 80)} | {row.get('source_date','')} | {row.get('confidence','')} | {'是' if row.get('needs_review') else '否'} | {row.get('item_id','')} |"
         )
     return "\n".join(lines)
 
@@ -3550,7 +3769,59 @@ def company_logic_strength(company: dict) -> str:
 def compact_text(text: str, limit: int = 120) -> str:
     value = re.sub(r"\s+", "", str(text or "").strip())
     value = value.replace("", "")
+    value = value.replace("券商研判", "第三方研判").replace("券商", "第三方机构")
+    value = re.sub(r"[\u4e00-\u9fa5]{0,8}证券", "第三方机构", value)
+    value = re.sub(r"[\u4e00-\u9fa5]{0,8}证券(研报|认为|电话会)", r"第三方\1", value)
+    value = value.replace("风光核电", "风光等非煤电源").replace("核电", "非煤电源")
     return value[:limit] + ("…" if len(value) > limit else "")
+
+
+def display_label(value: str, context=None) -> str:
+    label = str(value or "").strip()
+    if not label:
+        return ""
+    context_text = ""
+    if isinstance(context, dict):
+        context_text = " ".join(
+            str(x)
+            for x in (
+                as_list(context.get("aliases"))
+                + as_list(context.get("related_terms"))
+                + as_list(context.get("capability_stack"))
+                + as_list(context.get("definition"))
+                + as_list((context.get("theme_supplement_pool") or {}).get("source_file") if isinstance(context.get("theme_supplement_pool"), dict) else "")
+            )
+        )
+    if "人形机器人" in context_text or "具身智能" in context_text:
+        replacements = {
+            "材料": "轻量化材料",
+            "电池": "机器人电池/电源管理",
+            "设备": "机器人制造/检测设备",
+        }
+        return replacements.get(label, label)
+    return label
+
+
+def should_skip_structured_company_card(company: dict, term: str) -> bool:
+    if not isinstance(company, dict):
+        return True
+    text = " ".join(
+        str(x)
+        for x in [
+            company.get("name", ""),
+            " ".join(company.get("roles", []) or []),
+            " ".join(company.get("evidence", []) or []),
+            " ".join(company_subdirections(company)),
+        ]
+    )
+    subdirs = company_subdirections(company)
+    pending_subdir = not subdirs or all("待判定" in str(x) or "待细分" in str(x) for x in subdirs)
+    term_text = str(term or "")
+    if "AI PCB" in term_text or "AIPCB" in term_text:
+        contamination_tokens = ("人形机器人", "机器人", "Optimus", "火箭", "商业航天", "谐波减速器", "关节模组")
+        if pending_subdir and any(token in text for token in contamination_tokens):
+            return True
+    return False
 
 
 def strongest_evidence_snippet(company: dict) -> str:
@@ -3580,7 +3851,7 @@ def capability_validation(label: str) -> tuple[str, str]:
 
 def company_logic_summary(company: dict) -> str:
     name = company.get("name", "")
-    role = "；".join(company.get("roles", [])[:2]) or "待补角色"
+    role = compact_text("；".join(company.get("roles", [])[:2]) or "待补角色", 160)
     subdirs = "、".join(company_subdirections(company))
     strength = company_logic_strength(company)
     basis_items = [x for x in source_basis(company) if x != "baseline基础画像"]
@@ -3632,7 +3903,7 @@ def subdirection_validation_section(companies: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def deep_company_cards_section(companies: list[dict], tier: str, limit: int = 10) -> str:
+def deep_company_cards_section(companies: list[dict], tier: str, limit: int = 10, term: str = "", has_structured_supplement: bool = False) -> str:
     labels = {
         "relative_core": "相对核心",
         "related": "重点相关",
@@ -3640,28 +3911,30 @@ def deep_company_cards_section(companies: list[dict], tier: str, limit: int = 10
         "weak": "弱相关",
     }
     rows = [c for c in companies if company_deep_dive_tier(c) == tier]
+    if has_structured_supplement:
+        rows = [c for c in rows if not should_skip_structured_company_card(c, term)]
     rows = sorted(rows, key=company_sort_key)[:limit]
     if not rows:
         return "- 暂无。"
     parts = []
     for company in rows:
-        roles = "；".join(company.get("roles", [])[:2]) or "待补角色"
+        roles = compact_text("；".join(company.get("roles", [])[:2]) or "待补角色", 160)
         layers = "、".join(normalized_chain_layers(company)[:3]) or "unknown"
-        sources = "、".join(source_basis(company))
+        sources = compact_text("、".join(source_basis(company)), 120)
         baseline = "支持/不冲突" if (company.get("evidence_buckets", {}) or {}).get("baseline") else "待补基础画像或仅作辅助"
         parts.append(
             "\n".join(
                 [
                     f"### {company.get('name','')}（{labels.get(tier, tier)}）",
-                    f"- 细分方向：{'、'.join(company_subdirections(company))}",
+                    f"- 细分方向：{compact_text('、'.join(company_subdirections(company)), 120)}",
                     f"- 逻辑强度：{company_logic_strength(company)}",
                     f"- 产业链角色：{roles}",
                     f"- 所属环节：{layers}；公司类型：{SUBTYPE_LABELS.get(company.get('company_subtype'), '待判定')}",
-                    f"- 题材逻辑：{company_logic_summary(company)}",
+                    f"- 题材逻辑：{compact_text(company_logic_summary(company), 260)}",
                     f"- 来源依据：{sources}",
                     f"- baseline校验：{baseline}",
-                    f"- 重点验证：{company_validation_focus(company)}",
-                    f"- 护栏/验证：{company_guardrail_note(company)}",
+                    f"- 重点验证：{compact_text(company_validation_focus(company), 160)}",
+                    f"- 护栏/验证：{compact_text(company_guardrail_note(company), 160)}",
                 ]
             )
         )
@@ -3689,9 +3962,41 @@ def resonance_tiers_section(context: dict, companies: list[dict]) -> str:
     return "\n".join(lines) if len(lines) > 2 else "- 暂无可分层信号。"
 
 
-def deep_dive_conclusion(term: str, context: dict, companies: list[dict]) -> str:
+def conclusion_direction_candidates(context: dict) -> list[dict]:
     direction_rows = context.get("direction_scan", []) if isinstance(context, dict) else []
     directions = [row for row in direction_rows if isinstance(row, dict) and row.get("direction")]
+    material_rows = context.get("material_process_scan", []) if isinstance(context, dict) else []
+    supplement_directions = []
+    for row in material_rows if isinstance(material_rows, list) else []:
+        if not isinstance(row, dict) or not row.get("name"):
+            continue
+        prosperity = "；".join(
+            x for x in [
+                str(row.get("prosperity_judgment") or "").strip(),
+                str(row.get("core_catalyst") or "").strip(),
+            ] if x
+        )
+        supplement_directions.append({
+            "direction": row.get("name", ""),
+            "prosperity": prosperity,
+            "core_catalyst": row.get("next_validation") or row.get("core_catalyst", ""),
+            "classification": row.get("classification") or row.get("chain_position", ""),
+            "recognition_level": row.get("cognition_level") or row.get("daily_review_frequency", ""),
+            "candidate_companies": as_list(row.get("representative_entities")),
+        })
+    seen = set()
+    merged = []
+    for row in supplement_directions + directions:
+        key = str(row.get("direction") or "").strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        merged.append(row)
+    return merged
+
+
+def deep_dive_conclusion(term: str, context: dict, companies: list[dict]) -> str:
+    directions = conclusion_direction_candidates(context)
     demand = as_list(context.get("demand_drivers"))[:4] if isinstance(context, dict) else []
     core = [c for c in companies if company_deep_dive_tier(c) == "relative_core"][:6]
     related = [c for c in companies if company_deep_dive_tier(c) == "related"][:6]
@@ -4010,6 +4315,20 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
     evidence = collect_evidence(company_scope or all_scope, companies, evidence_index)
     signal = load_signal(theme_signals, primary, matches)
     patterns = match_patterns(pattern_library, " ".join([term, external_search_text]), match_scope or [term])
+    has_structured_supplement = bool(theme_supplement_pool) and any(
+        (theme_supplement_pool.get(key) or [])
+        for key in (
+            "definition_profile_rows",
+            "demand_scenarios",
+            "material_process_scan",
+            "validation_items",
+            "catalyst_calendar",
+            "industry_chain_panorama",
+            "recognition_timeline",
+            "action_plan",
+        )
+    )
+    display_report_contexts = [] if has_structured_supplement else local_report_contexts
     return {
         "graph": graph,
         "concepts": concepts,
@@ -4020,6 +4339,8 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         "context": context,
         "definition": definition,
         "local_report_contexts": local_report_contexts,
+        "display_report_contexts": display_report_contexts,
+        "has_structured_supplement": has_structured_supplement,
         "match_scope": match_scope,
         "rels": rels,
         "all_scope": all_scope,
@@ -4091,7 +4412,7 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 ### 本地 full 精读 / report_contexts 上下文
 
-{report_contexts_section(state["local_report_contexts"])}
+{report_contexts_section(state["display_report_contexts"], state.get("primary") or state.get("term") or "")}
 
 ## 四、细分方向扫描
 
@@ -4111,7 +4432,7 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 ## 六、full 精读提及/生态线索
 
-{report_context_company_clues_section(state["local_report_contexts"])}
+{report_context_company_clues_section(state["display_report_contexts"])}
 
 ## 七、发酵进度与预期差
 
@@ -4143,21 +4464,21 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 ## 八、相对核心个股逻辑卡
 
-{deep_company_cards_section(companies, "relative_core")}
+{deep_company_cards_section(companies, "relative_core", term=state.get("primary") or state.get("term") or "", has_structured_supplement=state.get("has_structured_supplement", False))}
 
 ## 九、重点相关个股逻辑卡
 
-{deep_company_cards_section(companies, "related")}
+{deep_company_cards_section(companies, "related", term=state.get("primary") or state.get("term") or "", has_structured_supplement=state.get("has_structured_supplement", False))}
 
 ## 十、观察/弹性与弱相关隔离
 
 ### 观察/弹性
 
-{deep_company_cards_section(companies, "watch", limit=8)}
+{deep_company_cards_section(companies, "watch", limit=8, term=state.get("primary") or state.get("term") or "", has_structured_supplement=state.get("has_structured_supplement", False))}
 
 ### 弱相关/暂不作为核心
 
-{deep_company_cards_section(companies, "weak", limit=8)}
+{"- 结构化补充池已接入，弱相关公司线索默认不展开，避免泛概念或跨主题弱线索污染。" if state.get("has_structured_supplement") else deep_company_cards_section(companies, "weak", limit=8, term=state.get("primary") or state.get("term") or "", has_structured_supplement=False)}
 
 ## 十一、验证清单
 
