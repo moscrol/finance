@@ -99,6 +99,19 @@ def cmd_sync_sector_marginal(_args) -> int:
     return 0
 
 
+def cmd_sync_limit_advance(_args) -> int:
+    from .sync.sync_feishu_limit_advance import sync_limit_advance
+
+    s = sync_limit_advance()
+    print(f"连板晋级表 {s['table_id']}: 记录 {s['records']} 行, 股票 {s['stocks']}")
+    print(f"展开写入 (stock×date 存在性): {s['rows_written']} 行")
+    if s["unresolved_cols"]:
+        print(f"无法对齐交易日的列 {len(s['unresolved_cols'])}: {s['unresolved_cols']}")
+    print(f"fact_limit_advance_presence: {s['table_total']} 行, {s['table_dates']} 交易日, "
+          f"{s['table_stocks']} 股 ({s['date_min']}~{s['date_max']})")
+    return 0
+
+
 def cmd_sync_stock_daily(args) -> int:
     from .sync.sync_mootdx_stock_daily import sync_fact_stock_daily
 
@@ -256,6 +269,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("sync-market-daily", help="同步飞书每日指标表到 fact_market_daily").set_defaults(func=cmd_sync_market_daily)
 
     sub.add_parser("sync-sector-marginal", help="回填飞书边际量电子表格到 fact_sector_daily.diff_ratio").set_defaults(func=cmd_sync_sector_marginal)
+
+    sub.add_parser("sync-limit-advance", help="同步飞书连板晋级表到 fact_limit_advance_presence").set_defaults(func=cmd_sync_limit_advance)
 
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
