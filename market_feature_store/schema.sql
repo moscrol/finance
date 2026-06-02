@@ -75,6 +75,9 @@ CREATE TABLE IF NOT EXISTS fact_sector_daily (
     amount          DOUBLE,
     diff_ratio      DOUBLE,
     strength        DOUBLE,
+    multi_period_resonance BOOLEAN,
+    multi_period_source TEXT,
+    multi_period_updated_at TIMESTAMP,
     source          TEXT,
     updated_at      TIMESTAMP,
     PRIMARY KEY (trade_date, sector_ts_code)

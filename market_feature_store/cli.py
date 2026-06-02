@@ -127,6 +127,20 @@ def cmd_sync_sector_daily_metrics(_args) -> int:
     return 0
 
 
+def cmd_sync_sector_resonance(_args) -> int:
+    from .sync.sync_feishu_sector_resonance import sync_sector_multi_period_resonance
+
+    s = sync_sector_multi_period_resonance()
+    print(f"飞书表 {s['table_id']} | 记录: {s['records']} | 写入标签: {s['rows_written']}")
+    print(f"fact_sector_daily: {s['table_total']} 行, 已标注 {s['resonance_labeled']} 行 ({s['date_min']}~{s['date_max']})")
+    print(f"多周期共振 true: {s['resonance_true']} 行, 覆盖 {s['resonance_true_dates']} 个交易日")
+    if s["unmatched_sectors"]:
+        print(f"未匹配板块 {len(s['unmatched_sectors'])}: " + ", ".join(s["unmatched_sectors"][:15]))
+    if s["bad_dates"]:
+        print(f"无效日期 {len(s['bad_dates'])}: " + ", ".join(str(x) for x in s["bad_dates"][:10]))
+    return 0
+
+
 def cmd_sync_limit_advance(_args) -> int:
     from .sync.sync_feishu_limit_advance import sync_limit_advance
 
@@ -306,6 +320,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("sync-limit-advance", help="同步飞书连板晋级表到 fact_limit_advance_presence").set_defaults(func=cmd_sync_limit_advance)
 
     sub.add_parser("sync-sector-daily-metrics", help="回填飞书板块每日表的 pct_chg/amount 到 fact_sector_daily").set_defaults(func=cmd_sync_sector_daily_metrics)
+
+    sub.add_parser("sync-sector-resonance", help="同步飞书多周期共振 checkbox 到 fact_sector_daily").set_defaults(func=cmd_sync_sector_resonance)
 
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
