@@ -71,6 +71,18 @@ def cmd_sync_sector_stocks(args) -> int:
     return 0
 
 
+def cmd_sync_market_daily(_args) -> int:
+    from .sync.sync_feishu_market_daily import sync_fact_market_daily
+
+    stats = sync_fact_market_daily()
+    print(f"飞书拉取: {stats['fetched']} 条 | 写入: {stats['written']} 条")
+    print(f"fact_market_daily 总数: {stats['table_total']} ({stats['date_min']} ~ {stats['date_max']})")
+    print(f"空成交额行: {stats['null_total_amount']}")
+    if stats["skipped"]:
+        print(f"跳过(无效日期) {len(stats['skipped'])}: " + ", ".join(str(s) for s in stats['skipped'][:10]))
+    return 0
+
+
 def cmd_check(_args) -> int:
     from .query import health
 
@@ -167,6 +179,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_ss.add_argument("--refresh", action="store_true", help="不跳过已抓板块, 强制重抓")
     p_ss.add_argument("--sleep", type=float, default=0.3, help="板块间隔秒数, 默认0.3")
     p_ss.set_defaults(func=cmd_sync_sector_stocks)
+
+    sub.add_parser("sync-market-daily", help="同步飞书每日指标表到 fact_market_daily").set_defaults(func=cmd_sync_market_daily)
 
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
 
