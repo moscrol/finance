@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-DEFAULT_VAULT = Path("/Users/a77/Desktop/c c/知识库")
+DEFAULT_VAULT = Path(os.environ.get("KNOWLEDGE_VAULT", "/Users/lbq/Desktop/c c/知识库"))
 
 
 def now_date() -> str:
