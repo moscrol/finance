@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime, date
+import time
 
 from ..db import connect, init_db
 from ..sources import fupanhui_source as fs
@@ -31,6 +32,58 @@ def _load_sector_dim(con):
         "SELECT sector_ts_code, sector_name, sw_l1 FROM dim_sector"
     ).fetchall()
     return {r[0]: (r[1], r[2]) for r in rows}
+
+
+def _resolve_range_dates(con, start_date: str | None, end_date: str | None, days: int | None):
+    if days is not None:
+        params = []
+        where = ""
+        if end_date:
+            where = "WHERE trade_date <= ?"
+            params.append(_parse_date(end_date) or end_date)
+        rows = con.execute(
+            f"""
+            SELECT trade_date FROM fact_market_daily
+            {where}
+            ORDER BY trade_date DESC
+            LIMIT ?
+            """,
+            [*params, int(days)],
+        ).fetchall()
+        return [str(r[0]) for r in reversed(rows)], "days"
+
+    if not start_date or not end_date:
+        raise ValueError("必须提供 --start-date/--end-date, 或使用 --days")
+    start = _parse_date(start_date)
+    end = _parse_date(end_date)
+    if not start or not end:
+        raise ValueError("日期格式必须为 YYYY-MM-DD")
+    rows = con.execute(
+        """
+        SELECT trade_date FROM fact_market_daily
+        WHERE trade_date BETWEEN ? AND ?
+        ORDER BY trade_date
+        """,
+        [start, end],
+    ).fetchall()
+    return [str(r[0]) for r in rows], "range"
+
+
+def _existing_sector_daily_counts(con, dates):
+    if not dates:
+        return {}
+    placeholders = ",".join(["?"] * len(dates))
+    rows = con.execute(
+        f"""
+        SELECT CAST(trade_date AS VARCHAR), COUNT(*),
+               COUNT(CASE WHEN diff_ratio IS NULL THEN 1 END)
+        FROM fact_sector_daily
+        WHERE CAST(trade_date AS VARCHAR) IN ({placeholders})
+        GROUP BY trade_date
+        """,
+        dates,
+    ).fetchall()
+    return {r[0]: {"rows": int(r[1]), "null_diff": int(r[2])} for r in rows}
 
 
 def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dict:
@@ -113,4 +166,86 @@ def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dic
         "distinct_dates": n_dates,
         "date_min": str(date_range[0]) if date_range[0] else None,
         "date_max": str(date_range[1]) if date_range[1] else None,
+    }
+
+
+def sync_fact_sector_daily_range(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    days: int | None = None,
+    chunk_days: int = 15,
+    refresh: bool = False,
+    sleep: float = 0.2,
+) -> dict:
+    init_db()
+    con = connect()
+    try:
+        dim = _load_sector_dim(con)
+        dates, date_source = _resolve_range_dates(con, start_date, end_date, days)
+        existing = _existing_sector_daily_counts(con, dates)
+    finally:
+        con.close()
+
+    if not dim:
+        raise RuntimeError("dim_sector 为空, 请先运行 sync-sectors")
+
+    sector_count = len(dim)
+    skipped = []
+    targets = []
+    for d in dates:
+        existing_info = existing.get(d, {"rows": 0, "null_diff": 0})
+        existing_rows = existing_info["rows"]
+        null_diff = existing_info["null_diff"]
+        if not refresh and existing_rows >= max(1, int(sector_count * 0.9)) and null_diff == 0:
+            skipped.append({"trade_date": d, "existing_rows": existing_rows, "null_diff": null_diff})
+        else:
+            targets.append(d)
+
+    synced = []
+    failures = []
+    total_rows_written = 0
+    chunk_days = max(1, int(chunk_days))
+    for i in range(0, len(targets), chunk_days):
+        chunk = targets[i:i + chunk_days]
+        if not chunk:
+            continue
+        chunk_end = chunk[-1]
+        try:
+            stats = sync_fact_sector_daily(
+                trade_date=chunk_end,
+                days=max(20, len(chunk) + 5),
+            )
+            synced.extend(chunk)
+            total_rows_written += int(stats["rows_written"])
+        except Exception as e:
+            failures.append({"trade_date": chunk_end, "error": str(e)})
+        if sleep:
+            time.sleep(float(sleep))
+
+    con = connect()
+    try:
+        table_stats = con.execute(
+            """
+            SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),
+                   COUNT(CASE WHEN diff_ratio IS NULL THEN 1 END)
+            FROM fact_sector_daily
+            """
+        ).fetchone()
+    finally:
+        con.close()
+
+    return {
+        "requested_dates": len(dates),
+        "date_source": date_source,
+        "synced_dates": len(synced),
+        "skipped_dates": len(skipped),
+        "failed_chunks": len(failures),
+        "total_rows_written": total_rows_written,
+        "skipped": skipped,
+        "failures": failures,
+        "table_total": table_stats[0],
+        "table_dates": table_stats[1],
+        "date_min": str(table_stats[2]) if table_stats[2] else None,
+        "date_max": str(table_stats[3]) if table_stats[3] else None,
+        "null_diff_ratio": int(table_stats[4] or 0),
     }

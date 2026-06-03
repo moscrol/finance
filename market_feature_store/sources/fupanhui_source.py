@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import os
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -63,22 +65,29 @@ def get_target(force: bool = False) -> str:
     return tid
 
 
-def cdp_eval(js_expr: str, timeout: int = 120):
+def cdp_eval(js_expr: str, timeout: int = 120, retries: int = 2):
     """在浏览器上下文执行 JS, 返回其 value。"""
-    target = get_target()
-    req = urllib.request.Request(
-        f"{CDP_PROXY}/eval?target={target}",
-        data=js_expr.encode(),
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            result = json.loads(resp.read())
-    except Exception as e:  # noqa: BLE001
-        raise FupanhuiError(f"CDP eval 失败: {e}") from e
-    if isinstance(result, dict) and result.get("error"):
-        raise FupanhuiError(f"CDP eval 错误: {result['error']}")
-    return result.get("value") if isinstance(result, dict) else None
+    last_error = None
+    for attempt in range(max(1, int(retries) + 1)):
+        target = get_target(force=attempt > 0)
+        req = urllib.request.Request(
+            f"{CDP_PROXY}/eval?target={target}",
+            data=js_expr.encode(),
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                result = json.loads(resp.read())
+            if isinstance(result, dict) and result.get("error"):
+                last_error = FupanhuiError(f"CDP eval 错误: {result['error']}")
+            else:
+                return result.get("value") if isinstance(result, dict) else None
+        except Exception as e:  # noqa: BLE001
+            last_error = e
+        _target_cache["id"] = None
+        if attempt < int(retries):
+            time.sleep(0.8 * (attempt + 1))
+    raise FupanhuiError(f"CDP eval 失败: {last_error}") from last_error
 
 
 def api_get(api_path: str, params: dict | None = None, timeout: int = 60):
@@ -90,13 +99,12 @@ def api_get(api_path: str, params: dict | None = None, timeout: int = 60):
             query = "?" + urllib.parse.urlencode(items)
     url = json.dumps(api_path + query)
     js = (
-        "(function(){"
-        "var x=new XMLHttpRequest();"
-        f"x.open('GET',{url},false);"
+        "(async()=>{"
         "var token=localStorage.getItem('user_token');"
-        "if(token){x.setRequestHeader('Authorization','Bearer '+token);}"
-        "x.send();"
-        "return x.responseText;"
+        "var headers={};"
+        "if(token){headers['Authorization']='Bearer '+token;}"
+        f"var r=await fetch({url},{{headers:headers}});"
+        "return await r.text();"
         "})()"
     )
     raw = cdp_eval(js, timeout=timeout)

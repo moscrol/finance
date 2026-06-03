@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import date, datetime
 
 from ..db import connect, init_db
@@ -110,6 +111,13 @@ def _parse_date(val):
     return None
 
 
+def _require_date(val, name: str) -> date:
+    parsed = _parse_date(val)
+    if parsed is None:
+        raise RuntimeError(f"无法解析{name}: {val}")
+    return parsed
+
+
 def _ensure_schema(con):
     for name, typ in MARKET_COLUMNS.items():
         con.execute(f"ALTER TABLE fact_market_daily ADD COLUMN IF NOT EXISTS {name} {typ}")
@@ -146,6 +154,71 @@ def _ensure_schema(con):
     con.execute("CREATE INDEX IF NOT EXISTS idx_fact_stock_high_date ON fact_stock_high_daily(trade_date)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_fact_stock_high_stock ON fact_stock_high_daily(stock_ts_code)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_fact_stock_high_period ON fact_stock_high_daily(primary_high_period)")
+
+
+def _resolve_range_dates(con, start_date: str | None, end_date: str | None, days: int | None) -> tuple[list[str], str]:
+    if days is not None:
+        if days <= 0:
+            raise RuntimeError("--days 必须大于 0")
+        if start_date:
+            raise RuntimeError("--days 模式不能同时指定 --start-date")
+        end = _require_date(end_date, "--end-date") if end_date else None
+        params = []
+        where = ""
+        if end:
+            where = "WHERE trade_date <= ?"
+            params.append(end)
+        rows = con.execute(
+            f"""
+            SELECT trade_date
+            FROM fact_market_daily
+            {where}
+            ORDER BY trade_date DESC
+            LIMIT ?
+            """,
+            [*params, int(days)],
+        ).fetchall()
+        dates = [str(r[0]) for r in reversed(rows)]
+        if not dates:
+            raise RuntimeError("fact_market_daily 中没有可用于 --days 的交易日")
+        return dates, "fact_market_daily:days"
+
+    if not start_date or not end_date:
+        raise RuntimeError("请指定 --start-date/--end-date，或使用 --days")
+    start = _require_date(start_date, "--start-date")
+    end = _require_date(end_date, "--end-date")
+    if start > end:
+        raise RuntimeError("--start-date 不能晚于 --end-date")
+    rows = con.execute(
+        """
+        SELECT trade_date
+        FROM fact_market_daily
+        WHERE trade_date BETWEEN ? AND ?
+        ORDER BY trade_date
+        """,
+        [start, end],
+    ).fetchall()
+    dates = [str(r[0]) for r in rows]
+    if dates:
+        return dates, "fact_market_daily:range"
+    if start == end:
+        return [start.isoformat()], "explicit_single_date"
+    raise RuntimeError("fact_market_daily 中没有命中该日期区间的交易日，请先同步市场日表或缩小区间")
+
+
+def _existing_stock_high_counts(con, dates: list[str]) -> dict[str, int]:
+    if not dates:
+        return {}
+    rows = con.execute(
+        """
+        SELECT trade_date, COUNT(*)
+        FROM fact_stock_high_daily
+        WHERE CAST(trade_date AS VARCHAR) IN (SELECT * FROM UNNEST(?))
+        GROUP BY trade_date
+        """,
+        [dates],
+    ).fetchall()
+    return {str(td): int(cnt) for td, cnt in rows}
 
 
 def _fetch_period_stocks(period: str, trade_date: str, page_size: int) -> list[dict]:
@@ -301,4 +374,74 @@ def sync_fupanhui_stock_high(trade_date: str | None = None, page_size: int = 200
         "date_min": str(table_stats[2]) if table_stats[2] else None,
         "date_max": str(table_stats[3]) if table_stats[3] else None,
         "history_rows": int(table_stats[4] or 0),
+    }
+
+
+def sync_fupanhui_stock_high_range(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    days: int | None = None,
+    page_size: int = 200,
+    refresh: bool = False,
+    sleep: float = 0.2,
+) -> dict:
+    init_db()
+    con = connect()
+    try:
+        _ensure_schema(con)
+        dates, date_source = _resolve_range_dates(con, start_date, end_date, days)
+        existing_counts = _existing_stock_high_counts(con, dates)
+    finally:
+        con.close()
+
+    results = []
+    skipped = []
+    failures = []
+    total_unique_stocks = 0
+    total_period_fetches = {period: 0 for period, _label in PERIODS}
+
+    for td in dates:
+        existing = existing_counts.get(td, 0)
+        if existing and not refresh:
+            skipped.append({"trade_date": td, "existing_rows": existing})
+            continue
+        try:
+            stats = sync_fupanhui_stock_high(trade_date=td, page_size=page_size)
+            results.append(stats)
+            total_unique_stocks += int(stats.get("unique_stocks") or 0)
+            for period, value in stats.get("fetched_by_period", {}).items():
+                total_period_fetches[period] = total_period_fetches.get(period, 0) + int(value or 0)
+        except Exception as e:
+            failures.append({"trade_date": td, "error": str(e)})
+        if sleep and sleep > 0:
+            time.sleep(float(sleep))
+
+    table_stats = None
+    con = connect(read_only=True)
+    try:
+        table_stats = con.execute(
+            """
+            SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date)
+            FROM fact_stock_high_daily
+            """
+        ).fetchone()
+    finally:
+        con.close()
+
+    return {
+        "dates": dates,
+        "date_source": date_source,
+        "requested_dates": len(dates),
+        "synced_dates": len(results),
+        "skipped_dates": len(skipped),
+        "failed_dates": len(failures),
+        "total_unique_stocks": total_unique_stocks,
+        "total_period_fetches": total_period_fetches,
+        "results": results,
+        "skipped": skipped,
+        "failures": failures,
+        "table_total": table_stats[0] if table_stats else 0,
+        "table_dates": table_stats[1] if table_stats else 0,
+        "date_min": str(table_stats[2]) if table_stats and table_stats[2] else None,
+        "date_max": str(table_stats[3]) if table_stats and table_stats[3] else None,
     }
