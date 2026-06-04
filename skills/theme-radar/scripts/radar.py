@@ -6462,9 +6462,6 @@ def benchmark_map_text(row: dict) -> str:
                     company.get("core_basis", ""),
                 ]
             )
-    for gap in row.get("mapping_gaps", []) or []:
-        if isinstance(gap, dict):
-            values.extend([gap.get("business_line", ""), gap.get("gap_reason", ""), gap.get("possible_beneficiary_direction", "")])
     return normalize(" ".join(str(x) for x in values if str(x).strip()))
 
 
@@ -6524,12 +6521,22 @@ def benchmark_mapped_company_is_domestic(row: dict) -> bool:
 def benchmark_focus_tokens(term: str) -> list[str]:
     text = str(term or "")
     rules = [
-        (("光模块", "光通信", "光互联", "CPO", "硅光", "光芯片", "光器件"), ("光互联", "光模块", "Optical", "DSP", "CPO", "硅光", "Photonic", "AEC", "Retimer有源电缆")),
-        (("存储", "HBM", "SSD", "CXL", "PCIe", "DRAM", "NAND"), ("存储", "SSD", "CXL", "PCIe", "Retimer", "Controller", "内存", "Storage")),
+        (("光模块", "光通信", "光互联", "CPO", "硅光", "光芯片", "光器件"), ("光互联", "光模块", "Optical", "Transceiver", "Datacom", "DSP", "CPO", "硅光", "Photonic", "AEC", "Retimer有源电缆")),
+        (("光芯片", "EML", "VCSEL", "InP"), ("光芯片", "EML", "VCSEL", "InP", "CW激光器", "激光芯片", "200G", "100G")),
+        (("OCS", "光交换机", "光路交换", "光电路交换"), ("OCS", "光电路交换", "光路交换", "Optical Circuit Switch", "MEMS", "LCOS")),
+        (("工业激光", "激光器", "激光设备"), ("工业激光", "Industrial Lasers", "光纤激光器", "超快激光器", "准分子激光器", "Lasers")),
+        (("光学材料", "磁光材料", "光学晶体"), ("光学晶体", "磁光材料", "TGG", "TSAG", "法拉第", "工程材料", "SiC")),
+        (("HBM", "高带宽内存"), ("HBM", "High Bandwidth Memory", "TSV", "Base Die", "3D堆叠", "混合键合")),
+        (("DRAM", "DDR", "LPDDR", "内存"), ("DRAM", "DDR5", "DDR4", "MRDIMM", "LPDDR", "RDIMM", "内存接口")),
+        (("3D NAND", "NAND"), ("NAND", "3D NAND", "SLC NAND", "QLC", "TLC", "UFS", "eMMC")),
+        (("SSD", "固态硬盘"), ("SSD", "eSSD", "Enterprise SSD", "Client SSD", "PCIe 5.0", "PCIe 6.0", "主控")),
+        (("利基存储", "NOR Flash", "SLC NAND", "特种存储"), ("利基", "NOR Flash", "SLC NAND", "Specialty Memory", "MCP", "eMCP")),
+        (("存储", "AI存储", "国产存储"), ("存储", "HBM", "DRAM", "NAND", "SSD", "TSV", "内存", "Storage", "NOR Flash", "SLC NAND")),
         (("光刻机", "EUV", "DUV", "国产光刻机"), ("光刻", "EUV", "DUV", "ArFi", "High-NA", "TWINSCAN", "SMEE", "曝光", "物镜", "光源")),
         (("半导体设备", "先进制程", "晶圆制造"), ("光刻", "EUV", "DUV", "前道", "制程", "量测", "检测", "曝光", "良率", "先进封装")),
         (("量测设备", "检测设备", "半导体量测"), ("量测", "检测", "Metrology", "Inspection", "缺陷检测", "良率控制", "电子束")),
         (("半导体软件", "计算光刻", "EDA"), ("计算光刻", "OPC", "SMO", "Brion", "EDA", "TCAD", "掩模")),
+        (("晶圆代工", "代工", "Foundry"), ("晶圆代工", "Foundry", "先进制程逻辑代工", "成熟/特色工艺", "N3", "N2", "A16", "N28", "N16HV")),
         (("AI算力", "国产GPU", "AI芯片", "GPU", "AI GPU", "DCU"), ("GPU", "DCU", "CUDA", "Blackwell", "Hopper", "AI训练", "AI推理", "算力", "数据中心AI", "HBM", "服务器", "加速芯片", "ASIC", "XPU")),
         (("ASIC", "定制芯片", "AI芯片", "XPU"), ("ASIC", "Custom", "XPU", "定制AI", "Chiplet", "云厂商")),
         (("交换芯片", "以太网", "网络芯片", "UALink"), ("交换芯片", "Ethernet", "Switch", "Teralynx", "Prestera", "UALink", "ESUN")),
@@ -6537,7 +6544,20 @@ def benchmark_focus_tokens(term: str) -> list[str]:
         (("无线连接芯片", "WiFi", "蓝牙", "NFC"), ("无线连接", "WiFi", "蓝牙", "NFC", "Wireless Connectivity")),
         (("基础设施软件", "VMware", "虚拟化", "云基础设施"), ("VMware", "虚拟化", "云基础设施", "混合云", "超融合", "vSphere", "vSAN", "NSX")),
         (("车载以太网", "汽车电子芯片"), ("车载以太网", "车规", "汽车电子", "智能网联汽车")),
-        (("先进封装", "Chiplet", "HBM"), ("先进封装", "Chiplet", "HBM", "CPO", "die-to-die")),
+        (("CoWoS", "硅中介层"), ("CoWoS", "Chip on Wafer on Substrate", "硅中介层", "reticle", "2.5D", "XDFOI")),
+        (("SoIC", "混合键合", "3D堆叠"), ("SoIC 3D", "SoIC", "混合键合", "3D堆叠", "face-to-face", "Hybrid Bonding")),
+        (("先进封装", "Chiplet"), ("先进封装", "Chiplet", "HBM", "CPO", "die-to-die", "CoWoS", "SoIC", "TSV", "混合键合")),
+        (("硅光", "CPO", "COUPE"), ("硅光", "硅光子", "COUPE", "CPO", "Photonic", "光引擎", "光互联")),
+        (("成熟制程", "特色工艺", "显示驱动", "DDIC"), ("成熟/特色工艺", "特色工艺", "N28", "N16HV", "BCD", "SOI", "显示驱动", "DDIC")),
+        (("GLP-1", "减重药", "肥胖", "代谢疾病"), ("GLP-1", "GIP", "GCG", "Tirzepatide", "Semaglutide", "司美格鲁肽", "替尔泊肽", "口服GLP-1", "减重", "肥胖", "MASH", "Amylin")),
+        (("糖尿病", "胰岛素"), ("糖尿病", "胰岛素", "Insulin", "SGLT2", "DPP-4", "GLP-1", "降糖")),
+        (("创新药", "生物制药", "MNC"), ("创新药", "生物制药", "肿瘤", "免疫", "罕见病", "诊断", "GLP-1", "ADC", "双抗")),
+        (("肿瘤药", "肿瘤", "抗癌", "IO"), ("肿瘤", "Oncology", "血液", "肺癌", "乳腺癌", "PD-1", "PD-L1", "Keytruda", "EGFR", "BTK", "CDK4/6")),
+        (("ADC", "抗体偶联"), ("ADC", "抗体偶联", "HER2 ADC", "TROP2", "双抗ADC", "DXd", "Enhertu", "Kadcyla")),
+        (("双抗", "双特异性抗体"), ("双抗", "双特异性", "PD-1/VEGF", "CD3×CD20", "TCE", "Tetrabody")),
+        (("自免药", "自免", "免疫药"), ("自免", "免疫", "Immunology", "IL-4R", "IL-5", "IL-13", "IL-17", "IL-23", "JAK", "SLE")),
+        (("罕见病", "血友病"), ("罕见病", "Rare Disease", "血友病", "补体", "C5", "生长激素", "PNH")),
+        (("体外诊断", "IVD", "分子诊断", "病理诊断", "伴随诊断"), ("诊断", "IVD", "中心化诊断", "分子诊断", "POCT", "组织诊断", "病理", "伴随诊断", "NGS", "FMI")),
         (("自动驾驶", "智驾", "车载计算"), ("自动驾驶", "智能驾驶", "DRIVE", "Orin", "Thor", "车载", "域控制器", "智驾芯片")),
         (("机器人", "物理AI", "具身智能", "人形机器人"), ("机器人", "物理AI", "Omniverse", "Isaac", "Cosmos", "GR00T", "仿真", "数字孪生")),
         (("AI PC", "端侧AI", "消费级GPU"), ("AI PC", "RTX", "GeForce", "端侧AI", "游戏", "工作站", "图形GPU")),
@@ -6556,6 +6576,18 @@ def benchmark_business_line_excluded(term: str, row_text: str) -> bool:
             return True
     if any(token in term_text for token in ("AI算力", "国产GPU", "AI芯片", "AI GPU", "DCU")) and not any(token in term_text for token in ("自动驾驶", "智驾", "机器人", "AI PC", "端侧AI")):
         if any(token in row_text for token in ("自动驾驶", "车载", "游戏", "AI PC", "GeForce", "机器人", "Physical AI", "Omniverse", "专业可视化")):
+            return True
+    if "DRAM" in term_text and "HBM" not in term_text:
+        if any(token in row_text for token in ("HBM", "High Bandwidth Memory", "高带宽内存")):
+            return True
+    if "CoWoS" in term_text:
+        if "SoIC" in row_text and "CoWoS" not in row_text:
+            return True
+    if "SoIC" in term_text:
+        if any(token in row_text for token in ("COUPE", "CPO", "硅光子")) and "SoIC 3D" not in row_text:
+            return True
+    if any(token in term_text for token in ("GLP-1", "减重药", "肥胖", "代谢疾病")) and not any(token in term_text for token in ("糖尿病", "胰岛素")):
+        if any(token in row_text for token in ("胰岛素/传统糖尿病", "Insulin / Legacy Diabetes", "传统糖尿病")):
             return True
     return False
 
@@ -8436,6 +8468,8 @@ def main() -> int:
         report = build_front_map_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool, review_context)
     elif args.mode == "map":
         report = build_theme_information_map(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
+    elif theme_info_rows or theme_direction_pool or theme_supplement_pool:
+        report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
     else:
         report = build_report(args.term, vault, definition, context)
     if args.out:
