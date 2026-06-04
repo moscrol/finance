@@ -32,6 +32,10 @@ def clean_text(value: str) -> str:
     return s.strip()
 
 
+def clean_token(value: str) -> str:
+    return clean_text(value).strip("`").strip()
+
+
 def split_md_row(line: str) -> list[str]:
     return [clean_text(c) for c in line.strip().strip("|").split("|")]
 
@@ -382,11 +386,12 @@ def normalize_entity_name(name: str, ticker: str = "") -> str:
         "全板块受益", "全板块", "铜价", "美国关税", "铜箔行业", "铜行业", "铜精矿TC/RC",
         "低估值龙头", "利好技术领先的国产龙头", "多家", "多公司", "全板块龙头",
         "头部券商", "多家头部券商", "多家券商",
+        "无明确上市对应公司", "非直接上市公司", "安徽中科太赫兹", "青源峰达", "同方威视",
     }:
         return ""
     if re.match(r"^(所有动力煤企业|焦煤企业|动力煤企业|全行业|全板块|全产业链|山西区域煤企|进口依赖度低的煤企受益更大)", s):
         return ""
-    if re.search(r"(待确认|全行业|所有|vs\s*外采|外采原料企业)", s):
+    if re.search(r"(待确认|全行业|所有|vs\s*外采|外采原料企业|非上市|未上市|非直接上市)", s):
         return ""
     if re.search(r"(产量大增|受益更大)$", s):
         return ""
@@ -731,12 +736,21 @@ def item_from_company_field_table(section: str, rows: list[dict], meta: dict):
         return []
     name_raw = m.group(1).strip()
     ticker_raw = m.group(2).strip()
-    name_parts = [x.strip() for x in re.split(r"\s*/\s*", name_raw) if x.strip()]
-    ticker_parts = split_ticker_values(ticker_raw)
-    if len(name_parts) > 1 and len(ticker_parts) >= len(name_parts):
-        pairs = list(zip(name_parts, ticker_parts))
+    repeated_pairs = [
+        (normalize_entity_name(name.strip(), normalize_ticker(code.strip())), normalize_ticker(code.strip()))
+        for name, code in re.findall(r"([^/（）()]+?)[（(]([0-9A-Za-z.]+)[）)]", section.strip())
+    ]
+    repeated_pairs = [(name, ticker) for name, ticker in repeated_pairs if name]
+    if len(repeated_pairs) > 1:
+        pairs = repeated_pairs
     else:
-        pairs = [(name_raw, normalize_ticker(ticker_raw))]
+        name_parts = [x.strip() for x in re.split(r"\s*/\s*", name_raw) if x.strip()]
+        ticker_parts = split_ticker_values(ticker_raw)
+        if len(name_parts) > 1 and len(ticker_parts) >= len(name_parts):
+            pairs = [(normalize_entity_name(name, ticker), ticker) for name, ticker in zip(name_parts, ticker_parts)]
+        else:
+            ticker = normalize_ticker(ticker_raw)
+            pairs = [(normalize_entity_name(name_raw, ticker), ticker)]
     source_title = data.get("证据来源", "")
     evidence_raw = data.get("题材暴露类型", "")
     if "watchlist" in evidence_raw:
@@ -922,7 +936,7 @@ def item_from_hard_fact_row(row: dict, meta: dict) -> dict:
 
 def item_from_exposure_row(row: dict, meta: dict) -> dict:
     source_title = row.get("来源", "")
-    level = row.get("建议evidence_level", "") or row.get("建议 evidence_level", "") or row.get("evidence_level", "") or "exposure_only"
+    level = clean_token(row.get("建议evidence_level", "") or row.get("建议 evidence_level", "") or row.get("evidence_level", "") or "exposure_only")
     ticker = row.get("证券代码", "") or row.get("代码", "")
     return make_item(
         meta,

@@ -163,6 +163,8 @@ def normalize_entity_name(meta: dict[str, Any], body: str) -> str:
         name = re.sub(r"设计院股份有限公司$|科技股份有限公司$|集团股份有限公司$|股份有限公司$|有限公司$|公司$", "", name).strip()
         if name == "浙江嘉欣丝绸":
             name = "嘉欣丝绸"
+        if name.startswith("捷安高科"):
+            name = "捷安高科"
         if name:
             return name
     company = str(meta.get("company") or meta.get("entity") or "").strip()
@@ -195,6 +197,11 @@ def known_ticker_for_entity(entity_name: str) -> str:
     return {
         "宝鼎科技": "002552",
         "楚天高速": "600035",
+        "韶能股份": "000601",
+        "航天智装": "300455",
+        "江化微": "603078",
+        "捷安高科": "300845",
+        "神宇股份": "300563",
     }.get(entity_name, "")
 
 
@@ -217,6 +224,30 @@ def as_list(value: Any) -> list[str]:
         parts = re.split(r"[、,，/；;]", value)
         return [p.strip() for p in parts if p.strip()]
     return [str(value).strip()]
+
+
+def split_display_chunks(text: str, separators: str = "、,，；;/") -> list[str]:
+    chunks = []
+    current = []
+    depth = 0
+    pairs = {"（": "）", "(": ")", "【": "】", "[": "]"}
+    closes = set(pairs.values())
+    for char in str(text or ""):
+        if char in pairs:
+            depth += 1
+        elif char in closes and depth > 0:
+            depth -= 1
+        if char in separators and depth == 0:
+            value = "".join(current).strip()
+            if value:
+                chunks.append(value)
+            current = []
+        else:
+            current.append(char)
+    value = "".join(current).strip()
+    if value:
+        chunks.append(value)
+    return chunks
 
 
 def wikilink(name: str) -> str:
@@ -962,9 +993,13 @@ def concept_candidates(meta: dict[str, Any], body: str, concepts: set[str]) -> l
             if concept in candidates:
                 candidates.remove(concept)
     if "聚辰股份" in text:
-        for concept in ["AI服务器", "DRAM"]:
+        for concept in ["AI服务器", "DRAM", "AIDC发电设备", "晶圆代工", "AI智能体"]:
             if concept in candidates:
                 candidates.remove(concept)
+    if ("汇成股份" in text or "合肥新汇成" in text) and "DRAM封测" in text and "存储芯片" in concepts and "存储芯片" not in candidates:
+        candidates.append("存储芯片")
+    if "微导纳米" in text and "存储扩产" in text and "存储芯片" in concepts and "存储芯片" not in candidates:
+        candidates.append("存储芯片")
     if "汽车芯片" in candidates and "汽车电子" in candidates:
         candidates.remove("汽车电子")
     if "高阶HDI" in candidates and "HDI" in candidates:
@@ -1021,6 +1056,13 @@ def concept_candidates(meta: dict[str, Any], body: str, concepts: set[str]) -> l
         for concept in ["半导体国产替代", "刻蚀设备"]:
             if concept in candidates:
                 candidates.remove(concept)
+    if "铂科新材" in text:
+        for concept in ["固态硬盘（SSD）", "AI存储", "存储芯片", "DDR5", "3D NAND"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI算力", "AI芯片电感", "软磁材料", "光模块"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
     if "英唐智控" in text and "显示驱动" in candidates:
         candidates.remove("显示驱动")
     if "德科立" in text:
@@ -1924,10 +1966,1364 @@ def concept_candidates(meta: dict[str, Any], body: str, concepts: set[str]) -> l
         for concept in ["管道"]:
             if concept in candidates:
                 candidates.remove(concept)
+    if "正元地信" in text:
+        for concept in ["卫星", "园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "中国海防" in text:
+        for concept in ["智慧城市", "油气", "商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["深海科技", "军工电子", "军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "七一二" in text:
+        for concept in ["轨道交通"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工信息化", "军工电子", "低空经济"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "榕基软件" in text:
+        for concept in ["园区开发", "AI基础设施与国产算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["行业应用软件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "三维天地" in text:
+        for concept in ["资产管理"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "太极股份" in text:
+        for concept in ["大模型"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "天微电子" in text:
+        for concept in ["人工智能", "并购重组"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "永信至诚" in text:
+        for concept in ["卫星互联网", "低空经济", "大模型"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "尤洛卡" in text:
+        for concept in ["低空经济"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备", "特种机器人"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "展鹏科技" in text:
+        for concept in ["AI大模型", "专用设备", "操作系统", "大模型"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "航天南湖" in text:
+        for concept in ["商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备", "军工电子"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "航天长峰" in text:
+        for concept in ["商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "霍莱沃" in text:
+        for concept in ["量测设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工电子"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "吉大通信" in text:
+        for concept in ["通信服务", "行业应用软件", "数字化转型"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "佳讯飞鸿" in text:
+        for concept in ["大模型"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI大模型", "通信设备", "低空经济", "军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "建设工业" in text:
+        for concept in ["新能源汽车", "低空经济", "钛合金"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "科思科技" in text:
+        for concept in ["低空经济", "AI基础设施与国产算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工信息化", "军工电子", "AI算力芯片", "机器人与具身智能装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "诺唯赞" in text:
+        for concept in ["医药出海"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "谱尼测试" in text:
+        for concept in ["快充技术", "人形机器人"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["机器人"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "邦彦技术" in text:
+        for concept in ["园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "成电光信" in text:
+        for concept in ["商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "高凌信息" in text:
+        for concept in ["信息安全", "网络安全", "军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "国睿科技" in text:
+        for concept in ["快充技术"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "盛景微" in text:
+        for concept in ["AI算力", "汽车芯片"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "领先股份" in text or "领先半导体" in text:
+        for concept in ["东方财富", "三星", "专用设备", "Chiplet", "2.5D封装", "半导体国产替代"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体材料"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "杭州柯林" in text:
+        for concept in ["储能系统"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "安达维尔" in text:
+        for concept in ["园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "翱捷科技" in text:
+        for concept in ["AI算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI芯片", "端侧AI", "物联网", "数字芯片设计"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "柏诚股份" in text:
+        for concept in ["OLED"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "北方导航" in text:
+        for concept in ["连接器"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备", "军工电子", "军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "博杰股份" in text:
+        for concept in ["AI算力", "专用设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["液冷散热"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "博亚精工" in text:
+        for concept in ["专用设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "超颖电子" in text:
+        for concept in ["电子元件", "AI基础设施与国产算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI服务器PCB", "印制电路板", "海外产能"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "铖昌科技" in text:
+        for concept in ["射频芯片"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "创益通" in text:
+        for concept in ["AI服务器", "数据中心"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "创远信科" in text:
+        for concept in ["商业航天"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "大为股份" in text:
+        for concept in ["新能源"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "帝科股份" in text:
+        for concept in ["光伏设备", "家电出海"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["光伏银浆", "光伏材料"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "凡拓数创" in text:
+        for concept in ["苹果供应链"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "烽火电子" in text:
+        for concept in ["火电"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工电子"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "复旦微电" in text:
+        for concept in ["AI端侧"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["存储芯片"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "富满微" in text:
+        for concept in ["AI算力", "3D NAND"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["LED驱动芯片", "车规芯片", "模拟芯片"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "甘化科工" in text:
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "广钢气体" in text:
+        for concept in ["电子特气", "半导体材料"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "广哈通信" in text:
+        for concept in ["AI智能体"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["5G"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "海格通信" in text:
+        for concept in ["6G"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "航锦科技" in text:
+        for concept in ["AI智能体"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "航天电子" in text:
+        for concept in ["商业航天", "军工装备", "无人机"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "航天发展" in text:
+        for concept in ["低空经济", "6G"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["商业航天", "军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "航天软件" in text:
+        for concept in ["软件产品", "算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["商业航天"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "航天智装" in text:
+        for concept in ["商业航天", "并购重组"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "好上好" in text:
+        for concept in ["DRAM", "AI存储"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["人形机器人", "半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "和顺石油" in text:
+        for concept in ["并购重组"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "恒烁股份" in text:
+        for concept in ["3D NAND", "晶圆代工"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "华力创通" in text:
+        for concept in ["算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["商业航天", "军工电子", "AI算力"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "华岭股份" in text:
+        for concept in ["AI算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["第三方检测", "封测"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "华如科技" in text:
+        for concept in ["军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "吉大正元" in text:
+        for concept in ["卫星互联网", "低空经济"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "佳缘科技" in text:
+        for concept in ["固态硬盘（SSD）", "高速互联", "算力", "快充技术"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["商业航天", "AI算力"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "江化微" in text:
+        for concept in ["太阳能电池", "显示面板", "12英寸晶圆", "第三代半导体", "电子材料", "同花顺", "硅片"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["电子湿化学品", "并购重组"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "金太阳" in text:
+        for concept in ["半导体设备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "晶盛机电" in text:
+        for concept in ["AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体设备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "景嘉微" in text:
+        for concept in ["Token经济", "机器人与具身智能装备", "晶圆代工", "低空经济", "商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI算力", "AI芯片", "军工电子"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "景业智能" in text:
+        for concept in ["核聚变", "机器人与具身智能装备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["可控核聚变", "军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "久远银海" in text:
+        for concept in ["大模型"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["行业应用软件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "开普云" in text:
+        for concept in ["政务AI", "行业应用软件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "康达新材" in text:
+        for concept in ["风电叶片"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "珂玛科技" in text:
+        for concept in ["ALD设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "科大国创" in text:
+        for concept in ["新能源", "商业航天", "快充技术"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["行业应用软件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "快克智能" in text:
+        for concept in ["AIDC发电设备", "苹果供应链", "碳化硅"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI算力", "半导体设备", "激光雷达"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "坤恒顺维" in text:
+        for concept in ["6G"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["商业航天"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "莱斯信息" in text:
+        for concept in ["行业应用软件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "蓝晓科技" in text:
+        for concept in ["AI医疗"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["盐湖提锂", "生物医药", "化工新材料", "核电"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "雷电微力" in text:
+        for concept in ["军工电子", "商业航天"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "雷科防务" in text:
+        for concept in ["算力", "快充技术", "卫星", "AI智能体"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工电子", "商业航天", "低空经济", "军工信息化", "军民融合", "存储芯片", "AI安全", "毫米波雷达"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "利扬芯片" in text:
+        for concept in ["自动驾驶"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI算力", "AI基础设施与国产算力", "封测"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "六九一二" in text:
+        for concept in ["低空经济"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "南大光电" in text:
+        for concept in ["AI算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "南天信息" in text:
+        for concept in ["专用设备", "商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["行业应用软件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "能科科技" in text:
+        for concept in ["工业软件", "核电"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "气派科技" in text:
+        for concept in ["HBM封装"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "强一股份" in text:
+        for concept in ["半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "睿能科技" in text:
+        for concept in ["并购重组"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "赛腾股份" in text:
+        for concept in ["华为昇腾"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["先进封装"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "厦门信达" in text:
+        for concept in ["园区开发", "算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["物联网", "AI算力"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "上海瀚讯" in text:
+        for concept in ["移动通信"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["商业航天"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "上海新阳" in text:
+        for concept in ["半导体国产替代", "电子湿化学品"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "神宇股份" in text:
+        for concept in ["东方财富", "航空航天", "电子材料", "高速互联", "高速互连", "DAC", "三星", "黄金"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["高速铜缆", "224G高速铜缆", "AI算力"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "胜科纳米" in text:
+        for concept in ["晶圆代工"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["先进封装", "光器件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "盛路通信" in text:
+        for concept in ["6G"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["卫星通信", "6G通信"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "时空科技" in text:
+        for concept in ["AI算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["存储芯片"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "四川九洲" in text:
+        for concept in ["家电出海", "黑电品牌出海"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["并购重组", "军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "四创电子" in text:
+        for concept in ["可控核聚变", "低空经济", "军工电子"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "太龙股份" in text:
+        for concept in ["Mini LED"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["IT分销"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "彤程新材" in text:
+        for concept in ["显示面板", "电子湿化学品"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "万润科技" in text:
+        for concept in ["HBM封装", "DDR5"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["存储芯片", "AI存储", "封测"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "伟测科技" in text:
+        for concept in ["AI基础设施与国产算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI芯片", "AI算力芯片", "第三方检测", "半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "纬德信息" in text:
+        for concept in ["量子计算", "量子通信", "抗量子密码", "并购重组", "行业应用软件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "西安奕材" in text:
+        for concept in ["前驱体材料", "硅片"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "先导基电" in text:
+        for concept in ["量测设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体设备", "并购重组"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "芯源微" in text:
+        for concept in ["半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "新晨科技" in text:
+        for concept in ["大模型"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["华为生态", "行业应用软件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "新光光电" in text:
+        for concept in ["无人机", "光通信"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工电子", "卫星通信"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "星图测控" in text:
+        for concept in ["量测设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["商业航天"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "兴福电子" in text:
+        for concept in ["刻蚀设备", "前驱体材料"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["电子湿化学品", "半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "兴图新科" in text:
+        for concept in ["商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工电子", "无人机"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "旋极信息" in text:
+        for concept in ["7nm制程", "AI推理"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["北斗导航", "华为生态"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "雅创电子" in text:
+        for concept in ["光模块", "3D NAND"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["存储芯片", "AI算力", "并购重组"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "壹石通" in text:
+        for concept in ["石英砂"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "怡亚通" in text:
+        for concept in ["园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["IT分销", "AI存储"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "盈方微" in text:
+        for concept in ["并购重组"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "盈新发展" in text:
+        for concept in ["房地产"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "永安行" in text:
+        for concept in ["MRAM"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "有研硅" in text:
+        for concept in ["刻蚀设备", "CPO", "硅片"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体国产替代", "并购重组"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "远光软件" in text:
+        for concept in ["人工智能", "园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["虚拟电厂", "行业应用软件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "云汉芯城" in text:
+        for concept in ["新能源汽车"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "振华风光" in text:
+        for concept in ["风电", "光伏", "3D NAND"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["模拟芯片", "半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "捷安高科" in text:
+        for concept in ["高股息红利"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工信息化", "AI应用"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "东睦股份" in text:
+        for concept in ["光模块", "复合材料", "新能源", "灵巧手", "苹果供应链"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI算力"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "奥特维" in text:
+        for concept in ["800G_1.6T光模块"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体设备", "光伏设备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "彩虹股份" in text:
+        for concept in ["先进封装", "TGV（玻璃通孔技术）", "苹果供应链"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["玻璃基板", "显示面板"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "禾盛新材" in text:
+        for concept in ["晶圆代工", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI芯片"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "华灿光电" in text:
+        for concept in ["显示驱动", "硅光", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "晶晨股份" in text:
+        for concept in ["晶圆代工", "算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "凯盛科技" in text:
+        for concept in ["MLCC", "显示材料", "二氧化硅", "高纯石英砂"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["玻璃基板"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "雷曼光电" in text:
+        for concept in ["先进封装"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["玻璃基板"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "隆华科技" in text:
+        for concept in ["节能", "节能环保"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体材料", "钙钛矿"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "三友化工" in text:
+        for concept in ["电子湿化学品"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "上峰水泥" in text:
+        for concept in ["建筑材料"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["并购重组"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "上海合晶" in text:
+        for concept in ["晶圆代工", "DRAM", "硅片"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "圣晖集成" in text:
+        for concept in ["HBM封装", "3D NAND"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "泰晶科技" in text:
+        for concept in ["AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["光模块"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "通宇通讯" in text:
+        for concept in ["光模块"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["商业航天"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "亚翔集成" in text:
+        for concept in ["园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体国产替代"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "卓胜微" in text:
+        for concept in ["AIDC发电设备", "高速铜连接"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["射频芯片"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "紫光股份" in text:
+        for concept in ["AI超节点", "液冷散热"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "华峰测控" in text:
+        for concept in ["ASIC芯片", "AI芯片", "ASIC", "CPU", "GPU"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体设备", "AI算力芯片", "SiC碳化硅"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "骄成超声" in text:
+        for concept in ["AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体设备", "HBM", "液冷散热"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "金海通" in text:
+        for concept in ["汽车电子"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体设备", "封测"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "强瑞技术" in text:
+        for concept in ["消费电子", "苹果供应链"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体设备材料"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "新益昌" in text:
+        for concept in ["电容", "TGV（玻璃通孔技术）", "光模块", "苹果供应链"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体封装", "Mini LED"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "波长光电" in text:
+        for concept in ["硅光", "IC载板", "封测"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体设备", "半导体设备材料"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "大族数控" in text:
+        for concept in ["专用设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI PCB"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "凤凰光学" in text:
+        for concept in ["AIoT", "控制器"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["央企改革", "医疗器械"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "富创精密" in text:
+        for concept in ["刻蚀设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体设备材料"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "茂莱光学" in text:
+        for concept in ["硅光"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "凯美特气" in text:
+        for concept in ["半导体国产替代", "商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "蓝英装备" in text:
+        for concept in ["专用设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "利仁科技" in text:
+        for concept in ["电子布", "玻纤", "AI PCB", "半导体材料", "半导体国产替代", "光通信", "光纤光缆"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "中金岭南" in text:
+        for concept in ["金洲精工", "光模块", "被动元件", "AI服务器PCB"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "中钨高新" in text:
+        for concept in ["新能源"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "广信材料" in text:
+        for concept in ["光伏"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI服务器PCB"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "奥士康" in text:
+        for concept in ["HDI板", "高速互联"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "沪电股份" in text:
+        for concept in ["ASIC", "HVLP铜箔", "PCB铜箔", "IC载板"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "金安国纪" in text:
+        for concept in ["高阶HDI", "高速铜缆", "AI服务器PCB"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "鹏鼎控股" in text:
+        for concept in ["光通信", "园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["光模块"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "裕兴股份" in text:
+        for concept in ["聚酯"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["BOPET薄膜"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "昊志机电" in text:
+        for concept in ["减速器", "高阶HDI"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["PCB钻孔设备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "强力新材" in text:
+        for concept in ["Chiplet", "3D堆叠", "HBM封装"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "胜宏科技" in text:
+        for concept in ["TPU", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "鼎泰高科" in text:
+        for concept in ["人形机器人", "HDI板"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["PCB微钻", "切削刀具"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "隆扬电子" in text:
+        for concept in ["复合材料", "CCL", "高阶HDI", "AI服务器PCB"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["电子材料"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "铜冠铜箔" in text:
+        for concept in ["AI基础设施与国产算力", "IC载板"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "中富电路" in text:
+        for concept in ["AI服务器", "固态硬盘（SSD）", "商业航天", "IC载板"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI服务器PCB"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "中国巨石" in text:
+        for concept in ["AI算力", "建筑材料", "玻璃纤维", "CCL", "覆铜板"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["电子纱"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "东材科技" in text:
+        for concept in ["低轨卫星", "光刻胶", "新能源", "苹果供应链", "高阶HDI", "商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["高频高速覆铜板"]:
+            if concept not in candidates:
+                candidates.append(concept)
+    if "宏和科技" in text:
+        for concept in ["先进封装", "玻璃纤维", "AI服务器PCB", "IC载板"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "华正新材" in text:
+        for concept in ["Micro LED", "半导体国产替代", "AI服务器", "PMIC", "复合材料", "光模块", "电子布", "铝塑膜", "背板", "AI基础设施与国产算力", "HVLP铜箔", "PCB铜箔", "IC载板"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["CCL", "覆铜板"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "景旺电子" in text:
+        for concept in ["陶瓷基板", "半导体散热"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["光模块"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "华锐精密" in text:
+        for concept in ["AI服务器PCB", "人形机器人"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["切削刀具", "硬质合金"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "生益电子" in text:
+        for concept in ["AI服务器", "AI硬件", "ASIC", "AI基础设施与国产算力", "快充技术"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["印制电路板"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "世运电路" in text:
+        for concept in ["人形机器人", "商业航天", "GaN", "SiC", "HVLP铜箔", "固态硬盘（SSD）", "PCB铜箔"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI服务器PCB", "汽车电子", "高阶HDI"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "新锐股份" in text:
+        for concept in ["AI服务器PCB", "IC载板"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["切削刀具"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "奕瑞科技" in text:
+        for concept in ["AI终端", "OLED", "先进封装", "ALD设备", "刻蚀设备", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "瑞华泰" in text:
+        for concept in ["商业航天", "玻璃基板", "前驱体材料", "苹果供应链"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "东威科技" in text:
+        for concept in ["IC载板", "先进封装", "新能源", "铝箔"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["电镀设备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "锐翔智能" in text:
+        for concept in ["半导体设备", "新能源汽车", "光模块", "折叠屏", "苹果供应链"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "天承科技" in text:
+        for concept in ["半导体材料", "先进封装", "TSV", "HBM封装", "光刻胶", "AI服务器PCB", "AIDC发电设备", "IC载板"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "华丰科技" in text:
+        for concept in ["CPU", "背板", "AI基础设施与国产算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["连接器"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "青云科技" in text:
+        for concept in ["CPU", "固态硬盘（SSD）"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["信创"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "盛科通信" in text:
+        for concept in ["GPU", "量测设备", "AI服务器", "晶圆代工", "园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "芯联集成" in text:
+        for concept in ["Micro LED", "OCS光交换机", "数据中心电源", "半导体涨价", "新能源汽车", "AI算力", "SiC", "碳化硅", "功率器件", "封测", "机器人与具身智能装备", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["晶圆代工"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+        for concept in ["AI服务器电源"]:
+            if concept not in candidates:
+                candidates.append(concept)
+    if "海光信息" in text:
+        for concept in ["Token经济", "华为昇腾", "AI存储", "晶圆代工"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI超节点"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "恒为科技" in text:
+        for concept in ["AI智能体"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "南威软件" in text:
+        for concept in ["智算中心", "Token经济"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "中国移动" in text:
+        for concept in ["华为昇腾", "AI服务器", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "奥飞数据" in text:
+        for concept in ["光伏", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["智算中心"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "云赛智联" in text:
+        for concept in ["AI算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["智算中心", "算力租赁", "AI基础设施与国产算力"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "中船特气" in text:
+        for concept in ["AI算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["HBM"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "中国电信" in text:
+        for concept in ["AI算力", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["Token经济", "电信运营商", "AI基础设施与国产算力"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "中国动力" in text:
+        for concept in ["深海油气"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "中恒电气" in text:
+        for concept in ["家电出海", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["HVDC高压直流", "数据中心电源"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "中集集团" in text:
+        for concept in ["AI算力", "油气"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "英维克" in text:
+        for concept in ["节能", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["液冷散热", "数据中心液冷", "谷歌TPU"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "首都在线" in text:
+        for concept in ["大模型", "Mini LED", "AIDC发电设备", "AI智能体"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["智算中心", "算力租赁", "云计算", "AI推理"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "拓维信息" in text:
+        for concept in ["数字化转型", "算力租赁"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI超节点"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "泰嘉股份" in text:
+        for concept in ["华为昇腾", "消费电子", "新能源", "AI基础设施与国产算力", "快充技术"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI电源"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "韶能股份" in text:
+        for concept in ["新能源汽车", "AI算力", "东方财富", "储能电池", "光伏组件", "减速器", "同花顺", "券商", "水电"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["算电协同", "绿电", "电力运营商"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "申菱环境" in text:
+        for concept in ["专用设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["液冷散热", "海外产能"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "生益电子" in text:
+        for concept in ["HDI"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["高阶HDI", "海外产能"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "强瑞技术" in text:
+        for concept in ["商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["机器人与具身智能装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "锐捷网络" in text:
+        for concept in ["园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["800G交换机"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "瑞芯微" in text:
+        for concept in ["算力", "AI存储", "晶圆代工"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI芯片", "机器人与具身智能装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "润和软件" in text:
+        for concept in ["AI基础设施与国产算力", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["华为生态", "行业应用软件", "星闪技术"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "润泽科技" in text:
+        for concept in ["园区开发", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["智算中心", "算力租赁", "海外产能"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if entity_name == "宁德时代":
+        for concept in ["新能源", "AIDC发电设备", "锂电池", "容量电价"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["固态电池", "海外产能"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "博众精工" in text:
+        for concept in ["低空经济", "新能源", "硅光", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["工业自动化", "机器人与具身智能装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "东威科技" in text:
+        for concept in ["专用设备", "光伏", "电镀", "高阶HDI", "复合集流体"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["先进封装", "高多层PCB"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "东阳光" in text:
+        for concept in ["具身智能", "制冷剂", "铝箔", "机器人与具身智能装备", "园区开发", "AIDC发电设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["数据中心液冷", "三代制冷剂", "AI服务器电源"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "蜂助手" in text:
+        for concept in ["算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["算力基础设施", "边缘计算"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "高澜股份" in text:
+        for concept in ["TPU", "储能", "算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["液冷散热", "液冷技术", "AI算力基础设施"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "戈碧迦" in text:
+        for concept in ["AI服务器", "6G"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["玻璃基板"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "光莆股份" in text:
+        for concept in ["复合集流体"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["先进封装"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "寒武纪" in text:
+        for concept in ["IP授权", "大模型", "算力", "快充技术"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI算力芯片", "AI基础设施与国产算力", "智算中心"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "汉邦高科" in text:
+        for concept in ["AI算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["算力基础设施", "智算中心", "边缘计算"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "亨通光电" in text:
+        for concept in ["家电出海", "AIDC发电设备", "硅光"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["光纤光缆", "海外产能"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "华中数控" in text:
+        for concept in ["工业自动化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "剑桥科技" in text:
+        for concept in ["光通信", "海外产能"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "景旺电子" in text:
+        for concept in ["商业航天", "光模块"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["印制电路板", "AI PCB", "800G_1.6T光模块", "海外产能", "高多层PCB"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "科华数据" in text:
+        for concept in ["AI算力", "储能"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["数据中心电源", "HVDC高压直流", "海外产能", "储能系统", "算电协同"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "可川科技" in text:
+        for concept in ["锂电池", "铝箔", "晶圆代工"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["复合集流体", "光通信", "光引擎"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "浪潮信息" in text:
+        for concept in ["高速铜连接"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["数据中心液冷"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "铭普光磁" in text:
+        for concept in ["新能源汽车"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["光通信", "AI服务器电源", "海外产能"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
     if any(concept in candidates for concept in ["电子特气", "前驱体材料", "高纯石英砂", "碳化硅"]) and "专用设备" in candidates:
         candidates.remove("专用设备")
     if any(concept in candidates for concept in ["电子特气", "前驱体材料", "高纯石英砂", "碳化硅"]) and "半导体设备" in candidates:
         candidates.remove("半导体设备")
+    if "华峰测控" in text:
+        for concept in ["AIDC发电设备", "AI服务器电源", "SiC", "碳化硅", "快充技术"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["半导体设备", "AI算力芯片", "SiC碳化硅"]:
+            if concept not in candidates:
+                candidates.append(concept)
+    if "晶盛机电" in text:
+        for concept in ["半导体设备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "快克智能" in text:
+        for concept in ["半导体设备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
     if "AI光互联核心供应商" in body:
         for concept in ["新能源汽车", "3D打印"]:
             if concept in candidates:
@@ -1950,6 +3346,17 @@ def compact(text: str, limit: int = 260) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+def unique_values(items: list[str]) -> list[str]:
+    result = []
+    seen = set()
+    for item in items:
+        value = str(item or "").strip()
+        if value and value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
+
+
 def get_section(sections: dict[str, str], title: str) -> str:
     if title in sections:
         return sections[title]
@@ -1962,6 +3369,157 @@ def get_section(sections: dict[str, str], title: str) -> str:
 
 def normalize_section_title(title: str) -> str:
     return re.sub(r"^(?:\d+|[一二三四五六七八九十]+)[\.、]\s*", "", title).strip()
+
+
+def concept_focus_tokens(concept: str) -> tuple[str, ...]:
+    concept = str(concept or "").strip()
+    profiles = {
+        "存储芯片": ("存储", "SDBG", "晶圆隐切", "隐切", "划片", "DRAM", "NAND", "3D NAND", "HBM", "SSD", "长江存储", "长鑫存储", "DISCO", "硅晶圆", "存储厂商"),
+        "DRAM": ("DRAM", "长鑫存储", "存储", "SDBG", "晶圆隐切", "DISCO"),
+        "3D NAND": ("3D NAND", "NAND", "长江存储", "存储", "SDBG", "晶圆隐切", "DISCO"),
+        "NAND Flash": ("NAND", "Flash", "闪存", "存储"),
+        "NOR Flash": ("NOR", "Flash", "闪存", "存储"),
+        "HBM": ("HBM", "高带宽内存", "先进封装", "TSV", "混合键合"),
+        "HBM封装": ("HBM", "封装", "TSV", "混合键合", "先进封装"),
+        "半导体设备": ("半导体", "设备", "晶圆", "SDBG", "隐切", "划片", "刻蚀", "薄膜", "量测", "检测", "国产替代", "DISCO"),
+        "先进封装": ("先进封装", "封装", "FC-BGA", "TGV", "玻璃通孔", "键合", "晶圆级", "硅光芯片键合"),
+        "封测": ("封测", "封装", "测试", "晶圆级"),
+        "固态电池": ("固态电池", "电池", "锂电", "宁德时代", "清陶", "新能源"),
+        "光通信": ("光通信", "光模块", "CPO", "硅光", "InP", "Finisar", "中际旭创", "天孚通信"),
+        "CPO": ("CPO", "硅光", "光模块", "光通信", "封装"),
+        "硅光": ("硅光", "光通信", "光模块", "CPO", "键合"),
+        "TGV（玻璃通孔技术）": ("TGV", "玻璃通孔", "玻璃基板"),
+        "TGV": ("TGV", "玻璃通孔", "玻璃基板"),
+        "PCB": ("PCB", "钻孔", "激光钻孔", "高端PCB"),
+        "AI算力": ("AI算力", "光通信", "光模块", "PCB", "服务器"),
+    }
+    tokens = list(profiles.get(concept, ()))
+    tokens.extend(split_display_chunks(concept, separators=" /_-（）()"))
+    return tuple(unique_values([token for token in tokens if len(token) >= 2]))
+
+
+def concept_focused_role(meta: dict[str, Any], concept: str) -> str:
+    chunks = []
+    for value in as_list(meta.get("related_business")):
+        chunks.extend(split_display_chunks(value))
+    if not chunks:
+        chunks = as_list(meta.get("industry")) + as_list(meta.get("sector"))
+    tokens = concept_focus_tokens(concept)
+    focused = [chunk for chunk in chunks if any(token and token in chunk for token in tokens)]
+    if not focused and concept in {"存储芯片", "DRAM", "3D NAND"}:
+        focused = [chunk for chunk in chunks if any(token in chunk for token in ("晶圆隐切", "SDBG", "半导体", "晶圆"))]
+    return "、".join(unique_values(focused or chunks)[:3])
+
+
+def clean_evidence_line(line: str) -> str:
+    value = str(line or "").strip()
+    if not value or value.startswith("|---") or set(value) <= {"|", "-", ":", " "}:
+        return ""
+    if value.startswith("|") and value.endswith("|"):
+        cells = [re.sub(r"\*\*|`", "", cell).strip() for cell in value.strip("|").split("|")]
+        cells = [cell for cell in cells if cell and cell not in {"维度", "内容", "变化", "之前状态", "最新变化", "日期", "来源类型", "对应业务", "IMA可信度", "是否影响财务", "证据点", "来源类型", "要点"}]
+        value = "；".join(cells)
+    value = re.sub(r"^[#>\-\*\s]+", "", value)
+    value = re.sub(r"\*\*|`", "", value)
+    return compact(value, 260)
+
+
+def concept_relevant_lines(body: str, concept: str, max_lines: int = 4) -> list[str]:
+    tokens = concept_focus_tokens(concept)
+    sections = section_map(body)
+    preferred_titles = ("最新市场逻辑", "Hard Delta", "证据与来源链", "业务验证矩阵", "财务映射", "预期差判断", "后续跟踪指标", "反证与风险")
+    chunks = []
+    for title in preferred_titles:
+        value = get_section(sections, title)
+        if value:
+            chunks.append(value)
+    chunks.append(body[:8000])
+    lines = []
+    for chunk in chunks:
+        for raw in chunk.splitlines():
+            line = clean_evidence_line(raw)
+            if not line:
+                continue
+            if any(token and token in line for token in tokens):
+                lines.append(line)
+            if len(unique_values(lines)) >= max_lines:
+                return unique_values(lines)[:max_lines]
+    return unique_values(lines)[:max_lines]
+
+
+def concept_focused_evidence(meta: dict[str, Any], body: str, concept: str) -> str:
+    lines = concept_relevant_lines(body, concept, max_lines=3)
+    if lines:
+        return compact("；".join(lines), 300)
+    sections = section_map(body)
+    one = extract_one_liner(sections) or f"IMA个股逻辑卡：{normalize_entity_name(meta, body)} 最新逻辑跟踪"
+    return compact(one, 260)
+
+
+def concept_validation_focus(body: str, concept: str) -> str:
+    lines = concept_relevant_lines(get_section(section_map(body), "后续跟踪指标") or body, concept, max_lines=3)
+    if not lines:
+        lines = concept_relevant_lines(get_section(section_map(body), "业务验证矩阵") or body, concept, max_lines=2)
+    return compact("；".join(lines), 240)
+
+
+def concept_guardrail(body: str, concept: str) -> str:
+    tokens = concept_focus_tokens(concept)
+    sections = section_map(body)
+    candidates = []
+    for title in ("反证与风险", "风险提示", "主要风险", "关键风险点", "预期差判断", "财务映射"):
+        value = get_section(sections, title)
+        if value:
+            candidates.extend(clean_evidence_line(line) for line in value.splitlines())
+    focused = [line for line in candidates if line and any(token and token in line for token in tokens)]
+    if not focused:
+        focused = [line for line in candidates if line and any(token in line for token in ("未披露", "小批量", "未进入", "待确认", "推断", "收入占比", "亏损", "存货", "延期", "终止"))]
+    return compact("；".join(unique_values(focused)[:3]), 240)
+
+
+def chain_layer_for_concept(meta: dict[str, Any], concept: str, role: str) -> str:
+    text = f"{concept} {role} {' '.join(as_list(meta.get('industry')))} {' '.join(as_list(meta.get('sector')))}"
+    if any(token in text for token in ("设备", "装备", "SDBG", "隐切", "划片", "刻蚀", "量测", "检测", "测试机", "探针台")):
+        return "upstream_equipment"
+    if any(token in text for token in ("材料", "特气", "前驱体", "CMP", "光刻胶", "靶材", "抛光")):
+        return "upstream_materials"
+    if any(token in text for token in ("封测", "封装", "测试")):
+        return "midstream_packaging_testing"
+    if any(token in text for token in ("设计", "芯片", "DRAM", "NAND", "NOR", "HBM", "SSD", "MCU", "ASIC")):
+        return "core_chip_product"
+    if any(token in text for token in ("分销", "渠道", "代理", "经销")):
+        return "downstream_channel"
+    return str(meta.get("industry") or meta.get("sector") or "")
+
+
+def fact_hardness_for_concept(evidence: str, guardrail: str) -> str:
+    text = f"{evidence} {guardrail}"
+    if any(token in text for token in ("公司官方", "公司公告", "年报", "一季报", "官网", "量产订单", "通过客户", "通过客户端", "客户验证")):
+        if any(token in text for token in ("待确认", "推断", "未披露", "小批量", "尚未", "未进入")):
+            return "ima_hard_delta_review"
+        return "ima_hard_delta"
+    if any(token in text for token in ("待确认", "推断", "社区", "雪球", "东方财富")):
+        return "ima_composite_review"
+    return "ima_composite"
+
+
+def review_required_for_concept(evidence: str, guardrail: str, confidence: str) -> bool:
+    text = f"{evidence} {guardrail}"
+    if confidence == "low":
+        return True
+    return any(token in text for token in ("待确认", "推断", "未披露", "小批量", "尚未", "未进入", "收入占比较小", "社区预期", "亏损", "存货高企", "延期", "终止"))
+
+
+def strength_for_concept(meta: dict[str, Any], concept: str, role: str, evidence: str, review_required: bool) -> str:
+    themes = set(as_list(meta.get("themes")))
+    text = f"{concept} {role} {evidence}"
+    if review_required:
+        return "related"
+    if concept in themes and any(token in text for token in ("主营", "核心", "量产", "订单", "收入", "客户验证", "供货", "唯一")):
+        return "core"
+    if concept in themes:
+        return "related"
+    return "related"
 
 
 def demote_markdown_headings(text: str, levels: int = 2) -> str:
@@ -2206,70 +3764,99 @@ def update_relations(vault: Path, entity_name: str, ticker: str, meta: dict[str,
     confidence = confidence_from_meta(meta)
     evidence_layer = evidence_layer_from_meta(meta)
     source_link = wikilink(source_name)
-    one = extract_one_liner(section_map(body)) or f"IMA个股逻辑卡：{entity_name} 最新逻辑跟踪"
-    role = "、".join(as_list(meta.get("related_business"))[:4]) or str(meta.get("sector") or meta.get("industry") or "")
     inserted_concepts = []
     updated_concepts = []
     for concept in concepts:
+        role = concept_focused_role(meta, concept) or "、".join(as_list(meta.get("related_business"))[:4]) or str(meta.get("sector") or meta.get("industry") or "")
+        focused_evidence = concept_focused_evidence(meta, body, concept)
+        guardrail = concept_guardrail(body, concept)
+        validation_focus = concept_validation_focus(body, concept)
+        review_required = review_required_for_concept(focused_evidence, guardrail, confidence)
+        fact_hardness = fact_hardness_for_concept(focused_evidence, guardrail)
         new_fields = {
-            "chain_layer": str(meta.get("industry") or meta.get("sector") or ""),
+            "business_line": role,
+            "chain_layer": chain_layer_for_concept(meta, concept, role),
             "confidence": confidence,
-            "evidence": compact(one, 220),
+            "evidence": compact(focused_evidence, 300),
             "evidence_layer": evidence_layer,
             "role": role,
             "sources": [source_link],
-            "strength": "core" if concept in as_list(meta.get("themes")) or concept in role else "related",
+            "strength": strength_for_concept(meta, concept, role, focused_evidence, review_required),
             "update_type": "ima_stock_logic",
             "updated": now_date(),
-            "fact_hardness": "ima_composite",
-            "review_required": False,
+            "fact_hardness": fact_hardness,
+            "review_required": review_required,
             "source_quality": "ima_composite",
             "ima_confidence": meta.get("ima_confidence") or meta.get("evidence_strength") or "IMA综合可信",
             "logic_stage": meta.get("logic_stage") or "",
             "financial_validation": meta.get("financial_validation") or "",
+            "validation_focus": validation_focus,
+            "guardrail": guardrail,
         }
         existing = entity["concepts"].get(concept)
         if existing:
             sources = list(existing.get("sources", [])) if isinstance(existing.get("sources"), list) else []
+            had_source = source_link in sources
             if source_link not in sources:
                 sources.append(source_link)
             existing["sources"] = sources
             existing["updated"] = now_date()
-            for key in ["ima_confidence", "logic_stage", "financial_validation"]:
+            for key in ["ima_confidence", "logic_stage", "financial_validation", "validation_focus", "guardrail", "business_line"]:
                 if new_fields.get(key):
                     existing[key] = new_fields[key]
-            if not existing.get("role") and new_fields.get("role"):
-                existing["role"] = new_fields["role"]
-            if not existing.get("evidence"):
-                existing["evidence"] = new_fields["evidence"]
+            should_refresh = had_source or existing.get("update_type") == "ima_stock_logic" or not existing.get("role") or not existing.get("evidence")
+            if should_refresh:
+                for key in ["role", "evidence", "chain_layer", "confidence", "evidence_layer", "strength", "update_type", "fact_hardness", "review_required", "source_quality"]:
+                    if key in new_fields:
+                        existing[key] = new_fields[key]
             updated_concepts.append(concept)
         else:
             entity["concepts"][concept] = new_fields
             inserted_concepts.append(concept)
     items = evidence.setdefault("items", [])
-    existing_keys = {evidence_key(item) for item in items if isinstance(item, dict)}
+    existing_by_key = {evidence_key(item): item for item in items if isinstance(item, dict)}
     inserted_evidence = []
+    updated_evidence = []
     for concept in concepts:
+        role = concept_focused_role(meta, concept) or "、".join(as_list(meta.get("related_business"))[:4]) or str(meta.get("sector") or meta.get("industry") or "")
+        focused_evidence = concept_focused_evidence(meta, body, concept)
+        guardrail = concept_guardrail(body, concept)
+        validation_focus = concept_validation_focus(body, concept)
+        review_required = review_required_for_concept(focused_evidence, guardrail, confidence)
+        fact_hardness = fact_hardness_for_concept(focused_evidence, guardrail)
         item = {
             "source": source_link,
             "source_date": str(meta.get("updated") or now_date()),
             "target_type": "entity",
             "target": entity_name,
             "concept": concept,
-            "evidence": compact(one, 260),
+            "evidence": compact(focused_evidence, 300),
             "confidence": confidence,
-            "chain_layer": str(meta.get("industry") or meta.get("sector") or ""),
+            "chain_layer": chain_layer_for_concept(meta, concept, role),
             "evidence_layer": evidence_layer,
             "update_type": "ima_stock_logic",
-            "fact_hardness": "ima_composite",
+            "fact_hardness": fact_hardness,
             "source_quality": "ima_composite",
-            "review_required": False,
+            "review_required": review_required,
+            "role": role,
+            "business_line": role,
+            "validation_focus": validation_focus,
+            "guardrail": guardrail,
         }
         key = evidence_key(item)
-        if key not in existing_keys:
+        if key not in existing_by_key:
             items.append(item)
-            existing_keys.add(key)
+            existing_by_key[key] = item
             inserted_evidence.append(key)
+        else:
+            target_item = existing_by_key[key]
+            changed = False
+            for field, value in item.items():
+                if value and target_item.get(field) != value:
+                    target_item[field] = value
+                    changed = True
+            if changed:
+                updated_evidence.append(key)
     if apply:
         exposures["updated"] = now_date()
         evidence["updated"] = now_date()
@@ -2280,6 +3867,7 @@ def update_relations(vault: Path, entity_name: str, ticker: str, meta: dict[str,
         "inserted_concepts": inserted_concepts,
         "updated_concepts": updated_concepts,
         "inserted_evidence": inserted_evidence,
+        "updated_evidence": updated_evidence,
         "exposures_path": str(exposures_path),
         "evidence_path": str(evidence_path),
     }
