@@ -60,6 +60,7 @@ STOCK_COLUMNS = {
     "fd_amount": "DOUBLE",
     "limit_update_time": "TIMESTAMP",
 }
+FETCH_TIMEOUT_MS = 20000
 
 HEAT_UPSERT_SQL = """
     INSERT INTO fact_theme_limit_heat_daily
@@ -269,7 +270,10 @@ def _get_sector_stocks(code: str, trade_date: str, dimension: str, scope: str):
     js = (
         "(async()=>{"
         "const token=localStorage.getItem('user_token')||'';"
-        f"const r=await fetch({url},{'{'}headers:{'{'}Authorization:'Bearer '+token{'}'}{'}'});"
+        f"const TIMEOUT_MS={FETCH_TIMEOUT_MS};"
+        "const ctrl=new AbortController();"
+        "const timer=setTimeout(()=>ctrl.abort(),TIMEOUT_MS);"
+        f"let r;try{{r=await fetch({url},{{headers:{{Authorization:'Bearer '+token}},signal:ctrl.signal}});}}finally{{clearTimeout(timer);}}"
         "const j=await r.json();"
         "const d=j.data||{};"
         "const stocks=(d.stocks||[]).filter(s=>s&&(s.limit_status||s.limit_times)).map(s=>({"
@@ -305,10 +309,13 @@ def _get_sector_stocks_batch(items: list[dict], trade_date: str, dimension: str,
         "const token=localStorage.getItem('user_token')||'';"
         "const out={};"
         f"const BATCH={int(batch)};"
+        f"const TIMEOUT_MS={FETCH_TIMEOUT_MS};"
         "async function one(item){"
         "const q=new URLSearchParams({code:item.code,trade_date:tradeDate,dimension,mode:'auto',scope}).toString();"
         "try{"
-        "const r=await fetch('/api/v1/client/watchlist/limit-distribution/stocks?'+q,{headers:{Authorization:'Bearer '+token}});"
+        "const ctrl=new AbortController();"
+        "const timer=setTimeout(()=>ctrl.abort(),TIMEOUT_MS);"
+        "let r;try{r=await fetch('/api/v1/client/watchlist/limit-distribution/stocks?'+q,{headers:{Authorization:'Bearer '+token},signal:ctrl.signal});}finally{clearTimeout(timer);}"
         "const j=await r.json();"
         "const d=j.data||{};"
         "const stocks=(d.stocks||[]).filter(s=>s&&(s.limit_status||s.limit_times)).map(s=>({"

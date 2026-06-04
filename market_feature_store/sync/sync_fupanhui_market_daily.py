@@ -31,7 +31,7 @@ UPSERT_SQL = """
     ON CONFLICT (trade_date) DO UPDATE SET
         strength_avg_pct = excluded.strength_avg_pct,
         strength_amount_pct = excluded.strength_amount_pct,
-        strength_amount = excluded.strength_amount,
+        strength_amount = COALESCE(excluded.strength_amount, fact_market_daily.strength_amount),
         strength_marginal_pct = excluded.strength_marginal_pct,
         strength_yesterday_avg_pct = COALESCE(excluded.strength_yesterday_avg_pct, fact_market_daily.strength_yesterday_avg_pct),
         strength_ma5_avg_pct = COALESCE(excluded.strength_ma5_avg_pct, fact_market_daily.strength_ma5_avg_pct),

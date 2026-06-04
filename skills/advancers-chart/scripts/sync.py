@@ -1,5 +1,6 @@
 """从飞书每日指标表读取涨家数，增量同步到涨家数走势表"""
 import json
+import os
 import sys
 import urllib.request
 from pathlib import Path
@@ -14,6 +15,7 @@ cfg = load_config()
 APP_TOKEN = cfg["app_token"]
 DAILY_TABLE = cfg["tables"]["daily"]
 CHART_TABLE = cfg["tables"]["chart"]
+CHART_TABLE = os.environ.get("FEISHU_CHART_TABLE", CHART_TABLE)
 
 
 def get_token():

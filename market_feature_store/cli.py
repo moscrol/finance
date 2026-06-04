@@ -105,6 +105,23 @@ def cmd_sync_market_daily(_args) -> int:
     return 0
 
 
+def cmd_sync_index_daily(args) -> int:
+    from .sync.sync_akshare_index_daily import sync_akshare_index_daily
+
+    stats = sync_akshare_index_daily(
+        trade_date=args.trade_date,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        symbol=args.symbol,
+    )
+    print(f"指数: {stats['symbol']} | 写入: {stats['rows_written']} 行")
+    print(f"指数点位覆盖: {stats['close_count']} 行 ({stats['date_min']} ~ {stats['date_max']})")
+    if stats["current"]:
+        d, close, pct = stats["current"]
+        print(f"当前: {d} 收盘={close} 涨跌幅={pct}%")
+    return 0
+
+
 def cmd_sync_market_strength(args) -> int:
     from .sync.sync_fupanhui_market_daily import sync_fupanhui_market_strength
 
@@ -115,6 +132,16 @@ def cmd_sync_market_strength(args) -> int:
     if stats["current"]:
         avg, amount_pct, amount, marginal, status = stats["current"]
         print(f"当前强度: 加权涨幅={avg}% 成交占比={amount_pct}% 成交额={amount}亿 成交环比={marginal}% 状态={status}")
+    return 0
+
+
+def cmd_sync_market_deviation(args) -> int:
+    from .sync.sync_fupanhui_market_deviation import sync_market_deviation
+
+    stats = sync_market_deviation(trade_date=args.trade_date)
+    print(f"交易日: {stats['trade_date']} | 周均线={stats['sh_week_ma']} 偏离度={stats['sh_deviation_pct']}%")
+    if stats["current"]:
+        print(f"已写入: {stats['current']}")
     return 0
 
 
@@ -327,6 +354,66 @@ def cmd_sync_stock_daily(args) -> int:
     if stats["failures"]:
         print(f"失败 {len(stats['failures'])}: " + ", ".join(c for c, _ in stats['failures'][:10]))
     return 0
+
+
+def cmd_daily_update(args) -> int:
+    from .sync.sync_daily_full import run_daily_update
+
+    result = run_daily_update(
+        trade_date=args.trade_date,
+        chart_table=args.chart_table,
+        skip_long=args.skip_long,
+        with_chart=not args.no_chart,
+    )
+    print(f"交易日: {result['trade_date']} | 日更状态: {'OK' if result['ok'] else 'CHECK'}")
+    for step in result["steps"]:
+        status = "OK" if step["ok"] else "FAIL"
+        print(f"[{status}] {step['name']}")
+        if not step["ok"]:
+            print(f"  {step['error']}")
+    v = result["validation"]
+    print(f"质检: {'OK' if v['ok'] else 'CHECK'}")
+    if v["missing_fields"]:
+        print("缺字段: " + ", ".join(v["missing_fields"]))
+    for t in v["tables"]:
+        status = "OK" if t["ok"] else "MISS"
+        print(f"  [{status}] {t['table']} max={t['max_date']} rows={t['rows']}")
+    return 0 if result["ok"] else 1
+
+
+def cmd_daily_review(args) -> int:
+    from .reports.daily_review import build_daily_review
+
+    result = build_daily_review(
+        trade_date=args.trade_date,
+        output_path=args.output,
+        chart_path=args.chart_output,
+    )
+    print(f"交易日: {result['trade_date']}")
+    print(f"报告: {result['output_path']}")
+    if result["chart_path"]:
+        print(f"图表: {result['chart_path']}")
+    return 0
+
+
+def cmd_daily_full(args) -> int:
+    from .sync.sync_daily_full import run_daily_full
+
+    result = run_daily_full(
+        trade_date=args.trade_date,
+        chart_table=args.chart_table,
+        skip_long=args.skip_long,
+    )
+    print(f"交易日: {result['trade_date']} | 全流程状态: {'OK' if result['ok'] else 'CHECK'}")
+    for step in result["update"]["steps"]:
+        status = "OK" if step["ok"] else "FAIL"
+        print(f"[{status}] {step['name']}")
+        if not step["ok"]:
+            print(f"  {step['error']}")
+    print(f"报告: {result['review']['output_path']}")
+    if result["review"].get("chart_path"):
+        print(f"图表: {result['review']['chart_path']}")
+    return 0 if result["ok"] else 1
 
 
 def cmd_weighted_gainers(args) -> int:
@@ -559,10 +646,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("sync-market-daily", help="同步飞书每日指标表到 fact_market_daily").set_defaults(func=cmd_sync_market_daily)
 
+    p_idx = sub.add_parser("sync-index-daily", help="同步上证指数点位/涨跌幅到 fact_market_daily")
+    p_idx.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD；指定后只写该日")
+    p_idx.add_argument("--start-date", default=None, help="起始日期 YYYY-MM-DD")
+    p_idx.add_argument("--end-date", default=None, help="结束日期 YYYY-MM-DD；留空取 fact_market_daily 最新日")
+    p_idx.add_argument("--symbol", default="sh000001", help="AkShare 指数代码, 默认 sh000001")
+    p_idx.set_defaults(func=cmd_sync_index_daily)
+
     p_ms = sub.add_parser("sync-market-strength", help="同步复盘会市场强度到 fact_market_daily")
     p_ms.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
     p_ms.add_argument("--days", type=int, default=120, help="回看天数, 默认120")
     p_ms.set_defaults(func=cmd_sync_market_strength)
+
+    p_md = sub.add_parser("sync-market-deviation", help="同步复盘会市场页周均线/偏离度到 fact_market_daily")
+    p_md.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_md.set_defaults(func=cmd_sync_market_deviation)
 
     p_mo = sub.add_parser("sync-market-overview", help="同步复盘会每日复盘结构化数据到 fact_market_daily")
     p_mo.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
@@ -632,6 +730,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_skd.add_argument("--sleep", type=float, default=0.0, help="股票间隔秒数, 默认0")
     p_skd.add_argument("--qfq", action="store_true", help="用前复权(慢, 吃CPU); 默认裸收盘价(快)")
     p_skd.set_defaults(func=cmd_sync_stock_daily)
+
+    p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
+    p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_du.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
+    p_du.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
+    p_du.add_argument("--no-chart", action="store_true", help="不生成/同步涨家数 MA5 图")
+    p_du.set_defaults(func=cmd_daily_update)
+
+    p_dr = sub.add_parser("daily-review", help="从 DuckDB 生成完整每日复盘 Markdown")
+    p_dr.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_dr.add_argument("--output", default=None, help="报告输出路径, 默认 exports/YYYY-MM-DD-daily-review.md")
+    p_dr.add_argument("--chart-output", default=None, help="涨家数 MA5 图片路径, 默认 exports/YYYY-MM-DD-advancers-ma5.png")
+    p_dr.set_defaults(func=cmd_daily_review)
+
+    p_df = sub.add_parser("daily-full", help="一键日更后生成完整每日复盘")
+    p_df.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_df.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
+    p_df.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
+    p_df.set_defaults(func=cmd_daily_full)
 
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
 
