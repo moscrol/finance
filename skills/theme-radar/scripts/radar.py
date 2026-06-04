@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -25,6 +26,7 @@ except Exception:
 
 
 DEFAULT_VAULT = Path(os.path.expanduser(os.environ.get("CONCEPT_VAULT", "~/Desktop/c c/知识库/wiki")))
+DEFAULT_IMA_PARSED_DIR = Path(os.path.expanduser(os.environ.get("IMA_PARSED_DIR", "~/Desktop/c c/ima/parsed")))
 RELATION_FILES = {
     "concept_graph": "concept_graph.json",
     "entity_exposures": "entity_exposures.json",
@@ -33,10 +35,12 @@ RELATION_FILES = {
     "theme_signals": "theme_signals.json",
     "pattern_library": "pattern_library.json",
     "report_contexts": "report_contexts.json",
+    "benchmark_maps": "benchmark_maps.json",
 }
 STRENGTH_RANK = {"core": 0, "related": 1, "peripheral": 2}
 EVIDENCE_BUCKETS = ("baseline", "curated_research", "delta", "graph_only", "missing")
 EVIDENCE_WEIGHTS = {"delta": 4, "curated_research": 3, "baseline": 2, "graph_only": 1, "missing": -1}
+IMA_LOGIC_CARD_SOURCE_TOKENS = ("个股逻辑卡", "最新逻辑卡", "最新逻辑跟踪", "研究素材", "素材整理")
 SUBTYPE_RANK = {
     "core_subject": 0,
     "component_supplier": 1,
@@ -58,6 +62,123 @@ SUBTYPE_LABELS = {
     "ecosystem": "生态/配套",
     "weak_graph": "弱图谱关联",
     "unknown": "待判定",
+}
+DIRECTION_RANK = {
+    "core_product": 0,
+    "storage_product": 1,
+    "component_module": 2,
+    "manufacturing": 3,
+    "package_test": 4,
+    "equipment": 5,
+    "materials": 6,
+    "service_platform": 7,
+    "downstream_channel": 8,
+    "ecosystem": 9,
+    "weak_watch": 10,
+    "unknown": 11,
+}
+DIRECTION_LABELS = {
+    "core_product": "核心产品/主线主体",
+    "storage_product": "存储产品/模组与价格弹性",
+    "optical_module": "光模块/光引擎",
+    "optical_chip": "光芯片/光器件",
+    "drug_pipeline": "药物管线/核心品种",
+    "drug_platform": "平台技术/靶点机制",
+    "pv_silicon": "硅料/硅片",
+    "pv_cell_module": "电池片/组件",
+    "pv_inverter_storage": "逆变器/储能配套",
+    "component_module": "核心器件/模组",
+    "manufacturing": "制造/工艺/产能",
+    "package_test": "封测/先进封装",
+    "equipment": "上游设备/量检测",
+    "materials": "上游材料/电子化学品",
+    "service_platform": "服务/平台",
+    "downstream_channel": "下游渠道/运营",
+    "ecosystem": "生态配套",
+    "weak_watch": "弱关联观察",
+    "unknown": "待判定",
+}
+
+THEME_DIRECTION_PROFILES = {
+    "storage": {
+        "aliases": ("存储", "HBM", "DRAM", "NAND", "DDR", "SSD", "存储芯片", "国产存储"),
+        "ranks": ("storage_product", "manufacturing", "package_test", "equipment", "materials", "service_platform", "ecosystem", "weak_watch", "unknown"),
+        "labels": {"manufacturing": "制造/晶圆代工"},
+        "core_fallback": "storage_product",
+        "component_fallback": "storage_product",
+        "subdirection_tokens": ("存储", "DRAM", "NAND", "NOR", "HBM", "DDR", "LPDDR", "SSD", "Flash", "封测", "先进封装", "CMP", "硅片", "特气", "电子化学品", "PECVD", "量测", "检测", "主控", "内存接口"),
+        "rules": (
+            ("ecosystem", ("股权投资", "参股", "投资潜在相关")),
+            ("materials", ("材料", "硅片", "特气", "电子化学品", "湿电子", "电子级磷酸", "清洗液", "CMP", "光刻胶", "前驱体", "抛光液", "封装材料", "树脂")),
+            ("equipment", ("设备", "装备", "刻蚀设备", "薄膜设备", "沉积设备", "量测", "清洗设备", "检测设备", "PECVD", "ALD")),
+            ("package_test", ("封测", "封装测试", "先进封装", "芯片测试", "测试服务", "TSV", "CoWoS", "CoWoP", "Fanout", "Chiplet")),
+            ("storage_product", ("DRAM", "NAND", "NOR", "SLC", "SSD", "eSSD", "HBM", "DDR", "存储器", "存储产品", "存储模组", "内存接口芯片", "主控芯片", "模组", "汽车电子存储")),
+            ("manufacturing", ("中游制造", "晶圆制造", "晶圆代工", "晶圆厂", "Foundry", "IDM", "FAB", "存储厂")),
+        ),
+    },
+    "optical": {
+        "aliases": ("光模块", "CPO", "硅光", "光芯片", "光通信", "1.6T", "800G"),
+        "ranks": ("optical_module", "optical_chip", "component_module", "manufacturing", "equipment", "materials", "downstream_channel", "ecosystem", "weak_watch", "unknown"),
+        "labels": {"manufacturing": "封装/代工/产线"},
+        "core_fallback": "optical_module",
+        "component_fallback": "optical_chip",
+        "subdirection_tokens": ("光模块", "光芯片", "光器件", "硅光", "CPO", "LPO", "NPO", "800G", "1.6T", "EML", "VCSEL", "激光器", "探测器", "PCB", "mSAP", "HDI", "铜箔", "连接器", "散热"),
+        "rules": (
+            ("materials", ("材料", "PCB", "mSAP", "感光干膜", "载体铜箔", "陶瓷基板", "玻璃基板", "TGV", "DPC", "磷化铟", "InP", "光刻胶", "连接器", "散热")),
+            ("equipment", ("设备", "检测", "测试", "耦合", "贴片", "封装设备", "光器件设备")),
+            ("optical_chip", ("光芯片", "激光器", "探测器", "EML", "VCSEL", "CW Laser", "CPO", "硅光", "光引擎", "PLC", "AWG", "光器件")),
+            ("optical_module", ("光模块", "光收发", "800G", "1.6T", "3.2T", "LPO", "AOC", "数据中心光模块")),
+            ("manufacturing", ("代工", "制造", "封装", "产线", "扩产")),
+        ),
+    },
+    "pharma": {
+        "aliases": ("创新药", "医药", "药物", "管线", "ADC", "GLP", "小核酸", "双抗", "单抗"),
+        "ranks": ("drug_pipeline", "drug_platform", "service_platform", "equipment", "materials", "manufacturing", "downstream_channel", "ecosystem", "weak_watch", "unknown"),
+        "labels": {"equipment": "制药装备/生命科学工具", "materials": "原料药/中间体/耗材", "manufacturing": "制剂/商业化产能"},
+        "core_fallback": "drug_pipeline",
+        "component_fallback": "drug_platform",
+        "subdirection_tokens": ("创新药", "管线", "ADC", "双抗", "单抗", "GLP", "小分子", "临床", "BD", "License", "CRO", "CDMO", "原料药", "中间体", "制药装备"),
+        "rules": (
+            ("service_platform", ("CXO", "CRO", "CDMO", "CMO", "临床试验", "外包", "研发服务", "平台服务")),
+            ("equipment", ("制药装备", "生物工艺装备", "生产装备", "生命科学工具", "仪器", "设备")),
+            ("materials", ("原料药", "中间体", "辅料", "培养基", "耗材", "试剂", "上游原料")),
+            ("drug_platform", ("平台", "靶点", "技术平台", "ADC平台", "双抗平台", "小核酸平台", "基因编辑", "递送系统")),
+            ("drug_pipeline", ("创新药", "管线", "新药", "候选药物", "临床", "适应症", "获批", "NDA", "IND", "III期", "II期", "I期", "单抗", "双抗", "ADC", "GLP-1")),
+            ("manufacturing", ("商业化生产", "生产基地", "制剂生产", "产能", "GMP", "药品生产")),
+            ("downstream_channel", ("销售", "商业化", "渠道", "药店", "院内", "医保", "集采")),
+        ),
+    },
+    "pv": {
+        "aliases": ("光伏", "BC电池", "TOPCon", "HJT", "钙钛矿", "组件", "逆变器", "硅片", "硅料"),
+        "ranks": ("pv_silicon", "pv_cell_module", "pv_inverter_storage", "equipment", "materials", "downstream_channel", "ecosystem", "weak_watch", "unknown"),
+        "labels": {"equipment": "光伏设备", "materials": "辅材/支架/玻璃胶膜"},
+        "core_fallback": "pv_cell_module",
+        "component_fallback": "pv_cell_module",
+        "subdirection_tokens": ("光伏", "硅料", "硅片", "电池片", "组件", "TOPCon", "HJT", "BC", "钙钛矿", "逆变器", "储能", "胶膜", "玻璃", "银浆", "支架", "设备"),
+        "rules": (
+            ("equipment", ("设备", "电池设备", "组件设备", "丝网印刷", "镀膜", "PECVD", "PVD", "激光设备", "串焊机")),
+            ("materials", ("胶膜", "玻璃", "银浆", "背板", "焊带", "靶材", "浆料", "边框", "支架", "BOS", "材料")),
+            ("pv_inverter_storage", ("逆变器", "储能", "微逆", "PCS", "变流器", "电站配套")),
+            ("pv_cell_module", ("电池片", "组件", "TOPCon", "HJT", "BC", "XBC", "钙钛矿", "叠层", "异质结")),
+            ("pv_silicon", ("硅料", "硅片", "多晶硅", "单晶硅", "拉晶", "切片")),
+            ("downstream_channel", ("电站", "EPC", "运营商", "装机", "户用", "工商业")),
+        ),
+    },
+}
+
+DIRECTION_SUBDIRECTION_TOKENS = {
+    "storage_product": ("存储", "DRAM", "NAND", "NOR", "HBM", "DDR", "LPDDR", "SSD", "Flash", "主控", "内存接口"),
+    "manufacturing": ("制造", "晶圆", "产线", "扩产", "代工", "IDM"),
+    "package_test": ("封测", "封装", "先进封装", "测试", "HBM"),
+    "equipment": ("设备", "PECVD", "ALD", "刻蚀", "量测", "检测", "清洗", "交付", "验收"),
+    "materials": ("CMP", "硅片", "特气", "电子化学品", "光刻胶", "胶膜", "玻璃", "银浆", "支架", "背板", "焊带", "靶材", "浆料", "边框"),
+    "optical_module": ("光模块", "800G", "1.6T", "3.2T", "LPO", "NPO", "CPO", "光引擎"),
+    "optical_chip": ("光芯片", "光器件", "硅光", "激光器", "探测器", "EML", "VCSEL", "FAU", "MPO", "连接器"),
+    "drug_pipeline": ("创新药", "管线", "小分子", "ADC", "双抗", "单抗", "GLP", "临床", "获批", "BD", "License"),
+    "drug_platform": ("平台", "靶点", "ADC", "双抗", "小核酸", "License", "BD", "授权"),
+    "pv_silicon": ("硅料", "硅片", "多晶硅", "单晶硅", "拉晶", "切片"),
+    "pv_cell_module": ("电池片", "组件", "TOPCon", "HJT", "BC", "XBC", "钙钛矿", "异质结"),
+    "pv_inverter_storage": ("逆变器", "储能", "PCS", "变流器", "微逆", "EMS", "BMS"),
 }
 
 
@@ -196,6 +317,9 @@ def collect_companies(concepts: list[str], graph: dict, exposures: dict) -> list
                     "update_types": [],
                     "fact_hardness": [],
                     "source_quality": [],
+                    "confidence": [],
+                    "guardrails": [],
+                    "validation_focus": [],
                     "review_required": False,
                     "evidence_buckets": empty_evidence_buckets(),
                 },
@@ -232,6 +356,9 @@ def collect_companies(concepts: list[str], graph: dict, exposures: dict) -> list
                 "update_types": [],
                 "fact_hardness": [],
                 "source_quality": [],
+                "confidence": [],
+                "guardrails": [],
+                "validation_focus": [],
                 "review_required": False,
                 "evidence_buckets": empty_evidence_buckets(),
             },
@@ -262,13 +389,19 @@ def collect_companies(concepts: list[str], graph: dict, exposures: dict) -> list
                 item["fact_hardness"].append(exp["fact_hardness"])
             if exp.get("source_quality"):
                 item["source_quality"].append(exp["source_quality"])
+            if exp.get("confidence"):
+                item["confidence"].append(exp["confidence"])
+            if exp.get("guardrail"):
+                item["guardrails"].append(exp["guardrail"])
+            if exp.get("validation_focus"):
+                item["validation_focus"].append(exp["validation_focus"])
             if exp.get("review_required"):
                 item["review_required"] = True
             for source in exp.get("sources", []) or []:
                 item["sources"].append(source)
 
     for item in by_key.values():
-        for field in ("roles", "concepts", "evidence", "sources", "chain_layers", "evidence_layers", "update_types", "fact_hardness", "source_quality"):
+        for field in ("roles", "concepts", "evidence", "sources", "chain_layers", "evidence_layers", "update_types", "fact_hardness", "source_quality", "confidence", "guardrails", "validation_focus"):
             item[field] = unique(item[field])
         if should_force_peripheral(item):
             item["strength"] = "peripheral"
@@ -306,6 +439,25 @@ def bucket_for_update_type(update_type: str | None) -> str:
     return "missing"
 
 
+def has_ima_logic_card_source_text(text: str) -> bool:
+    return any(token in str(text or "") for token in IMA_LOGIC_CARD_SOURCE_TOKENS)
+
+
+def has_ima_logic_card_source(company: dict) -> bool:
+    return has_ima_logic_card_source_text(" ".join(str(x) for x in company.get("sources", []) or []))
+
+
+def confidence_score(company: dict) -> int:
+    values = {str(x).lower() for x in company.get("confidence", []) or []}
+    if "high" in values:
+        return 3
+    if "medium" in values:
+        return 2
+    if "low" in values:
+        return 1
+    return 0
+
+
 def is_explicit_weak_graph_only(data: dict) -> bool:
     update_type = str(data.get("update_type") or "").strip()
     fact_hardness = str(data.get("fact_hardness") or "").strip()
@@ -337,6 +489,8 @@ def buckets_for_exposure(exp: dict) -> list[str]:
         buckets.append("baseline")
     if not is_explicit_weak_graph_only(exp) and any(token in sources for token in ("市场逻辑", "强势股", "评级日报", "复盘", "脱水")):
         buckets.append("delta")
+    if not is_explicit_weak_graph_only(exp) and has_ima_logic_card_source_text(sources):
+        buckets.append("delta")
     if not buckets:
         buckets.append("missing")
     return unique(buckets)
@@ -366,6 +520,9 @@ def company_evidence_score(company: dict) -> int:
     score += quality_rules.evidence_score_adjustment(company)
     if is_generic_company_hit(company):
         score -= 2
+    if has_ima_logic_card_source(company):
+        score += 2
+    score += confidence_score(company)
     return score
 
 
@@ -391,7 +548,13 @@ def company_subtype(company: dict) -> str:
         return "service_provider"
     if any(x in role_text for x in ("创新药", "管线", "新药", "研发商", "药物开发", "整车", "车型", "智驾", "自动驾驶")):
         return "core_subject"
-    if any(x in role_text for x in ("药店", "零售", "流通", "渠道", "运营商", "客运", "物流运营", "Robotaxi运营", "出行")):
+    if any(x in role_text for x in ("药店", "零售", "流通", "渠道", "分销", "代理", "经销", "运营商", "客运", "物流运营", "Robotaxi运营", "出行")):
+        return "downstream_channel"
+    if "upstream_equipment" in layers:
+        return "upstream_equipment"
+    if "upstream_materials" in layers:
+        return "upstream_materials"
+    if any(x in text for x in ("电子元器件分销", "分销商", "分销平台", "代理分销", "经销")):
         return "downstream_channel"
     if any(x in text for x in ("CDMO", "CRO", "CMO", "临床试验", "外包", "服务商", "平台", "高精地图", "软件")) or "midstream_service" in layers:
         return "service_provider"
@@ -399,10 +562,6 @@ def company_subtype(company: dict) -> str:
         return "component_supplier"
     if any(x in text for x in ("创新药", "管线", "新药", "研发商", "药物开发", "整车", "车型", "智驾", "自动驾驶")):
         return "core_subject"
-    if "upstream_equipment" in layers:
-        return "upstream_equipment"
-    if "upstream_materials" in layers:
-        return "upstream_materials"
     if "ecosystem" in layers:
         return "ecosystem"
     return "unknown"
@@ -432,10 +591,75 @@ def company_sort_key(company: dict) -> tuple:
     )
 
 
-def refresh_company_subtypes(companies: list[dict]) -> list[dict]:
+def theme_direction_profile(term: str = "", concepts: list[str] | None = None) -> dict:
+    haystack = " ".join([str(term or "")] + [str(x) for x in concepts or []])
+    for profile in THEME_DIRECTION_PROFILES.values():
+        if any(token and token in haystack for token in profile.get("aliases", ())):
+            return profile
+    return {"ranks": tuple(DIRECTION_RANK), "rules": ()}
+
+
+def direction_rank(direction: str, profile: dict | None = None) -> int:
+    if profile:
+        ranks = profile.get("ranks", ())
+        if direction in ranks:
+            return ranks.index(direction)
+    return DIRECTION_RANK.get(direction, DIRECTION_RANK["unknown"])
+
+
+def direction_label(direction: str, profile: dict | None = None) -> str:
+    if profile:
+        labels = profile.get("labels", {})
+        if isinstance(labels, dict) and direction in labels:
+            return str(labels[direction])
+    return DIRECTION_LABELS.get(direction, "待判定")
+
+
+def profile_direction_match(profile: dict, haystack: str) -> str | None:
+    for direction, tokens in profile.get("rules", ()) or ():
+        if any(token and token in haystack for token in tokens):
+            return direction
+    return None
+
+
+def company_direction_key(company: dict, profile: dict | None = None) -> str:
+    subtype = company.get("company_subtype") or company_subtype(company)
+    layers = " ".join(normalized_chain_layers(company))
+    raw_layers = " ".join(str(x) for x in company.get("chain_layers", []) or [])
+    role_text = " ".join(str(x) for x in company.get("roles", []) or [])
+    evidence_body = " ".join(str(x) for x in company.get("evidence", []) or [])
+    haystack = f"{role_text} {evidence_body} {raw_layers} {layers}"
+
+    if subtype == "weak_graph":
+        return "weak_watch"
+    profile_match = profile_direction_match(profile or {}, haystack) if profile else None
+    if profile_match:
+        return profile_match
+    if subtype == "service_provider":
+        return "service_platform"
+    if subtype == "downstream_channel":
+        return "downstream_channel"
+    if subtype == "ecosystem":
+        return "ecosystem"
+    if subtype == "component_supplier":
+        return str((profile or {}).get("component_fallback") or "component_module")
+    if subtype == "core_subject":
+        return str((profile or {}).get("core_fallback") or "core_product")
+    return "unknown"
+
+
+def direction_group_sort_key(company: dict, profile: dict | None = None) -> tuple:
+    direction = company_direction_key(company, profile)
+    return (
+        direction_rank(direction, profile),
+        company_sort_key(company),
+    )
+
+
+def refresh_company_subtypes(companies: list[dict], profile: dict | None = None) -> list[dict]:
     for company in companies:
         company["company_subtype"] = company_subtype(company)
-    return sorted(companies, key=company_sort_key)
+    return sorted(companies, key=lambda company: direction_group_sort_key(company, profile))
 
 
 def fact_hardness_rank(company: dict) -> str:
@@ -631,7 +855,7 @@ def enrich_companies_from_evidence_index(companies: list[dict], evidence_index: 
             company["strength"] = "peripheral"
 
 
-def acceptance_score_section(companies: list[dict], context: dict, local_report_contexts: list[dict], term_matched: bool) -> str:
+def acceptance_score_section(companies: list[dict], context: dict, local_report_contexts: list[dict], term_matched: bool, profile: dict | None = None) -> str:
     counts = evidence_bucket_counts(companies)
     qc_overranked = [c for c in companies if "possible_overranked" in company_qc_flags(c)]
     qc_weak = [c for c in companies if "weak_granularity" in company_qc_flags(c)]
@@ -642,7 +866,7 @@ def acceptance_score_section(companies: list[dict], context: dict, local_report_
     has_local_def = term_matched or bool(local_report_contexts)
     has_def = has_external_def or has_local_def
     has_chain = bool((context or {}).get("industry_chain_map")) or bool(local_report_contexts)
-    top10 = companies[:10]
+    top10 = direction_ranked_sample(companies, profile)
     top10_baseline = sum(1 for c in top10 if (c.get("evidence_buckets", {}) or {}).get("baseline"))
     top10_overranked = sum(1 for c in top10 if "possible_overranked" in company_qc_flags(c))
     top10_weak = sum(1 for c in top10 if "weak_granularity" in company_qc_flags(c))
@@ -718,10 +942,10 @@ def acceptance_score_section(companies: list[dict], context: dict, local_report_
         "|---|---:|---:|---|",
         f"| 题材定义 | 10 | {definition_score} | {definition_note} |",
         f"| 产业链拆解 | 15 | {chain_score} | {'有本地或外部产业链' if has_chain else '产业链字段空缺'} |",
-        f"| Top 10 公司排序 | 30 | {ranking_score} | Top10 过度高估 {top10_overranked}，弱颗粒度 {top10_weak}，未知链层 {top10_unknown_layer}，链层冲突 {top10_chain_conflict}，需复核 {top10_review_required}，软事实 {top10_soft_fact} |",
+        f"| 方向内公司排序 | 30 | {ranking_score} | 方向头部样本过度高估 {top10_overranked}，弱颗粒度 {top10_weak}，未知链层 {top10_unknown_layer}，链层冲突 {top10_chain_conflict}，需复核 {top10_review_required}，软事实 {top10_soft_fact} |",
         f"| 证据桶准确性 | 20 | {bucket_score} | baseline={counts['baseline']}，curated={counts['curated_research']}，delta={counts['delta']}，graph_only={counts['graph_only']} |",
         f"| 精读候选队列 | 15 | {deep_queue_score} | 队列公司 {len(qc_deep)} |",
-        f"| 结论可用性 | 10 | {usability} | Top10 baseline 支撑 {top10_baseline} |",
+        f"| 结论可用性 | 10 | {usability} | 方向头部样本 baseline 支撑 {top10_baseline} |",
         f"| **总分** | **100** | **{total_score}** | **{verdict}** |",
         "",
         f"- possible_overranked={len(qc_overranked)}，weak_granularity={len(qc_weak)}，chain_layer_conflict={len(qc_chain_conflict)}，review_required={sum(1 for c in companies if 'review_required' in company_qc_flags(c))}，soft_fact_hardness={sum(1 for c in companies if 'soft_fact_hardness' in company_qc_flags(c))}，need_deep_read={len(qc_deep)}",
@@ -776,6 +1000,71 @@ def company_table(rows: list[dict], strength: str, limit: int = 12) -> str:
             f"| {r['name']} | {r.get('code','')} | {subtype} | {'、'.join(r['concepts'][:4])} | {chain_layers} | {normalized_layers} | {bucket_summary} | {evidence_layers} | {update_types} | {fact_hardness} | {roles} | {evidence} |"
         )
     return "\n".join(lines)
+
+
+def company_direction_table(rows: list[dict], limit: int = 8) -> str:
+    selected = sorted(rows, key=company_sort_key)[:limit]
+    if not selected:
+        return "- 待 baseline 补证"
+    lines = ["| 公司 | 代码 | 强度 | 公司类型 | 关联概念 | 归一链条层级 | 证据桶 | 事实硬度 | 产业链角色 | 证据 |", "|---|---:|---|---|---|---|---|---|---|---|"]
+    for r in selected:
+        evidence = "；".join(r["evidence"][:2]) or "待补证"
+        roles = "；".join(r["roles"][:2]) or "受益标的"
+        normalized_layers = "、".join(normalized_chain_layers(r)[:3]) or "unknown"
+        fact_hardness = fact_hardness_rank(r)
+        if r.get("review_required"):
+            fact_hardness = f"{fact_hardness}/需复核"
+        bucket_summary = evidence_bucket_summary(r)
+        subtype = SUBTYPE_LABELS.get(r.get("company_subtype") or company_subtype(r), "待判定")
+        strength = company_display_strength(r)
+        lines.append(
+            f"| {r['name']} | {r.get('code','')} | {strength} | {subtype} | {'、'.join(r['concepts'][:4])} | {normalized_layers} | {bucket_summary} | {fact_hardness} | {roles} | {evidence} |"
+        )
+    if len(rows) > limit:
+        lines.append(f"\n- 另有 {len(rows) - limit} 家同方向公司进入候补/精读队列。")
+    return "\n".join(lines)
+
+
+def direction_company_section(companies: list[dict], term_matched: bool, profile: dict | None = None, limit_per_direction: int = 8) -> str:
+    if not companies:
+        return "- 待 baseline 补证"
+
+    groups: dict[str, list[dict]] = {}
+    for company in companies:
+        direction = company_direction_key(company, profile)
+        groups.setdefault(direction, []).append(company)
+
+    lines = []
+    if not term_matched:
+        lines.append("- 待验证：新词未入库前，不把辅助概念公司直接升为核心。")
+        lines.append("")
+    for direction in sorted(groups, key=lambda key: direction_rank(key, profile)):
+        rows = groups[direction]
+        label = direction_label(direction, profile)
+        core_count = sum(1 for r in rows if company_display_strength(r) == "core")
+        related_count = sum(1 for r in rows if company_display_strength(r) == "related")
+        peripheral_count = sum(1 for r in rows if company_display_strength(r) == "peripheral")
+        lines.extend(
+            [
+                f"### {label}",
+                "",
+                f"- 方向内样本：{len(rows)} 家；core={core_count}，related={related_count}，peripheral={peripheral_count}",
+                "",
+                company_direction_table(rows, limit_per_direction),
+                "",
+            ]
+        )
+    return "\n".join(lines).strip()
+
+
+def direction_ranked_sample(companies: list[dict], profile: dict | None = None, per_direction: int = 3, limit: int = 10) -> list[dict]:
+    groups: dict[str, list[dict]] = {}
+    for company in companies:
+        groups.setdefault(company_direction_key(company, profile), []).append(company)
+    sample = []
+    for direction in sorted(groups, key=lambda key: direction_rank(key, profile)):
+        sample.extend(sorted(groups[direction], key=company_sort_key)[:per_direction])
+    return sample[:limit]
 
 
 def evidence_bucket_summary(company: dict) -> str:
@@ -1011,6 +1300,177 @@ def signal_lines(signal: dict) -> str:
     return "\n".join(lines)
 
 
+def first_text(items, fallback: str = "待补") -> str:
+    values = sorted(as_list(items), key=signal_text_sort_key)
+    for value in values:
+        text = compact_text(value, 140)
+        if text:
+            return text
+    return fallback
+
+
+def signal_text_sort_key(value: str) -> tuple:
+    text = str(value or "")
+    high_tokens = (
+        "AI", "算力", "服务器", "HBM", "1.6T", "800G", "CPO", "资本开支",
+        "订单", "小批量", "量产", "扩产", "认证", "涨价", "价格", "客户",
+        "临床", "获批", "NDA", "IND", "License", "BD", "出海",
+        "TOPCon", "HJT", "BC", "钙钛矿", "逆变器", "储能",
+    )
+    generic_tokens = ("消费电子", "计算机", "工业控制", "物联网", "生态", "相关", "待补")
+    high = sum(1 for token in high_tokens if token in text)
+    generic = sum(1 for token in generic_tokens if token in text)
+    return (-high, generic, len(text), text)
+
+
+def company_bucket_hits(companies: list[dict], bucket: str) -> list[dict]:
+    return [company for company in companies if (company.get("evidence_buckets", {}) or {}).get(bucket)]
+
+
+def top_company_names(companies: list[dict], limit: int = 5) -> str:
+    rows = sorted(companies, key=company_sort_key)[:limit]
+    return "、".join(company.get("name", "") for company in rows if company.get("name")) or "待补"
+
+
+def trigger_strength_label(source_count: int, quality_count: int = 0) -> str:
+    if source_count >= 3 and quality_count >= 2:
+        return "Tier 1"
+    if source_count >= 2:
+        return "Tier 2"
+    if source_count >= 1:
+        return "Tier 3"
+    return "待补"
+
+
+def signal_dimension_rows(context: dict, signal: dict, companies: list[dict]) -> list[dict]:
+    context = context if isinstance(context, dict) else {}
+    signal = signal if isinstance(signal, dict) else {}
+    baseline_hits = company_bucket_hits(companies, "baseline")
+    research_hits = company_bucket_hits(companies, "curated_research")
+    delta_hits = company_bucket_hits(companies, "delta")
+    graph_hits = company_bucket_hits(companies, "graph_only")
+
+    fact_items = []
+    fact_items.extend(as_list(signal.get("order_signals")))
+    fact_items.extend(as_list(signal.get("industry_progress")))
+    fact_items.extend(as_list(context.get("verification_nodes")))
+    fact_items.extend(as_list(context.get("catalysts")))
+    has_direct_fact_signal = bool(fact_items)
+    if not fact_items and baseline_hits:
+        fact_items.append(f"baseline 支撑 {len(baseline_hits)} 家公司基础业务映射")
+
+    industry_items = []
+    industry_items.extend(as_list(context.get("demand_drivers")))
+    industry_items.extend(as_list(context.get("core_benefit_links")))
+    industry_items.extend(as_list(signal.get("industry_progress")))
+    direction_rows = context.get("direction_scan", []) if isinstance(context.get("direction_scan"), list) else []
+    for row in direction_rows[:5]:
+        if isinstance(row, dict):
+            industry_items.append(row.get("name") or row.get("direction") or "")
+
+    market_items = []
+    market_items.extend(as_list(signal.get("market_heat")))
+    market_items.extend(as_list(signal.get("price_signals")))
+    market_items.extend(as_list(signal.get("sell_side_coverage")))
+    if delta_hits:
+        market_items.append(f"delta/复盘线索命中 {len(delta_hits)} 家：{top_company_names(delta_hits, 4)}")
+
+    return [
+        {
+            "dimension": "公告/事实",
+            "signal": first_text(fact_items),
+            "source": "theme_signals / validation / baseline",
+            "tier": trigger_strength_label(2 if has_direct_fact_signal else int(bool(fact_items)), 1 if has_direct_fact_signal else 0),
+            "explain": f"用于确认题材不是纯叙事；当前 baseline={len(baseline_hits)}，graph_only={len(graph_hits)}；{'有直接事实触发' if has_direct_fact_signal else '暂无直接公告/订单触发'}。",
+        },
+        {
+            "dimension": "产业趋势",
+            "signal": first_text(industry_items),
+            "source": "report_contexts / direction_scan",
+            "tier": trigger_strength_label(int(bool(industry_items)) + int(bool(research_hits)), int(bool(research_hits))),
+            "explain": f"用于确认需求链条和受益环节；当前 curated_research={len(research_hits)}。",
+        },
+        {
+            "dimension": "市场热点",
+            "signal": first_text(market_items),
+            "source": "theme_signals / delta evidence",
+            "tier": trigger_strength_label(int(bool(market_items)) + int(bool(delta_hits)), int(bool(delta_hits))),
+            "explain": f"用于确认市场是否开始交易；当前 delta={len(delta_hits)}。",
+        },
+    ]
+
+
+def resonance_tier(rows: list[dict]) -> str:
+    active = [row for row in rows if row.get("signal") and row.get("signal") != "待补"]
+    hard = [row for row in active if row.get("tier") in ("Tier 1", "Tier 2")]
+    if len(hard) >= 3:
+        return "Tier 1：公告/事实 + 产业趋势 + 市场热点三重共振"
+    if len(active) >= 2:
+        return "Tier 2：双重验证，已具备跟踪价值但仍需补强缺口"
+    if len(active) == 1:
+        return "Tier 3：单点逻辑，进入观察池"
+    return "待补：缺触发信号，暂按静态产业链处理"
+
+
+def signal_gap_items(rows: list[dict], companies: list[dict]) -> list[str]:
+    gaps = []
+    for row in rows:
+        if row.get("signal") == "待补":
+            gaps.append(f"补{row.get('dimension')}线索")
+    qc_weak = [c for c in companies if "weak_granularity" in company_qc_flags(c)]
+    qc_soft = [c for c in companies if "soft_fact_hardness" in company_qc_flags(c)]
+    if qc_weak:
+        gaps.append(f"弱颗粒度公司 {len(qc_weak)} 家，需补主营占比/产品直接性")
+    if qc_soft:
+        gaps.append(f"软事实公司 {len(qc_soft)} 家，需补公告/年报/官网")
+    return gaps[:5]
+
+
+def fermentation_signal_section(context: dict, signal: dict, companies: list[dict]) -> str:
+    rows = signal_dimension_rows(context, signal, companies)
+    lines = [
+        "### 触发信号三维交叉",
+        "",
+        "| 维度 | 信号 | 证据来源 | 强度 | 解释 |",
+        "|---|---|---|---|---|",
+    ]
+    for row in rows:
+        lines.append(
+            f"| {row.get('dimension','')} | {compact_text(row.get('signal',''), 140)} | {row.get('source','')} | {row.get('tier','')} | {compact_text(row.get('explain',''), 140)} |"
+        )
+
+    tier = resonance_tier(rows)
+    gaps = signal_gap_items(rows, companies)
+    if tier.startswith("Tier 1"):
+        judgement = "已经从静态产业链进入共振跟踪状态，优先看方向内头部公司是否有硬事实继续确认。"
+    elif tier.startswith("Tier 2"):
+        judgement = "具备发酵雏形，适合跟踪验证清单，但还不能当成一致预期后的强结论。"
+    elif tier.startswith("Tier 3"):
+        judgement = "目前更像单点线索，先观察是否扩散到产业趋势或盘面信号。"
+    else:
+        judgement = "当前主要是知识库静态拆解，缺少足够的今日触发信号。"
+
+    lines.extend(
+        [
+            "",
+            "### 共振分层",
+            f"- {tier}",
+            "",
+            "### 判断",
+            f"- {judgement}",
+            "",
+            "### 风险提示",
+            bullets(gaps, "暂无明显风险缺口"),
+            "",
+            "### 下一步验证",
+            "- 公告/年报/官网：确认订单、客户、产能、认证、收入占比。",
+            "- 盘面/复盘：确认是否从单家公司扩散到方向内多家公司。",
+            "- 产业资料：确认需求、瓶颈和工艺环节是否继续被多源强化。",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def as_list(value) -> list[str]:
     if value is None:
         return []
@@ -1035,10 +1495,28 @@ def read_theme_information_jsonl(path: Path, term: str) -> list[dict]:
             except json.JSONDecodeError:
                 continue
             theme = str(row.get("theme") or "").strip()
-            if theme and term and term not in theme and theme not in term:
+            if not theme_compatible(term, theme):
                 continue
             rows.append(row)
     return rows
+
+
+def theme_compatible(term: str, theme: str) -> bool:
+    term_text = str(term or "").strip()
+    theme_text = str(theme or "").strip()
+    if not term_text or not theme_text:
+        return True
+    if term_text in theme_text or theme_text in term_text:
+        return True
+    alias_groups = [
+        {"存储芯片", "国产存储", "HBM与国产存储", "HBM", "DRAM", "NAND", "NOR"},
+    ]
+    for group in alias_groups:
+        term_hit = any(token and token in term_text for token in group)
+        theme_hit = any(token and token in theme_text for token in group)
+        if term_hit and theme_hit:
+            return True
+    return False
 
 
 def read_theme_direction_pool(path: Path, term: str) -> dict:
@@ -1046,7 +1524,7 @@ def read_theme_direction_pool(path: Path, term: str) -> dict:
         return {}
     data = load_json(path, {})
     theme = str(data.get("theme") or "").strip()
-    if theme and term and term not in theme and theme not in term:
+    if not theme_compatible(term, theme):
         return {}
     directions = data.get("directions", [])
     if not isinstance(directions, list):
@@ -1059,9 +1537,61 @@ def read_theme_supplement_pool(path: Path, term: str) -> dict:
         return {}
     data = load_json(path, {})
     theme = str(data.get("theme") or "").strip()
-    if theme and term and term not in theme and theme not in term:
+    if not theme_compatible(term, theme):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def theme_asset_score(term: str, path: Path, theme: str = "") -> int:
+    name = path.name
+    score = 0
+    if term and term in name:
+        score += 100
+    if theme and (term in theme or theme in term):
+        score += 80
+    if theme_compatible(term, theme or name):
+        score += 40
+    if ".merged." in name:
+        score += 30
+    if "DeepDive" in name:
+        score += 10
+    return score
+
+
+def auto_discover_theme_supplement_pool(term: str, parsed_dir: Path = DEFAULT_IMA_PARSED_DIR) -> dict:
+    if not parsed_dir.exists():
+        return {}
+    candidates = []
+    patterns = ["*.merged.theme_supplement_pool.json", "*.theme_supplement_pool.json"]
+    for pattern in patterns:
+        for path in parsed_dir.glob(pattern):
+            data = load_json(path, {})
+            if not isinstance(data, dict):
+                continue
+            theme = str(data.get("theme") or "").strip()
+            if not theme_compatible(term, theme or path.name):
+                continue
+            summary = data.get("summary", {}) if isinstance(data.get("summary"), dict) else {}
+            row_count = int(summary.get("row_count", 0) or 0)
+            candidates.append((theme_asset_score(term, path, theme) + min(row_count, 300), path, data))
+    if not candidates:
+        return {}
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return candidates[0][2]
+
+
+def auto_discover_theme_info_rows(term: str, parsed_dir: Path = DEFAULT_IMA_PARSED_DIR) -> list[dict]:
+    if not parsed_dir.exists():
+        return []
+    candidates = []
+    for path in parsed_dir.glob("*.theme_information_items.jsonl"):
+        if not theme_compatible(term, path.name):
+            continue
+        candidates.append((theme_asset_score(term, path, path.name), path))
+    if not candidates:
+        return []
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return read_theme_information_jsonl(candidates[0][1], term)
 
 
 def theme_info_types(row: dict) -> set[str]:
@@ -1146,6 +1676,7 @@ GENERIC_THEME_INFO_SEGMENTS = {
     "交付",
     "送样",
     "并购",
+    "公告",
     "并购公告",
     "合作协议公告",
     "产品发布",
@@ -1170,13 +1701,25 @@ GENERIC_THEME_INFO_SEGMENTS = {
     "研发投入",
     "市场预测",
     "产品",
+    "材料",
+    "电池",
     "良率",
     "项目落地",
     "中标",
     "收入增速",
     "业务数据",
+    "业绩预告",
+    "产量数据",
     "产能/装机",
     "年报（收入/利润/业务）",
+    "年报数据",
+    "季报数据",
+    "ipo",
+    "IPO",
+    "设备",
+    "上游材料",
+    "Capex",
+    "capex",
     "并购/整合",
     "业绩",
     "估值",
@@ -1184,6 +1727,16 @@ GENERIC_THEME_INFO_SEGMENTS = {
     "其他",
     "待核验",
     "未分段",
+    "明确产能",
+    "明确收入结构",
+    "明确合作协议",
+    "明确合作协议/并购",
+    "明确库存",
+    "明确成本",
+    "明确资源储量",
+    "明确项目",
+    "明确项目落地",
+    "明确分红",
 }
 
 
@@ -1192,6 +1745,8 @@ def is_generic_theme_info_segment(segment: str) -> bool:
     if not s:
         return True
     if s in GENERIC_THEME_INFO_SEGMENTS:
+        return True
+    if s.startswith("明确"):
         return True
     return s.startswith(("全产业链", "全T链", "全链条"))
 
@@ -1347,6 +1902,34 @@ def build_theme_information_context(term: str, rows: list[dict]) -> dict:
     return out
 
 
+def supplement_demand_drivers(rows: list[dict]) -> list[str]:
+    out = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        scenario = str(row.get("scenario") or "").strip()
+        driver = str(row.get("downstream_driver") or "").strip()
+        if scenario and driver:
+            out.append(f"{scenario}：{driver}")
+        elif scenario:
+            out.append(scenario)
+    return unique(out)[:12]
+
+
+def supplement_core_benefit_links(rows: list[dict]) -> list[str]:
+    out = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        links = "、".join(as_list(row.get("beneficiary_links"))[:4])
+        entities = "、".join(as_list(row.get("representative_entities"))[:6])
+        if links and entities:
+            out.append(f"{links}：{entities}")
+        elif links:
+            out.append(links)
+    return unique(out)[:12]
+
+
 def merge_theme_information_context(context: dict, theme_context: dict) -> dict:
     if not theme_context:
         return context or {}
@@ -1354,7 +1937,10 @@ def merge_theme_information_context(context: dict, theme_context: dict) -> dict:
     if theme_context.get("definition"):
         merged["definition"] = theme_context.get("definition")
     for key in ("demand_drivers", "core_benefit_links", "verification_nodes"):
-        merged[key] = unique(as_list(theme_context.get(key)) + as_list(merged.get(key)))[:16]
+        if theme_context.get(key):
+            merged[key] = unique(as_list(theme_context.get(key)))[:16]
+        else:
+            merged[key] = unique(as_list(merged.get(key)))[:16]
     merged["theme_information_pool"] = theme_context.get("theme_information_pool", {})
     for key in ("related_terms", "capability_stack"):
         merged[key] = unique(as_list(merged.get(key)) + as_list(theme_context.get(key)))
@@ -1620,6 +2206,75 @@ def build_theme_supplement_pool_context(pool: dict) -> dict:
         "progress_ruler": pool.get("progress_ruler", []) if isinstance(pool.get("progress_ruler"), list) else [],
         "supplement_evidence_items": pool.get("evidence_items", []) if isinstance(pool.get("evidence_items"), list) else [],
     }
+    context["demand_drivers"] = supplement_demand_drivers(context["demand_scenarios"])
+    context["core_benefit_links"] = supplement_core_benefit_links(context["demand_scenarios"])
+    scan_rows = []
+    ranking_rows = []
+    for idx, row in enumerate(context["material_process_scan"]):
+        if not isinstance(row, dict) or not row.get("name"):
+            continue
+        prosperity = "；".join(
+            x for x in [
+                str(row.get("prosperity_judgment") or "").strip(),
+                str(row.get("core_catalyst") or "").strip(),
+            ] if x
+        )
+        scan_rows.append({
+            "direction": row.get("name", ""),
+            "sector": row.get("major_track", ""),
+            "sector_hierarchy": {
+                "level_1": row.get("major_track", ""),
+                "level_2": row.get("chain_position", ""),
+                "level_3": row.get("name", ""),
+            },
+            "primary_sector": row.get("major_track", ""),
+            "secondary_sectors": [row.get("chain_position", "")] if row.get("chain_position") else [],
+            "prosperity": prosperity,
+            "mention_frequency": row.get("daily_review_frequency", ""),
+            "recognition_level": row.get("cognition_level", ""),
+            "classification": row.get("classification", ""),
+            "core_catalyst": row.get("next_validation") or row.get("core_catalyst", ""),
+            "candidate_companies": as_list(row.get("representative_entities")),
+        })
+        ranking_rows.append({
+            "direction": row.get("name", ""),
+            "stage": row.get("cognition_level", ""),
+            "recognition_level": row.get("cognition_level", ""),
+            "stage_reason": prosperity,
+            "evidence_level": "theme_supplement_pool",
+            "progress_score": max(40, 85 - idx),
+            "key_signal": row.get("core_catalyst", ""),
+            "next_validation": row.get("next_validation", ""),
+            "priority": row.get("daily_review_frequency", ""),
+        })
+    context["direction_scan"] = scan_rows
+    context["progress_ranking"] = ranking_rows
+    context["direction_frame"] = {
+        "allowed_domains": [],
+        "directions": [
+            {
+                "label": row.get("direction", ""),
+                "tokens": [
+                    x for x in [
+                        row.get("direction", ""),
+                        row.get("sector", ""),
+                        row.get("primary_sector", ""),
+                        row.get("classification", ""),
+                        row.get("core_catalyst", ""),
+                        *as_list(row.get("secondary_sectors")),
+                        *as_list(row.get("candidate_companies")),
+                    ] if x
+                ],
+                "theme": row.get("sector", "") or row.get("direction", ""),
+                "why": row.get("prosperity", ""),
+                "validation": row.get("core_catalyst", ""),
+                "source": "theme_supplement_pool",
+            }
+            for row in scan_rows
+        ],
+        "secondary": {},
+        "source": "theme_supplement_pool",
+    }
     validation_rows = []
     for row in pool.get("validation_items", []) if isinstance(pool.get("validation_items"), list) else []:
         if not isinstance(row, dict):
@@ -1656,6 +2311,132 @@ def build_theme_supplement_pool_context(pool: dict) -> dict:
     return context
 
 
+THEME_INFO_FINE_COMPONENT_TOKENS = (
+    "法拉第", "旋片", "旋光片", "光隔离器", "隔离器", "磁光", "TGG", "TSAG", "SGGG",
+    "FAU", "光纤阵列", "MPO", "MTP", "MMC", "MT插芯", "陶瓷插芯", "连接器",
+    "AWG", "PLC", "WDM", "波分", "滤波片", "薄膜滤波", "环形器", "准直器",
+    "透镜", "透镜阵列", "棱镜", "偏振", "光引擎", "光器件", "OSA", "TOSA", "ROSA",
+)
+
+
+def theme_info_fine_component_name(row: dict) -> str:
+    segment = str(row.get("segment") or "").strip()
+    component = str(row.get("component") or "").strip()
+    label_text = f"{segment} {component}"
+    if not any(token in label_text for token in THEME_INFO_FINE_COMPONENT_TOKENS):
+        return ""
+    if any(token in label_text for token in ("MPO", "MTP", "MMC")) and any(token in label_text for token in ("FAU", "AWG")):
+        return "MPO/FAU/AWG"
+    if any(token in label_text for token in ("FAU", "光纤阵列")):
+        return "FAU/光纤阵列"
+    if any(token in label_text for token in ("MPO", "MTP", "MMC", "MT插芯", "陶瓷插芯")):
+        return "MPO/MTP/MMC连接器"
+    if any(token in label_text for token in ("AWG", "PLC", "WDM", "波分")):
+        return "AWG/PLC/WDM"
+    if any(token in label_text for token in ("环形器", "滤波片", "薄膜滤波", "偏振", "棱镜")):
+        return "环形器/滤波片/偏振器件"
+    if any(token in label_text for token in ("准直器", "透镜", "透镜阵列")):
+        return "准直器/透镜阵列"
+    if any(token in label_text for token in ("法拉第", "旋片", "旋光片", "磁光", "TGG", "TSAG", "SGGG")) or (
+        any(token in label_text for token in ("光隔离器", "隔离器"))
+        and not any(token in label_text for token in ("FAU", "MPO", "MTP", "MMC", "光引擎"))
+    ):
+        return "法拉第旋片/光隔离器"
+    broad_segment_tokens = ("涨价", "CPO、OCS", "光通信设备", "光器件、CPO", "上游-", "中游-", "下游-")
+    name = component if component and any(token in segment for token in broad_segment_tokens) else (segment or component)
+    if not name:
+        return ""
+    name = re.sub(r"^\d+(?:\.\d+)?\s*", "", name)
+    name = name.replace("上游-", "").replace("中游-", "").replace("下游-", "")
+    name = name.replace("法拉第旋片、光隔离器", "法拉第旋片/光隔离器")
+    name = name.replace("MPO连接器、FAU、AWG", "MPO/FAU/AWG")
+    return name.strip(" /｜|")
+
+
+def theme_info_fine_component_position(name: str, text: str) -> str:
+    haystack = f"{name} {text}"
+    if any(token in haystack for token in ("FAU", "光纤阵列")):
+        return "光纤阵列/光引擎器件"
+    if any(token in haystack for token in ("MPO", "MTP", "MMC", "MT插芯", "陶瓷插芯", "连接器")):
+        return "互连器件"
+    if any(token in haystack for token in ("AWG", "PLC", "WDM", "波分")):
+        return "无源光芯片/波分器件"
+    if any(token in haystack for token in ("环形器", "滤波片", "薄膜滤波", "偏振", "棱镜")):
+        return "OCS光学器件"
+    if any(token in haystack for token in ("准直器", "透镜", "透镜阵列")):
+        return "微光学元件"
+    if any(token in haystack for token in ("法拉第", "旋片", "旋光片", "光隔离器", "隔离器", "磁光", "TGG", "TSAG", "SGGG")):
+        return "光隔离器/磁光材料"
+    if "光引擎" in haystack:
+        return "光引擎器件"
+    return "光器件/材料"
+
+
+def theme_info_fine_component_rows(term: str, rows: list[dict], limit: int = 24) -> list[dict]:
+    if not rows or not theme_compatible(term, "光模块"):
+        return []
+    grouped: dict[str, dict] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name = theme_info_fine_component_name(row)
+        if not name:
+            continue
+        claim = str(row.get("claim") or "").strip()
+        entity = str(row.get("entity_name") or row.get("company") or "").strip()
+        raw = row.get("raw_row") if isinstance(row.get("raw_row"), dict) else {}
+        for field in ("相关公司", "代表公司", "公司", "企业"):
+            if raw.get(field):
+                entity = entity or str(raw.get(field)).strip()
+        text = " ".join(str(row.get(k) or "") for k in ("chain_position", "segment", "component", "claim"))
+        item = grouped.setdefault(
+            name,
+            {
+                "name": name,
+                "major_track": "光通信",
+                "chain_position": theme_info_fine_component_position(name, text),
+                "prosperity_judgment": "",
+                "classification": "细颗粒光器件/材料",
+                "core_catalyst": "",
+                "representative_entities": [],
+                "evidence_summary": "",
+                "source": "theme_information_pool",
+            },
+        )
+        if entity:
+            item["representative_entities"].extend([x for x in re.split(r"[、,，/\s]+", entity) if x])
+        if claim:
+            existing = as_list(item.get("evidence_summary"))
+            if claim not in existing:
+                existing.append(claim)
+            item["evidence_summary"] = "；".join(existing[:2])
+            name_tokens = [x for x in re.split(r"[/、,，()\s]+", name) if len(x) >= 2]
+            current = str(item.get("core_catalyst") or "")
+            if not current or (any(token in claim for token in name_tokens) and not any(token in current for token in name_tokens)):
+                item["core_catalyst"] = claim
+    out = []
+    for item in grouped.values():
+        item["representative_entities"] = unique(item["representative_entities"])[:8]
+        out.append(item)
+    return sorted(out, key=lambda item: (0 if item.get("representative_entities") else 1, item.get("name", "")))[:limit]
+
+
+def merge_theme_info_fine_components(context: dict, term: str, theme_info_rows: list[dict]) -> dict:
+    additions = theme_info_fine_component_rows(term, theme_info_rows)
+    if not additions:
+        return context
+    merged = dict(context or {})
+    existing = [row for row in merged.get("material_process_scan", []) if isinstance(row, dict)]
+    seen = {str(row.get("name") or row.get("direction") or "").strip() for row in existing}
+    for row in additions:
+        name = str(row.get("name") or "").strip()
+        if name and name not in seen:
+            existing.append(row)
+            seen.add(name)
+    merged["material_process_scan"] = existing
+    return merged
+
+
 def merge_theme_supplement_pool_context(context: dict, supplement_context: dict) -> dict:
     if not supplement_context:
         return context or {}
@@ -1663,6 +2444,11 @@ def merge_theme_supplement_pool_context(context: dict, supplement_context: dict)
     merged["theme_supplement_pool"] = supplement_context.get("theme_supplement_pool", {})
     if supplement_context.get("definition_profile"):
         merged["definition_profile"] = supplement_context.get("definition_profile", {})
+    generic_direction_labels = {"年报", "起点", "明确产能", "明确项目", "明确合作协议", "待确认", "应用"}
+    if supplement_context.get("demand_drivers"):
+        merged["demand_drivers"] = supplement_context.get("demand_drivers", [])
+    if supplement_context.get("core_benefit_links"):
+        merged["core_benefit_links"] = supplement_context.get("core_benefit_links", [])
     for key in (
         "demand_scenarios",
         "material_process_scan",
@@ -1671,11 +2457,53 @@ def merge_theme_supplement_pool_context(context: dict, supplement_context: dict)
         "action_plan",
         "progress_ruler",
         "supplement_evidence_items",
+        "direction_frame",
+        "direction_scan",
+        "progress_ranking",
         "catalyst_calendar",
         "validation_checklist",
     ):
+        if key == "direction_frame":
+            incoming_frame = supplement_context.get(key) if isinstance(supplement_context.get(key), dict) else {}
+            if incoming_frame.get("directions"):
+                merged[key] = incoming_frame
+            continue
         existing = merged.get(key) if isinstance(merged.get(key), list) else []
         incoming = supplement_context.get(key) if isinstance(supplement_context.get(key), list) else []
+        if incoming and key == "demand_scenarios":
+            existing = [
+                row for row in existing
+                if not (isinstance(row, dict) and "report_contexts.json" in as_list(row.get("evidence")))
+            ]
+        if incoming and key == "direction_scan":
+            existing = [
+                row for row in existing
+                if not (
+                    isinstance(row, dict)
+                    and (
+                        row.get("mention_frequency") == "本地精读命中"
+                        or str(row.get("direction") or "").strip() in generic_direction_labels
+                        or is_generic_theme_info_segment(row.get("direction") or "")
+                    )
+                )
+            ]
+        if incoming and key == "progress_ranking":
+            existing = [
+                row for row in existing
+                if not (
+                    isinstance(row, dict)
+                    and (
+                        row.get("evidence_level") == "L1 curated research"
+                        or str(row.get("direction") or "").strip() in generic_direction_labels
+                        or is_generic_theme_info_segment(row.get("direction") or "")
+                    )
+                )
+            ]
+        if incoming and key == "validation_checklist":
+            existing = [
+                row for row in existing
+                if not (isinstance(row, dict) and not row.get("direction") and not row.get("source"))
+            ]
         merged[key] = incoming + existing
     return merged
 
@@ -1692,7 +2520,7 @@ def theme_information_pool_section(context: dict) -> str:
     if catalysts:
         lines.extend(["", "### IMA 催化事件", "", "| 催化/边际变化 | 可信度 | 来源 |", "|---|---|---|"])
         for row in catalysts[:8]:
-            lines.append(f"| {row.get('claim','')} | {row.get('confidence','')} | {row.get('source','')} |")
+            lines.append(f"| {compact_text(row.get('claim',''), 120)} | {row.get('confidence','')} | {compact_text(row.get('source',''), 80)} |")
     lines.extend([
         "",
         "### IMA 细颗粒题材地图",
@@ -1712,7 +2540,7 @@ def theme_information_pool_section(context: dict) -> str:
             if row.get("ticker"):
                 name = f"{name} ({row.get('ticker')})"
             lines.append(
-                f"| {row.get('segment','')} | {name} | {row.get('specificity','')} | {row.get('source','')} | {theme_info_short(row.get('claim'), 110)} |"
+                f"| {row.get('segment','')} | {name} | {row.get('specificity','')} | {compact_text(row.get('source',''), 80)} | {theme_info_short(compact_text(row.get('claim'), 130), 110)} |"
             )
     verification_nodes = pool.get("verification_nodes", []) or []
     if verification_nodes:
@@ -1758,19 +2586,129 @@ def theme_supplement_pool_section(context: dict) -> str:
     return "\n".join(parts)
 
 
-def demand_bottleneck_map_section(context: dict) -> str:
+def context_chain_items(context: dict, key: str, limit: int = 8) -> list[str]:
+    if not isinstance(context, dict):
+        return []
+    chain = context.get("industry_chain_map", {})
+    items = []
+    if isinstance(chain, dict):
+        for item in chain.get(key, []) or []:
+            if isinstance(item, dict):
+                items.append(str(item.get("name", "")).strip())
+            else:
+                items.append(str(item).strip())
+    if not items:
+        fallback_key = {
+            "downstream": "downstream",
+            "midstream": "midstream",
+            "upstream_materials": "upstream",
+            "upstream_equipment": "upstream",
+        }.get(key, key)
+        items = as_list(context.get(fallback_key))
+    return unique([x for x in items if x])[:limit]
+
+
+def direction_company_groups(companies: list[dict], profile: dict | None = None) -> dict[str, list[dict]]:
+    groups: dict[str, list[dict]] = {}
+    for company in companies or []:
+        direction = company_direction_key(company, profile)
+        groups.setdefault(direction, []).append(company)
+    return {
+        direction: sorted(rows, key=company_sort_key)
+        for direction, rows in sorted(groups.items(), key=lambda item: direction_rank(item[0], profile))
+    }
+
+
+def direction_validation_focus(direction: str, label: str) -> str:
+    if direction == "drug_pipeline":
+        return "临床进展/获批节点/BD出海/商业化放量"
+    if direction == "drug_platform":
+        return "临床数据/授权交易/平台复用/新适应症"
+    if direction in {"storage_product", "optical_module", "optical_chip", "pv_cell_module", "pv_inverter_storage", "core_product", "component_module"}:
+        return "订单/客户认证/出货节奏/收入占比"
+    if direction in {"materials", "pv_silicon"}:
+        return "价格/产能/客户导入/国产替代进度"
+    if direction == "equipment":
+        return "招标/交付/验收/产线导入"
+    if direction in {"package_test", "manufacturing"}:
+        return "扩产/良率/封测订单/资本开支"
+    if direction in {"service_platform", "downstream_channel"}:
+        return "订单/在手项目/续费或商业化放量"
+    return f"{label} 是否被公告、研报和复盘继续强化"
+
+
+def inferred_bottleneck_for_direction(direction: str, label: str, context: dict) -> str:
+    upstream_materials = "、".join(context_chain_items(context, "upstream_materials", 3))
+    upstream_equipment = "、".join(context_chain_items(context, "upstream_equipment", 3))
+    midstream = "、".join(context_chain_items(context, "midstream", 4))
+    noisy_midstream = any(token in midstream for token in ("中研普华", "中商产业", "国家药品监督", "NMPA", "协会", "研究院"))
+    if noisy_midstream:
+        midstream = ""
+    if direction == "drug_pipeline":
+        return "临床数据、注册审批、BD出海与商业化兑现"
+    if direction == "drug_platform":
+        return "靶点机制、平台复用能力、临床数据和授权交易"
+    if direction in {"storage_product", "optical_module", "optical_chip", "drug_pipeline", "pv_cell_module", "pv_inverter_storage"}:
+        return compact_text(midstream or f"{label} 的产品迭代、供给和客户验证", 90)
+    if direction in {"materials", "pv_silicon"}:
+        return compact_text(upstream_materials or f"{label} 的供给、价格和认证约束", 90)
+    if direction == "equipment":
+        if "制药" in label or "生命科学" in label:
+            return "制药装备、生物工艺装备的订单、交付和客户验证"
+        if "光伏" in label:
+            return "光伏设备的订单、交付、验收和新技术路线导入"
+        return compact_text(upstream_equipment or f"{label} 的交付、验证和产线导入", 90)
+    if direction in {"package_test", "manufacturing"}:
+        return compact_text(midstream or f"{label} 的产能、良率和工艺验证", 90)
+    return compact_text(f"{label} 的公司级产品、客户或订单验证", 90)
+
+
+def inferred_demand_source(context: dict) -> str:
+    drivers = []
+    drivers.extend(as_list(context.get("demand_drivers")) if isinstance(context, dict) else [])
+    drivers.extend(context_chain_items(context, "downstream", 8))
+    return "、".join(unique(drivers)[:4]) or "下游需求待补"
+
+
+def inferred_demand_bottleneck_rows(context: dict, companies: list[dict], profile: dict | None = None) -> list[dict]:
+    rows = []
+    groups = direction_company_groups(companies, profile)
+    demand_source = inferred_demand_source(context)
+    for direction, direction_companies in groups.items():
+        if direction in {"weak_watch", "unknown"}:
+            continue
+        label = direction_label(direction, profile)
+        reps = unique([company.get("name", "") for company in direction_companies if company.get("name")])[:4]
+        if not reps:
+            continue
+        rows.append(
+            {
+                "demand_source": demand_source,
+                "bottleneck": inferred_bottleneck_for_direction(direction, label, context),
+                "chain_links": [label],
+                "beneficiary_entities": reps,
+                "evidence": f"方向内公司 {len(direction_companies)} 家；头部样本 {len(reps)} 家",
+                "verification_items": [direction_validation_focus(direction, label)],
+            }
+        )
+    return rows[:10]
+
+
+def demand_bottleneck_map_section(context: dict, companies: list[dict] | None = None, profile: dict | None = None) -> str:
     rows = context.get("demand_bottleneck_map", []) if isinstance(context, dict) else []
     if not isinstance(rows, list) or not rows:
-        return "- 待补：需要方向池生成 demand_bottleneck_map。"
+        rows = inferred_demand_bottleneck_rows(context if isinstance(context, dict) else {}, companies or [], profile)
+    if not rows:
+        return "- 待补：需要方向池生成 demand_bottleneck_map，或先补公司方向分组。"
     lines = [
-        "| 需求来源 | 技术瓶颈 | 受益环节/方向 | 代表实体 | 证据画像 | 下一步验证 |",
+        "| 需求来源 | 瓶颈/约束 | 传导到的环节 | 代表公司 | 证据画像 | 下一步验证 |",
         "|---|---|---|---|---|---|",
     ]
     for row in rows[:18]:
         if not isinstance(row, dict):
             continue
-        profile = row.get("evidence_profile", {}) if isinstance(row.get("evidence_profile"), dict) else {}
-        evidence = direction_pool_evidence_label(profile)
+        evidence_profile = row.get("evidence_profile", {}) if isinstance(row.get("evidence_profile"), dict) else {}
+        evidence = row.get("evidence") or direction_pool_evidence_label(evidence_profile)
         verification = "；".join(as_list(row.get("verification_items"))[:2])
         lines.append(
             "| {demand} | {bottleneck} | {links} | {entities} | {evidence} | {verification} |".format(
@@ -2050,14 +2988,40 @@ def demand_drivers_section(context: dict) -> str:
     return "\n".join(parts)
 
 
-def industry_chain_map_section(context: dict) -> str:
+def compact_chain_panorama_section(context: dict, companies: list[dict] | None = None, profile: dict | None = None) -> str:
+    groups = direction_company_groups(companies or [], profile)
+    if not groups:
+        return ""
+    downstream = "、".join(context_chain_items(context, "downstream", 4)) or "下游需求待补"
+    midstream = "、".join(context_chain_items(context, "midstream", 4)) or "中游工艺待补"
+    upstream_equipment = "、".join(context_chain_items(context, "upstream_equipment", 3)) or "设备待补"
+    upstream_materials = "、".join(context_chain_items(context, "upstream_materials", 3)) or "材料待补"
+    lines = [
+        "### 压缩全景表",
+        "",
+        "| 下游需求 | 中游核心/工艺 | 上游设备 | 上游材料 | 方向 | 代表公司 | 验证点 |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for direction, rows in groups.items():
+        if direction in {"weak_watch", "unknown"}:
+            continue
+        label = direction_label(direction, profile)
+        reps = "、".join(unique([company.get("name", "") for company in rows if company.get("name")])[:4]) or "待补"
+        lines.append(
+            f"| {compact_text(downstream, 110)} | {compact_text(midstream, 110)} | {compact_text(upstream_equipment, 90)} | {compact_text(upstream_materials, 90)} | {label} | {reps} | {direction_validation_focus(direction, label)} |"
+        )
+    return "\n".join(lines)
+
+
+def industry_chain_map_section(context: dict, companies: list[dict] | None = None, profile: dict | None = None) -> str:
     chain = context.get("industry_chain_map", {}) if isinstance(context, dict) else {}
     if not isinstance(chain, dict) or not chain:
         upstream = as_list(context.get("upstream")) if isinstance(context, dict) else []
         midstream = as_list(context.get("midstream")) if isinstance(context, dict) else []
         downstream = as_list(context.get("downstream")) if isinstance(context, dict) else []
         if not any([upstream, midstream, downstream]):
-            return "- 待补：需要把方向放进上游材料/设备、中游制造、下游需求。"
+            panorama = compact_chain_panorama_section(context if isinstance(context, dict) else {}, companies, profile)
+            return panorama or "- 待补：需要把方向放进上游材料/设备、中游制造、下游需求。"
         chain = {
             "upstream_materials": [{"name": x} for x in upstream],
             "midstream": [{"name": x} for x in midstream],
@@ -2069,7 +3033,11 @@ def industry_chain_map_section(context: dict) -> str:
         "upstream_materials": "上游材料",
         "upstream_equipment": "上游设备",
     }
-    lines = ["| 层级 | 条目 | 证据类型 |", "|---|---|---|"]
+    lines = []
+    panorama = compact_chain_panorama_section(context if isinstance(context, dict) else {}, companies, profile)
+    if panorama:
+        lines.extend([panorama, "", "### 原始产业链字段", ""])
+    lines.extend(["| 层级 | 条目 | 证据类型 |", "|---|---|---|"])
     for key in ["downstream", "midstream", "upstream_materials", "upstream_equipment"]:
         items = chain.get(key, [])
         if not items:
@@ -2114,11 +3082,6 @@ def match_report_contexts(term: str, primary: str, matches: list[str], report_co
 
 def should_skip_report_context(term: str, source_name: str, ctx: dict) -> bool:
     query = normalize(term)
-    if "创新药" not in query:
-        return False
-    explicit_rwa = any(token in query for token in ("rwa", "真实世界资产", "区块链", "web3", "数字资产"))
-    if explicit_rwa:
-        return False
     haystack = " ".join(
         [
             str(source_name or ""),
@@ -2128,11 +3091,40 @@ def should_skip_report_context(term: str, source_name: str, ctx: dict) -> bool:
             " ".join(str(ev.get("text", "")) for ev in (ctx.get("evidence", []) or []) if isinstance(ev, dict)),
         ]
     ).lower()
+    if "黄金" in query:
+        gold_context_tokens = (
+            "金价",
+            "金矿",
+            "矿产金",
+            "央行购金",
+            "黄金储备",
+            "黄金etf",
+            "黄金股",
+            "金饰",
+            "金条",
+            "金币",
+            "贵金属",
+            "comex",
+            "lbma",
+            "上海金",
+            "au9999",
+            "伦敦金",
+            "实际利率",
+            "美元指数",
+            "美联储",
+            "避险",
+        )
+        return not any(token in haystack for token in gold_context_tokens)
+    if "创新药" not in query:
+        return False
+    explicit_rwa = any(token in query for token in ("rwa", "真实世界资产", "区块链", "web3", "数字资产"))
+    if explicit_rwa:
+        return False
     off_topic_tokens = ("rwa", "真实世界资产", "区块链", "web3", "数字资产", "kucoin", "交易所")
     return any(token in haystack for token in off_topic_tokens)
 
 
-def filtered_report_context_values(values: list[str]) -> list[str]:
+def filtered_report_context_values(values: list[str], term: str = "") -> list[str]:
     noise_tokens = (
         "生态",
         "国产化率",
@@ -2142,6 +3134,16 @@ def filtered_report_context_values(values: list[str]) -> list[str]:
         "下游应用层",
         "主战场",
     )
+    term_text = str(term or "")
+    off_topic_tokens = []
+    if not any(token in term_text for token in ("光伏", "太阳能", "电池")):
+        off_topic_tokens.extend(["TOPCon", "HJT", "PERC", "钙钛矿", "光伏电池", "太阳能电池"])
+    if "3D打印" not in term_text:
+        off_topic_tokens.append("3D打印钛合金")
+    if "通信" not in term_text and "6G" not in term_text:
+        off_topic_tokens.append("6G产业")
+    if not any(token in term_text for token in ("光伏", "硅片", "硅料", "电池")):
+        off_topic_tokens.append("210尺寸")
     out = []
     for value in values:
         text = str(value or "").strip()
@@ -2151,11 +3153,13 @@ def filtered_report_context_values(values: list[str]) -> list[str]:
             continue
         if any(token == text for token in noise_tokens):
             continue
+        if any(token in text for token in off_topic_tokens):
+            continue
         out.append(text)
     return out[:8]
 
 
-def report_contexts_section(rows: list[dict]) -> str:
+def report_contexts_section(rows: list[dict], term: str = "") -> str:
     if not rows:
         return "- 本地研报上下文暂未命中。"
     labels = {
@@ -2169,7 +3173,7 @@ def report_contexts_section(rows: list[dict]) -> str:
     for row in rows:
         chain = row.get("supply_chain", {}) or {}
         for key in ["downstream", "midstream", "upstream_materials", "upstream_equipment", "ecosystem"]:
-            values = filtered_report_context_values([str(v) for v in chain.get(key, []) if str(v).strip()])
+            values = filtered_report_context_values([str(v) for v in chain.get(key, []) if str(v).strip()], term)
             if values:
                 lines.append(
                     f"| [[{row.get('source_name','')}]] | {row.get('concept','')} | {labels.get(key, key)} | {'、'.join(values)} |"
@@ -2777,7 +3781,7 @@ def demand_scenarios_section(context: dict) -> str:
         if not isinstance(row, dict):
             continue
         lines.append(
-            f"| {row.get('scenario','')} | {row.get('downstream_driver','')} | {row.get('transmission_logic') or row.get('logic','')} | {row.get('process_requirement','')} | {'、'.join(as_list(row.get('beneficiary_links')))} | {'、'.join(as_list(row.get('representative_entities')))} | {row.get('next_validation','')} | {theme_info_short(row.get('evidence_summary') or '；'.join(as_list(row.get('evidence'))), 100)} |"
+            f"| {row.get('scenario','')} | {row.get('downstream_driver','')} | {row.get('transmission_logic') or row.get('logic','')} | {row.get('process_requirement','')} | {'、'.join(as_list(row.get('beneficiary_links')))} | {'、'.join(as_list(row.get('representative_entities')))} | {row.get('next_validation','')} | {theme_info_short(compact_text(row.get('evidence_summary') or '；'.join(as_list(row.get('evidence'))), 120), 100)} |"
         )
     return "\n".join(lines)
 
@@ -2787,28 +3791,35 @@ def material_process_scan_section(context: dict) -> str:
     if not isinstance(rows, list) or not rows:
         return "- 待补：需要补充工艺/材料/零部件扫描表。"
     lines = [
-        "| 工艺/材料/零部件 | 大赛道 | 环节 | 景气判断 | 提及频率 | 认知层级 | 分类 | 核心催化 | 代表公司 | 下一步验证 |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| 一级方向 | 二级细分 | 三级归类/环节 | 细分标签 | 代表公司 | 可检索验证项 | 产业进程影响权重 | 备注 |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for row in rows:
         if not isinstance(row, dict):
             continue
         lines.append(
-            f"| {row.get('name','')} | {row.get('major_track','')} | {row.get('chain_position','')} | {theme_info_short(row.get('prosperity_judgment',''), 70)} | {row.get('daily_review_frequency','')} | {row.get('cognition_level','')} | {row.get('classification','')} | {theme_info_short(row.get('core_catalyst',''), 70)} | {'、'.join(as_list(row.get('representative_entities')))} | {theme_info_short(row.get('next_validation',''), 80)} |"
+            f"| {display_label(row.get('major_track',''), context)} | {display_label(row.get('name',''), context)} | {display_label(row.get('chain_position',''), context)} | {display_label(row.get('classification',''), context)} | {'、'.join(as_list(row.get('representative_entities')))} | {theme_info_short(row.get('next_validation') or row.get('core_catalyst',''), 80)} |  | {theme_info_short(row.get('prosperity_judgment',''), 70)} |"
         )
     return "\n".join(lines)
 
 
-def industry_chain_panorama_section(context: dict) -> str:
+def industry_chain_panorama_section(context: dict, companies: list[dict] | None = None, profile: dict | None = None) -> str:
     rows = context.get("industry_chain_panorama", []) if isinstance(context, dict) else []
     if not isinstance(rows, list) or not rows:
-        return industry_chain_map_section(context)
-    lines = ["| 层级 | 环节 | 关键要素 | 代表公司 | 市场空间/价值量/产能 | 供需状态 | 产业逻辑 |", "|---|---|---|---|---|---|---|"]
+        return industry_chain_map_section(context, companies, profile)
+    lines = []
+    panorama = compact_chain_panorama_section(context if isinstance(context, dict) else {}, companies, profile)
+    if panorama:
+        lines.extend([panorama, "", "### 补充池产业链明细", ""])
+    lines.extend(["| 层级 | 环节 | 关键要素 | 代表公司 | 市场空间/价值量/产能 | 供需状态 | 产业逻辑 |", "|---|---|---|---|---|---|---|"])
     for row in rows:
         if not isinstance(row, dict):
             continue
+        segment = str(row.get("segment") or "").strip()
+        if is_generic_theme_info_segment(segment):
+            continue
         lines.append(
-            f"| {row.get('layer','')} | {row.get('segment','')} | {'、'.join(as_list(row.get('key_elements')))} | {'、'.join(as_list(row.get('representative_entities')))} | {theme_info_short(row.get('market_value_capacity',''), 70)} | {row.get('supply_demand_status','')} | {theme_info_short(row.get('industry_logic',''), 100)} |"
+            f"| {row.get('layer','')} | {row.get('segment','')} | {'、'.join(as_list(row.get('key_elements')))} | {'、'.join(as_list(row.get('representative_entities')))} | {theme_info_short(compact_text(row.get('market_value_capacity',''), 90), 70)} | {row.get('supply_demand_status','')} | {theme_info_short(compact_text(row.get('industry_logic',''), 120), 100)} |"
         )
     return "\n".join(lines)
 
@@ -2818,8 +3829,8 @@ def direction_scan_section(context: dict) -> str:
     if not isinstance(rows, list) or not rows:
         return "- 待补：需要从主题向下扫描工艺、材料、设备、应用等细分方向。"
     lines = [
-        "| 细分方向 | 一级产业 | 二级赛道 | 三级主题 | 次级相关 | 景气判断 | 提及频率 | 认知层级 | 分类 | 核心催化 | 候选公司 |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
+        "| 一级方向 | 二级细分 | 三级归类/环节 | 细分标签 | 候选公司 | 可检索验证项 | 产业进程影响权重 | 备注 |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for row in rows:
         if not isinstance(row, dict):
@@ -2829,44 +3840,379 @@ def direction_scan_section(context: dict) -> str:
         level_2 = hierarchy.get("level_2") or row.get("primary_sector") or row.get("sector", "")
         level_3 = hierarchy.get("level_3") or ""
         lines.append(
-            "| {direction} | {level_1} | {level_2} | {level_3} | {secondary} | {prosperity} | {mention_frequency} | {recognition_level} | {classification} | {core_catalyst} | {companies} |".format(
-                direction=row.get("direction", ""),
-                level_1=level_1,
-                level_2=level_2,
-                level_3=level_3,
-                secondary="、".join(as_list(row.get("secondary_sectors"))),
-                prosperity=row.get("prosperity", ""),
-                mention_frequency=row.get("mention_frequency", "待补"),
-                recognition_level=row.get("recognition_level", "待补"),
-                classification=row.get("classification", "待补"),
+            "| {level_1} | {direction} | {level_3} | {classification} | {companies} | {core_catalyst} |  | {note} |".format(
+                direction=display_label(row.get("direction", ""), context),
+                level_1=display_label(level_1, context),
+                level_3=display_label(level_3, context),
+                classification=display_label(row.get("classification", "待补"), context),
                 core_catalyst=row.get("core_catalyst", ""),
                 companies="、".join(as_list(row.get("candidate_companies"))),
+                note=display_label(level_2, context),
             )
         )
     return "\n".join(lines)
 
 
-def catalyst_calendar_section(context: dict) -> str:
-    rows = context.get("catalyst_calendar", []) if isinstance(context, dict) else []
-    if not isinstance(rows, list) or not rows:
-        return "- 待补：需要把后续验证点拆成时间、事件和观察项。"
-    lines = ["| 方向 | 时间/窗口 | 催化/验证事件 | 类型 | 当前证据 | 下一步观察 |", "|---|---|---|---|---|---|"]
-    for row in rows:
-        if not isinstance(row, dict):
+def evidence_bucket_count_summary(companies: list[dict]) -> str:
+    counts = {key: 0 for key in EVIDENCE_BUCKETS}
+    for company in companies:
+        buckets = company.get("evidence_buckets", {}) or {}
+        for key in EVIDENCE_BUCKETS:
+            if buckets.get(key):
+                counts[key] += 1
+    parts = []
+    labels = {
+        "baseline": "baseline",
+        "curated_research": "精读",
+        "delta": "复盘",
+        "graph_only": "图谱",
+        "missing": "待补",
+    }
+    for key in EVIDENCE_BUCKETS:
+        if counts[key]:
+            parts.append(f"{labels[key]}{counts[key]}")
+    return "、".join(parts) or "待补"
+
+
+def direction_qc_gap_summary(companies: list[dict]) -> str:
+    gap_specs = [
+        ("weak_granularity", "弱颗粒度"),
+        ("soft_fact_hardness", "软事实"),
+        ("chain_layer_conflict", "链层冲突"),
+        ("possible_overranked", "疑似高估"),
+        ("graph_only_only", "仅图谱"),
+        ("missing_evidence", "缺证据"),
+    ]
+    parts = []
+    for flag, label in gap_specs:
+        count = sum(1 for company in companies if flag in company_qc_flags(company))
+        if count:
+            parts.append(f"{label}{count}")
+    return "、".join(parts[:4]) or "暂无明显缺口"
+
+
+def direction_stage_label(companies: list[dict]) -> str:
+    total = len(companies)
+    if total == 0:
+        return "待补"
+    delta = len(company_bucket_hits(companies, "delta"))
+    curated = len(company_bucket_hits(companies, "curated_research"))
+    baseline = len(company_bucket_hits(companies, "baseline"))
+    graph = len(company_bucket_hits(companies, "graph_only"))
+    if delta >= 3 and curated >= 2:
+        return "催化共振"
+    if delta >= 1 and curated >= 1:
+        return "第一轮发酵"
+    if curated >= 2:
+        return "产业线索"
+    if baseline >= max(2, total // 2):
+        return "基础验证"
+    if graph >= max(1, total // 2):
+        return "观察池"
+    return "待补证"
+
+
+def direction_opportunity_class(direction: str, companies: list[dict], profile: dict | None = None) -> str:
+    stage = direction_stage_label(companies)
+    if direction in {"weak_watch", "unknown"}:
+        return "观察"
+    if stage in {"催化共振", "第一轮发酵"}:
+        return "发酵"
+    if direction in {"materials", "equipment", "package_test", "pv_silicon", "drug_platform"}:
+        return "布局"
+    if stage == "产业线索":
+        return "布局"
+    return "补证"
+
+
+def profile_subdirection_allowed(value: str, profile: dict | None = None) -> bool:
+    tokens = tuple((profile or {}).get("subdirection_tokens", ()) or ())
+    if not tokens:
+        return True
+    text = str(value or "")
+    return any(token and token in text for token in tokens)
+
+
+def direction_subdirection_allowed(value: str, direction: str, profile: dict | None = None) -> bool:
+    text = str(value or "")
+    direction_tokens = DIRECTION_SUBDIRECTION_TOKENS.get(direction, ())
+    if direction_tokens:
+        return any(token and token in text for token in direction_tokens)
+    return profile_subdirection_allowed(value, profile)
+
+
+def direction_subdirection_summary(companies: list[dict], direction: str = "", profile: dict | None = None, limit: int = 5) -> str:
+    values = []
+    for company in companies:
+        values.extend(company_subdirections(company))
+    cleaned = [
+        str(value)
+        for value in values
+        if value and not str(value).startswith("待判定") and "待细分" not in str(value)
+    ]
+    preferred = [value for value in cleaned if direction_subdirection_allowed(value, direction, profile)]
+    if (profile or {}).get("subdirection_tokens"):
+        return "、".join(unique(preferred)[:limit]) or "待细分"
+    return "、".join(unique(cleaned)[:limit]) or "待细分"
+
+
+def direction_primary_catalyst(direction: str, label: str, companies: list[dict]) -> str:
+    if direction in {"storage_product", "optical_module", "optical_chip", "pv_cell_module", "pv_inverter_storage"}:
+        return "订单/客户认证/出货或价格信号"
+    if direction == "drug_pipeline":
+        return "临床数据/获批/BD出海"
+    if direction == "drug_platform":
+        return "平台复用/授权交易/新适应症"
+    if direction in {"materials", "pv_silicon"}:
+        return "价格/产能/国产替代/客户导入"
+    if direction == "equipment":
+        return "招标/交付/验收/产线导入"
+    if direction in {"package_test", "manufacturing"}:
+        return "扩产/良率/资本开支/封测订单"
+    return direction_validation_focus(direction, label)
+
+
+def direction_radar_matrix_section(context: dict, companies: list[dict], profile: dict | None = None) -> str:
+    groups = direction_company_groups(companies, profile)
+    if not groups:
+        return "- 待补：需要先形成公司方向分组。"
+    lines = [
+        "### 题材地图检索表",
+        "",
+        "| 一级方向 | 二级细分归类 | 公司归类 | 代表公司 | 公司数 | 可检索验证项 | 证据来源类型 | 产业进程影响权重 | 备注 |",
+        "|---|---|---|---|---:|---|---|---|---|",
+    ]
+    for direction, rows in groups.items():
+        if direction in {"weak_watch", "unknown"}:
             continue
-        lines.append(f"| {row.get('direction','')} | {row.get('time','')} | {row.get('event','')} | {row.get('event_type','')} | {row.get('evidence','')} | {row.get('watch_item','')} |")
+        label = direction_label(direction, profile)
+        top_names = "、".join(unique([company.get("name", "") for company in rows if company.get("name")])[:4]) or "待补"
+        lines.append(
+            "| {label} | {subdirs} | {dtype} | {top_names} | {count} | {validation} | {evidence} |  | {gaps} |".format(
+                label=label,
+                dtype=SUBTYPE_LABELS.get(rows[0].get("company_subtype") or company_subtype(rows[0]), "方向聚合") if rows else "方向聚合",
+                subdirs=direction_subdirection_summary(rows, direction, profile),
+                count=len(rows),
+                top_names=top_names,
+                evidence=evidence_bucket_count_summary(rows),
+                validation=direction_validation_focus(direction, label),
+                gaps=direction_qc_gap_summary(rows),
+            )
+        )
     return "\n".join(lines)
 
 
-def validation_checklist_section(context: dict) -> str:
-    rows = context.get("validation_checklist", []) if isinstance(context, dict) else []
+def context_direction_terms(context: dict, profile: dict | None = None, limit: int = 12) -> list[str]:
+    rows = context.get("direction_scan", []) if isinstance(context, dict) else []
+    values = []
+    if isinstance(rows, list):
+        for row in rows:
+            if isinstance(row, dict):
+                values.append(str(row.get("direction") or row.get("name") or "").strip())
+    rows = context.get("material_process_scan", []) if isinstance(context, dict) else []
+    if isinstance(rows, list):
+        for row in rows:
+            if isinstance(row, dict):
+                values.append(str(row.get("name") or row.get("direction") or "").strip())
+    filtered = [value for value in unique(values) if value and profile_subdirection_allowed(value, profile)]
+    return filtered[:limit]
+
+
+def inferred_material_process_scan_section(context: dict, companies: list[dict], profile: dict | None = None) -> str:
+    rows = context.get("material_process_scan", []) if isinstance(context, dict) else []
+    if isinstance(rows, list) and rows:
+        return material_process_scan_section(context)
+    items = []
+    seen = set()
+    groups = direction_company_groups(companies, profile)
+    for company in sorted(companies or [], key=company_sort_key):
+        direction = company_direction_key(company, profile)
+        if direction in {"weak_watch", "unknown"}:
+            continue
+        for subdir in company_subdirections(company):
+            if not subdir or subdir.startswith("待判定") or "待细分" in subdir or subdir in seen:
+                continue
+            if not direction_subdirection_allowed(subdir, direction, profile):
+                continue
+            seen.add(subdir)
+            label = direction_label(direction, profile)
+            direction_rows = groups.get(direction, [])
+            items.append(
+                {
+                    "subdir": subdir,
+                    "direction": label,
+                    "stage": direction_stage_label(direction_rows),
+                    "category": direction_opportunity_class(direction, direction_rows, profile),
+                    "company": company.get("name", ""),
+                    "evidence": evidence_bucket_summary(company),
+                    "validation": company_validation_focus(company),
+                }
+            )
+            break
+    if not items:
+        terms = context_direction_terms(context, profile)
+        if not terms:
+            return "- 待补：需要补充工艺/材料/零部件扫描表。"
+        lines = [
+            "| 一级方向 | 二级细分 | 三级归类/环节 | 代表公司 | 可检索验证项 | 产业进程影响权重 | 备注 |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for term in terms[:10]:
+            lines.append(f"| 精读/方向池线索 | {term} | 产业线索 | 待补 | 后续映射到公司级产品、工艺、客户或订单 |  | report_context/direction_scan |")
+        return "\n".join(lines)
+    lines = [
+        "| 一级方向 | 二级细分 | 三级归类/环节 | 代表公司 | 可检索验证项 | 产业进程影响权重 | 备注 |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for item in items[:12]:
+        lines.append(
+            f"| {item['direction']} | {item['subdir']} | {item['category']} | {item['company']} | {compact_text(item['validation'], 90)} |  | {item['evidence']} |"
+        )
+    return "\n".join(lines)
+
+
+def direction_tracking_window(direction: str, signal: str) -> str:
+    text = f"{direction} {signal}"
+    if any(token in text for token in ("临床", "获批", "BD", "授权")):
+        return "下一临床/审评/BD窗口"
+    if any(token in text for token in ("价格", "库存", "价差")):
+        return "周度/月度价格与库存窗口"
+    if any(token in text for token in ("招标", "交付", "验收")):
+        return "下一招标/交付/验收窗口"
+    if any(token in text for token in ("扩产", "良率", "资本开支", "产能")):
+        return "月度产能/良率/资本开支窗口"
+    if any(token in text for token in ("客户", "认证", "出货", "订单", "收入占比")):
+        return "月度订单/客户认证/出货窗口"
+    return "未来1-3个月验证窗口"
+
+
+def direction_specific_watch_item(label: str, signal: str, top_names: str) -> str:
+    text = f"{label} {signal}"
+    items = []
+    if "价格" in text:
+        items.append(f"{label} ASP/现货价/合约价是否上行，并能否传导到毛利率")
+    if "客户" in text or "认证" in text:
+        items.append(f"{top_names} 是否披露头部客户认证、导入、定点或供应份额")
+    if "订单" in text or "出货" in text:
+        items.append(f"{top_names} 是否出现带金额、数量、交付周期或收入占比的订单/出货证据")
+    if "扩产" in text or "产能" in text or "良率" in text:
+        items.append(f"{top_names} 的扩产、良率、稼动率或资本开支是否兑现")
+    if "招标" in text or "交付" in text or "验收" in text:
+        items.append(f"{top_names} 是否进入招标、中标、交付或验收节点")
+    if "临床" in text or "获批" in text:
+        items.append(f"{top_names} 是否出现临床数据、注册审批、适应症拓展或商业化放量")
+    return "；".join(unique(items)[:3]) or f"{label} 是否出现公司级产品、客户、订单、产能或认证证据"
+
+
+def direction_upgrade_condition(label: str, signal: str, top_names: str) -> str:
+    watch = direction_specific_watch_item(label, signal, top_names)
+    return f"{watch}，且至少有一条来自公告/年报/官网/招股书/官方文件或多源研报交叉验证。"
+
+
+def direction_downgrade_condition(label: str, gaps: str) -> str:
+    if gaps and gaps != "暂无明显缺口":
+        return f"{gaps} 持续存在，或两轮验证窗口仍无法落到公司级硬事实。"
+    return f"{label} 只停留在图谱/概念/下游需求映射，缺少订单、客户、价格、产能或收入占比验证。"
+
+
+def inferred_direction_tracking_rows(context: dict, companies: list[dict], profile: dict | None = None, limit: int = 6) -> list[dict]:
+    groups = direction_company_groups(companies, profile)
+    ranked = []
+    for direction, rows in groups.items():
+        if direction in {"weak_watch", "unknown"}:
+            continue
+        label = direction_label(direction, profile)
+        score = direction_progress_score(direction, rows)
+        ranked.append((score, direction, label, rows))
+    output = []
+    for score, direction, label, rows in sorted(ranked, reverse=True)[:limit]:
+        stage = direction_stage_label(rows)
+        signal = direction_primary_catalyst(direction, label, rows)
+        evidence = evidence_bucket_count_summary(rows)
+        top_names = "、".join(unique([company.get("name", "") for company in rows if company.get("name")])[:4]) or "代表公司待补"
+        gaps = direction_qc_gap_summary(rows)
+        window = direction_tracking_window(direction, signal)
+        watch = direction_specific_watch_item(label, signal, top_names)
+        upgrade = direction_upgrade_condition(label, signal, top_names)
+        downgrade = direction_downgrade_condition(label, gaps)
+        output.append({
+            "direction": label,
+            "time": "当前已发生",
+            "event": f"{label} 已进入{stage}：{evidence}",
+            "event_type": "已发生催化/证据沉淀",
+            "evidence": f"方向评分 {score}；代表公司：{top_names}",
+            "watch_item": watch,
+            "upgrade_condition": upgrade,
+            "downgrade_condition": downgrade,
+        })
+        output.append({
+            "direction": label,
+            "time": window,
+            "event": f"验证 {signal} 是否落到 {top_names}",
+            "event_type": "未来验证窗口",
+            "evidence": "自动推导自方向矩阵、公司证据桶和 QC 缺口",
+            "watch_item": watch,
+            "upgrade_condition": upgrade,
+            "downgrade_condition": downgrade,
+        })
+    return output
+
+
+def inferred_validation_rows(context: dict, companies: list[dict], profile: dict | None = None, limit: int = 8) -> list[dict]:
+    rows = []
+    for item in inferred_direction_tracking_rows(context, companies, profile, limit):
+        if item.get("event_type") != "未来验证窗口":
+            continue
+        rows.append({
+            "direction": item.get("direction", ""),
+            "item": item.get("watch_item", ""),
+            "window": item.get("time", ""),
+            "upgrade_condition": item.get("upgrade_condition", ""),
+            "downgrade_condition": item.get("downgrade_condition", ""),
+            "status": "自动推导｜待外部证据确认",
+            "evidence": item.get("evidence", ""),
+        })
+    return rows
+
+
+def validation_rows_are_weak(rows: list[dict]) -> bool:
+    checked = [row for row in rows if isinstance(row, dict)]
+    if not checked:
+        return True
+    directional = sum(1 for row in checked if str(row.get("direction") or "").strip())
+    actionable = sum(1 for row in checked if str(row.get("upgrade_condition") or row.get("downgrade_condition") or "").strip())
+    return directional < max(2, len(checked) // 2) or actionable < max(2, len(checked) // 3)
+
+
+def catalyst_calendar_section(context: dict, companies: list[dict] | None = None, profile: dict | None = None) -> str:
+    rows = context.get("catalyst_calendar", []) if isinstance(context, dict) else []
     if not isinstance(rows, list) or not rows:
-        return "- 待补：需要列出订单、价格、客户认证、量产、收入占比等验证事项。"
-    lines = ["| 方向 | 验证事项 | 窗口 | 升级条件 | 降级条件 | 当前状态 |", "|---|---|---|---|---|---|"]
+        rows = inferred_direction_tracking_rows(context if isinstance(context, dict) else {}, companies or [], profile)
+    if not rows:
+        return "- 待补：需要把后续验证点拆成时间、事件和观察项。"
+    lines = ["| 方向 | 时间/窗口 | 催化/验证事件 | 类型 | 当前证据 | 下一步观察 | 升级条件 | 降级条件 |", "|---|---|---|---|---|---|---|---|"]
     for row in rows:
         if not isinstance(row, dict):
             continue
-        lines.append(f"| {row.get('direction','')} | {row.get('item','')} | {row.get('window','')} | {row.get('upgrade_condition') or row.get('why','')} | {row.get('downgrade_condition','')} | {row.get('status','待验证')} |")
+        lines.append(f"| {compact_text(row.get('direction',''), 80)} | {compact_text(row.get('time') or row.get('time_window',''), 40)} | {compact_text(row.get('event',''), 120)} | {compact_text(row.get('event_type',''), 60)} | {compact_text(row.get('evidence') or row.get('evidence_summary',''), 120)} | {compact_text(row.get('watch_item') or row.get('next_watch',''), 120)} | {compact_text(row.get('upgrade_condition',''), 120)} | {compact_text(row.get('downgrade_condition',''), 120)} |")
+    return "\n".join(lines)
+
+
+def validation_checklist_section(context: dict, companies: list[dict] | None = None, profile: dict | None = None) -> str:
+    rows = context.get("validation_checklist", []) if isinstance(context, dict) else []
+    if not isinstance(rows, list) or not rows:
+        rows = inferred_validation_rows(context if isinstance(context, dict) else {}, companies or [], profile)
+    elif validation_rows_are_weak(rows):
+        inferred = inferred_validation_rows(context if isinstance(context, dict) else {}, companies or [], profile)
+        if inferred:
+            rows = inferred
+    if not rows:
+        return "- 待补：需要列出订单、价格、客户认证、量产、收入占比等验证事项。"
+    lines = ["| 方向 | 验证事项 | 窗口 | 升级条件 | 降级条件 | 当前状态 | 证据依据 |", "|---|---|---|---|---|---|---|"]
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        lines.append(f"| {compact_text(row.get('direction',''), 80)} | {compact_text(row.get('item') or row.get('validation_item',''), 120)} | {compact_text(row.get('window') or row.get('time_window',''), 40)} | {compact_text(row.get('upgrade_condition') or row.get('why',''), 120)} | {compact_text(row.get('downgrade_condition',''), 120)} | {compact_text(row.get('status','待验证'), 120)} | {compact_text(row.get('evidence') or row.get('evidence_summary',''), 120)} |")
     return "\n".join(lines)
 
 
@@ -2919,9 +4265,9 @@ def progress_ranking_section(context: dict) -> str:
         lines.append(
             "| {idx} | {direction} | {stage} | {tier} | {progress_score} | {stage_reason} | {evidence_level} | {key_signal} | {upgrade_triggers} | {downgrade_risks} | {next_validation} | {priority} |".format(
                 idx=idx,
-                direction=row.get("direction", ""),
-                stage=row.get("stage", "待补"),
-                tier=row.get("tier", ""),
+                direction=display_label(row.get("direction", ""), context),
+                stage=display_label(row.get("stage", "待补"), context),
+                tier=display_label(row.get("tier", ""), context),
                 evidence_level=row.get("evidence_level", "待补"),
                 progress_score=row.get("progress_score", ""),
                 stage_reason=row.get("stage_reason", ""),
@@ -2929,9 +4275,115 @@ def progress_ranking_section(context: dict) -> str:
                 upgrade_triggers=row.get("upgrade_triggers", ""),
                 downgrade_risks=row.get("downgrade_risks", ""),
                 next_validation=row.get("next_validation", ""),
-                priority=row.get("priority", "待补"),
+                priority=display_label(row.get("priority", "待补"), context),
             )
         )
+    return "\n".join(lines)
+
+
+def direction_progress_score(direction: str, companies: list[dict]) -> int:
+    if not companies:
+        return 0
+    stage_scores = {
+        "催化共振": 82,
+        "第一轮发酵": 68,
+        "产业线索": 56,
+        "基础验证": 44,
+        "观察池": 30,
+        "待补证": 24,
+        "待补": 10,
+    }
+    score = stage_scores.get(direction_stage_label(companies), 30)
+    score += min(8, len(company_bucket_hits(companies, "delta")) * 2)
+    score += min(8, len(company_bucket_hits(companies, "curated_research")))
+    score += min(5, len(company_bucket_hits(companies, "baseline")) // 2)
+    score -= min(8, sum(1 for company in companies if "weak_granularity" in company_qc_flags(company)))
+    score -= min(6, sum(1 for company in companies if "soft_fact_hardness" in company_qc_flags(company)))
+    score -= min(5, sum(1 for company in companies if "graph_only_only" in company_qc_flags(company)))
+    if direction in {"weak_watch", "unknown"}:
+        score = min(score, 25)
+    return max(0, min(100, score))
+
+
+def direction_progress_tier(score: int, stage: str) -> str:
+    if score >= 80:
+        return "Tier 1"
+    if score >= 60:
+        return "Tier 2"
+    if score >= 40:
+        return "Tier 3"
+    return "Watch"
+
+
+def direction_progress_priority(score: int, gaps: str) -> str:
+    if score >= 80 and "暂无明显缺口" in gaps:
+        return "优先跟踪"
+    if score >= 65:
+        return "重点补证"
+    if score >= 45:
+        return "观察验证"
+    return "降权观察"
+
+
+def direction_progress_reason(direction: str, companies: list[dict]) -> str:
+    stage = direction_stage_label(companies)
+    evidence = evidence_bucket_count_summary(companies)
+    gaps = direction_qc_gap_summary(companies)
+    return f"{stage}；证据结构：{evidence}；缺口：{gaps}"
+
+
+def direction_progress_ranking_section(context: dict, companies: list[dict], profile: dict | None = None) -> str:
+    groups = direction_company_groups(companies, profile)
+    rows = []
+    for direction, direction_companies in groups.items():
+        if direction in {"weak_watch", "unknown"}:
+            continue
+        label = direction_label(direction, profile)
+        stage = direction_stage_label(direction_companies)
+        score = direction_progress_score(direction, direction_companies)
+        gaps = direction_qc_gap_summary(direction_companies)
+        rows.append(
+            {
+                "direction": label,
+                "stage": stage,
+                "tier": direction_progress_tier(score, stage),
+                "score": score,
+                "reason": direction_progress_reason(direction, direction_companies),
+                "evidence": evidence_bucket_count_summary(direction_companies),
+                "signal": direction_primary_catalyst(direction, label, direction_companies),
+                "upgrade": direction_validation_focus(direction, label),
+                "downgrade": gaps if gaps != "暂无明显缺口" else "方向内头部公司失去复盘/精读支撑",
+                "next": direction_validation_focus(direction, label),
+                "priority": direction_progress_priority(score, gaps),
+            }
+        )
+    if not rows:
+        return progress_ranking_section(context)
+    rows = sorted(rows, key=lambda row: row["score"], reverse=True)
+    lines = [
+        "| 序号 | 方向 | 阶段 | Tier | 评分 | 阶段理由 | 证据结构 | 关键信号 | 升级触发 | 降级风险 | 下一验证 | 优先级 |",
+        "|---:|---|---|---|---:|---|---|---|---|---|---|---|",
+    ]
+    for idx, row in enumerate(rows, 1):
+        lines.append(
+            "| {idx} | {direction} | {stage} | {tier} | {score} | {reason} | {evidence} | {signal} | {upgrade} | {downgrade} | {next} | {priority} |".format(
+                idx=idx,
+                direction=row["direction"],
+                stage=row["stage"],
+                tier=row["tier"],
+                score=row["score"],
+                reason=compact_text(row["reason"], 100),
+                evidence=row["evidence"],
+                signal=row["signal"],
+                upgrade=row["upgrade"],
+                downgrade=compact_text(row["downgrade"], 80),
+                next=row["next"],
+                priority=row["priority"],
+            )
+        )
+    original = progress_ranking_section(context)
+    if not original.startswith("- 待补"):
+        lines.extend(["", "### 原始方向池进度", "", original])
     return "\n".join(lines)
 
 
@@ -2976,8 +4428,16 @@ def recognition_timeline_section(context: dict) -> str:
     for row in rows:
         if not isinstance(row, dict):
             continue
+        time_window = compact_text(row.get("time_window", ""), 40)
+        event = theme_info_short(compact_text(row.get("event", ""), 120), 90)
+        recognition_stage = compact_text(row.get("recognition_stage", ""), 40)
+        market_consensus = compact_text(row.get("market_consensus", ""), 30)
+        fact_level = compact_text(row.get("fact_level", ""), 40)
+        direction = compact_text(row.get("direction", ""), 80)
+        related_entities = compact_text("、".join(as_list(row.get("related_entities"))), 80)
+        evidence_summary = theme_info_short(compact_text(row.get("evidence_summary", ""), 120), 90)
         lines.append(
-            f"| {row.get('time_window','')} | {theme_info_short(row.get('event',''), 90)} | {row.get('recognition_stage','')} | {row.get('market_consensus','')} | {row.get('fact_level','')} | {row.get('direction','')} | {'、'.join(as_list(row.get('related_entities')))} | {theme_info_short(row.get('evidence_summary',''), 90)} |"
+            f"| {time_window} | {event} | {recognition_stage} | {market_consensus} | {fact_level} | {direction} | {related_entities} | {evidence_summary} |"
         )
     return "\n".join(lines)
 
@@ -3009,7 +4469,7 @@ def action_plan_section(context: dict) -> str:
     lines = ["| 优先级 | 方向 | 核心逻辑 | 操作思路 | 等待条件 | 风险提示 |", "|---|---|---|---|---|---|"]
     for row in rows:
         lines.append(
-            f"| {row.get('priority_bucket','')} | {row.get('direction','')} | {theme_info_short(row.get('core_logic',''), 90)} | {theme_info_short(row.get('action_thesis',''), 90)} | {theme_info_short(row.get('wait_for',''), 80)} | {theme_info_short(row.get('risk_warning',''), 80)} |"
+            f"| {compact_text(display_label(row.get('priority_bucket',''), context), 40)} | {compact_text(display_label(row.get('direction',''), context), 80)} | {theme_info_short(compact_text(row.get('core_logic',''), 120), 90)} | {theme_info_short(compact_text(row.get('action_thesis',''), 120), 90)} | {theme_info_short(compact_text(row.get('wait_for',''), 100), 80)} | {theme_info_short(compact_text(row.get('risk_warning',''), 100), 80)} |"
         )
     return "\n".join(lines)
 
@@ -3023,7 +4483,7 @@ def supplement_evidence_section(context: dict) -> str:
         if not isinstance(row, dict):
             continue
         lines.append(
-            f"| {row.get('section_type','')} | {row.get('target','')} | {theme_info_short(row.get('evidence',''), 90)} | {row.get('source','')} | {row.get('source_date','')} | {row.get('confidence','')} | {'是' if row.get('needs_review') else '否'} | {row.get('item_id','')} |"
+            f"| {row.get('section_type','')} | {row.get('target','')} | {theme_info_short(compact_text(row.get('evidence',''), 120), 90)} | {compact_text(row.get('source',''), 80)} | {row.get('source_date','')} | {row.get('confidence','')} | {'是' if row.get('needs_review') else '否'} | {row.get('item_id','')} |"
         )
     return "\n".join(lines)
 
@@ -3083,6 +4543,8 @@ def source_basis(company: dict) -> list[str]:
         basis.append("PDF研报/深度研究")
     if buckets.get("delta"):
         basis.append("精选逻辑/脱水/复盘")
+    if has_ima_logic_card_source(company):
+        basis.append("IMA个股逻辑卡")
     if company.get("context_mentions"):
         basis.append("full精读上下文提及")
     if buckets.get("baseline"):
@@ -3111,10 +4573,22 @@ def is_explicit_weak_company(company: dict) -> bool:
     )
 
 
+def is_distribution_channel_company(company: dict) -> bool:
+    subtype = company.get("company_subtype") or company_subtype(company)
+    if subtype == "downstream_channel":
+        return True
+    text = evidence_text(company)
+    return any(token in text for token in ("电子元器件分销", "分销商", "分销平台", "代理分销", "经销"))
+
+
 def company_guardrail_note(company: dict) -> str:
     flags = [x for x in company_qc_flags(company) if x in ("weak_granularity", "review_required", "soft_fact_hardness", "chain_layer_conflict", "graph_only_only", "missing_evidence")]
+    guardrails = [compact_text(x, 90) for x in company.get("guardrails", []) if str(x).strip()]
     if is_explicit_weak_company(company):
         return "弱相关护栏：仅作观察，不进入相对核心。"
+    if guardrails:
+        prefix = f"结构化护栏：{'；'.join(unique(guardrails)[:2])}"
+        return f"{prefix}；数据标记：{'、'.join(flags)}" if flags else prefix
     if flags:
         return f"数据护栏：{ '、'.join(flags) }；不否定题材逻辑，但需要后续文本/资料继续验证。"
     return "后续看研报/精选逻辑是否继续强化；公告订单业绩仅作验证空位。"
@@ -3132,7 +4606,8 @@ def company_deep_dive_tier(company: dict) -> str:
     basis = set(source_basis(company))
     if is_explicit_weak_company(company):
         return "weak"
-    if has_weak_granularity_signal(company) and company.get("strength") != "core" and not buckets.get("curated_research"):
+    has_ima_logic = has_ima_logic_card_source(company)
+    if has_weak_granularity_signal(company) and company.get("strength") != "core" and not buckets.get("curated_research") and not has_ima_logic:
         return "weak"
     research_or_logic = bool(buckets.get("curated_research") or buckets.get("delta"))
     has_context = "full精读上下文提及" in basis
@@ -3141,8 +4616,12 @@ def company_deep_dive_tier(company: dict) -> str:
     subtype = company.get("company_subtype") or company_subtype(company)
     if has_baseline and not research_or_logic and not has_context and consensus == 0:
         return "weak"
+    if is_distribution_channel_company(company):
+        return "watch" if research_or_logic or has_baseline or has_context else "weak"
     if is_downstream_or_ecosystem_company(company) and company.get("strength") != "core":
         return "watch" if research_or_logic or has_baseline or has_context else "weak"
+    if "weak_granularity" in flags and has_ima_logic and not buckets.get("curated_research") and not has_context and not has_baseline:
+        return "related" if company.get("strength") == "core" else "watch"
     if company.get("strength") == "core" and research_or_logic:
         return "relative_core"
     if consensus >= 3 and subtype in {"core_subject", "component_supplier", "upstream_equipment", "upstream_materials", "service_provider"}:
@@ -3555,7 +5034,59 @@ def company_logic_strength(company: dict) -> str:
 def compact_text(text: str, limit: int = 120) -> str:
     value = re.sub(r"\s+", "", str(text or "").strip())
     value = value.replace("", "")
+    value = value.replace("券商研判", "第三方研判").replace("券商", "第三方机构")
+    value = re.sub(r"[\u4e00-\u9fa5]{0,8}证券", "第三方机构", value)
+    value = re.sub(r"[\u4e00-\u9fa5]{0,8}证券(研报|认为|电话会)", r"第三方\1", value)
+    value = value.replace("风光核电", "风光等非煤电源").replace("核电", "非煤电源")
     return value[:limit] + ("…" if len(value) > limit else "")
+
+
+def display_label(value: str, context=None) -> str:
+    label = str(value or "").strip()
+    if not label:
+        return ""
+    context_text = ""
+    if isinstance(context, dict):
+        context_text = " ".join(
+            str(x)
+            for x in (
+                as_list(context.get("aliases"))
+                + as_list(context.get("related_terms"))
+                + as_list(context.get("capability_stack"))
+                + as_list(context.get("definition"))
+                + as_list((context.get("theme_supplement_pool") or {}).get("source_file") if isinstance(context.get("theme_supplement_pool"), dict) else "")
+            )
+        )
+    if "人形机器人" in context_text or "具身智能" in context_text:
+        replacements = {
+            "材料": "轻量化材料",
+            "电池": "机器人电池/电源管理",
+            "设备": "机器人制造/检测设备",
+        }
+        return replacements.get(label, label)
+    return label
+
+
+def should_skip_structured_company_card(company: dict, term: str) -> bool:
+    if not isinstance(company, dict):
+        return True
+    text = " ".join(
+        str(x)
+        for x in [
+            company.get("name", ""),
+            " ".join(company.get("roles", []) or []),
+            " ".join(company.get("evidence", []) or []),
+            " ".join(company_subdirections(company)),
+        ]
+    )
+    subdirs = company_subdirections(company)
+    pending_subdir = not subdirs or all("待判定" in str(x) or "待细分" in str(x) for x in subdirs)
+    term_text = str(term or "")
+    if "AI PCB" in term_text or "AIPCB" in term_text:
+        contamination_tokens = ("人形机器人", "机器人", "Optimus", "火箭", "商业航天", "谐波减速器", "关节模组")
+        if pending_subdir and any(token in text for token in contamination_tokens):
+            return True
+    return False
 
 
 def strongest_evidence_snippet(company: dict) -> str:
@@ -3583,9 +5114,48 @@ def capability_validation(label: str) -> tuple[str, str]:
     return str(rule.get("theme") or label), str(rule.get("validation") or "后续研报/精选逻辑是否继续强化该方向。")
 
 
-def company_logic_summary(company: dict) -> str:
+def split_display_chunks(text: str, separators: str = "；;、") -> list[str]:
+    chunks = []
+    current = []
+    depth = 0
+    pairs = {"（": "）", "(": ")", "【": "】", "[": "]"}
+    closes = set(pairs.values())
+    for char in str(text or ""):
+        if char in pairs:
+            depth += 1
+        elif char in closes and depth > 0:
+            depth -= 1
+        if char in separators and depth == 0:
+            value = "".join(current).strip()
+            if value:
+                chunks.append(value)
+            current = []
+        else:
+            current.append(char)
+    value = "".join(current).strip()
+    if value:
+        chunks.append(value)
+    return chunks
+
+
+def themed_company_roles(company: dict, term: str = "", limit: int = 2) -> str:
+    roles = [str(x) for x in company.get("roles", []) or [] if str(x).strip()]
+    if not roles:
+        return "待补角色"
+    chunks = []
+    for role in roles:
+        chunks.extend(split_display_chunks(role))
+    if theme_compatible(term, "存储芯片"):
+        storage_tokens = ("存储", "HBM", "DRAM", "NAND", "NOR", "DDR", "SSD", "封测", "封装", "测试", "半导体", "晶圆", "主控", "EEPROM", "芯片", "洁净室", "ASIC", "MCU")
+        focused = [chunk for chunk in chunks if any(token in chunk for token in storage_tokens)]
+        if focused:
+            chunks = focused
+    return compact_text("；".join(unique(chunks)[:limit]) or "待补角色", 160)
+
+
+def company_logic_summary(company: dict, term: str = "") -> str:
     name = company.get("name", "")
-    role = "；".join(company.get("roles", [])[:2]) or "待补角色"
+    role = themed_company_roles(company, term)
     subdirs = "、".join(company_subdirections(company))
     strength = company_logic_strength(company)
     basis_items = [x for x in source_basis(company) if x != "baseline基础画像"]
@@ -3604,12 +5174,54 @@ def company_logic_summary(company: dict) -> str:
 
 
 def company_validation_focus(company: dict) -> str:
+    explicit = [compact_text(x, 100) for x in company.get("validation_focus", []) if str(x).strip()]
+    if explicit:
+        return "；".join(unique(explicit)[:3])
     subdirs = company_subdirections(company)
     checks = [capability_validation(label)[1] for label in subdirs if capability_rule_by_label(label)]
     if not checks:
         checks.append("后续研报/精选逻辑是否继续强化该公司与题材主线的直接关系")
-    checks.append("公告订单业绩仅作后续验证空位")
+    checks.append("复盘中观察逻辑卡、业务线和同环节公司是否继续强化")
     return "；".join(checks[:3])
+
+
+def recent_ima_company_sort_key(company: dict) -> tuple:
+    tier_rank = {"relative_core": 0, "related": 1, "watch": 2, "weak": 3}
+    return (
+        1 if is_distribution_channel_company(company) else 0,
+        tier_rank.get(company_deep_dive_tier(company), 3),
+        -confidence_score(company),
+        company_sort_key(company),
+    )
+
+
+def recent_ima_logic_card_pool_section(companies: list[dict], limit: int = 20, term: str = "") -> str:
+    rows = [
+        c for c in companies
+        if has_ima_logic_card_source(c)
+        and company_deep_dive_tier(c) != "weak"
+        and not should_skip_structured_company_card(c, term)
+    ]
+    rows = sorted(rows, key=recent_ima_company_sort_key)[:limit]
+    if not rows:
+        return "- 暂无近期 IMA 个股逻辑卡候选。"
+    lines = [
+        "| 公司 | 分层 | 置信度 | 公司类型 | 关联概念 | 产业链角色 | 来源 | 护栏 |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    tier_labels = {"relative_core": "相对核心", "related": "重点相关", "watch": "观察/弹性", "weak": "弱相关"}
+    for company in rows:
+        tier = company_deep_dive_tier(company)
+        confidence = "、".join(company.get("confidence", [])[:2]) or "待标注"
+        subtype = SUBTYPE_LABELS.get(company.get("company_subtype") or company_subtype(company), "待判定")
+        concepts = "、".join(company.get("concepts", [])[:4])
+        roles = compact_text(themed_company_roles(company, term), 90)
+        sources = compact_text("、".join([s for s in company.get("sources", []) if has_ima_logic_card_source_text(s)][:2]), 90)
+        guardrail = "分销/生态侧，默认不提核心" if is_distribution_channel_company(company) else compact_text(company_guardrail_note(company), 80)
+        lines.append(
+            f"| {company.get('name','')} | {tier_labels.get(tier, tier)} | {confidence} | {subtype} | {concepts} | {roles} | {sources} | {guardrail} |"
+        )
+    return "\n".join(lines)
 
 
 def subdirection_validation_section(companies: list[dict]) -> str:
@@ -3637,7 +5249,7 @@ def subdirection_validation_section(companies: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def deep_company_cards_section(companies: list[dict], tier: str, limit: int = 10) -> str:
+def deep_company_cards_section(companies: list[dict], tier: str, limit: int = 10, term: str = "", has_structured_supplement: bool = False) -> str:
     labels = {
         "relative_core": "相对核心",
         "related": "重点相关",
@@ -3645,28 +5257,30 @@ def deep_company_cards_section(companies: list[dict], tier: str, limit: int = 10
         "weak": "弱相关",
     }
     rows = [c for c in companies if company_deep_dive_tier(c) == tier]
+    if has_structured_supplement:
+        rows = [c for c in rows if not should_skip_structured_company_card(c, term)]
     rows = sorted(rows, key=company_sort_key)[:limit]
     if not rows:
         return "- 暂无。"
     parts = []
     for company in rows:
-        roles = "；".join(company.get("roles", [])[:2]) or "待补角色"
+        roles = themed_company_roles(company, term)
         layers = "、".join(normalized_chain_layers(company)[:3]) or "unknown"
-        sources = "、".join(source_basis(company))
+        sources = compact_text("、".join(source_basis(company)), 120)
         baseline = "支持/不冲突" if (company.get("evidence_buckets", {}) or {}).get("baseline") else "待补基础画像或仅作辅助"
         parts.append(
             "\n".join(
                 [
                     f"### {company.get('name','')}（{labels.get(tier, tier)}）",
-                    f"- 细分方向：{'、'.join(company_subdirections(company))}",
+                    f"- 细分方向：{compact_text('、'.join(company_subdirections(company)), 120)}",
                     f"- 逻辑强度：{company_logic_strength(company)}",
                     f"- 产业链角色：{roles}",
                     f"- 所属环节：{layers}；公司类型：{SUBTYPE_LABELS.get(company.get('company_subtype'), '待判定')}",
-                    f"- 题材逻辑：{company_logic_summary(company)}",
+                    f"- 题材逻辑：{compact_text(company_logic_summary(company, term), 260)}",
                     f"- 来源依据：{sources}",
                     f"- baseline校验：{baseline}",
-                    f"- 重点验证：{company_validation_focus(company)}",
-                    f"- 护栏/验证：{company_guardrail_note(company)}",
+                    f"- 重点验证：{compact_text(company_validation_focus(company), 160)}",
+                    f"- 护栏/验证：{compact_text(company_guardrail_note(company), 160)}",
                 ]
             )
         )
@@ -3694,9 +5308,41 @@ def resonance_tiers_section(context: dict, companies: list[dict]) -> str:
     return "\n".join(lines) if len(lines) > 2 else "- 暂无可分层信号。"
 
 
-def deep_dive_conclusion(term: str, context: dict, companies: list[dict]) -> str:
+def conclusion_direction_candidates(context: dict) -> list[dict]:
     direction_rows = context.get("direction_scan", []) if isinstance(context, dict) else []
     directions = [row for row in direction_rows if isinstance(row, dict) and row.get("direction")]
+    material_rows = context.get("material_process_scan", []) if isinstance(context, dict) else []
+    supplement_directions = []
+    for row in material_rows if isinstance(material_rows, list) else []:
+        if not isinstance(row, dict) or not row.get("name"):
+            continue
+        prosperity = "；".join(
+            x for x in [
+                str(row.get("prosperity_judgment") or "").strip(),
+                str(row.get("core_catalyst") or "").strip(),
+            ] if x
+        )
+        supplement_directions.append({
+            "direction": row.get("name", ""),
+            "prosperity": prosperity,
+            "core_catalyst": row.get("next_validation") or row.get("core_catalyst", ""),
+            "classification": row.get("classification") or row.get("chain_position", ""),
+            "recognition_level": row.get("cognition_level") or row.get("daily_review_frequency", ""),
+            "candidate_companies": as_list(row.get("representative_entities")),
+        })
+    seen = set()
+    merged = []
+    for row in supplement_directions + directions:
+        key = str(row.get("direction") or "").strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        merged.append(row)
+    return merged
+
+
+def deep_dive_conclusion(term: str, context: dict, companies: list[dict]) -> str:
+    directions = conclusion_direction_candidates(context)
     demand = as_list(context.get("demand_drivers"))[:4] if isinstance(context, dict) else []
     core = [c for c in companies if company_deep_dive_tier(c) == "relative_core"][:6]
     related = [c for c in companies if company_deep_dive_tier(c) == "related"][:6]
@@ -3949,6 +5595,7 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
     theme_signals = load_json(rel_dir / RELATION_FILES["theme_signals"], {"version": 1, "themes": {}})
     pattern_library = load_json(rel_dir / RELATION_FILES["pattern_library"], {"version": 1, "patterns": {}})
     report_contexts = load_json(rel_dir / RELATION_FILES["report_contexts"], {"version": 1, "reports": {}})
+    benchmark_maps = load_json(rel_dir / RELATION_FILES["benchmark_maps"], {"version": 1, "maps": []})
     concepts = graph.get("concepts", {})
     context = context or {}
     explicit_definition = bool(definition.strip())
@@ -3976,6 +5623,7 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
     context = merge_theme_direction_pool_context(context, direction_pool_context)
     supplement_pool_context = build_theme_supplement_pool_context(theme_supplement_pool or {})
     context = merge_theme_supplement_pool_context(context, supplement_pool_context)
+    context = merge_theme_info_fine_components(context, term, theme_info_rows or [])
     if not explicit_definition and theme_info_context.get("definition"):
         definition = theme_info_context.get("definition", "")
     match_scope = matches or ([primary] if primary in concepts else [])
@@ -4011,10 +5659,38 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
                 company["context_mentions"] = structured_mentions[name]
             elif name and name in t:
                 company["context_mentions"] = [{"directness": "direct"}]
-    companies = refresh_company_subtypes(companies)
+    direction_profile = theme_direction_profile(term, company_scope or all_scope or match_scope)
+    companies = refresh_company_subtypes(companies, direction_profile)
     evidence = collect_evidence(company_scope or all_scope, companies, evidence_index)
     signal = load_signal(theme_signals, primary, matches)
     patterns = match_patterns(pattern_library, " ".join([term, external_search_text]), match_scope or [term])
+    benchmark_query_text = " ".join(
+        [
+            term,
+            primary,
+            " ".join(matches or []),
+            " ".join(rels or []),
+            definition,
+            context_search_text(context),
+            context_company_text(context),
+            " ".join(c.get("name", "") for c in companies if isinstance(c, dict)),
+        ]
+    )
+    benchmark_matches = match_benchmark_maps(term, benchmark_maps, benchmark_query_text)
+    has_structured_supplement = bool(theme_supplement_pool) and any(
+        (theme_supplement_pool.get(key) or [])
+        for key in (
+            "definition_profile_rows",
+            "demand_scenarios",
+            "material_process_scan",
+            "validation_items",
+            "catalyst_calendar",
+            "industry_chain_panorama",
+            "recognition_timeline",
+            "action_plan",
+        )
+    )
+    display_report_contexts = [] if has_structured_supplement else local_report_contexts
     return {
         "graph": graph,
         "concepts": concepts,
@@ -4025,6 +5701,8 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         "context": context,
         "definition": definition,
         "local_report_contexts": local_report_contexts,
+        "display_report_contexts": display_report_contexts,
+        "has_structured_supplement": has_structured_supplement,
         "match_scope": match_scope,
         "rels": rels,
         "all_scope": all_scope,
@@ -4038,7 +5716,1139 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         "theme_info_context": theme_info_context,
         "theme_direction_pool": theme_direction_pool or {},
         "theme_supplement_pool": theme_supplement_pool or {},
+        "direction_profile": direction_profile,
+        "benchmark_maps": benchmark_maps,
+        "benchmark_matches": benchmark_matches,
+        "benchmark_query_text": benchmark_query_text,
     }
+
+
+def front_compact_text(text: str, limit: int = 90) -> str:
+    value = re.sub(r"\s+", " ", str(text or "").strip())
+    if value.startswith("{") and value.endswith("}"):
+        try:
+            parsed = ast.literal_eval(value)
+            if isinstance(parsed, dict):
+                value = "；".join(str(parsed.get(key, "")).strip() for key in ("concept", "role", "business_line", "evidence", "validation_focus", "guardrail") if str(parsed.get(key, "")).strip())
+        except Exception:
+            extracted = []
+            for key in ("concept", "role", "business_line", "evidence", "validation_focus", "guardrail"):
+                m = re.search(rf"['\"]{key}['\"]\s*:\s*['\"]([^'\"]+)['\"]", value)
+                if m:
+                    extracted.append(m.group(1))
+            if extracted:
+                value = "；".join(extracted)
+    elif value.startswith("{"):
+        extracted = []
+        for key in ("concept", "role", "business_line", "evidence", "validation_focus", "guardrail"):
+            m = re.search(rf"['\"]{key}['\"]\s*:\s*['\"]([^'\"]+)['\"]", value)
+            if m:
+                extracted.append(m.group(1))
+        if extracted:
+            value = "；".join(extracted)
+    value = value.replace("", "")
+    value = value.replace("券商研判", "第三方研判").replace("券商", "第三方机构")
+    value = re.sub(r"[\u4e00-\u9fa5]{0,8}证券", "第三方机构", value)
+    value = value.replace("公告订单业绩仅作验证空位", "后续看复盘、逻辑卡和业务数据是否继续强化")
+    value = value.replace("公告订单业绩仅作后续验证空位", "复盘中观察逻辑卡、业务线和同环节公司是否继续强化")
+    value = value.replace("复盘/逻辑卡/业务数据仅作后续验证空位", "复盘中观察逻辑卡、业务线和同环节公司是否继续强化")
+    value = value.replace("公告订单业绩", "复盘/逻辑卡/业务数据")
+    value = value.replace("公告、研报和复盘", "复盘、研报和逻辑卡")
+    value = value.replace("公告、定报", "定报/业务数据")
+    value = value.replace("后续研报/精选逻辑是否继续强化该公司与题材主线的直接关系；", "")
+    value = value.replace("复盘中观察逻辑卡、业务线和同环节公司是否继续强化", "看逻辑卡/业务线/同环节扩散")
+    value = value.replace("是否被更多资料确认受益；", "")
+    value = value.replace("是否被更多资料确认受益", "")
+    value = value.replace("无需特别追踪", "")
+    value = value.replace("同环节公司/相邻工艺待补", "")
+    return value[:limit] + ("…" if len(value) > limit else "")
+
+
+def front_unique_join(values: list[str], limit: int = 4, empty: str = "待补") -> str:
+    items = unique([front_compact_text(v, 36) for v in values if str(v).strip()])
+    return "、".join(items[:limit]) if items else empty
+
+
+def front_theme_anchor(term: str, definition: str, context: dict) -> str:
+    profile = context.get("definition_profile", {}) if isinstance(context, dict) and isinstance(context.get("definition_profile"), dict) else {}
+    anchor = str(profile.get("one_line_anchor", "")).strip()
+    if anchor:
+        return front_compact_text(anchor, 140)
+    if definition.strip():
+        return front_compact_text(definition, 140)
+    return f"{term}：由需求变化、供给周期、产业链验证和个股逻辑卡共同驱动的题材地图。"
+
+
+def front_driver_items(context: dict, companies: list[dict], limit: int = 5) -> list[str]:
+    items = []
+    for key in ("demand_drivers", "demand_scenarios", "recognition_timeline", "catalyst_calendar"):
+        for row in context.get(key, []) or []:
+            if not isinstance(row, dict):
+                continue
+            text = "：".join(
+                str(row.get(field, "")).strip()
+                for field in ("driver", "scenario", "event", "catalyst", "change", "logic", "description", "impact")
+                if str(row.get(field, "")).strip()
+            )
+            if text:
+                items.append(front_compact_text(text, 80))
+            if len(unique(items)) >= limit:
+                return unique(items)[:limit]
+    if companies:
+        basis = [c.get("name", "") for c in sorted(companies, key=company_sort_key)[:6]]
+        items.append(f"公司业务线更新：{front_unique_join(basis, 6)}等公司出现新的业务线或上下游发散线索。")
+    return unique(items)[:limit] or ["暂无明确发酵驱动。"]
+
+
+def front_company_bucket(company: dict, term: str = "", profile: dict | None = None) -> str:
+    if profile:
+        direction = company_direction_key(company, profile)
+        label = direction_label(direction, profile)
+        if label and label != "待判定":
+            return label
+    text = " ".join(
+        str(x)
+        for x in (
+            [company.get("name", ""), themed_company_roles(company, term)]
+            + as_list(company.get("concepts"))
+            + as_list(company.get("chain_layers"))
+            + as_list(company.get("evidence"))
+        )
+    )
+    if any(token in text for token in ("DDR5", "RCD", "SPD", "VPD", "MRDIMM", "CXL", "内存接口")):
+        return "DDR5/接口芯片"
+    if any(token in text for token in ("模组", "SSD", "eSSD", "主控", "嵌入式存储", "移动存储")):
+        return "模组/SSD/主控"
+    if any(token in text for token in ("NOR", "NAND", "DRAM", "存储芯片", "利基存储", "芯片设计")) and not any(token in text for token in ("设备", "封测", "封装", "材料")):
+        return "存储设计/产品"
+    if any(token in text for token in ("封测", "封装", "HBM封装", "CoWoS", "先进封装", "DRAM封测")):
+        return "封测/HBM封装"
+    if any(token in text for token in ("测试", "量测", "探针", "测试机")):
+        return "测试设备"
+    if any(token in text for token in ("设备", "ALD", "CVD", "刻蚀", "清洗", "SDBG", "隐切", "沉积")):
+        return "前道/专用设备"
+    if any(token in text for token in ("材料", "EMC", "Low-α", "球硅", "前驱体", "电镀液", "硅片", "靶材", "特气", "CMP")):
+        return "材料/硅片/化学品"
+    return "相关环节"
+
+
+def front_bucket_order(companies: list[dict], profile: dict | None = None) -> list[str]:
+    labels = []
+    if profile:
+        for direction in profile.get("ranks", ()) or ():
+            label = direction_label(direction, profile)
+            if label and label != "待判定":
+                labels.append(label)
+    labels.extend(front_company_bucket(company, profile=profile) for company in companies)
+    labels.extend(["相关环节"])
+    return unique([label for label in labels if label and label != "待判定"])
+
+
+def front_context_bucket(row: dict) -> str:
+    text = " ".join(
+        str(row.get(field, ""))
+        for field in ("layer", "segment", "name", "major_track", "chain_position", "key_elements", "industry_logic", "evidence_summary")
+    )
+    if any(token in text for token in ("DDR5", "RCD", "SPD", "VPD", "MRDIMM", "CXL", "内存接口")):
+        return "DDR5/接口芯片"
+    if any(token in text for token in ("模组", "SSD", "eSSD", "主控", "嵌入式存储", "移动存储")):
+        return "模组/SSD/主控"
+    if any(token in text for token in ("封测", "封装", "HBM封装", "CoWoS", "先进封装", "DRAM封测")):
+        return "封测/HBM封装"
+    if any(token in text for token in ("测试", "量测", "探针", "测试机")):
+        return "测试设备"
+    if any(token in text for token in ("设备", "ALD", "CVD", "刻蚀", "清洗", "SDBG", "隐切", "沉积")):
+        return "前道/专用设备"
+    if any(token in text for token in ("材料", "EMC", "Low-α", "球硅", "前驱体", "电镀液", "硅片", "靶材", "特气", "CMP")):
+        return "材料/硅片/化学品"
+    if any(token in text for token in ("NOR", "NAND", "DRAM", "存储芯片", "利基存储", "芯片设计", "HBM")):
+        return "存储设计/产品"
+    return "相关环节"
+
+
+def front_context_chain_additions(context: dict) -> dict[str, list[dict]]:
+    banned = {"SK海力士", "三星", "美光", "英伟达", "台积电", "长鑫科技", "长鑫存储", "长江存储", "爱德万", "泰瑞达"}
+    additions: dict[str, list[dict]] = {}
+    rows = []
+    for key in ("industry_chain_panorama", "material_process_scan"):
+        rows.extend([row for row in (context.get(key, []) or []) if isinstance(row, dict)])
+    for row in rows:
+        reps = as_list(row.get("representative_entities") or row.get("candidate_companies"))
+        reps = [name for name in reps if name and name not in banned and not re.search(r"^[A-Za-z0-9_ .-]+$", str(name))]
+        if not reps:
+            continue
+        bucket = front_context_bucket(row)
+        additions.setdefault(bucket, []).append({
+            "names": reps,
+            "role": row.get("segment") or row.get("name") or row.get("key_elements") or "",
+            "validation": row.get("next_validation") or row.get("core_catalyst") or "",
+        })
+    return additions
+
+
+def front_chain_stage_for_bucket(bucket: str) -> str:
+    text = str(bucket or "")
+    if any(token in text for token in ("下游", "渠道", "运营", "电站", "商业化")):
+        return "下游需求/应用"
+    if any(token in text for token in ("材料", "化学品", "硅料", "硅片", "辅材", "玻璃", "胶膜")):
+        return "上游材料"
+    if any(token in text for token in ("设备", "量检测", "测试", "制药装备")):
+        return "上游设备"
+    if any(token in text for token in ("服务", "平台", "生态", "CXO", "CRO", "CDMO")):
+        return "配套服务/生态"
+    return "中游产品/制造"
+
+
+def front_chain_rows(companies: list[dict], term: str = "", context: dict | None = None, profile: dict | None = None, limit_per_bucket: int = 10) -> list[dict]:
+    bucket_order = front_bucket_order(companies, profile)
+    grouped = {key: [] for key in bucket_order}
+    for company in sorted(companies, key=lambda c: ({"relative_core": 0, "related": 1, "watch": 2, "weak": 3}.get(company_deep_dive_tier(c), 3), company_sort_key(c))):
+        if company_deep_dive_tier(company) == "weak":
+            continue
+        grouped.setdefault(front_company_bucket(company, term, profile), []).append(company)
+    additions = front_context_chain_additions(context or {})
+    rows_out = []
+    for bucket in bucket_order:
+        rows = grouped.get(bucket, [])[:limit_per_bucket]
+        extra_rows = additions.get(bucket, [])
+        if not rows and not extra_rows:
+            continue
+        company_names = [c.get("name", "") for c in rows]
+        extra_names = [name for row in extra_rows for name in row.get("names", [])]
+        names = front_unique_join(company_names + extra_names, limit_per_bucket)
+        roles = front_unique_join([themed_company_roles(c, term) for c in rows] + [row.get("role", "") for row in extra_rows], 4)
+        rows_out.append({"bucket": bucket, "roles": roles, "companies": names, "stage": front_chain_stage_for_bucket(bucket)})
+    return rows_out
+
+
+def front_chain_tree_section(term: str, rows: list[dict], context: dict | None = None) -> str:
+    if not rows:
+        return ""
+    stage_order = ["下游需求/应用", "中游产品/制造", "上游材料", "上游设备", "配套服务/生态"]
+    grouped: dict[str, list[dict]] = {stage: [] for stage in stage_order}
+    for row in rows:
+        grouped.setdefault(row["stage"], []).append(row)
+    downstream_items = context_chain_items(context or {}, "downstream", 5)
+    lines = [front_compact_text(term or "题材", 40)]
+    if downstream_items:
+        lines.append(f"├─ 终端需求：{front_unique_join(downstream_items, 5, '')}")
+    visible_stages = [stage for stage in stage_order if grouped.get(stage)]
+    for stage_index, stage in enumerate(visible_stages):
+        stage_is_last = stage_index == len(visible_stages) - 1
+        stage_prefix = "└─" if stage_is_last else "├─"
+        child_prefix = "   " if stage_is_last else "│  "
+        lines.append(f"{stage_prefix} {stage}")
+        stage_rows = grouped.get(stage, [])
+        for row_index, row in enumerate(stage_rows):
+            row_is_last = row_index == len(stage_rows) - 1
+            branch = "└─" if row_is_last else "├─"
+            companies = front_compact_text(row.get("companies", ""), 70)
+            lines.append(f"{child_prefix}{branch} {row.get('bucket', '')}：{companies}")
+    return "```text\n" + "\n".join(lines) + "\n```"
+
+
+def front_chain_map_section(companies: list[dict], term: str = "", context: dict | None = None, profile: dict | None = None, limit_per_bucket: int = 10) -> str:
+    rows = front_chain_rows(companies, term, context, profile, limit_per_bucket)
+    if not rows:
+        return "- 暂无可展示的产业链节点。"
+    tree = front_chain_tree_section(term, rows, context)
+    lines = ["| 地图节点 | 主要看点 | 代表公司 |", "|---|---|---|"]
+    for row in rows:
+        lines.append(f"| {row.get('bucket', '')} | {row.get('roles', '')} | {row.get('companies', '')} |")
+    return tree + "\n\n" + "\n".join(lines) if tree else "\n".join(lines)
+
+
+def front_company_cards_section(companies: list[dict], tier: str, term: str = "", profile: dict | None = None, limit: int = 6) -> str:
+    rows = [c for c in companies if company_deep_dive_tier(c) == tier and not should_skip_structured_company_card(c, term)]
+    rows = sorted(rows, key=company_sort_key)[:limit]
+    if not rows:
+        return "- 暂无。"
+    labels = {"relative_core": "主线公司", "related": "相关公司", "watch": "延伸公司", "weak": "弱相关"}
+    lines = ["| 公司 | 角色 | 位置 |", "|---|---|---|"]
+    for company in rows:
+        role = front_compact_text(themed_company_roles(company, term), 32)
+        bucket = front_company_bucket(company, term, profile)
+        lines.append(f"| {company.get('name', '')} | {role} | {bucket}/{labels.get(tier, tier)} |")
+    return "\n".join(lines)
+
+
+def front_company_logic_summary(company: dict, term: str = "", limit: int = 120) -> str:
+    sources = " ".join(str(x) for x in company.get("sources", []) or [])
+    preferred = []
+    if has_ima_logic_card_source_text(sources):
+        preferred.extend(str(x) for x in company.get("evidence_buckets", {}).get("delta", []) or [])
+        preferred.extend(str(x) for x in company.get("evidence", []) or [])
+    preferred.extend(str(x) for x in company.get("context_mentions", []) or [])
+    preferred.extend(str(x) for x in company.get("roles", []) or [])
+    tokens = [term] + as_list(company.get("concepts")) + as_list(company.get("subdirections"))
+    focused = []
+    for text in preferred:
+        if not str(text).strip():
+            continue
+        if any(token and token in str(text) for token in tokens):
+            focused.append(text)
+    selected = focused or preferred
+    return front_compact_text("；".join(unique([str(x).strip() for x in selected if str(x).strip()])[:3]), limit) or "待补逻辑摘要"
+
+
+def front_company_source_bridge(company: dict) -> str:
+    buckets = company.get("evidence_buckets", {}) or {}
+    sources = set(source_basis(company))
+    labels = []
+    if has_ima_logic_card_source(company):
+        labels.append("卡")
+    if buckets.get("curated_research") or "PDF研报/深度研究" in sources:
+        labels.append("PDF")
+    if company.get("context_mentions") or "full精读上下文提及" in sources:
+        labels.append("IMA")
+    if buckets.get("delta") and "精选逻辑/脱水/复盘" in sources:
+        labels.append("复盘")
+    if buckets.get("baseline"):
+        labels.append("画像")
+    return "+".join(unique(labels)[:4]) or "wiki"
+
+
+def front_company_review_use(company: dict, term: str = "", profile: dict | None = None) -> str:
+    bucket = front_company_bucket(company, term, profile)
+    if has_ima_logic_card_source(company):
+        return front_compact_text(f"逻辑解释 / {bucket}扩散", 42)
+    if company.get("context_mentions"):
+        return front_compact_text(f"产业链补位 / {bucket}", 42)
+    return front_compact_text(f"{bucket}延伸池", 42)
+
+
+def front_company_observation_point(company: dict, term: str = "", profile: dict | None = None) -> str:
+    explicit = company_validation_focus(company)
+    generic = "后续研报/精选逻辑是否继续强化该公司与题材主线的直接关系；复盘中观察逻辑卡、业务线和同环节公司是否继续强化"
+    if explicit and explicit != generic:
+        return front_compact_text(explicit, 62)
+    if has_ima_logic_card_source(company):
+        return "逻辑卡业务线是否继续扩散"
+    bucket = front_company_bucket(company, term, profile)
+    return front_compact_text(f"{bucket}是否扩散", 42)
+
+
+def front_related_names_for_company(company: dict, companies: list[dict], profile: dict | None = None, term: str = "", limit: int = 4) -> str:
+    current = company.get("name")
+    direction = company_direction_key(company, profile)
+    broad = {term, company.get("deep_dive_term", ""), "存储芯片", "光模块", "创新药", "光伏"}
+    concepts = set(company.get("concepts", []) or []) - {x for x in broad if x}
+    rows = []
+    for other in companies:
+        if other.get("name") == current or company_deep_dive_tier(other) == "weak":
+            continue
+        same_direction = company_direction_key(other, profile) == direction
+        shared_concepts = concepts & (set(other.get("concepts", []) or []) - {x for x in broad if x})
+        if same_direction or shared_concepts:
+            rows.append((0 if same_direction else 1, other))
+    rows = [row for _rank, row in sorted(rows, key=lambda item: (item[0], company_sort_key(item[1])))]
+    return front_unique_join([row.get("name", "") for row in rows], limit, "待补")
+
+
+def front_logic_card_expansion_section(companies: list[dict], term: str = "", profile: dict | None = None, limit: int = 14) -> str:
+    rows = [
+        c for c in companies
+        if has_ima_logic_card_source(c)
+        and company_deep_dive_tier(c) != "weak"
+        and not should_skip_structured_company_card(c, term)
+    ]
+    rows = sorted(rows, key=recent_ima_company_sort_key)[:limit]
+    if not rows:
+        return "- 暂无近期 IMA 个股逻辑卡候选。"
+    lines = [
+        "| 公司 | 角色 | 位置 |",
+        "|---|---|---|",
+    ]
+    for company in rows:
+        bucket = front_company_bucket(company, term, profile)
+        role = front_compact_text(themed_company_roles(company, term), 42)
+        lines.append(f"| {company.get('name', '')} | {role} | {bucket} |")
+    return "\n".join(lines)
+
+
+def front_key_validation_section(context: dict, companies: list[dict], limit: int = 8) -> str:
+    items = []
+    for row in context.get("validation_checklist", []) or []:
+        if isinstance(row, dict):
+            text = "：".join(str(row.get(field, "")).strip() for field in ("item", "validation", "watch", "signal", "criteria", "description") if str(row.get(field, "")).strip())
+            if text:
+                items.append(front_compact_text(text, 88))
+    for company in sorted(companies, key=company_sort_key):
+        if company_deep_dive_tier(company) in {"relative_core", "related", "watch"}:
+            items.append(front_compact_text(f"{company.get('name', '')}：{company_validation_focus(company)}", 88))
+        if len(unique(items)) >= limit:
+            break
+    return bullets(unique(items)[:limit], "待补验证点")
+
+
+def front_guardrail_section(companies: list[dict], limit: int = 8) -> str:
+    items = []
+    for company in sorted(companies, key=lambda c: (company_deep_dive_tier(c), company_sort_key(c))):
+        note = company_guardrail_note(company)
+        if note and "后续看研报" not in note:
+            items.append(front_compact_text(f"{company.get('name', '')}：{note}", 88))
+        if len(unique(items)) >= limit:
+            break
+    return bullets(unique(items)[:limit], "暂无显性护栏")
+
+
+def front_information_bridge_section(state: dict, active: list[dict]) -> str:
+    context = state.get("context", {}) or {}
+    report_sources = unique([
+        str(row.get("source_name") or row.get("source") or "")
+        for row in state.get("local_report_contexts", []) or []
+        if isinstance(row, dict) and str(row.get("source_name") or row.get("source") or "").strip()
+    ])
+    logic_names = [c.get("name", "") for c in active if has_ima_logic_card_source(c)]
+    curated_count = sum(1 for c in active if (c.get("evidence_buckets", {}) or {}).get("curated_research"))
+    delta_count = sum(1 for c in active if (c.get("evidence_buckets", {}) or {}).get("delta"))
+    rows = [
+        ("wiki 概念/关系", f"{state.get('primary') or state.get('term')} + {len(state.get('rels', []) or [])} 个相关概念", "确定题材边界、上下游节点和公司关系。"),
+        ("个股逻辑卡", f"{len(logic_names)} 个公司样本：{front_unique_join(logic_names, 8)}", "解释复盘个股为什么属于这条线，并向同环节/上下游发散。"),
+        ("IMA DeepDive / full 精读", f"{len(context.get('industry_chain_panorama', []) or [])} 条产业链、{len(context.get('material_process_scan', []) or [])} 条工艺材料线索", "补齐模板里的产业链全景、工艺材料扫描和细分方向。"),
+        ("PDF ingest / 研报上下文", f"{len(report_sources)} 个上下文来源；{curated_count} 个公司带研报证据", "把研报中的需求、环节、公司线索沉淀成可复盘的题材地图。"),
+        ("复盘/精选逻辑", f"{delta_count} 个公司带边际逻辑或复盘线索", "用于识别当前市场更可能扩散的方向和公司池。"),
+    ]
+    lines = ["| 数据桥梁 | 当前命中 | 如何服务题材雷达/复盘 |", "|---|---|---|"]
+    for name, hit, use in rows:
+        lines.append(f"| {name} | {front_compact_text(hit, 90)} | {front_compact_text(use, 110)} |")
+    return "\n".join(lines)
+
+
+def front_review_feedback_section(state: dict, active: list[dict], term: str = "", profile: dict | None = None, limit: int = 10) -> str:
+    rows = []
+    logic_rows = [c for c in active if has_ima_logic_card_source(c)]
+    for company in sorted(logic_rows, key=recent_ima_company_sort_key)[:limit]:
+        bucket = front_company_bucket(company, term, profile)
+        related = front_related_names_for_company(company, active, profile, term, 4)
+        observation = front_company_observation_point(company, term, profile)
+        rows.append((company.get("name", ""), bucket, related, observation))
+    if not rows:
+        for company in sorted(active, key=company_sort_key)[:limit]:
+            bucket = front_company_bucket(company, term, profile)
+            related = front_related_names_for_company(company, active, profile, term, 4)
+            rows.append((company.get("name", ""), bucket, related, front_company_observation_point(company, term, profile)))
+    if not rows:
+        return "- 暂无可反哺复盘的公司线索。"
+    lines = ["| 复盘抓手 | 题材位置 | 可继续发散 |", "|---|---|---|"]
+    for name, bucket, related, observation in rows[:limit]:
+        lines.append(f"| {name} | {bucket} | {related} |")
+    return "\n".join(lines)
+
+
+def front_review_trigger_section(review_context: dict | None, companies: list[dict], term: str = "") -> str:
+    review_context = review_context or {}
+    source = str(review_context.get("source") or "").strip()
+    direction = str(review_context.get("direction") or "").strip()
+    note = str(review_context.get("note") or "").strip()
+    review_names = as_list(review_context.get("companies"))
+    if not any([source, direction, note, review_names]):
+        return bullets(
+            [
+                f"当前由 `{term}` 题材查询触发。",
+                f"已整理 {len(companies)} 个相关公司样本，可展开产业链位置、业务线和上下游发散。",
+            ],
+            "待补复盘触发",
+        )
+    items = []
+    if source:
+        items.append(f"复盘来源：{source}")
+    if direction:
+        items.append(f"复盘方向：{direction}")
+    if review_names:
+        items.append(f"触发个股：{front_unique_join(review_names, 12)}")
+    if note:
+        items.append(f"备注：{front_compact_text(note, 120)}")
+    return bullets(items, "待补复盘触发")
+
+
+def front_definition_is_generic(value: str) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return True
+    generic_tokens = (
+        "追踪", "无需", "待补", "验证", "观察", "后续", "是否", "进展", "价格走势",
+        "量产节奏", "出货", "客户导入", "国产化进展", "继续强化", "资料确认",
+        "毛利率", "收入占比", "产能及良率", "季度变化",
+    )
+    return any(token in text for token in generic_tokens)
+
+
+def front_subdirection_definition(row: dict) -> str:
+    subdir = map_clean_plain(row.get("subdir"), limit=70) or map_clean_plain(row.get("layer"), limit=70)
+    layer = map_clean_plain(row.get("layer"), limit=70)
+    desc = map_clean_plain(row.get("desc"), limit=110)
+    if desc and not front_definition_is_generic(desc):
+        return desc
+
+    text = f"{subdir} {layer}"
+    rules = [
+        (("HBM", "高带宽内存"), "AI服务器高带宽内存升级方向"),
+        (("DRAM",), "通用内存产品，受服务器需求与产能周期影响"),
+        (("NAND", "eSSD", "企业级SSD"), "闪存与企业级SSD容量升级方向"),
+        (("DDR5", "RCD", "SPD", "MRDIMM", "CXL"), "服务器内存代际升级和接口芯片方向"),
+        (("TSV",), "HBM与先进封装里的硅通孔工艺"),
+        (("混合键合", "Hybrid Bonding"), "高层数HBM与3D封装连接工艺"),
+        (("400G", "800G", "1.6T", "3.2T"), "AI数据中心高速光互联产品代际"),
+        (("OSFP", "QSFP"), "高速光模块封装形态"),
+        (("硅光", "CPO", "LPO", "NPO"), "高速互联技术路线"),
+        (("EML", "DFB", "VCSEL", "CW光源"), "光芯片与激光器器件路线"),
+        (("法拉第", "光隔离器", "磁光", "TGG", "TSAG"), "光隔离器和磁光材料方向"),
+        (("FAU", "光纤阵列"), "光引擎里的光纤阵列单元方向"),
+        (("MPO", "MTP", "MMC", "MT插芯", "陶瓷插芯"), "高速光互连连接器方向"),
+        (("AWG", "PLC", "WDM", "波分"), "无源光芯片和波分器件方向"),
+        (("环形器", "滤波片", "准直器", "透镜", "棱镜"), "OCS/光引擎相关精密光学器件方向"),
+        (("ADC",), "抗体偶联药物平台和管线方向"),
+        (("双抗",), "双特异性抗体平台和管线方向"),
+        (("GLP", "减重"), "代谢类创新药管线方向"),
+        (("CAR-T", "细胞治疗"), "细胞治疗平台和管线方向"),
+        (("核药", "放射性药物"), "核素诊疗和放射性药物方向"),
+        (("TOPCon", "HJT", "BC电池", "XBC", "HPBC", "TBC", "IBC", "钙钛矿", "叠层"), "光伏电池技术路线"),
+        (("硅片", "组件", "逆变器", "银浆", "胶膜", "支架"), "光伏产业链环节或辅材方向"),
+        (("mSAP", "半加成"), "高密度PCB精细线路制造工艺"),
+        (("载体铜箔", "感光干膜", "DPC", "TGV"), "先进封装和高端PCB相关材料/基板方向"),
+    ]
+    for tokens, definition in rules:
+        if any(token in text for token in tokens):
+            return definition
+    if layer and subdir and layer != subdir:
+        return f"{layer}中的{subdir}方向"
+    return f"{subdir}相关细分方向" if subdir else "题材内细分方向"
+
+
+def front_subdirection_digest_section(state: dict, limit: int = 12) -> str:
+    rows = map_subdirection_rows(state)[:limit]
+    if not rows:
+        return "- 暂无可展示的细分方向。"
+    lines = ["| 细分方向 | 一句话定义 | 代表公司 |", "|---|---|---|"]
+    for row in rows:
+        subdir = map_clean_plain(row.get("subdir"), limit=70) or map_clean_plain(row.get("layer"), limit=70)
+        companies = map_clean_plain(row.get("companies"), limit=120)
+        desc = front_subdirection_definition(row)
+        lines.append(f"| {subdir} | {desc} | {companies} |")
+    return "\n".join(lines)
+
+
+def front_material_row_text(row: dict) -> str:
+    values = []
+    for field in ("name", "direction", "classification", "major_track", "chain_position", "core_catalyst", "prosperity_judgment", "prosperity_reason", "next_validation", "evidence_summary"):
+        values.extend(as_list(row.get(field)))
+    values.extend(as_list(row.get("representative_entities")))
+    return " ".join(str(x) for x in values if str(x).strip())
+
+
+def front_material_is_specific(name: str, row_text: str) -> bool:
+    text = f"{name} {row_text}"
+    if len(str(name or "").strip()) < 2:
+        return False
+    generic = {
+        "其他观察", "相关环节", "待补", "核心产品/主线主体", "上游材料/电子化学品", "上游设备/量检测", "服务/平台", "下游渠道/运营",
+        "ASP（平均售价）", "毛利率", "客户认证", "产能（扩产）", "出货量（800G/1.6T）", "良率（硅光芯片）",
+    }
+    if str(name).strip() in generic:
+        return False
+    if any(token in str(name) for token in ("ASP", "平均售价", "毛利率", "客户认证", "产能", "出货量", "良率")):
+        return False
+    tokens = (
+        "工艺", "材料", "设备", "零部件", "封装", "基板", "铜箔", "干膜", "玻璃", "陶瓷", "硅片", "靶材", "特气", "胶", "树脂", "球硅",
+        "HBM", "DDR", "NAND", "NOR", "SSD", "TSV", "TGV", "CPO", "LPO", "NPO", "硅光", "EML", "VCSEL", "CW", "PCB", "HDI", "mSAP",
+        "法拉第", "旋片", "旋光片", "光隔离器", "隔离器", "磁光", "TGG", "TSAG", "SGGG", "FAU", "光纤阵列", "MPO", "MTP", "MMC",
+        "MT插芯", "陶瓷插芯", "AWG", "PLC", "WDM", "波分", "滤波片", "环形器", "准直器", "透镜", "棱镜", "偏振", "OSA", "TOSA", "ROSA",
+        "ADC", "双抗", "GLP", "管线", "临床", "BD", "TOPCon", "BC", "钙钛矿", "逆变器", "组件", "银浆", "胶膜", "玻璃", "支架",
+    )
+    return any(token in text for token in tokens)
+
+
+def front_material_display_priority(row: dict) -> tuple:
+    name = str(row.get("name") or row.get("direction") or "")
+    text = front_material_row_text(row)
+    fine_tokens = (
+        "法拉第", "旋片", "光隔离器", "隔离器", "磁光", "TGG", "TSAG", "FAU", "光纤阵列",
+        "MPO", "MTP", "MMC", "MT插芯", "陶瓷插芯", "AWG", "PLC", "WDM", "环形器", "滤波片", "准直器", "透镜",
+    )
+    if any(token in name for token in fine_tokens):
+        return (0, name)
+    if str(row.get("source") or "") == "theme_information_pool" and any(token in text for token in fine_tokens):
+        return (1, name)
+    if any(token in name for token in ("ASP", "毛利率", "客户认证", "产能", "出货量", "良率")):
+        return (9, name)
+    return (3, name)
+
+
+def front_material_company_matches(row: dict, companies: list[dict], term: str = "", profile: dict | None = None, limit: int = 8) -> list[dict]:
+    row_text = front_material_row_text(row)
+    names = [str(x).strip() for x in as_list(row.get("representative_entities") or row.get("candidate_companies")) if str(x).strip()]
+    name_set = set(names)
+    explicit_name_matches = [company for company in companies if company.get("name") in name_set]
+    if explicit_name_matches:
+        return sorted(unique_by_name(explicit_name_matches), key=company_sort_key)[:limit]
+    tokens = unique([
+        str(row.get("name") or row.get("direction") or "").strip(),
+        str(row.get("classification") or "").strip(),
+        str(row.get("major_track") or "").strip(),
+        str(row.get("chain_position") or "").strip(),
+    ] + [x for x in re.split(r"[/、,，\s]+", row_text) if len(x) >= 3])
+    weak_tokens = {"存储芯片", "存储", "芯片", "AI存储", "存储产业链下游", "光通信", "光模块", "创新药", "光伏", "先进封装", "半导体设备"}
+    tokens = [token for token in tokens if token and token not in weak_tokens]
+    matched = []
+    for company in companies:
+        company_text = " ".join(
+            str(x)
+            for x in (
+                [company.get("name", ""), front_company_bucket(company, term, profile), themed_company_roles(company, term)]
+                + as_list(company.get("concepts"))
+                + as_list(company.get("roles"))
+                + as_list(company.get("evidence"))
+                + company_subdirections(company)
+            )
+        )
+        if any(token and token in company_text for token in tokens[:10]):
+            matched.append(company)
+    return sorted(unique_by_name(matched), key=company_sort_key)[:limit]
+
+
+def unique_by_name(companies: list[dict]) -> list[dict]:
+    seen = set()
+    rows = []
+    for company in companies:
+        name = company.get("name")
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        rows.append(company)
+    return rows
+
+
+def front_material_logic_source(row: dict, matches: list[dict]) -> str:
+    labels = []
+    source = str(row.get("source") or "")
+    if source or row.get("raw_row"):
+        labels.append("IMA")
+    if any((c.get("evidence_buckets", {}) or {}).get("curated_research") for c in matches):
+        labels.append("PDF")
+    if any(has_ima_logic_card_source(c) for c in matches):
+        labels.append("逻辑卡")
+    if matches:
+        labels.append("wiki")
+    return "+".join(unique(labels)[:4]) or "wiki"
+
+
+def front_material_expand_terms(row: dict, all_rows: list[dict], matches: list[dict], term: str = "", profile: dict | None = None) -> str:
+    name = str(row.get("name") or row.get("direction") or "")
+    layer = str(row.get("chain_position") or row.get("major_track") or "")
+    peers = []
+    for other in all_rows:
+        if not isinstance(other, dict):
+            continue
+        other_name = str(other.get("name") or other.get("direction") or "")
+        if not other_name or other_name == name:
+            continue
+        other_layer = str(other.get("chain_position") or other.get("major_track") or "")
+        if layer and other_layer == layer:
+            peers.append(other_name)
+    company_peers = []
+    for company in matches[:3]:
+        company_peers.extend(front_related_names_for_company(company, matches, profile, term, 3).split("、"))
+    values = unique([x for x in peers + company_peers if x and x != "待补"])
+    return front_unique_join(values, 4, "")
+
+
+def front_material_watch(row: dict, matches: list[dict], term: str = "", profile: dict | None = None) -> str:
+    explicit = row.get("next_validation") or row.get("core_catalyst") or row.get("prosperity_reason") or row.get("evidence_summary")
+    if explicit:
+        value = front_compact_text(explicit, 58)
+        generic_tokens = ("无需特别追踪", "继续强化", "更多资料确认", "后续跟踪", "待补", "验证空位")
+        return "" if any(token in value for token in generic_tokens) else value
+    if matches:
+        company = matches[0]
+        bucket = front_company_bucket(company, term, profile)
+        return front_compact_text(f"{company.get('name')}->{bucket}扩散", 42)
+    return ""
+
+
+def front_material_process_radar_section(state: dict, active: list[dict], term: str = "", profile: dict | None = None, limit: int = 16) -> str:
+    context = state.get("context", {}) or {}
+    raw_rows = [row for row in (context.get("material_process_scan", []) or []) if isinstance(row, dict)]
+    rows = []
+    for row in raw_rows:
+        name = str(row.get("name") or row.get("direction") or "").strip()
+        row_text = front_material_row_text(row)
+        if front_material_is_specific(name, row_text):
+            rows.append(row)
+    if not rows:
+        for row in map_subdirection_rows(state):
+            name = str(row.get("subdir") or row.get("layer") or "").strip()
+            row_text = " ".join(str(row.get(field, "")) for field in ("subdir", "layer", "desc", "concepts", "companies"))
+            if front_material_is_specific(name, row_text):
+                rows.append({
+                    "name": name,
+                    "major_track": row.get("layer"),
+                    "chain_position": row.get("layer"),
+                    "core_catalyst": row.get("desc"),
+                    "representative_entities": as_list(row.get("companies")),
+                    "source": row.get("source"),
+                    "next_validation": row.get("gap"),
+                })
+    if not rows:
+        return "- 暂无可展示的工艺/材料/零部件扫描。"
+    rows = sorted(rows, key=front_material_display_priority)
+    lines = [
+        "| 细颗粒对象 | 所属大方向 | 产业链位置 | 逻辑一句话 | 代表公司 | 可发散方向 |",
+        "|---|---|---|---|---|---|",
+    ]
+    seen = set()
+    for row in rows:
+        name = str(row.get("name") or row.get("direction") or "").strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        matches = front_material_company_matches(row, active, term, profile, 8)
+        explicit_companies = as_list(row.get("representative_entities"))
+        companies = front_unique_join(explicit_companies + [c.get("name", "") for c in matches], 8)
+        logic = row.get("core_catalyst") or row.get("prosperity_judgment") or row.get("prosperity_reason") or row.get("evidence_summary") or row.get("next_validation")
+        major = row.get("major_track") or row.get("classification") or row.get("direction")
+        position = row.get("chain_position") or row.get("layer") or major
+        expand = front_material_expand_terms(row, rows, matches, term, profile)
+        cells = [
+            front_compact_text(str(name or ""), 42),
+            front_compact_text(str(major or ""), 52),
+            front_compact_text(str(position or ""), 46),
+            front_compact_text(str(logic or ""), 78),
+            front_compact_text(str(companies or ""), 62),
+            front_compact_text(str(expand or ""), 52),
+        ]
+        lines.append("| " + " | ".join(cells) + " |")
+        if len(lines) >= limit + 2:
+            break
+    return "\n".join(lines) if len(lines) > 2 else "- 暂无可展示的工艺/材料/零部件扫描。"
+
+
+def front_data_advantage_section(state: dict, active: list[dict]) -> str:
+    context = state.get("context", {}) or {}
+    logic_count = sum(1 for c in active if has_ima_logic_card_source(c))
+    return bullets(
+        [
+            f"概念与关系：主概念 `{state.get('primary') or state.get('term')}`，相关概念 {len(state.get('rels', []) or [])} 个。",
+            f"公司图谱：活跃公司 {len(active)} 个，带 IMA 个股逻辑卡 {logic_count} 个。",
+            f"题材信息池：{len(context.get('direction_scan', []) or [])} 条方向扫描，{len(context.get('material_process_scan', []) or [])} 条工艺/材料扫描，{len(context.get('industry_chain_panorama', []) or [])} 条产业链全景。",
+            "前端优先服务复盘和交易理解：展示产业链、公司位置、逻辑来源、发散对象和观察点；工程质检字段留在 deep-dive/report_contexts 中追溯。",
+        ],
+        "待补数据资产",
+    )
+
+
+def benchmark_map_text(row: dict) -> str:
+    values = [
+        row.get("benchmark_company", ""),
+        row.get("benchmark_ticker", ""),
+        row.get("benchmark_theme", ""),
+        " ".join(as_list(row.get("theme_routes"))),
+    ]
+    for business in row.get("benchmark_business_lines", []) or []:
+        if isinstance(business, dict):
+            values.extend(
+                [
+                    business.get("business_line", ""),
+                    business.get("english_name", ""),
+                    business.get("definition", ""),
+                    business.get("importance", ""),
+                    " ".join(as_list(business.get("key_products"))),
+                    " ".join(as_list(business.get("downstream_applications"))),
+                ]
+            )
+    for company in row.get("mapped_companies", []) or []:
+        if isinstance(company, dict):
+            values.extend(
+                [
+                    company.get("company", ""),
+                    company.get("mapped_business_line", ""),
+                    company.get("mapped_business", ""),
+                    company.get("mapping_type", ""),
+                    company.get("core_basis", ""),
+                ]
+            )
+    return normalize(" ".join(str(x) for x in values if str(x).strip()))
+
+
+def match_benchmark_maps(term: str, benchmark_maps: dict, state_text: str = "", limit: int = 4) -> list[dict]:
+    maps = benchmark_maps.get("maps", []) if isinstance(benchmark_maps, dict) else []
+    if not isinstance(maps, list):
+        return []
+    query_terms = unique([term] + split_terms(term) + split_terms(state_text))
+    query_terms = [q for q in query_terms if len(normalize(q)) >= 2 and q not in {"AI", "C", "H"}]
+    rows = []
+    for row in maps:
+        if not isinstance(row, dict):
+            continue
+        haystack = benchmark_map_text(row)
+        route_hits = [route for route in as_list(row.get("theme_routes")) if context_term_hit(route, term) or context_term_hit(term, route)]
+        direct_hits = [q for q in query_terms if q and context_term_hit(q, haystack)]
+        score = len(route_hits) * 5 + min(len(direct_hits), 12)
+        if score <= 0:
+            continue
+        row_copy = dict(row)
+        row_copy["_benchmark_match_score"] = score
+        row_copy["_benchmark_hits"] = unique(route_hits + direct_hits)[:10]
+        rows.append(row_copy)
+    rows.sort(key=lambda r: (-int(r.get("_benchmark_match_score") or 0), str(r.get("benchmark_company") or "")))
+    return rows[:limit]
+
+
+def benchmark_row_score(row: dict) -> float:
+    value = row.get("mapping_score", 0)
+    try:
+        return float(value)
+    except Exception:
+        text = str(row.get("mapping_strength") or "")
+        if "强" in text:
+            return 8.0
+        if "中" in text:
+            return 6.0
+        if "弱" in text:
+            return 3.0
+        return 0.0
+
+
+def benchmark_mapped_company_is_domestic(row: dict) -> bool:
+    market = str(row.get("market") or "")
+    ticker = str(row.get("ticker") or "")
+    market_upper = market.upper()
+    ticker_upper = ticker.upper()
+    if any(token in market for token in ("A股", "港股", "H股", "北交所")):
+        return True
+    if any(token in ticker_upper for token in (".SH", ".SZ", ".BJ", ".HK")):
+        return True
+    if any(token in market_upper for token in ("NASDAQ", "NYSE", "EURONEXT", "LSE")):
+        return False
+    return True
+
+
+def benchmark_focus_tokens(term: str) -> list[str]:
+    text = str(term or "")
+    rules = [
+        (("光模块", "光通信", "光互联", "CPO", "硅光", "光芯片", "光器件"), ("光互联", "光模块", "Optical", "Transceiver", "Datacom", "DSP", "CPO", "硅光", "Photonic", "AEC", "Retimer有源电缆")),
+        (("光芯片", "EML", "VCSEL", "InP"), ("光芯片", "EML", "VCSEL", "InP", "CW激光器", "激光芯片", "200G", "100G")),
+        (("OCS", "光交换机", "光路交换", "光电路交换"), ("OCS", "光电路交换", "光路交换", "Optical Circuit Switch", "MEMS", "LCOS")),
+        (("工业激光", "激光器", "激光设备"), ("工业激光", "Industrial Lasers", "光纤激光器", "超快激光器", "准分子激光器", "Lasers")),
+        (("光学材料", "磁光材料", "光学晶体"), ("光学晶体", "磁光材料", "TGG", "TSAG", "法拉第", "工程材料", "SiC")),
+        (("HBM", "高带宽内存"), ("HBM", "High Bandwidth Memory", "TSV", "Base Die", "3D堆叠", "混合键合")),
+        (("DRAM", "DDR", "LPDDR", "内存"), ("DRAM", "DDR5", "DDR4", "MRDIMM", "LPDDR", "RDIMM", "内存接口")),
+        (("3D NAND", "NAND"), ("NAND", "3D NAND", "SLC NAND", "QLC", "TLC", "UFS", "eMMC")),
+        (("SSD", "固态硬盘"), ("SSD", "eSSD", "Enterprise SSD", "Client SSD", "PCIe 5.0", "PCIe 6.0", "主控")),
+        (("利基存储", "NOR Flash", "SLC NAND", "特种存储"), ("利基", "NOR Flash", "SLC NAND", "Specialty Memory", "MCP", "eMCP")),
+        (("存储", "AI存储", "国产存储"), ("存储", "HBM", "DRAM", "NAND", "SSD", "TSV", "内存", "Storage", "NOR Flash", "SLC NAND")),
+        (("光刻机", "EUV", "DUV", "国产光刻机"), ("光刻", "EUV", "DUV", "ArFi", "High-NA", "TWINSCAN", "SMEE", "曝光", "物镜", "光源")),
+        (("半导体设备", "先进制程", "晶圆制造"), ("光刻", "EUV", "DUV", "前道", "制程", "量测", "检测", "曝光", "良率", "先进封装")),
+        (("量测设备", "检测设备", "半导体量测"), ("量测", "检测", "Metrology", "Inspection", "缺陷检测", "良率控制", "电子束")),
+        (("半导体软件", "计算光刻", "EDA"), ("计算光刻", "OPC", "SMO", "Brion", "EDA", "TCAD", "掩模")),
+        (("晶圆代工", "代工", "Foundry"), ("晶圆代工", "Foundry", "先进制程逻辑代工", "成熟/特色工艺", "N3", "N2", "A16", "N28", "N16HV")),
+        (("AI算力", "国产GPU", "AI芯片", "GPU", "AI GPU", "DCU"), ("GPU", "DCU", "CUDA", "Blackwell", "Hopper", "AI训练", "AI推理", "算力", "数据中心AI", "HBM", "服务器", "加速芯片", "ASIC", "XPU")),
+        (("ASIC", "定制芯片", "AI芯片", "XPU"), ("ASIC", "Custom", "XPU", "定制AI", "Chiplet", "云厂商")),
+        (("交换芯片", "以太网", "网络芯片", "UALink"), ("交换芯片", "Ethernet", "Switch", "Teralynx", "Prestera", "UALink", "ESUN")),
+        (("存储互连", "PCIe", "CXL", "Retimer"), ("服务器存储连接", "PCIe", "Retimer", "CXL", "FC SAN", "SAS", "RAID", "NVMe-oF")),
+        (("无线连接芯片", "WiFi", "蓝牙", "NFC"), ("无线连接", "WiFi", "蓝牙", "NFC", "Wireless Connectivity")),
+        (("基础设施软件", "VMware", "虚拟化", "云基础设施"), ("VMware", "虚拟化", "云基础设施", "混合云", "超融合", "vSphere", "vSAN", "NSX")),
+        (("车载以太网", "汽车电子芯片"), ("车载以太网", "车规", "汽车电子", "智能网联汽车")),
+        (("CoWoS", "硅中介层"), ("CoWoS", "Chip on Wafer on Substrate", "硅中介层", "reticle", "2.5D", "XDFOI")),
+        (("SoIC", "混合键合", "3D堆叠"), ("SoIC 3D", "SoIC", "混合键合", "3D堆叠", "face-to-face", "Hybrid Bonding")),
+        (("先进封装", "Chiplet"), ("先进封装", "Chiplet", "HBM", "CPO", "die-to-die", "CoWoS", "SoIC", "TSV", "混合键合")),
+        (("硅光", "CPO", "COUPE"), ("硅光", "硅光子", "COUPE", "CPO", "Photonic", "光引擎", "光互联")),
+        (("成熟制程", "特色工艺", "显示驱动", "DDIC"), ("成熟/特色工艺", "特色工艺", "N28", "N16HV", "BCD", "SOI", "显示驱动", "DDIC")),
+        (("GLP-1", "减重药", "肥胖", "代谢疾病"), ("GLP-1", "GIP", "GCG", "Tirzepatide", "Semaglutide", "司美格鲁肽", "替尔泊肽", "口服GLP-1", "减重", "肥胖", "MASH", "Amylin")),
+        (("糖尿病", "胰岛素"), ("糖尿病", "胰岛素", "Insulin", "SGLT2", "DPP-4", "GLP-1", "降糖")),
+        (("创新药", "生物制药", "MNC"), ("创新药", "生物制药", "肿瘤", "免疫", "罕见病", "诊断", "GLP-1", "ADC", "双抗")),
+        (("肿瘤药", "肿瘤", "抗癌", "IO"), ("肿瘤", "Oncology", "血液", "肺癌", "乳腺癌", "PD-1", "PD-L1", "Keytruda", "EGFR", "BTK", "CDK4/6")),
+        (("ADC", "抗体偶联"), ("ADC", "抗体偶联", "HER2 ADC", "TROP2", "双抗ADC", "DXd", "Enhertu", "Kadcyla")),
+        (("双抗", "双特异性抗体"), ("双抗", "双特异性", "PD-1/VEGF", "CD3×CD20", "TCE", "Tetrabody")),
+        (("自免药", "自免", "免疫药"), ("自免", "免疫", "Immunology", "IL-4R", "IL-5", "IL-13", "IL-17", "IL-23", "JAK", "SLE")),
+        (("罕见病", "血友病"), ("罕见病", "Rare Disease", "血友病", "补体", "C5", "生长激素", "PNH")),
+        (("体外诊断", "IVD", "分子诊断", "病理诊断", "伴随诊断"), ("诊断", "IVD", "中心化诊断", "分子诊断", "POCT", "组织诊断", "病理", "伴随诊断", "NGS", "FMI")),
+        (("自动驾驶", "智驾", "车载计算"), ("自动驾驶", "智能驾驶", "DRIVE", "Orin", "Thor", "车载", "域控制器", "智驾芯片")),
+        (("机器人", "物理AI", "具身智能", "人形机器人"), ("机器人", "物理AI", "Omniverse", "Isaac", "Cosmos", "GR00T", "仿真", "数字孪生")),
+        (("AI PC", "端侧AI", "消费级GPU"), ("AI PC", "RTX", "GeForce", "端侧AI", "游戏", "工作站", "图形GPU")),
+        (("AI服务器", "算力", "数据中心"), ("AI服务器", "数据中心", "ASIC", "光互联", "交换芯片", "CXL", "Scale-Up", "Scale-Out")),
+    ]
+    for aliases, tokens in rules:
+        if any(alias in text for alias in aliases):
+            return list(tokens)
+    return split_terms(term)[:12]
+
+
+def benchmark_business_line_excluded(term: str, row_text: str) -> bool:
+    term_text = str(term or "")
+    if any(token in term_text for token in ("存储", "HBM", "SSD", "CXL", "DRAM", "NAND")) and not any(token in term_text for token in ("AEC", "有源电缆", "铜缆")):
+        if any(token in row_text for token in ("AEC", "有源电缆", "Active Electrical Cable")):
+            return True
+    if any(token in term_text for token in ("AI算力", "国产GPU", "AI芯片", "AI GPU", "DCU")) and not any(token in term_text for token in ("自动驾驶", "智驾", "机器人", "AI PC", "端侧AI")):
+        if any(token in row_text for token in ("自动驾驶", "车载", "游戏", "AI PC", "GeForce", "机器人", "Physical AI", "Omniverse", "专业可视化")):
+            return True
+    if "DRAM" in term_text and "HBM" not in term_text:
+        if any(token in row_text for token in ("HBM", "High Bandwidth Memory", "高带宽内存")):
+            return True
+    if "CoWoS" in term_text:
+        if "SoIC" in row_text and "CoWoS" not in row_text:
+            return True
+    if "SoIC" in term_text:
+        if any(token in row_text for token in ("COUPE", "CPO", "硅光子")) and "SoIC 3D" not in row_text:
+            return True
+    if any(token in term_text for token in ("GLP-1", "减重药", "肥胖", "代谢疾病")) and not any(token in term_text for token in ("糖尿病", "胰岛素")):
+        if any(token in row_text for token in ("胰岛素/传统糖尿病", "Insulin / Legacy Diabetes", "传统糖尿病")):
+            return True
+    return False
+
+
+def front_benchmark_relevant_business_lines(benchmark: dict, term: str, state_text: str, limit: int = 8) -> list[dict]:
+    query_tokens = split_terms(" ".join([term, state_text]))[:100]
+    focus_tokens = benchmark_focus_tokens(term)
+    rows = []
+    for row in benchmark.get("benchmark_business_lines", []) or []:
+        if not isinstance(row, dict):
+            continue
+        text = normalize(
+            " ".join(
+                [
+                    str(row.get("business_line") or ""),
+                    str(row.get("english_name") or ""),
+                    str(row.get("definition") or ""),
+                    str(row.get("importance") or ""),
+                    " ".join(as_list(row.get("key_products"))),
+                    " ".join(as_list(row.get("downstream_applications"))),
+                ]
+            )
+        )
+        raw_text = " ".join(
+            [
+                str(row.get("business_line") or ""),
+                str(row.get("english_name") or ""),
+                str(row.get("definition") or ""),
+                " ".join(as_list(row.get("key_products"))),
+            ]
+        )
+        if benchmark_business_line_excluded(term, raw_text):
+            continue
+        focus_hit = any(token and context_term_hit(token, text) for token in focus_tokens)
+        hit = focus_hit or (not focus_tokens and (context_term_hit(term, text) or any(token and context_term_hit(token, text) for token in query_tokens)))
+        if hit:
+            rows.append(row)
+    return rows[:limit] or [row for row in benchmark.get("benchmark_business_lines", []) or [] if isinstance(row, dict)][: min(4, limit)]
+
+
+def front_benchmark_relevant_companies(benchmark: dict, term: str, state_text: str, active: list[dict], allowed_business_lines: set[str] | None = None, limit: int = 12) -> list[dict]:
+    active_names = {c.get("name") for c in active if c.get("name")}
+    query_tokens = split_terms(" ".join([term, state_text]))[:100]
+    focus_tokens = benchmark_focus_tokens(term)
+    allowed_business_lines = allowed_business_lines or set()
+    rows = []
+    for row in benchmark.get("mapped_companies", []) or []:
+        if not isinstance(row, dict):
+            continue
+        if not benchmark_mapped_company_is_domestic(row):
+            continue
+        mapped_line = str(row.get("mapped_business_line") or "")
+        raw_text = " ".join(
+            [
+                mapped_line,
+                str(row.get("mapped_business") or ""),
+                str(row.get("core_basis") or ""),
+                str(row.get("risk_note") or ""),
+            ]
+        )
+        if benchmark_business_line_excluded(term, raw_text):
+            continue
+        if allowed_business_lines and not any(line and line in mapped_line for line in allowed_business_lines):
+            mapped_text_for_focus = normalize(" ".join([mapped_line, str(row.get("mapped_business") or ""), str(row.get("core_basis") or "")]))
+            if not any(token and context_term_hit(token, mapped_text_for_focus) for token in focus_tokens):
+                continue
+        text = normalize(
+            " ".join(
+                [
+                    str(row.get("company") or ""),
+                    str(row.get("mapped_business_line") or ""),
+                    str(row.get("mapped_business") or ""),
+                    str(row.get("mapping_type") or ""),
+                    str(row.get("core_basis") or ""),
+                ]
+            )
+        )
+        focus_hit = any(token and context_term_hit(token, text) for token in focus_tokens)
+        hit = row.get("company") in active_names or focus_hit or (not focus_tokens and (context_term_hit(term, text) or any(token and context_term_hit(token, text) for token in query_tokens)))
+        if hit:
+            rows.append(row)
+    rows.sort(key=lambda r: (-benchmark_row_score(r), str(r.get("company") or "")))
+    return rows[:limit]
+
+
+def front_benchmark_relevant_gaps(benchmark: dict, term: str, state_text: str, limit: int = 8) -> list[dict]:
+    rows = []
+    query_tokens = split_terms(" ".join([term, state_text]))[:100]
+    focus_tokens = benchmark_focus_tokens(term)
+    for row in benchmark.get("mapping_gaps", []) or []:
+        if not isinstance(row, dict):
+            continue
+        text = normalize(" ".join(str(row.get(key) or "") for key in ("business_line", "gap_reason", "possible_beneficiary_direction")))
+        focus_hit = any(token and context_term_hit(token, text) for token in focus_tokens)
+        if focus_hit or (not focus_tokens and (context_term_hit(term, text) or any(token and context_term_hit(token, text) for token in query_tokens))):
+            rows.append(row)
+    return rows[:limit]
+
+
+def front_benchmark_map_section(state: dict, active: list[dict], term: str = "") -> str:
+    benchmarks = state.get("benchmark_matches", []) or []
+    if not benchmarks:
+        return "- 暂无可展示的海外龙头对标图谱。"
+    state_text = state.get("benchmark_query_text", "")
+    chunks = []
+    for benchmark in benchmarks[:3]:
+        name = benchmark.get("benchmark_company") or "海外龙头"
+        ticker = benchmark.get("benchmark_ticker") or ""
+        routes = front_unique_join(as_list(benchmark.get("theme_routes")), 8, "")
+        chunks.extend(
+            [
+                f"### {front_compact_text(name, 40)}{('（' + ticker + '）') if ticker else ''}",
+                "",
+                f"- **对标主题**：{front_compact_text(str(benchmark.get('benchmark_theme') or routes or '待补'), 140)}",
+                f"- **可反哺题材**：{routes or '待补'}",
+                "",
+                "| 海外业务线 | 业务定义 | 关键产品/技术 | 国内映射/受益公司 |",
+                "|---|---|---|---|",
+            ]
+        )
+        relevant_companies = benchmark.get("mapped_companies", []) or []
+        relevant_companies = [row for row in relevant_companies if isinstance(row, dict) and benchmark_mapped_company_is_domestic(row)]
+        business_rows = front_benchmark_relevant_business_lines(benchmark, term, state_text, 8)
+        allowed_business_lines = {str(row.get("business_line") or "") for row in business_rows if isinstance(row, dict) and str(row.get("business_line") or "").strip()}
+        for business in business_rows:
+            if not isinstance(business, dict):
+                continue
+            line = str(business.get("business_line") or "")
+            company_names = [
+                str(row.get("company") or "")
+                for row in relevant_companies
+                if isinstance(row, dict) and line and line in str(row.get("mapped_business_line") or "")
+            ]
+            if not company_names:
+                line_text = normalize(" ".join([line, str(business.get("definition") or ""), " ".join(as_list(business.get("key_products")))]))
+                for row in relevant_companies:
+                    if not isinstance(row, dict):
+                        continue
+                    mapped_text = normalize(" ".join([str(row.get("mapped_business_line") or ""), str(row.get("mapped_business") or ""), str(row.get("core_basis") or "")]))
+                    if any(token and context_term_hit(token, mapped_text) for token in split_terms(line_text)[:20]):
+                        company_names.append(str(row.get("company") or ""))
+            chunks.append(
+                "| "
+                + " | ".join(
+                    [
+                        front_compact_text(line, 42),
+                        front_compact_text(str(business.get("definition") or business.get("importance") or ""), 80),
+                        front_compact_text("、".join(as_list(business.get("key_products"))), 80),
+                        front_unique_join(company_names, 8, "待补"),
+                    ]
+                )
+                + " |"
+            )
+        companies = front_benchmark_relevant_companies(benchmark, term, state_text, active, allowed_business_lines, 12)
+        if companies:
+            chunks.extend(["", "| 国内公司 | 映射业务线 | 映射类型 | 映射依据 | 风险边界 |", "|---|---|---|---|---|"])
+            for company in companies:
+                chunks.append(
+                    "| "
+                    + " | ".join(
+                        [
+                            front_compact_text(str(company.get("company") or ""), 30),
+                            front_compact_text(str(company.get("mapped_business_line") or ""), 44),
+                            front_compact_text(str(company.get("mapping_type") or company.get("mapping_strength") or ""), 38),
+                            front_compact_text(str(company.get("core_basis") or ""), 80),
+                            front_compact_text(str(company.get("risk_note") or ""), 70),
+                        ]
+                    )
+                    + " |"
+                )
+        gaps = front_benchmark_relevant_gaps(benchmark, term, state_text, 6)
+        if gaps:
+            chunks.extend(["", "| 国内缺口/空白映射 | 为什么缺 | 可发散方向 |", "|---|---|---|"])
+            for gap in gaps:
+                chunks.append(
+                    "| "
+                    + " | ".join(
+                        [
+                            front_compact_text(str(gap.get("business_line") or ""), 42),
+                            front_compact_text(str(gap.get("gap_reason") or ""), 90),
+                            front_compact_text(str(gap.get("possible_beneficiary_direction") or ""), 80),
+                        ]
+                    )
+                    + " |"
+                )
+        chunks.append("")
+    return "\n".join(chunks).rstrip()
+
+
+def build_front_map_report(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None, theme_supplement_pool: dict | None = None, review_context: dict | None = None) -> str:
+    state = build_theme_state(term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
+    context = state["context"]
+    companies = state["companies"]
+    profile = state.get("direction_profile")
+    for company in companies:
+        company["deep_dive_term"] = term
+        company["direction_frame"] = context.get("direction_frame", {}) if isinstance(context, dict) else {}
+    anchor = front_theme_anchor(term, state["definition"], context)
+    active = [c for c in companies if company_deep_dive_tier(c) != "weak"]
+    lines = [
+        f"# {term} 题材信息地图",
+        "",
+        f"生成日期：{date.today().isoformat()}",
+        "",
+        "## 1. 核心信号",
+        "",
+        front_review_trigger_section(review_context, active, term),
+        "",
+        "## 2. 一句话定锚",
+        "",
+        anchor,
+        "",
+        "## 3. 为什么值得展开",
+        "",
+        bullets(front_driver_items(context, active, 5), "待补发酵驱动"),
+        "",
+        "## 4. 产业链全景图",
+        "",
+        front_chain_map_section(active, term, context, profile),
+        "",
+        "## 5. 细分方向扫描",
+        "",
+        front_subdirection_digest_section(state, 22),
+        "",
+        "## 6. 工艺/材料/零部件扫描",
+        "",
+        front_material_process_radar_section(state, active, term, profile, 28),
+        "",
+        "## 7. 公司地图",
+        "",
+        "### 主线公司",
+        "",
+        front_company_cards_section(active, "relative_core", term, profile, 8),
+        "",
+        "### 相关公司",
+        "",
+        front_company_cards_section(active, "related", term, profile, 8),
+        "",
+        "### 延伸公司",
+        "",
+        front_company_cards_section(active, "watch", term, profile, 8),
+        "",
+        "## 8. 海外龙头对标图谱",
+        "",
+        front_benchmark_map_section(state, active, term),
+        "",
+        "## 9. 个股逻辑卡与上下游发散",
+        "",
+        front_logic_card_expansion_section(active, term, profile, 18),
+        "",
+        "## 10. 如何反哺复盘",
+        "",
+        front_review_feedback_section(state, active, term, profile, 10),
+        "",
+    ]
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def build_deep_dive_report(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None, theme_supplement_pool: dict | None = None) -> str:
@@ -4068,11 +6878,15 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 ## 二、为什么现在发酵
 
+{fermentation_signal_section(context, state.get("signal", {}), companies)}
+
+### 基础需求拆解
+
 {demand_drivers_section(context)}
 
 ### 需求-瓶颈-环节传导表
 
-{demand_bottleneck_map_section(context)}
+{demand_bottleneck_map_section(context, companies, state.get("direction_profile"))}
 
 ### 需求场景表
 
@@ -4080,7 +6894,7 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 ## 三、产业链全景图
 
-{industry_chain_panorama_section(context)}
+{industry_chain_panorama_section(context, companies, state.get("direction_profile"))}
 
 ### IMA/Obsidian 统一信息池：细颗粒地图与上下游关系
 
@@ -4096,15 +6910,19 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 ### 本地 full 精读 / report_contexts 上下文
 
-{report_contexts_section(state["local_report_contexts"])}
+{report_contexts_section(state["display_report_contexts"], state.get("primary") or state.get("term") or "")}
 
 ## 四、细分方向扫描
+
+{direction_radar_matrix_section(context, companies, state.get("direction_profile"))}
+
+### 原始方向扫描
 
 {direction_scan_section(context)}
 
 ### 工艺/材料/零部件扫描
 
-{material_process_scan_section(context)}
+{inferred_material_process_scan_section(context, companies, state.get("direction_profile"))}
 
 ### 降权但保留的背景/生态线索
 
@@ -4116,11 +6934,11 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 ## 六、full 精读提及/生态线索
 
-{report_context_company_clues_section(state["local_report_contexts"])}
+{report_context_company_clues_section(state["display_report_contexts"])}
 
 ## 七、发酵进度与预期差
 
-{progress_ranking_section(context)}
+{direction_progress_ranking_section(context, companies, state.get("direction_profile"))}
 
 ### 认知演变时间线
 
@@ -4144,25 +6962,29 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 ### 催化日历
 
-{catalyst_calendar_section(context)}
+{catalyst_calendar_section(context, companies, state.get("direction_profile"))}
 
 ## 八、相对核心个股逻辑卡
 
-{deep_company_cards_section(companies, "relative_core")}
+{deep_company_cards_section(companies, "relative_core", term=state.get("primary") or state.get("term") or "", has_structured_supplement=state.get("has_structured_supplement", False))}
 
 ## 九、重点相关个股逻辑卡
 
-{deep_company_cards_section(companies, "related")}
+{deep_company_cards_section(companies, "related", term=state.get("primary") or state.get("term") or "", has_structured_supplement=state.get("has_structured_supplement", False))}
+
+### 近期 IMA 个股逻辑卡观察池
+
+{recent_ima_logic_card_pool_section(companies, term=state.get("primary") or state.get("term") or "")}
 
 ## 十、观察/弹性与弱相关隔离
 
 ### 观察/弹性
 
-{deep_company_cards_section(companies, "watch", limit=8)}
+{deep_company_cards_section(companies, "watch", limit=8, term=state.get("primary") or state.get("term") or "", has_structured_supplement=state.get("has_structured_supplement", False))}
 
 ### 弱相关/暂不作为核心
 
-{deep_company_cards_section(companies, "weak", limit=8)}
+{"- 结构化补充池已接入，弱相关公司线索默认不展开，避免泛概念或跨主题弱线索污染。" if state.get("has_structured_supplement") else deep_company_cards_section(companies, "weak", limit=8, term=state.get("primary") or state.get("term") or "", has_structured_supplement=False)}
 
 ## 十一、验证清单
 
@@ -4172,7 +6994,7 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 ### 通用验证
 
-{validation_checklist_section(context)}
+{validation_checklist_section(context, companies, state.get("direction_profile"))}
 
 ## 十二、核心结论
 
@@ -4200,6 +7022,1129 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 - 公告/订单/业绩：当前仅作为后续验证空位，不作为高权重核心判断。
 - 输出方式：不做个股排名，不展示分数，只做相对核心/重点相关/观察/弱相关分层与逻辑解释。
 """
+
+
+def md_cell(value, limit: int = 120) -> str:
+    text = compact_text(str(value or ""), limit)
+    replacements = {
+        "推荐": "提及",
+        "买入": "买方动作",
+        "卖出": "卖方动作",
+        "最优先": "第一类",
+        "次优先": "第二类",
+        "强烈关注": "重点记录",
+        "操作建议": "后续信息",
+        "交易机会": "市场表述",
+        "权重": "占比字段",
+        "打分": "分项记录",
+        "评分": "分项记录",
+        "发酵强度": "关注热度",
+        "预期差排序": "差异信息列表",
+        "弹性最大": "弹性描述",
+        "最强标的": "相关公司",
+        "个股投资价值": "公司信息",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text.replace("|", "/") or "待补"
+
+
+def map_sources(*values, limit: int = 120) -> str:
+    items = []
+    for value in values:
+        items.extend(as_list(value))
+    return md_cell("、".join(unique(items)) or "待补", limit)
+
+
+def map_flat_terms(*values, limit: int = 16) -> list[str]:
+    out = []
+
+    def visit(value):
+        if value is None:
+            return
+        if isinstance(value, dict):
+            for key in ("name", "direction", "segment", "scenario", "layer", "chain_position"):
+                if value.get(key):
+                    visit(value.get(key))
+                    return
+            for item in value.values():
+                visit(item)
+            return
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                visit(item)
+            return
+        for item in as_list(value):
+            text = str(item or "").strip()
+            if text and text != "待补":
+                out.append(text)
+
+    for value in values:
+        visit(value)
+    return unique(out)[:limit]
+
+
+def map_clean_plain(value, limit: int = 0) -> str:
+    values = []
+    source_items = value if isinstance(value, list) else [value]
+    for item in source_items:
+        text = str(item or "").strip()
+        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"（[^）]*\[\[[^）]*\]\][^）]*）", "", text)
+        text = re.sub(r"\[\[[^\]]+\]\]", "", text)
+        text = text.replace("从既有entity markdown重建", "")
+        text = text.replace("从既有concept markdown重建", "")
+        text = text.replace("从既有entitymarkdown重建", "")
+        text = text.replace("从既有conceptmarkdown重建", "")
+        text = text.replace("图谱弱关联", "延伸线索")
+        text = text.replace("弱关联观察", "延伸观察")
+        text = text.replace("市场信号弱关联", "延伸线索")
+        text = text.replace("待公告验证", "需公告验证")
+        text = text.replace("mootdxF10主营业务显示：", "主营业务显示：")
+        text = text.replace("iFinD摘要显示公司", "公司")
+        text = text.replace("iFinD摘要显示", "")
+        text = text.replace("iFinD主营业务为：", "主营业务为：")
+        text = text.replace("AkShare公开资料显示、", "")
+        text = text.replace("iFinD", "")
+        text = text.replace("AkShare", "")
+        text = text.replace("mootdx", "")
+        text = text.replace("F10主营业务显示：", "主营业务显示：")
+        text = text.replace("摘要显示公司", "公司")
+        text = text.replace("摘要显示", "")
+        text = text.replace("公开资料显示、", "")
+        text = text.replace("公开资料显示", "")
+        text = text.replace("基础主营支持", "主营业务涉及")
+        text = text.replace("主要核心主业明确为", "主要业务为")
+        text = text.replace("基础资料未直接给出相关产品或收入", "相关产品或收入口径需要继续确认")
+        text = text.replace("实体概念映射包含", "概念映射涉及")
+        text = text.replace("既有边际变化", "产业链线索")
+        text = text.replace("存储芯片属性来自产业链线索、", "产业链线索显示，")
+        text = text.replace("存储芯片属性来自产业链线索，", "产业链线索显示，")
+        text = text.replace("需后续公告、年报、研报证据交叉验证", "产品与业务口径需继续确认")
+        text = text.replace("公告验证", "事实验证")
+        text = re.sub(r"^[（(][^）)]*(风口研报|调研日报|市场逻辑|强势脱水|脱水研报)[^）)]*[）)]", "", text)
+        text = re.sub(r"[（(][^）)]*(风口研报|调研日报|市场逻辑|强势脱水|脱水研报)[^）)]*[）)]", "", text)
+        text = re.sub(r"[（(]\d{4}[^）)]*(风口|调研|强势|脱水|需事实验证|需公告验证).*", "", text)
+        text = re.sub(r"\b\d{4}[^：:]{0,30}[：:]", "", text)
+        text = re.sub(r"(风口研报|调研日报|强势脱水|市场逻辑精选)[0-9一二三四五六七八九十]*[：:]", "", text)
+        text = re.sub(r"\d{4}[^：]{0,20}(风口研报|调研日报|强势脱水|市场逻辑精选)[^：]*：", "", text)
+        text = re.sub(r"第三方机构[^、，：]{0,12}(覆盖|称)", "", text)
+        text = re.sub(r"第三方机构[^、，。；;：:]{0,20}(覆盖|称)", "", text)
+        if "是否被更多研报" in text or "能否落到明确产品" in text:
+            continue
+        text = text.replace("后续跟踪", "")
+        text = re.sub(r"^(存储芯片|先进封装|半导体设备|晶圆代工|利基存储|半导体材料|半导体量检测设备)[：:]", "", text)
+        text = text.replace("由公司子方向归集", "由公司角色和产品方向归集")
+        text = re.sub(r"（\s*[、,，;；]*\s*）", "", text)
+        text = text.strip(" ；;，,。、")
+        if not text or text in {"待补", "missing", "暂无明显缺口"}:
+            continue
+        if text in {"由公司角色和产品方向归集", "围绕需求、产品、工艺和公司映射继续展开"}:
+            continue
+        if any(token in text for token in ("既有raw", "既有entity", "既有concept", "不直接证明", "仅支持主营业务基础")):
+            continue
+        if any(token in text for token in ("report_contexts", "entity_exposures", "evidence_index", "concept_graph", "theme_supplement_pool", "direction_scan", "material_process_scan", "aliases.json", "context.", "从既有")):
+            continue
+        if "待判定" in text or "待细分" in text:
+            continue
+        values.append(text)
+    text = "、".join(unique(values))
+    if limit and text:
+        text = compact_text(text, limit)
+    text = text.replace("（、）", "").replace("（，）", "").replace("(、)", "")
+    return text
+
+
+def map_clean_display(value, default: str = "—", limit: int = 120) -> str:
+    text = map_clean_plain(value, limit=limit)
+    return md_cell(text if text else default, limit)
+
+
+def map_blank_display(value, limit: int = 120) -> str:
+    text = map_clean_plain(value, limit=limit)
+    return md_cell(text, limit) if text else ""
+
+
+def map_wiki_name(value, limit: int = 80) -> str:
+    text = map_clean_plain(strip_wikilink(str(value or "")), limit=limit)
+    text = text.replace("[[", "").replace("]]", "").replace("|", "/").strip()
+    return text
+
+
+def map_wiki_link(value, limit: int = 80) -> str:
+    text = map_wiki_name(value, limit=limit)
+    return f"[[{text}]]" if text else ""
+
+
+def map_wiki_join(values, limit: int = 12) -> str:
+    items = []
+    for item in as_list(values):
+        link = map_wiki_link(item)
+        if link:
+            items.append(link)
+    return "、".join(unique(items)[:limit])
+
+
+def map_wiki_path(*values) -> str:
+    items = []
+    for value in values:
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                link = map_wiki_link(item)
+                if link:
+                    items.append(link)
+        else:
+            link = map_wiki_link(value)
+            if link:
+                items.append(link)
+    return " → ".join(unique(items))
+
+
+def map_first_clean(values, limit: int = 120) -> str:
+    for item in as_list(values):
+        text = map_clean_plain(item, limit=limit)
+        if text:
+            return text
+    return ""
+
+
+def map_context_chain_terms(context: dict, key: str, limit: int = 12) -> list[str]:
+    chain = context.get("industry_chain_map", {}) if isinstance(context, dict) else {}
+    if not isinstance(chain, dict):
+        return []
+    return map_flat_terms(chain.get(key, []), limit=limit)
+
+
+def map_report_chain_terms(report_rows: list[dict], key: str, limit: int = 12) -> list[str]:
+    values = []
+    for row in report_rows or []:
+        if not isinstance(row, dict):
+            continue
+        supply = row.get("supply_chain", {}) if isinstance(row.get("supply_chain"), dict) else {}
+        values.extend(map_flat_terms(supply.get(key, []), limit=limit))
+    return unique(values)[:limit]
+
+
+def map_companies_for_term(companies: list[dict], term: str, limit: int = 6) -> str:
+    needle = normalize(term)
+    if not needle:
+        return ""
+    names = []
+    for company in companies or []:
+        haystack = normalize(
+            " ".join(
+                str(x)
+                for x in (
+                    company.get("roles", [])
+                    + company.get("evidence", [])
+                    + company.get("concepts", [])
+                    + company_subdirections(company)
+                )
+            )
+        )
+        if needle in haystack:
+            names.append(company.get("name", ""))
+    return "、".join(unique(names)[:limit])
+
+
+def map_company_names_for_directions(companies: list[dict], profile: dict | None, directions: set[str], subtypes: set[str] | None = None, limit: int = 8) -> str:
+    names = []
+    subtypes = subtypes or set()
+    for company in companies or []:
+        direction = company_direction_key(company, profile)
+        subtype = company.get("company_subtype") or company_subtype(company)
+        if direction in directions or subtype in subtypes:
+            names.append(company.get("name", ""))
+    return "、".join(unique(names)[:limit])
+
+
+def map_generic_demand_row(row: dict) -> bool:
+    text = " ".join(str(row.get(key) or "") for key in ("logic", "transmission_logic", "evidence_summary", "process_requirement", "next_validation"))
+    return any(token in text for token in ("来自已精读full.md", "需映射到中游核心环节", "补需求到具体环节", "待映射到"))
+
+
+def map_theme_keyword_text(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    report_rows = state.get("local_report_contexts", []) or []
+    values = []
+    values.extend(map_flat_terms(context.get("demand_drivers"), context.get("capability_stack"), context.get("direction_scan"), context.get("material_process_scan"), limit=80))
+    for row in report_rows:
+        if isinstance(row, dict):
+            values.extend(map_flat_terms(row.get("related_concepts"), row.get("supply_chain"), row.get("summary"), limit=80))
+    for company in state.get("companies", []) or []:
+        values.extend(map_flat_terms(company.get("roles"), company.get("evidence"), company.get("concepts"), company_subdirections(company), limit=80))
+    return " ".join(unique(values))
+
+
+def map_inferred_demand_engine_rows(state: dict, limit: int = 8) -> list[dict]:
+    context = state.get("context", {}) or {}
+    theme_text = " ".join(str(x or "") for x in (state.get("term"), state.get("primary"), state.get("definition"), context_definition(context)))
+    text = map_theme_keyword_text(state)
+    companies = state.get("companies", []) or []
+    rules = [
+        (("存储", "HBM", "DRAM", "NAND", "NOR"), ("AI服务器", "GPU", "数据中心", "推理", "算力", "HBM"), "AI算力/数据中心", "AI服务器、GPU和推理算力提升带来容量、带宽和功耗约束。", "HBM、DDR5、企业级SSD、先进封装/封测、核心材料", ("HBM", "DDR5", "SSD", "NAND", "先进封装")),
+        (("存储", "HBM", "DRAM", "NAND", "NOR"), ("HBM", "DDR5", "LPDDR5", "DRAM"), "高带宽/高速内存升级", "存储带宽、容量和功耗要求提升，推动内存产品代际切换。", "HBM、DDR5、LPDDR、接口芯片、封测", ("HBM", "DDR5", "LPDDR", "DRAM")),
+        (("存储", "HBM", "DRAM", "NAND", "NOR"), ("NAND", "3DNAND", "SSD", "QLC", "UFS"), "NAND/SSD容量升级", "终端与数据中心容量需求提升，牵引NAND、SSD、主控与封测环节。", "NAND、SSD、主控、封测、硅片/材料", ("NAND", "SSD", "UFS", "3DNAND")),
+        (("存储", "HBM", "DRAM", "NAND", "NOR"), ("NOR", "EEPROM", "MCU", "车规", "汽车电子", "工业控制", "物联网"), "利基存储/车规与工控", "汽车电子、工业控制和物联网场景更重视可靠性、长周期供货和小容量存储。", "NOR、EEPROM、车规存储、控制芯片", ("NOR", "EEPROM", "车规", "汽车")),
+        (("光模块", "光通信", "光芯片", "CPO", "硅光"), ("1.6T", "800G", "光模块", "CPO", "硅光", "EML", "VCSEL"), "AI集群网络升级", "AI集群带宽升级带动高速光模块、光芯片和封装配套需求。", "光模块、光芯片、硅光/CPO、PCB/封装材料", ("光模块", "CPO", "硅光", "EML", "VCSEL")),
+        (("创新药", "医药", "Biotech", "药"), ("临床", "BD", "医保", "NMPA", "FDA", "License", "管线", "双抗", "ADC", "GLP"), "临床/商业化/BD节点", "管线进展、医保准入、出海授权和商业化放量构成创新药主要信息节点。", "临床阶段、适应症、审批、BD、销售收入", ("临床", "BD", "医保", "管线", "ADC")),
+        (("光伏", "硅料", "硅片", "组件", "逆变器"), ("TOPCon", "BC电池", "钙钛矿", "硅片", "组件", "逆变器", "储能", "海外"), "光伏技术迭代与出海需求", "电池片技术、组件价格、海外装机和储能配套共同影响产业链环节。", "硅料/硅片、电池片、组件、逆变器、储能", ("TOPCon", "BC", "钙钛矿", "组件", "逆变器")),
+    ]
+    rows = []
+    for domain_tokens, tokens, scenario, logic, process, company_terms in rules:
+        if not any(token in theme_text for token in domain_tokens):
+            continue
+        if not any(token in text for token in tokens):
+            continue
+        names = []
+        for term in company_terms:
+            names.extend(as_list(map_companies_for_term(companies, term, 4)))
+        rows.append(
+            {
+                "scenario": scenario,
+                "logic": logic,
+                "process": process,
+                "companies": "、".join(unique(names)[:6]) or "待补",
+                "source": "report_contexts/entity_exposures/关键词归纳",
+                "gap": "补原文段落、公司产品、客户和量化字段",
+            }
+        )
+    return rows[:limit]
+
+
+def map_existing_report_files(term: str, limit: int = 6) -> list[str]:
+    ima_dir = Path("/Users/a77/Desktop/c c/ima")
+    if not ima_dir.exists():
+        return []
+    patterns = [
+        f"*{term}*ThemeRadar*DeepDive*接入补充池*.md",
+        f"*{term}*ThemeRadar*.md",
+    ]
+    files = []
+    for pattern in patterns:
+        files.extend(str(path) for path in ima_dir.glob(pattern) if path.is_file())
+    return unique(files)[:limit]
+
+
+def map_bucket_text(company: dict) -> str:
+    buckets = company.get("evidence_buckets", {}) or {}
+    labels = {
+        "baseline": "baseline",
+        "curated_research": "curated_research",
+        "delta": "delta",
+        "graph_only": "graph_only",
+        "missing": "missing",
+    }
+    parts = [labels[key] for key in EVIDENCE_BUCKETS if buckets.get(key)]
+    return "、".join(parts) or "missing"
+
+
+def map_company_gap(company: dict) -> str:
+    labels = {
+        "graph_only_only": "仅图谱关联",
+        "missing_evidence": "证据待补",
+        "chain_layer_conflict": "链层冲突待复核",
+        "weak_granularity": "颗粒度待补",
+        "soft_fact_hardness": "事实硬度待复核",
+        "missing_chain_layer": "链层待补",
+        "review_required": "需复核",
+    }
+    return "、".join(labels[f] for f in company_qc_flags(company) if f in labels) or "暂无明显缺口"
+
+
+def map_company_role(company: dict) -> str:
+    return md_cell("、".join(unique(company.get("roles", []) or [])) or SUBTYPE_LABELS.get(company.get("company_subtype") or company_subtype(company), "待判定"), 100)
+
+
+def map_one_line_anchor(term: str, state: dict) -> str:
+    context = state.get("context", {}) or {}
+    definition_profile = context.get("definition_profile", {}) if isinstance(context.get("definition_profile"), dict) else {}
+    anchor = str(definition_profile.get("one_line_anchor") or state.get("definition") or context_definition(context) or "").strip()
+    if not anchor:
+        anchor = f"{term}：围绕题材定义、产业链位置、需求驱动、细分方向和相关公司展开的信息地图。"
+    return f"{md_cell(anchor, 220)}本地图按“需求 → 产品/工艺 → 产业链环节 → 相关公司 → 核验问题”组织。"
+
+
+def map_concept_boundary_section(term: str, state: dict) -> str:
+    graph = state.get("graph", {}) or {}
+    concepts = state.get("concepts", {}) or {}
+    primary = state.get("primary") or term
+    matches = state.get("matches", []) or []
+    node = concepts.get(primary, {}) if isinstance(concepts, dict) else {}
+    rows = []
+    for name in as_list(node.get("parents")):
+        rows.append(("上位概念", name, "用于判断题材所属的大类和外延。"))
+    for name in matches:
+        if name != primary:
+            rows.append(("同义词/别名", name, "用于合并不同表述下的同一题材。"))
+    for name in as_list(node.get("children")):
+        rows.append(("子概念", name, "用于拆分题材内部的细分方向。"))
+    for name in as_list(node.get("related_concepts")):
+        rows.append(("相邻概念", name, "用于识别上下游、替代路线或相邻主题。"))
+    for rel in relation_neighbors(graph, primary)[:12]:
+        rows.append(("相邻概念", rel.get("concept", ""), rel.get("type", "相关")))
+    if not rows:
+        rows.append(("核心概念", primary if primary != term else term, "作为本报告的分析起点。"))
+    lines = ["| 边界类型 | 内容 | 说明 |", "|---|---|---|"]
+    for row in rows[:24]:
+        lines.append("| " + " | ".join(md_cell(x, 90) for x in row) + " |")
+    return "\n".join(lines)
+
+
+def map_attention_section(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    report_rows = state.get("local_report_contexts", []) or []
+    demand_terms = unique(map_flat_terms(context.get("demand_drivers"), map_report_chain_terms(report_rows, "downstream", 18), limit=24))
+    process_terms = unique(map_flat_terms(context.get("capability_stack"), map_report_chain_terms(report_rows, "midstream", 18), limit=24))
+    rows = context.get("demand_scenarios", []) if isinstance(context.get("demand_scenarios"), list) else []
+    inferred_rows = map_inferred_demand_engine_rows(state)
+    structured_rows = [row for row in rows if isinstance(row, dict) and not map_generic_demand_row(row)]
+    lines = [
+        "### 需求引擎",
+        "",
+        "| 需求引擎 | 变化逻辑 | 传导环节 | 相关公司 |",
+        "|---|---|---|---|",
+    ]
+    if structured_rows:
+        for row in structured_rows[:8]:
+            lines.append(
+                f"| {map_clean_display(row.get('scenario') or row.get('downstream_driver'))} | {map_clean_display(row.get('logic') or row.get('transmission_logic') or row.get('evidence_summary'), limit=130)} | {map_clean_display(row.get('process_requirement') or row.get('chain_position'), limit=100)} | {map_clean_display(row.get('representative_entities'), limit=100)} |"
+            )
+    elif inferred_rows:
+        for row in inferred_rows:
+            lines.append(
+                f"| {map_clean_display(row.get('scenario'))} | {map_clean_display(row.get('logic'), limit=130)} | {map_clean_display(row.get('process'), limit=120)} | {map_clean_display(row.get('companies'), limit=100)} |"
+            )
+    else:
+        for term in demand_terms[:8]:
+            lines.append(
+                f"| {map_clean_display(term)} | 需求变化通过产品容量、性能、价格或客户认证向产业链传导。 | {map_clean_display(process_terms[:5])} | — |"
+            )
+    if len(lines) == 4:
+        lines.append("| 主题需求 | 需求变化通过产品、工艺和客户认证向产业链传导。 | — | — |")
+    summary_terms = unique(demand_terms[:4] + process_terms[:4])
+    if summary_terms:
+        lines.extend(["", "### 主线小结", "", "- **关键词**：" + md_cell("、".join(summary_terms), 180)])
+    return "\n".join(lines)
+
+
+def map_chain_rows_from_context(context: dict) -> list[dict]:
+    rows = []
+    panorama = context.get("industry_chain_panorama", []) if isinstance(context, dict) else []
+    if isinstance(panorama, list):
+        for row in panorama:
+            if not isinstance(row, dict):
+                continue
+            rows.append(
+                {
+                    "layer": row.get("layer") or "待补",
+                    "segment": row.get("segment") or row.get("name") or "待补",
+                    "subdir": "、".join(as_list(row.get("key_elements"))) or row.get("segment") or "待补",
+                    "desc": row.get("industry_logic") or row.get("supply_demand_status") or "",
+                    "companies": "、".join(as_list(row.get("representative_entities"))),
+                    "source": row.get("source") or "theme_supplement_pool/context",
+                    "gap": "待补" if not row.get("representative_entities") else "",
+                }
+            )
+    chain = context.get("industry_chain_map", {}) if isinstance(context, dict) else {}
+    labels = {
+        "downstream": "下游需求",
+        "midstream": "中游产品/制造",
+        "upstream_equipment": "上游设备",
+        "upstream_materials": "上游材料",
+        "ecosystem": "生态/配套",
+    }
+    if isinstance(chain, dict):
+        for key, values in chain.items():
+            for value in values or []:
+                name = value.get("name") if isinstance(value, dict) else str(value)
+                if name:
+                    rows.append({"layer": labels.get(key, key), "segment": name, "subdir": name, "desc": "来自产业链上下文字段", "companies": "", "source": "report_contexts/runtime_context", "gap": "公司映射待补"})
+    return rows
+
+
+def map_industry_chain_section(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    companies = state.get("companies", []) or []
+    profile = state.get("direction_profile")
+    report_rows = state.get("local_report_contexts", []) or []
+    rows = [
+        {
+            "layer": "下游需求",
+            "segment": "终端/应用场景",
+            "subdir": "、".join(unique(map_context_chain_terms(context, "downstream", 10) + map_report_chain_terms(report_rows, "downstream", 10))) or "待补",
+            "desc": "解释题材需求来源，只做场景归类。",
+            "companies": map_company_names_for_directions(companies, profile, {"downstream_channel"}, {"downstream_channel"}, 8),
+            "source": "report_contexts/context",
+            "gap": "需求到产品/工艺映射待补",
+        },
+        {
+            "layer": "中游产品/制造",
+            "segment": "核心产品与制造",
+            "subdir": "、".join(unique(map_context_chain_terms(context, "midstream", 10) + map_report_chain_terms(report_rows, "midstream", 10))) or "待补",
+            "desc": "承接需求并形成题材主体的产品、制造或工艺环节。",
+            "companies": map_company_names_for_directions(companies, profile, {"core_product", "storage_product", "optical_module", "drug_pipeline", "pv_cell_module", "manufacturing"}, {"core_subject", "component_supplier"}, 10),
+            "source": "concept_graph/entity_exposures/report_contexts",
+            "gap": "产品口径、客户和收入占比待补",
+        },
+        {
+            "layer": "封测/工程/服务",
+            "segment": "封装测试/工程服务/平台",
+            "subdir": "、".join(unique([direction_label("package_test", profile), direction_label("service_platform", profile)])),
+            "desc": "连接产品制造、验证、交付和配套服务的中间环节。",
+            "companies": map_company_names_for_directions(companies, profile, {"package_test", "service_platform"}, {"service_provider"}, 10),
+            "source": "entity_exposures/evidence_index",
+            "gap": "服务边界和客户验证待补",
+        },
+        {
+            "layer": "上游设备",
+            "segment": "设备/量测/检测",
+            "subdir": "、".join(unique(map_context_chain_terms(context, "upstream_equipment", 10) + map_report_chain_terms(report_rows, "upstream_equipment", 10))) or direction_label("equipment", profile),
+            "desc": "为制造、封测或工艺升级提供设备和量检测能力。",
+            "companies": map_company_names_for_directions(companies, profile, {"equipment"}, {"upstream_equipment"}, 10),
+            "source": "concept_graph/entity_exposures/report_contexts",
+            "gap": "订单、验收、导入进度待补",
+        },
+        {
+            "layer": "上游材料",
+            "segment": "材料/化学品/零部件",
+            "subdir": "、".join(unique(map_context_chain_terms(context, "upstream_materials", 10) + map_report_chain_terms(report_rows, "upstream_materials", 10))) or direction_label("materials", profile),
+            "desc": "为核心工艺、封测或产品性能提供材料和零部件约束。",
+            "companies": map_company_names_for_directions(companies, profile, {"materials", "pv_silicon"}, {"upstream_materials"}, 10),
+            "source": "concept_graph/entity_exposures/report_contexts",
+            "gap": "认证、产能、客户导入待补",
+        },
+    ]
+    lines = [
+        "```text",
+        "下游需求/应用场景",
+        "        ↓",
+        "中游产品/制造 ── 封测/工程/服务",
+        "        ↑             ↑",
+        "上游设备/量检测   上游材料/零部件",
+        "```",
+        "",
+        "| 层级 | 核心环节 | 关键内容 | 作用 |",
+        "|---|---|---|---|",
+    ]
+    for row in rows:
+        lines.append(f"| {map_clean_display(row.get('layer'))} | {map_clean_display(row.get('segment'))} | {map_clean_display(row.get('subdir'), limit=120)} | {map_clean_display(row.get('desc'), limit=120)} |")
+    return "\n".join(lines)
+
+
+def map_demand_bottleneck_section(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    rows = context.get("demand_scenarios", []) if isinstance(context.get("demand_scenarios"), list) else []
+    out = []
+    for row in rows:
+        if not isinstance(row, dict) or map_generic_demand_row(row):
+            continue
+        out.append(
+            {
+                "source": row.get("scenario") or row.get("demand_source") or row.get("downstream_driver"),
+                "desc": row.get("logic") or row.get("transmission_logic") or row.get("evidence_summary"),
+                "bottleneck": row.get("process_requirement") or row.get("bottleneck"),
+                "link": "、".join(as_list(row.get("beneficiary_links"))) or row.get("chain_position"),
+                "subdir": row.get("direction") or row.get("scenario"),
+                "companies": "、".join(as_list(row.get("representative_entities"))),
+            }
+        )
+    if not out:
+        for row in map_inferred_demand_engine_rows(state):
+            out.append({"source": row.get("scenario"), "desc": row.get("logic"), "bottleneck": "容量、带宽、功耗、良率、认证和供给节奏", "link": row.get("process"), "subdir": row.get("scenario"), "companies": row.get("companies")})
+    if not out:
+        for value in as_list(context.get("demand_drivers"))[:8]:
+            out.append({"source": value, "desc": "需求变化通过产品容量、性能、价格或客户认证向产业链传导。", "bottleneck": "容量、成本、良率、客户认证", "link": "产品/工艺/制造环节", "subdir": value, "companies": ""})
+    lines = ["| 需求引擎 | 传导逻辑 | 关键约束 | 传导环节 | 对应方向/公司 |", "|---|---|---|---|---|"]
+    if not out:
+        out.append({"source": "主题需求", "desc": "需求变化通过产品和产业链环节传导。", "bottleneck": "容量、成本、良率、客户认证", "link": "产品/工艺/制造环节", "subdir": "", "companies": ""})
+    for row in out[:24]:
+        target = " / ".join(x for x in (map_clean_display(row.get("subdir"), default="", limit=70), map_clean_display(row.get("companies"), default="", limit=80)) if x)
+        lines.append(f"| {map_clean_display(row.get('source'), limit=80)} | {map_clean_display(row.get('desc'), limit=120)} | {map_clean_display(row.get('bottleneck'), limit=100)} | {map_clean_display(row.get('link'), limit=100)} | {target or '—'} |")
+    return "\n".join(lines)
+
+
+def map_subdirection_rows(state: dict) -> list[dict]:
+    context = state.get("context", {}) or {}
+    companies = state.get("companies", []) or []
+    profile = state.get("direction_profile")
+    rows = []
+    for row in context.get("direction_scan", []) if isinstance(context.get("direction_scan"), list) else []:
+        if isinstance(row, dict):
+            rows.append({"subdir": row.get("direction") or row.get("name"), "layer": row.get("sector") or "待补", "desc": row.get("core_catalyst") or row.get("prosperity") or "", "concepts": "、".join(as_list(row.get("secondary_sectors"))), "companies": "、".join(as_list(row.get("candidate_companies"))), "evidence": row.get("mention_frequency") or "context", "source": "direction_scan", "gap": row.get("next_validation") or "公司映射待补"})
+    for row in context.get("material_process_scan", []) if isinstance(context.get("material_process_scan"), list) else []:
+        if isinstance(row, dict):
+            rows.append({"subdir": row.get("name") or row.get("direction"), "layer": row.get("chain_position") or row.get("major_track") or "待补", "desc": row.get("core_catalyst") or row.get("next_validation") or "", "concepts": row.get("classification") or "", "companies": "、".join(as_list(row.get("representative_entities"))), "evidence": row.get("source") or "material_process_scan", "source": "material_process_scan", "gap": row.get("next_validation") or "待补"})
+    for direction, group in direction_company_groups(companies, profile).items():
+        if direction in {"unknown", "weak_watch", "ecosystem"}:
+            continue
+        rows.append({"subdir": direction_subdirection_summary(group, direction, profile), "layer": direction_label(direction, profile), "desc": "", "concepts": "、".join(unique([x for c in group for x in c.get("concepts", [])])[:6]), "companies": "、".join(unique([c.get("name", "") for c in group if c.get("name")])[:8]), "evidence": evidence_bucket_count_summary(group), "source": "entity_exposures/evidence_index", "gap": direction_qc_gap_summary(group)})
+    dedup = []
+    seen = set()
+    for row in rows:
+        key = (str(row.get("subdir")), str(row.get("layer")))
+        if key in seen or not row.get("subdir"):
+            continue
+        seen.add(key)
+        dedup.append(row)
+    return dedup
+
+
+def map_subdirection_section(state: dict) -> str:
+    rows = map_subdirection_rows(state)
+    companies = state.get("companies", []) or []
+    lines = ["| 细分方向/环节 | 对应公司 |", "|---|---|"]
+    for row in rows[:40]:
+        subdir = row.get("subdir")
+        if not map_clean_plain(subdir):
+            subdir = row.get("layer")
+        mapped_companies = map_clean_plain(row.get("companies"), limit=120)
+        if not mapped_companies:
+            mapped_companies = map_clean_plain(map_companies_for_term(companies, str(subdir or ""), 8), limit=120)
+        if not mapped_companies:
+            mapped_companies = map_clean_plain(map_companies_for_term(companies, str(row.get("layer") or ""), 8), limit=120)
+        clean_subdir = map_clean_plain(subdir, limit=120)
+        clean_layer = map_clean_plain(row.get("layer"), limit=120)
+        if not clean_subdir or not mapped_companies:
+            continue
+        label = clean_subdir if clean_subdir == clean_layer or not clean_layer else f"{clean_layer}：{clean_subdir}"
+        lines.append("| " + " | ".join(map_blank_display(value, limit=140) for value in (label, mapped_companies)) + " |")
+    if len(lines) == 2:
+        return ""
+    return "\n".join(lines)
+
+
+def map_validation_item_for_direction(name: str, layer: str) -> str:
+    text = f"{name} {layer}"
+    if any(token in text for token in ("临床", "获批", "BD", "License", "管线", "药")):
+        return "临床进展、审评节点、商业化进展、BD授权、收入贡献"
+    if any(token in text for token in ("设备", "PECVD", "ALD", "量测", "检测", "装备")):
+        return "招标、订单、交付、验收、客户导入、产线适配"
+    if any(token in text for token in ("材料", "硅片", "CMP", "特气", "光刻胶", "铜箔", "玻璃", "胶膜", "银浆")):
+        return "客户认证、供货、产能、价格、良率、收入占比"
+    if any(token in text for token in ("封测", "封装", "先进封装", "CoWoS", "Chiplet", "CPO")):
+        return "封装技术、客户、量产、产能利用率、订单/收入口径"
+    if any(token in text for token in ("NAND", "NOR", "DRAM", "HBM", "DDR", "SSD", "光模块", "组件", "逆变器")):
+        return "产品代际、客户认证、出货、价格/库存、收入占比"
+    return "产品、客户、订单、产能、认证、收入占比"
+
+
+def map_subdirection_deep_dive_section(state: dict) -> str:
+    rows = []
+    for row in map_subdirection_rows(state):
+        subdir = str(row.get("subdir") or "").strip()
+        if not subdir or subdir == "待细分":
+            continue
+        companies = map_clean_plain(row.get("companies") or map_companies_for_term(state.get("companies", []) or [], subdir, 6), limit=100)
+        why = map_clean_plain(row.get("desc"), limit=130)
+        if not companies or not why:
+            continue
+        clean_row = dict(row)
+        clean_row["companies"] = companies
+        clean_row["desc"] = why
+        rows.append(clean_row)
+    lines = [
+        "| 细分方向 | 链条位置 | 为什么重要 | 相关公司 | 重点核验字段 |",
+        "|---|---|---|---|---|",
+    ]
+    if not rows:
+        return ""
+    for row in rows[:14]:
+        name = row.get("subdir") or "主题主线"
+        layer = row.get("layer") or "—"
+        companies = row.get("companies")
+        why = row.get("desc")
+        fields = map_validation_item_for_direction(str(name), str(layer))
+        lines.append(f"| {map_clean_display(name)} | {map_clean_display(layer)} | {map_clean_display(why, limit=130)} | {map_clean_display(companies, limit=100)} | {map_clean_display(fields)} |")
+    return "\n".join(lines)
+
+
+def map_process_material_section(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    rows = []
+    for row in context.get("material_process_scan", []) if isinstance(context.get("material_process_scan"), list) else []:
+        if isinstance(row, dict):
+            rows.append({"name": row.get("name") or row.get("direction"), "layer": row.get("chain_position") or row.get("major_track"), "subdir": row.get("classification") or row.get("direction") or row.get("name"), "desc": row.get("core_catalyst") or row.get("next_validation") or row.get("prosperity_judgment"), "companies": "、".join(as_list(row.get("representative_entities"))), "source": row.get("source") or "material_process_scan", "gap": row.get("next_validation") or "待补"})
+    if not rows:
+        for row in map_subdirection_rows(state):
+            text = str(row.get("subdir") or "")
+            if any(token in text for token in ("材料", "工艺", "设备", "NAND", "NOR", "HBM", "DDR", "ADC", "双抗", "GLP", "硅料", "硅片", "组件", "逆变器", "EML", "VCSEL", "硅光", "CPO", "PCB", "CMP", "PECVD")):
+                rows.append({"name": text, "layer": row.get("layer"), "subdir": row.get("subdir"), "desc": row.get("desc"), "companies": row.get("companies"), "source": row.get("source"), "gap": row.get("gap")})
+    lines = ["| 工艺/材料/零部件 | 所在环节 | 对应方向 | 为什么重要 | 相关公司 |", "|---|---|---|---|---|"]
+    if not rows:
+        return ""
+    for row in rows[:36]:
+        desc = map_clean_plain(row.get("desc"), limit=120)
+        companies = map_clean_plain(row.get("companies"), limit=120)
+        if not desc and not companies:
+            continue
+        lines.append("| " + " | ".join(map_clean_display(value, limit=120) for value in (row.get("name"), row.get("layer"), row.get("subdir"), desc, companies)) + " |")
+    if len(lines) == 2:
+        return ""
+    return "\n".join(lines)
+
+
+def map_company_table(companies: list[dict], profile: dict | None, subtypes: set[str], limit: int = 40) -> str:
+    rows = [c for c in companies if (c.get("company_subtype") or company_subtype(c)) in subtypes]
+    lines = ["| 公司 | 所属环节 | 业务/线索 |", "|---|---|---|"]
+    generic_roles = {"芯片/核心器件", "上游设备", "上游材料", "中游制造", "中游封装测试", "相关公司"}
+    for company in rows[:limit]:
+        direction = company_direction_key(company, profile)
+        evidence = map_first_clean(unique(company.get("evidence", []) or []), 120)
+        role_parts = []
+        role = map_clean_plain(company.get("roles", []), limit=90)
+        products = map_clean_plain(company_subdirections(company), limit=90)
+        if evidence and role in generic_roles:
+            role = ""
+        if role:
+            role_parts.append(role)
+        if products and products not in role:
+            role_parts.append(products)
+        role_text = "；".join(unique(role_parts))
+        if not evidence and (not role_text or role_text in {"延伸线索", "相关公司", "上游设备", "上游材料", "中游制造", "中游封装测试", "股权投资潜在相关"}):
+            continue
+        if not evidence and any(token in role_text for token in ("延伸线索", "潜在相关")):
+            continue
+        detail = "；".join(unique([x for x in (role_text, evidence) if x]))
+        if not detail:
+            continue
+        lines.append(f"| {map_blank_display(company.get('name'))} | {map_blank_display(direction_label(direction, profile))} | {map_blank_display(detail, limit=220)} |")
+    if len(lines) == 2:
+        return ""
+    return "\n".join(lines)
+
+
+def map_company_map_section(state: dict) -> str:
+    companies = state.get("companies", []) or []
+    profile = state.get("direction_profile")
+    sections = [
+        ("核心产品/主体相关公司", {"core_subject", "component_supplier"}),
+        ("上游设备公司", {"upstream_equipment"}),
+        ("上游材料公司", {"upstream_materials"}),
+        ("制造 / 封测 / 工程服务公司", {"manufacturer", "package_test", "service_provider"}),
+        ("下游渠道 / 运营 / 应用公司", {"downstream_channel"}),
+        ("生态及延伸线索", {"ecosystem", "weak_graph", "unknown"}),
+    ]
+    lines = []
+    for title, subtypes in sections:
+        table = map_company_table(companies, profile, subtypes)
+        if table:
+            lines.extend([f"### {title}", "", table, ""])
+    return "\n".join(lines).strip()
+
+
+def map_wiki_subdirection_company_rows(state: dict, limit: int = 40) -> list[dict]:
+    companies = state.get("companies", []) or []
+    rows = []
+    seen = set()
+    for row in map_subdirection_rows(state):
+        name = map_wiki_name(row.get("subdir"))
+        layer = map_wiki_name(row.get("layer"))
+        if not name:
+            name = layer
+        if not name or name in {"生态配套", "生态/配套"} or layer in {"生态配套", "生态/配套"}:
+            continue
+        mapped = map_clean_plain(row.get("companies"), limit=160)
+        if not mapped:
+            mapped = map_clean_plain(map_companies_for_term(companies, name, 10), limit=160)
+        if not mapped and layer:
+            mapped = map_clean_plain(map_companies_for_term(companies, layer, 10), limit=160)
+        if not mapped:
+            continue
+        key = (name, mapped)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({"name": name, "layer": layer, "companies": mapped})
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def map_wiki_graph_section(state: dict) -> str:
+    root = map_wiki_link(state.get("primary") or state.get("term"))
+    rows = map_wiki_subdirection_company_rows(state, 14)
+    if not root and not rows:
+        return ""
+    lines = [f"- {root or map_clean_display(state.get('term') or state.get('primary'))}"]
+    for row in rows:
+        node = map_wiki_link(row.get("name"))
+        companies = map_wiki_join(row.get("companies"), 10)
+        if node and companies:
+            lines.append(f"  - {node}：{companies}")
+    return "\n".join(lines)
+
+
+def map_wiki_theme_card_section(term: str, state: dict) -> str:
+    context = state.get("context", {}) or {}
+    profile = context.get("definition_profile", {}) if isinstance(context.get("definition_profile"), dict) else {}
+    action_rows = context.get("action_plan", []) if isinstance(context.get("action_plan"), list) else []
+    validation_rows = context.get("validation_checklist", []) if isinstance(context.get("validation_checklist"), list) else []
+    anchor = map_clean_plain(profile.get("one_line_anchor") or map_one_line_anchor(term, state), limit=260)
+    why = map_clean_plain(profile.get("why_it_matters") or profile.get("technical_definition") or profile.get("boundary_notes"), limit=220)
+    focus = []
+    for row in action_rows:
+        if not isinstance(row, dict):
+            continue
+        item = map_clean_plain(row.get("target_entity") or row.get("direction"), limit=40)
+        if item:
+            focus.append(item)
+    variables = []
+    for row in validation_rows:
+        if not isinstance(row, dict):
+            continue
+        item = map_clean_plain(row.get("item") or row.get("upgrade_condition") or row.get("window"), limit=60)
+        if item:
+            variables.append(item)
+    lines = []
+    if anchor:
+        lines.append(f"- **一句话**：{anchor}")
+    if why:
+        lines.append(f"- **核心问题**：{why}")
+    if focus:
+        lines.append("- **当前关注**：" + "、".join(unique(focus)[:6]))
+    if variables:
+        lines.append("- **关键变量**：" + "、".join(unique(variables)[:6]))
+    root = map_wiki_link(state.get("primary") or state.get("term"))
+    if root:
+        lines.append(f"- **Wiki 入口**：{root}")
+    return "\n".join(lines)
+
+
+def map_wiki_demand_chain_section(state: dict) -> str:
+    root = map_wiki_link(state.get("primary") or state.get("term"))
+    rows = []
+    context = state.get("context", {}) or {}
+    demand_rows = context.get("demand_scenarios", []) if isinstance(context.get("demand_scenarios"), list) else []
+    for row in demand_rows:
+        if not isinstance(row, dict) or map_generic_demand_row(row):
+            continue
+        scenario = row.get("scenario") or row.get("demand_source") or row.get("downstream_driver")
+        driver = row.get("downstream_driver") or row.get("transmission_logic") or row.get("logic")
+        process = row.get("beneficiary_links") or row.get("process_requirement") or row.get("chain_position")
+        companies = row.get("representative_entities")
+        watch = row.get("next_validation") or row.get("evidence_summary")
+        if scenario and (process or companies):
+            rows.append({"scenario": scenario, "driver": driver, "process": process, "companies": "、".join(as_list(companies)), "watch": watch})
+    if not rows:
+        rows = map_inferred_demand_engine_rows(state, 8)
+    if not rows:
+        return ""
+    lines = ["| 需求场景 | 传导逻辑 | Wiki 传导路径 | 对应公司 | 看什么 |", "|---|---|---|---|---|"]
+    for row in rows[:8]:
+        scenario = map_wiki_link(row.get("scenario"))
+        process = map_wiki_join(row.get("process"), 6)
+        companies = map_wiki_join(row.get("companies"), 8)
+        path_parts = [x for x in (root, scenario, process) if x]
+        if not path_parts:
+            continue
+        lines.append(f"| {scenario or map_blank_display(row.get('scenario'))} | {map_blank_display(row.get('driver'), 120)} | {' → '.join(path_parts)} | {companies} | {map_blank_display(row.get('watch'), 100)} |")
+    return "\n".join(lines) if len(lines) > 2 else ""
+
+
+def map_wiki_material_cards_section(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    rows = context.get("material_process_scan", []) if isinstance(context.get("material_process_scan"), list) else []
+    if not rows:
+        return ""
+    lines = ["| 方向节点 | 所属环节 | 景气/催化 | 对应公司 | 下一步验证 |", "|---|---|---|---|---|"]
+    for row in rows[:14]:
+        if not isinstance(row, dict):
+            continue
+        name = map_wiki_link(row.get("name") or row.get("direction"))
+        if not name:
+            continue
+        layer = map_wiki_link(row.get("chain_position") or row.get("major_track"))
+        catalyst = map_clean_plain([row.get("prosperity_judgment"), row.get("core_catalyst"), row.get("prosperity_reason")], limit=130)
+        companies = map_wiki_join(row.get("representative_entities"), 8)
+        validation = map_clean_plain(row.get("next_validation") or row.get("evidence_summary"), limit=100)
+        if not catalyst and not companies and not validation:
+            continue
+        lines.append(f"| {name} | {layer} | {map_blank_display(catalyst, 140)} | {companies} | {map_blank_display(validation, 120)} |")
+    return "\n".join(lines) if len(lines) > 2 else ""
+
+
+def map_wiki_subdirection_mapping_section(state: dict) -> str:
+    rows = map_wiki_subdirection_company_rows(state, 40)
+    if not rows:
+        return ""
+    lines = ["| Wiki 节点 | 对应公司 |", "|---|---|"]
+    for row in rows:
+        node = map_wiki_link(row.get("name"))
+        companies = map_wiki_join(row.get("companies"), 12)
+        lines.append(f"| {node} | {companies} |")
+    return "\n".join(lines)
+
+
+def map_wiki_tracking_priority_section(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    rows = context.get("action_plan", []) if isinstance(context.get("action_plan"), list) else []
+    if not rows:
+        return ""
+    priority_order = {"P0": 0, "P0核心跟踪": 0, "P1": 1, "P1重点观察": 1, "P2": 2, "P2弹性观察": 2}
+    def rank(row: dict) -> int:
+        value = str(row.get("priority_bucket") or "")
+        return min([priority_order[key] for key in priority_order if key in value] or [9])
+    lines = ["| 优先级 | 跟踪对象 | Wiki 方向 | 核心逻辑 | 等待信号 | 风险/证伪 |", "|---|---|---|---|---|---|"]
+    for row in sorted([r for r in rows if isinstance(r, dict)], key=rank)[:10]:
+        target = row.get("target_entity") or row.get("direction")
+        direction = row.get("direction") or row.get("target_entity")
+        combined = " ".join(str(row.get(key) or "") for key in ("target_entity", "direction", "core_logic", "action_thesis"))
+        if any(token in combined for token in ("稀土", "回收链类比")):
+            continue
+        if "P3" in str(row.get("priority_bucket") or ""):
+            continue
+        logic = row.get("core_logic") or row.get("action_thesis") or row.get("evidence_summary")
+        lines.append(
+            f"| {map_blank_display(row.get('priority_bucket'), 30)} | {map_wiki_link(target) or map_blank_display(target)} | {map_wiki_link(direction) or map_blank_display(direction)} | {map_blank_display(logic, 130)} | {map_blank_display(row.get('wait_for'), 120)} | {map_blank_display(row.get('risk_warning'), 100)} |"
+        )
+    return "\n".join(lines) if len(lines) > 2 else ""
+
+
+def map_wiki_validation_watch_section(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    rows = context.get("validation_checklist", []) if isinstance(context.get("validation_checklist"), list) else []
+    if not rows:
+        return ""
+    lines = ["| 方向 | 验证事项 | 窗口/状态 | 正向信号 | 反向信号 |", "|---|---|---|---|---|"]
+    for row in rows[:8]:
+        if not isinstance(row, dict):
+            continue
+        direction = map_wiki_link(row.get("direction")) or map_blank_display(row.get("direction"))
+        status = " / ".join(x for x in [map_clean_plain(row.get("window"), 30), map_clean_plain(row.get("status"), 30)] if x)
+        lines.append(f"| {direction} | {map_blank_display(row.get('item'), 80)} | {map_blank_display(status, 60)} | {map_blank_display(row.get('upgrade_condition'), 110)} | {map_blank_display(row.get('downgrade_condition'), 100)} |")
+    return "\n".join(lines) if len(lines) > 2 else ""
+
+
+def map_wiki_catalyst_section(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    rows = context.get("catalyst_calendar", []) if isinstance(context.get("catalyst_calendar"), list) else []
+    if not rows:
+        return ""
+    lines = ["| 时间 | 事件 | 相关方向 | 观察点 |", "|---|---|---|---|"]
+    for row in rows[:6]:
+        if not isinstance(row, dict):
+            continue
+        direction = row.get("direction") or row.get("相关方向")
+        if not map_clean_plain(direction) or map_clean_plain(direction) == "催化日历":
+            direction = row.get("event_type") or row.get("direction") or row.get("相关方向")
+        event = row.get("event")
+        watch = row.get("watch_item") or row.get("next_watch") or row.get("impact_logic")
+        if not event:
+            continue
+        lines.append(f"| {map_blank_display(row.get('time') or row.get('time_window'), 40)} | {map_blank_display(event, 120)} | {map_wiki_link(direction) or map_blank_display(direction, 80)} | {map_blank_display(watch, 100)} |")
+    return "\n".join(lines) if len(lines) > 2 else ""
+
+
+def map_wiki_company_paths_section(state: dict) -> str:
+    companies = state.get("companies", []) or []
+    profile = state.get("direction_profile")
+    root = state.get("primary") or state.get("term")
+    lines = ["| 公司 | 映射路径 | 关键线索 |", "|---|---|---|"]
+    for company in companies[:18]:
+        direction = company_direction_key(company, profile)
+        if direction in {"unknown", "weak_watch", "ecosystem"}:
+            continue
+        company_name = company.get("name")
+        layer = direction_label(direction, profile)
+        products = company_subdirections(company)[:2]
+        evidence = map_first_clean(unique(company.get("evidence", []) or []), 130)
+        role = map_clean_plain(company.get("roles", []), limit=90)
+        generic_roles = {"芯片/核心器件", "上游设备", "上游材料", "中游制造", "中游封装测试", "相关公司", "延伸线索", "延伸观察", "股权投资潜在相关"}
+        if evidence and role in generic_roles:
+            role = ""
+        detail = "；".join(unique([x for x in (role, evidence) if x]))
+        if not detail or detail in generic_roles:
+            continue
+        path_values = [root, layer] + products + [company_name]
+        lines.append(f"| {map_wiki_link(company_name)} | {map_wiki_path(path_values)} | {map_blank_display(detail, 180)} |")
+    return "\n".join(lines) if len(lines) > 2 else ""
+
+
+def map_wiki_navigation_section(state: dict) -> str:
+    companies = state.get("companies", []) or []
+    rows = map_wiki_subdirection_company_rows(state, 30)
+    concept_links = map_wiki_join([row.get("name") for row in rows], 24)
+    profile = state.get("direction_profile")
+    company_names = []
+    for company in companies:
+        if company_direction_key(company, profile) in {"unknown", "weak_watch", "ecosystem"}:
+            continue
+        evidence = map_first_clean(unique(company.get("evidence", []) or []), 80)
+        role = map_clean_plain(company.get("roles", []), limit=80)
+        if not evidence and role in {"延伸线索", "延伸观察", "股权投资潜在相关"}:
+            continue
+        company_names.append(company.get("name"))
+    company_links = map_wiki_join(company_names, 30)
+    root = map_wiki_link(state.get("primary") or state.get("term"))
+    lines = []
+    if root:
+        lines.append(f"- **主题入口**：{root}")
+    if concept_links:
+        lines.append(f"- **方向节点**：{concept_links}")
+    if company_links:
+        lines.append(f"- **公司节点**：{company_links}")
+    return "\n".join(lines)
+
+
+def map_wiki_backlog_section(state: dict) -> str:
+    companies = state.get("companies", []) or []
+    rows = []
+    for row in map_subdirection_rows(state):
+        name = map_wiki_name(row.get("subdir") or row.get("layer"))
+        if not name or name in {"生态配套", "生态/配套"}:
+            continue
+        mapped = map_clean_plain(row.get("companies") or map_companies_for_term(companies, name, 6), limit=100)
+        if not mapped:
+            rows.append((map_wiki_link(name), "方向已有，但公司映射较少。"))
+    for company in companies[:24]:
+        evidence = map_first_clean(unique(company.get("evidence", []) or []), 80)
+        if not evidence and company_direction_key(company, state.get("direction_profile")) not in {"unknown", "weak_watch", "ecosystem"}:
+            rows.append((map_wiki_link(company.get("name")), "公司已进入映射，但业务线索较少。"))
+    if not rows:
+        return ""
+    lines = []
+    seen = set()
+    for node, reason in rows:
+        key = (node, reason)
+        if key in seen:
+            continue
+        seen.add(key)
+        if node:
+            lines.append(f"- {node}：{reason}")
+        if len(lines) >= 12:
+            break
+    return "\n".join(lines)
+
+
+def map_evidence_section(state: dict) -> str:
+    rows = []
+    for row in map_subdirection_rows(state)[:12]:
+        name = row.get("subdir")
+        if not map_clean_plain(name):
+            name = row.get("layer")
+        if not map_clean_plain(name):
+            continue
+        rows.append((name, row.get("layer"), map_validation_item_for_direction(str(name or ""), str(row.get("layer") or ""))))
+    if not rows:
+        return ""
+    lines = ["| 对象 | 归属方向 | 核验重点 |", "|---|---|---|"]
+    for row in rows[:48]:
+        lines.append("| " + " | ".join(map_clean_display(x, limit=140) for x in row) + " |")
+    return "\n".join(lines)
+
+
+def map_cross_validation_section(state: dict) -> str:
+    companies = state.get("companies", []) or []
+    profile = state.get("direction_profile")
+    rows = []
+    for company in companies[:18]:
+        increment = "、".join(company_subdirections(company)) or direction_label(company_direction_key(company, profile), profile)
+        role = map_clean_plain(company.get("roles", []), limit=80)
+        signal = map_clean_plain([role, increment], limit=100)
+        rows.append(
+            (
+                company.get("name"),
+                direction_label(company_direction_key(company, profile), profile),
+                signal or increment,
+                "产品口径、客户导入、产能/出货、收入占比、认证进度",
+            )
+        )
+    if not rows:
+        rows.append(("主题主线", "—", "围绕定义、产业链位置和公司映射继续核验。", "产品、客户、订单、产能、认证"))
+    lines = [
+        "| 对象 | 链条位置 | 当前线索 | 核验重点 |",
+        "|---|---|---|---|",
+    ]
+    for row in rows:
+        lines.append("| " + " | ".join(map_clean_display(x, limit=130) for x in row) + " |")
+    return "\n".join(lines)
+
+
+def map_gap_section(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    companies = state.get("companies", []) or []
+    rows = []
+    rows.append(("定义边界", "主题边界是否只覆盖核心环节，是否混入相邻主题。", "定义、上位概念、相邻概念"))
+    rows.append(("产业链位置", "需求、产品、制造、封测、设备、材料之间的传导关系是否闭合。", "上下游、环节、代表公司"))
+    rows.append(("细分方向", "内部方向是否已经拆到可观察的产品、工艺、客户或认证口径。", "产品代际、工艺路线、应用场景"))
+    missing_company = sum(1 for c in companies if "missing_evidence" in company_qc_flags(c) or "graph_only_only" in company_qc_flags(c))
+    rows.append(("公司映射", f"{missing_company}家公司需要继续确认产品、客户或业务占比。", "公司名称、产品、客户、收入贡献"))
+    conflict = sum(1 for c in companies if "chain_layer_conflict" in company_qc_flags(c))
+    rows.append(("链层归类", f"{conflict}家公司需要确认到底属于产品主体、设备材料、封测服务还是生态延伸。", "公司角色、环节归属"))
+    rows.append(("事实口径", "重点信息需要落到时间、产品、客户、订单、产能、认证或收入占比。", "可验证字段"))
+    lines = ["| 核验问题 | 为什么要看 | 重点字段 |", "|---|---|---|"]
+    for row in rows:
+        lines.append("| " + " | ".join(map_clean_display(x, limit=120) for x in row) + " |")
+    return "\n".join(lines)
+
+
+def map_source_index_section(state: dict) -> str:
+    term = state.get("term") or state.get("primary") or ""
+    report_sources = unique([r.get("source_name", "") for r in state.get("local_report_contexts", []) if isinstance(r, dict) and r.get("source_name")])
+    evidence_sources = unique([x.get("source", "") for x in state.get("evidence", []) if isinstance(x, dict) and x.get("source")])
+    existing_reports = map_existing_report_files(term)
+    rows = [
+        ("concept_graph.json", "概念节点、相关概念、产业链字段、图谱公司", "概念关系/产业链"),
+        ("entity_exposures.json", f"{len(state.get('companies', []) or [])}家公司映射", "公司映射"),
+        ("evidence_index.json", "、".join(evidence_sources[:6]) or "待补", "证据来源"),
+        ("report_contexts.json", "、".join(report_sources[:6]) or "待补", "研报上下文"),
+        ("aliases.json", "查询别名和同义词", "别名/同义词"),
+        ("concepts/*.md", state.get("primary") or "待补", "概念定义"),
+        ("sources/*.md", "、".join(report_sources[:6]) or "待补", "原始资料"),
+        ("已生成 Theme Radar 报告", "、".join(existing_reports) or "待补", "结构参考/历史输出索引"),
+    ]
+    lines = ["| 来源文件/数据表 | 命中内容 | 用途 |", "|---|---|---|"]
+    for row in rows:
+        lines.append("| " + " | ".join(md_cell(x, 160) for x in row) + " |")
+    return "\n".join(lines)
+
+
+def map_appendix_section(state: dict) -> str:
+    context = state.get("context", {}) or {}
+    graph = state.get("graph", {}) or {}
+    concepts = state.get("concepts", {}) or {}
+    primary = state.get("primary", "")
+    term = state.get("term") or primary
+    node = concepts.get(primary, {}) if isinstance(concepts, dict) else {}
+    companies = state.get("companies", []) or []
+    report_sources = unique([r.get("source_name", "") for r in state.get("local_report_contexts", []) if isinstance(r, dict) and r.get("source_name")])
+    lines = [
+        "- 原始 related concepts：" + md_cell("、".join(as_list(node.get("related_concepts")) or state.get("rels", [])), 220),
+        "- 原始 supply_chain：" + md_cell(json.dumps(node.get("supply_chain", {}), ensure_ascii=False), 220),
+        "- 原始 company exposure：" + md_cell("、".join(c.get("name", "") for c in companies[:20]), 220),
+        "- 原始 evidence bucket：" + md_cell("；".join(f"{c.get('name')}={map_bucket_text(c)}" for c in companies[:12]), 220),
+        "- 原始 report_contexts 命中：" + md_cell("、".join(report_sources), 220),
+        "- 原始 source 文件名：" + md_cell("、".join(unique([s for c in companies for s in c.get("sources", [])])[:20]), 220),
+        "- 已生成 Theme Radar 报告：" + md_cell("、".join(map_existing_report_files(term)), 220),
+    ]
+    if context.get("theme_information_pool"):
+        lines.append("- IMA/Obsidian 信息池：" + md_cell(json.dumps(context.get("theme_information_pool"), ensure_ascii=False), 220))
+    return "\n".join(lines)
+
+
+def build_theme_information_map(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None, theme_supplement_pool: dict | None = None) -> str:
+    state = build_theme_state(term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
+    state["term"] = term
+    sections = [
+        ("题材卡片", map_wiki_theme_card_section(term, state)),
+        ("题材知识图谱", map_wiki_graph_section(state)),
+        ("需求与产业链", map_wiki_demand_chain_section(state)),
+        ("细分方向卡片", map_wiki_material_cards_section(state)),
+        ("P0/P1 跟踪优先级", map_wiki_tracking_priority_section(state)),
+        ("关键验证与证伪信号", map_wiki_validation_watch_section(state)),
+        ("催化与观察日历", map_wiki_catalyst_section(state)),
+        ("公司映射路径", map_wiki_company_paths_section(state)),
+    ]
+    lines = [f"# {term} 题材信息地图", "", f"生成日期：{date.today().isoformat()}", ""]
+    index = 1
+    for title, body in sections:
+        body = str(body or "").strip()
+        if not body:
+            continue
+        lines.extend([f"## {index}. {title}", "", body, ""])
+        index += 1
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def build_report(term: str, vault: Path, definition: str = "", context: dict | None = None) -> str:
@@ -4264,7 +8209,8 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
                 company["context_mentions"] = structured_mentions[name]
             elif name and name in t:
                 company["context_mentions"] = [{"directness": "direct"}]
-    companies = refresh_company_subtypes(companies)
+    direction_profile = theme_direction_profile(term, company_scope or all_scope or match_scope)
+    companies = refresh_company_subtypes(companies, direction_profile)
     evidence = collect_evidence(company_scope or all_scope, companies, evidence_index)
     signal = load_signal(theme_signals, primary, matches)
     patterns = match_patterns(pattern_library, " ".join([term, external_search_text]), match_scope or [term])
@@ -4363,9 +8309,17 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
 
 {capability_and_rules_section(context)}
 
-## 需求驱动与验证
+## 为什么现在发酵
+
+{fermentation_signal_section(context, signal, companies)}
+
+### 基础需求拆解
 
 {demand_drivers_section(context)}
+
+### 需求-瓶颈-环节传导表
+
+{demand_bottleneck_map_section(context, companies, direction_profile)}
 
 ### 需求场景表
 
@@ -4373,7 +8327,7 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
 
 ## 产业链全景
 
-{industry_chain_map_section(context)}
+{industry_chain_map_section(context, companies, direction_profile)}
 
 ### 本地研报产业链上下文
 
@@ -4381,21 +8335,29 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
 
 ## 细分方向扫描
 
+{direction_radar_matrix_section(context, companies, direction_profile)}
+
+### 原始方向扫描
+
 {direction_scan_section(context)}
+
+### 工艺/材料/零部件扫描
+
+{inferred_material_process_scan_section(context, companies, direction_profile)}
 
 ## 发酵进度排序
 
-{progress_ranking_section(context)}
+{direction_progress_ranking_section(context, companies, direction_profile)}
 
 ## 催化日历与验证清单
 
 ### 催化日历
 
-{catalyst_calendar_section(context)}
+{catalyst_calendar_section(context, companies, direction_profile)}
 
 ### 验证清单
 
-{validation_checklist_section(context)}
+{validation_checklist_section(context, companies, direction_profile)}
 
 ## 产业链与相关概念
 
@@ -4411,19 +8373,9 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
 
 {chr(10).join(pattern_lines) if pattern_lines else '- 暂无合适类比'}
 
-## 核心公司分层
+## 核心公司分组（按产业方向）
 
-### 第一梯队：core
-
-{company_table(companies, 'core') if term_matched else '- 待验证：新词未入库前，不把辅助概念公司直接升为核心。'}
-
-### 第二梯队：related
-
-{company_table(companies, 'related')}
-
-### 第三梯队：peripheral
-
-{company_table(companies, 'peripheral')}
+{direction_company_section(companies, term_matched, direction_profile)}
 
 ## 题材雷达 QC
 
@@ -4431,7 +8383,7 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
 
 ## 验收评分
 
-{acceptance_score_section(companies, context, local_report_contexts, term_matched)}
+{acceptance_score_section(companies, context, local_report_contexts, term_matched, direction_profile)}
 
 ## 精读候选队列
 
@@ -4477,8 +8429,12 @@ def main() -> int:
     parser.add_argument("--theme-info-jsonl", help="IMA/Obsidian 统一题材信息池 JSONL，只读接入题材地图/上下游关系")
     parser.add_argument("--theme-direction-pool", help="标准细分方向池 JSON，只读接入细分方向扫描/发酵进度/验证清单")
     parser.add_argument("--theme-supplement-pool", help="Theme Radar 补充数据池 JSON，只读接入截图对齐层：需求场景/工艺材料/验证/催化/认知演变/操作建议")
+    parser.add_argument("--review-source", default="", help="复盘触发来源，例如 日复盘/板块复盘/新高复盘")
+    parser.add_argument("--review-direction", default="", help="复盘识别出的方向，用于前端题材地图的核心信号区")
+    parser.add_argument("--review-companies", default="", help="复盘触发个股，逗号/顿号/空格分隔，用于个股逻辑卡展开")
+    parser.add_argument("--review-note", default="", help="复盘备注，用于记录触发原因或观察问题")
     parser.add_argument("--out", help="optional markdown output path")
-    parser.add_argument("--mode", choices=["radar", "qc", "deep-dive"], default="radar", help="输出模式：radar/qc=底层雷达与QC；deep-dive=题材深拆")
+    parser.add_argument("--mode", choices=["radar", "qc", "deep-dive", "map", "front-map"], default="radar", help="输出模式：radar/qc=底层雷达与QC；deep-dive=题材深拆；map=题材信息地图；front-map=前端精简信息地图")
     args = parser.parse_args()
 
     definition = args.definition
@@ -4493,15 +8449,31 @@ def main() -> int:
     theme_info_rows = []
     if args.theme_info_jsonl:
         theme_info_rows = read_theme_information_jsonl(Path(args.theme_info_jsonl).expanduser(), args.term)
+    elif args.mode in {"map", "front-map"}:
+        theme_info_rows = auto_discover_theme_info_rows(args.term)
     theme_direction_pool = {}
     if args.theme_direction_pool:
         theme_direction_pool = read_theme_direction_pool(Path(args.theme_direction_pool).expanduser(), args.term)
     theme_supplement_pool = {}
     if args.theme_supplement_pool:
         theme_supplement_pool = read_theme_supplement_pool(Path(args.theme_supplement_pool).expanduser(), args.term)
+    elif args.mode in {"map", "front-map"}:
+        theme_supplement_pool = auto_discover_theme_supplement_pool(args.term)
 
     vault = Path(args.vault).expanduser()
+    review_context = {
+        "source": args.review_source,
+        "direction": args.review_direction,
+        "companies": [x for x in re.split(r"[,，、\s]+", args.review_companies) if x],
+        "note": args.review_note,
+    }
     if args.mode == "deep-dive":
+        report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
+    elif args.mode == "front-map":
+        report = build_front_map_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool, review_context)
+    elif args.mode == "map":
+        report = build_theme_information_map(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
+    elif theme_info_rows or theme_direction_pool or theme_supplement_pool:
         report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
     else:
         report = build_report(args.term, vault, definition, context)
