@@ -420,16 +420,44 @@ def cmd_weighted_gainers(args) -> int:
     from .query import weighted_gainers
 
     res = weighted_gainers(args.start, args.end, top=args.top, min_amount=args.min_amount)
-    print(f"加权涨幅排行 {res['start']}~{res['end']} (实际数据 {res['actual_start']}~{res['actual_end']}, "
-          f"日均成交≥{res['min_amount']}亿, Top{args.top})")
-    print(f"{'排名':<4}{'代码':<11}{'简称':<10}{'日均成交(亿)':>12}{'区间涨幅%':>10}{'加权涨幅':>10}")
+    _print_interval_stock_rank(res, args.top, "加权涨幅排行", "weighted_gain")
+    return 0
+
+
+def cmd_interval_gainers(args) -> int:
+    from .query import interval_gainers
+
+    res = interval_gainers(args.start, args.end, top=args.top, min_amount=args.min_amount)
+    _print_interval_stock_rank(res, args.top, "区间涨幅排行", "interval_gain")
+    return 0
+
+
+def _fmt_num(value, digits=2):
+    if value is None:
+        return "-"
+    return f"{float(value):.{digits}f}"
+
+
+def _short_text(value, max_len=18):
+    text = str(value or "-").replace("\x00", "")
+    return text if len(text) <= max_len else text[:max_len - 1] + "…"
+
+
+def _print_interval_stock_rank(res, top, title, sort_field):
+    print(f"{title} {res['start']}~{res['end']} (实际数据 {res['actual_start']}~{res['actual_end']}, "
+          f"日均成交≥{res['min_amount']}亿, Top{top})")
+    print(f"题材/申万映射日期: {res.get('metadata_date') or '-'} | UP偏离度: 最新本地日线")
+    print("| 排名 | 代码 | 简称 | 申万一级 | 题材 | 日均成交(亿) | 区间涨幅% | 加权涨幅 | UP偏离% |")
+    print("|---:|---|---|---|---|---:|---:|---:|---:|")
     for i, s in enumerate(res["stocks"], 1):
-        name = s["stock_name"] or ""
-        print(f"{i:<4}{s['stock_ts_code']:<11}{name:<10}"
-              f"{s['avg_amount']:>12.1f}{s['interval_gain']:>10.2f}{s['weighted_gain']:>10.2f}")
+        name = _short_text(s["stock_name"], 12)
+        sectors = _short_text(s.get("sectors"), 18)
+        sw_l1 = _short_text(s.get("sw_l1"), 12)
+        print(f"| {i} | {s['stock_ts_code']} | {name} | {sw_l1} | {sectors} | "
+              f"{_fmt_num(s['avg_amount'], 1)} | {_fmt_num(s['interval_gain'])} | "
+              f"{_fmt_num(s['weighted_gain'])} | {_fmt_num(s.get('up_deviation_pct'))} |")
     if not res["stocks"]:
         print("  (无数据, 先运行 sync-stock-daily 回补该区间)")
-    return 0
 
 
 def cmd_check(_args) -> int:
@@ -758,6 +786,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_wg.add_argument("--top", type=int, default=20, help="返回前 N 只, 默认20")
     p_wg.add_argument("--min-amount", type=float, default=1.0, help="区间日均成交额下限(亿), 默认1.0")
     p_wg.set_defaults(func=cmd_weighted_gainers)
+
+    p_ig = sub.add_parser("interval-gainers", help="区间涨幅排行 (本地计算)")
+    p_ig.add_argument("--start", required=True, help="区间起始交易日 YYYY-MM-DD")
+    p_ig.add_argument("--end", required=True, help="区间结束交易日 YYYY-MM-DD")
+    p_ig.add_argument("--top", type=int, default=20, help="返回前 N 只, 默认20")
+    p_ig.add_argument("--min-amount", type=float, default=1.0, help="区间日均成交额下限(亿), 默认1.0")
+    p_ig.set_defaults(func=cmd_interval_gainers)
 
     p_q1 = sub.add_parser("sector-stocks", help="板块→个股: 查某板块成分股")
     p_q1.add_argument("sector", help="板块代码或名称, 如 885537.TI 或 3D打印")

@@ -486,14 +486,8 @@ def top_sectors(trade_date: str | None = None, top: int = 20,
         con.close()
 
 
-def weighted_gainers(start: str, end: str, top: int = 20,
-                     min_amount: float = 1.0) -> dict:
-    """区间加权涨幅排行 (本地计算自 fact_stock_daily)。
-
-    加权涨幅 = 区间日均成交额(亿) × 区间前复权涨跌幅(%) / 100
-    区间涨跌幅 = 期末close / 区间首日pre_close - 1  (前复权, 含除权调整)
-    min_amount: 区间日均成交额下限(亿), 默认1.0 (对齐 high-volume-gainers 的 >1亿 门槛)。
-    """
+def _interval_stock_rank(start: str, end: str, top: int,
+                         min_amount: float, order_by: str) -> dict:
     con = connect(read_only=True)
     try:
         rng = con.execute(
@@ -501,8 +495,24 @@ def weighted_gainers(start: str, end: str, top: int = 20,
             " WHERE trade_date >= ? AND trade_date <= ?",
             [start, end],
         ).fetchone()
+        if not rng or rng[0] is None:
+            return {
+                "start": start, "end": end,
+                "actual_start": None, "actual_end": None,
+                "metadata_date": None,
+                "min_amount": min_amount,
+                "stocks": [],
+            }
+        actual_end = str(rng[1])
+        meta = con.execute(
+            "SELECT MAX(trade_date) FROM fact_sector_stock_daily"
+            " WHERE trade_date >= ? AND trade_date <= ?",
+            [start, actual_end],
+        ).fetchone()
+        metadata_date = str(meta[0]) if meta and meta[0] else actual_end
+        order_col = "weighted_gain" if order_by == "weighted_gain" else "interval_gain"
         rows = con.execute(
-            """
+            f"""
             WITH w AS (
                 SELECT stock_ts_code, stock_name, trade_date, close, pre_close, amount,
                        ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY trade_date) AS rn_asc,
@@ -517,25 +527,95 @@ def weighted_gainers(start: str, end: str, top: int = 20,
                        MAX(CASE WHEN rn_asc = 1 THEN pre_close END) AS base_close,
                        MAX(CASE WHEN rn_desc = 1 THEN close END) AS end_close
                 FROM w GROUP BY stock_ts_code, stock_name, avg_amt, ndays
-            )
+            ),
+            perf AS (
             SELECT stock_ts_code, stock_name, ndays, avg_amt,
                    (end_close / base_close - 1) * 100 AS interval_gain,
                    avg_amt * ((end_close / base_close - 1) * 100) / 100 AS weighted_gain
             FROM agg
             WHERE base_close IS NOT NULL AND base_close > 0 AND avg_amt >= ?
-            ORDER BY weighted_gain DESC
+            ),
+            ranked AS (
+                SELECT *
+                FROM perf
+                ORDER BY {order_col} DESC NULLS LAST
+                LIMIT ?
+            ),
+            sector_ranked AS (
+                SELECT stock_ts_code, sector_name, sw_industry, amount,
+                       ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY amount DESC NULLS LAST) AS rn
+                FROM fact_sector_stock_daily
+                WHERE trade_date = ?
+            ),
+            sector_meta AS (
+                SELECT stock_ts_code,
+                       string_agg(sector_name, '、' ORDER BY amount DESC NULLS LAST) FILTER (WHERE rn <= 5) AS sectors,
+                       MAX(CASE WHEN rn = 1 THEN NULLIF(split_part(sw_industry, '-', 1), '') END) AS standard_sw_l1
+                FROM sector_ranked
+                GROUP BY stock_ts_code
+            ),
+            limit_meta AS (
+                SELECT stock_ts_code, any_value(sw_l1) AS sw_l1
+                FROM fact_theme_limit_stock_daily
+                WHERE trade_date = ? AND sw_l1 IS NOT NULL
+                GROUP BY stock_ts_code
+            ),
+            up_window AS (
+                SELECT stock_ts_code, trade_date, close,
+                       AVG(close) OVER (PARTITION BY stock_ts_code ORDER BY trade_date ROWS BETWEEN 25 PRECEDING AND CURRENT ROW) AS ma26,
+                       STDDEV_POP(close) OVER (PARTITION BY stock_ts_code ORDER BY trade_date ROWS BETWEEN 25 PRECEDING AND CURRENT ROW) AS std26,
+                       COUNT(close) OVER (PARTITION BY stock_ts_code ORDER BY trade_date ROWS BETWEEN 25 PRECEDING AND CURRENT ROW) AS n26,
+                       ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY trade_date DESC) AS rn
+                FROM fact_stock_daily
+                WHERE close IS NOT NULL
+            ),
+            up_meta AS (
+                SELECT stock_ts_code, trade_date AS up_trade_date, close AS latest_close,
+                       ma26, std26, ma26 + 0.764 * std26 AS up_value,
+                       (close / (ma26 + 0.764 * std26) - 1) * 100 AS up_deviation_pct
+                FROM up_window
+                WHERE rn = 1 AND n26 = 26 AND ma26 + 0.764 * std26 > 0
+            )
+            SELECT r.stock_ts_code, r.stock_name, r.ndays, r.avg_amt,
+                   r.interval_gain, r.weighted_gain,
+                   COALESCE(sector_meta.sectors, '-') AS sectors,
+                   COALESCE(sector_meta.standard_sw_l1, h.sw_l1, limit_meta.sw_l1, '未映射') AS sw_l1,
+                   up_meta.latest_close, up_meta.up_value, up_meta.up_deviation_pct, up_meta.up_trade_date
+            FROM ranked r
+            LEFT JOIN sector_meta ON sector_meta.stock_ts_code = r.stock_ts_code
+            LEFT JOIN fact_stock_high_daily h
+              ON h.trade_date = ? AND h.stock_ts_code = r.stock_ts_code
+            LEFT JOIN limit_meta ON limit_meta.stock_ts_code = r.stock_ts_code
+            LEFT JOIN up_meta ON up_meta.stock_ts_code = r.stock_ts_code
+            ORDER BY r.{order_col} DESC NULLS LAST
             LIMIT ?
             """,
-            [start, end, min_amount, top],
+            [start, end, min_amount, top, metadata_date, metadata_date, metadata_date, top],
         ).fetchall()
         cols = ["stock_ts_code", "stock_name", "ndays", "avg_amount",
-                "interval_gain", "weighted_gain"]
+                "interval_gain", "weighted_gain", "sectors", "sw_l1",
+                "latest_close", "up_value", "up_deviation_pct", "up_trade_date"]
+        stocks = [dict(zip(cols, r)) for r in rows]
+        for s in stocks:
+            if isinstance(s.get("stock_name"), str):
+                s["stock_name"] = s["stock_name"].replace("\x00", "")
         return {
             "start": start, "end": end,
             "actual_start": str(rng[0]) if rng[0] else None,
-            "actual_end": str(rng[1]) if rng[1] else None,
+            "actual_end": actual_end,
+            "metadata_date": metadata_date,
             "min_amount": min_amount,
-            "stocks": [dict(zip(cols, r)) for r in rows],
+            "stocks": stocks,
         }
     finally:
         con.close()
+
+
+def weighted_gainers(start: str, end: str, top: int = 20,
+                     min_amount: float = 1.0) -> dict:
+    return _interval_stock_rank(start, end, top, min_amount, "weighted_gain")
+
+
+def interval_gainers(start: str, end: str, top: int = 20,
+                     min_amount: float = 1.0) -> dict:
+    return _interval_stock_rank(start, end, top, min_amount, "interval_gain")
