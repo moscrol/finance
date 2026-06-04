@@ -219,6 +219,30 @@ def as_list(value: Any) -> list[str]:
     return [str(value).strip()]
 
 
+def split_display_chunks(text: str, separators: str = "、,，；;/") -> list[str]:
+    chunks = []
+    current = []
+    depth = 0
+    pairs = {"（": "）", "(": ")", "【": "】", "[": "]"}
+    closes = set(pairs.values())
+    for char in str(text or ""):
+        if char in pairs:
+            depth += 1
+        elif char in closes and depth > 0:
+            depth -= 1
+        if char in separators and depth == 0:
+            value = "".join(current).strip()
+            if value:
+                chunks.append(value)
+            current = []
+        else:
+            current.append(char)
+    value = "".join(current).strip()
+    if value:
+        chunks.append(value)
+    return chunks
+
+
 def wikilink(name: str) -> str:
     return f"[[{name}]]"
 
@@ -962,9 +986,13 @@ def concept_candidates(meta: dict[str, Any], body: str, concepts: set[str]) -> l
             if concept in candidates:
                 candidates.remove(concept)
     if "聚辰股份" in text:
-        for concept in ["AI服务器", "DRAM"]:
+        for concept in ["AI服务器", "DRAM", "AIDC发电设备", "晶圆代工", "AI智能体"]:
             if concept in candidates:
                 candidates.remove(concept)
+    if ("汇成股份" in text or "合肥新汇成" in text) and "DRAM封测" in text and "存储芯片" in concepts and "存储芯片" not in candidates:
+        candidates.append("存储芯片")
+    if "微导纳米" in text and "存储扩产" in text and "存储芯片" in concepts and "存储芯片" not in candidates:
+        candidates.append("存储芯片")
     if "汽车芯片" in candidates and "汽车电子" in candidates:
         candidates.remove("汽车电子")
     if "高阶HDI" in candidates and "HDI" in candidates:
@@ -1924,6 +1952,140 @@ def concept_candidates(meta: dict[str, Any], body: str, concepts: set[str]) -> l
         for concept in ["管道"]:
             if concept in candidates:
                 candidates.remove(concept)
+    if "正元地信" in text:
+        for concept in ["卫星", "园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "中国海防" in text:
+        for concept in ["智慧城市", "油气", "商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["深海科技", "军工电子", "军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "七一二" in text:
+        for concept in ["轨道交通"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工信息化", "军工电子", "低空经济"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "榕基软件" in text:
+        for concept in ["园区开发", "AI基础设施与国产算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["行业应用软件"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "三维天地" in text:
+        for concept in ["资产管理"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "太极股份" in text:
+        for concept in ["大模型"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "天微电子" in text:
+        for concept in ["人工智能", "并购重组"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "永信至诚" in text:
+        for concept in ["卫星互联网", "低空经济", "大模型"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "尤洛卡" in text:
+        for concept in ["低空经济"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备", "特种机器人"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "展鹏科技" in text:
+        for concept in ["AI大模型", "专用设备", "操作系统", "大模型"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "航天南湖" in text:
+        for concept in ["商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备", "军工电子"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "航天长峰" in text:
+        for concept in ["商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "霍莱沃" in text:
+        for concept in ["量测设备"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工电子"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "吉大通信" in text:
+        for concept in ["通信服务", "行业应用软件", "数字化转型"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "佳讯飞鸿" in text:
+        for concept in ["大模型"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["AI大模型", "通信设备", "低空经济", "军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "建设工业" in text:
+        for concept in ["新能源汽车", "低空经济", "钛合金"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "科思科技" in text:
+        for concept in ["低空经济", "AI基础设施与国产算力"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工信息化", "军工电子", "AI算力芯片", "机器人与具身智能装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "诺唯赞" in text:
+        for concept in ["医药出海"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "谱尼测试" in text:
+        for concept in ["快充技术", "人形机器人"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["机器人"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "邦彦技术" in text:
+        for concept in ["园区开发"]:
+            if concept in candidates:
+                candidates.remove(concept)
+    if "成电光信" in text:
+        for concept in ["商业航天"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "高凌信息" in text:
+        for concept in ["信息安全", "网络安全", "军工信息化"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
+    if "国睿科技" in text:
+        for concept in ["快充技术"]:
+            if concept in candidates:
+                candidates.remove(concept)
+        for concept in ["军工装备"]:
+            if concept in concepts and concept not in candidates:
+                candidates.append(concept)
     if any(concept in candidates for concept in ["电子特气", "前驱体材料", "高纯石英砂", "碳化硅"]) and "专用设备" in candidates:
         candidates.remove("专用设备")
     if any(concept in candidates for concept in ["电子特气", "前驱体材料", "高纯石英砂", "碳化硅"]) and "半导体设备" in candidates:
@@ -1950,6 +2112,17 @@ def compact(text: str, limit: int = 260) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+def unique_values(items: list[str]) -> list[str]:
+    result = []
+    seen = set()
+    for item in items:
+        value = str(item or "").strip()
+        if value and value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
+
+
 def get_section(sections: dict[str, str], title: str) -> str:
     if title in sections:
         return sections[title]
@@ -1962,6 +2135,157 @@ def get_section(sections: dict[str, str], title: str) -> str:
 
 def normalize_section_title(title: str) -> str:
     return re.sub(r"^(?:\d+|[一二三四五六七八九十]+)[\.、]\s*", "", title).strip()
+
+
+def concept_focus_tokens(concept: str) -> tuple[str, ...]:
+    concept = str(concept or "").strip()
+    profiles = {
+        "存储芯片": ("存储", "SDBG", "晶圆隐切", "隐切", "划片", "DRAM", "NAND", "3D NAND", "HBM", "SSD", "长江存储", "长鑫存储", "DISCO", "硅晶圆", "存储厂商"),
+        "DRAM": ("DRAM", "长鑫存储", "存储", "SDBG", "晶圆隐切", "DISCO"),
+        "3D NAND": ("3D NAND", "NAND", "长江存储", "存储", "SDBG", "晶圆隐切", "DISCO"),
+        "NAND Flash": ("NAND", "Flash", "闪存", "存储"),
+        "NOR Flash": ("NOR", "Flash", "闪存", "存储"),
+        "HBM": ("HBM", "高带宽内存", "先进封装", "TSV", "混合键合"),
+        "HBM封装": ("HBM", "封装", "TSV", "混合键合", "先进封装"),
+        "半导体设备": ("半导体", "设备", "晶圆", "SDBG", "隐切", "划片", "刻蚀", "薄膜", "量测", "检测", "国产替代", "DISCO"),
+        "先进封装": ("先进封装", "封装", "FC-BGA", "TGV", "玻璃通孔", "键合", "晶圆级", "硅光芯片键合"),
+        "封测": ("封测", "封装", "测试", "晶圆级"),
+        "固态电池": ("固态电池", "电池", "锂电", "宁德时代", "清陶", "新能源"),
+        "光通信": ("光通信", "光模块", "CPO", "硅光", "InP", "Finisar", "中际旭创", "天孚通信"),
+        "CPO": ("CPO", "硅光", "光模块", "光通信", "封装"),
+        "硅光": ("硅光", "光通信", "光模块", "CPO", "键合"),
+        "TGV（玻璃通孔技术）": ("TGV", "玻璃通孔", "玻璃基板"),
+        "TGV": ("TGV", "玻璃通孔", "玻璃基板"),
+        "PCB": ("PCB", "钻孔", "激光钻孔", "高端PCB"),
+        "AI算力": ("AI算力", "光通信", "光模块", "PCB", "服务器"),
+    }
+    tokens = list(profiles.get(concept, ()))
+    tokens.extend(split_display_chunks(concept, separators=" /_-（）()"))
+    return tuple(unique_values([token for token in tokens if len(token) >= 2]))
+
+
+def concept_focused_role(meta: dict[str, Any], concept: str) -> str:
+    chunks = []
+    for value in as_list(meta.get("related_business")):
+        chunks.extend(split_display_chunks(value))
+    if not chunks:
+        chunks = as_list(meta.get("industry")) + as_list(meta.get("sector"))
+    tokens = concept_focus_tokens(concept)
+    focused = [chunk for chunk in chunks if any(token and token in chunk for token in tokens)]
+    if not focused and concept in {"存储芯片", "DRAM", "3D NAND"}:
+        focused = [chunk for chunk in chunks if any(token in chunk for token in ("晶圆隐切", "SDBG", "半导体", "晶圆"))]
+    return "、".join(unique_values(focused or chunks)[:3])
+
+
+def clean_evidence_line(line: str) -> str:
+    value = str(line or "").strip()
+    if not value or value.startswith("|---") or set(value) <= {"|", "-", ":", " "}:
+        return ""
+    if value.startswith("|") and value.endswith("|"):
+        cells = [re.sub(r"\*\*|`", "", cell).strip() for cell in value.strip("|").split("|")]
+        cells = [cell for cell in cells if cell and cell not in {"维度", "内容", "变化", "之前状态", "最新变化", "日期", "来源类型", "对应业务", "IMA可信度", "是否影响财务", "证据点", "来源类型", "要点"}]
+        value = "；".join(cells)
+    value = re.sub(r"^[#>\-\*\s]+", "", value)
+    value = re.sub(r"\*\*|`", "", value)
+    return compact(value, 260)
+
+
+def concept_relevant_lines(body: str, concept: str, max_lines: int = 4) -> list[str]:
+    tokens = concept_focus_tokens(concept)
+    sections = section_map(body)
+    preferred_titles = ("最新市场逻辑", "Hard Delta", "证据与来源链", "业务验证矩阵", "财务映射", "预期差判断", "后续跟踪指标", "反证与风险")
+    chunks = []
+    for title in preferred_titles:
+        value = get_section(sections, title)
+        if value:
+            chunks.append(value)
+    chunks.append(body[:8000])
+    lines = []
+    for chunk in chunks:
+        for raw in chunk.splitlines():
+            line = clean_evidence_line(raw)
+            if not line:
+                continue
+            if any(token and token in line for token in tokens):
+                lines.append(line)
+            if len(unique_values(lines)) >= max_lines:
+                return unique_values(lines)[:max_lines]
+    return unique_values(lines)[:max_lines]
+
+
+def concept_focused_evidence(meta: dict[str, Any], body: str, concept: str) -> str:
+    lines = concept_relevant_lines(body, concept, max_lines=3)
+    if lines:
+        return compact("；".join(lines), 300)
+    sections = section_map(body)
+    one = extract_one_liner(sections) or f"IMA个股逻辑卡：{normalize_entity_name(meta, body)} 最新逻辑跟踪"
+    return compact(one, 260)
+
+
+def concept_validation_focus(body: str, concept: str) -> str:
+    lines = concept_relevant_lines(get_section(section_map(body), "后续跟踪指标") or body, concept, max_lines=3)
+    if not lines:
+        lines = concept_relevant_lines(get_section(section_map(body), "业务验证矩阵") or body, concept, max_lines=2)
+    return compact("；".join(lines), 240)
+
+
+def concept_guardrail(body: str, concept: str) -> str:
+    tokens = concept_focus_tokens(concept)
+    sections = section_map(body)
+    candidates = []
+    for title in ("反证与风险", "风险提示", "主要风险", "关键风险点", "预期差判断", "财务映射"):
+        value = get_section(sections, title)
+        if value:
+            candidates.extend(clean_evidence_line(line) for line in value.splitlines())
+    focused = [line for line in candidates if line and any(token and token in line for token in tokens)]
+    if not focused:
+        focused = [line for line in candidates if line and any(token in line for token in ("未披露", "小批量", "未进入", "待确认", "推断", "收入占比", "亏损", "存货", "延期", "终止"))]
+    return compact("；".join(unique_values(focused)[:3]), 240)
+
+
+def chain_layer_for_concept(meta: dict[str, Any], concept: str, role: str) -> str:
+    text = f"{concept} {role} {' '.join(as_list(meta.get('industry')))} {' '.join(as_list(meta.get('sector')))}"
+    if any(token in text for token in ("设备", "装备", "SDBG", "隐切", "划片", "刻蚀", "量测", "检测", "测试机", "探针台")):
+        return "upstream_equipment"
+    if any(token in text for token in ("材料", "特气", "前驱体", "CMP", "光刻胶", "靶材", "抛光")):
+        return "upstream_materials"
+    if any(token in text for token in ("封测", "封装", "测试")):
+        return "midstream_packaging_testing"
+    if any(token in text for token in ("设计", "芯片", "DRAM", "NAND", "NOR", "HBM", "SSD", "MCU", "ASIC")):
+        return "core_chip_product"
+    if any(token in text for token in ("分销", "渠道", "代理", "经销")):
+        return "downstream_channel"
+    return str(meta.get("industry") or meta.get("sector") or "")
+
+
+def fact_hardness_for_concept(evidence: str, guardrail: str) -> str:
+    text = f"{evidence} {guardrail}"
+    if any(token in text for token in ("公司官方", "公司公告", "年报", "一季报", "官网", "量产订单", "通过客户", "通过客户端", "客户验证")):
+        if any(token in text for token in ("待确认", "推断", "未披露", "小批量", "尚未", "未进入")):
+            return "ima_hard_delta_review"
+        return "ima_hard_delta"
+    if any(token in text for token in ("待确认", "推断", "社区", "雪球", "东方财富")):
+        return "ima_composite_review"
+    return "ima_composite"
+
+
+def review_required_for_concept(evidence: str, guardrail: str, confidence: str) -> bool:
+    text = f"{evidence} {guardrail}"
+    if confidence == "low":
+        return True
+    return any(token in text for token in ("待确认", "推断", "未披露", "小批量", "尚未", "未进入", "收入占比较小", "社区预期", "亏损", "存货高企", "延期", "终止"))
+
+
+def strength_for_concept(meta: dict[str, Any], concept: str, role: str, evidence: str, review_required: bool) -> str:
+    themes = set(as_list(meta.get("themes")))
+    text = f"{concept} {role} {evidence}"
+    if review_required:
+        return "related"
+    if concept in themes and any(token in text for token in ("主营", "核心", "量产", "订单", "收入", "客户验证", "供货", "唯一")):
+        return "core"
+    if concept in themes:
+        return "related"
+    return "related"
 
 
 def demote_markdown_headings(text: str, levels: int = 2) -> str:
@@ -2206,70 +2530,99 @@ def update_relations(vault: Path, entity_name: str, ticker: str, meta: dict[str,
     confidence = confidence_from_meta(meta)
     evidence_layer = evidence_layer_from_meta(meta)
     source_link = wikilink(source_name)
-    one = extract_one_liner(section_map(body)) or f"IMA个股逻辑卡：{entity_name} 最新逻辑跟踪"
-    role = "、".join(as_list(meta.get("related_business"))[:4]) or str(meta.get("sector") or meta.get("industry") or "")
     inserted_concepts = []
     updated_concepts = []
     for concept in concepts:
+        role = concept_focused_role(meta, concept) or "、".join(as_list(meta.get("related_business"))[:4]) or str(meta.get("sector") or meta.get("industry") or "")
+        focused_evidence = concept_focused_evidence(meta, body, concept)
+        guardrail = concept_guardrail(body, concept)
+        validation_focus = concept_validation_focus(body, concept)
+        review_required = review_required_for_concept(focused_evidence, guardrail, confidence)
+        fact_hardness = fact_hardness_for_concept(focused_evidence, guardrail)
         new_fields = {
-            "chain_layer": str(meta.get("industry") or meta.get("sector") or ""),
+            "business_line": role,
+            "chain_layer": chain_layer_for_concept(meta, concept, role),
             "confidence": confidence,
-            "evidence": compact(one, 220),
+            "evidence": compact(focused_evidence, 300),
             "evidence_layer": evidence_layer,
             "role": role,
             "sources": [source_link],
-            "strength": "core" if concept in as_list(meta.get("themes")) or concept in role else "related",
+            "strength": strength_for_concept(meta, concept, role, focused_evidence, review_required),
             "update_type": "ima_stock_logic",
             "updated": now_date(),
-            "fact_hardness": "ima_composite",
-            "review_required": False,
+            "fact_hardness": fact_hardness,
+            "review_required": review_required,
             "source_quality": "ima_composite",
             "ima_confidence": meta.get("ima_confidence") or meta.get("evidence_strength") or "IMA综合可信",
             "logic_stage": meta.get("logic_stage") or "",
             "financial_validation": meta.get("financial_validation") or "",
+            "validation_focus": validation_focus,
+            "guardrail": guardrail,
         }
         existing = entity["concepts"].get(concept)
         if existing:
             sources = list(existing.get("sources", [])) if isinstance(existing.get("sources"), list) else []
+            had_source = source_link in sources
             if source_link not in sources:
                 sources.append(source_link)
             existing["sources"] = sources
             existing["updated"] = now_date()
-            for key in ["ima_confidence", "logic_stage", "financial_validation"]:
+            for key in ["ima_confidence", "logic_stage", "financial_validation", "validation_focus", "guardrail", "business_line"]:
                 if new_fields.get(key):
                     existing[key] = new_fields[key]
-            if not existing.get("role") and new_fields.get("role"):
-                existing["role"] = new_fields["role"]
-            if not existing.get("evidence"):
-                existing["evidence"] = new_fields["evidence"]
+            should_refresh = had_source or existing.get("update_type") == "ima_stock_logic" or not existing.get("role") or not existing.get("evidence")
+            if should_refresh:
+                for key in ["role", "evidence", "chain_layer", "confidence", "evidence_layer", "strength", "update_type", "fact_hardness", "review_required", "source_quality"]:
+                    if key in new_fields:
+                        existing[key] = new_fields[key]
             updated_concepts.append(concept)
         else:
             entity["concepts"][concept] = new_fields
             inserted_concepts.append(concept)
     items = evidence.setdefault("items", [])
-    existing_keys = {evidence_key(item) for item in items if isinstance(item, dict)}
+    existing_by_key = {evidence_key(item): item for item in items if isinstance(item, dict)}
     inserted_evidence = []
+    updated_evidence = []
     for concept in concepts:
+        role = concept_focused_role(meta, concept) or "、".join(as_list(meta.get("related_business"))[:4]) or str(meta.get("sector") or meta.get("industry") or "")
+        focused_evidence = concept_focused_evidence(meta, body, concept)
+        guardrail = concept_guardrail(body, concept)
+        validation_focus = concept_validation_focus(body, concept)
+        review_required = review_required_for_concept(focused_evidence, guardrail, confidence)
+        fact_hardness = fact_hardness_for_concept(focused_evidence, guardrail)
         item = {
             "source": source_link,
             "source_date": str(meta.get("updated") or now_date()),
             "target_type": "entity",
             "target": entity_name,
             "concept": concept,
-            "evidence": compact(one, 260),
+            "evidence": compact(focused_evidence, 300),
             "confidence": confidence,
-            "chain_layer": str(meta.get("industry") or meta.get("sector") or ""),
+            "chain_layer": chain_layer_for_concept(meta, concept, role),
             "evidence_layer": evidence_layer,
             "update_type": "ima_stock_logic",
-            "fact_hardness": "ima_composite",
+            "fact_hardness": fact_hardness,
             "source_quality": "ima_composite",
-            "review_required": False,
+            "review_required": review_required,
+            "role": role,
+            "business_line": role,
+            "validation_focus": validation_focus,
+            "guardrail": guardrail,
         }
         key = evidence_key(item)
-        if key not in existing_keys:
+        if key not in existing_by_key:
             items.append(item)
-            existing_keys.add(key)
+            existing_by_key[key] = item
             inserted_evidence.append(key)
+        else:
+            target_item = existing_by_key[key]
+            changed = False
+            for field, value in item.items():
+                if value and target_item.get(field) != value:
+                    target_item[field] = value
+                    changed = True
+            if changed:
+                updated_evidence.append(key)
     if apply:
         exposures["updated"] = now_date()
         evidence["updated"] = now_date()
@@ -2280,6 +2633,7 @@ def update_relations(vault: Path, entity_name: str, ticker: str, meta: dict[str,
         "inserted_concepts": inserted_concepts,
         "updated_concepts": updated_concepts,
         "inserted_evidence": inserted_evidence,
+        "updated_evidence": updated_evidence,
         "exposures_path": str(exposures_path),
         "evidence_path": str(evidence_path),
     }

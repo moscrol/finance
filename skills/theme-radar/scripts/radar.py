@@ -6507,14 +6507,40 @@ def benchmark_row_score(row: dict) -> float:
         return 0.0
 
 
+def benchmark_mapped_company_is_domestic(row: dict) -> bool:
+    market = str(row.get("market") or "")
+    ticker = str(row.get("ticker") or "")
+    market_upper = market.upper()
+    ticker_upper = ticker.upper()
+    if any(token in market for token in ("A股", "港股", "H股", "北交所")):
+        return True
+    if any(token in ticker_upper for token in (".SH", ".SZ", ".BJ", ".HK")):
+        return True
+    if any(token in market_upper for token in ("NASDAQ", "NYSE", "EURONEXT", "LSE")):
+        return False
+    return True
+
+
 def benchmark_focus_tokens(term: str) -> list[str]:
     text = str(term or "")
     rules = [
         (("光模块", "光通信", "光互联", "CPO", "硅光", "光芯片", "光器件"), ("光互联", "光模块", "Optical", "DSP", "CPO", "硅光", "Photonic", "AEC", "Retimer有源电缆")),
         (("存储", "HBM", "SSD", "CXL", "PCIe", "DRAM", "NAND"), ("存储", "SSD", "CXL", "PCIe", "Retimer", "Controller", "内存", "Storage")),
+        (("光刻机", "EUV", "DUV", "国产光刻机"), ("光刻", "EUV", "DUV", "ArFi", "High-NA", "TWINSCAN", "SMEE", "曝光", "物镜", "光源")),
+        (("半导体设备", "先进制程", "晶圆制造"), ("光刻", "EUV", "DUV", "前道", "制程", "量测", "检测", "曝光", "良率", "先进封装")),
+        (("量测设备", "检测设备", "半导体量测"), ("量测", "检测", "Metrology", "Inspection", "缺陷检测", "良率控制", "电子束")),
+        (("半导体软件", "计算光刻", "EDA"), ("计算光刻", "OPC", "SMO", "Brion", "EDA", "TCAD", "掩模")),
+        (("AI算力", "国产GPU", "AI芯片", "GPU", "AI GPU", "DCU"), ("GPU", "DCU", "CUDA", "Blackwell", "Hopper", "AI训练", "AI推理", "算力", "数据中心AI", "HBM", "服务器", "加速芯片", "ASIC", "XPU")),
         (("ASIC", "定制芯片", "AI芯片", "XPU"), ("ASIC", "Custom", "XPU", "定制AI", "Chiplet", "云厂商")),
         (("交换芯片", "以太网", "网络芯片", "UALink"), ("交换芯片", "Ethernet", "Switch", "Teralynx", "Prestera", "UALink", "ESUN")),
+        (("存储互连", "PCIe", "CXL", "Retimer"), ("服务器存储连接", "PCIe", "Retimer", "CXL", "FC SAN", "SAS", "RAID", "NVMe-oF")),
+        (("无线连接芯片", "WiFi", "蓝牙", "NFC"), ("无线连接", "WiFi", "蓝牙", "NFC", "Wireless Connectivity")),
+        (("基础设施软件", "VMware", "虚拟化", "云基础设施"), ("VMware", "虚拟化", "云基础设施", "混合云", "超融合", "vSphere", "vSAN", "NSX")),
+        (("车载以太网", "汽车电子芯片"), ("车载以太网", "车规", "汽车电子", "智能网联汽车")),
         (("先进封装", "Chiplet", "HBM"), ("先进封装", "Chiplet", "HBM", "CPO", "die-to-die")),
+        (("自动驾驶", "智驾", "车载计算"), ("自动驾驶", "智能驾驶", "DRIVE", "Orin", "Thor", "车载", "域控制器", "智驾芯片")),
+        (("机器人", "物理AI", "具身智能", "人形机器人"), ("机器人", "物理AI", "Omniverse", "Isaac", "Cosmos", "GR00T", "仿真", "数字孪生")),
+        (("AI PC", "端侧AI", "消费级GPU"), ("AI PC", "RTX", "GeForce", "端侧AI", "游戏", "工作站", "图形GPU")),
         (("AI服务器", "算力", "数据中心"), ("AI服务器", "数据中心", "ASIC", "光互联", "交换芯片", "CXL", "Scale-Up", "Scale-Out")),
     ]
     for aliases, tokens in rules:
@@ -6527,6 +6553,9 @@ def benchmark_business_line_excluded(term: str, row_text: str) -> bool:
     term_text = str(term or "")
     if any(token in term_text for token in ("存储", "HBM", "SSD", "CXL", "DRAM", "NAND")) and not any(token in term_text for token in ("AEC", "有源电缆", "铜缆")):
         if any(token in row_text for token in ("AEC", "有源电缆", "Active Electrical Cable")):
+            return True
+    if any(token in term_text for token in ("AI算力", "国产GPU", "AI芯片", "AI GPU", "DCU")) and not any(token in term_text for token in ("自动驾驶", "智驾", "机器人", "AI PC", "端侧AI")):
+        if any(token in row_text for token in ("自动驾驶", "车载", "游戏", "AI PC", "GeForce", "机器人", "Physical AI", "Omniverse", "专业可视化")):
             return True
     return False
 
@@ -6576,7 +6605,19 @@ def front_benchmark_relevant_companies(benchmark: dict, term: str, state_text: s
     for row in benchmark.get("mapped_companies", []) or []:
         if not isinstance(row, dict):
             continue
+        if not benchmark_mapped_company_is_domestic(row):
+            continue
         mapped_line = str(row.get("mapped_business_line") or "")
+        raw_text = " ".join(
+            [
+                mapped_line,
+                str(row.get("mapped_business") or ""),
+                str(row.get("core_basis") or ""),
+                str(row.get("risk_note") or ""),
+            ]
+        )
+        if benchmark_business_line_excluded(term, raw_text):
+            continue
         if allowed_business_lines and not any(line and line in mapped_line for line in allowed_business_lines):
             mapped_text_for_focus = normalize(" ".join([mapped_line, str(row.get("mapped_business") or ""), str(row.get("core_basis") or "")]))
             if not any(token and context_term_hit(token, mapped_text_for_focus) for token in focus_tokens):
@@ -6636,6 +6677,7 @@ def front_benchmark_map_section(state: dict, active: list[dict], term: str = "")
             ]
         )
         relevant_companies = benchmark.get("mapped_companies", []) or []
+        relevant_companies = [row for row in relevant_companies if isinstance(row, dict) and benchmark_mapped_company_is_domestic(row)]
         business_rows = front_benchmark_relevant_business_lines(benchmark, term, state_text, 8)
         allowed_business_lines = {str(row.get("business_line") or "") for row in business_rows if isinstance(row, dict) and str(row.get("business_line") or "").strip()}
         for business in business_rows:
