@@ -437,7 +437,7 @@ def _sw_l1_double_red_matrix(con, trade_date, sw_l1: str, days: int = 15):
             if diff is None or amount is None:
                 row.append("-")
                 continue
-            cell = f"{_fmt(diff, 1)}/{_fmt(amount, 0)}"
+            cell = f"{_pct(pct, 1)}/{_fmt(diff, 1)}/{_fmt(amount, 0)}"
             if pct is not None and pct > 0 and diff > 10 and amount > 500:
                 cell = f"🔥{cell}"
             row.append(cell)
@@ -821,7 +821,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("---")
         lines.append("")
         lines.append("## 6. 重点申万一级近15日子板块双红矩阵")
-        lines.append("> 子板块单元格格式：边际量/成交额亿；母板块行格式：成交占比/涨跌幅；上证指数行格式：120日均量比/涨跌幅；🔥 表示当日满足双红（日涨幅 > 0、边际量 > 10 且成交额 > 500亿）。")
+        lines.append("> 子板块单元格格式：当日涨幅/边际量/成交额亿；母板块行格式：成交占比/涨跌幅；上证指数行格式：120日均量比/涨跌幅；🔥 表示当日满足双红（日涨幅 > 0、边际量 > 10 且成交额 > 500亿）。")
         lines.append("")
         for matrix in focus_matrices:
             if not matrix["dates"]:
