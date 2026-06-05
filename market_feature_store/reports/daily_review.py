@@ -395,15 +395,41 @@ def _sw_l1_double_red_matrix(con, trade_date, sw_l1: str, days: int = 15):
         [start, end, sw_l1],
     ).fetchall()
     parent_data = {r[0]: (r[1], r[2]) for r in parent_rows}
+    market_rows = con.execute(
+        """
+        WITH ranked AS (
+          SELECT trade_date, total_amount, sh_index_pct_chg,
+                 AVG(total_amount) OVER (
+                   ORDER BY trade_date
+                   ROWS BETWEEN 119 PRECEDING AND CURRENT ROW
+                 ) AS amount_ma120
+          FROM fact_market_daily
+          WHERE trade_date <= ?
+        )
+        SELECT trade_date, total_amount, amount_ma120, sh_index_pct_chg
+        FROM ranked
+        WHERE trade_date BETWEEN ? AND ?
+        """,
+        [end, start, end],
+    ).fetchall()
+    market_data = {r[0]: (r[1], r[2], r[3]) for r in market_rows}
     rows = []
     parent_row = [f"申万一级：{sw_l1}（占比/涨跌幅）"]
+    index_row = ["上证指数（120日均量比/涨跌幅）"]
     for d in dates:
         ratio, pct = parent_data.get(d, (None, None))
         if ratio is None and pct is None:
             parent_row.append("-")
         else:
             parent_row.append(f"{_pct(ratio, 1)}/{_pct(pct, 1)}")
+        total_amount, amount_ma120, sh_pct = market_data.get(d, (None, None, None))
+        market_volume_ratio = (total_amount / amount_ma120) if total_amount is not None and amount_ma120 else None
+        if market_volume_ratio is None and sh_pct is None:
+            index_row.append("-")
+        else:
+            index_row.append(f"{_fmt(market_volume_ratio, 2)}x/{_pct(sh_pct, 1)}")
     rows.append(parent_row)
+    rows.append(index_row)
     for sector in sectors:
         row = [sector]
         for d in dates:
@@ -786,7 +812,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("---")
         lines.append("")
         lines.append("## 6. 重点申万一级近15日子板块双红矩阵")
-        lines.append("> 子板块单元格格式：边际量/成交额亿；母板块行格式：成交占比/涨跌幅；🔥 表示当日满足双红（日涨幅 > 0、边际量 > 10 且成交额 > 500亿）。")
+        lines.append("> 子板块单元格格式：边际量/成交额亿；母板块行格式：成交占比/涨跌幅；上证指数行格式：120日均量比/涨跌幅；🔥 表示当日满足双红（日涨幅 > 0、边际量 > 10 且成交额 > 500亿）。")
         lines.append("")
         for matrix in focus_matrices:
             if not matrix["dates"]:
