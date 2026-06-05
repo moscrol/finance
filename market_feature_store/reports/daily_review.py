@@ -313,7 +313,7 @@ def _period_top_sectors(con, trade_date, period: int):
         SELECT sector_name, sw_l1, ret, amount, diff_ratio
         FROM calc
         ORDER BY ret DESC
-        LIMIT 3
+        LIMIT 5
         """,
         [trade_date],
     ))
@@ -668,9 +668,18 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         concentration_delta = None
         if today.get("top3_industry_ratio") is not None and yesterday.get("top3_industry_ratio") is not None:
             concentration_delta = today["top3_industry_ratio"] - yesterday["top3_industry_ratio"]
-        period_tops = {period: _period_top_sectors(con, td, period) for period in [1, 3, 5, 10]}
-        period_focus = _join_names([r["sector_name"] for period in [1, 3, 5, 10] for r in period_tops[period]], 6)
+        period_list = [1, 3, 5, 10]
+        period_tops = {period: _period_top_sectors(con, td, period) for period in period_list}
+        period_counts = Counter(r["sector_name"] for period in period_list for r in period_tops[period])
+        multi_period = sorted(
+            ((name, count) for name, count in period_counts.items() if count >= 2),
+            key=lambda x: (-x[1], x[0]),
+        )
+        full_period = sorted(name for name, count in period_counts.items() if count == len(period_list))
+        period_focus = _join_names([r["sector_name"] for period in period_list for r in period_tops[period]], 6)
         ten_day_leader = period_tops[10][0]["sector_name"] if period_tops[10] else "-"
+        multi_period_text = "、".join(f"{name}({count}次)" for name, count in multi_period) or "无"
+        full_period_text = "、".join(full_period) or "无"
         double_focus = "、".join(sw for sw, _ in double_groups[:5]) or "-"
         single_focus = "、".join(sw for sw, _ in single_groups[:5]) or "-"
         high_plate_text = "、".join(f"{plate}({len(items)})" for plate, items in sorted(high_plate.items(), key=lambda kv: (-len(kv[1]), kv[0]))[:5])
@@ -709,7 +718,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("- [1. 指数 / 量能 / 偏离度 / 市场阶段](#1-指数--量能--偏离度--市场阶段)")
         lines.append("- [2. 市场情绪](#2-市场情绪)")
         lines.append("- [3. 成交前三行业](#3-成交前三行业)")
-        lines.append("- [4. 1/3/5/10 日板块涨幅前三](#4-13510-日板块涨幅前三)")
+        lines.append("- [4. 1/3/5/10 日板块涨幅前五](#4-13510-日板块涨幅前五)")
         lines.append("- [5. 双红题材：按申万一级分组](#5-双红题材按申万一级分组)")
         lines.append("- [6. 重点申万一级近15日子板块双红矩阵](#6-重点申万一级近15日子板块双红矩阵)")
         lines.append("- [7. 单红题材：按申万一级分组](#7-单红题材按申万一级分组)")
@@ -784,8 +793,8 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 4. 1/3/5/10 日板块涨幅前三")
-        for period in [1, 3, 5, 10]:
+        lines.append("## 4. 1/3/5/10 日板块涨幅前五")
+        for period in period_list:
             rows = period_tops[period]
             lines.append(f"### {period}日")
             lines.append(_table(
@@ -793,7 +802,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
                 [[r["sector_name"], r["sw_l1"], _pct(r["ret"]), _yi(r["amount"]), _fmt(r["diff_ratio"])] for r in rows],
             ))
             lines.append("")
-        lines.append(f"> **结论**：短期涨幅榜显示 {period_focus} 等方向活跃；10日维度由 {ten_day_leader} 领涨。")
+        lines.append(f"> **结论**：短期涨幅榜显示 {period_focus} 等方向活跃；10日维度由 {ten_day_leader} 领涨。多周期共振题材（出现≥2次）：{multi_period_text}；全周期共振题材：{full_period_text}。")
         lines.append("")
         lines.append("---")
         lines.append("")
