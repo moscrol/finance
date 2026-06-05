@@ -122,6 +122,25 @@ def cmd_sync_index_daily(args) -> int:
     return 0
 
 
+
+def cmd_sync_sw_l1_daily(args) -> int:
+    from .sync.sync_akshare_sw_l1_daily import sync_akshare_sw_l1_daily
+
+    stats = sync_akshare_sw_l1_daily(
+        trade_date=args.trade_date,
+        days=args.days,
+    )
+    print(f"交易日: {stats['trade_date']} | 目标交易日: {stats['target_dates']} | 申万一级: {stats['industries']}")
+    print(f"写入: {stats['rows_written']} 行")
+    print(f"fact_sw_l1_daily: {stats['table_total']} 行, {stats['table_dates']} 交易日 ({stats['date_min']} ~ {stats['date_max']}), 复盘占比 {stats['ratio_count']} 行")
+    focus = [row for row in stats["current"] if row[0] in ("电子", "通信", "机械设备", "电力设备")]
+    for sw_l1, pct_chg, ratio, source in focus:
+        print(f"{sw_l1}: 涨跌幅={pct_chg} 占比={ratio} 来源={source}")
+    if stats.get("failures"):
+        print("失败行业: " + ", ".join(f"{x['sw_l1']}({x['error'][:40]})" for x in stats["failures"][:10]))
+    return 0
+
+
 def cmd_sync_market_strength(args) -> int:
     from .sync.sync_fupanhui_market_daily import sync_fupanhui_market_strength
 
@@ -609,6 +628,93 @@ def cmd_advancers_extrema(args) -> int:
     return 0
 
 
+def cmd_sw_l1_signal_peaks(args) -> int:
+    from .query import sw_l1_signal_peaks
+
+    res = sw_l1_signal_peaks(
+        trade_date=args.trade_date,
+        high_period=args.high_period,
+        window=args.window,
+        ratio_threshold=args.ratio,
+        min_limit_count=args.min_limit_count,
+        min_high_count=args.min_high_count,
+        top=args.top,
+    )
+    print(
+        f"申万一级涨停/新高波峰 @{res['trade_date']} | "
+        f"新高周期={res['high_period']} | "
+        f"涨停窗口={len(res['limit_history_dates'])}/{res['window']} | "
+        f"新高窗口={len(res['high_history_dates'])}/{res['window']} | "
+        f"阈值={res['ratio_threshold']}x"
+    )
+    for title, rows in (("涨停波峰", res["limit_rows"]), ("新高波峰", res["high_rows"])):
+        print(f"\n## {title}")
+        if not rows:
+            print("  (无数据)")
+            continue
+        for row in rows:
+            flag = "触发" if row["is_peak"] else "未触发"
+            ratio = "∞" if row["ratio"] == float("inf") else _fmt_num(row["ratio"])
+            print(
+                f"  {flag} {row['sw_l1']:<8} "
+                f"当日{row['current_count']:>3} | "
+                f"20日均值{row['avg_20d']:.2f} | "
+                f"倍数{ratio} | "
+                f"最低数{row['min_count']}"
+            )
+    return 0
+
+
+def cmd_strong_subtheme_trace(args) -> int:
+    from .query import strong_subtheme_trace
+
+    res = strong_subtheme_trace(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        days=args.days,
+        high_period=args.high_period,
+        window=args.window,
+        ratio_threshold=args.ratio,
+        min_limit_count=args.min_limit_count,
+        min_high_count=args.min_high_count,
+        top=args.top,
+    )
+    print(
+        f"强细分信号回溯 {res['start_date']}~{res['end_date']} | "
+        f"交易日{len(res['dates'])} | 新高周期={res['high_period']} | "
+        f"波峰={res['ratio_threshold']}x"
+    )
+    sections = (
+        ("双红题材首日", res["double_red_first"]),
+        ("多周期共振首日", res["resonance_first"]),
+        ("申万一级波峰首日", res["peak_first"]),
+    )
+    for title, rows in sections:
+        print(f"\n## {title}")
+        if not rows:
+            print("  (无数据)")
+            continue
+        for row in rows[:args.top]:
+            if "sector_name" in row:
+                print(
+                    f"  {row['trade_date']} {row['sector_name']} "
+                    f"({row.get('sw_l1') or '-'}) "
+                    f"涨{_fmt_num(row.get('pct_chg'))}% "
+                    f"边际{_fmt_num(row.get('diff_ratio'))} "
+                    f"额{_fmt_num(row.get('amount'))}亿"
+                )
+            else:
+                ratio = "∞" if row["ratio"] == float("inf") else _fmt_num(row["ratio"])
+                label = "涨停波峰" if row["signal"] == "limit_up_peak" else "新高波峰"
+                print(
+                    f"  {row['trade_date']} {label} {row['sw_l1']} "
+                    f"当日{row['current_count']} "
+                    f"均值{row['avg_20d']:.2f} "
+                    f"倍数{ratio}"
+                )
+    return 0
+
+
 def cmd_top_sectors(args) -> int:
     from .query import top_sectors
 
@@ -680,6 +786,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_idx.add_argument("--end-date", default=None, help="结束日期 YYYY-MM-DD；留空取 fact_market_daily 最新日")
     p_idx.add_argument("--symbol", default="sh000001", help="AkShare 指数代码, 默认 sh000001")
     p_idx.set_defaults(func=cmd_sync_index_daily)
+
+    p_sw = sub.add_parser("sync-sw-l1-daily", help="同步申万一级行业指数涨跌幅与复盘会成交占比")
+    p_sw.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_sw.add_argument("--days", type=int, default=20, help="回看交易日数量, 默认20")
+    p_sw.set_defaults(func=cmd_sync_sw_l1_daily)
 
     p_ms = sub.add_parser("sync-market-strength", help="同步复盘会市场强度到 fact_market_daily")
     p_ms.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
@@ -832,6 +943,32 @@ def build_parser() -> argparse.ArgumentParser:
     p_ae.add_argument("--smooth-mode", default="trailing", choices=["trailing", "center"],
                       help="trailing(同飞书MA5,默认) 或 center(无滞后)")
     p_ae.set_defaults(func=cmd_advancers_extrema)
+
+    p_sp = sub.add_parser("sw-l1-signal-peaks", help="申万一级涨停/新高波峰: 当日数量 vs 自身过去N日均值")
+    p_sp.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_sp.add_argument("--high-period", default="20d",
+                      choices=["history", "3y", "2y", "1y", "120d", "60d", "20d"],
+                      help="新高周期, 默认20d；按 high_periods_json 复刻页面周期")
+    p_sp.add_argument("--window", type=int, default=20, help="历史均值窗口, 默认20个有效交易日")
+    p_sp.add_argument("--ratio", type=float, default=1.2, help="波峰倍数阈值, 默认1.2")
+    p_sp.add_argument("--min-limit-count", type=int, default=3, help="涨停波峰最低当日家数, 默认3")
+    p_sp.add_argument("--min-high-count", type=int, default=5, help="新高波峰最低当日家数, 默认5")
+    p_sp.add_argument("--top", type=int, default=20, help="每类最多展示 N 个申万一级, 默认20")
+    p_sp.set_defaults(func=cmd_sw_l1_signal_peaks)
+
+    p_trace = sub.add_parser("strong-subtheme-trace", help="回溯双红题材首日、多周期共振首日、申万一级波峰首日")
+    p_trace.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD")
+    p_trace.add_argument("--end-date", default=None, help="结束交易日 YYYY-MM-DD；--days 模式下可作为截止日")
+    p_trace.add_argument("--days", type=int, default=60, help="不指定 start-date 时取最近 N 个交易日, 默认60")
+    p_trace.add_argument("--high-period", default="20d",
+                         choices=["history", "3y", "2y", "1y", "120d", "60d", "20d"],
+                         help="新高波峰周期, 默认20d")
+    p_trace.add_argument("--window", type=int, default=20, help="波峰历史均值窗口, 默认20")
+    p_trace.add_argument("--ratio", type=float, default=1.2, help="波峰倍数阈值, 默认1.2")
+    p_trace.add_argument("--min-limit-count", type=int, default=3, help="涨停波峰最低当日家数, 默认3")
+    p_trace.add_argument("--min-high-count", type=int, default=5, help="新高波峰最低当日家数, 默认5")
+    p_trace.add_argument("--top", type=int, default=50, help="每类最多展示 N 条, 默认50")
+    p_trace.set_defaults(func=cmd_strong_subtheme_trace)
 
     p_q3 = sub.add_parser("top-sectors", help="板块排行: 按边际量/涨幅/成交额")
     p_q3.add_argument("--trade-date", default=None, help="交易日, 留空取最新")

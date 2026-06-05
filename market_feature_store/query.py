@@ -281,6 +281,313 @@ def stock_highs(trade_date: str | None = None, period: str | None = None,
     }
 
 
+def _high_period_hit(periods_raw: str | None, period: str) -> bool:
+    periods = _json_loads_list(periods_raw)
+    return any(isinstance(p, dict) and p.get("period") == period for p in periods)
+
+
+def _safe_ratio(current: int, avg: float):
+    if avg > 0:
+        return current / avg
+    if current > 0:
+        return float("inf")
+    return None
+
+
+def _peak_row(signal: str, sw_l1: str, current: int, history: list[int],
+              ratio_threshold: float, min_count: int) -> dict:
+    avg = sum(history) / len(history) if history else 0.0
+    ratio = _safe_ratio(current, avg)
+    is_peak = current >= min_count and (ratio is not None and ratio >= ratio_threshold)
+    return {
+        "signal": signal,
+        "sw_l1": sw_l1,
+        "current_count": current,
+        "avg_20d": avg,
+        "ratio": ratio,
+        "min_count": min_count,
+        "is_peak": is_peak,
+        "history_counts": history,
+    }
+
+
+def _table_window_dates(con, table: str, target_date, window: int) -> list:
+    rows = con.execute(
+        f"""
+        SELECT DISTINCT trade_date
+        FROM {table}
+        WHERE trade_date <= ?
+        ORDER BY trade_date DESC
+        LIMIT ?
+        """,
+        [target_date, int(window) + 1],
+    ).fetchall()
+    return [r[0] for r in reversed(rows)]
+
+
+def sw_l1_signal_peaks(trade_date: str | None = None, high_period: str = "20d",
+                       window: int = 20, ratio_threshold: float = 1.2,
+                       min_limit_count: int = 3, min_high_count: int = 5,
+                       top: int = 20) -> dict:
+    con = connect(read_only=True)
+    try:
+        td = trade_date or _latest_date(con, "fact_market_daily")
+        date_rows = con.execute(
+            """
+            SELECT trade_date
+            FROM fact_market_daily
+            WHERE trade_date <= ?
+            ORDER BY trade_date DESC
+            LIMIT ?
+            """,
+            [td, int(window) + 1],
+        ).fetchall()
+        dates = [r[0] for r in reversed(date_rows)]
+        if not dates:
+            return {
+                "trade_date": str(td) if td else None,
+                "high_period": high_period,
+                "window": window,
+                "ratio_threshold": ratio_threshold,
+                "rows": [],
+                "limit_rows": [],
+                "high_rows": [],
+                "date_count": 0,
+                "history_dates": [],
+            }
+        target_date = dates[-1]
+        limit_dates = _table_window_dates(con, "fact_theme_limit_stock_daily", target_date, window)
+        high_dates = _table_window_dates(con, "fact_stock_high_daily", target_date, window)
+        limit_history_dates = [d for d in limit_dates if d < target_date]
+        high_history_dates = [d for d in high_dates if d < target_date]
+        limit_rows = []
+        if limit_dates:
+            placeholders = ",".join("?" for _ in limit_dates)
+            limit_rows = con.execute(
+                f"""
+                SELECT trade_date, COALESCE(sw_l1, '未映射') AS sw_l1, stock_ts_code
+                FROM fact_theme_limit_stock_daily
+                WHERE trade_date IN ({placeholders})
+                  AND stock_ts_code IS NOT NULL
+                """,
+                limit_dates,
+            ).fetchall()
+        high_rows_raw = []
+        if high_dates:
+            placeholders = ",".join("?" for _ in high_dates)
+            high_rows_raw = con.execute(
+                f"""
+                SELECT trade_date, COALESCE(sw_l1, '未映射') AS sw_l1, stock_ts_code, high_periods_json
+                FROM fact_stock_high_daily
+                WHERE trade_date IN ({placeholders})
+                  AND stock_ts_code IS NOT NULL
+                """,
+                high_dates,
+            ).fetchall()
+    finally:
+        con.close()
+
+    limit_sets = defaultdict(set)
+    high_sets = defaultdict(set)
+    for d, sw_l1, code in limit_rows:
+        limit_sets[(d, sw_l1)].add(code)
+    for d, sw_l1, code, periods_raw in high_rows_raw:
+        if _high_period_hit(periods_raw, high_period):
+            high_sets[(d, sw_l1)].add(code)
+
+    sw_limit = {sw for d, sw in limit_sets if d == target_date}
+    sw_high = {sw for d, sw in high_sets if d == target_date}
+    limit_out = []
+    for sw_l1 in sw_limit:
+        current = len(limit_sets.get((target_date, sw_l1), set()))
+        history = [len(limit_sets.get((d, sw_l1), set())) for d in limit_history_dates]
+        limit_out.append(_peak_row("limit_up", sw_l1, current, history, ratio_threshold, min_limit_count))
+    high_out = []
+    for sw_l1 in sw_high:
+        current = len(high_sets.get((target_date, sw_l1), set()))
+        history = [len(high_sets.get((d, sw_l1), set())) for d in high_history_dates]
+        high_out.append(_peak_row("stock_high", sw_l1, current, history, ratio_threshold, min_high_count))
+
+    rows = limit_out + high_out
+    rows.sort(key=lambda x: (x["is_peak"], x["ratio"] == float("inf"), x["ratio"] or 0, x["current_count"]), reverse=True)
+    limit_out.sort(key=lambda x: (x["is_peak"], x["ratio"] == float("inf"), x["ratio"] or 0, x["current_count"]), reverse=True)
+    high_out.sort(key=lambda x: (x["is_peak"], x["ratio"] == float("inf"), x["ratio"] or 0, x["current_count"]), reverse=True)
+    return {
+        "trade_date": str(target_date),
+        "high_period": high_period,
+        "window": window,
+        "ratio_threshold": ratio_threshold,
+        "date_count": len(dates),
+        "history_dates": [str(d) for d in dates[:-1]],
+        "limit_history_dates": [str(d) for d in limit_history_dates],
+        "high_history_dates": [str(d) for d in high_history_dates],
+        "rows": rows[:top],
+        "limit_rows": limit_out[:top],
+        "high_rows": high_out[:top],
+    }
+
+
+def _date_range(con, start_date: str | None, end_date: str | None, days: int | None) -> list:
+    end = end_date or _latest_date(con, "fact_market_daily")
+    if days and not start_date:
+        rows = con.execute(
+            """
+            SELECT trade_date
+            FROM fact_market_daily
+            WHERE trade_date <= ?
+            ORDER BY trade_date DESC
+            LIMIT ?
+            """,
+            [end, int(days)],
+        ).fetchall()
+        return [r[0] for r in reversed(rows)]
+    rows = con.execute(
+        """
+        SELECT trade_date
+        FROM fact_market_daily
+        WHERE trade_date >= ? AND trade_date <= ?
+        ORDER BY trade_date
+        """,
+        [start_date, end],
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
+def strong_subtheme_trace(start_date: str | None = None, end_date: str | None = None,
+                          days: int | None = 60, high_period: str = "20d",
+                          window: int = 20, ratio_threshold: float = 1.2,
+                          min_limit_count: int = 3, min_high_count: int = 5,
+                          top: int = 50) -> dict:
+    con = connect(read_only=True)
+    try:
+        dates = _date_range(con, start_date, end_date, days)
+        if not dates:
+            return {
+                "start_date": start_date,
+                "end_date": end_date,
+                "dates": [],
+                "double_red_first": [],
+                "resonance_first": [],
+                "peak_first": [],
+                "events": [],
+            }
+        start = dates[0]
+        end = dates[-1]
+        double_rows = con.execute(
+            """
+            WITH filtered AS (
+                SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, diff_ratio, amount,
+                       ROW_NUMBER() OVER (PARTITION BY sector_ts_code ORDER BY trade_date) AS rn
+                FROM fact_sector_daily
+                WHERE trade_date >= ? AND trade_date <= ?
+                  AND pct_chg > 0 AND diff_ratio > 10 AND amount > 500
+            )
+            SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, diff_ratio, amount
+            FROM filtered
+            WHERE rn = 1
+            ORDER BY trade_date, diff_ratio DESC NULLS LAST, amount DESC NULLS LAST
+            LIMIT ?
+            """,
+            [start, end, top],
+        ).fetchall()
+        resonance_rows = con.execute(
+            """
+            WITH filtered AS (
+                SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, diff_ratio, amount,
+                       ROW_NUMBER() OVER (PARTITION BY sector_ts_code ORDER BY trade_date) AS rn
+                FROM fact_sector_daily
+                WHERE trade_date >= ? AND trade_date <= ?
+                  AND multi_period_resonance = true
+            )
+            SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, diff_ratio, amount
+            FROM filtered
+            WHERE rn = 1
+            ORDER BY trade_date, diff_ratio DESC NULLS LAST, amount DESC NULLS LAST
+            LIMIT ?
+            """,
+            [start, end, top],
+        ).fetchall()
+    finally:
+        con.close()
+
+    sector_cols = ["trade_date", "sector_ts_code", "sector_name", "sw_l1", "pct_chg", "diff_ratio", "amount"]
+    double_first = [dict(zip(sector_cols, r)) for r in double_rows]
+    resonance_first = [dict(zip(sector_cols, r)) for r in resonance_rows]
+    for rows in (double_first, resonance_first):
+        for row in rows:
+            row["trade_date"] = str(row["trade_date"])
+
+    peak_by_key = {}
+    for d in dates:
+        res = sw_l1_signal_peaks(
+            trade_date=str(d),
+            high_period=high_period,
+            window=window,
+            ratio_threshold=ratio_threshold,
+            min_limit_count=min_limit_count,
+            min_high_count=min_high_count,
+            top=200,
+        )
+        for row in res["limit_rows"]:
+            if not row["is_peak"] or len(res["limit_history_dates"]) < window:
+                continue
+            key = ("limit_up_peak", row["sw_l1"])
+            peak_by_key.setdefault(key, {
+                "trade_date": res["trade_date"],
+                "signal": "limit_up_peak",
+                **row,
+            })
+        for row in res["high_rows"]:
+            if not row["is_peak"] or len(res["high_history_dates"]) < window:
+                continue
+            key = ("stock_high_peak", row["sw_l1"])
+            peak_by_key.setdefault(key, {
+                "trade_date": res["trade_date"],
+                "signal": "stock_high_peak",
+                **row,
+            })
+
+    peak_first = sorted(peak_by_key.values(), key=lambda x: (x["trade_date"], x["signal"], x["sw_l1"]))[:top]
+    events = []
+    for row in double_first:
+        events.append({
+            "trade_date": row["trade_date"],
+            "signal": "double_red_first",
+            "name": row["sector_name"],
+            "sw_l1": row["sw_l1"],
+            "detail": row,
+        })
+    for row in resonance_first:
+        events.append({
+            "trade_date": row["trade_date"],
+            "signal": "multi_period_first",
+            "name": row["sector_name"],
+            "sw_l1": row["sw_l1"],
+            "detail": row,
+        })
+    for row in peak_first:
+        events.append({
+            "trade_date": row["trade_date"],
+            "signal": row["signal"],
+            "name": row["sw_l1"],
+            "sw_l1": row["sw_l1"],
+            "detail": row,
+        })
+    events.sort(key=lambda x: (x["trade_date"], x["signal"], x["name"] or ""))
+    return {
+        "start_date": str(dates[0]),
+        "end_date": str(dates[-1]),
+        "dates": [str(d) for d in dates],
+        "high_period": high_period,
+        "window": window,
+        "ratio_threshold": ratio_threshold,
+        "double_red_first": double_first,
+        "resonance_first": resonance_first,
+        "peak_first": peak_first,
+        "events": events[:top],
+    }
+
+
 def limit_heat(trade_date: str | None = None, theme: str | None = None,
                top: int = 20, with_stocks: bool = False, stock_top: int = 20) -> dict:
     con = connect(read_only=True)

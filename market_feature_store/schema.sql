@@ -103,6 +103,22 @@ CREATE TABLE IF NOT EXISTS fact_sector_daily (
 CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_date ON fact_sector_daily(trade_date);
 CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_sector ON fact_sector_daily(sector_ts_code);
 
+CREATE TABLE IF NOT EXISTS fact_sw_l1_daily (
+    trade_date      DATE,
+    sw_l1_code      TEXT,
+    sw_l1           TEXT,
+    close           DOUBLE,
+    pre_close       DOUBLE,
+    pct_chg         DOUBLE,
+    amount          DOUBLE,
+    fupanhui_ratio  DOUBLE,
+    source          TEXT,
+    updated_at      TIMESTAMP,
+    PRIMARY KEY (trade_date, sw_l1)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_date ON fact_sw_l1_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_sw_l1_daily_sw ON fact_sw_l1_daily(sw_l1);
+
 CREATE TABLE IF NOT EXISTS fact_sector_stock_daily (
     trade_date        DATE,
     sector_ts_code    TEXT,

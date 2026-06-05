@@ -327,6 +327,98 @@ def _group_sector_rows(rows):
     return [(sw, grouped[sw]) for sw in order]
 
 
+def _focus_sw_l1(today, double_groups, limit: int = 3):
+    out = []
+    for key in ("industry_1", "industry_2", "industry_3"):
+        sw = today.get(key)
+        if sw and sw not in out:
+            out.append(sw)
+    for sw, _rows in double_groups:
+        if sw and sw not in out:
+            out.append(sw)
+        if len(out) >= limit:
+            break
+    return out[:limit]
+
+
+def _sw_l1_double_red_matrix(con, trade_date, sw_l1: str, days: int = 15):
+    date_rows = con.execute(
+        """
+        SELECT trade_date
+        FROM fact_market_daily
+        WHERE trade_date <= ?
+        ORDER BY trade_date DESC
+        LIMIT ?
+        """,
+        [trade_date, int(days)],
+    ).fetchall()
+    dates = [r[0] for r in reversed(date_rows)]
+    if not dates:
+        return {"sw_l1": sw_l1, "dates": [], "rows": []}
+    start, end = dates[0], dates[-1]
+    sectors = [
+        r[0] for r in con.execute(
+            """
+            SELECT DISTINCT sector_name
+            FROM fact_sector_daily
+            WHERE trade_date BETWEEN ? AND ?
+              AND sw_l1 = ?
+              AND pct_chg > 0
+              AND diff_ratio > 10
+              AND amount > 500
+            ORDER BY sector_name
+            """,
+            [start, end, sw_l1],
+        ).fetchall()
+    ]
+    if not sectors:
+        return {"sw_l1": sw_l1, "dates": dates, "rows": []}
+    placeholders = ",".join("?" for _ in sectors)
+    data_rows = con.execute(
+        f"""
+        SELECT trade_date, sector_name, pct_chg, diff_ratio, amount
+        FROM fact_sector_daily
+        WHERE trade_date BETWEEN ? AND ?
+          AND sw_l1 = ?
+          AND sector_name IN ({placeholders})
+        """,
+        [start, end, sw_l1] + sectors,
+    ).fetchall()
+    data = {(r[1], r[0]): (r[2], r[3], r[4]) for r in data_rows}
+    parent_rows = con.execute(
+        """
+        SELECT trade_date, fupanhui_ratio, pct_chg
+        FROM fact_sw_l1_daily
+        WHERE trade_date BETWEEN ? AND ?
+          AND sw_l1 = ?
+        """,
+        [start, end, sw_l1],
+    ).fetchall()
+    parent_data = {r[0]: (r[1], r[2]) for r in parent_rows}
+    rows = []
+    parent_row = [f"申万一级：{sw_l1}（占比/涨跌幅）"]
+    for d in dates:
+        ratio, pct = parent_data.get(d, (None, None))
+        if ratio is None and pct is None:
+            parent_row.append("-")
+        else:
+            parent_row.append(f"{_pct(ratio, 1)}/{_pct(pct, 1)}")
+    rows.append(parent_row)
+    for sector in sectors:
+        row = [sector]
+        for d in dates:
+            pct, diff, amount = data.get((sector, d), (None, None, None))
+            if diff is None or amount is None:
+                row.append("-")
+                continue
+            cell = f"{_fmt(diff, 1)}/{_fmt(amount, 0)}"
+            if pct is not None and pct > 0 and diff > 10 and amount > 500:
+                cell = f"🔥{cell}"
+            row.append(cell)
+        rows.append(row)
+    return {"sw_l1": sw_l1, "dates": dates, "rows": rows}
+
+
 def _parse_plate(plate, whitelist_json):
     if plate and plate != "-":
         return plate
@@ -374,7 +466,7 @@ def _theme_representatives(con, trade_date, theme_names):
 
 def _coverage(con, trade_date):
     tables = [
-        "fact_market_daily", "fact_sector_daily", "fact_sector_stock_daily",
+        "fact_market_daily", "fact_sector_daily", "fact_sw_l1_daily", "fact_sector_stock_daily",
         "fact_stock_high_daily", "fact_theme_limit_heat_daily",
         "fact_theme_limit_stock_daily", "fact_limit_advance_daily", "fact_stock_daily",
     ]
@@ -427,7 +519,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
             """
             SELECT sector_name, sw_l1, pct_chg, diff_ratio, amount
             FROM fact_sector_daily
-            WHERE trade_date = ? AND diff_ratio > 10 AND amount > 500
+            WHERE trade_date = ? AND pct_chg > 0 AND diff_ratio > 10 AND amount > 500
             ORDER BY sw_l1, diff_ratio DESC, amount DESC
             """,
             [td],
@@ -436,7 +528,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
             """
             SELECT sector_name, sw_l1, pct_chg, diff_ratio, amount
             FROM fact_sector_daily
-            WHERE trade_date = ? AND diff_ratio > 10 AND (amount <= 500 OR amount IS NULL)
+            WHERE trade_date = ? AND pct_chg > 0 AND diff_ratio > 10 AND (amount <= 500 OR amount IS NULL)
             ORDER BY sw_l1, diff_ratio DESC, amount DESC
             """,
             [td],
@@ -537,6 +629,8 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
 
         double_groups = _group_sector_rows(double_red)
         single_groups = _group_sector_rows(single_red)
+        focus_sw_l1 = _focus_sw_l1(today, double_groups)
+        focus_matrices = [_sw_l1_double_red_matrix(con, td, sw) for sw in focus_sw_l1]
         top_double_sw = "、".join(f"{sw}({len(rows)})" for sw, rows in double_groups[:5])
         top_single_sw = "、".join(f"{sw}({len(rows)})" for sw, rows in single_groups[:5])
         top_high_sw_text = "、".join(f"{sw}({cnt})" for sw, cnt in high_sw.most_common(5))
@@ -591,14 +685,15 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("- [3. 成交前三行业](#3-成交前三行业)")
         lines.append("- [4. 1/3/5/10 日板块涨幅前三](#4-13510-日板块涨幅前三)")
         lines.append("- [5. 双红题材：按申万一级分组](#5-双红题材按申万一级分组)")
-        lines.append("- [6. 单红题材：按申万一级分组](#6-单红题材按申万一级分组)")
-        lines.append("- [7. 120日新高](#7-120日新高)")
-        lines.append("- [8. 涨停题材](#8-涨停题材)")
-        lines.append("- [9. 3板及以上个股](#9-3板及以上个股)")
-        lines.append("- [10. 市场强度](#10-市场强度)")
-        lines.append("- [11. 近五日加权涨幅 Top10](#11-近五日加权涨幅-top10)")
-        lines.append("- [12. 数据覆盖检查](#12-数据覆盖检查)")
-        lines.append("- [13. 市场环境总评](#13-市场环境总评)")
+        lines.append("- [6. 重点申万一级近15日子板块双红矩阵](#6-重点申万一级近15日子板块双红矩阵)")
+        lines.append("- [7. 单红题材：按申万一级分组](#7-单红题材按申万一级分组)")
+        lines.append("- [8. 120日新高](#8-120日新高)")
+        lines.append("- [9. 涨停题材](#9-涨停题材)")
+        lines.append("- [10. 3板及以上个股](#10-3板及以上个股)")
+        lines.append("- [11. 市场强度](#11-市场强度)")
+        lines.append("- [12. 近五日加权涨幅 Top10](#12-近五日加权涨幅-top10)")
+        lines.append("- [13. 数据覆盖检查](#13-数据覆盖检查)")
+        lines.append("- [14. 市场环境总评](#14-市场环境总评)")
         lines.append("")
         lines.append("---")
         lines.append("")
@@ -637,10 +732,11 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         ))
         if chart_file:
             rel = chart_file.relative_to(out_path.parent)
+            chart_uri = chart_file.resolve().as_uri()
             lines.append("")
-            lines.append(f"[![涨家数MA5]({rel})]({rel})")
+            lines.append(f"[![涨家数MA5]({rel})]({chart_uri})")
             lines.append("")
-            lines.append(f"> [点击在旁边窗口预览涨家数 MA5 图]({rel})")
+            lines.append(f"> [点击打开涨家数 MA5 图]({chart_uri})")
         if ma5_wave:
             lines.append("")
             lines.append("### 涨家数 MA5 波段区间")
@@ -689,7 +785,26 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 6. 单红题材：按申万一级分组")
+        lines.append("## 6. 重点申万一级近15日子板块双红矩阵")
+        lines.append("> 子板块单元格格式：边际量/成交额亿；母板块行格式：成交占比/涨跌幅；🔥 表示当日满足双红（日涨幅 > 0、边际量 > 10 且成交额 > 500亿）。")
+        lines.append("")
+        for matrix in focus_matrices:
+            if not matrix["dates"]:
+                continue
+            lines.append(f"### {matrix['sw_l1']}")
+            if matrix["rows"]:
+                lines.append(_table(
+                    ["子板块"] + [str(d)[5:] for d in matrix["dates"]],
+                    matrix["rows"],
+                ))
+            else:
+                lines.append("近15个交易日暂无双红子板块。")
+            lines.append("")
+        lines.append(f"> **结论**：重点观察申万一级为 {_join_names(focus_sw_l1, 3)}；🔥越连续，说明子板块边际量与成交额越持续。")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append("## 7. 单红题材：按申万一级分组")
         lines.append(f"> 单红题材数量：**{len(single_red)}**；主要分布：{top_single_sw}。")
         lines.append("")
         for sw, rows in single_groups:
@@ -703,7 +818,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 7. 120日新高")
+        lines.append("## 8. 120日新高")
         lines.append(f"> 120日新高数量：**{len(stock_highs)}**；前三申万一级：{top_high_sw_text}。")
         lines.append("")
         lines.append(_table(["申万一级", "数量"], [[sw, cnt] for sw, cnt in high_sw.most_common(20)]))
@@ -723,7 +838,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 8. 涨停题材")
+        lines.append("## 9. 涨停题材")
         lines.append(_table(
             ["题材", "申万一级映射", "涨停数", "市场占比", "封单金额", "代表涨停股"],
             [[r["sector_name"], r["sw_l1"], r["limit_up_count"], _pct(r["market_share"]), _yi((r["fd_amount"] or 0) / 10000), representatives.get(r["sector_name"], "")] for r in limit_heat[:20]],
@@ -736,7 +851,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 9. 3板及以上个股")
+        lines.append("## 10. 3板及以上个股")
         lines.append(_table(
             ["股票", "代码", "连板数", "首板日期", "题材", "涨幅", "晋级率"],
             [[r["stock_name"], r["stock_ts_code"], r["boards"], r["first_limit_date"], r["theme"], _pct(r["pct_chg"]), r["promotion_rate"]] for r in limit_advance],
@@ -746,7 +861,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 10. 市场强度")
+        lines.append("## 11. 市场强度")
         lines.append(_table(
             ["指标", "今日", "昨日"],
             [
@@ -764,7 +879,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 11. 近五日加权涨幅 Top10")
+        lines.append("## 12. 近五日加权涨幅 Top10")
         lines.append(_table(
             ["股票", "代码", "5日涨幅", "成交额", "加权涨幅", "申万一级", "主要题材"],
             [[r["stock_name"], r["stock_ts_code"], _pct(r["gain5"]), _yi(r["amount_yi"]), _fmt(r["weighted"]), r["sw_l1"], r["sectors"]] for r in weighted],
@@ -774,12 +889,12 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 12. 数据覆盖检查")
+        lines.append("## 13. 数据覆盖检查")
         lines.append(_table(["表", "最新日期", "总行数", "目标日行数", "状态"], _coverage(con, td)))
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 13. 市场环境总评")
+        lines.append("## 14. 市场环境总评")
         lines.append(f"> {td} 市场性质为 **{nature}**，市场阶段为 **{today.get('market_stage') or '-'}**。成交额 {_yi(today.get('total_amount'))}，较昨日 {_pct(today.get('amount_vs_yesterday_pct'))}；前三行业占比 {_pct(today.get('top3_industry_ratio'))}。主线集中在 {market_mainline} 相关方向，强度状态为 **{today.get('strength_status') or '-'}**。")
         lines.append("")
         lines.append(f"生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
