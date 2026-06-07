@@ -473,6 +473,325 @@ def _stock_high_rows(con, trade_date):
     return rows
 
 
+def _stock_high_sw_l1_matrix(con, trade_date, sw_l1: str, days: int = 15, top: int = 20):
+    date_rows = con.execute(
+        "SELECT trade_date FROM fact_market_daily WHERE trade_date <= ? ORDER BY trade_date DESC LIMIT ?",
+        [trade_date, int(days)],
+    ).fetchall()
+    dates = [r[0] for r in reversed(date_rows)]
+    if not dates:
+        return {"sw_l1": sw_l1, "dates": [], "rows": []}
+    start, end = dates[0], dates[-1]
+    data_rows = con.execute(
+        """
+        SELECT trade_date,
+               COALESCE(NULLIF(plate, '-'), '未映射主板块') AS sector_name,
+               COUNT(DISTINCT stock_ts_code) AS cnt
+        FROM fact_stock_high_daily
+        WHERE trade_date BETWEEN ? AND ?
+          AND sw_l1 = ?
+          AND high_periods_json LIKE '%120d%'
+        GROUP BY 1, 2
+        """,
+        [start, end, sw_l1],
+    ).fetchall()
+    counts = {}
+    totals = Counter()
+    for trade_date, sector_name, cnt in data_rows:
+        counts[(sector_name, trade_date)] = cnt
+        totals[sector_name] += cnt
+    matrix_rows = []
+    for sector_name, _cnt in totals.most_common(top):
+        matrix_rows.append([sector_name] + [counts.get((sector_name, d), "-") for d in dates])
+    return {"sw_l1": sw_l1, "dates": dates, "rows": matrix_rows}
+
+
+def _limit_up_sw_l1_matrix(con, trade_date, sw_l1: str, days: int = 15, top: int = 20):
+    date_rows = con.execute(
+        "SELECT trade_date FROM fact_market_daily WHERE trade_date <= ? ORDER BY trade_date DESC LIMIT ?",
+        [trade_date, int(days)],
+    ).fetchall()
+    dates = [r[0] for r in reversed(date_rows)]
+    if not dates:
+        return {"sw_l1": sw_l1, "dates": [], "rows": []}
+    start, end = dates[0], dates[-1]
+    data_rows = con.execute(
+        """
+        WITH limit_stocks AS (
+            SELECT DISTINCT trade_date, stock_ts_code
+            FROM fact_theme_limit_stock_daily
+            WHERE trade_date BETWEEN ? AND ?
+        )
+        SELECT s.trade_date, s.sector_name, COUNT(DISTINCT s.stock_ts_code) AS cnt
+        FROM fact_sector_stock_daily s
+        JOIN limit_stocks l
+          ON s.trade_date = l.trade_date AND s.stock_ts_code = l.stock_ts_code
+        WHERE s.trade_date BETWEEN ? AND ?
+          AND s.sw_l1 = ?
+        GROUP BY 1, 2
+        """,
+        [start, end, start, end, sw_l1],
+    ).fetchall()
+    counts = {}
+    totals = Counter()
+    for trade_date, sector_name, cnt in data_rows:
+        counts[(sector_name, trade_date)] = cnt
+        totals[sector_name] += cnt
+    matrix_rows = []
+    for sector_name, _cnt in totals.most_common(top):
+        matrix_rows.append([sector_name] + [counts.get((sector_name, d), "-") for d in dates])
+    return {"sw_l1": sw_l1, "dates": dates, "rows": matrix_rows}
+
+
+def _clean_md_text(value):
+    return "".join(ch for ch in str(value or "") if ch >= " " and ch != "\x7f").strip()
+
+
+def _high_status_text(primary_label, periods_json):
+    if primary_label:
+        return _clean_md_text(primary_label)
+    if not periods_json:
+        return "否"
+    try:
+        periods = json.loads(periods_json)
+    except (TypeError, json.JSONDecodeError):
+        return _clean_md_text(periods_json) or "否"
+    labels = []
+    for item in periods if isinstance(periods, list) else []:
+        label = item.get("label") if isinstance(item, dict) else None
+        if label and label not in labels:
+            labels.append(label)
+    return "、".join(labels) if labels else "否"
+
+
+def _sw_l1_stock_engines(con, trade_date, sw_l1: str, top: int = 20):
+    rows = _dict_rows(con.execute(
+        """
+        WITH double_sectors AS (
+            SELECT DISTINCT sector_name
+            FROM fact_sector_daily
+            WHERE trade_date = ?
+              AND sw_l1 = ?
+              AND pct_chg > 0
+              AND diff_ratio > 10
+              AND amount > 500
+        ),
+        stock_base AS (
+            SELECT stock_ts_code,
+                   any_value(stock_name) AS stock_name,
+                   max(pct_chg) AS pct_chg,
+                   max(amount) AS amount_yi
+            FROM fact_sector_stock_daily
+            WHERE trade_date = ?
+              AND NULLIF(split_part(sw_industry, '-', 1), '') = ?
+              AND pct_chg > 0
+              AND amount IS NOT NULL
+            GROUP BY stock_ts_code
+        ),
+        double_hits AS (
+            SELECT stock_ts_code,
+                   string_agg(DISTINCT sector_name, '、' ORDER BY sector_name) AS double_sectors
+            FROM fact_sector_stock_daily
+            WHERE trade_date = ?
+              AND sw_l1 = ?
+              AND sector_name IN (SELECT sector_name FROM double_sectors)
+            GROUP BY stock_ts_code
+        ),
+        high_stocks AS (
+            SELECT stock_ts_code, primary_high_label, high_periods_json
+            FROM fact_stock_high_daily
+            WHERE trade_date = ?
+        ),
+        ranked AS (
+            SELECT row_number() OVER (ORDER BY sqrt(b.amount_yi) * b.pct_chg DESC NULLS LAST) AS rank,
+                   b.stock_name, b.stock_ts_code, b.pct_chg, b.amount_yi,
+                   sqrt(b.amount_yi) * b.pct_chg AS weighted,
+                   h.primary_high_label, h.high_periods_json,
+                   dh.double_sectors
+            FROM stock_base b
+            LEFT JOIN high_stocks h ON h.stock_ts_code = b.stock_ts_code
+            LEFT JOIN double_hits dh ON dh.stock_ts_code = b.stock_ts_code
+        )
+        SELECT *
+        FROM ranked
+        WHERE rank <= ?
+        ORDER BY rank
+        """,
+        [trade_date, sw_l1, trade_date, sw_l1, trade_date, sw_l1, trade_date, int(top)],
+    ))
+    stock_table = []
+    for row in rows:
+        double_sectors = _clean_md_text(row["double_sectors"])
+        stock_table.append([
+            row["rank"],
+            _clean_md_text(row["stock_name"]),
+            _clean_md_text(row["stock_ts_code"]),
+            _pct(row["pct_chg"]),
+            _yi(row["amount_yi"], 1),
+            _fmt(row["weighted"], 2),
+            _high_status_text(row["primary_high_label"], row["high_periods_json"]),
+            "是" if double_sectors else "否",
+            double_sectors or "-",
+        ])
+    return {"sw_l1": sw_l1, "trade_date": trade_date, "stock_rows": stock_table}
+
+
+def _normalize_start_sector(name):
+    mapping = {
+        "PCB概念": "PCB",
+        "芯片概念": "芯片",
+        "英伟达概念": "英伟达",
+        "6G概念": "6G",
+    }
+    return mapping.get(name, name)
+
+
+def _startup_role(weighted, amount_yi, is_high120, is_limit):
+    weighted_value = float(weighted or 0)
+    amount_value = float(amount_yi or 0)
+    if is_high120 and weighted_value >= 100 and amount_value >= 50:
+        return "容量趋势发动机"
+    if weighted_value >= 100 and amount_value >= 50:
+        return "容量确认股"
+    if is_limit and weighted_value >= 60:
+        return "情绪发动机"
+    if is_high120:
+        return "趋势确认股"
+    return "扩散确认股"
+
+
+def _start_day_confirmation(con, start_date, sw_l1: str, top: int = 15):
+    sector_rows = _dict_rows(con.execute(
+        """
+        SELECT sector_name, pct_chg, diff_ratio, amount
+        FROM fact_sector_daily
+        WHERE trade_date = ?
+          AND sw_l1 = ?
+          AND pct_chg > 0
+          AND diff_ratio > 10
+          AND amount > 500
+        ORDER BY amount DESC
+        LIMIT ?
+        """,
+        [start_date, sw_l1, int(top)],
+    ))
+    high_counts = Counter()
+    for plate, cnt in con.execute(
+        """
+        SELECT COALESCE(NULLIF(plate, '-'), '未映射主板块') AS sector_name,
+               COUNT(DISTINCT stock_ts_code) AS cnt
+        FROM fact_stock_high_daily
+        WHERE trade_date = ?
+          AND sw_l1 = ?
+          AND high_periods_json LIKE '%120d%'
+        GROUP BY 1
+        """,
+        [start_date, sw_l1],
+    ).fetchall():
+        high_counts[_normalize_start_sector(plate)] += cnt
+    limit_total = con.execute(
+        "SELECT COUNT(*) FROM fact_theme_limit_stock_daily WHERE trade_date = ?",
+        [start_date],
+    ).fetchone()[0]
+    limit_counts = Counter()
+    if limit_total:
+        for sector_name, cnt in con.execute(
+            """
+            WITH limit_stocks AS (
+                SELECT DISTINCT trade_date, stock_ts_code
+                FROM fact_theme_limit_stock_daily
+                WHERE trade_date = ?
+            )
+            SELECT s.sector_name, COUNT(DISTINCT s.stock_ts_code) AS cnt
+            FROM fact_sector_stock_daily s
+            JOIN limit_stocks l
+              ON s.trade_date = l.trade_date AND s.stock_ts_code = l.stock_ts_code
+            WHERE s.trade_date = ?
+              AND s.sw_l1 = ?
+            GROUP BY 1
+            """,
+            [start_date, start_date, sw_l1],
+        ).fetchall():
+            limit_counts[sector_name] += cnt
+    sector_names = [row["sector_name"] for row in sector_rows]
+    sector_table = []
+    for row in sector_rows:
+        sector = row["sector_name"]
+        limit_value = limit_counts.get(sector, 0) if limit_total else "数据缺失"
+        if high_counts.get(sector, 0) >= 3 and row["amount"] >= 2000:
+            status = "趋势容量核心"
+        elif row["amount"] >= 1500:
+            status = "容量确认"
+        else:
+            status = "扩散确认"
+        sector_table.append([
+            sector,
+            _pct(row["pct_chg"]),
+            _fmt(row["diff_ratio"], 1),
+            _yi(row["amount"], 0),
+            "是",
+            high_counts.get(sector, 0),
+            limit_value,
+            status,
+        ])
+    if not sector_names:
+        return {"sw_l1": sw_l1, "start_date": start_date, "sector_rows": [], "stock_rows": []}
+    placeholders = ",".join("?" for _ in sector_names)
+    stock_rows = _dict_rows(con.execute(
+        f"""
+        WITH sector_stocks AS (
+            SELECT trade_date, stock_ts_code,
+                   string_agg(DISTINCT sector_name, '、') AS sectors
+            FROM fact_sector_stock_daily
+            WHERE trade_date = ?
+              AND sw_l1 = ?
+              AND sector_name IN ({placeholders})
+            GROUP BY 1, 2
+        ),
+        high_stocks AS (
+            SELECT stock_ts_code, high_periods_json
+            FROM fact_stock_high_daily
+            WHERE trade_date = ?
+              AND high_periods_json LIKE '%120d%'
+        ),
+        limit_stocks AS (
+            SELECT DISTINCT stock_ts_code
+            FROM fact_theme_limit_stock_daily
+            WHERE trade_date = ?
+        )
+        SELECT d.stock_name, d.stock_ts_code, s.sectors,
+               d.pct_chg, d.amount AS amount_yi,
+               sqrt(d.amount) * d.pct_chg AS weighted,
+               h.high_periods_json IS NOT NULL AS is_high120,
+               l.stock_ts_code IS NOT NULL AS is_limit
+        FROM fact_stock_daily d
+        JOIN sector_stocks s USING (trade_date, stock_ts_code)
+        LEFT JOIN high_stocks h ON h.stock_ts_code = d.stock_ts_code
+        LEFT JOIN limit_stocks l ON l.stock_ts_code = d.stock_ts_code
+        WHERE d.trade_date = ?
+        ORDER BY weighted DESC NULLS LAST
+        LIMIT ?
+        """,
+        [start_date, sw_l1] + sector_names + [start_date, start_date, start_date, int(top)],
+    ))
+    stock_table = []
+    for row in stock_rows:
+        is_high120 = bool(row["is_high120"])
+        is_limit = bool(row["is_limit"])
+        stock_table.append([
+            _clean_md_text(row["stock_name"]),
+            _clean_md_text(row["stock_ts_code"]),
+            _clean_md_text(row["sectors"]),
+            _pct(row["pct_chg"]),
+            _yi(row["amount_yi"], 1),
+            _fmt(row["weighted"], 2),
+            "是" if is_high120 else "否",
+            "是" if is_limit else ("数据缺失" if not limit_total else "否"),
+            _startup_role(row["weighted"], row["amount_yi"], is_high120, is_limit),
+        ])
+    return {"sw_l1": sw_l1, "start_date": start_date, "sector_rows": sector_table, "stock_rows": stock_table}
+
+
 def _theme_representatives(con, trade_date, theme_names):
     out = {}
     for theme in theme_names:
@@ -509,7 +828,7 @@ def _coverage(con, trade_date):
     return rows
 
 
-def build_daily_review(trade_date: str | None = None, output_path: str | None = None, chart_path: str | None = None) -> dict:
+def build_daily_review(trade_date: str | None = None, output_path: str | None = None, chart_path: str | None = None, start_date: str | None = None) -> dict:
     con = connect(read_only=True)
     try:
         td = trade_date or str(_latest_date(con, "fact_market_daily"))
@@ -656,7 +975,15 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         double_groups = _group_sector_rows(double_red)
         single_groups = _group_sector_rows(single_red)
         focus_sw_l1 = _focus_sw_l1(today, double_groups)
+        top_amount_sw_l1 = []
+        for key in ("industry_1", "industry_2", "industry_3"):
+            sw = today.get(key)
+            if sw and sw not in top_amount_sw_l1:
+                top_amount_sw_l1.append(sw)
         focus_matrices = [_sw_l1_double_red_matrix(con, td, sw) for sw in focus_sw_l1]
+        high_matrices = [_stock_high_sw_l1_matrix(con, td, sw) for sw in focus_sw_l1]
+        limit_matrices = [_limit_up_sw_l1_matrix(con, td, sw) for sw in focus_sw_l1]
+        industry_stock_engines = [_sw_l1_stock_engines(con, td, sw) for sw in top_amount_sw_l1]
         top_double_sw = "、".join(f"{sw}({len(rows)})" for sw, rows in double_groups[:5])
         top_single_sw = "、".join(f"{sw}({len(rows)})" for sw, rows in single_groups[:5])
         top_high_sw_text = "、".join(f"{sw}({cnt})" for sw, cnt in high_sw.most_common(5))
@@ -839,7 +1166,24 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 7. 单红题材：按申万一级分组")
+        lines.append("## 7. 申万一级行业个股发动机：成交占比前三行业")
+        lines.append("> 每个成交占比前三申万一级行业列出当日开根加权 Top20；当日开根加权 = sqrt(成交额亿) × 当日涨幅，用于和双红题材、新高状态做事实层对比。")
+        lines.append("")
+        for item in industry_stock_engines:
+            lines.append(f"### {item['sw_l1']}")
+            if item["stock_rows"]:
+                lines.append(_table(
+                    ["排序", "股票", "代码", "涨幅", "成交额", "当日开根加权", "新高状态", "命中双红", "双红题材"],
+                    item["stock_rows"],
+                ))
+            else:
+                lines.append("当日暂无可排序的行业个股发动机。")
+            lines.append("")
+        lines.append("> **结论**：先看行业内高开根加权个股是否集中命中双红题材，再结合新高状态判断行业发动机与题材归因是否一致；定性角色后续交给 serenity alpha 补全。")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append("## 8. 单红题材：按申万一级分组")
         lines.append(f"> 单红题材数量：**{len(single_red)}**；主要分布：{top_single_sw}。")
         lines.append("")
         for sw, rows in single_groups:
@@ -853,27 +1197,47 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 8. 120日新高")
+        lines.append("## 9. 120日新高")
         lines.append(f"> 120日新高数量：**{len(stock_highs)}**；前三申万一级：{top_high_sw_text}。")
         lines.append("")
         lines.append(_table(["申万一级", "数量"], [[sw, cnt] for sw, cnt in high_sw.most_common(20)]))
         lines.append("")
-        for sw in top_high_sw:
-            rows = [r for r in stock_highs if (r.get("sw_l1") or "未映射") == sw]
-            by_plate = defaultdict(list)
-            for row in rows:
-                by_plate[row["plate_display"]].append(row)
-            lines.append(f"### {sw}：题材与个股")
-            table_rows = []
-            for plate, items in sorted(by_plate.items(), key=lambda kv: (-len(kv[1]), kv[0])):
-                table_rows.append([plate, len(items), "、".join(i["stock_name"] for i in items[:10])])
-            lines.append(_table(["题材", "个股数", "个股"], table_rows))
+        lines.append("### 近15日120日新高映射矩阵")
+        lines.append("> 单元格为当日120日新高去重个股数；按申万一级分组，行是该申万一级内的题材映射。")
+        lines.append("")
+        for matrix in high_matrices:
+            if not matrix["dates"]:
+                continue
+            lines.append(f"### {matrix['sw_l1']}")
+            if matrix["rows"]:
+                lines.append(_table(
+                    ["题材"] + [str(d)[5:] for d in matrix["dates"]],
+                    matrix["rows"],
+                ))
+            else:
+                lines.append("近15个交易日暂无120日新高映射。")
             lines.append("")
         lines.append(f"> **结论**：120日新高主要承载在 {_join_names(top_high_sw, 3)}；题材集中于 {high_plate_text}。")
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 9. 涨停题材")
+        lines.append("## 10. 涨停题材")
+        lines.append("### 近15日子板块涨停矩阵")
+        lines.append("> 单元格为该申万一级子板块成分股中，当日涨停的去重个股数；行口径与第6节子板块双红矩阵一致。")
+        lines.append("")
+        for matrix in limit_matrices:
+            if not matrix["dates"]:
+                continue
+            lines.append(f"### {matrix['sw_l1']}")
+            if matrix["rows"]:
+                lines.append(_table(
+                    ["题材"] + [str(d)[5:] for d in matrix["dates"]],
+                    matrix["rows"],
+                ))
+            else:
+                lines.append("近15个交易日暂无涨停映射。")
+            lines.append("")
+        lines.append("### 当日涨停题材 Top20")
         lines.append(_table(
             ["题材", "申万一级映射", "涨停数", "市场占比", "封单金额", "代表涨停股"],
             [[r["sector_name"], r["sw_l1"], r["limit_up_count"], _pct(r["market_share"]), _yi((r["fd_amount"] or 0) / 10000), representatives.get(r["sector_name"], "")] for r in limit_heat[:20]],
@@ -886,7 +1250,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 10. 3板及以上个股")
+        lines.append("## 11. 3板及以上个股")
         lines.append(_table(
             ["股票", "代码", "连板数", "首板日期", "题材", "涨幅", "晋级率"],
             [[r["stock_name"], r["stock_ts_code"], r["boards"], r["first_limit_date"], r["theme"], _pct(r["pct_chg"]), r["promotion_rate"]] for r in limit_advance],
@@ -896,7 +1260,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 11. 市场强度")
+        lines.append("## 12. 市场强度")
         lines.append(_table(
             ["指标", "今日", "昨日"],
             [
@@ -914,7 +1278,7 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 12. 近五日加权涨幅 Top10")
+        lines.append("## 13. 近五日加权涨幅 Top10")
         lines.append(_table(
             ["股票", "代码", "5日涨幅", "成交额", "加权涨幅", "申万一级", "主要题材"],
             [[r["stock_name"], r["stock_ts_code"], _pct(r["gain5"]), _yi(r["amount_yi"]), _fmt(r["weighted"]), r["sw_l1"], r["sectors"]] for r in weighted],
@@ -924,12 +1288,12 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 13. 数据覆盖检查")
+        lines.append("## 14. 数据覆盖检查")
         lines.append(_table(["表", "最新日期", "总行数", "目标日行数", "状态"], _coverage(con, td)))
         lines.append("")
         lines.append("---")
         lines.append("")
-        lines.append("## 14. 市场环境总评")
+        lines.append("## 15. 市场环境总评")
         lines.append(f"> {td} 市场性质为 **{nature}**，市场阶段为 **{today.get('market_stage') or '-'}**。成交额 {_yi(today.get('total_amount'))}，较昨日 {_pct(today.get('amount_vs_yesterday_pct'))}；前三行业占比 {_pct(today.get('top3_industry_ratio'))}。主线集中在 {market_mainline} 相关方向，强度状态为 **{today.get('strength_status') or '-'}**。")
         lines.append("")
         lines.append(f"生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
