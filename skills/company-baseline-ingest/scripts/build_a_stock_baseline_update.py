@@ -2,6 +2,7 @@
 import argparse
 import json
 import re
+import unicodedata
 from datetime import date
 from pathlib import Path
 
@@ -63,6 +64,65 @@ def f10_company_name(raw, code):
     return raw.get("company", "")
 
 
+def f10_source_company_name(raw, code):
+    text = str(result_content(raw, "mootdx_f10").get("公司概况", ""))
+    marker = f"◇{code} "
+    idx = text.find(marker)
+    if idx >= 0:
+        return text[idx + len(marker) :].split()[0].strip()
+    return ""
+
+
+def source_company_names(raw, code):
+    names = []
+    stock_info = result_content(raw, "eastmoney_stock_info")
+    if isinstance(stock_info, dict):
+        names.append(str(stock_info.get("name") or "").strip())
+    names.append(f10_source_company_name(raw, code))
+    return [name for name in names if name]
+
+
+def compatible_company_name(requested, source_name):
+    requested = str(requested or "").strip()
+    source_name = str(source_name or "").strip()
+    benign = {
+        ("中电兴发", "中电鑫龙"),
+        ("中航电子", "中航机载"),
+        ("华新水泥", "华新建材"),
+        ("博创科技", "长芯博创"),
+        ("博苑股份", "博苑新材"),
+        ("威高血液净化", "威高血净"),
+        ("富祥药业", "富祥股份"),
+        ("神通阀门", "江苏神通"),
+        ("雪人股份", "雪人集团"),
+        ("青鸟消防", "青鸟智控"),
+        ("韦尔股份", "豪威集团"),
+        ("鸿泉物联", "鸿泉技术"),
+        ("龙星化工", "龙星科技"),
+    }
+    if (requested, source_name) in benign:
+        return True
+    if not requested or not source_name:
+        return True
+    requested_norm = re.sub(r"\s+", "", unicodedata.normalize("NFKC", requested))
+    source_norm = re.sub(r"\s+", "", unicodedata.normalize("NFKC", source_name))
+    source_norm = re.sub(r"^(XD|XR|DR)", "", source_norm)
+    if source_norm.startswith("*ST") or source_norm.startswith("ST") or source_norm.startswith("退市"):
+        return True
+    if requested_norm == source_norm or requested_norm in source_norm or source_norm in requested_norm:
+        return True
+    if source_norm.endswith("退"):
+        return True
+    return False
+
+
+def validate_source_identity(raw, code):
+    requested = str(raw.get("company") or "").strip()
+    mismatches = [name for name in source_company_names(raw, code) if not compatible_company_name(requested, name)]
+    if mismatches:
+        raise ValueError(f"source company mismatch: requested={requested}, code={code}, source_names={','.join(mismatches)}")
+
+
 def f10_industry(raw):
     text = str(result_content(raw, "mootdx_f10").get("行业分析", ""))
     marker = "【所属行业】"
@@ -100,6 +160,8 @@ def akshare_products(raw):
                 value = str(row.get(key) or "").strip()
                 for part in re.split(r"[、,，;；/]+", value):
                     part = part.strip()
+                    if "�" in part:
+                        continue
                     if part in generic:
                         continue
                     if 2 <= len(part) <= 24 and part not in products:
@@ -118,6 +180,8 @@ def split_products(text):
     product_text = re.sub(r"(主要)?包括[:：]", "、", product_text)
     for item in re.split(r"[、,，;；/]+", product_text):
         item = item.strip()
+        if "�" in item:
+            continue
         item = re.sub(r"^(公司|主营业务|一般项目|许可项目)[:：]?", "", item).strip()
         item = item.strip("。；; ")
         item = re.sub(r"(的)?(研发|开发|生产|销售|工程安装|售后服务|设计|制造|服务|生产及|销售及|和销售|的生产)$", "", item).strip()
@@ -252,6 +316,7 @@ def infer_chain_layer(role, main_biz, products):
 
 def build_update(raw, raw_path, seed_concepts):
     code = re.sub(r"\D", "", str(raw.get("code", "")))
+    validate_source_identity(raw, code)
     company = f10_company_name(raw, code)
     industry_text = f10_industry(raw)
     main_biz = main_business(raw)

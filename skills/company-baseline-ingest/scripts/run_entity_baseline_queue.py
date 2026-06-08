@@ -104,6 +104,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--queue", default=str(QUEUE_PATH))
     parser.add_argument("--batch-size", type=int, default=5)
+    parser.add_argument("--batch", type=int, default=0)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--include-akshare", action="store_true")
     args = parser.parse_args()
@@ -113,7 +114,7 @@ def main():
     if not pending:
         print(json.dumps({"status": "ok", "message": "no pending rows"}, ensure_ascii=False))
         return
-    batch = batch_number()
+    batch = args.batch or batch_number()
     payload_paths = []
     for row in pending:
         fetch_cmd = [sys.executable, str(FETCH_SCRIPT), "--company", row["company"], "--code", row["code"], "--out-dir", str(RAW_DIR)]

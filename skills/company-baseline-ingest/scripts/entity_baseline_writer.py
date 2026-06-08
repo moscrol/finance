@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Write static entity baseline sections and relation JSON."""
 
+import argparse
 import json
 import os
 import re
@@ -178,6 +179,24 @@ def upsert_section(body, title, content):
         idx = insert_before.start()
         return body[:idx].rstrip() + "\n\n" + section + body[idx:]
     return body.rstrip() + "\n\n" + section
+
+
+def merge_section_lines(body, title, content):
+    rendered = [line for line in content.rstrip().splitlines() if line.strip()]
+    match = re.search(section_re(title), body, flags=re.S)
+    if not match:
+        return upsert_section(body, title, content)
+    existing = match.group(0).rstrip()
+    existing_lines = set(existing.splitlines())
+    additions = [line for line in rendered if line not in existing_lines]
+    if not additions:
+        return body
+    merged = existing + "\n" + "\n".join(additions) + "\n"
+    return body[: match.start()] + merged + body[match.end() :]
+
+
+def has_section(body, title):
+    return bool(re.search(section_re(title), body, flags=re.S))
 
 
 def render_baseline(update):
@@ -414,14 +433,12 @@ def update_file(update, source_name):
     if raw_sources:
         upsert_frontmatter_line(fm_lines, "raw_sources", yaml_list(raw_sources))
 
-    body = upsert_section(body, "基础画像", render_baseline(update))
-    body = upsert_section(body, "产业链暴露", render_exposures(update))
-    body = upsert_section(body, "关键数据", render_key_data(update))
-    body = upsert_section(body, "风险与反证", render_list(update.get("risks", []), "待补充。"))
-    body = upsert_section(body, "待核实问题", render_list(update.get("open_questions", []), "补充年报、公告、官网或后续研报验证。"))
-    if evidence_section_title(update) != "iFinD 证据":
-        body = re.sub(section_re("iFinD 证据"), "", body, flags=re.S)
-    body = upsert_section(body, evidence_section_title(update), render_evidence(update))
+    body = upsert_section(body, "Baseline 基础画像", render_baseline(update))
+    body = upsert_section(body, "Baseline 产业链暴露", render_exposures(update))
+    body = upsert_section(body, "Baseline 关键数据", render_key_data(update))
+    body = upsert_section(body, "Baseline 风险与反证", render_list(update.get("risks", []), "待补充。"))
+    body = upsert_section(body, "Baseline 待核实问题", render_list(update.get("open_questions", []), "补充年报、公告、官网或后续研报验证。"))
+    body = merge_section_lines(body, evidence_section_title(update), render_evidence(update))
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(prefix + "---\n" + "\n".join(fm_lines) + "\n---\n" + body.rstrip() + "\n", encoding="utf-8")
@@ -445,6 +462,56 @@ def update_file(update, source_name):
     return str(path), graph_files
 
 
+def preflight_update(update, source_name):
+    company = strip_code_suffix(update.get("company", ""))
+    update = dict(update)
+    update["company"] = company
+    validate_update(update, source_name)
+    code = re.sub(r"\D", "", str(update.get("code", "")))
+    path = find_entity_path(company, code)
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    _, fm_lines, body = split_frontmatter(text)
+    meta = parse_simple_frontmatter(fm_lines or [])
+    tickers = parse_list_value(meta.get("tickers", "[]"))
+    title = str(meta.get("title", "")).strip()
+    title_codes = sorted(set(re.findall(r"\b\d{6}\b", title)))
+    protected_sections = [title for title in ["基础画像", "产业链暴露", "关键数据", "风险与反证", "待核实问题"] if has_section(body, title)]
+    baseline_sections = [title for title in ["Baseline 基础画像", "Baseline 产业链暴露", "Baseline 关键数据", "Baseline 风险与反证", "Baseline 待核实问题", evidence_section_title(update)] if has_section(body, title)]
+    other_tickers = sorted(ticker for ticker in tickers if re.fullmatch(r"\d{6}", ticker) and ticker != code)
+    risks = []
+    if protected_sections:
+        risks.append("protected_sections_present")
+    if other_tickers:
+        risks.append("other_tickers_present")
+    if title_codes and code and code not in title_codes:
+        risks.append("title_code_mismatch")
+    return {
+        "company": company,
+        "code": code,
+        "file": str(path),
+        "exists": path.exists(),
+        "protected_sections": protected_sections,
+        "baseline_sections": baseline_sections,
+        "tickers": tickers,
+        "other_tickers": other_tickers,
+        "title_codes": title_codes,
+        "risks": risks,
+        "will_write_sections": ["Baseline 基础画像", "Baseline 产业链暴露", "Baseline 关键数据", "Baseline 风险与反证", "Baseline 待核实问题", evidence_section_title(update)],
+        "will_update_relations": bool(update.get("exposures")),
+    }
+
+
+def preflight_updates(data):
+    source_name = data.get("source_name") or f"iFinD baseline {today()}"
+    checked, skipped = [], []
+    for update in data.get("updates", []):
+        try:
+            checked.append(preflight_update(update, source_name))
+        except Exception as exc:
+            skipped.append({"company": update.get("company", ""), "reason": str(exc)})
+    return {"status": "ok", "checked": checked, "skipped": skipped}
+
+
 def write_updates(data):
     ENTITIES_DIR.mkdir(parents=True, exist_ok=True)
     source_name = data.get("source_name") or f"iFinD baseline {today()}"
@@ -461,11 +528,15 @@ def write_updates(data):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--preflight", action="store_true")
+    args = parser.parse_args()
     if sys.stdin.isatty():
-        print("Usage: python3 entity_baseline_writer.py <<'JSON'\n{...}\nJSON", file=sys.stderr)
+        print("Usage: python3 entity_baseline_writer.py [--preflight] <<'JSON'\n{...}\nJSON", file=sys.stderr)
         sys.exit(1)
     data = json.loads(sys.stdin.read())
-    print(json.dumps(write_updates(data), ensure_ascii=False, indent=2))
+    result = preflight_updates(data) if args.preflight else write_updates(data)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

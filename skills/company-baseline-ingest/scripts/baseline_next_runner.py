@@ -81,6 +81,8 @@ def quality_gate(payload_path):
         if not products:
             issues.append({"company": company, "issue": "missing_products"})
         for product in products:
+            if "�" in product:
+                issues.append({"company": company, "issue": "replacement_char_in_product", "value": product})
             if product in BAD_PRODUCT_TOKENS or product.endswith(BAD_PRODUCT_SUFFIXES):
                 issues.append({"company": company, "issue": "bad_product", "value": product})
         if not exposures:
@@ -116,15 +118,11 @@ def selected_after_status(queue_path, selected):
     for before in selected:
         company = before.get("company")
         code = str(before.get("code") or "").strip()
-        match = next(
-            (
-                row
-                for row in rows
-                if row.get("company") == company
-                or (code and str(row.get("code") or "").strip() == code)
-            ),
-            {},
-        )
+        match = next((row for row in rows if row.get("company") == company), {})
+        if not match and code:
+            same_code = [row for row in rows if str(row.get("code") or "").strip() == code]
+            if len(same_code) == 1:
+                match = same_code[0]
         out.append({
             "company": company,
             "code": code,

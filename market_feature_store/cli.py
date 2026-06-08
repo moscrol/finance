@@ -407,6 +407,7 @@ def cmd_daily_review(args) -> int:
         trade_date=args.trade_date,
         output_path=args.output,
         chart_path=args.chart_output,
+        start_date=args.start_date,
     )
     print(f"交易日: {result['trade_date']}")
     print(f"报告: {result['output_path']}")
@@ -881,6 +882,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_dr.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
     p_dr.add_argument("--output", default=None, help="报告输出路径, 默认 exports/YYYY-MM-DD-daily-review.md")
     p_dr.add_argument("--chart-output", default=None, help="涨家数 MA5 图片路径, 默认 exports/YYYY-MM-DD-advancers-ma5.png")
+    p_dr.add_argument("--start-date", default=None, help="启动日 YYYY-MM-DD, 用于生成启动日主线确认模块")
     p_dr.set_defaults(func=cmd_daily_review)
 
     p_df = sub.add_parser("daily-full", help="一键日更后生成完整每日复盘")
