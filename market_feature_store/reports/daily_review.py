@@ -266,7 +266,7 @@ def _write_advancers_chart(series, output_path: Path):
     plt.rcParams["font.sans-serif"] = ["Arial Unicode MS", "PingFang SC", "Heiti TC", "STHeiti"]
     plt.rcParams["axes.unicode_minus"] = False
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    dates = [x["date"] for x in series]
+    dates = [datetime.strptime(str(x["date"]), "%Y-%m-%d") for x in series]
     adv = [x["advancers"] for x in series]
     ma5 = [x["ma5"] for x in series]
     width = min(max(14, len(series) * 0.12), 30)
@@ -279,8 +279,10 @@ def _write_advancers_chart(series, output_path: Path):
     ax.legend(loc="upper left", fontsize=10)
     ax.grid(True, alpha=0.3)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
-    if len(series) > 30:
-        ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=1))
+    max_ticks = min(12, len(dates))
+    if max_ticks >= 2:
+        tick_indices = sorted({round(i * (len(dates) - 1) / (max_ticks - 1)) for i in range(max_ticks)})
+        ax.set_xticks([dates[i] for i in tick_indices])
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
