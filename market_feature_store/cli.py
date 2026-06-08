@@ -844,14 +844,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_la = sub.add_parser("sync-limit-advance", help="同步复盘会连板晋级到本地 DuckDB")
     p_la.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
-    p_la.add_argument("--min-boards", type=int, default=3, help="最低连板数, 默认3")
+    p_la.add_argument("--min-boards", type=int, default=2, help="最低连板数, 默认2")
     p_la.set_defaults(func=cmd_sync_limit_advance)
 
     p_lar = sub.add_parser("sync-limit-advance-range", help="批量同步复盘会连板晋级到本地 DuckDB")
     p_lar.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD")
     p_lar.add_argument("--end-date", default=None, help="结束交易日 YYYY-MM-DD；--days 模式下可作为截止日")
     p_lar.add_argument("--days", type=int, default=None, help="从 fact_market_daily 取最近 N 个交易日")
-    p_lar.add_argument("--min-boards", type=int, default=3, help="最低连板数, 默认3")
+    p_lar.add_argument("--min-boards", type=int, default=2, help="最低连板数, 默认2")
     p_lar.add_argument("--refresh", action="store_true", help="不跳过已同步日期, 强制重刷")
     p_lar.add_argument("--sleep", type=float, default=0.2, help="日期间隔秒数, 默认0.2")
     p_lar.set_defaults(func=cmd_sync_limit_advance_range)

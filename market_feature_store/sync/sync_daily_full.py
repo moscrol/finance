@@ -136,7 +136,7 @@ def run_daily_update(
         steps.append(_run_step("sync-sector-stocks", sync_fact_sector_stock_daily, trade_date=td, only_missing=True, sleep=0.2))
     steps.append(_run_step("sync-limit-heat", sync_fupanhui_limit_heat, trade_date=td))
     steps.append(_run_step("sync-stock-high", sync_fupanhui_stock_high, trade_date=td, page_size=200))
-    steps.append(_run_step("sync-limit-advance", sync_fupanhui_limit_advance, trade_date=td, min_boards=3))
+    steps.append(_run_step("sync-limit-advance", sync_fupanhui_limit_advance, trade_date=td, min_boards=2))
     if not skip_long:
         steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily, start_date=td, offset=3, only_missing=True, sleep=0.0, qfq=False))
     steps.append(_run_step("sync-sector-resonance", sync_sector_multi_period_resonance))

@@ -146,7 +146,7 @@ def _promotion_rate(level_data):
     return f"{int(promoted)}/{int(total)}={rate:.0f}%"
 
 
-def sync_fupanhui_limit_advance(trade_date: str | None = None, min_boards: int = 3) -> dict:
+def sync_fupanhui_limit_advance(trade_date: str | None = None, min_boards: int = 2) -> dict:
     init_db()
     td = trade_date or fs.get_latest_date()
     if not td:
@@ -271,7 +271,7 @@ def sync_fupanhui_limit_advance_range(
     start_date: str | None = None,
     end_date: str | None = None,
     days: int | None = None,
-    min_boards: int = 3,
+    min_boards: int = 2,
     refresh: bool = False,
     sleep: float = 0.2,
 ) -> dict:
