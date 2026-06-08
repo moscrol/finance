@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>策略复盘工作台</title>
+<style>
+:root{--bg:#07080d;--panel:#111824;--panel2:#0b1018;--line:#273548;--text:#edf4ff;--muted:#91a3b8;--green:#64f4ac;--amber:#ffd166;--blue:#7cc7ff;--red:#ff7171;--cyan:#58f0ff}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 8% 0%,#173457,transparent 26%),radial-gradient(circle at 88% 4%,#3a214b,transparent 24%),linear-gradient(180deg,#07080d,#101723);color:var(--text);font-family:'Avenir Next','PingFang SC','Microsoft YaHei',sans-serif}.shell{height:100vh;display:grid;grid-template-rows:auto 1fr}.top{border-bottom:1px solid var(--line);background:linear-gradient(135deg,#151f2dcc,#0a0f17e6);backdrop-filter:blur(14px);padding:18px 22px;box-shadow:0 10px 40px #0006}.eyebrow{color:var(--cyan);letter-spacing:.22em;font-size:12px;font-weight:900}.title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}h1{margin:6px 0 0;font-size:30px;line-height:1.08}.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;color:var(--muted)}.pill{border:1px solid var(--line);border-radius:999px;padding:6px 10px;background:#0d141dcc;font-size:12px}.tabs{display:flex;gap:10px;flex-wrap:wrap}.tab{border:1px solid var(--line);border-radius:14px;background:#0e1720;color:var(--text);padding:10px 13px;cursor:pointer;font-weight:900;transition:.15s}.tab:hover{border-color:#4b6d8e;background:#142233}.tab.active{background:linear-gradient(135deg,#164765,#123b2c);border-color:#58f0ff;color:#fff;box-shadow:0 0 0 1px #58f0ff33 inset}.hint{margin-top:10px;color:var(--muted);font-size:12px}.frame-wrap{min-height:0;padding:12px;background:#070b10}.frame-head{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 10px 12px;color:var(--muted);font-size:12px}.frame-head b{color:var(--cyan)}.open{color:var(--blue);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:6px 10px;background:#0d141d}.open:hover{border-color:#58f0ff;color:#d8fbff}iframe{width:100%;height:calc(100vh - 166px);border:1px solid var(--line);border-radius:18px;background:#0b1117;box-shadow:0 18px 60px #0008}@media(max-width:900px){.top{padding:14px}.title-row{align-items:flex-start}h1{font-size:24px}.tab{padding:8px 10px}iframe{height:calc(100vh - 220px)}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <div class="title-row">
+      <div>
+        <div class="eyebrow">STRATEGY REVIEW WORKBENCH</div>
+        <h1>策略复盘矩阵工作台</h1>
+        <div class="meta"><span class="pill">策略一：容量双红优选</span><span class="pill">策略二：弱市三路径</span><span class="pill">二板晋级：二板筛四板+</span><span class="pill">日期范围：2026-04-08 ~ 2026-06-08</span></div>
+      </div>
+      <nav class="tabs" aria-label="矩阵切换">
+        <button class="tab active" data-src="strategy1-priority-stock-matrix.html" data-title="策略一优先股矩阵">策略一</button>
+        <button class="tab" data-src="strategy2-weak-market-matrix.html" data-title="策略二弱市三路径矩阵">策略二</button>
+        <button class="tab" data-src="second-board-4plus-candidate-matrix.html" data-title="二板冲四板以上候选矩阵">二板晋级</button>
+      </nav>
+    </div>
+    <div class="hint">点击上方按钮切换页面；三个源矩阵文件保持独立，便于单独回填和复核。</div>
+  </header>
+  <main class="frame-wrap">
+    <div class="frame-head"><span>当前视图：<b id="viewTitle">策略一优先股矩阵</b></span><a id="openLink" class="open" href="strategy1-priority-stock-matrix.html" target="_blank" rel="noopener">新窗口打开当前矩阵</a></div>
+    <iframe id="viewFrame" src="strategy1-priority-stock-matrix.html" title="策略一优先股矩阵"></iframe>
+  </main>
+</div>
+<script>
+const tabs=[...document.querySelectorAll('.tab')];
+const frame=document.getElementById('viewFrame');
+const title=document.getElementById('viewTitle');
+const openLink=document.getElementById('openLink');
+function setView(btn){
+  tabs.forEach(x=>x.classList.toggle('active',x===btn));
+  const src=btn.dataset.src;
+  const text=btn.dataset.title;
+  frame.src=src;
+  frame.title=text;
+  title.textContent=text;
+  openLink.href=src;
+}
+tabs.forEach(btn=>btn.addEventListener('click',()=>setView(btn)));
+</script>
+</body>
+</html>
