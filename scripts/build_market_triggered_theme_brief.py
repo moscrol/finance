@@ -742,11 +742,298 @@ def build_triggered_themes(trade_date: str, output: Path | None = None, skip_gat
     return result
 
 
+def clean_text(value: Any, limit: int | None = None) -> str:
+    text = str(value or "").replace("|", "／").replace("\n", " ").strip()
+    if limit and len(text) > limit:
+        return text[: limit - 1] + "…"
+    return text or "-"
+
+
+def fmt_num(value: Any, digits: int = 2) -> str:
+    if value is None or value == "":
+        return "-"
+    try:
+        return f"{float(value):.{digits}f}"
+    except (TypeError, ValueError):
+        return clean_text(value)
+
+
+def md_table(headers: list[str], rows: list[list[Any]]) -> str:
+    if not rows:
+        return "- 无。"
+    out = ["| " + " | ".join(headers) + " |", "|" + "|".join(["---"] * len(headers)) + "|"]
+    for row in rows:
+        out.append("| " + " | ".join(clean_text(cell) for cell in row) + " |")
+    return "\n".join(out)
+
+
+def trigger_text(triggers: list[str]) -> str:
+    names = {
+        "double_red": "双红",
+        "capacity_industry": "容量行业",
+        "new_high_direction": "新高方向",
+        "new_high_cluster": "新高集群",
+        "limit_advance_cluster": "连板集群",
+        "limit_heat": "涨停热度",
+        "multi_period_rank": "多周期强势",
+    }
+    return "、".join(names.get(t, t) for t in triggers) or "-"
+
+
+def stock_list(rows: list[dict[str, Any]], limit: int = 8) -> str:
+    names = []
+    for row in rows[:limit]:
+        name = row.get("stock_name") or row.get("company")
+        if not name:
+            continue
+        label = row.get("high_label") or row.get("high_status_label") or row.get("pct_chg")
+        names.append(f"{name}（{clean_text(label, 16)}）" if label else str(name))
+    return "、".join(names) if names else "-"
+
+
+def market_overview_section(data: dict[str, Any]) -> str:
+    ctx = data.get("market_context", {})
+    top_capacity = "、".join(
+        f"{row.get('sw_l1')}({fmt_num(row.get('ratio'), 1)}%)"
+        for row in ctx.get("top_capacity_industries", [])
+        if row.get("sw_l1")
+    )
+    return md_table(
+        ["项目", "数值"],
+        [
+            ["市场脉络", ctx.get("market_pulse")],
+            ["市场阶段", f"{ctx.get('market_stage') or '-'} 第{ctx.get('stage_day') or '-'}天"],
+            ["成交额", f"{fmt_num(ctx.get('total_amount'), 1)} 亿"],
+            ["较昨日成交", f"{fmt_num(ctx.get('amount_vs_yesterday_pct'), 2)}%"],
+            ["20日量比", f"{fmt_num(ctx.get('volume_ratio'), 2)}%"],
+            ["涨家数", ctx.get("advancers")],
+            ["涨停/跌停", f"{ctx.get('limit_up') or '-'} / {ctx.get('limit_down') or '-'}"],
+            ["上证涨跌", f"{fmt_num(ctx.get('sh_index_pct_chg'), 2)}%"],
+            ["容量前三", top_capacity or "-"],
+            ["强度状态", ctx.get("strength_status")],
+        ],
+    )
+
+
+def theme_overview_rows(items: list[dict[str, Any]]) -> list[list[Any]]:
+    rows = []
+    for item in items:
+        ev = item.get("market_evidence", {})
+        metrics = ev.get("sector_metrics", {})
+        high_dir = ev.get("new_high_direction", {})
+        advance = ev.get("advance", {})
+        rows.append([
+            item.get("market_theme"),
+            item.get("canonical_concept"),
+            item.get("sw_l1"),
+            item.get("priority_score"),
+            trigger_text(item.get("trigger_types", [])),
+            f"{fmt_num(metrics.get('pct_chg'), 2)}% / {fmt_num(metrics.get('diff_ratio'), 2)} / {fmt_num(metrics.get('amount'), 1)}亿" if metrics else "-",
+            f"{high_dir.get('high_count') or '-'}只 / {fmt_num(high_dir.get('high_amount'), 1)}亿" if high_dir else "-",
+            f"{advance.get('stock_count') or '-'}只 / {advance.get('max_boards') or '-'}板" if advance else "-",
+        ])
+    return rows
+
+
+def knowledge_summary(item: dict[str, Any]) -> str:
+    status = item.get("knowledge_status", {})
+    found = []
+    if status.get("local_concept_found"):
+        found.append("概念")
+    if status.get("local_exposures_found"):
+        found.append("公司暴露")
+    if status.get("local_evidence_found"):
+        found.append("证据")
+    gaps = status.get("backfill_gaps") or []
+    if gaps:
+        return f"本地已命中：{'、'.join(found) or '-'}；待补：{'、'.join(gaps)}。"
+    return f"本地知识库已命中：{'、'.join(found) or '-'}。"
+
+
+def validation_points(item: dict[str, Any]) -> list[str]:
+    triggers = set(item.get("trigger_types", []))
+    points = []
+    if "double_red" in triggers:
+        points.append("观察题材次日是否继续保持涨幅为正、边际量大于 10、成交额不明显塌缩。")
+    if "new_high_direction" in triggers or "new_high_cluster" in triggers:
+        points.append("观察新高股是否继续扩散，还是高位核心冲高回落导致新高方向转分歧。")
+    if "limit_advance_cluster" in triggers:
+        points.append("观察连板股是否晋级或卡位失败，尤其是同题材内部是否出现唯一性龙头。")
+    if "capacity_industry" in triggers:
+        points.append("观察题材是否继续留在成交占比前三行业内，避免从主线容量退化为孤立情绪。")
+    if not points:
+        points.append("观察是否出现新的双红、涨停或新高确认，否则仅保留观察。")
+    return points
+
+
+def render_theme_section(item: dict[str, Any], index: int) -> str:
+    ev = item.get("market_evidence", {})
+    kc = item.get("knowledge_context", {})
+    metrics = ev.get("sector_metrics", {})
+    high_dir = ev.get("new_high_direction", {})
+    advance = ev.get("advance", {})
+    limit_heat = ev.get("limit_heat", {})
+    lines = [
+        f"## {index + 3}. 深度题材：{clean_text(item.get('market_theme'))} → {clean_text(item.get('canonical_concept'))}",
+        "",
+        "### 盘面触发",
+        "",
+        f"- **触发类型**：{trigger_text(item.get('trigger_types', []))}",
+        f"- **优先级评分**：{item.get('priority_score')}",
+    ]
+    if metrics:
+        lines.append(f"- **双红证据**：涨幅 {fmt_num(metrics.get('pct_chg'), 2)}%，边际量 {fmt_num(metrics.get('diff_ratio'), 2)}，成交额 {fmt_num(metrics.get('amount'), 1)} 亿。")
+    if high_dir:
+        lines.append(f"- **新高方向**：{high_dir.get('high_count')} 只新高，新高成交额 {fmt_num(high_dir.get('high_amount'), 1)} 亿。")
+    if advance:
+        lines.append(f"- **连板证据**：{advance.get('stock_count')} 只连板，最高 {advance.get('max_boards')} 板，主映射行业 {advance.get('dominant_sw_l1') or '-'}。")
+    if limit_heat:
+        lines.append(f"- **涨停热度**：{limit_heat.get('limit_up_count')} 只涨停，市场占比 {fmt_num(limit_heat.get('market_share'), 2)}%。")
+    lines.extend([
+        "",
+        "### 知识库解释",
+        "",
+        f"- **覆盖状态**：{knowledge_summary(item)}",
+        f"- **匹配概念**：{stock_list([{'stock_name': row.get('concept'), 'high_label': row.get('score')} for row in kc.get('matched_concepts', [])], 6)}",
+        "",
+        "### 核心公司分层候选",
+        "",
+        md_table(
+            ["公司", "代码", "概念", "角色/摘要", "强度", "证据层"],
+            [
+                [
+                    row.get("company"),
+                    row.get("ticker"),
+                    row.get("concept"),
+                    clean_text(row.get("role"), 48),
+                    row.get("strength"),
+                    row.get("evidence_layer"),
+                ]
+                for row in kc.get("candidate_companies", [])[:10]
+            ],
+        ),
+        "",
+        "### 今日市场验证股票",
+        "",
+        f"- **强势成交股**：{stock_list(ev.get('strong_stocks', []), 8)}",
+        f"- **新高股**：{stock_list(ev.get('new_high_stocks', []), 8)}",
+        f"- **连板股**：{stock_list(ev.get('advance_stocks', []), 8)}",
+        "",
+        "### 本地证据样本",
+        "",
+        md_table(
+            ["标题/来源", "实体", "概念", "摘要", "层级"],
+            [
+                [
+                    clean_text(row.get("title"), 32),
+                    row.get("entity"),
+                    row.get("concept"),
+                    clean_text(row.get("summary"), 60),
+                    row.get("evidence_layer") or row.get("quality"),
+                ]
+                for row in kc.get("evidence_items", [])[:5]
+            ],
+        ),
+        "",
+        "### 次日验证点",
+        "",
+    ])
+    lines.extend(f"- {point}" for point in validation_points(item))
+    return "\n".join(lines)
+
+
+def render_markdown(data: dict[str, Any]) -> str:
+    if data.get("status") != "COMPLETE":
+        return "\n".join([
+            f"# {data.get('trade_date')} 盘面触发题材雷达",
+            "",
+            "数据完整性闸门失败，未生成市场题材结论。",
+            "",
+            "```text",
+            "\n".join(data.get("gate", {}).get("stdout", [])),
+            "```",
+            "",
+        ])
+    deep = data.get("deep_themes", [])
+    watch = data.get("watch_themes", [])
+    lines = [
+        f"# {data.get('trade_date')} 盘面触发题材雷达",
+        "",
+        f"- **生成时间**：{data.get('generated_at')}",
+        f"- **知识库**：{data.get('knowledge_base', {}).get('vault')}（resolver={data.get('knowledge_base', {}).get('resolver_enabled')}）",
+        "",
+        "## 一、今日市场脉络",
+        "",
+        market_overview_section(data),
+        "",
+        "## 二、触发题材总览",
+        "",
+        md_table(
+            ["题材", "标准概念", "申万一级", "评分", "触发", "双红", "新高方向", "连板"],
+            theme_overview_rows(deep + watch),
+        ),
+        "",
+        "## 三、新高方向独立扫描",
+        "",
+        md_table(
+            ["新高方向", "标准概念", "申万一级", "新高数", "新高成交额亿", "容量前三"],
+            [
+                [
+                    row.get("sector_name"),
+                    row.get("canonical_concept"),
+                    row.get("sw_l1"),
+                    row.get("high_count"),
+                    fmt_num(row.get("high_amount"), 1),
+                    "是" if row.get("in_capacity_top3") else "否",
+                ]
+                for row in data.get("new_high_directions", [])[:12]
+            ],
+        ),
+        "",
+    ]
+    for index, item in enumerate(deep, 1):
+        lines.extend([render_theme_section(item, index), ""])
+    lines.extend([
+        "## 七、简要观察题材",
+        "",
+        md_table(
+            ["题材", "标准概念", "申万一级", "评分", "触发", "市场验证", "知识库状态"],
+            [
+                [
+                    item.get("market_theme"),
+                    item.get("canonical_concept"),
+                    item.get("sw_l1"),
+                    item.get("priority_score"),
+                    trigger_text(item.get("trigger_types", [])),
+                    f"强势：{stock_list(item.get('market_evidence', {}).get('strong_stocks', []), 3)}；新高：{stock_list(item.get('market_evidence', {}).get('new_high_stocks', []), 3)}；连板：{stock_list(item.get('market_evidence', {}).get('advance_stocks', []), 3)}",
+                    knowledge_summary(item),
+                ]
+                for item in watch
+            ],
+        ),
+        "",
+        "## 八、今日总结",
+        "",
+        f"- 今日深度题材为：{'、'.join(item.get('market_theme', '') for item in deep) or '-'}。",
+        f"- 新高方向中，容量前三行业内较突出的包括：{'、'.join(row.get('sector_name', '') for row in data.get('new_high_directions', []) if row.get('in_capacity_top3')) or '-'}。",
+        "- 后续应优先验证深度题材是否继续留在容量行业内，并观察新高集群是否从单日修复升级为连续扩散。",
+        "",
+    ])
+    return "\n".join(lines)
+
+
+def write_brief(data: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_markdown(data), encoding="utf-8")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="生成日终盘面触发题材 JSON。")
     parser.add_argument("trade_date", help="交易日 YYYY-MM-DD")
     parser.add_argument("--output", default=None, help="输出 JSON 路径，默认 market_feature_store/exports/YYYY-MM-DD-triggered-themes.json")
+    parser.add_argument("--brief-output", default=None, help="输出 Markdown 简报路径，默认 market_feature_store/exports/YYYY-MM-DD-market-triggered-theme-brief.md")
     parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="知识库 wiki 目录，默认 /Users/lbq/Desktop/c c/知识库/wiki")
+    parser.add_argument("--json-only", action="store_true", help="只生成 JSON，不生成 Markdown 简报")
     parser.add_argument("--skip-gate", action="store_true", help="跳过完整性闸门，仅用于调试")
     return parser.parse_args()
 
@@ -755,7 +1042,12 @@ def main() -> int:
     args = parse_args()
     out = Path(args.output) if args.output else EXPORT_DIR / f"{args.trade_date}-triggered-themes.json"
     result = build_triggered_themes(args.trade_date, out, args.skip_gate, Path(args.vault).expanduser())
+    brief_out = Path(args.brief_output) if args.brief_output else EXPORT_DIR / f"{args.trade_date}-market-triggered-theme-brief.md"
+    if not args.json_only:
+        write_brief(result, brief_out)
     print(out)
+    if not args.json_only:
+        print(brief_out)
     print(result.get("status"))
     for item in result.get("deep_themes", []):
         print(f"DEEP {item['priority_score']}: {item['market_theme']} / {item['canonical_concept']} / {','.join(item['trigger_types'])}")
