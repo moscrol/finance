@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import subprocess
 import sys
 from collections import defaultdict
@@ -17,6 +18,7 @@ if str(ROOT) not in sys.path:
 from market_feature_store.db import connect
 
 EXPORT_DIR = ROOT / "market_feature_store" / "exports"
+DEFAULT_VAULT = Path("/Users/lbq/Desktop/c c/知识库/wiki")
 CANONICAL_ALIASES = {
     "CCL": "覆铜板",
     "PCB概念": "PCB",
@@ -51,6 +53,38 @@ def dict_row(cur) -> dict[str, Any]:
     return dict(zip(names, row)) if row else {}
 
 
+def load_json(path: Path, default: Any) -> Any:
+    try:
+        if not path.exists():
+            return default
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return default
+
+
+def normalize(text: Any) -> str:
+    return re.sub(r"\s+", "", str(text or "").lower())
+
+
+def as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def split_terms(text: str) -> list[str]:
+    raw = re.split(r"[\s,，、/|;；：:()（）\[\]【】]+", str(text or ""))
+    return [x.strip() for x in raw if len(x.strip()) >= 2]
+
+
+def hit(term: str, text: str) -> bool:
+    if not term or not text:
+        return False
+    return normalize(term) in normalize(text)
+
+
 def json_safe(value: Any) -> Any:
     if isinstance(value, (date, datetime)):
         return value.isoformat()
@@ -63,6 +97,197 @@ def json_safe(value: Any) -> Any:
     if isinstance(value, list):
         return [json_safe(v) for v in value]
     return value
+
+
+def exposure_text(row: dict[str, Any]) -> str:
+    values = []
+    for key in ("entity", "company", "concept", "theme", "role", "summary", "evidence", "source", "source_name", "reason", "chain_layer"):
+        values.append(row.get(key, ""))
+    for key in ("concepts", "aliases", "tags"):
+        values.extend(as_list(row.get(key)))
+    return " ".join(str(x) for x in values if str(x).strip())
+
+
+def evidence_text(row: dict[str, Any]) -> str:
+    values = []
+    for key in ("entity", "company", "concept", "theme", "title", "summary", "evidence", "source", "source_name", "claim", "content"):
+        values.append(row.get(key, ""))
+    return " ".join(str(x) for x in values if str(x).strip())
+
+
+def iter_exposures(data: Any):
+    if isinstance(data, dict):
+        for row in data.get("items") or []:
+            if isinstance(row, dict):
+                yield row
+        entities = data.get("entities")
+        if isinstance(entities, dict):
+            for entity_name, entity_row in entities.items():
+                if not isinstance(entity_row, dict):
+                    continue
+                codes = as_list(entity_row.get("codes"))
+                concepts = entity_row.get("concepts")
+                if isinstance(concepts, dict):
+                    for concept_name, concept_row in concepts.items():
+                        if isinstance(concept_row, dict):
+                            row = dict(concept_row)
+                            row["entity"] = entity_name
+                            row["company"] = entity_name
+                            row["concept"] = concept_name
+                            if codes:
+                                row["ticker"] = codes[0]
+                            yield row
+    elif isinstance(data, list):
+        for row in data:
+            if isinstance(row, dict):
+                yield row
+
+
+class KnowledgeResolver:
+    def __init__(self, vault: Path):
+        self.vault = vault
+        rel = vault / "relations"
+        self.concept_graph = load_json(rel / "concept_graph.json", {"concepts": {}, "relations": []})
+        self.exposures = load_json(rel / "entity_exposures.json", {"items": [], "entities": {}})
+        self.evidence = load_json(rel / "evidence_index.json", {"items": [], "evidence": []})
+        self.theme_signals = load_json(rel / "theme_signals.json", {"themes": {}})
+
+    def concept_candidates(self, term: str, limit: int = 5) -> list[dict[str, Any]]:
+        concepts = self.concept_graph.get("concepts", {}) if isinstance(self.concept_graph, dict) else {}
+        terms = [term, CANONICAL_ALIASES.get(term, term), *split_terms(term)]
+        scored = []
+        for name, payload in concepts.items():
+            text = name + " " + json.dumps(payload, ensure_ascii=False)[:2000]
+            score = 0
+            for candidate in terms:
+                if not candidate:
+                    continue
+                if normalize(candidate) == normalize(name):
+                    score += 10
+                elif hit(candidate, name):
+                    score += 5
+                elif hit(candidate, text):
+                    score += 2
+            if score > 0:
+                scored.append({"concept": name, "score": score})
+        return sorted(scored, key=lambda x: (-x["score"], x["concept"]))[:limit]
+
+    def exposure_candidates(self, term: str, limit: int = 12) -> list[dict[str, Any]]:
+        terms = [term, CANONICAL_ALIASES.get(term, term), *split_terms(term)]
+        rows = []
+        for row in iter_exposures(self.exposures):
+            text = exposure_text(row)
+            score = sum(1 for t in terms if hit(t, text))
+            if score <= 0:
+                continue
+            company = str(row.get("entity") or row.get("company") or row.get("name") or "").strip()
+            if not company:
+                continue
+            rows.append({
+                "company": company,
+                "ticker": row.get("ticker") or row.get("code") or row.get("stock_code") or "",
+                "concept": row.get("concept") or row.get("theme") or "",
+                "role": row.get("role") or row.get("summary") or row.get("chain_layer") or "",
+                "strength": row.get("strength") or row.get("tier") or row.get("exposure_strength") or "",
+                "confidence": row.get("confidence") or row.get("confidence_tier") or "",
+                "evidence_layer": row.get("evidence_layer") or row.get("layer") or "",
+                "source": row.get("source") or row.get("source_name") or "",
+                "score": score,
+            })
+        merged: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            key = row["company"]
+            if key not in merged or int(row["score"]) > int(merged[key]["score"]):
+                merged[key] = row
+        return sorted(merged.values(), key=lambda x: (-int(x.get("score") or 0), x.get("company", "")))[:limit]
+
+    def evidence_candidates(self, term: str, limit: int = 8) -> list[dict[str, Any]]:
+        items = []
+        if isinstance(self.evidence, dict):
+            items.extend(self.evidence.get("items") or [])
+            items.extend(self.evidence.get("evidence") or [])
+        terms = [term, CANONICAL_ALIASES.get(term, term), *split_terms(term)]
+        rows = []
+        seen = set()
+        for row in items:
+            if not isinstance(row, dict):
+                continue
+            text = evidence_text(row)
+            score = sum(1 for t in terms if hit(t, text))
+            if score <= 0:
+                continue
+            key = row.get("id") or row.get("source") or row.get("title") or json.dumps(row, ensure_ascii=False)[:80]
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({
+                "title": row.get("title") or row.get("source_name") or row.get("source") or "",
+                "entity": row.get("entity") or row.get("company") or "",
+                "concept": row.get("concept") or row.get("theme") or "",
+                "summary": row.get("summary") or row.get("evidence") or row.get("claim") or "",
+                "evidence_layer": row.get("evidence_layer") or row.get("layer") or "",
+                "quality": row.get("quality") or row.get("confidence") or "",
+                "score": score,
+            })
+        return sorted(rows, key=lambda x: (-int(x.get("score") or 0), x.get("title", "")))[:limit]
+
+    def resolve(self, market_theme: str, canonical_concept: str) -> dict[str, Any]:
+        terms = [canonical_concept, market_theme]
+        concept_hits = []
+        exposure_hits = []
+        evidence_hits = []
+        for term in terms:
+            concept_hits.extend(self.concept_candidates(term, 4))
+            exposure_hits.extend(self.exposure_candidates(term, 8))
+            evidence_hits.extend(self.evidence_candidates(term, 5))
+        concept_seen = set()
+        concepts = []
+        for row in sorted(concept_hits, key=lambda x: (-x["score"], x["concept"])):
+            if row["concept"] in concept_seen:
+                continue
+            concept_seen.add(row["concept"])
+            concepts.append(row)
+            if len(concepts) >= 5:
+                break
+        exposure_seen = set()
+        exposures = []
+        for row in sorted(exposure_hits, key=lambda x: (-int(x.get("score") or 0), x.get("company", ""))):
+            if row["company"] in exposure_seen:
+                continue
+            exposure_seen.add(row["company"])
+            exposures.append(row)
+            if len(exposures) >= 12:
+                break
+        evidence_seen = set()
+        evidences = []
+        for row in sorted(evidence_hits, key=lambda x: (-int(x.get("score") or 0), x.get("title", ""))):
+            key = row.get("title") or row.get("summary")
+            if key in evidence_seen:
+                continue
+            evidence_seen.add(key)
+            evidences.append(row)
+            if len(evidences) >= 8:
+                break
+        gaps = []
+        if not concepts:
+            gaps.append("missing_concept")
+        if not exposures:
+            gaps.append("missing_entity_exposures")
+        if not evidences:
+            gaps.append("missing_evidence")
+        return {
+            "canonical_concept": concepts[0]["concept"] if concepts else canonical_concept,
+            "matched_concepts": concepts,
+            "candidate_companies": exposures,
+            "evidence_items": evidences,
+            "knowledge_status": {
+                "local_concept_found": bool(concepts),
+                "local_exposures_found": bool(exposures),
+                "local_evidence_found": bool(evidences),
+                "external_supplement_needed": bool(gaps),
+                "backfill_gaps": gaps,
+            },
+        }
 
 
 def run_gate(trade_date: str) -> dict[str, Any]:
@@ -432,7 +657,21 @@ def finalize_candidates(candidates: dict[str, dict[str, Any]]) -> list[dict[str,
     return sorted(items, key=lambda x: (-float(x.get("priority_score") or 0), x.get("market_theme") or ""))
 
 
-def build_triggered_themes(trade_date: str, output: Path | None = None, skip_gate: bool = False) -> dict[str, Any]:
+def attach_knowledge_context(items: list[dict[str, Any]], resolver: KnowledgeResolver | None, limit: int = 10) -> None:
+    if resolver is None:
+        return
+    for item in items[:limit]:
+        context = resolver.resolve(str(item.get("market_theme") or ""), str(item.get("canonical_concept") or ""))
+        item["canonical_concept"] = context.get("canonical_concept") or item.get("canonical_concept")
+        item["knowledge_status"] = context.get("knowledge_status", item.get("knowledge_status", {}))
+        item["knowledge_context"] = {
+            "matched_concepts": context.get("matched_concepts", []),
+            "candidate_companies": context.get("candidate_companies", []),
+            "evidence_items": context.get("evidence_items", []),
+        }
+
+
+def build_triggered_themes(trade_date: str, output: Path | None = None, skip_gate: bool = False, vault: Path = DEFAULT_VAULT) -> dict[str, Any]:
     gate = {"ok": True, "returncode": 0, "stdout": [], "stderr": [], "skipped": True} if skip_gate else run_gate(trade_date)
     if not gate["ok"]:
         result = {
@@ -461,12 +700,18 @@ def build_triggered_themes(trade_date: str, output: Path | None = None, skip_gat
         high_direction_rows = collect_new_high_directions(con, trade_date, candidates, top_sw)
         enrich_theme_stocks(con, trade_date, candidates, top_sw)
         ranked = finalize_candidates(candidates)
+        resolver = KnowledgeResolver(vault) if vault.exists() else None
+        attach_knowledge_context(ranked, resolver, 10)
         result = {
             "trade_date": trade_date,
             "generated_at": datetime.now().isoformat(timespec="seconds"),
             "gate": gate,
             "status": "COMPLETE",
             "market_context": market_context,
+            "knowledge_base": {
+                "vault": str(vault),
+                "resolver_enabled": resolver is not None,
+            },
             "signal_summary": {
                 "double_red_count": len(double_rows),
                 "limit_heat_count": len(heat_rows),
@@ -501,6 +746,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="生成日终盘面触发题材 JSON。")
     parser.add_argument("trade_date", help="交易日 YYYY-MM-DD")
     parser.add_argument("--output", default=None, help="输出 JSON 路径，默认 market_feature_store/exports/YYYY-MM-DD-triggered-themes.json")
+    parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="知识库 wiki 目录，默认 /Users/lbq/Desktop/c c/知识库/wiki")
     parser.add_argument("--skip-gate", action="store_true", help="跳过完整性闸门，仅用于调试")
     return parser.parse_args()
 
@@ -508,7 +754,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     out = Path(args.output) if args.output else EXPORT_DIR / f"{args.trade_date}-triggered-themes.json"
-    result = build_triggered_themes(args.trade_date, out, args.skip_gate)
+    result = build_triggered_themes(args.trade_date, out, args.skip_gate, Path(args.vault).expanduser())
     print(out)
     print(result.get("status"))
     for item in result.get("deep_themes", []):
