@@ -493,10 +493,53 @@ def collect_advance(con, trade_date: str, candidates: dict[str, dict[str, Any]],
         else:
             score = 18 + max_boards * 3 + (6 if in_capacity else 0)
         item = add_candidate(candidates, row.get("theme") or "连板未映射", "limit_advance_cluster", score, sw_l1=dominant_sw.get("sw_l1"))
-        stocks = []
-        for name in str(row.get("stock_names") or "").split("、"):
-            if name:
-                stocks.append({"stock_name": name})
+        stocks = dict_rows(con.execute(
+            """
+            WITH advance AS (
+              SELECT stock_name, stock_ts_code, boards, pct_chg
+              FROM fact_limit_advance_daily
+              WHERE trade_date = ? AND theme = ? AND boards >= 2
+            ),
+            stock_base AS (
+              SELECT stock_ts_code,
+                     MAX(pct_chg) AS pct_chg,
+                     MAX(amount) AS amount,
+                     MAX(high_status_label) AS high_status_label
+              FROM fact_sector_stock_daily
+              WHERE trade_date = ?
+                AND stock_ts_code IN (SELECT stock_ts_code FROM advance)
+              GROUP BY stock_ts_code
+            ),
+            high_base AS (
+              SELECT stock_ts_code, primary_high_label
+              FROM fact_stock_high_daily
+              WHERE trade_date = ?
+                AND stock_ts_code IN (SELECT stock_ts_code FROM advance)
+            )
+            SELECT a.stock_name,
+                   a.stock_ts_code,
+                   a.boards,
+                   COALESCE(s.pct_chg, a.pct_chg) AS pct_chg,
+                   s.amount,
+                   COALESCE(s.high_status_label, h.primary_high_label) AS high_status_label
+            FROM advance a
+            LEFT JOIN stock_base s ON s.stock_ts_code = a.stock_ts_code
+            LEFT JOIN high_base h ON h.stock_ts_code = a.stock_ts_code
+            ORDER BY a.boards DESC, s.amount DESC NULLS LAST, a.stock_name
+            """,
+            [trade_date, row.get("theme"), trade_date, trade_date],
+        ))
+        stock_details = [
+            {
+                "stock_name": stock.get("stock_name"),
+                "stock_ts_code": stock.get("stock_ts_code"),
+                "boards": stock.get("boards"),
+                "pct_chg": stock.get("pct_chg"),
+                "amount": stock.get("amount"),
+                "high_status_label": stock.get("high_status_label"),
+            }
+            for stock in stocks
+        ]
         item["market_evidence"]["advance"] = {
             "stock_count": count,
             "max_boards": max_boards,
@@ -504,7 +547,24 @@ def collect_advance(con, trade_date: str, candidates: dict[str, dict[str, Any]],
             "dominant_sw_l1_counts": dominant_sw.get("counts", [])[:5],
             "in_capacity_top3": in_capacity,
         }
-        item["market_evidence"]["advance_stocks"] = merge_unique_rows(item["market_evidence"]["advance_stocks"], stocks, "stock_name", 10)
+        item["market_evidence"]["advance_stocks"] = merge_unique_rows(item["market_evidence"]["advance_stocks"], stock_details, "stock_ts_code", 10)
+        item["market_evidence"]["strong_stocks"] = merge_unique_rows(item["market_evidence"]["strong_stocks"], stock_details, "stock_ts_code", 10)
+        item["market_evidence"]["new_high_stocks"] = merge_unique_rows(
+            item["market_evidence"]["new_high_stocks"],
+            [
+                {
+                    "stock_name": stock.get("stock_name"),
+                    "stock_ts_code": stock.get("stock_ts_code"),
+                    "high_label": stock.get("high_status_label"),
+                    "pct_chg": stock.get("pct_chg"),
+                    "amount": stock.get("amount"),
+                }
+                for stock in stock_details
+                if stock.get("high_status_label")
+            ],
+            "stock_ts_code",
+            10,
+        )
         if in_capacity and "capacity_industry" not in item["trigger_types"]:
             item["trigger_types"].append("capacity_industry")
     return rows
