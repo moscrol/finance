@@ -22,6 +22,22 @@ CANONICAL_ALIASES = {
     "PCB概念": "PCB",
     "芯片概念": "芯片",
 }
+BROAD_HIGH_DIRECTION_THEMES = {
+    "芯片",
+    "芯片概念",
+    "机器人",
+    "机器人概念",
+    "人工智能",
+    "DeepSeek",
+    "DeepSeek概念",
+    "AI应用",
+    "AI智能体",
+    "光伏",
+    "储能",
+    "军工",
+    "固态电池",
+    "低空经济",
+}
 
 
 def dict_rows(cur) -> list[dict[str, Any]]:
@@ -301,6 +317,55 @@ def collect_period_ranks(con, trade_date: str, candidates: dict[str, dict[str, A
     return rows
 
 
+def collect_new_high_directions(con, trade_date: str, candidates: dict[str, dict[str, Any]], top_sw: set[str]) -> list[dict[str, Any]]:
+    rows = dict_rows(con.execute(
+        """
+        WITH high_stocks AS (
+          SELECT stock_ts_code, stock_name, primary_high_label, amount, pct_chg
+          FROM fact_stock_high_daily
+          WHERE trade_date = ? AND amount IS NOT NULL
+        ),
+        joined AS (
+          SELECT s.sector_name, s.sw_l1, h.stock_ts_code, h.stock_name, h.primary_high_label, h.amount, h.pct_chg
+          FROM fact_sector_stock_daily s
+          JOIN high_stocks h ON h.stock_ts_code = s.stock_ts_code
+          WHERE s.trade_date = ? AND s.sector_name IS NOT NULL AND s.sector_name <> ''
+        )
+        SELECT sector_name,
+               sw_l1,
+               COUNT(DISTINCT stock_ts_code) AS high_count,
+               SUM(amount) AS high_amount
+        FROM joined
+        GROUP BY 1, 2
+        HAVING COUNT(DISTINCT stock_ts_code) >= 2 AND SUM(amount) >= 80
+        ORDER BY high_amount DESC NULLS LAST, high_count DESC, sector_name
+        LIMIT 60
+        """,
+        [trade_date, trade_date],
+    ))
+    kept = []
+    for row in rows:
+        theme = row.get("sector_name")
+        if not theme or theme in BROAD_HIGH_DIRECTION_THEMES:
+            continue
+        high_count = int(row.get("high_count") or 0)
+        high_amount = float(row.get("high_amount") or 0)
+        in_capacity = row.get("sw_l1") in top_sw
+        if high_count < 3 and not in_capacity:
+            continue
+        score = 18 + min(high_count * 1.4, 22) + min(high_amount / 80, 18) + (10 if in_capacity else 0)
+        item = add_candidate(candidates, theme, "new_high_direction", score, sw_l1=row.get("sw_l1"))
+        item["market_evidence"]["new_high_direction"] = {
+            "high_count": high_count,
+            "high_amount": high_amount,
+            "in_capacity_top3": in_capacity,
+        }
+        if in_capacity and "capacity_industry" not in item["trigger_types"]:
+            item["trigger_types"].append("capacity_industry")
+        kept.append(row)
+    return kept
+
+
 def enrich_theme_stocks(con, trade_date: str, candidates: dict[str, dict[str, Any]], top_sw: set[str]) -> None:
     for theme, item in candidates.items():
         strong_rows = dict_rows(con.execute(
@@ -393,6 +458,7 @@ def build_triggered_themes(trade_date: str, output: Path | None = None, skip_gat
         heat_rows = collect_limit_heat(con, trade_date, candidates)
         advance_rows = collect_advance(con, trade_date, candidates, top_sw)
         period_rows = collect_period_ranks(con, trade_date, candidates)
+        high_direction_rows = collect_new_high_directions(con, trade_date, candidates, top_sw)
         enrich_theme_stocks(con, trade_date, candidates, top_sw)
         ranked = finalize_candidates(candidates)
         result = {
@@ -406,8 +472,20 @@ def build_triggered_themes(trade_date: str, output: Path | None = None, skip_gat
                 "limit_heat_count": len(heat_rows),
                 "limit_advance_theme_count": len(advance_rows),
                 "multi_period_row_count": len(period_rows),
+                "new_high_direction_count": len(high_direction_rows),
                 "candidate_theme_count": len(ranked),
             },
+            "new_high_directions": [
+                {
+                    "sector_name": row.get("sector_name"),
+                    "canonical_concept": CANONICAL_ALIASES.get(row.get("sector_name"), row.get("sector_name")),
+                    "sw_l1": row.get("sw_l1"),
+                    "high_count": row.get("high_count"),
+                    "high_amount": row.get("high_amount"),
+                    "in_capacity_top3": row.get("sw_l1") in top_sw,
+                }
+                for row in high_direction_rows[:20]
+            ],
             "deep_themes": ranked[:3],
             "watch_themes": ranked[3:10],
         }
