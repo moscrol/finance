@@ -242,6 +242,36 @@ python3 skills/opinion-cross/scripts/consensus_staging.py --store "$STORE" --vie
 
 **边界**：staging 当前只用**库内信号**；认同度的「市场是否兑现/透支」一维待 **b（盘面回溯 `outcomes.jsonl`）** 接入，脚本里标「待补」，升阶触发已写"接盘面兑现"。纯派生视图，**只读库不写库**。回补越多，下限越准、观察池越少。
 
+## 桥：观点库 → theme-radar 信号层（`consensus_bridge.py`）
+
+`consensus_staging` 是 CLI 视图；`consensus_bridge.py` 把同一套**下限语义**聚合结果**持久化**进
+theme-radar 的 `wiki/relations/theme_signals.json`，让 `radar.py` 里长期「待补」的三块变真数据：
+**信号层**（order_signals/industry_progress/sell_side_coverage/market_heat）、**认知演变时间线**
+（recognition_timeline）、**多方向发酵进度横向对比**（progress_ruler）+ 方向级**操作建议**（action_plan）。
+
+**聚合口径**：方向(concept)为信号原子单位、**全库聚合**；每个方向归属其**主 term**（事件最多的 term），
+term 条目 = 其名下各方向的全库事件并集 → 与 `consensus_staging --view board` 完全一致（避免 term-scoping
+把跨 term/跨日的同一方向证据割裂而低估阶段）。`price_signals` 留空待 **b**。
+
+```bash
+STORE="<KB>/wiki/raw/theme-radar/opinion-store/opinion-events.jsonl"
+SIGNALS="<KB>/wiki/relations/theme_signals.json"
+
+# 预览将写入的 theme 列表（不落盘）
+python3 skills/opinion-cross/scripts/consensus_bridge.py --store "$STORE" --theme-signals "$SIGNALS" --dry-run
+
+# 落盘（append-only 友好：只覆盖本桥写的条目 _source==consensus_bridge，保留其它来源 theme；
+#       --also-concepts 额外为每个方向单独建条目）
+python3 skills/opinion-cross/scripts/consensus_bridge.py --store "$STORE" --theme-signals "$SIGNALS" --also-concepts
+
+# 验证三块不再「待补」
+python3 ../theme-radar/scripts/radar.py --term CPO --vault "<KB>/wiki" --mode deep-dive
+```
+
+**幂等**：整库重算、事件分区守恒（不重不漏）；剪除上轮本桥写、本轮不再生成的陈旧条目。
+**radar 侧**：`radar.py` 在 `load_signal` 后把 theme_signals 里的这三块注入 context（不覆盖
+`--theme-supplement-pool` 已提供的同名数据），故 plain `--term X` 即可渲染。
+
 ## 与其他 skill 的关系
 
 - **复用** `theme-radar`：三维交叉引擎（`signal_dimension_rows`/`resonance_tier`）+ 认同度阶梯（`recognition_score`/stage 体系）+ KB relations（`concept_graph`/`entity_exposures`）。
