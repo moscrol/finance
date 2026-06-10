@@ -80,7 +80,8 @@ python3 "/Users/a77/Desktop/c c/金融/skills/serenity-alpha/scripts/serenity_co
 | 上下文包模块 | 来源 | 对应输出模板的哪一节 |
 |---|---|---|
 | 概念定位 + 概念知识卡 | aliases/concept_graph + concepts/*.md 定锚与核心逻辑 | 「问题」：市场交易的到底是哪条链 |
-| 候选池（直接/扩散、强度、证据数、逻辑卡、wiki 一句话定位、页更新） | entity_exposures + evidence_index + entities/*.md | 「候选池横向比较」防锚定 |
+| 候选池（直接/扩散、细分概念、强度、证据数、逻辑卡、wiki 一句话定位、页更新） | entity_exposures + evidence_index + entities/*.md | 「候选池横向比较」防锚定 |
+| 细分卡位（名称含题材词的 wiki 细分概念 → 公司列表） | entity_exposures 细概念暴露（如 ArF光刻胶/光刻胶树脂） | 「产业链强弱排序」：谁卡哪个细分环节 |
 | 角色预分桶（锚/二阶瓶颈/旧标签/扩散） | strength + chain_layer + wiki 定位与题材词重合度 | 四类角色起点，仅启发不是结论 |
 | 历史 Serenity / 合成研究快照 | synthesis/*.md | 防重复劳动；引用历史排序后按当前盘面重做 |
 | 海外对标 + 临时报告 | benchmark_maps + /private/tmp | 叙事可迁移性 + 可复用上下文 |
@@ -88,6 +89,7 @@ python3 "/Users/a77/Desktop/c c/金融/skills/serenity-alpha/scripts/serenity_co
 使用规则：
 
 - 候选池里「命中=直接」的公司优先进入排序；「扩散」只作产业链补位或二阶发散，不要直接当补涨首选。
+- 「细分卡位」是预期差排序的优先视角：同一题材下卡不同细分（如 ArF 量产 vs 树脂原料 vs 光引发剂）的公司不是同质化竞争，不要拉通排序；独占某细分的公司优先检查是否存在认知差。
 - wiki 一句话定位是「旧标签重估」判断的关键素材：定位与本题材词不重合但暴露逻辑成立的，优先检查是否被旧主业压价。
 - 页更新日期老于 2 周的候选，其 wiki 判断要降权，必须用近端行情和最新材料复核。
 - 历史快照里已有同题材 serenity 分析时，先读它的排序和反证，再说明本次排序相对历史版本的增量变化（哪些候选升级/降级、哪些反证已落地）。

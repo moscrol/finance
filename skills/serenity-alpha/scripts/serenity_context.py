@@ -252,12 +252,43 @@ def collect_exposure_candidates(vault: Path, term: str, concept_scope: list, lim
     merged = {}
     for row in rows:
         key = row["company"]
-        if key not in merged or (row["direct"], row["score"]) > (merged[key]["direct"], merged[key]["score"]):
+        hits = [str(row.get("concept") or "").strip()] if str(row.get("concept") or "").strip() else []
+        if key not in merged:
+            row["concept_hits"] = hits
             merged[key] = row
+            continue
+        prev = merged[key]
+        combined = [c for c in prev.get("concept_hits", []) + hits if c]
+        combined = list(dict.fromkeys(combined))
+        if (row["direct"], row["score"]) > (prev["direct"], prev["score"]):
+            row["concept_hits"] = combined
+            merged[key] = row
+        else:
+            prev["concept_hits"] = combined
     return sorted(
         merged.values(),
         key=lambda x: (not x.get("direct"), -int(x.get("score") or 0), -int(x.get("evidence_count") or 0), x.get("company", "")),
     )[:limit]
+
+
+def fine_concepts_for(term: str, hits: list) -> list:
+    out = []
+    for con in hits or []:
+        con = str(con).strip()
+        if con and term in con and con != term and con not in out:
+            out.append(con)
+    return sorted(out, key=len, reverse=True)
+
+
+def fine_position_buckets(term: str, candidates: list) -> dict:
+    buckets = {}
+    for row in candidates:
+        for con in fine_concepts_for(term, row.get("concept_hits", [])):
+            names = buckets.setdefault(con, [])
+            name = str(row.get("company") or "").strip()
+            if name and name not in names:
+                names.append(name)
+    return buckets
 
 
 def enrich_with_entity_pages(vault: Path, candidates: list, limit: int = 40) -> None:
@@ -450,6 +481,8 @@ def render_markdown(result: dict) -> str:
         ]
     )
     for row in candidates:
+        fine = fine_concepts_for(term, row.get("concept_hits", []))
+        concept_display = "、".join(fine[:2]) if fine else str(row.get("concept", ""))
         lines.append(
             "| "
             + " | ".join(
@@ -457,7 +490,7 @@ def render_markdown(result: dict) -> str:
                     str(row.get("company", "")),
                     str(row.get("ticker", "")),
                     "直接" if row.get("direct") else "扩散",
-                    squeeze(row.get("concept", ""), 20),
+                    squeeze(concept_display, 24),
                     squeeze(row.get("role", ""), 44),
                     str(row.get("strength", "") or "—"),
                     str(row.get("evidence_count", 0)),
@@ -470,6 +503,11 @@ def render_markdown(result: dict) -> str:
         )
     if not candidates:
         lines.append("- 暂无候选：知识库未命中该词，可先跑 theme-radar 新词模式或 concept-ingest 补页后重跑。")
+    fine_buckets = fine_position_buckets(term, candidates)
+    if fine_buckets:
+        lines.extend(["", "### 细分卡位（wiki 细分概念，预期差排序优先看这层）", ""])
+        for con, names in sorted(fine_buckets.items(), key=lambda x: -len(x[1])):
+            lines.append(f"- **{con}**：{'、'.join(names[:10])}")
     buckets = result.get("role_buckets", {}) or {}
     lines.extend(["", "## 3. 角色预分桶提示（仅启发排序，不是最终结论）", ""])
     bucket_lines = 0
@@ -537,6 +575,7 @@ def main():
         "concepts": concepts,
         "concept_cards": load_concept_cards(vault, concepts.get("matched", []) + concepts.get("related", [])[:6]),
         "candidate_companies": candidates,
+        "fine_position_buckets": fine_position_buckets(args.term, candidates),
         "role_buckets": role_buckets(args.term, concept_scope, candidates),
         "synthesis_snapshots": collect_synthesis_snapshots(
             vault, args.term, concept_scope, [c.get("company", "") for c in candidates[:20]]
