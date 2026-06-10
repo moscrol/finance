@@ -119,20 +119,38 @@ python3 skills/opinion-cross/scripts/opinion_cross.py \
                                           summary 聚合 → 认知升温视图 / 升 Tier1
 ```
 
+### 落点（统一一个库，独立于 Obsidian 笔记）
+
+默认库目录 = `<vault>/raw/theme-radar/opinion-store/`（`<vault>` 取 `CONCEPT_VAULT`，未设则用脚本内默认）：
+
+```
+<vault>/raw/theme-radar/opinion-store/
+├── opinion-events.jsonl   # 事实底账（append-only，唯一真相源）→ 时间线/个股进展/回溯全从这算
+├── sources.json           # 机构注册表（别名归一，稳定 source_id）→ 将来算机构胜率的 join 键
+└── outcomes.jsonl         # （b 阶段才写）盘面 T+N 回溯结果，机构胜率的原料
+```
+
+为什么放这：`wiki/raw/` 是机器数据区（manifest/baseline/theme-radar context 都在此），Obsidian 只把 `.md` 当笔记，`.jsonl/.json` 不进笔记/双链图谱 → 与笔记零干扰。
+
 ### 用法
 
 ```bash
-# 入库（提纯一篇 → 展平成事件行 → append + 去重）
+# 入库（提纯一篇 → 展平成事件行 → 来源归一 → append + 去重）
+# 默认 --store/--sources 自动落在 <vault>/raw/theme-radar/opinion-store/，平时只需给题材/日期/来源
 python3 skills/opinion-cross/scripts/opinion_store.py ingest \
   --term CPO --input report.txt --date 2026-06-10 --source "国投硬科技" \
-  --vault "<KB>/wiki" --store "<KB>/wiki/raw/theme-radar/opinion-events.jsonl"
+  --vault "<KB>/wiki"
 
 # 跨研报聚合（认知升温视图：同标的被多少篇/天/来源提及、硬度、多空）
-python3 skills/opinion-cross/scripts/opinion_store.py summary --store <events.jsonl> --term CPO
+python3 skills/opinion-cross/scripts/opinion_store.py summary \
+  --store "<KB>/wiki/raw/theme-radar/opinion-store/opinion-events.jsonl" --term CPO
 
 # 列出库内事件
-python3 skills/opinion-cross/scripts/opinion_store.py list --store <events.jsonl> [--target 罗博特科]
+python3 skills/opinion-cross/scripts/opinion_store.py list \
+  --store "<KB>/wiki/raw/theme-radar/opinion-store/opinion-events.jsonl" [--target 罗博特科]
 ```
+
+**来源归一**：`--source "【国投硬科技】"` 与 `--source "国投硬科技"` 归一到同一 `source_id`（注册表 `sources.json` 自动维护别名），保证将来按机构算胜率时 ID 稳定。
 
 ### 事件 schema（每行一条，JSONL）
 
@@ -141,7 +159,7 @@ python3 skills/opinion-cross/scripts/opinion_store.py list --store <events.jsonl
   "event_id": "oce-<hash10>",          // = hash(report_date|source|target|硬证据指纹)，去重键
   "schema_version": 1,
   "ingested_at": "2026-06-10", "report_date": "2026-06-10",
-  "source": "国投硬科技", "report_title": "", "term": "CPO",
+  "source": "国投硬科技", "source_id": "src-001", "report_title": "", "term": "CPO",
   "target": "罗博特科", "concept": "1.6T CPO", "chain_layer": "封装设备",
   "kb_strength": "...", "kb_fact_hardness": "research_claim",
   "stance": "看多", "hardness": "硬证据",
@@ -156,16 +174,16 @@ python3 skills/opinion-cross/scripts/opinion_store.py list --store <events.jsonl
 - **同** `(report_date, source, target, 硬证据指纹)` 重复入库 → 自动跳过（`event_id` 相同）。
 - **不同**日期/来源 → 视为新事件。这是有意为之：唯有跨日期/来源累积，才能体现"同一标的被反复提及" = 认知升温。
 
-### 已验证（CPO + mSAP 累积）
+### 已验证（累积 + 去重 + 来源归一）
 
-- CPO（2026-06-10/国投硬科技）入库 9 条；**重复入库** → added 0 / skipped 9（去重生效）；
-- CPO 换日期(06-11)+来源(天风通信) → added 9（按日累积）；mSAP 入库 12 条 → 库总计 30 条。
-- `summary --term CPO`：罗博特科/兆驰股份 被提及 2 次 / 跨 2 天 / 2 来源 / 有🟢硬证据 → 认知升温候选，与纯卖方喊单标的（无硬证据）拉开层次。
+- CPO（2026-06-10）入库 9 条；**原样重复入库** → added 0 / skipped 9（去重生效）；
+- `--source "【国投硬科技】"` 入库后，再用 `--source "国投硬科技"` → 归一到同一 `src-001`（别名归一生效）；换来源(天风通信→src-002)/换日期 → 视为新事件按日累积；mSAP 入库 12 条 → 同库累积。
+- `summary --term CPO`：罗博特科/兆驰股份 跨日/多来源被反复提及 + 有🟢硬证据 → 认知升温候选，与纯卖方喊单标的（无硬证据）拉开层次。
 
 ### 落点与边界
 
-- 库是**派生数据文件**（默认 `<vault>/raw/theme-radar/opinion-events.jsonl`，可 `--store` 指定），**不写** KB 的 concepts/entities/relations。硬料若要进 KB ground truth，仍走 `disclosure-archive` 的人工审核 `--apply`。
-- 这一层只做"累积 + 聚合"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1）是下一步。
+- 库是**派生数据文件**（默认 `<vault>/raw/theme-radar/opinion-store/`），**不写** KB 的 concepts/entities/relations，也**不进代码仓**。硬料若要进 KB ground truth，仍走 `disclosure-archive` 的人工审核 `--apply`。
+- 这一层只做"累积 + 聚合 + 来源归一"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1、算机构胜率）是下一步 b。
 
 ## 与其他 skill 的关系
 

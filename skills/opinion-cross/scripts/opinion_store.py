@@ -31,7 +31,47 @@ SCHEMA_VERSION = 1
 
 
 def default_store(vault: Path) -> Path:
-    return vault / "raw" / "theme-radar" / "opinion-events.jsonl"
+    return vault / "raw" / "theme-radar" / "opinion-store" / "opinion-events.jsonl"
+
+
+def default_sources(store: Path) -> Path:
+    """机构注册表与事件库同目录，便于将来 join 算机构胜率。"""
+    return store.parent / "sources.json"
+
+
+def _norm_source_key(s: str) -> str:
+    return s.strip().strip("【】[]　 ").replace(" ", "").replace("　", "")
+
+
+def load_sources_registry(path: Path) -> dict:
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            data.setdefault("sources", [])
+            return data
+        except json.JSONDecodeError:
+            pass
+    return {"sources": []}
+
+
+def resolve_source(registry: dict, raw: str) -> tuple[dict, bool]:
+    """把来源原文归一到注册表里的稳定 source_id（别名归一）。返回(entry, 是否新增)。"""
+    key = _norm_source_key(raw)
+    for entry in registry["sources"]:
+        if _norm_source_key(entry.get("canonical", "")) == key:
+            return entry, False
+        if any(_norm_source_key(a) == key for a in entry.get("aliases", [])):
+            return entry, False
+    new_id = f"src-{len(registry['sources']) + 1:03d}"
+    canonical = raw.strip().strip("【】[]")
+    entry = {"source_id": new_id, "canonical": canonical, "aliases": [raw.strip()]}
+    registry["sources"].append(entry)
+    return entry, True
+
+
+def save_sources_registry(path: Path, registry: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(registry, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _evidence_fingerprint(opp: dict) -> str:
@@ -46,7 +86,14 @@ def make_event_id(report_date: str, source: str, target: str, fingerprint: str) 
 
 
 def opportunity_to_event(
-    opp: dict, *, report_date: str, ingested_at: str, source: str, report_title: str, term: str
+    opp: dict,
+    *,
+    report_date: str,
+    ingested_at: str,
+    source: str,
+    source_id: str,
+    report_title: str,
+    term: str,
 ) -> dict:
     hp = opp.get("hardness", {})
     kb = opp.get("kb", {})
@@ -58,6 +105,7 @@ def opportunity_to_event(
         "ingested_at": ingested_at,
         "report_date": report_date,
         "source": source,
+        "source_id": source_id,
         "report_title": report_title,
         "term": term,
         "target": opp.get("target", ""),
@@ -119,7 +167,16 @@ def cmd_ingest(args) -> int:
 
     report_date = args.date or data.get("generated_at") or _dt.date.today().isoformat()
     ingested_at = _dt.date.today().isoformat()
-    source = args.source or (data.get("sources") or ["未署名"])[0]
+    raw_source = args.source or (data.get("sources") or ["未署名"])[0]
+
+    # 来源归一：把"【国投硬科技】"这类原文归到注册表里的稳定 source_id，为将来算机构胜率打底
+    sources_path = Path(args.sources).expanduser() if args.sources else default_sources(store)
+    registry = load_sources_registry(sources_path)
+    entry, registry_changed = resolve_source(registry, raw_source)
+    if registry_changed:
+        save_sources_registry(sources_path, registry)
+    source = entry["canonical"]
+    source_id = entry["source_id"]
 
     events = [
         opportunity_to_event(
@@ -127,6 +184,7 @@ def cmd_ingest(args) -> int:
             report_date=report_date,
             ingested_at=ingested_at,
             source=source,
+            source_id=source_id,
             report_title=args.title,
             term=data.get("term") or args.term,
         )
@@ -137,8 +195,10 @@ def cmd_ingest(args) -> int:
         json.dumps(
             {
                 "store": str(store),
+                "sources_registry": str(sources_path),
                 "report_date": report_date,
                 "source": source,
+                "source_id": source_id,
                 "extracted": len(events),
                 "added": added,
                 "skipped_duplicate": skipped,
@@ -235,7 +295,8 @@ def main(argv=None) -> int:
     p_ing.add_argument("--source", default="", help="来源/机构（默认取文中首个【】或'未署名'）")
     p_ing.add_argument("--title", default="", help="研报标题（可选）")
     p_ing.add_argument("--vault", default=str(oc.DEFAULT_VAULT), help="知识库 wiki 根目录")
-    p_ing.add_argument("--store", default="", help="事件库 JSONL 路径（默认 <vault>/raw/theme-radar/opinion-events.jsonl）")
+    p_ing.add_argument("--store", default="", help="事件库 JSONL 路径（默认 <vault>/raw/theme-radar/opinion-store/opinion-events.jsonl）")
+    p_ing.add_argument("--sources", default="", help="机构注册表 JSON 路径（默认与事件库同目录 sources.json）")
     p_ing.set_defaults(func=cmd_ingest)
 
     p_list = sub.add_parser("list", help="列出库内事件")
