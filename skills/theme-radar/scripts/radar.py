@@ -38,6 +38,25 @@ RELATION_FILES = {
     "benchmark_maps": "benchmark_maps.json",
 }
 STRENGTH_RANK = {"core": 0, "related": 1, "peripheral": 2}
+
+# 渲染层弱关联过滤（不改 entity_exposures.json ground-truth，可逆）：
+# 默认隐藏「非核心(strength!=core) 且 低置信(confidence==low)」的 concept-exposure——
+# 这类多为共现/候选噪声（如把 CPO 封装公司天孚/罗博特科错挂上游材料环氧树脂/ABF/磷）。
+# 核心(core)关联与中/高置信关联一律保留；--show-weak-exposures 可关闭过滤还原全量。
+FILTER_WEAK_EXPOSURES = True
+
+
+def is_weak_exposure(exp: dict) -> bool:
+    """渲染层判定：非核心且低置信的弱关联（候选/共现噪声）。仅用于显示过滤，不改底层数据。"""
+    if not isinstance(exp, dict):
+        return False
+    strength = str(exp.get("strength", "related")).strip().lower()
+    confidence = str(exp.get("confidence", "")).strip().lower()
+    if strength == "core":
+        return False
+    return confidence == "low"
+
+
 EVIDENCE_BUCKETS = ("baseline", "curated_research", "delta", "graph_only", "missing")
 EVIDENCE_WEIGHTS = {"delta": 4, "curated_research": 3, "baseline": 2, "graph_only": 1, "missing": -1}
 IMA_LOGIC_CARD_SOURCE_TOKENS = ("个股逻辑卡", "最新逻辑卡", "最新逻辑跟踪", "研究素材", "素材整理")
@@ -338,6 +357,11 @@ def collect_companies(concepts: list[str], graph: dict, exposures: dict) -> list
         matched = concept_set & set(ent_concepts)
         if not matched:
             continue
+        # 渲染层过滤：去掉非核心+低置信的弱关联（候选/共现噪声）；若实体名下全是弱关联则整体不收录。
+        if FILTER_WEAK_EXPOSURES:
+            matched = {c for c in matched if not is_weak_exposure(ent_concepts.get(c, {}))}
+            if not matched:
+                continue
         codes = ent.get("codes", []) or [""]
         code = codes[0] if codes else ""
         key = (name, code)
@@ -5922,6 +5946,13 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
     companies = refresh_company_subtypes(companies, direction_profile)
     evidence = collect_evidence(company_scope or all_scope, companies, evidence_index)
     signal = load_signal(theme_signals, primary, matches)
+    # theme_signals 若带认知演变/横向对比/操作建议（由 opinion-cross consensus_bridge 从观点事件库回填），
+    # 注入 context，使 plain `radar.py --term X` 也能渲染这三块；不覆盖 --theme-supplement-pool 已提供的同名数据。
+    for _sig_key in ("recognition_timeline", "progress_ruler", "action_plan"):
+        if isinstance(signal, dict) and isinstance(context, dict) and not context.get(_sig_key):
+            _vals = signal.get(_sig_key)
+            if isinstance(_vals, list) and _vals:
+                context[_sig_key] = _vals
     patterns = match_patterns(pattern_library, " ".join([term, external_search_text]), match_scope or [term])
     benchmark_query_text = " ".join(
         [
@@ -8823,6 +8854,13 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
     companies = refresh_company_subtypes(companies, direction_profile)
     evidence = collect_evidence(company_scope or all_scope, companies, evidence_index)
     signal = load_signal(theme_signals, primary, matches)
+    # theme_signals 若带认知演变/横向对比/操作建议（由 opinion-cross consensus_bridge 从观点事件库回填），
+    # 注入 context，使 plain `radar.py --term X` 也能渲染这三块；不覆盖 --theme-supplement-pool 已提供的同名数据。
+    for _sig_key in ("recognition_timeline", "progress_ruler", "action_plan"):
+        if isinstance(signal, dict) and isinstance(context, dict) and not context.get(_sig_key):
+            _vals = signal.get(_sig_key)
+            if isinstance(_vals, list) and _vals:
+                context[_sig_key] = _vals
     patterns = match_patterns(pattern_library, " ".join([term, external_search_text]), match_scope or [term])
 
     node = concepts.get(primary, {})
@@ -9073,9 +9111,13 @@ def main() -> int:
     parser.add_argument("--review-direction", default="", help="复盘识别出的方向，用于前端题材地图的核心信号区")
     parser.add_argument("--review-companies", default="", help="复盘触发个股，逗号/顿号/空格分隔，用于个股逻辑卡展开")
     parser.add_argument("--review-note", default="", help="复盘备注，用于记录触发原因或观察问题")
+    parser.add_argument("--show-weak-exposures", action="store_true", help="关闭渲染层弱关联过滤，显示全部 concept-exposure（含非核心+低置信的候选/共现噪声）")
     parser.add_argument("--out", help="optional markdown output path")
     parser.add_argument("--mode", choices=["radar", "qc", "deep-dive", "map", "front-map", "brief"], default="radar", help="输出模式：radar/qc=底层雷达与QC；deep-dive=题材深拆；map=题材信息地图；front-map=前端精简信息地图；brief=题材速读（定义/产业链/细分扫描/核心个股）")
     args = parser.parse_args()
+
+    global FILTER_WEAK_EXPOSURES
+    FILTER_WEAK_EXPOSURES = not args.show_weak_exposures
 
     definition = args.definition
     if args.definition_file:

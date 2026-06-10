@@ -468,6 +468,15 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 - 没有 L2 baseline 的公司，即使公告或复盘提到，也要先标“待主营/能力栈核验”。
 - `graph_only` 或 `exposure_only` 默认只能作为产业链暴露和观察线索；公司升级到 `Tier 2/1` 前，需要 `delta` 或公告/订单/客户/认证/量产等 L3 事实验证。
 
+### 渲染层弱关联过滤（可逆，不改 ground-truth）
+
+`entity_exposures.json` 里约 1/4 的 concept-exposure 是共现图谱/候选噪声（典型：把 CPO 封装公司天孚通信、罗博特科错挂到上游材料 ABF 载板 / 电子级环氧树脂 / 磷 / 硅）。radar **只在渲染层**默认隐藏这类弱关联，不修改 `entity_exposures.json`：
+
+- 判定规则（`is_weak_exposure`）：`strength != core` **且** `confidence == low` 即视为弱关联隐藏。
+- `core` 强度、以及中/高置信关联一律保留 → CPO 核心映射（1.6T CPO / CPO 封装 / 光引擎 / 光模块）不受影响。
+- 实体名下若全是弱关联，则该实体整体不进公司表。
+- `--show-weak-exposures` 关闭过滤、还原全量，便于人工复核或重新校准。
+
 ## 信号层占位
 
 信号层字段可以为空，但报告里要显式列出缺口：
