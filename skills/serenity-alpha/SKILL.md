@@ -68,6 +68,44 @@ wiki/synthesis/*.md
 
 ## 推荐入口：上下文包脚本
 
+## 云端/跨电脑标准入口（新版默认）
+
+云端 agent 使用本 skill 时，必须先确认**金融仓库**和**知识库仓库**都已同步到 `main`。Serenity Alpha 的新版上下文解析脚本在金融仓库，知识库只提供 wiki 数据底座；只拉知识库 `main` 不会更新 `serenity_context.py`。
+
+默认路径可按机器调整，先设置变量再同步：
+
+```bash
+export FINANCE_REPO="${FINANCE_REPO:-/Users/a77/Desktop/c c/金融}"
+export KNOWLEDGE_REPO="${KNOWLEDGE_REPO:-/Users/a77/Desktop/c c/知识库}"
+export KNOWLEDGE_WIKI="${KNOWLEDGE_WIKI:-$KNOWLEDGE_REPO/wiki}"
+export TERM="${TERM:-MLCC}"
+
+git -C "$FINANCE_REPO" pull origin main
+git -C "$KNOWLEDGE_REPO" pull origin main
+python3 "$FINANCE_REPO/skills/serenity-alpha/scripts/serenity_context.py" --help
+```
+
+默认先生成 markdown 上下文包，再基于上下文做人为排序，不要手动遍历 relations JSON 或批量读页面正文：
+
+```bash
+python3 "$FINANCE_REPO/skills/serenity-alpha/scripts/serenity_context.py" \
+  --term "$TERM" \
+  --vault "$KNOWLEDGE_WIKI" \
+  --limit 40
+```
+
+如需落盘：
+
+```bash
+python3 "$FINANCE_REPO/skills/serenity-alpha/scripts/serenity_context.py" \
+  --term "$TERM" \
+  --vault "$KNOWLEDGE_WIKI" \
+  --limit 40 \
+  --out "/tmp/${TERM}-serenity-context.md"
+```
+
+新版上下文包必须优先使用其中的「概念定位」「候选池」「细分卡位」「角色预分桶」「历史快照」。如果输出里没有这些模块，说明云端没有拉到新版金融仓库。
+
 不要手动遍历 relations JSON 或批量读页面正文。默认先跑：
 
 ```bash

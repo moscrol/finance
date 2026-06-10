@@ -69,6 +69,44 @@ wiki 页面层（只读，不回写）：
 
 ## 快速运行
 
+## 云端/跨电脑标准入口（新版默认）
+
+云端 agent 使用本 skill 时，必须先确认**金融仓库**和**知识库仓库**都已同步到 `main`。`theme-radar` 的新版能力在金融仓库脚本里，知识库只提供 wiki 数据底座；只拉知识库 `main` 不会更新 `radar.py`。
+
+默认路径可按机器调整，先设置变量再同步：
+
+```bash
+export FINANCE_REPO="${FINANCE_REPO:-/Users/a77/Desktop/c c/金融}"
+export KNOWLEDGE_REPO="${KNOWLEDGE_REPO:-/Users/a77/Desktop/c c/知识库}"
+export KNOWLEDGE_WIKI="${KNOWLEDGE_WIKI:-$KNOWLEDGE_REPO/wiki}"
+export TERM="${TERM:-MLCC}"
+
+git -C "$FINANCE_REPO" pull origin main
+git -C "$KNOWLEDGE_REPO" pull origin main
+python3 "$FINANCE_REPO/skills/theme-radar/scripts/radar.py" --help | grep brief
+```
+
+用户要“题材雷达/题材速读/定义+产业链+细分+核心个股”时，默认使用新版 `brief`：
+
+```bash
+python3 "$FINANCE_REPO/skills/theme-radar/scripts/radar.py" \
+  --term "$TERM" \
+  --vault "$KNOWLEDGE_WIKI" \
+  --mode brief
+```
+
+如用户明确要求写入知识库，再指定 `--out` 到 `wiki/synthesis/`，并按知识库规则提交：
+
+```bash
+python3 "$FINANCE_REPO/skills/theme-radar/scripts/radar.py" \
+  --term "$TERM" \
+  --vault "$KNOWLEDGE_WIKI" \
+  --mode brief \
+  --out "$KNOWLEDGE_WIKI/synthesis/${TERM}-题材速读-$(date +%Y%m%d).md"
+```
+
+需要完整验证清单、护栏、催化和公司卡时，才改用 `--mode deep-dive` 或 `--mode front-map`。不要在新版日常速读场景继续使用默认 `--mode radar`。
+
 ```bash
 python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜"
