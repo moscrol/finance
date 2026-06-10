@@ -5922,6 +5922,13 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
     companies = refresh_company_subtypes(companies, direction_profile)
     evidence = collect_evidence(company_scope or all_scope, companies, evidence_index)
     signal = load_signal(theme_signals, primary, matches)
+    # theme_signals 若带认知演变/横向对比/操作建议（由 opinion-cross consensus_bridge 从观点事件库回填），
+    # 注入 context，使 plain `radar.py --term X` 也能渲染这三块；不覆盖 --theme-supplement-pool 已提供的同名数据。
+    for _sig_key in ("recognition_timeline", "progress_ruler", "action_plan"):
+        if isinstance(signal, dict) and isinstance(context, dict) and not context.get(_sig_key):
+            _vals = signal.get(_sig_key)
+            if isinstance(_vals, list) and _vals:
+                context[_sig_key] = _vals
     patterns = match_patterns(pattern_library, " ".join([term, external_search_text]), match_scope or [term])
     benchmark_query_text = " ".join(
         [
@@ -8823,6 +8830,13 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
     companies = refresh_company_subtypes(companies, direction_profile)
     evidence = collect_evidence(company_scope or all_scope, companies, evidence_index)
     signal = load_signal(theme_signals, primary, matches)
+    # theme_signals 若带认知演变/横向对比/操作建议（由 opinion-cross consensus_bridge 从观点事件库回填），
+    # 注入 context，使 plain `radar.py --term X` 也能渲染这三块；不覆盖 --theme-supplement-pool 已提供的同名数据。
+    for _sig_key in ("recognition_timeline", "progress_ruler", "action_plan"):
+        if isinstance(signal, dict) and isinstance(context, dict) and not context.get(_sig_key):
+            _vals = signal.get(_sig_key)
+            if isinstance(_vals, list) and _vals:
+                context[_sig_key] = _vals
     patterns = match_patterns(pattern_library, " ".join([term, external_search_text]), match_scope or [term])
 
     node = concepts.get(primary, {})
