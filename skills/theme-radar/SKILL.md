@@ -57,6 +57,15 @@ description: 题材雷达 / 新词雷达——输入一个新名词、新闻事�
 - `wiki/relations/report_contexts.json`
 - `wiki/relations/theme_signals.json`
 - `wiki/relations/pattern_library.json`
+- `wiki/relations/benchmark_maps.json`
+
+wiki 页面层（只读，不回写）：
+
+- `wiki/concepts/*.md`：概念页一句话定锚、定义、核心逻辑/机制、相关概念 → “Wiki 概念知识卡”模块；定锚缺失或为占位垃圾时，回退用概念页定锚。
+- `wiki/entities/*.md`：实体页“一句话定位”、“当前判断”、frontmatter `updated`/`revision` → 公司卡补充定位与新鲜度，“雷达速览”里的最近更新/待刷新实体。
+- `wiki/synthesis/*.md`：按题材/概念/公司名匹配文件名，抽取核心结论 → “本地合成研究洞察”模块（历史分析快照，仅作认知线索，不升级公司事实）。
+
+报告头部新增“雷达速览”模块：概念命中、公司分层计数、逻辑卡覆盖、概念页覆盖/缺页、合成研究命中、benchmark 命中、实体新鲜度，一眼判断知识库对该题材的覆盖水位。
 
 ## 快速运行
 

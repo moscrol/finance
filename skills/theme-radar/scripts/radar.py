@@ -5263,10 +5263,19 @@ def deep_company_cards_section(companies: list[dict], tier: str, limit: int = 10
         layers = "、".join(normalized_chain_layers(company)[:3]) or "unknown"
         sources = compact_text("、".join(source_basis(company)), 120)
         baseline = "支持/不冲突" if (company.get("evidence_buckets", {}) or {}).get("baseline") else "待补基础画像或仅作辅助"
+        wiki_lines = []
+        if company.get("wiki_one_liner"):
+            freshness = f"（wiki 实体页，更新 {company.get('wiki_updated')}）" if company.get("wiki_updated") else "（wiki 实体页）"
+            wiki_lines.append(f"- 一句话定位：{compact_text(company.get('wiki_one_liner'), 110)}{freshness}")
+        if company.get("wiki_judgement"):
+            wiki_lines.append(f"- wiki 当前判断：{compact_text(company.get('wiki_judgement'), 110)}")
         parts.append(
             "\n".join(
                 [
                     f"### {company.get('name','')}（{labels.get(tier, tier)}）",
+                ]
+                + wiki_lines
+                + [
                     f"- 细分方向：{compact_text('、'.join(company_subdirections(company)), 120)}",
                     f"- 逻辑强度：{company_logic_strength(company)}",
                     f"- 产业链角色：{roles}",
@@ -5581,6 +5590,256 @@ def deep_dive_quality_gate_section(context: dict, companies: list[dict]) -> str:
     return "\n".join(lines)
 
 
+WIKI_FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.S)
+WIKI_LINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
+
+
+def read_wiki_page(path: Path, max_chars: int = 6000) -> tuple[dict, str]:
+    """Read frontmatter metadata and body head of a wiki markdown page (read-only)."""
+    try:
+        text = path.read_text(encoding="utf-8")[:max_chars]
+    except Exception:
+        return {}, ""
+    meta: dict[str, str] = {}
+    body = text
+    match = WIKI_FRONTMATTER_RE.match(text)
+    if match:
+        body = text[match.end():]
+        for line in match.group(1).splitlines():
+            if ":" not in line or line.startswith(" "):
+                continue
+            key, _, value = line.partition(":")
+            meta[key.strip()] = value.strip().strip('"')
+    return meta, body
+
+
+def strip_wiki_links(text: str) -> str:
+    return WIKI_LINK_RE.sub(r"\1", str(text or ""))
+
+
+def squeeze_text(text: str, limit: int = 160) -> str:
+    value = " ".join(str(text or "").split())
+    return value if len(value) <= limit else value[: limit - 1] + "…"
+
+
+def wiki_section_raw(body: str, names: tuple[str, ...]) -> str:
+    for name in names:
+        match = re.search(rf"^##+\s*{re.escape(name)}\s*$\n+(.+?)(?=\n##|\Z)", body, re.S | re.M)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def load_wiki_concept_cards(vault: Path, names: list[str], limit: int = 8) -> list[dict]:
+    """Read concept page digests from wiki/concepts for matched + related concepts."""
+    cards: list[dict] = []
+    seen = 0
+    for name in unique([str(n).strip() for n in names if str(n).strip()]):
+        if seen >= limit:
+            break
+        path = vault / "concepts" / f"{name}.md"
+        if not path.exists():
+            cards.append({"name": name, "missing": True})
+            continue
+        seen += 1
+        meta, body = read_wiki_page(path)
+        one_liner = ""
+        match = re.search(r"\*\*一句话\*\*[:：]\s*(.+)", body)
+        if match:
+            one_liner = squeeze_text(strip_wiki_links(match.group(1)), 140)
+        definition = ""
+        match = re.search(r"^#\s+.+?$\n+(.+?)(?=\n\*\*|\n#)", body, re.S | re.M)
+        if match:
+            definition = squeeze_text(strip_wiki_links(match.group(1)), 140)
+        core_logic = squeeze_text(strip_wiki_links(wiki_section_raw(body, ("核心逻辑", "核心机制", "炒作逻辑"))), 160)
+        market = squeeze_text(strip_wiki_links(wiki_section_raw(body, ("市场", "产业链"))), 140)
+        related = unique(WIKI_LINK_RE.findall(wiki_section_raw(body, ("相关概念",))))
+        cards.append(
+            {
+                "name": name,
+                "updated": meta.get("updated", ""),
+                "revision": meta.get("revision", ""),
+                "one_liner": one_liner,
+                "definition": definition,
+                "core_logic": core_logic,
+                "market": market,
+                "related": related[:10],
+            }
+        )
+    return cards
+
+
+def enrich_companies_with_wiki_pages(vault: Path, companies: list[dict], limit: int = 80) -> None:
+    """Attach entity page one-liner positioning, judgement and freshness to companies."""
+    ent_dir = vault / "entities"
+    if not ent_dir.exists():
+        return
+    for company in sorted(companies, key=company_sort_key)[:limit]:
+        name = str(company.get("name") or "").strip()
+        if not name:
+            continue
+        path = ent_dir / f"{name}.md"
+        if not path.exists():
+            continue
+        meta, body = read_wiki_page(path, 3000)
+        match = re.search(r"一句话定位[:：]\s*(.+)", body)
+        if not match:
+            match = re.search(r"^#\s+.+?\n+([^#|\n-][^\n]*)", body, re.M)
+        if match:
+            one_liner = squeeze_text(strip_wiki_links(match.group(1)), 90)
+            if one_liner and "待补" not in one_liner:
+                company["wiki_one_liner"] = one_liner
+        match = re.search(r"\|\s*当前判断\s*\|\s*([^|\n]+)\|", body)
+        if match:
+            company["wiki_judgement"] = squeeze_text(strip_wiki_links(match.group(1)), 90)
+        if meta.get("updated"):
+            company["wiki_updated"] = meta.get("updated")
+        if meta.get("revision"):
+            company["wiki_revision"] = meta.get("revision")
+
+
+def is_junk_definition(text: str) -> bool:
+    value = str(text or "").strip()
+    if not value:
+        return True
+    if len(value) <= 12 and "：" not in value:
+        return True
+    return any(token in value for token in ("关系表重建", "从既有", "待补一句话", "待从 full"))
+
+
+def clean_synthesis_summary(raw: str, limit: int = 180) -> str:
+    lines: list[str] = []
+    for line in str(raw or "").splitlines():
+        s = line.strip()
+        if not s or s.startswith("|") or s.startswith("---"):
+            continue
+        s = re.sub(r"^#+\s*", "", s)
+        s = re.sub(r"^>\s*", "", s)
+        s = re.sub(r"^[-*]\s*", "", s)
+        if re.match(r"^(信息日期|沉淀日期|生成日期|来源|关联节点|tags|title)[:：]", s):
+            continue
+        if s:
+            lines.append(s)
+        if len(" ".join(lines)) >= limit:
+            break
+    return squeeze_text(strip_wiki_links(" ".join(lines)), limit).replace("|", "/")
+
+
+def load_synthesis_insights(vault: Path, term: str, scope_names: list[str], company_names: list[str], limit: int = 8) -> list[dict]:
+    """Match wiki/synthesis research notes by theme/concept/company tokens in filename."""
+    syn_dir = vault / "synthesis"
+    if not syn_dir.exists():
+        return []
+    tokens = unique(
+        [str(t).strip() for t in ([term] + list(scope_names or []) + list(company_names or [])) if str(t).strip() and len(str(t).strip()) >= 2]
+    )
+    hits = []
+    for path in syn_dir.glob("*.md"):
+        stem = path.stem
+        matched = [t for t in tokens if t in stem]
+        if not matched:
+            continue
+        date_match = re.search(r"(20\d{6})", stem)
+        term_hit = 1 if (term and term in stem) else 0
+        hits.append((term_hit, date_match.group(1) if date_match else "", path, matched))
+    hits.sort(key=lambda item: (item[0], item[1], item[2].name), reverse=True)
+    out = []
+    for _term_hit, date_str, path, matched in hits[:limit]:
+        meta, body = read_wiki_page(path, 4000)
+        summary_raw = ""
+        match = re.search(r"^#+ .*(?:核心结论|结论|一句话|定锚|核心判断).*$\n+(.+?)(?=\n#|\Z)", body, re.S | re.M)
+        if match:
+            summary_raw = match.group(1)
+        else:
+            match = re.search(r"^#\s+.+?\n+(.+?)(?=\n#|\Z)", body, re.S)
+            summary_raw = match.group(1) if match else body
+        summary = clean_synthesis_summary(summary_raw, 180)
+        if not summary:
+            summary = clean_synthesis_summary(body, 180)
+        display_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}" if date_str else (meta.get("updated") or meta.get("created") or "")
+        out.append(
+            {
+                "title": path.stem,
+                "date": display_date,
+                "matched": matched[:4],
+                "summary": summary,
+            }
+        )
+    return out
+
+
+def wiki_concept_knowledge_section(state: dict) -> str:
+    cards = state.get("wiki_concept_cards", []) or []
+    present = [c for c in cards if not c.get("missing")]
+    missing = [str(c.get("name")) for c in cards if c.get("missing")]
+    if not present and not missing:
+        return "- 未读取到 wiki 概念页。"
+    lines: list[str] = []
+    if present:
+        lines.extend(["| 概念 | 更新 | 一句话定锚 | 核心逻辑 |", "|---|---|---|---|"])
+        for card in present:
+            anchor = card.get("one_liner") or card.get("definition") or "待补"
+            lines.append(
+                f"| {card.get('name','')} | {card.get('updated','')} | {compact_text(anchor, 130)} | {compact_text(card.get('core_logic') or '待补', 150)} |"
+            )
+        related = unique([r for card in present for r in card.get("related", []) or []])
+        if related:
+            lines.extend(["", f"- 概念页相关概念扩散：{'、'.join(related[:14])}"])
+    if missing:
+        lines.append(f"- 缺概念页（可考虑 concept-ingest 补齐）：{'、'.join(missing[:8])}")
+    return "\n".join(lines)
+
+
+def synthesis_insights_section(state: dict) -> str:
+    rows = state.get("synthesis_insights", []) or []
+    if not rows:
+        return "- 暂无命中的本地合成研究（wiki/synthesis）。"
+    lines = ["| 日期 | 合成研究 | 命中词 | 核心观点 |", "|---|---|---|---|"]
+    for row in rows:
+        lines.append(
+            f"| {row.get('date','')} | {row.get('title','')} | {'、'.join(row.get('matched', []) or [])} | {compact_text(row.get('summary',''), 170)} |"
+        )
+    lines.extend(["", "- 合成研究为历史分析快照，仅作认知线索；结论需结合最新盘面与公告复核，不自动升级公司事实。"])
+    return "\n".join(lines)
+
+
+def radar_digest_section(state: dict) -> str:
+    companies = state.get("companies", []) or []
+    tiers = {"relative_core": 0, "related": 0, "watch": 0, "weak": 0}
+    for company in companies:
+        tier = company_deep_dive_tier(company)
+        tiers[tier] = tiers.get(tier, 0) + 1
+    card_count = sum(1 for c in companies if has_ima_logic_card_source(c))
+    cards = state.get("wiki_concept_cards", []) or []
+    present = [c for c in cards if not c.get("missing")]
+    missing = [c for c in cards if c.get("missing")]
+    synthesis = state.get("synthesis_insights", []) or []
+    benchmarks = state.get("benchmark_matches", []) or []
+    lines = [
+        "| 维度 | 状态 |",
+        "|---|---|",
+        f"| 概念命中 | 主匹配 {state.get('primary') or '未入库'}；命中概念 {len(state.get('matches') or [])} 个；相关概念 {len(state.get('rels') or [])} 个 |",
+        f"| 公司分层 | 相对核心 {tiers.get('relative_core', 0)} / 重点相关 {tiers.get('related', 0)} / 观察 {tiers.get('watch', 0)} / 弱相关 {tiers.get('weak', 0)} |",
+        f"| 个股逻辑卡 | {card_count} 家公司带 IMA 逻辑卡 |",
+        f"| wiki 概念页 | 已建 {len(present)} 个；缺页 {len(missing)} 个 |",
+        f"| 合成研究 | 命中 {len(synthesis)} 篇（wiki/synthesis） |",
+        f"| 海外对标 | 命中 {len(benchmarks)} 张 benchmark map |",
+    ]
+    dated = sorted(
+        [c for c in companies if c.get("wiki_updated")],
+        key=lambda c: str(c.get("wiki_updated")),
+        reverse=True,
+    )
+    if dated:
+        recent = "、".join(f"{c.get('name')}({c.get('wiki_updated')})" for c in dated[:5])
+        lines.append(f"| 最近更新实体 | {recent} |")
+        core_related = [c for c in dated if company_deep_dive_tier(c) in {"relative_core", "related"}]
+        if len(core_related) > 3:
+            oldest = "、".join(f"{c.get('name')}({c.get('wiki_updated')})" for c in core_related[-3:])
+            lines.append(f"| 待刷新实体 | {oldest}（核心/相关层中最久未更新） |")
+    return "\n".join(lines)
+
+
 def build_theme_state(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None, theme_supplement_pool: dict | None = None) -> dict:
     rel_dir = vault / "relations"
     graph = load_json(rel_dir / RELATION_FILES["concept_graph"], {"concepts": {}, "relations": []})
@@ -5686,6 +5945,21 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         )
     )
     display_report_contexts = [] if has_structured_supplement else local_report_contexts
+    wiki_concept_cards = load_wiki_concept_cards(vault, (match_scope or [term]) + rels[:6])
+    if not explicit_definition and is_junk_definition(definition):
+        for card in wiki_concept_cards:
+            anchor = card.get("one_liner") or card.get("definition") or ""
+            if anchor:
+                definition = anchor
+                notes.append(f"定义回退：使用 wiki 概念页 [[{card.get('name')}]] 的一句话定锚。")
+                break
+    enrich_companies_with_wiki_pages(vault, companies)
+    synthesis_insights = load_synthesis_insights(
+        vault,
+        term,
+        (match_scope or []) + rels[:8],
+        [c.get("name", "") for c in sorted(companies, key=company_sort_key)[:30]],
+    )
     return {
         "graph": graph,
         "concepts": concepts,
@@ -5715,6 +5989,8 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
         "benchmark_maps": benchmark_maps,
         "benchmark_matches": benchmark_matches,
         "benchmark_query_text": benchmark_query_text,
+        "wiki_concept_cards": wiki_concept_cards,
+        "synthesis_insights": synthesis_insights,
     }
 
 
@@ -5959,11 +6235,12 @@ def front_company_cards_section(companies: list[dict], tier: str, term: str = ""
     if not rows:
         return "- 暂无。"
     labels = {"relative_core": "主线公司", "related": "相关公司", "watch": "延伸公司", "weak": "弱相关"}
-    lines = ["| 公司 | 角色 | 位置 |", "|---|---|---|"]
+    lines = ["| 公司 | 角色 | 位置 | 一句话定位（wiki） |", "|---|---|---|---|"]
     for company in rows:
         role = front_compact_text(themed_company_roles(company, term), 32)
         bucket = front_company_bucket(company, term, profile)
-        lines.append(f"| {company.get('name', '')} | {role} | {bucket}/{labels.get(tier, tier)} |")
+        one_liner = front_compact_text(company.get("wiki_one_liner") or "", 46) or "待补"
+        lines.append(f"| {company.get('name', '')} | {role} | {bucket}/{labels.get(tier, tier)} | {one_liner} |")
     return "\n".join(lines)
 
 
@@ -6796,27 +7073,35 @@ def build_front_map_report(term: str, vault: Path, definition: str = "", context
         "",
         front_review_trigger_section(review_context, active, term),
         "",
-        "## 2. 一句话定锚",
+        "## 2. 雷达速览",
+        "",
+        radar_digest_section(state),
+        "",
+        "## 3. 一句话定锚",
         "",
         anchor,
         "",
-        "## 3. 为什么值得展开",
+        "### Wiki 概念知识卡",
+        "",
+        wiki_concept_knowledge_section(state),
+        "",
+        "## 4. 为什么值得展开",
         "",
         bullets(front_driver_items(context, active, 5), "待补发酵驱动"),
         "",
-        "## 4. 产业链全景图",
+        "## 5. 产业链全景图",
         "",
         front_chain_map_section(active, term, context, profile),
         "",
-        "## 5. 细分方向扫描",
+        "## 6. 细分方向扫描",
         "",
         front_subdirection_digest_section(state, 22),
         "",
-        "## 6. 工艺/材料/零部件扫描",
+        "## 7. 工艺/材料/零部件扫描",
         "",
         front_material_process_radar_section(state, active, term, profile, 28),
         "",
-        "## 7. 公司地图",
+        "## 8. 公司地图",
         "",
         "### 主线公司",
         "",
@@ -6830,15 +7115,19 @@ def build_front_map_report(term: str, vault: Path, definition: str = "", context
         "",
         front_company_cards_section(active, "watch", term, profile, 8),
         "",
-        "## 8. 海外龙头对标图谱",
+        "## 9. 海外龙头对标图谱",
         "",
         front_benchmark_map_section(state, active, term),
         "",
-        "## 9. 个股逻辑卡与上下游发散",
+        "## 10. 本地合成研究洞察",
+        "",
+        synthesis_insights_section(state),
+        "",
+        "## 11. 个股逻辑卡与上下游发散",
         "",
         front_logic_card_expansion_section(active, term, profile, 18),
         "",
-        "## 10. 如何反哺复盘",
+        "## 12. 如何反哺复盘",
         "",
         front_review_feedback_section(state, active, term, profile, 10),
         "",
@@ -6867,9 +7156,17 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 生成日期：{date.today().isoformat()}
 
+## 雷达速览
+
+{radar_digest_section(state)}
+
 ## 一、一句话定锚
 
 {definition_text}
+
+### Wiki 概念知识卡
+
+{wiki_concept_knowledge_section(state)}
 
 ## 二、为什么现在发酵
 
@@ -6959,6 +7256,10 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 
 {catalyst_calendar_section(context, companies, state.get("direction_profile"))}
 
+## 本地合成研究洞察（wiki/synthesis）
+
+{synthesis_insights_section(state)}
+
 ## 八、相对核心个股逻辑卡
 
 {deep_company_cards_section(companies, "relative_core", term=state.get("primary") or state.get("term") or "", has_structured_supplement=state.get("has_structured_supplement", False))}
@@ -7012,6 +7313,7 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
 ## 十四、数据来源与边界
 
 - 主信源：PDF ingest 研报、精选逻辑/脱水文本、full 精读/report_contexts。
+- wiki 页面层：concepts 概念页（定锚/核心逻辑）、entities 实体页（一句话定位/更新时间）、synthesis 合成研究（历史分析快照），全部只读接入，不回写。
 - baseline：只做公司基础画像和主营业务是否冲突的辅助校验。
 - full 精读：只用于题材定义、产业链上下游、关键环节和细分方向，不写入 entities，也不直接升级公司事实。
 - 公告/订单/业绩：当前仅作为后续验证空位，不作为高权重核心判断。
@@ -8253,6 +8555,24 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
     if dropped_generic_companies:
         conclusion += f" 已过滤 {dropped_generic_companies} 个泛化公司命中。"
 
+    wiki_concept_cards = load_wiki_concept_cards(vault, (match_scope or [term]) + rels[:6])
+    enrich_companies_with_wiki_pages(vault, companies)
+    synthesis_insights = load_synthesis_insights(
+        vault,
+        term,
+        (match_scope or []) + rels[:8],
+        [c.get("name", "") for c in sorted(companies, key=company_sort_key)[:30]],
+    )
+    wiki_state = {
+        "primary": primary if term_matched else "",
+        "matches": matches,
+        "rels": rels,
+        "companies": companies,
+        "wiki_concept_cards": wiki_concept_cards,
+        "synthesis_insights": synthesis_insights,
+        "benchmark_matches": [],
+    }
+
     return f"""# {term} 题材雷达
 
 生成日期：{date.today().isoformat()}
@@ -8261,9 +8581,17 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
 
 {conclusion}
 
+## 雷达速览
+
+{radar_digest_section(wiki_state)}
+
 ## 外部定义
 
 {definition.strip() if definition.strip() else '未提供。若知识库未命中，建议先用 web access 查公开定义、同义词、上位概念和产业链位置。'}
+
+## Wiki 概念知识卡
+
+{wiki_concept_knowledge_section(wiki_state)}
 
 ## 外部结构化信息
 
@@ -8367,6 +8695,10 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
 ### 历史题材类比
 
 {chr(10).join(pattern_lines) if pattern_lines else '- 暂无合适类比'}
+
+## 本地合成研究洞察（wiki/synthesis）
+
+{synthesis_insights_section(wiki_state)}
 
 ## 核心公司分组（按产业方向）
 
