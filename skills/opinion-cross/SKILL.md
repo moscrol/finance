@@ -107,6 +107,66 @@ python3 skills/opinion-cross/scripts/opinion_cross.py \
 2. **市场热点维度**：静态文本里通常没有当日盘面，多为"待补"，因此 Tier 上限常停在 2。要升 Tier 1 需接 `limit-advance`/`top-gainers`/`market-overview` 当日盘面信号（后续可做）。
 3. **标的识别依赖 KB**：只识别 `entity_exposures` 里已存在的实体；题材或公司未入库则漏识别（先走 disclosure/ingest 补库）。
 
+## 观点事件库（accumulation layer · `opinion_store.py`）
+
+单篇提纯报告价值有限——单篇研报就是"一个人的一句话"。**意义在于累积**：把每篇研报提纯出的标的展平成结构化「观点事件」行，append 进一个 append-only 的 JSONL 库（类公告库），N 篇研报沉淀进同一库后，跨研报聚合才能看出"同一标的被反复提、硬度在升级"= **认知升温**。
+
+```
+卖方研报流 → opinion-cross 提纯 → opinion_store ingest（append+去重）→ 【观点事件库 JSONL】
+                                                                              │
+              limit-advance/top-gainers 盘面 → （后续）T+N 回溯 ──────────────┘
+                                                                              ↓
+                                          summary 聚合 → 认知升温视图 / 升 Tier1
+```
+
+### 用法
+
+```bash
+# 入库（提纯一篇 → 展平成事件行 → append + 去重）
+python3 skills/opinion-cross/scripts/opinion_store.py ingest \
+  --term CPO --input report.txt --date 2026-06-10 --source "国投硬科技" \
+  --vault "<KB>/wiki" --store "<KB>/wiki/raw/theme-radar/opinion-events.jsonl"
+
+# 跨研报聚合（认知升温视图：同标的被多少篇/天/来源提及、硬度、多空）
+python3 skills/opinion-cross/scripts/opinion_store.py summary --store <events.jsonl> --term CPO
+
+# 列出库内事件
+python3 skills/opinion-cross/scripts/opinion_store.py list --store <events.jsonl> [--target 罗博特科]
+```
+
+### 事件 schema（每行一条，JSONL）
+
+```jsonc
+{
+  "event_id": "oce-<hash10>",          // = hash(report_date|source|target|硬证据指纹)，去重键
+  "schema_version": 1,
+  "ingested_at": "2026-06-10", "report_date": "2026-06-10",
+  "source": "国投硬科技", "report_title": "", "term": "CPO",
+  "target": "罗博特科", "concept": "1.6T CPO", "chain_layer": "封装设备",
+  "kb_strength": "...", "kb_fact_hardness": "research_claim",
+  "stance": "看多", "hardness": "硬证据",
+  "hard_evidence": ["…订单已超过15个亿…"], "soft_claims": ["…首选…"], "noise": [],
+  "catalysts": ["…"], "expectation_gap": ["符合预期就是超预期"],
+  "resonance_tier": "Tier 2", "mention_count": 2
+}
+```
+
+### 去重语义
+
+- **同** `(report_date, source, target, 硬证据指纹)` 重复入库 → 自动跳过（`event_id` 相同）。
+- **不同**日期/来源 → 视为新事件。这是有意为之：唯有跨日期/来源累积，才能体现"同一标的被反复提及" = 认知升温。
+
+### 已验证（CPO + mSAP 累积）
+
+- CPO（2026-06-10/国投硬科技）入库 9 条；**重复入库** → added 0 / skipped 9（去重生效）；
+- CPO 换日期(06-11)+来源(天风通信) → added 9（按日累积）；mSAP 入库 12 条 → 库总计 30 条。
+- `summary --term CPO`：罗博特科/兆驰股份 被提及 2 次 / 跨 2 天 / 2 来源 / 有🟢硬证据 → 认知升温候选，与纯卖方喊单标的（无硬证据）拉开层次。
+
+### 落点与边界
+
+- 库是**派生数据文件**（默认 `<vault>/raw/theme-radar/opinion-events.jsonl`，可 `--store` 指定），**不写** KB 的 concepts/entities/relations。硬料若要进 KB ground truth，仍走 `disclosure-archive` 的人工审核 `--apply`。
+- 这一层只做"累积 + 聚合"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1）是下一步。
+
 ## 与其他 skill 的关系
 
 - **复用** `theme-radar`：三维交叉引擎（`signal_dimension_rows`/`resonance_tier`）+ KB relations（`concept_graph`/`entity_exposures`）。
