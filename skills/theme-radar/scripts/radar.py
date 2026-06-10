@@ -7398,6 +7398,23 @@ def brief_segment_core_companies_section(state: dict, active: list[dict], term: 
         if len(seen) >= limit:
             break
     if not chunks:
+        scope = {s for s in set(state.get("match_scope") or []) | {term, str(state.get("primary") or "")} if s}
+        direct = []
+        for company in state.get("companies", []) or []:
+            company_concepts = set(as_list(company.get("concepts"))) | set(as_list(company.get("subdirections")))
+            if company_concepts & scope:
+                direct.append(company)
+        tier_rank = {"relative_core": 0, "related": 1, "watch": 2, "weak": 3}
+        strength_rank = {"core": 0, "related": 1, "peripheral": 2}
+        direct = sorted(unique_by_name(direct), key=lambda c: (strength_rank.get(str(c.get("strength") or ""), 3), tier_rank.get(company_deep_dive_tier(c), 3), company_sort_key(c)))
+        if direct:
+            lines = [f"### {state.get('primary') or term}（主概念）", "", "| 公司 | 分层 | 一句话定位（wiki） |", "|---|---|---|"]
+            for company in direct[:per_segment]:
+                tier = {"core": "核心", "related": "相关", "peripheral": "观察"}.get(str(company.get("strength") or ""), BRIEF_TIER_LABELS.get(company_deep_dive_tier(company), "观察"))
+                one = front_compact_text(themed_company_roles(company, term), 80) or front_compact_text(company.get("wiki_one_liner") or "", 60)
+                lines.append(f"| {company.get('name', '')} | {tier} | {one} |")
+            chunks.append("\n".join(lines))
+    if not chunks:
         return "- 暂无可映射的细分核心个股。"
     return "\n\n".join(chunks)
 
@@ -7437,7 +7454,7 @@ def build_brief_report(term: str, vault: Path, definition: str = "", context: di
         "## 数据边界",
         "",
         "- 数据全部来自 wiki 知识库（concepts/entities/relations/synthesis）与已入库研报上下文，只读不回写。",
-        "- 公司分层：核心=主线承接，相关=逻辑可解释，延伸=有线索待验证；不构成交易建议。",
+        "- 公司分层：核心=主线承接，相关=逻辑可解释，延伸/观察=有线索待验证；不构成交易建议。",
         "",
     ]
     return "\n".join(lines).rstrip() + "\n"
