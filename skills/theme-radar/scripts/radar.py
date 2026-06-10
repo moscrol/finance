@@ -7142,6 +7142,87 @@ def build_front_map_report(term: str, vault: Path, definition: str = "", context
 BRIEF_TIER_LABELS = {"relative_core": "核心", "related": "相关", "watch": "延伸"}
 
 
+def brief_clip_section(raw: str, max_lines: int = 26) -> str:
+    text = strip_wiki_links(str(raw or "")).strip()
+    if not text:
+        return ""
+    lines = [line.rstrip() for line in text.splitlines()]
+    return "\n".join(lines[:max_lines]).strip()
+
+
+def brief_primary_page_sections(vault: Path, primary: str) -> dict:
+    if not primary:
+        return {}
+    path = vault / "concepts" / f"{primary}.md"
+    if not path.exists():
+        return {}
+    _meta, body = read_wiki_page(path, 12000)
+    out = {}
+    for key, names in (
+        ("tech", ("技术路线", "技术拆解", "技术分层", "技术路径")),
+        ("chain", ("产业链", "产业链全景", "产业链结构")),
+        ("market", ("市场数据", "市场规模", "市场格局", "供需格局")),
+    ):
+        raw = brief_clip_section(wiki_section_raw(body, names))
+        if raw:
+            out[key] = raw
+    return out
+
+
+def brief_subconcept_segments(term: str, state: dict, vault: Path, limit: int = 12, per_segment: int = 10) -> list[dict]:
+    graph = state.get("graph", {}) or {}
+    concepts = graph.get("concepts", {}) or {}
+    scope = {s for s in set(state.get("match_scope") or []) | {term, str(state.get("primary") or "")} if s}
+    exposures = load_json(vault / "relations" / RELATION_FILES["entity_exposures"], {"entities": {}})
+    candidates = set(concepts.keys())
+    for ent in (exposures.get("entities") or {}).values():
+        candidates |= set((ent.get("concepts") or {}).keys())
+    con_dir = vault / "concepts"
+    if con_dir.exists():
+        candidates |= {p.stem for p in con_dir.glob("*.md")}
+    names = set()
+    for name in candidates:
+        if not name or name in scope:
+            continue
+        if any(s in name for s in scope):
+            names.add(name)
+            continue
+        parents = (concepts.get(name) or {}).get("parent_concepts") or []
+        if any(p in scope for p in parents):
+            names.add(name)
+    segments = []
+    for name in sorted(names):
+        rows = []
+        for ent_name, ent in (exposures.get("entities") or {}).items():
+            con = (ent.get("concepts") or {}).get(name)
+            if not isinstance(con, dict):
+                continue
+            rows.append({
+                "name": ent_name,
+                "strength": str(con.get("strength") or ""),
+                "roles": [str(con.get("role") or "")] if con.get("role") else [],
+            })
+        anchor = ""
+        page = vault / "concepts" / f"{name}.md"
+        if page.exists():
+            _meta, body = read_wiki_page(page, 2500)
+            match = re.search(r"\*\*一句话\*\*[:：]\s*(.+)", body)
+            if not match:
+                match = re.search(r"^#\s+.+?$\n+(.+?)(?=\n\*\*|\n#)", body, re.S | re.M)
+            if match:
+                anchor = squeeze_text(strip_wiki_links(match.group(1)), 120)
+            if "占位概念页" in anchor:
+                anchor = ""
+        if not rows and not anchor:
+            continue
+        rows.sort(key=lambda r: (0 if r.get("strength") == "core" else 1, r.get("name", "")))
+        rows = rows[:per_segment]
+        enrich_companies_with_wiki_pages(vault, rows)
+        segments.append({"name": name, "anchor": anchor, "companies": rows})
+    segments.sort(key=lambda s: -len(s["companies"]))
+    return segments[:limit]
+
+
 def brief_definition_section(state: dict, term: str) -> str:
     context = state.get("context", {}) or {}
     cards = [c for c in (state.get("wiki_concept_cards") or []) if not c.get("missing")]
@@ -7163,6 +7244,17 @@ def brief_definition_section(state: dict, term: str) -> str:
         if logic and "待补" not in logic:
             lines.append("")
             lines.append(f"**核心逻辑**：{logic}")
+    page_sections = state.get("brief_page_sections", {}) or {}
+    if page_sections.get("tech"):
+        lines.append("")
+        lines.append("**技术路线（wiki 概念页）**")
+        lines.append("")
+        lines.append(page_sections["tech"])
+    if page_sections.get("market"):
+        lines.append("")
+        lines.append("**市场数据（wiki 概念页）**")
+        lines.append("")
+        lines.append(page_sections["market"])
     related_cards = [c for c in cards if c is not primary_card]
     if related_cards:
         lines.append("")
@@ -7182,9 +7274,15 @@ def brief_definition_section(state: dict, term: str) -> str:
 def brief_chain_section(state: dict, active: list[dict], term: str, profile: dict | None) -> str:
     context = state.get("context", {}) or {}
     rows = front_chain_rows(active, term, context, profile, 12)
+    page_sections = state.get("brief_page_sections", {}) or {}
+    page_chain = ""
+    if page_sections.get("chain"):
+        page_chain = "**Wiki 沉淀产业链（概念页）**\n\n" + page_sections["chain"]
     if not rows:
-        return "- 暂无可展示的产业链节点。"
+        return page_chain or "- 暂无可展示的产业链节点。"
     tree = front_chain_tree_section(term, rows, context)
+    if page_chain:
+        tree = page_chain + "\n\n**图谱产业链分布（entity_exposures）**\n\n" + tree if tree else page_chain
     stage_order = ["下游需求/应用", "中游产品/制造", "上游材料", "上游设备", "配套服务/生态"]
     grouped: dict[str, list[dict]] = {}
     for row in rows:
@@ -7207,10 +7305,22 @@ def brief_chain_section(state: dict, active: list[dict], term: str, profile: dic
 
 def brief_material_scan_section(state: dict, active: list[dict], term: str, profile: dict | None, limit: int = 20) -> str:
     rows = front_material_scan_rows(state)
-    if not rows:
+    sub_segments = state.get("brief_sub_segments", []) or []
+    if not rows and not sub_segments:
         return "- 暂无可展示的工艺/材料细分扫描。"
     lines = []
     seen = set()
+    for seg in sub_segments:
+        name = str(seg.get("name") or "").strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        lines.append(f"- **{front_compact_text(name, 46)}**｜wiki 细分概念")
+        if seg.get("anchor"):
+            lines.append(f"  - 定锚：{front_compact_text(seg['anchor'], 120)}")
+        names = [c.get("name", "") for c in seg.get("companies", [])]
+        if names:
+            lines.append(f"  - 代表公司：{front_unique_join(names, 10)}")
     for row in rows:
         name = str(row.get("name") or row.get("direction") or "").strip()
         if not name or name in seen:
@@ -7249,6 +7359,24 @@ def brief_segment_core_companies_section(state: dict, active: list[dict], term: 
     chunks = []
     seen = set()
     seen_company_sets: list[frozenset] = []
+    active_by_name = {c.get("name"): c for c in active}
+    for seg in state.get("brief_sub_segments", []) or []:
+        name = str(seg.get("name") or "").strip()
+        companies = seg.get("companies", [])
+        if not name or name in seen or not companies:
+            continue
+        name_set = frozenset(c.get("name", "") for c in companies)
+        if any(name_set <= prev for prev in seen_company_sets):
+            continue
+        seen.add(name)
+        seen_company_sets.append(name_set)
+        lines = [f"### {name}（wiki 细分概念）", "", "| 公司 | 暴露 | 一句话定位（wiki） |", "|---|---|---|"]
+        for company in companies[:per_segment]:
+            strength = "核心" if company.get("strength") == "core" else "相关"
+            merged = active_by_name.get(company.get("name")) or company
+            one = front_compact_text(merged.get("wiki_one_liner") or "", 80) or front_compact_text("、".join(company.get("roles", [])) or "待补", 60)
+            lines.append(f"| {company.get('name', '')} | {strength} | {one} |")
+        chunks.append("\n".join(lines))
     for row in map_subdirection_rows(state):
         subdir = map_clean_plain(row.get("subdir"), limit=70) or map_clean_plain(row.get("layer"), limit=70)
         if not subdir or subdir in seen or subdir == "待细分":
@@ -7283,6 +7411,8 @@ def build_brief_report(term: str, vault: Path, definition: str = "", context: di
         company["deep_dive_term"] = term
         company["direction_frame"] = context.get("direction_frame", {}) if isinstance(context, dict) else {}
     active = [c for c in companies if company_deep_dive_tier(c) != "weak"]
+    state["brief_page_sections"] = brief_primary_page_sections(vault, str(state.get("primary") or term))
+    state["brief_sub_segments"] = brief_subconcept_segments(term, state, vault)
     lines = [
         f"# {term} 题材速读",
         "",
