@@ -1,54 +1,80 @@
 #!/usr/bin/env python3
-"""Draft a theme-radar context JSON from raw notes.
+"""Draft a theme-radar supplement pool from raw notes (theme-agnostic).
 
-This is intentionally conservative. It creates a reviewable draft instead of
-claiming a fully verified research result.
+This is intentionally conservative: it produces a *reviewable draft* of the
+`theme_supplement_pool` JSON that ``radar.py`` consumes
+(``build_theme_supplement_pool_context``), not a finished research result.
+
+Two sources are combined:
+
+1. The knowledge base (``concept_graph.json`` + ``entity_exposures.json`` under
+   ``<vault>/relations``) supplies the *theme-specific* skeleton — which
+   sub-directions belong to the term and which companies sit on each, with
+   strength / role / chain-layer. This replaces the previous hard-coded
+   PCB/mSAP rules so the tool works for any theme (CPO, 硅光, 固态电池, ...).
+2. The raw input text supplies the *evidence* layer — definition, mention
+   frequency per direction, catalysts (time windows) and validation items.
+
+Output schema (matches radar.py consumer):
+
+    theme, generated_at, source_file, summary,
+    definition_profile, demand_scenarios, material_process_scan,
+    industry_chain_panorama, recognition_timeline, progress_ruler,
+    action_plan, validation_items, catalyst_calendar, evidence_items,
+    extraction_quality
+
+``recognition_timeline`` / ``progress_ruler`` / ``action_plan`` are emitted as
+empty lists on purpose — those are higher-conviction outputs that an agent
+should fill in after review (they are the next optimization stage), and the
+rule layer must not fabricate them.
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
+import os
 import re
 from pathlib import Path
 
 
-DIRECTION_RULES = [
-    ("mSAP半加成法", "PCB", ["mSAP", "MSAP", "半加成法"], "PCB精细线路工艺升级"),
-    ("感光干膜", "PCB材料", ["感光干膜", "干膜"], "mSAP扩散带动高端干膜需求"),
-    ("载体铜箔", "PCB材料", ["载体铜箔", "HVLP"], "高频高速PCB铜箔升级与国产替代"),
-    ("PCB化学品", "PCB材料", ["PCB化学品", "电镀液", "蚀刻液"], "精细线路制程材料需求"),
-    ("DPC陶瓷基板", "半导体散热", ["DPC陶瓷基板", "DPC"], "高功率芯片散热方案验证"),
-    ("TGV玻璃基板", "先进封装", ["TGV", "玻璃基板"], "先进封装载板长期替代"),
-    ("磷化铟(InP)", "光芯片材料", ["磷化铟", "InP"], "高速光模块材料升级"),
-    ("ABF载板", "封装载板", ["ABF载板", "ABF"], "先进封装载板需求"),
-    ("Low-CTE/T布", "PCB材料", ["Low-CTE", "T布", "低CTE"], "高速PCB低膨胀材料"),
-]
+DEFAULT_VAULT = Path(
+    os.path.expanduser(os.environ.get("CONCEPT_VAULT", "~/Desktop/c c/知识库/wiki"))
+)
 
-CHAIN_BUCKETS = {
-    "upstream_materials": ["感光干膜", "载体铜箔", "PCB化学品", "磷化铟(InP)", "ABF载板", "Low-CTE/T布"],
-    "upstream_equipment": ["曝光", "设备", "激光", "电镀设备"],
-    "midstream": ["mSAP半加成法", "PCB", "HDI", "类载板", "DPC陶瓷基板", "TGV玻璃基板"],
-    "downstream": ["1.6T光模块", "DDR5/存储模组", "CoWoP先进封装", "AI服务器", "Rubin平台"],
+# Map knowledge-base supply-chain bucket keys / entity chain_layer prefixes to
+# human-readable Chinese labels used in the rendered report.
+CHAIN_LABELS = {
+    "upstream_materials": "上游材料",
+    "upstream_equipment": "上游设备",
+    "upstream_components": "上游零部件/光芯片",
+    "midstream": "中游制造",
+    "midstream_manufacturing": "中游制造",
+    "midstream_components": "中游器件",
+    "downstream": "下游应用",
+    "downstream_infrastructure": "下游基础设施",
 }
 
-SCENARIO_RULES = [
-    ("1.6T光模块", ["1.6T", "光模块"], "速率提升推动PCB线宽/线距和高频材料要求提升"),
-    ("DDR5/存储模组", ["DDR5", "存储模组", "SO-DIMM"], "服务器内存条升级提升PCB制程要求"),
-    ("CoWoP先进封装", ["CoWoP", "先进封装"], "去中介层后PCB承载更多互联功能"),
-    ("AI服务器", ["AI服务器", "算力服务器"], "算力需求拉动高速PCB和材料升级"),
-    ("Rubin平台", ["Rubin"], "新平台试产是需求确认节点"),
-]
+STRENGTH_ORDER = {"core": 0, "related": 1, "peripheral": 2, "": 3, None: 3}
 
 TIME_PATTERNS = [
-    r"即时[:：]?\s*([^。\n]+)",
-    r"(6月|Q[1-4]|202[6-9]年|明年|下半年|上半年)[:：]?\s*([^。\n]+)",
+    r"(6月|7月|8月|9月|10月|11月|12月|Q[1-4]|202[5-9]年|今年|明年|后年|下半年|上半年|年底|年内)[:：]?\s*([^。\n；;]{4,60})",
 ]
+
+VALIDATION_KEYS = [
+    "是否", "验证", "订单", "中标", "涨价", "认证", "送样", "供货", "量产",
+    "扩产", "产线", "产能", "收入占比", "毛利", "良率", "确收", "落地", "放量",
+]
+
+# Words that signal *hard fact* vs *soft projection* vs *noise* — used only to
+# tag evidence_type, not to filter (filtering is the agent's job on review).
+HARD_FACT_KEYS = ["订单", "中标", "合同", "入股", "持股", "公告", "确收", "供货", "签署", "收购", "增资"]
+SOFT_KEYS = ["目标", "预期", "预计", "看好", "空间", "市值", "有望", "弹性", "或将", "假设"]
 
 
 def unique(items):
-    out = []
-    seen = set()
+    out, seen = [], set()
     for item in items:
         if item and item not in seen:
             seen.add(item)
@@ -58,234 +84,315 @@ def unique(items):
 
 def contains_any(text: str, words: list[str]) -> bool:
     lowered = text.lower()
-    return any(word.lower() in lowered for word in words)
+    return any(word and word.lower() in lowered for word in words)
 
 
-def short_hits(text: str, words: list[str], limit: int = 3) -> list[str]:
-    lines = []
+def split_sentences(text: str) -> list[str]:
+    out = []
     for line in text.splitlines():
         line = line.strip()
         if not line:
             continue
-        parts = re.split(r"[。；;]\s*", line)
-        lines.extend(part.strip() for part in parts if part.strip())
+        for part in re.split(r"[。；;\n]\s*", line):
+            part = part.strip(" 　-□*•·")
+            if part:
+                out.append(part)
+    return out
+
+
+def short_hits(sentences: list[str], words: list[str], limit: int = 3) -> list[str]:
     hits = []
-    for line in lines:
-        if contains_any(line, words):
-            hits.append(line[:80])
+    for s in sentences:
+        if contains_any(s, words):
+            hits.append(s[:90])
         if len(hits) >= limit:
             break
     return hits
 
 
-def infer_definition(term: str, text: str) -> str:
-    patterns = [
-        rf"{re.escape(term)}[^。\n]{{0,120}}(?:是|指|为)[^。\n]{{5,160}}",
-        r"mSAP[^。\n]{0,80}(?:是|为)[^。\n]{5,160}",
-    ]
-    for pattern in patterns:
-        m = re.search(pattern, text, re.I)
-        if m:
-            return m.group(0).strip(" ，。")
+def load_json(path: Path, default):
+    try:
+        with path.open(encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return default
+
+
+def load_relations(vault: Path) -> tuple[dict, dict]:
+    relations = vault / "relations"
+    concept_graph = load_json(relations / "concept_graph.json", {})
+    entity_exposures = load_json(relations / "entity_exposures.json", {})
+    concepts = concept_graph.get("concepts", {}) if isinstance(concept_graph, dict) else {}
+    entities = entity_exposures.get("entities", {}) if isinstance(entity_exposures, dict) else {}
+    return concepts, entities
+
+
+def match_concept(term: str, concepts: dict) -> str:
+    if not concepts:
+        return term
+    if term in concepts:
+        return term
+    lowered = term.lower()
+    # case-insensitive exact
+    for key in concepts:
+        if key.lower() == lowered:
+            return key
+    # term is a substring of a concept key (prefer shortest match)
+    candidates = [key for key in concepts if lowered in key.lower() or key.lower() in lowered]
+    if candidates:
+        return min(candidates, key=len)
+    return term
+
+
+def aliases_for(term_key: str, concepts: dict) -> list[str]:
+    """Tokens used to detect mentions of a direction in free text."""
+    toks = {term_key}
+    node = concepts.get(term_key, {})
+    for parent in node.get("parents", []) if isinstance(node, dict) else []:
+        toks.add(parent)
+    # split CamelCase / mixed alnum like "1.6T CPO" -> also add "CPO"
+    for piece in re.split(r"[\s/、，,]", term_key):
+        piece = piece.strip()
+        if len(piece) >= 2:
+            toks.add(piece)
+    return [t for t in toks if t]
+
+
+def directions_for(term_key: str, concepts: dict) -> list[str]:
+    """Sub-directions for a theme, sourced from the knowledge graph."""
+    node = concepts.get(term_key, {})
+    if not isinstance(node, dict):
+        return []
+    out = []
+    for rel in node.get("related_concepts", []) or []:
+        if rel and rel != term_key:
+            out.append(rel)
+    # supplement with midstream supply-chain stages (often the real "工艺/方向")
+    chain = node.get("supply_chain", {}) if isinstance(node.get("supply_chain"), dict) else {}
+    for stage in chain.get("midstream", []) or []:
+        out.append(stage)
+    return unique(out)
+
+
+def chain_bucket_of(direction: str, term_key: str, concepts: dict) -> str:
+    """Locate a direction within the theme's supply_chain buckets."""
+    node = concepts.get(term_key, {})
+    chain = node.get("supply_chain", {}) if isinstance(node, dict) else {}
+    if isinstance(chain, dict):
+        for bucket, members in chain.items():
+            for m in members or []:
+                if m and (m in direction or direction in m):
+                    return CHAIN_LABELS.get(bucket, bucket)
     return ""
 
 
-def infer_demand_scenarios(text: str) -> list[dict]:
-    rows = []
-    for scenario, words, logic in SCENARIO_RULES:
-        if not contains_any(text, words):
+def companies_for_direction(direction: str, concepts: dict, entities: dict, limit: int = 8) -> tuple[list[str], str]:
+    """Return (representative_entity_names, dominant_chain_layer_label).
+
+    Primary source: reverse index in entity_exposures (richer). Fallback:
+    companies listed directly on the concept node in concept_graph.
+    """
+    rows = []  # (strength_rank, name, chain_layer)
+    for name, info in entities.items():
+        if name == "ALL" or not isinstance(info, dict):
             continue
-        hits = short_hits(text, words)
-        requirement = ""
-        joined = " ".join(hits)
-        m = re.search(r"(线宽[^，。；\n]{0,30}|高层数[^，。；\n]{0,20}|高密度[^，。；\n]{0,20}|超精细线路[^，。；\n]{0,20})", joined)
-        if m:
-            requirement = m.group(0)
+        cmap = info.get("concepts", {})
+        if not isinstance(cmap, dict) or direction not in cmap:
+            continue
+        rel = cmap[direction] or {}
+        strength = rel.get("strength")
+        rows.append((STRENGTH_ORDER.get(strength, 3), name, rel.get("chain_layer") or ""))
+    rows.sort(key=lambda r: r[0])
+
+    if not rows:
+        # fallback: concept_graph node companies
+        node = concepts.get(direction, {})
+        for c in (node.get("companies", []) if isinstance(node, dict) else []):
+            if not isinstance(c, dict):
+                continue
+            rows.append((STRENGTH_ORDER.get(c.get("strength"), 3), c.get("name", ""), ""))
+        rows.sort(key=lambda r: r[0])
+
+    names = unique([r[1] for r in rows if r[1]])[:limit]
+    # dominant chain layer among the kept companies
+    layer = ""
+    for r in rows:
+        if r[2]:
+            layer = CHAIN_LABELS.get(r[2], r[2])
+            break
+    return names, layer
+
+
+DEFINITION_CUES = [
+    "技术", "材料", "方案", "器件", "封装", "工艺", "集成", "芯片", "设备",
+    "光学", "架构", "互联", "模块", "系统", "路线",
+]
+
+
+def infer_definition(term: str, sentences: list[str]) -> str:
+    """Return a definition only if the text genuinely defines the term:
+    the term must be immediately followed (within a short window) by a
+    copula (是/指/为/即) and the sentence must carry a domain noun cue.
+    Otherwise return "" — radar.py will fall back to the KB concept page,
+    which is more reliable than grabbing a random commentary sentence."""
+    pattern = re.compile(rf"{re.escape(term)}[（(][^)）]*[)）]?[^，。\n]{{0,6}}(?:是|指|为|即)|{re.escape(term)}[^，。\n]{{0,6}}(?:是|指|为|即)", re.I)
+    for s in sentences:
+        if 8 <= len(s) <= 160 and pattern.search(s) and any(cue in s for cue in DEFINITION_CUES):
+            return s.strip(" ，。：:")
+    return ""
+
+
+def frequency_label(count: int) -> str:
+    if count >= 3:
+        return "高频"
+    if count >= 1:
+        return "中频"
+    return "低频"
+
+
+def cognition_label(count: int) -> str:
+    if count >= 3:
+        return "L2-L3（已被多条资料确认）"
+    if count >= 1:
+        return "L1-L2（资料提及，待加强）"
+    return "L0-L1（图谱关联，文本未提）"
+
+
+def classify(count: int) -> str:
+    return "发酵" if count >= 1 else "布局"
+
+
+def evidence_kind(hits: list[str]) -> str:
+    joined = " ".join(hits)
+    if contains_any(joined, HARD_FACT_KEYS):
+        return "hard_fact"
+    if contains_any(joined, SOFT_KEYS):
+        return "soft_projection"
+    return "source" if hits else "inferred"
+
+
+def build_material_process_scan(term_key: str, concepts: dict, entities: dict, sentences: list[str]) -> list[dict]:
+    rows = []
+    for direction in directions_for(term_key, concepts):
+        alias = aliases_for(direction, concepts)
+        hits = short_hits(sentences, alias, limit=3)
+        count = sum(1 for s in sentences if contains_any(s, alias))
+        names, layer = companies_for_direction(direction, concepts, entities)
+        chain_position = layer or chain_bucket_of(direction, term_key, concepts)
+        rows.append({
+            "name": direction,
+            "major_track": term_key,
+            "chain_position": chain_position or "待补",
+            "prosperity_judgment": hits[0] if hits else "",
+            "daily_review_frequency": frequency_label(count),
+            "cognition_level": cognition_label(count),
+            "classification": classify(count),
+            "core_catalyst": hits[0] if hits else "",
+            "next_validation": "订单/客户认证/出货量或价格信号",
+            "representative_entities": names,
+            "evidence": hits[:2],
+            "evidence_type": evidence_kind(hits),
+        })
+    # stable order: 发酵 first, then by mention frequency
+    freq_rank = {"高频": 0, "中频": 1, "低频": 2}
+    rows.sort(key=lambda r: (0 if r["classification"] == "发酵" else 1, freq_rank.get(r["daily_review_frequency"], 3)))
+    return rows
+
+
+def infer_demand_scenarios(term_key: str, concepts: dict, entities: dict, sentences: list[str]) -> list[dict]:
+    node = concepts.get(term_key, {})
+    chain = node.get("supply_chain", {}) if isinstance(node, dict) else {}
+    downstream = chain.get("downstream", []) if isinstance(chain, dict) else []
+    rows = []
+    for scenario in unique(downstream):
+        alias = aliases_for(scenario, concepts)
+        hits = short_hits(sentences, alias, limit=2)
+        names, _ = companies_for_direction(scenario, concepts, entities, limit=6)
         rows.append({
             "scenario": scenario,
-            "logic": logic,
-            "process_requirement": requirement or "待补",
+            "downstream_driver": hits[0] if hits else "",
+            "beneficiary_links": [],
+            "representative_entities": names,
             "evidence": hits[:2],
-            "evidence_type": "source" if hits else "inferred",
-            "confidence": "medium" if hits else "low",
+            "evidence_type": evidence_kind(hits),
         })
     return rows
 
 
-def infer_direction_scan(text: str) -> list[dict]:
+def infer_catalyst_calendar(sentences: list[str], directions: list[str]) -> list[dict]:
     rows = []
-    for direction, sector, words, default_logic in DIRECTION_RULES:
-        if not contains_any(text, words):
+    text = "\n".join(sentences)
+    for m in re.finditer(TIME_PATTERNS[0], text):
+        window, event = m.group(1), m.group(2).strip()
+        if not event:
             continue
-        hits = short_hits(text, words)
-        freq = "中频" if len(hits) >= 2 else "低频"
-        recognition = "L2-L3" if freq == "中频" else "L1-L2"
-        classification = "发酵" if freq == "中频" else "布局"
+        direction = ""
+        for d in directions:
+            if d and (d in event):
+                direction = d
+                break
         rows.append({
             "direction": direction,
-            "sector": sector,
-            "prosperity": hits[0] if hits else default_logic,
-            "mention_frequency": freq,
-            "recognition_level": recognition,
-            "classification": classification,
-            "core_catalyst": infer_catalyst_for_direction(direction, text),
-            "candidate_companies": infer_companies_near_direction(direction, text),
-            "evidence": hits[:2],
-            "evidence_type": "source" if hits else "inferred",
-            "confidence": "medium" if hits else "low",
+            "time_window": window,
+            "event": event[:80],
+            "event_type": "hard" if contains_any(event, HARD_FACT_KEYS) else ("soft" if contains_any(event, SOFT_KEYS) else "信号"),
+            "evidence_summary": event[:80],
+            "next_watch": "验证订单/价格/客户认证/产能变化",
+            "source": "user_input",
+            "source_date": "",
+            "item_id": "",
         })
-    return rows
-
-
-def infer_catalyst_for_direction(direction: str, text: str) -> str:
-    if direction == "感光干膜":
-        return "mSAP产线扩张 -> 高端干膜需求验证"
-    if direction == "载体铜箔":
-        return "HVLP涨价/国产替代/客户导入"
-    if direction == "mSAP半加成法":
-        return "AI服务器PCB升级 + Rubin/光模块/存储需求确认"
-    if direction == "TGV玻璃基板":
-        return "量产进度与ABF替代验证"
-    if direction == "DPC陶瓷基板":
-        return "Rubin散热方案验证"
-    return "待补"
-
-
-def infer_companies_near_direction(direction: str, text: str) -> list[str]:
-    known = {
-        "mSAP半加成法": ["鹏鼎控股", "深南电路", "一博科技", "景旺电子", "兴森科技", "胜宏科技"],
-        "感光干膜": ["福斯特", "容大感光"],
-        "PCB化学品": ["天承科技"],
-    }
-    found = []
-    for company in known.get(direction, []):
-        if company in text:
-            found.append(company)
-    return found
-
-
-def infer_progress_ranking(direction_scan: list[dict], text: str) -> list[dict]:
-    rows = []
-    for row in direction_scan:
-        direction = row["direction"]
-        freq = row.get("mention_frequency", "低频")
-        classification = row.get("classification", "布局")
-        score = 55
-        stage = "萌芽期"
-        priority = "观察"
-        evidence = "Tier 3"
-        if classification == "发酵":
-            score = 78
-            stage = "第一轮"
-            priority = "重点跟踪"
-            evidence = "Tier 2"
-        if direction == "mSAP半加成法":
-            score = 86
-            stage = "催化共振"
-            priority = "已发酵，防一致预期"
-            evidence = "Tier 1"
-        elif direction in {"感光干膜", "载体铜箔", "PCB化学品"}:
-            score = max(score, 70)
-            priority = "重点跟踪"
-            evidence = "Tier 2"
-        rows.append({
-            "direction": direction,
-            "stage": stage,
-            "recognition_level": row.get("recognition_level", "待补"),
-            "evidence_level": evidence,
-            "progress_score": score,
-            "key_signal": row.get("prosperity", ""),
-            "next_validation": row.get("core_catalyst", "待补"),
-            "priority": priority,
-            "evidence_type": "inferred",
-            "confidence": "low",
-        })
-    return rows
-
-
-def infer_catalyst_calendar(text: str) -> list[dict]:
-    rows = []
-    for pattern in TIME_PATTERNS:
-        for m in re.finditer(pattern, text):
-            if len(m.groups()) == 1:
-                time, event = "即时", m.group(1)
-            else:
-                time, event = m.group(1), m.group(2)
-            rows.append({"time": time, "event": event.strip(), "watch_item": "验证订单、价格、客户认证或产能变化"})
-    return rows[:12]
-
-
-def infer_validation_checklist(text: str) -> list[dict]:
-    rows = []
-    lines = []
-    for line in text.splitlines():
-        line = line.strip(" 　-□*")
-        if not line:
-            continue
-        if "验证清单" in line:
-            line = line.split("：", 1)[-1]
-        lines.extend(part.strip(" 　-□*") for part in re.split(r"[；;。]", line) if part.strip())
-    for line in lines:
-        if any(key in line for key in ["是否", "验证", "订单", "涨价", "认证", "产线", "扩产", "收入占比"]):
-            rows.append({
-                "item": line[:100],
-                "why": "关系到题材从逻辑推演进入事实验证",
-                "status": "待验证",
-                "evidence_type": "source",
-            })
         if len(rows) >= 12:
             break
     return rows
 
 
-def infer_industry_chain_map(direction_scan: list[dict], demand_scenarios: list[dict]) -> dict:
-    chain = {key: [] for key in CHAIN_BUCKETS}
-    direction_names = [row["direction"] for row in direction_scan]
-    scenario_names = [row["scenario"] for row in demand_scenarios]
-    all_names = direction_names + scenario_names
-    for bucket, keywords in CHAIN_BUCKETS.items():
-        for name in all_names:
-            if any(keyword in name for keyword in keywords):
-                chain[bucket].append({"name": name, "role": bucket, "evidence_type": "source"})
-    return {key: unique_by_name(value) for key, value in chain.items()}
+def infer_validation_items(sentences: list[str], directions: list[str]) -> list[dict]:
+    rows = []
+    for s in sentences:
+        if not any(k in s for k in VALIDATION_KEYS):
+            continue
+        direction = ""
+        for d in directions:
+            if d and d in s:
+                direction = d
+                break
+        rows.append({
+            "direction": direction,
+            "item": s[:100],
+            "validation_window": "",
+            "upgrade_condition": "出现订单/客户认证/出货或价格的硬证据",
+            "downgrade_condition": "证伪或长期无进展",
+            "status": "待验证",
+            "validation_type": "hard_fact" if contains_any(s, HARD_FACT_KEYS) else "soft_projection",
+            "source": "user_input",
+            "source_date": "",
+            "item_id": "",
+        })
+        if len(rows) >= 12:
+            break
+    return rows
 
 
-def unique_by_name(items: list[dict]) -> list[dict]:
-    out = []
-    seen = set()
-    for item in items:
-        name = item.get("name")
-        if name and name not in seen:
-            seen.add(name)
-            out.append(item)
-    return out
-
-
-def extraction_quality(data: dict) -> dict:
-    tracked = [
-        "demand_scenarios",
-        "direction_scan",
-        "progress_ranking",
-        "catalyst_calendar",
-        "validation_checklist",
-    ]
-    total = 0
-    source_backed = 0
-    inferred = 0
+def extraction_quality(pool: dict, concept_matched: bool) -> dict:
+    tracked = ["demand_scenarios", "material_process_scan", "validation_items", "catalyst_calendar"]
+    total = source_backed = inferred = 0
     missing = []
     for field in tracked:
-        rows = data.get(field) or []
+        rows = pool.get(field) or []
         if not rows:
             missing.append(field)
             continue
         total += len(rows)
         for row in rows:
-            if isinstance(row, dict) and row.get("evidence_type") == "source":
+            et = row.get("evidence_type") if isinstance(row, dict) else None
+            if et in ("source", "hard_fact", "soft_projection"):
                 source_backed += 1
             else:
                 inferred += 1
     return {
-        "mode": "rule_draft",
+        "mode": "rule_draft_v2_theme_agnostic",
+        "concept_matched": concept_matched,
         "total_items": total,
         "source_backed_items": source_backed,
         "inferred_items": inferred,
@@ -294,56 +401,64 @@ def extraction_quality(data: dict) -> dict:
     }
 
 
-def build_context(term: str, text: str) -> dict:
-    direction_scan = infer_direction_scan(text)
-    demand_scenarios = infer_demand_scenarios(text)
-    progress_ranking = infer_progress_ranking(direction_scan, text)
-    demand_drivers = unique([row["scenario"] for row in demand_scenarios])
-    related_terms = unique([row["direction"] for row in direction_scan])
+def build_context(term: str, text: str, vault: Path) -> dict:
+    concepts, entities = load_relations(vault)
+    term_key = match_concept(term, concepts)
+    concept_matched = term_key in concepts
+    sentences = split_sentences(text)
 
-    data = {
+    material_process_scan = build_material_process_scan(term_key, concepts, entities, sentences)
+    directions = [r["name"] for r in material_process_scan]
+    demand_scenarios = infer_demand_scenarios(term_key, concepts, entities, sentences)
+    catalyst_calendar = infer_catalyst_calendar(sentences, directions)
+    validation_items = infer_validation_items(sentences, directions)
+
+    pool = {
+        "theme": term_key,
         "term": term,
-        "definition": infer_definition(term, text),
-        "aliases": [],
-        "english_terms": [],
-        "parent_concepts": [],
-        "chain_position": [],
-        "related_terms": related_terms,
-        "problem_solved": "",
-        "technical_modules": [],
-        "required_capabilities": [],
-        "capability_stack": [],
-        "demand_drivers": demand_drivers,
+        "generated_at": _dt.date.today().isoformat(),
+        "source_file": "",
+        "summary": {
+            "row_count": len(material_process_scan),
+            "company_count": len(unique(sum((r.get("representative_entities", []) for r in material_process_scan), []))),
+        },
+        "definition_profile": {
+            "definition": infer_definition(term, sentences),
+            "aliases": aliases_for(term_key, concepts),
+        },
         "demand_scenarios": demand_scenarios,
-        "industry_chain_map": infer_industry_chain_map(direction_scan, demand_scenarios),
-        "direction_scan": direction_scan,
-        "progress_ranking": progress_ranking,
-        "catalyst_calendar": infer_catalyst_calendar(text),
-        "validation_checklist": infer_validation_checklist(text),
-        "upstream": [],
-        "midstream": [],
-        "downstream": [],
-        "core_benefit_links": [],
-        "bottlenecks": [],
-        "verification_nodes": [],
-        "candidate_companies": unique(sum((row.get("candidate_companies", []) for row in direction_scan), [])),
-        "source_urls": [],
-        "confidence": "low",
-        "raw_extraction_note": "规则抽取草稿，需人工/LLM复核后再用于正式分析。"
+        "material_process_scan": material_process_scan,
+        "industry_chain_panorama": [],
+        "recognition_timeline": [],
+        "progress_ruler": [],
+        "action_plan": [],
+        "validation_items": validation_items,
+        "catalyst_calendar": catalyst_calendar,
+        "evidence_items": [],
+        "raw_extraction_note": (
+            "规则抽取草稿 v2（题材无关，骨架取自知识库 concept_graph/entity_exposures，"
+            "证据取自原文）。recognition_timeline/progress_ruler/action_plan 需人工/LLM 复核补充，"
+            "规则层不臆造。"
+        ),
     }
-    data["extraction_quality"] = extraction_quality(data)
-    return data
+    pool["extraction_quality"] = extraction_quality(pool, concept_matched)
+    return pool
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build a draft theme-radar context JSON from text notes.")
+    parser = argparse.ArgumentParser(
+        description="Build a draft theme_supplement_pool JSON from text notes (theme-agnostic)."
+    )
     parser.add_argument("--term", required=True)
     parser.add_argument("--input", required=True, help="raw text file")
+    parser.add_argument("--vault", default=str(DEFAULT_VAULT), help="wiki vault path (reads <vault>/relations)")
     parser.add_argument("--out", help="optional JSON output")
     args = parser.parse_args()
 
     text = Path(args.input).expanduser().read_text(encoding="utf-8")
-    data = build_context(args.term, text)
+    vault = Path(args.vault).expanduser()
+    data = build_context(args.term, text, vault)
+    data["source_file"] = str(Path(args.input).expanduser())
     payload = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
     if args.out:
         out = Path(args.out).expanduser()
