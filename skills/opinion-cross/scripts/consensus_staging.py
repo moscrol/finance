@@ -3,19 +3,27 @@
 
 opinion_store.py 把研报提纯成「观点事件」沉淀进 opinion-events.jsonl（累积+去重+来源归一）；
 本脚本是它的**演化视图层**：把库里每个标的/方向的事件按时间累积，映射到 theme-radar 已有的
-认同度阶梯 暗流→萌芽→第一轮→催化共振→一致认同（★1-5），回答三个问题：
+认同度阶梯 暗流→萌芽→第一轮(第一枪)→催化共振→一致认同（★1-5），回答"认同度演变"。
 
-  1) stage    每个标的现在处在哪一阶（当前阶段 + 认同度分 + 判定理由 + 升阶触发）。
+  1) stage    每个标的的认同度**下限** + 覆盖度 + 事实轨/广度轨 + 判定理由 + 升阶/待补触发。
   2) timeline 这个标的的认同度怎么一步步走上来的（哪天跳阶、被什么信号推上去）。
-  3) board    7 大方向（concept）同尺横向对比发酵进度（图1 那块）。
+  3) board    各方向（concept）同尺横向对比发酵进度（图1 那块）。
 
-设计原则（沿用 opinion-cross 哲学）：
-- **规则层不臆造**：阶段由库里可数信号决定（跨天数/来源数/硬度是否升级/催化/最佳Tier），
-  每一阶都给出可复核的理由串；缺证据就停在低阶，不脑补。
-- **盘面维度留空位**：认同度的「市场是否兑现」一维要等 b（盘面回溯 outcomes.jsonl）接进来，
-  当前用库内信号（硬度/跨日/多来源）staging，盘面项标「待补」。
-- **复用 radar 阶梯**：阶梯标签与分值镜像 theme-radar `radar.py` 的 recognition 体系
-  （暗流30/萌芽45/第一轮60/催化共振78/一致认同90），保证两套视图同一把尺。
+★ 沉淀层适配（核心）：库是 **append-only + 去重**，用户在持续回补历史卖方研报，
+  所以"当前快照"是**不完整**的，会随回补单调增长。本脚本据此做三件事，避免把
+  "数据没补够"误读成"市场没认同"：
+
+  - **阶段 = 下限语义**：输出的是"已入库证据**至少**支撑到哪一阶"。回补只会让某标的的
+    来源/跨天/硬证据单调增加 → 阶段**只升不降**。绝不把低覆盖当成"市场冷"。
+  - **单来源软料不判阶**：只有 1 个来源、且只有软推演的标的，归入「观察池·覆盖不足(待回补)」，
+    **不**硬扣「暗流/萌芽」。出现**事实锚点（🟢硬证据/催化）或多来源广度**时才正式上阶梯。
+  - **两条轨道分离**：
+      · 事实硬度轨（robust）——有无订单/合同/入股/催化。这条**不随回补改变含义**：
+        1 条硬证据就成立，是阶梯的主锚点。
+      · 舆情广度轨（回补敏感）——几家在喊、跨几天。这条**强烈依赖入库进度**，只作
+        覆盖度/置信度修饰，明确标"随回补上升、仅供参考"。
+
+  阶梯标签/分值镜像 theme-radar `radar.py` 的 recognition 体系，保证两套视图同一把尺。
 """
 
 from __future__ import annotations
@@ -34,6 +42,9 @@ STAGE_SCORE = {"暗流": 30, "萌芽": 45, "第一轮": 60, "催化共振": 78, 
 STAGE_STAR = {"暗流": 1, "萌芽": 2, "第一轮": 3, "催化共振": 4, "一致认同": 5}
 STAGE_ALIAS = {"第一轮": "第一枪"}  # 图里叫「第一枪」，引擎里叫「第一轮」，同义
 
+# 覆盖不足的前置桶：不在认同度阶梯上，专门收"单来源软料/证据未补全"，避免误判。
+WATCH = "观察池"
+
 # --- staging 阈值（集中放顶部便于调参；改这里即可调松紧）-----------------------
 TH_RESONANCE_SOURCES = 3   # 催化共振：≥3 来源
 TH_CONSENSUS_SOURCES = 5   # 一致认同：≥5 来源
@@ -45,15 +56,45 @@ def _tier_rank(t: str) -> int:
 
 
 def _stage_rank(stage: str) -> int:
-    return STAGE_LADDER.index(stage) if stage in STAGE_LADDER else -1
+    """认同度排序键；观察池(覆盖不足) 低于阶梯最低阶。"""
+    if stage == WATCH:
+        return -1
+    return STAGE_LADDER.index(stage) if stage in STAGE_LADDER else -2
 
 
 def stage_label(stage: str) -> str:
-    """带 ★ 与别名的展示标签，如 '第一轮(第一枪) ★★★'。"""
+    """带 ★ 与别名的展示标签，如 '第一轮(第一枪) ★★★'；观察池标覆盖不足。"""
+    if stage == WATCH:
+        return "观察池·覆盖不足"
     star = "★" * STAGE_STAR.get(stage, 0)
     alias = STAGE_ALIAS.get(stage)
     name = f"{stage}({alias})" if alias else stage
     return f"{name} {star}".strip()
+
+
+def coverage_label(sig: dict) -> str:
+    """入库覆盖度——告诉用户广度轨可信几分（回补敏感）。"""
+    if sig["sources"] >= 3 and sig["days"] >= 2:
+        return "较充分"
+    if sig["sources"] >= 2 or sig["days"] >= 2:
+        return "有限"
+    return "单点"
+
+
+def fact_track(sig: dict) -> str:
+    """事实硬度轨（robust，不随回补改变含义）。"""
+    if sig["has_hard"]:
+        return "🟢硬证据"
+    if sig["has_catalyst"]:
+        return "催化"
+    if sig["has_soft"]:
+        return "仅软推演"
+    return "—"
+
+
+def breadth_track(sig: dict) -> str:
+    """舆情广度轨（回补敏感，仅供参考）。"""
+    return f"{sig['sources']}源/{sig['days']}天"
 
 
 def cumulative_signals(events: list[dict]) -> dict:
@@ -82,6 +123,7 @@ def cumulative_signals(events: list[dict]) -> dict:
         "has_hard": bool(hard_dates),
         "first_hard_date": hard_dates[0] if hard_dates else "",
         "has_catalyst": bool(catalyst_dates),
+        "has_soft": bool(soft_dates) or any(e.get("soft_claims") for e in events),
         "best_tier": best_tier,
         "stance_split": {"看多", "看空"} <= stances,
         "hardness_upgraded": hardness_upgraded,
@@ -89,48 +131,55 @@ def cumulative_signals(events: list[dict]) -> dict:
 
 
 def decide_stage(sig: dict) -> tuple[str, list[str]]:
-    """由可数信号判定认同度阶段，返回(阶段, 理由串列表)。高阶优先匹配。"""
+    """由可数信号判定认同度**下限**，返回(阶段, 理由串)。事实锚点优先，单来源软料不判阶。
+
+    回补单调性：库 append-only，回补只会让 sources/days/has_hard 增加 →
+    decide_stage 的结果只会沿阶梯上升或不变，绝不下降。
+    """
     reasons: list[str] = []
-    sources, days, mentions = sig["sources"], sig["days"], sig["mentions"]
+    sources, days = sig["sources"], sig["days"]
     has_hard, has_cat = sig["has_hard"], sig["has_catalyst"]
 
-    # 一致认同：广泛多来源 + 跨多日 + 有硬证据（Tier1 作加分项，非门槛，因盘面维度待接）
+    # ===== 事实硬度轨（robust：含义不随回补改变，是阶梯主锚点）=====
     if sources >= TH_CONSENSUS_SOURCES and days >= TH_CONSENSUS_DAYS and has_hard:
-        reasons.append(f"{sources} 来源 / 跨 {days} 日反复印证且出现🟢硬证据")
-        if sig["best_tier"] == "Tier 1":
-            reasons.append("已达 Tier 1 三重共振")
-        else:
-            reasons.append("盘面维度待接(b)，暂以库内广度+硬度判一致认同")
+        reasons.append(f"{sources} 来源 / 跨 {days} 日反复印证且有🟢硬证据")
+        reasons.append("已达 Tier 1 三重共振" if sig["best_tier"] == "Tier 1"
+                       else "盘面维度待接(b)，暂以库内广度+硬度判一致认同")
         return "一致认同", reasons
 
-    # 催化共振：多来源(≥3) + 有硬证据 + 跨日
     if sources >= TH_RESONANCE_SOURCES and has_hard and days >= 2:
         reasons.append(f"{sources} 来源跨 {days} 日共振 + 🟢硬证据")
         return "催化共振", reasons
 
-    # 第一轮(第一枪)：首次出现硬证据 / 硬度升级 / 催化且有多来源印证
-    if has_hard or sig["hardness_upgraded"] or (has_cat and sources >= 2):
+    if has_hard or sig["hardness_upgraded"] or has_cat:
+        # 事实锚点存在 → 第一轮下限，即便仅单来源也成立（硬证据 robust）
         if sig["hardness_upgraded"]:
             reasons.append(f"硬度升级：{sig['first_hard_date']} 软推演→🟢硬证据")
         elif has_hard:
             reasons.append(f"{sig['first_hard_date']} 出现🟢硬证据(订单/合同/入股/公告)")
         else:
-            reasons.append(f"出现催化且 {sources} 来源印证")
+            reasons.append("出现催化事件")
+        if sources == 1:
+            reasons.append("仅单来源入库，广度待回补（阶段为下限）")
         return "第一轮", reasons
 
-    # 萌芽：被反复提及但仍是软推演（跨天 / 多来源 / 多次）
-    if mentions >= 2 or days >= 2 or sources >= 2:
-        reasons.append(f"被提及 {mentions} 次 / {sources} 来源 / 跨 {days} 日，仍属软推演")
+    # ===== 舆情广度轨（回补敏感）：多来源/跨日的软共识 → 萌芽（弱信号）=====
+    if sources >= 2 or days >= 2:
+        reasons.append(f"{sources} 来源/跨 {days} 日的软推演共识（广度轨，回补敏感）")
         return "萌芽", reasons
 
-    # 暗流：单次软提及，未被关注
-    reasons.append("单来源单日提及，尚未被关注")
-    return "暗流", reasons
+    # ===== 覆盖不足：单来源单日软料 → 不判阶，进观察池待回补 =====
+    reasons.append(f"仅 {sources} 来源入库（沉淀回补中），证据未补全，暂不判阶")
+    return WATCH, reasons
 
 
 def recognition_score(stage: str, sig: dict) -> int:
-    """镜像 radar.recognition_score：stage 基分 + 提及量 + 多来源/硬证据/催化 加分，封顶 99。"""
-    score = STAGE_SCORE.get(stage, 35) + min(sig["mentions"], 10)
+    """镜像 radar.recognition_score：stage 基分 + 提及量 + 多来源/硬证据/催化 加分，封顶 99。
+
+    观察池不在阶梯上 → 给覆盖度分(很低)，强调"未判阶"。
+    """
+    base = 20 if stage == WATCH else STAGE_SCORE.get(stage, 35)
+    score = base + min(sig["mentions"], 10)
     if sig["sources"] >= 2:
         score += 5
     if sig["has_hard"]:
@@ -141,7 +190,9 @@ def recognition_score(stage: str, sig: dict) -> int:
 
 
 def upgrade_trigger(stage: str, sig: dict) -> str:
-    """下一阶需要补什么，可执行的升阶触发。"""
+    """下一阶需要补什么；措辞贴合"持续回补"语境。"""
+    if stage == WATCH:
+        return "回补更多研报：再有来源/隔日提及，或出现🟢硬证据/催化 → 上阶梯"
     if stage == "暗流":
         return "再被 1+ 来源/隔日提及 → 萌芽"
     if stage == "萌芽":
@@ -160,13 +211,21 @@ def stage_a_target(events: list[dict]) -> dict:
         **sig,
         "stage": stage,
         "stage_reason": "；".join(reasons),
+        "coverage": coverage_label(sig),
+        "fact_track": fact_track(sig),
+        "breadth_track": breadth_track(sig),
         "recognition_score": recognition_score(stage, sig),
         "upgrade_trigger": upgrade_trigger(stage, sig),
     }
 
 
 def timeline_for_target(events: list[dict]) -> list[dict]:
-    """按报告日逐步累积，算每个日期截面的阶段，标出跳阶。"""
+    """按报告日逐步累积，算每个日期截面的阶段下限，标出跳阶。
+
+    注意：用 report_date（研报口径日），不是 ingested_at（入库日）。回补历史研报会
+    在更早日期插入新点 → 该标的时间轴会被重算（这是对的：重建"按研报日，当前已入库
+    证据下我们本应知道的认同度下限"）。所以 timeline 是**随回补刷新的**视图。
+    """
     by_date: dict[str, list[dict]] = {}
     for e in events:
         by_date.setdefault(e.get("report_date", ""), []).append(e)
@@ -194,6 +253,13 @@ def timeline_for_target(events: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 # 视图
 # ---------------------------------------------------------------------------
+BACKFILL_BANNER = (
+    "> ⚠️ **沉淀层持续回补中**：本表是**当前已入库证据**的认同度**下限**判断。库 append-only+去重，"
+    "回补只会让阶段**上升或不变**（单调），绝不下降。单来源软料归「观察池·覆盖不足」而非低估为某阶；"
+    "事实硬度轨(🟢硬证据/催化)robust 不随回补变，舆情广度轨(N源/N天)随回补上升、仅作覆盖度参考。"
+)
+
+
 def _filter_rows(rows: list[dict], term: str, concept: str, since: str) -> list[dict]:
     if term:
         rows = [r for r in rows if r.get("term") == term]
@@ -204,7 +270,7 @@ def _filter_rows(rows: list[dict], term: str, concept: str, since: str) -> list[
     return rows
 
 
-def view_stage(rows: list[dict]) -> tuple[str, list[dict]]:
+def view_stage(rows: list[dict], hide_watch: bool = False) -> tuple[str, list[dict]]:
     by_target: dict[str, list[dict]] = {}
     for r in rows:
         by_target.setdefault(r.get("target", ""), []).append(r)
@@ -218,18 +284,22 @@ def view_stage(rows: list[dict]) -> tuple[str, list[dict]]:
         agg.append(s)
     agg.sort(key=lambda a: (_stage_rank(a["stage"]), a["recognition_score"]), reverse=True)
 
-    lines = [f"# 舆情认同度 staging（{len(rows)} 事件 / {len(agg)} 标的）", ""]
-    lines.append("| 标的 | 方向 | 认同度阶段 | 认同度分 | 跨天 | 来源 | 硬证据 | 多空 | 判定理由 | 升阶触发 |")
-    lines.append("|---|---|---|---:|---:|---:|:--:|:--:|---|---|")
-    for a in agg:
+    n_watch = sum(1 for a in agg if a["stage"] == WATCH)
+    shown = [a for a in agg if not (hide_watch and a["stage"] == WATCH)]
+    lines = [f"# 舆情认同度 staging（下限）（{len(rows)} 事件 / {len(agg)} 标的，其中观察池 {n_watch}）", ""]
+    lines.append(BACKFILL_BANNER)
+    lines.append("")
+    lines.append("| 标的 | 方向 | 认同度(下限) | 下限分 | 覆盖度 | 事实轨(robust) | 广度轨(回补敏感) | 多空 | 判定理由 | 升阶/待补触发 |")
+    lines.append("|---|---|---|---:|:--:|:--:|:--:|:--:|---|---|")
+    for a in shown:
         lines.append(
             f"| {a['target']} | {a['concept']} | {stage_label(a['stage'])} | {a['recognition_score']} | "
-            f"{a['days']} | {a['sources']} | {'🟢' if a['has_hard'] else '—'} | "
+            f"{a['coverage']} | {a['fact_track']} | {a['breadth_track']} | "
             f"{'⚔️分歧' if a['stance_split'] else '—'} | {a['stage_reason']} | {a['upgrade_trigger']} |"
         )
     lines.append("")
-    lines.append("> 阶梯：暗流★→萌芽★★→第一轮(第一枪)★★★→催化共振★★★★→一致认同★★★★★。")
-    lines.append("> 「市场是否兑现」一维待 b（盘面回溯 outcomes.jsonl）接入；当前以库内 广度×跨日×硬度 判定。")
+    lines.append("> 阶梯：观察池(覆盖不足)·→萌芽★★→第一轮(第一枪)★★★→催化共振★★★★→一致认同★★★★★。")
+    lines.append("> 「市场是否兑现/透支」一维待 b（盘面回溯 outcomes.jsonl）接入。")
     return "\n".join(lines), agg
 
 
@@ -243,7 +313,7 @@ def view_timeline(rows: list[dict], only_target: str) -> str:
             key=lambda kv: (-len({e.get("report_date") for e in kv[1]}), -len(kv[1])),
         )
     ]
-    lines = ["# 认同度时间轴演变", ""]
+    lines = ["# 认同度时间轴演变（按研报日重算，随回补刷新）", ""]
     for target in targets:
         evs = by_target.get(target)
         if not evs:
@@ -261,7 +331,7 @@ def view_timeline(rows: list[dict], only_target: str) -> str:
             if s["jumped"]:
                 frm = f"{s['from_stage']}→" if s["from_stage"] else ""
                 lines.append(
-                    f"  - **{s['date']} {frm}{s['stage']}**（认同度 {s['score']}）"
+                    f"  - **{s['date']} {frm}{s['stage']}**（下限分 {s['score']}）"
                     f"｜{s['reason']}｜当日来源：{'、'.join(x for x in s['day_sources'] if x)}"
                 )
         lines.append("")
@@ -271,7 +341,7 @@ def view_timeline(rows: list[dict], only_target: str) -> str:
 
 
 def view_board(rows: list[dict]) -> str:
-    """跨方向（concept）横向对比发酵进度——图1 那块。"""
+    """各方向（concept）横向对比发酵进度——图1 那块。"""
     by_concept: dict[str, list[dict]] = {}
     for r in rows:
         c = r.get("concept", "")
@@ -284,7 +354,6 @@ def view_board(rows: list[dict]) -> str:
         stage, _ = decide_stage(sig)
         targets = sorted({e.get("target", "") for e in evs if e.get("target")})
         hard_targets = sorted({e.get("target", "") for e in evs if e.get("hard_evidence") and e.get("target")})
-        # 代表标的：有硬证据的优先，否则被提及最多的
         rep = hard_targets[0] if hard_targets else (
             max(targets, key=lambda t: sum(1 for e in evs if e.get("target") == t)) if targets else ""
         )
@@ -292,6 +361,7 @@ def view_board(rows: list[dict]) -> str:
             "concept": concept,
             "stage": stage,
             "score": recognition_score(stage, sig),
+            "coverage": coverage_label(sig),
             "targets": len(targets),
             "sources": sig["sources"],
             "days": sig["days"],
@@ -301,27 +371,30 @@ def view_board(rows: list[dict]) -> str:
         })
     board.sort(key=lambda b: (_stage_rank(b["stage"]), b["score"]), reverse=True)
 
-    lines = [f"# 方向 × 发酵进度横向对比（{len(board)} 方向）", ""]
-    lines.append("| 方向 | 发酵阶段 | 认同度分 | 标的数 | 硬证据标的 | 来源 | 跨天 | 代表标的 | 升阶触发 |")
-    lines.append("|---|---|---:|---:|---:|---:|---:|---|---|")
+    lines = [f"# 方向 × 发酵进度横向对比（下限）（{len(board)} 方向）", ""]
+    lines.append(BACKFILL_BANNER)
+    lines.append("")
+    lines.append("| 方向 | 发酵阶段(下限) | 下限分 | 覆盖度 | 标的数 | 硬证据标的 | 来源 | 跨天 | 代表标的 | 升阶/待补触发 |")
+    lines.append("|---|---|---:|:--:|---:|---:|---:|---:|---|---|")
     for b in board:
         lines.append(
-            f"| {b['concept']} | {stage_label(b['stage'])} | {b['score']} | {b['targets']} | "
+            f"| {b['concept']} | {stage_label(b['stage'])} | {b['score']} | {b['coverage']} | {b['targets']} | "
             f"{b['hard_targets']} | {b['sources']} | {b['days']} | {b['rep']} | {b['trigger']} |"
         )
     lines.append("")
-    lines.append("> 横向同尺比较各方向发酵到哪一阶；越靠前 = 认同度越高（越接近一致/透支），越靠后 = 越早期(暗流/萌芽，潜在布局区)。")
+    lines.append("> 同尺横向比较各方向发酵到哪一阶（下限）；越靠前=认同度越高(越接近一致/透支)，越靠后/观察池=越早期或覆盖未补足。")
     return "\n".join(lines)
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="观点事件库 → 认同度 staging / 时间轴 / 跨方向横向对比")
+    ap = argparse.ArgumentParser(description="观点事件库 → 认同度 staging / 时间轴 / 跨方向横向对比（沉淀层下限语义）")
     ap.add_argument("--store", required=True, help="opinion-events.jsonl 路径")
     ap.add_argument("--view", choices=["stage", "timeline", "board", "all"], default="all")
     ap.add_argument("--term", default="", help="只看某题材")
     ap.add_argument("--concept", default="", help="只看某方向(concept)")
     ap.add_argument("--target", default="", help="timeline 视图聚焦单标的")
     ap.add_argument("--since", default="", help="只算该日期(含)之后的事件 YYYY-MM-DD")
+    ap.add_argument("--hide-watch", action="store_true", help="stage 视图隐藏观察池(覆盖不足)标的，只看已上阶梯的")
     ap.add_argument("--markdown", default="", help="把报告写到文件")
     ap.add_argument("--json", action="store_true", help="额外输出结构化 JSON 到 stdout")
     args = ap.parse_args(argv)
@@ -334,7 +407,7 @@ def main(argv=None) -> int:
     blocks = []
     stage_agg = None
     if args.view in ("stage", "all"):
-        md, stage_agg = view_stage(rows)
+        md, stage_agg = view_stage(rows, hide_watch=args.hide_watch)
         blocks.append(md)
     if args.view in ("timeline", "all"):
         blocks.append(view_timeline(rows, args.target))
