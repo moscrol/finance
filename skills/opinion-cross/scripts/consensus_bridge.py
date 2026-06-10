@@ -231,6 +231,23 @@ def group_events(rows: list[dict], by: str) -> dict[str, list[dict]]:
     return groups
 
 
+def concept_owner_term(events_by_concept: dict[str, list[dict]]) -> dict[str, str]:
+    """每个 concept(方向) 归属其『主 term』(出现事件最多的 term)。
+
+    避免 term-scoping 把跨 term/跨日的同一方向证据割裂：一个方向只算一次、归唯一 term，
+    再在该 term 下用『全库该方向事件』聚合 → 与 consensus_staging --view board(按 concept 全局)一致。
+    """
+    owner: dict[str, str] = {}
+    for concept, evs in events_by_concept.items():
+        counts: dict[str, int] = {}
+        for e in evs:
+            t = e.get("term", "")
+            if t:
+                counts[t] = counts.get(t, 0) + 1
+        owner[concept] = max(counts, key=counts.get) if counts else "(未分类)"
+    return owner
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="观点事件库 → per-theme 信号 → theme_signals.json（下限语义、append-only 友好）")
     ap.add_argument("--store", required=True, help="opinion-events.jsonl 路径")
@@ -244,11 +261,23 @@ def main(argv=None) -> int:
         print("空库，无事件可桥接", file=sys.stderr)
         return 1
 
+    # 方向(concept)为信号原子单位，全库聚合；按『主 term』归属，term 条目=其名下各方向的全库事件并集。
+    # 这样 term CPO 下的『1.6T CPO』用全库 8 事件(跨 06-09/06-10、4 源)→ 催化共振，与 board 一致，
+    # 不再因 term-scoping(仅 06-10) 被低估为第一轮；单个被错标 concept 的事件也不会把外来方向拖进来。
+    events_by_concept = group_events(rows, "concept")
+    owner = concept_owner_term(events_by_concept)
+    term_events: dict[str, list[dict]] = {}
+    for concept, evs in events_by_concept.items():
+        term_events.setdefault(owner[concept], []).extend(evs)
+    for e in rows:  # 无 concept 的残余事件按其 term 兜底，确保 223 事件无静默丢失
+        if not e.get("concept"):
+            term_events.setdefault(e.get("term") or "(未分类)", []).append(e)
+
     new_entries: dict[str, dict] = {}
-    for term, evs in group_events(rows, "term").items():
+    for term, evs in term_events.items():
         new_entries[term] = build_theme_entry(term, evs)
     if args.also_concepts:
-        for concept, evs in group_events(rows, "concept").items():
+        for concept, evs in events_by_concept.items():
             if concept not in new_entries:  # term 优先，不覆盖同名
                 new_entries[concept] = build_theme_entry(concept, evs)
 
@@ -264,7 +293,12 @@ def main(argv=None) -> int:
     themes = existing.setdefault("themes", {})
 
     preserved = sum(1 for v in themes.values() if isinstance(v, dict) and v.get("_source") != BRIDGE_TAG)
-    # 只覆盖本桥写的条目，保留其它来源的 theme
+    # 先剪除上轮本桥写、但本轮不再生成的陈旧条目（归属变化/去重后 key 会变），保留其它来源 theme
+    stale = [k for k, v in themes.items()
+             if isinstance(v, dict) and v.get("_source") == BRIDGE_TAG and k not in new_entries]
+    for k in stale:
+        del themes[k]
+    # 再 upsert 本轮条目（只动本桥 key，不碰其它来源写的 theme）
     for key, entry in new_entries.items():
         themes[key] = entry
 
@@ -282,7 +316,7 @@ def main(argv=None) -> int:
         ((k, v["_meta"]["stage_floor"], v["_meta"]["coverage"], v["_meta"]["events"]) for k, v in new_entries.items()),
         key=lambda x: -x[3],
     )
-    print(f"桥接 {len(rows)} 事件 → {len(new_entries)} 个 theme 条目（保留非本桥条目 {preserved} 个）")
+    print(f"桥接 {len(rows)} 事件 → {len(new_entries)} 个 theme 条目（保留非本桥 {preserved} 个，剪除陈旧本桥 {len(stale)} 个）")
     for k, st, cov, n in summary[:20]:
         print(f"  - {k}: {st} | 覆盖{cov} | {n} 事件")
     if len(summary) > 20:
