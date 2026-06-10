@@ -60,7 +60,7 @@ def main() -> int:
       <p class="group-title">Workspace</p>
       <nav class="nav" aria-label="主页面切换">
         <button class="tab active" data-mode="daily">每日复盘<small>市场复盘 / 题材雷达</small></button>
-        <button class="tab" data-mode="strategy">策略组合<small>策略一 / 策略二 / 策略三 / 二板晋级</small></button>
+        <button class="tab" data-mode="strategy">策略组合<small>策略一 / 策略二 / 策略三 / 策略四 / 二板晋级</small></button>
       </nav>
       <div class="daily-picker" id="dailyPicker">
         <label class="label" for="dailyDate">复盘日期</label>
@@ -78,6 +78,7 @@ def main() -> int:
         <button class="subtab active" data-src="strategy1-priority-stock-matrix.html" data-title="策略一优先股矩阵">策略一</button>
         <button class="subtab" data-src="strategy2-weak-market-matrix.html" data-title="策略二弱市三路径矩阵">策略二</button>
         <button class="subtab" data-src="strategy3-touch-up-rebound-matrix.html" data-title="策略三Touch UP左侧反抽矩阵">策略三</button>
+        <button class="subtab" data-src="strategy4-dual-engine-matrix.html" data-title="策略四双引擎每日优选矩阵">策略四</button>
         <button class="subtab" data-src="second-board-4plus-candidate-matrix.html" data-title="二板冲四板以上候选矩阵">二板晋级</button>
       </nav>
     </section>
