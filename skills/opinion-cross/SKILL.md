@@ -185,8 +185,56 @@ python3 skills/opinion-cross/scripts/opinion_store.py list \
 - 库是**派生数据文件**（默认 `<vault>/raw/theme-radar/opinion-store/`），**不写** KB 的 concepts/entities/relations，也**不进代码仓**。硬料若要进 KB ground truth，仍走 `disclosure-archive` 的人工审核 `--apply`。
 - 这一层只做"累积 + 聚合 + 来源归一"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1、算机构胜率）是下一步 b。
 
+## 认同度 staging + 时间轴（演化视图层 · `consensus_staging.py`）
+
+`opinion_store` 把事件累积进库、`summary` 给一张静态聚合表；但"同一标的被反复提"到底**走到哪一阶、哪天跳的阶、和别的方向比发酵到什么程度**，静态表看不出。`consensus_staging.py` 是库的**演化视图层**：把每个标的/方向的事件按时间累积，映射到 `theme-radar` 已有的认同度阶梯，回答"认同度演变"。
+
+```
+opinion-events.jsonl
+  → [按标的/方向分组 + 按报告日累积]
+  → [可数信号]  跨天数 / 来源数 / 硬度是否升级(软→硬) / 催化 / 最佳Tier / 多空
+  → [映射认同度阶梯]  暗流★ → 萌芽★★ → 第一轮(第一枪)★★★ → 催化共振★★★★ → 一致认同★★★★★
+  → stage(当前阶+认同度分+理由+升阶触发) / timeline(逐日跳阶轨迹) / board(跨方向横向对比)
+```
+
+**认同度阶梯（镜像 `radar.py` recognition 体系，同一把尺）**：
+
+| 阶段 | ★ | 基分 | 判定（库内信号，高阶优先） |
+|---|---|---|---|
+| 暗流 | ★ | 30 | 单来源单日提及，未被关注 |
+| 萌芽 | ★★ | 45 | 被反复提及（≥2 次/≥2 来源/≥2 天）但仍是软推演 |
+| 第一轮(第一枪) | ★★★ | 60 | 首次出现🟢硬证据 / 硬度升级(软→硬) / 催化且 ≥2 来源印证 |
+| 催化共振 | ★★★★ | 78 | ≥3 来源跨 ≥2 日共振 + 🟢硬证据 |
+| 一致认同 | ★★★★★ | 90 | ≥5 来源跨 ≥3 日 + 🟢硬证据（Tier1 加分；越靠此阶越接近透支） |
+
+> 认同度分 = 阶段基分 + min(提及数,10) + 多来源(+5) + 硬证据(+8) + 催化(+3)，封顶 99，与 radar `recognition_score` 同公式。阈值（共振/一致的来源·天数门槛）集中放脚本顶部常量，便于调松紧。
+
+**用法**：
+
+```bash
+STORE="<KB>/wiki/raw/theme-radar/opinion-store/opinion-events.jsonl"
+
+# 三视图一起出（默认）
+python3 skills/opinion-cross/scripts/consensus_staging.py --store "$STORE" --term CPO
+
+# 单标的逐日认同度演变（哪天跳阶、被什么信号推上去）
+python3 skills/opinion-cross/scripts/consensus_staging.py --store "$STORE" --view timeline --target 中际旭创
+
+# 跨方向横向对比发酵进度（图1 那块）
+python3 skills/opinion-cross/scripts/consensus_staging.py --store "$STORE" --view board
+
+# 参数：--view stage|timeline|board|all  --term/--concept/--since 过滤  --markdown 落地  --json 结构化
+```
+
+**已验证（CPO + 6.8/6.9/6.10 机器人三批库，223 事件）**：
+- stage：罗博特科/兆驰/工业富联（有🟢硬证据）→ 第一轮；新易盛（2 来源软推演）→ 萌芽；天孚/中际旭创/炬光等单日单源 → 暗流。
+- timeline：**中际旭创** `06-08 第一轮 → 06-09 催化共振(认同度97，3来源跨2日+硬证据) → 06-10 催化共振`；**新易盛** `06-08 暗流 → 06-09 萌芽`——跨日跳阶轨迹正确。
+- board：1.6T CPO / CPO 方向已到第一轮，半导体设备方向仍暗流——同尺横向可比。
+
+**边界**：当前 staging 只用**库内信号**（广度×跨日×硬度×催化）；认同度的「市场是否兑现/透支」一维要等 **b（盘面回溯 `outcomes.jsonl`）** 接进来，脚本里这一维标「待补」，升阶触发已写明"接盘面兑现"。纯派生视图，**只读库不写库**。
+
 ## 与其他 skill 的关系
 
-- **复用** `theme-radar`：三维交叉引擎（`signal_dimension_rows`/`resonance_tier`）+ KB relations（`concept_graph`/`entity_exposures`）。
+- **复用** `theme-radar`：三维交叉引擎（`signal_dimension_rows`/`resonance_tier`）+ 认同度阶梯（`recognition_score`/stage 体系）+ KB relations（`concept_graph`/`entity_exposures`）。
 - **盘面维度（待接）**：`limit-advance` / `top-gainers` / `high-volume-gainers` / `market-overview`。
 - **补库（上游）**：标的/题材缺失时用 `disclosure-archive` / `*-ingest` 先补 KB。
