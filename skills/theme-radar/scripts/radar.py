@@ -470,6 +470,11 @@ def is_explicit_weak_graph_only(data: dict) -> bool:
     )
 
 
+def is_company_baseline_source(text: str) -> bool:
+    text = str(text or "")
+    return any(token in text for token in ("iFinD baseline", "AkShare baseline", "a-stock baseline", "Baseline"))
+
+
 def buckets_for_exposure(exp: dict) -> list[str]:
     buckets = []
     update_type = str(exp.get("update_type") or "").strip()
@@ -480,7 +485,7 @@ def buckets_for_exposure(exp: dict) -> list[str]:
     if update_type == "baseline":
         buckets.append("baseline")
     sources = " ".join(str(x) for x in exp.get("sources", []) or [])
-    if "iFinD baseline" in sources or "AkShare baseline" in sources or "Baseline" in sources:
+    if is_company_baseline_source(sources):
         buckets.append("baseline")
     if not is_explicit_weak_graph_only(exp) and any(token in sources for token in ("市场逻辑", "强势股", "评级日报", "复盘", "脱水")):
         buckets.append("delta")
@@ -821,7 +826,7 @@ def enrich_companies_from_evidence_index(companies: list[dict], evidence_index: 
         update_type = str(item.get("update_type") or "").strip()
         source = str(item.get("source") or "")
         evidence = str(item.get("evidence") or "").strip()
-        is_company_baseline = "iFinD baseline" in source or "AkShare baseline" in source or "Baseline" in source
+        is_company_baseline = is_company_baseline_source(source)
         if concept and concept_set and concept not in concept_set and not is_company_baseline:
             continue
         chosen_buckets = []

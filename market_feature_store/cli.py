@@ -1,0 +1,991 @@
+"""Market Feature Store 命令行入口。
+
+用法:
+    python3 -m market_feature_store.cli init    # 初始化 schema (幂等)
+    python3 -m market_feature_store.cli info    # 查看库内表与行数
+"""
+import argparse
+import sys
+
+from . import __version__
+from .db import DB_PATH, connect, init_db, list_tables
+
+
+def cmd_init(_args) -> int:
+    init_db()
+    con = connect(read_only=True)
+    try:
+        tables = list_tables(con)
+    finally:
+        con.close()
+    print(f"已初始化: {DB_PATH}")
+    print(f"表数量: {len(tables)}")
+    for t in tables:
+        print(f"  - {t}")
+    return 0
+
+
+def cmd_sync_sectors(args) -> int:
+    from .sync.sync_fupanhui_sectors import sync_dim_sector
+
+    stats = sync_dim_sector(trade_date=args.trade_date)
+    print(f"拉取板块: {stats['fetched']}")
+    print(f"dim_sector 总数: {stats['dim_sector_total']}")
+    print(f"已映射申万一级: {stats['mapped_sw_l1']}")
+    print(f"基准日期: {stats['seen_date']}")
+    unmapped = stats["unmapped_names"]
+    if unmapped:
+        print(f"未映射板块 ({len(unmapped)}): {', '.join(unmapped)}")
+    else:
+        print("未映射板块: 0")
+    return 0
+
+
+def cmd_sync_sector_daily(args) -> int:
+    from .sync.sync_fupanhui_sector_daily import sync_fact_sector_daily
+
+    stats = sync_fact_sector_daily(trade_date=args.trade_date, days=args.days)
+    print(f"板块数: {stats['sectors']} (空序列 {stats['empty_sectors']})")
+    print(f"写入行: {stats['rows_written']}")
+    print(f"fact_sector_daily 总数: {stats['fact_sector_daily_total']}")
+    print(f"覆盖交易日: {stats['distinct_dates']} ({stats['date_min']} ~ {stats['date_max']})")
+    return 0
+
+
+def cmd_sync_sector_daily_range(args) -> int:
+    from .sync.sync_fupanhui_sector_daily import sync_fact_sector_daily_range
+
+    stats = sync_fact_sector_daily_range(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        days=args.days,
+        chunk_days=args.chunk_days,
+        refresh=args.refresh,
+        sleep=args.sleep,
+    )
+    print(f"目标交易日: {stats['requested_dates']} 个 | 来源: {stats['date_source']}")
+    print(f"同步: {stats['synced_dates']} | 跳过: {stats['skipped_dates']} | 失败批次: {stats['failed_chunks']}")
+    print(f"本次写入/覆盖板块日行情: {stats['total_rows_written']} 行")
+    print(f"fact_sector_daily: {stats['table_total']} 行, {stats['table_dates']} 交易日 ({stats['date_min']}~{stats['date_max']}), 空diff {stats['null_diff_ratio']}")
+    if stats["skipped"]:
+        print("跳过日期: " + ", ".join(f"{x['trade_date']}({x['existing_rows']}行)" for x in stats["skipped"][:20]))
+    if stats["failures"]:
+        print("失败批次: " + ", ".join(f"{x['trade_date']}({x['error']})" for x in stats["failures"][:10]))
+    return 1 if stats["failures"] else 0
+
+
+def cmd_sync_sector_stocks(args) -> int:
+    from .sync.sync_fupanhui_sector_stock_daily import sync_fact_sector_stock_daily
+
+    stats = sync_fact_sector_stock_daily(
+        trade_date=args.trade_date,
+        sector=args.sector,
+        limit=args.limit,
+        only_missing=not args.refresh,
+        sleep=args.sleep,
+    )
+    print(f"交易日: {stats['trade_date']}")
+    print(f"本次抓取板块: {stats['processed']} | 写入行: {stats['rows_written']}")
+    print(f"当日已完成板块: {stats['sectors_done_today']}/{stats['sectors_total']} | 剩余: {stats['sectors_remaining']}")
+    print(f"fact_sector_stock_daily 总数: {stats['table_total']}")
+    if stats["failures"]:
+        print(f"失败 {len(stats['failures'])}: " + ", ".join(c for c, _ in stats['failures'][:10]))
+    return 0
+
+
+def cmd_sync_market_daily(_args) -> int:
+    from .sync.sync_feishu_market_daily import sync_fact_market_daily
+
+    stats = sync_fact_market_daily()
+    print(f"飞书拉取: {stats['fetched']} 条 | 写入: {stats['written']} 条")
+    print(f"fact_market_daily 总数: {stats['table_total']} ({stats['date_min']} ~ {stats['date_max']})")
+    print(f"空成交额行: {stats['null_total_amount']}")
+    if stats["skipped"]:
+        print(f"跳过(无效日期) {len(stats['skipped'])}: " + ", ".join(str(s) for s in stats['skipped'][:10]))
+    return 0
+
+
+def cmd_sync_index_daily(args) -> int:
+    from .sync.sync_akshare_index_daily import sync_akshare_index_daily
+
+    stats = sync_akshare_index_daily(
+        trade_date=args.trade_date,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        symbol=args.symbol,
+    )
+    print(f"指数: {stats['symbol']} | 写入: {stats['rows_written']} 行")
+    print(f"指数点位覆盖: {stats['close_count']} 行 ({stats['date_min']} ~ {stats['date_max']})")
+    if stats["current"]:
+        d, close, pct = stats["current"]
+        print(f"当前: {d} 收盘={close} 涨跌幅={pct}%")
+    return 0
+
+
+
+def cmd_sync_sw_l1_daily(args) -> int:
+    from .sync.sync_akshare_sw_l1_daily import sync_akshare_sw_l1_daily
+
+    stats = sync_akshare_sw_l1_daily(
+        trade_date=args.trade_date,
+        days=args.days,
+    )
+    print(f"交易日: {stats['trade_date']} | 目标交易日: {stats['target_dates']} | 申万一级: {stats['industries']}")
+    print(f"写入: {stats['rows_written']} 行")
+    print(f"fact_sw_l1_daily: {stats['table_total']} 行, {stats['table_dates']} 交易日 ({stats['date_min']} ~ {stats['date_max']}), 复盘占比 {stats['ratio_count']} 行")
+    focus = [row for row in stats["current"] if row[0] in ("电子", "通信", "机械设备", "电力设备")]
+    for sw_l1, pct_chg, ratio, source in focus:
+        print(f"{sw_l1}: 涨跌幅={pct_chg} 占比={ratio} 来源={source}")
+    if stats.get("failures"):
+        print("失败行业: " + ", ".join(f"{x['sw_l1']}({x['error'][:40]})" for x in stats["failures"][:10]))
+    return 0
+
+
+def cmd_sync_market_strength(args) -> int:
+    from .sync.sync_fupanhui_market_daily import sync_fupanhui_market_strength
+
+    stats = sync_fupanhui_market_strength(trade_date=args.trade_date, days=args.days)
+    print(f"交易日: {stats['trade_date']} | 写入强度序列: {stats['rows_written']} 行")
+    print(f"fact_market_daily 总数: {stats['table_total']} ({stats['date_min']} ~ {stats['date_max']})")
+    print(f"强度覆盖: avg={stats['strength_avg_count']} amount_pct={stats['strength_amount_pct_count']} marginal={stats['strength_marginal_count']}")
+    if stats["current"]:
+        avg, amount_pct, amount, marginal, status = stats["current"]
+        print(f"当前强度: 加权涨幅={avg}% 成交占比={amount_pct}% 成交额={amount}亿 成交环比={marginal}% 状态={status}")
+    return 0
+
+
+def cmd_sync_market_deviation(args) -> int:
+    from .sync.sync_fupanhui_market_deviation import sync_market_deviation
+
+    stats = sync_market_deviation(trade_date=args.trade_date)
+    print(f"交易日: {stats['trade_date']} | 周均线={stats['sh_week_ma']} 偏离度={stats['sh_deviation_pct']}%")
+    if stats["current"]:
+        print(f"已写入: {stats['current']}")
+    return 0
+
+
+def cmd_sync_market_overview(args) -> int:
+    from .sync.sync_fupanhui_market_daily import sync_fupanhui_market_overview
+
+    stats = sync_fupanhui_market_overview(trade_date=args.trade_date, days=args.days)
+    print(f"交易日: {stats['trade_date']} | 每日复盘结构化写入: {stats['rows_written']} 行")
+    print(f"fact_market_daily 总数: {stats['table_total']} ({stats['date_min']} ~ {stats['date_max']})")
+    print(f"覆盖: 成交额={stats['total_amount_count']} 涨家数={stats['advancers_count']} 前三行业={stats['top3_ratio_count']}")
+    if stats["current"]:
+        stage, stage_day, amount, ratio, adv, limit_up, limit_down, top3 = stats["current"]
+        print(f"当前: {stage or '-'} 第{stage_day or '-'}天 | 成交额={amount}亿 量能比={ratio}% | 涨={adv} 涨停={limit_up} 跌停={limit_down} | 前三占比={top3}%")
+    return 0
+
+
+def cmd_sync_market_overview_range(args) -> int:
+    from .sync.sync_fupanhui_market_daily import sync_fupanhui_market_overview_range
+
+    stats = sync_fupanhui_market_overview_range(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        days=args.days,
+        api_days=args.api_days,
+        refresh=args.refresh,
+        sleep=args.sleep,
+    )
+    print(f"目标交易日: {stats['requested_dates']} 个 | 来源: {stats['date_source']}")
+    print(f"同步: {stats['synced_dates']} | 跳过: {stats['skipped_dates']} | 失败: {stats['failed_dates']}")
+    print(f"fact_market_daily: {stats['table_total']} 行, {stats['table_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    print(f"覆盖: 成交额={stats['total_amount_count']} 涨家数={stats['advancers_count']} 前三行业={stats['top3_ratio_count']}")
+    if stats["skipped"]:
+        print("跳过日期: " + ", ".join(x["trade_date"] for x in stats["skipped"][:20]))
+    if stats["failures"]:
+        print("失败日期: " + ", ".join(f"{x['trade_date']}({x['error']})" for x in stats["failures"][:10]))
+    return 1 if stats["failures"] else 0
+
+
+def cmd_sync_stock_high(args) -> int:
+    from .sync.sync_fupanhui_stock_high_daily import sync_fupanhui_stock_high
+
+    stats = sync_fupanhui_stock_high(trade_date=args.trade_date, page_size=args.page_size)
+    print(f"交易日: {stats['trade_date']} | 个股新高写入: {stats['unique_stocks']} 只")
+    print("周期抓取: " + ", ".join(f"{k}={v}" for k, v in stats["fetched_by_period"].items()))
+    print("市场新高家数: " + ", ".join(f"{k}={v}" for k, v in stats["counts"].items()))
+    print(f"fact_stock_high_daily: {stats['table_total']} 行, {stats['table_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    print(f"其中 primary=历史新高: {stats['history_rows']} 行")
+    return 0
+
+
+def cmd_sync_stock_high_range(args) -> int:
+    from .sync.sync_fupanhui_stock_high_daily import sync_fupanhui_stock_high_range
+
+    stats = sync_fupanhui_stock_high_range(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        days=args.days,
+        page_size=args.page_size,
+        refresh=args.refresh,
+        sleep=args.sleep,
+    )
+    print(f"目标交易日: {stats['requested_dates']} 个 | 来源: {stats['date_source']}")
+    print(f"同步: {stats['synced_dates']} | 跳过: {stats['skipped_dates']} | 失败: {stats['failed_dates']}")
+    print(f"本次同步个股新高合计: {stats['total_unique_stocks']} 只次")
+    print("周期抓取合计: " + ", ".join(f"{k}={v}" for k, v in stats["total_period_fetches"].items()))
+    print(f"fact_stock_high_daily: {stats['table_total']} 行, {stats['table_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    if stats["skipped"]:
+        print("跳过日期: " + ", ".join(f"{x['trade_date']}({x['existing_rows']}行)" for x in stats["skipped"][:20]))
+    if stats["failures"]:
+        print("失败日期: " + ", ".join(f"{x['trade_date']}({x['error']})" for x in stats["failures"][:10]))
+    return 1 if stats["failures"] else 0
+
+
+def cmd_sync_limit_heat(args) -> int:
+    from .sync.sync_fupanhui_limit_heat_daily import sync_fupanhui_limit_heat
+
+    stats = sync_fupanhui_limit_heat(
+        trade_date=args.trade_date,
+        dimension=args.dimension,
+        scope=args.scope,
+        sector=args.sector,
+        limit=args.limit,
+        sleep=args.sleep,
+        detail_chunk=args.detail_chunk,
+    )
+    print(f"交易日: {stats['trade_date']} | 涨停热力题材写入: {stats['heat_rows']} 个 | 涨停股明细写入: {stats['stock_rows']} 行")
+    print(f"市场涨停家数: {stats['market_limit_up_count']} | 接口题材: {stats['items_total']} | 处理题材: {stats['items_processed']}")
+    print(f"fact_theme_limit_heat_daily: {stats['table_total']} 行, {stats['table_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    print(f"fact_theme_limit_stock_daily: {stats['stock_table_total']} 行, {stats['stock_table_dates']} 交易日, {stats['stock_table_stocks']} 股")
+    if stats["failures"]:
+        print(f"失败 {len(stats['failures'])}: " + ", ".join(f"{c}/{n}" for c, n, _e in stats["failures"][:10]))
+    return 0
+
+
+def cmd_sync_sector_marginal(_args) -> int:
+    from .sync.sync_feishu_sector_marginal import sync_sector_marginal
+
+    s = sync_sector_marginal()
+    print(f"电子表格 {s['sheet_token']} (sheet {s['sheet_id']})")
+    print(f"日期列: {s['date_cols']} ({s['sheet_date_min']}~{s['sheet_date_max']})")
+    print(f"板块: {s['sectors']} | 写入(回填diff_ratio): {s['rows_written']} 行")
+    if s["unmatched_sectors"]:
+        print(f"未匹配板块 {len(s['unmatched_sectors'])}: " + ", ".join(s["unmatched_sectors"][:15]))
+    if s["bad_headers"]:
+        print(f"无法解析的日期表头 {len(s['bad_headers'])}: {s['bad_headers'][:10]}")
+    print(f"fact_sector_daily: {s['table_total']} 行, {s['table_dates']} 交易日, "
+          f"{s['table_sectors']} 板块 ({s['table_date_min']}~{s['table_date_max']}), 空diff {s['table_null_diff']}")
+    return 0
+
+
+def cmd_sync_sector_daily_metrics(_args) -> int:
+    from .sync.sync_feishu_sector_daily import sync_sector_daily_metrics
+
+    s = sync_sector_daily_metrics()
+    print(f"板块每日表 {s['table_id']}: 记录 {s['records']} 行")
+    print(f"回填(pct_chg/amount, 仅补NULL): {s['rows_written']} 行")
+    if s["unmatched_sectors"]:
+        print(f"未匹配板块 {len(s['unmatched_sectors'])}: " + ", ".join(s["unmatched_sectors"][:15]))
+    if s["bad_labels"]:
+        print(f"无法解析的日期列 {len(s['bad_labels'])}: {s['bad_labels'][:10]}")
+    print(f"fact_sector_daily: {s['table_total']} 行, {s['table_dates']} 交易日 ({s['date_min']}~{s['date_max']})"
+          f" | 非空 pct={s['table_pct']} amount={s['table_amount']} diff={s['table_diff']}")
+    return 0
+
+
+def cmd_sync_sector_resonance(_args) -> int:
+    from .sync.sync_feishu_sector_resonance import sync_sector_multi_period_resonance
+
+    s = sync_sector_multi_period_resonance()
+    print(f"飞书表 {s['table_id']} | 记录: {s['records']} | 写入标签: {s['rows_written']}")
+    print(f"fact_sector_daily: {s['table_total']} 行, 已标注 {s['resonance_labeled']} 行 ({s['date_min']}~{s['date_max']})")
+    print(f"多周期共振 true: {s['resonance_true']} 行, 覆盖 {s['resonance_true_dates']} 个交易日")
+    if s["unmatched_sectors"]:
+        print(f"未匹配板块 {len(s['unmatched_sectors'])}: " + ", ".join(s["unmatched_sectors"][:15]))
+    if s["bad_dates"]:
+        print(f"无效日期 {len(s['bad_dates'])}: " + ", ".join(str(x) for x in s["bad_dates"][:10]))
+    return 0
+
+
+def cmd_sync_limit_advance_feishu(_args) -> int:
+    from .sync.sync_feishu_limit_advance import sync_limit_advance
+
+    s = sync_limit_advance()
+    print(f"连板晋级表 {s['table_id']}: 记录 {s['records']} 行, 股票 {s['stocks']}")
+    print(f"展开写入 (stock×date 存在性): {s['rows_written']} 行")
+    if s["unresolved_cols"]:
+        print(f"无法对齐交易日的列 {len(s['unresolved_cols'])}: {s['unresolved_cols']}")
+    print(f"fact_limit_advance_presence: {s['table_total']} 行, {s['table_dates']} 交易日, "
+          f"{s['table_stocks']} 股 ({s['date_min']}~{s['date_max']})")
+    return 0
+
+
+def cmd_sync_limit_advance(args) -> int:
+    from .sync.sync_fupanhui_limit_advance_daily import sync_fupanhui_limit_advance
+
+    s = sync_fupanhui_limit_advance(
+        trade_date=args.trade_date,
+        min_boards=args.min_boards,
+    )
+    print(f"交易日: {s['trade_date']} | 最高连板: {s['max_limit_days']} | 晋级股写入: {s['rows_written']} 行")
+    print(f"层级数: {s['levels']} | 跳过非晋级状态: {s['skipped_status']} | 跳过低于{args.min_boards}板: {s['skipped_boards']}")
+    print(f"fact_limit_advance_daily: {s['table_total']} 行, {s['table_dates']} 交易日, "
+          f"{s['table_stocks']} 股 ({s['date_min']}~{s['date_max']})")
+    print(f"fact_limit_advance_presence: {s['presence_total']} 行, {s['presence_dates']} 交易日, "
+          f"{s['presence_stocks']} 股 ({s['presence_date_min']}~{s['presence_date_max']})")
+    return 0
+
+
+def cmd_sync_limit_advance_range(args) -> int:
+    from .sync.sync_fupanhui_limit_advance_daily import sync_fupanhui_limit_advance_range
+
+    s = sync_fupanhui_limit_advance_range(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        days=args.days,
+        min_boards=args.min_boards,
+        refresh=args.refresh,
+        sleep=args.sleep,
+    )
+    print(f"目标交易日: {s['requested_dates']} 个 | 来源: {s['date_source']}")
+    print(f"同步: {s['synced_dates']} | 跳过: {s['skipped_dates']} | 失败: {s['failed_dates']}")
+    print(f"本次写入连板晋级: {s['total_rows_written']} 行")
+    print(f"fact_limit_advance_daily: {s['table_total']} 行, {s['table_dates']} 交易日, "
+          f"{s['table_stocks']} 股 ({s['date_min']}~{s['date_max']})")
+    print(f"fact_limit_advance_presence: {s['presence_total']} 行, {s['presence_dates']} 交易日, "
+          f"{s['presence_stocks']} 股 ({s['presence_date_min']}~{s['presence_date_max']})")
+    if s["skipped"]:
+        print("跳过日期: " + ", ".join(f"{x['trade_date']}({x['existing_rows']}行)" for x in s["skipped"][:20]))
+    if s["failures"]:
+        print("失败日期: " + ", ".join(f"{x['trade_date']}({x['error']})" for x in s["failures"][:10]))
+    return 1 if s["failures"] else 0
+
+
+def cmd_sync_stock_daily(args) -> int:
+    from .sync.sync_mootdx_stock_daily import sync_fact_stock_daily
+
+    stats = sync_fact_stock_daily(
+        start_date=args.start_date,
+        offset=args.offset,
+        limit=args.limit,
+        only_missing=not args.refresh,
+        sleep=args.sleep,
+        qfq=args.qfq,
+    )
+    print(f"起始日: {stats['start_date']} | 全A股池: {stats['universe']}")
+    print(f"本次抓取: {stats['processed']} 只 | 写入行: {stats['rows_written']}")
+    print(f"已覆盖个股: {stats['stocks_done']}/{stats['universe']} | 剩余: {stats['stocks_remaining']}")
+    print(f"fact_stock_daily: {stats['table_total']} 行, {stats['distinct_stocks']} 股, "
+          f"{stats['distinct_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    if stats["failures"]:
+        print(f"失败 {len(stats['failures'])}: " + ", ".join(c for c, _ in stats['failures'][:10]))
+    return 0
+
+
+def cmd_daily_update(args) -> int:
+    from .sync.sync_daily_full import run_daily_update
+
+    result = run_daily_update(
+        trade_date=args.trade_date,
+        chart_table=args.chart_table,
+        skip_long=args.skip_long,
+        with_chart=not args.no_chart,
+    )
+    print(f"交易日: {result['trade_date']} | 日更状态: {'OK' if result['ok'] else 'CHECK'}")
+    for step in result["steps"]:
+        status = "OK" if step["ok"] else "FAIL"
+        print(f"[{status}] {step['name']}")
+        if not step["ok"]:
+            print(f"  {step['error']}")
+    v = result["validation"]
+    print(f"质检: {'OK' if v['ok'] else 'CHECK'}")
+    if v["missing_fields"]:
+        print("缺字段: " + ", ".join(v["missing_fields"]))
+    for t in v["tables"]:
+        status = "OK" if t["ok"] else "MISS"
+        print(f"  [{status}] {t['table']} max={t['max_date']} rows={t['rows']}")
+    return 0 if result["ok"] else 1
+
+
+def cmd_daily_review(args) -> int:
+    from .reports.daily_review import build_daily_review
+
+    result = build_daily_review(
+        trade_date=args.trade_date,
+        output_path=args.output,
+        chart_path=args.chart_output,
+        start_date=args.start_date,
+    )
+    print(f"交易日: {result['trade_date']}")
+    print(f"报告: {result['output_path']}")
+    if result["chart_path"]:
+        print(f"图表: {result['chart_path']}")
+    return 0
+
+
+def cmd_daily_full(args) -> int:
+    from .sync.sync_daily_full import run_daily_full
+
+    result = run_daily_full(
+        trade_date=args.trade_date,
+        chart_table=args.chart_table,
+        skip_long=args.skip_long,
+    )
+    print(f"交易日: {result['trade_date']} | 全流程状态: {'OK' if result['ok'] else 'CHECK'}")
+    for step in result["update"]["steps"]:
+        status = "OK" if step["ok"] else "FAIL"
+        print(f"[{status}] {step['name']}")
+        if not step["ok"]:
+            print(f"  {step['error']}")
+    print(f"报告: {result['review']['output_path']}")
+    if result["review"].get("chart_path"):
+        print(f"图表: {result['review']['chart_path']}")
+    return 0 if result["ok"] else 1
+
+
+def cmd_weighted_gainers(args) -> int:
+    from .query import weighted_gainers
+
+    res = weighted_gainers(args.start, args.end, top=args.top, min_amount=args.min_amount)
+    _print_interval_stock_rank(res, args.top, "加权涨幅排行", "weighted_gain")
+    return 0
+
+
+def cmd_interval_gainers(args) -> int:
+    from .query import interval_gainers
+
+    res = interval_gainers(args.start, args.end, top=args.top, min_amount=args.min_amount)
+    _print_interval_stock_rank(res, args.top, "区间涨幅排行", "interval_gain")
+    return 0
+
+
+def _fmt_num(value, digits=2):
+    if value is None:
+        return "-"
+    return f"{float(value):.{digits}f}"
+
+
+def _short_text(value, max_len=18):
+    text = str(value or "-").replace("\x00", "")
+    return text if len(text) <= max_len else text[:max_len - 1] + "…"
+
+
+def _print_interval_stock_rank(res, top, title, sort_field):
+    print(f"{title} {res['start']}~{res['end']} (实际数据 {res['actual_start']}~{res['actual_end']}, "
+          f"日均成交≥{res['min_amount']}亿, Top{top})")
+    print(f"题材/申万映射日期: {res.get('metadata_date') or '-'} | UP偏离度: 最新本地日线")
+    print("| 排名 | 代码 | 简称 | 申万一级 | 题材 | 日均成交(亿) | 区间涨幅% | 加权涨幅 | UP偏离% |")
+    print("|---:|---|---|---|---|---:|---:|---:|---:|")
+    for i, s in enumerate(res["stocks"], 1):
+        name = _short_text(s["stock_name"], 12)
+        sectors = _short_text(s.get("sectors"), 18)
+        sw_l1 = _short_text(s.get("sw_l1"), 12)
+        print(f"| {i} | {s['stock_ts_code']} | {name} | {sw_l1} | {sectors} | "
+              f"{_fmt_num(s['avg_amount'], 1)} | {_fmt_num(s['interval_gain'])} | "
+              f"{_fmt_num(s['weighted_gain'])} | {_fmt_num(s.get('up_deviation_pct'))} |")
+    if not res["stocks"]:
+        print("  (无数据, 先运行 sync-stock-daily 回补该区间)")
+
+
+def cmd_check(_args) -> int:
+    from .query import health
+
+    h = health()
+    ds = h["dim_sector"]
+    print(f"[dim_sector] {ds['total']} 板块, 映射申万一级 {ds['mapped_sw_l1']}")
+    sd = h["fact_sector_daily"]
+    print(f"[fact_sector_daily] {sd['rows']} 行, {sd['dates']} 交易日 "
+          f"({sd['date_min']}~{sd['date_max']}), 空diff {sd['null_diff_ratio']}, 空sw_l1 {sd['null_sw_l1']}")
+    ss = h["fact_sector_stock_daily"]
+    print(f"[fact_sector_stock_daily] {ss['rows']} 行, {ss['dates']} 交易日, "
+          f"{ss['sectors']} 板块, {ss['stocks']} 个股, 空code {ss['null_stock_code']}, 空sw_l1 {ss['null_sw_l1']}")
+    md = h["fact_market_daily"]
+    print(f"[fact_market_daily] {md['rows']} 行, {md['dates']} 交易日 "
+          f"({md['date_min']}~{md['date_max']}), 空成交额 {md['null_total_amount']}")
+    sk = h["fact_stock_daily"]
+    print(f"[fact_stock_daily] {sk['rows']} 行, {sk['stocks']} 股, {sk['dates']} 交易日 "
+          f"({sk['date_min']}~{sk['date_max']}), 空close {sk['null_close']}")
+    if "coverage_latest" in h:
+        c = h["coverage_latest"]
+        print(f"[最新日 {c['date']}] 有成分股板块 {c['sectors_with_stocks']}/{c['dim_sector_total']}")
+    return 0
+
+
+def cmd_sector_stocks(args) -> int:
+    from .query import sector_stocks
+
+    res = sector_stocks(args.sector, trade_date=args.trade_date, top=args.top, order_by=args.order_by)
+    print(f"{res['sector']} 成分股 @{res['trade_date']} (按{args.order_by}排序, Top{args.top})")
+    for s in res["stocks"]:
+        print(f"  {s['stock_name']:<8} {s['stock_ts_code']:<11} 涨{s['pct_chg']} 额{s['amount']}亿 "
+              f"5日{s['pct_chg_5d']} {s['sw_industry']} 资金1d{s['fund_flow_1d']}")
+    if not res["stocks"]:
+        print("  (无数据, 检查板块名/代码或先同步该日成分股)")
+    return 0
+
+
+def cmd_stock_sectors(args) -> int:
+    from .query import stock_sectors
+
+    res = stock_sectors(args.stock, trade_date=args.trade_date)
+    print(f"{res['stock']} 所属板块 @{res['trade_date']} (共{len(res['sectors'])}个)")
+    for s in res["sectors"]:
+        print(f"  {s['sector_name']:<12} ({s['sw_l1']}) 板块涨{s['pct_chg']} 额{s['amount']}亿")
+    if not res["sectors"]:
+        print("  (无数据, 检查个股名/代码或先同步该日成分股)")
+    return 0
+
+
+def _fmt_num(value, digits=2):
+    if value is None:
+        return "-"
+    try:
+        return f"{float(value):.{digits}f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def cmd_stock_highs(args) -> int:
+    from .query import stock_highs
+
+    res = stock_highs(
+        trade_date=args.trade_date,
+        period=args.period,
+        top=args.top,
+        sector_top=args.sector_top,
+    )
+    suffix = f" | 周期={args.period}" if args.period else ""
+    print(f"新高个股 @{res['trade_date']}{suffix} | 个股 {res['stock_count']} 只 | 一级行业 {res['group_count']} 个")
+    if res["market_counts"]:
+        print("市场新高家数: " + ", ".join(f"{k}={v}" for k, v in res["market_counts"].items()))
+    if not res["groups"]:
+        print("  (无数据, 请先运行 sync-stock-high 回填该交易日)")
+        return 0
+    for group in res["groups"]:
+        sectors = "、".join(group["top_sectors"][:args.sector_top]) if group["top_sectors"] else "-"
+        print(f"\n## {group['sw_l1']} | 新高 {group['count']} 只 | 历史新高 {group['history_count']} 只 | 代表板块: {sectors}")
+        for stock in group["stocks"][:args.top]:
+            period_labels = "、".join(
+                p.get("label") or p.get("period")
+                for p in stock["high_periods"]
+                if isinstance(p, dict)
+            ) or stock["primary_high_label"]
+            line = (
+                f"  {stock['stock_name']:<8} {stock['stock_ts_code']:<11} "
+                f"{period_labels} 涨{_fmt_num(stock['pct_chg'])}% "
+                f"10日{_fmt_num(stock['pct_chg_10d'])}% "
+                f"额{_fmt_num(stock['amount'])}亿 "
+                f"市值{_fmt_num(stock['market_cap'])}亿"
+            )
+            if args.with_sectors:
+                names = [s["sector_name"] for s in stock["sectors"] if s.get("sector_name")]
+                if names:
+                    line += " | 板块: " + "、".join(names[:args.sector_top])
+            print(line)
+    return 0
+
+
+def cmd_limit_heat(args) -> int:
+    from .query import limit_heat
+
+    res = limit_heat(
+        trade_date=args.trade_date,
+        theme=args.theme,
+        top=args.top,
+        with_stocks=args.with_stocks,
+        stock_top=args.stock_top,
+    )
+    suffix = f" | 题材={args.theme}" if args.theme else ""
+    print(f"涨停热力 @{res['trade_date']}{suffix} | 题材 {res['count']} 个")
+    if not res["heats"]:
+        print("  (无数据, 请先运行 sync-limit-heat 回填该交易日)")
+        return 0
+    for item in res["heats"]:
+        fd_yi = (item["fd_amount"] or 0) / 10000
+        print(
+            f"\n{item['rank']}. {item['sector_name']} {item['sector_ts_code']} | "
+            f"涨停 {item['limit_up_count']}/{item['total_count']} | "
+            f"占全市场 {item['market_share']}% | 封单 {fd_yi:.2f}亿"
+        )
+        names = [s.get("name") for s in item["top_stocks"] if isinstance(s, dict) and s.get("name")]
+        if names:
+            print("  代表股: " + "、".join(names))
+        if args.with_stocks:
+            for stock in item["stocks"]:
+                sfd = (stock["fd_amount"] or 0) / 10000
+                print(
+                    f"  {stock['stock_name']:<8} {stock['stock_ts_code']:<11} "
+                    f"{stock['limit_times'] or '-'}板 涨{_fmt_num(stock['pct_chg'])}% "
+                    f"封单{sfd:.2f}亿 {stock['sw_l1'] or '-'} "
+                    f"{stock['leader_plate'] or ''}"
+                )
+    return 0
+
+
+def cmd_advancers_extrema(args) -> int:
+    from .query import advancers_extrema
+
+    res = advancers_extrema(delta=args.delta, smooth=args.smooth, smooth_mode=args.smooth_mode)
+    base = f"MA{res['smooth']}({args.smooth_mode})" if res["smooth"] > 1 else "裸涨家数"
+    print(f"涨家数波峰/波谷 (ZigZag on {base}, delta={res['delta']}, "
+          f"{res['n_days']}个交易日): 波峰{res['peaks']} 波谷{res['troughs']}")
+    for p in res["pivots"]:
+        sm = f" MA{res['smooth']}≈{p['smoothed']}" if p["smoothed"] is not None else ""
+        sw = f" 摆幅{p['swing_from_prev']:+d}" if p["swing_from_prev"] is not None else ""
+        print(f"  {p['date']} {p['type']} 涨家数{p['advancers']}{sm}{sw}")
+    return 0
+
+
+def cmd_sw_l1_signal_peaks(args) -> int:
+    from .query import sw_l1_signal_peaks
+
+    res = sw_l1_signal_peaks(
+        trade_date=args.trade_date,
+        high_period=args.high_period,
+        window=args.window,
+        ratio_threshold=args.ratio,
+        min_limit_count=args.min_limit_count,
+        min_high_count=args.min_high_count,
+        top=args.top,
+    )
+    print(
+        f"申万一级涨停/新高波峰 @{res['trade_date']} | "
+        f"新高周期={res['high_period']} | "
+        f"涨停窗口={len(res['limit_history_dates'])}/{res['window']} | "
+        f"新高窗口={len(res['high_history_dates'])}/{res['window']} | "
+        f"阈值={res['ratio_threshold']}x"
+    )
+    for title, rows in (("涨停波峰", res["limit_rows"]), ("新高波峰", res["high_rows"])):
+        print(f"\n## {title}")
+        if not rows:
+            print("  (无数据)")
+            continue
+        for row in rows:
+            flag = "触发" if row["is_peak"] else "未触发"
+            ratio = "∞" if row["ratio"] == float("inf") else _fmt_num(row["ratio"])
+            print(
+                f"  {flag} {row['sw_l1']:<8} "
+                f"当日{row['current_count']:>3} | "
+                f"20日均值{row['avg_20d']:.2f} | "
+                f"倍数{ratio} | "
+                f"最低数{row['min_count']}"
+            )
+    return 0
+
+
+def cmd_strong_subtheme_trace(args) -> int:
+    from .query import strong_subtheme_trace
+
+    res = strong_subtheme_trace(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        days=args.days,
+        high_period=args.high_period,
+        window=args.window,
+        ratio_threshold=args.ratio,
+        min_limit_count=args.min_limit_count,
+        min_high_count=args.min_high_count,
+        top=args.top,
+    )
+    print(
+        f"强细分信号回溯 {res['start_date']}~{res['end_date']} | "
+        f"交易日{len(res['dates'])} | 新高周期={res['high_period']} | "
+        f"波峰={res['ratio_threshold']}x"
+    )
+    sections = (
+        ("双红题材首日", res["double_red_first"]),
+        ("多周期共振首日", res["resonance_first"]),
+        ("申万一级波峰首日", res["peak_first"]),
+    )
+    for title, rows in sections:
+        print(f"\n## {title}")
+        if not rows:
+            print("  (无数据)")
+            continue
+        for row in rows[:args.top]:
+            if "sector_name" in row:
+                print(
+                    f"  {row['trade_date']} {row['sector_name']} "
+                    f"({row.get('sw_l1') or '-'}) "
+                    f"涨{_fmt_num(row.get('pct_chg'))}% "
+                    f"边际{_fmt_num(row.get('diff_ratio'))} "
+                    f"额{_fmt_num(row.get('amount'))}亿"
+                )
+            else:
+                ratio = "∞" if row["ratio"] == float("inf") else _fmt_num(row["ratio"])
+                label = "涨停波峰" if row["signal"] == "limit_up_peak" else "新高波峰"
+                print(
+                    f"  {row['trade_date']} {label} {row['sw_l1']} "
+                    f"当日{row['current_count']} "
+                    f"均值{row['avg_20d']:.2f} "
+                    f"倍数{ratio}"
+                )
+    return 0
+
+
+def cmd_top_sectors(args) -> int:
+    from .query import top_sectors
+
+    res = top_sectors(trade_date=args.trade_date, top=args.top, order_by=args.order_by)
+    print(f"板块排行 @{res['trade_date']} (按{res['order_by']}排序, Top{args.top})")
+    for s in res["sectors"]:
+        print(f"  {s['sector_name']:<12} ({s['sw_l1']}) 涨{s['pct_chg']} 边际{s['diff_ratio']} 额{s['amount']}亿")
+    return 0
+
+
+def cmd_info(_args) -> int:
+    if not DB_PATH.exists():
+        print(f"数据库不存在: {DB_PATH}", file=sys.stderr)
+        print("请先运行: python3 -m market_feature_store.cli init", file=sys.stderr)
+        return 1
+    con = connect(read_only=True)
+    try:
+        tables = list_tables(con)
+        print(f"数据库: {DB_PATH}")
+        print(f"表数量: {len(tables)}")
+        for t in tables:
+            cnt = con.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
+            print(f"  {t}: {cnt}")
+    finally:
+        con.close()
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="market_feature_store",
+        description=f"Market Feature Store CLI v{__version__}",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("init", help="初始化 schema (幂等)").set_defaults(func=cmd_init)
+    sub.add_parser("info", help="查看库内表与行数").set_defaults(func=cmd_info)
+
+    p_sectors = sub.add_parser("sync-sectors", help="同步复盘会板块清单到 dim_sector")
+    p_sectors.add_argument("--trade-date", default=None, help="交易日期 YYYY-MM-DD, 留空取最新")
+    p_sectors.set_defaults(func=cmd_sync_sectors)
+
+    p_sd = sub.add_parser("sync-sector-daily", help="同步板块日行情+边际量到 fact_sector_daily")
+    p_sd.add_argument("--trade-date", default=None, help="截止交易日 YYYY-MM-DD, 留空取最新")
+    p_sd.add_argument("--days", type=int, default=25, help="每板块回看天数, 默认25")
+    p_sd.set_defaults(func=cmd_sync_sector_daily)
+
+    p_sdr = sub.add_parser("sync-sector-daily-range", help="批量同步板块日行情+边际量到 fact_sector_daily")
+    p_sdr.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD")
+    p_sdr.add_argument("--end-date", default=None, help="结束交易日 YYYY-MM-DD；--days 模式下可作为截止日")
+    p_sdr.add_argument("--days", type=int, default=None, help="从 fact_market_daily 取最近 N 个交易日")
+    p_sdr.add_argument("--chunk-days", type=int, default=15, help="每次 fupanhui kline 覆盖的目标交易日数, 默认15")
+    p_sdr.add_argument("--refresh", action="store_true", help="不跳过已同步日期, 强制重刷")
+    p_sdr.add_argument("--sleep", type=float, default=0.2, help="批次间隔秒数, 默认0.2")
+    p_sdr.set_defaults(func=cmd_sync_sector_daily_range)
+
+    p_ss = sub.add_parser("sync-sector-stocks", help="逐板块回补成分股快照到 fact_sector_stock_daily")
+    p_ss.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_ss.add_argument("--sector", default=None, help="只抓单个板块 (代码或名称)")
+    p_ss.add_argument("--limit", type=int, default=None, help="本次最多抓多少个板块")
+    p_ss.add_argument("--refresh", action="store_true", help="不跳过已抓板块, 强制重抓")
+    p_ss.add_argument("--sleep", type=float, default=0.3, help="板块间隔秒数, 默认0.3")
+    p_ss.set_defaults(func=cmd_sync_sector_stocks)
+
+    sub.add_parser("sync-market-daily", help="同步飞书每日指标表到 fact_market_daily").set_defaults(func=cmd_sync_market_daily)
+
+    p_idx = sub.add_parser("sync-index-daily", help="同步上证指数点位/涨跌幅到 fact_market_daily")
+    p_idx.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD；指定后只写该日")
+    p_idx.add_argument("--start-date", default=None, help="起始日期 YYYY-MM-DD")
+    p_idx.add_argument("--end-date", default=None, help="结束日期 YYYY-MM-DD；留空取 fact_market_daily 最新日")
+    p_idx.add_argument("--symbol", default="sh000001", help="AkShare 指数代码, 默认 sh000001")
+    p_idx.set_defaults(func=cmd_sync_index_daily)
+
+    p_sw = sub.add_parser("sync-sw-l1-daily", help="同步申万一级行业指数涨跌幅与复盘会成交占比")
+    p_sw.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_sw.add_argument("--days", type=int, default=20, help="回看交易日数量, 默认20")
+    p_sw.set_defaults(func=cmd_sync_sw_l1_daily)
+
+    p_ms = sub.add_parser("sync-market-strength", help="同步复盘会市场强度到 fact_market_daily")
+    p_ms.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
+    p_ms.add_argument("--days", type=int, default=120, help="回看天数, 默认120")
+    p_ms.set_defaults(func=cmd_sync_market_strength)
+
+    p_md = sub.add_parser("sync-market-deviation", help="同步复盘会市场页周均线/偏离度到 fact_market_daily")
+    p_md.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_md.set_defaults(func=cmd_sync_market_deviation)
+
+    p_mo = sub.add_parser("sync-market-overview", help="同步复盘会每日复盘结构化数据到 fact_market_daily")
+    p_mo.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
+    p_mo.add_argument("--days", type=int, default=60, help="market 接口回看天数, 默认60")
+    p_mo.set_defaults(func=cmd_sync_market_overview)
+
+    p_mor = sub.add_parser("sync-market-overview-range", help="批量同步复盘会每日复盘结构化数据")
+    p_mor.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD")
+    p_mor.add_argument("--end-date", default=None, help="结束交易日 YYYY-MM-DD；--days 模式下可作为截止日")
+    p_mor.add_argument("--days", type=int, default=None, help="从 fact_market_daily 取最近 N 个交易日")
+    p_mor.add_argument("--api-days", type=int, default=60, help="reviews/market 接口回看天数, 默认60")
+    p_mor.add_argument("--refresh", action="store_true", help="不跳过已同步日期, 强制重刷")
+    p_mor.add_argument("--sleep", type=float, default=0.2, help="日期间隔秒数, 默认0.2")
+    p_mor.set_defaults(func=cmd_sync_market_overview_range)
+
+    p_sh = sub.add_parser("sync-stock-high", help="同步复盘会个股新高状态与市场新高家数")
+    p_sh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
+    p_sh.add_argument("--page-size", type=int, default=200, help="复盘会分页大小, 默认200")
+    p_sh.set_defaults(func=cmd_sync_stock_high)
+
+    p_shr = sub.add_parser("sync-stock-high-range", help="批量同步复盘会个股新高状态")
+    p_shr.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD")
+    p_shr.add_argument("--end-date", default=None, help="结束交易日 YYYY-MM-DD；--days 模式下可作为截止日")
+    p_shr.add_argument("--days", type=int, default=None, help="从 fact_market_daily 取最近 N 个交易日")
+    p_shr.add_argument("--page-size", type=int, default=200, help="复盘会分页大小, 默认200")
+    p_shr.add_argument("--refresh", action="store_true", help="不跳过已同步日期, 强制重刷")
+    p_shr.add_argument("--sleep", type=float, default=0.2, help="日期间隔秒数, 默认0.2")
+    p_shr.set_defaults(func=cmd_sync_stock_high_range)
+
+    p_lh = sub.add_parser("sync-limit-heat", help="同步复盘会涨停热力图题材汇总与涨停股明细")
+    p_lh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
+    p_lh.add_argument("--dimension", default="sector", choices=["sector"], help="热力图维度, 默认sector")
+    p_lh.add_argument("--scope", default="all", help="热力图范围, 默认all")
+    p_lh.add_argument("--sector", default=None, help="只同步单个题材/板块代码或名称")
+    p_lh.add_argument("--limit", type=int, default=None, help="最多处理前 N 个题材, 用于小样验证")
+    p_lh.add_argument("--sleep", type=float, default=0.1, help="题材明细接口间隔秒数, 默认0.1")
+    p_lh.add_argument("--detail-chunk", type=int, default=12, help="每批明细题材数, 默认12")
+    p_lh.set_defaults(func=cmd_sync_limit_heat)
+
+    sub.add_parser("sync-sector-marginal", help="回填飞书边际量电子表格到 fact_sector_daily.diff_ratio").set_defaults(func=cmd_sync_sector_marginal)
+
+    p_la = sub.add_parser("sync-limit-advance", help="同步复盘会连板晋级到本地 DuckDB")
+    p_la.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
+    p_la.add_argument("--min-boards", type=int, default=2, help="最低连板数, 默认2")
+    p_la.set_defaults(func=cmd_sync_limit_advance)
+
+    p_lar = sub.add_parser("sync-limit-advance-range", help="批量同步复盘会连板晋级到本地 DuckDB")
+    p_lar.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD")
+    p_lar.add_argument("--end-date", default=None, help="结束交易日 YYYY-MM-DD；--days 模式下可作为截止日")
+    p_lar.add_argument("--days", type=int, default=None, help="从 fact_market_daily 取最近 N 个交易日")
+    p_lar.add_argument("--min-boards", type=int, default=2, help="最低连板数, 默认2")
+    p_lar.add_argument("--refresh", action="store_true", help="不跳过已同步日期, 强制重刷")
+    p_lar.add_argument("--sleep", type=float, default=0.2, help="日期间隔秒数, 默认0.2")
+    p_lar.set_defaults(func=cmd_sync_limit_advance_range)
+
+    sub.add_parser("sync-limit-advance-feishu", help="同步飞书连板晋级表到 fact_limit_advance_presence").set_defaults(func=cmd_sync_limit_advance_feishu)
+
+    sub.add_parser("sync-sector-daily-metrics", help="回填飞书板块每日表的 pct_chg/amount 到 fact_sector_daily").set_defaults(func=cmd_sync_sector_daily_metrics)
+
+    sub.add_parser("sync-sector-resonance", help="同步飞书多周期共振 checkbox 到 fact_sector_daily").set_defaults(func=cmd_sync_sector_resonance)
+
+    p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
+    p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
+    p_skd.add_argument("--offset", type=int, default=180, help="每只股票拉取日线根数, 默认180(~8个月)")
+    p_skd.add_argument("--limit", type=int, default=None, help="本次最多抓多少只 (续跑用)")
+    p_skd.add_argument("--refresh", action="store_true", help="不跳过已抓股票, 强制重抓")
+    p_skd.add_argument("--sleep", type=float, default=0.0, help="股票间隔秒数, 默认0")
+    p_skd.add_argument("--qfq", action="store_true", help="用前复权(慢, 吃CPU); 默认裸收盘价(快)")
+    p_skd.set_defaults(func=cmd_sync_stock_daily)
+
+    p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
+    p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_du.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
+    p_du.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
+    p_du.add_argument("--no-chart", action="store_true", help="不生成/同步涨家数 MA5 图")
+    p_du.set_defaults(func=cmd_daily_update)
+
+    p_dr = sub.add_parser("daily-review", help="从 DuckDB 生成完整每日复盘 Markdown")
+    p_dr.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_dr.add_argument("--output", default=None, help="报告输出路径, 默认 exports/YYYY-MM-DD-daily-review.md")
+    p_dr.add_argument("--chart-output", default=None, help="涨家数 MA5 图片路径, 默认 exports/YYYY-MM-DD-advancers-ma5.png")
+    p_dr.add_argument("--start-date", default=None, help="启动日 YYYY-MM-DD, 用于生成启动日主线确认模块")
+    p_dr.set_defaults(func=cmd_daily_review)
+
+    p_df = sub.add_parser("daily-full", help="一键日更后生成完整每日复盘")
+    p_df.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_df.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
+    p_df.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
+    p_df.set_defaults(func=cmd_daily_full)
+
+    sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
+
+    p_wg = sub.add_parser("weighted-gainers", help="区间加权涨幅排行 (本地计算)")
+    p_wg.add_argument("--start", required=True, help="区间起始交易日 YYYY-MM-DD")
+    p_wg.add_argument("--end", required=True, help="区间结束交易日 YYYY-MM-DD")
+    p_wg.add_argument("--top", type=int, default=20, help="返回前 N 只, 默认20")
+    p_wg.add_argument("--min-amount", type=float, default=1.0, help="区间日均成交额下限(亿), 默认1.0")
+    p_wg.set_defaults(func=cmd_weighted_gainers)
+
+    p_ig = sub.add_parser("interval-gainers", help="区间涨幅排行 (本地计算)")
+    p_ig.add_argument("--start", required=True, help="区间起始交易日 YYYY-MM-DD")
+    p_ig.add_argument("--end", required=True, help="区间结束交易日 YYYY-MM-DD")
+    p_ig.add_argument("--top", type=int, default=20, help="返回前 N 只, 默认20")
+    p_ig.add_argument("--min-amount", type=float, default=1.0, help="区间日均成交额下限(亿), 默认1.0")
+    p_ig.set_defaults(func=cmd_interval_gainers)
+
+    p_q1 = sub.add_parser("sector-stocks", help="板块→个股: 查某板块成分股")
+    p_q1.add_argument("sector", help="板块代码或名称, 如 885537.TI 或 3D打印")
+    p_q1.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
+    p_q1.add_argument("--top", type=int, default=20, help="返回前 N 只, 默认20")
+    p_q1.add_argument("--order-by", default="amount",
+                      help="排序字段: amount/pct_chg/pct_chg_5d/fund_flow_1d 等")
+    p_q1.set_defaults(func=cmd_sector_stocks)
+
+    p_q2 = sub.add_parser("stock-sectors", help="个股→板块: 查某个股归属板块")
+    p_q2.add_argument("stock", help="个股代码或名称, 如 300620.SZ 或 寒武纪")
+    p_q2.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
+    p_q2.set_defaults(func=cmd_stock_sectors)
+
+    p_qh = sub.add_parser("query-stock-high", help="按一级行业回溯查询某日新高个股")
+    p_qh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_qh.add_argument("--period", default=None,
+                      choices=["history", "3y", "2y", "1y", "120d", "60d", "20d"],
+                      help="只看命中某周期的新高个股")
+    p_qh.add_argument("--group-by", default="sw_l1", choices=["sw_l1"], help="聚合维度, 当前支持 sw_l1")
+    p_qh.add_argument("--top", type=int, default=10, help="每个一级行业最多展示个股数, 默认10")
+    p_qh.add_argument("--sector-top", type=int, default=5, help="每只个股/行业展示板块数, 默认5")
+    p_qh.add_argument("--with-sectors", action="store_true", help="打印每只个股所属复盘会板块")
+    p_qh.set_defaults(func=cmd_stock_highs)
+
+    p_qlh = sub.add_parser("query-limit-heat", help="查询复盘会涨停热力题材榜")
+    p_qlh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_qlh.add_argument("--theme", default=None, help="题材/板块代码或名称")
+    p_qlh.add_argument("--top", type=int, default=20, help="展示前 N 个题材, 默认20")
+    p_qlh.add_argument("--with-stocks", action="store_true", help="展示题材内涨停股明细")
+    p_qlh.add_argument("--stock-top", type=int, default=20, help="每个题材展示涨停股数, 默认20")
+    p_qlh.set_defaults(func=cmd_limit_heat)
+
+    p_ae = sub.add_parser("advancers-extrema", help="涨家数波峰/波谷识别 (ZigZag)")
+    p_ae.add_argument("--delta", type=float, default=1500, help="确认反转的最小摆幅(家数), 默认1500")
+    p_ae.add_argument("--smooth", type=int, default=1, help="滚动均值窗口, 如5=MA5; 默认1(裸涨家数)")
+    p_ae.add_argument("--smooth-mode", default="trailing", choices=["trailing", "center"],
+                      help="trailing(同飞书MA5,默认) 或 center(无滞后)")
+    p_ae.set_defaults(func=cmd_advancers_extrema)
+
+    p_sp = sub.add_parser("sw-l1-signal-peaks", help="申万一级涨停/新高波峰: 当日数量 vs 自身过去N日均值")
+    p_sp.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_sp.add_argument("--high-period", default="20d",
+                      choices=["history", "3y", "2y", "1y", "120d", "60d", "20d"],
+                      help="新高周期, 默认20d；按 high_periods_json 复刻页面周期")
+    p_sp.add_argument("--window", type=int, default=20, help="历史均值窗口, 默认20个有效交易日")
+    p_sp.add_argument("--ratio", type=float, default=1.2, help="波峰倍数阈值, 默认1.2")
+    p_sp.add_argument("--min-limit-count", type=int, default=3, help="涨停波峰最低当日家数, 默认3")
+    p_sp.add_argument("--min-high-count", type=int, default=5, help="新高波峰最低当日家数, 默认5")
+    p_sp.add_argument("--top", type=int, default=20, help="每类最多展示 N 个申万一级, 默认20")
+    p_sp.set_defaults(func=cmd_sw_l1_signal_peaks)
+
+    p_trace = sub.add_parser("strong-subtheme-trace", help="回溯双红题材首日、多周期共振首日、申万一级波峰首日")
+    p_trace.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD")
+    p_trace.add_argument("--end-date", default=None, help="结束交易日 YYYY-MM-DD；--days 模式下可作为截止日")
+    p_trace.add_argument("--days", type=int, default=60, help="不指定 start-date 时取最近 N 个交易日, 默认60")
+    p_trace.add_argument("--high-period", default="20d",
+                         choices=["history", "3y", "2y", "1y", "120d", "60d", "20d"],
+                         help="新高波峰周期, 默认20d")
+    p_trace.add_argument("--window", type=int, default=20, help="波峰历史均值窗口, 默认20")
+    p_trace.add_argument("--ratio", type=float, default=1.2, help="波峰倍数阈值, 默认1.2")
+    p_trace.add_argument("--min-limit-count", type=int, default=3, help="涨停波峰最低当日家数, 默认3")
+    p_trace.add_argument("--min-high-count", type=int, default=5, help="新高波峰最低当日家数, 默认5")
+    p_trace.add_argument("--top", type=int, default=50, help="每类最多展示 N 条, 默认50")
+    p_trace.set_defaults(func=cmd_strong_subtheme_trace)
+
+    p_q3 = sub.add_parser("top-sectors", help="板块排行: 按边际量/涨幅/成交额")
+    p_q3.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
+    p_q3.add_argument("--top", type=int, default=20, help="返回前 N 个, 默认20")
+    p_q3.add_argument("--order-by", default="diff_ratio", help="排序字段: diff_ratio/pct_chg/amount")
+    p_q3.set_defaults(func=cmd_top_sectors)
+
+    return parser
+
+
+def main(argv=None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
