@@ -6638,7 +6638,7 @@ def front_material_watch(row: dict, matches: list[dict], term: str = "", profile
     return ""
 
 
-def front_material_process_radar_section(state: dict, active: list[dict], term: str = "", profile: dict | None = None, limit: int = 16) -> str:
+def front_material_scan_rows(state: dict) -> list[dict]:
     context = state.get("context", {}) or {}
     raw_rows = [row for row in (context.get("material_process_scan", []) or []) if isinstance(row, dict)]
     rows = []
@@ -6661,9 +6661,13 @@ def front_material_process_radar_section(state: dict, active: list[dict], term: 
                     "source": row.get("source"),
                     "next_validation": row.get("gap"),
                 })
+    return sorted(rows, key=front_material_display_priority)
+
+
+def front_material_process_radar_section(state: dict, active: list[dict], term: str = "", profile: dict | None = None, limit: int = 16) -> str:
+    rows = front_material_scan_rows(state)
     if not rows:
         return "- 暂无可展示的工艺/材料/零部件扫描。"
-    rows = sorted(rows, key=front_material_display_priority)
     lines = [
         "| 细颗粒对象 | 所属大方向 | 产业链位置 | 逻辑一句话 | 代表公司 | 可发散方向 |",
         "|---|---|---|---|---|---|",
@@ -7130,6 +7134,180 @@ def build_front_map_report(term: str, vault: Path, definition: str = "", context
         "## 12. 如何反哺复盘",
         "",
         front_review_feedback_section(state, active, term, profile, 10),
+        "",
+    ]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+BRIEF_TIER_LABELS = {"relative_core": "核心", "related": "相关", "watch": "延伸"}
+
+
+def brief_definition_section(state: dict, term: str) -> str:
+    context = state.get("context", {}) or {}
+    cards = [c for c in (state.get("wiki_concept_cards") or []) if not c.get("missing")]
+    primary = state.get("primary")
+    cards = sorted(cards, key=lambda c: 0 if c.get("name") == primary else 1)
+    primary_card = cards[0] if cards and cards[0].get("name") == primary else None
+    anchor = ""
+    if primary_card:
+        anchor = front_compact_text(primary_card.get("one_liner") or primary_card.get("definition") or "", 160)
+    if not anchor:
+        fallback = front_theme_anchor(term, state.get("definition", ""), context)
+        if fallback and not is_junk_definition(fallback):
+            anchor = front_compact_text(fallback, 160)
+    lines = []
+    if anchor:
+        lines.append(f"**一句话定锚**：{anchor}")
+    if primary_card:
+        logic = front_compact_text(primary_card.get("core_logic") or "", 320)
+        if logic and "待补" not in logic:
+            lines.append("")
+            lines.append(f"**核心逻辑**：{logic}")
+    related_cards = [c for c in cards if c is not primary_card]
+    if related_cards:
+        lines.append("")
+        lines.append("**相关概念**")
+        lines.append("")
+        for card in related_cards[:4]:
+            name = card.get("name", "")
+            one = front_compact_text(card.get("one_liner") or card.get("definition") or "", 140)
+            updated = f"，更新 {card.get('updated')}" if card.get("updated") else ""
+            lines.append(f"- **{name}**（wiki 概念页{updated}）：{one or '待补定锚'}")
+            logic = front_compact_text(card.get("core_logic") or "", 220)
+            if logic and "待补" not in logic:
+                lines.append(f"  - 核心逻辑：{logic}")
+    return "\n".join(lines) or "- 暂无可用定义，建议先补 wiki 概念页。"
+
+
+def brief_chain_section(state: dict, active: list[dict], term: str, profile: dict | None) -> str:
+    context = state.get("context", {}) or {}
+    rows = front_chain_rows(active, term, context, profile, 12)
+    if not rows:
+        return "- 暂无可展示的产业链节点。"
+    tree = front_chain_tree_section(term, rows, context)
+    stage_order = ["下游需求/应用", "中游产品/制造", "上游材料", "上游设备", "配套服务/生态"]
+    grouped: dict[str, list[dict]] = {}
+    for row in rows:
+        grouped.setdefault(row.get("stage", ""), []).append(row)
+    lines = [tree, ""] if tree else []
+    downstream_items = context_chain_items(context, "downstream", 6)
+    if downstream_items:
+        lines.append(f"- **终端需求**：{front_unique_join(downstream_items, 6, '待补')}")
+    for stage in stage_order:
+        for row in grouped.get(stage, []):
+            bucket = row.get("bucket", "")
+            companies = front_compact_text(row.get("companies", ""), 110)
+            roles = front_compact_text(row.get("roles", ""), 90)
+            line = f"- **{stage}｜{bucket}**：{companies}"
+            if roles and roles != "待补":
+                line += f"（看点：{roles}）"
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def brief_material_scan_section(state: dict, active: list[dict], term: str, profile: dict | None, limit: int = 20) -> str:
+    rows = front_material_scan_rows(state)
+    if not rows:
+        return "- 暂无可展示的工艺/材料细分扫描。"
+    lines = []
+    seen = set()
+    for row in rows:
+        name = str(row.get("name") or row.get("direction") or "").strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        position = front_compact_text(str(row.get("chain_position") or row.get("layer") or row.get("major_track") or ""), 40)
+        logic = front_compact_text(
+            str(row.get("core_catalyst") or row.get("prosperity_judgment") or row.get("prosperity_reason") or row.get("evidence_summary") or row.get("next_validation") or ""),
+            120,
+        )
+        matches = front_material_company_matches(row, active, term, profile, 8)
+        companies = front_unique_join(as_list(row.get("representative_entities")) + [c.get("name", "") for c in matches], 8)
+        header = f"- **{front_compact_text(name, 46)}**"
+        if position:
+            header += f"｜{position}"
+        lines.append(header)
+        if logic:
+            lines.append(f"  - 逻辑：{logic}")
+        lines.append(f"  - 代表公司：{companies}")
+        if len(seen) >= limit:
+            break
+    return "\n".join(lines)
+
+
+def brief_segment_companies(row: dict, active: list[dict]) -> list[dict]:
+    explicit = {str(x).strip() for x in re.split(r"[、,，\s]+", map_clean_plain(row.get("companies"), limit=200)) if str(x).strip()}
+    term_names = {str(x).strip() for x in map_companies_for_term(active, str(row.get("subdir") or ""), 10).split("、") if str(x).strip()}
+    names = explicit | term_names
+    matched = [c for c in active if c.get("name") in names]
+    tier_rank = {"relative_core": 0, "related": 1, "watch": 2}
+    matched = [c for c in matched if company_deep_dive_tier(c) in tier_rank]
+    return sorted(unique_by_name(matched), key=lambda c: (tier_rank.get(company_deep_dive_tier(c), 3), company_sort_key(c)))
+
+
+def brief_segment_core_companies_section(state: dict, active: list[dict], term: str, profile: dict | None, limit: int = 14, per_segment: int = 8) -> str:
+    chunks = []
+    seen = set()
+    seen_company_sets: list[frozenset] = []
+    for row in map_subdirection_rows(state):
+        subdir = map_clean_plain(row.get("subdir"), limit=70) or map_clean_plain(row.get("layer"), limit=70)
+        if not subdir or subdir in seen or subdir == "待细分":
+            continue
+        companies = brief_segment_companies(row, active)
+        if not companies:
+            continue
+        name_set = frozenset(c.get("name", "") for c in companies)
+        if any(name_set <= prev for prev in seen_company_sets):
+            continue
+        seen_company_sets.append(name_set)
+        seen.add(subdir)
+        lines = [f"### {subdir}", "", "| 公司 | 分层 | 一句话定位（wiki） |", "|---|---|---|"]
+        for company in companies[:per_segment]:
+            tier = BRIEF_TIER_LABELS.get(company_deep_dive_tier(company), "延伸")
+            one = front_compact_text(company.get("wiki_one_liner") or "", 80) or front_compact_text(themed_company_roles(company, term), 60)
+            lines.append(f"| {company.get('name', '')} | {tier} | {one} |")
+        chunks.append("\n".join(lines))
+        if len(seen) >= limit:
+            break
+    if not chunks:
+        return "- 暂无可映射的细分核心个股。"
+    return "\n\n".join(chunks)
+
+
+def build_brief_report(term: str, vault: Path, definition: str = "", context: dict | None = None, theme_info_rows: list[dict] | None = None, theme_direction_pool: dict | None = None, theme_supplement_pool: dict | None = None) -> str:
+    state = build_theme_state(term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
+    context = state["context"]
+    companies = state["companies"]
+    profile = state.get("direction_profile")
+    for company in companies:
+        company["deep_dive_term"] = term
+        company["direction_frame"] = context.get("direction_frame", {}) if isinstance(context, dict) else {}
+    active = [c for c in companies if company_deep_dive_tier(c) != "weak"]
+    lines = [
+        f"# {term} 题材速读",
+        "",
+        f"生成日期：{date.today().isoformat()}",
+        "",
+        "## 一、题材定义",
+        "",
+        brief_definition_section(state, term),
+        "",
+        "## 二、产业链上下游",
+        "",
+        brief_chain_section(state, active, term, profile),
+        "",
+        "## 三、工艺与材料细分扫描",
+        "",
+        brief_material_scan_section(state, active, term, profile),
+        "",
+        "## 四、各细分核心个股",
+        "",
+        brief_segment_core_companies_section(state, active, term, profile),
+        "",
+        "## 数据边界",
+        "",
+        "- 数据全部来自 wiki 知识库（concepts/entities/relations/synthesis）与已入库研报上下文，只读不回写。",
+        "- 公司分层：核心=主线承接，相关=逻辑可解释，延伸=有线索待验证；不构成交易建议。",
         "",
     ]
     return "\n".join(lines).rstrip() + "\n"
@@ -8761,7 +8939,7 @@ def main() -> int:
     parser.add_argument("--review-companies", default="", help="复盘触发个股，逗号/顿号/空格分隔，用于个股逻辑卡展开")
     parser.add_argument("--review-note", default="", help="复盘备注，用于记录触发原因或观察问题")
     parser.add_argument("--out", help="optional markdown output path")
-    parser.add_argument("--mode", choices=["radar", "qc", "deep-dive", "map", "front-map"], default="radar", help="输出模式：radar/qc=底层雷达与QC；deep-dive=题材深拆；map=题材信息地图；front-map=前端精简信息地图")
+    parser.add_argument("--mode", choices=["radar", "qc", "deep-dive", "map", "front-map", "brief"], default="radar", help="输出模式：radar/qc=底层雷达与QC；deep-dive=题材深拆；map=题材信息地图；front-map=前端精简信息地图；brief=题材速读（定义/产业链/细分扫描/核心个股）")
     args = parser.parse_args()
 
     definition = args.definition
@@ -8776,7 +8954,7 @@ def main() -> int:
     theme_info_rows = []
     if args.theme_info_jsonl:
         theme_info_rows = read_theme_information_jsonl(Path(args.theme_info_jsonl).expanduser(), args.term)
-    elif args.mode in {"map", "front-map"}:
+    elif args.mode in {"map", "front-map", "brief"}:
         theme_info_rows = auto_discover_theme_info_rows(args.term)
     theme_direction_pool = {}
     if args.theme_direction_pool:
@@ -8784,7 +8962,7 @@ def main() -> int:
     theme_supplement_pool = {}
     if args.theme_supplement_pool:
         theme_supplement_pool = read_theme_supplement_pool(Path(args.theme_supplement_pool).expanduser(), args.term)
-    elif args.mode in {"map", "front-map"}:
+    elif args.mode in {"map", "front-map", "brief"}:
         theme_supplement_pool = auto_discover_theme_supplement_pool(args.term)
 
     vault = Path(args.vault).expanduser()
@@ -8798,6 +8976,8 @@ def main() -> int:
         report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
     elif args.mode == "front-map":
         report = build_front_map_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool, review_context)
+    elif args.mode == "brief":
+        report = build_brief_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
     elif args.mode == "map":
         report = build_theme_information_map(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
     elif theme_info_rows or theme_direction_pool or theme_supplement_pool:
