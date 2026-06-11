@@ -91,6 +91,11 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             ],
         ))
         plan.append(CommandSpec(
+            name="theme-backfill-queue",
+            argv=["python3", "scripts/build_theme_backfill_queue.py", date],
+            outputs=[str(exports / f"{date}-theme-backfill-queue.json")],
+        ))
+        plan.append(CommandSpec(
             name="market-triggered-theme-brief-html",
             argv=["python3", "scripts/render_market_triggered_theme_brief_html.py", date],
             outputs=[
