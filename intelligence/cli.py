@@ -23,6 +23,7 @@ def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--skip-sync", action="store_true", help="Skip market data sync")
     parser.add_argument("--skip-long", action="store_true", help="Pass --skip-long to daily-update")
     parser.add_argument("--skip-theme", action="store_true", help="Skip market-triggered theme brief")
+    parser.add_argument("--skip-legacy-theme", action="store_true", help="Skip legacy triggered-themes brief")
     parser.add_argument("--skip-workbench", action="store_true", help="Skip review workbench render")
     parser.add_argument("--start-date", default=None, help="Optional start date for daily-review")
     parser.add_argument("--from-step", default=None, help="Start workflow from this step")
@@ -50,6 +51,7 @@ def cmd_daily(args: argparse.Namespace) -> int:
         skip_sync=args.skip_sync,
         skip_long=args.skip_long,
         skip_theme=args.skip_theme,
+        skip_legacy_theme=args.skip_legacy_theme,
         skip_workbench=args.skip_workbench,
         start_date=args.start_date,
         dry_run=args.dry_run,

@@ -27,7 +27,7 @@ def daily_reviews() -> list[dict[str, str | bool]]:
             "src": rel_to_workbench(path),
             "title": f"{date} 每日市场复盘",
             "theme_src": rel_to_workbench(theme_path) if theme_path.exists() else "",
-            "theme_title": f"{date} 盘面触发题材雷达",
+            "theme_title": f"{date} 旧版盘面触发题材雷达",
             "has_theme": theme_path.exists(),
             "candidates_src": rel_to_workbench(candidates_path) if candidates_path.exists() else "",
             "candidates_title": f"{date} 题材候选工作台",
@@ -63,7 +63,7 @@ def main() -> int:
     <section class="group">
       <p class="group-title">Workspace</p>
       <nav class="nav" aria-label="主页面切换">
-        <button class="tab active" data-mode="daily">每日复盘<small>市场复盘 / 题材雷达 / 题材候选</small></button>
+        <button class="tab active" data-mode="daily">每日复盘<small>市场复盘 / 题材候选 / 旧题材雷达</small></button>
         <button class="tab" data-mode="strategy">策略组合<small>策略一 / 策略二 / 策略三 / 策略四 / 二板晋级</small></button>
       </nav>
       <div class="daily-picker" id="dailyPicker">
@@ -71,10 +71,10 @@ def main() -> int:
         <select id="dailyDate" aria-label="选择每日复盘日期">{options}</select>
         <div class="view-switch" aria-label="每日复盘子视图">
           <button class="viewtab active" data-daily-view="review">市场复盘</button>
-          <button class="viewtab" data-daily-view="theme">题材雷达</button>
           <button class="viewtab" data-daily-view="candidates">题材候选</button>
+          <button class="viewtab" data-daily-view="theme">旧题材雷达</button>
         </div>
-        <div class="hint" id="dailyHint">同一日期下切换市场复盘、盘面触发题材雷达和题材候选；嵌入视图会隐藏内部目录。</div>
+        <div class="hint" id="dailyHint">同一日期下切换市场复盘、新版题材候选和旧版题材雷达；旧版仅作 legacy 对照。</div>
       </div>
     </section>
     <section class="group">
@@ -100,7 +100,7 @@ const mainTabs=[...document.querySelectorAll('.tab')],subTabs=[...document.query
 let currentMode='daily',currentDailyView='review';
 function currentDaily(){{return dailyReviews.find(x=>x.date===dailyDate.value)||dailyReviews[0];}}
 function dailyViewItem(){{const item=currentDaily();if(currentDailyView==='theme'&&item.has_theme)return {{src:item.theme_src,title:item.theme_title,date:item.date}};if(currentDailyView==='candidates'&&item.has_candidates)return {{src:item.candidates_src,title:item.candidates_title,date:item.date}};return {{src:item.src,title:item.title,date:item.date}};}}
-function refreshDailyViewTabs(){{const item=currentDaily();if(currentDailyView==='theme'&&!item.has_theme)currentDailyView='review';if(currentDailyView==='candidates'&&!item.has_candidates)currentDailyView='review';dailyViewTabs.forEach(btn=>{{const view=btn.dataset.dailyView;const disabled=(view==='theme'&&!item.has_theme)||(view==='candidates'&&!item.has_candidates);btn.disabled=disabled;btn.classList.toggle('active',view===currentDailyView);}});dailyHint.textContent=item.has_candidates?'同一日期下切换市场复盘、盘面触发题材雷达和题材候选；题材候选聚焦 Deep / Watch / Critical Queue。':item.has_theme?'同一日期下切换市场复盘和盘面触发题材雷达；嵌入视图会隐藏内部目录。':'该日期暂无题材雷达或题材候选 HTML，已回到市场复盘。';}}
+function refreshDailyViewTabs(){{const item=currentDaily();if(currentDailyView==='theme'&&!item.has_theme)currentDailyView='review';if(currentDailyView==='candidates'&&!item.has_candidates)currentDailyView='review';dailyViewTabs.forEach(btn=>{{const view=btn.dataset.dailyView;const disabled=(view==='theme'&&!item.has_theme)||(view==='candidates'&&!item.has_candidates);btn.disabled=disabled;btn.classList.toggle('active',view===currentDailyView);}});dailyHint.textContent=item.has_candidates?'题材候选是新版主入口，聚焦 Deep / Watch / Critical Queue；旧题材雷达仅作 legacy 对照。':item.has_theme?'该日期暂无新版题材候选，仅可查看旧版题材雷达 legacy 对照。':'该日期暂无题材雷达或题材候选 HTML，已回到市场复盘。';}}
 function setFrame(src,text){{frame.src=src;frame.title=text;title.textContent=text;openLink.href=src;}}
 function setMode(mode){{currentMode=mode;mainTabs.forEach(x=>x.classList.toggle('active',x.dataset.mode===mode));if(mode==='daily'){{refreshDailyViewTabs();const item=dailyViewItem();activeDate.textContent=item.date;setFrame(item.src,item.title);}}else{{const active=subTabs.find(x=>x.classList.contains('active'))||subTabs[0];setFrame(active.dataset.src,active.dataset.title);}}}}
 function hideDailyToc(){{if(currentMode!=='daily')return;try{{const doc=frame.contentDocument;if(!doc)return;const style=doc.createElement('style');style.textContent='.rail,.side{{display:none!important}}.shell,.wrap{{display:block!important;max-width:1280px!important;padding:18px!important}}.content,.main{{width:100%!important;max-width:none!important}}.hero{{margin-top:0!important}}';doc.head.appendChild(style);}}catch(e){{}}}}

@@ -24,6 +24,7 @@ class DailyReviewOptions:
     skip_sync: bool = False
     skip_long: bool = False
     skip_theme: bool = False
+    skip_legacy_theme: bool = False
     skip_workbench: bool = False
     start_date: str | None = None
     dry_run: bool = False
@@ -96,19 +97,28 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             outputs=[str(exports / f"{date}-theme-backfill-queue.json")],
         ))
         plan.append(CommandSpec(
+            name="theme-backfill-review-queue",
+            argv=["python3", "scripts/build_theme_backfill_review_queue.py", date],
+            outputs=[
+                str(exports / f"{date}-theme-backfill-review-queue.json"),
+                str(exports / f"{date}-theme-backfill-review-queue.md"),
+            ],
+        ))
+        plan.append(CommandSpec(
             name="theme-candidates-html",
             argv=["python3", "scripts/render_theme_candidates_workbench_html.py", date],
             outputs=[str(daily_dir / f"{date}-theme-candidates.html")],
         ))
-        plan.append(CommandSpec(
-            name="market-triggered-theme-brief-html",
-            argv=["python3", "scripts/render_market_triggered_theme_brief_html.py", date],
-            outputs=[
-                str(exports / f"{date}-triggered-themes.json"),
-                str(exports / f"{date}-market-triggered-theme-brief.md"),
-                str(daily_dir / f"{date}-market-triggered-theme-brief.html"),
-            ],
-        ))
+        if not options.skip_legacy_theme:
+            plan.append(CommandSpec(
+                name="legacy-market-triggered-theme-brief-html",
+                argv=["python3", "scripts/render_market_triggered_theme_brief_html.py", date],
+                outputs=[
+                    str(exports / f"{date}-triggered-themes.json"),
+                    str(exports / f"{date}-market-triggered-theme-brief.md"),
+                    str(daily_dir / f"{date}-market-triggered-theme-brief.html"),
+                ],
+            ))
 
     if not options.skip_workbench:
         plan.append(CommandSpec(
@@ -145,6 +155,7 @@ def summary_inputs(options: DailyReviewOptions, dry_run: bool) -> dict:
         "skip_sync": options.skip_sync,
         "skip_long": options.skip_long,
         "skip_theme": options.skip_theme,
+        "skip_legacy_theme": options.skip_legacy_theme,
         "skip_workbench": options.skip_workbench,
         "start_date": options.start_date,
         "from_step": options.from_step,
