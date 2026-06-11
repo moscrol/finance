@@ -48,6 +48,9 @@ def run_theme_radar(options: ThemeRadarOptions) -> WorkflowSummary:
     summary.outputs = [
         f"trade_date={result.get('trade_date')}",
         f"candidate_count={result.get('candidate_count', 0)}",
+        f"deep_count={result.get('tier_summary', {}).get('deep_count', 0)}",
+        f"watch_count={result.get('tier_summary', {}).get('watch_count', 0)}",
+        f"long_tail_count={result.get('tier_summary', {}).get('long_tail_count', 0)}",
         *[
             (
                 f"candidate={item.get('market_theme')} score={item.get('priority_score')} "
@@ -105,7 +108,11 @@ def _write_text(path: str, text: str) -> Path:
 def render_market_triggered_markdown(result: dict[str, Any], top: int = 50) -> str:
     trade_date = result.get("trade_date") or ""
     context = result.get("market_context", {})
-    candidates = result.get("candidates", [])[:top]
+    deep_candidates = result.get("deep_candidates", [])[: min(10, top)]
+    remaining_top = max(top - len(deep_candidates), 0)
+    watch_candidates = result.get("watch_candidates", [])[: min(20, remaining_top)]
+    remaining_top = max(remaining_top - len(watch_candidates), 0)
+    long_tail_candidates = result.get("long_tail_candidates", [])[:remaining_top]
     lines = [
         f"# {trade_date} 市场触发候选简报",
         "",
@@ -119,31 +126,47 @@ def render_market_triggered_markdown(result: dict[str, Any], top: int = 50) -> s
         f"- **涨停 / 跌停**：{_value(context.get('limit_up'))} / {_value(context.get('limit_down'))}",
         f"- **容量前三行业**：{_capacity_text(context.get('capacity_sectors', []))}",
         "",
-        "## 二、候选总览",
+        "## 二、核心候选 Deep（Top 10）",
         "",
-        _markdown_table(
-            ["题材", "标准概念", "申万一级", "评分", "触发", "概念", "公司暴露", "证据"],
-            [
-                [
-                    item.get("market_theme"),
-                    item.get("canonical_concept"),
-                    item.get("sw_l1"),
-                    item.get("priority_score"),
-                    "、".join(item.get("trigger_types", [])),
-                    item.get("knowledge_status", {}).get("concept_count", 0),
-                    item.get("knowledge_status", {}).get("exposure_count", 0),
-                    item.get("knowledge_status", {}).get("evidence_count", 0),
-                ]
-                for item in candidates
-            ],
-        ),
+        _candidate_overview_table(deep_candidates),
+        "",
+        "## 三、观察候选 Watch（Top 11-30）",
+        "",
+        _candidate_overview_table(watch_candidates),
+        "",
+        "## 四、长尾候选 Long Tail（Top 31-50）",
+        "",
+        _candidate_overview_table(long_tail_candidates),
+        "",
+        "## 五、核心候选明细",
         "",
     ]
-    for index, item in enumerate(candidates, 1):
-        lines.extend(_candidate_section(index, item))
+    for item in deep_candidates:
+        lines.extend(_candidate_section(int(item.get("rank") or 0), item))
     if result.get("warnings"):
-        lines.extend(["## 三、Warnings", "", *[f"- {warning}" for warning in result.get("warnings", [])], ""])
+        lines.extend(["## 六、Warnings", "", *[f"- {warning}" for warning in result.get("warnings", [])], ""])
     return "\n".join(lines)
+
+
+def _candidate_overview_table(candidates: list[dict[str, Any]]) -> str:
+    return _markdown_table(
+        ["排名", "题材", "标准概念", "申万一级", "评分", "触发", "概念", "公司暴露", "证据", "缺口"],
+        [
+            [
+                item.get("rank"),
+                item.get("market_theme"),
+                item.get("canonical_concept"),
+                item.get("sw_l1"),
+                item.get("priority_score"),
+                "、".join(item.get("trigger_types", [])),
+                item.get("knowledge_status", {}).get("concept_count", 0),
+                item.get("knowledge_status", {}).get("exposure_count", 0),
+                item.get("knowledge_status", {}).get("evidence_count", 0),
+                "、".join(item.get("knowledge_status", {}).get("backfill_gaps", [])) or "-",
+            ]
+            for item in candidates
+        ],
+    )
 
 
 def _candidate_section(index: int, item: dict[str, Any]) -> list[str]:

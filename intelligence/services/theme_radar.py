@@ -46,6 +46,7 @@ class ThemeRadarService:
         candidates = sorted(candidates, key=lambda row: (-row["priority_score"], row["market_theme"]))[:top]
         candidates = [self._with_knowledge_status(candidate) for candidate in candidates]
         candidates = sorted(candidates, key=lambda row: (-row["priority_score"], row["market_theme"]))
+        tiers = self._candidate_tiers(candidates)
         warnings = []
         warnings.extend(market_daily.get("warnings", []))
         warnings.extend(capacity.get("warnings", []))
@@ -86,6 +87,14 @@ class ThemeRadarService:
                 "candidate_theme_count": len(candidates_by_theme),
             },
             "candidate_count": len(candidates),
+            "tier_summary": {
+                "deep_count": len(tiers["deep_candidates"]),
+                "watch_count": len(tiers["watch_candidates"]),
+                "long_tail_count": len(tiers["long_tail_candidates"]),
+            },
+            "deep_candidates": tiers["deep_candidates"],
+            "watch_candidates": tiers["watch_candidates"],
+            "long_tail_candidates": tiers["long_tail_candidates"],
             "candidates": candidates,
             "warnings": warnings if warnings else ([] if candidates else ["market triggered candidates not found"]),
             "errors": errors,
@@ -313,6 +322,22 @@ class ThemeRadarService:
         candidate["priority_score"] = round(float(candidate.get("priority_score") or 0), 2)
         candidate["score_detail"] = sorted(candidate.get("score_detail", []), key=lambda row: -float(row.get("score") or 0))
         return candidate
+
+    @staticmethod
+    def _candidate_tiers(candidates: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+        for rank, candidate in enumerate(candidates, 1):
+            candidate["rank"] = rank
+            if rank <= 10:
+                candidate["candidate_tier"] = "deep"
+            elif rank <= 30:
+                candidate["candidate_tier"] = "watch"
+            else:
+                candidate["candidate_tier"] = "long_tail"
+        return {
+            "deep_candidates": candidates[:10],
+            "watch_candidates": candidates[10:30],
+            "long_tail_candidates": candidates[30:],
+        }
 
     def _with_knowledge_status(self, candidate: dict[str, Any]) -> dict[str, Any]:
         target = str(candidate.get("market_theme") or candidate.get("canonical_concept") or "")

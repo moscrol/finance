@@ -9,6 +9,9 @@
 | 新 theme-candidates JSON | 存在 | /Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-05-25-theme-candidates.json |
 | 旧 triggered-themes JSON | 存在 | /Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-05-25-triggered-themes.json |
 | 新候选数量 | 50 | candidates |
+| Deep 候选数量 | 10 | deep_candidates |
+| Watch 候选数量 | 20 | watch_candidates |
+| Long Tail 候选数量 | 20 | long_tail_candidates |
 | 旧候选数量 | 10 | deep_themes + watch_themes |
 | 共同候选 | 10 | 按 market_theme/canonical_concept 归一匹配 |
 | 仅新产物 | 40 | - |
