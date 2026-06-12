@@ -102,6 +102,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | 公司画像页 | 公司画像PPT |
 | 行业概览 | 行业概览 |
 | theme-radar | 题材雷达、新词雷达、题材逻辑拆解 |
+| theme-fermentation-tracer | 发酵链路、发酵回溯、起涨补涨、双红怎么加强的（消息面×盘面历史回溯，需本地 DuckDB） |
 | opinion-cross | 卖方观点提纯、三重共振机会卡片（注：覆盖密度交叉验证在知识库仓 sellside-coverage-cross） |
 | serenity-alpha | 个股弹性预期差、补涨排序 |
 | disclosure-archive | 补公告、披露归档（抓取侧；apply 侧在知识库仓） |
