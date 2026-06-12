@@ -1,6 +1,6 @@
 ---
 name: top-gainers
-description: A股区间涨幅排行榜。触发词：涨幅排行、涨幅前N、区间涨幅、哪些股票涨得最多、排行榜。
+description: A股区间涨幅排行榜（只查询展示，不入库）。触发词：涨幅排行、涨幅前N、区间涨幅、哪些股票涨得最多、排行榜。注意：要"入库/筛选入库/均线回踩"用 top-gainers-feishu；要量价加权排序用 high-volume-gainers。
 ---
 
 # A股区间涨幅排行榜
