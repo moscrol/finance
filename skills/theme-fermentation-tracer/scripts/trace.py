@@ -203,6 +203,48 @@ def limit_heat(con, sector_codes: list[str], start: date, end: date) -> list[dic
     """, sector_codes + [start, end])
 
 
+def member_interval_gains(con, members: dict[str, dict], start: date, end: date) -> dict[str, float]:
+    """成员股窗口区间涨幅%: 优先 fact_stock_daily(按 codes), 兜底 fact_sector_stock_daily(按名称)。"""
+    gains: dict[str, float] = {}
+    for name, info in members.items():
+        gain = None
+        codes = info["codes"]
+        if codes:
+            ph = ",".join("?" for _ in codes)
+            rows = query(con, f"""
+                SELECT (LAST(close ORDER BY trade_date) / FIRST(close ORDER BY trade_date) - 1) * 100 AS g
+                FROM fact_stock_daily
+                WHERE stock_ts_code IN ({ph}) AND close IS NOT NULL AND trade_date BETWEEN ? AND ?
+            """, codes + [start, end])
+            if rows and rows[0].get("g") is not None:
+                gain = rows[0]["g"]
+        if gain is None:
+            rows = query(con, """
+                SELECT (LAST(price ORDER BY trade_date) / FIRST(price ORDER BY trade_date) - 1) * 100 AS g
+                FROM fact_sector_stock_daily
+                WHERE stock_name = ? AND price IS NOT NULL AND price > 0 AND trade_date BETWEEN ? AND ?
+            """, [name, start, end])
+            if rows and rows[0].get("g") is not None:
+                gain = rows[0]["g"]
+        if gain is not None:
+            gains[name] = float(gain)
+    return gains
+
+
+def filter_members_by_gain(members: dict[str, dict], gains: dict[str, float], max_members: int) -> tuple[dict[str, dict], int]:
+    """命中多时按区间涨幅取 Top N（core 层保底全留）, 命中少则全列。返回 (筛后成员, 被筛掉数)。"""
+    for name, info in members.items():
+        info["gain"] = gains.get(name)
+    if len(members) <= max_members:
+        return members, 0
+    ranked = sorted(members.items(), key=lambda kv: kv[1]["gain"] if kv[1]["gain"] is not None else -1e9, reverse=True)
+    keep = {n: i for n, i in ranked[:max_members]}
+    for n, i in members.items():
+        if i["strength"] == "core" and n not in keep:
+            keep[n] = i
+    return keep, len(members) - len(keep)
+
+
 def stock_start_days(con, members: dict[str, dict], sector_codes: list[str], start: date, end: date,
                      pct_th: float = 7.0) -> list[dict]:
     """每只成员股的起涨日: 首板日(优先, fact_theme_limit_stock_daily/fact_limit_advance_daily)
@@ -248,6 +290,7 @@ def stock_start_days(con, members: dict[str, dict], sector_codes: list[str], sta
         out.append({
             "name": name,
             "strength": info["strength"],
+            "gain": info.get("gain"),
             "start_day": start_day,
             "by_limit": first_limit is not None and (first_surge is None or first_limit <= first_surge),
         })
@@ -265,7 +308,7 @@ def fmt_d(d) -> str:
 
 def build_report(theme: str, start: date, end: date, concepts: list[str], news: list[dict],
                  members: dict[str, dict], sectors: list[dict], sec_tl: list[dict],
-                 heat: list[dict], starts: list[dict]) -> str:
+                 heat: list[dict], starts: list[dict], dropped: int = 0) -> str:
     lines = [f"# {theme} 发酵链路回溯", "",
              f"窗口：{fmt_d(start)} ~ {fmt_d(end)}　|　命中概念：{', '.join(concepts) or '无'}　|　成员公司：{len(members)}", ""]
 
@@ -303,15 +346,18 @@ def build_report(theme: str, start: date, end: date, concepts: list[str], news: 
         lines.append(f"\n涨停热度峰值：{fmt_d(peak['trade_date'])} {peak['sector_name']} 涨停 {peak.get('limit_up_count')} 家（rank {peak.get('rank')}）")
     lines.append("")
 
-    lines += ["## 3. 个股启动梯队（起涨 vs 补涨）", ""]
+    lines += ["## 3. 个股启动梯队（起涨 vs 补涨，按区间涨幅筛选）", ""]
+    if dropped:
+        lines.append(f"命中公司较多，已按窗口区间涨幅取前 {len(members)} 名（core 层保底），筛掉 {dropped} 家。\n")
     if starts:
         first_day = starts[0]["start_day"]
-        lines += ["| 启动日 | 公司 | 知识库分层 | 触发 | 梯队 |", "|---|---|---|---|---|"]
+        lines += ["| 启动日 | 公司 | 区间涨幅% | 知识库分层 | 触发 | 梯队 |", "|---|---|---|---|---|---|"]
         for r in starts:
             lag = (r["start_day"] - first_day).days if hasattr(r["start_day"] - first_day, "days") else 0
             tier = "起涨" if lag <= 2 else ("第二梯队" if lag <= 7 else "补涨")
             trig = "首板" if r["by_limit"] else "量价突破"
-            lines.append(f"| {fmt_d(r['start_day'])} | {r['name']} | {r['strength']} | {trig} | {tier}(+{lag}d) |")
+            g = f"{r['gain']:.1f}" if r.get("gain") is not None else "-"
+            lines.append(f"| {fmt_d(r['start_day'])} | {r['name']} | {g} | {r['strength']} | {trig} | {tier}(+{lag}d) |")
     else:
         lines.append("窗口内无成员股启动记录（或 DuckDB 缺个股数据）。")
     lines.append("")
@@ -353,6 +399,7 @@ def main() -> int:
     ap.add_argument("--window", type=int, default=60, help="未指定 start 时回看的自然日数")
     ap.add_argument("--vault", default=None, help="知识库 wiki 目录")
     ap.add_argument("--pct-threshold", type=float, default=7.0, help="量价突破的单日涨幅阈值")
+    ap.add_argument("--max-members", type=int, default=30, help="命中超过此数时按区间涨幅取 Top N（core 保底）")
     ap.add_argument("--out")
     args = ap.parse_args()
 
@@ -375,11 +422,13 @@ def main() -> int:
         codes = [s["sector_ts_code"] for s in sectors if s.get("sector_ts_code")]
         sec_tl = sector_timeline(con, codes, start, end)
         heat = limit_heat(con, codes, start, end)
+        gains = member_interval_gains(con, members, start, end)
+        members, dropped = filter_members_by_gain(members, gains, args.max_members)
         starts = stock_start_days(con, members, codes, start, end, args.pct_threshold)
     finally:
         con.close()
 
-    report = build_report(args.theme, start, end, concepts, news, members, sectors, sec_tl, heat, starts)
+    report = build_report(args.theme, start, end, concepts, news, members, sectors, sec_tl, heat, starts, dropped)
     out = Path(args.out) if args.out else Path(f"/tmp/fermentation-{args.theme}-{end.isoformat()}.md")
     out.write_text(report, encoding="utf-8")
     print(f"报告已写入: {out}")

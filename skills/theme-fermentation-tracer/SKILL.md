@@ -18,11 +18,12 @@ description: 题材发酵链路回溯——把知识库消息面（证据/认知
 ```bash
 python3 skills/theme-fermentation-tracer/scripts/trace.py --theme <题材名> \
     [--start 2026-04-01] [--end 2026-06-12] [--window 60] \
-    [--pct-threshold 7.0] [--out /tmp/xxx.md]
+    [--pct-threshold 7.0] [--max-members 30] [--out /tmp/xxx.md]
 ```
 
 - `--window`：未指定 start 时从 end 往回看的自然日数（默认 60）
 - `--pct-threshold`：无首板记录时，用"单日涨幅 ≥ 阈值"判定量价突破起涨日（默认 7%）
+- `--max-members`：命中公司超过此数时，先算窗口区间涨幅并按涨幅取 Top N（core 层保底全留）再回看启动日；命中少则全列（默认 30）
 
 ## 数据对齐逻辑
 
@@ -39,7 +40,7 @@ python3 skills/theme-fermentation-tracer/scripts/trace.py --theme <题材名> \
 
 1. **消息面时间线**：窗口内带日期的证据/认知跃迁/卖方覆盖事件表
 2. **板块发酵时间线**：双红启动日、双红加强（3 连）日、多周期共振日、涨停热度峰值
-3. **个股启动梯队**：按起涨日排序；距首只启动 ≤2 天=起涨、≤7 天=第二梯队、>7 天=补涨
+3. **个股启动梯队**：带区间涨幅列，按起涨日排序；距首只启动 ≤2 天=起涨、≤7 天=第二梯队、>7 天=补涨
 4. **合并链路**：📰消息 / 📈板块 / 🚀个股 三类事件按日合并的因果时间轴
 
 ## 边界
