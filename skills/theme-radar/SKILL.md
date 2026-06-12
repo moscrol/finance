@@ -76,8 +76,8 @@ wiki 页面层（只读，不回写）：
 默认路径可按机器调整，先设置变量再同步：
 
 ```bash
-export FINANCE_REPO="${FINANCE_REPO:-/Users/a77/Desktop/c c/金融}"
-export KNOWLEDGE_REPO="${KNOWLEDGE_REPO:-/Users/a77/Desktop/c c/知识库}"
+export FINANCE_REPO="${FINANCE_REPO:-<金融仓路径>}"
+export KNOWLEDGE_REPO="${KNOWLEDGE_REPO:-<知识库路径>}"
 export KNOWLEDGE_WIKI="${KNOWLEDGE_WIKI:-$KNOWLEDGE_REPO/wiki}"
 export TERM="${TERM:-MLCC}"
 
@@ -85,6 +85,10 @@ git -C "$FINANCE_REPO" pull origin main
 git -C "$KNOWLEDGE_REPO" pull origin main
 python3 "$FINANCE_REPO/skills/theme-radar/scripts/radar.py" --help | grep brief
 ```
+
+路径与数据新鲜度（2026-06-12 起）：
+- `--vault` 缺省时 radar.py 按 `KB_VAULT` > `CONCEPT_VAULT` > 同级目录自动探测（含 `wiki/relations` 的仓库）解析知识库路径，不再硬编码 Mac 路径。
+- 启动时读知识库 `relations/meta.json`（由知识库 writer 自动盖戳）；数据超过 `RELATIONS_MAX_AGE_DAYS`（默认 7 天）未更新或 schema 版本不匹配时，报告头部会输出 ⚠️ 警告。
 
 用户要“题材雷达/题材速读/定义+产业链+细分+核心个股”时，默认使用新版 `brief`：
 
@@ -140,14 +144,14 @@ front-map 的细分方向扫描已归 brief 模式（避免与 brief 三、工�
 路由原则：带具体题材词 X 且问产业维（是什么/谁受益/怎么验证）→ brief/front-map/deep-dive 三档按深度选；问时间维（怎么发酵的）→ replay；不带题材词、要全库视角 → scan；要类比/找下一个 → migrate。
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜"
 ```
 
 题材速读（高可读性，用户日常首选）：
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "光刻胶" \
   --mode brief
 ```
@@ -164,7 +168,7 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 带外部定义运行：
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜" \
   --definition "感光干膜是PCB、IC载板等图形转移环节使用的光敏材料，和mSAP/高端PCB制程、线路精细化相关。"
 ```
@@ -172,9 +176,9 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 写入报告：
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜" \
-  --out "/Users/lbq/Desktop/c c/知识库/wiki/synthesis/感光干膜-theme-radar.md"
+  --out "<知识库>/wiki/synthesis/感光干膜-theme-radar.md"
 ```
 
 ## 输出结构
@@ -270,10 +274,10 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 当用户给一段新闻、公告、复盘、研报摘录时，先用 `build_context.py` 生成可复核草稿：
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/build_context.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/build_context.py" \
   --term "mSAP" \
   --input "/path/to/raw-notes.txt" \
-  --out "/Users/lbq/Desktop/c c/知识库/wiki/raw/theme-radar/mSAP-context-draft.json"
+  --out "<知识库>/wiki/raw/theme-radar/mSAP-context-draft.json"
 ```
 
 草稿会尝试抽：
@@ -467,9 +471,9 @@ web access 搜到资料后，先抽成这个结构。字段缺失可以留空，
 ## 结构化运行
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜" \
-  --context-json "/Users/lbq/Desktop/c c/知识库/wiki/raw/theme-radar/感光干膜-context.json"
+  --context-json "<知识库>/wiki/raw/theme-radar/感光干膜-context.json"
 ```
 
 ## 公司分层规则

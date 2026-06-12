@@ -14,8 +14,7 @@ A股量化复盘+研究工具集。数据来源：fupanhui.com API（浏览器�
 │   ├── backfill_sector_marginal.py  # 板块边际量历史回填（CDP代理抓取）
 │   └── backtest_sector.py   # 板块边际量策略回测
 ├── skills/                 # 各分析模块的 SKILL.md（Claude Code skill 定义）
-│   ├── concept-ingest/     #   新概念入库管道：LLM提取→代码匹配→交叉对比→写入vault
-│   ├── entity-delta-ingest/ #   公司边际变化入库：资讯/纪要→entity追加更新
+│   │                       #   注：ingest 类 skill（pdf/concept/entity-delta/baseline）已迁至知识库仓 skills/（2026-06-12）
 ├── shared/                 # → ~/.claude/shared（飞书工具库）
 └── CLAUDE.md               # AI agent 项目指令
 ```

@@ -25,8 +25,50 @@ except Exception:
     readiness_builder = None
 
 
-DEFAULT_VAULT = Path(os.path.expanduser(os.environ.get("CONCEPT_VAULT", "~/Desktop/c c/知识库/wiki")))
+def _default_vault() -> Path:
+    """知识库 wiki 路径：环境变量 > 同级目录自动探测 > 旧版 Mac 路径。"""
+    for var in ("KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT"):
+        val = os.environ.get(var)
+        if val:
+            return Path(os.path.expanduser(val))
+    repo_root = Path(__file__).resolve().parents[3]
+    if repo_root.parent.is_dir():
+        for sibling in sorted(repo_root.parent.iterdir()):
+            if sibling != repo_root and (sibling / "wiki" / "relations").is_dir():
+                return sibling / "wiki"
+    return Path(os.path.expanduser("~/Desktop/c c/知识库/wiki"))
+
+
+DEFAULT_VAULT = _default_vault()
 DEFAULT_IMA_PARSED_DIR = Path(os.path.expanduser(os.environ.get("IMA_PARSED_DIR", "~/Desktop/c c/ima/parsed")))
+RELATIONS_SCHEMA_VERSION = 1
+RELATIONS_MAX_AGE_DAYS = int(os.environ.get("RELATIONS_MAX_AGE_DAYS", "7"))
+
+
+def relations_freshness_warnings(vault: Path) -> list[str]:
+    """读知识库 relations/meta.json，返回数据过期/schema 不匹配的警告行（报告头部展示）。"""
+    meta_path = vault / "relations" / "meta.json"
+    if not meta_path.exists():
+        return []
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ["⚠️ relations/meta.json 解析失败，无法确认底层数据新鲜度"]
+    warnings = []
+    version = meta.get("schema_version")
+    if version is not None and version != RELATIONS_SCHEMA_VERSION:
+        warnings.append(f"⚠️ relations schema 不匹配：数据={version} 雷达期望={RELATIONS_SCHEMA_VERSION}，请同步两仓版本")
+    updated_at = meta.get("updated_at")
+    if updated_at:
+        try:
+            from datetime import datetime
+
+            age = (datetime.now() - datetime.fromisoformat(updated_at)).days
+            if age > RELATIONS_MAX_AGE_DAYS:
+                warnings.append(f"⚠️ 知识库 relations 数据已 {age} 天未更新（最后：{updated_at}），报告可能滞后于盘面")
+        except ValueError:
+            pass
+    return warnings
 RELATION_FILES = {
     "concept_graph": "concept_graph.json",
     "entity_exposures": "entity_exposures.json",
@@ -7952,7 +7994,7 @@ def map_inferred_demand_engine_rows(state: dict, limit: int = 8) -> list[dict]:
 
 
 def map_existing_report_files(term: str, limit: int = 6) -> list[str]:
-    ima_dir = Path("/Users/a77/Desktop/c c/ima")
+    ima_dir = Path(os.path.expanduser(os.environ.get("IMA_DIR", "~/Desktop/c c/ima")))
     if not ima_dir.exists():
         return []
     patterns = [
@@ -9159,6 +9201,9 @@ def main() -> int:
         report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
     else:
         report = build_report(args.term, vault, definition, context)
+    freshness = relations_freshness_warnings(vault)
+    if freshness:
+        report = "\n".join(["> " + w for w in freshness]) + "\n\n" + report
     if args.out:
         out = Path(args.out).expanduser()
         out.parent.mkdir(parents=True, exist_ok=True)
