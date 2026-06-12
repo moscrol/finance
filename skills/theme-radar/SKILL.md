@@ -124,6 +124,21 @@ python3 "$FINANCE_REPO/skills/theme-radar/scripts/radar.py" \
 
 front-map 的细分方向扫描已归 brief 模式（避免与 brief 三、工艺与材料细分扫描重叠）。deep-dive 的认同度时间线、进度横向对比已归知识库模块7（避免与发酵复盘重叠），deep-dive 保留催化日历（产品维）并注明链接。
 
+## 六模式提示词词表（统一触发口径）
+
+用户说出下列提示词时，agent 直接路由到对应模式，不要追问：
+
+| 模式名 | 提示词（任一命中即触发） | 标准入口 |
+|---|---|---|
+| `brief` | 速览X / 快查X / X是什么 / 题材速读X / 晨汇方向X | `radar.py --term X --vault <知识库>/wiki --mode brief` |
+| `front-map` | X信息地图 / X值不值得展开 / X全景图 | `radar.py --term X --vault <知识库>/wiki --mode front-map` |
+| `deep-dive` | 深研X / 尽调X / 深拆X / X验证清单 | `radar.py --term X --vault <知识库>/wiki --mode deep-dive` |
+| `scan`（知识库模块4） | 扫描表 / 全库扫描 / 工艺材料扫描 | 知识库 `skills/theme-radar-reports/scripts/generate_scan_table.py` |
+| `replay`（知识库模块7） | X发酵复盘 / X怎么走到今天 / X时间线 | 知识库 `skills/theme-radar-reports/scripts/generate_fermentation_report.py X` |
+| `migrate`（知识库模块8） | 拿X当标尺 / 横迁 / 找X的同类 | 知识库 `skills/theme-radar-reports/scripts/generate_migration_scan.py --pattern X` |
+
+路由原则：带具体题材词 X 且问产业维（是什么/谁受益/怎么验证）→ brief/front-map/deep-dive 三档按深度选；问时间维（怎么发酵的）→ replay；不带题材词、要全库视角 → scan；要类比/找下一个 → migrate。
+
 ```bash
 python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜"
