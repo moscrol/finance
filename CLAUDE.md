@@ -101,6 +101,10 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | sector-data | 边际量、板块数据、抓取板块 |
 | 公司画像页 | 公司画像PPT |
 | 行业概览 | 行业概览 |
+| theme-radar | 题材雷达、新词雷达、题材逻辑拆解 |
+| opinion-cross | 卖方观点提纯、三重共振机会卡片（注：覆盖密度交叉验证在知识库仓 sellside-coverage-cross） |
+| serenity-alpha | 个股弹性预期差、补涨排序 |
+| disclosure-archive | 补公告、披露归档（抓取侧；apply 侧在知识库仓） |
 | concept-ingest（已迁至知识库仓） | concept ingest、概念入库、新概念、提取概念 → 读 `<知识库>/skills/concept-ingest/SKILL.md` |
 | entity-delta-ingest（已迁至知识库仓） | entity delta、公司边际变化、更新entity、早知道入库 → 读 `<知识库>/skills/entity-delta-ingest/SKILL.md` |
 

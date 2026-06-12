@@ -15,7 +15,7 @@ skill 本体已迁入知识库仓（2026-06-12）。先读取并遵守：
 
 如需完整批量流程，再读取：
 
-`<知识库>/.windsurf/workflows/pdf-ingest.md`
+`<知识库>/.devin/workflows/pdf-ingest.md`
 
 ## 关键路径（均在知识库仓）
 
