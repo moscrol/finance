@@ -185,6 +185,24 @@ python3 skills/opinion-cross/scripts/opinion_store.py list \
 - 库是**派生数据文件**（默认 `<vault>/raw/theme-radar/opinion-store/`），**不写** KB 的 concepts/entities/relations，也**不进代码仓**。硬料若要进 KB ground truth，仍走 `disclosure-archive` 的人工审核 `--apply`。
 - 这一层只做"累积 + 聚合 + 来源归一"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1、算机构胜率）是下一步 b。
 
+### 晨汇补漏通道（morning-briefing raw → opinion-store）
+
+知识库仓的晨汇 raw（`raw/MMDD晨汇纪要.md`，对电话会/卖方观点的 AI 总结转写，文件标注日即观点日）与晚间原文观点流结构同类（L3-L4 卖方观点），两者是不同信息源、平级互补：原文流缺的日期用晨汇补，晨汇缺的用原文流覆盖。规则（与知识库仓 `skills/morning-briefing/SKILL.md` Stage 5 可选步骤同源）：
+
+1. **只补缺口**：仅对原文流缺失/偏少的日期从晨汇 raw 补 ingest；已有原文批次的日期不重复灌。
+2. **日期归一**：ingest 时 `--date` 用**观点原始日**（以 raw 内容标注的电话会/观点日期为准，多日文件按场次日期分别标注），避免与原文批次错日重复计数。
+3. **机构归一**：`--source` 用段落【机构】标头归一（sources.json 别名机制），无标头才用"未名"。
+4. **证据分层**：晨汇里公告类硬事实段**不进观点库**（走 disclosure-archive）；只取卖方观点/电话会推荐段。
+5. **渠道标记（不降权）**：晨汇来源事件 `report_title` 统一带 `[晨汇转述]` 前缀（用 `--title` 参数，无需改 schema），仅作渠道溯源用。晨汇与原文流是不同信息源，平级互补，无权重高低之分；前缀只用于区分渠道、识别 AI 转述可能的数字失真（见 morning-briefing 经验第 7 条）。
+6. **去重抽查**：补完每个日期后抽查同 (date, source) 是否与已有原文事件语义重复；指纹不同但内容同源的记录在 PR 描述里供人工裁决。
+
+```bash
+# 晨汇补漏 ingest 示例（观点原始日 = 晨汇日期 - 1）
+python3 skills/opinion-cross/scripts/opinion_store.py ingest \
+  --input seg.txt --date 2026-05-16 --source "华源证券" \
+  --title "[晨汇转述]商业航天电话会" --vault "<KB>/wiki"
+```
+
 ## 认同度 staging + 时间轴（演化视图层 · `consensus_staging.py`）
 
 `opinion_store` 把事件累积进库、`summary` 给一张静态聚合表；但"同一标的被反复提"到底**走到哪一阶、哪天跳的阶、和别的方向比发酵到什么程度**，静态表看不出。`consensus_staging.py` 是库的**演化视图层**：把每个标的/方向的事件按时间累积，映射到 `theme-radar` 已有的认同度阶梯，回答"认同度演变"。
