@@ -3,9 +3,22 @@ from __future__ import annotations
 import argparse
 import sys
 
-from intelligence.workflows.adapter_smoke import AdapterSmokeOptions, run_adapter_smoke
-from intelligence.workflows.daily_review import DailyReviewOptions, dry_run_daily_review, run_daily_review
-from intelligence.workflows.theme_radar import ThemeRadarOptions, run_theme_radar
+# NOTE: workflow modules are imported lazily inside each command handler so the
+# CLI (and the duckdb-free `ask` command) can run in environments without the
+# market database driver installed.
+
+
+def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S)"
+    )
+    parser.add_argument("query", help="Question / theme term, e.g. 液冷服务器")
+    parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
+    parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
+    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
+    parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall")
+    parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
+    parser.set_defaults(func=cmd_ask)
 
 
 def add_adapter_smoke_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -45,7 +58,27 @@ def add_theme_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(func=cmd_theme)
 
 
+def cmd_ask(args: argparse.Namespace) -> int:
+    from intelligence.workflows.ask import AskWorkflowOptions, run_ask
+
+    summary, _result, answer = run_ask(
+        AskWorkflowOptions(
+            query=args.query,
+            date=args.date,
+            exports_dir=args.exports_dir,
+            kb_wiki=args.kb_wiki,
+            top_companies=args.top_companies,
+        )
+    )
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    print(answer, end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
 def cmd_daily(args: argparse.Namespace) -> int:
+    from intelligence.workflows.daily_review import DailyReviewOptions, dry_run_daily_review, run_daily_review
+
     options = DailyReviewOptions(
         date=args.date,
         skip_sync=args.skip_sync,
@@ -67,6 +100,8 @@ def cmd_daily(args: argparse.Namespace) -> int:
 
 
 def cmd_adapter_smoke(args: argparse.Namespace) -> int:
+    from intelligence.workflows.adapter_smoke import AdapterSmokeOptions, run_adapter_smoke
+
     options = AdapterSmokeOptions(
         date=args.date,
         entity=args.entity,
@@ -80,6 +115,8 @@ def cmd_adapter_smoke(args: argparse.Namespace) -> int:
 
 
 def cmd_theme(args: argparse.Namespace) -> int:
+    from intelligence.workflows.theme_radar import ThemeRadarOptions, run_theme_radar
+
     options = ThemeRadarOptions(
         date=args.date,
         market_triggered=args.market_triggered,
@@ -97,6 +134,7 @@ def cmd_theme(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    add_ask_parser(subparsers)
     add_adapter_smoke_parser(subparsers)
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)
