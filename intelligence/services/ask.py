@@ -23,9 +23,14 @@ from pathlib import Path
 from typing import Any
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
+from intelligence.services import llm_refine
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
+    MODULE_DEEP_DIVE,
+    MODULE_FRONT_MAP,
+    MODULE_MIGRATE,
     MODULE_REPLAY,
+    MODULE_SCAN,
     route_modules,
     run_module,
 )
@@ -36,6 +41,24 @@ DEFAULT_EXPORTS_DIR = REPO_ROOT / "market_feature_store" / "exports"
 # Trade-date freshness threshold (calendar days) above which graph evidence is
 # flagged as potentially stale. Stand-in for a real Temporal Facts layer.
 DEFAULT_STALE_DAYS = 45
+
+# Human-readable labels + 结论 summary prefixes for each routed recall backend.
+MODULE_LABELS = {
+    MODULE_BRIEF: "brief（产业维 · radar.py --mode brief 速览）",
+    MODULE_FRONT_MAP: "front-map（产业维 · radar.py --mode front-map 前瞻信息地图）",
+    MODULE_DEEP_DIVE: "deep-dive（产业维 · radar.py --mode deep-dive 题材深拆）",
+    MODULE_REPLAY: "replay（时间维 · 模块7 发酵复盘）",
+    MODULE_SCAN: "scan（横截面 · 模块4 全库横扫）",
+    MODULE_MIGRATE: "migrate（横截面 · 模块8 横向迁移）",
+}
+MODULE_SUMMARY_PREFIX = {
+    MODULE_BRIEF: "产业维定锚",
+    MODULE_FRONT_MAP: "前瞻信息地图",
+    MODULE_DEEP_DIVE: "深拆定锚",
+    MODULE_REPLAY: "时间维发酵阶段",
+    MODULE_SCAN: "全库横扫",
+    MODULE_MIGRATE: "横向迁移标尺",
+}
 
 
 @dataclass(frozen=True)
@@ -51,6 +74,9 @@ class AskOptions:
     use_modules: bool = True
     modules: tuple[str, ...] | None = None
     module_timeout: int = 180
+    use_llm: bool = False
+    llm_model: str | None = None
+    llm_timeout: int = 60
 
 
 @dataclass
@@ -73,6 +99,8 @@ class AskResult:
     found_market: bool = False
     found_graph: bool = False
     routed_modules: list[str] = field(default_factory=list)
+    llm_refined: bool = False
+    llm_provider: str | None = None
 
     @property
     def status(self) -> str:
@@ -298,28 +326,23 @@ def answer_query(options: AskOptions) -> AskResult:
 
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
     module_block: list[str] = []
-    module_follow_ups: list[str] = []
+    module_follow_ups: list[tuple[str, str]] = []
     module_summ: list[str] = []
     if options.use_modules:
         routed = route_modules(options.query, list(options.modules) if options.modules else None)
         result.routed_modules = list(routed)
-        label = {
-            MODULE_BRIEF: "brief（产业维 · radar.py --mode brief）",
-            MODULE_REPLAY: "replay（时间维 · 模块7 发酵复盘）",
-        }
         for name in routed:
             mr = run_module(name, options.query, options.kb_wiki, options.module_timeout)
-            module_block.append(f"{SUBHEAD}模块·{label.get(name, name)}")
+            module_block.append(f"{SUBHEAD}模块·{MODULE_LABELS.get(name, name)}")
             if mr.ok and mr.highlights:
                 result.found_graph = True
                 tag = cite("G", mr.citation_source, f"{mr.command}" + (f" | {mr.citation_detail}" if mr.citation_detail else ""))
                 for hl in mr.highlights:
                     module_block.append(f"{hl} {tag}")
-                module_follow_ups.extend(mr.follow_ups)
-                if name == MODULE_BRIEF and mr.title:
-                    module_summ.append(f"产业维定锚「{mr.title[:24]}…」")
-                elif name == MODULE_REPLAY and mr.title:
-                    module_summ.append(f"时间维发酵阶段「{mr.title}」")
+                module_follow_ups.extend((name, f) for f in mr.follow_ups)
+                if mr.title:
+                    t = mr.title[:28] + ("…" if len(mr.title) > 28 else "")
+                    module_summ.append(f"{MODULE_SUMMARY_PREFIX.get(name, name)}「{t}」")
             else:
                 reason = mr.warning or "无产出"
                 module_block.append(f"（{name} 模块未接入产出：{reason}）")
@@ -361,6 +384,11 @@ def answer_query(options: AskOptions) -> AskResult:
         stance_bits.append("但基本面证据不足，偏盘面驱动")
     stance = "；".join(stance_bits) if stance_bits else "盘面信号有限"
 
+    route_line = (
+        "模块路由："
+        + ("、".join(result.routed_modules) if result.routed_modules else "未启用")
+        + ("｜" + "；".join(module_summ) if module_summ else "")
+    )
     conclusion = [
         f"主题「{theme}」"
         + (
@@ -370,9 +398,7 @@ def answer_query(options: AskOptions) -> AskResult:
         )
         + f"：{stance}。",
         f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
-        "模块路由："
-        + ("、".join(result.routed_modules) if result.routed_modules else "未启用")
-        + ("｜" + "；".join(module_summ) if module_summ else ""),
+        route_line,
         "（注：结论与交易含义为模板化骨架，待接 LLM 精修；证据链/分歧/模块召回为真实检索结果。）",
     ]
 
@@ -385,8 +411,8 @@ def answer_query(options: AskOptions) -> AskResult:
         follow_ups.append("看连板高度与晋级率，确认资金接力意愿")
     if gaps or tiers["peripheral"]:
         follow_ups.append("对 graph_only / 缺口公司补研报与官方披露（disclosure-archive → apply）")
-    for item in module_follow_ups:
-        follow_ups.append(f"[replay] {item}")
+    for mod_name, item in module_follow_ups:
+        follow_ups.append(f"[{mod_name}] {item}")
     if not follow_ups:
         follow_ups.append("补充盘面与基本面证据后再评估")
 
@@ -401,20 +427,58 @@ def answer_query(options: AskOptions) -> AskResult:
         implication = "当日盘面未触发：以图谱认知储备为主，等待盘面信号出现。"
     implication += "（非投资建议，检索骨架输出。）"
 
-    result.sections = {
-        "结论": conclusion,
-        "证据链": [f"{SUBHEAD}盘面"] + (market_lines or ["（当日无盘面候选命中）"])
+    evidence_chain = (
+        [f"{SUBHEAD}盘面"] + (market_lines or ["（当日无盘面候选命中）"])
         + [f"{SUBHEAD}图谱·概念"] + (graph_concept_lines or ["（图谱未命中概念）"])
         + [f"{SUBHEAD}图谱·公司分层"] + (company_lines or ["（图谱未命中公司暴露）"])
         + [f"{SUBHEAD}证据"] + (evidence_lines or ["（evidence_index 未命中）"])
-        + module_block,
+        + module_block
+    )
+
+    # --- ② optional LLM refinement of 结论 / 交易含义 (graceful degrade w/o key) ---
+    if options.use_llm:
+        evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
+        refined, reason = llm_refine.refine_or_reason(
+            options.query, theme, evidence_text,
+            model_override=options.llm_model, timeout=options.llm_timeout,
+        )
+        if refined is not None:
+            result.llm_refined = True
+            result.llm_provider = refined.provider
+            conclusion = list(refined.conclusion) + [
+                route_line,
+                f"（结论/交易含义由 LLM·{refined.provider}/{refined.model} 基于上述编号证据精修；证据链/分歧/模块召回为确定性检索结果。）",
+            ]
+            implication_lines = list(refined.implication)
+        else:
+            result.warnings.append(reason)
+            implication_lines = [implication]
+    else:
+        implication_lines = [implication]
+
+    result.sections = {
+        "结论": conclusion,
+        "证据链": evidence_chain,
         "分歧反证": gap_lines,
         "后续验证点": follow_ups,
-        "交易含义": [implication],
+        "交易含义": implication_lines,
         "引用来源": [f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations],
     }
     result.citations = citations
     return result
+
+
+def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:
+    """Flatten the retrieved 证据链 + 分歧反证 into plain text for the LLM prompt."""
+    out: list[str] = ["## 证据链"]
+    for item in evidence_chain:
+        if item.startswith(SUBHEAD):
+            out.append(f"### {item[len(SUBHEAD):]}")
+        else:
+            out.append(f"- {item}")
+    out.append("## 分歧反证")
+    out.extend(f"- {g}" for g in gap_lines)
+    return "\n".join(out)
 
 
 SUBHEAD = "\x00SUB\x00"

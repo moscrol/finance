@@ -17,6 +17,9 @@ class AskWorkflowOptions:
     use_modules: bool = True
     modules: tuple[str, ...] | None = None
     module_timeout: int = 180
+    use_llm: bool = False
+    llm_model: str | None = None
+    llm_timeout: int = 60
 
 
 def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, str]:
@@ -36,6 +39,9 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             use_modules=options.use_modules,
             modules=options.modules,
             module_timeout=options.module_timeout,
+            use_llm=options.use_llm,
+            llm_model=options.llm_model,
+            llm_timeout=options.llm_timeout,
         )
     )
     answer = render_answer(result)
@@ -61,12 +67,18 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             outputs=[f"routed={'/'.join(result.routed_modules) or '-'}"],
         )
     )
+    summary.steps.append(
+        WorkflowStep(
+            name="llm-refine",
+            status="PASS" if result.llm_refined else ("WARN" if options.use_llm else "SKIP"),
+            outputs=[f"provider={result.llm_provider or '-'}", f"refined={result.llm_refined}"],
+        )
+    )
     summary.outputs = [f"[{c.tag}] {c.source}" for c in result.citations]
     summary.warnings = list(result.warnings)
     summary.next_actions = [
-        "Wire the remaining theme-radar 模式 (front-map/deep-dive/scan/migrate) as recall backends.",
-        "Refine 结论/交易含义 with an LLM provider.",
         "Add a Temporal Facts layer so superseded/invalidated evidence is filtered automatically.",
+        "Wire daily-loop (盘前预测→盘后多周期验证→写回记忆).",
     ]
     summary.finish(result.status)
     return summary, result, answer
