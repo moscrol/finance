@@ -76,8 +76,8 @@ wiki 页面层（只读，不回写）：
 默认路径可按机器调整，先设置变量再同步：
 
 ```bash
-export FINANCE_REPO="${FINANCE_REPO:-/Users/a77/Desktop/c c/金融}"
-export KNOWLEDGE_REPO="${KNOWLEDGE_REPO:-/Users/a77/Desktop/c c/知识库}"
+export FINANCE_REPO="${FINANCE_REPO:-<金融仓路径>}"
+export KNOWLEDGE_REPO="${KNOWLEDGE_REPO:-<知识库路径>}"
 export KNOWLEDGE_WIKI="${KNOWLEDGE_WIKI:-$KNOWLEDGE_REPO/wiki}"
 export TERM="${TERM:-MLCC}"
 
@@ -85,6 +85,10 @@ git -C "$FINANCE_REPO" pull origin main
 git -C "$KNOWLEDGE_REPO" pull origin main
 python3 "$FINANCE_REPO/skills/theme-radar/scripts/radar.py" --help | grep brief
 ```
+
+路径与数据新鲜度（2026-06-12 起）：
+- `--vault` 缺省时 radar.py 按 `KB_VAULT` > `CONCEPT_VAULT` > 同级目录自动探测（含 `wiki/relations` 的仓库）解析知识库路径，不再硬编码 Mac 路径。
+- 启动时读知识库 `relations/meta.json`（由知识库 writer 自动盖戳）；数据超过 `RELATIONS_MAX_AGE_DAYS`（默认 7 天）未更新或 schema 版本不匹配时，报告头部会输出 ⚠️ 警告。
 
 用户要“题材雷达/题材速读/定义+产业链+细分+核心个股”时，默认使用新版 `brief`：
 
@@ -107,15 +111,47 @@ python3 "$FINANCE_REPO/skills/theme-radar/scripts/radar.py" \
 
 需要完整验证清单、护栏、催化和公司卡时，才改用 `--mode deep-dive` 或 `--mode front-map`。不要在新版日常速读场景继续使用默认 `--mode radar`。
 
+## 三模式分工（与知识库十模块体系各司其职）
+
+| 模式 | 定位 | 时长 | 适用场景 | 核心输出 |
+|---|---|---|---|---|
+| `brief` | 单题材速览 | ≤5 min | 盘前/盘中快速定位新词、晨汇方向 | 定义 → 产业链 → 工艺/材料细分扫描 → 各细分核心个股 |
+| `front-map` | 单题材信息地图 | ≤10 min | 值不值得展开的中间判断 | 在 brief 基础上加雷达速览、公司分层地图、海外对标、synthesis 洞察 |
+| `deep-dive` | 单题材深研 | ≤20 min | 盘后/周末尽调、决策上车前 | 专注产业维：需求传导、共振分层、个股逻辑卡、验证清单、操作建议 |
+
+**与知识库十模块体系的分工**（不重叠、不重复实现）：
+
+- 知识库模块4（扫描表）= 全库工艺/材料级横向扫描，每行一个方向、一句话定锚
+- 知识库模块7（发酵复盘）= 单题材**时间维**复盘：怎么走到今天、认同度演变、关键时间节点
+- 知识库模块8（横迁）= 拿一个参照模式当标尺，扫全部主题排发酵进度
+- front-map/deep-dive = 单题材**产业维**深拆：产业链全景、公司能力栈、验证清单；时间维链接模块7，不重复实现
+
+front-map 的细分方向扫描已归 brief 模式（避免与 brief 三、工艺与材料细分扫描重叠）。deep-dive 的认同度时间线、进度横向对比已归知识库模块7（避免与发酵复盘重叠），deep-dive 保留催化日历（产品维）并注明链接。
+
+## 六模式提示词词表（统一触发口径）
+
+用户说出下列提示词时，agent 直接路由到对应模式，不要追问：
+
+| 模式名 | 提示词（任一命中即触发） | 标准入口 |
+|---|---|---|
+| `brief` | 速览X / 快查X / X是什么 / 题材速读X / 晨汇方向X | `radar.py --term X --vault <知识库>/wiki --mode brief` |
+| `front-map` | X信息地图 / X值不值得展开 / X全景图 | `radar.py --term X --vault <知识库>/wiki --mode front-map` |
+| `deep-dive` | 深研X / 尽调X / 深拆X / X验证清单 | `radar.py --term X --vault <知识库>/wiki --mode deep-dive` |
+| `scan`（知识库模块4） | 扫描表 / 全库扫描 / 工艺材料扫描 | 知识库 `skills/theme-radar-reports/scripts/generate_scan_table.py` |
+| `replay`（知识库模块7） | X发酵复盘 / X怎么走到今天 / X时间线 | 知识库 `skills/theme-radar-reports/scripts/generate_fermentation_report.py X` |
+| `migrate`（知识库模块8） | 拿X当标尺 / 横迁 / 找X的同类 | 知识库 `skills/theme-radar-reports/scripts/generate_migration_scan.py --pattern X` |
+
+路由原则：带具体题材词 X 且问产业维（是什么/谁受益/怎么验证）→ brief/front-map/deep-dive 三档按深度选；问时间维（怎么发酵的）→ replay；不带题材词、要全库视角 → scan；要类比/找下一个 → migrate。
+
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜"
 ```
 
 题材速读（高可读性，用户日常首选）：
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "光刻胶" \
   --mode brief
 ```
@@ -132,7 +168,7 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 带外部定义运行：
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜" \
   --definition "感光干膜是PCB、IC载板等图形转移环节使用的光敏材料，和mSAP/高端PCB制程、线路精细化相关。"
 ```
@@ -140,9 +176,9 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 写入报告：
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜" \
-  --out "/Users/lbq/Desktop/c c/知识库/wiki/synthesis/感光干膜-theme-radar.md"
+  --out "<知识库>/wiki/synthesis/感光干膜-theme-radar.md"
 ```
 
 ## 输出结构
@@ -238,10 +274,10 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 当用户给一段新闻、公告、复盘、研报摘录时，先用 `build_context.py` 生成可复核草稿。该脚本**题材无关**：方向/公司骨架取自知识库（`<vault>/relations/concept_graph.json` + `entity_exposures.json`），证据层（定义/提及频率/催化/验证）取自原文，因此 CPO、硅光、固态电池等任何题材都能用，不再写死 PCB/mSAP。
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/build_context.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/build_context.py" \
   --term "CPO" \
   --input "/path/to/raw-notes.txt" \
-  --vault "/Users/lbq/Desktop/c c/知识库/wiki" \
+  --vault "<知识库>/wiki" \
   --out "/path/to/CPO-supplement-pool.json"
 ```
 
@@ -444,9 +480,9 @@ web access 搜到资料后，先抽成这个结构。字段缺失可以留空，
 ## 结构化运行
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜" \
-  --context-json "/Users/lbq/Desktop/c c/知识库/wiki/raw/theme-radar/感光干膜-context.json"
+  --context-json "<知识库>/wiki/raw/theme-radar/感光干膜-context.json"
 ```
 
 ## 公司分层规则
@@ -476,6 +512,15 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 - 从 `Tier 2` 升 `Tier 1`：需要市场信号或多源验证共振。
 - 没有 L2 baseline 的公司，即使公告或复盘提到，也要先标“待主营/能力栈核验”。
 - `graph_only` 或 `exposure_only` 默认只能作为产业链暴露和观察线索；公司升级到 `Tier 2/1` 前，需要 `delta` 或公告/订单/客户/认证/量产等 L3 事实验证。
+
+### 渲染层弱关联过滤（可逆，不改 ground-truth）
+
+`entity_exposures.json` 里约 1/4 的 concept-exposure 是共现图谱/候选噪声（典型：把 CPO 封装公司天孚通信、罗博特科错挂到上游材料 ABF 载板 / 电子级环氧树脂 / 磷 / 硅）。radar **只在渲染层**默认隐藏这类弱关联，不修改 `entity_exposures.json`：
+
+- 判定规则（`is_weak_exposure`）：`strength != core` **且** `confidence == low` 即视为弱关联隐藏。
+- `core` 强度、以及中/高置信关联一律保留 → CPO 核心映射（1.6T CPO / CPO 封装 / 光引擎 / 光模块）不受影响。
+- 实体名下若全是弱关联，则该实体整体不进公司表。
+- `--show-weak-exposures` 关闭过滤、还原全量，便于人工复核或重新校准。
 
 ## 信号层占位
 

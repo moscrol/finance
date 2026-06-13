@@ -1,0 +1,11 @@
+metric,value
+cycle_trade_rows,1972
+theme_transitions,311
+transitions_with_reflow_core,296
+avg_buy_start_to_reflow_pct,6.76
+avg_buy_confirm_to_reflow_pct,2.98
+positive_buy_start_pct,75.99
+positive_buy_confirm_pct,60.51
+transitions_with_new_core_pct,61.15
+transitions_with_continued_core_pct,34.8
+transitions_with_dropped_core_pct,61.49

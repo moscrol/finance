@@ -1,9 +1,13 @@
 """从飞书三张表读取股票，查询 MA26+STD26，计算 UP 线并写回。"""
+import argparse
+import math
 import sys
 from pathlib import Path
 from datetime import datetime
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared"))
+PROJECT_DIR = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(PROJECT_DIR))
+sys.path.insert(0, str(PROJECT_DIR / "shared"))
 from feishu_utils import (
     load_config, get_token as _get_token, fetch_all_records,
     batch_update, list_fields, create_field,
@@ -63,6 +67,20 @@ def filter_latest(records):
         return []
     latest = sorted(by_date.keys())[-1]
     return by_date[latest]
+
+
+def field_text(value):
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        parts = []
+        for item in value:
+            if isinstance(item, dict):
+                parts.append(str(item.get("text") or item.get("name") or item.get("value") or ""))
+            else:
+                parts.append(str(item))
+        return "".join(parts).strip()
+    return str(value).strip()
 
 
 def query_one_with_anchor(name, anchor, indicator):
@@ -153,6 +171,148 @@ def batch_query(stocks):
                         all_prices[s["name"]] = parsed[s["name"]]
 
     return all_ma26, all_std26, all_prices
+
+
+def local_query(stocks):
+    from market_feature_store.db import connect
+    all_ma26 = {}
+    all_std26 = {}
+    all_prices = {}
+    con = connect(read_only=True)
+    try:
+        for s in stocks:
+            term = s["name"]
+            code = s["code"]
+            plain = str(code).split(".")[0]
+            rows = con.execute(
+                """
+                SELECT trade_date, stock_ts_code, stock_name, close
+                FROM fact_stock_daily
+                WHERE stock_name = ? OR stock_ts_code = ? OR split_part(stock_ts_code, '.', 1) = ?
+                ORDER BY trade_date DESC
+                LIMIT 26
+                """,
+                [term, code, plain],
+            ).fetchall()
+            if len(rows) < 26:
+                continue
+            name = rows[0][2]
+            closes = [float(r[3]) for r in rows if r[3] is not None]
+            if len(closes) < 26:
+                continue
+            ma26 = sum(closes) / len(closes)
+            std26 = math.sqrt(sum((x - ma26) ** 2 for x in closes) / len(closes))
+            s["name"] = name
+            s["code"] = rows[0][1]
+            s["data_source"] = "本地行情"
+            all_ma26[name] = ma26
+            all_std26[name] = std26
+            all_prices[name] = closes[0]
+    finally:
+        con.close()
+    return all_ma26, all_std26, all_prices
+
+
+def find_records(token, terms):
+    found = []
+    normalized = [str(t).strip() for t in terms if str(t).strip()]
+    for label, table_id in TABLES.items():
+        for item in fetch_all_records(token, table_id, app_token=APP_TOKEN):
+            fields = item.get("fields", {})
+            name = field_text(fields.get("股票简称") or fields.get("股票名称"))
+            code = field_text(fields.get("股票代码"))
+            if not name and not code:
+                continue
+            for term in normalized:
+                if term == name or term == code or term in name:
+                    found.append({
+                        "record_id": item["record_id"],
+                        "table_id": table_id,
+                        "name": name or term,
+                        "code": code or term,
+                        "source": label,
+                        "stored_up": fields.get("UP"),
+                        "stored_dev": fields.get("偏离度"),
+                    })
+                    break
+    return found
+
+
+def query_main(argv):
+    parser = argparse.ArgumentParser(description="查询个股 UP 和偏离度，不写回飞书")
+    parser.add_argument("stocks", nargs="+", help="股票简称或代码，可一次输入多个")
+    args = parser.parse_args(argv)
+    token = get_token()
+    matches = find_records(token, args.stocks)
+    unique = {}
+    matched_terms = set()
+    for r in matches:
+        key = r["code"] or r["name"]
+        unique.setdefault(key, {"name": r["name"], "code": r["code"], "records": []})
+        unique[key]["records"].append(r)
+        matched_terms.add(r["name"])
+        matched_terms.add(r["code"])
+    for term in args.stocks:
+        if term not in matched_terms and term not in unique:
+            unique[term] = {"name": term, "code": term, "records": []}
+    stocks = list(unique.values())
+    print(f"查询 {len(stocks)} 只，获取 MA26/STD26/收盘价中...")
+    all_ma26, all_std26, all_prices = local_query(stocks)
+    missing_stocks = [
+        s for s in stocks
+        if s["name"] not in all_ma26 or s["name"] not in all_std26 or s["name"] not in all_prices
+    ]
+    if missing_stocks:
+        ma2, std2, price2 = batch_query(missing_stocks)
+        for s in missing_stocks:
+            if s["name"] in ma2 or s["name"] in std2 or s["name"] in price2:
+                s["data_source"] = "iFinD"
+        all_ma26.update(ma2)
+        all_std26.update(std2)
+        all_prices.update(price2)
+    W = 96
+    print()
+    print("═" * W)
+    print("  个股 UP / 偏离度查询")
+    print("═" * W)
+    header = (
+        f" {pad('股票', 10)}  {pad('最新价', 8, 'right')}  {pad('MA26', 8, 'right')}  "
+        f"{pad('STD26', 8, 'right')}  {pad('UP', 8, 'right')}  {pad('偏离度', 8, 'right')}  "
+        f"{pad('状态', 8)}  来源"
+    )
+    print(header)
+    print(" " + "─" * (W - 1))
+    missing = []
+    for s in stocks:
+        name = s["name"]
+        ma26 = all_ma26.get(name)
+        std26 = all_std26.get(name)
+        price = all_prices.get(name)
+        if ma26 is None or std26 is None:
+            missing.append(name)
+            up_val = None
+            dev = None
+            status = "缺数据"
+        else:
+            up_val = round(ma26 + 0.764 * std26, 2)
+            dev = round((price / up_val - 1) * 100, 2) if price and up_val else None
+            if dev is None:
+                status = "缺价格"
+            elif dev >= 0:
+                status = "站上UP"
+            else:
+                status = "低于UP"
+        sources = sorted({r["source"] for r in s.get("records", [])}) or [s.get("data_source", "实时查询")]
+        row = (
+            f" {pad(name, 10)}  {pad(fmt(price), 8, 'right')}  {pad(fmt(ma26), 8, 'right')}  "
+            f"{pad(fmt(std26), 8, 'right')}  {pad(fmt(up_val), 8, 'right')}  "
+            f"{pad((f'{dev}%' if dev is not None else '—'), 8, 'right')}  "
+            f"{pad(status, 8)}  {','.join(sources)}"
+        )
+        print(row)
+    print()
+    if missing:
+        print(f"⚠ {len(missing)} 只 MA26/STD26 缺失: {', '.join(missing)}")
 
 
 def main():
@@ -260,4 +420,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] in {"query", "查", "lookup"}:
+        query_main(sys.argv[2:])
+    else:
+        main()

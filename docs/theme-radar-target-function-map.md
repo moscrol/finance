@@ -1,6 +1,6 @@
 # Theme Radar 目标功能对齐清单：截图竞品复刻与超越
 
-更新时间：2026-06-01
+更新时间：2026-06-02
 
 ## 目标
 
@@ -9,6 +9,42 @@
 1. 是否至少 1:1 覆盖截图功能。
 2. 是否利用我们的私有深度研究库、知识图谱、证据索引、PDF ingest、report_contexts 做出更强版本。
 3. 是否避免只做漂亮报告，而忽略证据链、验证链和可复盘性。
+
+## 2026-06-02 当前实现进度快照
+
+总体判断：
+
+- 非公告 / 非盘面 deep-dive 核心链路已经进入可用 v1，约完成 70%。
+- 截图里的“盘中机会发现 + 公告 × 产业 × 盘面三维共振”还没有系统化，完整截图级能力约完成 45%-50%。
+- 当前最强的是：方向池、需求-瓶颈-环节传导、静态认知阶段、验证计划、机会分层、证据追踪。
+- 当前最大缺口是：`resonance_profile`、公告信号池、市场热点信号池、历史认知曲线、snapshot diff、验证状态流。
+
+已经落地的底层能力：
+
+- `theme_direction_pool`：标准细分方向池，能从 IMA/Obsidian 信息池 + KB relations 生成方向级中间层。
+- `theme_sector_taxonomy`：方向可映射到一级产业 / 二级赛道 / 三级主题，并保留次级相关赛道。
+- `demand_bottleneck_map`：已生成需求来源 → 技术瓶颈 → 受益环节 / 方向 / 实体 / 验证项。
+- `recognition_profile`：每个方向已有静态认知评分、阶段、升级触发、降级风险。
+- `validation_plan`：每个方向已有验证窗口、已发生催化、后续验证、升级 / 降级条件。
+- `opportunity_profile`：每个方向已有 Tier、跟踪优先级、机会评分、支撑证据、缺口和下一步动作。
+- `evidence_trace`：每个方向可追踪到 item_id、来源、日期、原文路径 / 行号、confidence、needs_review。
+- `theme_supplement_pool`：已支持解析 / 校验 / 渲染 IMA 补充数据池，覆盖需求场景、工艺材料扫描、验证清单、催化日历、认知时间线、操作建议等表。
+
+已经有入口但还不是自动闭环的能力：
+
+- `definition_profile`：补充数据池提供时可以渲染；还没有稳定从 KB concepts 自动生成完整定义 / 类比 / 边界。
+- `recognition_timeline`：补充数据池提供时可以渲染；还没有从历史 source_date / 每日复盘 / 行情自动生成。
+- `progress_ruler`：补充数据池提供时可以渲染；还没有自动生成横向阶段条形图。
+- `action_plan`：补充数据池提供时可以渲染；方向池已有 `opportunity_profile`，但中文行动分层还需增强。
+- `snapshot_diff_rows`：补充数据池 parser 已识别表格；还没有保存多轮运行快照并自动 diff。
+
+尚未落地的核心截图能力：
+
+- `resonance_profile`：公告 × 产业 × 盘面三维共振评分。
+- `announcement_signal_pool`：今日公告机会榜 / 公告信号归档与题材方向匹配。
+- `market_hotspot_signal_pool`：盘面热点、涨跌幅、成交额、资金流、涨停家数等市场信号。
+- `signal_frequency_profile`：每日复盘提及频率、来源频率、关注度变化。
+- `validation_status`：验证项从待验证 → 部分验证 → 已验证 → 证伪 / 延后的状态流。
 
 ## 截图系统的核心能力画像
 
@@ -33,7 +69,8 @@
 我们当前状态：
 
 - Theme Radar deep-dive 已有“一句话定锚”。
-- 但有时依赖外部输入或 report_contexts，不一定稳定从方向池生成。
+- `theme_supplement_pool` 提供 `definition_profile.one_line_anchor` 时，报告会优先采用补充数据池定锚。
+- 但定义、类比、相邻概念边界还没有稳定从 KB concepts / aliases 自动生成完整 profile。
 
 差距：
 
@@ -56,7 +93,8 @@
 
 - 已有 `demand_bottleneck_map`。
 - 报告有 `需求-瓶颈-环节传导表`。
-- 但 `需求场景表` 仍可能待补。
+- `theme_supplement_pool` 提供 `demand_scenarios` 时，报告可直接渲染 `需求场景表`。
+- 自动生成的需求场景仍偏“需求-瓶颈-方向”映射，和截图里的“三大需求引擎”叙事还有距离。
 
 差距：
 
@@ -81,6 +119,8 @@
 
 - 有 `industry_chain_map_section` 和 `demand_bottleneck_map`。
 - 方向池中有 `chain_bucket`、`beneficiary_links`、`representative_entities`。
+- 已接入 `theme_sector_taxonomy`，方向可归入一级产业 / 二级赛道 / 三级主题。
+- `theme_supplement_pool` 提供 `industry_chain_panorama` 时，会优先渲染补充产业链全景。
 
 差距：
 
@@ -116,13 +156,15 @@
 
 - 方向池已有 `direction_scan`。
 - 已有 recognition stage、opportunity tier、validation plan。
+- 已有 `material_process_scan` 补充数据池渲染入口。
+- 对人形机器人等真实数据，parser 可在没有显式工艺表时从需求场景派生 `material_process_scan`。
 
 差距：
 
-- 缺少“每日复盘提及频率”字段。
-- 缺少“自进化认知层级”字段的历史演变。
-- 缺少“分类 = 发酵/布局/观察”的独立标签。
-- 缺少工艺/材料专属 schema。
+- “每日复盘提及频率”目前多为补充数据或方向池命中数替代，不是真正统计。
+- “自进化认知层级”已有静态 stage / score，但缺少历史演变。
+- “分类 = 发酵/布局/观察”可从补充数据读取，自动方向池里还不是独立稳定字段。
+- 工艺/材料专属 schema 已有雏形，但仍需和通用 direction pool 分层清晰。
 
 超越点：
 
@@ -142,12 +184,15 @@
 
 - 已有 `validation_plan`。
 - 报告已有 `### 催化日历` 和 `### 通用验证`。
+- `theme_supplement_pool` 提供 `validation_items` / `catalyst_calendar` 时可直接渲染。
+- 每个方向已有验证窗口、升级条件、降级条件和待跟踪事项。
 
 差距：
 
 - 验证清单偏模板化，尚未按材料/设备/芯片/应用等方向类型生成专属检查项。
 - 没有 V1/V2 增量比较。
-- 没有明确区分“新增高优先级方向”。
+- 没有自动识别“新增高优先级方向”。
+- `status` 目前多为默认“待验证”，还没有真实状态流。
 
 超越点：
 
@@ -166,12 +211,14 @@
 
 - 已有 `recognition_profile.stage`。
 - 已有发酵进度排序。
+- 每个方向已有 `recognition_profile.score`、stage_reason、upgrade_triggers、downgrade_risks。
+- `theme_supplement_pool` 提供 `recognition_timeline` 时可渲染时间线。
 
 差距：
 
-- 当前是静态阶段判断，不是历史时间序列。
+- 自动方向池当前仍是静态阶段判断，不是历史时间序列。
 - 没有 `attention_timeline` 或 `recognition_history`。
-- 没有“从无人信到一致看好”的趋势图。
+- 没有自动生成“从无人信到一致看好”的趋势图。
 
 超越点：
 
@@ -194,12 +241,13 @@
 
 - 已有 `progress_ranking_section`。
 - 已有 Tier 和 opportunity score。
+- `theme_supplement_pool` 提供 `progress_ruler` 时可渲染横向对比表。
 
 差距：
 
 - 没有可视化横向标尺。
-- 没有跨方向发酵轨迹区间。
-- 没有同主题内全部方向的“阶段条形图”。
+- 没有自动跨方向发酵轨迹区间。
+- 没有自动生成同主题内全部方向的“阶段条形图”。
 
 超越点：
 
@@ -218,11 +266,11 @@
 
 - 已有 `opportunity_profile` 和 `### 跟踪优先级`。
 - deep-dive 有核心结论。
+- `theme_supplement_pool` 提供 `action_plan` 时可渲染 `### 操作建议汇总`。
 
 差距：
 
-- 操作建议还不够像截图中那样明确。
-- 当前不展示“最优先/次优先/观察”的中文行动分层。
+- 方向池默认输出的 `follow_up_priority` 仍是 high / medium_high / medium / low，中文行动分层不够像截图。
 - 缺少“为什么现在买/等/观察”的短句。
 
 超越点：
@@ -243,7 +291,8 @@
 我们当前状态：
 
 - 有 direction pool 和 evidence trace。
-- 但公告扫描不是当前 deep-dive pipeline 的一等公民。
+- 但公告扫描、盘面热点都不是当前 deep-dive pipeline 的一等公民。
+- 目前 `opportunity_profile.tier` 是方向池内部评分，不是公告 × 产业 × 盘面三维共振评分。
 
 差距：
 
@@ -269,6 +318,7 @@
 
 - 已有 `opportunity_profile.tier`。
 - 已有 `follow_up_priority` 和 `opportunity_score`。
+- 报告已有 `### 跟踪优先级` 表。
 
 差距：
 
@@ -290,6 +340,7 @@
 我们当前状态：
 
 - 已有 `risks`、`downgrade_risks`。
+- `opportunity_profile.key_risks` 已在方向池中生成，但报告展示还不够突出。
 
 差距：
 
@@ -314,32 +365,48 @@
 
 ## 功能覆盖矩阵
 
-| 模块 | 截图功能 | 当前 Theme Radar | 差距 | 优先级 |
-|---|---|---|---|---|
-| 一句话定锚 | 有 | 部分有 | 缺定义 profile 和相邻概念边界 | P1 |
-| 需求引擎 | 有 | 部分有 | demand_scenarios 待结构化 | P1 |
-| 产业链全景图 | 有 | 表格化已有 | 缺图形化和证据绑定 | P2 |
-| 工艺/材料扫描 | 有 | direction_scan 部分覆盖 | 缺每日频率/分类/历史认知 | P0 |
-| 催化日历 | 有 | 已有 v1 | 缺状态化和 item_id 绑定 | P0 |
-| 验证清单 | 有 | 已有 v1 | 缺方向类型专属验证和状态流 | P0 |
-| 认知演变 | 有 | 静态 stage | 缺 timeline/history | P0 |
-| 多方向进度对比 | 有 | 排名表已有 | 缺横向进度条 | P1 |
-| 核心结论 | 有 | 有 | 缺行动分层和短句判断 | P1 |
-| 今日公告交叉 | 有 | 未系统化 | 缺公告 × 产业 × 盘面三维信号池 | P0 |
-| Tier 分层 | 有 | 有 v1 | 缺三维共振解释 | P0 |
-| 风险提示 | 有 | 有 v1 | 缺风险分类和操作判断 | P1 |
-| 证据追踪 | 截图弱展示 | 我们已有 v0 | 需绑定每个结论 | P0 |
-| V1/V2 增量 | 有 | 未做 | 缺 snapshot diff | P0 |
+| 模块 | 截图功能 | 当前 Theme Radar | 当前进度 | 剩余差距 | 优先级 |
+|---|---|---|---:|---|---|
+| 一句话定锚 | 有 | deep-dive 有；补充数据池支持 `definition_profile` | 60% | 自动概念边界、类比、相邻概念证据化不足 | P1 |
+| 需求引擎 | 有 | `demand_bottleneck_map` 已落地；补充数据池支持 `demand_scenarios` | 75% | 还需更像“三大需求引擎”的叙事归纳 | P1 |
+| 产业链全景图 | 有 | 表格化已有；方向池 + taxonomy + 补充全景表可用 | 65% | 缺 Markdown 图 / Mermaid 图和每个链路 item_id 绑定 | P2 |
+| 工艺/材料扫描 | 有 | `direction_scan` + `material_process_scan` 可用 | 70% | 每日频率、历史认知、发酵/布局/观察自动分类不足 | P0 |
+| 催化日历 | 有 | `validation_plan.occurred_catalysts` + 补充 `catalyst_calendar` 可用 | 75% | 状态化、方向类型专属催化、item_id 全绑定不足 | P0 |
+| 验证清单 | 有 | `validation_plan` + 补充 `validation_items` 可用 | 70% | `validation_status` 真实状态流、专属验证模板不足 | P0 |
+| 认知演变 | 有 | `recognition_profile` 静态评分；补充 `recognition_timeline` 可渲染 | 50% | 缺自动历史时间序列 / attention timeline | P0 |
+| 多方向进度对比 | 有 | `progress_ranking` + 补充 `progress_ruler` 可用 | 55% | 缺自动横向进度条和阶段轨迹 | P1 |
+| 核心结论 | 有 | `opportunity_profile` + 跟踪优先级 + 结论摘要 | 70% | 中文行动分层和短句判断仍需强化 | P1 |
+| 今日公告交叉 | 有 | 仅预留验证空位 | 15% | 缺公告信号池、公告机会榜、公告与方向匹配 | P0 |
+| Tier 分层 | 有 | `opportunity_profile.tier` v1 已有 | 60% | 缺公告 / 产业 / 盘面三维共振解释 | P0 |
+| 风险提示 | 有 | `risks` / `downgrade_risks` / `key_risks` 已有 | 55% | 缺风险分类、口语化判断、行情与公告风险 | P1 |
+| 证据追踪 | 截图弱展示 | `evidence_trace` 已有 item_id / 来源 / 行号 | 80% | 还需绑定到每个结论、Tier、验证项和催化项 | P0 |
+| V1/V2 增量 | 有 | parser 可识别 `snapshot_diff_rows` | 20% | 缺运行快照保存、自动 diff、认知升级/降级检测 | P0 |
+| 行业 taxonomy | 截图隐含 | `theme_sector_taxonomy` 已接入方向池和报告 | 80% | 仍需扩充更多行业和校准别名 | P1 |
+| 补充数据池 | 截图外增强 | parser / checker / radar 渲染已落地，并兼容真实目录输入 | 85% | 还需更多题材样本和质量回归 | P1 |
 
 ## 下一步推荐顺序
 
 ### 第一阶段：复刻截图核心判断能力
 
+已完成 / 基本完成：
+
+1. `theme_direction_pool`：标准方向池。
+2. `demand_bottleneck_map`：需求 → 瓶颈 → 环节传导。
+3. `recognition_profile`：静态认知阶段和评分。
+4. `validation_plan`：方向级催化和验证计划。
+5. `opportunity_profile`：Tier 和跟踪优先级。
+6. `evidence_trace`：方向级证据追踪。
+7. `theme_supplement_pool`：截图功能补充数据池解析 / 校验 / 渲染。
+
+下一步仍应优先补：
+
 1. `resonance_profile`：公告 × 产业 × 盘面三维共振。
-2. `signal_frequency_profile`：每日复盘提及、来源频率、关注度。
-3. `recognition_timeline`：暗流到一致看好的时间序列。
-4. `supporting_item_ids`：把 recognition / validation / opportunity / catalyst 全部绑定 evidence_trace。
-5. `validation_status`：验证项状态化。
+2. `announcement_signal_pool`：今日公告机会榜和公告方向匹配。
+3. `market_hotspot_signal_pool`：板块热度 / 涨跌幅 / 成交额 / 涨停家数等市场信号。
+4. `signal_frequency_profile`：每日复盘提及、来源频率、关注度。
+5. `recognition_timeline` 自动化：从 source_date / 每日复盘 / 研报 / 行情生成暗流到一致看好的时间序列。
+6. `supporting_item_ids` 全绑定：把 recognition / validation / opportunity / catalyst 全部绑定 evidence_trace。
+7. `validation_status`：验证项状态化。
 
 ### 第二阶段：复刻截图表达形态
 
@@ -352,9 +419,10 @@
 
 1. 接入 Disclosure Archive 生成今日公告机会榜。
 2. 接入行情和板块热度生成 market_signal。
-3. 保存 snapshot，实现 V1/V2 增量。
+3. 保存 direction pool / report snapshot，实现 V1/V2 增量。
 4. 多题材 regression 校准评分。
-5. 后续再做 Web UI / Workbench。
+5. 把补充数据池和方向池产物沉淀为可复用知识资产，而不是一次性报告。
+6. 后续再做 Web UI / Workbench。
 
 ## 当前最建议先做的模块
 

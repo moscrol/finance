@@ -24,8 +24,19 @@ git branch --show-current
 2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
 3. **涨幅排行** → `top-gainers` skill：iFinD个股涨幅 + AKShare板块涨幅并行
 4. **策略回测** → `scripts/detect_turning_points.py` 检测信号 → `scripts/backfill_sector_marginal.py` 抓板块边际量 → DuckDB 本地分析
-5. **概念入库** → 加载 `concept-ingest` skill → 先判断 is_concept → 检索 raw 文件 → web 补充信息 → LLM 提取 v3 JSON（含 core_thesis/key_insights/key_data/risks）→ `concept_writer.py` 去重+代码匹配+交叉对比 → 写入 Obsidian vault
-6. **公司边际变化入库** → 加载 `entity-delta-ingest` skill → 读取早知道/评级日报/纪要/公告 → 抽取公司边际变化 JSON → `entity_delta_writer.py` 更新 Obsidian `entities/`，纯榜单进观察列表
+5. **概念入库** → 加载知识库仓 `concept-ingest` skill（已迁至 `<知识库>/skills/concept-ingest/`）→ 先判断 is_concept → 检索 raw 文件 → web 补充信息 → LLM 提取 v3 JSON（含 core_thesis/key_insights/key_data/risks）→ `python3 <知识库>/scripts/ingest.py concept ...` 去重+代码匹配+交叉对比 → 写入 Obsidian vault
+6. **公司边际变化入库** → 加载知识库仓 `entity-delta-ingest` skill（已迁至 `<知识库>/skills/entity-delta-ingest/`）→ 读取早知道/评级日报/纪要/公告 → 抽取公司边际变化 JSON → `python3 <知识库>/scripts/ingest.py entity-delta ...` 更新 Obsidian `entities/`，纯榜单进观察列表
+
+## 市场假设验证 / 跑马策略执行规则
+
+- 跑马策略处于假设验证阶段，禁止把单次观察写成定律或硬规则。
+- 默认采用“实验台账 + 半自动查询”，每个实验必须记录输入窗口、假设、数据完整性、候选池、后验结果、结论状态和下一步。
+- 执行必须分步、最小单元、短脚本短命令；一次只做一个原子动作，例如数据核验、候选池生成、相对强度计算、后验收益计算、报告写入。
+- 避免一次性长 SQL、长 Python 脚本或大批量回填；复杂查询必须拆成多个短查询或临时小脚本，便于中断、复核和定位失败。
+- 数据不完整时先补阻塞性缺口；无法补齐时必须在报告中标注缺口及其影响，不得用缺失数据推断规律。
+- 指数环境只作为背景放大器，不作为板块或个股强势的决定性因素；优先观察容量行业、双红题材边际量、新高映射、涨停映射、个股加权强度和分歧日相对强度。
+- 验证后验收益时不能只看固定第 10 日终值；必须比较 3/5/7/10 日等不同窗口、区间最高收益、达到峰值所需天数、峰值后回撤，并记录双红题材回流后再分歧前是否有退出机会。
+- 实验性代码、台账和报告默认不提交不推送，除非用户明确要求。
 
 ## 本地数据库 (DuckDB)
 
@@ -90,8 +101,13 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | sector-data | 边际量、板块数据、抓取板块 |
 | 公司画像页 | 公司画像PPT |
 | 行业概览 | 行业概览 |
-| concept-ingest | concept ingest、概念入库、新概念、提取概念 |
-| entity-delta-ingest | entity delta、公司边际变化、更新entity、早知道入库 |
+| theme-radar | 题材雷达、新词雷达、题材逻辑拆解 |
+| theme-fermentation-tracer | 发酵链路、发酵回溯、起涨补涨、双红怎么加强的（消息面×盘面历史回溯，需本地 DuckDB） |
+| opinion-cross | 卖方观点提纯、三重共振机会卡片（注：覆盖密度交叉验证在知识库仓 sellside-coverage-cross） |
+| serenity-alpha | 个股弹性预期差、补涨排序 |
+| disclosure-archive | 补公告、披露归档（抓取侧；apply 侧在知识库仓） |
+| concept-ingest（已迁至知识库仓） | concept ingest、概念入库、新概念、提取概念 → 读 `<知识库>/skills/concept-ingest/SKILL.md` |
+| entity-delta-ingest（已迁至知识库仓） | entity delta、公司边际变化、更新entity、早知道入库 → 读 `<知识库>/skills/entity-delta-ingest/SKILL.md` |
 
 ## 关键约束
 

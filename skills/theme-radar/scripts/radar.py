@@ -25,8 +25,50 @@ except Exception:
     readiness_builder = None
 
 
-DEFAULT_VAULT = Path(os.path.expanduser(os.environ.get("CONCEPT_VAULT", "~/Desktop/c c/知识库/wiki")))
+def _default_vault() -> Path:
+    """知识库 wiki 路径：环境变量 > 同级目录自动探测 > 旧版 Mac 路径。"""
+    for var in ("KB_VAULT", "CONCEPT_VAULT", "ENTITY_VAULT"):
+        val = os.environ.get(var)
+        if val:
+            return Path(os.path.expanduser(val))
+    repo_root = Path(__file__).resolve().parents[3]
+    if repo_root.parent.is_dir():
+        for sibling in sorted(repo_root.parent.iterdir()):
+            if sibling != repo_root and (sibling / "wiki" / "relations").is_dir():
+                return sibling / "wiki"
+    return Path(os.path.expanduser("~/Desktop/c c/知识库/wiki"))
+
+
+DEFAULT_VAULT = _default_vault()
 DEFAULT_IMA_PARSED_DIR = Path(os.path.expanduser(os.environ.get("IMA_PARSED_DIR", "~/Desktop/c c/ima/parsed")))
+RELATIONS_SCHEMA_VERSION = 1
+RELATIONS_MAX_AGE_DAYS = int(os.environ.get("RELATIONS_MAX_AGE_DAYS", "7"))
+
+
+def relations_freshness_warnings(vault: Path) -> list[str]:
+    """读知识库 relations/meta.json，返回数据过期/schema 不匹配的警告行（报告头部展示）。"""
+    meta_path = vault / "relations" / "meta.json"
+    if not meta_path.exists():
+        return []
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ["⚠️ relations/meta.json 解析失败，无法确认底层数据新鲜度"]
+    warnings = []
+    version = meta.get("schema_version")
+    if version is not None and version != RELATIONS_SCHEMA_VERSION:
+        warnings.append(f"⚠️ relations schema 不匹配：数据={version} 雷达期望={RELATIONS_SCHEMA_VERSION}，请同步两仓版本")
+    updated_at = meta.get("updated_at")
+    if updated_at:
+        try:
+            from datetime import datetime
+
+            age = (datetime.now() - datetime.fromisoformat(updated_at)).days
+            if age > RELATIONS_MAX_AGE_DAYS:
+                warnings.append(f"⚠️ 知识库 relations 数据已 {age} 天未更新（最后：{updated_at}），报告可能滞后于盘面")
+        except ValueError:
+            pass
+    return warnings
 RELATION_FILES = {
     "concept_graph": "concept_graph.json",
     "entity_exposures": "entity_exposures.json",
@@ -38,6 +80,25 @@ RELATION_FILES = {
     "benchmark_maps": "benchmark_maps.json",
 }
 STRENGTH_RANK = {"core": 0, "related": 1, "peripheral": 2}
+
+# 渲染层弱关联过滤（不改 entity_exposures.json ground-truth，可逆）：
+# 默认隐藏「非核心(strength!=core) 且 低置信(confidence==low)」的 concept-exposure——
+# 这类多为共现/候选噪声（如把 CPO 封装公司天孚/罗博特科错挂上游材料环氧树脂/ABF/磷）。
+# 核心(core)关联与中/高置信关联一律保留；--show-weak-exposures 可关闭过滤还原全量。
+FILTER_WEAK_EXPOSURES = True
+
+
+def is_weak_exposure(exp: dict) -> bool:
+    """渲染层判定：非核心且低置信的弱关联（候选/共现噪声）。仅用于显示过滤，不改底层数据。"""
+    if not isinstance(exp, dict):
+        return False
+    strength = str(exp.get("strength", "related")).strip().lower()
+    confidence = str(exp.get("confidence", "")).strip().lower()
+    if strength == "core":
+        return False
+    return confidence == "low"
+
+
 EVIDENCE_BUCKETS = ("baseline", "curated_research", "delta", "graph_only", "missing")
 EVIDENCE_WEIGHTS = {"delta": 4, "curated_research": 3, "baseline": 2, "graph_only": 1, "missing": -1}
 IMA_LOGIC_CARD_SOURCE_TOKENS = ("个股逻辑卡", "最新逻辑卡", "最新逻辑跟踪", "研究素材", "素材整理")
@@ -338,6 +399,11 @@ def collect_companies(concepts: list[str], graph: dict, exposures: dict) -> list
         matched = concept_set & set(ent_concepts)
         if not matched:
             continue
+        # 渲染层过滤：去掉非核心+低置信的弱关联（候选/共现噪声）；若实体名下全是弱关联则整体不收录。
+        if FILTER_WEAK_EXPOSURES:
+            matched = {c for c in matched if not is_weak_exposure(ent_concepts.get(c, {}))}
+            if not matched:
+                continue
         codes = ent.get("codes", []) or [""]
         code = codes[0] if codes else ""
         key = (name, code)
@@ -470,6 +536,11 @@ def is_explicit_weak_graph_only(data: dict) -> bool:
     )
 
 
+def is_company_baseline_source(text: str) -> bool:
+    text = str(text or "")
+    return any(token in text for token in ("iFinD baseline", "AkShare baseline", "a-stock baseline", "Baseline"))
+
+
 def buckets_for_exposure(exp: dict) -> list[str]:
     buckets = []
     update_type = str(exp.get("update_type") or "").strip()
@@ -480,7 +551,7 @@ def buckets_for_exposure(exp: dict) -> list[str]:
     if update_type == "baseline":
         buckets.append("baseline")
     sources = " ".join(str(x) for x in exp.get("sources", []) or [])
-    if "iFinD baseline" in sources or "AkShare baseline" in sources or "Baseline" in sources:
+    if is_company_baseline_source(sources):
         buckets.append("baseline")
     if not is_explicit_weak_graph_only(exp) and any(token in sources for token in ("市场逻辑", "强势股", "评级日报", "复盘", "脱水")):
         buckets.append("delta")
@@ -821,7 +892,7 @@ def enrich_companies_from_evidence_index(companies: list[dict], evidence_index: 
         update_type = str(item.get("update_type") or "").strip()
         source = str(item.get("source") or "")
         evidence = str(item.get("evidence") or "").strip()
-        is_company_baseline = "iFinD baseline" in source or "AkShare baseline" in source or "Baseline" in source
+        is_company_baseline = is_company_baseline_source(source)
         if concept and concept_set and concept not in concept_set and not is_company_baseline:
             continue
         chosen_buckets = []
@@ -2581,6 +2652,23 @@ def theme_supplement_pool_section(context: dict) -> str:
     return "\n".join(parts)
 
 
+_JUNK_DEMAND_PATTERNS = (
+    "传统燃油车的", "倍", "200 亿", "产业研究背景", "产业新变化", "产业新格局",
+    "2025 年相关市场", "2030 年", "年均需求增速", "MLCC 用量可达",
+    "用量的 1.6 倍", "增长近 6 倍", "增幅超 200%",
+)
+
+
+def _is_junk_demand_item(text: str) -> bool:
+    """Filter data-fragment demand items that aren't real demand drivers."""
+    s = str(text or "").strip()
+    if not s:
+        return True
+    if len(s) > 60:
+        return True
+    return any(p in s for p in _JUNK_DEMAND_PATTERNS)
+
+
 def context_chain_items(context: dict, key: str, limit: int = 8) -> list[str]:
     if not isinstance(context, dict):
         return []
@@ -2600,7 +2688,8 @@ def context_chain_items(context: dict, key: str, limit: int = 8) -> list[str]:
             "upstream_equipment": "upstream",
         }.get(key, key)
         items = as_list(context.get(fallback_key))
-    return unique([x for x in items if x])[:limit]
+    items = [x for x in items if x and not _is_junk_demand_item(x)]
+    return unique(items)[:limit]
 
 
 def direction_company_groups(companies: list[dict], profile: dict | None = None) -> dict[str, list[dict]]:
@@ -2967,9 +3056,10 @@ def capability_and_rules_section(context: dict) -> str:
 def demand_drivers_section(context: dict) -> str:
     if not isinstance(context, dict) or not context:
         return "- 待补"
+    drivers = [d for d in as_list(context.get("demand_drivers")) if not _is_junk_demand_item(d)]
     parts = [
         "### 需求驱动",
-        bullets(as_list(context.get("demand_drivers")), "待补"),
+        bullets(drivers, "待补"),
         "",
         "### 受益链条",
         bullets(as_list(context.get("core_benefit_links")), "待补"),
@@ -3031,7 +3121,7 @@ def industry_chain_map_section(context: dict, companies: list[dict] | None = Non
     lines = []
     panorama = compact_chain_panorama_section(context if isinstance(context, dict) else {}, companies, profile)
     if panorama:
-        lines.extend([panorama, "", "### 原始产业链字段", ""])
+        return panorama
     lines.extend(["| 层级 | 条目 | 证据类型 |", "|---|---|---|"])
     for key in ["downstream", "midstream", "upstream_materials", "upstream_equipment"]:
         items = chain.get(key, [])
@@ -3042,12 +3132,13 @@ def industry_chain_map_section(context: dict, companies: list[dict] | None = Non
         evidence_types = []
         for item in items:
             if isinstance(item, dict):
-                names.append(str(item.get("name", "")))
-                if item.get("evidence_type"):
-                    evidence_types.append(str(item.get("evidence_type")))
+                names.append(compact_text(str(item.get("name", "")), 60))
             else:
-                names.append(str(item))
-        lines.append(f"| {labels[key]} | {'、'.join(x for x in names if x)} | {'、'.join(sorted(set(evidence_types)))} |")
+                names.append(compact_text(str(item), 60))
+            if isinstance(item, dict) and item.get("evidence_type"):
+                evidence_types.append(str(item.get("evidence_type")))
+        names = [x for x in names if x][:12]
+        lines.append(f"| {labels[key]} | {'、'.join(names)} | {'、'.join(sorted(set(evidence_types)))} |")
     return "\n".join(lines)
 
 
@@ -3771,6 +3862,14 @@ def demand_scenarios_section(context: dict) -> str:
     rows = context.get("demand_scenarios", []) if isinstance(context, dict) else []
     if not isinstance(rows, list) or not rows:
         return "- 待补：需要抽取需求场景、传导逻辑和工艺要求。"
+    rows = [
+        row for row in rows
+        if isinstance(row, dict)
+        and not _is_junk_demand_item(str(row.get("scenario", "")))
+        and (as_list(row.get("beneficiary_links")) or as_list(row.get("representative_entities")))
+    ]
+    if not rows:
+        return "- 待补：需要抽取需求场景、传导逻辑和工艺要求。"
     lines = ["| 需求场景 | 下游驱动 | 传导逻辑 | 工艺要求 | 受益环节 | 代表公司 | 下一步验证 | 证据 |", "|---|---|---|---|---|---|---|---|"]
     for row in rows:
         if not isinstance(row, dict):
@@ -4376,9 +4475,6 @@ def direction_progress_ranking_section(context: dict, companies: list[dict], pro
                 priority=row["priority"],
             )
         )
-    original = progress_ranking_section(context)
-    if not original.startswith("- 待补"):
-        lines.extend(["", "### 原始方向池进度", "", original])
     return "\n".join(lines)
 
 
@@ -5768,11 +5864,21 @@ def load_synthesis_insights(vault: Path, term: str, scope_names: list[str], comp
     return out
 
 
+def _is_placeholder_concept(card: dict) -> bool:
+    """Detect stub/placeholder concept pages that add no real information."""
+    for field in ("one_liner", "definition", "core_logic"):
+        text = str(card.get(field) or "")
+        if "占位概念页" in text or "agent-selec" in text or "missing wikilinks" in text or "alias_candidate" in text:
+            return True
+    return False
+
+
 def wiki_concept_knowledge_section(state: dict) -> str:
     cards = state.get("wiki_concept_cards", []) or []
-    present = [c for c in cards if not c.get("missing")]
+    present = [c for c in cards if not c.get("missing") and not _is_placeholder_concept(c)]
+    placeholder_names = [str(c.get("name")) for c in cards if not c.get("missing") and _is_placeholder_concept(c)]
     missing = [str(c.get("name")) for c in cards if c.get("missing")]
-    if not present and not missing:
+    if not present and not missing and not placeholder_names:
         return "- 未读取到 wiki 概念页。"
     lines: list[str] = []
     if present:
@@ -5785,8 +5891,9 @@ def wiki_concept_knowledge_section(state: dict) -> str:
         related = unique([r for card in present for r in card.get("related", []) or []])
         if related:
             lines.extend(["", f"- 概念页相关概念扩散：{'、'.join(related[:14])}"])
-    if missing:
-        lines.append(f"- 缺概念页（可考虑 concept-ingest 补齐）：{'、'.join(missing[:8])}")
+    all_missing = missing + placeholder_names
+    if all_missing:
+        lines.append(f"- 缺概念页或仅占位（可考虑 concept-ingest 补齐）：{'、'.join(all_missing[:8])}")
     return "\n".join(lines)
 
 
@@ -5917,6 +6024,13 @@ def build_theme_state(term: str, vault: Path, definition: str = "", context: dic
     companies = refresh_company_subtypes(companies, direction_profile)
     evidence = collect_evidence(company_scope or all_scope, companies, evidence_index)
     signal = load_signal(theme_signals, primary, matches)
+    # theme_signals 若带认知演变/横向对比/操作建议（由 opinion-cross consensus_bridge 从观点事件库回填），
+    # 注入 context，使 plain `radar.py --term X` 也能渲染这三块；不覆盖 --theme-supplement-pool 已提供的同名数据。
+    for _sig_key in ("recognition_timeline", "progress_ruler", "action_plan"):
+        if isinstance(signal, dict) and isinstance(context, dict) and not context.get(_sig_key):
+            _vals = signal.get(_sig_key)
+            if isinstance(_vals, list) and _vals:
+                context[_sig_key] = _vals
     patterns = match_patterns(pattern_library, " ".join([term, external_search_text]), match_scope or [term])
     benchmark_query_text = " ".join(
         [
@@ -6061,7 +6175,7 @@ def front_driver_items(context: dict, companies: list[dict], limit: int = 5) -> 
                 for field in ("driver", "scenario", "event", "catalyst", "change", "logic", "description", "impact")
                 if str(row.get(field, "")).strip()
             )
-            if text:
+            if text and not _is_junk_demand_item(text):
                 items.append(front_compact_text(text, 80))
             if len(unique(items)) >= limit:
                 return unique(items)[:limit]
@@ -6762,6 +6876,8 @@ def match_benchmark_maps(term: str, benchmark_maps: dict, state_text: str = "", 
         score = len(route_hits) * 5 + min(len(direct_hits), 12)
         if score <= 0:
             continue
+        if not route_hits and not context_term_hit(term, haystack):
+            continue
         row_copy = dict(row)
         row_copy["_benchmark_match_score"] = score
         row_copy["_benchmark_hits"] = unique(route_hits + direct_hits)[:10]
@@ -7097,15 +7213,7 @@ def build_front_map_report(term: str, vault: Path, definition: str = "", context
         "",
         front_chain_map_section(active, term, context, profile),
         "",
-        "## 6. 细分方向扫描",
-        "",
-        front_subdirection_digest_section(state, 22),
-        "",
-        "## 7. 工艺/材料/零部件扫描",
-        "",
-        front_material_process_radar_section(state, active, term, profile, 28),
-        "",
-        "## 8. 公司地图",
+        "## 6. 公司地图",
         "",
         "### 主线公司",
         "",
@@ -7119,21 +7227,19 @@ def build_front_map_report(term: str, vault: Path, definition: str = "", context
         "",
         front_company_cards_section(active, "watch", term, profile, 8),
         "",
-        "## 9. 海外龙头对标图谱",
+        "## 7. 海外龙头对标图谱",
         "",
         front_benchmark_map_section(state, active, term),
         "",
-        "## 10. 本地合成研究洞察",
+        "## 8. 本地合成研究洞察",
         "",
         synthesis_insights_section(state),
         "",
-        "## 11. 个股逻辑卡与上下游发散",
+        "## 数据边界",
         "",
-        front_logic_card_expansion_section(active, term, profile, 18),
-        "",
-        "## 12. 如何反哺复盘",
-        "",
-        front_review_feedback_section(state, active, term, profile, 10),
+        "- 数据全部来自 wiki 知识库（concepts/entities/relations/synthesis）与已入库研报上下文，只读不回写。",
+        "- 公司分层：核心=主线承接，相关=逻辑可解释，延伸=有线索待验证；不构成交易建议。",
+        "- 细分方向扫描详见 brief 模式（--mode brief）的「三、工艺与材料细分扫描」节。",
         "",
     ]
     return "\n".join(lines).rstrip() + "\n"
@@ -7225,7 +7331,7 @@ def brief_subconcept_segments(term: str, state: dict, vault: Path, limit: int = 
 
 def brief_definition_section(state: dict, term: str) -> str:
     context = state.get("context", {}) or {}
-    cards = [c for c in (state.get("wiki_concept_cards") or []) if not c.get("missing")]
+    cards = [c for c in (state.get("wiki_concept_cards") or []) if not c.get("missing") and not _is_placeholder_concept(c)]
     primary = state.get("primary")
     cards = sorted(cards, key=lambda c: 0 if c.get("name") == primary else 1)
     primary_card = cards[0] if cards and cards[0].get("name") == primary else None
@@ -7460,173 +7566,143 @@ def build_deep_dive_report(term: str, vault: Path, definition: str = "", context
         definition_text = supplement_anchor
     else:
         definition_text = state_definition or context_definition(context) or f"{term}：待从 full 精读/PDF ingest 中补一句话定锚。"
-    return f"""# {term} 题材深拆
-
-生成日期：{date.today().isoformat()}
-
-## 雷达速览
-
-{radar_digest_section(state)}
-
-## 一、一句话定锚
-
-{definition_text}
-
-### Wiki 概念知识卡
-
-{wiki_concept_knowledge_section(state)}
-
-## 二、为什么现在发酵
-
-{fermentation_signal_section(context, state.get("signal", {}), companies)}
-
-### 基础需求拆解
-
-{demand_drivers_section(context)}
-
-### 需求-瓶颈-环节传导表
-
-{demand_bottleneck_map_section(context, companies, state.get("direction_profile"))}
-
-### 需求场景表
-
-{demand_scenarios_section(context)}
-
-## 三、产业链全景图
-
-{industry_chain_panorama_section(context, companies, state.get("direction_profile"))}
-
-### IMA/Obsidian 统一信息池：细颗粒地图与上下游关系
-
-{theme_information_pool_section(context)}
-
-### 标准细分方向池：方向级中间层
-
-{theme_direction_pool_section(context)}
-
-### Theme Radar 补充数据池：截图功能对齐层
-
-{theme_supplement_pool_section(context)}
-
-### 本地 full 精读 / report_contexts 上下文
-
-{report_contexts_section(state["display_report_contexts"], state.get("primary") or state.get("term") or "")}
-
-## 四、细分方向扫描
-
-{direction_radar_matrix_section(context, companies, state.get("direction_profile"))}
-
-### 原始方向扫描
-
-{direction_scan_section(context)}
-
-### 工艺/材料/零部件扫描
-
-{inferred_material_process_scan_section(context, companies, state.get("direction_profile"))}
-
-### 降权但保留的背景/生态线索
-
-{secondary_runtime_context_section(context)}
-
-## 五、共振分层：主信源 × 产业链 × 公司逻辑
-
-{resonance_tiers_section(context, companies)}
-
-## 六、full 精读提及/生态线索
-
-{report_context_company_clues_section(state["display_report_contexts"])}
-
-## 七、发酵进度与预期差
-
-{direction_progress_ranking_section(context, companies, state.get("direction_profile"))}
-
-### 认知演变时间线
-
-{recognition_timeline_section(context)}
-
-### 多方向发酵进度横向对比
-
-{progress_ruler_section(context)}
-
-### 跟踪优先级
-
-{opportunity_priorities_section(context)}
-
-### 证据追踪表
-
-{evidence_trace_section(context)}
-
-### 补充数据证据表
-
-{supplement_evidence_section(context)}
-
-### 催化日历
-
-{catalyst_calendar_section(context, companies, state.get("direction_profile"))}
-
-## 本地合成研究洞察（wiki/synthesis）
-
-{synthesis_insights_section(state)}
-
-## 八、相对核心个股逻辑卡
-
-{deep_company_cards_section(companies, "relative_core", term=state.get("primary") or state.get("term") or "", has_structured_supplement=state.get("has_structured_supplement", False))}
-
-## 九、重点相关个股逻辑卡
-
-{deep_company_cards_section(companies, "related", term=state.get("primary") or state.get("term") or "", has_structured_supplement=state.get("has_structured_supplement", False))}
-
-### 近期 IMA 个股逻辑卡观察池
-
-{recent_ima_logic_card_pool_section(companies, term=state.get("primary") or state.get("term") or "")}
-
-## 十、观察/弹性与弱相关隔离
-
-### 观察/弹性
-
-{deep_company_cards_section(companies, "watch", limit=8, term=state.get("primary") or state.get("term") or "", has_structured_supplement=state.get("has_structured_supplement", False))}
-
-### 弱相关/暂不作为核心
-
-{"- 结构化补充池已接入，弱相关公司线索默认不展开，避免泛概念或跨主题弱线索污染。" if state.get("has_structured_supplement") else deep_company_cards_section(companies, "weak", limit=8, term=state.get("primary") or state.get("term") or "", has_structured_supplement=False)}
-
-## 十一、验证清单
-
-### 细分方向专属验证
-
-{subdirection_validation_section(companies)}
-
-### 通用验证
-
-{validation_checklist_section(context, companies, state.get("direction_profile"))}
-
-## 十二、核心结论
-
-### 操作建议汇总
-
-{action_plan_section(context)}
-
-### 结论摘要
-
-{deep_dive_conclusion(term, context, companies)}
-
-## 十三、底层题材雷达护栏摘要
-
-{deep_dive_governance_section(companies)}
-
-### 深拆质量门禁
-
-{deep_dive_quality_gate_section(context, companies)}
-
-## 十四、数据来源与边界
-
-- 主信源：PDF ingest 研报、精选逻辑/脱水文本、full 精读/report_contexts。
-- wiki 页面层：concepts 概念页（定锚/核心逻辑）、entities 实体页（一句话定位/更新时间）、synthesis 合成研究（历史分析快照），全部只读接入，不回写。
-- baseline：只做公司基础画像和主营业务是否冲突的辅助校验。
-- full 精读：只用于题材定义、产业链上下游、关键环节和细分方向，不写入 entities，也不直接升级公司事实。
-- 公告/订单/业绩：当前仅作为后续验证空位，不作为高权重核心判断。
-- 输出方式：不做个股排名，不展示分数，只做相对核心/重点相关/观察/弱相关分层与逻辑解释。
-"""
+    # Build demand sections conditionally (skip empty-shell tables)
+    demand_scenarios_text = demand_scenarios_section(context)
+    has_real_scenarios = demand_scenarios_text and "待补" not in demand_scenarios_text[:30]
+
+    # Build deep-dive report (optimized: no raw data pool dumps, no empty-shell tables)
+    primary_term = state.get("primary") or state.get("term") or ""
+    has_supp = state.get("has_structured_supplement", False)
+
+    parts = [
+        f"# {term} 题材深拆",
+        "",
+        f"生成日期：{date.today().isoformat()}",
+        "",
+        "## 雷达速览",
+        "",
+        radar_digest_section(state),
+        "",
+        "## 一、一句话定锚",
+        "",
+        definition_text,
+        "",
+        "### Wiki 概念知识卡",
+        "",
+        wiki_concept_knowledge_section(state),
+        "",
+        "## 二、为什么现在发酵",
+        "",
+        fermentation_signal_section(context, state.get("signal", {}), companies),
+        "",
+        "### 基础需求拆解",
+        "",
+        demand_drivers_section(context),
+        "",
+        "### 需求-瓶颈-环节传导表",
+        "",
+        demand_bottleneck_map_section(context, companies, state.get("direction_profile")),
+    ]
+    if has_real_scenarios:
+        parts.extend(["", "### 需求场景表", "", demand_scenarios_text])
+
+    parts.extend([
+        "",
+        "## 三、产业链全景图",
+        "",
+        industry_chain_panorama_section(context, companies, state.get("direction_profile")),
+        "",
+        "## 四、细分方向扫描",
+        "",
+        direction_radar_matrix_section(context, companies, state.get("direction_profile")),
+        "",
+        "### 工艺/材料/零部件扫描",
+        "",
+        inferred_material_process_scan_section(context, companies, state.get("direction_profile")),
+        "",
+        "## 五、共振分层：主信源 × 产业链 × 公司逻辑",
+        "",
+        resonance_tiers_section(context, companies),
+        "",
+        "## 六、发酵进度与预期差",
+        "",
+        direction_progress_ranking_section(context, companies, state.get("direction_profile")),
+        "",
+        "### 跟踪优先级",
+        "",
+        opportunity_priorities_section(context),
+        "",
+        "### 催化日历",
+        "",
+        catalyst_calendar_section(context, companies, state.get("direction_profile")),
+        "",
+        "- 认同度演变时间线、发酵进度横向对比详见知识库模块7（发酵复盘生成器）。",
+        "",
+        "## 本地合成研究洞察（wiki/synthesis）",
+        "",
+        synthesis_insights_section(state),
+        "",
+        "## 七、相对核心个股逻辑卡",
+        "",
+        deep_company_cards_section(companies, "relative_core", term=primary_term, has_structured_supplement=has_supp),
+        "",
+        "## 八、重点相关个股逻辑卡",
+        "",
+        deep_company_cards_section(companies, "related", term=primary_term, has_structured_supplement=has_supp),
+        "",
+        "### 近期 IMA 个股逻辑卡观察池",
+        "",
+        recent_ima_logic_card_pool_section(companies, term=primary_term),
+        "",
+        "## 九、观察/弹性与弱相关隔离",
+        "",
+        "### 观察/弹性",
+        "",
+        deep_company_cards_section(companies, "watch", limit=8, term=primary_term, has_structured_supplement=has_supp),
+        "",
+        "### 弱相关/暂不作为核心",
+        "",
+        "- 结构化补充池已接入，弱相关公司线索默认不展开，避免泛概念或跨主题弱线索污染。" if has_supp else deep_company_cards_section(companies, "weak", limit=8, term=primary_term, has_structured_supplement=False),
+        "",
+        "## 十、验证清单",
+        "",
+        "### 细分方向专属验证",
+        "",
+        subdirection_validation_section(companies),
+        "",
+        "### 通用验证",
+        "",
+        validation_checklist_section(context, companies, state.get("direction_profile")),
+        "",
+        "## 十一、核心结论",
+        "",
+        "### 操作建议汇总",
+        "",
+        action_plan_section(context),
+        "",
+        "### 结论摘要",
+        "",
+        deep_dive_conclusion(term, context, companies),
+        "",
+        "## 十二、底层题材雷达护栏摘要",
+        "",
+        deep_dive_governance_section(companies),
+        "",
+        "### 深拆质量门禁",
+        "",
+        deep_dive_quality_gate_section(context, companies),
+        "",
+        "## 十三、数据来源与边界",
+        "",
+        "- 主信源：PDF ingest 研报、精选逻辑/脱水文本、full 精读/report_contexts。",
+        "- wiki 页面层：concepts 概念页（定锚/核心逻辑）、entities 实体页（一句话定位/更新时间）、synthesis 合成研究（历史分析快照），全部只读接入，不回写。",
+        "- baseline：只做公司基础画像和主营业务是否冲突的辅助校验。",
+        "- full 精读：只用于题材定义、产业链上下游、关键环节和细分方向，不写入 entities，也不直接升级公司事实。",
+        "- 公告/订单/业绩：当前仅作为后续验证空位，不作为高权重核心判断。",
+        "- 输出方式：不做个股排名，不展示分数，只做相对核心/重点相关/观察/弱相关分层与逻辑解释。",
+        "",
+    ])
+    return "\n".join(parts)
 
 
 def md_cell(value, limit: int = 120) -> str:
@@ -7918,7 +7994,7 @@ def map_inferred_demand_engine_rows(state: dict, limit: int = 8) -> list[dict]:
 
 
 def map_existing_report_files(term: str, limit: int = 6) -> list[str]:
-    ima_dir = Path("/Users/a77/Desktop/c c/ima")
+    ima_dir = Path(os.path.expanduser(os.environ.get("IMA_DIR", "~/Desktop/c c/ima")))
     if not ima_dir.exists():
         return []
     patterns = [
@@ -8818,6 +8894,13 @@ def build_report(term: str, vault: Path, definition: str = "", context: dict | N
     companies = refresh_company_subtypes(companies, direction_profile)
     evidence = collect_evidence(company_scope or all_scope, companies, evidence_index)
     signal = load_signal(theme_signals, primary, matches)
+    # theme_signals 若带认知演变/横向对比/操作建议（由 opinion-cross consensus_bridge 从观点事件库回填），
+    # 注入 context，使 plain `radar.py --term X` 也能渲染这三块；不覆盖 --theme-supplement-pool 已提供的同名数据。
+    for _sig_key in ("recognition_timeline", "progress_ruler", "action_plan"):
+        if isinstance(signal, dict) and isinstance(context, dict) and not context.get(_sig_key):
+            _vals = signal.get(_sig_key)
+            if isinstance(_vals, list) and _vals:
+                context[_sig_key] = _vals
     patterns = match_patterns(pattern_library, " ".join([term, external_search_text]), match_scope or [term])
 
     node = concepts.get(primary, {})
@@ -9068,9 +9151,13 @@ def main() -> int:
     parser.add_argument("--review-direction", default="", help="复盘识别出的方向，用于前端题材地图的核心信号区")
     parser.add_argument("--review-companies", default="", help="复盘触发个股，逗号/顿号/空格分隔，用于个股逻辑卡展开")
     parser.add_argument("--review-note", default="", help="复盘备注，用于记录触发原因或观察问题")
+    parser.add_argument("--show-weak-exposures", action="store_true", help="关闭渲染层弱关联过滤，显示全部 concept-exposure（含非核心+低置信的候选/共现噪声）")
     parser.add_argument("--out", help="optional markdown output path")
     parser.add_argument("--mode", choices=["radar", "qc", "deep-dive", "map", "front-map", "brief"], default="radar", help="输出模式：radar/qc=底层雷达与QC；deep-dive=题材深拆；map=题材信息地图；front-map=前端精简信息地图；brief=题材速读（定义/产业链/细分扫描/核心个股）")
     args = parser.parse_args()
+
+    global FILTER_WEAK_EXPOSURES
+    FILTER_WEAK_EXPOSURES = not args.show_weak_exposures
 
     definition = args.definition
     if args.definition_file:
@@ -9114,6 +9201,9 @@ def main() -> int:
         report = build_deep_dive_report(args.term, vault, definition, context, theme_info_rows, theme_direction_pool, theme_supplement_pool)
     else:
         report = build_report(args.term, vault, definition, context)
+    freshness = relations_freshness_warnings(vault)
+    if freshness:
+        report = "\n".join(["> " + w for w in freshness]) + "\n\n" + report
     if args.out:
         out = Path(args.out).expanduser()
         out.parent.mkdir(parents=True, exist_ok=True)
