@@ -23,6 +23,12 @@ from pathlib import Path
 from typing import Any
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
+from intelligence.services.theme_modules import (
+    MODULE_BRIEF,
+    MODULE_REPLAY,
+    route_modules,
+    run_module,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EXPORTS_DIR = REPO_ROOT / "market_feature_store" / "exports"
@@ -42,6 +48,9 @@ class AskOptions:
     top_concepts: int = 6
     max_evidence: int = 8
     stale_days: int = DEFAULT_STALE_DAYS
+    use_modules: bool = True
+    modules: tuple[str, ...] | None = None
+    module_timeout: int = 180
 
 
 @dataclass
@@ -63,6 +72,7 @@ class AskResult:
     warnings: list[str] = field(default_factory=list)
     found_market: bool = False
     found_graph: bool = False
+    routed_modules: list[str] = field(default_factory=list)
 
     @property
     def status(self) -> str:
@@ -286,6 +296,35 @@ def answer_query(options: AskOptions) -> AskResult:
             f"{ke.get('target')}：{src}（质量 {ke.get('quality') or '?'}，盘面候选携带） {tag}"
         )
 
+    # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
+    module_block: list[str] = []
+    module_follow_ups: list[str] = []
+    module_summ: list[str] = []
+    if options.use_modules:
+        routed = route_modules(options.query, list(options.modules) if options.modules else None)
+        result.routed_modules = list(routed)
+        label = {
+            MODULE_BRIEF: "brief（产业维 · radar.py --mode brief）",
+            MODULE_REPLAY: "replay（时间维 · 模块7 发酵复盘）",
+        }
+        for name in routed:
+            mr = run_module(name, options.query, options.kb_wiki, options.module_timeout)
+            module_block.append(f"{SUBHEAD}模块·{label.get(name, name)}")
+            if mr.ok and mr.highlights:
+                result.found_graph = True
+                tag = cite("G", mr.citation_source, f"{mr.command}" + (f" | {mr.citation_detail}" if mr.citation_detail else ""))
+                for hl in mr.highlights:
+                    module_block.append(f"{hl} {tag}")
+                module_follow_ups.extend(mr.follow_ups)
+                if name == MODULE_BRIEF and mr.title:
+                    module_summ.append(f"产业维定锚「{mr.title[:24]}…」")
+                elif name == MODULE_REPLAY and mr.title:
+                    module_summ.append(f"时间维发酵阶段「{mr.title}」")
+            else:
+                reason = mr.warning or "无产出"
+                module_block.append(f"（{name} 模块未接入产出：{reason}）")
+                result.warnings.append(f"模块 {name}：{reason}")
+
     # --- gaps / contradictions ---
     gap_lines: list[str] = []
     ks = (candidate or {}).get("knowledge_status") or {}
@@ -331,7 +370,10 @@ def answer_query(options: AskOptions) -> AskResult:
         )
         + f"：{stance}。",
         f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
-        "（注：结论与交易含义为模板化骨架，待接 LLM 精修；证据链/分歧为真实检索结果。）",
+        "模块路由："
+        + ("、".join(result.routed_modules) if result.routed_modules else "未启用")
+        + ("｜" + "；".join(module_summ) if module_summ else ""),
+        "（注：结论与交易含义为模板化骨架，待接 LLM 精修；证据链/分歧/模块召回为真实检索结果。）",
     ]
 
     follow_ups: list[str] = []
@@ -343,6 +385,8 @@ def answer_query(options: AskOptions) -> AskResult:
         follow_ups.append("看连板高度与晋级率，确认资金接力意愿")
     if gaps or tiers["peripheral"]:
         follow_ups.append("对 graph_only / 缺口公司补研报与官方披露（disclosure-archive → apply）")
+    for item in module_follow_ups:
+        follow_ups.append(f"[replay] {item}")
     if not follow_ups:
         follow_ups.append("补充盘面与基本面证据后再评估")
 
@@ -362,7 +406,8 @@ def answer_query(options: AskOptions) -> AskResult:
         "证据链": [f"{SUBHEAD}盘面"] + (market_lines or ["（当日无盘面候选命中）"])
         + [f"{SUBHEAD}图谱·概念"] + (graph_concept_lines or ["（图谱未命中概念）"])
         + [f"{SUBHEAD}图谱·公司分层"] + (company_lines or ["（图谱未命中公司暴露）"])
-        + [f"{SUBHEAD}证据"] + (evidence_lines or ["（evidence_index 未命中）"]),
+        + [f"{SUBHEAD}证据"] + (evidence_lines or ["（evidence_index 未命中）"])
+        + module_block,
         "分歧反证": gap_lines,
         "后续验证点": follow_ups,
         "交易含义": [implication],
@@ -379,7 +424,12 @@ SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "交�
 def render_answer(result: AskResult) -> str:
     lines: list[str] = []
     lines.append(f"# ask：{result.query}")
-    meta = [f"盘面日期={result.trade_date or '—'}", f"命中主题={result.matched_theme or '—'}", f"召回状态={result.status}"]
+    meta = [
+        f"盘面日期={result.trade_date or '—'}",
+        f"命中主题={result.matched_theme or '—'}",
+        f"模块路由={'/'.join(result.routed_modules) or '—'}",
+        f"召回状态={result.status}",
+    ]
     lines.append("> " + " | ".join(meta))
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))

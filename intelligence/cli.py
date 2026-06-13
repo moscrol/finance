@@ -17,6 +17,13 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
     parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
     parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall")
+    parser.add_argument(
+        "--modules",
+        default=None,
+        help="Comma-separated theme-radar backends to fan out to (brief,replay). Default: auto-route by query.",
+    )
+    parser.add_argument("--no-modules", action="store_true", help="Disable theme-radar module fan-out (graph+盘面 only)")
+    parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
     parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
     parser.set_defaults(func=cmd_ask)
 
@@ -61,6 +68,7 @@ def add_theme_parser(subparsers: argparse._SubParsersAction) -> None:
 def cmd_ask(args: argparse.Namespace) -> int:
     from intelligence.workflows.ask import AskWorkflowOptions, run_ask
 
+    modules = tuple(m.strip() for m in args.modules.split(",") if m.strip()) if args.modules else None
     summary, _result, answer = run_ask(
         AskWorkflowOptions(
             query=args.query,
@@ -68,6 +76,9 @@ def cmd_ask(args: argparse.Namespace) -> int:
             exports_dir=args.exports_dir,
             kb_wiki=args.kb_wiki,
             top_companies=args.top_companies,
+            use_modules=not args.no_modules,
+            modules=modules,
+            module_timeout=args.module_timeout,
         )
     )
     if args.summary_json:
