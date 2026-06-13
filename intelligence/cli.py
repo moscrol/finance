@@ -33,6 +33,11 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
     parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP timeout in seconds")
+    parser.add_argument(
+        "--detail",
+        action="store_true",
+        help="Append each routed module's FULL report as a per-module 钻取 appendix (折叠块).",
+    )
     parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
     parser.set_defaults(func=cmd_ask)
 
@@ -91,6 +96,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
             use_llm=args.llm,
             llm_model=args.llm_model,
             llm_timeout=args.llm_timeout,
+            detail=args.detail,
         )
     )
     if args.summary_json:

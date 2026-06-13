@@ -97,6 +97,8 @@ class ModuleResult:
     citation_source: str = ""
     citation_detail: str = ""
     warning: str = ""
+    # full subprocess report text, retained only for the --detail drill-down
+    full_report: str = ""
 
 
 def _norm(value: object) -> str:
@@ -223,6 +225,51 @@ def _radar_dial(report: str) -> dict[str, str]:
     return dial
 
 
+def _dial_line(report: str, dims: list[str]) -> str:
+    """Render selected 雷达速览 dimensions as a compact 维度=状态 line."""
+    dial = _radar_dial(report)
+    parts = [f"{d.replace('wiki ', 'wiki')}={dial[d]}" for d in dims if d in dial]
+    return "；".join(parts)
+
+
+def _logic_cards(lines: list[str], header_substr: str, limit: int = 6) -> list[str]:
+    """Parse a 个股逻辑卡 section into compact ``名称（角色）：依据片段`` lines.
+
+    Each card is a ``### 公司名（分层）`` block followed by ``- key：value`` bullets;
+    we surface the 产业链角色 and the 依据片段 quote so the fused answer keeps the
+    per-stock logic the report was built around instead of just a company list.
+    """
+    cards: list[str] = []
+    name = role = basis = ""
+
+    def flush() -> None:
+        nonlocal name, role, basis
+        if name:
+            seg = name
+            if role:
+                seg += f"（{role[:24]}{'…' if len(role) > 24 else ''}）"
+            if basis and basis != name:
+                seg += f"：{basis}"
+            cards.append(seg)
+        name = role = basis = ""
+
+    for ln in _section_block(lines, header_substr):
+        s = ln.strip()
+        if s.startswith("### "):
+            flush()
+            name = re.sub(r"（.*?）", "", s[4:]).strip()
+            continue
+        if s.startswith("- 产业链角色："):
+            role = s.split("：", 1)[1].strip()
+        elif s.startswith("- 题材逻辑：") and "依据片段" in s:
+            frag = s.split("依据片段", 1)[1].lstrip("：:").strip()
+            frag = re.sub(r"^[^：:]{2,12}[：:]", "", frag)  # drop leading theme prefix
+            frag = re.split(r"[。（(]", frag)[0].strip()
+            basis = frag[:48] + ("…" if len(frag) > 48 else "")
+    flush()
+    return cards[:limit]
+
+
 # --------------------------------------------------------------------------- #
 # 产业维 — finance-workspace radar.py (brief / front-map / deep-dive)
 # --------------------------------------------------------------------------- #
@@ -251,6 +298,7 @@ def _run_radar(name: str, mode: str, query: str, kb_wiki: str | Path | None, tim
         return res
     res.citation_source = citation_source
     res.citation_detail = f"--term {query}"
+    res.full_report = proc.stdout
     parser(proc.stdout, res)
     res.ok = True
     return res
@@ -291,19 +339,33 @@ def _parse_brief(report: str, res: ModuleResult) -> None:
             nm = _bold_first(s)
             if nm and nm not in concepts:
                 concepts.append(nm)
-        if len(concepts) >= 6:
+        if len(concepts) >= 8:
             break
     if concepts:
         res.highlights.append("相关概念：" + "、".join(concepts))
 
+    # 产业链上下游——逐层保留代表公司 + 精简「看点」片段
     chain = 0
     for ln in _section_block(lines, "产业链上下游"):
         s = ln.strip()
         if s.startswith("- **"):
+            kan = re.search(r"（看点[：:](.+?)）", s)
             txt = re.sub(r"（看点[：:].*?）", "", s[2:]).strip()
+            if kan:
+                snip = kan.group(1).strip()
+                txt += f"（看点：{snip[:24]}{'…' if len(snip) > 24 else ''}）"
             res.highlights.append("产业链｜" + txt)
             chain += 1
-        if chain >= 4:
+        if chain >= 6:
+            break
+
+    # 三、工艺与材料细分扫描 的代表公司行
+    for ln in _section_block(lines, "工艺与材料细分扫描"):
+        s = ln.strip()
+        if s.startswith("- 代表公司：") or s.startswith("代表公司："):
+            reps = s.split("：", 1)[1].strip()
+            if reps:
+                res.highlights.append("工艺/材料细分代表公司：" + reps)
             break
 
     core: list[str] = []
@@ -316,7 +378,7 @@ def _parse_brief(report: str, res: ModuleResult) -> None:
             cells = [c.strip() for c in ln.strip().strip("|").split("|")]
             if len(cells) >= 2 and cells[1] == "核心" and cells[0] and cells[0] not in core:
                 core.append(cells[0])
-        if len(core) >= 10:
+        if len(core) >= 12:
             break
     if core:
         res.highlights.append("各细分核心层个股：" + "、".join(core))
@@ -329,22 +391,51 @@ def _parse_front_map(report: str, res: ModuleResult) -> None:
         res.title = title
         res.highlights.append(f"产业定锚：{title}")
 
-    dial = _radar_dial(report)
-    dims = ["公司分层", "wiki 概念页", "合成研究", "海外对标", "个股逻辑卡"]
-    parts = [f"{d.replace('wiki ', 'wiki')}={dial[d]}" for d in dims if d in dial]
-    if parts:
-        res.highlights.append("信号水位｜" + "；".join(parts))
+    sig = _dial_line(report, ["概念命中", "公司分层", "个股逻辑卡", "wiki 概念页", "合成研究", "海外对标"])
+    if sig:
+        res.highlights.append("信号水位｜" + sig)
 
-    # 主线公司 (## 6. 公司地图 → ### 主线公司 table, col[0])
-    mains: list[str] = []
-    for cells in _table_rows(_section_block(lines, "主线公司", stop_prefixes=("## ", "### "))):
-        nm = cells[0]
-        if nm and nm != "公司" and nm not in mains:
-            mains.append(nm)
-        if len(mains) >= 8:
+    # 信号缺口清单：缺概念页 / 海外对标 0 张 / 待刷新实体
+    gaps: list[str] = []
+    g = re.search(r"缺概念页或仅占位[^：:]*[：:]\s*(.+)", report)
+    if g:
+        gaps.append("缺概念页：" + g.group(1).strip())
+    dial = _radar_dial(report)
+    if "海外对标" in dial and re.search(r"0\s*张", dial["海外对标"]):
+        gaps.append("海外对标 0 张 benchmark map")
+    stale = re.search(r"待刷新实体\s*\|\s*(.+)", report)
+    if stale:
+        gaps.append("待刷新实体：" + stale.group(1).strip().rstrip("|").strip()[:60])
+    if gaps:
+        res.highlights.append("信号缺口｜" + "；".join(gaps))
+
+    # 产业链全景图：地图节点 → 代表公司
+    nodes = 0
+    for cells in _table_rows(_section_block(lines, "产业链全景图")):
+        if len(cells) >= 3 and cells[0] and cells[0] not in ("地图节点",):
+            res.highlights.append(f"产业链节点｜{cells[0]}：{cells[2]}")
+            nodes += 1
+        if nodes >= 6:
             break
-    if mains:
-        res.highlights.append("主线公司：" + "、".join(mains))
+
+    # 公司地图：主线 / 相关 / 延伸 三档全名单
+    for label in ("主线公司", "相关公司", "延伸公司"):
+        names: list[str] = []
+        for cells in _table_rows(_section_block(lines, label, stop_prefixes=("## ", "### "))):
+            nm = cells[0]
+            if nm and nm != "公司" and nm not in names:
+                names.append(nm)
+            if len(names) >= 8:
+                break
+        if names:
+            res.highlights.append(f"{label}：" + "、".join(names))
+
+    # 海外龙头对标图谱状态
+    for ln in _section_block(lines, "海外龙头对标图谱"):
+        s = ln.strip()
+        if s.startswith("- ") and s[2:].strip():
+            res.highlights.append("海外对标图谱：" + s[2:].strip())
+            break
 
 
 def _parse_deep_dive(report: str, res: ModuleResult) -> None:
@@ -353,6 +444,10 @@ def _parse_deep_dive(report: str, res: ModuleResult) -> None:
     if title:
         res.title = title
         res.highlights.append(f"产业定锚：{title}")
+
+    sig = _dial_line(report, ["公司分层", "个股逻辑卡", "wiki 概念页", "合成研究", "海外对标"])
+    if sig:
+        res.highlights.append("雷达速览｜" + sig)
 
     judge = ""
     for ln in _section_block(lines, "### 判断", stop_prefixes=("## ", "### ")):
@@ -366,16 +461,26 @@ def _parse_deep_dive(report: str, res: ModuleResult) -> None:
     if judge:
         res.highlights.append(f"深研判断：{judge[:80]}{'…' if len(judge) > 80 else ''}")
 
-    # 五、共振分层: Tier 1 三重共振 companies (col[1]); colon-qualified header to
+    # 五、共振分层: Tier 1/2/3 companies (col[1]); colon-qualified header to
     # avoid matching the earlier ``### 共振分层`` note under 二、为什么现在发酵.
     triple: list[str] = []
+    dual: list[str] = []
+    watch: list[str] = []
     for cells in _table_rows(_section_block(lines, "共振分层：主信源")):
-        if len(cells) >= 2 and cells[0].startswith("Tier 1") and cells[1] not in triple:
+        if len(cells) < 2:
+            continue
+        if cells[0].startswith("Tier 1") and cells[1] not in triple:
             triple.append(cells[1])
-        if len(triple) >= 8:
-            break
+        elif cells[0].startswith("Tier 2") and cells[1] not in dual:
+            dual.append(cells[1])
+        elif cells[0].startswith("Tier 3") and cells[1] not in watch:
+            watch.append(cells[1])
     if triple:
-        res.highlights.append("三重共振核心层：" + "、".join(triple))
+        res.highlights.append(f"三重共振核心层（{len(triple)}）：" + "、".join(triple[:8]))
+    if dual:
+        res.highlights.append(f"双重验证层（{len(dual)}）：" + "、".join(dual[:8]))
+    if watch:
+        res.highlights.append(f"观察/弱相关层（{len(watch)}）：" + "、".join(watch[:8]))
 
     # 六、发酵进度与预期差: direction / 阶段 / 评分
     prog: list[str] = []
@@ -386,6 +491,10 @@ def _parse_deep_dive(report: str, res: ModuleResult) -> None:
             break
     if prog:
         res.highlights.append("发酵进度｜" + "；".join(prog))
+
+    # 七、相对核心个股逻辑卡（逻辑/角色/依据片段）
+    for card in _logic_cards(lines, "相对核心个股逻辑卡", limit=6):
+        res.highlights.append("个股逻辑卡｜" + card)
 
     for header in ("下一步验证", "风险提示"):
         for ln in _section_block(lines, header, stop_prefixes=("## ", "### ")):
@@ -515,6 +624,7 @@ def run_replay(query: str, kb_wiki: str | Path | None, timeout: int = DEFAULT_MO
         return res
     finally:
         Path(out_path).unlink(missing_ok=True)
+    res.full_report = report
     res.citation_source = "knowledge-base · generate_fermentation_report.py（模块7 发酵复盘）"
     res.citation_detail = f"theme={theme_key}"
     _parse_replay(report, res, query, theme_key)
@@ -535,6 +645,7 @@ def _timeline_rows(report: str) -> list[tuple[str, str, str]]:
 
 
 def _parse_replay(report: str, res: ModuleResult, query: str, theme_key: str) -> None:
+    lines = report.splitlines()
     note = "" if _norm(theme_key) == _norm(query) else f"（按主题键「{theme_key}」回溯）"
     m = re.search(r"当前阶段\s*\*\*(.+?)\*\*", report)
     cover = re.search(r"库内覆盖\s*([^\n]+)", report)
@@ -543,12 +654,57 @@ def _parse_replay(report: str, res: ModuleResult, query: str, theme_key: str) ->
         cov = (cover.group(1).strip() if cover else "").rstrip()
         res.highlights.append(f"发酵阶段：{res.title}" + (f"｜库内覆盖 {cov}" if cov else "") + note)
 
-    rows = _timeline_rows(report)
-    for t, ev, grade in rows[-3:]:
-        ev = ev.strip()
-        res.highlights.append(f"节点 {t}：{ev[:48]}{'…' if len(ev) > 48 else ''}（{grade}）")
+    # 一句话定锚
+    for ln in _section_block(lines, "一句话定锚"):
+        b = _bold_first(ln)
+        if b:
+            res.highlights.append(f"一句话定锚：{b[:90]}{'…' if len(b) > 90 else ''}")
+            break
 
-    for ln in _section_block(report.splitlines(), "验证清单"):
+    # 完整时间线（首节点 + 近端，避免只剩 3 行）
+    rows = _timeline_rows(report)
+    if rows:
+        shown = rows if len(rows) <= 7 else [rows[0]] + rows[-6:]
+        for t, ev, grade in shown:
+            ev = ev.strip()
+            res.highlights.append(f"时间线 {t}：{ev[:44]}{'…' if len(ev) > 44 else ''}（{grade}）")
+
+    # 产业链全景：上游 / 中游 / 下游受益（碰到非上中下游 bold 标题即 RESET）
+    chain: dict[str, list[str]] = {}
+    order: list[str] = []
+    cur = ""
+    for ln in _section_block(lines, "产业链全景"):
+        s = ln.strip()
+        bold = re.match(r"\*\*(.+?)\*\*", s)
+        if bold:
+            head = bold.group(1)
+            tm = re.match(r"(上游|中游|下游)", head)
+            cur = head if tm else ""
+            if tm and head not in order:
+                order.append(head)
+            continue
+        if cur and s.startswith("- **"):
+            nm = _bold_first(s)
+            chain.setdefault(cur, [])
+            if nm and nm not in chain[cur]:
+                chain[cur].append(nm)
+    for tier in order:
+        names = chain.get(tier, [])
+        if names:
+            res.highlights.append(f"产业链·{tier}受益：" + "、".join(names[:8]))
+
+    # 六、最值得重点跟踪
+    focus = 0
+    for ln in _section_block(lines, "最值得重点跟踪"):
+        s = ln.strip()
+        if re.match(r"\d+\.\s", s):
+            item = re.sub(r"^\d+\.\s*", "", s).replace("**", "")
+            res.highlights.append("重点跟踪｜" + item[:60] + ("…" if len(item) > 60 else ""))
+            focus += 1
+        if focus >= 5:
+            break
+
+    for ln in _section_block(lines, "验证清单"):
         s = ln.strip()
         if s.startswith(("- [ ]", "- [x]")):
             item = s[5:].strip()
@@ -567,6 +723,7 @@ def run_scan(query: str, kb_wiki: str | Path | None, timeout: int = DEFAULT_MODU
     )
     if report is None:
         return res
+    res.full_report = report
     theme_key = resolve_theme_key(query, _kb_root(kb_wiki)) if kb_wiki else None
     res.theme_key = theme_key or ""
     res.citation_source = "knowledge-base · generate_scan_table.py（模块4 全库横扫）"
@@ -581,11 +738,12 @@ def _parse_scan(report: str, res: ModuleResult, query: str, theme_key: str | Non
     stat = re.search(r"(🟡\s*发酵.+个方向）)", report)
     if stat:
         res.title = re.sub(r"\s+", " ", stat.group(1)).strip()
-        res.highlights.append("全库扫描：" + res.title)
+        res.highlights.append("全库扫描分布：" + res.title)
 
     nq = _norm(query)
     ntk = _norm(theme_key) if theme_key else ""
     rel: list[str] = []
+    rel_names: list[str] = []
     hot: list[str] = []
     for cells in _table_rows(lines):
         if len(cells) < 7 or cells[0] in ("工艺/材料",):
@@ -593,17 +751,21 @@ def _parse_scan(report: str, res: ModuleResult, query: str, theme_key: str | Non
         name = _wikilink(cells[0])
         track = cells[1].strip()
         freq = cells[3].strip()
+        cat = cells[6].strip()
+        freq_short = re.sub(r"（.*?）", "", freq).strip()
         hay = _norm(name) + _norm(track)
         is_rel = (ntk and ntk in hay) or (_norm(name) and _norm(name) in nq)
-        label = f"{name}" + (f"（属{track}）" if track and track != "—" else "") + f"·{freq}"
-        if is_rel:
-            if name not in [r.split("（")[0].split("·")[0] for r in rel]:
-                rel.append(label)
-        elif "🔴 高频" in freq and len(hot) < 6:
-            hot.append(name)
-    if rel:
-        res.highlights.append("题材相关细分方向：" + "；".join(rel[:6]))
-    elif hot:
+        seg = name + (f"（属{track}）" if track and track != "—" else "") + f"·{freq_short}"
+        if cat and cat != "—":
+            seg += f"·催化 {cat}"
+        if is_rel and name not in rel_names:
+            rel_names.append(name)
+            rel.append(seg)
+        elif "🔴 高频" in freq and len(hot) < 8:
+            hot.append(name + (f"（{cat}）" if cat and cat != "—" else ""))
+    for r in rel[:6]:
+        res.highlights.append("题材相关方向｜" + r)
+    if hot:
         res.highlights.append("全市场高频发酵方向：" + "、".join(hot))
 
 
@@ -618,6 +780,7 @@ def run_migrate(query: str, kb_wiki: str | Path | None, timeout: int = DEFAULT_M
     )
     if report is None:
         return res
+    res.full_report = report
     theme_key = resolve_theme_key(query, _kb_root(kb_wiki)) if kb_wiki else None
     res.theme_key = theme_key or ""
     res.citation_source = "knowledge-base · generate_migration_scan.py（模块8 横向迁移）"
@@ -632,6 +795,22 @@ def _parse_migrate(report: str, res: ModuleResult, query: str, theme_key: str | 
     ruler = re.search(r"以\s*\[\[(.+?)\]\]\s*为参照标尺", report)
     if ruler:
         res.title = f"以 {ruler.group(1)} 为参照标尺"
+        res.highlights.append("横向迁移标尺：" + res.title)
+    stage = re.search(r"参照模式阶段[：:]\s*(.+)", report)
+    if stage:
+        res.highlights.append("参照模式阶段：" + stage.group(1).strip())
+    sigr = re.search(r"关键信号标尺[：:]\s*(.+)", report)
+    if sigr:
+        res.highlights.append("关键信号标尺：" + sigr.group(1).strip())
+
+    # 发酵进度分布：各阶段 tier 计数
+    dist: list[str] = []
+    for ln in lines:
+        dm = re.match(r"###\s+(.+?)（(\d+)\s*个方向）", ln.strip())
+        if dm:
+            dist.append(f"{dm.group(1).strip()}{dm.group(2)}")
+    if dist:
+        res.highlights.append("发酵进度分布｜" + "；".join(dist))
 
     nq = _norm(query)
     ntk = _norm(theme_key) if theme_key else ""
@@ -659,7 +838,7 @@ def _parse_migrate(report: str, res: ModuleResult, query: str, theme_key: str | 
             is_sub = (bool(ntk) and ntk in _norm(name)) or (bool(_norm(name)) and _norm(name) in nq)
             if is_exact or (is_sub and not target_line):
                 target_tier = cur_tier
-                target_line = f"「{name}」位于『{cur_tier}』阶段（框架评分{cells[4]}，覆盖{cells[2]}）"
+                target_line = f"「{name}」位于『{cur_tier}』阶段（信号维度{cells[1]}，覆盖{cells[2]}，催化{cells[3]}，框架评分{cells[4]}）"
                 target_exact = is_exact
 
     if target_line:

@@ -77,6 +77,7 @@ class AskOptions:
     use_llm: bool = False
     llm_model: str | None = None
     llm_timeout: int = 60
+    detail: bool = False
 
 
 @dataclass
@@ -101,6 +102,8 @@ class AskResult:
     routed_modules: list[str] = field(default_factory=list)
     llm_refined: bool = False
     llm_provider: str | None = None
+    # (label, 完整报告全文) per routed module, only when --detail is set
+    detail_reports: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def status(self) -> str:
@@ -340,6 +343,8 @@ def answer_query(options: AskOptions) -> AskResult:
                 for hl in mr.highlights:
                     module_block.append(f"{hl} {tag}")
                 module_follow_ups.extend((name, f) for f in mr.follow_ups)
+                if options.detail and mr.full_report:
+                    result.detail_reports.append((MODULE_LABELS.get(name, name), mr.full_report))
                 if mr.title:
                     t = mr.title[:28] + ("…" if len(mr.title) > 28 else "")
                     module_summ.append(f"{MODULE_SUMMARY_PREFIX.get(name, name)}「{t}」")
@@ -505,4 +510,14 @@ def render_answer(result: AskResult) -> str:
                 lines.append(f"\n*{item[len(SUBHEAD):]}*")
             else:
                 lines.append(f"- {item}")
+    if result.detail_reports:
+        lines.append("")
+        lines.append("## 【模块完整报告（--detail 钻取）】")
+        for label, body in result.detail_reports:
+            lines.append("")
+            lines.append(f"<details><summary>完整报告 · {label}</summary>")
+            lines.append("")
+            lines.append(body.rstrip())
+            lines.append("")
+            lines.append("</details>")
     return "\n".join(lines) + "\n"

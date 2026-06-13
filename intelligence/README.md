@@ -35,6 +35,19 @@ theme          题材雷达工作流
 `ask` 默认 **不依赖外部 LLM、也不依赖 DuckDB**：盘面取已提交的 theme-candidates 快照，图谱/证据走只读 JSON。
 `证据链` / `分歧反证` / `引用来源` 始终为真实检索结果，每条事实带 `[S#]/[G#]/[R#]` 编号引用。
 
+### 抽取做厚（默认）+ `--detail` 整篇钻取
+
+每个模块的解析器都做**结构化做厚**抽取（约 8~15 行核心），而不是只取标题级几行——保留各模式真正有价值的明细：
+
+- `brief`：产业定锚 + 相关概念 + 产业链各层（终端/中游/上游，含看点）+ 工艺材料代表公司 + 各细分核心层个股。
+- `front-map`：产业定锚 + 信号水位（概念命中/公司分层/逻辑卡/概念页/合成研究/海外对标）+ 信号缺口（缺概念页/海外对标 0 张/待刷新实体）+ 产业链节点→代表公司 + 主线/相关/延伸公司名单 + 海外对标图谱状态。
+- `deep-dive`：产业定锚 + 雷达速览 + 深研判断 + 三重共振核心层 / 双重验证层 / 观察弱相关层 + 发酵进度 + **个股逻辑卡（角色 + 依据片段）** + 下一步验证 + 风险提示。
+- `replay`：发酵阶段 / 库内覆盖 + 一句话定锚 + **完整时间线**（首尾节点 + 证据等级）+ 产业链上中下游受益名单 + 最值得重点跟踪 + 验证清单。
+- `scan`：全库扫描分布 + 题材相关方向（赛道/频次/催化）+ 全市场高频发酵方向。
+- `migrate`：横向迁移标尺 + 参照模式阶段 + 关键信号标尺 + 发酵进度分布 + **类比定位（信号维度/覆盖/催化/框架评分）** + 同阶段类比方向 + 认知跃迁窗口。
+
+加 `--detail` 后，在六段答案之后追加一节「模块完整报告（--detail 钻取）」，把每个被路由命中的模块的 **完整报告全文** 以 `<details>` 折叠块逐一附上（默认行为仍是上面的做厚融合摘要，不受影响）。
+
 ## ② LLM 精修（可选，默认关闭）
 
 加 `--llm` 后，`ask` 会把已检索到的「证据链 + 分歧反证」喂给一个 OpenAI 兼容的 `/chat/completions`，让它**只改写**`结论` / `交易含义` 两段（要求：只用证据里出现的事实、每条判断带 `[编号]` 引用、不得编造、不出买卖指令）。见 `services/llm_refine.py`。
@@ -67,6 +80,8 @@ python3 -m intelligence.cli ask "液冷服务器" \
 python3 -m intelligence.cli ask "液冷服务器" --kb-wiki ... --modules brief,front-map,deep-dive,replay,scan,migrate
 # 只走 G/R/S 三源，关闭模块 fan-out
 python3 -m intelligence.cli ask "液冷服务器" --kb-wiki ... --no-modules
+# 默认做厚之外，再把每个命中模块的完整报告全文折叠钻取
+python3 -m intelligence.cli ask "液冷服务器" --kb-wiki ... --detail
 # 开 LLM 精修结论/交易含义（无 key 自动降级回模板）
 DEEPSEEK_API_KEY=sk-... python3 -m intelligence.cli ask "液冷服务器" --kb-wiki ... --llm
 ```
@@ -78,6 +93,7 @@ DEEPSEEK_API_KEY=sk-... python3 -m intelligence.cli ask "液冷服务器" --kb-w
 这是 TRW `ask` 外壳在本仓的可跑原型，已打通 G/R/S 三源 + theme-radar **六模式**（`brief`/`front-map`/`deep-dive`/`replay`/`scan`/`migrate`）的真实接线，以及可选 LLM 精修层：
 
 - ✅ 六模式全部接成召回后端（产业维 3 + 时间维 1 + 横截面 2），按问题 source-routing fan-out。
+- ✅ 每模块抽取做厚（结构化核心 8~15 行），并提供 `--detail` 整篇报告折叠钻取。
 - ✅ 可选 LLM 精修 `结论`/`交易含义`（`--llm`），无 key 自动降级回模板。
 - 待补 Temporal Facts 层：把会过期/被证伪的事实建成带 `status(active/superseded/invalidated)` 的时序边，让 `ask` 默认只用 active 证据（当前仅按 `source_date` 标注新鲜度）。
 - 待接 `daily-loop`：把盘面候选升级成「盘前预测 → 盘后多周期验证 → 写回记忆」闭环。

@@ -20,6 +20,7 @@ class AskWorkflowOptions:
     use_llm: bool = False
     llm_model: str | None = None
     llm_timeout: int = 60
+    detail: bool = False
 
 
 def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, str]:
@@ -42,6 +43,7 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             use_llm=options.use_llm,
             llm_model=options.llm_model,
             llm_timeout=options.llm_timeout,
+            detail=options.detail,
         )
     )
     answer = render_answer(result)
