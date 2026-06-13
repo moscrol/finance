@@ -271,26 +271,35 @@ python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
 
 ## 从资料自动生成上下文草稿
 
-当用户给一段新闻、公告、复盘、研报摘录时，先用 `build_context.py` 生成可复核草稿：
+当用户给一段新闻、公告、复盘、研报摘录时，先用 `build_context.py` 生成可复核草稿。该脚本**题材无关**：方向/公司骨架取自知识库（`<vault>/relations/concept_graph.json` + `entity_exposures.json`），证据层（定义/提及频率/催化/验证）取自原文，因此 CPO、硅光、固态电池等任何题材都能用，不再写死 PCB/mSAP。
 
 ```bash
 python3 "<金融仓>/skills/theme-radar/scripts/build_context.py" \
-  --term "mSAP" \
+  --term "CPO" \
   --input "/path/to/raw-notes.txt" \
-  --out "<知识库>/wiki/raw/theme-radar/mSAP-context-draft.json"
+  --vault "<知识库>/wiki" \
+  --out "/path/to/CPO-supplement-pool.json"
 ```
 
-草稿会尝试抽：
+输出即 `radar.py` 直接消费的 **`theme_supplement_pool`** schema，可直接喂给渲染器：
 
-- `demand_scenarios`：需求场景、逻辑、工艺要求。
-- `industry_chain_map`：下游需求、中游工艺/制造、上游材料、上游设备。
-- `direction_scan`：工艺/材料/设备/应用细分方向扫描。
-- `progress_ranking`：发酵阶段、认知层级、证据等级和优先级。
-- `catalyst_calendar`：时间、事件、观察项。
-- `validation_checklist`：后续验证事项。
-- `extraction_quality`：区分原文支撑、规则推断和缺失字段。
+```bash
+python3 scripts/radar.py --term "CPO" --vault "<vault>" \
+  --mode deep-dive --theme-supplement-pool "/path/to/CPO-supplement-pool.json"
+```
 
-注意：`build_context.py` 是规则抽取草稿，不是最终研究结论。agent 必须复核、补充、删噪后再交给 `radar.py`。
+草稿包含字段：
+
+- `theme` / `term`：题材名（`theme` 用于与 radar 的题材兼容校验）。
+- `definition_profile`：原文中的定义句（无定义句则留空，由 radar 回退到知识库 concept 页）。
+- `demand_scenarios`：下游需求场景（取自 concept 的 `supply_chain.downstream`）+ 代表公司。
+- `material_process_scan`：细分方向扫描（取自 concept 的 `related_concepts`/`supply_chain.midstream`），每行含 `name/major_track/chain_position/cognition_level/classification(发酵|布局)/daily_review_frequency/representative_entities`。radar 据此渲染「细分方向扫描」+「方向池进度」。
+- `catalyst_calendar`：时间窗口 + 事件，并按事实硬度标 `event_type`（hard/soft/信号）。
+- `validation_items`：后续验证事项，标 `validation_type`（hard_fact/soft_projection）。
+- `recognition_timeline` / `progress_ruler` / `action_plan`：**故意留空**——认知演变时间线、横向对比标尺、操作建议属高确信输出，规则层不臆造，由 agent 复核后补。
+- `extraction_quality`：是否命中知识库 concept、原文支撑 vs 规则推断、缺失字段。
+
+注意：`build_context.py` 是规则抽取草稿，不是最终研究结论。agent 必须复核、补充、删噪后再交给 `radar.py`；其中事实硬度（hard/soft）标注用于辅助分层，不做硬过滤，过滤由 agent 复核时决定。
 
 ## 外部新词画像 Schema
 
