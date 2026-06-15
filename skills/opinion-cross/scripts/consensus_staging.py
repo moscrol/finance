@@ -35,6 +35,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from opinion_store import load_store  # noqa: E402  (复用库加载/JSONL 解析)
+import pan_realize  # noqa: E402  (盘面兑现维 b：outcomes.jsonl → 兑现/透支判定)
 
 # --- 认同度阶梯（镜像 theme-radar radar.py 的 recognition 体系，保证同尺）---------
 STAGE_LADDER = ["暗流", "萌芽", "第一轮", "催化共振", "一致认同"]
@@ -130,11 +131,13 @@ def cumulative_signals(events: list[dict]) -> dict:
     }
 
 
-def decide_stage(sig: dict) -> tuple[str, list[str]]:
+def decide_stage(sig: dict, realize_note: str | None = None) -> tuple[str, list[str]]:
     """由可数信号判定认同度**下限**，返回(阶段, 理由串)。事实锚点优先，单来源软料不判阶。
 
     回补单调性：库 append-only，回补只会让 sources/days/has_hard 增加 →
     decide_stage 的结果只会沿阶梯上升或不变，绝不下降。
+
+    realize_note：盘面兑现维(b)。给了就替换「盘面维度待接(b)」占位，把价格兑现判定接进一致认同。
     """
     reasons: list[str] = []
     sources, days = sig["sources"], sig["days"]
@@ -143,8 +146,12 @@ def decide_stage(sig: dict) -> tuple[str, list[str]]:
     # ===== 事实硬度轨（robust：含义不随回补改变，是阶梯主锚点）=====
     if sources >= TH_CONSENSUS_SOURCES and days >= TH_CONSENSUS_DAYS and has_hard:
         reasons.append(f"{sources} 来源 / 跨 {days} 日反复印证且有🟢硬证据")
-        reasons.append("已达 Tier 1 三重共振" if sig["best_tier"] == "Tier 1"
-                       else "盘面维度待接(b)，暂以库内广度+硬度判一致认同")
+        if sig["best_tier"] == "Tier 1":
+            reasons.append("已达 Tier 1 三重共振")
+        elif realize_note:
+            reasons.append(realize_note)
+        else:
+            reasons.append("盘面维度待接(b)，暂以库内广度+硬度判一致认同")
         return "一致认同", reasons
 
     if sources >= TH_RESONANCE_SOURCES and has_hard and days >= 2:
@@ -189,8 +196,8 @@ def recognition_score(stage: str, sig: dict) -> int:
     return min(score, 99)
 
 
-def upgrade_trigger(stage: str, sig: dict) -> str:
-    """下一阶需要补什么；措辞贴合"持续回补"语境。"""
+def upgrade_trigger(stage: str, sig: dict, realize_note: str | None = None) -> str:
+    """下一阶需要补什么；措辞贴合"持续回补"语境。realize_note 给了则用价格兑现判定替换 b 占位。"""
     if stage == WATCH:
         return "回补更多研报：再有来源/隔日提及，或出现🟢硬证据/催化 → 上阶梯"
     if stage == "暗流":
@@ -200,14 +207,18 @@ def upgrade_trigger(stage: str, sig: dict) -> str:
     if stage == "第一轮":
         return f"再增至 {TH_RESONANCE_SOURCES} 来源跨日共振 → 催化共振"
     if stage == "催化共振":
+        if realize_note:
+            return f"扩到 {TH_CONSENSUS_SOURCES}+ 来源跨 {TH_CONSENSUS_DAYS}+ 日；{realize_note} → 一致认同"
         return f"扩到 {TH_CONSENSUS_SOURCES}+ 来源跨 {TH_CONSENSUS_DAYS}+ 日 / 接盘面兑现(b) → 一致认同"
-    return "已达顶阶；接盘面回溯(b)判是否透支/兑现"
+    return realize_note or "已达顶阶；接盘面回溯(b)判是否透支/兑现"
 
 
-def stage_a_target(events: list[dict]) -> dict:
+def stage_a_target(events: list[dict], realize: dict | None = None) -> dict:
     sig = cumulative_signals(events)
-    stage, reasons = decide_stage(sig)
-    return {
+    note = realize.get("stage_note") if realize else None
+    trig = realize.get("trigger_note") if realize else None
+    stage, reasons = decide_stage(sig, realize_note=note)
+    res = {
         **sig,
         "stage": stage,
         "stage_reason": "；".join(reasons),
@@ -215,8 +226,12 @@ def stage_a_target(events: list[dict]) -> dict:
         "fact_track": fact_track(sig),
         "breadth_track": breadth_track(sig),
         "recognition_score": recognition_score(stage, sig),
-        "upgrade_trigger": upgrade_trigger(stage, sig),
+        "upgrade_trigger": upgrade_trigger(stage, sig, realize_note=trig),
     }
+    if realize:
+        res["realize_verdict"] = realize["verdict"]
+        res["realize_detail"] = realize["detail"]
+    return res
 
 
 def timeline_for_target(events: list[dict]) -> list[dict]:
