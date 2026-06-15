@@ -66,3 +66,9 @@ skills/ifind/mcp_config.json
 *.rar
 *.pdf
 *.pptx
+
+
+# evolve 进化系统：只跟踪代码与参数，忽略生成产物（可由 params.json 确定性重建）
+evolution/records/
+evolution/validation/
+evolution/suggestions/
