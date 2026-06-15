@@ -11,7 +11,9 @@ description: 题材发酵链路回溯——把知识库消息面（证据/认知
 
 - 知识库仓在同级目录（或设 `KB_VAULT` 环境变量），需要 `wiki/relations/` 下的
   `entity_exposures.json` / `evidence_index.json` / `theme_signals.json`
-- 本地存在 `market_feature_store/db/market_feature_store.duckdb`（不入库，需在本机先同步）
+- 本地存在 `market_feature_store/db/market_feature_store.duckdb`（不入库，需在本机先同步）。
+  库不在默认位置时，可设环境变量 `MARKET_FEATURE_STORE_DB=/路径/xxx.duckdb` 指向它；
+  库缺失时 `trace.py` 会直接报错并提示「需先在本机同步 market_feature_store」，不会静默崩。
 
 ## 用法
 
@@ -42,6 +44,18 @@ python3 skills/theme-fermentation-tracer/scripts/trace.py --theme <题材名> \
 2. **板块发酵时间线**：双红启动日、双红加强（3 连）日、多周期共振日、涨停热度峰值
 3. **个股启动梯队**：带区间涨幅列，按起涨日排序；距首只启动 ≤2 天=起涨、≤7 天=第二梯队、>7 天=补涨
 4. **合并链路**：📰消息 / 📈板块 / 🚀个股 三类事件按日合并的因果时间轴
+
+## 本地自测（零凭证）
+
+无需真实 DuckDB / 任何凭证，即可验证 SQL 与发酵链路逻辑端到端可跑：
+
+```bash
+python3 skills/theme-fermentation-tracer/scripts/selftest.py   # 退出码 0=PASS
+```
+
+该脚本在临时目录按 `market_feature_store/schema.sql` 造一个最小样本库 + 样本 vault
+（虚构题材/个股/价格），跑完 `trace.py` 后断言四段报告（消息面/板块双红/个股梯队/合并链路）
+全部产出。换机器 `pull` 后先跑它即可确认管线代码正常，再用真实库跑实际题材。
 
 ## 边界
 
