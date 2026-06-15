@@ -127,7 +127,7 @@ python3 skills/opinion-cross/scripts/opinion_cross.py \
 <vault>/raw/theme-radar/opinion-store/
 ├── opinion-events.jsonl   # 事实底账（append-only，唯一真相源）→ 时间线/个股进展/回溯全从这算
 ├── sources.json           # 机构注册表（别名归一，稳定 source_id）→ 将来算机构胜率的 join 键
-└── outcomes.jsonl         # （b 阶段才写）盘面 T+N 回溯结果，机构胜率的原料
+└── outcomes.jsonl         # （b 阶段，`build_outcomes.py` 写）盘面 T+N 回溯结果，机构胜率的原料
 ```
 
 为什么放这：`wiki/raw/` 是机器数据区（manifest/baseline/theme-radar context 都在此），Obsidian 只把 `.md` 当笔记，`.jsonl/.json` 不进笔记/双链图谱 → 与笔记零干扰。
@@ -183,7 +183,7 @@ python3 skills/opinion-cross/scripts/opinion_store.py list \
 ### 落点与边界
 
 - 库是**派生数据文件**（默认 `<vault>/raw/theme-radar/opinion-store/`），**不写** KB 的 concepts/entities/relations，也**不进代码仓**。硬料若要进 KB ground truth，仍走 `disclosure-archive` 的人工审核 `--apply`。
-- 这一层只做"累积 + 聚合 + 来源归一"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1、算机构胜率）是下一步 b。
+- 这一层只做"累积 + 聚合 + 来源归一"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1、算机构胜率）见下「b 阶段」——其中**机构胜率已实现**（`build_outcomes.py` + `winrate_rank.py`），补市场热点维度/升 Tier1 仍待接。
 
 ### 晨汇补漏通道（morning-briefing raw → opinion-store）
 
@@ -289,6 +289,24 @@ python3 ../theme-radar/scripts/radar.py --term CPO --vault "<KB>/wiki" --mode de
 **幂等**：整库重算、事件分区守恒（不重不漏）；剪除上轮本桥写、本轮不再生成的陈旧条目。
 **radar 侧**：`radar.py` 在 `load_signal` 后把 theme_signals 里的这三块注入 context（不覆盖
 `--theme-supplement-pool` 已提供的同名数据），故 plain `--term X` 即可渲染。
+
+## b 阶段：T+N 盘后回测 + 机构胜率（已实现）
+
+把 opinion-events.jsonl 的「看多」事件按 `source_id` 聚成**机构胜率榜**，回答「哪个卖方机构胜率更高」。
+行情只用免费公开接口（新浪 suggest 名称→代码 + 腾讯前复权日线 + 指数基准），**不依赖** eastmoney/iFinD/duckdb/飞书凭证。
+
+- `price_lib.py`：`name2code`（新浪 suggest，精确名匹配）/ `qfq_daily`（腾讯前复权）/ `index_daily`（指数基准）/ `fwd_metrics`（T+3/5/7/10 收益 + 区间最高收益 + 峰值天数 + 峰值后回撤 + 相对基准超额）。范围感知磁盘缓存落仓外 `WINRATE_CACHE`（默认 `~/kb_work/winrate_cache`，不进 git）。
+- `build_outcomes.py`：筛「看多」且非 `[晨汇转述]` → 解析代码 → 抓前复权价 → 算指标 → 写 `outcomes.jsonl`。进场 = 报告日**次日开盘**；窗口不完整的事件标 `*_complete=false`。
+- `winrate_rank.py`：join `sources.json` 聚合机构胜率。**主口径 = T+N 相对沪深300 超额收益 > 0**（默认 T+5），同时给绝对收益口径；只排**有效看多 ≥ N 次**（默认 5）的机构，1~2 次样本视为噪音不排。
+
+```bash
+# 1) 回测：写 <vault>/raw/theme-radar/opinion-store/outcomes.jsonl
+python3 skills/opinion-cross/scripts/build_outcomes.py --vault "<KB>/wiki"
+# 2) 机构胜率榜（T+5 主口径；--window 10 看 T+10；--report 出 markdown）
+python3 skills/opinion-cross/scripts/winrate_rank.py --vault "<KB>/wiki" --report /tmp/winrate.md
+```
+
+**口径纪律**（遵守 finance「市场假设验证」红线）：进场次日开盘、超额剥大盘 beta、3/5/7/10 多窗口 + 区间最高/峰值/回撤（不只看末日收盘）、样本门槛过滤噪音、窗口不足不计入该窗口分母。**outcomes.jsonl 是派生数据**，与 opinion-events.jsonl/sources.json 同放 KB `wiki/raw/theme-radar/opinion-store/`，不进代码仓。
 
 ## 与其他 skill 的关系
 
