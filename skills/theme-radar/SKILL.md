@@ -76,8 +76,8 @@ wiki 页面层（只读，不回写）：
 默认路径可按机器调整，先设置变量再同步：
 
 ```bash
-export FINANCE_REPO="${FINANCE_REPO:-/Users/a77/Desktop/c c/金融}"
-export KNOWLEDGE_REPO="${KNOWLEDGE_REPO:-/Users/a77/Desktop/c c/知识库}"
+export FINANCE_REPO="${FINANCE_REPO:-<金融仓路径>}"
+export KNOWLEDGE_REPO="${KNOWLEDGE_REPO:-<知识库路径>}"
 export KNOWLEDGE_WIKI="${KNOWLEDGE_WIKI:-$KNOWLEDGE_REPO/wiki}"
 export TERM="${TERM:-MLCC}"
 
@@ -85,6 +85,10 @@ git -C "$FINANCE_REPO" pull origin main
 git -C "$KNOWLEDGE_REPO" pull origin main
 python3 "$FINANCE_REPO/skills/theme-radar/scripts/radar.py" --help | grep brief
 ```
+
+路径与数据新鲜度（2026-06-12 起）：
+- `--vault` 缺省时 radar.py 按 `KB_VAULT` > `CONCEPT_VAULT` > 同级目录自动探测（含 `wiki/relations` 的仓库）解析知识库路径，不再硬编码 Mac 路径。
+- 启动时读知识库 `relations/meta.json`（由知识库 writer 自动盖戳）；数据超过 `RELATIONS_MAX_AGE_DAYS`（默认 7 天）未更新或 schema 版本不匹配时，报告头部会输出 ⚠️ 警告。
 
 用户要“题材雷达/题材速读/定义+产业链+细分+核心个股”时，默认使用新版 `brief`：
 
@@ -107,15 +111,47 @@ python3 "$FINANCE_REPO/skills/theme-radar/scripts/radar.py" \
 
 需要完整验证清单、护栏、催化和公司卡时，才改用 `--mode deep-dive` 或 `--mode front-map`。不要在新版日常速读场景继续使用默认 `--mode radar`。
 
+## 三模式分工（与知识库十模块体系各司其职）
+
+| 模式 | 定位 | 时长 | 适用场景 | 核心输出 |
+|---|---|---|---|---|
+| `brief` | 单题材速览 | ≤5 min | 盘前/盘中快速定位新词、晨汇方向 | 定义 → 产业链 → 工艺/材料细分扫描 → 各细分核心个股 |
+| `front-map` | 单题材信息地图 | ≤10 min | 值不值得展开的中间判断 | 在 brief 基础上加雷达速览、公司分层地图、海外对标、synthesis 洞察 |
+| `deep-dive` | 单题材深研 | ≤20 min | 盘后/周末尽调、决策上车前 | 专注产业维：需求传导、共振分层、个股逻辑卡、验证清单、操作建议 |
+
+**与知识库十模块体系的分工**（不重叠、不重复实现）：
+
+- 知识库模块4（扫描表）= 全库工艺/材料级横向扫描，每行一个方向、一句话定锚
+- 知识库模块7（发酵复盘）= 单题材**时间维**复盘：怎么走到今天、认同度演变、关键时间节点
+- 知识库模块8（横迁）= 拿一个参照模式当标尺，扫全部主题排发酵进度
+- front-map/deep-dive = 单题材**产业维**深拆：产业链全景、公司能力栈、验证清单；时间维链接模块7，不重复实现
+
+front-map 的细分方向扫描已归 brief 模式（避免与 brief 三、工艺与材料细分扫描重叠）。deep-dive 的认同度时间线、进度横向对比已归知识库模块7（避免与发酵复盘重叠），deep-dive 保留催化日历（产品维）并注明链接。
+
+## 六模式提示词词表（统一触发口径）
+
+用户说出下列提示词时，agent 直接路由到对应模式，不要追问：
+
+| 模式名 | 提示词（任一命中即触发） | 标准入口 |
+|---|---|---|
+| `brief` | 速览X / 快查X / X是什么 / 题材速读X / 晨汇方向X | `radar.py --term X --vault <知识库>/wiki --mode brief` |
+| `front-map` | X信息地图 / X值不值得展开 / X全景图 | `radar.py --term X --vault <知识库>/wiki --mode front-map` |
+| `deep-dive` | 深研X / 尽调X / 深拆X / X验证清单 | `radar.py --term X --vault <知识库>/wiki --mode deep-dive` |
+| `scan`（知识库模块4） | 扫描表 / 全库扫描 / 工艺材料扫描 | 知识库 `skills/theme-radar-reports/scripts/generate_scan_table.py` |
+| `replay`（知识库模块7） | X发酵复盘 / X怎么走到今天 / X时间线 | 知识库 `skills/theme-radar-reports/scripts/generate_fermentation_report.py X` |
+| `migrate`（知识库模块8） | 拿X当标尺 / 横迁 / 找X的同类 | 知识库 `skills/theme-radar-reports/scripts/generate_migration_scan.py --pattern X` |
+
+路由原则：带具体题材词 X 且问产业维（是什么/谁受益/怎么验证）→ brief/front-map/deep-dive 三档按深度选；问时间维（怎么发酵的）→ replay；不带题材词、要全库视角 → scan；要类比/找下一个 → migrate。
+
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜"
 ```
 
 题材速读（高可读性，用户日常首选）：
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "光刻胶" \
   --mode brief
 ```
@@ -132,7 +168,7 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 带外部定义运行：
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜" \
   --definition "感光干膜是PCB、IC载板等图形转移环节使用的光敏材料，和mSAP/高端PCB制程、线路精细化相关。"
 ```
@@ -140,9 +176,9 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 写入报告：
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜" \
-  --out "/Users/lbq/Desktop/c c/知识库/wiki/synthesis/感光干膜-theme-radar.md"
+  --out "<知识库>/wiki/synthesis/感光干膜-theme-radar.md"
 ```
 
 ## 输出结构
@@ -235,26 +271,35 @@ python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
 
 ## 从资料自动生成上下文草稿
 
-当用户给一段新闻、公告、复盘、研报摘录时，先用 `build_context.py` 生成可复核草稿：
+当用户给一段新闻、公告、复盘、研报摘录时，先用 `build_context.py` 生成可复核草稿。该脚本**题材无关**：方向/公司骨架取自知识库（`<vault>/relations/concept_graph.json` + `entity_exposures.json`），证据层（定义/提及频率/催化/验证）取自原文，因此 CPO、硅光、固态电池等任何题材都能用，不再写死 PCB/mSAP。
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/build_context.py" \
-  --term "mSAP" \
+python3 "<金融仓>/skills/theme-radar/scripts/build_context.py" \
+  --term "CPO" \
   --input "/path/to/raw-notes.txt" \
-  --out "/Users/lbq/Desktop/c c/知识库/wiki/raw/theme-radar/mSAP-context-draft.json"
+  --vault "<知识库>/wiki" \
+  --out "/path/to/CPO-supplement-pool.json"
 ```
 
-草稿会尝试抽：
+输出即 `radar.py` 直接消费的 **`theme_supplement_pool`** schema，可直接喂给渲染器：
 
-- `demand_scenarios`：需求场景、逻辑、工艺要求。
-- `industry_chain_map`：下游需求、中游工艺/制造、上游材料、上游设备。
-- `direction_scan`：工艺/材料/设备/应用细分方向扫描。
-- `progress_ranking`：发酵阶段、认知层级、证据等级和优先级。
-- `catalyst_calendar`：时间、事件、观察项。
-- `validation_checklist`：后续验证事项。
-- `extraction_quality`：区分原文支撑、规则推断和缺失字段。
+```bash
+python3 scripts/radar.py --term "CPO" --vault "<vault>" \
+  --mode deep-dive --theme-supplement-pool "/path/to/CPO-supplement-pool.json"
+```
 
-注意：`build_context.py` 是规则抽取草稿，不是最终研究结论。agent 必须复核、补充、删噪后再交给 `radar.py`。
+草稿包含字段：
+
+- `theme` / `term`：题材名（`theme` 用于与 radar 的题材兼容校验）。
+- `definition_profile`：原文中的定义句（无定义句则留空，由 radar 回退到知识库 concept 页）。
+- `demand_scenarios`：下游需求场景（取自 concept 的 `supply_chain.downstream`）+ 代表公司。
+- `material_process_scan`：细分方向扫描（取自 concept 的 `related_concepts`/`supply_chain.midstream`），每行含 `name/major_track/chain_position/cognition_level/classification(发酵|布局)/daily_review_frequency/representative_entities`。radar 据此渲染「细分方向扫描」+「方向池进度」。
+- `catalyst_calendar`：时间窗口 + 事件，并按事实硬度标 `event_type`（hard/soft/信号）。
+- `validation_items`：后续验证事项，标 `validation_type`（hard_fact/soft_projection）。
+- `recognition_timeline` / `progress_ruler` / `action_plan`：**故意留空**——认知演变时间线、横向对比标尺、操作建议属高确信输出，规则层不臆造，由 agent 复核后补。
+- `extraction_quality`：是否命中知识库 concept、原文支撑 vs 规则推断、缺失字段。
+
+注意：`build_context.py` 是规则抽取草稿，不是最终研究结论。agent 必须复核、补充、删噪后再交给 `radar.py`；其中事实硬度（hard/soft）标注用于辅助分层，不做硬过滤，过滤由 agent 复核时决定。
 
 ## 外部新词画像 Schema
 
@@ -435,9 +480,9 @@ web access 搜到资料后，先抽成这个结构。字段缺失可以留空，
 ## 结构化运行
 
 ```bash
-python3 "/Users/lbq/Desktop/c c/金融/skills/theme-radar/scripts/radar.py" \
+python3 "<金融仓>/skills/theme-radar/scripts/radar.py" \
   --term "感光干膜" \
-  --context-json "/Users/lbq/Desktop/c c/知识库/wiki/raw/theme-radar/感光干膜-context.json"
+  --context-json "<知识库>/wiki/raw/theme-radar/感光干膜-context.json"
 ```
 
 ## 公司分层规则
