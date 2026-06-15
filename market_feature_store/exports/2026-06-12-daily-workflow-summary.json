@@ -1,0 +1,247 @@
+{
+  "workflow": "daily",
+  "status": "PASS",
+  "started_at": "2026-06-15T00:27:32+08:00",
+  "finished_at": "2026-06-15T00:29:03+08:00",
+  "inputs": {
+    "date": "2026-06-12",
+    "skip_sync": true,
+    "skip_long": false,
+    "skip_theme": false,
+    "skip_legacy_theme": false,
+    "skip_workbench": false,
+    "start_date": null,
+    "from_step": "daily-review",
+    "only_step": null,
+    "continue_on_warn": false,
+    "dry_run": false
+  },
+  "steps": [
+    {
+      "name": "daily-review",
+      "status": "PASS",
+      "command": "python3 -m market_feature_store.cli daily-review --trade-date 2026-06-12",
+      "returncode": 0,
+      "duration_sec": 2.867,
+      "stdout_tail": [
+        "交易日: 2026-06-12",
+        "报告: /Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-daily-review.md",
+        "图表: /Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-advancers-ma5.png"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-daily-review.md",
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-advancers-ma5.png"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "quality-gate",
+      "status": "PASS",
+      "command": "python3 scripts/check_daily_review_data.py 2026-06-12",
+      "returncode": 0,
+      "duration_sec": 0.825,
+      "stdout_tail": [
+        "CHECK 2026-06-12",
+        "fact_market_daily: rows=1 max=2026-06-12",
+        "fact_sector_daily: rows=224 max=2026-06-12",
+        "fact_sw_l1_daily: rows=31 max=2026-06-12",
+        "fact_sector_stock_daily: rows=28057 max=2026-06-12",
+        "fact_stock_high_daily: rows=261 max=2026-06-12",
+        "fact_theme_limit_heat_daily: rows=145 max=2026-06-12",
+        "fact_theme_limit_stock_daily: rows=455 max=2026-06-12",
+        "fact_limit_advance_daily: rows=11 max=2026-06-12",
+        "fact_stock_daily: rows=5207 max=2026-06-12",
+        "RESULT: COMPLETE"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "daily-review-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_daily_review_briefing.py 2026-06-12",
+      "returncode": 0,
+      "duration_sec": 1.26,
+      "stdout_tail": [
+        "CHECK 2026-06-12",
+        "fact_market_daily: rows=1 max=2026-06-12",
+        "fact_sector_daily: rows=224 max=2026-06-12",
+        "fact_sw_l1_daily: rows=31 max=2026-06-12",
+        "fact_sector_stock_daily: rows=28057 max=2026-06-12",
+        "fact_stock_high_daily: rows=261 max=2026-06-12",
+        "fact_theme_limit_heat_daily: rows=145 max=2026-06-12",
+        "fact_theme_limit_stock_daily: rows=455 max=2026-06-12",
+        "fact_limit_advance_daily: rows=11 max=2026-06-12",
+        "fact_stock_daily: rows=5207 max=2026-06-12",
+        "RESULT: COMPLETE",
+        "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-12/2026-06-12-daily-review.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-12/2026-06-12-daily-review.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "theme-candidates",
+      "status": "PASS",
+      "command": "python3 -m intelligence.cli theme --date 2026-06-12 --market-triggered --out-json /Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-candidates.json --out-md /Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-candidates.md",
+      "returncode": 0,
+      "duration_sec": 67.07,
+      "stdout_tail": [
+        "  \"outputs\": [",
+        "    \"trade_date=2026-06-12\",",
+        "    \"candidate_count=50\",",
+        "    \"deep_count=10\",",
+        "    \"watch_count=20\",",
+        "    \"long_tail_count=20\",",
+        "    \"candidate=PCB score=206.94 triggers=limit_advance_cluster,new_high_direction,new_high_cluster,capacity_industry concept_count=5 exposure_count=12 evidence_count=2\",",
+        "    \"candidate=小金属 score=194.0 triggers=double_red,capacity_industry,new_high_direction,new_high_cluster concept_count=5 exposure_count=6 evidence_count=1\",",
+        "    \"candidate=氢能源 score=184.85 triggers=double_red,capacity_industry,limit_heat,new_high_direction,new_high_cluster concept_count=5 exposure_count=4 evidence_count=1\",",
+        "    \"candidate=金属铜 score=180.64 triggers=double_red,capacity_industry,limit_heat,new_high_direction,new_high_cluster concept_count=0 exposure_count=0 evidence_count=0\",",
+        "    \"candidate=商业航天 score=177.53 triggers=double_red,limit_heat,new_high_direction,new_high_cluster concept_count=5 exposure_count=12 evidence_count=2\",",
+        "    \"out_json=/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-candidates.json\",",
+        "    \"out_md=/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-candidates.md\"",
+        "  ],",
+        "  \"warnings\": [],",
+        "  \"errors\": [],",
+        "  \"next_actions\": [",
+        "    \"Review market-triggered candidates before enabling deep radar report generation.\"",
+        "  ]",
+        "}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-candidates.json",
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-candidates.md"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "theme-backfill-queue",
+      "status": "PASS",
+      "command": "python3 scripts/build_theme_backfill_queue.py 2026-06-12",
+      "returncode": 0,
+      "duration_sec": 0.116,
+      "stdout_tail": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-backfill-queue.json",
+        "queue_count=39",
+        "priority_counts={'critical': 4, 'high': 7, 'medium': 9, 'low': 19}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-backfill-queue.json"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "theme-backfill-review-queue",
+      "status": "PASS",
+      "command": "python3 scripts/build_theme_backfill_review_queue.py 2026-06-12",
+      "returncode": 0,
+      "duration_sec": 0.111,
+      "stdout_tail": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-backfill-review-queue.json",
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-backfill-review-queue.md",
+        "review_count=11",
+        "status_counts={'pending_review': 11}"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-backfill-review-queue.json",
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-backfill-review-queue.md"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "theme-candidates-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_theme_candidates_workbench_html.py 2026-06-12",
+      "returncode": 0,
+      "duration_sec": 0.249,
+      "stdout_tail": [
+        "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-12/2026-06-12-theme-candidates.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-12/2026-06-12-theme-candidates.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "legacy-market-triggered-theme-brief-html",
+      "status": "PASS",
+      "command": "python3 scripts/render_market_triggered_theme_brief_html.py 2026-06-12",
+      "returncode": 0,
+      "duration_sec": 18.117,
+      "stdout_tail": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-triggered-themes.json",
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-market-triggered-theme-brief.md",
+        "COMPLETE",
+        "DEEP 294.0: 小金属 / 小金属 / double_red,capacity_industry,new_high_direction,new_high_cluster",
+        "DEEP 206.94: PCB / PCB / limit_advance_cluster,capacity_industry,new_high_direction,new_high_cluster",
+        "DEEP 187.12: 风电 / 风电 / double_red,capacity_industry,limit_heat,new_high_direction,new_high_cluster",
+        "WATCH 184.85: 氢能源 / 氢能源 / double_red,capacity_industry,limit_heat,new_high_direction,new_high_cluster",
+        "WATCH 180.64: 金属铜 / 金属铜 / double_red,capacity_industry,limit_heat,new_high_direction,new_high_cluster",
+        "WATCH 177.53: 商业航天 / 商业航天 / double_red,limit_heat,new_high_direction,new_high_cluster",
+        "WATCH 176.76: 燃料电池 / SOFC燃料电池 / double_red,capacity_industry,new_high_direction,new_high_cluster",
+        "WATCH 175.77: PET铜箔 / PET铜箔 / double_red,capacity_industry,new_high_direction,new_high_cluster",
+        "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-12/2026-06-12-market-triggered-theme-brief.html"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-triggered-themes.json",
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-market-triggered-theme-brief.md",
+        "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-12/2026-06-12-market-triggered-theme-brief.html"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "review-workbench",
+      "status": "PASS",
+      "command": "python3 scripts/render_review_workbench.py",
+      "returncode": 0,
+      "duration_sec": 0.077,
+      "stdout_tail": [
+        "/Users/lbq/Desktop/c c/金融/复盘/matrices/strategy-review-workbench.html",
+        "daily_reviews 2026-06-12, 2026-06-11, 2026-06-10, 2026-06-09, 2026-06-08, 2026-06-05, 2026-04-07, 2026-04-03, 2026-04-02, 2026-04-01"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/复盘/matrices/strategy-review-workbench.html"
+      ],
+      "warnings": [],
+      "errors": []
+    }
+  ],
+  "outputs": [
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-daily-review.md",
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-advancers-ma5.png",
+    "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-12/2026-06-12-daily-review.html",
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-candidates.json",
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-candidates.md",
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-backfill-queue.json",
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-backfill-review-queue.json",
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-theme-backfill-review-queue.md",
+    "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-12/2026-06-12-theme-candidates.html",
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-triggered-themes.json",
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-12-market-triggered-theme-brief.md",
+    "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-12/2026-06-12-market-triggered-theme-brief.html",
+    "/Users/lbq/Desktop/c c/金融/复盘/matrices/strategy-review-workbench.html"
+  ],
+  "warnings": [
+    "starting from step: daily-review"
+  ],
+  "errors": [],
+  "next_actions": []
+}

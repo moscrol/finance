@@ -1,0 +1,52 @@
+{
+  "version": 2,
+  "updated_at": "2026-06-15",
+  "note": "策略一/三/四无前视生成参数。改动规则请：升 version + 在 evolution/params_history.md 记一行（谁/何时/为何/依据）。所有列只取 D0 当日及以前，禁止引入 D0 之后的字段。",
+  "strategy1": {
+    "industry_scope": "top3_turnover_sw_l1",
+    "double_red": {"pct_chg_min": 0, "diff_ratio_min": 10, "amount_min": 500},
+    "weighting": "pct_chg*sqrt(amount)",
+    "quintile": 5,
+    "candidate_gate": {"dr_hits_min": 3},
+    "scope": "T1CORE6",
+    "t1core_size": 6
+  },
+  "strategy3": {
+    "note": "口径照搬 scripts/backfill_strategy3_touch_matrix.py。S3_FIRST_TOUCH + S3_WINDOW 计入名单；SELL/RISK 为离场不计入。",
+    "pool_topN": 20,
+    "pool_lookback_days": 15,
+    "ma_window": 26,
+    "up_k": 0.764,
+    "touch_dev_lo": -3,
+    "touch_dev_hi": 3,
+    "touch_prev_gt": 3,
+    "early_dev_hi": 5,
+    "early_prev_gt": 5,
+    "window_lookback": 10,
+    "window_dev_lo": -3,
+    "window_dev_hi": 5,
+    "sell_gain": 5,
+    "risk_dev": -1.5,
+    "first_touch_cap": 5,
+    "window_cap": 5,
+    "w20_start": "2026-02-15",
+    "dev_start": "2026-03-01",
+    "scope": "S3_ALL"
+  },
+  "strategy4": {
+    "note": "口径照搬 scripts/render_strategy4_dual_engine_matrix.py。ENGINE_A(合格) + ENGINE_B 计入名单；gate 仅记录状态不过滤名单。",
+    "w20_topN": 20,
+    "prior_interval_days": 11,
+    "limit_pct": 9.8,
+    "hi5_interval_days": 8,
+    "hi5_min": 3,
+    "engine_cap": 6,
+    "gate_top3r_lo": 40,
+    "gate_top3r_hi": 45,
+    "soft_top3r_hi": 45,
+    "high_periods": ["1y", "2y", "3y", "history"],
+    "scope": "S4_ALL"
+  },
+  "validation": {"horizons": [1, 3, 5], "win_gt": 0, "strong_ge": 5, "fail_le": -5},
+  "suggest": {"min_samples": 30, "grid": {"t1core_size": [4, 5, 6, 8], "quintile": [4, 5, 6]}}
+}
