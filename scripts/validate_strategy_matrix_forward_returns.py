@@ -50,8 +50,8 @@ def cells(row: str) -> list[str]:
 
 
 def stock_blocks(cell: str) -> list[str]:
-    parts = re.split(r'(?=<span class="stock")', cell)
-    return [p for p in parts if p.startswith('<span class="stock')]
+    parts = re.split(r'(?=<(?:span|div) class="stock)', cell)
+    return [p for p in parts if re.match(r'<(?:span|div) class="stock', p)]
 
 
 def name_before_code(text: str, code: str) -> str:
