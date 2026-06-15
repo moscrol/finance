@@ -183,7 +183,7 @@ python3 skills/opinion-cross/scripts/opinion_store.py list \
 ### 落点与边界
 
 - 库是**派生数据文件**（默认 `<vault>/raw/theme-radar/opinion-store/`），**不写** KB 的 concepts/entities/relations，也**不进代码仓**。硬料若要进 KB ground truth，仍走 `disclosure-archive` 的人工审核 `--apply`。
-- 这一层只做"累积 + 聚合 + 来源归一"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1、算机构胜率）见下「b 阶段」——其中**机构胜率已实现**（`build_outcomes.py` + `winrate_rank.py`），补市场热点维度/升 Tier1 仍待接。
+- 这一层只做"累积 + 聚合 + 来源归一"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1、算机构胜率）见下「b 阶段」——其中**机构胜率**（`build_outcomes.py` + `winrate_rank.py`）与**盘面兑现维**（`pan_realize.py` → `consensus_staging` 加「盘面兑现(b)」列）**均已实现**；单篇 opinion-cross 卡片的升 Tier1 仍待接当日盘面信号。
 
 ### 晨汇补漏通道（morning-briefing raw → opinion-store）
 
@@ -258,7 +258,7 @@ python3 skills/opinion-cross/scripts/consensus_staging.py --store "$STORE" --vie
 - timeline：**中际旭创**（全库口径）`06-08 第一轮 → 06-09 催化共振(下限分97，3来源跨2日+硬证据) → 06-10 催化共振`——跨日跳阶轨迹正确。
 - board：1.6T CPO/半导体设备/人形机器人 已到催化共振(较充分覆盖)，CPO/半导体材料 第一轮(有限)，单点软料方向归观察池——同尺横向可比，覆盖度一目了然。
 
-**边界**：staging 当前只用**库内信号**；认同度的「市场是否兑现/透支」一维待 **b（盘面回溯 `outcomes.jsonl`）** 接入，脚本里标「待补」，升阶触发已写"接盘面兑现"。纯派生视图，**只读库不写库**。回补越多，下限越准、观察池越少。
+**边界**：staging 的**库内信号**轨（来源数/跨天/硬度）一直在；认同度的「市场是否兑现/透支」一维**已接 b（盘面回溯 `outcomes.jsonl`）**——`consensus_staging` 的 stage/board 视图新增「盘面兑现(b)」列，`main` 加 `--outcomes`（默认取 `--store` 同目录 `outcomes.jsonl`，**存在才接**，缺则该列照旧标「待接」），由 `pan_realize.py` 把 T+N 盘后回测聚成 `已兑现持稳/兑现中/冲高透支/未兑现·跑输/待观察`，喂回升阶触发；**一致认同 + 冲高透支 = 透支区**（热点≠机会）。纯派生视图，**只读库不写库**。回补越多，下限越准、观察池越少。
 
 ## 桥：观点库 → theme-radar 信号层（`consensus_bridge.py`）
 

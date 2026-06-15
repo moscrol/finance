@@ -285,7 +285,21 @@ def _filter_rows(rows: list[dict], term: str, concept: str, since: str) -> list[
     return rows
 
 
-def view_stage(rows: list[dict], hide_watch: bool = False) -> tuple[str, list[dict]]:
+def _realize_cell(a: dict, realize_on: bool) -> str:
+    """盘面兑现(b) 列取值：有回测判定就显示判定，已接但该标的无样本显示「—」，未接显示「待接」。"""
+    rv = a.get("realize_verdict")
+    if rv:
+        return rv
+    return "—" if realize_on else "待接"
+
+
+def view_stage(
+    rows: list[dict],
+    hide_watch: bool = False,
+    realize_by_target: dict[str, dict] | None = None,
+) -> tuple[str, list[dict]]:
+    realize_on = realize_by_target is not None
+    rbt = realize_by_target or {}
     by_target: dict[str, list[dict]] = {}
     for r in rows:
         by_target.setdefault(r.get("target", ""), []).append(r)
@@ -293,7 +307,7 @@ def view_stage(rows: list[dict], hide_watch: bool = False) -> tuple[str, list[di
     for target, evs in by_target.items():
         if not target:
             continue
-        s = stage_a_target(evs)
+        s = stage_a_target(evs, realize=rbt.get(target))
         s["target"] = target
         s["concept"] = next((e.get("concept") for e in evs if e.get("concept")), "")
         agg.append(s)
@@ -304,17 +318,20 @@ def view_stage(rows: list[dict], hide_watch: bool = False) -> tuple[str, list[di
     lines = [f"# 舆情认同度 staging（下限）（{len(rows)} 事件 / {len(agg)} 标的，其中观察池 {n_watch}）", ""]
     lines.append(BACKFILL_BANNER)
     lines.append("")
-    lines.append("| 标的 | 方向 | 认同度(下限) | 下限分 | 覆盖度 | 事实轨(robust) | 广度轨(回补敏感) | 多空 | 判定理由 | 升阶/待补触发 |")
-    lines.append("|---|---|---|---:|:--:|:--:|:--:|:--:|---|---|")
+    lines.append("| 标的 | 方向 | 认同度(下限) | 下限分 | 覆盖度 | 事实轨(robust) | 广度轨(回补敏感) | 多空 | 盘面兑现(b) | 判定理由 | 升阶/待补触发 |")
+    lines.append("|---|---|---|---:|:--:|:--:|:--:|:--:|:--:|---|---|")
     for a in shown:
         lines.append(
             f"| {a['target']} | {a['concept']} | {stage_label(a['stage'])} | {a['recognition_score']} | "
             f"{a['coverage']} | {a['fact_track']} | {a['breadth_track']} | "
-            f"{'⚔️分歧' if a['stance_split'] else '—'} | {a['stage_reason']} | {a['upgrade_trigger']} |"
+            f"{'⚔️分歧' if a['stance_split'] else '—'} | {_realize_cell(a, realize_on)} | {a['stage_reason']} | {a['upgrade_trigger']} |"
         )
     lines.append("")
     lines.append("> 阶梯：观察池(覆盖不足)·→萌芽★★→第一轮(第一枪)★★★→催化共振★★★★→一致认同★★★★★。")
-    lines.append("> 「市场是否兑现/透支」一维待 b（盘面回溯 outcomes.jsonl）接入。")
+    if realize_on:
+        lines.append("> 「盘面兑现(b)」维已接：末列为 outcomes.jsonl 盘后回测判定（见 pan_realize）；**一致认同 + 冲高透支 = 透支区**（热点≠机会）。")
+    else:
+        lines.append("> 「市场是否兑现/透支」一维 b（盘面回溯 outcomes.jsonl）未接：未发现 outcomes.jsonl，跑 build_outcomes.py 后自动接入。")
     return "\n".join(lines), agg
 
 
@@ -355,8 +372,10 @@ def view_timeline(rows: list[dict], only_target: str) -> str:
     return "\n".join(lines)
 
 
-def view_board(rows: list[dict]) -> str:
+def view_board(rows: list[dict], realize_by_concept: dict[str, dict] | None = None) -> str:
     """各方向（concept）横向对比发酵进度——图1 那块。"""
+    realize_on = realize_by_concept is not None
+    rbc = realize_by_concept or {}
     by_concept: dict[str, list[dict]] = {}
     for r in rows:
         c = r.get("concept", "")
@@ -366,7 +385,10 @@ def view_board(rows: list[dict]) -> str:
     board = []
     for concept, evs in by_concept.items():
         sig = cumulative_signals(evs)
-        stage, _ = decide_stage(sig)
+        rz = rbc.get(concept)
+        note = rz.get("stage_note") if rz else None
+        trig = rz.get("trigger_note") if rz else None
+        stage, _ = decide_stage(sig, realize_note=note)
         targets = sorted({e.get("target", "") for e in evs if e.get("target")})
         hard_targets = sorted({e.get("target", "") for e in evs if e.get("hard_evidence") and e.get("target")})
         rep = hard_targets[0] if hard_targets else (
@@ -382,22 +404,25 @@ def view_board(rows: list[dict]) -> str:
             "days": sig["days"],
             "hard_targets": len(hard_targets),
             "rep": rep,
-            "trigger": upgrade_trigger(stage, sig),
+            "trigger": upgrade_trigger(stage, sig, realize_note=trig),
+            "realize_verdict": rz["verdict"] if rz else None,
         })
     board.sort(key=lambda b: (_stage_rank(b["stage"]), b["score"]), reverse=True)
 
     lines = [f"# 方向 × 发酵进度横向对比（下限）（{len(board)} 方向）", ""]
     lines.append(BACKFILL_BANNER)
     lines.append("")
-    lines.append("| 方向 | 发酵阶段(下限) | 下限分 | 覆盖度 | 标的数 | 硬证据标的 | 来源 | 跨天 | 代表标的 | 升阶/待补触发 |")
-    lines.append("|---|---|---:|:--:|---:|---:|---:|---:|---|---|")
+    lines.append("| 方向 | 发酵阶段(下限) | 下限分 | 覆盖度 | 标的数 | 硬证据标的 | 来源 | 跨天 | 代表标的 | 盘面兑现(b) | 升阶/待补触发 |")
+    lines.append("|---|---|---:|:--:|---:|---:|---:|---:|---|:--:|---|")
     for b in board:
         lines.append(
             f"| {b['concept']} | {stage_label(b['stage'])} | {b['score']} | {b['coverage']} | {b['targets']} | "
-            f"{b['hard_targets']} | {b['sources']} | {b['days']} | {b['rep']} | {b['trigger']} |"
+            f"{b['hard_targets']} | {b['sources']} | {b['days']} | {b['rep']} | {_realize_cell(b, realize_on)} | {b['trigger']} |"
         )
     lines.append("")
     lines.append("> 同尺横向比较各方向发酵到哪一阶（下限）；越靠前=认同度越高(越接近一致/透支)，越靠后/观察池=越早期或覆盖未补足。")
+    if realize_on:
+        lines.append("> 「盘面兑现(b)」维已接：末列为该方向 outcomes.jsonl 盘后回测判定（一致认同 + 冲高透支 = 透支区）。")
     return "\n".join(lines)
 
 
@@ -410,24 +435,39 @@ def main(argv=None) -> int:
     ap.add_argument("--target", default="", help="timeline 视图聚焦单标的")
     ap.add_argument("--since", default="", help="只算该日期(含)之后的事件 YYYY-MM-DD")
     ap.add_argument("--hide-watch", action="store_true", help="stage 视图隐藏观察池(覆盖不足)标的，只看已上阶梯的")
+    ap.add_argument("--outcomes", default="", help="盘面兑现(b) 的 outcomes.jsonl 路径；默认取 --store 同目录 outcomes.jsonl，存在才接")
     ap.add_argument("--markdown", default="", help="把报告写到文件")
     ap.add_argument("--json", action="store_true", help="额外输出结构化 JSON 到 stdout")
     args = ap.parse_args(argv)
 
-    rows = _filter_rows(load_store(Path(args.store).expanduser()), args.term, args.concept, args.since)
+    store_path = Path(args.store).expanduser()
+    rows = _filter_rows(load_store(store_path), args.term, args.concept, args.since)
     if not rows:
         print("（库为空或过滤后无事件）")
         return 0
 
+    # 盘面兑现维（b）：默认取 --store 同目录 outcomes.jsonl，存在才接（纯增量，缺则照旧）。
+    outcomes_path = (
+        Path(args.outcomes).expanduser() if args.outcomes
+        else store_path.parent / "outcomes.jsonl"
+    )
+    realize_by_target = realize_by_concept = None
+    if outcomes_path.exists():
+        oc_rows = _filter_rows(
+            pan_realize.load_outcomes(outcomes_path), args.term, args.concept, args.since
+        )
+        realize_by_target = pan_realize.realize_map(oc_rows, "target")
+        realize_by_concept = pan_realize.realize_map(oc_rows, "concept")
+
     blocks = []
     stage_agg = None
     if args.view in ("stage", "all"):
-        md, stage_agg = view_stage(rows, hide_watch=args.hide_watch)
+        md, stage_agg = view_stage(rows, hide_watch=args.hide_watch, realize_by_target=realize_by_target)
         blocks.append(md)
     if args.view in ("timeline", "all"):
         blocks.append(view_timeline(rows, args.target))
     if args.view in ("board", "all"):
-        blocks.append(view_board(rows))
+        blocks.append(view_board(rows, realize_by_concept=realize_by_concept))
     report = "\n\n".join(blocks)
     print(report)
 
