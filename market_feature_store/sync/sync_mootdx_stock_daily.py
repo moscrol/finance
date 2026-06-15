@@ -11,10 +11,40 @@ from __future__ import annotations
 
 import math
 import re
+import signal
+import sys
 import time
 from datetime import datetime
 
 from ..db import connect, init_db
+
+
+class _BarsTimeout(Exception):
+    """单只 mootdx bars 请求超时。"""
+
+
+def _fetch_bars(client, code: str, offset: int, qfq: bool, timeout: int):
+    """抓取单只日线; timeout>0 时用 SIGALRM 兜底, 卡住的请求超时即中断。
+
+    SIGALRM 仅在主线程的类 Unix 平台可用; 不可用时退化为无超时直接抓取。
+    """
+    def _call():
+        if qfq:
+            return client.bars(symbol=code, frequency=9, offset=offset, adjust="qfq")
+        return client.bars(symbol=code, frequency=9, offset=offset)
+
+    if timeout and timeout > 0 and hasattr(signal, "SIGALRM"):
+        def _handler(signum, frame):  # noqa: ANN001
+            raise _BarsTimeout(f"bars timeout after {timeout}s")
+
+        old = signal.signal(signal.SIGALRM, _handler)
+        signal.alarm(int(timeout))
+        try:
+            return _call()
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old)
+    return _call()
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -126,7 +156,8 @@ def _build_rows(df, code: str, name: str, start_date: str, now: datetime,
 
 def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
                           limit: int | None = None, only_missing: bool = True,
-                          sleep: float = 0.0, qfq: bool = False) -> dict:
+                          sleep: float = 0.0, qfq: bool = False,
+                          timeout: int = 0, progress_every: int = 200) -> dict:
     """回补全A股日线到 fact_stock_daily。
 
     start_date: 起始交易日 (YYYY-MM-DD), 默认对齐 fact_market_daily 最早日。
@@ -135,6 +166,8 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
     only_missing: True 时跳过区间内已抓的股票 (可续跑)。
     qfq: True 用前复权(慢, mootdx 除权重算很吃CPU); 默认 False 用裸收盘价(快)。
          短区间加权涨幅 裸价≈前复权, 个别除权股误差微小。
+    timeout: 单只 bars 请求超时秒数 (>0 启用 SIGALRM 兜底); 超时记 failure 跳过, 不卡死整批。
+    progress_every: 每处理多少只打一行心跳进度 (0 关闭); 避免长时间无输出被误判卡死。
     """
     from mootdx.quotes import Quotes
 
@@ -182,12 +215,13 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
             rows_written += len(buf)
             buf.clear()
 
-        for code, name in pending:
+        pending_n = len(pending)
+        for seen, (code, name) in enumerate(pending, start=1):
             try:
-                if qfq:
-                    df = client.bars(symbol=code, frequency=9, offset=offset, adjust="qfq")
-                else:
-                    df = client.bars(symbol=code, frequency=9, offset=offset)
+                df = _fetch_bars(client, code, offset, qfq, timeout)
+            except _BarsTimeout:
+                failures.append((code, f"timeout:{timeout}s"))
+                continue
             except Exception as e:  # noqa: BLE001
                 failures.append((code, f"bars:{type(e).__name__}"))
                 continue
@@ -199,6 +233,9 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
             processed += 1
             if processed % FLUSH_EVERY == 0:
                 flush()
+            if progress_every and seen % progress_every == 0:
+                print(f"[stock-daily] {seen}/{pending_n} 已处理 写入{rows_written}行 失败{len(failures)} 最近{code}",
+                      file=sys.stderr, flush=True)
             if sleep:
                 time.sleep(sleep)
         flush()

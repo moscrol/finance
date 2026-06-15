@@ -41,6 +41,11 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
     plan: list[CommandSpec] = []
 
     if not options.skip_sync:
+        plan.append(CommandSpec(
+            name="preflight-db-lock",
+            argv=["python3", "scripts/check_db_lock.py"],
+            outputs=[],
+        ))
         argv = ["python3", "-m", "market_feature_store.cli", "daily-update", "--trade-date", date]
         if options.skip_long:
             argv.append("--skip-long")

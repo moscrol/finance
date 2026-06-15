@@ -364,6 +364,8 @@ def cmd_sync_stock_daily(args) -> int:
         only_missing=not args.refresh,
         sleep=args.sleep,
         qfq=args.qfq,
+        timeout=args.timeout,
+        progress_every=args.progress_every,
     )
     print(f"起始日: {stats['start_date']} | 全A股池: {stats['universe']}")
     print(f"本次抓取: {stats['processed']} 只 | 写入行: {stats['rows_written']}")
@@ -373,6 +375,24 @@ def cmd_sync_stock_daily(args) -> int:
     if stats["failures"]:
         print(f"失败 {len(stats['failures'])}: " + ", ".join(c for c, _ in stats['failures'][:10]))
     return 0
+
+
+def cmd_fill_stock_daily_fallback(args) -> int:
+    from .sync.fill_stock_daily_fallback import fill_stock_daily_fallback
+
+    stats = fill_stock_daily_fallback(
+        trade_date=args.trade_date,
+        ma_window=args.ma_window,
+        recompute_deviation=not args.no_deviation,
+    )
+    print(f"交易日: {stats['trade_date']} | 源板块成分行: {stats['source_rows']}")
+    print(f"fact_stock_daily 当日: {stats['stock_rows']} 行 | source={stats.get('source')}")
+    if stats.get("deviation"):
+        d = stats["deviation"]
+        print(f"上证均线复算: sh_week_ma={d['sh_week_ma']} sh_deviation_pct={d['sh_deviation_pct']} ({d['note']})")
+    if stats.get("note"):
+        print(f"提示: {stats['note']}")
+    return 0 if stats["stock_rows"] else 1
 
 
 def cmd_daily_update(args) -> int:
@@ -869,7 +889,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_skd.add_argument("--refresh", action="store_true", help="不跳过已抓股票, 强制重抓")
     p_skd.add_argument("--sleep", type=float, default=0.0, help="股票间隔秒数, 默认0")
     p_skd.add_argument("--qfq", action="store_true", help="用前复权(慢, 吃CPU); 默认裸收盘价(快)")
+    p_skd.add_argument("--timeout", type=int, default=10, help="单只 bars 请求超时秒数(SIGALRM 兜底), 超时跳过不卡死整批, 默认10; 0=关闭")
+    p_skd.add_argument("--progress-every", type=int, default=200, help="每处理多少只打一行心跳进度, 默认200; 0=关闭")
     p_skd.set_defaults(func=cmd_sync_stock_daily)
+
+    p_fsf = sub.add_parser("fill-stock-daily-fallback",
+                           help="当日兜底: 用 fact_sector_stock_daily 行情聚合补 fact_stock_daily(标 fallback)")
+    p_fsf.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_fsf.add_argument("--ma-window", type=int, default=5, help="复算上证均线偏离的回看交易日数, 默认5")
+    p_fsf.add_argument("--no-deviation", action="store_true", help="不复算 sh_week_ma/sh_deviation_pct")
+    p_fsf.set_defaults(func=cmd_fill_stock_daily_fallback)
 
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
     p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
