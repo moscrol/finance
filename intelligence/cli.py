@@ -67,9 +67,38 @@ def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--no-memory", dest="use_memory", action="store_false", help="不读/不写记忆回路（默认开启）")
     parser.add_argument("--memory-window", type=int, default=50, help="只用最近 N 条历史提问去重（默认 50）")
     parser.set_defaults(use_memory=True)
+    parser.add_argument("--interactions-file", default=None, help="用户反馈记录 jsonl（默认 users/<user>/interactions.jsonl，已 gitignore）")
+    parser.add_argument("--no-interactions", dest="use_interactions", action="store_false", help="不读反馈回路、排序不加亲和加成（默认开启）")
+    parser.add_argument("--interactions-window", type=int, default=200, help="只聚合最近 N 条反馈算亲和度（默认 200）")
+    parser.add_argument("--affinity-half-life", type=float, default=14.0, help="反馈时间衰减半衰期（天，默认 14）")
+    parser.add_argument("--affinity-boost", type=float, default=0.2, help="反馈加成上限权重（默认 0.2；0 关闭加成）")
+    parser.set_defaults(use_interactions=True)
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 而非 Markdown")
     parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
     parser.set_defaults(func=cmd_foresight)
+
+
+def add_record_interaction_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "record-interaction",
+        help="反馈回路：记一条对「猜你想问」的反馈（点开/追问/喜欢/忽略/打分）→ 越用越懂",
+    )
+    parser.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    parser.add_argument(
+        "--kind",
+        required=True,
+        help="反馈类型：click/open/ask/like/follow/pin/view/skip/ignore/dismiss/mute/dislike/rate",
+    )
+    parser.add_argument("--question", default=None, help="被反馈的问题原文（可选，仅留痕）")
+    parser.add_argument("--theme", dest="themes", action="append", default=[], help="关联题材（可多次）")
+    parser.add_argument("--stock", dest="stocks", action="append", default=[], help="关联个股（可多次）")
+    parser.add_argument("--weight", type=float, default=None, help="显式权重（覆盖 kind 默认；正升负降）")
+    parser.add_argument("--rating", type=float, default=None, help="1~5 星评分（kind=rate 时用，映射到 [-1,1]）")
+    parser.add_argument("--note", default=None, help="备注（可选）")
+    parser.add_argument("--interactions-file", default=None, help="覆盖反馈记录文件路径")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
+    parser.set_defaults(func=cmd_record_interaction)
 
 
 def add_refresh_profile_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -174,6 +203,11 @@ def cmd_foresight(args: argparse.Namespace) -> int:
             memory_file=args.memory_file,
             use_memory=args.use_memory,
             memory_window=args.memory_window,
+            interactions_file=args.interactions_file,
+            use_interactions=args.use_interactions,
+            interactions_window=args.interactions_window,
+            affinity_half_life=args.affinity_half_life,
+            affinity_boost=args.affinity_boost,
         )
     )
     if args.summary_json:
@@ -182,6 +216,38 @@ def cmd_foresight(args: argparse.Namespace) -> int:
         print(_json.dumps(result_to_dict(result), ensure_ascii=False, indent=2))
     else:
         print(render(result), end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def cmd_record_interaction(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.workflows.record_interaction import (
+        RecordInteractionOptions,
+        render,
+        run_record_interaction,
+    )
+
+    summary, record = run_record_interaction(
+        RecordInteractionOptions(
+            kind=args.kind,
+            user=args.user,
+            question=args.question,
+            themes=args.themes,
+            stocks=args.stocks,
+            weight=args.weight,
+            rating=args.rating,
+            note=args.note,
+            interactions_file=args.interactions_file,
+        )
+    )
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    if args.json:
+        print(_json.dumps(record, ensure_ascii=False, indent=2))
+    else:
+        path = summary.steps[0].outputs[0].split("=", 1)[1] if summary.steps else ""
+        print(render(record, path), end="")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
@@ -248,6 +314,24 @@ def cmd_adapter_smoke(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
+def add_serve_parser(subparsers: argparse._SubParsersAction) -> None:
+    from intelligence import server
+
+    parser = subparsers.add_parser(
+        "serve",
+        help="启动本地 Web GUI（猜你想问卡片流 + 亲和度榜 + 画像 + 策略 overlay；零依赖）",
+    )
+    server.add_arguments(parser)
+    parser.set_defaults(func=cmd_serve)
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    from intelligence import server
+
+    server.serve(server.build_config(args))
+    return 0
+
+
 def cmd_theme(args: argparse.Namespace) -> int:
     from intelligence.workflows.theme_radar import ThemeRadarOptions, run_theme_radar
 
@@ -270,10 +354,12 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_ask_parser(subparsers)
     add_foresight_parser(subparsers)
+    add_record_interaction_parser(subparsers)
     add_refresh_profile_parser(subparsers)
     add_adapter_smoke_parser(subparsers)
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)
+    add_serve_parser(subparsers)
     return parser
 
 

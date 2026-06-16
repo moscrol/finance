@@ -14,11 +14,54 @@
 | `profile.json` | 人（钉住） | 否 | 用户钉住的画像，优先级最高，`refresh-profile` 不会覆盖它 |
 | `profile.derived.json` | `refresh-profile --apply` | 否 | 自动派生候选，带 `source`/`as_of`/`stale` 标记 |
 | `foresight_memory.jsonl` | `foresight` | 否 | 问过的问题记忆回路（去重用） |
-| `interactions.jsonl` | （PR2）反馈回路 | 否 | 点击/采纳/忽略反馈，用于「越用越懂」 |
-| `strategy_params.json` | （PR2）人/evolve | 否 | 个人策略参数 overlay（稀疏覆盖共享 baseline） |
+| `interactions.jsonl` | `record-interaction` | 否 | 点击/追问/喜欢/忽略/打分反馈，用于「越用越懂」 |
+| `strategy_params.json` | 人 | 否 | 个人策略参数 overlay（稀疏覆盖共享 baseline） |
 
 以上**运行时文件全部 gitignore，不入库**（含真实自选股、提问历史等隐私）。仓库里只跟踪
-本 README 与 `profile.template.json` 模板。
+本 README、`profile.template.json` 与 `strategy_params.template.json` 模板。
+
+## 越用越懂：反馈回路 `interactions.jsonl`
+
+每条「猜你想问」问题被点开 / 追问 / 喜欢 / 忽略 / 打分时记一笔，下次 `foresight` 排序就会
+对相关题材/个股给一项**可解释**加成（近期正向互动升权、被忽略/打低分降权，带时间衰减）。
+
+```bash
+# 点开了一条关于「液冷」的问题（kind 默认权重见 intelligence/services/interactions.py）
+python3 -m intelligence.cli record-interaction --user <id> --kind click \
+    --theme 液冷 --stock 中际旭创 --question "液冷渗透率拐点何时到？"
+
+# 不感兴趣 → 降权
+python3 -m intelligence.cli record-interaction --user <id> --kind dismiss --theme 钠电
+
+# 1~5 星打分（映射到 [-1,1]）
+python3 -m intelligence.cli record-interaction --user <id> --kind rate --rating 5 --theme 算力
+```
+
+常用 `--kind`：`click/open/ask/like/follow/pin`（正向）、`view/impression`（弱正向）、
+`skip/ignore/dismiss/mute/dislike`（负向）、`rate`（配 `--rating`）。`--weight` 可显式覆盖。
+foresight 默认开启加成，`--no-interactions` 关闭、`--affinity-boost 0` 等价关闭、
+`--affinity-half-life` 调时间衰减半衰期（天）。
+
+## 按用户的策略迭代：`strategy_params.json`（稀疏 overlay）
+
+`evolution/params.json` 是所有用户共享的 baseline；`strategy_params.json` 只写想覆盖的
+策略段（`strategy1` / `strategy3` / `strategy4` / `validation` / `suggest`），自带
+`_overlay_version`。evolve 加载时把 overlay **深合并**到 baseline，输出落到
+`evolution/users/<id>/{records,validation,suggestions,进化.md}`（与共享 baseline 输出隔离，
+互不覆盖），记录里留痕 `user` + `params_overlay_version` + `params_overlay_sections`。
+
+```bash
+cp intelligence/users/strategy_params.template.json \
+   intelligence/users/<id>/strategy_params.json   # 编辑只留想改的段
+
+cd <repo root>
+PYTHONPATH="$(pwd)" python3 scripts/evolve.py generate --user <id> --date 2026-06-13
+PYTHONPATH="$(pwd)" python3 scripts/evolve.py validate --user <id> --strategy 1
+PYTHONPATH="$(pwd)" python3 scripts/evolve.py audit    --user <id>
+```
+
+确定性不变：同一 baseline + 同一 overlay + 同一 DB → 100% 可复现；不传 `--user` 就完全
+等价于历史共享 baseline 行为。
 
 ## 生效画像 = 钉住 ⊕ 派生
 

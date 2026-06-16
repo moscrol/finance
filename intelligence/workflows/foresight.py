@@ -23,6 +23,11 @@ class ForesightWorkflowOptions:
     memory_file: str | Path | None = None
     use_memory: bool = True
     memory_window: int = 50
+    interactions_file: str | Path | None = None
+    use_interactions: bool = True
+    interactions_window: int = 200
+    affinity_half_life: float = 14.0
+    affinity_boost: float = 0.2
 
 
 def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, ForesightResult, str]:
@@ -53,6 +58,11 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             memory_file=options.memory_file,
             use_memory=options.use_memory,
             memory_window=options.memory_window,
+            interactions_file=options.interactions_file,
+            use_interactions=options.use_interactions,
+            interactions_window=options.interactions_window,
+            affinity_half_life=options.affinity_half_life,
+            affinity_boost=options.affinity_boost,
         )
     )
     answer = render(result)
@@ -79,6 +89,17 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
                 f"loaded={result.memory_loaded}",
                 f"appended={result.memory_appended}",
                 f"path={result.memory_path or '-'}",
+            ],
+        )
+    )
+    summary.steps.append(
+        WorkflowStep(
+            name="interactions",
+            status="PASS" if options.use_interactions else "SKIP",
+            outputs=[
+                f"loaded={result.interactions_loaded}",
+                f"boosted={result.affinity_applied}",
+                f"path={result.interactions_path or '-'}",
             ],
         )
     )

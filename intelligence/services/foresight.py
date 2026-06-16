@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import date as date_cls, datetime, timezone
@@ -23,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence import userspace
-from intelligence.services import llm_refine
+from intelligence.services import interactions, llm_refine
 from intelligence.services.ask import load_theme_candidates
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -47,6 +48,11 @@ class ForesightOptions:
     memory_file: str | Path | None = None
     use_memory: bool = True
     memory_window: int = 50
+    interactions_file: str | Path | None = None
+    use_interactions: bool = True
+    interactions_window: int = 200
+    affinity_half_life: float = 14.0
+    affinity_boost: float = 0.2
 
 
 @dataclass
@@ -59,6 +65,8 @@ class Question:
     novelty: float = 0.0
     relevance: float = 0.0
     score: float = 0.0
+    affinity_boost: float = 0.0
+    affinity_reasons: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -74,6 +82,9 @@ class ForesightResult:
     memory_path: str | None = None
     memory_loaded: int = 0
     memory_appended: int = 0
+    interactions_path: str | None = None
+    interactions_loaded: int = 0
+    affinity_applied: int = 0
 
     @property
     def status(self) -> str:
@@ -127,6 +138,41 @@ def _memory_path(options: ForesightOptions) -> Path:
     if options.memory_file:
         return Path(options.memory_file).expanduser()
     return userspace.user_space(options.user).memory_path
+
+
+def _interactions_path(options: ForesightOptions) -> Path:
+    if options.interactions_file:
+        return Path(options.interactions_file).expanduser()
+    return userspace.user_space(options.user).interactions_path
+
+
+def _load_affinity(
+    options: ForesightOptions, result: "ForesightResult"
+) -> list[interactions.Affinity]:
+    """读取用户反馈记录并聚合成题材/个股亲和度（越用越懂）。无反馈则返回空列表。"""
+    if not options.use_interactions:
+        return []
+    ipath = _interactions_path(options)
+    result.interactions_path = str(ipath)
+    records, warn = interactions.load_interactions(ipath, options.interactions_window)
+    if warn:
+        result.warnings.append(warn)
+    result.interactions_loaded = len(records)
+    affinity = interactions.compute_affinity(
+        records, half_life_days=options.affinity_half_life
+    )
+    top = [a for a in affinity if a.score > 0][:3]
+    if top:
+        result.context_digest.append(
+            "反馈亲和："
+            + "、".join(f"{a.label}(+{round(a.score, 2)})" for a in top)
+            + f"（共 {len(records)} 条反馈 → {ipath.name}）"
+        )
+    elif records:
+        result.context_digest.append(
+            f"反馈亲和：已读 {len(records)} 条反馈，暂无正向题材/个股加成"
+        )
+    return affinity
 
 
 def load_asked_memory(path: str | Path, window: int = 50) -> tuple[list[str], str | None]:
@@ -374,8 +420,37 @@ def _clamp01(value: Any) -> float:
 
 
 # --------------------------------------------------------------------------- #
-# 排序去重层：MMR 式贪心，combined = 0.4*新颖 + 0.4*相关 + 0.2*多样
+# 排序去重层：MMR 式贪心
+#   combined = 0.4*新颖 + 0.4*相关 + 0.2*多样 + 反馈加成（越用越懂，可解释）
+# 反馈加成 = boost_weight * tanh(Σ 命中题材/个股的亲和度)，有界且可逐条溯源。
 # --------------------------------------------------------------------------- #
+def _norm_match(text: Any) -> str:
+    return re.sub(r"\s+", "", str(text or "")).lower()
+
+
+def _affinity_boost(
+    question: str,
+    affinity: list[interactions.Affinity],
+    boost_weight: float,
+) -> tuple[float, list[str]]:
+    """对一条问题计算反馈加成 + 可解释理由（命中近期被互动过的题材/个股）。"""
+    if not affinity or boost_weight == 0.0:
+        return 0.0, []
+    qnorm = _norm_match(question)
+    matched: list[interactions.Affinity] = [a for a in affinity if a.norm and a.norm in qnorm]
+    if not matched:
+        return 0.0, []
+    raw = sum(a.score for a in matched)
+    component = boost_weight * math.tanh(raw)
+    matched.sort(key=lambda a: (-abs(a.score), a.kind, a.label))
+    reasons = [
+        f"{'题材' if a.kind == 'theme' else '个股'} {a.label}"
+        f"({'+' if a.score >= 0 else ''}{round(a.score, 2)})"
+        for a in matched[:3]
+    ]
+    return round(component, 4), reasons
+
+
 def _bigrams(text: str) -> set[str]:
     s = re.sub(r"[^0-9a-z\u4e00-\u9fff]+", "", str(text).lower())
     if len(s) < 2:
@@ -396,9 +471,17 @@ def rank_questions(
     asked: list[str],
     n: int,
     dedup_threshold: float = 0.6,
+    affinity: list[interactions.Affinity] | None = None,
+    boost_weight: float = 0.2,
 ) -> list[Question]:
     asked_grams = [_bigrams(a) for a in asked if a]
     pool = [q for q in raw if all(_sim(_bigrams(q.question), g) < dedup_threshold for g in asked_grams)]
+
+    # 反馈加成对每条问题是常量（不随选择顺序变），先一次性算好 + 标注理由。
+    affinity = affinity or []
+    boosts: dict[int, tuple[float, list[str]]] = {
+        id(q): _affinity_boost(q.question, affinity, boost_weight) for q in pool
+    }
 
     selected: list[Question] = []
     while len(selected) < n:
@@ -418,10 +501,14 @@ def rank_questions(
                 diversity = 1.0 - max(_sim(_bigrams(q.question), _bigrams(s.question)) for s in selected)
             else:
                 diversity = 1.0
-            val = 0.4 * q.novelty + 0.4 * q.relevance + 0.2 * diversity
+            boost, _ = boosts.get(id(q), (0.0, []))
+            val = 0.4 * q.novelty + 0.4 * q.relevance + 0.2 * diversity + boost
             if val > best_val:
                 best_val, best = val, q
         assert best is not None
+        b_boost, b_reasons = boosts.get(id(best), (0.0, []))
+        best.affinity_boost = b_boost
+        best.affinity_reasons = b_reasons
         best.score = round(best_val, 3)
         selected.append(best)
         pool.remove(best)
@@ -458,6 +545,9 @@ def generate(options: ForesightOptions) -> ForesightResult:
             else f"历史记忆：暂无（首次运行，问题将写入 {mem_path.name}）"
         )
 
+    # 越用越懂：把近期反馈聚合成题材/个股亲和度（在 LLM 调用前载入，降级时也能展示）。
+    affinity = _load_affinity(options, result)
+
     user_prompt = _build_user_prompt(context, options.candidates)
     result.prompt_preview = _SYSTEM_PROMPT + "\n\n---- user ----\n\n" + user_prompt
 
@@ -489,7 +579,10 @@ def generate(options: ForesightOptions) -> ForesightResult:
         return result
 
     asked = (context.get("profile") or {}).get("recent_questions") or []
-    result.questions = rank_questions(parsed, asked, options.n)
+    result.questions = rank_questions(
+        parsed, asked, options.n, affinity=affinity, boost_weight=options.affinity_boost
+    )
+    result.affinity_applied = sum(1 for q in result.questions if q.affinity_boost)
     result.llm_used = True
     result.llm_provider = provider.name if provider else None
     if options.use_memory and result.questions:
@@ -516,6 +609,11 @@ def render(result: ForesightResult) -> str:
             f"> 记忆：并入 {result.memory_loaded} 条历史提问去重 · 本次新增 "
             f"{result.memory_appended} 条 → {result.memory_path}"
         )
+    if result.interactions_loaded:
+        lines.append(
+            f"> 反馈：读入 {result.interactions_loaded} 条互动记录 · "
+            f"{result.affinity_applied} 条问题获得亲和加成"
+        )
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
 
@@ -529,6 +627,10 @@ def render(result: ForesightResult) -> str:
                 lines.append(f"- 跨域连接：{' × '.join(q.domains)}")
             if q.leading_indicator:
                 lines.append(f"- 领先指标 / 可证伪点：{q.leading_indicator}")
+            if q.affinity_reasons:
+                lines.append(
+                    f"- 反馈加成（近期你在看）：{'、'.join(q.affinity_reasons)} → +{q.affinity_boost}"
+                )
             tail = []
             if q.horizon:
                 tail.append(f"时间窗口 {q.horizon}")
@@ -557,6 +659,9 @@ def result_to_dict(result: ForesightResult) -> dict[str, Any]:
         "memory_path": result.memory_path,
         "memory_loaded": result.memory_loaded,
         "memory_appended": result.memory_appended,
+        "interactions_path": result.interactions_path,
+        "interactions_loaded": result.interactions_loaded,
+        "affinity_applied": result.affinity_applied,
         "questions": [
             {
                 "question": q.question,
@@ -567,6 +672,8 @@ def result_to_dict(result: ForesightResult) -> dict[str, Any]:
                 "novelty": q.novelty,
                 "relevance": q.relevance,
                 "score": q.score,
+                "affinity_boost": q.affinity_boost,
+                "affinity_reasons": q.affinity_reasons,
             }
             for q in result.questions
         ],
