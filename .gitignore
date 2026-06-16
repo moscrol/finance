@@ -84,3 +84,5 @@ intelligence/users/*/strategy_params.json
 evolution/records/
 evolution/validation/
 evolution/suggestions/
+# 按用户的 evolve 输出（overlay 生效后的记录/验证/建议/进化.md），运行时生成，不入库
+evolution/users/
