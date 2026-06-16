@@ -314,6 +314,24 @@ def cmd_adapter_smoke(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
+def add_serve_parser(subparsers: argparse._SubParsersAction) -> None:
+    from intelligence import server
+
+    parser = subparsers.add_parser(
+        "serve",
+        help="启动本地 Web GUI（猜你想问卡片流 + 亲和度榜 + 画像 + 策略 overlay；零依赖）",
+    )
+    server.add_arguments(parser)
+    parser.set_defaults(func=cmd_serve)
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    from intelligence import server
+
+    server.serve(server.build_config(args))
+    return 0
+
+
 def cmd_theme(args: argparse.Namespace) -> int:
     from intelligence.workflows.theme_radar import ThemeRadarOptions, run_theme_radar
 
@@ -341,6 +359,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_adapter_smoke_parser(subparsers)
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)
+    add_serve_parser(subparsers)
     return parser
 
 

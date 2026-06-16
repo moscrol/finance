@@ -67,6 +67,15 @@ def _sanitize_overlay(raw: Any) -> tuple[dict[str, Any], dict[str, Any], list[st
     return overlay, meta, warnings
 
 
+def sanitize_overlay(raw: Any) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+    """公开封装：从 overlay 原文里挑出可覆盖策略段 + 元信息（``_`` 前缀），其余忽略并告警。
+
+    供 GUI / CLI 在写入 ``strategy_params.json`` 前复用同一套校验，避免规则漂移。
+    返回 ``(overlay_sections, meta, warnings)``。
+    """
+    return _sanitize_overlay(raw)
+
+
 def load_effective_params(
     base_path: str | Path | None = None,
     overlay_path: str | Path | None = None,
