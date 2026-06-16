@@ -61,6 +61,8 @@ STOCK_COLUMNS = {
     "limit_update_time": "TIMESTAMP",
 }
 FETCH_TIMEOUT_MS = 20000
+CDP_SINGLE_TIMEOUT = 90
+CDP_BATCH_TIMEOUT = 60
 
 HEAT_UPSERT_SQL = """
     INSERT INTO fact_theme_limit_heat_daily
@@ -290,7 +292,7 @@ def _get_sector_stocks(code: str, trade_date: str, dimension: str, scope: str):
         "return JSON.stringify({trade_date:d.trade_date,dimension:d.dimension,code:d.code,name:d.name,total:d.total,stocks});"
         "})()"
     )
-    raw = fs.cdp_eval(js, timeout=180)
+    raw = fs.cdp_eval(js, timeout=CDP_SINGLE_TIMEOUT)
     return json.loads(raw) if raw else {"stocks": []}
 
 
@@ -336,7 +338,7 @@ def _get_sector_stocks_batch(items: list[dict], trade_date: str, dimension: str,
         "return JSON.stringify(out);"
         "})()"
     )
-    raw = fs.cdp_eval(js, timeout=300)
+    raw = fs.cdp_eval(js, timeout=CDP_BATCH_TIMEOUT)
     return json.loads(raw) if raw else {}
 
 
@@ -463,9 +465,15 @@ def sync_fupanhui_limit_heat(
     stocks_by_sector = {}
     chunk_size = max(int(detail_chunk), 1)
     detail_items = [item for item in items if (item.get("limit_up_count") or 0) > 0]
-    for start in range(0, len(detail_items), chunk_size):
+    total_chunks = (len(detail_items) + chunk_size - 1) // chunk_size if detail_items else 0
+    for idx, start in enumerate(range(0, len(detail_items), chunk_size), 1):
         chunk = detail_items[start:start + chunk_size]
-        stocks_by_sector.update(_get_sector_stocks_resilient(chunk, current_date.isoformat(), dimension, scope))
+        chunk_names = ",".join(str(item.get("name") or item.get("code")) for item in chunk[:3])
+        print(f"[limit-heat] detail chunk {idx}/{total_chunks} size={len(chunk)} first={chunk_names}", flush=True)
+        chunk_result = _get_sector_stocks_resilient(chunk, current_date.isoformat(), dimension, scope)
+        stocks_by_sector.update(chunk_result)
+        chunk_errors = sum(1 for value in chunk_result.values() if isinstance(value, dict) and value.get("error"))
+        print(f"[limit-heat] detail chunk {idx}/{total_chunks} done errors={chunk_errors}", flush=True)
         if sleep:
             time.sleep(float(sleep))
     for item in items:

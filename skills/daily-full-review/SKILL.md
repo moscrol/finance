@@ -1,6 +1,6 @@
 ---
 name: daily-full-review
-description: 单日全量复盘的同步编排与防坑流程。触发词：今日全量复盘、单日复盘、跑一下今天的复盘、补全今天的复盘数据、daily full review、复盘同步卡住了。用于把某个交易日的 market_feature_store 同步按"已验证的模块顺序 + 逐模块超时 + 自动兜底 + 经验记录"跑完，再交给 intelligence.cli daily 生成日报/题材/HTML/工作台。专治 daily-update monolith 静默挂起后乱手搓的问题。
+description: 仅用于"单日全量复盘"的同步编排与防坑流程。触发词严格限定：全量复盘、今日全量复盘、跑全量复盘、单日全量复盘、做一次全量复盘、daily full review。仅当用户明确要对某个交易日做整轮全量复盘（同步全部 market_feature_store 模块 + 生成日报/题材/HTML/工作台）时触发；只补单表、只补历史缺口、只跑某个 sync-* 子命令、只生成报告或矩阵等局部任务，都不触发本 skill（历史多日补缺口请用 duckdb-backfill）。用于把某个交易日的同步按"已验证模块顺序 + 逐模块超时 + 自动兜底 + 经验记录"跑完，再交给 intelligence.cli daily 生成产物。专治 daily-update monolith 静默挂起后乱手搓的问题。
 ---
 
 # 单日全量复盘（Daily Full Review）
