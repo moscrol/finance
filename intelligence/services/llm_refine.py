@@ -87,9 +87,9 @@ def _build_user_prompt(query: str, theme: str, evidence_text: str) -> str:
     )
 
 
-def _post_chat(provider: LLMProvider, messages: list[dict], timeout: int) -> str:
+def _post_chat(provider: LLMProvider, messages: list[dict], timeout: int, temperature: float = 0.2) -> str:
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload = {"model": provider.model, "messages": messages, "temperature": 0.2}
+    payload = {"model": provider.model, "messages": messages, "temperature": temperature}
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -103,6 +103,34 @@ def _post_chat(provider: LLMProvider, messages: list[dict], timeout: int) -> str
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         body = json.loads(resp.read().decode("utf-8"))
     return body["choices"][0]["message"]["content"]
+
+
+def complete(
+    messages: list[dict],
+    model_override: str | None = None,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+    temperature: float = 0.2,
+) -> tuple[str | None, "LLMProvider | None", str]:
+    """Generic OpenAI-compatible chat call shared across services.
+
+    Returns ``(content, provider, reason)``. On any failure (no key, HTTP error,
+    network error) ``content`` is ``None`` and ``reason`` explains why so callers
+    can degrade gracefully — same contract as :func:`refine_or_reason`.
+    """
+    provider = detect_provider(model_override)
+    if provider is None:
+        return None, None, (
+            "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
+            "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 "
+            "LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用"
+        )
+    try:
+        content = _post_chat(provider, messages, timeout, temperature)
+    except urllib.error.HTTPError as exc:  # pragma: no cover - network
+        return None, provider, f"LLM 调用 HTTP {exc.code}"
+    except Exception as exc:  # pragma: no cover - network
+        return None, provider, f"LLM 调用失败（{type(exc).__name__}）"
+    return content, provider, ""
 
 
 def _extract_json(text: str) -> dict | None:

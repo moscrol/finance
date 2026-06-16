@@ -4,6 +4,7 @@
 
 ```
 ask            统一多源问答：KB 图谱(G/R) + 盘面候选快照(S)，六段式输出（本文重点）
+foresight      猜你想问 / 潜意识：基于盘面现实+画像，主动生成「你还没想到但该问」的追问
 adapter-smoke  只读 adapter 冒烟检查（需要 duckdb + 本地 db/market.duckdb）
 daily          每日复盘工作流
 theme          题材雷达工作流
@@ -87,6 +88,35 @@ DEEPSEEK_API_KEY=sk-... python3 -m intelligence.cli ask "液冷服务器" --kb-w
 ```
 
 固定六段输出：`结论 / 证据链 / 分歧反证 / 后续验证点 / 交易含义 / 引用来源`。
+
+## foresight —— 猜你想问 / 潜意识（主动追问生成）
+
+`ask` 是「你问它答」；`foresight` 反过来——**它替你问**：基于现实主动抛出你「还没想到但最该问」的追问，就是那种「潜意识 / 猜你想问」效果。本质是一个 *proactive question generator*（与 ChatGPT 建议回复、Perplexity Related 同类），高级感主要来自提示词逼模型做二阶 / 可量化 / 可证伪，而不是模型本身。
+
+四层流水线（见 `services/foresight.py`）：
+
+1. **上下文层**：把「它知道的一切」拼起来——盘面现实快照（最新 `*-theme-candidates.json` 的市场环境/信号汇总/热门候选）+ 用户画像（关注题材/自选股/风格/已问过的问题）+ 可选实时情报。
+2. **现实锚定层**：默认锚定在已提交的盘面快照上（**离线即可跑**，不依赖 DuckDB / 联网）；联网情报走可插拔的 `--news-file`（把今日财经日历/新闻贴进去），无则跳过并优雅降级。
+3. **生成层**：一次专门「生成问题」的 LLM 调用，强角色 + 强约束提示词（二阶思维 / 跨领域 / 带具体时间窗口+可量化指标+人名事件 / 前瞻可证伪 / 呼应画像），让它先产 `--candidates` 个候选。复用 `llm_refine.complete()`（OpenAI 兼容、`urllib` 零依赖、多 provider 自动探测）。
+4. **排序去重层**：按 `0.4×新颖 + 0.4×相关 + 0.2×多样` 打分，硬抑制近重复候选，并剔除与画像 `recent_questions` 相似的问题，取前 `-n` 条。
+
+- **无 key 自动降级**：未检测到 LLM 凭据时不报错，而是输出「上下文摘要 + 待发送提示词全文」，机制完全可审、命令仍 exit 0；配置任一 LLM key（同 `--llm` 那套环境变量）后立即真正生成问题。
+- **画像**：默认读 `intelligence/foresight_profile.example.json`，可用 `--profile` 指定你自己的画像 JSON。
+
+```bash
+# 取最新盘面快照 + 默认画像，生成 3 条追问（无 key 则输出摘要+提示词预览）
+python3 -m intelligence.cli foresight -n 3
+
+# 配 LLM key 后真正生成；贴入今日财经日历/新闻作为实时情报；用自己的画像
+DEEPSEEK_API_KEY=sk-... python3 -m intelligence.cli foresight \
+  --profile intelligence/foresight_profile.example.json \
+  --news-file /tmp/today-intel.txt \
+  --date 2026-06-11 -n 3 --candidates 8 --temperature 0.8 \
+  --summary-json /tmp/foresight-summary.json
+
+# 机器可读 JSON 输出
+python3 -m intelligence.cli foresight -n 3 --json
+```
 
 ## 现状与后续
 

@@ -42,6 +42,31 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(func=cmd_ask)
 
 
+def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "foresight",
+        help="猜你想问 / 潜意识：基于盘面现实+用户画像，主动生成「你还没想到但该问」的追问",
+    )
+    parser.add_argument("--profile", default=None, help="用户画像 JSON（默认 intelligence/foresight_profile.example.json）")
+    parser.add_argument("--news-file", default=None, help="可选实时情报文件（今日财经日历/新闻），无则跳过实时层")
+    parser.add_argument("--date", default=None, help="theme-candidates 盘面快照日期 YYYY-MM-DD；默认取最新")
+    parser.add_argument("--exports-dir", default=None, help="覆盖 market_feature_store/exports 目录")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根（预留，当前主要用盘面快照锚定）")
+    parser.add_argument("-n", "--num", type=int, default=3, help="最终展示问题数（默认 3）")
+    parser.add_argument("--candidates", type=int, default=8, help="让 LLM 先生成的候选数（默认 8，再排序取前 N）")
+    parser.add_argument(
+        "--llm-model",
+        default=None,
+        help="覆盖 LLM 模型 id（需 DEEPSEEK_API_KEY/MOONSHOT_API_KEY/DASHSCOPE_API_KEY/"
+        "ZHIPU_API_KEY/OPENAI_API_KEY 或 LLM_API_KEY；无 key 自动降级为摘要+提示词预览）",
+    )
+    parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP 超时秒数")
+    parser.add_argument("--temperature", type=float, default=0.8, help="生成温度，越高越发散（默认 0.8）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 而非 Markdown")
+    parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
+    parser.set_defaults(func=cmd_foresight)
+
+
 def add_adapter_smoke_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("adapter-smoke", help="Run read-only adapter smoke checks")
     parser.add_argument("--date", default=None, help="Trade date YYYY-MM-DD; defaults to latest available")
@@ -105,6 +130,35 @@ def cmd_ask(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
+def cmd_foresight(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services.foresight import render, result_to_dict
+    from intelligence.workflows.foresight import ForesightWorkflowOptions, run_foresight
+
+    summary, result, answer = run_foresight(
+        ForesightWorkflowOptions(
+            profile=args.profile,
+            news_file=args.news_file,
+            date=args.date,
+            exports_dir=args.exports_dir,
+            kb_wiki=args.kb_wiki,
+            n=args.num,
+            candidates=args.candidates,
+            llm_model=args.llm_model,
+            llm_timeout=args.llm_timeout,
+            temperature=args.temperature,
+        )
+    )
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    if args.json:
+        print(_json.dumps(result_to_dict(result), ensure_ascii=False, indent=2))
+    else:
+        print(render(result), end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
 def cmd_daily(args: argparse.Namespace) -> int:
     from intelligence.workflows.daily_review import DailyReviewOptions, dry_run_daily_review, run_daily_review
 
@@ -164,6 +218,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_ask_parser(subparsers)
+    add_foresight_parser(subparsers)
     add_adapter_smoke_parser(subparsers)
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)
