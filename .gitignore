@@ -72,3 +72,8 @@ skills/ifind/mcp_config.json
 evolution/records/
 evolution/validation/
 evolution/suggestions/
+
+# 本地手动备份，从不入库
+*.bak
+*.bak-*
+*.bak.*
