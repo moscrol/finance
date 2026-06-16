@@ -10,6 +10,7 @@ from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 @dataclass(frozen=True)
 class ForesightWorkflowOptions:
     profile: str | Path | None = None
+    user: str | None = None
     news_file: str | Path | None = None
     date: str | None = None
     exports_dir: str | Path | None = None
@@ -29,11 +30,17 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
         workflow="foresight",
         status="PASS",
         started_at=now_iso(),
-        inputs={"profile": str(options.profile or "default"), "date": options.date, "n": options.n},
+        inputs={
+            "user": options.user or "default",
+            "profile": str(options.profile or "(user-space)"),
+            "date": options.date,
+            "n": options.n,
+        },
     )
     result = generate(
         ForesightOptions(
             profile=options.profile,
+            user=options.user,
             news_file=options.news_file,
             date=options.date,
             exports_dir=options.exports_dir,

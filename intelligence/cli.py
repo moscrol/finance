@@ -47,7 +47,8 @@ def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
         "foresight",
         help="猜你想问 / 潜意识：基于盘面现实+用户画像，主动生成「你还没想到但该问」的追问",
     )
-    parser.add_argument("--profile", default=None, help="用户画像 JSON（默认 intelligence/foresight_profile.example.json）")
+    parser.add_argument("--user", default=None, help="用户 id（应用态命名空间 intelligence/users/<id>/；默认 default 或环境变量 FORESIGHT_USER）")
+    parser.add_argument("--profile", default=None, help="显式画像 JSON 单文件（覆盖用户命名空间；默认走 users/<user>/ 合并）")
     parser.add_argument("--news-file", default=None, help="可选实时情报文件（今日财经日历/新闻），无则跳过实时层")
     parser.add_argument("--date", default=None, help="theme-candidates 盘面快照日期 YYYY-MM-DD；默认取最新")
     parser.add_argument("--exports-dir", default=None, help="覆盖 market_feature_store/exports 目录")
@@ -69,6 +70,23 @@ def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 而非 Markdown")
     parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
     parser.set_defaults(func=cmd_foresight)
+
+
+def add_refresh_profile_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "refresh-profile",
+        help="第 2 层：从 DuckDB 强势股 + 知识库 theme_signals 自动派生画像候选（不碰飞书）",
+    )
+    parser.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    parser.add_argument("--lookback", type=int, default=20, help="回看交易日数（预留，当前按最新快照派生）")
+    parser.add_argument("--date", default=None, help="盘面快照日期 YYYY-MM-DD；默认取 DuckDB 最新")
+    parser.add_argument("--top", type=int, default=12, help="候选 focus_themes / watchlist 各取前 N（默认 12）")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根（含 relations/）；默认 env/auto")
+    parser.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径；默认 market_feature_store 约定路径")
+    parser.add_argument("--apply", action="store_true", help="落盘 users/<user>/profile.derived.json（默认仅预览 diff）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON（proposal+diff）而非 Markdown")
+    parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
+    parser.set_defaults(func=cmd_refresh_profile)
 
 
 def add_adapter_smoke_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -143,6 +161,7 @@ def cmd_foresight(args: argparse.Namespace) -> int:
     summary, result, answer = run_foresight(
         ForesightWorkflowOptions(
             profile=args.profile,
+            user=args.user,
             news_file=args.news_file,
             date=args.date,
             exports_dir=args.exports_dir,
@@ -163,6 +182,31 @@ def cmd_foresight(args: argparse.Namespace) -> int:
         print(_json.dumps(result_to_dict(result), ensure_ascii=False, indent=2))
     else:
         print(render(result), end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def cmd_refresh_profile(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.workflows.refresh_profile import RefreshProfileWorkflowOptions, run_refresh_profile
+
+    summary, proposal, diff, answer = run_refresh_profile(
+        RefreshProfileWorkflowOptions(
+            user=args.user,
+            lookback=args.lookback,
+            date=args.date,
+            top=args.top,
+            kb_wiki=args.kb_wiki,
+            db_path=args.db_path,
+            apply=args.apply,
+        )
+    )
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    if args.json:
+        print(_json.dumps({"proposal": proposal, "diff": diff}, ensure_ascii=False, indent=2))
+    else:
+        print(answer, end="")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
@@ -226,6 +270,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_ask_parser(subparsers)
     add_foresight_parser(subparsers)
+    add_refresh_profile_parser(subparsers)
     add_adapter_smoke_parser(subparsers)
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)

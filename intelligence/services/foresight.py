@@ -22,6 +22,7 @@ from datetime import date as date_cls, datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from intelligence import userspace
 from intelligence.services import llm_refine
 from intelligence.services.ask import load_theme_candidates
 
@@ -33,6 +34,7 @@ DEFAULT_MEMORY_FILE = REPO_ROOT / "intelligence" / "foresight_memory.jsonl"
 @dataclass(frozen=True)
 class ForesightOptions:
     profile: str | Path | None = None
+    user: str | None = None
     news_file: str | Path | None = None
     date: str | None = None
     exports_dir: str | Path | None = None
@@ -92,6 +94,19 @@ def load_profile(path: str | Path | None) -> dict[str, Any]:
     return data if isinstance(data, dict) else {"name": None, "_warning": "画像不是对象"}
 
 
+def resolve_profile(options: ForesightOptions) -> tuple[dict[str, Any], list[str]]:
+    """解析生效画像：显式 ``--profile`` 单文件优先；否则按用户命名空间合并。
+
+    无 ``--profile`` 时走 :func:`userspace.effective_profile`，即
+    ``users/<user>/profile.json``（钉住）⊕ ``profile.derived.json``（派生）。
+    """
+    if options.profile:
+        prof = load_profile(options.profile)
+        warns = [str(prof["_warning"])] if prof.get("_warning") else []
+        return prof, warns
+    return userspace.effective_profile(userspace.user_space(options.user))
+
+
 def _read_text(path: str | Path | None) -> tuple[str, str | None]:
     if not path:
         return "", None
@@ -111,7 +126,7 @@ def _read_text(path: str | Path | None) -> tuple[str, str | None]:
 def _memory_path(options: ForesightOptions) -> Path:
     if options.memory_file:
         return Path(options.memory_file).expanduser()
-    return DEFAULT_MEMORY_FILE
+    return userspace.user_space(options.user).memory_path
 
 
 def load_asked_memory(path: str | Path, window: int = 50) -> tuple[list[str], str | None]:
@@ -239,9 +254,8 @@ def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str],
     )
     hot = _top_candidates(doc, 10)
 
-    profile = load_profile(options.profile)
-    if profile.get("_warning"):
-        warnings.append(str(profile["_warning"]))
+    profile, profile_warnings = resolve_profile(options)
+    warnings.extend(profile_warnings)
 
     intel, intel_warn = _read_text(options.news_file)
     if intel_warn:
