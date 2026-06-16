@@ -62,6 +62,10 @@ def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP 超时秒数")
     parser.add_argument("--temperature", type=float, default=0.8, help="生成温度，越高越发散（默认 0.8）")
+    parser.add_argument("--memory-file", default=None, help="问过的问题记忆 jsonl（默认 intelligence/foresight_memory.jsonl，已 gitignore）")
+    parser.add_argument("--no-memory", dest="use_memory", action="store_false", help="不读/不写记忆回路（默认开启）")
+    parser.add_argument("--memory-window", type=int, default=50, help="只用最近 N 条历史提问去重（默认 50）")
+    parser.set_defaults(use_memory=True)
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 而非 Markdown")
     parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
     parser.set_defaults(func=cmd_foresight)
@@ -148,6 +152,9 @@ def cmd_foresight(args: argparse.Namespace) -> int:
             llm_model=args.llm_model,
             llm_timeout=args.llm_timeout,
             temperature=args.temperature,
+            memory_file=args.memory_file,
+            use_memory=args.use_memory,
+            memory_window=args.memory_window,
         )
     )
     if args.summary_json:

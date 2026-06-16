@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import date as date_cls
+from datetime import date as date_cls, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,7 @@ from intelligence.services.ask import load_theme_candidates
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PROFILE = REPO_ROOT / "intelligence" / "foresight_profile.example.json"
+DEFAULT_MEMORY_FILE = REPO_ROOT / "intelligence" / "foresight_memory.jsonl"
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,9 @@ class ForesightOptions:
     llm_model: str | None = None
     llm_timeout: int = 60
     temperature: float = 0.8
+    memory_file: str | Path | None = None
+    use_memory: bool = True
+    memory_window: int = 50
 
 
 @dataclass
@@ -65,6 +69,9 @@ class ForesightResult:
     llm_used: bool = False
     llm_provider: str | None = None
     warnings: list[str] = field(default_factory=list)
+    memory_path: str | None = None
+    memory_loaded: int = 0
+    memory_appended: int = 0
 
     @property
     def status(self) -> str:
@@ -95,6 +102,99 @@ def _read_text(path: str | Path | None) -> tuple[str, str | None]:
         return p.read_text(encoding="utf-8").strip(), None
     except Exception as exc:  # pragma: no cover - defensive
         return "", f"情报读取失败：{exc}"
+
+
+# --------------------------------------------------------------------------- #
+# 第 3 层 · 记忆回路：本地 jsonl 累积「问过的问题」，下次自动去重
+# 这是截图里「和你之前的三种情景推演对比」那种连续感的来源。
+# --------------------------------------------------------------------------- #
+def _memory_path(options: ForesightOptions) -> Path:
+    if options.memory_file:
+        return Path(options.memory_file).expanduser()
+    return DEFAULT_MEMORY_FILE
+
+
+def load_asked_memory(path: str | Path, window: int = 50) -> tuple[list[str], str | None]:
+    """读取本地「问过的问题」记忆 (jsonl)，返回最近 ``window`` 条去重后的问题文本。"""
+    p = Path(path).expanduser()
+    if not p.exists():
+        return [], None
+    try:
+        raw_lines = p.read_text(encoding="utf-8").splitlines()
+    except Exception as exc:  # pragma: no cover - defensive
+        return [], f"记忆读取失败：{exc}"
+    questions: list[str] = []
+    for line in raw_lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except Exception:
+            continue
+        q = str(rec.get("question") or "").strip() if isinstance(rec, dict) else ""
+        if q:
+            questions.append(q)
+    recent = questions[-window:] if window and window > 0 else questions
+    seen: set[str] = set()
+    out: list[str] = []
+    for q in reversed(recent):  # keep the most recent occurrence on dedup
+        key = re.sub(r"\s+", "", q)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(q)
+    out.reverse()
+    return out, None
+
+
+def append_asked_memory(
+    path: str | Path,
+    questions: list["Question"],
+    trade_date: str | None = None,
+) -> tuple[int, str | None]:
+    """把本次选中的问题追加到记忆文件（每行一条 JSON）。"""
+    items = [q for q in questions if isinstance(q, Question) and q.question.strip()]
+    if not items:
+        return 0, None
+    p = Path(path).expanduser()
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a", encoding="utf-8") as fh:
+            for q in items:
+                fh.write(
+                    json.dumps(
+                        {
+                            "question": q.question,
+                            "trade_date": trade_date,
+                            "asked_at": now,
+                            "score": q.score,
+                            "novelty": q.novelty,
+                            "relevance": q.relevance,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+    except Exception as exc:  # pragma: no cover - defensive
+        return 0, f"记忆写入失败：{exc}"
+    return len(items), None
+
+
+def _merge_recent_questions(profile_recent: list[Any], memory_qs: list[Any]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for q in [*(profile_recent or []), *(memory_qs or [])]:
+        s = str(q).strip()
+        if not s:
+            continue
+        key = re.sub(r"\s+", "", s)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(s)
+    return out
 
 
 def _top_candidates(doc: dict[str, Any], n: int) -> list[dict[str, Any]]:
@@ -326,6 +426,24 @@ def generate(options: ForesightOptions) -> ForesightResult:
     )
     result.warnings.extend(warnings)
 
+    # 第 3 层 · 记忆回路：并入「曾问过的问题」用于去重，体现连续性。
+    if options.use_memory:
+        mem_path = _memory_path(options)
+        result.memory_path = str(mem_path)
+        mem_questions, mem_warn = load_asked_memory(mem_path, options.memory_window)
+        if mem_warn:
+            result.warnings.append(mem_warn)
+        result.memory_loaded = len(mem_questions)
+        prof = context.setdefault("profile", {})
+        prof["recent_questions"] = _merge_recent_questions(
+            prof.get("recent_questions") or [], mem_questions
+        )
+        result.context_digest.append(
+            f"历史记忆：并入 {len(mem_questions)} 条曾问过的问题用于去重（{mem_path.name}）"
+            if mem_questions
+            else f"历史记忆：暂无（首次运行，问题将写入 {mem_path.name}）"
+        )
+
     user_prompt = _build_user_prompt(context, options.candidates)
     result.prompt_preview = _SYSTEM_PROMPT + "\n\n---- user ----\n\n" + user_prompt
 
@@ -360,6 +478,13 @@ def generate(options: ForesightOptions) -> ForesightResult:
     result.questions = rank_questions(parsed, asked, options.n)
     result.llm_used = True
     result.llm_provider = provider.name if provider else None
+    if options.use_memory and result.questions:
+        appended, append_warn = append_asked_memory(
+            _memory_path(options), result.questions, trade_date=result.trade_date
+        )
+        result.memory_appended = appended
+        if append_warn:
+            result.warnings.append(append_warn)
     return result
 
 
@@ -372,6 +497,11 @@ def render(result: ForesightResult) -> str:
         f"状态={result.status}",
     ]
     lines.append("> " + " | ".join(meta))
+    if result.memory_path:
+        lines.append(
+            f"> 记忆：并入 {result.memory_loaded} 条历史提问去重 · 本次新增 "
+            f"{result.memory_appended} 条 → {result.memory_path}"
+        )
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
 
@@ -410,6 +540,9 @@ def result_to_dict(result: ForesightResult) -> dict[str, Any]:
         "llm_provider": result.llm_provider,
         "status": result.status,
         "warnings": result.warnings,
+        "memory_path": result.memory_path,
+        "memory_loaded": result.memory_loaded,
+        "memory_appended": result.memory_appended,
         "questions": [
             {
                 "question": q.question,

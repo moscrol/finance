@@ -19,6 +19,9 @@ class ForesightWorkflowOptions:
     llm_model: str | None = None
     llm_timeout: int = 60
     temperature: float = 0.8
+    memory_file: str | Path | None = None
+    use_memory: bool = True
+    memory_window: int = 50
 
 
 def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, ForesightResult, str]:
@@ -40,6 +43,9 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             llm_model=options.llm_model,
             llm_timeout=options.llm_timeout,
             temperature=options.temperature,
+            memory_file=options.memory_file,
+            use_memory=options.use_memory,
+            memory_window=options.memory_window,
         )
     )
     answer = render(result)
@@ -56,6 +62,17 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             name="llm-generate",
             status="PASS" if result.llm_used else "WARN",
             outputs=[f"provider={result.llm_provider or '-'}", f"questions={len(result.questions)}"],
+        )
+    )
+    summary.steps.append(
+        WorkflowStep(
+            name="memory",
+            status="PASS" if options.use_memory else "SKIP",
+            outputs=[
+                f"loaded={result.memory_loaded}",
+                f"appended={result.memory_appended}",
+                f"path={result.memory_path or '-'}",
+            ],
         )
     )
     summary.warnings = list(result.warnings)

@@ -68,6 +68,10 @@ skills/ifind/mcp_config.json
 *.pptx
 
 
+# foresight 记忆回路 + 个人画像（含真实自选股/提问历史，不入库）
+intelligence/foresight_memory.jsonl
+intelligence/foresight_profile.local.json
+
 # evolve 进化系统：只跟踪代码与参数，忽略生成产物（可由 params.json 确定性重建）
 evolution/records/
 evolution/validation/
