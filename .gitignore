@@ -72,6 +72,14 @@ skills/ifind/mcp_config.json
 intelligence/foresight_memory.jsonl
 intelligence/foresight_profile.local.json
 
+# 多用户应用态：只跟踪 users/README.md 与 users/profile.template.json，
+# 各用户运行时文件（画像/派生/记忆/反馈/策略 overlay）全部忽略
+intelligence/users/*/profile.json
+intelligence/users/*/profile.derived.json
+intelligence/users/*/foresight_memory.jsonl
+intelligence/users/*/interactions.jsonl
+intelligence/users/*/strategy_params.json
+
 # evolve 进化系统：只跟踪代码与参数，忽略生成产物（可由 params.json 确定性重建）
 evolution/records/
 evolution/validation/
