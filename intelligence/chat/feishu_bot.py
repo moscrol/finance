@@ -1,11 +1,17 @@
-"""飞书回声 bot（B-S0）——长连接打通验证，尚未接 ``ask``。
+"""飞书 chat bot（B-S2）——长连接收消息、in-process 调 ``ask`` 回六段答复。
 
 阶段定位
 ========
-这是「飞书 chat」链路的第一步（B-S0）：只验证**长连接（WebSocket）**能收到
-``im.message.receive_v1`` 事件、并能把回复发回飞书。收到文本消息就把同样的文本回声给
-你；收到非文本（图片/语音/文件等）则回一句友好提示。**还没有**接 ``intelligence.cli
-ask``——把回声替换为 in-process 调 ``ask`` + 六段引用 + 交互卡片，是后续 B 阶段的事。
+「飞书 chat」链路：长连接（WebSocket）收到 ``im.message.receive_v1`` 文本消息后，
+**in-process 直接调** :func:`intelligence.workflows.ask.run_ask`，把六段检索答复
+（结论/证据链/分歧反证/后续验证点/交易含义/引用来源，每条带 ``[S#]/[G#]/[R#]`` 编号引用）
+渲染成飞书纯文本回去。``ask`` 只读盘面快照 JSON + 知识库 ``wiki/relations``，**不碰 DuckDB**。
+
+- 非文本（图片/语音/文件等）回一句「暂仅支持文本提问」提示（多模态属后续阶段）；
+- ``--echo`` 可退回 B-S0 逐字回声（仅用于长连接打通自检）；
+- 题材词路由的 theme-radar 模块 fan-out 默认**关**（子进程较慢），``--ask-modules`` 显式开。
+
+交互卡片（深钻/换题材/看证据链按钮）属后续 B 阶段，本步只发纯文本。
 
 为什么用长连接
 ==============
@@ -65,8 +71,21 @@ class BotConfig:
     prefix: str = ""  # 回声前缀；默认空=逐字回声。设非空便于一眼区分 bot 回复。
     dedup_window: int = 512  # 近期 message_id 去重窗口（飞书超时会重投事件）。
     # dream-loop C-1A-S0 采集源：把每轮 Q/A append 到此 jsonl（正文本地保存、已 gitignore）。
-    # 默认 None=关闭（不改变 B-S0 回声行为）；由 --transcript-log / env FEISHU_TRANSCRIPT_LOG 开启。
+    # 默认 None=关闭（不改变回声行为）；由 --transcript-log / env FEISHU_TRANSCRIPT_LOG 开启。
     transcript_log: Optional[str] = None
+
+    # B-S2：回复模式。"ask"=调 ask 回六段（默认）；"echo"=B-S0 逐字回声（--echo 自检用）。
+    mode: str = "ask"
+    # ask 透传参数（均只读，绝不碰 DuckDB）。
+    kb_wiki: Optional[str] = None          # 知识库 wiki 根（含 relations/）；None=env/auto
+    exports_dir: Optional[str] = None      # 盘面 theme-candidates 快照目录；None=仓内默认
+    ask_use_modules: bool = False          # theme-radar 模块 fan-out（子进程，较慢）；默认关
+    ask_module_timeout: int = 180          # 单模块子进程超时秒数
+    ask_top_companies: int = 12            # 公司暴露召回上限
+    ask_use_llm: bool = False              # 用 LLM 精修 结论/交易含义（无 key 自动降级模板）
+    ask_llm_model: Optional[str] = None
+    ask_llm_timeout: int = 60
+    ask_max_chars: int = 3500              # 飞书纯文本回复截断预算
 
 
 def _first_present(cfg: dict[str, Any], keys: tuple[str, ...]) -> Optional[str]:
@@ -182,6 +201,77 @@ def compose_reply(text: Optional[str], message_type: Optional[str], prefix: str 
     return f"{prefix}{text}" if prefix else text
 
 
+def nontext_notice(message_type: Optional[str]) -> str:
+    """ask 模式下对非文本消息的友好提示（多模态属后续阶段）。"""
+    return f"（暂仅支持文本提问；收到「{message_type or '未知'}」类型消息，多模态为后续阶段。）"
+
+
+def _truncate(text: str, max_chars: int) -> str:
+    """把回复截到 max_chars 以内（尽量在换行处断开），超出则附截断说明。"""
+    if max_chars <= 0 or len(text) <= max_chars:
+        return text
+    marker = "\n…（回复已截断；换更聚焦的提问，或用 CLI `ask` 看完整六段。）"
+    budget = max(0, max_chars - len(marker))
+    cut = text[:budget]
+    nl = cut.rfind("\n")
+    if nl > budget * 0.6:
+        cut = cut[:nl]
+    return cut.rstrip() + marker
+
+
+def render_ask_reply(result: "AskResult", max_chars: int = 3500) -> str:
+    """把 :class:`AskResult` 渲染成飞书纯文本：抬头 + 六段（每条带编号引用）。"""
+    from intelligence.services.ask import SECTION_ORDER, SUBHEAD
+
+    lines: list[str] = [
+        f"📌 {result.query}",
+        f"主题={result.matched_theme or '—'} ｜ 盘面={result.trade_date or '—'} ｜ 召回={result.status}",
+    ]
+    for name in SECTION_ORDER:
+        lines.append("")
+        lines.append(f"【{name}】")
+        items = result.sections.get(name) or []
+        if not items:
+            lines.append("（无）")
+            continue
+        for item in items:
+            if item.startswith(SUBHEAD):
+                lines.append(f"· {item[len(SUBHEAD):]}")
+            else:
+                lines.append(f"- {item}")
+    return _truncate("\n".join(lines), max_chars)
+
+
+def _run_ask_workflow(query: str, config: BotConfig) -> "AskResult":
+    """In-process 调 ``ask`` workflow（惰性导入，避免污染离线 import / 不引入 DuckDB）。"""
+    from intelligence.workflows.ask import AskWorkflowOptions, run_ask
+
+    _summary, result, _answer = run_ask(
+        AskWorkflowOptions(
+            query=query,
+            kb_wiki=config.kb_wiki,
+            exports_dir=config.exports_dir,
+            top_companies=config.ask_top_companies,
+            use_modules=config.ask_use_modules,
+            module_timeout=config.ask_module_timeout,
+            use_llm=config.ask_use_llm,
+            llm_model=config.ask_llm_model,
+            llm_timeout=config.ask_llm_timeout,
+        )
+    )
+    return result
+
+
+def answer_text(query: str, config: BotConfig) -> str:
+    """跑 ``ask`` 并渲染飞书纯文本；任何异常都降级为友好提示，绝不让 bot 崩。"""
+    try:
+        result = _run_ask_workflow(query, config)
+    except Exception as exc:  # noqa: BLE001 - 检索失败绝不影响 bot 存活
+        log.warning("ask 检索失败（已降级提示）：%s", exc)
+        return f"⚠️ 检索暂时失败，请稍后重试或换个问法。（{type(exc).__name__}）"
+    return render_ask_reply(result, max_chars=config.ask_max_chars)
+
+
 def build_transcript_event(
     message_id: Optional[str],
     chat_id: Optional[str],
@@ -217,7 +307,7 @@ def append_transcript(path: str, event: dict[str, Any]) -> None:
 # 运行（lark_oapi 在此惰性导入）
 # --------------------------------------------------------------------------- #
 def run(config: BotConfig) -> int:
-    """启动长连接 echo bot（阻塞运行，Ctrl+C 退出）。"""
+    """启动长连接 bot（阻塞运行，Ctrl+C 退出）：ask 模式调 ask 回六段，echo 模式逐字回声。"""
     try:
         import lark_oapi as lark
         from lark_oapi.api.im.v1 import (
@@ -301,8 +391,20 @@ def run(config: BotConfig) -> int:
             log.info("跳过重复事件 message_id=%s", message_id)
             return
         text = extract_text(message.content, message.message_type)
-        reply = compose_reply(text, message.message_type, prefix=config.prefix)
-        log.info("收到 type=%s id=%s -> 回声 %d 字", message.message_type, message_id, len(reply))
+        if text is None:
+            reply = (
+                compose_reply(None, message.message_type, prefix=config.prefix)
+                if config.mode == "echo"
+                else nontext_notice(message.message_type)
+            )
+        elif config.mode == "echo":
+            reply = compose_reply(text, message.message_type, prefix=config.prefix)
+        else:
+            reply = answer_text(text, config)
+        log.info(
+            "收到 type=%s id=%s mode=%s -> 回 %d 字",
+            message.message_type, message_id, config.mode, len(reply),
+        )
         if message_id:
             _reply(message_id, reply)
         _record_transcript(message_id, message.chat_id, message.message_type, text, reply)
@@ -320,7 +422,7 @@ def run(config: BotConfig) -> int:
         log_level=lark.LogLevel.INFO,
     )
 
-    log.info("飞书回声 bot 启动：长连接接入中（Ctrl+C 退出）……")
+    log.info("飞书 chat bot 启动（mode=%s）：长连接接入中（Ctrl+C 退出）……", config.mode)
     try:
         ws_client.start()
     except KeyboardInterrupt:
@@ -348,6 +450,16 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="dream-loop 采集源：把每轮 Q/A append 到此 jsonl（正文本地保存、已 gitignore；"
         "默认关，也可用 env FEISHU_TRANSCRIPT_LOG 开启）",
     )
+    parser.add_argument("--echo", action="store_true", help="退回 B-S0 逐字回声（仅长连接自检；默认调 ask 回六段）")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根（含 relations/）；默认 env/auto（ask 只读，不碰 DuckDB）")
+    parser.add_argument("--exports-dir", default=None, help="盘面 theme-candidates 快照目录；默认仓内 market_feature_store/exports")
+    parser.add_argument("--ask-modules", action="store_true", help="开启 theme-radar 模块 fan-out（子进程较慢；默认关以保证秒级回复）")
+    parser.add_argument("--ask-module-timeout", type=int, default=180, help="单模块子进程超时秒数（默认 180）")
+    parser.add_argument("--ask-top-companies", type=int, default=12, help="公司暴露召回上限（默认 12）")
+    parser.add_argument("--ask-llm", action="store_true", help="用 LLM 精修 结论/交易含义（需 *_API_KEY；无 key 自动降级模板）")
+    parser.add_argument("--ask-llm-model", default=None, help="覆盖 LLM 模型 id")
+    parser.add_argument("--ask-llm-timeout", type=int, default=60, help="LLM HTTP 超时秒数（默认 60）")
+    parser.add_argument("--ask-max-chars", type=int, default=3500, help="飞书纯文本回复截断预算（默认 3500 字）")
 
 
 def build_config(args: argparse.Namespace) -> BotConfig:
@@ -360,11 +472,21 @@ def build_config(args: argparse.Namespace) -> BotConfig:
         prefix=args.prefix,
         dedup_window=args.dedup_window,
         transcript_log=transcript_log,
+        mode="echo" if args.echo else "ask",
+        kb_wiki=args.kb_wiki,
+        exports_dir=args.exports_dir,
+        ask_use_modules=args.ask_modules,
+        ask_module_timeout=args.ask_module_timeout,
+        ask_top_companies=args.ask_top_companies,
+        ask_use_llm=args.ask_llm,
+        ask_llm_model=args.ask_llm_model,
+        ask_llm_timeout=args.ask_llm_timeout,
+        ask_max_chars=args.ask_max_chars,
     )
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="飞书回声 bot（B-S0，长连接打通验证）")
+    parser = argparse.ArgumentParser(description="飞书 chat bot（B-S2，长连接 + ask 六段回复）")
     add_arguments(parser)
     args = parser.parse_args(argv)
     return run(build_config(args))
