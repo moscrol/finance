@@ -26,6 +26,7 @@ Do not stage DB files or generated exports. DuckDB writes are local state change
 - **Use short units**: Prefer one table, one quarter/month, or 5 trading days. Avoid long SQL heredocs and silent range jobs.
 - **Stop silent hangs**: If a command has no output and CPU is 0 for about 2 minutes, terminate it and improve the skill/script instead of retrying blindly.
 - **Prefer idempotent CLI commands**: Use existing `python3 -m market_feature_store.cli ...` commands before adding new data logic.
+- **全A日线分两条路径**: 单日盘后增量用东财快照 `sync-stock-daily-snapshot`（几秒，`daily-full`/`daily-update` 默认 `--stock-source snapshot`）；补历史多日区间仍用 mootdx `sync-stock-daily`（`--stock-source mootdx` 可强制）。详见 `references/backfill-runbook.md`「单日快照 vs 历史 mootdx」。
 - **Separate facts from sparse tables**: `fact_limit_advance_presence` is the daily coverage table; `fact_limit_advance_daily` is sparse by design.
 - **Record blockers**: Keep a list of skipped dates/sectors and explain why they were skipped.
 

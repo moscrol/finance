@@ -375,6 +375,21 @@ def cmd_sync_stock_daily(args) -> int:
     return 0
 
 
+def cmd_sync_stock_daily_snapshot(args) -> int:
+    from .sync.sync_eastmoney_stock_snapshot import sync_fact_stock_daily_snapshot
+
+    stats = sync_fact_stock_daily_snapshot(
+        trade_date=args.trade_date,
+        page_size=args.page_size,
+    )
+    print(f"交易日: {stats['trade_date']} | 来源: {stats['source']}")
+    print(f"快照拉取: {stats['fetched']} 行 | 写入: {stats['rows_written']} | 跳过: {stats['skipped']}")
+    print(f"当日入库: {stats['day_rows']} 股")
+    print(f"fact_stock_daily: {stats['table_total']} 行, {stats['distinct_stocks']} 股, "
+          f"{stats['distinct_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    return 0
+
+
 def cmd_daily_update(args) -> int:
     from .sync.sync_daily_full import run_daily_update
 
@@ -383,6 +398,7 @@ def cmd_daily_update(args) -> int:
         chart_table=args.chart_table,
         skip_long=args.skip_long,
         with_chart=not args.no_chart,
+        stock_source=args.stock_source,
     )
     print(f"交易日: {result['trade_date']} | 日更状态: {'OK' if result['ok'] else 'CHECK'}")
     for step in result["steps"]:
@@ -423,6 +439,7 @@ def cmd_daily_full(args) -> int:
         trade_date=args.trade_date,
         chart_table=args.chart_table,
         skip_long=args.skip_long,
+        stock_source=args.stock_source,
     )
     print(f"交易日: {result['trade_date']} | 全流程状态: {'OK' if result['ok'] else 'CHECK'}")
     for step in result["update"]["steps"]:
@@ -871,11 +888,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_skd.add_argument("--qfq", action="store_true", help="用前复权(慢, 吃CPU); 默认裸收盘价(快)")
     p_skd.set_defaults(func=cmd_sync_stock_daily)
 
+    p_sks = sub.add_parser("sync-stock-daily-snapshot", help="东财全市场快照写单日 fact_stock_daily (盘后增量快路径)")
+    p_sks.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取当天")
+    p_sks.add_argument("--page-size", type=int, default=1000, help="东财分页大小, 默认1000")
+    p_sks.set_defaults(func=cmd_sync_stock_daily_snapshot)
+
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
     p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_du.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
     p_du.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
     p_du.add_argument("--no-chart", action="store_true", help="不生成/同步涨家数 MA5 图")
+    p_du.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot",
+                      help="全A日线取数: snapshot=东财快照(默认,快); mootdx=通达信逐只(慢,可拉历史)")
     p_du.set_defaults(func=cmd_daily_update)
 
     p_dr = sub.add_parser("daily-review", help="从 DuckDB 生成完整每日复盘 Markdown")
@@ -889,6 +913,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_df.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_df.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
     p_df.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
+    p_df.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot",
+                      help="全A日线取数: snapshot=东财快照(默认,快); mootdx=通达信逐只(慢,可拉历史)")
     p_df.set_defaults(func=cmd_daily_full)
 
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)

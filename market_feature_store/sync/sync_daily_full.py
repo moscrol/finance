@@ -105,7 +105,12 @@ def run_daily_update(
     chart_table: str | None = None,
     skip_long: bool = False,
     with_chart: bool = True,
+    stock_source: str = "snapshot",
 ) -> dict:
+    """stock_source: 全A日线取数方式。
+    'snapshot' (默认) 走东财全市场快照, 单日盘后增量, 几秒完成;
+    'mootdx' 走通达信逐只 TCP, 慢但可拉历史多日 (skip_long 时跳过)。
+    """
     steps = []
     td = trade_date
 
@@ -121,6 +126,7 @@ def run_daily_update(
     from .sync_fupanhui_stock_high_daily import sync_fupanhui_stock_high
     from .sync_fupanhui_limit_advance_daily import sync_fupanhui_limit_advance
     from .sync_mootdx_stock_daily import sync_fact_stock_daily
+    from .sync_eastmoney_stock_snapshot import sync_fact_stock_daily_snapshot
     from .sync_feishu_sector_resonance import sync_sector_multi_period_resonance
 
     steps.append(_run_step("sync-sectors", sync_dim_sector, trade_date=td))
@@ -137,8 +143,11 @@ def run_daily_update(
     steps.append(_run_step("sync-limit-heat", sync_fupanhui_limit_heat, trade_date=td))
     steps.append(_run_step("sync-stock-high", sync_fupanhui_stock_high, trade_date=td, page_size=200))
     steps.append(_run_step("sync-limit-advance", sync_fupanhui_limit_advance, trade_date=td, min_boards=2))
-    if not skip_long:
-        steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily, start_date=td, offset=3, only_missing=True, sleep=0.0, qfq=False))
+    if stock_source == "mootdx":
+        if not skip_long:
+            steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily, start_date=td, offset=3, only_missing=True, sleep=0.0, qfq=False))
+    else:
+        steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily_snapshot, trade_date=td))
     steps.append(_run_step("sync-sector-resonance", sync_sector_multi_period_resonance))
     if with_chart:
         steps.append(_run_step("advancers-chart", _run_advancers_chart, td, chart_table))
@@ -150,9 +159,10 @@ def run_daily_full(
     trade_date: str | None = None,
     chart_table: str | None = None,
     skip_long: bool = False,
+    stock_source: str = "snapshot",
 ) -> dict:
     from ..reports.daily_review import build_daily_review
 
-    update = run_daily_update(trade_date=trade_date, chart_table=chart_table, skip_long=skip_long, with_chart=True)
+    update = run_daily_update(trade_date=trade_date, chart_table=chart_table, skip_long=skip_long, with_chart=True, stock_source=stock_source)
     review = build_daily_review(trade_date=update["trade_date"])
     return {"trade_date": update["trade_date"], "update": update, "review": review, "ok": update["ok"]}
