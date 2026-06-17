@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T09:32:23Z",
+  "generated_at": "2026-06-17T10:29:56Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -468,7 +468,7 @@
       ],
       "note": "要\"入库/筛选入库/均线回踩\"用 top-gainers-feishu；要量价加权排序用 high-volume-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:93fda945dbc1f6fd63254aed9579b62eb438ccd9d0dea06a67bb582f6a910236",
+      "computedHash": "sha256:03fab59bd1a15ac19eb2e371bb0844e3d7c4b2852ea245201e7f0f8997c4b9e8",
       "agentOnly": false,
       "views": [
         {
