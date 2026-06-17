@@ -8,7 +8,9 @@
 渲染成飞书**交互卡片**回去（抬头按召回状态变色；``--reply-format text`` 可退回纯文本）。
 ``ask`` 只读盘面快照 JSON + 知识库 ``wiki/relations``，**不碰 DuckDB**。
 
-- 非文本（图片/语音/文件等）回一句「暂仅支持文本提问」提示（多模态属后续阶段）；
+- 非文本默认回一句「暂仅支持文本提问」提示；``--multimodal`` 可选开启**图片**多模态（B-S4）：
+  下载图片 → 视觉模型（OpenAI 兼容，无 key 自动降级）提一句检索查询 → 走 ``ask`` 回六段卡片；
+  PDF / 语音 / 文档解析仍属后续阶段（给友好提示，不报错）；
 - ``--echo`` 可退回 B-S0 逐字回声（仅用于长连接打通自检）；
 - 题材词路由的 theme-radar 模块 fan-out 默认**关**（子进程较慢），``--ask-modules`` 显式开。
 
@@ -93,6 +95,13 @@ class BotConfig:
     ask_max_chars: int = 3500              # 回复正文截断预算（卡片/纯文本通用）
     # B-S3：ask 回复格式。"card"=飞书交互卡片（默认）；"text"=纯文本（B-S2 行为，回退用）。
     reply_format: str = "card"
+
+    # B-S4：图片多模态。multimodal=True 时，图片/图片类文件消息会下载并经视觉模型提一句
+    # 检索查询再走 ask；默认 False=关闭（行为与 B-S3 完全一致，合并即上线零影响）。无视觉
+    # key 时优雅降级为「未配置视觉模型」提示。vision_model 覆盖默认模型，vision_timeout 为 HTTP 超时。
+    multimodal: bool = False
+    vision_model: Optional[str] = None
+    vision_timeout: int = 60
 
 
 def _first_present(cfg: dict[str, Any], keys: tuple[str, ...]) -> Optional[str]:
@@ -211,6 +220,80 @@ def compose_reply(text: Optional[str], message_type: Optional[str], prefix: str 
 def nontext_notice(message_type: Optional[str]) -> str:
     """ask 模式下对非文本消息的友好提示（多模态属后续阶段）。"""
     return f"（暂仅支持文本提问；收到「{message_type or '未知'}」类型消息，多模态为后续阶段。）"
+
+
+# --------------------------------------------------------------------------- #
+# B-S4 多模态：图片/文件资源解析 + 提示（纯函数，可单测，不依赖 lark_oapi）
+# --------------------------------------------------------------------------- #
+# 飞书 file 消息里、按扩展名判定可作为图片处理的类型。
+_IMAGE_FILE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")
+
+
+@dataclass(frozen=True)
+class ResourceRef:
+    """一条可下载的消息资源引用。
+
+    - ``kind``：``"image"``（可走视觉识别）/ ``"file"``（非图片文件，本期不支持）；
+    - ``res_type``：飞书 ``message_resource.get`` 的 ``type`` 形参——image 消息为 ``"image"``，
+      file 消息（含图片类文件）为 ``"file"``；
+    - ``file_name``：file 消息携带的原始文件名（image 消息为空串）。
+    """
+
+    kind: str
+    file_key: str
+    res_type: str
+    file_name: str = ""
+
+
+def parse_resource_ref(
+    content: Optional[str], message_type: Optional[str]
+) -> Optional[ResourceRef]:
+    """从 image/file 消息 ``content`` 解析可下载资源引用；其它类型/缺字段/异常返回 ``None``。"""
+    if message_type not in ("image", "file"):
+        return None
+    if not content:
+        return None
+    try:
+        payload = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    if message_type == "image":
+        key = payload.get("image_key")
+        if isinstance(key, str) and key.strip():
+            return ResourceRef(kind="image", file_key=key.strip(), res_type="image")
+        return None
+
+    # file 消息：按文件名扩展名判定是否当作图片处理。
+    key = payload.get("file_key")
+    if not (isinstance(key, str) and key.strip()):
+        return None
+    name = payload.get("file_name")
+    name = name.strip() if isinstance(name, str) else ""
+    kind = "image" if name.lower().endswith(_IMAGE_FILE_EXTS) else "file"
+    return ResourceRef(kind=kind, file_key=key.strip(), res_type="file", file_name=name)
+
+
+def vision_unavailable_notice() -> str:
+    """开启 multimodal 但未配置视觉模型 key（或识别失败/空）时的友好提示。"""
+    return (
+        "（已收到图片，但当前未配置视觉模型，暂无法识别。管理员可设置 "
+        "VISION_API_KEY / QWEN_API_KEY / GLM_API_KEY / OPENAI_API_KEY 等并以 "
+        "--multimodal 启动以开启图片提问；也可改用文字提问。）"
+    )
+
+
+def image_download_failed_notice() -> str:
+    """图片下载失败（如未授 im:resource 权限 / 资源过期）时的友好提示。"""
+    return "（图片下载失败，请稍后重试，或改用文字提问。）"
+
+
+def nonimage_file_notice(file_name: str = "") -> str:
+    """收到非图片文件（PDF/文档/语音等）时的友好提示——明确为后续阶段。"""
+    name = file_name or "未知"
+    return f"（已收到文件「{name}」；当前多模态仅支持图片，PDF/文档/语音解析为后续阶段。）"
 
 
 def _truncate(text: str, max_chars: int) -> str:
@@ -489,6 +572,34 @@ def compute_ask_payload(query: str, config: BotConfig) -> tuple[str, Any, str]:
     return "text", transcript_text, transcript_text
 
 
+def compute_vision_payload(
+    image_bytes: bytes,
+    mime: Optional[str],
+    config: BotConfig,
+) -> tuple[str, Any, str]:
+    """图片 → 视觉模型提一句检索查询 → 复用 :func:`compute_ask_payload` 回六段。
+
+    无视觉 key / 识别失败 / 空结果时优雅降级为「未配置视觉模型」提示（卡片或纯文本），
+    bot 绝不崩。视觉后端（``intelligence.services.vision``）惰性导入，保持离线 import 干净。
+    """
+    try:
+        from intelligence.services import vision
+
+        query = vision.describe_image(
+            image_bytes, mime, model=config.vision_model, timeout=config.vision_timeout
+        )
+    except Exception as exc:  # noqa: BLE001 - 视觉识别失败绝不影响 bot 存活
+        log.warning("视觉识别失败（已降级提示）：%s", exc)
+        query = None
+    if not query:
+        notice = vision_unavailable_notice()
+        if config.reply_format == "card":
+            return "interactive", _notice_card("图片提问", notice), notice
+        return "text", notice, notice
+    log.info("图片 → 视觉查询 %r", query)
+    return compute_ask_payload(query, config)
+
+
 # --------------------------------------------------------------------------- #
 # 卡片按钮回调路由（B-S3b，纯函数，可单测，不依赖 lark_oapi）
 # --------------------------------------------------------------------------- #
@@ -590,6 +701,7 @@ def run(config: BotConfig) -> int:
     try:
         import lark_oapi as lark
         from lark_oapi.api.im.v1 import (
+            GetMessageResourceRequest,
             P2ImMessageReceiveV1,
             ReplyMessageRequest,
             ReplyMessageRequestBody,
@@ -656,6 +768,54 @@ def run(config: BotConfig) -> int:
                 getattr(resp, "get_log_id", lambda: "")(),
             )
 
+    def _download_resource(message_id: Optional[str], ref: "ResourceRef") -> Optional[bytes]:
+        """下载消息里的图片/文件资源字节；失败/异常返回 None（bot 不崩）。
+
+        需飞书自建应用具备「读取消息中资源」权限（``im:resource``），否则下载会失败。
+        """
+        if not message_id or ref is None:
+            return None
+        try:
+            request = (
+                GetMessageResourceRequest.builder()
+                .message_id(message_id)
+                .file_key(ref.file_key)
+                .type(ref.res_type)
+                .build()
+            )
+            resp = http_client.im.v1.message_resource.get(request)
+            if not resp.success():
+                log.error(
+                    "资源下载失败 code=%s msg=%s log_id=%s",
+                    resp.code,
+                    resp.msg,
+                    getattr(resp, "get_log_id", lambda: "")(),
+                )
+                return None
+            if resp.file is None:
+                return None
+            return resp.file.read()
+        except Exception as exc:  # noqa: BLE001 - 资源下载失败绝不影响 bot 存活
+            log.warning("资源下载异常（已降级）：%s", exc)
+            return None
+
+    def _handle_multimodal(
+        message_id: Optional[str], message: Any
+    ) -> tuple[str, Any, str]:
+        """图片消息：解析资源 → 下载 → 视觉识别 → 走 ask；非图片文件给友好提示。"""
+        ref = parse_resource_ref(message.content, message.message_type)
+        if ref is None:
+            notice = nontext_notice(message.message_type)
+            return "text", notice, notice
+        if ref.kind != "image":
+            notice = nonimage_file_notice(ref.file_name)
+            return "text", notice, notice
+        image_bytes = _download_resource(message_id, ref)
+        if image_bytes is None:
+            notice = image_download_failed_notice()
+            return "text", notice, notice
+        return compute_vision_payload(image_bytes, None, config)
+
     def _record_transcript(
         message_id: Optional[str],
         chat_id: Optional[str],
@@ -679,12 +839,14 @@ def run(config: BotConfig) -> int:
             return
         text = extract_text(message.content, message.message_type)
         if text is None:
-            reply = (
-                compose_reply(None, message.message_type, prefix=config.prefix)
-                if config.mode == "echo"
-                else nontext_notice(message.message_type)
-            )
-            msg_type, content_obj = "text", reply
+            if config.mode == "echo":
+                reply = compose_reply(None, message.message_type, prefix=config.prefix)
+                msg_type, content_obj = "text", reply
+            elif config.multimodal and message.message_type in ("image", "file"):
+                msg_type, content_obj, reply = _handle_multimodal(message_id, message)
+            else:
+                reply = nontext_notice(message.message_type)
+                msg_type, content_obj = "text", reply
         elif config.mode == "echo":
             reply = compose_reply(text, message.message_type, prefix=config.prefix)
             msg_type, content_obj = "text", reply
@@ -784,6 +946,14 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         choices=["card", "text"],
         help="ask 回复格式：card=飞书交互卡片（默认，抬头按召回状态变色）；text=纯文本（B-S2 行为，回退用）",
     )
+    parser.add_argument(
+        "--multimodal",
+        action="store_true",
+        help="开启图片多模态（B-S4）：图片/图片类文件下载→视觉模型提检索查询→走 ask（默认关；"
+        "需飞书应用开 im:resource 权限 + 配置 VISION_API_KEY/QWEN_API_KEY/GLM_API_KEY/OPENAI_API_KEY 等视觉 key）",
+    )
+    parser.add_argument("--vision-model", default=None, help="覆盖视觉模型 id（默认按 provider 自动选）")
+    parser.add_argument("--vision-timeout", type=int, default=60, help="视觉模型 HTTP 超时秒数（默认 60）")
 
 
 def build_config(args: argparse.Namespace) -> BotConfig:
@@ -807,6 +977,9 @@ def build_config(args: argparse.Namespace) -> BotConfig:
         ask_llm_timeout=args.ask_llm_timeout,
         ask_max_chars=args.ask_max_chars,
         reply_format=args.reply_format,
+        multimodal=args.multimodal,
+        vision_model=args.vision_model,
+        vision_timeout=args.vision_timeout,
     )
 
 
