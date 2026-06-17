@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""render_winrate_html: 把「卖方机构胜率榜」渲染成自包含暗色 HTML（双击即开、零依赖）。
+"""render_winrate_html: 把「卖方机构胜率榜」渲染成自包含浅色 paper HTML（双击即开、零依赖）。
 
 复用 winrate_rank.py 的聚合逻辑，一次性算好 T+3/5/7/10 四个窗口的榜单内联进页面，
 前端切换窗口、排序、画「超额胜率柱状图」与「均超额 vs 均回撤 风险收益散点」。
@@ -32,49 +32,56 @@ PAGE = """<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>__TITLE__</title>
 <style>
-:root{--bg:#080b0d;--panel:#11181d;--ink:#eef7f2;--muted:#8ca09a;--line:#263239;--green:#62ff9d;--amber:#ffd166;--blue:#7bdcff;--red:#ff6b6b}
+:root{--paper:#f6f0e6;--paper-2:#fffaf1;--ink:#17140f;--muted:#746b5d;--line:#d8cbbb;--line-strong:#18140f;--accent:#0057ff;--accent-2:#ff5a1f;--card:#fffdf8;--shadow:0 18px 45px rgba(38,28,13,.08);--pos:#0a7d3c;--neg:#c2401d}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
-body{margin:0;background:radial-gradient(circle at 15% 0%,#123826,transparent 28%),linear-gradient(180deg,#07090b,#11161a);color:var(--ink);font-family:'Avenir Next','PingFang SC',sans-serif}
-.wrap{display:grid;grid-template-columns:270px 1fr;gap:24px;max-width:1700px;margin:auto;padding:24px}
-.side{position:sticky;top:20px;height:calc(100vh - 40px);overflow:auto;border:1px solid var(--line);border-radius:26px;background:#0c1114cc;padding:20px}
-.brand{font-size:30px;font-weight:900;letter-spacing:.08em;background:linear-gradient(135deg,var(--green),var(--blue));-webkit-background-clip:text;color:transparent;line-height:.96}
+body{margin:0;background:linear-gradient(90deg,rgba(23,20,15,.045) 1px,transparent 1px),linear-gradient(rgba(23,20,15,.035) 1px,transparent 1px),var(--paper);background-size:28px 28px;color:var(--ink);font-family:'Avenir Next','PingFang SC','Hiragino Sans GB',sans-serif}
+.skip{position:absolute;left:-999px;top:12px;background:var(--accent);color:#fff;padding:10px 14px;border-radius:999px;z-index:10}.skip:focus{left:16px}
+.shell{display:grid;grid-template-columns:320px minmax(0,1fr);gap:28px;max-width:1760px;margin:0 auto;padding:24px}
+.rail{position:sticky;top:24px;height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--line-strong);background:rgba(255,250,241,.88);backdrop-filter:blur(14px);box-shadow:var(--shadow);padding:22px}
+.mark{font-family:'Bodoni 72','Songti SC',serif;font-size:42px;line-height:.86;letter-spacing:-.06em}
+.date-card{margin:22px 0;padding:18px;border:1px solid var(--line);background:var(--card)}.date-card .label{font-size:11px;letter-spacing:.18em;color:var(--muted);font-weight:900}.date-card .date{font-family:'DIN Condensed','Avenir Next Condensed',sans-serif;font-size:34px;font-weight:900;margin-top:6px}
 .win-toggle{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
-.win-toggle button{border:1px solid var(--line);background:#172127;color:var(--ink);border-radius:12px;padding:8px 12px;cursor:pointer;font-weight:700}
-.win-toggle button.active{border-color:var(--green);background:#10261a;color:var(--green)}
-.legend{color:var(--muted);font-size:12px;line-height:1.7;margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
+.win-toggle button{min-height:40px;border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:8px 14px;cursor:pointer;font-weight:800}
+.win-toggle button.active{background:var(--ink);color:var(--paper-2)}
+.legend{color:var(--muted);font-size:12px;line-height:1.7;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
 .legend b{color:var(--ink)}
-.hero{border:1px solid var(--line);border-radius:34px;background:linear-gradient(135deg,#1a262b,#0d1114);padding:42px;margin-bottom:24px}
-.hero p{color:var(--green);letter-spacing:.25em;margin:0 0 6px;font-size:13px}
-.hero h1{font-size:46px;line-height:1.05;margin:6px 0}
-.hero .sub{color:var(--muted);font-size:15px;margin-top:10px}
+.content{min-width:0}
+.hero{position:relative;border:1px solid var(--line-strong);background:var(--paper-2);padding:34px 38px 30px;margin-bottom:24px;box-shadow:var(--shadow);overflow:hidden}
+.hero:before{content:'';position:absolute;right:32px;top:28px;width:120px;height:120px;border:18px solid var(--accent);border-left-color:transparent;border-radius:50%;opacity:.9}
+.kicker{font-size:12px;letter-spacing:.28em;font-weight:900;color:var(--accent);text-transform:uppercase}
+.hero h1{font-family:'Bodoni 72','Songti SC',serif;font-size:60px;line-height:.92;letter-spacing:-.05em;margin:14px 0 16px;max-width:780px}
+.hero .sub{max-width:760px;color:var(--muted);font-size:16px;line-height:1.7}
 .kpis{display:flex;flex-wrap:wrap;gap:14px;margin-top:22px}
-.kpi{border:1px solid var(--line);border-radius:16px;background:#0c1114;padding:14px 18px;min-width:130px}
-.kpi .v{font-size:26px;font-weight:900;color:var(--green)}
-.kpi .l{color:var(--muted);font-size:12px;margin-top:4px}
-h2{margin-top:34px;border-left:6px solid var(--green);padding:13px 18px;background:#102019;border-radius:16px;font-size:20px}
-.note{border:1px solid #28513a;background:#10261a;border-radius:16px;padding:14px 16px;margin:12px 0;color:#dbefe4;font-size:13px;line-height:1.7}
+.kpi{border:1px solid var(--line-strong);background:var(--card);box-shadow:var(--shadow);padding:14px 18px;min-width:130px}
+.kpi .v{font-family:'DIN Condensed','Avenir Next Condensed',sans-serif;font-size:32px;font-weight:900;line-height:1;color:var(--ink)}
+.kpi .l{color:var(--muted);font-size:11px;letter-spacing:.14em;font-weight:900;margin-top:4px}
+h2{display:flex;align-items:baseline;gap:12px;margin:38px 0 14px;padding-top:18px;border-top:3px solid var(--line-strong);font-family:'Songti SC','Noto Serif SC',serif;font-size:28px;line-height:1.2;letter-spacing:-.02em}
+h2:before{content:'§';color:var(--accent-2);font-family:'Bodoni 72',serif}
+.note{border-left:5px solid var(--accent-2);background:#fff4e9;padding:12px 16px;margin:12px 0;color:#3b2b1e;font-size:13px;line-height:1.7}
 .charts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-@media(max-width:1100px){.charts{grid-template-columns:1fr}.wrap{grid-template-columns:1fr}.side{position:relative;height:auto}}
-.card{border:1px solid var(--line);border-radius:20px;background:#0c1114;padding:16px}
-.card h3{margin:0 0 6px;font-size:15px;color:#fff}
+@media(max-width:1100px){.charts{grid-template-columns:1fr}}
+@media(max-width:980px){.shell{display:block;padding:14px}.rail{position:relative;height:auto;margin-bottom:16px}}
+.card{border:1px solid var(--line-strong);background:var(--card);box-shadow:var(--shadow);padding:18px}
+.card h3{margin:0 0 6px;font-size:16px;color:var(--ink);font-family:'Songti SC','Noto Serif SC',serif}
 .card .cap{color:var(--muted);font-size:12px;margin-bottom:8px}
-.tablebox{overflow:auto;max-height:80vh;border:1px solid var(--line);border-radius:20px;background:#0c1114;margin:14px 0 26px}
+.tablebox{overflow:auto;max-height:80vh;border:1px solid var(--line-strong);background:var(--card);box-shadow:var(--shadow);margin:14px 0 26px}
 table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
-th,td{padding:9px 12px;border-bottom:1px solid #203039;white-space:nowrap;text-align:right}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:right}
 th:nth-child(2),td:nth-child(2){text-align:left}
-th{position:sticky;top:0;background:#142128;color:#bfffe0;cursor:pointer;user-select:none;z-index:2}
+th{position:sticky;top:0;background:var(--ink);color:var(--paper-2);cursor:pointer;user-select:none;z-index:2;font-weight:900}
 th:hover{color:#fff}
-tr:hover td{background:#15232a}
+tr:hover td{background:#f4f7ff}
 td.rank{color:var(--muted);font-weight:700}
-td.name{color:#fff;font-weight:700}
-.bar-pos{color:var(--green)}.bar-neg{color:var(--red)}
+td.name{color:var(--ink);font-weight:900}
+.bar-pos{color:var(--pos)}.bar-neg{color:var(--neg)}
 .dot{cursor:default}
-.tip{fill:#cfe9dd;font-size:11px}
-.axis{stroke:#2a3a42}.axis-txt{fill:#7d918b;font-size:10px}
+.tip{fill:#4a4234;font-size:11px}
+.axis{stroke:var(--line-strong)}.axis-txt{fill:var(--muted);font-size:10px}
 .foot{color:var(--muted);font-size:12px;margin:30px 0 8px;text-align:center}
-</style></head><body><div class="wrap">
-<aside class="side">
-  <div class="brand">WINRATE<br>RANK</div>
+</style></head><body><a class="skip" href="#main">跳到正文</a><div class="shell">
+<aside class="rail">
+  <div class="mark">Win<br>Rate</div>
+  <div class="date-card"><div class="label">GENERATED</div><div class="date">__STAMP__</div></div>
   <div class="win-toggle" id="winToggle"></div>
   <div class="legend">
     <p><b>口径</b>：报告日次日开盘买入，持有至 T+N 收盘。</p>
@@ -84,10 +91,10 @@ td.name{color:#fff;font-weight:700}
     <p>仅统计窗口完整的看多事件；样本不足门槛的机构不排。</p>
   </div>
 </aside>
-<main class="main">
+<main class="content" id="main">
   <section class="hero">
-    <p>SELL-SIDE INSTITUTION WIN-RATE</p>
-    <h1>卖方机构胜率榜</h1>
+    <div class="kicker">SELL-SIDE INSTITUTION WIN-RATE</div>
+    <h1>卖方机构<br>胜率榜</h1>
     <div class="sub" id="heroSub"></div>
     <div class="kpis" id="kpis"></div>
   </section>
@@ -184,7 +191,7 @@ function renderBar(){
     s.appendChild(el('text',{x:padL+bw+6,y:y+11,class:'tip'}, (r.win_exc*100).toFixed(0)+'% ('+r.n+')'));
   });
   const defs=el('defs',{}); const lg=el('linearGradient',{id:'g',x1:'0',x2:'1'});
-  lg.appendChild(el('stop',{offset:'0','stop-color':'#62ff9d'})); lg.appendChild(el('stop',{offset:'1','stop-color':'#7bdcff'}));
+  lg.appendChild(el('stop',{offset:'0','stop-color':'#0057ff'})); lg.appendChild(el('stop',{offset:'1','stop-color':'#ff5a1f'}));
   defs.appendChild(lg); s.appendChild(defs); box.appendChild(s);
 }
 function renderScatter(){
@@ -203,7 +210,7 @@ function renderScatter(){
   rows.forEach(r=>{
     const rad=4+8*(r.n/nMax);
     const c=el('circle',{cx:sx(r.avg_dd),cy:sy(r.avg_exc),r:rad,
-      fill:(r.win_exc>=0.6?'#62ff9d':'#ffd166'),'fill-opacity':0.55,stroke:'#0b1014',class:'dot'});
+      fill:(r.win_exc>=0.6?'#0a7d3c':'#ff5a1f'),'fill-opacity':0.5,stroke:'#fffaf1',class:'dot'});
     c.appendChild(el('title',{}, r.name+' · 胜率'+(r.win_exc*100).toFixed(0)+'% · n='+r.n
       +' · 均超额'+(r.avg_exc>=0?'+':'')+r.avg_exc.toFixed(1)+' · 均回撤'+r.avg_dd.toFixed(1)));
     s.appendChild(c);
@@ -270,6 +277,7 @@ def main() -> int:
     html = (PAGE
             .replace("__DATA__", json.dumps(data, ensure_ascii=False))
             .replace("__TITLE__", escape(title))
+            .replace("__STAMP__", stamp)
             .replace("__GENERATED__", f"生成于 {stamp}"))
     out.write_text(html, encoding="utf-8")
     print(f"[OK] winrate html -> {out}")
