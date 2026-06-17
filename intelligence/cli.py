@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 # NOTE: workflow modules are imported lazily inside each command handler so the
 # CLI (and the duckdb-free `ask` command) can run in environments without the
@@ -388,6 +389,95 @@ def cmd_dream_collect(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_dream_evolve_suggest_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "dream-evolve-suggest",
+        help="dream-loop C-1C/7A：只读跑 evolve.py suggest → 有新增 suggestion-*.md 才切 dream-loop/evolve-suggest-<date> 分支白名单提交（绝不合 main、绝不写 params.json、绝不起第二个 DuckDB 写进程）",
+    )
+    parser.add_argument("--repo-dir", required=True, help="用于提交建议的 git clone 目录（独立于用户工作区）")
+    parser.add_argument("--python", default=None, help="跑 evolve.py 的 python 解释器（默认当前解释器）")
+    parser.add_argument("--user", default=None, help="透传 evolve.py --user（默认共享基线）")
+    parser.add_argument(
+        "--suggest-subdir",
+        default="evolution/suggestions",
+        help="suggestion-*.md 相对 repo-dir 的目录（默认 evolution/suggestions；--user 时一般为 evolution/users/<id>/suggestions）",
+    )
+    parser.add_argument("--branch-prefix", default="dream-loop/evolve-suggest", help="分支名前缀（实际分支带 -<date>）")
+    parser.add_argument("--base", default="main", help="切分支的基（默认 main）")
+    parser.add_argument("--remote", default="origin", help="git remote（默认 origin）")
+    parser.add_argument("--date", default=None, help="覆盖日期（默认机器今日 YYYY-MM-DD）")
+    parser.add_argument("--no-run", action="store_true", help="跳过跑 evolve suggest，只把现有新增建议提交到分支")
+    parser.add_argument("--timeout", type=int, default=900, help="evolve suggest 子进程超时秒数（默认 900）")
+    parser.add_argument("--push", action="store_true", help="提交后 push 分支（默认只本地 commit，绝不合并）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 摘要")
+    parser.set_defaults(func=cmd_dream_evolve_suggest)
+
+
+def cmd_dream_evolve_suggest(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.dream import evolve_suggest
+
+    summary = evolve_suggest.run_evolve_suggest(
+        evolve_suggest.EvolveSuggestOptions(
+            repo_dir=args.repo_dir,
+            python=args.python,
+            user=args.user,
+            suggest_subdir=args.suggest_subdir,
+            branch_prefix=args.branch_prefix,
+            base=args.base,
+            remote=args.remote,
+            date=args.date,
+            run=not args.no_run,
+            timeout=args.timeout,
+            push=args.push,
+        )
+    )
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(evolve_suggest.render_summary(summary))
+    return 0
+
+
+def add_dream_kb_candidates_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "dream-kb-candidates",
+        help="dream-loop C-1C/7B：把（已脱敏的）digest/lessons 候选条目 → 保守 KB 事实回写候选 payload（红线写死 graph_only/exposure_only/review_candidate/L1_L3_candidate/peripheral，绝不写 entity 正文）",
+    )
+    parser.add_argument("--input", required=True, help="候选输入 JSON（含 source_name + candidates 列表）")
+    parser.add_argument(
+        "--kb-dir",
+        default=None,
+        help="候选输出目录（默认 env KB_CANDIDATES_DIR > 本仓 gitignore staging intelligence/dream/_kb_candidates；写真实库须显式指 <知识库>/wiki/raw/entity-delta-backfill）",
+    )
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 摘要")
+    parser.set_defaults(func=cmd_dream_kb_candidates)
+
+
+def cmd_dream_kb_candidates(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.dream import kb_candidates
+
+    spec = _json.loads(Path(args.input).expanduser().read_text(encoding="utf-8"))
+    inputs, meta = kb_candidates.load_inputs(spec)
+    payload = kb_candidates.build_payload(
+        inputs,
+        source_name=meta["source_name"],
+        source_date=meta["source_date"],
+        raw_sources=meta["raw_sources"],
+        source_file=meta["source_file"],
+        concept=meta["concept"],
+    )
+    summary = kb_candidates.write_payload(payload, kb_dir=args.kb_dir)
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(kb_candidates.render_summary(summary))
+    return 0 if summary.get("written") else 1
+
+
 def cmd_theme(args: argparse.Namespace) -> int:
     from intelligence.workflows.theme_radar import ThemeRadarOptions, run_theme_radar
 
@@ -418,6 +508,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)
     add_dream_collect_parser(subparsers)
+    add_dream_evolve_suggest_parser(subparsers)
+    add_dream_kb_candidates_parser(subparsers)
     return parser
 
 
