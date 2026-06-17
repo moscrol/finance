@@ -30,7 +30,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -550,6 +552,79 @@ def cmd_backfill(check: bool) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# generate-views：以 skills/<name> 为唯一源，把 agent 目录视图规范为相对 symlink
+# ---------------------------------------------------------------------------
+
+def _canonical_names_on_disk(root: Path) -> set[str]:
+    """某仓 ``skills/`` 下拥有 SKILL.md 的规范 skill 名集合。"""
+    skills_dir = root / "skills"
+    if not skills_dir.is_dir():
+        return set()
+    return {p.parent.name for p in skills_dir.glob("*/SKILL.md")}
+
+
+def _view_target(agent_dir: Path, canonical_dir: Path) -> str:
+    """agent 目录项指向同仓 canonical 源的相对 symlink 目标（如 ``../../skills/x``）。"""
+    return os.path.relpath(canonical_dir, start=agent_dir)
+
+
+def cmd_generate_views(check: bool) -> int:
+    """把各 agent 目录里「对应同仓 canonical 源」的项规范为相对 symlink 视图。
+
+    - 只处理 agent 目录中**已存在**的项；不为「未被任何 agent 引用的 canonical」
+      新建视图（视图集合是人工策划的，避免噪音）。
+    - 物理拷贝（同仓已有 canonical 源）= DRY 违规：apply 时替换为 symlink，
+      ``--check`` 时报漂移。
+    - symlink 目标不正确 → apply 修正 / ``--check`` 报漂移。
+    - 无同仓 canonical 源的项（agentOnly，如未提升前的 obsidian）保持不动。
+    """
+    drift = False
+    for repo_name, short, root in _present_repos():
+        canon = _canonical_names_on_disk(root)
+        for agent_dir_rel in AGENT_SKILL_DIRS:
+            agent_dir = root / agent_dir_rel
+            if not agent_dir.is_dir():
+                continue
+            for child in sorted(agent_dir.iterdir(), key=lambda p: p.name):
+                name = child.name
+                if name not in canon:
+                    continue  # agentOnly / 无同仓规范源：不动
+                canonical_dir = root / "skills" / name
+                want = _view_target(agent_dir, canonical_dir)
+                rel = child.relative_to(root).as_posix()
+                if child.is_symlink():
+                    cur = os.readlink(child)
+                    if cur == want:
+                        continue
+                    drift = True
+                    if check:
+                        print(f"[generate-views --check] symlink 目标不符：{repo_name}/{rel} -> {cur}（应为 {want}）")
+                    else:
+                        child.unlink()
+                        child.symlink_to(want)
+                        print(f"[generate-views] 修正 symlink：{repo_name}/{rel} -> {want}")
+                else:
+                    # 物理拷贝且同仓已有 canonical 源 → DRY 违规
+                    drift = True
+                    if check:
+                        print(f"[generate-views --check] 物理拷贝（应为 symlink 视图）：{repo_name}/{rel}")
+                    else:
+                        if child.is_dir():
+                            shutil.rmtree(child)
+                        else:
+                            child.unlink()
+                        child.symlink_to(want)
+                        print(f"[generate-views] 物理拷贝→symlink：{repo_name}/{rel} -> {want}")
+    if check:
+        if drift:
+            print("[generate-views --check] agent 目录视图与 skills/ 源不一致，请运行 "
+                  "`python3 scripts/build_registry.py generate-views` 并提交。", file=sys.stderr)
+            return 1
+        print("[generate-views --check] agent 目录视图与 skills/ 源一致。")
+    return 0
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="工具/skill 注册表生成器（scan / backfill-tables / --check）")
     sub = parser.add_subparsers(dest="cmd")
@@ -559,11 +634,16 @@ def main(argv: Optional[list[str]] = None) -> int:
     p_bf = sub.add_parser("backfill-tables", help="用注册表回填各仓文档里的手写 skill 表")
     p_bf.add_argument("--check", dest="bf_check", action="store_true",
                       help="只校验文档表是否最新，不写入；过期则非 0 退出")
+    p_gv = sub.add_parser("generate-views", help="把 agent 目录视图规范为指向 skills/ 源的相对 symlink")
+    p_gv.add_argument("--check", dest="gv_check", action="store_true",
+                      help="只校验视图是否规范，不改文件；有物理拷贝/坏链则非 0 退出")
     parser.add_argument("--check", action="store_true", help="等价于 check 子命令")
     args = parser.parse_args(argv)
 
     if args.cmd == "backfill-tables":
         return cmd_backfill(check=args.bf_check)
+    if args.cmd == "generate-views":
+        return cmd_generate_views(check=args.gv_check)
     if args.check or args.cmd == "check":
         return cmd_check()
     if args.cmd == "scan" or args.cmd is None:

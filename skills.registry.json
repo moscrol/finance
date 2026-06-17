@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T03:16:16Z",
+  "generated_at": "2026-06-17T03:41:13Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 24
+      "skills": 23
     },
     {
       "name": "knowledge-base-private",
@@ -47,24 +47,6 @@
           "short": "ws",
           "skillPath": "skills/disclosure-archive/SKILL.md",
           "agentOnly": false
-        }
-      ]
-    },
-    {
-      "name": "pdf-ingest",
-      "declaredSplit": false,
-      "locations": [
-        {
-          "repo": "knowledge-base-private",
-          "short": "kb",
-          "skillPath": "skills/pdf-ingest/SKILL.md",
-          "agentOnly": false
-        },
-        {
-          "repo": "finance-workspace-private",
-          "short": "ws",
-          "skillPath": ".claude/skills/pdf-ingest/SKILL.md",
-          "agentOnly": true
         }
       ]
     }
@@ -155,7 +137,7 @@
       "name": "foresight-feedback",
       "repo": "finance-workspace-private",
       "sourceType": "local",
-      "skillPath": ".claude/skills/foresight-feedback/SKILL.md",
+      "skillPath": "skills/foresight-feedback/SKILL.md",
       "description": "对话自动记反馈——把对话里的兴趣/否定/评分信号自动写回 foresight 反馈回路（users/<id>/interactions.jsonl），让系统越用越懂你。触发词：记反馈、记一下、我关注、我对这个感兴趣、想深挖、这个不看了、跳过、不感兴趣、打个分、很重要、猜你想问、越用越懂、自动记反馈。",
       "triggers": [
         "记反馈",
@@ -175,8 +157,14 @@
       "note": "",
       "entrypoint": null,
       "computedHash": "sha256:e325e770fdbdfe995187b34a5df3e7d102ba1669b4600a9febdb57b2b189bbe7",
-      "agentOnly": true,
-      "views": []
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/foresight-feedback",
+          "type": "symlink",
+          "target": "../../skills/foresight-feedback"
+        }
+      ]
     },
     "ws/high-volume-gainers": {
       "name": "high-volume-gainers",
@@ -312,19 +300,6 @@
       "entrypoint": null,
       "computedHash": "sha256:7cf3cbdcf1966684c4c236dd2b765797986a3b334e9d455225dc464fe7903353",
       "agentOnly": false,
-      "views": []
-    },
-    "ws/pdf-ingest": {
-      "name": "pdf-ingest",
-      "repo": "finance-workspace-private",
-      "sourceType": "local",
-      "skillPath": ".claude/skills/pdf-ingest/SKILL.md",
-      "description": "PDF 研报入库到 Obsidian 知识库并对齐 Theme Radar 底层数据。Use when the user says PDF ingest、pdf入库、研报PDF入库、处理研报PDF、OCR研报、评级日报/脱水研报/强势脱水/风口研报入库，或要求把 PDF/source note/concept/entity/entity_exposures/evidence_index/report_contexts 与题材雷达底层对齐。",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:b8d6dd266a70dab6a190bdba6710d11c823fe321ff6ba55d945448590baf13d7",
-      "agentOnly": true,
       "views": []
     },
     "ws/report-search": {
