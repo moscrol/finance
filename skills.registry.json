@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T09:32:23Z",
+  "generated_at": "2026-06-17T10:28:01Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -181,7 +181,7 @@
       ],
       "note": "纯涨幅排行（不看成交额）用 top-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:50c0c8d8457c762b87dbb1106e71159bc7c937830bbe64417fbe35470ad8b39d",
+      "computedHash": "sha256:cfcda5fc44f1c550a15c19a38b50d14420a8177073274f72982d76d35e5e9106",
       "agentOnly": false,
       "views": [
         {
