@@ -294,6 +294,7 @@ python3 ../theme-radar/scripts/radar.py --term CPO --vault "<KB>/wiki" --mode de
 - `build_outcomes.py`：筛「看多」且非 `[晨汇转述]` → 解析代码 → 抓前复权价 → 算指标 → 写 `outcomes.jsonl`。进场 = 报告日**次日开盘**；窗口不完整的事件标 `*_complete=false`。
 - `winrate_rank.py`：join `sources.json` 聚合机构胜率。**主口径 = T+N 相对沪深300 超额收益 > 0**（默认 T+5），同时给绝对收益口径；只排**有效看多 ≥ N 次**（默认 5）的机构，1~2 次样本视为噪音不排。
 - `refresh_winrate.py`：**一键刷新** = `build_outcomes` → `winrate_rank`（默认 T+5+T+10）。报告写仓外 `--report-dir`（默认 `~/kb_work/winrate/winrate_T{N}_{date}.md`，不提交）。
+- `render_winrate_html.py`：**胜率榜可视化**。复用 `winrate_rank.aggregate_winrate` 一次算 T+3/5/7/10 四窗内联进自包含暗色 HTML（对齐复盘/策略页风格），前端切换窗口、点表头排序、画「超额胜率柱状图」+「均超额 vs 均回撤 风险收益散点」。默认输出 `复盘/winrate/winrate-<date>.html`（生成物，零依赖、双击即开、不提交）。
 
 ```bash
 # 一键刷新（补完数据后跑这一条即可；日期自动取到今天）
@@ -302,6 +303,9 @@ python3 skills/opinion-cross/scripts/refresh_winrate.py --vault "<KB>/wiki"
 # 或分步：1) 回测 → outcomes.jsonl  2) 出榜（--window 10 看 T+10；--report 出 md）
 python3 skills/opinion-cross/scripts/build_outcomes.py --vault "<KB>/wiki"
 python3 skills/opinion-cross/scripts/winrate_rank.py --vault "<KB>/wiki" --report /tmp/winrate.md
+
+# 出可视化 HTML（双击即开；默认 复盘/winrate/winrate-<date>.html）
+python3 skills/opinion-cross/scripts/render_winrate_html.py --vault "<KB>/wiki"
 ```
 
 **迭代机制**：胜率榜是从 `opinion-events.jsonl` 台账**重算**出的派生视图（非手改、无漂移）。补研报/晨汇 → 入库 append → 重跑 `refresh_winrate.py`。`build_outcomes.py` 日期默认动态（end=今天、start=最早观点日前7天），价格范围感知缓存只抓新交易日；每次重算两个叠加效应：①新观点进入回测；②此前窗口不足的近期观点随交易日推进自动补全。**晨汇看多默认不计入胜率**（`[晨汇转述]` 通道已剔除，只研报算）。
