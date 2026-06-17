@@ -352,10 +352,17 @@ def cmd_feishu_bot(args: argparse.Namespace) -> int:
 def add_dream_collect_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "dream-collect",
-        help="dream-loop C-1A-S0：对话源（S0 仅飞书）归一化+脱敏 → transcript store + manifest + 脱敏 digest（suggest-only，不碰 DuckDB）",
+        help="dream-loop：对话源（feishu/claude-code/claude-mem/windsurf/devin）归一化+脱敏 → transcript store + manifest + 脱敏 digest（suggest-only，不碰 DuckDB）",
     )
-    parser.add_argument("--source", default="feishu", choices=["feishu"], help="对话源（S0 仅 feishu）")
-    parser.add_argument("--events", default=None, help="原始事件 jsonl（飞书 bot 的 --transcript-log 产物）")
+    from intelligence.dream import collector as _collector
+
+    parser.add_argument(
+        "--source",
+        default="feishu",
+        choices=sorted(_collector.KNOWN_SOURCES),
+        help="对话源：feishu/claude-code/claude-mem/windsurf/devin",
+    )
+    parser.add_argument("--events", default=None, help="原始事件 jsonl（每行一个事件/消息/会话/observation，视源而定）")
     parser.add_argument(
         "--store-dir",
         default=None,

@@ -1,6 +1,6 @@
 """dream-loop transcript collector（C-1A-S0）。
 
-把对话源（S0 仅飞书 chat）归一化成统一 schema，脱敏后写入 transcript store：
+把对话源（飞书 / claude-code / claude-mem / windsurf / devin）归一化成统一 schema，脱敏后写入 transcript store：
 
 - ``<store>/<date>/<source>-<session>.jsonl``  —— 正文（已脱敏），**gitignore**，本地留存；
 - ``<store>/manifest.jsonl``                    —— 每个 (date, source, session) 一条元数据，可审计、可提交；
@@ -197,7 +197,199 @@ def normalize_feishu_event(
     return records
 
 
-_NORMALIZERS = {"feishu": normalize_feishu_event}
+def _map_role(value: Optional[str]) -> str:
+    """把各源的角色名归一化到 ``user | assistant | tool``。"""
+    v = (value or "").strip().lower()
+    if v in ("user", "human"):
+        return "user"
+    if v in ("assistant", "agent", "ai", "model", "devin"):
+        return "assistant"
+    if v in ("tool", "tool_use", "tool_result", "function", "system"):
+        return "tool"
+    return "user"
+
+
+def _extract_content_text(content: object) -> Optional[str]:
+    """从字符串 / content-block 列表里抽取可读文本。
+
+    支持 Anthropic / Claude Code 风格的 block 列表：``text`` 取正文，
+    ``tool_use`` / ``tool_result`` 折叠成占位文本（便于 loop 知道发生过工具调用，
+    又不把冗长的工具 IO 灌进 digest）。
+    """
+    if isinstance(content, str):
+        return content.strip() or None
+    if isinstance(content, list):
+        parts: List[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                btype = _as_str(block.get("type"))
+                if isinstance(block.get("text"), str):
+                    parts.append(block["text"])
+                elif btype == "tool_use":
+                    name = _as_str(block.get("name"))
+                    parts.append(f"[tool_use {name}]" if name else "[tool_use]")
+                elif btype == "tool_result":
+                    inner = _extract_content_text(block.get("content"))
+                    parts.append(f"[tool_result] {inner}" if inner else "[tool_result]")
+        joined = "\n".join(p for p in parts if p).strip()
+        return joined or None
+    return None
+
+
+# --------------------------------------------------------------------------- #
+# 源适配：claude-code（本地会话历史 jsonl，逐行一条 message）
+# --------------------------------------------------------------------------- #
+def normalize_claude_code_event(
+    raw: Dict[str, object], repo: Optional[str] = None
+) -> List[TranscriptRecord]:
+    """把 Claude Code 会话历史里的一行（一条 message）归一化成 0~1 条记录。
+
+    典型行形如::
+
+        {"type":"assistant","sessionId":"…","timestamp":"…","cwd":"…",
+         "message":{"role":"assistant","content":[{"type":"text","text":"…"}, …]}}
+
+    无可读文本（如纯 summary / 系统行）则跳过。``repo`` 缺省时从 ``cwd`` basename 推导。
+    """
+    msg = raw.get("message")
+    msg = msg if isinstance(msg, dict) else {}
+    role = _map_role(_as_str(raw.get("type")) or _as_str(msg.get("role")))
+    text = _extract_content_text(msg.get("content", raw.get("content")))
+    if not text:
+        return []
+    ts = _coerce_ts(raw.get("timestamp")) or _coerce_ts(raw.get("ts")) or _now_iso()
+    session_id = (
+        _as_str(raw.get("sessionId")) or _as_str(raw.get("session_id")) or "claude-code"
+    )
+    cwd = _as_str(raw.get("cwd"))
+    rec_repo = repo or (_repo_from_path(cwd) if cwd else None)
+    return [TranscriptRecord(ts, "claude-code", session_id, role, text, rec_repo, ["claude-code"])]
+
+
+# --------------------------------------------------------------------------- #
+# 源适配：claude-mem（观察记录，每条一个 observation）
+# --------------------------------------------------------------------------- #
+def normalize_claude_mem_observation(
+    raw: Dict[str, object], repo: Optional[str] = None
+) -> List[TranscriptRecord]:
+    """把一条 claude-mem 观察（``get_observations`` 产物）归一化成 0~1 条记录。
+
+    典型形如 ``{"id":"2546","timestamp":"…","type":"feature","title":"…","text":"…","session_id":"…"}``。
+    观察是 agent 侧的记忆沉淀，统一记 ``role=assistant``，并打 ``obs:<type>`` 标签便于聚类。
+    """
+    title = _as_str(raw.get("title"))
+    body = _as_str(raw.get("text")) or _as_str(raw.get("content"))
+    text = f"{title}：{body}" if (title and body) else (title or body)
+    if not text:
+        return []
+    ts = _coerce_ts(raw.get("timestamp")) or _coerce_ts(raw.get("created_at")) or _now_iso()
+    obs_id = _as_str(raw.get("id"))
+    session_id = (
+        _as_str(raw.get("session_id")) or _as_str(raw.get("sessionId")) or obs_id or "claude-mem"
+    )
+    tags = ["claude-mem"]
+    otype = _as_str(raw.get("type"))
+    if otype:
+        tags.append(f"obs:{otype}")
+    rec_repo = repo or _as_str(raw.get("repo")) or _as_str(raw.get("project"))
+    return [TranscriptRecord(ts, "claude-mem", session_id, "assistant", text, rec_repo, tags)]
+
+
+# --------------------------------------------------------------------------- #
+# 源适配：windsurf（Cascade 历史，一条 = 一个会话，内含 messages）
+# --------------------------------------------------------------------------- #
+def normalize_windsurf_event(
+    raw: Dict[str, object], repo: Optional[str] = None
+) -> List[TranscriptRecord]:
+    """把一个 Windsurf Cascade 会话归一化成 0~N 条记录。
+
+    会话形如 ``{"id":"…","workspace":"…","messages":[{"role":"user","content":"…","timestamp":"…"}, …]}``。
+    也兼容「一行就是一条消息」的扁平形态（无 ``messages`` 列表时把 ``raw`` 当单条消息）。
+    """
+    session_id = (
+        _as_str(raw.get("id"))
+        or _as_str(raw.get("conversationId"))
+        or _as_str(raw.get("session_id"))
+        or "windsurf"
+    )
+    rec_repo = repo or _as_str(raw.get("repo")) or _repo_from_path(_as_str(raw.get("workspace")) or "")
+    conv_ts = _coerce_ts(raw.get("ts")) or _coerce_ts(raw.get("timestamp"))
+    messages = raw.get("messages")
+    if not isinstance(messages, list):
+        messages = [raw]
+    out: List[TranscriptRecord] = []
+    for m in messages:
+        if not isinstance(m, dict):
+            continue
+        text = _extract_content_text(m.get("content")) or _as_str(m.get("text"))
+        if not text:
+            continue
+        role = _map_role(_as_str(m.get("role")) or _as_str(m.get("sender")))
+        ts = _coerce_ts(m.get("timestamp")) or _coerce_ts(m.get("ts")) or conv_ts or _now_iso()
+        out.append(TranscriptRecord(ts, "windsurf", session_id, role, text, rec_repo, ["windsurf"]))
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# 源适配：devin（Devin API/MCP 拉取的 session 详情，一条 = 一个 session）
+# --------------------------------------------------------------------------- #
+def _devin_role(mtype: Optional[str]) -> str:
+    v = (mtype or "").strip().lower()
+    if "user" in v:
+        return "user"
+    if "devin" in v or "assistant" in v or "agent" in v:
+        return "assistant"
+    return "tool"
+
+
+def normalize_devin_session(
+    raw: Dict[str, object], repo: Optional[str] = None
+) -> List[TranscriptRecord]:
+    """把一个 Devin session（含 messages 列表）归一化成 0~N 条记录。
+
+    session 形如 ``{"session_id":"…","messages":[{"type":"user_message","message":"…","timestamp":"…"}, …]}``。
+    ``user_message``→user、``devin_message``→assistant、其余（工具/系统事件）→tool。
+    """
+    messages = raw.get("messages")
+    if not isinstance(messages, list):
+        return []
+    session_id = (
+        _as_str(raw.get("session_id"))
+        or _as_str(raw.get("sessionId"))
+        or _as_str(raw.get("id"))
+        or "devin"
+    )
+    rec_repo = repo or _as_str(raw.get("repo"))
+    out: List[TranscriptRecord] = []
+    for m in messages:
+        if not isinstance(m, dict):
+            continue
+        text = (
+            _as_str(m.get("message"))
+            or _extract_content_text(m.get("content"))
+            or _as_str(m.get("text"))
+        )
+        if not text:
+            continue
+        mtype = _as_str(m.get("type")) or _as_str(m.get("role"))
+        role = _devin_role(mtype)
+        ts = _coerce_ts(m.get("timestamp")) or _coerce_ts(m.get("ts")) or _now_iso()
+        tags = ["devin"]
+        if mtype:
+            tags.append(f"type:{mtype}")
+        out.append(TranscriptRecord(ts, "devin", session_id, role, text, rec_repo, tags))
+    return out
+
+
+_NORMALIZERS = {
+    "feishu": normalize_feishu_event,
+    "claude-code": normalize_claude_code_event,
+    "claude-mem": normalize_claude_mem_observation,
+    "windsurf": normalize_windsurf_event,
+    "devin": normalize_devin_session,
+}
 
 
 def _as_str(val: object) -> Optional[str]:
@@ -211,6 +403,32 @@ def _as_str(val: object) -> Optional[str]:
 
 def _now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _coerce_ts(val: object) -> Optional[str]:
+    """把时间字段归一化成字符串 ts。
+
+    字符串原样返回（假定已是 ISO8601）；数字按 epoch 秒/毫秒转本地时区 ISO8601。
+    """
+    if isinstance(val, str):
+        s = val.strip()
+        return s or None
+    if isinstance(val, bool):  # bool 是 int 子类，先挡掉
+        return None
+    if isinstance(val, (int, float)):
+        secs = float(val)
+        if secs > 1e12:  # 毫秒
+            secs /= 1000.0
+        try:
+            return datetime.fromtimestamp(secs).astimezone().isoformat(timespec="seconds")
+        except (OverflowError, OSError, ValueError):
+            return None
+    return None
+
+
+def _repo_from_path(path: str) -> Optional[str]:
+    name = Path(path).name
+    return name or None
 
 
 def _sanitize(name: str) -> str:
@@ -414,7 +632,9 @@ def run_collect(options: CollectOptions) -> Dict[str, object]:
         }
 
     if options.source not in _NORMALIZERS:
-        raise SystemExit(f"S0 暂只支持源：{', '.join(sorted(_NORMALIZERS))}（收到 {options.source}）")
+        raise SystemExit(
+            f"暂不支持的源：{options.source}（可选：{', '.join(sorted(_NORMALIZERS))}）"
+        )
     if not options.events_path:
         raise SystemExit("缺少 --events（原始事件 jsonl）")
 
