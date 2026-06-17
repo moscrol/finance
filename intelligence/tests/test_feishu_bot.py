@@ -151,6 +151,119 @@ class RenderAskReplyTests(unittest.TestCase):
         self.assertIn("截断", out)
 
 
+def _card_text(card: dict) -> str:
+    """把卡片所有元素里的文本拼成一个字符串，便于断言内容存在。"""
+    parts: list[str] = [card["header"]["title"]["content"]]
+    for el in card["elements"]:
+        if "text" in el and isinstance(el["text"], dict):
+            parts.append(el["text"].get("content", ""))
+        for sub in el.get("elements", []) or []:
+            parts.append(sub.get("content", ""))
+    return "\n".join(parts)
+
+
+class RenderAskCardTests(unittest.TestCase):
+    def test_header_template_by_status(self) -> None:
+        passing = _sample_result()
+        self.assertEqual(passing.status, "PASS")
+        self.assertEqual(feishu_bot.render_ask_card(passing)["header"]["template"], "green")
+
+        warn = _sample_result()
+        warn.found_graph = False  # market only -> WARN
+        self.assertEqual(warn.status, "WARN")
+        self.assertEqual(feishu_bot.render_ask_card(warn)["header"]["template"], "orange")
+
+        fail = _sample_result()
+        fail.found_market = False
+        fail.found_graph = False
+        self.assertEqual(fail.status, "FAIL")
+        self.assertEqual(feishu_bot.render_ask_card(fail)["header"]["template"], "grey")
+
+    def test_header_title_has_query(self) -> None:
+        card = feishu_bot.render_ask_card(_sample_result())
+        self.assertEqual(card["header"]["title"]["tag"], "plain_text")
+        self.assertIn("液冷渗透率拐点何时到？", card["header"]["title"]["content"])
+
+    def test_summary_line_has_theme_date_status(self) -> None:
+        card = feishu_bot.render_ask_card(_sample_result())
+        summary = card["elements"][0]["text"]["content"]
+        self.assertIn("液冷", summary)
+        self.assertIn("2026-06-16", summary)
+        self.assertIn("PASS", summary)
+
+    def test_six_sections_and_citations_present(self) -> None:
+        text = _card_text(feishu_bot.render_ask_card(_sample_result()))
+        for name in ("结论", "证据链", "分歧反证", "后续验证点", "交易含义", "引用来源"):
+            self.assertIn(f"【{name}】", text)
+        for tag in ("[S1]", "[G2]", "[R1]"):
+            self.assertIn(tag, text)
+
+    def test_subhead_sentinel_stripped(self) -> None:
+        text = _card_text(feishu_bot.render_ask_card(_sample_result()))
+        self.assertNotIn(SUBHEAD, text)
+        self.assertIn("**盘面**", text)
+
+    def test_card_title_capped(self) -> None:
+        r = _sample_result()
+        object.__setattr__(r, "query", "液" * 500)
+        title = feishu_bot.render_ask_card(r)["header"]["title"]["content"]
+        self.assertLessEqual(len(title), feishu_bot._CARD_TITLE_MAX)
+
+    def test_truncation_caps_body_and_adds_note(self) -> None:
+        r = _sample_result()
+        r.sections["结论"] = ["x" * 5000]
+        card = feishu_bot.render_ask_card(r, max_chars=200)
+        body_len = sum(
+            len(el["text"]["content"])
+            for el in card["elements"]
+            if "text" in el and isinstance(el["text"], dict)
+        )
+        self.assertLessEqual(body_len, 200 + 50)  # summary line + capped sections
+        note_texts = [
+            sub["content"]
+            for el in card["elements"]
+            if el.get("tag") == "note"
+            for sub in el.get("elements", [])
+        ]
+        self.assertTrue(any("截断" in t for t in note_texts))
+
+
+class ComputeAskPayloadTests(unittest.TestCase):
+    def test_card_format_returns_interactive(self) -> None:
+        with mock.patch.object(feishu_bot, "_run_ask_workflow", return_value=_sample_result()):
+            cfg = feishu_bot.BotConfig(app_id="a", app_secret="b", reply_format="card")
+            msg_type, content, transcript = feishu_bot.compute_ask_payload("液冷", cfg)
+        self.assertEqual(msg_type, "interactive")
+        self.assertIsInstance(content, dict)
+        self.assertIn("header", content)
+        self.assertIn("【结论】", transcript)  # transcript is always plain text
+
+    def test_text_format_returns_text(self) -> None:
+        with mock.patch.object(feishu_bot, "_run_ask_workflow", return_value=_sample_result()):
+            cfg = feishu_bot.BotConfig(app_id="a", app_secret="b", reply_format="text")
+            msg_type, content, transcript = feishu_bot.compute_ask_payload("液冷", cfg)
+        self.assertEqual(msg_type, "text")
+        self.assertIsInstance(content, str)
+        self.assertEqual(content, transcript)
+        self.assertIn("【结论】", content)
+
+    def test_exception_card_degrades_to_notice_card(self) -> None:
+        with mock.patch.object(feishu_bot, "_run_ask_workflow", side_effect=RuntimeError("boom")):
+            cfg = feishu_bot.BotConfig(app_id="a", app_secret="b", reply_format="card")
+            msg_type, content, transcript = feishu_bot.compute_ask_payload("液冷", cfg)
+        self.assertEqual(msg_type, "interactive")
+        self.assertEqual(content["header"]["template"], "grey")
+        self.assertIn("检索暂时失败", _card_text(content))
+        self.assertIn("检索暂时失败", transcript)
+
+    def test_exception_text_degrades_to_notice_text(self) -> None:
+        with mock.patch.object(feishu_bot, "_run_ask_workflow", side_effect=RuntimeError("boom")):
+            cfg = feishu_bot.BotConfig(app_id="a", app_secret="b", reply_format="text")
+            msg_type, content, _ = feishu_bot.compute_ask_payload("液冷", cfg)
+        self.assertEqual(msg_type, "text")
+        self.assertIn("检索暂时失败", content)
+
+
 class AnswerTextTests(unittest.TestCase):
     def test_renders_ask_result(self) -> None:
         with mock.patch.object(feishu_bot, "_run_ask_workflow", return_value=_sample_result()):
@@ -196,6 +309,12 @@ class BotConfigCliTests(unittest.TestCase):
 
     def test_ask_modules_default_off(self) -> None:
         self.assertFalse(self._cfg([]).ask_use_modules)
+
+    def test_reply_format_default_card(self) -> None:
+        self.assertEqual(self._cfg([]).reply_format, "card")
+
+    def test_reply_format_text_flag(self) -> None:
+        self.assertEqual(self._cfg(["--reply-format", "text"]).reply_format, "text")
 
     def test_ask_flags_wire_into_config(self) -> None:
         cfg = self._cfg(

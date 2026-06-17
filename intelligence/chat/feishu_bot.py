@@ -5,13 +5,15 @@
 「飞书 chat」链路：长连接（WebSocket）收到 ``im.message.receive_v1`` 文本消息后，
 **in-process 直接调** :func:`intelligence.workflows.ask.run_ask`，把六段检索答复
 （结论/证据链/分歧反证/后续验证点/交易含义/引用来源，每条带 ``[S#]/[G#]/[R#]`` 编号引用）
-渲染成飞书纯文本回去。``ask`` 只读盘面快照 JSON + 知识库 ``wiki/relations``，**不碰 DuckDB**。
+渲染成飞书**交互卡片**回去（抬头按召回状态变色；``--reply-format text`` 可退回纯文本）。
+``ask`` 只读盘面快照 JSON + 知识库 ``wiki/relations``，**不碰 DuckDB**。
 
 - 非文本（图片/语音/文件等）回一句「暂仅支持文本提问」提示（多模态属后续阶段）；
 - ``--echo`` 可退回 B-S0 逐字回声（仅用于长连接打通自检）；
 - 题材词路由的 theme-radar 模块 fan-out 默认**关**（子进程较慢），``--ask-modules`` 显式开。
 
-交互卡片（深钻/换题材/看证据链按钮）属后续 B 阶段，本步只发纯文本。
+交互卡片渲染已接入（``--reply-format card`` 默认）；卡片上的按钮交互
+（深钻/换题材/看证据链）属后续 B 阶段（需飞书后台开「卡片回调」事件）。
 
 为什么用长连接
 ==============
@@ -85,7 +87,9 @@ class BotConfig:
     ask_use_llm: bool = False              # 用 LLM 精修 结论/交易含义（无 key 自动降级模板）
     ask_llm_model: Optional[str] = None
     ask_llm_timeout: int = 60
-    ask_max_chars: int = 3500              # 飞书纯文本回复截断预算
+    ask_max_chars: int = 3500              # 回复正文截断预算（卡片/纯文本通用）
+    # B-S3：ask 回复格式。"card"=飞书交互卡片（默认）；"text"=纯文本（B-S2 行为，回退用）。
+    reply_format: str = "card"
 
 
 def _first_present(cfg: dict[str, Any], keys: tuple[str, ...]) -> Optional[str]:
@@ -242,6 +246,96 @@ def render_ask_reply(result: "AskResult", max_chars: int = 3500) -> str:
     return _truncate("\n".join(lines), max_chars)
 
 
+# --------------------------------------------------------------------------- #
+# 交互卡片渲染（B-S3，纯函数，可单测，不依赖 lark_oapi）
+# --------------------------------------------------------------------------- #
+# 抬头底色按召回状态：PASS=绿（盘面+图谱齐全）/ WARN=橙（仅一侧命中）/ FAIL=灰（皆空）。
+_HEADER_TEMPLATE = {"PASS": "green", "WARN": "orange", "FAIL": "grey"}
+_CARD_TITLE_MAX = 100  # 飞书卡片 plain_text 标题长度上限。
+
+
+def _card_title(query: str) -> str:
+    title = f"📌 {query}"
+    if len(title) > _CARD_TITLE_MAX:
+        title = title[: _CARD_TITLE_MAX - 1].rstrip() + "…"
+    return title
+
+
+def _md_div(content: str) -> dict[str, Any]:
+    """一个 lark_md 文本块。"""
+    return {"tag": "div", "text": {"tag": "lark_md", "content": content}}
+
+
+def _section_markdown(items: list[str], subhead: str) -> str:
+    """把一段的条目渲染成 lark_md：SUBHEAD 哨兵转粗体小标题，其余转列表项。"""
+    lines: list[str] = []
+    for item in items or ["（无）"]:
+        if item.startswith(subhead):
+            lines.append(f"**{item[len(subhead):]}**")
+        else:
+            lines.append(f"- {item}")
+    return "\n".join(lines)
+
+
+def render_ask_card(result: "AskResult", max_chars: int = 3500) -> dict[str, Any]:
+    """把 :class:`AskResult` 渲染成飞书交互卡片 dict（``msg_type="interactive"`` 的 content）。
+
+    抬头按召回状态变色，摘要行给 主题/盘面/召回，六段各自一个 markdown 块，
+    引用 ``[S#]/[G#]/[R#]`` 原样保留。正文累计超 ``max_chars`` 时按段截断并附说明。
+    """
+    from intelligence.services.ask import SECTION_ORDER, SUBHEAD
+
+    summary = (
+        f"**主题** {result.matched_theme or '—'}　｜　"
+        f"**盘面** {result.trade_date or '—'}　｜　**召回** {result.status}"
+    )
+    elements: list[dict[str, Any]] = [_md_div(summary)]
+
+    remaining = max_chars
+    truncated = False
+    for name in SECTION_ORDER:
+        body = _section_markdown(result.sections.get(name) or [], SUBHEAD)
+        block = f"**【{name}】**\n{body}"
+        if len(block) > remaining:
+            block = block[: max(0, remaining)].rstrip()
+            truncated = True
+        elements.append({"tag": "hr"})
+        elements.append(_md_div(block))
+        remaining -= len(block)
+        if truncated:
+            break
+    if truncated:
+        elements.append(
+            {
+                "tag": "note",
+                "elements": [
+                    {"tag": "plain_text", "content": "回复已截断；换更聚焦的提问，或用 CLI ask 看完整六段。"}
+                ],
+            }
+        )
+
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "template": _HEADER_TEMPLATE.get(result.status, "grey"),
+            "title": {"tag": "plain_text", "content": _card_title(result.query)},
+        },
+        "elements": elements,
+    }
+
+
+def _notice_card(query: str, notice: str) -> dict[str, Any]:
+    """检索失败/降级时的极简灰底卡片。"""
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "template": "grey",
+            "title": {"tag": "plain_text", "content": _card_title(query)},
+        },
+        "elements": [_md_div(notice)],
+    }
+
+
 def _run_ask_workflow(query: str, config: BotConfig) -> "AskResult":
     """In-process 调 ``ask`` workflow（惰性导入，避免污染离线 import / 不引入 DuckDB）。"""
     from intelligence.workflows.ask import AskWorkflowOptions, run_ask
@@ -262,14 +356,40 @@ def _run_ask_workflow(query: str, config: BotConfig) -> "AskResult":
     return result
 
 
+def _ask_failure_notice(exc: Exception) -> str:
+    return f"⚠️ 检索暂时失败，请稍后重试或换个问法。（{type(exc).__name__}）"
+
+
 def answer_text(query: str, config: BotConfig) -> str:
     """跑 ``ask`` 并渲染飞书纯文本；任何异常都降级为友好提示，绝不让 bot 崩。"""
     try:
         result = _run_ask_workflow(query, config)
     except Exception as exc:  # noqa: BLE001 - 检索失败绝不影响 bot 存活
         log.warning("ask 检索失败（已降级提示）：%s", exc)
-        return f"⚠️ 检索暂时失败，请稍后重试或换个问法。（{type(exc).__name__}）"
+        return _ask_failure_notice(exc)
     return render_ask_reply(result, max_chars=config.ask_max_chars)
+
+
+def compute_ask_payload(query: str, config: BotConfig) -> tuple[str, Any, str]:
+    """跑一次 ``ask``，按 ``config.reply_format`` 返回 ``(msg_type, content, transcript_text)``。
+
+    - ``msg_type``：``"interactive"``（卡片 dict）或 ``"text"``（纯文本 str）；
+    - ``transcript_text``：始终是纯文本版（供 dream-loop 采集落盘，卡片也记文本）。
+
+    任何异常都降级为友好提示，绝不让 bot 崩。
+    """
+    try:
+        result = _run_ask_workflow(query, config)
+    except Exception as exc:  # noqa: BLE001 - 检索失败绝不影响 bot 存活
+        log.warning("ask 检索失败（已降级提示）：%s", exc)
+        notice = _ask_failure_notice(exc)
+        if config.reply_format == "card":
+            return "interactive", _notice_card(query, notice), notice
+        return "text", notice, notice
+    transcript_text = render_ask_reply(result, max_chars=config.ask_max_chars)
+    if config.reply_format == "card":
+        return "interactive", render_ask_card(result, max_chars=config.ask_max_chars), transcript_text
+    return "text", transcript_text, transcript_text
 
 
 def build_transcript_event(
@@ -350,11 +470,15 @@ def run(config: BotConfig) -> int:
         seen_set.add(message_id)
         return False
 
-    def _reply(message_id: str, text: str) -> None:
+    def _reply(message_id: str, content_obj: Any, msg_type: str = "text") -> None:
+        if msg_type == "interactive":
+            content = json.dumps(content_obj, ensure_ascii=False)
+        else:
+            content = json.dumps({"text": content_obj}, ensure_ascii=False)
         body = (
             ReplyMessageRequestBody.builder()
-            .content(json.dumps({"text": text}, ensure_ascii=False))
-            .msg_type("text")
+            .content(content)
+            .msg_type(msg_type)
             .build()
         )
         request = (
@@ -397,16 +521,18 @@ def run(config: BotConfig) -> int:
                 if config.mode == "echo"
                 else nontext_notice(message.message_type)
             )
+            msg_type, content_obj = "text", reply
         elif config.mode == "echo":
             reply = compose_reply(text, message.message_type, prefix=config.prefix)
+            msg_type, content_obj = "text", reply
         else:
-            reply = answer_text(text, config)
+            msg_type, content_obj, reply = compute_ask_payload(text, config)
         log.info(
-            "收到 type=%s id=%s mode=%s -> 回 %d 字",
-            message.message_type, message_id, config.mode, len(reply),
+            "收到 type=%s id=%s mode=%s fmt=%s -> 回 %d 字",
+            message.message_type, message_id, config.mode, config.reply_format, len(reply),
         )
         if message_id:
-            _reply(message_id, reply)
+            _reply(message_id, content_obj, msg_type)
         _record_transcript(message_id, message.chat_id, message.message_type, text, reply)
 
     event_handler = (
@@ -459,7 +585,13 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--ask-llm", action="store_true", help="用 LLM 精修 结论/交易含义（需 *_API_KEY；无 key 自动降级模板）")
     parser.add_argument("--ask-llm-model", default=None, help="覆盖 LLM 模型 id")
     parser.add_argument("--ask-llm-timeout", type=int, default=60, help="LLM HTTP 超时秒数（默认 60）")
-    parser.add_argument("--ask-max-chars", type=int, default=3500, help="飞书纯文本回复截断预算（默认 3500 字）")
+    parser.add_argument("--ask-max-chars", type=int, default=3500, help="回复正文截断预算（卡片/纯文本通用，默认 3500 字）")
+    parser.add_argument(
+        "--reply-format",
+        default="card",
+        choices=["card", "text"],
+        help="ask 回复格式：card=飞书交互卡片（默认，抬头按召回状态变色）；text=纯文本（B-S2 行为，回退用）",
+    )
 
 
 def build_config(args: argparse.Namespace) -> BotConfig:
@@ -482,6 +614,7 @@ def build_config(args: argparse.Namespace) -> BotConfig:
         ask_llm_model=args.ask_llm_model,
         ask_llm_timeout=args.ask_llm_timeout,
         ask_max_chars=args.ask_max_chars,
+        reply_format=args.reply_format,
     )
 
 
