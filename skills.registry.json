@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T03:41:13Z",
+  "generated_at": "2026-06-17T04:00:31Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -681,7 +681,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:23528fdfcaa34a4b3212c8517fff98bbec0c2bd2ec6645c2aa28582e8281753c",
+      "computedHash": "sha256:94c4f84296e974cfa46db3c07964663b6b8030f7aa11533224ebb1b9a06d174d",
       "agentOnly": false,
       "views": []
     },
@@ -770,7 +770,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d5fb4f69046c6d956ce2dc279c1273a3457316854136ee826d421d12c6e049e6",
+      "computedHash": "sha256:9ccace143a2efececa6d2d9e7923c723595ffe2e65941aa14760daa022d2b4b8",
       "agentOnly": false,
       "views": []
     },
@@ -778,18 +778,23 @@
       "name": "obsidian",
       "repo": "knowledge-base-private",
       "sourceType": "local",
-      "skillPath": ".claude/skills/obsidian/SKILL.md",
+      "skillPath": "skills/obsidian/SKILL.md",
       "description": "Work with Obsidian vaults (plain Markdown notes) and automate via obsidian-cli.",
       "triggers": [],
       "note": "",
       "entrypoint": null,
       "computedHash": "sha256:b184f7079cf2338ce47a7ac0cc346904fcd1d80a030ae12000c7bac8fa3bb410",
-      "agentOnly": true,
+      "agentOnly": false,
       "views": [
         {
           "path": ".agents/skills/obsidian",
-          "type": "copy",
-          "computedHash": "sha256:b184f7079cf2338ce47a7ac0cc346904fcd1d80a030ae12000c7bac8fa3bb410"
+          "type": "symlink",
+          "target": "../../skills/obsidian"
+        },
+        {
+          "path": ".claude/skills/obsidian",
+          "type": "symlink",
+          "target": "../../skills/obsidian"
         }
       ]
     },
