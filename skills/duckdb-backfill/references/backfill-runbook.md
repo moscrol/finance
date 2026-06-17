@@ -7,6 +7,7 @@
 1. **Calendar/base facts**
    - Confirm `fact_market_daily` calendar with `total_amount is not null`.
    - Confirm `fact_sector_daily` and `fact_stock_daily` coverage.
+   - 单日 `fact_stock_daily` 增量优先用东财快照 `sync-stock-daily-snapshot`（秒级）；补历史区间用 mootdx `sync-stock-daily`（见下「单日快照 vs 历史 mootdx」）。
 2. **Light tables**
    - `sync-sw-l1-daily` by 45-60 day windows.
    - `sync-limit-advance-range` by quarters; validate `fact_limit_advance_presence`.
@@ -15,6 +16,15 @@
 4. **Heavy/hang-prone tables**
    - `limit_heat` and `sector_stock` need progress output and timeouts. Use tiny smoke tests first.
    - Do not run all-history `sector_stock` without a resumable per-sector/per-date plan.
+
+## 全A日线 fact_stock_daily：单日快照 vs 历史 mootdx
+
+两条取数路径，按场景选：
+
+- **单日盘后增量 → 东财全市场快照（快，默认）**：`sync-stock-daily-snapshot`。分页拉全 A（约 6 千只，东财单页上限100、约60页）当日 收盘/涨跌幅/昨收/成交额，数十秒写完。`daily-full`/`daily-update` 默认 `--stock-source snapshot` 就走这条，避免 mootdx 逐只 TCP 的十几分钟长尾（个别股超时各卡几分钟）。仅取当日，必须**盘后**、且显式传 `--trade-date`（盘中会写实时价、非交易日会把上一交易日数据写到所传日期）。
+- **历史多日回填 → mootdx 逐只（慢，可拉区间）**：`sync-stock-daily --start-date ... --offset N`。快照接口只给当日截面，补历史区间仍必须用 mootdx。`daily-full --stock-source mootdx` 可强制日更也走 mootdx（受 `--skip-long` 控制）。
+
+两条路径同 schema/口径（amount 存「亿」、close 不复权、turnover 留空）；快照 `source='eastmoney:snapshot'`，mootdx `source='mootdx'`。
 
 ## Useful commands
 
@@ -25,6 +35,12 @@ python3 -m market_feature_store.cli check
 python3 -m market_feature_store.cli sync-sw-l1-daily --trade-date YYYY-MM-DD --days 60
 python3 -m market_feature_store.cli sync-limit-advance-range --start-date YYYY-MM-DD --end-date YYYY-MM-DD --sleep 0.1
 python3 skills/duckdb-backfill/scripts/run_stock_high_missing.py --max-days 5 --timeout 180 --max-failures 2 --record-failures
+# 全A日线：单日盘后增量（东财快照，秒级）
+python3 -m market_feature_store.cli sync-stock-daily-snapshot --trade-date YYYY-MM-DD
+# 全A日线：历史区间回填（mootdx 逐只，慢）
+python3 -m market_feature_store.cli sync-stock-daily --start-date YYYY-MM-DD --offset 180
+# 一键复盘强制用 mootdx 跑全A日线（默认 snapshot）
+python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD --stock-source mootdx
 ```
 
 ## Current known state from 2026-06-15
