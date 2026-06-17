@@ -68,6 +68,18 @@ skills/ifind/mcp_config.json
 *.pptx
 
 
+# foresight 记忆回路 + 个人画像（含真实自选股/提问历史，不入库）
+intelligence/foresight_memory.jsonl
+intelligence/foresight_profile.local.json
+
+# 多用户应用态：只跟踪 users/README.md 与 users/profile.template.json，
+# 各用户运行时文件（画像/派生/记忆/反馈/策略 overlay）全部忽略
+intelligence/users/*/profile.json
+intelligence/users/*/profile.derived.json
+intelligence/users/*/foresight_memory.jsonl
+intelligence/users/*/interactions.jsonl
+intelligence/users/*/strategy_params.json
+
 # evolve 进化系统：只跟踪代码与参数，忽略生成产物（可由 params.json 确定性重建）
 evolution/records/
 evolution/validation/
@@ -77,3 +89,15 @@ evolution/suggestions/
 *.bak
 *.bak-*
 *.bak.*
+# 按用户的 evolve 输出（overlay 生效后的记录/验证/建议/进化.md），运行时生成，不入库
+evolution/users/
+
+# dream-loop transcript store：正文 jsonl 仅本地留存，不入库；
+# 只有 manifest.jsonl 与 digest-*.md（脱敏摘要）可提交（设计 decision1 §1）。
+intelligence/dream/_local_store/
+# 飞书 bot --transcript-log 的原始事件落盘（含正文，本地留存）
+feishu-events*.jsonl
+# 若把 store 指向本仓内的 raw/transcripts/，按日期分桶的正文 jsonl 一律忽略
+raw/transcripts/*/*.jsonl
+# dream-loop 7B：KB 事实回写候选默认 staging（人工 review 前不入库）
+intelligence/dream/_kb_candidates/

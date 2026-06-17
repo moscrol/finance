@@ -1,0 +1,3 @@
+# 飞书 chat 链路依赖（本仓其余命令仍是零依赖；本文件仅 feishu-bot 需要）。
+# 官方 SDK，提供长连接（WebSocket）事件客户端 lark.ws.Client。
+lark-oapi>=1.2.0

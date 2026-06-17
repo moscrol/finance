@@ -1,0 +1,11 @@
+{
+  "_comment": "个人策略参数 overlay 模板：只写你想覆盖的策略段，其余沿用共享 baseline evolution/params.json。可覆盖段：strategy1 / strategy3 / strategy4 / validation / suggest（必须是对象，标量/列表整体覆盖、对象递归合并）。version/note 等 baseline 元信息不接受覆盖。改动后请自增 _overlay_version 以便回溯。",
+  "_overlay_version": 1,
+  "strategy1": {
+    "t1core_size": 5,
+    "quintile": 6
+  },
+  "validation": {
+    "horizons": [1, 3, 5, 10]
+  }
+}

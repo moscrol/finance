@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -37,6 +38,8 @@ sys.path.insert(0, str(ROOT))
 
 from market_feature_store.db import connect  # noqa: E402
 from evolution import strategy1, strategy3, strategy4, validate as vmod  # noqa: E402
+from evolution import params as evparams  # noqa: E402
+from intelligence import userspace  # noqa: E402
 
 EVO = ROOT / "evolution"
 RECORDS = EVO / "records"
@@ -52,8 +55,48 @@ STRAT_MODS = {"1": strategy1, "3": strategy3, "4": strategy4}
 DEFAULT_SCOPE = {"1": "T1CORE6", "3": "S3_ALL", "4": "S4_ALL"}
 
 
-def load_params():
-    return json.loads(PARAMS_PATH.read_text(encoding="utf-8"))
+def resolve_active_user(args):
+    """显式 --user > FORESIGHT_USER 环境变量；都没有则返回 None（用共享 baseline）。"""
+    raw = getattr(args, "user", None) or os.environ.get(userspace.ENV_USER)
+    if not raw or not str(raw).strip():
+        return None
+    return userspace.resolve_user_id(raw)
+
+
+def evo_paths(uid):
+    """该用户的 evolve 输出路径；无 user 时落共享 baseline（绝不互相覆盖）。"""
+    if uid:
+        base = EVO / "users" / uid
+        return base / "records", base / "validation", base / "suggestions", base / "进化.md"
+    return RECORDS, VALID, SUGG, JINHUA
+
+
+def load_params(uid=None):
+    """加载生效参数 = 共享 baseline ⊕ 用户稀疏 overlay。返回 ``(params, meta)``。"""
+    overlay_path = userspace.user_space(uid).strategy_params_path if uid else None
+    return evparams.load_effective_params(base_path=PARAMS_PATH, overlay_path=overlay_path)
+
+
+def _print_overlay(uid, pmeta):
+    if uid:
+        print(f"[user] {uid}")
+    if pmeta.get("overlay_applied"):
+        print(
+            f"[overlay] 策略 overlay v{pmeta.get('overlay_version')} "
+            f"覆盖段={pmeta.get('overlay_sections')}"
+        )
+    for w in pmeta.get("warnings", []):
+        print(f"[overlay-warn] {w}")
+
+
+def _provenance(rec, uid, pmeta):
+    """overlay 生效时在记录/验证负载里留痕，保证可回溯。"""
+    if uid:
+        rec["user"] = uid
+    if pmeta.get("overlay_applied"):
+        rec["params_overlay_version"] = pmeta.get("overlay_version")
+        rec["params_overlay_sections"] = pmeta.get("overlay_sections")
+    return rec
 
 
 def trading_dates(con, start, end):
@@ -79,8 +122,11 @@ def get_strat_payload(rec, strat):
 
 # ---------------------------------------------------------------- generate
 def cmd_generate(args):
-    p = load_params()
-    RECORDS.mkdir(parents=True, exist_ok=True)
+    uid = resolve_active_user(args)
+    p, pmeta = load_params(uid)
+    _print_overlay(uid, pmeta)
+    records_dir, _, _, _ = evo_paths(uid)
+    records_dir.mkdir(parents=True, exist_ok=True)
 
     # 1) 交易日列表 + 策略一（共用一个只读连接）
     con = connect(read_only=True)
@@ -116,7 +162,8 @@ def cmd_generate(args):
             "generated_at": ts,
             "strategies": strategies,
         }
-        (RECORDS / f"{d}.json").write_text(
+        _provenance(rec, uid, pmeta)
+        (records_dir / f"{d}.json").write_text(
             json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
         written += 1
         c1 = strategies.get("1", {}).get("counts", {})
@@ -125,21 +172,24 @@ def cmd_generate(args):
         print(f"[ok] {d}  S1[T1CORE6={c1.get('T1CORE6', '-')}] "
               f"S3[ALL={c3.get('S3_ALL', '-')}] "
               f"S4[A={c4.get('ENGINE_A', '-')} B={c4.get('ENGINE_B', '-')} OVL={c4.get('OVERLAP', '-')}]")
-    print(f"\n生成完成：写入 {written} 天，跳过 {skipped} 天 → {RECORDS}")
+    print(f"\n生成完成：写入 {written} 天，跳过 {skipped} 天 → {records_dir}")
 
 
-def load_records():
+def load_records(records_dir=RECORDS):
     out = {}
-    if not RECORDS.exists():
+    if not records_dir.exists():
         return out
-    for fp in sorted(RECORDS.glob("*.json")):
+    for fp in sorted(records_dir.glob("*.json")):
         out[fp.stem] = json.loads(fp.read_text(encoding="utf-8"))
     return out
 
 
 # ---------------------------------------------------------------- validate
 def cmd_validate(args):
-    p = load_params()
+    uid = resolve_active_user(args)
+    p, pmeta = load_params(uid)
+    _print_overlay(uid, pmeta)
+    records_dir, valid_dir, _, _ = evo_paths(uid)
     horizons = p["validation"]["horizons"]
     strat = str(args.strategy or "1")
     if strat not in STRAT_MODS:
@@ -147,7 +197,7 @@ def cmd_validate(args):
         return
     scope = strat_scope(p, strat, args.scope)
     mod = STRAT_MODS[strat]
-    records = load_records()
+    records = load_records(records_dir)
     if not records:
         print("没有生成记录，先跑 generate。")
         return
@@ -178,7 +228,7 @@ def cmd_validate(args):
     finally:
         con.close()
 
-    VALID.mkdir(parents=True, exist_ok=True)
+    valid_dir.mkdir(parents=True, exist_ok=True)
     detail = []
     for d in sorted(picks_by_date):
         for c in picks_by_date[d]:
@@ -199,7 +249,8 @@ def cmd_validate(args):
         "aggregate": {f"T+{h}": agg[h] for h in horizons},
         "detail": detail,
     }
-    out_fp = VALID / f"cumulative-s{strat}-{scope}.json"
+    _provenance(payload, uid, pmeta)
+    out_fp = valid_dir / f"cumulative-s{strat}-{scope}.json"
     out_fp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"策略{strat} 口径 {scope}：{payload['n_days']} 天 / {payload['n_picks']} 名单 "
           f"({payload['window'][0]}~{payload['window'][1]})")
@@ -215,9 +266,12 @@ STRAT_TITLE = {"1": "策略一", "3": "策略三", "4": "策略四"}
 
 
 def cmd_log(args):
-    p = load_params()
+    uid = resolve_active_user(args)
+    p, pmeta = load_params(uid)
+    _print_overlay(uid, pmeta)
+    _, valid_dir, _, jinhua = evo_paths(uid)
     horizons = p["validation"]["horizons"]
-    files = sorted(VALID.glob("cumulative-s*.json")) if VALID.exists() else []
+    files = sorted(valid_dir.glob("cumulative-s*.json")) if valid_dir.exists() else []
     if not files:
         print("没有验证结果，先跑 validate（--strategy 1/3/4）。")
         return
@@ -254,26 +308,30 @@ def cmd_log(args):
     ]
     block = "\n".join(lines)
 
-    text = JINHUA.read_text(encoding="utf-8") if JINHUA.exists() else "# 进化.md\n"
+    text = jinhua.read_text(encoding="utf-8") if jinhua.exists() else "# 进化.md\n"
     if AUTO_START in text and AUTO_END in text:
         pre = text.split(AUTO_START)[0].rstrip()
         post = text.split(AUTO_END, 1)[1].lstrip("\n")
         new = pre + "\n\n" + block + ("\n\n" + post if post.strip() else "\n")
     else:
         new = text.rstrip() + "\n\n" + block + "\n"
-    JINHUA.write_text(new, encoding="utf-8")
+    jinhua.parent.mkdir(parents=True, exist_ok=True)
+    jinhua.write_text(new, encoding="utf-8")
     print(f"已写回 进化.md 的 AUTO 区块（{len(files)} 张表：{[fp.name for fp in files]}）。")
 
 
 # ---------------------------------------------------------------- suggest
 def cmd_suggest(args):
-    p = load_params()
+    uid = resolve_active_user(args)
+    p, pmeta = load_params(uid)
+    _print_overlay(uid, pmeta)
+    records_dir, _, sugg_dir, _ = evo_paths(uid)
     horizons = p["validation"]["horizons"]
     grid = p["suggest"]["grid"]
     min_n = p["suggest"]["min_samples"]
     con = connect(read_only=True)
     try:
-        records = load_records()
+        records = load_records(records_dir)
         if not records:
             print("没有生成记录，先跑 generate。")
             return
@@ -307,7 +365,7 @@ def cmd_suggest(args):
     cur = (p["strategy1"]["t1core_size"], p["strategy1"]["quintile"])
     mature = [r for r in results if r["n_t5"] and r["n_t5"] >= min_n]
     ranked = sorted(mature, key=lambda r: (-(r["mean_t5"] or -999), -(r["win_t5"] or -999)))
-    SUGG.mkdir(parents=True, exist_ok=True)
+    sugg_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M")
     lines = [
         f"# 调参建议（策略一 T1CORE6）· {ts}",
@@ -335,7 +393,7 @@ def cmd_suggest(args):
                         f"确认后请升 params version 并在 params_history.md 记录依据。")
     lines += ["", "## 结论", "", rec_line, "",
               "> 仅为基于历史已到期样本的网格回测建议，不自动改规则；防止过拟合，务必人工判断后再调。"]
-    out = SUGG / f"suggestion-{ts}.md"
+    out = sugg_dir / f"suggestion-{ts}.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(rec_line)
     print(f"→ {out}")
@@ -343,6 +401,8 @@ def cmd_suggest(args):
 
 # ---------------------------------------------------------------- audit
 def cmd_audit(args):
+    uid = resolve_active_user(args)
+    records_dir, _, _, _ = evo_paths(uid)
     issues = []
     notes = []
     # 1) 研究版生成器前视检测
@@ -367,7 +427,7 @@ def cmd_audit(args):
             notes.append(f"[格式] 人工矩阵同时含 span({nspan}) 与 div({ndiv}) 个个股块；"
                          f"原验证脚本需已打补丁兼容两者（备份 .bak-20260615）。")
     # 4) 生成记录可回溯性 + 多策略覆盖
-    records = load_records()
+    records = load_records(records_dir)
     if records:
         bad = [d for d, r in records.items() if "params_version" not in r]
         if bad:
@@ -386,12 +446,19 @@ def cmd_audit(args):
             notes.append("[覆盖] 暂无策略四记录（重新 generate 以纳入 S4）。")
     else:
         notes.append("[覆盖] 尚无生成记录（先跑 generate）。")
-    # 5) 参数文件完整性
+    # 5) 参数文件完整性（含用户 overlay 合并后）
     try:
-        p = load_params()
+        p, pmeta = load_params(uid)
         for key in ("strategy1", "strategy3", "strategy4", "validation", "suggest"):
             if key not in p:
                 issues.append(f"[参数] params.json 缺 {key} 段。")
+        if pmeta.get("overlay_applied"):
+            notes.append(
+                f"[overlay] 用户 {uid} 策略 overlay v{pmeta.get('overlay_version')} "
+                f"覆盖段={pmeta.get('overlay_sections')}（合并后参数完整）。"
+            )
+        for w in pmeta.get("warnings", []):
+            issues.append(f"[overlay] {w}")
     except Exception as e:
         issues.append(f"[参数] 读取 params.json 失败：{e}")
 
@@ -414,20 +481,25 @@ def main():
     g.add_argument("--date")
     g.add_argument("--start")
     g.add_argument("--end")
+    g.add_argument("--user", default=None, help="按用户加载策略 overlay 并写入 evolution/users/<id>/")
     g.set_defaults(func=cmd_generate)
 
     v = sub.add_parser("validate", help="对生成记录重算前瞻收益")
     v.add_argument("--strategy", help="1 / 3 / 4（默认 1）")
     v.add_argument("--scope")
+    v.add_argument("--user", default=None, help="按用户加载策略 overlay + 用户记录")
     v.set_defaults(func=cmd_validate)
 
     l = sub.add_parser("log", help="把各策略已算结果写回 进化.md（AUTO 区块）")
+    l.add_argument("--user", default=None, help="写回 evolution/users/<id>/进化.md")
     l.set_defaults(func=cmd_log)
 
     s = sub.add_parser("suggest", help="策略一参数网格回测，产出调参建议（仅建议）")
+    s.add_argument("--user", default=None, help="按用户加载策略 overlay + 用户记录")
     s.set_defaults(func=cmd_suggest)
 
     a = sub.add_parser("audit", help="体检：前视/格式/缺数据/参数漂移")
+    a.add_argument("--user", default=None, help="体检该用户的 overlay/记录")
     a.set_defaults(func=cmd_audit)
 
     args = ap.parse_args()

@@ -86,6 +86,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 
 ## Skills 目录
 
+<!-- BEGIN GENERATED: skills-table | scripts/build_registry.py backfill-tables | 成员同步自 skills.registry.json；触发词列人工维护，新增行自动预填 -->
 | Skill | 触发词 |
 |-------|--------|
 | market-overview | 复盘、市场总览、今日行情 |
@@ -106,8 +107,19 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | opinion-cross | 卖方观点提纯、三重共振机会卡片（注：覆盖密度交叉验证在知识库仓 sellside-coverage-cross） |
 | serenity-alpha | 个股弹性预期差、补涨排序 |
 | disclosure-archive | 补公告、披露归档（抓取侧；apply 侧在知识库仓） |
+| duckdb-backfill | 回填 duckdb、补 market_feature_store、增量补数据、fact 覆盖审计、同步 stock_high/sector_stock/limit_heat |
+| strategy-evolve | 策略进化、evolve、策略生成迭代、回测记录、前瞻收益验证（suggest 只建议、不自动改 params.json） |
+| strategy1-matrix | 策略一生成、生成策略1、策略一矩阵、策略1每日优先个股、strategy1 matrix、更新策略一。用于基于已完成的每日复盘数据、把某个交易日写入 `复盘、matrices、strategy1-priority-stock-matrix.html`、并沉淀 T1、T2、OBS、次日验证、尤其适用于避免长 SQL、长 shell 字符串、手工编辑巨大 HTML 单行导致出错 |
+| top-gainers-feishu | 强势股入库、涨幅入库、区间强势、涨幅筛选入库、查询强势股、强势股均线、强势股回踩 |
+| foresight-feedback | 记反馈、记一下、我关注、我对这个感兴趣、想深挖、这个不看了、跳过、不感兴趣、打个分、很重要、猜你想问、越用越懂、自动记反馈 |
+
+跨仓引用（规范源在知识库仓，本仓不放正文）：
+
+| Skill | 触发词 |
+|-------|--------|
 | concept-ingest（已迁至知识库仓） | concept ingest、概念入库、新概念、提取概念 → 读 `<知识库>/skills/concept-ingest/SKILL.md` |
 | entity-delta-ingest（已迁至知识库仓） | entity delta、公司边际变化、更新entity、早知道入库 → 读 `<知识库>/skills/entity-delta-ingest/SKILL.md` |
+<!-- END GENERATED: skills-table -->
 
 ## 关键约束
 
