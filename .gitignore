@@ -94,3 +94,5 @@ intelligence/dream/_local_store/
 feishu-events*.jsonl
 # 若把 store 指向本仓内的 raw/transcripts/，按日期分桶的正文 jsonl 一律忽略
 raw/transcripts/*/*.jsonl
+# dream-loop 7B：KB 事实回写候选默认 staging（人工 review 前不入库）
+intelligence/dream/_kb_candidates/
