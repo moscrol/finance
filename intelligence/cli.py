@@ -388,6 +388,51 @@ def cmd_dream_collect(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_dream_nightly_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "dream-nightly",
+        help="dream-loop 采集半：collect → 从 main 切 dream-loop/transcripts-<date> 分支提交脱敏 digest（suggest-only，绝不合并 main、不提交正文、不碰 DuckDB）",
+    )
+    parser.add_argument("--repo-dir", required=True, help="用于提交 digest 的 git clone 目录（须独立于用户工作区）")
+    parser.add_argument("--events", default=None, help="原始事件 jsonl（采集时读取，如飞书 bot 的 --transcript-log 产物）")
+    parser.add_argument("--source", default="feishu", help="对话源（默认 feishu）")
+    parser.add_argument("--store-subdir", default="raw/transcripts", help="store 相对 repo-dir 的子目录（默认 raw/transcripts，正文按 .gitignore 忽略）")
+    parser.add_argument("--branch-prefix", default="dream-loop/transcripts", help="分支名前缀（默认 dream-loop/transcripts，实际分支带 -<date>）")
+    parser.add_argument("--base", default="main", help="切分支的基线（默认 main）")
+    parser.add_argument("--remote", default="origin", help="git remote（默认 origin）")
+    parser.add_argument("--date", default=None, help="覆盖日期（默认本机当日 YYYY-MM-DD）")
+    parser.add_argument("--no-collect", action="store_true", help="跳过采集，只提交 store 里已有的 digest")
+    parser.add_argument("--push", action="store_true", help="提交后 push 分支（默认只本地 commit，不 push、不合并）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 摘要")
+    parser.set_defaults(func=cmd_dream_nightly)
+
+
+def cmd_dream_nightly(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.dream import nightly
+
+    summary = nightly.run_nightly(
+        nightly.NightlyOptions(
+            repo_dir=args.repo_dir,
+            events_path=args.events,
+            source=args.source,
+            store_subdir=args.store_subdir,
+            branch_prefix=args.branch_prefix,
+            base=args.base,
+            remote=args.remote,
+            date=args.date,
+            collect=not args.no_collect,
+            push=args.push,
+        )
+    )
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(nightly.render_summary(summary))
+    return 0
+
+
 def cmd_theme(args: argparse.Namespace) -> int:
     from intelligence.workflows.theme_radar import ThemeRadarOptions, run_theme_radar
 
@@ -418,6 +463,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)
     add_dream_collect_parser(subparsers)
+    add_dream_nightly_parser(subparsers)
     return parser
 
 
