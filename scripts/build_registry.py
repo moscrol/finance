@@ -21,8 +21,11 @@
 
 子命令
 ------
-- ``scan``    扫描 → 生成 / 刷新 ``skills.registry.json``。
-- ``--check`` 重建并与已提交的注册表比对；有漂移则以非 0 退出（供 CI）。
+- ``scan``                扫描 → 生成 / 刷新 ``skills.registry.json``。
+- ``--check`` / ``check``  重建并与已提交的注册表比对；有漂移则以非 0 退出（供 CI）。
+- ``check-parseability``   元校验：每个 ``SKILL.md`` 的 frontmatter 是否可被扫描器
+  正确解析（含非空 name/description，name 与目录名一致）；不可解析则非 0 退出（供 CI）。
+- ``backfill-tables --check`` / ``generate-views --check``  校验文档表 / agent 视图是否最新。
 """
 
 from __future__ import annotations
@@ -359,6 +362,56 @@ def cmd_scan() -> int:
     return 0
 
 
+def _frontmatter_block(text: str) -> Optional[str]:
+    """返回 SKILL.md 顶部 ``--- ... ---`` 之间的原文；无该块时返回 None。"""
+    m = re.match(r"^---\s*\n(.*?)\n---", text, re.S)
+    return m.group(1) if m else None
+
+
+def cmd_check_parseability() -> int:
+    """元校验：每个在场仓的 ``skills/<name>/SKILL.md`` frontmatter 是否可被注册表
+    扫描器正确解析（含非空 name/description，且 name 与目录名一致）。
+
+    设计为逐文件检查，不触及 crossRepoDuplicates / declaredSplits，因此：
+    - 在只 checkout 单仓的 CI 环境下不会误报；
+    - ``disclosure-archive`` 这类合法跨仓拆分（两仓各有规范源）也不会误报。
+    """
+    present = _present_repos()
+    problems: list[tuple[str, str, str]] = []
+    checked = 0
+    for _repo_name, short, root in present:
+        skills_dir = root / "skills"
+        if not skills_dir.is_dir():
+            continue
+        for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
+            checked += 1
+            dir_name = skill_md.parent.name
+            key = f"{short}/{dir_name}"
+            rel = skill_md.relative_to(root).as_posix()
+            text = skill_md.read_text(encoding="utf-8", errors="replace")
+            if _frontmatter_block(text) is None:
+                problems.append((key, rel, "缺少 frontmatter（顶部 --- ... --- 块）"))
+                continue
+            fm = _parse_frontmatter(text)
+            name = (fm.get("name") or "").strip()
+            desc = (fm.get("description") or "").strip()
+            if not name:
+                problems.append((key, rel, "frontmatter 缺少 name 字段"))
+            elif name != dir_name:
+                problems.append((key, rel, f"name 字段({name!r})与目录名({dir_name!r})不一致"))
+            if not desc:
+                problems.append((key, rel, "frontmatter 缺少 description 字段"))
+    if problems:
+        for key, rel, msg in problems:
+            print(f"[check-parseability] \u2717 {key} ({rel}): {msg}", file=sys.stderr)
+        print(f"[check-parseability] {len(problems)} 处 SKILL.md 不可解析/字段缺失/名称不一致"
+              f"（共扫 {checked} 个）。", file=sys.stderr)
+        return 1
+    print(f"[check-parseability] 全部 {checked} 个 SKILL.md frontmatter 可解析、"
+          f"name 与目录名一致。")
+    return 0
+
+
 def cmd_check() -> int:
     existing = _load_existing()
     if existing is None:
@@ -631,6 +684,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     sub.add_parser("scan", help="扫描三仓生成/刷新 skills.registry.json")
     p_check = sub.add_parser("check", help="比对注册表与源，有漂移则非 0 退出")
     p_check.set_defaults(cmd="check")
+    sub.add_parser("check-parseability",
+                   help="元校验：每个 SKILL.md frontmatter 可解析且 name 与目录名一致，否则非 0 退出")
     p_bf = sub.add_parser("backfill-tables", help="用注册表回填各仓文档里的手写 skill 表")
     p_bf.add_argument("--check", dest="bf_check", action="store_true",
                       help="只校验文档表是否最新，不写入；过期则非 0 退出")
@@ -640,6 +695,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--check", action="store_true", help="等价于 check 子命令")
     args = parser.parse_args(argv)
 
+    if args.cmd == "check-parseability":
+        return cmd_check_parseability()
     if args.cmd == "backfill-tables":
         return cmd_backfill(check=args.bf_check)
     if args.cmd == "generate-views":
