@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T02:55:03Z",
+  "generated_at": "2026-06-17T03:16:16Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 23
+      "skills": 24
     },
     {
       "name": "knowledge-base-private",
@@ -149,6 +149,33 @@
       "entrypoint": null,
       "computedHash": "sha256:8d554a126223f7a2b11272199418a4d4a3f6351e707db0a2b94cb222f44bcee3",
       "agentOnly": false,
+      "views": []
+    },
+    "ws/foresight-feedback": {
+      "name": "foresight-feedback",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": ".claude/skills/foresight-feedback/SKILL.md",
+      "description": "对话自动记反馈——把对话里的兴趣/否定/评分信号自动写回 foresight 反馈回路（users/<id>/interactions.jsonl），让系统越用越懂你。触发词：记反馈、记一下、我关注、我对这个感兴趣、想深挖、这个不看了、跳过、不感兴趣、打个分、很重要、猜你想问、越用越懂、自动记反馈。",
+      "triggers": [
+        "记反馈",
+        "记一下",
+        "我关注",
+        "我对这个感兴趣",
+        "想深挖",
+        "这个不看了",
+        "跳过",
+        "不感兴趣",
+        "打个分",
+        "很重要",
+        "猜你想问",
+        "越用越懂",
+        "自动记反馈"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:e325e770fdbdfe995187b34a5df3e7d102ba1669b4600a9febdb57b2b189bbe7",
+      "agentOnly": true,
       "views": []
     },
     "ws/high-volume-gainers": {

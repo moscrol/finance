@@ -64,6 +64,20 @@ DECLARED_SPLITS: dict[str, dict[str, object]] = {
     },
 }
 
+# backfill-tables：把各仓文档里那张手写 skill 表转成「生成块」。
+# 成员（行集合）由 skills.registry.json 权威同步；触发词列人工维护，新增行用
+# 注册表触发词预填。块外内容一律不动。
+TABLE_MARKER_BEGIN = (
+    "<!-- BEGIN GENERATED: skills-table | scripts/build_registry.py backfill-tables"
+    " | 成员同步自 skills.registry.json；触发词列人工维护，新增行自动预填 -->"
+)
+TABLE_MARKER_END = "<!-- END GENERATED: skills-table -->"
+
+# 需要回填的文档表：(仓目录名, 仓短名, 文档相对路径, 章节标题)
+DOC_TABLES = [
+    ("finance-workspace-private", "ws", "CLAUDE.md", "## Skills 目录"),
+]
+
 
 # ---------------------------------------------------------------------------
 # frontmatter 解析
@@ -393,15 +407,163 @@ def cmd_check() -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# backfill-tables：回填文档里的手写 skill 表
+# ---------------------------------------------------------------------------
+
+def _split_cells(line: str) -> list[str]:
+    """``| a | b |`` -> ``["a", "b"]``。"""
+    return [c.strip() for c in line.strip().strip("|").split("|")]
+
+
+def _is_sep_row(cells: list[str]) -> bool:
+    """markdown 表的分隔行 ``|---|---|``。"""
+    return bool(cells) and all(c and set(c) <= set("-: ") for c in cells)
+
+
+def _canonical_skills(short: str, payload: dict) -> tuple[list[str], dict[str, list[str]]]:
+    """返回某仓规范 skill 名（排除 agentOnly）及 name->triggers 映射。"""
+    names: list[str] = []
+    triggers: dict[str, list[str]] = {}
+    for key, entry in payload["skills"].items():
+        if not key.startswith(short + "/"):
+            continue
+        if entry.get("agentOnly"):
+            continue
+        name = entry["name"]
+        names.append(name)
+        triggers[name] = entry.get("triggers", [])
+    return names, triggers
+
+
+def _locate_region(lines: list[str], section: str) -> tuple[int, int, int]:
+    """定位章节标题行及待替换区间。
+
+    返回 ``(heading_idx, region_start, region_end)``，区间为闭区间。
+    - 已有标记块：区间从 BEGIN 标记到 END 标记（含）。
+    - 首次回填：区间为紧随标题的那张连续 markdown 表。
+    """
+    heading_idx = next(
+        (i for i, l in enumerate(lines) if l.strip() == section), None
+    )
+    if heading_idx is None:
+        raise ValueError(f"未找到章节标题：{section}")
+    j = heading_idx + 1
+    while j < len(lines) and lines[j].strip() == "":
+        j += 1
+    if j >= len(lines):
+        raise ValueError(f"章节 {section} 下没有内容")
+    if lines[j].strip() == TABLE_MARKER_BEGIN:
+        end = next(
+            (k for k in range(j, len(lines)) if lines[k].strip() == TABLE_MARKER_END),
+            None,
+        )
+        if end is None:
+            raise ValueError("找到 BEGIN 标记但缺少 END 标记")
+        return heading_idx, j, end
+    if lines[j].lstrip().startswith("|"):
+        end = j
+        while end + 1 < len(lines) and lines[end + 1].lstrip().startswith("|"):
+            end += 1
+        return heading_idx, j, end
+    raise ValueError(f"章节 {section} 下未找到 skill 表")
+
+
+def _render_doc(orig: str, short: str, section: str, payload: dict) -> str:
+    """重建文档：替换章节下的 skill 表为生成块，块外内容不动。"""
+    lines = orig.split("\n")
+    heading_idx, start, end = _locate_region(lines, section)
+    marker_mode = lines[start].strip() == TABLE_MARKER_BEGIN
+    row_lines = lines[start + 1:end] if marker_mode else lines[start:end + 1]
+
+    existing_rows: list[tuple[str, str]] = []
+    for l in row_lines:
+        if not l.strip().startswith("|"):
+            continue
+        cells = _split_cells(l)
+        if len(cells) < 2 or cells[0] in ("Skill", "skill") or _is_sep_row(cells):
+            continue
+        existing_rows.append((cells[0], cells[1]))
+
+    names, triggers = _canonical_skills(short, payload)
+    canon = set(names)
+
+    existing_trig: dict[str, str] = {}
+    existing_order: list[str] = []
+    pointer_rows: list[tuple[str, str]] = []
+    for col0, col1 in existing_rows:
+        bare = re.split(r"[（(]", col0, 1)[0].strip()
+        if bare in canon:
+            existing_trig[bare] = col1
+            if bare not in existing_order:
+                existing_order.append(bare)
+        else:
+            pointer_rows.append((col0, col1))
+
+    ordered = existing_order + sorted(canon - set(existing_order))
+
+    block = [TABLE_MARKER_BEGIN, "| Skill | 触发词 |", "|-------|--------|"]
+    for name in ordered:
+        trig = existing_trig.get(name)
+        if trig is None:
+            regs = triggers.get(name) or []
+            trig = "、".join(regs) if regs else "（待补：SKILL.md 无触发词字段）"
+        block.append(f"| {name} | {trig} |")
+    if pointer_rows:
+        block += ["", "跨仓引用（规范源在知识库仓，本仓不放正文）：", "",
+                  "| Skill | 触发词 |", "|-------|--------|"]
+        block += [f"| {c0} | {c1} |" for c0, c1 in pointer_rows]
+    block.append(TABLE_MARKER_END)
+
+    remainder = lines[end + 1:]
+    while remainder and remainder[0].strip() == "":
+        remainder.pop(0)
+    new_lines = lines[:heading_idx + 1] + [""] + block + [""] + remainder
+    return "\n".join(new_lines)
+
+
+def cmd_backfill(check: bool) -> int:
+    payload = build_payload()
+    changed = False
+    for repo_name, short, rel, section in DOC_TABLES:
+        path = REPOS_DIR / repo_name / rel
+        if not path.exists():
+            print(f"[backfill] 跳过（仓不在场）：{repo_name}/{rel}")
+            continue
+        orig = path.read_text(encoding="utf-8")
+        new = _render_doc(orig, short, section, payload)
+        if new == orig:
+            print(f"[backfill] 无变化：{repo_name}/{rel}")
+            continue
+        changed = True
+        if check:
+            print(f"[backfill --check] 过期：{repo_name}/{rel}")
+        else:
+            path.write_text(new, encoding="utf-8")
+            print(f"[backfill] 已更新：{repo_name}/{rel}")
+    if check:
+        if changed:
+            print("[backfill --check] 文档 skill 表与注册表不一致，请运行 "
+                  "`python3 scripts/build_registry.py backfill-tables` 并提交。", file=sys.stderr)
+            return 1
+        print("[backfill --check] 文档 skill 表与注册表一致。")
+    return 0
+
+
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="工具/skill 注册表生成器（scan + --check，只读）")
+    parser = argparse.ArgumentParser(description="工具/skill 注册表生成器（scan / backfill-tables / --check）")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("scan", help="扫描三仓生成/刷新 skills.registry.json")
     p_check = sub.add_parser("check", help="比对注册表与源，有漂移则非 0 退出")
     p_check.set_defaults(cmd="check")
+    p_bf = sub.add_parser("backfill-tables", help="用注册表回填各仓文档里的手写 skill 表")
+    p_bf.add_argument("--check", dest="bf_check", action="store_true",
+                      help="只校验文档表是否最新，不写入；过期则非 0 退出")
     parser.add_argument("--check", action="store_true", help="等价于 check 子命令")
     args = parser.parse_args(argv)
 
+    if args.cmd == "backfill-tables":
+        return cmd_backfill(check=args.bf_check)
     if args.check or args.cmd == "check":
         return cmd_check()
     if args.cmd == "scan" or args.cmd is None:
