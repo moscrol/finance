@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "task-plan",
+  "description": "task-planner（Inversion）采访产物。批量/会话级高风险任务动手前，把 G1→G8 采访回答填进本结构，经 scripts/check_task_plan.py 代码门校验通过后才放行抓数/回填/写库。建议落到 /tmp/task-plan.json，不入库。",
+  "type": "object",
+  "required": [
+    "task_id",
+    "goal",
+    "task_type",
+    "scope",
+    "data_source",
+    "target_sink",
+    "env",
+    "credentials_ready",
+    "no_lookahead_ack",
+    "require_dryrun_approval",
+    "skip_rules",
+    "on_missing_data",
+    "handoff"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "G1 · 这次任务的短标识，如 backfill-20260601-0615。"
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1,
+      "description": "G1 · 一句话目标。"
+    },
+    "task_type": {
+      "type": "string",
+      "enum": ["复盘批处理", "批量回填", "开新题材"],
+      "description": "G1 · 任务类型。复盘批处理/批量回填 会强约束 no_lookahead_ack=true。"
+    },
+    "scope": {
+      "type": "object",
+      "description": "G2 · 范围。date_range(start+end) / symbols / themes 至少给一个。",
+      "properties": {
+        "date_range": {
+          "type": "object",
+          "properties": {
+            "start": {"type": "string", "description": "起始交易日 YYYY-MM-DD。"},
+            "end": {"type": "string", "description": "结束交易日 YYYY-MM-DD。"}
+          }
+        },
+        "symbols": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "标的代码清单。"
+        },
+        "themes": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "题材/板块清单。"
+        }
+      }
+    },
+    "data_source": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["fupanhui", "ifind", "akshare", "duckdb", "feishu", "wiki"]},
+      "minItems": 1,
+      "description": "G3 · 数据来源（可多选）。"
+    },
+    "target_sink": {
+      "type": "string",
+      "enum": ["feishu", "duckdb", "readonly"],
+      "description": "G4 · 结果落库去向（单选，显式）。feishu/duckdb 会强约束 require_dryrun_approval=true。"
+    },
+    "env": {
+      "type": "object",
+      "required": ["branch"],
+      "properties": {
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "description": "G5 · 任务分支，拒绝 main/master。"
+        }
+      }
+    },
+    "credentials_ready": {
+      "type": "boolean",
+      "description": "G6 · 飞书/fupanhui/iFinD 凭证与 shared 软链是否就位可跑。"
+    },
+    "no_lookahead_ack": {
+      "type": "boolean",
+      "description": "G7 · 是否确认无前视（只用 D0 及以前数据）。复盘批处理/批量回填必须 true。"
+    },
+    "require_dryrun_approval": {
+      "type": "boolean",
+      "description": "G8 · 落库前是否先 dry-run 复核。写 feishu/duckdb 必须 true。"
+    },
+    "skip_rules": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "G8 · 跳过规则（停牌/ST/节假日等），可为空列表但 key 必须在。"
+    },
+    "on_missing_data": {
+      "type": "string",
+      "enum": ["ask", "skip", "pending"],
+      "description": "G8 · 遇到缺数据/接口异常的处置。"
+    },
+    "handoff": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "description": "G8 · 交接给哪些下游 skill 执行。"
+    }
+  }
+}
