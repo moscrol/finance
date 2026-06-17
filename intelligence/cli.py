@@ -337,7 +337,8 @@ def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
 
     parser = subparsers.add_parser(
         "feishu-bot",
-        help="飞书回声 bot（B-S0，长连接打通验证；凭证走 env / ~/.claude/shared/feishu_config.json）",
+        help="飞书 chat bot（B-S2，长连接 + in-process 调 ask 回六段；--echo 退回 B-S0 自检；"
+        "凭证走 env / ~/.claude/shared/feishu_config.json）",
     )
     feishu_bot.add_arguments(parser)
     parser.set_defaults(func=cmd_feishu_bot)
