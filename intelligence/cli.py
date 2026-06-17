@@ -349,6 +349,45 @@ def cmd_feishu_bot(args: argparse.Namespace) -> int:
     return feishu_bot.run(feishu_bot.build_config(args))
 
 
+def add_dream_collect_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "dream-collect",
+        help="dream-loop C-1A-S0：对话源（S0 仅飞书）归一化+脱敏 → transcript store + manifest + 脱敏 digest（suggest-only，不碰 DuckDB）",
+    )
+    parser.add_argument("--source", default="feishu", choices=["feishu"], help="对话源（S0 仅 feishu）")
+    parser.add_argument("--events", default=None, help="原始事件 jsonl（飞书 bot 的 --transcript-log 产物）")
+    parser.add_argument(
+        "--store-dir",
+        default=None,
+        help="transcript store 根目录（默认 env DREAM_TRANSCRIPT_STORE > 知识库 raw/transcripts > 本仓 _local 回退）",
+    )
+    parser.add_argument("--repo", default=None, help="标注来源仓库 tag（可选）")
+    parser.add_argument("--digest-only", action="store_true", help="只用现有 store 重建 digest，不读 events")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 摘要")
+    parser.set_defaults(func=cmd_dream_collect)
+
+
+def cmd_dream_collect(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.dream import collector
+
+    summary = collector.run_collect(
+        collector.CollectOptions(
+            events_path=args.events,
+            store_dir=args.store_dir,
+            source=args.source,
+            repo=args.repo,
+            digest_only=args.digest_only,
+        )
+    )
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(collector.render_summary(summary), end="")
+    return 0
+
+
 def cmd_theme(args: argparse.Namespace) -> int:
     from intelligence.workflows.theme_radar import ThemeRadarOptions, run_theme_radar
 
@@ -378,6 +417,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_theme_parser(subparsers)
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)
+    add_dream_collect_parser(subparsers)
     return parser
 
 

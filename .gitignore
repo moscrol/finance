@@ -86,3 +86,11 @@ evolution/validation/
 evolution/suggestions/
 # 按用户的 evolve 输出（overlay 生效后的记录/验证/建议/进化.md），运行时生成，不入库
 evolution/users/
+
+# dream-loop transcript store：正文 jsonl 仅本地留存，不入库；
+# 只有 manifest.jsonl 与 digest-*.md（脱敏摘要）可提交（设计 decision1 §1）。
+intelligence/dream/_local_store/
+# 飞书 bot --transcript-log 的原始事件落盘（含正文，本地留存）
+feishu-events*.jsonl
+# 若把 store 指向本仓内的 raw/transcripts/，按日期分桶的正文 jsonl 一律忽略
+raw/transcripts/*/*.jsonl

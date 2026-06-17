@@ -38,6 +38,7 @@ import os
 import sys
 from collections import deque
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -63,6 +64,9 @@ class BotConfig:
     log_level: str = "info"
     prefix: str = ""  # 回声前缀；默认空=逐字回声。设非空便于一眼区分 bot 回复。
     dedup_window: int = 512  # 近期 message_id 去重窗口（飞书超时会重投事件）。
+    # dream-loop C-1A-S0 采集源：把每轮 Q/A append 到此 jsonl（正文本地保存、已 gitignore）。
+    # 默认 None=关闭（不改变 B-S0 回声行为）；由 --transcript-log / env FEISHU_TRANSCRIPT_LOG 开启。
+    transcript_log: Optional[str] = None
 
 
 def _first_present(cfg: dict[str, Any], keys: tuple[str, ...]) -> Optional[str]:
@@ -178,6 +182,37 @@ def compose_reply(text: Optional[str], message_type: Optional[str], prefix: str 
     return f"{prefix}{text}" if prefix else text
 
 
+def build_transcript_event(
+    message_id: Optional[str],
+    chat_id: Optional[str],
+    message_type: Optional[str],
+    text: Optional[str],
+    reply: str,
+) -> dict[str, Any]:
+    """构造一条 dream-loop 采集用的原始事件（与 dream.collector 的飞书适配对齐）。
+
+    正文未脱敏（脱敏在 collector 内统一施加）；本文件仅本地留存、已 gitignore。
+    """
+    return {
+        "ts": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "source": "feishu",
+        "message_id": message_id,
+        "chat_id": chat_id,
+        "message_type": message_type,
+        "text": text,
+        "reply": reply,
+        "direction": "received",
+    }
+
+
+def append_transcript(path: str, event: dict[str, Any]) -> None:
+    """把一条事件 append 到 jsonl（按需建目录）。失败由调用方吞掉，绝不影响回声。"""
+    p = Path(path).expanduser()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+
 # --------------------------------------------------------------------------- #
 # 运行（lark_oapi 在此惰性导入）
 # --------------------------------------------------------------------------- #
@@ -244,6 +279,21 @@ def run(config: BotConfig) -> int:
                 getattr(resp, "get_log_id", lambda: "")(),
             )
 
+    def _record_transcript(
+        message_id: Optional[str],
+        chat_id: Optional[str],
+        message_type: Optional[str],
+        text: Optional[str],
+        reply: str,
+    ) -> None:
+        if not config.transcript_log:
+            return
+        try:
+            event = build_transcript_event(message_id, chat_id, message_type, text, reply)
+            append_transcript(config.transcript_log, event)
+        except Exception as exc:  # noqa: BLE001 - 采集落盘失败绝不影响回声主流程
+            log.warning("transcript 落盘失败（已忽略）：%s", exc)
+
     def on_message_receive(data: "P2ImMessageReceiveV1") -> None:
         message = data.event.message
         message_id = message.message_id
@@ -255,6 +305,7 @@ def run(config: BotConfig) -> int:
         log.info("收到 type=%s id=%s -> 回声 %d 字", message.message_type, message_id, len(reply))
         if message_id:
             _reply(message_id, reply)
+        _record_transcript(message_id, message.chat_id, message.message_type, text, reply)
 
     event_handler = (
         lark.EventDispatcherHandler.builder("", "")
@@ -291,16 +342,24 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--prefix", default="", help="回声前缀（默认空=逐字回声；设非空便于区分 bot 回复）")
     parser.add_argument("--dedup-window", type=int, default=512, help="近期 message_id 去重窗口（默认 512）")
+    parser.add_argument(
+        "--transcript-log",
+        default=None,
+        help="dream-loop 采集源：把每轮 Q/A append 到此 jsonl（正文本地保存、已 gitignore；"
+        "默认关，也可用 env FEISHU_TRANSCRIPT_LOG 开启）",
+    )
 
 
 def build_config(args: argparse.Namespace) -> BotConfig:
     app_id, app_secret = resolve_credentials(args.app_id, args.app_secret)
+    transcript_log = args.transcript_log or os.environ.get("FEISHU_TRANSCRIPT_LOG") or None
     return BotConfig(
         app_id=app_id,
         app_secret=app_secret,
         log_level=args.log_level,
         prefix=args.prefix,
         dedup_window=args.dedup_window,
+        transcript_log=transcript_log,
     )
 
 
