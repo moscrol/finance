@@ -1,8 +1,11 @@
-# dream-loop · transcript store（C-1A-S0）
+# dream-loop · transcript store（C-1A-S0 / S1）
 
-> 决策 1「dream loop」的**采集半 + 落盘**起点。本阶段（S0）只做最小切入：把**飞书** chat 一个源
-> 归一化、脱敏后写入 transcript store，产出可提交的脱敏 digest。推理半（读摘要→开 suggest-only PR）
-> 是后续阶段（Devin 定时 session，路线图 C-1B-S2），不在本目录。
+> 决策 1「dream loop」的**采集半 + 落盘**。把多个对话源归一化、脱敏后写入 transcript store，
+> 产出可提交的脱敏 digest。推理半（读摘要→开 suggest-only PR）是后续阶段
+> （Devin 定时 session，路线图 C-1B-S2），不在本目录。
+>
+> - **C-1A-S0**：最小切入，飞书一个源 + 落盘三件套 + 脱敏硬门 + 幂等。
+> - **C-1A-S1**：补 `claude-code` / `claude-mem` / `windsurf` / `devin` 四源归一化 adapter。
 
 ## 这步做什么 / 不做什么
 
@@ -13,21 +16,30 @@
   - `<store>/manifest.jsonl` —— 每个 (date, source, session) 一条元数据，可审计、可提交；
   - `<store>/digest-<date>.md` —— 当日脱敏摘要，**可提交**，供推理半读取。
 - ✅ 幂等：重跑产生字节一致的结果（manifest 按主键 upsert、`collected_at` 取桶内最大 ts）。
-- ❌ 不接 claude-code / claude-mem / windsurf / devin 等其它源（S0 仅 feishu）。
+- ✅ 源归一化 adapter（`_NORMALIZERS`）：`feishu` / `claude-code` / `claude-mem` / `windsurf` / `devin`，
+  统一映射 role 到 `user|assistant|tool`，时间戳兼容 ISO8601 与 epoch 秒/毫秒。
 - ❌ 不实现推理半、不开 Devin playbook/schedule、不自动合并 main。
+- ❌ 不做采集半 launchd 定时化（C-1A 采集半，后续阶段）。
 - ❌ 不碰 DuckDB、不抢写锁。
 
 ## 数据流
 
 ```
-飞书 bot（feishu_bot.py, --transcript-log 开启）
-   └─ append 原始事件 jsonl（正文，本地，gitignore）
-        └─ dream-collect（collector.py）
-             ├─ 归一化 + 脱敏
-             ├─ <store>/<date>/feishu-<session>.jsonl  （正文，gitignore）
-             ├─ <store>/manifest.jsonl                 （元数据，可提交）
-             └─ <store>/digest-<date>.md               （脱敏摘要，可提交）
+对话源原始 jsonl（每行一个事件/消息/会话/observation，视源而定）
+  · feishu     —— feishu_bot.py --transcript-log 产出
+  · claude-code—— Claude Code 会话历史 jsonl（逐行 message）
+  · claude-mem —— get_observations 产出（逐行 observation）
+  · windsurf   —— Cascade 会话（一行 = 一个含 messages 的会话）
+  · devin      —— Devin API/MCP session 详情（一行 = 一个含 messages 的 session）
+   └─ dream-collect --source <源> （collector.py）
+        ├─ 归一化（_NORMALIZERS[源]）+ 脱敏
+        ├─ <store>/<date>/<源>-<session>.jsonl  （正文，gitignore）
+        ├─ <store>/manifest.jsonl               （元数据，可提交）
+        └─ <store>/digest-<date>.md             （脱敏摘要，可提交）
 ```
+
+各源原始 jsonl 的字段是容错解析的：缺字段走合理回退（session_id/ts/repo 都有兜底），
+无可读文本的行（纯 summary / 空 content）自动跳过。
 
 ## 用法
 
