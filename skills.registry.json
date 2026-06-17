@@ -129,7 +129,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:53c3f0b9960edef11fb7e7088dcfaac27ca742df5448a186f7320d71cbe1507f",
+      "computedHash": "sha256:38acf525fa5bdf4dcd595444d695a84cb7a87da48686627e4acdeee8f79515b9",
       "agentOnly": false,
       "views": []
     },
@@ -298,7 +298,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d1fdec9161e3e97e16269487ac5cb100cc4813191f1e0eef6e6e303030a70f08",
+      "computedHash": "sha256:87f38b5d90c5a56b0c79236c9814be522b8e3b14f5181465238b762c14764245",
       "agentOnly": false,
       "views": []
     },
@@ -424,7 +424,7 @@
       ],
       "note": "只看当前题材结构用 theme-radar；本 skill 是带盘面时间轴的历史回溯。",
       "entrypoint": null,
-      "computedHash": "sha256:49aa7d0f487636a6e460cb3888c2088e5716c3329d9cf53c217b15a9e814a54a",
+      "computedHash": "sha256:9a7e29ee91d0df3012ac39f1f58f5365240e3b37379233492f3d740764ec8a7d",
       "agentOnly": false,
       "views": [
         {
