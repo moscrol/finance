@@ -47,7 +47,10 @@ python3 skills/opinion-cross/scripts/opinion_cross.py \
   → [C3 多空分歧识别]  看多 vs 看空措辞计数 + 预期差拐点（符合预期/辟谣/super expectation）
   → [C4 三维交叉引擎]  复用 theme-radar：逐标的构造 signal/context → signal_dimension_rows → resonance_tier
   → [C5 Tier 卡片报告] 按 Tier1/2/3 分组，每张卡片含 三维交叉表 + 硬度分层 + 催化 + 操作建议
+  → 〖复核门〗  定稿/落地最终卡片报告**前**必过 `check_opinion_review.py`（exit-0），见下「复核门」节
 ```
+
+> C1–C5 是**机器底稿**，最终卡片报告是 agent 复核后的**定稿**。机器底稿与定稿之间隔一道 exit-0 复核门（见下），把「由 agent 复核盘面维度与硬度后定稿」从散文约定硬化成检查点信号门。
 
 **题材无关**：标的清单来自知识库 `relations/entity_exposures.json`，标的→产业方向映射来自 `entity_exposures`（含 `chain_layer/strength/role/fact_hardness`）+ `concept_graph.json`，因此 CPO、硅光、固态电池等任何题材都能跑，不写死。
 
@@ -106,6 +109,29 @@ python3 skills/opinion-cross/scripts/opinion_cross.py \
 1. **主体指代（anaphora）**：当硬事实句以「公司…」指代主体而未写出标的名时，会归错或漏归。例：矽电的「华为哈勃入股 3%」「与兆驰签 3.35 亿」中，3.35 亿被归到句中出现的"兆驰股份"，矽电因此被低估为 Tier 3。agent 复核时应把这类硬事实归回正确主体。
 2. **市场热点维度**：静态文本里通常没有当日盘面，多为"待补"，因此 Tier 上限常停在 2。要升 Tier 1 需接 `limit-advance`/`top-gainers`/`market-overview` 当日盘面信号（后续可做）。
 3. **标的识别依赖 KB**：只识别 `entity_exposures` 里已存在的实体；题材或公司未入库则漏识别（先走 disclosure/ingest 补库）。
+
+## 复核门（C5 之后、定稿前必做 · `check_opinion_review.py`）
+
+上面三条「已知局限」过去只是散文约定——机器底稿吐完，agent 凭自觉复核。本门把它硬化成 **exit-0 检查点信号门**（体例同知识库仓 cross-analysis `check_cross_review.py` / sellside `check_opinion_review.py`、disclosure-archive `--apply`）：**机器底稿的每个🟢硬证据标的**都必须有一条复核结论，且必须核过主体指代归属、对市场热点维度表态、给出合法 Tier。门未过（exit 1）禁止定稿最终卡片报告。
+
+```bash
+# 1) 跑机器底稿（C1–C5），落 --out JSON
+python3 skills/opinion-cross/scripts/opinion_cross.py --term CPO --input stream.txt --out /tmp/oc.json
+# 2) 按「已知局限」逐标的复核，填 /tmp/opinion_review.json（--template 出空白模板）
+python3 skills/opinion-cross/scripts/check_opinion_review.py --template > /tmp/opinion_review.json
+# 3) 过门：exit 0 才放行定稿
+python3 skills/opinion-cross/scripts/check_opinion_review.py /tmp/oc.json /tmp/opinion_review.json
+```
+
+复核产物 `reviewed[]` 每条对应一个标的：`target`（对齐 `opportunities[].target`）、`final_tier`（Tier 1/2/3/排除，可改判机器 Tier）、`anaphora_checked`（bool，硬证据标的**必须** true = 已核对硬事实归属正确主体，堵局限①主体指代）、`market_heat`（市场热点维度表态，待补也要显式写「待补」= 局限②）、`note`（复核结论）。
+
+门校验（只读，不改 `opinion_cross.py`、不写任何库）：
+
+- 机器命中的**每个🟢硬证据标的**（`hardness.dominant==硬证据` 或 `hardness.hard` 非空）必须在 `reviewed[]` 里有结论，且 `anaphora_checked==true`；纯软推演标的不强制（与机器同档，不抬权）。
+- 每条 `reviewed` 的 `final_tier` 合法、`anaphora_checked` 是 bool、`market_heat`/`note` 非空。
+- 退出码：0 = 复核充分可定稿；1 = 门控未过；2 = 用法/解析错误。
+
+**诚实的天花板**：门只能保证「每个硬证据标的被有意识地复核过」，**不能**验证 agent 真的纠对了主体指代、或真补全了盘面——同 sellside 观点不可枚举的天花板同源（区别：opinion-cross 命中标的可枚举，故能强制逐标的覆盖）。市场热点维度仍多为「待补」，要真升 Tier 1 需接 `limit-advance`/`top-gainers`/`market-overview` 当日盘面（见局限②）。
 
 ## 观点事件库（accumulation layer · `opinion_store.py`）
 
