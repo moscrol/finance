@@ -332,6 +332,23 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
+    from intelligence.chat import feishu_bot
+
+    parser = subparsers.add_parser(
+        "feishu-bot",
+        help="飞书回声 bot（B-S0，长连接打通验证；凭证走 env / ~/.claude/shared/feishu_config.json）",
+    )
+    feishu_bot.add_arguments(parser)
+    parser.set_defaults(func=cmd_feishu_bot)
+
+
+def cmd_feishu_bot(args: argparse.Namespace) -> int:
+    from intelligence.chat import feishu_bot
+
+    return feishu_bot.run(feishu_bot.build_config(args))
+
+
 def cmd_theme(args: argparse.Namespace) -> int:
     from intelligence.workflows.theme_radar import ThemeRadarOptions, run_theme_radar
 
@@ -360,6 +377,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)
     add_serve_parser(subparsers)
+    add_feishu_bot_parser(subparsers)
     return parser
 
 

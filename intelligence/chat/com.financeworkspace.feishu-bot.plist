@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd 模板：飞书回声 bot 常驻（B-S0）。
+  这是模板，安装前需替换两处占位（见 README「安装 launchd」）：
+    __REPO_DIR__     → 仓库绝对路径，例如 /Users/lbq/Desktop/c c/金融
+    __PYTHON__       → python3 解释器绝对路径（which python3）
+  凭证默认从 ~/.claude/shared/feishu_config.json 读取；若改用环境变量，
+  取消下方 EnvironmentVariables 注释并填值（切勿把含密钥的 plist 提交进 git）。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.financeworkspace.feishu-bot</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>-m</string>
+        <string>intelligence.cli</string>
+        <string>feishu-bot</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_DIR__</string>
+
+    <!-- 凭证若走环境变量，取消注释并填值（更推荐放 feishu_config.json，避免 plist 落盘密钥）
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>FEISHU_APP_ID</key>
+        <string>cli_xxxxxxxxxxxx</string>
+        <key>FEISHU_APP_SECRET</key>
+        <string>xxxxxxxxxxxxxxxxxxxxxx</string>
+    </dict>
+    -->
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>__REPO_DIR__/logs/feishu-bot.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO_DIR__/logs/feishu-bot.err.log</string>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>
