@@ -10,7 +10,7 @@ import sys
 
 def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
-        "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S)"
+        "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S) + wiki 向量语义召回 (W)"
     )
     parser.add_argument("query", help="Question / theme term, e.g. 液冷服务器")
     parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
@@ -25,6 +25,18 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument("--no-modules", action="store_true", help="Disable theme-radar module fan-out (graph+盘面 only)")
     parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
+    parser.add_argument(
+        "--no-wiki-rag",
+        action="store_true",
+        help="Disable the W source (knowledge-base hybrid 向量语义召回 wiki 候选页). "
+        "Auto-skips anyway when the KB repo / rag_index.py / 向量索引 is unavailable.",
+    )
+    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
+    parser.add_argument(
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
+        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF)",
+    )
+    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
     parser.add_argument(
         "--llm",
         action="store_true",
@@ -169,6 +181,10 @@ def cmd_ask(args: argparse.Namespace) -> int:
             use_modules=not args.no_modules,
             modules=modules,
             module_timeout=args.module_timeout,
+            use_wiki_rag=not args.no_wiki_rag,
+            wiki_rag_k=args.wiki_rag_k,
+            wiki_rag_mode=args.wiki_rag_mode,
+            wiki_rag_timeout=args.wiki_rag_timeout,
             use_llm=args.llm,
             llm_model=args.llm_model,
             llm_timeout=args.llm_timeout,
