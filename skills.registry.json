@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T11:12:30Z",
+  "generated_at": "2026-06-17T11:16:31Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -495,7 +495,7 @@
       ],
       "note": "只看排行不入库用 top-gainers；自选股的均线筛选用 watchlist-ma。",
       "entrypoint": null,
-      "computedHash": "sha256:1e0902aa236172081908f248d210be873bed90317205a01b4a502aefb658b65c",
+      "computedHash": "sha256:a9fd9a43bb1d4ba4ba7aa53b5f099a7175c1a713e60f9221fb0da32210d4bb0d",
       "agentOnly": false,
       "views": [
         {
