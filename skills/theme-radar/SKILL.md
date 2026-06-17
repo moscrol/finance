@@ -1,5 +1,8 @@
 ---
 name: theme-radar
+metadata:
+  pattern: pipeline
+  also: [reviewer, tool-wrapper]
 description: 题材雷达 / 新词雷达——输入一个新名词、新闻事件或题材，可先用 web access 查外部定义/技术拆解，再回到 wiki/relations 的概念图谱、公司暴露和证据索引中寻找关联，生成“新词定义、产业链拆解、相关概念、核心公司分层、证据、信号层缺口、预期差初判”的只读分析报告。用于复刻“新词→上下游关系→核心个股→题材进度”的框架；信号层可先留空位，后续再补。
 ---
 

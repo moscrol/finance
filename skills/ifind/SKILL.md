@@ -1,5 +1,7 @@
 ---
 name: ifind
+metadata:
+  pattern: tool-wrapper
 description: iFinD（同花顺）MCP API 共享工具库。此 skill 不可独立触发，仅供其他 skill 调用。
 ---
 

@@ -1,5 +1,8 @@
 ---
 name: disclosure-archive
+metadata:
+  pattern: reviewer
+  also: [pipeline]
 description: 题材雷达(theme-radar)证据归档——围绕题材/概念抓取A股公司公开披露，输出结构化证据供后续入库审核。触发词：补公告、补公司硬证据、查年报、查半年报、查招股书、查互动易、查官网产品页、查扩产/投产/订单/中标/合同/客户认证资料、披露归档、disclosure archive、归档公告。
 ---
 

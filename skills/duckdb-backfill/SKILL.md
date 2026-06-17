@@ -1,5 +1,8 @@
 ---
 name: duckdb-backfill
+metadata:
+  pattern: tool-wrapper
+  also: [pipeline]
 description: DuckDB market_feature_store full/backfill workflow for the finance workspace. Use when the user asks to 回补 duckdb、全量回补、补缺口、补 market_feature_store 数据、修复 fact_* 覆盖、同步 stock_high/sector_stock/limit_heat/limit_advance/sw_l1, or when a sync command hangs and the workflow needs short-command retries, coverage audits, timeout handling, and iterative skill optimization.
 ---
 
