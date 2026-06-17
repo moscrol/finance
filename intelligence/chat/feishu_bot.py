@@ -12,8 +12,10 @@
 - ``--echo`` 可退回 B-S0 逐字回声（仅用于长连接打通自检）；
 - 题材词路由的 theme-radar 模块 fan-out 默认**关**（子进程较慢），``--ask-modules`` 显式开。
 
-交互卡片渲染已接入（``--reply-format card`` 默认）；卡片上的按钮交互
-（深钻/换题材/看证据链）属后续 B 阶段（需飞书后台开「卡片回调」事件）。
+交互卡片渲染 + 卡片按钮交互（深钻/换题材/看证据链）均已接入（B-S3b）：按钮点击经
+``card.action.trigger`` 回调路由（深钻=展开题材模块 + detail 重跑、换题材=引导换词重问、
+看证据链=展开完整证据链卡片），**需在飞书后台开启「卡片回调」事件订阅**。
+``--reply-format text`` 退回纯文本（无按钮）。
 
 为什么用长连接
 ==============
@@ -44,6 +46,7 @@ import json
 import logging
 import os
 import sys
+import threading
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
@@ -277,6 +280,48 @@ def _section_markdown(items: list[str], subhead: str) -> str:
     return "\n".join(lines)
 
 
+# 卡片底部交互按钮（B-S3b）：点击经 ``card.action.trigger`` 回调路由。按钮 ``value`` 里带
+# ``action``/``query``/``theme``，回调据此重跑或引导（见 :func:`compute_action_payload`）。
+ACTION_DRILL = "drill"        # 深钻：展开题材模块 + detail 重跑，回更全的卡片
+ACTION_THEME = "theme"        # 换题材：引导用户回复一个新题材词重新提问
+ACTION_EVIDENCE = "evidence"  # 看证据链：展开完整「证据链」段（不截断）
+
+
+def _action_elements(query: str, theme: str = "") -> list[dict[str, Any]]:
+    """卡片底部 3 个交互按钮（深钻/换题材/看证据链）。
+
+    每个按钮的 ``value`` 是一个 dict，点击后经 ``card.action.trigger`` 原样回传，
+    回调用 :func:`parse_action_value` 解出 ``(action, query, theme)`` 再路由。
+    """
+    base = {"query": query, "theme": theme or ""}
+    return [
+        {"tag": "hr"},
+        {
+            "tag": "action",
+            "actions": [
+                {
+                    "tag": "button",
+                    "text": {"tag": "plain_text", "content": "🔍 深钻"},
+                    "type": "primary",
+                    "value": {**base, "action": ACTION_DRILL},
+                },
+                {
+                    "tag": "button",
+                    "text": {"tag": "plain_text", "content": "🔁 换题材"},
+                    "type": "default",
+                    "value": {**base, "action": ACTION_THEME},
+                },
+                {
+                    "tag": "button",
+                    "text": {"tag": "plain_text", "content": "🔗 看证据链"},
+                    "type": "default",
+                    "value": {**base, "action": ACTION_EVIDENCE},
+                },
+            ],
+        },
+    ]
+
+
 def render_ask_card(result: "AskResult", max_chars: int = 3500) -> dict[str, Any]:
     """把 :class:`AskResult` 渲染成飞书交互卡片 dict（``msg_type="interactive"`` 的 content）。
 
@@ -314,6 +359,8 @@ def render_ask_card(result: "AskResult", max_chars: int = 3500) -> dict[str, Any
             }
         )
 
+    elements.extend(_action_elements(result.query, result.matched_theme or ""))
+
     return {
         "config": {"wide_screen_mode": True},
         "header": {
@@ -321,6 +368,45 @@ def render_ask_card(result: "AskResult", max_chars: int = 3500) -> dict[str, Any
             "title": {"tag": "plain_text", "content": _card_title(result.query)},
         },
         "elements": elements,
+    }
+
+
+def render_evidence_card(result: "AskResult") -> dict[str, Any]:
+    """「看证据链」按钮回调返回：只展开「证据链」整段（不按 max_chars 截断）。"""
+    from intelligence.services.ask import SUBHEAD
+
+    body = _section_markdown(result.sections.get("证据链") or [], SUBHEAD)
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "template": _HEADER_TEMPLATE.get(result.status, "grey"),
+            "title": {"tag": "plain_text", "content": _card_title(f"证据链 · {result.query}")},
+        },
+        "elements": [
+            _md_div(
+                f"**主题** {result.matched_theme or '—'}　｜　**盘面** {result.trade_date or '—'}"
+            ),
+            {"tag": "hr"},
+            _md_div(f"**【证据链】**\n{body}"),
+        ],
+    }
+
+
+def render_theme_switch_card(query: str, theme: str = "") -> dict[str, Any]:
+    """「换题材」按钮回调返回：引导用户直接回复一个新题材词重新检索（不重跑 ask）。"""
+    cur = theme or "（未匹配到题材）"
+    lines = [
+        f"**当前题材** {cur}",
+        "想换个角度？**直接回复一个新的题材词**（如 `CPO` / `铜连接` / `固态电池`），"
+        "我就按新题材重新检索六段。",
+    ]
+    return {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "template": "blue",
+            "title": {"tag": "plain_text", "content": _card_title(f"换题材 · {query}")},
+        },
+        "elements": [_md_div("\n".join(lines))],
     }
 
 
@@ -336,8 +422,18 @@ def _notice_card(query: str, notice: str) -> dict[str, Any]:
     }
 
 
-def _run_ask_workflow(query: str, config: BotConfig) -> "AskResult":
-    """In-process 调 ``ask`` workflow（惰性导入，避免污染离线 import / 不引入 DuckDB）。"""
+def _run_ask_workflow(
+    query: str,
+    config: BotConfig,
+    *,
+    use_modules: Optional[bool] = None,
+    detail: bool = False,
+) -> "AskResult":
+    """In-process 调 ``ask`` workflow（惰性导入，避免污染离线 import / 不引入 DuckDB）。
+
+    ``use_modules`` 为 None / ``detail`` 为 False 时沿用 ``config`` 默认（与 B-S2/B-S3a 行为一致）；
+    「深钻」按钮回调会显式传 ``use_modules=True, detail=True`` 跑更深一层。
+    """
     from intelligence.workflows.ask import AskWorkflowOptions, run_ask
 
     _summary, result, _answer = run_ask(
@@ -346,11 +442,12 @@ def _run_ask_workflow(query: str, config: BotConfig) -> "AskResult":
             kb_wiki=config.kb_wiki,
             exports_dir=config.exports_dir,
             top_companies=config.ask_top_companies,
-            use_modules=config.ask_use_modules,
+            use_modules=config.ask_use_modules if use_modules is None else use_modules,
             module_timeout=config.ask_module_timeout,
             use_llm=config.ask_use_llm,
             llm_model=config.ask_llm_model,
             llm_timeout=config.ask_llm_timeout,
+            detail=detail,
         )
     )
     return result
@@ -390,6 +487,68 @@ def compute_ask_payload(query: str, config: BotConfig) -> tuple[str, Any, str]:
     if config.reply_format == "card":
         return "interactive", render_ask_card(result, max_chars=config.ask_max_chars), transcript_text
     return "text", transcript_text, transcript_text
+
+
+# --------------------------------------------------------------------------- #
+# 卡片按钮回调路由（B-S3b，纯函数，可单测，不依赖 lark_oapi）
+# --------------------------------------------------------------------------- #
+def parse_action_value(value: Any) -> tuple[str, str, str]:
+    """从按钮回调 ``value`` 解出 ``(action, query, theme)``；非 dict / 缺字段都安全返回空串。"""
+    if not isinstance(value, dict):
+        return "", "", ""
+    action = str(value.get("action") or "").strip()
+    query = str(value.get("query") or "").strip()
+    theme = str(value.get("theme") or "").strip()
+    return action, query, theme
+
+
+# card.action.trigger 的即时 toast（飞书要求秒级响应，重活在后台线程里补卡片）。
+_ACTION_TOAST = {
+    ACTION_DRILL: "正在深钻（展开题材模块），稍候补一张更全的卡片…",
+    ACTION_THEME: "想换题材？直接回复一个新的题材词即可。",
+    ACTION_EVIDENCE: "正在展开完整证据链…",
+}
+
+
+def action_toast(action: str) -> dict[str, str]:
+    """按 ``action`` 返回 ``card.action.trigger`` 的即时 toast 提示。"""
+    if action in _ACTION_TOAST:
+        return {"type": "info", "content": _ACTION_TOAST[action]}
+    return {"type": "warning", "content": "未知操作（按钮已失效，请重新提问）"}
+
+
+def compute_action_payload(
+    action: str, query: str, theme: str, config: BotConfig
+) -> Optional[tuple[str, Any, str]]:
+    """按钮动作的「后续卡片」负载 ``(msg_type, content, transcript_text)``。
+
+    - ``drill``：``use_modules=True, detail=True`` 重跑，回更大预算的完整卡片；
+    - ``evidence``：重跑后只展开完整「证据链」卡片；
+    - ``theme``：纯引导卡（不重跑 ask）。
+
+    未知 action / 空 query 返回 ``None``（不补发）；重跑异常降级为灰底提示卡（bot 不崩）。
+    """
+    if not query or action not in (ACTION_DRILL, ACTION_THEME, ACTION_EVIDENCE):
+        return None
+    if action == ACTION_THEME:
+        card = render_theme_switch_card(query, theme)
+        text = f"换题材：当前题材 {theme or '—'}；回复一个新题材词即可重新检索六段。"
+        return "interactive", card, text
+    try:
+        if action == ACTION_DRILL:
+            result = _run_ask_workflow(query, config, use_modules=True, detail=True)
+        else:  # ACTION_EVIDENCE
+            result = _run_ask_workflow(query, config)
+    except Exception as exc:  # noqa: BLE001 - 重跑失败绝不影响 bot 存活
+        log.warning("按钮动作 ask 重跑失败（已降级提示）：%s", exc)
+        notice = _ask_failure_notice(exc)
+        return "interactive", _notice_card(query, notice), notice
+    if action == ACTION_EVIDENCE:
+        text = render_ask_reply(result, max_chars=config.ask_max_chars)
+        return "interactive", render_evidence_card(result), text
+    budget = max(config.ask_max_chars, 8000)  # 深钻给更大预算，少截断
+    text = render_ask_reply(result, max_chars=budget)
+    return "interactive", render_ask_card(result, max_chars=budget), text
 
 
 def build_transcript_event(
@@ -434,6 +593,10 @@ def run(config: BotConfig) -> int:
             P2ImMessageReceiveV1,
             ReplyMessageRequest,
             ReplyMessageRequestBody,
+        )
+        from lark_oapi.event.callback.model.p2_card_action_trigger import (
+            P2CardActionTrigger,
+            P2CardActionTriggerResponse,
         )
     except ImportError as exc:
         raise SystemExit(
@@ -535,9 +698,38 @@ def run(config: BotConfig) -> int:
             _reply(message_id, content_obj, msg_type)
         _record_transcript(message_id, message.chat_id, message.message_type, text, reply)
 
+    def _send_followup(action: str, query: str, theme: str, message_id: Optional[str]) -> None:
+        """后台线程里跑按钮动作并把结果卡片 reply 回原消息（重活不阻塞回调秒级响应）。"""
+        try:
+            payload = compute_action_payload(action, query, theme, config)
+        except Exception as exc:  # noqa: BLE001 - 后台动作失败绝不影响 bot 存活
+            log.warning("按钮动作处理失败（已忽略）：%s", exc)
+            return
+        if not payload or not message_id:
+            return
+        msg_type, content_obj, reply = payload
+        _reply(message_id, content_obj, msg_type)
+        _record_transcript(message_id, None, "card_action", f"[{action}] {query}", reply)
+
+    def on_card_action(data: "P2CardActionTrigger") -> "P2CardActionTriggerResponse":
+        event = data.event
+        value = event.action.value if (event and event.action) else None
+        action, query, theme = parse_action_value(value)
+        message_id = event.context.open_message_id if (event and event.context) else None
+        log.info("卡片回调 action=%s query=%r msg=%s", action, query, message_id)
+        # 重活（深钻/看证据链需重跑 ask）放后台线程，回调本身只回即时 toast（飞书要求秒级）。
+        if action in (ACTION_DRILL, ACTION_THEME, ACTION_EVIDENCE) and query:
+            threading.Thread(
+                target=_send_followup,
+                args=(action, query, theme, message_id),
+                daemon=True,
+            ).start()
+        return P2CardActionTriggerResponse({"toast": action_toast(action)})
+
     event_handler = (
         lark.EventDispatcherHandler.builder("", "")
         .register_p2_im_message_receive_v1(on_message_receive)
+        .register_p2_card_action_trigger(on_card_action)
         .build()
     )
 
