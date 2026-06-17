@@ -326,6 +326,162 @@ class BotConfigCliTests(unittest.TestCase):
         self.assertEqual(cfg.kb_wiki, "/tmp/w")
 
 
+def _card_buttons(card: dict) -> list[dict]:
+    """从卡片的 ``action`` 元素里取出按钮列表（``_card_text`` 取不到按钮文本/value）。"""
+    buttons: list[dict] = []
+    for el in card["elements"]:
+        if el.get("tag") == "action":
+            buttons.extend(el.get("actions", []))
+    return buttons
+
+
+class CardButtonsTests(unittest.TestCase):
+    def test_card_has_three_action_buttons(self) -> None:
+        buttons = _card_buttons(feishu_bot.render_ask_card(_sample_result()))
+        self.assertEqual(len(buttons), 3)
+        self.assertTrue(all(b["tag"] == "button" for b in buttons))
+        contents = [b["text"]["content"] for b in buttons]
+        self.assertTrue(any("深钻" in c for c in contents))
+        self.assertTrue(any("换题材" in c for c in contents))
+        self.assertTrue(any("证据链" in c for c in contents))
+
+    def test_button_value_payloads(self) -> None:
+        buttons = _card_buttons(feishu_bot.render_ask_card(_sample_result()))
+        by_action = {b["value"]["action"]: b["value"] for b in buttons}
+        self.assertEqual(
+            set(by_action),
+            {feishu_bot.ACTION_DRILL, feishu_bot.ACTION_THEME, feishu_bot.ACTION_EVIDENCE},
+        )
+        for value in by_action.values():
+            self.assertEqual(value["query"], "液冷渗透率拐点何时到？")
+            self.assertEqual(value["theme"], "液冷")
+
+    def test_notice_card_has_no_buttons(self) -> None:
+        card = feishu_bot._notice_card("液冷", "检索暂时失败")
+        self.assertEqual(_card_buttons(card), [])
+
+    def test_theme_empty_when_unmatched(self) -> None:
+        r = _sample_result()
+        object.__setattr__(r, "matched_theme", None)
+        buttons = _card_buttons(feishu_bot.render_ask_card(r))
+        for b in buttons:
+            self.assertEqual(b["value"]["theme"], "")
+
+
+class ParseActionValueTests(unittest.TestCase):
+    def test_dict_value_parsed_and_stripped(self) -> None:
+        action, query, theme = feishu_bot.parse_action_value(
+            {"action": " drill ", "query": " 液冷 ", "theme": " 液冷 "}
+        )
+        self.assertEqual((action, query, theme), ("drill", "液冷", "液冷"))
+
+    def test_non_dict_returns_empty(self) -> None:
+        for value in (None, "drill", ["drill"], 42):
+            self.assertEqual(feishu_bot.parse_action_value(value), ("", "", ""))
+
+    def test_missing_fields_default_empty(self) -> None:
+        self.assertEqual(feishu_bot.parse_action_value({"action": "theme"}), ("theme", "", ""))
+
+
+class ActionToastTests(unittest.TestCase):
+    def test_known_actions_info_toast(self) -> None:
+        for action in (feishu_bot.ACTION_DRILL, feishu_bot.ACTION_THEME, feishu_bot.ACTION_EVIDENCE):
+            toast = feishu_bot.action_toast(action)
+            self.assertEqual(toast["type"], "info")
+            self.assertTrue(toast["content"])
+
+    def test_unknown_action_warning_toast(self) -> None:
+        toast = feishu_bot.action_toast("nope")
+        self.assertEqual(toast["type"], "warning")
+        self.assertIn("未知操作", toast["content"])
+
+
+class RenderEvidenceCardTests(unittest.TestCase):
+    def test_structure_and_title(self) -> None:
+        card = feishu_bot.render_evidence_card(_sample_result())
+        self.assertEqual(card["header"]["template"], "green")  # PASS
+        self.assertIn("证据链 · ", card["header"]["title"]["content"])
+        text = _card_text(card)
+        self.assertIn("【证据链】", text)
+        self.assertIn("成交占比抬升 [S1]", text)
+        self.assertNotIn(SUBHEAD, text)
+
+    def test_no_buttons(self) -> None:
+        self.assertEqual(_card_buttons(feishu_bot.render_evidence_card(_sample_result())), [])
+
+
+class RenderThemeSwitchCardTests(unittest.TestCase):
+    def test_blue_header_and_guidance(self) -> None:
+        card = feishu_bot.render_theme_switch_card("液冷渗透率拐点何时到？", "液冷")
+        self.assertEqual(card["header"]["template"], "blue")
+        self.assertIn("换题材 · ", card["header"]["title"]["content"])
+        text = _card_text(card)
+        self.assertIn("液冷", text)
+        self.assertIn("回复", text)
+
+    def test_unmatched_theme_placeholder(self) -> None:
+        text = _card_text(feishu_bot.render_theme_switch_card("某问题", ""))
+        self.assertIn("未匹配到题材", text)
+
+
+class ComputeActionPayloadTests(unittest.TestCase):
+    def _cfg(self) -> feishu_bot.BotConfig:
+        return feishu_bot.BotConfig(app_id="a", app_secret="b", reply_format="card")
+
+    def test_empty_query_returns_none(self) -> None:
+        self.assertIsNone(
+            feishu_bot.compute_action_payload(feishu_bot.ACTION_DRILL, "", "", self._cfg())
+        )
+
+    def test_unknown_action_returns_none(self) -> None:
+        self.assertIsNone(feishu_bot.compute_action_payload("nope", "液冷", "", self._cfg()))
+
+    def test_theme_does_not_rerun_ask(self) -> None:
+        with mock.patch.object(feishu_bot, "_run_ask_workflow") as run:
+            msg_type, content, transcript = feishu_bot.compute_action_payload(
+                feishu_bot.ACTION_THEME, "液冷渗透率拐点何时到？", "液冷", self._cfg()
+            )
+        run.assert_not_called()
+        self.assertEqual(msg_type, "interactive")
+        self.assertEqual(content["header"]["template"], "blue")
+        self.assertIn("换题材", transcript)
+
+    def test_drill_reruns_with_modules_and_detail(self) -> None:
+        with mock.patch.object(
+            feishu_bot, "_run_ask_workflow", return_value=_sample_result()
+        ) as run:
+            msg_type, content, _ = feishu_bot.compute_action_payload(
+                feishu_bot.ACTION_DRILL, "液冷", "液冷", self._cfg()
+            )
+        self.assertEqual(run.call_args.kwargs, {"use_modules": True, "detail": True})
+        self.assertEqual(msg_type, "interactive")
+        self.assertIn("header", content)
+        self.assertEqual(len(_card_buttons(content)), 3)  # drill 仍是完整卡片，带按钮
+
+    def test_evidence_returns_evidence_card(self) -> None:
+        with mock.patch.object(
+            feishu_bot, "_run_ask_workflow", return_value=_sample_result()
+        ) as run:
+            msg_type, content, transcript = feishu_bot.compute_action_payload(
+                feishu_bot.ACTION_EVIDENCE, "液冷", "液冷", self._cfg()
+            )
+        self.assertEqual(run.call_args.kwargs, {})  # evidence 走默认参数
+        self.assertEqual(msg_type, "interactive")
+        self.assertIn("证据链 · ", content["header"]["title"]["content"])
+        self.assertIn("【证据链】", transcript)
+
+    def test_exception_degrades_to_notice_card(self) -> None:
+        with mock.patch.object(
+            feishu_bot, "_run_ask_workflow", side_effect=RuntimeError("boom")
+        ):
+            msg_type, content, transcript = feishu_bot.compute_action_payload(
+                feishu_bot.ACTION_DRILL, "液冷", "液冷", self._cfg()
+            )
+        self.assertEqual(msg_type, "interactive")
+        self.assertEqual(content["header"]["template"], "grey")
+        self.assertIn("检索暂时失败", transcript)
+
+
 class NoDuckdbImportTests(unittest.TestCase):
     def test_bot_and_ask_import_without_duckdb(self) -> None:
         import subprocess
