@@ -4,12 +4,14 @@ This is a deterministic *retrieval skeleton*: it routes a query to the matching
 theme candidate (盘面/S source, read from the committed
 ``market_feature_store/exports/*-theme-candidates.json`` snapshot) and to the
 knowledge graph (G/R sources, read live from the cross-repo knowledge base
-``wiki/relations/*.json`` via :class:`KnowledgeAdapter`), then assembles a fixed
+``wiki/relations/*.json`` via :class:`KnowledgeAdapter`), optionally adds a
+semantic recall path (W source — the knowledge-base hybrid 向量检索 selecting wiki
+candidate pages via :mod:`intelligence.services.kb_rag`), then assembles a fixed
 six-section answer with numbered citations.
 
 No external LLM is required. The 结论 / 交易含义 sections are template-generated
 placeholders meant to be refined by an LLM downstream; every factual line carries
-a ``[S#]/[G#]/[R#]`` citation back to its source.
+a ``[S#]/[G#]/[R#]/[W#]`` citation back to its source.
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
-from intelligence.services import llm_refine
+from intelligence.services import kb_rag, llm_refine
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
     MODULE_DEEP_DIVE,
@@ -74,6 +76,12 @@ class AskOptions:
     use_modules: bool = True
     modules: tuple[str, ...] | None = None
     module_timeout: int = 180
+    # W source: knowledge-base hybrid 向量检索 (semantic wiki page recall)
+    use_wiki_rag: bool = True
+    wiki_rag_k: int = 6
+    wiki_rag_mode: str = "hybrid"
+    wiki_rag_timeout: int = 90
+    wiki_rag_excerpt: int = 200
     use_llm: bool = False
     llm_model: str | None = None
     llm_timeout: int = 60
@@ -99,6 +107,7 @@ class AskResult:
     warnings: list[str] = field(default_factory=list)
     found_market: bool = False
     found_graph: bool = False
+    found_wiki: bool = False
     routed_modules: list[str] = field(default_factory=list)
     llm_refined: bool = False
     llm_provider: str | None = None
@@ -327,6 +336,29 @@ def answer_query(options: AskOptions) -> AskResult:
             f"{ke.get('target')}：{src}（质量 {ke.get('quality') or '?'}，盘面候选携带） {tag}"
         )
 
+    # --- W: 知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，打通复盘↔知识库闭环）---
+    wiki_lines: list[str] = []
+    if options.use_wiki_rag:
+        wr = kb_rag.retrieve(
+            options.query,
+            options.kb_wiki,
+            k=options.wiki_rag_k,
+            mode=options.wiki_rag_mode,
+            timeout=options.wiki_rag_timeout,
+            excerpt_chars=options.wiki_rag_excerpt,
+        )
+        if wr.ok and wr.hits:
+            result.found_wiki = True
+            result.found_graph = True
+            for h in wr.hits:
+                nb = "·邻居扩展" if h.via_neighbor else ""
+                tag = cite("W", f"knowledge-base · {h.file_path}", f"{wr.command}｜{h.title}")
+                wiki_lines.append(
+                    f"{h.title}（相关度 {round(h.score, 4)}{nb}）：{h.excerpt} {tag}"
+                )
+        elif wr.warning:
+            result.warnings.append(f"wiki-rag：{wr.warning}")
+
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
     module_block: list[str] = []
     module_follow_ups: list[tuple[str, str]] = []
@@ -437,6 +469,7 @@ def answer_query(options: AskOptions) -> AskResult:
         + [f"{SUBHEAD}图谱·概念"] + (graph_concept_lines or ["（图谱未命中概念）"])
         + [f"{SUBHEAD}图谱·公司分层"] + (company_lines or ["（图谱未命中公司暴露）"])
         + [f"{SUBHEAD}证据"] + (evidence_lines or ["（evidence_index 未命中）"])
+        + [f"{SUBHEAD}图谱·语义召回(wiki 向量)"] + (wiki_lines or ["（wiki 向量检索未启用/未接入/无命中）"])
         + module_block
     )
 

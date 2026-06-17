@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T04:00:31Z",
+  "generated_at": "2026-06-17T11:12:39Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -108,7 +108,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2c58d06f91d1dbc82baf1d2542a311f0e78819fe207296c1ee5ab48e4897d40b",
+      "computedHash": "sha256:3f9f6150776d063c2195ec227a67d863d014f7526ba1aa2e38f1587df5e3b9a4",
       "agentOnly": false,
       "views": [],
       "split": {
@@ -129,7 +129,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:8d554a126223f7a2b11272199418a4d4a3f6351e707db0a2b94cb222f44bcee3",
+      "computedHash": "sha256:38acf525fa5bdf4dcd595444d695a84cb7a87da48686627e4acdeee8f79515b9",
       "agentOnly": false,
       "views": []
     },
@@ -181,7 +181,7 @@
       ],
       "note": "纯涨幅排行（不看成交额）用 top-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:50c0c8d8457c762b87dbb1106e71159bc7c937830bbe64417fbe35470ad8b39d",
+      "computedHash": "sha256:cfcda5fc44f1c550a15c19a38b50d14420a8177073274f72982d76d35e5e9106",
       "agentOnly": false,
       "views": [
         {
@@ -212,7 +212,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a1635c024eefb6e71df0e21ac7854d7ac5070efccba06b501ed214afbdc77aa8",
+      "computedHash": "sha256:2ecc0a2633c31a187043df89aa5b2e60b39d17ac4151fac493704e95d566be6c",
       "agentOnly": false,
       "views": [
         {
@@ -252,7 +252,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:0f86d5c529f08891a6db3ccf37fc3df23c2f890b6efed7976d64c7414bffc404",
+      "computedHash": "sha256:e9f2a6636a3c764eba5e2a1df9a8209c90729aaf1a44f971b58c969506eb7d05",
       "agentOnly": false,
       "views": [
         {
@@ -279,7 +279,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:1aec01e182f1349eead0b7fa0085e4167b6604af1ec830c93ce83c0e4adef783",
+      "computedHash": "sha256:3a85aa3536bd2e435f1dc54f9cc6aafa20d040fe03fd1abf7001b0922bcf734e",
       "agentOnly": false,
       "views": [
         {
@@ -298,7 +298,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7cf3cbdcf1966684c4c236dd2b765797986a3b334e9d455225dc464fe7903353",
+      "computedHash": "sha256:cc9e0a142bc85ef15c79d1254f31c10ce21d3bd5bd2fee96bf8db4c4bd676b5e",
       "agentOnly": false,
       "views": []
     },
@@ -319,7 +319,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:563e0095609d5cb9bdb7ec395cc2f244a7607d5187dac6981d1523f4826243bc",
+      "computedHash": "sha256:d46141d97e69779d8e1374cf702ce3da68c4d00cbb6c427dd90252ced4ec5e59",
       "agentOnly": false,
       "views": [
         {
@@ -338,7 +338,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7e9df301723ec3d7308a19f0c2a1f14a83fc900960322d9b5b76d3f45221e1cc",
+      "computedHash": "sha256:35127e66bd5c4dc11266364a2a75084624a5c215406c43940250ebf6a7c950bc",
       "agentOnly": false,
       "views": []
     },
@@ -374,7 +374,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:5f79ea702af664ae294ec4c64c6a46379d8e0e0a544c1e17893c5af03d288532",
+      "computedHash": "sha256:c1fee957c5596540e230455bc8ff735b833518dd8aa824c04be5dac8348ae05a",
       "agentOnly": false,
       "views": []
     },
@@ -404,7 +404,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2e1d6dab65539c3293812205f851c21a353d1bb270b1dc7a020fba4ba03cd7b0",
+      "computedHash": "sha256:2bd2cf07206beed11a91cabdcbea9201bf80ebf2582d710b2cea054dfea7631a",
       "agentOnly": false,
       "views": []
     },
@@ -424,7 +424,7 @@
       ],
       "note": "只看当前题材结构用 theme-radar；本 skill 是带盘面时间轴的历史回溯。",
       "entrypoint": null,
-      "computedHash": "sha256:49aa7d0f487636a6e460cb3888c2088e5716c3329d9cf53c217b15a9e814a54a",
+      "computedHash": "sha256:9a7e29ee91d0df3012ac39f1f58f5365240e3b37379233492f3d740764ec8a7d",
       "agentOnly": false,
       "views": [
         {
@@ -443,7 +443,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:5332c78a03349d14ec4f22a8e387d73acb4c8cefe1d46f4369e682c330b92fb4",
+      "computedHash": "sha256:c6a0acc6dc7848e9312e775b9880dfc56c08abfca22fa43d7244b620e29e0683",
       "agentOnly": false,
       "views": [
         {
@@ -468,7 +468,7 @@
       ],
       "note": "要\"入库/筛选入库/均线回踩\"用 top-gainers-feishu；要量价加权排序用 high-volume-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:93fda945dbc1f6fd63254aed9579b62eb438ccd9d0dea06a67bb582f6a910236",
+      "computedHash": "sha256:03fab59bd1a15ac19eb2e371bb0844e3d7c4b2852ea245201e7f0f8997c4b9e8",
       "agentOnly": false,
       "views": [
         {
@@ -495,7 +495,7 @@
       ],
       "note": "只看排行不入库用 top-gainers；自选股的均线筛选用 watchlist-ma。",
       "entrypoint": null,
-      "computedHash": "sha256:1e0902aa236172081908f248d210be873bed90317205a01b4a502aefb658b65c",
+      "computedHash": "sha256:a9fd9a43bb1d4ba4ba7aa53b5f099a7175c1a713e60f9221fb0da32210d4bb0d",
       "agentOnly": false,
       "views": [
         {
@@ -573,7 +573,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:415e837d619d11c2ca142d4c0c291af3955e607f146413c3acf3cb0685c89a55",
+      "computedHash": "sha256:eb6c94596dae22d60721a367fb7346f30e04d7239ac73a0a8429e5dc33d043df",
       "agentOnly": false,
       "views": [
         {
@@ -598,7 +598,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:518fa385baa698b6086ea04c9d30621d7270d5937738610fb9ddbb9e868725ce",
+      "computedHash": "sha256:d67cb355f1be66523a3915bbcd5ce2fa4423f9ecc0bb5b5cab23c4b90ea696c4",
       "agentOnly": false,
       "views": [
         {

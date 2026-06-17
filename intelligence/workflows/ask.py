@@ -17,6 +17,10 @@ class AskWorkflowOptions:
     use_modules: bool = True
     modules: tuple[str, ...] | None = None
     module_timeout: int = 180
+    use_wiki_rag: bool = True
+    wiki_rag_k: int = 6
+    wiki_rag_mode: str = "hybrid"
+    wiki_rag_timeout: int = 90
     use_llm: bool = False
     llm_model: str | None = None
     llm_timeout: int = 60
@@ -40,6 +44,10 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             use_modules=options.use_modules,
             modules=options.modules,
             module_timeout=options.module_timeout,
+            use_wiki_rag=options.use_wiki_rag,
+            wiki_rag_k=options.wiki_rag_k,
+            wiki_rag_mode=options.wiki_rag_mode,
+            wiki_rag_timeout=options.wiki_rag_timeout,
             use_llm=options.use_llm,
             llm_model=options.llm_model,
             llm_timeout=options.llm_timeout,
@@ -60,6 +68,13 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             name="graph-source",
             status="PASS" if result.found_graph else "WARN",
             outputs=[f"citations={len(result.citations)}"],
+        )
+    )
+    summary.steps.append(
+        WorkflowStep(
+            name="wiki-rag-source",
+            status="PASS" if result.found_wiki else ("SKIP" if not options.use_wiki_rag else "WARN"),
+            outputs=[f"found_wiki={result.found_wiki}"],
         )
     )
     summary.steps.append(

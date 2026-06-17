@@ -11,7 +11,7 @@ from pathlib import Path
 
 def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
-        "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S)"
+        "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S) + wiki 向量语义召回 (W)"
     )
     parser.add_argument("query", help="Question / theme term, e.g. 液冷服务器")
     parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
@@ -26,6 +26,18 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument("--no-modules", action="store_true", help="Disable theme-radar module fan-out (graph+盘面 only)")
     parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
+    parser.add_argument(
+        "--no-wiki-rag",
+        action="store_true",
+        help="Disable the W source (knowledge-base hybrid 向量语义召回 wiki 候选页). "
+        "Auto-skips anyway when the KB repo / rag_index.py / 向量索引 is unavailable.",
+    )
+    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
+    parser.add_argument(
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
+        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF)",
+    )
+    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
     parser.add_argument(
         "--llm",
         action="store_true",
@@ -170,6 +182,10 @@ def cmd_ask(args: argparse.Namespace) -> int:
             use_modules=not args.no_modules,
             modules=modules,
             module_timeout=args.module_timeout,
+            use_wiki_rag=not args.no_wiki_rag,
+            wiki_rag_k=args.wiki_rag_k,
+            wiki_rag_mode=args.wiki_rag_mode,
+            wiki_rag_timeout=args.wiki_rag_timeout,
             use_llm=args.llm,
             llm_model=args.llm_model,
             llm_timeout=args.llm_timeout,
@@ -338,7 +354,8 @@ def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
 
     parser = subparsers.add_parser(
         "feishu-bot",
-        help="飞书回声 bot（B-S0，长连接打通验证；凭证走 env / ~/.claude/shared/feishu_config.json）",
+        help="飞书 chat bot（B-S2，长连接 + in-process 调 ask 回六段；--echo 退回 B-S0 自检；"
+        "凭证走 env / ~/.claude/shared/feishu_config.json）",
     )
     feishu_bot.add_arguments(parser)
     parser.set_defaults(func=cmd_feishu_bot)
@@ -353,10 +370,17 @@ def cmd_feishu_bot(args: argparse.Namespace) -> int:
 def add_dream_collect_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "dream-collect",
-        help="dream-loop C-1A-S0：对话源（S0 仅飞书）归一化+脱敏 → transcript store + manifest + 脱敏 digest（suggest-only，不碰 DuckDB）",
+        help="dream-loop：对话源（feishu/claude-code/claude-mem/windsurf/devin）归一化+脱敏 → transcript store + manifest + 脱敏 digest（suggest-only，不碰 DuckDB）",
     )
-    parser.add_argument("--source", default="feishu", choices=["feishu"], help="对话源（S0 仅 feishu）")
-    parser.add_argument("--events", default=None, help="原始事件 jsonl（飞书 bot 的 --transcript-log 产物）")
+    from intelligence.dream import collector as _collector
+
+    parser.add_argument(
+        "--source",
+        default="feishu",
+        choices=sorted(_collector.KNOWN_SOURCES),
+        help="对话源：feishu/claude-code/claude-mem/windsurf/devin",
+    )
+    parser.add_argument("--events", default=None, help="原始事件 jsonl（每行一个事件/消息/会话/observation，视源而定）")
     parser.add_argument(
         "--store-dir",
         default=None,
@@ -478,6 +502,51 @@ def cmd_dream_kb_candidates(args: argparse.Namespace) -> int:
     return 0 if summary.get("written") else 1
 
 
+def add_dream_nightly_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "dream-nightly",
+        help="dream-loop 采集半：collect → 从 main 切 dream-loop/transcripts-<date> 分支提交脱敏 digest（suggest-only，绝不合并 main、不提交正文、不碰 DuckDB）",
+    )
+    parser.add_argument("--repo-dir", required=True, help="用于提交 digest 的 git clone 目录（须独立于用户工作区）")
+    parser.add_argument("--events", default=None, help="原始事件 jsonl（采集时读取，如飞书 bot 的 --transcript-log 产物）")
+    parser.add_argument("--source", default="feishu", help="对话源（默认 feishu）")
+    parser.add_argument("--store-subdir", default="raw/transcripts", help="store 相对 repo-dir 的子目录（默认 raw/transcripts，正文按 .gitignore 忽略）")
+    parser.add_argument("--branch-prefix", default="dream-loop/transcripts", help="分支名前缀（默认 dream-loop/transcripts，实际分支带 -<date>）")
+    parser.add_argument("--base", default="main", help="切分支的基线（默认 main）")
+    parser.add_argument("--remote", default="origin", help="git remote（默认 origin）")
+    parser.add_argument("--date", default=None, help="覆盖日期（默认本机当日 YYYY-MM-DD）")
+    parser.add_argument("--no-collect", action="store_true", help="跳过采集，只提交 store 里已有的 digest")
+    parser.add_argument("--push", action="store_true", help="提交后 push 分支（默认只本地 commit，不 push、不合并）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 摘要")
+    parser.set_defaults(func=cmd_dream_nightly)
+
+
+def cmd_dream_nightly(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.dream import nightly
+
+    summary = nightly.run_nightly(
+        nightly.NightlyOptions(
+            repo_dir=args.repo_dir,
+            events_path=args.events,
+            source=args.source,
+            store_subdir=args.store_subdir,
+            branch_prefix=args.branch_prefix,
+            base=args.base,
+            remote=args.remote,
+            date=args.date,
+            collect=not args.no_collect,
+            push=args.push,
+        )
+    )
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(nightly.render_summary(summary))
+    return 0
+
+
 def cmd_theme(args: argparse.Namespace) -> int:
     from intelligence.workflows.theme_radar import ThemeRadarOptions, run_theme_radar
 
@@ -510,6 +579,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_dream_collect_parser(subparsers)
     add_dream_evolve_suggest_parser(subparsers)
     add_dream_kb_candidates_parser(subparsers)
+    add_dream_nightly_parser(subparsers)
     return parser
 
 
