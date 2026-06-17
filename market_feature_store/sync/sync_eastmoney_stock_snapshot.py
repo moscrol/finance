@@ -2,7 +2,7 @@
 
 数据源: 东财 push2 clist 接口 (https://push2.eastmoney.com/api/qt/clist/get)。
 一次/少数几次 HTTP 请求即可拿到全 A 当日 收盘/涨跌幅/昨收/成交额, 适合「单日盘后增量」,
-把 daily-full 的全A日线一步从十几分钟 (mootdx 逐只 TCP) 压到几秒。
+把 daily-full 的全A日线一步从十几分钟 (mootdx 逐只 TCP) 压到数十秒。
 历史多日回填仍走 mootdx (见 sync_mootdx_stock_daily / duckdb-backfill skill)。
 
 与 mootdx 路径同 schema/口径:
@@ -17,6 +17,8 @@
 from __future__ import annotations
 
 import json
+import time
+import urllib.error
 import urllib.request
 from datetime import date, datetime
 
@@ -30,6 +32,9 @@ from .sync_mootdx_stock_daily import (
 )
 
 EM_URL = "https://push2.eastmoney.com/api/qt/clist/get"
+# 东财 clist 单页硬上限: 请求更大 pz 也只回 100 条, 且 pn 偏移按所传 pz 计算,
+# 所以请求 pz 必须 <=100, 否则翻页会跳过中间股票 (实测 2026-06)。
+EM_PAGE_MAX = 100
 # 沪深京 A 股 (与 akshare stock_zh_a_spot_em 同口径), fs 内 '+' 为东财字段分隔符须保留字面量
 EM_FS = "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048"
 # f12=代码 f13=市场 f14=名称 f2=最新价(收盘) f3=涨跌幅% f18=昨收 f6=成交额(元) f8=换手率%
@@ -63,40 +68,60 @@ def _num(x):
         return None
 
 
-def fetch_snapshot(page_size: int = 1000, timeout: float = 20.0) -> list[dict]:
-    """分页拉取东财全市场快照, 返回原始 diff 字典列表。fltt=2 保证字段为十进制实值。"""
+def _get_json(url: str, timeout: float, retries: int = 4, backoff: float = 0.8) -> dict:
+    """GET + json 解析, 对 502/超时等瞬时错误退避重试 (翻页几十次难免偶发 502)。"""
+    last_err: Exception | None = None
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(url, headers=EM_HEADERS)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+            last_err = exc
+            time.sleep(backoff * (attempt + 1))
+    raise RuntimeError(f"东财快照请求失败: {url}") from last_err
+
+
+def fetch_snapshot(page_size: int = EM_PAGE_MAX, timeout: float = 20.0,
+                   sleep: float = 0.1) -> list[dict]:
+    """分页拉取东财全市场快照, 返回原始 diff 字典列表。fltt=2 保证字段为十进制实值。
+
+    东财单页最多 100 条, 故实际 pz 取 min(page_size, 100); 翻页靠 pn 递增到 total。
+    """
+    pz = max(1, min(page_size, EM_PAGE_MAX))
     out: list[dict] = []
     pn = 1
     total: int | None = None
-    while True:
+    while pn <= 1000:  # 安全上限 (~10万只), 防止接口异常时死循环
         url = (
-            f"{EM_URL}?pn={pn}&pz={page_size}&po=1&np=1&fltt=2&invt=2&fid=f3"
+            f"{EM_URL}?pn={pn}&pz={pz}&po=1&np=1&fltt=2&invt=2&fid=f3"
             f"&fs={EM_FS}&fields={EM_FIELDS}"
         )
-        req = urllib.request.Request(url, headers=EM_HEADERS)
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-        data = payload.get("data") or {}
+        data = _get_json(url, timeout).get("data") or {}
         if total is None:
             total = int(data.get("total") or 0)
         diff = data.get("diff") or []
+        if isinstance(diff, dict):  # 个别接口形态返回 {idx: row}
+            diff = list(diff.values())
         if not diff:
             break
         out.extend(diff)
-        if len(out) >= total or len(diff) < page_size:
+        if total and len(out) >= total:
             break
         pn += 1
+        if sleep:
+            time.sleep(sleep)
     return out
 
 
 def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
-                                   page_size: int = 1000,
+                                   page_size: int = EM_PAGE_MAX,
                                    timeout: float = 20.0,
                                    source: str = "eastmoney:snapshot") -> dict:
     """东财全市场快照写入 fact_stock_daily 的单个交易日 (盘后增量快路径)。
 
     trade_date: 目标交易日 YYYY-MM-DD, 留空取当天。
-    page_size: 分页大小, 默认1000 (全A约6千只, 几页即可)。
+    page_size: 分页大小, 东财单页上限100, 超过按100处理 (全A约6千只, ~60页)。
     """
     if trade_date is None:
         trade_date = date.today().isoformat()

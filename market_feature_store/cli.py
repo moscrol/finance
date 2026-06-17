@@ -890,7 +890,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_sks = sub.add_parser("sync-stock-daily-snapshot", help="东财全市场快照写单日 fact_stock_daily (盘后增量快路径)")
     p_sks.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取当天")
-    p_sks.add_argument("--page-size", type=int, default=1000, help="东财分页大小, 默认1000")
+    p_sks.add_argument("--page-size", type=int, default=100, help="东财分页大小, 单页上限100")
     p_sks.set_defaults(func=cmd_sync_stock_daily_snapshot)
 
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")

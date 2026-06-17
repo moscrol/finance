@@ -21,7 +21,7 @@
 
 两条取数路径，按场景选：
 
-- **单日盘后增量 → 东财全市场快照（快，默认）**：`sync-stock-daily-snapshot`。一次 HTTP 拉全 A（约 6 千只）当日 收盘/涨跌幅/昨收/成交额，几秒写完。`daily-full`/`daily-update` 默认 `--stock-source snapshot` 就走这条，避免 mootdx 逐只 TCP 的十几分钟长尾（个别股超时各卡几分钟）。仅取当日，必须**盘后**、且显式传 `--trade-date`（盘中会写实时价、非交易日会把上一交易日数据写到所传日期）。
+- **单日盘后增量 → 东财全市场快照（快，默认）**：`sync-stock-daily-snapshot`。分页拉全 A（约 6 千只，东财单页上限100、约60页）当日 收盘/涨跌幅/昨收/成交额，数十秒写完。`daily-full`/`daily-update` 默认 `--stock-source snapshot` 就走这条，避免 mootdx 逐只 TCP 的十几分钟长尾（个别股超时各卡几分钟）。仅取当日，必须**盘后**、且显式传 `--trade-date`（盘中会写实时价、非交易日会把上一交易日数据写到所传日期）。
 - **历史多日回填 → mootdx 逐只（慢，可拉区间）**：`sync-stock-daily --start-date ... --offset N`。快照接口只给当日截面，补历史区间仍必须用 mootdx。`daily-full --stock-source mootdx` 可强制日更也走 mootdx（受 `--skip-long` 控制）。
 
 两条路径同 schema/口径（amount 存「亿」、close 不复权、turnover 留空）；快照 `source='eastmoney:snapshot'`，mootdx `source='mootdx'`。
