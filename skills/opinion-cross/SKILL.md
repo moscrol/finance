@@ -53,46 +53,15 @@ python3 skills/opinion-cross/scripts/opinion_cross.py \
 
 ## 三维交叉与 Tier 判定（复用 theme-radar）
 
-脚本 import `theme-radar/scripts/radar.py` 的 `signal_dimension_rows` 与 `resonance_tier`（import 失败时有同契约的本地回退），逐标的量三把尺子：
-
-| 维度 | 取数 | 含义 |
-|---|---|---|
-| 公告/事实 | 该标的句子里的🟢硬证据 + 催化 | 题材是不是纯叙事？有没有订单/入股/合同/官方表态 |
-| 产业趋势 | 标的在 KB 命中的 concept（含 chain_layer/role） | 这条观点能不能映射到知识库里的发酵/布局方向 |
-| 市场热点 | 该标的句子里的盘面措辞（涨停/大跌/异动/估值切换） | 市场今天是否在交易它 |
-
-- 三维都硬（≥2 维 Tier1/2）→ **Tier 1 三重共振 ⭐⭐⭐**
-- 两维有效 → **Tier 2 双重验证 ⭐⭐**
-- 单维 → **Tier 3 观察池 ⭐**
-
-> 关键实现细节：radar 的 `signal_dimension_rows` 会把 `signal["industry_progress"]` 同时计入"公告/事实"和"产业趋势"两维。为避免产业信号污染事实维度（否则纯卖方喊单也会被抬成 Tier 2），本脚本**事实维度只放硬证据/催化，产业信号只走 `context`**，从而让硬证据标的与软推演标的真正分层。
+三维交叉（公告/事实 × 产业趋势 × 市场热点）取数口径、Tier1/2/3 判定规则，以及「事实维度只放硬证据/催化、产业信号只走 context」的关键实现细节见 `references/resonance-tier-rubric.md`。
 
 ## 事实硬度词典
 
-- 🟢 `HARD_FACT_KEYS`：订单/中标/合同/入股/持股/公告/确收/供货/签署/收购/增资/量产/扩产/投产/送样/定点/验证通过/交付
-- 🟡 `SOFT_KEYS`：目标/预期/预计/看好/空间/市值/有望/弹性/或将/假设/首选/首推/推荐/翻倍/对标/中枢
-- 🔴 `NOISE_KEYS`：拒绝一惊一乍/悲观者/乐观者/一笑了之/泼冷水/历史总是惊人/静态的/纠结 …
-
-硬度仅用于**分层与排序**，不做硬过滤——过滤由 agent 复核时决定。
+事实硬度三档词典（🟢 HARD_FACT_KEYS / 🟡 SOFT_KEYS / 🔴 NOISE_KEYS）见 `references/fact-hardness-dictionary.md`。硬度仅用于分层与排序，不做硬过滤。
 
 ## 输出 JSON schema（要点）
 
-```jsonc
-{
-  "term": "CPO", "theme": "CPO", "concept_matched": true,
-  "divergence": { "verdict": "...", "bull_count": 11, "bear_count": 10,
-                  "expectation_pivots": ["符合预期就是超预期", "英伟达…辟谣…"], "sources": ["国投硬科技", ...] },
-  "opportunities": [
-    { "target": "罗博特科", "resonance_tier": "Tier 2：双重验证…",
-      "kb": { "concept": "1.6T CPO", "chain_layer": "封装设备", "role": "...", "kb_fact_hardness": "research_claim" },
-      "hardness": { "dominant": "硬证据", "hard": ["…订单已超过15个亿…"], "soft": ["CPO首选标的…罗博特科"], "noise": [] },
-      "stance": { "stance": "看多", "bull": [...], "bear": [...], "expectation_gap": [...] },
-      "dimension_rows": [ {"dimension":"公告/事实","signal":"…","tier":"Tier 2"}, ... ],
-      "catalysts": ["…"], "action": "双重验证，已有跟踪价值；等第三维补齐再下重手。" }
-  ],
-  "summary": { "target_count": 9, "tier_counts": {"Tier 2":2,"Tier 3":7}, "hard_evidence_targets": 2 }
-}
-```
+输出 JSON 的结构（term / divergence / opportunities[] / summary 等要点）见 `references/output-schema.md`，按该 schema 落地结构化结果。
 
 ## 已验证（CPO 观点料）
 
