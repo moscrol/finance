@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T09:25:29Z",
+  "generated_at": "2026-06-17T09:32:23Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -298,7 +298,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:bc2788f15d70ffc8b1439b6ee0ba3c05284fb07abdf1b860c38bbd3712c6c733",
+      "computedHash": "sha256:d1fdec9161e3e97e16269487ac5cb100cc4813191f1e0eef6e6e303030a70f08",
       "agentOnly": false,
       "views": []
     },
