@@ -44,6 +44,12 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Refine 结论/交易含义 with an LLM (needs DEEPSEEK_API_KEY/MOONSHOT_API_KEY/"
         "DASHSCOPE_API_KEY/ZHIPU_API_KEY/OPENAI_API_KEY or LLM_API_KEY). No key -> template fallback.",
     )
+    parser.add_argument(
+        "--compose",
+        action="store_true",
+        help="让 LLM 把多源证据有机融合成一段对话式回答（带内联引用），附在六段证据之上。"
+        "需 DEEPSEEK_API_KEY 等；无 key/失败则降级为模板（与 --llm 互不影响）。",
+    )
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
     parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP timeout in seconds")
     parser.add_argument(
@@ -187,6 +193,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
             wiki_rag_mode=args.wiki_rag_mode,
             wiki_rag_timeout=args.wiki_rag_timeout,
             use_llm=args.llm,
+            compose=args.compose,
             llm_model=args.llm_model,
             llm_timeout=args.llm_timeout,
             detail=args.detail,
