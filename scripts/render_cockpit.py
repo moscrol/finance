@@ -29,6 +29,7 @@ FUPAN = ROOT / "复盘"
 DAILY = FUPAN / "daily"
 WINRATE = FUPAN / "winrate"
 MATRICES = FUPAN / "matrices"
+HEADTOHEAD = FUPAN / "headtohead"
 OUT_PATH = FUPAN / "index.html"
 
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
@@ -162,6 +163,23 @@ def matrix_cards() -> list[str]:
     return cards
 
 
+def headtohead_cards() -> list[str]:
+    files = sorted(HEADTOHEAD.glob("headtohead-*.html"), reverse=True)
+    if not files:
+        return [empty_card(
+            "暂无人机对照台账。生成：python3 scripts/headtohead_ledger.py "
+            "--mine-selections 复盘/selections "
+            "--machine-records evolution/records --strategy 1 "
+            "--out 复盘/headtohead/headtohead-$(date +%F).html"
+        )]
+    cards = []
+    for f in files:
+        date = date_of(f.name) or f.stem
+        head = f'<a class="c-date" href="{rel(f)}">{date}</a>'
+        cards.append(card("Head-to-Head", head, "人机对照台账 · 你 vs 机器 · T+N 超额胜率/累计超额", []))
+    return cards
+
+
 def briefing_cards(briefings_dir: Path) -> list[str]:
     if not briefings_dir.exists():
         return [empty_card(
@@ -204,6 +222,7 @@ def main() -> int:
     winrate = winrate_cards()
     briefing = briefing_cards(briefings_dir)
     matrices = matrix_cards()
+    headtohead = headtohead_cards()
 
     built = datetime.date.today().isoformat()
     css = base_css() + EXTRA_CSS
@@ -212,11 +231,13 @@ def main() -> int:
     n_win = len(winrate)
     n_brief = sum(1 for c in briefing if "empty" not in c)
     n_matrix = len(matrices)
+    n_h2h = sum(1 for c in headtohead if "empty" not in c)
     kpis = [
         (n_daily, "每日复盘"),
         (n_win, "胜率榜"),
         (n_brief, "晨汇看板"),
         (n_matrix, "策略矩阵"),
+        (n_h2h, "人机台账"),
     ]
     kpi_html = "".join(
         f'<div class="kpi"><div class="n">{n}</div><div class="l">{escape(label)}</div></div>'
@@ -231,6 +252,7 @@ def main() -> int:
                 ("winrate", "卖方机构胜率榜"),
                 ("briefing", "晨汇边际变化"),
                 ("matrices", "策略矩阵"),
+                ("headtohead", "人机对照台账"),
             ],
             1,
         )
@@ -254,6 +276,7 @@ def main() -> int:
         + cross
         + section("briefing", "晨汇边际变化", briefing)
         + section("matrices", "策略矩阵", matrices)
+        + section("headtohead", "人机对照台账", headtohead)
     )
 
     html = (
@@ -276,7 +299,7 @@ def main() -> int:
     print(OUT_PATH)
     print(
         f"daily: {n_daily} | winrate: {n_win} | briefing: {n_brief} | matrices: {n_matrix} "
-        f"| size: {len(html) // 1024} KB"
+        f"| headtohead: {n_h2h} | size: {len(html) // 1024} KB"
     )
     return 0
 
