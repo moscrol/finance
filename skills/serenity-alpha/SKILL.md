@@ -1,5 +1,8 @@
 ---
 name: serenity-alpha
+metadata:
+  pattern: generator
+  also: [pipeline]
 description: Serenity Alpha 本地知识库版——基于新闻/题材/复盘线索，结合本地 wiki 概念图谱、个股逻辑卡、题材雷达、海外对标和近端行情反馈，分析个股弹性预期差、补涨顺序、市场误分类和交易含义。触发词：serenity、alpha、弹性预期差、个股弹性、补涨排序、反推个股、预期差排序、交易含义、分歧反证。
 ---
 

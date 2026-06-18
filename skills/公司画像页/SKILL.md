@@ -1,5 +1,8 @@
 ---
 name: 公司画像页
+metadata:
+  pattern: generator
+  also: [inversion, reviewer]
 description: 投行风格公司画像页（PPT/Slide）。触发词：公司画像、画像页、strip profile、pitch book页面、公司概况幻灯片。
 ---
 ## 触发条件

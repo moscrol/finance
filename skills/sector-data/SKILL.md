@@ -1,5 +1,7 @@
 ---
 name: sector-data
+metadata:
+  pattern: pipeline
 description: 抓取 fupanhui.com 227个板块数据，写入飞书多维表格和电子表格，验证后筛选成交额>500、涨幅>0、边际量>10%的板块，输出条件格式公式。触发：边际量、/sector-data、板块数据、抓取板块
 ---
 

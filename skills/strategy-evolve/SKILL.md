@@ -1,5 +1,8 @@
 ---
 name: strategy-evolve
+metadata:
+  pattern: pipeline
+  also: [generator]
 description: 策略1/3/4 可验证·可回溯·可迭代的进化生成流水线（scripts/evolve.py + evolution/ 目录）。触发：进化、evolve、自动进化、策略生成迭代、可回溯记录、确定性生成、generate/validate/log/suggest/audit、策略一/三/四确定性名单、前瞻收益验证、参数升版台账。命令驱动、不自动定时；复盘仍由人输口令触发；改规则只改 params.json 并升 version，suggest 只给建议不自动改。
 ---
 

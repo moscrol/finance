@@ -1,5 +1,7 @@
 ---
 name: foresight-feedback
+metadata:
+  pattern: tool-wrapper
 description: 对话自动记反馈——把对话里的兴趣/否定/评分信号自动写回 foresight 反馈回路（users/<id>/interactions.jsonl），让系统越用越懂你。触发词：记反馈、记一下、我关注、我对这个感兴趣、想深挖、这个不看了、跳过、不感兴趣、打个分、很重要、猜你想问、越用越懂、自动记反馈。
 ---
 

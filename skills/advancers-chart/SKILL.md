@@ -1,5 +1,8 @@
 ---
 name: advancers-chart
+metadata:
+  pattern: generator
+  also: [tool-wrapper]
 description: 涨家数走势数据同步与图表生成。触发词：涨家数折线图、涨家数走势、涨跌趋势图、涨家数图表、看一下涨家数、同步涨家数、更新涨家数走势、sync涨家数、看看涨跌家数、涨跌比走势。
 ---
 

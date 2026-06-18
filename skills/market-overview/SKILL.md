@@ -1,5 +1,8 @@
 ---
 name: market-overview
+metadata:
+  pattern: pipeline
+  also: [tool-wrapper]
 description: 每日市场复盘（fupanhui API+飞书入库）。触发词：帮我复盘、复盘、看一下今天的市场、市场总览、今日行情、市场数据、fupanhui。
 ---
 

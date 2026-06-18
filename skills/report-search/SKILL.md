@@ -1,5 +1,7 @@
 ---
 name: report-search
+metadata:
+  pattern: tool-wrapper
 description: 券商研报搜索。触发词：搜研报、找研报、研报搜索、研究报告、券商报告、看研报、找报告。
 version: 2.0.0
 ---
