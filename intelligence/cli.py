@@ -1198,7 +1198,7 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_reg.add_argument("--stock", dest="stocks", action="append", default=[], help="关联个股（可多次）")
     p_reg.add_argument("--metric-type", default=None, choices=["stock_return", "kb_evidence", "manual"], help="机检规格类型；缺省走人工判定")
     p_reg.add_argument("--op", default=">=", choices=[">=", ">", "<=", "<", "=="], help="阈值比较符（默认 >=）")
-    p_reg.add_argument("--target", type=float, default=None, help="数值阈值（stock_return=涨幅%，kb_evidence=新增证据条数）")
+    p_reg.add_argument("--target", type=float, default=None, help="数值阈值（stock_return=涨幅%%，kb_evidence=新增证据条数）")
     p_reg.add_argument("--window-days", type=int, default=None, help="stock_return 回看窗口天数（默认 60）")
     p_reg.add_argument("--target-name", default=None, help="机检主标的名（个股/题材/公司，缺省取首个 stock/theme）")
     p_reg.add_argument("--from-judgment", default=None, help="反链 B 核心判断的 ts（可选）")

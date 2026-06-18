@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
+from intelligence import cli
 from intelligence.services import checkpoint_resolvers as resolvers
 from intelligence.services import checkpoints
 
@@ -355,6 +358,18 @@ class ResolveDispatchTests(unittest.TestCase):
         }
         out = resolvers.resolve_checkpoint(ck, market_returns_fn=lambda s, a, b: {"A": {"interval_gain": 9.0}})
         self.assertEqual(out.verdict, "hit")
+
+
+class CliHelpTests(unittest.TestCase):
+    def test_register_help_renders_without_format_error(self) -> None:
+        # 回归：--target 的 help 串里字面量 % 必须转义成 %%，否则 argparse
+        # 的 `help % params` 会把它当格式化符、撞上后面的全角逗号崩 ValueError。
+        parser = cli.build_parser()
+        buf = io.StringIO()
+        with self.assertRaises(SystemExit) as cm, contextlib.redirect_stdout(buf):
+            parser.parse_args(["checkpoint", "register", "--help"])
+        self.assertEqual(cm.exception.code, 0)
+        self.assertIn("涨幅%", buf.getvalue())
 
 
 if __name__ == "__main__":
