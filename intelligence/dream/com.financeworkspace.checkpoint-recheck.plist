@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd 模板：可证伪点夜间回检（C 方案）。每晚跑 `checkpoint recheck`（加 apply 落盘）：
+  把到期的可证伪点交给 resolver 拉数核对，落 verdict 到 users/<id>/verdicts.jsonl，
+  下次 foresight 自动按类别胜率注入二阶推演校准（越用越准）。
+
+  与采集半（dream-collect）/ 推理半（dream-evolve-suggest）本质不同：本任务不碰 git、
+  不切分支、不 commit、不 push，只更新本地 gitignore 的 verdicts.jsonl。所以 WorkingDirectory
+  用你的工作区仓库本身（含 db/market_feature_store.duckdb 与 intelligence 包），而不是
+  采集半那个专用 clone；无 git 操作，工作区安全。盘面侧（stock_return）本机有 DuckDB 才
+  出真数，缺库/查询失败自动降级 unverifiable（非终态、不计入胜率、不编造），下次重跑即判定；
+  知识库侧（kb_evidence）读 wiki/relations，随处可跑。
+
+  安装前替换占位（完整说明见 dream/README.md 「可证伪点夜间回检 launchd」）：
+    __PYTHON__              python3 解释器绝对路径（which python3）
+    __WORKSPACE__           finance-workspace 工作区仓库绝对路径
+                            （含 intelligence/ 与 db/market_feature_store.duckdb）
+    __USER__                foresight 用户 id（如 linxiaoqi5111）
+    __KNOWLEDGE_WIKI__      知识库 wiki 根（含 relations/），kb_evidence 回检用
+    __FORESIGHT_USERS_DIR__ 大脑目录根；仅当你用 FORESIGHT_USERS_DIR 跨机同步（指向
+                            Obsidian vault 的 .foresight 等）时才填，且必须与交互 session
+                            同一路径，否则 cron 会回检另一份空台账。不跨机同步就删掉下面
+                            EnvironmentVariables 里这对 key 与 string，cron 自动用仓库内默认台账。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.financeworkspace.checkpoint-recheck</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>-m</string>
+        <string>intelligence.cli</string>
+        <string>checkpoint</string>
+        <string>recheck</string>
+        <string>--user</string>
+        <string>__USER__</string>
+        <string>--apply</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__WORKSPACE__</string>
+
+    <!-- launchd 跑在极简环境（无 shell profile），显式给齐路径 env。 -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>KNOWLEDGE_WIKI</key>
+        <string>__KNOWLEDGE_WIKI__</string>
+        <key>FORESIGHT_USERS_DIR</key>
+        <string>__FORESIGHT_USERS_DIR__</string>
+    </dict>
+
+    <!-- 每天 03:50 触发（晚于 dream-evolve-suggest 03:45、dream-collect 03:30，错峰）。-->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>50</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__WORKSPACE__/logs/checkpoint-recheck.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__WORKSPACE__/logs/checkpoint-recheck.err.log</string>
+</dict>
+</plist>

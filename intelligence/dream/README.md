@@ -201,10 +201,62 @@ python3 -m intelligence.cli dream-kb-candidates --input candidates.json --json
 > exposure_only/graph_only/bullets/evidence），并统一带 `schema_status="pending-kb-verify"`。
 > 接入真实库前，请先用 1 个样例 payload 过一遍知识库侧的校验/lint。
 
+---
+
+# 可证伪点夜间回检（C 方案）· `checkpoint recheck`
+
+> foresight 的 C 方案（可证伪点登记 → 到期回检打分 → 二阶推演校准）需要有人**到期把判断核对一遍**。
+> 这一步挂进同一套夜间 cron：每晚跑 `checkpoint recheck --apply`，把到期点交给 resolver 拉数核对，
+> 落 verdict 到 `users/<id>/verdicts.jsonl`，下次 foresight 自动按类别胜率注入校准。
+
+与采集半 / 推理半**本质不同**——本任务**不碰 git、不切分支、不 commit、不 push**，只更新本地
+gitignore 的 `verdicts.jsonl`。所以它跑在**你的工作区仓库本身**（含 `db/market_feature_store.duckdb`
+与 `intelligence/` 包），而不是采集半那个专用 clone；无 git 操作，工作区安全。
+
+- 盘面侧（`stock_return`）：本机有 DuckDB 才出真数；缺库 / 查询失败 → 自动降级 `unverifiable`
+  （非终态、不计入胜率、绝不编造），下次重跑即判定。
+- 知识库侧（`kb_evidence`）：读 `wiki/relations/`，云端也在仓里，随处可跑。
+- 无机检规格（`manual`）：留给 `checkpoint score` 人工打分，回检会标 `unverifiable`、不强判。
+
+先手动跑一次确认（不带 `--apply` 只预览；带 `--apply` 才落盘）：
+
+```bash
+python3 -m intelligence.cli checkpoint recheck --user <id>            # 预览到期点判定
+python3 -m intelligence.cli checkpoint recheck --user <id> --apply    # 落 verdicts.jsonl
+python3 -m intelligence.cli checkpoint calibrate --user <id>          # 看校准聚合
+```
+
+### launchd 安装（Mac，每晚 03:50，错峰）
+
+模板 `com.financeworkspace.checkpoint-recheck.plist`，替换占位后安装：
+
+```bash
+PY=$(which python3)
+WORKSPACE=~/finance-workspace-private          # 含 intelligence/ 与 db/market_feature_store.duckdb 的工作区
+USER_ID=linxiaoqi5111                          # 你的 foresight 用户 id
+KB_WIKI="$HOME/Desktop/c c/知识库/wiki"        # kb_evidence 回检用；按你的真实路径改
+USERS_DIR="$HOME/Desktop/c c/知识库/.foresight"  # 只有跨机同步大脑才填，且须与交互 session 同一路径
+mkdir -p "$WORKSPACE/logs"
+sed -e "s#__PYTHON__#$PY#g" -e "s#__WORKSPACE__#$WORKSPACE#g" -e "s#__USER__#$USER_ID#g" \
+    -e "s#__KNOWLEDGE_WIKI__#$KB_WIKI#g" -e "s#__FORESIGHT_USERS_DIR__#$USERS_DIR#g" \
+  intelligence/dream/com.financeworkspace.checkpoint-recheck.plist \
+  > ~/Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
+launchctl load ~/Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
+```
+
+> - **不跨机同步大脑**：删掉 plist 里 `EnvironmentVariables` 的 `FORESIGHT_USERS_DIR` 那对
+>   `<key>/<string>`（cron 自动用仓库内默认台账），上面 sed 的 `__FORESIGHT_USERS_DIR__` 那段也省掉。
+> - **跨机同步**：`USERS_DIR` 必须与你交互跑 `foresight` 时用的 `FORESIGHT_USERS_DIR` 完全一致，
+>   否则 cron 会回检另一份空台账。
+> - 验证：`launchctl list | grep checkpoint-recheck`，日志看 `$WORKSPACE/logs/checkpoint-recheck.*.log`。
+>   想立刻跑一次验证：`launchctl start com.financeworkspace.checkpoint-recheck`。
+
 ## 测试
 
 ```bash
 python3 -m unittest discover -s intelligence/tests -p "test_*.py"
 # 7A/7B 专项：DB / duckdb 缺席也能跑（优雅跳过、白名单 staging、红线拒绝、泄漏扫描）
 python3 -m unittest intelligence.tests.test_evolve_suggest intelligence.tests.test_kb_candidates
+# C 方案夜间回检 plist 模板自检（well-formed + 命令/调度正确）
+python3 -m unittest intelligence.tests.test_checkpoint_cron
 ```
