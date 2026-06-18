@@ -276,6 +276,95 @@ def _fmt_args(args: dict) -> str:
     return ", ".join(f"{k}={v!r}" for k, v in args.items())
 
 
+_DEFAULT_AGENT_CASES = Path(__file__).resolve().parent / "eval" / "cases" / "agent_cases.json"
+
+
+def add_agent_eval_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "agent-eval",
+        help="Agent 评测闸：对 golden 用例集跑 agent → 确定性评分（引用可解析/免责声明/实体召回/选源/W指标）→ "
+        "记分卡 + 退出码（0 过 / 1 不过 / 2 降级）。可当回归闸：--save-run 存基线，--from-run 离线重评不耗 LLM。",
+    )
+    parser.add_argument("--cases", default=str(_DEFAULT_AGENT_CASES), help="Golden 用例集 JSON（默认内置 agent_cases.json）")
+    parser.add_argument("--case-id", action="append", default=[], help="只跑指定 case id（可重复）；默认全跑")
+    parser.add_argument("--date", default=None, help="覆盖所有 case 的盘面快照日期 YYYY-MM-DD")
+    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root；默认 env/auto")
+    parser.add_argument("--exports-dir", default=None, help="覆盖 market_feature_store/exports 目录")
+    parser.add_argument("--top-companies", type=int, default=12)
+    parser.add_argument("--module-timeout", type=int, default=180)
+    parser.add_argument("--wiki-rag-k", type=int, default=6)
+    parser.add_argument("--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"])
+    parser.add_argument("--wiki-rag-timeout", type=int, default=90)
+    parser.add_argument("--max-steps", type=int, default=6)
+    parser.add_argument("--llm-model", default=None)
+    parser.add_argument("--llm-timeout", type=int, default=90)
+    parser.add_argument("--gate", type=float, default=None, help="覆盖聚合通过率闸值（默认取用例集 aggregate_gate）")
+    parser.add_argument("--json", action="store_true", help="输出机读记分卡 JSON（否则 markdown）")
+    parser.add_argument("--save-run", default=None, help="把本次 live 跑的原始输入存成 JSON（之后可 --from-run 离线重评）")
+    parser.add_argument("--from-run", default=None, help="从已存 run JSON 离线重评，不调用 LLM/KB（确定性回归）")
+    parser.set_defaults(func=cmd_agent_eval)
+
+
+def cmd_agent_eval(args: argparse.Namespace) -> int:
+    import json
+
+    from intelligence.eval import runner as R
+
+    specs, gate = R.load_cases(args.cases)
+    if args.case_id:
+        wanted = set(args.case_id)
+        specs = [s for s in specs if s.id in wanted]
+        if not specs:
+            print(f"没有匹配的 case id：{sorted(wanted)}", file=sys.stderr)
+            return 2
+    if args.gate is not None:
+        gate = args.gate
+
+    if args.from_run:
+        run_record = json.loads(Path(args.from_run).read_text(encoding="utf-8"))
+        card = R.score_run(run_record, specs, gate)
+        degraded = False
+    else:
+        if args.date:
+            for s in specs:
+                s.date = args.date
+        opts = R.EvalRunOptions(
+            kb_wiki=args.kb_wiki,
+            exports_dir=args.exports_dir,
+            top_companies=args.top_companies,
+            module_timeout=args.module_timeout,
+            wiki_rag_k=args.wiki_rag_k,
+            wiki_rag_mode=args.wiki_rag_mode,
+            wiki_rag_timeout=args.wiki_rag_timeout,
+            max_steps=args.max_steps,
+            llm_model=args.llm_model,
+            llm_timeout=args.llm_timeout,
+        )
+        card, run_record = R.run_eval(specs, gate, opts)
+        if args.save_run:
+            Path(args.save_run).write_text(
+                json.dumps(run_record, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        # 全部首轮未作答 = 环境降级（多半无 LLM key），既非「过」也非真实「不过」。
+        degraded = bool(card.cases) and all(
+            c.turns and not c.turns[0].answered for c in card.cases
+        )
+
+    if args.json:
+        print(json.dumps(card.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(R.format_scorecard(card))
+
+    if degraded:
+        print(
+            "\n⚠ 全部 case 首轮未作答：多半是无 LLM key / 检索环境未就绪，agent 走了优雅降级。"
+            "这不是评分意义上的「不过」——请设好 DEEPSEEK_API_KEY 并接好 W 源后重跑。",
+            file=sys.stderr,
+        )
+        return 2
+    return 0 if card.passed else 1
+
+
 def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "foresight",
@@ -1400,6 +1489,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_ask_parser(subparsers)
     add_chat_parser(subparsers)
     add_agent_parser(subparsers)
+    add_agent_eval_parser(subparsers)
     add_foresight_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)
