@@ -15,6 +15,11 @@ T+N 相对沪深300超额口径下并排打分，量化「机器到底比你强/
   python3 scripts/headtohead_ledger.py --mine mine.json --machine machine.json \
       --out 复盘/headtohead/headtohead-2026-06-17.html
 
+  # 你的真实选股直接读 复盘/selections（无需手搓 mine.json）vs 机器记录
+  python3 scripts/headtohead_ledger.py --mine-selections 复盘/selections \
+      --machine-records evolution/records --strategy 1 \
+      --out 复盘/headtohead/headtohead-2026-06-17.html
+
   # 机器侧直接读 strategy-evolve 记录（在你本地 evolve generate 之后）
   python3 scripts/headtohead_ledger.py --mine mine.json \
       --machine-records evolution/records --strategy 1 --scope T1CORE6
@@ -28,6 +33,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import statistics as st
 import sys
 from pathlib import Path
@@ -40,6 +46,11 @@ import price_lib  # noqa: E402
 WINDOWS = (3, 5, 7, 10)
 BENCH = "sh000300"  # 沪深300
 CAL_BUFFER = 50      # 抓行情时往后多取的自然日，确保覆盖 T+10 交易日
+
+DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
+SEL_CODE_RE = re.compile(r"(\d{6})\.(SH|SZ|BJ)", re.IGNORECASE)
+SEL_HEAD_RE = re.compile(r"^\s*#{1,6}\s*(.+?)\s*$")
+_EX2PREFIX = {"SH": "sh", "SZ": "sz", "BJ": "bj"}
 
 
 # ---------- 输入解析 ----------
@@ -114,6 +125,37 @@ def load_machine_records(records_dir: Path, strategy: int, scope: str) -> dict[s
         if codes:
             out[date] = [str(c) for c in codes]
     return out
+
+
+def _selection_codes(text: str, include_observation: bool) -> list[str]:
+    """从一篇选股 markdown 抽取股票代码（统一成 sh|sz|bj 前缀）。默认跳过「观察」段。"""
+    codes: list[str] = []
+    skip = False
+    for line in text.splitlines():
+        head = SEL_HEAD_RE.match(line)
+        if head:
+            skip = (not include_observation) and ("观察" in head.group(1))
+            continue
+        if skip:
+            continue
+        for num, ex in SEL_CODE_RE.findall(line):
+            codes.append(_EX2PREFIX[ex.upper()] + num)
+    return list(dict.fromkeys(codes))  # 去重保序
+
+
+def load_selections(path: Path, include_observation: bool = False) -> dict[str, list[str]]:
+    """读 复盘/selections 选股记录（.md 文件或目录）-> {date: [code, ...]}。
+    日期取自文件名里的 YYYY-MM-DD；默认只计「梯队」选股、跳过「观察组」。"""
+    files = sorted(path.glob("*.md")) if path.is_dir() else [path]
+    out: dict[str, list[str]] = {}
+    for f in files:
+        m = DATE_RE.search(f.name)
+        if not m:
+            continue
+        codes = _selection_codes(f.read_text(encoding="utf-8"), include_observation)
+        if codes:
+            out.setdefault(m.group(1), []).extend(codes)
+    return {d: list(dict.fromkeys(cs)) for d, cs in out.items()}
 
 
 # ---------- 打分 ----------
@@ -385,7 +427,11 @@ def build_html(label_a, agg_a, label_b, agg_b, stamp, main_w) -> str:
 # ---------- main ----------
 def main() -> int:
     ap = argparse.ArgumentParser(description="人机对照台账：你的实选 vs 机器生成名单（同口径 T+N 超额）")
-    ap.add_argument("--mine", required=True, help="你的实选 picks 文件（JSON 对象或 JSONL）")
+    ap.add_argument("--mine", help="你的实选 picks 文件（JSON 对象或 JSONL）")
+    ap.add_argument("--mine-selections",
+                    help="改从 复盘/selections 读你的真实选股（.md 文件或目录；日期取自文件名）")
+    ap.add_argument("--include-observation", action="store_true",
+                    help="--mine-selections 时把「观察组」也计入你的名单（默认只算梯队选股）")
     ap.add_argument("--machine", help="机器名单 picks 文件")
     ap.add_argument("--machine-records", help="改从 strategy-evolve 的 evolution/records 目录读机器名单")
     ap.add_argument("--strategy", type=int, default=1, choices=[1, 3, 4], help="--machine-records 时用哪个策略")
@@ -397,7 +443,13 @@ def main() -> int:
     ap.add_argument("--out", default=None, help="输出 paper 主题 HTML 路径")
     args = ap.parse_args()
 
-    mine = load_picks(Path(args.mine).expanduser())
+    if args.mine_selections:
+        mine = load_selections(Path(args.mine_selections).expanduser(), args.include_observation)
+    elif args.mine:
+        mine = load_picks(Path(args.mine).expanduser())
+    else:
+        print("[ERR] 需要 --mine 或 --mine-selections 之一")
+        return 1
     default_scope = {1: "T1CORE6", 3: "S3_ALL", 4: "S4_ALL"}
     if args.machine_records:
         scope = args.scope or default_scope[args.strategy]
@@ -411,7 +463,7 @@ def main() -> int:
         return 1
 
     if not mine:
-        print(f"[ERR] 你的名单为空：{args.mine}")
+        print(f"[ERR] 你的名单为空：{args.mine_selections or args.mine}")
         return 1
 
     # 行情区间：覆盖两边全部日期
