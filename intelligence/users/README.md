@@ -20,6 +20,21 @@
 以上**运行时文件全部 gitignore，不入库**（含真实自选股、提问历史等隐私）。仓库里只跟踪
 本 README、`profile.template.json` 与 `strategy_params.template.json` 模板。
 
+## 跨机同步：`FORESIGHT_USERS_DIR`（两机一个大脑）
+
+上面这些文件默认落在仓库内 `intelligence/users/<id>/`，`git pull` **不会**带过去（已 gitignore）。
+要让多台机器共享同一个大脑，设环境变量 `FORESIGHT_USERS_DIR` 把整个 `users/<id>/` 目录
+重定位到云同步盘（支持 `~` 展开）；所有读写（`foresight` 亲和度、`record-interaction`、
+`refresh-profile`、潜意识模式）都经 `userspace.user_space()` 解析，自动跟随，无需逐处改。
+
+```bash
+# 两台机器都这样配；指向 Obsidian 沉淀 vault 内的隐藏目录，随 vault 云同步
+export FORESIGHT_USER=<id>
+export FORESIGHT_USERS_DIR="$HOME/路径/到/沉淀vault/.foresight"
+```
+
+不设则保持原样（仓库内、单机）。`.` 开头目录 Obsidian 默认不显示，不会污染 vault 视图。
+
 ## 越用越懂：反馈回路 `interactions.jsonl`
 
 每条「猜你想问」问题被点开 / 追问 / 喜欢 / 忽略 / 打分时记一笔，下次 `foresight` 排序就会

@@ -65,3 +65,30 @@ python3 scripts/evolve.py audit                        # 随时体检：前视/�
 - `records/`           每日生成记录（可回溯；.gitignore 忽略）
 - `validation/`        累计验证结果（.gitignore 忽略）
 - `suggestions/`       调参建议（仅供人工确认；.gitignore 忽略）
+
+## 人机对照台账（`scripts/headtohead_ledger.py`）
+
+把**你的实选**与**机器(本流水线)生成名单**放在同一套 T+N 相对沪深300超额口径下并排打分，
+量化「机器到底比你强/弱多少」——「逐步迭代进化做得比你更好」需要先有这把尺子。
+
+- 口径与 opinion-cross 胜率榜完全一致：进场=报告日次日开盘，T+3/5/7/10 收盘，
+  超额=个股收益−沪深300同窗收益（剥大盘 beta），另给区间最高(均最高)与峰值后回撤(均回撤)。
+- **零 DuckDB 依赖**：行情走 `skills/opinion-cross/scripts/price_lib.py`（腾讯/新浪公开接口 + 仓外缓存），
+  与 `validate.py`（读 `fact_stock_daily`）是两条独立打分路径，可互相对照。
+- 机器名单可直接喂本流水线的 `evolution/records/{date}.json`（`--machine-records`），
+  也可喂任意 picks 文件；你的实选给一个 picks 文件即可。
+
+```bash
+# 机器侧读 strategy-evolve 记录（你本地 evolve generate 之后）
+python3 scripts/headtohead_ledger.py --mine mine.json \
+    --machine-records evolution/records --strategy 1 --scope T1CORE6 \
+    --out 复盘/headtohead/headtohead-$(date +%F).html
+
+# 或两个 picks 文件直接对照
+python3 scripts/headtohead_ledger.py --mine mine.json --machine machine.json --json out.json
+```
+
+picks 文件两种格式（自动识别）：JSON 对象 `{"2026-05-22":["中际旭创","002552"]}`，
+或 JSONL 每行 `{"date":"2026-05-22","picks":["中际旭创","002552"]}`；
+名单元素可为 6 位代码 / 带 sh|sz|bj 前缀代码 / 个股名（名走新浪 suggest 解析）。
+输出 HTML 沿用 paper 主题、自包含；按惯例为生成产物，不入 git。

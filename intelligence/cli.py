@@ -547,6 +547,230 @@ def cmd_dream_nightly(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_subconscious_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "subconscious",
+        help="潜意识模式：可开关的会话级记忆巩固——开启 → 多轮对话逐轮记信号 → 退出回读出 diff → "
+        "确认后双层落盘（interactions.jsonl 机器层 + Obsidian 沉淀 vault 人类层）",
+    )
+    sub = parser.add_subparsers(dest="action", required=True)
+
+    p_start = sub.add_parser("start", help="开启潜意识模式（写 active 标记 + 建 session buffer）")
+    p_start.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_start.add_argument("--session", default=None, help="会话 id（默认 YYYY-MM-DD-HHMM）")
+    p_start.add_argument("--vault", default=None, help="Obsidian 沉淀 vault 路径（默认 env SUBCONSCIOUS_VAULT）")
+    p_start.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_start.set_defaults(func=cmd_subconscious_start)
+
+    p_note = sub.add_parser("note", help="记一条本轮信号到 buffer（确认前不进 interactions.jsonl）")
+    p_note.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_note.add_argument("--session", default=None, help="会话 id（默认取 active）")
+    p_note.add_argument("--kind", required=True, help="反馈类型 click/follow/pin/ask/view/skip/dismiss/mute/rate…")
+    p_note.add_argument("--theme", dest="themes", action="append", default=[], help="关联题材（可多次）")
+    p_note.add_argument("--stock", dest="stocks", action="append", default=[], help="关联个股（可多次）")
+    p_note.add_argument("--question", default=None, help="foresight 抛出的问题原文（可选，留痕）")
+    p_note.add_argument("--quote", default=None, help="用户原话片段（可选，写进沉淀日志）")
+    p_note.add_argument("--weight", type=float, default=None, help="显式权重（覆盖 kind 默认）")
+    p_note.add_argument("--rating", type=float, default=None, help="1~5 星评分（kind=rate 时用）")
+    p_note.add_argument("--note", default=None, help="备注（可选）")
+    p_note.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_note.set_defaults(func=cmd_subconscious_note)
+
+    p_review = sub.add_parser("review", help="回读 buffer → 出记忆提案 diff（只读，不落盘）")
+    p_review.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_review.add_argument("--session", default=None, help="会话 id（默认取 active）")
+    p_review.add_argument("--vault", default=None, help="Obsidian 沉淀 vault 路径（默认 active/env）")
+    p_review.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_review.set_defaults(func=cmd_subconscious_review)
+
+    p_commit = sub.add_parser(
+        "commit",
+        help="确认落盘：append interactions.jsonl + 写 Obsidian 沉淀日志（需 --apply；缺省等同 review 只预览）",
+    )
+    p_commit.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_commit.add_argument("--session", default=None, help="会话 id（默认取 active）")
+    p_commit.add_argument("--vault", default=None, help="Obsidian 沉淀 vault 路径（默认 active/env/回退）")
+    p_commit.add_argument("--apply", action="store_true", help="真正落盘（缺省只预览提案）")
+    p_commit.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_commit.set_defaults(func=cmd_subconscious_commit)
+
+    p_status = sub.add_parser("status", help="看当前是否在潜意识模式 + buffer 计数")
+    p_status.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_status.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_status.set_defaults(func=cmd_subconscious_status)
+
+
+def cmd_subconscious_start(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import subconscious
+
+    us = userspace.user_space(args.user)
+    us.ensure_dir()
+    state = subconscious.start_session(us, session_id=args.session, vault=args.vault)
+    synced = userspace.users_dir() != userspace.USERS_DIR
+    if args.json:
+        print(_json.dumps(
+            {"user": us.user_id, "users_dir": str(userspace.users_dir()), "synced": synced, **state},
+            ensure_ascii=False, indent=2,
+        ))
+    else:
+        print(f"潜意识模式已开启：user={us.user_id} session={state['session_id']}")
+        print(f"  buffer：{state['buffer']}")
+        print(f"  大脑目录：{userspace.users_dir()}" + ("（跨机同步）" if synced else "（仓库内、单机；设 FORESIGHT_USERS_DIR 可跨机同步）"))
+        print("  逐轮记信号：`subconscious note --kind click --theme 液冷 --stock 中际旭创`")
+        print("  退出回读：`subconscious review` → `subconscious commit --apply`")
+    return 0
+
+
+def cmd_subconscious_note(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import subconscious
+
+    us = userspace.user_space(args.user)
+    rec = subconscious.append_signal(
+        us,
+        session_id=args.session,
+        kind=args.kind,
+        themes=args.themes,
+        stocks=args.stocks,
+        question=args.question,
+        quote=args.quote,
+        note=args.note,
+        weight=args.weight,
+        rating=args.rating,
+    )
+    if args.json:
+        print(_json.dumps(rec, ensure_ascii=False, indent=2))
+    else:
+        tags = "、".join(rec["themes"] + rec["stocks"]) or "（无题材/个股）"
+        print(f"已记入 buffer：{rec['kind']} · {tags}")
+    return 0
+
+
+def _subconscious_build_proposal(args: argparse.Namespace):
+    from intelligence import userspace
+    from intelligence.services import subconscious
+
+    us = userspace.user_space(args.user)
+    session_id = subconscious._resolve_session(us, args.session)
+    buffer = subconscious.load_buffer(us, session_id)
+    proposal = subconscious.consolidate(buffer, user_id=us.user_id, session_id=session_id)
+    return us, subconscious, proposal
+
+
+def _proposal_to_dict(proposal, *, interactions_path, note_path, vault_is_fallback, applied):
+    return {
+        "user": proposal.user_id,
+        "session": proposal.session_id,
+        "turns": proposal.turns,
+        "applied": applied,
+        "interactions_path": str(interactions_path),
+        "note_path": str(note_path),
+        "vault_is_fallback": vault_is_fallback,
+        "questions": proposal.questions,
+        "rows": [
+            {
+                "target": r.target,
+                "label": r.label,
+                "kind": r.kind,
+                "weight": r.weight,
+                "count": r.count,
+            }
+            for r in proposal.rows
+        ],
+    }
+
+
+def cmd_subconscious_review(args: argparse.Namespace) -> int:
+    import json as _json
+
+    us, subconscious, proposal = _subconscious_build_proposal(args)
+    vault_path, is_fallback = subconscious.resolve_vault(us, explicit=args.vault)
+    note_path = vault_path / subconscious.VAULT_SUBDIR / f"{proposal.session_id}.md"
+    if args.json:
+        print(_json.dumps(
+            _proposal_to_dict(proposal, interactions_path=us.interactions_path,
+                              note_path=note_path, vault_is_fallback=is_fallback, applied=False),
+            ensure_ascii=False, indent=2,
+        ))
+    else:
+        print(subconscious.render_proposal(
+            proposal, interactions_path=us.interactions_path, note_path=note_path,
+            vault_is_fallback=is_fallback, applied=False,
+        ), end="")
+    return 0
+
+
+def cmd_subconscious_commit(args: argparse.Namespace) -> int:
+    import json as _json
+
+    us, subconscious, proposal = _subconscious_build_proposal(args)
+    if not args.apply:
+        vault_path, is_fallback = subconscious.resolve_vault(us, explicit=args.vault)
+        note_path = vault_path / subconscious.VAULT_SUBDIR / f"{proposal.session_id}.md"
+        if args.json:
+            print(_json.dumps(
+                _proposal_to_dict(proposal, interactions_path=us.interactions_path,
+                                  note_path=note_path, vault_is_fallback=is_fallback, applied=False),
+                ensure_ascii=False, indent=2,
+            ))
+        else:
+            print(subconscious.render_proposal(
+                proposal, interactions_path=us.interactions_path, note_path=note_path,
+                vault_is_fallback=is_fallback, applied=False,
+            ), end="")
+        return 0
+
+    result = subconscious.commit(us, proposal, vault=args.vault)
+    subconscious.archive_session(us, proposal.session_id)
+    if args.json:
+        print(_json.dumps(
+            _proposal_to_dict(proposal, interactions_path=result.interactions_path,
+                              note_path=result.note_path, vault_is_fallback=result.vault_is_fallback,
+                              applied=True),
+            ensure_ascii=False, indent=2,
+        ))
+    else:
+        print(subconscious.render_proposal(
+            proposal, interactions_path=result.interactions_path, note_path=result.note_path,
+            vault_is_fallback=result.vault_is_fallback, applied=True,
+        ), end="")
+        print(f"写入 {result.written_records} 条反馈 + 1 篇沉淀日志；下次 `foresight --user {us.user_id}` 即生效。")
+    return 0
+
+
+def cmd_subconscious_status(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import subconscious
+
+    us = userspace.user_space(args.user)
+    active = subconscious.load_active(us)
+    pending = 0
+    if active and active.get("session_id"):
+        pending = len(subconscious.load_buffer(us, str(active["session_id"])))
+    synced = userspace.users_dir() != userspace.USERS_DIR
+    if args.json:
+        print(_json.dumps(
+            {"user": us.user_id, "users_dir": str(userspace.users_dir()), "synced": synced,
+             "active": active, "buffer_signals": pending},
+            ensure_ascii=False, indent=2,
+        ))
+    else:
+        if active:
+            print(f"潜意识模式：开启中（user={us.user_id} session={active.get('session_id')}，"
+                  f"buffer {pending} 条待巩固）")
+        else:
+            print(f"潜意识模式：未开启（user={us.user_id}）。`subconscious start` 开启。")
+        print(f"  大脑目录：{userspace.users_dir()}" + ("（跨机同步）" if synced else "（仓库内、单机）"))
+    return 0
+
+
 def cmd_theme(args: argparse.Namespace) -> int:
     from intelligence.workflows.theme_radar import ThemeRadarOptions, run_theme_radar
 
@@ -580,6 +804,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_dream_evolve_suggest_parser(subparsers)
     add_dream_kb_candidates_parser(subparsers)
     add_dream_nightly_parser(subparsers)
+    add_subconscious_parser(subparsers)
     return parser
 
 
