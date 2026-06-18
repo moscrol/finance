@@ -262,6 +262,65 @@ def _build_synthesis_prompt(query: str, theme: str, evidence_text: str, citation
     )
 
 
+def build_synthesis_messages(
+    query: str, theme: str, evidence_text: str, citation_legend: str = ""
+) -> list[dict]:
+    """Assemble the turn-1 synthesis ``[system, user]`` messages.
+
+    Exposed so the multi-turn driver can keep the exact same evidence-laden first
+    turn and then append follow-ups on top of it (grounding stays anchored to the
+    evidence given here — follow-ups must not introduce new sources)."""
+    return [
+        {"role": "system", "content": _SYNTHESIS_SYSTEM_PROMPT},
+        {"role": "user", "content": _build_synthesis_prompt(query, theme, evidence_text, citation_legend)},
+    ]
+
+
+# 追问时附在用户问题前的薄约束：复用首轮已给证据、不引入新事实、保留引用编号。
+_FOLLOWUP_NUDGE = (
+    "（追问，请仅基于本次对话前面已经给出的多源证据回答：不要引入证据里没有的新公司/"
+    "数字/催化，继续用 [编号] 标注引用；若已有证据不足以回答就直说「证据不足」，"
+    "不要编造。结尾仍以「（非投资建议）」收尾。）\n\n"
+)
+
+
+def followup_user_content(question: str) -> str:
+    """Wrap a follow-up question with the grounding nudge sent to the model.
+
+    The raw ``question`` is what the caller should display in a transcript; the
+    wrapped form is what actually goes into the ``messages`` list."""
+    return _FOLLOWUP_NUDGE + question
+
+
+def synthesize_messages(
+    messages: list[dict],
+    model_override: str | None = None,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+    temperature: float = 0.3,
+) -> tuple[SynthesisResult | None, str]:
+    """Run a synthesis turn from a full ``messages`` list (system + history).
+
+    Shared by single-turn :func:`synthesize` and the multi-turn driver. Returns
+    ``(result, reason)``; on any failure ``result`` is ``None`` and ``reason``
+    explains why so the caller degrades gracefully."""
+    provider = detect_provider(model_override)
+    if provider is None:
+        return None, (
+            "未配置 LLM key，有机合成降级为模板。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
+            "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
+        )
+    try:
+        content = _post_chat(provider, messages, timeout, temperature)
+    except urllib.error.HTTPError as exc:  # pragma: no cover - network
+        return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
+    except Exception as exc:  # pragma: no cover - network
+        return None, f"LLM 合成失败（{type(exc).__name__}），已降级为模板"
+    text = (content or "").strip()
+    if not text:
+        return None, "LLM 合成返回空内容，已降级为模板"
+    return SynthesisResult(answer=text, provider=provider.name, model=provider.model), ""
+
+
 def synthesize(
     query: str,
     theme: str,
@@ -277,23 +336,7 @@ def synthesize(
     ``result`` is ``None`` and ``reason`` explains why, so the caller degrades to
     the deterministic six-section template — identical behaviour to no-key today.
     """
-    provider = detect_provider(model_override)
-    if provider is None:
-        return None, (
-            "未配置 LLM key，有机合成降级为模板。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
-            "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
-        )
-    messages = [
-        {"role": "system", "content": _SYNTHESIS_SYSTEM_PROMPT},
-        {"role": "user", "content": _build_synthesis_prompt(query, theme, evidence_text, citation_legend)},
-    ]
-    try:
-        content = _post_chat(provider, messages, timeout, temperature)
-    except urllib.error.HTTPError as exc:  # pragma: no cover - network
-        return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
-    except Exception as exc:  # pragma: no cover - network
-        return None, f"LLM 合成失败（{type(exc).__name__}），已降级为模板"
-    text = (content or "").strip()
-    if not text:
-        return None, "LLM 合成返回空内容，已降级为模板"
-    return SynthesisResult(answer=text, provider=provider.name, model=provider.model), ""
+    messages = build_synthesis_messages(query, theme, evidence_text, citation_legend)
+    return synthesize_messages(
+        messages, model_override=model_override, timeout=timeout, temperature=temperature
+    )

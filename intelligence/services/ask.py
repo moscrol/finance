@@ -116,6 +116,9 @@ class AskResult:
     llm_provider: str | None = None
     # 有机合成（--compose）的自由形态回答正文；None 表示未启用/已降级为模板
     synthesis: str | None = None
+    # 首轮合成的完整对话 messages（system+user+assistant）；供多轮追问复用证据+历史。
+    # None 表示未启用/已降级（无法进入多轮对话）。
+    synthesis_messages: list[dict] | None = None
     # (label, 完整报告全文) per routed module, only when --detail is set
     detail_reports: list[tuple[str, str]] = field(default_factory=list)
 
@@ -505,13 +508,16 @@ def answer_query(options: AskOptions) -> AskResult:
         citation_legend = "\n".join(
             f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
         )
-        composed, reason = llm_refine.synthesize(
-            options.query, theme, evidence_text, citation_legend=citation_legend,
-            model_override=options.llm_model, timeout=options.llm_timeout,
+        msgs = llm_refine.build_synthesis_messages(
+            options.query, theme, evidence_text, citation_legend=citation_legend
+        )
+        composed, reason = llm_refine.synthesize_messages(
+            msgs, model_override=options.llm_model, timeout=options.llm_timeout,
         )
         if composed is not None:
             result.synthesis = composed.answer
             result.llm_provider = composed.provider
+            result.synthesis_messages = msgs + [{"role": "assistant", "content": composed.answer}]
         else:
             result.warnings.append(reason)
 
