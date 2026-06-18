@@ -151,10 +151,13 @@ class AgentLoopTests(unittest.TestCase):
         # the tool actually ran (citations registered) and its result fed back in
         self.assertTrue(res.citations)
         # second round-trip carried the assistant tool_call echo + tool result message
+        # (self.messages is one mutable list passed by reference, so assert on the
+        # protocol prefix / by-role rather than the live-mutated tail)
         second_messages = called.call_args_list[1].args[0]
         roles = [m["role"] for m in second_messages]
-        self.assertEqual(roles, ["system", "user", "assistant", "tool"])
-        self.assertIn("英维克", second_messages[3]["content"])
+        self.assertEqual(roles[:4], ["system", "user", "assistant", "tool"])
+        tool_msgs = [m for m in second_messages if m["role"] == "tool"]
+        self.assertIn("英维克", tool_msgs[0]["content"])
 
     def test_unknown_tool_call_is_handled(self) -> None:
         s = _session()
@@ -172,9 +175,9 @@ class AgentLoopTests(unittest.TestCase):
         self.assertEqual(res.steps[0].tool, "nope_tool")
         self.assertIn("未知工具", res.steps[0].result_preview)
         # the error string was passed back as the tool result, loop continued
-        tool_msg = called.call_args_list[1].args[0][-1]
-        self.assertEqual(tool_msg["role"], "tool")
-        self.assertIn("未知工具", tool_msg["content"])
+        tool_msgs = [m for m in called.call_args_list[1].args[0] if m["role"] == "tool"]
+        self.assertTrue(tool_msgs)
+        self.assertIn("未知工具", tool_msgs[0]["content"])
 
     def test_bad_tool_arguments_do_not_crash(self) -> None:
         s = _session()
@@ -214,6 +217,105 @@ class AgentLoopTests(unittest.TestCase):
         # the forced final call appended a tool-free nudge as the last user turn
         forced_messages = forced.call_args.args[0]
         self.assertEqual(forced_messages[-1]["role"], "user")
+
+
+class MultiTurnAgentTests(unittest.TestCase):
+    def test_follow_up_reuses_history_without_re_calling_tools(self) -> None:
+        s = _session()
+        prov = _provider()
+        with mock.patch.object(
+            llm_refine,
+            "chat_with_tools",
+            side_effect=[
+                # turn 1: dispatch a tool, then answer
+                (_tool_call_msg("search_graph", {"query": "液冷"}), prov, ""),
+                (_final_msg("液冷核心是英维克[G2]。（非投资建议）"), prov, ""),
+                # turn 2 (follow-up): answer straight from memory, no tool call
+                (_final_msg("英维克比川润证据更硬[G2]。（非投资建议）"), prov, ""),
+            ],
+        ) as called:
+            t1 = s.start("液冷")
+            cites_after_t1 = len(s.citations)
+            t2 = s.ask("英维克和川润谁证据更硬")
+
+        self.assertTrue(t1.ok)
+        self.assertTrue(t2.ok)
+        # follow-up answered with zero tool calls (reused history)
+        self.assertEqual(t2.steps, [])
+        # no new citations were registered on the follow-up turn
+        self.assertEqual(len(s.citations), cites_after_t1)
+        # the follow-up round-trip saw the full prior conversation + the new question
+        followup_messages = called.call_args_list[2].args[0]
+        roles = [m["role"] for m in followup_messages]
+        self.assertEqual(roles[:6], ["system", "user", "assistant", "tool", "assistant", "user"])
+        # turn-1 evidence (英维克) is still in the context the follow-up reasons over
+        tool_msgs = [m for m in followup_messages if m["role"] == "tool"]
+        self.assertIn("英维克", tool_msgs[0]["content"])
+        # and the new follow-up question is tagged as such
+        last_user = [m for m in followup_messages if m["role"] == "user"][-1]
+        self.assertIn("追问", last_user["content"])
+        self.assertIn("英维克和川润", last_user["content"])
+
+    def test_follow_up_can_autonomously_call_more_tools(self) -> None:
+        s = _session()
+        prov = _provider()
+        with mock.patch.object(
+            llm_refine,
+            "chat_with_tools",
+            side_effect=[
+                (_tool_call_msg("search_graph", {"query": "液冷"}), prov, ""),
+                (_final_msg("液冷核心是英维克[G2]。（非投资建议）"), prov, ""),
+                # follow-up: the agent decides it needs fresh evidence and calls a tool
+                (_tool_call_msg("search_evidence", {"target": "英维克"}, call_id="c2"), prov, ""),
+                (_final_msg("英维克有订单放量[R1]。（非投资建议）"), prov, ""),
+            ],
+        ):
+            s.start("液冷")
+            cites_after_t1 = len(s.citations)
+            t2 = s.ask("英维克最新有什么硬证据")
+
+        self.assertTrue(t2.ok)
+        # the follow-up autonomously dispatched another tool
+        self.assertEqual(len(t2.steps), 1)
+        self.assertEqual(t2.steps[0].tool, "search_evidence")
+        # which extended the cumulative citation registry
+        self.assertGreater(len(s.citations), cites_after_t1)
+        self.assertIn("R", s.sources_used)
+
+    def test_failed_follow_up_rolls_back_history(self) -> None:
+        s = _session()
+        prov = _provider()
+        with mock.patch.object(
+            llm_refine,
+            "chat_with_tools",
+            side_effect=[
+                (_tool_call_msg("search_graph", {"query": "液冷"}), prov, ""),
+                (_final_msg("液冷核心是英维克[G2]。（非投资建议）"), prov, ""),
+            ],
+        ):
+            s.start("液冷")
+        msgs_before = len(s.messages)
+        cites_before = len(s.citations)
+        # the follow-up LLM call fails -> graceful degrade + rollback for a clean retry
+        with mock.patch.object(llm_refine, "chat_with_tools", return_value=(None, prov, "LLM 调用 HTTP 503")):
+            t2 = s.ask("会不会有风险")
+        self.assertFalse(t2.ok)
+        self.assertIn("503", t2.reason)
+        self.assertEqual(len(s.messages), msgs_before)
+        self.assertEqual(len(s.citations), cites_before)
+
+    def test_ask_without_prior_turn_starts_conversation(self) -> None:
+        s = _session()
+        prov = _provider()
+        with mock.patch.object(
+            llm_refine,
+            "chat_with_tools",
+            side_effect=[(_final_msg("结论[G2]。（非投资建议）"), prov, "")],
+        ):
+            res = s.ask("液冷")
+        self.assertTrue(res.ok)
+        self.assertIsNotNone(s.messages)
+        self.assertEqual(s.messages[0]["role"], "system")
 
 
 if __name__ == "__main__":

@@ -206,6 +206,9 @@ class AgentSession:
         self.citations: list[Citation] = []
         self.sources_used: set[str] = set()
         self._export_name: str | None = None
+        # multi-turn conversation state (持续对话 + 跨轮证据复用)
+        self.messages: list[dict] | None = None
+        self.provider_name: str | None = None
 
     # --- citation registry (mirrors ask.answer_query's `cite` closure) ---
     def _cite(self, prefix: str, source: str, detail: str = "") -> str:
@@ -365,42 +368,53 @@ class AgentSession:
         except Exception as exc:  # pragma: no cover - defensive
             return f"工具「{name}」执行失败（{type(exc).__name__}）：{exc}"
 
-    # --- the loop ---
+    # --- the loop（multi-turn: 记忆 + 每轮自主调工具）---
     def run(self, query: str) -> AgentResult:
-        messages: list[dict] = [
+        """One-shot 便捷封装 == 在一段全新对话上调 :meth:`start`。"""
+        return self.start(query)
+
+    def start(self, query: str) -> AgentResult:
+        """Turn 1：开一段新对话（system + 首问），自主调工具后作答。"""
+        self.messages = [
             {"role": "system", "content": _AGENT_SYSTEM_PROMPT},
             {"role": "user", "content": self._user_prompt(query)},
         ]
+        return self._drive()
+
+    def ask(self, query: str) -> AgentResult:
+        """追问：复用既有对话历史 + 已抓到的证据（引用编号跨轮延续），本轮仍由
+        LLM 自主决定要不要再调工具补查。若本轮没拿到回答则回滚，保持历史一致以便重试。"""
+        if self.messages is None:
+            return self.start(query)
+        msg_mark = len(self.messages)
+        cite_mark = len(self.citations)
+        self.messages.append({"role": "user", "content": self._followup_prompt(query)})
+        res = self._drive()
+        if not res.ok:
+            del self.messages[msg_mark:]
+            del self.citations[cite_mark:]
+        return res
+
+    def _drive(self) -> AgentResult:
+        """跑工具调用循环（操作 self.messages，跨轮持久）。"""
+        assert self.messages is not None
         steps: list[AgentStep] = []
-        provider_name: str | None = None
         for _ in range(self.max_steps):
             msg, provider, reason = llm_refine.chat_with_tools(
-                messages,
+                self.messages,
                 AGENT_TOOLS,
                 model_override=self.model_override,
                 timeout=self.timeout,
             )
             if msg is None:
-                return AgentResult(
-                    answer=None,
-                    steps=steps,
-                    citations=self.citations,
-                    provider=(provider.name if provider else None),
-                    reason=reason,
-                    sources_used=self.sources_used,
-                )
-            provider_name = provider.name if provider else provider_name
+                return self._result(None, steps, provider, reason)
             tool_calls = msg.get("tool_calls") or []
             if not tool_calls:
-                return AgentResult(
-                    answer=(msg.get("content") or "").strip() or None,
-                    steps=steps,
-                    citations=self.citations,
-                    provider=provider_name,
-                    reason="" if (msg.get("content") or "").strip() else "LLM 未给出回答",
-                    sources_used=self.sources_used,
-                )
-            messages.append(_assistant_echo(msg))
+                answer = (msg.get("content") or "").strip() or None
+                if answer:
+                    self.messages.append({"role": "assistant", "content": answer})
+                return self._result(answer, steps, provider, "" if answer else "LLM 未给出回答")
+            self.messages.append(_assistant_echo(msg))
             for tc in tool_calls:
                 fn = tc.get("function") or {}
                 name = fn.get("name") or ""
@@ -413,26 +427,43 @@ class AgentSession:
                     args = {}
                 out = self._run_tool(name, args)
                 steps.append(AgentStep(tool=name, args=args, result_preview=out[:300]))
-                messages.append({"role": "tool", "tool_call_id": tc.get("id"), "content": out})
+                self.messages.append({"role": "tool", "tool_call_id": tc.get("id"), "content": out})
 
-        # exhausted the step budget → force a tool-free final answer
-        messages.append({"role": "user", "content": _FORCE_FINAL_NUDGE})
+        # exhausted the step budget → force a tool-free final answer（nudge 不写进长期历史）
+        final_messages = self.messages + [{"role": "user", "content": _FORCE_FINAL_NUDGE}]
         content, provider, reason = llm_refine.complete(
-            messages, model_override=self.model_override, timeout=self.timeout
+            final_messages, model_override=self.model_override, timeout=self.timeout
         )
-        provider_name = provider.name if provider else provider_name
+        answer = (content or "").strip() or None
+        if answer:
+            self.messages.append({"role": "assistant", "content": answer})
+        return self._result(
+            answer, steps, provider,
+            reason or ("达到工具调用步数上限，已强制收尾" if answer else "达到步数上限且无回答"),
+        )
+
+    def _result(self, answer, steps, provider, reason) -> AgentResult:
+        if provider is not None:
+            self.provider_name = provider.name
         return AgentResult(
-            answer=(content or "").strip() or None,
+            answer=answer,
             steps=steps,
             citations=self.citations,
-            provider=provider_name,
-            reason=reason or ("达到工具调用步数上限，已强制收尾" if content else "达到步数上限且无回答"),
+            provider=self.provider_name,
+            reason=reason,
             sources_used=self.sources_used,
         )
 
     def _user_prompt(self, query: str) -> str:
         date_note = f"（盘面快照参考日期：{self.options.date}）" if self.options.date else ""
         return f"题材问题：{query}{date_note}\n请按需调用工具检索证据后作答。"
+
+    def _followup_prompt(self, query: str) -> str:
+        return (
+            f"追问：{query}\n"
+            "可以直接复用上文工具已经返回过的证据作答；若需要新的事实，再自行调用工具补查。"
+            "仍然只能引用工具实际返回过的内容（带 [编号]），不要编造；结尾以「（非投资建议）」收尾。"
+        )
 
 
 def _assistant_echo(msg: dict) -> dict:

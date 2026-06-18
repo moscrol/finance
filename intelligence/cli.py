@@ -209,14 +209,17 @@ def cmd_agent(args: argparse.Namespace) -> int:
         compose=True,
     )
 
-    def _run(question: str) -> int:
-        session = AgentSession(
-            options,
-            model_override=args.llm_model,
-            timeout=args.llm_timeout,
-            max_steps=args.max_steps,
-        )
-        res = session.run(question)
+    # 单个持久会话：跨轮记忆 + 累积引用注册表；每轮仍由 LLM 自主决定调哪些工具。
+    session = AgentSession(
+        options,
+        model_override=args.llm_model,
+        timeout=args.llm_timeout,
+        max_steps=args.max_steps,
+    )
+    state = {"seen": 0, "turn": 0}
+
+    def _emit(question: str, res) -> int:
+        state["turn"] += 1
         print(f"## 你\n{question}\n")
         if args.show_trace or not res.ok:
             if res.steps:
@@ -224,14 +227,18 @@ def cmd_agent(args: argparse.Namespace) -> int:
                 for i, st in enumerate(res.steps, 1):
                     print(f"{i}. `{st.tool}`({_fmt_args(st.args)}) → {st.result_preview.splitlines()[0] if st.result_preview else ''}")
                 print()
+            elif state["turn"] > 1:
+                print("> （本轮未调工具，直接基于上文已抓到的证据作答）\n")
             else:
                 print("> （本轮未调用任何工具）\n")
         who = f"助手·agent·{res.provider}" if res.provider else "助手·agent"
         if res.ok:
             print(f"## {who}\n{res.answer}\n")
-            if res.citations:
-                print("### 引用来源")
-                for c in res.citations:
+            new = res.citations[state["seen"]:]
+            state["seen"] = len(res.citations)
+            if new:
+                print("### 引用来源" if state["turn"] == 1 else "### 引用来源（本轮新增）")
+                for c in new:
                     print(f"- [{c.tag}] {c.source}" + (f"（{c.detail}）" if c.detail else ""))
                 print()
             return 0
@@ -240,17 +247,17 @@ def cmd_agent(args: argparse.Namespace) -> int:
         return 1
 
     print(f"# agent：{args.query}\n")
-    rc = _run(args.query)
+    rc = _emit(args.query, session.start(args.query))
+    if rc != 0:
+        # turn-1 degraded (no key / failure) — don't drop into an unusable REPL.
+        return rc
     follow_ups = list(args.follow_ups)
     if follow_ups:
         for q in follow_ups:
             print("---\n")
-            rc = _run(q) or rc
-        return rc
-    if rc != 0:
-        # turn-1 degraded (no key / failure) — don't drop into an unusable REPL.
-        return rc
-    print("（agent 已就绪。输入下一个问题后回车；空行 / exit / quit 退出。每问独立重新检索。）\n")
+            _emit(q, session.ask(q))
+        return 0
+    print("（agent 多轮已就绪：带记忆连续对话，每轮仍自主决定要不要再调工具补查。输入追问；空行 / exit / quit 退出。）\n")
     while True:
         try:
             line = input("> ").strip()
@@ -261,7 +268,7 @@ def cmd_agent(args: argparse.Namespace) -> int:
             break
         print()
         print("---\n")
-        _run(line)
+        _emit(line, session.ask(line))
     return 0
 
 
