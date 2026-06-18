@@ -208,6 +208,8 @@ python3 -m intelligence.cli dream-kb-candidates --input candidates.json --json
 > foresight 的 C 方案（可证伪点登记 → 到期回检打分 → 二阶推演校准）需要有人**到期把判断核对一遍**。
 > 这一步挂进同一套夜间 cron：每晚跑 `checkpoint recheck --apply`，把到期点交给 resolver 拉数核对，
 > 落 verdict 到 `users/<id>/verdicts.jsonl`，下次 foresight 自动按类别胜率注入校准。
+> 同时写一份**人类可读回检日志** markdown 到你的 Obsidian vault（`SUBCONSCIOUS_VAULT` 下
+> `可证伪点回检/<日期>.md`），让夜间任务**不黑盒**——你能直接翻看每晚做没做、判得对不对。
 
 与采集半 / 推理半**本质不同**——本任务**不碰 git、不切分支、不 commit、不 push**，只更新本地
 gitignore 的 `verdicts.jsonl`。所以它跑在**你的工作区仓库本身**（含 `db/market_feature_store.duckdb`
@@ -217,6 +219,9 @@ gitignore 的 `verdicts.jsonl`。所以它跑在**你的工作区仓库本身**�
   （非终态、不计入胜率、绝不编造），下次重跑即判定。
 - 知识库侧（`kb_evidence`）：读 `wiki/relations/`，云端也在仓里，随处可跑。
 - 无机检规格（`manual`）：留给 `checkpoint score` 人工打分，回检会标 `unverifiable`、不强判。
+- 人类层日志：`--apply` 落盘后同步写 `<vault>/可证伪点回检/<日期>.md`（本轮命中率 + 逐条判定
+  理由/证据）。判定明细以 `verdicts.jsonl` 为准，md 是人读快照。指 `--vault` / `SUBCONSCIOUS_VAULT`
+  落到 Obsidian；都没指就回退到 `users/<id>/_vault`（仍是真实可读 md）。`--no-vault-digest` 可关。
 
 先手动跑一次确认（不带 `--apply` 只预览；带 `--apply` 才落盘）：
 
@@ -236,9 +241,11 @@ WORKSPACE=~/finance-workspace-private          # 含 intelligence/ 与 db/market
 USER_ID=linxiaoqi5111                          # 你的 foresight 用户 id
 KB_WIKI="$HOME/Desktop/c c/知识库/wiki"        # kb_evidence 回检用；按你的真实路径改
 USERS_DIR="$HOME/Desktop/c c/知识库/.foresight"  # 只有跨机同步大脑才填，且须与交互 session 同一路径
+VAULT="$HOME/Desktop/c c/知识库"               # Obsidian vault 根（同潜意识沉淀那本），人类可读回检日志落这里
 mkdir -p "$WORKSPACE/logs"
 sed -e "s#__PYTHON__#$PY#g" -e "s#__WORKSPACE__#$WORKSPACE#g" -e "s#__USER__#$USER_ID#g" \
     -e "s#__KNOWLEDGE_WIKI__#$KB_WIKI#g" -e "s#__FORESIGHT_USERS_DIR__#$USERS_DIR#g" \
+    -e "s#__SUBCONSCIOUS_VAULT__#$VAULT#g" \
   intelligence/dream/com.financeworkspace.checkpoint-recheck.plist \
   > ~/Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
 launchctl load ~/Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
@@ -248,6 +255,8 @@ launchctl load ~/Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.pl
 >   `<key>/<string>`（cron 自动用仓库内默认台账），上面 sed 的 `__FORESIGHT_USERS_DIR__` 那段也省掉。
 > - **跨机同步**：`USERS_DIR` 必须与你交互跑 `foresight` 时用的 `FORESIGHT_USERS_DIR` 完全一致，
 >   否则 cron 会回检另一份空台账。
+> - **回检日志不落 Obsidian**：删掉 plist 里 `EnvironmentVariables` 的 `SUBCONSCIOUS_VAULT` 那对
+>   `<key>/<string>`（sed 的 `__SUBCONSCIOUS_VAULT__` 段也省掉），日志会回退到 `users/<id>/_vault`。
 > - 验证：`launchctl list | grep checkpoint-recheck`，日志看 `$WORKSPACE/logs/checkpoint-recheck.*.log`。
 >   想立刻跑一次验证：`launchctl start com.financeworkspace.checkpoint-recheck`。
 

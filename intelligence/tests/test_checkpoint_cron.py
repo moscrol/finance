@@ -49,10 +49,12 @@ class CheckpointRecheckPlistTests(unittest.TestCase):
         env = self.plist["EnvironmentVariables"]
         self.assertIn("KNOWLEDGE_WIKI", env)
         self.assertIn("FORESIGHT_USERS_DIR", env)
+        # 人类可读回检日志落 Obsidian vault（让夜间任务不黑盒）。
+        self.assertIn("SUBCONSCIOUS_VAULT", env)
 
     def test_placeholders_present_for_install(self) -> None:
         raw = PLIST_PATH.read_text(encoding="utf-8")
-        for ph in ("__PYTHON__", "__WORKSPACE__", "__USER__", "__KNOWLEDGE_WIKI__"):
+        for ph in ("__PYTHON__", "__WORKSPACE__", "__USER__", "__KNOWLEDGE_WIKI__", "__SUBCONSCIOUS_VAULT__"):
             self.assertIn(ph, raw)
 
 

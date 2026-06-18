@@ -265,6 +265,79 @@ class KnowledgeResolverTests(unittest.TestCase):
         self.assertIn("知识库不可用", out.reason)
 
 
+class RecheckDigestTests(unittest.TestCase):
+    """人类层回检日志（让夜间 recheck 不黑盒）。"""
+
+    def _results(self) -> list[dict[str, object]]:
+        return [
+            {"id": "ck-1", "claim": "铜冠铜箔 60日涨幅站上15%", "category": "估值切换",
+             "verdict": "hit", "data_source": "market", "reason": "实测 18.4% ≥ 15"},
+            {"id": "ck-2", "claim": "产能Q3兑现", "category": "产能时点",
+             "verdict": "miss", "data_source": "market", "reason": "实测 -3% < 0"},
+            {"id": "ck-3", "claim": "出现新证据", "category": "消息面",
+             "verdict": "unverifiable", "data_source": "knowledge", "reason": "本机无 wiki"},
+        ]
+
+    def test_resolve_vault_priority(self) -> None:
+        import os
+
+        # 显式 > env > 回退
+        p, fb = checkpoints.resolve_recheck_vault("/fallback", explicit="/x/vault")
+        self.assertEqual(p, Path("/x/vault"))
+        self.assertFalse(fb)
+        old = os.environ.get(checkpoints.ENV_VAULT)
+        os.environ[checkpoints.ENV_VAULT] = "/env/vault"
+        try:
+            p2, fb2 = checkpoints.resolve_recheck_vault("/fallback")
+            self.assertEqual(p2, Path("/env/vault"))
+            self.assertFalse(fb2)
+        finally:
+            if old is None:
+                os.environ.pop(checkpoints.ENV_VAULT, None)
+            else:
+                os.environ[checkpoints.ENV_VAULT] = old
+        os.environ.pop(checkpoints.ENV_VAULT, None)
+        p3, fb3 = checkpoints.resolve_recheck_vault("/fallback")
+        self.assertEqual(p3, Path("/fallback") / "_vault")
+        self.assertTrue(fb3)
+
+    def test_digest_section_tally_and_lines(self) -> None:
+        sec = checkpoints.build_recheck_digest_section(self._results(), applied=True)
+        # 终态 2 中 1 命中 → 50%；unverifiable 不计入分母
+        self.assertIn("命中率 50%", sec)
+        self.assertIn("终态 2 中 1 命中", sec)
+        self.assertIn("暂无法判定 1", sec)
+        # 逐条带 verdict 中文 + 类别 + claim
+        self.assertIn("**命中**｜估值切换｜铜冠铜箔 60日涨幅站上15%", sec)
+        self.assertIn("**落空**｜产能时点｜", sec)
+        self.assertIn("**暂无法判定**｜消息面｜", sec)
+        self.assertIn("`ck-1`", sec)
+
+    def test_digest_section_no_terminal(self) -> None:
+        only_unv = [{"id": "ck-9", "claim": "x", "verdict": "unverifiable",
+                     "data_source": "market", "reason": "无 DuckDB"}]
+        sec = checkpoints.build_recheck_digest_section(only_unv, applied=True)
+        self.assertIn("本轮无终态判定", sec)
+        self.assertIn("暂无法判定 1", sec)
+
+    def test_write_digest_creates_then_appends(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            sec1 = checkpoints.build_recheck_digest_section(self._results(), applied=True)
+            note = checkpoints.write_recheck_digest(tmp, sec1, date="2026-09-30")
+            self.assertTrue(note.is_file())
+            self.assertEqual(note.parent.name, checkpoints.RECHECK_VAULT_SUBDIR)
+            self.assertEqual(note.name, "2026-09-30.md")
+            body1 = note.read_text(encoding="utf-8")
+            self.assertIn("# 可证伪点夜间回检 · 2026-09-30", body1)
+            self.assertEqual(body1.count("## "), 1)  # 一轮一节
+            # 同日二次回检 → 追加第二节，标题不重复
+            note2 = checkpoints.write_recheck_digest(tmp, sec1, date="2026-09-30")
+            self.assertEqual(note2, note)
+            body2 = note.read_text(encoding="utf-8")
+            self.assertEqual(body2.count("# 可证伪点夜间回检 · 2026-09-30"), 1)
+            self.assertEqual(body2.count("## "), 2)
+
+
 class ResolveDispatchTests(unittest.TestCase):
     def test_manual_returns_unverifiable(self) -> None:
         out = resolvers.resolve_checkpoint({"id": "x", "metric": {"type": "manual"}})

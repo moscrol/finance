@@ -3,7 +3,9 @@
 <!--
   launchd 模板：可证伪点夜间回检（C 方案）。每晚跑 `checkpoint recheck`（加 apply 落盘）：
   把到期的可证伪点交给 resolver 拉数核对，落 verdict 到 users/<id>/verdicts.jsonl，
-  下次 foresight 自动按类别胜率注入二阶推演校准（越用越准）。
+  下次 foresight 自动按类别胜率注入二阶推演校准（越用越准）。同时写一份人类可读回检
+  日志 markdown 到你的 Obsidian vault（SUBCONSCIOUS_VAULT 下「可证伪点回检/<日期>.md」），
+  让夜间任务不黑盒——你能直接翻看每晚做没做、判得对不对。
 
   与采集半（dream-collect）/ 推理半（dream-evolve-suggest）本质不同：本任务不碰 git、
   不切分支、不 commit、不 push，只更新本地 gitignore 的 verdicts.jsonl。所以 WorkingDirectory
@@ -22,6 +24,9 @@
                             Obsidian vault 的 .foresight 等）时才填，且必须与交互 session
                             同一路径，否则 cron 会回检另一份空台账。不跨机同步就删掉下面
                             EnvironmentVariables 里这对 key 与 string，cron 自动用仓库内默认台账。
+    __SUBCONSCIOUS_VAULT__  Obsidian vault 根（同潜意识沉淀那本），人类可读回检日志落这里下
+                            「可证伪点回检/」子目录。不想落 vault 就删掉下面这对 key 与 string，
+                            日志会回退到 users/<id>/_vault（仍是真实可读 md，只是不在 Obsidian 里）。
 -->
 <plist version="1.0">
 <dict>
@@ -50,6 +55,8 @@
         <string>__KNOWLEDGE_WIKI__</string>
         <key>FORESIGHT_USERS_DIR</key>
         <string>__FORESIGHT_USERS_DIR__</string>
+        <key>SUBCONSCIOUS_VAULT</key>
+        <string>__SUBCONSCIOUS_VAULT__</string>
     </dict>
 
     <!-- 每天 03:50 触发（晚于 dream-evolve-suggest 03:45、dream-collect 03:30，错峰）。-->

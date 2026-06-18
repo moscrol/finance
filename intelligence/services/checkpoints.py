@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import date as date_cls, datetime, timezone
@@ -412,3 +413,87 @@ def load_calibration(
     if vwarn:
         warnings.append(vwarn)
     return calibrate(cks, vds, today=today), warnings
+
+
+# --------------------------------------------------------------------------- #
+# 人类层回检日志 (Obsidian vault digest)：让夜间 recheck 不黑盒，可读可审
+# --------------------------------------------------------------------------- #
+# 复用潜意识沉淀 vault（同一本 Obsidian），回检日志放其下子目录，跟 judgments 双层落盘同理。
+ENV_VAULT = "SUBCONSCIOUS_VAULT"
+RECHECK_VAULT_SUBDIR = "可证伪点回检"
+_VERDICT_CN = {"hit": "命中", "partial": "半对", "miss": "落空", "unverifiable": "暂无法判定"}
+
+
+def resolve_recheck_vault(
+    fallback_root: str | Path, *, explicit: str | None = None
+) -> tuple[Path, bool]:
+    """回检日志 vault 路径：显式 ``--vault`` > env ``SUBCONSCIOUS_VAULT`` > 回退。
+
+    返回 ``(vault_path, is_fallback)``；回退路径在 ``fallback_root/_vault``（已 gitignore），
+    仍是真实可读的 md，只是不在你的 Obsidian 里。真实落地请指 ``--vault`` / ``SUBCONSCIOUS_VAULT``。
+    """
+    cand = explicit or os.environ.get(ENV_VAULT)
+    if cand:
+        return Path(str(cand)).expanduser(), False
+    return Path(fallback_root) / "_vault", True
+
+
+def build_recheck_digest_section(
+    results: list[dict[str, Any]], *, now: datetime | None = None, applied: bool = True
+) -> str:
+    """把一轮回检结果渲染成人类可读的 markdown 节：本轮命中率 + 逐条判定理由/证据。
+
+    ``results`` 复用 CLI 的条目结构（id/claim/verdict/data_source/reason/observed，
+    可带 category）。判定明细（终态/分数）以 ``verdicts.jsonl`` 为准，这里是人读快照。
+    """
+    now = now or _now()
+    terminal = [r for r in results if str(r.get("verdict")) in TERMINAL_VERDICTS]
+    hits = sum(1 for r in results if r.get("verdict") == "hit")
+    partial = sum(1 for r in results if r.get("verdict") == "partial")
+    miss = sum(1 for r in results if r.get("verdict") == "miss")
+    unv = sum(1 for r in results if r.get("verdict") == "unverifiable")
+    head = now.strftime("%H:%M") if hasattr(now, "strftime") else str(now)
+    verb = "落盘" if applied else "预览"
+    lines = [f"## {head} 回检 · {verb} {len(results)} 条"]
+    if terminal:
+        rate = round(hits / len(terminal) * 100)
+        lines.append(
+            f"> 本轮命中率 {rate}%（终态 {len(terminal)} 中 {hits} 命中）"
+            f"｜命中 {hits} · 半对 {partial} · 落空 {miss} · 暂无法判定 {unv}"
+        )
+    else:
+        lines.append(
+            f"> 本轮无终态判定｜暂无法判定 {unv}（缺数据/未到，下次重跑再判，不计入胜率）"
+        )
+    lines.append("")
+    for r in results:
+        cn = _VERDICT_CN.get(str(r.get("verdict")), str(r.get("verdict")))
+        cat = str(r.get("category") or "未分类").strip() or "未分类"
+        claim = str(r.get("claim") or "").strip()
+        lines.append(f"- **{cn}**｜{cat}｜{claim}")
+        src = str(r.get("data_source") or "").strip()
+        reason = str(r.get("reason") or "").strip()
+        detail = f"{src}：{reason}" if (src and reason) else (reason or src)
+        if detail:
+            lines.append(f"  - {detail}")
+        rid = str(r.get("id") or "").strip()
+        if rid:
+            lines.append(f"  - `{rid}`")
+    return "\n".join(lines)
+
+
+def write_recheck_digest(vault_path: str | Path, section: str, *, date: str) -> Path:
+    """把一轮回检 section 写进 vault 当日日志：首轮建文件带标题，同日多次回检按时间追加各占一节。"""
+    note = Path(vault_path) / RECHECK_VAULT_SUBDIR / f"{date}.md"
+    note.parent.mkdir(parents=True, exist_ok=True)
+    if note.exists():
+        with note.open("a", encoding="utf-8") as fh:
+            fh.write("\n" + section + "\n")
+    else:
+        header = (
+            f"# 可证伪点夜间回检 · {date}\n\n"
+            "> 每晚到期点自动核对的人类可读快照；判定明细（终态/分数）以 "
+            "`verdicts.jsonl` 为准。同日多次回检按运行时间各占一节。\n\n"
+        )
+        note.write_text(header + section + "\n", encoding="utf-8")
+    return note
