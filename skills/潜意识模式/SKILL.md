@@ -70,6 +70,18 @@ python3 -m intelligence.cli subconscious note --user <id> --kind click --theme �
 ```
 `--question` / `--memo` 都按原文去重（同义重复只保留一条），所以放心多记不会重。
 
+### 2.5）你纠正它时 → 记一条纠偏（高信号，立刻生效、不进 buffer）
+当你**不满意它的回答并纠正它**（口径错了、把软推演当硬事实、二元下结论、漏了证据分层、问得太泛……），
+记一条纠偏。这条**不靠点击猜你喜欢哪个题材**（深挖≠偏好、市场动态），只靠你的**显式纠正**学方法论；
+和 buffer 信号不同，它**直接落 `users/<id>/corrections.jsonl`、不走 review/commit**，下次 `foresight` 发问自动带上「别再犯」。
+```bash
+python3 -m intelligence.cli record-correction --user <id> \
+  --correction "先判断板块走到哪一阶、强到哪一档再下结论，不要会/不会二元定论" \
+  --original "氟化工要爆发了"  --principle "分级不二元"  --theme 氟化工
+```
+`--correction`（必填）= 你纠成什么；`--original`= 它原来的错法；`--principle`= 抽象出的可复用原则（最该被记住）；`--theme` 可多次。
+发问前注入的还有**思考宪法** `intelligence/foresight_methodology.md`（入库、可编辑）——你的 7 条元思路+证据分层+发问落点；改这个文件就改它发问的脑子，无需动代码。`foresight` 渲染头部会显示「方法论：注入思考宪法 N 字 · 带 M 条纠偏」确认生效。
+
 ### 3）退出回读 → 出 diff（只读，不落盘）
 ```bash
 python3 -m intelligence.cli subconscious review --user <id>

@@ -337,6 +337,7 @@ class UsersDirOverrideTests(unittest.TestCase):
                 us = userspace.user_space("alice")
                 self.assertEqual(us.root, Path(tmp) / "alice")
                 self.assertEqual(us.interactions_path, Path(tmp) / "alice" / "interactions.jsonl")
+                self.assertEqual(us.corrections_path, Path(tmp) / "alice" / "corrections.jsonl")
                 self.assertEqual(us.memory_path, Path(tmp) / "alice" / "foresight_memory.jsonl")
                 self.assertEqual(us.profile_path, Path(tmp) / "alice" / "profile.json")
 

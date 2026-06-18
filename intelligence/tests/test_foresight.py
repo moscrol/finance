@@ -269,5 +269,131 @@ class KbThemesTests(unittest.TestCase):
         self.assertIn("调入 2 个题材", render(result))
 
 
+class MethodologyTests(unittest.TestCase):
+    def test_methodology_injected_into_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            meth = Path(tmp) / "m.md"
+            meth.write_text("分级不二元；预期差导向；二阶追问", encoding="utf-8")
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        methodology_file=str(meth),
+                        use_corrections=False,
+                    )
+                )
+        self.assertEqual(result.methodology_path, str(meth))
+        self.assertEqual(result.methodology_chars, len("分级不二元；预期差导向；二阶追问"))
+        self.assertIn("分级不二元", result.prompt_preview)
+        self.assertIn("思考宪法", result.prompt_preview)
+        self.assertIn("注入思考宪法", render(result))
+
+    def test_missing_methodology_warns_not_crashes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "nope.md"
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        methodology_file=str(missing),
+                        use_corrections=False,
+                    )
+                )
+        self.assertEqual(result.methodology_chars, 0)
+        self.assertTrue(any("方法论文件不存在" in w for w in result.warnings))
+
+    def test_no_methodology_flag_skips(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            meth = Path(tmp) / "m.md"
+            meth.write_text("分级不二元", encoding="utf-8")
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        methodology_file=str(meth),
+                        use_methodology=False,
+                        use_corrections=False,
+                    )
+                )
+        self.assertEqual(result.methodology_chars, 0)
+        self.assertNotIn("分级不二元", result.prompt_preview)
+
+
+class CorrectionsInjectionTests(unittest.TestCase):
+    def test_corrections_injected_and_counted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "corrections.jsonl"
+            foresight.corrections.record_correction(
+                cpath,
+                correction="先判断板块在哪一阶再下结论",
+                original="氟化工要爆发了",
+                principle="分级不二元",
+                themes=["氟化工"],
+            )
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        corrections_file=str(cpath),
+                    )
+                )
+        self.assertEqual(result.corrections_loaded, 1)
+        self.assertEqual(result.corrections_path, str(cpath))
+        self.assertIn("纠偏记录", result.prompt_preview)
+        self.assertIn("分级不二元", result.prompt_preview)
+        self.assertIn("先判断板块在哪一阶再下结论", result.prompt_preview)
+        self.assertIn("带 1 条纠偏", render(result))
+
+    def test_no_corrections_file_is_silent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "corrections.jsonl"
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        corrections_file=str(cpath),
+                    )
+                )
+        self.assertEqual(result.corrections_loaded, 0)
+        self.assertNotIn("纠偏记录", result.prompt_preview)
+
+
 if __name__ == "__main__":
     unittest.main()

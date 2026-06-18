@@ -13,6 +13,7 @@
 - ``profile.derived.json``   ``refresh-profile`` 自动派生的候选（带来源/as_of/stale 标记）
 - ``foresight_memory.jsonl`` 问过的问题记忆回路
 - ``interactions.jsonl``     用户反馈（PR2：越用越懂）
+- ``corrections.jsonl``      纠偏回路（你纠正它的高信号记录，注入发问「别再犯」）
 - ``strategy_params.json``   个人策略参数 overlay（PR2：稀疏覆盖共享 baseline）
 
 向后兼容：``default`` 用户沿用历史文件位置
@@ -83,6 +84,7 @@ class UserSpace:
     derived_path: Path
     memory_path: Path
     interactions_path: Path
+    corrections_path: Path
     strategy_params_path: Path
 
     @property
@@ -110,6 +112,7 @@ def user_space(user_id: str | None = None) -> UserSpace:
         derived_path=root / "profile.derived.json",
         memory_path=memory_path,
         interactions_path=root / "interactions.jsonl",
+        corrections_path=root / "corrections.jsonl",
         strategy_params_path=root / "strategy_params.json",
     )
 
