@@ -183,6 +183,186 @@ class RunCollectTests(unittest.TestCase):
             self.assertTrue((store / "digest-2026-06-17.md").is_file())
 
 
+class CoerceTsTests(unittest.TestCase):
+    def test_iso_passthrough(self) -> None:
+        self.assertEqual(collector._coerce_ts("2026-06-17T08:00:00+08:00"), "2026-06-17T08:00:00+08:00")
+
+    def test_epoch_seconds_and_ms(self) -> None:
+        a = collector._coerce_ts(1_750_000_000)
+        b = collector._coerce_ts(1_750_000_000_000)  # 毫秒
+        self.assertIsNotNone(a)
+        self.assertIn("T", a or "")
+        self.assertEqual(a, b)  # 秒 / 毫秒 归一化到同一时刻
+
+    def test_bool_and_none(self) -> None:
+        self.assertIsNone(collector._coerce_ts(True))
+        self.assertIsNone(collector._coerce_ts(None))
+        self.assertIsNone(collector._coerce_ts(""))
+
+
+class NormalizeClaudeCodeTests(unittest.TestCase):
+    def test_user_str_content_and_repo_from_cwd(self) -> None:
+        raw = {
+            "type": "user",
+            "sessionId": "sess-1",
+            "timestamp": "2026-06-17T08:00:00+08:00",
+            "cwd": "/Users/x/finance-workspace-private",
+            "message": {"role": "user", "content": "帮我看下 theme-radar"},
+        }
+        recs = collector.normalize_claude_code_event(raw)
+        self.assertEqual(len(recs), 1)
+        self.assertEqual(recs[0].role, "user")
+        self.assertEqual(recs[0].source, "claude-code")
+        self.assertEqual(recs[0].session_id, "sess-1")
+        self.assertEqual(recs[0].repo, "finance-workspace-private")
+        self.assertIn("claude-code", recs[0].tags)
+
+    def test_assistant_content_blocks_with_tool_use(self) -> None:
+        raw = {
+            "type": "assistant",
+            "sessionId": "sess-1",
+            "timestamp": "2026-06-17T08:00:05+08:00",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "我来分析一下"},
+                    {"type": "tool_use", "name": "Bash"},
+                ],
+            },
+        }
+        recs = collector.normalize_claude_code_event(raw)
+        self.assertEqual(recs[0].role, "assistant")
+        self.assertIn("我来分析一下", recs[0].text)
+        self.assertIn("[tool_use Bash]", recs[0].text)
+
+    def test_empty_content_skipped(self) -> None:
+        raw = {"type": "summary", "sessionId": "s", "message": {"role": "assistant", "content": []}}
+        self.assertEqual(collector.normalize_claude_code_event(raw), [])
+
+    def test_epoch_timestamp_coerced(self) -> None:
+        raw = {
+            "type": "user",
+            "sessionId": "s",
+            "timestamp": 1_750_000_000,
+            "message": {"role": "user", "content": "hi"},
+        }
+        recs = collector.normalize_claude_code_event(raw)
+        self.assertIn("T", recs[0].ts)
+
+
+class NormalizeClaudeMemTests(unittest.TestCase):
+    def test_observation_title_text_and_obs_tag(self) -> None:
+        raw = {
+            "id": "2546",
+            "timestamp": "2026-06-17T08:10:00+08:00",
+            "type": "feature",
+            "title": "Source note pipeline",
+            "text": "completed for 2026-04-29 batch",
+            "session_id": "S1393",
+        }
+        recs = collector.normalize_claude_mem_observation(raw)
+        self.assertEqual(len(recs), 1)
+        self.assertEqual(recs[0].role, "assistant")
+        self.assertEqual(recs[0].session_id, "S1393")
+        self.assertIn("Source note pipeline", recs[0].text)
+        self.assertIn("completed", recs[0].text)
+        self.assertIn("claude-mem", recs[0].tags)
+        self.assertIn("obs:feature", recs[0].tags)
+
+    def test_session_id_falls_back_to_id(self) -> None:
+        raw = {"id": "9001", "title": "x", "text": "y"}
+        recs = collector.normalize_claude_mem_observation(raw)
+        self.assertEqual(recs[0].session_id, "9001")
+
+    def test_no_text_skipped(self) -> None:
+        self.assertEqual(collector.normalize_claude_mem_observation({"id": "1"}), [])
+
+
+class NormalizeWindsurfTests(unittest.TestCase):
+    def test_conversation_with_messages(self) -> None:
+        raw = {
+            "id": "conv-1",
+            "workspace": "/home/u/myrepo",
+            "messages": [
+                {"role": "user", "content": "写个脚本", "timestamp": "2026-06-17T09:00:00+08:00"},
+                {"role": "assistant", "content": "好的", "timestamp": "2026-06-17T09:00:03+08:00"},
+            ],
+        }
+        recs = collector.normalize_windsurf_event(raw)
+        self.assertEqual([r.role for r in recs], ["user", "assistant"])
+        self.assertEqual(recs[0].source, "windsurf")
+        self.assertEqual(recs[0].session_id, "conv-1")
+        self.assertEqual(recs[0].repo, "myrepo")
+
+    def test_single_message_fallback(self) -> None:
+        raw = {"session_id": "conv-2", "role": "user", "text": "在吗", "ts": "2026-06-17T09:05:00+08:00"}
+        recs = collector.normalize_windsurf_event(raw)
+        self.assertEqual(len(recs), 1)
+        self.assertEqual(recs[0].session_id, "conv-2")
+        self.assertEqual(recs[0].text, "在吗")
+
+
+class NormalizeDevinTests(unittest.TestCase):
+    def test_session_message_roles(self) -> None:
+        raw = {
+            "session_id": "devin-abc",
+            "messages": [
+                {"type": "user_message", "message": "复盘一下", "timestamp": "2026-06-17T10:00:00+08:00"},
+                {"type": "devin_message", "message": "好的，开始", "timestamp": "2026-06-17T10:00:09+08:00"},
+                {"type": "shell", "message": "$ ls", "timestamp": "2026-06-17T10:00:20+08:00"},
+            ],
+        }
+        recs = collector.normalize_devin_session(raw)
+        self.assertEqual([r.role for r in recs], ["user", "assistant", "tool"])
+        self.assertEqual(recs[0].source, "devin")
+        self.assertEqual(recs[0].session_id, "devin-abc")
+        self.assertIn("type:user_message", recs[0].tags)
+
+    def test_no_messages_returns_empty(self) -> None:
+        self.assertEqual(collector.normalize_devin_session({"session_id": "x"}), [])
+
+
+class RunCollectMultiSourceTests(unittest.TestCase):
+    def test_collect_claude_code_source_redacts_and_tags_source(self) -> None:
+        secret = "ghp_" + "d" * 36
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            events = tmp_path / "cc.jsonl"
+            lines = [
+                {
+                    "type": "user",
+                    "sessionId": "sess-1",
+                    "timestamp": "2026-06-17T08:00:00+08:00",
+                    "cwd": "/Users/x/finance-workspace-private",
+                    "message": {"role": "user", "content": "帮我存 token"},
+                },
+                {
+                    "type": "assistant",
+                    "sessionId": "sess-1",
+                    "timestamp": "2026-06-17T08:00:05+08:00",
+                    "message": {"role": "assistant", "content": [{"type": "text", "text": f"用 {secret}"}]},
+                },
+            ]
+            events.write_text(
+                "\n".join(json.dumps(e, ensure_ascii=False) for e in lines) + "\n", encoding="utf-8"
+            )
+            store = tmp_path / "store"
+            summary = collector.run_collect(
+                collector.CollectOptions(
+                    events_path=str(events), store_dir=str(store), source="claude-code"
+                )
+            )
+
+            self.assertEqual(summary["source"], "claude-code")
+            jsonl_files = sorted(store.glob("2026-06-17/*.jsonl"))
+            self.assertEqual([p.name for p in jsonl_files], ["claude-code-sess-1.jsonl"])
+            manifest = collector._read_manifest(store)
+            self.assertEqual(manifest[0]["source"], "claude-code")
+            digest = (store / "digest-2026-06-17.md").read_text(encoding="utf-8")
+            self.assertNotIn(secret, digest)
+            self.assertIn("[REDACTED:github_token]", digest)
+
+
 class CliWiringTests(unittest.TestCase):
     def test_cli_registers_dream_collect_subcommand(self) -> None:
         from intelligence import cli
@@ -191,6 +371,14 @@ class CliWiringTests(unittest.TestCase):
         args = parser.parse_args(["dream-collect", "--events", "x.jsonl"])
         self.assertEqual(args.func, cli.cmd_dream_collect)
         self.assertEqual(args.source, "feishu")
+
+    def test_cli_accepts_new_sources(self) -> None:
+        from intelligence import cli
+
+        parser = cli.build_parser()
+        for src in ("claude-code", "claude-mem", "windsurf", "devin"):
+            args = parser.parse_args(["dream-collect", "--source", src, "--events", "x.jsonl"])
+            self.assertEqual(args.source, src)
 
 
 class FeishuTranscriptSinkTests(unittest.TestCase):

@@ -1,18 +1,24 @@
 """DuckDB 连接与初始化助手。
 
-数据库文件位于 PROJECT_DIR/db/ 下, 已被 .gitignore 忽略, 不入库。
+数据库文件默认位于 PROJECT_DIR/db/ 下, 已被 .gitignore 忽略, 不入库。
 schema.sql 与本模块同目录, 可重复执行 (全部 CREATE ... IF NOT EXISTS)。
+
+可移植性: 数据库路径可用环境变量 MARKET_FEATURE_STORE_DB 覆盖, 便于在
+不同机器 / 自定义目录 / 样本库自测时切换, 不必把库放在仓内 db/ 下。
+未设置时回退到 PROJECT_DIR/db/market_feature_store.duckdb (与原行为一致)。
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import duckdb
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = PACKAGE_DIR.parent
-DB_DIR = PROJECT_DIR / "db"
-DB_PATH = DB_DIR / "market_feature_store.duckdb"
+_ENV_DB = os.environ.get("MARKET_FEATURE_STORE_DB")
+DB_PATH = Path(_ENV_DB).expanduser() if _ENV_DB else PROJECT_DIR / "db" / "market_feature_store.duckdb"
+DB_DIR = DB_PATH.parent
 SCHEMA_PATH = PACKAGE_DIR / "schema.sql"
 
 
