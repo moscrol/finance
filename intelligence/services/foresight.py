@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence import userspace
-from intelligence.services import corrections, interactions, llm_refine
+from intelligence.services import corrections, interactions, judgments, llm_refine
 from intelligence.services.ask import load_theme_candidates
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -63,6 +63,9 @@ class ForesightOptions:
     corrections_file: str | Path | None = None
     use_corrections: bool = True
     corrections_window: int = 20
+    judgments_file: str | Path | None = None
+    use_judgments: bool = True
+    judgments_window: int = 10
 
 
 @dataclass
@@ -101,6 +104,8 @@ class ForesightResult:
     methodology_chars: int = 0
     corrections_path: str | None = None
     corrections_loaded: int = 0
+    judgments_path: str | None = None
+    judgments_loaded: int = 0
 
     @property
     def status(self) -> str:
@@ -493,6 +498,12 @@ def _corrections_path(options: ForesightOptions) -> Path:
     return userspace.user_space(options.user).corrections_path
 
 
+def _judgments_path(options: ForesightOptions) -> Path:
+    if options.judgments_file:
+        return Path(options.judgments_file).expanduser()
+    return userspace.user_space(options.user).judgments_path
+
+
 def _compose_system_prompt(options: ForesightOptions, result: ForesightResult) -> str:
     """基线人设 + 思考宪法（方法论）+ 纠偏记录，拼成本轮真正发给 LLM 的系统提示词。
 
@@ -520,6 +531,19 @@ def _compose_system_prompt(options: ForesightOptions, result: ForesightResult) -
             prompt += (
                 "\n\n==== 纠偏记录（我曾纠正过你，发问前务必避免重犯同类错误）====\n"
                 + rendered
+            )
+    if options.use_judgments:
+        jpath = _judgments_path(options)
+        result.judgments_path = str(jpath)
+        jrecs, jwarn = judgments.load_judgments(jpath, options.judgments_window)
+        if jwarn:
+            result.warnings.append(jwarn)
+        result.judgments_loaded = len(jrecs)
+        jrendered = judgments.render_for_prompt(jrecs)
+        if jrendered:
+            prompt += (
+                "\n\n==== 我近期的核心判断（承接这些判断往前推一层或找它的反例，别从零重述）====\n"
+                + jrendered
             )
     return prompt
 
@@ -767,6 +791,10 @@ def render(result: ForesightResult) -> str:
         if result.corrections_loaded:
             parts.append(f"带 {result.corrections_loaded} 条纠偏")
         lines.append("> 方法论：" + " · ".join(parts))
+    if result.judgments_loaded:
+        lines.append(
+            f"> 旧判断：承接 {result.judgments_loaded} 条核心判断往前推（不从零重述）"
+        )
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
 
@@ -821,6 +849,8 @@ def result_to_dict(result: ForesightResult) -> dict[str, Any]:
         "methodology_chars": result.methodology_chars,
         "corrections_path": result.corrections_path,
         "corrections_loaded": result.corrections_loaded,
+        "judgments_path": result.judgments_path,
+        "judgments_loaded": result.judgments_loaded,
         "questions": [
             {
                 "question": q.question,
