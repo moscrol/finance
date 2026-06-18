@@ -22,6 +22,7 @@ class AskWorkflowOptions:
     wiki_rag_mode: str = "hybrid"
     wiki_rag_timeout: int = 90
     use_llm: bool = False
+    compose: bool = False
     llm_model: str | None = None
     llm_timeout: int = 60
     detail: bool = False
@@ -49,6 +50,7 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             wiki_rag_mode=options.wiki_rag_mode,
             wiki_rag_timeout=options.wiki_rag_timeout,
             use_llm=options.use_llm,
+            compose=options.compose,
             llm_model=options.llm_model,
             llm_timeout=options.llm_timeout,
             detail=options.detail,
@@ -89,6 +91,13 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             name="llm-refine",
             status="PASS" if result.llm_refined else ("WARN" if options.use_llm else "SKIP"),
             outputs=[f"provider={result.llm_provider or '-'}", f"refined={result.llm_refined}"],
+        )
+    )
+    summary.steps.append(
+        WorkflowStep(
+            name="llm-compose",
+            status="PASS" if result.synthesis else ("WARN" if options.compose else "SKIP"),
+            outputs=[f"provider={result.llm_provider or '-'}", f"composed={bool(result.synthesis)}"],
         )
     )
     summary.outputs = [f"[{c.tag}] {c.source}" for c in result.citations]

@@ -44,6 +44,12 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Refine 结论/交易含义 with an LLM (needs DEEPSEEK_API_KEY/MOONSHOT_API_KEY/"
         "DASHSCOPE_API_KEY/ZHIPU_API_KEY/OPENAI_API_KEY or LLM_API_KEY). No key -> template fallback.",
     )
+    parser.add_argument(
+        "--compose",
+        action="store_true",
+        help="让 LLM 把多源证据有机融合成一段对话式回答（带内联引用），附在六段证据之上。"
+        "需 DEEPSEEK_API_KEY 等；无 key/失败则降级为模板（与 --llm 互不影响）。",
+    )
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
     parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP timeout in seconds")
     parser.add_argument(
@@ -53,6 +59,221 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
     parser.set_defaults(func=cmd_ask)
+
+
+def add_chat_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "chat",
+        help="多轮对话（追问）：首轮多源检索(S/G/R/W/模块)+有机合成，后续追问复用首轮证据+对话历史"
+        "（带记忆，仍守 grounding/引用、不重新检索）。需 LLM key；无 key 无法进入多轮、退回模板。",
+    )
+    parser.add_argument("query", help="首轮问题 / 题材词，如 液冷")
+    parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
+    parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
+    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
+    parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall")
+    parser.add_argument(
+        "--modules",
+        default=None,
+        help="Comma-separated theme-radar backends (brief,front-map,deep-dive,replay,scan,migrate). Default: auto-route.",
+    )
+    parser.add_argument("--no-modules", action="store_true", help="Disable theme-radar module fan-out (graph+盘面 only)")
+    parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
+    parser.add_argument("--no-wiki-rag", action="store_true", help="Disable the W source (wiki 向量语义召回)")
+    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
+    parser.add_argument(
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
+        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF)",
+    )
+    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
+    parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
+    parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP timeout in seconds")
+    parser.add_argument(
+        "-f", "--follow-up", dest="follow_ups", action="append", default=[],
+        help="追问（可重复）。提供后走非交互：首轮+依次跑完所有追问即退出（便于脚本/演示）。"
+        "不提供则进入交互 REPL（输入追问，空行 / exit / quit 退出）。",
+    )
+    parser.set_defaults(func=cmd_chat)
+
+
+def cmd_chat(args: argparse.Namespace) -> int:
+    from intelligence.services.ask import AskOptions
+    from intelligence.services.ask_chat import AskConversation
+
+    modules = tuple(m.strip() for m in args.modules.split(",") if m.strip()) if args.modules else None
+    conv = AskConversation(
+        AskOptions(
+            query=args.query,
+            date=args.date,
+            exports_dir=args.exports_dir,
+            kb_wiki=args.kb_wiki,
+            top_companies=args.top_companies,
+            use_modules=not args.no_modules,
+            modules=modules,
+            module_timeout=args.module_timeout,
+            use_wiki_rag=not args.no_wiki_rag,
+            wiki_rag_k=args.wiki_rag_k,
+            wiki_rag_mode=args.wiki_rag_mode,
+            wiki_rag_timeout=args.wiki_rag_timeout,
+            compose=True,
+        ),
+        model_override=args.llm_model,
+        timeout=args.llm_timeout,
+    )
+
+    def _emit(turn) -> None:
+        who = f"助手·{turn.provider}" if turn.provider else "助手"
+        print(f"## 你\n{turn.question}\n")
+        print(f"## {who}\n{turn.answer}\n")
+        if turn.warning and not turn.composed:
+            print(f"> ⚠ {turn.warning}\n")
+
+    print(f"# chat：{args.query}\n")
+    first = conv.start()
+    _emit(first)
+    if not conv.ready:
+        # No LLM key / turn-1 degraded — fall back to the structured template once.
+        if conv.first_result is not None:
+            from intelligence.services.ask import render_answer
+
+            print("---\n")
+            print(render_answer(conv.first_result), end="")
+        return 1
+
+    follow_ups = list(args.follow_ups)
+    if follow_ups:
+        for q in follow_ups:
+            _emit(conv.ask(q))
+        return 0
+
+    # Interactive REPL.
+    print("（多轮对话已就绪。输入追问后回车；空行 / exit / quit 退出。）\n")
+    while True:
+        try:
+            line = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not line or line.lower() in {"exit", "quit", ":q"}:
+            break
+        print()
+        _emit(conv.ask(line))
+    return 0
+
+
+def add_agent_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "agent",
+        help="Agent loop（真·每轮自主调工具）：LLM 自己决定调哪个只读检索工具(盘面快照/图谱/证据库/wiki语义/题材模块)、"
+        "用什么关键词、要不要再补一刀，直到证据足够再作答（带 [编号] 引用、不编造）。"
+        "需 LLM key；无 key/失败优雅降级。默认与现有 ask/chat 互不影响。",
+    )
+    parser.add_argument("query", help="问题 / 题材词，如 液冷")
+    parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
+    parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
+    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
+    parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall per graph tool call")
+    parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
+    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Default wiki pages per search_wiki call (W source)")
+    parser.add_argument(
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
+        help="Retrieval mode for the wiki tool (default hybrid = BM25 + dense RRF)",
+    )
+    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="search_wiki rag_index.py subprocess timeout in seconds")
+    parser.add_argument("--max-steps", type=int, default=6, help="Max agent tool-calling rounds before a forced final answer")
+    parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
+    parser.add_argument("--llm-timeout", type=int, default=90, help="Per LLM round-trip HTTP timeout in seconds")
+    parser.add_argument("--show-trace", action="store_true", help="Print the tool-call trace (which tools the agent chose, with args)")
+    parser.add_argument(
+        "-f", "--follow-up", dest="follow_ups", action="append", default=[],
+        help="追问（可重复）。提供后走非交互：首轮+依次跑完所有追问即退出。"
+        "不提供则进入交互 REPL（输入追问，空行 / exit / quit 退出）。",
+    )
+    parser.set_defaults(func=cmd_agent)
+
+
+def cmd_agent(args: argparse.Namespace) -> int:
+    from intelligence.services.agent import AgentSession
+    from intelligence.services.ask import AskOptions
+
+    options = AskOptions(
+        query=args.query,
+        date=args.date,
+        exports_dir=args.exports_dir,
+        kb_wiki=args.kb_wiki,
+        top_companies=args.top_companies,
+        module_timeout=args.module_timeout,
+        wiki_rag_k=args.wiki_rag_k,
+        wiki_rag_mode=args.wiki_rag_mode,
+        wiki_rag_timeout=args.wiki_rag_timeout,
+        compose=True,
+    )
+
+    # 单个持久会话：跨轮记忆 + 累积引用注册表；每轮仍由 LLM 自主决定调哪些工具。
+    session = AgentSession(
+        options,
+        model_override=args.llm_model,
+        timeout=args.llm_timeout,
+        max_steps=args.max_steps,
+    )
+    state = {"seen": 0, "turn": 0}
+
+    def _emit(question: str, res) -> int:
+        state["turn"] += 1
+        print(f"## 你\n{question}\n")
+        if args.show_trace or not res.ok:
+            if res.steps:
+                print("### 工具调用轨迹")
+                for i, st in enumerate(res.steps, 1):
+                    print(f"{i}. `{st.tool}`({_fmt_args(st.args)}) → {st.result_preview.splitlines()[0] if st.result_preview else ''}")
+                print()
+            elif state["turn"] > 1:
+                print("> （本轮未调工具，直接基于上文已抓到的证据作答）\n")
+            else:
+                print("> （本轮未调用任何工具）\n")
+        who = f"助手·agent·{res.provider}" if res.provider else "助手·agent"
+        if res.ok:
+            print(f"## {who}\n{res.answer}\n")
+            new = res.citations[state["seen"]:]
+            state["seen"] = len(res.citations)
+            if new:
+                print("### 引用来源" if state["turn"] == 1 else "### 引用来源（本轮新增）")
+                for c in new:
+                    print(f"- [{c.tag}] {c.source}" + (f"（{c.detail}）" if c.detail else ""))
+                print()
+            return 0
+        print(f"## {who}\n（无回答）\n")
+        print(f"> ⚠ {res.reason}\n")
+        return 1
+
+    print(f"# agent：{args.query}\n")
+    rc = _emit(args.query, session.start(args.query))
+    if rc != 0:
+        # turn-1 degraded (no key / failure) — don't drop into an unusable REPL.
+        return rc
+    follow_ups = list(args.follow_ups)
+    if follow_ups:
+        for q in follow_ups:
+            print("---\n")
+            _emit(q, session.ask(q))
+        return 0
+    print("（agent 多轮已就绪：带记忆连续对话，每轮仍自主决定要不要再调工具补查。输入追问；空行 / exit / quit 退出。）\n")
+    while True:
+        try:
+            line = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not line or line.lower() in {"exit", "quit", ":q"}:
+            break
+        print()
+        print("---\n")
+        _emit(line, session.ask(line))
+    return 0
+
+
+def _fmt_args(args: dict) -> str:
+    return ", ".join(f"{k}={v!r}" for k, v in args.items())
 
 
 def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -221,6 +442,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
             wiki_rag_mode=args.wiki_rag_mode,
             wiki_rag_timeout=args.wiki_rag_timeout,
             use_llm=args.llm,
+            compose=args.compose,
             llm_model=args.llm_model,
             llm_timeout=args.llm_timeout,
             detail=args.detail,
@@ -1176,6 +1398,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_ask_parser(subparsers)
+    add_chat_parser(subparsers)
+    add_agent_parser(subparsers)
     add_foresight_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)
