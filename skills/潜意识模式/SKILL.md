@@ -52,6 +52,24 @@ python3 -m intelligence.cli subconscious note --user <id> --kind dismiss --theme
 ```
 `--kind` 沿用 foresight-feedback 映射：click +1.0 / follow +1.5 / pin +2.0 / ask +1.2 / view +0.3 / skip −0.5 / dismiss −1.0 / mute −1.5 / rate（配 `--rating 1~5`）。题材/个股提取规则同 foresight-feedback：只记具体题材/个股，领域（宏观/AI/半导体）不当题材记。
 
+**沉淀日志要"有内容"——把发问和深挖结论也记进 buffer，不止记信号。** 信号（`--kind`）只是喂算法的燃料；人类层日志（你读/回看的那篇）要靠下面这两块才长出可读正文：
+
+- **每条 foresight 抛出的追问 → 用 `--question` 记一次**（无需用户表态也记，留痕进「它问我的（foresight）」节）。一次 `note` 一个问题；多条追问就多 `note` 几次（可只带 `--kind ask --question "…"`，不带题材/个股也行）。
+- **用户深挖某方向、你给出实质推演时 → 用 `--memo` 把结论压缩成结构化纪要记一次**（进「深挖纪要」节）。`--memo` 是自由 markdown 文本，建议固定三段：**核心判断**（1~2 句）、**可证伪点/关键指标**（带验证时点）、可选**跨域连接**。不要把整段长推演原文塞进去，提炼要点即可。
+
+```bash
+# 把刚抛的 3 条追问留痕（即使用户只挑了其中一条深挖）
+python3 -m intelligence.cli subconscious note --user <id> --kind ask --theme 液冷 \
+  --question "液冷供应链会否出现'一次侧泵过剩、二次侧阀件卡脖子'的结构性错配？"
+python3 -m intelligence.cli subconscious note --user <id> --kind ask --theme 铜箔 \
+  --question "HVLP铜箔供需缺口会否从'技术可行'转向'产能瓶颈'？"
+# 用户说"液冷这个我想深挖" → 记信号 + 把你的深挖结论压成纪要
+python3 -m intelligence.cli subconscious note --user <id> --kind click --theme 液冷 \
+  --quote "液冷这个我想深挖" \
+  --memo $'**核心判断**：一次侧泵(冰轮)已突破、二次侧阀件卡脖子，2026Q3 是估值切换关键窗口。\n**可证伪点**：冰轮二次侧 UL 认证(8月底)、GB200 机架功率密度(7月实测)。\n**跨域**：液冷×铜箔——液冷高纯铜管与 HVLP 铜箔争用铜资源。'
+```
+`--question` / `--memo` 都按原文去重（同义重复只保留一条），所以放心多记不会重。
+
 ### 3）退出回读 → 出 diff（只读，不落盘）
 ```bash
 python3 -m intelligence.cli subconscious review --user <id>

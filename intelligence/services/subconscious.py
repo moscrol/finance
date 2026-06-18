@@ -139,6 +139,7 @@ def append_signal(
     stocks: list[str] | None = None,
     question: str | None = None,
     quote: str | None = None,
+    memo: str | None = None,
     note: str | None = None,
     weight: float | None = None,
     rating: float | None = None,
@@ -157,6 +158,8 @@ def append_signal(
         rec["question"] = str(question).strip()
     if quote and str(quote).strip():
         rec["quote"] = str(quote).strip()
+    if memo and str(memo).strip():
+        rec["memo"] = str(memo).strip()
     if note and str(note).strip():
         rec["note"] = str(note).strip()
     if weight is not None:
@@ -213,6 +216,7 @@ class Proposal:
     turns: int
     rows: list[MemoryRow]
     questions: list[str]
+    memos: list[str]
     markdown: str
     generated_at: str
 
@@ -230,6 +234,8 @@ def consolidate(
     agg: dict[tuple[str, str, str], dict[str, Any]] = {}
     questions: list[str] = []
     qseen: set[str] = set()
+    memos: list[str] = []
+    mseen: set[str] = set()
     for rec in buffer:
         if not isinstance(rec, dict):
             continue
@@ -242,6 +248,12 @@ def consolidate(
             if qn not in qseen:
                 qseen.add(qn)
                 questions.append(q)
+        m = str(rec.get("memo") or "").strip()
+        if m:
+            mn = _norm(m)
+            if mn not in mseen:
+                mseen.add(mn)
+                memos.append(m)
         quote = str(rec.get("quote") or "").strip() or None
         explicit_weight = rec.get("weight")
         rating = rec.get("rating")
@@ -289,6 +301,7 @@ def consolidate(
         turns=len(buffer),
         rows=rows,
         questions=questions,
+        memos=memos,
         markdown="",
         generated_at=now.isoformat(timespec="seconds"),
     )
@@ -299,6 +312,7 @@ def consolidate(
         turns=len(buffer),
         rows=rows,
         questions=questions,
+        memos=memos,
         markdown=md,
         generated_at=proposal.generated_at,
     )
@@ -324,6 +338,13 @@ def build_markdown(proposal: Proposal) -> str:
         lines.append("## 它问我的（foresight）")
         for i, q in enumerate(proposal.questions, 1):
             lines.append(f"{i}. {q}")
+        lines.append("")
+    if proposal.memos:
+        lines.append("## 深挖纪要")
+        for i, m in enumerate(proposal.memos):
+            if i:
+                lines.append("")
+            lines.append(m)
         lines.append("")
     lines.append("## 这轮沉淀的信号")
     if proposal.rows:
@@ -444,6 +465,13 @@ def render_proposal(
         lines.append("  （本轮无信号）")
     fb = "（回退路径，仅验证用；真实落地请指 --vault / SUBCONSCIOUS_VAULT）" if vault_is_fallback else ""
     lines.append(f"人类层 → {note_path}{fb}")
+    extras: list[str] = []
+    if proposal.questions:
+        extras.append(f"{len(proposal.questions)} 条发问")
+    if proposal.memos:
+        extras.append(f"{len(proposal.memos)} 段深挖纪要")
+    if extras:
+        lines.append("  日志含：" + "、".join(extras))
     if not applied:
         lines.append("")
         lines.append("确认落盘：`subconscious commit --apply`（缺省只预览）。")

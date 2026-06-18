@@ -573,8 +573,9 @@ def add_subconscious_parser(subparsers: argparse._SubParsersAction) -> None:
     p_note.add_argument("--kind", required=True, help="反馈类型 click/follow/pin/ask/view/skip/dismiss/mute/rate…")
     p_note.add_argument("--theme", dest="themes", action="append", default=[], help="关联题材（可多次）")
     p_note.add_argument("--stock", dest="stocks", action="append", default=[], help="关联个股（可多次）")
-    p_note.add_argument("--question", default=None, help="foresight 抛出的问题原文（可选，留痕）")
-    p_note.add_argument("--quote", default=None, help="用户原话片段（可选，写进沉淀日志）")
+    p_note.add_argument("--question", default=None, help="foresight 抛出的问题原文（可选，进「它问我的」节）")
+    p_note.add_argument("--quote", default=None, help="用户原话片段（可选，跟在信号后「」里）")
+    p_note.add_argument("--memo", default=None, help="深挖纪要（可选，自由 markdown 文本，进「深挖纪要」节：核心判断+可证伪点/关键指标）")
     p_note.add_argument("--weight", type=float, default=None, help="显式权重（覆盖 kind 默认）")
     p_note.add_argument("--rating", type=float, default=None, help="1~5 星评分（kind=rate 时用）")
     p_note.add_argument("--note", default=None, help="备注（可选）")
@@ -644,6 +645,7 @@ def cmd_subconscious_note(args: argparse.Namespace) -> int:
         stocks=args.stocks,
         question=args.question,
         quote=args.quote,
+        memo=args.memo,
         note=args.note,
         weight=args.weight,
         rating=args.rating,
@@ -677,6 +679,7 @@ def _proposal_to_dict(proposal, *, interactions_path, note_path, vault_is_fallba
         "note_path": str(note_path),
         "vault_is_fallback": vault_is_fallback,
         "questions": proposal.questions,
+        "memos": proposal.memos,
         "rows": [
             {
                 "target": r.target,
