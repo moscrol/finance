@@ -133,6 +133,69 @@ def complete(
     return content, provider, ""
 
 
+def _post_chat_message(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: int,
+    temperature: float = 0.2,
+    tools: list[dict] | None = None,
+    tool_choice: str | dict | None = None,
+) -> dict:
+    """Like :func:`_post_chat` but returns the full assistant *message* dict.
+
+    The message may contain ``tool_calls`` (OpenAI-compatible function calling)
+    in addition to / instead of ``content`` — needed to drive an agent loop."""
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
+    if tools:
+        payload["tools"] = tools
+        if tool_choice is not None:
+            payload["tool_choice"] = tool_choice
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={
+            "Authorization": f"Bearer {provider.api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        body = json.loads(resp.read().decode("utf-8"))
+    return body["choices"][0]["message"]
+
+
+def chat_with_tools(
+    messages: list[dict],
+    tools: list[dict],
+    model_override: str | None = None,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+    temperature: float = 0.2,
+    tool_choice: str | dict | None = "auto",
+) -> tuple[dict | None, "LLMProvider | None", str]:
+    """One OpenAI-compatible chat round-trip *with tools available*.
+
+    Returns ``(message, provider, reason)``; the agent loop inspects
+    ``message["tool_calls"]`` to decide whether to dispatch tools or treat
+    ``message["content"]`` as the final answer. On any failure ``message`` is
+    ``None`` and ``reason`` explains why so the caller degrades gracefully."""
+    provider = detect_provider(model_override)
+    if provider is None:
+        return None, None, (
+            "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
+            "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 "
+            "LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用"
+        )
+    try:
+        msg = _post_chat_message(provider, messages, timeout, temperature, tools=tools, tool_choice=tool_choice)
+    except urllib.error.HTTPError as exc:  # pragma: no cover - network
+        return None, provider, f"LLM 调用 HTTP {exc.code}"
+    except Exception as exc:  # pragma: no cover - network
+        return None, provider, f"LLM 调用失败（{type(exc).__name__}）"
+    return msg, provider, ""
+
+
 def _extract_json(text: str) -> dict | None:
     text = text.strip()
     # strip ```json fences if present

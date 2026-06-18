@@ -161,6 +161,114 @@ def cmd_chat(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_agent_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "agent",
+        help="Agent loop（真·每轮自主调工具）：LLM 自己决定调哪个只读检索工具(盘面快照/图谱/证据库/wiki语义/题材模块)、"
+        "用什么关键词、要不要再补一刀，直到证据足够再作答（带 [编号] 引用、不编造）。"
+        "需 LLM key；无 key/失败优雅降级。默认与现有 ask/chat 互不影响。",
+    )
+    parser.add_argument("query", help="问题 / 题材词，如 液冷")
+    parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
+    parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
+    parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
+    parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall per graph tool call")
+    parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
+    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Default wiki pages per search_wiki call (W source)")
+    parser.add_argument(
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
+        help="Retrieval mode for the wiki tool (default hybrid = BM25 + dense RRF)",
+    )
+    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="search_wiki rag_index.py subprocess timeout in seconds")
+    parser.add_argument("--max-steps", type=int, default=6, help="Max agent tool-calling rounds before a forced final answer")
+    parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
+    parser.add_argument("--llm-timeout", type=int, default=90, help="Per LLM round-trip HTTP timeout in seconds")
+    parser.add_argument("--show-trace", action="store_true", help="Print the tool-call trace (which tools the agent chose, with args)")
+    parser.add_argument(
+        "-f", "--follow-up", dest="follow_ups", action="append", default=[],
+        help="追问（可重复）。提供后走非交互：首轮+依次跑完所有追问即退出。"
+        "不提供则进入交互 REPL（输入追问，空行 / exit / quit 退出）。",
+    )
+    parser.set_defaults(func=cmd_agent)
+
+
+def cmd_agent(args: argparse.Namespace) -> int:
+    from intelligence.services.agent import AgentSession
+    from intelligence.services.ask import AskOptions
+
+    options = AskOptions(
+        query=args.query,
+        date=args.date,
+        exports_dir=args.exports_dir,
+        kb_wiki=args.kb_wiki,
+        top_companies=args.top_companies,
+        module_timeout=args.module_timeout,
+        wiki_rag_k=args.wiki_rag_k,
+        wiki_rag_mode=args.wiki_rag_mode,
+        wiki_rag_timeout=args.wiki_rag_timeout,
+        compose=True,
+    )
+
+    def _run(question: str) -> int:
+        session = AgentSession(
+            options,
+            model_override=args.llm_model,
+            timeout=args.llm_timeout,
+            max_steps=args.max_steps,
+        )
+        res = session.run(question)
+        print(f"## 你\n{question}\n")
+        if args.show_trace or not res.ok:
+            if res.steps:
+                print("### 工具调用轨迹")
+                for i, st in enumerate(res.steps, 1):
+                    print(f"{i}. `{st.tool}`({_fmt_args(st.args)}) → {st.result_preview.splitlines()[0] if st.result_preview else ''}")
+                print()
+            else:
+                print("> （本轮未调用任何工具）\n")
+        who = f"助手·agent·{res.provider}" if res.provider else "助手·agent"
+        if res.ok:
+            print(f"## {who}\n{res.answer}\n")
+            if res.citations:
+                print("### 引用来源")
+                for c in res.citations:
+                    print(f"- [{c.tag}] {c.source}" + (f"（{c.detail}）" if c.detail else ""))
+                print()
+            return 0
+        print(f"## {who}\n（无回答）\n")
+        print(f"> ⚠ {res.reason}\n")
+        return 1
+
+    print(f"# agent：{args.query}\n")
+    rc = _run(args.query)
+    follow_ups = list(args.follow_ups)
+    if follow_ups:
+        for q in follow_ups:
+            print("---\n")
+            rc = _run(q) or rc
+        return rc
+    if rc != 0:
+        # turn-1 degraded (no key / failure) — don't drop into an unusable REPL.
+        return rc
+    print("（agent 已就绪。输入下一个问题后回车；空行 / exit / quit 退出。每问独立重新检索。）\n")
+    while True:
+        try:
+            line = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not line or line.lower() in {"exit", "quit", ":q"}:
+            break
+        print()
+        print("---\n")
+        _run(line)
+    return 0
+
+
+def _fmt_args(args: dict) -> str:
+    return ", ".join(f"{k}={v!r}" for k, v in args.items())
+
+
 def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "foresight",
@@ -676,6 +784,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_ask_parser(subparsers)
     add_chat_parser(subparsers)
+    add_agent_parser(subparsers)
     add_foresight_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_refresh_profile_parser(subparsers)
