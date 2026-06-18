@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-18T06:52:13Z",
+  "generated_at": "2026-06-18T11:10:14Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 25
+      "skills": 26
     },
     {
       "name": "knowledge-base-private",
@@ -62,6 +62,32 @@
           "target": "../../skills/advancers-chart"
         }
       ]
+    },
+    "ws/checkpoint-recheck-mac-setup": {
+      "name": "checkpoint-recheck-mac-setup",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/checkpoint-recheck-mac-setup/SKILL.md",
+      "description": "在 Mac 上经 remote-exec 隧道安装「可证伪点夜间回检」launchd 定时任务、并接通跨机共享大脑（.foresight）台账的安装/排障 runbook。Use when the user asks to 装夜间回检、安装 checkpoint recheck 定时、可证伪点回检 cron、launchd 装回检、远程在 Mac 上跑命令、remote-exec 隧道、隧道多字节乱码核对、codepoint 校验、共享大脑台账、.foresight 台账接通、登点回检闭环、多机台账一致. 触发词：夜间回检、checkpoint recheck、可证伪点回检、launchd 安装、远程执行、remote-exec、隧道乱码、codepoint 校验、共享大脑、foresight 台账、多机一致、登点闭环。注意：只是登点/打分/校准等台账操作本身用 intelligence.cli checkpoint 子命令即可；本 skill 专管「在 Mac 上经隧道把这套定时跑起来 + 多机台账接通 + 多字节安全核对」的安装与排障。",
+      "triggers": [
+        "夜间回检",
+        "checkpoint recheck",
+        "可证伪点回检",
+        "launchd 安装",
+        "远程执行",
+        "remote-exec",
+        "隧道乱码",
+        "codepoint 校验",
+        "共享大脑",
+        "foresight 台账",
+        "多机一致",
+        "登点闭环"
+      ],
+      "note": "只是登点/打分/校准等台账操作本身用 intelligence.cli checkpoint 子命令即可；本 skill 专管「在 Mac 上经隧道把这套定时跑起来 + 多机台账接通 + 多字节安全核对」的安装与排障。",
+      "entrypoint": null,
+      "computedHash": "sha256:90930462de134155430971b49f8a75ff67e638869d2f8225fc72bdc55ac6e4d6",
+      "agentOnly": false,
+      "views": []
     },
     "ws/disclosure-archive": {
       "name": "disclosure-archive",
