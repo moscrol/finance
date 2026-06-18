@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd 模板：dream-loop 推理半之 7A（evolve.py suggest 夜间编排）。
+  每晚经 dream-evolve-suggest：只读跑 evolve suggest → 若有新增 suggestion-*.md
+  则从 main 切 dream-loop/evolve-suggest-<date> 分支白名单提交（绝不合 main、
+  绝不写 evolution/params.json、绝不起第二个 DuckDB 写进程）。
+
+  建议 03:45 触发，晚于采集半（dream-collect 03:30），错峰避免同时占资源。
+  安装前替换占位（见 dream/README.md「7A 安装 launchd」）：
+    __PYTHON__       → python3 解释器绝对路径（which python3）
+    __DREAM_REPO__   → 专用 git clone 目录，须独立于用户工作区
+                       （勿用 /Users/lbq/Desktop/c c/金融，那是 evolve 分支工作区）
+
+  DB 锁现实：Mac 上 DuckDB 回填写进程持排他锁时，read_only 打开会失败 →
+  本编排多半 no-op（优雅跳过、不崩）。这是预期行为，不是错误。
+
+  push 需凭证：模板默认带 --push 步骤。__DREAM_REPO__ 的 origin remote 须配好
+  可推（PAT 走 ~/.netrc 或 remote URL 里的 credential helper），且 git 提交身份已配置。
+  切勿把 PAT 明文交给 git。暂不想自动 push，删掉 ProgramArguments 里的 --push 行即可。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.financeworkspace.dream-evolve-suggest</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>-m</string>
+        <string>intelligence.cli</string>
+        <string>dream-evolve-suggest</string>
+        <string>--repo-dir</string>
+        <string>__DREAM_REPO__</string>
+        <string>--push</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__DREAM_REPO__</string>
+
+    <!-- 每天 03:45 触发一次（晚于采集半 03:30，错峰）-->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>45</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__DREAM_REPO__/logs/dream-evolve-suggest.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__DREAM_REPO__/logs/dream-evolve-suggest.err.log</string>
+</dict>
+</plist>

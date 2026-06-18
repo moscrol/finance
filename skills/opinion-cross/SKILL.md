@@ -47,52 +47,24 @@ python3 skills/opinion-cross/scripts/opinion_cross.py \
   → [C3 多空分歧识别]  看多 vs 看空措辞计数 + 预期差拐点（符合预期/辟谣/super expectation）
   → [C4 三维交叉引擎]  复用 theme-radar：逐标的构造 signal/context → signal_dimension_rows → resonance_tier
   → [C5 Tier 卡片报告] 按 Tier1/2/3 分组，每张卡片含 三维交叉表 + 硬度分层 + 催化 + 操作建议
+  → 〖复核门〗  定稿/落地最终卡片报告**前**必过 `check_opinion_review.py`（exit-0），见下「复核门」节
 ```
+
+> C1–C5 是**机器底稿**，最终卡片报告是 agent 复核后的**定稿**。机器底稿与定稿之间隔一道 exit-0 复核门（见下），把「由 agent 复核盘面维度与硬度后定稿」从散文约定硬化成检查点信号门。
 
 **题材无关**：标的清单来自知识库 `relations/entity_exposures.json`，标的→产业方向映射来自 `entity_exposures`（含 `chain_layer/strength/role/fact_hardness`）+ `concept_graph.json`，因此 CPO、硅光、固态电池等任何题材都能跑，不写死。
 
 ## 三维交叉与 Tier 判定（复用 theme-radar）
 
-脚本 import `theme-radar/scripts/radar.py` 的 `signal_dimension_rows` 与 `resonance_tier`（import 失败时有同契约的本地回退），逐标的量三把尺子：
-
-| 维度 | 取数 | 含义 |
-|---|---|---|
-| 公告/事实 | 该标的句子里的🟢硬证据 + 催化 | 题材是不是纯叙事？有没有订单/入股/合同/官方表态 |
-| 产业趋势 | 标的在 KB 命中的 concept（含 chain_layer/role） | 这条观点能不能映射到知识库里的发酵/布局方向 |
-| 市场热点 | 该标的句子里的盘面措辞（涨停/大跌/异动/估值切换） | 市场今天是否在交易它 |
-
-- 三维都硬（≥2 维 Tier1/2）→ **Tier 1 三重共振 ⭐⭐⭐**
-- 两维有效 → **Tier 2 双重验证 ⭐⭐**
-- 单维 → **Tier 3 观察池 ⭐**
-
-> 关键实现细节：radar 的 `signal_dimension_rows` 会把 `signal["industry_progress"]` 同时计入"公告/事实"和"产业趋势"两维。为避免产业信号污染事实维度（否则纯卖方喊单也会被抬成 Tier 2），本脚本**事实维度只放硬证据/催化，产业信号只走 `context`**，从而让硬证据标的与软推演标的真正分层。
+三维交叉（公告/事实 × 产业趋势 × 市场热点）取数口径、Tier1/2/3 判定规则，以及「事实维度只放硬证据/催化、产业信号只走 context」的关键实现细节见 `references/resonance-tier-rubric.md`。
 
 ## 事实硬度词典
 
-- 🟢 `HARD_FACT_KEYS`：订单/中标/合同/入股/持股/公告/确收/供货/签署/收购/增资/量产/扩产/投产/送样/定点/验证通过/交付
-- 🟡 `SOFT_KEYS`：目标/预期/预计/看好/空间/市值/有望/弹性/或将/假设/首选/首推/推荐/翻倍/对标/中枢
-- 🔴 `NOISE_KEYS`：拒绝一惊一乍/悲观者/乐观者/一笑了之/泼冷水/历史总是惊人/静态的/纠结 …
-
-硬度仅用于**分层与排序**，不做硬过滤——过滤由 agent 复核时决定。
+事实硬度三档词典（🟢 HARD_FACT_KEYS / 🟡 SOFT_KEYS / 🔴 NOISE_KEYS）见 `references/fact-hardness-dictionary.md`。硬度仅用于分层与排序，不做硬过滤。
 
 ## 输出 JSON schema（要点）
 
-```jsonc
-{
-  "term": "CPO", "theme": "CPO", "concept_matched": true,
-  "divergence": { "verdict": "...", "bull_count": 11, "bear_count": 10,
-                  "expectation_pivots": ["符合预期就是超预期", "英伟达…辟谣…"], "sources": ["国投硬科技", ...] },
-  "opportunities": [
-    { "target": "罗博特科", "resonance_tier": "Tier 2：双重验证…",
-      "kb": { "concept": "1.6T CPO", "chain_layer": "封装设备", "role": "...", "kb_fact_hardness": "research_claim" },
-      "hardness": { "dominant": "硬证据", "hard": ["…订单已超过15个亿…"], "soft": ["CPO首选标的…罗博特科"], "noise": [] },
-      "stance": { "stance": "看多", "bull": [...], "bear": [...], "expectation_gap": [...] },
-      "dimension_rows": [ {"dimension":"公告/事实","signal":"…","tier":"Tier 2"}, ... ],
-      "catalysts": ["…"], "action": "双重验证，已有跟踪价值；等第三维补齐再下重手。" }
-  ],
-  "summary": { "target_count": 9, "tier_counts": {"Tier 2":2,"Tier 3":7}, "hard_evidence_targets": 2 }
-}
-```
+输出 JSON 的结构（term / divergence / opportunities[] / summary 等要点）见 `references/output-schema.md`，按该 schema 落地结构化结果。
 
 ## 已验证（CPO 观点料）
 
@@ -106,6 +78,29 @@ python3 skills/opinion-cross/scripts/opinion_cross.py \
 1. **主体指代（anaphora）**：当硬事实句以「公司…」指代主体而未写出标的名时，会归错或漏归。例：矽电的「华为哈勃入股 3%」「与兆驰签 3.35 亿」中，3.35 亿被归到句中出现的"兆驰股份"，矽电因此被低估为 Tier 3。agent 复核时应把这类硬事实归回正确主体。
 2. **市场热点维度**：静态文本里通常没有当日盘面，多为"待补"，因此 Tier 上限常停在 2。要升 Tier 1 需接 `limit-advance`/`top-gainers`/`market-overview` 当日盘面信号（后续可做）。
 3. **标的识别依赖 KB**：只识别 `entity_exposures` 里已存在的实体；题材或公司未入库则漏识别（先走 disclosure/ingest 补库）。
+
+## 复核门（C5 之后、定稿前必做 · `check_opinion_review.py`）
+
+上面三条「已知局限」过去只是散文约定——机器底稿吐完，agent 凭自觉复核。本门把它硬化成 **exit-0 检查点信号门**（体例同知识库仓 cross-analysis `check_cross_review.py` / sellside `check_opinion_review.py`、disclosure-archive `--apply`）：**机器底稿的每个🟢硬证据标的**都必须有一条复核结论，且必须核过主体指代归属、对市场热点维度表态、给出合法 Tier。门未过（exit 1）禁止定稿最终卡片报告。
+
+```bash
+# 1) 跑机器底稿（C1–C5），落 --out JSON
+python3 skills/opinion-cross/scripts/opinion_cross.py --term CPO --input stream.txt --out /tmp/oc.json
+# 2) 按「已知局限」逐标的复核，填 /tmp/opinion_review.json（--template 出空白模板）
+python3 skills/opinion-cross/scripts/check_opinion_review.py --template > /tmp/opinion_review.json
+# 3) 过门：exit 0 才放行定稿
+python3 skills/opinion-cross/scripts/check_opinion_review.py /tmp/oc.json /tmp/opinion_review.json
+```
+
+复核产物 `reviewed[]` 每条对应一个标的：`target`（对齐 `opportunities[].target`）、`final_tier`（Tier 1/2/3/排除，可改判机器 Tier）、`anaphora_checked`（bool，硬证据标的**必须** true = 已核对硬事实归属正确主体，堵局限①主体指代）、`market_heat`（市场热点维度表态，待补也要显式写「待补」= 局限②）、`note`（复核结论）。
+
+门校验（只读，不改 `opinion_cross.py`、不写任何库）：
+
+- 机器命中的**每个🟢硬证据标的**（`hardness.dominant==硬证据` 或 `hardness.hard` 非空）必须在 `reviewed[]` 里有结论，且 `anaphora_checked==true`；纯软推演标的不强制（与机器同档，不抬权）。
+- 每条 `reviewed` 的 `final_tier` 合法、`anaphora_checked` 是 bool、`market_heat`/`note` 非空。
+- 退出码：0 = 复核充分可定稿；1 = 门控未过；2 = 用法/解析错误。
+
+**诚实的天花板**：门只能保证「每个硬证据标的被有意识地复核过」，**不能**验证 agent 真的纠对了主体指代、或真补全了盘面——同 sellside 观点不可枚举的天花板同源（区别：opinion-cross 命中标的可枚举，故能强制逐标的覆盖）。市场热点维度仍多为「待补」，要真升 Tier 1 需接 `limit-advance`/`top-gainers`/`market-overview` 当日盘面（见局限②）。
 
 ## 观点事件库（accumulation layer · `opinion_store.py`）
 
@@ -183,7 +178,7 @@ python3 skills/opinion-cross/scripts/opinion_store.py list \
 ### 落点与边界
 
 - 库是**派生数据文件**（默认 `<vault>/raw/theme-radar/opinion-store/`），**不写** KB 的 concepts/entities/relations，也**不进代码仓**。硬料若要进 KB ground truth，仍走 `disclosure-archive` 的人工审核 `--apply`。
-- 这一层只做"累积 + 聚合 + 来源归一"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1、算机构胜率）见下「b 阶段」——其中**机构胜率已实现**（`build_outcomes.py` + `winrate_rank.py`），补市场热点维度/升 Tier1 仍待接。
+- 这一层只做"累积 + 聚合 + 来源归一"；**盘面回溯**（事件 T+N 拉盘面验证命中率、补市场热点维度、升 Tier1、算机构胜率）见下「b 阶段」——其中**机构胜率**（`build_outcomes.py` + `winrate_rank.py`）与**盘面兑现维**（`pan_realize.py` → `consensus_staging` 加「盘面兑现(b)」列）**均已实现**；单篇 opinion-cross 卡片的升 Tier1 仍待接当日盘面信号。
 
 ### 晨汇补漏通道（morning-briefing raw → opinion-store）
 
@@ -258,7 +253,7 @@ python3 skills/opinion-cross/scripts/consensus_staging.py --store "$STORE" --vie
 - timeline：**中际旭创**（全库口径）`06-08 第一轮 → 06-09 催化共振(下限分97，3来源跨2日+硬证据) → 06-10 催化共振`——跨日跳阶轨迹正确。
 - board：1.6T CPO/半导体设备/人形机器人 已到催化共振(较充分覆盖)，CPO/半导体材料 第一轮(有限)，单点软料方向归观察池——同尺横向可比，覆盖度一目了然。
 
-**边界**：staging 当前只用**库内信号**；认同度的「市场是否兑现/透支」一维待 **b（盘面回溯 `outcomes.jsonl`）** 接入，脚本里标「待补」，升阶触发已写"接盘面兑现"。纯派生视图，**只读库不写库**。回补越多，下限越准、观察池越少。
+**边界**：staging 的**库内信号**轨（来源数/跨天/硬度）一直在；认同度的「市场是否兑现/透支」一维**已接 b（盘面回溯 `outcomes.jsonl`）**——`consensus_staging` 的 stage/board 视图新增「盘面兑现(b)」列，`main` 加 `--outcomes`（默认取 `--store` 同目录 `outcomes.jsonl`，**存在才接**，缺则该列照旧标「待接」），由 `pan_realize.py` 把 T+N 盘后回测聚成 `已兑现持稳/兑现中/冲高透支/未兑现·跑输/待观察`，喂回升阶触发；**一致认同 + 冲高透支 = 透支区**（热点≠机会）。纯派生视图，**只读库不写库**。回补越多，下限越准、观察池越少。
 
 ## 桥：观点库 → theme-radar 信号层（`consensus_bridge.py`）
 
@@ -298,13 +293,22 @@ python3 ../theme-radar/scripts/radar.py --term CPO --vault "<KB>/wiki" --mode de
 - `price_lib.py`：`name2code`（新浪 suggest，精确名匹配）/ `qfq_daily`（腾讯前复权）/ `index_daily`（指数基准）/ `fwd_metrics`（T+3/5/7/10 收益 + 区间最高收益 + 峰值天数 + 峰值后回撤 + 相对基准超额）。范围感知磁盘缓存落仓外 `WINRATE_CACHE`（默认 `~/kb_work/winrate_cache`，不进 git）。
 - `build_outcomes.py`：筛「看多」且非 `[晨汇转述]` → 解析代码 → 抓前复权价 → 算指标 → 写 `outcomes.jsonl`。进场 = 报告日**次日开盘**；窗口不完整的事件标 `*_complete=false`。
 - `winrate_rank.py`：join `sources.json` 聚合机构胜率。**主口径 = T+N 相对沪深300 超额收益 > 0**（默认 T+5），同时给绝对收益口径；只排**有效看多 ≥ N 次**（默认 5）的机构，1~2 次样本视为噪音不排。
+- `refresh_winrate.py`：**一键刷新** = `build_outcomes` → `winrate_rank`（默认 T+5+T+10）。报告写仓外 `--report-dir`（默认 `~/kb_work/winrate/winrate_T{N}_{date}.md`，不提交）。
+- `render_winrate_html.py`：**胜率榜可视化**。复用 `winrate_rank.aggregate_winrate` 一次算 T+3/5/7/10 四窗内联进自包含暗色 HTML（对齐复盘/策略页风格），前端切换窗口、点表头排序、画「超额胜率柱状图」+「均超额 vs 均回撤 风险收益散点」。默认输出 `复盘/winrate/winrate-<date>.html`（生成物，零依赖、双击即开、不提交）。
 
 ```bash
-# 1) 回测：写 <vault>/raw/theme-radar/opinion-store/outcomes.jsonl
+# 一键刷新（补完数据后跑这一条即可；日期自动取到今天）
+python3 skills/opinion-cross/scripts/refresh_winrate.py --vault "<KB>/wiki"
+
+# 或分步：1) 回测 → outcomes.jsonl  2) 出榜（--window 10 看 T+10；--report 出 md）
 python3 skills/opinion-cross/scripts/build_outcomes.py --vault "<KB>/wiki"
-# 2) 机构胜率榜（T+5 主口径；--window 10 看 T+10；--report 出 markdown）
 python3 skills/opinion-cross/scripts/winrate_rank.py --vault "<KB>/wiki" --report /tmp/winrate.md
+
+# 出可视化 HTML（双击即开；默认 复盘/winrate/winrate-<date>.html）
+python3 skills/opinion-cross/scripts/render_winrate_html.py --vault "<KB>/wiki"
 ```
+
+**迭代机制**：胜率榜是从 `opinion-events.jsonl` 台账**重算**出的派生视图（非手改、无漂移）。补研报/晨汇 → 入库 append → 重跑 `refresh_winrate.py`。`build_outcomes.py` 日期默认动态（end=今天、start=最早观点日前7天），价格范围感知缓存只抓新交易日；每次重算两个叠加效应：①新观点进入回测；②此前窗口不足的近期观点随交易日推进自动补全。**晨汇看多默认不计入胜率**（`[晨汇转述]` 通道已剔除，只研报算）。
 
 **口径纪律**（遵守 finance「市场假设验证」红线）：进场次日开盘、超额剥大盘 beta、3/5/7/10 多窗口 + 区间最高/峰值/回撤（不只看末日收盘）、样本门槛过滤噪音、窗口不足不计入该窗口分母。**outcomes.jsonl 是派生数据**，与 opinion-events.jsonl/sources.json 同放 KB `wiki/raw/theme-radar/opinion-store/`，不进代码仓。
 
@@ -313,3 +317,20 @@ python3 skills/opinion-cross/scripts/winrate_rank.py --vault "<KB>/wiki" --repor
 - **复用** `theme-radar`：三维交叉引擎（`signal_dimension_rows`/`resonance_tier`）+ 认同度阶梯（`recognition_score`/stage 体系）+ KB relations（`concept_graph`/`entity_exposures`）。
 - **盘面维度（待接）**：`limit-advance` / `top-gainers` / `high-volume-gainers` / `market-overview`。
 - **补库（上游）**：标的/题材缺失时用 `disclosure-archive` / `*-ingest` 先补 KB。
+
+## 踩坑 / 迭代总结（持续累积）
+
+### 1. ingest 一手晚间研报误打 `[晨汇转述]` → 整批被踢出机构胜率榜（2026-06-17）
+
+**错误**：ingest 时手动给 `opinion_store.py` 传了 `--title "[晨汇转述]多题材卖方早知道批次(…)"`，把一批**一手晚间卖方研报**打上了「晨汇转述」标签。
+
+**为什么是错的（机制层面）**：
+- `[晨汇转述]` 是**功能性保留标签**，不是中性备注：`build_outcomes.py:72`（看多事件 `if "晨汇转述" in (report_title or ""): continue`）和 `winrate_rank.py:115` 口径会**硬剔除** `report_title` 含「晨汇转述」的事件——它的本意是过滤晨会/AI 总结这类二手转写（见「晨汇补漏通道」第 5 条）。把一手研报标成它，等于亲手把整批挡在机构胜率榜 / T+N 回测之外。
+- `opinion_store.py:296` `--title` 默认是空串、`:188` 把 `args.title` 原样写进 `report_title`；这个标签**完全是多传的**，不是流程要求。
+
+**第二层错误（来源归位）**：把多家券商揉在一起的料一锅烩成单一来源「卖方观点流汇总」（src-364），没按段落【券商团队】署名归位。即便没标晨汇转述，单一来源桶也无法在机构胜率榜按机构聚合。
+
+**教训 / 规则**：
+1. ingest 一手卖方研报，`--title` **留空或填正式标题**，绝不手动写「晨汇转述」（除非确实走晨会/AI 转述通道，见「晨汇补漏通道」第 5 条）。
+2. 传任何 `--title` / `--source` 前，先确认它不会命中 `build_outcomes` 的排除过滤器（当前唯一硬过滤词 = 「晨汇转述」）。
+3. 多券商料按段落【券商团队】用 `--source` **分别归位**（`resolve_source` 自动并入现有机构桶）；只有原文确无署名才进未署名残桶，**不伪归**。

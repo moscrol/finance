@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd 模板：dream-loop 采集半（C-1A 采集半）。每晚跑 dream-nightly：
+  采集飞书燃料 → 从 main 切 dream-loop/transcripts-<date> 分支提交脱敏 digest（不合并）。
+
+  安装前替换占位（见 dream/README.md「采集半 launchd」）：
+    __PYTHON__       → python3 解释器绝对路径（which python3）
+    __DREAM_REPO__   → 专用 git clone 目录，必须独立于用户工作区
+                       （切勿用 /Users/lbq/Desktop/c c/金融，那是 evolve 分支工作区）
+    __EVENTS__       → 飞书 bot transcript-log 的事件 jsonl 绝对路径
+                       例如 /Users/lbq/feishu-bot-bs0/transcripts/feishu-events.jsonl
+
+  push 需要凭证：本模板默认带 push 步骤。__DREAM_REPO__ 的 origin remote 须已配置可写
+  （PAT 走 ~/.netrc 或 remote URL 里的 credential helper），且 git 提交身份已 config。
+  切勿把含 PAT 的文件提交进 git。若暂不想自动 push，删掉 ProgramArguments 里的 push 选项行。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.financeworkspace.dream-collect</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>-m</string>
+        <string>intelligence.cli</string>
+        <string>dream-nightly</string>
+        <string>--repo-dir</string>
+        <string>__DREAM_REPO__</string>
+        <string>--events</string>
+        <string>__EVENTS__</string>
+        <string>--source</string>
+        <string>feishu</string>
+        <string>--push</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__DREAM_REPO__</string>
+
+    <!-- 每晚 03:30 触发一次（采集半与推理半 C-1B-S2 的 schedule 错开） -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__DREAM_REPO__/logs/dream-collect.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__DREAM_REPO__/logs/dream-collect.err.log</string>
+</dict>
+</plist>

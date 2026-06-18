@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T08:15:49Z",
+  "generated_at": "2026-06-18T03:35:56Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -13,12 +13,12 @@
       "name": "knowledge-base-private",
       "short": "kb",
       "present": true,
-      "skills": 16
+      "skills": 18
     },
     {
       "name": "finance-research-site",
       "short": "site",
-      "present": true,
+      "present": false,
       "skills": 0
     }
   ],
@@ -108,7 +108,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2c58d06f91d1dbc82baf1d2542a311f0e78819fe207296c1ee5ab48e4897d40b",
+      "computedHash": "sha256:3f9f6150776d063c2195ec227a67d863d014f7526ba1aa2e38f1587df5e3b9a4",
       "agentOnly": false,
       "views": [],
       "split": {
@@ -129,7 +129,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:8d554a126223f7a2b11272199418a4d4a3f6351e707db0a2b94cb222f44bcee3",
+      "computedHash": "sha256:38acf525fa5bdf4dcd595444d695a84cb7a87da48686627e4acdeee8f79515b9",
       "agentOnly": false,
       "views": []
     },
@@ -181,7 +181,7 @@
       ],
       "note": "纯涨幅排行（不看成交额）用 top-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:50c0c8d8457c762b87dbb1106e71159bc7c937830bbe64417fbe35470ad8b39d",
+      "computedHash": "sha256:cfcda5fc44f1c550a15c19a38b50d14420a8177073274f72982d76d35e5e9106",
       "agentOnly": false,
       "views": [
         {
@@ -212,7 +212,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a1635c024eefb6e71df0e21ac7854d7ac5070efccba06b501ed214afbdc77aa8",
+      "computedHash": "sha256:2ecc0a2633c31a187043df89aa5b2e60b39d17ac4151fac493704e95d566be6c",
       "agentOnly": false,
       "views": [
         {
@@ -252,7 +252,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:0f86d5c529f08891a6db3ccf37fc3df23c2f890b6efed7976d64c7414bffc404",
+      "computedHash": "sha256:e9f2a6636a3c764eba5e2a1df9a8209c90729aaf1a44f971b58c969506eb7d05",
       "agentOnly": false,
       "views": [
         {
@@ -279,7 +279,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:1aec01e182f1349eead0b7fa0085e4167b6604af1ec830c93ce83c0e4adef783",
+      "computedHash": "sha256:3a85aa3536bd2e435f1dc54f9cc6aafa20d040fe03fd1abf7001b0922bcf734e",
       "agentOnly": false,
       "views": [
         {
@@ -298,7 +298,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7cf3cbdcf1966684c4c236dd2b765797986a3b334e9d455225dc464fe7903353",
+      "computedHash": "sha256:157596c205f59f3ad8c219512281763e2ee448891579a8a3b4b2a9ba0a60d343",
       "agentOnly": false,
       "views": []
     },
@@ -319,7 +319,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:563e0095609d5cb9bdb7ec395cc2f244a7607d5187dac6981d1523f4826243bc",
+      "computedHash": "sha256:d46141d97e69779d8e1374cf702ce3da68c4d00cbb6c427dd90252ced4ec5e59",
       "agentOnly": false,
       "views": [
         {
@@ -338,7 +338,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7e9df301723ec3d7308a19f0c2a1f14a83fc900960322d9b5b76d3f45221e1cc",
+      "computedHash": "sha256:35127e66bd5c4dc11266364a2a75084624a5c215406c43940250ebf6a7c950bc",
       "agentOnly": false,
       "views": []
     },
@@ -374,7 +374,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:5f79ea702af664ae294ec4c64c6a46379d8e0e0a544c1e17893c5af03d288532",
+      "computedHash": "sha256:c1fee957c5596540e230455bc8ff735b833518dd8aa824c04be5dac8348ae05a",
       "agentOnly": false,
       "views": []
     },
@@ -404,7 +404,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2e1d6dab65539c3293812205f851c21a353d1bb270b1dc7a020fba4ba03cd7b0",
+      "computedHash": "sha256:2bd2cf07206beed11a91cabdcbea9201bf80ebf2582d710b2cea054dfea7631a",
       "agentOnly": false,
       "views": []
     },
@@ -454,7 +454,7 @@
       ],
       "note": "只看当前题材结构用 theme-radar；本 skill 是带盘面时间轴的历史回溯。",
       "entrypoint": null,
-      "computedHash": "sha256:49aa7d0f487636a6e460cb3888c2088e5716c3329d9cf53c217b15a9e814a54a",
+      "computedHash": "sha256:9a7e29ee91d0df3012ac39f1f58f5365240e3b37379233492f3d740764ec8a7d",
       "agentOnly": false,
       "views": [
         {
@@ -473,7 +473,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:5332c78a03349d14ec4f22a8e387d73acb4c8cefe1d46f4369e682c330b92fb4",
+      "computedHash": "sha256:c6a0acc6dc7848e9312e775b9880dfc56c08abfca22fa43d7244b620e29e0683",
       "agentOnly": false,
       "views": [
         {
@@ -498,7 +498,7 @@
       ],
       "note": "要\"入库/筛选入库/均线回踩\"用 top-gainers-feishu；要量价加权排序用 high-volume-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:93fda945dbc1f6fd63254aed9579b62eb438ccd9d0dea06a67bb582f6a910236",
+      "computedHash": "sha256:03fab59bd1a15ac19eb2e371bb0844e3d7c4b2852ea245201e7f0f8997c4b9e8",
       "agentOnly": false,
       "views": [
         {
@@ -525,7 +525,7 @@
       ],
       "note": "只看排行不入库用 top-gainers；自选股的均线筛选用 watchlist-ma。",
       "entrypoint": null,
-      "computedHash": "sha256:1e0902aa236172081908f248d210be873bed90317205a01b4a502aefb658b65c",
+      "computedHash": "sha256:a9fd9a43bb1d4ba4ba7aa53b5f099a7175c1a713e60f9221fb0da32210d4bb0d",
       "agentOnly": false,
       "views": [
         {
@@ -603,7 +603,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:415e837d619d11c2ca142d4c0c291af3955e607f146413c3acf3cb0685c89a55",
+      "computedHash": "sha256:eb6c94596dae22d60721a367fb7346f30e04d7239ac73a0a8429e5dc33d043df",
       "agentOnly": false,
       "views": [
         {
@@ -628,7 +628,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:518fa385baa698b6086ea04c9d30621d7270d5937738610fb9ddbb9e868725ce",
+      "computedHash": "sha256:d67cb355f1be66523a3915bbcd5ce2fa4423f9ecc0bb5b5cab23c4b90ea696c4",
       "agentOnly": false,
       "views": [
         {
@@ -647,7 +647,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:231a8d81b454e6394169e773a1f5fcc9f594dd725f040dfd64a160da38e2e11e",
+      "computedHash": "sha256:3b7cf9f6a0a0e82fc37ec4ed11cda0f6f3a7b5d0fb003d96c2641ef546f4826d",
       "agentOnly": false,
       "views": []
     },
@@ -660,7 +660,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:eaf7600019f361cd8b7f084b1edf1fba4b0dfeb244376222c366b9c8913d50a9",
+      "computedHash": "sha256:f1a98ef4566ca1bcc073c8c3195e173c9eca6ab0e61cfa59ed1eb4e573125816",
       "agentOnly": false,
       "views": []
     },
@@ -685,7 +685,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:3f79266769608f8a143c94789cbc62fee2fd6a11f713407a9103e80a70faf61b",
+      "computedHash": "sha256:10e9d2651da8b058f66b029110ad764869f8003457abad6c5bec09abd5ca295c",
       "agentOnly": false,
       "views": []
     },
@@ -698,7 +698,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e6260b72d998b74f21e32f0da2fe335d6f1537e2798dad98614daeb6b680570f",
+      "computedHash": "sha256:7112e240965df01f3c35814edc1eecd950de9ed04b7672cbd01aea0ba0b1735f",
       "agentOnly": false,
       "views": []
     },
@@ -707,11 +707,18 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/daily-ops/SKILL.md",
-      "description": "",
-      "triggers": [],
+      "description": "每日运营总编排手册——会话开工前先读；定义早间/晚间固定流程、每种材料用哪个脚本解析、产物落到哪里，并编排 morning-briefing / cross-analysis / sellside-coverage-cross / catalyst-calendar / wiki-utils 等子 skill。触发词：每日运营、daily ops、早间流程、晚间流程、开工清单、今天要做什么。",
+      "triggers": [
+        "每日运营",
+        "daily ops",
+        "早间流程",
+        "晚间流程",
+        "开工清单",
+        "今天要做什么"
+      ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:94c4f84296e974cfa46db3c07964663b6b8030f7aa11533224ebb1b9a06d174d",
+      "computedHash": "sha256:b40622f36ffed78c895dddb494306c9d1d1a578881908b78a825ecac28eb463c",
       "agentOnly": false,
       "views": []
     },
@@ -720,11 +727,18 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/dashboard/SKILL.md",
-      "description": "",
-      "triggers": [],
+      "description": "本地知识库驾驶舱（模块2方案A）——把 wiki/relations/ 关系数据内联进一个自包含 HTML（零依赖，双击即开），搜索题材/个股/股票代码即时弹出结构化卡片。触发词：dashboard、驾驶舱、本地看板、build dashboard、生成 dashboard、知识库看板。",
+      "triggers": [
+        "dashboard",
+        "驾驶舱",
+        "本地看板",
+        "build dashboard",
+        "生成 dashboard",
+        "知识库看板"
+      ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:c8064bf908a08b16600958c59e38d0f522b9601248cd502a34ae192fdc5fc9a3",
+      "computedHash": "sha256:84d4555e82feeb3a742a481fa137cac5f97b4b3c8976990cc8f0ac025cc9ad6f",
       "agentOnly": false,
       "views": []
     },
@@ -737,7 +751,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9cf59742a751e6b68df3ac71bdc5fa6fc18ba2e4a9b73935a57c01853b253c54",
+      "computedHash": "sha256:9c59f3fdb065ea49f02934158083d9c251da0ac3e91c20072bbaff03637204f2",
       "agentOnly": false,
       "views": [],
       "split": {
@@ -764,7 +778,44 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:777761630d96898f0d322b5db5e63dab0ac9dc98661270246043e1a2749934cc",
+      "computedHash": "sha256:e171865ed4271c670b05efdab865bdc9ddba099b63755c67bd5f4aa3c0e51409",
+      "agentOnly": false,
+      "views": []
+    },
+    "kb/hard-fact-review": {
+      "name": "hard-fact-review",
+      "repo": "knowledge-base-private",
+      "sourceType": "local",
+      "skillPath": "skills/hard-fact-review/SKILL.md",
+      "description": "把 entity-delta 回填 payload 里「清过硬事实红线」的 update 挑出来排成人工复核队列，供人逐条决定是否写进实体正文 ## 边际变化。suggest-only、绝不自动写正文。触发：硬事实候选、entity 正文回填候选、边际变化复核队列、hard-fact review。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:e7ed4c4cbd27a5b8a04c0514077fde736ce802840db2a15c70e23f0f9614aa77",
+      "agentOnly": false,
+      "views": []
+    },
+    "kb/ingest-planner": {
+      "name": "ingest-planner",
+      "repo": "knowledge-base-private",
+      "sourceType": "local",
+      "skillPath": "skills/ingest-planner/SKILL.md",
+      "description": "批量入库前的「采访」前置（Inversion 反转模式）——在大批量 ingest / 开新题材 / 历史回补前，先按顺序问清材料范围、目标、分支、证据等级、是否允许建 entity/concept、跳过与停止规则，把回答合成成 batch-ingest-plan，经 check_ingest_plan.py 门控校验通过后才放行写库，再交给 material-router / pdf-ingest / concept-ingest / entity-delta-ingest 执行。触发词：批量入库、入库规划、开新题材、历史回补、ingest plan、ingest planner、入库前先问、批量ingest、采访规划、入库计划。",
+      "triggers": [
+        "批量入库",
+        "入库规划",
+        "开新题材",
+        "历史回补",
+        "ingest plan",
+        "ingest planner",
+        "入库前先问",
+        "批量ingest",
+        "采访规划",
+        "入库计划"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:9cf3f4f4d236283653ebb0ab8ba6e3b1593e4d68bc21eb9ac968810a12d7f241",
       "agentOnly": false,
       "views": []
     },
@@ -787,7 +838,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:bf70cb1b9411980dcdad1a78935a36617bdf3a89108f6ff40acc00a7027886c2",
+      "computedHash": "sha256:673c81e1ba68def5fd9a48ffc2cb12df71498f9658ae8b52f5b5ccf9622f4364",
       "agentOnly": false,
       "views": []
     },
@@ -800,7 +851,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9ccace143a2efececa6d2d9e7923c723595ffe2e65941aa14760daa022d2b4b8",
+      "computedHash": "sha256:3a43fac4ca18a19b40aac94ea105ec9b0f725bb951c61869ec1c49cc99e06836",
       "agentOnly": false,
       "views": []
     },
@@ -813,7 +864,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:b184f7079cf2338ce47a7ac0cc346904fcd1d80a030ae12000c7bac8fa3bb410",
+      "computedHash": "sha256:8e1c6a3fa619f5fd9a4c9ae06d446d736230f1dec27b5cd7c0f0e4136ffea014",
       "agentOnly": false,
       "views": [
         {
@@ -837,7 +888,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:bab999895a519688f1db144c8c4b7164a97e84183b4630674628be59cefbbd4d",
+      "computedHash": "sha256:f7af3741fb04a403a1c6d52012f49616e9495b726991d54ad425e4ac61a54bfb",
       "agentOnly": false,
       "views": []
     },
@@ -856,7 +907,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:11447e61d0ec28da397d72902e82700531171c88bd68bac7ce3845f5fe87017d",
+      "computedHash": "sha256:5330e39e69b5c1801944f15bc2a3e4db172c3889fb945c65b253089a585fb3b7",
       "agentOnly": false,
       "views": []
     },
@@ -869,7 +920,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:556b6bed2e4ee280624d2ac3b4cff25c62cc38448974dd66e4e7e0614d09c43e",
+      "computedHash": "sha256:b8daa605a42e5f49568c09bea4900c4931a4903ff5cbdacab1076b7623a2b558",
       "agentOnly": false,
       "views": []
     },
@@ -896,7 +947,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2e8eb523be5c95346b4a2e77ea446f41a025ecb58d736ac2f308dde63c5c245b",
+      "computedHash": "sha256:71f9fb0f05a523ea1fd45341227212914042e90b7189910c81ae125244a601e1",
       "agentOnly": false,
       "views": []
     }

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 # NOTE: workflow modules are imported lazily inside each command handler so the
 # CLI (and the duckdb-free `ask` command) can run in environments without the
@@ -10,7 +11,7 @@ import sys
 
 def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
-        "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S)"
+        "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S) + wiki 向量语义召回 (W)"
     )
     parser.add_argument("query", help="Question / theme term, e.g. 液冷服务器")
     parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
@@ -25,6 +26,18 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument("--no-modules", action="store_true", help="Disable theme-radar module fan-out (graph+盘面 only)")
     parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
+    parser.add_argument(
+        "--no-wiki-rag",
+        action="store_true",
+        help="Disable the W source (knowledge-base hybrid 向量语义召回 wiki 候选页). "
+        "Auto-skips anyway when the KB repo / rag_index.py / 向量索引 is unavailable.",
+    )
+    parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
+    parser.add_argument(
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
+        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF)",
+    )
+    parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
     parser.add_argument(
         "--llm",
         action="store_true",
@@ -169,6 +182,10 @@ def cmd_ask(args: argparse.Namespace) -> int:
             use_modules=not args.no_modules,
             modules=modules,
             module_timeout=args.module_timeout,
+            use_wiki_rag=not args.no_wiki_rag,
+            wiki_rag_k=args.wiki_rag_k,
+            wiki_rag_mode=args.wiki_rag_mode,
+            wiki_rag_timeout=args.wiki_rag_timeout,
             use_llm=args.llm,
             llm_model=args.llm_model,
             llm_timeout=args.llm_timeout,
@@ -337,7 +354,8 @@ def add_feishu_bot_parser(subparsers: argparse._SubParsersAction) -> None:
 
     parser = subparsers.add_parser(
         "feishu-bot",
-        help="飞书回声 bot（B-S0，长连接打通验证；凭证走 env / ~/.claude/shared/feishu_config.json）",
+        help="飞书 chat bot（B-S2，长连接 + in-process 调 ask 回六段；--echo 退回 B-S0 自检；"
+        "凭证走 env / ~/.claude/shared/feishu_config.json）",
     )
     feishu_bot.add_arguments(parser)
     parser.set_defaults(func=cmd_feishu_bot)
@@ -352,10 +370,17 @@ def cmd_feishu_bot(args: argparse.Namespace) -> int:
 def add_dream_collect_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "dream-collect",
-        help="dream-loop C-1A-S0：对话源（S0 仅飞书）归一化+脱敏 → transcript store + manifest + 脱敏 digest（suggest-only，不碰 DuckDB）",
+        help="dream-loop：对话源（feishu/claude-code/claude-mem/windsurf/devin）归一化+脱敏 → transcript store + manifest + 脱敏 digest（suggest-only，不碰 DuckDB）",
     )
-    parser.add_argument("--source", default="feishu", choices=["feishu"], help="对话源（S0 仅 feishu）")
-    parser.add_argument("--events", default=None, help="原始事件 jsonl（飞书 bot 的 --transcript-log 产物）")
+    from intelligence.dream import collector as _collector
+
+    parser.add_argument(
+        "--source",
+        default="feishu",
+        choices=sorted(_collector.KNOWN_SOURCES),
+        help="对话源：feishu/claude-code/claude-mem/windsurf/devin",
+    )
+    parser.add_argument("--events", default=None, help="原始事件 jsonl（每行一个事件/消息/会话/observation，视源而定）")
     parser.add_argument(
         "--store-dir",
         default=None,
@@ -385,6 +410,140 @@ def cmd_dream_collect(args: argparse.Namespace) -> int:
         print(_json.dumps(summary, ensure_ascii=False, indent=2))
     else:
         print(collector.render_summary(summary), end="")
+    return 0
+
+
+def add_dream_evolve_suggest_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "dream-evolve-suggest",
+        help="dream-loop C-1C/7A：只读跑 evolve.py suggest → 有新增 suggestion-*.md 才切 dream-loop/evolve-suggest-<date> 分支白名单提交（绝不合 main、绝不写 params.json、绝不起第二个 DuckDB 写进程）",
+    )
+    parser.add_argument("--repo-dir", required=True, help="用于提交建议的 git clone 目录（独立于用户工作区）")
+    parser.add_argument("--python", default=None, help="跑 evolve.py 的 python 解释器（默认当前解释器）")
+    parser.add_argument("--user", default=None, help="透传 evolve.py --user（默认共享基线）")
+    parser.add_argument(
+        "--suggest-subdir",
+        default="evolution/suggestions",
+        help="suggestion-*.md 相对 repo-dir 的目录（默认 evolution/suggestions；--user 时一般为 evolution/users/<id>/suggestions）",
+    )
+    parser.add_argument("--branch-prefix", default="dream-loop/evolve-suggest", help="分支名前缀（实际分支带 -<date>）")
+    parser.add_argument("--base", default="main", help="切分支的基（默认 main）")
+    parser.add_argument("--remote", default="origin", help="git remote（默认 origin）")
+    parser.add_argument("--date", default=None, help="覆盖日期（默认机器今日 YYYY-MM-DD）")
+    parser.add_argument("--no-run", action="store_true", help="跳过跑 evolve suggest，只把现有新增建议提交到分支")
+    parser.add_argument("--timeout", type=int, default=900, help="evolve suggest 子进程超时秒数（默认 900）")
+    parser.add_argument("--push", action="store_true", help="提交后 push 分支（默认只本地 commit，绝不合并）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 摘要")
+    parser.set_defaults(func=cmd_dream_evolve_suggest)
+
+
+def cmd_dream_evolve_suggest(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.dream import evolve_suggest
+
+    summary = evolve_suggest.run_evolve_suggest(
+        evolve_suggest.EvolveSuggestOptions(
+            repo_dir=args.repo_dir,
+            python=args.python,
+            user=args.user,
+            suggest_subdir=args.suggest_subdir,
+            branch_prefix=args.branch_prefix,
+            base=args.base,
+            remote=args.remote,
+            date=args.date,
+            run=not args.no_run,
+            timeout=args.timeout,
+            push=args.push,
+        )
+    )
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(evolve_suggest.render_summary(summary))
+    return 0
+
+
+def add_dream_kb_candidates_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "dream-kb-candidates",
+        help="dream-loop C-1C/7B：把（已脱敏的）digest/lessons 候选条目 → 保守 KB 事实回写候选 payload（红线写死 graph_only/exposure_only/review_candidate/L1_L3_candidate/peripheral，绝不写 entity 正文）",
+    )
+    parser.add_argument("--input", required=True, help="候选输入 JSON（含 source_name + candidates 列表）")
+    parser.add_argument(
+        "--kb-dir",
+        default=None,
+        help="候选输出目录（默认 env KB_CANDIDATES_DIR > 本仓 gitignore staging intelligence/dream/_kb_candidates；写真实库须显式指 <知识库>/wiki/raw/entity-delta-backfill）",
+    )
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 摘要")
+    parser.set_defaults(func=cmd_dream_kb_candidates)
+
+
+def cmd_dream_kb_candidates(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.dream import kb_candidates
+
+    spec = _json.loads(Path(args.input).expanduser().read_text(encoding="utf-8"))
+    inputs, meta = kb_candidates.load_inputs(spec)
+    payload = kb_candidates.build_payload(
+        inputs,
+        source_name=meta["source_name"],
+        source_date=meta["source_date"],
+        raw_sources=meta["raw_sources"],
+        source_file=meta["source_file"],
+        concept=meta["concept"],
+    )
+    summary = kb_candidates.write_payload(payload, kb_dir=args.kb_dir)
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(kb_candidates.render_summary(summary))
+    return 0 if summary.get("written") else 1
+
+
+def add_dream_nightly_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "dream-nightly",
+        help="dream-loop 采集半：collect → 从 main 切 dream-loop/transcripts-<date> 分支提交脱敏 digest（suggest-only，绝不合并 main、不提交正文、不碰 DuckDB）",
+    )
+    parser.add_argument("--repo-dir", required=True, help="用于提交 digest 的 git clone 目录（须独立于用户工作区）")
+    parser.add_argument("--events", default=None, help="原始事件 jsonl（采集时读取，如飞书 bot 的 --transcript-log 产物）")
+    parser.add_argument("--source", default="feishu", help="对话源（默认 feishu）")
+    parser.add_argument("--store-subdir", default="raw/transcripts", help="store 相对 repo-dir 的子目录（默认 raw/transcripts，正文按 .gitignore 忽略）")
+    parser.add_argument("--branch-prefix", default="dream-loop/transcripts", help="分支名前缀（默认 dream-loop/transcripts，实际分支带 -<date>）")
+    parser.add_argument("--base", default="main", help="切分支的基线（默认 main）")
+    parser.add_argument("--remote", default="origin", help="git remote（默认 origin）")
+    parser.add_argument("--date", default=None, help="覆盖日期（默认本机当日 YYYY-MM-DD）")
+    parser.add_argument("--no-collect", action="store_true", help="跳过采集，只提交 store 里已有的 digest")
+    parser.add_argument("--push", action="store_true", help="提交后 push 分支（默认只本地 commit，不 push、不合并）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 摘要")
+    parser.set_defaults(func=cmd_dream_nightly)
+
+
+def cmd_dream_nightly(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.dream import nightly
+
+    summary = nightly.run_nightly(
+        nightly.NightlyOptions(
+            repo_dir=args.repo_dir,
+            events_path=args.events,
+            source=args.source,
+            store_subdir=args.store_subdir,
+            branch_prefix=args.branch_prefix,
+            base=args.base,
+            remote=args.remote,
+            date=args.date,
+            collect=not args.no_collect,
+            push=args.push,
+        )
+    )
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(nightly.render_summary(summary))
     return 0
 
 
@@ -418,6 +577,9 @@ def build_parser() -> argparse.ArgumentParser:
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)
     add_dream_collect_parser(subparsers)
+    add_dream_evolve_suggest_parser(subparsers)
+    add_dream_kb_candidates_parser(subparsers)
+    add_dream_nightly_parser(subparsers)
     return parser
 
 
