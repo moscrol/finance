@@ -913,6 +913,8 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_re.add_argument("--apply", action="store_true", help="真正把 verdict 落盘 verdicts.jsonl（缺省只预览）")
     p_re.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
     p_re.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    p_re.add_argument("--vault", default=None, help="回检日志写入的 Obsidian vault 根（默认 env SUBCONSCIOUS_VAULT，缺则落 users/<id>/_vault）")
+    p_re.add_argument("--no-vault-digest", action="store_true", help="不写人类可读回检日志（仅落 verdicts.jsonl）")
     p_re.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_re.set_defaults(func=cmd_checkpoint_recheck)
 
@@ -1029,6 +1031,7 @@ def cmd_checkpoint_recheck(args: argparse.Namespace) -> int:
         entry: dict[str, object] = {
             "id": c.get("id"),
             "claim": c.get("claim"),
+            "category": c.get("category"),
             "verdict": outcome.verdict,
             "score": outcome.score,
             "data_source": outcome.data_source,
@@ -1049,13 +1052,34 @@ def cmd_checkpoint_recheck(args: argparse.Namespace) -> int:
             )
             entry["applied"] = True
         results.append(entry)
+
+    # 人类层回检日志：落盘时同步写一份可读 markdown 到 Obsidian vault，让夜间 recheck 不黑盒。
+    digest_path: str | None = None
+    if args.apply and results and not args.no_vault_digest:
+        from datetime import date as _date
+
+        from intelligence import userspace
+
+        us = userspace.user_space(args.user)
+        eff_date = args.date or _date.today().isoformat()
+        vault, is_fallback = checkpoints.resolve_recheck_vault(us.root, explicit=args.vault)
+        section = checkpoints.build_recheck_digest_section(results, applied=True)
+        note = checkpoints.write_recheck_digest(vault, section, date=eff_date)
+        digest_path = str(note)
+
     if args.json:
-        print(_json.dumps({"applied": args.apply, "results": results}, ensure_ascii=False, indent=2))
+        print(_json.dumps(
+            {"applied": args.apply, "results": results, "digest_path": digest_path},
+            ensure_ascii=False, indent=2,
+        ))
     else:
         verb = "回检并落盘" if args.apply else "回检（预览，未落盘；加 --apply 落盘）"
         print(f"{verb} {len(results)} 条")
         for r in results:
             print(f"- {r['id']}｜{r['verdict']}（{r['data_source']}）：{r['reason']}")
+        if digest_path:
+            tail = "（回退路径，非你的 Obsidian；指 --vault / SUBCONSCIOUS_VAULT 落到 vault）" if is_fallback else ""
+            print(f"人类可读回检日志：{digest_path}{tail}")
         if not args.apply and results:
             print("加 --apply 把以上 verdict 写入 verdicts.jsonl")
     return 0
