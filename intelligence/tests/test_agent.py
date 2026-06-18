@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from intelligence.services import agent, kb_rag, llm_refine
-from intelligence.services.agent import AGENT_TOOLS, AgentSession
+from intelligence.services.agent import AGENT_TOOLS, MARKET_LIVE_TOOL, AgentSession
 from intelligence.services.ask import AskOptions
 from intelligence.services.skill_tools import SkillResult
 from intelligence.services.llm_refine import LLMProvider
@@ -357,6 +359,147 @@ class MultiTurnAgentTests(unittest.TestCase):
         self.assertTrue(res.ok)
         self.assertIsNotNone(s.messages)
         self.assertEqual(s.messages[0]["role"], "system")
+
+
+def _seed_market_db(db_path: str, trade_date: str = "2026-06-11") -> None:
+    """建一个带真实 schema 的合成 DuckDB：写入某交易日的大盘环境 + 一个双红/涨停热度题材
+    (液冷服务器) + 题材内强势股 & 新高股。供 P2.5 search_market_live 单测使用，无需外部库。"""
+    import duckdb
+
+    from market_feature_store.db import SCHEMA_PATH
+
+    con = duckdb.connect(db_path)
+    try:
+        con.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+        con.execute(
+            "INSERT INTO fact_market_daily (trade_date, market_stage, total_amount, "
+            "amount_vs_yesterday_pct, advancers, limit_up, limit_down, top3_industry_ratio, "
+            "industry_1, industry_1_ratio, industry_2, industry_2_ratio, industry_3, industry_3_ratio) "
+            "VALUES (?, '主升', 18234.5, 6.2, 3120, 64, 8, 32.0, '电子', 18.0, '电力设备', 9.0, '通信', 5.0)",
+            [trade_date],
+        )
+        con.execute(
+            "INSERT INTO fact_sector_daily (trade_date, sector_ts_code, sector_name, sw_l1, "
+            "pct_chg, amount, diff_ratio) VALUES (?, 'BK0001', '液冷服务器', '电子', 4.8, 820.0, 22.5)",
+            [trade_date],
+        )
+        con.execute(
+            "INSERT INTO fact_theme_limit_heat_daily (trade_date, sector_ts_code, sector_name, "
+            "dimension, scope, limit_up_count, total_count, market_share, fd_amount, rank) "
+            "VALUES (?, 'BK0001', '液冷服务器', 'theme', 'all', 5, 18, 0.12, 3.4, 1)",
+            [trade_date],
+        )
+        con.execute(
+            "INSERT INTO fact_sector_stock_daily (trade_date, sector_ts_code, sector_name, sw_l1, "
+            "stock_ts_code, stock_name, pct_chg, amount, high_status, high_status_label) VALUES "
+            "(?, 'BK0001', '液冷服务器', '电子', '002837.SZ', '英维克', 10.0, 25.6, 'new_high', '创年内新高'),"
+            "(?, 'BK0001', '液冷服务器', '电子', '300017.SZ', '网宿科技', 6.4, 12.1, '', '')",
+            [trade_date, trade_date],
+        )
+        con.execute(
+            "INSERT INTO fact_stock_high_daily (trade_date, stock_ts_code, stock_name, "
+            "primary_high_label, amount, pct_chg) VALUES (?, '002837.SZ', '英维克', '创年内新高', 25.6, 10.0)",
+            [trade_date],
+        )
+    finally:
+        con.close()
+
+
+class MarketLiveToolTests(unittest.TestCase):
+    """P2.5 实时盘面 opt-in 工具 search_market_live（合成 DuckDB，不依赖外部库）。"""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.db_path = str(Path(self._tmp.name) / "market_feature_store.duckdb")
+        _seed_market_db(self.db_path, trade_date="2026-06-11")
+
+    def test_not_registered_without_db_path(self) -> None:
+        # opt-in：未配置 market_db_path → 默认 6 件套逐字节不变，工具不注册
+        s = _session()
+        self.assertFalse(s._market_live_available)
+        self.assertIs(s._tools, AGENT_TOOLS)
+        self.assertEqual(len(s._tools), 6)
+        self.assertNotIn("search_market_live", {t["function"]["name"] for t in s._tools})
+
+    def test_tool_is_optin_and_wellformed(self) -> None:
+        # MARKET_LIVE_TOOL 刻意不在 AGENT_TOOLS 里，但自身 schema 合法
+        self.assertNotIn("search_market_live", {t["function"]["name"] for t in AGENT_TOOLS})
+        self.assertEqual(MARKET_LIVE_TOOL["type"], "function")
+        fn = MARKET_LIVE_TOOL["function"]
+        self.assertEqual(fn["name"], "search_market_live")
+        self.assertTrue(fn["description"])
+        self.assertEqual(fn["parameters"]["type"], "object")
+        self.assertIn("theme", fn["parameters"]["properties"])
+
+    def test_registered_when_db_available(self) -> None:
+        s = _session(market_db_path=self.db_path)
+        self.assertTrue(s._market_live_available)
+        names = {t["function"]["name"] for t in s._tools}
+        self.assertIn("search_market_live", names)
+        self.assertEqual(len(s._tools), 7)
+        # 默认套件常量本身没有被污染
+        self.assertEqual(len(AGENT_TOOLS), 6)
+        self.assertNotIn("search_market_live", {t["function"]["name"] for t in AGENT_TOOLS})
+
+    def test_reports_environment_and_cites_S(self) -> None:
+        s = _session(market_db_path=self.db_path)
+        out = s.tool_search_market_live("液冷")
+        self.assertIn("实时盘面（2026-06-11", out)
+        self.assertIn("主升", out)
+        self.assertIn("电子", out)  # 容量前三板块
+        self.assertIn("[S1]", out)
+        self.assertIn("S", s.sources_used)
+        # 复用 [S#]，绝不新增其它前缀（评测闸只认 S/G/R/W）
+        self.assertTrue(s.citations)
+        self.assertTrue(all(c.tag.startswith("S") for c in s.citations))
+
+    def test_hits_double_red_and_limit_heat_and_theme_stocks(self) -> None:
+        s = _session(market_db_path=self.db_path)
+        out = s.tool_search_market_live("液冷")
+        self.assertIn("双红题材命中「液冷服务器」", out)
+        self.assertIn("落在容量前三板块", out)
+        self.assertIn("涨停热度命中「液冷服务器」", out)
+        self.assertIn("涨停 5 家 / 共 18 家", out)
+        # 题材个股：强势股按量价加权、新高股映射
+        self.assertIn("英维克", out)
+        self.assertIn("创年内新高", out)
+
+    def test_theme_miss_is_graceful(self) -> None:
+        s = _session(market_db_path=self.db_path)
+        out = s.tool_search_market_live("锂电池")
+        # 题材未上榜：如实说明，仍给出大盘环境与 [S#]，不报错
+        self.assertIn("实时盘面（2026-06-11", out)
+        self.assertIn("未进入双红题材榜", out)
+        self.assertNotIn("双红题材命中", out)
+        self.assertIn("S", s.sources_used)
+
+    def test_theme_match_helper(self) -> None:
+        match = AgentSession._theme_match
+        self.assertEqual(match("液冷服务器", ["液冷服务器"]), "液冷服务器")  # 精确
+        self.assertEqual(match("液冷", ["液冷服务器"]), "液冷服务器")  # 子串
+        self.assertEqual(match("液冷服务器概念", ["液冷服务器"]), "液冷服务器")  # 反向子串
+        self.assertEqual(match(" 液 冷 ", ["光模块", "液冷服务器"]), "液冷服务器")  # 去空白
+        self.assertIsNone(match("锂电池", ["液冷服务器"]))  # 未命中
+        self.assertIsNone(match("", ["液冷服务器"]))  # 空词
+
+    def test_degrades_on_broken_db_and_query_error(self) -> None:
+        # (a) 损坏库：路径在但不是合法 DuckDB → 优雅降级，工具不注册，默认 6 件套不变
+        broken = str(Path(self._tmp.name) / "broken.duckdb")
+        Path(broken).write_bytes(b"not a duckdb file at all")
+        s_broken = _session(market_db_path=broken)
+        self.assertFalse(s_broken._market_live_available)
+        self.assertEqual(len(s_broken._tools), 6)
+        self.assertNotIn("search_market_live", {t["function"]["name"] for t in s_broken._tools})
+
+        # (b) 查询期异常守护：库可用但底层查询抛错 → 返回降级提示，不抛、不污染来源/引用
+        s_ok = _session(market_db_path=self.db_path)
+        self.assertTrue(s_ok._market_live_available)
+        with mock.patch.object(type(s_ok._market_adapter), "get_market_daily", side_effect=RuntimeError("boom")):
+            out = s_ok.tool_search_market_live("液冷")
+        self.assertIn("实时盘面查询失败", out)
+        self.assertNotIn("S", s_ok.sources_used)
+        self.assertEqual(s_ok.citations, [])
 
 
 if __name__ == "__main__":

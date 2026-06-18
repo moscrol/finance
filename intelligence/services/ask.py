@@ -76,6 +76,9 @@ class AskOptions:
     use_modules: bool = True
     modules: tuple[str, ...] | None = None
     module_timeout: int = 180
+    # P2.5 实时盘面：本地 market_feature_store DuckDB 路径。仅 agent 用、默认 None；
+    # 提供且可打开时才启用 opt-in 工具 search_market_live，否则行为逐字节不变。
+    market_db_path: str | Path | None = None
     # W source: knowledge-base hybrid 向量检索 (semantic wiki page recall)
     use_wiki_rag: bool = True
     wiki_rag_k: int = 6
