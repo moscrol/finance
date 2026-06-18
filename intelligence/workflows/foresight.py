@@ -38,6 +38,10 @@ class ForesightWorkflowOptions:
     judgments_file: str | Path | None = None
     use_judgments: bool = True
     judgments_window: int = 10
+    checkpoints_file: str | Path | None = None
+    verdicts_file: str | Path | None = None
+    use_calibration: bool = True
+    calibration_min_n: int = 2
 
 
 def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, ForesightResult, str]:
@@ -83,6 +87,10 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             judgments_file=options.judgments_file,
             use_judgments=options.use_judgments,
             judgments_window=options.judgments_window,
+            checkpoints_file=options.checkpoints_file,
+            verdicts_file=options.verdicts_file,
+            use_calibration=options.use_calibration,
+            calibration_min_n=options.calibration_min_n,
         )
     )
     answer = render(result)
@@ -141,6 +149,7 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
                 f"chars={result.methodology_chars}",
                 f"corrections={result.corrections_loaded}",
                 f"judgments={result.judgments_loaded}",
+                f"calibration={result.calibration_shown}/{result.calibration_scored}",
                 f"path={result.methodology_path or '-'}",
             ],
         )

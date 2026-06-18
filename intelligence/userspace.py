@@ -15,6 +15,8 @@
 - ``interactions.jsonl``     用户反馈（PR2：越用越懂）
 - ``corrections.jsonl``      纠偏回路（你纠正它的高信号记录，注入发问「别再犯」）
 - ``judgments.jsonl``        核心判断台账（深挖纪要沉淀的判断，注入发问「在此基础上往前推」）
+- ``checkpoints.jsonl``      可证伪点台账（登记到期回检的判断，C 方案）
+- ``verdicts.jsonl``         回检打分台账（到期核对判断对错→校准你哪类二阶推演靠谱）
 - ``strategy_params.json``   个人策略参数 overlay（PR2：稀疏覆盖共享 baseline）
 
 向后兼容：``default`` 用户沿用历史文件位置
@@ -87,6 +89,8 @@ class UserSpace:
     interactions_path: Path
     corrections_path: Path
     judgments_path: Path
+    checkpoints_path: Path
+    verdicts_path: Path
     strategy_params_path: Path
 
     @property
@@ -116,6 +120,8 @@ def user_space(user_id: str | None = None) -> UserSpace:
         interactions_path=root / "interactions.jsonl",
         corrections_path=root / "corrections.jsonl",
         judgments_path=root / "judgments.jsonl",
+        checkpoints_path=root / "checkpoints.jsonl",
+        verdicts_path=root / "verdicts.jsonl",
         strategy_params_path=root / "strategy_params.json",
     )
 
