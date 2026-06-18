@@ -12,7 +12,8 @@
 - ✅ 卡片：彩色抬头（按召回状态）+ `主题/盘面/召回` 摘要行 + 六段 markdown 分块 + 编号引用；超长按段截断并注明。
 - ✅ `--reply-format text` 退回纯文本；`--echo` 保留 B-S0 回声自检；非文本统一回「暂仅支持文本」提示；检索异常降级为友好提示、不串味。
 - ✅ 卡片上的**按钮交互**（🔍 深钻 / 🔁 换题材 / 🔗 看证据链）已接入（B-S3b）：点击经 `card.action.trigger` 回调路由，即时 toast + 后台线程补发后续卡片。**需在飞书后台开启「卡片回调」事件订阅**。
-- ❌ 多模态（语音/图片）属后续 B-S4 阶段，尚未接入。
+- ✅ **图片多模态**（B-S4，`--multimodal` 可选开启，默认关）：收到图片（或图片类文件）→ 下载 → 视觉模型（OpenAI 兼容，无 key 自动降级）提一句检索查询 → 走 `ask` 回六段卡片。详见 [§ 图片多模态（B-S4）](#图片多模态b-s4)。
+- ❌ PDF / 语音 / 文档解析仍属后续阶段（收到给友好提示，不报错）。
 - ❌ **零 DuckDB**：`ask` 只读 `market_feature_store/exports/*-theme-candidates.json` + 知识库 `wiki/relations`；
   模块 fan-out 默认**关**（`--ask-modules` 才开，可能触 DuckDB、变慢）。不碰 `exec.industry7view.com` 通用 exec 隧道。
 
@@ -100,7 +101,7 @@ launchctl list | grep feishu-bot                                               #
 - [ ] 飞书里给 bot 发题材词「液冷」，数秒收到**六段交互卡片**（彩色抬头 + 摘要行 + 六段 + `[S#]/[G#]/[R#]` 引用）；
 - [ ] 加 `--reply-format text` 进程发「液冷」收到等价**纯文本**六段（B-S2 回退）；
 - [ ] 另起 `--echo` 进程发「你好」收到「你好」回声（B-S0 自检）；
-- [ ] 发一张图片，收到「暂仅支持文本」提示；
+- [ ] 未开 `--multimodal` 时发一张图片，收到「暂仅支持文本」提示；开了则走视觉识别（见 § 图片多模态）；
 - [ ] 回复期间 `lsof` 证 bot 进程**零** `market.duckdb` 句柄；
 - [ ] `launchctl load` 后进程常驻，杀掉能被 `KeepAlive` 拉起。
 
@@ -114,6 +115,34 @@ launchctl list | grep feishu-bot                                               #
   换题材=纯引导卡（不重跑 ask，提示用户回复一个新题材词）。重活在 daemon 线程里跑完再 `reply` 回原消息。
 - 仅 `--reply-format card` 模式出按钮；`text` 模式无按钮。任何重跑异常都降级为灰底提示卡，bot 不崩；仍保持零 DuckDB。
 
+## 图片多模态（B-S4）
+
+`--multimodal` 开启后（默认关，合并即上线零影响），收到**图片消息**或**图片类文件**（`.png/.jpg/.jpeg/.gif/.webp/.bmp`）时：
+
+1. `parse_resource_ref` 从消息 `content` 解析资源引用（image 消息取 `image_key`，file 消息取 `file_key`+按扩展名判定）；
+2. `_download_resource` 经 `im.v1.message_resource.get` 下载原始字节（**需飞书后台为应用开 `im:resource`「读取消息中资源」权限，否则 403**）；
+3. `compute_vision_payload` → `intelligence.services.vision.describe_image`：把图片转 base64 data URL，发给视觉模型，让其凝练成**一句中文检索查询**；
+4. 用该查询走现有 `ask`，回你熟悉的六段交互卡片（含按钮）。
+
+非图片文件（PDF/文档/语音）回友好提示、不报错。任何环节失败（无 key / 下载失败 / 识别空）都优雅降级为提示卡，bot 不崩、仍保持零 DuckDB。
+
+### 视觉后端选择（环境变量，零新增依赖）
+
+沿用 `llm_refine` 的「OpenAI 兼容 + urllib + 无密钥即降级」范式，按优先级自动选 provider：
+
+1. `VISION_API_KEY`（通用，可配 `VISION_BASE_URL` / `VISION_MODEL`，默认 `gpt-4o-mini`）；
+2. 通用网关 `LLM_API_KEY`（复用 `llm_refine` 网关）；
+3. 按 provider 扫描：`QWEN_API_KEY`/`DASHSCOPE_API_KEY`→`qwen-vl-plus`、`GLM_API_KEY`/`ZHIPU_API_KEY`→`glm-4v-flash`、`OPENAI_API_KEY`→`gpt-4o-mini`、`MOONSHOT_API_KEY`/`KIMI_API_KEY`→`moonshot-v1-8k-vision-preview`。
+
+`--vision-model` 命令行可覆盖模型；`--vision-timeout` 设超时（默认 60s）。**未配置任何 key 时**回「未配置视觉模型」提示卡，行为零变化。
+
+```bash
+# 开启图片多模态（需先在飞书后台开 im:resource 权限，并配好一个视觉模型 key）
+python3 -m intelligence.cli feishu-bot --multimodal
+# 指定模型 / 超时：
+python3 -m intelligence.cli feishu-bot --multimodal --vision-model qwen-vl-max --vision-timeout 30
+```
+
 ## 后续阶段
 
-B-S4 多模态（语音走飞书 ASR、图片走 pdf-ingest）。公开版作为合规门控的独立二期。
+PDF / 语音 / 文档解析（语音走飞书 ASR、PDF 走 pdf-ingest）。公开版作为合规门控的独立二期。

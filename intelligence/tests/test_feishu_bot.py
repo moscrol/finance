@@ -482,6 +482,116 @@ class ComputeActionPayloadTests(unittest.TestCase):
         self.assertIn("检索暂时失败", transcript)
 
 
+class ParseResourceRefTests(unittest.TestCase):
+    def test_image_message(self) -> None:
+        ref = feishu_bot.parse_resource_ref(json.dumps({"image_key": "img_v2_abc"}), "image")
+        assert ref is not None
+        self.assertEqual((ref.kind, ref.file_key, ref.res_type), ("image", "img_v2_abc", "image"))
+
+    def test_image_key_stripped(self) -> None:
+        ref = feishu_bot.parse_resource_ref(json.dumps({"image_key": "  k  "}), "image")
+        assert ref is not None
+        self.assertEqual(ref.file_key, "k")
+
+    def test_png_file_treated_as_image(self) -> None:
+        content = json.dumps({"file_key": "file_v3_x", "file_name": "chart.PNG"})
+        ref = feishu_bot.parse_resource_ref(content, "file")
+        assert ref is not None
+        self.assertEqual((ref.kind, ref.res_type, ref.file_name), ("image", "file", "chart.PNG"))
+
+    def test_pdf_file_is_non_image(self) -> None:
+        content = json.dumps({"file_key": "file_v3_x", "file_name": "研报.pdf"})
+        ref = feishu_bot.parse_resource_ref(content, "file")
+        assert ref is not None
+        self.assertEqual(ref.kind, "file")
+        self.assertEqual(ref.res_type, "file")
+
+    def test_missing_keys_return_none(self) -> None:
+        self.assertIsNone(feishu_bot.parse_resource_ref(json.dumps({"foo": "bar"}), "image"))
+        self.assertIsNone(feishu_bot.parse_resource_ref(json.dumps({"file_name": "a.png"}), "file"))
+
+    def test_other_types_and_malformed_return_none(self) -> None:
+        self.assertIsNone(feishu_bot.parse_resource_ref(json.dumps({"text": "hi"}), "text"))
+        self.assertIsNone(feishu_bot.parse_resource_ref("not-json", "image"))
+        self.assertIsNone(feishu_bot.parse_resource_ref(None, "image"))
+        self.assertIsNone(feishu_bot.parse_resource_ref(json.dumps(["x"]), "image"))
+
+
+class MultimodalNoticeTests(unittest.TestCase):
+    def test_vision_unavailable_mentions_keys(self) -> None:
+        msg = feishu_bot.vision_unavailable_notice()
+        self.assertIn("视觉模型", msg)
+        self.assertIn("--multimodal", msg)
+
+    def test_download_failed_notice(self) -> None:
+        self.assertIn("下载失败", feishu_bot.image_download_failed_notice())
+
+    def test_nonimage_file_notice_includes_name(self) -> None:
+        self.assertIn("研报.pdf", feishu_bot.nonimage_file_notice("研报.pdf"))
+        self.assertIn("后续阶段", feishu_bot.nonimage_file_notice())
+
+
+class ComputeVisionPayloadTests(unittest.TestCase):
+    def _cfg(self, reply_format: str = "card") -> feishu_bot.BotConfig:
+        return feishu_bot.BotConfig(app_id="a", app_secret="b", reply_format=reply_format)
+
+    def test_card_path_runs_ask_with_derived_query(self) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_ask(query: str, config: feishu_bot.BotConfig, **kwargs: object) -> AskResult:
+            captured["query"] = query
+            return _sample_result()
+
+        with mock.patch("intelligence.services.vision.describe_image", return_value="液冷 温控"), \
+                mock.patch.object(feishu_bot, "_run_ask_workflow", side_effect=fake_ask):
+            msg_type, content, transcript = feishu_bot.compute_vision_payload(b"\x89PNG", None, self._cfg())
+        self.assertEqual(captured["query"], "液冷 温控")
+        self.assertEqual(msg_type, "interactive")
+        self.assertIn("header", content)
+        self.assertIn("【结论】", transcript)
+
+    def test_no_vision_key_degrades_to_notice_card(self) -> None:
+        with mock.patch("intelligence.services.vision.describe_image", return_value=None), \
+                mock.patch.object(feishu_bot, "_run_ask_workflow") as run:
+            msg_type, content, transcript = feishu_bot.compute_vision_payload(b"x", None, self._cfg())
+        run.assert_not_called()
+        self.assertEqual(msg_type, "interactive")
+        self.assertEqual(content["header"]["template"], "grey")
+        self.assertIn("视觉模型", transcript)
+
+    def test_no_vision_key_text_format(self) -> None:
+        with mock.patch("intelligence.services.vision.describe_image", return_value=None):
+            msg_type, content, _ = feishu_bot.compute_vision_payload(b"x", None, self._cfg("text"))
+        self.assertEqual(msg_type, "text")
+        self.assertIn("视觉模型", content)
+
+    def test_vision_exception_degrades_to_notice(self) -> None:
+        with mock.patch("intelligence.services.vision.describe_image", side_effect=RuntimeError("boom")):
+            msg_type, content, _ = feishu_bot.compute_vision_payload(b"x", None, self._cfg("text"))
+        self.assertEqual(msg_type, "text")
+        self.assertIn("视觉模型", content)
+
+
+class MultimodalCliTests(unittest.TestCase):
+    def _cfg(self, argv: list[str]) -> feishu_bot.BotConfig:
+        parser = __import__("argparse").ArgumentParser()
+        feishu_bot.add_arguments(parser)
+        args = parser.parse_args(["--app-id", "a", "--app-secret", "b", *argv])
+        return feishu_bot.build_config(args)
+
+    def test_multimodal_default_off(self) -> None:
+        cfg = self._cfg([])
+        self.assertFalse(cfg.multimodal)
+        self.assertIsNone(cfg.vision_model)
+        self.assertEqual(cfg.vision_timeout, 60)
+
+    def test_multimodal_flags_wire_into_config(self) -> None:
+        cfg = self._cfg(["--multimodal", "--vision-model", "qwen-vl-max", "--vision-timeout", "30"])
+        self.assertTrue(cfg.multimodal)
+        self.assertEqual(cfg.vision_model, "qwen-vl-max")
+        self.assertEqual(cfg.vision_timeout, 30)
+
+
 class NoDuckdbImportTests(unittest.TestCase):
     def test_bot_and_ask_import_without_duckdb(self) -> None:
         import subprocess
