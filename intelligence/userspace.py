@@ -14,6 +14,7 @@
 - ``foresight_memory.jsonl`` 问过的问题记忆回路
 - ``interactions.jsonl``     用户反馈（PR2：越用越懂）
 - ``corrections.jsonl``      纠偏回路（你纠正它的高信号记录，注入发问「别再犯」）
+- ``judgments.jsonl``        核心判断台账（深挖纪要沉淀的判断，注入发问「在此基础上往前推」）
 - ``strategy_params.json``   个人策略参数 overlay（PR2：稀疏覆盖共享 baseline）
 
 向后兼容：``default`` 用户沿用历史文件位置
@@ -85,6 +86,7 @@ class UserSpace:
     memory_path: Path
     interactions_path: Path
     corrections_path: Path
+    judgments_path: Path
     strategy_params_path: Path
 
     @property
@@ -113,6 +115,7 @@ def user_space(user_id: str | None = None) -> UserSpace:
         memory_path=memory_path,
         interactions_path=root / "interactions.jsonl",
         corrections_path=root / "corrections.jsonl",
+        judgments_path=root / "judgments.jsonl",
         strategy_params_path=root / "strategy_params.json",
     )
 

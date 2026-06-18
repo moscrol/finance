@@ -395,5 +395,114 @@ class CorrectionsInjectionTests(unittest.TestCase):
         self.assertNotIn("纠偏记录", result.prompt_preview)
 
 
+class JudgmentsInjectionTests(unittest.TestCase):
+    def test_judgments_injected_and_counted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jpath = Path(tmp) / "judgments.jsonl"
+            foresight.judgments.record_judgment(
+                jpath,
+                memo="HVLP铜箔技术验证完成但产能爬坡滞后，2026Q3是估值切换关键窗口",
+                themes=["铜箔"],
+                stocks=["铜冠铜箔"],
+                session_id="2026-06-18-1530",
+            )
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        use_corrections=False,
+                        judgments_file=str(jpath),
+                    )
+                )
+        self.assertEqual(result.judgments_loaded, 1)
+        self.assertEqual(result.judgments_path, str(jpath))
+        self.assertIn("核心判断", result.prompt_preview)
+        self.assertIn("HVLP铜箔技术验证完成", result.prompt_preview)
+        self.assertIn("承接 1 条核心判断往前推", render(result))
+
+    def test_no_judgments_flag_skips(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jpath = Path(tmp) / "judgments.jsonl"
+            foresight.judgments.record_judgment(jpath, memo="某条判断", themes=["液冷"])
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        use_corrections=False,
+                        judgments_file=str(jpath),
+                        use_judgments=False,
+                    )
+                )
+        self.assertEqual(result.judgments_loaded, 0)
+        self.assertNotIn("某条判断", result.prompt_preview)
+
+    def test_window_limits_injected_judgments(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jpath = Path(tmp) / "judgments.jsonl"
+            for i in range(4):
+                foresight.judgments.record_judgment(
+                    jpath, memo=f"判断{i}", ts=f"2026-06-1{i}T00:00:00"
+                )
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        use_corrections=False,
+                        judgments_file=str(jpath),
+                        judgments_window=2,
+                    )
+                )
+        self.assertEqual(result.judgments_loaded, 2)
+        self.assertIn("判断3", result.prompt_preview)
+        self.assertIn("判断2", result.prompt_preview)
+        self.assertNotIn("判断0", result.prompt_preview)
+
+    def test_no_judgments_file_is_silent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jpath = Path(tmp) / "judgments.jsonl"
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        use_corrections=False,
+                        judgments_file=str(jpath),
+                    )
+                )
+        self.assertEqual(result.judgments_loaded, 0)
+        self.assertNotIn("核心判断", result.prompt_preview)
+
+
 if __name__ == "__main__":
     unittest.main()

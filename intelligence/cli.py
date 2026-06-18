@@ -96,6 +96,10 @@ def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--no-corrections", dest="use_corrections", action="store_false", help="不注入纠偏记录（默认注入）")
     parser.add_argument("--corrections-window", type=int, default=20, help="只注入最近 N 条纠偏（默认 20）")
     parser.set_defaults(use_corrections=True)
+    parser.add_argument("--judgments-file", default=None, help="核心判断台账 jsonl（默认 users/<user>/judgments.jsonl，已 gitignore）")
+    parser.add_argument("--no-judgments", dest="use_judgments", action="store_false", help="不注入近期核心判断（默认注入）")
+    parser.add_argument("--judgments-window", type=int, default=10, help="只注入最近 N 条核心判断（默认 10）")
+    parser.set_defaults(use_judgments=True)
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 而非 Markdown")
     parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
     parser.set_defaults(func=cmd_foresight)
@@ -257,6 +261,9 @@ def cmd_foresight(args: argparse.Namespace) -> int:
             corrections_file=args.corrections_file,
             use_corrections=args.use_corrections,
             corrections_window=args.corrections_window,
+            judgments_file=args.judgments_file,
+            use_judgments=args.use_judgments,
+            judgments_window=args.judgments_window,
         )
     )
     if args.summary_json:
@@ -801,7 +808,11 @@ def cmd_subconscious_commit(args: argparse.Namespace) -> int:
             proposal, interactions_path=result.interactions_path, note_path=result.note_path,
             vault_is_fallback=result.vault_is_fallback, applied=True,
         ), end="")
-        print(f"写入 {result.written_records} 条反馈 + 1 篇沉淀日志；下次 `foresight --user {us.user_id}` 即生效。")
+        jtail = f" + {result.judgments_written} 条核心判断台账" if result.judgments_written else ""
+        print(
+            f"写入 {result.written_records} 条反馈 + 1 篇沉淀日志{jtail}；"
+            f"下次 `foresight --user {us.user_id}` 即生效。"
+        )
     return 0
 
 

@@ -35,6 +35,9 @@ class ForesightWorkflowOptions:
     corrections_file: str | Path | None = None
     use_corrections: bool = True
     corrections_window: int = 20
+    judgments_file: str | Path | None = None
+    use_judgments: bool = True
+    judgments_window: int = 10
 
 
 def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, ForesightResult, str]:
@@ -77,6 +80,9 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             corrections_file=options.corrections_file,
             use_corrections=options.use_corrections,
             corrections_window=options.corrections_window,
+            judgments_file=options.judgments_file,
+            use_judgments=options.use_judgments,
+            judgments_window=options.judgments_window,
         )
     )
     answer = render(result)
@@ -134,6 +140,7 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             outputs=[
                 f"chars={result.methodology_chars}",
                 f"corrections={result.corrections_loaded}",
+                f"judgments={result.judgments_loaded}",
                 f"path={result.methodology_path or '-'}",
             ],
         )

@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence import userspace
-from intelligence.services import interactions
+from intelligence.services import interactions, judgments
 
 ENV_VAULT = "SUBCONSCIOUS_VAULT"
 STATE_DIRNAME = ".subconscious"
@@ -219,6 +219,7 @@ class Proposal:
     memos: list[str]
     markdown: str
     generated_at: str
+    judgments: list[dict[str, Any]] = field(default_factory=list)
 
 
 def consolidate(
@@ -236,6 +237,7 @@ def consolidate(
     qseen: set[str] = set()
     memos: list[str] = []
     mseen: set[str] = set()
+    judgment_items: list[dict[str, Any]] = []
     for rec in buffer:
         if not isinstance(rec, dict):
             continue
@@ -254,6 +256,13 @@ def consolidate(
             if mn not in mseen:
                 mseen.add(mn)
                 memos.append(m)
+                judgment_items.append(
+                    {
+                        "memo": m,
+                        "themes": _clean_terms(rec.get("themes")),
+                        "stocks": _clean_terms(rec.get("stocks")),
+                    }
+                )
         quote = str(rec.get("quote") or "").strip() or None
         explicit_weight = rec.get("weight")
         rating = rec.get("rating")
@@ -304,6 +313,7 @@ def consolidate(
         memos=memos,
         markdown="",
         generated_at=now.isoformat(timespec="seconds"),
+        judgments=judgment_items,
     )
     md = build_markdown(proposal)
     return Proposal(
@@ -315,6 +325,7 @@ def consolidate(
         memos=memos,
         markdown=md,
         generated_at=proposal.generated_at,
+        judgments=judgment_items,
     )
 
 
@@ -386,6 +397,8 @@ class CommitResult:
     note_path: Path
     vault_is_fallback: bool
     session_id: str
+    judgments_path: Path | None = None
+    judgments_written: int = 0
 
 
 def commit(
@@ -395,7 +408,7 @@ def commit(
     vault: str | None = None,
     now: datetime | None = None,
 ) -> CommitResult:
-    """确认后双层落盘：机器层 interactions.jsonl + 人类层 Obsidian 日志。"""
+    """确认后落盘：机器层 interactions.jsonl + 核心判断台账 judgments.jsonl + 人类层 Obsidian 日志。"""
     now = now or _now()
     ts = now.isoformat(timespec="seconds")
     written = 0
@@ -412,6 +425,23 @@ def commit(
         )
         written += 1
 
+    # 核心判断台账（机器可读）：让 foresight 下轮发问能站在旧判断上往前推。
+    judgments_written = 0
+    judgments_path: Path | None = None
+    for j in proposal.judgments:
+        memo = str(j.get("memo") or "").strip()
+        if not memo:
+            continue
+        judgments_path, _ = judgments.record_judgment(
+            us.judgments_path,
+            memo=memo,
+            themes=j.get("themes"),
+            stocks=j.get("stocks"),
+            session_id=proposal.session_id,
+            ts=ts,
+        )
+        judgments_written += 1
+
     vault_path, is_fallback = resolve_vault(us, explicit=vault)
     note_path = vault_path / VAULT_SUBDIR / f"{proposal.session_id}.md"
     note_path.parent.mkdir(parents=True, exist_ok=True)
@@ -423,6 +453,8 @@ def commit(
         note_path=note_path,
         vault_is_fallback=is_fallback,
         session_id=proposal.session_id,
+        judgments_path=judgments_path,
+        judgments_written=judgments_written,
     )
 
 

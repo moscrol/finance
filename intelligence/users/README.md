@@ -16,6 +16,7 @@
 | `foresight_memory.jsonl` | `foresight` | 否 | 问过的问题记忆回路（去重用） |
 | `interactions.jsonl` | `record-interaction` | 否 | 点击/追问/喜欢/忽略/打分反馈，用于「越用越懂」 |
 | `corrections.jsonl` | `record-correction` | 否 | 你纠正它的高信号记录，注入发问「别再犯」（纠偏回路） |
+| `judgments.jsonl` | `subconscious commit` | 否 | 深挖纪要沉淀的核心判断台账，注入发问「在此基础上往前推」 |
 | `strategy_params.json` | 人 | 否 | 个人策略参数 overlay（稀疏覆盖共享 baseline） |
 
 以上**运行时文件全部 gitignore，不入库**（含真实自选股、提问历史等隐私）。仓库里只跟踪
@@ -68,6 +69,9 @@ foresight 发问前会注入两样东西，让它**在你的复盘框架里推�
 2. **纠偏回路**：`users/<id>/corrections.jsonl`（gitignore）。你不满意它的回答时纠正一笔，
    下次发问自动带上「别再犯同类错误」。这条**不靠点击猜你喜欢哪个题材**（深挖≠偏好、市场动态），
    只靠你的**显式纠正**学方法论。
+3. **核心判断台账**：`users/<id>/judgments.jsonl`（gitignore）。潜意识模式 `commit` 时把你深挖
+   纪要里的「核心判断」同步落进这本机器可读台账（不只进 Obsidian），下次发问注入最近 N 条，
+   让新追问**站在你旧判断上往前推一层或找它的反例**，而不是每轮从零重述你已想清楚的东西。
 
 ```bash
 # 它答错了 → 记一条纠偏（correction 必填；principle 抽象出可复用原则，最该被记住）
@@ -77,9 +81,10 @@ python3 -m intelligence.cli record-correction --user <id> \
     --principle "分级不二元" --theme 氟化工
 ```
 
-foresight 默认注入两者：`--no-methodology` 关闭思考宪法、`--no-corrections` 关闭纠偏、
-`--corrections-window N` 只带最近 N 条纠偏、`--methodology-file` / `--corrections-file` 改路径。
-渲染头部会显示「方法论：注入思考宪法 N 字 · 带 M 条纠偏」，方便确认确实生效。
+foresight 默认三者都注入：`--no-methodology` 关闭思考宪法、`--no-corrections` 关闭纠偏、
+`--no-judgments` 关闭近期核心判断、`--corrections-window N` / `--judgments-window N` 只带最近 N 条、
+`--methodology-file` / `--corrections-file` / `--judgments-file` 改路径。渲染头部会显示
+「方法论：注入思考宪法 N 字 · 带 M 条纠偏」与「旧判断：承接 K 条核心判断往前推」，方便确认生效。
 
 ## 按用户的策略迭代：`strategy_params.json`（稀疏 overlay）
 

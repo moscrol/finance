@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 from intelligence import userspace
-from intelligence.services import interactions, subconscious
+from intelligence.services import interactions, judgments, subconscious
 
 NOW = datetime(2026, 6, 18, 15, 30, tzinfo=timezone.utc)
 
@@ -133,9 +133,21 @@ class ConsolidateTests(unittest.TestCase):
         self.assertEqual(prop.memos, ["**核心判断**：二次侧卡脖子", "**核心判断**：产能爬坡滞后"])
         self.assertEqual(prop.questions, ["Q1"])
 
+    def test_judgment_items_carry_themes_and_stocks(self) -> None:
+        buf = [
+            {"kind": "click", "themes": ["铜箔"], "stocks": ["铜冠铜箔"], "memo": "产能爬坡滞后"},
+            {"kind": "click", "themes": ["液冷"], "memo": ""},  # 无 memo -> 不成判断
+        ]
+        prop = subconscious.consolidate(buf, user_id="t", session_id="2026-06-18-1530", now=NOW)
+        self.assertEqual(len(prop.judgments), 1)
+        self.assertEqual(prop.judgments[0]["memo"], "产能爬坡滞后")
+        self.assertEqual(prop.judgments[0]["themes"], ["铜箔"])
+        self.assertEqual(prop.judgments[0]["stocks"], ["铜冠铜箔"])
+
     def test_empty_buffer_yields_no_rows(self) -> None:
         prop = subconscious.consolidate([], user_id="t", session_id="2026-06-18-1530", now=NOW)
         self.assertEqual(prop.rows, [])
+        self.assertEqual(prop.judgments, [])
         self.assertIn("（本轮无信号）", prop.markdown)
 
 
@@ -239,6 +251,43 @@ class CommitAndArchiveTests(unittest.TestCase):
                 self.assertFalse(subconscious._buffer_path(us, "2026-06-18-1530").exists())
                 self.assertTrue((subconscious._state_dir(us) / "2026-06-18-1530.buffer.done.jsonl").exists())
                 self.assertIsNone(subconscious.load_active(us))
+
+    def test_commit_persists_judgments_to_machine_layer(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(userspace, "USERS_DIR", Path(tmp)):
+                us = userspace.user_space("tester")
+                us.ensure_dir()
+                vault = Path(tmp) / "vault"
+                subconscious.start_session(us, vault=str(vault), now=NOW)
+                subconscious.append_signal(
+                    us, kind="click", themes=["铜箔"], stocks=["铜冠铜箔"],
+                    memo="**核心判断**：HVLP铜箔产能爬坡滞后",
+                )
+                buf = subconscious.load_buffer(us, "2026-06-18-1530")
+                prop = subconscious.consolidate(buf, user_id=us.user_id, session_id="2026-06-18-1530", now=NOW)
+                result = subconscious.commit(us, prop, vault=str(vault), now=NOW)
+
+                self.assertEqual(result.judgments_written, 1)
+                self.assertEqual(result.judgments_path, us.judgments_path)
+                recs, _ = judgments.load_judgments(us.judgments_path)
+                self.assertEqual(len(recs), 1)
+                self.assertEqual(recs[0]["memo"], "**核心判断**：HVLP铜箔产能爬坡滞后")
+                self.assertEqual(recs[0]["themes"], ["铜箔"])
+                self.assertEqual(recs[0]["stocks"], ["铜冠铜箔"])
+                self.assertEqual(recs[0]["session_id"], "2026-06-18-1530")
+
+    def test_commit_without_memos_writes_no_judgments(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(userspace, "USERS_DIR", Path(tmp)):
+                us = userspace.user_space("tester")
+                us.ensure_dir()
+                vault = Path(tmp) / "vault"
+                buf = [{"kind": "click", "themes": ["液冷"]}]
+                prop = subconscious.consolidate(buf, user_id=us.user_id, session_id="s1", now=NOW)
+                result = subconscious.commit(us, prop, vault=str(vault), now=NOW)
+                self.assertEqual(result.judgments_written, 0)
+                self.assertIsNone(result.judgments_path)
+                self.assertFalse(us.judgments_path.exists())
 
     def test_commit_weight_matches_proposal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
