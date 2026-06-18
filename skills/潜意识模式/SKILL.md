@@ -26,7 +26,10 @@ description: 可开关的会话级记忆巩固模式——开启后由 foresight
 export FORESIGHT_USER=<id>
 export SUBCONSCIOUS_VAULT=~/路径/到/沉淀vault
 export FORESIGHT_USERS_DIR="$SUBCONSCIOUS_VAULT/.foresight"   # 大脑目录随 vault 一处云同步
+export KNOWLEDGE_WIKI=~/路径/到/知识库/wiki              # 可选：让 foresight 发问时主动调知识库题材
 ```
+
+设了 `KNOWLEDGE_WIKI`（含 `relations/theme_signals.json`），`foresight` 发问时会把知识库里**认知最靠前/近期有新事件**的题材当发问素材（带 ★评级/进度/Tier/事件日期），让追问围绕你自己沉淀的认知发酵进度展开。没设/没该文件则优雅降级（只用盘面快照+画像），不报错。也可用 `foresight --kb-wiki <wiki> ...` 显式指定，或 `--no-kb` 关闭。
 
 vault 用 Obsidian Sync / iCloud / 坚果云等同步，两机即自动共享。不设 `FORESIGHT_USERS_DIR` 则保持单机（仓库内）。`subconscious start` / `status` 会打印「大脑目录」并标注是否跨机同步。
 
@@ -36,6 +39,7 @@ vault 用 Obsidian Sync / iCloud / 坚果云等同步，两机即自动共享。
 ```bash
 python3 -m intelligence.cli subconscious start --user <id> --vault "$SUBCONSCIOUS_VAULT"
 # 开启后可先 `foresight --user <id>` 让它主动抛追问，再开始多轮对话
+# 设了 KNOWLEDGE_WIKI 则 foresight 自动把知识库题材当发问素材；也可显式 `foresight --user <id> --kb-wiki <wiki>`
 ```
 
 ### 2）多轮对话里逐轮记信号（确认前**只进 buffer**，不进 interactions.jsonl）
@@ -70,7 +74,7 @@ python3 -m intelligence.cli subconscious status --user <id>
 
 - 信号权重 / 亲和度：复用 `intelligence/services/interactions.py`（同一套 KIND_WEIGHTS、record_interaction）。
 - 用户命名空间：复用 `intelligence/userspace.py`（`--user` → `users/<id>/`）。
-- 主动发问：复用 `foresight`（开启后开场抛追问、记忆回路去重）。
+- 主动发问：复用 `foresight`（开启后开场抛追问、记忆回路去重；设 `KNOWLEDGE_WIKI`/`--kb-wiki` 后把知识库 `theme_signals` 题材当发问素材）。
 - 本 skill 真正新增的只有：**模式开关 + 会话级回读巩固（consolidation）+ Obsidian 沉淀日志写入**，逻辑在 `intelligence/services/subconscious.py`。
 
 ## 护栏细则
