@@ -1,24 +1,24 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T11:12:39Z",
+  "generated_at": "2026-06-18T03:36:55Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 23
+      "skills": 24
     },
     {
       "name": "knowledge-base-private",
       "short": "kb",
-      "present": true,
-      "skills": 16
+      "present": false,
+      "skills": 0
     },
     {
       "name": "finance-research-site",
       "short": "site",
-      "present": true,
+      "present": false,
       "skills": 0
     }
   ],
@@ -31,26 +31,7 @@
       ]
     }
   },
-  "crossRepoDuplicates": [
-    {
-      "name": "disclosure-archive",
-      "declaredSplit": true,
-      "locations": [
-        {
-          "repo": "knowledge-base-private",
-          "short": "kb",
-          "skillPath": "skills/disclosure-archive/SKILL.md",
-          "agentOnly": false
-        },
-        {
-          "repo": "finance-workspace-private",
-          "short": "ws",
-          "skillPath": "skills/disclosure-archive/SKILL.md",
-          "agentOnly": false
-        }
-      ]
-    }
-  ],
+  "crossRepoDuplicates": [],
   "skills": {
     "ws/advancers-chart": {
       "name": "advancers-chart",
@@ -583,6 +564,36 @@
         }
       ]
     },
+    "ws/潜意识模式": {
+      "name": "潜意识模式",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/潜意识模式/SKILL.md",
+      "description": "可开关的会话级记忆巩固模式——开启后由 foresight 主动发问、你多轮追问，退出时把整段对话「回读」成结构化信号，先给 diff 等你确认，确认后双层落盘（机器层 interactions.jsonl 喂亲和度 + 人类层 Obsidian 沉淀 vault 日志，你读/改/看演化）。触发词：开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关。",
+      "triggers": [
+        "开启潜意识模式",
+        "潜意识模式",
+        "进入潜意识",
+        "退出潜意识",
+        "收工",
+        "回读对话",
+        "巩固记忆",
+        "沉淀这轮",
+        "记进沉淀",
+        "潜意识开关"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:d5663c1d630d3ec93f14ed8338848065431c4e051569cb1d083e9395ceb8b3d5",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/潜意识模式",
+          "type": "symlink",
+          "target": "../../skills/潜意识模式"
+        }
+      ]
+    },
     "ws/行业概览": {
       "name": "行业概览",
       "repo": "finance-workspace-private",
@@ -607,268 +618,6 @@
           "target": "../../skills/行业概览"
         }
       ]
-    },
-    "kb/catalyst-calendar": {
-      "name": "catalyst-calendar",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/catalyst-calendar/SKILL.md",
-      "description": "模块 6 催化日历 + 验证清单——汇总带时间窗的催化事件池与布局区主题的待验证项，生成可勾选的跟踪页。",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:231a8d81b454e6394169e773a1f5fcc9f594dd725f040dfd64a160da38e2e11e",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/company-baseline-ingest": {
-      "name": "company-baseline-ingest",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/company-baseline-ingest/SKILL.md",
-      "description": "公司基础画像入库——用 iFinD MCP 拉取实现“新词→产业链→核心公司”所必需的轻量公司事实：行业、主营业务、主营产品/能力、相关概念和产业链暴露；补全 wiki/entities 的静态 company baseline，并同步维护 wiki/relations/entity_exposures.json。默认不拉公告/新闻，不抓普通财务摘要，不写短期边际变化。",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:eaf7600019f361cd8b7f084b1edf1fba4b0dfeb244376222c366b9c8913d50a9",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/concept-ingest": {
-      "name": "concept-ingest",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/concept-ingest/SKILL.md",
-      "description": "概念入库（新建 + 增量）——将研报、文章、会议纪要等文本提取为结构化概念页写入 Obsidian 知识库。两个分支：库里没有对应概念页时新建（concept_writer.py）；库里已有概念页、材料提供新催化/新数据/新标的/新风险时走增量分支更新已有页（concept_delta_writer.py）。若 concept_writer.py 返回 update_needed 或 existing_concept 非空，必须继续走增量分支，不要停在手动合并。触发词：concept ingest、概念入库、新概念、提取概念、concept delta、概念增量、更新concept、已有概念更新、概念催化入库、合并到已有概念、update_needed。",
-      "triggers": [
-        "concept ingest",
-        "概念入库",
-        "新概念",
-        "提取概念",
-        "concept delta",
-        "概念增量",
-        "更新concept",
-        "已有概念更新",
-        "概念催化入库",
-        "合并到已有概念",
-        "update_needed"
-      ],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:3f79266769608f8a143c94789cbc62fee2fd6a11f713407a9103e80a70faf61b",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/cross-analysis": {
-      "name": "cross-analysis",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/cross-analysis/SKILL.md",
-      "description": "三维交叉分析——公告 × 产业认知 × 盘面 的交叉匹配与 Tier 1/2/3 分级。用户提供盘前纪要/公告时跑完整管线生成当日交叉分析报告；用户询问任何题材或个股时启用「查询模式」调用同一套知识回答。",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:e6260b72d998b74f21e32f0da2fe335d6f1537e2798dad98614daeb6b680570f",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/daily-ops": {
-      "name": "daily-ops",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/daily-ops/SKILL.md",
-      "description": "",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:94c4f84296e974cfa46db3c07964663b6b8030f7aa11533224ebb1b9a06d174d",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/dashboard": {
-      "name": "dashboard",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/dashboard/SKILL.md",
-      "description": "",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:c8064bf908a08b16600958c59e38d0f522b9601248cd502a34ae192fdc5fc9a3",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/disclosure-archive": {
-      "name": "disclosure-archive",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/disclosure-archive/SKILL.md",
-      "description": "为题材雷达补证官方/公司级披露证据（公告、年报、官网产品页、互动易），归档到 wiki/raw/disclosures/，可选 apply 到 Theme Radar 底层。触发：补证、disclosure、官方证据、公告归档、年报归档、apply review queue。",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:9cf59742a751e6b68df3ac71bdc5fa6fc18ba2e4a9b73935a57c01853b253c54",
-      "agentOnly": false,
-      "views": [],
-      "split": {
-        "declared": true,
-        "reason": "有意拆分：金融仓=抓取/capture 侧，知识库仓=apply 侧（见各仓 CLAUDE.md）。",
-        "repos": [
-          "ws",
-          "kb"
-        ]
-      }
-    },
-    "kb/entity-delta-ingest": {
-      "name": "entity-delta-ingest",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/entity-delta-ingest/SKILL.md",
-      "description": "公司边际变化入库——从早知道、评级日报、会议纪要、公告、研报截图/PDF中提取上市公司边际变化，更新 Obsidian wiki/entities。触发词：entity delta、公司边际变化、更新entity、早知道入库、公司变化入库。",
-      "triggers": [
-        "entity delta",
-        "公司边际变化",
-        "更新entity",
-        "早知道入库",
-        "公司变化入库"
-      ],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:777761630d96898f0d322b5db5e63dab0ac9dc98661270246043e1a2749934cc",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/material-router": {
-      "name": "material-router",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/material-router/SKILL.md",
-      "description": "资料分发路由——输入任意一份资料（研报PDF/公告/纪要/复盘/评级日报/IMA卡/DeepDive报告），自动识别资料类型，输出\"该喂哪些模块、各喂什么养分\"的拆分分发清单，再按清单逐模块执行。另含 opt-in 的 sellside-digest 子模式：把晚间卖方研报汇总切成\"行业最新要闻层 / 个股最新逻辑层\"两层并逐公司标库内状态（已有卡/缺卡/无页），只出 dry-run 清单。触发词：这份资料怎么入库、分发资料、路由资料、material router、拆分喂养、这个喂哪些模块、晚间卖方研报分层、卖方研报分层、sellside digest。",
-      "triggers": [
-        "这份资料怎么入库",
-        "分发资料",
-        "路由资料",
-        "material router",
-        "拆分喂养",
-        "这个喂哪些模块",
-        "晚间卖方研报分层",
-        "卖方研报分层",
-        "sellside digest"
-      ],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:bf70cb1b9411980dcdad1a78935a36617bdf3a89108f6ff40acc00a7027886c2",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/morning-briefing": {
-      "name": "morning-briefing",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/morning-briefing/SKILL.md",
-      "description": "每日盘前晨汇管线：用户提供当日公告/电话会纪要/讯息（PDF 或文字），管线完成摄入归档、与知识库三维交叉匹配、Tier 分级，生成结构化晨汇到 wiki/briefings/。触发：晨汇、盘前、morning briefing、每日纪要、电话会纪要摄入。",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:9ccace143a2efececa6d2d9e7923c723595ffe2e65941aa14760daa022d2b4b8",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/obsidian": {
-      "name": "obsidian",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/obsidian/SKILL.md",
-      "description": "Work with Obsidian vaults (plain Markdown notes) and automate via obsidian-cli.",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:b184f7079cf2338ce47a7ac0cc346904fcd1d80a030ae12000c7bac8fa3bb410",
-      "agentOnly": false,
-      "views": [
-        {
-          "path": ".agents/skills/obsidian",
-          "type": "symlink",
-          "target": "../../skills/obsidian"
-        },
-        {
-          "path": ".claude/skills/obsidian",
-          "type": "symlink",
-          "target": "../../skills/obsidian"
-        }
-      ]
-    },
-    "kb/pdf-ingest": {
-      "name": "pdf-ingest",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/pdf-ingest/SKILL.md",
-      "description": "PDF 研报入库到 Obsidian 知识库并对齐 Theme Radar 底层数据。Use when the user says PDF ingest、pdf入库、研报PDF入库、处理研报PDF、OCR研报、评级日报/脱水研报/强势脱水/风口研报入库，或要求把 PDF/source note/concept/entity/entity_exposures/evidence_index/report_contexts 与题材雷达底层对齐。",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:bab999895a519688f1db144c8c4b7164a97e84183b4630674628be59cefbbd4d",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/sellside-coverage-cross": {
-      "name": "sellside-coverage-cross",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/sellside-coverage-cross/SKILL.md",
-      "description": "卖方观点覆盖密度交叉验证——用户每晚投喂卖方研报时，将研报观点与库内证据、卖方覆盖密度、盘面状态交叉对照，区分「信息增量」与「跟风确认/透支信号」。触发词：覆盖密度、卖方交叉验证、第几篇研报、首覆、扎堆透支。注：金融仓 opinion-cross（三重共振机会卡片）是另一个 skill。",
-      "triggers": [
-        "覆盖密度",
-        "卖方交叉验证",
-        "第几篇研报",
-        "首覆",
-        "扎堆透支。注：金融仓 opinion-cross（三重共振机会卡片）是另一个 skill"
-      ],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:11447e61d0ec28da397d72902e82700531171c88bd68bac7ce3845f5fe87017d",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/theme-radar-reports": {
-      "name": "theme-radar-reports",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/theme-radar-reports/SKILL.md",
-      "description": "从 theme_signals.json / pattern_library.json 自动生成三类 Theme Radar 报告——scan 主题扫描表（模块4）、replay 发酵复盘报告（模块7）、migrate 横向迁移扫描排序（模块8）。当用户说\"扫描表/全库扫描/工艺材料扫描\"、\"X发酵复盘/X怎么走到今天/X时间线\"、\"拿X当标尺/横迁/找同类\"或盘后全景梳理时使用。",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:556b6bed2e4ee280624d2ac3b4cff25c62cc38448974dd66e4e7e0614d09c43e",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/to-prd": {
-      "name": "to-prd",
-      "repo": "knowledge-base-private",
-      "sourceType": "github",
-      "skillPath": "skills/engineering/to-prd/SKILL.md",
-      "source": "mattpocock/skills",
-      "description": "",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:fd8c259f9c44eff08e29a1a2fc71a806a3568d279a55387a361f78620b10f2aa",
-      "agentOnly": false,
-      "views": []
-    },
-    "kb/wiki-utils": {
-      "name": "wiki-utils",
-      "repo": "knowledge-base-private",
-      "sourceType": "local",
-      "skillPath": "skills/wiki-utils/SKILL.md",
-      "description": "模块 9 横切能力——提及频率自动统计、报告导出（md/html + 合规声明）。供扫描表/晨汇/三维交叉等所有报告管线复用。",
-      "triggers": [],
-      "note": "",
-      "entrypoint": null,
-      "computedHash": "sha256:2e8eb523be5c95346b4a2e77ea446f41a025ecb58d736ac2f308dde63c5c245b",
-      "agentOnly": false,
-      "views": []
     }
   }
 }
