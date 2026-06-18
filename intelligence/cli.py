@@ -609,11 +609,16 @@ def cmd_subconscious_start(args: argparse.Namespace) -> int:
     us = userspace.user_space(args.user)
     us.ensure_dir()
     state = subconscious.start_session(us, session_id=args.session, vault=args.vault)
+    synced = userspace.users_dir() != userspace.USERS_DIR
     if args.json:
-        print(_json.dumps({"user": us.user_id, **state}, ensure_ascii=False, indent=2))
+        print(_json.dumps(
+            {"user": us.user_id, "users_dir": str(userspace.users_dir()), "synced": synced, **state},
+            ensure_ascii=False, indent=2,
+        ))
     else:
         print(f"潜意识模式已开启：user={us.user_id} session={state['session_id']}")
         print(f"  buffer：{state['buffer']}")
+        print(f"  大脑目录：{userspace.users_dir()}" + ("（跨机同步）" if synced else "（仓库内、单机；设 FORESIGHT_USERS_DIR 可跨机同步）"))
         print("  逐轮记信号：`subconscious note --kind click --theme 液冷 --stock 中际旭创`")
         print("  退出回读：`subconscious review` → `subconscious commit --apply`")
     return 0
@@ -749,15 +754,20 @@ def cmd_subconscious_status(args: argparse.Namespace) -> int:
     pending = 0
     if active and active.get("session_id"):
         pending = len(subconscious.load_buffer(us, str(active["session_id"])))
+    synced = userspace.users_dir() != userspace.USERS_DIR
     if args.json:
-        print(_json.dumps({"user": us.user_id, "active": active, "buffer_signals": pending},
-                          ensure_ascii=False, indent=2))
+        print(_json.dumps(
+            {"user": us.user_id, "users_dir": str(userspace.users_dir()), "synced": synced,
+             "active": active, "buffer_signals": pending},
+            ensure_ascii=False, indent=2,
+        ))
     else:
         if active:
             print(f"潜意识模式：开启中（user={us.user_id} session={active.get('session_id')}，"
                   f"buffer {pending} 条待巩固）")
         else:
             print(f"潜意识模式：未开启（user={us.user_id}）。`subconscious start` 开启。")
+        print(f"  大脑目录：{userspace.users_dir()}" + ("（跨机同步）" if synced else "（仓库内、单机）"))
     return 0
 
 
