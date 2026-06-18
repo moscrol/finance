@@ -30,6 +30,11 @@ class ForesightWorkflowOptions:
     interactions_window: int = 200
     affinity_half_life: float = 14.0
     affinity_boost: float = 0.2
+    methodology_file: str | Path | None = None
+    use_methodology: bool = True
+    corrections_file: str | Path | None = None
+    use_corrections: bool = True
+    corrections_window: int = 20
 
 
 def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, ForesightResult, str]:
@@ -67,6 +72,11 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             interactions_window=options.interactions_window,
             affinity_half_life=options.affinity_half_life,
             affinity_boost=options.affinity_boost,
+            methodology_file=options.methodology_file,
+            use_methodology=options.use_methodology,
+            corrections_file=options.corrections_file,
+            use_corrections=options.use_corrections,
+            corrections_window=options.corrections_window,
         )
     )
     answer = render(result)
@@ -114,6 +124,17 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             outputs=[
                 f"themes={result.kb_themes_loaded}",
                 f"wiki={result.kb_wiki_path or '-'}",
+            ],
+        )
+    )
+    summary.steps.append(
+        WorkflowStep(
+            name="methodology",
+            status="PASS" if result.methodology_chars else "SKIP",
+            outputs=[
+                f"chars={result.methodology_chars}",
+                f"corrections={result.corrections_loaded}",
+                f"path={result.methodology_path or '-'}",
             ],
         )
     )

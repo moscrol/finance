@@ -15,6 +15,7 @@
 | `profile.derived.json` | `refresh-profile --apply` | 否 | 自动派生候选，带 `source`/`as_of`/`stale` 标记 |
 | `foresight_memory.jsonl` | `foresight` | 否 | 问过的问题记忆回路（去重用） |
 | `interactions.jsonl` | `record-interaction` | 否 | 点击/追问/喜欢/忽略/打分反馈，用于「越用越懂」 |
+| `corrections.jsonl` | `record-correction` | 否 | 你纠正它的高信号记录，注入发问「别再犯」（纠偏回路） |
 | `strategy_params.json` | 人 | 否 | 个人策略参数 overlay（稀疏覆盖共享 baseline） |
 
 以上**运行时文件全部 gitignore，不入库**（含真实自选股、提问历史等隐私）。仓库里只跟踪
@@ -56,6 +57,29 @@ python3 -m intelligence.cli record-interaction --user <id> --kind rate --rating 
 `skip/ignore/dismiss/mute/dislike`（负向）、`rate`（配 `--rating`）。`--weight` 可显式覆盖。
 foresight 默认开启加成，`--no-interactions` 关闭、`--affinity-boost 0` 等价关闭、
 `--affinity-half-life` 调时间衰减半衰期（天）。
+
+## 懂你的复盘思路：思考宪法 + 纠偏回路（不靠点击猜偏好）
+
+foresight 发问前会注入两样东西，让它**在你的复盘框架里推理**，而不是用通用脑子发泛泛的问题：
+
+1. **思考宪法**：`intelligence/foresight_methodology.md`（入库、可编辑）。提炼自你的复盘规则、
+   知识库证据分层与各输出模块（策略生成 / 卖方观点提纯 / 机构胜率 / 晨汇边际变化 / 题材发酵）
+   的「7 条元思路」。你随时改这个文件就改了它发问的脑子，**无需动代码**。
+2. **纠偏回路**：`users/<id>/corrections.jsonl`（gitignore）。你不满意它的回答时纠正一笔，
+   下次发问自动带上「别再犯同类错误」。这条**不靠点击猜你喜欢哪个题材**（深挖≠偏好、市场动态），
+   只靠你的**显式纠正**学方法论。
+
+```bash
+# 它答错了 → 记一条纠偏（correction 必填；principle 抽象出可复用原则，最该被记住）
+python3 -m intelligence.cli record-correction --user <id> \
+    --correction "先判断板块走到哪一阶、强到哪一档再下结论，不要会/不会二元定论" \
+    --original "氟化工要爆发了" \
+    --principle "分级不二元" --theme 氟化工
+```
+
+foresight 默认注入两者：`--no-methodology` 关闭思考宪法、`--no-corrections` 关闭纠偏、
+`--corrections-window N` 只带最近 N 条纠偏、`--methodology-file` / `--corrections-file` 改路径。
+渲染头部会显示「方法论：注入思考宪法 N 字 · 带 M 条纠偏」，方便确认确实生效。
 
 ## 按用户的策略迭代：`strategy_params.json`（稀疏 overlay）
 

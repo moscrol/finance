@@ -24,12 +24,15 @@ from pathlib import Path
 from typing import Any
 
 from intelligence import userspace
-from intelligence.services import interactions, llm_refine
+from intelligence.services import corrections, interactions, llm_refine
 from intelligence.services.ask import load_theme_candidates
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PROFILE = REPO_ROOT / "intelligence" / "foresight_profile.example.json"
 DEFAULT_MEMORY_FILE = REPO_ROOT / "intelligence" / "foresight_memory.jsonl"
+# 复盘认知框架（「思考宪法」）：发问前注入系统提示词，让 foresight 在用户方法论里推理。
+# 用户可直接编辑此文件来修正方法论，无需改代码。
+DEFAULT_METHODOLOGY_FILE = REPO_ROOT / "intelligence" / "foresight_methodology.md"
 
 
 @dataclass(frozen=True)
@@ -55,6 +58,11 @@ class ForesightOptions:
     interactions_window: int = 200
     affinity_half_life: float = 14.0
     affinity_boost: float = 0.2
+    methodology_file: str | Path | None = None
+    use_methodology: bool = True
+    corrections_file: str | Path | None = None
+    use_corrections: bool = True
+    corrections_window: int = 20
 
 
 @dataclass
@@ -89,6 +97,10 @@ class ForesightResult:
     affinity_applied: int = 0
     kb_wiki_path: str | None = None
     kb_themes_loaded: int = 0
+    methodology_path: str | None = None
+    methodology_chars: int = 0
+    corrections_path: str | None = None
+    corrections_loaded: int = 0
 
     @property
     def status(self) -> str:
@@ -455,6 +467,63 @@ _SYSTEM_PROMPT = (
 )
 
 
+def _methodology_path(options: ForesightOptions) -> Path:
+    if options.methodology_file:
+        return Path(options.methodology_file).expanduser()
+    return DEFAULT_METHODOLOGY_FILE
+
+
+def load_methodology(options: ForesightOptions) -> tuple[str, str | None, str | None]:
+    """读取「思考宪法」方法论文件。返回 ``(text, path, warning)``；缺失/关闭则文本为空。"""
+    if not options.use_methodology:
+        return "", None, None
+    p = _methodology_path(options)
+    if not p.exists():
+        return "", None, f"方法论文件不存在：{p}（发问将不带复盘认知框架）"
+    try:
+        text = p.read_text(encoding="utf-8").strip()
+    except Exception as exc:  # pragma: no cover - defensive
+        return "", None, f"方法论文件读取失败：{p}（{exc}）"
+    return text, str(p), None
+
+
+def _corrections_path(options: ForesightOptions) -> Path:
+    if options.corrections_file:
+        return Path(options.corrections_file).expanduser()
+    return userspace.user_space(options.user).corrections_path
+
+
+def _compose_system_prompt(options: ForesightOptions, result: ForesightResult) -> str:
+    """基线人设 + 思考宪法（方法论）+ 纠偏记录，拼成本轮真正发给 LLM 的系统提示词。
+
+    方法论与纠偏都做成**可编辑文件**：用户改文件即改发问脑子，无需动代码。
+    """
+    prompt = _SYSTEM_PROMPT
+    text, mpath, mwarn = load_methodology(options)
+    if mwarn:
+        result.warnings.append(mwarn)
+    if text:
+        result.methodology_path = mpath
+        result.methodology_chars = len(text)
+        prompt += (
+            "\n\n==== 复盘认知框架（思考宪法，务必据此推理与发问）====\n" + text
+        )
+    if options.use_corrections:
+        cpath = _corrections_path(options)
+        result.corrections_path = str(cpath)
+        recs, cwarn = corrections.load_corrections(cpath, options.corrections_window)
+        if cwarn:
+            result.warnings.append(cwarn)
+        result.corrections_loaded = len(recs)
+        rendered = corrections.render_for_prompt(recs)
+        if rendered:
+            prompt += (
+                "\n\n==== 纠偏记录（我曾纠正过你，发问前务必避免重犯同类错误）====\n"
+                + rendered
+            )
+    return prompt
+
+
 def _build_user_prompt(context: dict[str, Any], n_candidates: int) -> str:
     return (
         f"请基于以下 JSON 上下文，生成 {n_candidates} 条候选问题"
@@ -621,12 +690,14 @@ def generate(options: ForesightOptions) -> ForesightResult:
     # 越用越懂：把近期反馈聚合成题材/个股亲和度（在 LLM 调用前载入，降级时也能展示）。
     affinity = _load_affinity(options, result)
 
+    # 思考宪法（方法论）+ 纠偏记录拼进系统提示词，让它在用户框架里发问。
+    system_prompt = _compose_system_prompt(options, result)
     user_prompt = _build_user_prompt(context, options.candidates)
-    result.prompt_preview = _SYSTEM_PROMPT + "\n\n---- user ----\n\n" + user_prompt
+    result.prompt_preview = system_prompt + "\n\n---- user ----\n\n" + user_prompt
 
     content, provider, reason = llm_refine.complete(
         [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
         model_override=options.llm_model,
@@ -689,6 +760,13 @@ def render(result: ForesightResult) -> str:
         )
     if result.kb_themes_loaded:
         lines.append(f"> 知识库：调入 {result.kb_themes_loaded} 个题材当发问素材")
+    if result.methodology_chars or result.corrections_loaded:
+        parts = []
+        if result.methodology_chars:
+            parts.append(f"注入思考宪法 {result.methodology_chars} 字")
+        if result.corrections_loaded:
+            parts.append(f"带 {result.corrections_loaded} 条纠偏")
+        lines.append("> 方法论：" + " · ".join(parts))
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
 
@@ -739,6 +817,10 @@ def result_to_dict(result: ForesightResult) -> dict[str, Any]:
         "affinity_applied": result.affinity_applied,
         "kb_wiki_path": result.kb_wiki_path,
         "kb_themes_loaded": result.kb_themes_loaded,
+        "methodology_path": result.methodology_path,
+        "methodology_chars": result.methodology_chars,
+        "corrections_path": result.corrections_path,
+        "corrections_loaded": result.corrections_loaded,
         "questions": [
             {
                 "question": q.question,

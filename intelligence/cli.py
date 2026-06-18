@@ -89,6 +89,13 @@ def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--affinity-half-life", type=float, default=14.0, help="反馈时间衰减半衰期（天，默认 14）")
     parser.add_argument("--affinity-boost", type=float, default=0.2, help="反馈加成上限权重（默认 0.2；0 关闭加成）")
     parser.set_defaults(use_interactions=True)
+    parser.add_argument("--methodology-file", default=None, help="复盘认知框架/方法论文件（默认 intelligence/foresight_methodology.md，注入「思考宪法」）")
+    parser.add_argument("--no-methodology", dest="use_methodology", action="store_false", help="不注入复盘认知框架（默认注入）")
+    parser.set_defaults(use_methodology=True)
+    parser.add_argument("--corrections-file", default=None, help="纠偏记录 jsonl（默认 users/<user>/corrections.jsonl，已 gitignore）")
+    parser.add_argument("--no-corrections", dest="use_corrections", action="store_false", help="不注入纠偏记录（默认注入）")
+    parser.add_argument("--corrections-window", type=int, default=20, help="只注入最近 N 条纠偏（默认 20）")
+    parser.set_defaults(use_corrections=True)
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 而非 Markdown")
     parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
     parser.set_defaults(func=cmd_foresight)
@@ -115,6 +122,21 @@ def add_record_interaction_parser(subparsers: argparse._SubParsersAction) -> Non
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
     parser.set_defaults(func=cmd_record_interaction)
+
+
+def add_record_correction_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "record-correction",
+        help="纠偏回路：记一条你对 foresight 回答的纠正（原话/纠成什么/抽象原则）→ 注入发问「别再犯」",
+    )
+    parser.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    parser.add_argument("--correction", required=True, help="你把它纠正成什么（必填）")
+    parser.add_argument("--original", default=None, help="它原来的说法 / 答错的点（可选）")
+    parser.add_argument("--principle", default=None, help="从这次纠正抽象出的、可复用的原则（可选，最该被记住）")
+    parser.add_argument("--theme", dest="themes", action="append", default=[], help="关联题材（可多次）")
+    parser.add_argument("--corrections-file", default=None, help="覆盖纠偏记录文件路径")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.set_defaults(func=cmd_record_correction)
 
 
 def add_refresh_profile_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -230,6 +252,11 @@ def cmd_foresight(args: argparse.Namespace) -> int:
             interactions_window=args.interactions_window,
             affinity_half_life=args.affinity_half_life,
             affinity_boost=args.affinity_boost,
+            methodology_file=args.methodology_file,
+            use_methodology=args.use_methodology,
+            corrections_file=args.corrections_file,
+            use_corrections=args.use_corrections,
+            corrections_window=args.corrections_window,
         )
     )
     if args.summary_json:
@@ -271,6 +298,33 @@ def cmd_record_interaction(args: argparse.Namespace) -> int:
         path = summary.steps[0].outputs[0].split("=", 1)[1] if summary.steps else ""
         print(render(record, path), end="")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def cmd_record_correction(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import corrections
+
+    path = args.corrections_file or userspace.user_space(args.user).corrections_path
+    _, record = corrections.record_correction(
+        path,
+        correction=args.correction,
+        original=args.original,
+        principle=args.principle,
+        themes=args.themes,
+    )
+    if args.json:
+        print(_json.dumps(record, ensure_ascii=False, indent=2))
+    else:
+        print(f"已记纠偏 → {path}")
+        if record.get("principle"):
+            print(f"  原则：{record['principle']}")
+        if record.get("original"):
+            print(f"  原话：{record['original']}")
+        print(f"  应为：{record['correction']}")
+        print("下次 foresight 发问会自动带上此纠偏，避免重犯。")
+    return 0
 
 
 def cmd_refresh_profile(args: argparse.Namespace) -> int:
@@ -802,6 +856,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_ask_parser(subparsers)
     add_foresight_parser(subparsers)
     add_record_interaction_parser(subparsers)
+    add_record_correction_parser(subparsers)
     add_refresh_profile_parser(subparsers)
     add_adapter_smoke_parser(subparsers)
     add_daily_parser(subparsers)
