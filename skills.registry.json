@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-18T04:25:58Z",
+  "generated_at": "2026-06-18T04:34:19Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 24
+      "skills": 25
     },
     {
       "name": "knowledge-base-private",
@@ -388,6 +388,36 @@
       "computedHash": "sha256:2bd2cf07206beed11a91cabdcbea9201bf80ebf2582d710b2cea054dfea7631a",
       "agentOnly": false,
       "views": []
+    },
+    "ws/task-planner": {
+      "name": "task-planner",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/task-planner/SKILL.md",
+      "description": "批量/会话级高风险任务前的「采访」前置（Inversion 反转模式）——在复盘批处理、DuckDB 大回填、开新题材前，先按顺序问清任务类型、范围（日期区间/标的/题材）、数据源、结果落库去向、分支、凭证、无前视、dry-run、缺数处置，把回答合成成 task-plan，经 check_task_plan.py 门控校验通过后才放行抓数/回填/写库，再交给 market-overview / duckdb-backfill / theme-radar / top-gainers-feishu 等下游执行。触发词：批量任务规划、开工前采访、批量回填前先问、开新题材前先问、运行前规划、采访前置、先问后做、task planner、batch plan、回填前先问。注意：仅批量/会话级高风险任务走本 skill；日常单日复盘、单股查询等已有固定流程的不需要。",
+      "triggers": [
+        "批量任务规划",
+        "开工前采访",
+        "批量回填前先问",
+        "开新题材前先问",
+        "运行前规划",
+        "采访前置",
+        "先问后做",
+        "task planner",
+        "batch plan",
+        "回填前先问"
+      ],
+      "note": "仅批量/会话级高风险任务走本 skill；日常单日复盘、单股查询等已有固定流程的不需要。",
+      "entrypoint": null,
+      "computedHash": "sha256:7891744bfc2c08787778fcba3c6915bda3a72b250463f66e4141d219667591ed",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/task-planner",
+          "type": "symlink",
+          "target": "../../skills/task-planner"
+        }
+      ]
     },
     "ws/theme-fermentation-tracer": {
       "name": "theme-fermentation-tracer",
