@@ -9,8 +9,11 @@
 进场口径：报告日次日开盘买入。
 完整性：今天之后凑不满的窗口标 *_complete=false，胜率聚合时不计入该窗口。
 
+日期默认动态：--end 缺省=今天，--start 缺省=最早看多观点日前 7 天，
+所以补完数据后直接重跑即可，无需手填日期。
+
   python3 build_outcomes.py [--vault <wiki>] [--benchmark sh000300]
-                            [--start 2026-04-25] [--end 2026-06-15]
+                            [--start <YYYY-MM-DD>] [--end <YYYY-MM-DD>]
                             [--limit N] [--out <path>]
 """
 from __future__ import annotations
@@ -41,8 +44,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--vault", default=None)
     ap.add_argument("--benchmark", default="sh000300")
-    ap.add_argument("--start", default="2026-04-25")
-    ap.add_argument("--end", default="2026-06-15")
+    ap.add_argument("--start", default=None, help="缺省=最早看多观点日前7天")
+    ap.add_argument("--end", default=None, help="缺省=今天")
     ap.add_argument("--limit", type=int, default=0, help="只跑前 N 个看多事件（调试）")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
@@ -73,6 +76,17 @@ def main() -> int:
         bull = bull[: args.limit]
     print(f"[INFO] total events={total} | 看多(non-晨汇转述)={len(bull)}")
 
+    # dynamic date range: end=今天, start=最早看多观点日前7天（可被 --start/--end 覆盖）
+    end = args.end or dt.date.today().isoformat()
+    report_dates = [e["report_date"] for e in bull if e.get("report_date")]
+    if args.start:
+        start = args.start
+    elif report_dates:
+        start = (dt.date.fromisoformat(min(report_dates)) - dt.timedelta(days=7)).isoformat()
+    else:
+        start = end
+    print(f"[INFO] date range: {start} .. {end}")
+
     # 2) resolve distinct targets -> codes (cached)
     targets = sorted({e["target"] for e in bull if e.get("target")})
     code_map: dict[str, str | None] = {}
@@ -87,7 +101,7 @@ def main() -> int:
     print(f"[INFO] distinct targets={len(targets)} | resolved={len(targets)-len(miss)} | MISS={len(miss)}")
 
     # 3) benchmark index
-    idx = pl.index_daily(args.benchmark, args.start, args.end)
+    idx = pl.index_daily(args.benchmark, start, end)
     print(f"[INFO] benchmark {args.benchmark} rows={len(idx)}")
 
     # 4) per-event metrics
@@ -103,7 +117,7 @@ def main() -> int:
             continue
         if code not in price_cache:
             try:
-                price_cache[code] = pl.qfq_daily(code, args.start, args.end)
+                price_cache[code] = pl.qfq_daily(code, start, end)
                 time.sleep(0.08)
             except Exception as ex:  # noqa: BLE001
                 print(f"[WARN] price fetch failed {code} {tgt}: {ex}")

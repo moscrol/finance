@@ -43,26 +43,18 @@ def pct(x: float) -> str:
     return f"{x:+.1f}%"
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--vault", default=None)
-    ap.add_argument("--outcomes", default=None)
-    ap.add_argument("--min-calls", type=int, default=5)
-    ap.add_argument("--window", type=int, default=5, choices=[3, 5, 7, 10])
-    ap.add_argument("--report", default=None)
-    args = ap.parse_args()
+def resolve_store(vault: Path) -> Path:
+    return vault / "raw" / "theme-radar" / "opinion-store"
 
-    vault = resolve_vault(args.vault)
-    store = vault / "raw" / "theme-radar" / "opinion-store"
-    outcomes_path = Path(args.outcomes).expanduser() if args.outcomes else store / "outcomes.jsonl"
-    if not outcomes_path.exists():
-        print(f"[ERR] outcomes not found: {outcomes_path}")
-        return 1
-    names = load_sources(store)
-    w = args.window
 
-    rows = [json.loads(l) for l in outcomes_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-    # group by source_id; only events with complete window w AND excess present
+def load_outcomes(outcomes_path: Path) -> list[dict]:
+    return [json.loads(l) for l in outcomes_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+
+
+def aggregate_winrate(rows: list[dict], names: dict[str, str], window: int, min_calls: int) -> list[dict]:
+    """聚合单个 T+window 窗口的机构胜率榜。只统计该窗口完整、且有超额值的看多事件；
+    样本 < min_calls 的机构视为噪音不排。按超额胜率降序、同率按均超额。"""
+    w = window
     by_src: dict[str, list[dict]] = {}
     for r in rows:
         if not r.get(f"ret_{w}d_complete"):
@@ -72,7 +64,7 @@ def main() -> int:
     agg = []
     for sid, evs in by_src.items():
         n = len(evs)
-        if n < args.min_calls:
+        if n < min_calls:
             continue
         abs_rets = [e[f"ret_{w}d"] for e in evs if e.get(f"ret_{w}d") is not None]
         exc_rets = [e[f"excess_{w}d"] for e in evs if e.get(f"excess_{w}d") is not None]
@@ -97,6 +89,29 @@ def main() -> int:
 
     # rank by excess win rate, tie-break avg excess
     agg.sort(key=lambda a: (a["win_exc"], a["avg_exc"]), reverse=True)
+    return agg
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--vault", default=None)
+    ap.add_argument("--outcomes", default=None)
+    ap.add_argument("--min-calls", type=int, default=5)
+    ap.add_argument("--window", type=int, default=5, choices=[3, 5, 7, 10])
+    ap.add_argument("--report", default=None)
+    args = ap.parse_args()
+
+    vault = resolve_vault(args.vault)
+    store = resolve_store(vault)
+    outcomes_path = Path(args.outcomes).expanduser() if args.outcomes else store / "outcomes.jsonl"
+    if not outcomes_path.exists():
+        print(f"[ERR] outcomes not found: {outcomes_path}")
+        return 1
+    names = load_sources(store)
+    w = args.window
+
+    rows = load_outcomes(outcomes_path)
+    agg = aggregate_winrate(rows, names, w, args.min_calls)
 
     header = (f"机构胜率榜 | 口径=T+{w} 相对沪深300超额>0 | 门槛=有效看多≥{args.min_calls}次 "
               f"| 合格机构={len(agg)} | 样本事件={sum(a['n'] for a in agg)}")
