@@ -40,6 +40,8 @@ class ForesightOptions:
     date: str | None = None
     exports_dir: str | Path | None = None
     kb_wiki: str | Path | None = None
+    use_kb: bool = True
+    kb_themes: int = 6
     n: int = 3
     candidates: int = 8
     llm_model: str | None = None
@@ -85,6 +87,8 @@ class ForesightResult:
     interactions_path: str | None = None
     interactions_loaded: int = 0
     affinity_applied: int = 0
+    kb_wiki_path: str | None = None
+    kb_themes_loaded: int = 0
 
     @property
     def status(self) -> str:
@@ -285,7 +289,42 @@ def _top_candidates(doc: dict[str, Any], n: int) -> list[dict[str, Any]]:
     return out
 
 
-def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str], list[str]]:
+def _load_kb_themes(
+    options: ForesightOptions,
+) -> tuple[list[dict[str, Any]], str, list[str]]:
+    """读取知识库 ``relations/theme_signals.json``，取认知最靠前的若干题材当发问素材。
+
+    复用 :func:`refresh_profile.derive_from_kb` 的排序（近期 > ★ 多 > 进度 > 热度）。
+    知识库缺失/不可读时优雅降级：返回空列表 + 警告，绝不抛栈。
+    """
+    # 局部 import：refresh_profile 只在顶层依赖 KnowledgeAdapter（无 duckdb），安全。
+    from intelligence.services import refresh_profile
+    from intelligence.adapters.knowledge import KnowledgeAdapter
+
+    wiki_path = str(KnowledgeAdapter(wiki_root=options.kb_wiki).resolved_wiki_root)
+    out = refresh_profile.derive_from_kb(
+        refresh_profile.RefreshOptions(kb_wiki=options.kb_wiki, top=options.kb_themes)
+    )
+    if not out.get("ok"):
+        return [], wiki_path, list(out.get("warnings") or [])
+    themes: list[dict[str, Any]] = []
+    for item in (out.get("themes") or [])[: max(options.kb_themes, 0)]:
+        sig = item.get("signals") or {}
+        themes.append(
+            {
+                "theme": item.get("theme"),
+                "stars": sig.get("stars"),
+                "stage_position": sig.get("stage_position"),
+                "tier": sig.get("tier"),
+                "last_event": sig.get("last_event"),
+            }
+        )
+    return themes, wiki_path, []
+
+
+def build_context(
+    options: ForesightOptions,
+) -> tuple[dict[str, Any], list[str], list[str]]:
     warnings: list[str] = []
     loaded = load_theme_candidates(options.exports_dir, options.date)
     doc = loaded["doc"] if loaded["found"] else {}
@@ -307,6 +346,17 @@ def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str],
     if intel_warn:
         warnings.append(intel_warn)
 
+    kb_themes: list[dict[str, Any]] = []
+    kb_wiki_path: str | None = None
+    if options.use_kb:
+        kb_themes, kb_wiki_path, kb_warns = _load_kb_themes(options)
+        if kb_warns:
+            warnings.append(
+                "知识库题材未接入："
+                + "；".join(kb_warns)
+                + "（设 KNOWLEDGE_WIKI 或 --kb-wiki 指向知识库 wiki 根即可调用）"
+            )
+
     context = {
         "today": date_cls.today().isoformat(),
         "trade_date": doc.get("trade_date"),
@@ -320,6 +370,7 @@ def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str],
         },
         "signal_summary": doc.get("signal_summary"),
         "hot_candidates": hot,
+        "kb_themes": kb_themes,
         "profile": {
             "name": profile.get("name"),
             "style": profile.get("style"),
@@ -330,6 +381,7 @@ def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str],
         },
         "realtime_intel": intel,
     }
+    context["_kb_wiki_path"] = kb_wiki_path
 
     digest: list[str] = []
     digest.append(f"今天={context['today']}；盘面日期={context['trade_date'] or '—'}")
@@ -348,6 +400,22 @@ def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str],
                 for h in hot[:6]
                 if h.get("theme")
             )
+        )
+    if kb_themes:
+        digest.append(
+            "知识库题材（认知发酵）："
+            + "；".join(
+                f"{t['theme']}(★{t.get('stars') or 0}"
+                f"/进度{t.get('stage_position') or 0}"
+                f"/Tier{t.get('tier') if t.get('tier') is not None else '—'}"
+                f"/{t.get('last_event') or '—'})"
+                for t in kb_themes
+                if t.get("theme")
+            )
+        )
+    elif options.use_kb:
+        digest.append(
+            "知识库题材：未接入（设 KNOWLEDGE_WIKI 或 --kb-wiki 指向知识库 wiki 根即可调用）"
         )
     prof = context["profile"]
     digest.append(
@@ -376,7 +444,9 @@ _SYSTEM_PROMPT = (
     "2) 跨领域连接：把两个看似不相关的领域勾连起来（如 AI×通胀、当下×历史类比、产业×宏观）；\n"
     "3) 高度具体：必须带 具体时间窗口 + 具体可量化指标 + 具体人名/事件/公司；\n"
     "4) 前瞻且可证伪：能在未来被验证对错，最好点明可提前判断的「领先指标 / 拐点 / 触发条件」；\n"
-    "5) 呼应上下文：尽量与用户的关注题材、自选股或盘面热门候选相关，体现连续性。\n"
+    "5) 呼应上下文：尽量与用户的关注题材、自选股、盘面热门候选或「知识库题材」相关，"
+    "体现连续性；「知识库题材 kb_themes」是用户自己沉淀的认知/发酵进度，"
+    "可优先围绕其中认知阶段靠前（★ 多）或近期有新事件的题材做二阶追问。\n"
     "禁止：宽泛问题、能一句话答完的问题、纯定义类问题、与 recent_questions 重复的问题。\n"
     "严格只输出 JSON，不要任何额外文字，格式："
     '{"questions":[{"question":"...","rationale":"为什么这是用户没想到但该问的",'
@@ -526,6 +596,9 @@ def generate(options: ForesightOptions) -> ForesightResult:
         context_digest=digest,
     )
     result.warnings.extend(warnings)
+    # 本地路径不进提示词：从 context 取出后移除，避免被序列化进发送给 LLM 的 JSON。
+    result.kb_wiki_path = context.pop("_kb_wiki_path", None)
+    result.kb_themes_loaded = len(context.get("kb_themes") or [])
 
     # 第 3 层 · 记忆回路：并入「曾问过的问题」用于去重，体现连续性。
     if options.use_memory:
@@ -614,6 +687,8 @@ def render(result: ForesightResult) -> str:
             f"> 反馈：读入 {result.interactions_loaded} 条互动记录 · "
             f"{result.affinity_applied} 条问题获得亲和加成"
         )
+    if result.kb_themes_loaded:
+        lines.append(f"> 知识库：调入 {result.kb_themes_loaded} 个题材当发问素材")
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
 
@@ -662,6 +737,8 @@ def result_to_dict(result: ForesightResult) -> dict[str, Any]:
         "interactions_path": result.interactions_path,
         "interactions_loaded": result.interactions_loaded,
         "affinity_applied": result.affinity_applied,
+        "kb_wiki_path": result.kb_wiki_path,
+        "kb_themes_loaded": result.kb_themes_loaded,
         "questions": [
             {
                 "question": q.question,

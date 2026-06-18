@@ -15,6 +15,8 @@ class ForesightWorkflowOptions:
     date: str | None = None
     exports_dir: str | Path | None = None
     kb_wiki: str | Path | None = None
+    use_kb: bool = True
+    kb_themes: int = 6
     n: int = 3
     candidates: int = 8
     llm_model: str | None = None
@@ -50,6 +52,8 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             date=options.date,
             exports_dir=options.exports_dir,
             kb_wiki=options.kb_wiki,
+            use_kb=options.use_kb,
+            kb_themes=options.kb_themes,
             n=options.n,
             candidates=options.candidates,
             llm_model=options.llm_model,
@@ -100,6 +104,16 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
                 f"loaded={result.interactions_loaded}",
                 f"boosted={result.affinity_applied}",
                 f"path={result.interactions_path or '-'}",
+            ],
+        )
+    )
+    summary.steps.append(
+        WorkflowStep(
+            name="knowledge",
+            status="PASS" if (options.use_kb and result.kb_themes_loaded) else "SKIP",
+            outputs=[
+                f"themes={result.kb_themes_loaded}",
+                f"wiki={result.kb_wiki_path or '-'}",
             ],
         )
     )

@@ -65,7 +65,10 @@ def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--news-file", default=None, help="可选实时情报文件（今日财经日历/新闻），无则跳过实时层")
     parser.add_argument("--date", default=None, help="theme-candidates 盘面快照日期 YYYY-MM-DD；默认取最新")
     parser.add_argument("--exports-dir", default=None, help="覆盖 market_feature_store/exports 目录")
-    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根（预留，当前主要用盘面快照锚定）")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根（含 relations/）；默认读 env KNOWLEDGE_WIKI/auto，把 theme_signals 题材当发问素材")
+    parser.add_argument("--no-kb", dest="use_kb", action="store_false", help="不调知识库题材当发问素材（默认开启）")
+    parser.add_argument("--kb-themes", type=int, default=6, help="从知识库取认知最靠前的前 N 个题材当发问素材（默认 6）")
+    parser.set_defaults(use_kb=True)
     parser.add_argument("-n", "--num", type=int, default=3, help="最终展示问题数（默认 3）")
     parser.add_argument("--candidates", type=int, default=8, help="让 LLM 先生成的候选数（默认 8，再排序取前 N）")
     parser.add_argument(
@@ -212,6 +215,8 @@ def cmd_foresight(args: argparse.Namespace) -> int:
             date=args.date,
             exports_dir=args.exports_dir,
             kb_wiki=args.kb_wiki,
+            use_kb=args.use_kb,
+            kb_themes=args.kb_themes,
             n=args.num,
             candidates=args.candidates,
             llm_model=args.llm_model,

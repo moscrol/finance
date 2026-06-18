@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from intelligence.services import foresight
@@ -180,6 +181,92 @@ class MemoryTests(unittest.TestCase):
             picked = [q.question for q in result.questions]
             self.assertEqual(result.memory_loaded, 1)
             self.assertNotIn(_DISTINCT[0], picked)
+
+
+class KbThemesTests(unittest.TestCase):
+    def _write_theme_signals(self, root: Path) -> None:
+        (root / "relations").mkdir(parents=True, exist_ok=True)
+        payload = {
+            "updated": "2026-06-15",
+            "version": 1,
+            "themes": {
+                "液冷服务器": {
+                    "recognition_timeline": [
+                        {"time_window": "2026-06-10", "recognition_stage": "★★★★"},
+                    ],
+                    "progress_ruler": [{"current_stage": "★★★", "stage_position": 60}],
+                    "market_heat": ["噪声文本 / Tier 1"],
+                },
+                "固态电池": {
+                    "recognition_timeline": [{"time_window": "2026-05-01", "recognition_stage": "★★"}],
+                    "market_heat": ["Tier 3"],
+                },
+            },
+        }
+        (root / "relations" / "theme_signals.json").write_text(
+            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+        )
+
+    def test_kb_themes_enter_context_and_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_theme_signals(root)
+            context, digest, warnings = foresight.build_context(
+                ForesightOptions(kb_wiki=str(root), use_memory=False, use_interactions=False)
+            )
+        names = [t["theme"] for t in context["kb_themes"]]
+        self.assertEqual(names[0], "液冷服务器")
+        self.assertEqual(context["kb_themes"][0]["stars"], 4)
+        self.assertEqual(context["kb_themes"][0]["tier"], 1)
+        self.assertTrue(any("知识库题材" in d for d in digest))
+        self.assertEqual(context["_kb_wiki_path"], str(root))
+        self.assertFalse(any("知识库题材未接入" in w for w in warnings))
+
+    def test_missing_kb_degrades_gracefully(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "nope"
+            context, digest, warnings = foresight.build_context(
+                ForesightOptions(kb_wiki=str(missing), use_memory=False, use_interactions=False)
+            )
+        self.assertEqual(context["kb_themes"], [])
+        self.assertTrue(any("未接入" in d for d in digest))
+        self.assertTrue(any("知识库题材未接入" in w for w in warnings))
+
+    def test_no_kb_flag_skips_entirely(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_theme_signals(root)
+            context, digest, warnings = foresight.build_context(
+                ForesightOptions(
+                    kb_wiki=str(root), use_kb=False, use_memory=False, use_interactions=False
+                )
+            )
+        self.assertEqual(context["kb_themes"], [])
+        self.assertIsNone(context["_kb_wiki_path"])
+        self.assertFalse(any("知识库题材" in d for d in digest))
+        self.assertFalse(any("知识库" in w for w in warnings))
+
+    def test_generate_feeds_kb_themes_into_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_theme_signals(root)
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        kb_wiki=str(root), n=3, candidates=8, use_memory=False, use_interactions=False
+                    )
+                )
+        self.assertEqual(result.kb_themes_loaded, 2)
+        self.assertEqual(result.kb_wiki_path, str(root))
+        # 题材进了发给 LLM 的提示词；本地路径不得泄漏
+        self.assertIn("液冷服务器", result.prompt_preview)
+        self.assertIn("kb_themes", result.prompt_preview)
+        self.assertNotIn("_kb_wiki_path", result.prompt_preview)
+        self.assertIn("调入 2 个题材", render(result))
 
 
 if __name__ == "__main__":
