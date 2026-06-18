@@ -58,6 +58,20 @@ class StartAndBufferTests(unittest.TestCase):
                 self.assertEqual(buf[0]["themes"], ["液冷"])
                 self.assertEqual(buf[0]["stocks"], ["中际旭创"])
 
+    def test_append_stores_memo_and_question(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(userspace, "USERS_DIR", Path(tmp)):
+                us = self._us(tmp)
+                us.ensure_dir()
+                subconscious.start_session(us, now=NOW)
+                subconscious.append_signal(
+                    us, kind="click", themes=["液冷"],
+                    question="液冷会否结构性错配", memo="**核心判断**：二次侧卡脖子",
+                )
+                buf = subconscious.load_buffer(us, "2026-06-18-1530")
+                self.assertEqual(buf[0]["question"], "液冷会否结构性错配")
+                self.assertEqual(buf[0]["memo"], "**核心判断**：二次侧卡脖子")
+
     def test_append_without_session_raises(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch.object(userspace, "USERS_DIR", Path(tmp)):
@@ -108,6 +122,17 @@ class ConsolidateTests(unittest.TestCase):
         self.assertEqual(rows[("theme", "算力")].weight, 1.5)  # (5-3)/2*1.5
         self.assertEqual(rows[("theme", "PCB")].weight, 0.42)
 
+    def test_memos_collected_and_deduped(self) -> None:
+        buf = [
+            {"kind": "ask", "themes": ["液冷"], "question": "Q1"},
+            {"kind": "click", "themes": ["液冷"], "memo": "**核心判断**：二次侧卡脖子"},
+            {"kind": "click", "themes": ["液冷"], "memo": "**核心判断**：二次侧卡脖子"},  # 同纪要 -> 去重
+            {"kind": "click", "themes": ["铜箔"], "memo": "**核心判断**：产能爬坡滞后"},
+        ]
+        prop = subconscious.consolidate(buf, user_id="t", session_id="2026-06-18-1530", now=NOW)
+        self.assertEqual(prop.memos, ["**核心判断**：二次侧卡脖子", "**核心判断**：产能爬坡滞后"])
+        self.assertEqual(prop.questions, ["Q1"])
+
     def test_empty_buffer_yields_no_rows(self) -> None:
         prop = subconscious.consolidate([], user_id="t", session_id="2026-06-18-1530", now=NOW)
         self.assertEqual(prop.rows, [])
@@ -126,6 +151,27 @@ class MarkdownTests(unittest.TestCase):
         self.assertIn("[[液冷]]", md)
         self.assertIn("[[中际旭创]]", md)
         self.assertIn("1. Q1", md)
+
+    def test_memo_section_rendered(self) -> None:
+        buf = [
+            {"kind": "ask", "themes": ["液冷"], "question": "液冷会否错配"},
+            {"kind": "click", "themes": ["液冷"], "memo": "**核心判断**：二次侧卡脖子\n**可证伪点**：UL认证8月底"},
+        ]
+        prop = subconscious.consolidate(buf, user_id="tester", session_id="2026-06-18-1530", now=NOW)
+        md = prop.markdown
+        self.assertIn("## 它问我的（foresight）", md)
+        self.assertIn("## 深挖纪要", md)
+        self.assertIn("**核心判断**：二次侧卡脖子", md)
+        self.assertIn("**可证伪点**：UL认证8月底", md)
+        self.assertIn("## 这轮沉淀的信号", md)
+        # 顺序：它问我的 → 深挖纪要 → 这轮沉淀的信号
+        self.assertLess(md.index("它问我的"), md.index("深挖纪要"))
+        self.assertLess(md.index("深挖纪要"), md.index("这轮沉淀的信号"))
+
+    def test_no_memo_section_when_empty(self) -> None:
+        buf = [{"kind": "click", "themes": ["液冷"]}]
+        prop = subconscious.consolidate(buf, user_id="tester", session_id="2026-06-18-1530", now=NOW)
+        self.assertNotIn("## 深挖纪要", prop.markdown)
 
 
 class ResolveVaultTests(unittest.TestCase):
