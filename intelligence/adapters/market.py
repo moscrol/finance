@@ -427,6 +427,63 @@ class MarketAdapter:
         finally:
             con.close()
 
+    def interval_returns(self, stocks: list[str], start: str, end: str) -> dict[str, dict[str, Any]]:
+        """指定个股在 ``[start, end]`` 的区间涨幅（首日 pre_close → 末日 close）。
+
+        ``stocks`` 可填股票名或 ts_code（任一匹配）。返回 ``{名称: {...}, ts_code: {...}}``
+        双键映射，便于上游用名称或代码任意一种回查。区间内无行情（停牌/未上市/名称
+        不匹配）的个股不会出现在结果里——交由调用方判定为 ``unverifiable``。
+
+        用途：可证伪点回检（``checkpoint recheck``）核对「某股 N 天涨幅是否达标」。
+        与 ``market_feature_store`` 的 ``interval_gainers`` 同一套区间口径，只是按指定
+        个股精确取数，避免全市场排序的开销。
+        """
+        names = [str(s).strip() for s in (stocks or []) if str(s).strip()]
+        if not names:
+            return {}
+        con = self.connect()
+        try:
+            placeholders = ",".join("?" for _ in names)
+            rows = self._rows(con.execute(
+                f"""
+                WITH w AS (
+                    SELECT stock_ts_code, stock_name, trade_date, close, pre_close,
+                           ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY trade_date) AS rn_asc,
+                           ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY trade_date DESC) AS rn_desc,
+                           COUNT(*) OVER (PARTITION BY stock_ts_code) AS ndays
+                    FROM fact_stock_daily
+                    WHERE trade_date >= ? AND trade_date <= ?
+                      AND (stock_name IN ({placeholders}) OR stock_ts_code IN ({placeholders}))
+                ),
+                agg AS (
+                    SELECT stock_ts_code, stock_name, ndays,
+                           MAX(CASE WHEN rn_asc = 1 THEN pre_close END) AS base_close,
+                           MAX(CASE WHEN rn_desc = 1 THEN close END) AS end_close,
+                           MIN(trade_date) AS actual_start,
+                           MAX(trade_date) AS actual_end
+                    FROM w GROUP BY stock_ts_code, stock_name, ndays
+                )
+                SELECT stock_ts_code, stock_name, ndays, actual_start, actual_end,
+                       base_close, end_close,
+                       (end_close / base_close - 1) * 100 AS interval_gain
+                FROM agg
+                WHERE base_close IS NOT NULL AND base_close > 0
+                """,
+                [start, end, *names, *names],
+            ))
+            out: dict[str, dict[str, Any]] = {}
+            for row in rows:
+                record = self._serialized_row(row)
+                code = str(record.get("stock_ts_code") or "")
+                name = str(record.get("stock_name") or "")
+                if name:
+                    out[name] = record
+                if code:
+                    out[code] = record
+            return out
+        finally:
+            con.close()
+
     @staticmethod
     def _latest_date_with_connection(con: duckdb.DuckDBPyConnection, table: str) -> str | None:
         MarketAdapter._validate_table(table)

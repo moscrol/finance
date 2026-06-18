@@ -504,5 +504,105 @@ class JudgmentsInjectionTests(unittest.TestCase):
         self.assertNotIn("核心判断", result.prompt_preview)
 
 
+class CalibrationInjectionTests(unittest.TestCase):
+    def _seed(self, cpath: Path, vpath: Path) -> None:
+        # 估值切换：2 hit + 1 miss（n=3 >= min_n）
+        for i, v in enumerate(["hit", "hit", "miss"]):
+            _, ck = foresight.checkpoints.register_checkpoint(
+                cpath, claim=f"估值切换{i}", due="2026-01-01", category="估值切换",
+                ts=f"2026-06-1{i}T00:00:00",
+            )
+            foresight.checkpoints.record_verdict(vpath, id=ck["id"], verdict=v)
+        # 情绪扩散：1 hit（n=1 < min_n=2，不应注入）
+        _, ck = foresight.checkpoints.register_checkpoint(
+            cpath, claim="情绪扩散0", due="2026-01-01", category="情绪扩散", ts="2026-06-15T00:00:00",
+        )
+        foresight.checkpoints.record_verdict(vpath, id=ck["id"], verdict="hit")
+
+    def test_calibration_injected_and_counted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "checkpoints.jsonl"
+            vpath = Path(tmp) / "verdicts.jsonl"
+            self._seed(cpath, vpath)
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        use_corrections=False,
+                        use_judgments=False,
+                        checkpoints_file=str(cpath),
+                        verdicts_file=str(vpath),
+                        calibration_min_n=2,
+                    )
+                )
+        self.assertEqual(result.calibration_scored, 4)
+        self.assertEqual(result.calibration_shown, 1)  # 仅估值切换达 min_n
+        self.assertIn("二阶推演校准", result.prompt_preview)
+        self.assertIn("估值切换", result.prompt_preview)
+        self.assertNotIn("情绪扩散", result.prompt_preview)
+        self.assertIn("加权信任/质疑", render(result))
+
+    def test_no_calibration_flag_skips(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "checkpoints.jsonl"
+            vpath = Path(tmp) / "verdicts.jsonl"
+            self._seed(cpath, vpath)
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        use_corrections=False,
+                        use_judgments=False,
+                        checkpoints_file=str(cpath),
+                        verdicts_file=str(vpath),
+                        use_calibration=False,
+                    )
+                )
+        self.assertEqual(result.calibration_scored, 0)
+        self.assertEqual(result.calibration_shown, 0)
+        self.assertNotIn("二阶推演校准", result.prompt_preview)
+
+    def test_missing_files_are_silent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "nope.jsonl"
+            vpath = Path(tmp) / "nope2.jsonl"
+            with mock.patch.object(
+                foresight.llm_refine,
+                "complete",
+                return_value=(_canned_questions(8), _provider("deepseek"), ""),
+            ):
+                result = generate(
+                    ForesightOptions(
+                        n=3,
+                        candidates=8,
+                        use_memory=False,
+                        use_interactions=False,
+                        use_methodology=False,
+                        use_corrections=False,
+                        use_judgments=False,
+                        checkpoints_file=str(cpath),
+                        verdicts_file=str(vpath),
+                    )
+                )
+        self.assertEqual(result.calibration_shown, 0)
+        self.assertNotIn("二阶推演校准", result.prompt_preview)
+
+
 if __name__ == "__main__":
     unittest.main()

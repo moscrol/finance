@@ -100,6 +100,11 @@ def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--no-judgments", dest="use_judgments", action="store_false", help="不注入近期核心判断（默认注入）")
     parser.add_argument("--judgments-window", type=int, default=10, help="只注入最近 N 条核心判断（默认 10）")
     parser.set_defaults(use_judgments=True)
+    parser.add_argument("--checkpoints-file", default=None, help="可证伪点台账 jsonl（默认 users/<user>/checkpoints.jsonl，已 gitignore）")
+    parser.add_argument("--verdicts-file", default=None, help="回检打分台账 jsonl（默认 users/<user>/verdicts.jsonl，已 gitignore）")
+    parser.add_argument("--no-calibration", dest="use_calibration", action="store_false", help="不注入二阶推演校准（默认注入）")
+    parser.add_argument("--calibration-min-n", type=int, default=2, help="某类二阶推演至少回检 N 条才注入校准（默认 2）")
+    parser.set_defaults(use_calibration=True)
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON 而非 Markdown")
     parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
     parser.set_defaults(func=cmd_foresight)
@@ -264,6 +269,10 @@ def cmd_foresight(args: argparse.Namespace) -> int:
             judgments_file=args.judgments_file,
             use_judgments=args.use_judgments,
             judgments_window=args.judgments_window,
+            checkpoints_file=args.checkpoints_file,
+            verdicts_file=args.verdicts_file,
+            use_calibration=args.use_calibration,
+            calibration_min_n=args.calibration_min_n,
         )
     )
     if args.summary_json:
@@ -861,6 +870,284 @@ def cmd_theme(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
+def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "checkpoint",
+        help="可证伪点回检（C方案）：登记带到期日的判断 → 到期拉盘面/知识库核对对错打分 → "
+        "校准你哪类二阶推演靠谱，再回注 foresight 发问",
+    )
+    sub = parser.add_subparsers(dest="action", required=True)
+
+    p_reg = sub.add_parser("register", help="登记一个可证伪点（陈述 + 到期日 + 类别 + 可选机检规格）")
+    p_reg.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_reg.add_argument("--claim", required=True, help="可证伪陈述（必填）")
+    p_reg.add_argument("--due", required=True, help="到期回检日 YYYY-MM-DD（必填）")
+    p_reg.add_argument("--category", default=None, help="二阶推演类型（校准聚合维度，如 估值切换/产能时点/情绪扩散）")
+    p_reg.add_argument("--theme", dest="themes", action="append", default=[], help="关联题材（可多次）")
+    p_reg.add_argument("--stock", dest="stocks", action="append", default=[], help="关联个股（可多次）")
+    p_reg.add_argument("--metric-type", default=None, choices=["stock_return", "kb_evidence", "manual"], help="机检规格类型；缺省走人工判定")
+    p_reg.add_argument("--op", default=">=", choices=[">=", ">", "<=", "<", "=="], help="阈值比较符（默认 >=）")
+    p_reg.add_argument("--target", type=float, default=None, help="数值阈值（stock_return=涨幅%，kb_evidence=新增证据条数）")
+    p_reg.add_argument("--window-days", type=int, default=None, help="stock_return 回看窗口天数（默认 60）")
+    p_reg.add_argument("--target-name", default=None, help="机检主标的名（个股/题材/公司，缺省取首个 stock/theme）")
+    p_reg.add_argument("--from-judgment", default=None, help="反链 B 核心判断的 ts（可选）")
+    p_reg.add_argument("--session", default=None, help="来源会话 id（可选）")
+    p_reg.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
+    p_reg.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_reg.set_defaults(func=cmd_checkpoint_register)
+
+    p_due = sub.add_parser("due", help="列出到期且尚未拿到终态打分的检查点")
+    p_due.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_due.add_argument("--date", default=None, help="判定到期的基准日 YYYY-MM-DD（默认今天）")
+    p_due.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
+    p_due.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    p_due.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_due.set_defaults(func=cmd_checkpoint_due)
+
+    p_re = sub.add_parser("recheck", help="到期点交给 resolver 拉数核对（缺数据自动降级 unverifiable，绝不编造）")
+    p_re.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_re.add_argument("--id", default=None, help="只回检指定 id（缺省回检全部到期点）")
+    p_re.add_argument("--date", default=None, help="判定到期的基准日 YYYY-MM-DD（默认今天）")
+    p_re.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（盘面 resolver；本机有库才跑真数）")
+    p_re.add_argument("--kb-wiki", default=None, help="知识库 wiki 根（知识库 resolver；默认 env/auto）")
+    p_re.add_argument("--apply", action="store_true", help="真正把 verdict 落盘 verdicts.jsonl（缺省只预览）")
+    p_re.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
+    p_re.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    p_re.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_re.set_defaults(func=cmd_checkpoint_recheck)
+
+    p_score = sub.add_parser("score", help="人工给某检查点打分（机检规格为 manual 或机检无法判定时）")
+    p_score.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_score.add_argument("--id", required=True, help="目标检查点 id（必填）")
+    p_score.add_argument("--verdict", required=True, choices=["hit", "miss", "partial", "unverifiable"], help="判定结果")
+    p_score.add_argument("--score", type=float, default=None, help="覆盖分数（默认按 verdict 映射 hit=1/partial=0.5/miss=0）")
+    p_score.add_argument("--reason", default=None, help="判定理由（可选）")
+    p_score.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    p_score.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_score.set_defaults(func=cmd_checkpoint_score)
+
+    p_cal = sub.add_parser("calibrate", help="按类别聚合已回检判断的胜率，定位你哪类二阶推演靠谱/偏差")
+    p_cal.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_cal.add_argument("--date", default=None, help="判定到期/待回检的基准日 YYYY-MM-DD（默认今天）")
+    p_cal.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
+    p_cal.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    p_cal.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_cal.set_defaults(func=cmd_checkpoint_calibrate)
+
+    p_st = sub.add_parser("status", help="台账概览：登记数 / 待回检 / 已打分 / 暂无法判定")
+    p_st.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_st.add_argument("--date", default=None, help="判定到期的基准日 YYYY-MM-DD（默认今天）")
+    p_st.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
+    p_st.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    p_st.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_st.set_defaults(func=cmd_checkpoint_status)
+
+
+def _checkpoint_paths(args: argparse.Namespace) -> tuple[Path, Path]:
+    from intelligence import userspace
+
+    us = userspace.user_space(args.user)
+    cpath = Path(args.checkpoints_file).expanduser() if getattr(args, "checkpoints_file", None) else us.checkpoints_path
+    vpath = Path(args.verdicts_file).expanduser() if getattr(args, "verdicts_file", None) else us.verdicts_path
+    return cpath, vpath
+
+
+def cmd_checkpoint_register(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import checkpoints
+
+    cpath, _ = _checkpoint_paths(args)
+    metric: dict[str, object] | None = None
+    if args.metric_type:
+        metric = {"type": args.metric_type}
+        if args.metric_type != "manual":
+            metric["op"] = args.op
+            metric["target"] = args.target
+            if args.window_days is not None:
+                metric["window_days"] = args.window_days
+        if args.target_name:
+            metric["target_name"] = args.target_name
+    _, record = checkpoints.register_checkpoint(
+        cpath,
+        claim=args.claim,
+        due=args.due,
+        category=args.category,
+        themes=args.themes,
+        stocks=args.stocks,
+        metric=metric,
+        source_judgment_ts=args.from_judgment,
+        session_id=args.session,
+    )
+    if args.json:
+        print(_json.dumps({"path": str(cpath), "checkpoint": record}, ensure_ascii=False, indent=2))
+    else:
+        mtail = f"｜机检 {record['metric']['type']}" if record.get("metric") else "｜人工判定"
+        print(f"已登记可证伪点 {record['id']}（到期 {record['due']}{mtail}）")
+        print(f"  {record['claim']}")
+        print(f"  → 到期跑 `checkpoint recheck --user {args.user or 'default'} --apply`")
+    return 0
+
+
+def cmd_checkpoint_due(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import checkpoints
+
+    cpath, vpath = _checkpoint_paths(args)
+    cks, cwarn = checkpoints.load_checkpoints(cpath)
+    vds, vwarn = checkpoints.load_verdicts(vpath)
+    due = checkpoints.due_checkpoints(cks, vds, today=args.date)
+    if args.json:
+        print(_json.dumps({"date": args.date or checkpoints._today(), "due": due, "warnings": [w for w in (cwarn, vwarn) if w]}, ensure_ascii=False, indent=2))
+    else:
+        print(f"到期待回检 {len(due)} 条（基准日 {args.date or checkpoints._today()}）")
+        for c in due:
+            mt = (c.get("metric") or {}).get("type", "manual")
+            print(f"- {c['id']}｜到期 {c['due']}｜{c.get('category') or '未分类'}｜机检 {mt}")
+            print(f"    {c.get('claim')}")
+    return 0
+
+
+def cmd_checkpoint_recheck(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import checkpoints, checkpoint_resolvers
+
+    cpath, vpath = _checkpoint_paths(args)
+    cks, _ = checkpoints.load_checkpoints(cpath)
+    vds, _ = checkpoints.load_verdicts(vpath)
+    if args.id:
+        targets = [c for c in cks if str(c.get("id")) == args.id]
+    else:
+        targets = checkpoints.due_checkpoints(cks, vds, today=args.date)
+    results: list[dict[str, object]] = []
+    for c in targets:
+        outcome = checkpoint_resolvers.resolve_checkpoint(
+            c, db_path=args.db_path, wiki_root=args.kb_wiki,
+        )
+        entry: dict[str, object] = {
+            "id": c.get("id"),
+            "claim": c.get("claim"),
+            "verdict": outcome.verdict,
+            "score": outcome.score,
+            "data_source": outcome.data_source,
+            "reason": outcome.reason,
+            "observed": outcome.observed,
+            "applied": False,
+        }
+        if args.apply:
+            checkpoints.record_verdict(
+                vpath,
+                id=str(c.get("id")),
+                verdict=outcome.verdict,
+                score=outcome.score,
+                observed=outcome.observed,
+                data_source=outcome.data_source,
+                reason=outcome.reason,
+                auto=True,
+            )
+            entry["applied"] = True
+        results.append(entry)
+    if args.json:
+        print(_json.dumps({"applied": args.apply, "results": results}, ensure_ascii=False, indent=2))
+    else:
+        verb = "回检并落盘" if args.apply else "回检（预览，未落盘；加 --apply 落盘）"
+        print(f"{verb} {len(results)} 条")
+        for r in results:
+            print(f"- {r['id']}｜{r['verdict']}（{r['data_source']}）：{r['reason']}")
+        if not args.apply and results:
+            print("加 --apply 把以上 verdict 写入 verdicts.jsonl")
+    return 0
+
+
+def cmd_checkpoint_score(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import checkpoints
+
+    _, vpath = _checkpoint_paths(args)
+    _, record = checkpoints.record_verdict(
+        vpath,
+        id=args.id,
+        verdict=args.verdict,
+        score=args.score,
+        data_source="manual",
+        reason=args.reason or "",
+        auto=False,
+    )
+    if args.json:
+        print(_json.dumps({"path": str(vpath), "verdict": record}, ensure_ascii=False, indent=2))
+    else:
+        print(f"已人工打分 {record['id']}｜{record['verdict']}（分数 {record['score']}）")
+    return 0
+
+
+def cmd_checkpoint_calibrate(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import checkpoints
+
+    cpath, vpath = _checkpoint_paths(args)
+    cal, warnings = checkpoints.load_calibration(cpath, vpath, today=args.date)
+    if args.json:
+        print(_json.dumps(
+            {
+                "scored": cal.scored,
+                "pending": cal.pending,
+                "unverifiable": cal.unverifiable,
+                "overall_rate": round(cal.overall_rate, 4),
+                "by_category": [
+                    {
+                        "category": s.category,
+                        "n": s.n,
+                        "hits": s.hits,
+                        "partial": s.partial,
+                        "miss": s.miss,
+                        "hit_rate": round(s.hit_rate, 4),
+                        "reliability": s.reliability,
+                        "samples": s.samples,
+                    }
+                    for s in cal.by_category
+                ],
+                "warnings": warnings,
+            },
+            ensure_ascii=False, indent=2,
+        ))
+    else:
+        print(checkpoints.render_report(cal), end="")
+    return 0
+
+
+def cmd_checkpoint_status(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import checkpoints
+
+    cpath, vpath = _checkpoint_paths(args)
+    cks, cwarn = checkpoints.load_checkpoints(cpath)
+    vds, vwarn = checkpoints.load_verdicts(vpath)
+    cal = checkpoints.calibrate(cks, vds, today=args.date)
+    payload = {
+        "checkpoints": len(cks),
+        "verdicts": len(vds),
+        "scored": cal.scored,
+        "pending": cal.pending,
+        "unverifiable": cal.unverifiable,
+        "checkpoints_path": str(cpath),
+        "verdicts_path": str(vpath),
+        "warnings": [w for w in (cwarn, vwarn) if w],
+    }
+    if args.json:
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print(f"可证伪点台账：登记 {payload['checkpoints']} 条 · 已打分 {payload['scored']} 条 · "
+              f"待回检 {payload['pending']} 条 · 暂无法判定 {payload['unverifiable']} 条")
+        print(f"  checkpoints: {cpath}")
+        print(f"  verdicts:    {vpath}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -879,6 +1166,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_dream_kb_candidates_parser(subparsers)
     add_dream_nightly_parser(subparsers)
     add_subconscious_parser(subparsers)
+    add_checkpoint_parser(subparsers)
     return parser
 
 

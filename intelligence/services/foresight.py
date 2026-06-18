@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence import userspace
-from intelligence.services import corrections, interactions, judgments, llm_refine
+from intelligence.services import checkpoints, corrections, interactions, judgments, llm_refine
 from intelligence.services.ask import load_theme_candidates
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -66,6 +66,10 @@ class ForesightOptions:
     judgments_file: str | Path | None = None
     use_judgments: bool = True
     judgments_window: int = 10
+    checkpoints_file: str | Path | None = None
+    verdicts_file: str | Path | None = None
+    use_calibration: bool = True
+    calibration_min_n: int = 2
 
 
 @dataclass
@@ -106,6 +110,8 @@ class ForesightResult:
     corrections_loaded: int = 0
     judgments_path: str | None = None
     judgments_loaded: int = 0
+    calibration_scored: int = 0
+    calibration_shown: int = 0
 
     @property
     def status(self) -> str:
@@ -504,6 +510,13 @@ def _judgments_path(options: ForesightOptions) -> Path:
     return userspace.user_space(options.user).judgments_path
 
 
+def _checkpoint_paths(options: ForesightOptions) -> tuple[Path, Path]:
+    us = userspace.user_space(options.user)
+    cpath = Path(options.checkpoints_file).expanduser() if options.checkpoints_file else us.checkpoints_path
+    vpath = Path(options.verdicts_file).expanduser() if options.verdicts_file else us.verdicts_path
+    return cpath, vpath
+
+
 def _compose_system_prompt(options: ForesightOptions, result: ForesightResult) -> str:
     """基线人设 + 思考宪法（方法论）+ 纠偏记录，拼成本轮真正发给 LLM 的系统提示词。
 
@@ -544,6 +557,18 @@ def _compose_system_prompt(options: ForesightOptions, result: ForesightResult) -
             prompt += (
                 "\n\n==== 我近期的核心判断（承接这些判断往前推一层或找它的反例，别从零重述）====\n"
                 + jrendered
+            )
+    if options.use_calibration:
+        cpath, vpath = _checkpoint_paths(options)
+        cal, cal_warns = checkpoints.load_calibration(cpath, vpath)
+        result.warnings.extend(cal_warns)
+        result.calibration_scored = cal.scored
+        cal_rendered = checkpoints.render_calibration_for_prompt(cal, options.calibration_min_n)
+        if cal_rendered:
+            result.calibration_shown = sum(1 for s in cal.by_category if s.n >= options.calibration_min_n)
+            prompt += (
+                "\n\n==== 你的二阶推演校准（哪类判断历史靠谱/偏差，发问时据此加权信任或质疑）====\n"
+                + cal_rendered
             )
     return prompt
 
@@ -795,6 +820,11 @@ def render(result: ForesightResult) -> str:
         lines.append(
             f"> 旧判断：承接 {result.judgments_loaded} 条核心判断往前推（不从零重述）"
         )
+    if result.calibration_shown:
+        lines.append(
+            f"> 校准：按你 {result.calibration_shown} 类二阶推演的历史胜率加权信任/质疑"
+            f"（已回检 {result.calibration_scored} 条）"
+        )
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
 
@@ -851,6 +881,8 @@ def result_to_dict(result: ForesightResult) -> dict[str, Any]:
         "corrections_loaded": result.corrections_loaded,
         "judgments_path": result.judgments_path,
         "judgments_loaded": result.judgments_loaded,
+        "calibration_scored": result.calibration_scored,
+        "calibration_shown": result.calibration_shown,
         "questions": [
             {
                 "question": q.question,
