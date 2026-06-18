@@ -484,18 +484,25 @@ class MarketLiveToolTests(unittest.TestCase):
         self.assertIsNone(match("", ["液冷服务器"]))  # 空词
 
     def test_degrades_on_broken_db_and_query_error(self) -> None:
-        # (a) 损坏库：路径在但不是合法 DuckDB → 优雅降级，工具不注册，默认 6 件套不变
+        # (a) 损坏库：文件在但不是合法 DuckDB。§2 设计下 _market_live_available 只判断「文件存在」，
+        # 故工具仍注册；降级延迟到调用时——health() 打不开库 → 返回降级提示，不抛、不污染来源/引用。
         broken = str(Path(self._tmp.name) / "broken.duckdb")
         Path(broken).write_bytes(b"not a duckdb file at all")
         s_broken = _session(market_db_path=broken)
-        self.assertFalse(s_broken._market_live_available)
-        self.assertEqual(len(s_broken._tools), 6)
-        self.assertNotIn("search_market_live", {t["function"]["name"] for t in s_broken._tools})
+        self.assertTrue(s_broken._market_live_available)  # 纯文件判断：文件存在即 True
+        self.assertEqual(len(s_broken._tools), 7)
+        out_broken = s_broken.tool_search_market_live("液冷")
+        self.assertIn("实时盘面不可用", out_broken)
+        self.assertNotIn("S", s_broken.sources_used)
+        self.assertEqual(s_broken.citations, [])
 
         # (b) 查询期异常守护：库可用但底层查询抛错 → 返回降级提示，不抛、不污染来源/引用
         s_ok = _session(market_db_path=self.db_path)
         self.assertTrue(s_ok._market_live_available)
-        with mock.patch.object(type(s_ok._market_adapter), "get_market_daily", side_effect=RuntimeError("boom")):
+        with mock.patch(
+            "intelligence.adapters.market.MarketAdapter.get_market_daily",
+            side_effect=RuntimeError("boom"),
+        ):
             out = s_ok.tool_search_market_live("液冷")
         self.assertIn("实时盘面查询失败", out)
         self.assertNotIn("S", s_ok.sources_used)

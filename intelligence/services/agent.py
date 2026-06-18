@@ -26,6 +26,7 @@ Design constraints (same discipline as the rest of the `ask` stack):
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -262,8 +263,9 @@ class AgentSession:
         self.citations: list[Citation] = []
         self.sources_used: set[str] = set()
         self._export_name: str | None = None
-        # P2.5 opt-in：解析一次本地盘面库（缺路径/缺库/打不开 → None，工具不注册）
-        self._market_adapter: "MarketAdapter | None" = self._resolve_market_db()
+        # P2.5 opt-in：开会话时只解析一次本地盘面库**路径**（不 import duckdb、不开库、不 health）。
+        # 是否真正可用由 _market_live_available 纯文件判断；duckdb 导入+health 延迟到工具调用时。
+        self._market_db_path: Path | None = self._resolve_market_db_path()
         # multi-turn conversation state (持续对话 + 跨轮证据复用)
         self.messages: list[dict] | None = None
         self.provider_name: str | None = None
@@ -276,29 +278,29 @@ class AgentSession:
         return f"[{tag}]"
 
     # --- P2.5 实时盘面（opt-in，只读 DuckDB）---
-    def _resolve_market_db(self) -> "MarketAdapter | None":
-        """仅当 ``market_db_path`` 已配置、路径存在、duckdb 库可导入且库能打开（health ok）
-        时返回 :class:`MarketAdapter`；否则 ``None`` → :pyattr:`_tools` 不追加
-        ``search_market_live``，默认 6 件套逐字节不变。任何异常都吞掉走降级（损坏库守护）。"""
-        raw = self.options.market_db_path
-        if not raw:
-            return None
-        path = Path(raw).expanduser()
-        if not path.exists():
-            return None
+    def _resolve_market_db_path(self) -> Path | None:
+        """解析本地盘面库路径，顺序 = ``options.market_db_path`` → 环境变量
+        ``MARKET_FEATURE_STORE_DB`` → ``market_feature_store`` 包默认库
+        （``PROJECT_DIR/db/market_feature_store.duckdb``）。**刻意不 import duckdb**，
+        只 import duckdb-free 的 ``market_feature_store`` 包定位默认路径 → agent 在
+        无 duckdb 环境仍可导入。解析不出返回 ``None``；是否真可用由
+        :pyattr:`_market_live_available` 纯文件判断。任何异常都吞掉（走降级）。"""
+        raw = self.options.market_db_path or os.environ.get("MARKET_FEATURE_STORE_DB")
+        if raw:
+            return Path(raw).expanduser()
         try:
-            from intelligence.adapters.market import MarketAdapter
+            import market_feature_store  # duckdb-free 包入口，仅用于定位默认库路径
 
-            adapter = MarketAdapter(db_path=path)
-            if not adapter.health().get("ok"):
-                return None
-            return adapter
+            pkg_dir = Path(market_feature_store.__file__).resolve().parent
+            return pkg_dir.parent / "db" / "market_feature_store.duckdb"
         except Exception:
             return None
 
     @property
     def _market_live_available(self) -> bool:
-        return self._market_adapter is not None
+        """opt-in 闸门：盘面库文件存在且是普通文件才 True（纯文件判断，不 import duckdb、不开库）。"""
+        path = self._market_db_path
+        return path is not None and path.exists() and path.is_file()
 
     @property
     def _tools(self) -> list[dict]:
@@ -460,9 +462,19 @@ class AgentSession:
         """实时直连本地 DuckDB 取某题材当日盘面（大盘环境 + 双红/涨停热度命中 + 题材个股），
         引用复用 [S#]。库不可用（理论上工具此时也不会注册）或查询出错时优雅降级回提示，
         不抛异常、不污染来源标记。"""
-        adapter = self._market_adapter
-        if adapter is None:
-            return "实时盘面不可用：未配置 market_db_path 或本地 DuckDB 打不开；请改用 search_market_snapshot。"
+        if not self._market_live_available:
+            return "实时盘面不可用：未配置 market_db_path / 找不到本地盘面库；请改用 search_market_snapshot。"
+        try:  # 延迟到调用时才 import duckdb（经 MarketAdapter）并 health 探活；缺库/缺依赖/打不开 → 降级
+            from intelligence.adapters.market import MarketAdapter
+
+            adapter = MarketAdapter(db_path=self._market_db_path)
+            if not adapter.health().get("ok"):
+                return "实时盘面不可用：本地 DuckDB 打不开（health 失败）；请改用 search_market_snapshot。"
+        except Exception as exc:  # 缺 duckdb 依赖 / 损坏库 / 打开异常：守护降级，不抛
+            return (
+                f"实时盘面不可用（{type(exc).__name__}）：{str(exc)[:120]}；"
+                "请改用 search_market_snapshot。"
+            )
         term = (theme or self.options.query or "").strip()
         trade_date = date or self.options.date
         try:
