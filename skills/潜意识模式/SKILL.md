@@ -18,6 +18,18 @@ description: 可开关的会话级记忆巩固模式——开启后由 foresight
 2. **真相源单向**：jsonl → Obsidian 自动写；反向（你在 Obsidian 里钉/改 → 升级「钉住画像」）走显式确认，不双向自动同步。
 3. **user-id 固定**：必须定 `--user`（或 env `FORESIGHT_USER`），不固定会把记忆记串到 `default`。
 
+## 跨机同步（两机一个大脑）
+
+机器层（`interactions.jsonl` 等）默认落在仓库 `intelligence/users/<id>/`，`git pull` **不会**带过去（已 gitignore）。要让两台机器共享同一个大脑（profile / 派生画像 / 问题记忆 / interactions / 会话 buffer 全跟随），设环境变量 `FORESIGHT_USERS_DIR` 指向云同步盘里的隐藏目录（Obsidian 不显示 `.` 开头目录），两机都这样配：
+
+```bash
+export FORESIGHT_USER=<id>
+export SUBCONSCIOUS_VAULT=~/路径/到/沉淀vault
+export FORESIGHT_USERS_DIR="$SUBCONSCIOUS_VAULT/.foresight"   # 大脑目录随 vault 一处云同步
+```
+
+vault 用 Obsidian Sync / iCloud / 坚果云等同步，两机即自动共享。不设 `FORESIGHT_USERS_DIR` 则保持单机（仓库内）。`subconscious start` / `status` 会打印「大脑目录」并标注是否跨机同步。
+
 ## 流程（在仓库根目录运行）
 
 ### 1）开启
