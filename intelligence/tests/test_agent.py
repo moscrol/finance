@@ -7,6 +7,7 @@ from unittest import mock
 from intelligence.services import agent, kb_rag, llm_refine
 from intelligence.services.agent import AGENT_TOOLS, AgentSession
 from intelligence.services.ask import AskOptions
+from intelligence.services.skill_tools import SkillResult
 from intelligence.services.llm_refine import LLMProvider
 
 
@@ -67,7 +68,7 @@ class ToolSchemaTests(unittest.TestCase):
         names = {t["function"]["name"] for t in AGENT_TOOLS}
         self.assertEqual(
             names,
-            {"search_market_snapshot", "search_graph", "search_evidence", "search_wiki", "run_theme_module"},
+            {"search_market_snapshot", "search_graph", "search_evidence", "search_wiki", "run_theme_module", "run_skill"},
         )
         for t in AGENT_TOOLS:
             self.assertEqual(t["type"], "function")
@@ -117,6 +118,46 @@ class ToolBehaviourTests(unittest.TestCase):
         s = _session()
         out = s.tool_run_theme_module("does-not-exist")
         self.assertIn("未知模块", out)
+
+    def test_run_skill_rejects_unknown(self) -> None:
+        s = _session()
+        out = s.tool_run_skill("does-not-exist")
+        self.assertIn("未知 skill", out)
+        self.assertEqual(s.citations, [])
+
+    def test_run_skill_cites_g_and_marks_source(self) -> None:
+        s = _session()
+        fake = SkillResult(
+            name="serenity-alpha",
+            ok=True,
+            title="液冷 弹性/预期差候选（2 家）",
+            highlights=[
+                "概念定位：主匹配 液冷；命中 液冷、液冷温控",
+                "候选 英维克（002837｜core｜证据5｜逻辑卡✓｜直接）：液冷温控龙头",
+            ],
+            follow_ups=["英维克 的最新逻辑卡/证据硬不硬", "横向比较候选池近 5/10/20 日涨幅"],
+            citation_source="serenity-alpha · serenity_context.py（本地 wiki·只读）",
+            citation_detail="--term 液冷",
+            command="serenity_context.py --term 液冷 --vault <kb-wiki> --format json",
+        )
+        with mock.patch.object(agent, "run_skill", return_value=fake):
+            out = s.tool_run_skill("serenity-alpha", "液冷")
+        self.assertIn("serenity-alpha", out)
+        self.assertIn("候选 英维克", out)
+        self.assertIn("可继续追问", out)
+        self.assertIn("[G1]", out)
+        self.assertEqual(s.citations[0].tag, "G1")
+        self.assertIn("serenity-alpha", s.citations[0].source)
+        self.assertIn("skill", s.sources_used)
+
+    def test_run_skill_degrades_when_no_output(self) -> None:
+        s = _session()
+        fake = SkillResult(name="serenity-alpha", ok=False, warning="知识库未命中该词")
+        with mock.patch.object(agent, "run_skill", return_value=fake):
+            out = s.tool_run_skill("serenity-alpha", "不存在的词")
+        self.assertIn("无产出", out)
+        self.assertNotIn("skill", s.sources_used)
+        self.assertEqual(s.citations, [])
 
 
 class AgentLoopTests(unittest.TestCase):

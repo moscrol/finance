@@ -39,6 +39,7 @@ from intelligence.services.ask import (
     load_theme_candidates,
     match_candidate,
 )
+from intelligence.services.skill_tools import ALL_SKILLS, run_skill, skill_descriptions
 from intelligence.services.theme_modules import ALL_MODULES, run_module
 
 DEFAULT_MAX_STEPS = 6
@@ -70,6 +71,11 @@ _MODULE_DESC = (
     "运行一个题材模块并返回其要点（带 [G#] 引用）。module 取值："
     "brief=产业维速览(产业链分层+核心个股)、front-map=前瞻信息地图、deep-dive=题材深拆、"
     "replay=时间维发酵复盘(带日期的硬证据时间线)、scan=全库横扫、migrate=横向迁移对标。"
+)
+
+_SKILL_DESC = (
+    "运行一个只读本地 skill（纯读知识库 wiki、不联网、不写库），返回要点（带 [G#] 引用）。可选："
+    + skill_descriptions()
 )
 
 AGENT_TOOLS: list[dict] = [
@@ -158,6 +164,25 @@ AGENT_TOOLS: list[dict] = [
                     "query": {"type": "string", "description": "题材词；留空则用本轮问题"},
                 },
                 "required": ["module"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_skill",
+            "description": _SKILL_DESC,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "skill": {
+                        "type": "string",
+                        "enum": list(ALL_SKILLS),
+                        "description": "skill 名",
+                    },
+                    "query": {"type": "string", "description": "题材/概念词；留空则用本轮问题"},
+                },
+                "required": ["skill"],
             },
         },
     },
@@ -347,6 +372,24 @@ class AgentSession:
             lines.append("可继续追问：" + "；".join(mr.follow_ups[:3]))
         return "\n".join(lines)
 
+    def tool_run_skill(self, skill: str, query: str | None = None) -> str:
+        if skill not in ALL_SKILLS:
+            return f"未知 skill「{skill}」；可选：{'、'.join(ALL_SKILLS)}"
+        sr = run_skill(skill, query or self.options.query, self.options.kb_wiki, self.options.module_timeout)
+        if not sr.ok or not sr.highlights:
+            return f"skill {skill} 无产出：{sr.warning or '无产出'}"
+        self.sources_used.add("skill")
+        tag = self._cite(
+            "G",
+            sr.citation_source,
+            f"{sr.command}" + (f" | {sr.citation_detail}" if sr.citation_detail else ""),
+        )
+        lines = [f"skill {skill}（{sr.title}）："]
+        lines.extend(f"{hl} {tag}" for hl in sr.highlights)
+        if sr.follow_ups:
+            lines.append("可继续追问：" + "；".join(sr.follow_ups[:3]))
+        return "\n".join(lines)
+
     @property
     def _dispatch(self) -> dict[str, Callable[..., str]]:
         return {
@@ -355,6 +398,7 @@ class AgentSession:
             "search_evidence": self.tool_search_evidence,
             "search_wiki": self.tool_search_wiki,
             "run_theme_module": self.tool_run_theme_module,
+            "run_skill": self.tool_run_skill,
         }
 
     def _run_tool(self, name: str, args: dict[str, Any]) -> str:
