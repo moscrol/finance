@@ -341,6 +341,7 @@ class AgentSession:
             mode=self.options.wiki_rag_mode,
             timeout=self.options.wiki_rag_timeout,
             excerpt_chars=self.options.wiki_rag_excerpt,
+            index_dir=self.options.wiki_rag_index_dir,
         )
         if not wr.ok:
             return f"wiki 语义召回不可用：{wr.warning or '未知原因'}"
