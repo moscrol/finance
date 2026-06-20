@@ -43,16 +43,22 @@ python3 -m market_feature_store.cli sync-stock-daily --start-date YYYY-MM-DD --o
 python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD --stock-source mootdx
 ```
 
-## Current known state from 2026-06-15
+## Current known state from 2026-06-20
 
-Calendar baseline: `fact_market_daily` has 348 trading days with `total_amount`, from `2025-01-02` to `2026-06-12`.
+Calendar baseline: `calendar_with_amount` 352 trading days, `2025-01-02` ~ `2026-06-18`.
 
-- Complete: `fact_sector_daily`, `fact_stock_daily`, `fact_sw_l1_daily`, `fact_limit_advance_presence`.
-- Partial: `fact_stock_high_daily`, 214 covered calendar dates, 134 missing calendar dates after the 2026-06-15 backfill session; next non-skipped missing starts at `2025-07-14`.
-- Heavy gaps: `fact_sector_stock_daily`, `fact_theme_limit_heat_daily`, `fact_theme_limit_stock_daily`.
+- **Complete (missing=0)**: `fact_sector_daily` (357 dates), `fact_sector_stock_daily` (352), `fact_stock_daily` (352), `fact_stock_high_daily` (352), `fact_limit_advance_presence` (352), `fact_sw_l1_daily` (354).
+- **Partial**: `fact_theme_limit_heat_daily` (343 dates, 9 missing: `2025-05-27`, `2025-06-18`, `2025-07-29~31` 等), `fact_theme_limit_stock_daily` (342 dates, 10 missing).
+- **Sparse by design**: `fact_limit_advance_daily` (296 dates, 56 "missing" 多为无连板数据的日期).
 - Known stock-high hang dates: `2025-03-05`, `2025-03-06`.
 - Known stock-high CDP 500 dates in bad proxy/API sessions: `2025-03-21`, `2025-03-24`, `2025-03-25`, `2025-04-14`, `2025-04-17`, `2025-04-18`, `2025-04-21`, `2025-04-22`, `2025-04-23`, `2025-04-24`, `2025-04-25`, `2025-04-28`, `2025-04-29`, `2025-04-30`.
 - Known stock-high timeout dates after proxy ready: `2025-03-21`, `2025-03-26` timed out at 180s via `run_stock_high_missing.py`.
 - Stock-high skipped dates are stored in `skills/duckdb-backfill/state/stock_high_skip.txt`; `run_stock_high_missing.py` reads this file by default and `--record-failures` appends newly failed dates.
 - Known limit-heat blocker: `sync-limit-heat --trade-date 2025-01-02 --detail-chunk 3 --sleep 0.1` hung with CPU 0 and wrote no rows.
 - Known sector-stock behavior: `sync-sector-stocks --trade-date 2025-01-02 --limit 20 --sleep 0.1` wrote 13 sectors / 2066 rows before termination.
+
+## 前置检查清单（每次 daily-full 前）
+
+1. **CDP proxy 已启动**：`curl -s http://localhost:3456/targets` 返回 JSON 数组
+2. **Chrome 已登录 fupanhui.com**：CDP proxy 依赖 fupanhui 登录态
+3. **审计当前覆盖**：`python3 skills/duckdb-backfill/scripts/audit_coverage.py`
