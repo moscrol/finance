@@ -23,6 +23,21 @@ git branch --show-current
 
 Do not stage DB files or generated exports. DuckDB writes are local state changes; keep source edits separate from data sync.
 
+## CDP proxy 前置
+
+`daily-full` 中的多个 sync 步骤（sync-sectors、sync-market-overview、sync-market-deviation、sync-sector-daily、sync-limit-heat、sync-stock-high、sync-limit-advance）依赖 CDP proxy（localhost:3456）。运行 `daily-full` 前必须确保 CDP proxy 已启动：
+
+```bash
+# 检查 Chrome DevToolsActivePort 是否存在（必须已启动 Chrome）
+cat ~/Library/Application\ Support/Google/Chrome/DevToolsActivePort
+# 启动 CDP proxy
+node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs
+# 验证
+curl -s http://localhost:3456/targets
+```
+
+如果不启动 CDP proxy，上述 7 个步骤会全部报错 `无法连接 CDP proxy`，但其余步骤（sync-market-daily、sync-index-daily、sync-sector-stocks、sync-sector-resonance、advancers-chart）不依赖 CDP，会正常完成。
+
 ## Core rules
 
 - **Audit first**: Run `python3 skills/duckdb-backfill/scripts/audit_coverage.py` before writing.
@@ -36,6 +51,15 @@ Do not stage DB files or generated exports. DuckDB writes are local state change
 ## Backfill runbook（顺序 / 常用命令 / 已知覆盖状态）
 
 回补 runbook（按表顺序：日历/基础 fact → 轻表 → stock_high 中表 → limit_heat/sector_stock 重表；常用 CLI 命令清单；以及 2026-06-15 起的已知覆盖状态、卡死/超时/CDP 500 日期与 skip 文件）见 `references/backfill-runbook.md`。回补前加载，按顺序小批执行。
+
+## 已知问题（2026-06-20 更新）
+
+- **sync-market-deviation tooltip 提取失败**：`sync-market-deviation` 通过 hover K 线图 tooltip 提取周均线/偏离度，偶发失败。Fallback：手动查询最近 5 个交易日上证收盘价，计算 MA5，然后直接 SQL 写入：
+  ```sql
+  UPDATE fact_market_daily SET sh_week_ma = <MA5>, sh_deviation_pct = <dev> WHERE trade_date = 'YYYY-MM-DD'
+  ```
+- **sync-stock-daily 东财快照 502**：东财 `push2.eastmoney.com` API 从 Mac 偏发性返回 502。通常重试可解，也可用 `--stock-source mootdx` 回退。
+- **sync-sw-l1-daily SSL 错误**：swsresearch.com 的 SSL 连接偏发性失败，重试通常可解。
 
 ## Iteration rule
 

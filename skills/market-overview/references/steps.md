@@ -74,19 +74,13 @@ canvas.dispatchEvent(new MouseEvent("mousemove", {clientX: x, clientY: y, bubble
 量能状态范围：`<85%` 缩量 | `85-115%` 正常 | `115-120%` 放量 | `>120%` 大幅放量
 集中度范围：`<35%` 分散 | `35-45%` 正常 | `>45%` 集中
 
-### Step 4: Write to Feishu
+### ~~Step 4: Write to Feishu~~（已废弃）
 
-写入两个飞书 Bitable 表。写入前按日期查重。
+> **已废弃。** 复盘数据统一走 `daily-full` → DuckDB 路径，不再写入飞书 Bitable。
 
-详细表结构、字段和写入流程见 `references/feishu_write.md`，凭证从 `~/.claude/shared/feishu_config.json` 读取。
+### ~~Step 5: Verify & Patch~~（已废弃）
 
-### Step 5: Verify & Patch
-
-```bash
-python3 /Users/lbq/Desktop/c c/金融/skills/market-overview/scripts/verify_and_patch.py YY-MM-DD
-```
-
-检查白名单字段（`周均线`、`偏离度`）是否为空，空则定向重抓。
+> **已废弃。** 用 `audit_coverage.py` 检查 DuckDB 覆盖替代。
 
 ### Step 6: Clean Up
 
