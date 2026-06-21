@@ -28,6 +28,19 @@
       "notes": "只读扫描，可以作为每日入口。"
     },
     {
+      "id": "agent_daily",
+      "label": "每日 Agent 简报",
+      "kind": "known_workflow",
+      "description": "读取每日复盘产物、知识库关系面和逻辑-盘面匹配结果，生成只读研究员简报和回补等待队列。",
+      "triggers": ["每日 agent", "agent-daily", "daily agent", "日常入口", "agent 简报", "今天该看什么", "驾驶舱 agent"],
+      "inputs": ["date", "knowledge_wiki", "top_per_date"],
+      "outputs": ["daily-agent.json", "daily-agent.md"],
+      "command_template": "python3 -m intelligence.cli agent-daily --date {date} --kb-wiki {knowledge_wiki}",
+      "auto_execute": true,
+      "risk_level": "low",
+      "notes": "只读聚合，不自动回补；用于把已有驾驶舱产物转成每日判断和任务分发。"
+    },
+    {
       "id": "morning_briefing_ingest",
       "label": "晨汇入库",
       "kind": "known_workflow",

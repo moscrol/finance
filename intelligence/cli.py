@@ -353,6 +353,25 @@ def add_logic_match_batch_parser(subparsers: argparse._SubParsersAction) -> None
     parser.set_defaults(func=cmd_logic_match_batch)
 
 
+def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "agent-daily",
+        help="每日 agent 入口：读取日常复盘/知识库/逻辑盘面匹配，生成只读研究员简报；不自动回补。",
+    )
+    parser.add_argument("--date", required=True, help="交易日 YYYY-MM-DD")
+    parser.add_argument("--finance-root", default=None, help="覆盖金融仓路径")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；默认走 env/auto")
+    parser.add_argument("--recent", type=int, default=1, help="扫描截至该日期的最近 N 个 theme-candidates；默认只扫当日")
+    parser.add_argument("--top-per-date", type=int, default=10, help="每个日期扫描 priority_score 最高的 N 个候选")
+    parser.add_argument("--top-companies", type=int, default=8, help="每个候选最多返回公司暴露/强势股数量")
+    parser.add_argument("--max-evidence", type=int, default=5, help="每个候选最多返回 evidence 条数")
+    parser.add_argument("--out-json", default=None, help="写出 agent 日报 JSON")
+    parser.add_argument("--out-md", default=None, help="写出 agent 日报 Markdown")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON；否则输出 Markdown")
+    parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
+    parser.set_defaults(func=cmd_daily_agent)
+
+
 def cmd_route(args: argparse.Namespace) -> int:
     import json as _json
 
@@ -427,6 +446,39 @@ def cmd_logic_match_batch(args: argparse.Namespace) -> int:
         print(_json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     else:
         print(answer, end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def cmd_daily_agent(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.paths import default_paths
+    from intelligence.workflows.daily_agent import DailyAgentOptions, run_daily_agent, write_daily_agent_outputs
+
+    summary, report, answer = run_daily_agent(
+        DailyAgentOptions(
+            date=args.date,
+            finance_root=args.finance_root,
+            kb_wiki=args.kb_wiki,
+            recent=args.recent,
+            top_per_date=args.top_per_date,
+            top_companies=args.top_companies,
+            max_evidence=args.max_evidence,
+        )
+    )
+    paths = default_paths()
+    finance_root = Path(args.finance_root).expanduser() if args.finance_root else paths.finance_root
+    out_json = Path(args.out_json).expanduser() if args.out_json else finance_root / "market_feature_store" / "exports" / f"{args.date}-daily-agent.json"
+    out_md = Path(args.out_md).expanduser() if args.out_md else finance_root / "market_feature_store" / "exports" / f"{args.date}-daily-agent.md"
+    write_daily_agent_outputs(report, answer, out_json, out_md)
+    summary.outputs.extend([str(out_json), str(out_md)])
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    if args.json:
+        print(_json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        print(answer, end="")
+        print(f"\n输出: {out_md}\n输出: {out_json}")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
@@ -1618,6 +1670,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_route_parser(subparsers)
     add_logic_match_parser(subparsers)
     add_logic_match_batch_parser(subparsers)
+    add_daily_agent_parser(subparsers)
     add_foresight_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)
