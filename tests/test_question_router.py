@@ -31,6 +31,7 @@ class QuestionRouterTest(unittest.TestCase):
         self.assertIn("concept_backfill", ids)
         self.assertIn("source_backfill", ids)
         self.assertIn("daily_ops_ledger", ids)
+        self.assertIn("logic_match_batch", ids)
 
     def test_bare_theme_uses_planner(self):
         decision = route_question("液冷服务器")

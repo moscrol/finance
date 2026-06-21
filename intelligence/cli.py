@@ -334,6 +334,25 @@ def add_logic_match_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(func=cmd_logic_match)
 
 
+def add_logic_match_batch_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "logic-match-batch",
+        help="批量逻辑-盘面匹配：扫描最近/指定 theme-candidates，生成高优先级补数据队列。",
+    )
+    parser.add_argument("--dates", default=None, help="逗号分隔日期列表；为空则使用最近 N 个 theme-candidates")
+    parser.add_argument("--recent", type=int, default=5, help="未指定 --dates 时扫描最近 N 个日期")
+    parser.add_argument("--top-per-date", type=int, default=10, help="每个日期扫描 priority_score 最高的 N 个候选")
+    parser.add_argument("--exports-dir", default=None, help="覆盖 market_feature_store/exports 目录")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；默认走 env/auto")
+    parser.add_argument("--top-companies", type=int, default=8, help="每个候选最多返回公司暴露/强势股数量")
+    parser.add_argument("--max-evidence", type=int, default=5, help="每个候选最多返回 evidence 条数")
+    parser.add_argument("--out-json", default=None, help="写出批量结果 JSON")
+    parser.add_argument("--out-md", default=None, help="写出批量结果 Markdown")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
+    parser.set_defaults(func=cmd_logic_match_batch)
+
+
 def cmd_route(args: argparse.Namespace) -> int:
     import json as _json
 
@@ -358,6 +377,38 @@ def cmd_logic_match(args: argparse.Namespace) -> int:
         LogicMatchOptions(
             query=args.query,
             date=args.date,
+            exports_dir=args.exports_dir,
+            kb_wiki=args.kb_wiki,
+            top_companies=args.top_companies,
+            max_evidence=args.max_evidence,
+        )
+    )
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    if args.out_json:
+        Path(args.out_json).expanduser().parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out_json).expanduser().write_text(result.to_json() + "\n", encoding="utf-8")
+    if args.out_md:
+        Path(args.out_md).expanduser().parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out_md).expanduser().write_text(answer, encoding="utf-8")
+    if args.json:
+        print(_json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(answer, end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def cmd_logic_match_batch(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.workflows.logic_match import LogicMatchBatchOptions, run_logic_match_batch
+
+    dates = tuple(item.strip() for item in args.dates.split(",") if item.strip()) if args.dates else ()
+    summary, result, answer = run_logic_match_batch(
+        LogicMatchBatchOptions(
+            dates=dates,
+            recent=args.recent,
+            top_per_date=args.top_per_date,
             exports_dir=args.exports_dir,
             kb_wiki=args.kb_wiki,
             top_companies=args.top_companies,
@@ -1566,6 +1617,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_agent_eval_parser(subparsers)
     add_route_parser(subparsers)
     add_logic_match_parser(subparsers)
+    add_logic_match_batch_parser(subparsers)
     add_foresight_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)

@@ -136,18 +136,19 @@ def route_question(query: str, registry: list[PathSpec] | None = None) -> RouteD
     has_data_gap = any(normalize(token) in q_norm for token in DATA_GAP_TRIGGERS)
 
     if has_data_gap:
-        gap_paths = [path for path in matched if path.id in {"daily_ops_ledger", "concept_backfill", "source_backfill", "ima_stock_ingest"}]
+        gap_paths = [path for path in matched if path.id in {"daily_ops_ledger", "logic_match_batch", "concept_backfill", "source_backfill", "ima_stock_ingest"}]
         by_id = {spec.id: spec for spec in specs}
         existing_ids = {path.id for path in gap_paths}
         ordered_gap_paths: list[RoutePath] = []
-        for path_id in ("daily_ops_ledger", "source_backfill", "concept_backfill", "ima_stock_ingest"):
+        for path_id in ("daily_ops_ledger", "logic_match_batch", "source_backfill", "concept_backfill", "ima_stock_ingest"):
             if path_id in existing_ids:
                 ordered_gap_paths.extend(path for path in gap_paths if path.id == path_id)
                 continue
-            if path_id == "daily_ops_ledger":
+            if path_id in {"daily_ops_ledger", "logic_match_batch"}:
                 spec = by_id.get(path_id)
                 if spec:
-                    ordered_gap_paths.append(_route_path(spec, "data-gap status baseline"))
+                    reason = "data-gap status baseline" if path_id == "daily_ops_ledger" else "data-gap priority queue"
+                    ordered_gap_paths.append(_route_path(spec, reason))
         gap_paths = ordered_gap_paths
         return RouteDecision(
             query=raw_query,

@@ -130,6 +130,19 @@
       "auto_execute": false,
       "risk_level": "medium",
       "notes": "优先用于把盘面异动分诊为旧逻辑唤醒、新逻辑、噪音或补库任务。"
+    },
+    {
+      "id": "logic_match_batch",
+      "label": "批量逻辑-盘面匹配",
+      "kind": "known_workflow",
+      "description": "批量扫描最近或指定日期的 theme-candidates，生成高优先级补数据队列。",
+      "triggers": ["补数据队列", "优先补", "批量匹配", "批量 logic match", "gap queue", "缺口队列"],
+      "inputs": ["dates", "recent", "top_per_date", "knowledge_wiki"],
+      "outputs": ["logic-match-batch json", "logic-match-batch markdown"],
+      "command_template": "python3 -m intelligence.cli logic-match-batch --recent {recent} --top-per-date {top_per_date}",
+      "auto_execute": true,
+      "risk_level": "low",
+      "notes": "只读扫描，用于决定哪些 source/concept/IMA 值得优先补。"
     }
   ]
 }

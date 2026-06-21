@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
-from intelligence.services.ask import load_theme_candidates, match_candidate
+from intelligence.services.ask import DEFAULT_EXPORTS_DIR, load_theme_candidates, match_candidate
 
 
 LABEL_OLD_WAKEUP = "old_logic_wakeup"
@@ -70,6 +70,57 @@ class LogicMarketMatchResult:
             "source_traces": [item.to_dict() for item in self.source_traces],
             "data_gaps": self.data_gaps,
             "next_actions": self.next_actions,
+            "warnings": self.warnings,
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
+
+
+@dataclass
+class GapQueueItem:
+    date: str
+    query: str
+    classification: str
+    priority: float
+    market_priority_score: float | None
+    data_gaps: list[str]
+    matched_theme: str
+    trigger_types: list[str]
+    strong_stocks: list[str]
+    next_actions: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "date": self.date,
+            "query": self.query,
+            "classification": self.classification,
+            "priority": self.priority,
+            "market_priority_score": self.market_priority_score,
+            "data_gaps": self.data_gaps,
+            "matched_theme": self.matched_theme,
+            "trigger_types": self.trigger_types,
+            "strong_stocks": self.strong_stocks,
+            "next_actions": self.next_actions,
+        }
+
+
+@dataclass
+class LogicMatchBatchResult:
+    dates: list[str]
+    scanned_count: int
+    results: list[LogicMarketMatchResult]
+    gap_queue: list[GapQueueItem]
+    summary: dict[str, Any]
+    warnings: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "dates": self.dates,
+            "scanned_count": self.scanned_count,
+            "summary": self.summary,
+            "gap_queue": [item.to_dict() for item in self.gap_queue],
+            "results": [item.to_dict() for item in self.results],
             "warnings": self.warnings,
         }
 
@@ -246,6 +297,136 @@ def match_logic_to_market(
     )
 
 
+def available_candidate_dates(exports_dir: str | Path | None = None) -> list[str]:
+    base = Path(exports_dir).expanduser() if exports_dir else DEFAULT_EXPORTS_DIR
+    if not base.exists():
+        return []
+    dates = []
+    for path in sorted(base.glob("*-theme-candidates.json")):
+        match = re.match(r"(\d{4}-\d{2}-\d{2})-theme-candidates\.json$", path.name)
+        if match:
+            dates.append(match.group(1))
+    return dates
+
+
+def _candidate_rows(doc: dict[str, Any]) -> list[dict[str, Any]]:
+    if isinstance(doc.get("candidates"), list):
+        return [row for row in doc["candidates"] if isinstance(row, dict)]
+    rows: list[dict[str, Any]] = []
+    for key in ("deep_candidates", "watch_candidates", "long_tail_candidates"):
+        rows.extend(row for row in doc.get(key, []) or [] if isinstance(row, dict))
+    return rows
+
+
+def _candidate_query(row: dict[str, Any]) -> str:
+    return str(row.get("canonical_concept") or row.get("market_theme") or "").strip()
+
+
+def _gap_priority(result: LogicMarketMatchResult) -> float:
+    market_score = float(result.priority_score or 0.0)
+    gap_weight = {
+        "missing_source_trace": 35.0,
+        "missing_evidence": 30.0,
+        "missing_entity_exposure": 25.0,
+        "missing_concept": 20.0,
+        "missing_market_signal": 5.0,
+    }
+    weighted_gaps = sum(gap_weight.get(gap, 10.0) for gap in result.data_gaps)
+    if result.classification == LABEL_NEW_CANDIDATE:
+        weighted_gaps += 15.0
+    if result.classification == LABEL_DATA_GAP:
+        weighted_gaps += 20.0
+    return round(market_score + weighted_gaps, 2)
+
+
+def _gap_queue_item(result: LogicMarketMatchResult) -> GapQueueItem | None:
+    if not result.data_gaps and result.classification == LABEL_OLD_WAKEUP:
+        return None
+    return GapQueueItem(
+        date=str(result.date or ""),
+        query=result.query,
+        classification=result.classification,
+        priority=_gap_priority(result),
+        market_priority_score=result.priority_score,
+        data_gaps=list(result.data_gaps),
+        matched_theme=result.matched_theme,
+        trigger_types=list(result.trigger_types),
+        strong_stocks=[str(row.get("stock_name") or "") for row in result.strong_stocks[:5] if row.get("stock_name")],
+        next_actions=list(result.next_actions),
+    )
+
+
+def batch_match_logic_to_market(
+    dates: list[str] | None = None,
+    recent: int = 5,
+    top_per_date: int = 10,
+    exports_dir: str | Path | None = None,
+    kb_wiki: str | Path | None = None,
+    top_companies: int = 8,
+    max_evidence: int = 5,
+) -> LogicMatchBatchResult:
+    selected_dates = list(dates or [])
+    if not selected_dates:
+        selected_dates = available_candidate_dates(exports_dir)[-recent:]
+
+    results: list[LogicMarketMatchResult] = []
+    warnings: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    for date in selected_dates:
+        loaded = load_theme_candidates(exports_dir, date)
+        if not loaded.get("found"):
+            warnings.extend([f"{date}: {warning}" for warning in loaded.get("warnings", [])])
+            continue
+        rows = sorted(
+            _candidate_rows(loaded.get("doc", {})),
+            key=lambda row: float(row.get("priority_score") or 0.0),
+            reverse=True,
+        )[:top_per_date]
+        for row in rows:
+            query = _candidate_query(row)
+            if not query:
+                continue
+            key = (date, query)
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append(
+                match_logic_to_market(
+                    query=query,
+                    date=date,
+                    exports_dir=exports_dir,
+                    kb_wiki=kb_wiki,
+                    top_companies=top_companies,
+                    max_evidence=max_evidence,
+                )
+            )
+
+    gap_queue = sorted(
+        (item for item in (_gap_queue_item(result) for result in results) if item is not None),
+        key=lambda item: (-item.priority, item.date, item.query),
+    )
+    classification_counts: dict[str, int] = {}
+    gap_counts: dict[str, int] = {}
+    for result in results:
+        classification_counts[result.classification] = classification_counts.get(result.classification, 0) + 1
+        for gap in result.data_gaps:
+            gap_counts[gap] = gap_counts.get(gap, 0) + 1
+    summary = {
+        "classification_counts": classification_counts,
+        "gap_counts": gap_counts,
+        "gap_queue_count": len(gap_queue),
+        "old_logic_wakeup_count": classification_counts.get(LABEL_OLD_WAKEUP, 0),
+    }
+    return LogicMatchBatchResult(
+        dates=selected_dates,
+        scanned_count=len(results),
+        results=results,
+        gap_queue=gap_queue,
+        summary=summary,
+        warnings=warnings,
+    )
+
+
 def render_match(result: LogicMarketMatchResult) -> str:
     lines = [
         f"# Logic Market Match - {result.query}",
@@ -297,3 +478,43 @@ def render_match(result: LogicMarketMatchResult) -> str:
     lines.append("")
     return "\n".join(lines)
 
+
+def render_batch(result: LogicMatchBatchResult) -> str:
+    lines = [
+        "# Logic Market Match Batch",
+        "",
+        f"- Dates: {', '.join(result.dates) or '-'}",
+        f"- Scanned candidates: {result.scanned_count}",
+        f"- Gap queue: {len(result.gap_queue)}",
+        "",
+        "## Summary",
+        "",
+    ]
+    for key, value in result.summary.get("classification_counts", {}).items():
+        lines.append(f"- {key}: {value}")
+    lines.extend(["", "## Gap Counts", ""])
+    gap_counts = result.summary.get("gap_counts", {})
+    if gap_counts:
+        for key, value in sorted(gap_counts.items(), key=lambda item: (-item[1], item[0])):
+            lines.append(f"- {key}: {value}")
+    else:
+        lines.append("- no gaps")
+    lines.extend(["", "## Priority Gap Queue", ""])
+    if result.gap_queue:
+        lines.append("| Priority | Date | Query | Classification | Gaps | Strong Stocks | Next Action |")
+        lines.append("|---:|---|---|---|---|---|---|")
+        for item in result.gap_queue[:50]:
+            lines.append(
+                "| "
+                f"{item.priority:.2f} | {item.date} | {item.query} | {item.classification} | "
+                f"{', '.join(item.data_gaps) or '-'} | {', '.join(item.strong_stocks) or '-'} | "
+                f"{item.next_actions[0] if item.next_actions else '-'} |"
+            )
+    else:
+        lines.append("- no priority gaps")
+    if result.warnings:
+        lines.extend(["", "## Warnings", ""])
+        for warning in result.warnings:
+            lines.append(f"- {warning}")
+    lines.append("")
+    return "\n".join(lines)

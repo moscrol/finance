@@ -3,7 +3,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from intelligence.services.logic_market_match import LABEL_DATA_GAP, LABEL_OLD_WAKEUP, match_logic_to_market
+from intelligence.services.logic_market_match import (
+    LABEL_DATA_GAP,
+    LABEL_OLD_WAKEUP,
+    available_candidate_dates,
+    batch_match_logic_to_market,
+    match_logic_to_market,
+)
 
 
 class LogicMarketMatchTest(unittest.TestCase):
@@ -120,7 +126,45 @@ class LogicMarketMatchTest(unittest.TestCase):
             self.assertIn("missing_entity_exposure", result.data_gaps)
             self.assertIn("missing_evidence", result.data_gaps)
 
+    def test_available_candidate_dates_and_batch_queue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exports, wiki = self.make_fixture(Path(tmp))
+            (exports / "2026-06-10-theme-candidates.json").write_text(
+                json.dumps({"found": True, "trade_date": "2026-06-10", "candidates": []}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(available_candidate_dates(exports), ["2026-06-10", "2026-06-11"])
+
+            result = batch_match_logic_to_market(
+                dates=["2026-06-11"],
+                top_per_date=1,
+                exports_dir=exports,
+                kb_wiki=wiki,
+            )
+
+            self.assertEqual(result.scanned_count, 1)
+            self.assertEqual(result.summary["old_logic_wakeup_count"], 1)
+            self.assertEqual(result.gap_queue, [])
+
+    def test_batch_queue_prioritizes_missing_knowledge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exports, wiki = self.make_fixture(Path(tmp))
+            (wiki / "relations" / "concept_graph.json").write_text(json.dumps({"concepts": {}}, ensure_ascii=False), encoding="utf-8")
+            (wiki / "relations" / "entity_exposures.json").write_text(json.dumps({"entities": {}}, ensure_ascii=False), encoding="utf-8")
+            (wiki / "relations" / "evidence_index.json").write_text(json.dumps({"items": []}, ensure_ascii=False), encoding="utf-8")
+
+            result = batch_match_logic_to_market(
+                dates=["2026-06-11"],
+                top_per_date=1,
+                exports_dir=exports,
+                kb_wiki=wiki,
+            )
+
+            self.assertEqual(len(result.gap_queue), 1)
+            self.assertEqual(result.gap_queue[0].classification, LABEL_DATA_GAP)
+            self.assertIn("missing_concept", result.gap_queue[0].data_gaps)
+
 
 if __name__ == "__main__":
     unittest.main()
-
