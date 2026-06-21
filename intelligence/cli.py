@@ -316,6 +316,24 @@ def add_route_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(func=cmd_route)
 
 
+def add_logic_match_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "logic-match",
+        help="逻辑-盘面匹配：把 theme-candidates 与知识库 concept/entity/evidence 对齐，输出旧逻辑唤醒/新逻辑/噪音/数据缺口。",
+    )
+    parser.add_argument("query", help="题材/概念/关键词，例如 液冷服务器")
+    parser.add_argument("--date", default=None, help="theme-candidates 日期 YYYY-MM-DD；为空则使用最新导出")
+    parser.add_argument("--exports-dir", default=None, help="覆盖 market_feature_store/exports 目录")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；默认走 env/auto")
+    parser.add_argument("--top-companies", type=int, default=12, help="最多返回公司暴露/强势股数量")
+    parser.add_argument("--max-evidence", type=int, default=8, help="最多返回 evidence 条数")
+    parser.add_argument("--out-json", default=None, help="写出匹配结果 JSON")
+    parser.add_argument("--out-md", default=None, help="写出匹配结果 Markdown")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
+    parser.set_defaults(func=cmd_logic_match)
+
+
 def cmd_route(args: argparse.Namespace) -> int:
     import json as _json
 
@@ -326,6 +344,36 @@ def cmd_route(args: argparse.Namespace) -> int:
         summary.write_json(args.summary_json)
     if args.json:
         print(_json.dumps(decision.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(answer, end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def cmd_logic_match(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.workflows.logic_match import LogicMatchOptions, run_logic_match
+
+    summary, result, answer = run_logic_match(
+        LogicMatchOptions(
+            query=args.query,
+            date=args.date,
+            exports_dir=args.exports_dir,
+            kb_wiki=args.kb_wiki,
+            top_companies=args.top_companies,
+            max_evidence=args.max_evidence,
+        )
+    )
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    if args.out_json:
+        Path(args.out_json).expanduser().parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out_json).expanduser().write_text(result.to_json() + "\n", encoding="utf-8")
+    if args.out_md:
+        Path(args.out_md).expanduser().parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out_md).expanduser().write_text(answer, encoding="utf-8")
+    if args.json:
+        print(_json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     else:
         print(answer, end="")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
@@ -1517,6 +1565,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_agent_parser(subparsers)
     add_agent_eval_parser(subparsers)
     add_route_parser(subparsers)
+    add_logic_match_parser(subparsers)
     add_foresight_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)

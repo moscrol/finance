@@ -36,9 +36,8 @@ class QuestionRouterTest(unittest.TestCase):
         decision = route_question("液冷服务器")
 
         self.assertEqual(decision.route_type, ROUTE_PLANNER)
-        self.assertEqual(decision.next_action, "build_logic_market_match_plan")
+        self.assertEqual(decision.next_action, "run_logic_match")
 
 
 if __name__ == "__main__":
     unittest.main()
-

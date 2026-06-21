@@ -126,10 +126,10 @@
       "triggers": ["为什么动", "为什么涨", "异动", "旧逻辑", "唤醒", "兑现", "共振", "新逻辑", "噪音"],
       "inputs": ["theme_or_stock", "trade_date", "theme-candidates", "knowledge graph"],
       "outputs": ["旧逻辑唤醒/新逻辑/噪音/缺口队列"],
-      "command_template": "",
+      "command_template": "python3 -m intelligence.cli logic-match {query} --date {date}",
       "auto_execute": false,
       "risk_level": "medium",
-      "notes": "这是下一阶段最重要执行器；当前 router 先生成计划。"
+      "notes": "优先用于把盘面异动分诊为旧逻辑唤醒、新逻辑、噪音或补库任务。"
     }
   ]
 }

@@ -208,7 +208,7 @@ def route_question(query: str, registry: list[PathSpec] | None = None) -> RouteD
                 "若是已知题材，再按需要进入 front-map 或 deep-dive。",
                 "若证据不足，输出补 source/concept/IMA 的任务，而不是硬答。",
             ],
-            next_action="build_logic_market_match_plan",
+            next_action="run_logic_match",
         )
 
     if matched:
