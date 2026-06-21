@@ -367,6 +367,7 @@ def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--max-evidence", type=int, default=5, help="每个候选最多返回 evidence 条数")
     parser.add_argument("--out-json", default=None, help="写出 agent 日报 JSON")
     parser.add_argument("--out-md", default=None, help="写出 agent 日报 Markdown")
+    parser.add_argument("--out-html", default=None, help="写出 agent 日报 HTML，供复盘工作台 iframe 使用")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON；否则输出 Markdown")
     parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
     parser.set_defaults(func=cmd_daily_agent)
@@ -470,15 +471,16 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     finance_root = Path(args.finance_root).expanduser() if args.finance_root else paths.finance_root
     out_json = Path(args.out_json).expanduser() if args.out_json else finance_root / "market_feature_store" / "exports" / f"{args.date}-daily-agent.json"
     out_md = Path(args.out_md).expanduser() if args.out_md else finance_root / "market_feature_store" / "exports" / f"{args.date}-daily-agent.md"
-    write_daily_agent_outputs(report, answer, out_json, out_md)
-    summary.outputs.extend([str(out_json), str(out_md)])
+    out_html = Path(args.out_html).expanduser() if args.out_html else finance_root / "复盘" / "daily" / args.date / f"{args.date}-daily-agent.html"
+    write_daily_agent_outputs(report, answer, out_json, out_md, out_html)
+    summary.outputs.extend([str(out_json), str(out_md), str(out_html)])
     if args.summary_json:
         summary.write_json(args.summary_json)
     if args.json:
         print(_json.dumps(report, ensure_ascii=False, indent=2))
     else:
         print(answer, end="")
-        print(f"\n输出: {out_md}\n输出: {out_json}")
+        print(f"\n输出: {out_md}\n输出: {out_json}\n输出: {out_html}")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
@@ -667,6 +669,7 @@ def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--skip-sync", action="store_true", help="Skip market data sync")
     parser.add_argument("--skip-long", action="store_true", help="Pass --skip-long to daily-update")
     parser.add_argument("--skip-theme", action="store_true", help="Skip market-triggered theme brief")
+    parser.add_argument("--skip-agent", action="store_true", help="Skip daily agent brief generation")
     parser.add_argument("--skip-legacy-theme", action="store_true", help="Skip legacy triggered-themes brief")
     parser.add_argument("--skip-workbench", action="store_true", help="Skip review workbench render")
     parser.add_argument("--start-date", default=None, help="Optional start date for daily-review")
@@ -864,6 +867,7 @@ def cmd_daily(args: argparse.Namespace) -> int:
         skip_sync=args.skip_sync,
         skip_long=args.skip_long,
         skip_theme=args.skip_theme,
+        skip_agent=args.skip_agent,
         skip_legacy_theme=args.skip_legacy_theme,
         skip_workbench=args.skip_workbench,
         start_date=args.start_date,

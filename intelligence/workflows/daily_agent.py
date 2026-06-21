@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from html import escape
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -217,6 +218,35 @@ def render_daily_agent(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_daily_agent_html(report: dict[str, Any], markdown: str) -> str:
+    title = f"Daily Agent Report - {report['date']}"
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{escape(title)}</title>
+<style>
+:root{{--paper:#fffaf1;--ink:#17140f;--muted:#746b5d;--line:#d8cbbb;--accent:#0057ff;--card:#fffdf8}}
+*{{box-sizing:border-box}}
+body{{margin:0;background:var(--paper);color:var(--ink);font-family:'Avenir Next','PingFang SC','Hiragino Sans GB',sans-serif;line-height:1.65}}
+main{{max-width:1180px;margin:0 auto;padding:24px}}
+.hero{{border:1px solid var(--ink);background:var(--card);padding:20px 24px;margin-bottom:18px}}
+.kicker{{font-size:12px;letter-spacing:.22em;color:var(--accent);font-weight:900;text-transform:uppercase}}
+h1{{margin:6px 0 0;font-size:34px;line-height:1.1}}
+pre{{white-space:pre-wrap;word-break:break-word;border:1px solid var(--line);background:#fffdf8;padding:18px 20px;margin:0;font:14px/1.7 'SFMono-Regular','Menlo','PingFang SC',monospace}}
+</style>
+</head>
+<body>
+<main>
+  <section class="hero"><div class="kicker">Agent Daily Brief</div><h1>{escape(title)}</h1></section>
+  <pre>{escape(markdown)}</pre>
+</main>
+</body>
+</html>
+"""
+
+
 def run_daily_agent(options: DailyAgentOptions) -> tuple[WorkflowSummary, dict[str, Any], str]:
     report = build_daily_agent_report(options)
     ledger_status = report["ledger"]["status"]
@@ -269,10 +299,20 @@ def run_daily_agent(options: DailyAgentOptions) -> tuple[WorkflowSummary, dict[s
     return summary, report, render_daily_agent(report)
 
 
-def write_daily_agent_outputs(report: dict[str, Any], markdown: str, out_json: str | Path, out_md: str | Path) -> None:
+def write_daily_agent_outputs(
+    report: dict[str, Any],
+    markdown: str,
+    out_json: str | Path,
+    out_md: str | Path,
+    out_html: str | Path | None = None,
+) -> None:
     json_path = Path(out_json).expanduser()
     md_path = Path(out_md).expanduser()
     json_path.parent.mkdir(parents=True, exist_ok=True)
     md_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     md_path.write_text(markdown, encoding="utf-8")
+    if out_html:
+        html_path = Path(out_html).expanduser()
+        html_path.parent.mkdir(parents=True, exist_ok=True)
+        html_path.write_text(render_daily_agent_html(report, markdown), encoding="utf-8")

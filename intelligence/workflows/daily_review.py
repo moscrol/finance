@@ -24,6 +24,7 @@ class DailyReviewOptions:
     skip_sync: bool = False
     skip_long: bool = False
     skip_theme: bool = False
+    skip_agent: bool = False
     skip_legacy_theme: bool = False
     skip_workbench: bool = False
     start_date: str | None = None
@@ -120,6 +121,32 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
                 ],
             ))
 
+        if not options.skip_agent:
+            plan.append(CommandSpec(
+                name="agent-daily",
+                argv=[
+                    "python3",
+                    "-m",
+                    "intelligence.cli",
+                    "agent-daily",
+                    "--date",
+                    date,
+                    "--kb-wiki",
+                    str(paths.knowledge_wiki),
+                    "--out-json",
+                    str(exports / f"{date}-daily-agent.json"),
+                    "--out-md",
+                    str(exports / f"{date}-daily-agent.md"),
+                    "--out-html",
+                    str(daily_dir / f"{date}-daily-agent.html"),
+                ],
+                outputs=[
+                    str(exports / f"{date}-daily-agent.json"),
+                    str(exports / f"{date}-daily-agent.md"),
+                    str(daily_dir / f"{date}-daily-agent.html"),
+                ],
+            ))
+
     if not options.skip_workbench:
         plan.append(CommandSpec(
             name="review-workbench",
@@ -155,6 +182,7 @@ def summary_inputs(options: DailyReviewOptions, dry_run: bool) -> dict:
         "skip_sync": options.skip_sync,
         "skip_long": options.skip_long,
         "skip_theme": options.skip_theme,
+        "skip_agent": options.skip_agent,
         "skip_legacy_theme": options.skip_legacy_theme,
         "skip_workbench": options.skip_workbench,
         "start_date": options.start_date,
