@@ -305,6 +305,32 @@ def add_agent_eval_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(func=cmd_agent_eval)
 
 
+def add_route_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "route",
+        help="问题分诊：先判断走固定 workflow、Planner 组合分析、补数据，还是需要追问；只输出计划，不直接回答。",
+    )
+    parser.add_argument("query", help="用户问题，例如：玻璃基板今天为什么动，是旧逻辑唤醒吗")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
+    parser.set_defaults(func=cmd_route)
+
+
+def cmd_route(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.workflows.route import RouteWorkflowOptions, run_route
+
+    summary, decision, answer = run_route(RouteWorkflowOptions(query=args.query))
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    if args.json:
+        print(_json.dumps(decision.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(answer, end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
 def cmd_agent_eval(args: argparse.Namespace) -> int:
     import json
 
@@ -1490,6 +1516,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_chat_parser(subparsers)
     add_agent_parser(subparsers)
     add_agent_eval_parser(subparsers)
+    add_route_parser(subparsers)
     add_foresight_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)
