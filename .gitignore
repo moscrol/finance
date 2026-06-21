@@ -46,6 +46,7 @@ market_feature_store/exports/*-daily-review.md
 market_feature_store/exports/*-advancers-ma5.png
 market_feature_store/exports/*-triggered-themes.json
 market_feature_store/exports/*-market-triggered-theme-brief.md
+复盘/index.html
 
 # Databases
 db/

@@ -153,6 +153,11 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             argv=["python3", "scripts/render_review_workbench.py"],
             outputs=[str(paths.review_workbench)],
         ))
+        plan.append(CommandSpec(
+            name="cockpit",
+            argv=["python3", "scripts/render_cockpit.py"],
+            outputs=[str(paths.finance_root / "复盘" / "index.html")],
+        ))
 
     return plan
 

@@ -7,13 +7,13 @@
 视觉风格直接复用当前最新每日复盘 HTML 的 `<style>`（浅色投研 briefing 主题），
 因此驾驶舱与每日复盘是同一套界面语言；找不到复盘文件时退回内置 paper 主题。
 
-跨仓库：每日复盘 / 胜率榜 / 策略矩阵在本仓 `复盘/`，晨汇看板在知识库仓
-`dashboard/briefings/`（默认取同级目录 `../knowledge-base-private`，可用 --kb-briefings-dir 覆盖）。
+跨仓库：每日复盘 / 胜率榜 / 策略矩阵在本仓 `复盘/`，晨汇边际变化在知识库仓
+`dashboard/index.html` 与 `wiki/briefings/`。
 链接均为相对路径，指向本地已生成的产物；本页本身不入 git（只提交生成器）。
 
 Usage:
     python3 scripts/render_cockpit.py
-    python3 scripts/render_cockpit.py --kb-briefings-dir /path/to/knowledge-base-private/dashboard/briefings
+    python3 scripts/render_cockpit.py --knowledge-root "/Users/a77/Desktop/c c/知识库"
 """
 from __future__ import annotations
 
@@ -130,10 +130,13 @@ def daily_cards() -> list[str]:
         tags: list[tuple[str, str]] = []
         brief = d / f"{date}-market-triggered-theme-brief.html"
         cand = d / f"{date}-theme-candidates.html"
+        agent = d / f"{date}-daily-agent.html"
         if brief.exists():
             tags.append(("题材简报", rel(brief)))
         if cand.exists():
             tags.append(("题材候选", rel(cand)))
+        if agent.exists():
+            tags.append(("Agent 简报", rel(agent)))
         head = f'<a class="c-date" href="{rel(review)}">{date}</a>'
         cards.append(card("Daily Review", head, "每日复盘 · 指数/情绪/行业/双红题材", tags))
     return cards
@@ -180,18 +183,28 @@ def headtohead_cards() -> list[str]:
     return cards
 
 
-def briefing_cards(briefings_dir: Path) -> list[str]:
+def briefing_cards(knowledge_root: Path) -> list[str]:
+    dashboard = knowledge_root / "dashboard" / "index.html"
+    briefings_dir = knowledge_root / "wiki" / "briefings"
+    cards = []
+    if dashboard.exists():
+        head = f'<a class="c-title" href="{rel(dashboard)}">知识库驾驶舱</a>'
+        cards.append(card("Knowledge Dashboard", head, "题材/个股搜索 · 提及趋势 · 催化日历 · 最近报告", []))
     if not briefings_dir.exists():
+        if cards:
+            return cards
         return [empty_card(
-            "未找到晨汇看板目录。请在知识库仓运行："
-            "python3 skills/morning-briefing/scripts/render_briefing_html.py <日期>，"
-            f"或用 --kb-briefings-dir 指定路径。当前查找：{briefings_dir}"
+            "未找到知识库晨汇目录。当前查找："
+            f"{briefings_dir}"
         )]
     files = sorted(briefings_dir.glob("*.html"), reverse=True)
     if not files:
+        files = sorted(briefings_dir.glob("*.md"), key=lambda p: p.name, reverse=True)
+    if not files:
+        if cards:
+            return cards
         return [empty_card(f"晨汇看板目录为空：{briefings_dir}")]
-    cards = []
-    for f in files:
+    for f in files[:40]:
         date = date_of(f.name) or f.stem
         head = f'<a class="c-date" href="{rel(f)}">{date}</a>'
         cards.append(card("Morning Brief", head, "晨汇边际变化 · T1/T2/T3 共振 · 映射标的", []))
@@ -211,16 +224,16 @@ def section(sid: str, title: str, cards: list[str]) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--kb-briefings-dir",
-        default=str(ROOT.parent / "knowledge-base-private" / "dashboard" / "briefings"),
-        help="知识库仓晨汇看板目录（默认取同级 knowledge-base-private）",
+        "--knowledge-root",
+        default=str(ROOT.parent / "知识库"),
+        help="知识库仓根目录（默认取同级 知识库）",
     )
     args = parser.parse_args()
-    briefings_dir = Path(args.kb_briefings_dir).expanduser()
+    knowledge_root = Path(args.knowledge_root).expanduser()
 
     daily = daily_cards()
     winrate = winrate_cards()
-    briefing = briefing_cards(briefings_dir)
+    briefing = briefing_cards(knowledge_root)
     matrices = matrix_cards()
     headtohead = headtohead_cards()
 
@@ -259,9 +272,9 @@ def main() -> int:
     )
 
     cross = (
-        '<div class="cross-note">晨汇看板来自知识库仓 '
-        "knowledge-base-private/dashboard/briefings/，链接按本地相对路径生成；"
-        "若打开 404，请确认两个仓库克隆在同级目录，或重新生成对应晨汇 HTML。</div>"
+        '<div class="cross-note">晨汇边际变化来自知识库仓 '
+        "dashboard/index.html 与 wiki/briefings/，链接按本地相对路径生成；"
+        "若打开 404，请用 --knowledge-root 指向正确知识库仓。</div>"
     )
 
     body = (
