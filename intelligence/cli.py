@@ -365,6 +365,10 @@ def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--top-per-date", type=int, default=10, help="每个日期扫描 priority_score 最高的 N 个候选")
     parser.add_argument("--top-companies", type=int, default=8, help="每个候选最多返回公司暴露/强势股数量")
     parser.add_argument("--max-evidence", type=int, default=5, help="每个候选最多返回 evidence 条数")
+    parser.add_argument("--semantic-rag-top-n", type=int, default=3, help="对优先级最高的 N 个候选补 wiki 语义召回；0=关闭")
+    parser.add_argument("--wiki-rag-k", type=int, default=3, help="每个候选最多补充 N 个 W 命中")
+    parser.add_argument("--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"], help="agent 日报语义召回模式")
+    parser.add_argument("--wiki-rag-timeout", type=int, default=120, help="单次 W 召回超时时间")
     parser.add_argument("--out-json", default=None, help="写出 agent 日报 JSON")
     parser.add_argument("--out-md", default=None, help="写出 agent 日报 Markdown")
     parser.add_argument("--out-html", default=None, help="写出 agent 日报 HTML，供复盘工作台 iframe 使用")
@@ -465,6 +469,10 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
             top_per_date=args.top_per_date,
             top_companies=args.top_companies,
             max_evidence=args.max_evidence,
+            semantic_rag_top_n=args.semantic_rag_top_n,
+            wiki_rag_k=args.wiki_rag_k,
+            wiki_rag_mode=args.wiki_rag_mode,
+            wiki_rag_timeout=args.wiki_rag_timeout,
         )
     )
     paths = default_paths()

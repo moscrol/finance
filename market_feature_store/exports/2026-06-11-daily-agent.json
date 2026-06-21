@@ -1,6 +1,6 @@
 {
   "date": "2026-06-11",
-  "generated_at": "2026-06-22T01:28:13+08:00",
+  "generated_at": "2026-06-22T02:38:50+08:00",
   "paths": {
     "finance_root": "/Users/a77/Desktop/c c/金融",
     "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
@@ -8,7 +8,7 @@
   },
   "ledger": {
     "date": "2026-06-11",
-    "generated_at": "2026-06-22T01:28:11",
+    "generated_at": "2026-06-22T02:38:06",
     "paths": {
       "finance_root": "/Users/a77/Desktop/c c/金融",
       "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
@@ -172,19 +172,20 @@
     "dates": [
       "2026-06-11"
     ],
-    "scanned_count": 8,
+    "scanned_count": 10,
     "summary": {
       "classification_counts": {
-        "old_logic_wakeup": 5,
+        "old_logic_wakeup": 7,
         "data_gap": 3
       },
       "gap_counts": {
         "missing_concept": 3,
         "missing_entity_exposure": 2,
-        "missing_evidence": 3
+        "missing_evidence": 3,
+        "missing_source_trace": 1
       },
-      "gap_queue_count": 3,
-      "old_logic_wakeup_count": 5
+      "gap_queue_count": 4,
+      "old_logic_wakeup_count": 7
     },
     "gap_queue": [
       {
@@ -270,6 +271,35 @@
           "先补影响当前判断的数据缺口，不做全库大扫除。",
           "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
           "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ]
+      },
+      {
+        "date": "2026-06-11",
+        "query": "先进封装",
+        "classification": "old_logic_wakeup",
+        "priority": 126.36,
+        "market_priority_score": 91.36,
+        "data_gaps": [
+          "missing_source_trace"
+        ],
+        "matched_theme": "先进封装",
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          "中巨芯",
+          "有研粉材",
+          "兴福电子",
+          "雅克科技",
+          "炬光科技"
+        ],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
+          "优先补 source/raw trace，避免证据不可追溯。"
         ]
       }
     ],
@@ -1594,6 +1624,465 @@
           "entity exposures not found",
           "evidence not found"
         ]
+      },
+      {
+        "query": "存储芯片",
+        "date": "2026-06-11",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "存储芯片",
+        "market_theme": "存储芯片",
+        "priority_score": 95.45,
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "江丰电子",
+            "stock_ts_code": "300666.SZ",
+            "pct_chg": 20.0,
+            "amount": 60.28,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "中巨芯",
+            "stock_ts_code": "688549.SH",
+            "pct_chg": 19.96,
+            "amount": 50.36,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "华特气体",
+            "stock_ts_code": "688268.SH",
+            "pct_chg": 20.0,
+            "amount": 36.4,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "阿石创",
+            "stock_ts_code": "300706.SZ",
+            "pct_chg": 19.99,
+            "amount": 21.72,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "多氟多",
+            "stock_ts_code": "002407.SZ",
+            "pct_chg": 9.99,
+            "amount": 79.2,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "兴福电子",
+            "stock_ts_code": "688545.SH",
+            "pct_chg": 20.0,
+            "amount": 19.59,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "雅克科技",
+            "stock_ts_code": "002409.SZ",
+            "pct_chg": 10.0,
+            "amount": 75.05,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "炬光科技",
+            "stock_ts_code": "688167.SH",
+            "pct_chg": 20.0,
+            "amount": 18.22,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "存储芯片",
+            "score": 10
+          },
+          {
+            "concept": "AI手机",
+            "score": 2
+          },
+          {
+            "concept": "HBM（高带宽存储）",
+            "score": 2
+          },
+          {
+            "concept": "六氟化钨",
+            "score": 2
+          },
+          {
+            "concept": "半导体",
+            "score": 2
+          },
+          {
+            "concept": "半导体材料",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "SK海力士",
+            "ticker": "000660",
+            "concept": "存储芯片",
+            "role": "图谱弱关联",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "万润科技",
+            "ticker": "002654",
+            "concept": "存储芯片",
+            "role": "半导体存储器业务",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上峰水泥",
+            "ticker": "000672",
+            "concept": "存储芯片",
+            "role": "股权投资潜在相关",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海合晶",
+            "ticker": "688584",
+            "concept": "存储芯片",
+            "role": "存储晶圆制造上游硅片材料潜在供应商",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东芯股份",
+            "ticker": "688110",
+            "concept": "存储芯片",
+            "role": "中小容量存储芯片供应商，联营GPU(上海励算/砺算)",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中微公司",
+            "ticker": "688012",
+            "concept": "存储芯片",
+            "role": "上游设备",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中微半导",
+            "ticker": "688380",
+            "concept": "存储芯片",
+            "role": "MCU（8位、32位）、SoC、ASIC",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中电港",
+            "ticker": "001287",
+            "concept": "存储芯片",
+            "role": "存储芯片分销、AI算力芯片分销、机器人解决方案、端侧AI",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_date": "",
+            "target": "存储芯片",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_name": "20260521 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "先进封装",
+        "date": "2026-06-11",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.9,
+        "market_found": true,
+        "matched_theme": "先进封装",
+        "market_theme": "先进封装",
+        "priority_score": 91.36,
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "中巨芯",
+            "stock_ts_code": "688549.SH",
+            "pct_chg": 19.96,
+            "amount": 50.36,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "有研粉材",
+            "stock_ts_code": "688456.SH",
+            "pct_chg": 18.12,
+            "amount": 26.88,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "兴福电子",
+            "stock_ts_code": "688545.SH",
+            "pct_chg": 20.0,
+            "amount": 19.59,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "雅克科技",
+            "stock_ts_code": "002409.SZ",
+            "pct_chg": 10.0,
+            "amount": 75.05,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "炬光科技",
+            "stock_ts_code": "688167.SH",
+            "pct_chg": 20.0,
+            "amount": 18.22,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "光智科技",
+            "stock_ts_code": "300489.SZ",
+            "pct_chg": 16.46,
+            "amount": 21.99,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "太极实业",
+            "stock_ts_code": "600667.SH",
+            "pct_chg": 9.99,
+            "amount": 56.68,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "旭光电子",
+            "stock_ts_code": "600353.SH",
+            "pct_chg": 9.99,
+            "amount": 30.16,
+            "high_status_label": "历史新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "先进封装",
+            "score": 10
+          },
+          {
+            "concept": "1.6T CPO",
+            "score": 2
+          },
+          {
+            "concept": "2.5D封装",
+            "score": 2
+          },
+          {
+            "concept": "3D封装",
+            "score": 2
+          },
+          {
+            "concept": "ABF膜涨价",
+            "score": 2
+          },
+          {
+            "concept": "AI基础设施与国产算力",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "三孚新科",
+            "ticker": "688359",
+            "concept": "先进封装",
+            "role": "TGV玻璃基板设备+药水",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三安光电",
+            "ticker": "600703",
+            "concept": "先进封装",
+            "role": "光芯片（AI算力光互联）、碳化硅（SiC功率器件）、Mini",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上峰水泥",
+            "ticker": "000672",
+            "concept": "先进封装",
+            "role": "投资潜在相关（非直接产业链）",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海新阳",
+            "ticker": "300236",
+            "concept": "先进封装",
+            "role": "集成电路制造及先进封装用关键工艺材料（电镀液",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东威科技",
+            "ticker": "688700",
+            "concept": "先进封装",
+            "role": "半导体封装电镀设备",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中京电子",
+            "ticker": "002579",
+            "concept": "先进封装",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中国巨石",
+            "ticker": "600176",
+            "concept": "先进封装",
+            "role": "先进封装上游高端电子布潜在相关",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中微公司",
+            "ticker": "688012",
+            "concept": "先进封装",
+            "role": "封装设备",
+            "strength": "related",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_date": "",
+            "target": "先进封装",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "high",
+            "evidence": "先进封装 canonical Deep Dive parsed pool backfill for Bridge 2.0 graph connectivity.",
+            "source": "[[IMA canonical: 先进封装]]",
+            "source_date": "2026-06-01",
+            "target": "先进封装",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "先进封装承接AI算力对HBM、高密度互连、2.5D/3D封装、CoWoS和封装材料的需求。",
+            "source": "[[ConceptBridge_P2_补链_20260602]]",
+            "source_date": "2026-06-02",
+            "target": "先进封装",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_name": "20260521 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          },
+          {
+            "source": "[[IMA canonical: 先进封装]]",
+            "source_name": "IMA canonical: 先进封装",
+            "source_exists": false,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/IMA canonical: 先进封装.md"
+          },
+          {
+            "source": "[[ConceptBridge_P2_补链_20260602]]",
+            "source_name": "ConceptBridge_P2_补链_20260602",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/ConceptBridge_P2_补链_20260602.md"
+          }
+        ],
+        "data_gaps": [
+          "missing_source_trace"
+        ],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
+          "优先补 source/raw trace，避免证据不可追溯。"
+        ],
+        "warnings": []
       }
     ],
     "warnings": []
@@ -1626,6 +2115,32 @@
         "next_actions": [
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_rag_query": "光刻胶 光刻胶 华特气体 兴福电子 雅克科技",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "hit",
+        "semantic_hits": [
+          {
+            "title": "华特气体",
+            "file_path": "wiki/entities/华特气体.md",
+            "score": 0.365335,
+            "excerpt": "# 华特气体 电子特气领军企业，多种产品通过全球头部芯片企业认证，在部分28nm及以上制程产品上实现批量供应。 ## 在赛道中的角色 - **电子特气国产替代**：多种电子特气产品通过全球头部芯片企业认证，28nm+制程批量供应 - **国产化率提升**：电子特气国产化率约35%-40%，华特气体为核心推动者之一 - **品类覆盖**：高纯四氟化碳、六氟化硫、三氟化氮等产品线齐全 ## 关键数据 ",
+            "via_neighbor": false
+          },
+          {
+            "title": "光刻胶_DeepDive_数据抽取_20260613",
+            "file_path": "wiki/sources/光刻胶_DeepDive_数据抽取_20260613.md",
+            "score": 0.363211,
+            "excerpt": "# 光刻胶_DeepDive_数据抽取_20260613 IMA 光刻胶题材 Deep Dive 原始情报解析池，用于写入 [[光刻胶]] concept graph。共解析 55 条结构化情报项（其中 hard_fact 候选 3 条、需人工复核 43 条），按 review_required 守恒口径，不直接升级为 hard fact / entity_delta。 ## 摘要 - 题材锚点：",
+            "via_neighbor": false
+          },
+          {
+            "title": "光刻胶",
+            "file_path": "wiki/concepts/光刻胶.md",
+            "score": 0.362796,
+            "excerpt": "# 光刻胶 半导体制造中用光照射后改变化学性质、实现图案转移的关键材料，是芯片精度与良率的\"光刻墨水\"。 **一句话**：光刻机是纳米投影仪，光刻胶就是投影仪里的\"感光胶片\"。 ## 核心机制 光刻胶（又称光致抗蚀剂）是一种感光高分子材料。涂在硅片上后，通过光刻机曝光，被照射区域化学性质发生变化（正胶：曝光区可溶；负胶：曝光区不可溶），再经过显影液处理，形成与掩模版对应的微细图形。后续的刻蚀、沉积",
+            "via_neighbor": false
+          }
         ]
       },
       {
@@ -1653,6 +2168,32 @@
         "next_actions": [
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_rag_query": "小金属 小金属 云南锗业 阿石创 风华高科",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "hit",
+        "semantic_hits": [
+          {
+            "title": "小金属",
+            "file_path": "wiki/concepts/小金属.md",
+            "score": 0.36612,
+            "excerpt": "# 小金属 小金属是指除铜、铝、铅、锌、镍等大宗有色金属之外，市场规模较小但战略属性突出的金属品种，主要包括钨、锑、锡、钼、锗、铟、钽、铋、钒、铍和部分稀散/中重稀土资源。 **一句话**：中国占全球主导地位的战略稀缺小金属，在出口管制升级、全球战略备库和 AI/新能源/军工需求爆发三重驱动下，正在从“周期定价”转向“战略安全定价”。 ## 核心逻辑 1. **供给刚性**：开采配额下调、矿山品位",
+            "via_neighbor": false
+          },
+          {
+            "title": "小金属_DeepDive_数据抽取_20260601",
+            "file_path": "wiki/sources/小金属_DeepDive_数据抽取_20260601.md",
+            "score": 0.364591,
+            "excerpt": "# 小金属_DeepDive_数据抽取_20260601 IMA 非科技题材 Deep Dive 原始情报解析池，用于回填 [[小金属]] concept graph。 ## 摘要 - 题材锚点：中国占全球主导地位的战略稀缺小金属，在出口管制升级、全球战略备库、AI/新能源/军工需求爆发三重驱动下，从周期定价转向战略安全定价。 - 解析结果：128 条信息池记录，覆盖催化、周期变量、产业链路径、细",
+            "via_neighbor": false
+          },
+          {
+            "title": "云南锗业（002428）",
+            "file_path": "wiki/entities/云南锗业.md",
+            "score": 0.198421,
+            "excerpt": "# 云南锗业（002428） 一句话定位：磷化铟晶片扩产至目标45万片/年 ## 速览 | 维度 | 内容 | |---|---| | 实体类型 | 上市公司 | | 所属市场 | A股 | | 核心赛道 | [[磷化铟]] · [[磷源]] · [[光芯片]] | | 产业链位置 | 待补充 | | 核心产品/能力 | 待补充 | | 主要客户/生态 | 待补充 | | 主要竞争对手 | 待补充",
+            "via_neighbor": false
+          }
         ]
       },
       {
@@ -1679,6 +2220,32 @@
         "next_actions": [
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_rag_query": "电子化学品 电子化学品 中船特气 中巨芯 华特气体",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "hit",
+        "semantic_hits": [
+          {
+            "title": "六氟化钨",
+            "file_path": "wiki/concepts/六氟化钨.md",
+            "score": 0.516393,
+            "excerpt": "# 六氟化钨 六氟化钨（WF6）是钨在半导体电子特气和先进制造中的重要应用方向，可用于半导体制造中的钨沉积等环节。 **一句话**：六氟化钨的题材核心是钨资源价格、半导体材料国产替代和电子特气供需缺口，但具体公司暴露需要公告或产品目录进一步核验。 ## 核心逻辑 - 图片稿将六氟化钨列为钨产业方向之一，与光伏钨丝、PCB微钻、军工与高端制造并列。 - 半导体制造扩产和国产替代可能拉动 WF6 需求",
+            "via_neighbor": false
+          },
+          {
+            "title": "中巨芯（688549）",
+            "file_path": "wiki/entities/中巨芯.md",
+            "score": 0.364878,
+            "excerpt": "# 中巨芯（688549） 一句话定位：G5 级电子级氢氟酸和电子级硫酸扩产 ## 速览 | 维度 | 内容 | |---|---| | 实体类型 | 上市公司 | | 所属市场 | A股 | | 核心赛道 | [[无水氢氟酸（半导体级）]] · [[半导体材料]] | | 产业链位置 | 待补充 | | 核心产品/能力 | 待补充 | | 主要客户/生态 | 待补充 | | 主要竞争对手 | 待",
+            "via_neighbor": false
+          },
+          {
+            "title": "华特气体",
+            "file_path": "wiki/entities/华特气体.md",
+            "score": 0.361657,
+            "excerpt": "# 华特气体 电子特气领军企业，多种产品通过全球头部芯片企业认证，在部分28nm及以上制程产品上实现批量供应。 ## 在赛道中的角色 - **电子特气国产替代**：多种电子特气产品通过全球头部芯片企业认证，28nm+制程批量供应 - **国产化率提升**：电子特气国产化率约35%-40%，华特气体为核心推动者之一 - **品类覆盖**：高纯四氟化碳、六氟化硫、三氟化氮等产品线齐全 ## 关键数据 ",
+            "via_neighbor": false
+          }
         ]
       },
       {
@@ -1732,6 +2299,63 @@
         "next_actions": [
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ]
+      },
+      {
+        "date": "2026-06-11",
+        "query": "存储芯片",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 95.45,
+        "matched_theme": "存储芯片",
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          "江丰电子",
+          "中巨芯",
+          "华特气体",
+          "阿石创",
+          "多氟多"
+        ],
+        "data_gaps": [],
+        "route": "front-map / deep-dive",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ]
+      },
+      {
+        "date": "2026-06-11",
+        "query": "先进封装",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.9,
+        "priority_score": 91.36,
+        "matched_theme": "先进封装",
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          "中巨芯",
+          "有研粉材",
+          "兴福电子",
+          "雅克科技",
+          "炬光科技"
+        ],
+        "data_gaps": [
+          "missing_source_trace"
+        ],
+        "route": "先保留，等统一回补 trace/evidence 后再 deep-dive",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
+          "优先补 source/raw trace，避免证据不可追溯。"
         ]
       }
     ],
@@ -1828,12 +2452,20 @@
     ],
     "noise_or_unconfirmed": []
   },
+  "semantic_rag": {
+    "enabled": true,
+    "top_n": 3,
+    "k": 3,
+    "mode": "hybrid",
+    "warnings": []
+  },
   "notes": [
     "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
     "回补类事项只进入 data_gap / gap_queue，等待用户统一处理。"
   ],
   "next_actions": [
     "优先打开 old_logic_wakeup：确认是否需要 front-map 或 deep-dive。",
+    "语义召回已给出 W 命中；优先复核结构化命中和 W 命中同时存在的条目。",
     "数据缺口只登记到回补队列；本轮不自动 source/concept/IMA 回补。",
     "先补齐 daily workflow 产物，否则 agent 判断只作为预览。"
   ]

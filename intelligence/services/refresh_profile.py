@@ -153,7 +153,11 @@ def derive_from_duckdb(options: RefreshOptions) -> dict[str, Any]:
         return out
 
     adapter = MarketAdapter(db_path=options.db_path)
-    health = adapter.health()
+    try:
+        health = adapter.health()
+    except Exception as exc:
+        out["warnings"].append(f"DuckDB 不可用：{exc}（{adapter.resolved_db_path}）")
+        return out
     if not health.get("ok"):
         out["warnings"].append(f"DuckDB 不可用：{'; '.join(health.get('errors') or ['unknown'])}（{health.get('db_path')}）")
         return out

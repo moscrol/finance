@@ -15,6 +15,7 @@ from intelligence.services.logic_market_match import (
     available_candidate_dates,
     batch_match_logic_to_market,
 )
+from intelligence.services import kb_rag
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 from scripts.build_daily_ops_ledger import build_ledger
 
@@ -28,6 +29,10 @@ class DailyAgentOptions:
     top_per_date: int = 10
     top_companies: int = 8
     max_evidence: int = 5
+    semantic_rag_top_n: int = 3
+    wiki_rag_k: int = 3
+    wiki_rag_mode: str = "hybrid"
+    wiki_rag_timeout: int = 120
 
 
 def _paths_from_options(options: DailyAgentOptions) -> ProjectPaths:
@@ -102,11 +107,69 @@ def _build_decision(batch: dict[str, Any]) -> dict[str, Any]:
     return decision
 
 
+def _semantic_query(row: dict[str, Any]) -> str:
+    parts = [str(row.get("query") or ""), str(row.get("matched_theme") or "")]
+    parts.extend(str(item) for item in (row.get("strong_stocks") or [])[:3])
+    return " ".join(part for part in parts if part).strip()
+
+
+def _semantic_hit_dict(hit: kb_rag.WikiHit) -> dict[str, Any]:
+    return {
+        "title": hit.title,
+        "file_path": hit.file_path,
+        "score": hit.score,
+        "excerpt": hit.excerpt,
+        "via_neighbor": hit.via_neighbor,
+    }
+
+
+def _enrich_decision_with_semantic_rag(
+    decision: dict[str, list[dict[str, Any]]],
+    options: DailyAgentOptions,
+    kb_wiki: Path,
+) -> list[str]:
+    warnings: list[str] = []
+    remaining = max(0, int(options.semantic_rag_top_n or 0))
+    if remaining <= 0:
+        return warnings
+
+    for bucket in ("old_logic_wakeup", "new_logic_candidate", "data_gap"):
+        for row in decision.get(bucket, []):
+            if remaining <= 0:
+                return warnings
+            query = _semantic_query(row)
+            if not query:
+                row["semantic_rag_status"] = "skipped"
+                continue
+            wr = kb_rag.retrieve(
+                query,
+                kb_wiki,
+                k=options.wiki_rag_k,
+                mode=options.wiki_rag_mode,
+                timeout=options.wiki_rag_timeout,
+            )
+            row["semantic_rag_query"] = query
+            row["semantic_rag_mode"] = options.wiki_rag_mode
+            if wr.ok:
+                row["semantic_rag_status"] = "hit"
+                row["semantic_hits"] = [_semantic_hit_dict(hit) for hit in wr.hits]
+            else:
+                row["semantic_rag_status"] = "unavailable"
+                row["semantic_hits"] = []
+                if wr.warning:
+                    warnings.append(f"{query}: {wr.warning}")
+            remaining -= 1
+    return warnings
+
+
 def _agent_next_actions(report: dict[str, Any]) -> list[str]:
     actions: list[str] = []
     decision = report["decision"]
     if decision["old_logic_wakeup"]:
         actions.append("优先打开 old_logic_wakeup：确认是否需要 front-map 或 deep-dive。")
+    semantic_hits = sum(1 for rows in decision.values() for row in rows if row.get("semantic_hits"))
+    if semantic_hits:
+        actions.append("语义召回已给出 W 命中；优先复核结构化命中和 W 命中同时存在的条目。")
     if decision["new_logic_candidate"]:
         actions.append("新逻辑先用 brief/front-map 定义题材边界，不急着 deep-dive。")
     if decision["data_gap"]:
@@ -131,6 +194,8 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         top_companies=options.top_companies,
         max_evidence=options.max_evidence,
     ).to_dict()
+    decision = _build_decision(batch)
+    semantic_warnings = _enrich_decision_with_semantic_rag(decision, options, paths.knowledge_wiki)
     report = {
         "date": options.date,
         "generated_at": now_iso(),
@@ -141,7 +206,14 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         },
         "ledger": ledger,
         "logic_batch": batch,
-        "decision": _build_decision(batch),
+        "decision": decision,
+        "semantic_rag": {
+            "enabled": options.semantic_rag_top_n > 0,
+            "top_n": options.semantic_rag_top_n,
+            "k": options.wiki_rag_k,
+            "mode": options.wiki_rag_mode,
+            "warnings": semantic_warnings,
+        },
         "notes": [
             "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
             "回补类事项只进入 data_gap / gap_queue，等待用户统一处理。",
@@ -158,9 +230,16 @@ def _section_rows(rows: list[dict[str, Any]], limit: int = 10) -> list[str]:
     for item in rows[:limit]:
         gaps = ", ".join(item["data_gaps"]) or "-"
         stocks = ", ".join(item["strong_stocks"]) or "-"
+        semantic_hits = item.get("semantic_hits") or []
+        if semantic_hits:
+            semantic = "；".join(hit.get("title", "") for hit in semantic_hits[:2] if hit.get("title")) or "hit"
+        elif item.get("semantic_rag_status") == "unavailable":
+            semantic = "不可用"
+        else:
+            semantic = "-"
         lines.append(
             f"- {item['query']}｜priority={item['priority_score'] if item['priority_score'] is not None else '-'}"
-            f"｜confidence={item['confidence']}｜强势股={stocks}｜缺口={gaps}｜路径={item['route']}"
+            f"｜confidence={item['confidence']}｜强势股={stocks}｜缺口={gaps}｜语义={semantic}｜路径={item['route']}"
         )
     return lines
 
@@ -180,6 +259,7 @@ def render_daily_agent(report: dict[str, Any]) -> str:
         f"- New logic candidate: {len(decision['new_logic_candidate'])}",
         f"- Data gap: {len(decision['data_gap'])}",
         f"- Noise/unconfirmed: {len(decision['noise_or_unconfirmed'])}",
+        f"- Semantic RAG: {report['semantic_rag']['mode']} top_n={report['semantic_rag']['top_n']}",
         "",
         "## 旧逻辑唤醒",
         "",
@@ -208,6 +288,10 @@ def render_daily_agent(report: dict[str, Any]) -> str:
             )
     else:
         lines.append("- 无")
+    if report["semantic_rag"]["warnings"]:
+        lines.extend(["", "## Semantic RAG Warnings", ""])
+        for warning in report["semantic_rag"]["warnings"][:10]:
+            lines.append(f"- {warning}")
     lines.extend(["", "## Next Actions", ""])
     for action in report["next_actions"]:
         lines.append(f"- {action}")
@@ -259,6 +343,8 @@ def run_daily_agent(options: DailyAgentOptions) -> tuple[WorkflowSummary, dict[s
             "date": options.date,
             "recent": options.recent,
             "top_per_date": options.top_per_date,
+            "semantic_rag_top_n": options.semantic_rag_top_n,
+            "wiki_rag_mode": options.wiki_rag_mode,
         },
     )
     summary.steps.append(
@@ -287,8 +373,9 @@ def run_daily_agent(options: DailyAgentOptions) -> tuple[WorkflowSummary, dict[s
         f"old_logic_wakeup={len(report['decision']['old_logic_wakeup'])}",
         f"new_logic_candidate={len(report['decision']['new_logic_candidate'])}",
         f"data_gap={len(report['decision']['data_gap'])}",
+        f"semantic_rag_hits={sum(1 for rows in report['decision'].values() for row in rows if row.get('semantic_hits'))}",
     ]
-    summary.warnings = list(batch.get("warnings") or [])
+    summary.warnings = list(batch.get("warnings") or []) + list(report["semantic_rag"]["warnings"])
     summary.next_actions = list(report["next_actions"])
     if any(step.status == "FAIL" for step in summary.steps):
         summary.finish("FAIL")
