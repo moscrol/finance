@@ -2,8 +2,10 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from intelligence.paths import ProjectPaths
+from intelligence.services import kb_rag
 from intelligence.workflows.daily_agent import DailyAgentOptions, run_daily_agent
 
 
@@ -127,6 +129,46 @@ class DailyAgentTest(unittest.TestCase):
             self.assertIn("## 今日判断", markdown)
             self.assertIn("液冷服务器", markdown)
             self.assertIn("连板未映射", markdown)
+
+    def test_daily_agent_builds_chinese_semantic_evidence_card(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_fixture(Path(tmp))
+            fake_rag = kb_rag.WikiRagResult(
+                ok=True,
+                hits=[
+                    kb_rag.WikiHit(
+                        page_id="液冷服务器_DeepDive",
+                        file_path="wiki/sources/液冷服务器_DeepDive_数据抽取.md",
+                        title="液冷服务器_DeepDive_数据抽取",
+                        score=0.42,
+                        excerpt="液冷服务器旧逻辑主线来自 AI 算力密度提升。",
+                    )
+                ],
+            )
+
+            with mock.patch("intelligence.workflows.daily_agent.kb_rag.retrieve", return_value=fake_rag):
+                summary, report, markdown = run_daily_agent(
+                    DailyAgentOptions(
+                        date="2026-06-11",
+                        finance_root=paths.finance_root,
+                        kb_wiki=paths.knowledge_wiki,
+                        top_per_date=2,
+                        semantic_rag_top_n=1,
+                    )
+                )
+
+            self.assertIn(summary.status, {"PASS", "WARN"})
+            row = report["decision"]["old_logic_wakeup"][0]
+            card = row["semantic_evidence_card"]
+            self.assertEqual(card["标题"], "旧逻辑证据卡：液冷服务器")
+            self.assertEqual(card["结构化检查"]["概念"], "已命中")
+            self.assertEqual(card["向量旧材料"]["命中数量"], 1)
+            self.assertEqual(card["命中材料"][0]["类型"], "旧深度研究")
+            self.assertEqual(card["命中材料"][0]["作用"], "旧逻辑主线")
+            self.assertIn("可以进入题材地图/深度研究", card["下一步"])
+            self.assertIn("## 旧逻辑证据卡", markdown)
+            self.assertIn("结构化：概念=已命中", markdown)
+            self.assertIn("回溯：已命中来源页", markdown)
 
 
 if __name__ == "__main__":
