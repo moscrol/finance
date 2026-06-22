@@ -16,6 +16,7 @@ from intelligence.services.logic_market_match import (
     batch_match_logic_to_market,
 )
 from intelligence.services import kb_rag
+from intelligence.services import research_judge
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 from scripts.build_daily_ops_ledger import build_ledger
 
@@ -265,6 +266,9 @@ def _evidence_card_next_action(row: dict[str, Any], status: str) -> str:
         return "先补公司暴露，确认哪些强势股是真相关。"
     if "missing_evidence" in gaps:
         return "先补公告/研报/订单等证据，不要只看盘面。"
+    judgment = row.get("research_judgment") or {}
+    if judgment.get("建议动作"):
+        return str(judgment["建议动作"])
     if status == "结构化和向量互相支持":
         return "可以进入题材地图/深度研究，并抽查最相关命中材料。"
     if row.get("classification") == LABEL_NEW_CANDIDATE:
@@ -307,11 +311,38 @@ def _build_evidence_card(row: dict[str, Any]) -> dict[str, Any]:
             "命中数量": len(hits),
         },
         "命中材料": evidence_items,
+        "证据裁判": row.get("research_judgment") or {},
         "综合判断": status,
         "判断理由": reason,
         "缺口": row.get("data_gaps") or [],
         "下一步": _evidence_card_next_action(row, status),
     }
+
+
+def _enrich_decision_with_research_judgment(
+    decision: dict[str, list[dict[str, Any]]],
+    kb_wiki: Path,
+    max_evidence: int,
+) -> list[str]:
+    warnings: list[str] = []
+    for bucket in ("old_logic_wakeup", "new_logic_candidate", "data_gap"):
+        for row in decision.get(bucket, []):
+            if "placeholder_market_theme" in set(row.get("data_gaps") or []):
+                continue
+            try:
+                row["research_judgment"] = research_judge.judge_row(row, kb_wiki=kb_wiki, max_evidence=max_evidence)
+            except Exception as exc:
+                row["research_judgment"] = {
+                    "目标": row.get("query") or "-",
+                    "证据状态": "裁判不可用",
+                    "已有证据层": [],
+                    "缺失证据层": [],
+                    "已有证据": [],
+                    "建议动作": row.get("route") or "人工复核。",
+                    "不可升级原因": [str(exc)],
+                }
+                warnings.append(f"{row.get('query') or '-'}: {exc}")
+    return warnings
 
 
 def _enrich_decision_with_semantic_rag(
@@ -360,6 +391,18 @@ def _enrich_decision_with_semantic_rag(
 def _agent_next_actions(report: dict[str, Any]) -> list[str]:
     actions: list[str] = []
     decision = report["decision"]
+    judgments = [
+        row.get("research_judgment") or {}
+        for rows in decision.values()
+        for row in rows
+        if row.get("research_judgment")
+    ]
+    priority_targets = [item.get("目标") for item in judgments if item.get("证据状态") == "重点验证"]
+    baseline_targets = [item.get("目标") for item in judgments if item.get("证据状态") == "能力栈候选"]
+    if priority_targets:
+        actions.append(f"证据裁判提示重点验证：{', '.join(str(item) for item in priority_targets[:5])}；优先找公告/调研/订单/客户验证。")
+    if baseline_targets:
+        actions.append(f"年报/F10 只证明能力栈：{', '.join(str(item) for item in baseline_targets[:5])}；下一步补 L3 官方验证或等盘面验证。")
     if decision["old_logic_wakeup"]:
         actions.append("优先打开旧逻辑唤醒：确认是否需要题材地图或深度研究。")
     semantic_hits = sum(1 for rows in decision.values() for row in rows if row.get("semantic_hits"))
@@ -392,6 +435,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         max_evidence=options.max_evidence,
     ).to_dict()
     decision = _build_decision(batch)
+    judgment_warnings = _enrich_decision_with_research_judgment(decision, paths.knowledge_wiki, options.max_evidence)
     semantic_warnings = _enrich_decision_with_semantic_rag(decision, options, paths.knowledge_wiki)
     report = {
         "date": options.date,
@@ -410,6 +454,10 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
             "k": options.wiki_rag_k,
             "mode": options.wiki_rag_mode,
             "warnings": semantic_warnings,
+        },
+        "research_judge": {
+            "enabled": True,
+            "warnings": judgment_warnings,
         },
         "notes": [
             "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
@@ -434,9 +482,11 @@ def _section_rows(rows: list[dict[str, Any]], limit: int = 10) -> list[str]:
             semantic = "不可用"
         else:
             semantic = "-"
+        judgment = item.get("research_judgment") or {}
+        judgment_text = judgment.get("证据状态") or "-"
         lines.append(
             f"- {item['query']}｜priority={item['priority_score'] if item['priority_score'] is not None else '-'}"
-            f"｜confidence={item['confidence']}｜强势股={stocks}｜缺口={gaps}｜语义={semantic}｜路径={item['route']}"
+            f"｜confidence={item['confidence']}｜强势股={stocks}｜缺口={gaps}｜语义={semantic}｜裁判={judgment_text}｜路径={item['route']}"
         )
     return lines
 
@@ -465,6 +515,14 @@ def _evidence_card_rows(decision: dict[str, list[dict[str, Any]]], limit: int = 
         lines.append(
             f"- 向量旧材料：{semantic.get('状态', '-')}｜命中 {semantic.get('命中数量', 0)}｜检索词：{semantic.get('检索词', '-')}"
         )
+        judgment = card.get("证据裁判") or {}
+        if judgment:
+            lines.append(
+                "- 证据裁判："
+                f"{judgment.get('证据状态', '-')}｜"
+                f"已有：{'、'.join(judgment.get('已有证据层') or []) or '-'}｜"
+                f"缺：{'、'.join(judgment.get('缺失证据层') or []) or '-'}"
+            )
         materials = card.get("命中材料") or []
         if materials:
             for item in materials[:3]:
@@ -563,6 +621,11 @@ def _html_metric(label: str, value: Any, note: str = "") -> str:
 
 def _row_status_kind(row: dict[str, Any]) -> str:
     gaps = set(row.get("data_gaps") or [])
+    judgment = row.get("research_judgment") or {}
+    if judgment.get("证据状态") in {"已有事实验证", "重点验证"}:
+        return "good"
+    if judgment.get("证据状态") in {"能力栈候选", "盘面触发待解释"}:
+        return "watch"
     if row.get("semantic_hits") and not gaps:
         return "good"
     if row.get("semantic_hits") or row.get("classification") == LABEL_OLD_WAKEUP:
@@ -580,6 +643,8 @@ def _html_table(rows: list[dict[str, Any]], empty: str) -> str:
         stocks = "、".join(row.get("strong_stocks") or []) or "-"
         gaps = _format_gaps(row.get("data_gaps") or [])
         semantic = _semantic_summary(row)
+        judgment = row.get("research_judgment") or {}
+        judgment_status = judgment.get("证据状态") or "-"
         action = row.get("route") or "-"
         body.append(
             "<tr>"
@@ -589,12 +654,13 @@ def _html_table(rows: list[dict[str, Any]], empty: str) -> str:
             f"<td>{escape(stocks)}</td>"
             f"<td>{escape(gaps)}</td>"
             f"<td>{escape(semantic)}</td>"
+            f"<td>{_html_badge(judgment_status, _row_status_kind(row))}</td>"
             f"<td>{escape(action)}</td>"
             "</tr>"
         )
     return (
         '<div class="table-wrap"><table><thead><tr>'
-        "<th>题材</th><th>优先级</th><th>可信度</th><th>强势股</th><th>缺口</th><th>旧材料</th><th>建议动作</th>"
+        "<th>题材</th><th>优先级</th><th>可信度</th><th>强势股</th><th>缺口</th><th>旧材料</th><th>证据裁判</th><th>建议动作</th>"
         "</tr></thead><tbody>"
         + "".join(body)
         + "</tbody></table></div>"
@@ -631,6 +697,7 @@ def _html_evidence_cards(decision: dict[str, list[dict[str, Any]]]) -> str:
         card = row["semantic_evidence_card"]
         structured = card.get("结构化检查") or {}
         semantic = card.get("向量旧材料") or {}
+        judgment = card.get("证据裁判") or {}
         gaps = _format_gaps(card.get("缺口") or [])
         materials = card.get("命中材料") or []
         mat_html = []
@@ -657,6 +724,7 @@ def _html_evidence_cards(decision: dict[str, list[dict[str, Any]]]) -> str:
             f'{_html_badge("回溯：" + str(structured.get("来源回溯", "-")), "gap" if structured.get("来源回溯") == "有缺口" else "good")}'
             '</div>'
             f'<div class="semantic-line">向量旧材料：<strong>{escape(str(semantic.get("状态", "-")))}</strong>，命中 {escape(str(semantic.get("命中数量", 0)))} 条</div>'
+            f'<div class="semantic-line">证据裁判：<strong>{escape(str(judgment.get("证据状态", "-")))}</strong>｜已有：{escape("、".join(judgment.get("已有证据层") or []) or "-")}｜缺：{escape("、".join(judgment.get("缺失证据层") or []) or "-")}</div>'
             + "".join(mat_html)
             + f'<div class="next"><span>缺口：{escape(gaps)}</span><strong>{escape(str(card.get("下一步") or "-"))}</strong></div>'
             '</article>'
@@ -821,9 +889,14 @@ def run_daily_agent(options: DailyAgentOptions) -> tuple[WorkflowSummary, dict[s
         f"old_logic_wakeup={len(report['decision']['old_logic_wakeup'])}",
         f"new_logic_candidate={len(report['decision']['new_logic_candidate'])}",
         f"data_gap={len(report['decision']['data_gap'])}",
+        f"research_judge={sum(1 for rows in report['decision'].values() for row in rows if row.get('research_judgment'))}",
         f"semantic_rag_hits={sum(1 for rows in report['decision'].values() for row in rows if row.get('semantic_hits'))}",
     ]
-    summary.warnings = list(batch.get("warnings") or []) + list(report["semantic_rag"]["warnings"])
+    summary.warnings = (
+        list(batch.get("warnings") or [])
+        + list(report["research_judge"]["warnings"])
+        + list(report["semantic_rag"]["warnings"])
+    )
     summary.next_actions = list(report["next_actions"])
     if any(step.status == "FAIL" for step in summary.steps):
         summary.finish("FAIL")

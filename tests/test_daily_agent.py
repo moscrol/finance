@@ -91,6 +91,10 @@ class DailyAgentTest(unittest.TestCase):
                     "items": [
                         {
                             "target": "液冷服务器",
+                            "concept": "液冷服务器",
+                            "evidence_layer": "L2",
+                            "update_type": "annual_report_baseline",
+                            "source_quality": "official_disclosure",
                             "evidence": "液冷服务器需求提升。",
                             "source": "[[液冷服务器深度报告]]",
                             "source_date": "2026-06-01",
@@ -163,18 +167,23 @@ class DailyAgentTest(unittest.TestCase):
             card = row["semantic_evidence_card"]
             self.assertEqual(card["标题"], "旧逻辑证据卡：液冷服务器")
             self.assertEqual(card["结构化检查"]["概念"], "已命中")
+            self.assertEqual(card["证据裁判"]["证据状态"], "能力栈候选")
+            self.assertIn("L2 官方基线", card["证据裁判"]["已有证据层"])
+            self.assertIn("L3 官方验证", card["证据裁判"]["缺失证据层"])
             self.assertEqual(card["向量旧材料"]["命中数量"], 1)
             self.assertEqual(card["命中材料"][0]["类型"], "旧深度研究")
             self.assertEqual(card["命中材料"][0]["作用"], "旧逻辑主线")
-            self.assertIn("可以进入题材地图/深度研究", card["下一步"])
+            self.assertIn("找公告", card["下一步"])
             self.assertIn("## 逻辑证据卡", markdown)
             self.assertIn("结构化：概念=已命中", markdown)
+            self.assertIn("证据裁判：能力栈候选", markdown)
             self.assertIn("回溯：已命中来源页", markdown)
 
             html = render_daily_agent_html(report, markdown)
             self.assertIn("马上看：旧逻辑唤醒", html)
             self.assertIn("需要回补：概念 / 公司 / 证据 / 来源", html)
             self.assertIn("逻辑证据卡", html)
+            self.assertIn("证据裁判", html)
             self.assertIn("evidence-card", html)
             self.assertNotIn("<pre>", html)
 

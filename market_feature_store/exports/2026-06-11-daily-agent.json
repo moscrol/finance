@@ -1,6 +1,6 @@
 {
   "date": "2026-06-11",
-  "generated_at": "2026-06-22T11:08:04+08:00",
+  "generated_at": "2026-06-23T02:12:18+08:00",
   "paths": {
     "finance_root": "/Users/a77/Desktop/c c/金融",
     "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
@@ -8,7 +8,7 @@
   },
   "ledger": {
     "date": "2026-06-11",
-    "generated_at": "2026-06-22T11:07:17",
+    "generated_at": "2026-06-23T02:11:30",
     "paths": {
       "finance_root": "/Users/a77/Desktop/c c/金融",
       "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
@@ -96,7 +96,7 @@
         "raw_root": "/Users/a77/Desktop/c c/知识库/wiki/raw/ima-stock/ingested/2026-06-11",
         "raw_md_count": 0,
         "incoming_uningested_md_count": 0,
-        "done_folder_md_count": 755,
+        "done_folder_md_count": 1257,
         "manual_review_md_count": 0,
         "folders": {
           "inbox": "/Users/a77/Desktop/c c/知识库/未入库",
@@ -145,12 +145,12 @@
     "debts": {
       "status": "WARN",
       "missing_concepts": {
-        "count": 446,
+        "count": 0,
         "path": "/Users/a77/Desktop/c c/知识库/wiki/raw/theme-radar/missing-concept-audit.json",
         "error": null
       },
       "missing_sources": {
-        "count": 21,
+        "count": 0,
         "path": "/Users/a77/Desktop/c c/知识库/wiki/raw/theme-radar/missing-evidence-source-audit.json",
         "error": null
       },
@@ -163,8 +163,6 @@
     "status": "WARN",
     "next_actions": [
       "Run or resume finance daily workflow for the date; market review outputs are incomplete.",
-      "Backfill source manifests for missing evidence sources before trusting traceability metrics.",
-      "Run concept normalization/backfill queue for missing concepts; do not solve this with blind DeepDive.",
       "Prioritize IMA stock cards for uncovered stock entities based on market activity, not alphabetically."
     ]
   },
@@ -183,10 +181,9 @@
         "placeholder_market_theme": 1,
         "missing_concept": 2,
         "missing_evidence": 2,
-        "missing_entity_exposure": 1,
-        "missing_source_trace": 1
+        "missing_entity_exposure": 1
       },
-      "gap_queue_count": 4,
+      "gap_queue_count": 3,
       "old_logic_wakeup_count": 7
     },
     "gap_queue": [
@@ -269,35 +266,6 @@
         "next_actions": [
           "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
           "等题材归因明确后，再映射到真实概念或标记为噪音。"
-        ]
-      },
-      {
-        "date": "2026-06-11",
-        "query": "先进封装",
-        "classification": "old_logic_wakeup",
-        "priority": 126.36,
-        "market_priority_score": 91.36,
-        "data_gaps": [
-          "missing_source_trace"
-        ],
-        "matched_theme": "先进封装",
-        "trigger_types": [
-          "limit_heat",
-          "new_high_direction",
-          "new_high_cluster",
-          "capacity_industry"
-        ],
-        "strong_stocks": [
-          "中巨芯",
-          "有研粉材",
-          "兴福电子",
-          "雅克科技",
-          "炬光科技"
-        ],
-        "next_actions": [
-          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
-          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
-          "优先补 source/raw trace，避免证据不可追溯。"
         ]
       }
     ],
@@ -470,6 +438,17 @@
             "score": 10
           },
           {
+            "company": "凤凰光学",
+            "ticker": "600071",
+            "concept": "光刻胶",
+            "role": "半导体制造级、精密超高解像度光刻镜头精密抛光及在研平台",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
             "company": "华特气体",
             "ticker": "688268",
             "concept": "光刻胶",
@@ -477,17 +456,6 @@
             "strength": "",
             "confidence": "",
             "evidence_layer": "",
-            "source": "",
-            "score": 10
-          },
-          {
-            "company": "华虹宏力",
-            "ticker": "688347",
-            "concept": "光刻胶",
-            "role": "特色工艺晶圆代工、12英寸成熟制程扩产、华力微收购并表",
-            "strength": "related",
-            "confidence": "high",
-            "evidence_layer": "L1_L3_candidate",
             "source": "",
             "score": 10
           }
@@ -500,6 +468,14 @@
             "source_date": "",
             "target": "光刻胶",
             "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "IMA 2026-06-22光刻胶抽取报告：对日管制、KrF/ArF低国产化率、鼎龙/上海新阳/南大光电/彤程新材等公司进展构成当前光刻胶题材验证链；大多数公司级说法来自研报或投研资料，需人工复核。",
+            "source": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+            "source_date": "2026-06-22",
+            "target": "光刻胶",
+            "target_type": "concept"
           }
         ],
         "source_traces": [
@@ -508,6 +484,12 @@
             "source_name": "光刻胶产业新变化与新格局深度研究报告",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶产业新变化与新格局深度研究报告.md"
+          },
+          {
+            "source": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+            "source_name": "光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622.md"
           }
         ],
         "data_gaps": [],
@@ -616,6 +598,10 @@
             "score": 10
           },
           {
+            "concept": "钨钼小金属",
+            "score": 5
+          },
+          {
             "concept": "二氧化锆",
             "score": 2
           },
@@ -629,10 +615,6 @@
           },
           {
             "concept": "战略金属",
-            "score": 2
-          },
-          {
-            "concept": "电池回收",
             "score": 2
           }
         ],
@@ -667,6 +649,17 @@
             "strength": "related",
             "confidence": "",
             "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中金岭南",
+            "ticker": "000060",
+            "concept": "小金属",
+            "role": "电镓金属提取和销售企业",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
             "source": "",
             "score": 10
           },
@@ -708,17 +701,6 @@
             "ticker": "601020",
             "concept": "小金属",
             "role": "锑资源",
-            "strength": "core",
-            "confidence": "",
-            "evidence_layer": "",
-            "source": "",
-            "score": 10
-          },
-          {
-            "company": "华锡有色",
-            "ticker": "600301",
-            "concept": "小金属",
-            "role": "锑/锡资源端",
             "strength": "core",
             "confidence": "",
             "evidence_layer": "",
@@ -843,6 +825,10 @@
             "score": 10
           },
           {
+            "concept": "湿电子化学品",
+            "score": 5
+          },
+          {
             "concept": "AIPCB专用油墨",
             "score": 2
           },
@@ -856,10 +842,6 @@
           },
           {
             "concept": "i线光刻胶",
-            "score": 2
-          },
-          {
-            "concept": "六氟化钨",
             "score": 2
           }
         ],
@@ -1274,6 +1256,10 @@
             "score": 2
           },
           {
+            "concept": "化肥",
+            "score": 2
+          },
+          {
             "concept": "周期资源",
             "score": 2
           },
@@ -1283,10 +1269,6 @@
           },
           {
             "concept": "复合肥",
-            "score": 2
-          },
-          {
-            "concept": "磷酸铁锂",
             "score": 2
           }
         ],
@@ -1497,7 +1479,7 @@
           {
             "company": "铜陵有色金属",
             "ticker": "000630",
-            "concept": "新能源材料",
+            "concept": "AIDC发电设备",
             "role": "铜矿开采、冶炼及铜加工业务",
             "strength": "related",
             "confidence": "high",
@@ -1694,23 +1676,23 @@
             "score": 10
           },
           {
+            "concept": "AI基础设施与国产算力",
+            "score": 2
+          },
+          {
+            "concept": "AI存储",
+            "score": 2
+          },
+          {
             "concept": "AI手机",
             "score": 2
           },
           {
-            "concept": "HBM（高带宽存储）",
+            "concept": "AI芯片",
             "score": 2
           },
           {
-            "concept": "六氟化钨",
-            "score": 2
-          },
-          {
-            "concept": "半导体",
-            "score": 2
-          },
-          {
-            "concept": "半导体材料",
+            "concept": "CPU",
             "score": 2
           }
         ],
@@ -1763,10 +1745,10 @@
             "company": "东芯股份",
             "ticker": "688110",
             "concept": "存储芯片",
-            "role": "中小容量存储芯片供应商，联营GPU(上海励算/砺算)",
-            "strength": "related",
-            "confidence": "medium",
-            "evidence_layer": "L1_L3_candidate",
+            "role": "中小容量存储(NOR/NAND/DRAM)+联营砺算GPU",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L1",
             "source": "",
             "score": 10
           },
@@ -1812,6 +1794,53 @@
             "source_date": "",
             "target": "存储芯片",
             "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "东北计算机闪迪&西数业绩点评、0505 专家纪要；L3-L4。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0505卖方观点合集]]",
+            "source_date": "2026-05-05",
+            "source_quality": "broker_research_high",
+            "target": "存储芯片",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0501卖方观点合集（中泰电子·西部数据 FY26Q3 + 天风海外科技·闪迪 SNDK/NBM 长协）；存储覆盖 45 家属透支区确认，长协/RPO 偏硬但赛道拥挤、海外标的进观察列表。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0501卖方观点合集]]",
+            "source_date": "2026-05-01",
+            "source_quality": "broker_research_high",
+            "target": "存储芯片",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0502卖方观点合集（闪迪长协重塑存储周期 + CPU&DRAM 内存稀缺 + 高盛苹果内存成本上涨）；存储覆盖 45 家属透支区，长协/预付款/金融担保偏硬但赛道拥挤，海外标的进观察列表。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0502卖方观点合集]]",
+            "source_date": "2026-05-02",
+            "source_quality": "broker_research_high",
+            "target": "存储芯片",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0504卖方观点合集（苹果&SoC&存储 + 高盛韩国收盘三星海力士 + SRAM英伟达收购Groq）。存储覆盖45家🔴透支区，内存涨价为主线确认+TrendForce偏硬价格信号，海外标观察列表。",
+            "source": "[[0504卖方观点合集]]",
+            "source_date": "2026-05-04",
+            "target": "存储芯片",
+            "target_type": "concept"
           }
         ],
         "source_traces": [
@@ -1820,6 +1849,30 @@
             "source_name": "20260521 市场逻辑精选",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          },
+          {
+            "source": "[[0505卖方观点合集]]",
+            "source_name": "0505卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0505卖方观点合集.md"
+          },
+          {
+            "source": "[[0501卖方观点合集]]",
+            "source_name": "0501卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0501卖方观点合集.md"
+          },
+          {
+            "source": "[[0502卖方观点合集]]",
+            "source_name": "0502卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0502卖方观点合集.md"
+          },
+          {
+            "source": "[[0504卖方观点合集]]",
+            "source_name": "0504卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0504卖方观点合集.md"
           }
         ],
         "data_gaps": [],
@@ -1833,7 +1886,7 @@
         "query": "先进封装",
         "date": "2026-06-11",
         "classification": "old_logic_wakeup",
-        "confidence": 0.9,
+        "confidence": 0.95,
         "market_found": true,
         "matched_theme": "先进封装",
         "market_theme": "先进封装",
@@ -2042,6 +2095,27 @@
             "source_date": "2026-06-02",
             "target": "先进封装",
             "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "晚间卖方研报汇总_20260613 · 玻璃基板【长江机械】",
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_date": "2026-06-13",
+            "target": "先进封装",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0506卖方观点合集（锡焊膏卖方观点）；价格/空间为卖方测算，A 股 additive-only。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0506卖方观点合集]]",
+            "source_date": "2026-05-06",
+            "source_quality": "broker_research_high",
+            "target": "先进封装",
+            "target_type": "concept",
+            "update_type": "graph_only"
           }
         ],
         "source_traces": [
@@ -2054,7 +2128,7 @@
           {
             "source": "[[IMA canonical: 先进封装]]",
             "source_name": "IMA canonical: 先进封装",
-            "source_exists": false,
+            "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/IMA canonical: 先进封装.md"
           },
           {
@@ -2062,15 +2136,24 @@
             "source_name": "ConceptBridge_P2_补链_20260602",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/ConceptBridge_P2_补链_20260602.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_name": "晚间卖方研报汇总_20260613",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/晚间卖方研报汇总_20260613.md"
+          },
+          {
+            "source": "[[0506卖方观点合集]]",
+            "source_name": "0506卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0506卖方观点合集.md"
           }
         ],
-        "data_gaps": [
-          "missing_source_trace"
-        ],
+        "data_gaps": [],
         "next_actions": [
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
-          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
-          "优先补 source/raw trace，避免证据不可追溯。"
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
         "warnings": []
       }
@@ -2103,8 +2186,8 @@
         "structured_counts": {
           "concept": 6,
           "company_exposure": 8,
-          "evidence": 1,
-          "source_trace": 1,
+          "evidence": 2,
+          "source_trace": 2,
           "missing_source_trace": 0
         },
         "source_traces": [
@@ -2113,6 +2196,12 @@
             "source_name": "光刻胶产业新变化与新格局深度研究报告",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶产业新变化与新格局深度研究报告.md"
+          },
+          {
+            "source": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+            "source_name": "光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622.md"
           }
         ],
         "data_gaps": [],
@@ -2121,6 +2210,48 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "光刻胶",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[光刻胶产业新变化与新格局深度研究报告]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+              "来源质量": "-",
+              "摘要": "IMA 2026-06-22光刻胶抽取报告：对日管制、KrF/ArF低国产化率、鼎龙/上海新阳/南大光电/彤程新材等公司进展构成当前光刻胶题材验证链；大多数公司级说法来自研报或投研资料，需人工复核。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
         "semantic_rag_query": "光刻胶 光刻胶 华特气体 兴福电子 雅克科技",
         "semantic_rag_mode": "hybrid",
         "semantic_rag_status": "hit",
@@ -2190,10 +2321,52 @@
               "回溯状态": "已命中知识页，不等于原始出处"
             }
           ],
+          "证据裁判": {
+            "目标": "光刻胶",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[光刻胶产业新变化与新格局深度研究报告]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+                "来源质量": "-",
+                "摘要": "IMA 2026-06-22光刻胶抽取报告：对日管制、KrF/ArF低国产化率、鼎龙/上海新阳/南大光电/彤程新材等公司进展构成当前光刻胶题材验证链；大多数公司级说法来自研报或投研资料，需人工复核。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
           "综合判断": "结构化和向量互相支持",
           "判断理由": "图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。",
           "缺口": [],
-          "下一步": "可以进入题材地图/深度研究，并抽查最相关命中材料。"
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
         }
       },
       {
@@ -2243,6 +2416,48 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "小金属",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=1, evidence_items=1, report_context_hits=0。"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[小金属_DeepDive_数据抽取_20260601]]",
+              "来源质量": "-",
+              "摘要": "出口管制升级、全球战略备库和AI/新能源/军工需求共同驱动钨、锑、锡、钼、锗、铟、钽等战略小金属从周期定价转向战略安全定价；价格、库存、供给配额和下游顺价是核心跟踪变量。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
         "semantic_rag_query": "小金属 小金属 云南锗业 阿石创 风华高科",
         "semantic_rag_mode": "hybrid",
         "semantic_rag_status": "hit",
@@ -2312,10 +2527,52 @@
               "回溯状态": "已命中知识页，不等于原始出处"
             }
           ],
+          "证据裁判": {
+            "目标": "小金属",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=1, evidence_items=1, report_context_hits=0。"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[小金属_DeepDive_数据抽取_20260601]]",
+                "来源质量": "-",
+                "摘要": "出口管制升级、全球战略备库和AI/新能源/军工需求共同驱动钨、锑、锡、钼、锗、铟、钽等战略小金属从周期定价转向战略安全定价；价格、库存、供给配额和下游顺价是核心跟踪变量。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
           "综合判断": "结构化和向量互相支持",
           "判断理由": "图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。",
           "缺口": [],
-          "下一步": "可以进入题材地图/深度研究，并抽查最相关命中材料。"
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
         }
       },
       {
@@ -2358,6 +2615,38 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "电子化学品",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=2, evidence_items=2, report_context_hits=0。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
         "semantic_rag_query": "电子化学品 电子化学品 中船特气 中巨芯 华特气体",
         "semantic_rag_mode": "hybrid",
         "semantic_rag_status": "hit",
@@ -2365,7 +2654,7 @@
           {
             "title": "六氟化钨",
             "file_path": "wiki/concepts/六氟化钨.md",
-            "score": 0.516393,
+            "score": 0.524145,
             "excerpt": "# 六氟化钨 六氟化钨（WF6）是钨在半导体电子特气和先进制造中的重要应用方向，可用于半导体制造中的钨沉积等环节。 **一句话**：六氟化钨的题材核心是钨资源价格、半导体材料国产替代和电子特气供需缺口，但具体公司暴露需要公告或产品目录进一步核验。 ## 核心逻辑 - 图片稿将六氟化钨列为钨产业方向之一，与光伏钨丝、PCB微钻、军工与高端制造并列。 - 半导体制造扩产和国产替代可能拉动 WF6 需求",
             "via_neighbor": false
           },
@@ -2404,7 +2693,7 @@
               "类型": "概念页",
               "作用": "标准概念/别名证据",
               "路径": "wiki/concepts/六氟化钨.md",
-              "相关度": 0.5164,
+              "相关度": 0.5241,
               "摘录": "# 六氟化钨 六氟化钨（WF6）是钨在半导体电子特气和先进制造中的重要应用方向，可用于半导体制造中的钨沉积等环节。 **一句话**：六氟化钨的题材核心是钨资源价格、半导体材料国产替代和电子特气供需缺口，但具体公司暴露需要公告或产品目录进一步核验。 ## 核心逻辑 - 图片稿将六氟化钨列为钨产业方向之一，与光伏钨丝、PCB微钻、军工与高端制造并列。 - 半导体制造扩产和国产替代可能拉动 WF6 需求",
               "回溯状态": "已命中知识页，不等于原始出处"
             },
@@ -2427,10 +2716,42 @@
               "回溯状态": "已命中知识页，不等于原始出处"
             }
           ],
+          "证据裁判": {
+            "目标": "电子化学品",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=2, evidence_items=2, report_context_hits=0。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
           "综合判断": "结构化和向量互相支持",
           "判断理由": "图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。",
           "缺口": [],
-          "下一步": "可以进入题材地图/深度研究，并抽查最相关命中材料。"
+          "下一步": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
         }
       },
       {
@@ -2473,6 +2794,38 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "氟化工",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=4, evidence_items=5, report_context_hits=0。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
         "semantic_evidence_card": {
           "标题": "旧逻辑证据卡：氟化工",
           "当前判断": "旧逻辑唤醒",
@@ -2488,10 +2841,42 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "氟化工",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=4, evidence_items=5, report_context_hits=0。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
           "缺口": [],
-          "下一步": "题材地图 / 深度研究"
+          "下一步": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
         }
       },
       {
@@ -2541,6 +2926,48 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "磷化工",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=7, evidence_items=9, report_context_hits=1。"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[磷化工_DeepDive_数据抽取_20260601]]",
+              "来源质量": "-",
+              "摘要": "磷化工 Deep Dive 将磷矿石供需紧平衡、磷酸铁锂需求爆发、硫磺成本传导和磷肥出口政策作为四条主线：30%品位磷矿石价格约1000元/吨高位横盘，磷酸铁锂价格从约3万元/吨升至6.6万元/吨，硫磺价格上行推升湿法磷酸成本，出口配额/暂停与新能源需求共同影响磷矿平衡表。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
         "semantic_evidence_card": {
           "标题": "旧逻辑证据卡：磷化工",
           "当前判断": "旧逻辑唤醒",
@@ -2556,10 +2983,52 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "磷化工",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=7, evidence_items=9, report_context_hits=1。"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[磷化工_DeepDive_数据抽取_20260601]]",
+                "来源质量": "-",
+                "摘要": "磷化工 Deep Dive 将磷矿石供需紧平衡、磷酸铁锂需求爆发、硫磺成本传导和磷肥出口政策作为四条主线：30%品位磷矿石价格约1000元/吨高位横盘，磷酸铁锂价格从约3万元/吨升至6.6万元/吨，硫磺价格上行推升湿法磷酸成本，出口配额/暂停与新能源需求共同影响磷矿平衡表。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
           "缺口": [],
-          "下一步": "题材地图 / 深度研究"
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
         }
       },
       {
@@ -2585,8 +3054,8 @@
         "structured_counts": {
           "concept": 6,
           "company_exposure": 8,
-          "evidence": 1,
-          "source_trace": 1,
+          "evidence": 5,
+          "source_trace": 5,
           "missing_source_trace": 0
         },
         "source_traces": [
@@ -2595,6 +3064,30 @@
             "source_name": "20260521 市场逻辑精选",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          },
+          {
+            "source": "[[0505卖方观点合集]]",
+            "source_name": "0505卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0505卖方观点合集.md"
+          },
+          {
+            "source": "[[0501卖方观点合集]]",
+            "source_name": "0501卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0501卖方观点合集.md"
+          },
+          {
+            "source": "[[0502卖方观点合集]]",
+            "source_name": "0502卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0502卖方观点合集.md"
+          },
+          {
+            "source": "[[0504卖方观点合集]]",
+            "source_name": "0504卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0504卖方观点合集.md"
           }
         ],
         "data_gaps": [],
@@ -2603,6 +3096,62 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "存储芯片",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L3 官方验证",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[20260521 市场逻辑精选]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L3 官方验证",
+              "概念": "-",
+              "来源": "[[0505卖方观点合集]]",
+              "来源质量": "broker_research_high",
+              "摘要": "东北计算机闪迪&西数业绩点评、0505 专家纪要；L3-L4。"
+            },
+            {
+              "层级": "L3 官方验证",
+              "概念": "-",
+              "来源": "[[0501卖方观点合集]]",
+              "来源质量": "broker_research_high",
+              "摘要": "0501卖方观点合集（中泰电子·西部数据 FY26Q3 + 天风海外科技·闪迪 SNDK/NBM 长协）；存储覆盖 45 家属透支区确认，长协/RPO 偏硬但赛道拥挤、海外标的进观察列表。"
+            },
+            {
+              "层级": "L3 官方验证",
+              "概念": "-",
+              "来源": "[[0502卖方观点合集]]",
+              "来源质量": "broker_research_high",
+              "摘要": "0502卖方观点合集（闪迪长协重塑存储周期 + CPU&DRAM 内存稀缺 + 高盛苹果内存成本上涨）；存储覆盖 45 家属透支区，长协/预付款/金融担保偏硬但赛道拥挤，海外标的进观察列表。"
+            },
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[0504卖方观点合集]]",
+              "来源质量": "-",
+              "摘要": "0504卖方观点合集（苹果&SoC&存储 + 高盛韩国收盘三星海力士 + SRAM英伟达收购Groq）。存储覆盖45家🔴透支区，内存涨价为主线确认+TrendForce偏硬价格信号，海外标观察列表。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
         "semantic_evidence_card": {
           "标题": "旧逻辑证据卡：存储芯片",
           "当前判断": "旧逻辑唤醒",
@@ -2618,17 +3167,73 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "存储芯片",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L3 官方验证",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[20260521 市场逻辑精选]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L3 官方验证",
+                "概念": "-",
+                "来源": "[[0505卖方观点合集]]",
+                "来源质量": "broker_research_high",
+                "摘要": "东北计算机闪迪&西数业绩点评、0505 专家纪要；L3-L4。"
+              },
+              {
+                "层级": "L3 官方验证",
+                "概念": "-",
+                "来源": "[[0501卖方观点合集]]",
+                "来源质量": "broker_research_high",
+                "摘要": "0501卖方观点合集（中泰电子·西部数据 FY26Q3 + 天风海外科技·闪迪 SNDK/NBM 长协）；存储覆盖 45 家属透支区确认，长协/RPO 偏硬但赛道拥挤、海外标的进观察列表。"
+              },
+              {
+                "层级": "L3 官方验证",
+                "概念": "-",
+                "来源": "[[0502卖方观点合集]]",
+                "来源质量": "broker_research_high",
+                "摘要": "0502卖方观点合集（闪迪长协重塑存储周期 + CPU&DRAM 内存稀缺 + 高盛苹果内存成本上涨）；存储覆盖 45 家属透支区，长协/预付款/金融担保偏硬但赛道拥挤，海外标的进观察列表。"
+              },
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[0504卖方观点合集]]",
+                "来源质量": "-",
+                "摘要": "0504卖方观点合集（苹果&SoC&存储 + 高盛韩国收盘三星海力士 + SRAM英伟达收购Groq）。存储覆盖45家🔴透支区，内存涨价为主线确认+TrendForce偏硬价格信号，海外标观察列表。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
           "缺口": [],
-          "下一步": "题材地图 / 深度研究"
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
         }
       },
       {
         "date": "2026-06-11",
         "query": "先进封装",
         "classification": "old_logic_wakeup",
-        "confidence": 0.9,
+        "confidence": 0.95,
         "priority_score": 91.36,
         "matched_theme": "先进封装",
         "trigger_types": [
@@ -2647,9 +3252,9 @@
         "structured_counts": {
           "concept": 6,
           "company_exposure": 8,
-          "evidence": 3,
-          "source_trace": 3,
-          "missing_source_trace": 1
+          "evidence": 5,
+          "source_trace": 5,
+          "missing_source_trace": 0
         },
         "source_traces": [
           {
@@ -2661,7 +3266,7 @@
           {
             "source": "[[IMA canonical: 先进封装]]",
             "source_name": "IMA canonical: 先进封装",
-            "source_exists": false,
+            "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/IMA canonical: 先进封装.md"
           },
           {
@@ -2669,17 +3274,82 @@
             "source_name": "ConceptBridge_P2_补链_20260602",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/ConceptBridge_P2_补链_20260602.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_name": "晚间卖方研报汇总_20260613",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/晚间卖方研报汇总_20260613.md"
+          },
+          {
+            "source": "[[0506卖方观点合集]]",
+            "source_name": "0506卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0506卖方观点合集.md"
           }
         ],
-        "data_gaps": [
-          "missing_source_trace"
-        ],
-        "route": "先保留，等统一补来源回溯/证据后再深度研究",
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
         "next_actions": [
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
-          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
-          "优先补 source/raw trace，避免证据不可追溯。"
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "先进封装",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L3 官方验证",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[20260521 市场逻辑精选]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[IMA canonical: 先进封装]]",
+              "来源质量": "-",
+              "摘要": "先进封装 canonical Deep Dive parsed pool backfill for Bridge 2.0 graph connectivity."
+            },
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[ConceptBridge_P2_补链_20260602]]",
+              "来源质量": "-",
+              "摘要": "先进封装承接AI算力对HBM、高密度互连、2.5D/3D封装、CoWoS和封装材料的需求。"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[晚间卖方研报汇总_20260613]]",
+              "来源质量": "-",
+              "摘要": "晚间卖方研报汇总_20260613 · 玻璃基板【长江机械】"
+            },
+            {
+              "层级": "L3 官方验证",
+              "概念": "-",
+              "来源": "[[0506卖方观点合集]]",
+              "来源质量": "broker_research_high",
+              "摘要": "0506卖方观点合集（锡焊膏卖方观点）；价格/空间为卖方测算，A 股 additive-only。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
         "semantic_evidence_card": {
           "标题": "旧逻辑证据卡：先进封装",
           "当前判断": "旧逻辑唤醒",
@@ -2687,7 +3357,7 @@
             "概念": "已命中",
             "公司暴露": "已命中",
             "证据": "已命中",
-            "来源回溯": "有缺口"
+            "来源回溯": "未发现缺口"
           },
           "向量旧材料": {
             "状态": "未补",
@@ -2695,12 +3365,66 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "先进封装",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L3 官方验证",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[20260521 市场逻辑精选]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[IMA canonical: 先进封装]]",
+                "来源质量": "-",
+                "摘要": "先进封装 canonical Deep Dive parsed pool backfill for Bridge 2.0 graph connectivity."
+              },
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[ConceptBridge_P2_补链_20260602]]",
+                "来源质量": "-",
+                "摘要": "先进封装承接AI算力对HBM、高密度互连、2.5D/3D封装、CoWoS和封装材料的需求。"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[晚间卖方研报汇总_20260613]]",
+                "来源质量": "-",
+                "摘要": "晚间卖方研报汇总_20260613 · 玻璃基板【长江机械】"
+              },
+              {
+                "层级": "L3 官方验证",
+                "概念": "-",
+                "来源": "[[0506卖方观点合集]]",
+                "来源质量": "broker_research_high",
+                "摘要": "0506卖方观点合集（锡焊膏卖方观点）；价格/空间为卖方测算，A 股 additive-only。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
-          "缺口": [
-            "missing_source_trace"
-          ],
-          "下一步": "先补来源页/原始材料回溯，再进入深度研究。"
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
         }
       }
     ],
@@ -2744,6 +3468,30 @@
           "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
           "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
         ],
+        "research_judgment": {
+          "目标": "金属铜",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
         "semantic_evidence_card": {
           "标题": "数据缺口证据卡：金属铜",
           "当前判断": "数据缺口",
@@ -2759,6 +3507,30 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "金属铜",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
           "缺口": [
@@ -2807,6 +3579,30 @@
           "补 entity exposure 或 IMA 个股卡，确认哪些公司是真暴露。",
           "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
         ],
+        "research_judgment": {
+          "目标": "金属钴",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
         "semantic_evidence_card": {
           "标题": "数据缺口证据卡：金属钴",
           "当前判断": "数据缺口",
@@ -2822,6 +3618,30 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "金属钴",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
           "缺口": [
@@ -2870,6 +3690,10 @@
     "top_n": 3,
     "k": 3,
     "mode": "hybrid",
+    "warnings": []
+  },
+  "research_judge": {
+    "enabled": true,
     "warnings": []
   },
   "notes": [
