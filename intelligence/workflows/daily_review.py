@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from intelligence.paths import ProjectPaths, default_paths
 from intelligence.runner import run_command_step
@@ -32,10 +33,17 @@ class DailyReviewOptions:
     from_step: str | None = None
     only_step: str | None = None
     continue_on_warn: bool = False
+    kb_wiki: str | Path | None = None
 
 
 def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | None = None) -> list[CommandSpec]:
     paths = paths or default_paths()
+    if options.kb_wiki:
+        paths = ProjectPaths(
+            finance_root=paths.finance_root,
+            knowledge_wiki=Path(options.kb_wiki).expanduser(),
+            finance_site=paths.finance_site,
+        )
     date = options.date
     exports = paths.market_exports
     daily_dir = paths.review_daily_root / date
@@ -155,7 +163,7 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
         ))
         plan.append(CommandSpec(
             name="cockpit",
-            argv=["python3", "scripts/render_cockpit.py"],
+            argv=["python3", "scripts/render_cockpit.py", "--knowledge-root", str(paths.knowledge_wiki.parent)],
             outputs=[str(paths.finance_root / "复盘" / "index.html")],
         ))
 
@@ -194,6 +202,7 @@ def summary_inputs(options: DailyReviewOptions, dry_run: bool) -> dict:
         "from_step": options.from_step,
         "only_step": options.only_step,
         "continue_on_warn": options.continue_on_warn,
+        "kb_wiki": str(options.kb_wiki) if options.kb_wiki else None,
         "dry_run": dry_run,
     }
 
