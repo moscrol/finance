@@ -38,6 +38,29 @@ class DailyAgentTest(unittest.TestCase):
         (exports / "2026-06-11-advancers-ma5.png").write_bytes(b"png")
 
         (briefings / "2026-06-11.md").write_text("# 晨汇\n", encoding="utf-8")
+        (exports / "2026-06-10-theme-candidates.json").write_text(
+            json.dumps(
+                {
+                    "found": True,
+                    "trade_date": "2026-06-10",
+                    "candidates": [
+                        {
+                            "market_theme": "液冷服务器",
+                            "canonical_concept": "液冷服务器",
+                            "priority_score": 70,
+                            "trigger_types": ["double_red"],
+                            "market_evidence": {
+                                "strong_stocks": [
+                                    {"stock_name": "强瑞技术", "stock_ts_code": "301128.SZ", "pct_chg": 8.0}
+                                ]
+                            },
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
         (exports / "2026-06-11-theme-candidates.json").write_text(
             json.dumps(
                 {
@@ -167,6 +190,9 @@ class DailyAgentTest(unittest.TestCase):
             card = row["semantic_evidence_card"]
             self.assertEqual(card["标题"], "旧逻辑证据卡：液冷服务器")
             self.assertEqual(card["结构化检查"]["概念"], "已命中")
+            self.assertIn("生命周期", row)
+            self.assertEqual(row["生命周期"]["生命周期阶段"], "升温验证")
+            self.assertEqual(card["生命周期"]["生命周期阶段"], "升温验证")
             self.assertEqual(card["证据裁判"]["证据状态"], "能力栈候选")
             self.assertIn("L2 官方基线", card["证据裁判"]["已有证据层"])
             self.assertIn("L3 官方验证", card["证据裁判"]["缺失证据层"])
@@ -176,6 +202,7 @@ class DailyAgentTest(unittest.TestCase):
             self.assertIn("找公告", card["下一步"])
             self.assertIn("## 逻辑证据卡", markdown)
             self.assertIn("结构化：概念=已命中", markdown)
+            self.assertIn("生命周期：升温验证", markdown)
             self.assertIn("证据裁判：能力栈候选", markdown)
             self.assertIn("回溯：已命中来源页", markdown)
 
@@ -183,6 +210,7 @@ class DailyAgentTest(unittest.TestCase):
             self.assertIn("马上看：旧逻辑唤醒", html)
             self.assertIn("需要回补：概念 / 公司 / 证据 / 来源", html)
             self.assertIn("逻辑证据卡", html)
+            self.assertIn("生命周期", html)
             self.assertIn("证据裁判", html)
             self.assertIn("evidence-card", html)
             self.assertNotIn("<pre>", html)

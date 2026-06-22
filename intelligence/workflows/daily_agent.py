@@ -16,6 +16,7 @@ from intelligence.services.logic_market_match import (
     batch_match_logic_to_market,
 )
 from intelligence.services import kb_rag
+from intelligence.services import logic_lifecycle
 from intelligence.services import research_judge
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 from scripts.build_daily_ops_ledger import build_ledger
@@ -312,6 +313,7 @@ def _build_evidence_card(row: dict[str, Any]) -> dict[str, Any]:
         },
         "命中材料": evidence_items,
         "证据裁判": row.get("research_judgment") or {},
+        "生命周期": row.get("logic_lifecycle") or {},
         "综合判断": status,
         "判断理由": reason,
         "缺口": row.get("data_gaps") or [],
@@ -343,6 +345,17 @@ def _enrich_decision_with_research_judgment(
                 }
                 warnings.append(f"{row.get('query') or '-'}: {exc}")
     return warnings
+
+
+def _enrich_decision_with_lifecycle(
+    decision: dict[str, list[dict[str, Any]]],
+    history_by_theme: dict[str, list[dict[str, Any]]],
+) -> None:
+    logic_lifecycle.build_lifecycle_for_decision(decision, history_by_theme)
+    for rows in decision.values():
+        for row in rows:
+            if row.get("logic_lifecycle"):
+                row["生命周期"] = row["logic_lifecycle"]
 
 
 def _enrich_decision_with_semantic_rag(
@@ -436,6 +449,14 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
     ).to_dict()
     decision = _build_decision(batch)
     judgment_warnings = _enrich_decision_with_research_judgment(decision, paths.knowledge_wiki, options.max_evidence)
+    lifecycle_dates = [item for item in available_candidate_dates(paths.market_exports) if item <= options.date][-6:]
+    history_by_theme = logic_lifecycle.load_theme_history(
+        paths.market_exports,
+        lifecycle_dates,
+        options.date,
+        top_per_date=options.top_per_date,
+    )
+    _enrich_decision_with_lifecycle(decision, history_by_theme)
     semantic_warnings = _enrich_decision_with_semantic_rag(decision, options, paths.knowledge_wiki)
     report = {
         "date": options.date,
@@ -484,9 +505,11 @@ def _section_rows(rows: list[dict[str, Any]], limit: int = 10) -> list[str]:
             semantic = "-"
         judgment = item.get("research_judgment") or {}
         judgment_text = judgment.get("证据状态") or "-"
+        lifecycle = item.get("logic_lifecycle") or {}
+        lifecycle_text = lifecycle.get("生命周期阶段") or "-"
         lines.append(
             f"- {item['query']}｜priority={item['priority_score'] if item['priority_score'] is not None else '-'}"
-            f"｜confidence={item['confidence']}｜强势股={stocks}｜缺口={gaps}｜语义={semantic}｜裁判={judgment_text}｜路径={item['route']}"
+            f"｜confidence={item['confidence']}｜强势股={stocks}｜缺口={gaps}｜语义={semantic}｜生命周期={lifecycle_text}｜裁判={judgment_text}｜路径={item['route']}"
         )
     return lines
 
@@ -522,6 +545,14 @@ def _evidence_card_rows(decision: dict[str, list[dict[str, Any]]], limit: int = 
                 f"{judgment.get('证据状态', '-')}｜"
                 f"已有：{'、'.join(judgment.get('已有证据层') or []) or '-'}｜"
                 f"缺：{'、'.join(judgment.get('缺失证据层') or []) or '-'}"
+            )
+        lifecycle = card.get("生命周期") or {}
+        if lifecycle:
+            lines.append(
+                "- 生命周期："
+                f"{lifecycle.get('生命周期阶段', '-')}｜"
+                f"{lifecycle.get('阶段变化', '-')}｜"
+                f"{lifecycle.get('变化原因', '-')}"
             )
         materials = card.get("命中材料") or []
         if materials:
@@ -645,6 +676,8 @@ def _html_table(rows: list[dict[str, Any]], empty: str) -> str:
         semantic = _semantic_summary(row)
         judgment = row.get("research_judgment") or {}
         judgment_status = judgment.get("证据状态") or "-"
+        lifecycle = row.get("logic_lifecycle") or {}
+        lifecycle_status = lifecycle.get("生命周期阶段") or "-"
         action = row.get("route") or "-"
         body.append(
             "<tr>"
@@ -654,13 +687,14 @@ def _html_table(rows: list[dict[str, Any]], empty: str) -> str:
             f"<td>{escape(stocks)}</td>"
             f"<td>{escape(gaps)}</td>"
             f"<td>{escape(semantic)}</td>"
+            f"<td>{_html_badge(lifecycle_status, _row_status_kind(row))}</td>"
             f"<td>{_html_badge(judgment_status, _row_status_kind(row))}</td>"
             f"<td>{escape(action)}</td>"
             "</tr>"
         )
     return (
         '<div class="table-wrap"><table><thead><tr>'
-        "<th>题材</th><th>优先级</th><th>可信度</th><th>强势股</th><th>缺口</th><th>旧材料</th><th>证据裁判</th><th>建议动作</th>"
+        "<th>题材</th><th>优先级</th><th>可信度</th><th>强势股</th><th>缺口</th><th>旧材料</th><th>生命周期</th><th>证据裁判</th><th>建议动作</th>"
         "</tr></thead><tbody>"
         + "".join(body)
         + "</tbody></table></div>"
@@ -698,6 +732,7 @@ def _html_evidence_cards(decision: dict[str, list[dict[str, Any]]]) -> str:
         structured = card.get("结构化检查") or {}
         semantic = card.get("向量旧材料") or {}
         judgment = card.get("证据裁判") or {}
+        lifecycle = card.get("生命周期") or {}
         gaps = _format_gaps(card.get("缺口") or [])
         materials = card.get("命中材料") or []
         mat_html = []
@@ -724,6 +759,7 @@ def _html_evidence_cards(decision: dict[str, list[dict[str, Any]]]) -> str:
             f'{_html_badge("回溯：" + str(structured.get("来源回溯", "-")), "gap" if structured.get("来源回溯") == "有缺口" else "good")}'
             '</div>'
             f'<div class="semantic-line">向量旧材料：<strong>{escape(str(semantic.get("状态", "-")))}</strong>，命中 {escape(str(semantic.get("命中数量", 0)))} 条</div>'
+            f'<div class="semantic-line">生命周期：<strong>{escape(str(lifecycle.get("生命周期阶段", "-")))}</strong>｜{escape(str(lifecycle.get("阶段变化", "-")))}｜{escape(str(lifecycle.get("变化原因", "-")))}</div>'
             f'<div class="semantic-line">证据裁判：<strong>{escape(str(judgment.get("证据状态", "-")))}</strong>｜已有：{escape("、".join(judgment.get("已有证据层") or []) or "-")}｜缺：{escape("、".join(judgment.get("缺失证据层") or []) or "-")}</div>'
             + "".join(mat_html)
             + f'<div class="next"><span>缺口：{escape(gaps)}</span><strong>{escape(str(card.get("下一步") or "-"))}</strong></div>'
