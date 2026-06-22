@@ -524,8 +524,139 @@ def render_daily_agent(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _semantic_summary(row: dict[str, Any]) -> str:
+    hits = row.get("semantic_hits") or []
+    if hits:
+        return "；".join(str(hit.get("title") or "") for hit in hits[:2] if hit.get("title")) or "有命中"
+    status = row.get("semantic_rag_status")
+    if status == "unavailable":
+        return "向量暂不可用"
+    if status == "skipped":
+        return "未生成检索词"
+    return "未补"
+
+
+def _html_badge(text: Any, kind: str = "muted") -> str:
+    return f'<span class="badge {escape(kind)}">{escape(str(text))}</span>'
+
+
+def _html_metric(label: str, value: Any, note: str = "") -> str:
+    note_html = f"<small>{escape(note)}</small>" if note else ""
+    return f'<div class="metric"><span>{escape(label)}</span><strong>{escape(str(value))}</strong>{note_html}</div>'
+
+
+def _row_status_kind(row: dict[str, Any]) -> str:
+    gaps = set(row.get("data_gaps") or [])
+    if row.get("semantic_hits") and not gaps:
+        return "good"
+    if row.get("semantic_hits") or row.get("classification") == LABEL_OLD_WAKEUP:
+        return "watch"
+    if gaps:
+        return "gap"
+    return "muted"
+
+
+def _html_table(rows: list[dict[str, Any]], empty: str) -> str:
+    if not rows:
+        return f'<p class="empty">{escape(empty)}</p>'
+    body = []
+    for row in rows:
+        stocks = "、".join(row.get("strong_stocks") or []) or "-"
+        gaps = _format_gaps(row.get("data_gaps") or [])
+        semantic = _semantic_summary(row)
+        action = row.get("route") or "-"
+        body.append(
+            "<tr>"
+            f"<td><strong>{escape(str(row.get('query') or '-'))}</strong></td>"
+            f"<td>{escape(str(row.get('priority_score') if row.get('priority_score') is not None else '-'))}</td>"
+            f"<td>{_html_badge(row.get('confidence') if row.get('confidence') is not None else '-', _row_status_kind(row))}</td>"
+            f"<td>{escape(stocks)}</td>"
+            f"<td>{escape(gaps)}</td>"
+            f"<td>{escape(semantic)}</td>"
+            f"<td>{escape(action)}</td>"
+            "</tr>"
+        )
+    return (
+        '<div class="table-wrap"><table><thead><tr>'
+        "<th>题材</th><th>优先级</th><th>可信度</th><th>强势股</th><th>缺口</th><th>旧材料</th><th>建议动作</th>"
+        "</tr></thead><tbody>"
+        + "".join(body)
+        + "</tbody></table></div>"
+    )
+
+
+def _html_gap_queue(report: dict[str, Any]) -> str:
+    gap_queue = report["logic_batch"].get("gap_queue") or []
+    if not gap_queue:
+        return '<p class="empty">暂无需要统一回补的项目。</p>'
+    items = []
+    for item in gap_queue[:12]:
+        label = CLASS_LABELS.get(item.get("classification"), item.get("classification") or "-")
+        items.append(
+            '<li>'
+            f'<span class="topic">{escape(str(item.get("query") or "-"))}</span>'
+            f'{_html_badge(label, "gap" if item.get("classification") == LABEL_DATA_GAP else "watch")}'
+            f'<span class="score">优先级 {escape(str(item.get("priority") or "-"))}</span>'
+            f'<span class="muted-text">{escape(_format_gaps(item.get("data_gaps") or []))}</span>'
+            '</li>'
+        )
+    return '<ul class="queue">' + "".join(items) + "</ul>"
+
+
+def _html_evidence_cards(decision: dict[str, list[dict[str, Any]]]) -> str:
+    rows: list[dict[str, Any]] = []
+    for bucket in ("old_logic_wakeup", "new_logic_candidate", "data_gap"):
+        rows.extend(row for row in decision.get(bucket, []) if row.get("semantic_evidence_card"))
+    if not rows:
+        return '<p class="empty">暂无证据卡。</p>'
+
+    cards = []
+    for row in rows[:8]:
+        card = row["semantic_evidence_card"]
+        structured = card.get("结构化检查") or {}
+        semantic = card.get("向量旧材料") or {}
+        gaps = _format_gaps(card.get("缺口") or [])
+        materials = card.get("命中材料") or []
+        mat_html = []
+        for item in materials[:3]:
+            excerpt = str(item.get("摘录") or "").strip()
+            excerpt_html = f'<p class="excerpt">{escape(excerpt[:180])}</p>' if excerpt else ""
+            mat_html.append(
+                '<div class="material">'
+                f'<div>{_html_badge(item.get("类型") or "-", "info")} <strong>{escape(str(item.get("材料") or "-"))}</strong></div>'
+                f'<p>{escape(str(item.get("作用") or "-"))}｜{escape(str(item.get("回溯状态") or "-"))}</p>'
+                f'{excerpt_html}'
+                '</div>'
+            )
+        if not mat_html:
+            mat_html.append('<p class="empty small">未补向量旧材料。本条可先看结构化结论。</p>')
+        card_html = (
+            '<article class="evidence-card">'
+            f'<header><h3>{escape(str(card.get("标题") or "-"))}</h3>{_html_badge(card.get("综合判断") or "-", _row_status_kind(row))}</header>'
+            f'<p class="reason">{escape(str(card.get("判断理由") or "-"))}</p>'
+            '<div class="checks">'
+            f'{_html_badge("概念：" + str(structured.get("概念", "-")), "good" if structured.get("概念") == "已命中" else "gap")}'
+            f'{_html_badge("公司：" + str(structured.get("公司暴露", "-")), "good" if structured.get("公司暴露") == "已命中" else "gap")}'
+            f'{_html_badge("证据：" + str(structured.get("证据", "-")), "good" if structured.get("证据") == "已命中" else "gap")}'
+            f'{_html_badge("回溯：" + str(structured.get("来源回溯", "-")), "gap" if structured.get("来源回溯") == "有缺口" else "good")}'
+            '</div>'
+            f'<div class="semantic-line">向量旧材料：<strong>{escape(str(semantic.get("状态", "-")))}</strong>，命中 {escape(str(semantic.get("命中数量", 0)))} 条</div>'
+            + "".join(mat_html)
+            + f'<div class="next"><span>缺口：{escape(gaps)}</span><strong>{escape(str(card.get("下一步") or "-"))}</strong></div>'
+            '</article>'
+        )
+        cards.append(card_html)
+    return '<div class="evidence-grid">' + "".join(cards) + "</div>"
+
+
 def render_daily_agent_html(report: dict[str, Any], markdown: str) -> str:
     title = f"每日 Agent 简报 - {report['date']}"
+    decision = report["decision"]
+    ledger = report["ledger"]
+    batch = report["logic_batch"]
+    status_kind = "good" if ledger["status"] == "PASS" else "watch"
+    next_actions = "".join(f"<li>{escape(str(action))}</li>" for action in report.get("next_actions", []))
+    notes = "".join(f"<li>{escape(str(note))}</li>" for note in report.get("notes", []))
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -533,20 +664,95 @@ def render_daily_agent_html(report: dict[str, Any], markdown: str) -> str:
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{escape(title)}</title>
 <style>
-:root{{--paper:#fffaf1;--ink:#17140f;--muted:#746b5d;--line:#d8cbbb;--accent:#0057ff;--card:#fffdf8}}
+:root{{--paper:#fffaf1;--ink:#17140f;--muted:#746b5d;--line:#d8cbbb;--accent:#0057ff;--card:#fffdf8;--good:#0f7b43;--watch:#a35b00;--gap:#b3261e;--soft:#f3eadb}}
 *{{box-sizing:border-box}}
 body{{margin:0;background:var(--paper);color:var(--ink);font-family:'Avenir Next','PingFang SC','Hiragino Sans GB',sans-serif;line-height:1.65}}
-main{{max-width:1180px;margin:0 auto;padding:24px}}
-.hero{{border:1px solid var(--ink);background:var(--card);padding:20px 24px;margin-bottom:18px}}
-.kicker{{font-size:12px;letter-spacing:.22em;color:var(--accent);font-weight:900;text-transform:uppercase}}
-h1{{margin:6px 0 0;font-size:34px;line-height:1.1}}
-pre{{white-space:pre-wrap;word-break:break-word;border:1px solid var(--line);background:#fffdf8;padding:18px 20px;margin:0;font:14px/1.7 'SFMono-Regular','Menlo','PingFang SC',monospace}}
+main{{max-width:1280px;margin:0 auto;padding:24px}}
+.hero{{border:1px solid var(--ink);background:var(--card);padding:22px 24px;margin-bottom:18px;display:flex;justify-content:space-between;gap:18px;align-items:flex-end}}
+.kicker{{font-size:12px;letter-spacing:.18em;color:var(--accent);font-weight:900}}
+h1{{margin:4px 0 0;font-size:32px;line-height:1.15}}
+h2{{font-size:20px;margin:0 0 12px}}
+h3{{font-size:16px;margin:0}}
+.hero p{{margin:8px 0 0;color:var(--muted)}}
+.section{{border:1px solid var(--line);background:var(--card);padding:18px;margin:14px 0}}
+.metrics{{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:10px;margin:14px 0}}
+.metric{{border:1px solid var(--line);background:#fff;padding:12px}}
+.metric span{{display:block;color:var(--muted);font-size:12px}}
+.metric strong{{display:block;font-size:26px;line-height:1.1;margin-top:4px}}
+.metric small{{display:block;color:var(--muted);margin-top:4px}}
+.badge{{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;background:#fff;margin:2px 4px 2px 0;white-space:nowrap}}
+.badge.good{{color:var(--good);border-color:#91c7aa;background:#eef8f2}}
+.badge.watch{{color:var(--watch);border-color:#e2b36f;background:#fff7e8}}
+.badge.gap{{color:var(--gap);border-color:#e7aaa5;background:#fff0ee}}
+.badge.info{{color:var(--accent);border-color:#9bbcff;background:#eef4ff}}
+.table-wrap{{overflow:auto;border:1px solid var(--line)}}
+table{{width:100%;border-collapse:collapse;background:#fff;min-width:900px}}
+th,td{{border-bottom:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top;font-size:14px}}
+th{{background:var(--soft);font-size:12px;color:var(--muted);white-space:nowrap}}
+tr:last-child td{{border-bottom:0}}
+.two-col{{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}}
+.queue{{list-style:none;padding:0;margin:0;display:grid;gap:8px}}
+.queue li{{border:1px solid var(--line);background:#fff;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}}
+.topic{{font-weight:900}}
+.score{{font-size:12px;color:var(--muted)}}
+.muted-text{{color:var(--muted);font-size:13px}}
+.evidence-grid{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}}
+.evidence-card{{border:1px solid var(--line);background:#fff;padding:14px}}
+.evidence-card header{{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;margin-bottom:8px}}
+.reason{{margin:8px 0;color:#362f25}}
+.checks{{margin:10px 0}}
+.semantic-line{{border-top:1px solid var(--line);padding-top:10px;margin-top:8px;color:var(--muted)}}
+.material{{border:1px solid #eadccc;background:#fffdf8;padding:10px;margin-top:10px}}
+.material p{{margin:6px 0 0;color:var(--muted);font-size:13px}}
+.excerpt{{color:#453b30!important}}
+.next{{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:grid;gap:6px}}
+.next span{{color:var(--muted);font-size:13px}}
+.empty{{color:var(--muted);margin:0}}
+.empty.small{{font-size:13px}}
+.actions{{margin:0;padding-left:20px}}
+@media (max-width:900px){{main{{padding:14px}}.hero{{display:block}}.metrics{{grid-template-columns:repeat(2,1fr)}}.two-col,.evidence-grid{{grid-template-columns:1fr}}}}
 </style>
 </head>
 <body>
 <main>
-  <section class="hero"><div class="kicker">Agent Daily Brief</div><h1>{escape(title)}</h1></section>
-  <pre>{escape(markdown)}</pre>
+  <section class="hero">
+    <div><div class="kicker">DAILY AGENT</div><h1>{escape(title)}</h1><p>先看结论，再看回补，最后看证据卡。页面展示偏人工阅读，JSON 仍保留完整机器字段。</p></div>
+    <div>{_html_badge("日常产物 " + str(ledger["status"]), status_kind)}{_html_badge("向量旧材料 " + MODE_LABELS.get(report["semantic_rag"]["mode"], report["semantic_rag"]["mode"]), "info")}</div>
+  </section>
+  <section class="metrics">
+    {_html_metric("扫描逻辑", batch["scanned_count"])}
+    {_html_metric("旧逻辑唤醒", len(decision["old_logic_wakeup"]), "优先判断是否需要深挖")}
+    {_html_metric("新逻辑候选", len(decision["new_logic_candidate"]))}
+    {_html_metric("数据缺口", len(decision["data_gap"]), "进入回补队列")}
+    {_html_metric("待确认", len(decision["noise_or_unconfirmed"]))}
+    {_html_metric("向量补证", report["semantic_rag"]["top_n"], "默认只补最靠前")}
+  </section>
+  <section class="section">
+    <h2>马上看：旧逻辑唤醒</h2>
+    {_html_table(decision["old_logic_wakeup"], "今天没有旧逻辑唤醒。")}
+  </section>
+  <section class="two-col">
+    <section class="section">
+      <h2>需要回补：概念 / 公司 / 证据 / 来源</h2>
+      {_html_table(decision["data_gap"], "暂无数据缺口。")}
+    </section>
+    <section class="section">
+      <h2>回补队列</h2>
+      {_html_gap_queue(report)}
+    </section>
+  </section>
+  <section class="section">
+    <h2>旧逻辑证据卡</h2>
+    {_html_evidence_cards(decision)}
+  </section>
+  <section class="section">
+    <h2>下一步</h2>
+    <ul class="actions">{next_actions}</ul>
+  </section>
+  <section class="section">
+    <h2>说明</h2>
+    <ul class="actions">{notes}</ul>
+  </section>
 </main>
 </body>
 </html>

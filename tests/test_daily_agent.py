@@ -6,7 +6,7 @@ from unittest import mock
 
 from intelligence.paths import ProjectPaths
 from intelligence.services import kb_rag
-from intelligence.workflows.daily_agent import DailyAgentOptions, run_daily_agent
+from intelligence.workflows.daily_agent import DailyAgentOptions, render_daily_agent_html, run_daily_agent
 
 
 class DailyAgentTest(unittest.TestCase):
@@ -169,6 +169,13 @@ class DailyAgentTest(unittest.TestCase):
             self.assertIn("## 旧逻辑证据卡", markdown)
             self.assertIn("结构化：概念=已命中", markdown)
             self.assertIn("回溯：已命中来源页", markdown)
+
+            html = render_daily_agent_html(report, markdown)
+            self.assertIn("马上看：旧逻辑唤醒", html)
+            self.assertIn("需要回补：概念 / 公司 / 证据 / 来源", html)
+            self.assertIn("旧逻辑证据卡", html)
+            self.assertIn("evidence-card", html)
+            self.assertNotIn("<pre>", html)
 
 
 if __name__ == "__main__":
