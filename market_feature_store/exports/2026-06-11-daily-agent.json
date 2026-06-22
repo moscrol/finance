@@ -1,0 +1,2886 @@
+{
+  "date": "2026-06-11",
+  "generated_at": "2026-06-22T11:08:04+08:00",
+  "paths": {
+    "finance_root": "/Users/a77/Desktop/c c/金融",
+    "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
+    "market_exports": "/Users/a77/Desktop/c c/金融/market_feature_store/exports"
+  },
+  "ledger": {
+    "date": "2026-06-11",
+    "generated_at": "2026-06-22T11:07:17",
+    "paths": {
+      "finance_root": "/Users/a77/Desktop/c c/金融",
+      "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
+      "market_exports": "/Users/a77/Desktop/c c/金融/market_feature_store/exports"
+    },
+    "sections": {
+      "market_review": {
+        "status": "WARN",
+        "checks": [
+          {
+            "name": "daily_review_md",
+            "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-11-daily-review.md",
+            "exists": false
+          },
+          {
+            "name": "advancers_ma5_png",
+            "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-11-advancers-ma5.png",
+            "exists": false
+          },
+          {
+            "name": "theme_candidates_json",
+            "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-11-theme-candidates.json",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_md",
+            "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-11-theme-candidates.md",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_queue_json",
+            "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-11-theme-backfill-queue.json",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_review_queue_json",
+            "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-11-theme-backfill-review-queue.json",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_review_queue_md",
+            "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-11-theme-backfill-review-queue.md",
+            "exists": true
+          },
+          {
+            "name": "daily_review_html",
+            "path": "/Users/a77/Desktop/c c/金融/复盘/daily/2026-06-11/2026-06-11-daily-review.html",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_html",
+            "path": "/Users/a77/Desktop/c c/金融/复盘/daily/2026-06-11/2026-06-11-theme-candidates.html",
+            "exists": true
+          },
+          {
+            "name": "daily_workflow_summary_json",
+            "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-11-daily-workflow-summary.json",
+            "exists": true
+          }
+        ],
+        "missing_count": 2,
+        "missing": [
+          {
+            "name": "daily_review_md",
+            "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-11-daily-review.md",
+            "exists": false
+          },
+          {
+            "name": "advancers_ma5_png",
+            "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-11-advancers-ma5.png",
+            "exists": false
+          }
+        ]
+      },
+      "morning_briefing": {
+        "status": "PASS",
+        "root": "/Users/a77/Desktop/c c/知识库/wiki/briefings",
+        "count": 1,
+        "files": [
+          "/Users/a77/Desktop/c c/知识库/wiki/briefings/2026-06-11.md"
+        ]
+      },
+      "ima_stock": {
+        "status": "PASS",
+        "raw_root": "/Users/a77/Desktop/c c/知识库/wiki/raw/ima-stock/ingested/2026-06-11",
+        "raw_md_count": 0,
+        "incoming_uningested_md_count": 0,
+        "done_folder_md_count": 755,
+        "manual_review_md_count": 0,
+        "folders": {
+          "inbox": "/Users/a77/Desktop/c c/知识库/未入库",
+          "done": "/Users/a77/Desktop/c c/知识库/已入库",
+          "manual_review": "/Users/a77/Desktop/c c/知识库/待人工确认"
+        }
+      },
+      "relations": {
+        "status": "PASS",
+        "root": "/Users/a77/Desktop/c c/知识库/wiki/relations",
+        "checks": [
+          {
+            "name": "evidence_index.json",
+            "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/evidence_index.json",
+            "exists": true
+          },
+          {
+            "name": "entity_exposures.json",
+            "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/entity_exposures.json",
+            "exists": true
+          },
+          {
+            "name": "concept_graph.json",
+            "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/concept_graph.json",
+            "exists": true
+          },
+          {
+            "name": "theme_signals.json",
+            "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/theme_signals.json",
+            "exists": true
+          },
+          {
+            "name": "catalyst_calendar.json",
+            "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/catalyst_calendar.json",
+            "exists": true
+          },
+          {
+            "name": "mention_frequency.json",
+            "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/mention_frequency.json",
+            "exists": true
+          }
+        ],
+        "missing": []
+      }
+    },
+    "debts": {
+      "status": "WARN",
+      "missing_concepts": {
+        "count": 446,
+        "path": "/Users/a77/Desktop/c c/知识库/wiki/raw/theme-radar/missing-concept-audit.json",
+        "error": null
+      },
+      "missing_sources": {
+        "count": 21,
+        "path": "/Users/a77/Desktop/c c/知识库/wiki/raw/theme-radar/missing-evidence-source-audit.json",
+        "error": null
+      },
+      "ima_stock_coverage": {
+        "missing_count": 468,
+        "path": "/Users/a77/Desktop/c c/知识库/wiki/raw/ima-stock/audits/entity-stock-ima-coverage-20260621.v2.json",
+        "error": null
+      }
+    },
+    "status": "WARN",
+    "next_actions": [
+      "Run or resume finance daily workflow for the date; market review outputs are incomplete.",
+      "Backfill source manifests for missing evidence sources before trusting traceability metrics.",
+      "Run concept normalization/backfill queue for missing concepts; do not solve this with blind DeepDive.",
+      "Prioritize IMA stock cards for uncovered stock entities based on market activity, not alphabetically."
+    ]
+  },
+  "logic_batch": {
+    "dates": [
+      "2026-06-11"
+    ],
+    "scanned_count": 10,
+    "summary": {
+      "classification_counts": {
+        "old_logic_wakeup": 7,
+        "noise_or_unconfirmed": 1,
+        "data_gap": 2
+      },
+      "gap_counts": {
+        "placeholder_market_theme": 1,
+        "missing_concept": 2,
+        "missing_evidence": 2,
+        "missing_entity_exposure": 1,
+        "missing_source_trace": 1
+      },
+      "gap_queue_count": 4,
+      "old_logic_wakeup_count": 7
+    },
+    "gap_queue": [
+      {
+        "date": "2026-06-11",
+        "query": "金属钴",
+        "classification": "data_gap",
+        "priority": 227.49,
+        "market_priority_score": 132.49,
+        "data_gaps": [
+          "missing_concept",
+          "missing_entity_exposure",
+          "missing_evidence"
+        ],
+        "matched_theme": "金属钴",
+        "trigger_types": [
+          "double_red",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "中钨高新",
+          "厦门钨业",
+          "赣锋锂业",
+          "洛阳钼业",
+          "盛屯矿业"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补 entity exposure 或 IMA 个股卡，确认哪些公司是真暴露。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ]
+      },
+      {
+        "date": "2026-06-11",
+        "query": "金属铜",
+        "classification": "data_gap",
+        "priority": 211.71,
+        "market_priority_score": 141.71,
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "matched_theme": "金属铜",
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "中钨高新",
+          "章源钨业",
+          "国城矿业",
+          "翔鹭钨业",
+          "鑫科材料"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ]
+      },
+      {
+        "date": "2026-06-11",
+        "query": "连板未映射",
+        "classification": "noise_or_unconfirmed",
+        "priority": 188.0,
+        "market_priority_score": 183.0,
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "matched_theme": "连板未映射",
+        "trigger_types": [
+          "limit_advance_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [],
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
+        ]
+      },
+      {
+        "date": "2026-06-11",
+        "query": "先进封装",
+        "classification": "old_logic_wakeup",
+        "priority": 126.36,
+        "market_priority_score": 91.36,
+        "data_gaps": [
+          "missing_source_trace"
+        ],
+        "matched_theme": "先进封装",
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          "中巨芯",
+          "有研粉材",
+          "兴福电子",
+          "雅克科技",
+          "炬光科技"
+        ],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
+          "优先补 source/raw trace，避免证据不可追溯。"
+        ]
+      }
+    ],
+    "results": [
+      {
+        "query": "光刻胶",
+        "date": "2026-06-11",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "光刻胶",
+        "market_theme": "光刻胶",
+        "priority_score": 184.57,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "华特气体",
+            "stock_ts_code": "688268.SH",
+            "pct_chg": 20.0,
+            "amount": 36.4,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "兴福电子",
+            "stock_ts_code": "688545.SH",
+            "pct_chg": 20.0,
+            "amount": 19.59,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "雅克科技",
+            "stock_ts_code": "002409.SZ",
+            "pct_chg": 10.0,
+            "amount": 75.05,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "南大光电",
+            "stock_ts_code": "300346.SZ",
+            "pct_chg": 8.08,
+            "amount": 82.15,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "彤程新材",
+            "stock_ts_code": "603650.SH",
+            "pct_chg": 7.58,
+            "amount": 34.76,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "鼎龙股份",
+            "stock_ts_code": "300054.SZ",
+            "pct_chg": 6.25,
+            "amount": 37.31,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "百合花",
+            "stock_ts_code": "603823.SH",
+            "pct_chg": 9.84,
+            "amount": 12.61,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "安集科技",
+            "stock_ts_code": "688019.SH",
+            "pct_chg": 6.49,
+            "amount": 28.78,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "光刻胶",
+            "score": 10
+          },
+          {
+            "concept": "EUV光刻胶",
+            "score": 5
+          },
+          {
+            "concept": "g线光刻胶",
+            "score": 5
+          },
+          {
+            "concept": "i线光刻胶",
+            "score": 5
+          },
+          {
+            "concept": "光刻胶树脂",
+            "score": 5
+          },
+          {
+            "concept": "AI PCB",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "万润股份",
+            "ticker": "002643",
+            "concept": "光刻胶",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海新阳",
+            "ticker": "300236",
+            "concept": "光刻胶",
+            "role": "光刻胶）",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中芯国际",
+            "ticker": "688981",
+            "concept": "光刻胶",
+            "role": "2025 年国内 12 英寸晶圆产能同比增长 25%，带动成熟制程光刻胶需求激增",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "光华股份",
+            "ticker": "001333",
+            "concept": "光刻胶",
+            "role": "粉末涂料用聚酯树脂的研发、生产和销售",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "八亿时空",
+            "ticker": "688181",
+            "concept": "光刻胶",
+            "role": "百吨级KrF高端光刻胶配方树脂国产化自主突破及生产平台",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "兴福电子",
+            "ticker": "688545",
+            "concept": "光刻胶",
+            "role": "湿电子化学品（电子级磷酸、硫酸、双氧水",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华特气体",
+            "ticker": "688268",
+            "concept": "光刻胶",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华虹宏力",
+            "ticker": "688347",
+            "concept": "光刻胶",
+            "role": "特色工艺晶圆代工、12英寸成熟制程扩产、华力微收购并表",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[光刻胶产业新变化与新格局深度研究报告]]",
+            "source_date": "",
+            "target": "光刻胶",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[光刻胶产业新变化与新格局深度研究报告]]",
+            "source_name": "光刻胶产业新变化与新格局深度研究报告",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶产业新变化与新格局深度研究报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "连板未映射",
+        "date": "2026-06-11",
+        "classification": "noise_or_unconfirmed",
+        "confidence": 0.2,
+        "market_found": true,
+        "matched_theme": "连板未映射",
+        "market_theme": "连板未映射",
+        "priority_score": 183.0,
+        "trigger_types": [
+          "limit_advance_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [],
+        "concept_matches": [],
+        "entity_exposures": [],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "小金属",
+        "date": "2026-06-11",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "小金属",
+        "market_theme": "小金属",
+        "priority_score": 163.23,
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "云南锗业",
+            "stock_ts_code": "002428.SZ",
+            "pct_chg": 10.0,
+            "amount": 112.82,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "阿石创",
+            "stock_ts_code": "300706.SZ",
+            "pct_chg": 19.99,
+            "amount": 21.72,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "风华高科",
+            "stock_ts_code": "000636.SZ",
+            "pct_chg": 7.51,
+            "amount": 116.94,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "欧莱新材",
+            "stock_ts_code": "688530.SH",
+            "pct_chg": 20.01,
+            "amount": 13.91,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "中钨高新",
+            "stock_ts_code": "000657.SZ",
+            "pct_chg": 6.93,
+            "amount": 102.58,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "天华新能",
+            "stock_ts_code": "300390.SZ",
+            "pct_chg": 7.34,
+            "amount": 79.89,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "章源钨业",
+            "stock_ts_code": "002378.SZ",
+            "pct_chg": 10.01,
+            "amount": 41.01,
+            "high_status_label": "20日新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "小金属",
+            "score": 10
+          },
+          {
+            "concept": "二氧化锆",
+            "score": 2
+          },
+          {
+            "concept": "半导体设备材料",
+            "score": 2
+          },
+          {
+            "concept": "周期资源",
+            "score": 2
+          },
+          {
+            "concept": "战略金属",
+            "score": 2
+          },
+          {
+            "concept": "电池回收",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "东方钽业",
+            "ticker": "000962",
+            "concept": "小金属",
+            "role": "钽铌材料/钽电容材料",
+            "strength": "core",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东方锆业",
+            "ticker": "002167",
+            "concept": "小金属",
+            "role": "锆材料/其他小金属",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中国稀土",
+            "ticker": "000831",
+            "concept": "小金属",
+            "role": "中重稀土整合平台",
+            "strength": "related",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中钨高新",
+            "ticker": "000657",
+            "concept": "小金属",
+            "role": "钨产业链/硬质合金刀具",
+            "strength": "core",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "凤形股份",
+            "ticker": "002760",
+            "concept": "小金属",
+            "role": "铟/锌/银回收深加工线索",
+            "strength": "related",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "北方稀土",
+            "ticker": "600111",
+            "concept": "小金属",
+            "role": "稀土/战略资源交叉",
+            "strength": "related",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华钰矿业",
+            "ticker": "601020",
+            "concept": "小金属",
+            "role": "锑资源",
+            "strength": "core",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华锡有色",
+            "ticker": "600301",
+            "concept": "小金属",
+            "role": "锑/锡资源端",
+            "strength": "core",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "由 theme-radar 数据库体检队列入图：exposures=1, evidence_items=1, report_context_hits=0。",
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_date": "2026-05-27",
+            "target": "小金属",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "出口管制升级、全球战略备库和AI/新能源/军工需求共同驱动钨、锑、锡、钼、锗、铟、钽等战略小金属从周期定价转向战略安全定价；价格、库存、供给配额和下游顺价是核心跟踪变量。",
+            "source": "[[小金属_DeepDive_数据抽取_20260601]]",
+            "source_date": "2026-06-01",
+            "target": "小金属",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          },
+          {
+            "source": "[[小金属_DeepDive_数据抽取_20260601]]",
+            "source_name": "小金属_DeepDive_数据抽取_20260601",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/小金属_DeepDive_数据抽取_20260601.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "电子化学品",
+        "date": "2026-06-11",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "电子化学品",
+        "market_theme": "电子化学品",
+        "priority_score": 154.08,
+        "trigger_types": [
+          "double_red",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "中船特气",
+            "stock_ts_code": "688146.SH",
+            "pct_chg": 19.79,
+            "amount": 67.25,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "中巨芯",
+            "stock_ts_code": "688549.SH",
+            "pct_chg": 19.96,
+            "amount": 50.36,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "华特气体",
+            "stock_ts_code": "688268.SH",
+            "pct_chg": 20.0,
+            "amount": 36.4,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "兴福电子",
+            "stock_ts_code": "688545.SH",
+            "pct_chg": 20.0,
+            "amount": 19.59,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "南大光电",
+            "stock_ts_code": "300346.SZ",
+            "pct_chg": 8.08,
+            "amount": 82.15,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "金宏气体",
+            "stock_ts_code": "688106.SH",
+            "pct_chg": 11.64,
+            "amount": 25.15,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "广钢气体",
+            "stock_ts_code": "688548.SH",
+            "pct_chg": 12.6,
+            "amount": 20.07,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "濮阳惠成",
+            "stock_ts_code": "300481.SZ",
+            "pct_chg": 20.01,
+            "amount": 6.75,
+            "high_status_label": "20日新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "电子化学品",
+            "score": 10
+          },
+          {
+            "concept": "AIPCB专用油墨",
+            "score": 2
+          },
+          {
+            "concept": "PCB油墨",
+            "score": 2
+          },
+          {
+            "concept": "g线光刻胶",
+            "score": 2
+          },
+          {
+            "concept": "i线光刻胶",
+            "score": 2
+          },
+          {
+            "concept": "六氟化钨",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "万润股份",
+            "ticker": "002643",
+            "concept": "电子化学品",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三友化工",
+            "ticker": "600409",
+            "concept": "电子化学品",
+            "role": "电子化学品（G5级湿电子化学品，试生产阶段）",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三孚新科",
+            "ticker": "688359",
+            "concept": "电子化学品",
+            "role": "表面工程专用化学品与电子化学品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海新阳",
+            "ticker": "300236",
+            "concept": "电子化学品",
+            "role": "电子化学品研发生产商",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中巨芯",
+            "ticker": "688549",
+            "concept": "电子化学品",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "兴发集团",
+            "ticker": "600141",
+            "concept": "电子化学品",
+            "role": "电子化学品",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "兴福电子",
+            "ticker": "688545",
+            "concept": "电子化学品",
+            "role": "湿电子化学品（电子级磷酸",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华特气体",
+            "ticker": "688268",
+            "concept": "电子化学品",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "由 theme-radar 数据库体检队列入图：exposures=2, evidence_items=2, report_context_hits=0。",
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_date": "2026-05-27",
+            "target": "电子化学品",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "氟化工",
+        "date": "2026-06-11",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "氟化工",
+        "market_theme": "氟化工",
+        "priority_score": 152.28,
+        "trigger_types": [
+          "double_red",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "中船特气",
+            "stock_ts_code": "688146.SH",
+            "pct_chg": 19.79,
+            "amount": 67.25,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "中巨芯",
+            "stock_ts_code": "688549.SH",
+            "pct_chg": 19.96,
+            "amount": 50.36,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "华特气体",
+            "stock_ts_code": "688268.SH",
+            "pct_chg": 20.0,
+            "amount": 36.4,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "云南锗业",
+            "stock_ts_code": "002428.SZ",
+            "pct_chg": 10.0,
+            "amount": 112.82,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "多氟多",
+            "stock_ts_code": "002407.SZ",
+            "pct_chg": 9.99,
+            "amount": 79.2,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "雅克科技",
+            "stock_ts_code": "002409.SZ",
+            "pct_chg": 10.0,
+            "amount": 75.05,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "南大光电",
+            "stock_ts_code": "300346.SZ",
+            "pct_chg": 8.08,
+            "amount": 82.15,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "昊华科技",
+            "stock_ts_code": "600378.SH",
+            "pct_chg": 10.0,
+            "amount": 50.58,
+            "high_status_label": "历史新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "氟化工",
+            "score": 10
+          },
+          {
+            "concept": "DFBP",
+            "score": 2
+          },
+          {
+            "concept": "三代制冷剂",
+            "score": 2
+          },
+          {
+            "concept": "六氟磷酸锂",
+            "score": 2
+          },
+          {
+            "concept": "化工新材料",
+            "score": 2
+          },
+          {
+            "concept": "氟酮",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "三美股份",
+            "ticker": "603379",
+            "concept": "氟化工",
+            "role": "氟碳化学品和无机氟产品生产商",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海华谊",
+            "ticker": "600623",
+            "concept": "氟化工",
+            "role": "氟化工（三爱富",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中欣氟材",
+            "ticker": "002915",
+            "concept": "氟化工",
+            "role": "氟精细化学品和无机氟产品供应商",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华谊集团",
+            "ticker": "600623",
+            "concept": "氟化工",
+            "role": "国有控股综合化工企业，布局能源化工、绿色轮胎、先进材料、精细化工和化工服务，并通过三爱富切入氟化工平台",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L3",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "多氟多",
+            "ticker": "002407",
+            "concept": "氟化工",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "天际股份",
+            "ticker": "002759",
+            "concept": "氟化工",
+            "role": "六氟磷酸锂（LiPF₆）",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "川恒股份",
+            "ticker": "002895",
+            "concept": "氟化工",
+            "role": "氟化工（无水氟化氢AHF）",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "巨化股份",
+            "ticker": "600160",
+            "concept": "氟化工",
+            "role": "氟化工相关产品/材料供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "由 theme-radar 数据库体检队列入图：exposures=4, evidence_items=5, report_context_hits=0。",
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_date": "2026-05-27",
+            "target": "氟化工",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "磷化工",
+        "date": "2026-06-11",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "磷化工",
+        "market_theme": "磷化工",
+        "priority_score": 145.98,
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "兴福电子",
+            "stock_ts_code": "688545.SH",
+            "pct_chg": 20.0,
+            "amount": 19.59,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "雅克科技",
+            "stock_ts_code": "002409.SZ",
+            "pct_chg": 10.0,
+            "amount": 75.05,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "南大光电",
+            "stock_ts_code": "300346.SZ",
+            "pct_chg": 8.08,
+            "amount": 82.15,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "昊华科技",
+            "stock_ts_code": "600378.SH",
+            "pct_chg": 10.0,
+            "amount": 50.58,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "川金诺",
+            "stock_ts_code": "300505.SZ",
+            "pct_chg": 19.99,
+            "amount": 11.76,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "湖北宜化",
+            "stock_ts_code": "000422.SZ",
+            "pct_chg": 8.99,
+            "amount": 9.33,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "洛阳钼业",
+            "stock_ts_code": "603993.SH",
+            "pct_chg": 3.45,
+            "amount": 45.93,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "粤桂股份",
+            "stock_ts_code": "000833.SZ",
+            "pct_chg": 4.46,
+            "amount": 25.98,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "磷化工",
+            "score": 10
+          },
+          {
+            "concept": "化工新材料",
+            "score": 2
+          },
+          {
+            "concept": "周期资源",
+            "score": 2
+          },
+          {
+            "concept": "垂直整合",
+            "score": 2
+          },
+          {
+            "concept": "复合肥",
+            "score": 2
+          },
+          {
+            "concept": "磷酸铁锂",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "云图控股",
+            "ticker": "002539",
+            "concept": "磷化工",
+            "role": "远期磷矿增量/复合肥观察标的",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "云天化",
+            "ticker": "600096",
+            "concept": "磷化工",
+            "role": "磷矿资源/磷肥/磷酸铁一体化龙头",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "六国化工",
+            "ticker": "600470",
+            "concept": "磷化工",
+            "role": "磷复肥/磷酸二铵企业",
+            "strength": "related",
+            "confidence": "",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "兴发集团",
+            "ticker": "600141",
+            "concept": "磷化工",
+            "role": "磷化工全产业链/草甘膦/电子化学品龙头",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "天赐材料",
+            "ticker": "002709",
+            "concept": "磷化工",
+            "role": "六氟磷酸锂/电解液验证指标",
+            "strength": "peripheral",
+            "confidence": "",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "川发龙蟒",
+            "ticker": "002312",
+            "concept": "磷化工",
+            "role": "工业级磷酸一铵/磷酸铁锂一体化",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "川恒股份",
+            "ticker": "002895",
+            "concept": "磷化工",
+            "role": "磷酸铁细分龙头/磷矿增量标的",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "川金诺",
+            "ticker": "300505",
+            "concept": "磷化工",
+            "role": "湿法磷酸/磷酸盐企业",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "由 theme-radar 数据库体检队列入图：exposures=7, evidence_items=9, report_context_hits=1。",
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_date": "2026-05-27",
+            "target": "磷化工",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "磷化工 Deep Dive 将磷矿石供需紧平衡、磷酸铁锂需求爆发、硫磺成本传导和磷肥出口政策作为四条主线：30%品位磷矿石价格约1000元/吨高位横盘，磷酸铁锂价格从约3万元/吨升至6.6万元/吨，硫磺价格上行推升湿法磷酸成本，出口配额/暂停与新能源需求共同影响磷矿平衡表。",
+            "source": "[[磷化工_DeepDive_数据抽取_20260601]]",
+            "source_date": "2026-06-01",
+            "target": "磷化工",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          },
+          {
+            "source": "[[磷化工_DeepDive_数据抽取_20260601]]",
+            "source_name": "磷化工_DeepDive_数据抽取_20260601",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/磷化工_DeepDive_数据抽取_20260601.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "金属铜",
+        "date": "2026-06-11",
+        "classification": "data_gap",
+        "confidence": 0.55,
+        "market_found": true,
+        "matched_theme": "金属铜",
+        "market_theme": "金属铜",
+        "priority_score": 141.71,
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "中钨高新",
+            "stock_ts_code": "000657.SZ",
+            "pct_chg": 6.93,
+            "amount": 102.58,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "章源钨业",
+            "stock_ts_code": "002378.SZ",
+            "pct_chg": 10.01,
+            "amount": 41.01,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "国城矿业",
+            "stock_ts_code": "000688.SZ",
+            "pct_chg": 10.0,
+            "amount": 22.7,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "翔鹭钨业",
+            "stock_ts_code": "002842.SZ",
+            "pct_chg": 10.01,
+            "amount": 15.99,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "鑫科材料",
+            "stock_ts_code": "600255.SH",
+            "pct_chg": 6.48,
+            "amount": 19.75,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "盛龙股份",
+            "stock_ts_code": "001257.SZ",
+            "pct_chg": 9.99,
+            "amount": 8.28,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "华锡有色",
+            "stock_ts_code": "600301.SH",
+            "pct_chg": 6.34,
+            "amount": 14.74,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "新金路",
+            "stock_ts_code": "000510.SZ",
+            "pct_chg": 9.99,
+            "amount": 5.83,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [],
+        "entity_exposures": [
+          {
+            "company": "铜陵有色金属",
+            "ticker": "000630",
+            "concept": "新能源材料",
+            "role": "铜矿开采、冶炼及铜加工业务",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          }
+        ],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "warnings": [
+          "concept not found",
+          "evidence not found"
+        ]
+      },
+      {
+        "query": "金属钴",
+        "date": "2026-06-11",
+        "classification": "data_gap",
+        "confidence": 0.35,
+        "market_found": true,
+        "matched_theme": "金属钴",
+        "market_theme": "金属钴",
+        "priority_score": 132.49,
+        "trigger_types": [
+          "double_red",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "中钨高新",
+            "stock_ts_code": "000657.SZ",
+            "pct_chg": 6.93,
+            "amount": 102.58,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "厦门钨业",
+            "stock_ts_code": "600549.SH",
+            "pct_chg": 6.46,
+            "amount": 79.65,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "赣锋锂业",
+            "stock_ts_code": "002460.SZ",
+            "pct_chg": 3.46,
+            "amount": 60.99,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "洛阳钼业",
+            "stock_ts_code": "603993.SH",
+            "pct_chg": 3.45,
+            "amount": 45.93,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "盛屯矿业",
+            "stock_ts_code": "600711.SH",
+            "pct_chg": 4.78,
+            "amount": 11.32,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中金岭南",
+            "stock_ts_code": "000060.SZ",
+            "pct_chg": 3.17,
+            "amount": 16.65,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "兴业银锡",
+            "stock_ts_code": "000426.SZ",
+            "pct_chg": 1.81,
+            "amount": 18.0,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "蓝晓科技",
+            "stock_ts_code": "300487.SZ",
+            "pct_chg": 2.6,
+            "amount": 4.77,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [],
+        "entity_exposures": [],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "missing_concept",
+          "missing_entity_exposure",
+          "missing_evidence"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补 entity exposure 或 IMA 个股卡，确认哪些公司是真暴露。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "warnings": [
+          "concept not found",
+          "entity exposures not found",
+          "evidence not found"
+        ]
+      },
+      {
+        "query": "存储芯片",
+        "date": "2026-06-11",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "存储芯片",
+        "market_theme": "存储芯片",
+        "priority_score": 95.45,
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "江丰电子",
+            "stock_ts_code": "300666.SZ",
+            "pct_chg": 20.0,
+            "amount": 60.28,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "中巨芯",
+            "stock_ts_code": "688549.SH",
+            "pct_chg": 19.96,
+            "amount": 50.36,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "华特气体",
+            "stock_ts_code": "688268.SH",
+            "pct_chg": 20.0,
+            "amount": 36.4,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "阿石创",
+            "stock_ts_code": "300706.SZ",
+            "pct_chg": 19.99,
+            "amount": 21.72,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "多氟多",
+            "stock_ts_code": "002407.SZ",
+            "pct_chg": 9.99,
+            "amount": 79.2,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "兴福电子",
+            "stock_ts_code": "688545.SH",
+            "pct_chg": 20.0,
+            "amount": 19.59,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "雅克科技",
+            "stock_ts_code": "002409.SZ",
+            "pct_chg": 10.0,
+            "amount": 75.05,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "炬光科技",
+            "stock_ts_code": "688167.SH",
+            "pct_chg": 20.0,
+            "amount": 18.22,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "存储芯片",
+            "score": 10
+          },
+          {
+            "concept": "AI手机",
+            "score": 2
+          },
+          {
+            "concept": "HBM（高带宽存储）",
+            "score": 2
+          },
+          {
+            "concept": "六氟化钨",
+            "score": 2
+          },
+          {
+            "concept": "半导体",
+            "score": 2
+          },
+          {
+            "concept": "半导体材料",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "SK海力士",
+            "ticker": "000660",
+            "concept": "存储芯片",
+            "role": "图谱弱关联",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "万润科技",
+            "ticker": "002654",
+            "concept": "存储芯片",
+            "role": "半导体存储器业务",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上峰水泥",
+            "ticker": "000672",
+            "concept": "存储芯片",
+            "role": "股权投资潜在相关",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海合晶",
+            "ticker": "688584",
+            "concept": "存储芯片",
+            "role": "存储晶圆制造上游硅片材料潜在供应商",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东芯股份",
+            "ticker": "688110",
+            "concept": "存储芯片",
+            "role": "中小容量存储芯片供应商，联营GPU(上海励算/砺算)",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中微公司",
+            "ticker": "688012",
+            "concept": "存储芯片",
+            "role": "上游设备",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中微半导",
+            "ticker": "688380",
+            "concept": "存储芯片",
+            "role": "MCU（8位、32位）、SoC、ASIC",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中电港",
+            "ticker": "001287",
+            "concept": "存储芯片",
+            "role": "存储芯片分销、AI算力芯片分销、机器人解决方案、端侧AI",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_date": "",
+            "target": "存储芯片",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_name": "20260521 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "先进封装",
+        "date": "2026-06-11",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.9,
+        "market_found": true,
+        "matched_theme": "先进封装",
+        "market_theme": "先进封装",
+        "priority_score": 91.36,
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "中巨芯",
+            "stock_ts_code": "688549.SH",
+            "pct_chg": 19.96,
+            "amount": 50.36,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "有研粉材",
+            "stock_ts_code": "688456.SH",
+            "pct_chg": 18.12,
+            "amount": 26.88,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "兴福电子",
+            "stock_ts_code": "688545.SH",
+            "pct_chg": 20.0,
+            "amount": 19.59,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "雅克科技",
+            "stock_ts_code": "002409.SZ",
+            "pct_chg": 10.0,
+            "amount": 75.05,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "炬光科技",
+            "stock_ts_code": "688167.SH",
+            "pct_chg": 20.0,
+            "amount": 18.22,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "光智科技",
+            "stock_ts_code": "300489.SZ",
+            "pct_chg": 16.46,
+            "amount": 21.99,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "太极实业",
+            "stock_ts_code": "600667.SH",
+            "pct_chg": 9.99,
+            "amount": 56.68,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "旭光电子",
+            "stock_ts_code": "600353.SH",
+            "pct_chg": 9.99,
+            "amount": 30.16,
+            "high_status_label": "历史新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "先进封装",
+            "score": 10
+          },
+          {
+            "concept": "1.6T CPO",
+            "score": 2
+          },
+          {
+            "concept": "2.5D封装",
+            "score": 2
+          },
+          {
+            "concept": "3D封装",
+            "score": 2
+          },
+          {
+            "concept": "ABF膜涨价",
+            "score": 2
+          },
+          {
+            "concept": "AI基础设施与国产算力",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "三孚新科",
+            "ticker": "688359",
+            "concept": "先进封装",
+            "role": "TGV玻璃基板设备+药水",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三安光电",
+            "ticker": "600703",
+            "concept": "先进封装",
+            "role": "光芯片（AI算力光互联）、碳化硅（SiC功率器件）、Mini",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上峰水泥",
+            "ticker": "000672",
+            "concept": "先进封装",
+            "role": "投资潜在相关（非直接产业链）",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海新阳",
+            "ticker": "300236",
+            "concept": "先进封装",
+            "role": "集成电路制造及先进封装用关键工艺材料（电镀液",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东威科技",
+            "ticker": "688700",
+            "concept": "先进封装",
+            "role": "半导体封装电镀设备",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中京电子",
+            "ticker": "002579",
+            "concept": "先进封装",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中国巨石",
+            "ticker": "600176",
+            "concept": "先进封装",
+            "role": "先进封装上游高端电子布潜在相关",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中微公司",
+            "ticker": "688012",
+            "concept": "先进封装",
+            "role": "封装设备",
+            "strength": "related",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_date": "",
+            "target": "先进封装",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "high",
+            "evidence": "先进封装 canonical Deep Dive parsed pool backfill for Bridge 2.0 graph connectivity.",
+            "source": "[[IMA canonical: 先进封装]]",
+            "source_date": "2026-06-01",
+            "target": "先进封装",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "先进封装承接AI算力对HBM、高密度互连、2.5D/3D封装、CoWoS和封装材料的需求。",
+            "source": "[[ConceptBridge_P2_补链_20260602]]",
+            "source_date": "2026-06-02",
+            "target": "先进封装",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_name": "20260521 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          },
+          {
+            "source": "[[IMA canonical: 先进封装]]",
+            "source_name": "IMA canonical: 先进封装",
+            "source_exists": false,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/IMA canonical: 先进封装.md"
+          },
+          {
+            "source": "[[ConceptBridge_P2_补链_20260602]]",
+            "source_name": "ConceptBridge_P2_补链_20260602",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/ConceptBridge_P2_补链_20260602.md"
+          }
+        ],
+        "data_gaps": [
+          "missing_source_trace"
+        ],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
+          "优先补 source/raw trace，避免证据不可追溯。"
+        ],
+        "warnings": []
+      }
+    ],
+    "warnings": []
+  },
+  "decision": {
+    "old_logic_wakeup": [
+      {
+        "date": "2026-06-11",
+        "query": "光刻胶",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 184.57,
+        "matched_theme": "光刻胶",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "华特气体",
+          "兴福电子",
+          "雅克科技",
+          "南大光电",
+          "彤程新材"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[光刻胶产业新变化与新格局深度研究报告]]",
+            "source_name": "光刻胶产业新变化与新格局深度研究报告",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶产业新变化与新格局深度研究报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_rag_query": "光刻胶 光刻胶 华特气体 兴福电子 雅克科技",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "hit",
+        "semantic_hits": [
+          {
+            "title": "华特气体",
+            "file_path": "wiki/entities/华特气体.md",
+            "score": 0.365335,
+            "excerpt": "# 华特气体 电子特气领军企业，多种产品通过全球头部芯片企业认证，在部分28nm及以上制程产品上实现批量供应。 ## 在赛道中的角色 - **电子特气国产替代**：多种电子特气产品通过全球头部芯片企业认证，28nm+制程批量供应 - **国产化率提升**：电子特气国产化率约35%-40%，华特气体为核心推动者之一 - **品类覆盖**：高纯四氟化碳、六氟化硫、三氟化氮等产品线齐全 ## 关键数据 ",
+            "via_neighbor": false
+          },
+          {
+            "title": "光刻胶_DeepDive_数据抽取_20260613",
+            "file_path": "wiki/sources/光刻胶_DeepDive_数据抽取_20260613.md",
+            "score": 0.363211,
+            "excerpt": "# 光刻胶_DeepDive_数据抽取_20260613 IMA 光刻胶题材 Deep Dive 原始情报解析池，用于写入 [[光刻胶]] concept graph。共解析 55 条结构化情报项（其中 hard_fact 候选 3 条、需人工复核 43 条），按 review_required 守恒口径，不直接升级为 hard fact / entity_delta。 ## 摘要 - 题材锚点：",
+            "via_neighbor": false
+          },
+          {
+            "title": "光刻胶",
+            "file_path": "wiki/concepts/光刻胶.md",
+            "score": 0.362796,
+            "excerpt": "# 光刻胶 半导体制造中用光照射后改变化学性质、实现图案转移的关键材料，是芯片精度与良率的\"光刻墨水\"。 **一句话**：光刻机是纳米投影仪，光刻胶就是投影仪里的\"感光胶片\"。 ## 核心机制 光刻胶（又称光致抗蚀剂）是一种感光高分子材料。涂在硅片上后，通过光刻机曝光，被照射区域化学性质发生变化（正胶：曝光区可溶；负胶：曝光区不可溶），再经过显影液处理，形成与掩模版对应的微细图形。后续的刻蚀、沉积",
+            "via_neighbor": false
+          }
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：光刻胶",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "有命中",
+            "检索词": "光刻胶 光刻胶 华特气体 兴福电子 雅克科技",
+            "命中数量": 3
+          },
+          "命中材料": [
+            {
+              "材料": "华特气体",
+              "类型": "公司页",
+              "作用": "公司暴露证据",
+              "路径": "wiki/entities/华特气体.md",
+              "相关度": 0.3653,
+              "摘录": "# 华特气体 电子特气领军企业，多种产品通过全球头部芯片企业认证，在部分28nm及以上制程产品上实现批量供应。 ## 在赛道中的角色 - **电子特气国产替代**：多种电子特气产品通过全球头部芯片企业认证，28nm+制程批量供应 - **国产化率提升**：电子特气国产化率约35%-40%，华特气体为核心推动者之一 - **品类覆盖**：高纯四氟化碳、六氟化硫、三氟化氮等产品线齐全 ## 关键数据 ",
+              "回溯状态": "已命中知识页，不等于原始出处"
+            },
+            {
+              "材料": "光刻胶_DeepDive_数据抽取_20260613",
+              "类型": "旧深度研究",
+              "作用": "旧逻辑主线",
+              "路径": "wiki/sources/光刻胶_DeepDive_数据抽取_20260613.md",
+              "相关度": 0.3632,
+              "摘录": "# 光刻胶_DeepDive_数据抽取_20260613 IMA 光刻胶题材 Deep Dive 原始情报解析池，用于写入 [[光刻胶]] concept graph。共解析 55 条结构化情报项（其中 hard_fact 候选 3 条、需人工复核 43 条），按 review_required 守恒口径，不直接升级为 hard fact / entity_delta。 ## 摘要 - 题材锚点：",
+              "回溯状态": "已命中来源页，原始材料/来源清单待抽查"
+            },
+            {
+              "材料": "光刻胶",
+              "类型": "概念页",
+              "作用": "标准概念/别名证据",
+              "路径": "wiki/concepts/光刻胶.md",
+              "相关度": 0.3628,
+              "摘录": "# 光刻胶 半导体制造中用光照射后改变化学性质、实现图案转移的关键材料，是芯片精度与良率的\"光刻墨水\"。 **一句话**：光刻机是纳米投影仪，光刻胶就是投影仪里的\"感光胶片\"。 ## 核心机制 光刻胶（又称光致抗蚀剂）是一种感光高分子材料。涂在硅片上后，通过光刻机曝光，被照射区域化学性质发生变化（正胶：曝光区可溶；负胶：曝光区不可溶），再经过显影液处理，形成与掩模版对应的微细图形。后续的刻蚀、沉积",
+              "回溯状态": "已命中知识页，不等于原始出处"
+            }
+          ],
+          "综合判断": "结构化和向量互相支持",
+          "判断理由": "图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。",
+          "缺口": [],
+          "下一步": "可以进入题材地图/深度研究，并抽查最相关命中材料。"
+        }
+      },
+      {
+        "date": "2026-06-11",
+        "query": "小金属",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 163.23,
+        "matched_theme": "小金属",
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "云南锗业",
+          "阿石创",
+          "风华高科",
+          "欧莱新材",
+          "中钨高新"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 2,
+          "source_trace": 2,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          },
+          {
+            "source": "[[小金属_DeepDive_数据抽取_20260601]]",
+            "source_name": "小金属_DeepDive_数据抽取_20260601",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/小金属_DeepDive_数据抽取_20260601.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_rag_query": "小金属 小金属 云南锗业 阿石创 风华高科",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "hit",
+        "semantic_hits": [
+          {
+            "title": "小金属",
+            "file_path": "wiki/concepts/小金属.md",
+            "score": 0.36612,
+            "excerpt": "# 小金属 小金属是指除铜、铝、铅、锌、镍等大宗有色金属之外，市场规模较小但战略属性突出的金属品种，主要包括钨、锑、锡、钼、锗、铟、钽、铋、钒、铍和部分稀散/中重稀土资源。 **一句话**：中国占全球主导地位的战略稀缺小金属，在出口管制升级、全球战略备库和 AI/新能源/军工需求爆发三重驱动下，正在从“周期定价”转向“战略安全定价”。 ## 核心逻辑 1. **供给刚性**：开采配额下调、矿山品位",
+            "via_neighbor": false
+          },
+          {
+            "title": "小金属_DeepDive_数据抽取_20260601",
+            "file_path": "wiki/sources/小金属_DeepDive_数据抽取_20260601.md",
+            "score": 0.364591,
+            "excerpt": "# 小金属_DeepDive_数据抽取_20260601 IMA 非科技题材 Deep Dive 原始情报解析池，用于回填 [[小金属]] concept graph。 ## 摘要 - 题材锚点：中国占全球主导地位的战略稀缺小金属，在出口管制升级、全球战略备库、AI/新能源/军工需求爆发三重驱动下，从周期定价转向战略安全定价。 - 解析结果：128 条信息池记录，覆盖催化、周期变量、产业链路径、细",
+            "via_neighbor": false
+          },
+          {
+            "title": "云南锗业（002428）",
+            "file_path": "wiki/entities/云南锗业.md",
+            "score": 0.198421,
+            "excerpt": "# 云南锗业（002428） 一句话定位：磷化铟晶片扩产至目标45万片/年 ## 速览 | 维度 | 内容 | |---|---| | 实体类型 | 上市公司 | | 所属市场 | A股 | | 核心赛道 | [[磷化铟]] · [[磷源]] · [[光芯片]] | | 产业链位置 | 待补充 | | 核心产品/能力 | 待补充 | | 主要客户/生态 | 待补充 | | 主要竞争对手 | 待补充",
+            "via_neighbor": false
+          }
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：小金属",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "有命中",
+            "检索词": "小金属 小金属 云南锗业 阿石创 风华高科",
+            "命中数量": 3
+          },
+          "命中材料": [
+            {
+              "材料": "小金属",
+              "类型": "概念页",
+              "作用": "标准概念/别名证据",
+              "路径": "wiki/concepts/小金属.md",
+              "相关度": 0.3661,
+              "摘录": "# 小金属 小金属是指除铜、铝、铅、锌、镍等大宗有色金属之外，市场规模较小但战略属性突出的金属品种，主要包括钨、锑、锡、钼、锗、铟、钽、铋、钒、铍和部分稀散/中重稀土资源。 **一句话**：中国占全球主导地位的战略稀缺小金属，在出口管制升级、全球战略备库和 AI/新能源/军工需求爆发三重驱动下，正在从“周期定价”转向“战略安全定价”。 ## 核心逻辑 1. **供给刚性**：开采配额下调、矿山品位",
+              "回溯状态": "已命中知识页，不等于原始出处"
+            },
+            {
+              "材料": "小金属_DeepDive_数据抽取_20260601",
+              "类型": "旧深度研究",
+              "作用": "旧逻辑主线",
+              "路径": "wiki/sources/小金属_DeepDive_数据抽取_20260601.md",
+              "相关度": 0.3646,
+              "摘录": "# 小金属_DeepDive_数据抽取_20260601 IMA 非科技题材 Deep Dive 原始情报解析池，用于回填 [[小金属]] concept graph。 ## 摘要 - 题材锚点：中国占全球主导地位的战略稀缺小金属，在出口管制升级、全球战略备库、AI/新能源/军工需求爆发三重驱动下，从周期定价转向战略安全定价。 - 解析结果：128 条信息池记录，覆盖催化、周期变量、产业链路径、细",
+              "回溯状态": "已命中来源页，原始材料/来源清单待抽查"
+            },
+            {
+              "材料": "云南锗业（002428）",
+              "类型": "公司页",
+              "作用": "公司暴露证据",
+              "路径": "wiki/entities/云南锗业.md",
+              "相关度": 0.1984,
+              "摘录": "# 云南锗业（002428） 一句话定位：磷化铟晶片扩产至目标45万片/年 ## 速览 | 维度 | 内容 | |---|---| | 实体类型 | 上市公司 | | 所属市场 | A股 | | 核心赛道 | [[磷化铟]] · [[磷源]] · [[光芯片]] | | 产业链位置 | 待补充 | | 核心产品/能力 | 待补充 | | 主要客户/生态 | 待补充 | | 主要竞争对手 | 待补充",
+              "回溯状态": "已命中知识页，不等于原始出处"
+            }
+          ],
+          "综合判断": "结构化和向量互相支持",
+          "判断理由": "图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。",
+          "缺口": [],
+          "下一步": "可以进入题材地图/深度研究，并抽查最相关命中材料。"
+        }
+      },
+      {
+        "date": "2026-06-11",
+        "query": "电子化学品",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 154.08,
+        "matched_theme": "电子化学品",
+        "trigger_types": [
+          "double_red",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "中船特气",
+          "中巨芯",
+          "华特气体",
+          "兴福电子",
+          "南大光电"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_rag_query": "电子化学品 电子化学品 中船特气 中巨芯 华特气体",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "hit",
+        "semantic_hits": [
+          {
+            "title": "六氟化钨",
+            "file_path": "wiki/concepts/六氟化钨.md",
+            "score": 0.516393,
+            "excerpt": "# 六氟化钨 六氟化钨（WF6）是钨在半导体电子特气和先进制造中的重要应用方向，可用于半导体制造中的钨沉积等环节。 **一句话**：六氟化钨的题材核心是钨资源价格、半导体材料国产替代和电子特气供需缺口，但具体公司暴露需要公告或产品目录进一步核验。 ## 核心逻辑 - 图片稿将六氟化钨列为钨产业方向之一，与光伏钨丝、PCB微钻、军工与高端制造并列。 - 半导体制造扩产和国产替代可能拉动 WF6 需求",
+            "via_neighbor": false
+          },
+          {
+            "title": "中巨芯（688549）",
+            "file_path": "wiki/entities/中巨芯.md",
+            "score": 0.364878,
+            "excerpt": "# 中巨芯（688549） 一句话定位：G5 级电子级氢氟酸和电子级硫酸扩产 ## 速览 | 维度 | 内容 | |---|---| | 实体类型 | 上市公司 | | 所属市场 | A股 | | 核心赛道 | [[无水氢氟酸（半导体级）]] · [[半导体材料]] | | 产业链位置 | 待补充 | | 核心产品/能力 | 待补充 | | 主要客户/生态 | 待补充 | | 主要竞争对手 | 待",
+            "via_neighbor": false
+          },
+          {
+            "title": "华特气体",
+            "file_path": "wiki/entities/华特气体.md",
+            "score": 0.361657,
+            "excerpt": "# 华特气体 电子特气领军企业，多种产品通过全球头部芯片企业认证，在部分28nm及以上制程产品上实现批量供应。 ## 在赛道中的角色 - **电子特气国产替代**：多种电子特气产品通过全球头部芯片企业认证，28nm+制程批量供应 - **国产化率提升**：电子特气国产化率约35%-40%，华特气体为核心推动者之一 - **品类覆盖**：高纯四氟化碳、六氟化硫、三氟化氮等产品线齐全 ## 关键数据 ",
+            "via_neighbor": false
+          }
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：电子化学品",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "有命中",
+            "检索词": "电子化学品 电子化学品 中船特气 中巨芯 华特气体",
+            "命中数量": 3
+          },
+          "命中材料": [
+            {
+              "材料": "六氟化钨",
+              "类型": "概念页",
+              "作用": "标准概念/别名证据",
+              "路径": "wiki/concepts/六氟化钨.md",
+              "相关度": 0.5164,
+              "摘录": "# 六氟化钨 六氟化钨（WF6）是钨在半导体电子特气和先进制造中的重要应用方向，可用于半导体制造中的钨沉积等环节。 **一句话**：六氟化钨的题材核心是钨资源价格、半导体材料国产替代和电子特气供需缺口，但具体公司暴露需要公告或产品目录进一步核验。 ## 核心逻辑 - 图片稿将六氟化钨列为钨产业方向之一，与光伏钨丝、PCB微钻、军工与高端制造并列。 - 半导体制造扩产和国产替代可能拉动 WF6 需求",
+              "回溯状态": "已命中知识页，不等于原始出处"
+            },
+            {
+              "材料": "中巨芯（688549）",
+              "类型": "公司页",
+              "作用": "公司暴露证据",
+              "路径": "wiki/entities/中巨芯.md",
+              "相关度": 0.3649,
+              "摘录": "# 中巨芯（688549） 一句话定位：G5 级电子级氢氟酸和电子级硫酸扩产 ## 速览 | 维度 | 内容 | |---|---| | 实体类型 | 上市公司 | | 所属市场 | A股 | | 核心赛道 | [[无水氢氟酸（半导体级）]] · [[半导体材料]] | | 产业链位置 | 待补充 | | 核心产品/能力 | 待补充 | | 主要客户/生态 | 待补充 | | 主要竞争对手 | 待",
+              "回溯状态": "已命中知识页，不等于原始出处"
+            },
+            {
+              "材料": "华特气体",
+              "类型": "公司页",
+              "作用": "公司暴露证据",
+              "路径": "wiki/entities/华特气体.md",
+              "相关度": 0.3617,
+              "摘录": "# 华特气体 电子特气领军企业，多种产品通过全球头部芯片企业认证，在部分28nm及以上制程产品上实现批量供应。 ## 在赛道中的角色 - **电子特气国产替代**：多种电子特气产品通过全球头部芯片企业认证，28nm+制程批量供应 - **国产化率提升**：电子特气国产化率约35%-40%，华特气体为核心推动者之一 - **品类覆盖**：高纯四氟化碳、六氟化硫、三氟化氮等产品线齐全 ## 关键数据 ",
+              "回溯状态": "已命中知识页，不等于原始出处"
+            }
+          ],
+          "综合判断": "结构化和向量互相支持",
+          "判断理由": "图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。",
+          "缺口": [],
+          "下一步": "可以进入题材地图/深度研究，并抽查最相关命中材料。"
+        }
+      },
+      {
+        "date": "2026-06-11",
+        "query": "氟化工",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 152.28,
+        "matched_theme": "氟化工",
+        "trigger_types": [
+          "double_red",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "中船特气",
+          "中巨芯",
+          "华特气体",
+          "云南锗业",
+          "多氟多"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：氟化工",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      },
+      {
+        "date": "2026-06-11",
+        "query": "磷化工",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 145.98,
+        "matched_theme": "磷化工",
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "兴福电子",
+          "雅克科技",
+          "南大光电",
+          "昊华科技",
+          "川金诺"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 2,
+          "source_trace": 2,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          },
+          {
+            "source": "[[磷化工_DeepDive_数据抽取_20260601]]",
+            "source_name": "磷化工_DeepDive_数据抽取_20260601",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/磷化工_DeepDive_数据抽取_20260601.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：磷化工",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      },
+      {
+        "date": "2026-06-11",
+        "query": "存储芯片",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 95.45,
+        "matched_theme": "存储芯片",
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          "江丰电子",
+          "中巨芯",
+          "华特气体",
+          "阿石创",
+          "多氟多"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_name": "20260521 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：存储芯片",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      },
+      {
+        "date": "2026-06-11",
+        "query": "先进封装",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.9,
+        "priority_score": 91.36,
+        "matched_theme": "先进封装",
+        "trigger_types": [
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          "中巨芯",
+          "有研粉材",
+          "兴福电子",
+          "雅克科技",
+          "炬光科技"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 3,
+          "source_trace": 3,
+          "missing_source_trace": 1
+        },
+        "source_traces": [
+          {
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_name": "20260521 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          },
+          {
+            "source": "[[IMA canonical: 先进封装]]",
+            "source_name": "IMA canonical: 先进封装",
+            "source_exists": false,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/IMA canonical: 先进封装.md"
+          },
+          {
+            "source": "[[ConceptBridge_P2_补链_20260602]]",
+            "source_name": "ConceptBridge_P2_补链_20260602",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/ConceptBridge_P2_补链_20260602.md"
+          }
+        ],
+        "data_gaps": [
+          "missing_source_trace"
+        ],
+        "route": "先保留，等统一补来源回溯/证据后再深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
+          "优先补 source/raw trace，避免证据不可追溯。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：先进封装",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "有缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [
+            "missing_source_trace"
+          ],
+          "下一步": "先补来源页/原始材料回溯，再进入深度研究。"
+        }
+      }
+    ],
+    "new_logic_candidate": [],
+    "data_gap": [
+      {
+        "date": "2026-06-11",
+        "query": "金属铜",
+        "classification": "data_gap",
+        "confidence": 0.55,
+        "priority_score": 141.71,
+        "matched_theme": "金属铜",
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "中钨高新",
+          "章源钨业",
+          "国城矿业",
+          "翔鹭钨业",
+          "鑫科材料"
+        ],
+        "structured_counts": {
+          "concept": 0,
+          "company_exposure": 1,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "missing_concept",
+          "missing_evidence"
+        ],
+        "route": "进入统一回补队列，先判断是不是污染词或别名",
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "数据缺口证据卡：金属铜",
+          "当前判断": "数据缺口",
+          "结构化检查": {
+            "概念": "缺概念/待归一",
+            "公司暴露": "已命中",
+            "证据": "缺证据",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [
+            "missing_concept",
+            "missing_evidence"
+          ],
+          "下一步": "先判断是不是别名/污染词，再做概念归一。"
+        }
+      },
+      {
+        "date": "2026-06-11",
+        "query": "金属钴",
+        "classification": "data_gap",
+        "confidence": 0.35,
+        "priority_score": 132.49,
+        "matched_theme": "金属钴",
+        "trigger_types": [
+          "double_red",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "中钨高新",
+          "厦门钨业",
+          "赣锋锂业",
+          "洛阳钼业",
+          "盛屯矿业"
+        ],
+        "structured_counts": {
+          "concept": 0,
+          "company_exposure": 0,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "missing_concept",
+          "missing_entity_exposure",
+          "missing_evidence"
+        ],
+        "route": "进入统一回补队列，先判断是不是污染词或别名",
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
+          "补 entity exposure 或 IMA 个股卡，确认哪些公司是真暴露。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "数据缺口证据卡：金属钴",
+          "当前判断": "数据缺口",
+          "结构化检查": {
+            "概念": "缺概念/待归一",
+            "公司暴露": "缺公司暴露",
+            "证据": "缺证据",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [
+            "missing_concept",
+            "missing_entity_exposure",
+            "missing_evidence"
+          ],
+          "下一步": "先判断是不是别名/污染词，再做概念归一。"
+        }
+      }
+    ],
+    "noise_or_unconfirmed": [
+      {
+        "date": "2026-06-11",
+        "query": "连板未映射",
+        "classification": "noise_or_unconfirmed",
+        "confidence": 0.2,
+        "priority_score": 183.0,
+        "matched_theme": "连板未映射",
+        "trigger_types": [
+          "limit_advance_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [],
+        "structured_counts": {
+          "concept": 0,
+          "company_exposure": 0,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "route": "先看连板股名单和主导行业，等题材名明确后再映射",
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
+        ]
+      }
+    ]
+  },
+  "semantic_rag": {
+    "enabled": true,
+    "top_n": 3,
+    "k": 3,
+    "mode": "hybrid",
+    "warnings": []
+  },
+  "notes": [
+    "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
+    "回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。"
+  ],
+  "next_actions": [
+    "优先打开旧逻辑唤醒：确认是否需要题材地图或深度研究。",
+    "语义召回已给出 W 命中；优先复核结构化命中和 W 命中同时存在的条目。",
+    "数据缺口只登记到回补队列；本轮不自动补来源/概念/IMA。",
+    "待确认项先看是不是盘面占位或噪音；不要直接当成 concept deep-dive。",
+    "先补齐 daily workflow 产物，否则 agent 判断只作为预览。"
+  ]
+}

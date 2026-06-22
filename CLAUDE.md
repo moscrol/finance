@@ -1,6 +1,6 @@
 # 金融项目
 
-A股量化复盘+研究工具集。通过 fupanhui.com API 获取市场数据，写入飞书 Bitable，结合 iFinD 数据做深度分析。
+A股量化复盘+研究工具集。通过 fupanhui.com API 获取市场数据，写入本地 DuckDB（`market_feature_store.duckdb`），结合 iFinD 数据做深度分析。
 
 ## Git Branch Safety Rules（强制）
 
@@ -20,7 +20,8 @@ git branch --show-current
 
 ## 核心工作流
 
-1. **每日复盘** → 加载 `web-access` skill → 打开 fupanhui.com → 调 API 取市场数据 → hover K线取周均线/偏离度 → 格式化输出 → 写入飞书（每日指标+板块趋势）→ `verify_and_patch.py` → `advancers-chart sync`
+1. **每日复盘（全量复盘）** → 确保 CDP proxy 已启动（`node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs`）→ `python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD` → 写入 DuckDB → `audit_coverage.py` 验证覆盖
+   > ⚠ 飞书 Bitable 写入已废弃，复盘数据统一走 `daily-full` → DuckDB 路径。
 2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
 3. **涨幅排行** → `top-gainers` skill：iFinD个股涨幅 + AKShare板块涨幅并行
 4. **策略回测** → `scripts/detect_turning_points.py` 检测信号 → `scripts/backfill_sector_marginal.py` 抓板块边际量 → DuckDB 本地分析
@@ -112,6 +113,9 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | strategy1-matrix | 策略一生成、生成策略1、策略一矩阵、策略1每日优先个股、strategy1 matrix、更新策略一。用于基于已完成的每日复盘数据、把某个交易日写入 `复盘、matrices、strategy1-priority-stock-matrix.html`、并沉淀 T1、T2、OBS、次日验证、尤其适用于避免长 SQL、长 shell 字符串、手工编辑巨大 HTML 单行导致出错 |
 | top-gainers-feishu | 强势股入库、涨幅入库、区间强势、涨幅筛选入库、查询强势股、强势股均线、强势股回踩 |
 | foresight-feedback | 记反馈、记一下、我关注、我对这个感兴趣、想深挖、这个不看了、跳过、不感兴趣、打个分、很重要、猜你想问、越用越懂、自动记反馈 |
+| 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关 |
+| task-planner | 批量任务规划、开工前采访、批量回填前先问、开新题材前先问、运行前规划、采访前置、先问后做、task planner、batch plan、回填前先问 |
+| checkpoint-recheck-mac-setup | 夜间回检、checkpoint recheck、可证伪点回检、launchd 安装、远程执行、remote-exec、隧道乱码、codepoint 校验、共享大脑、foresight 台账、多机一致、登点闭环 |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 
@@ -123,7 +127,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 
 ## 关键约束
 
-- 飞书写入**必须先查重**，存在则跳过
+- 复盘数据统一走 `daily-full` → DuckDB，**飞书 Bitable 写入已废弃**
 - 连板晋级写入**必须串行**（从旧到新），禁止并行写入飞书
 - fupanhui API 用浏览器内 XHR 调用（通过 CDP proxy），自动携带 session cookie
 - 周均线/偏离度通过 hover K线 tooltip 获取后，需用上证日收盘价交叉验证偏离符号
@@ -178,7 +182,7 @@ Lint 能力（`pdf_ingest_lint.py`）：除 relations 检查外，还检查 conc
 ## 本地工具链
 
 - **DuckDB**：`db/market.duckdb`（列存、零配置、单文件），同一时间只有一个写入连接
-- **CDP Proxy**：`localhost:3456`，通过用户 Chrome 携带 fupanhui 登录态调用 API
+- **CDP Proxy**：`localhost:3456`，通过用户 Chrome 携带 fupanhui 登录态调用 API。启动：`node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs`（需 Chrome 已开启 remote debugging，检查 `~/Library/Application Support/Google/Chrome/DevToolsActivePort`）
 - **Python 脚本**：`scripts/` 目录，依赖 duckdb、urllib（标准库）
 
 ## 回填注意事项

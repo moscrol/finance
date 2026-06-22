@@ -173,6 +173,11 @@ class ThemeRadarService:
         return candidate
 
     @staticmethod
+    def _is_placeholder_candidate(candidate: dict[str, Any]) -> bool:
+        text = " ".join(str(candidate.get(key) or "") for key in ("market_theme", "canonical_concept", "placeholder_kind"))
+        return any(marker in text for marker in ("未映射", "未命名题材", "待映射", "placeholder"))
+
+    @staticmethod
     def _add_score(candidate: dict[str, Any], signal: str, score: Any, reason: str, source: str) -> None:
         value = round(float(score or 0), 2)
         candidate["priority_score"] = round(float(candidate.get("priority_score") or 0) + value, 2)
@@ -207,7 +212,11 @@ class ThemeRadarService:
 
     @staticmethod
     def _merge_advance(candidates_by_theme: dict[str, dict[str, Any]], row: dict[str, Any]) -> None:
-        candidate = ThemeRadarService._candidate(candidates_by_theme, row.get("theme") or "连板未映射", row.get("sw_l1") or "")
+        theme = row.get("theme")
+        candidate = ThemeRadarService._candidate(candidates_by_theme, theme or "连板未映射", row.get("sw_l1") or "")
+        if not theme:
+            candidate["canonical_concept"] = ""
+            candidate["placeholder_kind"] = "limit_advance_unmapped"
         ThemeRadarService._add_score(
             candidate,
             "limit_advance_cluster",
@@ -340,6 +349,25 @@ class ThemeRadarService:
         }
 
     def _with_knowledge_status(self, candidate: dict[str, Any]) -> dict[str, Any]:
+        if self._is_placeholder_candidate(candidate):
+            status = dict(candidate.get("knowledge_status", {}))
+            status.update(
+                {
+                    "local_concept_found": False,
+                    "local_exposures_found": False,
+                    "local_evidence_found": False,
+                    "evidence_count": 0,
+                    "concept_count": 0,
+                    "exposure_count": 0,
+                    "external_supplement_needed": False,
+                    "backfill_gaps": ["placeholder_market_theme"],
+                }
+            )
+            candidate["knowledge_status"] = status
+            candidate["matched_concepts"] = []
+            candidate["candidate_companies"] = []
+            candidate["knowledge_evidence"] = []
+            return candidate
         target = str(candidate.get("market_theme") or candidate.get("canonical_concept") or "")
         evidence = self.knowledge.get_evidence(target, limit=5)
         concept_matches = self._collect_matches("concept", [target, str(candidate.get("canonical_concept") or "")], 5)

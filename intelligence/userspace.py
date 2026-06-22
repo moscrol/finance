@@ -13,11 +13,21 @@
 - ``profile.derived.json``   ``refresh-profile`` 自动派生的候选（带来源/as_of/stale 标记）
 - ``foresight_memory.jsonl`` 问过的问题记忆回路
 - ``interactions.jsonl``     用户反馈（PR2：越用越懂）
+- ``corrections.jsonl``      纠偏回路（你纠正它的高信号记录，注入发问「别再犯」）
+- ``judgments.jsonl``        核心判断台账（深挖纪要沉淀的判断，注入发问「在此基础上往前推」）
+- ``checkpoints.jsonl``      可证伪点台账（登记到期回检的判断，C 方案）
+- ``verdicts.jsonl``         回检打分台账（到期核对判断对错→校准你哪类二阶推演靠谱）
 - ``strategy_params.json``   个人策略参数 overlay（PR2：稀疏覆盖共享 baseline）
 
 向后兼容：``default`` 用户沿用历史文件位置
 (``foresight_profile.local.json`` / ``foresight_profile.example.json`` /
 ``foresight_memory.jsonl``)，所以既有的单用户用法零迁移、提问记忆不断档。
+
+跨机同步：设环境变量 ``FORESIGHT_USERS_DIR`` 可把整个 ``users/<id>/`` 大脑目录
+重定位到任意路径（支持 ``~`` 展开）。指向云同步盘（如 Obsidian 沉淀 vault 内的隐藏
+目录 ``<vault>/.foresight``）后，profile / 派生画像 / 问题记忆 / interactions /
+会话 buffer 全部随 vault 一处同步，两台机器共享同一个大脑；不设则落在仓库内
+``intelligence/users/``（单机）。
 """
 
 from __future__ import annotations
@@ -35,6 +45,8 @@ USERS_DIR = INTEL_DIR / "users"
 
 DEFAULT_USER = "default"
 ENV_USER = "FORESIGHT_USER"
+# 把整个 users/<id>/ 大脑目录重定位到云同步盘（跨机同步）。
+ENV_USERS_DIR = "FORESIGHT_USERS_DIR"
 
 # 既有单用户的历史文件位置（default 用户沿用，保证连续性）。
 LEGACY_PROFILE_EXAMPLE = INTEL_DIR / "foresight_profile.example.json"
@@ -43,6 +55,17 @@ LEGACY_MEMORY = INTEL_DIR / "foresight_memory.jsonl"
 
 # user_id 约束：字母/数字开头，仅允许 [A-Za-z0-9._-]，长度 1-64；杜绝路径穿越。
 _USER_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+def users_dir() -> Path:
+    """users 根目录：``FORESIGHT_USERS_DIR`` 环境变量（``~`` 展开）> 仓库内默认位置。
+
+    指向云同步盘即可让每个用户的全部应用态随之同步，实现「两机一个大脑」。
+    """
+    override = os.environ.get(ENV_USERS_DIR)
+    if override and override.strip():
+        return Path(override.strip()).expanduser()
+    return USERS_DIR
 
 
 def resolve_user_id(user_id: str | None) -> str:
@@ -64,6 +87,10 @@ class UserSpace:
     derived_path: Path
     memory_path: Path
     interactions_path: Path
+    corrections_path: Path
+    judgments_path: Path
+    checkpoints_path: Path
+    verdicts_path: Path
     strategy_params_path: Path
 
     @property
@@ -78,9 +105,12 @@ class UserSpace:
 def user_space(user_id: str | None = None) -> UserSpace:
     """把一个 user_id 解析成它名下所有应用态文件的路径。"""
     uid = resolve_user_id(user_id)
-    root = USERS_DIR / uid
-    # default 用户：记忆沿用历史位置，避免既有提问记录断档。
-    memory_path = LEGACY_MEMORY if uid == DEFAULT_USER else root / "foresight_memory.jsonl"
+    base = users_dir()
+    root = base / uid
+    # default 用户：未重定位时记忆沿用历史位置，避免既有提问记录断档；
+    # 一旦设了 FORESIGHT_USERS_DIR（跨机同步），则统一收口到重定位目录。
+    use_legacy = uid == DEFAULT_USER and base == USERS_DIR
+    memory_path = LEGACY_MEMORY if use_legacy else root / "foresight_memory.jsonl"
     return UserSpace(
         user_id=uid,
         root=root,
@@ -88,6 +118,10 @@ def user_space(user_id: str | None = None) -> UserSpace:
         derived_path=root / "profile.derived.json",
         memory_path=memory_path,
         interactions_path=root / "interactions.jsonl",
+        corrections_path=root / "corrections.jsonl",
+        judgments_path=root / "judgments.jsonl",
+        checkpoints_path=root / "checkpoints.jsonl",
+        verdicts_path=root / "verdicts.jsonl",
         strategy_params_path=root / "strategy_params.json",
     )
 

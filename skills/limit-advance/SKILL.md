@@ -1,5 +1,7 @@
 ---
 name: limit-advance
+metadata:
+  pattern: pipeline
 description: 连板晋级数据抓取与飞书入库。触发词：晋级。
 ---
 

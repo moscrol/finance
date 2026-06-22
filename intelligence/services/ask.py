@@ -83,6 +83,9 @@ class AskOptions:
     wiki_rag_timeout: int = 90
     wiki_rag_excerpt: int = 200
     use_llm: bool = False
+    # compose: 让 LLM 把多源证据有机融合成一段连贯回答（自由形态，带内联引用）；
+    # 默认关，关时行为与旧版逐字节一致。开时若无 key/调用失败则降级回六段模板。
+    compose: bool = False
     llm_model: str | None = None
     llm_timeout: int = 60
     detail: bool = False
@@ -111,6 +114,11 @@ class AskResult:
     routed_modules: list[str] = field(default_factory=list)
     llm_refined: bool = False
     llm_provider: str | None = None
+    # 有机合成（--compose）的自由形态回答正文；None 表示未启用/已降级为模板
+    synthesis: str | None = None
+    # 首轮合成的完整对话 messages（system+user+assistant）；供多轮追问复用证据+历史。
+    # None 表示未启用/已降级（无法进入多轮对话）。
+    synthesis_messages: list[dict] | None = None
     # (label, 完整报告全文) per routed module, only when --detail is set
     detail_reports: list[tuple[str, str]] = field(default_factory=list)
 
@@ -494,6 +502,25 @@ def answer_query(options: AskOptions) -> AskResult:
     else:
         implication_lines = [implication]
 
+    # --- ③ optional 有机合成 (compose): 把多源证据融成一段自由形态、带内联引用的回答 ---
+    if options.compose:
+        evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
+        citation_legend = "\n".join(
+            f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
+        )
+        msgs = llm_refine.build_synthesis_messages(
+            options.query, theme, evidence_text, citation_legend=citation_legend
+        )
+        composed, reason = llm_refine.synthesize_messages(
+            msgs, model_override=options.llm_model, timeout=options.llm_timeout,
+        )
+        if composed is not None:
+            result.synthesis = composed.answer
+            result.llm_provider = composed.provider
+            result.synthesis_messages = msgs + [{"role": "assistant", "content": composed.answer}]
+        else:
+            result.warnings.append(reason)
+
     result.sections = {
         "结论": conclusion,
         "证据链": evidence_chain,
@@ -535,6 +562,15 @@ def render_answer(result: AskResult) -> str:
     lines.append("> " + " | ".join(meta))
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
+    if result.synthesis:
+        lines.append("")
+        lines.append("## 【对话式回答】"
+                     + (f"（LLM·{result.llm_provider} 有机合成）" if result.llm_provider else ""))
+        lines.append("")
+        lines.append(result.synthesis.rstrip())
+        lines.append("")
+        lines.append("---")
+        lines.append("*以下为确定性检索的结构化证据，供核对引用编号：*")
     for name in SECTION_ORDER:
         lines.append("")
         lines.append(f"## 【{name}】")

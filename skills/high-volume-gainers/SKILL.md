@@ -1,5 +1,7 @@
 ---
 name: high-volume-gainers
+metadata:
+  pattern: pipeline
 description: 大成交涨幅排行（成交额×涨幅量价综合加权排序并入库）。触发词：大成交排行、大成交涨幅、加权涨幅、量价排行、放量上涨。注意：纯涨幅排行（不看成交额）用 top-gainers。
 ---
 

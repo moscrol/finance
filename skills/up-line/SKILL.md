@@ -1,5 +1,7 @@
 ---
 name: up-line
+metadata:
+  pattern: tool-wrapper
 description: UP线更新与个股UP/偏离度查询（布林带变体）。触发词：UP线更新、up线、UP线、查UP、个股UP、UP偏离度、偏离UP。
 ---
 

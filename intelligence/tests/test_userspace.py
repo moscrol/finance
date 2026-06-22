@@ -317,5 +317,53 @@ class DiffAndApplyTests(unittest.TestCase):
         self.assertNotIn("B", profile["focus_themes"])
 
 
+class UsersDirOverrideTests(unittest.TestCase):
+    """FORESIGHT_USERS_DIR：把整个 users/<id>/ 大脑目录重定位到云同步盘（跨机同步）。"""
+
+    def _clear_env(self):
+        import os
+
+        return mock.patch.dict("os.environ", {k: v for k, v in os.environ.items()
+                                              if k != userspace.ENV_USERS_DIR}, clear=True)
+
+    def test_no_env_uses_repo_users_dir(self) -> None:
+        with self._clear_env():
+            self.assertEqual(userspace.users_dir(), userspace.USERS_DIR)
+
+    def test_env_relocates_all_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict("os.environ", {userspace.ENV_USERS_DIR: tmp}):
+                self.assertEqual(userspace.users_dir(), Path(tmp))
+                us = userspace.user_space("alice")
+                self.assertEqual(us.root, Path(tmp) / "alice")
+                self.assertEqual(us.interactions_path, Path(tmp) / "alice" / "interactions.jsonl")
+                self.assertEqual(us.corrections_path, Path(tmp) / "alice" / "corrections.jsonl")
+                self.assertEqual(us.memory_path, Path(tmp) / "alice" / "foresight_memory.jsonl")
+                self.assertEqual(us.profile_path, Path(tmp) / "alice" / "profile.json")
+
+    def test_env_expands_tilde(self) -> None:
+        import os
+
+        with mock.patch.dict("os.environ", {userspace.ENV_USERS_DIR: "~/Desktop/stu/ai/.foresight"}):
+            self.assertEqual(userspace.users_dir(), Path(os.path.expanduser("~/Desktop/stu/ai/.foresight")))
+
+    def test_default_user_follows_override_not_legacy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict("os.environ", {userspace.ENV_USERS_DIR: tmp}):
+                us = userspace.user_space("default")
+                # 一旦重定位，default 用户也收口到同步目录，不再用仓库内 legacy 记忆
+                self.assertEqual(us.memory_path, Path(tmp) / "default" / "foresight_memory.jsonl")
+                self.assertNotEqual(us.memory_path, userspace.LEGACY_MEMORY)
+
+    def test_foresight_paths_follow_override(self) -> None:
+        # 证明跨机同步真的喂到 foresight：亲和度 / 记忆路径都跟随重定位
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict("os.environ", {userspace.ENV_USERS_DIR: tmp}):
+                ipath = foresight._interactions_path(ForesightOptions(user="alice"))
+                mpath = foresight._memory_path(ForesightOptions(user="alice"))
+        self.assertEqual(ipath, Path(tmp) / "alice" / "interactions.jsonl")
+        self.assertEqual(mpath, Path(tmp) / "alice" / "foresight_memory.jsonl")
+
+
 if __name__ == "__main__":
     unittest.main()

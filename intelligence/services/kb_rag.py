@@ -70,6 +70,18 @@ def _resolve_index_dir(root: Path) -> Path:
     return root / ".rag_index"
 
 
+def _resolve_rag_python(root: Path) -> str:
+    """Prefer the KB repo's RAG venv, while allowing explicit overrides."""
+    env = os.environ.get("KB_RAG_PYTHON") or os.environ.get("RAG_PYTHON")
+    if env:
+        return str(Path(env).expanduser())
+    for rel in (Path(".rag_venv") / "bin" / "python", Path(".venv") / "bin" / "python"):
+        candidate = root / rel
+        if candidate.exists():
+            return str(candidate)
+    return sys.executable
+
+
 def _read_excerpt(page_path: Path, fallback: str, max_chars: int) -> str:
     """Read a candidate page body for a clean excerpt (strip YAML frontmatter)."""
     try:
@@ -120,7 +132,8 @@ def retrieve(
         )
         return res
 
-    cmd = [sys.executable, str(script), "query", str(query), "--k", str(k), "--mode", str(mode), "--json"]
+    rag_python = _resolve_rag_python(root)
+    cmd = [rag_python, str(script), "query", str(query), "--k", str(k), "--mode", str(mode), "--json"]
     res.command = f"rag_index.py query <q> --k {k} --mode {mode} --json"
     res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}（hybrid 向量召回 wiki 候选页）"
     try:

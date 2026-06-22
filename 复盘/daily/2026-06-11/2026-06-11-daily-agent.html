@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>每日 Agent 简报 - 2026-06-11</title>
+<style>
+:root{--paper:#fffaf1;--ink:#17140f;--muted:#746b5d;--line:#d8cbbb;--accent:#0057ff;--card:#fffdf8;--good:#0f7b43;--watch:#a35b00;--gap:#b3261e;--soft:#f3eadb}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:'Avenir Next','PingFang SC','Hiragino Sans GB',sans-serif;line-height:1.65}
+main{max-width:1280px;margin:0 auto;padding:24px}
+.hero{border:1px solid var(--ink);background:var(--card);padding:22px 24px;margin-bottom:18px;display:flex;justify-content:space-between;gap:18px;align-items:flex-end}
+.kicker{font-size:12px;letter-spacing:.18em;color:var(--accent);font-weight:900}
+h1{margin:4px 0 0;font-size:32px;line-height:1.15}
+h2{font-size:20px;margin:0 0 12px}
+h3{font-size:16px;margin:0}
+.hero p{margin:8px 0 0;color:var(--muted)}
+.section{border:1px solid var(--line);background:var(--card);padding:18px;margin:14px 0}
+.metrics{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:10px;margin:14px 0}
+.metric{border:1px solid var(--line);background:#fff;padding:12px}
+.metric span{display:block;color:var(--muted);font-size:12px}
+.metric strong{display:block;font-size:26px;line-height:1.1;margin-top:4px}
+.metric small{display:block;color:var(--muted);margin-top:4px}
+.badge{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;background:#fff;margin:2px 4px 2px 0;white-space:nowrap}
+.badge.good{color:var(--good);border-color:#91c7aa;background:#eef8f2}
+.badge.watch{color:var(--watch);border-color:#e2b36f;background:#fff7e8}
+.badge.gap{color:var(--gap);border-color:#e7aaa5;background:#fff0ee}
+.badge.info{color:var(--accent);border-color:#9bbcff;background:#eef4ff}
+.table-wrap{overflow:auto;border:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;background:#fff;min-width:900px}
+th,td{border-bottom:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top;font-size:14px}
+th{background:var(--soft);font-size:12px;color:var(--muted);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.two-col{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}
+.queue{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.queue li{border:1px solid var(--line);background:#fff;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.topic{font-weight:900}
+.score{font-size:12px;color:var(--muted)}
+.muted-text{color:var(--muted);font-size:13px}
+.evidence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.evidence-card{border:1px solid var(--line);background:#fff;padding:14px}
+.evidence-card header{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.reason{margin:8px 0;color:#362f25}
+.checks{margin:10px 0}
+.semantic-line{border-top:1px solid var(--line);padding-top:10px;margin-top:8px;color:var(--muted)}
+.material{border:1px solid #eadccc;background:#fffdf8;padding:10px;margin-top:10px}
+.material p{margin:6px 0 0;color:var(--muted);font-size:13px}
+.excerpt{color:#453b30!important}
+.next{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:grid;gap:6px}
+.next span{color:var(--muted);font-size:13px}
+.empty{color:var(--muted);margin:0}
+.empty.small{font-size:13px}
+.actions{margin:0;padding-left:20px}
+@media (max-width:900px){main{padding:14px}.hero{display:block}.metrics{grid-template-columns:repeat(2,1fr)}.two-col,.evidence-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div><div class="kicker">DAILY AGENT</div><h1>每日 Agent 简报 - 2026-06-11</h1><p>先看结论，再看回补，最后看证据卡。页面展示偏人工阅读，JSON 仍保留完整机器字段。</p></div>
+    <div><span class="badge watch">日常产物 WARN</span><span class="badge info">向量旧材料 混合检索</span></div>
+  </section>
+  <section class="metrics">
+    <div class="metric"><span>扫描逻辑</span><strong>10</strong></div>
+    <div class="metric"><span>旧逻辑唤醒</span><strong>7</strong><small>优先判断是否需要深挖</small></div>
+    <div class="metric"><span>新逻辑候选</span><strong>0</strong></div>
+    <div class="metric"><span>数据缺口</span><strong>2</strong><small>进入回补队列</small></div>
+    <div class="metric"><span>待确认</span><strong>1</strong></div>
+    <div class="metric"><span>向量补证</span><strong>3</strong><small>默认只补最靠前</small></div>
+  </section>
+  <section class="section">
+    <h2>马上看：旧逻辑唤醒</h2>
+    <div class="table-wrap"><table><thead><tr><th>题材</th><th>优先级</th><th>可信度</th><th>强势股</th><th>缺口</th><th>旧材料</th><th>建议动作</th></tr></thead><tbody><tr><td><strong>光刻胶</strong></td><td>184.57</td><td><span class="badge good">0.95</span></td><td>华特气体、兴福电子、雅克科技、南大光电、彤程新材</td><td>-</td><td>华特气体；光刻胶_DeepDive_数据抽取_20260613</td><td>题材地图 / 深度研究</td></tr><tr><td><strong>小金属</strong></td><td>163.23</td><td><span class="badge good">0.95</span></td><td>云南锗业、阿石创、风华高科、欧莱新材、中钨高新</td><td>-</td><td>小金属；小金属_DeepDive_数据抽取_20260601</td><td>题材地图 / 深度研究</td></tr><tr><td><strong>电子化学品</strong></td><td>154.08</td><td><span class="badge good">0.95</span></td><td>中船特气、中巨芯、华特气体、兴福电子、南大光电</td><td>-</td><td>六氟化钨；中巨芯（688549）</td><td>题材地图 / 深度研究</td></tr><tr><td><strong>氟化工</strong></td><td>152.28</td><td><span class="badge watch">0.95</span></td><td>中船特气、中巨芯、华特气体、云南锗业、多氟多</td><td>-</td><td>未补</td><td>题材地图 / 深度研究</td></tr><tr><td><strong>磷化工</strong></td><td>145.98</td><td><span class="badge watch">0.95</span></td><td>兴福电子、雅克科技、南大光电、昊华科技、川金诺</td><td>-</td><td>未补</td><td>题材地图 / 深度研究</td></tr><tr><td><strong>存储芯片</strong></td><td>95.45</td><td><span class="badge watch">0.95</span></td><td>江丰电子、中巨芯、华特气体、阿石创、多氟多</td><td>-</td><td>未补</td><td>题材地图 / 深度研究</td></tr><tr><td><strong>先进封装</strong></td><td>91.36</td><td><span class="badge watch">0.9</span></td><td>中巨芯、有研粉材、兴福电子、雅克科技、炬光科技</td><td>缺来源回溯</td><td>未补</td><td>先保留，等统一补来源回溯/证据后再深度研究</td></tr></tbody></table></div>
+  </section>
+  <section class="two-col">
+    <section class="section">
+      <h2>需要回补：概念 / 公司 / 证据 / 来源</h2>
+      <div class="table-wrap"><table><thead><tr><th>题材</th><th>优先级</th><th>可信度</th><th>强势股</th><th>缺口</th><th>旧材料</th><th>建议动作</th></tr></thead><tbody><tr><td><strong>金属铜</strong></td><td>141.71</td><td><span class="badge gap">0.55</span></td><td>中钨高新、章源钨业、国城矿业、翔鹭钨业、鑫科材料</td><td>缺概念/待归一, 缺证据</td><td>未补</td><td>进入统一回补队列，先判断是不是污染词或别名</td></tr><tr><td><strong>金属钴</strong></td><td>132.49</td><td><span class="badge gap">0.35</span></td><td>中钨高新、厦门钨业、赣锋锂业、洛阳钼业、盛屯矿业</td><td>缺概念/待归一, 缺公司暴露, 缺证据</td><td>未补</td><td>进入统一回补队列，先判断是不是污染词或别名</td></tr></tbody></table></div>
+    </section>
+    <section class="section">
+      <h2>回补队列</h2>
+      <ul class="queue"><li><span class="topic">金属钴</span><span class="badge gap">数据缺口</span><span class="score">优先级 227.49</span><span class="muted-text">缺概念/待归一, 缺公司暴露, 缺证据</span></li><li><span class="topic">金属铜</span><span class="badge gap">数据缺口</span><span class="score">优先级 211.71</span><span class="muted-text">缺概念/待归一, 缺证据</span></li><li><span class="topic">连板未映射</span><span class="badge watch">暂不处理/待确认</span><span class="score">优先级 188.0</span><span class="muted-text">盘面占位/题材未映射</span></li><li><span class="topic">先进封装</span><span class="badge watch">旧逻辑唤醒</span><span class="score">优先级 126.36</span><span class="muted-text">缺来源回溯</span></li></ul>
+    </section>
+  </section>
+  <section class="section">
+    <h2>待确认：占位信号 / 噪音</h2>
+    <div class="table-wrap"><table><thead><tr><th>题材</th><th>优先级</th><th>可信度</th><th>强势股</th><th>缺口</th><th>旧材料</th><th>建议动作</th></tr></thead><tbody><tr><td><strong>连板未映射</strong></td><td>183.0</td><td><span class="badge gap">0.2</span></td><td>-</td><td>盘面占位/题材未映射</td><td>未补</td><td>先看连板股名单和主导行业，等题材名明确后再映射</td></tr></tbody></table></div>
+  </section>
+  <section class="section">
+    <h2>逻辑证据卡</h2>
+    <div class="evidence-grid"><article class="evidence-card"><header><h3>旧逻辑证据卡：光刻胶</h3><span class="badge good">结构化和向量互相支持</span></header><p class="reason">图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。</p><div class="checks"><span class="badge good">概念：已命中</span><span class="badge good">公司：已命中</span><span class="badge good">证据：已命中</span><span class="badge good">回溯：未发现缺口</span></div><div class="semantic-line">向量旧材料：<strong>有命中</strong>，命中 3 条</div><div class="material"><div><span class="badge info">公司页</span> <strong>华特气体</strong></div><p>公司暴露证据｜已命中知识页，不等于原始出处</p><p class="excerpt"># 华特气体 电子特气领军企业，多种产品通过全球头部芯片企业认证，在部分28nm及以上制程产品上实现批量供应。 ## 在赛道中的角色 - **电子特气国产替代**：多种电子特气产品通过全球头部芯片企业认证，28nm+制程批量供应 - **国产化率提升**：电子特气国产化率约35%-40%，华特气体为核心推动者之一 - **品类覆盖**：高纯四氟化碳、六氟化硫</p></div><div class="material"><div><span class="badge info">旧深度研究</span> <strong>光刻胶_DeepDive_数据抽取_20260613</strong></div><p>旧逻辑主线｜已命中来源页，原始材料/来源清单待抽查</p><p class="excerpt"># 光刻胶_DeepDive_数据抽取_20260613 IMA 光刻胶题材 Deep Dive 原始情报解析池，用于写入 [[光刻胶]] concept graph。共解析 55 条结构化情报项（其中 hard_fact 候选 3 条、需人工复核 43 条），按 review_required 守恒口径，不直接升级为 hard fact / entity_</p></div><div class="material"><div><span class="badge info">概念页</span> <strong>光刻胶</strong></div><p>标准概念/别名证据｜已命中知识页，不等于原始出处</p><p class="excerpt"># 光刻胶 半导体制造中用光照射后改变化学性质、实现图案转移的关键材料，是芯片精度与良率的&quot;光刻墨水&quot;。 **一句话**：光刻机是纳米投影仪，光刻胶就是投影仪里的&quot;感光胶片&quot;。 ## 核心机制 光刻胶（又称光致抗蚀剂）是一种感光高分子材料。涂在硅片上后，通过光刻机曝光，被照射区域化学性质发生变化（正胶：曝光区可溶；负胶：曝光区不可溶），再经过显影液处理，形成</p></div><div class="next"><span>缺口：-</span><strong>可以进入题材地图/深度研究，并抽查最相关命中材料。</strong></div></article><article class="evidence-card"><header><h3>旧逻辑证据卡：小金属</h3><span class="badge good">结构化和向量互相支持</span></header><p class="reason">图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。</p><div class="checks"><span class="badge good">概念：已命中</span><span class="badge good">公司：已命中</span><span class="badge good">证据：已命中</span><span class="badge good">回溯：未发现缺口</span></div><div class="semantic-line">向量旧材料：<strong>有命中</strong>，命中 3 条</div><div class="material"><div><span class="badge info">概念页</span> <strong>小金属</strong></div><p>标准概念/别名证据｜已命中知识页，不等于原始出处</p><p class="excerpt"># 小金属 小金属是指除铜、铝、铅、锌、镍等大宗有色金属之外，市场规模较小但战略属性突出的金属品种，主要包括钨、锑、锡、钼、锗、铟、钽、铋、钒、铍和部分稀散/中重稀土资源。 **一句话**：中国占全球主导地位的战略稀缺小金属，在出口管制升级、全球战略备库和 AI/新能源/军工需求爆发三重驱动下，正在从“周期定价”转向“战略安全定价”。 ## 核心逻辑 1. </p></div><div class="material"><div><span class="badge info">旧深度研究</span> <strong>小金属_DeepDive_数据抽取_20260601</strong></div><p>旧逻辑主线｜已命中来源页，原始材料/来源清单待抽查</p><p class="excerpt"># 小金属_DeepDive_数据抽取_20260601 IMA 非科技题材 Deep Dive 原始情报解析池，用于回填 [[小金属]] concept graph。 ## 摘要 - 题材锚点：中国占全球主导地位的战略稀缺小金属，在出口管制升级、全球战略备库、AI/新能源/军工需求爆发三重驱动下，从周期定价转向战略安全定价。 - 解析结果：128 条信息池</p></div><div class="material"><div><span class="badge info">公司页</span> <strong>云南锗业（002428）</strong></div><p>公司暴露证据｜已命中知识页，不等于原始出处</p><p class="excerpt"># 云南锗业（002428） 一句话定位：磷化铟晶片扩产至目标45万片/年 ## 速览 | 维度 | 内容 | |---|---| | 实体类型 | 上市公司 | | 所属市场 | A股 | | 核心赛道 | [[磷化铟]] · [[磷源]] · [[光芯片]] | | 产业链位置 | 待补充 | | 核心产品/能力 | 待补充 | | 主要客户/生态 | </p></div><div class="next"><span>缺口：-</span><strong>可以进入题材地图/深度研究，并抽查最相关命中材料。</strong></div></article><article class="evidence-card"><header><h3>旧逻辑证据卡：电子化学品</h3><span class="badge good">结构化和向量互相支持</span></header><p class="reason">图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。</p><div class="checks"><span class="badge good">概念：已命中</span><span class="badge good">公司：已命中</span><span class="badge good">证据：已命中</span><span class="badge good">回溯：未发现缺口</span></div><div class="semantic-line">向量旧材料：<strong>有命中</strong>，命中 3 条</div><div class="material"><div><span class="badge info">概念页</span> <strong>六氟化钨</strong></div><p>标准概念/别名证据｜已命中知识页，不等于原始出处</p><p class="excerpt"># 六氟化钨 六氟化钨（WF6）是钨在半导体电子特气和先进制造中的重要应用方向，可用于半导体制造中的钨沉积等环节。 **一句话**：六氟化钨的题材核心是钨资源价格、半导体材料国产替代和电子特气供需缺口，但具体公司暴露需要公告或产品目录进一步核验。 ## 核心逻辑 - 图片稿将六氟化钨列为钨产业方向之一，与光伏钨丝、PCB微钻、军工与高端制造并列。 - 半导体</p></div><div class="material"><div><span class="badge info">公司页</span> <strong>中巨芯（688549）</strong></div><p>公司暴露证据｜已命中知识页，不等于原始出处</p><p class="excerpt"># 中巨芯（688549） 一句话定位：G5 级电子级氢氟酸和电子级硫酸扩产 ## 速览 | 维度 | 内容 | |---|---| | 实体类型 | 上市公司 | | 所属市场 | A股 | | 核心赛道 | [[无水氢氟酸（半导体级）]] · [[半导体材料]] | | 产业链位置 | 待补充 | | 核心产品/能力 | 待补充 | | 主要客户/生态 </p></div><div class="material"><div><span class="badge info">公司页</span> <strong>华特气体</strong></div><p>公司暴露证据｜已命中知识页，不等于原始出处</p><p class="excerpt"># 华特气体 电子特气领军企业，多种产品通过全球头部芯片企业认证，在部分28nm及以上制程产品上实现批量供应。 ## 在赛道中的角色 - **电子特气国产替代**：多种电子特气产品通过全球头部芯片企业认证，28nm+制程批量供应 - **国产化率提升**：电子特气国产化率约35%-40%，华特气体为核心推动者之一 - **品类覆盖**：高纯四氟化碳、六氟化硫</p></div><div class="next"><span>缺口：-</span><strong>可以进入题材地图/深度研究，并抽查最相关命中材料。</strong></div></article><article class="evidence-card"><header><h3>旧逻辑证据卡：氟化工</h3><span class="badge watch">未补语义证据</span></header><p class="reason">本条未进入语义召回额度，或没有命中旧材料。</p><div class="checks"><span class="badge good">概念：已命中</span><span class="badge good">公司：已命中</span><span class="badge good">证据：已命中</span><span class="badge good">回溯：未发现缺口</span></div><div class="semantic-line">向量旧材料：<strong>未补</strong>，命中 0 条</div><p class="empty small">未补向量旧材料。本条可先看结构化结论。</p><div class="next"><span>缺口：-</span><strong>题材地图 / 深度研究</strong></div></article><article class="evidence-card"><header><h3>旧逻辑证据卡：磷化工</h3><span class="badge watch">未补语义证据</span></header><p class="reason">本条未进入语义召回额度，或没有命中旧材料。</p><div class="checks"><span class="badge good">概念：已命中</span><span class="badge good">公司：已命中</span><span class="badge good">证据：已命中</span><span class="badge good">回溯：未发现缺口</span></div><div class="semantic-line">向量旧材料：<strong>未补</strong>，命中 0 条</div><p class="empty small">未补向量旧材料。本条可先看结构化结论。</p><div class="next"><span>缺口：-</span><strong>题材地图 / 深度研究</strong></div></article><article class="evidence-card"><header><h3>旧逻辑证据卡：存储芯片</h3><span class="badge watch">未补语义证据</span></header><p class="reason">本条未进入语义召回额度，或没有命中旧材料。</p><div class="checks"><span class="badge good">概念：已命中</span><span class="badge good">公司：已命中</span><span class="badge good">证据：已命中</span><span class="badge good">回溯：未发现缺口</span></div><div class="semantic-line">向量旧材料：<strong>未补</strong>，命中 0 条</div><p class="empty small">未补向量旧材料。本条可先看结构化结论。</p><div class="next"><span>缺口：-</span><strong>题材地图 / 深度研究</strong></div></article><article class="evidence-card"><header><h3>旧逻辑证据卡：先进封装</h3><span class="badge watch">未补语义证据</span></header><p class="reason">本条未进入语义召回额度，或没有命中旧材料。</p><div class="checks"><span class="badge good">概念：已命中</span><span class="badge good">公司：已命中</span><span class="badge good">证据：已命中</span><span class="badge gap">回溯：有缺口</span></div><div class="semantic-line">向量旧材料：<strong>未补</strong>，命中 0 条</div><p class="empty small">未补向量旧材料。本条可先看结构化结论。</p><div class="next"><span>缺口：缺来源回溯</span><strong>先补来源页/原始材料回溯，再进入深度研究。</strong></div></article><article class="evidence-card"><header><h3>数据缺口证据卡：金属铜</h3><span class="badge gap">未补语义证据</span></header><p class="reason">本条未进入语义召回额度，或没有命中旧材料。</p><div class="checks"><span class="badge gap">概念：缺概念/待归一</span><span class="badge good">公司：已命中</span><span class="badge gap">证据：缺证据</span><span class="badge good">回溯：未发现缺口</span></div><div class="semantic-line">向量旧材料：<strong>未补</strong>，命中 0 条</div><p class="empty small">未补向量旧材料。本条可先看结构化结论。</p><div class="next"><span>缺口：缺概念/待归一, 缺证据</span><strong>先判断是不是别名/污染词，再做概念归一。</strong></div></article></div>
+  </section>
+  <section class="section">
+    <h2>下一步</h2>
+    <ul class="actions"><li>优先打开旧逻辑唤醒：确认是否需要题材地图或深度研究。</li><li>语义召回已给出 W 命中；优先复核结构化命中和 W 命中同时存在的条目。</li><li>数据缺口只登记到回补队列；本轮不自动补来源/概念/IMA。</li><li>待确认项先看是不是盘面占位或噪音；不要直接当成 concept deep-dive。</li><li>先补齐 daily workflow 产物，否则 agent 判断只作为预览。</li></ul>
+  </section>
+  <section class="section">
+    <h2>说明</h2>
+    <ul class="actions"><li>agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。</li><li>回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。</li></ul>
+  </section>
+</main>
+</body>
+</html>

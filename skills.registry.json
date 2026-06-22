@@ -1,24 +1,24 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-17T11:12:39Z",
+  "generated_at": "2026-06-22T17:37:03Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 23
+      "skills": 26
     },
     {
       "name": "knowledge-base-private",
       "short": "kb",
       "present": true,
-      "skills": 16
+      "skills": 19
     },
     {
       "name": "finance-research-site",
       "short": "site",
-      "present": true,
+      "present": false,
       "skills": 0
     }
   ],
@@ -72,7 +72,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:8fcaa1113db9c17d937a5a6761cfb8836bb56ccc8ce365000240984206ea9cd4",
+      "computedHash": "sha256:9d24aff95e9a7cacd1dd1dcf67291962b1831a0358c96b6b90ab6d14f0e2a73b",
       "agentOnly": false,
       "views": [
         {
@@ -81,6 +81,32 @@
           "target": "../../skills/advancers-chart"
         }
       ]
+    },
+    "ws/checkpoint-recheck-mac-setup": {
+      "name": "checkpoint-recheck-mac-setup",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/checkpoint-recheck-mac-setup/SKILL.md",
+      "description": "在 Mac 上经 remote-exec 隧道安装「可证伪点夜间回检」launchd 定时任务、并接通跨机共享大脑（.foresight）台账的安装/排障 runbook。Use when the user asks to 装夜间回检、安装 checkpoint recheck 定时、可证伪点回检 cron、launchd 装回检、远程在 Mac 上跑命令、remote-exec 隧道、隧道多字节乱码核对、codepoint 校验、共享大脑台账、.foresight 台账接通、登点回检闭环、多机台账一致. 触发词：夜间回检、checkpoint recheck、可证伪点回检、launchd 安装、远程执行、remote-exec、隧道乱码、codepoint 校验、共享大脑、foresight 台账、多机一致、登点闭环。注意：只是登点/打分/校准等台账操作本身用 intelligence.cli checkpoint 子命令即可；本 skill 专管「在 Mac 上经隧道把这套定时跑起来 + 多机台账接通 + 多字节安全核对」的安装与排障。",
+      "triggers": [
+        "夜间回检",
+        "checkpoint recheck",
+        "可证伪点回检",
+        "launchd 安装",
+        "远程执行",
+        "remote-exec",
+        "隧道乱码",
+        "codepoint 校验",
+        "共享大脑",
+        "foresight 台账",
+        "多机一致",
+        "登点闭环"
+      ],
+      "note": "只是登点/打分/校准等台账操作本身用 intelligence.cli checkpoint 子命令即可；本 skill 专管「在 Mac 上经隧道把这套定时跑起来 + 多机台账接通 + 多字节安全核对」的安装与排障。",
+      "entrypoint": null,
+      "computedHash": "sha256:90930462de134155430971b49f8a75ff67e638869d2f8225fc72bdc55ac6e4d6",
+      "agentOnly": false,
+      "views": []
     },
     "ws/disclosure-archive": {
       "name": "disclosure-archive",
@@ -108,7 +134,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:3f9f6150776d063c2195ec227a67d863d014f7526ba1aa2e38f1587df5e3b9a4",
+      "computedHash": "sha256:7726717f400ae0e5df9cf0e60448d6b9940d8f8c0b1bd7b261be8e12e03ad422",
       "agentOnly": false,
       "views": [],
       "split": {
@@ -129,7 +155,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:38acf525fa5bdf4dcd595444d695a84cb7a87da48686627e4acdeee8f79515b9",
+      "computedHash": "sha256:311615769789019093e981858642604ef5b457ad625e48a9127f2138828e5262",
       "agentOnly": false,
       "views": []
     },
@@ -156,7 +182,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e325e770fdbdfe995187b34a5df3e7d102ba1669b4600a9febdb57b2b189bbe7",
+      "computedHash": "sha256:bd9fb9ed7471ca2ba632ecc9f9fbf77bdebe94e634f0298864c2be07296c8e76",
       "agentOnly": false,
       "views": [
         {
@@ -181,7 +207,7 @@
       ],
       "note": "纯涨幅排行（不看成交额）用 top-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:cfcda5fc44f1c550a15c19a38b50d14420a8177073274f72982d76d35e5e9106",
+      "computedHash": "sha256:47a5ebb5c2fff7cbfb5340bd7fd3ed8fb7774ebd913bbdfbe6153f12a25e43b4",
       "agentOnly": false,
       "views": [
         {
@@ -212,7 +238,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2ecc0a2633c31a187043df89aa5b2e60b39d17ac4151fac493704e95d566be6c",
+      "computedHash": "sha256:9cda29595e3a6ea137334a1680da89c894c086a462a38e11157f28f5e5140c18",
       "agentOnly": false,
       "views": [
         {
@@ -231,7 +257,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:fdc04a706ed05a7d49b37997190cf187b7b6ab2af8cc786654b42a99c0d8b660",
+      "computedHash": "sha256:d90d97867512ee00b39b57ef2d9e8e26d8af0b8567ff249ff8e818ff91615a14",
       "agentOnly": false,
       "views": [
         {
@@ -252,7 +278,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e9f2a6636a3c764eba5e2a1df9a8209c90729aaf1a44f971b58c969506eb7d05",
+      "computedHash": "sha256:4b1445aadc7458c89e7ffb65bb151c770cb4a61fe17961c3b5ec3e48486b641b",
       "agentOnly": false,
       "views": [
         {
@@ -267,7 +293,7 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/market-overview/SKILL.md",
-      "description": "每日市场复盘（fupanhui API+飞书入库）。触发词：帮我复盘、复盘、看一下今天的市场、市场总览、今日行情、市场数据、fupanhui。",
+      "description": "每日市场复盘（fupanhui API → DuckDB）。触发词：帮我复盘、复盘、看一下今天的市场、市场总览、今日行情、市场数据、fupanhui。",
       "triggers": [
         "帮我复盘",
         "复盘",
@@ -279,7 +305,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:3a85aa3536bd2e435f1dc54f9cc6aafa20d040fe03fd1abf7001b0922bcf734e",
+      "computedHash": "sha256:48889fa1497fc2576c968db7706396f4312f84328fe772ac1b7467c2cba46dd1",
       "agentOnly": false,
       "views": [
         {
@@ -298,7 +324,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:157596c205f59f3ad8c219512281763e2ee448891579a8a3b4b2a9ba0a60d343",
+      "computedHash": "sha256:b286de75e2b0d070c4c4be36e4996e6f3fb4ac7e078ec074a3708b778646ddc0",
       "agentOnly": false,
       "views": []
     },
@@ -319,7 +345,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d46141d97e69779d8e1374cf702ce3da68c4d00cbb6c427dd90252ced4ec5e59",
+      "computedHash": "sha256:992f157f9ff1633e4e538dce353614276e0f84ed3b5a9d3c47833bd5ac3981c3",
       "agentOnly": false,
       "views": [
         {
@@ -338,7 +364,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:35127e66bd5c4dc11266364a2a75084624a5c215406c43940250ebf6a7c950bc",
+      "computedHash": "sha256:853d1b5875592223ef5ac817a164c0e2566020d9049e1a7487ee08fa2c8dac46",
       "agentOnly": false,
       "views": []
     },
@@ -361,7 +387,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:46209fb290a6bda2e031e2570c47d1a9a4181210fcb08f2ae9c4b6ca51efac74",
+      "computedHash": "sha256:e72a4bf74a8f5aff14116292ac0fd5edf8905d995eefd4310deeb530702958e9",
       "agentOnly": false,
       "views": []
     },
@@ -374,7 +400,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:c1fee957c5596540e230455bc8ff735b833518dd8aa824c04be5dac8348ae05a",
+      "computedHash": "sha256:5f8def35a28c07c16b57932e42be0e3b2a85cb4f792160319d97f790c3735d44",
       "agentOnly": false,
       "views": []
     },
@@ -404,9 +430,39 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2bd2cf07206beed11a91cabdcbea9201bf80ebf2582d710b2cea054dfea7631a",
+      "computedHash": "sha256:acf1b3e44799b8f6c4ee1e24ae501125881d21cc32178271b21d1a49c98dd65b",
       "agentOnly": false,
       "views": []
+    },
+    "ws/task-planner": {
+      "name": "task-planner",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/task-planner/SKILL.md",
+      "description": "批量/会话级高风险任务前的「采访」前置（Inversion 反转模式）——在复盘批处理、DuckDB 大回填、开新题材前，先按顺序问清任务类型、范围（日期区间/标的/题材）、数据源、结果落库去向、分支、凭证、无前视、dry-run、缺数处置，把回答合成成 task-plan，经 check_task_plan.py 门控校验通过后才放行抓数/回填/写库，再交给 market-overview / duckdb-backfill / theme-radar / top-gainers-feishu 等下游执行。触发词：批量任务规划、开工前采访、批量回填前先问、开新题材前先问、运行前规划、采访前置、先问后做、task planner、batch plan、回填前先问。注意：仅批量/会话级高风险任务走本 skill；日常单日复盘、单股查询等已有固定流程的不需要。",
+      "triggers": [
+        "批量任务规划",
+        "开工前采访",
+        "批量回填前先问",
+        "开新题材前先问",
+        "运行前规划",
+        "采访前置",
+        "先问后做",
+        "task planner",
+        "batch plan",
+        "回填前先问"
+      ],
+      "note": "仅批量/会话级高风险任务走本 skill；日常单日复盘、单股查询等已有固定流程的不需要。",
+      "entrypoint": null,
+      "computedHash": "sha256:7891744bfc2c08787778fcba3c6915bda3a72b250463f66e4141d219667591ed",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/task-planner",
+          "type": "symlink",
+          "target": "../../skills/task-planner"
+        }
+      ]
     },
     "ws/theme-fermentation-tracer": {
       "name": "theme-fermentation-tracer",
@@ -424,7 +480,7 @@
       ],
       "note": "只看当前题材结构用 theme-radar；本 skill 是带盘面时间轴的历史回溯。",
       "entrypoint": null,
-      "computedHash": "sha256:9a7e29ee91d0df3012ac39f1f58f5365240e3b37379233492f3d740764ec8a7d",
+      "computedHash": "sha256:1d710506d3dee851731ec7cb11455b3c78fe272ee61247c637e44d2e679f51bd",
       "agentOnly": false,
       "views": [
         {
@@ -443,7 +499,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:c6a0acc6dc7848e9312e775b9880dfc56c08abfca22fa43d7244b620e29e0683",
+      "computedHash": "sha256:88ddedabe7f1d80d3e7809ba75bad4bb4309ecbd8d5a4231a21697ec481d71f0",
       "agentOnly": false,
       "views": [
         {
@@ -468,7 +524,7 @@
       ],
       "note": "要\"入库/筛选入库/均线回踩\"用 top-gainers-feishu；要量价加权排序用 high-volume-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:03fab59bd1a15ac19eb2e371bb0844e3d7c4b2852ea245201e7f0f8997c4b9e8",
+      "computedHash": "sha256:62e1e4f70359f9a749b5390d0a5d075c59c0a1a4168ff1d5af36dc88b96fa84b",
       "agentOnly": false,
       "views": [
         {
@@ -495,7 +551,7 @@
       ],
       "note": "只看排行不入库用 top-gainers；自选股的均线筛选用 watchlist-ma。",
       "entrypoint": null,
-      "computedHash": "sha256:a9fd9a43bb1d4ba4ba7aa53b5f099a7175c1a713e60f9221fb0da32210d4bb0d",
+      "computedHash": "sha256:354a6a0fceb14ce994a75f45c20f41e0235bd8f06ffe2f6a32bc96fd12c78686",
       "agentOnly": false,
       "views": [
         {
@@ -522,7 +578,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:6fa23e6edac6b96bd5f08f45667b25cff32217fa299c0f3fb4dce82b013840b0",
+      "computedHash": "sha256:61e65246f8a16c6f838eae2b256f66415923ca961b76f47ae53573fe13a22bac",
       "agentOnly": false,
       "views": [
         {
@@ -548,7 +604,7 @@
       ],
       "note": "强势股库的均线回踩用 top-gainers-feishu。",
       "entrypoint": null,
-      "computedHash": "sha256:6d4a4be6663a24b7971b0e646c7213f7fc4f48c47907e8f142f9ded6abf8a783",
+      "computedHash": "sha256:74c49198b5160d33f3962a752e6ae2833c3213153d34c6f76479ccdc62363657",
       "agentOnly": false,
       "views": [
         {
@@ -573,13 +629,43 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:eb6c94596dae22d60721a367fb7346f30e04d7239ac73a0a8429e5dc33d043df",
+      "computedHash": "sha256:0ba354066209344d61bd9841534efc5df0a73a186e0fc1a78079dcbc5deb5ad5",
       "agentOnly": false,
       "views": [
         {
           "path": ".claude/skills/公司画像页",
           "type": "symlink",
           "target": "../../skills/公司画像页"
+        }
+      ]
+    },
+    "ws/潜意识模式": {
+      "name": "潜意识模式",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/潜意识模式/SKILL.md",
+      "description": "可开关的会话级记忆巩固模式——开启后由 foresight 主动发问、你多轮追问，退出时把整段对话「回读」成结构化信号，先给 diff 等你确认，确认后双层落盘（机器层 interactions.jsonl 喂亲和度 + 人类层 Obsidian 沉淀 vault 日志，你读/改/看演化）。触发词：开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关。",
+      "triggers": [
+        "开启潜意识模式",
+        "潜意识模式",
+        "进入潜意识",
+        "退出潜意识",
+        "收工",
+        "回读对话",
+        "巩固记忆",
+        "沉淀这轮",
+        "记进沉淀",
+        "潜意识开关"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:2b2bd9b0a3751154a1e77a521455786b996e98b40d16256c74be4703498285a8",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/潜意识模式",
+          "type": "symlink",
+          "target": "../../skills/潜意识模式"
         }
       ]
     },
@@ -598,7 +684,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d67cb355f1be66523a3915bbcd5ce2fa4423f9ecc0bb5b5cab23c4b90ea696c4",
+      "computedHash": "sha256:376cbbc99b11ecb52ed4eccc7944543197c6988989eb92b1f449b1938d6c8276",
       "agentOnly": false,
       "views": [
         {
@@ -617,22 +703,44 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:231a8d81b454e6394169e773a1f5fcc9f594dd725f040dfd64a160da38e2e11e",
+      "computedHash": "sha256:3b7cf9f6a0a0e82fc37ec4ed11cda0f6f3a7b5d0fb003d96c2641ef546f4826d",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/catalyst-calendar",
+          "type": "symlink",
+          "target": "../../skills/catalyst-calendar"
+        }
+      ]
     },
     "kb/company-baseline-ingest": {
       "name": "company-baseline-ingest",
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/company-baseline-ingest/SKILL.md",
-      "description": "公司基础画像入库——用 iFinD MCP 拉取实现“新词→产业链→核心公司”所必需的轻量公司事实：行业、主营业务、主营产品/能力、相关概念和产业链暴露；补全 wiki/entities 的静态 company baseline，并同步维护 wiki/relations/entity_exposures.json。默认不拉公告/新闻，不抓普通财务摘要，不写短期边际变化。",
-      "triggers": [],
+      "description": "公司基础画像入库——两条入口：①iFinD/F10/AkShare 拉取轻量公司事实（行业、主营业务、主营产品/能力、相关概念、产业链暴露），补全 wiki/entities 的静态 company baseline + 维护 wiki/relations/entity_exposures.json；②本地年报/定期报告 PDF：默认走结构化路径 `scripts/ingest.py annual-report` / `parse_annual_report.py --mode baseline`，只产 wiki/raw/cninfo-baseline/*.json 供 L2 baseline 写库，不做年报向量化；只有用户明确说“年报向量化/只进 RAG/生成 raw 语料”才显式 `--mode raw` 或后续统一跑 RAG。默认不拉公告/新闻、不抓普通财务摘要、不写短期边际变化。触发词：公司画像、company baseline、补全 baseline、年报解析、年报入库、年报结构化、annual report ingest、年报向量化、PDF 向量化。",
+      "triggers": [
+        "公司画像",
+        "company baseline",
+        "补全 baseline",
+        "年报解析",
+        "年报入库",
+        "年报结构化",
+        "annual report ingest",
+        "年报向量化",
+        "PDF 向量化"
+      ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:eaf7600019f361cd8b7f084b1edf1fba4b0dfeb244376222c366b9c8913d50a9",
+      "computedHash": "sha256:ede001492da46b0720671037eaafba55fa7ee799683fd3f79cfe4e74786d88dd",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/company-baseline-ingest",
+          "type": "symlink",
+          "target": "../../skills/company-baseline-ingest"
+        }
+      ]
     },
     "kb/concept-ingest": {
       "name": "concept-ingest",
@@ -655,9 +763,15 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:3f79266769608f8a143c94789cbc62fee2fd6a11f713407a9103e80a70faf61b",
+      "computedHash": "sha256:9140b36741d3f9ac42a867421e5441c593300c602df85006db19d98c308eb35c",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/concept-ingest",
+          "type": "symlink",
+          "target": "../../skills/concept-ingest"
+        }
+      ]
     },
     "kb/cross-analysis": {
       "name": "cross-analysis",
@@ -668,35 +782,67 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e6260b72d998b74f21e32f0da2fe335d6f1537e2798dad98614daeb6b680570f",
+      "computedHash": "sha256:7112e240965df01f3c35814edc1eecd950de9ed04b7672cbd01aea0ba0b1735f",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/cross-analysis",
+          "type": "symlink",
+          "target": "../../skills/cross-analysis"
+        }
+      ]
     },
     "kb/daily-ops": {
       "name": "daily-ops",
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/daily-ops/SKILL.md",
-      "description": "",
-      "triggers": [],
+      "description": "每日运营总编排手册——会话开工前先读；定义早间/晚间固定流程、每种材料用哪个脚本解析、产物落到哪里，并编排 morning-briefing / cross-analysis / sellside-coverage-cross / catalyst-calendar / wiki-utils 等子 skill。触发词：每日运营、daily ops、早间流程、晚间流程、开工清单、今天要做什么。",
+      "triggers": [
+        "每日运营",
+        "daily ops",
+        "早间流程",
+        "晚间流程",
+        "开工清单",
+        "今天要做什么"
+      ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:94c4f84296e974cfa46db3c07964663b6b8030f7aa11533224ebb1b9a06d174d",
+      "computedHash": "sha256:2f338e47fcf0c3960cef37a88b0f9458ce5637a95aebace4884879c0c4cb1f06",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/daily-ops",
+          "type": "symlink",
+          "target": "../../skills/daily-ops"
+        }
+      ]
     },
     "kb/dashboard": {
       "name": "dashboard",
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/dashboard/SKILL.md",
-      "description": "",
-      "triggers": [],
+      "description": "本地知识库驾驶舱（模块2方案A）——把 wiki/relations/ 关系数据内联进一个自包含 HTML（零依赖，双击即开），搜索题材/个股/股票代码即时弹出结构化卡片。触发词：dashboard、驾驶舱、本地看板、build dashboard、生成 dashboard、知识库看板。",
+      "triggers": [
+        "dashboard",
+        "驾驶舱",
+        "本地看板",
+        "build dashboard",
+        "生成 dashboard",
+        "知识库看板"
+      ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:c8064bf908a08b16600958c59e38d0f522b9601248cd502a34ae192fdc5fc9a3",
+      "computedHash": "sha256:84d4555e82feeb3a742a481fa137cac5f97b4b3c8976990cc8f0ac025cc9ad6f",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/dashboard",
+          "type": "symlink",
+          "target": "../../skills/dashboard"
+        }
+      ]
     },
     "kb/disclosure-archive": {
       "name": "disclosure-archive",
@@ -707,9 +853,15 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9cf59742a751e6b68df3ac71bdc5fa6fc18ba2e4a9b73935a57c01853b253c54",
+      "computedHash": "sha256:9c59f3fdb065ea49f02934158083d9c251da0ac3e91c20072bbaff03637204f2",
       "agentOnly": false,
-      "views": [],
+      "views": [
+        {
+          "path": ".claude/skills/disclosure-archive",
+          "type": "symlink",
+          "target": "../../skills/disclosure-archive"
+        }
+      ],
       "split": {
         "declared": true,
         "reason": "有意拆分：金融仓=抓取/capture 侧，知识库仓=apply 侧（见各仓 CLAUDE.md）。",
@@ -734,9 +886,64 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:777761630d96898f0d322b5db5e63dab0ac9dc98661270246043e1a2749934cc",
+      "computedHash": "sha256:e171865ed4271c670b05efdab865bdc9ddba099b63755c67bd5f4aa3c0e51409",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/entity-delta-ingest",
+          "type": "symlink",
+          "target": "../../skills/entity-delta-ingest"
+        }
+      ]
+    },
+    "kb/hard-fact-review": {
+      "name": "hard-fact-review",
+      "repo": "knowledge-base-private",
+      "sourceType": "local",
+      "skillPath": "skills/hard-fact-review/SKILL.md",
+      "description": "把 entity-delta 回填 payload 里「清过硬事实红线」的 update 挑出来排成人工复核队列，供人逐条决定是否写进实体正文 ## 边际变化。suggest-only、绝不自动写正文。触发：硬事实候选、entity 正文回填候选、边际变化复核队列、hard-fact review。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:e7ed4c4cbd27a5b8a04c0514077fde736ce802840db2a15c70e23f0f9614aa77",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/hard-fact-review",
+          "type": "symlink",
+          "target": "../../skills/hard-fact-review"
+        }
+      ]
+    },
+    "kb/ingest-planner": {
+      "name": "ingest-planner",
+      "repo": "knowledge-base-private",
+      "sourceType": "local",
+      "skillPath": "skills/ingest-planner/SKILL.md",
+      "description": "批量入库前的「采访」前置（Inversion 反转模式）——在大批量 ingest / 开新题材 / 历史回补前，先按顺序问清材料范围、目标、分支、证据等级、是否允许建 entity/concept、跳过与停止规则，把回答合成成 batch-ingest-plan，经 check_ingest_plan.py 门控校验通过后才放行写库，再交给 material-router / pdf-ingest / concept-ingest / entity-delta-ingest 执行。触发词：批量入库、入库规划、开新题材、历史回补、ingest plan、ingest planner、入库前先问、批量ingest、采访规划、入库计划。",
+      "triggers": [
+        "批量入库",
+        "入库规划",
+        "开新题材",
+        "历史回补",
+        "ingest plan",
+        "ingest planner",
+        "入库前先问",
+        "批量ingest",
+        "采访规划",
+        "入库计划"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:9cf3f4f4d236283653ebb0ab8ba6e3b1593e4d68bc21eb9ac968810a12d7f241",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/ingest-planner",
+          "type": "symlink",
+          "target": "../../skills/ingest-planner"
+        }
+      ]
     },
     "kb/material-router": {
       "name": "material-router",
@@ -757,9 +964,15 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:bf70cb1b9411980dcdad1a78935a36617bdf3a89108f6ff40acc00a7027886c2",
+      "computedHash": "sha256:673c81e1ba68def5fd9a48ffc2cb12df71498f9658ae8b52f5b5ccf9622f4364",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/material-router",
+          "type": "symlink",
+          "target": "../../skills/material-router"
+        }
+      ]
     },
     "kb/morning-briefing": {
       "name": "morning-briefing",
@@ -770,9 +983,15 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9ccace143a2efececa6d2d9e7923c723595ffe2e65941aa14760daa022d2b4b8",
+      "computedHash": "sha256:a511a084cb769f5bb81a77f570c70f2d0149cc826b61ab80ca07e6a8933b6234",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/morning-briefing",
+          "type": "symlink",
+          "target": "../../skills/morning-briefing"
+        }
+      ]
     },
     "kb/obsidian": {
       "name": "obsidian",
@@ -783,7 +1002,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:b184f7079cf2338ce47a7ac0cc346904fcd1d80a030ae12000c7bac8fa3bb410",
+      "computedHash": "sha256:8e1c6a3fa619f5fd9a4c9ae06d446d736230f1dec27b5cd7c0f0e4136ffea014",
       "agentOnly": false,
       "views": [
         {
@@ -807,9 +1026,44 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:bab999895a519688f1db144c8c4b7164a97e84183b4630674628be59cefbbd4d",
+      "computedHash": "sha256:f7af3741fb04a403a1c6d52012f49616e9495b726991d54ad425e4ac61a54bfb",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/pdf-ingest",
+          "type": "symlink",
+          "target": "../../skills/pdf-ingest"
+        }
+      ]
+    },
+    "kb/planning-with-files": {
+      "name": "planning-with-files",
+      "repo": "knowledge-base-private",
+      "sourceType": "local",
+      "skillPath": "skills/planning-with-files/SKILL.md",
+      "description": "运行层「持久工作记忆 + 完成闸门」——多步运营/分析（早/晚间流程、批量拆年报、多步交叉分析）开跑前在 gitignored runs/<date>-<slug>/ 铺 task_plan.md / findings.md / progress.md 三份文件落盘记忆，收尾前用 check_run_complete.py 过完成闸门，专治 daily-ops 晚间第2/5步「强制接力最易漏」。它是规划/记忆层，与 kb_*/mkt_*/ana_* 工具层、wiki/log.md 审计层互补不替代。触发词：planning with files、持久规划、运行记忆、完成闸门、收尾自检、防漏接力步、task_plan、findings、抗崩续跑。",
+      "triggers": [
+        "planning with files",
+        "持久规划",
+        "运行记忆",
+        "完成闸门",
+        "收尾自检",
+        "防漏接力步",
+        "task_plan",
+        "findings",
+        "抗崩续跑"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:33538fb1e2fa54b4808e07930af5943be50fb10d18ee84f3fb25203ea3af8b50",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/planning-with-files",
+          "type": "symlink",
+          "target": "../../skills/planning-with-files"
+        }
+      ]
     },
     "kb/sellside-coverage-cross": {
       "name": "sellside-coverage-cross",
@@ -826,9 +1080,15 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:11447e61d0ec28da397d72902e82700531171c88bd68bac7ce3845f5fe87017d",
+      "computedHash": "sha256:5330e39e69b5c1801944f15bc2a3e4db172c3889fb945c65b253089a585fb3b7",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/sellside-coverage-cross",
+          "type": "symlink",
+          "target": "../../skills/sellside-coverage-cross"
+        }
+      ]
     },
     "kb/theme-radar-reports": {
       "name": "theme-radar-reports",
@@ -839,9 +1099,15 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:556b6bed2e4ee280624d2ac3b4cff25c62cc38448974dd66e4e7e0614d09c43e",
+      "computedHash": "sha256:b8daa605a42e5f49568c09bea4900c4931a4903ff5cbdacab1076b7623a2b558",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/theme-radar-reports",
+          "type": "symlink",
+          "target": "../../skills/theme-radar-reports"
+        }
+      ]
     },
     "kb/to-prd": {
       "name": "to-prd",
@@ -866,9 +1132,15 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2e8eb523be5c95346b4a2e77ea446f41a025ecb58d736ac2f308dde63c5c245b",
+      "computedHash": "sha256:71f9fb0f05a523ea1fd45341227212914042e90b7189910c81ae125244a601e1",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/wiki-utils",
+          "type": "symlink",
+          "target": "../../skills/wiki-utils"
+        }
+      ]
     }
   }
 }

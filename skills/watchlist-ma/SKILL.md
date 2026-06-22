@@ -1,5 +1,7 @@
 ---
 name: watchlist-ma
+metadata:
+  pattern: tool-wrapper
 description: 自选股均线回踩筛选（仅针对自选股清单）。触发词：自选股均线、自选股MA、自选股过滤、自选股回调、MA交叉、十日线二十日线。注意：强势股库的均线回踩用 top-gainers-feishu。
 ---
 

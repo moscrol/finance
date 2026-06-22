@@ -1,5 +1,8 @@
 ---
 name: hithink-market-query
+metadata:
+  pattern: tool-wrapper
+  also: [pipeline]
 description: 问财行情数据查询（股价/涨跌幅/成交量/资金流向/技术指标）。触发词：股票价格、ETF行情、指数行情、涨跌幅、成交量、资金流向、技术指标、MACD、KDJ、RSI、布林线。
 license: Complete terms in LICENSE.txt
 ---

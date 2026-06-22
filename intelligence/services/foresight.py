@@ -24,12 +24,15 @@ from pathlib import Path
 from typing import Any
 
 from intelligence import userspace
-from intelligence.services import interactions, llm_refine
+from intelligence.services import checkpoints, corrections, interactions, judgments, llm_refine
 from intelligence.services.ask import load_theme_candidates
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PROFILE = REPO_ROOT / "intelligence" / "foresight_profile.example.json"
 DEFAULT_MEMORY_FILE = REPO_ROOT / "intelligence" / "foresight_memory.jsonl"
+# 复盘认知框架（「思考宪法」）：发问前注入系统提示词，让 foresight 在用户方法论里推理。
+# 用户可直接编辑此文件来修正方法论，无需改代码。
+DEFAULT_METHODOLOGY_FILE = REPO_ROOT / "intelligence" / "foresight_methodology.md"
 
 
 @dataclass(frozen=True)
@@ -40,6 +43,8 @@ class ForesightOptions:
     date: str | None = None
     exports_dir: str | Path | None = None
     kb_wiki: str | Path | None = None
+    use_kb: bool = True
+    kb_themes: int = 6
     n: int = 3
     candidates: int = 8
     llm_model: str | None = None
@@ -53,6 +58,18 @@ class ForesightOptions:
     interactions_window: int = 200
     affinity_half_life: float = 14.0
     affinity_boost: float = 0.2
+    methodology_file: str | Path | None = None
+    use_methodology: bool = True
+    corrections_file: str | Path | None = None
+    use_corrections: bool = True
+    corrections_window: int = 20
+    judgments_file: str | Path | None = None
+    use_judgments: bool = True
+    judgments_window: int = 10
+    checkpoints_file: str | Path | None = None
+    verdicts_file: str | Path | None = None
+    use_calibration: bool = True
+    calibration_min_n: int = 2
 
 
 @dataclass
@@ -85,6 +102,16 @@ class ForesightResult:
     interactions_path: str | None = None
     interactions_loaded: int = 0
     affinity_applied: int = 0
+    kb_wiki_path: str | None = None
+    kb_themes_loaded: int = 0
+    methodology_path: str | None = None
+    methodology_chars: int = 0
+    corrections_path: str | None = None
+    corrections_loaded: int = 0
+    judgments_path: str | None = None
+    judgments_loaded: int = 0
+    calibration_scored: int = 0
+    calibration_shown: int = 0
 
     @property
     def status(self) -> str:
@@ -285,7 +312,42 @@ def _top_candidates(doc: dict[str, Any], n: int) -> list[dict[str, Any]]:
     return out
 
 
-def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str], list[str]]:
+def _load_kb_themes(
+    options: ForesightOptions,
+) -> tuple[list[dict[str, Any]], str, list[str]]:
+    """读取知识库 ``relations/theme_signals.json``，取认知最靠前的若干题材当发问素材。
+
+    复用 :func:`refresh_profile.derive_from_kb` 的排序（近期 > ★ 多 > 进度 > 热度）。
+    知识库缺失/不可读时优雅降级：返回空列表 + 警告，绝不抛栈。
+    """
+    # 局部 import：refresh_profile 只在顶层依赖 KnowledgeAdapter（无 duckdb），安全。
+    from intelligence.services import refresh_profile
+    from intelligence.adapters.knowledge import KnowledgeAdapter
+
+    wiki_path = str(KnowledgeAdapter(wiki_root=options.kb_wiki).resolved_wiki_root)
+    out = refresh_profile.derive_from_kb(
+        refresh_profile.RefreshOptions(kb_wiki=options.kb_wiki, top=options.kb_themes)
+    )
+    if not out.get("ok"):
+        return [], wiki_path, list(out.get("warnings") or [])
+    themes: list[dict[str, Any]] = []
+    for item in (out.get("themes") or [])[: max(options.kb_themes, 0)]:
+        sig = item.get("signals") or {}
+        themes.append(
+            {
+                "theme": item.get("theme"),
+                "stars": sig.get("stars"),
+                "stage_position": sig.get("stage_position"),
+                "tier": sig.get("tier"),
+                "last_event": sig.get("last_event"),
+            }
+        )
+    return themes, wiki_path, []
+
+
+def build_context(
+    options: ForesightOptions,
+) -> tuple[dict[str, Any], list[str], list[str]]:
     warnings: list[str] = []
     loaded = load_theme_candidates(options.exports_dir, options.date)
     doc = loaded["doc"] if loaded["found"] else {}
@@ -307,6 +369,17 @@ def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str],
     if intel_warn:
         warnings.append(intel_warn)
 
+    kb_themes: list[dict[str, Any]] = []
+    kb_wiki_path: str | None = None
+    if options.use_kb:
+        kb_themes, kb_wiki_path, kb_warns = _load_kb_themes(options)
+        if kb_warns:
+            warnings.append(
+                "知识库题材未接入："
+                + "；".join(kb_warns)
+                + "（设 KNOWLEDGE_WIKI 或 --kb-wiki 指向知识库 wiki 根即可调用）"
+            )
+
     context = {
         "today": date_cls.today().isoformat(),
         "trade_date": doc.get("trade_date"),
@@ -320,6 +393,7 @@ def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str],
         },
         "signal_summary": doc.get("signal_summary"),
         "hot_candidates": hot,
+        "kb_themes": kb_themes,
         "profile": {
             "name": profile.get("name"),
             "style": profile.get("style"),
@@ -330,6 +404,7 @@ def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str],
         },
         "realtime_intel": intel,
     }
+    context["_kb_wiki_path"] = kb_wiki_path
 
     digest: list[str] = []
     digest.append(f"今天={context['today']}；盘面日期={context['trade_date'] or '—'}")
@@ -348,6 +423,22 @@ def build_context(options: ForesightOptions) -> tuple[dict[str, Any], list[str],
                 for h in hot[:6]
                 if h.get("theme")
             )
+        )
+    if kb_themes:
+        digest.append(
+            "知识库题材（认知发酵）："
+            + "；".join(
+                f"{t['theme']}(★{t.get('stars') or 0}"
+                f"/进度{t.get('stage_position') or 0}"
+                f"/Tier{t.get('tier') if t.get('tier') is not None else '—'}"
+                f"/{t.get('last_event') or '—'})"
+                for t in kb_themes
+                if t.get("theme")
+            )
+        )
+    elif options.use_kb:
+        digest.append(
+            "知识库题材：未接入（设 KNOWLEDGE_WIKI 或 --kb-wiki 指向知识库 wiki 根即可调用）"
         )
     prof = context["profile"]
     digest.append(
@@ -376,13 +467,110 @@ _SYSTEM_PROMPT = (
     "2) 跨领域连接：把两个看似不相关的领域勾连起来（如 AI×通胀、当下×历史类比、产业×宏观）；\n"
     "3) 高度具体：必须带 具体时间窗口 + 具体可量化指标 + 具体人名/事件/公司；\n"
     "4) 前瞻且可证伪：能在未来被验证对错，最好点明可提前判断的「领先指标 / 拐点 / 触发条件」；\n"
-    "5) 呼应上下文：尽量与用户的关注题材、自选股或盘面热门候选相关，体现连续性。\n"
+    "5) 呼应上下文：尽量与用户的关注题材、自选股、盘面热门候选或「知识库题材」相关，"
+    "体现连续性；「知识库题材 kb_themes」是用户自己沉淀的认知/发酵进度，"
+    "可优先围绕其中认知阶段靠前（★ 多）或近期有新事件的题材做二阶追问。\n"
     "禁止：宽泛问题、能一句话答完的问题、纯定义类问题、与 recent_questions 重复的问题。\n"
     "严格只输出 JSON，不要任何额外文字，格式："
     '{"questions":[{"question":"...","rationale":"为什么这是用户没想到但该问的",'
     '"domains":["领域A","领域B"],"leading_indicator":"可提前判断的领先指标/可证伪点",'
     '"horizon":"时间窗口","novelty":0.0-1.0,"relevance":0.0-1.0}]}'
 )
+
+
+def _methodology_path(options: ForesightOptions) -> Path:
+    if options.methodology_file:
+        return Path(options.methodology_file).expanduser()
+    return DEFAULT_METHODOLOGY_FILE
+
+
+def load_methodology(options: ForesightOptions) -> tuple[str, str | None, str | None]:
+    """读取「思考宪法」方法论文件。返回 ``(text, path, warning)``；缺失/关闭则文本为空。"""
+    if not options.use_methodology:
+        return "", None, None
+    p = _methodology_path(options)
+    if not p.exists():
+        return "", None, f"方法论文件不存在：{p}（发问将不带复盘认知框架）"
+    try:
+        text = p.read_text(encoding="utf-8").strip()
+    except Exception as exc:  # pragma: no cover - defensive
+        return "", None, f"方法论文件读取失败：{p}（{exc}）"
+    return text, str(p), None
+
+
+def _corrections_path(options: ForesightOptions) -> Path:
+    if options.corrections_file:
+        return Path(options.corrections_file).expanduser()
+    return userspace.user_space(options.user).corrections_path
+
+
+def _judgments_path(options: ForesightOptions) -> Path:
+    if options.judgments_file:
+        return Path(options.judgments_file).expanduser()
+    return userspace.user_space(options.user).judgments_path
+
+
+def _checkpoint_paths(options: ForesightOptions) -> tuple[Path, Path]:
+    us = userspace.user_space(options.user)
+    cpath = Path(options.checkpoints_file).expanduser() if options.checkpoints_file else us.checkpoints_path
+    vpath = Path(options.verdicts_file).expanduser() if options.verdicts_file else us.verdicts_path
+    return cpath, vpath
+
+
+def _compose_system_prompt(options: ForesightOptions, result: ForesightResult) -> str:
+    """基线人设 + 思考宪法（方法论）+ 纠偏记录，拼成本轮真正发给 LLM 的系统提示词。
+
+    方法论与纠偏都做成**可编辑文件**：用户改文件即改发问脑子，无需动代码。
+    """
+    prompt = _SYSTEM_PROMPT
+    text, mpath, mwarn = load_methodology(options)
+    if mwarn:
+        result.warnings.append(mwarn)
+    if text:
+        result.methodology_path = mpath
+        result.methodology_chars = len(text)
+        prompt += (
+            "\n\n==== 复盘认知框架（思考宪法，务必据此推理与发问）====\n" + text
+        )
+    if options.use_corrections:
+        cpath = _corrections_path(options)
+        result.corrections_path = str(cpath)
+        recs, cwarn = corrections.load_corrections(cpath, options.corrections_window)
+        if cwarn:
+            result.warnings.append(cwarn)
+        result.corrections_loaded = len(recs)
+        rendered = corrections.render_for_prompt(recs)
+        if rendered:
+            prompt += (
+                "\n\n==== 纠偏记录（我曾纠正过你，发问前务必避免重犯同类错误）====\n"
+                + rendered
+            )
+    if options.use_judgments:
+        jpath = _judgments_path(options)
+        result.judgments_path = str(jpath)
+        jrecs, jwarn = judgments.load_judgments(jpath, options.judgments_window)
+        if jwarn:
+            result.warnings.append(jwarn)
+        result.judgments_loaded = len(jrecs)
+        jrendered = judgments.render_for_prompt(jrecs)
+        if jrendered:
+            prompt += (
+                "\n\n==== 我近期的核心判断（承接这些判断往前推一层或找它的反例，别从零重述）====\n"
+                + jrendered
+            )
+    if options.use_calibration:
+        cpath, vpath = _checkpoint_paths(options)
+        cal, cal_warns = checkpoints.load_calibration(cpath, vpath)
+        result.warnings.extend(cal_warns)
+        result.calibration_scored = cal.scored
+        cal_rendered = checkpoints.render_calibration_for_prompt(cal, options.calibration_min_n)
+        if cal_rendered:
+            result.calibration_shown = sum(1 for s in cal.by_category if s.n >= options.calibration_min_n)
+            prompt += (
+                "\n\n==== 你的二阶推演校准（哪类判断历史靠谱/偏差，发问时据此加权信任或质疑）====\n"
+                + cal_rendered
+            )
+    return prompt
 
 
 def _build_user_prompt(context: dict[str, Any], n_candidates: int) -> str:
@@ -526,6 +714,9 @@ def generate(options: ForesightOptions) -> ForesightResult:
         context_digest=digest,
     )
     result.warnings.extend(warnings)
+    # 本地路径不进提示词：从 context 取出后移除，避免被序列化进发送给 LLM 的 JSON。
+    result.kb_wiki_path = context.pop("_kb_wiki_path", None)
+    result.kb_themes_loaded = len(context.get("kb_themes") or [])
 
     # 第 3 层 · 记忆回路：并入「曾问过的问题」用于去重，体现连续性。
     if options.use_memory:
@@ -548,12 +739,14 @@ def generate(options: ForesightOptions) -> ForesightResult:
     # 越用越懂：把近期反馈聚合成题材/个股亲和度（在 LLM 调用前载入，降级时也能展示）。
     affinity = _load_affinity(options, result)
 
+    # 思考宪法（方法论）+ 纠偏记录拼进系统提示词，让它在用户框架里发问。
+    system_prompt = _compose_system_prompt(options, result)
     user_prompt = _build_user_prompt(context, options.candidates)
-    result.prompt_preview = _SYSTEM_PROMPT + "\n\n---- user ----\n\n" + user_prompt
+    result.prompt_preview = system_prompt + "\n\n---- user ----\n\n" + user_prompt
 
     content, provider, reason = llm_refine.complete(
         [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
         model_override=options.llm_model,
@@ -614,6 +807,24 @@ def render(result: ForesightResult) -> str:
             f"> 反馈：读入 {result.interactions_loaded} 条互动记录 · "
             f"{result.affinity_applied} 条问题获得亲和加成"
         )
+    if result.kb_themes_loaded:
+        lines.append(f"> 知识库：调入 {result.kb_themes_loaded} 个题材当发问素材")
+    if result.methodology_chars or result.corrections_loaded:
+        parts = []
+        if result.methodology_chars:
+            parts.append(f"注入思考宪法 {result.methodology_chars} 字")
+        if result.corrections_loaded:
+            parts.append(f"带 {result.corrections_loaded} 条纠偏")
+        lines.append("> 方法论：" + " · ".join(parts))
+    if result.judgments_loaded:
+        lines.append(
+            f"> 旧判断：承接 {result.judgments_loaded} 条核心判断往前推（不从零重述）"
+        )
+    if result.calibration_shown:
+        lines.append(
+            f"> 校准：按你 {result.calibration_shown} 类二阶推演的历史胜率加权信任/质疑"
+            f"（已回检 {result.calibration_scored} 条）"
+        )
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
 
@@ -662,6 +873,16 @@ def result_to_dict(result: ForesightResult) -> dict[str, Any]:
         "interactions_path": result.interactions_path,
         "interactions_loaded": result.interactions_loaded,
         "affinity_applied": result.affinity_applied,
+        "kb_wiki_path": result.kb_wiki_path,
+        "kb_themes_loaded": result.kb_themes_loaded,
+        "methodology_path": result.methodology_path,
+        "methodology_chars": result.methodology_chars,
+        "corrections_path": result.corrections_path,
+        "corrections_loaded": result.corrections_loaded,
+        "judgments_path": result.judgments_path,
+        "judgments_loaded": result.judgments_loaded,
+        "calibration_scored": result.calibration_scored,
+        "calibration_shown": result.calibration_shown,
         "questions": [
             {
                 "question": q.question,

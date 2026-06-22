@@ -1,5 +1,8 @@
 ---
 name: 行业概览
+metadata:
+  pattern: generator
+  also: [pipeline]
 description: 行业/板块全景报告。触发词：行业概览、板块全景、行业全景、行业覆盖、sector overview。
 ---
 ## 触发条件

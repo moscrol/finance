@@ -1,0 +1,201 @@
+{
+  "date": "2026-06-21",
+  "generated_at": "2026-06-21T21:13:57",
+  "paths": {
+    "finance_root": "/Users/a77/Desktop/c c/金融",
+    "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
+    "market_exports": "/Users/a77/Desktop/c c/金融/market_feature_store/exports"
+  },
+  "sections": {
+    "market_review": {
+      "status": "WARN",
+      "checks": [
+        {
+          "name": "daily_review_md",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-daily-review.md",
+          "exists": false
+        },
+        {
+          "name": "advancers_ma5_png",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-advancers-ma5.png",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_json",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-theme-candidates.json",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_md",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-theme-candidates.md",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_queue_json",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-theme-backfill-queue.json",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_review_queue_json",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-theme-backfill-review-queue.json",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_review_queue_md",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-theme-backfill-review-queue.md",
+          "exists": false
+        },
+        {
+          "name": "daily_review_html",
+          "path": "/Users/a77/Desktop/c c/金融/复盘/daily/2026-06-21/2026-06-21-daily-review.html",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_html",
+          "path": "/Users/a77/Desktop/c c/金融/复盘/daily/2026-06-21/2026-06-21-theme-candidates.html",
+          "exists": false
+        },
+        {
+          "name": "daily_workflow_summary_json",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-daily-workflow-summary.json",
+          "exists": false
+        }
+      ],
+      "missing_count": 10,
+      "missing": [
+        {
+          "name": "daily_review_md",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-daily-review.md",
+          "exists": false
+        },
+        {
+          "name": "advancers_ma5_png",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-advancers-ma5.png",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_json",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-theme-candidates.json",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_md",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-theme-candidates.md",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_queue_json",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-theme-backfill-queue.json",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_review_queue_json",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-theme-backfill-review-queue.json",
+          "exists": false
+        },
+        {
+          "name": "theme_backfill_review_queue_md",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-theme-backfill-review-queue.md",
+          "exists": false
+        },
+        {
+          "name": "daily_review_html",
+          "path": "/Users/a77/Desktop/c c/金融/复盘/daily/2026-06-21/2026-06-21-daily-review.html",
+          "exists": false
+        },
+        {
+          "name": "theme_candidates_html",
+          "path": "/Users/a77/Desktop/c c/金融/复盘/daily/2026-06-21/2026-06-21-theme-candidates.html",
+          "exists": false
+        },
+        {
+          "name": "daily_workflow_summary_json",
+          "path": "/Users/a77/Desktop/c c/金融/market_feature_store/exports/2026-06-21-daily-workflow-summary.json",
+          "exists": false
+        }
+      ]
+    },
+    "morning_briefing": {
+      "status": "WARN",
+      "root": "/Users/a77/Desktop/c c/知识库/wiki/briefings",
+      "count": 0,
+      "files": []
+    },
+    "ima_stock": {
+      "status": "PASS",
+      "raw_root": "/Users/a77/Desktop/c c/知识库/wiki/raw/ima-stock/ingested/2026-06-21",
+      "raw_md_count": 743,
+      "incoming_uningested_md_count": 0,
+      "done_folder_md_count": 755,
+      "manual_review_md_count": 0,
+      "folders": {
+        "inbox": "/Users/a77/Desktop/c c/知识库/未入库",
+        "done": "/Users/a77/Desktop/c c/知识库/已入库",
+        "manual_review": "/Users/a77/Desktop/c c/知识库/待人工确认"
+      }
+    },
+    "relations": {
+      "status": "PASS",
+      "root": "/Users/a77/Desktop/c c/知识库/wiki/relations",
+      "checks": [
+        {
+          "name": "evidence_index.json",
+          "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/evidence_index.json",
+          "exists": true
+        },
+        {
+          "name": "entity_exposures.json",
+          "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/entity_exposures.json",
+          "exists": true
+        },
+        {
+          "name": "concept_graph.json",
+          "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/concept_graph.json",
+          "exists": true
+        },
+        {
+          "name": "theme_signals.json",
+          "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/theme_signals.json",
+          "exists": true
+        },
+        {
+          "name": "catalyst_calendar.json",
+          "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/catalyst_calendar.json",
+          "exists": true
+        },
+        {
+          "name": "mention_frequency.json",
+          "path": "/Users/a77/Desktop/c c/知识库/wiki/relations/mention_frequency.json",
+          "exists": true
+        }
+      ],
+      "missing": []
+    }
+  },
+  "debts": {
+    "status": "WARN",
+    "missing_concepts": {
+      "count": 446,
+      "path": "/Users/a77/Desktop/c c/知识库/wiki/raw/theme-radar/missing-concept-audit.json",
+      "error": null
+    },
+    "missing_sources": {
+      "count": 21,
+      "path": "/Users/a77/Desktop/c c/知识库/wiki/raw/theme-radar/missing-evidence-source-audit.json",
+      "error": null
+    },
+    "ima_stock_coverage": {
+      "missing_count": 468,
+      "path": "/Users/a77/Desktop/c c/知识库/wiki/raw/ima-stock/audits/entity-stock-ima-coverage-20260621.v2.json",
+      "error": null
+    }
+  },
+  "status": "WARN",
+  "next_actions": [
+    "Run or resume finance daily workflow for the date; market review outputs are incomplete.",
+    "Ingest or render the morning briefing into wiki/briefings for this date.",
+    "Backfill source manifests for missing evidence sources before trusting traceability metrics.",
+    "Run concept normalization/backfill queue for missing concepts; do not solve this with blind DeepDive.",
+    "Prioritize IMA stock cards for uncovered stock entities based on market activity, not alphabetically."
+  ]
+}

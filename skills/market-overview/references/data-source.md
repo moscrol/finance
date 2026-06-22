@@ -23,6 +23,10 @@ def fetch_api(target, api_path):
 | 市场周期 | `/api/v1/client/reviews/cycle?trade_date=YYYY-MM-DD` |
 | 板块数据 | `/api/v1/client/reviews/sector?trade_date=YYYY-MM-DD` |
 | 日历 | `/api/v1/client/calendar/month?year=YYYY&month=M` |
+| 主线题材 ⭐ | `/api/v1/client/topics/mainline-themes?trade_date=YYYY-MM-DD`（公开，无需 CDP） |
+| 主线个股 ⭐ | `/api/v1/client/topics/mainline-stocks?trade_date=YYYY-MM-DD&theme_code=XX`（公开） |
+| 题材资金面板 ⭐ | `/api/v1/client/data/theme/panels?trade_date=YYYY-MM-DD`（公开） |
+| 历史相似日 | `/api/v1/client/reviews/historical-mapping?trade_date=YYYY-MM-DD`（公开） |
 
 ### market API 关键字段
 

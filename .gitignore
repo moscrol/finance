@@ -46,6 +46,7 @@ market_feature_store/exports/*-daily-review.md
 market_feature_store/exports/*-advancers-ma5.png
 market_feature_store/exports/*-triggered-themes.json
 market_feature_store/exports/*-market-triggered-theme-brief.md
+复盘/index.html
 
 # Databases
 db/
@@ -78,7 +79,14 @@ intelligence/users/*/profile.json
 intelligence/users/*/profile.derived.json
 intelligence/users/*/foresight_memory.jsonl
 intelligence/users/*/interactions.jsonl
+intelligence/users/*/corrections.jsonl
+intelligence/users/*/judgments.jsonl
+intelligence/users/*/checkpoints.jsonl
+intelligence/users/*/verdicts.jsonl
 intelligence/users/*/strategy_params.json
+# 潜意识模式运行时态：会话 buffer / active 标记，以及未设 SUBCONSCIOUS_VAULT 时的回退沉淀 vault
+intelligence/users/*/.subconscious/
+intelligence/users/*/_vault/
 
 # evolve 进化系统：只跟踪代码与参数，忽略生成产物（可由 params.json 确定性重建）
 evolution/records/

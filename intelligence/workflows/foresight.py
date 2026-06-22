@@ -15,6 +15,8 @@ class ForesightWorkflowOptions:
     date: str | None = None
     exports_dir: str | Path | None = None
     kb_wiki: str | Path | None = None
+    use_kb: bool = True
+    kb_themes: int = 6
     n: int = 3
     candidates: int = 8
     llm_model: str | None = None
@@ -28,6 +30,18 @@ class ForesightWorkflowOptions:
     interactions_window: int = 200
     affinity_half_life: float = 14.0
     affinity_boost: float = 0.2
+    methodology_file: str | Path | None = None
+    use_methodology: bool = True
+    corrections_file: str | Path | None = None
+    use_corrections: bool = True
+    corrections_window: int = 20
+    judgments_file: str | Path | None = None
+    use_judgments: bool = True
+    judgments_window: int = 10
+    checkpoints_file: str | Path | None = None
+    verdicts_file: str | Path | None = None
+    use_calibration: bool = True
+    calibration_min_n: int = 2
 
 
 def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, ForesightResult, str]:
@@ -50,6 +64,8 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             date=options.date,
             exports_dir=options.exports_dir,
             kb_wiki=options.kb_wiki,
+            use_kb=options.use_kb,
+            kb_themes=options.kb_themes,
             n=options.n,
             candidates=options.candidates,
             llm_model=options.llm_model,
@@ -63,6 +79,18 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
             interactions_window=options.interactions_window,
             affinity_half_life=options.affinity_half_life,
             affinity_boost=options.affinity_boost,
+            methodology_file=options.methodology_file,
+            use_methodology=options.use_methodology,
+            corrections_file=options.corrections_file,
+            use_corrections=options.use_corrections,
+            corrections_window=options.corrections_window,
+            judgments_file=options.judgments_file,
+            use_judgments=options.use_judgments,
+            judgments_window=options.judgments_window,
+            checkpoints_file=options.checkpoints_file,
+            verdicts_file=options.verdicts_file,
+            use_calibration=options.use_calibration,
+            calibration_min_n=options.calibration_min_n,
         )
     )
     answer = render(result)
@@ -100,6 +128,29 @@ def run_foresight(options: ForesightWorkflowOptions) -> tuple[WorkflowSummary, F
                 f"loaded={result.interactions_loaded}",
                 f"boosted={result.affinity_applied}",
                 f"path={result.interactions_path or '-'}",
+            ],
+        )
+    )
+    summary.steps.append(
+        WorkflowStep(
+            name="knowledge",
+            status="PASS" if (options.use_kb and result.kb_themes_loaded) else "SKIP",
+            outputs=[
+                f"themes={result.kb_themes_loaded}",
+                f"wiki={result.kb_wiki_path or '-'}",
+            ],
+        )
+    )
+    summary.steps.append(
+        WorkflowStep(
+            name="methodology",
+            status="PASS" if result.methodology_chars else "SKIP",
+            outputs=[
+                f"chars={result.methodology_chars}",
+                f"corrections={result.corrections_loaded}",
+                f"judgments={result.judgments_loaded}",
+                f"calibration={result.calibration_shown}/{result.calibration_scored}",
+                f"path={result.methodology_path or '-'}",
             ],
         )
     )
