@@ -17,6 +17,7 @@ from intelligence.services.logic_market_match import (
 )
 from intelligence.services import kb_rag
 from intelligence.services import logic_lifecycle
+from intelligence.services import research_queue
 from intelligence.services import research_judge
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 from scripts.build_daily_ops_ledger import build_ledger
@@ -404,6 +405,18 @@ def _enrich_decision_with_semantic_rag(
 def _agent_next_actions(report: dict[str, Any]) -> list[str]:
     actions: list[str] = []
     decision = report["decision"]
+    task_summary = (report.get("research_queue") or {}).get("summary") or {}
+    if task_summary.get("total"):
+        parts = []
+        if task_summary.get("today_do_ima"):
+            parts.append(f"做 IMA {task_summary['today_do_ima']} 条")
+        if task_summary.get("today_find_official_evidence"):
+            parts.append(f"找公告/调研/订单 {task_summary['today_find_official_evidence']} 条")
+        if task_summary.get("today_wait_market_validation"):
+            parts.append(f"等盘面验证 {task_summary['today_wait_market_validation']} 条")
+        if task_summary.get("today_downgrade_or_watch"):
+            parts.append(f"降级观察 {task_summary['today_downgrade_or_watch']} 条")
+        actions.append("今日研究任务队列：" + "；".join(parts) + "。")
     judgments = [
         row.get("research_judgment") or {}
         for rows in decision.values()
@@ -458,6 +471,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
     )
     _enrich_decision_with_lifecycle(decision, history_by_theme)
     semantic_warnings = _enrich_decision_with_semantic_rag(decision, options, paths.knowledge_wiki)
+    task_queue = research_queue.build_research_queue(decision)
     report = {
         "date": options.date,
         "generated_at": now_iso(),
@@ -480,6 +494,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
             "enabled": True,
             "warnings": judgment_warnings,
         },
+        "research_queue": task_queue,
         "notes": [
             "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
             "回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。",
@@ -570,6 +585,34 @@ def _evidence_card_rows(decision: dict[str, list[dict[str, Any]]], limit: int = 
     return lines
 
 
+def _research_queue_rows(queue: dict[str, Any], limit: int = 8) -> list[str]:
+    sections = [
+        ("today_do_ima", "今日该做 IMA"),
+        ("today_find_official_evidence", "今日该找公告/调研/订单"),
+        ("today_wait_market_validation", "今日等盘面验证"),
+        ("today_downgrade_or_watch", "今日降级/观察"),
+    ]
+    lines: list[str] = []
+    for key, title in sections:
+        items = list(queue.get(key) or [])
+        lines.append(f"### {title}")
+        lines.append("")
+        if not items:
+            lines.append("- 无")
+            lines.append("")
+            continue
+        for item in items[:limit]:
+            stocks = "、".join(item.get("强势股") or []) or "-"
+            missing = "、".join(item.get("缺失证据层") or []) or "-"
+            lines.append(
+                f"- {item.get('目标', '-')}｜priority={item.get('优先级', '-')}｜"
+                f"生命周期={item.get('生命周期阶段', '-')}｜裁判={item.get('证据状态', '-')}｜"
+                f"缺={missing}｜强势股={stocks}｜理由={item.get('理由', '-')}"
+            )
+        lines.append("")
+    return lines
+
+
 def render_daily_agent(report: dict[str, Any]) -> str:
     decision = report["decision"]
     ledger = report["ledger"]
@@ -614,6 +657,7 @@ def render_daily_agent(report: dict[str, Any]) -> str:
             )
     else:
         lines.append("- 无")
+    lines.extend(["", "## 今日研究任务队列", "", *_research_queue_rows(report.get("research_queue") or {})])
     lines.extend(["", "## 逻辑证据卡", "", *_evidence_card_rows(decision)])
     if report["semantic_rag"]["warnings"]:
         lines.extend(["", "## 向量旧材料告警", ""])
@@ -769,6 +813,40 @@ def _html_evidence_cards(decision: dict[str, list[dict[str, Any]]]) -> str:
     return '<div class="evidence-grid">' + "".join(cards) + "</div>"
 
 
+def _html_research_queue(queue: dict[str, Any]) -> str:
+    sections = [
+        ("today_do_ima", "今日该做 IMA", "info"),
+        ("today_find_official_evidence", "今日该找公告/调研/订单", "watch"),
+        ("today_wait_market_validation", "今日等盘面验证", "good"),
+        ("today_downgrade_or_watch", "今日降级/观察", "gap"),
+    ]
+    columns = []
+    for key, title, kind in sections:
+        items = list(queue.get(key) or [])
+        body = []
+        if not items:
+            body.append('<p class="empty small">暂无</p>')
+        for item in items[:6]:
+            stocks = "、".join(item.get("强势股") or []) or "-"
+            missing = "、".join(item.get("缺失证据层") or []) or "-"
+            body.append(
+                '<li>'
+                f'<strong>{escape(str(item.get("目标") or "-"))}</strong>'
+                f'<span>{escape(str(item.get("理由") or "-"))}</span>'
+                f'<small>priority={escape(str(item.get("优先级") or "-"))}｜生命周期={escape(str(item.get("生命周期阶段") or "-"))}｜裁判={escape(str(item.get("证据状态") or "-"))}</small>'
+                f'<small>缺：{escape(missing)}｜强势股：{escape(stocks)}</small>'
+                '</li>'
+            )
+        columns.append(
+            '<div class="task-col">'
+            f'<h3>{_html_badge(title, kind)}</h3>'
+            '<ul>'
+            + "".join(body)
+            + '</ul></div>'
+        )
+    return '<div class="task-grid">' + "".join(columns) + "</div>"
+
+
 def render_daily_agent_html(report: dict[str, Any], markdown: str) -> str:
     title = f"每日 Agent 简报 - {report['date']}"
     decision = report["decision"]
@@ -830,7 +908,16 @@ tr:last-child td{{border-bottom:0}}
 .empty{{color:var(--muted);margin:0}}
 .empty.small{{font-size:13px}}
 .actions{{margin:0;padding-left:20px}}
+.task-grid{{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}}
+.task-col{{border:1px solid var(--line);background:#fff;padding:12px}}
+.task-col h3{{margin-bottom:8px}}
+.task-col ul{{list-style:none;margin:0;padding:0;display:grid;gap:10px}}
+.task-col li{{border-top:1px solid var(--line);padding-top:8px;display:grid;gap:4px}}
+.task-col li:first-child{{border-top:0;padding-top:0}}
+.task-col span,.task-col small{{color:var(--muted);font-size:12px}}
 @media (max-width:900px){{main{{padding:14px}}.hero{{display:block}}.metrics{{grid-template-columns:repeat(2,1fr)}}.two-col,.evidence-grid{{grid-template-columns:1fr}}}}
+@media (max-width:1100px){{.task-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}
+@media (max-width:680px){{.task-grid{{grid-template-columns:1fr}}}}
 </style>
 </head>
 <body>
@@ -864,6 +951,10 @@ tr:last-child td{{border-bottom:0}}
   <section class="section">
     <h2>待确认：占位信号 / 噪音</h2>
     {_html_table(decision["noise_or_unconfirmed"], "暂无待确认项。")}
+  </section>
+  <section class="section">
+    <h2>今日研究任务队列</h2>
+    {_html_research_queue(report.get("research_queue") or {})}
   </section>
   <section class="section">
     <h2>逻辑证据卡</h2>
