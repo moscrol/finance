@@ -134,6 +134,14 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
   可绕过：直接读已有的 `exports/D-market-triggered-theme-brief.md`，
   用 render 脚本的 HTML 模板手工渲染（参照 render 脚本 main() 后半段）。
 
+- **cockpit CSS 与 daily-review 主题解耦**：
+   的  原先从最新 daily-review HTML 提取 CSS，
+  但 daily-review 已升级为暗色主题（/），cockpit 的 HTML 结构仍
+  使用浅色主题 CSS var（//），导致 var 未定义、界面崩溃。
+  **已修复**： 固定返回 FALLBACK_CSS（cockpit 自带的浅色主题），
+  两套界面各自独立。若未来要让 cockpit 也用暗色主题，需重写 FALLBACK_CSS + EXTRA_CSS
+  的 var 名映射。
+
 ## 后置环节（同步完成后必做）
 
 全量同步 + daily-review 完成后，还需完成以下渲染步骤才算"驾驶台可用"：
