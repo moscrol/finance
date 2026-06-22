@@ -49,3 +49,33 @@ git branch --show-current
 - 不要用 shell 写超长 HTML；用 JSON 传结构化内容，用 Python 做 HTML escape 和写入。
 - 不要在失败后继续微调同一种办法；第二次失败就换路径：日报事实层 → 结构化 JSON → 小脚本写入。
 - 每次生成后必须给出数据证据、文件证据、禁词检查和 `git diff --check`。
+
+## 2026-06-22 经验固化
+
+### 数据前置依赖
+
+策略一依赖 `fact_stock_daily` 和 `fact_stock_high_daily` 有真实行情。
+若 fact_stock_daily 全空（东方财富 502 + mootdx 超时），则：
+- §7 个股发动机表为空 → T1/T2 判断缺少"成交占前行业 Top20"维度
+- 加权涨幅无法计算 → 缺少"根号加权 = sqrt(amount) × pct_chg"排序
+
+**解法**：先确认 `sync-sector-stocks --refresh` 已补真实行情 →
+`fill-stock-daily-fallback` → 再开始策略一流程。
+
+### 可用的替代数据源
+
+当 fact_stock_daily 不可用时，可从以下表提取候选股：
+
+| 表 | 用途 | 关键字段 |
+|---|---|---|
+| fact_stock_high_daily | 创新高股（history/3y/2y/1y/120d/60d/20d） | stock_ts_code, period, pct_chg, amount |
+| fact_theme_limit_stock_daily | 涨停股明细 | stock_ts_code, theme_name, boards |
+| fact_limit_advance_daily | 多板股（连板数） | stock_ts_code, boards, theme_name |
+| fact_sector_stock_daily | 板块成分股行情（若已 refresh） | stock_ts_code, price, pct_chg, amount |
+
+### JSON 构造注意
+
+- `t2` 数组实际包含 T1- 和 T2 两类，tag 字段区分：`{"tag": "T1-", ...}` 和 `{"tag": "T2", ...}`
+- `reason` 字段禁用：买/卖/建议/确定/降低/止损/目标价
+- `state` 字段写市场阶段描述，不写操作建议
+- `verify` 字段写次日验证要点和数据缺失说明

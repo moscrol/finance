@@ -99,6 +99,59 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
 - **strategy1 矩阵不要喂 evolution record**：那是另一个流程的坑。策略一走
   `skills/strategy1-matrix`，本 skill 只管同步段。
 
+- **sector-stocks 用 fast_daily_sync 拷贝旧日数据时只有映射无行情**：
+  `fast_daily_sync.py` 从历史日期 copy 行仅保留 sector→stock 归属关系，
+  price/pct_chg/amount 全为 NULL。**必须在 fast_daily_sync 后再跑一轮
+  `sync-sector-stocks --trade-date D --refresh`** 拉真实行情数据。
+  若该命令超时（>5min），用 `--limit 30` 分批跑，每批确认
+  `COUNT(*) WHERE price IS NOT NULL` 增长。
+  2026-06-22 教训：fast_daily_sync 只拷结构致 fact_stock_daily 全空，
+  daily-review §7 个股发动机 / §12 加权涨幅 全部"暂无"。
+
+- **fill-stock-daily-fallback 依赖 fact_sector_stock_daily 有实际行情**：
+  fallback 从 sector_stock_daily 聚合写 fact_stock_daily，但若 sector_stock
+  本身也是空壳（price=NULL），fallback 产出同样全空。
+  **正确顺序：先 sync-sector-stocks --refresh 补行情 → 再 fill-stock-daily-fallback**。
+  若两步都失败，可写临时脚本从 sector_stock_daily (price IS NOT NULL)
+  批量 UPDATE fact_stock_daily。
+
+- **Eastmoney API 502 + akshare 断连 = 双源失效**：
+  东方财富 sync-stock-daily-snapshot 和 akshare stock_zh_a_spot_em 会同时
+  不可用。此时 **唯一可靠源是 fupanhui（sync-sector-stocks）**。
+  应对路径：sync-sector-stocks --refresh → fill-stock-daily-fallback → daily-review。
+
+- **驾驶台 cockpit 三个每日更新项**：
+  1. 每日复盘（daily-review）→ render_daily_review_html.py
+  2. 机构胜率（winrate）→ `skills/opinion-cross/scripts/render_winrate_html.py --vault <KB_WIKI> --date D`
+  3. 晨会边际变化（morning briefing）→ 需知识库 `wiki/briefings/D.md` 源文件存在
+     → `<KB>/skills/morning-briefing/scripts/render_briefing_html.py D --vault <KB_WIKI>`
+  **render_cockpit.py 必须传 --kb-briefings-dir 指向知识库/dashboard/briefings/**
+  （默认路径 `knowledge-base-private` 不存在）。
+
+- **题材雷达 HTML 被质量门拦截**：
+  `render_market_triggered_theme_brief_html.py` 内部先调 build_* 脚本，
+  若 quality-gate INCOMPLETE 则 exit(1) 不生成 HTML。
+  可绕过：直接读已有的 `exports/D-market-triggered-theme-brief.md`，
+  用 render 脚本的 HTML 模板手工渲染（参照 render 脚本 main() 后半段）。
+
+## 后置环节（同步完成后必做）
+
+全量同步 + daily-review 完成后，还需完成以下渲染步骤才算"驾驶台可用"：
+
+| 序 | 步骤 | 命令 | 备注 |
+|---|---|---|---|
+| 1 | 渲染每日复盘 HTML | `python3 scripts/render_daily_review_html.py D` | 从 md → html |
+| 2 | 渲染题材雷达 HTML | `python3 scripts/render_market_triggered_theme_brief_html.py D` | 若 quality-gate 拦截，手工从 md 渲染 |
+| 3 | 渲染题材候选工作台 | `python3 scripts/render_theme_candidates_html.py D`（若存在） | |
+| 4 | 策略四矩阵 | `python3 scripts/render_strategy4_dual_engine_matrix.py` | 自动拉 DuckDB 数据 |
+| 5 | 策略一矩阵 | 走 `skills/strategy1-matrix` 流程 | 非自动，需 agent 判断 T1/T2/OBS |
+| 6 | 机构胜率 | `python3 skills/opinion-cross/scripts/render_winrate_html.py --vault <KB_WIKI> --date D` | KB_WIKI = 知识库/wiki |
+| 7 | 晨会简报 | `python3 <KB>/skills/morning-briefing/scripts/render_briefing_html.py D --vault <KB_WIKI>` | 需源 md 存在 |
+| 8 | 策略工作台 | `python3 scripts/render_review_workbench.py` | 聚合所有 daily + matrix |
+| 9 | 驾驶台 cockpit | `python3 scripts/render_cockpit.py --kb-briefings-dir <KB>/dashboard/briefings` | **必须传正确路径** |
+
+> **KB 路径**：`/Users/lbq/Desktop/c c/知识库`，KB_WIKI = `知识库/wiki`
+
 ## 生成段与矩阵段（同步全绿后）
 
 1. 生成：`intelligence.cli daily --skip-sync --from-step daily-review`（见上）。
