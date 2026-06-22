@@ -39,6 +39,14 @@ class QuestionRouterTest(unittest.TestCase):
         self.assertEqual(decision.route_type, ROUTE_PLANNER)
         self.assertEqual(decision.next_action, "run_logic_match")
 
+    def test_natural_language_full_daily_review_uses_kb_wiki_path(self):
+        decision = route_question("帮我跑今天的全量复盘")
+
+        self.assertEqual(decision.route_type, ROUTE_KNOWN)
+        self.assertEqual(decision.selected_paths[0].id, "daily_review")
+        self.assertIn("--kb-wiki {knowledge_wiki}", decision.selected_paths[0].command_template)
+        self.assertNotIn("market_feature_store.cli daily-review", decision.selected_paths[0].command_template)
+
 
 if __name__ == "__main__":
     unittest.main()

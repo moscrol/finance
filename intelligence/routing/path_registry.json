@@ -5,14 +5,14 @@
       "id": "daily_review",
       "label": "全量复盘",
       "kind": "known_workflow",
-      "description": "同步/读取盘面数据，生成每日复盘、theme candidates、backfill queue 和复盘工作台。",
+      "description": "同步/读取盘面数据，生成每日复盘、theme candidates、backfill queue、agent-daily、复盘工作台和驾驶舱。",
       "triggers": ["全量复盘", "每日复盘", "日复盘", "盘面复盘", "daily review", "daily-review", "daily"],
-      "inputs": ["trade_date"],
-      "outputs": ["daily-review.md", "theme-candidates.json", "theme-backfill-queue.json", "复盘 HTML"],
-      "command_template": "python3 -m intelligence.cli daily --date {date}",
+      "inputs": ["trade_date", "knowledge_wiki"],
+      "outputs": ["daily-review.md", "theme-candidates.json", "theme-backfill-queue.json", "daily-agent.html", "复盘 HTML", "驾驶舱"],
+      "command_template": "python3 -m intelligence.cli daily --date {date} --kb-wiki {knowledge_wiki}",
       "auto_execute": false,
       "risk_level": "medium",
-      "notes": "涉及数据同步和文件输出；周末/非交易日应优先切到最近交易日。"
+      "notes": "涉及 DuckDB、本地数据同步和文件输出；DuckDB 在哪台 Mac 就在哪台 Mac 跑。knowledge_wiki 必须指向该机同步后的知识库 wiki，避免使用另一台机器的绝对路径。"
     },
     {
       "id": "daily_ops_ledger",
