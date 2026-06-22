@@ -125,10 +125,11 @@ class DailyAgentTest(unittest.TestCase):
             self.assertEqual(report["ledger"]["status"], "PASS")
             self.assertEqual(report["logic_batch"]["summary"]["old_logic_wakeup_count"], 1)
             self.assertEqual(report["decision"]["old_logic_wakeup"][0]["query"], "液冷服务器")
-            self.assertEqual(report["decision"]["data_gap"][0]["query"], "连板未映射")
+            self.assertEqual(report["decision"]["noise_or_unconfirmed"][0]["query"], "连板未映射")
             self.assertIn("## 今日判断", markdown)
             self.assertIn("液冷服务器", markdown)
             self.assertIn("连板未映射", markdown)
+            self.assertNotIn("旧逻辑证据卡：连板未映射", markdown)
 
     def test_daily_agent_builds_chinese_semantic_evidence_card(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -166,14 +167,14 @@ class DailyAgentTest(unittest.TestCase):
             self.assertEqual(card["命中材料"][0]["类型"], "旧深度研究")
             self.assertEqual(card["命中材料"][0]["作用"], "旧逻辑主线")
             self.assertIn("可以进入题材地图/深度研究", card["下一步"])
-            self.assertIn("## 旧逻辑证据卡", markdown)
+            self.assertIn("## 逻辑证据卡", markdown)
             self.assertIn("结构化：概念=已命中", markdown)
             self.assertIn("回溯：已命中来源页", markdown)
 
             html = render_daily_agent_html(report, markdown)
             self.assertIn("马上看：旧逻辑唤醒", html)
             self.assertIn("需要回补：概念 / 公司 / 证据 / 来源", html)
-            self.assertIn("旧逻辑证据卡", html)
+            self.assertIn("逻辑证据卡", html)
             self.assertIn("evidence-card", html)
             self.assertNotIn("<pre>", html)
 

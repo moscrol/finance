@@ -1,6 +1,6 @@
 {
   "date": "2026-06-11",
-  "generated_at": "2026-06-22T10:42:11+08:00",
+  "generated_at": "2026-06-22T11:08:04+08:00",
   "paths": {
     "finance_root": "/Users/a77/Desktop/c c/金融",
     "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
@@ -8,7 +8,7 @@
   },
   "ledger": {
     "date": "2026-06-11",
-    "generated_at": "2026-06-22T10:41:26",
+    "generated_at": "2026-06-22T11:07:17",
     "paths": {
       "finance_root": "/Users/a77/Desktop/c c/金融",
       "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
@@ -176,42 +176,20 @@
     "summary": {
       "classification_counts": {
         "old_logic_wakeup": 7,
-        "data_gap": 3
+        "noise_or_unconfirmed": 1,
+        "data_gap": 2
       },
       "gap_counts": {
-        "missing_concept": 3,
-        "missing_entity_exposure": 2,
-        "missing_evidence": 3,
+        "placeholder_market_theme": 1,
+        "missing_concept": 2,
+        "missing_evidence": 2,
+        "missing_entity_exposure": 1,
         "missing_source_trace": 1
       },
       "gap_queue_count": 4,
       "old_logic_wakeup_count": 7
     },
     "gap_queue": [
-      {
-        "date": "2026-06-11",
-        "query": "连板未映射",
-        "classification": "data_gap",
-        "priority": 278.0,
-        "market_priority_score": 183.0,
-        "data_gaps": [
-          "missing_concept",
-          "missing_entity_exposure",
-          "missing_evidence"
-        ],
-        "matched_theme": "连板未映射",
-        "trigger_types": [
-          "limit_advance_cluster",
-          "capacity_industry"
-        ],
-        "strong_stocks": [],
-        "next_actions": [
-          "先补影响当前判断的数据缺口，不做全库大扫除。",
-          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
-          "补 entity exposure 或 IMA 个股卡，确认哪些公司是真暴露。",
-          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
-        ]
-      },
       {
         "date": "2026-06-11",
         "query": "金属钴",
@@ -271,6 +249,26 @@
           "先补影响当前判断的数据缺口，不做全库大扫除。",
           "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
           "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ]
+      },
+      {
+        "date": "2026-06-11",
+        "query": "连板未映射",
+        "classification": "noise_or_unconfirmed",
+        "priority": 188.0,
+        "market_priority_score": 183.0,
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "matched_theme": "连板未映射",
+        "trigger_types": [
+          "limit_advance_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [],
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
         ]
       },
       {
@@ -522,8 +520,8 @@
       {
         "query": "连板未映射",
         "date": "2026-06-11",
-        "classification": "data_gap",
-        "confidence": 0.35,
+        "classification": "noise_or_unconfirmed",
+        "confidence": 0.2,
         "market_found": true,
         "matched_theme": "连板未映射",
         "market_theme": "连板未映射",
@@ -538,21 +536,13 @@
         "evidence_items": [],
         "source_traces": [],
         "data_gaps": [
-          "missing_concept",
-          "missing_entity_exposure",
-          "missing_evidence"
+          "placeholder_market_theme"
         ],
         "next_actions": [
-          "先补影响当前判断的数据缺口，不做全库大扫除。",
-          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
-          "补 entity exposure 或 IMA 个股卡，确认哪些公司是真暴露。",
-          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
         ],
-        "warnings": [
-          "concept not found",
-          "entity exposures not found",
-          "evidence not found"
-        ]
+        "warnings": []
       },
       {
         "query": "小金属",
@@ -2718,63 +2708,6 @@
     "data_gap": [
       {
         "date": "2026-06-11",
-        "query": "连板未映射",
-        "classification": "data_gap",
-        "confidence": 0.35,
-        "priority_score": 183.0,
-        "matched_theme": "连板未映射",
-        "trigger_types": [
-          "limit_advance_cluster",
-          "capacity_industry"
-        ],
-        "strong_stocks": [],
-        "structured_counts": {
-          "concept": 0,
-          "company_exposure": 0,
-          "evidence": 0,
-          "source_trace": 0,
-          "missing_source_trace": 0
-        },
-        "source_traces": [],
-        "data_gaps": [
-          "missing_concept",
-          "missing_entity_exposure",
-          "missing_evidence"
-        ],
-        "route": "进入统一回补队列，先判断是不是污染词或别名",
-        "next_actions": [
-          "先补影响当前判断的数据缺口，不做全库大扫除。",
-          "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
-          "补 entity exposure 或 IMA 个股卡，确认哪些公司是真暴露。",
-          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
-        ],
-        "semantic_evidence_card": {
-          "标题": "旧逻辑证据卡：连板未映射",
-          "当前判断": "数据缺口",
-          "结构化检查": {
-            "概念": "缺概念/待归一",
-            "公司暴露": "缺公司暴露",
-            "证据": "缺证据",
-            "来源回溯": "未发现缺口"
-          },
-          "向量旧材料": {
-            "状态": "未补",
-            "检索词": "-",
-            "命中数量": 0
-          },
-          "命中材料": [],
-          "综合判断": "未补语义证据",
-          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
-          "缺口": [
-            "missing_concept",
-            "missing_entity_exposure",
-            "missing_evidence"
-          ],
-          "下一步": "先判断是不是别名/污染词，再做概念归一。"
-        }
-      },
-      {
-        "date": "2026-06-11",
         "query": "金属铜",
         "classification": "data_gap",
         "confidence": 0.55,
@@ -2812,7 +2745,7 @@
           "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
         ],
         "semantic_evidence_card": {
-          "标题": "旧逻辑证据卡：金属铜",
+          "标题": "数据缺口证据卡：金属铜",
           "当前判断": "数据缺口",
           "结构化检查": {
             "概念": "缺概念/待归一",
@@ -2875,7 +2808,7 @@
           "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
         ],
         "semantic_evidence_card": {
-          "标题": "旧逻辑证据卡：金属钴",
+          "标题": "数据缺口证据卡：金属钴",
           "当前判断": "数据缺口",
           "结构化检查": {
             "概念": "缺概念/待归一",
@@ -2900,7 +2833,37 @@
         }
       }
     ],
-    "noise_or_unconfirmed": []
+    "noise_or_unconfirmed": [
+      {
+        "date": "2026-06-11",
+        "query": "连板未映射",
+        "classification": "noise_or_unconfirmed",
+        "confidence": 0.2,
+        "priority_score": 183.0,
+        "matched_theme": "连板未映射",
+        "trigger_types": [
+          "limit_advance_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [],
+        "structured_counts": {
+          "concept": 0,
+          "company_exposure": 0,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "route": "先看连板股名单和主导行业，等题材名明确后再映射",
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
+        ]
+      }
+    ]
   },
   "semantic_rag": {
     "enabled": true,
@@ -2917,6 +2880,7 @@
     "优先打开旧逻辑唤醒：确认是否需要题材地图或深度研究。",
     "语义召回已给出 W 命中；优先复核结构化命中和 W 命中同时存在的条目。",
     "数据缺口只登记到回补队列；本轮不自动补来源/概念/IMA。",
+    "待确认项先看是不是盘面占位或噪音；不要直接当成 concept deep-dive。",
     "先补齐 daily workflow 产物，否则 agent 判断只作为预览。"
   ]
 }

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from intelligence.services.logic_market_match import (
     LABEL_DATA_GAP,
+    LABEL_NOISE,
     LABEL_OLD_WAKEUP,
     available_candidate_dates,
     batch_match_logic_to_market,
@@ -125,6 +126,28 @@ class LogicMarketMatchTest(unittest.TestCase):
             self.assertIn("missing_concept", result.data_gaps)
             self.assertIn("missing_entity_exposure", result.data_gaps)
             self.assertIn("missing_evidence", result.data_gaps)
+
+    def test_placeholder_market_theme_is_not_treated_as_missing_concept(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exports, wiki = self.make_fixture(Path(tmp))
+            path = exports / "2026-06-11-theme-candidates.json"
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            doc["candidates"].append(
+                {
+                    "market_theme": "连板未映射",
+                    "canonical_concept": "连板未映射",
+                    "priority_score": 183.0,
+                    "trigger_types": ["limit_advance_cluster"],
+                    "market_evidence": {"advance": {"stock_count": 11, "max_boards": 3}},
+                }
+            )
+            path.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+
+            result = match_logic_to_market("连板未映射", "2026-06-11", exports, wiki)
+
+            self.assertEqual(result.classification, LABEL_NOISE)
+            self.assertEqual(result.data_gaps, ["placeholder_market_theme"])
+            self.assertNotIn("missing_concept", result.data_gaps)
 
     def test_available_candidate_dates_and_batch_queue(self):
         with tempfile.TemporaryDirectory() as tmp:

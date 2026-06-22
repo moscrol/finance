@@ -21,6 +21,7 @@ from scripts.build_daily_ops_ledger import build_ledger
 
 
 GAP_LABELS = {
+    "placeholder_market_theme": "盘面占位/题材未映射",
     "missing_source_trace": "缺来源回溯",
     "missing_concept": "缺概念/待归一",
     "missing_entity_exposure": "缺公司暴露",
@@ -88,6 +89,8 @@ def _route_for_result(row: dict[str, Any]) -> str:
     if classification == LABEL_DATA_GAP:
         return "进入统一回补队列，先判断是不是污染词或别名"
     if classification == LABEL_NOISE:
+        if "placeholder_market_theme" in gaps:
+            return "先看连板股名单和主导行业，等题材名明确后再映射"
         return "暂不处理，等待新盘面或证据"
     return "人工复核"
 
@@ -252,6 +255,8 @@ def _semantic_overall_status(row: dict[str, Any]) -> tuple[str, str]:
 
 def _evidence_card_next_action(row: dict[str, Any], status: str) -> str:
     gaps = set(row.get("data_gaps") or [])
+    if "placeholder_market_theme" in gaps:
+        return "这是盘面占位信号，不做 concept deep-dive；先人工看连板股名单和行业归因。"
     if "missing_source_trace" in gaps:
         return "先补来源页/原始材料回溯，再进入深度研究。"
     if "missing_concept" in gaps:
@@ -284,8 +289,16 @@ def _build_evidence_card(row: dict[str, Any]) -> dict[str, Any]:
             }
         )
     status, reason = _semantic_overall_status(row)
+    if row.get("classification") == LABEL_OLD_WAKEUP:
+        title_prefix = "旧逻辑证据卡"
+    elif row.get("classification") == LABEL_NEW_CANDIDATE:
+        title_prefix = "新逻辑候选证据卡"
+    elif "placeholder_market_theme" in set(row.get("data_gaps") or []):
+        title_prefix = "盘面占位信号"
+    else:
+        title_prefix = "数据缺口证据卡"
     return {
-        "标题": f"旧逻辑证据卡：{row.get('query') or '-'}",
+        "标题": f"{title_prefix}：{row.get('query') or '-'}",
         "当前判断": CLASS_LABELS.get(row.get("classification"), row.get("classification") or "-"),
         "结构化检查": _structured_status(row),
         "向量旧材料": {
@@ -339,7 +352,8 @@ def _enrich_decision_with_semantic_rag(
             remaining -= 1
     for rows in decision.values():
         for row in rows:
-            row.setdefault("semantic_evidence_card", _build_evidence_card(row))
+            if "placeholder_market_theme" not in set(row.get("data_gaps") or []):
+                row.setdefault("semantic_evidence_card", _build_evidence_card(row))
     return warnings
 
 
@@ -355,6 +369,8 @@ def _agent_next_actions(report: dict[str, Any]) -> list[str]:
         actions.append("新逻辑先用题材快报/题材地图定义边界，不急着深度研究。")
     if decision["data_gap"]:
         actions.append("数据缺口只登记到回补队列；本轮不自动补来源/概念/IMA。")
+    if decision["noise_or_unconfirmed"]:
+        actions.append("待确认项先看是不是盘面占位或噪音；不要直接当成 concept deep-dive。")
     ledger = report["ledger"]
     if ledger["sections"]["market_review"]["missing_count"]:
         actions.append("先补齐 daily workflow 产物，否则 agent 判断只作为预览。")
@@ -494,7 +510,7 @@ def render_daily_agent(report: dict[str, Any]) -> str:
         "",
         *_section_rows(decision["data_gap"]),
         "",
-        "## 暂不处理",
+        "## 待确认：占位信号 / 噪音",
         "",
         *_section_rows(decision["noise_or_unconfirmed"]),
         "",
@@ -509,7 +525,7 @@ def render_daily_agent(report: dict[str, Any]) -> str:
             )
     else:
         lines.append("- 无")
-    lines.extend(["", "## 旧逻辑证据卡", "", *_evidence_card_rows(decision)])
+    lines.extend(["", "## 逻辑证据卡", "", *_evidence_card_rows(decision)])
     if report["semantic_rag"]["warnings"]:
         lines.extend(["", "## 向量旧材料告警", ""])
         for warning in report["semantic_rag"]["warnings"][:10]:
@@ -742,7 +758,11 @@ tr:last-child td{{border-bottom:0}}
     </section>
   </section>
   <section class="section">
-    <h2>旧逻辑证据卡</h2>
+    <h2>待确认：占位信号 / 噪音</h2>
+    {_html_table(decision["noise_or_unconfirmed"], "暂无待确认项。")}
+  </section>
+  <section class="section">
+    <h2>逻辑证据卡</h2>
     {_html_evidence_cards(decision)}
   </section>
   <section class="section">

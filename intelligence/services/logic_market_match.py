@@ -14,6 +14,7 @@ LABEL_OLD_WAKEUP = "old_logic_wakeup"
 LABEL_NEW_CANDIDATE = "new_logic_candidate"
 LABEL_NOISE = "noise_or_unconfirmed"
 LABEL_DATA_GAP = "data_gap"
+PLACEHOLDER_MARKET_GAP = "placeholder_market_theme"
 
 
 @dataclass
@@ -163,6 +164,11 @@ def _candidate_theme(candidate: dict[str, Any] | None, fallback: str) -> str:
     return str(candidate.get("canonical_concept") or candidate.get("market_theme") or fallback)
 
 
+def _is_placeholder_market_theme(*values: Any) -> bool:
+    text = " ".join(str(value or "") for value in values)
+    return any(marker in text for marker in ("未映射", "未命名题材", "待映射"))
+
+
 def _strong_stocks(candidate: dict[str, Any] | None, limit: int) -> list[dict[str, Any]]:
     if not candidate:
         return []
@@ -211,7 +217,10 @@ def _classify(market_found: bool, concept_count: int, exposure_count: int, evide
 
 def _next_actions(classification: str, gaps: list[str]) -> list[str]:
     actions: list[str] = []
-    if classification == LABEL_OLD_WAKEUP:
+    if "placeholder_market_theme" in gaps:
+        actions.append("这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。")
+        actions.append("等题材归因明确后，再映射到真实概念或标记为噪音。")
+    elif classification == LABEL_OLD_WAKEUP:
         actions.append("进入 front-map/deep-dive 验证发酵阶段与公司弹性。")
         actions.append("把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。")
     elif classification == LABEL_NEW_CANDIDATE:
@@ -243,6 +252,29 @@ def match_logic_to_market(
     doc = loaded["doc"] if loaded.get("found") else {}
     candidate = match_candidate(query, doc) if doc else None
     theme = _candidate_theme(candidate, query)
+
+    if _is_placeholder_market_theme(
+        query,
+        theme,
+        (candidate or {}).get("market_theme"),
+        (candidate or {}).get("canonical_concept"),
+    ):
+        gaps = [PLACEHOLDER_MARKET_GAP]
+        return LogicMarketMatchResult(
+            query=query,
+            date=str(doc.get("trade_date") or date or ""),
+            classification=LABEL_NOISE,
+            confidence=0.2,
+            market_found=bool(candidate),
+            matched_theme=theme,
+            market_theme=str((candidate or {}).get("market_theme") or ""),
+            priority_score=(candidate or {}).get("priority_score"),
+            trigger_types=list((candidate or {}).get("trigger_types") or []),
+            strong_stocks=_strong_stocks(candidate, top_companies),
+            data_gaps=gaps,
+            next_actions=_next_actions(LABEL_NOISE, gaps),
+            warnings=list(loaded.get("warnings", [])),
+        )
 
     knowledge = KnowledgeAdapter(wiki_root=kb_wiki)
     concept_result = knowledge.get_concept_matches(theme, limit=6)
@@ -329,6 +361,7 @@ def _gap_priority(result: LogicMarketMatchResult) -> float:
         "missing_evidence": 30.0,
         "missing_entity_exposure": 25.0,
         "missing_concept": 20.0,
+        PLACEHOLDER_MARKET_GAP: 5.0,
         "missing_market_signal": 5.0,
     }
     weighted_gaps = sum(gap_weight.get(gap, 10.0) for gap in result.data_gaps)
