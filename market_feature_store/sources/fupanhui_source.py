@@ -1,7 +1,13 @@
 """复盘会(fupanhui) 数据源。
 
-通过 CDP proxy (默认 http://localhost:3456) 在用户已登录的 Chrome 中执行
-fetch, 调用 fupanhui.com 内部 API。需要:
+两种调用路径:
+  1. **公开 API** (api_get_public): 直接 HTTPS 请求，无需登录/CDP proxy。
+     适用: reviews/latest-date, topics/mainline-*, data/theme/panels,
+           reviews/sector-rotation, reviews/historical-mapping 等。
+  2. **认证 API** (api_get): 通过 CDP proxy 在用户 Chrome 中 fetch，自动带 token。
+     适用: watchlist/*, selection/*, 需登录态的端点。
+
+CDP proxy 路径需要:
   1. CDP proxy 运行中 (web-access skill 的 check-deps 会自动拉起)。
   2. Chrome 中已登录 fupanhui.com。
 
@@ -121,6 +127,108 @@ def api_get(api_path: str, params: dict | None = None, timeout: int = 60):
     if isinstance(parsed, dict) and "data" in parsed:
         return parsed["data"]
     return parsed
+
+
+def api_get_public(api_path: str, params: dict | None = None, timeout: int = 30):
+    """直接 HTTPS 请求公开 fupanhui API，无需 CDP proxy 或登录态。
+
+    适用于不需认证的端点:
+      /reviews/latest-date, /topics/mainline-themes, /data/theme/panels,
+      /reviews/sector-rotation, /reviews/historical-mapping 等。
+    """
+    query = ""
+    if params:
+        items = [(k, v) for k, v in params.items() if v is not None]
+        if items:
+            query = "?" + urllib.parse.urlencode(items)
+    url = f"{FUPANHUI_BASE}/api/v1/client{api_path}{query}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode()
+    except urllib.error.HTTPError as e:
+        raise FupanhuiError(f"公开 API HTTP {e.code} ({api_path}): {e.reason}") from e
+    except Exception as e:
+        raise FupanhuiError(f"公开 API 请求失败 ({api_path}): {e}") from e
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise FupanhuiError(f"公开 API 响应解析失败 ({api_path}): {raw[:200]}") from e
+    code = parsed.get("code") if isinstance(parsed, dict) else None
+    if code not in (None, 0, 200):
+        msg = parsed.get("message") or parsed.get("msg") or "unknown"
+        raise FupanhuiError(f"公开 API 错误 {code} ({api_path}): {msg}")
+    if isinstance(parsed, dict) and "data" in parsed:
+        return parsed["data"]
+    return parsed
+
+
+# ── 公开 API 便捷函数 ──────────────────────────────────────
+
+
+def get_mainline_themes(trade_date: str) -> list[dict]:
+    """获取每日主线题材列表。返回 [{theme_code, theme_name, sector_count, min_sort}, ...]"""
+    data = api_get_public("/topics/mainline-themes", {"trade_date": trade_date})
+    if isinstance(data, dict):
+        return data.get("items") or []
+    return []
+
+
+def get_mainline_stocks(trade_date: str, theme_code: str) -> dict:
+    """获取某主线题材下的个股。"""
+    data = api_get_public(
+        "/topics/mainline-stocks",
+        {"trade_date": trade_date, "theme_code": theme_code},
+    )
+    return data if isinstance(data, dict) else {}
+
+
+def get_mainline_sectors(trade_date: str, theme_code: str) -> list[dict]:
+    """获取某主线题材对应的板块。"""
+    data = api_get_public(
+        "/topics/mainline-sectors",
+        {"trade_date": trade_date, "theme_code": theme_code},
+    )
+    if isinstance(data, dict):
+        return data.get("items") or []
+    return []
+
+
+def get_theme_panels(trade_date: str | None = None) -> list[dict]:
+    """获取题材资金面板（每题材的资金流向+个股）。"""
+    params = {}
+    if trade_date:
+        params["trade_date"] = trade_date
+    data = api_get_public("/data/theme/panels", params)
+    if isinstance(data, dict):
+        return data.get("panels") or []
+    return []
+
+
+def get_sector_rotation(trade_date: str | None = None) -> dict:
+    """获取板块轮动完整数据。"""
+    params = {}
+    if trade_date:
+        params["trade_date"] = trade_date
+    data = api_get_public("/reviews/sector-rotation", params)
+    return data if isinstance(data, dict) else {}
+
+
+def get_historical_mapping(trade_date: str) -> dict:
+    """获取 AI 历史相似日映射。"""
+    data = api_get_public("/reviews/historical-mapping", {"trade_date": trade_date})
+    return data if isinstance(data, dict) else {}
+
+
+def get_latest_date_public() -> str | None:
+    """公开路径获取最新交易日期（不需 CDP）。"""
+    data = api_get_public("/reviews/latest-date")
+    if isinstance(data, dict):
+        return data.get("latest_date") or data.get("trade_date")
+    return None
+
+
+# ── CDP 认证 API 便捷函数 ──────────────────────────────────
 
 
 def get_latest_date() -> str | None:

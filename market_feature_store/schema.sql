@@ -269,6 +269,62 @@ CREATE INDEX IF NOT EXISTS idx_fact_theme_limit_stock_date ON fact_theme_limit_s
 CREATE INDEX IF NOT EXISTS idx_fact_theme_limit_stock_sector ON fact_theme_limit_stock_daily(sector_ts_code);
 CREATE INDEX IF NOT EXISTS idx_fact_theme_limit_stock_stock ON fact_theme_limit_stock_daily(stock_ts_code);
 
+CREATE TABLE IF NOT EXISTS fact_mainline_theme_daily (
+    trade_date    DATE,
+    theme_code    TEXT,
+    theme_name    TEXT,
+    sector_count  INTEGER,
+    min_sort      INTEGER,
+    source        TEXT,
+    updated_at    TIMESTAMP,
+    PRIMARY KEY (trade_date, theme_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_mainline_theme_date ON fact_mainline_theme_daily(trade_date);
+
+CREATE TABLE IF NOT EXISTS fact_mainline_stock_daily (
+    trade_date      DATE,
+    theme_code      TEXT,
+    theme_name      TEXT,
+    group_type      TEXT,
+    stock_ts_code   TEXT,
+    stock_name      TEXT,
+    price           DOUBLE,
+    pct_chg         DOUBLE,
+    amount          DOUBLE,
+    source          TEXT,
+    updated_at      TIMESTAMP,
+    PRIMARY KEY (trade_date, theme_code, stock_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_mainline_stock_date ON fact_mainline_stock_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_mainline_stock_theme ON fact_mainline_stock_daily(theme_code);
+CREATE INDEX IF NOT EXISTS idx_fact_mainline_stock_stock ON fact_mainline_stock_daily(stock_ts_code);
+
+CREATE TABLE IF NOT EXISTS fact_theme_flow_daily (
+    trade_date    DATE,
+    theme_code    TEXT,
+    theme_name    TEXT,
+    total_fund    DOUBLE,
+    total_amount  DOUBLE,
+    stock_count   INTEGER,
+    source        TEXT,
+    updated_at    TIMESTAMP,
+    PRIMARY KEY (trade_date, theme_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_theme_flow_date ON fact_theme_flow_daily(trade_date);
+
+CREATE TABLE IF NOT EXISTS fact_historical_mapping (
+    source_date     DATE,
+    similar_date    DATE,
+    similarity      DOUBLE,
+    external_cycle  TEXT,
+    cycle_day       INTEGER,
+    summary         TEXT,
+    source          TEXT,
+    updated_at      TIMESTAMP,
+    PRIMARY KEY (source_date, similar_date)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_hist_mapping_date ON fact_historical_mapping(source_date);
+
 CREATE TABLE IF NOT EXISTS fact_high_volume_gainers (
     start_date         DATE,
     end_date           DATE,
