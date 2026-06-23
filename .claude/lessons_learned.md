@@ -26,6 +26,20 @@
   根因：表结构和代码中的字段列表不同步。
   做法：检查白名单中的字段必须在飞书表中实际存在，写入前验证字段名。
 
+## [kb] 年报 baseline 入库
+
+- **[2026-06-23] 批量年报入库共用 batch source note 导致追溯断裂。**
+  根因：`entity_baseline_writer.py` 的 `write_updates()` 对整批使用同一个 `source_name`（如 "年报 baseline batch 2026-06-23"），所有公司的 evidence 都指向这个 batch note，但 batch note 的 `company` 字段只记录了最后一家。
+  做法：新增 `per_company_source_name()` 函数，年报类型时自动拆为 `<公司> <报告名> baseline <日期>` 独立 source note。batch note 只作批次清单，不作 evidence source。
+
+- **[2026-06-23] entity 页 key_data 和一句话定位留空，baseline 对后续分析帮助弱。**
+  根因：writer 不自动从 raw JSON 提取营收/净利润等财务数据，也不从 industry+main_business 生成定位。
+  做法：新增 `extract_key_data_from_raw()` 自动抽取营收+归属净利润；新增 `generate_one_liner()` 从 main_business+industry 生成朴素定位。
+
+- **[2026-06-23] 完成闸门缺少 source 追溯审计步骤。**
+  根因：`check_relations_integrity.py` 只检查 JSON 格式完整性，不验证 source note 的公司归属和 raw_traces 指向。
+  做法：新增 `scripts/audit_missing_evidence_sources.py` 作为第 7 步闸门，检查每个 entity 的 source note 存在性、company 字段一致性、raw_traces 可达性。
+
 ## 批量操作
 
 - **[2026-05-08] 日历选择器月份导航最大迭代次数不够。**
