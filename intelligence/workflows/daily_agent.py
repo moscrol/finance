@@ -68,6 +68,7 @@ def _paths_from_options(options: DailyAgentOptions) -> ProjectPaths:
         finance_root=Path(options.finance_root).expanduser() if options.finance_root else defaults.finance_root,
         knowledge_wiki=Path(options.kb_wiki).expanduser() if options.kb_wiki else defaults.knowledge_wiki,
         finance_site=defaults.finance_site,
+        market_snapshot_dir=defaults.market_snapshot_dir,
     )
 
 

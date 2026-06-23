@@ -138,7 +138,7 @@ class DailyAgentTest(unittest.TestCase):
         (relations / "catalyst_calendar.json").write_text("{}", encoding="utf-8")
         (relations / "mention_frequency.json").write_text("{}", encoding="utf-8")
         (sources / "液冷服务器深度报告.md").write_text("# source\n", encoding="utf-8")
-        return ProjectPaths(finance_root=finance, knowledge_wiki=wiki, finance_site=root / "site")
+        return ProjectPaths(finance_root=finance, knowledge_wiki=wiki, finance_site=root / "site", market_snapshot_dir=root / "snapshot")
 
     def test_daily_agent_summarizes_daily_surfaces_and_logic_routes(self):
         with tempfile.TemporaryDirectory() as tmp:

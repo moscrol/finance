@@ -346,6 +346,7 @@ def paths_from_args(args: argparse.Namespace) -> ProjectPaths:
         finance_root=finance_root,
         knowledge_wiki=knowledge_wiki,
         finance_site=paths.finance_site,
+        market_snapshot_dir=paths.market_snapshot_dir,
     )
 
 

@@ -43,6 +43,7 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             finance_root=paths.finance_root,
             knowledge_wiki=Path(options.kb_wiki).expanduser(),
             finance_site=paths.finance_site,
+            market_snapshot_dir=paths.market_snapshot_dir,
         )
     date = options.date
     exports = paths.market_exports
