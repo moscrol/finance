@@ -50,6 +50,9 @@ class DailyAgentTest(unittest.TestCase):
                             "priority_score": 70,
                             "trigger_types": ["double_red"],
                             "market_evidence": {
+                                "sector_metrics": {"pct_chg": 1.2, "diff_ratio": 8.0, "amount": 120.0},
+                                "limit_heat": {"limit_up_count": 1},
+                                "new_high_direction": {"high_count": 1},
                                 "strong_stocks": [
                                     {"stock_name": "强瑞技术", "stock_ts_code": "301128.SZ", "pct_chg": 8.0}
                                 ]
@@ -71,8 +74,11 @@ class DailyAgentTest(unittest.TestCase):
                             "market_theme": "液冷服务器",
                             "canonical_concept": "液冷服务器",
                             "priority_score": 88,
-                            "trigger_types": ["double_red"],
+                            "trigger_types": ["double_red", "limit_heat"],
                             "market_evidence": {
+                                "sector_metrics": {"pct_chg": 2.4, "diff_ratio": 18.0, "amount": 180.0},
+                                "limit_heat": {"limit_up_count": 2},
+                                "new_high_direction": {"high_count": 1},
                                 "strong_stocks": [
                                     {"stock_name": "强瑞技术", "stock_ts_code": "301128.SZ", "pct_chg": 12.3}
                                 ]
@@ -192,7 +198,10 @@ class DailyAgentTest(unittest.TestCase):
             self.assertEqual(card["结构化检查"]["概念"], "已命中")
             self.assertIn("生命周期", row)
             self.assertEqual(row["生命周期"]["生命周期阶段"], "升温验证")
+            self.assertIn("盘面验证", row)
+            self.assertEqual(row["盘面验证"]["盘面验证强度"], "中等验证")
             self.assertEqual(card["生命周期"]["生命周期阶段"], "升温验证")
+            self.assertEqual(card["盘面验证"]["盘面验证强度"], "中等验证")
             self.assertEqual(card["证据裁判"]["证据状态"], "能力栈候选")
             self.assertIn("research_queue", report)
             self.assertEqual(report["research_queue"]["summary"]["today_find_official_evidence"], 1)
@@ -206,6 +215,7 @@ class DailyAgentTest(unittest.TestCase):
             self.assertIn("## 逻辑证据卡", markdown)
             self.assertIn("## 今日研究任务队列", markdown)
             self.assertIn("今日该找公告/调研/订单", markdown)
+            self.assertIn("盘面验证：中等验证", markdown)
             self.assertIn("结构化：概念=已命中", markdown)
             self.assertIn("生命周期：升温验证", markdown)
             self.assertIn("证据裁判：能力栈候选", markdown)
@@ -215,6 +225,8 @@ class DailyAgentTest(unittest.TestCase):
             self.assertIn("马上看：旧逻辑唤醒", html)
             self.assertIn("今日研究任务队列", html)
             self.assertIn("今日该找公告/调研/订单", html)
+            self.assertIn("盘面验证", html)
+            self.assertIn("中等验证", html)
             self.assertIn("需要回补：概念 / 公司 / 证据 / 来源", html)
             self.assertIn("逻辑证据卡", html)
             self.assertIn("生命周期", html)
