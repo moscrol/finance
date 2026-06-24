@@ -32,6 +32,14 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
 - **每模块审计**：写完用 `check_daily_review_data.py` 或行数查询确认，再进下一模块。
 - **每轮必记 runlog**：跑完把每个模块的 状态/耗时/走了哪条路径 追加到
   `state/runlog.md`，顺的路径记住，坑的路径下次规避。
+- **必须用编排层 run_review_sync.py**：不要手动逐步跑 sync-* 命令，参数极易搞错
+  （如 sync-stock-daily --refresh 默认 offset=180 ≈ 90min）。编排层自带正确参数 + 超时 + 兜底。
+- **超时后检查残留进程再起新任务**：`ps aux | grep market_feature_store | grep -v grep`
+  确认 DuckDB 锁已释放，否则新写操作会报 Conflicting lock。
+- **Devin 远程场景必须 nohup 后台**：通过 Cloudflare 隧道跑 ≥ 100s 的命令一律
+  `nohup python3 -u ... > /tmp/bf/<log>.log 2>&1 &`，然后轮询日志。
+- **agent-daily 是独立步骤**：不在 evolve_daily.sh 中，evolve 跑完后必须单独执行
+  `python3 -m intelligence.cli agent-daily --date D`，否则驾驶台缺 Agent 简报。
 
 ## Git 安全
 
@@ -142,6 +150,41 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
   两套界面各自独立。若未来要让 cockpit 也用暗色主题，需重写 FALLBACK_CSS + EXTRA_CSS
   的 var 名映射。
 
+### Devin 远程执行专用坑（通过 Cloudflare 隧道 rx.py 跑时）
+
+- **Cloudflare 524 超时 = 必须 nohup**：隧道对单次请求 ~100s 超时（rx.py +60s overhead ≈ 160s），
+  超过就返回 524。**所有长命令（run_review_sync.py、daily-full、evolve_daily.sh）必须 nohup 后台模式**：
+  ```bash
+  python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && nohup python3 -u skills/daily-full-review/scripts/run_review_sync.py --date D > /tmp/bf/review_sync.log 2>&1 & echo PID=\$!"
+  # 轮询：python3 rx.py -- "tail -30 /tmp/bf/review_sync.log"
+  # 检活：python3 rx.py -- "ps -p <PID> -o pid,etime,command"
+  ```
+
+- **rx.py 524 后 Mac 进程不会死**：Cloudflare 超时断连，但 Mac 端子进程仍在后台跑且持有 DuckDB 写锁。
+  **起新写操作前必须 `ps aux | grep market_feature_store | grep -v grep` 检查残留进程**。
+  盲目重启会导致 DuckDB 锁冲突（"Conflicting lock"），两个进程互相卡死。
+
+- **Python 输出缓冲 + nohup = 日志不刷新**：macOS nohup stdout 全缓冲，看不到实时进度。
+  **必须用 `python3 -u`**（unbuffered）。即便如此也建议同时查 DB 行数确认进度：
+  ```bash
+  python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 -c \"from market_feature_store.db import connect; c=connect(read_only=True); print(c.execute('SELECT COUNT(*) FROM fact_sector_stock_daily WHERE trade_date=?',['D']).fetchone())\""
+  ```
+
+- **不要手动逐步跑 sync、必须用编排器**：手动跑单步极易用错参数（如 `sync-stock-daily --refresh`
+  默认 offset=180，遍历 5000+ 股票 ≈ 90min；编排器用 offset=5 + only_missing=True，几分钟完成）。
+  **永远先跑 `run_review_sync.py --date D`**，它已内置正确参数、逐模块超时、自动兜底。
+
+- **agent-daily 不在 evolve_daily.sh 中**：evolve 只有 8 步（generate→validate→log→theme→backfill→review→audit→suggest）。
+  agent-daily 是独立命令 `python3 -m intelligence.cli agent-daily --date D`，
+  必须在 evolve 后单独跑，否则驾驶台不会显示 "Agent 简报" 标签。
+  完整后置流程：evolve_daily.sh → agent-daily → render_cockpit.py（重渲染）。
+
+- **Token 编码 U+2028/U+2029**：macOS 环境变量可能尾部带 Unicode 行分隔符，导致 hmac 校验失败返回 401。
+  rx.py 必须 `TOKEN = os.environ.get("CC_REMOTE_EXEC_TOKEN","").strip().strip("\u2028\u2029")`。
+
+- **exec service hmac bug（Python 3.9）**：`/Users/lbq/.cc-exec/server.py` 的 `hmac.compare_digest()`
+  在 Cloudflare 转发的非 ASCII header 下崩溃。已修复为 `.encode("utf-8","replace")`。
+
 ## 后置环节（同步完成后必做）
 
 全量同步 + daily-review 完成后，还需完成以下渲染步骤才算"驾驶台可用"：
@@ -155,8 +198,10 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
 | 5 | 策略一矩阵 | 走 `skills/strategy1-matrix` 流程 | 非自动，需 agent 判断 T1/T2/OBS |
 | 6 | 机构胜率 | `python3 skills/opinion-cross/scripts/render_winrate_html.py --vault <KB_WIKI> --date D` | KB_WIKI = 知识库/wiki |
 | 7 | 晨会简报 | `python3 <KB>/skills/morning-briefing/scripts/render_briefing_html.py D --vault <KB_WIKI>` | 需源 md 存在 |
-| 8 | 策略工作台 | `python3 scripts/render_review_workbench.py` | 聚合所有 daily + matrix |
-| 9 | 驾驶台 cockpit | `python3 scripts/render_cockpit.py --kb-briefings-dir <KB>/dashboard/briefings` | **必须传正确路径** |
+| 8 | 进化流水线 8步 | `bash scripts/evolve_daily.sh D` | 不加 --force 除非数据有缺口 |
+| 9 | Agent 每日简报 | `python3 -m intelligence.cli agent-daily --date D` | **不在 evolve 中，必须单独跑** |
+| 10 | 策略工作台 | `python3 scripts/render_review_workbench.py` | 聚合所有 daily + matrix |
+| 11 | 驾驶台 cockpit | `python3 scripts/render_cockpit.py --kb-briefings-dir <KB>/dashboard/briefings` | **必须传正确路径** |
 
 > **KB 路径**：`/Users/lbq/Desktop/c c/知识库`，KB_WIKI = `知识库/wiki`
 

@@ -120,3 +120,39 @@ Notes:
 | 机构胜率缺 6.22 | render_winrate_html 未被调用 | --vault 知识库/wiki --date 2026-06-22 |
 
 修复后重新 daily-review + render_daily_review_html → 111KB，0处"暂无"。
+
+## 2026-06-24 (run 2026-06-24, Devin remote via rx.py)
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 | - |
+| sectors | ok | ~5 | sync-sectors (fupanhui) |
+| market-overview | ok | ~15 | sync-market-overview (fupanhui) |
+| market-daily | ok | ~5 | sync-market-daily (feishu) |
+| index-daily | ok | ~8 | sync-index-daily (akshare) |
+| sw-l1-daily | ok | ~45 | sync-sw-l1-daily (akshare, 31 rows) |
+| market-strength | ok | ~12 | sync-market-strength (fupanhui) |
+| market-deviation | ok | - | sh_week_ma=4115.74 dev=-0.12% |
+| sector-daily | ok | ~20 | sync-sector-daily (224 sectors) |
+| sector-stocks | partial | ~20min | 213/224 sectors; fupanhui 逐板块慢 + Cloudflare 524 导致多次重试 |
+| limit-heat | ok | ~3min | 154 heat + 670 stock |
+| stock-high | ok | ~15 | 404 rows |
+| limit-advance | ok | ~10 | 12 rows |
+| stock-daily | ok | ~1 | fill-stock-daily-fallback (东财 502, mootdx 太慢弃用), 2169 rows |
+| sector-resonance | ok | ~10 | sync-sector-resonance (feishu) |
+| quality-gate | COMPLETE | - | check_daily_review_data.py 全绿 |
+| daily-review | ok | ~3 | md + png (零占位符) |
+| daily-review-html | ok | <1 | 94.7KB |
+| evolve 8步 | ok | ~2min | via evolve_daily.sh, S1[T1CORE6=6] S3[ALL=3] S4[A=6 B=6] |
+| agent-daily | ok | ~30 | intelligence.cli agent-daily, 14.9KB HTML |
+| cockpit | ok | <1 | render_cockpit.py, daily=17 |
+| workbench | ok | <1 | render_review_workbench.py |
+
+> 坑总结（2026-06-24 新增，已写入 SKILL.md 防坑点）：
+> 1. 没用 run_review_sync.py 编排器，手动逐步跑 sync，用错参数（sync-stock-daily --refresh offset=180 ≈ 90min）。
+> 2. Cloudflare 524 超时后 Mac 进程残留持 DuckDB 锁，盲目重启新进程导致锁冲突。
+> 3. 东财快照 API 全局 502，mootdx 全A太慢 → 最终 fill-stock-daily-fallback 秒级解决。
+> 4. nohup + Python stdout 缓冲 → 日志看不到进度，需 python3 -u。
+> 5. 漏跑 agent-daily（不在 evolve_daily.sh），导致驾驶台缺 "Agent 简报"。
+> 6. Token U+2028 编码问题 + exec service hmac Python 3.9 bug → 隧道 401/502。
+
