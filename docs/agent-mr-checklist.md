@@ -4,6 +4,8 @@
 > **原则**：先把研究员阶段的地基（数据治理、防泄露、留痕、可复现）夯实，地基稳了才有资格往操盘手走。
 > **评级**：✅ 已具备　🟡 部分具备 / 待加固　⬜ 尚未做（研究员阶段就该补）　🔒 操盘手阶段才需要（现在可不做，但要预留）
 > 日期：2026-06-25
+>
+> **进度更新（2026-06-25 收尾）**：研究员阶段 MR-1/2/5/6/7 + MR-3 预留接口**全部落地**，每条红线均配只读审计脚本（见文末「五、落地实现」）。下表「现状」列已更新为落地后状态。所有实现在知识库仓 `knowledge-base-private` 分支 `data-source/pit-timestamp`。
 
 ---
 
@@ -11,13 +13,13 @@
 
 | MR | 主题 | 研究员阶段是否关键 | 现状 |
 |----|------|:---:|:---:|
-| MR-1 | 数据与股票池构建 + 时间戳 | ★关键 | 🟡 |
-| MR-2 | 时间一致划分 / 防泄露 | ★关键 | 🟡 |
-| MR-3 | 动作语义（订单/权重/时点/价格） | 操盘手才需 | 🔒 |
-| MR-4 | 执行与成本假设（费用/滑点/冲击） | 操盘手才需 | 🔒 |
-| MR-5 | 泄露审计 | ★关键 | 🟡 |
-| MR-6 | 代码/数据/种子/不可变日志（复现） | ★关键 | 🟡 |
-| MR-7 | 多智能体角色/权限/消息协议/消融 | 部分相关 | 🟡 |
+| MR-1 | 数据与股票池构建 + 时间戳 | ★关键 | ✅ 已落地（时间戳治理+批量回填+池规则） |
+| MR-2 | 时间一致划分 / 防泄露 | ★关键 | ✅ 已落地（PIT 截断库+CLI） |
+| MR-3 | 动作语义（订单/权重/时点/价格） | 操盘手才需 | ✅ 预留接口（schema+校验，不下单） |
+| MR-4 | 执行与成本假设（费用/滑点/冲击） | 操盘手才需 | 🔒 操盘手阶段再做 |
+| MR-5 | 泄露审计 | ★关键 | ✅ 已落地（回填禁运红线+审计） |
+| MR-6 | 代码/数据/种子/不可变日志（复现） | ★关键 | ✅ 已落地（复现三件套） |
+| MR-7 | 多智能体角色/权限/消息协议/消融 | 部分相关 | ✅ 已落地（权限矩阵+静态审计） |
 
 > 研究员阶段的「地基四件套」= **MR-1 / MR-2 / MR-5 / MR-6**。这四条是将来能不能升级操盘手的承重墙，现在就要做实。MR-3 / MR-4 是执行层，现在可以只预留接口、不实现。
 
@@ -115,6 +117,39 @@
 5. **【MR-1】池规则 + 幸存者**：文档化股票池构建规则，标注历史回溯是否含退市标的。
 6. **【MR-7】权限矩阵**：给每个模块写明「可读范围 / 可写目标」。
 7. **【MR-3 预留】结构化建议 schema**：把「自然语言观点」逐步转成「建议字段（标的/方向/时点/理由/证据ID）」，零成本为升级铺路。
+
+---
+
+## 四·补、落地实现（2026-06-25，研究员阶段地基已完整）
+
+> 实现仓 / 分支：`knowledge-base-private` @ `data-source/pit-timestamp`。红线全部文档化在该仓 `docs/conventions.md`，每条配一个**只读**审计脚本，开工自检不再靠肉眼。本仓（finance）侧的入库红线（§证据分层 L1-L4）保持不变，与 MR 的时间/复现/权限维度正交互补。
+
+| 维度 | 新红线 | 只读自检脚本（`knowledge-base-private/scripts/`） |
+|------|--------|------|
+| 时间戳（MR-1） | 来源页必带 `publish_time`（产生日）/ `available_time`（可得日，=max(发布,入库)，就晚不就早） | `audit_pit_timestamps.py` |
+| 防泄露（MR-5） | 回填禁运：证据不得回填到早于其发布日的日期，违例夹回并标记 | `audit_backfill_embargo.py` |
+| PIT 截断（MR-2） | 决策日 T 的分析只用 `available_time<=T` 的来源；无日期默认保守屏蔽 | `pit_truncate.py`（库 `pit_lib.py`） |
+| 复现（MR-6） | 产物记 commit/数据快照/model+prompt 版本；`wiki/log.md` 只追加，改写即硬失败 | `run_meta.py` / `audit_log_integrity.py` |
+| 池偏差（MR-1） | mention-conditioned 池非完整 universe；全池排序/胜率类结论必须声明；退市只改状态不删页 | `audit_pool_universe.py` |
+| 权限（MR-7） | 只读类（`audit_*`/`query_*`/`pit_*`）禁写策展层（只能落 `wiki/raw/`）；正文 writer 须过门控；log 只追加 | `audit_module_permissions.py` |
+| 动作语义（MR-3 预留） | 建议必须留痕（`thesis_refs`≥1）+ PIT 自洽；操盘手字段（权重/订单/成本）研究员阶段必须留空，填了即报错 | `suggestion_schema.py` |
+
+**开工自检命令清单**（知识库仓，纯只读，可随时复跑）：
+```bash
+cd knowledge-base-private
+python3 scripts/audit_pit_timestamps.py          # 来源页 PIT 字段缺口/倒挂
+python3 scripts/audit_backfill_embargo.py        # 回填禁运违例
+python3 scripts/pit_truncate.py --as-of 2026-03-01 --keyword 液冷 --summary  # PIT 截断演示
+python3 scripts/audit_log_integrity.py --strict  # log 防改写（改写=退出码1）
+python3 scripts/audit_pool_universe.py           # 池幸存者偏差画像
+python3 scripts/audit_module_permissions.py      # 模块越权静态扫描（越权=退出码1）
+python3 scripts/suggestion_schema.py --example    # 结构化建议样例
+python3 scripts/suggestion_schema.py --validate <file>  # 校验建议（违例=退出码1）
+```
+
+**落地基线结论**：来源页 PIT 字段 0→2411（30 条前瞻催化软告警）；249 payload 补齐 `available_time`、0 禁运违例；123 个脚本 0 越权写策展层；log.md 追加式完整性通过；池上市状态 0/1956 可见（核心盲点已写进红线、禁止当完整 universe 用）。
+
+**升级操盘手的路径已铺好**：MR-3 的 `phase: researcher → trader`、填实预留字段、补 MR-3/MR-4 动作语义与成本模型即可，无需重构数据结构。
 
 ---
 
