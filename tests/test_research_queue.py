@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import unittest
 
 from intelligence.services.research_queue import build_research_queue
