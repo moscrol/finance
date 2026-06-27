@@ -1,6 +1,6 @@
 {
   "date": "2026-06-11",
-  "generated_at": "2026-06-22T11:08:04+08:00",
+  "generated_at": "2026-06-23T10:29:02+08:00",
   "paths": {
     "finance_root": "/Users/a77/Desktop/c c/金融",
     "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
@@ -8,7 +8,7 @@
   },
   "ledger": {
     "date": "2026-06-11",
-    "generated_at": "2026-06-22T11:07:17",
+    "generated_at": "2026-06-23T10:28:10",
     "paths": {
       "finance_root": "/Users/a77/Desktop/c c/金融",
       "knowledge_wiki": "/Users/a77/Desktop/c c/知识库/wiki",
@@ -96,7 +96,7 @@
         "raw_root": "/Users/a77/Desktop/c c/知识库/wiki/raw/ima-stock/ingested/2026-06-11",
         "raw_md_count": 0,
         "incoming_uningested_md_count": 0,
-        "done_folder_md_count": 755,
+        "done_folder_md_count": 1257,
         "manual_review_md_count": 0,
         "folders": {
           "inbox": "/Users/a77/Desktop/c c/知识库/未入库",
@@ -145,12 +145,12 @@
     "debts": {
       "status": "WARN",
       "missing_concepts": {
-        "count": 446,
+        "count": 0,
         "path": "/Users/a77/Desktop/c c/知识库/wiki/raw/theme-radar/missing-concept-audit.json",
         "error": null
       },
       "missing_sources": {
-        "count": 21,
+        "count": 0,
         "path": "/Users/a77/Desktop/c c/知识库/wiki/raw/theme-radar/missing-evidence-source-audit.json",
         "error": null
       },
@@ -163,8 +163,6 @@
     "status": "WARN",
     "next_actions": [
       "Run or resume finance daily workflow for the date; market review outputs are incomplete.",
-      "Backfill source manifests for missing evidence sources before trusting traceability metrics.",
-      "Run concept normalization/backfill queue for missing concepts; do not solve this with blind DeepDive.",
       "Prioritize IMA stock cards for uncovered stock entities based on market activity, not alphabetically."
     ]
   },
@@ -183,10 +181,9 @@
         "placeholder_market_theme": 1,
         "missing_concept": 2,
         "missing_evidence": 2,
-        "missing_entity_exposure": 1,
-        "missing_source_trace": 1
+        "missing_entity_exposure": 1
       },
-      "gap_queue_count": 4,
+      "gap_queue_count": 3,
       "old_logic_wakeup_count": 7
     },
     "gap_queue": [
@@ -269,35 +266,6 @@
         "next_actions": [
           "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
           "等题材归因明确后，再映射到真实概念或标记为噪音。"
-        ]
-      },
-      {
-        "date": "2026-06-11",
-        "query": "先进封装",
-        "classification": "old_logic_wakeup",
-        "priority": 126.36,
-        "market_priority_score": 91.36,
-        "data_gaps": [
-          "missing_source_trace"
-        ],
-        "matched_theme": "先进封装",
-        "trigger_types": [
-          "limit_heat",
-          "new_high_direction",
-          "new_high_cluster",
-          "capacity_industry"
-        ],
-        "strong_stocks": [
-          "中巨芯",
-          "有研粉材",
-          "兴福电子",
-          "雅克科技",
-          "炬光科技"
-        ],
-        "next_actions": [
-          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
-          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
-          "优先补 source/raw trace，避免证据不可追溯。"
         ]
       }
     ],
@@ -470,6 +438,17 @@
             "score": 10
           },
           {
+            "company": "凤凰光学",
+            "ticker": "600071",
+            "concept": "光刻胶",
+            "role": "半导体制造级、精密超高解像度光刻镜头精密抛光及在研平台",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
             "company": "华特气体",
             "ticker": "688268",
             "concept": "光刻胶",
@@ -477,17 +456,6 @@
             "strength": "",
             "confidence": "",
             "evidence_layer": "",
-            "source": "",
-            "score": 10
-          },
-          {
-            "company": "华虹宏力",
-            "ticker": "688347",
-            "concept": "光刻胶",
-            "role": "特色工艺晶圆代工、12英寸成熟制程扩产、华力微收购并表",
-            "strength": "related",
-            "confidence": "high",
-            "evidence_layer": "L1_L3_candidate",
             "source": "",
             "score": 10
           }
@@ -500,6 +468,14 @@
             "source_date": "",
             "target": "光刻胶",
             "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "IMA 2026-06-22光刻胶抽取报告：对日管制、KrF/ArF低国产化率、鼎龙/上海新阳/南大光电/彤程新材等公司进展构成当前光刻胶题材验证链；大多数公司级说法来自研报或投研资料，需人工复核。",
+            "source": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+            "source_date": "2026-06-22",
+            "target": "光刻胶",
+            "target_type": "concept"
           }
         ],
         "source_traces": [
@@ -508,6 +484,12 @@
             "source_name": "光刻胶产业新变化与新格局深度研究报告",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶产业新变化与新格局深度研究报告.md"
+          },
+          {
+            "source": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+            "source_name": "光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622.md"
           }
         ],
         "data_gaps": [],
@@ -616,6 +598,10 @@
             "score": 10
           },
           {
+            "concept": "钨钼小金属",
+            "score": 5
+          },
+          {
             "concept": "二氧化锆",
             "score": 2
           },
@@ -629,10 +615,6 @@
           },
           {
             "concept": "战略金属",
-            "score": 2
-          },
-          {
-            "concept": "电池回收",
             "score": 2
           }
         ],
@@ -667,6 +649,17 @@
             "strength": "related",
             "confidence": "",
             "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中金岭南",
+            "ticker": "000060",
+            "concept": "小金属",
+            "role": "电镓金属提取和销售企业",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
             "source": "",
             "score": 10
           },
@@ -708,17 +701,6 @@
             "ticker": "601020",
             "concept": "小金属",
             "role": "锑资源",
-            "strength": "core",
-            "confidence": "",
-            "evidence_layer": "",
-            "source": "",
-            "score": 10
-          },
-          {
-            "company": "华锡有色",
-            "ticker": "600301",
-            "concept": "小金属",
-            "role": "锑/锡资源端",
             "strength": "core",
             "confidence": "",
             "evidence_layer": "",
@@ -843,6 +825,10 @@
             "score": 10
           },
           {
+            "concept": "湿电子化学品",
+            "score": 5
+          },
+          {
             "concept": "AIPCB专用油墨",
             "score": 2
           },
@@ -856,10 +842,6 @@
           },
           {
             "concept": "i线光刻胶",
-            "score": 2
-          },
-          {
-            "concept": "六氟化钨",
             "score": 2
           }
         ],
@@ -1274,6 +1256,10 @@
             "score": 2
           },
           {
+            "concept": "化肥",
+            "score": 2
+          },
+          {
             "concept": "周期资源",
             "score": 2
           },
@@ -1283,10 +1269,6 @@
           },
           {
             "concept": "复合肥",
-            "score": 2
-          },
-          {
-            "concept": "磷酸铁锂",
             "score": 2
           }
         ],
@@ -1497,7 +1479,7 @@
           {
             "company": "铜陵有色金属",
             "ticker": "000630",
-            "concept": "新能源材料",
+            "concept": "AIDC发电设备",
             "role": "铜矿开采、冶炼及铜加工业务",
             "strength": "related",
             "confidence": "high",
@@ -1694,23 +1676,23 @@
             "score": 10
           },
           {
+            "concept": "AI基础设施与国产算力",
+            "score": 2
+          },
+          {
+            "concept": "AI存储",
+            "score": 2
+          },
+          {
             "concept": "AI手机",
             "score": 2
           },
           {
-            "concept": "HBM（高带宽存储）",
+            "concept": "AI芯片",
             "score": 2
           },
           {
-            "concept": "六氟化钨",
-            "score": 2
-          },
-          {
-            "concept": "半导体",
-            "score": 2
-          },
-          {
-            "concept": "半导体材料",
+            "concept": "CPU",
             "score": 2
           }
         ],
@@ -1763,10 +1745,10 @@
             "company": "东芯股份",
             "ticker": "688110",
             "concept": "存储芯片",
-            "role": "中小容量存储芯片供应商，联营GPU(上海励算/砺算)",
-            "strength": "related",
-            "confidence": "medium",
-            "evidence_layer": "L1_L3_candidate",
+            "role": "中小容量存储(NOR/NAND/DRAM)+联营砺算GPU",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L1",
             "source": "",
             "score": 10
           },
@@ -1812,6 +1794,53 @@
             "source_date": "",
             "target": "存储芯片",
             "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "东北计算机闪迪&西数业绩点评、0505 专家纪要；L3-L4。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0505卖方观点合集]]",
+            "source_date": "2026-05-05",
+            "source_quality": "broker_research_high",
+            "target": "存储芯片",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0501卖方观点合集（中泰电子·西部数据 FY26Q3 + 天风海外科技·闪迪 SNDK/NBM 长协）；存储覆盖 45 家属透支区确认，长协/RPO 偏硬但赛道拥挤、海外标的进观察列表。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0501卖方观点合集]]",
+            "source_date": "2026-05-01",
+            "source_quality": "broker_research_high",
+            "target": "存储芯片",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0502卖方观点合集（闪迪长协重塑存储周期 + CPU&DRAM 内存稀缺 + 高盛苹果内存成本上涨）；存储覆盖 45 家属透支区，长协/预付款/金融担保偏硬但赛道拥挤，海外标的进观察列表。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0502卖方观点合集]]",
+            "source_date": "2026-05-02",
+            "source_quality": "broker_research_high",
+            "target": "存储芯片",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0504卖方观点合集（苹果&SoC&存储 + 高盛韩国收盘三星海力士 + SRAM英伟达收购Groq）。存储覆盖45家🔴透支区，内存涨价为主线确认+TrendForce偏硬价格信号，海外标观察列表。",
+            "source": "[[0504卖方观点合集]]",
+            "source_date": "2026-05-04",
+            "target": "存储芯片",
+            "target_type": "concept"
           }
         ],
         "source_traces": [
@@ -1820,6 +1849,30 @@
             "source_name": "20260521 市场逻辑精选",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          },
+          {
+            "source": "[[0505卖方观点合集]]",
+            "source_name": "0505卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0505卖方观点合集.md"
+          },
+          {
+            "source": "[[0501卖方观点合集]]",
+            "source_name": "0501卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0501卖方观点合集.md"
+          },
+          {
+            "source": "[[0502卖方观点合集]]",
+            "source_name": "0502卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0502卖方观点合集.md"
+          },
+          {
+            "source": "[[0504卖方观点合集]]",
+            "source_name": "0504卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0504卖方观点合集.md"
           }
         ],
         "data_gaps": [],
@@ -1833,7 +1886,7 @@
         "query": "先进封装",
         "date": "2026-06-11",
         "classification": "old_logic_wakeup",
-        "confidence": 0.9,
+        "confidence": 0.95,
         "market_found": true,
         "matched_theme": "先进封装",
         "market_theme": "先进封装",
@@ -2042,6 +2095,27 @@
             "source_date": "2026-06-02",
             "target": "先进封装",
             "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "晚间卖方研报汇总_20260613 · 玻璃基板【长江机械】",
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_date": "2026-06-13",
+            "target": "先进封装",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0506卖方观点合集（锡焊膏卖方观点）；价格/空间为卖方测算，A 股 additive-only。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0506卖方观点合集]]",
+            "source_date": "2026-05-06",
+            "source_quality": "broker_research_high",
+            "target": "先进封装",
+            "target_type": "concept",
+            "update_type": "graph_only"
           }
         ],
         "source_traces": [
@@ -2054,7 +2128,7 @@
           {
             "source": "[[IMA canonical: 先进封装]]",
             "source_name": "IMA canonical: 先进封装",
-            "source_exists": false,
+            "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/IMA canonical: 先进封装.md"
           },
           {
@@ -2062,15 +2136,24 @@
             "source_name": "ConceptBridge_P2_补链_20260602",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/ConceptBridge_P2_补链_20260602.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_name": "晚间卖方研报汇总_20260613",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/晚间卖方研报汇总_20260613.md"
+          },
+          {
+            "source": "[[0506卖方观点合集]]",
+            "source_name": "0506卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0506卖方观点合集.md"
           }
         ],
-        "data_gaps": [
-          "missing_source_trace"
-        ],
+        "data_gaps": [],
         "next_actions": [
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
-          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
-          "优先补 source/raw trace，避免证据不可追溯。"
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
         "warnings": []
       }
@@ -2103,8 +2186,8 @@
         "structured_counts": {
           "concept": 6,
           "company_exposure": 8,
-          "evidence": 1,
-          "source_trace": 1,
+          "evidence": 2,
+          "source_trace": 2,
           "missing_source_trace": 0
         },
         "source_traces": [
@@ -2113,6 +2196,12 @@
             "source_name": "光刻胶产业新变化与新格局深度研究报告",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶产业新变化与新格局深度研究报告.md"
+          },
+          {
+            "source": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+            "source_name": "光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622.md"
           }
         ],
         "data_gaps": [],
@@ -2121,6 +2210,176 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "光刻胶",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[光刻胶产业新变化与新格局深度研究报告]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+              "来源质量": "-",
+              "摘要": "IMA 2026-06-22光刻胶抽取报告：对日管制、KrF/ArF低国产化率、鼎龙/上海新阳/南大光电/彤程新材等公司进展构成当前光刻胶题材验证链；大多数公司级说法来自研报或投研资料，需人工复核。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "光刻胶",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "连续升温",
+          "变化原因": "连续 3 日出现。priority 上升 4.48。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-09",
+            "2026-06-10",
+            "2026-06-11"
+          ],
+          "连续出现天数": 3,
+          "priority变化": 4.48,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 184.57,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+        },
+        "生命周期": {
+          "逻辑": "光刻胶",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "连续升温",
+          "变化原因": "连续 3 日出现。priority 上升 4.48。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-09",
+            "2026-06-10",
+            "2026-06-11"
+          ],
+          "连续出现天数": 3,
+          "priority变化": 4.48,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 184.57,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 5 只，新高 14 只，priority 变化 4.48。",
+          "当前盘面": {
+            "priority": 184.57,
+            "触发信号数": 5,
+            "涨停数": 5,
+            "新高数": 14,
+            "强势股数": 10,
+            "板块涨幅": 2.21,
+            "边际量": 31.59,
+            "成交额": 954.38,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 4.48,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 2,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+            "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+            "雅克科技｜涨幅10%｜成交75.05亿｜历史新高",
+            "南大光电｜涨幅8.08%｜成交82.15亿｜历史新高",
+            "彤程新材｜涨幅7.58%｜成交34.76亿｜3年新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 5 只，新高 14 只，priority 变化 4.48。",
+          "当前盘面": {
+            "priority": 184.57,
+            "触发信号数": 5,
+            "涨停数": 5,
+            "新高数": 14,
+            "强势股数": 10,
+            "板块涨幅": 2.21,
+            "边际量": 31.59,
+            "成交额": 954.38,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 4.48,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 2,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+            "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+            "雅克科技｜涨幅10%｜成交75.05亿｜历史新高",
+            "南大光电｜涨幅8.08%｜成交82.15亿｜历史新高",
+            "彤程新材｜涨幅7.58%｜成交34.76亿｜3年新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
         "semantic_rag_query": "光刻胶 光刻胶 华特气体 兴福电子 雅克科技",
         "semantic_rag_mode": "hybrid",
         "semantic_rag_status": "hit",
@@ -2190,10 +2449,116 @@
               "回溯状态": "已命中知识页，不等于原始出处"
             }
           ],
+          "证据裁判": {
+            "目标": "光刻胶",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[光刻胶产业新变化与新格局深度研究报告]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+                "来源质量": "-",
+                "摘要": "IMA 2026-06-22光刻胶抽取报告：对日管制、KrF/ArF低国产化率、鼎龙/上海新阳/南大光电/彤程新材等公司进展构成当前光刻胶题材验证链；大多数公司级说法来自研报或投研资料，需人工复核。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "光刻胶",
+            "生命周期阶段": "升温验证",
+            "阶段变化": "连续升温",
+            "变化原因": "连续 3 日出现。priority 上升 4.48。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-06-09",
+              "2026-06-10",
+              "2026-06-11"
+            ],
+            "连续出现天数": 3,
+            "priority变化": 4.48,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 184.57,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "capacity_industry",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 5 只，新高 14 只，priority 变化 4.48。",
+            "当前盘面": {
+              "priority": 184.57,
+              "触发信号数": 5,
+              "涨停数": 5,
+              "新高数": 14,
+              "强势股数": 10,
+              "板块涨幅": 2.21,
+              "边际量": 31.59,
+              "成交额": 954.38,
+              "容量前三": true
+            },
+            "边际变化": {
+              "priority变化": 4.48,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 2,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "capacity_industry",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+              "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+              "雅克科技｜涨幅10%｜成交75.05亿｜历史新高",
+              "南大光电｜涨幅8.08%｜成交82.15亿｜历史新高",
+              "彤程新材｜涨幅7.58%｜成交34.76亿｜3年新高"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
           "综合判断": "结构化和向量互相支持",
           "判断理由": "图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。",
           "缺口": [],
-          "下一步": "可以进入题材地图/深度研究，并抽查最相关命中材料。"
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
         }
       },
       {
@@ -2243,6 +2608,168 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "小金属",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=1, evidence_items=1, report_context_hits=0。"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[小金属_DeepDive_数据抽取_20260601]]",
+              "来源质量": "-",
+              "摘要": "出口管制升级、全球战略备库和AI/新能源/军工需求共同驱动钨、锑、锡、钼、锗、铟、钽等战略小金属从周期定价转向战略安全定价；价格、库存、供给配额和下游顺价是核心跟踪变量。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "小金属",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 163.23,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "生命周期": {
+          "逻辑": "小金属",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 163.23,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 7 只，新高 10 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 163.23,
+            "触发信号数": 4,
+            "涨停数": 7,
+            "新高数": 10,
+            "强势股数": 7,
+            "板块涨幅": 1.26,
+            "边际量": 21.24,
+            "成交额": 2065.82,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "云南锗业｜涨幅10%｜成交112.82亿",
+            "阿石创｜涨幅19.99%｜成交21.72亿｜3年新高",
+            "风华高科｜涨幅7.51%｜成交116.94亿｜历史新高",
+            "欧莱新材｜涨幅20.01%｜成交13.91亿｜历史新高",
+            "中钨高新｜涨幅6.93%｜成交102.58亿｜历史新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 7 只，新高 10 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 163.23,
+            "触发信号数": 4,
+            "涨停数": 7,
+            "新高数": 10,
+            "强势股数": 7,
+            "板块涨幅": 1.26,
+            "边际量": 21.24,
+            "成交额": 2065.82,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "云南锗业｜涨幅10%｜成交112.82亿",
+            "阿石创｜涨幅19.99%｜成交21.72亿｜3年新高",
+            "风华高科｜涨幅7.51%｜成交116.94亿｜历史新高",
+            "欧莱新材｜涨幅20.01%｜成交13.91亿｜历史新高",
+            "中钨高新｜涨幅6.93%｜成交102.58亿｜历史新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
         "semantic_rag_query": "小金属 小金属 云南锗业 阿石创 风华高科",
         "semantic_rag_mode": "hybrid",
         "semantic_rag_status": "hit",
@@ -2312,10 +2839,112 @@
               "回溯状态": "已命中知识页，不等于原始出处"
             }
           ],
+          "证据裁判": {
+            "目标": "小金属",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=1, evidence_items=1, report_context_hits=0。"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[小金属_DeepDive_数据抽取_20260601]]",
+                "来源质量": "-",
+                "摘要": "出口管制升级、全球战略备库和AI/新能源/军工需求共同驱动钨、锑、锡、钼、锗、铟、钽等战略小金属从周期定价转向战略安全定价；价格、库存、供给配额和下游顺价是核心跟踪变量。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "小金属",
+            "生命周期阶段": "旧逻辑唤醒",
+            "阶段变化": "旧材料唤醒",
+            "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-06-11"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 163.23,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 7 只，新高 10 只，priority 变化 0。",
+            "当前盘面": {
+              "priority": 163.23,
+              "触发信号数": 4,
+              "涨停数": 7,
+              "新高数": 10,
+              "强势股数": 7,
+              "板块涨幅": 1.26,
+              "边际量": 21.24,
+              "成交额": 2065.82,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "云南锗业｜涨幅10%｜成交112.82亿",
+              "阿石创｜涨幅19.99%｜成交21.72亿｜3年新高",
+              "风华高科｜涨幅7.51%｜成交116.94亿｜历史新高",
+              "欧莱新材｜涨幅20.01%｜成交13.91亿｜历史新高",
+              "中钨高新｜涨幅6.93%｜成交102.58亿｜历史新高"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
           "综合判断": "结构化和向量互相支持",
           "判断理由": "图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。",
           "缺口": [],
-          "下一步": "可以进入题材地图/深度研究，并抽查最相关命中材料。"
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
         }
       },
       {
@@ -2358,6 +2987,154 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "电子化学品",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=2, evidence_items=2, report_context_hits=0。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
+        "logic_lifecycle": {
+          "逻辑": "电子化学品",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 154.08,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "生命周期": {
+          "逻辑": "电子化学品",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 154.08,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 11 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 154.08,
+            "触发信号数": 3,
+            "涨停数": 0,
+            "新高数": 11,
+            "强势股数": 10,
+            "板块涨幅": 3.85,
+            "边际量": 18.24,
+            "成交额": 860.56,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "中船特气｜涨幅19.79%｜成交67.25亿｜历史新高",
+            "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+            "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+            "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+            "南大光电｜涨幅8.08%｜成交82.15亿｜历史新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 11 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 154.08,
+            "触发信号数": 3,
+            "涨停数": 0,
+            "新高数": 11,
+            "强势股数": 10,
+            "板块涨幅": 3.85,
+            "边际量": 18.24,
+            "成交额": 860.56,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "中船特气｜涨幅19.79%｜成交67.25亿｜历史新高",
+            "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+            "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+            "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+            "南大光电｜涨幅8.08%｜成交82.15亿｜历史新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
         "semantic_rag_query": "电子化学品 电子化学品 中船特气 中巨芯 华特气体",
         "semantic_rag_mode": "hybrid",
         "semantic_rag_status": "hit",
@@ -2365,7 +3142,7 @@
           {
             "title": "六氟化钨",
             "file_path": "wiki/concepts/六氟化钨.md",
-            "score": 0.516393,
+            "score": 0.524145,
             "excerpt": "# 六氟化钨 六氟化钨（WF6）是钨在半导体电子特气和先进制造中的重要应用方向，可用于半导体制造中的钨沉积等环节。 **一句话**：六氟化钨的题材核心是钨资源价格、半导体材料国产替代和电子特气供需缺口，但具体公司暴露需要公告或产品目录进一步核验。 ## 核心逻辑 - 图片稿将六氟化钨列为钨产业方向之一，与光伏钨丝、PCB微钻、军工与高端制造并列。 - 半导体制造扩产和国产替代可能拉动 WF6 需求",
             "via_neighbor": false
           },
@@ -2404,7 +3181,7 @@
               "类型": "概念页",
               "作用": "标准概念/别名证据",
               "路径": "wiki/concepts/六氟化钨.md",
-              "相关度": 0.5164,
+              "相关度": 0.5241,
               "摘录": "# 六氟化钨 六氟化钨（WF6）是钨在半导体电子特气和先进制造中的重要应用方向，可用于半导体制造中的钨沉积等环节。 **一句话**：六氟化钨的题材核心是钨资源价格、半导体材料国产替代和电子特气供需缺口，但具体公司暴露需要公告或产品目录进一步核验。 ## 核心逻辑 - 图片稿将六氟化钨列为钨产业方向之一，与光伏钨丝、PCB微钻、军工与高端制造并列。 - 半导体制造扩产和国产替代可能拉动 WF6 需求",
               "回溯状态": "已命中知识页，不等于原始出处"
             },
@@ -2427,10 +3204,100 @@
               "回溯状态": "已命中知识页，不等于原始出处"
             }
           ],
+          "证据裁判": {
+            "目标": "电子化学品",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=2, evidence_items=2, report_context_hits=0。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
+          "生命周期": {
+            "逻辑": "电子化学品",
+            "生命周期阶段": "新出现",
+            "阶段变化": "首次进入观察",
+            "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+            "观察窗口": [
+              "2026-06-11"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "盘面触发待解释",
+            "当前priority": 154.08,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 11 只，priority 变化 0。",
+            "当前盘面": {
+              "priority": 154.08,
+              "触发信号数": 3,
+              "涨停数": 0,
+              "新高数": 11,
+              "强势股数": 10,
+              "板块涨幅": 3.85,
+              "边际量": 18.24,
+              "成交额": 860.56,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "中船特气｜涨幅19.79%｜成交67.25亿｜历史新高",
+              "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+              "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+              "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+              "南大光电｜涨幅8.08%｜成交82.15亿｜历史新高"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
           "综合判断": "结构化和向量互相支持",
           "判断理由": "图谱/证据有命中，向量也找到了旧材料，可作为旧逻辑唤醒优先项。",
           "缺口": [],
-          "下一步": "可以进入题材地图/深度研究，并抽查最相关命中材料。"
+          "下一步": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
         }
       },
       {
@@ -2473,6 +3340,154 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "氟化工",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=4, evidence_items=5, report_context_hits=0。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
+        "logic_lifecycle": {
+          "逻辑": "氟化工",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 152.28,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "生命周期": {
+          "逻辑": "氟化工",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 152.28,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 9 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 152.28,
+            "触发信号数": 3,
+            "涨停数": 0,
+            "新高数": 9,
+            "强势股数": 10,
+            "板块涨幅": 3.02,
+            "边际量": 42.08,
+            "成交额": 999.91,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "中船特气｜涨幅19.79%｜成交67.25亿｜历史新高",
+            "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+            "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+            "云南锗业｜涨幅10%｜成交112.82亿",
+            "多氟多｜涨幅9.99%｜成交79.2亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 9 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 152.28,
+            "触发信号数": 3,
+            "涨停数": 0,
+            "新高数": 9,
+            "强势股数": 10,
+            "板块涨幅": 3.02,
+            "边际量": 42.08,
+            "成交额": 999.91,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "中船特气｜涨幅19.79%｜成交67.25亿｜历史新高",
+            "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+            "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+            "云南锗业｜涨幅10%｜成交112.82亿",
+            "多氟多｜涨幅9.99%｜成交79.2亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
         "semantic_evidence_card": {
           "标题": "旧逻辑证据卡：氟化工",
           "当前判断": "旧逻辑唤醒",
@@ -2488,10 +3503,100 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "氟化工",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=4, evidence_items=5, report_context_hits=0。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
+          "生命周期": {
+            "逻辑": "氟化工",
+            "生命周期阶段": "新出现",
+            "阶段变化": "首次进入观察",
+            "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+            "观察窗口": [
+              "2026-06-11"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "盘面触发待解释",
+            "当前priority": 152.28,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 9 只，priority 变化 0。",
+            "当前盘面": {
+              "priority": 152.28,
+              "触发信号数": 3,
+              "涨停数": 0,
+              "新高数": 9,
+              "强势股数": 10,
+              "板块涨幅": 3.02,
+              "边际量": 42.08,
+              "成交额": 999.91,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "中船特气｜涨幅19.79%｜成交67.25亿｜历史新高",
+              "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+              "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+              "云南锗业｜涨幅10%｜成交112.82亿",
+              "多氟多｜涨幅9.99%｜成交79.2亿"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
           "缺口": [],
-          "下一步": "题材地图 / 深度研究"
+          "下一步": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
         }
       },
       {
@@ -2541,6 +3646,168 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "磷化工",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=7, evidence_items=9, report_context_hits=1。"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[磷化工_DeepDive_数据抽取_20260601]]",
+              "来源质量": "-",
+              "摘要": "磷化工 Deep Dive 将磷矿石供需紧平衡、磷酸铁锂需求爆发、硫磺成本传导和磷肥出口政策作为四条主线：30%品位磷矿石价格约1000元/吨高位横盘，磷酸铁锂价格从约3万元/吨升至6.6万元/吨，硫磺价格上行推升湿法磷酸成本，出口配额/暂停与新能源需求共同影响磷矿平衡表。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "磷化工",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 145.98,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "生命周期": {
+          "逻辑": "磷化工",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 145.98,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 6 只，新高 5 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 145.98,
+            "触发信号数": 4,
+            "涨停数": 6,
+            "新高数": 5,
+            "强势股数": 10,
+            "板块涨幅": 2.03,
+            "边际量": 42.56,
+            "成交额": 572.96,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+            "雅克科技｜涨幅10%｜成交75.05亿｜历史新高",
+            "南大光电｜涨幅8.08%｜成交82.15亿｜历史新高",
+            "昊华科技｜涨幅10%｜成交50.58亿｜历史新高",
+            "川金诺｜涨幅19.99%｜成交11.76亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 6 只，新高 5 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 145.98,
+            "触发信号数": 4,
+            "涨停数": 6,
+            "新高数": 5,
+            "强势股数": 10,
+            "板块涨幅": 2.03,
+            "边际量": 42.56,
+            "成交额": 572.96,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+            "雅克科技｜涨幅10%｜成交75.05亿｜历史新高",
+            "南大光电｜涨幅8.08%｜成交82.15亿｜历史新高",
+            "昊华科技｜涨幅10%｜成交50.58亿｜历史新高",
+            "川金诺｜涨幅19.99%｜成交11.76亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
         "semantic_evidence_card": {
           "标题": "旧逻辑证据卡：磷化工",
           "当前判断": "旧逻辑唤醒",
@@ -2556,10 +3823,112 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "磷化工",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=7, evidence_items=9, report_context_hits=1。"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[磷化工_DeepDive_数据抽取_20260601]]",
+                "来源质量": "-",
+                "摘要": "磷化工 Deep Dive 将磷矿石供需紧平衡、磷酸铁锂需求爆发、硫磺成本传导和磷肥出口政策作为四条主线：30%品位磷矿石价格约1000元/吨高位横盘，磷酸铁锂价格从约3万元/吨升至6.6万元/吨，硫磺价格上行推升湿法磷酸成本，出口配额/暂停与新能源需求共同影响磷矿平衡表。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "磷化工",
+            "生命周期阶段": "旧逻辑唤醒",
+            "阶段变化": "旧材料唤醒",
+            "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-06-11"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 145.98,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 6 只，新高 5 只，priority 变化 0。",
+            "当前盘面": {
+              "priority": 145.98,
+              "触发信号数": 4,
+              "涨停数": 6,
+              "新高数": 5,
+              "强势股数": 10,
+              "板块涨幅": 2.03,
+              "边际量": 42.56,
+              "成交额": 572.96,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+              "雅克科技｜涨幅10%｜成交75.05亿｜历史新高",
+              "南大光电｜涨幅8.08%｜成交82.15亿｜历史新高",
+              "昊华科技｜涨幅10%｜成交50.58亿｜历史新高",
+              "川金诺｜涨幅19.99%｜成交11.76亿"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
           "缺口": [],
-          "下一步": "题材地图 / 深度研究"
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
         }
       },
       {
@@ -2585,8 +3954,8 @@
         "structured_counts": {
           "concept": 6,
           "company_exposure": 8,
-          "evidence": 1,
-          "source_trace": 1,
+          "evidence": 5,
+          "source_trace": 5,
           "missing_source_trace": 0
         },
         "source_traces": [
@@ -2595,6 +3964,30 @@
             "source_name": "20260521 市场逻辑精选",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          },
+          {
+            "source": "[[0505卖方观点合集]]",
+            "source_name": "0505卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0505卖方观点合集.md"
+          },
+          {
+            "source": "[[0501卖方观点合集]]",
+            "source_name": "0501卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0501卖方观点合集.md"
+          },
+          {
+            "source": "[[0502卖方观点合集]]",
+            "source_name": "0502卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0502卖方观点合集.md"
+          },
+          {
+            "source": "[[0504卖方观点合集]]",
+            "source_name": "0504卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0504卖方观点合集.md"
           }
         ],
         "data_gaps": [],
@@ -2603,6 +3996,190 @@
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
           "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "存储芯片",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L3 官方验证",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[20260521 市场逻辑精选]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L3 官方验证",
+              "概念": "-",
+              "来源": "[[0505卖方观点合集]]",
+              "来源质量": "broker_research_high",
+              "摘要": "东北计算机闪迪&西数业绩点评、0505 专家纪要；L3-L4。"
+            },
+            {
+              "层级": "L3 官方验证",
+              "概念": "-",
+              "来源": "[[0501卖方观点合集]]",
+              "来源质量": "broker_research_high",
+              "摘要": "0501卖方观点合集（中泰电子·西部数据 FY26Q3 + 天风海外科技·闪迪 SNDK/NBM 长协）；存储覆盖 45 家属透支区确认，长协/RPO 偏硬但赛道拥挤、海外标的进观察列表。"
+            },
+            {
+              "层级": "L3 官方验证",
+              "概念": "-",
+              "来源": "[[0502卖方观点合集]]",
+              "来源质量": "broker_research_high",
+              "摘要": "0502卖方观点合集（闪迪长协重塑存储周期 + CPU&DRAM 内存稀缺 + 高盛苹果内存成本上涨）；存储覆盖 45 家属透支区，长协/预付款/金融担保偏硬但赛道拥挤，海外标的进观察列表。"
+            },
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[0504卖方观点合集]]",
+              "来源质量": "-",
+              "摘要": "0504卖方观点合集（苹果&SoC&存储 + 高盛韩国收盘三星海力士 + SRAM英伟达收购Groq）。存储覆盖45家🔴透支区，内存涨价为主线确认+TrendForce偏硬价格信号，海外标观察列表。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "存储芯片",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "连续升温",
+          "变化原因": "连续 3 日出现。priority 上升 1.89。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-04-07",
+            "2026-05-25",
+            "2026-06-09",
+            "2026-06-10",
+            "2026-06-11"
+          ],
+          "连续出现天数": 3,
+          "priority变化": 1.89,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 95.45,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster",
+            "capacity_industry"
+          ],
+          "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+        },
+        "生命周期": {
+          "逻辑": "存储芯片",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "连续升温",
+          "变化原因": "连续 3 日出现。priority 上升 1.89。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-04-07",
+            "2026-05-25",
+            "2026-06-09",
+            "2026-06-10",
+            "2026-06-11"
+          ],
+          "连续出现天数": 3,
+          "priority变化": 1.89,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 95.45,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster",
+            "capacity_industry"
+          ],
+          "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 13 只，新高 23 只，priority 变化 1.89。",
+          "当前盘面": {
+            "priority": 95.45,
+            "触发信号数": 4,
+            "涨停数": 13,
+            "新高数": 23,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 1.89,
+            "触发信号变化": 0,
+            "涨停变化": 5,
+            "新高变化": 1,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster",
+            "capacity_industry"
+          ],
+          "强势股": [
+            "江丰电子｜涨幅20%｜成交60.28亿｜历史新高",
+            "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+            "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+            "阿石创｜涨幅19.99%｜成交21.72亿｜3年新高",
+            "多氟多｜涨幅9.99%｜成交79.2亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 13 只，新高 23 只，priority 变化 1.89。",
+          "当前盘面": {
+            "priority": 95.45,
+            "触发信号数": 4,
+            "涨停数": 13,
+            "新高数": 23,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 1.89,
+            "触发信号变化": 0,
+            "涨停变化": 5,
+            "新高变化": 1,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster",
+            "capacity_industry"
+          ],
+          "强势股": [
+            "江丰电子｜涨幅20%｜成交60.28亿｜历史新高",
+            "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+            "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+            "阿石创｜涨幅19.99%｜成交21.72亿｜3年新高",
+            "多氟多｜涨幅9.99%｜成交79.2亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
         "semantic_evidence_card": {
           "标题": "旧逻辑证据卡：存储芯片",
           "当前判断": "旧逻辑唤醒",
@@ -2618,17 +4195,137 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "存储芯片",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L3 官方验证",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[20260521 市场逻辑精选]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L3 官方验证",
+                "概念": "-",
+                "来源": "[[0505卖方观点合集]]",
+                "来源质量": "broker_research_high",
+                "摘要": "东北计算机闪迪&西数业绩点评、0505 专家纪要；L3-L4。"
+              },
+              {
+                "层级": "L3 官方验证",
+                "概念": "-",
+                "来源": "[[0501卖方观点合集]]",
+                "来源质量": "broker_research_high",
+                "摘要": "0501卖方观点合集（中泰电子·西部数据 FY26Q3 + 天风海外科技·闪迪 SNDK/NBM 长协）；存储覆盖 45 家属透支区确认，长协/RPO 偏硬但赛道拥挤、海外标的进观察列表。"
+              },
+              {
+                "层级": "L3 官方验证",
+                "概念": "-",
+                "来源": "[[0502卖方观点合集]]",
+                "来源质量": "broker_research_high",
+                "摘要": "0502卖方观点合集（闪迪长协重塑存储周期 + CPU&DRAM 内存稀缺 + 高盛苹果内存成本上涨）；存储覆盖 45 家属透支区，长协/预付款/金融担保偏硬但赛道拥挤，海外标的进观察列表。"
+              },
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[0504卖方观点合集]]",
+                "来源质量": "-",
+                "摘要": "0504卖方观点合集（苹果&SoC&存储 + 高盛韩国收盘三星海力士 + SRAM英伟达收购Groq）。存储覆盖45家🔴透支区，内存涨价为主线确认+TrendForce偏硬价格信号，海外标观察列表。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "存储芯片",
+            "生命周期阶段": "升温验证",
+            "阶段变化": "连续升温",
+            "变化原因": "连续 3 日出现。priority 上升 1.89。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-04-07",
+              "2026-05-25",
+              "2026-06-09",
+              "2026-06-10",
+              "2026-06-11"
+            ],
+            "连续出现天数": 3,
+            "priority变化": 1.89,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 95.45,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster",
+              "capacity_industry"
+            ],
+            "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 13 只，新高 23 只，priority 变化 1.89。",
+            "当前盘面": {
+              "priority": 95.45,
+              "触发信号数": 4,
+              "涨停数": 13,
+              "新高数": 23,
+              "强势股数": 10,
+              "板块涨幅": 0.0,
+              "边际量": 0.0,
+              "成交额": 0.0,
+              "容量前三": true
+            },
+            "边际变化": {
+              "priority变化": 1.89,
+              "触发信号变化": 0,
+              "涨停变化": 5,
+              "新高变化": 1,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster",
+              "capacity_industry"
+            ],
+            "强势股": [
+              "江丰电子｜涨幅20%｜成交60.28亿｜历史新高",
+              "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+              "华特气体｜涨幅20%｜成交36.4亿｜历史新高",
+              "阿石创｜涨幅19.99%｜成交21.72亿｜3年新高",
+              "多氟多｜涨幅9.99%｜成交79.2亿"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
           "缺口": [],
-          "下一步": "题材地图 / 深度研究"
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
         }
       },
       {
         "date": "2026-06-11",
         "query": "先进封装",
         "classification": "old_logic_wakeup",
-        "confidence": 0.9,
+        "confidence": 0.95,
         "priority_score": 91.36,
         "matched_theme": "先进封装",
         "trigger_types": [
@@ -2647,9 +4344,9 @@
         "structured_counts": {
           "concept": 6,
           "company_exposure": 8,
-          "evidence": 3,
-          "source_trace": 3,
-          "missing_source_trace": 1
+          "evidence": 5,
+          "source_trace": 5,
+          "missing_source_trace": 0
         },
         "source_traces": [
           {
@@ -2661,7 +4358,7 @@
           {
             "source": "[[IMA canonical: 先进封装]]",
             "source_name": "IMA canonical: 先进封装",
-            "source_exists": false,
+            "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/IMA canonical: 先进封装.md"
           },
           {
@@ -2669,17 +4366,208 @@
             "source_name": "ConceptBridge_P2_补链_20260602",
             "source_exists": true,
             "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/ConceptBridge_P2_补链_20260602.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_name": "晚间卖方研报汇总_20260613",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/晚间卖方研报汇总_20260613.md"
+          },
+          {
+            "source": "[[0506卖方观点合集]]",
+            "source_name": "0506卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/a77/Desktop/c c/知识库/wiki/sources/0506卖方观点合集.md"
           }
         ],
-        "data_gaps": [
-          "missing_source_trace"
-        ],
-        "route": "先保留，等统一补来源回溯/证据后再深度研究",
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
         "next_actions": [
           "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
-          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。",
-          "优先补 source/raw trace，避免证据不可追溯。"
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
         ],
+        "research_judgment": {
+          "目标": "先进封装",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L3 官方验证",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[20260521 市场逻辑精选]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[IMA canonical: 先进封装]]",
+              "来源质量": "-",
+              "摘要": "先进封装 canonical Deep Dive parsed pool backfill for Bridge 2.0 graph connectivity."
+            },
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[ConceptBridge_P2_补链_20260602]]",
+              "来源质量": "-",
+              "摘要": "先进封装承接AI算力对HBM、高密度互连、2.5D/3D封装、CoWoS和封装材料的需求。"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[晚间卖方研报汇总_20260613]]",
+              "来源质量": "-",
+              "摘要": "晚间卖方研报汇总_20260613 · 玻璃基板【长江机械】"
+            },
+            {
+              "层级": "L3 官方验证",
+              "概念": "-",
+              "来源": "[[0506卖方观点合集]]",
+              "来源质量": "broker_research_high",
+              "摘要": "0506卖方观点合集（锡焊膏卖方观点）；价格/空间为卖方测算，A 股 additive-only。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "先进封装",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "持续观察",
+          "变化原因": "连续 2 日出现。priority 上升 2。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-04-07",
+            "2026-05-25",
+            "2026-06-10",
+            "2026-06-11"
+          ],
+          "连续出现天数": 2,
+          "priority变化": 2.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 91.36,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster",
+            "capacity_industry"
+          ],
+          "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+        },
+        "生命周期": {
+          "逻辑": "先进封装",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "持续观察",
+          "变化原因": "连续 2 日出现。priority 上升 2。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-04-07",
+            "2026-05-25",
+            "2026-06-10",
+            "2026-06-11"
+          ],
+          "连续出现天数": 2,
+          "priority变化": 2.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 91.36,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster",
+            "capacity_industry"
+          ],
+          "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 11 只，新高 20 只，priority 变化 2。",
+          "当前盘面": {
+            "priority": 91.36,
+            "触发信号数": 4,
+            "涨停数": 11,
+            "新高数": 20,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 2.0,
+            "触发信号变化": 0,
+            "涨停变化": 3,
+            "新高变化": 1,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster",
+            "capacity_industry"
+          ],
+          "强势股": [
+            "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+            "有研粉材｜涨幅18.12%｜成交26.88亿｜历史新高",
+            "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+            "雅克科技｜涨幅10%｜成交75.05亿｜历史新高",
+            "炬光科技｜涨幅20%｜成交18.22亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 11 只，新高 20 只，priority 变化 2。",
+          "当前盘面": {
+            "priority": 91.36,
+            "触发信号数": 4,
+            "涨停数": 11,
+            "新高数": 20,
+            "强势股数": 10,
+            "板块涨幅": 0.0,
+            "边际量": 0.0,
+            "成交额": 0.0,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 2.0,
+            "触发信号变化": 0,
+            "涨停变化": 3,
+            "新高变化": 1,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster",
+            "capacity_industry"
+          ],
+          "强势股": [
+            "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+            "有研粉材｜涨幅18.12%｜成交26.88亿｜历史新高",
+            "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+            "雅克科技｜涨幅10%｜成交75.05亿｜历史新高",
+            "炬光科技｜涨幅20%｜成交18.22亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
         "semantic_evidence_card": {
           "标题": "旧逻辑证据卡：先进封装",
           "当前判断": "旧逻辑唤醒",
@@ -2687,7 +4575,7 @@
             "概念": "已命中",
             "公司暴露": "已命中",
             "证据": "已命中",
-            "来源回溯": "有缺口"
+            "来源回溯": "未发现缺口"
           },
           "向量旧材料": {
             "状态": "未补",
@@ -2695,12 +4583,129 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "先进封装",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L3 官方验证",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[20260521 市场逻辑精选]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[IMA canonical: 先进封装]]",
+                "来源质量": "-",
+                "摘要": "先进封装 canonical Deep Dive parsed pool backfill for Bridge 2.0 graph connectivity."
+              },
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[ConceptBridge_P2_补链_20260602]]",
+                "来源质量": "-",
+                "摘要": "先进封装承接AI算力对HBM、高密度互连、2.5D/3D封装、CoWoS和封装材料的需求。"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[晚间卖方研报汇总_20260613]]",
+                "来源质量": "-",
+                "摘要": "晚间卖方研报汇总_20260613 · 玻璃基板【长江机械】"
+              },
+              {
+                "层级": "L3 官方验证",
+                "概念": "-",
+                "来源": "[[0506卖方观点合集]]",
+                "来源质量": "broker_research_high",
+                "摘要": "0506卖方观点合集（锡焊膏卖方观点）；价格/空间为卖方测算，A 股 additive-only。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "先进封装",
+            "生命周期阶段": "升温验证",
+            "阶段变化": "持续观察",
+            "变化原因": "连续 2 日出现。priority 上升 2。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-04-07",
+              "2026-05-25",
+              "2026-06-10",
+              "2026-06-11"
+            ],
+            "连续出现天数": 2,
+            "priority变化": 2.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 91.36,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster",
+              "capacity_industry"
+            ],
+            "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 11 只，新高 20 只，priority 变化 2。",
+            "当前盘面": {
+              "priority": 91.36,
+              "触发信号数": 4,
+              "涨停数": 11,
+              "新高数": 20,
+              "强势股数": 10,
+              "板块涨幅": 0.0,
+              "边际量": 0.0,
+              "成交额": 0.0,
+              "容量前三": true
+            },
+            "边际变化": {
+              "priority变化": 2.0,
+              "触发信号变化": 0,
+              "涨停变化": 3,
+              "新高变化": 1,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster",
+              "capacity_industry"
+            ],
+            "强势股": [
+              "中巨芯｜涨幅19.96%｜成交50.36亿｜历史新高",
+              "有研粉材｜涨幅18.12%｜成交26.88亿｜历史新高",
+              "兴福电子｜涨幅20%｜成交19.59亿｜历史新高",
+              "雅克科技｜涨幅10%｜成交75.05亿｜历史新高",
+              "炬光科技｜涨幅20%｜成交18.22亿"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
-          "缺口": [
-            "missing_source_trace"
-          ],
-          "下一步": "先补来源页/原始材料回溯，再进入深度研究。"
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
         }
       }
     ],
@@ -2744,6 +4749,150 @@
           "先判断概念是新概念、别名还是污染词，再进入 concept backfill。",
           "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
         ],
+        "research_judgment": {
+          "目标": "金属铜",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
+        "logic_lifecycle": {
+          "逻辑": "金属铜",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 141.71,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "生命周期": {
+          "逻辑": "金属铜",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 141.71,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "market_validation": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 4 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 141.71,
+            "触发信号数": 4,
+            "涨停数": 6,
+            "新高数": 4,
+            "强势股数": 10,
+            "板块涨幅": 0.99,
+            "边际量": 16.8,
+            "成交额": 849.34,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "中钨高新｜涨幅6.93%｜成交102.58亿｜历史新高",
+            "章源钨业｜涨幅10.01%｜成交41.01亿｜20日新高",
+            "国城矿业｜涨幅10%｜成交22.7亿",
+            "翔鹭钨业｜涨幅10.01%｜成交15.99亿｜20日新高",
+            "鑫科材料｜涨幅6.48%｜成交19.75亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 4 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 141.71,
+            "触发信号数": 4,
+            "涨停数": 6,
+            "新高数": 4,
+            "强势股数": 10,
+            "板块涨幅": 0.99,
+            "边际量": 16.8,
+            "成交额": 849.34,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "中钨高新｜涨幅6.93%｜成交102.58亿｜历史新高",
+            "章源钨业｜涨幅10.01%｜成交41.01亿｜20日新高",
+            "国城矿业｜涨幅10%｜成交22.7亿",
+            "翔鹭钨业｜涨幅10.01%｜成交15.99亿｜20日新高",
+            "鑫科材料｜涨幅6.48%｜成交19.75亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
         "semantic_evidence_card": {
           "标题": "数据缺口证据卡：金属铜",
           "当前判断": "数据缺口",
@@ -2759,6 +4908,90 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "金属铜",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
+          "生命周期": {
+            "逻辑": "金属铜",
+            "生命周期阶段": "新出现",
+            "阶段变化": "首次进入观察",
+            "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+            "观察窗口": [
+              "2026-06-11"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "盘面触发待解释",
+            "当前priority": 141.71,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "中等验证",
+            "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 4 类，强势股 10 只。",
+            "当前盘面": {
+              "priority": 141.71,
+              "触发信号数": 4,
+              "涨停数": 6,
+              "新高数": 4,
+              "强势股数": 10,
+              "板块涨幅": 0.99,
+              "边际量": 16.8,
+              "成交额": 849.34,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "中钨高新｜涨幅6.93%｜成交102.58亿｜历史新高",
+              "章源钨业｜涨幅10.01%｜成交41.01亿｜20日新高",
+              "国城矿业｜涨幅10%｜成交22.7亿",
+              "翔鹭钨业｜涨幅10.01%｜成交15.99亿｜20日新高",
+              "鑫科材料｜涨幅6.48%｜成交19.75亿"
+            ],
+            "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
           "缺口": [
@@ -2807,6 +5040,146 @@
           "补 entity exposure 或 IMA 个股卡，确认哪些公司是真暴露。",
           "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
         ],
+        "research_judgment": {
+          "目标": "金属钴",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
+        "logic_lifecycle": {
+          "逻辑": "金属钴",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 132.49,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "生命周期": {
+          "逻辑": "金属钴",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-06-11"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 132.49,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "market_validation": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 3 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 132.49,
+            "触发信号数": 3,
+            "涨停数": 0,
+            "新高数": 3,
+            "强势股数": 10,
+            "板块涨幅": 0.55,
+            "边际量": 20.97,
+            "成交额": 555.84,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "中钨高新｜涨幅6.93%｜成交102.58亿｜历史新高",
+            "厦门钨业｜涨幅6.46%｜成交79.65亿｜60日新高",
+            "赣锋锂业｜涨幅3.46%｜成交60.99亿",
+            "洛阳钼业｜涨幅3.45%｜成交45.93亿",
+            "盛屯矿业｜涨幅4.78%｜成交11.32亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "中等验证",
+          "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 3 类，强势股 10 只。",
+          "当前盘面": {
+            "priority": 132.49,
+            "触发信号数": 3,
+            "涨停数": 0,
+            "新高数": 3,
+            "强势股数": 10,
+            "板块涨幅": 0.55,
+            "边际量": 20.97,
+            "成交额": 555.84,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "中钨高新｜涨幅6.93%｜成交102.58亿｜历史新高",
+            "厦门钨业｜涨幅6.46%｜成交79.65亿｜60日新高",
+            "赣锋锂业｜涨幅3.46%｜成交60.99亿",
+            "洛阳钼业｜涨幅3.45%｜成交45.93亿",
+            "盛屯矿业｜涨幅4.78%｜成交11.32亿"
+          ],
+          "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+        },
         "semantic_evidence_card": {
           "标题": "数据缺口证据卡：金属钴",
           "当前判断": "数据缺口",
@@ -2822,6 +5195,88 @@
             "命中数量": 0
           },
           "命中材料": [],
+          "证据裁判": {
+            "目标": "金属钴",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
+          "生命周期": {
+            "逻辑": "金属钴",
+            "生命周期阶段": "新出现",
+            "阶段变化": "首次进入观察",
+            "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+            "观察窗口": [
+              "2026-06-11"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "盘面触发待解释",
+            "当前priority": 132.49,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "中等验证",
+            "验证结论": "当前首次进入观察窗口，有盘面信号，但扩散强度或持续性还需要继续观察；触发 3 类，强势股 10 只。",
+            "当前盘面": {
+              "priority": 132.49,
+              "触发信号数": 3,
+              "涨停数": 0,
+              "新高数": 3,
+              "强势股数": 10,
+              "板块涨幅": 0.55,
+              "边际量": 20.97,
+              "成交额": 555.84,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "中钨高新｜涨幅6.93%｜成交102.58亿｜历史新高",
+              "厦门钨业｜涨幅6.46%｜成交79.65亿｜60日新高",
+              "赣锋锂业｜涨幅3.46%｜成交60.99亿",
+              "洛阳钼业｜涨幅3.45%｜成交45.93亿",
+              "盛屯矿业｜涨幅4.78%｜成交11.32亿"
+            ],
+            "下一步": "继续观察强势股扩散、成交边际和下一日是否延续。"
+          },
           "综合判断": "未补语义证据",
           "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
           "缺口": [
@@ -2872,11 +5327,278 @@
     "mode": "hybrid",
     "warnings": []
   },
+  "research_judge": {
+    "enabled": true,
+    "warnings": []
+  },
+  "research_queue": {
+    "today_do_ima": [
+      {
+        "目标": "电子化学品",
+        "动作": "今日该做 IMA",
+        "理由": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+        "优先级": 154.08,
+        "生命周期阶段": "新出现",
+        "阶段变化": "首次进入观察",
+        "证据状态": "盘面触发待解释",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "中船特气",
+          "中巨芯",
+          "华特气体",
+          "兴福电子",
+          "南大光电"
+        ],
+        "建议动作": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。"
+      },
+      {
+        "目标": "氟化工",
+        "动作": "今日该做 IMA",
+        "理由": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+        "优先级": 152.28,
+        "生命周期阶段": "新出现",
+        "阶段变化": "首次进入观察",
+        "证据状态": "盘面触发待解释",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "中船特气",
+          "中巨芯",
+          "华特气体",
+          "云南锗业",
+          "多氟多"
+        ],
+        "建议动作": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。"
+      }
+    ],
+    "today_find_official_evidence": [
+      {
+        "目标": "光刻胶",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 184.57,
+        "生命周期阶段": "升温验证",
+        "阶段变化": "连续升温",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "华特气体",
+          "兴福电子",
+          "雅克科技",
+          "南大光电",
+          "彤程新材"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+      },
+      {
+        "目标": "小金属",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 163.23,
+        "生命周期阶段": "旧逻辑唤醒",
+        "阶段变化": "旧材料唤醒",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "云南锗业",
+          "阿石创",
+          "风华高科",
+          "欧莱新材",
+          "中钨高新"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+      },
+      {
+        "目标": "磷化工",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 145.98,
+        "生命周期阶段": "旧逻辑唤醒",
+        "阶段变化": "旧材料唤醒",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "兴福电子",
+          "雅克科技",
+          "南大光电",
+          "昊华科技",
+          "川金诺"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+      },
+      {
+        "目标": "存储芯片",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 95.45,
+        "生命周期阶段": "升温验证",
+        "阶段变化": "连续升温",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L3 官方验证",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线"
+        ],
+        "强势股": [
+          "江丰电子",
+          "中巨芯",
+          "华特气体",
+          "阿石创",
+          "多氟多"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+      },
+      {
+        "目标": "先进封装",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 91.36,
+        "生命周期阶段": "升温验证",
+        "阶段变化": "持续观察",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L3 官方验证",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线"
+        ],
+        "强势股": [
+          "中巨芯",
+          "有研粉材",
+          "兴福电子",
+          "雅克科技",
+          "炬光科技"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+      }
+    ],
+    "today_wait_market_validation": [],
+    "today_downgrade_or_watch": [],
+    "skipped": {
+      "data_gap_or_unconfirmed": [
+        {
+          "目标": "金属铜",
+          "动作": "暂不进入研究任务",
+          "理由": "仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+          "优先级": 141.71,
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "强势股": [
+            "中钨高新",
+            "章源钨业",
+            "国城矿业",
+            "翔鹭钨业",
+            "鑫科材料"
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
+        },
+        {
+          "目标": "金属钴",
+          "动作": "暂不进入研究任务",
+          "理由": "仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+          "优先级": 132.49,
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "强势股": [
+            "中钨高新",
+            "厦门钨业",
+            "赣锋锂业",
+            "洛阳钼业",
+            "盛屯矿业"
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
+        },
+        {
+          "目标": "连板未映射",
+          "动作": "暂不进入研究任务",
+          "理由": "仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+          "优先级": 183.0,
+          "生命周期阶段": "-",
+          "阶段变化": "-",
+          "证据状态": "-",
+          "已有证据层": [],
+          "缺失证据层": [],
+          "强势股": [],
+          "建议动作": "人工复核。"
+        }
+      ],
+      "no_clear_action": []
+    },
+    "summary": {
+      "today_do_ima": 2,
+      "today_find_official_evidence": 5,
+      "today_wait_market_validation": 0,
+      "today_downgrade_or_watch": 0,
+      "total": 7,
+      "skipped": 3
+    }
+  },
   "notes": [
     "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
     "回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。"
   ],
   "next_actions": [
+    "今日研究任务队列：做 IMA 2 条；找公告/调研/订单 5 条。",
     "优先打开旧逻辑唤醒：确认是否需要题材地图或深度研究。",
     "语义召回已给出 W 命中；优先复核结构化命中和 W 命中同时存在的条目。",
     "数据缺口只登记到回补队列；本轮不自动补来源/概念/IMA。",

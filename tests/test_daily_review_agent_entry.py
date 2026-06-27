@@ -12,7 +12,7 @@ class DailyReviewAgentEntryTest(unittest.TestCase):
         finance = root / "finance"
         (finance / "market_feature_store" / "exports").mkdir(parents=True)
         (finance / "复盘" / "daily").mkdir(parents=True)
-        return ProjectPaths(finance_root=finance, knowledge_wiki=root / "wiki", finance_site=root / "site")
+        return ProjectPaths(finance_root=finance, knowledge_wiki=root / "wiki", finance_site=root / "site", market_snapshot_dir=root / "snapshot")
 
     def test_daily_plan_generates_agent_brief_before_workbench(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -26,6 +26,18 @@ class DailyReviewAgentEntryTest(unittest.TestCase):
             agent = plan[names.index("agent-daily")]
             self.assertIn(str(paths.market_exports / "2026-06-11-daily-agent.md"), agent.outputs)
             self.assertIn(str(paths.review_daily_root / "2026-06-11" / "2026-06-11-daily-agent.html"), agent.outputs)
+
+    def test_daily_plan_uses_explicit_kb_wiki_for_agent_and_cockpit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_paths(Path(tmp))
+            synced_kb = Path(tmp) / "synced-knowledge" / "wiki"
+
+            plan = build_daily_review_plan(DailyReviewOptions(date="2026-06-11", kb_wiki=synced_kb), paths)
+            by_name = {step.name: step for step in plan}
+
+            self.assertIn(str(synced_kb), by_name["agent-daily"].argv)
+            self.assertIn("--knowledge-root", by_name["cockpit"].argv)
+            self.assertIn(str(synced_kb.parent), by_name["cockpit"].argv)
 
     def test_workbench_discovers_agent_brief_tab(self):
         with tempfile.TemporaryDirectory() as tmp:

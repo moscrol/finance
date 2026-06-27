@@ -23,11 +23,14 @@
 
 ## 生成与校验流程
 
+- 推荐全量入口：`python3 -m intelligence.cli daily --date YYYY-MM-DD --kb-wiki "/path/to/知识库/wiki"`。这条 workflow 会依次生成每日复盘、题材候选、`agent-daily`、复盘工作台和驾驶舱总入口；DuckDB 在哪台 Mac，本命令就在哪台 Mac 跑。
+- 如果两台 Mac 分工：在有 DuckDB 的 Mac 跑上面的全量入口；跑完后同步金融 repo 和知识库 repo。`--kb-wiki` 指向该机同步后的知识库 `wiki/`，不要依赖另一台机器的绝对路径。
+- 只补跑 Agent 简报：`python3 -m intelligence.cli agent-daily --date YYYY-MM-DD --kb-wiki "/path/to/知识库/wiki"`，随后执行 `python3 scripts/render_review_workbench.py` 和 `python3 scripts/render_cockpit.py --knowledge-root "/path/to/知识库"`。
 - 数据完整性闸门：`python3 scripts/check_daily_review_data.py YYYY-MM-DD`。
-- 生成每日复盘 Markdown：`python3 -m market_feature_store.cli daily-review --trade-date YYYY-MM-DD --output market_feature_store/exports/YYYY-MM-DD-daily-review.md --chart-output market_feature_store/exports/YYYY-MM-DD-advancers-ma5.png`。
+- 仅生成每日复盘 Markdown：`python3 -m market_feature_store.cli daily-review --trade-date YYYY-MM-DD --output market_feature_store/exports/YYYY-MM-DD-daily-review.md --chart-output market_feature_store/exports/YYYY-MM-DD-advancers-ma5.png`。这条是底层老入口，不会触发 `agent-daily`、工作台或驾驶舱。
 - 渲染每日复盘 HTML：`python3 scripts/render_daily_review_briefing.py YYYY-MM-DD`，输出到 `daily/YYYY-MM-DD/`。
 - 渲染统一工作台：`python3 scripts/render_review_workbench.py`。
-- 生成驾驶舱总入口：`python3 scripts/render_cockpit.py`，输出 `index.html`，聚合 `daily/`、`winrate/`、`matrices/` 与知识库仓 `dashboard/briefings/` 晨汇看板，复用最新每日复盘的 `<style>`（浅色投研主题）。晨汇默认取同级目录 `../knowledge-base-private`，可用 `--kb-briefings-dir` 覆盖；两仓需克隆在同级目录链接才能解析。
+- 生成驾驶舱总入口：`python3 scripts/render_cockpit.py --knowledge-root "/path/to/知识库"`，输出 `index.html`，聚合 `daily/`、`winrate/`、`matrices/` 与知识库仓 `dashboard/briefings/` 晨汇看板，复用最新每日复盘的 `<style>`（浅色投研主题）。全量入口会自动把 `--kb-wiki` 的上一级传给这里。
 - 二板晋级抓取：`python3 skills/limit-advance/scripts/scrape.py MM-DD --min-boards=2`，必要时用 `--json` 复核梯队数据。
 
 ## 策略矩阵回填约束

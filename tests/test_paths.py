@@ -15,6 +15,7 @@ class DefaultPathsTest(unittest.TestCase):
             "CONCEPT_VAULT",
             "ENTITY_VAULT",
             "FINANCE_SITE",
+            "MARKET_SNAPSHOT_DIR",
         }
         clean_env = {key: value for key, value in os.environ.items() if key not in keys}
         clean_env.update(env)
@@ -33,6 +34,13 @@ class DefaultPathsTest(unittest.TestCase):
 
         self.assertEqual(paths.finance_root, Path("/tmp/finance-ws"))
         self.assertEqual(paths.knowledge_wiki, Path("/tmp/kb-vault/wiki"))
+
+    def test_market_snapshot_dir_env_override(self):
+        paths = self._default_paths_with_env({
+            "MARKET_SNAPSHOT_DIR": "/tmp/market-snapshot",
+        })
+
+        self.assertEqual(paths.market_snapshot_dir, Path("/tmp/market-snapshot"))
 
     def test_keeps_legacy_env_names(self):
         paths = self._default_paths_with_env({
@@ -56,6 +64,7 @@ class DefaultPathsTest(unittest.TestCase):
 
         self.assertEqual(paths.finance_root, Path.home() / "Desktop/c c/金融")
         self.assertEqual(paths.knowledge_wiki, Path.home() / "Desktop/c c/知识库/wiki")
+        self.assertEqual(paths.market_snapshot_dir, Path.home() / "Desktop/c c/金融/market_snapshot")
         self.assertNotIn("/Users/lbq", str(paths.finance_root))
         self.assertNotIn("/Users/lbq", str(paths.knowledge_wiki))
 
