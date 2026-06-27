@@ -353,6 +353,47 @@ def add_logic_match_batch_parser(subparsers: argparse._SubParsersAction) -> None
     parser.set_defaults(func=cmd_logic_match_batch)
 
 
+def add_effectiveness_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "effectiveness",
+        help="P4 历史有效性：为某题材从 theme-candidates 历史算成绩单（胜率/半衰期/回撤/扩散/相对强度/叙事-事实偏离/CAR）。",
+    )
+    parser.add_argument("theme", help="题材/概念名，例如 光刻胶")
+    parser.add_argument("--date", required=True, help="截至交易日 YYYY-MM-DD")
+    parser.add_argument("--window", type=int, default=20, help="回看的 theme-candidates 交易日数")
+    parser.add_argument("--top-per-date", type=int, default=10, help="每个日期扫描 priority_score 最高的 N 个候选")
+    parser.add_argument("--exports-dir", default=None, help="覆盖 market_feature_store/exports 目录")
+    parser.add_argument("--market-snapshot-dir", default=None, help="覆盖 market_snapshot 目录（用于 CAR；默认走 env/auto）")
+    parser.add_argument("--min-samples", type=int, default=3, help="低于该观察天数判为样本不足")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.set_defaults(func=cmd_effectiveness)
+
+
+def cmd_effectiveness(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.paths import default_paths
+    from intelligence.services import logic_effectiveness
+    from intelligence.services.logic_market_match import available_candidate_dates
+
+    paths = default_paths()
+    exports_dir = Path(args.exports_dir).expanduser() if args.exports_dir else paths.market_exports
+    snapshot_dir = Path(args.market_snapshot_dir).expanduser() if args.market_snapshot_dir else paths.market_snapshot_dir
+    dates = [item for item in available_candidate_dates(exports_dir) if item <= args.date][-args.window:]
+    history = logic_effectiveness.load_effectiveness_history(
+        exports_dir, dates, args.date, top_per_date=args.top_per_date
+    )
+    panel = logic_effectiveness.load_market_return_panel(snapshot_dir, dates)
+    scorecard = logic_effectiveness.build_effectiveness_scorecard(
+        args.theme,
+        history.get(args.theme, []),
+        return_panel=panel,
+        min_samples=args.min_samples,
+    )
+    print(_json.dumps(scorecard, ensure_ascii=False, indent=2))
+    return 0
+
+
 def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "agent-daily",
@@ -369,6 +410,7 @@ def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--wiki-rag-k", type=int, default=3, help="每个候选最多补充 N 个 W 命中")
     parser.add_argument("--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"], help="agent 日报语义召回模式")
     parser.add_argument("--wiki-rag-timeout", type=int, default=120, help="单次 W 召回超时时间")
+    parser.add_argument("--effectiveness-window", type=int, default=20, help="历史有效性评估回看的 theme-candidates 交易日数")
     parser.add_argument("--out-json", default=None, help="写出 agent 日报 JSON")
     parser.add_argument("--out-md", default=None, help="写出 agent 日报 Markdown")
     parser.add_argument("--out-html", default=None, help="写出 agent 日报 HTML，供复盘工作台 iframe 使用")
@@ -473,6 +515,7 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
             wiki_rag_k=args.wiki_rag_k,
             wiki_rag_mode=args.wiki_rag_mode,
             wiki_rag_timeout=args.wiki_rag_timeout,
+            effectiveness_window=args.effectiveness_window,
         )
     )
     paths = default_paths()
@@ -1685,6 +1728,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_logic_match_parser(subparsers)
     add_logic_match_batch_parser(subparsers)
     add_daily_agent_parser(subparsers)
+    add_effectiveness_parser(subparsers)
     add_foresight_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)
