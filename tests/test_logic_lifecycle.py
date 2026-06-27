@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import unittest
 
 from intelligence.services.logic_lifecycle import build_lifecycle_snapshot
