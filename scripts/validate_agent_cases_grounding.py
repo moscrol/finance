@@ -71,6 +71,36 @@ def validate_grounding(cases: list[dict[str, Any]], entities: dict[str, Any], gr
     }
 
 
+def case_to_grounding_dict(case: Any) -> dict[str, Any]:
+    """Normalize a case (dict or CaseSpec-like object) into the validator shape."""
+    def get(key: str, default: Any) -> Any:
+        if isinstance(case, dict):
+            return case.get(key, default)
+        return getattr(case, key, default)
+
+    return {
+        "id": get("id", None),
+        "expect_concepts": list(get("expect_concepts", []) or []),
+        "expect_entities": list(get("expect_entities", []) or []),
+        "forbid_entities": list(get("forbid_entities", []) or []),
+        "entity_recall_gate": float(get("entity_recall_gate", 0.5) or 0.5),
+    }
+
+
+def grounding_report_for_kb(cases: list[Any], kb_wiki: str | Path) -> dict[str, Any] | None:
+    """Validate cases against a KB wiki root. Returns ``None`` (skip) when the KB
+    relations are not present, so offline callers degrade gracefully."""
+    rel = Path(kb_wiki).expanduser() / "relations"
+    entity_file = rel / "entity_exposures.json"
+    concept_file = rel / "concept_graph.json"
+    if not (entity_file.exists() and concept_file.exists()):
+        return None
+    entities = load_json(entity_file).get("entities", {})
+    graph_concepts = set(load_json(concept_file).get("concepts", {}))
+    case_dicts = [case_to_grounding_dict(c) for c in cases]
+    return validate_grounding(case_dicts, entities, graph_concepts)
+
+
 def render_markdown(report: dict[str, Any]) -> str:
     lines = [
         "# Agent Cases Grounding Validation",

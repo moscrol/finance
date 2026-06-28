@@ -302,6 +302,7 @@ def add_agent_eval_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--json", action="store_true", help="输出机读记分卡 JSON（否则 markdown）")
     parser.add_argument("--save-run", default=None, help="把本次 live 跑的原始输入存成 JSON（之后可 --from-run 离线重评）")
     parser.add_argument("--from-run", default=None, help="从已存 run JSON 离线重评，不调用 LLM/KB（确定性回归）")
+    parser.add_argument("--skip-grounding-check", action="store_true", help="跳过 live 跑前的用例接地预检（默认会先核对 expect/forbid 实体是否对齐知识库）")
     parser.set_defaults(func=cmd_agent_eval)
 
 
@@ -554,6 +555,25 @@ def cmd_agent_eval(args: argparse.Namespace) -> int:
         card = R.score_run(run_record, specs, gate)
         degraded = False
     else:
+        if not args.skip_grounding_check:
+            from scripts.validate_agent_cases_grounding import (
+                grounding_report_for_kb,
+                render_markdown as render_grounding,
+                resolve_kb_wiki,
+            )
+
+            kb_wiki = resolve_kb_wiki(args.kb_wiki)
+            grounding = grounding_report_for_kb(specs, kb_wiki)
+            if grounding is None:
+                print("⚠ 跳过用例接地预检：未找到知识库 relations（entity_exposures/concept_graph）。", file=sys.stderr)
+            elif not grounding["passed"]:
+                print(render_grounding(grounding), file=sys.stderr)
+                print(
+                    f"\n⚠ 用例接地预检不通过：{grounding['failed_ids']} 的 expect/forbid 实体未对齐知识库。"
+                    "先修用例或加 --skip-grounding-check 跳过；未消耗 LLM。",
+                    file=sys.stderr,
+                )
+                return 2
         if args.date:
             for s in specs:
                 s.date = args.date

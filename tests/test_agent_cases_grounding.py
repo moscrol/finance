@@ -4,8 +4,11 @@ import json
 import unittest
 from pathlib import Path
 
+import tempfile
+
 from scripts.validate_agent_cases_grounding import (
     DEFAULT_CASES,
+    grounding_report_for_kb,
     load_json,
     validate_case,
     validate_grounding,
@@ -75,6 +78,51 @@ class GroundingPureLogicTest(unittest.TestCase):
         report = validate_grounding(cases, _entities(), {"PCB"})
         self.assertFalse(report["passed"])
         self.assertEqual(report["failed_ids"], ["bad"])
+
+
+class _Spec:
+    def __init__(self, **kw):
+        self.id = kw.get("id")
+        self.expect_concepts = kw.get("expect_concepts", [])
+        self.expect_entities = kw.get("expect_entities", [])
+        self.forbid_entities = kw.get("forbid_entities", [])
+        self.entity_recall_gate = kw.get("entity_recall_gate", 0.5)
+
+
+class GroundingPreflightTest(unittest.TestCase):
+    def _make_kb(self, root: Path) -> Path:
+        wiki = root / "wiki"
+        rel = wiki / "relations"
+        rel.mkdir(parents=True)
+        (rel / "entity_exposures.json").write_text(
+            json.dumps({"entities": {"世运电路": {"concepts": {"PCB": {}}}}}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        (rel / "concept_graph.json").write_text(
+            json.dumps({"concepts": {"PCB": {}}}, ensure_ascii=False), encoding="utf-8"
+        )
+        return wiki
+
+    def test_preflight_passes_for_grounded_spec(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            wiki = self._make_kb(Path(td))
+            specs = [_Spec(id="pcb", expect_concepts=["PCB"], expect_entities=["世运电路"])]
+            report = grounding_report_for_kb(specs, wiki)
+            self.assertIsNotNone(report)
+            self.assertTrue(report["passed"])
+
+    def test_preflight_fails_for_fabricated_spec(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            wiki = self._make_kb(Path(td))
+            specs = [_Spec(id="fake", expect_concepts=["PCB"], expect_entities=["不存在公司A", "不存在公司B"])]
+            report = grounding_report_for_kb(specs, wiki)
+            self.assertFalse(report["passed"])
+            self.assertEqual(report["failed_ids"], ["fake"])
+
+    def test_preflight_skips_when_kb_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            specs = [_Spec(id="pcb", expect_concepts=["PCB"], expect_entities=["世运电路"])]
+            self.assertIsNone(grounding_report_for_kb(specs, Path(td) / "no-wiki"))
 
 
 @unittest.skipUnless(KB_RELATIONS.exists(), "knowledge base not available on this machine")
