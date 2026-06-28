@@ -61,7 +61,7 @@
 | P2#7 Ingest 状态机 | ⚠️ 观测闭环已推进：新增 ingest status ledger 与只读 indexed probe；可观测 `candidate_detected/backfill_queued/pending_review` 以及 `concept_page_exists/rag_indexed/not_in_kb`，完整写入态 `raw_saved` 仍待接知识库写入链路 |
 | P2#8 向量索引分层 | ✅ 最小版已落地：RAG chunk/query 已输出 `evidence_layer` / `fact_hardness` / `source_type` |
 | P2#9 RAG 引用规范 | ✅ 最小版已落地：知识库 `rag_index.py query` 支持按 `evidence_layer` / `fact_hardness` / `source_type` 过滤；金融 `kb_rag` 可透传过滤并解析 metadata |
-| P4 黄金样本 / 反幻觉评测 | ⚠️ 最小版已落地：`tests/test_agent_golden_eval.py` 校验生命周期、盘面验证、证据裁判、占位信号不升级、缺 L3 不得判为已有事实验证 |
+| P4 黄金样本 / 反幻觉评测 | ✅ deterministic golden 已增强：`tests/test_agent_golden_eval.py` 固定路由分桶、生命周期、盘面验证、证据裁判、研究队列和占位信号反幻觉断言 |
 | 薄编排层 `agent_orchestrator.py` | ✅ 最小版已落地：`orchestrate` 先 route 再渲染执行计划；默认 preview，`--execute` 仅执行 low-risk + auto_execute path |
 
 ### 本次执行记录
@@ -76,7 +76,7 @@
 | 输出 Markdown | ✅ `market_feature_store/exports/2026-06-26-daily-agent.md` |
 | 输出 HTML | ✅ `复盘/daily/2026-06-26/2026-06-26-daily-agent.html` |
 | 研究任务队列 | ✅ IMA 2；公告/调研/订单 2；等盘面验证 0；降级观察 5 |
-| P4 最小黄金门禁 | ✅ `tests/test_agent_golden_eval.py` 已新增并通过 |
+| P4 deterministic 黄金门禁 | ✅ `tests/test_agent_golden_eval.py` 已增强并通过；固定 `液冷服务器`→旧逻辑唤醒、`连板未映射`→噪音/未确认，且缺 L3 不得判为已有事实验证 |
 | P2#8 RAG 分层元数据 | ✅ 知识库 `chunking.py` / `retrieval.py` 已支持；RAG tests 61/61 通过；现有索引已刷新分层字段 |
 | P2#9 RAG 分层引用过滤 | ✅ 知识库短门禁 4/4 通过；金融 `kb_rag` 短门禁 3/3 通过；CLI `--evidence-layer L0_concept` 已验证 |
 | P2#7 ingest status ledger | ✅ `scripts/build_ingest_status_ledger.py` 已新增；单测 2/2 通过；2026-06-26 ledger 已生成，item_count=66，status_counts=`candidate_detected:50/backfill_queued:12/pending_review:4` |
