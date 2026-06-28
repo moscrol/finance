@@ -104,3 +104,6 @@ feishu-events*.jsonl
 raw/transcripts/*/*.jsonl
 # dream-loop 7B：KB 事实回写候选默认 staging（人工 review 前不入库）
 intelligence/dream/_kb_candidates/
+
+# 记忆底座软链（指向 /Users/a77/agent-memory，仅本地，勿提交）
+.agent-memory/
