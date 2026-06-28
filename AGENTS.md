@@ -1,3 +1,13 @@
+## 🧠 共享记忆底座（开工前先读）
+
+本机有一个跨 Agent 共享的记忆底座（Obsidian vault）：`/Users/a77/agent-memory`（仓库 `linxiaoqi5111-del/agent-memory`）。
+
+**开始任务前先读：**
+- `30_conventions/preferences.md` — 用户偏好与人设（教学模式：讲原理 + 讲技术选型/替代方案对比 + 标注可复用知识点；Git 约定；红线）
+- 本项目对应笔记 `20_projects/finance-workspace-private.md` — 项目背景、关键决策、任务看板
+
+**完成后回写：** 把关键结论/决策追加到 `20_projects/finance-workspace-private.md` 的「交接记录」，可复用知识提炼进 `10_knowledge/`。
+
 ## Git Branch Safety Rules（强制）
 
 `main` 是当前共享基线，不代表已经完美稳定；本项目仍在持续修缮。任何 agent 开始工作时必须先执行并汇报：

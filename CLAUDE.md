@@ -1,5 +1,16 @@
 # 金融项目
 
+## 🧠 共享记忆底座（开工前先读）
+
+本机有一个跨 Agent 共享的记忆底座（Obsidian vault）：`/Users/a77/agent-memory`（仓库 `linxiaoqi5111-del/agent-memory`）。
+
+**开始任务前先读：**
+- `30_conventions/preferences.md` — 用户偏好与人设（教学模式：讲原理 + 讲技术选型/替代方案对比 + 标注可复用知识点；Git 约定；红线）
+- 本项目对应笔记 `20_projects/finance-workspace-private.md` — 项目背景、关键决策、任务看板
+
+**完成后回写：** 把关键结论/决策追加到 `20_projects/finance-workspace-private.md` 的「交接记录」，可复用知识提炼进 `10_knowledge/`。
+
+
 A股量化复盘+研究工具集。通过 fupanhui.com API 获取市场数据，写入本地 DuckDB（`market_feature_store.duckdb`），结合 iFinD 数据做深度分析。
 
 ## Git Branch Safety Rules（强制）
