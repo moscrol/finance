@@ -172,6 +172,10 @@ def add_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
     parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
     parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
+    parser.add_argument(
+        "--market-db-path", default=None,
+        help="本地 market_feature_store DuckDB 路径；提供且可打开时启用 opt-in 实时盘面工具 search_market_live（默认关闭，不影响其余工具）",
+    )
     parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall per graph tool call")
     parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
     parser.add_argument("--wiki-rag-k", type=int, default=6, help="Default wiki pages per search_wiki call (W source)")
@@ -201,6 +205,7 @@ def cmd_agent(args: argparse.Namespace) -> int:
         date=args.date,
         exports_dir=args.exports_dir,
         kb_wiki=args.kb_wiki,
+        market_db_path=args.market_db_path,
         top_companies=args.top_companies,
         module_timeout=args.module_timeout,
         wiki_rag_k=args.wiki_rag_k,

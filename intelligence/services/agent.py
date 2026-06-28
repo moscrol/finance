@@ -26,9 +26,11 @@ Design constraints (same discipline as the rest of the `ask` stack):
 from __future__ import annotations
 
 import json
+import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.services import kb_rag, llm_refine
@@ -41,6 +43,9 @@ from intelligence.services.ask import (
 )
 from intelligence.services.skill_tools import ALL_SKILLS, run_skill, skill_descriptions
 from intelligence.services.theme_modules import ALL_MODULES, run_module
+
+if TYPE_CHECKING:  # 仅类型标注用；运行时不导入，避免无库环境拉起 duckdb 依赖
+    from intelligence.adapters.market import MarketAdapter
 
 DEFAULT_MAX_STEPS = 6
 
@@ -189,6 +194,33 @@ AGENT_TOOLS: list[dict] = [
 ]
 
 
+_MARKET_LIVE_DESC = (
+    "实时直连本地 DuckDB（market_feature_store）查询某题材当日的真实盘面，返回带 [S#] 引用的盘面证据："
+    "大盘环境（阶段/成交/涨家数/涨跌停/容量前三板块）、该题材是否进入当日「双红题材榜」与「涨停热度榜」、"
+    "以及题材内的强势股与新高股。与 search_market_snapshot 的区别：后者读某日导出的快照文件，"
+    "本工具直读 DuckDB 明细且可指定交易日。题材未进入当日榜单会如实说明；本地库不可用时本工具不会出现，"
+    "请改用 search_market_snapshot。"
+)
+
+# opt-in：刻意不放进 AGENT_TOOLS。仅当本地 DuckDB 可用时由 AgentSession._tools 动态追加，
+# 无库环境下默认 6 件套逐字节不变（评测闸 [SGRW] 不受影响）。
+MARKET_LIVE_TOOL: dict = {
+    "type": "function",
+    "function": {
+        "name": "search_market_live",
+        "description": _MARKET_LIVE_DESC,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "theme": {"type": "string", "description": "题材/概念词，如 液冷、光模块；留空则用本轮问题"},
+                "date": {"type": "string", "description": "交易日 YYYY-MM-DD；留空用默认日期 / 库内最新交易日"},
+            },
+            "required": ["theme"],
+        },
+    },
+}
+
+
 @dataclass
 class AgentStep:
     """One tool invocation in the agent's trace (for transparency/eval)."""
@@ -231,6 +263,9 @@ class AgentSession:
         self.citations: list[Citation] = []
         self.sources_used: set[str] = set()
         self._export_name: str | None = None
+        # P2.5 opt-in：开会话时只解析一次本地盘面库**路径**（不 import duckdb、不开库、不 health）。
+        # 是否真正可用由 _market_live_available 纯文件判断；duckdb 导入+health 延迟到工具调用时。
+        self._market_db_path: Path | None = self._resolve_market_db_path()
         # multi-turn conversation state (持续对话 + 跨轮证据复用)
         self.messages: list[dict] | None = None
         self.provider_name: str | None = None
@@ -241,6 +276,39 @@ class AgentSession:
         tag = f"{prefix}{n}"
         self.citations.append(Citation(tag=tag, source=source, detail=detail))
         return f"[{tag}]"
+
+    # --- P2.5 实时盘面（opt-in，只读 DuckDB）---
+    def _resolve_market_db_path(self) -> Path | None:
+        """解析本地盘面库路径，顺序 = ``options.market_db_path`` → 环境变量
+        ``MARKET_FEATURE_STORE_DB`` → ``market_feature_store`` 包默认库
+        （``PROJECT_DIR/db/market_feature_store.duckdb``）。**刻意不 import duckdb**，
+        只 import duckdb-free 的 ``market_feature_store`` 包定位默认路径 → agent 在
+        无 duckdb 环境仍可导入。解析不出返回 ``None``；是否真可用由
+        :pyattr:`_market_live_available` 纯文件判断。任何异常都吞掉（走降级）。"""
+        raw = self.options.market_db_path or os.environ.get("MARKET_FEATURE_STORE_DB")
+        if raw:
+            return Path(raw).expanduser()
+        try:
+            import market_feature_store  # duckdb-free 包入口，仅用于定位默认库路径
+
+            pkg_dir = Path(market_feature_store.__file__).resolve().parent
+            return pkg_dir.parent / "db" / "market_feature_store.duckdb"
+        except Exception:
+            return None
+
+    @property
+    def _market_live_available(self) -> bool:
+        """opt-in 闸门：盘面库文件存在且是普通文件才 True（纯文件判断，不 import duckdb、不开库）。"""
+        path = self._market_db_path
+        return path is not None and path.exists() and path.is_file()
+
+    @property
+    def _tools(self) -> list[dict]:
+        """实际下发给 LLM 的工具集：默认 6 件套；仅当本地盘面库可用（opt-in）时追加
+        ``search_market_live``。无库环境下与历史完全一致。"""
+        if self._market_live_available:
+            return [*AGENT_TOOLS, MARKET_LIVE_TOOL]
+        return AGENT_TOOLS
 
     # --- tools (each returns a text block the LLM reads as a tool result) ---
     def tool_search_market_snapshot(self, theme: str) -> str:
@@ -390,10 +458,126 @@ class AgentSession:
             lines.append("可继续追问：" + "；".join(sr.follow_ups[:3]))
         return "\n".join(lines)
 
+    def tool_search_market_live(self, theme: str | None = None, date: str | None = None) -> str:
+        """实时直连本地 DuckDB 取某题材当日盘面（大盘环境 + 双红/涨停热度命中 + 题材个股），
+        引用复用 [S#]。库不可用（理论上工具此时也不会注册）或查询出错时优雅降级回提示，
+        不抛异常、不污染来源标记。"""
+        if not self._market_live_available:
+            return "实时盘面不可用：未配置 market_db_path / 找不到本地盘面库；请改用 search_market_snapshot。"
+        try:  # 延迟到调用时才 import duckdb（经 MarketAdapter）并 health 探活；缺库/缺依赖/打不开 → 降级
+            from intelligence.adapters.market import MarketAdapter
+
+            adapter = MarketAdapter(db_path=self._market_db_path)
+            if not adapter.health().get("ok"):
+                return "实时盘面不可用：本地 DuckDB 打不开（health 失败）；请改用 search_market_snapshot。"
+        except Exception as exc:  # 缺 duckdb 依赖 / 损坏库 / 打开异常：守护降级，不抛
+            return (
+                f"实时盘面不可用（{type(exc).__name__}）：{str(exc)[:120]}；"
+                "请改用 search_market_snapshot。"
+            )
+        term = (theme or self.options.query or "").strip()
+        trade_date = date or self.options.date
+        try:
+            market = adapter.get_market_daily(trade_date)
+            double_red = adapter.get_double_red_themes(trade_date)
+            limit_heat = adapter.get_limit_heat_themes(trade_date)
+        except Exception as exc:  # 损坏库 / 查询异常：守护降级，不抛
+            return (
+                f"实时盘面查询失败（{type(exc).__name__}）：{str(exc)[:120]}；"
+                "请改用 search_market_snapshot。"
+            )
+        if not market.get("found"):
+            warn = "；".join(market.get("warnings") or market.get("errors") or ["fact_market_daily 无数据"])
+            return f"实时盘面无数据：{warn}（请改用 search_market_snapshot）"
+        self.sources_used.add("S")
+        resolved = market.get("trade_date")
+        data = market.get("data") or {}
+        db_name = adapter.resolved_db_path.name
+        caps = adapter.get_capacity_sectors(resolved, top=3)
+        cap_names = "、".join(
+            f"{s.get('name')}({s.get('ratio')}%,{s.get('capacity_type')})"
+            for s in (caps.get("capacity_sectors") or [])
+        ) or "无"
+        tag = self._cite("S", f"{db_name} · fact_market_daily.{resolved}（DuckDB 实时直连）")
+        lines: list[str] = [
+            f"实时盘面（{resolved}，DuckDB 直连）：阶段 {data.get('market_stage')}，"
+            f"成交 {data.get('total_amount')}（较昨 {data.get('amount_vs_yesterday_pct')}%），"
+            f"涨家数 {data.get('advancers')}，涨停 {data.get('limit_up')} / 跌停 {data.get('limit_down')}，"
+            f"容量前三 {cap_names} {tag}"
+        ]
+        blocks = self._market_live_theme_blocks(term, double_red, limit_heat)
+        matched = blocks[0]["theme"] if blocks else None
+        for block in blocks:
+            tag = self._cite("S", f"{db_name} · {block['source']}.{resolved}（DuckDB 实时直连）")
+            lines.append(f"{block['text']} {tag}")
+        if matched:
+            signals = adapter.get_theme_stock_signals(resolved, [matched])
+            sig = (signals.get("signals") or {}).get(matched) or {}
+            strong = sig.get("strong_stocks") or []
+            highs = sig.get("new_high_stocks") or []
+            if strong or highs:
+                strong_txt = "、".join(f"{s.get('stock_name')}({s.get('pct_chg')}%)" for s in strong[:5]) or "无"
+                high_txt = "、".join(f"{s.get('stock_name')}({s.get('high_label')})" for s in highs[:5]) or "无"
+                tag = self._cite("S", f"{db_name} · fact_sector_stock_daily.{resolved}（DuckDB 实时直连）")
+                lines.append(f"题材「{matched}」个股：强势 {strong_txt}；新高 {high_txt} {tag}")
+        else:
+            lines.append(
+                f"题材「{term}」今日未进入双红题材榜 / 涨停热度榜（实时盘面口径），"
+                "可能尚未发酵或非当日主线。"
+            )
+        return "\n".join(lines)
+
+    @staticmethod
+    def _market_live_theme_blocks(term: str, double_red: dict, limit_heat: dict) -> list[dict]:
+        """从双红题材榜 / 涨停热度榜里挑出与 ``term`` 匹配的题材，格式化成证据行。"""
+        blocks: list[dict] = []
+        dr_rows = double_red.get("themes") or [] if double_red.get("found") else []
+        dr_hit = AgentSession._theme_match(term, [r.get("sector_name") for r in dr_rows])
+        if dr_hit is not None:
+            row = next(r for r in dr_rows if r.get("sector_name") == dr_hit)
+            tail = "，落在容量前三板块" if row.get("in_capacity_top3") else ""
+            blocks.append({
+                "theme": dr_hit,
+                "source": "fact_sector_daily",
+                "text": (
+                    f"双红题材命中「{dr_hit}」：涨幅 {row.get('pct_chg')}%，边际量 {row.get('diff_ratio')}%，"
+                    f"成交 {row.get('amount')}{tail}"
+                ),
+            })
+        lh_rows = limit_heat.get("themes") or [] if limit_heat.get("found") else []
+        lh_hit = AgentSession._theme_match(term, [r.get("sector_name") for r in lh_rows])
+        if lh_hit is not None:
+            row = next(r for r in lh_rows if r.get("sector_name") == lh_hit)
+            blocks.append({
+                "theme": lh_hit,
+                "source": "fact_theme_limit_heat_daily",
+                "text": (
+                    f"涨停热度命中「{lh_hit}」：涨停 {row.get('limit_up_count')} 家 / 共 {row.get('total_count')} 家，"
+                    f"占比 {row.get('market_share')}，封单额 {row.get('fd_amount')}，热度分 {round(float(row.get('score') or 0), 1)}"
+                ),
+            })
+        return blocks
+
+    @staticmethod
+    def _theme_match(term: str, names: list) -> str | None:
+        """把题材词匹配到盘面题材名：精确 > 双向子串，去空白、忽略大小写。命中返回原始题材名，否则 None。"""
+        key = re.sub(r"\s+", "", str(term or "")).lower()
+        if not key:
+            return None
+        cleaned = [(n, re.sub(r"\s+", "", str(n or "")).lower()) for n in names if n]
+        for original, norm in cleaned:
+            if norm == key:
+                return original
+        for original, norm in cleaned:
+            if norm and (key in norm or norm in key):
+                return original
+        return None
+
     @property
     def _dispatch(self) -> dict[str, Callable[..., str]]:
         return {
             "search_market_snapshot": self.tool_search_market_snapshot,
+            "search_market_live": self.tool_search_market_live,
             "search_graph": self.tool_search_graph,
             "search_evidence": self.tool_search_evidence,
             "search_wiki": self.tool_search_wiki,
@@ -446,7 +630,7 @@ class AgentSession:
         for _ in range(self.max_steps):
             msg, provider, reason = llm_refine.chat_with_tools(
                 self.messages,
-                AGENT_TOOLS,
+                self._tools,
                 model_override=self.model_override,
                 timeout=self.timeout,
             )
