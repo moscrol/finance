@@ -18,7 +18,7 @@
 | `agent-daily` 接线验收 | ✅ 2026-06-26 已重跑，JSON / MD / HTML 均生成 |
 | RAG 语义层 | ✅ `hybrid` 模式，告警 0，语义命中 9 条 |
 | 回归门禁 | ✅ 金融 Agent 相关单测 44/44 通过，编译通过 |
-| 工程化 / 评测 / 编排增强 | ⚠️ 仍有未完成项：向量分层、黄金样本/反幻觉评测、薄编排层 |
+| 工程化 / 评测 / 编排增强 | ⚠️ 部分推进：P4 最小黄金样本/反幻觉门禁已落地；向量分层、薄编排层仍未完成 |
 
 ### 知识库侧
 
@@ -61,7 +61,7 @@
 | P2#7 Ingest 状态机 | ⚠️ 部分：有批处理和报告，但没有统一 `raw_saved → ... → indexed` 状态机 |
 | P2#8 向量索引分层 | ❌ 未完成：索引仍偏扁平，未按 `evidence_layer` / `fact_hardness` / `source_type` 做过滤层 |
 | P2#9 RAG 引用规范 | ⚠️ 部分：返回 `file_path` / `score` / excerpt，但不能按证据层过滤 |
-| P4 黄金样本 / 反幻觉评测 | ❌ 未完成：未找到独立黄金样本与反幻觉评测门禁 |
+| P4 黄金样本 / 反幻觉评测 | ⚠️ 最小版已落地：`tests/test_agent_golden_eval.py` 校验生命周期、盘面验证、证据裁判、占位信号不升级、缺 L3 不得判为已有事实验证 |
 | 薄编排层 `agent_orchestrator.py` | ❌ 未建；清单中属于建议项，不是已完成项 |
 
 ### 本次执行记录
@@ -69,13 +69,14 @@
 | 项目 | 结果 |
 |---|---|
 | PR #88 merge | ✅ 当前分支包含 `ea2ab9f`，最新 merge commit 为 `9ab8e81` |
-| 金融 Agent 单测 | ✅ 44/44 通过 |
+| 金融 Agent 单测 | ✅ 44/44 通过；P4 相关组合门禁 23/23 通过 |
 | 编译门禁 | ✅ 通过 |
 | `agent-daily --date 2026-06-26` | ✅ 已重跑 |
 | 输出 JSON | ✅ `market_feature_store/exports/2026-06-26-daily-agent.json` |
 | 输出 Markdown | ✅ `market_feature_store/exports/2026-06-26-daily-agent.md` |
 | 输出 HTML | ✅ `复盘/daily/2026-06-26/2026-06-26-daily-agent.html` |
 | 研究任务队列 | ✅ IMA 2；公告/调研/订单 2；等盘面验证 0；降级观察 5 |
+| P4 最小黄金门禁 | ✅ `tests/test_agent_golden_eval.py` 已新增并通过 |
 
 生成日期：2026-06-21  
 机器分工：本 Mac 主要负责知识库沉淀、ingest、relations 清洗、向量化与证据判断；另一台 Mac 负责 DuckDB / market_feature_store / 盘面数据生产。
