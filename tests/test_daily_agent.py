@@ -38,6 +38,32 @@ class DailyAgentTest(unittest.TestCase):
         (exports / "2026-06-11-advancers-ma5.png").write_bytes(b"png")
 
         (briefings / "2026-06-11.md").write_text("# 晨汇\n", encoding="utf-8")
+        (exports / "2026-06-10-theme-candidates.json").write_text(
+            json.dumps(
+                {
+                    "found": True,
+                    "trade_date": "2026-06-10",
+                    "candidates": [
+                        {
+                            "market_theme": "液冷服务器",
+                            "canonical_concept": "液冷服务器",
+                            "priority_score": 70,
+                            "trigger_types": ["double_red"],
+                            "market_evidence": {
+                                "sector_metrics": {"pct_chg": 1.2, "diff_ratio": 8.0, "amount": 120.0},
+                                "limit_heat": {"limit_up_count": 1},
+                                "new_high_direction": {"high_count": 1},
+                                "strong_stocks": [
+                                    {"stock_name": "强瑞技术", "stock_ts_code": "301128.SZ", "pct_chg": 8.0}
+                                ]
+                            },
+                        }
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
         (exports / "2026-06-11-theme-candidates.json").write_text(
             json.dumps(
                 {
@@ -48,8 +74,11 @@ class DailyAgentTest(unittest.TestCase):
                             "market_theme": "液冷服务器",
                             "canonical_concept": "液冷服务器",
                             "priority_score": 88,
-                            "trigger_types": ["double_red"],
+                            "trigger_types": ["double_red", "limit_heat"],
                             "market_evidence": {
+                                "sector_metrics": {"pct_chg": 2.4, "diff_ratio": 18.0, "amount": 180.0},
+                                "limit_heat": {"limit_up_count": 2},
+                                "new_high_direction": {"high_count": 1},
                                 "strong_stocks": [
                                     {"stock_name": "强瑞技术", "stock_ts_code": "301128.SZ", "pct_chg": 12.3}
                                 ]
@@ -91,6 +120,10 @@ class DailyAgentTest(unittest.TestCase):
                     "items": [
                         {
                             "target": "液冷服务器",
+                            "concept": "液冷服务器",
+                            "evidence_layer": "L2",
+                            "update_type": "annual_report_baseline",
+                            "source_quality": "official_disclosure",
                             "evidence": "液冷服务器需求提升。",
                             "source": "[[液冷服务器深度报告]]",
                             "source_date": "2026-06-01",
@@ -105,7 +138,7 @@ class DailyAgentTest(unittest.TestCase):
         (relations / "catalyst_calendar.json").write_text("{}", encoding="utf-8")
         (relations / "mention_frequency.json").write_text("{}", encoding="utf-8")
         (sources / "液冷服务器深度报告.md").write_text("# source\n", encoding="utf-8")
-        return ProjectPaths(finance_root=finance, knowledge_wiki=wiki, finance_site=root / "site")
+        return ProjectPaths(finance_root=finance, knowledge_wiki=wiki, finance_site=root / "site", market_snapshot_dir=root / "snapshot")
 
     def test_daily_agent_summarizes_daily_surfaces_and_logic_routes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -163,18 +196,41 @@ class DailyAgentTest(unittest.TestCase):
             card = row["semantic_evidence_card"]
             self.assertEqual(card["标题"], "旧逻辑证据卡：液冷服务器")
             self.assertEqual(card["结构化检查"]["概念"], "已命中")
+            self.assertIn("生命周期", row)
+            self.assertEqual(row["生命周期"]["生命周期阶段"], "升温验证")
+            self.assertIn("盘面验证", row)
+            self.assertEqual(row["盘面验证"]["盘面验证强度"], "中等验证")
+            self.assertEqual(card["生命周期"]["生命周期阶段"], "升温验证")
+            self.assertEqual(card["盘面验证"]["盘面验证强度"], "中等验证")
+            self.assertEqual(card["证据裁判"]["证据状态"], "能力栈候选")
+            self.assertIn("research_queue", report)
+            self.assertEqual(report["research_queue"]["summary"]["today_find_official_evidence"], 1)
+            self.assertEqual(report["research_queue"]["today_find_official_evidence"][0]["目标"], "液冷服务器")
+            self.assertIn("L2 官方基线", card["证据裁判"]["已有证据层"])
+            self.assertIn("L3 官方验证", card["证据裁判"]["缺失证据层"])
             self.assertEqual(card["向量旧材料"]["命中数量"], 1)
             self.assertEqual(card["命中材料"][0]["类型"], "旧深度研究")
             self.assertEqual(card["命中材料"][0]["作用"], "旧逻辑主线")
-            self.assertIn("可以进入题材地图/深度研究", card["下一步"])
+            self.assertIn("找公告", card["下一步"])
             self.assertIn("## 逻辑证据卡", markdown)
+            self.assertIn("## 今日研究任务队列", markdown)
+            self.assertIn("今日该找公告/调研/订单", markdown)
+            self.assertIn("盘面验证：中等验证", markdown)
             self.assertIn("结构化：概念=已命中", markdown)
+            self.assertIn("生命周期：升温验证", markdown)
+            self.assertIn("证据裁判：能力栈候选", markdown)
             self.assertIn("回溯：已命中来源页", markdown)
 
             html = render_daily_agent_html(report, markdown)
             self.assertIn("马上看：旧逻辑唤醒", html)
+            self.assertIn("今日研究任务队列", html)
+            self.assertIn("今日该找公告/调研/订单", html)
+            self.assertIn("盘面验证", html)
+            self.assertIn("中等验证", html)
             self.assertIn("需要回补：概念 / 公司 / 证据 / 来源", html)
             self.assertIn("逻辑证据卡", html)
+            self.assertIn("生命周期", html)
+            self.assertIn("证据裁判", html)
             self.assertIn("evidence-card", html)
             self.assertNotIn("<pre>", html)
 

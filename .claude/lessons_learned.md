@@ -26,6 +26,25 @@
   根因：表结构和代码中的字段列表不同步。
   做法：检查白名单中的字段必须在飞书表中实际存在，写入前验证字段名。
 
+## [kb] 年报 baseline 入库
+
+- **[2026-06-23] 批量年报入库共用 batch source note 导致追溯断裂。**
+  根因：`entity_baseline_writer.py` 的 `write_updates()` 对整批使用同一个 `source_name`（如 "年报 baseline batch 2026-06-23"），所有公司的 evidence 都指向这个 batch note，但 batch note 的 `company` 字段只记录了最后一家。
+  做法：新增 `per_company_source_name()` 函数，年报类型时自动拆为 `<公司> <报告名> baseline <日期>` 独立 source note。batch note 只作批次清单，不作 evidence source。
+
+- **[2026-06-23] entity 页 key_data 和一句话定位留空，baseline 对后续分析帮助弱。**
+  根因：writer 不自动从 raw JSON 提取营收/净利润等财务数据，也不从 industry+main_business 生成定位。
+  做法：新增 `extract_key_data_from_raw()` 自动抽取营收+归属净利润；新增 `generate_one_liner()` 从 main_business+industry 生成朴素定位。
+
+- **[2026-06-23] 完成闸门缺少 source 追溯审计步骤。**
+  根因：`check_relations_integrity.py` 只检查 JSON 格式完整性，不验证 source note 的公司归属和 raw_traces 指向。
+  做法：新增 `scripts/audit_missing_evidence_sources.py` 作为第 7 步闸门，检查每个 entity 的 source note 存在性、company 字段一致性、raw_traces 可达性。
+
+- **[2026-06-23] 年报 batch 2 质量修复：5 类问题沉淀 8 条防护规则。**
+  错误：①已有 F10 baseline 被低质量年报 OCR 覆盖（宁德时代主营变成表格噪声）；②正则扫全文误抽财务数据（宁波银行营收 7.20万元）；③`source_date` 从 PDF 误抽出未来日期；④修页面忘了同步修 relations JSON 导致 agent 结构化召回脏数据；⑤文件名冒号/下划线不一致导致 source 断链。
+  根因：`extract_key_data_from_raw` 用正则扫全文无验证；`entity_baseline_writer` 无条件覆盖已有高质量 baseline；修复流程只看页面不看 relations。
+  做法：`extract_key_data_from_raw` 默认关闭（`AUTO_KEY_DATA=1` 才启用）；SKILL.md 新增"年报 baseline 质量防护规则"8 条（relations 同步修 / 安全文件名 / source_date 分离 / OCR 噪声词过滤 / 已有 baseline 不覆盖 / 验收看内容不只看退出码 / 批量抽样）。
+
 ## 批量操作
 
 - **[2026-05-08] 日历选择器月份导航最大迭代次数不够。**

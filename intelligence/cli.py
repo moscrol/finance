@@ -674,6 +674,7 @@ def add_adapter_smoke_parser(subparsers: argparse._SubParsersAction) -> None:
 def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("daily", help="Run daily review workflow")
     parser.add_argument("--date", required=True, help="Trade date YYYY-MM-DD")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；会传给 agent-daily，并用于刷新驾驶舱晨汇链接")
     parser.add_argument("--skip-sync", action="store_true", help="Skip market data sync")
     parser.add_argument("--skip-long", action="store_true", help="Pass --skip-long to daily-update")
     parser.add_argument("--skip-theme", action="store_true", help="Skip market-triggered theme brief")
@@ -883,6 +884,7 @@ def cmd_daily(args: argparse.Namespace) -> int:
         from_step=args.from_step,
         only_step=args.only_step,
         continue_on_warn=args.continue_on_warn,
+        kb_wiki=args.kb_wiki,
     )
     summary = dry_run_daily_review(options) if args.dry_run else run_daily_review(options)
     if args.summary_json:
