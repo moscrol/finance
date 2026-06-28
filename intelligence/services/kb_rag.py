@@ -44,6 +44,9 @@ class WikiHit:
     title: str
     score: float
     excerpt: str
+    evidence_layer: str = ""
+    fact_hardness: str = ""
+    source_type: str = ""
     via_neighbor: bool = False
 
 
@@ -107,6 +110,9 @@ def retrieve(
     mode: str = DEFAULT_RAG_MODE,
     timeout: int = DEFAULT_RAG_TIMEOUT,
     excerpt_chars: int = DEFAULT_EXCERPT_CHARS,
+    evidence_layer: str | None = None,
+    fact_hardness: str | None = None,
+    source_type: str | None = None,
 ) -> WikiRagResult:
     """Run the KB hybrid retriever for ``query`` and return candidate wiki pages.
 
@@ -134,8 +140,19 @@ def retrieve(
 
     rag_python = _resolve_rag_python(root)
     cmd = [rag_python, str(script), "query", str(query), "--k", str(k), "--mode", str(mode), "--json"]
-    res.command = f"rag_index.py query <q> --k {k} --mode {mode} --json"
-    res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}（hybrid 向量召回 wiki 候选页）"
+    filters = []
+    if evidence_layer:
+        cmd.extend(["--evidence-layer", evidence_layer])
+        filters.append(f"evidence_layer={evidence_layer}")
+    if fact_hardness:
+        cmd.extend(["--fact-hardness", fact_hardness])
+        filters.append(f"fact_hardness={fact_hardness}")
+    if source_type:
+        cmd.extend(["--source-type", source_type])
+        filters.append(f"source_type={source_type}")
+    filter_note = f" filters={','.join(filters)}" if filters else ""
+    res.command = f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
+    res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（hybrid 向量召回 wiki 候选页）"
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(root))
     except subprocess.TimeoutExpired:
@@ -170,6 +187,9 @@ def retrieve(
                 title=str(item.get("title") or item.get("page_id") or "(无标题)"),
                 score=float(item.get("score") or 0.0),
                 excerpt=excerpt,
+                evidence_layer=str(item.get("evidence_layer") or ""),
+                fact_hardness=str(item.get("fact_hardness") or ""),
+                source_type=str(item.get("source_type") or ""),
                 via_neighbor=bool(item.get("via_neighbor")),
             )
         )
