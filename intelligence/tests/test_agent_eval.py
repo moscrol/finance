@@ -220,6 +220,20 @@ class TestScorecard(unittest.TestCase):
         out = R.format_scorecard(card)
         self.assertIn("记分卡", out)
         self.assertIn("PASS", out)
+        self.assertIn("错配实体", out)
+        self.assertIn("证据越级", out)
+
+    def test_format_scorecard_surfaces_factuality_failures(self):
+        bad = score_case(
+            [_good_turn(answer=GOOD_ANSWER + " 宁德时代业绩已兑现。")],
+            _spec(forbid_entities=["宁德时代"], forbid_phrases=["业绩已兑现"]),
+        )
+        card = build_scorecard([bad], 1.0)
+        out = R.format_scorecard(card)
+        self.assertIn("宁德时代", out)
+        self.assertIn("业绩已兑现", out)
+        self.assertIn("错配实体", out)
+        self.assertIn("证据越级", out)
 
 
 class TestRunnerAdapterAndReplay(unittest.TestCase):
