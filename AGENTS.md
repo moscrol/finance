@@ -7,6 +7,7 @@
 - 本项目对应笔记 `20_projects/finance-workspace-private.md` — 项目背景、关键决策、任务看板
 
 **完成后回写：** 把关键结论/决策追加到 `20_projects/finance-workspace-private.md` 的「交接记录」，可复用知识提炼进 `10_knowledge/`。
+详细回写步骤见 vault `40_playbooks/devin-writeback.md`。
 
 ## Git Branch Safety Rules（强制）
 
