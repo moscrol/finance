@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 
 class DefaultPathsTest(unittest.TestCase):
-    def _default_paths_with_env(self, env):
+    def _default_paths_with_env(self, env, home=None):
         keys = {
             "FINANCE_WS",
             "FINANCE_ROOT",
@@ -22,6 +22,9 @@ class DefaultPathsTest(unittest.TestCase):
         with patch.dict(os.environ, clean_env, clear=True):
             import intelligence.paths as paths
             importlib.reload(paths)
+            if home is not None:
+                with patch.object(paths.Path, "home", return_value=Path(home)):
+                    return paths.default_paths()
             return paths.default_paths()
 
     def test_prefers_finance_ws_and_kb_vault(self):
@@ -60,11 +63,12 @@ class DefaultPathsTest(unittest.TestCase):
         self.assertEqual(paths.knowledge_wiki, Path("/tmp/concept-vault/wiki"))
 
     def test_defaults_use_current_home_not_fixed_user(self):
-        paths = self._default_paths_with_env({})
+        home = Path("/tmp/current-home")
+        paths = self._default_paths_with_env({}, home=home)
 
-        self.assertEqual(paths.finance_root, Path.home() / "Desktop/c c/金融")
-        self.assertEqual(paths.knowledge_wiki, Path.home() / "Desktop/c c/知识库/wiki")
-        self.assertEqual(paths.market_snapshot_dir, Path.home() / "Desktop/c c/金融/market_snapshot")
+        self.assertEqual(paths.finance_root, home / "Desktop/c c/金融")
+        self.assertEqual(paths.knowledge_wiki, home / "Desktop/c c/知识库/wiki")
+        self.assertEqual(paths.market_snapshot_dir, home / "Desktop/c c/金融/market_snapshot")
         self.assertNotIn("/Users/lbq", str(paths.finance_root))
         self.assertNotIn("/Users/lbq", str(paths.knowledge_wiki))
 
