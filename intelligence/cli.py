@@ -9,6 +9,34 @@ from pathlib import Path
 # market database driver installed.
 
 
+def _resolve_kb_mode(
+    query: str, kb_mode_arg: str | None, wiki_rag_mode_arg: str
+) -> tuple[str, str | None, str]:
+    """把 --kb-mode（或问句自然语言触发词）解析成（检索方式, 索引目录覆盖）。
+
+    --kb-mode 显式优先；否则按问句触发词；都没有 → 结构版默认（行为逐字节不变）。
+    --wiki-rag-mode 被显式改成非默认 hybrid 时，作为低层逃生口覆盖模式档里的检索方式。
+    返回 (wiki_rag_mode, wiki_rag_index_dir, error)；error 非空表示 --kb-mode 取值非法。
+    """
+    from intelligence.services import kb_rag
+
+    if kb_mode_arg:
+        canonical = kb_rag.normalize_kb_mode(kb_mode_arg)
+        if canonical is None:
+            return "hybrid", None, (
+                f"\u65e0\u6cd5\u8bc6\u522b --kb-mode\u300c{kb_mode_arg}\u300d\uff1b\u53ef\u7528\uff1a"
+                "structured/fast/\u7ed3\u6784/\u7ed3\u6784\u7248/\u901f\u67e5 \u6216 full/deep/\u5168\u6587/\u5168\u6587\u7248/\u6df1\u5ea6"
+            )
+        mode_name: str | None = canonical
+    else:
+        mode_name = kb_rag.detect_kb_mode(query)  # None → 结构版
+
+    index_dir, rag_mode = kb_rag.kb_mode_profile(mode_name)
+    if wiki_rag_mode_arg and wiki_rag_mode_arg != "hybrid":
+        rag_mode = wiki_rag_mode_arg  # 显式 --wiki-rag-mode 覆盖模式档检索方式
+    return rag_mode, index_dir, ""
+
+
 def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S) + wiki 向量语义召回 (W)"
@@ -34,10 +62,16 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
     parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
-        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF)",
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
+        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
     )
     parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
+    parser.add_argument(
+        "--kb-mode", default=None, metavar="MODE",
+        help="W 源查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
+        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词"
+        "(深挖/看原文/原文/权威/完整版/深度)自动判定；无触发词时为 structured（与历史逐字节一致）。",
+    )
     parser.add_argument(
         "--llm",
         action="store_true",
@@ -82,10 +116,15 @@ def add_chat_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--no-wiki-rag", action="store_true", help="Disable the W source (wiki 向量语义召回)")
     parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
     parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
-        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF)",
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
+        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
     )
     parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
+    parser.add_argument(
+        "--kb-mode", default=None, metavar="MODE",
+        help="W 源查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
+        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词自动判定；无触发词时为 structured。",
+    )
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
     parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP timeout in seconds")
     parser.add_argument(
@@ -101,6 +140,10 @@ def cmd_chat(args: argparse.Namespace) -> int:
     from intelligence.services.ask_chat import AskConversation
 
     modules = tuple(m.strip() for m in args.modules.split(",") if m.strip()) if args.modules else None
+    rag_mode, kb_index_dir, kb_err = _resolve_kb_mode(args.query, args.kb_mode, args.wiki_rag_mode)
+    if kb_err:
+        print(kb_err, file=sys.stderr)
+        return 2
     conv = AskConversation(
         AskOptions(
             query=args.query,
@@ -113,8 +156,9 @@ def cmd_chat(args: argparse.Namespace) -> int:
             module_timeout=args.module_timeout,
             use_wiki_rag=not args.no_wiki_rag,
             wiki_rag_k=args.wiki_rag_k,
-            wiki_rag_mode=args.wiki_rag_mode,
+            wiki_rag_mode=rag_mode,
             wiki_rag_timeout=args.wiki_rag_timeout,
+            wiki_rag_index_dir=kb_index_dir,
             compose=True,
         ),
         model_override=args.llm_model,
@@ -180,10 +224,15 @@ def add_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
     parser.add_argument("--wiki-rag-k", type=int, default=6, help="Default wiki pages per search_wiki call (W source)")
     parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
-        help="Retrieval mode for the wiki tool (default hybrid = BM25 + dense RRF)",
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
+        help="Retrieval mode for the wiki tool (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
     )
     parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="search_wiki rag_index.py subprocess timeout in seconds")
+    parser.add_argument(
+        "--kb-mode", default=None, metavar="MODE",
+        help="wiki 工具查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
+        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词自动判定。",
+    )
     parser.add_argument("--max-steps", type=int, default=6, help="Max agent tool-calling rounds before a forced final answer")
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
     parser.add_argument("--llm-timeout", type=int, default=90, help="Per LLM round-trip HTTP timeout in seconds")
@@ -200,6 +249,10 @@ def cmd_agent(args: argparse.Namespace) -> int:
     from intelligence.services.agent import AgentSession
     from intelligence.services.ask import AskOptions
 
+    rag_mode, kb_index_dir, kb_err = _resolve_kb_mode(args.query, args.kb_mode, args.wiki_rag_mode)
+    if kb_err:
+        print(kb_err, file=sys.stderr)
+        return 2
     options = AskOptions(
         query=args.query,
         date=args.date,
@@ -209,8 +262,9 @@ def cmd_agent(args: argparse.Namespace) -> int:
         top_companies=args.top_companies,
         module_timeout=args.module_timeout,
         wiki_rag_k=args.wiki_rag_k,
-        wiki_rag_mode=args.wiki_rag_mode,
+        wiki_rag_mode=rag_mode,
         wiki_rag_timeout=args.wiki_rag_timeout,
+        wiki_rag_index_dir=kb_index_dir,
         compose=True,
     )
 
@@ -710,6 +764,10 @@ def cmd_ask(args: argparse.Namespace) -> int:
     from intelligence.workflows.ask import AskWorkflowOptions, run_ask
 
     modules = tuple(m.strip() for m in args.modules.split(",") if m.strip()) if args.modules else None
+    rag_mode, kb_index_dir, kb_err = _resolve_kb_mode(args.query, args.kb_mode, args.wiki_rag_mode)
+    if kb_err:
+        print(kb_err, file=sys.stderr)
+        return 2
     summary, _result, answer = run_ask(
         AskWorkflowOptions(
             query=args.query,
@@ -722,8 +780,9 @@ def cmd_ask(args: argparse.Namespace) -> int:
             module_timeout=args.module_timeout,
             use_wiki_rag=not args.no_wiki_rag,
             wiki_rag_k=args.wiki_rag_k,
-            wiki_rag_mode=args.wiki_rag_mode,
+            wiki_rag_mode=rag_mode,
             wiki_rag_timeout=args.wiki_rag_timeout,
+            wiki_rag_index_dir=kb_index_dir,
             use_llm=args.llm,
             compose=args.compose,
             llm_model=args.llm_model,
