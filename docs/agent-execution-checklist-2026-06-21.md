@@ -58,7 +58,7 @@
 | 清单项 | 最新实测 |
 |---|---|
 | P0.1 路径环境统一 | ✅ 已补齐最小闭环：`FINANCE_WS`、`FINANCE_ROOT`、`KB_VAULT`、`KNOWLEDGE_WIKI`、`MARKET_SNAPSHOT_DIR`、`VECTOR_INDEX_DIR` 均已进入金融路径层；RAG 侧兼容 `VECTOR_INDEX_DIR` / `RAG_INDEX_DIR` / `KB_RAG_PYTHON` |
-| P2#7 Ingest 状态机 | ⚠️ 观测闭环已推进：新增 ingest status ledger 与只读 indexed probe；可观测 `candidate_detected/backfill_queued/pending_review` 以及 `concept_page_exists/rag_indexed/not_in_kb`，完整写入态 `raw_saved` 仍待接知识库写入链路 |
+| P2#7 Ingest 状态机 | ⚠️ 观测+计划闭环已推进：ingest status ledger + 只读 indexed probe + 只读 ingest action plan（把缺口映射到已有 KB dry-run 命令、已 indexed 项自动跳过）；真正写库仍由 KB 脚本自身 `--apply` + 人工确认，未自动执行 |
 | P2#8 向量索引分层 | ✅ 最小版已落地：RAG chunk/query 已输出 `evidence_layer` / `fact_hardness` / `source_type` |
 | P2#9 RAG 引用规范 | ✅ 最小版已落地：知识库 `rag_index.py query` 支持按 `evidence_layer` / `fact_hardness` / `source_type` 过滤；金融 `kb_rag` 可透传过滤并解析 metadata |
 | P4 黄金样本 / 反幻觉评测 | ✅ deterministic golden 已增强：`tests/test_agent_golden_eval.py` 固定路由分桶、生命周期、盘面验证、证据裁判、研究队列和占位信号反幻觉断言 |
@@ -82,6 +82,7 @@
 | P2#9 RAG 分层引用过滤 | ✅ 知识库短门禁 4/4 通过；金融 `kb_rag` 短门禁 3/3 通过；CLI `--evidence-layer L0_concept` 已验证 |
 | P2#7 ingest status ledger | ✅ `scripts/build_ingest_status_ledger.py` 已新增；单测 2/2 通过；2026-06-26 ledger 已生成，item_count=66，status_counts=`candidate_detected:50/backfill_queued:12/pending_review:4` |
 | P2#7 indexed 观测层 | ✅ `scripts/enrich_ingest_status_with_index.py` 已新增；单测 2/2 通过；2026-06-26 indexed ledger 已生成，index_status_counts=`rag_indexed:47/concept_page_exists:6/not_in_kb:13` |
+| P2#7 ingest action plan | ✅ `scripts/build_ingest_action_plan.py` 已新增（只读，不执行）；单测 2/2 通过；2026-06-26 计划已生成，action_mode_counts=`already_indexed:5/dry_run:7/read_only:3/manual:1` |
 | 薄编排层 `agent_orchestrator.py` | ✅ `intelligence.cli orchestrate` 已新增；单测 3/3 通过；CLI 预览 `今天该看什么` 命中 `agent_daily` 且默认不执行 |
 
 生成日期：2026-06-21  
