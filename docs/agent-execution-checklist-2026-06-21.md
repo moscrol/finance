@@ -18,7 +18,7 @@
 | `agent-daily` 接线验收 | ✅ 2026-06-26 已重跑，JSON / MD / HTML 均生成 |
 | RAG 语义层 | ✅ `hybrid` 模式，告警 0，语义命中 9 条 |
 | 回归门禁 | ✅ 金融 Agent 相关单测 44/44 通过，编译通过 |
-| 工程化 / 评测 / 编排增强 | ⚠️ 部分推进：P2#7 ingest 状态 ledger、P2#8/P2#9 RAG 分层元数据与过滤、P4 最小黄金样本/反幻觉门禁已落地；薄编排层仍未完成 |
+| 工程化 / 评测 / 编排增强 | ✅ 最小闭环：P2#7 ingest 状态 ledger、P2#8/P2#9 RAG 分层元数据与过滤、P4 最小黄金样本/反幻觉门禁、薄编排层均已落地 |
 
 ### 知识库侧
 
@@ -62,7 +62,7 @@
 | P2#8 向量索引分层 | ✅ 最小版已落地：RAG chunk/query 已输出 `evidence_layer` / `fact_hardness` / `source_type` |
 | P2#9 RAG 引用规范 | ✅ 最小版已落地：知识库 `rag_index.py query` 支持按 `evidence_layer` / `fact_hardness` / `source_type` 过滤；金融 `kb_rag` 可透传过滤并解析 metadata |
 | P4 黄金样本 / 反幻觉评测 | ⚠️ 最小版已落地：`tests/test_agent_golden_eval.py` 校验生命周期、盘面验证、证据裁判、占位信号不升级、缺 L3 不得判为已有事实验证 |
-| 薄编排层 `agent_orchestrator.py` | ❌ 未建；清单中属于建议项，不是已完成项 |
+| 薄编排层 `agent_orchestrator.py` | ✅ 最小版已落地：`orchestrate` 先 route 再渲染执行计划；默认 preview，`--execute` 仅执行 low-risk + auto_execute path |
 
 ### 本次执行记录
 
@@ -80,6 +80,7 @@
 | P2#8 RAG 分层元数据 | ✅ 知识库 `chunking.py` / `retrieval.py` 已支持；RAG tests 61/61 通过；现有索引已刷新分层字段 |
 | P2#9 RAG 分层引用过滤 | ✅ 知识库短门禁 4/4 通过；金融 `kb_rag` 短门禁 3/3 通过；CLI `--evidence-layer L0_concept` 已验证 |
 | P2#7 ingest status ledger | ✅ `scripts/build_ingest_status_ledger.py` 已新增；单测 2/2 通过；2026-06-26 ledger 已生成，item_count=66，status_counts=`candidate_detected:50/backfill_queued:12/pending_review:4` |
+| 薄编排层 `agent_orchestrator.py` | ✅ `intelligence.cli orchestrate` 已新增；单测 3/3 通过；CLI 预览 `今天该看什么` 命中 `agent_daily` 且默认不执行 |
 
 生成日期：2026-06-21  
 机器分工：本 Mac 主要负责知识库沉淀、ingest、relations 清洗、向量化与证据判断；另一台 Mac 负责 DuckDB / market_feature_store / 盘面数据生产。

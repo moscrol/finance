@@ -316,6 +316,23 @@ def add_route_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(func=cmd_route)
 
 
+def add_orchestrate_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "orchestrate",
+        help="薄编排层：先分诊，再渲染 workflow 命令；默认只预览，--execute 仅执行 low-risk auto path。",
+    )
+    parser.add_argument("query", help="用户问题，例如：今天该看什么")
+    parser.add_argument("--date", default=None, help="交易日 YYYY-MM-DD")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；默认走 env/auto")
+    parser.add_argument("--finance-root", default=None, help="覆盖金融仓路径")
+    parser.add_argument("--recent", type=int, default=5, help="批量路径 recent 参数")
+    parser.add_argument("--top-per-date", type=int, default=10, help="批量路径 top_per_date 参数")
+    parser.add_argument("--execute", action="store_true", help="执行允许自动执行的 low-risk path；默认只预览")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.add_argument("--summary-json", default=None, help="写出 workflow summary JSON")
+    parser.set_defaults(func=cmd_orchestrate)
+
+
 def add_logic_match_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "logic-match",
@@ -387,6 +404,31 @@ def cmd_route(args: argparse.Namespace) -> int:
         summary.write_json(args.summary_json)
     if args.json:
         print(_json.dumps(decision.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(answer, end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def cmd_orchestrate(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.workflows.agent_orchestrator import OrchestratorOptions, run_agent_orchestrator
+
+    summary, result, answer = run_agent_orchestrator(
+        OrchestratorOptions(
+            query=args.query,
+            date=args.date,
+            knowledge_wiki=args.kb_wiki,
+            finance_root=args.finance_root,
+            recent=args.recent,
+            top_per_date=args.top_per_date,
+            execute=args.execute,
+        )
+    )
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    if args.json:
+        print(_json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     else:
         print(answer, end="")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
@@ -1682,6 +1724,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_agent_parser(subparsers)
     add_agent_eval_parser(subparsers)
     add_route_parser(subparsers)
+    add_orchestrate_parser(subparsers)
     add_logic_match_parser(subparsers)
     add_logic_match_batch_parser(subparsers)
     add_daily_agent_parser(subparsers)
