@@ -61,6 +61,20 @@ class KbRagRetrieveFilterTests(unittest.TestCase):
             self.assertEqual(res.hits[0].source_type, "concept_page")
 
 
+class KbRagIndexResolutionTests(unittest.TestCase):
+    def test_prefers_vector_index_dir_over_legacy_rag_index_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            with mock.patch.dict("os.environ", {"VECTOR_INDEX_DIR": "/tmp/vector-index", "RAG_INDEX_DIR": "/tmp/rag-index"}, clear=True):
+                self.assertEqual(kb_rag._resolve_index_dir(root), Path("/tmp/vector-index"))
+
+    def test_keeps_legacy_rag_index_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            with mock.patch.dict("os.environ", {"RAG_INDEX_DIR": "/tmp/rag-index"}, clear=True):
+                self.assertEqual(kb_rag._resolve_index_dir(root), Path("/tmp/rag-index"))
+
+
 class KbRagPythonResolutionTests(unittest.TestCase):
     def test_prefers_explicit_python_env(self) -> None:
         with tempfile.TemporaryDirectory() as td:

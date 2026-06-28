@@ -66,8 +66,7 @@ def kb_root(kb_wiki: str | Path) -> Path:
 
 
 def _resolve_index_dir(root: Path) -> Path:
-    """Mirror rag.config.index_dir(): RAG_INDEX_DIR env, else <kb_root>/.rag_index."""
-    env = os.environ.get("RAG_INDEX_DIR")
+    env = os.environ.get("VECTOR_INDEX_DIR") or os.environ.get("RAG_INDEX_DIR")
     if env:
         return Path(env).expanduser()
     return root / ".rag_index"

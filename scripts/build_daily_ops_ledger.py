@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from intelligence.paths import ProjectPaths, default_paths
+from intelligence.paths import ProjectPaths, default_paths, vector_index_dir_for
 
 
 STATUS_PASS = "PASS"
@@ -347,6 +347,7 @@ def paths_from_args(args: argparse.Namespace) -> ProjectPaths:
         knowledge_wiki=knowledge_wiki,
         finance_site=paths.finance_site,
         market_snapshot_dir=paths.market_snapshot_dir,
+        vector_index_dir=vector_index_dir_for(knowledge_wiki),
     )
 
 

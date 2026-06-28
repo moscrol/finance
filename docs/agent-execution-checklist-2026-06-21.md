@@ -57,7 +57,7 @@
 
 | 清单项 | 最新实测 |
 |---|---|
-| P0.1 路径环境统一 | ✅ 部分完成：`FINANCE_WS`、`FINANCE_ROOT`、`KB_VAULT`、`KNOWLEDGE_WIKI`、`MARKET_SNAPSHOT_DIR` 已支持；`VECTOR_INDEX_DIR` 未在金融路径层统一，RAG 侧使用 `RAG_INDEX_DIR` / `KB_RAG_PYTHON` |
+| P0.1 路径环境统一 | ✅ 已补齐最小闭环：`FINANCE_WS`、`FINANCE_ROOT`、`KB_VAULT`、`KNOWLEDGE_WIKI`、`MARKET_SNAPSHOT_DIR`、`VECTOR_INDEX_DIR` 均已进入金融路径层；RAG 侧兼容 `VECTOR_INDEX_DIR` / `RAG_INDEX_DIR` / `KB_RAG_PYTHON` |
 | P2#7 Ingest 状态机 | ⚠️ 观测闭环已推进：新增 ingest status ledger 与只读 indexed probe；可观测 `candidate_detected/backfill_queued/pending_review` 以及 `concept_page_exists/rag_indexed/not_in_kb`，完整写入态 `raw_saved` 仍待接知识库写入链路 |
 | P2#8 向量索引分层 | ✅ 最小版已落地：RAG chunk/query 已输出 `evidence_layer` / `fact_hardness` / `source_type` |
 | P2#9 RAG 引用规范 | ✅ 最小版已落地：知识库 `rag_index.py query` 支持按 `evidence_layer` / `fact_hardness` / `source_type` 过滤；金融 `kb_rag` 可透传过滤并解析 metadata |
@@ -76,6 +76,7 @@
 | 输出 Markdown | ✅ `market_feature_store/exports/2026-06-26-daily-agent.md` |
 | 输出 HTML | ✅ `复盘/daily/2026-06-26/2026-06-26-daily-agent.html` |
 | 研究任务队列 | ✅ IMA 2；公告/调研/订单 2；等盘面验证 0；降级观察 5 |
+| P0.1 vector index path | ✅ `ProjectPaths.vector_index_dir` 已新增；`kb_rag` 优先读 `VECTOR_INDEX_DIR`，兼容 `RAG_INDEX_DIR`；相关单测通过 |
 | P4 deterministic 黄金门禁 | ✅ `tests/test_agent_golden_eval.py` 已增强并通过；固定 `液冷服务器`→旧逻辑唤醒、`连板未映射`→噪音/未确认，且缺 L3 不得判为已有事实验证 |
 | P2#8 RAG 分层元数据 | ✅ 知识库 `chunking.py` / `retrieval.py` 已支持；RAG tests 61/61 通过；现有索引已刷新分层字段 |
 | P2#9 RAG 分层引用过滤 | ✅ 知识库短门禁 4/4 通过；金融 `kb_rag` 短门禁 3/3 通过；CLI `--evidence-layer L0_concept` 已验证 |
