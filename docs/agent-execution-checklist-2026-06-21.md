@@ -63,6 +63,7 @@
 | P2#9 RAG 引用规范 | ✅ 最小版已落地：知识库 `rag_index.py query` 支持按 `evidence_layer` / `fact_hardness` / `source_type` 过滤；金融 `kb_rag` 可透传过滤并解析 metadata |
 | P4 黄金样本 / 反幻觉评测 | ✅ deterministic golden 已增强：`tests/test_agent_golden_eval.py` 固定路由分桶、生命周期、盘面验证、证据裁判、研究队列和占位信号反幻觉断言 |
 | P4+ agent-eval 维度扩展 | ✅ `agent-eval` 新增 `forbid_entities`（事实错配闸）+ `forbid_phrases`（证据层级 overclaim 闸）；用例从 3 个扩到 6 个（+PCB/固态电池/AI眼镜），实体与证据层均取自知识库真值；scorer 单测 31/31 通过 |
+| P4+ 案例接地校验 | ✅ `scripts/validate_agent_cases_grounding.py` 交叉核对用例 expect/forbid 实体与 KB `entity_exposures`；6 case 全部 100% 接地、0 违规；纯逻辑+KB 集成单测 6/6 通过 |
 | 薄编排层 `agent_orchestrator.py` | ✅ 最小版已落地：`orchestrate` 先 route 再渲染执行计划；默认 preview，`--execute` 仅执行 low-risk + auto_execute path |
 
 ### 本次执行记录
@@ -86,6 +87,7 @@
 | P2#7 ingest action plan | ✅ `scripts/build_ingest_action_plan.py` 已新增（只读，不执行）；单测 2/2 通过；2026-06-26 计划已生成，action_mode_counts=`already_indexed:5/dry_run:7/read_only:3/manual:1` |
 | 薄编排层 `agent_orchestrator.py` | ✅ `intelligence.cli orchestrate` 已新增；单测 3/3 通过；CLI 预览 `今天该看什么` 命中 `agent_daily` 且默认不执行 |
 | P4+ agent-eval 扩维度 | ✅ scorer 加 `forbid_entities`/`forbid_phrases`；用例扩到 6 题材（实体/层级取自 KB 真值）；`intelligence.tests.test_agent_eval` 31/31 通过 |
+| P4+ 案例接地校验 | ✅ `validate_agent_cases_grounding.py` 对真实 KB 跑：6 case 命中率均 100%、forbid 违规 0、概念无缺失；`tests.test_agent_cases_grounding` 6/6 通过 |
 
 生成日期：2026-06-21  
 机器分工：本 Mac 主要负责知识库沉淀、ingest、relations 清洗、向量化与证据判断；另一台 Mac 负责 DuckDB / market_feature_store / 盘面数据生产。
