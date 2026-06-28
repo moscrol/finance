@@ -66,6 +66,7 @@
 | P4+ 案例接地校验 | ✅ `scripts/validate_agent_cases_grounding.py` 交叉核对用例 expect/forbid 实体与 KB `entity_exposures`；6 case 全部 100% 接地、0 违规；纯逻辑+KB 集成单测通过 |
 | P4+ agent-eval 接地预检 | ✅ `agent-eval` live 跑前自动接地预检：用例未对齐 KB 时退出码 2 拦截、不消耗 LLM；缺 KB 自动跳过；`--skip-grounding-check` 可绕过；`tests.test_agent_cases_grounding` 9/9 通过 |
 | P4+ 记分卡可视化 | ✅ `agent-eval` scorecard 表格新增 `错配实体` / `证据越级` 两列；事实错配与 overclaim 不再只藏在失败项里；评测相关单测 41/41 通过 |
+| P4+ FinHot Evidence Hunter | ✅ 第一版只读闭环已落地：从 daily `decision` 复用 research queue 生成 `verification_tasks`，读取 `finhot` SQLite 找公告/订单/客户/产能/量产候选，输出 JSON/Markdown；不写 KB、不升级 indexed；新增单测覆盖 L3 candidate/L3 official/L3 historical/L2 baseline/错配拒绝 |
 | 薄编排层 `agent_orchestrator.py` | ✅ 最小版已落地：`orchestrate` 先 route 再渲染执行计划；默认 preview，`--execute` 仅执行 low-risk + auto_execute path |
 
 ### 本次执行记录
@@ -91,6 +92,7 @@
 | P4+ agent-eval 扩维度 | ✅ scorer 加 `forbid_entities`/`forbid_phrases`；用例扩到 6 题材（实体/层级取自 KB 真值）；`intelligence.tests.test_agent_eval` 31/31 通过 |
 | P4+ 案例接地校验 | ✅ `validate_agent_cases_grounding.py` 对真实 KB 跑：6 case 命中率均 100%、forbid 违规 0、概念无缺失；`tests.test_agent_cases_grounding` 9/9 通过 |
 | P4+ 记分卡可视化 | ✅ `agent-eval` scorecard 已显示 `错配实体` / `证据越级`；`intelligence.tests.test_agent_eval + tests.test_agent_cases_grounding` 41/41 通过 |
+| P4+ FinHot Evidence Hunter | ✅ `scripts/build_evidence_hunter_report.py` 已新增（只读）；`tests.test_evidence_hunter + tests.test_research_queue + tests.test_ingest_action_plan` 16/16 通过；真实 2026-06-26 daily JSON smoke：当前 official evidence queue 为空、finhot.db 缺失时输出 warning + 空报告 |
 
 生成日期：2026-06-21  
 机器分工：本 Mac 主要负责知识库沉淀、ingest、relations 清洗、向量化与证据判断；另一台 Mac 负责 DuckDB / market_feature_store / 盘面数据生产。
