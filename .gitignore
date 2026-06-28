@@ -106,4 +106,4 @@ raw/transcripts/*/*.jsonl
 intelligence/dream/_kb_candidates/
 
 # 记忆底座软链（指向 /Users/a77/agent-memory，仅本地，勿提交）
-.agent-memory/
+.agent-memory
