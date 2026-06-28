@@ -58,7 +58,7 @@
 | 清单项 | 最新实测 |
 |---|---|
 | P0.1 路径环境统一 | ✅ 部分完成：`FINANCE_WS`、`FINANCE_ROOT`、`KB_VAULT`、`KNOWLEDGE_WIKI`、`MARKET_SNAPSHOT_DIR` 已支持；`VECTOR_INDEX_DIR` 未在金融路径层统一，RAG 侧使用 `RAG_INDEX_DIR` / `KB_RAG_PYTHON` |
-| P2#7 Ingest 状态机 | ⚠️ 最小版已落地：新增 ingest status ledger，把 candidate/backfill/review queue 统一到 `candidate_detected → backfill_queued → pending_review/blocked_review/review_ready`；完整 `raw_saved → indexed` 仍待接知识库写入链路 |
+| P2#7 Ingest 状态机 | ⚠️ 观测闭环已推进：新增 ingest status ledger 与只读 indexed probe；可观测 `candidate_detected/backfill_queued/pending_review` 以及 `concept_page_exists/rag_indexed/not_in_kb`，完整写入态 `raw_saved` 仍待接知识库写入链路 |
 | P2#8 向量索引分层 | ✅ 最小版已落地：RAG chunk/query 已输出 `evidence_layer` / `fact_hardness` / `source_type` |
 | P2#9 RAG 引用规范 | ✅ 最小版已落地：知识库 `rag_index.py query` 支持按 `evidence_layer` / `fact_hardness` / `source_type` 过滤；金融 `kb_rag` 可透传过滤并解析 metadata |
 | P4 黄金样本 / 反幻觉评测 | ⚠️ 最小版已落地：`tests/test_agent_golden_eval.py` 校验生命周期、盘面验证、证据裁判、占位信号不升级、缺 L3 不得判为已有事实验证 |
@@ -80,6 +80,7 @@
 | P2#8 RAG 分层元数据 | ✅ 知识库 `chunking.py` / `retrieval.py` 已支持；RAG tests 61/61 通过；现有索引已刷新分层字段 |
 | P2#9 RAG 分层引用过滤 | ✅ 知识库短门禁 4/4 通过；金融 `kb_rag` 短门禁 3/3 通过；CLI `--evidence-layer L0_concept` 已验证 |
 | P2#7 ingest status ledger | ✅ `scripts/build_ingest_status_ledger.py` 已新增；单测 2/2 通过；2026-06-26 ledger 已生成，item_count=66，status_counts=`candidate_detected:50/backfill_queued:12/pending_review:4` |
+| P2#7 indexed 观测层 | ✅ `scripts/enrich_ingest_status_with_index.py` 已新增；单测 2/2 通过；2026-06-26 indexed ledger 已生成，index_status_counts=`rag_indexed:47/concept_page_exists:6/not_in_kb:13` |
 | 薄编排层 `agent_orchestrator.py` | ✅ `intelligence.cli orchestrate` 已新增；单测 3/3 通过；CLI 预览 `今天该看什么` 命中 `agent_daily` 且默认不执行 |
 
 生成日期：2026-06-21  
