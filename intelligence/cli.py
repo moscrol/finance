@@ -9,6 +9,34 @@ from pathlib import Path
 # market database driver installed.
 
 
+def _resolve_kb_mode(
+    query: str, kb_mode_arg: str | None, wiki_rag_mode_arg: str
+) -> tuple[str, str | None, str]:
+    """把 --kb-mode（或问句自然语言触发词）解析成（检索方式, 索引目录覆盖）。
+
+    --kb-mode 显式优先；否则按问句触发词；都没有 → 结构版默认（行为逐字节不变）。
+    --wiki-rag-mode 被显式改成非默认 hybrid 时，作为低层逃生口覆盖模式档里的检索方式。
+    返回 (wiki_rag_mode, wiki_rag_index_dir, error)；error 非空表示 --kb-mode 取值非法。
+    """
+    from intelligence.services import kb_rag
+
+    if kb_mode_arg:
+        canonical = kb_rag.normalize_kb_mode(kb_mode_arg)
+        if canonical is None:
+            return "hybrid", None, (
+                f"\u65e0\u6cd5\u8bc6\u522b --kb-mode\u300c{kb_mode_arg}\u300d\uff1b\u53ef\u7528\uff1a"
+                "structured/fast/\u7ed3\u6784/\u7ed3\u6784\u7248/\u901f\u67e5 \u6216 full/deep/\u5168\u6587/\u5168\u6587\u7248/\u6df1\u5ea6"
+            )
+        mode_name: str | None = canonical
+    else:
+        mode_name = kb_rag.detect_kb_mode(query)  # None → 结构版
+
+    index_dir, rag_mode = kb_rag.kb_mode_profile(mode_name)
+    if wiki_rag_mode_arg and wiki_rag_mode_arg != "hybrid":
+        rag_mode = wiki_rag_mode_arg  # 显式 --wiki-rag-mode 覆盖模式档检索方式
+    return rag_mode, index_dir, ""
+
+
 def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "ask", help="Unified multi-source ask: KB graph (G/R) + market 盘面 snapshot (S) + wiki 向量语义召回 (W)"
@@ -34,10 +62,16 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
     parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
-        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF)",
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
+        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
     )
     parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
+    parser.add_argument(
+        "--kb-mode", default=None, metavar="MODE",
+        help="W 源查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
+        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词"
+        "(深挖/看原文/原文/权威/完整版/深度)自动判定；无触发词时为 structured（与历史逐字节一致）。",
+    )
     parser.add_argument(
         "--llm",
         action="store_true",
@@ -82,10 +116,15 @@ def add_chat_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--no-wiki-rag", action="store_true", help="Disable the W source (wiki 向量语义召回)")
     parser.add_argument("--wiki-rag-k", type=int, default=6, help="Max wiki pages to recall via vector search (W source)")
     parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
-        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF)",
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
+        help="Retrieval mode for the W source (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
     )
     parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="W source rag_index.py subprocess timeout in seconds")
+    parser.add_argument(
+        "--kb-mode", default=None, metavar="MODE",
+        help="W 源查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
+        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词自动判定；无触发词时为 structured。",
+    )
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
     parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP timeout in seconds")
     parser.add_argument(
@@ -101,6 +140,10 @@ def cmd_chat(args: argparse.Namespace) -> int:
     from intelligence.services.ask_chat import AskConversation
 
     modules = tuple(m.strip() for m in args.modules.split(",") if m.strip()) if args.modules else None
+    rag_mode, kb_index_dir, kb_err = _resolve_kb_mode(args.query, args.kb_mode, args.wiki_rag_mode)
+    if kb_err:
+        print(kb_err, file=sys.stderr)
+        return 2
     conv = AskConversation(
         AskOptions(
             query=args.query,
@@ -113,8 +156,9 @@ def cmd_chat(args: argparse.Namespace) -> int:
             module_timeout=args.module_timeout,
             use_wiki_rag=not args.no_wiki_rag,
             wiki_rag_k=args.wiki_rag_k,
-            wiki_rag_mode=args.wiki_rag_mode,
+            wiki_rag_mode=rag_mode,
             wiki_rag_timeout=args.wiki_rag_timeout,
+            wiki_rag_index_dir=kb_index_dir,
             compose=True,
         ),
         model_override=args.llm_model,
@@ -172,14 +216,23 @@ def add_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--date", default=None, help="theme-candidates export date YYYY-MM-DD; defaults to latest")
     parser.add_argument("--exports-dir", default=None, help="Override market_feature_store/exports dir")
     parser.add_argument("--kb-wiki", default=None, help="Knowledge-base wiki root (contains relations/); defaults to env/auto")
+    parser.add_argument(
+        "--market-db-path", default=None,
+        help="本地 market_feature_store DuckDB 路径；提供且可打开时启用 opt-in 实时盘面工具 search_market_live（默认关闭，不影响其余工具）",
+    )
     parser.add_argument("--top-companies", type=int, default=12, help="Max exposed companies to recall per graph tool call")
     parser.add_argument("--module-timeout", type=int, default=180, help="Per-module subprocess timeout in seconds")
     parser.add_argument("--wiki-rag-k", type=int, default=6, help="Default wiki pages per search_wiki call (W source)")
     parser.add_argument(
-        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"],
-        help="Retrieval mode for the wiki tool (default hybrid = BM25 + dense RRF)",
+        "--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid", "rerank"],
+        help="Retrieval mode for the wiki tool (default hybrid = BM25 + dense RRF; rerank = 全文版专用)",
     )
     parser.add_argument("--wiki-rag-timeout", type=int, default=90, help="search_wiki rag_index.py subprocess timeout in seconds")
+    parser.add_argument(
+        "--kb-mode", default=None, metavar="MODE",
+        help="wiki 工具查询模式：structured(默认，别名 fast/结构/速查)=.rag_index+hybrid；"
+        "full(别名 deep/全文/深度)=.rag_index_full+rerank。不指定则按问句自然语言触发词自动判定。",
+    )
     parser.add_argument("--max-steps", type=int, default=6, help="Max agent tool-calling rounds before a forced final answer")
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
     parser.add_argument("--llm-timeout", type=int, default=90, help="Per LLM round-trip HTTP timeout in seconds")
@@ -196,16 +249,22 @@ def cmd_agent(args: argparse.Namespace) -> int:
     from intelligence.services.agent import AgentSession
     from intelligence.services.ask import AskOptions
 
+    rag_mode, kb_index_dir, kb_err = _resolve_kb_mode(args.query, args.kb_mode, args.wiki_rag_mode)
+    if kb_err:
+        print(kb_err, file=sys.stderr)
+        return 2
     options = AskOptions(
         query=args.query,
         date=args.date,
         exports_dir=args.exports_dir,
         kb_wiki=args.kb_wiki,
+        market_db_path=args.market_db_path,
         top_companies=args.top_companies,
         module_timeout=args.module_timeout,
         wiki_rag_k=args.wiki_rag_k,
-        wiki_rag_mode=args.wiki_rag_mode,
+        wiki_rag_mode=rag_mode,
         wiki_rag_timeout=args.wiki_rag_timeout,
+        wiki_rag_index_dir=kb_index_dir,
         compose=True,
     )
 
@@ -371,6 +430,47 @@ def add_logic_match_batch_parser(subparsers: argparse._SubParsersAction) -> None
     parser.set_defaults(func=cmd_logic_match_batch)
 
 
+def add_effectiveness_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "effectiveness",
+        help="P4 历史有效性：为某题材从 theme-candidates 历史算成绩单（胜率/半衰期/回撤/扩散/相对强度/叙事-事实偏离/CAR）。",
+    )
+    parser.add_argument("theme", help="题材/概念名，例如 光刻胶")
+    parser.add_argument("--date", required=True, help="截至交易日 YYYY-MM-DD")
+    parser.add_argument("--window", type=int, default=20, help="回看的 theme-candidates 交易日数")
+    parser.add_argument("--top-per-date", type=int, default=10, help="每个日期扫描 priority_score 最高的 N 个候选")
+    parser.add_argument("--exports-dir", default=None, help="覆盖 market_feature_store/exports 目录")
+    parser.add_argument("--market-snapshot-dir", default=None, help="覆盖 market_snapshot 目录（用于 CAR；默认走 env/auto）")
+    parser.add_argument("--min-samples", type=int, default=3, help="低于该观察天数判为样本不足")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.set_defaults(func=cmd_effectiveness)
+
+
+def cmd_effectiveness(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.paths import default_paths
+    from intelligence.services import logic_effectiveness
+    from intelligence.services.logic_market_match import available_candidate_dates
+
+    paths = default_paths()
+    exports_dir = Path(args.exports_dir).expanduser() if args.exports_dir else paths.market_exports
+    snapshot_dir = Path(args.market_snapshot_dir).expanduser() if args.market_snapshot_dir else paths.market_snapshot_dir
+    dates = [item for item in available_candidate_dates(exports_dir) if item <= args.date][-args.window:]
+    history = logic_effectiveness.load_effectiveness_history(
+        exports_dir, dates, args.date, top_per_date=args.top_per_date
+    )
+    panel = logic_effectiveness.load_market_return_panel(snapshot_dir, dates)
+    scorecard = logic_effectiveness.build_effectiveness_scorecard(
+        args.theme,
+        history.get(args.theme, []),
+        return_panel=panel,
+        min_samples=args.min_samples,
+    )
+    print(_json.dumps(scorecard, ensure_ascii=False, indent=2))
+    return 0
+
+
 def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "agent-daily",
@@ -387,6 +487,7 @@ def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--wiki-rag-k", type=int, default=3, help="每个候选最多补充 N 个 W 命中")
     parser.add_argument("--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"], help="agent 日报语义召回模式")
     parser.add_argument("--wiki-rag-timeout", type=int, default=120, help="单次 W 召回超时时间")
+    parser.add_argument("--effectiveness-window", type=int, default=20, help="历史有效性评估回看的 theme-candidates 交易日数")
     parser.add_argument("--out-json", default=None, help="写出 agent 日报 JSON")
     parser.add_argument("--out-md", default=None, help="写出 agent 日报 Markdown")
     parser.add_argument("--out-html", default=None, help="写出 agent 日报 HTML，供复盘工作台 iframe 使用")
@@ -516,6 +617,7 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
             wiki_rag_k=args.wiki_rag_k,
             wiki_rag_mode=args.wiki_rag_mode,
             wiki_rag_timeout=args.wiki_rag_timeout,
+            effectiveness_window=args.effectiveness_window,
         )
     )
     paths = default_paths()
@@ -767,6 +869,10 @@ def cmd_ask(args: argparse.Namespace) -> int:
     from intelligence.workflows.ask import AskWorkflowOptions, run_ask
 
     modules = tuple(m.strip() for m in args.modules.split(",") if m.strip()) if args.modules else None
+    rag_mode, kb_index_dir, kb_err = _resolve_kb_mode(args.query, args.kb_mode, args.wiki_rag_mode)
+    if kb_err:
+        print(kb_err, file=sys.stderr)
+        return 2
     summary, _result, answer = run_ask(
         AskWorkflowOptions(
             query=args.query,
@@ -779,8 +885,9 @@ def cmd_ask(args: argparse.Namespace) -> int:
             module_timeout=args.module_timeout,
             use_wiki_rag=not args.no_wiki_rag,
             wiki_rag_k=args.wiki_rag_k,
-            wiki_rag_mode=args.wiki_rag_mode,
+            wiki_rag_mode=rag_mode,
             wiki_rag_timeout=args.wiki_rag_timeout,
+            wiki_rag_index_dir=kb_index_dir,
             use_llm=args.llm,
             compose=args.compose,
             llm_model=args.llm_model,
@@ -1748,6 +1855,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_logic_match_parser(subparsers)
     add_logic_match_batch_parser(subparsers)
     add_daily_agent_parser(subparsers)
+    add_effectiveness_parser(subparsers)
     add_foresight_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)

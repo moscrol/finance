@@ -1,0 +1,20 @@
+# 红线硬拦截：阻止提交密钥 / 大文件 / 缓存 / 虚拟环境 / 依赖等危险文件。
+# 新机首次启用：  pip install pre-commit && pre-commit install
+# 之后每次 git commit 自动检查；命中红线则提交失败。
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key            # 内容里出现私钥 -> 拦截
+      - id: check-added-large-files       # 新增大文件 -> 拦截
+        args: ["--maxkb=5120"]
+      - id: check-merge-conflict          # 残留冲突标记 -> 拦截
+  - repo: local
+    hooks:
+      - id: block-forbidden-files
+        name: "红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖"
+        language: fail
+        entry: "红线命中：该文件不允许提交（.env*/密钥/大二进制/缓存/虚拟环境/依赖等）。如确需提交请人工确认并 git commit --no-verify。"
+        # 文件后缀类：私钥/大二进制/编译缓存/日志；目录类：虚拟环境/依赖/各类缓存（dist/build 不拦，避免误伤部署）
+        files: '(^|/)(\.env($|\..+)|.*\.pem$|.*\.key$|.*\.pdf$|.*\.zip$|.*\.duckdb$|.*\.db$|.*\.pyc$|.*\.log$|\.DS_Store$|(\.venv|venv|env|node_modules|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.ipynb_checkpoints|\.cache)/)'
+        exclude: '\.env\.(example|sample|template)$'

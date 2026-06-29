@@ -21,6 +21,7 @@ class AskWorkflowOptions:
     wiki_rag_k: int = 6
     wiki_rag_mode: str = "hybrid"
     wiki_rag_timeout: int = 90
+    wiki_rag_index_dir: str | Path | None = None
     use_llm: bool = False
     compose: bool = False
     llm_model: str | None = None
@@ -49,6 +50,7 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             wiki_rag_k=options.wiki_rag_k,
             wiki_rag_mode=options.wiki_rag_mode,
             wiki_rag_timeout=options.wiki_rag_timeout,
+            wiki_rag_index_dir=options.wiki_rag_index_dir,
             use_llm=options.use_llm,
             compose=options.compose,
             llm_model=options.llm_model,

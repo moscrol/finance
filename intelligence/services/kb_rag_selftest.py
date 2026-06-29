@@ -63,6 +63,16 @@ hits = [
 print(json.dumps(hits, ensure_ascii=False, indent=2))
 '''
 
+# Echo stub: 把子进程看到的 RAG_INDEX_DIR 回显到命中页 title，用于验证 index_dir 路由。
+STUB_ECHO = '''#!/usr/bin/env python3
+import os, sys, json
+idx = os.environ.get("RAG_INDEX_DIR", "<none>")
+hits = [{"page_id": "page_a", "file_path": "wiki/synthesis/page_a.md",
+         "title": "IDX=" + idx, "score": 0.9, "best_chunk_id": "page_a#0",
+         "via_neighbor": False, "snippet": "s"}]
+print(json.dumps(hits, ensure_ascii=False))
+'''
+
 PAGE_A = """---
 title: 页A·钨供给瓶颈
 type: synthesis
@@ -200,6 +210,68 @@ def main() -> int:
               r6.found_wiki is False and not any(c.tag.startswith("W") for c in r6.citations))
         check("disabled(--no-wiki-rag): no wiki-rag warning emitted",
               not any("wiki-rag" in w for w in r6.warnings), repr(r6.warnings))
+
+        # ---------- Scenario 7: index_dir 路由（双索引）+ 缺失回退 ----------
+        kb7 = base / "kb_dual"
+        wiki7 = _build_kb(kb7, with_script=False, with_index=True)
+        (kb7 / "scripts").mkdir(parents=True, exist_ok=True)
+        (kb7 / "scripts" / "rag_index.py").write_text(STUB_ECHO, encoding="utf-8")
+        (kb7 / ".rag_index_full").mkdir(parents=True, exist_ok=True)
+        (kb7 / ".rag_index_full" / "store.json").write_text("{}", encoding="utf-8")
+        _set_env(RAG_INDEX_DIR=str(kb7 / ".rag_index"), KB_RAG_STUB_MODE="ok")
+
+        wr7 = kb_rag.retrieve("x", str(wiki7), index_dir=".rag_index_full", timeout=30)
+        check("index_dir(full): chosen index ends with .rag_index_full",
+              wr7.ok and wr7.index_dir.endswith(".rag_index_full"), repr(wr7.index_dir))
+        check("index_dir(full): subprocess RAG_INDEX_DIR routed to full",
+              bool(wr7.hits) and wr7.hits[0].title.endswith(".rag_index_full"),
+              repr(wr7.hits[0].title if wr7.hits else None))
+
+        wr7d = kb_rag.retrieve("x", str(wiki7), timeout=30)
+        check("index_dir(default None): 逐字节 → .rag_index, 无 warning",
+              wr7d.ok and wr7d.index_dir.endswith(".rag_index")
+              and not wr7d.index_dir.endswith(".rag_index_full") and wr7d.warning == "",
+              repr((wr7d.index_dir, wr7d.warning)))
+
+        wr7m = kb_rag.retrieve("x", str(wiki7), index_dir=".rag_index_missing", timeout=30)
+        check("index_dir(missing): 回退默认 .rag_index + 回退 warning",
+              wr7m.ok and wr7m.index_dir.endswith(".rag_index") and "\u56de\u9000" in wr7m.warning,
+              repr((wr7m.index_dir, wr7m.warning)))
+
+        # ---------- Scenario 8: 模式名/别名解析 + 自然语言触发词 + CLI 解析 ----------
+        check("mode: structured 别名",
+              all(kb_rag.normalize_kb_mode(x) == "structured"
+                  for x in ["structured", "fast", "\u7ed3\u6784", "\u7ed3\u6784\u7248", "\u901f\u67e5", "STRUCTURED"]))
+        check("mode: full 别名",
+              all(kb_rag.normalize_kb_mode(x) == "full"
+                  for x in ["full", "deep", "\u5168\u6587", "\u5168\u6587\u7248", "\u6df1\u5ea6"]))
+        check("mode: 未知 → None",
+              kb_rag.normalize_kb_mode("\u94f6\u6cb3") is None and kb_rag.normalize_kb_mode(None) is None)
+        check("mode: profile structured=(None,hybrid)",
+              kb_rag.kb_mode_profile("structured") == (None, "hybrid")
+              and kb_rag.kb_mode_profile(None) == (None, "hybrid"))
+        check("mode: profile full=(.rag_index_full,rerank)",
+              kb_rag.kb_mode_profile("full") == (kb_rag.FULL_INDEX_DIRNAME, "rerank"))
+        check("trigger: \u6df1\u6316/\u770b\u539f\u6587 → full",
+              kb_rag.detect_kb_mode("\u5e2e\u6211\u6df1\u6316\u8fd9\u5bb6\u516c\u53f8") == "full"
+              and kb_rag.detect_kb_mode("\u770b\u539f\u6587") == "full")
+        check("trigger: \u5feb\u901f → structured（\u663e\u5f0f\u4f18\u5148）",
+              kb_rag.detect_kb_mode("\u5feb\u901f\u770b\u770b") == "structured"
+              and kb_rag.detect_kb_mode("\u5feb\u901f\u6df1\u6316") == "structured")
+        check("trigger: \u65e0\u89e6\u53d1\u8bcd → None",
+              kb_rag.detect_kb_mode("\u6db2\u51b7\u670d\u52a1\u5668") is None)
+
+        from intelligence.cli import _resolve_kb_mode  # noqa: E402
+        check("cli: 默认 → (hybrid,None,'')",
+              _resolve_kb_mode("\u6db2\u51b7", None, "hybrid") == ("hybrid", None, ""))
+        check("cli: --kb-mode full → (rerank,.rag_index_full,'')",
+              _resolve_kb_mode("\u6db2\u51b7", "full", "hybrid") == ("rerank", kb_rag.FULL_INDEX_DIRNAME, ""))
+        check("cli: NL \u6df1\u6316 → full",
+              _resolve_kb_mode("\u6df1\u6316\u6db2\u51b7", None, "hybrid") == ("rerank", kb_rag.FULL_INDEX_DIRNAME, ""))
+        check("cli: --wiki-rag-mode \u663e\u5f0f\u8986\u76d6",
+              _resolve_kb_mode("\u6db2\u51b7", None, "dense") == ("dense", None, ""))
+        _rm, _idx, _err = _resolve_kb_mode("\u6db2\u51b7", "\u94f6\u6cb3", "hybrid")
+        check("cli: \u975e\u6cd5 --kb-mode → error", _err != "" and _idx is None)
 
     print(f"\n{PASS} passed, {FAIL} failed")
     return 0 if FAIL == 0 else 1
