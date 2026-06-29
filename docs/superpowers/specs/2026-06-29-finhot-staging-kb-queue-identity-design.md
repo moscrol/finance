@@ -45,7 +45,11 @@ sha1(normalized_url + item_id + evidence_layer + excerpt_hash)
 
 其中：
 
+- `source_fingerprint_version` 固定为 `v1`。
 - `normalized_url` 去首尾空白、去 fragment、稳定排序 query 参数。
+- `normalized_url` 在 `v1` 中将 `http` 与 `https` 视为同源，统一为 `https`。
+- `normalized_url` 在 `v1` 中去掉非根路径末尾的 trailing slash，即 `/abc` 与 `/abc/` 视为同源。
+- URL 为空时，指纹自然退化为 `item_id + evidence_layer + excerpt_hash`。
 - `item_id` 使用 FinHot `item_id`。
 - `evidence_layer` 保留，因为同一源在不同证据层下审查语义不同。
 - `excerpt_hash` 来自正文摘要的归一化文本 hash，避免无 URL 或 URL 复用时碰撞。
@@ -58,6 +62,7 @@ sha1(normalized_url + item_id + evidence_layer + excerpt_hash)
 - `origin_queue_task_id`：上游 queue/research task ID；默认等于 `task_id`，如果报告任务里有更原始 ID 则优先使用。
 - `kb_task_id`：给后续 KB ingest/apply 使用的统一任务 ID；默认等于 `origin_queue_task_id`。
 - `source_fingerprint`：证据源级去重主键。
+- `source_fingerprint_version`：指纹生成规则版本，第一版固定为 `v1`。
 
 从 task 中读取 ID 的优先级：
 

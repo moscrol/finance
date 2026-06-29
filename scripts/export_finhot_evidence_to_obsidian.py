@@ -25,6 +25,7 @@ CANDIDATE_LAYER = "L3_candidate"
 MIN_LAYER_CHOICES = {"L2", "L3"}
 DEFAULT_L3_CANDIDATE_MIN_CONFIDENCE = 0.6
 MAX_TEXT_SNIPPET_CHARS = 260
+SOURCE_FINGERPRINT_VERSION = "v1"
 ID_FIELD_PRIORITY = ("origin_queue_task_id", "kb_task_id", "queue_task_id", "task_id")
 APPROVAL_DECISIONS = ("pending", "approved", "rejected", "applied")
 
@@ -71,8 +72,14 @@ def normalized_url(value: Any) -> str:
     if not url:
         return ""
     parts = urlsplit(url)
+    scheme = parts.scheme.lower()
+    if scheme in {"http", "https"}:
+        scheme = "https"
+    path = parts.path
+    if path != "/":
+        path = path.rstrip("/")
     query = urlencode(sorted(parse_qsl(parts.query, keep_blank_values=True)), doseq=True)
-    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path, query, ""))
+    return urlunsplit((scheme, parts.netloc.lower(), path, query, ""))
 
 
 def normalized_excerpt(value: Any) -> str:
@@ -409,6 +416,7 @@ def build_manifest(report: dict[str, Any], selected_items: list[dict[str, Any]],
         approvals.append({
             "candidate_id": text_value(item.get("candidate_id")),
             "source_fingerprint": text_value(item.get("source_fingerprint")),
+            "source_fingerprint_version": SOURCE_FINGERPRINT_VERSION,
             "task_id": text_value(item.get("task_id")),
             "origin_queue_task_id": text_value(item.get("origin_queue_task_id")),
             "kb_task_id": text_value(item.get("kb_task_id")),
@@ -434,6 +442,7 @@ def build_manifest(report: dict[str, Any], selected_items: list[dict[str, Any]],
     return {
         "date": date_text,
         "source": "finhot-evidence-hunter",
+        "source_fingerprint_version": SOURCE_FINGERPRINT_VERSION,
         "source_report": str(source_report),
         "staging_note": staging_ref,
         "summary": {

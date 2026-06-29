@@ -95,6 +95,24 @@ class FinHotEvidenceObsidianExportTest(unittest.TestCase):
         self.assertEqual(stable_source_fingerprint(first), stable_source_fingerprint(second))
         self.assertNotEqual(stable_source_fingerprint(first), stable_source_fingerprint(third))
 
+    def test_source_fingerprint_url_normalization_rules_are_pinned(self) -> None:
+        base = self._item(item_id="finhot:normalize", url="http://example.com/abc/?b=2&a=1#frag")
+        same = self._item(item_id="finhot:normalize", url="https://example.com/abc?a=1&b=2")
+        different_path = self._item(item_id="finhot:normalize", url="https://example.com/abcd?a=1&b=2")
+
+        self.assertEqual(stable_source_fingerprint(base), stable_source_fingerprint(same))
+        self.assertNotEqual(stable_source_fingerprint(base), stable_source_fingerprint(different_path))
+
+    def test_source_fingerprint_empty_url_falls_back_to_item_layer_and_excerpt(self) -> None:
+        first = self._item(task_id="task-a", item_id="finhot:no-url", url="", text="同一段 摘要")
+        second = self._item(task_id="task-b", item_id="finhot:no-url", url="", text="同一段 摘要")
+        changed_excerpt = self._item(task_id="task-c", item_id="finhot:no-url", url="", text="另一段 摘要")
+        changed_item = self._item(task_id="task-d", item_id="finhot:other", url="", text="同一段 摘要")
+
+        self.assertEqual(stable_source_fingerprint(first), stable_source_fingerprint(second))
+        self.assertNotEqual(stable_source_fingerprint(first), stable_source_fingerprint(changed_excerpt))
+        self.assertNotEqual(stable_source_fingerprint(first), stable_source_fingerprint(changed_item))
+
     def test_with_candidate_ids_filters_allowed_layers_and_high_confidence_candidates(self) -> None:
         items = with_candidate_ids(self._report()["matched_items"], 0.6)
         layers = [item["evidence_layer"] for item in items]
@@ -134,6 +152,7 @@ class FinHotEvidenceObsidianExportTest(unittest.TestCase):
             self.assertIn("task-001（液冷服务器）；task-002（数据中心）", md)
             self.assertIn("reject_reason_counts", md)
             self.assertEqual(manifest["date"], "2026-06-26")
+            self.assertEqual(manifest["source_fingerprint_version"], "v1")
             self.assertEqual(manifest["staging_note"], "raw/finhot-evidence-staging/2026-06-26-finhot-evidence-staging.md")
             self.assertEqual(manifest["summary"]["source_fingerprint_count"], 4)
             self.assertEqual(len(manifest["approvals"]), 5)
@@ -145,6 +164,7 @@ class FinHotEvidenceObsidianExportTest(unittest.TestCase):
             self.assertEqual(by_layer["L3_current_official_catalyst"]["evidence_layer_proposed"], "L3_current_official_catalyst")
             self.assertFalse(by_layer["L3_current_official_catalyst"]["approval_cannot_upgrade_without_official_url"])
             self.assertIn("source_fingerprint", manifest["approvals"][0])
+            self.assertEqual(manifest["approvals"][0]["source_fingerprint_version"], "v1")
             self.assertIn("origin_queue_task_id", manifest["approvals"][0])
             self.assertIn("kb_task_id", manifest["approvals"][0])
             self.assertIn("target_note_path", manifest["approvals"][0])
