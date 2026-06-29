@@ -583,7 +583,8 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     out_md = Path(args.out_md).expanduser() if args.out_md else finance_root / "market_feature_store" / "exports" / f"{args.date}-daily-agent.md"
     out_html = Path(args.out_html).expanduser() if args.out_html else finance_root / "复盘" / "daily" / args.date / f"{args.date}-daily-agent.html"
     write_daily_agent_outputs(report, answer, out_json, out_md, out_html)
-    summary.outputs.extend([str(out_json), str(out_md), str(out_html)])
+    kb_queue_path = out_json.with_name(f"{args.date}-kb-ingest-queue.json")
+    summary.outputs.extend([str(out_json), str(out_md), str(out_html), str(kb_queue_path)])
     if args.summary_json:
         summary.write_json(args.summary_json)
     if args.json:
@@ -591,6 +592,7 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     else:
         print(answer, end="")
         print(f"\n输出: {out_md}\n输出: {out_json}\n输出: {out_html}")
+        print(f"输出: {kb_queue_path}")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 

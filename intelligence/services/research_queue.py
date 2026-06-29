@@ -117,6 +117,7 @@ def _queue_item(row: dict[str, Any], bucket: str, reason: str) -> dict[str, Any]
         "证据状态": judgment.get("证据状态") or "-",
         "已有证据层": list(judgment.get("已有证据层") or []),
         "缺失证据层": list(judgment.get("缺失证据层") or []),
+        "数据缺口": list(row.get("data_gaps") or []),
         "强势股": list(row.get("strong_stocks") or [])[:5],
         "建议动作": _suggest_action(bucket, judgment, lifecycle),
     }
