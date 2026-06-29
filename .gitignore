@@ -24,6 +24,8 @@ cookie*
 .mcp.json
 .codex/hooks.json
 .superpowers/
+khazix-skills/
+rsshub/
 *.code-workspace
 
 # Python/cache

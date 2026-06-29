@@ -156,3 +156,25 @@ Notes:
 > 5. 漏跑 agent-daily（不在 evolve_daily.sh），导致驾驶台缺 "Agent 简报"。
 > 6. Token U+2028 编码问题 + exec service hmac Python 3.9 bug → 隧道 401/502。
 
+
+## 2026-06-26 | run 2026-06-27 21:18
+
+| 模块 | 状态 | 耗时s | 备注 |
+|---|---|---:|---|
+| db-lock | ok | 0 |  |
+| sectors | fail | 5 |  |
+| market-overview | fail | 0 |  |
+| market-daily | ok | 11 |  |
+| index-daily | ok | 7 |  |
+| sw-l1-daily | ok | 44 |  |
+| market-deviation | fail | 5 |  |
+| sector-daily | ok | 31 |  |
+| sector-stocks | ok | 0 | 224/224 sectors |
+| limit-heat | ok | 221 | heat=126 stock=355 retried=0 still_empty=0 |
+| stock-high | ok | 62 |  |
+| limit-advance | ok | 3 |  |
+| stock-daily | ok | 8 | used fill-stock-daily-fallback |
+| sector-resonance | ok | 20 |  |
+| quality-gate | INCOMPLETE | - | check_daily_review_data.py |
+
+> 需关注（坑/未全绿）：sectors, market-overview, market-deviation
