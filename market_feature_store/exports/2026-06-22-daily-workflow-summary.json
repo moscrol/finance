@@ -1,0 +1,203 @@
+{
+  "workflow": "daily",
+  "status": "FAIL",
+  "started_at": "2026-06-23T00:55:25+08:00",
+  "finished_at": "2026-06-23T00:55:30+08:00",
+  "inputs": {
+    "date": "2026-06-22",
+    "skip_sync": true,
+    "skip_long": false,
+    "skip_theme": false,
+    "skip_legacy_theme": false,
+    "skip_workbench": false,
+    "start_date": null,
+    "from_step": "daily-review",
+    "only_step": null,
+    "continue_on_warn": true,
+    "dry_run": false
+  },
+  "steps": [
+    {
+      "name": "daily-review",
+      "status": "PASS",
+      "command": "python3 -m market_feature_store.cli daily-review --trade-date 2026-06-22",
+      "returncode": 0,
+      "duration_sec": 3.381,
+      "stdout_tail": [
+        "交易日: 2026-06-22",
+        "报告: /Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-daily-review.md",
+        "图表: /Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-advancers-ma5.png"
+      ],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-daily-review.md",
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-advancers-ma5.png"
+      ],
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "name": "quality-gate",
+      "status": "FAIL",
+      "command": "python3 scripts/check_daily_review_data.py 2026-06-22",
+      "returncode": 1,
+      "duration_sec": 1.021,
+      "stdout_tail": [
+        "CHECK 2026-06-22",
+        "fact_market_daily: rows=1 max=2026-06-22",
+        "fact_sector_daily: rows=224 max=2026-06-22",
+        "fact_sw_l1_daily: rows=31 max=2026-06-22",
+        "fact_sector_stock_daily: rows=28105 max=2026-06-22",
+        "fact_stock_high_daily: rows=512 max=2026-06-22",
+        "fact_theme_limit_heat_daily: rows=156 max=2026-06-22",
+        "fact_theme_limit_stock_daily: rows=739 max=2026-06-22",
+        "fact_limit_advance_daily: rows=24 max=2026-06-22",
+        "fact_stock_daily: rows=5503 max=2026-06-22",
+        "RESULT: INCOMPLETE",
+        "- 日报存在占位/缺失：暂无 x3"
+      ],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [
+        "command failed with returncode 1"
+      ]
+    },
+    {
+      "name": "daily-review-html",
+      "status": "SKIP",
+      "command": "python3 scripts/render_daily_review_briefing.py 2026-06-22",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-22/2026-06-22-daily-review.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": []
+    },
+    {
+      "name": "theme-candidates",
+      "status": "SKIP",
+      "command": "python3 -m intelligence.cli theme --date 2026-06-22 --market-triggered --out-json /Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-theme-candidates.json --out-md /Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-theme-candidates.md",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-theme-candidates.json",
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-theme-candidates.md"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": []
+    },
+    {
+      "name": "theme-backfill-queue",
+      "status": "SKIP",
+      "command": "python3 scripts/build_theme_backfill_queue.py 2026-06-22",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-theme-backfill-queue.json"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": []
+    },
+    {
+      "name": "theme-backfill-review-queue",
+      "status": "SKIP",
+      "command": "python3 scripts/build_theme_backfill_review_queue.py 2026-06-22",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-theme-backfill-review-queue.json",
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-theme-backfill-review-queue.md"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": []
+    },
+    {
+      "name": "theme-candidates-html",
+      "status": "SKIP",
+      "command": "python3 scripts/render_theme_candidates_workbench_html.py 2026-06-22",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-22/2026-06-22-theme-candidates.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": []
+    },
+    {
+      "name": "legacy-market-triggered-theme-brief-html",
+      "status": "SKIP",
+      "command": "python3 scripts/render_market_triggered_theme_brief_html.py 2026-06-22",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-triggered-themes.json",
+        "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-market-triggered-theme-brief.md",
+        "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-22/2026-06-22-market-triggered-theme-brief.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": []
+    },
+    {
+      "name": "review-workbench",
+      "status": "SKIP",
+      "command": "python3 scripts/render_review_workbench.py",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/lbq/Desktop/c c/金融/复盘/matrices/strategy-review-workbench.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": []
+    }
+  ],
+  "outputs": [
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-daily-review.md",
+    "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-22-advancers-ma5.png"
+  ],
+  "warnings": [
+    "starting from step: daily-review",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed"
+  ],
+  "errors": [
+    "command failed with returncode 1"
+  ],
+  "next_actions": [
+    "Fix the failed step, then re-run the workflow from the appropriate point."
+  ]
+}
