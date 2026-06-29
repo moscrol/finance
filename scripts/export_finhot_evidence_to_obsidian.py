@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -24,6 +25,8 @@ CANDIDATE_LAYER = "L3_candidate"
 MIN_LAYER_CHOICES = {"L2", "L3"}
 DEFAULT_L3_CANDIDATE_MIN_CONFIDENCE = 0.6
 MAX_TEXT_SNIPPET_CHARS = 260
+ID_FIELD_PRIORITY = ("origin_queue_task_id", "kb_task_id", "queue_task_id", "task_id")
+APPROVAL_DECISIONS = ("pending", "approved", "rejected", "applied")
 
 
 def as_list(value: Any) -> list[Any]:
@@ -63,6 +66,52 @@ def stable_candidate_id(item: dict[str, Any]) -> str:
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
+def normalized_url(value: Any) -> str:
+    url = text_value(value)
+    if not url:
+        return ""
+    parts = urlsplit(url)
+    query = urlencode(sorted(parse_qsl(parts.query, keep_blank_values=True)), doseq=True)
+    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path, query, ""))
+
+
+def normalized_excerpt(value: Any) -> str:
+    return " ".join(text_value(value).split())[:MAX_TEXT_SNIPPET_CHARS]
+
+
+def excerpt_hash(item: dict[str, Any]) -> str:
+    excerpt = normalized_excerpt(item.get("text") or item.get("title") or item.get("reason"))
+    return hashlib.sha1(excerpt.encode("utf-8")).hexdigest()
+
+
+def stable_source_fingerprint(item: dict[str, Any]) -> str:
+    payload = "|".join([
+        normalized_url(item.get("url")),
+        text_value(item.get("item_id")),
+        text_value(item.get("evidence_layer")),
+        excerpt_hash(item),
+    ])
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()
+
+
+def identity_from_mapping(mapping: dict[str, Any], *, include_task_id: bool = True) -> str:
+    fields = ID_FIELD_PRIORITY if include_task_id else tuple(field for field in ID_FIELD_PRIORITY if field != "task_id")
+    metadata = mapping.get("metadata") if isinstance(mapping.get("metadata"), dict) else {}
+    for field in fields:
+        value = text_value(mapping.get(field)) or text_value(metadata.get(field))
+        if value:
+            return value
+    return ""
+
+
+def queue_task_id_for(item: dict[str, Any], tasks: dict[str, dict[str, Any]]) -> str:
+    item_identity = identity_from_mapping(item, include_task_id=False)
+    if item_identity:
+        return item_identity
+    task = tasks.get(text_value(item.get("task_id")), {})
+    return identity_from_mapping(task) or text_value(item.get("task_id"))
+
+
 def confidence_value(item: dict[str, Any]) -> float:
     try:
         return float(item.get("confidence") or 0.0)
@@ -100,7 +149,8 @@ def include_candidate(item: dict[str, Any], l3_candidate_min_confidence: float, 
     return False
 
 
-def with_candidate_ids(items: list[dict[str, Any]], l3_candidate_min_confidence: float, min_layer: str = "L2") -> list[dict[str, Any]]:
+def with_candidate_ids(items: list[dict[str, Any]], l3_candidate_min_confidence: float, min_layer: str = "L2", tasks: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    task_lookup = tasks or {}
     out: list[dict[str, Any]] = []
     for item in items:
         if not isinstance(item, dict):
@@ -108,23 +158,24 @@ def with_candidate_ids(items: list[dict[str, Any]], l3_candidate_min_confidence:
         if not include_candidate(item, l3_candidate_min_confidence, min_layer):
             continue
         row = dict(item)
+        origin_queue_task_id = queue_task_id_for(row, task_lookup)
         row["candidate_id"] = stable_candidate_id(row)
+        row["source_fingerprint"] = stable_source_fingerprint(row)
+        row["origin_queue_task_id"] = origin_queue_task_id
+        row["kb_task_id"] = origin_queue_task_id
         out.append(row)
     out.sort(key=lambda row: (text_value(row.get("evidence_layer")), -confidence_value(row), text_value(row.get("task_id")), text_value(row.get("item_id"))))
     return out
 
 
 def group_by_item(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    grouped: dict[tuple[str, str, str, str], dict[str, Any]] = {}
-    tasks_by_key: dict[tuple[str, str, str, str], list[str]] = defaultdict(list)
-    ids_by_key: dict[tuple[str, str, str, str], list[str]] = defaultdict(list)
+    grouped: dict[str, dict[str, Any]] = {}
+    tasks_by_key: dict[str, list[str]] = defaultdict(list)
+    ids_by_key: dict[str, list[str]] = defaultdict(list)
+    origin_ids_by_key: dict[str, list[str]] = defaultdict(list)
+    kb_ids_by_key: dict[str, list[str]] = defaultdict(list)
     for item in items:
-        key = (
-            text_value(item.get("item_id")),
-            text_value(item.get("url")),
-            text_value(item.get("evidence_layer")),
-            text_value(item.get("title")),
-        )
+        key = text_value(item.get("source_fingerprint")) or stable_source_fingerprint(item)
         if key not in grouped or confidence_value(item) > confidence_value(grouped[key]):
             grouped[key] = item
         task_id = text_value(item.get("task_id"))
@@ -133,13 +184,22 @@ def group_by_item(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         candidate_id = text_value(item.get("candidate_id"))
         if candidate_id and candidate_id not in ids_by_key[key]:
             ids_by_key[key].append(candidate_id)
+        origin_queue_task_id = text_value(item.get("origin_queue_task_id"))
+        if origin_queue_task_id and origin_queue_task_id not in origin_ids_by_key[key]:
+            origin_ids_by_key[key].append(origin_queue_task_id)
+        kb_task_id = text_value(item.get("kb_task_id"))
+        if kb_task_id and kb_task_id not in kb_ids_by_key[key]:
+            kb_ids_by_key[key].append(kb_task_id)
     rows = []
     for key, item in grouped.items():
         row = dict(item)
+        row["source_fingerprint"] = key
         row["matched_tasks"] = tasks_by_key[key]
         row["candidate_ids"] = ids_by_key[key]
+        row["origin_queue_task_ids"] = origin_ids_by_key[key]
+        row["kb_task_ids"] = kb_ids_by_key[key]
         rows.append(row)
-    rows.sort(key=lambda row: (text_value(row.get("evidence_layer")), -confidence_value(row), text_value(row.get("item_id"))))
+    rows.sort(key=lambda row: (text_value(row.get("evidence_layer")), -confidence_value(row), text_value(row.get("source_fingerprint"))))
     return rows
 
 
@@ -169,9 +229,9 @@ def snippet(text: Any, limit: int = MAX_TEXT_SNIPPET_CHARS) -> str:
 
 
 def render_candidate_table(items: list[dict[str, Any]], tasks: dict[str, dict[str, Any]]) -> list[str]:
-    lines = ["| Candidate | Layer | Conf | Source | Published | Theme | Entity | Fact terms | Title | URL |", "|---|---|---:|---|---|---|---|---|---|---|"]
+    lines = ["| Source fingerprint | Candidate | KB task | Layer | Conf | Source | Published | Theme | Entity | Fact terms | Title | URL |", "|---|---|---|---|---:|---|---|---|---|---|---|---|"]
     if not items:
-        lines.append("| - | - | - | - | - | - | - | - | - | - |")
+        lines.append("| - | - | - | - | - | - | - | - | - | - | - | - |")
         return lines
     for item in items:
         matched_tasks = as_list(item.get("matched_tasks")) or [item.get("task_id")]
@@ -182,8 +242,10 @@ def render_candidate_table(items: list[dict[str, Any]], tasks: dict[str, dict[st
             if theme and theme not in themes:
                 themes.append(theme)
         lines.append(
-            "| {candidate} | {layer} | {conf:.2f} | {source} | {published} | {theme} | {entity} | {facts} | {title} | {url} |".format(
+            "| {fingerprint} | {candidate} | {kb_task} | {layer} | {conf:.2f} | {source} | {published} | {theme} | {entity} | {facts} | {title} | {url} |".format(
+                fingerprint=escape_md(item.get("source_fingerprint")),
                 candidate=escape_md(", ".join(as_list(item.get("candidate_ids"))) or item.get("candidate_id")),
+                kb_task=escape_md("、".join(as_list(item.get("kb_task_ids"))) or item.get("kb_task_id")),
                 layer=escape_md(item.get("evidence_layer")),
                 conf=confidence_value(item),
                 source=escape_md(item.get("source")),
@@ -212,7 +274,10 @@ def render_candidate_details(items: list[dict[str, Any]], tasks: dict[str, dict[
         lines.extend([
             f"### {idx}. {text_value(item.get('title')) or '-'}",
             "",
+            f"- **source_fingerprint**: `{text_value(item.get('source_fingerprint')) or '-'}`",
             f"- **candidate_id**: `{', '.join(as_list(item.get('candidate_ids'))) or text_value(item.get('candidate_id'))}`",
+            f"- **origin_queue_task_id**: `{', '.join(as_list(item.get('origin_queue_task_ids'))) or text_value(item.get('origin_queue_task_id')) or '-'}`",
+            f"- **kb_task_id**: `{', '.join(as_list(item.get('kb_task_ids'))) or text_value(item.get('kb_task_id')) or '-'}`",
             f"- **evidence_layer**: `{text_value(item.get('evidence_layer')) or '-'}`",
             f"- **confidence**: `{confidence_value(item):.2f}`",
             f"- **source**: {text_value(item.get('source')) or '-'}",
@@ -309,17 +374,33 @@ def render_markdown(report: dict[str, Any], selected_items: list[dict[str, Any]]
         "",
         "## 人工确认清单",
         "",
-        "| Candidate | Decision | Approved layer | Target source note | Reviewer note |",
-        "|---|---|---|---|---|",
+        "| Source fingerprint | Candidate | KB task | Decision | Proposed layer | Target note path | Reviewer note |",
+        "|---|---|---|---|---|---|---|",
     ])
     for item in selected_items:
         lines.append(
-            "| {candidate} | pending |  |  |  |".format(candidate=escape_md(item.get("candidate_id")))
+            "| {fingerprint} | {candidate} | {kb_task} | pending | {proposed} |  |  |".format(
+                fingerprint=escape_md(item.get("source_fingerprint")),
+                candidate=escape_md(item.get("candidate_id")),
+                kb_task=escape_md(item.get("kb_task_id")),
+                proposed=escape_md(proposed_layer_for(item)),
+            )
         )
     if not selected_items:
-        lines.append("| - | - | - | - | - |")
+        lines.append("| - | - | - | - | - | - | - |")
     lines.append("")
     return "\n".join(lines)
+
+
+def proposed_layer_for(item: dict[str, Any]) -> str | None:
+    layer = text_value(item.get("evidence_layer"))
+    if layer == CANDIDATE_LAYER:
+        return None
+    return layer or None
+
+
+def cannot_upgrade_without_official_url(item: dict[str, Any]) -> bool:
+    return text_value(item.get("evidence_layer")) == CANDIDATE_LAYER
 
 
 def build_manifest(report: dict[str, Any], selected_items: list[dict[str, Any]], *, date_text: str, source_report: Path, staging_note: Path, wiki_root: Path) -> dict[str, Any]:
@@ -327,9 +408,21 @@ def build_manifest(report: dict[str, Any], selected_items: list[dict[str, Any]],
     for item in selected_items:
         approvals.append({
             "candidate_id": text_value(item.get("candidate_id")),
+            "source_fingerprint": text_value(item.get("source_fingerprint")),
+            "task_id": text_value(item.get("task_id")),
+            "origin_queue_task_id": text_value(item.get("origin_queue_task_id")),
+            "kb_task_id": text_value(item.get("kb_task_id")),
             "decision": "pending",
+            "allowed_decisions": list(APPROVAL_DECISIONS),
+            "evidence_layer_original": text_value(item.get("evidence_layer")),
+            "evidence_layer_proposed": proposed_layer_for(item),
+            "approval_cannot_upgrade_without_official_url": cannot_upgrade_without_official_url(item),
             "approved_layer": None,
             "target_source_note": None,
+            "target_note_path": None,
+            "reviewer": None,
+            "reviewed_at": None,
+            "decision_reason": "",
             "related_entities": as_list(item.get("matched_entities")),
             "related_concepts": as_list(item.get("matched_theme_terms")),
             "reviewer_note": "",
@@ -346,6 +439,7 @@ def build_manifest(report: dict[str, Any], selected_items: list[dict[str, Any]],
         "summary": {
             "task_count": len(as_list(report.get("tasks"))),
             "selected_candidate_count": len(selected_items),
+            "source_fingerprint_count": len({text_value(item.get("source_fingerprint")) for item in selected_items}),
             "reject_reason_counts": reject_summary(as_list(report.get("rejected_items"))),
         },
         "approvals": approvals,
@@ -370,7 +464,8 @@ def export_report(evidence_report_path: Path, wiki_root: Path, *, date_text: str
         if existing:
             raise FileExistsError("output already exists; pass --overwrite: " + ", ".join(str(path) for path in existing))
     matched_items = [item for item in as_list(report.get("matched_items")) if isinstance(item, dict)]
-    selected_items = with_candidate_ids(matched_items, l3_candidate_min_confidence, min_layer)
+    tasks = task_index(as_list(report.get("tasks")))
+    selected_items = with_candidate_ids(matched_items, l3_candidate_min_confidence, min_layer, tasks)
     generated_at = datetime.now(timezone.utc).isoformat()
     markdown = render_markdown(
         report,

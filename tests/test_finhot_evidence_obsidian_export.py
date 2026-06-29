@@ -8,6 +8,7 @@ from pathlib import Path
 from scripts.export_finhot_evidence_to_obsidian import (
     export_report,
     stable_candidate_id,
+    stable_source_fingerprint,
     validate_report,
     with_candidate_ids,
 )
@@ -53,8 +54,8 @@ class FinHotEvidenceObsidianExportTest(unittest.TestCase):
                 },
             },
             "tasks": [
-                {"task_id": "task-001", "theme": "液冷服务器", "concept": "液冷服务器"},
-                {"task_id": "task-002", "theme": "数据中心", "concept": "数据中心"},
+                {"task_id": "task-001", "origin_queue_task_id": "kbq-001", "theme": "液冷服务器", "concept": "液冷服务器"},
+                {"task_id": "task-002", "metadata": {"kb_task_id": "kbq-002"}, "theme": "数据中心", "concept": "数据中心"},
             ],
             "matched_items": [
                 self._item(),
@@ -85,6 +86,15 @@ class FinHotEvidenceObsidianExportTest(unittest.TestCase):
         self.assertNotEqual(first, third)
         self.assertEqual(len(first), 40)
 
+    def test_source_fingerprint_is_stable_across_task_ids(self) -> None:
+        first = self._item(task_id="2026-06-26-task", url="https://www.cninfo.com.cn/new/disclosure?a=1&b=2")
+        second = self._item(task_id="2026-06-27-task", url="https://www.cninfo.com.cn/new/disclosure?b=2&a=1#frag")
+        third = self._item(task_id="2026-06-28-task", evidence_layer="L3_candidate")
+
+        self.assertNotEqual(stable_candidate_id(first), stable_candidate_id(second))
+        self.assertEqual(stable_source_fingerprint(first), stable_source_fingerprint(second))
+        self.assertNotEqual(stable_source_fingerprint(first), stable_source_fingerprint(third))
+
     def test_with_candidate_ids_filters_allowed_layers_and_high_confidence_candidates(self) -> None:
         items = with_candidate_ids(self._report()["matched_items"], 0.6)
         layers = [item["evidence_layer"] for item in items]
@@ -96,6 +106,9 @@ class FinHotEvidenceObsidianExportTest(unittest.TestCase):
         self.assertEqual(layers.count("L3_candidate"), 1)
         self.assertNotIn("L1_signal", layers)
         self.assertTrue(all(item.get("candidate_id") for item in items))
+        self.assertTrue(all(item.get("source_fingerprint") for item in items))
+        self.assertTrue(all(item.get("origin_queue_task_id") for item in items))
+        self.assertTrue(all(item.get("kb_task_id") for item in items))
 
     def test_export_report_writes_staging_markdown_and_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -116,12 +129,28 @@ class FinHotEvidenceObsidianExportTest(unittest.TestCase):
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertIn("type: raw_staging", md)
             self.assertIn("## L3 当前官方催化候选", md)
+            self.assertIn("source_fingerprint", md)
+            self.assertIn("kbq-001、kbq-002", md)
             self.assertIn("task-001（液冷服务器）；task-002（数据中心）", md)
             self.assertIn("reject_reason_counts", md)
             self.assertEqual(manifest["date"], "2026-06-26")
             self.assertEqual(manifest["staging_note"], "raw/finhot-evidence-staging/2026-06-26-finhot-evidence-staging.md")
+            self.assertEqual(manifest["summary"]["source_fingerprint_count"], 4)
             self.assertEqual(len(manifest["approvals"]), 5)
             self.assertTrue(all(row["decision"] == "pending" for row in manifest["approvals"]))
+            self.assertTrue(all(row["allowed_decisions"] == ["pending", "approved", "rejected", "applied"] for row in manifest["approvals"]))
+            by_layer = {row["evidence_layer_original"]: row for row in manifest["approvals"]}
+            self.assertIsNone(by_layer["L3_candidate"]["evidence_layer_proposed"])
+            self.assertTrue(by_layer["L3_candidate"]["approval_cannot_upgrade_without_official_url"])
+            self.assertEqual(by_layer["L3_current_official_catalyst"]["evidence_layer_proposed"], "L3_current_official_catalyst")
+            self.assertFalse(by_layer["L3_current_official_catalyst"]["approval_cannot_upgrade_without_official_url"])
+            self.assertIn("source_fingerprint", manifest["approvals"][0])
+            self.assertIn("origin_queue_task_id", manifest["approvals"][0])
+            self.assertIn("kb_task_id", manifest["approvals"][0])
+            self.assertIn("target_note_path", manifest["approvals"][0])
+            self.assertIn("reviewer", manifest["approvals"][0])
+            self.assertIn("reviewed_at", manifest["approvals"][0])
+            self.assertIn("decision_reason", manifest["approvals"][0])
 
     def test_export_report_can_filter_to_l3_and_hide_rejected_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -139,7 +168,7 @@ class FinHotEvidenceObsidianExportTest(unittest.TestCase):
             self.assertEqual(len(manifest["approvals"]), 4)
             self.assertNotIn("reject_reason_counts", md)
             self.assertNotIn("## 被拒绝或低置信线索摘要", md)
-            self.assertIn("| - | - | - | - | - | - | - | - | - | - |", md)
+            self.assertIn("| - | - | - | - | - | - | - | - | - | - | - | - |", md)
 
     def test_export_report_refuses_to_overwrite_existing_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
