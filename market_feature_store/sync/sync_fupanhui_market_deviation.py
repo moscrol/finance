@@ -73,21 +73,17 @@ def _cdp_eval(target: str, expr: str, timeout: int = 30, retries: int = 3):
 def _fetch_market_deviation() -> dict:
     target = _cdp_new(MARKET_URL)
     try:
-        time.sleep(4)
-        canvas_count = _cdp_eval(target, "document.querySelectorAll('canvas').length")
+        # ECharts canvas 在本机网络下约需 5-6s 才渲染完, 固定 sleep 易踩空,
+        # 改为轮询等待 canvas 出现 (最长 ~15s)。
+        canvas_count = 0
+        deadline = time.time() + 15
+        while time.time() < deadline:
+            canvas_count = _cdp_eval(target, "document.querySelectorAll('canvas').length") or 0
+            if canvas_count:
+                break
+            time.sleep(1)
         if not canvas_count:
             raise RuntimeError("market data 页面无 canvas")
-        hover_js = """
-        var canvas = document.querySelectorAll('canvas')[0];
-        var rect = canvas.getBoundingClientRect();
-        var x = rect.x + rect.width * 0.97;
-        var y = rect.y + rect.height * 0.50;
-        canvas.dispatchEvent(new PointerEvent('pointermove', {clientX: x, clientY: y, bubbles: true, pointerId: 1, pointerType: 'mouse'}));
-        canvas.dispatchEvent(new MouseEvent('mousemove', {clientX: x, clientY: y, bubbles: true}));
-        'done';
-        """
-        _cdp_eval(target, hover_js)
-        time.sleep(1)
         tooltip_js = """
         var overlays = document.querySelectorAll('div[style*=\"z-index\"]');
         var tooltipText = '';
@@ -98,16 +94,31 @@ def _fetch_market_deviation() -> dict:
         }
         tooltipText;
         """
-        tooltip = _cdp_eval(target, tooltip_js) or ""
-        m_ma = re.search(r"周均线[:：]\s*(\d+(?:\.\d+)?)", tooltip)
-        m_dev = re.search(r"偏离[:：]\s*([+-]?\d+(?:\.\d+)?)%?", tooltip)
-        if not (m_ma and m_dev):
-            raise RuntimeError("tooltip 未提取到周均线/偏离度: " + tooltip.replace("\n", " | "))
-        return {
-            "sh_week_ma": float(m_ma.group(1)),
-            "sh_deviation_pct": float(m_dev.group(1)),
-            "tooltip": tooltip,
-        }
+        # 最新交易日数据点不在画布最右边缘 (0.97 会落到数据区之外, tooltip 取不到),
+        # 在 0.86~0.95 之间扫描悬停, 命中即返回。
+        tooltip = ""
+        for px in (0.90, 0.92, 0.88, 0.94, 0.86, 0.95, 0.83):
+            hover_js = (
+                "var canvas = document.querySelectorAll('canvas')[0];"
+                "var rect = canvas.getBoundingClientRect();"
+                f"var x = rect.x + rect.width * {px};"
+                "var y = rect.y + rect.height * 0.50;"
+                "canvas.dispatchEvent(new PointerEvent('pointermove', {clientX: x, clientY: y, bubbles: true, pointerId: 1, pointerType: 'mouse'}));"
+                "canvas.dispatchEvent(new MouseEvent('mousemove', {clientX: x, clientY: y, bubbles: true}));"
+                "'done';"
+            )
+            _cdp_eval(target, hover_js)
+            time.sleep(0.8)
+            tooltip = _cdp_eval(target, tooltip_js) or ""
+            m_ma = re.search(r"周均线[:：]\s*(\d+(?:\.\d+)?)", tooltip)
+            m_dev = re.search(r"偏离[:：]\s*([+-]?\d+(?:\.\d+)?)%?", tooltip)
+            if m_ma and m_dev:
+                return {
+                    "sh_week_ma": float(m_ma.group(1)),
+                    "sh_deviation_pct": float(m_dev.group(1)),
+                    "tooltip": tooltip,
+                }
+        raise RuntimeError("tooltip 未提取到周均线/偏离度: " + tooltip.replace("\n", " | "))
     finally:
         _cdp_close(target)
 
