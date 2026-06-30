@@ -39,6 +39,11 @@ python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 > - `sync-mainline-daily`：每日主线题材 + 龙头个股池 → `fact_mainline_theme_daily` / `fact_mainline_stock_daily`
 > - `sync-theme-flow-daily`：题材级资金流向 → `fact_theme_flow_daily`
 
+> **全A日线取数路径（stock-daily 这步）：日常单日复盘用默认的东财快照，不要带 `--stock-source mootdx`。**
+> - `daily-full` 默认 `--stock-source snapshot`（东财全市场快照 `sync-stock-daily-snapshot`），单日盘后增量、几十秒完成。实测与 mootdx 对比：收盘价 100% 一致、成交额 100% 在 1% 内；除权日涨跌幅快照更准（用除权后昨收），且覆盖更全（含北交所 920xxx）。
+> - `--stock-source mootdx`（通达信逐只 TCP，~50 分钟）**仅用于首次建库 / 多日历史回填**——快照只有当天单帧、无历史 K 线序列。日常增量用不上。
+> - 注意：快照必须**盘后**跑（盘中会写实时价）；快照写入的 `source=eastmoney`、`pre_close` 为除权后昨收，与历史 mootdx 行口径略有差异。
+
 执行后用 `audit_coverage.py` 验证覆盖。
 
 ### 旧流程（仅供参考，已废弃飞书写入部分）
