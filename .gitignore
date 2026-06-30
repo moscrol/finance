@@ -24,6 +24,8 @@ cookie*
 .mcp.json
 .codex/hooks.json
 .superpowers/
+khazix-skills/
+rsshub/
 *.code-workspace
 
 # Machine-local symlink to the shared Feishu toolkit (points into ~/.claude/shared).
@@ -97,6 +99,11 @@ intelligence/users/*/_vault/
 evolution/records/
 evolution/validation/
 evolution/suggestions/
+
+# 本地手动备份，从不入库
+*.bak
+*.bak-*
+*.bak.*
 # 按用户的 evolve 输出（overlay 生效后的记录/验证/建议/进化.md），运行时生成，不入库
 evolution/users/
 
@@ -109,3 +116,6 @@ feishu-events*.jsonl
 raw/transcripts/*/*.jsonl
 # dream-loop 7B：KB 事实回写候选默认 staging（人工 review 前不入库）
 intelligence/dream/_kb_candidates/
+
+# 记忆底座软链（指向 /Users/a77/agent-memory，仅本地，勿提交）
+.agent-memory

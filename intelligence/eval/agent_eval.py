@@ -49,6 +49,12 @@ class CaseSpec:
     max_tool_calls: int = 40         # applies to every turn
     entity_recall_gate: float = 0.5
     require_disclaimer: bool = True
+    # Factuality gate: companies that must NOT be surfaced as constituents of this
+    # theme (grounded cross-theme mis-attribution traps). Any appearance fails.
+    forbid_entities: list[str] = field(default_factory=list)
+    # Evidence-layer gate: overclaim phrases that must NOT appear (e.g. claiming
+    # L3 official validation / 业绩已兑现 for a theme that only has L2 in the KB).
+    forbid_phrases: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "CaseSpec":
@@ -140,6 +146,8 @@ class CaseScore:
     source_coverage: bool
     passed: bool
     failures: list[str] = field(default_factory=list)
+    false_attributions: list[str] = field(default_factory=list)
+    overclaims: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         d = {k: v for k, v in self.__dict__.items() if k != "turns"}
@@ -261,6 +269,9 @@ def score_case(turns: list[TurnInput], spec: CaseSpec) -> CaseScore:
     missing_sources = [s for s in spec.expect_sources if s not in cited_sources]
     source_coverage = not missing_sources
 
+    false_attributions = [e for e in spec.forbid_entities if e in all_text]
+    overclaims = [p for p in spec.forbid_phrases if p in all_text]
+
     failures: list[str] = []
     for i, ts in enumerate(turn_scores):
         if not ts.passed:
@@ -273,6 +284,10 @@ def score_case(turns: list[TurnInput], spec: CaseSpec) -> CaseScore:
         )
     if not source_coverage:
         failures.append("未覆盖期望源：" + "、".join(missing_sources))
+    if false_attributions:
+        failures.append("错配题材实体（不属于该题材却被拉入）：" + "、".join(false_attributions))
+    if overclaims:
+        failures.append("证据层级 overclaim（缺硬证据却声称已验证/已兑现）：" + "、".join(overclaims))
 
     return CaseScore(
         case_id=spec.id,
@@ -286,6 +301,8 @@ def score_case(turns: list[TurnInput], spec: CaseSpec) -> CaseScore:
         source_coverage=source_coverage,
         passed=not failures,
         failures=failures,
+        false_attributions=false_attributions,
+        overclaims=overclaims,
     )
 
 

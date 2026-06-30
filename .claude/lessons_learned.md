@@ -40,7 +40,12 @@
   根因：`check_relations_integrity.py` 只检查 JSON 格式完整性，不验证 source note 的公司归属和 raw_traces 指向。
   做法：新增 `scripts/audit_missing_evidence_sources.py` 作为第 7 步闸门，检查每个 entity 的 source note 存在性、company 字段一致性、raw_traces 可达性。
 
-- **[2026-06-23] 年报 batch 2 质量修复：5 类问题沉淀 8 条防护规则。**
+- **[2026-06-23] 年报 batch 4-5：Rule 6 双层保护 + 语义 QA + manifest 格式。**
+  错误：①Rule 6 只保护 entity 正文，relations 里 `ima_stock_logic` 等高价值记录被 baseline 覆盖降级（盘江股份→煤炭）；②子串验证通过但语义错误（环保政策当主营、目录碎片当产品、保荐机构文本挂黄金概念）；③manifest 顶层 list 导致 writer `--preflight` 报 AttributeError；④重建时旧 entity 文件的脏 baseline section 被 Rule 6 "保护"。
+  根因：Rule 6 只做了 entity markdown 单层保护；缺少 relations 层的 update_type 检查；语义验证完全依赖子串匹配无人工 QA；manifest 格式未标准化。
+  做法：`knowledge_graph.py` 扩展保护为"任何非 baseline update_type 都不覆盖"；SKILL.md 从 8 条扩展到 11+S4+O2（新增 Rule 6 双层保护/Rule 8 manifest 格式/Rule 9 语义 QA/Rule 10 回归检查/S1-S4 应该规则/O1-O2 可选规则）；重建前必须删除新 entity 文件再重跑 writer。
+
+- **[2026-06-23] 年报 batch 2 质量修复：5 类问题沉淀初始 8 条防护规则。**
   错误：①已有 F10 baseline 被低质量年报 OCR 覆盖（宁德时代主营变成表格噪声）；②正则扫全文误抽财务数据（宁波银行营收 7.20万元）；③`source_date` 从 PDF 误抽出未来日期；④修页面忘了同步修 relations JSON 导致 agent 结构化召回脏数据；⑤文件名冒号/下划线不一致导致 source 断链。
   根因：`extract_key_data_from_raw` 用正则扫全文无验证；`entity_baseline_writer` 无条件覆盖已有高质量 baseline；修复流程只看页面不看 relations。
   做法：`extract_key_data_from_raw` 默认关闭（`AUTO_KEY_DATA=1` 才启用）；SKILL.md 新增"年报 baseline 质量防护规则"8 条（relations 同步修 / 安全文件名 / source_date 分离 / OCR 噪声词过滤 / 已有 baseline 不覆盖 / 验收看内容不只看退出码 / 批量抽样）。

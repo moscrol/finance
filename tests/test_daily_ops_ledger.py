@@ -15,7 +15,7 @@ class DailyOpsLedgerTest(unittest.TestCase):
         (finance / "复盘" / "daily").mkdir(parents=True)
         (wiki / "briefings").mkdir(parents=True)
         (wiki / "relations").mkdir(parents=True)
-        return ProjectPaths(finance_root=finance, knowledge_wiki=wiki, finance_site=root / "site", market_snapshot_dir=root / "snapshot")
+        return ProjectPaths(finance_root=finance, knowledge_wiki=wiki, finance_site=root / "site", market_snapshot_dir=root / "snapshot", vector_index_dir=wiki.parent / ".rag_index")
 
     def test_date_compact_and_expected_market_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:

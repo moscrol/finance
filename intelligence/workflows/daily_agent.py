@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from intelligence.paths import ProjectPaths, default_paths
+from intelligence.paths import ProjectPaths, default_paths, vector_index_dir_for
 from intelligence.services.logic_market_match import (
     LABEL_DATA_GAP,
     LABEL_NEW_CANDIDATE,
@@ -17,6 +17,7 @@ from intelligence.services.logic_market_match import (
 )
 from intelligence.services import kb_rag
 from intelligence.services import logic_lifecycle
+from intelligence.services import logic_effectiveness
 from intelligence.services import market_validation
 from intelligence.services import research_queue
 from intelligence.services import research_judge
@@ -60,15 +61,18 @@ class DailyAgentOptions:
     wiki_rag_k: int = 3
     wiki_rag_mode: str = "hybrid"
     wiki_rag_timeout: int = 120
+    effectiveness_window: int = 20
 
 
 def _paths_from_options(options: DailyAgentOptions) -> ProjectPaths:
     defaults = default_paths()
+    knowledge_wiki = Path(options.kb_wiki).expanduser() if options.kb_wiki else defaults.knowledge_wiki
     return ProjectPaths(
         finance_root=Path(options.finance_root).expanduser() if options.finance_root else defaults.finance_root,
-        knowledge_wiki=Path(options.kb_wiki).expanduser() if options.kb_wiki else defaults.knowledge_wiki,
+        knowledge_wiki=knowledge_wiki,
         finance_site=defaults.finance_site,
         market_snapshot_dir=defaults.market_snapshot_dir,
+        vector_index_dir=vector_index_dir_for(knowledge_wiki),
     )
 
 
@@ -318,6 +322,7 @@ def _build_evidence_card(row: dict[str, Any]) -> dict[str, Any]:
         "证据裁判": row.get("research_judgment") or {},
         "生命周期": row.get("logic_lifecycle") or {},
         "盘面验证": row.get("market_validation") or {},
+        "历史有效性": row.get("logic_effectiveness") or {},
         "综合判断": status,
         "判断理由": reason,
         "缺口": row.get("data_gaps") or [],
@@ -488,6 +493,23 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         top_per_date=options.top_per_date,
     )
     _enrich_decision_with_market_validation(decision, current_market_by_theme, market_history_by_theme)
+    effectiveness_dates = [item for item in available_candidate_dates(paths.market_exports) if item <= options.date][-options.effectiveness_window:]
+    effectiveness_history = logic_effectiveness.load_effectiveness_history(
+        paths.market_exports,
+        effectiveness_dates,
+        options.date,
+        top_per_date=options.top_per_date,
+    )
+    return_panel = logic_effectiveness.load_market_return_panel(
+        paths.market_snapshot_dir,
+        effectiveness_dates,
+    )
+    logic_effectiveness.build_effectiveness_for_decision(
+        decision,
+        effectiveness_history,
+        return_panel=return_panel,
+    )
+    effectiveness_summary = logic_effectiveness.summarize_effectiveness(decision)
     semantic_warnings = _enrich_decision_with_semantic_rag(decision, options, paths.knowledge_wiki)
     task_queue = research_queue.build_research_queue(decision)
     report = {
@@ -513,6 +535,12 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
             "warnings": judgment_warnings,
         },
         "research_queue": task_queue,
+        "logic_effectiveness": {
+            "enabled": True,
+            "window": options.effectiveness_window,
+            "car_panel_dates": len(return_panel.get("trade_dates") or []),
+            "summary": effectiveness_summary,
+        },
         "notes": [
             "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
             "回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。",
@@ -542,11 +570,36 @@ def _section_rows(rows: list[dict[str, Any]], limit: int = 10) -> list[str]:
         lifecycle_text = lifecycle.get("生命周期阶段") or "-"
         market = item.get("market_validation") or {}
         market_text = market.get("盘面验证强度") or "-"
+        effectiveness_text = _effectiveness_brief(item.get("logic_effectiveness") or {})
         lines.append(
             f"- {item['query']}｜priority={item['priority_score'] if item['priority_score'] is not None else '-'}"
-            f"｜confidence={item['confidence']}｜强势股={stocks}｜缺口={gaps}｜语义={semantic}｜生命周期={lifecycle_text}｜盘面验证={market_text}｜裁判={judgment_text}｜路径={item['route']}"
+            f"｜confidence={item['confidence']}｜强势股={stocks}｜缺口={gaps}｜语义={semantic}｜生命周期={lifecycle_text}｜盘面验证={market_text}｜历史有效性={effectiveness_text}｜裁判={judgment_text}｜路径={item['route']}"
         )
     return lines
+
+
+def _effectiveness_brief(scorecard: dict[str, Any]) -> str:
+    if not scorecard:
+        return "-"
+    if scorecard.get("状态") != "已评估":
+        return scorecard.get("状态") or "-"
+    parts = []
+    win = scorecard.get("胜率")
+    if isinstance(win, (int, float)):
+        parts.append(f"胜率{win}")
+    half = (scorecard.get("半衰期") or {}).get("交易日")
+    parts.append(f"半衰期{half if half is not None else '未减半'}")
+    dd = (scorecard.get("最大回撤") or {}).get("比例")
+    if isinstance(dd, (int, float)):
+        parts.append(f"回撤{dd}")
+    car = scorecard.get("CAR") or {}
+    if car.get("状态") == "已评估":
+        car5 = car.get("CAR(0,5)")
+        car20 = car.get("CAR(0,20)")
+        parts.append(f"CAR5={car5 if car5 is not None else '-'}/CAR20={car20 if car20 is not None else '-'}")
+    else:
+        parts.append("CAR未配置")
+    return "｜".join(parts)
 
 
 def _evidence_card_rows(decision: dict[str, list[dict[str, Any]]], limit: int = 8) -> list[str]:
@@ -596,6 +649,9 @@ def _evidence_card_rows(decision: dict[str, list[dict[str, Any]]], limit: int = 
                 f"{market.get('盘面验证强度', '-')}｜"
                 f"{market.get('验证结论', '-')}"
             )
+        effectiveness = card.get("历史有效性") or {}
+        if effectiveness:
+            lines.append(f"- 历史有效性：{_effectiveness_brief(effectiveness)}")
         materials = card.get("命中材料") or []
         if materials:
             for item in materials[:3]:

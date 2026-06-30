@@ -12,7 +12,7 @@ class DailyReviewAgentEntryTest(unittest.TestCase):
         finance = root / "finance"
         (finance / "market_feature_store" / "exports").mkdir(parents=True)
         (finance / "复盘" / "daily").mkdir(parents=True)
-        return ProjectPaths(finance_root=finance, knowledge_wiki=root / "wiki", finance_site=root / "site", market_snapshot_dir=root / "snapshot")
+        return ProjectPaths(finance_root=finance, knowledge_wiki=root / "wiki", finance_site=root / "site", market_snapshot_dir=root / "snapshot", vector_index_dir=root / ".rag_index")
 
     def test_daily_plan_generates_agent_brief_before_workbench(self):
         with tempfile.TemporaryDirectory() as tmp:

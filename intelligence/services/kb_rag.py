@@ -36,6 +36,64 @@ DEFAULT_EXCERPT_CHARS = 200
 
 CITATION_PREFIX = "W"
 
+# ---- 两种命名查询模式：结构版（默认）/ 全文版 -----------------------------
+# 模式只切「索引目录 + 检索方式」，不改其余行为。默认 structured 与历史逐字节一致。
+KB_MODE_STRUCTURED = "structured"
+KB_MODE_FULL = "full"
+FULL_INDEX_DIRNAME = ".rag_index_full"
+
+# name / 别名（含中文）→ 规范模式名。
+_KB_MODE_ALIASES = {
+    KB_MODE_STRUCTURED: KB_MODE_STRUCTURED,
+    "fast": KB_MODE_STRUCTURED,
+    "\u7ed3\u6784": KB_MODE_STRUCTURED,
+    "\u7ed3\u6784\u7248": KB_MODE_STRUCTURED,
+    "\u901f\u67e5": KB_MODE_STRUCTURED,
+    KB_MODE_FULL: KB_MODE_FULL,
+    "deep": KB_MODE_FULL,
+    "\u5168\u6587": KB_MODE_FULL,
+    "\u5168\u6587\u7248": KB_MODE_FULL,
+    "\u6df1\u5ea6": KB_MODE_FULL,
+}
+
+# 规范模式名 →（索引目录覆盖, 检索方式）。索引目录为 None 表示用默认 .rag_index。
+_KB_MODE_PROFILE = {
+    KB_MODE_STRUCTURED: (None, "hybrid"),
+    KB_MODE_FULL: (FULL_INDEX_DIRNAME, "rerank"),
+}
+
+# 自然语言触发词：命中全文词→全文版；命中结构词→结构版（结构词显式优先）。
+FULL_MODE_TRIGGERS = ("\u6df1\u6316", "\u770b\u539f\u6587", "\u539f\u6587", "\u6743\u5a01", "\u5b8c\u6574\u7248", "\u6df1\u5ea6", "\u5168\u6587")
+STRUCTURED_MODE_TRIGGERS = ("\u5feb\u901f", "\u901f\u67e5", "\u7ed3\u6784\u7248", "\u7ed3\u6784")
+
+
+def normalize_kb_mode(name: str | None) -> str | None:
+    """把 name / 别名（含中文）解析成规范模式名；无法识别返回 None。"""
+    if not name:
+        return None
+    return _KB_MODE_ALIASES.get(str(name).strip().lower())
+
+
+def kb_mode_profile(name: str | None) -> tuple[str | None, str]:
+    """规范模式名 →（索引目录覆盖, 检索方式）。未知 / None 回退结构版。"""
+    canonical = normalize_kb_mode(name) or KB_MODE_STRUCTURED
+    return _KB_MODE_PROFILE[canonical]
+
+
+def detect_kb_mode(query: str | None) -> str | None:
+    """从问句里识别模式触发词。
+
+    命中全文触发词（深挖/看原文/原文/权威/完整版/深度/全文）→ ``full``；
+    命中结构触发词（快速/速查/结构版/结构）→ ``structured``（显式快速优先）；
+    都没命中 → None（由调用方默认结构版）。
+    """
+    q = str(query or "")
+    if any(t in q for t in STRUCTURED_MODE_TRIGGERS):
+        return KB_MODE_STRUCTURED
+    if any(t in q for t in FULL_MODE_TRIGGERS):
+        return KB_MODE_FULL
+    return None
+
 
 @dataclass
 class WikiHit:
@@ -44,6 +102,9 @@ class WikiHit:
     title: str
     score: float
     excerpt: str
+    evidence_layer: str = ""
+    fact_hardness: str = ""
+    source_type: str = ""
     via_neighbor: bool = False
 
 
@@ -63,8 +124,7 @@ def kb_root(kb_wiki: str | Path) -> Path:
 
 
 def _resolve_index_dir(root: Path) -> Path:
-    """Mirror rag.config.index_dir(): RAG_INDEX_DIR env, else <kb_root>/.rag_index."""
-    env = os.environ.get("RAG_INDEX_DIR")
+    env = os.environ.get("VECTOR_INDEX_DIR") or os.environ.get("RAG_INDEX_DIR")
     if env:
         return Path(env).expanduser()
     return root / ".rag_index"
@@ -107,6 +167,10 @@ def retrieve(
     mode: str = DEFAULT_RAG_MODE,
     timeout: int = DEFAULT_RAG_TIMEOUT,
     excerpt_chars: int = DEFAULT_EXCERPT_CHARS,
+    evidence_layer: str | None = None,
+    fact_hardness: str | None = None,
+    source_type: str | None = None,
+    index_dir: str | Path | None = None,
 ) -> WikiRagResult:
     """Run the KB hybrid retriever for ``query`` and return candidate wiki pages.
 
@@ -123,21 +187,48 @@ def retrieve(
     if not script.exists():
         res.warning = f"wiki-rag 未接入：找不到 {script}"
         return res
-    index_dir = _resolve_index_dir(root)
-    res.index_dir = str(index_dir)
-    if not index_dir.exists():
+    # 选索引目录：默认走 _resolve_index_dir（RAG_INDEX_DIR env 或 .rag_index）；
+    # 全文版经 index_dir 指向 .rag_index_full。若指定索引缺失则回退默认索引，
+    # 避免 W 源在只装了结构版索引的机器上被静默丢弃。
+    default_index = _resolve_index_dir(root)
+    chosen = default_index
+    if index_dir is not None:
+        cand = Path(index_dir).expanduser()
+        if not cand.is_absolute():
+            cand = root / cand
+        if cand.exists():
+            chosen = cand
+        elif default_index.exists():
+            res.warning = f"wiki-rag 请求索引 {cand.name} 不存在，已回退默认索引 {default_index.name}"
+        else:
+            chosen = cand  # 都不存在 → 落到下方缺失索引告警
+    res.index_dir = str(chosen)
+    if not chosen.exists():
         res.warning = (
-            f"wiki-rag 未接入：向量索引不存在 {index_dir}"
+            f"wiki-rag 未接入：向量索引不存在 {chosen}"
             "（先在知识库仓跑 scripts/rag_index.py build 或 fetch_rag_index.py）"
         )
         return res
 
     rag_python = _resolve_rag_python(root)
     cmd = [rag_python, str(script), "query", str(query), "--k", str(k), "--mode", str(mode), "--json"]
-    res.command = f"rag_index.py query <q> --k {k} --mode {mode} --json"
-    res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}（hybrid 向量召回 wiki 候选页）"
+    filters = []
+    if evidence_layer:
+        cmd.extend(["--evidence-layer", evidence_layer])
+        filters.append(f"evidence_layer={evidence_layer}")
+    if fact_hardness:
+        cmd.extend(["--fact-hardness", fact_hardness])
+        filters.append(f"fact_hardness={fact_hardness}")
+    if source_type:
+        cmd.extend(["--source-type", source_type])
+        filters.append(f"source_type={source_type}")
+    filter_note = f" filters={','.join(filters)}" if filters else ""
+    res.command = f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
+    res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（hybrid 向量召回 wiki 候选页）"
+    env = dict(os.environ)
+    env["RAG_INDEX_DIR"] = str(chosen)
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(root))
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(root), env=env)
     except subprocess.TimeoutExpired:
         res.warning = f"wiki-rag 超时(>{timeout}s)，已跳过"
         return res
@@ -170,6 +261,9 @@ def retrieve(
                 title=str(item.get("title") or item.get("page_id") or "(无标题)"),
                 score=float(item.get("score") or 0.0),
                 excerpt=excerpt,
+                evidence_layer=str(item.get("evidence_layer") or ""),
+                fact_hardness=str(item.get("fact_hardness") or ""),
+                source_type=str(item.get("source_type") or ""),
                 via_neighbor=bool(item.get("via_neighbor")),
             )
         )

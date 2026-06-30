@@ -76,12 +76,17 @@ class AskOptions:
     use_modules: bool = True
     modules: tuple[str, ...] | None = None
     module_timeout: int = 180
+    # P2.5 实时盘面：本地 market_feature_store DuckDB 路径。仅 agent 用、默认 None；
+    # 提供且可打开时才启用 opt-in 工具 search_market_live，否则行为逐字节不变。
+    market_db_path: str | Path | None = None
     # W source: knowledge-base hybrid 向量检索 (semantic wiki page recall)
     use_wiki_rag: bool = True
     wiki_rag_k: int = 6
     wiki_rag_mode: str = "hybrid"
     wiki_rag_timeout: int = 90
     wiki_rag_excerpt: int = 200
+    # 全文版：W 源索引目录覆盖（指向 .rag_index_full）。None=默认 .rag_index，行为逐字节不变。
+    wiki_rag_index_dir: str | Path | None = None
     use_llm: bool = False
     # compose: 让 LLM 把多源证据有机融合成一段连贯回答（自由形态，带内联引用）；
     # 默认关，关时行为与旧版逐字节一致。开时若无 key/调用失败则降级回六段模板。
@@ -354,6 +359,7 @@ def answer_query(options: AskOptions) -> AskResult:
             mode=options.wiki_rag_mode,
             timeout=options.wiki_rag_timeout,
             excerpt_chars=options.wiki_rag_excerpt,
+            index_dir=options.wiki_rag_index_dir,
         )
         if wr.ok and wr.hits:
             result.found_wiki = True
@@ -364,6 +370,8 @@ def answer_query(options: AskOptions) -> AskResult:
                 wiki_lines.append(
                     f"{h.title}（相关度 {round(h.score, 4)}{nb}）：{h.excerpt} {tag}"
                 )
+            if wr.warning:  # 全文版索引缺失回退默认索引时，仍把提示记进 warnings
+                result.warnings.append(f"wiki-rag：{wr.warning}")
         elif wr.warning:
             result.warnings.append(f"wiki-rag：{wr.warning}")
 

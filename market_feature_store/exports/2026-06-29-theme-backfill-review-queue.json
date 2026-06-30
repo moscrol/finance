@@ -1,0 +1,120 @@
+{
+  "trade_date": "2026-06-29",
+  "source": "theme-backfill-review-queue",
+  "source_file": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-29-theme-backfill-queue.json",
+  "generated_at": "2026-06-29T16:51:28.804303+00:00",
+  "policy": {
+    "mode": "review_only",
+    "min_priority": "high",
+    "knowledge_write_allowed": false,
+    "placeholder_rule": "items containing 未映射 are blocked_review"
+  },
+  "review_count": 4,
+  "status_counts": {
+    "pending_review": 4
+  },
+  "action_counts": {
+    "review_attach_or_archive_evidence": 3,
+    "review_create_or_link_concept": 1
+  },
+  "items": [
+    {
+      "id": "2026-06-29-06-missing_evidence",
+      "trade_date": "2026-06-29",
+      "theme": "化学制药",
+      "canonical_concept": "原料药",
+      "sw_l1": "医药生物",
+      "candidate_tier": "deep",
+      "rank": 6,
+      "priority_score": 124.2,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "double_red",
+        "limit_heat",
+        "new_high_cluster"
+      ],
+      "concept_count": 2,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-06-29-07-missing_evidence",
+      "trade_date": "2026-06-29",
+      "theme": "材料",
+      "canonical_concept": "AI材料",
+      "sw_l1": "电子",
+      "candidate_tier": "deep",
+      "rank": 7,
+      "priority_score": 123.0,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_advance_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 5,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-06-29-10-missing_evidence",
+      "trade_date": "2026-06-29",
+      "theme": "洁净室",
+      "canonical_concept": "半导体洁净室",
+      "sw_l1": "电子",
+      "candidate_tier": "deep",
+      "rank": 10,
+      "priority_score": 107.0,
+      "gap_type": "missing_evidence",
+      "priority": "high",
+      "reason": "Deep 市场触发候选缺少本地证据支撑",
+      "trigger_types": [
+        "limit_advance_cluster",
+        "capacity_industry"
+      ],
+      "concept_count": 4,
+      "exposure_count": 12,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_attach_or_archive_evidence",
+      "review_note": "先寻找研报、公告或已归档 source 作为证据；没有证据时保持待补状态。",
+      "knowledge_write_allowed": false
+    },
+    {
+      "id": "2026-06-29-28-missing_concept",
+      "trade_date": "2026-06-29",
+      "theme": "海峡两岸",
+      "canonical_concept": "海峡两岸",
+      "sw_l1": "综合",
+      "candidate_tier": "watch",
+      "rank": 28,
+      "priority_score": 80.99,
+      "gap_type": "missing_concept",
+      "priority": "high",
+      "reason": "Watch 市场触发候选缺少本地概念匹配",
+      "trigger_types": [
+        "limit_heat",
+        "new_high_direction",
+        "new_high_cluster"
+      ],
+      "concept_count": 0,
+      "exposure_count": 1,
+      "evidence_count": 0,
+      "review_status": "pending_review",
+      "review_action": "review_create_or_link_concept",
+      "review_note": "先检查 wiki/concepts 是否已有同义概念；若无，再创建概念页。",
+      "knowledge_write_allowed": false
+    }
+  ]
+}

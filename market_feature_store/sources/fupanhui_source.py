@@ -39,6 +39,19 @@ def _http_get(url: str, timeout: int = 15):
         return json.loads(resp.read())
 
 
+def _is_fupanhui_tab(url: str) -> bool:
+    """是否为 fupanhui 标签页, 但排除 www 首页 (其 origin localStorage 无登录 token)。"""
+    host = (urllib.parse.urlparse(url).hostname or "").lower()
+    if host == "www.fupanhui.com":
+        return False
+    return host == "fupanhui.com" or host.endswith(".fupanhui.com")
+
+
+def _fph_tab_priority(url: str) -> int:
+    """fupanhui 标签页优先级: workspace 页带完整登录态, 优先复用。"""
+    return 1 if "/workspace" in url else 0
+
+
 def get_target(force: bool = False) -> str:
     """获取一个可用的 CDP target。优先复用 fupanhui 标签页, 否则新建。"""
     if _target_cache["id"] and not force:
@@ -53,10 +66,16 @@ def get_target(force: bool = False) -> str:
 
     # 只复用 fupanhui 标签页; 绝不占用用户其它站点 (如飞书) 的标签页,
     # 否则相对路径 API 会落到错误 origin 返回空。
+    # 注意: 登录 token 存在 fupanhui.com (无 www) 这个 origin 的 localStorage,
+    # www.fupanhui.com 首页是独立 origin、localStorage 为空, 用它发认证 API 会 401。
+    # 因此排除 www 首页, 并优先选带登录态的 workspace 标签页。
     if isinstance(targets, list):
-        fph = next((t for t in targets if "fupanhui.com" in (t.get("url") or "")), None)
-        if fph:
-            tid = fph.get("id") or fph.get("targetId")
+        fph_tabs = [
+            t for t in targets if _is_fupanhui_tab(t.get("url") or "")
+        ]
+        fph_tabs.sort(key=lambda t: _fph_tab_priority(t.get("url") or ""), reverse=True)
+        for t in fph_tabs:
+            tid = t.get("id") or t.get("targetId")
             if tid:
                 _target_cache["id"] = tid
                 return tid

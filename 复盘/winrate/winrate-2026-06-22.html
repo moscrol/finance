@@ -1,0 +1,192 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>卖方机构胜率榜 2026-06-22</title>
+<style>
+:root{--paper:#f6f0e6;--paper-2:#fffaf1;--ink:#17140f;--muted:#746b5d;--line:#d8cbbb;--line-strong:#18140f;--accent:#0057ff;--accent-2:#ff5a1f;--card:#fffdf8;--shadow:0 18px 45px rgba(38,28,13,.08);--pos:#0a7d3c;--neg:#c2401d}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:linear-gradient(90deg,rgba(23,20,15,.045) 1px,transparent 1px),linear-gradient(rgba(23,20,15,.035) 1px,transparent 1px),var(--paper);background-size:28px 28px;color:var(--ink);font-family:'Avenir Next','PingFang SC','Hiragino Sans GB',sans-serif}
+.skip{position:absolute;left:-999px;top:12px;background:var(--accent);color:#fff;padding:10px 14px;border-radius:999px;z-index:10}.skip:focus{left:16px}
+.shell{display:grid;grid-template-columns:320px minmax(0,1fr);gap:28px;max-width:1760px;margin:0 auto;padding:24px}
+.rail{position:sticky;top:24px;height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--line-strong);background:rgba(255,250,241,.88);backdrop-filter:blur(14px);box-shadow:var(--shadow);padding:22px}
+.mark{font-family:'Bodoni 72','Songti SC',serif;font-size:42px;line-height:.86;letter-spacing:-.06em}
+.date-card{margin:22px 0;padding:18px;border:1px solid var(--line);background:var(--card)}.date-card .label{font-size:11px;letter-spacing:.18em;color:var(--muted);font-weight:900}.date-card .date{font-family:'DIN Condensed','Avenir Next Condensed',sans-serif;font-size:34px;font-weight:900;margin-top:6px}
+.win-toggle{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}
+.win-toggle button{min-height:40px;border:1px solid var(--line-strong);background:var(--paper-2);color:var(--ink);padding:8px 14px;cursor:pointer;font-weight:800}
+.win-toggle button.active{background:var(--ink);color:var(--paper-2)}
+.legend{color:var(--muted);font-size:12px;line-height:1.7;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.legend b{color:var(--ink)}
+.content{min-width:0}
+.hero{position:relative;border:1px solid var(--line-strong);background:var(--paper-2);padding:34px 38px 30px;margin-bottom:24px;box-shadow:var(--shadow);overflow:hidden}
+.hero:before{content:'';position:absolute;right:32px;top:28px;width:120px;height:120px;border:18px solid var(--accent);border-left-color:transparent;border-radius:50%;opacity:.9}
+.kicker{font-size:12px;letter-spacing:.28em;font-weight:900;color:var(--accent);text-transform:uppercase}
+.hero h1{font-family:'Bodoni 72','Songti SC',serif;font-size:60px;line-height:.92;letter-spacing:-.05em;margin:14px 0 16px;max-width:780px}
+.hero .sub{max-width:760px;color:var(--muted);font-size:16px;line-height:1.7}
+.kpis{display:flex;flex-wrap:wrap;gap:14px;margin-top:22px}
+.kpi{border:1px solid var(--line-strong);background:var(--card);box-shadow:var(--shadow);padding:14px 18px;min-width:130px}
+.kpi .v{font-family:'DIN Condensed','Avenir Next Condensed',sans-serif;font-size:32px;font-weight:900;line-height:1;color:var(--ink)}
+.kpi .l{color:var(--muted);font-size:11px;letter-spacing:.14em;font-weight:900;margin-top:4px}
+h2{display:flex;align-items:baseline;gap:12px;margin:38px 0 14px;padding-top:18px;border-top:3px solid var(--line-strong);font-family:'Songti SC','Noto Serif SC',serif;font-size:28px;line-height:1.2;letter-spacing:-.02em}
+h2:before{content:'§';color:var(--accent-2);font-family:'Bodoni 72',serif}
+.note{border-left:5px solid var(--accent-2);background:#fff4e9;padding:12px 16px;margin:12px 0;color:#3b2b1e;font-size:13px;line-height:1.7}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:1100px){.charts{grid-template-columns:1fr}}
+@media(max-width:980px){.shell{display:block;padding:14px}.rail{position:relative;height:auto;margin-bottom:16px}}
+.card{border:1px solid var(--line-strong);background:var(--card);box-shadow:var(--shadow);padding:18px}
+.card h3{margin:0 0 6px;font-size:16px;color:var(--ink);font-family:'Songti SC','Noto Serif SC',serif}
+.card .cap{color:var(--muted);font-size:12px;margin-bottom:8px}
+.tablebox{overflow:auto;max-height:80vh;border:1px solid var(--line-strong);background:var(--card);box-shadow:var(--shadow);margin:14px 0 26px}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:right}
+th:nth-child(2),td:nth-child(2){text-align:left}
+th{position:sticky;top:0;background:var(--ink);color:var(--paper-2);cursor:pointer;user-select:none;z-index:2;font-weight:900}
+th:hover{color:#fff}
+tr:hover td{background:#f4f7ff}
+td.rank{color:var(--muted);font-weight:700}
+td.name{color:var(--ink);font-weight:900}
+.bar-pos{color:var(--pos)}.bar-neg{color:var(--neg)}
+.dot{cursor:default}
+.tip{fill:#4a4234;font-size:11px}
+.axis{stroke:var(--line-strong)}.axis-txt{fill:var(--muted);font-size:10px}
+.foot{color:var(--muted);font-size:12px;margin:30px 0 8px;text-align:center}
+</style></head><body><a class="skip" href="#main">跳到正文</a><div class="shell">
+<aside class="rail">
+  <div class="mark">Win<br>Rate</div>
+  <div class="date-card"><div class="label">GENERATED</div><div class="date">2026-06-22</div></div>
+  <div class="win-toggle" id="winToggle"></div>
+  <div class="legend">
+    <p><b>口径</b>：报告日次日开盘买入，持有至 T+N 收盘。</p>
+    <p><b>超额</b> = 个股收益 − 沪深300 同窗收益（剥大盘 beta）。</p>
+    <p><b>超额胜率</b> = 超额为正的看多事件占比，主排序键。</p>
+    <p><b>均最高</b> = 区间最高收益均值（最好情形）；<b>均回撤</b> = 峰值后回撤均值（风险）。</p>
+    <p>仅统计窗口完整的看多事件；样本不足门槛的机构不排。</p>
+  </div>
+</aside>
+<main class="content" id="main">
+  <section class="hero">
+    <div class="kicker">SELL-SIDE INSTITUTION WIN-RATE</div>
+    <h1>卖方机构<br>胜率榜</h1>
+    <div class="sub" id="heroSub"></div>
+    <div class="kpis" id="kpis"></div>
+  </section>
+  <h2 id="charts-h">胜率分布 · 风险收益</h2>
+  <div class="charts">
+    <div class="card"><h3>超额胜率排行</h3><div class="cap">前 15 名机构，按当前窗口超额胜率</div><div id="barChart"></div></div>
+    <div class="card"><h3>均超额 vs 均回撤</h3><div class="cap">右上=高收益低风险；点大小∝样本数</div><div id="scatterChart"></div></div>
+  </div>
+  <h2 id="table-h">机构胜率榜</h2>
+  <div class="note" id="tableNote"></div>
+  <div class="tablebox"><table id="rankTable"><thead></thead><tbody></tbody></table></div>
+  <div class="foot">生成于 2026-06-22 · 数据源 opinion-store/outcomes.jsonl · 自包含静态页</div>
+</main></div>
+<script>
+const DATA = {"windows": ["3", "5", "7", "10"], "byWindow": {"3": {"rows": [{"name": "浙商机械", "n": 10, "win_exc": 1.0, "win_abs": 0.9, "avg_exc": 18.36, "med_exc": 12.78, "avg_maxhit": 18.64, "avg_dd": -15.12}, {"name": "东北计算机", "n": 9, "win_exc": 1.0, "win_abs": 1.0, "avg_exc": 14.31, "med_exc": 10.2, "avg_maxhit": 42.96, "avg_dd": -12.54}, {"name": "半导体设备产业观点", "n": 10, "win_exc": 0.8, "win_abs": 0.8, "avg_exc": 6.72, "med_exc": 8.02, "avg_maxhit": 25.41, "avg_dd": -21.63}, {"name": "国金电新", "n": 5, "win_exc": 0.8, "win_abs": 0.8, "avg_exc": 3.28, "med_exc": 3.22, "avg_maxhit": 22.34, "avg_dd": -10.38}, {"name": "产业观点", "n": 31, "win_exc": 0.7419, "win_abs": 0.7742, "avg_exc": 5.69, "med_exc": 4.92, "avg_maxhit": 18.31, "avg_dd": -19.77}, {"name": "天风电子", "n": 25, "win_exc": 0.72, "win_abs": 0.68, "avg_exc": 7.97, "med_exc": 5.77, "avg_maxhit": 22.04, "avg_dd": -13.87}, {"name": "广发机械", "n": 25, "win_exc": 0.68, "win_abs": 0.52, "avg_exc": 2.21, "med_exc": 2.77, "avg_maxhit": 15.18, "avg_dd": -12.33}, {"name": "国泰海通", "n": 12, "win_exc": 0.6667, "win_abs": 0.8333, "avg_exc": 2.02, "med_exc": 0.6, "avg_maxhit": 22.8, "avg_dd": -5.66}, {"name": "长江通信", "n": 11, "win_exc": 0.6364, "win_abs": 0.6364, "avg_exc": 2.13, "med_exc": 6.63, "avg_maxhit": 16.98, "avg_dd": -15.98}, {"name": "KarenLi", "n": 5, "win_exc": 0.6, "win_abs": 0.6, "avg_exc": 1.62, "med_exc": 0.02, "avg_maxhit": 13.0, "avg_dd": -14.04}, {"name": "未署名", "n": 5, "win_exc": 0.6, "win_abs": 0.6, "avg_exc": -2.52, "med_exc": 0.25, "avg_maxhit": 8.05, "avg_dd": -8.88}, {"name": "GH先进制造", "n": 9, "win_exc": 0.5556, "win_abs": 1.0, "avg_exc": 6.12, "med_exc": 3.09, "avg_maxhit": 17.47, "avg_dd": -12.6}, {"name": "东吴电子", "n": 9, "win_exc": 0.5556, "win_abs": 0.5556, "avg_exc": 2.54, "med_exc": 0.42, "avg_maxhit": 16.69, "avg_dd": -12.1}, {"name": "天风电新", "n": 40, "win_exc": 0.55, "win_abs": 0.575, "avg_exc": 2.98, "med_exc": 1.49, "avg_maxhit": 18.31, "avg_dd": -10.39}, {"name": "未署名MLCC", "n": 6, "win_exc": 0.5, "win_abs": 0.5, "avg_exc": -1.45, "med_exc": -0.7, "avg_maxhit": 11.93, "avg_dd": -12.18}, {"name": "未名", "n": 85, "win_exc": 0.4706, "win_abs": 0.5647, "avg_exc": 2.55, "med_exc": -0.42, "avg_maxhit": 18.4, "avg_dd": -9.83}, {"name": "电力设备产业观点", "n": 5, "win_exc": 0.4, "win_abs": 0.0, "avg_exc": -0.22, "med_exc": -0.56, "avg_maxhit": 4.61, "avg_dd": -7.16}, {"name": "东吴计算机", "n": 10, "win_exc": 0.4, "win_abs": 0.4, "avg_exc": -2.06, "med_exc": -3.64, "avg_maxhit": 8.95, "avg_dd": -13.17}, {"name": "广发通信", "n": 8, "win_exc": 0.375, "win_abs": 0.375, "avg_exc": 1.19, "med_exc": -0.75, "avg_maxhit": 8.24, "avg_dd": -16.44}, {"name": "中信电子", "n": 6, "win_exc": 0.3333, "win_abs": 0.3333, "avg_exc": -2.77, "med_exc": -5.63, "avg_maxhit": 13.09, "avg_dd": -22.27}, {"name": "长江电新", "n": 18, "win_exc": 0.2222, "win_abs": 0.2778, "avg_exc": -2.41, "med_exc": -3.0, "avg_maxhit": 7.3, "avg_dd": -12.9}, {"name": "电新产业观点", "n": 5, "win_exc": 0.2, "win_abs": 0.2, "avg_exc": -3.33, "med_exc": -4.94, "avg_maxhit": 3.4, "avg_dd": -13.52}, {"name": "国金电子", "n": 5, "win_exc": 0.2, "win_abs": 0.2, "avg_exc": -4.45, "med_exc": -3.7, "avg_maxhit": 9.45, "avg_dd": -13.11}, {"name": "中信通信", "n": 6, "win_exc": 0.1667, "win_abs": 0.0, "avg_exc": -5.23, "med_exc": -4.35, "avg_maxhit": 4.54, "avg_dd": -17.3}], "events": 360}, "5": {"rows": [{"name": "东北计算机", "n": 9, "win_exc": 1.0, "win_abs": 1.0, "avg_exc": 21.44, "med_exc": 16.36, "avg_maxhit": 42.96, "avg_dd": -12.54}, {"name": "半导体设备产业观点", "n": 10, "win_exc": 1.0, "win_abs": 1.0, "avg_exc": 12.71, "med_exc": 9.98, "avg_maxhit": 25.41, "avg_dd": -21.63}, {"name": "国泰海通", "n": 12, "win_exc": 1.0, "win_abs": 1.0, "avg_exc": 12.05, "med_exc": 12.46, "avg_maxhit": 22.8, "avg_dd": -5.66}, {"name": "国金电新", "n": 5, "win_exc": 1.0, "win_abs": 1.0, "avg_exc": 8.71, "med_exc": 9.64, "avg_maxhit": 22.34, "avg_dd": -10.38}, {"name": "浙商机械", "n": 10, "win_exc": 0.9, "win_abs": 0.8, "avg_exc": 12.4, "med_exc": 8.3, "avg_maxhit": 18.64, "avg_dd": -15.12}, {"name": "天风电子", "n": 23, "win_exc": 0.8696, "win_abs": 0.8261, "avg_exc": 10.21, "med_exc": 6.37, "avg_maxhit": 22.12, "avg_dd": -15.07}, {"name": "东吴电子", "n": 9, "win_exc": 0.7778, "win_abs": 0.6667, "avg_exc": 4.98, "med_exc": 5.3, "avg_maxhit": 16.69, "avg_dd": -12.1}, {"name": "未名", "n": 85, "win_exc": 0.6941, "win_abs": 0.6235, "avg_exc": 5.47, "med_exc": 4.34, "avg_maxhit": 18.4, "avg_dd": -9.83}, {"name": "未署名MLCC", "n": 6, "win_exc": 0.6667, "win_abs": 0.6667, "avg_exc": 0.45, "med_exc": 3.54, "avg_maxhit": 11.93, "avg_dd": -12.18}, {"name": "天风电新", "n": 38, "win_exc": 0.6579, "win_abs": 0.5789, "avg_exc": 3.88, "med_exc": 3.38, "avg_maxhit": 18.94, "avg_dd": -10.73}, {"name": "长江通信", "n": 11, "win_exc": 0.5455, "win_abs": 0.5455, "avg_exc": 2.39, "med_exc": 9.24, "avg_maxhit": 16.98, "avg_dd": -15.98}, {"name": "产业观点", "n": 31, "win_exc": 0.4839, "win_abs": 0.6774, "avg_exc": 3.71, "med_exc": -0.14, "avg_maxhit": 18.31, "avg_dd": -19.77}, {"name": "广发机械", "n": 25, "win_exc": 0.44, "win_abs": 0.44, "avg_exc": 0.87, "med_exc": -0.78, "avg_maxhit": 15.18, "avg_dd": -12.33}, {"name": "东吴计算机", "n": 7, "win_exc": 0.4286, "win_abs": 0.4286, "avg_exc": -2.49, "med_exc": -3.45, "avg_maxhit": 10.4, "avg_dd": -17.57}, {"name": "电力设备产业观点", "n": 5, "win_exc": 0.4, "win_abs": 0.2, "avg_exc": -2.57, "med_exc": -2.84, "avg_maxhit": 4.61, "avg_dd": -7.16}, {"name": "广发通信", "n": 8, "win_exc": 0.375, "win_abs": 0.375, "avg_exc": 0.22, "med_exc": -1.79, "avg_maxhit": 8.24, "avg_dd": -16.44}, {"name": "长江电新", "n": 18, "win_exc": 0.3333, "win_abs": 0.2778, "avg_exc": -3.52, "med_exc": -3.54, "avg_maxhit": 7.3, "avg_dd": -12.9}, {"name": "中信通信", "n": 6, "win_exc": 0.3333, "win_abs": 0.1667, "avg_exc": -4.16, "med_exc": -5.81, "avg_maxhit": 4.54, "avg_dd": -17.3}, {"name": "KarenLi", "n": 5, "win_exc": 0.2, "win_abs": 0.6, "avg_exc": -2.82, "med_exc": -3.45, "avg_maxhit": 13.0, "avg_dd": -14.04}, {"name": "国金电子", "n": 5, "win_exc": 0.2, "win_abs": 0.4, "avg_exc": -2.82, "med_exc": -3.2, "avg_maxhit": 9.45, "avg_dd": -13.11}, {"name": "电新产业观点", "n": 5, "win_exc": 0.2, "win_abs": 0.2, "avg_exc": -3.59, "med_exc": -4.52, "avg_maxhit": 3.4, "avg_dd": -13.52}, {"name": "中信电子", "n": 6, "win_exc": 0.1667, "win_abs": 0.1667, "avg_exc": -10.63, "med_exc": -11.12, "avg_maxhit": 13.09, "avg_dd": -22.27}], "events": 339}, "7": {"rows": [{"name": "东北计算机", "n": 9, "win_exc": 1.0, "win_abs": 1.0, "avg_exc": 26.15, "med_exc": 16.5, "avg_maxhit": 42.96, "avg_dd": -12.54}, {"name": "国泰海通", "n": 10, "win_exc": 1.0, "win_abs": 1.0, "avg_exc": 13.15, "med_exc": 10.28, "avg_maxhit": 23.51, "avg_dd": -6.09}, {"name": "长江通信", "n": 11, "win_exc": 0.7273, "win_abs": 0.7273, "avg_exc": 7.77, "med_exc": 7.88, "avg_maxhit": 16.98, "avg_dd": -15.98}, {"name": "半导体设备产业观点", "n": 10, "win_exc": 0.7, "win_abs": 0.9, "avg_exc": 7.43, "med_exc": 1.56, "avg_maxhit": 25.41, "avg_dd": -21.63}, {"name": "天风电子", "n": 23, "win_exc": 0.6957, "win_abs": 0.6087, "avg_exc": 7.28, "med_exc": 4.46, "avg_maxhit": 22.12, "avg_dd": -15.07}, {"name": "未名", "n": 85, "win_exc": 0.6824, "win_abs": 0.6235, "avg_exc": 6.42, "med_exc": 4.92, "avg_maxhit": 18.4, "avg_dd": -9.83}, {"name": "广发机械", "n": 15, "win_exc": 0.6667, "win_abs": 0.6667, "avg_exc": 3.6, "med_exc": 4.01, "avg_maxhit": 16.68, "avg_dd": -14.65}, {"name": "天风电新", "n": 38, "win_exc": 0.6316, "win_abs": 0.6316, "avg_exc": 5.24, "med_exc": 3.81, "avg_maxhit": 18.94, "avg_dd": -10.73}, {"name": "国金电新", "n": 5, "win_exc": 0.6, "win_abs": 0.6, "avg_exc": 7.51, "med_exc": 4.56, "avg_maxhit": 22.34, "avg_dd": -10.38}, {"name": "浙商机械", "n": 10, "win_exc": 0.6, "win_abs": 0.6, "avg_exc": 5.26, "med_exc": 3.68, "avg_maxhit": 18.64, "avg_dd": -15.12}, {"name": "东吴电子", "n": 9, "win_exc": 0.5556, "win_abs": 0.5556, "avg_exc": 3.95, "med_exc": 5.38, "avg_maxhit": 16.69, "avg_dd": -12.1}, {"name": "产业观点", "n": 31, "win_exc": 0.5161, "win_abs": 0.5161, "avg_exc": 3.77, "med_exc": 5.39, "avg_maxhit": 18.31, "avg_dd": -19.77}, {"name": "东吴计算机", "n": 7, "win_exc": 0.4286, "win_abs": 0.2857, "avg_exc": -4.52, "med_exc": -5.33, "avg_maxhit": 10.4, "avg_dd": -17.57}, {"name": "电力设备产业观点", "n": 5, "win_exc": 0.4, "win_abs": 0.2, "avg_exc": -1.31, "med_exc": -0.52, "avg_maxhit": 4.61, "avg_dd": -7.16}, {"name": "中信电子", "n": 6, "win_exc": 0.3333, "win_abs": 0.3333, "avg_exc": -4.1, "med_exc": -11.63, "avg_maxhit": 13.09, "avg_dd": -22.27}, {"name": "长江电新", "n": 18, "win_exc": 0.2778, "win_abs": 0.2222, "avg_exc": -4.59, "med_exc": -5.29, "avg_maxhit": 7.3, "avg_dd": -12.9}, {"name": "广发通信", "n": 8, "win_exc": 0.25, "win_abs": 0.25, "avg_exc": -1.68, "med_exc": -2.41, "avg_maxhit": 8.24, "avg_dd": -16.44}, {"name": "电新产业观点", "n": 5, "win_exc": 0.2, "win_abs": 0.2, "avg_exc": -1.98, "med_exc": -3.31, "avg_maxhit": 3.4, "avg_dd": -13.52}, {"name": "中信通信", "n": 6, "win_exc": 0.1667, "win_abs": 0.0, "avg_exc": -7.32, "med_exc": -7.86, "avg_maxhit": 4.54, "avg_dd": -17.3}], "events": 311}, "10": {"rows": [{"name": "国泰海通", "n": 10, "win_exc": 1.0, "win_abs": 1.0, "avg_exc": 19.5, "med_exc": 20.14, "avg_maxhit": 23.51, "avg_dd": -6.09}, {"name": "广发机械", "n": 10, "win_exc": 0.9, "win_abs": 0.8, "avg_exc": 11.79, "med_exc": 7.8, "avg_maxhit": 19.43, "avg_dd": -12.87}, {"name": "东北计算机", "n": 9, "win_exc": 0.8889, "win_abs": 0.8889, "avg_exc": 30.28, "med_exc": 15.85, "avg_maxhit": 42.96, "avg_dd": -12.54}, {"name": "东吴电子", "n": 7, "win_exc": 0.8571, "win_abs": 0.8571, "avg_exc": 12.42, "med_exc": 10.93, "avg_maxhit": 21.09, "avg_dd": -10.51}, {"name": "国金电新", "n": 5, "win_exc": 0.8, "win_abs": 0.8, "avg_exc": 11.48, "med_exc": 1.49, "avg_maxhit": 22.34, "avg_dd": -10.38}, {"name": "电力设备产业观点", "n": 5, "win_exc": 0.8, "win_abs": 0.6, "avg_exc": 2.67, "med_exc": 5.03, "avg_maxhit": 4.61, "avg_dd": -7.16}, {"name": "长江通信", "n": 11, "win_exc": 0.7273, "win_abs": 0.6364, "avg_exc": 8.44, "med_exc": 9.67, "avg_maxhit": 16.98, "avg_dd": -15.98}, {"name": "未名", "n": 85, "win_exc": 0.6824, "win_abs": 0.6706, "avg_exc": 9.37, "med_exc": 6.73, "avg_maxhit": 18.4, "avg_dd": -9.83}, {"name": "天风电新", "n": 33, "win_exc": 0.6061, "win_abs": 0.5152, "avg_exc": 7.62, "med_exc": 2.57, "avg_maxhit": 16.51, "avg_dd": -11.18}, {"name": "长江电新", "n": 7, "win_exc": 0.5714, "win_abs": 0.5714, "avg_exc": 5.22, "med_exc": 11.1, "avg_maxhit": 14.01, "avg_dd": -9.1}, {"name": "天风电子", "n": 23, "win_exc": 0.5217, "win_abs": 0.5217, "avg_exc": 6.77, "med_exc": 1.88, "avg_maxhit": 22.12, "avg_dd": -15.07}, {"name": "产业观点", "n": 31, "win_exc": 0.4839, "win_abs": 0.5806, "avg_exc": -0.63, "med_exc": -0.41, "avg_maxhit": 18.31, "avg_dd": -19.77}, {"name": "东吴计算机", "n": 7, "win_exc": 0.4286, "win_abs": 0.4286, "avg_exc": -4.51, "med_exc": -5.57, "avg_maxhit": 10.4, "avg_dd": -17.57}, {"name": "半导体设备产业观点", "n": 10, "win_exc": 0.3, "win_abs": 0.3, "avg_exc": 0.88, "med_exc": -4.6, "avg_maxhit": 25.41, "avg_dd": -21.63}, {"name": "电新产业观点", "n": 5, "win_exc": 0.2, "win_abs": 0.2, "avg_exc": -7.98, "med_exc": -11.66, "avg_maxhit": 3.4, "avg_dd": -13.52}, {"name": "中信电子", "n": 6, "win_exc": 0.1667, "win_abs": 0.1667, "avg_exc": -7.18, "med_exc": -13.4, "avg_maxhit": 13.09, "avg_dd": -22.27}], "events": 264}}, "min_calls": 5};
+const COLS = [
+  {k:'rank', t:'#'}, {k:'name', t:'机构'}, {k:'n', t:'样本n'},
+  {k:'win_exc', t:'超额胜率', pct:true}, {k:'win_abs', t:'绝对胜率', pct:true},
+  {k:'avg_exc', t:'均超额', sign:true}, {k:'med_exc', t:'中位超额', sign:true},
+  {k:'avg_maxhit', t:'均最高', sign:true}, {k:'avg_dd', t:'均回撤', sign:true}
+];
+let curWin = DATA.windows[0];
+let sortKey = 'win_exc', sortDir = -1;
+
+function rowsFor(w){ return DATA.byWindow[w].rows; }
+function fmt(v, col){
+  if(col.pct) return (v*100).toFixed(0)+'%';
+  if(col.sign) return (v>=0?'+':'')+v.toFixed(1);
+  return v;
+}
+function renderToggle(){
+  const box = document.getElementById('winToggle'); box.innerHTML='';
+  DATA.windows.forEach(w=>{
+    const b=document.createElement('button'); b.textContent='T+'+w;
+    if(w===curWin) b.className='active';
+    b.onclick=()=>{curWin=w; renderAll();}; box.appendChild(b);
+  });
+}
+function renderHero(){
+  const m = DATA.byWindow[curWin];
+  document.getElementById('heroSub').textContent =
+    '当前窗口 T+'+curWin+' · 相对沪深300超额 · 有效看多 ≥ '+DATA.min_calls+' 次才入榜';
+  const kpis=[['合格机构',m.rows.length],['样本事件',m.events],
+    ['全胜机构(100%)',m.rows.filter(r=>r.win_exc>=1).length],
+    ['榜首超额胜率',(m.rows.length?(m.rows[0].win_exc*100).toFixed(0):'0')+'%']];
+  document.getElementById('kpis').innerHTML = kpis.map(k=>
+    '<div class="kpi"><div class="v">'+k[1]+'</div><div class="l">'+k[0]+'</div></div>').join('');
+  document.getElementById('tableNote').textContent =
+    '口径=T+'+curWin+' 相对沪深300超额>0 | 门槛=有效看多≥'+DATA.min_calls+'次 | 合格机构='
+    +m.rows.length+' | 样本事件='+m.events+' | 点击表头排序';
+}
+function sortedRows(){
+  const rows = rowsFor(curWin).slice();
+  rows.sort((a,b)=>{
+    if(sortKey==='name') return sortDir*(''+a.name).localeCompare(''+b.name,'zh');
+    return sortDir*((a[sortKey]??0)-(b[sortKey]??0));
+  });
+  return rows;
+}
+function renderTable(){
+  const rows = sortedRows();
+  const thead = document.querySelector('#rankTable thead');
+  thead.innerHTML = '<tr>'+COLS.map(c=>{
+    const arrow = (c.k===sortKey)?(sortDir<0?' ▾':' ▴'):'';
+    return '<th data-k="'+c.k+'">'+c.t+arrow+'</th>';
+  }).join('')+'</tr>';
+  thead.querySelectorAll('th').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k;
+    if(k===sortKey) sortDir=-sortDir; else {sortKey=k; sortDir=(k==='name')?1:-1;}
+    renderTable();
+  });
+  const tb = document.querySelector('#rankTable tbody');
+  tb.innerHTML = rows.map((r,i)=>'<tr>'+COLS.map(c=>{
+    if(c.k==='rank') return '<td class="rank">'+(i+1)+'</td>';
+    if(c.k==='name') return '<td class="name">'+r.name+'</td>';
+    let v=r[c.k]; let cls='';
+    if(c.sign) cls = v>=0?'bar-pos':'bar-neg';
+    return '<td class="'+cls+'">'+fmt(v,c)+'</td>';
+  }).join('')+'</tr>').join('');
+}
+function svg(w,h){ const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  s.setAttribute('viewBox','0 0 '+w+' '+h); s.setAttribute('width','100%'); s.setAttribute('height',h); return s;}
+function el(tag,attrs,txt){ const e=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const k in attrs) e.setAttribute(k,attrs[k]); if(txt!=null) e.textContent=txt; return e;}
+function renderBar(){
+  const box=document.getElementById('barChart'); box.innerHTML='';
+  const rows = rowsFor(curWin).slice().sort((a,b)=>b.win_exc-a.win_exc).slice(0,15);
+  const W=560, rowH=24, padL=128, padR=46, H=rows.length*rowH+20;
+  const s=svg(W,H); const maxX=W-padR;
+  rows.forEach((r,i)=>{
+    const y=i*rowH+14; const bw=(maxX-padL)*r.win_exc;
+    s.appendChild(el('text',{x:padL-8,y:y+11,'text-anchor':'end',class:'tip'}, r.name.slice(0,9)));
+    s.appendChild(el('rect',{x:padL,y:y,width:Math.max(2,bw),height:14,rx:4,fill:'url(#g)'}));
+    s.appendChild(el('text',{x:padL+bw+6,y:y+11,class:'tip'}, (r.win_exc*100).toFixed(0)+'% ('+r.n+')'));
+  });
+  const defs=el('defs',{}); const lg=el('linearGradient',{id:'g',x1:'0',x2:'1'});
+  lg.appendChild(el('stop',{offset:'0','stop-color':'#0057ff'})); lg.appendChild(el('stop',{offset:'1','stop-color':'#ff5a1f'}));
+  defs.appendChild(lg); s.appendChild(defs); box.appendChild(s);
+}
+function renderScatter(){
+  const box=document.getElementById('scatterChart'); box.innerHTML='';
+  const rows=rowsFor(curWin); const W=560,H=360,padL=46,padB=34,padT=14,padR=14;
+  const xs=rows.map(r=>r.avg_dd), ys=rows.map(r=>r.avg_exc);
+  const xMin=Math.min(-1,...xs), xMax=Math.max(1,...xs), yMin=Math.min(-1,...ys), yMax=Math.max(1,...ys);
+  const sx=v=>padL+(v-xMin)/(xMax-xMin)*(W-padL-padR);
+  const sy=v=>H-padB-(v-yMin)/(yMax-yMin)*(H-padB-padT);
+  const s=svg(W,H);
+  s.appendChild(el('line',{x1:padL,y1:sy(0),x2:W-padR,y2:sy(0),class:'axis'}));
+  s.appendChild(el('line',{x1:sx(0),y1:padT,x2:sx(0),y2:H-padB,class:'axis'}));
+  s.appendChild(el('text',{x:W-padR,y:sy(0)-6,'text-anchor':'end',class:'axis-txt'},'均回撤 →'));
+  s.appendChild(el('text',{x:sx(0)+6,y:padT+10,class:'axis-txt'},'↑ 均超额'));
+  const nMax=Math.max(...rows.map(r=>r.n));
+  rows.forEach(r=>{
+    const rad=4+8*(r.n/nMax);
+    const c=el('circle',{cx:sx(r.avg_dd),cy:sy(r.avg_exc),r:rad,
+      fill:(r.win_exc>=0.6?'#0a7d3c':'#ff5a1f'),'fill-opacity':0.5,stroke:'#fffaf1',class:'dot'});
+    c.appendChild(el('title',{}, r.name+' · 胜率'+(r.win_exc*100).toFixed(0)+'% · n='+r.n
+      +' · 均超额'+(r.avg_exc>=0?'+':'')+r.avg_exc.toFixed(1)+' · 均回撤'+r.avg_dd.toFixed(1)));
+    s.appendChild(c);
+  });
+  box.appendChild(s);
+}
+function renderAll(){ renderToggle(); renderHero(); renderTable(); renderBar(); renderScatter(); }
+renderAll();
+</script></body></html>

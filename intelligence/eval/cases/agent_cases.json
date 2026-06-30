@@ -46,6 +46,57 @@
       "min_tool_calls": 3,
       "max_tool_calls": 50,
       "entity_recall_gate": 0.5
+    },
+    {
+      "id": "pcb",
+      "query": "PCB",
+      "date": "2026-06-11",
+      "followups": [
+        "AI 服务器 PCB 和高多层板的核心标的分别是谁？",
+        "高速 CCL 覆铜板环节，国产标的怎么排序"
+      ],
+      "expect_entities": ["世运电路", "兴森科技", "东山精密", "光华科技"],
+      "expect_concepts": ["PCB"],
+      "expect_sources": ["S", "G", "R", "W"],
+      "min_tool_calls": 3,
+      "max_tool_calls": 40,
+      "entity_recall_gate": 0.5,
+      "forbid_entities": ["宁德时代", "比亚迪"],
+      "forbid_phrases": ["保证收益", "稳赚不赔"]
+    },
+    {
+      "id": "solid-state-battery",
+      "query": "固态电池",
+      "date": "2026-06-11",
+      "followups": [
+        "硫化物和氧化物路线的设备与材料标的分别有哪些？",
+        "固态电解质环节国产化进展和核心标的"
+      ],
+      "expect_entities": ["先导智能", "天赐材料", "国轩高科", "天奈科技"],
+      "expect_concepts": ["固态电池"],
+      "expect_sources": ["S", "G", "R", "W"],
+      "min_tool_calls": 3,
+      "max_tool_calls": 40,
+      "entity_recall_gate": 0.5,
+      "forbid_entities": ["世运电路", "兴森科技"],
+      "forbid_phrases": ["保证收益", "稳赚不赔"]
+    },
+    {
+      "id": "ai-glasses",
+      "query": "AI眼镜",
+      "date": "2026-06-11",
+      "followups": [
+        "AI 眼镜的 SoC 主控和声学环节核心标的分别是谁？",
+        "光波导和显示环节的国产标的有哪些"
+      ],
+      "expect_entities": ["歌尔股份", "恒玄科技", "瑞芯微", "全志科技"],
+      "expect_concepts": ["AI眼镜"],
+      "expect_sources": ["S", "G", "R", "W"],
+      "min_tool_calls": 3,
+      "max_tool_calls": 40,
+      "entity_recall_gate": 0.5,
+      "forbid_entities": ["先导智能", "天赐材料"],
+      "forbid_phrases": ["业绩已兑现", "已完成财务验证", "L3官方验证已确认", "确定性兑现"]
     }
   ]
 }

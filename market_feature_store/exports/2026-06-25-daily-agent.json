@@ -1,0 +1,3298 @@
+{
+  "date": "2026-06-25",
+  "generated_at": "2026-06-25T21:12:49+08:00",
+  "paths": {
+    "finance_root": "/Users/lbq/Desktop/c c/金融",
+    "knowledge_wiki": "/Users/lbq/Desktop/c c/知识库/wiki",
+    "market_exports": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports"
+  },
+  "ledger": {
+    "date": "2026-06-25",
+    "generated_at": "2026-06-25T21:12:34",
+    "paths": {
+      "finance_root": "/Users/lbq/Desktop/c c/金融",
+      "knowledge_wiki": "/Users/lbq/Desktop/c c/知识库/wiki",
+      "market_exports": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports"
+    },
+    "sections": {
+      "market_review": {
+        "status": "WARN",
+        "checks": [
+          {
+            "name": "daily_review_md",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-25-daily-review.md",
+            "exists": true
+          },
+          {
+            "name": "advancers_ma5_png",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-25-advancers-ma5.png",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_json",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-25-theme-candidates.json",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_md",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-25-theme-candidates.md",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_queue_json",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-25-theme-backfill-queue.json",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_review_queue_json",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-25-theme-backfill-review-queue.json",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_review_queue_md",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-25-theme-backfill-review-queue.md",
+            "exists": true
+          },
+          {
+            "name": "daily_review_html",
+            "path": "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-25/2026-06-25-daily-review.html",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_html",
+            "path": "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-06-25/2026-06-25-theme-candidates.html",
+            "exists": true
+          },
+          {
+            "name": "daily_workflow_summary_json",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-25-daily-workflow-summary.json",
+            "exists": false
+          }
+        ],
+        "missing_count": 1,
+        "missing": [
+          {
+            "name": "daily_workflow_summary_json",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-06-25-daily-workflow-summary.json",
+            "exists": false
+          }
+        ]
+      },
+      "morning_briefing": {
+        "status": "WARN",
+        "root": "/Users/lbq/Desktop/c c/知识库/wiki/briefings",
+        "count": 0,
+        "files": []
+      },
+      "ima_stock": {
+        "status": "PASS",
+        "raw_root": "/Users/lbq/Desktop/c c/知识库/wiki/raw/ima-stock/ingested/2026-06-25",
+        "raw_md_count": 0,
+        "incoming_uningested_md_count": 0,
+        "done_folder_md_count": 0,
+        "manual_review_md_count": 0,
+        "folders": {
+          "inbox": "/Users/lbq/Desktop/c c/知识库/未入库",
+          "done": "/Users/lbq/Desktop/c c/知识库/已入库",
+          "manual_review": "/Users/lbq/Desktop/c c/知识库/待人工确认"
+        }
+      },
+      "relations": {
+        "status": "PASS",
+        "root": "/Users/lbq/Desktop/c c/知识库/wiki/relations",
+        "checks": [
+          {
+            "name": "evidence_index.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/evidence_index.json",
+            "exists": true
+          },
+          {
+            "name": "entity_exposures.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/entity_exposures.json",
+            "exists": true
+          },
+          {
+            "name": "concept_graph.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/concept_graph.json",
+            "exists": true
+          },
+          {
+            "name": "theme_signals.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/theme_signals.json",
+            "exists": true
+          },
+          {
+            "name": "catalyst_calendar.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/catalyst_calendar.json",
+            "exists": true
+          },
+          {
+            "name": "mention_frequency.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/mention_frequency.json",
+            "exists": true
+          }
+        ],
+        "missing": []
+      }
+    },
+    "debts": {
+      "status": "WARN",
+      "missing_concepts": {
+        "count": 0,
+        "path": "/Users/lbq/Desktop/c c/知识库/wiki/raw/theme-radar/missing-concept-audit.json",
+        "error": null
+      },
+      "missing_sources": {
+        "count": 0,
+        "path": "/Users/lbq/Desktop/c c/知识库/wiki/raw/theme-radar/missing-evidence-source-audit.json",
+        "error": null
+      },
+      "ima_stock_coverage": {
+        "missing_count": 468,
+        "path": "/Users/lbq/Desktop/c c/知识库/wiki/raw/ima-stock/audits/entity-stock-ima-coverage-20260621.v2.json",
+        "error": null
+      }
+    },
+    "status": "WARN",
+    "next_actions": [
+      "Run or resume finance daily workflow for the date; market review outputs are incomplete.",
+      "Ingest or render the morning briefing into wiki/briefings for this date.",
+      "Prioritize IMA stock cards for uncovered stock entities based on market activity, not alphabetically."
+    ]
+  },
+  "logic_batch": {
+    "dates": [
+      "2026-06-25"
+    ],
+    "scanned_count": 10,
+    "summary": {
+      "classification_counts": {
+        "old_logic_wakeup": 8,
+        "data_gap": 2
+      },
+      "gap_counts": {
+        "missing_evidence": 2
+      },
+      "gap_queue_count": 2,
+      "old_logic_wakeup_count": 8
+    },
+    "gap_queue": [
+      {
+        "date": "2026-06-25",
+        "query": "光纤",
+        "classification": "data_gap",
+        "priority": 337.0,
+        "market_priority_score": 287.0,
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "matched_theme": "光纤",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_advance_cluster",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "三环集团",
+          "中天科技",
+          "杰普特",
+          "东山精密",
+          "京东方A"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ]
+      },
+      {
+        "date": "2026-06-25",
+        "query": "光学元件",
+        "classification": "data_gap",
+        "priority": 238.09,
+        "market_priority_score": 188.09,
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "matched_theme": "光学元件",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "三环集团",
+          "东山精密",
+          "风华高科",
+          "沪电股份",
+          "生益科技"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ]
+      }
+    ],
+    "results": [
+      {
+        "query": "PCB",
+        "date": "2026-06-25",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "PCB",
+        "market_theme": "PCB",
+        "priority_score": 301.0,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_advance_cluster",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "中天科技",
+            "stock_ts_code": "600522.SH",
+            "pct_chg": 10.0,
+            "amount": 208.66,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "杰普特",
+            "stock_ts_code": "688025.SH",
+            "pct_chg": 18.94,
+            "amount": 36.62,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "中国巨石",
+            "stock_ts_code": "600176.SH",
+            "pct_chg": 9.23,
+            "amount": 148.77,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "斯迪克",
+            "stock_ts_code": "300806.SZ",
+            "pct_chg": 17.77,
+            "amount": 39.44,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "东山精密",
+            "stock_ts_code": "002384.SZ",
+            "pct_chg": 7.26,
+            "amount": 213.77,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "沪电股份",
+            "stock_ts_code": "002463.SZ",
+            "pct_chg": 8.12,
+            "amount": 157.22,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "利和兴",
+            "stock_ts_code": "301013.SZ",
+            "pct_chg": 13.29,
+            "amount": 43.48,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "天通股份",
+            "stock_ts_code": "600330.SH",
+            "pct_chg": 10.01,
+            "amount": 57.56,
+            "high_status_label": "历史新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "PCB",
+            "score": 10
+          },
+          {
+            "concept": "1.6T交换机PCB",
+            "score": 5
+          },
+          {
+            "concept": "AI PCB",
+            "score": 5
+          },
+          {
+            "concept": "AIPCB专用油墨",
+            "score": 5
+          },
+          {
+            "concept": "PCB印制电路板",
+            "score": 5
+          },
+          {
+            "concept": "PCB微钻",
+            "score": 5
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "三孚新科",
+            "ticker": "688359",
+            "concept": "PCB",
+            "role": "PCB设备+药水供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L3",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "世运电路",
+            "ticker": "603920",
+            "concept": "PCB",
+            "role": "印制电路板生产商",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东威科技",
+            "ticker": "688700",
+            "concept": "PCB",
+            "role": "电镀设备",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东山精密",
+            "ticker": "002384",
+            "concept": "PCB",
+            "role": "FPC/PCB",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东材科技",
+            "ticker": "601208",
+            "concept": "PCB",
+            "role": "覆铜板上游电子材料潜在供应商",
+            "strength": "related",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中京电子",
+            "ticker": "002579",
+            "concept": "PCB",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中国巨石",
+            "ticker": "600176",
+            "concept": "PCB",
+            "role": "上游材料",
+            "strength": "related",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中富电路",
+            "ticker": "300814",
+            "concept": "PCB",
+            "role": "PCB研发生产销售企业",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[0408强势股脱水]]",
+            "source_date": "",
+            "target": "PCB",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "申万宏源杨海晏：景旺电子汽车PCB领军切入AI，量产40层HLC/22层HDI/14层mSAP。2026年4月11日",
+            "evidence_layer": "L1_L3_candidate",
+            "fact_hardness": "review_candidate",
+            "review_required": true,
+            "source": "[[0412评级日报]]",
+            "source_date": "2026-04-12",
+            "source_quality": "broker_research_high",
+            "target": "PCB",
+            "target_type": "concept",
+            "update_type": "curated_research"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0506卖方观点合集（PCB 产业链卖方观点）；A 股一律 additive-only、watchlist。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0506卖方观点合集]]",
+            "source_date": "2026-05-06",
+            "source_quality": "broker_research_high",
+            "target": "PCB",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0502卖方观点合集（大摩泰国PCB产业调研4月更新 + 花旗沪电股份泰国工厂调研）；PCB 覆盖 29 家属拥挤区，规格升级/ASP 上调偏硬但价格未最终敲定，海外调研口径、A 股沪电 additive-only 不下调既有暴露。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0502卖方观点合集]]",
+            "source_date": "2026-05-02",
+            "source_quality": "broker_research_high",
+            "target": "PCB",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0504卖方观点合集（东吴电子DW「泰国PCB调研随笔/第四次东南亚调研」）。PCB覆盖29家🔴透支区，泰国产能/规格为趋势确认+偏硬良率信号，A股标观察列表。",
+            "source": "[[0504卖方观点合集]]",
+            "source_date": "2026-05-04",
+            "target": "PCB",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[0408强势股脱水]]",
+            "source_name": "0408强势股脱水",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0408强势股脱水.md"
+          },
+          {
+            "source": "[[0412评级日报]]",
+            "source_name": "0412评级日报",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0412评级日报.md"
+          },
+          {
+            "source": "[[0506卖方观点合集]]",
+            "source_name": "0506卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0506卖方观点合集.md"
+          },
+          {
+            "source": "[[0502卖方观点合集]]",
+            "source_name": "0502卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0502卖方观点合集.md"
+          },
+          {
+            "source": "[[0504卖方观点合集]]",
+            "source_name": "0504卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0504卖方观点合集.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "光纤",
+        "date": "2026-06-25",
+        "classification": "data_gap",
+        "confidence": 0.75,
+        "market_found": true,
+        "matched_theme": "光纤",
+        "market_theme": "光纤",
+        "priority_score": 287.0,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_advance_cluster",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "三环集团",
+            "stock_ts_code": "300408.SZ",
+            "pct_chg": 12.64,
+            "amount": 139.15,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中天科技",
+            "stock_ts_code": "600522.SH",
+            "pct_chg": 10.0,
+            "amount": 208.66,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "杰普特",
+            "stock_ts_code": "688025.SH",
+            "pct_chg": 18.94,
+            "amount": 36.62,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "东山精密",
+            "stock_ts_code": "002384.SZ",
+            "pct_chg": 7.26,
+            "amount": 213.77,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "京东方A",
+            "stock_ts_code": "000725.SZ",
+            "pct_chg": 6.36,
+            "amount": 275.6,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "天孚通信",
+            "stock_ts_code": "300394.SZ",
+            "pct_chg": 5.13,
+            "amount": 259.21,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "兴发集团",
+            "stock_ts_code": "600141.SH",
+            "pct_chg": 10.01,
+            "amount": 55.0,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "有研新材",
+            "stock_ts_code": "600206.SH",
+            "pct_chg": 8.5,
+            "amount": 72.93,
+            "high_status_label": "历史新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "光纤",
+            "score": 10
+          },
+          {
+            "concept": "AI算力驱动下的MPO光纤连接器产业",
+            "score": 5
+          },
+          {
+            "concept": "G.654.E光纤",
+            "score": 5
+          },
+          {
+            "concept": "MPO光纤连接器",
+            "score": 5
+          },
+          {
+            "concept": "光棒光纤一体化",
+            "score": 5
+          },
+          {
+            "concept": "光纤光缆",
+            "score": 5
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "亨通光电",
+            "ticker": "600487",
+            "concept": "光纤",
+            "role": "光纤光缆及数据中心互联光纤供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "远东股份",
+            "ticker": "600869",
+            "concept": "光纤",
+            "role": "光纤光棒+微通道液冷板供应商",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "长飞光纤",
+            "ticker": "601869",
+            "concept": "光纤",
+            "role": "光纤光缆及新型光纤产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三孚股份",
+            "ticker": "603938",
+            "concept": "光纤光缆",
+            "role": "硅系列产品（三氯氢硅、四氯化硅、高纯四氯化硅、电子特气等）",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 5
+          },
+          {
+            "company": "三环集团",
+            "ticker": "300408",
+            "concept": "AI算力驱动下的MPO光纤连接器产业",
+            "role": "4.4 国产替代进程分析",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 5
+          },
+          {
+            "company": "东方财富",
+            "ticker": "300059",
+            "concept": "光纤预制棒",
+            "role": "市场信号弱关联",
+            "strength": "related",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 5
+          },
+          {
+            "company": "中天科技",
+            "ticker": "600522",
+            "concept": "光纤光缆",
+            "role": "光缆供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L3",
+            "source": "",
+            "score": 5
+          },
+          {
+            "company": "中航光电",
+            "ticker": "002179",
+            "concept": "空芯光纤产业",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 5
+          }
+        ],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "warnings": [
+          "evidence not found"
+        ]
+      },
+      {
+        "query": "半导体",
+        "date": "2026-06-25",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "半导体",
+        "market_theme": "半导体",
+        "priority_score": 215.1,
+        "trigger_types": [
+          "limit_heat",
+          "limit_advance_cluster",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "佰维存储",
+            "stock_ts_code": "688525.SH",
+            "pct_chg": 15.18,
+            "amount": 224.71,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "北京君正",
+            "stock_ts_code": "300223.SZ",
+            "pct_chg": 20.0,
+            "amount": 126.58,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "兆易创新",
+            "stock_ts_code": "603986.SH",
+            "pct_chg": 9.94,
+            "amount": 384.33,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "德明利",
+            "stock_ts_code": "001309.SZ",
+            "pct_chg": 10.0,
+            "amount": 176.68,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "芯原股份",
+            "stock_ts_code": "688521.SH",
+            "pct_chg": 12.35,
+            "amount": 106.95,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "江波龙",
+            "stock_ts_code": "301308.SZ",
+            "pct_chg": 9.25,
+            "amount": 180.14,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "汇成股份",
+            "stock_ts_code": "688403.SH",
+            "pct_chg": 14.09,
+            "amount": 68.4,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "长电科技",
+            "stock_ts_code": "600584.SH",
+            "pct_chg": 10.0,
+            "amount": 123.21,
+            "high_status_label": "历史新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "半导体",
+            "score": 10
+          },
+          {
+            "concept": "功率半导体",
+            "score": 5
+          },
+          {
+            "concept": "化合物半导体",
+            "score": 5
+          },
+          {
+            "concept": "半导体IP",
+            "score": 5
+          },
+          {
+            "concept": "半导体产业链",
+            "score": 5
+          },
+          {
+            "concept": "半导体先进制造",
+            "score": 5
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "ASML",
+            "ticker": "",
+            "concept": "半导体",
+            "role": "图谱弱关联",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上峰水泥",
+            "ticker": "000672",
+            "concept": "半导体",
+            "role": "半导体投资/产业运营潜在相关",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东芯股份",
+            "ticker": "688110",
+            "concept": "半导体",
+            "role": "半导体集成电路设计企业",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中微公司",
+            "ticker": "688012",
+            "concept": "半导体",
+            "role": "半导体前道关键设备供应商",
+            "strength": "core",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中科蓝讯",
+            "ticker": "688332",
+            "concept": "半导体",
+            "role": "无线音频芯片设计销售企业",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中航光电",
+            "ticker": "002179",
+            "concept": "半导体",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中芯国际",
+            "ticker": "688981",
+            "concept": "半导体",
+            "role": "半导体制造和晶圆代工核心龙头",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "乐鑫科技",
+            "ticker": "688018",
+            "concept": "半导体",
+            "role": "数模混合物联网芯片设计商",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[半导体2026研究报告]]",
+            "source_date": "",
+            "target": "半导体",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[半导体2026研究报告]]",
+            "source_name": "半导体2026研究报告",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/半导体2026研究报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "CPO",
+        "date": "2026-06-25",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "CPO",
+        "market_theme": "共封装光学(CPO)",
+        "priority_score": 202.2,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "新易盛",
+            "stock_ts_code": "300502.SZ",
+            "pct_chg": 9.94,
+            "amount": 405.88,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "三环集团",
+            "stock_ts_code": "300408.SZ",
+            "pct_chg": 12.64,
+            "amount": 139.15,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中天科技",
+            "stock_ts_code": "600522.SH",
+            "pct_chg": 10.0,
+            "amount": 208.66,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "德明利",
+            "stock_ts_code": "001309.SZ",
+            "pct_chg": 10.0,
+            "amount": 176.68,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "杰普特",
+            "stock_ts_code": "688025.SH",
+            "pct_chg": 18.94,
+            "amount": 36.62,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "长电科技",
+            "stock_ts_code": "600584.SH",
+            "pct_chg": 10.0,
+            "amount": 123.21,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "东山精密",
+            "stock_ts_code": "002384.SZ",
+            "pct_chg": 7.26,
+            "amount": 213.77,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "风华高科",
+            "stock_ts_code": "000636.SZ",
+            "pct_chg": 10.0,
+            "amount": 111.75,
+            "high_status_label": "历史新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "CPO",
+            "score": 10
+          },
+          {
+            "concept": "1.6T CPO",
+            "score": 5
+          },
+          {
+            "concept": "CPO一级封装",
+            "score": 5
+          },
+          {
+            "concept": "CPO二级封装",
+            "score": 5
+          },
+          {
+            "concept": "CPO微透镜与高功率CW光源",
+            "score": 5
+          },
+          {
+            "concept": "CPO（共封装光学）",
+            "score": 5
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "Coherent（COHR）",
+            "ticker": "COHR",
+            "concept": "CPO",
+            "role": "菊东光客户，光器件供应商",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三安光电",
+            "ticker": "600703",
+            "concept": "CPO",
+            "role": "Micro LED（显示+CPO光模块）",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海合晶",
+            "ticker": "688584",
+            "concept": "CPO",
+            "role": "12英寸半导体硅外延片、SOI硅片（新设合资公司）、8英寸特色外延片",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东山精密",
+            "ticker": "002384",
+            "concept": "CPO",
+            "role": "M9 PCB材料/高速互联受益标的",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东材科技",
+            "ticker": "601208",
+            "concept": "CPO",
+            "role": "M9 PCB材料/高速互联受益标的",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东田微",
+            "ticker": "301183",
+            "concept": "CPO",
+            "role": "光隔离器、WDM滤光片、Z-Block组件",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中瓷电子",
+            "ticker": "003031",
+            "concept": "CPO",
+            "role": "光模块陶瓷外壳与氮化铝基板、DCI相干光模块陶瓷管壳、CPO",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中航光电",
+            "ticker": "002179",
+            "concept": "CPO",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "CPO产业化元年，前道硅光晶圆测试是制约量产的关键，国产设备厂商加速突破。",
+            "source": "[[0427脱水研报]]",
+            "source_date": "2026-04-27",
+            "target": "CPO",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "CPO可降低AI集群网络功耗约23%，核心器件、制造、解决方案三大环节受益。",
+            "source": "[[0428脱水研报]]",
+            "source_date": "2026-04-28",
+            "target": "CPO",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "晚间卖方研报汇总_20260613 · CPO",
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_date": "2026-06-13",
+            "target": "CPO",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0506卖方观点合集（罗博特科/Lumentum/GF CPO 观点）；订单以官方公告为准。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0506卖方观点合集]]",
+            "source_date": "2026-05-06",
+            "source_quality": "broker_research_high",
+            "target": "CPO",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0502卖方观点合集（广发海外·FormFactor 26Q1 回顾：CPO 测试商业化/长期目标上调）；CPO 覆盖 57 家属最拥挤透支区，CPO 测试收入偏硬但 2027 时点待验证，海外标的进观察列表。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0502卖方观点合集]]",
+            "source_date": "2026-05-02",
+            "source_quality": "broker_research_high",
+            "target": "CPO",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[0427脱水研报]]",
+            "source_name": "0427脱水研报",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0427脱水研报.md"
+          },
+          {
+            "source": "[[0428脱水研报]]",
+            "source_name": "0428脱水研报",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0428脱水研报.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_name": "晚间卖方研报汇总_20260613",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/晚间卖方研报汇总_20260613.md"
+          },
+          {
+            "source": "[[0506卖方观点合集]]",
+            "source_name": "0506卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0506卖方观点合集.md"
+          },
+          {
+            "source": "[[0502卖方观点合集]]",
+            "source_name": "0502卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0502卖方观点合集.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "AI眼镜",
+        "date": "2026-06-25",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "AI眼镜",
+        "market_theme": "AI眼镜",
+        "priority_score": 201.15,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "佰维存储",
+            "stock_ts_code": "688525.SH",
+            "pct_chg": 15.18,
+            "amount": 224.71,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "北京君正",
+            "stock_ts_code": "300223.SZ",
+            "pct_chg": 20.0,
+            "amount": 126.58,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "信维通信",
+            "stock_ts_code": "300136.SZ",
+            "pct_chg": 13.2,
+            "amount": 170.88,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "芯原股份",
+            "stock_ts_code": "688521.SH",
+            "pct_chg": 12.35,
+            "amount": 106.95,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "江波龙",
+            "stock_ts_code": "301308.SZ",
+            "pct_chg": 9.25,
+            "amount": 180.14,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "TCL科技",
+            "stock_ts_code": "000100.SZ",
+            "pct_chg": 10.1,
+            "amount": 119.02,
+            "high_status_label": "1年新高"
+          },
+          {
+            "stock_name": "风华高科",
+            "stock_ts_code": "000636.SZ",
+            "pct_chg": 10.0,
+            "amount": 111.75,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "京东方A",
+            "stock_ts_code": "000725.SZ",
+            "pct_chg": 6.36,
+            "amount": 275.6,
+            "high_status_label": "3年新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "AI眼镜",
+            "score": 10
+          },
+          {
+            "concept": "AI眼镜产业链",
+            "score": 5
+          },
+          {
+            "concept": "AR眼镜",
+            "score": 2
+          },
+          {
+            "concept": "OCS（光电路交换机）",
+            "score": 2
+          },
+          {
+            "concept": "全景相机产业",
+            "score": 2
+          },
+          {
+            "concept": "消费电子",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "京东方A",
+            "ticker": "000725",
+            "concept": "AI眼镜",
+            "role": "近眼显示/显示面板",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "佰维存储",
+            "ticker": "688525",
+            "concept": "AI眼镜",
+            "role": "存储模组/可穿戴存储",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "佳禾智能",
+            "ticker": "300793",
+            "concept": "AI眼镜",
+            "role": "电声产品设计研发、制造、销售",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "光库科技",
+            "ticker": "300620",
+            "concept": "AI眼镜",
+            "role": "市场信号弱关联",
+            "strength": "related",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "全志科技",
+            "ticker": "300458",
+            "concept": "AI眼镜",
+            "role": "高性价比AI眼镜SoC及高性能AI-ISP处理芯片设计商",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华勤技术",
+            "ticker": "603296",
+            "concept": "AI眼镜",
+            "role": "智能硬件ODM",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华灿光电",
+            "ticker": "300323",
+            "concept": "AI眼镜",
+            "role": "Micro LED/显示芯片",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "卓兆点胶",
+            "ticker": "920026",
+            "concept": "AI眼镜",
+            "role": "消费电子点胶设备/阀体（果链核心供应商）、Meta AI眼镜点胶阀、点胶耗材（广东普森并购）、视觉检测设备",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[20260519 市场逻辑精选]]",
+            "source_date": "",
+            "target": "AI眼镜",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "AI眼镜 DeepDive 将题材锚定为端侧 AI 与可穿戴交互入口，核心链条包括声学/整机组装、SoC/蓝牙音频芯片、CIS、光学显示、存储、镜片镜架与渠道零售。",
+            "source": "[[AI眼镜_题材抽取报告]]",
+            "source_date": "2026-06-07",
+            "target": "AI眼镜",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[20260519 市场逻辑精选]]",
+            "source_name": "20260519 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/20260519 市场逻辑精选.md"
+          },
+          {
+            "source": "[[AI眼镜_题材抽取报告]]",
+            "source_name": "AI眼镜_题材抽取报告",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/AI眼镜_题材抽取报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "先进封装",
+        "date": "2026-06-25",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "先进封装",
+        "market_theme": "先进封装",
+        "priority_score": 200.8,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "佰维存储",
+            "stock_ts_code": "688525.SH",
+            "pct_chg": 15.18,
+            "amount": 224.71,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "芯原股份",
+            "stock_ts_code": "688521.SH",
+            "pct_chg": 12.35,
+            "amount": 106.95,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "江波龙",
+            "stock_ts_code": "301308.SZ",
+            "pct_chg": 9.25,
+            "amount": 180.14,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "汇成股份",
+            "stock_ts_code": "688403.SH",
+            "pct_chg": 14.09,
+            "amount": 68.4,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "长电科技",
+            "stock_ts_code": "600584.SH",
+            "pct_chg": 10.0,
+            "amount": 123.21,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "京东方A",
+            "stock_ts_code": "000725.SZ",
+            "pct_chg": 6.36,
+            "amount": 275.6,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "兴福电子",
+            "stock_ts_code": "688545.SH",
+            "pct_chg": 14.01,
+            "amount": 37.6,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "天孚通信",
+            "stock_ts_code": "300394.SZ",
+            "pct_chg": 5.13,
+            "amount": 259.21,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "先进封装",
+            "score": 10
+          },
+          {
+            "concept": "1.6T CPO",
+            "score": 2
+          },
+          {
+            "concept": "2.5D封装",
+            "score": 2
+          },
+          {
+            "concept": "3D封装",
+            "score": 2
+          },
+          {
+            "concept": "ABF膜涨价",
+            "score": 2
+          },
+          {
+            "concept": "AI基础设施与国产算力",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "三孚新科",
+            "ticker": "688359",
+            "concept": "先进封装",
+            "role": "TGV玻璃基板设备+药水",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三安光电",
+            "ticker": "600703",
+            "concept": "先进封装",
+            "role": "光芯片（AI算力光互联）、碳化硅（SiC功率器件）、Mini",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上峰水泥",
+            "ticker": "000672",
+            "concept": "先进封装",
+            "role": "投资潜在相关（非直接产业链）",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海新阳",
+            "ticker": "300236",
+            "concept": "先进封装",
+            "role": "集成电路制造及先进封装用关键工艺材料（电镀液",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东威科技",
+            "ticker": "688700",
+            "concept": "先进封装",
+            "role": "半导体封装电镀设备",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中京电子",
+            "ticker": "002579",
+            "concept": "先进封装",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中国巨石",
+            "ticker": "600176",
+            "concept": "先进封装",
+            "role": "先进封装上游高端电子布潜在相关",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中微公司",
+            "ticker": "688012",
+            "concept": "先进封装",
+            "role": "封装设备",
+            "strength": "related",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_date": "",
+            "target": "先进封装",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "high",
+            "evidence": "先进封装 canonical Deep Dive parsed pool backfill for Bridge 2.0 graph connectivity.",
+            "source": "[[IMA canonical: 先进封装]]",
+            "source_date": "2026-06-01",
+            "target": "先进封装",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "先进封装承接AI算力对HBM、高密度互连、2.5D/3D封装、CoWoS和封装材料的需求。",
+            "source": "[[ConceptBridge_P2_补链_20260602]]",
+            "source_date": "2026-06-02",
+            "target": "先进封装",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "晚间卖方研报汇总_20260613 · 玻璃基板【长江机械】",
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_date": "2026-06-13",
+            "target": "先进封装",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "0506卖方观点合集（锡焊膏卖方观点）；价格/空间为卖方测算，A 股 additive-only。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0506卖方观点合集]]",
+            "source_date": "2026-05-06",
+            "source_quality": "broker_research_high",
+            "target": "先进封装",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_name": "20260521 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          },
+          {
+            "source": "[[IMA canonical: 先进封装]]",
+            "source_name": "IMA canonical: 先进封装",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/IMA canonical: 先进封装.md"
+          },
+          {
+            "source": "[[ConceptBridge_P2_补链_20260602]]",
+            "source_name": "ConceptBridge_P2_补链_20260602",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/ConceptBridge_P2_补链_20260602.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_name": "晚间卖方研报汇总_20260613",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/晚间卖方研报汇总_20260613.md"
+          },
+          {
+            "source": "[[0506卖方观点合集]]",
+            "source_name": "0506卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0506卖方观点合集.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "AI PC",
+        "date": "2026-06-25",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "AI PC",
+        "market_theme": "AI PC",
+        "priority_score": 192.9,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "佰维存储",
+            "stock_ts_code": "688525.SH",
+            "pct_chg": 15.18,
+            "amount": 224.71,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "德明利",
+            "stock_ts_code": "001309.SZ",
+            "pct_chg": 10.0,
+            "amount": 176.68,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "江波龙",
+            "stock_ts_code": "301308.SZ",
+            "pct_chg": 9.25,
+            "amount": 180.14,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "TCL科技",
+            "stock_ts_code": "000100.SZ",
+            "pct_chg": 10.1,
+            "amount": 119.02,
+            "high_status_label": "1年新高"
+          },
+          {
+            "stock_name": "京东方A",
+            "stock_ts_code": "000725.SZ",
+            "pct_chg": 6.36,
+            "amount": 275.6,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "中国长城",
+            "stock_ts_code": "000066.SZ",
+            "pct_chg": 7.74,
+            "amount": 83.86,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "鹏鼎控股",
+            "stock_ts_code": "002938.SZ",
+            "pct_chg": 7.27,
+            "amount": 71.76,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "通富微电",
+            "stock_ts_code": "002156.SZ",
+            "pct_chg": 4.25,
+            "amount": 162.73,
+            "high_status_label": "历史新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "AI PC",
+            "score": 20
+          },
+          {
+            "concept": "AI PCB",
+            "score": 15
+          },
+          {
+            "concept": "AIPCB专用油墨",
+            "score": 15
+          },
+          {
+            "concept": "AIPC液冷",
+            "score": 15
+          },
+          {
+            "concept": "AI智能化",
+            "score": 9
+          },
+          {
+            "concept": "AI终端",
+            "score": 9
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "传艺科技",
+            "ticker": "002866",
+            "concept": "AI PC",
+            "role": "FPC柔性线路板",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 20
+          },
+          {
+            "company": "奥士康",
+            "ticker": "002913",
+            "concept": "AI PC",
+            "role": "AI服务器高多层板、AIPC高阶HDI板、汽车电子PCB",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 20
+          },
+          {
+            "company": "慧为智能",
+            "ticker": "920876",
+            "concept": "AI PC",
+            "role": "智能终端ODM（AI PC、边缘计算设备、信创终端）",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 20
+          },
+          {
+            "company": "泓淋电力",
+            "ticker": "301439",
+            "concept": "AI PC",
+            "role": "电源线组件（计算机/家电）、特种线缆、新能源汽车充电连接产品、高速铜缆（数据中心/AI算力）",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 20
+          },
+          {
+            "company": "泰嘉股份",
+            "ticker": "002843",
+            "concept": "AI PC",
+            "role": "电源业务（AI服务器电源",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 20
+          },
+          {
+            "company": "苏大维格",
+            "ticker": "300331",
+            "concept": "AI PC",
+            "role": "半导体光掩模缺陷检测设备、激光直写光刻设备、纳米压印光刻设备",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 20
+          },
+          {
+            "company": "英力股份",
+            "ticker": "300956",
+            "concept": "AI PC",
+            "role": "笔记本电脑结构件模组及精密模具",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 20
+          },
+          {
+            "company": "软通动力",
+            "ticker": "301236",
+            "concept": "AI PC",
+            "role": "AI服务器（昇腾/鲲鹏）、AI PC（机械革命品牌）、信创PC与服务器（软通华方品牌）、华为鸿蒙生态（SwanLinkOS）",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 20
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "AI PC 是已有 concept page 的长尾技术/产业链 graph node 回填，挂接到 AI终端 主干。",
+            "source": "[[ConceptNodeBackfill_P3_20260602]]",
+            "source_date": "2026-06-02",
+            "target": "AI PC",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[ConceptNodeBackfill_P3_20260602]]",
+            "source_name": "ConceptNodeBackfill_P3_20260602",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/ConceptNodeBackfill_P3_20260602.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "MCU芯片",
+        "date": "2026-06-25",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "MCU芯片",
+        "market_theme": "MCU芯片",
+        "priority_score": 190.5,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "北京君正",
+            "stock_ts_code": "300223.SZ",
+            "pct_chg": 20.0,
+            "amount": 126.58,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "兆易创新",
+            "stock_ts_code": "603986.SH",
+            "pct_chg": 9.94,
+            "amount": 384.33,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "芯原股份",
+            "stock_ts_code": "688521.SH",
+            "pct_chg": 12.35,
+            "amount": 106.95,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "国民技术",
+            "stock_ts_code": "300077.SZ",
+            "pct_chg": 12.61,
+            "amount": 43.57,
+            "high_status_label": "120日新高"
+          },
+          {
+            "stock_name": "中微半导",
+            "stock_ts_code": "688380.SH",
+            "pct_chg": 20.0,
+            "amount": 14.38,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "全志科技",
+            "stock_ts_code": "300458.SZ",
+            "pct_chg": 6.47,
+            "amount": 42.21,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "商络电子",
+            "stock_ts_code": "300975.SZ",
+            "pct_chg": 5.71,
+            "amount": 45.81,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "泰晶科技",
+            "stock_ts_code": "603738.SH",
+            "pct_chg": 5.46,
+            "amount": 42.59,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "MCU芯片",
+            "score": 10
+          },
+          {
+            "concept": "智能控制器",
+            "score": 2
+          },
+          {
+            "concept": "车规芯片",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "乐鑫科技",
+            "ticker": "688018",
+            "concept": "MCU芯片",
+            "role": "物联网Wi-Fi MCU芯片设计",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "力源信息",
+            "ticker": "300184",
+            "concept": "MCU芯片",
+            "role": "AI服务器MLCC分销、华为海思芯片代理、存储芯片分销、碳化硅（SiC）分销",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "恒烁股份",
+            "ticker": "688416",
+            "concept": "MCU芯片",
+            "role": "MCU芯片",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "兆易创新",
+            "ticker": "603986",
+            "concept": "半导体涨价潮",
+            "role": "存储+MCU芯片厂商，券商研判其可能受益于半导体涨价潮",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 1
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "low",
+            "evidence": "由 theme-radar 数据库体检队列入图：exposures=0, evidence_items=0, report_context_hits=1。",
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_date": "2026-05-27",
+            "target": "MCU芯片",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "光学元件",
+        "date": "2026-06-25",
+        "classification": "data_gap",
+        "confidence": 0.75,
+        "market_found": true,
+        "matched_theme": "光学元件",
+        "market_theme": "元件",
+        "priority_score": 188.09,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "三环集团",
+            "stock_ts_code": "300408.SZ",
+            "pct_chg": 12.64,
+            "amount": 139.15,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "东山精密",
+            "stock_ts_code": "002384.SZ",
+            "pct_chg": 7.26,
+            "amount": 213.77,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "风华高科",
+            "stock_ts_code": "000636.SZ",
+            "pct_chg": 10.0,
+            "amount": 111.75,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "沪电股份",
+            "stock_ts_code": "002463.SZ",
+            "pct_chg": 8.12,
+            "amount": 157.22,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "生益科技",
+            "stock_ts_code": "600183.SH",
+            "pct_chg": 5.58,
+            "amount": 131.8,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "鹏鼎控股",
+            "stock_ts_code": "002938.SZ",
+            "pct_chg": 7.27,
+            "amount": 71.76,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "兴森科技",
+            "stock_ts_code": "002436.SZ",
+            "pct_chg": 6.57,
+            "amount": 83.3,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中京电子",
+            "stock_ts_code": "002579.SZ",
+            "pct_chg": 10.02,
+            "amount": 26.39,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "光学元件",
+            "score": 10
+          },
+          {
+            "concept": "1.6T CPO",
+            "score": 2
+          },
+          {
+            "concept": "AI眼镜",
+            "score": 2
+          },
+          {
+            "concept": "AI硬件",
+            "score": 2
+          },
+          {
+            "concept": "CPO一级封装",
+            "score": 2
+          },
+          {
+            "concept": "OCS光电路交换机产业链",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "腾景科技",
+            "ticker": "688195",
+            "concept": "光学元件",
+            "role": "精密光学元组件相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "茂莱光学",
+            "ticker": "688502",
+            "concept": "光学元件",
+            "role": "精密光学器件相关产品供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "蓝特光学",
+            "ticker": "688127",
+            "concept": "光学元件",
+            "role": "光学元件供应商",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "凤凰光学",
+            "ticker": "600071",
+            "concept": "低空经济",
+            "role": "精密光学元件与组件（车载/安防/红外/医疗内窥镜/机器视觉镜头）、智能控制器（厨房家电/工业控制）、光学仪器（显微镜等，体量小）",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "天孚通信",
+            "ticker": "300394",
+            "concept": "OCS光电路交换机产业链",
+            "role": "产业链供应商",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "水晶光电",
+            "ticker": "002273",
+            "concept": "1.6T CPO",
+            "role": "微光学元件",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L1_image_extraction",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "波长光电",
+            "ticker": "301136",
+            "concept": "AI PCB",
+            "role": "PCB精密激光微加工镜头",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 1
+          },
+          {
+            "company": "炬光科技",
+            "ticker": "688167",
+            "concept": "1.6T CPO",
+            "role": "微光学纳方件",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L1_image_extraction",
+            "source": "",
+            "score": 1
+          }
+        ],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "warnings": [
+          "evidence not found"
+        ]
+      },
+      {
+        "query": "AI手机",
+        "date": "2026-06-25",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "AI手机",
+        "market_theme": "AI手机",
+        "priority_score": 174.57,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "佰维存储",
+            "stock_ts_code": "688525.SH",
+            "pct_chg": 15.18,
+            "amount": 224.71,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "芯原股份",
+            "stock_ts_code": "688521.SH",
+            "pct_chg": 12.35,
+            "amount": 106.95,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "江波龙",
+            "stock_ts_code": "301308.SZ",
+            "pct_chg": 9.25,
+            "amount": 180.14,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "东山精密",
+            "stock_ts_code": "002384.SZ",
+            "pct_chg": 7.26,
+            "amount": 213.77,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "帝奥微",
+            "stock_ts_code": "688381.SH",
+            "pct_chg": 20.0,
+            "amount": 15.07,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "鹏鼎控股",
+            "stock_ts_code": "002938.SZ",
+            "pct_chg": 7.27,
+            "amount": 71.76,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "蓝思科技",
+            "stock_ts_code": "300433.SZ",
+            "pct_chg": 5.29,
+            "amount": 120.35,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "中京电子",
+            "stock_ts_code": "002579.SZ",
+            "pct_chg": 10.02,
+            "amount": 26.39,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "AI手机",
+            "score": 10
+          },
+          {
+            "concept": "端侧AI",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "中兴通讯",
+            "ticker": "000063",
+            "concept": "AI手机",
+            "role": "整机品牌/AI入口/豆包生态合作方",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中石科技",
+            "ticker": "300684",
+            "concept": "AI手机",
+            "role": "VC均热板/散热材料",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "传音控股",
+            "ticker": "688036",
+            "concept": "AI手机",
+            "role": "新兴市场整机品牌",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "佰维存储",
+            "ticker": "688525",
+            "concept": "AI手机",
+            "role": "存储模组/LPDDR升级",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "兆易创新",
+            "ticker": "603986",
+            "concept": "AI手机",
+            "role": "存储芯片/DRAM周期弹性",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "光大同创",
+            "ticker": "",
+            "concept": "AI手机",
+            "role": "间接合作传闻线索",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L1_exposure",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "思泉新材",
+            "ticker": "301489",
+            "concept": "AI手机",
+            "role": "AIDC液冷散热系统、AI终端散热材料、机器人散热",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "昀冢科技",
+            "ticker": "688260",
+            "concept": "AI手机",
+            "role": "CMI组件传闻线索",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "L1_exposure",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "low",
+            "evidence": "由 theme-radar 数据库体检队列入图：exposures=0, evidence_items=0, report_context_hits=2。",
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_date": "2026-05-27",
+            "target": "AI手机",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "AI手机 DeepDive 将题材锚定为端侧大模型从云端向手机迁移后的硬件与交互升级，覆盖豆包 AI Agent 手机、Apple Intelligence、SoC/NPU、LPDDR 存储、散热、ODM/EMS 与 AI 视觉算法。",
+            "source": "[[AI手机_题材DeepDive_ThemeRadar]]",
+            "source_date": "2026-06-04",
+            "target": "AI手机",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "AI大模型能力从云端向手机端侧迁移，驱动智能手机硬件升级与交互范式重构；IDC 预测 2026 年中国新一代 AI 手机出货 1.47 亿台、占比 53%。",
+            "source": "[[AI手机_题材DeepDive_ThemeRadar]]",
+            "source_date": "2026-06-04",
+            "target": "AI手机",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "郭明錤产业调查更新；预期性观点 L4。",
+            "evidence_layer": "L3",
+            "fact_hardness": "research_claim",
+            "review_required": true,
+            "source": "[[0505卖方观点合集]]",
+            "source_date": "2026-05-05",
+            "source_quality": "broker_research_high",
+            "target": "AI手机",
+            "target_type": "concept",
+            "update_type": "graph_only"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          },
+          {
+            "source": "[[AI手机_题材DeepDive_ThemeRadar]]",
+            "source_name": "AI手机_题材DeepDive_ThemeRadar",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/AI手机_题材DeepDive_ThemeRadar.md"
+          },
+          {
+            "source": "[[0505卖方观点合集]]",
+            "source_name": "0505卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0505卖方观点合集.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      }
+    ],
+    "warnings": []
+  },
+  "decision": {
+    "old_logic_wakeup": [
+      {
+        "date": "2026-06-25",
+        "query": "PCB",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 301.0,
+        "matched_theme": "PCB",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_advance_cluster",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "中天科技",
+          "杰普特",
+          "中国巨石",
+          "斯迪克",
+          "东山精密"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 5,
+          "source_trace": 5,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[0408强势股脱水]]",
+            "source_name": "0408强势股脱水",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0408强势股脱水.md"
+          },
+          {
+            "source": "[[0412评级日报]]",
+            "source_name": "0412评级日报",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0412评级日报.md"
+          },
+          {
+            "source": "[[0506卖方观点合集]]",
+            "source_name": "0506卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0506卖方观点合集.md"
+          },
+          {
+            "source": "[[0502卖方观点合集]]",
+            "source_name": "0502卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0502卖方观点合集.md"
+          },
+          {
+            "source": "[[0504卖方观点合集]]",
+            "source_name": "0504卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0504卖方观点合集.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_rag_query": "PCB PCB 中天科技 杰普特 中国巨石",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "unavailable",
+        "semantic_hits": [],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：PCB",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "unavailable",
+            "检索词": "PCB PCB 中天科技 杰普特 中国巨石",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "向量层暂不可用",
+          "判断理由": "只保留结构化判断，等 RAG 索引或依赖恢复后再复核。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "query": "半导体",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 215.1,
+        "matched_theme": "半导体",
+        "trigger_types": [
+          "limit_heat",
+          "limit_advance_cluster",
+          "new_high_direction",
+          "new_high_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [
+          "佰维存储",
+          "北京君正",
+          "兆易创新",
+          "德明利",
+          "芯原股份"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[半导体2026研究报告]]",
+            "source_name": "半导体2026研究报告",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/半导体2026研究报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_rag_query": "半导体 半导体 佰维存储 北京君正 兆易创新",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "unavailable",
+        "semantic_hits": [],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：半导体",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "unavailable",
+            "检索词": "半导体 半导体 佰维存储 北京君正 兆易创新",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "向量层暂不可用",
+          "判断理由": "只保留结构化判断，等 RAG 索引或依赖恢复后再复核。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "query": "CPO",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 202.2,
+        "matched_theme": "CPO",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "新易盛",
+          "三环集团",
+          "中天科技",
+          "德明利",
+          "杰普特"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 5,
+          "source_trace": 5,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[0427脱水研报]]",
+            "source_name": "0427脱水研报",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0427脱水研报.md"
+          },
+          {
+            "source": "[[0428脱水研报]]",
+            "source_name": "0428脱水研报",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0428脱水研报.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_name": "晚间卖方研报汇总_20260613",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/晚间卖方研报汇总_20260613.md"
+          },
+          {
+            "source": "[[0506卖方观点合集]]",
+            "source_name": "0506卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0506卖方观点合集.md"
+          },
+          {
+            "source": "[[0502卖方观点合集]]",
+            "source_name": "0502卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0502卖方观点合集.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_rag_query": "CPO CPO 新易盛 三环集团 中天科技",
+        "semantic_rag_mode": "hybrid",
+        "semantic_rag_status": "unavailable",
+        "semantic_hits": [],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：CPO",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "unavailable",
+            "检索词": "CPO CPO 新易盛 三环集团 中天科技",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "向量层暂不可用",
+          "判断理由": "只保留结构化判断，等 RAG 索引或依赖恢复后再复核。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "query": "AI眼镜",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 201.15,
+        "matched_theme": "AI眼镜",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "佰维存储",
+          "北京君正",
+          "信维通信",
+          "芯原股份",
+          "江波龙"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 2,
+          "source_trace": 2,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[20260519 市场逻辑精选]]",
+            "source_name": "20260519 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/20260519 市场逻辑精选.md"
+          },
+          {
+            "source": "[[AI眼镜_题材抽取报告]]",
+            "source_name": "AI眼镜_题材抽取报告",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/AI眼镜_题材抽取报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：AI眼镜",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "query": "先进封装",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 200.8,
+        "matched_theme": "先进封装",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "佰维存储",
+          "芯原股份",
+          "江波龙",
+          "汇成股份",
+          "长电科技"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 5,
+          "source_trace": 5,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[20260521 市场逻辑精选]]",
+            "source_name": "20260521 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/20260521 市场逻辑精选.md"
+          },
+          {
+            "source": "[[IMA canonical: 先进封装]]",
+            "source_name": "IMA canonical: 先进封装",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/IMA canonical: 先进封装.md"
+          },
+          {
+            "source": "[[ConceptBridge_P2_补链_20260602]]",
+            "source_name": "ConceptBridge_P2_补链_20260602",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/ConceptBridge_P2_补链_20260602.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260613]]",
+            "source_name": "晚间卖方研报汇总_20260613",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/晚间卖方研报汇总_20260613.md"
+          },
+          {
+            "source": "[[0506卖方观点合集]]",
+            "source_name": "0506卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0506卖方观点合集.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：先进封装",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "query": "AI PC",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 192.9,
+        "matched_theme": "AI PC",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "佰维存储",
+          "德明利",
+          "江波龙",
+          "TCL科技",
+          "京东方A"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[ConceptNodeBackfill_P3_20260602]]",
+            "source_name": "ConceptNodeBackfill_P3_20260602",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/ConceptNodeBackfill_P3_20260602.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：AI PC",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "query": "MCU芯片",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 190.5,
+        "matched_theme": "MCU芯片",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "北京君正",
+          "兆易创新",
+          "芯原股份",
+          "国民技术",
+          "中微半导"
+        ],
+        "structured_counts": {
+          "concept": 3,
+          "company_exposure": 4,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：MCU芯片",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "query": "AI手机",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 174.57,
+        "matched_theme": "AI手机",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "佰维存储",
+          "芯原股份",
+          "江波龙",
+          "东山精密",
+          "帝奥微"
+        ],
+        "structured_counts": {
+          "concept": 2,
+          "company_exposure": 8,
+          "evidence": 4,
+          "source_trace": 3,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          },
+          {
+            "source": "[[AI手机_题材DeepDive_ThemeRadar]]",
+            "source_name": "AI手机_题材DeepDive_ThemeRadar",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/AI手机_题材DeepDive_ThemeRadar.md"
+          },
+          {
+            "source": "[[0505卖方观点合集]]",
+            "source_name": "0505卖方观点合集",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/0505卖方观点合集.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：AI手机",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "题材地图 / 深度研究"
+        }
+      }
+    ],
+    "new_logic_candidate": [],
+    "data_gap": [
+      {
+        "date": "2026-06-25",
+        "query": "光纤",
+        "classification": "data_gap",
+        "confidence": 0.75,
+        "priority_score": 287.0,
+        "matched_theme": "光纤",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_advance_cluster",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "三环集团",
+          "中天科技",
+          "杰普特",
+          "东山精密",
+          "京东方A"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "route": "进入统一回补队列，先判断是不是污染词或别名",
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "数据缺口证据卡：光纤",
+          "当前判断": "数据缺口",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "缺证据",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [
+            "missing_evidence"
+          ],
+          "下一步": "先补公告/研报/订单等证据，不要只看盘面。"
+        }
+      },
+      {
+        "date": "2026-06-25",
+        "query": "光学元件",
+        "classification": "data_gap",
+        "confidence": 0.75,
+        "priority_score": 188.09,
+        "matched_theme": "光学元件",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "三环集团",
+          "东山精密",
+          "风华高科",
+          "沪电股份",
+          "生益科技"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "missing_evidence"
+        ],
+        "route": "进入统一回补队列，先判断是不是污染词或别名",
+        "next_actions": [
+          "先补影响当前判断的数据缺口，不做全库大扫除。",
+          "补公告/研报/订单/客户验证等 evidence，不要只靠市场叙事。"
+        ],
+        "semantic_evidence_card": {
+          "标题": "数据缺口证据卡：光学元件",
+          "当前判断": "数据缺口",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "缺证据",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [
+            "missing_evidence"
+          ],
+          "下一步": "先补公告/研报/订单等证据，不要只看盘面。"
+        }
+      }
+    ],
+    "noise_or_unconfirmed": []
+  },
+  "semantic_rag": {
+    "enabled": true,
+    "top_n": 3,
+    "k": 3,
+    "mode": "hybrid",
+    "warnings": [
+      "PCB PCB 中天科技 杰普特 中国巨石: wiki-rag 未接入：向量索引不存在 /Users/lbq/Desktop/c c/知识库/.rag_index（先在知识库仓跑 scripts/rag_index.py build 或 fetch_rag_index.py）",
+      "半导体 半导体 佰维存储 北京君正 兆易创新: wiki-rag 未接入：向量索引不存在 /Users/lbq/Desktop/c c/知识库/.rag_index（先在知识库仓跑 scripts/rag_index.py build 或 fetch_rag_index.py）",
+      "CPO CPO 新易盛 三环集团 中天科技: wiki-rag 未接入：向量索引不存在 /Users/lbq/Desktop/c c/知识库/.rag_index（先在知识库仓跑 scripts/rag_index.py build 或 fetch_rag_index.py）"
+    ]
+  },
+  "notes": [
+    "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
+    "回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。"
+  ],
+  "next_actions": [
+    "优先打开旧逻辑唤醒：确认是否需要题材地图或深度研究。",
+    "数据缺口只登记到回补队列；本轮不自动补来源/概念/IMA。",
+    "先补齐 daily workflow 产物，否则 agent 判断只作为预览。"
+  ]
+}
