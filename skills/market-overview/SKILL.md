@@ -46,6 +46,18 @@ python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 
 执行后用 `audit_coverage.py` 验证覆盖。
 
+### 收尾：导出当天增量（跨机同步用）
+
+复盘入库 + 验证覆盖后，导出当天增量包，供另一台电脑合并（只传 ~1MB，不用传整库 700M+）：
+
+```bash
+python3 scripts/db_delta_export.py --trade-date YYYY-MM-DD
+# → ~/Desktop/mfs-delta-YYYY-MM-DD.zip
+```
+
+另一台电脑收到后：`python3 scripts/db_delta_import.py --zip mfs-delta-YYYY-MM-DD.zip`（按 trade_date 先删后插，幂等）。
+> 首次在新机器需先用整库快照建底库（schema 必须已存在），之后才每天打增量。详见两脚本文件头注释。
+
 ### 旧流程（仅供参考，已废弃飞书写入部分）
 
 原 7 步流程见 `references/steps.md`。其中 Step 4（写飞书）和 Step 5（verify_and_patch）已废弃，不再执行。
