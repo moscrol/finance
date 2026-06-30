@@ -46,17 +46,24 @@ python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD
 
 执行后用 `audit_coverage.py` 验证覆盖。
 
-### 收尾：导出当天增量（跨机同步用）
+### 收尾：导出当天增量 → iCloud 自动同步到另一台 Mac（只传 ~1MB，不用传整库 700M+）
 
-复盘入库 + 验证覆盖后，导出当天增量包，供另一台电脑合并（只传 ~1MB，不用传整库 700M+）：
+复盘入库 + 验证覆盖后，把当天增量包**直接导到 iCloud Drive 同步文件夹**，另一台 Mac（同 Apple ID）会自动收到：
 
 ```bash
-python3 scripts/db_delta_export.py --trade-date YYYY-MM-DD
-# → ~/Desktop/mfs-delta-YYYY-MM-DD.zip
+ICLOUD="$HOME/Library/Mobile Documents/com~apple~CloudDocs/mfs-delta"
+python3 scripts/db_delta_export.py --trade-date YYYY-MM-DD --out "$ICLOUD/mfs-delta-YYYY-MM-DD.zip"
 ```
 
-另一台电脑收到后：`python3 scripts/db_delta_import.py --zip mfs-delta-YYYY-MM-DD.zip`（按 trade_date 先删后插，幂等）。
-> 首次在新机器需先用整库快照建底库（schema 必须已存在），之后才每天打增量。详见两脚本文件头注释。
+另一台 Mac（消费端，建议用 launchd 定时跑）：扫描同一个 iCloud 文件夹，自动按日期顺序导入还没应用过的包：
+
+```bash
+python3 scripts/db_delta_pull.py --sync-dir "$HOME/Library/Mobile Documents/com~apple~CloudDocs/mfs-delta"
+# 幂等、带 .delta_applied.json 状态记录；加 --dry-run 先看不写库
+```
+
+> - 首次在新机器需先用整库快照建底库（schema 必须已存在），之后才每天只收 ~1MB 增量。详见三个脚本文件头注释。
+> - 通道是「自动同步文件夹」抽象：换坚果云/Dropbox/对象存储(rclone 挂载)只需改 `--sync-dir/--out` 路径，脚本不变。
 
 ### 旧流程（仅供参考，已废弃飞书写入部分）
 
