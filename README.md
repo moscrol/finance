@@ -55,3 +55,4 @@ fupanhui.com API ──(CDP proxy)──→ backfill_sector_marginal.py ──�
 - Chrome（fupanhui 登录态）
 - CDP Proxy（`node ~/.claude/skills/web-access/scripts/check-deps.mjs`）
 - 飞书应用凭证（`~/.claude/shared/feishu_config.json`）
+- 本地软链 `shared`（首次克隆后创建，不入库）：`ln -s ~/.claude/shared shared`
