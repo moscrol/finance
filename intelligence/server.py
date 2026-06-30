@@ -148,8 +148,45 @@ class ForesightHTTPHandler(BaseHTTPRequestHandler):
             raise ValueError("请求体必须是 JSON 对象")
         return data
 
+    # -- 安全：CSRF / DNS-rebinding 防护 --
+    # 本服务默认仅绑 127.0.0.1，但「仅回环」不足以防 (1) 浏览器跨站 CSRF
+    # 打 POST，(2) DNS rebinding 把恶意域名解析到 127.0.0.1 后读写本地数据。
+    # 因此校验 Host（防 rebinding）+ 对改状态的 POST 校验 Origin（防 CSRF）。
+    def _is_loopback_bind(self) -> bool:
+        return (self.config.host or "").strip("[]").lower() in ("", "127.0.0.1", "localhost", "::1")
+
+    def _host_ok(self) -> bool:
+        # 仅当绑定回环时强制；绑定到非回环表示用户主动对外暴露，跳过此校验。
+        if not self._is_loopback_bind():
+            return True
+        raw = self.headers.get("Host", "")
+        hostname = raw.rsplit(":", 1)[0].strip("[]").lower() if raw else ""
+        return hostname in ("127.0.0.1", "localhost", "::1")
+
+    def _origin_ok(self) -> bool:
+        origin = self.headers.get("Origin")
+        if not origin:
+            return True  # 非浏览器客户端（curl / 本地脚本）不带 Origin，放行
+        hostname = (urlsplit(origin).hostname or "").lower()
+        allowed = {"127.0.0.1", "localhost", "::1"}
+        cfgh = (self.config.host or "").strip("[]").lower()
+        if cfgh:
+            allowed.add(cfgh)
+        return hostname in allowed
+
+    def _guard(self, *, require_origin: bool) -> bool:
+        if not self._host_ok():
+            self._send_json({"error": "forbidden: unexpected Host header"}, status=403)
+            return False
+        if require_origin and not self._origin_ok():
+            self._send_json({"error": "forbidden: cross-origin request rejected"}, status=403)
+            return False
+        return True
+
     # -- 路由 --
     def do_GET(self) -> None:  # noqa: N802
+        if not self._guard(require_origin=False):
+            return
         path = urlsplit(self.path).path
         try:
             if path.startswith("/api/"):
@@ -160,6 +197,8 @@ class ForesightHTTPHandler(BaseHTTPRequestHandler):
             self._fail(exc)
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._guard(require_origin=True):
+            return
         path = urlsplit(self.path).path
         try:
             if path == "/api/interaction":
