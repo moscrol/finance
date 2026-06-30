@@ -26,6 +26,11 @@ cookie*
 .superpowers/
 *.code-workspace
 
+# Machine-local symlink to the shared Feishu toolkit (points into ~/.claude/shared).
+# Never commit it: the absolute path differs per machine/user and leaks the home path.
+# Recreate per machine:  ln -s ~/.claude/shared shared
+shared
+
 # Python/cache
 __pycache__/
 *.pyc
