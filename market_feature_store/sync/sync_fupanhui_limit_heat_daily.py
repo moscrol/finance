@@ -60,9 +60,11 @@ STOCK_COLUMNS = {
     "fd_amount": "DOUBLE",
     "limit_update_time": "TIMESTAMP",
 }
-FETCH_TIMEOUT_MS = 20000
+# 热门题材 (如芯片 900+ 只) 逐只拉涨停明细耗时长, 超时须给足;
+# 需配合 cdp-proxy 的 CDP_CMD_TIMEOUT 一并调大 (见 web-access skill), 否则代理端先 30s 断。
+FETCH_TIMEOUT_MS = 45000
 CDP_SINGLE_TIMEOUT = 90
-CDP_BATCH_TIMEOUT = 60
+CDP_BATCH_TIMEOUT = 110
 
 HEAT_UPSERT_SQL = """
     INSERT INTO fact_theme_limit_heat_daily

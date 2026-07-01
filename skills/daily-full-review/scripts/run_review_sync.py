@@ -143,15 +143,16 @@ def sync_limit_heat(trade_date: str, timeout: int) -> dict:
 
 
 def sync_stock_daily(trade_date: str, timeout: int) -> dict:
-    """先 mootdx 全A；超时/失败 → 当日 fallback（sector_stock 聚合）。"""
+    """单日复盘默认走东财快照（snapshot，快，当日值与 mootdx 一致）；
+    失败 → 当日 fallback（sector_stock 聚合）。
+    历史多日回填才用 mootdx（逐只慢，走 duckdb-backfill skill）。"""
     res = run_step(
-        "stock-daily (mootdx)",
-        CLI + ["sync-stock-daily", "--start-date", trade_date, "--offset", "5",
-               "--timeout", "10", "--progress-every", "500"],
+        "stock-daily (snapshot)",
+        CLI + ["sync-stock-daily-snapshot", "--trade-date", trade_date, "--page-size", "100"],
         timeout,
     )
     if res["status"] == "ok" and _count("fact_stock_daily", trade_date) > 0:
-        return {**res, "label": "stock-daily", "note": "mootdx ok"}
+        return {**res, "label": "stock-daily", "note": "eastmoney snapshot ok"}
     fb = run_step(
         "stock-daily fallback",
         CLI + ["fill-stock-daily-fallback", "--trade-date", trade_date],
@@ -229,6 +230,15 @@ def main() -> int:
     # 审计
     gate = subprocess.run([PY, "scripts/check_daily_review_data.py", args.date], cwd=str(ROOT))
     gate_ok = gate.returncode == 0
+
+    # 收尾：导出当日增量到 iCloud（小 parquet，几 MB；配合全量基线可还原）。
+    # 失败不影响复盘结果，仅告警。
+    export_res = run_step(
+        "export-increment",
+        [PY, str(SKILL_DIR / "scripts" / "export_increment.py"), "--date", args.date],
+        args.timeout,
+    )
+    results.append({**export_res, "label": "export-increment"})
 
     write_runlog(args.date, results, gate_ok)
     print("\n== 同步段结束 ==", flush=True)

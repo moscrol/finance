@@ -31,7 +31,10 @@ from .sync_mootdx_stock_daily import (
     _ts_code,
 )
 
-EM_URL = "https://push2.eastmoney.com/api/qt/clist/get"
+# 复盘为盘后运行: 默认用延时行情 host (push2delay), 收盘后其值 == 实时收盘值;
+# 且 push2 (实时) 在部分 IP 会 SSL 握手超时/被限流。失败时自动回退到 push2。
+EM_URL = "https://push2delay.eastmoney.com/api/qt/clist/get"
+EM_URL_FALLBACK = "https://push2.eastmoney.com/api/qt/clist/get"
 # 东财 clist 单页硬上限: 请求更大 pz 也只回 100 条, 且 pn 偏移按所传 pz 计算,
 # 所以请求 pz 必须 <=100, 否则翻页会跳过中间股票 (实测 2026-06)。
 EM_PAGE_MAX = 100
@@ -68,17 +71,24 @@ def _num(x):
         return None
 
 
-def _get_json(url: str, timeout: float, retries: int = 4, backoff: float = 0.8) -> dict:
-    """GET + json 解析, 对 502/超时等瞬时错误退避重试 (翻页几十次难免偶发 502)。"""
+def _get_json(url: str, timeout: float, retries: int = 6, backoff: float = 1.2) -> dict:
+    """GET + json 解析, 对 502/超时等瞬时错误退避重试 (翻页几十次难免偶发 502)。
+
+    默认打 push2delay; 若重试耗尽 (如该 host 偶发不可达), 自动把 host 换成 push2
+    再试一轮, 双 host 兜底。"""
+    targets = [url]
+    if EM_URL in url:
+        targets.append(url.replace(EM_URL, EM_URL_FALLBACK))
     last_err: Exception | None = None
-    for attempt in range(retries):
-        try:
-            req = urllib.request.Request(url, headers=EM_HEADERS)
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
-            last_err = exc
-            time.sleep(backoff * (attempt + 1))
+    for target in targets:
+        for attempt in range(retries):
+            try:
+                req = urllib.request.Request(target, headers=EM_HEADERS)
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+                last_err = exc
+                time.sleep(backoff * (attempt + 1))
     raise RuntimeError(f"东财快照请求失败: {url}") from last_err
 
 

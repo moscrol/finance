@@ -69,6 +69,24 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
   --summary-json market_feature_store/exports/YYYY-MM-DD-daily-workflow-summary.json
 ```
 
+### 收尾：当日增量导出到 iCloud（自动）
+
+`run_review_sync.py` 在质检后会自动跑一步 `export-increment`（`scripts/export_increment.py`），
+把当日新增的行导成小 parquet 备份到 iCloud：
+
+```bash
+# 编排器已内置调用；也可手动补跑某日：
+python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
+```
+
+产物：`~/Library/Mobile Documents/com~apple~CloudDocs/duckdb-snapshots/increments/market_feature_store-inc-<日期>.tar.gz`
+（每张含 `trade_date` 的 fact/feature 表 `WHERE trade_date=当日` → parquet+zstd + manifest.json，一天通常仅几 MB）。
+
+**为什么不直接 iCloud 同步 `.duckdb`**：单个 ~3GB 文件 iCloud 无块级增量，每次改动整文件重传，
+且开「优化储存」时可能被逐出成占位、DuckDB 打开要先下完整库。所以按 `trade_date` 导当日增量小文件更省更稳。
+**还原**：增量不能独立重建库，需「一份全量基线 + 其后每日增量按序回放（`COPY`/`IMPORT`）」；
+全量基线用 `EXPORT DATABASE` 另存，本步只管每日增量。导出失败仅告警、不影响复盘结果。
+
 ### 已验证模块顺序与兜底（核心知识）
 
 顺序对齐 `run_daily_update`，但拆成可隔离、可续跑的模块：
@@ -87,7 +105,7 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
 | 2 重 | limit-heat | **直跑** `sync-limit-heat --trade-date D --detail-chunk 6 --sleep 0.05`（看 chunk 进度） | 写完若有题材"有涨停但明细为空"，逐个 `--sector <题材> --detail-chunk 1` 重试 |
 | 2 重 | stock-high | `sync-stock-high --trade-date D --page-size 200` | 个别日期会挂，超时则记 skip |
 | 2 重 | limit-advance | `sync-limit-advance --trade-date D --min-boards 2` | 少卡 |
-| 3 兜底 | stock-daily | 先 `sync-stock-daily --start-date D --offset 5 --timeout 10 --progress-every 500` | **超时/失败 → `fill-stock-daily-fallback --trade-date D`**（用 sector_stock 聚合，已验证当日可用） |
+| 3 兜底 | stock-daily | 先 `sync-stock-daily-snapshot --trade-date D --page-size 100`（东财快照，单日复盘默认，快） | **超时/失败 → `fill-stock-daily-fallback --trade-date D`**（用 sector_stock 聚合，已验证当日可用）。历史多日回填才用 mootdx（`sync-stock-daily`，走 duckdb-backfill） |
 | 4 轻 | sector-resonance | `sync-sector-resonance` | 飞书 checkbox，少卡 |
 | 5 审计 | quality-gate | `python3 scripts/check_daily_review_data.py D` | 必须 RESULT: COMPLETE |
 
@@ -99,6 +117,9 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
 - **limit-heat 个别题材失败**：整体跑完会打印 `失败 N: code/题材`（如 储能/机器人概念/
   军工）。逐个 `--sector <题材> --detail-chunk 1` 重试即可补齐明细，避免质检报
   "有涨停但明细为空"。
+- **单日复盘用东财快照（snapshot）而非 mootdx**：`sync-stock-daily-snapshot` 盘后一次性
+  拉全市场当日行情，秒级完成、当日值与 mootdx 一致；mootdx（`sync-stock-daily`）逐只慢，
+  仅用于首次建库/历史多日回填。编排器 stock-daily 步已默认走 snapshot。
 - **stock-daily 会静默挂（mootdx 全 A）**：低 CPU 且持 DB 写锁。别死等，**直接切
   `fill-stock-daily-fallback`**，当日用 `fact_sector_stock_daily` 聚合补，并复算上证
   周均线/偏离度。
@@ -152,16 +173,25 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
 
 ### Devin 远程执行专用坑（通过 Cloudflare 隧道 rx.py 跑时）
 
-- **Cloudflare 524 超时 = 必须 nohup**：隧道对单次请求 ~100s 超时（rx.py +60s overhead ≈ 160s），
-  超过就返回 524。**所有长命令（run_review_sync.py、daily-full、evolve_daily.sh）必须 nohup 后台模式**：
+- **Cloudflare 524 超时 + 隧道重启连杀 = 长任务必须守护进程化（spawn.py）**：隧道对单次请求
+  ~100s 超时（rx.py +60s overhead ≈ 160s）超过就返回 524；更坑的是隧道掉线后常用
+  `launchctl kickstart -k <label>` 重启 exec 服务，`-k` 会向该 LaunchAgent **整个进程组**
+  发 SIGKILL——用 `nohup ... &` 起的后台任务同属该进程组，**nohup 只挡 SIGHUP、挡不住组
+  SIGKILL，会被连带杀掉**（cdp-proxy 同理）。所以所有长命令（run_review_sync.py、daily-full、
+  evolve_daily.sh、cdp-proxy）一律用 `scripts/spawn.py`（fork→setsid→再 fork 守护化，脱离
+  exec 进程组）启动，起完立即返回，之后 kickstart -k exec 服务不会再误杀：
   ```bash
-  python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && nohup python3 -u skills/daily-full-review/scripts/run_review_sync.py --date D > /tmp/bf/review_sync.log 2>&1 & echo PID=\$!"
-  # 轮询：python3 rx.py -- "tail -30 /tmp/bf/review_sync.log"
-  # 检活：python3 rx.py -- "ps -p <PID> -o pid,etime,command"
+  PY=/Library/Developer/CommandLineTools/usr/bin/python3
+  # 复盘编排器（参数：<日志> <cwd> <要跑的命令...>）
+  python3 rx.py -- "$PY skills/daily-full-review/scripts/spawn.py /tmp/bf/review_sync.log '/Users/lbq/Desktop/c c/金融' $PY -u skills/daily-full-review/scripts/run_review_sync.py --date D"
+  # cdp-proxy（隧道重启后若 3456 不通就重起）
+  python3 rx.py -- "$PY skills/daily-full-review/scripts/spawn.py /tmp/bf/cdp_proxy.log /Users/lbq \$(command -v node) ~/.claude/skills/web-access/scripts/cdp-proxy.mjs"
+  # 轮询日志：python3 rx.py -- "tail -30 /tmp/bf/review_sync.log"
+  # 检活：  python3 rx.py -- "ps aux | grep run_review_sync | grep -v grep"
   ```
 
-- **rx.py 524 后 Mac 进程不会死**：Cloudflare 超时断连，但 Mac 端子进程仍在后台跑且持有 DuckDB 写锁。
-  **起新写操作前必须 `ps aux | grep market_feature_store | grep -v grep` 检查残留进程**。
+- **rx.py 524 后 Mac 进程不会死**：Cloudflare 超时断连，但 Mac 端守护进程仍在后台跑且可能持有
+  DuckDB 写锁。**起新写操作前必须 `ps aux | grep market_feature_store | grep -v grep` 检查残留进程**，
   盲目重启会导致 DuckDB 锁冲突（"Conflicting lock"），两个进程互相卡死。
 
 - **Python 输出缓冲 + nohup = 日志不刷新**：macOS nohup stdout 全缓冲，看不到实时进度。
@@ -171,7 +201,8 @@ python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step dail
   ```
 
 - **不要手动逐步跑 sync、必须用编排器**：手动跑单步极易用错参数（如 `sync-stock-daily --refresh`
-  默认 offset=180，遍历 5000+ 股票 ≈ 90min；编排器用 offset=5 + only_missing=True，几分钟完成）。
+  默认 offset=180，遍历 5000+ 股票 ≈ 90min；编排器单日复盘已改用东财快照
+  `sync-stock-daily-snapshot`，秒级完成，失败才回退 fill-stock-daily-fallback）。
   **永远先跑 `run_review_sync.py --date D`**，它已内置正确参数、逐模块超时、自动兜底。
 
 - **agent-daily 不在 evolve_daily.sh 中**：evolve 只有 8 步（generate→validate→log→theme→backfill→review→audit→suggest）。
