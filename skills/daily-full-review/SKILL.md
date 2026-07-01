@@ -190,6 +190,16 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
   # 检活：  python3 rx.py -- "ps aux | grep run_review_sync | grep -v grep"
   ```
 
+- **短任务 vs 长任务：要不要 spawn.py 守护化的判别标准**（跨机复用，任意 Mac agent 派活可直接引用）：
+  - **直跑（不守护化）**：预计 **<30s 且非常驻** 的一次性短命令——查行数、审计、`export_increment.py`
+    当日增量导出（07-01 实测 ~1s/1MB）、单次文件读写等。经隧道跑也在 rx.py ~160s 超时内，跑完即返回。
+  - **必须 spawn.py 守护化**：**长时（>隧道单请求超时，约 100s）或常驻**的命令——`run_review_sync.py` /
+    `daily-full`（分钟级）、`evolve_daily.sh`、`cdp-proxy`（常驻），以及任何**会被 `launchctl kickstart -k`
+    连带 SIGKILL** 的后台进程。判据一句话：**能秒回的直跑；要等、要常驻、怕被隧道重启连杀的，一律 spawn.py**。
+  - **动态退路**：拿不准就先直跑，若**实测 >30s 或卡住**，改用 spawn.py 守护化重起。
+  - 原理：spawn.py 用 `fork→setsid→再 fork` 让进程脱离 exec 服务进程组，`kickstart -k` 的组 SIGKILL 波及不到；
+    短任务本就在超时内结束、不涉及进程组连杀，守护化只是徒增日志文件与排查成本。
+
 - **rx.py 524 后 Mac 进程不会死**：Cloudflare 超时断连，但 Mac 端守护进程仍在后台跑且可能持有
   DuckDB 写锁。**起新写操作前必须 `ps aux | grep market_feature_store | grep -v grep` 检查残留进程**，
   盲目重启会导致 DuckDB 锁冲突（"Conflicting lock"），两个进程互相卡死。
