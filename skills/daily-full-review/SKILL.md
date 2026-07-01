@@ -107,6 +107,8 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 | 2 重 | limit-advance | `sync-limit-advance --trade-date D --min-boards 2` | 少卡 |
 | 3 兜底 | stock-daily | 先 `sync-stock-daily-snapshot --trade-date D --page-size 100`（东财快照，单日复盘默认，快） | **超时/失败 → `fill-stock-daily-fallback --trade-date D`**（用 sector_stock 聚合，已验证当日可用）。历史多日回填才用 mootdx（`sync-stock-daily`，走 duckdb-backfill） |
 | 4 轻 | sector-resonance | `sync-sector-resonance` | 飞书 checkbox，少卡 |
+| 4 轻 | mainline-daily | `sync-mainline-daily --trade-date D` | 复盘会主线题材+主线个股 → `fact_mainline_theme_daily` / `fact_mainline_stock_daily`；少卡 |
+| 4 轻 | theme-flow-daily | `sync-theme-flow-daily --trade-date D` | 复盘会题材资金面板 → `fact_theme_flow_daily`；少卡 |
 | 5 审计 | quality-gate | `python3 scripts/check_daily_review_data.py D` | 必须 RESULT: COMPLETE |
 
 ### 关键防坑点（顺/坑 速查）

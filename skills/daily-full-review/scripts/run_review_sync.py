@@ -178,6 +178,8 @@ def build_plan(trade_date: str, timeout: int, heavy_timeout: int):
         ("limit-advance", lambda: run_step("limit-advance", CLI + ["sync-limit-advance", "--trade-date", trade_date, "--min-boards", "2"], timeout)),
         ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
         ("sector-resonance", lambda: run_step("sector-resonance", CLI + ["sync-sector-resonance"], timeout)),
+        ("mainline-daily", lambda: run_step("mainline-daily", CLI + ["sync-mainline-daily", "--trade-date", trade_date], timeout)),
+        ("theme-flow-daily", lambda: run_step("theme-flow-daily", CLI + ["sync-theme-flow-daily", "--trade-date", trade_date], timeout)),
     ]
 
 

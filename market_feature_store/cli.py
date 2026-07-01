@@ -300,6 +300,38 @@ def cmd_sync_sector_resonance(_args) -> int:
     return 0
 
 
+def cmd_sync_mainline_daily(args) -> int:
+    from .sync.sync_fupanhui_mainline_daily import sync as sync_mainline_daily
+
+    td = args.trade_date
+    if not td:
+        con = connect(read_only=True)
+        try:
+            row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
+        finally:
+            con.close()
+        td = str(row[0]) if row and row[0] is not None else None
+    s = sync_mainline_daily(td)
+    print(f"交易日: {td} | 主线题材: {s['themes']} | 主线个股: {s['stocks']}")
+    return 0
+
+
+def cmd_sync_theme_flow_daily(args) -> int:
+    from .sync.sync_fupanhui_theme_flow_daily import sync as sync_theme_flow_daily
+
+    td = args.trade_date
+    if not td:
+        con = connect(read_only=True)
+        try:
+            row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
+        finally:
+            con.close()
+        td = str(row[0]) if row and row[0] is not None else None
+    s = sync_theme_flow_daily(td)
+    print(f"交易日: {td} | 题材资金面板: {s['panels']}")
+    return 0
+
+
 def cmd_sync_limit_advance_feishu(_args) -> int:
     from .sync.sync_feishu_limit_advance import sync_limit_advance
 
@@ -896,6 +928,14 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("sync-sector-daily-metrics", help="回填飞书板块每日表的 pct_chg/amount 到 fact_sector_daily").set_defaults(func=cmd_sync_sector_daily_metrics)
 
     sub.add_parser("sync-sector-resonance", help="同步飞书多周期共振 checkbox 到 fact_sector_daily").set_defaults(func=cmd_sync_sector_resonance)
+
+    p_ml = sub.add_parser("sync-mainline-daily", help="同步复盘会主线题材+主线个股到 fact_mainline_theme_daily / fact_mainline_stock_daily")
+    p_ml.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_ml.set_defaults(func=cmd_sync_mainline_daily)
+
+    p_tf = sub.add_parser("sync-theme-flow-daily", help="同步复盘会题材资金面板到 fact_theme_flow_daily")
+    p_tf.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_tf.set_defaults(func=cmd_sync_theme_flow_daily)
 
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股前复权日线回补到 fact_stock_daily")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
