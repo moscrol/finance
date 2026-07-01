@@ -1,0 +1,5728 @@
+{
+  "date": "2026-07-01",
+  "generated_at": "2026-07-01T20:28:58+08:00",
+  "paths": {
+    "finance_root": "/Users/lbq/Desktop/c c/金融",
+    "knowledge_wiki": "/Users/lbq/Desktop/c c/知识库/wiki",
+    "market_exports": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports"
+  },
+  "ledger": {
+    "date": "2026-07-01",
+    "generated_at": "2026-07-01T20:28:39",
+    "paths": {
+      "finance_root": "/Users/lbq/Desktop/c c/金融",
+      "knowledge_wiki": "/Users/lbq/Desktop/c c/知识库/wiki",
+      "market_exports": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports"
+    },
+    "sections": {
+      "market_review": {
+        "status": "WARN",
+        "checks": [
+          {
+            "name": "daily_review_md",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-07-01-daily-review.md",
+            "exists": true
+          },
+          {
+            "name": "advancers_ma5_png",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-07-01-advancers-ma5.png",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_json",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-07-01-theme-candidates.json",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_md",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-07-01-theme-candidates.md",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_queue_json",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-07-01-theme-backfill-queue.json",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_review_queue_json",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-07-01-theme-backfill-review-queue.json",
+            "exists": true
+          },
+          {
+            "name": "theme_backfill_review_queue_md",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-07-01-theme-backfill-review-queue.md",
+            "exists": true
+          },
+          {
+            "name": "daily_review_html",
+            "path": "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-07-01/2026-07-01-daily-review.html",
+            "exists": true
+          },
+          {
+            "name": "theme_candidates_html",
+            "path": "/Users/lbq/Desktop/c c/金融/复盘/daily/2026-07-01/2026-07-01-theme-candidates.html",
+            "exists": true
+          },
+          {
+            "name": "daily_workflow_summary_json",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-07-01-daily-workflow-summary.json",
+            "exists": false
+          }
+        ],
+        "missing_count": 1,
+        "missing": [
+          {
+            "name": "daily_workflow_summary_json",
+            "path": "/Users/lbq/Desktop/c c/金融/market_feature_store/exports/2026-07-01-daily-workflow-summary.json",
+            "exists": false
+          }
+        ]
+      },
+      "morning_briefing": {
+        "status": "WARN",
+        "root": "/Users/lbq/Desktop/c c/知识库/wiki/briefings",
+        "count": 0,
+        "files": []
+      },
+      "ima_stock": {
+        "status": "PASS",
+        "raw_root": "/Users/lbq/Desktop/c c/知识库/wiki/raw/ima-stock/ingested/2026-07-01",
+        "raw_md_count": 0,
+        "incoming_uningested_md_count": 0,
+        "done_folder_md_count": 0,
+        "manual_review_md_count": 0,
+        "folders": {
+          "inbox": "/Users/lbq/Desktop/c c/知识库/未入库",
+          "done": "/Users/lbq/Desktop/c c/知识库/已入库",
+          "manual_review": "/Users/lbq/Desktop/c c/知识库/待人工确认"
+        }
+      },
+      "relations": {
+        "status": "PASS",
+        "root": "/Users/lbq/Desktop/c c/知识库/wiki/relations",
+        "checks": [
+          {
+            "name": "evidence_index.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/evidence_index.json",
+            "exists": true
+          },
+          {
+            "name": "entity_exposures.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/entity_exposures.json",
+            "exists": true
+          },
+          {
+            "name": "concept_graph.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/concept_graph.json",
+            "exists": true
+          },
+          {
+            "name": "theme_signals.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/theme_signals.json",
+            "exists": true
+          },
+          {
+            "name": "catalyst_calendar.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/catalyst_calendar.json",
+            "exists": true
+          },
+          {
+            "name": "mention_frequency.json",
+            "path": "/Users/lbq/Desktop/c c/知识库/wiki/relations/mention_frequency.json",
+            "exists": true
+          }
+        ],
+        "missing": []
+      }
+    },
+    "debts": {
+      "status": "WARN",
+      "missing_concepts": {
+        "count": 0,
+        "path": "/Users/lbq/Desktop/c c/知识库/wiki/raw/theme-radar/missing-concept-audit.json",
+        "error": null
+      },
+      "missing_sources": {
+        "count": 0,
+        "path": "/Users/lbq/Desktop/c c/知识库/wiki/raw/theme-radar/missing-evidence-source-audit.json",
+        "error": null
+      },
+      "ima_stock_coverage": {
+        "missing_count": 468,
+        "path": "/Users/lbq/Desktop/c c/知识库/wiki/raw/ima-stock/audits/entity-stock-ima-coverage-20260621.v2.json",
+        "error": null
+      }
+    },
+    "status": "WARN",
+    "next_actions": [
+      "Run or resume finance daily workflow for the date; market review outputs are incomplete.",
+      "Ingest or render the morning briefing into wiki/briefings for this date.",
+      "Prioritize IMA stock cards for uncovered stock entities based on market activity, not alphabetically."
+    ]
+  },
+  "logic_batch": {
+    "dates": [
+      "2026-07-01"
+    ],
+    "scanned_count": 10,
+    "summary": {
+      "classification_counts": {
+        "noise_or_unconfirmed": 1,
+        "old_logic_wakeup": 9
+      },
+      "gap_counts": {
+        "placeholder_market_theme": 1
+      },
+      "gap_queue_count": 1,
+      "old_logic_wakeup_count": 9
+    },
+    "gap_queue": [
+      {
+        "date": "2026-07-01",
+        "query": "连板未映射",
+        "classification": "noise_or_unconfirmed",
+        "priority": 284.0,
+        "market_priority_score": 279.0,
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "matched_theme": "连板未映射",
+        "trigger_types": [
+          "limit_advance_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [],
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
+        ]
+      }
+    ],
+    "results": [
+      {
+        "query": "连板未映射",
+        "date": "2026-07-01",
+        "classification": "noise_or_unconfirmed",
+        "confidence": 0.2,
+        "market_found": true,
+        "matched_theme": "连板未映射",
+        "market_theme": "连板未映射",
+        "priority_score": 279.0,
+        "trigger_types": [
+          "limit_advance_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [],
+        "concept_matches": [],
+        "entity_exposures": [],
+        "evidence_items": [],
+        "source_traces": [],
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "氢能源",
+        "date": "2026-07-01",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "氢能源",
+        "market_theme": "氢能源",
+        "priority_score": 194.57,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "金宏气体",
+            "stock_ts_code": "688106.SH",
+            "pct_chg": 20.01,
+            "amount": 26.58,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "昊华科技",
+            "stock_ts_code": "600378.SH",
+            "pct_chg": 7.46,
+            "amount": 111.45,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "昊志机电",
+            "stock_ts_code": "300503.SZ",
+            "pct_chg": 9.95,
+            "amount": 51.4,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "濮阳惠成",
+            "stock_ts_code": "300481.SZ",
+            "pct_chg": 19.98,
+            "amount": 11.17,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "东方锆业",
+            "stock_ts_code": "002167.SZ",
+            "pct_chg": 10.01,
+            "amount": 39.66,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "蜀道装备",
+            "stock_ts_code": "300540.SZ",
+            "pct_chg": 14.01,
+            "amount": 19.35,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "和远气体",
+            "stock_ts_code": "002971.SZ",
+            "pct_chg": 10.0,
+            "amount": 21.8,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "新迅达",
+            "stock_ts_code": "300518.SZ",
+            "pct_chg": 20.0,
+            "amount": 5.27,
+            "high_status_label": "3年新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "氢能源",
+            "score": 10
+          },
+          {
+            "concept": "SOFC燃料电池",
+            "score": 2
+          },
+          {
+            "concept": "压缩机",
+            "score": 2
+          },
+          {
+            "concept": "天然气",
+            "score": 2
+          },
+          {
+            "concept": "氢能储运",
+            "score": 2
+          },
+          {
+            "concept": "氢能港口",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "东岳硅材",
+            "ticker": "300821",
+            "concept": "氢能源",
+            "role": "参股材料平台潜在相关",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "岱勒新材",
+            "ticker": "300700",
+            "concept": "氢能源",
+            "role": "氢能源石墨双极板",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "阳光电源",
+            "ticker": "300274",
+            "concept": "氢能源",
+            "role": "上游设备",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "隆基绿能",
+            "ticker": "601012",
+            "concept": "氢能源",
+            "role": "上游设备",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "雪人股份",
+            "ticker": "002639",
+            "concept": "氢能源",
+            "role": "上游设备",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "航天工程",
+            "ticker": "603698",
+            "concept": "氢能",
+            "role": "氢能业务",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 1
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[电解液产业深度研究：技术变革重塑产业格局，供应链整合加速龙头崛起]]",
+            "source_date": "",
+            "target": "氢能源",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[电解液产业深度研究：技术变革重塑产业格局，供应链整合加速龙头崛起]]",
+            "source_name": "电解液产业深度研究：技术变革重塑产业格局，供应链整合加速龙头崛起",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/电解液产业深度研究：技术变革重塑产业格局，供应链整合加速龙头崛起.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "AI眼镜",
+        "date": "2026-07-01",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "AI眼镜",
+        "market_theme": "AI眼镜",
+        "priority_score": 194.0,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "格科微",
+            "stock_ts_code": "688728.SH",
+            "pct_chg": 20.01,
+            "amount": 42.98,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "波长光电",
+            "stock_ts_code": "301421.SZ",
+            "pct_chg": 16.85,
+            "amount": 22.78,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "TCL科技",
+            "stock_ts_code": "000100.SZ",
+            "pct_chg": 5.15,
+            "amount": 157.81,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "激智科技",
+            "stock_ts_code": "300566.SZ",
+            "pct_chg": 14.32,
+            "amount": 19.78,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "敏芯股份",
+            "stock_ts_code": "688286.SH",
+            "pct_chg": 15.87,
+            "amount": 14.45,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "麦捷科技",
+            "stock_ts_code": "300319.SZ",
+            "pct_chg": 7.32,
+            "amount": 54.28,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "华灿光电",
+            "stock_ts_code": "300323.SZ",
+            "pct_chg": 8.53,
+            "amount": 38.72,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "北京君正",
+            "stock_ts_code": "300223.SZ",
+            "pct_chg": 4.08,
+            "amount": 154.45,
+            "high_status_label": "历史新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "AI眼镜",
+            "score": 10
+          },
+          {
+            "concept": "AI眼镜产业链",
+            "score": 5
+          },
+          {
+            "concept": "AR眼镜",
+            "score": 2
+          },
+          {
+            "concept": "OCS（光电路交换机）",
+            "score": 2
+          },
+          {
+            "concept": "全景相机产业",
+            "score": 2
+          },
+          {
+            "concept": "消费电子",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "京东方A",
+            "ticker": "000725",
+            "concept": "AI眼镜",
+            "role": "近眼显示/显示面板",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "佰维存储",
+            "ticker": "688525",
+            "concept": "AI眼镜",
+            "role": "存储模组/可穿戴存储",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "佳禾智能",
+            "ticker": "300793",
+            "concept": "AI眼镜",
+            "role": "电声产品设计研发、制造、销售",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "光库科技",
+            "ticker": "300620",
+            "concept": "AI眼镜",
+            "role": "市场信号弱关联",
+            "strength": "related",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "全志科技",
+            "ticker": "300458",
+            "concept": "AI眼镜",
+            "role": "高性价比AI眼镜SoC及高性能AI-ISP处理芯片设计商",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华勤技术",
+            "ticker": "603296",
+            "concept": "AI眼镜",
+            "role": "智能硬件ODM",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华灿光电",
+            "ticker": "300323",
+            "concept": "AI眼镜",
+            "role": "Micro LED/显示芯片",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2_curated_research",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "卓兆点胶",
+            "ticker": "920026",
+            "concept": "AI眼镜",
+            "role": "消费电子点胶设备/阀体（果链核心供应商）、Meta AI眼镜点胶阀、点胶耗材（广东普森并购）、视觉检测设备",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[20260519 市场逻辑精选]]",
+            "source_date": "",
+            "target": "AI眼镜",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "AI眼镜 DeepDive 将题材锚定为端侧 AI 与可穿戴交互入口，核心链条包括声学/整机组装、SoC/蓝牙音频芯片、CIS、光学显示、存储、镜片镜架与渠道零售。",
+            "source": "[[AI眼镜_题材抽取报告]]",
+            "source_date": "2026-06-07",
+            "target": "AI眼镜",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[20260519 市场逻辑精选]]",
+            "source_name": "20260519 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/20260519 市场逻辑精选.md"
+          },
+          {
+            "source": "[[AI眼镜_题材抽取报告]]",
+            "source_name": "AI眼镜_题材抽取报告",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/AI眼镜_题材抽取报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "风电",
+        "date": "2026-07-01",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "风电",
+        "market_theme": "风电",
+        "priority_score": 188.62,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "大唐发电",
+            "stock_ts_code": "601991.SH",
+            "pct_chg": 10.03,
+            "amount": 52.06,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "濮阳惠成",
+            "stock_ts_code": "300481.SZ",
+            "pct_chg": 19.98,
+            "amount": 11.17,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "巨化股份",
+            "stock_ts_code": "600160.SH",
+            "pct_chg": 5.36,
+            "amount": 69.36,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "宏发股份",
+            "stock_ts_code": "600885.SH",
+            "pct_chg": 10.0,
+            "amount": 11.9,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "巨力索具",
+            "stock_ts_code": "002342.SZ",
+            "pct_chg": 7.04,
+            "amount": 23.92,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中国船舶",
+            "stock_ts_code": "600150.SH",
+            "pct_chg": 4.14,
+            "amount": 47.83,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "金风科技",
+            "stock_ts_code": "002202.SZ",
+            "pct_chg": 3.18,
+            "amount": 78.87,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "豫能控股",
+            "stock_ts_code": "001896.SZ",
+            "pct_chg": 4.94,
+            "amount": 27.14,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "风电",
+            "score": 10
+          },
+          {
+            "concept": "海上风电",
+            "score": 5
+          },
+          {
+            "concept": "深远海风电",
+            "score": 5
+          },
+          {
+            "concept": "漂浮式风电",
+            "score": 5
+          },
+          {
+            "concept": "陆上风电",
+            "score": 5
+          },
+          {
+            "concept": "风电叶片",
+            "score": 5
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "中国中车",
+            "ticker": "601766",
+            "concept": "风电",
+            "role": "新产业（风电",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中国核电",
+            "ticker": "601985",
+            "concept": "风电",
+            "role": "",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中复神鹰",
+            "ticker": "688295",
+            "concept": "风电",
+            "role": "高性能碳纤维生产销售（T700-T1200、M系列全覆盖）",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中材科技",
+            "ticker": "002080",
+            "concept": "风电",
+            "role": "产业链供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "亚星锚链",
+            "ticker": "601890",
+            "concept": "风电",
+            "role": "船用锚链、海洋系泊链、矿用链",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "光威复材",
+            "ticker": "300699",
+            "concept": "风电",
+            "role": "能源新材料（风电碳梁）",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华能国际",
+            "ticker": "600011",
+            "concept": "风电",
+            "role": "新能源（风电",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华能水电",
+            "ticker": "600025",
+            "concept": "风电",
+            "role": "水力发电、光伏发电、风力发电、水风光一体化",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "由 theme-radar 数据库体检队列入图：exposures=8, evidence_items=8, report_context_hits=1。",
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_date": "2026-05-27",
+            "target": "风电",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "光刻胶",
+        "date": "2026-07-01",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "光刻胶",
+        "market_theme": "光刻胶",
+        "priority_score": 187.74,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "阳谷华泰",
+            "stock_ts_code": "300121.SZ",
+            "pct_chg": 20.0,
+            "amount": 14.86,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "雅克科技",
+            "stock_ts_code": "002409.SZ",
+            "pct_chg": 5.16,
+            "amount": 106.3,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "江化微",
+            "stock_ts_code": "603078.SH",
+            "pct_chg": 6.56,
+            "amount": 35.69,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "杭华股份",
+            "stock_ts_code": "688571.SH",
+            "pct_chg": 20.0,
+            "amount": 3.0,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "兴福电子",
+            "stock_ts_code": "688545.SH",
+            "pct_chg": 5.89,
+            "amount": 31.08,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "泰和科技",
+            "stock_ts_code": "300801.SZ",
+            "pct_chg": 9.75,
+            "amount": 8.75,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "阿拉丁",
+            "stock_ts_code": "688179.SH",
+            "pct_chg": 9.02,
+            "amount": 10.04,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "盛剑科技",
+            "stock_ts_code": "603324.SH",
+            "pct_chg": 7.88,
+            "amount": 10.81,
+            "high_status_label": "3年新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "光刻胶",
+            "score": 10
+          },
+          {
+            "concept": "EUV光刻胶",
+            "score": 5
+          },
+          {
+            "concept": "g线光刻胶",
+            "score": 5
+          },
+          {
+            "concept": "i线光刻胶",
+            "score": 5
+          },
+          {
+            "concept": "光刻胶树脂",
+            "score": 5
+          },
+          {
+            "concept": "AI PCB",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "万润股份",
+            "ticker": "002643",
+            "concept": "光刻胶",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海新阳",
+            "ticker": "300236",
+            "concept": "光刻胶",
+            "role": "光刻胶）",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中芯国际",
+            "ticker": "688981",
+            "concept": "光刻胶",
+            "role": "2025 年国内 12 英寸晶圆产能同比增长 25%，带动成熟制程光刻胶需求激增",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "光华股份",
+            "ticker": "001333",
+            "concept": "光刻胶",
+            "role": "粉末涂料用聚酯树脂的研发、生产和销售",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "八亿时空",
+            "ticker": "688181",
+            "concept": "光刻胶",
+            "role": "百吨级KrF高端光刻胶配方树脂国产化自主突破及生产平台",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "兴福电子",
+            "ticker": "688545",
+            "concept": "光刻胶",
+            "role": "湿电子化学品（电子级磷酸、硫酸、双氧水",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "凤凰光学",
+            "ticker": "600071",
+            "concept": "光刻胶",
+            "role": "半导体制造级、精密超高解像度光刻镜头精密抛光及在研平台",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "华特气体",
+            "ticker": "688268",
+            "concept": "光刻胶",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[光刻胶产业新变化与新格局深度研究报告]]",
+            "source_date": "",
+            "target": "光刻胶",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "IMA 2026-06-22光刻胶抽取报告：对日管制、KrF/ArF低国产化率、鼎龙/上海新阳/南大光电/彤程新材等公司进展构成当前光刻胶题材验证链；大多数公司级说法来自研报或投研资料，需人工复核。",
+            "source": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+            "source_date": "2026-06-22",
+            "target": "光刻胶",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[光刻胶产业新变化与新格局深度研究报告]]",
+            "source_name": "光刻胶产业新变化与新格局深度研究报告",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/光刻胶产业新变化与新格局深度研究报告.md"
+          },
+          {
+            "source": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+            "source_name": "光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "燃料电池",
+        "date": "2026-07-01",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "燃料电池",
+        "market_theme": "燃料电池",
+        "priority_score": 182.52,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "金宏气体",
+            "stock_ts_code": "688106.SH",
+            "pct_chg": 20.01,
+            "amount": 26.58,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "昊华科技",
+            "stock_ts_code": "600378.SH",
+            "pct_chg": 7.46,
+            "amount": 111.45,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "昊志机电",
+            "stock_ts_code": "300503.SZ",
+            "pct_chg": 9.95,
+            "amount": 51.4,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "东方锆业",
+            "stock_ts_code": "002167.SZ",
+            "pct_chg": 10.01,
+            "amount": 39.66,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "蜀道装备",
+            "stock_ts_code": "300540.SZ",
+            "pct_chg": 14.01,
+            "amount": 19.35,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "和远气体",
+            "stock_ts_code": "002971.SZ",
+            "pct_chg": 10.0,
+            "amount": 21.8,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "东岳硅材",
+            "stock_ts_code": "300821.SZ",
+            "pct_chg": 7.64,
+            "amount": 28.38,
+            "high_status_label": "3年新高"
+          },
+          {
+            "stock_name": "长盈精密",
+            "stock_ts_code": "300115.SZ",
+            "pct_chg": 6.51,
+            "amount": 27.56,
+            "high_status_label": null
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "燃料电池",
+            "score": 10
+          },
+          {
+            "concept": "SOFC燃料电池",
+            "score": 5
+          },
+          {
+            "concept": "SOFC（固体氧化物燃料电池）",
+            "score": 5
+          },
+          {
+            "concept": "固体氧化物燃料电池(SOFC)",
+            "score": 5
+          },
+          {
+            "concept": "储能电池",
+            "score": 2
+          },
+          {
+            "concept": "家电零部件",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "京泉华",
+            "ticker": "002885",
+            "concept": "燃料电池",
+            "role": "SOFC磁件（BE供应链）、SST、MFT高频变压器（AI数据中心）",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "佛燃能源",
+            "ticker": "002911",
+            "concept": "燃料电池",
+            "role": "SOFC固体氧化物燃料电池",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "壹石通",
+            "ticker": "688733",
+            "concept": "燃料电池",
+            "role": "固体氧化物燃料电池（SOC",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "潍柴动力",
+            "ticker": "000338",
+            "concept": "燃料电池",
+            "role": "电力能源设备（AIDC发电）、重卡发动机、新能源动力",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三环集团",
+            "ticker": "300408",
+            "concept": "SOFC燃料电池",
+            "role": "MLCC（片式多层陶瓷电容器）、光通信陶瓷组件（光纤插芯、MT插芯、陶瓷封装基座）",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 5
+          },
+          {
+            "company": "三花智控",
+            "ticker": "002050",
+            "concept": "SOFC（固体氧化物燃料电池）",
+            "role": "市场信号弱关联",
+            "strength": "related",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 5
+          },
+          {
+            "company": "东方锆业",
+            "ticker": "002167",
+            "concept": "SOFC燃料电池",
+            "role": "SOFC电解质材料潜在供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 5
+          },
+          {
+            "company": "中国巨石",
+            "ticker": "600176",
+            "concept": "SOFC（固体氧化物燃料电池）",
+            "role": "市场信号弱关联",
+            "strength": "related",
+            "confidence": "low",
+            "evidence_layer": "L2_candidate",
+            "source": "",
+            "score": 5
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "燃料电池 是已有 concept page 的高置信 graph node 回填，挂接到 新能源 主干。",
+            "source": "[[ConceptNodeBackfill_P1_20260602]]",
+            "source_date": "2026-06-02",
+            "target": "燃料电池",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[ConceptNodeBackfill_P1_20260602]]",
+            "source_name": "ConceptNodeBackfill_P1_20260602",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/ConceptNodeBackfill_P1_20260602.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "信创",
+        "date": "2026-07-01",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "信创",
+        "market_theme": "信创",
+        "priority_score": 176.14,
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "银之杰",
+            "stock_ts_code": "300085.SZ",
+            "pct_chg": 10.15,
+            "amount": 41.65,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "润建股份",
+            "stock_ts_code": "002929.SZ",
+            "pct_chg": 10.0,
+            "amount": 29.19,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "汇金科技",
+            "stock_ts_code": "300561.SZ",
+            "pct_chg": 19.97,
+            "amount": 5.73,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "锐捷网络",
+            "stock_ts_code": "301165.SZ",
+            "pct_chg": 6.8,
+            "amount": 35.46,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "东方国信",
+            "stock_ts_code": "300166.SZ",
+            "pct_chg": 6.72,
+            "amount": 33.04,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "飞利信",
+            "stock_ts_code": "300287.SZ",
+            "pct_chg": 19.94,
+            "amount": 3.71,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "格灵深瞳",
+            "stock_ts_code": "688207.SH",
+            "pct_chg": 12.39,
+            "amount": 8.36,
+            "high_status_label": "2年新高"
+          },
+          {
+            "stock_name": "众合科技",
+            "stock_ts_code": "000925.SZ",
+            "pct_chg": 9.96,
+            "amount": 11.02,
+            "high_status_label": "20日新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "信创",
+            "score": 10
+          },
+          {
+            "concept": "信创云",
+            "score": 5
+          },
+          {
+            "concept": "信创产业",
+            "score": 5
+          },
+          {
+            "concept": "信创存储",
+            "score": 5
+          },
+          {
+            "concept": "党政信创",
+            "score": 5
+          },
+          {
+            "concept": "金融信创",
+            "score": 5
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "三六零",
+            "ticker": "601360",
+            "concept": "信创",
+            "role": "信创安全防护潜在参与方",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三维天地",
+            "ticker": "301159",
+            "concept": "信创",
+            "role": "AI+实验室（SunwayLink/S-tab/SW-Foundry/SW-DBLake）、LIMS检验检测信息化（SW-LIMS）、数据资产管理（DAM）",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东土科技",
+            "ticker": "300353",
+            "concept": "信创",
+            "role": "工业操作系统（鸿道Intewell）、智能控制器（NewPre系列）、工业网络通信、具身智能机器人电子架构",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东方中科",
+            "ticker": "002819",
+            "concept": "信创",
+            "role": "测试技术与服务（占比~81%）、数字安全与数智应用（占比~19%）",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L2",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中创股份",
+            "ticker": "688695",
+            "concept": "信创",
+            "role": "中间件软件销售、中间件定制化开发、中间件运维服务",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中国软件",
+            "ticker": "600536",
+            "concept": "信创",
+            "role": "党政信创基础软件和解决方案平台",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中国长城",
+            "ticker": "000066",
+            "concept": "信创",
+            "role": "信创整机和计算设备供应商",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中孚信息",
+            "ticker": "300659",
+            "concept": "信创",
+            "role": "密评（密码应用合规评估）业务、保密产品、数据安全",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[信创产业新变化与新格局深度研究报告]]",
+            "source_date": "",
+            "target": "信创",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[信创产业新变化与新格局深度研究报告]]",
+            "source_name": "信创产业新变化与新格局深度研究报告",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/信创产业新变化与新格局深度研究报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "数据要素",
+        "date": "2026-07-01",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "数据要素",
+        "market_theme": "数据要素",
+        "priority_score": 174.74,
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "东方财富",
+            "stock_ts_code": "300059.SZ",
+            "pct_chg": 5.25,
+            "amount": 202.37,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "同花顺",
+            "stock_ts_code": "300033.SZ",
+            "pct_chg": 7.05,
+            "amount": 103.43,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "银之杰",
+            "stock_ts_code": "300085.SZ",
+            "pct_chg": 10.15,
+            "amount": 41.65,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "盈新发展",
+            "stock_ts_code": "000620.SZ",
+            "pct_chg": 10.0,
+            "amount": 31.41,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "润建股份",
+            "stock_ts_code": "002929.SZ",
+            "pct_chg": 10.0,
+            "amount": 29.19,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "东方国信",
+            "stock_ts_code": "300166.SZ",
+            "pct_chg": 6.72,
+            "amount": 33.04,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "飞利信",
+            "stock_ts_code": "300287.SZ",
+            "pct_chg": 19.94,
+            "amount": 3.71,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "紫光股份",
+            "stock_ts_code": "000938.SZ",
+            "pct_chg": 3.71,
+            "amount": 103.12,
+            "high_status_label": "20日新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "数据要素",
+            "score": 10
+          },
+          {
+            "concept": "AI智能体",
+            "score": 2
+          },
+          {
+            "concept": "新型城镇化",
+            "score": 2
+          },
+          {
+            "concept": "液冷",
+            "score": 2
+          },
+          {
+            "concept": "金融科技",
+            "score": 2
+          },
+          {
+            "concept": "高端计算机",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "三维天地",
+            "ticker": "301159",
+            "concept": "数据要素",
+            "role": "AI+实验室（SunwayLink/S-tab/SW-Foundry/SW-DBLake）、LIMS检验检测信息化（SW-LIMS）、数据资产管理（DAM）",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东方国信",
+            "ticker": "300166",
+            "concept": "数据要素",
+            "role": "数据要素",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东软集团",
+            "ticker": "600718",
+            "concept": "数据要素",
+            "role": "智能汽车互联、医疗健康信息化、数据价值化",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中创股份",
+            "ticker": "688695",
+            "concept": "数据要素",
+            "role": "中间件软件销售、中间件定制化开发、中间件运维服务",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中科曙光",
+            "ticker": "603019",
+            "concept": "数据要素",
+            "role": "芯片/核心器件",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "久远银海",
+            "ticker": "002777",
+            "concept": "数据要素",
+            "role": "数据要素",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "云赛智联",
+            "ticker": "600602",
+            "concept": "数据要素",
+            "role": "云计算及大数据、行业解决方案、智能产品",
+            "strength": "related",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "启明星辰",
+            "ticker": "002439",
+            "concept": "数据要素",
+            "role": "AI应用安全（MAS产品矩阵）、中国移动协同业务、传统网络安全（防火墙/IDS/数据安全）、To C/H安全产品（云电脑/隐私保）",
+            "strength": "core",
+            "confidence": "high",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "由 theme-radar 数据库体检队列入图：exposures=12, evidence_items=13, report_context_hits=1。",
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_date": "2026-05-27",
+            "target": "数据要素",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "超级电容",
+        "date": "2026-07-01",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "超级电容",
+        "market_theme": "超级电容",
+        "priority_score": 171.2,
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "东阳光",
+            "stock_ts_code": "600673.SH",
+            "pct_chg": 10.01,
+            "amount": 42.58,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "火炬电子",
+            "stock_ts_code": "603678.SH",
+            "pct_chg": 5.42,
+            "amount": 45.36,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "天奈科技",
+            "stock_ts_code": "688116.SH",
+            "pct_chg": 11.47,
+            "amount": 9.83,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "元力股份",
+            "stock_ts_code": "300174.SZ",
+            "pct_chg": 7.84,
+            "amount": 17.26,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "振华科技",
+            "stock_ts_code": "000733.SZ",
+            "pct_chg": 9.99,
+            "amount": 8.49,
+            "high_status_label": "1年新高"
+          },
+          {
+            "stock_name": "风华高科",
+            "stock_ts_code": "000636.SZ",
+            "pct_chg": 2.99,
+            "amount": 84.83,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "中欣氟材",
+            "stock_ts_code": "002915.SZ",
+            "pct_chg": 7.36,
+            "amount": 7.62,
+            "high_status_label": null
+          },
+          {
+            "stock_name": "东华测试",
+            "stock_ts_code": "300354.SZ",
+            "pct_chg": 10.68,
+            "amount": 3.3,
+            "high_status_label": "20日新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "超级电容",
+            "score": 10
+          },
+          {
+            "concept": "MLCC",
+            "score": 2
+          },
+          {
+            "concept": "电容",
+            "score": 2
+          },
+          {
+            "concept": "电容薄膜",
+            "score": 2
+          },
+          {
+            "concept": "电解液",
+            "score": 2
+          },
+          {
+            "concept": "超容隔膜",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "三花智控",
+            "ticker": "002050",
+            "concept": "超级电容",
+            "role": "市场信号待核验（非直接产业链）",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东山精密",
+            "ticker": "002384",
+            "concept": "超级电容",
+            "role": "市场信号待核验（非直接产业链）",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东方财富",
+            "ticker": "300059",
+            "concept": "超级电容",
+            "role": "市场信号待核验（非直接产业链）",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东阳光",
+            "ticker": "600673",
+            "concept": "超级电容",
+            "role": "市场信号待核验（非直接产业链）",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中兴通讯",
+            "ticker": "000063",
+            "concept": "超级电容",
+            "role": "",
+            "strength": "",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中材科技",
+            "ticker": "002080",
+            "concept": "超级电容",
+            "role": "超级电容活性炭相关供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "中际旭创",
+            "ticker": "300308",
+            "concept": "超级电容",
+            "role": "市场信号待核验（非直接产业链）",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "京东方A",
+            "ticker": "000725",
+            "concept": "超级电容",
+            "role": "市场信号待核验（非直接产业链）",
+            "strength": "peripheral",
+            "confidence": "low",
+            "evidence_layer": "graph_only",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[脱水研报0521]]",
+            "source_date": "",
+            "target": "超级电容",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[脱水研报0521]]",
+            "source_name": "脱水研报0521",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/脱水研报0521.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      },
+      {
+        "query": "创新药",
+        "date": "2026-07-01",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "market_found": true,
+        "matched_theme": "创新药",
+        "market_theme": "创新药",
+        "priority_score": 171.17,
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          {
+            "stock_name": "艾力斯",
+            "stock_ts_code": "688578.SH",
+            "pct_chg": 15.21,
+            "amount": 22.6,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "前沿生物",
+            "stock_ts_code": "688221.SH",
+            "pct_chg": 18.71,
+            "amount": 10.19,
+            "high_status_label": "60日新高"
+          },
+          {
+            "stock_name": "泽璟制药",
+            "stock_ts_code": "688266.SH",
+            "pct_chg": 11.43,
+            "amount": 15.24,
+            "high_status_label": "120日新高"
+          },
+          {
+            "stock_name": "汇宇制药",
+            "stock_ts_code": "688553.SH",
+            "pct_chg": 20.04,
+            "amount": 4.55,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "三生国健",
+            "stock_ts_code": "688336.SH",
+            "pct_chg": 10.17,
+            "amount": 17.19,
+            "high_status_label": "20日新高"
+          },
+          {
+            "stock_name": "科伦药业",
+            "stock_ts_code": "002422.SZ",
+            "pct_chg": 8.9,
+            "amount": 20.14,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "海思科",
+            "stock_ts_code": "002653.SZ",
+            "pct_chg": 9.98,
+            "amount": 14.96,
+            "high_status_label": "历史新高"
+          },
+          {
+            "stock_name": "众生药业",
+            "stock_ts_code": "002317.SZ",
+            "pct_chg": 8.71,
+            "amount": 19.61,
+            "high_status_label": "120日新高"
+          }
+        ],
+        "concept_matches": [
+          {
+            "concept": "创新药",
+            "score": 10
+          },
+          {
+            "concept": "创新药RWA",
+            "score": 5
+          },
+          {
+            "concept": "AI辅助生殖",
+            "score": 2
+          },
+          {
+            "concept": "CDMO",
+            "score": 2
+          },
+          {
+            "concept": "ICL",
+            "score": 2
+          },
+          {
+            "concept": "RWA代币化",
+            "score": 2
+          }
+        ],
+        "entity_exposures": [
+          {
+            "company": "一心堂",
+            "ticker": "002727",
+            "concept": "创新药",
+            "role": "院外零售渠道潜在相关",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "三生制药",
+            "ticker": "01530.HK",
+            "concept": "创新药",
+            "role": "双抗BD出海标杆",
+            "strength": "related",
+            "confidence": "",
+            "evidence_layer": "",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "上海医药",
+            "ticker": "601607",
+            "concept": "创新药",
+            "role": "医药流通渠道潜在相关",
+            "strength": "peripheral",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "东富龙",
+            "ticker": "300171",
+            "concept": "创新药",
+            "role": "创新药生产装备潜在供应商",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "丽珠集团",
+            "ticker": "000513",
+            "concept": "创新药",
+            "role": "",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "乐普医疗",
+            "ticker": "300003",
+            "concept": "创新药",
+            "role": "创新药（GLP-1",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "九洲药业",
+            "ticker": "603456",
+            "concept": "创新药",
+            "role": "创新药定制研发生产/CDMO服务商",
+            "strength": "core",
+            "confidence": "medium",
+            "evidence_layer": "L1",
+            "source": "",
+            "score": 10
+          },
+          {
+            "company": "亚虹医药",
+            "ticker": "688176",
+            "concept": "创新药",
+            "role": "泌尿生殖系统和肿瘤相关创新药/药械一体化治疗产品开发商，核心产品APL-1702用于宫颈癌前病变无创治疗",
+            "strength": "related",
+            "confidence": "medium",
+            "evidence_layer": "L1_L3_candidate",
+            "source": "",
+            "score": 10
+          }
+        ],
+        "evidence_items": [
+          {
+            "confidence": "medium",
+            "evidence": "从既有concept markdown重建",
+            "source": "[[20260518 市场逻辑精选]]",
+            "source_date": "",
+            "target": "创新药",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "中国创新药进入“商业化兑现+出海分成”拐点期：2025年对外授权总额超1300亿美元、2026Q1达571亿美元；百济/信达等首次全年盈利，恒瑞创新药收入占比61.69%，药明康德在手订单597.7亿元，政策端首发价格和医保/商保目录机制改善。",
+            "source": "[[创新药_DeepDive_数据抽取_20260601]]",
+            "source_date": "2026-06-01",
+            "target": "创新药",
+            "target_type": "concept"
+          },
+          {
+            "confidence": "medium",
+            "evidence": "晚间卖方研报：百济 26Q1 营收105.44亿/净利16.08亿/泽布替尼75.98亿；BD 密集",
+            "source": "[[晚间卖方研报汇总_20260614]]",
+            "source_date": "2026-06-14",
+            "target": "创新药",
+            "target_type": "concept"
+          }
+        ],
+        "source_traces": [
+          {
+            "source": "[[20260518 市场逻辑精选]]",
+            "source_name": "20260518 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/20260518 市场逻辑精选.md"
+          },
+          {
+            "source": "[[创新药_DeepDive_数据抽取_20260601]]",
+            "source_name": "创新药_DeepDive_数据抽取_20260601",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/创新药_DeepDive_数据抽取_20260601.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260614]]",
+            "source_name": "晚间卖方研报汇总_20260614",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/晚间卖方研报汇总_20260614.md"
+          }
+        ],
+        "data_gaps": [],
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "warnings": []
+      }
+    ],
+    "warnings": []
+  },
+  "decision": {
+    "old_logic_wakeup": [
+      {
+        "date": "2026-07-01",
+        "query": "氢能源",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 194.57,
+        "matched_theme": "氢能源",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "金宏气体",
+          "昊华科技",
+          "昊志机电",
+          "濮阳惠成",
+          "东方锆业"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 6,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[电解液产业深度研究：技术变革重塑产业格局，供应链整合加速龙头崛起]]",
+            "source_name": "电解液产业深度研究：技术变革重塑产业格局，供应链整合加速龙头崛起",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/电解液产业深度研究：技术变革重塑产业格局，供应链整合加速龙头崛起.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "氢能源",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[电解液产业深度研究：技术变革重塑产业格局，供应链整合加速龙头崛起]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "氢能源",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 194.57,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "生命周期": {
+          "逻辑": "氢能源",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 194.57,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 7 只，新高 46 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 194.57,
+            "触发信号数": 5,
+            "涨停数": 7,
+            "新高数": 46,
+            "强势股数": 10,
+            "板块涨幅": 1.61,
+            "边际量": 14.52,
+            "成交额": 3157.24,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "金宏气体｜涨幅20.01%｜成交26.58亿｜3年新高",
+            "昊华科技｜涨幅7.46%｜成交111.45亿｜历史新高",
+            "昊志机电｜涨幅9.95%｜成交51.4亿｜历史新高",
+            "濮阳惠成｜涨幅19.98%｜成交11.17亿｜3年新高",
+            "东方锆业｜涨幅10.01%｜成交39.66亿｜历史新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 7 只，新高 46 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 194.57,
+            "触发信号数": 5,
+            "涨停数": 7,
+            "新高数": 46,
+            "强势股数": 10,
+            "板块涨幅": 1.61,
+            "边际量": 14.52,
+            "成交额": 3157.24,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "金宏气体｜涨幅20.01%｜成交26.58亿｜3年新高",
+            "昊华科技｜涨幅7.46%｜成交111.45亿｜历史新高",
+            "昊志机电｜涨幅9.95%｜成交51.4亿｜历史新高",
+            "濮阳惠成｜涨幅19.98%｜成交11.17亿｜3年新高",
+            "东方锆业｜涨幅10.01%｜成交39.66亿｜历史新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "氢能源",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "氢能源",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：氢能源",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "氢能源",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[电解液产业深度研究：技术变革重塑产业格局，供应链整合加速龙头崛起]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "氢能源",
+            "生命周期阶段": "旧逻辑唤醒",
+            "阶段变化": "旧材料唤醒",
+            "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-07-01"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 194.57,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "capacity_industry",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 7 只，新高 46 只，priority 变化 0。",
+            "当前盘面": {
+              "priority": 194.57,
+              "触发信号数": 5,
+              "涨停数": 7,
+              "新高数": 46,
+              "强势股数": 10,
+              "板块涨幅": 1.61,
+              "边际量": 14.52,
+              "成交额": 3157.24,
+              "容量前三": true
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "capacity_industry",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "金宏气体｜涨幅20.01%｜成交26.58亿｜3年新高",
+              "昊华科技｜涨幅7.46%｜成交111.45亿｜历史新高",
+              "昊志机电｜涨幅9.95%｜成交51.4亿｜历史新高",
+              "濮阳惠成｜涨幅19.98%｜成交11.17亿｜3年新高",
+              "东方锆业｜涨幅10.01%｜成交39.66亿｜历史新高"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "氢能源",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "query": "AI眼镜",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 194.0,
+        "matched_theme": "AI眼镜",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "格科微",
+          "波长光电",
+          "TCL科技",
+          "激智科技",
+          "敏芯股份"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 2,
+          "source_trace": 2,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[20260519 市场逻辑精选]]",
+            "source_name": "20260519 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/20260519 市场逻辑精选.md"
+          },
+          {
+            "source": "[[AI眼镜_题材抽取报告]]",
+            "source_name": "AI眼镜_题材抽取报告",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/AI眼镜_题材抽取报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "AI眼镜",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[20260519 市场逻辑精选]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[AI眼镜_题材抽取报告]]",
+              "来源质量": "-",
+              "摘要": "AI眼镜 DeepDive 将题材锚定为端侧 AI 与可穿戴交互入口，核心链条包括声学/整机组装、SoC/蓝牙音频芯片、CIS、光学显示、存储、镜片镜架与渠道零售。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "AI眼镜",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "持续观察",
+          "变化原因": "连续 1 日出现。priority 上升 100。触发信号增加 1 类。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-25",
+            "2026-06-26",
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 100.0,
+          "强势股变化": 0,
+          "触发信号变化": 1,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 194.0,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+        },
+        "生命周期": {
+          "逻辑": "AI眼镜",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "持续观察",
+          "变化原因": "连续 1 日出现。priority 上升 100。触发信号增加 1 类。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-25",
+            "2026-06-26",
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 100.0,
+          "强势股变化": 0,
+          "触发信号变化": 1,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 194.0,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 61 只，priority 变化 100。",
+          "当前盘面": {
+            "priority": 194.0,
+            "触发信号数": 4,
+            "涨停数": 0,
+            "新高数": 61,
+            "强势股数": 10,
+            "板块涨幅": 0.51,
+            "边际量": 10.24,
+            "成交额": 3781.97,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 100.0,
+            "触发信号变化": 1,
+            "涨停变化": 0,
+            "新高变化": 29,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "格科微｜涨幅20.01%｜成交42.98亿｜3年新高",
+            "波长光电｜涨幅16.85%｜成交22.78亿｜20日新高",
+            "TCL科技｜涨幅5.15%｜成交157.81亿｜3年新高",
+            "激智科技｜涨幅14.32%｜成交19.78亿｜历史新高",
+            "敏芯股份｜涨幅15.87%｜成交14.45亿｜3年新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 61 只，priority 变化 100。",
+          "当前盘面": {
+            "priority": 194.0,
+            "触发信号数": 4,
+            "涨停数": 0,
+            "新高数": 61,
+            "强势股数": 10,
+            "板块涨幅": 0.51,
+            "边际量": 10.24,
+            "成交额": 3781.97,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 100.0,
+            "触发信号变化": 1,
+            "涨停变化": 0,
+            "新高变化": 29,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "格科微｜涨幅20.01%｜成交42.98亿｜3年新高",
+            "波长光电｜涨幅16.85%｜成交22.78亿｜20日新高",
+            "TCL科技｜涨幅5.15%｜成交157.81亿｜3年新高",
+            "激智科技｜涨幅14.32%｜成交19.78亿｜历史新高",
+            "敏芯股份｜涨幅15.87%｜成交14.45亿｜3年新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "AI眼镜",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "AI眼镜",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：AI眼镜",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "AI眼镜",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[20260519 市场逻辑精选]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[AI眼镜_题材抽取报告]]",
+                "来源质量": "-",
+                "摘要": "AI眼镜 DeepDive 将题材锚定为端侧 AI 与可穿戴交互入口，核心链条包括声学/整机组装、SoC/蓝牙音频芯片、CIS、光学显示、存储、镜片镜架与渠道零售。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "AI眼镜",
+            "生命周期阶段": "升温验证",
+            "阶段变化": "持续观察",
+            "变化原因": "连续 1 日出现。priority 上升 100。触发信号增加 1 类。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-06-25",
+              "2026-06-26",
+              "2026-07-01"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 100.0,
+            "强势股变化": 0,
+            "触发信号变化": 1,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 194.0,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "capacity_industry",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "优先找公告/调研/订单/客户验证，确认升温是否有事实支撑。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 61 只，priority 变化 100。",
+            "当前盘面": {
+              "priority": 194.0,
+              "触发信号数": 4,
+              "涨停数": 0,
+              "新高数": 61,
+              "强势股数": 10,
+              "板块涨幅": 0.51,
+              "边际量": 10.24,
+              "成交额": 3781.97,
+              "容量前三": true
+            },
+            "边际变化": {
+              "priority变化": 100.0,
+              "触发信号变化": 1,
+              "涨停变化": 0,
+              "新高变化": 29,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "capacity_industry",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "格科微｜涨幅20.01%｜成交42.98亿｜3年新高",
+              "波长光电｜涨幅16.85%｜成交22.78亿｜20日新高",
+              "TCL科技｜涨幅5.15%｜成交157.81亿｜3年新高",
+              "激智科技｜涨幅14.32%｜成交19.78亿｜历史新高",
+              "敏芯股份｜涨幅15.87%｜成交14.45亿｜3年新高"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "AI眼镜",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "query": "风电",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 188.62,
+        "matched_theme": "风电",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "大唐发电",
+          "濮阳惠成",
+          "巨化股份",
+          "宏发股份",
+          "巨力索具"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "风电",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=8, evidence_items=8, report_context_hits=1。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
+        "logic_lifecycle": {
+          "逻辑": "风电",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "持续观察",
+          "变化原因": "连续 1 日出现。priority 上升 88.5。触发信号增加 1 类。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-06-23",
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 88.5,
+          "强势股变化": 0,
+          "触发信号变化": 1,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 188.62,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "观察强势股扩散和成交边际，确认升温是否持续。"
+        },
+        "生命周期": {
+          "逻辑": "风电",
+          "生命周期阶段": "升温验证",
+          "阶段变化": "持续观察",
+          "变化原因": "连续 1 日出现。priority 上升 88.5。触发信号增加 1 类。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-06-23",
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 88.5,
+          "强势股变化": 0,
+          "触发信号变化": 1,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 188.62,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "观察强势股扩散和成交边际，确认升温是否持续。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 8 只，新高 26 只，priority 变化 88.5。",
+          "当前盘面": {
+            "priority": 188.62,
+            "触发信号数": 5,
+            "涨停数": 8,
+            "新高数": 26,
+            "强势股数": 10,
+            "板块涨幅": 1.14,
+            "边际量": 15.03,
+            "成交额": 3290.8,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 88.5,
+            "触发信号变化": 1,
+            "涨停变化": 1,
+            "新高变化": -11,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "大唐发电｜涨幅10.03%｜成交52.06亿",
+            "濮阳惠成｜涨幅19.98%｜成交11.17亿｜3年新高",
+            "巨化股份｜涨幅5.36%｜成交69.36亿｜历史新高",
+            "宏发股份｜涨幅10%｜成交11.9亿｜3年新高",
+            "巨力索具｜涨幅7.04%｜成交23.92亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 8 只，新高 26 只，priority 变化 88.5。",
+          "当前盘面": {
+            "priority": 188.62,
+            "触发信号数": 5,
+            "涨停数": 8,
+            "新高数": 26,
+            "强势股数": 10,
+            "板块涨幅": 1.14,
+            "边际量": 15.03,
+            "成交额": 3290.8,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 88.5,
+            "触发信号变化": 1,
+            "涨停变化": 1,
+            "新高变化": -11,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "大唐发电｜涨幅10.03%｜成交52.06亿",
+            "濮阳惠成｜涨幅19.98%｜成交11.17亿｜3年新高",
+            "巨化股份｜涨幅5.36%｜成交69.36亿｜历史新高",
+            "宏发股份｜涨幅10%｜成交11.9亿｜3年新高",
+            "巨力索具｜涨幅7.04%｜成交23.92亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "风电",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "风电",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：风电",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "风电",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=8, evidence_items=8, report_context_hits=1。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
+          "生命周期": {
+            "逻辑": "风电",
+            "生命周期阶段": "升温验证",
+            "阶段变化": "持续观察",
+            "变化原因": "连续 1 日出现。priority 上升 88.5。触发信号增加 1 类。证据裁判为盘面触发待解释。",
+            "观察窗口": [
+              "2026-06-23",
+              "2026-07-01"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 88.5,
+            "强势股变化": 0,
+            "触发信号变化": 1,
+            "旧材料命中": false,
+            "证据状态": "盘面触发待解释",
+            "当前priority": 188.62,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "capacity_industry",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "观察强势股扩散和成交边际，确认升温是否持续。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 8 只，新高 26 只，priority 变化 88.5。",
+            "当前盘面": {
+              "priority": 188.62,
+              "触发信号数": 5,
+              "涨停数": 8,
+              "新高数": 26,
+              "强势股数": 10,
+              "板块涨幅": 1.14,
+              "边际量": 15.03,
+              "成交额": 3290.8,
+              "容量前三": true
+            },
+            "边际变化": {
+              "priority变化": 88.5,
+              "触发信号变化": 1,
+              "涨停变化": 1,
+              "新高变化": -11,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "capacity_industry",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "大唐发电｜涨幅10.03%｜成交52.06亿",
+              "濮阳惠成｜涨幅19.98%｜成交11.17亿｜3年新高",
+              "巨化股份｜涨幅5.36%｜成交69.36亿｜历史新高",
+              "宏发股份｜涨幅10%｜成交11.9亿｜3年新高",
+              "巨力索具｜涨幅7.04%｜成交23.92亿"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "风电",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "query": "光刻胶",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 187.74,
+        "matched_theme": "光刻胶",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "阳谷华泰",
+          "雅克科技",
+          "江化微",
+          "杭华股份",
+          "兴福电子"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 2,
+          "source_trace": 2,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[光刻胶产业新变化与新格局深度研究报告]]",
+            "source_name": "光刻胶产业新变化与新格局深度研究报告",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/光刻胶产业新变化与新格局深度研究报告.md"
+          },
+          {
+            "source": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+            "source_name": "光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "光刻胶",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[光刻胶产业新变化与新格局深度研究报告]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+              "来源质量": "-",
+              "摘要": "IMA 2026-06-22光刻胶抽取报告：对日管制、KrF/ArF低国产化率、鼎龙/上海新阳/南大光电/彤程新材等公司进展构成当前光刻胶题材验证链；大多数公司级说法来自研报或投研资料，需人工复核。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "光刻胶",
+          "生命周期阶段": "高位分歧",
+          "阶段变化": "高位分歧",
+          "变化原因": "连续 1 日出现。priority 下降 0.61。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-29",
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": -0.61,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 187.74,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+        },
+        "生命周期": {
+          "逻辑": "光刻胶",
+          "生命周期阶段": "高位分歧",
+          "阶段变化": "高位分歧",
+          "变化原因": "连续 1 日出现。priority 下降 0.61。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-29",
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": -0.61,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 187.74,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 39 只，priority 变化 -0.61。",
+          "当前盘面": {
+            "priority": 187.74,
+            "触发信号数": 4,
+            "涨停数": 0,
+            "新高数": 39,
+            "强势股数": 10,
+            "板块涨幅": 1.09,
+            "边际量": 11.02,
+            "成交额": 1305.58,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": -0.61,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 9,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "阳谷华泰｜涨幅20%｜成交14.86亿｜60日新高",
+            "雅克科技｜涨幅5.16%｜成交106.3亿｜历史新高",
+            "江化微｜涨幅6.56%｜成交35.69亿｜历史新高",
+            "杭华股份｜涨幅20%｜成交3亿｜3年新高",
+            "兴福电子｜涨幅5.89%｜成交31.08亿｜历史新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 39 只，priority 变化 -0.61。",
+          "当前盘面": {
+            "priority": 187.74,
+            "触发信号数": 4,
+            "涨停数": 0,
+            "新高数": 39,
+            "强势股数": 10,
+            "板块涨幅": 1.09,
+            "边际量": 11.02,
+            "成交额": 1305.58,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": -0.61,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 9,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "阳谷华泰｜涨幅20%｜成交14.86亿｜60日新高",
+            "雅克科技｜涨幅5.16%｜成交106.3亿｜历史新高",
+            "江化微｜涨幅6.56%｜成交35.69亿｜历史新高",
+            "杭华股份｜涨幅20%｜成交3亿｜3年新高",
+            "兴福电子｜涨幅5.89%｜成交31.08亿｜历史新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "光刻胶",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "光刻胶",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：光刻胶",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "光刻胶",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[光刻胶产业新变化与新格局深度研究报告]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[光刻胶题材Deep_Dive_Theme_Radar数据抽取报告_20260622]]",
+                "来源质量": "-",
+                "摘要": "IMA 2026-06-22光刻胶抽取报告：对日管制、KrF/ArF低国产化率、鼎龙/上海新阳/南大光电/彤程新材等公司进展构成当前光刻胶题材验证链；大多数公司级说法来自研报或投研资料，需人工复核。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "光刻胶",
+            "生命周期阶段": "高位分歧",
+            "阶段变化": "高位分歧",
+            "变化原因": "连续 1 日出现。priority 下降 0.61。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-06-29",
+              "2026-07-01"
+            ],
+            "连续出现天数": 1,
+            "priority变化": -0.61,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 187.74,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "capacity_industry",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 39 只，priority 变化 -0.61。",
+            "当前盘面": {
+              "priority": 187.74,
+              "触发信号数": 4,
+              "涨停数": 0,
+              "新高数": 39,
+              "强势股数": 10,
+              "板块涨幅": 1.09,
+              "边际量": 11.02,
+              "成交额": 1305.58,
+              "容量前三": true
+            },
+            "边际变化": {
+              "priority变化": -0.61,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 9,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "capacity_industry",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "阳谷华泰｜涨幅20%｜成交14.86亿｜60日新高",
+              "雅克科技｜涨幅5.16%｜成交106.3亿｜历史新高",
+              "江化微｜涨幅6.56%｜成交35.69亿｜历史新高",
+              "杭华股份｜涨幅20%｜成交3亿｜3年新高",
+              "兴福电子｜涨幅5.89%｜成交31.08亿｜历史新高"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "光刻胶",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "query": "燃料电池",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 182.52,
+        "matched_theme": "燃料电池",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "金宏气体",
+          "昊华科技",
+          "昊志机电",
+          "东方锆业",
+          "蜀道装备"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[ConceptNodeBackfill_P1_20260602]]",
+            "source_name": "ConceptNodeBackfill_P1_20260602",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/ConceptNodeBackfill_P1_20260602.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "燃料电池",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[ConceptNodeBackfill_P1_20260602]]",
+              "来源质量": "-",
+              "摘要": "燃料电池 是已有 concept page 的高置信 graph node 回填，挂接到 新能源 主干。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
+        "logic_lifecycle": {
+          "逻辑": "燃料电池",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 182.52,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "生命周期": {
+          "逻辑": "燃料电池",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 182.52,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 25 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 182.52,
+            "触发信号数": 4,
+            "涨停数": 0,
+            "新高数": 25,
+            "强势股数": 10,
+            "板块涨幅": 1.79,
+            "边际量": 11.67,
+            "成交额": 1604.29,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "金宏气体｜涨幅20.01%｜成交26.58亿｜3年新高",
+            "昊华科技｜涨幅7.46%｜成交111.45亿｜历史新高",
+            "昊志机电｜涨幅9.95%｜成交51.4亿｜历史新高",
+            "东方锆业｜涨幅10.01%｜成交39.66亿｜历史新高",
+            "蜀道装备｜涨幅14.01%｜成交19.35亿｜历史新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 25 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 182.52,
+            "触发信号数": 4,
+            "涨停数": 0,
+            "新高数": 25,
+            "强势股数": 10,
+            "板块涨幅": 1.79,
+            "边际量": 11.67,
+            "成交额": 1604.29,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "金宏气体｜涨幅20.01%｜成交26.58亿｜3年新高",
+            "昊华科技｜涨幅7.46%｜成交111.45亿｜历史新高",
+            "昊志机电｜涨幅9.95%｜成交51.4亿｜历史新高",
+            "东方锆业｜涨幅10.01%｜成交39.66亿｜历史新高",
+            "蜀道装备｜涨幅14.01%｜成交19.35亿｜历史新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "燃料电池",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "燃料电池",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：燃料电池",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "燃料电池",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[ConceptNodeBackfill_P1_20260602]]",
+                "来源质量": "-",
+                "摘要": "燃料电池 是已有 concept page 的高置信 graph node 回填，挂接到 新能源 主干。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
+          "生命周期": {
+            "逻辑": "燃料电池",
+            "生命周期阶段": "新出现",
+            "阶段变化": "首次进入观察",
+            "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+            "观察窗口": [
+              "2026-07-01"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "盘面触发待解释",
+            "当前priority": 182.52,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "capacity_industry",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 25 只，priority 变化 0。",
+            "当前盘面": {
+              "priority": 182.52,
+              "触发信号数": 4,
+              "涨停数": 0,
+              "新高数": 25,
+              "强势股数": 10,
+              "板块涨幅": 1.79,
+              "边际量": 11.67,
+              "成交额": 1604.29,
+              "容量前三": true
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "capacity_industry",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "金宏气体｜涨幅20.01%｜成交26.58亿｜3年新高",
+              "昊华科技｜涨幅7.46%｜成交111.45亿｜历史新高",
+              "昊志机电｜涨幅9.95%｜成交51.4亿｜历史新高",
+              "东方锆业｜涨幅10.01%｜成交39.66亿｜历史新高",
+              "蜀道装备｜涨幅14.01%｜成交19.35亿｜历史新高"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "燃料电池",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "query": "信创",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 176.14,
+        "matched_theme": "信创",
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "银之杰",
+          "润建股份",
+          "汇金科技",
+          "锐捷网络",
+          "东方国信"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[信创产业新变化与新格局深度研究报告]]",
+            "source_name": "信创产业新变化与新格局深度研究报告",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/信创产业新变化与新格局深度研究报告.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "信创",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[信创产业新变化与新格局深度研究报告]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "信创",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 176.14,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "生命周期": {
+          "逻辑": "信创",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 176.14,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 13 只，新高 31 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 176.14,
+            "触发信号数": 4,
+            "涨停数": 13,
+            "新高数": 31,
+            "强势股数": 10,
+            "板块涨幅": 2.11,
+            "边际量": 11.93,
+            "成交额": 2079.09,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "银之杰｜涨幅10.15%｜成交41.65亿",
+            "润建股份｜涨幅10%｜成交29.19亿｜20日新高",
+            "汇金科技｜涨幅19.97%｜成交5.73亿",
+            "锐捷网络｜涨幅6.8%｜成交35.46亿｜历史新高",
+            "东方国信｜涨幅6.72%｜成交33.04亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 13 只，新高 31 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 176.14,
+            "触发信号数": 4,
+            "涨停数": 13,
+            "新高数": 31,
+            "强势股数": 10,
+            "板块涨幅": 2.11,
+            "边际量": 11.93,
+            "成交额": 2079.09,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "银之杰｜涨幅10.15%｜成交41.65亿",
+            "润建股份｜涨幅10%｜成交29.19亿｜20日新高",
+            "汇金科技｜涨幅19.97%｜成交5.73亿",
+            "锐捷网络｜涨幅6.8%｜成交35.46亿｜历史新高",
+            "东方国信｜涨幅6.72%｜成交33.04亿"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "信创",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "信创",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：信创",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "信创",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[信创产业新变化与新格局深度研究报告]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "信创",
+            "生命周期阶段": "旧逻辑唤醒",
+            "阶段变化": "旧材料唤醒",
+            "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-07-01"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 176.14,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 13 只，新高 31 只，priority 变化 0。",
+            "当前盘面": {
+              "priority": 176.14,
+              "触发信号数": 4,
+              "涨停数": 13,
+              "新高数": 31,
+              "强势股数": 10,
+              "板块涨幅": 2.11,
+              "边际量": 11.93,
+              "成交额": 2079.09,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "银之杰｜涨幅10.15%｜成交41.65亿",
+              "润建股份｜涨幅10%｜成交29.19亿｜20日新高",
+              "汇金科技｜涨幅19.97%｜成交5.73亿",
+              "锐捷网络｜涨幅6.8%｜成交35.46亿｜历史新高",
+              "东方国信｜涨幅6.72%｜成交33.04亿"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "信创",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "query": "数据要素",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 174.74,
+        "matched_theme": "数据要素",
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "东方财富",
+          "同花顺",
+          "银之杰",
+          "盈新发展",
+          "润建股份"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[theme-radar-db-quality-audit]]",
+            "source_name": "theme-radar-db-quality-audit",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/theme-radar-db-quality-audit.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "数据要素",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "盘面触发待解释",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "未分层",
+              "概念": "-",
+              "来源": "[[theme-radar-db-quality-audit]]",
+              "来源质量": "-",
+              "摘要": "由 theme-radar 数据库体检队列入图：exposures=12, evidence_items=13, report_context_hits=1。"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+          "不可升级原因": []
+        },
+        "logic_lifecycle": {
+          "逻辑": "数据要素",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 174.74,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "生命周期": {
+          "逻辑": "数据要素",
+          "生命周期阶段": "新出现",
+          "阶段变化": "首次进入观察",
+          "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+          "观察窗口": [
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "盘面触发待解释",
+          "当前priority": 174.74,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 12 只，新高 23 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 174.74,
+            "触发信号数": 4,
+            "涨停数": 12,
+            "新高数": 23,
+            "强势股数": 10,
+            "板块涨幅": 2.53,
+            "边际量": 28.09,
+            "成交额": 2036.69,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "东方财富｜涨幅5.25%｜成交202.37亿｜60日新高",
+            "同花顺｜涨幅7.05%｜成交103.43亿｜60日新高",
+            "银之杰｜涨幅10.15%｜成交41.65亿",
+            "盈新发展｜涨幅10%｜成交31.41亿｜60日新高",
+            "润建股份｜涨幅10%｜成交29.19亿｜20日新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 12 只，新高 23 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 174.74,
+            "触发信号数": 4,
+            "涨停数": 12,
+            "新高数": 23,
+            "强势股数": 10,
+            "板块涨幅": 2.53,
+            "边际量": 28.09,
+            "成交额": 2036.69,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "东方财富｜涨幅5.25%｜成交202.37亿｜60日新高",
+            "同花顺｜涨幅7.05%｜成交103.43亿｜60日新高",
+            "银之杰｜涨幅10.15%｜成交41.65亿",
+            "盈新发展｜涨幅10%｜成交31.41亿｜60日新高",
+            "润建股份｜涨幅10%｜成交29.19亿｜20日新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "数据要素",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "数据要素",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：数据要素",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "数据要素",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "盘面触发待解释",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "未分层",
+                "概念": "-",
+                "来源": "[[theme-radar-db-quality-audit]]",
+                "来源质量": "-",
+                "摘要": "由 theme-radar 数据库体检队列入图：exposures=12, evidence_items=13, report_context_hits=1。"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。",
+            "不可升级原因": []
+          },
+          "生命周期": {
+            "逻辑": "数据要素",
+            "生命周期阶段": "新出现",
+            "阶段变化": "首次进入观察",
+            "变化原因": "过去窗口未出现，今天首次进入候选。证据裁判为盘面触发待解释。",
+            "观察窗口": [
+              "2026-07-01"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "盘面触发待解释",
+            "当前priority": 174.74,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "先确认题材边界和公司暴露，必要时做 IMA 或 front-map。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 12 只，新高 23 只，priority 变化 0。",
+            "当前盘面": {
+              "priority": 174.74,
+              "触发信号数": 4,
+              "涨停数": 12,
+              "新高数": 23,
+              "强势股数": 10,
+              "板块涨幅": 2.53,
+              "边际量": 28.09,
+              "成交额": 2036.69,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "东方财富｜涨幅5.25%｜成交202.37亿｜60日新高",
+              "同花顺｜涨幅7.05%｜成交103.43亿｜60日新高",
+              "银之杰｜涨幅10.15%｜成交41.65亿",
+              "盈新发展｜涨幅10%｜成交31.41亿｜60日新高",
+              "润建股份｜涨幅10%｜成交29.19亿｜20日新高"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "数据要素",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先回查旧逻辑和公司暴露，补 L2/L3 证据后再判断是不是有效唤醒。"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "query": "超级电容",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 171.2,
+        "matched_theme": "超级电容",
+        "trigger_types": [
+          "double_red",
+          "capacity_industry",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "东阳光",
+          "火炬电子",
+          "天奈科技",
+          "元力股份",
+          "振华科技"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 1,
+          "source_trace": 1,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[脱水研报0521]]",
+            "source_name": "脱水研报0521",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/脱水研报0521.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "超级电容",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[脱水研报0521]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "超级电容",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 171.2,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "生命周期": {
+          "逻辑": "超级电容",
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒",
+          "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": 0.0,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 171.2,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 9 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 171.2,
+            "触发信号数": 4,
+            "涨停数": 0,
+            "新高数": 9,
+            "强势股数": 10,
+            "板块涨幅": 1.27,
+            "边际量": 21.28,
+            "成交额": 1072.29,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "东阳光｜涨幅10.01%｜成交42.58亿",
+            "火炬电子｜涨幅5.42%｜成交45.36亿｜历史新高",
+            "天奈科技｜涨幅11.47%｜成交9.83亿｜20日新高",
+            "元力股份｜涨幅7.84%｜成交17.26亿",
+            "振华科技｜涨幅9.99%｜成交8.49亿｜1年新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 9 只，priority 变化 0。",
+          "当前盘面": {
+            "priority": 171.2,
+            "触发信号数": 4,
+            "涨停数": 0,
+            "新高数": 9,
+            "强势股数": 10,
+            "板块涨幅": 1.27,
+            "边际量": 21.28,
+            "成交额": 1072.29,
+            "容量前三": true
+          },
+          "边际变化": {
+            "priority变化": 0.0,
+            "触发信号变化": 0,
+            "涨停变化": 0,
+            "新高变化": 0,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "capacity_industry",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "东阳光｜涨幅10.01%｜成交42.58亿",
+            "火炬电子｜涨幅5.42%｜成交45.36亿｜历史新高",
+            "天奈科技｜涨幅11.47%｜成交9.83亿｜20日新高",
+            "元力股份｜涨幅7.84%｜成交17.26亿",
+            "振华科技｜涨幅9.99%｜成交8.49亿｜1年新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "超级电容",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "超级电容",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：超级电容",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "超级电容",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[脱水研报0521]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "超级电容",
+            "生命周期阶段": "旧逻辑唤醒",
+            "阶段变化": "旧材料唤醒",
+            "变化原因": "过去窗口未出现，但旧材料或证据已命中，属于旧逻辑重新触发。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-07-01"
+            ],
+            "连续出现天数": 1,
+            "priority变化": 0.0,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 171.2,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "capacity_industry",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "优先检查旧逻辑是否有 L2/L3 缺口，再判断是不是有效唤醒。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "当前首次进入观察窗口，多信号共振，盘面正在给出较强 L4 验证；涨停 0 只，新高 9 只，priority 变化 0。",
+            "当前盘面": {
+              "priority": 171.2,
+              "触发信号数": 4,
+              "涨停数": 0,
+              "新高数": 9,
+              "强势股数": 10,
+              "板块涨幅": 1.27,
+              "边际量": 21.28,
+              "成交额": 1072.29,
+              "容量前三": true
+            },
+            "边际变化": {
+              "priority变化": 0.0,
+              "触发信号变化": 0,
+              "涨停变化": 0,
+              "新高变化": 0,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "capacity_industry",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "东阳光｜涨幅10.01%｜成交42.58亿",
+              "火炬电子｜涨幅5.42%｜成交45.36亿｜历史新高",
+              "天奈科技｜涨幅11.47%｜成交9.83亿｜20日新高",
+              "元力股份｜涨幅7.84%｜成交17.26亿",
+              "振华科技｜涨幅9.99%｜成交8.49亿｜1年新高"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "超级电容",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
+        }
+      },
+      {
+        "date": "2026-07-01",
+        "query": "创新药",
+        "classification": "old_logic_wakeup",
+        "confidence": 0.95,
+        "priority_score": 171.17,
+        "matched_theme": "创新药",
+        "trigger_types": [
+          "double_red",
+          "limit_heat",
+          "new_high_direction",
+          "new_high_cluster"
+        ],
+        "strong_stocks": [
+          "艾力斯",
+          "前沿生物",
+          "泽璟制药",
+          "汇宇制药",
+          "三生国健"
+        ],
+        "structured_counts": {
+          "concept": 6,
+          "company_exposure": 8,
+          "evidence": 3,
+          "source_trace": 3,
+          "missing_source_trace": 0
+        },
+        "source_traces": [
+          {
+            "source": "[[20260518 市场逻辑精选]]",
+            "source_name": "20260518 市场逻辑精选",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/20260518 市场逻辑精选.md"
+          },
+          {
+            "source": "[[创新药_DeepDive_数据抽取_20260601]]",
+            "source_name": "创新药_DeepDive_数据抽取_20260601",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/创新药_DeepDive_数据抽取_20260601.md"
+          },
+          {
+            "source": "[[晚间卖方研报汇总_20260614]]",
+            "source_name": "晚间卖方研报汇总_20260614",
+            "source_exists": true,
+            "source_path": "/Users/lbq/Desktop/c c/知识库/wiki/sources/晚间卖方研报汇总_20260614.md"
+          }
+        ],
+        "data_gaps": [],
+        "route": "题材地图 / 深度研究",
+        "next_actions": [
+          "进入 front-map/deep-dive 验证发酵阶段与公司弹性。",
+          "把强势股与已有 entity exposure 对齐，挑出需要跟踪的核心公司。"
+        ],
+        "research_judgment": {
+          "目标": "创新药",
+          "目标类型": "题材",
+          "关联概念": "-",
+          "证据状态": "旧逻辑待验证",
+          "已有证据层": [
+            "L0 图谱登记",
+            "L1 叙事线索",
+            "L4 盘面验证"
+          ],
+          "缺失证据层": [
+            "L2 基线",
+            "L3 官方验证"
+          ],
+          "已有证据": [
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[20260518 市场逻辑精选]]",
+              "来源质量": "-",
+              "摘要": "从既有concept markdown重建"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[创新药_DeepDive_数据抽取_20260601]]",
+              "来源质量": "-",
+              "摘要": "中国创新药进入“商业化兑现+出海分成”拐点期：2025年对外授权总额超1300亿美元、2026Q1达571亿美元；百济/信达等首次全年盈利，恒瑞创新药收入占比61.69%，药明康德在手订单597.7亿元，政策端首发价格和医保/商保目录机制改善。"
+            },
+            {
+              "层级": "L1 叙事线索",
+              "概念": "-",
+              "来源": "[[晚间卖方研报汇总_20260614]]",
+              "来源质量": "-",
+              "摘要": "晚间卖方研报：百济 26Q1 营收105.44亿/净利16.08亿/泽布替尼75.98亿；BD 密集"
+            },
+            {
+              "层级": "L4 盘面验证",
+              "概念": "-",
+              "来源": "盘面候选",
+              "来源质量": "market_feature_store",
+              "摘要": "daily agent 检测到盘面触发信号。"
+            }
+          ],
+          "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+          "不可升级原因": [
+            "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+          ]
+        },
+        "logic_lifecycle": {
+          "逻辑": "创新药",
+          "生命周期阶段": "高位分歧",
+          "阶段变化": "高位分歧",
+          "变化原因": "连续 1 日出现。priority 下降 4.28。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-23",
+            "2026-06-29",
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": -4.28,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 171.17,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+        },
+        "生命周期": {
+          "逻辑": "创新药",
+          "生命周期阶段": "高位分歧",
+          "阶段变化": "高位分歧",
+          "变化原因": "连续 1 日出现。priority 下降 4.28。证据裁判为旧逻辑待验证。",
+          "观察窗口": [
+            "2026-06-23",
+            "2026-06-29",
+            "2026-07-01"
+          ],
+          "连续出现天数": 1,
+          "priority变化": -4.28,
+          "强势股变化": 0,
+          "触发信号变化": 0,
+          "旧材料命中": false,
+          "证据状态": "旧逻辑待验证",
+          "当前priority": 171.17,
+          "当前强势股数": 5,
+          "当前触发信号": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+        },
+        "market_validation": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 7 只，新高 81 只，priority 变化 -4.28。",
+          "当前盘面": {
+            "priority": 171.17,
+            "触发信号数": 4,
+            "涨停数": 7,
+            "新高数": 81,
+            "强势股数": 10,
+            "板块涨幅": 4.71,
+            "边际量": 29.97,
+            "成交额": 1333.34,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": -4.28,
+            "触发信号变化": 0,
+            "涨停变化": -17,
+            "新高变化": 39,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "艾力斯｜涨幅15.21%｜成交22.6亿｜历史新高",
+            "前沿生物｜涨幅18.71%｜成交10.19亿｜60日新高",
+            "泽璟制药｜涨幅11.43%｜成交15.24亿｜120日新高",
+            "汇宇制药｜涨幅20.04%｜成交4.55亿｜20日新高",
+            "三生国健｜涨幅10.17%｜成交17.19亿｜20日新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "盘面验证": {
+          "盘面验证强度": "强验证",
+          "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 7 只，新高 81 只，priority 变化 -4.28。",
+          "当前盘面": {
+            "priority": 171.17,
+            "触发信号数": 4,
+            "涨停数": 7,
+            "新高数": 81,
+            "强势股数": 10,
+            "板块涨幅": 4.71,
+            "边际量": 29.97,
+            "成交额": 1333.34,
+            "容量前三": false
+          },
+          "边际变化": {
+            "priority变化": -4.28,
+            "触发信号变化": 0,
+            "涨停变化": -17,
+            "新高变化": 39,
+            "强势股变化": 0
+          },
+          "关键触发": [
+            "double_red",
+            "limit_heat",
+            "new_high_direction",
+            "new_high_cluster"
+          ],
+          "强势股": [
+            "艾力斯｜涨幅15.21%｜成交22.6亿｜历史新高",
+            "前沿生物｜涨幅18.71%｜成交10.19亿｜60日新高",
+            "泽璟制药｜涨幅11.43%｜成交15.24亿｜120日新高",
+            "汇宇制药｜涨幅20.04%｜成交4.55亿｜20日新高",
+            "三生国健｜涨幅10.17%｜成交17.19亿｜20日新高"
+          ],
+          "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+        },
+        "logic_effectiveness": {
+          "逻辑": "创新药",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "历史有效性": {
+          "逻辑": "创新药",
+          "样本天数": 0,
+          "观察窗口": [],
+          "状态": "样本不足",
+          "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+          "CAR": {
+            "状态": "数据不足/未配置",
+            "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+          }
+        },
+        "semantic_evidence_card": {
+          "标题": "旧逻辑证据卡：创新药",
+          "当前判断": "旧逻辑唤醒",
+          "结构化检查": {
+            "概念": "已命中",
+            "公司暴露": "已命中",
+            "证据": "已命中",
+            "来源回溯": "未发现缺口"
+          },
+          "向量旧材料": {
+            "状态": "未补",
+            "检索词": "-",
+            "命中数量": 0
+          },
+          "命中材料": [],
+          "证据裁判": {
+            "目标": "创新药",
+            "目标类型": "题材",
+            "关联概念": "-",
+            "证据状态": "旧逻辑待验证",
+            "已有证据层": [
+              "L0 图谱登记",
+              "L1 叙事线索",
+              "L4 盘面验证"
+            ],
+            "缺失证据层": [
+              "L2 基线",
+              "L3 官方验证"
+            ],
+            "已有证据": [
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[20260518 市场逻辑精选]]",
+                "来源质量": "-",
+                "摘要": "从既有concept markdown重建"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[创新药_DeepDive_数据抽取_20260601]]",
+                "来源质量": "-",
+                "摘要": "中国创新药进入“商业化兑现+出海分成”拐点期：2025年对外授权总额超1300亿美元、2026Q1达571亿美元；百济/信达等首次全年盈利，恒瑞创新药收入占比61.69%，药明康德在手订单597.7亿元，政策端首发价格和医保/商保目录机制改善。"
+              },
+              {
+                "层级": "L1 叙事线索",
+                "概念": "-",
+                "来源": "[[晚间卖方研报汇总_20260614]]",
+                "来源质量": "-",
+                "摘要": "晚间卖方研报：百济 26Q1 营收105.44亿/净利16.08亿/泽布替尼75.98亿；BD 密集"
+              },
+              {
+                "层级": "L4 盘面验证",
+                "概念": "-",
+                "来源": "盘面候选",
+                "来源质量": "market_feature_store",
+                "摘要": "daily agent 检测到盘面触发信号。"
+              }
+            ],
+            "建议动作": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。",
+            "不可升级原因": [
+              "已有旧材料或研报叙事，但还缺年报/F10 等 L2 基线确认。"
+            ]
+          },
+          "生命周期": {
+            "逻辑": "创新药",
+            "生命周期阶段": "高位分歧",
+            "阶段变化": "高位分歧",
+            "变化原因": "连续 1 日出现。priority 下降 4.28。证据裁判为旧逻辑待验证。",
+            "观察窗口": [
+              "2026-06-23",
+              "2026-06-29",
+              "2026-07-01"
+            ],
+            "连续出现天数": 1,
+            "priority变化": -4.28,
+            "强势股变化": 0,
+            "触发信号变化": 0,
+            "旧材料命中": false,
+            "证据状态": "旧逻辑待验证",
+            "当前priority": 171.17,
+            "当前强势股数": 5,
+            "当前触发信号": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "下一步": "进入分歧观察，关注回撤、扩散减弱和证据是否继续新增。"
+          },
+          "盘面验证": {
+            "盘面验证强度": "强验证",
+            "验证结论": "多信号共振，盘面正在给出较强 L4 验证；涨停 7 只，新高 81 只，priority 变化 -4.28。",
+            "当前盘面": {
+              "priority": 171.17,
+              "触发信号数": 4,
+              "涨停数": 7,
+              "新高数": 81,
+              "强势股数": 10,
+              "板块涨幅": 4.71,
+              "边际量": 29.97,
+              "成交额": 1333.34,
+              "容量前三": false
+            },
+            "边际变化": {
+              "priority变化": -4.28,
+              "触发信号变化": 0,
+              "涨停变化": -17,
+              "新高变化": 39,
+              "强势股变化": 0
+            },
+            "关键触发": [
+              "double_red",
+              "limit_heat",
+              "new_high_direction",
+              "new_high_cluster"
+            ],
+            "强势股": [
+              "艾力斯｜涨幅15.21%｜成交22.6亿｜历史新高",
+              "前沿生物｜涨幅18.71%｜成交10.19亿｜60日新高",
+              "泽璟制药｜涨幅11.43%｜成交15.24亿｜120日新高",
+              "汇宇制药｜涨幅20.04%｜成交4.55亿｜20日新高",
+              "三生国健｜涨幅10.17%｜成交17.19亿｜20日新高"
+            ],
+            "下一步": "优先跟踪是否继续扩散，并要求证据层同步升级。"
+          },
+          "历史有效性": {
+            "逻辑": "创新药",
+            "样本天数": 0,
+            "观察窗口": [],
+            "状态": "样本不足",
+            "说明": "仅 0 个观察日（<3），暂不给历史成绩单，避免假信号。",
+            "CAR": {
+              "状态": "数据不足/未配置",
+              "说明": "未接入 market_snapshot 收益面板（MARKET_SNAPSHOT_DIR 未配置或无前向数据），CAR 不计算。"
+            }
+          },
+          "综合判断": "未补语义证据",
+          "判断理由": "本条未进入语义召回额度，或没有命中旧材料。",
+          "缺口": [],
+          "下一步": "先用旧材料补 L2 基线，再找公告/调研等 L3 事实；不用重复做同一题材 IMA。"
+        }
+      }
+    ],
+    "new_logic_candidate": [],
+    "data_gap": [],
+    "noise_or_unconfirmed": [
+      {
+        "date": "2026-07-01",
+        "query": "连板未映射",
+        "classification": "noise_or_unconfirmed",
+        "confidence": 0.2,
+        "priority_score": 279.0,
+        "matched_theme": "连板未映射",
+        "trigger_types": [
+          "limit_advance_cluster",
+          "capacity_industry"
+        ],
+        "strong_stocks": [],
+        "structured_counts": {
+          "concept": 0,
+          "company_exposure": 0,
+          "evidence": 0,
+          "source_trace": 0,
+          "missing_source_trace": 0
+        },
+        "source_traces": [],
+        "data_gaps": [
+          "placeholder_market_theme"
+        ],
+        "route": "先看连板股名单和主导行业，等题材名明确后再映射",
+        "next_actions": [
+          "这是盘面占位信号：先看连板股名单和主导行业，不做 concept deep-dive。",
+          "等题材归因明确后，再映射到真实概念或标记为噪音。"
+        ]
+      }
+    ]
+  },
+  "semantic_rag": {
+    "enabled": false,
+    "top_n": 0,
+    "k": 3,
+    "mode": "bm25",
+    "warnings": []
+  },
+  "research_judge": {
+    "enabled": true,
+    "warnings": []
+  },
+  "research_queue": {
+    "today_do_ima": [
+      {
+        "目标": "风电",
+        "动作": "今日该做 IMA",
+        "理由": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+        "优先级": 188.62,
+        "生命周期阶段": "升温验证",
+        "阶段变化": "持续观察",
+        "证据状态": "盘面触发待解释",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "大唐发电",
+          "濮阳惠成",
+          "巨化股份",
+          "宏发股份",
+          "巨力索具"
+        ],
+        "建议动作": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。"
+      },
+      {
+        "目标": "燃料电池",
+        "动作": "今日该做 IMA",
+        "理由": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+        "优先级": 182.52,
+        "生命周期阶段": "新出现",
+        "阶段变化": "首次进入观察",
+        "证据状态": "盘面触发待解释",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "金宏气体",
+          "昊华科技",
+          "昊志机电",
+          "东方锆业",
+          "蜀道装备"
+        ],
+        "建议动作": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。"
+      },
+      {
+        "目标": "数据要素",
+        "动作": "今日该做 IMA",
+        "理由": "盘面触发但缺 L1/L2 叙事或基线材料，优先做 IMA/题材地图补边界。",
+        "优先级": 174.74,
+        "生命周期阶段": "新出现",
+        "阶段变化": "首次进入观察",
+        "证据状态": "盘面触发待解释",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "东方财富",
+          "同花顺",
+          "银之杰",
+          "盈新发展",
+          "润建股份"
+        ],
+        "建议动作": "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。"
+      }
+    ],
+    "today_find_official_evidence": [
+      {
+        "目标": "氢能源",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 194.57,
+        "生命周期阶段": "旧逻辑唤醒",
+        "阶段变化": "旧材料唤醒",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "金宏气体",
+          "昊华科技",
+          "昊志机电",
+          "濮阳惠成",
+          "东方锆业"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+      },
+      {
+        "目标": "AI眼镜",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 194.0,
+        "生命周期阶段": "升温验证",
+        "阶段变化": "持续观察",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "格科微",
+          "波长光电",
+          "TCL科技",
+          "激智科技",
+          "敏芯股份"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+      },
+      {
+        "目标": "信创",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 176.14,
+        "生命周期阶段": "旧逻辑唤醒",
+        "阶段变化": "旧材料唤醒",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "银之杰",
+          "润建股份",
+          "汇金科技",
+          "锐捷网络",
+          "东方国信"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+      },
+      {
+        "目标": "超级电容",
+        "动作": "今日该找公告/调研/订单",
+        "理由": "已有 L1 旧逻辑材料，下一步补 L2 基线或 L3 官方验证，不重复做同一题材 IMA。",
+        "优先级": 171.2,
+        "生命周期阶段": "旧逻辑唤醒",
+        "阶段变化": "旧材料唤醒",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "东阳光",
+          "火炬电子",
+          "天奈科技",
+          "元力股份",
+          "振华科技"
+        ],
+        "建议动作": "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+      }
+    ],
+    "today_wait_market_validation": [],
+    "today_downgrade_or_watch": [
+      {
+        "目标": "光刻胶",
+        "动作": "今日降级/观察",
+        "理由": "生命周期转弱为高位分歧，先降级观察，等待新事实或盘面重新扩散。",
+        "优先级": 187.74,
+        "生命周期阶段": "高位分歧",
+        "阶段变化": "高位分歧",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "阳谷华泰",
+          "雅克科技",
+          "江化微",
+          "杭华股份",
+          "兴福电子"
+        ],
+        "建议动作": "降级观察；除非新增 L3 事实或盘面重新扩散，否则减少研究投入。"
+      },
+      {
+        "目标": "创新药",
+        "动作": "今日降级/观察",
+        "理由": "生命周期转弱为高位分歧，先降级观察，等待新事实或盘面重新扩散。",
+        "优先级": 171.17,
+        "生命周期阶段": "高位分歧",
+        "阶段变化": "高位分歧",
+        "证据状态": "旧逻辑待验证",
+        "已有证据层": [
+          "L0 图谱登记",
+          "L1 叙事线索",
+          "L4 盘面验证"
+        ],
+        "缺失证据层": [
+          "L2 基线",
+          "L3 官方验证"
+        ],
+        "强势股": [
+          "艾力斯",
+          "前沿生物",
+          "泽璟制药",
+          "汇宇制药",
+          "三生国健"
+        ],
+        "建议动作": "降级观察；除非新增 L3 事实或盘面重新扩散，否则减少研究投入。"
+      }
+    ],
+    "skipped": {
+      "data_gap_or_unconfirmed": [
+        {
+          "目标": "连板未映射",
+          "动作": "暂不进入研究任务",
+          "理由": "仍有概念、公司、证据、来源或占位缺口，先留在回补/待确认区。",
+          "优先级": 279.0,
+          "生命周期阶段": "-",
+          "阶段变化": "-",
+          "证据状态": "-",
+          "已有证据层": [],
+          "缺失证据层": [],
+          "强势股": [],
+          "建议动作": "人工复核。"
+        }
+      ],
+      "no_clear_action": []
+    },
+    "summary": {
+      "today_do_ima": 3,
+      "today_find_official_evidence": 4,
+      "today_wait_market_validation": 0,
+      "today_downgrade_or_watch": 2,
+      "total": 9,
+      "skipped": 1
+    }
+  },
+  "logic_effectiveness": {
+    "enabled": true,
+    "window": 20,
+    "car_panel_dates": 0,
+    "summary": {
+      "已评估逻辑数": 0,
+      "样本不足逻辑数": 9,
+      "CAR可用逻辑数": 0,
+      "平均胜率": null
+    }
+  },
+  "notes": [
+    "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
+    "回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。"
+  ],
+  "next_actions": [
+    "今日研究任务队列：做 IMA 3 条；找公告/调研/订单 4 条；降级观察 2 条。",
+    "优先打开旧逻辑唤醒：确认是否需要题材地图或深度研究。",
+    "待确认项先看是不是盘面占位或噪音；不要直接当成 concept deep-dive。",
+    "先补齐 daily workflow 产物，否则 agent 判断只作为预览。"
+  ]
+}
