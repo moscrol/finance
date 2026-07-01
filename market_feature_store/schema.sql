@@ -312,6 +312,42 @@ CREATE TABLE IF NOT EXISTS fact_theme_flow_daily (
 );
 CREATE INDEX IF NOT EXISTS idx_fact_theme_flow_date ON fact_theme_flow_daily(trade_date);
 
+CREATE TABLE IF NOT EXISTS fact_mainline_sector_daily (
+    trade_date              DATE,
+    theme_code              TEXT,
+    theme_name              TEXT,
+    sector_ts_code          TEXT,
+    sector_name             TEXT,
+    sort_no                 INTEGER,
+    today_pct               DOUBLE,
+    limit_up_count          INTEGER,
+    max_limit_height        INTEGER,
+    amount                  DOUBLE,
+    amount_estimated        DOUBLE,
+    amount_relative_ratio   DOUBLE,
+    net_inflow_1d           DOUBLE,
+    strength                DOUBLE,
+    strength_chg            DOUBLE,
+    cycle_level             TEXT,
+    cycle_status            TEXT,
+    startup_date_small      DATE,
+    startup_date_big        DATE,
+    startup_date_super      DATE,
+    startup_date_extend     DATE,
+    high_status             TEXT,
+    high_status_label       TEXT,
+    near_breakout_status    TEXT,
+    near_breakout_label     TEXT,
+    near_breakout_gap_pct   DOUBLE,
+    note                    TEXT,
+    source                  TEXT,
+    updated_at              TIMESTAMP,
+    PRIMARY KEY (trade_date, theme_code, sector_ts_code)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_mainline_sector_date ON fact_mainline_sector_daily(trade_date);
+CREATE INDEX IF NOT EXISTS idx_fact_mainline_sector_theme ON fact_mainline_sector_daily(theme_code);
+CREATE INDEX IF NOT EXISTS idx_fact_mainline_sector_sector ON fact_mainline_sector_daily(sector_ts_code);
+
 CREATE TABLE IF NOT EXISTS fact_historical_mapping (
     source_date     DATE,
     similar_date    DATE,
