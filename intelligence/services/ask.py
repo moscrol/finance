@@ -32,9 +32,11 @@ from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
     QUESTION_STOCK_DEEP_DIVE,
+    QUESTION_THEME_ANALYSIS,
     QuestionPlan,
     plan_answer_question,
 )
+from intelligence.services import market_structure, theme_lifecycle
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
     MODULE_DEEP_DIVE,
@@ -157,6 +159,9 @@ class AskResult:
     retrieval_telemetry: research_brief.RetrievalTelemetry | None = None
     counterevidence: research_brief.CounterEvidencePlan | None = None
     stock_brief: research_brief.StockResearchBrief | None = None
+    # P1 技能层：市场结构状态机（个股/题材共享）与题材生命周期诊断。
+    market_state: market_structure.MarketStructureState | None = None
+    theme_lifecycle: theme_lifecycle.ThemeLifecycleDiagnosis | None = None
     # (label, 完整报告全文) per routed module, only when --detail is set
     detail_reports: list[tuple[str, str]] = field(default_factory=list)
 
@@ -605,6 +610,23 @@ def answer_query(options: AskOptions) -> AskResult:
         l3_lookup_items=len(result.l3_evidence.items),
     )
     counter_plan = research_brief.build_counterevidence_plan(audit, stage=quality_context.stage)
+    # --- P1 技能链：市场结构状态机（公共依赖）→（题材问题时）生命周期诊断 ---
+    market_state = market_structure.classify_market_structure(
+        market_lines, list((candidate or {}).get("trigger_types", []) or [])
+    )
+    result.market_state = market_state
+    gap_lines.append(f"市场结构状态机：阶段={market_state.phase}；{market_state.playbook}")
+    if question_plan.question_type == QUESTION_THEME_ANALYSIS:
+        diag = theme_lifecycle.diagnose_theme_lifecycle(
+            result.matched_theme or options.query,
+            evidence_chain,
+            gap_lines,
+            market_state,
+            candidate_tier=result.candidate_tier,
+        )
+        result.theme_lifecycle = diag
+        gap_lines.append(f"题材生命周期：{diag.stage}——{diag.guidance}")
+        gap_lines.extend(f"题材生命周期缺口：{g}" for g in diag.gaps)
     result.evidence_audit = audit
     result.retrieval_telemetry = telemetry
     result.counterevidence = counter_plan
@@ -652,6 +674,10 @@ def answer_query(options: AskOptions) -> AskResult:
         )
         if result.stock_brief is not None:
             evidence_text = f"{evidence_text}\n\n{result.stock_brief.to_prompt_block()}"
+        if result.market_state is not None:
+            evidence_text = f"{evidence_text}\n\n{result.market_state.to_prompt_block()}"
+        if result.theme_lifecycle is not None:
+            evidence_text = f"{evidence_text}\n\n{result.theme_lifecycle.to_prompt_block()}"
         if result.forecast_preflight is not None:
             evidence_text = f"{evidence_text}\n\n{forecast_preflight.render_preflight_prompt(result.forecast_preflight)}"
         if options.include_market_value_block:

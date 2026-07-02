@@ -134,6 +134,8 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
                 f"layers={('/'.join(f'{k}x{v}' for k, v in sorted(audit.layer_counts.items())) if audit else '-')}",
                 f"covers_l3={telemetry.covers_l3 if telemetry else '-'}",
                 f"stock_brief={result.stock_brief is not None}",
+                f"market_phase={(result.market_state.phase if result.market_state else '-')}",
+                f"theme_stage={(result.theme_lifecycle.stage if result.theme_lifecycle else '-')}",
             ],
             warnings=list(audit.warnings) if audit else [],
         )
