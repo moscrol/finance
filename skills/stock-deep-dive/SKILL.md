@@ -36,6 +36,21 @@ description: 个股深挖 / 复盘先验（行情前瞻）的输出契约与质�
 
 ### 第 1 步 · 确定性数据块（先取数，后写作）
 
+数据块不要手工拼——ask CLI 的 `--compose` 路径会自动生成 D1-D4 并串联
+知识库 wiki RAG / 图谱 / 盘面快照，标准取数命令：
+
+```bash
+# 个股深挖（D1/D2/D3 数据块 + wiki RAG + 图谱 + L3 官方证据补查）
+python3 -m intelligence.cli ask "深挖 <公司名>" --compose --l3-lookup --detail
+
+# 复盘先验（forecast_preflight 查漏门 + D4 主线结构 + 全量复盘数据块）
+python3 -m intelligence.cli ask "复盘先验" --compose --detail
+```
+
+注意：不带 `--compose` 时 D1-D4 不生成；L3 官方证据补查默认关闭，
+个股深挖必须显式带 `--l3-lookup`（或设 `FINANCE_L3_LOOKUP_ENABLED=1`）。
+输出的【检索可观测】section 里确认各数据块 generated 后再写叙事。
+
 个股深挖必须先准备三个数据块，再开始写叙事（缺数据写"缺口"，不许跳过）：
 
 - **D1 市场价值与替代队列**：区间涨幅、峰值涨幅、峰后回撤、收益保留率、半衰期代理、
