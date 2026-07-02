@@ -24,6 +24,7 @@
   "schema_version": "1.0",
   "date": "2026-07-03",
   "agent": "codex",
+  "source": "duckdb",
   "manifest_sha": "<来自当日 manifest>",
   "stage": "底部横盘第3天",
   "main_judgment": "一句话市场结构判断",
@@ -33,6 +34,8 @@
   "recheck": {}
 }
 ```
+
+`source` 三流分账（可省略，默认 `duckdb`）：`duckdb`=盘面流（T+1 回检）、`briefing`=晨汇事件流（当日/T+1）、`sellside`=晚间卖方流（T+3/T+5）。三流验证窗口和评判标准不同，`aggregate` 按 `agent/source` 分开统计，不混池。各流的标准问句/检测点/证伪点见 [forecast-question-templates.md](forecast-question-templates.md)。
 
 ---
 

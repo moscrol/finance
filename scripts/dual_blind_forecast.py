@@ -37,6 +37,11 @@ LEDGER_DIR = REPO / "docs" / "learning" / "forecast-review-ledger"
 DB_PATH = REPO / "db" / "market_feature_store.duckdb"
 
 ALLOWED_AGENTS = {"codex", "claude", "devin"}
+# 三流分账：盘面(duckdb, T+1) / 晨汇事件(briefing, 当日/T+1) / 晚间卖方(sellside, T+3/T+5)
+# 验证窗口与评判标准不同，聚合必须分流统计，混池算胜率会互相污染。
+# 问句模板见 docs/learning/forecast-question-templates.md
+ALLOWED_SOURCES = {"duckdb", "briefing", "sellside"}
+DEFAULT_SOURCE = "duckdb"
 REQUIRED_ANSWER_FIELDS = (
     "schema_version",
     "date",
@@ -159,6 +164,10 @@ def validate_answer(answer_path: Path, *, ledger_dir: Path = LEDGER_DIR) -> list
     if str(answer["agent"]).lower() not in ALLOWED_AGENTS:
         errors.append(f"agent 应为 {sorted(ALLOWED_AGENTS)} 之一，实际 {answer['agent']}")
 
+    source = str(answer.get("source") or DEFAULT_SOURCE).lower()
+    if source not in ALLOWED_SOURCES:
+        errors.append(f"source 应为 {sorted(ALLOWED_SOURCES)} 之一，实际 {answer.get('source')}")
+
     picks = answer.get("picks") or []
     if not isinstance(picks, list) or not picks:
         errors.append("picks 应为非空列表")
@@ -214,8 +223,9 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
         except Exception:
             continue
         agent = str(answer.get("agent") or "unknown").lower()
+        source = str(answer.get("source") or DEFAULT_SOURCE).lower()
         stat = per_agent.setdefault(
-            agent,
+            (agent, source),
             {
                 "answers": 0,
                 "rechecked": 0,
@@ -244,9 +254,11 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
                 stat["market_threshold_hits"] += 1
 
     agents: dict[str, Any] = {}
-    for agent, stat in sorted(per_agent.items()):
+    for (agent, source), stat in sorted(per_agent.items()):
         checked = stat["market_threshold_checked"]
-        agents[agent] = {
+        agents[f"{agent}/{source}"] = {
+            "agent": agent,
+            "source": source,
             "answers": stat["answers"],
             "rechecked": stat["rechecked"],
             "dates": stat["dates"],
@@ -262,6 +274,7 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
         "ledger_dir": str(ledger_dir),
         "agents": agents,
         "notes": [
+            "分流分账：同一 agent 的 duckdb/briefing/sellside 三流分开统计，验证窗口不同不可混池。",
             "单期噪声大：answers < 10 的 agent 统计只作参考，不下结论。",
             "recheck 块由回检人/脚本按统一指标回填：pick_returns_t1/t3（标的池各标的收益%）、",
             "beat_benchmark_t3（标的池 T+3 是否跑赢基准）、market_threshold_hit（§5 市场阈值是否命中）。",
@@ -275,12 +288,12 @@ def _render_aggregate_md(report: dict[str, Any]) -> str:
         "",
         f"生成时间：{report['generated_at']}",
         "",
-        "| agent | 答卷数 | 已回检 | T+1 标的均值% | T+3 标的均值% | T+3 跑赢次数 | 市场阈值命中率 |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| agent | 流 | 答卷数 | 已回检 | T+1 标的均值% | T+3 标的均值% | T+3 跑赢次数 | 市场阈值命中率 |",
+        "|---|---|---:|---:|---:|---:|---:|---:|",
     ]
-    for agent, stat in report["agents"].items():
+    for key, stat in report["agents"].items():
         lines.append(
-            f"| {agent} | {stat['answers']} | {stat['rechecked']} | "
+            f"| {stat.get('agent', key)} | {stat.get('source', '-')} | {stat['answers']} | {stat['rechecked']} | "
             f"{stat['avg_pick_return_t1'] if stat['avg_pick_return_t1'] is not None else '-'} | "
             f"{stat['avg_pick_return_t3'] if stat['avg_pick_return_t3'] is not None else '-'} | "
             f"{stat['beat_benchmark_t3']} | "
