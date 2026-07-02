@@ -65,7 +65,7 @@ def fetch(date: str) -> dict:
         ROW_NUMBER() OVER (PARTITION BY m.sw_industry
           ORDER BY s.pct_chg*sqrt(GREATEST(s.amount,0)) DESC) w_rank
       FROM db.fact_stock_daily s
-      JOIN (SELECT stock_ts_code, any_value(sw_industry) sw_industry
+      JOIN (SELECT stock_ts_code, split_part(any_value(sw_industry), '-', 1) sw_industry
             FROM db.fact_sector_stock_daily
             WHERE trade_date=? AND sw_industry IS NOT NULL GROUP BY 1) m USING (stock_ts_code)
       WHERE s.trade_date=? AND s.pct_chg>0 AND s.amount IS NOT NULL)
