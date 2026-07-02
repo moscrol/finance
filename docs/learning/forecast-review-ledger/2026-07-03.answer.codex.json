@@ -1,0 +1,286 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-03",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "09da01fc5a8db39e",
+  "date_policy": {
+    "date_field": "forecast_target_trade_date",
+    "target_trade_date": "2026-07-03",
+    "perspective_trade_date": "2026-07-02",
+    "duckdb_cutoff": "2026-07-02",
+    "source_material_date": "2026-07-02",
+    "rule": "文件名/date 统一表示要验证的目标交易日；perspective_trade_date/duckdb_cutoff 表示输入冻结日。"
+  },
+  "flow_entries": [
+    {
+      "flow_type": "duckdb_market",
+      "flow_name": "DuckDB 盘面流",
+      "validation_windows": [
+        "T+1"
+      ],
+      "question_template": "基于截至昨日收盘的 DuckDB 数据，判断市场阶段、双红候选、涨停/连板方向和今日最可能路径。",
+      "hypothesis_ids": [
+        "market:path-20260703",
+        "direction:double-red-chem-metals",
+        "sentiment:limit-heat-advance"
+      ]
+    },
+    {
+      "flow_type": "sellside_cross",
+      "flow_name": "晚间卖方流",
+      "validation_windows": [
+        "T+3",
+        "T+5"
+      ],
+      "question_template": "晚间卖方研报经覆盖密度交叉后，判断方向是信息增量还是跟风透支，并给出 T+3/T+5 确认或证伪信号。",
+      "hypothesis_ids": [
+        "sellside:diamond-heat"
+      ]
+    }
+  ],
+  "stage": "2026-07-02收盘后输入冻结；市场处于放量后强分歧，叠加晚间卖方覆盖密度交叉样本。",
+  "main_judgment": "截至2026-07-02收盘，市场处于分歧阶段而非退潮：上涨家数从4240降至2219，涨停从148降至93且跌停升至40，但成交34503.1亿、量能仍为20日均量108.42%。今日主路径看低开/平开分歧后，资源化工承接并观察科技午后止跌修复；金刚石散热是卖方交叉中的信息增量，但尚未确认主线。",
+  "direction_ranking": [
+    "氟化工",
+    "金属铜",
+    "化学制品",
+    "金刚石散热"
+  ],
+  "picks": [
+    {
+      "code": "300179.SZ",
+      "name": "四方达",
+      "strategy": "卖方覆盖密度交叉·早期增量观察",
+      "reason": "知识库0702卖方交叉显示金刚石库内仅2家覆盖；四方达20亿定增投PCD微钻为L2公告级底座，盘面7/2涨5.54%、成交48.48亿。"
+    },
+    {
+      "code": "600172.SH",
+      "name": "黄河旋风",
+      "strategy": "卖方覆盖密度交叉·盘面龙头观察",
+      "reason": "7/2涨停+10.01%、成交40.55亿，是金刚石散热/超硬材料观察篮子中最强盘面样本。"
+    },
+    {
+      "code": "920725.BJ",
+      "name": "惠丰钻石",
+      "strategy": "卖方覆盖密度交叉·弹性样本观察",
+      "reason": "7/2涨9.88%、成交10.12亿，作为北交所弹性腿观察方向扩散是否成立。"
+    }
+  ],
+  "thresholds": {
+    "market": "今日主路径为低开/平开分歧 -> 资源化工承接 -> 午后观察科技止跌修复。路径成立条件：上涨家数不低于2500附近、跌停压回30以下、氟化工/金属铜至少一个维持双红，电子不继续放量大跌。",
+    "direction": "双红候选按 pct_chg>0、diff_ratio>10、amount>500 观察：氟化工延续阈值为成交>1500亿且diff>10；金属铜延续阈值为成交>1000亿且diff>15；化学制品需涨幅>1%且成交>1100亿，否则偏扩散衰竭。",
+    "targets": "涨停热度看降温但不冰点：若涨停维持70以上、跌停少于50，且连板最高高度不低于4板或2板晋级率不继续下探，则分歧修复路径仍可观察。金刚石散热观察黄河旋风、四方达、惠丰钻石中至少2只T+3继续跑赢市场。",
+    "falsify": "若开盘后涨停数快速跌破70、跌停扩到50以上、全市场成交缩到20日均量以下，同时氟化工和金属铜双双翻绿且diff跌破10，则主路径失败，切到退潮/高低切失败剧本；若卖方覆盖继续加密但金刚石核心样本不再创新高且观察篮子成交缩回120亿以下，则金刚石散热降级为一日脉冲。"
+  },
+  "hypotheses": [
+    {
+      "id": "sellside:diamond-heat",
+      "flow_type": "sellside_cross",
+      "type": "direction",
+      "direction": "金刚石散热",
+      "verdict_window": "T+3，至2026-07-07收盘后回填",
+      "current_verdict": "pending",
+      "evidence": {
+        "coverage_density": "知识库repo origin/pdf-ingest/sellside-digest-20260702 的卖方交叉报告显示金刚石库内仅2家覆盖，属于早期增量。",
+        "evidence_hardness": "四方达20亿定增投PCD微钻为L2公告；华为韬系列金刚石盖板/通孔基板2026年底订单仍为专家口径L4。",
+        "market_position": "2026-07-02黄河旋风+10.01%、惠丰钻石+9.88%、四方达+5.54%；六股观察篮子成交约158亿。"
+      },
+      "confirm_signals": [
+        "观察篮子单日成交放大到180亿以上，或连续两天维持150亿以上。",
+        "黄河旋风、四方达、惠丰钻石中至少2只继续跑赢市场。",
+        "行情库形成稳定板块标签且方向涨幅为正、diff_ratio转正。"
+      ],
+      "exhaustion_signals": [
+        "覆盖继续加密但核心样本不再创新高。",
+        "观察篮子成交缩回120亿以下。",
+        "只有单只情绪股涨停，其他同链标的走弱。"
+      ],
+      "checks": [
+        {
+          "name": "basket_amount",
+          "metric": "diamond_heat_basket_amount",
+          "operator": ">=",
+          "threshold": 180,
+          "unit": "亿元"
+        },
+        {
+          "name": "leaders_relative_strength",
+          "metric": "leaders_outperform_count",
+          "operator": ">=",
+          "threshold": 2
+        }
+      ],
+      "falsifiers": [
+        {
+          "name": "coverage_dense_no_price_confirmation",
+          "condition": "覆盖继续加密但核心样本不再创新高"
+        },
+        {
+          "name": "basket_amount_shrink",
+          "condition": "观察篮子成交缩回120亿以下"
+        }
+      ]
+    },
+    {
+      "id": "market:path-20260703",
+      "flow_type": "duckdb_market",
+      "type": "market_path",
+      "direction": "低开/平开分歧 -> 资源化工承接 -> 午后科技止跌修复",
+      "verdict_window": "T+1，2026-07-03收盘后回填",
+      "current_verdict": "pending",
+      "evidence": {
+        "market_stage": "2026-07-02上涨家数2219，较2026-07-01的4240大幅回落；涨停93、跌停40，显示分歧扩散。",
+        "volume": "全市场成交34503.1亿，环比-5.72%，仍为20日均量108.42%，说明不是缩量退潮。",
+        "concentration": "前三行业成交占比48.4%，concentration_state=集中，电子成交占比33.0%但当日调整，资源化工/有色出现双红承接。"
+      },
+      "confirm_signals": [
+        "上涨家数回到2500附近或以上。",
+        "跌停数压回30以下，涨停数维持70以上。",
+        "氟化工或金属铜至少一个维持双红，电子/半导体不再继续放量大跌。"
+      ],
+      "exhaustion_signals": [
+        "涨停数快速跌破70且跌停扩到50以上。",
+        "全市场成交缩到20日均量以下。",
+        "氟化工和金属铜双双翻绿且diff_ratio跌破10。"
+      ],
+      "checks": [
+        {
+          "name": "advancers",
+          "metric": "fact_market_daily.advancers",
+          "operator": ">=",
+          "threshold": 2500
+        },
+        {
+          "name": "limit_down",
+          "metric": "fact_market_daily.limit_down",
+          "operator": "<",
+          "threshold": 30
+        },
+        {
+          "name": "limit_up",
+          "metric": "fact_market_daily.limit_up",
+          "operator": ">=",
+          "threshold": 70
+        }
+      ],
+      "falsifiers": [
+        {
+          "name": "risk_expands",
+          "condition": "涨停数跌破70且跌停数扩到50以上"
+        },
+        {
+          "name": "double_red_candidates_fail",
+          "condition": "氟化工和金属铜双双翻绿且diff_ratio跌破10"
+        }
+      ]
+    },
+    {
+      "id": "direction:double-red-chem-metals",
+      "flow_type": "duckdb_market",
+      "type": "direction",
+      "direction": "氟化工/金属铜/化学制品双红候选",
+      "verdict_window": "T+1，2026-07-03收盘后回填",
+      "current_verdict": "pending",
+      "evidence": {
+        "fluorine": "氟化工2026-07-02涨0.66%，成交1631.32亿，diff_ratio=14.49。",
+        "copper": "金属铜2026-07-02涨0.58%，成交1122.67亿，diff_ratio=23.54。",
+        "chemical_products": "化学制品2026-07-02涨0.42%，成交1054.06亿，diff_ratio=20.64；但涨幅偏弱，偏扩散衰竭观察。"
+      },
+      "confirm_signals": [
+        "氟化工成交维持1500亿以上且diff_ratio>10。",
+        "金属铜成交维持1000亿以上且diff_ratio>15。",
+        "化学制品涨幅重新扩大到1%以上且成交超过1100亿。"
+      ],
+      "exhaustion_signals": [
+        "氟化工成交低于1300亿或diff_ratio低于8且板块翻绿。",
+        "金属铜成交低于900亿或diff_ratio跌回10以下。",
+        "化学制品翻绿或diff_ratio低于12。"
+      ],
+      "checks": [
+        {
+          "name": "fluorine_double_red",
+          "metric": "氟化工 pct_chg/diff_ratio/amount",
+          "operator": "composite",
+          "threshold": "pct_chg>0 AND diff_ratio>10 AND amount>1500"
+        },
+        {
+          "name": "copper_double_red",
+          "metric": "金属铜 pct_chg/diff_ratio/amount",
+          "operator": "composite",
+          "threshold": "pct_chg>0 AND diff_ratio>15 AND amount>1000"
+        },
+        {
+          "name": "chemical_products_reaccelerate",
+          "metric": "化学制品 pct_chg/amount",
+          "operator": "composite",
+          "threshold": "pct_chg>1 AND amount>1100"
+        }
+      ],
+      "falsifiers": [
+        {
+          "name": "fluorine_exhaustion",
+          "condition": "氟化工成交低于1300亿或diff_ratio低于8且板块翻绿"
+        },
+        {
+          "name": "copper_exhaustion",
+          "condition": "金属铜成交低于900亿或diff_ratio跌回10以下"
+        }
+      ]
+    },
+    {
+      "id": "sentiment:limit-heat-advance",
+      "flow_type": "duckdb_market",
+      "type": "sentiment",
+      "direction": "涨停热度降温但不冰点，连板晋级率下降但高度未死",
+      "verdict_window": "T+1，2026-07-03收盘后回填",
+      "current_verdict": "pending",
+      "evidence": {
+        "limit_heat": "涨停数从2026-07-01的148降至2026-07-02的93，题材涨停热度汇总从772降至413。",
+        "downside_risk": "跌停数从7升至40，亏钱效应开始冒头。",
+        "advance_rate": "2板晋级率从21/120=18%降至15/128=12%，3板晋级率从4/19=21%降至3/20=15%；但最高板从3板升至4板。"
+      },
+      "confirm_signals": [
+        "涨停数维持70以上。",
+        "跌停数少于50并最好回落到30以下。",
+        "最高连板不低于4板，或2板晋级率不再继续低于12%。"
+      ],
+      "exhaustion_signals": [
+        "涨停数跌破70。",
+        "跌停数扩到50以上。",
+        "最高板断到3板以下且2板晋级率继续下行。"
+      ],
+      "checks": [
+        {
+          "name": "limit_up_heat",
+          "metric": "fact_market_daily.limit_up",
+          "operator": ">=",
+          "threshold": 70
+        },
+        {
+          "name": "limit_down_risk",
+          "metric": "fact_market_daily.limit_down",
+          "operator": "<",
+          "threshold": 50
+        },
+        {
+          "name": "max_boards",
+          "metric": "fact_limit_advance_daily.max_boards",
+          "operator": ">=",
+          "threshold": 4
+        }
+      ],
+      "falsifiers": [
+        {
+          "name": "limit_heat_breaks",
+          "condition": "涨停数跌破70"
+        },
+        {
+          "name": "advance_breaks",
+          "condition": "最高板断到3板以下且2板晋级率继续下行"
+        }
+      ]
+    }
+  ],
+  "recheck": {}
+}
