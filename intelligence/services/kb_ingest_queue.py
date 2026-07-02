@@ -69,6 +69,7 @@ def build_kb_ingest_queue(
     market_date: str,
     source_artifact: str,
     created_at: str | None = None,
+    resolved_themes: set[str] | None = None,
 ) -> dict[str, Any]:
     created = created_at or now_iso()
     tasks: list[dict[str, Any]] = []
@@ -81,6 +82,16 @@ def build_kb_ingest_queue(
         )
     )
     tasks.extend(_tasks_from_data_gaps((research_queue.get("skipped") or {}).get("data_gap_or_unconfirmed") or []))
+
+    resolved_skipped: list[str] = []
+    if resolved_themes:
+        kept: list[dict[str, Any]] = []
+        for task in tasks:
+            if str(task["theme"]) in resolved_themes:
+                resolved_skipped.append(str(task["theme"]))
+            else:
+                kept.append(task)
+        tasks = kept
 
     counters: Counter[tuple[str, str]] = Counter()
     for task in tasks:
@@ -104,6 +115,7 @@ def build_kb_ingest_queue(
         "summary": {
             "total_tasks": len(tasks),
             "by_task_type": dict(sorted(by_task_type.items())),
+            "resolved_themes_skipped": sorted(set(resolved_skipped)),
         },
         "glossary": GLOSSARY,
         "notes": [

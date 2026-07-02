@@ -16,7 +16,7 @@ from intelligence.services.logic_market_match import (
     batch_match_logic_to_market,
 )
 from intelligence.services import kb_rag
-from intelligence.services import kb_ingest_queue
+from intelligence.services import kb_ingest_queue, kb_queue_receipt
 from intelligence.services import logic_lifecycle
 from intelligence.services import logic_effectiveness
 from intelligence.services import market_validation
@@ -520,6 +520,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         task_queue,
         market_date=options.date,
         source_artifact=str(paths.market_exports / f"{options.date}-daily-agent.json"),
+        resolved_themes=kb_queue_receipt.resolved_themes(paths.knowledge_wiki),
     )
     report = {
         "date": options.date,

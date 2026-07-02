@@ -969,6 +969,25 @@ def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(func=cmd_daily)
 
 
+def add_kb_queue_status_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "kb-queue-status",
+        help="读知识库仓跨仓回补队列回执（receipt.json），看哪些缺口已补/待处理",
+    )
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；默认 KB_VAULT 或约定路径")
+    parser.add_argument("--since", default=None, help="只看该日期（YYYY-MM-DD）及之后的回执")
+    parser.set_defaults(func=cmd_kb_queue_status)
+
+
+def cmd_kb_queue_status(args: argparse.Namespace) -> int:
+    from intelligence import paths as project_paths
+    from intelligence.services import kb_queue_receipt
+
+    kb_wiki = Path(args.kb_wiki).expanduser() if args.kb_wiki else project_paths.default_paths().knowledge_wiki
+    print(kb_queue_receipt.render_status(kb_wiki, since=args.since))
+    return 0
+
+
 def add_theme_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("theme", help="Run theme radar workflows")
     parser.add_argument("--date", required=True, help="Trade date YYYY-MM-DD")
@@ -2084,6 +2103,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_adapter_smoke_parser(subparsers)
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)
+    add_kb_queue_status_parser(subparsers)
     add_l3_ingest_parser(subparsers)
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)
