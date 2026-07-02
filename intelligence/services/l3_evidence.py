@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from intelligence.services.answer_orchestrator import (
     QUESTION_NEWS_IMPACT,
@@ -44,6 +44,11 @@ class L3LookupConfig:
     cache_dir: str | None = None
     cache_ttl_seconds: int = 0
 
+    # 默认结果缓存：公告/互动易在 15 分钟内基本不会变，缓存避免同一会话内
+    # 重复拉 SSE uid 映射（首建 6-7 分钟）导致超时。设 FINANCE_L3_CACHE_TTL_SECONDS=0 可关。
+    DEFAULT_CACHE_DIR: ClassVar[str] = str(Path.home() / ".cache" / "finance-l3")
+    DEFAULT_CACHE_TTL_SECONDS: ClassVar[int] = 900
+
     @classmethod
     def from_env(
         cls,
@@ -65,8 +70,8 @@ class L3LookupConfig:
             python=os.environ.get("FINANCE_L3_PYTHON") or sys.executable,
             pythonpath=os.environ.get("FINANCE_L3_PYTHONPATH") or None,
             cwd=os.environ.get("FINANCE_L3_CWD") or None,
-            cache_dir=os.environ.get("FINANCE_L3_CACHE_DIR") or None,
-            cache_ttl_seconds=_env_int("FINANCE_L3_CACHE_TTL_SECONDS", 0),
+            cache_dir=os.environ.get("FINANCE_L3_CACHE_DIR") or cls.DEFAULT_CACHE_DIR,
+            cache_ttl_seconds=_env_int("FINANCE_L3_CACHE_TTL_SECONDS", cls.DEFAULT_CACHE_TTL_SECONDS),
         )
 
 

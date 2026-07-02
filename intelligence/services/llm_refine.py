@@ -336,6 +336,7 @@ def _build_synthesis_prompt(
     citation_legend: str,
     quality_context: object | None = None,
     experience_guidance: str = "",
+    exemplar_guidance: str = "",
 ) -> str:
     legend = f"\n\n## 引用图例（编号 → 来源，回答里请沿用这些编号）\n{citation_legend}" if citation_legend else ""
     quality_block = ""
@@ -346,11 +347,18 @@ def _build_synthesis_prompt(
         if experience_guidance
         else ""
     )
+    exemplar_block = (
+        "\n\n## 高分样板（few-shot 锚：只学结构、叙事组织和论证方式；"
+        "严禁照抄样板里的结论、数据或个股判断，回答只能基于上方证据）\n"
+        f"{exemplar_guidance}"
+        if exemplar_guidance
+        else ""
+    )
     return (
         f"用户问题：{query}\n"
         f"命中主题：{theme}\n\n"
         f"以下是已检索到的多源证据（你的回答只能据此展开）：\n"
-        f"{evidence_text}{legend}{quality_block}{experience_block}\n\n"
+        f"{evidence_text}{legend}{quality_block}{experience_block}{exemplar_block}\n\n"
         f"请据此有机融合成一段分析师口吻的回答。"
     )
 
@@ -362,6 +370,7 @@ def build_synthesis_messages(
     citation_legend: str = "",
     quality_context: object | None = None,
     experience_guidance: str = "",
+    exemplar_guidance: str = "",
 ) -> list[dict]:
     """Assemble the turn-1 synthesis ``[system, user]`` messages.
 
@@ -379,6 +388,7 @@ def build_synthesis_messages(
                 citation_legend,
                 quality_context,
                 experience_guidance,
+                exemplar_guidance,
             ),
         },
     ]
