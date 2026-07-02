@@ -229,8 +229,8 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 | 1 | 渲染每日复盘 HTML | `python3 scripts/render_daily_review_html.py D` | 从 md → html |
 | 2 | 渲染题材雷达 HTML | `python3 scripts/render_market_triggered_theme_brief_html.py D` | 若 quality-gate 拦截，手工从 md 渲染 |
 | 3 | 渲染题材候选工作台 | `python3 scripts/render_theme_candidates_html.py D`（若存在） | |
-| 4 | 策略四矩阵 | `python3 scripts/render_strategy4_dual_engine_matrix.py` | 自动拉 DuckDB 数据 |
-| 5 | 策略一矩阵 | 走 `skills/strategy1-matrix` 流程 | 非自动，需 agent 判断 T1/T2/OBS |
+| 4 | 策略四矩阵 | 已内置到 `intelligence.cli daily`（strategy4-matrix 步） | 也可手动 `render_strategy4_dual_engine_matrix.py --end D` |
+| 5 | 策略一/三矩阵 | 已内置到 `intelligence.cli daily`（strategy1-matrix-draft / strategy3-matrix 步） | 策略一自动行为「机械初稿」，人工复核仍走 `skills/strategy1-matrix`（人工行不会被机械行覆盖） |
 | 6 | 机构胜率 | `python3 skills/opinion-cross/scripts/render_winrate_html.py --vault <KB_WIKI> --date D` | KB_WIKI = 知识库/wiki |
 | 7 | 晨会简报 | `python3 <KB>/skills/morning-briefing/scripts/render_briefing_html.py D --vault <KB_WIKI>` | 需源 md 存在 |
 | 8 | 进化流水线 8步 | `bash scripts/evolve_daily.sh D` | 不加 --force 除非数据有缺口 |
@@ -244,9 +244,12 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 
 1. 生成：`intelligence.cli daily --skip-sync --from-step daily-review`（见上）。
 2. 策略记录：`python3 scripts/evolve.py generate --date D`。
-3. 策略一矩阵：走 `skills/strategy1-matrix`（事实层 → row JSON → update_matrix.py，
-   先 `--dry-run`）。
-4. 其余矩阵按需：`render_strategy4_dual_engine_matrix.py`、`backfill_strategy3_touch_matrix.py` 等。
+3. 策略一/三/四矩阵：`intelligence.cli daily` 生成段已自动跑（strategy1-matrix-draft →
+   strategy3-matrix --append-missing → strategy4-matrix）；策略一产出的是「机械初稿·待人工复核」行，
+   人工终判仍走 `skills/strategy1-matrix`（事实层 → row JSON → update_matrix.py，先 `--dry-run`；
+   人工行不会被后续机械初稿覆盖）。
+4. 手动补跑单个矩阵：`generate_strategy1_mechanical_row.py --date D`、
+   `backfill_strategy3_touch_matrix.py --append-missing`、`render_strategy4_dual_engine_matrix.py --end D`。
 
 ## 迭代规则
 
