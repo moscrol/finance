@@ -31,12 +31,13 @@ from intelligence.services import experience_cards, forecast_preflight, kb_rag, 
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
+    QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
     QUESTION_THEME_ANALYSIS,
     QuestionPlan,
     plan_answer_question,
 )
-from intelligence.services import market_structure, theme_lifecycle
+from intelligence.services import event_transmission, evidence_gap_radar, market_structure, theme_lifecycle, valuation_gap
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
     MODULE_DEEP_DIVE,
@@ -162,6 +163,10 @@ class AskResult:
     # P1 技能层：市场结构状态机（个股/题材共享）与题材生命周期诊断。
     market_state: market_structure.MarketStructureState | None = None
     theme_lifecycle: theme_lifecycle.ThemeLifecycleDiagnosis | None = None
+    # P2 技能层：事件冲击传导（news_impact）/ 证据缺口雷达 + 估值四问（个股深挖）。
+    event_brief: event_transmission.EventTransmissionBrief | None = None
+    gap_radar: evidence_gap_radar.GapRadarReport | None = None
+    valuation_note: valuation_gap.ValuationGapNote | None = None
     # (label, 完整报告全文) per routed module, only when --detail is set
     detail_reports: list[tuple[str, str]] = field(default_factory=list)
 
@@ -632,7 +637,17 @@ def answer_query(options: AskOptions) -> AskResult:
     result.counterevidence = counter_plan
     gap_lines.extend(f"证据分层审计：{w}" for w in audit.warnings)
     follow_ups.extend(counter_plan.follow_up_lines())
+    if question_plan.question_type == QUESTION_NEWS_IMPACT:
+        result.event_brief = event_transmission.build_event_transmission_brief(options.query, evidence_chain)
+        gap_lines.extend(
+            f"事件传导缺口（{s.name}）：{g}" for s in result.event_brief.steps for g in s.gaps
+        )
     if question_plan.question_type == QUESTION_STOCK_DEEP_DIVE:
+        result.gap_radar = evidence_gap_radar.scan_evidence_gaps(options.query, evidence_chain)
+        result.valuation_note = valuation_gap.check_valuation_gaps(evidence_chain)
+        gap_lines.extend(f"证据缺口雷达：{n}" for n in result.gap_radar.gap_notes)
+        gap_lines.extend(f"估值四问：{g}" for g in result.valuation_note.gaps)
+        follow_ups.extend(f"候选研究任务（人工 review）：{t}" for t in result.gap_radar.candidate_tasks[:3])
         result.stock_brief = research_brief.build_stock_research_brief(
             options.query,
             question_plan.question_type,
@@ -678,6 +693,12 @@ def answer_query(options: AskOptions) -> AskResult:
             evidence_text = f"{evidence_text}\n\n{result.market_state.to_prompt_block()}"
         if result.theme_lifecycle is not None:
             evidence_text = f"{evidence_text}\n\n{result.theme_lifecycle.to_prompt_block()}"
+        if result.event_brief is not None:
+            evidence_text = f"{evidence_text}\n\n{result.event_brief.to_prompt_block()}"
+        if result.gap_radar is not None:
+            evidence_text = f"{evidence_text}\n\n{result.gap_radar.to_prompt_block()}"
+        if result.valuation_note is not None:
+            evidence_text = f"{evidence_text}\n\n{result.valuation_note.to_prompt_block()}"
         if result.forecast_preflight is not None:
             evidence_text = f"{evidence_text}\n\n{forecast_preflight.render_preflight_prompt(result.forecast_preflight)}"
         if options.include_market_value_block:
