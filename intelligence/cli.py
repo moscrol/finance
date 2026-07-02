@@ -94,6 +94,11 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--user", default=None, help="用户 id；compose 时读取该用户的 experience_cards.jsonl")
     parser.add_argument("--experience-cards-window", type=int, default=12, help="compose 时最多读取最近 N 张经验卡片")
     parser.add_argument(
+        "--no-score",
+        action="store_true",
+        help="关闭回答后自动 rubric 评分（默认开启：纯规则零成本，记 users/<id>/answer_scores.jsonl，低分自动沉淀经验卡候选）。",
+    )
+    parser.add_argument(
         "--l3-lookup",
         action="store_true",
         help="启用 L3 官方证据工具补查（公告/问询函/互动易）。需配置 FINANCE_L3_CNINFO_CMD / FINANCE_L3_SSE_EINTERACT_CMD。",
@@ -149,6 +154,11 @@ def add_chat_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--user", default=None, help="用户 id；首轮 compose 时读取该用户的 experience_cards.jsonl")
     parser.add_argument("--experience-cards-window", type=int, default=12, help="首轮 compose 时最多读取最近 N 张经验卡片")
     parser.add_argument(
+        "--no-score",
+        action="store_true",
+        help="关闭首轮回答后自动 rubric 评分（默认开启；只评首轮全量检索合成的回答，追问不评）。",
+    )
+    parser.add_argument(
         "-f", "--follow-up", dest="follow_ups", action="append", default=[],
         help="追问（可重复）。提供后走非交互：首轮+依次跑完所有追问即退出（便于脚本/演示）。"
         "不提供则进入交互 REPL（输入追问，空行 / exit / quit 退出）。",
@@ -198,6 +208,8 @@ def cmd_chat(args: argparse.Namespace) -> int:
     print(f"# chat：{args.query}\n")
     first = conv.start()
     _emit(first)
+    if first.composed and not args.no_score:
+        _auto_score_answer(args.query, first.answer, user=args.user)
     if not conv.ready:
         # No LLM key / turn-1 degraded — fall back to the structured template once.
         if conv.first_result is not None:
@@ -1055,7 +1067,22 @@ def cmd_ask(args: argparse.Namespace) -> int:
         if record.is_failure:
             print(f"[audit-ledger] 已记为失败样本：{'、'.join(record.failure_tags)}", file=sys.stderr)
     print(answer, end="")
+    if not args.no_score:
+        _auto_score_answer(args.query, _result.synthesis or answer, user=args.user)
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def _auto_score_answer(question: str, answer: str, *, user: str | None) -> None:
+    """回答后自动评分（闭环评估节点）；任何异常只降级为 stderr 警告，不影响回答。"""
+    try:
+        from intelligence.services import auto_eval
+
+        outcome = auto_eval.evaluate_answer(question, answer, user=user)
+        print(auto_eval.render_notice(outcome), file=sys.stderr)
+        for warn in outcome.warnings:
+            print(f"[answer-score] ⚠ {warn}", file=sys.stderr)
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"[answer-score] ⚠ 自动评分失败（不影响回答）：{exc}", file=sys.stderr)
 
 
 def cmd_l3_ingest(args: argparse.Namespace) -> int:
