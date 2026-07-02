@@ -130,6 +130,12 @@ def _has_any(text: str, tokens: tuple[str, ...]) -> bool:
 def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
     if _has_any(q, ("质检", "打分", "评分", "claude", "输出", "回答质量", "模板")):
         return QUESTION_ANSWER_REVIEW, 0.86
+    # 强触发词优先于泛化关键词：深挖/复盘先验是明确的任务指令，
+    # 即便问句里同时出现 产业链/公告/板块 等弱信号也不应被抢路由。
+    if _has_any(q, ("深挖", "个股深挖", "深度分析个股")):
+        return QUESTION_STOCK_DEEP_DIVE, 0.9
+    if _has_any(q, ("复盘先验", "先验复盘", "行情前瞻", "明日研判", "次日研判", "前瞻研判")):
+        return QUESTION_MARKET_FORECAST, 0.9
     if _has_any(q, ("公告", "新闻", "链接", "传导", "冲击", "影响", "产业链")):
         return QUESTION_NEWS_IMPACT, 0.82
     if _has_any(q, ("行情", "大盘", "今天", "明天", "盘前", "收盘", "6.", "走势", "市场怎么看")):
