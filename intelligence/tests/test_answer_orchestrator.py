@@ -77,6 +77,16 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("策略组合", joined_contract)
         self.assertIn("先补 DeepDive", "\n".join(plan.missing_data_policy))
 
+    def test_deep_dive_trigger_beats_industry_chain_keyword(self) -> None:
+        plan = plan_answer_question("深挖英维克，它在液冷产业链的位置")
+
+        self.assertEqual(plan.question_type, QUESTION_STOCK_DEEP_DIVE)
+
+    def test_forecast_prior_short_query_routes_to_market_forecast(self) -> None:
+        plan = plan_answer_question("复盘先验")
+
+        self.assertEqual(plan.question_type, QUESTION_MARKET_FORECAST)
+
     def test_news_impact_plan_starts_from_fact_extraction(self) -> None:
         plan = plan_answer_question("读一下这条公告，对产业链有什么传导冲击")
 
