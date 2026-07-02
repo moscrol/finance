@@ -415,6 +415,12 @@ def add_answer_score_parser(subparsers: argparse._SubParsersAction) -> None:
         default=[],
         help="本轮应优先使用的本地来源标识，可重复，例如 knowledge-base-private / market_feature_store",
     )
+    parser.add_argument(
+        "--question-type",
+        default="auto",
+        help="题型（与 answer_orchestrator 对齐，如 market_forecast）；"
+        "auto=按问题自动分类，none=只跑通用 7 维。market_forecast 会追加复盘专用维度组。",
+    )
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON（默认 markdown 记分卡）")
     parser.add_argument("--user", default=None, help="用户 id；保存经验卡片时使用（默认 default 或 FORESIGHT_USER）")
     parser.add_argument("--save-card", action="store_true", help="把本次评分同时沉淀为 users/<user>/experience_cards.jsonl")
@@ -789,15 +795,22 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
     import json
 
     from intelligence.eval import finance_answer_rubric as rubric
+    from intelligence.services.answer_orchestrator import plan_answer_question
 
     if args.answer_file:
         answer = Path(args.answer_file).expanduser().read_text(encoding="utf-8")
     else:
         answer = args.answer or ""
+    question_type = args.question_type
+    if question_type == "auto":
+        question_type = plan_answer_question(args.question).question_type
+    elif question_type == "none":
+        question_type = None
     scored = rubric.score_answer(
         args.question,
         answer,
         local_sources=list(args.local_source or []),
+        question_type=question_type,
     )
     card_path: Path | None = None
     card: dict | None = None
@@ -828,7 +841,7 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
         print(rubric.format_score(scored))
         if card_path is not None:
             print(f"\n经验卡片已保存 → {card_path}")
-    return 0 if scored.total_score >= 60 else 1
+    return 0 if scored.percent >= 60 else 1
 
 
 def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:

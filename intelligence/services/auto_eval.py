@@ -18,6 +18,7 @@ from intelligence import userspace
 from intelligence.eval import finance_answer_rubric as rubric
 from intelligence.eval.finance_answer_rubric import FinanceAnswerScore
 from intelligence.services import experience_cards
+from intelligence.services.answer_orchestrator import plan_answer_question
 
 # 低于 C 档下限（65 分）视为低分回答，自动沉淀经验卡候选。
 LOW_SCORE_THRESHOLD = 65
@@ -38,9 +39,17 @@ def evaluate_answer(
     user: str | None = None,
     local_sources: list[str] | None = None,
     threshold: int = LOW_SCORE_THRESHOLD,
+    question_type: str | None = None,
 ) -> AutoEvalOutcome:
-    """给一次回答打分、记台账；低分自动沉淀经验卡候选。"""
-    scored = rubric.score_answer(question, answer, local_sources=local_sources or [])
+    """给一次回答打分、记台账；低分自动沉淀经验卡候选。
+
+    ``question_type`` 未指定时复用 answer_orchestrator 的题型分类，
+    使 market_forecast 等题型自动启用专用维度组。"""
+    if question_type is None:
+        question_type = plan_answer_question(question).question_type
+    scored = rubric.score_answer(
+        question, answer, local_sources=local_sources or [], question_type=question_type
+    )
     us = userspace.user_space(user)
     ledger_path = us.answer_scores_path
     warnings: list[str] = []
@@ -48,6 +57,7 @@ def evaluate_answer(
     record = {
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "question": question,
+        "question_type": question_type,
         "total_score": scored.total_score,
         "max_score": scored.max_score,
         "grade": scored.grade,
@@ -61,7 +71,7 @@ def evaluate_answer(
         warnings.append(f"评分台账写入失败：{exc}")
 
     card_path: Path | None = None
-    if scored.total_score < threshold:
+    if scored.percent < threshold:
         card = experience_cards.build_card_from_score(
             scored,
             answer=answer,
