@@ -169,6 +169,8 @@ class AskResult:
     valuation_note: valuation_gap.ValuationGapNote | None = None
     # Review 层：输出前六项确定性检查闸门（只读、WARN 不阻断）。
     review_gate: output_review.OutputReviewGate | None = None
+    # D1-D4 DuckDB 数据块的 per-block 可观测字段。
+    d_block_stats: list[research_brief.DBlockStat] = field(default_factory=list)
     # (label, 完整报告全文) per routed module, only when --detail is set
     detail_reports: list[tuple[str, str]] = field(default_factory=list)
 
@@ -681,6 +683,13 @@ def answer_query(options: AskOptions) -> AskResult:
         implication_lines = [implication]
 
     # --- ③ optional 有机合成 (compose): 把多源证据融成一段自由形态、带内联引用的回答 ---
+    if not options.compose:
+        result.d_block_stats = [
+            research_brief.DBlockStat("D1", "市场价值与替代队列", note="仅 --compose 路径生成"),
+            research_brief.DBlockStat("D2", "客户证据硬度", note="仅 --compose 路径生成"),
+            research_brief.DBlockStat("D3", "二阶导研究队列", note="仅 --compose 路径生成"),
+            research_brief.DBlockStat("D4", "主线题材结构", note="仅 --compose 路径生成"),
+        ]
     if options.compose:
         evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
         if result.question_plan is not None:
@@ -709,6 +718,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 theme,
                 options.market_db_path,
             )
+            result.d_block_stats.append(_d_block_stat("D1", "市场价值与替代队列", market_value_block))
             if market_value_block:
                 evidence_text = f"{evidence_text}\n\n{market_value_block}"
                 citations.append(
@@ -724,6 +734,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 theme,
                 options.market_db_path,
             )
+            result.d_block_stats.append(_d_block_stat("D4", "主线题材结构", mainline_context_block))
             if mainline_context_block:
                 evidence_text = f"{evidence_text}\n\n{mainline_context_block}"
                 citations.append(
@@ -735,6 +746,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 )
         if options.include_customer_hardness_block:
             customer_hardness_block = _customer_evidence_hardness_block_for_llm(evidence_chain, gap_lines)
+            result.d_block_stats.append(_d_block_stat("D2", "客户证据硬度", customer_hardness_block))
             if customer_hardness_block:
                 evidence_text = f"{evidence_text}\n\n{customer_hardness_block}"
                 citations.append(
@@ -751,6 +763,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 options.market_db_path,
                 evidence_text,
             )
+            result.d_block_stats.append(_d_block_stat("D3", "二阶导研究队列", second_derivative_block))
             if second_derivative_block:
                 evidence_text = f"{evidence_text}\n\n{second_derivative_block}"
                 citations.append(
@@ -811,7 +824,7 @@ def answer_query(options: AskOptions) -> AskResult:
         "证据链": evidence_chain,
         "分歧反证": gap_lines,
         "后续验证点": follow_ups,
-        "检索可观测": telemetry.summary_lines(),
+        "检索可观测": telemetry.summary_lines() + research_brief.summarize_d_blocks(result.d_block_stats),
         "输出质检": result.review_gate.summary_lines(),
         "交易含义": implication_lines,
         "引用来源": [f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations],
@@ -1209,6 +1222,18 @@ def _extract_bottleneck_terms(text: str) -> list[str]:
         if term.lower() in lower and term not in out:
             out.append(term)
     return out
+
+
+def _d_block_stat(tag: str, source: str, block: str | None) -> research_brief.DBlockStat:
+    text = (block or "").strip()
+    return research_brief.DBlockStat(
+        tag,
+        source,
+        attempted=True,
+        generated=bool(text),
+        line_count=len(text.splitlines()) if text else 0,
+        note="" if text else "无匹配数据或未提供 market_db_path",
+    )
 
 
 def _market_value_block_for_llm(

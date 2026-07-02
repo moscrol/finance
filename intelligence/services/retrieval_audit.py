@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from intelligence.services.research_brief import EvidenceAudit, RetrievalTelemetry
+from intelligence.services.research_brief import DBlockStat, EvidenceAudit, RetrievalTelemetry
 
 VERDICT_INSUFFICIENT = "证据不足"
 
@@ -44,6 +44,7 @@ class RetrievalAuditRecord:
     wiki_degraded: str | None
     market_phase: str | None = None
     failure_tags: list[str] = field(default_factory=list)
+    d_blocks: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def is_failure(self) -> bool:
@@ -76,6 +77,7 @@ def build_audit_record(
     audit: EvidenceAudit,
     telemetry: RetrievalTelemetry,
     market_phase: str | None = None,
+    d_block_stats: list[DBlockStat] | None = None,
 ) -> RetrievalAuditRecord:
     return RetrievalAuditRecord(
         ts=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -94,6 +96,7 @@ def build_audit_record(
         wiki_degraded=telemetry.wiki_degraded,
         market_phase=market_phase,
         failure_tags=_failure_tags(audit, telemetry),
+        d_blocks=[s.to_dict() for s in (d_block_stats or [])],
     )
 
 

@@ -987,6 +987,7 @@ def cmd_ask(args: argparse.Namespace) -> int:
             audit=_result.evidence_audit,
             telemetry=_result.retrieval_telemetry,
             market_phase=(_result.market_state.phase if _result.market_state else None),
+            d_block_stats=_result.d_block_stats,
         )
         retrieval_audit.append_record(args.audit_ledger, record)
         if record.is_failure:

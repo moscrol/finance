@@ -219,6 +219,37 @@ class RetrievalTelemetry:
         return "\n".join(lines)
 
 
+@dataclass
+class DBlockStat:
+    """D1-D4 DuckDB 数据块的 per-block 可观测字段（手册 Retrieval 层要求）。"""
+
+    tag: str  # D1/D2/D3/D4
+    source: str  # 数据块名称
+    attempted: bool = False  # 是否尝试生成（仅 compose/LLM 路径会生成 D 块）
+    generated: bool = False  # 是否产出非空块
+    line_count: int = 0  # 产出行数（数据量代理）
+    note: str = ""  # 未生成原因/缺口
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    def summary_line(self) -> str:
+        if not self.attempted:
+            return f"{self.tag} {self.source}：未尝试（{self.note or '仅 compose 路径生成'}）"
+        if self.generated:
+            return f"{self.tag} {self.source}：命中，{self.line_count} 行"
+        return f"{self.tag} {self.source}：未命中（{self.note or '无匹配数据'}）"
+
+
+def summarize_d_blocks(stats: list[DBlockStat]) -> list[str]:
+    if not stats:
+        return []
+    generated = sum(1 for s in stats if s.generated)
+    lines = [f"D 源数据块：{generated}/{len(stats)} 块命中"]
+    lines.extend(s.summary_line() for s in stats)
+    return lines
+
+
 def build_retrieval_telemetry(
     *,
     audit: EvidenceAudit,
