@@ -10,6 +10,12 @@
    字段与 manifest 一致性；答卷 markdown 照旧给人读，JSON 给机器算。
 3. ``aggregate``：跨期聚合所有答卷 + 回检数据，按 agent 输出标的池
    T+1/T+3 均值、跑赢比例、阈值命中率等长期统计（单期噪声大，看聚合）。
+4. ``verdict``：盘后验证结果的唯一机器可读落点 ``<date>.verdict.json``。
+   逐假设 {id, agent, verdict: hit/miss/partial/unverifiable, actual, evidence_ref}，
+   假设 id 必须引用对应答卷的假设 id（答卷可选 ``hypotheses`` 字段；未声明时
+   从 thresholds/picks 派生：market / direction / falsify / target:<code>）。
+5. ``index``：从 manifest/answer/verdict 扫描生成状态总表，写入 ``index.md``
+   的自动生成标记区（人写的导航区不动）。
 
 用法::
 
@@ -18,6 +24,8 @@
     python3 scripts/dual_blind_forecast.py validate \
         docs/learning/forecast-review-ledger/2026-07-03.answer.codex.json
     python3 scripts/dual_blind_forecast.py aggregate [--json]
+    python3 scripts/dual_blind_forecast.py verdict 草稿.json   # 校验后落盘 <date>.verdict.json
+    python3 scripts/dual_blind_forecast.py index              # 重建 index.md 状态总表
 
 只读 DuckDB / 材料文件；不联网。找不到 DuckDB 时 manifest 相应字段留空并 WARN。
 """
@@ -50,6 +58,10 @@ REQUIRED_ANSWER_FIELDS = (
 )
 REQUIRED_PICK_FIELDS = ("code", "name", "strategy", "reason")
 REQUIRED_THRESHOLD_FIELDS = ("market", "direction", "targets", "falsify")
+VERDICT_VALUES = {"hit", "miss", "partial", "unverifiable"}
+REQUIRED_VERDICT_FIELDS = ("id", "agent", "verdict")
+INDEX_BEGIN = "<!-- BEGIN AUTO dual-blind-status 本表由 dual_blind_forecast.py index 生成，勿手改 -->"
+INDEX_END = "<!-- END AUTO dual-blind-status -->"
 
 
 def _sha256(path: Path) -> str:
@@ -186,6 +198,162 @@ def validate_answer(answer_path: Path, *, ledger_dir: Path = LEDGER_DIR) -> list
     return errors
 
 
+def hypothesis_ids(answer: dict[str, Any]) -> set[str]:
+    """答卷的合法假设 id 集合：优先用显式 hypotheses，否则从 thresholds/picks 派生。"""
+    explicit = {str(h.get("id")) for h in answer.get("hypotheses") or [] if h.get("id")}
+    if explicit:
+        return explicit
+    ids = {"market", "direction", "falsify"}
+    for pick in answer.get("picks") or []:
+        if pick.get("code"):
+            ids.add(f"target:{pick['code']}")
+    return ids
+
+
+def answer_paths_for(date: str, ledger_dir: Path = LEDGER_DIR) -> dict[str, Path]:
+    out: dict[str, Path] = {}
+    for path in sorted(ledger_dir.glob(f"{date}.answer.*.json")):
+        agent = path.name.split(".answer.", 1)[1].rsplit(".json", 1)[0].lower()
+        out[agent] = path
+    return out
+
+
+def verdict_path_for(date: str, ledger_dir: Path = LEDGER_DIR) -> Path:
+    return ledger_dir / f"{date}.verdict.json"
+
+
+def validate_verdict(draft: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) -> list[str]:
+    """返回错误列表；空列表 = 通过。"""
+    errors: list[str] = []
+    date = str(draft.get("date") or "")
+    if not date:
+        return ["缺必填字段 date"]
+    verdicts = draft.get("verdicts")
+    if not isinstance(verdicts, list) or not verdicts:
+        return ["verdicts 应为非空列表"]
+
+    answers = answer_paths_for(date, ledger_dir)
+    ids_by_agent: dict[str, set[str]] = {}
+    for agent, path in answers.items():
+        try:
+            ids_by_agent[agent] = hypothesis_ids(json.loads(path.read_text(encoding="utf-8")))
+        except Exception as exc:
+            errors.append(f"答卷 {path.name} 不可读：{exc}")
+
+    for i, entry in enumerate(verdicts):
+        for field in REQUIRED_VERDICT_FIELDS:
+            if not entry.get(field):
+                errors.append(f"verdicts[{i}] 缺字段 {field}")
+                continue
+        agent = str(entry.get("agent") or "").lower()
+        if agent and agent not in ids_by_agent:
+            errors.append(
+                f"verdicts[{i}] agent={agent} 无对应答卷 {date}.answer.{agent}.json——先有答卷再有验证"
+            )
+        elif agent and entry.get("id") and str(entry["id"]) not in ids_by_agent[agent]:
+            errors.append(
+                f"verdicts[{i}] id={entry['id']} 不在 {agent} 答卷假设集 {sorted(ids_by_agent[agent])} 内"
+            )
+        if entry.get("verdict") and str(entry["verdict"]) not in VERDICT_VALUES:
+            errors.append(f"verdicts[{i}] verdict 应为 {sorted(VERDICT_VALUES)} 之一，实际 {entry['verdict']}")
+        if str(entry.get("verdict")) in {"hit", "miss", "partial"} and not entry.get("actual"):
+            errors.append(f"verdicts[{i}] 已裁定 {entry.get('verdict')} 必须填 actual（实际值/实际情况）")
+    return errors
+
+
+def cmd_verdict(args: argparse.Namespace) -> int:
+    ledger_dir = Path(args.ledger_dir).expanduser()
+    draft_path = Path(args.draft).expanduser()
+    try:
+        draft = json.loads(draft_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"ERROR: 草稿 JSON 解析失败：{exc}", file=sys.stderr)
+        return 2
+    errors = validate_verdict(draft, ledger_dir=ledger_dir)
+    if errors:
+        for err in errors:
+            print(f"ERROR {draft_path.name}: {err}")
+        return 1
+    body = {
+        "schema_version": draft.get("schema_version") or "1.0",
+        "date": draft["date"],
+        "verdicts": draft["verdicts"],
+        "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+    }
+    out_path = verdict_path_for(str(draft["date"]), ledger_dir)
+    out_path.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"OK    written: {out_path}")
+    return 0
+
+
+def _verdict_stats(verdict: dict[str, Any]) -> dict[str, dict[str, int]]:
+    """按 agent 统计 hit/miss/partial/unverifiable 个数。"""
+    stats: dict[str, dict[str, int]] = {}
+    for entry in verdict.get("verdicts") or []:
+        agent = str(entry.get("agent") or "unknown").lower()
+        bucket = stats.setdefault(agent, {v: 0 for v in sorted(VERDICT_VALUES)})
+        value = str(entry.get("verdict") or "")
+        if value in bucket:
+            bucket[value] += 1
+    return stats
+
+
+def build_index_table(ledger_dir: Path = LEDGER_DIR) -> str:
+    dates: set[str] = set()
+    for pattern in ("*.manifest.json", "*.answer.*.json", "*.verdict.json"):
+        for path in ledger_dir.glob(pattern):
+            dates.add(path.name.split(".", 1)[0])
+    lines = [
+        "| 研判日 | manifest | 答卷 | 答卷校验 | 验证 | 命中率（hit/已裁定） |",
+        "|---|---|---|---|---|---|",
+    ]
+    for date in sorted(dates, reverse=True):
+        has_manifest = "✅" if manifest_path_for(date, ledger_dir).exists() else "—"
+        answers = answer_paths_for(date, ledger_dir)
+        answer_cell = ", ".join(sorted(answers)) if answers else "—"
+        checks = []
+        for agent, path in sorted(answers.items()):
+            checks.append(f"{agent}:{'✅' if not validate_answer(path, ledger_dir=ledger_dir) else '❌'}")
+        check_cell = " ".join(checks) if checks else "—"
+        vpath = verdict_path_for(date, ledger_dir)
+        if vpath.exists():
+            try:
+                stats = _verdict_stats(json.loads(vpath.read_text(encoding="utf-8")))
+                rates = []
+                for agent, bucket in sorted(stats.items()):
+                    judged = bucket["hit"] + bucket["miss"] + bucket["partial"]
+                    rate = f"{bucket['hit']}/{judged}" if judged else "0/0"
+                    rates.append(f"{agent}:{rate}")
+                verdict_cell, rate_cell = "✅", " ".join(rates) if rates else "—"
+            except Exception:
+                verdict_cell, rate_cell = "❌不可读", "—"
+        else:
+            verdict_cell, rate_cell = "—", "—"
+        lines.append(f"| {date} | {has_manifest} | {answer_cell} | {check_cell} | {verdict_cell} | {rate_cell} |")
+    if len(lines) == 2:
+        lines.append("| （暂无机器可读台账文件） | — | — | — | — | — |")
+    return "\n".join(lines)
+
+
+def cmd_index(args: argparse.Namespace) -> int:
+    ledger_dir = Path(args.ledger_dir).expanduser()
+    index_path = ledger_dir / "index.md"
+    block = f"{INDEX_BEGIN}\n\n## 机检状态总表（脚本生成）\n\n{build_index_table(ledger_dir)}\n\n{INDEX_END}"
+    if index_path.exists():
+        text = index_path.read_text(encoding="utf-8")
+        if INDEX_BEGIN in text and INDEX_END in text:
+            head, rest = text.split(INDEX_BEGIN, 1)
+            _, tail = rest.split(INDEX_END, 1)
+            text = head + block + tail
+        else:
+            text = text.rstrip("\n") + "\n\n" + block + "\n"
+    else:
+        text = "# 复盘推演回检台账\n\n" + block + "\n"
+    index_path.write_text(text, encoding="utf-8")
+    print(f"written: {index_path}")
+    return 0
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
     ledger_dir = Path(args.ledger_dir).expanduser()
     failed = False
@@ -319,6 +487,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_aggregate = sub.add_parser("aggregate", help="跨期聚合所有答卷+回检，按 agent 出长期统计")
     p_aggregate.add_argument("--json", action="store_true", help="输出 JSON 而非 Markdown 表")
     p_aggregate.set_defaults(func=cmd_aggregate)
+
+    p_verdict = sub.add_parser("verdict", help="校验验证草稿并落盘 <date>.verdict.json（盘后验证唯一写入口）")
+    p_verdict.add_argument("draft", help="验证草稿 JSON：{date, verdicts:[{id, agent, verdict, actual, evidence_ref}]}")
+    p_verdict.set_defaults(func=cmd_verdict)
+
+    p_index = sub.add_parser("index", help="扫描台账目录，重建 index.md 的机检状态总表区块")
+    p_index.set_defaults(func=cmd_index)
     return parser
 
 
