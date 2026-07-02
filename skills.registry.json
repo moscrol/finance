@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-07-02T13:41:48Z",
+  "generated_at": "2026-07-02T14:07:44Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -13,7 +13,7 @@
       "name": "knowledge-base-private",
       "short": "kb",
       "present": true,
-      "skills": 19
+      "skills": 20
     },
     {
       "name": "finance-research-site",
@@ -402,7 +402,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:95505fd43131284d577917086335a0e1d93117f365e9be1e09e9966a6c7a29c3",
+      "computedHash": "sha256:f7b704ca577d79d2b2443723fbe3757cd3e8db5246ecd02f079f8a66f3c47418",
       "agentOnly": false,
       "views": []
     },
@@ -882,7 +882,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:2f338e47fcf0c3960cef37a88b0f9458ce5637a95aebace4884879c0c4cb1f06",
+      "computedHash": "sha256:054ef26c737b35e7ac1e1f6b2c9c9e908ee55449a80cf22990f55a8ca56061f5",
       "agentOnly": false,
       "views": [
         {
@@ -960,7 +960,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e171865ed4271c670b05efdab865bdc9ddba099b63755c67bd5f4aa3c0e51409",
+      "computedHash": "sha256:d3ea5b174dee35cbedc4d5907bf3d67b25944732572985c8f6f33f51ddd0f734",
       "agentOnly": false,
       "views": [
         {
@@ -1016,6 +1016,33 @@
           "path": ".claude/skills/ingest-planner",
           "type": "symlink",
           "target": "../../skills/ingest-planner"
+        }
+      ]
+    },
+    "kb/ingest-qa": {
+      "name": "ingest-qa",
+      "repo": "knowledge-base-private",
+      "sourceType": "local",
+      "skillPath": "skills/ingest-qa/SKILL.md",
+      "description": "入库收尾质检（审视者视角 per-source QA 闸门）——每次把一份 source（卖研汇/晨汇/PDF 研报）写进知识库后，校验 frontmatter/log/章节/图谱是否干净，PASS 才算入库完成。触发词：质检、入库质检、QA、审视者、检查今天的入库、ingest qa、收尾质检。",
+      "triggers": [
+        "质检",
+        "入库质检",
+        "QA",
+        "审视者",
+        "检查今天的入库",
+        "ingest qa",
+        "收尾质检"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:f4358eb16f3b746c42f511a9878dd4498e16d60bbdbb9c4f926a45394d73060b",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/ingest-qa",
+          "type": "symlink",
+          "target": "../../skills/ingest-qa"
         }
       ]
     },
@@ -1169,11 +1196,11 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/theme-radar-reports/SKILL.md",
-      "description": "从 theme_signals.json / pattern_library.json 自动生成三类 Theme Radar 报告——scan 主题扫描表（模块4）、replay 发酵复盘报告（模块7）、migrate 横向迁移扫描排序（模块8）。当用户说\"扫描表/全库扫描/工艺材料扫描\"、\"X发酵复盘/X怎么走到今天/X时间线\"、\"拿X当标尺/横迁/找同类\"或盘后全景梳理时使用。",
+      "description": "从 theme_signals.json / pattern_library.json 自动生成三类 Theme Radar 报告——scan 主题扫描表（模块4）、replay 发酵复盘报告（模块7）、migrate 横向迁移扫描排序（模块8）。当用户说\"扫描表/全库扫描/工艺材料扫描\"、\"X发酵复盘/X怎么走到今天/X时间线\"、\"全量复盘/全部主题复盘/batch replay\"、\"拿X当标尺/横迁/找同类\"或盘后全景梳理时使用。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:b8daa605a42e5f49568c09bea4900c4931a4903ff5cbdacab1076b7623a2b558",
+      "computedHash": "sha256:1af65bf7533c0266b8b350313fcf2f0478a238dd659d9bb71444d59fe3edc9ea",
       "agentOnly": false,
       "views": [
         {

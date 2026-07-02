@@ -34,6 +34,11 @@ stock-deep-dive 同构：本契约（当次必读）+ `scripts/valuation_lint.py
 python3 -m intelligence.cli.ask "拍估值 XX" --compose --l3-lookup --detail
 ```
 
+估值问题类型会自动生成 **D5 估值数据块**（`intelligence/services/valuation_estimate.py`）：
+目标 PE(TTM)/PB/总市值 + 同题材可比估值带与横截面分位。取数走东财免费快照接口
+（不依赖 iFinD），可比集取本地 DuckDB 同板块成交额前排；`FINANCE_VALUATION_FETCH=0`
+可关闭网络取数（块内会显式标注全缺口）。历史分位当前数据源不可得，按缺口处理。
+
 ### 第 2 步 · 五段输出契约（valuation_lint 维度）
 
 1. **估值现状**：当前 PE/PS/EV-EBITDA 历史分位 + 同业横截面位置；
