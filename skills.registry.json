@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-06-22T17:37:03Z",
+  "generated_at": "2026-07-02T04:54:11Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 26
+      "skills": 28
     },
     {
       "name": "knowledge-base-private",
@@ -18,7 +18,7 @@
     {
       "name": "finance-research-site",
       "short": "site",
-      "present": false,
+      "present": true,
       "skills": 0
     }
   ],
@@ -108,6 +108,19 @@
       "agentOnly": false,
       "views": []
     },
+    "ws/daily-full-review": {
+      "name": "daily-full-review",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/daily-full-review/SKILL.md",
+      "description": "仅用于\"单日全量复盘\"的同步编排与防坑流程。触发词严格限定：全量复盘、今日全量复盘、跑全量复盘、单日全量复盘、做一次全量复盘、daily full review。仅当用户明确要对某个交易日做整轮全量复盘（同步全部 market_feature_store 模块 + 生成日报/题材/HTML/工作台）时触发；只补单表、只补历史缺口、只跑某个 sync-* 子命令、只生成报告或矩阵等局部任务，都不触发本 skill（历史多日补缺口请用 duckdb-backfill）。用于把某个交易日的同步按\"已验证模块顺序 + 逐模块超时 + 自动兜底 + 经验记录\"跑完，再交给 intelligence.cli daily 生成产物。专治 daily-update monolith 静默挂起后乱手搓的问题。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:20742721b53006f2aaff4d069a8ecfac3448ab63403c59b8fc89f4636edc5f59",
+      "agentOnly": false,
+      "views": []
+    },
     "ws/disclosure-archive": {
       "name": "disclosure-archive",
       "repo": "finance-workspace-private",
@@ -145,6 +158,22 @@
           "kb"
         ]
       }
+    },
+    "ws/dispatcher": {
+      "name": "dispatcher",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/dispatcher/SKILL.md",
+      "description": "金融 Agent 顶层路由器——每个新 session 的第一步。接收用户输入，自动扫描 skills/ 目录下所有 SKILL.md 的触发词，匹配最佳 skill 并加载其流程。解决\"skill 明明存在但 agent 没用\"的问题。触发词：所有请求默认经过本 dispatcher；不需要显式触发。",
+      "triggers": [
+        "所有请求默认经过本 dispatcher",
+        "不需要显式触发"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:0e88369da035ac6bd536de08def6dab9278028f958458bf5318ba9608df57d82",
+      "agentOnly": false,
+      "views": []
     },
     "ws/duckdb-backfill": {
       "name": "duckdb-backfill",
@@ -305,7 +334,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:48889fa1497fc2576c968db7706396f4312f84328fe772ac1b7467c2cba46dd1",
+      "computedHash": "sha256:2ba3d5be5c3b345422c59ae556a5beb40137498d4300457eca04c5e016837bf7",
       "agentOnly": false,
       "views": [
         {
@@ -430,7 +459,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:acf1b3e44799b8f6c4ee1e24ae501125881d21cc32178271b21d1a49c98dd65b",
+      "computedHash": "sha256:2bcd1c8273c016ec92d76e434fb1d70979e256464c56f8e965cbbca5cbb865b1",
       "agentOnly": false,
       "views": []
     },
@@ -732,7 +761,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:ede001492da46b0720671037eaafba55fa7ee799683fd3f79cfe4e74786d88dd",
+      "computedHash": "sha256:c82fabfdb47668193c97468d2bc15aeef53c4e88907b787e7d33870aad277098",
       "agentOnly": false,
       "views": [
         {
@@ -901,7 +930,7 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/hard-fact-review/SKILL.md",
-      "description": "把 entity-delta 回填 payload 里「清过硬事实红线」的 update 挑出来排成人工复核队列，供人逐条决定是否写进实体正文 ## 边际变化。suggest-only、绝不自动写正文。触发：硬事实候选、entity 正文回填候选、边际变化复核队列、hard-fact review。",
+      "description": "把 entity-delta 回填 payload 里「清过硬事实红线」的 update 挑出来排成人工复核队列，供人逐条决定是否写进实体正文",
       "triggers": [],
       "note": "",
       "entrypoint": null,

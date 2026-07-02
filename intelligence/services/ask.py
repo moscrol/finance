@@ -116,6 +116,8 @@ class AskResult:
     found_market: bool = False
     found_graph: bool = False
     found_wiki: bool = False
+    # W 源检索遥测（用了哪种索引/检索方式/命中质量）；None=未启用 W 源。
+    wiki_rag_telemetry: kb_rag.RetrievalTelemetry | None = None
     routed_modules: list[str] = field(default_factory=list)
     llm_refined: bool = False
     llm_provider: str | None = None
@@ -361,6 +363,7 @@ def answer_query(options: AskOptions) -> AskResult:
             excerpt_chars=options.wiki_rag_excerpt,
             index_dir=options.wiki_rag_index_dir,
         )
+        result.wiki_rag_telemetry = wr.telemetry
         if wr.ok and wr.hits:
             result.found_wiki = True
             result.found_graph = True
@@ -480,12 +483,18 @@ def answer_query(options: AskOptions) -> AskResult:
         implication = "当日盘面未触发：以图谱认知储备为主，等待盘面信号出现。"
     implication += "（非投资建议，检索骨架输出。）"
 
+    # W 源子块：先放一行检索可观测（用了哪种索引/检索方式/命中质量），再放召回条目。
+    wiki_section: list[str] = []
+    if result.wiki_rag_telemetry is not None and result.wiki_rag_telemetry.status != "pending":
+        wiki_section.append(f"检索可观测：{result.wiki_rag_telemetry.summary_line()}")
+    wiki_section.extend(wiki_lines or ["（wiki 向量检索未启用/未接入/无命中）"])
+
     evidence_chain = (
         [f"{SUBHEAD}盘面"] + (market_lines or ["（当日无盘面候选命中）"])
         + [f"{SUBHEAD}图谱·概念"] + (graph_concept_lines or ["（图谱未命中概念）"])
         + [f"{SUBHEAD}图谱·公司分层"] + (company_lines or ["（图谱未命中公司暴露）"])
         + [f"{SUBHEAD}证据"] + (evidence_lines or ["（evidence_index 未命中）"])
-        + [f"{SUBHEAD}图谱·语义召回(wiki 向量)"] + (wiki_lines or ["（wiki 向量检索未启用/未接入/无命中）"])
+        + [f"{SUBHEAD}图谱·语义召回(wiki 向量)"] + wiki_section
         + module_block
     )
 
@@ -567,6 +576,9 @@ def render_answer(result: AskResult) -> str:
         f"模块路由={'/'.join(result.routed_modules) or '—'}",
         f"召回状态={result.status}",
     ]
+    if result.wiki_rag_telemetry is not None and result.wiki_rag_telemetry.status != "pending":
+        t = result.wiki_rag_telemetry
+        meta.append(f"W检索={t.mode}/{t.index_kind or '?'}·命中{t.hit_count}·{t.status}")
     lines.append("> " + " | ".join(meta))
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))

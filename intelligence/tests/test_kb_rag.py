@@ -61,6 +61,71 @@ class KbRagRetrieveFilterTests(unittest.TestCase):
             self.assertEqual(res.hits[0].source_type, "concept_page")
 
 
+class KbRagTelemetryTests(unittest.TestCase):
+    def _setup_repo(self, td: str) -> Path:
+        root = Path(td)
+        wiki = root / "wiki"
+        page = wiki / "concepts" / "光刻机.md"
+        script = root / kb_rag.RAG_SCRIPT_REL
+        page.parent.mkdir(parents=True)
+        script.parent.mkdir(parents=True)
+        script.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+        page.write_text("# 光刻机\n\n正文材料。\n", encoding="utf-8")
+        return root
+
+    def test_telemetry_populated_on_success(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            payload = [
+                {"page_id": "a", "file_path": "wiki/concepts/光刻机.md", "title": "A", "score": 0.9},
+                {"page_id": "b", "file_path": "wiki/concepts/光刻机.md", "title": "B", "score": 0.5, "via_neighbor": True},
+            ]
+            proc = mock.Mock(returncode=0, stdout=json.dumps(payload, ensure_ascii=False), stderr="")
+            with mock.patch.dict("os.environ", {"KB_RAG_PYTHON": "/tmp/rag-python"}, clear=True):
+                with mock.patch("subprocess.run", return_value=proc):
+                    res = kb_rag.retrieve("光刻机", root / "wiki", k=4, mode="hybrid")
+            tel = res.telemetry
+            self.assertEqual(tel.status, "ok")
+            self.assertEqual(tel.mode, "hybrid")
+            self.assertIn("BM25", tel.recall_desc)
+            self.assertEqual(tel.index_kind, "structured")
+            self.assertEqual(tel.k, 4)
+            self.assertEqual(tel.hit_count, 2)
+            self.assertEqual(tel.neighbor_hits, 1)
+            self.assertAlmostEqual(tel.score_max, 0.9)
+            self.assertAlmostEqual(tel.score_min, 0.5)
+            self.assertAlmostEqual(tel.score_mean, 0.7)
+            self.assertIsNotNone(tel.latency_ms)
+            self.assertFalse(tel.degraded)
+            self.assertIn("检索方式=hybrid", tel.summary_line())
+
+    def test_telemetry_skipped_when_index_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)  # no .rag_index dir built
+            with mock.patch.dict("os.environ", {}, clear=True):
+                res = kb_rag.retrieve("光刻机", root / "wiki")
+            self.assertFalse(res.ok)
+            self.assertEqual(res.telemetry.status, "skipped")
+            self.assertEqual(res.telemetry.index_kind, "structured")
+
+    def test_telemetry_marks_index_degradation(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()  # default exists; full index does NOT
+            proc = mock.Mock(returncode=0, stdout="[]", stderr="")
+            with mock.patch.dict("os.environ", {"KB_RAG_PYTHON": "/tmp/rag-python"}, clear=True):
+                with mock.patch("subprocess.run", return_value=proc):
+                    res = kb_rag.retrieve(
+                        "光刻机", root / "wiki", mode="rerank", index_dir=kb_rag.FULL_INDEX_DIRNAME
+                    )
+            tel = res.telemetry
+            self.assertTrue(tel.degraded)
+            self.assertEqual(tel.index_kind, "structured")  # fell back to default
+            self.assertTrue(tel.requested_index_dir.endswith(kb_rag.FULL_INDEX_DIRNAME))
+            self.assertEqual(tel.status, "empty")
+
+
 class KbRagIndexResolutionTests(unittest.TestCase):
     def test_prefers_vector_index_dir_over_legacy_rag_index_dir(self) -> None:
         with tempfile.TemporaryDirectory() as td:
