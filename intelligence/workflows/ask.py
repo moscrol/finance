@@ -123,6 +123,21 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             warnings=list(result.l3_evidence.warnings),
         )
     )
+    audit = result.evidence_audit
+    telemetry = result.retrieval_telemetry
+    summary.steps.append(
+        WorkflowStep(
+            name="research-brief-skills",
+            status="PASS" if audit is not None else "SKIP",
+            outputs=[
+                f"verdict={(audit.verdict if audit else '-')}",
+                f"layers={('/'.join(f'{k}x{v}' for k, v in sorted(audit.layer_counts.items())) if audit else '-')}",
+                f"covers_l3={telemetry.covers_l3 if telemetry else '-'}",
+                f"stock_brief={result.stock_brief is not None}",
+            ],
+            warnings=list(audit.warnings) if audit else [],
+        )
+    )
     summary.steps.append(
         WorkflowStep(
             name="theme-radar-modules",

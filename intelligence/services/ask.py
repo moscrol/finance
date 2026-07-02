@@ -27,9 +27,14 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine
+from intelligence.services import experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, research_brief
 from intelligence.services.answer_quality import build_quality_context
-from intelligence.services.answer_orchestrator import QUESTION_MARKET_FORECAST, QuestionPlan, plan_answer_question
+from intelligence.services.answer_orchestrator import (
+    QUESTION_MARKET_FORECAST,
+    QUESTION_STOCK_DEEP_DIVE,
+    QuestionPlan,
+    plan_answer_question,
+)
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
     MODULE_DEEP_DIVE,
@@ -147,6 +152,11 @@ class AskResult:
     l3_evidence: l3_evidence.L3EvidenceBundle = field(
         default_factory=lambda: l3_evidence.L3EvidenceBundle(query="")
     )
+    # P0 投研技能层（确定性，无 LLM）：证据分层审计 / 检索可观测 / 反证计划 / 个股研究简报。
+    evidence_audit: research_brief.EvidenceAudit | None = None
+    retrieval_telemetry: research_brief.RetrievalTelemetry | None = None
+    counterevidence: research_brief.CounterEvidencePlan | None = None
+    stock_brief: research_brief.StockResearchBrief | None = None
     # (label, 完整报告全文) per routed module, only when --detail is set
     detail_reports: list[tuple[str, str]] = field(default_factory=list)
 
@@ -407,6 +417,11 @@ def answer_query(options: AskOptions) -> AskResult:
 
     # --- W: 知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，打通复盘↔知识库闭环）---
     wiki_lines: list[str] = []
+    wiki_stats: dict[str, Any] = {
+        "attempted": bool(options.use_wiki_rag),
+        "mode": options.wiki_rag_mode,
+        "index": "full" if options.wiki_rag_index_dir else "structured",
+    }
     if options.use_wiki_rag:
         wr = kb_rag.retrieve(
             options.query,
@@ -416,6 +431,15 @@ def answer_query(options: AskOptions) -> AskResult:
             timeout=options.wiki_rag_timeout,
             excerpt_chars=options.wiki_rag_excerpt,
             index_dir=options.wiki_rag_index_dir,
+        )
+        wiki_stats.update(
+            {
+                "ok": wr.ok,
+                "hits": len(wr.hits),
+                "scores": [h.score for h in wr.hits],
+                "neighbor_hits": sum(1 for h in wr.hits if h.via_neighbor),
+                "warning": wr.warning,
+            }
         )
         if wr.ok and wr.hits:
             result.found_wiki = True
@@ -572,6 +596,30 @@ def answer_query(options: AskOptions) -> AskResult:
         l3_lines = l3_bundle.to_prompt_block().splitlines()
         evidence_chain.extend([f"{SUBHEAD}L3 官方证据工具补查", *l3_lines])
 
+    # --- P0 技能链：证据分层审计 → 检索遥测 → 反证计划 →（深挖时）研究简报 ---
+    audit = research_brief.audit_evidence_chain(evidence_chain, gap_lines)
+    telemetry = research_brief.build_retrieval_telemetry(
+        audit=audit,
+        citation_tags=[c.tag for c in citations],
+        wiki_stats=wiki_stats,
+        l3_lookup_items=len(result.l3_evidence.items),
+    )
+    counter_plan = research_brief.build_counterevidence_plan(audit, stage=quality_context.stage)
+    result.evidence_audit = audit
+    result.retrieval_telemetry = telemetry
+    result.counterevidence = counter_plan
+    gap_lines.extend(f"证据分层审计：{w}" for w in audit.warnings)
+    follow_ups.extend(counter_plan.follow_up_lines())
+    if question_plan.question_type == QUESTION_STOCK_DEEP_DIVE:
+        result.stock_brief = research_brief.build_stock_research_brief(
+            options.query,
+            question_plan.question_type,
+            quality_context.stage,
+            audit,
+            telemetry,
+            counter_plan,
+        )
+
     # --- ② optional LLM refinement of 结论 / 交易含义 (graceful degrade w/o key) ---
     if options.use_llm:
         evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
@@ -598,6 +646,12 @@ def answer_query(options: AskOptions) -> AskResult:
         evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
         if result.question_plan is not None:
             evidence_text = f"{result.question_plan.to_prompt_block()}\n\n{evidence_text}"
+        evidence_text = (
+            f"{evidence_text}\n\n{audit.to_prompt_block()}"
+            f"\n\n{telemetry.to_prompt_block()}\n\n{counter_plan.to_prompt_block()}"
+        )
+        if result.stock_brief is not None:
+            evidence_text = f"{evidence_text}\n\n{result.stock_brief.to_prompt_block()}"
         if result.forecast_preflight is not None:
             evidence_text = f"{evidence_text}\n\n{forecast_preflight.render_preflight_prompt(result.forecast_preflight)}"
         if options.include_market_value_block:
@@ -697,6 +751,7 @@ def answer_query(options: AskOptions) -> AskResult:
         "证据链": evidence_chain,
         "分歧反证": gap_lines,
         "后续验证点": follow_ups,
+        "检索可观测": telemetry.summary_lines(),
         "交易含义": implication_lines,
         "引用来源": [f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations],
     }
@@ -1333,7 +1388,7 @@ def _pct(value: float) -> float:
 
 
 SUBHEAD = "\x00SUB\x00"
-SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "交易含义", "引用来源"]
+SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检索可观测", "交易含义", "引用来源"]
 
 
 def render_answer(result: AskResult) -> str:

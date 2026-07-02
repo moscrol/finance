@@ -101,6 +101,11 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--l3-lookup-timeout", type=int, default=480, help="单个 L3 工具调用超时秒数；SSE 首跑建 uid 缓存可能接近 7 分钟")
     parser.add_argument("--l3-lookup-limit", type=int, default=5, help="单个 L3 工具最多注入证据条数")
     parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
+    parser.add_argument(
+        "--brief-json",
+        default=None,
+        help="个股深挖时把 StockResearchBrief（证据分层审计/检索遥测/反证计划/八步研究路径）写入 JSON 文件；非深挖问题无简报时跳过",
+    )
     parser.set_defaults(func=cmd_ask)
 
 
@@ -962,6 +967,11 @@ def cmd_ask(args: argparse.Namespace) -> int:
     )
     if args.summary_json:
         summary.write_json(args.summary_json)
+    if args.brief_json:
+        if _result.stock_brief is not None:
+            Path(args.brief_json).write_text(_result.stock_brief.to_json() + "\n", encoding="utf-8")
+        else:
+            print(f"[brief-json] 非个股深挖问题，未生成研究简报，跳过 {args.brief_json}", file=sys.stderr)
     print(answer, end="")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
