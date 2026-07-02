@@ -23,6 +23,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -108,6 +109,77 @@ class WikiHit:
     via_neighbor: bool = False
 
 
+# 检索方式 → 人类可读的“用了什么召回”说明（教学 / 可观测用）。
+_MODE_RECALL_DESC = {
+    "hybrid": "BM25 关键词 + 稠密向量(BGE-m3) + RRF 融合",
+    "rerank": "BM25 + 稠密向量 + rerank 二次重排",
+    "dense": "稠密向量(BGE-m3)",
+    "bm25": "BM25 关键词",
+}
+
+
+def _index_kind(index_dir: Path | str) -> str:
+    """索引类型：结构版 .rag_index / 全文版 .rag_index_full / 其他(自定义覆盖)。"""
+    name = Path(index_dir).name
+    if name == FULL_INDEX_DIRNAME:
+        return "full"
+    if name == ".rag_index":
+        return "structured"
+    return "custom"
+
+
+@dataclass
+class RetrievalTelemetry:
+    """检索遥测：把“检索计划 → 实际召回源 → 召回质量”结构化记录下来。
+
+    RAG 系统单看最终回答无法判断检索好坏；把每次召回的方式/索引/命中质量显式
+    留痕，是做离线评估(recall@k、nDCG)、A/B 调参和排障的前提。此结构可迁移到
+    任何检索 / 搜索 / 推荐系统的可观测层。
+    """
+
+    # 检索计划
+    mode: str = ""  # 检索方式：hybrid / rerank / ...
+    recall_desc: str = ""  # mode 的人话说明（用了 BM25 / 向量 / rerank 哪些）
+    index_kind: str = ""  # 索引类型：structured(.rag_index) / full(.rag_index_full) / custom
+    index_dir: str = ""  # 实际使用的索引目录
+    requested_index_dir: str = ""  # 调用方请求的索引目录（与 index_dir 不同即发生降级）
+    degraded: bool = False  # 是否发生索引降级（如全文索引缺失回退结构版）
+    k: int = 0  # 请求的候选数
+    filters: dict[str, str] = field(default_factory=dict)  # 层级 / 硬度 / 来源过滤
+    # 召回结果与质量
+    status: str = "pending"  # ok / empty / skipped / error / timeout
+    hit_count: int = 0
+    neighbor_hits: int = 0  # via_neighbor（图谱邻居扩展）命中数
+    score_max: float | None = None
+    score_min: float | None = None
+    score_mean: float | None = None
+    latency_ms: int | None = None  # 检索子进程耗时（毫秒）
+    warning: str = ""
+
+    def summary_line(self) -> str:
+        """一行可观测摘要，供回答 / 日志展示。"""
+        kind_cn = {"structured": "结构版索引", "full": "全文版索引", "custom": "自定义索引"}.get(
+            self.index_kind, self.index_kind or "?"
+        )
+        recall = self.recall_desc or self.mode or "?"
+        parts = [f"检索方式={self.mode or '?'}（{recall}）", f"索引={kind_cn}", f"k={self.k}"]
+        if self.filters:
+            parts.append("过滤=" + ",".join(f"{k}={v}" for k, v in self.filters.items()))
+        parts.append(f"命中={self.hit_count}")
+        if self.neighbor_hits:
+            parts.append(f"其中邻居扩展={self.neighbor_hits}")
+        if self.score_max is not None:
+            parts.append(
+                f"分数[max/mean/min]={self.score_max:.4f}/{self.score_mean:.4f}/{self.score_min:.4f}"
+            )
+        if self.latency_ms is not None:
+            parts.append(f"耗时={self.latency_ms}ms")
+        if self.degraded:
+            parts.append("⚠索引降级")
+        parts.append(f"状态={self.status}")
+        return " | ".join(parts)
+
+
 @dataclass
 class WikiRagResult:
     ok: bool = False
@@ -116,6 +188,7 @@ class WikiRagResult:
     index_dir: str = ""
     hits: list[WikiHit] = field(default_factory=list)
     warning: str = ""
+    telemetry: RetrievalTelemetry = field(default_factory=RetrievalTelemetry)
 
 
 def kb_root(kb_wiki: str | Path) -> Path:
@@ -179,35 +252,52 @@ def retrieve(
     the caller can skip the W source without breaking S/G/R.
     """
     res = WikiRagResult()
+    tel = res.telemetry
+    tel.mode = str(mode)
+    tel.recall_desc = _MODE_RECALL_DESC.get(str(mode), "")
+    tel.k = int(k)
     if not kb_wiki:
         res.warning = "wiki-rag 需要知识库 wiki 路径 (--kb-wiki / KNOWLEDGE_WIKI)"
+        tel.status = "skipped"
+        tel.warning = res.warning
         return res
     root = kb_root(kb_wiki)
     script = root / RAG_SCRIPT_REL
     if not script.exists():
         res.warning = f"wiki-rag 未接入：找不到 {script}"
+        tel.status = "skipped"
+        tel.warning = res.warning
         return res
     # 选索引目录：默认走 _resolve_index_dir（RAG_INDEX_DIR env 或 .rag_index）；
     # 全文版经 index_dir 指向 .rag_index_full。若指定索引缺失则回退默认索引，
     # 避免 W 源在只装了结构版索引的机器上被静默丢弃。
     default_index = _resolve_index_dir(root)
     chosen = default_index
+    requested: Path | None = None
     if index_dir is not None:
         cand = Path(index_dir).expanduser()
         if not cand.is_absolute():
             cand = root / cand
+        requested = cand
         if cand.exists():
             chosen = cand
         elif default_index.exists():
             res.warning = f"wiki-rag 请求索引 {cand.name} 不存在，已回退默认索引 {default_index.name}"
+            tel.degraded = True
         else:
             chosen = cand  # 都不存在 → 落到下方缺失索引告警
     res.index_dir = str(chosen)
+    tel.index_dir = str(chosen)
+    tel.index_kind = _index_kind(chosen)
+    if requested is not None:
+        tel.requested_index_dir = str(requested)
     if not chosen.exists():
         res.warning = (
             f"wiki-rag 未接入：向量索引不存在 {chosen}"
             "（先在知识库仓跑 scripts/rag_index.py build 或 fetch_rag_index.py）"
         )
+        tel.status = "skipped"
+        tel.warning = res.warning
         return res
 
     rag_python = _resolve_rag_python(root)
@@ -222,30 +312,49 @@ def retrieve(
     if source_type:
         cmd.extend(["--source-type", source_type])
         filters.append(f"source_type={source_type}")
+    if evidence_layer:
+        tel.filters["evidence_layer"] = evidence_layer
+    if fact_hardness:
+        tel.filters["fact_hardness"] = fact_hardness
+    if source_type:
+        tel.filters["source_type"] = source_type
     filter_note = f" filters={','.join(filters)}" if filters else ""
     res.command = f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
     res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（hybrid 向量召回 wiki 候选页）"
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
+    _t0 = time.monotonic()
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(root), env=env)
     except subprocess.TimeoutExpired:
         res.warning = f"wiki-rag 超时(>{timeout}s)，已跳过"
+        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+        tel.status = "timeout"
+        tel.warning = res.warning
         return res
     except Exception as exc:  # pragma: no cover - defensive
         res.warning = f"wiki-rag 调用失败: {exc}"
+        tel.status = "error"
+        tel.warning = res.warning
         return res
+    tel.latency_ms = int((time.monotonic() - _t0) * 1000)
     if proc.returncode != 0:
         res.warning = f"wiki-rag 退出码 {proc.returncode}: {(proc.stderr or '').strip()[:160]}"
+        tel.status = "error"
+        tel.warning = res.warning
         return res
 
     try:
         raw = json.loads(proc.stdout or "[]")
     except json.JSONDecodeError as exc:
         res.warning = f"wiki-rag 输出非 JSON: {exc}"
+        tel.status = "error"
+        tel.warning = res.warning
         return res
     if not isinstance(raw, list):
         res.warning = "wiki-rag 输出格式异常（期望 PageHit 列表）"
+        tel.status = "error"
+        tel.warning = res.warning
         return res
 
     hits: list[WikiHit] = []
@@ -269,6 +378,17 @@ def retrieve(
         )
     res.hits = hits
     res.ok = bool(hits)
-    if not hits:
+    tel.hit_count = len(hits)
+    tel.neighbor_hits = sum(1 for h in hits if h.via_neighbor)
+    if hits:
+        scores = [h.score for h in hits]
+        tel.score_max = max(scores)
+        tel.score_min = min(scores)
+        tel.score_mean = sum(scores) / len(scores)
+        tel.status = "ok"
+        tel.warning = res.warning  # 可能携带索引降级提示
+    else:
         res.warning = "wiki-rag 无命中"
+        tel.status = "empty"
+        tel.warning = res.warning
     return res
