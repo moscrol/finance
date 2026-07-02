@@ -37,7 +37,7 @@ from intelligence.services.answer_orchestrator import (
     QuestionPlan,
     plan_answer_question,
 )
-from intelligence.services import event_transmission, evidence_gap_radar, market_structure, theme_lifecycle, valuation_gap
+from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_gap
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
     MODULE_DEEP_DIVE,
@@ -167,6 +167,8 @@ class AskResult:
     event_brief: event_transmission.EventTransmissionBrief | None = None
     gap_radar: evidence_gap_radar.GapRadarReport | None = None
     valuation_note: valuation_gap.ValuationGapNote | None = None
+    # Review 层：输出前六项确定性检查闸门（只读、WARN 不阻断）。
+    review_gate: output_review.OutputReviewGate | None = None
     # (label, 完整报告全文) per routed module, only when --detail is set
     detail_reports: list[tuple[str, str]] = field(default_factory=list)
 
@@ -793,12 +795,24 @@ def answer_query(options: AskOptions) -> AskResult:
         else:
             result.warnings.append(reason)
 
+    result.review_gate = output_review.review_output(
+        trade_date=result.trade_date,
+        audit=audit,
+        counter_plan=counter_plan,
+        gap_lines=gap_lines,
+        follow_ups=follow_ups,
+        conclusion_lines=conclusion,
+    )
+    result.warnings.extend(
+        f"输出质检：{c.name}——{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
+    )
     result.sections = {
         "结论": conclusion,
         "证据链": evidence_chain,
         "分歧反证": gap_lines,
         "后续验证点": follow_ups,
         "检索可观测": telemetry.summary_lines(),
+        "输出质检": result.review_gate.summary_lines(),
         "交易含义": implication_lines,
         "引用来源": [f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations],
     }
@@ -1435,7 +1449,7 @@ def _pct(value: float) -> float:
 
 
 SUBHEAD = "\x00SUB\x00"
-SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检索可观测", "交易含义", "引用来源"]
+SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检索可观测", "输出质检", "交易含义", "引用来源"]
 
 
 def render_answer(result: AskResult) -> str:

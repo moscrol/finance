@@ -136,6 +136,7 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
                 f"stock_brief={result.stock_brief is not None}",
                 f"market_phase={(result.market_state.phase if result.market_state else '-')}",
                 f"theme_stage={(result.theme_lifecycle.stage if result.theme_lifecycle else '-')}",
+                f"review_gate={(result.review_gate.status if result.review_gate else '-')}",
             ],
             warnings=list(audit.warnings) if audit else [],
         )
