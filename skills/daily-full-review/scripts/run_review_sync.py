@@ -15,9 +15,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 import time
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -77,6 +79,47 @@ def _empty_detail_themes(trade_date: str) -> list[str]:
         con.close()
 
 
+def preflight() -> list[str]:
+    """开跑前环境自检：把环境问题在第一时间报清楚，不等跑到一半才发现。
+
+    检查项：CDP proxy 存活、fupanhui 登录态、shared 软链。返回问题列表。"""
+    problems: list[str] = []
+
+    shared = ROOT / "shared"
+    if not (shared / "feishu_utils.py").exists():
+        problems.append(
+            "shared 软链缺失或失效: 修复 `ln -sfn ~/.claude/shared shared`"
+        )
+
+    from market_feature_store.sources.fupanhui_source import CDP_PROXY
+    try:
+        with urllib.request.urlopen(f"{CDP_PROXY}/health", timeout=5) as resp:
+            health = json.loads(resp.read())
+        if not health.get("connected"):
+            problems.append(f"CDP proxy 未连上 Chrome ({CDP_PROXY}/health connected=false)")
+    except Exception as e:  # noqa: BLE001
+        problems.append(
+            f"CDP proxy 不可达 ({CDP_PROXY}): {e}; "
+            "启动: node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs"
+        )
+        return problems  # proxy 都不在, 登录态无从检查
+
+    try:
+        from market_feature_store.sources import fupanhui_source as fs
+        raw = fs.cdp_eval(
+            "(()=>{try{var s=JSON.parse(localStorage.getItem('user-auth-storage')||'{}');"
+            "return (s.state&&s.state.token)?'ok':(localStorage.getItem('user_token')?'ok':'no');"
+            "}catch(e){return 'no';}})()",
+            timeout=30, retries=1,
+        )
+        if raw != "ok":
+            problems.append("fupanhui 未登录: 请在 Chrome 重新登录 fupanhui.com 后重跑")
+    except Exception as e:  # noqa: BLE001
+        problems.append(f"fupanhui 登录态检查失败: {e}")
+
+    return problems
+
+
 def run_step(label: str, argv: list[str], timeout: int) -> dict:
     """跑一个子进程模块，stdout 继承到终端（看得到进度），返回结果。"""
     print(f"\n>>> {label}: {' '.join(argv)} (timeout={timeout}s)", flush=True)
@@ -106,7 +149,7 @@ def sync_sector_stocks(trade_date: str, timeout: int, max_loops: int = 20) -> di
         loops += 1
         res = run_step(
             f"sector-stocks loop{loops} ({done}/{total})",
-            CLI + ["sync-sector-stocks", "--trade-date", trade_date, "--limit", "20", "--sleep", "0.05"],
+            CLI + ["sync-sector-stocks", "--trade-date", trade_date, "--limit", "60", "--sleep", "0.05"],
             timeout,
         )
         # 超时/失败也续跑：板块级提交可续，下一轮从断点继续
@@ -120,7 +163,7 @@ def sync_limit_heat(trade_date: str, timeout: int) -> dict:
     """直跑（继承 stdout 看 chunk 进度），完后对失败题材逐个 --sector 重试。"""
     res = run_step(
         "limit-heat",
-        CLI + ["sync-limit-heat", "--trade-date", trade_date, "--detail-chunk", "6", "--sleep", "0.05"],
+        CLI + ["sync-limit-heat", "--trade-date", trade_date, "--detail-chunk", "12", "--sleep", "0.05"],
         timeout,
     )
     empties = _empty_detail_themes(trade_date)
@@ -210,7 +253,21 @@ def main() -> int:
     ap.add_argument("--heavy-timeout", type=int, default=600, help="重模块单次超时秒数, 默认600")
     ap.add_argument("--only", default=None, help="只跑某个模块名（调试用）")
     ap.add_argument("--from-step", default=None, help="从某个模块开始")
+    ap.add_argument("--retry-rounds", type=int, default=1,
+                    help="整轮末尾对 fail/timeout 模块的补偿重试轮数, 默认1 (0=关闭)")
+    ap.add_argument("--skip-preflight", action="store_true",
+                    help="跳过开跑前环境自检")
     args = ap.parse_args()
+
+    if not args.skip_preflight:
+        problems = preflight()
+        if problems:
+            print("== preflight 发现环境问题 ==", flush=True)
+            for p in problems:
+                print(f"  - {p}", flush=True)
+            print("(修复后重跑, 或加 --skip-preflight 强制继续)", flush=True)
+            return 3
+        print("== preflight 通过: CDP proxy / 登录态 / shared 软链 ==", flush=True)
 
     plan = build_plan(args.date, args.timeout, args.heavy_timeout)
     names = [n for n, _ in plan]
@@ -228,6 +285,18 @@ def main() -> int:
     results: list[dict] = []
     for _name, fn in plan:
         results.append(fn())
+
+    # 收尾补偿：CDP 500 等瞬态故障到末尾往往已自愈，统一重跑 fail/timeout 模块
+    for round_no in range(1, max(args.retry_rounds, 0) + 1):
+        bad_idx = [i for i, r in enumerate(results) if r["status"] in {"fail", "timeout"}]
+        if not bad_idx:
+            break
+        bad_names = [plan[i][0] for i in bad_idx]
+        print(f"\n== 收尾重试 第{round_no}轮: {', '.join(bad_names)} ==", flush=True)
+        for i in bad_idx:
+            res = plan[i][1]()
+            res["note"] = (str(res.get("note") or "") + f" [retry r{round_no}]").strip()
+            results[i] = res
 
     # 审计
     gate = subprocess.run([PY, "scripts/check_daily_review_data.py", args.date], cwd=str(ROOT))

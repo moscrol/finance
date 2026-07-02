@@ -32,6 +32,8 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
 - **每模块审计**：写完用 `check_daily_review_data.py` 或行数查询确认，再进下一模块。
 - **每轮必记 runlog**：跑完把每个模块的 状态/耗时/走了哪条路径 追加到
   `state/runlog.md`，顺的路径记住，坑的路径下次规避。
+- **末尾自动补偿重试**：编排器跑完一轮后会对 fail/timeout 的模块统一重跑
+  `--retry-rounds` 轮（默认1），CDP 500 等瞬态故障到末尾往往已自愈；runlog 备注会带 `[retry rN]`。
 - **必须用编排层 run_review_sync.py**：不要手动逐步跑 sync-* 命令，参数极易搞错
   （如 sync-stock-daily --refresh 默认 offset=180 ≈ 90min）。编排层自带正确参数 + 超时 + 兜底。
 - **超时后检查残留进程再起新任务**：`ps aux | grep market_feature_store | grep -v grep`
@@ -101,8 +103,8 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 | 1 轻 | sw-l1-daily | `sync-sw-l1-daily --trade-date D --days 20` | 少卡 |
 | 1 轻 | market-deviation | `sync-market-deviation --trade-date D` | 缺则日报偏离度占位 |
 | 1 轻 | sector-daily | `sync-sector-daily --trade-date D --days 25` | CDP 500 重试 |
-| 2 重 | sector-stocks | 循环 `sync-sector-stocks --trade-date D --limit 20 --sleep 0.05` 直到 `count(distinct sector_ts_code) >= dim_sector` | 默认跳过已抓板块，可续跑；逐批超时后直接续下一批 |
-| 2 重 | limit-heat | **直跑** `sync-limit-heat --trade-date D --detail-chunk 6 --sleep 0.05`（看 chunk 进度） | 写完若有题材"有涨停但明细为空"，逐个 `--sector <题材> --detail-chunk 1` 重试 |
+| 2 重 | sector-stocks | 循环 `sync-sector-stocks --trade-date D --limit 60 --sleep 0.05`（内部按 chunk=10 一次 eval 并发抓一批，已非逐板块）直到 `count(distinct sector_ts_code) >= dim_sector` | 默认跳过已抓板块，可续跑；chunk 失败自动降级逐板块单抓 |
+| 2 重 | limit-heat | **直跑** `sync-limit-heat --trade-date D --detail-chunk 12 --sleep 0.05`（看 chunk 进度；失败自动二分降级） | 写完若有题材"有涨停但明细为空"，逐个 `--sector <题材> --detail-chunk 1` 重试 |
 | 2 重 | stock-high | `sync-stock-high --trade-date D --page-size 200` | 个别日期会挂，超时则记 skip |
 | 2 重 | limit-advance | `sync-limit-advance --trade-date D --min-boards 2` | 少卡 |
 | 3 兜底 | stock-daily | 先 `sync-stock-daily-snapshot --trade-date D --page-size 100`（东财快照，单日复盘默认，快） | **超时/失败 → `fill-stock-daily-fallback --trade-date D`**（用 sector_stock 聚合，已验证当日可用）。历史多日回填才用 mootdx（`sync-stock-daily`，走 duckdb-backfill） |

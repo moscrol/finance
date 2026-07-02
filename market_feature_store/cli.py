@@ -83,6 +83,7 @@ def cmd_sync_sector_stocks(args) -> int:
         limit=args.limit,
         only_missing=not args.refresh,
         sleep=args.sleep,
+        chunk=args.chunk,
     )
     print(f"交易日: {stats['trade_date']}")
     print(f"本次抓取板块: {stats['processed']} | 写入行: {stats['rows_written']}")
@@ -855,12 +856,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_sdr.add_argument("--sleep", type=float, default=0.2, help="批次间隔秒数, 默认0.2")
     p_sdr.set_defaults(func=cmd_sync_sector_daily_range)
 
-    p_ss = sub.add_parser("sync-sector-stocks", help="逐板块回补成分股快照到 fact_sector_stock_daily")
+    p_ss = sub.add_parser("sync-sector-stocks", help="批量回补成分股快照到 fact_sector_stock_daily")
     p_ss.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_ss.add_argument("--sector", default=None, help="只抓单个板块 (代码或名称)")
     p_ss.add_argument("--limit", type=int, default=None, help="本次最多抓多少个板块")
     p_ss.add_argument("--refresh", action="store_true", help="不跳过已抓板块, 强制重抓")
-    p_ss.add_argument("--sleep", type=float, default=0.3, help="板块间隔秒数, 默认0.3")
+    p_ss.add_argument("--sleep", type=float, default=0.3, help="chunk 间隔秒数, 默认0.3")
+    p_ss.add_argument("--chunk", type=int, default=10, help="单次 eval 并发抓取的板块数, 默认10")
     p_ss.set_defaults(func=cmd_sync_sector_stocks)
 
     sub.add_parser("sync-market-daily", help="同步飞书每日指标表到 fact_market_daily").set_defaults(func=cmd_sync_market_daily)

@@ -1,7 +1,8 @@
 """同步 fact_sector_stock_daily: 板块成分股每日全量快照。
 
-数据源: fupanhui sector-cycle stocks (单板块单日)。
-逐板块抓取 (一次一个板块, 对服务器更温和), 单板块写完即提交, 可中断可续跑。
+数据源: fupanhui sector-cycle stocks。
+按 chunk 批量抓取 (一次 CDP eval 内并发抓一批板块, 大幅减少浏览器往返),
+单板块写完即提交, 可中断可续跑; chunk 失败自动降级为逐板块单抓。
 用 --limit 分批增量, 默认跳过当日已抓板块 (resume)。
 """
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 import json
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, date
 
 from ..db import connect, init_db
@@ -84,6 +86,19 @@ def _tencent_symbol(ts_code: str) -> str:
 
 
 _CAP_CACHE: dict[str, dict] = {}
+_CAP_WORKERS = 8
+
+
+def _fetch_cap_batch(batch: list[str]) -> str | None:
+    url = "https://qt.gtimg.cn/q=" + ",".join(batch)
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    for _cap_attempt in range(4):
+        try:
+            return urllib.request.urlopen(req, timeout=15).read().decode("gbk", "ignore")
+        except Exception:
+            if _cap_attempt < 3:
+                time.sleep(1.5 * (_cap_attempt + 1))
+    return None
 
 
 def _tencent_market_caps(ts_codes: list[str]) -> dict[str, dict]:
@@ -93,20 +108,10 @@ def _tencent_market_caps(ts_codes: list[str]) -> dict[str, dict]:
     if not symbols:
         return {c: _CAP_CACHE[c] for c in ts_codes if c in _CAP_CACHE}
     out = _CAP_CACHE
-    for i in range(0, len(symbols), 80):
-        batch = symbols[i:i + 80]
-        url = "https://qt.gtimg.cn/q=" + ",".join(batch)
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        text = None
-        for _cap_attempt in range(4):
-            try:
-                text = urllib.request.urlopen(req, timeout=15).read().decode("gbk", "ignore")
-                break
-            except Exception:
-                if _cap_attempt == 3:
-                    text = None
-                else:
-                    time.sleep(1.5 * (_cap_attempt + 1))
+    batches = [symbols[i:i + 80] for i in range(0, len(symbols), 80)]
+    with ThreadPoolExecutor(max_workers=min(_CAP_WORKERS, len(batches))) as pool:
+        texts = list(pool.map(_fetch_cap_batch, batches))
+    for text in texts:
         if text is None:
             continue
         for line in text.strip().split(";"):
@@ -174,22 +179,49 @@ UPSERT_SQL = """
 """
 
 
+def _slim_to_full(stock: dict) -> dict:
+    """把 get_sector_stocks_batch 的 slim 键还原为单板块 API 的完整键名。"""
+    return {
+        "ts_code": stock.get("c"),
+        "name": stock.get("n"),
+        "price": stock.get("p"),
+        "pct_chg": stock.get("pc"),
+        "amount": stock.get("a"),
+        "pct_chg_3d": stock.get("p3"),
+        "pct_chg_5d": stock.get("p5"),
+        "pct_chg_10d": stock.get("p10"),
+        "pct_chg_20d": stock.get("p20"),
+        "fund_flow_1d": stock.get("f1"),
+        "fund_flow_5d": stock.get("f5"),
+        "sw_industry": stock.get("sw"),
+        "leader_plate": stock.get("lp"),
+        "high_status": stock.get("hs"),
+        "high_status_label": stock.get("hl"),
+        "limit_times": stock.get("lt"),
+        "role_tags": stock.get("rt"),
+        "circ_mv": stock.get("cm"),
+    }
+
+
 def sync_fact_sector_stock_daily(
     trade_date: str | None = None,
     sector: str | None = None,
     limit: int | None = None,
     only_missing: bool = True,
     sleep: float = 0.3,
+    chunk: int = 10,
 ) -> dict:
-    """逐板块回补某交易日的成分股快照。
+    """批量回补某交易日的成分股快照。
 
-    一次一个板块调 API, 写完即提交; 默认跳过当日已抓板块, 可多次短命令续跑。
+    按 chunk 一次 CDP eval 并发抓一批板块, 逐板块写入即提交;
+    chunk 失败自动降级为逐板块单抓。默认跳过当日已抓板块, 可多次短命令续跑。
     参数:
       trade_date  指定交易日, 留空取 fact_sector_daily 最新日。
       sector      只抓单个板块 (代码或名称)。
       limit       本次最多抓多少个板块。
       only_missing 跳过当日已抓板块 (续跑)。
-      sleep       板块间隔秒数。
+      sleep       chunk 间隔秒数。
+      chunk       单次 eval 并发抓取的板块数。
     """
     init_db()
     con = connect()
@@ -234,43 +266,77 @@ def sync_fact_sector_stock_daily(
 
     con = connect()
     try:
-        for ts_code in todo:
-            name, sw_l1 = dim.get(ts_code, (ts_code, None))
+        chunk_size = max(int(chunk), 1)
+        for start in range(0, len(todo), chunk_size):
+            batch_codes = todo[start:start + chunk_size]
+            payloads: dict[str, dict] = {}
+            t_eval = time.time()
             try:
-                payload = fs.get_sector_stocks(ts_code, trade_date=td_str)
-            except Exception as e:  # noqa: BLE001
-                failures.append((ts_code, str(e)))
-                continue
-            snap_date = _parse_date(payload.get("trade_date")) or td
-            stocks = payload.get("stocks", [])
-            cap_map = _tencent_market_caps([s.get("ts_code") for s in stocks if s.get("ts_code")])
-            rows = []
-            for s in stocks:
-                code = s.get("ts_code")
-                if not code:
-                    continue
-                cap = cap_map.get(code, {})
-                rows.append((
-                    snap_date, ts_code, name, sw_l1,
-                    code, s.get("name"), s.get("price"), s.get("pct_chg"), s.get("amount"),
-                    s.get("pct_chg_3d"), s.get("pct_chg_5d"), s.get("pct_chg_10d"), s.get("pct_chg_20d"),
-                    s.get("high_status"), s.get("high_status_label"), s.get("limit_times"),
-                    s.get("fund_flow_1d"), s.get("fund_flow_5d"), s.get("sw_industry"),
-                    s.get("leader_plate"), None, json.dumps(s.get("role_tags") or [], ensure_ascii=False),
-                    s.get("circ_mv"),
-                    cap.get("float_mcap_yi"), cap.get("total_mcap_yi"), None, cap.get("mcap_source"),
-                    "fupanhui", now,
-                ))
-            con.execute("BEGIN TRANSACTION")
-            con.execute(
-                "DELETE FROM fact_sector_stock_daily WHERE trade_date = ? AND sector_ts_code = ?",
-                [snap_date, ts_code],
+                raw = fs.get_sector_stocks_batch(batch_codes, trade_date=td_str)
+                for ts_code in batch_codes:
+                    entry = raw.get(ts_code) or {}
+                    payloads[ts_code] = {
+                        "trade_date": entry.get("td"),
+                        "stocks": [_slim_to_full(s) for s in entry.get("st") or []],
+                    }
+            except Exception:  # noqa: BLE001
+                # 批量 eval 失败 -> 降级逐板块单抓
+                for ts_code in batch_codes:
+                    try:
+                        payloads[ts_code] = fs.get_sector_stocks(ts_code, trade_date=td_str)
+                    except Exception as e:  # noqa: BLE001
+                        failures.append((ts_code, str(e)))
+            t_eval = time.time() - t_eval
+            all_codes = [
+                s.get("ts_code")
+                for payload in payloads.values()
+                for s in payload.get("stocks", [])
+                if s.get("ts_code")
+            ]
+            t_caps = time.time()
+            cap_map = _tencent_market_caps(all_codes)
+            t_caps = time.time() - t_caps
+            print(
+                f"[sector-stocks] chunk {start // chunk_size + 1}/"
+                f"{(len(todo) + chunk_size - 1) // chunk_size} "
+                f"sectors={len(batch_codes)} stocks={len(all_codes)} "
+                f"eval={t_eval:.1f}s caps={t_caps:.1f}s",
+                flush=True,
             )
-            if rows:
-                con.executemany(UPSERT_SQL, rows)
-            con.execute("COMMIT")
-            processed += 1
-            rows_written += len(rows)
+            for ts_code, payload in payloads.items():
+                name, sw_l1 = dim.get(ts_code, (ts_code, None))
+                stocks = payload.get("stocks", [])
+                if not stocks:
+                    failures.append((ts_code, "empty stocks"))
+                    continue
+                snap_date = _parse_date(payload.get("trade_date")) or td
+                rows = []
+                for s in stocks:
+                    code = s.get("ts_code")
+                    if not code:
+                        continue
+                    cap = cap_map.get(code, {})
+                    rows.append((
+                        snap_date, ts_code, name, sw_l1,
+                        code, s.get("name"), s.get("price"), s.get("pct_chg"), s.get("amount"),
+                        s.get("pct_chg_3d"), s.get("pct_chg_5d"), s.get("pct_chg_10d"), s.get("pct_chg_20d"),
+                        s.get("high_status"), s.get("high_status_label"), s.get("limit_times"),
+                        s.get("fund_flow_1d"), s.get("fund_flow_5d"), s.get("sw_industry"),
+                        s.get("leader_plate"), None, json.dumps(s.get("role_tags") or [], ensure_ascii=False),
+                        s.get("circ_mv"),
+                        cap.get("float_mcap_yi"), cap.get("total_mcap_yi"), None, cap.get("mcap_source"),
+                        "fupanhui", now,
+                    ))
+                con.execute("BEGIN TRANSACTION")
+                con.execute(
+                    "DELETE FROM fact_sector_stock_daily WHERE trade_date = ? AND sector_ts_code = ?",
+                    [snap_date, ts_code],
+                )
+                if rows:
+                    con.executemany(UPSERT_SQL, rows)
+                con.execute("COMMIT")
+                processed += 1
+                rows_written += len(rows)
             if sleep:
                 time.sleep(sleep)
 

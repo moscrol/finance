@@ -52,12 +52,15 @@ def _fph_tab_priority(url: str) -> int:
     return 1 if "/workspace" in url else 0
 
 
-def get_target(force: bool = False) -> str:
-    """获取一个可用的 CDP target。优先复用 fupanhui 标签页, 否则新建。"""
-    if _target_cache["id"] and not force:
+def get_target(force: bool = False, fresh: bool = False) -> str:
+    """获取一个可用的 CDP target。优先复用 fupanhui 标签页, 否则新建。
+
+    fresh=True 时跳过复用, 直接新建一个干净的 workspace 标签页
+    (适用于旧页面 JS 环境已坏、反复 500 的场景)。"""
+    if _target_cache["id"] and not force and not fresh:
         return _target_cache["id"]
     try:
-        targets = _http_get(f"{CDP_PROXY}/targets")
+        targets = _http_get(f"{CDP_PROXY}/targets") if not fresh else []
     except Exception as e:  # noqa: BLE001
         raise FupanhuiError(
             f"无法连接 CDP proxy ({CDP_PROXY}): {e}. "
@@ -90,11 +93,15 @@ def get_target(force: bool = False) -> str:
     return tid
 
 
-def cdp_eval(js_expr: str, timeout: int = 120, retries: int = 2):
-    """在浏览器上下文执行 JS, 返回其 value。"""
+def cdp_eval(js_expr: str, timeout: int = 120, retries: int = 3):
+    """在浏览器上下文执行 JS, 返回其 value。
+
+    重试策略: 指数退避; 连续失败 2 次后不再复用旧标签页,
+    强制新建干净的 workspace 页 (旧页 JS 环境可能已坏)。
+    空 value 也视为失败重试: 卡死/未加载的标签页会秒回空值而不报错。"""
     last_error = None
     for attempt in range(max(1, int(retries) + 1)):
-        target = get_target(force=attempt > 0)
+        target = get_target(force=attempt > 0, fresh=attempt >= 2)
         req = urllib.request.Request(
             f"{CDP_PROXY}/eval?target={target}",
             data=js_expr.encode(),
@@ -106,12 +113,15 @@ def cdp_eval(js_expr: str, timeout: int = 120, retries: int = 2):
             if isinstance(result, dict) and result.get("error"):
                 last_error = FupanhuiError(f"CDP eval 错误: {result['error']}")
             else:
-                return result.get("value") if isinstance(result, dict) else None
+                value = result.get("value") if isinstance(result, dict) else None
+                if value not in (None, "", {}):
+                    return value
+                last_error = FupanhuiError("CDP eval 返回空值 (标签页可能卡死或未加载)")
         except Exception as e:  # noqa: BLE001
             last_error = e
         _target_cache["id"] = None
         if attempt < int(retries):
-            time.sleep(0.8 * (attempt + 1))
+            time.sleep(min(0.8 * (2 ** attempt), 6.0))
     raise FupanhuiError(f"CDP eval 失败: {last_error}") from last_error
 
 
@@ -339,6 +349,7 @@ def get_sector_stocks_batch(
 
     返回 {ts_code: {trade_date, name, stock_count, stocks:[{...slim...}]}}。
     调用方应分块 (chunk) 传入, 控制单次 eval 响应大小。
+    slim 字段与 fact_sector_stock_daily 所需列对齐 (含 p3/hs/hl/lt/rt/cm/lsp)。
     """
     codes_json = json.dumps(ts_codes)
     td_param = f"?trade_date={trade_date}" if trade_date else ""
@@ -354,8 +365,9 @@ def get_sector_stocks_batch(
         ".then(r=>r.json()).then(d=>{"
         "const dd=d.data||{};"
         "const arr=(dd.stocks||[]).map(s=>({c:s.ts_code,n:s.name,p:s.price,"
-        "pc:s.pct_chg,a:s.amount,p5:s.pct_chg_5d,p10:s.pct_chg_10d,p20:s.pct_chg_20d,"
-        "f1:s.fund_flow_1d,f5:s.fund_flow_5d,sw:s.sw_industry,lp:s.leader_plate}));"
+        "pc:s.pct_chg,a:s.amount,p3:s.pct_chg_3d,p5:s.pct_chg_5d,p10:s.pct_chg_10d,p20:s.pct_chg_20d,"
+        "f1:s.fund_flow_1d,f5:s.fund_flow_5d,sw:s.sw_industry,lp:s.leader_plate,"
+        "hs:s.high_status,hl:s.high_status_label,lt:s.limit_times,rt:s.role_tags,cm:s.circ_mv}));"
         "out[ts]={td:dd.trade_date,nm:dd.name,sc:dd.stock_count,st:arr};"
         "}).catch(()=>{out[ts]={st:[]};}));"
         "await Promise.all(ps);"
