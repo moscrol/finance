@@ -137,6 +137,8 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关 |
 | task-planner | 批量任务规划、开工前采访、批量回填前先问、开新题材前先问、运行前规划、采访前置、先问后做、task planner、batch plan、回填前先问 |
 | checkpoint-recheck-mac-setup | 夜间回检、checkpoint recheck、可证伪点回检、launchd 安装、远程执行、remote-exec、隧道乱码、codepoint 校验、共享大脑、foresight 台账、多机一致、登点闭环 |
+| daily-full-review | （待补：SKILL.md 无触发词字段） |
+| dispatcher | 所有请求默认经过本 dispatcher、不需要显式触发 |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 
