@@ -139,6 +139,7 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | checkpoint-recheck-mac-setup | 夜间回检、checkpoint recheck、可证伪点回检、launchd 安装、远程执行、remote-exec、隧道乱码、codepoint 校验、共享大脑、foresight 台账、多机一致、登点闭环 |
 | daily-full-review | （待补：SKILL.md 无触发词字段） |
 | dispatcher | 所有请求默认经过本 dispatcher、不需要显式触发 |
+| stock-deep-dive | 个股深挖、深挖、深度分析个股、这只股怎么看、复盘先验、行情前瞻、明日研判、次日研判、前瞻研判 |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 
