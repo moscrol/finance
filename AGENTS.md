@@ -7,6 +7,8 @@
 - 🚫 **红线**：禁提交 `.env*` / 密钥 / `*.pdf|zip|duckdb|db` / `.DS_Store` / 缓存或虚拟环境；不写明文密钥；知识库大 JSON（relations/）走 `query_relations.py`，别直接 `cat`；不擅自合并 `main`、不强推。
 - 完整偏好见 `.agent-memory/30_conventions/preferences.md`（repo 内软链 → `/Users/a77/agent-memory`，已 gitignore）。
 
+> 📒 **台账地图**：所有台账（复盘验证/晨汇/卖方研报等）的 canonical 路径、格式与唯一写入者，见 `docs/learning/ledger-map.md`；新增台账先在那登记。
+
 ## 🧠 共享记忆底座（开工前先读）
 
 本机有一个跨 Agent 共享的记忆底座（Obsidian vault）：`/Users/a77/agent-memory`（仓库 `linxiaoqi5111-del/agent-memory`）。
