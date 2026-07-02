@@ -420,6 +420,7 @@ def load_calibration(
 # --------------------------------------------------------------------------- #
 # 复用潜意识沉淀 vault（同一本 Obsidian），回检日志放其下子目录，跟 judgments 双层落盘同理。
 ENV_VAULT = "SUBCONSCIOUS_VAULT"
+ENV_AGENT_MEMORY_VAULT = "AGENT_MEMORY_VAULT"
 RECHECK_VAULT_SUBDIR = "可证伪点回检"
 _VERDICT_CN = {"hit": "命中", "partial": "半对", "miss": "落空", "unverifiable": "暂无法判定"}
 
@@ -427,14 +428,17 @@ _VERDICT_CN = {"hit": "命中", "partial": "半对", "miss": "落空", "unverifi
 def resolve_recheck_vault(
     fallback_root: str | Path, *, explicit: str | None = None
 ) -> tuple[Path, bool]:
-    """回检日志 vault 路径：显式 ``--vault`` > env ``SUBCONSCIOUS_VAULT`` > 回退。
+    """回检日志 vault 路径：显式 > env > ``~/agent-memory`` > 回退。
 
     返回 ``(vault_path, is_fallback)``；回退路径在 ``fallback_root/_vault``（已 gitignore），
     仍是真实可读的 md，只是不在你的 Obsidian 里。真实落地请指 ``--vault`` / ``SUBCONSCIOUS_VAULT``。
     """
-    cand = explicit or os.environ.get(ENV_VAULT)
+    cand = explicit or os.environ.get(ENV_VAULT) or os.environ.get(ENV_AGENT_MEMORY_VAULT)
     if cand:
         return Path(str(cand)).expanduser(), False
+    shared_memory = Path.home() / "agent-memory"
+    if shared_memory.exists():
+        return shared_memory, False
     return Path(fallback_root) / "_vault", True
 
 

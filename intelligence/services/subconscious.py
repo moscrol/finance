@@ -6,7 +6,8 @@
 - 机器层 ``users/<id>/interactions.jsonl``（算法燃料，复用
   :func:`intelligence.services.interactions.record_interaction`，喂 foresight 亲和度）；
 - 人类层 Obsidian「沉淀」vault markdown 日志（你读 / 改 / 看演化），路径走 ``--vault`` /
-  env ``SUBCONSCIOUS_VAULT``，**独立于**金融 Concept 知识库 vault。
+  env ``SUBCONSCIOUS_VAULT`` / ``AGENT_MEMORY_VAULT`` / ``~/agent-memory``，**独立于**金融
+  Concept 知识库 vault。
 
 P1 规则版：信号抽取由上层 agent 在对话里**逐轮**记进 session buffer（``subconscious note``），
 本模块只做**确定性**聚合 / 去重 / 落盘——零 LLM / DuckDB / 联网依赖，可离线单测。
@@ -31,6 +32,7 @@ from intelligence import userspace
 from intelligence.services import interactions, judgments
 
 ENV_VAULT = "SUBCONSCIOUS_VAULT"
+ENV_AGENT_MEMORY_VAULT = "AGENT_MEMORY_VAULT"
 STATE_DIRNAME = ".subconscious"
 VAULT_SUBDIR = "潜意识"  # vault 内存放对话日志的子目录
 # session_id 约束：字母/数字开头，仅 [A-Za-z0-9._-]，杜绝路径穿越（同 userspace 风格）。
@@ -373,7 +375,7 @@ def build_markdown(proposal: Proposal) -> str:
 # 落盘 (commit)：双层写入 + 归档 buffer
 # --------------------------------------------------------------------------- #
 def resolve_vault(us: userspace.UserSpace, *, explicit: str | None = None) -> tuple[Path, bool]:
-    """解析沉淀 vault 路径：显式 > active.json > env SUBCONSCIOUS_VAULT > 回退。
+    """解析沉淀 vault 路径：显式 > active.json > env > 共享记忆库 > 回退。
 
     返回 ``(vault_path, is_fallback)``；回退路径在 ``users/<id>/_vault``（已 gitignore，
     仅云端合成验证用，真实落地请指 ``--vault`` / ``SUBCONSCIOUS_VAULT``）。
@@ -385,8 +387,13 @@ def resolve_vault(us: userspace.UserSpace, *, explicit: str | None = None) -> tu
             cand = active.get("vault")
     if not cand:
         cand = os.environ.get(ENV_VAULT)
+    if not cand:
+        cand = os.environ.get(ENV_AGENT_MEMORY_VAULT)
     if cand:
         return Path(str(cand)).expanduser(), False
+    shared_memory = Path.home() / "agent-memory"
+    if shared_memory.exists():
+        return shared_memory, False
     return us.root / "_vault", True
 
 

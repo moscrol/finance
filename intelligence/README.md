@@ -5,7 +5,7 @@
 ```
 ask            统一多源问答：KB 图谱(G/R) + 盘面候选快照(S)，六段式输出（本文重点）
 foresight      猜你想问 / 潜意识：基于盘面现实+画像，主动生成「你还没想到但该问」的追问
-adapter-smoke  只读 adapter 冒烟检查（需要 duckdb + 本地 db/market.duckdb）
+adapter-smoke  只读 adapter 冒烟检查（需要 duckdb + 本地 db/market_feature_store.duckdb）
 daily          每日复盘工作流
 theme          题材雷达工作流
 ```
@@ -35,6 +35,8 @@ theme          题材雷达工作流
 
 `ask` 默认 **不依赖外部 LLM、也不依赖 DuckDB**：盘面取已提交的 theme-candidates 快照，图谱/证据走只读 JSON。
 `证据链` / `分歧反证` / `引用来源` 始终为真实检索结果，每条事实带 `[S#]/[G#]/[R#]` 编号引用。
+
+需要实时盘面或个股深挖时，当前标准 DuckDB 是 `db/market_feature_store.duckdb`。`db/market.duckdb` 是早期飞书同步阶段的旧路径，不作为当前问答和深挖的盘面数据源。
 
 ### 抽取做厚（默认）+ `--detail` 整篇钻取
 

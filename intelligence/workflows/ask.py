@@ -27,6 +27,11 @@ class AskWorkflowOptions:
     llm_model: str | None = None
     llm_timeout: int = 60
     detail: bool = False
+    user: str | None = None
+    experience_cards_window: int = 12
+    use_l3_lookup: bool = False
+    l3_lookup_timeout: int = 480
+    l3_lookup_limit: int = 5
 
 
 def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, str]:
@@ -56,10 +61,30 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             llm_model=options.llm_model,
             llm_timeout=options.llm_timeout,
             detail=options.detail,
+            user=options.user,
+            experience_cards_window=options.experience_cards_window,
+            use_l3_lookup=options.use_l3_lookup,
+            l3_lookup_timeout=options.l3_lookup_timeout,
+            l3_lookup_limit=options.l3_lookup_limit,
         )
     )
     answer = render_answer(result)
+    plan = result.question_plan
 
+    summary.steps.append(
+        WorkflowStep(
+            name="answer-orchestrator",
+            status="PASS" if plan and plan.confidence >= 0.5 else "WARN",
+            outputs=[
+                f"type={(plan.question_type if plan else '-')}",
+                f"depth={(plan.depth if plan else '-')}",
+                f"confidence={(f'{plan.confidence:.2f}' if plan else '-')}",
+                f"lenses={len(plan.required_lenses) if plan else 0}",
+                f"sources={len(plan.retrieval_plan) if plan else 0}",
+            ],
+            warnings=list(plan.warnings) if plan else ["question plan missing"],
+        )
+    )
     summary.steps.append(
         WorkflowStep(
             name="market-source",
@@ -79,6 +104,41 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             name="wiki-rag-source",
             status="PASS" if result.found_wiki else ("SKIP" if not options.use_wiki_rag else "WARN"),
             outputs=[f"found_wiki={result.found_wiki}"],
+        )
+    )
+    summary.steps.append(
+        WorkflowStep(
+            name="l3-evidence-tools",
+            status=(
+                "PASS"
+                if result.l3_evidence.items
+                else ("WARN" if options.use_l3_lookup and result.l3_evidence.gaps else "SKIP")
+            ),
+            outputs=[
+                f"enabled={options.use_l3_lookup}",
+                f"gaps={len(result.l3_evidence.gaps)}",
+                f"items={len(result.l3_evidence.items)}",
+                f"commands={len(result.l3_evidence.commands)}",
+            ],
+            warnings=list(result.l3_evidence.warnings),
+        )
+    )
+    audit = result.evidence_audit
+    telemetry = result.retrieval_telemetry
+    summary.steps.append(
+        WorkflowStep(
+            name="research-brief-skills",
+            status="PASS" if audit is not None else "SKIP",
+            outputs=[
+                f"verdict={(audit.verdict if audit else '-')}",
+                f"layers={('/'.join(f'{k}x{v}' for k, v in sorted(audit.layer_counts.items())) if audit else '-')}",
+                f"covers_l3={telemetry.covers_l3 if telemetry else '-'}",
+                f"stock_brief={result.stock_brief is not None}",
+                f"market_phase={(result.market_state.phase if result.market_state else '-')}",
+                f"theme_stage={(result.theme_lifecycle.stage if result.theme_lifecycle else '-')}",
+                f"review_gate={(result.review_gate.status if result.review_gate else '-')}",
+            ],
+            warnings=list(audit.warnings) if audit else [],
         )
     )
     summary.steps.append(

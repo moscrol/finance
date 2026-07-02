@@ -16,6 +16,7 @@ from intelligence.services.logic_market_match import (
     batch_match_logic_to_market,
 )
 from intelligence.services import kb_rag
+from intelligence.services import kb_ingest_queue
 from intelligence.services import logic_lifecycle
 from intelligence.services import logic_effectiveness
 from intelligence.services import market_validation
@@ -433,6 +434,9 @@ def _agent_next_actions(report: dict[str, Any]) -> list[str]:
         if task_summary.get("today_downgrade_or_watch"):
             parts.append(f"降级观察 {task_summary['today_downgrade_or_watch']} 条")
         actions.append("今日研究任务队列：" + "；".join(parts) + "。")
+    kb_summary = (report.get("kb_ingest_queue") or {}).get("summary") or {}
+    if kb_summary.get("total_tasks"):
+        actions.append(f"已生成知识库回补任务包：{kb_summary['total_tasks']} 条，等待 KB repo 校验归档和人工复核。")
     judgments = [
         row.get("research_judgment") or {}
         for rows in decision.values()
@@ -512,6 +516,11 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
     effectiveness_summary = logic_effectiveness.summarize_effectiveness(decision)
     semantic_warnings = _enrich_decision_with_semantic_rag(decision, options, paths.knowledge_wiki)
     task_queue = research_queue.build_research_queue(decision)
+    kb_queue = kb_ingest_queue.build_kb_ingest_queue(
+        task_queue,
+        market_date=options.date,
+        source_artifact=str(paths.market_exports / f"{options.date}-daily-agent.json"),
+    )
     report = {
         "date": options.date,
         "generated_at": now_iso(),
@@ -535,6 +544,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
             "warnings": judgment_warnings,
         },
         "research_queue": task_queue,
+        "kb_ingest_queue": kb_queue,
         "logic_effectiveness": {
             "enabled": True,
             "window": options.effectiveness_window,
@@ -544,6 +554,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         "notes": [
             "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
             "回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。",
+            "kb_ingest_queue 是跨仓待办任务包：只给知识库 repo 接收、校验和归档，不自动写入 wiki。",
         ],
     }
     report["next_actions"] = _agent_next_actions(report)
@@ -696,6 +707,20 @@ def _research_queue_rows(queue: dict[str, Any], limit: int = 8) -> list[str]:
     return lines
 
 
+def _kb_ingest_queue_rows(queue: dict[str, Any], limit: int = 12) -> list[str]:
+    tasks = list(queue.get("tasks") or [])
+    if not tasks:
+        return ["- 无"]
+    lines: list[str] = []
+    for task in tasks[:limit]:
+        gaps = "、".join(task.get("evidence_gap") or task.get("data_gaps") or []) or "-"
+        lines.append(
+            f"- {task.get('theme', '-')}｜{task.get('task_type_label', task.get('task_type', '-'))}｜"
+            f"priority={task.get('priority', '-')}｜缺口={gaps}｜人工复核={task.get('requires_human_review')}"
+        )
+    return lines
+
+
 def render_daily_agent(report: dict[str, Any]) -> str:
     decision = report["decision"]
     ledger = report["ledger"]
@@ -741,6 +766,7 @@ def render_daily_agent(report: dict[str, Any]) -> str:
     else:
         lines.append("- 无")
     lines.extend(["", "## 今日研究任务队列", "", *_research_queue_rows(report.get("research_queue") or {})])
+    lines.extend(["", "## 知识库回补任务包", "", *_kb_ingest_queue_rows(report.get("kb_ingest_queue") or {})])
     lines.extend(["", "## 逻辑证据卡", "", *_evidence_card_rows(decision)])
     if report["semantic_rag"]["warnings"]:
         lines.extend(["", "## 向量旧材料告警", ""])
@@ -935,6 +961,32 @@ def _html_research_queue(queue: dict[str, Any]) -> str:
     return '<div class="task-grid">' + "".join(columns) + "</div>"
 
 
+def _html_kb_ingest_queue(queue: dict[str, Any]) -> str:
+    tasks = list(queue.get("tasks") or [])
+    if not tasks:
+        return '<p class="empty">暂无知识库回补任务。</p>'
+    rows = []
+    for task in tasks[:12]:
+        gaps = "、".join(task.get("evidence_gap") or task.get("data_gaps") or []) or "-"
+        rows.append(
+            "<tr>"
+            f"<td><strong>{escape(str(task.get('theme') or '-'))}</strong></td>"
+            f"<td>{_html_badge(task.get('task_type_label') or task.get('task_type') or '-', 'info')}</td>"
+            f"<td>{escape(str(task.get('priority') if task.get('priority') is not None else '-'))}</td>"
+            f"<td>{escape(gaps)}</td>"
+            f"<td>{escape(str(task.get('requires_human_review')))}</td>"
+            f"<td>{escape(str(task.get('auto_apply')))}</td>"
+            "</tr>"
+        )
+    return (
+        '<div class="table-wrap"><table><thead><tr>'
+        "<th>题材</th><th>任务类型</th><th>优先级</th><th>缺口</th><th>人工复核</th><th>自动应用</th>"
+        "</tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table></div>"
+    )
+
+
 def render_daily_agent_html(report: dict[str, Any], markdown: str) -> str:
     title = f"每日 Agent 简报 - {report['date']}"
     decision = report["decision"]
@@ -1045,6 +1097,10 @@ tr:last-child td{{border-bottom:0}}
     {_html_research_queue(report.get("research_queue") or {})}
   </section>
   <section class="section">
+    <h2>知识库回补任务包</h2>
+    {_html_kb_ingest_queue(report.get("kb_ingest_queue") or {})}
+  </section>
+  <section class="section">
     <h2>逻辑证据卡</h2>
     {_html_evidence_cards(decision)}
   </section>
@@ -1106,6 +1162,7 @@ def run_daily_agent(options: DailyAgentOptions) -> tuple[WorkflowSummary, dict[s
         f"data_gap={len(report['decision']['data_gap'])}",
         f"research_judge={sum(1 for rows in report['decision'].values() for row in rows if row.get('research_judgment'))}",
         f"semantic_rag_hits={sum(1 for rows in report['decision'].values() for row in rows if row.get('semantic_hits'))}",
+        f"kb_ingest_tasks={(report.get('kb_ingest_queue') or {}).get('summary', {}).get('total_tasks', 0)}",
     ]
     summary.warnings = (
         list(batch.get("warnings") or [])
@@ -1135,6 +1192,10 @@ def write_daily_agent_outputs(
     md_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     md_path.write_text(markdown, encoding="utf-8")
+    kb_queue = report.get("kb_ingest_queue")
+    if kb_queue:
+        kb_queue_path = json_path.with_name(f"{report['date']}-kb-ingest-queue.json")
+        kb_queue_path.write_text(json.dumps(kb_queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     if out_html:
         html_path = Path(out_html).expanduser()
         html_path.parent.mkdir(parents=True, exist_ok=True)

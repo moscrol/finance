@@ -1,0 +1,276 @@
+from __future__ import annotations
+
+import json
+import unittest
+import tempfile
+from pathlib import Path
+from unittest import mock
+
+from intelligence.services.answer_orchestrator import (
+    DEPTH_DEEP,
+    DEPTH_STANDARD,
+    QUESTION_MARKET_FORECAST,
+    QUESTION_NEWS_IMPACT,
+    QUESTION_STOCK_DEEP_DIVE,
+    QUESTION_THEME_ANALYSIS,
+    plan_answer_question,
+)
+from intelligence.services.ask import AskOptions, answer_query
+
+
+class AnswerOrchestratorTests(unittest.TestCase):
+    def test_stock_deep_dive_plan_requires_multilens_and_hybrid_rag(self) -> None:
+        plan = plan_answer_question("用 hybrid 深挖飞凯材料，还有没有上涨空间")
+
+        self.assertEqual(plan.question_type, QUESTION_STOCK_DEEP_DIVE)
+        self.assertEqual(plan.depth, DEPTH_DEEP)
+        joined_lenses = "\n".join(plan.required_lenses)
+        joined_sources = "\n".join(plan.retrieval_plan)
+        joined_gates = "\n".join(plan.quality_gates)
+        self.assertIn("公司本体", joined_lenses)
+        self.assertIn("市场结构", joined_lenses)
+        self.assertIn("板块生命周期", joined_lenses)
+        self.assertIn("二阶导", joined_lenses)
+        self.assertIn("wiki hybrid RAG", joined_sources)
+        self.assertIn("L3 evidence tools", joined_sources)
+        self.assertIn("D1/D2/D3", joined_sources)
+        self.assertIn("L3 硬证据", "\n".join(plan.missing_data_policy))
+        self.assertIn("市场正在奖励谁、抛弃谁、犹豫谁", joined_gates)
+
+    def test_market_forecast_plan_requires_verifiable_hypotheses(self) -> None:
+        plan = plan_answer_question("站在6.29视角，6.30的行情怎么看")
+
+        self.assertEqual(plan.question_type, QUESTION_MARKET_FORECAST)
+        self.assertEqual(plan.depth, DEPTH_STANDARD)
+        joined_lenses = "\n".join(plan.required_lenses)
+        joined_sources = "\n".join(plan.retrieval_plan)
+        joined_contract = "\n".join(plan.output_contract)
+        self.assertIn("大盘阶段", joined_lenses)
+        self.assertIn("MA5", joined_lenses)
+        self.assertIn("风格判断", joined_lenses)
+        self.assertIn("四源合议", joined_lenses)
+        self.assertIn("全量复盘硬字段", joined_lenses)
+        self.assertIn("双红演变", joined_lenses)
+        self.assertIn("策略三", joined_lenses)
+        self.assertIn("策略二", joined_lenses)
+        self.assertIn("策略一/策略四", joined_lenses)
+        self.assertIn("策略选择器", joined_lenses)
+        self.assertIn("DuckDB market context", joined_sources)
+        self.assertIn("全量复盘数据块", joined_sources)
+        self.assertIn("diff_ratio", joined_sources)
+        self.assertIn("晚间卖方", joined_sources)
+        self.assertIn("晨汇", joined_sources)
+        self.assertIn("外盘双源", joined_sources)
+        self.assertIn("/reviews/global-market", joined_sources)
+        self.assertIn("web/finance search", joined_sources)
+        self.assertIn("daily-agent 策略候选", joined_sources)
+        self.assertIn("forecast_preflight", joined_sources)
+        self.assertIn("DeepDive", joined_sources)
+        self.assertIn("source_trade_date", "\n".join(plan.quality_gates))
+        self.assertIn("复盘前置查漏门", "\n".join(plan.quality_gates))
+        self.assertIn("正式复盘", "\n".join(plan.quality_gates))
+        self.assertIn("双红题材", "\n".join(plan.quality_gates))
+        self.assertIn("核心个股", "\n".join(plan.quality_gates))
+        self.assertIn("可盘后验证", joined_contract)
+        self.assertIn("四源合议", joined_contract)
+        self.assertIn("个股深挖里的盘面视角", joined_contract)
+        self.assertIn("策略组合", joined_contract)
+        self.assertIn("先补 DeepDive", "\n".join(plan.missing_data_policy))
+
+    def test_news_impact_plan_starts_from_fact_extraction(self) -> None:
+        plan = plan_answer_question("读一下这条公告，对产业链有什么传导冲击")
+
+        self.assertEqual(plan.question_type, QUESTION_NEWS_IMPACT)
+        joined_lenses = "\n".join(plan.required_lenses)
+        joined_sources = "\n".join(plan.retrieval_plan)
+        joined_gates = "\n".join(plan.quality_gates)
+        self.assertIn("事实抽取", joined_lenses)
+        self.assertIn("产业链传导", joined_lenses)
+        self.assertIn("disclosure/interaction API", joined_sources)
+        self.assertIn("不能直接跳到受益股", joined_gates)
+
+    def test_theme_plan_handles_bare_sector_question(self) -> None:
+        plan = plan_answer_question("科技细分里哪个方向还有上涨空间")
+
+        self.assertEqual(plan.question_type, QUESTION_THEME_ANALYSIS)
+        joined_lenses = "\n".join(plan.required_lenses)
+        joined_sources = "\n".join(plan.retrieval_plan)
+        self.assertIn("题材结构", joined_lenses)
+        self.assertIn("强势股队列", joined_lenses)
+        self.assertIn("theme candidates", joined_sources)
+
+    def test_prompt_block_exposes_plan_without_requiring_template_output(self) -> None:
+        plan = plan_answer_question("深挖顺络电子")
+        block = plan.to_prompt_block()
+
+        self.assertIn("问答编排计划", block)
+        self.assertIn("问题类型：stock_deep_dive", block)
+        self.assertIn("不要机械复述", block)
+        self.assertIn("输出前质检门槛", block)
+
+    def test_ask_compose_injects_question_plan_into_llm_prompt(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured["prompt"] = str(messages[1]["content"])
+            return None, "mocked"
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch(
+            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            side_effect=fake_synthesize,
+        ):
+            wiki = Path(tmp) / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            result = answer_query(
+                AskOptions(
+                    query="深挖飞凯材料",
+                    exports_dir=tmp,
+                    kb_wiki=wiki,
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                )
+            )
+
+        self.assertIsNotNone(result.question_plan)
+        assert result.question_plan is not None
+        self.assertEqual(result.question_plan.question_type, QUESTION_STOCK_DEEP_DIVE)
+        self.assertIn("问答编排计划", captured["prompt"])
+        self.assertIn("问题类型：stock_deep_dive", captured["prompt"])
+        self.assertIn("公司本体", captured["prompt"])
+
+    def test_market_forecast_compose_injects_forecast_preflight_gate(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured["prompt"] = str(messages[1]["content"])
+            return None, "mocked"
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch(
+            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            side_effect=fake_synthesize,
+        ):
+            base = Path(tmp)
+            wiki = base / "wiki"
+            exports = base / "exports"
+            (wiki / "relations").mkdir(parents=True)
+            exports.mkdir()
+            (exports / "2026-07-01-daily-agent.json").write_text(
+                json.dumps(
+                    {
+                        "research_queue": {
+                            "today_do_ima": [
+                                {
+                                    "目标": "IDC",
+                                    "动作": "今日该做 IMA",
+                                    "理由": "PR188 真增量但缺 L1/L2。",
+                                    "优先级": 194.0,
+                                    "生命周期阶段": "旧逻辑唤醒",
+                                    "缺失证据层": ["L2 基线"],
+                                    "强势股": ["润泽科技"],
+                                }
+                            ],
+                            "today_find_official_evidence": [],
+                            "today_wait_market_validation": [],
+                            "today_downgrade_or_watch": [],
+                        }
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = answer_query(
+                AskOptions(
+                    query="站在7.1视角，7.2行情怎么看",
+                    date="2026-07-01",
+                    exports_dir=exports,
+                    kb_wiki=wiki,
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                )
+            )
+
+        self.assertIsNotNone(result.forecast_preflight)
+        assert result.forecast_preflight is not None
+        self.assertEqual(result.forecast_preflight["status"], "needs_deepdive")
+        self.assertIn("forecast_preflight", captured["prompt"])
+        self.assertIn("需要先补的 DeepDive", captured["prompt"])
+        self.assertIn("IDC", captured["prompt"])
+        self.assertIn("正式复盘", "\n".join(result.warnings))
+
+    def test_ask_compose_injects_mainline_context_block_into_llm_prompt(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured["prompt"] = str(messages[1]["content"])
+            return None, "mocked"
+
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp, mock.patch(
+            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            side_effect=fake_synthesize,
+        ):
+            base = Path(tmp)
+            wiki = base / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            db_path = base / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_mainline_sector_daily(
+                  trade_date date, theme_code varchar, theme_name varchar,
+                  sector_ts_code varchar, sector_name varchar, sort_no integer,
+                  today_pct double, limit_up_count integer, max_limit_height integer,
+                  amount double, amount_estimated double, amount_relative_ratio double,
+                  net_inflow_1d double, strength double, strength_chg double,
+                  cycle_level varchar, cycle_status varchar,
+                  startup_date_small date, startup_date_big date,
+                  startup_date_super date, startup_date_extend date,
+                  high_status varchar, high_status_label varchar,
+                  near_breakout_status varchar, near_breakout_label varchar,
+                  near_breakout_gap_pct double, note varchar, source varchar, updated_at timestamp
+                )
+                """
+            )
+            con.execute(
+                """
+                create table fact_sector_daily(
+                  trade_date date, sector_ts_code varchar, sector_name varchar,
+                  sw_l1 varchar, pct_chg double, amount double, diff_ratio double
+                )
+                """
+            )
+            con.executemany(
+                "insert into fact_mainline_sector_daily values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("2026-06-30", "TH1", "AI算力", "886033.TI", "共封装光学(CPO)", 1, 5.17, 15, 2, 70055142.0, 70055142.0, -0.02, 52086112744.0, 4175.6, 4048.9, "小级别", "顺势", "2026-04-01", None, None, None, None, None, "history", "历史新高", 1.44, "", "test", "2026-06-30 15:30:00"),
+                ],
+            )
+            con.executemany(
+                "insert into fact_sector_daily values (?, ?, ?, ?, ?, ?, ?)",
+                [("2026-06-30", "886033.TI", "共封装光学(CPO)", "电子", 5.18, 7005.51, -5.68)],
+            )
+            con.close()
+
+            result = answer_query(
+                AskOptions(
+                    query="AI算力怎么看",
+                    exports_dir=tmp,
+                    kb_wiki=wiki,
+                    market_db_path=db_path,
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                )
+            )
+
+        self.assertIn("主线题材结构数据块 [D4]", captured["prompt"])
+        self.assertIn("共封装光学(CPO)", captured["prompt"])
+        self.assertIn("缩量强修复/存量抱团", captured["prompt"])
+        self.assertTrue(any(c.tag == "D4" for c in result.citations))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -77,6 +78,13 @@ class ToolSchemaTests(unittest.TestCase):
             fn = t["function"]
             self.assertTrue(fn["description"])
             self.assertEqual(fn["parameters"]["type"], "object")
+
+    def test_system_prompt_requires_expectation_and_critic_thinking(self) -> None:
+        self.assertIn("预期交易", agent._AGENT_SYSTEM_PROMPT)
+        self.assertIn("兑现分歧", agent._AGENT_SYSTEM_PROMPT)
+        self.assertIn("反方审稿", agent._AGENT_SYSTEM_PROMPT)
+        self.assertIn("资金推动价格", agent._AGENT_SYSTEM_PROMPT)
+        self.assertIn("20日量能回归", agent._AGENT_SYSTEM_PROMPT)
 
 
 class ToolBehaviourTests(unittest.TestCase):
@@ -413,6 +421,15 @@ class MarketLiveToolTests(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.db_path = str(Path(self._tmp.name) / "market_feature_store.duckdb")
         _seed_market_db(self.db_path, trade_date="2026-06-11")
+        # 环境隔离：_resolve_market_db_path 会回退到环境变量和包默认库
+        # （db/market_feature_store.duckdb）。若跑测试的机器上默认库真实存在，
+        # "未配置 → 不注册" 的断言会被环境击穿；指向不存在路径保证机器无关。
+        env_patch = mock.patch.dict(
+            os.environ,
+            {"MARKET_FEATURE_STORE_DB": str(Path(self._tmp.name) / "nonexistent.duckdb")},
+        )
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
 
     def test_not_registered_without_db_path(self) -> None:
         # opt-in：未配置 market_db_path → 默认 6 件套逐字节不变，工具不注册

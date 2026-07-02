@@ -87,6 +87,7 @@ intelligence/users/*/profile.derived.json
 intelligence/users/*/foresight_memory.jsonl
 intelligence/users/*/interactions.jsonl
 intelligence/users/*/corrections.jsonl
+intelligence/users/*/experience_cards.jsonl
 intelligence/users/*/judgments.jsonl
 intelligence/users/*/checkpoints.jsonl
 intelligence/users/*/verdicts.jsonl

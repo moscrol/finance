@@ -91,7 +91,26 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Append each routed module's FULL report as a per-module 钻取 appendix (折叠块).",
     )
+    parser.add_argument("--user", default=None, help="用户 id；compose 时读取该用户的 experience_cards.jsonl")
+    parser.add_argument("--experience-cards-window", type=int, default=12, help="compose 时最多读取最近 N 张经验卡片")
+    parser.add_argument(
+        "--l3-lookup",
+        action="store_true",
+        help="启用 L3 官方证据工具补查（公告/问询函/互动易）。需配置 FINANCE_L3_CNINFO_CMD / FINANCE_L3_SSE_EINTERACT_CMD。",
+    )
+    parser.add_argument("--l3-lookup-timeout", type=int, default=480, help="单个 L3 工具调用超时秒数；SSE 首跑建 uid 缓存可能接近 7 分钟")
+    parser.add_argument("--l3-lookup-limit", type=int, default=5, help="单个 L3 工具最多注入证据条数")
     parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
+    parser.add_argument(
+        "--brief-json",
+        default=None,
+        help="个股深挖时把 StockResearchBrief（证据分层审计/检索遥测/反证计划/八步研究路径）写入 JSON 文件；非深挖问题无简报时跳过",
+    )
+    parser.add_argument(
+        "--audit-ledger",
+        default=None,
+        help="检索审计台账 JSONL 路径：每次回答追加一条 query→命中→质量记录（检索模式/命中分布/分数/降级/证据裁定/失败标签），供 recall 评估与失败样本复盘",
+    )
     parser.set_defaults(func=cmd_ask)
 
 
@@ -127,6 +146,8 @@ def add_chat_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     parser.add_argument("--llm-model", default=None, help="Override LLM model id (else provider default / LLM_MODEL)")
     parser.add_argument("--llm-timeout", type=int, default=60, help="LLM HTTP timeout in seconds")
+    parser.add_argument("--user", default=None, help="用户 id；首轮 compose 时读取该用户的 experience_cards.jsonl")
+    parser.add_argument("--experience-cards-window", type=int, default=12, help="首轮 compose 时最多读取最近 N 张经验卡片")
     parser.add_argument(
         "-f", "--follow-up", dest="follow_ups", action="append", default=[],
         help="追问（可重复）。提供后走非交互：首轮+依次跑完所有追问即退出（便于脚本/演示）。"
@@ -160,6 +181,8 @@ def cmd_chat(args: argparse.Namespace) -> int:
             wiki_rag_timeout=args.wiki_rag_timeout,
             wiki_rag_index_dir=kb_index_dir,
             compose=True,
+            user=args.user,
+            experience_cards_window=args.experience_cards_window,
         ),
         model_override=args.llm_model,
         timeout=args.llm_timeout,
@@ -363,6 +386,38 @@ def add_agent_eval_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--from-run", default=None, help="从已存 run JSON 离线重评，不调用 LLM/KB（确定性回归）")
     parser.add_argument("--skip-grounding-check", action="store_true", help="跳过 live 跑前的用例接地预检（默认会先核对 expect/forbid 实体是否对齐知识库）")
     parser.set_defaults(func=cmd_agent_eval)
+
+
+def add_answer_score_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "answer-score",
+        help="金融回答质量评分：按垂直行业 rubric 评价本地数据优先、证据分层、盘面阶段、反方审稿等。",
+    )
+    parser.add_argument("--question", required=True, help="原始问题，例如：瑞华泰还有上涨空间吗")
+    src = parser.add_mutually_exclusive_group(required=True)
+    src.add_argument("--answer", default=None, help="直接传入回答文本")
+    src.add_argument("--answer-file", default=None, help="从文件读取回答文本")
+    parser.add_argument(
+        "--local-source",
+        action="append",
+        default=[],
+        help="本轮应优先使用的本地来源标识，可重复，例如 knowledge-base-private / market_feature_store",
+    )
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON（默认 markdown 记分卡）")
+    parser.add_argument("--user", default=None, help="用户 id；保存经验卡片时使用（默认 default 或 FORESIGHT_USER）")
+    parser.add_argument("--save-card", action="store_true", help="把本次评分同时沉淀为 users/<user>/experience_cards.jsonl")
+    parser.add_argument("--card-file", default=None, help="覆盖经验卡片保存路径")
+    parser.add_argument("--corrected-principle", default=None, help="从本次扣分抽象出的可复用原则")
+    parser.add_argument("--prompt-rule", default=None, help="下次回答同类问题时应注入的提示规则")
+    parser.add_argument("--applies-to", action="append", default=[], help="适用问题类型/场景，可重复")
+    parser.add_argument("--user-feedback", default=None, help="用户对本次回答的反馈摘要")
+    parser.add_argument(
+        "--promotion",
+        default="candidate",
+        choices=["candidate", "promoted", "methodology"],
+        help="经验卡片状态",
+    )
+    parser.set_defaults(func=cmd_answer_score)
 
 
 def add_route_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -626,7 +681,8 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     out_md = Path(args.out_md).expanduser() if args.out_md else finance_root / "market_feature_store" / "exports" / f"{args.date}-daily-agent.md"
     out_html = Path(args.out_html).expanduser() if args.out_html else finance_root / "复盘" / "daily" / args.date / f"{args.date}-daily-agent.html"
     write_daily_agent_outputs(report, answer, out_json, out_md, out_html)
-    summary.outputs.extend([str(out_json), str(out_md), str(out_html)])
+    kb_queue_path = out_json.with_name(f"{args.date}-kb-ingest-queue.json")
+    summary.outputs.extend([str(out_json), str(out_md), str(out_html), str(kb_queue_path)])
     if args.summary_json:
         summary.write_json(args.summary_json)
     if args.json:
@@ -634,6 +690,7 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     else:
         print(answer, end="")
         print(f"\n输出: {out_md}\n输出: {out_json}\n输出: {out_html}")
+        print(f"输出: {kb_queue_path}")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
@@ -714,6 +771,52 @@ def cmd_agent_eval(args: argparse.Namespace) -> int:
         )
         return 2
     return 0 if card.passed else 1
+
+
+def cmd_answer_score(args: argparse.Namespace) -> int:
+    import json
+
+    from intelligence.eval import finance_answer_rubric as rubric
+
+    if args.answer_file:
+        answer = Path(args.answer_file).expanduser().read_text(encoding="utf-8")
+    else:
+        answer = args.answer or ""
+    scored = rubric.score_answer(
+        args.question,
+        answer,
+        local_sources=list(args.local_source or []),
+    )
+    card_path: Path | None = None
+    card: dict | None = None
+    if args.save_card:
+        from intelligence import userspace
+        from intelligence.services import experience_cards
+
+        us = userspace.user_space(args.user)
+        card_path = Path(args.card_file).expanduser() if args.card_file else us.experience_cards_path
+        card = experience_cards.build_card_from_score(
+            scored,
+            answer=answer,
+            corrected_principle=args.corrected_principle,
+            applies_to=list(args.applies_to or []),
+            prompt_rule=args.prompt_rule,
+            user_feedback=args.user_feedback,
+            local_sources=list(args.local_source or []),
+            promotion=args.promotion,
+        )
+        experience_cards.record_card(card_path, card)
+    if args.json:
+        payload = scored.to_dict()
+        if card_path is not None and card is not None:
+            payload["experience_card_path"] = str(card_path)
+            payload["experience_card"] = card
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print(rubric.format_score(scored))
+        if card_path is not None:
+            print(f"\n经验卡片已保存 → {card_path}")
+    return 0 if scored.total_score >= 60 else 1
 
 
 def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -865,6 +968,35 @@ def add_theme_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(func=cmd_theme)
 
 
+def add_l3_ingest_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "l3-ingest",
+        help="Runtime disclosure lookup -> L3 candidate payload -> optional wiki L3 evidence assets.",
+    )
+    sub = parser.add_subparsers(dest="action", required=True)
+
+    p_company = sub.add_parser("company", help="查公司公告/互动易并抽取可复核 L3 候选事实")
+    p_company.add_argument("company", help="公司名或股票代码，如 瑞华泰 / 688323")
+    p_company.add_argument("--source", default="cninfo", help="逗号分隔数据源：cninfo,sse_einteract")
+    p_company.add_argument("--days", type=int, default=30, help="查询近 N 天")
+    p_company.add_argument("--limit", type=int, default=20, help="最多处理工具返回的 N 条结果")
+    p_company.add_argument("--out-json", default=None, help="写出 L3 候选 payload JSON")
+    p_company.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
+    p_company.set_defaults(func=cmd_l3_ingest)
+
+    p_apply = sub.add_parser("apply", help="把 l3-ingest company 生成的候选 payload 沉淀为 wiki L3 证据资产")
+    p_apply.add_argument("payload", help="l3-ingest company --out-json 生成的 JSON")
+    p_apply.add_argument(
+        "--kb-wiki",
+        default="/Users/a77/knowledge-base-private/wiki",
+        help="知识库 wiki 根目录；默认 /Users/a77/knowledge-base-private/wiki",
+    )
+    p_apply.add_argument("--apply", action="store_true", help="真正写入 wiki；不加则只 dry-run 预览写入计划")
+    p_apply.add_argument("--reviewed", action="store_true", help="标记为已人工复核；默认 review_required=true")
+    p_apply.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
+    p_apply.set_defaults(func=cmd_l3_apply)
+
+
 def cmd_ask(args: argparse.Namespace) -> int:
     from intelligence.workflows.ask import AskWorkflowOptions, run_ask
 
@@ -893,11 +1025,72 @@ def cmd_ask(args: argparse.Namespace) -> int:
             llm_model=args.llm_model,
             llm_timeout=args.llm_timeout,
             detail=args.detail,
+            user=args.user,
+            experience_cards_window=args.experience_cards_window,
+            use_l3_lookup=args.l3_lookup,
+            l3_lookup_timeout=args.l3_lookup_timeout,
+            l3_lookup_limit=args.l3_lookup_limit,
         )
     )
     if args.summary_json:
         summary.write_json(args.summary_json)
+    if args.brief_json:
+        if _result.stock_brief is not None:
+            Path(args.brief_json).write_text(_result.stock_brief.to_json() + "\n", encoding="utf-8")
+        else:
+            print(f"[brief-json] 非个股深挖问题，未生成研究简报，跳过 {args.brief_json}", file=sys.stderr)
+    if args.audit_ledger and _result.evidence_audit is not None and _result.retrieval_telemetry is not None:
+        from intelligence.services import retrieval_audit
+
+        record = retrieval_audit.build_audit_record(
+            query=_result.query,
+            question_type=(_result.question_plan.question_type if _result.question_plan else "unknown"),
+            trade_date=_result.trade_date,
+            audit=_result.evidence_audit,
+            telemetry=_result.retrieval_telemetry,
+            market_phase=(_result.market_state.phase if _result.market_state else None),
+            d_block_stats=_result.d_block_stats,
+        )
+        retrieval_audit.append_record(args.audit_ledger, record)
+        if record.is_failure:
+            print(f"[audit-ledger] 已记为失败样本：{'、'.join(record.failure_tags)}", file=sys.stderr)
     print(answer, end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def cmd_l3_ingest(args: argparse.Namespace) -> int:
+    from intelligence.workflows.l3_ingest import L3IngestWorkflowOptions, run_l3_ingest
+
+    sources = tuple(source.strip() for source in str(args.source or "").split(",") if source.strip())
+    summary, _result, report = run_l3_ingest(
+        L3IngestWorkflowOptions(
+            company=args.company,
+            sources=sources or ("cninfo",),
+            days=args.days,
+            limit=args.limit,
+            out_json=args.out_json,
+        )
+    )
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    print(report, end="")
+    return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
+
+
+def cmd_l3_apply(args: argparse.Namespace) -> int:
+    from intelligence.workflows.l3_ingest import L3ApplyWorkflowOptions, run_l3_apply
+
+    summary, _result, report = run_l3_apply(
+        L3ApplyWorkflowOptions(
+            payload_path=args.payload,
+            kb_wiki=args.kb_wiki,
+            apply=args.apply,
+            reviewed=args.reviewed,
+        )
+    )
+    if args.summary_json:
+        summary.write_json(args.summary_json)
+    print(report, end="")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
@@ -1850,6 +2043,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_chat_parser(subparsers)
     add_agent_parser(subparsers)
     add_agent_eval_parser(subparsers)
+    add_answer_score_parser(subparsers)
     add_route_parser(subparsers)
     add_orchestrate_parser(subparsers)
     add_logic_match_parser(subparsers)
@@ -1863,6 +2057,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_adapter_smoke_parser(subparsers)
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)
+    add_l3_ingest_parser(subparsers)
     add_serve_parser(subparsers)
     add_feishu_bot_parser(subparsers)
     add_dream_collect_parser(subparsers)

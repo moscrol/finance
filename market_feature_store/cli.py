@@ -93,6 +93,23 @@ def cmd_sync_sector_stocks(args) -> int:
     return 0
 
 
+def cmd_sync_mainline_sector_daily(args) -> int:
+    from .sync.sync_fupanhui_mainline_sector_daily import sync
+    from .sources import fupanhui_source as fs
+
+    td = args.trade_date or fs.get_latest_date_public()
+    stats = sync(td)
+    print(f"交易日: {td} | 主线题材: {stats['themes']} | 写入板块行: {stats['sectors']}")
+    failures = stats["failures"]
+    if failures:
+        print(f"失败题材 ({len(failures)}):")
+        for f in failures:
+            print(f"  - {f['theme_code']} {f['theme_name']}: {f['error']}")
+    else:
+        print("失败题材: 0")
+    return 0
+
+
 def cmd_sync_market_daily(_args) -> int:
     from .sync.sync_feishu_market_daily import sync_fact_market_daily
 
@@ -906,6 +923,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_lh.add_argument("--sleep", type=float, default=0.1, help="题材明细接口间隔秒数, 默认0.1")
     p_lh.add_argument("--detail-chunk", type=int, default=12, help="每批明细题材数, 默认12")
     p_lh.set_defaults(func=cmd_sync_limit_heat)
+
+    p_mls = sub.add_parser("sync-mainline-sector-daily", help="同步复盘会每日主线题材→核心板块到 fact_mainline_sector_daily")
+    p_mls.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取复盘会最新")
+    p_mls.set_defaults(func=cmd_sync_mainline_sector_daily)
 
     sub.add_parser("sync-sector-marginal", help="回填飞书边际量电子表格到 fact_sector_daily.diff_ratio").set_defaults(func=cmd_sync_sector_marginal)
 

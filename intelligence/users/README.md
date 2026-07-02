@@ -16,6 +16,7 @@
 | `foresight_memory.jsonl` | `foresight` | 否 | 问过的问题记忆回路（去重用） |
 | `interactions.jsonl` | `record-interaction` | 否 | 点击/追问/喜欢/忽略/打分反馈，用于「越用越懂」 |
 | `corrections.jsonl` | `record-correction` | 否 | 你纠正它的高信号记录，注入发问「别再犯」（纠偏回路） |
+| `experience_cards.jsonl` | `answer-score --save-card` | 否 | 问答经验卡片：评分、扣分、修正原则、下次提示规则，注入 `ask --compose` |
 | `judgments.jsonl` | `subconscious commit` | 否 | 深挖纪要沉淀的核心判断台账，注入发问「在此基础上往前推」 |
 | `checkpoints.jsonl` | `checkpoint register` | 否 | 可证伪点台账（判断 + 到期日 + 机检规格），到期回检 |
 | `verdicts.jsonl` | `checkpoint recheck/score` | 否 | 回检打分台账，聚合成「你哪类二阶推演靠谱」回注发问 |
@@ -87,6 +88,25 @@ foresight 默认三者都注入：`--no-methodology` 关闭思考宪法、`--no-
 `--no-judgments` 关闭近期核心判断、`--corrections-window N` / `--judgments-window N` 只带最近 N 条、
 `--methodology-file` / `--corrections-file` / `--judgments-file` 改路径。渲染头部会显示
 「方法论：注入思考宪法 N 字 · 带 M 条纠偏」与「旧判断：承接 K 条核心判断往前推」，方便确认生效。
+
+## 问答经验卡片：把低分回答变成下次提示
+
+`answer-score --save-card` 会把一次评分压缩成 `experience_cards.jsonl`。它不是事实库，
+而是“回答行为”的学习样本：哪里扣分、用户怎么纠正、下次同类问题必须检查什么。
+
+```bash
+python3 -m intelligence.cli answer-score \
+    --question "科技细分里哪个方向还有上涨空间" \
+    --answer-file /tmp/answer.md \
+    --local-source market_feature_store \
+    --save-card --user <id> \
+    --applies-to 题材方向判断 \
+    --corrected-principle "泛方向判断必须先定市场阶段，再看容量/双红/扩散，再拆 L1-L4，最后给反方和证伪条件" \
+    --prompt-rule "回答板块空间问题时，不得只给排序；必须说明阶段、资金容量、证据层、反方、验证指标。"
+```
+
+之后 `ask --compose --user <id>` 会读取最近相关经验卡片，注入 LLM 合成提示；确定性证据链仍然
+来自 market/KB，不会被经验卡片污染。
 
 ## 越用越准：可证伪点回检 + 二阶推演校准（C 方案）
 

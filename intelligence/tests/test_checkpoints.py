@@ -6,6 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from intelligence import cli
 from intelligence.services import checkpoint_resolvers as resolvers
@@ -284,7 +285,7 @@ class RecheckDigestTests(unittest.TestCase):
     def test_resolve_vault_priority(self) -> None:
         import os
 
-        # 显式 > env > 回退
+        # 显式 > env > ~/agent-memory > 回退
         p, fb = checkpoints.resolve_recheck_vault("/fallback", explicit="/x/vault")
         self.assertEqual(p, Path("/x/vault"))
         self.assertFalse(fb)
@@ -299,10 +300,24 @@ class RecheckDigestTests(unittest.TestCase):
                 os.environ.pop(checkpoints.ENV_VAULT, None)
             else:
                 os.environ[checkpoints.ENV_VAULT] = old
-        os.environ.pop(checkpoints.ENV_VAULT, None)
-        p3, fb3 = checkpoints.resolve_recheck_vault("/fallback")
-        self.assertEqual(p3, Path("/fallback") / "_vault")
-        self.assertTrue(fb3)
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            vault = home / "agent-memory"
+            vault.mkdir(parents=True)
+            with mock.patch.dict(os.environ, {"HOME": str(home)}, clear=False):
+                os.environ.pop(checkpoints.ENV_VAULT, None)
+                os.environ.pop(checkpoints.ENV_AGENT_MEMORY_VAULT, None)
+                p3, fb3 = checkpoints.resolve_recheck_vault("/fallback")
+        self.assertEqual(p3, vault)
+        self.assertFalse(fb3)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"HOME": tmp}, clear=False):
+                os.environ.pop(checkpoints.ENV_VAULT, None)
+                os.environ.pop(checkpoints.ENV_AGENT_MEMORY_VAULT, None)
+                p4, fb4 = checkpoints.resolve_recheck_vault("/fallback")
+        self.assertEqual(p4, Path("/fallback") / "_vault")
+        self.assertTrue(fb4)
 
     def test_digest_section_tally_and_lines(self) -> None:
         sec = checkpoints.build_recheck_digest_section(self._results(), applied=True)

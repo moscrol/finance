@@ -295,15 +295,30 @@ _SYNTHESIS_SYSTEM_PROMPT = (
     "你是资深A股题材研究员，回答风格像一位严谨的分析师在对话中讲清一个题材。"
     "下面给你的是已经检索好的多源证据：盘面信号(S)、知识图谱概念与公司分层(G)、"
     "证据条目(R)、wiki 语义召回(W)、题材模块产出。请把它们【有机融合】成一段自然、"
-    "连贯的回答，而不是逐段填模板。硬性要求："
+    "连贯的回答，而不是逐段填模板。你的底层思考要像 daily-agent：先判断市场正在定价什么，"
+    "再判断题材/个股处在什么生命周期，最后才谈后续空间。硬性要求："
     "1) 只能使用证据中出现的事实/公司/数字，严禁引入证据里没有的内容；信息不足就直说"
     "「证据不足/仅盘面驱动」，绝不编造公司、数字或催化；"
     "2) 关键判断、公司、数字、催化之后必须用方括号标注引用编号（如 [S1][R4][G2]），可多个；"
-    "3) 结构要自然流畅（短段落即可，不要堆一堆 markdown 标题），但内容上要覆盖："
-    "一句话结论 → 当前盘面状态 → 产业链与公司分层（务必区分 核心/真实暴露 与 graph_only 低置信"
-    "待验证 两类，后者只能当预期差线索、不可当基本面依据）→ 关键催化与证据 → 分歧与风险 → 接下来该跟踪什么；"
-    "4) 不输出任何买卖指令，结尾以「（非投资建议）」收尾；"
-    "5) 直接输出回答正文，不要输出 JSON，不要复述本提示，不要附加无关解释。"
+    "3) 先在内部写出核心矛盾句：这家公司真实业务是什么，市场正在交易什么预期，最大的证据缺口或反证是什么；"
+    "所有视角都必须服务这个核心矛盾，禁止按公司本体、盘面、二阶导、反证逐项填空；"
+    "每一段都要回答这个事实改变了什么判断，比如改变了对空间、生命周期、资金选择、证据硬度或替代表达的判断；"
+    "4) 结构要自然流畅（短段落即可，不要堆一堆 markdown 标题），但内容上要覆盖："
+    "一句话结论 → 市场/板块/个股三层资金传导 → 全量盘面数据的正反推导（每个关键数据要说明支持什么、"
+    "反证什么，尤其解释强板块弱个股/个股反弹但市场缩量/情绪回落的含义）→ 逻辑生命周期（新出现/旧逻辑唤醒/升温验证/加速定价/"
+    "高位分歧/衰退观察/证伪退出，结合 priority、强势股、触发信号、新高、涨停、双红、加权强度等证据）"
+    "→ 产业链与公司分层（务必区分 核心/真实暴露 与 graph_only 低置信待验证 两类，后者只能当预期差线索、"
+    "不可当基本面依据）→ 关键催化与证据 → 二阶导/替代标的/产业瓶颈 → 分歧与风险 → 接下来该跟踪什么；"
+    "如果证据里有 D2 客户证据硬度数据块，必须区分硬证据、候选证据、弱证据和反证/缺口；"
+    "如果证据里有 D3 二阶导研究队列数据块，必须把 P0/P1/P2 转译成自然语言的研究判断，不能机械照抄；"
+    "如果证据里有 D4 主线题材结构数据块，必须用它判断主线连续性、核心板块、cycle_status、启动/顺势/分歧/消亡，"
+    "并区分真正双红/增量启动与缩量强修复/存量抱团；"
+    "5) 对“上涨空间/怎么看/深挖”类问题，必须回答：它是领先核心、同步确认、后排补涨、二阶段回流、"
+    "高低切承接还是高位兑现；同时必须回答市场正在奖励谁、抛弃谁、犹豫谁。如果证据缺失，要明确缺了哪类 daily-agent 数据，而不是跳过；"
+    "6) 输出前必须在内部做一次质检和反驳：检查是否漏掉公司本体、产业链暴露、证据层、大盘/情绪/板块/个股、生命周期、二阶导、反证和条件化结论；"
+    "再模拟严格用户追问“是否模板化、是否孤立看个股、证据是否够硬、是否找到更优表达”，若有缺口先补写进最终稿；"
+    "7) 不输出任何买卖指令，结尾以「（非投资建议）」收尾；"
+    "8) 直接输出回答正文，不要输出 JSON，不要复述本提示，不要附加质检过程或审稿过程。"
 )
 
 
@@ -314,19 +329,39 @@ class SynthesisResult:
     model: str
 
 
-def _build_synthesis_prompt(query: str, theme: str, evidence_text: str, citation_legend: str) -> str:
+def _build_synthesis_prompt(
+    query: str,
+    theme: str,
+    evidence_text: str,
+    citation_legend: str,
+    quality_context: object | None = None,
+    experience_guidance: str = "",
+) -> str:
     legend = f"\n\n## 引用图例（编号 → 来源，回答里请沿用这些编号）\n{citation_legend}" if citation_legend else ""
+    quality_block = ""
+    if quality_context is not None and hasattr(quality_context, "to_prompt_block"):
+        quality_block = f"\n\n{quality_context.to_prompt_block()}"
+    experience_block = (
+        f"\n\n## 历史经验卡片（用于避免重复犯错）\n{experience_guidance}"
+        if experience_guidance
+        else ""
+    )
     return (
         f"用户问题：{query}\n"
         f"命中主题：{theme}\n\n"
         f"以下是已检索到的多源证据（你的回答只能据此展开）：\n"
-        f"{evidence_text}{legend}\n\n"
+        f"{evidence_text}{legend}{quality_block}{experience_block}\n\n"
         f"请据此有机融合成一段分析师口吻的回答。"
     )
 
 
 def build_synthesis_messages(
-    query: str, theme: str, evidence_text: str, citation_legend: str = ""
+    query: str,
+    theme: str,
+    evidence_text: str,
+    citation_legend: str = "",
+    quality_context: object | None = None,
+    experience_guidance: str = "",
 ) -> list[dict]:
     """Assemble the turn-1 synthesis ``[system, user]`` messages.
 
@@ -335,7 +370,17 @@ def build_synthesis_messages(
     evidence given here — follow-ups must not introduce new sources)."""
     return [
         {"role": "system", "content": _SYNTHESIS_SYSTEM_PROMPT},
-        {"role": "user", "content": _build_synthesis_prompt(query, theme, evidence_text, citation_legend)},
+        {
+            "role": "user",
+            "content": _build_synthesis_prompt(
+                query,
+                theme,
+                evidence_text,
+                citation_legend,
+                quality_context,
+                experience_guidance,
+            ),
+        },
     ]
 
 
@@ -382,6 +427,59 @@ def synthesize_messages(
     if not text:
         return None, "LLM 合成返回空内容，已降级为模板"
     return SynthesisResult(answer=text, provider=provider.name, model=provider.model), ""
+
+
+_SELF_REVIEW_REVISION_PROMPT = (
+    "请把上一条回答当作初稿，先在内部扮演严格的用户影子审稿人做二次反驳，然后重写最终稿。"
+    "反驳重点：是否模板化、是否孤立看个股、是否漏掉大盘/情绪/板块/个股相对强度、证据是否够硬、"
+    "生命周期四问是否完整、是否说明市场正在奖励谁/抛弃谁/犹豫谁、是否给出二阶导和更优表达、"
+    "是否有升级/降级/证伪条件。"
+    "还要检查全文有没有先抓住核心矛盾；每个视角是否都服务这条矛盾，而不是按清单填空；"
+    "每段是否回答了“这个事实改变了什么判断”。"
+    "如果证据不足或数据块没有给出某项指标，必须明确写缺口，不能编造。"
+    "只输出修订后的最终回答正文，不要输出审稿过程、评分、JSON 或提示词。结尾仍以「（非投资建议）」收尾。"
+)
+
+
+def synthesize_messages_with_review(
+    messages: list[dict],
+    model_override: str | None = None,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+    temperature: float = 0.3,
+    review_temperature: float = 0.2,
+) -> tuple[SynthesisResult | None, str]:
+    """Run draft -> shadow-user critique/rewrite for compose answers.
+
+    The first call creates the grounded draft. The second call receives the same
+    evidence, the draft, and a reviewer prompt, then returns only the revised
+    final answer. If the review pass fails, keep the draft rather than dropping
+    back to the deterministic template.
+    """
+    draft, reason = synthesize_messages(
+        messages,
+        model_override=model_override,
+        timeout=timeout,
+        temperature=temperature,
+    )
+    if draft is None:
+        return None, reason
+
+    provider = detect_provider(model_override)
+    if provider is None:
+        return draft, ""
+    review_messages = [
+        *messages,
+        {"role": "assistant", "content": draft.answer},
+        {"role": "user", "content": _SELF_REVIEW_REVISION_PROMPT},
+    ]
+    try:
+        content = _post_chat(provider, review_messages, timeout, review_temperature)
+    except Exception:
+        return draft, ""
+    revised = (content or "").strip()
+    if not revised:
+        return draft, ""
+    return SynthesisResult(answer=revised, provider=provider.name, model=provider.model), ""
 
 
 def synthesize(
