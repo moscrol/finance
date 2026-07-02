@@ -185,8 +185,8 @@ def format_scorecard(card: Scorecard) -> str:
         f"\n通过率 {card.pass_rate:.0%}（闸 {card.aggregate_gate:.0%}）"
         f"｜{sum(1 for c in card.cases if c.passed)}/{len(card.cases)} case 通过\n"
     )
-    lines.append("| case | 通过 | 实体召回 | 源覆盖 | 引用可解析 | W顶相关度 | W未命中率 |")
-    lines.append("|---|---|---|---|---|---|---|")
+    lines.append("| case | 通过 | 实体召回 | 源覆盖 | 引用可解析 | 错配实体 | 证据越级 | W顶相关度 | W未命中率 |")
+    lines.append("|---|---|---|---|---|---|---|---|---|")
     for c in card.cases:
         resolvable = min((t.citation_resolvable for t in c.turns), default=1.0)
         w_top = max(
@@ -196,11 +196,13 @@ def format_scorecard(card: Scorecard) -> str:
         w_miss = next(
             (t.wiki_miss_rate for t in c.turns if t.wiki_miss_rate is not None), None
         )
+        false_attr = "✅" if not c.false_attributions else "、".join(c.false_attributions)
+        overclaims = "✅" if not c.overclaims else "、".join(c.overclaims)
         lines.append(
             f"| {c.case_id} | {'✅' if c.passed else '❌'} "
             f"| {c.entity_recall:.0%}（{len(c.matched_entities)}/{len(c.matched_entities)+len(c.missing_entities)}）"
             f"| {'✅' if c.source_coverage else '缺'+'、'.join(c.missing_sources)} "
-            f"| {resolvable:.0%} | {_fmt_rel(w_top)} | {_fmt_rate(w_miss)} |"
+            f"| {resolvable:.0%} | {false_attr} | {overclaims} | {_fmt_rel(w_top)} | {_fmt_rate(w_miss)} |"
         )
     fails = [(c.case_id, f) for c in card.cases for f in c.failures]
     if fails:
@@ -208,5 +210,5 @@ def format_scorecard(card: Scorecard) -> str:
         for cid, f in fails:
             lines.append(f"- **{cid}**：{f}")
     else:
-        lines.append("\n所有 case 通过：无编造引用、免责声明齐全、期望实体/源均覆盖、工具预算正常。")
+        lines.append("\n所有 case 通过：无编造引用、免责声明齐全、期望实体/源均覆盖、工具预算正常、无错配实体或证据越级。")
     return "\n".join(lines) + "\n"

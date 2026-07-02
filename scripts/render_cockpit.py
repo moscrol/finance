@@ -85,13 +85,9 @@ EXTRA_CSS = """
 
 
 def base_css() -> str:
-    """复用当前最新每日复盘 HTML 的 <style>，保证与复盘同一套界面；找不到则用内置 paper 主题。"""
-    files = sorted(DAILY.glob("*/*-daily-review.html"))
-    if files:
-        text = files[-1].read_text(encoding="utf-8")
-        match = re.search(r"<style>(.*?)</style>", text, re.S)
-        if match:
-            return match.group(1)
+    """cockpit 使用自己的独立主题（FALLBACK_CSS），不再继承每日复盘的 <style>。
+    日复盘已升级为暗色主题（--bg/--green），与 cockpit 的 paper 主题 CSS var 不兼容
+    （--paper/--card/--accent）。两套界面各自独立，避免 var 未定义导致样式崩溃。"""
     return FALLBACK_CSS
 
 

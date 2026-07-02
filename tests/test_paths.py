@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 
 class DefaultPathsTest(unittest.TestCase):
-    def _default_paths_with_env(self, env):
+    def _default_paths_with_env(self, env, home=None):
         keys = {
             "FINANCE_WS",
             "FINANCE_ROOT",
@@ -16,12 +16,17 @@ class DefaultPathsTest(unittest.TestCase):
             "ENTITY_VAULT",
             "FINANCE_SITE",
             "MARKET_SNAPSHOT_DIR",
+            "VECTOR_INDEX_DIR",
+            "RAG_INDEX_DIR",
         }
         clean_env = {key: value for key, value in os.environ.items() if key not in keys}
         clean_env.update(env)
         with patch.dict(os.environ, clean_env, clear=True):
             import intelligence.paths as paths
             importlib.reload(paths)
+            if home is not None:
+                with patch.object(paths.Path, "home", return_value=Path(home)):
+                    return paths.default_paths()
             return paths.default_paths()
 
     def test_prefers_finance_ws_and_kb_vault(self):
@@ -42,6 +47,14 @@ class DefaultPathsTest(unittest.TestCase):
 
         self.assertEqual(paths.market_snapshot_dir, Path("/tmp/market-snapshot"))
 
+    def test_vector_index_dir_env_override(self):
+        paths = self._default_paths_with_env({
+            "VECTOR_INDEX_DIR": "/tmp/vector-index",
+            "RAG_INDEX_DIR": "/tmp/rag-index",
+        })
+
+        self.assertEqual(paths.vector_index_dir, Path("/tmp/vector-index"))
+
     def test_keeps_legacy_env_names(self):
         paths = self._default_paths_with_env({
             "FINANCE_ROOT": "/tmp/finance-root",
@@ -60,11 +73,13 @@ class DefaultPathsTest(unittest.TestCase):
         self.assertEqual(paths.knowledge_wiki, Path("/tmp/concept-vault/wiki"))
 
     def test_defaults_use_current_home_not_fixed_user(self):
-        paths = self._default_paths_with_env({})
+        home = Path("/tmp/current-home")
+        paths = self._default_paths_with_env({}, home=home)
 
-        self.assertEqual(paths.finance_root, Path.home() / "Desktop/c c/金融")
-        self.assertEqual(paths.knowledge_wiki, Path.home() / "Desktop/c c/知识库/wiki")
-        self.assertEqual(paths.market_snapshot_dir, Path.home() / "Desktop/c c/金融/market_snapshot")
+        self.assertEqual(paths.finance_root, home / "Desktop/c c/金融")
+        self.assertEqual(paths.knowledge_wiki, home / "Desktop/c c/知识库/wiki")
+        self.assertEqual(paths.market_snapshot_dir, home / "Desktop/c c/金融/market_snapshot")
+        self.assertEqual(paths.vector_index_dir, home / "Desktop/c c/知识库/.rag_index")
         self.assertNotIn("/Users/lbq", str(paths.finance_root))
         self.assertNotIn("/Users/lbq", str(paths.knowledge_wiki))
 

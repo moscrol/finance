@@ -171,6 +171,42 @@ class TestCaseScoring(unittest.TestCase):
         self.assertTrue(any("首轮" in f and "编造引用" in f for f in cs.failures))
 
 
+class TestFactualityAndLayerGates(unittest.TestCase):
+    def test_false_attribution_entity_fails(self):
+        # 宁德时代 is not a PCB constituent; surfacing it as one must fail.
+        ti = _good_turn(answer=GOOD_ANSWER + " PCB 受益还有宁德时代。")
+        cs = score_case([ti], _spec(forbid_entities=["宁德时代"]))
+        self.assertFalse(cs.passed)
+        self.assertIn("宁德时代", cs.false_attributions)
+        self.assertTrue(any("错配题材实体" in f for f in cs.failures))
+
+    def test_clean_answer_has_no_false_attribution(self):
+        cs = score_case([_good_turn()], _spec(forbid_entities=["宁德时代"]))
+        self.assertEqual(cs.false_attributions, [])
+
+    def test_evidence_layer_overclaim_fails(self):
+        ti = _good_turn(answer=GOOD_ANSWER + " 该题材业绩已兑现。")
+        cs = score_case([ti], _spec(forbid_phrases=["业绩已兑现"]))
+        self.assertFalse(cs.passed)
+        self.assertIn("业绩已兑现", cs.overclaims)
+        self.assertTrue(any("overclaim" in f for f in cs.failures))
+
+    def test_no_overclaim_passes(self):
+        cs = score_case([_good_turn()], _spec(forbid_phrases=["业绩已兑现"]))
+        self.assertTrue(cs.passed, cs.failures)
+        self.assertEqual(cs.overclaims, [])
+
+    def test_forbid_fields_round_trip_offline(self):
+        spec = _spec(forbid_entities=["宁德时代"], forbid_phrases=["业绩已兑现"])
+        _, record = R.run_eval(
+            [spec], 1.0, R.EvalRunOptions(),
+            case_runner=lambda s, o: [_good_turn(answer=GOOD_ANSWER + " 宁德时代业绩已兑现。")],
+        )
+        record = json.loads(json.dumps(record, ensure_ascii=False))
+        card = R.score_run(record, [spec])
+        self.assertFalse(card.passed)
+
+
 class TestScorecard(unittest.TestCase):
     def test_gate_pass_and_fail(self):
         good = score_case([_good_turn()], _spec(expect_entities=["英维克"]))
@@ -184,6 +220,20 @@ class TestScorecard(unittest.TestCase):
         out = R.format_scorecard(card)
         self.assertIn("记分卡", out)
         self.assertIn("PASS", out)
+        self.assertIn("错配实体", out)
+        self.assertIn("证据越级", out)
+
+    def test_format_scorecard_surfaces_factuality_failures(self):
+        bad = score_case(
+            [_good_turn(answer=GOOD_ANSWER + " 宁德时代业绩已兑现。")],
+            _spec(forbid_entities=["宁德时代"], forbid_phrases=["业绩已兑现"]),
+        )
+        card = build_scorecard([bad], 1.0)
+        out = R.format_scorecard(card)
+        self.assertIn("宁德时代", out)
+        self.assertIn("业绩已兑现", out)
+        self.assertIn("错配实体", out)
+        self.assertIn("证据越级", out)
 
 
 class TestRunnerAdapterAndReplay(unittest.TestCase):
@@ -248,12 +298,25 @@ class TestBundledCases(unittest.TestCase):
         path = Path(__file__).resolve().parents[1] / "eval" / "cases" / "agent_cases.json"
         specs, gate = R.load_cases(path)
         ids = {s.id for s in specs}
-        self.assertEqual(ids, {"liquid-cooling", "photoresist", "commercial-aerospace"})
+        self.assertEqual(
+            ids,
+            {"liquid-cooling", "photoresist", "commercial-aerospace", "pcb", "solid-state-battery", "ai-glasses"},
+        )
         self.assertEqual(gate, 1.0)
         for s in specs:
             self.assertEqual(s.expect_sources, ["S", "G", "R", "W"])
             self.assertTrue(s.expect_entities)
             self.assertTrue(s.followups)
+
+    def test_new_cases_carry_grounded_guard_fields(self):
+        path = Path(__file__).resolve().parents[1] / "eval" / "cases" / "agent_cases.json"
+        specs, _ = R.load_cases(path)
+        by_id = {s.id: s for s in specs}
+        # factuality traps are real cross-theme companies that must not be pulled in
+        self.assertIn("宁德时代", by_id["pcb"].forbid_entities)
+        self.assertIn("世运电路", by_id["solid-state-battery"].forbid_entities)
+        # AI 眼镜 has no L3 in the KB -> overclaim guard present
+        self.assertTrue(by_id["ai-glasses"].forbid_phrases)
 
 
 if __name__ == "__main__":

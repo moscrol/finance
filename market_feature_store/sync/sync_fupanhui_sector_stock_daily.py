@@ -83,16 +83,32 @@ def _tencent_symbol(ts_code: str) -> str:
     return f"sz{code}"
 
 
+_CAP_CACHE: dict[str, dict] = {}
+
+
 def _tencent_market_caps(ts_codes: list[str]) -> dict[str, dict]:
-    symbols = [_tencent_symbol(c) for c in ts_codes if c]
+    ts_codes = [c for c in ts_codes if c]
+    need = [c for c in ts_codes if c not in _CAP_CACHE]
+    symbols = [_tencent_symbol(c) for c in need]
     if not symbols:
-        return {}
-    out: dict[str, dict] = {}
+        return {c: _CAP_CACHE[c] for c in ts_codes if c in _CAP_CACHE}
+    out = _CAP_CACHE
     for i in range(0, len(symbols), 80):
         batch = symbols[i:i + 80]
         url = "https://qt.gtimg.cn/q=" + ",".join(batch)
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        text = urllib.request.urlopen(req, timeout=10).read().decode("gbk", "ignore")
+        text = None
+        for _cap_attempt in range(4):
+            try:
+                text = urllib.request.urlopen(req, timeout=15).read().decode("gbk", "ignore")
+                break
+            except Exception:
+                if _cap_attempt == 3:
+                    text = None
+                else:
+                    time.sleep(1.5 * (_cap_attempt + 1))
+        if text is None:
+            continue
         for line in text.strip().split(";"):
             if not line.strip() or '="' not in line:
                 continue
@@ -114,7 +130,7 @@ def _tencent_market_caps(ts_codes: list[str]) -> dict[str, dict]:
                 "total_mcap_yi": num(45),
                 "mcap_source": "tencent",
             }
-    return out
+    return {c: _CAP_CACHE[c] for c in ts_codes if c in _CAP_CACHE}
 
 
 UPSERT_SQL = """

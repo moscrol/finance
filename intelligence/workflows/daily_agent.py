@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from intelligence.paths import ProjectPaths, default_paths
+from intelligence.paths import ProjectPaths, default_paths, vector_index_dir_for
 from intelligence.services.logic_market_match import (
     LABEL_DATA_GAP,
     LABEL_NEW_CANDIDATE,
@@ -67,11 +67,13 @@ class DailyAgentOptions:
 
 def _paths_from_options(options: DailyAgentOptions) -> ProjectPaths:
     defaults = default_paths()
+    knowledge_wiki = Path(options.kb_wiki).expanduser() if options.kb_wiki else defaults.knowledge_wiki
     return ProjectPaths(
         finance_root=Path(options.finance_root).expanduser() if options.finance_root else defaults.finance_root,
-        knowledge_wiki=Path(options.kb_wiki).expanduser() if options.kb_wiki else defaults.knowledge_wiki,
+        knowledge_wiki=knowledge_wiki,
         finance_site=defaults.finance_site,
         market_snapshot_dir=defaults.market_snapshot_dir,
+        vector_index_dir=vector_index_dir_for(knowledge_wiki),
     )
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from intelligence.paths import ProjectPaths, default_paths
+from intelligence.paths import ProjectPaths, default_paths, vector_index_dir_for
 from intelligence.runner import run_command_step
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 
@@ -39,11 +39,13 @@ class DailyReviewOptions:
 def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | None = None) -> list[CommandSpec]:
     paths = paths or default_paths()
     if options.kb_wiki:
+        knowledge_wiki = Path(options.kb_wiki).expanduser()
         paths = ProjectPaths(
             finance_root=paths.finance_root,
-            knowledge_wiki=Path(options.kb_wiki).expanduser(),
+            knowledge_wiki=knowledge_wiki,
             finance_site=paths.finance_site,
             market_snapshot_dir=paths.market_snapshot_dir,
+            vector_index_dir=vector_index_dir_for(knowledge_wiki),
         )
     date = options.date
     exports = paths.market_exports
@@ -51,6 +53,11 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
     plan: list[CommandSpec] = []
 
     if not options.skip_sync:
+        plan.append(CommandSpec(
+            name="preflight-db-lock",
+            argv=["python3", "scripts/check_db_lock.py"],
+            outputs=[],
+        ))
         argv = ["python3", "-m", "market_feature_store.cli", "daily-update", "--trade-date", date]
         if options.skip_long:
             argv.append("--skip-long")

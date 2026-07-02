@@ -42,6 +42,7 @@ git branch --show-current
 
 1. **每日复盘（全量复盘）** → 确保 CDP proxy 已启动（`node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs`）→ `python3 -m market_feature_store.cli daily-full --trade-date YYYY-MM-DD` → 写入 DuckDB → `audit_coverage.py` 验证覆盖
    > ⚠ 飞书 Bitable 写入已废弃，复盘数据统一走 `daily-full` → DuckDB 路径。
+   > ⚠ stock-daily 用默认东财快照（`--stock-source snapshot`），日常单日复盘**不要带 `--stock-source mootdx`**（mootdx 仅首次建库/多日历史回填，慢且当日值与快照一致）。详见 market-overview SKILL.md。
 2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
 3. **涨幅排行** → `top-gainers` skill：iFinD个股涨幅 + AKShare板块涨幅并行
 4. **策略回测** → `scripts/detect_turning_points.py` 检测信号 → `scripts/backfill_sector_marginal.py` 抓板块边际量 → DuckDB 本地分析
@@ -136,6 +137,8 @@ python3 scripts/backtest_sector.py --top 5 --hold 3 --min-marginal 8
 | 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关 |
 | task-planner | 批量任务规划、开工前采访、批量回填前先问、开新题材前先问、运行前规划、采访前置、先问后做、task planner、batch plan、回填前先问 |
 | checkpoint-recheck-mac-setup | 夜间回检、checkpoint recheck、可证伪点回检、launchd 安装、远程执行、remote-exec、隧道乱码、codepoint 校验、共享大脑、foresight 台账、多机一致、登点闭环 |
+| daily-full-review | （待补：SKILL.md 无触发词字段） |
+| dispatcher | 所有请求默认经过本 dispatcher、不需要显式触发 |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 
