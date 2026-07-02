@@ -34,10 +34,11 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
     QUESTION_THEME_ANALYSIS,
+    QUESTION_VALUATION,
     QuestionPlan,
     plan_answer_question,
 )
-from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_gap
+from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_estimate, valuation_gap
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
     MODULE_DEEP_DIVE,
@@ -60,6 +61,7 @@ EXEMPLAR_MAX_CHARS = 6000
 _EXEMPLAR_PREFIX_BY_TYPE = {
     QUESTION_STOCK_DEEP_DIVE: "deep-dive-",
     QUESTION_MARKET_FORECAST: "forecast-",
+    QUESTION_VALUATION: "valuation-",
 }
 
 
@@ -144,6 +146,8 @@ class AskOptions:
     include_customer_hardness_block: bool = True
     include_second_derivative_block: bool = True
     include_mainline_context_block: bool = True
+    # D5 估值数据块：仅 valuation 问题类型 + compose 时生成（东财快照取数，可用 FINANCE_VALUATION_FETCH=0 关闭）。
+    include_valuation_block: bool = True
     # L3 runtime evidence tools: official announcements / exchange interaction.
     use_l3_lookup: bool = False
     l3_lookup_timeout: int = 480
@@ -686,6 +690,9 @@ def answer_query(options: AskOptions) -> AskResult:
         gap_lines.extend(
             f"事件传导缺口（{s.name}）：{g}" for s in result.event_brief.steps for g in s.gaps
         )
+    if question_plan.question_type == QUESTION_VALUATION:
+        result.valuation_note = valuation_gap.check_valuation_gaps(evidence_chain)
+        gap_lines.extend(f"估值四问：{g}" for g in result.valuation_note.gaps)
     if question_plan.question_type == QUESTION_STOCK_DEEP_DIVE:
         result.gap_radar = evidence_gap_radar.scan_evidence_gaps(options.query, evidence_chain)
         result.valuation_note = valuation_gap.check_valuation_gaps(evidence_chain)
@@ -729,6 +736,7 @@ def answer_query(options: AskOptions) -> AskResult:
             research_brief.DBlockStat("D2", "客户证据硬度", note="仅 --compose 路径生成"),
             research_brief.DBlockStat("D3", "二阶导研究队列", note="仅 --compose 路径生成"),
             research_brief.DBlockStat("D4", "主线题材结构", note="仅 --compose 路径生成"),
+            research_brief.DBlockStat("D5", "估值数据块", note="仅 --compose + 估值问题类型生成"),
         ]
     if options.compose:
         evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
@@ -811,6 +819,22 @@ def answer_query(options: AskOptions) -> AskResult:
                         "D3",
                         "本地 DuckDB + 证据链二阶导研究队列数据块",
                         "强势替代表达/目标股再升级/产业瓶颈补盲",
+                    )
+                )
+        if options.include_valuation_block and question_plan.question_type == QUESTION_VALUATION:
+            valuation_block = _valuation_block_for_llm(
+                options.query,
+                result.matched_theme,
+                options.market_db_path,
+            )
+            result.d_block_stats.append(_d_block_stat("D5", "估值数据块", valuation_block))
+            if valuation_block:
+                evidence_text = f"{evidence_text}\n\n{valuation_block}"
+                citations.append(
+                    Citation(
+                        "D5",
+                        "东财快照估值数据块",
+                        "目标 PE/PB/市值 + 同题材可比估值带与横截面分位",
                     )
                 )
         citation_legend = "\n".join(
@@ -1477,6 +1501,72 @@ def _format_sector_state_lines(con: Any, latest_date: Any, sector_names: list[st
             proxy = "双红代理" if (row[0] or 0) > 0 and (row[2] or 0) > 0 else "非双红代理"
             out.append(f"{sector}{row[0]}%、成交{row[1]}亿、边际量{row[2]}%，{proxy}")
     return out
+
+
+def _valuation_block_for_llm(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+    fetcher: Any = None,
+) -> str:
+    """Build the D5 valuation block: target snapshot + same-theme peer band.
+
+    目标/可比标的从本地 DuckDB 解析（可比取同板块成交额前排），估值快照走东财
+    免费接口（valuation_estimate）；网络或库不可用时返回带显式缺口的块或空串。
+    """
+    fetch = fetcher or valuation_estimate.fetch_eastmoney_snapshot
+    if not valuation_estimate.fetch_enabled():
+        return valuation_estimate.build_valuation_block(None, [], fetch_disabled=True)
+    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    target_code: str | None = None
+    target_name = ""
+    peer_codes: list[tuple[str, str]] = []
+    if db_path.exists():
+        try:
+            import duckdb  # type: ignore
+
+            con = duckdb.connect(str(db_path), read_only=True)
+            try:
+                stock = _resolve_stock_for_market_block(con, query)
+                if stock:
+                    target_code, target_name = stock
+                    latest = con.execute(
+                        "select max(trade_date) from fact_sector_stock_daily where stock_ts_code=?",
+                        [target_code],
+                    ).fetchone()
+                    latest_date = latest[0] if latest else None
+                    if latest_date is not None:
+                        sector_rows = con.execute(
+                            """
+                            select sector_name from fact_sector_stock_daily
+                            where trade_date=? and stock_ts_code=?
+                            order by amount desc limit 4
+                            """,
+                            [latest_date, target_code],
+                        ).fetchall()
+                        sectors = _prioritize_sector_names([str(r[0]) for r in sector_rows if r and r[0]], theme)
+                        if sectors:
+                            rows = con.execute(
+                                """
+                                select stock_ts_code, stock_name from fact_sector_stock_daily
+                                where trade_date=? and sector_name=? and stock_ts_code<>?
+                                order by amount desc nulls last limit 4
+                                """,
+                                [latest_date, sectors[0], target_code],
+                            ).fetchall()
+                            peer_codes = [(str(c), str(n or c)) for c, n in rows]
+            finally:
+                con.close()
+        except Exception:
+            pass
+    if target_code is None:
+        code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
+        if not code_match:
+            return ""
+        target_code = code_match.group(1)
+    target = fetch(target_code, target_name)
+    peers = valuation_estimate.snapshots_for(peer_codes, fetcher=fetch)
+    return valuation_estimate.build_valuation_block(target, peers)
 
 
 def _format_alternative_queue_lines(con: Any, latest_date: Any, stock_code: str, sector_names: list[str]) -> list[str]:
