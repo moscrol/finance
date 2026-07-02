@@ -133,4 +133,3 @@ def _blocking_items(queue: dict[str, Any]) -> list[dict[str, Any]]:
             )
     items.sort(key=lambda item: float(item.get("priority") or 0), reverse=True)
     return items
-
