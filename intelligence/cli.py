@@ -106,6 +106,11 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
         default=None,
         help="个股深挖时把 StockResearchBrief（证据分层审计/检索遥测/反证计划/八步研究路径）写入 JSON 文件；非深挖问题无简报时跳过",
     )
+    parser.add_argument(
+        "--audit-ledger",
+        default=None,
+        help="检索审计台账 JSONL 路径：每次回答追加一条 query→命中→质量记录（检索模式/命中分布/分数/降级/证据裁定/失败标签），供 recall 评估与失败样本复盘",
+    )
     parser.set_defaults(func=cmd_ask)
 
 
@@ -972,6 +977,20 @@ def cmd_ask(args: argparse.Namespace) -> int:
             Path(args.brief_json).write_text(_result.stock_brief.to_json() + "\n", encoding="utf-8")
         else:
             print(f"[brief-json] 非个股深挖问题，未生成研究简报，跳过 {args.brief_json}", file=sys.stderr)
+    if args.audit_ledger and _result.evidence_audit is not None and _result.retrieval_telemetry is not None:
+        from intelligence.services import retrieval_audit
+
+        record = retrieval_audit.build_audit_record(
+            query=_result.query,
+            question_type=(_result.question_plan.question_type if _result.question_plan else "unknown"),
+            trade_date=_result.trade_date,
+            audit=_result.evidence_audit,
+            telemetry=_result.retrieval_telemetry,
+            market_phase=(_result.market_state.phase if _result.market_state else None),
+        )
+        retrieval_audit.append_record(args.audit_ledger, record)
+        if record.is_failure:
+            print(f"[audit-ledger] 已记为失败样本：{'、'.join(record.failure_tags)}", file=sys.stderr)
     print(answer, end="")
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
