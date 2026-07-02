@@ -77,6 +77,37 @@ class SynthesizeTests(unittest.TestCase):
         self.assertIn("历史经验卡片", msgs[1]["content"])
         self.assertIn("回答板块空间问题", msgs[1]["content"])
 
+    def test_synthesis_prompt_includes_exemplar_guidance(self) -> None:
+        msgs = llm_refine.build_synthesis_messages(
+            "深挖汇成股份",
+            "先进封装",
+            "## 证据链\n- 扩产公告 [S1]",
+            exemplar_guidance="### 样板：deep-dive-demo\n先说市场在交易什么……",
+        )
+
+        self.assertIn("高分样板", msgs[1]["content"])
+        self.assertIn("严禁照抄", msgs[1]["content"])
+        self.assertIn("deep-dive-demo", msgs[1]["content"])
+
+    def test_exemplar_guidance_loader_routes_by_question_type(self) -> None:
+        from intelligence.services.ask import _exemplar_guidance_for
+        from intelligence.services.answer_orchestrator import (
+            QUESTION_STOCK_DEEP_DIVE,
+            QUESTION_THEME_ANALYSIS,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "deep-dive-a.md").write_text("样板正文A", encoding="utf-8")
+            (root / "forecast-b.md").write_text("样板正文B", encoding="utf-8")
+
+            deep = _exemplar_guidance_for(QUESTION_STOCK_DEEP_DIVE, exemplar_dir=root)
+            theme = _exemplar_guidance_for(QUESTION_THEME_ANALYSIS, exemplar_dir=root)
+
+        self.assertIn("样板正文A", deep)
+        self.assertNotIn("样板正文B", deep)
+        self.assertEqual(theme, "")
+
     def test_synthesis_system_prompt_requires_daily_agent_reasoning(self) -> None:
         msgs = llm_refine.build_synthesis_messages(
             "深挖汇成股份",
