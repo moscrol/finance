@@ -13,6 +13,7 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
     QUESTION_THEME_ANALYSIS,
+    QUESTION_VALUATION,
     plan_answer_question,
 )
 from intelligence.services.ask import AskOptions, answer_query
@@ -86,6 +87,21 @@ class AnswerOrchestratorTests(unittest.TestCase):
         plan = plan_answer_question("复盘先验")
 
         self.assertEqual(plan.question_type, QUESTION_MARKET_FORECAST)
+
+    def test_valuation_triggers_route_to_valuation_plan(self) -> None:
+        plan = plan_answer_question("帮我拍估值：寒武纪现在贵不贵")
+
+        self.assertEqual(plan.question_type, QUESTION_VALUATION)
+        self.assertEqual(plan.depth, "deep")
+        joined_lenses = "\n".join(plan.required_lenses)
+        self.assertIn("可比公司估值带", joined_lenses)
+        self.assertIn("隐含增长率反推", joined_lenses)
+        self.assertIn("禁止输出单点目标价", "\n".join(plan.quality_gates))
+
+    def test_deep_dive_trigger_beats_valuation_keyword(self) -> None:
+        plan = plan_answer_question("深挖汇成股份，顺便看下估值分位")
+
+        self.assertEqual(plan.question_type, QUESTION_STOCK_DEEP_DIVE)
 
     def test_news_impact_plan_starts_from_fact_extraction(self) -> None:
         plan = plan_answer_question("读一下这条公告，对产业链有什么传导冲击")

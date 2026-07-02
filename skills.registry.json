@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-07-02T13:00:15Z",
+  "generated_at": "2026-07-02T13:23:14Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 29
+      "skills": 30
     },
     {
       "name": "knowledge-base-private",
@@ -383,6 +383,28 @@
           "target": "../../skills/report-search"
         }
       ]
+    },
+    "ws/researcher-valuation": {
+      "name": "researcher-valuation",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/researcher-valuation/SKILL.md",
+      "description": "研究员拍估值的输出契约与质检门——不给单点目标价，而是把研究员的估值推理固化成五段契约：估值现状（PE/PS/EV 分位）、可比公司估值带、隐含增长率反推（市场已 price in 多少）、悲观/中性/乐观情景估值表（每情景绑定可验证条件）、证据审计（硬数据 vs 研报推断）。最终稿必须过 valuation_lint.py（exit 0，含单点目标价红线）才能交付。触发词：拍估值、估值带、贵不贵、隐含预期、值多少钱、估值分位、估值怎么看、合理估值。",
+      "triggers": [
+        "拍估值",
+        "估值带",
+        "贵不贵",
+        "隐含预期",
+        "值多少钱",
+        "估值分位",
+        "估值怎么看",
+        "合理估值"
+      ],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:95505fd43131284d577917086335a0e1d93117f365e9be1e09e9966a6c7a29c3",
+      "agentOnly": false,
+      "views": []
     },
     "ws/sector-data": {
       "name": "sector-data",
