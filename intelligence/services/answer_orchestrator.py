@@ -10,6 +10,7 @@ QUESTION_STOCK_DEEP_DIVE = "stock_deep_dive"
 QUESTION_THEME_ANALYSIS = "theme_analysis"
 QUESTION_MARKET_FORECAST = "market_forecast"
 QUESTION_NEWS_IMPACT = "news_impact"
+QUESTION_VALUATION = "valuation_estimate"
 QUESTION_ANSWER_REVIEW = "answer_review"
 QUESTION_METHODOLOGY = "methodology_discussion"
 QUESTION_GENERAL = "general_finance_qa"
@@ -136,6 +137,8 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         return QUESTION_STOCK_DEEP_DIVE, 0.9
     if _has_any(q, ("复盘先验", "先验复盘", "行情前瞻", "明日研判", "次日研判", "前瞻研判")):
         return QUESTION_MARKET_FORECAST, 0.9
+    if _has_any(q, ("拍估值", "估值带", "贵不贵", "隐含预期", "隐含增长", "值多少钱", "估值分位", "估值怎么看", "合理估值")):
+        return QUESTION_VALUATION, 0.88
     if _has_any(q, ("公告", "新闻", "链接", "传导", "冲击", "影响", "产业链")):
         return QUESTION_NEWS_IMPACT, 0.82
     if _has_any(q, ("行情", "大盘", "今天", "明天", "盘前", "收盘", "6.", "走势", "市场怎么看")):
@@ -156,7 +159,7 @@ def _classify_depth(raw_query: str, q: str, question_type: str) -> str:
         return DEPTH_DEEP
     if _has_any(q, ("简单", "一句话", "快答", "简短")):
         return DEPTH_QUICK
-    if question_type in {QUESTION_STOCK_DEEP_DIVE, QUESTION_NEWS_IMPACT, QUESTION_ANSWER_REVIEW}:
+    if question_type in {QUESTION_STOCK_DEEP_DIVE, QUESTION_NEWS_IMPACT, QUESTION_ANSWER_REVIEW, QUESTION_VALUATION}:
         return DEPTH_DEEP
     if question_type in {QUESTION_THEME_ANALYSIS, QUESTION_MARKET_FORECAST}:
         return DEPTH_STANDARD
@@ -209,6 +212,15 @@ def _required_lenses(question_type: str, depth: str) -> list[str]:
             "受益/受损分层：一阶、二阶、替代、被挤压环节",
             "证据升级路径：从 L1 产业翻译到 L3 官方验证",
             "盘面映射：消息是否已经被交易，是否出现兑现分歧",
+            *common,
+        ]
+    if question_type == QUESTION_VALUATION:
+        return [
+            "估值现状：当前 PE/PS/EV-EBITDA 历史分位与同业横截面位置",
+            "可比公司估值带：同链/同商业模式 3-5 家，给区间不给点位",
+            "隐含增长率反推：当前市值隐含了什么增速/份额假设，市场已经 price in 了多少",
+            "情景估值表：悲观/中性/乐观三情景，每个情景绑定可验证条件（公告/订单/产能口径）",
+            "证据审计：区分硬数据、研报推断（L1 降权）与缺口",
             *common,
         ]
     if question_type == QUESTION_ANSWER_REVIEW:
@@ -276,6 +288,15 @@ def _retrieval_plan(question_type: str, depth: str, q: str) -> list[str]:
             "evidence_index：把 L3 级事实沉淀为可复用证据",
             *common,
         ]
+    if question_type == QUESTION_VALUATION:
+        return [
+            "DuckDB：市值、区间涨幅、相对强度、同题材替代队列",
+            "iFinD：财务口径（营收/利润/毛利率）与估值指标历史分位",
+            "wiki entity：业务结构、产业链位置、可比公司候选",
+            "evidence_index：订单/产能/客户等硬证据，支撑情景条件",
+            "L3 evidence tools：情景条件缺公告级证据时运行时补查",
+            *common,
+        ]
     if question_type == QUESTION_ANSWER_REVIEW:
         return [
             "answer rubric：按固定评分项打分",
@@ -310,6 +331,15 @@ def _quality_gates(question_type: str, depth: str) -> list[str]:
                 "必须判断双红题材：列出真正双红、涨但边际量为负的缩量强修复、以及涨停/新高强但非双红的方向，并据此调整追高/切换权重",
                 "必须输出可验证假设，盘后能逐条验证",
                 "必须区分大盘、情绪、板块、风格和个股机会，不可混为一谈",
+            ]
+        )
+    if question_type == QUESTION_VALUATION:
+        gates.extend(
+            [
+                "禁止输出单点目标价，只能给条件化的估值区间",
+                "情景必须绑定可验证条件，不能只给乐观/悲观形容词",
+                "未验鲜的财务/市值数据不得使用，缺口必须显式写出",
+                "研报盈利预测只能作为 L1 参考，不能当作硬输入",
             ]
         )
     if question_type == QUESTION_NEWS_IMPACT:
@@ -347,6 +377,13 @@ def _output_contract(question_type: str, depth: str) -> list[str]:
             "再推导产业链冲击、受益/受损分层和观察指标",
             "最后给出需要入库沉淀的 L3 候选事实",
         ]
+    if question_type == QUESTION_VALUATION:
+        return [
+            "先给估值现状和核心矛盾（市场已 price in 什么）",
+            "再给可比估值带与隐含增长率反推",
+            "情景估值表每行带可验证条件",
+            "结尾给证据审计与升级/降级/证伪条件，不输出买卖指令",
+        ]
     if question_type == QUESTION_ANSWER_REVIEW:
         return [
             "先给总分和核心缺口",
@@ -372,6 +409,9 @@ def _missing_data_policy(question_type: str) -> list[str]:
         base.append("daily-agent research_queue 存在今日该做 IMA / 今日该找公告或调研时，先补 DeepDive / L3 证据并 ingest；未补前只能生成带缺口标记的草稿")
     if question_type == QUESTION_NEWS_IMPACT:
         base.append("缺原文或公告时，先要求材料或实时查源，不能根据标题扩写")
+    if question_type == QUESTION_VALUATION:
+        base.append("缺财务/估值数据时只能做框架推演，不得伪装成当前估值判断")
+        base.append("缺可比公司数据时，必须说明可比集缺口，不能用印象估值带补齐")
     return base
 
 
