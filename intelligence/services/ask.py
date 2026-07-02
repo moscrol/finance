@@ -52,6 +52,37 @@ from intelligence.services.theme_modules import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EXPORTS_DIR = REPO_ROOT / "market_feature_store" / "exports"
 
+# few-shot 锚：高分样板目录。文件名前缀按问题类型路由（deep-dive-* / forecast-*），
+# 最多注入 EXEMPLAR_MAX_FILES 篇、总长度上限 EXEMPLAR_MAX_CHARS（超量会稀释证据注意力）。
+EXEMPLAR_DIR = REPO_ROOT / "skills" / "stock-deep-dive" / "exemplars"
+EXEMPLAR_MAX_FILES = 3
+EXEMPLAR_MAX_CHARS = 6000
+_EXEMPLAR_PREFIX_BY_TYPE = {
+    QUESTION_STOCK_DEEP_DIVE: "deep-dive-",
+    QUESTION_MARKET_FORECAST: "forecast-",
+}
+
+
+def _exemplar_guidance_for(question_type: str, exemplar_dir: Path = EXEMPLAR_DIR) -> str:
+    prefix = _EXEMPLAR_PREFIX_BY_TYPE.get(question_type)
+    if prefix is None or not exemplar_dir.is_dir():
+        return ""
+    parts: list[str] = []
+    budget = EXEMPLAR_MAX_CHARS
+    for path in sorted(exemplar_dir.glob(f"{prefix}*.md"))[:EXEMPLAR_MAX_FILES]:
+        try:
+            text = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if not text:
+            continue
+        snippet = text[:budget]
+        parts.append(f"### 样板：{path.stem}\n{snippet}")
+        budget -= len(snippet)
+        if budget <= 0:
+            break
+    return "\n\n".join(parts)
+
 # Trade-date freshness threshold (calendar days) above which graph evidence is
 # flagged as potentially stale. Stand-in for a real Temporal Facts layer.
 DEFAULT_STALE_DAYS = 45
@@ -794,6 +825,7 @@ def answer_query(options: AskOptions) -> AskResult:
             result.warnings.append(card_warn)
         selected_cards = experience_cards.select_relevant_cards(cards, options.query)
         experience_guidance = experience_cards.render_for_prompt(selected_cards)
+        exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
         msgs = llm_refine.build_synthesis_messages(
             options.query,
             theme,
@@ -801,6 +833,7 @@ def answer_query(options: AskOptions) -> AskResult:
             citation_legend=citation_legend,
             quality_context=quality_context,
             experience_guidance=experience_guidance,
+            exemplar_guidance=exemplar_guidance,
         )
         if options.compose_self_review:
             composed, reason = llm_refine.synthesize_messages_with_review(

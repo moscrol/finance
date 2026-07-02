@@ -58,6 +58,23 @@ class L3EvidenceDetectionTests(unittest.TestCase):
 
 
 class L3EvidenceLookupTests(unittest.TestCase):
+    def test_from_env_defaults_enable_result_cache(self) -> None:
+        with mock.patch.dict("os.environ", {}, clear=False) as env:
+            env.pop("FINANCE_L3_CACHE_DIR", None)
+            env.pop("FINANCE_L3_CACHE_TTL_SECONDS", None)
+            cfg = L3LookupConfig.from_env(enabled=True)
+
+        self.assertEqual(cfg.cache_dir, L3LookupConfig.DEFAULT_CACHE_DIR)
+        self.assertEqual(cfg.cache_ttl_seconds, L3LookupConfig.DEFAULT_CACHE_TTL_SECONDS)
+
+    def test_from_env_cache_can_be_disabled_via_env(self) -> None:
+        with mock.patch.dict(
+            "os.environ", {"FINANCE_L3_CACHE_TTL_SECONDS": "0"}, clear=False
+        ):
+            cfg = L3LookupConfig.from_env(enabled=True)
+
+        self.assertEqual(cfg.cache_ttl_seconds, 0)
+
     def test_default_company_command_uses_verified_disclosure_lookup_entrypoint(self) -> None:
         plan = plan_answer_question("深挖瑞华泰，查公告和互动易")
         completed = subprocess.CompletedProcess(
