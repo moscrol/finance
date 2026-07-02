@@ -14,6 +14,7 @@
 ## 文件结构约定
 
 - 每天一个 `YYYY-MM-DD.md`，含 **Codex 答卷（§1-6）+ Claude 答卷（§6.5，双盲）+ T+1 回填（§7）+ 用户批注（§8）**。
+- 每天一份输入冻结清单 `YYYY-MM-DD.manifest.json`（答卷前由 `scripts/dual_blind_forecast.py manifest` 生成），每个考生一份机器可读答卷 `YYYY-MM-DD.answer.<agent>.json`（`validate` 校验、`aggregate` 跨期聚合）；流程见 [双盲模板](../dual-blind-forecast-template.md)。
 - 双盲纪律：两 Agent 同源数据、独立答卷、互不可见；考生不做对比/批注/裁决（归用户 + 统一指标）。
 - 单次样本留此；反复有效的方法论再升级到经验卡或 Agent Memory。
 - 历史单文件台账（迁移前）见 `archive/daily-market-forecast-ledger.legacy.md`。

@@ -4,6 +4,35 @@
 > **纪律**：考生只独立答卷，**不做对比/批注/裁决**（那些归用户 + 统一指标）。
 > **流程**：同一份 DuckDB + 同一份复盘材料 → Claude / Codex 各自独立（互不可见）→ HTML 并排 → T+1/T+3 统一指标回检 → 用户批注 → 沉淀经验卡。
 > **比的是 5 个理解差异**：谁更重双红 vs 新高/涨停；谁易从板块强度跳到个股追高；谁能区分"市场路径命中"vs"标的路径命中"；谁的标的池 T+1/T+3 更稳；谁的验证条件更清晰可证伪。
+> **工装**：`scripts/dual_blind_forecast.py`——答卷前 `manifest` 冻结输入，答卷后 `validate` 校验 JSON 答卷，跨期 `aggregate` 看长期统计（单期噪声大，结论看聚合）。
+
+## 工装流程（强制，2026-07-02 起）
+
+1. **答卷前**：主持人先跑
+   `python3 scripts/dual_blind_forecast.py manifest --date <研判日> --perspective <视角日> --material <材料文件>... [--kb-root <知识库仓>]`
+   生成 `forecast-review-ledger/<date>.manifest.json`（DuckDB 截止日 + 材料 sha256 + 知识库 commit + `manifest_sha`）。两个考生只能用清单里列出的输入。
+2. **答卷**：每个考生除 markdown 正文外，同时落一份机器可读答卷
+   `forecast-review-ledger/<date>.answer.<agent>.json`（schema 见下），`manifest_sha` 必须引自当日清单。
+3. **收卷**：`python3 scripts/dual_blind_forecast.py validate <答卷.json>...` 必须全 OK。
+4. **回检**：T+1/T+3 按统一指标回填答卷 JSON 的 `recheck` 块（`pick_returns_t1/t3`、`beat_benchmark_t3`、`market_threshold_hit`）。
+5. **看趋势**：`python3 scripts/dual_blind_forecast.py aggregate` 出按 agent 的跨期统计表；系统性偏差确认后才沉淀经验卡/rubric 检查项。
+
+### 答卷 JSON schema（v1.0）
+
+```json
+{
+  "schema_version": "1.0",
+  "date": "2026-07-03",
+  "agent": "codex",
+  "manifest_sha": "<来自当日 manifest>",
+  "stage": "底部横盘第3天",
+  "main_judgment": "一句话市场结构判断",
+  "direction_ranking": ["储能", "创新药"],
+  "picks": [{"code": "688323", "name": "瑞华泰", "strategy": "策略三", "reason": "绑定§1字段证据"}],
+  "thresholds": {"market": "涨家数>3500", "direction": "储能 diff 继续>0", "targets": "逐只触发价", "falsify": "什么信号推翻主判断"},
+  "recheck": {}
+}
+```
 
 ---
 
