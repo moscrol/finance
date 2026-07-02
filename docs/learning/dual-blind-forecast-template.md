@@ -14,7 +14,7 @@
 2. **答卷**：每个考生除 markdown 正文外，同时落一份机器可读答卷
    `forecast-review-ledger/<date>.answer.<agent>.json`（schema 见下），`manifest_sha` 必须引自当日清单。
 3. **收卷**：`python3 scripts/dual_blind_forecast.py validate <答卷.json>...` 必须全 OK。
-4. **回检**：T+1/T+3 按统一指标回填答卷 JSON 的 `recheck` 块（`pick_returns_t1/t3`、`beat_benchmark_t3`、`market_threshold_hit`）。
+4. **回检**：数值类指标由脚本自动回填：`python3 scripts/dual_blind_forecast.py recheck <答卷.json>...`（从 DuckDB 算 `pick_returns_t1/t3`、`benchmark_return_t3`、`beat_benchmark_t3`；基准统一为上证指数 `sh000001`，写进 recheck 块保证跨期可比）。`market_threshold_hit` 是自然语言阈值，仍由人判定回填，脚本不覆盖人工字段。人只负责批注归因。
 5. **看趋势**：`python3 scripts/dual_blind_forecast.py aggregate` 出按 agent 的跨期统计表；系统性偏差确认后才沉淀经验卡/rubric 检查项。
 
 ### 答卷 JSON schema（v1.0）

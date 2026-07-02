@@ -135,6 +135,45 @@ class DualBlindForecastTests(unittest.TestCase):
             self.assertEqual(report["agents"]["codex/duckdb"]["answers"], 1)
             self.assertEqual(report["agents"]["codex/sellside"]["answers"], 1)
 
+    def test_recheck_autofill_from_duckdb(self) -> None:
+        try:
+            import duckdb
+        except ImportError:
+            self.skipTest("duckdb 不可用")
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp)
+            db_path = ledger / "mini.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code TEXT, close DOUBLE, pre_close DOUBLE, pct_chg DOUBLE)")
+            con.execute(
+                "INSERT INTO fact_stock_daily VALUES "
+                "('2026-07-03','688323.SH',102.0,100.0,2.0),"
+                "('2026-07-06','688323.SH',103.0,102.0,0.98),"
+                "('2026-07-07','688323.SH',110.0,103.0,6.8)"
+            )
+            con.execute("CREATE TABLE fact_market_daily (trade_date DATE, sh_index_close DOUBLE)")
+            con.execute("INSERT INTO fact_market_daily VALUES ('2026-07-02',3000.0),('2026-07-07',3030.0)")
+            con.close()
+            dual_blind_forecast.main(
+                ["--ledger-dir", str(ledger), "manifest", "--date", "2026-07-03", "--perspective", "2026-07-02", "--db", str(db_path)]
+            )
+            manifest = json.loads((ledger / "2026-07-03.manifest.json").read_text(encoding="utf-8"))
+            answer = _answer("2026-07-03", "codex", manifest["manifest_sha"])
+            answer["recheck"] = {"market_threshold_hit": True}
+            path = ledger / "2026-07-03.answer.codex.json"
+            path.write_text(json.dumps(answer, ensure_ascii=False), encoding="utf-8")
+            rc = dual_blind_forecast.main(["--ledger-dir", str(ledger), "recheck", str(path), "--db", str(db_path)])
+            self.assertEqual(rc, 0)
+            updated = json.loads(path.read_text(encoding="utf-8"))["recheck"]
+            self.assertEqual(updated["recheck_t1_date"], "2026-07-03")
+            self.assertEqual(updated["recheck_t3_date"], "2026-07-07")
+            self.assertEqual(updated["pick_returns_t1"], [2.0])
+            self.assertEqual(updated["pick_returns_t3"], [10.0])
+            self.assertEqual(updated["benchmark"], "sh000001")
+            self.assertEqual(updated["benchmark_return_t3"], 1.0)
+            self.assertTrue(updated["beat_benchmark_t3"])
+            self.assertTrue(updated["market_threshold_hit"])  # 人工字段不被覆盖
+
 
 if __name__ == "__main__":
     unittest.main()
