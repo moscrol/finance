@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import unittest
+import tempfile
+from pathlib import Path
 from unittest import mock
 
 from intelligence.services import llm_refine
-from intelligence.services.ask import AskResult, render_answer
-from intelligence.services.llm_refine import LLMProvider, SynthesisResult, synthesize
+from intelligence.services.ask import (
+    AskResult,
+    _customer_evidence_hardness_block_for_llm,
+    _mainline_context_block_for_llm,
+    _market_value_block_for_llm,
+    _second_derivative_queue_block_for_llm,
+    render_answer,
+)
+from intelligence.services.llm_refine import LLMProvider, SynthesisResult, build_synthesis_messages, synthesize, synthesize_messages_with_review
 
 
 def _provider() -> LLMProvider:
@@ -35,6 +44,69 @@ class SynthesizeTests(unittest.TestCase):
         user_msg = posted.call_args.args[1][1]["content"]
         self.assertIn("液冷", user_msg)
         self.assertIn("[S1] 盘面快照", user_msg)
+
+    def test_synthesize_messages_with_review_returns_revised_answer(self) -> None:
+        msgs = build_synthesis_messages("深挖澜起科技", "存储芯片", "## 证据链\n- 澜起科技 [S1]")
+        with mock.patch.object(llm_refine, "detect_provider", return_value=_provider()), mock.patch.object(
+            llm_refine,
+            "_post_chat",
+            side_effect=[
+                "初稿：澜起是存储芯片龙头[S1]。（非投资建议）",
+                "修订稿：澜起要同时看生命周期、相对强度和二阶导[S1]。（非投资建议）",
+            ],
+        ) as posted:
+            out, reason = synthesize_messages_with_review(msgs)
+
+        self.assertEqual(reason, "")
+        self.assertIsNotNone(out)
+        assert out is not None
+        self.assertIn("修订稿", out.answer)
+        self.assertEqual(posted.call_count, 2)
+        review_user_msg = posted.call_args_list[1].args[1][-1]["content"]
+        self.assertIn("用户影子审稿人", review_user_msg)
+        self.assertIn("是否模板化", review_user_msg)
+
+    def test_synthesis_prompt_includes_experience_guidance(self) -> None:
+        msgs = llm_refine.build_synthesis_messages(
+            "科技细分里哪个方向还有上涨空间",
+            "光刻胶",
+            "## 证据链\n- 双红 [S1]",
+            experience_guidance="- 回答板块空间问题时必须说明阶段、证据层和反方。",
+        )
+
+        self.assertIn("历史经验卡片", msgs[1]["content"])
+        self.assertIn("回答板块空间问题", msgs[1]["content"])
+
+    def test_synthesis_system_prompt_requires_daily_agent_reasoning(self) -> None:
+        msgs = llm_refine.build_synthesis_messages(
+            "深挖汇成股份",
+            "先进封装",
+            "## 证据链\n- priority=120，强验证 [S1]",
+        )
+
+        system = msgs[0]["content"]
+
+        self.assertIn("daily-agent", system)
+        self.assertIn("生命周期", system)
+        self.assertIn("市场/板块/个股三层资金传导", system)
+        self.assertIn("全量盘面数据的正反推导", system)
+        self.assertIn("强板块弱个股", system)
+        self.assertIn("市场正在奖励谁、抛弃谁、犹豫谁", system)
+        self.assertIn("二阶导", system)
+        self.assertIn("领先核心、同步确认、后排补涨", system)
+        self.assertIn("输出前必须在内部做一次质检和反驳", system)
+        self.assertIn("是否模板化", system)
+        self.assertIn("是否孤立看个股", system)
+        self.assertIn("证据是否够硬", system)
+        self.assertIn("更优表达", system)
+        self.assertIn("D4 主线题材结构数据块", system)
+        self.assertIn("主线连续性", system)
+        self.assertIn("缩量强修复/存量抱团", system)
+        self.assertIn("先在内部写出核心矛盾句", system)
+        self.assertIn("所有视角都必须服务这个核心矛盾", system)
+        self.assertIn("禁止按公司本体、盘面、二阶导、反证逐项填空", system)
+        self.assertIn("每一段都要回答这个事实改变了什么判断", system)
+        self.assertIn("不要附加质检过程或审稿过程", system)
 
     def test_degrades_on_empty_content(self) -> None:
         with mock.patch.object(llm_refine, "detect_provider", return_value=_provider()), mock.patch.object(
@@ -81,6 +153,227 @@ class RenderComposeTests(unittest.TestCase):
         out = render_answer(self._base_result(None))
         self.assertNotIn("【对话式回答】", out)
         self.assertIn("【结论】", out)
+
+    def test_render_preserves_fupanhui_methodology_path(self) -> None:
+        r = self._base_result(None)
+        r.sections["分歧反证"] = [
+            "市场结构推演路径：市场量能：用成交额、20日量能回归或放缩量状态判断有没有新增资金。",
+            "市场结构推演路径：板块承接：用双红、边际量和成交额确认题材是否真正获得资金承接。",
+        ]
+
+        out = render_answer(r)
+
+        self.assertIn("市场结构推演路径", out)
+        self.assertIn("20日量能回归", out)
+        self.assertIn("板块承接", out)
+
+
+class MarketValueBlockTests(unittest.TestCase):
+    def test_market_value_block_adds_car_drawdown_and_alternative_queue(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_stock_daily(
+                  trade_date date, stock_ts_code varchar, stock_name varchar,
+                  close double, pct_chg double, amount double
+                )
+                """
+            )
+            con.execute(
+                """
+                create table fact_sector_stock_daily(
+                  trade_date date, sector_name varchar, sw_l1 varchar, stock_ts_code varchar,
+                  stock_name varchar, pct_chg double, amount double, pct_chg_5d double,
+                  pct_chg_10d double, high_status_label varchar, limit_times integer
+                )
+                """
+            )
+            con.execute(
+                """
+                create table fact_sector_daily(
+                  trade_date date, sector_name varchar, pct_chg double, amount double, diff_ratio double
+                )
+                """
+            )
+            con.executemany(
+                "insert into fact_stock_daily values (?, ?, ?, ?, ?, ?)",
+                [
+                    ("2026-06-01", "688008.SH", "澜起科技", 100.0, 0.0, 100.0),
+                    ("2026-06-10", "688008.SH", "澜起科技", 150.0, 5.0, 180.0),
+                    ("2026-06-26", "688008.SH", "澜起科技", 120.0, -6.0, 200.0),
+                ],
+            )
+            con.executemany(
+                "insert into fact_sector_daily values (?, ?, ?, ?, ?)",
+                [("2026-06-26", "存储芯片", -0.5, 7500.0, 6.0)],
+            )
+            con.executemany(
+                "insert into fact_sector_stock_daily values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("2026-06-26", "存储芯片", "电子", "688008.SH", "澜起科技", -6.0, 200.0, -3.0, 14.0, "", None),
+                    ("2026-06-26", "存储芯片", "电子", "688432.SH", "有研硅", 20.0, 20.0, 22.0, 34.0, "历史新高", 1),
+                    ("2026-06-26", "存储芯片", "电子", "688596.SH", "正帆科技", 20.0, 23.0, 22.0, 19.0, "历史新高", 1),
+                ],
+            )
+            con.close()
+
+            block = _market_value_block_for_llm("深挖澜起科技", "存储芯片", db_path)
+
+        self.assertIn("市场价值成绩单", block)
+        self.assertIn("峰后回撤", block)
+        self.assertIn("半衰期代理", block)
+        self.assertIn("个股相对强度排名", block)
+        self.assertIn("同题材强势替代队列", block)
+        self.assertIn("有研硅", block)
+
+
+class EvidenceDataBlockTests(unittest.TestCase):
+    def test_mainline_context_block_adds_theme_sector_cycle_state(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_mainline_sector_daily(
+                  trade_date date, theme_code varchar, theme_name varchar,
+                  sector_ts_code varchar, sector_name varchar, sort_no integer,
+                  today_pct double, limit_up_count integer, max_limit_height integer,
+                  amount double, amount_estimated double, amount_relative_ratio double,
+                  net_inflow_1d double, strength double, strength_chg double,
+                  cycle_level varchar, cycle_status varchar,
+                  startup_date_small date, startup_date_big date,
+                  startup_date_super date, startup_date_extend date,
+                  high_status varchar, high_status_label varchar,
+                  near_breakout_status varchar, near_breakout_label varchar,
+                  near_breakout_gap_pct double, note varchar, source varchar, updated_at timestamp
+                )
+                """
+            )
+            con.execute(
+                """
+                create table fact_sector_daily(
+                  trade_date date, sector_ts_code varchar, sector_name varchar,
+                  sw_l1 varchar, pct_chg double, amount double, diff_ratio double
+                )
+                """
+            )
+            con.executemany(
+                "insert into fact_mainline_sector_daily values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("2026-06-30", "TH1", "AI算力", "886033.TI", "共封装光学(CPO)", 1, 5.17, 15, 2, 70055142.0, 70055142.0, -0.02, 52086112744.0, 4175.6, 4048.9, "小级别", "顺势", "2026-04-01", None, None, None, None, None, "history", "历史新高", 1.44, "", "test", "2026-06-30 15:30:00"),
+                    ("2026-06-30", "TH1", "AI算力", "885959.TI", "PCB概念", 2, 3.77, 9, 2, 41966568.0, 41966568.0, -0.01, 24046907555.0, 2314.9, 2162.3, "小级别", "分歧", "2026-04-08", None, None, None, None, None, "history", "历史新高", 2.26, "", "test", "2026-06-30 15:30:00"),
+                    ("2026-06-30", "TH2", "半导体", "881121.TI", "半导体", 3, 6.31, 15, 2, 62247258.0, 62247258.0, 0.02, 26892466542.0, 4124.2, 38.2, "小级别", "顺势", "2026-06-09", None, None, None, "history", "历史新高", None, None, None, "", "test", "2026-06-30 15:30:00"),
+                ],
+            )
+            con.executemany(
+                "insert into fact_sector_daily values (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("2026-06-30", "886033.TI", "共封装光学(CPO)", "电子", 5.18, 7005.51, -5.68),
+                    ("2026-06-30", "885959.TI", "PCB概念", "电子", 3.78, 4196.66, -8.45),
+                    ("2026-06-30", "881121.TI", "半导体", "电子", 6.32, 6224.73, 12.0),
+                ],
+            )
+            con.close()
+
+            block = _mainline_context_block_for_llm("AI算力怎么看", "AI算力", db_path)
+
+        self.assertIn("主线题材结构数据块 [D4]", block)
+        self.assertIn("AI算力", block)
+        self.assertIn("共封装光学(CPO)", block)
+        self.assertIn("PCB概念", block)
+        self.assertIn("顺势", block)
+        self.assertIn("分歧", block)
+        self.assertIn("缩量强修复/存量抱团", block)
+        self.assertIn("历史新高", block)
+
+    def test_customer_hardness_block_separates_hard_candidate_and_rebuttal(self) -> None:
+        block = _customer_evidence_hardness_block_for_llm(
+            [
+                "顺络电子：公司互动平台确认 TLVR 电感已在数据中心市场批量销售 [R1]",
+                "顺络电子：卖方研报预计 A 客户下半年导入钽电容，收入有望放量 [R2]",
+                "顺络电子：市场预期 AI 电感空间较大，但缺少客户验证数字 [W1]",
+            ],
+            [
+                "反方审稿：公司口径较保守，钽电容尚未进入财务，客户证据待验证 [Q1]",
+            ],
+        )
+
+        self.assertIn("客户证据硬度数据块", block)
+        self.assertIn("硬证据", block)
+        self.assertIn("互动平台确认 TLVR", block)
+        self.assertIn("候选证据", block)
+        self.assertIn("A 客户", block)
+        self.assertIn("弱证据/研报推断", block)
+        self.assertIn("反证/缺口", block)
+        self.assertIn("尚未进入财务", block)
+
+    def test_second_derivative_queue_block_adds_p0_p1_p2(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_stock_daily(
+                  trade_date date, stock_ts_code varchar, stock_name varchar,
+                  close double, pct_chg double, amount double
+                )
+                """
+            )
+            con.execute(
+                """
+                create table fact_sector_stock_daily(
+                  trade_date date, sector_name varchar, sw_l1 varchar, stock_ts_code varchar,
+                  stock_name varchar, pct_chg double, amount double, pct_chg_5d double,
+                  pct_chg_10d double, high_status_label varchar, limit_times integer
+                )
+                """
+            )
+            con.execute(
+                """
+                create table fact_sector_daily(
+                  trade_date date, sector_name varchar, pct_chg double, amount double, diff_ratio double
+                )
+                """
+            )
+            con.executemany(
+                "insert into fact_stock_daily values (?, ?, ?, ?, ?, ?)",
+                [
+                    ("2026-06-26", "002138.SZ", "顺络电子", 68.82, -3.33, 27.48),
+                ],
+            )
+            con.executemany(
+                "insert into fact_sector_daily values (?, ?, ?, ?, ?)",
+                [("2026-06-26", "元件", -2.65, 1870.86, -5.65)],
+            )
+            con.executemany(
+                "insert into fact_sector_stock_daily values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    ("2026-06-26", "元件", "电子", "002138.SZ", "顺络电子", -3.33, 27.48, 8.0, 30.0, "", None),
+                    ("2026-06-26", "元件", "电子", "000823.SZ", "超声电子", 10.01, 18.0, 12.0, 20.0, "历史新高", 1),
+                    ("2026-06-26", "元件", "电子", "001389.SZ", "广合科技", 10.0, 22.0, 15.0, 25.0, "60日新高", 1),
+                ],
+            )
+            con.close()
+
+            block = _second_derivative_queue_block_for_llm(
+                "深挖一下顺络电子",
+                "元件",
+                db_path,
+                "顺络电子 TLVR、钽电容、银浆、磁性材料、客户验证和量产是核心瓶颈。",
+            )
+
+        self.assertIn("二阶导研究队列数据块", block)
+        self.assertIn("P0 盘面已选择", block)
+        self.assertIn("超声电子", block)
+        self.assertIn("P1 目标股再升级", block)
+        self.assertIn("P2 产业瓶颈补盲", block)
+        self.assertIn("TLVR", block)
+        self.assertIn("钽电容", block)
 
 
 if __name__ == "__main__":

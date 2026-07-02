@@ -14,6 +14,7 @@
 - ``foresight_memory.jsonl`` 问过的问题记忆回路
 - ``interactions.jsonl``     用户反馈（PR2：越用越懂）
 - ``corrections.jsonl``      纠偏回路（你纠正它的高信号记录，注入发问「别再犯」）
+- ``experience_cards.jsonl`` 问答经验卡片（评分/扣分/修正原则，注入下次回答）
 - ``judgments.jsonl``        核心判断台账（深挖纪要沉淀的判断，注入发问「在此基础上往前推」）
 - ``checkpoints.jsonl``      可证伪点台账（登记到期回检的判断，C 方案）
 - ``verdicts.jsonl``         回检打分台账（到期核对判断对错→校准你哪类二阶推演靠谱）
@@ -88,6 +89,7 @@ class UserSpace:
     memory_path: Path
     interactions_path: Path
     corrections_path: Path
+    experience_cards_path: Path
     judgments_path: Path
     checkpoints_path: Path
     verdicts_path: Path
@@ -119,6 +121,7 @@ def user_space(user_id: str | None = None) -> UserSpace:
         memory_path=memory_path,
         interactions_path=root / "interactions.jsonl",
         corrections_path=root / "corrections.jsonl",
+        experience_cards_path=root / "experience_cards.jsonl",
         judgments_path=root / "judgments.jsonl",
         checkpoints_path=root / "checkpoints.jsonl",
         verdicts_path=root / "verdicts.jsonl",

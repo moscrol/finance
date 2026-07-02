@@ -17,7 +17,7 @@
 - `.agent-memory/30_conventions/preferences.md` — 用户偏好与人设（教学模式：讲原理 + 讲技术选型/替代方案对比 + 标注可复用知识点；Git 约定；红线）
 - 本项目对应笔记 `.agent-memory/20_projects/finance-workspace-private.md` — 项目背景、关键决策、任务看板
 
-**完成后回写：** 把关键结论/决策追加到 `.agent-memory/20_projects/finance-workspace-private.md` 的「交接记录」，可复用知识提炼进 `.agent-memory/10_knowledge/`。
+**完成后沉淀：** 先判断层级：项目级代码/配置/流程/架构/数据管线决策才追加到 `.agent-memory/20_projects/finance-workspace-private.md` 的「交接记录」；稳定且可跨任务复用的方法论提炼进 `.agent-memory/10_knowledge/`；单次问答评分、用户纠偏、经验样本优先写项目内学习层（如 `experience_cards.jsonl` / `corrections.jsonl`），不要把聊天流水塞进项目交接。
 
 
 A股量化复盘+研究工具集。通过 fupanhui.com API 获取市场数据，写入本地 DuckDB（`market_feature_store.duckdb`），结合 iFinD 数据做深度分析。
@@ -61,7 +61,7 @@ git branch --show-current
 
 ## 本地数据库 (DuckDB)
 
-位置：`db/market.duckdb`，schema 定义在 `db/schema.sql`。
+当前位置：`db/market_feature_store.duckdb`，由 `market_feature_store` 包和 `db/schema.sql` 维护。`db/market.duckdb` 是早期飞书同步阶段的旧路径，不作为当前问答、深挖和复盘前瞻的数据源。
 
 | 表 | 说明 | 数据来源 |
 |----|------|---------|
@@ -201,7 +201,7 @@ Lint 能力（`pdf_ingest_lint.py`）：除 relations 检查外，还检查 conc
 
 ## 本地工具链
 
-- **DuckDB**：`db/market.duckdb`（列存、零配置、单文件），同一时间只有一个写入连接
+- **DuckDB**：`db/market_feature_store.duckdb`（列存、零配置、单文件），同一时间只有一个写入连接
 - **CDP Proxy**：`localhost:3456`，通过用户 Chrome 携带 fupanhui 登录态调用 API。启动：`node ~/.claude/skills/web-access/scripts/cdp-proxy.mjs`（需 Chrome 已开启 remote debugging，检查 `~/Library/Application Support/Google/Chrome/DevToolsActivePort`）
 - **Python 脚本**：`scripts/` 目录，依赖 duckdb、urllib（标准库）
 

@@ -78,6 +78,13 @@ class ToolSchemaTests(unittest.TestCase):
             self.assertTrue(fn["description"])
             self.assertEqual(fn["parameters"]["type"], "object")
 
+    def test_system_prompt_requires_expectation_and_critic_thinking(self) -> None:
+        self.assertIn("预期交易", agent._AGENT_SYSTEM_PROMPT)
+        self.assertIn("兑现分歧", agent._AGENT_SYSTEM_PROMPT)
+        self.assertIn("反方审稿", agent._AGENT_SYSTEM_PROMPT)
+        self.assertIn("资金推动价格", agent._AGENT_SYSTEM_PROMPT)
+        self.assertIn("20日量能回归", agent._AGENT_SYSTEM_PROMPT)
+
 
 class ToolBehaviourTests(unittest.TestCase):
     def test_search_graph_tiers_and_cites(self) -> None:

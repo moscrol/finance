@@ -50,6 +50,7 @@ class UserSpacePathTests(unittest.TestCase):
         self.assertEqual(us.memory_path, userspace.USERS_DIR / "alice" / "foresight_memory.jsonl")
         self.assertEqual(us.profile_path, userspace.USERS_DIR / "alice" / "profile.json")
         self.assertEqual(us.derived_path, userspace.USERS_DIR / "alice" / "profile.derived.json")
+        self.assertEqual(us.experience_cards_path, userspace.USERS_DIR / "alice" / "experience_cards.jsonl")
 
 
 class EffectiveProfileTests(unittest.TestCase):
@@ -338,6 +339,7 @@ class UsersDirOverrideTests(unittest.TestCase):
                 self.assertEqual(us.root, Path(tmp) / "alice")
                 self.assertEqual(us.interactions_path, Path(tmp) / "alice" / "interactions.jsonl")
                 self.assertEqual(us.corrections_path, Path(tmp) / "alice" / "corrections.jsonl")
+                self.assertEqual(us.experience_cards_path, Path(tmp) / "alice" / "experience_cards.jsonl")
                 self.assertEqual(us.memory_path, Path(tmp) / "alice" / "foresight_memory.jsonl")
                 self.assertEqual(us.profile_path, Path(tmp) / "alice" / "profile.json")
 

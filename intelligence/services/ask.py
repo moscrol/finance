@@ -20,12 +20,16 @@ import glob
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import date as date_cls
+from datetime import date as date_cls, timedelta
 from pathlib import Path
 from typing import Any
 
+from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
-from intelligence.services import kb_rag, llm_refine
+from intelligence.paths import default_paths
+from intelligence.services import experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine
+from intelligence.services.answer_quality import build_quality_context
+from intelligence.services.answer_orchestrator import QUESTION_MARKET_FORECAST, QuestionPlan, plan_answer_question
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
     MODULE_DEEP_DIVE,
@@ -94,6 +98,17 @@ class AskOptions:
     llm_model: str | None = None
     llm_timeout: int = 60
     detail: bool = False
+    user: str | None = None
+    experience_cards_window: int = 12
+    compose_self_review: bool = True
+    include_market_value_block: bool = True
+    include_customer_hardness_block: bool = True
+    include_second_derivative_block: bool = True
+    include_mainline_context_block: bool = True
+    # L3 runtime evidence tools: official announcements / exchange interaction.
+    use_l3_lookup: bool = False
+    l3_lookup_timeout: int = 480
+    l3_lookup_limit: int = 5
 
 
 @dataclass
@@ -124,6 +139,14 @@ class AskResult:
     # 首轮合成的完整对话 messages（system+user+assistant）；供多轮追问复用证据+历史。
     # None 表示未启用/已降级（无法进入多轮对话）。
     synthesis_messages: list[dict] | None = None
+    # 问答编排层：先解析问题类型/深度/视角/证据计划，再进入 compose。
+    question_plan: QuestionPlan | None = None
+    # 行情前瞻前置查漏门：从 daily-agent research_queue 判断是否应先补 DeepDive / L3 证据。
+    forecast_preflight: dict[str, Any] | None = None
+    # 运行时 L3 官方证据补查。默认空；只有 use_l3_lookup 时才尝试调用外接 CLI。
+    l3_evidence: l3_evidence.L3EvidenceBundle = field(
+        default_factory=lambda: l3_evidence.L3EvidenceBundle(query="")
+    )
     # (label, 完整报告全文) per routed module, only when --detail is set
     detail_reports: list[tuple[str, str]] = field(default_factory=list)
 
@@ -168,6 +191,31 @@ def load_theme_candidates(exports_dir: str | Path | None, date: str | None) -> d
     except Exception as exc:  # pragma: no cover - defensive
         return {"found": False, "path": str(path), "warnings": [str(exc)], "doc": {}}
     return {"found": True, "path": str(path), "warnings": [], "doc": doc}
+
+
+def _forecast_preflight_for_options(options: AskOptions, market_doc: dict[str, Any]) -> dict[str, Any]:
+    base = _resolve_exports_dir(options.exports_dir)
+    trade_date = options.date or str(market_doc.get("trade_date") or "").strip()
+    path: Path | None = None
+    if trade_date:
+        candidate = base / f"{trade_date}-daily-agent.json"
+        if candidate.exists():
+            path = candidate
+    else:
+        matches = sorted(glob.glob(str(base / "*-daily-agent.json")))
+        if matches:
+            path = Path(matches[-1])
+    if path is None:
+        source = str(base / f"{trade_date or '<latest>'}-daily-agent.json")
+        return forecast_preflight.build_forecast_preflight({}, source_artifact=source)
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        result = forecast_preflight.build_forecast_preflight({}, source_artifact=str(path))
+        result["human_summary"] = f"daily-agent 读取失败：{exc}"
+        result["prompt_block"] = forecast_preflight.render_preflight_prompt(result)
+        return result
+    return forecast_preflight.build_forecast_preflight(report, source_artifact=str(path))
 
 
 def _all_candidates(doc: dict[str, Any]) -> list[dict[str, Any]]:
@@ -216,7 +264,8 @@ def _evidence_is_stale(item: dict[str, Any], stale_days: int) -> bool:
 
 
 def answer_query(options: AskOptions) -> AskResult:
-    knowledge = KnowledgeAdapter(wiki_root=options.kb_wiki)
+    resolved_kb_wiki = Path(options.kb_wiki).expanduser() if options.kb_wiki else default_paths().knowledge_wiki
+    knowledge = KnowledgeAdapter(wiki_root=resolved_kb_wiki)
     loaded = load_theme_candidates(options.exports_dir, options.date)
     doc = loaded["doc"] if loaded["found"] else {}
     candidate = match_candidate(options.query, doc) if doc else None
@@ -230,6 +279,13 @@ def answer_query(options: AskOptions) -> AskResult:
     )
     result.warnings.extend(loaded.get("warnings", []))
     result.found_market = candidate is not None
+    question_plan = plan_answer_question(options.query)
+    result.question_plan = question_plan
+    result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
+    if question_plan.question_type == QUESTION_MARKET_FORECAST:
+        result.forecast_preflight = _forecast_preflight_for_options(options, doc)
+        if not result.forecast_preflight.get("can_generate_formal"):
+            result.warnings.append(f"forecast-preflight：{result.forecast_preflight.get('human_summary')}")
 
     citations: list[Citation] = []
 
@@ -354,7 +410,7 @@ def answer_query(options: AskOptions) -> AskResult:
     if options.use_wiki_rag:
         wr = kb_rag.retrieve(
             options.query,
-            options.kb_wiki,
+            resolved_kb_wiki,
             k=options.wiki_rag_k,
             mode=options.wiki_rag_mode,
             timeout=options.wiki_rag_timeout,
@@ -383,7 +439,7 @@ def answer_query(options: AskOptions) -> AskResult:
         routed = route_modules(options.query, list(options.modules) if options.modules else None)
         result.routed_modules = list(routed)
         for name in routed:
-            mr = run_module(name, options.query, options.kb_wiki, options.module_timeout)
+            mr = run_module(name, options.query, resolved_kb_wiki, options.module_timeout)
             module_block.append(f"{SUBHEAD}模块·{MODULE_LABELS.get(name, name)}")
             if mr.ok and mr.highlights:
                 result.found_graph = True
@@ -418,6 +474,14 @@ def answer_query(options: AskOptions) -> AskResult:
         "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
         "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边"
     )
+    quality_context = build_quality_context(
+        evidence_lines=evidence_lines + graph_concept_lines + company_lines + wiki_lines + module_block,
+        market_lines=market_lines,
+        gap_lines=gap_lines,
+    )
+    gap_lines.insert(0, f"阶段判断：{quality_context.stage}（证据层：{', '.join(quality_context.layers) or '未识别'}）")
+    gap_lines.extend(f"市场结构推演路径：{item}" for item in quality_context.methodology_checks)
+    gap_lines.extend(f"反方审稿：{item}" for item in quality_context.critic_questions)
 
     # ---------- assemble fixed six sections ----------
     theme = result.matched_theme or options.query
@@ -464,6 +528,7 @@ def answer_query(options: AskOptions) -> AskResult:
         follow_ups.append("看连板高度与晋级率，确认资金接力意愿")
     if gaps or tiers["peripheral"]:
         follow_ups.append("对 graph_only / 缺口公司补研报与官方披露（disclosure-archive → apply）")
+    follow_ups.extend(f"市场结构推演路径跟踪：{item}" for item in quality_context.methodology_checks if "缺口" in item)
     for mod_name, item in module_follow_ups:
         follow_ups.append(f"[{mod_name}] {item}")
     if not follow_ups:
@@ -489,6 +554,24 @@ def answer_query(options: AskOptions) -> AskResult:
         + module_block
     )
 
+    # --- L: runtime L3 official evidence lookup (announcements / interactions) ---
+    if options.use_l3_lookup:
+        local_evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
+        l3_bundle = l3_evidence.lookup_l3_evidence(
+            options.query,
+            question_plan,
+            local_evidence_text,
+            config=l3_evidence.L3LookupConfig.from_env(
+                enabled=True,
+                timeout=options.l3_lookup_timeout,
+                limit=options.l3_lookup_limit,
+            ),
+        )
+        result.l3_evidence = l3_bundle
+        result.warnings.extend(f"l3-evidence：{w}" for w in l3_bundle.warnings)
+        l3_lines = l3_bundle.to_prompt_block().splitlines()
+        evidence_chain.extend([f"{SUBHEAD}L3 官方证据工具补查", *l3_lines])
+
     # --- ② optional LLM refinement of 结论 / 交易含义 (graceful degrade w/o key) ---
     if options.use_llm:
         evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
@@ -513,15 +596,95 @@ def answer_query(options: AskOptions) -> AskResult:
     # --- ③ optional 有机合成 (compose): 把多源证据融成一段自由形态、带内联引用的回答 ---
     if options.compose:
         evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
+        if result.question_plan is not None:
+            evidence_text = f"{result.question_plan.to_prompt_block()}\n\n{evidence_text}"
+        if result.forecast_preflight is not None:
+            evidence_text = f"{evidence_text}\n\n{forecast_preflight.render_preflight_prompt(result.forecast_preflight)}"
+        if options.include_market_value_block:
+            market_value_block = _market_value_block_for_llm(
+                options.query,
+                theme,
+                options.market_db_path,
+            )
+            if market_value_block:
+                evidence_text = f"{evidence_text}\n\n{market_value_block}"
+                citations.append(
+                    Citation(
+                        "D1",
+                        "本地 DuckDB 市场价值数据块",
+                        "CAR/峰后回撤/半衰期代理/同题材强势替代队列",
+                    )
+                )
+        if options.include_mainline_context_block:
+            mainline_context_block = _mainline_context_block_for_llm(
+                options.query,
+                theme,
+                options.market_db_path,
+            )
+            if mainline_context_block:
+                evidence_text = f"{evidence_text}\n\n{mainline_context_block}"
+                citations.append(
+                    Citation(
+                        "D4",
+                        "本地 DuckDB 主线题材结构数据块",
+                        "每日主线题材/核心板块/cycle_status/缩放量解释",
+                    )
+                )
+        if options.include_customer_hardness_block:
+            customer_hardness_block = _customer_evidence_hardness_block_for_llm(evidence_chain, gap_lines)
+            if customer_hardness_block:
+                evidence_text = f"{evidence_text}\n\n{customer_hardness_block}"
+                citations.append(
+                    Citation(
+                        "D2",
+                        "本地证据链客户硬度数据块",
+                        "客户/订单/量产/送样/验证证据按硬度分层",
+                    )
+                )
+        if options.include_second_derivative_block:
+            second_derivative_block = _second_derivative_queue_block_for_llm(
+                options.query,
+                theme,
+                options.market_db_path,
+                evidence_text,
+            )
+            if second_derivative_block:
+                evidence_text = f"{evidence_text}\n\n{second_derivative_block}"
+                citations.append(
+                    Citation(
+                        "D3",
+                        "本地 DuckDB + 证据链二阶导研究队列数据块",
+                        "强势替代表达/目标股再升级/产业瓶颈补盲",
+                    )
+                )
         citation_legend = "\n".join(
             f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
         )
+        us = userspace.user_space(options.user)
+        cards, card_warn = experience_cards.load_cards(
+            us.experience_cards_path,
+            window=options.experience_cards_window,
+        )
+        if card_warn:
+            result.warnings.append(card_warn)
+        selected_cards = experience_cards.select_relevant_cards(cards, options.query)
+        experience_guidance = experience_cards.render_for_prompt(selected_cards)
         msgs = llm_refine.build_synthesis_messages(
-            options.query, theme, evidence_text, citation_legend=citation_legend
+            options.query,
+            theme,
+            evidence_text,
+            citation_legend=citation_legend,
+            quality_context=quality_context,
+            experience_guidance=experience_guidance,
         )
-        composed, reason = llm_refine.synthesize_messages(
-            msgs, model_override=options.llm_model, timeout=options.llm_timeout,
-        )
+        if options.compose_self_review:
+            composed, reason = llm_refine.synthesize_messages_with_review(
+                msgs, model_override=options.llm_model, timeout=options.llm_timeout,
+            )
+        else:
+            composed, reason = llm_refine.synthesize_messages(
+                msgs, model_override=options.llm_model, timeout=options.llm_timeout,
+            )
         if composed is not None:
             result.synthesis = composed.answer
             result.llm_provider = composed.provider
@@ -552,6 +715,621 @@ def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> s
     out.append("## 分歧反证")
     out.extend(f"- {g}" for g in gap_lines)
     return "\n".join(out)
+
+
+def _customer_evidence_hardness_block_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:
+    """Classify customer/order evidence into hardness buckets for compose answers."""
+    hard: list[str] = []
+    candidate: list[str] = []
+    weak: list[str] = []
+    rebuttal: list[str] = []
+    for raw in [*evidence_chain, *gap_lines]:
+        if raw.startswith(SUBHEAD):
+            continue
+        line = re.sub(r"\s+", " ", str(raw or "")).strip()
+        if not line or line.startswith("（"):
+            continue
+        bucket = _classify_customer_evidence_line(line)
+        if bucket == "hard":
+            _append_unique_limited(hard, _shorten_evidence_line(line))
+        elif bucket == "candidate":
+            _append_unique_limited(candidate, _shorten_evidence_line(line))
+        elif bucket == "weak":
+            _append_unique_limited(weak, _shorten_evidence_line(line))
+        elif bucket == "rebuttal":
+            _append_unique_limited(rebuttal, _shorten_evidence_line(line))
+
+    lines = ["## 客户证据硬度数据块 [D2]"]
+    lines.append("- 硬证据：" + ("；".join(hard[:4]) if hard else "未从本轮证据链识别到公告/互动易/年报等官方口径的订单、量产、批量供货、收入或客户验证硬证据。"))
+    lines.append("- 候选证据：" + ("；".join(candidate[:4]) if candidate else "未识别到带客户/导入/送样/审厂/收入目标的研报或调研候选证据。"))
+    lines.append("- 弱证据/研报推断：" + ("；".join(weak[:4]) if weak else "未识别到仅有空间测算、预期、市场传闻或无客户落点的弱证据。"))
+    lines.append("- 反证/缺口：" + ("；".join(rebuttal[:4]) if rebuttal else "本轮证据未给出明确反证；仍需检查是否存在公司口径保守、未并表、低占比或尚未进入财务的约束。"))
+    lines.append("- 使用要求：回答时必须先说客户证据属于硬证据、候选证据还是弱证据；硬证据可支撑当期逻辑，候选证据只能支撑跟踪假设，弱证据不能直接当作基本面兑现。")
+    return "\n".join(lines)
+
+
+def _classify_customer_evidence_line(line: str) -> str | None:
+    text = line.lower()
+    customer_terms = r"客户|终端|订单|合同|中标|量产|批量|供货|出货|导入|认证|审厂|验证|收入|定点|供应商|配套|a客户|b客户"
+    rebuttal_terms = r"否认|未确认|尚未|暂无|缺失|低占比|保守|未进入财务|不并表|亏损|证据不足|待证|待验证|不确定|缺口"
+    hard_source_terms = r"公告|互动|年报|季报|半年报|招股书|定期报告|问询函|交易所|公司|官网|监管|合同|中标"
+    hard_action_terms = r"量产|批量|订单|合同|中标|收入|出货|供货|定点|认证|客户验证|通过验证"
+    candidate_source_terms = r"研报|调研|纪要|卖方|券商|ima|晨汇|产业链"
+    weak_terms = r"预计|有望|推断|猜测|传闻|市场|空间|目标|测算|可能|预期|或将|弹性"
+    has_customer = re.search(customer_terms, text) is not None
+    if re.search(rebuttal_terms, text):
+        return "rebuttal"
+    if not has_customer and not re.search(hard_action_terms, text):
+        return None
+    if re.search(hard_source_terms, text) and re.search(hard_action_terms, text):
+        return "hard"
+    if re.search(candidate_source_terms, text) and (has_customer or re.search(hard_action_terms, text)):
+        return "candidate"
+    if re.search(weak_terms, text):
+        return "weak"
+    return "candidate" if has_customer else None
+
+
+def _append_unique_limited(items: list[str], value: str, limit: int = 8) -> None:
+    if value and value not in items and len(items) < limit:
+        items.append(value)
+
+
+def _shorten_evidence_line(line: str, max_chars: int = 120) -> str:
+    line = line.replace(SUBHEAD, "")
+    return line if len(line) <= max_chars else line[: max_chars - 1] + "…"
+
+
+def _mainline_context_block_for_llm(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+    lookback_days: int = 20,
+) -> str:
+    """Build the D4 mainline-theme structure block from local DuckDB.
+
+    Grain: trade_date × mainline theme × core sector. This is L4 market signal,
+    not entity baseline or hard company evidence.
+    """
+    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    if not db_path.exists():
+        return ""
+    try:
+        import duckdb  # type: ignore
+    except Exception:
+        return ""
+    try:
+        con = duckdb.connect(str(db_path), read_only=True)
+    except Exception:
+        return ""
+    try:
+        exists = con.execute(
+            "select count(*) from information_schema.tables where table_name='fact_mainline_sector_daily'"
+        ).fetchone()[0]
+        if not exists:
+            return ""
+        latest = con.execute("select max(trade_date) from fact_mainline_sector_daily").fetchone()[0]
+        if not latest:
+            return ""
+        target_theme = _resolve_mainline_theme(con, query, theme, latest)
+        params: list[Any] = [latest]
+        theme_filter = ""
+        if target_theme:
+            theme_filter = "and m.theme_name = ?"
+            params.append(target_theme)
+        rows = con.execute(
+            f"""
+            select
+              m.trade_date, m.theme_name, m.sector_name, m.sort_no,
+              m.cycle_status, m.cycle_level, m.today_pct, m.limit_up_count,
+              m.startup_date_small, m.high_status_label, m.near_breakout_label,
+              coalesce(s.pct_chg, m.today_pct) as sector_pct,
+              s.diff_ratio, coalesce(s.amount, m.amount / 10000.0) as sector_amount,
+              s.sw_l1
+            from fact_mainline_sector_daily m
+            left join fact_sector_daily s
+              on m.trade_date = s.trade_date and m.sector_ts_code = s.sector_ts_code
+            where m.trade_date = ? {theme_filter}
+            order by m.theme_name, m.sort_no nulls last, m.sector_name
+            limit 30
+            """,
+            params,
+        ).fetchall()
+        if not rows:
+            return ""
+        cutoff = latest - timedelta(days=int(lookback_days)) if hasattr(latest, "__sub__") else latest
+        history_params: list[Any] = [latest, cutoff]
+        history_filter = ""
+        if target_theme:
+            history_filter = "and theme_name = ?"
+            history_params.append(target_theme)
+        history = con.execute(
+            f"""
+            select theme_name, count(distinct trade_date) as day_count,
+                   min(trade_date) as first_date, max(trade_date) as last_date,
+                   count(*) as sector_rows
+            from fact_mainline_sector_daily
+            where trade_date <= ?
+              and trade_date >= ?
+              {history_filter}
+            group by theme_name
+            order by day_count desc, sector_rows desc, theme_name
+            limit 8
+            """,
+            history_params,
+        ).fetchall()
+        lines = ["## 主线题材结构数据块 [D4]"]
+        matched = target_theme or "最新全市场主线"
+        lines.append(f"- 最新主线日期：{latest}；匹配口径：{matched}；该块是 L4_market_signal，只能说明市场主线归因，不等同公司基本面兑现。")
+        if history:
+            hist_text = "；".join(
+                f"{name}近{lookback_days}日出现{days}天（{first}~{last}，板块行{sector_rows}）"
+                for name, days, first, last, sector_rows in history[:5]
+            )
+            lines.append(f"- 主线持续性：{hist_text}")
+        grouped: dict[str, list[tuple[Any, ...]]] = {}
+        for row in rows:
+            grouped.setdefault(str(row[1]), []).append(row)
+        for theme_name, items in grouped.items():
+            sector_bits = []
+            for row in items[:8]:
+                (
+                    _td,
+                    _theme_name,
+                    sector_name,
+                    _sort_no,
+                    cycle_status,
+                    cycle_level,
+                    _today_pct,
+                    limit_up_count,
+                    startup_date_small,
+                    high_status_label,
+                    near_breakout_label,
+                    sector_pct,
+                    diff_ratio,
+                    sector_amount,
+                    sw_l1,
+                ) = row
+                volume_state = _classify_mainline_volume_state(sector_pct, diff_ratio, sector_amount)
+                breakout = high_status_label or near_breakout_label or ""
+                breakout_text = f"，{breakout}" if breakout else ""
+                startup_text = f"，启动日{startup_date_small}" if startup_date_small else ""
+                sector_bits.append(
+                    f"{sector_name}({sw_l1 or '-'}，{cycle_status or '未标注'}/{cycle_level or '-'}，"
+                    f"涨{_fmt_optional(sector_pct)}%，边际量{_fmt_optional(diff_ratio)}%，"
+                    f"成交{_fmt_optional(sector_amount)}亿，涨停{limit_up_count or 0}，{volume_state}{breakout_text}{startup_text})"
+                )
+            lines.append(f"- {theme_name}核心板块：" + "；".join(sector_bits))
+        lines.append("- 使用要求：回答时要区分连续主线与新启动主线；cycle_status=分歧/消亡不能写成无条件主升；涨幅为正但 diff_ratio 为负时，优先解释为缩量强修复/存量抱团，而不是低位放量启动。")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+
+def _resolve_mainline_theme(con: Any, query: str, theme: str | None, latest_date: Any) -> str | None:
+    rows = con.execute(
+        """
+        select distinct theme_name
+        from fact_mainline_sector_daily
+        where trade_date=?
+        order by theme_name
+        """,
+        [latest_date],
+    ).fetchall()
+    names = [str(r[0]) for r in rows if r and r[0]]
+    text = f"{query or ''} {theme or ''}"
+    normalized_text = _normalize(text)
+    for name in names:
+        n = _normalize(name)
+        if n and (n in normalized_text or normalized_text in n):
+            return name
+    return None
+
+
+def _classify_mainline_volume_state(pct_chg: Any, diff_ratio: Any, amount: Any) -> str:
+    pct = _safe_float(pct_chg)
+    diff = _safe_float(diff_ratio)
+    amt = _safe_float(amount)
+    if pct is not None and pct > 0 and diff is not None and diff > 10 and (amt is None or amt > 500):
+        return "真正双红/增量启动"
+    if pct is not None and pct > 0 and diff is not None and diff < 0:
+        return "缩量强修复/存量抱团"
+    if pct is not None and pct > 0 and diff is not None and diff >= 0:
+        return "弱放量修复"
+    if pct is not None and pct < 0 and diff is not None and diff > 0:
+        return "放量分歧/承接检验"
+    return "量价状态待确认"
+
+
+def _safe_float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _fmt_optional(value: Any, digits: int = 2) -> str:
+    num = _safe_float(value)
+    if num is None:
+        return "-"
+    return f"{num:.{digits}f}"
+
+
+def _second_derivative_queue_block_for_llm(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+    evidence_text: str,
+) -> str:
+    """Build a structured P0/P1/P2 second-derivative research queue."""
+    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    if not db_path.exists():
+        return _second_derivative_queue_from_text_only(theme, evidence_text)
+    try:
+        import duckdb  # type: ignore
+    except Exception:
+        return _second_derivative_queue_from_text_only(theme, evidence_text)
+
+    try:
+        con = duckdb.connect(str(db_path), read_only=True)
+    except Exception:
+        return _second_derivative_queue_from_text_only(theme, evidence_text)
+
+    try:
+        stock = _resolve_stock_for_market_block(con, query)
+        if not stock:
+            return _second_derivative_queue_from_text_only(theme, evidence_text)
+        stock_code, stock_name = stock
+        latest = con.execute(
+            """
+            select trade_date, close, pct_chg, amount
+            from fact_stock_daily
+            where stock_ts_code=? and close is not null
+            order by trade_date desc
+            limit 1
+            """,
+            [stock_code],
+        ).fetchone()
+        if not latest:
+            return _second_derivative_queue_from_text_only(theme, evidence_text)
+        latest_date, latest_close, latest_pct, latest_amount = latest
+        sector_rows = con.execute(
+            """
+            select sector_name, sw_l1, pct_chg, amount
+            from fact_sector_stock_daily
+            where trade_date=? and stock_ts_code=?
+            order by amount desc
+            limit 8
+            """,
+            [latest_date, stock_code],
+        ).fetchall()
+        sector_names = _prioritize_sector_names([str(r[0]) for r in sector_rows if r and r[0]], theme)
+        sector_lines = _format_sector_state_lines(con, latest_date, sector_names[:5])
+        rank_lines = _format_stock_rank_lines(con, latest_date, stock_code, sector_names)
+        alternative_lines = _format_alternative_queue_lines(con, latest_date, stock_code, sector_names[:4])
+        bottlenecks = _extract_bottleneck_terms(evidence_text)
+
+        lines = ["## 二阶导研究队列数据块 [D3]"]
+        lines.append(
+            f"- 标的状态：{stock_name}（{stock_code}）最新有效交易日 {latest_date}，涨跌幅 {latest_pct}%，成交额 {latest_amount} 亿；"
+            + ("相对强度=" + "；".join(rank_lines[:4]) if rank_lines else "相对强度排名未取到")
+        )
+        lines.append(
+            "- P0 盘面已选择的强势替代表达："
+            + ("；".join(alternative_lines[:6]) if alternative_lines else "未从同题材中取到明确强势替代队列，需观察是否只是目标股孤立行情。")
+        )
+        lines.append(
+            "- P1 目标股再升级条件："
+            + f"观察 {stock_name} 是否重新进入所属题材涨幅/成交前排、是否收复近 90 日高点或形成新高，并且关联题材从非双红转为连续双红；"
+            + ("当前关联题材状态=" + "；".join(sector_lines[:5]) if sector_lines else "当前关联题材双红状态未取到")
+        )
+        lines.append(
+            "- P2 产业瓶颈补盲："
+            + ("围绕 " + "、".join(bottlenecks[:8]) + " 查找客户验证、产能、良率、涨价、国产替代和上游材料/设备约束。" if bottlenecks else "本轮证据文本未抽到明确瓶颈词；需要用年报、互动易、公告或研报全文补公司产品结构、客户链和上游约束。")
+        )
+        lines.append(
+            "- 反向观察：若板块继续有双红/新高集群但目标股相对强度掉队，优先把它降为后排跟随或旧逻辑分歧承接；若替代队列持续扩散而目标股不修复，说明市场可能已经选择了更优表达。"
+        )
+        return "\n".join(lines)
+    except Exception:
+        return _second_derivative_queue_from_text_only(theme, evidence_text)
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+
+def _second_derivative_queue_from_text_only(theme: str | None, evidence_text: str) -> str:
+    bottlenecks = _extract_bottleneck_terms(evidence_text)
+    lines = ["## 二阶导研究队列数据块 [D3]"]
+    lines.append("- P0 盘面已选择的强势替代表达：本轮未取到 DuckDB 同题材强势替代队列，回答时必须把这一项作为数据缺口说明。")
+    lines.append("- P1 目标股再升级条件：需要补最新相对强度、成交额边际、所属题材双红/新高/涨停扩散，确认它是核心、同步、补涨还是后排。")
+    lines.append(
+        "- P2 产业瓶颈补盲："
+        + ("围绕 " + "、".join(bottlenecks[:8]) + " 继续查客户验证、订单、产能和上游约束。" if bottlenecks else f"围绕 {theme or '命中主题'} 补上游材料/设备、关键客户、价格传导和替代公司。")
+    )
+    lines.append("- 反向观察：若缺少 P0/P1 数据，不能直接给出强趋势结论，只能提出待验证假设。")
+    return "\n".join(lines)
+
+
+def _extract_bottleneck_terms(text: str) -> list[str]:
+    terms = [
+        "HBM",
+        "DDR5",
+        "CXL",
+        "TLVR",
+        "AI电感",
+        "钽电容",
+        "MLCC",
+        "LTCC",
+        "银浆",
+        "磁性材料",
+        "陶瓷粉体",
+        "玻璃基板",
+        "CoWoS",
+        "先进封装",
+        "存储",
+        "光模块",
+        "CPO",
+        "交换芯片",
+        "电源模块",
+        "功率模块",
+        "良率",
+        "产能",
+        "涨价",
+        "国产替代",
+        "客户验证",
+        "量产",
+    ]
+    out: list[str] = []
+    lower = text.lower()
+    for term in terms:
+        if term.lower() in lower and term not in out:
+            out.append(term)
+    return out
+
+
+def _market_value_block_for_llm(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+) -> str:
+    """Build a deterministic market-value and alternative-queue block.
+
+    This is intentionally lightweight and best-effort. It enriches compose
+    answers with measurable L4 context without turning the LLM into a calculator.
+    """
+    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    if not db_path.exists():
+        return ""
+    try:
+        import duckdb  # type: ignore
+    except Exception:
+        return ""
+
+    try:
+        con = duckdb.connect(str(db_path), read_only=True)
+    except Exception:
+        return ""
+    try:
+        stock = _resolve_stock_for_market_block(con, query)
+        if not stock:
+            return ""
+        stock_code, stock_name = stock
+        latest = con.execute(
+            """
+            select trade_date, close, pct_chg, amount
+            from fact_stock_daily
+            where stock_ts_code=? and close is not null
+            order by trade_date desc
+            limit 1
+            """,
+            [stock_code],
+        ).fetchone()
+        if not latest:
+            return ""
+        latest_date, latest_close, latest_pct, latest_amount = latest
+        rows = con.execute(
+            """
+            select trade_date, close
+            from fact_stock_daily
+            where stock_ts_code=? and close is not null
+              and trade_date >= cast(? as date) - interval 90 day
+              and trade_date <= cast(? as date)
+            order by trade_date
+            """,
+            [stock_code, latest_date, latest_date],
+        ).fetchall()
+        value_lines = _format_market_value_rows(rows, latest_close)
+
+        sector_rows = con.execute(
+            """
+            select sector_name, sw_l1, pct_chg, amount
+            from fact_sector_stock_daily
+            where trade_date=? and stock_ts_code=?
+            order by amount desc
+            limit 8
+            """,
+            [latest_date, stock_code],
+        ).fetchall()
+        sector_names = _prioritize_sector_names([str(r[0]) for r in sector_rows if r and r[0]], theme)
+        rank_lines = _format_stock_rank_lines(con, latest_date, stock_code, sector_names)
+        sector_lines = _format_sector_state_lines(con, latest_date, sector_names[:5])
+        alternative_lines = _format_alternative_queue_lines(con, latest_date, stock_code, sector_names[:4])
+
+        lines = [
+            "## 市场价值与替代队列数据块 [D1]",
+            f"- 标的识别：{stock_name}（{stock_code}），最新有效交易日 {latest_date}，收盘 {latest_close}，当日涨跌幅 {latest_pct}%，成交额 {latest_amount} 亿。",
+        ]
+        lines.extend(value_lines)
+        if sector_lines:
+            lines.append("- 关联题材/行业状态：" + "；".join(sector_lines))
+        if rank_lines:
+            lines.append("- 个股相对强度排名：" + "；".join(rank_lines))
+        if alternative_lines:
+            lines.append("- 同题材强势替代队列：" + "；".join(alternative_lines))
+        lines.append("- 使用要求：把该块用于回答 CAR/峰后回撤/半衰期代理、相对强度和二阶导，不要机械照抄；若指标口径不足，要说明这是本地 DuckDB 的代理口径。")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+
+def _resolve_stock_for_market_block(con: Any, query: str) -> tuple[str, str] | None:
+    code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
+    if code_match:
+        raw = code_match.group(1)
+        suffix = code_match.group(2)
+        if suffix:
+            rows = con.execute(
+                "select stock_ts_code, stock_name from fact_stock_daily where stock_ts_code=? limit 1",
+                [f"{raw}.{suffix.upper()}"],
+            ).fetchall()
+        else:
+            rows = con.execute(
+                "select stock_ts_code, stock_name from fact_stock_daily where stock_ts_code like ? limit 1",
+                [f"{raw}.%"],
+            ).fetchall()
+        if rows:
+            return str(rows[0][0]), str(rows[0][1] or rows[0][0])
+    rows = con.execute(
+        """
+        select stock_ts_code, stock_name
+        from fact_stock_daily
+        where stock_name is not null and stock_name <> ''
+        group by stock_ts_code, stock_name
+        """
+    ).fetchall()
+    q = str(query or "")
+    matches = [(str(code), str(name)) for code, name in rows if str(name) and str(name) in q]
+    if matches:
+        matches.sort(key=lambda item: len(item[1]), reverse=True)
+        return matches[0]
+    return None
+
+
+def _prioritize_sector_names(sector_names: list[str], theme: str | None) -> list[str]:
+    """Prefer the matched theme when a stock is mapped to many sectors."""
+    names = [s for s in dict.fromkeys(sector_names) if s]
+    if not theme:
+        return names
+    normalized_theme = _normalize(theme)
+    matched = [s for s in names if normalized_theme and (_normalize(s) in normalized_theme or normalized_theme in _normalize(s))]
+    if not matched:
+        return names
+    preferred = matched[0]
+    return [preferred] + [s for s in names if s != preferred]
+
+
+def _format_market_value_rows(rows: list[tuple[Any, Any]], latest_close: float | None) -> list[str]:
+    clean = [(r[0], float(r[1])) for r in rows if r and r[1] is not None]
+    if len(clean) < 2 or latest_close is None:
+        return ["- 市场价值成绩单：近 90 日有效行情不足，CAR/峰后回撤/半衰期代理未取到。"]
+    base_date, base_close = clean[0]
+    peak_date, peak_close = max(clean, key=lambda x: x[1])
+    latest = float(latest_close)
+    interval_gain = _pct(latest / base_close - 1)
+    peak_gain = _pct(peak_close / base_close - 1)
+    drawdown = _pct(latest / peak_close - 1)
+    retention = None
+    if peak_gain and peak_gain > 0:
+        retention = latest / base_close - 1
+        retention = round(retention / (peak_gain / 100) * 100, 2)
+    half_life = "未跌破峰值收益一半" if retention is not None and retention >= 50 else "已跌破峰值收益一半" if retention is not None else "未计算"
+    return [
+        f"- 市场价值成绩单：从 {base_date} 到 {clean[-1][0]} 区间涨幅 {interval_gain}%，峰值日 {peak_date} 峰值涨幅 {peak_gain}%，峰后回撤 {drawdown}%，峰值收益保留率 {retention if retention is not None else '—'}%，半衰期代理={half_life}。",
+    ]
+
+
+def _format_stock_rank_lines(con: Any, latest_date: Any, stock_code: str, sector_names: list[str]) -> list[str]:
+    if not sector_names:
+        return []
+    out: list[str] = []
+    for sector in sector_names[:5]:
+        row = con.execute(
+            """
+            with base as (
+              select sector_name, stock_ts_code, stock_name, pct_chg, amount,
+                     rank() over(partition by sector_name order by amount desc nulls last) as amount_rank,
+                     rank() over(partition by sector_name order by pct_chg desc nulls last) as pct_rank,
+                     count(*) over(partition by sector_name) as n
+              from fact_sector_stock_daily
+              where trade_date=? and sector_name=?
+            )
+            select amount_rank, pct_rank, n, pct_chg, amount
+            from base where stock_ts_code=?
+            """,
+            [latest_date, sector, stock_code],
+        ).fetchone()
+        if row:
+            out.append(f"{sector}成交排名{row[0]}/{row[2]}、涨幅排名{row[1]}/{row[2]}、涨跌幅{row[3]}%、成交{row[4]}亿")
+    return out
+
+
+def _format_sector_state_lines(con: Any, latest_date: Any, sector_names: list[str]) -> list[str]:
+    if not sector_names:
+        return []
+    out: list[str] = []
+    for sector in sector_names:
+        row = con.execute(
+            """
+            select pct_chg, amount, diff_ratio
+            from fact_sector_daily
+            where trade_date=? and sector_name=?
+            limit 1
+            """,
+            [latest_date, sector],
+        ).fetchone()
+        if row:
+            proxy = "双红代理" if (row[0] or 0) > 0 and (row[2] or 0) > 0 else "非双红代理"
+            out.append(f"{sector}{row[0]}%、成交{row[1]}亿、边际量{row[2]}%，{proxy}")
+    return out
+
+
+def _format_alternative_queue_lines(con: Any, latest_date: Any, stock_code: str, sector_names: list[str]) -> list[str]:
+    if not sector_names:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for sector in sector_names:
+        rows = con.execute(
+            """
+            select sector_name, stock_name, pct_chg, amount, pct_chg_5d, pct_chg_10d, high_status_label, limit_times
+            from fact_sector_stock_daily
+            where trade_date=? and stock_ts_code<>? and sector_name=?
+            order by pct_chg desc nulls last, amount desc nulls last
+            limit 5
+            """,
+            [latest_date, stock_code, sector],
+        ).fetchall()
+        added_for_sector = 0
+        for sector_name, name, pct, amount, pct5, pct10, high, limits in rows:
+            if name in seen:
+                continue
+            seen.add(str(name))
+            added_for_sector += 1
+            tag = f"，{high}" if high else ""
+            limit_tag = f"，涨停次数{limits}" if limits else ""
+            out.append(f"{name}({sector_name}) {pct}%、成交{amount}亿、5日{pct5}%、10日{pct10}%{tag}{limit_tag}")
+            if len(out) >= 6 or added_for_sector >= 3:
+                break
+        if len(out) >= 6:
+            break
+    return out
+
+
+def _pct(value: float) -> float:
+    return round(value * 100, 2)
 
 
 SUBHEAD = "\x00SUB\x00"

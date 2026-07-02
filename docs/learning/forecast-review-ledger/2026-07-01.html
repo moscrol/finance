@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2026-07-01 复盘推演回检台账</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --text: #1f2933;
+      --muted: #64748b;
+      --line: #d9dee7;
+      --panel: #ffffff;
+      --good: #0f8b5f;
+      --bad: #c2410c;
+      --warn: #a16207;
+      --ink: #0f172a;
+      --blue: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    header {
+      background: #111827;
+      color: white;
+      padding: 28px 32px;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+    header p { margin: 0; color: #cbd5e1; max-width: 980px; }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px 18px 48px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    h2 { margin: 0 0 12px; font-size: 20px; color: var(--ink); }
+    h3 { margin: 18px 0 8px; font-size: 16px; color: var(--ink); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfe;
+      min-height: 96px;
+    }
+    .metric .label { color: var(--muted); font-size: 13px; }
+    .metric .value { font-size: 24px; font-weight: 700; color: var(--ink); margin-top: 6px; }
+    .metric .note { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .good { color: var(--good); font-weight: 700; }
+    .bad { color: var(--bad); font-weight: 700; }
+    .warn { color: var(--warn); font-weight: 700; }
+    .tag {
+      display: inline-block;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tag.good { background: #ecfdf5; }
+    .tag.bad { background: #fff7ed; }
+    .tag.warn { background: #fffbeb; }
+    .tag.neutral { color: var(--blue); background: #eff6ff; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 2px;
+      font-size: 14px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 9px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: none;
+      background: #f8fafc;
+    }
+    .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .callout {
+      border-left: 4px solid var(--blue);
+      background: #eff6ff;
+      padding: 12px 14px;
+      margin: 12px 0;
+      border-radius: 6px;
+    }
+    .source-frame {
+      width: 100%;
+      height: min(70vh, 760px);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+    .source-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 8px 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .source-actions a {
+      color: var(--blue);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .source-actions a:hover { text-decoration: underline; }
+    .review-box {
+      min-height: 110px;
+      border: 1px dashed #94a3b8;
+      border-radius: 8px;
+      padding: 12px;
+      background: #fcfcfd;
+      color: var(--muted);
+    }
+    ul { margin: 8px 0 0 20px; padding: 0; }
+    @media (max-width: 880px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      table { font-size: 13px; }
+      header { padding: 22px 18px; }
+    }
+    @media (max-width: 560px) {
+      .grid { grid-template-columns: 1fr; }
+      section { padding: 14px; }
+      th, td { padding: 7px 6px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>2026-07-01 复盘推演回检台账</h1>
+    <p>站在 2026-06-30 盘后前瞻 2026-07-01；本页把当时推演、T+1 结果、五标的表现和可批注区放在一起，方便人工纠偏。</p>
+  </header>
+  <main>
+    <section>
+      <h2>一眼结论</h2>
+      <div class="grid">
+        <div class="metric">
+          <div class="label">市场承接</div>
+          <div class="value good">命中</div>
+          <div class="note">成交 +11.19%，涨家数 4240</div>
+        </div>
+        <div class="metric">
+          <div class="label">五标的等权 T+1</div>
+          <div class="value bad">-3.11%</div>
+          <div class="note">1 红 4 绿</div>
+        </div>
+        <div class="metric">
+          <div class="label">最强验证</div>
+          <div class="value good">机器人</div>
+          <div class="note">涨停 44 -> 38，排名第 1</div>
+        </div>
+        <div class="metric">
+          <div class="label">最大偏差</div>
+          <div class="value bad">高位核心</div>
+          <div class="note">CPO/半导体/先进封装兑现</div>
+        </div>
+      </div>
+      <div class="callout">
+        路径层面，“强修复后能否承接”判断对了；标的层面，把市场承接误传导到高位容量核心，导致五标的池失败。
+      </div>
+    </section>
+
+    <section>
+      <h2>当时推演快照</h2>
+      <table>
+        <thead>
+          <tr><th>模块</th><th>当时判断</th><th>关键问题</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>v2 结论排序</td>
+            <td>半导体/AI 硬件容量核心排第一，低覆盖硬增量第二，机器人第三。</td>
+            <td>仍有泛半导体惯性。</td>
+          </tr>
+          <tr>
+            <td>v3 硬字段修正</td>
+            <td>6/30 真双红只有计算机设备；半导体/CPO/先进封装是缩量强修复。</td>
+            <td>这个修正没有充分传导到 v4 选股。</td>
+          </tr>
+          <tr>
+            <td>v4 五标的池</td>
+            <td>中科曙光、新易盛、澜起科技、中科飞测、华工科技。</td>
+            <td>过多选择前一日高位新高/强趋势核心。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>昨晚复盘原文</h2>
+      <div class="source-actions">
+        <span>下面窗口直接读取原始 Markdown 台账文件，方便你边看边批注。</span>
+        <a href="../daily-market-forecast-ledger.md" target="_blank">打开原文</a>
+      </div>
+      <iframe
+        class="source-frame"
+        src="../daily-market-forecast-ledger.md"
+        title="昨晚复盘推演原文"></iframe>
+    </section>
+
+    <section>
+      <h2>T+1 市场结果</h2>
+      <table>
+        <thead>
+          <tr><th>字段</th><th class="num">2026-06-30</th><th class="num">2026-07-01</th><th>判读</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>成交额</td><td class="num">32734.59</td><td class="num good">36397.84</td><td>放量承接。</td></tr>
+          <tr><td>涨家数</td><td class="num">3054</td><td class="num good">4240</td><td>广度明显扩散。</td></tr>
+          <tr><td>涨停</td><td class="num">140</td><td class="num good">148</td><td>热度维持。</td></tr>
+          <tr><td>跌停</td><td class="num">7</td><td class="num">7</td><td>风险未扩张。</td></tr>
+          <tr><td>电子成交占比</td><td class="num">36.0%</td><td class="num good">34.7%</td><td>拥挤略缓。</td></tr>
+          <tr><td>前三行业占比</td><td class="num">约 51.6%</td><td class="num good">50.8%</td><td>集中度略降。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>重点题材回检</h2>
+      <table>
+        <thead>
+          <tr><th>题材</th><th>6/30 涨幅 / diff / 成交</th><th>7/1 涨幅 / diff / 成交</th><th>结论</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>计算机设备</td><td>3.06 / 19.98 / 601.07</td><td>1.55 / -0.69 / 596.90</td><td><span class="tag warn">双红未延续</span></td></tr>
+          <tr><td>算力租赁</td><td>2.45 / 4.20 / 1482.47</td><td>1.89 / 16.33 / 1724.59</td><td><span class="tag good">转双红</span></td></tr>
+          <tr><td>AI 应用</td><td>1.49 / -0.63 / 2360.94</td><td>2.70 / 25.36 / 2959.57</td><td><span class="tag good">转强</span></td></tr>
+          <tr><td>机器人</td><td>2.90 / -4.90 / 9091.41</td><td>1.47 / 9.01 / 9910.77</td><td><span class="tag good">二日确认</span></td></tr>
+          <tr><td>CPO</td><td>5.18 / -5.68 / 7005.51</td><td>-1.22 / 3.58 / 7256.16</td><td><span class="tag bad">兑现</span></td></tr>
+          <tr><td>半导体</td><td>6.32 / -5.69 / 6224.73</td><td>-0.50 / 8.65 / 6762.90</td><td><span class="tag bad">分歧</span></td></tr>
+          <tr><td>先进封装</td><td>5.11 / -5.35 / 6062.05</td><td>-1.02 / 3.24 / 6258.60</td><td><span class="tag bad">兑现</span></td></tr>
+          <tr><td>商业航天</td><td>3.56 / -6.96 / 5497.30</td><td>0.85 / 7.22 / 5894.02</td><td><span class="tag warn">降温延续</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>五标的 T+1 表现</h2>
+      <table>
+        <thead>
+          <tr><th>标的</th><th>代码</th><th class="num">7/1 涨跌幅</th><th class="num">成交</th><th class="num">成交排名</th><th>新高标签</th><th>回检结论</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>中科曙光</td><td>603019.SH</td><td class="num bad">-4.46%</td><td class="num">149.85</td><td class="num">24</td><td>120 日新高</td><td>计算机设备涨但个股掉队。</td></tr>
+          <tr><td>新易盛</td><td>300502.SZ</td><td class="num bad">-5.18%</td><td class="num">282.57</td><td class="num">4</td><td>历史新高</td><td>CPO 高位核心兑现。</td></tr>
+          <tr><td>澜起科技</td><td>688008.SH</td><td class="num good">+1.93%</td><td class="num">279.81</td><td class="num">5</td><td>历史新高</td><td>唯一收红，存储核心仍有承接。</td></tr>
+          <tr><td>中科飞测</td><td>688361.SH</td><td class="num bad">-1.86%</td><td class="num">59.40</td><td class="num">97</td><td>历史新高</td><td>低覆盖设备未明显逆势。</td></tr>
+          <tr><td>华工科技</td><td>000988.SZ</td><td class="num bad">-5.99%</td><td class="num">161.91</td><td class="num">20</td><td>历史新高</td><td>跨题材容量核心未延续。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>H1-H6 回检</h2>
+      <table>
+        <thead>
+          <tr><th>假设</th><th>判定</th><th>证据</th><th>修正点</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>H1 强修复后承接</td><td><span class="tag good">命中</span></td><td>成交、涨家数、涨停均强。</td><td>市场承接不等于高位核心承接。</td></tr>
+          <tr><td>H2 MA5 低基数 + 扩散质量</td><td><span class="tag good">命中</span></td><td>广度扩散，拥挤略缓。</td><td>扩散方向发生切换。</td></tr>
+          <tr><td>H3 科技主线仍在</td><td><span class="tag warn">部分命中</span></td><td>电子仍最大成交，但半导体核心分歧。</td><td>要更重视高位兑现。</td></tr>
+          <tr><td>H4 低覆盖硬增量切换</td><td><span class="tag warn">部分命中</span></td><td>AI 应用、算力租赁、光刻胶转强。</td><td>代理标的选得太窄。</td></tr>
+          <tr><td>H5 商业航天扩散</td><td><span class="tag bad">偏未命中</span></td><td>涨停 22 -> 10。</td><td>事件窗口更像降温。</td></tr>
+          <tr><td>H6 机器人二日确认</td><td><span class="tag good">基本命中</span></td><td>涨停 44 -> 38，排名第 1。</td><td>标的池没选最直接机器人弹性。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>用户批注区</h2>
+      <div class="review-box">
+        批注 1：<br>
+        问题：<br>
+        应该改成：<br>
+        下次硬规则：
+      </div>
+      <br>
+      <div class="review-box">
+        批注 2：<br>
+        问题：<br>
+        应该改成：<br>
+        下次硬规则：
+      </div>
+    </section>
+
+    <section>
+      <h2>经验沉淀候选</h2>
+      <ul>
+        <li>先分开验证“市场路径”和“标的路径”。</li>
+        <li>前一日涨停、历史新高、10 日大涨标的必须扣次日兑现风险。</li>
+        <li>硬字段修正必须传导到选股池，不能继续沿用旧结论惯性。</li>
+        <li>低覆盖硬增量要区分“还没涨”和“已高位加速”。</li>
+        <li>事件窗口方向要看次日涨停延续和后排扩散。</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

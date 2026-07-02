@@ -27,6 +27,11 @@ class AskWorkflowOptions:
     llm_model: str | None = None
     llm_timeout: int = 60
     detail: bool = False
+    user: str | None = None
+    experience_cards_window: int = 12
+    use_l3_lookup: bool = False
+    l3_lookup_timeout: int = 480
+    l3_lookup_limit: int = 5
 
 
 def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, str]:
@@ -56,10 +61,30 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             llm_model=options.llm_model,
             llm_timeout=options.llm_timeout,
             detail=options.detail,
+            user=options.user,
+            experience_cards_window=options.experience_cards_window,
+            use_l3_lookup=options.use_l3_lookup,
+            l3_lookup_timeout=options.l3_lookup_timeout,
+            l3_lookup_limit=options.l3_lookup_limit,
         )
     )
     answer = render_answer(result)
+    plan = result.question_plan
 
+    summary.steps.append(
+        WorkflowStep(
+            name="answer-orchestrator",
+            status="PASS" if plan and plan.confidence >= 0.5 else "WARN",
+            outputs=[
+                f"type={(plan.question_type if plan else '-')}",
+                f"depth={(plan.depth if plan else '-')}",
+                f"confidence={(f'{plan.confidence:.2f}' if plan else '-')}",
+                f"lenses={len(plan.required_lenses) if plan else 0}",
+                f"sources={len(plan.retrieval_plan) if plan else 0}",
+            ],
+            warnings=list(plan.warnings) if plan else ["question plan missing"],
+        )
+    )
     summary.steps.append(
         WorkflowStep(
             name="market-source",
@@ -79,6 +104,23 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             name="wiki-rag-source",
             status="PASS" if result.found_wiki else ("SKIP" if not options.use_wiki_rag else "WARN"),
             outputs=[f"found_wiki={result.found_wiki}"],
+        )
+    )
+    summary.steps.append(
+        WorkflowStep(
+            name="l3-evidence-tools",
+            status=(
+                "PASS"
+                if result.l3_evidence.items
+                else ("WARN" if options.use_l3_lookup and result.l3_evidence.gaps else "SKIP")
+            ),
+            outputs=[
+                f"enabled={options.use_l3_lookup}",
+                f"gaps={len(result.l3_evidence.gaps)}",
+                f"items={len(result.l3_evidence.items)}",
+                f"commands={len(result.l3_evidence.commands)}",
+            ],
+            warnings=list(result.l3_evidence.warnings),
         )
     )
     summary.steps.append(

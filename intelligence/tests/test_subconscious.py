@@ -206,12 +206,29 @@ class ResolveVaultTests(unittest.TestCase):
                     path, fb = subconscious.resolve_vault(us)
                 self.assertEqual(path, Path("/from-env"))
                 self.assertFalse(fb)
-                # 4) 回退
-                with mock.patch.dict(os.environ, {}, clear=False):
+                # 4) 回退：HOME 下没有 agent-memory 时才落 users/<id>/_vault。
+                with mock.patch.dict(os.environ, {"HOME": tmp}, clear=False):
                     os.environ.pop(subconscious.ENV_VAULT, None)
+                    os.environ.pop(subconscious.ENV_AGENT_MEMORY_VAULT, None)
                     path, fb = subconscious.resolve_vault(us)
                 self.assertTrue(fb)
                 self.assertEqual(path, us.root / "_vault")
+
+    def test_default_uses_agent_memory_when_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            vault = home / "agent-memory"
+            vault.mkdir(parents=True)
+            with mock.patch.object(userspace, "USERS_DIR", Path(tmp) / "users"):
+                us = userspace.user_space("tester")
+                us.ensure_dir()
+                with mock.patch.dict(os.environ, {"HOME": str(home)}, clear=False):
+                    os.environ.pop(subconscious.ENV_VAULT, None)
+                    os.environ.pop(subconscious.ENV_AGENT_MEMORY_VAULT, None)
+                    path, fb = subconscious.resolve_vault(us)
+
+        self.assertEqual(path, vault)
+        self.assertFalse(fb)
 
 
 class CommitAndArchiveTests(unittest.TestCase):

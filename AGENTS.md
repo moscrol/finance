@@ -15,7 +15,7 @@
 - `.agent-memory/30_conventions/preferences.md` — 用户偏好与人设（教学模式：讲原理 + 讲技术选型/替代方案对比 + 标注可复用知识点；Git 约定；红线）
 - 本项目对应笔记 `.agent-memory/20_projects/finance-workspace-private.md` — 项目背景、关键决策、任务看板
 
-**完成后回写：** 把关键结论/决策追加到 `.agent-memory/20_projects/finance-workspace-private.md` 的「交接记录」，可复用知识提炼进 `.agent-memory/10_knowledge/`。
+**完成后沉淀：** 先判断层级：项目级代码/配置/流程/架构/数据管线决策才追加到 `.agent-memory/20_projects/finance-workspace-private.md` 的「交接记录」；稳定且可跨任务复用的方法论提炼进 `.agent-memory/10_knowledge/`；单次问答评分、用户纠偏、经验样本优先写项目内学习层（如 `experience_cards.jsonl` / `corrections.jsonl`），不要把聊天流水塞进项目交接。
 详细回写步骤见 vault `.agent-memory/40_playbooks/devin-writeback.md`。
 
 ## Git Branch Safety Rules（强制）
