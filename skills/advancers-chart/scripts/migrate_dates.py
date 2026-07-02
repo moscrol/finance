@@ -1,12 +1,16 @@
 """批量更新三个飞书表格的日期字段：MM-DD → YY-MM-DD（使用批量API）"""
 import json
+import sys
 import urllib.request
 import urllib.parse
 from datetime import date as date_cls
+from pathlib import Path
 
-APP_ID = "cli_a97c81284078dcc5"
-APP_SECRET = "q8Su2kEkU5C046Z9QFE2acZGA6upv8z1"
-APP_TOKEN = "RnRfbT9F1asuFFsQpAyccMmHn2b"
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared"))
+from feishu_utils import load_config, get_token as _get_token
+
+cfg = load_config()
+APP_TOKEN = cfg["app_token"]
 
 TABLES = {
     "每日指标": "tbljGvjtl1IC44hb",
@@ -15,11 +19,7 @@ TABLES = {
 }
 
 def get_token():
-    url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
-    data = json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode()
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read())["tenant_access_token"]
+    return _get_token(cfg)
 
 
 def fetch_all_records(token, table_id):
