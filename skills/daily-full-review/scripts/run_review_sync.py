@@ -79,6 +79,18 @@ def _empty_detail_themes(trade_date: str) -> list[str]:
         con.close()
 
 
+def narrative_freshness_warnings(trade_date: str) -> list[str]:
+    """叙事源（晨汇/卖方观点）时效自检：断更只告警不阻断，同步段不依赖叙事源，
+    但生成段的催化归因会因此缺档，提前报出来给用户补料的机会。"""
+    try:
+        from intelligence.paths import default_paths
+        from intelligence.services import catalyst_attribution
+
+        return catalyst_attribution.freshness_problems(default_paths().knowledge_wiki, trade_date)
+    except Exception as e:  # noqa: BLE001
+        return [f"叙事源时效检查失败: {e}"]
+
+
 def preflight() -> list[str]:
     """开跑前环境自检：把环境问题在第一时间报清楚，不等跑到一半才发现。
 
@@ -268,6 +280,13 @@ def main() -> int:
             print("(修复后重跑, 或加 --skip-preflight 强制继续)", flush=True)
             return 3
         print("== preflight 通过: CDP proxy / 登录态 / shared 软链 ==", flush=True)
+        warnings = narrative_freshness_warnings(args.date)
+        if warnings:
+            print("== preflight 告警: 叙事源时效（不阻断，但催化归因会缺档） ==", flush=True)
+            for w in warnings:
+                print(f"  - {w}", flush=True)
+        else:
+            print("== preflight 通过: 叙事源（晨汇/卖方观点）时效正常 ==", flush=True)
 
     plan = build_plan(args.date, args.timeout, args.heavy_timeout)
     names = [n for n, _ in plan]

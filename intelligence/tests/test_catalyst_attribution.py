@@ -121,6 +121,35 @@ class CatalystAttributionTests(unittest.TestCase):
             result = catalyst_attribution.attribute_theme(index, "人形机器人", [])
             self.assertEqual(result["status"], catalyst_attribution.STATUS_MARKET_ONLY)
 
+    def test_freshness_problems_fresh_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_wiki = _write_kb(
+                tmp,
+                events=[{"report_date": "2026-07-02", "term": "CPO", "concept": "CPO", "target": "天孚通信"}],
+                briefings={"2026-07-03": "# 晨汇\n\n- 今日要点。\n"},
+            )
+            self.assertEqual(catalyst_attribution.freshness_problems(kb_wiki, "2026-07-03"), [])
+
+    def test_freshness_problems_stale_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_wiki = _write_kb(
+                tmp,
+                events=[{"report_date": "2026-06-20", "term": "CPO", "concept": "CPO", "target": "天孚通信"}],
+                briefings={"2026-06-30": "# 晨汇\n\n- 旧要点。\n"},
+            )
+            problems = catalyst_attribution.freshness_problems(kb_wiki, "2026-07-03")
+            self.assertEqual(len(problems), 2)
+            self.assertTrue(any("晨汇断更" in p for p in problems))
+            self.assertTrue(any("卖方观点事件断更" in p for p in problems))
+
+    def test_freshness_problems_missing_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            kb_wiki = _write_kb(tmp)
+            problems = catalyst_attribution.freshness_problems(kb_wiki, "2026-07-03")
+            self.assertEqual(len(problems), 2)
+            self.assertTrue(any("晨汇目录缺失" in p for p in problems))
+            self.assertTrue(any("卖方观点事件缺失" in p for p in problems))
+
     def test_enrich_queues_and_brief(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             kb_wiki = _write_kb(

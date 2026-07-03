@@ -85,6 +85,63 @@ def build_catalyst_index(
     return index
 
 
+def freshness_problems(
+    kb_wiki: str | Path,
+    market_date: str,
+    *,
+    briefing_max_age_days: int = 1,
+    opinion_max_age_days: int = 3,
+) -> list[str]:
+    """叙事源时效自检：晨汇/卖方观点断更时第一时间报出来，不等归因变盲区才发现。"""
+    wiki = Path(kb_wiki).expanduser()
+    problems: list[str] = []
+    try:
+        anchor = date_cls.fromisoformat(str(market_date))
+    except ValueError:
+        return [f"无法解析日期 {market_date}，叙事源时效检查跳过"]
+
+    briefings_dir = wiki / BRIEFINGS_RELPATH
+    latest_briefing = max(
+        (p.stem for p in briefings_dir.glob("????-??-??.md")),
+        default="",
+    ) if briefings_dir.is_dir() else ""
+    if not latest_briefing:
+        problems.append(f"晨汇目录缺失或为空：{briefings_dir}")
+    else:
+        try:
+            age = (anchor - date_cls.fromisoformat(latest_briefing)).days
+        except ValueError:
+            age = None
+        if age is not None and age > briefing_max_age_days:
+            problems.append(
+                f"晨汇断更：最新 {latest_briefing}，距 {market_date} 已 {age} 天（阈值 {briefing_max_age_days} 天）；"
+                "催化归因会缺档，建议先补当日晨汇"
+            )
+
+    events_path = wiki / OPINION_EVENTS_RELPATH
+    if not events_path.is_file():
+        problems.append(f"卖方观点事件缺失：{events_path}")
+    else:
+        latest_event = ""
+        scratch: list[str] = []
+        for event in _load_opinion_events(events_path, window_dates=None, warnings=scratch):
+            event_date = str(event.get("report_date") or event.get("ingested_at") or "")
+            if event_date > latest_event:
+                latest_event = event_date
+        try:
+            age = (anchor - date_cls.fromisoformat(latest_event)).days if latest_event else None
+        except ValueError:
+            age = None
+        if age is None:
+            problems.append(f"卖方观点事件无法解析最新日期：{events_path}")
+        elif age > opinion_max_age_days:
+            problems.append(
+                f"卖方观点事件断更：最新 {latest_event}，距 {market_date} 已 {age} 天（阈值 {opinion_max_age_days} 天）；"
+                "建议先跑晚间研报 ingest 再复盘"
+            )
+    return problems
+
+
 def attribute_theme(
     index: CatalystIndex,
     theme: str,
@@ -181,7 +238,7 @@ def _window_dates(market_date: str, window_days: int) -> list[str]:
     return [(anchor - timedelta(days=offset)).isoformat() for offset in range(max(1, window_days))]
 
 
-def _load_opinion_events(path: Path, window_dates: set[str], warnings: list[str]) -> list[dict[str, Any]]:
+def _load_opinion_events(path: Path, window_dates: set[str] | None, warnings: list[str]) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     try:
         with path.open("r", encoding="utf-8") as handle:
@@ -196,7 +253,7 @@ def _load_opinion_events(path: Path, window_dates: set[str], warnings: list[str]
                 if not isinstance(event, dict):
                     continue
                 event_date = str(event.get("report_date") or event.get("ingested_at") or "")
-                if event_date in window_dates:
+                if window_dates is None or event_date in window_dates:
                     events.append(event)
     except OSError as exc:
         warnings.append(f"读取卖方观点事件失败：{exc}")
