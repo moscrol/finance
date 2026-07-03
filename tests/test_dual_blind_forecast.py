@@ -75,3 +75,23 @@ def test_render_verdict_md_inserts_and_replaces(ledger: Path) -> None:
 
 def test_render_verdict_md_missing_md(ledger: Path) -> None:
     assert d.render_verdict_md({"date": "1999-01-01", "verdicts": []}, ledger_dir=ledger) is None
+
+
+def test_build_index_html(ledger: Path) -> None:
+    answer = json.loads((ledger / f"{DATE}.answer.codex.json").read_text(encoding="utf-8"))
+    answer.update({"main_judgment": "缩量分歧日", "thresholds": {"market": "涨家数>3500", "direction": "储能 diff>0", "targets": "t", "falsify": "大金融大跌"}})
+    (ledger / f"{DATE}.answer.codex.json").write_text(json.dumps(answer), encoding="utf-8")
+    (ledger / f"{DATE}.verdict.json").write_text(json.dumps({
+        "date": DATE,
+        "verdicts": [{"id": "market", "agent": "codex", "verdict": "hit", "actual": "3600"}],
+    }), encoding="utf-8")
+    html = d.build_index_html(ledger)
+    assert "缩量分歧日" in html
+    assert "涨家数&gt;3500" in html
+    assert "target:600000" in html
+    assert "✅ hit" in html and "3600" in html
+    assert "待验证" in html  # 未裁定的假设
+
+
+def test_build_index_html_empty(tmp_path: Path) -> None:
+    assert "暂无机器可读台账文件" in d.build_index_html(tmp_path)
