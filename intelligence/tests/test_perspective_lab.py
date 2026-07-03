@@ -213,6 +213,28 @@ class DebateTests(unittest.TestCase):
                     us, query="q", perspective_ids=["trend_trader", "value_investor"], facts="  ",
                 )
 
+    def test_debate_rejects_duplicate_perspectives(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            self._setup_roles(us)
+            with self.assertRaises(ValueError):
+                perspective_lab.run_debate(
+                    us, query="q", perspective_ids=["trend_trader", "trend_trader"], facts="x",
+                )
+
+    def test_debate_id_varies_with_facts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            self._setup_roles(us)
+            ids = []
+            for facts in ("高位核心放量滞涨。", "估值透支多年成长。"):
+                _, record = perspective_lab.run_debate(
+                    us, query="q", perspective_ids=["trend_trader", "value_investor"],
+                    facts=facts, date="2026-07-03", save=False,
+                )
+                ids.append(record["debate_id"])
+            self.assertNotEqual(ids[0], ids[1])
+
     def test_debate_missing_profile_clear_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             us = _us(tmp)

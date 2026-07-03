@@ -423,8 +423,11 @@ def run_debate(
     """
     if not str(query or "").strip():
         raise ValueError("必须提供 --query")
+    duplicates = sorted({pid for pid in perspective_ids if perspective_ids.count(pid) > 1})
+    if duplicates:
+        raise ValueError(f"重复的 --perspective：{'、'.join(duplicates)}（同一角色不能重复参与合议）")
     if len(perspective_ids) < 2:
-        raise ValueError("至少需要 2 个 --perspective 才能合议")
+        raise ValueError("至少需要 2 个不同的 --perspective 才能合议")
     facts = str(facts or "").strip()
     if not facts:
         raise ValueError("P0 需要用 --facts / --facts-file 提供硬事实摘要（P1 才自动接 ask）")
@@ -443,7 +446,10 @@ def run_debate(
     divergent = sorted((all_risk | all_opp) - (shared_risk | shared_opp))
     degenerate = not divergent  # 所有角色命中完全一致 → 本次辩论无增量
 
-    debate_id = "pd-" + hashlib.sha256(f"{day}|{query}|{','.join(perspective_ids)}".encode()).hexdigest()[:12]
+    facts_hash = hashlib.sha256(facts.encode("utf-8")).hexdigest()
+    debate_id = "pd-" + hashlib.sha256(
+        f"{day}|{query}|{','.join(perspective_ids)}|{facts_hash}".encode()
+    ).hexdigest()[:12]
 
     lines: list[str] = [f"# Perspective Debate：{query}", ""]
     lines += [
