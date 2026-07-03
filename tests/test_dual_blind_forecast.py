@@ -97,3 +97,53 @@ def test_build_index_html(ledger: Path) -> None:
 
 def test_build_index_html_empty(tmp_path: Path) -> None:
     assert "暂无机器可读台账文件" in d.build_index_html(tmp_path)
+
+
+def test_validate_verdict_stream_horizon(ledger: Path) -> None:
+    draft = _draft([
+        {"id": "market", "agent": "codex", "verdict": "hit", "actual": "x", "stream": "卖方", "horizon": "T+3"},
+        {"id": "market", "agent": "codex", "verdict": "miss", "actual": "x", "stream": "别的", "horizon": "T+9"},
+    ])
+    errors = d.validate_verdict(draft, ledger_dir=ledger)
+    assert any("stream 应为" in e for e in errors)
+    assert any("horizon 应为" in e for e in errors)
+    assert len(errors) == 2
+
+
+def test_verdict_table_shows_stream_horizon_failure_mode(ledger: Path) -> None:
+    table = d.build_verdict_table({
+        "date": DATE,
+        "verdicts": [
+            {"id": "market", "agent": "codex", "verdict": "miss", "actual": "x",
+             "stream": "卖方", "horizon": "T+3", "failure_mode": "阈值定早"},
+            {"id": "target:600000", "agent": "codex", "verdict": "hit", "actual": "+5%"},
+        ],
+    })
+    assert "| 卖方 | T+3 |" in table and "阈值定早" in table
+    assert "| 盘面 | T+1 |" in table  # 缺省值
+
+
+def test_aggregate_verdicts_by_stream_horizon(ledger: Path) -> None:
+    answer = {
+        "schema_version": "1.0", "date": DATE, "agent": "codex", "manifest_sha": "x",
+        "stage": "s", "main_judgment": "m", "direction_ranking": ["d"],
+        "picks": [{"code": "600000", "name": "x", "strategy": "s", "reason": "r"}],
+        "thresholds": {"market": "m", "direction": "d", "targets": "t", "falsify": "f"},
+        "recheck": {},
+    }
+    (ledger / f"{DATE}.answer.codex.json").write_text(json.dumps(answer), encoding="utf-8")
+    (ledger / f"{DATE}.verdict.json").write_text(json.dumps({
+        "date": DATE,
+        "verdicts": [
+            {"id": "market", "agent": "codex", "verdict": "hit", "actual": "x"},
+            {"id": "market", "agent": "codex", "verdict": "miss", "actual": "x",
+             "stream": "卖方", "horizon": "T+3", "failure_mode": "阈值定早"},
+        ],
+    }), encoding="utf-8")
+    report = d.aggregate(ledger)
+    stats = report["agents"]["codex"]["verdicts_by_stream_horizon"]
+    assert stats["盘面/T+1"]["hit"] == 1
+    assert stats["卖方/T+3"]["miss"] == 1
+    assert report["agents"]["codex"]["failure_modes"] == {"阈值定早": 1}
+    md = d._render_aggregate_md(report)
+    assert "盘后验证按流×时点" in md and "阈值定早×1" in md

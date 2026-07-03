@@ -65,6 +65,8 @@ REQUIRED_THRESHOLD_FIELDS = ("market", "direction", "targets", "falsify")
 VERDICT_VALUES = {"hit", "miss", "partial", "unverifiable"}
 VERDICT_LABELS = {"hit": "✅ hit", "miss": "❌ miss", "partial": "⚠️ partial", "unverifiable": "❓ unverifiable"}
 REQUIRED_VERDICT_FIELDS = ("id", "agent", "verdict")
+VERDICT_STREAMS = {"盘面", "晨汇", "卖方"}
+VERDICT_HORIZONS = {"T+1", "T+3", "T+5"}
 INDEX_BEGIN = "<!-- BEGIN AUTO dual-blind-status 本表由 dual_blind_forecast.py index 生成，勿手改 -->"
 INDEX_END = "<!-- END AUTO dual-blind-status -->"
 VERDICT_BEGIN = "<!-- BEGIN AUTO dual-blind-verdict 本表由 dual_blind_forecast.py verdict 渲染，勿手改 -->"
@@ -265,6 +267,10 @@ def validate_verdict(draft: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) ->
             errors.append(f"verdicts[{i}] verdict 应为 {sorted(VERDICT_VALUES)} 之一，实际 {entry['verdict']}")
         if str(entry.get("verdict")) in {"hit", "miss", "partial"} and not entry.get("actual"):
             errors.append(f"verdicts[{i}] 已裁定 {entry.get('verdict')} 必须填 actual（实际值/实际情况）")
+        if entry.get("stream") and str(entry["stream"]) not in VERDICT_STREAMS:
+            errors.append(f"verdicts[{i}] stream 应为 {sorted(VERDICT_STREAMS)} 之一，实际 {entry['stream']}")
+        if entry.get("horizon") and str(entry["horizon"]) not in VERDICT_HORIZONS:
+            errors.append(f"verdicts[{i}] horizon 应为 {sorted(VERDICT_HORIZONS)} 之一，实际 {entry['horizon']}")
     return errors
 
 
@@ -300,14 +306,15 @@ def cmd_verdict(args: argparse.Namespace) -> int:
 
 def build_verdict_table(verdict: dict[str, Any]) -> str:
     lines = [
-        "| 假设 id | agent | 判定 | 实际 | 证据 |",
-        "|---|---|---|---|---|",
+        "| 假设 id | agent | 流 | 时点 | 判定 | 实际 | 归因 | 证据 |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for entry in verdict.get("verdicts") or []:
         label = VERDICT_LABELS.get(str(entry.get("verdict") or ""), str(entry.get("verdict") or "—"))
         lines.append(
-            f"| {entry.get('id') or '—'} | {entry.get('agent') or '—'} | {label} "
-            f"| {entry.get('actual') or '—'} | {entry.get('evidence_ref') or '—'} |"
+            f"| {entry.get('id') or '—'} | {entry.get('agent') or '—'} | {entry.get('stream') or '盘面'} "
+            f"| {entry.get('horizon') or 'T+1'} | {label} | {entry.get('actual') or '—'} "
+            f"| {entry.get('failure_mode') or '—'} | {entry.get('evidence_ref') or '—'} |"
         )
     stats = _verdict_stats(verdict)
     summary = []
@@ -597,6 +604,24 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
             if recheck["market_threshold_hit"]:
                 stat["market_threshold_hits"] += 1
 
+    verdict_stats: dict[str, dict[str, dict[str, int]]] = {}
+    failure_modes: dict[str, dict[str, int]] = {}
+    for vpath in sorted(ledger_dir.glob("*.verdict.json")):
+        try:
+            verdict = json.loads(vpath.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for entry in verdict.get("verdicts") or []:
+            agent = str(entry.get("agent") or "unknown").lower()
+            key = f"{entry.get('stream') or '盘面'}/{entry.get('horizon') or 'T+1'}"
+            bucket = verdict_stats.setdefault(agent, {}).setdefault(key, {v: 0 for v in sorted(VERDICT_VALUES)})
+            value = str(entry.get("verdict") or "")
+            if value in bucket:
+                bucket[value] += 1
+            if entry.get("failure_mode"):
+                fm = failure_modes.setdefault(agent, {})
+                fm[str(entry["failure_mode"])] = fm.get(str(entry["failure_mode"]), 0) + 1
+
     agents: dict[str, Any] = {}
     for agent, stat in sorted(per_agent.items()):
         checked = stat["market_threshold_checked"]
@@ -610,6 +635,20 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
             "market_threshold_hit_rate": (
                 round(stat["market_threshold_hits"] / checked, 4) if checked else None
             ),
+            "verdicts_by_stream_horizon": verdict_stats.get(agent, {}),
+            "failure_modes": failure_modes.get(agent, {}),
+        }
+    for agent in sorted(set(verdict_stats) - set(agents)):
+        agents[agent] = {
+            "answers": 0,
+            "rechecked": 0,
+            "dates": [],
+            "avg_pick_return_t1": None,
+            "avg_pick_return_t3": None,
+            "beat_benchmark_t3": 0,
+            "market_threshold_hit_rate": None,
+            "verdicts_by_stream_horizon": verdict_stats[agent],
+            "failure_modes": failure_modes.get(agent, {}),
         }
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -640,6 +679,32 @@ def _render_aggregate_md(report: dict[str, Any]) -> str:
             f"{stat['beat_benchmark_t3']} | "
             f"{stat['market_threshold_hit_rate'] if stat['market_threshold_hit_rate'] is not None else '-'} |"
         )
+    verdict_rows = []
+    for agent, stat in report["agents"].items():
+        for key, bucket in sorted((stat.get("verdicts_by_stream_horizon") or {}).items()):
+            judged = bucket["hit"] + bucket["miss"] + bucket["partial"]
+            stream, horizon = key.split("/", 1)
+            verdict_rows.append(
+                f"| {agent} | {stream} | {horizon} | {bucket['hit']} | {bucket['miss']} "
+                f"| {bucket['partial']} | {bucket['unverifiable']} | "
+                f"{round(bucket['hit'] / judged, 4) if judged else '-'} |"
+            )
+    if verdict_rows:
+        lines += [
+            "",
+            "## 盘后验证按流×时点",
+            "",
+            "| agent | 流 | 时点 | hit | miss | partial | unverifiable | 命中率 |",
+            "|---|---|---|---:|---:|---:|---:|---:|",
+            *verdict_rows,
+        ]
+        fm_lines = []
+        for agent, stat in report["agents"].items():
+            fms = stat.get("failure_modes") or {}
+            if fms:
+                fm_lines.append(f"- {agent}：" + "，".join(f"{k}×{v}" for k, v in sorted(fms.items(), key=lambda kv: -kv[1])))
+        if fm_lines:
+            lines += ["", "### miss/partial 归因分布", "", *fm_lines]
     lines += ["", "> " + " ".join(report["notes"])]
     return "\n".join(lines) + "\n"
 
