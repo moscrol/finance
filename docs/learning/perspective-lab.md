@@ -84,9 +84,12 @@ python3 -m intelligence.cli perspective debate \
 
 ## 后续分期（2026-07-03 修订：学习闭环先于检索增强）
 
-- P0 角色容器（本期）→ P1 LLM 抽取候选认知框架（单篇结构化卡片 + candidate
-  人工确认后才写 profile）→ P2 BM25 召回原文例证 → P3 盘后结果评价角色有效性
-  （接 checkpoint，按市场阶段分桶）→ P4 自动生成 profile 修正建议。
+- **user_framework 是主坐标系**（spec 2.5）：外部角色只能 challenge/supplement，
+  裁判最终按用户主框架的结论格式落结论与证伪——多视角不是多声音。
+- P0 角色容器（本期）→ P1 先固化 user_framework 六层认知框架（市场阶段/题材生命
+  周期/盘面确认/证据硬度/反证降级/二阶导发散），再做博主文章 LLM 抽取（单篇结构化
+  卡片 + candidate 人工确认后才写 profile）→ P2 BM25 召回原文例证 → P3 盘后结果
+  评价角色有效性（接 checkpoint，按市场阶段分桶）→ P4 自动生成 profile 修正建议。
   详见 spec 第 16 节。
 
 ## 角色胜率怎么看
