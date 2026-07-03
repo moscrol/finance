@@ -92,6 +92,7 @@ intelligence/users/*/judgments.jsonl
 intelligence/users/*/checkpoints.jsonl
 intelligence/users/*/verdicts.jsonl
 intelligence/users/*/strategy_params.json
+intelligence/users/*/perspectives/
 # 潜意识模式运行时态：会话 buffer / active 标记，以及未设 SUBCONSCIOUS_VAULT 时的回退沉淀 vault
 intelligence/users/*/.subconscious/
 intelligence/users/*/_vault/

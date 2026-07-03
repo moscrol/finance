@@ -15,6 +15,17 @@
 
 - 每天一个 `YYYY-MM-DD.md`，含 **Codex 答卷（§1-6）+ Claude 答卷（§6.5，双盲）+ T+1 回填（§7）+ 用户批注（§8）**。
 - 每天一份输入冻结清单 `YYYY-MM-DD.manifest.json`（答卷前由 `scripts/dual_blind_forecast.py manifest` 生成），每个考生一份机器可读答卷 `YYYY-MM-DD.answer.<agent>.json`（`validate` 校验、`aggregate` 跨期聚合）；流程见 [双盲模板](../dual-blind-forecast-template.md)。
+- 盘后验证结果唯一机器可读落点 `YYYY-MM-DD.verdict.json`（`verdict` 子命令校验后写入，逐假设 hit/miss/partial/unverifiable）；`index` 子命令重建下方机检状态总表。`YYYY-MM-DD.md` 的回检表由 verdict 渲染，不再手填。全部台账的位置见 [台账地图](../ledger-map.md)。
 - 双盲纪律：两 Agent 同源数据、独立答卷、互不可见；考生不做对比/批注/裁决（归用户 + 统一指标）。
 - 单次样本留此；反复有效的方法论再升级到经验卡或 Agent Memory。
 - 历史单文件台账（迁移前）见 `archive/daily-market-forecast-ledger.legacy.md`。
+
+<!-- BEGIN AUTO dual-blind-status 本表由 dual_blind_forecast.py index 生成，勿手改 -->
+
+## 机检状态总表（脚本生成）
+
+| 研判日 | manifest | 答卷 | 答卷校验 | 验证 | 命中率（hit/已裁定） |
+|---|---|---|---|---|---|
+| （暂无机器可读台账文件） | — | — | — | — | — |
+
+<!-- END AUTO dual-blind-status -->

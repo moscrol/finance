@@ -7,6 +7,21 @@
 - 🚫 **红线**：禁提交 `.env*` / 密钥 / `*.pdf|zip|duckdb|db` / `.DS_Store` / 缓存或虚拟环境；不写明文密钥；知识库大 JSON（relations/）走 `query_relations.py`，别直接 `cat`；不擅自合并 `main`、不强推。
 - 完整偏好见 `.agent-memory/30_conventions/preferences.md`（repo 内软链 → `/Users/a77/agent-memory`，已 gitignore）。
 
+> 📒 **台账地图**：所有台账（复盘验证/晨汇/卖方研报等）的 canonical 路径、格式与唯一写入者，见 `docs/learning/ledger-map.md`；新增台账先在那登记。
+
+## 🔁 用户纠偏必落 correction（强制，任何 agent 会话）
+
+用户在对话里对系统的判断/解读表达纠正时（信号词如「不对」「应该是」「不是这样」「你理解错了」等否定/修正表述，**不需要用户使用任何固定格式**），agent 必须当场把纠偏落进台账：
+
+```bash
+python3 -m intelligence.cli record-correction --correction "<纠正后的说法>" --original "<系统原来的错误说法>" [--principle "<可复用原则>"] [--theme <相关题材>]
+```
+
+- 落点：`intelligence/users/<user>/corrections.jsonl`（gitignored 用户私有层）。
+- 回灌：无需用户触发——每日复盘的「框架解读」步（`perspective framework-daily`）与 foresight 发问会自动加载最近 corrections 作为上下文。
+- 用户沉默 = 默认认可，不落任何记录；只有明确纠正才落。
+- 这是 perspective-lab 循环 A（学用户视角）的唯一入口，漏落 = 框架无法迭代。落完在回复里用一句话确认即可（如「已落 correction」），不要打断对话流。
+
 ## 🧠 共享记忆底座（开工前先读）
 
 本机有一个跨 Agent 共享的记忆底座（Obsidian vault）：`/Users/a77/agent-memory`（仓库 `linxiaoqi5111-del/agent-memory`）。

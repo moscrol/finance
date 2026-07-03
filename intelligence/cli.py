@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -415,6 +416,12 @@ def add_answer_score_parser(subparsers: argparse._SubParsersAction) -> None:
         default=[],
         help="本轮应优先使用的本地来源标识，可重复，例如 knowledge-base-private / market_feature_store",
     )
+    parser.add_argument(
+        "--question-type",
+        default="auto",
+        help="题型（与 answer_orchestrator 对齐，如 market_forecast）；"
+        "auto=按问题自动分类，none=只跑通用 7 维。market_forecast 会追加复盘专用维度组。",
+    )
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON（默认 markdown 记分卡）")
     parser.add_argument("--user", default=None, help="用户 id；保存经验卡片时使用（默认 default 或 FORESIGHT_USER）")
     parser.add_argument("--save-card", action="store_true", help="把本次评分同时沉淀为 users/<user>/experience_cards.jsonl")
@@ -555,6 +562,7 @@ def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"], help="agent 日报语义召回模式")
     parser.add_argument("--wiki-rag-timeout", type=int, default=120, help="单次 W 召回超时时间")
     parser.add_argument("--effectiveness-window", type=int, default=20, help="历史有效性评估回看的 theme-candidates 交易日数")
+    parser.add_argument("--catalyst-window-days", type=int, default=5, help="催化归因回看的自然日数（卖方观点/晨汇）")
     parser.add_argument("--out-json", default=None, help="写出 agent 日报 JSON")
     parser.add_argument("--out-md", default=None, help="写出 agent 日报 Markdown")
     parser.add_argument("--out-html", default=None, help="写出 agent 日报 HTML，供复盘工作台 iframe 使用")
@@ -685,6 +693,7 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
             wiki_rag_mode=args.wiki_rag_mode,
             wiki_rag_timeout=args.wiki_rag_timeout,
             effectiveness_window=args.effectiveness_window,
+            catalyst_window_days=args.catalyst_window_days,
         )
     )
     paths = default_paths()
@@ -789,15 +798,22 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
     import json
 
     from intelligence.eval import finance_answer_rubric as rubric
+    from intelligence.services.answer_orchestrator import plan_answer_question
 
     if args.answer_file:
         answer = Path(args.answer_file).expanduser().read_text(encoding="utf-8")
     else:
         answer = args.answer or ""
+    question_type = args.question_type
+    if question_type == "auto":
+        question_type = plan_answer_question(args.question).question_type
+    elif question_type == "none":
+        question_type = None
     scored = rubric.score_answer(
         args.question,
         answer,
         local_sources=list(args.local_source or []),
+        question_type=question_type,
     )
     card_path: Path | None = None
     card: dict | None = None
@@ -828,7 +844,7 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
         print(rubric.format_score(scored))
         if card_path is not None:
             print(f"\n经验卡片已保存 → {card_path}")
-    return 0 if scored.total_score >= 60 else 1
+    return 0 if scored.percent >= 60 else 1
 
 
 def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -1855,6 +1871,188 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_st.set_defaults(func=cmd_checkpoint_status)
 
 
+def add_perspective_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "perspective",
+        help="Perspective Lab 多角色认知编程（P0）：角色画像 + 文章 ingest + 多角色合议落档；"
+        "角色只是解释硬数据的镜头，不改写事实（设计见 docs/superpowers/specs/2026-07-03-perspective-lab-design.md）",
+    )
+    sub = parser.add_subparsers(dest="action", required=True)
+
+    p_init = sub.add_parser("init", help="创建角色：空/内置画像 + 文章目录（blogger 需 ingest 训练；其余三类带内置画像）")
+    p_init.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_init.add_argument("--id", required=True, help="角色 id（字母数字 . _ -，如 blogger_x）")
+    p_init.add_argument("--name", default="", help="人读名称（如 某博主；缺省用 id 或内置名）")
+    p_init.add_argument(
+        "--type", default="blogger", choices=["blogger", "trend_trader", "value_investor", "user_framework"],
+        help="角色类型（默认 blogger）",
+    )
+    p_init.set_defaults(func=cmd_perspective_init)
+
+    p_ing = sub.add_parser("ingest", help="上传文章：保存原文到本地私有目录 + 写 manifest（内容哈希去重）+ 更新画像置信度")
+    p_ing.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_ing.add_argument("--perspective", required=True, help="目标角色 id")
+    p_ing.add_argument("--input", required=True, help="文章文件路径（Markdown/TXT）")
+    p_ing.add_argument("--title", required=True, help="文章标题（必填）")
+    p_ing.add_argument("--date", default=None, help="文章日期 YYYY-MM-DD（默认今天）")
+    p_ing.add_argument("--source", default=None, help="来源（如 博主名/公众号名）")
+    p_ing.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_ing.set_defaults(func=cmd_perspective_ingest)
+
+    p_prof = sub.add_parser("profile", help="查看角色画像：镜头/偏好/风险信号/证伪风格 + 样本数与置信度")
+    p_prof.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_prof.add_argument("--perspective", required=True, help="角色 id")
+    p_prof.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_prof.set_defaults(func=cmd_perspective_profile)
+
+    p_deb = sub.add_parser(
+        "debate",
+        help="多角色合议（P0 确定性版）：画像规则 × 用户提供的硬事实摘要 → 结构化报告（事实/角色解释/证伪条件分离）",
+    )
+    p_deb.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_deb.add_argument("--query", required=True, help="要合议的问题（如 明天市场怎么看）")
+    p_deb.add_argument(
+        "--perspective", dest="perspectives", action="append", default=[], required=True,
+        help="参与角色 id（至少 2 个，可多次）",
+    )
+    p_deb.add_argument("--facts", default=None, help="硬事实摘要文本（P0 必填其一；P1 起自动接 ask）")
+    p_deb.add_argument("--facts-file", default=None, help="硬事实摘要文件路径（与 --facts 二选一）")
+    p_deb.add_argument("--date", default=None, help="市场数据日期 YYYY-MM-DD（默认今天）")
+    p_deb.add_argument("--no-save", action="store_true", help="不写 debates.jsonl（仅打印报告）")
+    p_deb.set_defaults(func=cmd_perspective_debate)
+
+    p_fw = sub.add_parser(
+        "framework-daily",
+        help="框架解读步（P1）：按 user_framework 画像解读当日 daily-review 硬数据，"
+        "命中判断自动落 T+1/T+3 checkpoint（带 framework_version）；profile 缺失时优雅跳过",
+    )
+    p_fw.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_fw.add_argument("--date", required=True, help="市场数据日期 YYYY-MM-DD")
+    p_fw.add_argument("--daily-review-md", default=None, help="daily-review markdown 路径（默认 exports/<date>-daily-review.md）")
+    p_fw.add_argument("--out-md", default=None, help="框架解读报告输出路径（默认 exports/<date>-framework-interpretation.md）")
+    p_fw.add_argument("--json", action="store_true", help="输出机器可读 JSON（不打印报告正文）")
+    p_fw.set_defaults(func=cmd_perspective_framework_daily)
+
+
+def cmd_perspective_framework_daily(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.paths import default_paths
+    from intelligence.services import framework_interpretation
+
+    us = userspace.user_space(args.user)
+    exports = default_paths().market_exports
+    md_path = Path(args.daily_review_md).expanduser() if args.daily_review_md else exports / f"{args.date}-daily-review.md"
+    out_md = Path(args.out_md).expanduser() if args.out_md else exports / f"{args.date}-framework-interpretation.md"
+    result = framework_interpretation.run(us, date=args.date, daily_review_md_path=md_path, out_md=out_md)
+    if args.json:
+        payload = {k: v for k, v in result.items() if k != "report"}
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    elif result.get("status") == "ok":
+        print(result["report"], end="")
+        print(
+            f"\n[框架解读] version={result['framework_version']} 判断 {result['judgments']} 条，"
+            f"新登记 checkpoint {result['checkpoints_added']} 条 → {result['checkpoints_path']}",
+        )
+    else:
+        print(f"[框架解读] 跳过：{result.get('reason')}")
+    return 0
+
+
+def cmd_perspective_init(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.services import perspective_lab
+
+    us = userspace.user_space(args.user)
+    try:
+        path, profile = perspective_lab.init_perspective(
+            us, args.id, display_name=args.name, ptype=args.type,
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(f"已创建角色「{profile['display_name']}」（{profile['id']} / {profile['type']}）")
+    print(f"  画像：{path}")
+    if profile["type"] == "blogger":
+        print(
+            f"  下一步：`perspective ingest --user {us.user_id} --perspective {profile['id']} "
+            f"--input 文章.md --title 标题 --date YYYY-MM-DD` 上传文章训练画像"
+        )
+    else:
+        print("  已带内置画像，可直接参与 debate；也可手工编辑该 JSON 定制")
+    return 0
+
+
+def cmd_perspective_ingest(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import perspective_lab
+
+    us = userspace.user_space(args.user)
+    try:
+        result = perspective_lab.ingest_article(
+            us, args.perspective, args.input,
+            title=args.title, date=args.date, source=args.source,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(_json.dumps(result, ensure_ascii=False, indent=2))
+    elif result["duplicate"]:
+        print(f"内容重复，跳过：{result['article_id']}（已存在 {result['raw_path']}）")
+    else:
+        print(f"已入档 {result['article_id']} → {result['raw_path']}（该角色样本 {result['article_count']} 篇）")
+    return 0
+
+
+def cmd_perspective_profile(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import perspective_lab
+
+    us = userspace.user_space(args.user)
+    try:
+        profile = perspective_lab.load_profile(us, args.perspective)
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(_json.dumps(profile, ensure_ascii=False, indent=2))
+    else:
+        print(perspective_lab.render_profile_text(profile), end="")
+    return 0
+
+
+def cmd_perspective_debate(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.services import perspective_lab
+
+    us = userspace.user_space(args.user)
+    facts = args.facts or ""
+    if args.facts_file:
+        fpath = Path(args.facts_file).expanduser()
+        if not fpath.is_file():
+            print(f"硬事实文件不存在：{fpath}", file=sys.stderr)
+            return 1
+        facts = fpath.read_text(encoding="utf-8")
+    try:
+        report, _record = perspective_lab.run_debate(
+            us,
+            query=args.query,
+            perspective_ids=args.perspectives,
+            facts=facts,
+            date=args.date,
+            save=not args.no_save,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(report, end="")
+    return 0
+
+
 def _checkpoint_paths(args: argparse.Namespace) -> tuple[Path, Path]:
     from intelligence import userspace
 
@@ -2113,6 +2311,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_dream_nightly_parser(subparsers)
     add_subconscious_parser(subparsers)
     add_checkpoint_parser(subparsers)
+    add_perspective_parser(subparsers)
     return parser
 
 
