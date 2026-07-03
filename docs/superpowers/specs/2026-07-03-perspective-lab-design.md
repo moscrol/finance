@@ -803,35 +803,39 @@ P2 目标：让角色视角可回测、可排名、可修正。
 - 价值型角色更关注估值、长期现金流、护城河和安全边际；
 - 裁判能说明二者分歧，并给出 T+1 验证指标。
 
-## 16. 实施顺序建议
+## 16. 实施顺序建议（2026-07-03 修订：学习闭环先于检索增强）
 
-第一阶段：P0 基础骨架
+修订理由：学习博主认知框架的本质是把「文章叙事」还原成「可验证的决策规则」
+（信息输入 → 关注变量 → 加权 → 归因 → 判断 → 证伪/修正）。文章混合了事实/解释/偏好
+三层，且博主常不完整暴露推理过程，所以「LLM 抽取候选 + 人工确认」的学习闭环
+比 RAG 检索增强更优先；RAG 只是例证召回，不能替代框架抽象。
 
-1. 新建 `perspective_lab.py`；
-2. 定义 profile / article manifest / debate record 数据结构；
-3. 实现 init/profile/ingest/debate 的确定性最小闭环；
-4. 写 `docs/learning/perspective-lab.md`；
-5. 写单测。
-
-第二阶段：接 ask
-
-1. AskOptions 增加 perspective 字段；
-2. compose prompt 注入 perspective context；
-3. debate 可自动使用 ask 的硬事实底座；
-4. 加 review gate。
-
-第三阶段：文章检索
-
-1. 先做本地 BM25；
-2. 输出召回片段和 citation；
-3. 评估文章数量增加后是否升级 hybrid 检索。
-
-第四阶段：验证闭环
-
-1. debate 生成可证伪假设；
-2. 接 checkpoint / dual_blind_forecast；
-3. 写 outcomes；
-4. 生成角色胜率报告。
+- **P0：角色容器**（本期已实现）
+  1. 新建 `perspective_lab.py`；
+  2. 定义 profile / article manifest / debate record 数据结构；
+  3. 实现 init/profile/ingest/debate 的确定性最小闭环；
+  4. 写 `docs/learning/perspective-lab.md`；
+  5. 写单测。
+- **P1：LLM 抽取候选认知框架**
+  1. ingest 时按 7.3 字段抽取单篇结构化卡片（事实/阶段判断/关注与忽略的变量/核心
+     判断/依赖条件/证伪条件），作为「文章翻译成训练样本」；
+  2. LLM 从卡片聚合出 profile candidate（market_lenses / evidence_hierarchy /
+     opportunity_preferences / risk_triggers / falsification_style / reasoning_patterns）；
+  3. candidate 只入 patch-review 流，人工确认后才写 profile（与 13.3 的自动修正
+     共用同一确认机制），绝不自动当真；
+  4. AskOptions 增加 perspective 字段，compose 注入 perspective context，加 review gate。
+- **P2：RAG 召回原文例证**
+  1. 先做本地 BM25；
+  2. 输出召回片段和 citation；
+  3. 评估文章数量增加后是否升级 hybrid 检索。
+- **P3：用盘后结果评价角色有效性**
+  1. debate 生成可证伪假设；
+  2. 接 checkpoint / dual_blind_forecast；
+  3. 写 outcomes；
+  4. 按市场阶段/题材类型分桶生成角色胜率报告（防全局胜率误导，见 14.5）。
+- **P4：自动生成 profile 修正建议**
+  1. 长期失误场景 → profile patch candidate；
+  2. 人工审后写入（同 13.3）。
 
 ## 17. 成功标准
 
