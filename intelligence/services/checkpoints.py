@@ -137,6 +137,7 @@ def register_checkpoint(
     metric: dict[str, Any] | None = None,
     source_judgment_ts: str | None = None,
     session_id: str | None = None,
+    framework_version: str | None = None,
     ts: str | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """登记一个可证伪点到 ``checkpoints.jsonl``，返回 ``(path, record)``。
@@ -160,6 +161,8 @@ def register_checkpoint(
     }
     if metric_norm:
         record["metric"] = metric_norm
+    if framework_version and str(framework_version).strip():
+        record["framework_version"] = str(framework_version).strip()
     if source_judgment_ts and str(source_judgment_ts).strip():
         record["source_judgment_ts"] = str(source_judgment_ts).strip()
     if session_id and str(session_id).strip():
