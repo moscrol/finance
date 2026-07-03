@@ -34,6 +34,8 @@ python3 skills/opinion-cross/scripts/opinion_cross.py \
   --out "/path/to/CPO-opinion-cross.json"
 ```
 
+> 原文先落库门：`opinion_store.py ingest` 的输入若不在 `wiki/raw/sellside/` 或 `wiki/raw/briefings/` 下，会自动拷贝归档到 `raw/sellside/<报告日期>-<来源>.md` 再入库（输出 `raw_archive` 字段），保证结构化事件永远可回溯原文、可重提纯。
+
 参数：
 - `--term`：题材名（可选，用于把标的对齐到该题材的 concept；留空则用标的自身最相关 concept）。
 - `--input`：观点流文本文件（必填）。
