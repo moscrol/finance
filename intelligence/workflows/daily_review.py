@@ -87,6 +87,29 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
         outputs=[str(daily_dir / f"{date}-daily-review.html")],
     ))
 
+    # 框架解读（perspective-lab P1）：按 user_framework 画像解读当日硬数据，
+    # 判断自动落 T+1/T+3 checkpoint（带 framework_version）；profile 缺失时该步优雅跳过（exit 0）。
+    plan.append(CommandSpec(
+        name="framework-interpretation",
+        argv=[
+            "python3", "-m", "intelligence.cli", "perspective", "framework-daily",
+            "--date", date,
+            "--daily-review-md", str(exports / f"{date}-daily-review.md"),
+            "--out-md", str(exports / f"{date}-framework-interpretation.md"),
+        ],
+        outputs=[],
+    ))
+
+    # T+1/T+3 回检：到期可证伪点交给 resolver 核对并落 verdicts（缺数据自动 unverifiable，不编造）。
+    plan.append(CommandSpec(
+        name="checkpoint-recheck",
+        argv=[
+            "python3", "-m", "intelligence.cli", "checkpoint", "recheck",
+            "--date", date, "--kb-wiki", str(paths.knowledge_wiki), "--apply",
+        ],
+        outputs=[],
+    ))
+
     if not options.skip_theme:
         plan.append(CommandSpec(
             name="theme-candidates",
@@ -162,6 +185,22 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
                     str(daily_dir / f"{date}-daily-agent.html"),
                 ],
             ))
+
+    plan.append(CommandSpec(
+        name="strategy1-matrix-draft",
+        argv=["python3", "scripts/generate_strategy1_mechanical_row.py", "--date", date],
+        outputs=[str(paths.finance_root / "复盘" / "matrices" / "strategy1-priority-stock-matrix.html")],
+    ))
+    plan.append(CommandSpec(
+        name="strategy3-matrix",
+        argv=["python3", "scripts/backfill_strategy3_touch_matrix.py", "--append-missing"],
+        outputs=[str(paths.finance_root / "复盘" / "matrices" / "strategy3-touch-up-rebound-matrix.html")],
+    ))
+    plan.append(CommandSpec(
+        name="strategy4-matrix",
+        argv=["python3", "scripts/render_strategy4_dual_engine_matrix.py", "--end", date],
+        outputs=[str(paths.finance_root / "复盘" / "matrices" / "strategy4-dual-engine-matrix.html")],
+    ))
 
     if not options.skip_workbench:
         plan.append(CommandSpec(
