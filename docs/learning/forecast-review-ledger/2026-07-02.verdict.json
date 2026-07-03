@@ -1,0 +1,97 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-02",
+  "verdicts": [
+    {
+      "id": "market:path-20260702",
+      "agent": "codex",
+      "flow_type": "duckdb_market",
+      "window": "T+1",
+      "verdict": "partial",
+      "actual": "成交34503亿(>3.4万亿✓)但涨家2219(<3000)、涨停93(<120)、跌停40(7→40扩张)、沪指-2.03%。分化确认对，但风险扩张超预期→中性偏弱/强分歧而非普通分化。",
+      "evidence_ref": "§7.1 市场路径实际结果"
+    },
+    {
+      "id": "direction:ai-diffusion-20260702",
+      "agent": "codex",
+      "flow_type": "duckdb_market",
+      "window": "T+1",
+      "verdict": "miss",
+      "actual": "AI应用-1.12%/AI智能体-1.38%/数据要素-1.19%/算力租赁-2.04%，0/4继续涨；涨停14→5/10→4/12→3/8→3全面塌陷，diff由正转负。扩散是一次性外溢。",
+      "evidence_ref": "§7.2 方向路径 + §7.5 H2"
+    },
+    {
+      "id": "direction:robot-upgrade-20260702",
+      "agent": "codex",
+      "flow_type": "duckdb_market",
+      "window": "T+1",
+      "verdict": "partial",
+      "actual": "机器人概念涨停38→20(<25-30升级阈值未达)，但板块-0.93%、人形-0.64%相对沪指-2.03%抗跌，热度韧性有、主线未升格。",
+      "evidence_ref": "§7.2 + §7.5 H3"
+    },
+    {
+      "id": "direction:hardware-halt-20260702",
+      "agent": "codex",
+      "flow_type": "duckdb_market",
+      "window": "T+1",
+      "verdict": "miss",
+      "actual": "半导体-5.51%/CPO-5.10%/先进封装-4.89%/存储-5.67%全线大跌，长电科技-10%跌停。外盘映射止跌失败，'继续降权'分支命中、'内部切换'分支未命中。",
+      "evidence_ref": "§7.2 + §7.5 H4"
+    },
+    {
+      "id": "direction:sellside-pickup-20260702",
+      "agent": "codex",
+      "flow_type": "duckdb_market",
+      "window": "T+1",
+      "verdict": "partial",
+      "actual": "IDC/数据中心-2.54%、燃料电池-0.36%、MLCC-4.87%、存储-5.67%未被选择；但氟化工+0.66%/化学制品+0.42%/金属铜+0.58%真双红——盘面选了资源化工/有色，非PR188点名的IDC/DRAM/MLCC。",
+      "evidence_ref": "§7.5 H4b"
+    },
+    {
+      "id": "direction:power-equipment-20260702",
+      "agent": "codex",
+      "flow_type": "duckdb_market",
+      "window": "T+1",
+      "verdict": "miss",
+      "actual": "储能-1.46%/diff-7.92，电力设备一级-2.41%。概念反抽未升级为行业承接。",
+      "evidence_ref": "§7.5 H5"
+    },
+    {
+      "id": "direction:broad-recovery-20260702",
+      "agent": "codex",
+      "flow_type": "duckdb_market",
+      "window": "T+1",
+      "verdict": "partial",
+      "actual": "非银-2.11%/医药-0.12%/化工-0.57%一级未延续；但氟化工/化学制品/金属铜细分双红。一级行业弱、细分题材强，需拆开判。",
+      "evidence_ref": "§7.5 H6"
+    },
+    {
+      "id": "market:style-switch-20260702",
+      "agent": "claude",
+      "flow_type": "duckdb_market",
+      "window": "T+1",
+      "verdict": "miss",
+      "actual": "风格切换未延续：证券-2.23%(diff+90→-27.86)、保险-1.29%(diff+86→-34.27)大金融一日游；科技也未反包(半导体-5.51%)，是双杀而非经典'切换失败回科技'。",
+      "evidence_ref": "§7.4 + §7.2"
+    },
+    {
+      "id": "direction:finance-double-red-20260702",
+      "agent": "claude",
+      "flow_type": "duckdb_market",
+      "window": "T+1",
+      "verdict": "miss",
+      "actual": "证券diff+90.20→-27.86翻负，保险diff+85.85→-34.27翻负。续双红失败，风格切换核心证据一日游。",
+      "evidence_ref": "§7.2 + §7.4"
+    },
+    {
+      "id": "direction:agri-cycle-20260702",
+      "agent": "claude",
+      "flow_type": "duckdb_market",
+      "window": "T+1",
+      "verdict": "partial",
+      "actual": "牧原+1.00%(池中唯一收红)但养殖业diff+61.32→-11.52翻负。个股抗跌、板块双红未确立。",
+      "evidence_ref": "§7.4"
+    }
+  ],
+  "generated_at": "2026-07-03T10:14:48+08:00"
+}

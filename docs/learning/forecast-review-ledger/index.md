@@ -27,5 +27,6 @@
 | 研判日 | manifest | 答卷 | 答卷校验 | 验证 | 命中率（hit/已裁定） |
 |---|---|---|---|---|---|
 | 2026-07-03 | ✅ | codex | codex:✅ | — | — |
+| 2026-07-02 | ✅ | claude, codex | claude:✅ codex:✅ | ✅ | claude:0/3 codex:0/7 |
 
 <!-- END AUTO dual-blind-status -->

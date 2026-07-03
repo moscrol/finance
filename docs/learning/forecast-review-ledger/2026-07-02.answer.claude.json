@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-02",
+  "agent": "claude",
+  "source": "duckdb",
+  "manifest_sha": "a28acfe77d5951d4",
+  "date_policy": {
+    "date_field": "forecast_target_trade_date",
+    "target_trade_date": "2026-07-02",
+    "perspective_trade_date": "2026-07-01",
+    "duckdb_cutoff": "2026-07-01",
+    "source_material_date": "2026-07-01",
+    "rule": "date=目标交易日2026-07-02；perspective=2026-07-01盘后前瞻；duckdb_cutoff回溯冻结于2026-07-01（防lookahead）。双盲：仅盘面（7/1 DuckDB），未读外盘/卖方/晨汇。"
+  },
+  "flow_entries": [
+    {
+      "flow_type": "duckdb_market",
+      "flow_name": "DuckDB 盘面流",
+      "validation_windows": ["T+1"],
+      "question_template": "基于截至2026-07-01收盘的DuckDB数据，判断市场阶段、双红候选、涨停/连板方向和2026-07-02最可能路径。",
+      "hypothesis_ids": [
+        "market:style-switch-20260702",
+        "direction:finance-double-red-20260702",
+        "direction:agri-cycle-20260702"
+      ]
+    }
+  ],
+  "stage": "2026-07-01收盘后输入冻结（双盲：仅盘面，缺外盘/卖方/晨汇）。市场底部横盘第2天，涨家4240/涨停148/成交36398亿，但科技抱团松动（硬件价格跌、电子占比36%→34.7%），真双红diff top转向大金融/农业/顺周期。",
+  "main_judgment": "2026-07-01发生风格切换：资金从科技抱团切向低位大金融（证券/保险）+农业+顺周期（真双红diff占据top）。2026-07-02的核心不是指数涨跌，而是风格切换是延续还是一日游。",
+  "direction_ranking": [
+    "大金融（证券/保险）",
+    "农业（养殖/种植）",
+    "顺周期（多元金融/物流/教育/影视）",
+    "科技硬件（半导体/CPO）分歧承接不追高",
+    "科技应用（通信服务/IT/智谱）支线"
+  ],
+  "picks": [
+    {"code": "600030.SH", "name": "中信证券", "strategy": "策略一·金融切换核心", "reason": "券商龙头，7/1涨2.58%/120日新高，证券diff+90.2最强"},
+    {"code": "300059.SZ", "name": "东方财富", "strategy": "策略一+四", "reason": "7/1涨5.25%/60日新高，券商+互联网金融，成交放量直接受益"},
+    {"code": "601628.SH", "name": "中国人寿", "strategy": "策略一·保险", "reason": "7/1涨9.70%/60日新高，保险diff+85.85"},
+    {"code": "002714.SZ", "name": "牧原股份", "strategy": "策略二·低位周期", "reason": "养殖龙头，7/1涨5.69%/20日新高，养殖diff+61.32"},
+    {"code": "300442.SZ", "name": "润泽科技", "strategy": "策略一+四·IDC", "reason": "7/1涨8.41%/20日新高，通信+数据中心，科技应用保留腿"}
+  ],
+  "thresholds": {
+    "market": "市场：涨家7/2维持>3000=修复延续 / <2500=三日分歧；量能环比维持正=放量确认 / 转负。风格切换：证券/保险7/2 diff>0（续双红）=切换确立 / diff转负=一日游。",
+    "direction": "大金融（证券diff+90/保险+86）为风格切换核心；农业（养殖+61/种植+49）为低位周期承接；顺周期扩散。科技应用（通信服务/IT/智谱）续双红但diff弱于金融=支线。",
+    "targets": "中信/东财/人寿/牧原/润泽7/2是否续强（跑赢沪指-2.03%基准后视）。",
+    "falsify": "7/2大金融大跌+科技反包大涨=风格切换失败、回科技抱团，主判断推翻。"
+  },
+  "hypotheses": [
+    {
+      "id": "market:style-switch-20260702",
+      "flow_type": "duckdb_market",
+      "type": "market_path",
+      "direction": "风格切换（科技→大金融/农业/顺周期）延续 vs 一日游",
+      "verdict_window": "T+1",
+      "current_verdict": "pending",
+      "evidence": {
+        "style_switch": "7/1科技抱团松动（硬件价格跌、电子占比36%→34.7%），资金切向低位大金融+农业+顺周期（真双红diff占据top）",
+        "top_double_red": "证券diff+90.2/保险+85.85/养殖业+61.32/通信服务+53.57"
+      },
+      "checks": [
+        {"name": "finance_continue", "metric": "证券/保险7/2 diff_ratio", "operator": ">", "threshold": 0},
+        {"name": "advancers", "metric": "fact_market_daily.advancers", "operator": ">", "threshold": 2500}
+      ],
+      "falsifiers": [
+        {"name": "switch_fail", "condition": "大金融大跌且科技反包大涨=风格切换失败回科技抱团"}
+      ]
+    },
+    {
+      "id": "direction:finance-double-red-20260702",
+      "flow_type": "duckdb_market",
+      "type": "direction",
+      "direction": "证券/保险续双红（风格切换确立的核心证据）",
+      "verdict_window": "T+1",
+      "current_verdict": "pending",
+      "evidence": {
+        "securities": "证券7/1涨4.82%/diff90.20",
+        "insurance": "保险7/1涨7.09%/diff85.85"
+      },
+      "checks": [
+        {"name": "securities_double_red", "metric": "证券7/2 pct_chg/diff_ratio", "operator": "composite", "threshold": "pct_chg>0 AND diff_ratio>0"},
+        {"name": "insurance_double_red", "metric": "保险7/2 pct_chg/diff_ratio", "operator": "composite", "threshold": "pct_chg>0 AND diff_ratio>0"}
+      ],
+      "falsifiers": [
+        {"name": "finance_one_day", "condition": "证券/保险diff转负=风格切换一日游"}
+      ]
+    },
+    {
+      "id": "direction:agri-cycle-20260702",
+      "flow_type": "duckdb_market",
+      "type": "direction",
+      "direction": "农业（养殖/种植）低位周期承接延续",
+      "verdict_window": "T+1",
+      "current_verdict": "pending",
+      "evidence": {
+        "farming": "养殖业7/1涨5.65%/diff61.32",
+        "planting": "种植业7/1diff48.8"
+      },
+      "checks": [
+        {"name": "agri_double_red", "metric": "养殖业7/2 pct_chg/diff_ratio", "operator": "composite", "threshold": "pct_chg>0 AND diff_ratio>0"}
+      ],
+      "falsifiers": [
+        {"name": "agri_fail", "condition": "养殖业diff转负且翻绿=低位周期承接未确立"}
+      ]
+    }
+  ],
+  "recheck": {}
+}

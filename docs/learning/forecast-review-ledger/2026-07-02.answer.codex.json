@@ -1,0 +1,192 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-02",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "a28acfe77d5951d4",
+  "date_policy": {
+    "date_field": "forecast_target_trade_date",
+    "target_trade_date": "2026-07-02",
+    "perspective_trade_date": "2026-07-01",
+    "duckdb_cutoff": "2026-07-01",
+    "source_material_date": "2026-07-01",
+    "rule": "date=要验证的目标交易日2026-07-02；perspective=2026-07-01盘后前瞻；duckdb_cutoff回溯冻结于2026-07-01（DB当前max为2026-07-02，回改防lookahead）。"
+  },
+  "flow_entries": [
+    {
+      "flow_type": "duckdb_market",
+      "flow_name": "DuckDB 盘面流",
+      "validation_windows": ["T+1"],
+      "question_template": "基于截至2026-07-01收盘的DuckDB数据，判断市场阶段、双红候选、涨停/连板方向和2026-07-02最可能路径。",
+      "hypothesis_ids": [
+        "market:path-20260702",
+        "direction:ai-diffusion-20260702",
+        "direction:robot-upgrade-20260702",
+        "direction:hardware-halt-20260702",
+        "direction:sellside-pickup-20260702",
+        "direction:power-equipment-20260702",
+        "direction:broad-recovery-20260702"
+      ]
+    }
+  ],
+  "stage": "2026-07-01收盘后输入冻结；市场处于底部横盘阶段第2天后的强广度修复（涨家4240/涨停148/跌停7/成交36398亿环比+11.19%），电子占比34.7%但当日下跌，资金向AI应用/算力租赁/机器人/电力设备/金融医药扩散。",
+  "main_judgment": "2026-07-02更像'强广度修复后的分化确认日'，不是继续无差别普涨日。重点验证7/1新双红扩散方向（AI应用/数据要素/算力租赁）能否二日确认、机器人能否升级并行主线、外盘映射下高位硬件核心能否止跌，而不是继续押7/1所有涨停方向无差别延续。",
+  "direction_ranking": [
+    "AI应用/数据要素/算力租赁扩散二日确认",
+    "机器人升级并行主线",
+    "电力设备真双红升级行业承接",
+    "半导体/CPO/先进封装外盘映射止跌",
+    "非银/医药/化工广谱风险偏好修复"
+  ],
+  "picks": [
+    {"code": "300442.SZ", "name": "润泽科技", "strategy": "数据中心/算力承接", "reason": "7/1涨8.41%、成交80.48亿、20日新高，代表算力链从硬件核心向运营/数据中心承接"},
+    {"code": "300033.SZ", "name": "同花顺", "strategy": "软件开发/金融科技/风险偏好", "reason": "7/1涨7.05%、成交103.43亿、60日新高，验证计算机软件扩散+非银风险偏好"},
+    {"code": "002747.SZ", "name": "埃斯顿", "strategy": "机器人/人形机器人", "reason": "7/1机器人涨停热度全市场第一，埃斯顿涨停、成交21.97亿，机器人直接代表"},
+    {"code": "600584.SH", "name": "长电科技", "strategy": "半导体韧性观察", "reason": "7/1半导体分歧但长电涨2.98%、成交263.27亿、历史新高，高位半导体相对强容量代表"},
+    {"code": "300059.SZ", "name": "东方财富", "strategy": "非银金融/广谱风险偏好", "reason": "7/1涨5.25%、成交202.37亿、60日新高，验证广度修复扩展到高流动性风险资产"}
+  ],
+  "thresholds": {
+    "market": "H1市场路径：强=成交>3.4万亿且涨家>3000且涨停>120且跌停不扩张；中=成交3.2-3.4万亿且涨家2200-3000且涨停90-120且方向轮动无退潮；弱=成交<3.2万亿且涨家<2000且涨停<80且跌停扩张。",
+    "direction": "H2扩散延续=AI应用/智能体/数据要素/算力租赁至少2-3个继续涨且涨停热度不塌陷；H3机器人升级=涨停维持25-30只以上且埃斯顿/拓斯达/昊志代表不明显掉队。",
+    "targets": "H4高位硬件止跌=半导体/CPO/先进封装不继续大跌，澜起/长电/北方/雅克收强（内部切换）vs 新易盛/华工/中科曙光续弱（降权）；H5电力设备升级=一级转正且储能/光伏涨停热度维持；H6金融化工=非银/医药/化工续强且科技高位不崩（多线扩散）。",
+    "falsify": "H2若涨停明显缩且核心高开低走=扩散是一次性外溢；H3若机器人涨停<15或前排高开低走=情绪分支非主线；H4若CPO/先进封装/通信续弱且新易盛/华工/中科曙光续跌=高位硬件继续降权，若外盘刺激高开但午后承接不足=外盘只给开盘溢价；H6若只有金融医药强而科技高位继续杀=资金切换非主线延续。"
+  },
+  "hypotheses": [
+    {
+      "id": "market:path-20260702",
+      "flow_type": "duckdb_market",
+      "type": "market_path",
+      "direction": "强广度后的分化确认日（非无差别普涨延续）",
+      "verdict_window": "T+1",
+      "current_verdict": "pending",
+      "evidence": {
+        "market_stage": "2026-07-01底部横盘第2天，涨家4240、涨停148、跌停7",
+        "volume": "成交36397.84亿环比+11.19%，量比114.98（高于20日均量）",
+        "concentration": "电子占比34.7%但当日下跌，前三行业占比50.8%，容量在电子但赚钱效应在扩散"
+      },
+      "checks": [
+        {"name": "amount", "metric": "fact_market_daily.total_amount", "operator": ">", "threshold": 34000, "unit": "亿元"},
+        {"name": "advancers", "metric": "fact_market_daily.advancers", "operator": ">", "threshold": 3000},
+        {"name": "limit_up", "metric": "fact_market_daily.limit_up", "operator": ">", "threshold": 120},
+        {"name": "limit_down", "metric": "fact_market_daily.limit_down", "operator": "<=", "threshold": 10}
+      ],
+      "falsifiers": [
+        {"name": "weak_path", "condition": "成交<3.2万亿且涨家<2000且涨停<80且跌停扩张"}
+      ]
+    },
+    {
+      "id": "direction:ai-diffusion-20260702",
+      "flow_type": "duckdb_market",
+      "type": "direction",
+      "direction": "AI应用/AI智能体/数据要素/算力租赁扩散延续",
+      "verdict_window": "T+1",
+      "current_verdict": "pending",
+      "evidence": {
+        "ai_app": "AI应用7/1涨2.70%/diff25.36/成交2959.57/涨停14",
+        "ai_agent": "AI智能体7/1涨2.40%/diff17.71/成交2616.40/涨停10",
+        "data_element": "数据要素7/1涨2.53%/diff28.09/成交2036.69/涨停12",
+        "rental": "算力租赁7/1涨1.89%/diff16.33/成交1724.59/涨停8"
+      },
+      "checks": [
+        {"name": "directions_continue", "metric": "AI应用/智能体/数据要素/算力租赁继续涨个数", "operator": ">=", "threshold": 2},
+        {"name": "heat_maintain", "metric": "四方向涨停热度合计不腰斩", "operator": "manual", "threshold": "不腰斩"}
+      ],
+      "falsifiers": [
+        {"name": "diffusion_fail", "condition": "涨停明显缩且核心个股高开低走=7/1广谱修复一次性外溢"}
+      ]
+    },
+    {
+      "id": "direction:robot-upgrade-20260702",
+      "flow_type": "duckdb_market",
+      "type": "direction",
+      "direction": "机器人升级为并行主线",
+      "verdict_window": "T+1",
+      "current_verdict": "pending",
+      "evidence": {
+        "limit_heat": "机器人概念7/1涨停38（全市场第1），人形机器人涨停22",
+        "marginal": "机器人7/1涨1.47%/diff9.01（未达真双红阈值）"
+      },
+      "checks": [
+        {"name": "robot_limit_up", "metric": "机器人概念涨停数", "operator": ">=", "threshold": 25},
+        {"name": "leaders_hold", "metric": "埃斯顿/拓斯达/昊志不掉队", "operator": "manual", "threshold": "不明显掉队"}
+      ],
+      "falsifiers": [
+        {"name": "robot_fail", "condition": "涨停<15或前排高开低走=情绪延续非新主线"}
+      ]
+    },
+    {
+      "id": "direction:hardware-halt-20260702",
+      "flow_type": "duckdb_market",
+      "type": "direction",
+      "direction": "外盘映射下高位硬件核心止跌（半导体/CPO/先进封装）",
+      "verdict_window": "T+1",
+      "current_verdict": "pending",
+      "evidence": {
+        "us_mapping": "北京时间7/1凌晨美股半导体SMH+3.78%/费半+3.92%，给A股硬件链正映射",
+        "a_share": "7/1半导体-0.50%/CPO-1.22%/先进封装-1.02%已分歧，但美股盘中又有回落"
+      },
+      "checks": [
+        {"name": "semiconductor_halt", "metric": "半导体pct_chg", "operator": ">=", "threshold": 0},
+        {"name": "leaders_strong", "metric": "澜起/长电/北方/雅克是否收强", "operator": "manual", "threshold": "容量核心收强"}
+      ],
+      "falsifiers": [
+        {"name": "hardware_down", "condition": "CPO/先进封装/通信续弱且新易盛/华工/中科曙光续跌=继续降权"},
+        {"name": "open_high_close_low", "condition": "外盘刺激高开但午后承接不足=外盘只给开盘溢价"}
+      ]
+    },
+    {
+      "id": "direction:sellside-pickup-20260702",
+      "flow_type": "duckdb_market",
+      "type": "direction",
+      "direction": "PR188卖方真增量方向被盘面选择（IDC/燃机/电容/SOFC/DRAM）",
+      "verdict_window": "T+1",
+      "current_verdict": "pending",
+      "evidence": {
+        "sellside_cross": "PR188《晚间卖方研报20260701》交叉：🟢真增量=IDC五年首次涨价/燃机指引上修/国巨电容涨价/SOFC数据中心/长鑫腾讯DRAM长协",
+        "market_check": "验证重点不是卖方有没有提，而是低覆盖真增量是否比高覆盖拥挤方向更能被盘面选择"
+      },
+      "checks": [
+        {"name": "increment_picked", "metric": "IDC/燃机/电容/SOFC/DRAM方向相对强度", "operator": "manual", "threshold": "跑赢高覆盖拥挤方向"}
+      ],
+      "falsifiers": [
+        {"name": "increment_not_picked", "condition": "真增量方向未双红且核心股未抗跌，高覆盖方向反而更强"}
+      ]
+    },
+    {
+      "id": "direction:power-equipment-20260702",
+      "flow_type": "duckdb_market",
+      "type": "direction",
+      "direction": "电力设备真双红从概念反抽升级为行业承接",
+      "verdict_window": "T+1",
+      "current_verdict": "pending",
+      "evidence": {
+        "concept": "储能/光伏/固态电池/风电7/1真双红，但申万一级电力设备-1.45%"
+      },
+      "checks": [
+        {"name": "sw_l1_positive", "metric": "申万一级电力设备pct_chg", "operator": ">", "threshold": 0},
+        {"name": "concept_heat", "metric": "储能/光伏涨停热度维持", "operator": "manual", "threshold": "维持"}
+      ],
+      "falsifiers": [
+        {"name": "industry_weak", "condition": "概念续涨但电力设备一级仍弱=局部事件/低位弹性非主线"}
+      ]
+    },
+    {
+      "id": "direction:broad-recovery-20260702",
+      "flow_type": "duckdb_market",
+      "type": "direction",
+      "direction": "金融/医药/化工是多线扩散还是单纯资金切换",
+      "verdict_window": "T+1",
+      "current_verdict": "pending",
+      "evidence": {
+        "rotation": "7/1非银/医药/化工表现较强，代表广谱风险偏好修复"
+      },
+      "checks": [
+        {"name": "multi_line", "metric": "非银/医药/化工续强且科技高位不崩", "operator": "manual", "threshold": "多线扩散"}
+      ],
+      "falsifiers": [
+        {"name": "switch_only", "condition": "只有金融医药强而科技高位继续杀=资金切换非科技主线延续"}
+      ]
+    }
+  ],
+  "recheck": {}
+}
