@@ -45,6 +45,11 @@ LEDGER_DIR = REPO / "docs" / "learning" / "forecast-review-ledger"
 DB_PATH = REPO / "db" / "market_feature_store.duckdb"
 
 ALLOWED_AGENTS = {"codex", "claude", "devin"}
+# 三流分账：盘面(duckdb, T+1) / 晨汇事件(briefing, 当日/T+1) / 晚间卖方(sellside, T+3/T+5)
+# 验证窗口与评判标准不同，聚合必须分流统计，混池算胜率会互相污染。
+# 问句模板见 docs/learning/forecast-question-templates.md
+ALLOWED_SOURCES = {"duckdb", "briefing", "sellside"}
+DEFAULT_SOURCE = "duckdb"
 REQUIRED_ANSWER_FIELDS = (
     "schema_version",
     "date",
@@ -170,6 +175,10 @@ def validate_answer(answer_path: Path, *, ledger_dir: Path = LEDGER_DIR) -> list
 
     if str(answer["agent"]).lower() not in ALLOWED_AGENTS:
         errors.append(f"agent 应为 {sorted(ALLOWED_AGENTS)} 之一，实际 {answer['agent']}")
+
+    source = str(answer.get("source") or DEFAULT_SOURCE).lower()
+    if source not in ALLOWED_SOURCES:
+        errors.append(f"source 应为 {sorted(ALLOWED_SOURCES)} 之一，实际 {answer.get('source')}")
 
     picks = answer.get("picks") or []
     if not isinstance(picks, list) or not picks:
@@ -382,8 +391,9 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
         except Exception:
             continue
         agent = str(answer.get("agent") or "unknown").lower()
+        source = str(answer.get("source") or DEFAULT_SOURCE).lower()
         stat = per_agent.setdefault(
-            agent,
+            (agent, source),
             {
                 "answers": 0,
                 "rechecked": 0,
@@ -412,9 +422,11 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
                 stat["market_threshold_hits"] += 1
 
     agents: dict[str, Any] = {}
-    for agent, stat in sorted(per_agent.items()):
+    for (agent, source), stat in sorted(per_agent.items()):
         checked = stat["market_threshold_checked"]
-        agents[agent] = {
+        agents[f"{agent}/{source}"] = {
+            "agent": agent,
+            "source": source,
             "answers": stat["answers"],
             "rechecked": stat["rechecked"],
             "dates": stat["dates"],
@@ -430,6 +442,7 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
         "ledger_dir": str(ledger_dir),
         "agents": agents,
         "notes": [
+            "分流分账：同一 agent 的 duckdb/briefing/sellside 三流分开统计，验证窗口不同不可混池。",
             "单期噪声大：answers < 10 的 agent 统计只作参考，不下结论。",
             "recheck 块由回检人/脚本按统一指标回填：pick_returns_t1/t3（标的池各标的收益%）、",
             "beat_benchmark_t3（标的池 T+3 是否跑赢基准）、market_threshold_hit（§5 市场阈值是否命中）。",
@@ -443,12 +456,12 @@ def _render_aggregate_md(report: dict[str, Any]) -> str:
         "",
         f"生成时间：{report['generated_at']}",
         "",
-        "| agent | 答卷数 | 已回检 | T+1 标的均值% | T+3 标的均值% | T+3 跑赢次数 | 市场阈值命中率 |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| agent | 流 | 答卷数 | 已回检 | T+1 标的均值% | T+3 标的均值% | T+3 跑赢次数 | 市场阈值命中率 |",
+        "|---|---|---:|---:|---:|---:|---:|---:|",
     ]
-    for agent, stat in report["agents"].items():
+    for key, stat in report["agents"].items():
         lines.append(
-            f"| {agent} | {stat['answers']} | {stat['rechecked']} | "
+            f"| {stat.get('agent', key)} | {stat.get('source', '-')} | {stat['answers']} | {stat['rechecked']} | "
             f"{stat['avg_pick_return_t1'] if stat['avg_pick_return_t1'] is not None else '-'} | "
             f"{stat['avg_pick_return_t3'] if stat['avg_pick_return_t3'] is not None else '-'} | "
             f"{stat['beat_benchmark_t3']} | "
@@ -456,6 +469,125 @@ def _render_aggregate_md(report: dict[str, Any]) -> str:
         )
     lines += ["", "> " + " ".join(report["notes"])]
     return "\n".join(lines) + "\n"
+
+
+BENCHMARK = "sh000001"  # 统一基准：上证指数（fact_market_daily.sh_index_close），写进 recheck 块保证跨期可比
+
+
+def _recheck_from_duckdb(answer: dict[str, Any], manifest: dict[str, Any], db_path: Path) -> tuple[dict[str, Any], list[str]]:
+    """从 DuckDB 自动回填数值类指标；返回 (recheck 块增量, 警告列表)。
+
+    只填机器能算的：pick_returns_t1/t3、benchmark_return_t3、beat_benchmark_t3。
+    market_threshold_hit 是自然语言阈值，仍由人判定回填。
+    """
+    import duckdb  # noqa: PLC0415 可选依赖延迟导入
+
+    warnings: list[str] = []
+    perspective = str(manifest.get("perspective_date") or "")
+    con = duckdb.connect(str(db_path), read_only=True)
+    try:
+        dates = [str(r[0]) for r in con.execute(
+            "SELECT DISTINCT trade_date FROM fact_stock_daily WHERE trade_date > ? ORDER BY trade_date LIMIT 3",
+            [perspective],
+        ).fetchall()]
+        if not dates:
+            return {}, [f"DuckDB 里没有 {perspective} 之后的交易日，无法回检"]
+        t1 = dates[0]
+        t3 = dates[2] if len(dates) >= 3 else None
+        if t3 is None:
+            warnings.append(f"T+3 数据未到（目前只到 {dates[-1]}），只回填 T+1")
+
+        def _close(code: str, day: str) -> float | None:
+            row = con.execute(
+                "SELECT close FROM fact_stock_daily WHERE trade_date = ? AND split_part(stock_ts_code, '.', 1) = ? LIMIT 1",
+                [day, code],
+            ).fetchone()
+            return float(row[0]) if row and row[0] is not None else None
+
+        def _pct_chg(code: str, day: str) -> float | None:
+            row = con.execute(
+                "SELECT pct_chg FROM fact_stock_daily WHERE trade_date = ? AND split_part(stock_ts_code, '.', 1) = ? LIMIT 1",
+                [day, code],
+            ).fetchone()
+            return float(row[0]) if row and row[0] is not None else None
+
+        returns_t1: list[float] = []
+        returns_t3: list[float] = []
+        for pick in answer.get("picks") or []:
+            code = str(pick.get("code") or "")
+            r1 = _pct_chg(code, t1)
+            if r1 is None:
+                warnings.append(f"{code} 在 {t1} 无行情，T+1 缺失")
+            else:
+                returns_t1.append(round(r1, 4))
+            if t3:
+                c3 = _close(code, t3)
+                pre = con.execute(
+                    "SELECT pre_close FROM fact_stock_daily WHERE trade_date = ? AND split_part(stock_ts_code, '.', 1) = ? LIMIT 1",
+                    [t1, code],
+                ).fetchone()
+                base = float(pre[0]) if pre and pre[0] is not None else None
+                if base and c3:
+                    returns_t3.append(round((c3 / base - 1) * 100, 4))
+                else:
+                    warnings.append(f"{code} T+3 收盘缺失")
+
+        bench_t3 = None
+        if t3:
+            rows = con.execute(
+                "SELECT trade_date, sh_index_close FROM fact_market_daily WHERE trade_date IN (?, ?) ORDER BY trade_date",
+                [perspective, t3],
+            ).fetchall()
+            if len(rows) == 2 and rows[0][1] and rows[1][1]:
+                bench_t3 = round((float(rows[1][1]) / float(rows[0][1]) - 1) * 100, 4)
+            else:
+                warnings.append("基准指数收盘缺失，beat_benchmark_t3 留空")
+
+        block: dict[str, Any] = {
+            "benchmark": BENCHMARK,
+            "recheck_t1_date": t1,
+            "recheck_t3_date": t3,
+            "pick_returns_t1": returns_t1,
+            "pick_returns_t3": returns_t3,
+            "benchmark_return_t3": bench_t3,
+            "recheck_generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        }
+        if bench_t3 is not None and returns_t3:
+            block["beat_benchmark_t3"] = (sum(returns_t3) / len(returns_t3)) > bench_t3
+        return block, warnings
+    finally:
+        con.close()
+
+
+def cmd_recheck(args: argparse.Namespace) -> int:
+    ledger_dir = Path(args.ledger_dir).expanduser()
+    db_path = Path(args.db).expanduser() if args.db else DB_PATH
+    if not db_path.exists():
+        print(f"ERROR: DuckDB 不存在：{db_path}（在有库的机器上跑，或 --db 指定）", file=sys.stderr)
+        return 2
+    failed = False
+    for raw in args.answers:
+        path = Path(raw).expanduser()
+        answer = json.loads(path.read_text(encoding="utf-8"))
+        mpath = manifest_path_for(str(answer.get("date")), ledger_dir)
+        if not mpath.exists():
+            print(f"ERROR {path.name}: 找不到 manifest {mpath.name}", file=sys.stderr)
+            failed = True
+            continue
+        manifest = json.loads(mpath.read_text(encoding="utf-8"))
+        block, warnings = _recheck_from_duckdb(answer, manifest, db_path)
+        for warn in warnings:
+            print(f"WARN {path.name}: {warn}", file=sys.stderr)
+        if not block:
+            failed = True
+            continue
+        recheck = dict(answer.get("recheck") or {})
+        recheck.update(block)  # 只覆盖机器字段，保留人工回填（如 market_threshold_hit）
+        answer["recheck"] = recheck
+        path.write_text(json.dumps(answer, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"OK    {path.name}: T+1={block['recheck_t1_date']} T+3={block['recheck_t3_date']} "
+              f"picks_t1={len(block['pick_returns_t1'])} picks_t3={len(block['pick_returns_t3'])}")
+    return 1 if failed else 0
 
 
 def cmd_aggregate(args: argparse.Namespace) -> int:
@@ -487,6 +619,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_aggregate = sub.add_parser("aggregate", help="跨期聚合所有答卷+回检，按 agent 出长期统计")
     p_aggregate.add_argument("--json", action="store_true", help="输出 JSON 而非 Markdown 表")
     p_aggregate.set_defaults(func=cmd_aggregate)
+
+    p_recheck = sub.add_parser("recheck", help="从 DuckDB 自动回填答卷的数值类 recheck 指标（基准上证指数）")
+    p_recheck.add_argument("answers", nargs="+", help="答卷 JSON 路径，可多个；就地更新 recheck 块")
+    p_recheck.add_argument("--db", default=None, help="DuckDB 路径；默认 db/market_feature_store.duckdb")
+    p_recheck.set_defaults(func=cmd_recheck)
 
     p_verdict = sub.add_parser("verdict", help="校验验证草稿并落盘 <date>.verdict.json（盘后验证唯一写入口）")
     p_verdict.add_argument("draft", help="验证草稿 JSON：{date, verdicts:[{id, agent, verdict, actual, evidence_ref}]}")
