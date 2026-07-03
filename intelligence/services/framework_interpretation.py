@@ -75,13 +75,41 @@ def extract_facts_digest(daily_review_md: str) -> str:
     return "\n".join(out).strip()
 
 
-def _hit(term: str, facts: str) -> bool:
-    return bool(term) and re.sub(r"\s+", "", term) in re.sub(r"\s+", "", facts)
+_MIN_FRAGMENT_LEN = 4
 
 
-def _matched_signals(profile: dict[str, Any], facts: str) -> tuple[list[str], list[str]]:
-    opp = [t for t in (profile.get("opportunity_preferences") or []) if _hit(t, facts)]
-    risk = [t for t in (profile.get("risk_triggers") or []) if _hit(t, facts)]
+def _fragments(term: str) -> list[str]:
+    """把画像信号句拆成可匹配片段（标点/连接词切分，长度 ≥ 4）——长句整句几乎不会
+    原文出现在盘面数据里，片段级匹配才有召回；命中片段会写进报告供审计。"""
+    parts = re.split(r"[，。；：、（）,;:()=→×+/「」“”\s]+", term)
+    return [p for p in parts if len(p) >= _MIN_FRAGMENT_LEN]
+
+
+def _hit(term: str, facts: str) -> str | None:
+    """返回命中依据片段（未命中返回 None）：整句命中优先，否则取首个命中的片段。"""
+    norm_facts = re.sub(r"\s+", "", facts)
+    if term and re.sub(r"\s+", "", term) in norm_facts:
+        return term
+    for frag in _fragments(term):
+        if frag in norm_facts:
+            return frag
+    return None
+
+
+def _matched_signals(
+    profile: dict[str, Any], facts: str
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """返回 (信号句, 命中片段) 列表：(机会命中, 风险命中)。"""
+    opp: list[tuple[str, str]] = []
+    risk: list[tuple[str, str]] = []
+    for t in profile.get("opportunity_preferences") or []:
+        frag = _hit(t, facts)
+        if frag:
+            opp.append((t, frag))
+    for t in profile.get("risk_triggers") or []:
+        frag = _hit(t, facts)
+        if frag:
+            risk.append((t, frag))
     return opp, risk
 
 
@@ -139,10 +167,10 @@ def build_report(
     falsifiers = list(profile.get("falsification_style") or [])
 
     judgments: list[dict[str, Any]] = []
-    for t in opp_hits:
-        judgments.append({"claim": f"[{date}][机会信号成立] {t}", "themes": []})
-    for t in risk_hits:
-        judgments.append({"claim": f"[{date}][风险信号成立] {t}", "themes": []})
+    for t, frag in opp_hits:
+        judgments.append({"claim": f"[{date}][机会信号成立] {t}", "themes": [], "matched_by": frag})
+    for t, frag in risk_hits:
+        judgments.append({"claim": f"[{date}][风险信号成立] {t}", "themes": [], "matched_by": frag})
 
     lines = [
         f"# 框架解读 · {date}（user_framework {version}）",
@@ -162,7 +190,7 @@ def build_report(
     lines += ["", "## 命中判断（每条已落 T+1/T+3 checkpoint）"]
     if judgments:
         for j in judgments:
-            lines.append(f"- {j['claim']}")
+            lines.append(f"- {j['claim']}\n  - 命中依据：硬事实中出现「{j['matched_by']}」")
     else:
         lines.append("- 无信号命中：当日硬事实未触发画像里的机会/风险信号词（属正常，宁缺毋滥）")
     lines += ["", "## 证伪条件（框架级）"]

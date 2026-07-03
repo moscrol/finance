@@ -68,6 +68,20 @@ class FrameworkVersionTest(unittest.TestCase):
         self.assertTrue(fi.framework_version(p1).startswith("fw-"))
 
 
+class HitTest(unittest.TestCase):
+    def test_fragment_level_match(self) -> None:
+        term = "缩容行情（涨家数收缩、量能扩张）= 资金进攻加强"
+        facts = "今日量能放大，涨家数收缩至 1800 家"
+        self.assertEqual(fi._hit(term, facts), "涨家数收缩")
+
+    def test_no_match_returns_none(self) -> None:
+        self.assertIsNone(fi._hit("北向资金大幅流出", "今日普涨"))
+
+    def test_whole_sentence_match_preferred(self) -> None:
+        term = "量能放大但涨家数收缩"
+        self.assertEqual(fi._hit(term, "盘面：量能放大但涨家数收缩"), term)
+
+
 class RunTest(unittest.TestCase):
     def _init_profile(self, us: userspace.UserSpace) -> None:
         us.ensure_dir()
