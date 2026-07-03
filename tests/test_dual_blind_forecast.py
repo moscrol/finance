@@ -85,8 +85,10 @@ def test_build_index_html(ledger: Path) -> None:
         "date": DATE,
         "verdicts": [{"id": "market", "agent": "codex", "verdict": "hit", "actual": "3600"}],
     }), encoding="utf-8")
+    (ledger / f"{DATE}.md").write_text("# 复盘\n\n§2 主判断原文……\n", encoding="utf-8")
     html = d.build_index_html(ledger)
     assert "缩量分歧日" in html
+    assert "当日原文" in html and "§2 主判断原文……" in html
     assert "涨家数&gt;3500" in html
     assert "target:600000" in html
     assert "✅ hit" in html and "3600" in html

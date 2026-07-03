@@ -456,9 +456,16 @@ def build_index_html(ledger_dir: Path = LEDGER_DIR) -> str:
             cards.append('<p class="muted">当日无机器可读答卷</p>')
         md_link = f'<a href="{esc(date)}.md">md</a>'
         html_link = f' · <a href="{esc(date)}.html">并排页</a>' if (ledger_dir / f"{date}.html").exists() else ""
+        md_path = ledger_dir / f"{date}.md"
+        raw_block = ""
+        if md_path.exists():
+            raw_block = (
+                f'<details class="raw"><summary>当日原文（{esc(date)}.md，点开展开）</summary>'
+                f'<pre>{esc(md_path.read_text(encoding="utf-8"))}</pre></details>'
+            )
         sections.append(
             f'<section><h2>{esc(date)} <small>{md_link}{html_link}</small></h2>'
-            f'<div class="cards">{"".join(cards)}</div></section>'
+            f'<div class="cards">{"".join(cards)}</div>{raw_block}</section>'
         )
     body = "\n".join(sections) or '<p class="muted">暂无机器可读台账文件（answer/verdict JSON）。</p>'
     generated = datetime.now().astimezone().isoformat(timespec="seconds")
@@ -494,6 +501,11 @@ def build_index_html(ledger_dir: Path = LEDGER_DIR) -> str:
   .v {{ white-space:nowrap; }}
   .v-hit {{ color:var(--good); }} .v-miss {{ color:var(--bad); }}
   .v-partial {{ color:var(--warn); }} .v-unverifiable,.v-pending {{ color:var(--muted); }}
+  details.raw {{ margin-top:12px; background:var(--panel); border:1px solid var(--line);
+                 border-radius:8px; padding:8px 12px; }}
+  details.raw summary {{ cursor:pointer; color:var(--blue); font-size:13px; }}
+  details.raw pre {{ white-space:pre-wrap; word-break:break-word; font-size:12px;
+                     max-height:70vh; overflow:auto; }}
 </style>
 </head>
 <body>
