@@ -186,6 +186,22 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
                 ],
             ))
 
+    plan.append(CommandSpec(
+        name="strategy1-matrix-draft",
+        argv=["python3", "scripts/generate_strategy1_mechanical_row.py", "--date", date],
+        outputs=[str(paths.finance_root / "复盘" / "matrices" / "strategy1-priority-stock-matrix.html")],
+    ))
+    plan.append(CommandSpec(
+        name="strategy3-matrix",
+        argv=["python3", "scripts/backfill_strategy3_touch_matrix.py", "--append-missing"],
+        outputs=[str(paths.finance_root / "复盘" / "matrices" / "strategy3-touch-up-rebound-matrix.html")],
+    ))
+    plan.append(CommandSpec(
+        name="strategy4-matrix",
+        argv=["python3", "scripts/render_strategy4_dual_engine_matrix.py", "--end", date],
+        outputs=[str(paths.finance_root / "复盘" / "matrices" / "strategy4-dual-engine-matrix.html")],
+    ))
+
     if not options.skip_workbench:
         plan.append(CommandSpec(
             name="review-workbench",
