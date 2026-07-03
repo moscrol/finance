@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -1917,6 +1918,42 @@ def add_perspective_parser(subparsers: argparse._SubParsersAction) -> None:
     p_deb.add_argument("--date", default=None, help="市场数据日期 YYYY-MM-DD（默认今天）")
     p_deb.add_argument("--no-save", action="store_true", help="不写 debates.jsonl（仅打印报告）")
     p_deb.set_defaults(func=cmd_perspective_debate)
+
+    p_fw = sub.add_parser(
+        "framework-daily",
+        help="框架解读步（P1）：按 user_framework 画像解读当日 daily-review 硬数据，"
+        "命中判断自动落 T+1/T+3 checkpoint（带 framework_version）；profile 缺失时优雅跳过",
+    )
+    p_fw.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_fw.add_argument("--date", required=True, help="市场数据日期 YYYY-MM-DD")
+    p_fw.add_argument("--daily-review-md", default=None, help="daily-review markdown 路径（默认 exports/<date>-daily-review.md）")
+    p_fw.add_argument("--out-md", default=None, help="框架解读报告输出路径（默认 exports/<date>-framework-interpretation.md）")
+    p_fw.add_argument("--json", action="store_true", help="输出机器可读 JSON（不打印报告正文）")
+    p_fw.set_defaults(func=cmd_perspective_framework_daily)
+
+
+def cmd_perspective_framework_daily(args: argparse.Namespace) -> int:
+    from intelligence import userspace
+    from intelligence.paths import default_paths
+    from intelligence.services import framework_interpretation
+
+    us = userspace.user_space(args.user)
+    exports = default_paths().market_exports
+    md_path = Path(args.daily_review_md).expanduser() if args.daily_review_md else exports / f"{args.date}-daily-review.md"
+    out_md = Path(args.out_md).expanduser() if args.out_md else exports / f"{args.date}-framework-interpretation.md"
+    result = framework_interpretation.run(us, date=args.date, daily_review_md_path=md_path, out_md=out_md)
+    if args.json:
+        payload = {k: v for k, v in result.items() if k != "report"}
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    elif result.get("status") == "ok":
+        print(result["report"], end="")
+        print(
+            f"\n[框架解读] version={result['framework_version']} 判断 {result['judgments']} 条，"
+            f"新登记 checkpoint {result['checkpoints_added']} 条 → {result['checkpoints_path']}",
+        )
+    else:
+        print(f"[框架解读] 跳过：{result.get('reason')}")
+    return 0
 
 
 def cmd_perspective_init(args: argparse.Namespace) -> int:
