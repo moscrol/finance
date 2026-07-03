@@ -21,6 +21,7 @@
 | `checkpoints.jsonl` | `checkpoint register` | 否 | 可证伪点台账（判断 + 到期日 + 机检规格），到期回检 |
 | `verdicts.jsonl` | `checkpoint recheck/score` | 否 | 回检打分台账，聚合成「你哪类二阶推演靠谱」回注发问 |
 | `strategy_params.json` | 人 | 否 | 个人策略参数 overlay（稀疏覆盖共享 baseline） |
+| `perspectives/` | `perspective init/ingest/debate` | 否 | Perspective Lab：角色画像 `profiles/*.json`、博主文章 `articles/<id>/`（原文+manifest）、合议台账 `debates.jsonl` / `outcomes.jsonl`（含版权文章与个人认知偏好，见 `docs/learning/perspective-lab.md`） |
 
 以上**运行时文件全部 gitignore，不入库**（含真实自选股、提问历史等隐私）。仓库里只跟踪
 本 README、`profile.template.json` 与 `strategy_params.template.json` 模板。
