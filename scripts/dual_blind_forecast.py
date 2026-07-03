@@ -14,6 +14,7 @@
    逐假设 {id, agent, verdict: hit/miss/partial/unverifiable, actual, evidence_ref}，
    假设 id 必须引用对应答卷的假设 id（答卷可选 ``hypotheses`` 字段；未声明时
    从 thresholds/picks 派生：market / direction / falsify / target:<code>）。
+   落盘后同时把回检表渲染进当日 ``<date>.md`` 的自动生成标记区（md 不存在时跳过并提示）。
 5. ``index``：从 manifest/answer/verdict 扫描生成状态总表，写入 ``index.md``
    的自动生成标记区（人写的导航区不动）。
 
@@ -59,9 +60,12 @@ REQUIRED_ANSWER_FIELDS = (
 REQUIRED_PICK_FIELDS = ("code", "name", "strategy", "reason")
 REQUIRED_THRESHOLD_FIELDS = ("market", "direction", "targets", "falsify")
 VERDICT_VALUES = {"hit", "miss", "partial", "unverifiable"}
+VERDICT_LABELS = {"hit": "✅ hit", "miss": "❌ miss", "partial": "⚠️ partial", "unverifiable": "❓ unverifiable"}
 REQUIRED_VERDICT_FIELDS = ("id", "agent", "verdict")
 INDEX_BEGIN = "<!-- BEGIN AUTO dual-blind-status 本表由 dual_blind_forecast.py index 生成，勿手改 -->"
 INDEX_END = "<!-- END AUTO dual-blind-status -->"
+VERDICT_BEGIN = "<!-- BEGIN AUTO dual-blind-verdict 本表由 dual_blind_forecast.py verdict 渲染，勿手改 -->"
+VERDICT_END = "<!-- END AUTO dual-blind-verdict -->"
 
 
 def _sha256(path: Path) -> str:
@@ -283,7 +287,52 @@ def cmd_verdict(args: argparse.Namespace) -> int:
     out_path = verdict_path_for(str(draft["date"]), ledger_dir)
     out_path.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"OK    written: {out_path}")
+    md_path = render_verdict_md(body, ledger_dir=ledger_dir)
+    if md_path is None:
+        print(f"WARN: 当日台账 {draft['date']}.md 不存在，回检表未渲染", file=sys.stderr)
+    else:
+        print(f"OK    rendered: {md_path}")
     return 0
+
+
+def build_verdict_table(verdict: dict[str, Any]) -> str:
+    lines = [
+        "| 假设 id | agent | 判定 | 实际 | 证据 |",
+        "|---|---|---|---|---|",
+    ]
+    for entry in verdict.get("verdicts") or []:
+        label = VERDICT_LABELS.get(str(entry.get("verdict") or ""), str(entry.get("verdict") or "—"))
+        lines.append(
+            f"| {entry.get('id') or '—'} | {entry.get('agent') or '—'} | {label} "
+            f"| {entry.get('actual') or '—'} | {entry.get('evidence_ref') or '—'} |"
+        )
+    stats = _verdict_stats(verdict)
+    summary = []
+    for agent, bucket in sorted(stats.items()):
+        judged = bucket["hit"] + bucket["miss"] + bucket["partial"]
+        summary.append(f"{agent} {bucket['hit']}/{judged}" if judged else f"{agent} 0/0")
+    lines += ["", f"> 命中率（hit/已裁定）：{'，'.join(summary) if summary else '—'}"]
+    return "\n".join(lines)
+
+
+def render_verdict_md(verdict: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) -> Path | None:
+    """把 verdict 回检表写进当日 <date>.md 的自动生成标记区；md 不存在返回 None。"""
+    md_path = ledger_dir / f"{verdict['date']}.md"
+    if not md_path.exists():
+        return None
+    block = (
+        f"{VERDICT_BEGIN}\n\n### 盘后验证回检表（脚本渲染，来源 {verdict['date']}.verdict.json）\n\n"
+        f"{build_verdict_table(verdict)}\n\n{VERDICT_END}"
+    )
+    text = md_path.read_text(encoding="utf-8")
+    if VERDICT_BEGIN in text and VERDICT_END in text:
+        head, rest = text.split(VERDICT_BEGIN, 1)
+        _, tail = rest.split(VERDICT_END, 1)
+        text = head + block + tail
+    else:
+        text = text.rstrip("\n") + "\n\n" + block + "\n"
+    md_path.write_text(text, encoding="utf-8")
+    return md_path
 
 
 def _verdict_stats(verdict: dict[str, Any]) -> dict[str, dict[str, int]]:
