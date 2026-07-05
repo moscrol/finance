@@ -19,38 +19,38 @@
 - Create: `docs/marketing/claims.yaml`（首批 5-8 条卖点声明，带 support_feature_ids、prohibited_rewrites）
 - Create: `docs/marketing/personas.yaml`（主观交易者/财经内容创作者=主线，AI 工具爱好者=辅线）
 
-- [ ] products.yaml 写入两产品定位与表达边界
-- [ ] features.yaml 每条 feature 的 evidence_refs 指向可定位的文件/章节
-- [ ] claims.yaml 全部 support_feature_ids 存在于 features
-- [ ] personas.yaml 标注主线/辅线优先级
+- [x] products.yaml 写入两产品定位与表达边界
+- [x] features.yaml 每条 feature 的 evidence_refs 指向可定位的文件/章节
+- [x] claims.yaml 全部 support_feature_ids 存在于 features
+- [x] personas.yaml 标注主线/辅线优先级
 
 ### Task 2: 首批 Content Brief
 
 **Files:**
 - Create: `docs/marketing/content-briefs/2026-07-05-launch-batch.yaml`
 
-- [ ] content_types 以 feature_showcase / use_case_story / demo_script / pain_point_post 为主
-- [ ] required_claim_ids 均存在于 claims.yaml
-- [ ] constraints 包含不承诺收益、对外脱敏私有路径
+- [x] content_types 以 feature_showcase / use_case_story / demo_script / pain_point_post 为主
+- [x] required_claim_ids 均存在于 claims.yaml
+- [x] constraints 包含不承诺收益、对外脱敏私有路径
 
 ### Task 3: 生成首批内容
 
 **Files:**
 - Create: `docs/marketing/generated/2026-07-05-launch-batch.md`
 
-- [ ] 短帖 ≥10 条（每条含 hook/正文/CTA/claim_ids/风险提示）
-- [ ] 长文大纲 ≥3 篇（标题候选/结构/每节论点/截图位/素材来源）
-- [ ] 短视频脚本 ≥2 条（口播稿/分镜/录屏清单/video-use brief）
-- [ ] 每条内容可追溯至少一个 claim_id 或 feature_id
-- [ ] 教学向内容占比 ≤20%
-- [ ] 无收益承诺、无买卖指令、无私有敏感路径对外表达
+- [x] 短帖 ≥10 条（每条含 hook/正文/CTA/claim_ids/风险提示）
+- [x] 长文大纲 ≥3 篇（标题候选/结构/每节论点/截图位/素材来源）
+- [x] 短视频脚本 ≥2 条（口播稿/分镜/录屏清单/video-use brief）
+- [x] 每条内容可追溯至少一个 claim_id 或 feature_id
+- [x] 教学向内容占比 ≤20%
+- [x] 无收益承诺、无买卖指令、无私有敏感路径对外表达
 
 ### Task 4: 效果台账
 
 **Files:**
 - Create: `docs/marketing/performance/marketing-performance.jsonl`（含 1 条示例结构记录，`next_action: template`）
 
-- [ ] 字段与 spec 8.5 一致（content_id/brief_id/persona/channel/hook_type/claim_ids/metrics/human_notes/next_action）
+- [x] 字段与 spec 8.5 一致（content_id/brief_id/persona/channel/hook_type/claim_ids/metrics/human_notes/next_action）
 
 ### Task 5: Schema 校验脚本
 
@@ -58,14 +58,14 @@
 - Create: `scripts/validate_marketing_contracts.py`（stdlib + PyYAML，仅只读校验）
 - Test: 手动运行
 
-- [ ] 校验 products 必填字段（id/name/positioning/public_boundary）
-- [ ] 校验 features.product_id ∈ products、claims.support_feature_ids ∈ features、brief.required_claim_ids ∈ claims
-- [ ] 校验 performance jsonl 必填字段
-- [ ] 内置禁用表达扫描（保证收益/稳赚/自动赚钱/明天买什么 等）扫 generated/*
-- [ ] 运行通过：`python3 scripts/validate_marketing_contracts.py`
+- [x] 校验 products 必填字段（id/name/positioning/public_boundary）
+- [x] 校验 features.product_id ∈ products、claims.support_feature_ids ∈ features、brief.required_claim_ids ∈ claims
+- [x] 校验 performance jsonl 必填字段
+- [x] 内置禁用表达扫描（保证收益/稳赚/自动赚钱/明天买什么 等）扫 generated/*
+- [x] 运行通过：`python3 scripts/validate_marketing_contracts.py`
 
 ### Task 6: 收尾
 
-- [ ] 全部 checkbox 勾选、本清单更新
-- [ ] 逐 task commit 并 push 到 `codex/docs/marketing-agent-chain-spec`
-- [ ] agent-memory 项目交接回写
+- [x] 全部 checkbox 勾选、本清单更新
+- [x] 逐 task commit 并 push 到 `codex/docs/marketing-agent-chain-spec`
+- [x] agent-memory 项目交接回写
