@@ -1,0 +1,29 @@
+personas:
+  - id: subjective-trader
+    name: 主观交易者
+    priority: 主线
+    pain_points:
+      - 盘面、研报、消息太散，复盘靠感觉
+      - 题材来了不知道证据硬不硬
+    products: [finance_agent, finhot]
+    channels: [x_thread, zhihu_article, short_video]
+    cta: 看产品 demo / 关注更新
+  - id: finance-creator
+    name: 财经内容创作者
+    priority: 主线
+    pain_points:
+      - 选题多但消化慢，内容生产压力大
+      - 题材拆解耗时
+    products: [finhot, finance_agent]
+    channels: [zhihu_article, short_video, social_post]
+    cta: 看信息发现到内容产出的工作流 demo
+  - id: ai-tool-enthusiast
+    name: AI 工具爱好者
+    priority: 辅线
+    pain_points:
+      - 想看真实 Agent 项目，不想看玩具 demo
+    products: [finhot, finance_agent]
+    channels: [x_thread, zhihu_article]
+    cta: 看架构与真实产品能力介绍
+excluded:
+  - 想要确定性荐股的用户（不面向，不包装为投顾服务）

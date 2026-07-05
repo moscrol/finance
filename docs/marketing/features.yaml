@@ -1,0 +1,99 @@
+features:
+  # ---------- FinHot ----------
+  - id: finhot-multi-source-feed
+    product_id: finhot
+    name: 多源聚合信息流
+    description: 把财经 RSS、微博、雪球、微信、X 和自定义 watchlist 聚合成一条统一时间线
+    evidence_refs:
+      - repo: finhot
+        path: README.md
+        section: 它是什么
+    audience_value:
+      主观交易者: 不用在多个 App 之间来回切换刷消息
+      财经内容创作者: 一处看全所有选题来源
+    risk_level: low
+  - id: finhot-ai-summary
+    product_id: finhot
+    name: AI 摘要、中译与质量打分
+    description: 对每条信息生成摘要、外文中译，并按信号质量打分排序
+    evidence_refs:
+      - repo: finhot
+        path: README.md
+        section: 它是什么
+    audience_value:
+      主观交易者: 快速判断一条信息是否值得深读
+      财经内容创作者: 快速消化外文和长文章
+    risk_level: low
+  - id: finhot-disclosure-lookup
+    product_id: finhot
+    name: 官方披露查新
+    description: 按公司/关键词查公告、互动易、问询函，并做 P0-P3 优先级分级
+    evidence_refs:
+      - repo: finhot
+        path: README.md
+        section: 它是什么
+    audience_value:
+      主观交易者: 看到题材先查源头证据，不追二手解读
+    risk_level: medium
+  - id: finhot-local-first
+    product_id: finhot
+    name: 本地优先与 BYOK
+    description: 数据存本地 SQLite，桌面应用，自带 API key 使用 AI 能力
+    evidence_refs:
+      - repo: finhot
+        path: README.md
+        section: 它是什么
+    audience_value:
+      AI 工具爱好者: 数据可控、无订阅锁定的真实本地应用
+    risk_level: low
+
+  # ---------- 金融 Agent ----------
+  - id: finance-daily-review
+    product_id: finance_agent
+    name: 每日复盘
+    description: 市场强弱、板块信号、涨停连板、新高、策略矩阵一次生成
+    evidence_refs:
+      - repo: finance-workspace-private
+        path: docs/productization-roadmap.md
+        section: 第一条产品闭环：每日复盘
+    audience_value:
+      主观交易者: 收盘后十分钟拿到结构化复盘，不再靠感觉
+    risk_level: medium
+  - id: finance-theme-radar
+    product_id: finance_agent
+    name: Theme Radar
+    description: 题材定义、产业链拆解、公司分层、证据强度、市场信号与缺口一张图
+    evidence_refs:
+      - repo: finance-workspace-private
+        path: docs/productization-roadmap.md
+        section: 第二条产品闭环：Theme Radar
+      - repo: finance-workspace-private
+        path: docs/workflows/theme-radar-workflow.md
+        section: 全文
+    audience_value:
+      主观交易者: 新题材出来先看产业链和证据分层，再看盘面
+      财经内容创作者: 题材拆解直接变成内容大纲
+    risk_level: medium
+  - id: finance-evidence-graph
+    product_id: finance_agent
+    name: Evidence Graph 证据图谱
+    description: 实体、概念、来源、证据、关系分层，研究结论逐条可溯源
+    evidence_refs:
+      - repo: finance-workspace-private
+        path: docs/productization-roadmap.md
+        section: 三仓职责
+    audience_value:
+      主观交易者: 每个判断都能点开看证据从哪来
+      AI 工具爱好者: 真实生产环境的知识图谱 + RAG 实践
+    risk_level: medium
+  - id: finance-perspective-lab
+    product_id: finance_agent
+    name: Perspective Lab
+    description: 把用户自己的市场框架结构化，多角色合议做 challenger，判断落 checkpoint 可回灌
+    evidence_refs:
+      - repo: finance-workspace-private
+        path: docs/superpowers/specs/2026-07-03-perspective-lab-design.md
+        section: 全文
+    audience_value:
+      主观交易者: 自己的交易框架变成可复盘、可证伪的系统
+    risk_level: medium
