@@ -69,3 +69,13 @@
 - [x] 全部 checkbox 勾选、本清单更新
 - [x] 逐 task commit 并 push 到 `codex/docs/marketing-agent-chain-spec`
 - [x] agent-memory 项目交接回写
+
+### Task 7: 只读生成上下文 CLI（spec §19-3，2026-07-05 追加）
+
+**Files:**
+- Create: `scripts/marketing_generation_context.py`
+- Test: `tests/test_marketing_contracts.py`
+
+- [x] `--brief <id>` 输出生成上下文包（产品边界/personas/claims+证据/约束/配额），只读不写盘不调 LLM
+- [x] `--list` 列出可用 brief；引用未登记契约项时报错退出
+- [x] 单测 3 例通过：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.test_marketing_contracts`
