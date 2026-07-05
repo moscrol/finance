@@ -1809,6 +1809,7 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_reg.add_argument("--claim", required=True, help="可证伪陈述（必填）")
     p_reg.add_argument("--due", required=True, help="到期回检日 YYYY-MM-DD（必填）")
     p_reg.add_argument("--category", default=None, help="二阶推演类型（校准聚合维度，如 估值切换/产能时点/情绪扩散）")
+    p_reg.add_argument("--source", default=None, help="判断产出模块（校准第二聚合维度，如 logic_lifecycle/framework_interpretation；手工登记可缺省）")
     p_reg.add_argument("--theme", dest="themes", action="append", default=[], help="关联题材（可多次）")
     p_reg.add_argument("--stock", dest="stocks", action="append", default=[], help="关联个股（可多次）")
     p_reg.add_argument("--metric-type", default=None, choices=["stock_return", "kb_evidence", "manual"], help="机检规格类型；缺省走人工判定")
@@ -2083,6 +2084,7 @@ def cmd_checkpoint_register(args: argparse.Namespace) -> int:
         claim=args.claim,
         due=args.due,
         category=args.category,
+        source=args.source,
         themes=args.themes,
         stocks=args.stocks,
         metric=metric,

@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from intelligence.services.logic_lifecycle import build_lifecycle_snapshot
+from intelligence.services.logic_lifecycle import (
+    build_lifecycle_snapshot,
+    register_lifecycle_checkpoints,
+)
 
 
 def row(
@@ -116,6 +122,53 @@ class LogicLifecycleTest(unittest.TestCase):
         self.assertLess(snapshot["priority变化"], 0)
         self.assertLess(snapshot["强势股变化"], 0)
         self.assertIn("热度下降", snapshot["下一步"])
+
+
+class RegisterLifecycleCheckpointsTest(unittest.TestCase):
+    def _decision(self) -> dict:
+        warming = row(
+            "液冷服务器",
+            "2026-06-11",
+            95,
+            ["强瑞技术"],
+            ["double_red"],
+        )
+        warming["logic_lifecycle"] = {"生命周期阶段": "升温验证"}
+        new = row("新出现题材", "2026-06-11", 60)
+        new["logic_lifecycle"] = {"生命周期阶段": "新出现"}
+        return {"old_logic_wakeup": [warming], "new_logic_candidate": [new], "data_gap": []}
+
+    def test_registers_only_forward_looking_stages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "checkpoints.jsonl"
+
+            added = register_lifecycle_checkpoints(
+                self._decision(), date="2026-06-11", checkpoints_path=cpath
+            )
+
+            self.assertEqual(len(added), 1)
+            record = added[0]
+            self.assertIn("液冷服务器", record["claim"])
+            self.assertEqual(record["due"], "2026-06-16")
+            self.assertEqual(record["category"], "生命周期推演")
+            self.assertEqual(record["source"], "logic_lifecycle")
+            self.assertEqual(record["themes"], ["液冷服务器"])
+            self.assertEqual(record["metric"]["type"], "kb_evidence")
+            lines = [json.loads(line) for line in cpath.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(len(lines), 1)
+
+    def test_idempotent_same_claim_due_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "checkpoints.jsonl"
+            decision = self._decision()
+
+            first = register_lifecycle_checkpoints(decision, date="2026-06-11", checkpoints_path=cpath)
+            second = register_lifecycle_checkpoints(decision, date="2026-06-11", checkpoints_path=cpath)
+
+            self.assertEqual(len(first), 1)
+            self.assertEqual(second, [])
+            lines = cpath.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 1)
 
 
 if __name__ == "__main__":

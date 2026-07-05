@@ -24,6 +24,7 @@ from intelligence.services import market_validation
 from intelligence.services import research_queue
 from intelligence.services import research_judge
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
+from intelligence.userspace import user_space
 from scripts.build_daily_ops_ledger import build_ledger
 
 
@@ -65,6 +66,9 @@ class DailyAgentOptions:
     wiki_rag_timeout: int = 120
     effectiveness_window: int = 20
     catalyst_window_days: int = 5
+    checkpoints_path: str | Path | None = None
+    register_checkpoints: bool = True
+    user: str | None = None
 
 
 def _paths_from_options(options: DailyAgentOptions) -> ProjectPaths:
@@ -510,6 +514,21 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         top_per_date=options.top_per_date,
     )
     _enrich_decision_with_lifecycle(decision, history_by_theme)
+    lifecycle_checkpoints: dict[str, Any] = {"enabled": bool(options.register_checkpoints)}
+    if options.register_checkpoints:
+        cpath = (
+            Path(options.checkpoints_path).expanduser()
+            if options.checkpoints_path
+            else user_space(options.user).checkpoints_path
+        )
+        added = logic_lifecycle.register_lifecycle_checkpoints(
+            decision,
+            date=options.date,
+            checkpoints_path=cpath,
+        )
+        lifecycle_checkpoints.update(
+            {"path": str(cpath), "added": len(added), "ids": [r["id"] for r in added]}
+        )
     current_market_by_theme, market_history_by_theme = market_validation.load_market_validation_context(
         paths.market_exports,
         lifecycle_dates,
@@ -560,6 +579,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         "ledger": ledger,
         "logic_batch": batch,
         "decision": decision,
+        "lifecycle_checkpoints": lifecycle_checkpoints,
         "semantic_rag": {
             "enabled": options.semantic_rag_top_n > 0,
             "top_n": options.semantic_rag_top_n,

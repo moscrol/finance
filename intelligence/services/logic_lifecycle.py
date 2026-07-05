@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from intelligence.services import checkpoints as checkpoints_svc
 from intelligence.services.ask import load_theme_candidates
 
 
@@ -52,6 +53,69 @@ def build_lifecycle_snapshot(current: dict[str, Any], history_rows: list[dict[st
         "当前触发信号": list(current.get("trigger_types") or []),
         "下一步": next_action,
     }
+
+
+CHECKPOINT_CATEGORY = "生命周期推演"
+CHECKPOINT_SOURCE = "logic_lifecycle"
+
+# 带前瞻判断的阶段 → (可证伪陈述, 回检窗口天数)。
+# 只有对未来有明确预期的阶段才登记；「新出现/衰退观察/证伪退出」无前瞻判断不登记。
+_CHECKPOINT_SPECS: dict[str, tuple[str, int]] = {
+    STAGE_WAKEUP: ("旧逻辑唤醒将获得新证据支撑（L2/L3 缺口被补上）", 5),
+    STAGE_WARMING: ("升温将获得事实支撑（登记后出现新证据）", 5),
+    STAGE_ACCELERATING: ("加速定价将有 L3 持续性验证跟上", 3),
+    STAGE_DIVERGING: ("高位分歧期证据仍在新增（否则转入衰退观察）", 3),
+}
+
+
+def register_lifecycle_checkpoints(
+    decision: dict[str, list[dict[str, Any]]],
+    *,
+    date: str,
+    checkpoints_path: str | Path,
+    session_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """把带前瞻判断的生命周期阶段登记成可证伪点（幂等：同 claim+due 跳过）。
+
+    与 framework_interpretation.register_judgments 同一套台账口径；
+    metric 用 kb_evidence（登记后该题材是否出现新证据），缺数时 resolver 优雅降级。
+    """
+    existing, _ = checkpoints_svc.load_checkpoints(checkpoints_path)
+    seen = {(str(r.get("claim") or ""), str(r.get("due") or "")) for r in existing}
+    added: list[dict[str, Any]] = []
+    for bucket in ("old_logic_wakeup", "new_logic_candidate", "data_gap"):
+        for row in decision.get(bucket, []) or []:
+            lifecycle = row.get("logic_lifecycle") or {}
+            stage = str(lifecycle.get("生命周期阶段") or "")
+            spec = _CHECKPOINT_SPECS.get(stage)
+            theme = _theme(row)
+            if not spec or not theme:
+                continue
+            statement, window = spec
+            due = _due_date(date, window)
+            if not due:
+                continue
+            claim = f"[{date}][{stage}] {theme}：{statement}"
+            if (claim, due) in seen:
+                continue
+            _, record = checkpoints_svc.register_checkpoint(
+                checkpoints_path,
+                claim=claim,
+                due=due,
+                category=CHECKPOINT_CATEGORY,
+                source=CHECKPOINT_SOURCE,
+                themes=[theme],
+                metric={"type": "kb_evidence", "op": ">=", "target": 1, "target_name": theme},
+                session_id=session_id,
+            )
+            seen.add((claim, due))
+            added.append(record)
+    return added
+
+
+def _due_date(value: str, days: int) -> str | None:
+    day = _parse_date(value)
+    return (day + timedelta(days=days)).isoformat() if day else None
 
 
 def build_lifecycle_for_decision(

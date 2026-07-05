@@ -30,6 +30,7 @@ from intelligence.userspace import UserSpace
 FRAMEWORK_PERSPECTIVE_ID = "user_framework"
 RECHECK_WINDOWS = (1, 3)  # T+1 / T+3（Q5.2：验证窗口必须短且固定）
 CHECKPOINT_CATEGORY = "framework_interpretation"
+CHECKPOINT_SOURCE = "framework_interpretation"
 CORRECTIONS_WINDOW = 10
 
 # daily-review md 里作为硬事实底座的节（确定性抽取，不做任何推断/改写）。
@@ -146,6 +147,7 @@ def register_judgments(
                 claim=claim,
                 due=due,
                 category=CHECKPOINT_CATEGORY,
+                source=CHECKPOINT_SOURCE,
                 themes=j.get("themes") or [],
                 framework_version=version,
             )
