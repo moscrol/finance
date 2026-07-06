@@ -12,7 +12,9 @@
    `python3 scripts/dual_blind_forecast.py manifest --date <研判日> --perspective <视角日> --material <材料文件>... [--kb-root <知识库仓>]`
    生成 `forecast-review-ledger/<date>.manifest.json`（DuckDB 截止日 + 材料 sha256 + 知识库 commit + `manifest_sha`）。两个考生只能用清单里列出的输入。
 2. **答卷**：每个考生除 markdown 正文外，同时落一份机器可读答卷
-   `forecast-review-ledger/<date>.answer.<agent>.json`（schema 见下），`manifest_sha` 必须引自当日清单。
+   `forecast-review-ledger/<date>.answer.<agent>[.<source>].json`（schema 见下），`manifest_sha` 必须引自当日清单。
+   `source` 段可选（duckdb/briefing/sellside），同日同 agent 按流各落一份时用它区分文件名，
+   且必须与答卷 JSON 内的 `source` 字段一致（validate 会校验）。
 3. **收卷**：`python3 scripts/dual_blind_forecast.py validate <答卷.json>...` 必须全 OK。
 4. **回检**：数值类指标由脚本自动回填：`python3 scripts/dual_blind_forecast.py recheck <答卷.json>...`（从 DuckDB 算 `pick_returns_t1/t3`、`benchmark_return_t3`、`beat_benchmark_t3`；基准统一为上证指数 `sh000001`，写进 recheck 块保证跨期可比）。`market_threshold_hit` 是自然语言阈值，仍由人判定回填，脚本不覆盖人工字段。人只负责批注归因。
 5. **盘后验证**：逐假设裁定写验证草稿 JSON（`{date, verdicts:[{id, agent, verdict, actual, evidence_ref}]}`，

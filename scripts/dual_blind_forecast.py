@@ -6,8 +6,9 @@
 1. ``manifest``：答卷前先生成输入清单（DuckDB 截止日、材料文件 sha256、
    知识库 commit id），写入台账目录 ``<date>.manifest.json``。两份答卷
    必须引用同一份清单的 ``manifest_sha``，保证冻结输入一致（控制变量）。
-2. ``validate``：校验机器可读答卷 ``<date>.answer.<agent>.json`` 的必填
-   字段与 manifest 一致性；答卷 markdown 照旧给人读，JSON 给机器算。
+2. ``validate``：校验机器可读答卷 ``<date>.answer.<agent>[.<source>].json``
+   （source 可选，取 duckdb/briefing/sellside，同日同 agent 可按流各落一份）
+   的必填字段与 manifest 一致性；答卷 markdown 照旧给人读，JSON 给机器算。
 3. ``aggregate``：跨期聚合所有答卷 + 回检数据，按 agent 输出标的池
    T+1/T+3 均值、跑赢比例、阈值命中率等长期统计（单期噪声大，看聚合）。
 4. ``verdict``：盘后验证结果的唯一机器可读落点 ``<date>.verdict.json``。
@@ -189,6 +190,13 @@ def validate_answer(answer_path: Path, *, ledger_dir: Path = LEDGER_DIR) -> list
     if source not in ALLOWED_SOURCES:
         errors.append(f"source 应为 {sorted(ALLOWED_SOURCES)} 之一，实际 {answer.get('source')}")
 
+    if ".answer." in answer_path.name:
+        fname_agent, fname_source = parse_answer_filename(answer_path.name)
+        if fname_agent != str(answer["agent"]).lower():
+            errors.append(f"文件名 agent={fname_agent} 与答卷 agent={answer['agent']} 不一致")
+        if fname_source is not None and fname_source != source:
+            errors.append(f"文件名 source={fname_source} 与答卷 source={source} 不一致")
+
     picks = answer.get("picks") or []
     if not isinstance(picks, list) or not picks:
         errors.append("picks 应为非空列表")
@@ -228,11 +236,21 @@ def hypothesis_ids(answer: dict[str, Any]) -> set[str]:
     return ids
 
 
+def parse_answer_filename(name: str) -> tuple[str, str | None]:
+    """解析 ``<date>.answer.<agent>[.<source>].json`` -> (agent, source|None)。"""
+    suffix = name.split(".answer.", 1)[1].rsplit(".json", 1)[0].lower()
+    if "." in suffix:
+        agent, source = suffix.split(".", 1)
+        return agent, source
+    return suffix, None
+
+
 def answer_paths_for(date: str, ledger_dir: Path = LEDGER_DIR) -> dict[str, Path]:
+    """key 为文件名后缀 ``agent`` 或 ``agent.source``（同日同 agent 多流并存）。"""
     out: dict[str, Path] = {}
     for path in sorted(ledger_dir.glob(f"{date}.answer.*.json")):
-        agent = path.name.split(".answer.", 1)[1].rsplit(".json", 1)[0].lower()
-        out[agent] = path
+        key = path.name.split(".answer.", 1)[1].rsplit(".json", 1)[0].lower()
+        out[key] = path
     return out
 
 
@@ -252,11 +270,14 @@ def validate_verdict(draft: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) ->
 
     answers = answer_paths_for(date, ledger_dir)
     ids_by_agent: dict[str, set[str]] = {}
-    for agent, path in answers.items():
+    for key, path in answers.items():
         try:
-            ids_by_agent[agent] = hypothesis_ids(json.loads(path.read_text(encoding="utf-8")))
+            answer = json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
             errors.append(f"答卷 {path.name} 不可读：{exc}")
+            continue
+        agent = str(answer.get("agent") or key.split(".", 1)[0]).lower()
+        ids_by_agent.setdefault(agent, set()).update(hypothesis_ids(answer))
 
     for i, entry in enumerate(verdicts):
         for field in REQUIRED_VERDICT_FIELDS:
@@ -266,7 +287,7 @@ def validate_verdict(draft: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) ->
         agent = str(entry.get("agent") or "").lower()
         if agent and agent not in ids_by_agent:
             errors.append(
-                f"verdicts[{i}] agent={agent} 无对应答卷 {date}.answer.{agent}.json——先有答卷再有验证"
+                f"verdicts[{i}] agent={agent} 无对应答卷 {date}.answer.{agent}[.<source>].json——先有答卷再有验证"
             )
         elif agent and entry.get("id") and str(entry["id"]) not in ids_by_agent[agent]:
             errors.append(
@@ -456,14 +477,16 @@ def build_index_html(ledger_dir: Path = LEDGER_DIR) -> str:
             except Exception:
                 vmap = {}
         cards: list[str] = []
-        for agent, apath in sorted(answer_paths_for(date, ledger_dir).items()):
+        for key, apath in sorted(answer_paths_for(date, ledger_dir).items()):
             try:
                 answer = json.loads(apath.read_text(encoding="utf-8"))
             except Exception:
-                cards.append(f'<div class="card"><h3>{esc(agent)}</h3><p class="muted">答卷不可读</p></div>')
+                cards.append(f'<div class="card"><h3>{esc(key)}</h3><p class="muted">答卷不可读</p></div>')
                 continue
+            agent = str(answer.get("agent") or key.split(".", 1)[0]).lower()
+            title = key.replace(".", " · ")
             cards.append(
-                f'<div class="card"><h3>{esc(agent)}</h3>'
+                f'<div class="card"><h3>{esc(title)}</h3>'
                 f'<p class="judgment">{esc(str(answer.get("main_judgment") or "—"))}</p>'
                 f'<table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead>'
                 f'<tbody>{_html_hypothesis_rows(answer, agent, vmap)}</tbody></table></div>'
