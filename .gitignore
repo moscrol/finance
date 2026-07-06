@@ -17,6 +17,9 @@ __MACOSX/
 credentials.json
 cookie*
 
+# moneyflow 产物（CSV/PNG/名单缓存不入库）
+scripts/moneyflow/outputs/
+
 # Local agent configs
 .claude/settings.json
 .claude/settings.local.json

@@ -561,3 +561,50 @@ CREATE TABLE IF NOT EXISTS feature_stock_technical_daily (
     PRIMARY KEY (trade_date, stock_ts_code)
 );
 CREATE INDEX IF NOT EXISTS idx_feature_stech_date ON feature_stock_technical_daily(trade_date);
+
+-- ============================================================
+-- 特征层: Level2 大单资金流（数据源 ClickHouse share 库逐笔成交,
+-- 计算脚本 scripts/moneyflow/, 原始 tick 不落 DuckDB, 只落每日结果）
+-- ============================================================
+
+-- 昨日涨停榜(limitup) / 全市场成交额前100榜(top100) 大单资金流
+CREATE TABLE IF NOT EXISTS feature_l2_capital_flow_daily (
+    trade_date              DATE,
+    scan_type               TEXT,      -- 'limitup' | 'top100'
+    stock_code              TEXT,      -- 裸代码 如 000725
+    stock_ts_code           TEXT,      -- 000725.XSHE, 便于与其它表 join
+    stock_name              TEXT,
+    main_buy_net_wan        DOUBLE,    -- 主买净额(万): 主动买入-主动卖出(大单口径)
+    total_buy_net_wan       DOUBLE,    -- 总买净额(万): 主买净额+被动净额
+    float_mktcap_yi         DOUBLE,    -- 流通市值(亿)
+    score                   DOUBLE,    -- (0.7*主买+0.3*总买)/流通市值 净流入强度%
+    pct_change              DOUBLE,    -- 当日涨幅%
+    big_order_threshold_wan DOUBLE,    -- 大单阈值(同一委托单当日累计成交额)
+    rank                    INTEGER,   -- 按 score 降序的当日名次
+    prev_limitup_date       DATE,      -- 仅 limitup: 涨停发生日
+    source                  TEXT,
+    calculated_at           TIMESTAMP,
+    PRIMARY KEY (trade_date, scan_type, stock_code)
+);
+CREATE INDEX IF NOT EXISTS idx_feature_l2flow_date ON feature_l2_capital_flow_daily(trade_date);
+
+-- 规律量化买单榜: 大买单中金额±1%窄带、反复出现>=10笔的簇
+CREATE TABLE IF NOT EXISTS feature_l2_quant_orders_daily (
+    trade_date              DATE,
+    stock_code              TEXT,
+    stock_ts_code           TEXT,
+    stock_name              TEXT,
+    quant_amount_wan        DOUBLE,    -- 量化单总额(万)
+    quant_pct_of_big_buy    DOUBLE,    -- 占该股大单总买入比例%
+    cluster_count           INTEGER,   -- 簇数
+    order_count             INTEGER,   -- 笔数
+    biggest_cluster         TEXT,      -- 最大簇描述 如 849-857万x55笔=46695万
+    pct_change              DOUBLE,
+    quant_threshold_wan     DOUBLE,    -- 量化单单笔金额下限
+    big_order_threshold_wan DOUBLE,
+    rank                    INTEGER,   -- 按占比降序名次
+    source                  TEXT,
+    calculated_at           TIMESTAMP,
+    PRIMARY KEY (trade_date, stock_code)
+);
+CREATE INDEX IF NOT EXISTS idx_feature_l2quant_date ON feature_l2_quant_orders_daily(trade_date);
