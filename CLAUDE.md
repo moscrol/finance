@@ -45,7 +45,7 @@ git branch --show-current
    > ⚠ stock-daily 用默认东财快照（`--stock-source snapshot`），日常单日复盘**不要带 `--stock-source mootdx`**（mootdx 仅首次建库/多日历史回填，慢且当日值与快照一致）。详见 market-overview SKILL.md。
 2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
 3. **涨幅排行** → `top-gainers` skill：iFinD个股涨幅 + AKShare板块涨幅并行
-4. **策略回测** → `scripts/detect_turning_points.py` 检测信号 → `scripts/backfill_sector_marginal.py` 抓板块边际量 → DuckDB 本地分析
+4. **策略回测（待迁移）** → ⚠️ `detect_turning_points.py`/`backfill_sector_marginal.py` 连旧库、**当前 broken**（详见「本地数据库 → Legacy 残骸」）；新分析用 `fact_*` 表 + `compute_features`
 5. **概念入库** → 加载知识库仓 `concept-ingest` skill（已迁至 `<知识库>/skills/concept-ingest/`）→ 先判断 is_concept → 检索 raw 文件 → web 补充信息 → LLM 提取 v3 JSON（含 core_thesis/key_insights/key_data/risks）→ `python3 <知识库>/scripts/ingest.py concept ...` 去重+代码匹配+交叉对比 → 写入 Obsidian vault
 6. **公司边际变化入库** → 加载知识库仓 `entity-delta-ingest` skill（已迁至 `<知识库>/skills/entity-delta-ingest/`）→ 读取早知道/评级日报/纪要/公告 → 抽取公司边际变化 JSON → `python3 <知识库>/scripts/ingest.py entity-delta ...` 更新 Obsidian `entities/`，纯榜单进观察列表
 
@@ -62,16 +62,29 @@ git branch --show-current
 
 ## 本地数据库 (DuckDB)
 
-当前位置：`db/market_feature_store.duckdb`，由 `market_feature_store` 包和 `db/schema.sql` 维护。`db/market.duckdb` 是早期飞书同步阶段的旧路径，不作为当前问答、深挖和复盘前瞻的数据源。
+**主库（唯一可用）`db/market_feature_store.duckdb`** —— 星型模型，当前问答/复盘/深挖/前瞻的唯一数据源。由 `market_feature_store` 包维护，写入入口 `python3 -m market_feature_store.cli daily-full`（schema 见 `market_feature_store/schema.sql`；`db/schema.sql` 为早期雏形）。截至 2026-07-03 共 29 张表（fact_/dim_/config_/feature_），核心如下：
 
 | 表 | 说明 | 数据来源 |
 |----|------|---------|
-| advancers | 涨家数走势（MA5锚点） | 飞书同步 |
-| daily_market | 每日市场指标 | 飞书同步 |
-| sector_marginal | 板块每日边际量 | fupanhui API 回填 |
-| stocks | 强势股+大成交池 | 飞书同步 |
+| fact_market_daily | 每日市场指标（阶段/成交/涨家/涨停/集中度/偏离度） | market_feature_store sync |
+| fact_sector_daily | 板块日行情（pct_chg/amount/diff_ratio/strength/多周期共振）—— **双红判断主表** | fupanhui + 飞书 |
+| fact_sector_stock_daily | 板块×个股日行情（含 5/10/20 日涨跌幅、资金流） | fupanhui |
+| fact_stock_daily | 个股日行情 | fupanhui |
+| fact_stock_high_daily | 新高（1/2/3 年/历史，含涨停状态） | market_feature_store |
+| fact_theme_limit_heat_daily | 题材涨停热度（limit_up_count/market_share/rank）—— **涨停热度主表** | 飞书 |
+| fact_limit_advance_daily | 连板晋级（boards/promotion_rate） | limit-advance skill |
+| fact_sw_l1_daily | 申万一级日行情 | AKShare + 飞书 |
+| fact_mainline_*_daily | 主线结构（sector/stock/theme；sector 停在 06-30，stock/theme 到 07-03） | 飞书 |
+| dim_sector | 板块维度（224 个：ts_code/name/sw_l1） | 配置 |
+| feature_*_window | 窗口特征（market/sector/stock） | compute_features |
+
+严格双红定义（见 strategy1-matrix）：`pct_chg>0 且 diff_ratio>10 且 amount>500`。
+
+> ⚠️ **Legacy 残骸（勿直接跑、勿删，待迁移）**：旧库 `db/market.duckdb`（飞书同步阶段）**已退役、文件已移除**；旧表名 `advancers / daily_market / sector_marginal / stocks` 在主库**既非表也非视图、不存在**。下列脚本仍写死旧库路径 + 旧表名，**当前跑会报 `Catalog Error: Table does not exist` 或连不上库**：`scripts/detect_turning_points.py`、`scripts/backtest_sector.py`、`scripts/sync_to_local.py`、`scripts/backfill_sector_marginal.py`、`scripts/render_daily_review_*.py`。后续 agent：不要跑这些旧脚本期望出数据，也不要直接删（先确认是否要迁移到星型模型）；新分析一律用 `fact_*` 表。
 
 ### 同步命令
+
+> ⚠️ **Legacy 残骸**：`sync_to_local.py` 写入旧库 `db/market.duckdb`（已移除），**当前 broken**。复盘数据统一走 `daily-full` CLI（见核心工作流 §1）。
 
 ```bash
 python3 scripts/sync_to_local.py              # 全量同步飞书→DuckDB
@@ -79,6 +92,8 @@ python3 scripts/sync_to_local.py --incremental # 增量同步
 ```
 
 ### 信号检测
+
+> ⚠️ **Legacy 残骸**：`detect_turning_points.py` 连旧库 `db/market.duckdb`、查 `advancers/daily_market`，**当前 broken**。新流程用 `market_feature_store` + `compute_features`。
 
 ```bash
 python3 scripts/detect_turning_points.py           # 全部历史
@@ -88,6 +103,8 @@ python3 scripts/detect_turning_points.py --from 2026-04-01  # 指定起始
 三种触发条件：大盘放量>10%、大盘涨幅>0.8%（待补数据）、MA5峰/谷次日。
 
 ### 板块边际量回填
+
+> ⚠️ **Legacy 残骸**：`backfill_sector_marginal.py` 写入旧表 `sector_marginal`（主库不存在），**当前 broken**。板块边际量现由 `market_feature_store/sync/sync_fupanhui_sector_daily.py` 写入 `fact_sector_daily`。
 
 ```bash
 python3 scripts/backfill_sector_marginal.py <逗号分隔日期> <CDP_target_id>
@@ -99,6 +116,8 @@ python3 scripts/backfill_sector_marginal.py <逗号分隔日期> <CDP_target_id>
 当前覆盖：67个交易日（2026-02-02 ~ 2026-05-21），~15K条记录。2月14天（春节02-16~02-20无交易），3月22天，4月21天，5月10天。
 
 ### 板块回测
+
+> ⚠️ **Legacy 残骸**：`backtest_sector.py` 连旧库 `db/market.duckdb`、查 `sector_marginal/daily_market/advancers`，**当前 broken**。回测待迁移到星型模型（`fact_sector_daily` 等）。
 
 ```bash
 python3 scripts/backtest_sector.py              # 默认参数
@@ -214,7 +233,7 @@ Lint 能力（`pdf_ingest_lint.py`）：除 relations 检查外，还检查 conc
 
 - fupanhui API 有周/月调用上限（429 限流），大批量回填需分批
 - CDP eval 用 IIFE `(function(){...})()` 包裹 + try/catch，避免页面 JS 异常中断
-- sector_marginal 表的 fupanhui API 字段：`diff_ratio`（边际量%）、`amount`（成交额亿）、`pct_chg`（涨幅%）
+- 板块边际量字段（fupanhui API，对应主库 `fact_sector_daily`）：`diff_ratio`（边际量%）、`amount`（成交额亿）、`pct_chg`（涨幅%）
 - 早期日期（2025年10-11月）只有 212 个板块有数据，后期扩展到 227 个
 - **Kline API diff_ratio 偶发全零**：fupanhui sector-cycle kline API 偶尔返回所有板块 diff_ratio=0（显示错误）。workaround：用相邻交易日 amount 手动计算 `(today_amt - prev_amt) / prev_amt * 100`
 - **DuckDB sector 名称不一致**：2-4月数据用 `.TI` 代码存储，5月数据用中文名存储。查询时需双路查找（先中文名、再代码、再模糊匹配）
