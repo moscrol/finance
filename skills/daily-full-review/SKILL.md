@@ -194,6 +194,16 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
   # 检活：  python3 rx.py -- "ps aux | grep run_review_sync | grep -v grep"
   ```
 
+- **短任务 vs 长任务：要不要 spawn.py 守护化的判别标准**（跨机复用，任意 Mac agent 派活可直接引用）：
+  - **直跑（不守护化）**：预计 **<30s 且非常驻** 的一次性短命令——查行数、审计、`export_increment.py`
+    当日增量导出（07-01 实测 ~1s/1MB）、单次文件读写等。经隧道跑也在 rx.py ~160s 超时内，跑完即返回。
+  - **必须 spawn.py 守护化**：**长时（>隧道单请求超时，约 100s）或常驻**的命令——`run_review_sync.py` /
+    `daily-full`（分钟级）、`evolve_daily.sh`、`cdp-proxy`（常驻），以及任何**会被 `launchctl kickstart -k`
+    连带 SIGKILL** 的后台进程。判据一句话：**能秒回的直跑；要等、要常驻、怕被隧道重启连杀的，一律 spawn.py**。
+  - **动态退路**：拿不准就先直跑，若**实测 >30s 或卡住**，改用 spawn.py 守护化重起。
+  - 原理：spawn.py 用 `fork→setsid→再 fork` 让进程脱离 exec 服务进程组，`kickstart -k` 的组 SIGKILL 波及不到；
+    短任务本就在超时内结束、不涉及进程组连杀，守护化只是徒增日志文件与排查成本。
+
 - **rx.py 524 后 Mac 进程不会死**：Cloudflare 超时断连，但 Mac 端守护进程仍在后台跑且可能持有
   DuckDB 写锁。**起新写操作前必须 `ps aux | grep market_feature_store | grep -v grep` 检查残留进程**，
   盲目重启会导致 DuckDB 锁冲突（"Conflicting lock"），两个进程互相卡死。
@@ -229,8 +239,8 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 | 1 | 渲染每日复盘 HTML | `python3 scripts/render_daily_review_html.py D` | 从 md → html |
 | 2 | 渲染题材雷达 HTML | `python3 scripts/render_market_triggered_theme_brief_html.py D` | 若 quality-gate 拦截，手工从 md 渲染 |
 | 3 | 渲染题材候选工作台 | `python3 scripts/render_theme_candidates_html.py D`（若存在） | |
-| 4 | 策略四矩阵 | `python3 scripts/render_strategy4_dual_engine_matrix.py` | 自动拉 DuckDB 数据 |
-| 5 | 策略一矩阵 | 走 `skills/strategy1-matrix` 流程 | 非自动，需 agent 判断 T1/T2/OBS |
+| 4 | 策略四矩阵 | 已内置到 `intelligence.cli daily`（strategy4-matrix 步） | 也可手动 `render_strategy4_dual_engine_matrix.py --end D` |
+| 5 | 策略一/三矩阵 | 已内置到 `intelligence.cli daily`（strategy1-matrix-draft / strategy3-matrix 步） | 策略一自动行为「机械初稿」，人工复核仍走 `skills/strategy1-matrix`（人工行不会被机械行覆盖） |
 | 6 | 机构胜率 | `python3 skills/opinion-cross/scripts/render_winrate_html.py --vault <KB_WIKI> --date D` | KB_WIKI = 知识库/wiki |
 | 7 | 晨会简报 | `python3 <KB>/skills/morning-briefing/scripts/render_briefing_html.py D --vault <KB_WIKI>` | 需源 md 存在 |
 | 8 | 进化流水线 8步 | `bash scripts/evolve_daily.sh D` | 不加 --force 除非数据有缺口 |
@@ -244,9 +254,12 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 
 1. 生成：`intelligence.cli daily --skip-sync --from-step daily-review`（见上）。
 2. 策略记录：`python3 scripts/evolve.py generate --date D`。
-3. 策略一矩阵：走 `skills/strategy1-matrix`（事实层 → row JSON → update_matrix.py，
-   先 `--dry-run`）。
-4. 其余矩阵按需：`render_strategy4_dual_engine_matrix.py`、`backfill_strategy3_touch_matrix.py` 等。
+3. 策略一/三/四矩阵：`intelligence.cli daily` 生成段已自动跑（strategy1-matrix-draft →
+   strategy3-matrix --append-missing → strategy4-matrix）；策略一产出的是「机械初稿·待人工复核」行，
+   人工终判仍走 `skills/strategy1-matrix`（事实层 → row JSON → update_matrix.py，先 `--dry-run`；
+   人工行不会被后续机械初稿覆盖）。
+4. 手动补跑单个矩阵：`generate_strategy1_mechanical_row.py --date D`、
+   `backfill_strategy3_touch_matrix.py --append-missing`、`render_strategy4_dual_engine_matrix.py --end D`。
 
 ## 迭代规则
 

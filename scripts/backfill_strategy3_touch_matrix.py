@@ -1,7 +1,10 @@
 """批量机械回填策略3 Touch UP矩阵的空日期行（D0口径）。
 
 用法:
-    python3 scripts/backfill_strategy3_touch_matrix.py
+    python3 scripts/backfill_strategy3_touch_matrix.py [--append-missing]
+
+--append-missing: 对 DuckDB 已有数据但矩阵 HTML 尚无行的日期，按日期序追加新机械行
+（全量复盘收尾自动跑时用；默认只替换已有的"待回填"/机械行，不新增）。
 
 口径（与策略三文档/回测一致）:
 - 核心池: 严格近15个交易日内进过单日加权涨幅(pct*sqrt(amount)) Top20
@@ -16,6 +19,7 @@
 """
 from __future__ import annotations
 
+import argparse
 import html as h
 import re
 from pathlib import Path
@@ -226,6 +230,11 @@ def build_rows():
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--append-missing", action="store_true",
+                    help="矩阵中不存在的日期行按日期序追加（不覆盖人工行）")
+    args = ap.parse_args()
+
     html_text = MATRIX.read_text(encoding="utf-8")
     gen = build_rows()
     empty_pat = re.compile(
@@ -243,6 +252,15 @@ def main() -> int:
         return m.group(0)
 
     html_text = empty_pat.sub(sub, html_text)
+
+    appended = []
+    if args.append_missing:
+        existing = set(re.findall(r'<td class="date">(\d{4}-\d{2}-\d{2})</td>', html_text))
+        marker = "</tbody>"
+        for d in sorted(gen):
+            if d not in existing and marker in html_text:
+                html_text = html_text.replace(marker, gen[d] + marker, 1)
+                appended.append(d)
     html_text = html_text.replace(
         "当前已填：2026-05-29、2026-06-01、2026-06-02、2026-06-03、2026-06-04、2026-06-05、2026-06-08、2026-06-09",
         "当前已填：全部日期（5.29起为人工D0回填，4.8~5.28为机械口径批量回填，行内标「机械回填」）",
@@ -254,6 +272,8 @@ def main() -> int:
     MATRIX.write_text(html_text, encoding="utf-8")
     print(MATRIX)
     print(f"replaced {len(replaced)} empty rows: {replaced[:3]} ... {replaced[-3:]}")
+    if appended:
+        print(f"appended {len(appended)} new rows: {appended}")
     return 0
 
 

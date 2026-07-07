@@ -116,15 +116,119 @@ class DualBlindForecastTests(unittest.TestCase):
                 encoding="utf-8",
             )
             report = dual_blind_forecast.aggregate(ledger)
-            codex = report["agents"]["codex"]
+            codex = report["agents"]["codex/duckdb"]
             self.assertEqual(codex["answers"], 1)
             self.assertEqual(codex["rechecked"], 1)
             self.assertEqual(codex["avg_pick_return_t1"], -0.5)
             self.assertEqual(codex["avg_pick_return_t3"], 2.0)
             self.assertEqual(codex["market_threshold_hit_rate"], 1.0)
-            claude = report["agents"]["claude"]
+            claude = report["agents"]["claude/duckdb"]
             self.assertEqual(claude["rechecked"], 0)
             self.assertIsNone(claude["avg_pick_return_t1"])
+
+    def test_validate_rejects_unknown_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp)
+            dual_blind_forecast.main(
+                ["--ledger-dir", str(ledger), "manifest", "--date", "2026-07-03", "--perspective", "2026-07-02", "--db", str(ledger / "x.duckdb")]
+            )
+            manifest = json.loads((ledger / "2026-07-03.manifest.json").read_text(encoding="utf-8"))
+            answer = _answer("2026-07-03", "codex", manifest["manifest_sha"])
+            answer["source"] = "twitter"
+            path = ledger / "2026-07-03.answer.codex.json"
+            path.write_text(json.dumps(answer, ensure_ascii=False), encoding="utf-8")
+            errors = dual_blind_forecast.validate_answer(path, ledger_dir=ledger)
+            self.assertIn("source", "\n".join(errors))
+
+    def test_aggregate_splits_by_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp)
+            a1 = _answer("2026-07-01", "codex", "sha1")
+            a2 = _answer("2026-07-02", "codex", "sha2")
+            a2["source"] = "sellside"
+            (ledger / "2026-07-01.answer.codex.json").write_text(json.dumps(a1, ensure_ascii=False), encoding="utf-8")
+            (ledger / "2026-07-02.answer.codex.json").write_text(json.dumps(a2, ensure_ascii=False), encoding="utf-8")
+            report = dual_blind_forecast.aggregate(ledger)
+            self.assertEqual(report["agents"]["codex/duckdb"]["answers"], 1)
+            self.assertEqual(report["agents"]["codex/sellside"]["answers"], 1)
+
+    def test_multi_source_filenames_same_day(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp)
+            dual_blind_forecast.main(
+                ["--ledger-dir", str(ledger), "manifest", "--date", "2026-07-03", "--perspective", "2026-07-02", "--db", str(ledger / "x.duckdb")]
+            )
+            manifest = json.loads((ledger / "2026-07-03.manifest.json").read_text(encoding="utf-8"))
+            for agent in ("codex", "claude"):
+                for source in ("duckdb", "briefing", "sellside"):
+                    answer = _answer("2026-07-03", agent, manifest["manifest_sha"])
+                    answer["source"] = source
+                    path = ledger / f"2026-07-03.answer.{agent}.{source}.json"
+                    path.write_text(json.dumps(answer, ensure_ascii=False), encoding="utf-8")
+                    self.assertEqual(dual_blind_forecast.validate_answer(path, ledger_dir=ledger), [])
+            paths = dual_blind_forecast.answer_paths_for("2026-07-03", ledger)
+            self.assertEqual(len(paths), 6)
+            self.assertIn("codex.briefing", paths)
+            self.assertEqual(dual_blind_forecast.parse_answer_filename("2026-07-03.answer.codex.briefing.json"), ("codex", "briefing"))
+            self.assertEqual(dual_blind_forecast.parse_answer_filename("2026-07-03.answer.codex.json"), ("codex", None))
+            draft = {
+                "date": "2026-07-03",
+                "verdicts": [{"id": "market", "agent": "codex", "verdict": "hit", "actual": "涨家数3804"}],
+            }
+            self.assertEqual(dual_blind_forecast.validate_verdict(draft, ledger_dir=ledger), [])
+
+    def test_validate_catches_filename_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp)
+            dual_blind_forecast.main(
+                ["--ledger-dir", str(ledger), "manifest", "--date", "2026-07-03", "--perspective", "2026-07-02", "--db", str(ledger / "x.duckdb")]
+            )
+            manifest = json.loads((ledger / "2026-07-03.manifest.json").read_text(encoding="utf-8"))
+            answer = _answer("2026-07-03", "codex", manifest["manifest_sha"])
+            answer["source"] = "sellside"
+            path = ledger / "2026-07-03.answer.codex.briefing.json"
+            path.write_text(json.dumps(answer, ensure_ascii=False), encoding="utf-8")
+            errors = dual_blind_forecast.validate_answer(path, ledger_dir=ledger)
+            self.assertIn("文件名 source=briefing", "\n".join(errors))
+
+    def test_recheck_autofill_from_duckdb(self) -> None:
+        try:
+            import duckdb
+        except ImportError:
+            self.skipTest("duckdb 不可用")
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp)
+            db_path = ledger / "mini.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code TEXT, close DOUBLE, pre_close DOUBLE, pct_chg DOUBLE)")
+            con.execute(
+                "INSERT INTO fact_stock_daily VALUES "
+                "('2026-07-03','688323.SH',102.0,100.0,2.0),"
+                "('2026-07-06','688323.SH',103.0,102.0,0.98),"
+                "('2026-07-07','688323.SH',110.0,103.0,6.8)"
+            )
+            con.execute("CREATE TABLE fact_market_daily (trade_date DATE, sh_index_close DOUBLE)")
+            con.execute("INSERT INTO fact_market_daily VALUES ('2026-07-02',3000.0),('2026-07-07',3030.0)")
+            con.close()
+            dual_blind_forecast.main(
+                ["--ledger-dir", str(ledger), "manifest", "--date", "2026-07-03", "--perspective", "2026-07-02", "--db", str(db_path)]
+            )
+            manifest = json.loads((ledger / "2026-07-03.manifest.json").read_text(encoding="utf-8"))
+            answer = _answer("2026-07-03", "codex", manifest["manifest_sha"])
+            answer["recheck"] = {"market_threshold_hit": True}
+            path = ledger / "2026-07-03.answer.codex.json"
+            path.write_text(json.dumps(answer, ensure_ascii=False), encoding="utf-8")
+            rc = dual_blind_forecast.main(["--ledger-dir", str(ledger), "recheck", str(path), "--db", str(db_path)])
+            self.assertEqual(rc, 0)
+            updated = json.loads(path.read_text(encoding="utf-8"))["recheck"]
+            self.assertEqual(updated["recheck_t1_date"], "2026-07-03")
+            self.assertEqual(updated["recheck_t3_date"], "2026-07-07")
+            self.assertEqual(updated["pick_returns_t1"], [2.0])
+            self.assertEqual(updated["pick_returns_t3"], [10.0])
+            self.assertEqual(updated["benchmark"], "sh000001")
+            self.assertEqual(updated["benchmark_return_t3"], 1.0)
+            self.assertTrue(updated["beat_benchmark_t3"])
+            self.assertTrue(updated["market_threshold_hit"])  # 人工字段不被覆盖
 
 
 if __name__ == "__main__":

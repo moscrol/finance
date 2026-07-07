@@ -132,6 +132,7 @@ def register_checkpoint(
     claim: str,
     due: str,
     category: str | None = None,
+    source: str | None = None,
     themes: list[str] | None = None,
     stocks: list[str] | None = None,
     metric: dict[str, Any] | None = None,
@@ -156,6 +157,7 @@ def register_checkpoint(
         "claim": text,
         "due": due_norm,
         "category": str(category).strip() if category and str(category).strip() else None,
+        "source": str(source).strip() if source and str(source).strip() else None,
         "themes": _clean_terms(themes),
         "stocks": _clean_terms(stocks),
     }
@@ -310,6 +312,7 @@ class CategoryStat:
 @dataclass
 class Calibration:
     by_category: list[CategoryStat] = field(default_factory=list)
+    by_source: list[CategoryStat] = field(default_factory=list)
     scored: int = 0
     pending: int = 0
     unverifiable: int = 0
@@ -326,33 +329,40 @@ def calibrate(
     verdicts: list[dict[str, Any]],
     today: str | None = None,
 ) -> Calibration:
-    """按 ``category`` 聚合终态打分→胜率；``by_category`` 按命中率升序（最该质疑的在前）。"""
+    """按 ``category``（二阶推演类型）与 ``source``（判断产出模块）两个维度聚合终态打分→胜率。
+
+    category 回答「哪类推演靠谱」；source 回答「哪个模块在产真信号」——命中率长期不达标的模块应降级为资料工具。
+    两个列表均按命中率升序（最该质疑的在前）。"""
     by_id = {str(c.get("id")): c for c in checkpoints if c.get("id")}
     terminal = _latest_terminal_verdicts(verdicts)
     stats: dict[str, CategoryStat] = {}
+    src_stats: dict[str, CategoryStat] = {}
     for cid, v in terminal.items():
         ck = by_id.get(cid)
         if ck is None:
             continue
         cat = str(ck.get("category") or "未分类").strip() or "未分类"
-        st = stats.setdefault(cat, CategoryStat(category=cat))
+        src = str(ck.get("source") or "未标来源").strip() or "未标来源"
         verdict = str(v.get("verdict"))
         score = v.get("score")
         score = SCORE_MAP.get(verdict, 0.0) if score is None else float(score)
-        st.n += 1
-        st.score_sum += score
-        if verdict == "hit":
-            st.hits += 1
-        elif verdict == "partial":
-            st.partial += 1
-        else:
-            st.miss += 1
-        if len(st.samples) < 3:
-            st.samples.append(str(ck.get("claim") or "")[:60])
+        for key, bucket in ((cat, stats), (src, src_stats)):
+            st = bucket.setdefault(key, CategoryStat(category=key))
+            st.n += 1
+            st.score_sum += score
+            if verdict == "hit":
+                st.hits += 1
+            elif verdict == "partial":
+                st.partial += 1
+            else:
+                st.miss += 1
+            if len(st.samples) < 3:
+                st.samples.append(str(ck.get("claim") or "")[:60])
     pending = len(due_checkpoints(checkpoints, verdicts, today=today))
     unverifiable = sum(1 for v in verdicts if v.get("verdict") == "unverifiable")
     return Calibration(
         by_category=sorted(stats.values(), key=lambda s: (s.hit_rate, -s.n)),
+        by_source=sorted(src_stats.values(), key=lambda s: (s.hit_rate, -s.n)),
         scored=sum(s.n for s in stats.values()),
         pending=pending,
         unverifiable=unverifiable,
@@ -398,6 +408,14 @@ def render_report(cal: Calibration) -> str:
         lines.append(f"- 样本 {st.n}：命中 {st.hits} / 半对 {st.partial} / 落空 {st.miss}")
         for s in st.samples:
             lines.append(f"- 例：{s}")
+    if cal.by_source:
+        lines.append("")
+        lines.append("# 按产出模块（哪个模块在产真信号）")
+        for st in cal.by_source:
+            lines.append(
+                f"- {st.category}：命中率 {round(st.hit_rate * 100)}%（{st.reliability}）"
+                f"，样本 {st.n}：命中 {st.hits} / 半对 {st.partial} / 落空 {st.miss}"
+            )
     return "\n".join(lines) + "\n"
 
 

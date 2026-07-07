@@ -562,6 +562,7 @@ def add_daily_agent_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--wiki-rag-mode", default="hybrid", choices=["bm25", "dense", "hybrid"], help="agent 日报语义召回模式")
     parser.add_argument("--wiki-rag-timeout", type=int, default=120, help="单次 W 召回超时时间")
     parser.add_argument("--effectiveness-window", type=int, default=20, help="历史有效性评估回看的 theme-candidates 交易日数")
+    parser.add_argument("--catalyst-window-days", type=int, default=5, help="催化归因回看的自然日数（卖方观点/晨汇）")
     parser.add_argument("--out-json", default=None, help="写出 agent 日报 JSON")
     parser.add_argument("--out-md", default=None, help="写出 agent 日报 Markdown")
     parser.add_argument("--out-html", default=None, help="写出 agent 日报 HTML，供复盘工作台 iframe 使用")
@@ -692,6 +693,7 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
             wiki_rag_mode=args.wiki_rag_mode,
             wiki_rag_timeout=args.wiki_rag_timeout,
             effectiveness_window=args.effectiveness_window,
+            catalyst_window_days=args.catalyst_window_days,
         )
     )
     paths = default_paths()
@@ -1807,6 +1809,7 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_reg.add_argument("--claim", required=True, help="可证伪陈述（必填）")
     p_reg.add_argument("--due", required=True, help="到期回检日 YYYY-MM-DD（必填）")
     p_reg.add_argument("--category", default=None, help="二阶推演类型（校准聚合维度，如 估值切换/产能时点/情绪扩散）")
+    p_reg.add_argument("--source", default=None, help="判断产出模块（校准第二聚合维度，如 logic_lifecycle/framework_interpretation；手工登记可缺省）")
     p_reg.add_argument("--theme", dest="themes", action="append", default=[], help="关联题材（可多次）")
     p_reg.add_argument("--stock", dest="stocks", action="append", default=[], help="关联个股（可多次）")
     p_reg.add_argument("--metric-type", default=None, choices=["stock_return", "kb_evidence", "manual"], help="机检规格类型；缺省走人工判定")
@@ -1867,6 +1870,95 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_st.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
     p_st.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_st.set_defaults(func=cmd_checkpoint_status)
+
+
+def add_red_team_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "red-team",
+        help="红队反方（devils-advocate）：对一条判断拉出最强反面——同类历史纠偏 + "
+        "低胜率推演类别 + 固定反方叙事骨架；不给结论不打分，只保证你按钮前见过反面",
+    )
+    parser.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    parser.add_argument("--claim", required=True, help="被审的判断（必填）")
+    parser.add_argument("--theme", dest="themes", action="append", default=[], help="关联题材（可多次，用于匹配历史纠偏）")
+    parser.add_argument("--category", default=None, help="本判断的二阶推演类别（用于对照低胜率类别）")
+    parser.add_argument("--corrections-window", type=int, default=200, help="回看最近多少条纠偏（默认 200）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    parser.set_defaults(func=cmd_red_team)
+
+
+def cmd_red_team(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence import userspace
+    from intelligence.services import checkpoints, corrections, red_team
+
+    us = userspace.user_space(args.user)
+    recs, cwarn = corrections.load_corrections(us.corrections_path, window=args.corrections_window)
+    cal, cal_warnings = checkpoints.load_calibration(us.checkpoints_path, us.verdicts_path)
+    brief = red_team.build_red_team_brief(
+        args.claim,
+        themes=args.themes,
+        category=args.category,
+        corrections=recs,
+        calibration=cal,
+    )
+    warnings = ([cwarn] if cwarn else []) + cal_warnings
+    if args.json:
+        print(_json.dumps({"brief": brief.to_dict(), "warnings": warnings}, ensure_ascii=False, indent=2))
+    else:
+        print(brief.to_markdown(), end="")
+        for w in warnings:
+            print(f"[warn] {w}", file=sys.stderr)
+    return 0
+
+
+def add_retrieval_audit_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "retrieval-audit",
+        help="检索审计台账报表：summary=命中来源/失败率聚合；pages=页级命中排行"
+        "（档案维护降级的数据底座——零命中页停止精修投入，不删页）",
+    )
+    sub = parser.add_subparsers(dest="action", required=True)
+
+    p_sum = sub.add_parser("summary", help="台账聚合：命中来源分布 / L3 覆盖率 / 失败率 / 失败标签分布")
+    p_sum.add_argument("--ledger", required=True, help="检索审计台账 JSONL 路径（ask --audit-ledger 落的那份）")
+    p_sum.set_defaults(func=cmd_retrieval_audit_summary)
+
+    p_pg = sub.add_parser("pages", help="页级命中排行：每个 wiki 页被命中几次、最后命中时间")
+    p_pg.add_argument("--ledger", required=True, help="检索审计台账 JSONL 路径（ask --audit-ledger 落的那份）")
+    p_pg.add_argument("--top", type=int, default=50, help="只显示前 N 页（默认 50；JSON 输出不截断）")
+    p_pg.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_pg.set_defaults(func=cmd_retrieval_audit_pages)
+
+
+def cmd_retrieval_audit_summary(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import retrieval_audit
+
+    print(_json.dumps(retrieval_audit.summarize_ledger(args.ledger), ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_retrieval_audit_pages(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import retrieval_audit
+
+    summary = retrieval_audit.summarize_pages(args.ledger)
+    if args.json:
+        print(_json.dumps(summary, ensure_ascii=False, indent=2))
+        return 0
+    print(
+        f"台账 {summary['total_records']} 条记录 · 含 wiki 命中 {summary['records_with_wiki_pages']} 条 · "
+        f"命中过 {summary['distinct_pages']} 个不同页"
+    )
+    for st in summary["pages"][: args.top]:
+        print(f"  {st['hits']:>4} 次 · 最后命中 {st['last_hit'][:10] or '?'} · {st['page']}")
+    if summary["distinct_pages"] > args.top:
+        print(f"  …（其余 {summary['distinct_pages'] - args.top} 页略，--top 调大或 --json 看全量）")
+    return 0
 
 
 def add_perspective_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -2081,6 +2173,7 @@ def cmd_checkpoint_register(args: argparse.Namespace) -> int:
         claim=args.claim,
         due=args.due,
         category=args.category,
+        source=args.source,
         themes=args.themes,
         stocks=args.stocks,
         metric=metric,
@@ -2240,6 +2333,19 @@ def cmd_checkpoint_calibrate(args: argparse.Namespace) -> int:
                     }
                     for s in cal.by_category
                 ],
+                "by_source": [
+                    {
+                        "source": s.category,
+                        "n": s.n,
+                        "hits": s.hits,
+                        "partial": s.partial,
+                        "miss": s.miss,
+                        "hit_rate": round(s.hit_rate, 4),
+                        "reliability": s.reliability,
+                        "samples": s.samples,
+                    }
+                    for s in cal.by_source
+                ],
                 "warnings": warnings,
             },
             ensure_ascii=False, indent=2,
@@ -2309,6 +2415,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_dream_nightly_parser(subparsers)
     add_subconscious_parser(subparsers)
     add_checkpoint_parser(subparsers)
+    add_red_team_parser(subparsers)
+    add_retrieval_audit_parser(subparsers)
     add_perspective_parser(subparsers)
     return parser
 

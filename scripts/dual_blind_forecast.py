@@ -6,16 +6,20 @@
 1. ``manifest``：答卷前先生成输入清单（DuckDB 截止日、材料文件 sha256、
    知识库 commit id），写入台账目录 ``<date>.manifest.json``。两份答卷
    必须引用同一份清单的 ``manifest_sha``，保证冻结输入一致（控制变量）。
-2. ``validate``：校验机器可读答卷 ``<date>.answer.<agent>.json`` 的必填
-   字段与 manifest 一致性；答卷 markdown 照旧给人读，JSON 给机器算。
+2. ``validate``：校验机器可读答卷 ``<date>.answer.<agent>[.<source>].json``
+   （source 可选，取 duckdb/briefing/sellside，同日同 agent 可按流各落一份）
+   的必填字段与 manifest 一致性；答卷 markdown 照旧给人读，JSON 给机器算。
 3. ``aggregate``：跨期聚合所有答卷 + 回检数据，按 agent 输出标的池
    T+1/T+3 均值、跑赢比例、阈值命中率等长期统计（单期噪声大，看聚合）。
 4. ``verdict``：盘后验证结果的唯一机器可读落点 ``<date>.verdict.json``。
    逐假设 {id, agent, verdict: hit/miss/partial/unverifiable, actual, evidence_ref}，
    假设 id 必须引用对应答卷的假设 id（答卷可选 ``hypotheses`` 字段；未声明时
    从 thresholds/picks 派生：market / direction / falsify / target:<code>）。
+   落盘后同时把回检表渲染进当日 ``<date>.md`` 的自动生成标记区（md 不存在时跳过并提示）。
 5. ``index``：从 manifest/answer/verdict 扫描生成状态总表，写入 ``index.md``
-   的自动生成标记区（人写的导航区不动）。
+   的自动生成标记区（人写的导航区不动）。加 ``--html`` 同时生成
+   ``index.html`` 总入口：每日展开各 agent 的先验假设（主判断 + 市场/方向/证伪
+   阈值 + 标的池），有 verdict 时逐假设标注 hit/miss，日期链接跳单日详情页。
 
 用法::
 
@@ -25,7 +29,7 @@
         docs/learning/forecast-review-ledger/2026-07-03.answer.codex.json
     python3 scripts/dual_blind_forecast.py aggregate [--json]
     python3 scripts/dual_blind_forecast.py verdict 草稿.json   # 校验后落盘 <date>.verdict.json
-    python3 scripts/dual_blind_forecast.py index              # 重建 index.md 状态总表
+    python3 scripts/dual_blind_forecast.py index [--html]     # 重建 index.md 状态总表（--html 另出 index.html 总入口）
 
 只读 DuckDB / 材料文件；不联网。找不到 DuckDB 时 manifest 相应字段留空并 WARN。
 """
@@ -33,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html as html_mod
 import json
 import subprocess
 import sys
@@ -45,6 +50,11 @@ LEDGER_DIR = REPO / "docs" / "learning" / "forecast-review-ledger"
 DB_PATH = REPO / "db" / "market_feature_store.duckdb"
 
 ALLOWED_AGENTS = {"codex", "claude", "devin"}
+# 三流分账：盘面(duckdb, T+1) / 晨汇事件(briefing, 当日/T+1) / 晚间卖方(sellside, T+3/T+5)
+# 验证窗口与评判标准不同，聚合必须分流统计，混池算胜率会互相污染。
+# 问句模板见 docs/learning/forecast-question-templates.md
+ALLOWED_SOURCES = {"duckdb", "briefing", "sellside"}
+DEFAULT_SOURCE = "duckdb"
 REQUIRED_ANSWER_FIELDS = (
     "schema_version",
     "date",
@@ -59,9 +69,14 @@ REQUIRED_ANSWER_FIELDS = (
 REQUIRED_PICK_FIELDS = ("code", "name", "strategy", "reason")
 REQUIRED_THRESHOLD_FIELDS = ("market", "direction", "targets", "falsify")
 VERDICT_VALUES = {"hit", "miss", "partial", "unverifiable"}
+VERDICT_LABELS = {"hit": "✅ hit", "miss": "❌ miss", "partial": "⚠️ partial", "unverifiable": "❓ unverifiable"}
 REQUIRED_VERDICT_FIELDS = ("id", "agent", "verdict")
+VERDICT_STREAMS = {"盘面", "晨汇", "卖方"}
+VERDICT_HORIZONS = {"T+1", "T+3", "T+5"}
 INDEX_BEGIN = "<!-- BEGIN AUTO dual-blind-status 本表由 dual_blind_forecast.py index 生成，勿手改 -->"
 INDEX_END = "<!-- END AUTO dual-blind-status -->"
+VERDICT_BEGIN = "<!-- BEGIN AUTO dual-blind-verdict 本表由 dual_blind_forecast.py verdict 渲染，勿手改 -->"
+VERDICT_END = "<!-- END AUTO dual-blind-verdict -->"
 
 
 def _sha256(path: Path) -> str:
@@ -178,6 +193,17 @@ def validate_answer(answer_path: Path, *, ledger_dir: Path = LEDGER_DIR) -> list
     if str(answer["agent"]).lower() not in ALLOWED_AGENTS:
         errors.append(f"agent 应为 {sorted(ALLOWED_AGENTS)} 之一，实际 {answer['agent']}")
 
+    source = str(answer.get("source") or DEFAULT_SOURCE).lower()
+    if source not in ALLOWED_SOURCES:
+        errors.append(f"source 应为 {sorted(ALLOWED_SOURCES)} 之一，实际 {answer.get('source')}")
+
+    if ".answer." in answer_path.name:
+        fname_agent, fname_source = parse_answer_filename(answer_path.name)
+        if fname_agent != str(answer["agent"]).lower():
+            errors.append(f"文件名 agent={fname_agent} 与答卷 agent={answer['agent']} 不一致")
+        if fname_source is not None and fname_source != source:
+            errors.append(f"文件名 source={fname_source} 与答卷 source={source} 不一致")
+
     picks = answer.get("picks") or []
     if not isinstance(picks, list) or not picks:
         errors.append("picks 应为非空列表")
@@ -217,11 +243,21 @@ def hypothesis_ids(answer: dict[str, Any]) -> set[str]:
     return ids
 
 
+def parse_answer_filename(name: str) -> tuple[str, str | None]:
+    """解析 ``<date>.answer.<agent>[.<source>].json`` -> (agent, source|None)。"""
+    suffix = name.split(".answer.", 1)[1].rsplit(".json", 1)[0].lower()
+    if "." in suffix:
+        agent, source = suffix.split(".", 1)
+        return agent, source
+    return suffix, None
+
+
 def answer_paths_for(date: str, ledger_dir: Path = LEDGER_DIR) -> dict[str, Path]:
+    """key 为文件名后缀 ``agent`` 或 ``agent.source``（同日同 agent 多流并存）。"""
     out: dict[str, Path] = {}
     for path in sorted(ledger_dir.glob(f"{date}.answer.*.json")):
-        agent = path.name.split(".answer.", 1)[1].rsplit(".json", 1)[0].lower()
-        out[agent] = path
+        key = path.name.split(".answer.", 1)[1].rsplit(".json", 1)[0].lower()
+        out[key] = path
     return out
 
 
@@ -241,11 +277,14 @@ def validate_verdict(draft: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) ->
 
     answers = answer_paths_for(date, ledger_dir)
     ids_by_agent: dict[str, set[str]] = {}
-    for agent, path in answers.items():
+    for key, path in answers.items():
         try:
-            ids_by_agent[agent] = hypothesis_ids(json.loads(path.read_text(encoding="utf-8")))
+            answer = json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
             errors.append(f"答卷 {path.name} 不可读：{exc}")
+            continue
+        agent = str(answer.get("agent") or key.split(".", 1)[0]).lower()
+        ids_by_agent.setdefault(agent, set()).update(hypothesis_ids(answer))
 
     for i, entry in enumerate(verdicts):
         for field in REQUIRED_VERDICT_FIELDS:
@@ -255,7 +294,7 @@ def validate_verdict(draft: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) ->
         agent = str(entry.get("agent") or "").lower()
         if agent and agent not in ids_by_agent:
             errors.append(
-                f"verdicts[{i}] agent={agent} 无对应答卷 {date}.answer.{agent}.json——先有答卷再有验证"
+                f"verdicts[{i}] agent={agent} 无对应答卷 {date}.answer.{agent}[.<source>].json——先有答卷再有验证"
             )
         elif agent and entry.get("id") and str(entry["id"]) not in ids_by_agent[agent]:
             errors.append(
@@ -265,6 +304,10 @@ def validate_verdict(draft: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) ->
             errors.append(f"verdicts[{i}] verdict 应为 {sorted(VERDICT_VALUES)} 之一，实际 {entry['verdict']}")
         if str(entry.get("verdict")) in {"hit", "miss", "partial"} and not entry.get("actual"):
             errors.append(f"verdicts[{i}] 已裁定 {entry.get('verdict')} 必须填 actual（实际值/实际情况）")
+        if entry.get("stream") and str(entry["stream"]) not in VERDICT_STREAMS:
+            errors.append(f"verdicts[{i}] stream 应为 {sorted(VERDICT_STREAMS)} 之一，实际 {entry['stream']}")
+        if entry.get("horizon") and str(entry["horizon"]) not in VERDICT_HORIZONS:
+            errors.append(f"verdicts[{i}] horizon 应为 {sorted(VERDICT_HORIZONS)} 之一，实际 {entry['horizon']}")
     return errors
 
 
@@ -290,7 +333,53 @@ def cmd_verdict(args: argparse.Namespace) -> int:
     out_path = verdict_path_for(str(draft["date"]), ledger_dir)
     out_path.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"OK    written: {out_path}")
+    md_path = render_verdict_md(body, ledger_dir=ledger_dir)
+    if md_path is None:
+        print(f"WARN: 当日台账 {draft['date']}.md 不存在，回检表未渲染", file=sys.stderr)
+    else:
+        print(f"OK    rendered: {md_path}")
     return 0
+
+
+def build_verdict_table(verdict: dict[str, Any]) -> str:
+    lines = [
+        "| 假设 id | agent | 流 | 时点 | 判定 | 实际 | 归因 | 证据 |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for entry in verdict.get("verdicts") or []:
+        label = VERDICT_LABELS.get(str(entry.get("verdict") or ""), str(entry.get("verdict") or "—"))
+        lines.append(
+            f"| {entry.get('id') or '—'} | {entry.get('agent') or '—'} | {entry.get('stream') or '盘面'} "
+            f"| {entry.get('horizon') or 'T+1'} | {label} | {entry.get('actual') or '—'} "
+            f"| {entry.get('failure_mode') or '—'} | {entry.get('evidence_ref') or '—'} |"
+        )
+    stats = _verdict_stats(verdict)
+    summary = []
+    for agent, bucket in sorted(stats.items()):
+        judged = bucket["hit"] + bucket["miss"] + bucket["partial"]
+        summary.append(f"{agent} {bucket['hit']}/{judged}" if judged else f"{agent} 0/0")
+    lines += ["", f"> 命中率（hit/已裁定）：{'，'.join(summary) if summary else '—'}"]
+    return "\n".join(lines)
+
+
+def render_verdict_md(verdict: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) -> Path | None:
+    """把 verdict 回检表写进当日 <date>.md 的自动生成标记区；md 不存在返回 None。"""
+    md_path = ledger_dir / f"{verdict['date']}.md"
+    if not md_path.exists():
+        return None
+    block = (
+        f"{VERDICT_BEGIN}\n\n### 盘后验证回检表（脚本渲染，来源 {verdict['date']}.verdict.json）\n\n"
+        f"{build_verdict_table(verdict)}\n\n{VERDICT_END}"
+    )
+    text = md_path.read_text(encoding="utf-8")
+    if VERDICT_BEGIN in text and VERDICT_END in text:
+        head, rest = text.split(VERDICT_BEGIN, 1)
+        _, tail = rest.split(VERDICT_END, 1)
+        text = head + block + tail
+    else:
+        text = text.rstrip("\n") + "\n\n" + block + "\n"
+    md_path.write_text(text, encoding="utf-8")
+    return md_path
 
 
 def _verdict_stats(verdict: dict[str, Any]) -> dict[str, dict[str, int]]:
@@ -342,6 +431,138 @@ def build_index_table(ledger_dir: Path = LEDGER_DIR) -> str:
     return "\n".join(lines)
 
 
+def _ledger_dates(ledger_dir: Path) -> list[str]:
+    dates: set[str] = set()
+    for pattern in ("*.manifest.json", "*.answer.*.json", "*.verdict.json"):
+        for path in ledger_dir.glob(pattern):
+            dates.add(path.name.split(".", 1)[0])
+    return sorted(dates, reverse=True)
+
+
+def _verdicts_by_key(verdict: dict[str, Any]) -> dict[tuple[str, str], dict[str, Any]]:
+    return {
+        (str(e.get("agent") or "").lower(), str(e.get("id") or "")): e
+        for e in verdict.get("verdicts") or []
+    }
+
+
+def _html_hypothesis_rows(answer: dict[str, Any], agent: str, vmap: dict[tuple[str, str], dict[str, Any]]) -> str:
+    esc = html_mod.escape
+    thresholds = answer.get("thresholds") or {}
+    rows: list[tuple[str, str]] = [
+        ("market", str(thresholds.get("market") or "—")),
+        ("direction", str(thresholds.get("direction") or "—")),
+        ("falsify", str(thresholds.get("falsify") or "—")),
+    ]
+    for pick in answer.get("picks") or []:
+        if pick.get("code"):
+            rows.append((f"target:{pick['code']}", f"{pick.get('name') or ''} {pick.get('reason') or ''}".strip() or "—"))
+    cells = []
+    for hid, text in rows:
+        entry = vmap.get((agent, hid))
+        if entry:
+            value = str(entry.get("verdict") or "")
+            label = f'<span class="v v-{esc(value)}">{esc(VERDICT_LABELS.get(value, value))}</span>'
+            actual = f'<div class="actual">实际：{esc(str(entry.get("actual") or "—"))}</div>'
+        else:
+            label, actual = '<span class="v v-pending">待验证</span>', ""
+        cells.append(
+            f'<tr><td class="hid">{esc(hid)}</td><td>{esc(text)}{actual}</td><td>{label}</td></tr>'
+        )
+    return "".join(cells)
+
+
+def build_index_html(ledger_dir: Path = LEDGER_DIR) -> str:
+    esc = html_mod.escape
+    sections: list[str] = []
+    for date in _ledger_dates(ledger_dir):
+        vpath = verdict_path_for(date, ledger_dir)
+        vmap: dict[tuple[str, str], dict[str, Any]] = {}
+        if vpath.exists():
+            try:
+                vmap = _verdicts_by_key(json.loads(vpath.read_text(encoding="utf-8")))
+            except Exception:
+                vmap = {}
+        cards: list[str] = []
+        for key, apath in sorted(answer_paths_for(date, ledger_dir).items()):
+            try:
+                answer = json.loads(apath.read_text(encoding="utf-8"))
+            except Exception:
+                cards.append(f'<div class="card"><h3>{esc(key)}</h3><p class="muted">答卷不可读</p></div>')
+                continue
+            agent = str(answer.get("agent") or key.split(".", 1)[0]).lower()
+            title = key.replace(".", " · ")
+            cards.append(
+                f'<div class="card"><h3>{esc(title)}</h3>'
+                f'<p class="judgment">{esc(str(answer.get("main_judgment") or "—"))}</p>'
+                f'<table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead>'
+                f'<tbody>{_html_hypothesis_rows(answer, agent, vmap)}</tbody></table></div>'
+            )
+        if not cards:
+            cards.append('<p class="muted">当日无机器可读答卷</p>')
+        md_link = f'<a href="{esc(date)}.md">md</a>'
+        html_link = f' · <a href="{esc(date)}.html">并排页</a>' if (ledger_dir / f"{date}.html").exists() else ""
+        md_path = ledger_dir / f"{date}.md"
+        raw_block = ""
+        if md_path.exists():
+            raw_block = (
+                f'<details class="raw"><summary>当日原文（{esc(date)}.md，点开展开）</summary>'
+                f'<pre>{esc(md_path.read_text(encoding="utf-8"))}</pre></details>'
+            )
+        sections.append(
+            f'<section><h2>{esc(date)} <small>{md_link}{html_link}</small></h2>'
+            f'<div class="cards">{"".join(cards)}</div>{raw_block}</section>'
+        )
+    body = "\n".join(sections) or '<p class="muted">暂无机器可读台账文件（answer/verdict JSON）。</p>'
+    generated = datetime.now().astimezone().isoformat(timespec="seconds")
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>双盲复盘台账总入口</title>
+<style>
+  :root {{ --bg:#f7f8fa; --text:#1f2933; --muted:#64748b; --line:#d9dee7; --panel:#ffffff;
+           --good:#0f8b5f; --bad:#c2410c; --warn:#a16207; --blue:#2563eb; }}
+  * {{ box-sizing:border-box; }}
+  body {{ margin:0; background:var(--bg); color:var(--text); line-height:1.55;
+          font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }}
+  header {{ background:#111827; color:#fff; padding:24px 32px; }}
+  header h1 {{ margin:0; font-size:24px; }}
+  header p {{ margin:6px 0 0; color:#cbd5e1; font-size:13px; }}
+  main {{ max-width:1100px; margin:0 auto; padding:24px 32px 64px; }}
+  section {{ margin-bottom:32px; }}
+  h2 {{ border-bottom:1px solid var(--line); padding-bottom:6px; }}
+  h2 small {{ font-size:13px; font-weight:400; margin-left:8px; }}
+  .cards {{ display:flex; gap:16px; flex-wrap:wrap; }}
+  .card {{ background:var(--panel); border:1px solid var(--line); border-radius:8px;
+           padding:16px; flex:1 1 480px; }}
+  .card h3 {{ margin:0 0 8px; text-transform:capitalize; }}
+  .judgment {{ font-weight:600; }}
+  table {{ border-collapse:collapse; width:100%; font-size:13px; }}
+  th,td {{ border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }}
+  .hid {{ white-space:nowrap; font-family:ui-monospace,monospace; }}
+  .actual {{ color:var(--muted); font-size:12px; margin-top:4px; }}
+  .muted {{ color:var(--muted); }}
+  .v {{ white-space:nowrap; }}
+  .v-hit {{ color:var(--good); }} .v-miss {{ color:var(--bad); }}
+  .v-partial {{ color:var(--warn); }} .v-unverifiable,.v-pending {{ color:var(--muted); }}
+  details.raw {{ margin-top:12px; background:var(--panel); border:1px solid var(--line);
+                 border-radius:8px; padding:8px 12px; }}
+  details.raw summary {{ cursor:pointer; color:var(--blue); font-size:13px; }}
+  details.raw pre {{ white-space:pre-wrap; word-break:break-word; font-size:12px;
+                     max-height:70vh; overflow:auto; }}
+</style>
+</head>
+<body>
+<header><h1>双盲复盘台账总入口</h1>
+<p>每日各 agent 先验假设（主判断 + 市场/方向/证伪阈值 + 标的池）与盘后验证。由 dual_blind_forecast.py index --html 生成于 {esc(generated)}，勿手改。</p></header>
+<main>{body}</main>
+</body>
+</html>
+"""
+
+
 def cmd_index(args: argparse.Namespace) -> int:
     ledger_dir = Path(args.ledger_dir).expanduser()
     index_path = ledger_dir / "index.md"
@@ -358,6 +579,10 @@ def cmd_index(args: argparse.Namespace) -> int:
         text = "# 复盘推演回检台账\n\n" + block + "\n"
     index_path.write_text(text, encoding="utf-8")
     print(f"written: {index_path}")
+    if getattr(args, "html", False):
+        html_path = ledger_dir / "index.html"
+        html_path.write_text(build_index_html(ledger_dir), encoding="utf-8")
+        print(f"written: {html_path}")
     return 0
 
 
@@ -389,8 +614,9 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
         except Exception:
             continue
         agent = str(answer.get("agent") or "unknown").lower()
+        source = str(answer.get("source") or DEFAULT_SOURCE).lower()
         stat = per_agent.setdefault(
-            agent,
+            (agent, source),
             {
                 "answers": 0,
                 "rechecked": 0,
@@ -418,10 +644,30 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
             if recheck["market_threshold_hit"]:
                 stat["market_threshold_hits"] += 1
 
+    verdict_stats: dict[str, dict[str, dict[str, int]]] = {}
+    failure_modes: dict[str, dict[str, int]] = {}
+    for vpath in sorted(ledger_dir.glob("*.verdict.json")):
+        try:
+            verdict = json.loads(vpath.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for entry in verdict.get("verdicts") or []:
+            agent = str(entry.get("agent") or "unknown").lower()
+            key = f"{entry.get('stream') or '盘面'}/{entry.get('horizon') or 'T+1'}"
+            bucket = verdict_stats.setdefault(agent, {}).setdefault(key, {v: 0 for v in sorted(VERDICT_VALUES)})
+            value = str(entry.get("verdict") or "")
+            if value in bucket:
+                bucket[value] += 1
+            if entry.get("failure_mode"):
+                fm = failure_modes.setdefault(agent, {})
+                fm[str(entry["failure_mode"])] = fm.get(str(entry["failure_mode"]), 0) + 1
+
     agents: dict[str, Any] = {}
-    for agent, stat in sorted(per_agent.items()):
+    for (agent, source), stat in sorted(per_agent.items()):
         checked = stat["market_threshold_checked"]
-        agents[agent] = {
+        agents[f"{agent}/{source}"] = {
+            "agent": agent,
+            "source": source,
             "answers": stat["answers"],
             "rechecked": stat["rechecked"],
             "dates": stat["dates"],
@@ -431,12 +677,27 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
             "market_threshold_hit_rate": (
                 round(stat["market_threshold_hits"] / checked, 4) if checked else None
             ),
+            "verdicts_by_stream_horizon": verdict_stats.get(agent, {}),
+            "failure_modes": failure_modes.get(agent, {}),
+        }
+    for agent in sorted(set(verdict_stats) - set(agents)):
+        agents[agent] = {
+            "answers": 0,
+            "rechecked": 0,
+            "dates": [],
+            "avg_pick_return_t1": None,
+            "avg_pick_return_t3": None,
+            "beat_benchmark_t3": 0,
+            "market_threshold_hit_rate": None,
+            "verdicts_by_stream_horizon": verdict_stats[agent],
+            "failure_modes": failure_modes.get(agent, {}),
         }
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "ledger_dir": str(ledger_dir),
         "agents": agents,
         "notes": [
+            "分流分账：同一 agent 的 duckdb/briefing/sellside 三流分开统计，验证窗口不同不可混池。",
             "单期噪声大：answers < 10 的 agent 统计只作参考，不下结论。",
             "recheck 块由回检人/脚本按统一指标回填：pick_returns_t1/t3（标的池各标的收益%）、",
             "beat_benchmark_t3（标的池 T+3 是否跑赢基准）、market_threshold_hit（§5 市场阈值是否命中）。",
@@ -450,19 +711,164 @@ def _render_aggregate_md(report: dict[str, Any]) -> str:
         "",
         f"生成时间：{report['generated_at']}",
         "",
-        "| agent | 答卷数 | 已回检 | T+1 标的均值% | T+3 标的均值% | T+3 跑赢次数 | 市场阈值命中率 |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| agent | 流 | 答卷数 | 已回检 | T+1 标的均值% | T+3 标的均值% | T+3 跑赢次数 | 市场阈值命中率 |",
+        "|---|---|---:|---:|---:|---:|---:|---:|",
     ]
-    for agent, stat in report["agents"].items():
+    for key, stat in report["agents"].items():
         lines.append(
-            f"| {agent} | {stat['answers']} | {stat['rechecked']} | "
+            f"| {stat.get('agent', key)} | {stat.get('source', '-')} | {stat['answers']} | {stat['rechecked']} | "
             f"{stat['avg_pick_return_t1'] if stat['avg_pick_return_t1'] is not None else '-'} | "
             f"{stat['avg_pick_return_t3'] if stat['avg_pick_return_t3'] is not None else '-'} | "
             f"{stat['beat_benchmark_t3']} | "
             f"{stat['market_threshold_hit_rate'] if stat['market_threshold_hit_rate'] is not None else '-'} |"
         )
+    verdict_rows = []
+    for agent, stat in report["agents"].items():
+        for key, bucket in sorted((stat.get("verdicts_by_stream_horizon") or {}).items()):
+            judged = bucket["hit"] + bucket["miss"] + bucket["partial"]
+            stream, horizon = key.split("/", 1)
+            verdict_rows.append(
+                f"| {agent} | {stream} | {horizon} | {bucket['hit']} | {bucket['miss']} "
+                f"| {bucket['partial']} | {bucket['unverifiable']} | "
+                f"{round(bucket['hit'] / judged, 4) if judged else '-'} |"
+            )
+    if verdict_rows:
+        lines += [
+            "",
+            "## 盘后验证按流×时点",
+            "",
+            "| agent | 流 | 时点 | hit | miss | partial | unverifiable | 命中率 |",
+            "|---|---|---|---:|---:|---:|---:|---:|",
+            *verdict_rows,
+        ]
+        fm_lines = []
+        for agent, stat in report["agents"].items():
+            fms = stat.get("failure_modes") or {}
+            if fms:
+                fm_lines.append(f"- {agent}：" + "，".join(f"{k}×{v}" for k, v in sorted(fms.items(), key=lambda kv: -kv[1])))
+        if fm_lines:
+            lines += ["", "### miss/partial 归因分布", "", *fm_lines]
     lines += ["", "> " + " ".join(report["notes"])]
     return "\n".join(lines) + "\n"
+
+
+BENCHMARK = "sh000001"  # 统一基准：上证指数（fact_market_daily.sh_index_close），写进 recheck 块保证跨期可比
+
+
+def _recheck_from_duckdb(answer: dict[str, Any], manifest: dict[str, Any], db_path: Path) -> tuple[dict[str, Any], list[str]]:
+    """从 DuckDB 自动回填数值类指标；返回 (recheck 块增量, 警告列表)。
+
+    只填机器能算的：pick_returns_t1/t3、benchmark_return_t3、beat_benchmark_t3。
+    market_threshold_hit 是自然语言阈值，仍由人判定回填。
+    """
+    import duckdb  # noqa: PLC0415 可选依赖延迟导入
+
+    warnings: list[str] = []
+    perspective = str(manifest.get("perspective_date") or "")
+    con = duckdb.connect(str(db_path), read_only=True)
+    try:
+        dates = [str(r[0]) for r in con.execute(
+            "SELECT DISTINCT trade_date FROM fact_stock_daily WHERE trade_date > ? ORDER BY trade_date LIMIT 3",
+            [perspective],
+        ).fetchall()]
+        if not dates:
+            return {}, [f"DuckDB 里没有 {perspective} 之后的交易日，无法回检"]
+        t1 = dates[0]
+        t3 = dates[2] if len(dates) >= 3 else None
+        if t3 is None:
+            warnings.append(f"T+3 数据未到（目前只到 {dates[-1]}），只回填 T+1")
+
+        def _close(code: str, day: str) -> float | None:
+            row = con.execute(
+                "SELECT close FROM fact_stock_daily WHERE trade_date = ? AND split_part(stock_ts_code, '.', 1) = ? LIMIT 1",
+                [day, code],
+            ).fetchone()
+            return float(row[0]) if row and row[0] is not None else None
+
+        def _pct_chg(code: str, day: str) -> float | None:
+            row = con.execute(
+                "SELECT pct_chg FROM fact_stock_daily WHERE trade_date = ? AND split_part(stock_ts_code, '.', 1) = ? LIMIT 1",
+                [day, code],
+            ).fetchone()
+            return float(row[0]) if row and row[0] is not None else None
+
+        returns_t1: list[float] = []
+        returns_t3: list[float] = []
+        for pick in answer.get("picks") or []:
+            code = str(pick.get("code") or "")
+            r1 = _pct_chg(code, t1)
+            if r1 is None:
+                warnings.append(f"{code} 在 {t1} 无行情，T+1 缺失")
+            else:
+                returns_t1.append(round(r1, 4))
+            if t3:
+                c3 = _close(code, t3)
+                pre = con.execute(
+                    "SELECT pre_close FROM fact_stock_daily WHERE trade_date = ? AND split_part(stock_ts_code, '.', 1) = ? LIMIT 1",
+                    [t1, code],
+                ).fetchone()
+                base = float(pre[0]) if pre and pre[0] is not None else None
+                if base and c3:
+                    returns_t3.append(round((c3 / base - 1) * 100, 4))
+                else:
+                    warnings.append(f"{code} T+3 收盘缺失")
+
+        bench_t3 = None
+        if t3:
+            rows = con.execute(
+                "SELECT trade_date, sh_index_close FROM fact_market_daily WHERE trade_date IN (?, ?) ORDER BY trade_date",
+                [perspective, t3],
+            ).fetchall()
+            if len(rows) == 2 and rows[0][1] and rows[1][1]:
+                bench_t3 = round((float(rows[1][1]) / float(rows[0][1]) - 1) * 100, 4)
+            else:
+                warnings.append("基准指数收盘缺失，beat_benchmark_t3 留空")
+
+        block: dict[str, Any] = {
+            "benchmark": BENCHMARK,
+            "recheck_t1_date": t1,
+            "recheck_t3_date": t3,
+            "pick_returns_t1": returns_t1,
+            "pick_returns_t3": returns_t3,
+            "benchmark_return_t3": bench_t3,
+            "recheck_generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        }
+        if bench_t3 is not None and returns_t3:
+            block["beat_benchmark_t3"] = (sum(returns_t3) / len(returns_t3)) > bench_t3
+        return block, warnings
+    finally:
+        con.close()
+
+
+def cmd_recheck(args: argparse.Namespace) -> int:
+    ledger_dir = Path(args.ledger_dir).expanduser()
+    db_path = Path(args.db).expanduser() if args.db else DB_PATH
+    if not db_path.exists():
+        print(f"ERROR: DuckDB 不存在：{db_path}（在有库的机器上跑，或 --db 指定）", file=sys.stderr)
+        return 2
+    failed = False
+    for raw in args.answers:
+        path = Path(raw).expanduser()
+        answer = json.loads(path.read_text(encoding="utf-8"))
+        mpath = manifest_path_for(str(answer.get("date")), ledger_dir)
+        if not mpath.exists():
+            print(f"ERROR {path.name}: 找不到 manifest {mpath.name}", file=sys.stderr)
+            failed = True
+            continue
+        manifest = json.loads(mpath.read_text(encoding="utf-8"))
+        block, warnings = _recheck_from_duckdb(answer, manifest, db_path)
+        for warn in warnings:
+            print(f"WARN {path.name}: {warn}", file=sys.stderr)
+        if not block:
+            failed = True
+            continue
+        recheck = dict(answer.get("recheck") or {})
+        recheck.update(block)  # 只覆盖机器字段，保留人工回填（如 market_threshold_hit）
+        answer["recheck"] = recheck
+        path.write_text(json.dumps(answer, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"OK    {path.name}: T+1={block['recheck_t1_date']} T+3={block['recheck_t3_date']} "
+              f"picks_t1={len(block['pick_returns_t1'])} picks_t3={len(block['pick_returns_t3'])}")
+    return 1 if failed else 0
 
 
 def cmd_aggregate(args: argparse.Namespace) -> int:
@@ -495,11 +901,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_aggregate.add_argument("--json", action="store_true", help="输出 JSON 而非 Markdown 表")
     p_aggregate.set_defaults(func=cmd_aggregate)
 
+    p_recheck = sub.add_parser("recheck", help="从 DuckDB 自动回填答卷的数值类 recheck 指标（基准上证指数）")
+    p_recheck.add_argument("answers", nargs="+", help="答卷 JSON 路径，可多个；就地更新 recheck 块")
+    p_recheck.add_argument("--db", default=None, help="DuckDB 路径；默认 db/market_feature_store.duckdb")
+    p_recheck.set_defaults(func=cmd_recheck)
+
     p_verdict = sub.add_parser("verdict", help="校验验证草稿并落盘 <date>.verdict.json（盘后验证唯一写入口）")
     p_verdict.add_argument("draft", help="验证草稿 JSON：{date, verdicts:[{id, agent, verdict, actual, evidence_ref}]}")
     p_verdict.set_defaults(func=cmd_verdict)
 
     p_index = sub.add_parser("index", help="扫描台账目录，重建 index.md 的机检状态总表区块")
+    p_index.add_argument("--html", action="store_true", help="同时生成 index.html 总入口（每日各 agent 先验假设 + 验证标注）")
     p_index.set_defaults(func=cmd_index)
     return parser
 

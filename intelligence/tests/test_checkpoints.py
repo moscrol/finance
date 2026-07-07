@@ -148,6 +148,29 @@ class CalibrateTests(unittest.TestCase):
             self.assertEqual(by["估值切换"].reliability, "参半")
             self.assertEqual(by["产能时点"].reliability, "靠谱")
 
+    def test_calibrate_aggregates_by_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cpath = Path(tmp) / "checkpoints.jsonl"
+            vpath = Path(tmp) / "verdicts.jsonl"
+            _, ck1 = checkpoints.register_checkpoint(
+                cpath, claim="生命周期A", due="2026-01-01", category="生命周期推演", source="logic_lifecycle",
+            )
+            checkpoints.record_verdict(vpath, id=ck1["id"], verdict="hit")
+            _, ck2 = checkpoints.register_checkpoint(
+                cpath, claim="框架B", due="2026-01-01", category="framework_interpretation", source="framework_interpretation",
+            )
+            checkpoints.record_verdict(vpath, id=ck2["id"], verdict="miss")
+            _, ck3 = checkpoints.register_checkpoint(cpath, claim="手工C", due="2026-01-01", category="X")
+            checkpoints.record_verdict(vpath, id=ck3["id"], verdict="hit")
+            cks, _ = checkpoints.load_checkpoints(cpath)
+            vds, _ = checkpoints.load_verdicts(vpath)
+            cal = checkpoints.calibrate(cks, vds, today="2026-06-18")
+            by_src = {s.category: s for s in cal.by_source}
+            self.assertEqual(set(by_src), {"logic_lifecycle", "framework_interpretation", "未标来源"})
+            self.assertEqual(by_src["logic_lifecycle"].hits, 1)
+            self.assertEqual(by_src["framework_interpretation"].miss, 1)
+            self.assertEqual(cal.by_source[0].category, "framework_interpretation")
+
     def test_latest_terminal_verdict_wins(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cpath = Path(tmp) / "checkpoints.jsonl"

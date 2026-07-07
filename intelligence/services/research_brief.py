@@ -176,6 +176,7 @@ class RetrievalTelemetry:
     wiki_mean_score: float | None = None
     wiki_neighbor_hits: int = 0
     wiki_degraded: str | None = None
+    wiki_pages: list[str] = field(default_factory=list)
     source_hits: dict[str, int] = field(default_factory=dict)
     l3_lookup_items: int = 0
     covers_l3: bool = False
@@ -276,6 +277,7 @@ def build_retrieval_telemetry(
         tele.wiki_top_score = max(scores)
         tele.wiki_mean_score = sum(scores) / len(scores)
     tele.wiki_neighbor_hits = int(ws.get("neighbor_hits") or 0)
+    tele.wiki_pages = [str(p) for p in (ws.get("pages") or []) if str(p).strip()]
     warning = ws.get("warning")
     tele.wiki_degraded = str(warning) if warning else None
 
