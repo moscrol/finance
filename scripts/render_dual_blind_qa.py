@@ -192,16 +192,73 @@ def day_links(date: str) -> list[tuple[str, str]]:
     return links
 
 
+def _answer_md_lines(ans: dict) -> list[str]:
+    """把机器答卷 JSON 转成台账风格 markdown 行（无人读版 md 时兜底展示）。"""
+    lines: list[str] = []
+    if ans.get("stage"):
+        lines += ["### 阶段判断", str(ans["stage"]), ""]
+    if ans.get("main_judgment"):
+        lines += ["### 核心判断", str(ans["main_judgment"]), ""]
+    if isinstance(ans.get("direction_ranking"), list) and ans["direction_ranking"]:
+        lines.append("### 方向排序")
+        lines += [f"{i}. {x}" for i, x in enumerate(ans["direction_ranking"], 1)]
+        lines.append("")
+    picks = ans.get("picks")
+    if isinstance(picks, list) and picks and isinstance(picks[0], dict):
+        keys = list(picks[0].keys())
+        lines.append("### 观察标的")
+        lines.append("| " + " | ".join(keys) + " |")
+        lines.append("|" + "---|" * len(keys))
+        for p in picks:
+            lines.append("| " + " | ".join(str(p.get(k, "")) for k in keys) + " |")
+        lines.append("")
+    dfq = ans.get("daily_four_questions")
+    if isinstance(dfq, dict):
+        lines.append("### 每日四问")
+        for k, v in dfq.items():
+            if isinstance(v, dict):
+                cv = v.get("core_values")
+                detail = "；".join(f"{a}={b}" for a, b in cv.items()) if isinstance(cv, dict) else (v.get("answer") or v.get("summary") or v.get("status") or "")
+                lines.append(f"- **{k}**（{v.get('status', '')}）：{detail}")
+            else:
+                lines.append(f"- **{k}**：{v}")
+        lines.append("")
+    return lines
+
+
+def answer_sections(date: str) -> list[tuple[str, str]]:
+    sections: list[tuple[str, str]] = []
+    for agent in ("codex", "claude"):
+        p = LEDGER / f"{date}.answer.{agent}.json"
+        if not p.exists():
+            continue
+        try:
+            ans = json.loads(p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        lines = _answer_md_lines(ans)
+        if lines:
+            sections.append((f"{agent} 答卷（自动渲染）", md_to_html(lines)))
+    return sections
+
+
 def load() -> dict:
     data: dict = {}
-    for f in sorted(LEDGER.glob("*.md")):
-        m = re.match(r"^(\d{4}-\d{2}-\d{2})\.md$", f.name)
-        if not m:
+    dates = set()
+    for f in LEDGER.iterdir():
+        m = re.match(r"^(\d{4}-\d{2}-\d{2})\.", f.name)
+        if m:
+            dates.add(m.group(1))
+    for date in sorted(dates):
+        md_file = LEDGER / f"{date}.md"
+        if md_file.exists():
+            sections = split_sections(md_file.read_text(encoding="utf-8"))
+        else:
+            sections = answer_sections(date)
+        if not sections:
             continue
-        date = m.group(1)
-        md = f.read_text(encoding="utf-8")
         data[date] = {
-            "sections": split_sections(md),
+            "sections": sections,
             "badges": machine_badges(date),
             "links": day_links(date),
         }
