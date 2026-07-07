@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-02",
+  "perspective_date": "2026-07-01",
+  "duckdb_path": "db/market_feature_store.duckdb",
+  "duckdb_cutoff": "2026-07-01",
+  "kb_root": "/Users/a77/knowledge-base-private",
+  "kb_commit": null,
+  "materials": [
+    {
+      "path": "/Users/a77/finance-workspace-private/docs/learning/forecast-review-ledger/2026-07-02.md",
+      "sha256": "b4d16d402c06fe1ebb05bdefca4ce454a05e69238d37cf2c5a8bb876e8416318"
+    }
+  ],
+  "generated_at": "2026-07-06T13:53:18+08:00",
+  "warnings": [
+    "retroactive manifest: 2026-07-02 旧台账当时未生成机器 manifest，本清单按既有 markdown 预测文本追溯补建。",
+    "validation uses DuckDB actuals through 2026-07-02; T+3 not available because current fact_market_daily max trade_date is 2026-07-03."
+  ],
+  "manifest_sha": "3814fffbe51db7c0"
+}

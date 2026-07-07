@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-06",
+  "perspective_date": "2026-07-03",
+  "duckdb_path": "db/market_feature_store.duckdb",
+  "duckdb_cutoff": "2026-07-03",
+  "kb_root": null,
+  "kb_commit": null,
+  "materials": [],
+  "generated_at": "2026-07-06T02:23:34+08:00",
+  "warnings": [],
+  "manifest_sha": "5a819dc4d6826df8"
+}

@@ -1,10 +1,53 @@
-# 2026-07-02 复盘推演验证台账
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>双盲复盘台账总入口</title>
+<style>
+  :root { --bg:#f7f8fa; --text:#1f2933; --muted:#64748b; --line:#d9dee7; --panel:#ffffff;
+           --good:#0f8b5f; --bad:#c2410c; --warn:#a16207; --blue:#2563eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); line-height:1.55;
+          font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  header { background:#111827; color:#fff; padding:24px 32px; }
+  header h1 { margin:0; font-size:24px; }
+  header p { margin:6px 0 0; color:#cbd5e1; font-size:13px; }
+  main { max-width:1100px; margin:0 auto; padding:24px 32px 64px; }
+  section { margin-bottom:32px; }
+  h2 { border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h2 small { font-size:13px; font-weight:400; margin-left:8px; }
+  .cards { display:flex; gap:16px; flex-wrap:wrap; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+           padding:16px; flex:1 1 480px; }
+  .card h3 { margin:0 0 8px; text-transform:capitalize; }
+  .judgment { font-weight:600; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th,td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  .hid { white-space:nowrap; font-family:ui-monospace,monospace; }
+  .actual { color:var(--muted); font-size:12px; margin-top:4px; }
+  .muted { color:var(--muted); }
+  .v { white-space:nowrap; }
+  .v-hit { color:var(--good); } .v-miss { color:var(--bad); }
+  .v-partial { color:var(--warn); } .v-unverifiable,.v-pending { color:var(--muted); }
+  details.raw { margin-top:12px; background:var(--panel); border:1px solid var(--line);
+                 border-radius:8px; padding:8px 12px; }
+  details.raw summary { cursor:pointer; color:var(--blue); font-size:13px; }
+  details.raw pre { white-space:pre-wrap; word-break:break-word; font-size:12px;
+                     max-height:70vh; overflow:auto; }
+</style>
+</head>
+<body>
+<header><h1>双盲复盘台账总入口</h1>
+<p>每日各 agent 先验假设（主判断 + 市场/方向/证伪阈值 + 标的池）与盘后验证。由 dual_blind_forecast.py index --html 生成于 2026-07-06T15:16:25+08:00，勿手改。</p></header>
+<main><section><h2>2026-07-06 <small><a href="2026-07-06.md">md</a> · <a href="2026-07-06.html">并排页</a></small></h2><div class="cards"><div class="card"><h3>claude</h3><p class="judgment">07-03 是缩量修复（量比 99.3 跌破 100，volume_state 由主线抱团转正常量能）下的广度 V 型修复：广度回来了（涨家 3804、涨停 108、跌停 19 收敛），但量能没回来（成交 31822 亿，连续两日萎缩）。资金没有扩散，反而更极端地抱团机器人单一题材（机器人概念涨停 45 只占全市场 41.67%），AI 应用/算力/数据要素/大金融的扩散均未兑现。07-06 最可能路径：缩量震荡→机器人链（减速器/汽车零部件/人形机器人）盘中分歧后再强化→指数小阳或十字星收盘。距发酵加速远（连板高度未破 4 板、量能萎缩），距退潮亦有距离（跌停收敛、涨家 MA5 升至 3157）。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>成交额 07-06 &gt;3.2万亿 &amp; 涨家&gt;3000 = 缩量修复延续；成交&lt;3.0万亿 &amp; 涨家&lt;2500 = 缩量退潮(miss)；涨停&lt;80=热度退潮</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">direction</td><td>减速器/汽车零部件/人形机器人 07-06 至少 2 个续双红(pct&gt;0 &amp; df&gt;0)=机器人单极延续；3 个全部不再双红=抱团瓦解(miss)；军工装备续双红(pct&gt;0&amp;df&gt;0)才确认非一日反抽</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">falsify</td><td>主判断证伪：07-06 机器人概念涨停&lt;25只(从45大幅萎缩) 或 减速器/人形机器人 pct&lt;-2% → 单极抱团瓦解、主判断 miss；上证涨跌幅&gt;±1% 证伪小阳十字星路径</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:688017.SH</td><td>绿的谐波 07-03 +18.15%(科创板涨停)、成交板块top1、5日+32.08%/20日+49.01%趋势最强；减速器绝对龙头，leader_plate=机器人。验证减速器主升是否成立。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:601689.SH</td><td>拓普集团 07-03 +10.01%涨停、成交板块top1、5日+18.35%；汽零容量龙头兼人形机器人执行器，验证汽零+机器人交叉承接。备选双环传动002472(5日+26.54%更纯机器人属性)。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002050.SZ</td><td>三花智控 07-03 +9.06%、成交板块正涨容量最大、5日+18.05%；人形机器人执行器容量代表，验证下游承载。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:600879.SH</td><td>航天电子 07-03 +6.40%、5日+11.24%/20日+12.99%趋势稳；军工+航天电子双属性，验证军工反包能否升级延续（备选中国卫星600118商业航天）。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:600143.SH</td><td>金发科技 07-03 +10.03%涨停、5日+10.74%；PEEK/改性塑料龙头，验证材料端是否跟随机器人链扩散。</td><td><span class="v v-pending">待验证</span></td></tr></tbody></table></div><div class="card"><h3>codex</h3><p class="judgment">市场处在底部横盘后的分歧修复发酵期，7.3 是缩量广度修复而非放量加速，7.6 的关键是机器人/汽车链分歧后能否继续维持双红与涨停热度。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+1：涨家数&gt;=3000、涨停&gt;=95、跌停&lt;=25、成交额&gt;=30000亿且量比&gt;=95%，则分歧修复发酵成立；T+3：至少2日涨家数&gt;=2800且市场未出现跌停&gt;35。若T+1涨家数&lt;2500或跌停&gt;30，主判断降级。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">direction</td><td>T+1：人形机器人保持红盘数&gt;=300且diff_ratio&gt;0、涨停热度&gt;=20；汽车零部件保持红盘数&gt;=200且diff_ratio&gt;0、涨停热度&gt;=12。T+3：两条主线至少一条连续2日双红，且diff_ratio不连续为负。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">falsify</td><td>若T+1市场涨停&lt;90且跌停&gt;30，或人形机器人与汽车零部件同时diff_ratio&lt;0，或1进2晋级率&lt;15%，则§2主判断证伪；若贵金属/防御方向替代成为涨停热度Top1且机器人热度&lt;15，方向排序证伪。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002050</td><td>三花智控 绑定§1：人形机器人红盘359/458、涨停热度31；个股7.3涨幅9.06%、成交153.71亿、20日新高，是容量核心。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:688017</td><td>绿的谐波 绑定§1：减速器diff=27.41、红盘128/138、涨停热度14；个股7.3涨幅18.15%、成交125.29亿、历史新高。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:601689</td><td>拓普集团 绑定§1：汽车零部件diff=33.25、红盘250/273、涨停热度20；个股7.3涨停、成交52.24亿，兼具汽车链与机器人链映射。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002472</td><td>双环传动 绑定§1：减速器与汽车零部件双红；个股7.3涨停、成交34.12亿、60日新高，适合看分歧后承接。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002747</td><td>埃斯顿 绑定§1：人形机器人涨停热度31；个股7.3涨停、成交55.08亿、历史新高，是机器人自动化方向的强趋势样本。</td><td><span class="v v-pending">待验证</span></td></tr></tbody></table></div></div></section>
+<section><h2>2026-07-02 <small><a href="2026-07-02.md">md</a> · <a href="2026-07-02.html">并排页</a></small></h2><div class="cards"><div class="card"><h3>claude</h3><p class="judgment">7/1 发生风格切换，资金从科技抱团切向低位大金融、农业和顺周期；7/2 核心是风格切换延续还是一日游。实际结果显示证券/保险 diff 转负，风格切换未确立。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>7/2 涨家&gt;3000=修复延续；涨家&lt;2500=三日分歧；量能环比正=放量确认，转负则修复确认失败。<div class="actual">实际：实际涨家2219&lt;2500且成交环比-5.72%，触发Claude阈值中的“三日分歧/量能转负”分支；修复延续条件未成立。</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">direction</td><td>证券/保险 7/2 diff&gt;0 续双红=风格切换确立；diff转负=一日游。半导体/CPO价格上涨=硬件反弹，续跌=仍在分歧。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">falsify</td><td>7/2 大金融大跌且科技反包大涨，则风格切换失败、回科技抱团，主判断推翻。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:600030</td><td>中信证券 绑定§6.5：证券 diff+90 为7/1最强真双红之一，中信证券为券商龙头、120日新高。<div class="actual">实际：中信证券-2.88%，跑输沪指-2.03%，券商核心未续强。</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:300059</td><td>东方财富 绑定§6.5：7/1 +5.25%、60日新高，证券/互联网金融流动性代表。<div class="actual">实际：东方财富-3.36%，跑输沪指-2.03%，互联网金融未续强。</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:601628</td><td>中国人寿 绑定§6.5：保险 diff+86，7/1 中国人寿+9.7%、60日新高。<div class="actual">实际：中国人寿-0.70%，跑赢沪指-2.03%；但保险板块diff转负，所以只在个股相对强弱层面命中。</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:002714</td><td>牧原股份 绑定§6.5：养殖 diff+61，7/1 牧原股份+5.69%、20日新高。<div class="actual">实际：牧原股份+1.00%，显著跑赢沪指；农业/养殖低位周期样本相对强。</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:300442</td><td>润泽科技 绑定§6.5：通信+数据中心，科技应用保留腿，7/1 润泽科技+8.41%。<div class="actual">实际：润泽科技-2.51%，跑输沪指；IDC/数据中心承接未保留。</div></td><td><span class="v v-miss">❌ miss</span></td></tr></tbody></table></div><div class="card"><h3>codex</h3><p class="judgment">7/2 是强广度修复后的分化确认日，不是无差别普涨日；实际结果为成交仍高但广度和高位硬件显著恶化，分化判断成立但盘面强度低于中性预期。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>强：成交额&gt;34000亿、涨家&gt;3000、涨停&gt;120、跌停不扩张；中：成交32000-34000亿、涨家2200-3000、涨停90-120、方向轮动但无明显退潮；弱：成交&lt;32000亿、涨家&lt;2000、涨停&lt;80、跌停扩张。<div class="actual">实际：成交34503.10亿仍&gt;3.4万亿、量比108.42；但涨家2219、涨停93仅中性下沿，跌停从7扩到40，上证-2.03%，双红35（前日183）。分化确认命中，风险强度低于中性预期。</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">direction</td><td>AI应用/AI智能体/数据要素/算力租赁至少2-3个方向继续上涨并保持涨停热度；机器人涨停25-30只以上升级，&lt;15只降级；电力设备一级转正且储能/光伏涨停维持才升级；半导体/CPO/先进封装不能继续大幅杀跌。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">falsify</td><td>若7/2 跌停扩张、7/1新双红方向多数高开低走、高位硬件继续大跌，或金融/医药/化工强而科技崩，则无差别延续路径证伪，需要降低高位科技和普涨外推。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:300442</td><td>润泽科技 绑定§1/§4：7/1 涨8.41%、成交80.48亿、20日新高；用于验证数据中心/算力链承接。<div class="actual">实际：润泽科技-2.51%，跑输沪指-2.03%，数据中心-2.54%、算力租赁-2.04%，算力承接未延续。</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:300033</td><td>同花顺 绑定§1/§4：7/1 涨7.05%、成交103.43亿、60日新高；同时验证计算机软件扩散和金融风险偏好。<div class="actual">实际：同花顺-4.01%，跑输沪指；证券-2.23%/diff-27.86，软件/金融科技风险偏好未延续。</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:002747</td><td>埃斯顿 绑定§3.2/§4：机器人7/1涨停热度第一，埃斯顿涨停、成交21.97亿，是机器人直接代表。<div class="actual">实际：埃斯顿-0.88%，明显跑赢沪指；机器人概念涨停20仍为全市场热度第一，虽未升级但个股未明显掉队。</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:600584</td><td>长电科技 绑定§3.4/§4：7/1 半导体分歧但长电科技涨2.98%、成交263.27亿、历史新高。<div class="actual">实际：长电科技-10.00%，半导体-5.51%、先进封装-4.89%，高位半导体韧性样本失败。</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:300059</td><td>东方财富 绑定§3.5/§4：7/1 涨5.25%、成交202.37亿、60日新高；验证风险偏好扩散。<div class="actual">实际：东方财富-3.36%，跑输沪指；证券-2.23%/diff-27.86，非银金融风险偏好脉冲未延续。</div></td><td><span class="v v-miss">❌ miss</span></td></tr></tbody></table></div></div><details class="raw"><summary>当日原文（2026-07-02.md，点开展开）</summary><pre># 2026-07-02 复盘推演验证台账
 
-> 观察视角：站在 2026-07-01 盘后，前瞻 2026-07-02 行情。
-> 当前状态：待 2026-07-02 收盘后验证。
-> 数据口径：本地 canonical DuckDB `db/market_feature_store.duckdb` 已同步至 2026-07-01；`fact_mainline_*` 三张主线结构表仍停在 2026-06-30，本轮不使用 D4 主线结构作强结论。
-> 输入源状态：本版已补入外盘/美股映射；晚间卖方材料在 `knowledge-base-private` PR188，已合入远端 `origin/main`，但本机/iCloud 知识库镜像尚未同步到该提交。
-> 说明：本页不是投资建议，是“可证伪推演 + 次日回检表”。这版先按同一视角独立生成，后续可与 Claude 同题结果并排比较。
+&gt; 观察视角：站在 2026-07-01 盘后，前瞻 2026-07-02 行情。
+&gt; 当前状态：待 2026-07-02 收盘后验证。
+&gt; 数据口径：本地 canonical DuckDB `db/market_feature_store.duckdb` 已同步至 2026-07-01；`fact_mainline_*` 三张主线结构表仍停在 2026-06-30，本轮不使用 D4 主线结构作强结论。
+&gt; 输入源状态：本版已补入外盘/美股映射；晚间卖方材料在 `knowledge-base-private` PR188，已合入远端 `origin/main`，但本机/iCloud 知识库镜像尚未同步到该提交。
+&gt; 说明：本页不是投资建议，是“可证伪推演 + 次日回检表”。这版先按同一视角独立生成，后续可与 Claude 同题结果并排比较。
 
 ## 1. 当时市场底稿
 
@@ -153,7 +196,7 @@ PR188 卖方交叉结论：
 
 ## 4. 五个代表观察标的
 
-> 这些是方向观察样本，不是买卖建议，也不是用来单日反推方法成败的评分器。选择逻辑是覆盖不同市场结构：AI 应用/算力、机器人、半导体韧性、金融风险偏好。
+&gt; 这些是方向观察样本，不是买卖建议，也不是用来单日反推方法成败的评分器。选择逻辑是覆盖不同市场结构：AI 应用/算力、机器人、半导体韧性、金融风险偏好。
 
 | 排名 | 标的 | 代码 | 评分 | 对应方向 | 选择理由 | 7/2 验证条件 |
 |---:|---|---|---:|---|---|---|
@@ -228,8 +271,8 @@ AI 应用、AI 智能体、数据要素、算力租赁是 7 月 1 日最清晰�
 
 ## 6.5 Claude 答卷（双盲，agent: claude）
 
-> 输入源：仅盘面（7/1 DuckDB）。缺外盘/卖方/晨汇。
-> 与 Codex 答卷（§1-6）同源数据、独立完成、互不可见。完整原文见 `archive/daily-market-forecast-ledger.legacy.md`。
+&gt; 输入源：仅盘面（7/1 DuckDB）。缺外盘/卖方/晨汇。
+&gt; 与 Codex 答卷（§1-6）同源数据、独立完成、互不可见。完整原文见 `archive/daily-market-forecast-ledger.legacy.md`。
 
 ### 1. 统一字段（必填）
 
@@ -265,8 +308,8 @@ AI 应用、AI 智能体、数据要素、算力租赁是 7 月 1 日最清晰�
 
 ### 5. 验证条件（T+1，强制数值阈值）
 
-- **市场**：涨家 7/2 维持 **>3000** = 修复延续 / **<2500** = 三日分歧；量能环比维持 **正** = 放量确认 / 转负。
-- **风格切换**：证券/保险 7/2 **diff>0（续双红）** = 切换确立 / diff 转负 = 一日游。
+- **市场**：涨家 7/2 维持 **&gt;3000** = 修复延续 / **&lt;2500** = 三日分歧；量能环比维持 **正** = 放量确认 / 转负。
+- **风格切换**：证券/保险 7/2 **diff&gt;0（续双红）** = 切换确立 / diff 转负 = 一日游。
 - **科技硬件**：半导体/CPO 7/2 价格**反弹（涨）** vs 续跌。
 - **标的**：中信/东财/人寿/牧原/润泽 7/2 是否续强（跑赢沪指）。
 - **证伪**：7/2 大金融大跌 + 科技反包大涨 = 风格切换失败、回科技抱团，§2 主判断推翻。
@@ -360,3 +403,6 @@ AI 应用、AI 智能体、数据要素、算力租赁是 7 月 1 日最清晰�
 - 问题：
 - 应该改成：
 - 下次硬规则：
+</pre></details></section></main>
+</body>
+</html>

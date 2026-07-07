@@ -1,0 +1,267 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-02",
+  "agent": "claude",
+  "manifest_sha": "3814fffbe51db7c0",
+  "stage": "底部横盘第2天后的风格切换验证日",
+  "input_freeze": {
+    "duckdb_cutoff": "2026-07-01",
+    "perspective_date": "2026-07-01",
+    "materials": [
+      "/Users/a77/finance-workspace-private/docs/learning/forecast-review-ledger/2026-07-02.md"
+    ],
+    "data_gaps": [
+      "Claude 原答卷仅用 7/1 DuckDB 盘面，缺外盘/卖方/晨汇。",
+      "本 JSON 为旧 markdown 答卷追溯结构化；不是重新预测。"
+    ]
+  },
+  "section_1_fields": {
+    "forecast_basis": "7/1 成交环比+11.2%、量比115、涨家4240、涨停148、跌停7；证券diff+90、保险diff+86、养殖diff+61。",
+    "actual_recheck": {
+      "market": {
+        "trade_date": "2026-07-02",
+        "stage": "底部横盘阶段第3天",
+        "total_amount_yi": 34503.1,
+        "amount_vs_yesterday_pct": -5.72,
+        "volume_ratio_pct": 108.42,
+        "advancers": 2219,
+        "limit_up": 93,
+        "limit_down": 40,
+        "sh_index_pct_chg": -2.0314,
+        "top3_industry_ratio_pct": 48.4,
+        "industry_1": "电子",
+        "industry_1_ratio_pct": 33.0,
+        "stock_high_count_history": 56,
+        "stock_high_count_120d": 134,
+        "stock_high_count_60d": 174,
+        "stock_high_count_20d": 477,
+        "double_red_count": 35,
+        "double_red_count_prev": 183
+      },
+      "directions": {
+        "AI应用": {
+          "pct_chg": -1.12,
+          "diff_ratio": 1.45,
+          "limit_heat": 5
+        },
+        "AI智能体": {
+          "pct_chg": -1.38,
+          "diff_ratio": -5.49,
+          "limit_heat": 4
+        },
+        "数据要素": {
+          "pct_chg": -1.19,
+          "diff_ratio": -14.04,
+          "limit_heat": 3
+        },
+        "算力租赁": {
+          "pct_chg": -2.04,
+          "diff_ratio": -12.72,
+          "limit_heat": 3
+        },
+        "机器人": {
+          "pct_chg": -0.93,
+          "diff_ratio": -4.6,
+          "limit_heat": 20
+        },
+        "人形机器人": {
+          "pct_chg": -0.64,
+          "diff_ratio": -0.11,
+          "limit_heat": 13
+        },
+        "储能": {
+          "pct_chg": -1.46,
+          "diff_ratio": -7.92,
+          "limit_heat": 12
+        },
+        "光伏": {
+          "pct_chg": -2.03,
+          "diff_ratio": -13.07,
+          "limit_heat": 9
+        },
+        "风电": {
+          "pct_chg": -1.19,
+          "diff_ratio": -5.56,
+          "limit_heat": 3
+        },
+        "半导体": {
+          "pct_chg": -5.51,
+          "diff_ratio": -13.98,
+          "limit_heat": 1
+        },
+        "CPO": {
+          "pct_chg": -5.1,
+          "diff_ratio": -9.11,
+          "limit_heat": null
+        },
+        "先进封装": {
+          "pct_chg": -4.89,
+          "diff_ratio": -12.77,
+          "limit_heat": 1
+        },
+        "证券": {
+          "pct_chg": -2.23,
+          "diff_ratio": -27.86,
+          "limit_heat": null
+        },
+        "保险": {
+          "pct_chg": -1.29,
+          "diff_ratio": -34.27,
+          "limit_heat": null
+        },
+        "非银金融": {
+          "pct_chg": -2.11,
+          "diff_ratio": null,
+          "limit_heat": null
+        },
+        "医药生物": {
+          "pct_chg": -0.12,
+          "diff_ratio": null,
+          "limit_heat": null
+        },
+        "基础化工": {
+          "pct_chg": -0.57,
+          "diff_ratio": null,
+          "limit_heat": null
+        },
+        "电力设备": {
+          "pct_chg": -2.41,
+          "diff_ratio": null,
+          "limit_heat": null
+        },
+        "数据中心": {
+          "pct_chg": -2.54,
+          "diff_ratio": -10.22,
+          "limit_heat": 6
+        },
+        "MLCC": {
+          "pct_chg": -4.87,
+          "diff_ratio": -8.85,
+          "limit_heat": null
+        },
+        "存储芯片": {
+          "pct_chg": -5.67,
+          "diff_ratio": -12.94,
+          "limit_heat": 2
+        },
+        "液冷服务器": {
+          "pct_chg": -2.49,
+          "diff_ratio": -8.23,
+          "limit_heat": 5
+        },
+        "PCB": {
+          "pct_chg": -3.83,
+          "diff_ratio": -11.24,
+          "limit_heat": null
+        }
+      }
+    }
+  },
+  "main_judgment": "7/1 发生风格切换，资金从科技抱团切向低位大金融、农业和顺周期；7/2 核心是风格切换延续还是一日游。实际结果显示证券/保险 diff 转负，风格切换未确立。",
+  "direction_ranking": [
+    "大金融（证券/保险）",
+    "农业（养殖/种植）",
+    "顺周期（多元金融/物流/教育/影视）",
+    "科技硬件（半导体/CPO）",
+    "科技应用（通信服务/IT/智谱）"
+  ],
+  "picks": [
+    {
+      "code": "600030",
+      "ts_code": "600030.SH",
+      "name": "中信证券",
+      "strategy": "策略一-金融切换核心",
+      "reason": "绑定§6.5：证券 diff+90 为7/1最强真双红之一，中信证券为券商龙头、120日新高。",
+      "actual_t1_pct": -2.88
+    },
+    {
+      "code": "300059",
+      "ts_code": "300059.SZ",
+      "name": "东方财富",
+      "strategy": "策略一+四-券商/互联网金融",
+      "reason": "绑定§6.5：7/1 +5.25%、60日新高，证券/互联网金融流动性代表。",
+      "actual_t1_pct": -3.36
+    },
+    {
+      "code": "601628",
+      "ts_code": "601628.SH",
+      "name": "中国人寿",
+      "strategy": "策略一-保险",
+      "reason": "绑定§6.5：保险 diff+86，7/1 中国人寿+9.7%、60日新高。",
+      "actual_t1_pct": -0.7
+    },
+    {
+      "code": "002714",
+      "ts_code": "002714.SZ",
+      "name": "牧原股份",
+      "strategy": "策略二-低位周期",
+      "reason": "绑定§6.5：养殖 diff+61，7/1 牧原股份+5.69%、20日新高。",
+      "actual_t1_pct": 1.0
+    },
+    {
+      "code": "300442",
+      "ts_code": "300442.SZ",
+      "name": "润泽科技",
+      "strategy": "策略一+四-IDC",
+      "reason": "绑定§6.5：通信+数据中心，科技应用保留腿，7/1 润泽科技+8.41%。",
+      "actual_t1_pct": -2.51
+    }
+  ],
+  "thresholds": {
+    "market": "7/2 涨家>3000=修复延续；涨家<2500=三日分歧；量能环比正=放量确认，转负则修复确认失败。",
+    "direction": "证券/保险 7/2 diff>0 续双红=风格切换确立；diff转负=一日游。半导体/CPO价格上涨=硬件反弹，续跌=仍在分歧。",
+    "targets": "中信证券、东方财富、中国人寿、牧原股份、润泽科技 7/2 是否续强并跑赢沪指。",
+    "falsify": "7/2 大金融大跌且科技反包大涨，则风格切换失败、回科技抱团，主判断推翻。"
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "text": "7/2 涨家>3000且量能环比正为修复延续；涨家<2500且量能转负为三日分歧。"
+    },
+    {
+      "id": "style_switch",
+      "text": "证券/保险 7/2 diff>0 且续双红，则大金融风格切换确立；diff转负则一日游。"
+    },
+    {
+      "id": "hardware_rebound",
+      "text": "半导体/CPO 7/2 价格反弹则科技硬件回流，否则继续分歧。"
+    },
+    {
+      "id": "target:600030",
+      "text": "中信证券 7/2 续强并跑赢沪指。"
+    },
+    {
+      "id": "target:300059",
+      "text": "东方财富 7/2 续强并跑赢沪指。"
+    },
+    {
+      "id": "target:601628",
+      "text": "中国人寿 7/2 续强并跑赢沪指。"
+    },
+    {
+      "id": "target:002714",
+      "text": "牧原股份 7/2 续强并跑赢沪指。"
+    },
+    {
+      "id": "target:300442",
+      "text": "润泽科技 7/2 续强并跑赢沪指。"
+    }
+  ],
+  "recheck": {
+    "as_of": "2026-07-02 close",
+    "pick_returns_t1": [
+      -2.88,
+      -3.36,
+      -0.7,
+      1.0,
+      -2.51
+    ],
+    "pick_returns_t3": [],
+    "beat_benchmark_t3": true,
+    "market_threshold_hit": false,
+    "benchmark_sh_index_pct_chg_t1": -2.0314,
+    "notes": [
+      "T+1 已回填；T+3 不可回填：当前 DuckDB 截止 2026-07-03。"
+    ]
+  }
+}

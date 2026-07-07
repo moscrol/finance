@@ -80,7 +80,14 @@ def _duckdb_max_trade_date(db_path: Path) -> str | None:
 
         con = duckdb.connect(str(db_path), read_only=True)
         try:
-            row = con.execute("SELECT max(trade_date) FROM daily_market").fetchone()
+            row = None
+            for table in ("fact_market_daily", "daily_market"):
+                try:
+                    row = con.execute(f"SELECT max(trade_date) FROM {table}").fetchone()
+                    if row and row[0] is not None:
+                        break
+                except Exception:
+                    row = None
         finally:
             con.close()
         return str(row[0]) if row and row[0] is not None else None

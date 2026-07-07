@@ -79,6 +79,23 @@ class DualBlindForecastTests(unittest.TestCase):
             self.assertIn("manifest_sha 不一致", joined)
             self.assertIn("falsify", joined)
 
+    def test_duckdb_cutoff_prefers_canonical_fact_market_daily(self) -> None:
+        try:
+            import duckdb
+        except Exception:
+            self.skipTest("duckdb is not installed")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "mfs.duckdb"
+            con = duckdb.connect(str(db_path))
+            try:
+                con.execute("CREATE TABLE fact_market_daily (trade_date DATE)")
+                con.execute("INSERT INTO fact_market_daily VALUES (DATE '2026-07-03')")
+            finally:
+                con.close()
+
+            self.assertEqual(dual_blind_forecast._duckdb_max_trade_date(db_path), "2026-07-03")
+
     def test_aggregate_per_agent_stats(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ledger = Path(tmp)
