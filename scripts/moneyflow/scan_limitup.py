@@ -19,7 +19,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from moneyflow import make_client, fetch_trades_retry, analyze, stock_info, run_scan
+from moneyflow import (make_client, fetch_trades_retry, analyze, stock_info,
+                       run_scan, duck_limitup_codes)
 from config import out_path
 from write_to_duckdb import write_capital_flow
 
@@ -28,9 +29,25 @@ plt.rcParams["axes.unicode_minus"] = False
 
 
 def prev_trading_date(client, date):
-    """取 date 之前最近一个有数据的交易日"""
+    """取 date 之前最近一个交易日（优先本地 DuckDB；回退 ClickHouse 且限定近15天防全表扫）"""
+    try:
+        import duckdb
+        from config import DUCKDB_PATH
+        con = duckdb.connect(DUCKDB_PATH, read_only=True)
+        try:
+            row = con.execute(
+                "SELECT max(trade_date) FROM fact_stock_daily WHERE trade_date < ?",
+                [date]).fetchone()
+        finally:
+            con.close()
+        if row and row[0]:
+            return str(row[0])
+    except Exception:
+        pass
     rows = client.execute(
-        "SELECT max(TradeDate) FROM share.trans WHERE TradeDate < %(d)s", {"d": date})
+        "SELECT max(TradeDate) FROM share.trans "
+        "WHERE TradeDate < %(d)s AND TradeDate >= addDays(toDate(%(d)s), -15)",
+        {"d": date})
     return str(rows[0][0])
 
 
@@ -67,8 +84,14 @@ def main():
     net_thr = float(sys.argv[3]) if len(sys.argv) > 3 else 2000.0
     big_thr = float(sys.argv[4]) if len(sys.argv) > 4 else 50.0
 
-    codes = limit_up_stocks(client, prev)
-    print(f"昨日({prev})涨停股: {len(codes)} 只，开始逐只计算 {date} 大单资金流...")
+    try:
+        codes = duck_limitup_codes(prev)
+        source = "DuckDB"
+    except Exception as e:
+        print(f"DuckDB 取涨停名单失败({e})，回退 ClickHouse 聚合")
+        codes = limit_up_stocks(client, prev)
+        source = "ClickHouse"
+    print(f"昨日({prev})涨停股({source}): {len(codes)} 只，开始逐只计算 {date} 大单资金流...")
 
     def compute(client, code):
         client, df = fetch_trades_retry(client, code, date)

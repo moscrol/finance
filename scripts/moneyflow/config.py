@@ -28,3 +28,8 @@ def to_ts_code(code: str) -> str:
     """裸代码转带交易所后缀的 ts_code，便于与其它特征表 join。
     6/9 开头为上交所(.XSHG)，其余为深交所(.XSHE)。"""
     return f"{code}.XSHG" if code[0] in ("6", "9") else f"{code}.XSHE"
+
+
+_ENV_DB = os.environ.get("MARKET_FEATURE_STORE_DB")
+DUCKDB_PATH = str(Path(_ENV_DB).expanduser()) if _ENV_DB else str(
+    Path(__file__).resolve().parents[2] / "db" / "market_feature_store.duckdb")
