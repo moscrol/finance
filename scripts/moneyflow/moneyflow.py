@@ -70,7 +70,7 @@ def duck_limitup_codes(prev_date):
     return sorted(codes)
 
 
-def duck_top_turnover_codes(date, n=100):
+def duck_top_turnover_codes(date, n=50):
     """从本地 DuckDB 取当日成交额前 n 名单（免打 ClickHouse 重聚合）。"""
     import duckdb
     from config import DUCKDB_PATH
