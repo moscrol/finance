@@ -32,7 +32,7 @@ plt.rcParams["font.sans-serif"] = ["WenQuanYi Zen Hei"]
 plt.rcParams["axes.unicode_minus"] = False
 
 
-def top_turnover_stocks(client, date, n=100):
+def top_turnover_stocks(client, date, n=50):
     """当日成交额前 n 的股票（用 level2 收盘快照的累计成交额）。
 
     按代码前缀分4批查询再合并，单批负担小；每批失败自动重试。
