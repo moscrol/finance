@@ -109,7 +109,10 @@ class L3EvidenceLookupTests(unittest.TestCase):
         plan = plan_answer_question("深挖瑞华泰，查公告和互动易")
         completed = subprocess.CompletedProcess(args=["mock"], returncode=0, stdout="ok", stderr="")
 
-        with mock.patch.dict("os.environ", {"FINANCE_L3_PYTHON": "/tmp/disclosure-venv/bin/python"}), mock.patch(
+        with mock.patch.dict(
+            "os.environ",
+            {"FINANCE_L3_PYTHON": "/tmp/disclosure-venv/bin/python", "FINANCE_L3_CACHE_TTL_SECONDS": "0"},
+        ), mock.patch(
             "intelligence.services.l3_evidence.subprocess.run", return_value=completed
         ) as run:
             lookup_l3_evidence(
@@ -132,6 +135,7 @@ class L3EvidenceLookupTests(unittest.TestCase):
                 "FINANCE_L3_PYTHONPATH": "~/finhot",
                 "FINANCE_L3_CWD": tmp,
                 "PYTHONPATH": "/existing/path",
+                "FINANCE_L3_CACHE_TTL_SECONDS": "0",
             },
         ), mock.patch(
             "intelligence.services.l3_evidence.subprocess.run", return_value=completed

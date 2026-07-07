@@ -127,7 +127,10 @@ def _suggest_action(bucket: str, judgment: dict[str, Any], lifecycle: dict[str, 
     if bucket == QUEUE_DO_IMA:
         return "补 IMA/题材地图，目标是补清题材边界、产业链位置、核心公司和 L1/L2 材料。"
     if bucket == QUEUE_FIND_OFFICIAL:
-        return "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+        return (
+            "查公告、互动易、调研纪要、订单/合同、客户验证，把候选事实升级为 L3 官方验证。"
+            "口径：L3 测公司端兑现度，驱动看催化归因；查无公告读作「尚未兑现」，不降级。"
+        )
     if bucket == QUEUE_WAIT_MARKET:
         return "不急着补材料，观察强势股扩散、成交边际和后续是否继续进候选。"
     if bucket == QUEUE_DOWNGRADE:

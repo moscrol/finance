@@ -26,6 +26,20 @@
   根因：表结构和代码中的字段列表不同步。
   做法：检查白名单中的字段必须在飞书表中实际存在，写入前验证字段名。
 
+## [kb] 卖方研报 / entity-delta 入库
+
+- **[2026-06-28] 验证 entity-delta/concept-delta 路由时用 `writer < payload.json | grep ...` 管道，导致 writer 被重复执行、内容重复追加。**
+  根因：shell 管道会**完整执行**左侧的 writer（含写盘副作用），再把 stdout 喂给 grep；以为"只是看一眼"实际又跑了一遍。叠加先前已正常跑过一次，结果 entity 页「## 高信度研究线索」多段重复、source 索引「## 已更新实体」追加两次、新建卡（甬矽电子.md）被创建多次。
+  做法：delta writer **只跑一次**，stdout 重定向到文件（`writer < payload.json > /tmp/out.json 2>&1`）；验证阶段**只读已写好的 entity/concept/source 文件与 relations**，绝不再调用 writer。误跑后用 `git checkout -- wiki/concepts wiki/entities wiki/relations` 回滚 + 手动截断 source 索引追加段，再干净重跑。
+
+- **[2026-06-28] 同日两批卖研入库，第二批险些覆盖第一批产物。**
+  根因：sources/synthesis/raw 文件名按日期命名，同日第二批会与第一批同名。
+  做法：batch 隔离——第二批文件名加 `晚卖研汇2_`（raw/sources）/`-batch2`（synthesis）后缀；log 用独立 `#NNN` 条目；index.md 各处并列登记不覆盖。
+
+- **[2026-06-28] 内置 git_create_pr 对 linxiaoqi5111-del 仓返回 404 Not Found。**
+  根因：内置 git 工具走会话默认账号（noah-smith439374），无该私有仓权限。
+  做法：PR 用 `GITHUB_PAT_LINXIAOQI5111` 走 GitHub REST API（`POST /repos/.../pulls`）创建。
+
 ## [kb] 年报 baseline 入库
 
 - **[2026-06-23] 批量年报入库共用 batch source note 导致追溯断裂。**
@@ -161,3 +175,4 @@
 - **[2026-06-19] 「先把所有东西读完再动手」，迟迟未入库，被用户两次点名「为什么处理那么慢 / 没按脚本执行」。**
   根因：把「理解」和「执行」串行化——先求 100% 读懂再开始第一步，而非边执行边按需点查。确定性任务下这是纯浪费、且拖慢首步交付。
   做法：确定性流程一律「立即执行 + 按需点查」。不依赖任何源码理解就能起步的步骤（如先建 source 页）先做掉；后续每步只在真正用到某机制时点查该机制那几行。首步交付优先于全局理解。
+- [kb] [2026-07-02] 年报披露日锚点抽取 4/20 落空 → 部分年报无内控披露/审计报告日锚点段落 → 兜底顺位加「财务报表业经公司董事会于X年X月X日批准报出/董事会批准报送日期」；另注意「资产负债表日后事项」中的日期会造成误抽（三峡能源 2026-01-19 误判），抽取后需 sanity check 日期是否落在 3-6 月披露季。

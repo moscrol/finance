@@ -107,6 +107,8 @@ class L3EvidenceBundle:
     def to_prompt_block(self) -> str:
         lines = [
             "## L3 官方证据工具补查（运行时工具证据，不等同于已沉淀知识库）",
+            "- 口径：L3 测的是「公司端兑现度」而非「题材合法性」；题材可由产业端催化独立驱动，无公告 ≠ 无驱动，不得据此降级。",
+            "- 结论固定写成两行：「驱动=产业端何事件（见催化归因/叙事源）；公司端兑现=有/无+口径」。",
             "- 使用原则：公告/问询函/互动易用于约束事实边界；若只查到澄清、风险提示或无订单口径，不能把预期当兑现。",
         ]
         if self.gaps:
@@ -120,7 +122,10 @@ class L3EvidenceBundle:
                 cite = f"；来源={item.citation}" if item.citation else ""
                 lines.append(f"  - [L{idx}] {item.source_type}｜{item.title}：{item.summary}{cite}")
         else:
-            lines.append("- 工具返回：未取得可注入的 L3 证据；回答必须显式降低证据硬度。")
+            lines.append(
+                "- 工具返回：未取得可注入的 L3 证据；读作「公司端尚未兑现」，"
+                "驱动是否成立另看产业端催化；不得据此否定题材或降级，但也不得把预期写成已兑现。"
+            )
         if self.warnings:
             lines.append("- 工具警告：")
             lines.extend(f"  - {w}" for w in self.warnings)

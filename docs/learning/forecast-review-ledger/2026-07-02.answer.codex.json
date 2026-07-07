@@ -2,191 +2,282 @@
   "schema_version": "1.0",
   "date": "2026-07-02",
   "agent": "codex",
-  "source": "duckdb",
-  "manifest_sha": "a28acfe77d5951d4",
-  "date_policy": {
-    "date_field": "forecast_target_trade_date",
-    "target_trade_date": "2026-07-02",
-    "perspective_trade_date": "2026-07-01",
+  "manifest_sha": "3814fffbe51db7c0",
+  "stage": "底部横盘第2天后的强广度修复分化确认日",
+  "input_freeze": {
     "duckdb_cutoff": "2026-07-01",
-    "source_material_date": "2026-07-01",
-    "rule": "date=要验证的目标交易日2026-07-02；perspective=2026-07-01盘后前瞻；duckdb_cutoff回溯冻结于2026-07-01（DB当前max为2026-07-02，回改防lookahead）。"
+    "perspective_date": "2026-07-01",
+    "materials": [
+      "/Users/a77/finance-workspace-private/docs/learning/forecast-review-ledger/2026-07-02.md"
+    ],
+    "data_gaps": [
+      "fact_mainline_* 当时停在 2026-06-30，不作为强结论。",
+      "本 JSON 为旧 markdown 答卷追溯结构化；不是重新预测。"
+    ]
   },
-  "flow_entries": [
-    {
-      "flow_type": "duckdb_market",
-      "flow_name": "DuckDB 盘面流",
-      "validation_windows": ["T+1"],
-      "question_template": "基于截至2026-07-01收盘的DuckDB数据，判断市场阶段、双红候选、涨停/连板方向和2026-07-02最可能路径。",
-      "hypothesis_ids": [
-        "market:path-20260702",
-        "direction:ai-diffusion-20260702",
-        "direction:robot-upgrade-20260702",
-        "direction:hardware-halt-20260702",
-        "direction:sellside-pickup-20260702",
-        "direction:power-equipment-20260702",
-        "direction:broad-recovery-20260702"
-      ]
+  "section_1_fields": {
+    "forecast_basis": "7/1 成交36397.84亿、涨家4240、涨停148、跌停7、电子成交占比34.7%、双红183。",
+    "actual_recheck": {
+      "market": {
+        "trade_date": "2026-07-02",
+        "stage": "底部横盘阶段第3天",
+        "total_amount_yi": 34503.1,
+        "amount_vs_yesterday_pct": -5.72,
+        "volume_ratio_pct": 108.42,
+        "advancers": 2219,
+        "limit_up": 93,
+        "limit_down": 40,
+        "sh_index_pct_chg": -2.0314,
+        "top3_industry_ratio_pct": 48.4,
+        "industry_1": "电子",
+        "industry_1_ratio_pct": 33.0,
+        "stock_high_count_history": 56,
+        "stock_high_count_120d": 134,
+        "stock_high_count_60d": 174,
+        "stock_high_count_20d": 477,
+        "double_red_count": 35,
+        "double_red_count_prev": 183
+      },
+      "directions": {
+        "AI应用": {
+          "pct_chg": -1.12,
+          "diff_ratio": 1.45,
+          "limit_heat": 5
+        },
+        "AI智能体": {
+          "pct_chg": -1.38,
+          "diff_ratio": -5.49,
+          "limit_heat": 4
+        },
+        "数据要素": {
+          "pct_chg": -1.19,
+          "diff_ratio": -14.04,
+          "limit_heat": 3
+        },
+        "算力租赁": {
+          "pct_chg": -2.04,
+          "diff_ratio": -12.72,
+          "limit_heat": 3
+        },
+        "机器人": {
+          "pct_chg": -0.93,
+          "diff_ratio": -4.6,
+          "limit_heat": 20
+        },
+        "人形机器人": {
+          "pct_chg": -0.64,
+          "diff_ratio": -0.11,
+          "limit_heat": 13
+        },
+        "储能": {
+          "pct_chg": -1.46,
+          "diff_ratio": -7.92,
+          "limit_heat": 12
+        },
+        "光伏": {
+          "pct_chg": -2.03,
+          "diff_ratio": -13.07,
+          "limit_heat": 9
+        },
+        "风电": {
+          "pct_chg": -1.19,
+          "diff_ratio": -5.56,
+          "limit_heat": 3
+        },
+        "半导体": {
+          "pct_chg": -5.51,
+          "diff_ratio": -13.98,
+          "limit_heat": 1
+        },
+        "CPO": {
+          "pct_chg": -5.1,
+          "diff_ratio": -9.11,
+          "limit_heat": null
+        },
+        "先进封装": {
+          "pct_chg": -4.89,
+          "diff_ratio": -12.77,
+          "limit_heat": 1
+        },
+        "证券": {
+          "pct_chg": -2.23,
+          "diff_ratio": -27.86,
+          "limit_heat": null
+        },
+        "保险": {
+          "pct_chg": -1.29,
+          "diff_ratio": -34.27,
+          "limit_heat": null
+        },
+        "非银金融": {
+          "pct_chg": -2.11,
+          "diff_ratio": null,
+          "limit_heat": null
+        },
+        "医药生物": {
+          "pct_chg": -0.12,
+          "diff_ratio": null,
+          "limit_heat": null
+        },
+        "基础化工": {
+          "pct_chg": -0.57,
+          "diff_ratio": null,
+          "limit_heat": null
+        },
+        "电力设备": {
+          "pct_chg": -2.41,
+          "diff_ratio": null,
+          "limit_heat": null
+        },
+        "数据中心": {
+          "pct_chg": -2.54,
+          "diff_ratio": -10.22,
+          "limit_heat": 6
+        },
+        "MLCC": {
+          "pct_chg": -4.87,
+          "diff_ratio": -8.85,
+          "limit_heat": null
+        },
+        "存储芯片": {
+          "pct_chg": -5.67,
+          "diff_ratio": -12.94,
+          "limit_heat": 2
+        },
+        "液冷服务器": {
+          "pct_chg": -2.49,
+          "diff_ratio": -8.23,
+          "limit_heat": 5
+        },
+        "PCB": {
+          "pct_chg": -3.83,
+          "diff_ratio": -11.24,
+          "limit_heat": null
+        }
+      }
     }
-  ],
-  "stage": "2026-07-01收盘后输入冻结；市场处于底部横盘阶段第2天后的强广度修复（涨家4240/涨停148/跌停7/成交36398亿环比+11.19%），电子占比34.7%但当日下跌，资金向AI应用/算力租赁/机器人/电力设备/金融医药扩散。",
-  "main_judgment": "2026-07-02更像'强广度修复后的分化确认日'，不是继续无差别普涨日。重点验证7/1新双红扩散方向（AI应用/数据要素/算力租赁）能否二日确认、机器人能否升级并行主线、外盘映射下高位硬件核心能否止跌，而不是继续押7/1所有涨停方向无差别延续。",
+  },
+  "main_judgment": "7/2 是强广度修复后的分化确认日，不是无差别普涨日；实际结果为成交仍高但广度和高位硬件显著恶化，分化判断成立但盘面强度低于中性预期。",
   "direction_ranking": [
-    "AI应用/数据要素/算力租赁扩散二日确认",
-    "机器人升级并行主线",
-    "电力设备真双红升级行业承接",
-    "半导体/CPO/先进封装外盘映射止跌",
-    "非银/医药/化工广谱风险偏好修复"
+    "AI应用/AI智能体/数据要素/算力租赁",
+    "机器人/人形机器人",
+    "电力设备链",
+    "半导体/CPO/先进封装",
+    "非银金融/医药/化工"
   ],
   "picks": [
-    {"code": "300442.SZ", "name": "润泽科技", "strategy": "数据中心/算力承接", "reason": "7/1涨8.41%、成交80.48亿、20日新高，代表算力链从硬件核心向运营/数据中心承接"},
-    {"code": "300033.SZ", "name": "同花顺", "strategy": "软件开发/金融科技/风险偏好", "reason": "7/1涨7.05%、成交103.43亿、60日新高，验证计算机软件扩散+非银风险偏好"},
-    {"code": "002747.SZ", "name": "埃斯顿", "strategy": "机器人/人形机器人", "reason": "7/1机器人涨停热度全市场第一，埃斯顿涨停、成交21.97亿，机器人直接代表"},
-    {"code": "600584.SH", "name": "长电科技", "strategy": "半导体韧性观察", "reason": "7/1半导体分歧但长电涨2.98%、成交263.27亿、历史新高，高位半导体相对强容量代表"},
-    {"code": "300059.SZ", "name": "东方财富", "strategy": "非银金融/广谱风险偏好", "reason": "7/1涨5.25%、成交202.37亿、60日新高，验证广度修复扩展到高流动性风险资产"}
+    {
+      "code": "300442",
+      "ts_code": "300442.SZ",
+      "name": "润泽科技",
+      "strategy": "数据中心/算力承接观察",
+      "reason": "绑定§1/§4：7/1 涨8.41%、成交80.48亿、20日新高；用于验证数据中心/算力链承接。",
+      "actual_t1_pct": -2.51
+    },
+    {
+      "code": "300033",
+      "ts_code": "300033.SZ",
+      "name": "同花顺",
+      "strategy": "软件开发/金融科技/风险偏好观察",
+      "reason": "绑定§1/§4：7/1 涨7.05%、成交103.43亿、60日新高；同时验证计算机软件扩散和金融风险偏好。",
+      "actual_t1_pct": -4.01
+    },
+    {
+      "code": "002747",
+      "ts_code": "002747.SZ",
+      "name": "埃斯顿",
+      "strategy": "机器人/人形机器人观察",
+      "reason": "绑定§3.2/§4：机器人7/1涨停热度第一，埃斯顿涨停、成交21.97亿，是机器人直接代表。",
+      "actual_t1_pct": -0.88
+    },
+    {
+      "code": "600584",
+      "ts_code": "600584.SH",
+      "name": "长电科技",
+      "strategy": "半导体韧性观察",
+      "reason": "绑定§3.4/§4：7/1 半导体分歧但长电科技涨2.98%、成交263.27亿、历史新高。",
+      "actual_t1_pct": -10.0
+    },
+    {
+      "code": "300059",
+      "ts_code": "300059.SZ",
+      "name": "东方财富",
+      "strategy": "非银金融/广谱风险偏好观察",
+      "reason": "绑定§3.5/§4：7/1 涨5.25%、成交202.37亿、60日新高；验证风险偏好扩散。",
+      "actual_t1_pct": -3.36
+    }
   ],
   "thresholds": {
-    "market": "H1市场路径：强=成交>3.4万亿且涨家>3000且涨停>120且跌停不扩张；中=成交3.2-3.4万亿且涨家2200-3000且涨停90-120且方向轮动无退潮；弱=成交<3.2万亿且涨家<2000且涨停<80且跌停扩张。",
-    "direction": "H2扩散延续=AI应用/智能体/数据要素/算力租赁至少2-3个继续涨且涨停热度不塌陷；H3机器人升级=涨停维持25-30只以上且埃斯顿/拓斯达/昊志代表不明显掉队。",
-    "targets": "H4高位硬件止跌=半导体/CPO/先进封装不继续大跌，澜起/长电/北方/雅克收强（内部切换）vs 新易盛/华工/中科曙光续弱（降权）；H5电力设备升级=一级转正且储能/光伏涨停热度维持；H6金融化工=非银/医药/化工续强且科技高位不崩（多线扩散）。",
-    "falsify": "H2若涨停明显缩且核心高开低走=扩散是一次性外溢；H3若机器人涨停<15或前排高开低走=情绪分支非主线；H4若CPO/先进封装/通信续弱且新易盛/华工/中科曙光续跌=高位硬件继续降权，若外盘刺激高开但午后承接不足=外盘只给开盘溢价；H6若只有金融医药强而科技高位继续杀=资金切换非主线延续。"
+    "market": "强：成交额>34000亿、涨家>3000、涨停>120、跌停不扩张；中：成交32000-34000亿、涨家2200-3000、涨停90-120、方向轮动但无明显退潮；弱：成交<32000亿、涨家<2000、涨停<80、跌停扩张。",
+    "direction": "AI应用/AI智能体/数据要素/算力租赁至少2-3个方向继续上涨并保持涨停热度；机器人涨停25-30只以上升级，<15只降级；电力设备一级转正且储能/光伏涨停维持才升级；半导体/CPO/先进封装不能继续大幅杀跌。",
+    "targets": "润泽科技/同花顺/埃斯顿/长电科技/东方财富 T+1 应至少保持方向相对强弱：所属方向不退潮，个股不明显跑输沪指或不破坏对应验证逻辑。",
+    "falsify": "若7/2 跌停扩张、7/1新双红方向多数高开低走、高位硬件继续大跌，或金融/医药/化工强而科技崩，则无差别延续路径证伪，需要降低高位科技和普涨外推。"
   },
   "hypotheses": [
     {
-      "id": "market:path-20260702",
-      "flow_type": "duckdb_market",
-      "type": "market_path",
-      "direction": "强广度后的分化确认日（非无差别普涨延续）",
-      "verdict_window": "T+1",
-      "current_verdict": "pending",
-      "evidence": {
-        "market_stage": "2026-07-01底部横盘第2天，涨家4240、涨停148、跌停7",
-        "volume": "成交36397.84亿环比+11.19%，量比114.98（高于20日均量）",
-        "concentration": "电子占比34.7%但当日下跌，前三行业占比50.8%，容量在电子但赚钱效应在扩散"
-      },
-      "checks": [
-        {"name": "amount", "metric": "fact_market_daily.total_amount", "operator": ">", "threshold": 34000, "unit": "亿元"},
-        {"name": "advancers", "metric": "fact_market_daily.advancers", "operator": ">", "threshold": 3000},
-        {"name": "limit_up", "metric": "fact_market_daily.limit_up", "operator": ">", "threshold": 120},
-        {"name": "limit_down", "metric": "fact_market_daily.limit_down", "operator": "<=", "threshold": 10}
-      ],
-      "falsifiers": [
-        {"name": "weak_path", "condition": "成交<3.2万亿且涨家<2000且涨停<80且跌停扩张"}
-      ]
+      "id": "market",
+      "text": "7/2 是强广度修复后的分化确认日，强/中/弱路径由成交额、涨家数、涨停、跌停共同判定。"
     },
     {
-      "id": "direction:ai-diffusion-20260702",
-      "flow_type": "duckdb_market",
-      "type": "direction",
-      "direction": "AI应用/AI智能体/数据要素/算力租赁扩散延续",
-      "verdict_window": "T+1",
-      "current_verdict": "pending",
-      "evidence": {
-        "ai_app": "AI应用7/1涨2.70%/diff25.36/成交2959.57/涨停14",
-        "ai_agent": "AI智能体7/1涨2.40%/diff17.71/成交2616.40/涨停10",
-        "data_element": "数据要素7/1涨2.53%/diff28.09/成交2036.69/涨停12",
-        "rental": "算力租赁7/1涨1.89%/diff16.33/成交1724.59/涨停8"
-      },
-      "checks": [
-        {"name": "directions_continue", "metric": "AI应用/智能体/数据要素/算力租赁继续涨个数", "operator": ">=", "threshold": 2},
-        {"name": "heat_maintain", "metric": "四方向涨停热度合计不腰斩", "operator": "manual", "threshold": "不腰斩"}
-      ],
-      "falsifiers": [
-        {"name": "diffusion_fail", "condition": "涨停明显缩且核心个股高开低走=7/1广谱修复一次性外溢"}
-      ]
+      "id": "h2_ai_diffusion",
+      "text": "AI应用/AI智能体/数据要素/算力租赁至少2-3个方向继续上涨并保持涨停热度，扩散路径才成立。"
     },
     {
-      "id": "direction:robot-upgrade-20260702",
-      "flow_type": "duckdb_market",
-      "type": "direction",
-      "direction": "机器人升级为并行主线",
-      "verdict_window": "T+1",
-      "current_verdict": "pending",
-      "evidence": {
-        "limit_heat": "机器人概念7/1涨停38（全市场第1），人形机器人涨停22",
-        "marginal": "机器人7/1涨1.47%/diff9.01（未达真双红阈值）"
-      },
-      "checks": [
-        {"name": "robot_limit_up", "metric": "机器人概念涨停数", "operator": ">=", "threshold": 25},
-        {"name": "leaders_hold", "metric": "埃斯顿/拓斯达/昊志不掉队", "operator": "manual", "threshold": "不明显掉队"}
-      ],
-      "falsifiers": [
-        {"name": "robot_fail", "condition": "涨停<15或前排高开低走=情绪延续非新主线"}
-      ]
+      "id": "h3_robot",
+      "text": "机器人涨停仍在25-30只以上且核心不明显掉队，则升级为并行主线候选；跌到15只以下则降级。"
     },
     {
-      "id": "direction:hardware-halt-20260702",
-      "flow_type": "duckdb_market",
-      "type": "direction",
-      "direction": "外盘映射下高位硬件核心止跌（半导体/CPO/先进封装）",
-      "verdict_window": "T+1",
-      "current_verdict": "pending",
-      "evidence": {
-        "us_mapping": "北京时间7/1凌晨美股半导体SMH+3.78%/费半+3.92%，给A股硬件链正映射",
-        "a_share": "7/1半导体-0.50%/CPO-1.22%/先进封装-1.02%已分歧，但美股盘中又有回落"
-      },
-      "checks": [
-        {"name": "semiconductor_halt", "metric": "半导体pct_chg", "operator": ">=", "threshold": 0},
-        {"name": "leaders_strong", "metric": "澜起/长电/北方/雅克是否收强", "operator": "manual", "threshold": "容量核心收强"}
-      ],
-      "falsifiers": [
-        {"name": "hardware_down", "condition": "CPO/先进封装/通信续弱且新易盛/华工/中科曙光续跌=继续降权"},
-        {"name": "open_high_close_low", "condition": "外盘刺激高开但午后承接不足=外盘只给开盘溢价"}
-      ]
+      "id": "h4_hardware",
+      "text": "外盘映射下，半导体/CPO/先进封装高位核心应止跌；若继续弱则硬件核心降权。"
     },
     {
-      "id": "direction:sellside-pickup-20260702",
-      "flow_type": "duckdb_market",
-      "type": "direction",
-      "direction": "PR188卖方真增量方向被盘面选择（IDC/燃机/电容/SOFC/DRAM）",
-      "verdict_window": "T+1",
-      "current_verdict": "pending",
-      "evidence": {
-        "sellside_cross": "PR188《晚间卖方研报20260701》交叉：🟢真增量=IDC五年首次涨价/燃机指引上修/国巨电容涨价/SOFC数据中心/长鑫腾讯DRAM长协",
-        "market_check": "验证重点不是卖方有没有提，而是低覆盖真增量是否比高覆盖拥挤方向更能被盘面选择"
-      },
-      "checks": [
-        {"name": "increment_picked", "metric": "IDC/燃机/电容/SOFC/DRAM方向相对强度", "operator": "manual", "threshold": "跑赢高覆盖拥挤方向"}
-      ],
-      "falsifiers": [
-        {"name": "increment_not_picked", "condition": "真增量方向未双红且核心股未抗跌，高覆盖方向反而更强"}
-      ]
+      "id": "h4b_sellside_increment",
+      "text": "PR188 真增量方向 IDC/数据中心、燃机、电容/MLCC、SOFC、DRAM 应比高覆盖透支方向更能被盘面选择。"
     },
     {
-      "id": "direction:power-equipment-20260702",
-      "flow_type": "duckdb_market",
-      "type": "direction",
-      "direction": "电力设备真双红从概念反抽升级为行业承接",
-      "verdict_window": "T+1",
-      "current_verdict": "pending",
-      "evidence": {
-        "concept": "储能/光伏/固态电池/风电7/1真双红，但申万一级电力设备-1.45%"
-      },
-      "checks": [
-        {"name": "sw_l1_positive", "metric": "申万一级电力设备pct_chg", "operator": ">", "threshold": 0},
-        {"name": "concept_heat", "metric": "储能/光伏涨停热度维持", "operator": "manual", "threshold": "维持"}
-      ],
-      "falsifiers": [
-        {"name": "industry_weak", "condition": "概念续涨但电力设备一级仍弱=局部事件/低位弹性非主线"}
-      ]
+      "id": "h5_power_equipment",
+      "text": "储能/光伏/风电等概念若继续双红且电力设备一级行业转正，则从概念反抽升级为行业承接。"
     },
     {
-      "id": "direction:broad-recovery-20260702",
-      "flow_type": "duckdb_market",
-      "type": "direction",
-      "direction": "金融/医药/化工是多线扩散还是单纯资金切换",
-      "verdict_window": "T+1",
-      "current_verdict": "pending",
-      "evidence": {
-        "rotation": "7/1非银/医药/化工表现较强，代表广谱风险偏好修复"
-      },
-      "checks": [
-        {"name": "multi_line", "metric": "非银/医药/化工续强且科技高位不崩", "operator": "manual", "threshold": "多线扩散"}
-      ],
-      "falsifiers": [
-        {"name": "switch_only", "condition": "只有金融医药强而科技高位继续杀=资金切换非科技主线延续"}
-      ]
+      "id": "h6_risk_preference",
+      "text": "非银/医药/化工若继续强且科技不崩，则多线修复；若仅它们强而科技崩，则是资金切换。"
+    },
+    {
+      "id": "target:300442",
+      "text": "润泽科技应继续强于数据中心/算力租赁；高开低走或跑输指数则算力承接偏一日修复。"
+    },
+    {
+      "id": "target:300033",
+      "text": "同花顺应继续强于软件开发和证券，用于验证软件扩散与金融风险偏好。"
+    },
+    {
+      "id": "target:002747",
+      "text": "埃斯顿不明显掉队且机器人热度维持，则机器人二日确认；开板大跌则降级。"
+    },
+    {
+      "id": "target:600584",
+      "text": "长电科技若继续强，说明封测/存储链有资金保留；若转弱，高位半导体降权。"
+    },
+    {
+      "id": "target:300059",
+      "text": "东方财富/证券继续强则风险偏好扩散，金融冲高回落则7/1非银偏脉冲。"
     }
   ],
-  "recheck": {}
+  "recheck": {
+    "as_of": "2026-07-02 close",
+    "pick_returns_t1": [
+      -2.51,
+      -4.01,
+      -0.88,
+      -10.0,
+      -3.36
+    ],
+    "pick_returns_t3": [],
+    "beat_benchmark_t3": false,
+    "market_threshold_hit": false,
+    "benchmark_sh_index_pct_chg_t1": -2.0314,
+    "notes": [
+      "T+1 已回填；T+3 不可回填：当前 DuckDB 截止 2026-07-03。"
+    ]
+  }
 }

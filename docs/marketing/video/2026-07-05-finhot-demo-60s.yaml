@@ -1,0 +1,29 @@
+video_id: 2026-07-05-finhot-demo-60s
+source_script: SV-01（docs/marketing/generated/2026-07-05-launch-batch.md）
+format: {width: 1080, height: 1920, fps: 30}
+voice: zh-CN-YunxiNeural
+claim_ids: [claim-finhot-one-feed, claim-finhot-source-evidence, claim-finhot-local-first]
+disclaimer: 仅产品演示，不构成投资建议
+scenes:
+  - id: hook
+    title: 你刷金融消息\n要开几个 App？
+    voiceover: 你刷金融消息，要开几个App？我只开这一个。
+    style: title_card
+  - id: aggregate
+    title: 一条信息流\n看全金融市场
+    voiceover: 这是FinHot。RSS、微博、雪球、微信、X，全部聚合成一条信息流。每条自动摘要、打分，高信号的自己浮上来。
+    image: screenshots/timeline.png
+    style: screenshot_card
+  - id: evidence
+    title: 先看源头证据\n再看热闹
+    voiceover: 看到一个题材想确认真假？直接查官方披露：公告、互动易、问询函，按重要度分级。先看源头，再看热闹。
+    image: screenshots/entry-detail.png
+    style: screenshot_card
+  - id: local
+    title: 本地优先 · BYOK\n数据只属于你
+    voiceover: 所有数据存在本地，桌面应用，AI用自己的key。你的阅读数据，只属于你。
+    style: title_card
+  - id: cta
+    title: FinHot\n我给自己做的金融阅读器
+    voiceover: 这是我给自己做的金融阅读器，后续更新会陆续发，关注不迷路。
+    style: title_card

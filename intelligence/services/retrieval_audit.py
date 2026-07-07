@@ -42,6 +42,7 @@ class RetrievalAuditRecord:
     wiki_top_score: float | None
     wiki_mean_score: float | None
     wiki_degraded: str | None
+    wiki_pages: list[str] = field(default_factory=list)
     market_phase: str | None = None
     failure_tags: list[str] = field(default_factory=list)
     d_blocks: list[dict[str, Any]] = field(default_factory=list)
@@ -94,6 +95,7 @@ def build_audit_record(
         wiki_top_score=telemetry.wiki_top_score,
         wiki_mean_score=telemetry.wiki_mean_score,
         wiki_degraded=telemetry.wiki_degraded,
+        wiki_pages=list(getattr(telemetry, "wiki_pages", None) or []),
         market_phase=market_phase,
         failure_tags=_failure_tags(audit, telemetry),
         d_blocks=[s.to_dict() for s in (d_block_stats or [])],
@@ -125,6 +127,35 @@ def load_records(ledger_path: str | Path) -> list[dict[str, Any]]:
 
 def load_failure_samples(ledger_path: str | Path) -> list[dict[str, Any]]:
     return [r for r in load_records(ledger_path) if r.get("is_failure")]
+
+
+def summarize_pages(ledger_path: str | Path) -> dict[str, Any]:
+    """页级命中统计：每个 wiki 页被检索命中几次、最后一次命中时间。
+
+    这是「档案维护降级」决策的数据底座：长期零命中的页不删（存储免费），
+    但应停止对它们的精修/证据分层投入；高命中页才值得花 ingest 预算。
+    （思路即 LRU 缓存分层，可迁移到任何知识管理/检索系统的维护预算分配。）
+    """
+    records = load_records(ledger_path)
+    pages: dict[str, dict[str, Any]] = {}
+    queries_with_wiki = 0
+    for rec in records:
+        page_list = [str(p) for p in (rec.get("wiki_pages") or []) if str(p).strip()]
+        if page_list:
+            queries_with_wiki += 1
+        ts = str(rec.get("ts") or "")
+        for p in page_list:
+            st = pages.setdefault(p, {"page": p, "hits": 0, "last_hit": ""})
+            st["hits"] += 1
+            if ts > st["last_hit"]:
+                st["last_hit"] = ts
+    ranked = sorted(pages.values(), key=lambda s: (-s["hits"], s["page"]))
+    return {
+        "total_records": len(records),
+        "records_with_wiki_pages": queries_with_wiki,
+        "distinct_pages": len(ranked),
+        "pages": ranked,
+    }
 
 
 def summarize_ledger(ledger_path: str | Path) -> dict[str, Any]:

@@ -34,6 +34,37 @@ def default_store(vault: Path) -> Path:
     return vault / "raw" / "theme-radar" / "opinion-store" / "opinion-events.jsonl"
 
 
+def default_raw_roots(vault: Path) -> tuple[Path, ...]:
+    """台账规定的卖方原文落点（ledger-map）：输入不在这些目录下就先归档再入库。"""
+    return (vault / "raw" / "sellside", vault / "raw" / "briefings")
+
+
+def archive_raw_input(vault: Path, input_path: Path, report_date: str, source: str) -> tuple[Path, bool]:
+    """原文先落库门：保证结构化事件永远可以回溯到原文（可重提纯/可审计）。
+
+    输入已在 raw/sellside 或 raw/briefings 下：原样返回；否则拷贝到
+    raw/sellside/<report_date>-<source>.md（重名加序号，不覆盖）。返回(归档路径, 是否新拷贝)。"""
+    resolved = input_path.resolve()
+    for root in default_raw_roots(vault):
+        try:
+            resolved.relative_to(root.resolve())
+            return resolved, False
+        except ValueError:
+            continue
+    sellside = default_raw_roots(vault)[0]
+    sellside.mkdir(parents=True, exist_ok=True)
+    stem = f"{report_date}-{_norm_source_key(source) or '未署名'}"
+    dest = sellside / f"{stem}.md"
+    seq = 1
+    while dest.exists():
+        if dest.read_text(encoding="utf-8") == resolved.read_text(encoding="utf-8"):
+            return dest, False
+        seq += 1
+        dest = sellside / f"{stem}-{seq}.md"
+    dest.write_text(resolved.read_text(encoding="utf-8"), encoding="utf-8")
+    return dest, True
+
+
 def default_sources(store: Path) -> Path:
     """机构注册表与事件库同目录，便于将来 join 算机构胜率。"""
     return store.parent / "sources.json"
@@ -178,6 +209,8 @@ def cmd_ingest(args) -> int:
     source = entry["canonical"]
     source_id = entry["source_id"]
 
+    raw_archive_path, raw_archived = archive_raw_input(vault, Path(args.input).expanduser(), report_date, source)
+
     events = [
         opportunity_to_event(
             opp,
@@ -196,6 +229,8 @@ def cmd_ingest(args) -> int:
             {
                 "store": str(store),
                 "sources_registry": str(sources_path),
+                "raw_archive": str(raw_archive_path),
+                "raw_archived_now": raw_archived,
                 "report_date": report_date,
                 "source": source,
                 "source_id": source_id,

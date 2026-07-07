@@ -489,6 +489,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 "hits": len(wr.hits),
                 "scores": [h.score for h in wr.hits],
                 "neighbor_hits": sum(1 for h in wr.hits if h.via_neighbor),
+                "pages": [h.file_path for h in wr.hits],
                 "warning": wr.warning,
             }
         )

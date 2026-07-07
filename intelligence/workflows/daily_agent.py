@@ -15,6 +15,7 @@ from intelligence.services.logic_market_match import (
     available_candidate_dates,
     batch_match_logic_to_market,
 )
+from intelligence.services import catalyst_attribution
 from intelligence.services import kb_rag
 from intelligence.services import kb_ingest_queue, kb_queue_receipt
 from intelligence.services import logic_lifecycle
@@ -23,6 +24,7 @@ from intelligence.services import market_validation
 from intelligence.services import research_queue
 from intelligence.services import research_judge
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
+from intelligence.userspace import user_space
 from scripts.build_daily_ops_ledger import build_ledger
 
 
@@ -63,6 +65,10 @@ class DailyAgentOptions:
     wiki_rag_mode: str = "hybrid"
     wiki_rag_timeout: int = 120
     effectiveness_window: int = 20
+    catalyst_window_days: int = 5
+    checkpoints_path: str | Path | None = None
+    register_checkpoints: bool = True
+    user: str | None = None
 
 
 def _paths_from_options(options: DailyAgentOptions) -> ProjectPaths:
@@ -437,6 +443,24 @@ def _agent_next_actions(report: dict[str, Any]) -> list[str]:
     kb_summary = (report.get("kb_ingest_queue") or {}).get("summary") or {}
     if kb_summary.get("total_tasks"):
         actions.append(f"已生成知识库回补任务包：{kb_summary['total_tasks']} 条，等待 KB repo 校验归档和人工复核。")
+    queue = report.get("research_queue") or {}
+    narrative_hits: list[str] = []
+    market_only: list[str] = []
+    for key in ("today_do_ima", "today_find_official_evidence"):
+        for item in queue.get(key) or []:
+            status = (item.get("催化归因") or {}).get("status")
+            target = str(item.get("目标") or "-")
+            if status == catalyst_attribution.STATUS_NARRATIVE_HIT:
+                narrative_hits.append(target)
+            elif status == catalyst_attribution.STATUS_MARKET_ONLY:
+                market_only.append(target)
+    if narrative_hits:
+        actions.append(f"催化归因命中叙事驱动：{', '.join(narrative_hits[:5])}；驱动在产业/研报端，公司公告是兑现确认而非门票。")
+    if market_only:
+        actions.append(f"催化归因未命中：{', '.join(market_only[:5])}；先确认是否有场外产业事件（新闻/发布会），否则按纯盘面异动处理。")
+    catalyst_meta = report.get("catalyst_attribution") or {}
+    if catalyst_meta.get("warnings"):
+        actions.append("催化归因数据源有缺口（研报观点/晨汇缺档），归因结果只作参考，先补数据源。")
     judgments = [
         row.get("research_judgment") or {}
         for rows in decision.values()
@@ -490,6 +514,21 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         top_per_date=options.top_per_date,
     )
     _enrich_decision_with_lifecycle(decision, history_by_theme)
+    lifecycle_checkpoints: dict[str, Any] = {"enabled": bool(options.register_checkpoints)}
+    if options.register_checkpoints:
+        cpath = (
+            Path(options.checkpoints_path).expanduser()
+            if options.checkpoints_path
+            else user_space(options.user).checkpoints_path
+        )
+        added = logic_lifecycle.register_lifecycle_checkpoints(
+            decision,
+            date=options.date,
+            checkpoints_path=cpath,
+        )
+        lifecycle_checkpoints.update(
+            {"path": str(cpath), "added": len(added), "ids": [r["id"] for r in added]}
+        )
     current_market_by_theme, market_history_by_theme = market_validation.load_market_validation_context(
         paths.market_exports,
         lifecycle_dates,
@@ -516,12 +555,19 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
     effectiveness_summary = logic_effectiveness.summarize_effectiveness(decision)
     semantic_warnings = _enrich_decision_with_semantic_rag(decision, options, paths.knowledge_wiki)
     task_queue = research_queue.build_research_queue(decision)
+    catalyst_index = catalyst_attribution.build_catalyst_index(
+        paths.knowledge_wiki,
+        options.date,
+        window_days=options.catalyst_window_days,
+    )
+    catalyst_attribution.enrich_research_queue(catalyst_index, task_queue)
     kb_queue = kb_ingest_queue.build_kb_ingest_queue(
         task_queue,
         market_date=options.date,
         source_artifact=str(paths.market_exports / f"{options.date}-daily-agent.json"),
         resolved_themes=kb_queue_receipt.resolved_themes(paths.knowledge_wiki),
     )
+    catalyst_attribution.enrich_kb_ingest_queue(catalyst_index, kb_queue)
     report = {
         "date": options.date,
         "generated_at": now_iso(),
@@ -533,6 +579,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         "ledger": ledger,
         "logic_batch": batch,
         "decision": decision,
+        "lifecycle_checkpoints": lifecycle_checkpoints,
         "semantic_rag": {
             "enabled": options.semantic_rag_top_n > 0,
             "top_n": options.semantic_rag_top_n,
@@ -546,6 +593,15 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         },
         "research_queue": task_queue,
         "kb_ingest_queue": kb_queue,
+        "catalyst_attribution": {
+            "enabled": True,
+            "window_days": options.catalyst_window_days,
+            "sources": {
+                "sellside_opinion": catalyst_index.opinion_source_available,
+                "morning_briefing_dates": catalyst_index.briefing_dates_found,
+            },
+            "warnings": catalyst_index.warnings,
+        },
         "logic_effectiveness": {
             "enabled": True,
             "window": options.effectiveness_window,
@@ -699,10 +755,11 @@ def _research_queue_rows(queue: dict[str, Any], limit: int = 8) -> list[str]:
         for item in items[:limit]:
             stocks = "、".join(item.get("强势股") or []) or "-"
             missing = "、".join(item.get("缺失证据层") or []) or "-"
+            catalyst = catalyst_attribution.catalyst_brief(item.get("催化归因"))
             lines.append(
                 f"- {item.get('目标', '-')}｜priority={item.get('优先级', '-')}｜"
                 f"生命周期={item.get('生命周期阶段', '-')}｜裁判={item.get('证据状态', '-')}｜"
-                f"缺={missing}｜强势股={stocks}｜理由={item.get('理由', '-')}"
+                f"缺={missing}｜催化={catalyst}｜强势股={stocks}｜理由={item.get('理由', '-')}"
             )
         lines.append("")
     return lines
@@ -715,9 +772,10 @@ def _kb_ingest_queue_rows(queue: dict[str, Any], limit: int = 12) -> list[str]:
     lines: list[str] = []
     for task in tasks[:limit]:
         gaps = "、".join(task.get("evidence_gap") or task.get("data_gaps") or []) or "-"
+        catalyst = catalyst_attribution.catalyst_brief(task.get("catalyst"))
         lines.append(
             f"- {task.get('theme', '-')}｜{task.get('task_type_label', task.get('task_type', '-'))}｜"
-            f"priority={task.get('priority', '-')}｜缺口={gaps}｜人工复核={task.get('requires_human_review')}"
+            f"priority={task.get('priority', '-')}｜缺口={gaps}｜催化={catalyst}｜人工复核={task.get('requires_human_review')}"
         )
     return lines
 
@@ -950,6 +1008,7 @@ def _html_research_queue(queue: dict[str, Any]) -> str:
                 f'<span>{escape(str(item.get("理由") or "-"))}</span>'
                 f'<small>priority={escape(str(item.get("优先级") or "-"))}｜生命周期={escape(str(item.get("生命周期阶段") or "-"))}｜裁判={escape(str(item.get("证据状态") or "-"))}</small>'
                 f'<small>缺：{escape(missing)}｜强势股：{escape(stocks)}</small>'
+                f'<small>催化：{escape(catalyst_attribution.catalyst_brief(item.get("催化归因")))}</small>'
                 '</li>'
             )
         columns.append(
@@ -975,13 +1034,14 @@ def _html_kb_ingest_queue(queue: dict[str, Any]) -> str:
             f"<td>{_html_badge(task.get('task_type_label') or task.get('task_type') or '-', 'info')}</td>"
             f"<td>{escape(str(task.get('priority') if task.get('priority') is not None else '-'))}</td>"
             f"<td>{escape(gaps)}</td>"
+            f"<td>{escape(catalyst_attribution.catalyst_brief(task.get('catalyst')))}</td>"
             f"<td>{escape(str(task.get('requires_human_review')))}</td>"
             f"<td>{escape(str(task.get('auto_apply')))}</td>"
             "</tr>"
         )
     return (
         '<div class="table-wrap"><table><thead><tr>'
-        "<th>题材</th><th>任务类型</th><th>优先级</th><th>缺口</th><th>人工复核</th><th>自动应用</th>"
+        "<th>题材</th><th>任务类型</th><th>优先级</th><th>缺口</th><th>催化归因</th><th>人工复核</th><th>自动应用</th>"
         "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></div>"

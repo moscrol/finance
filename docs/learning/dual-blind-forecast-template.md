@@ -12,10 +12,20 @@
    `python3 scripts/dual_blind_forecast.py manifest --date <研判日> --perspective <视角日> --material <材料文件>... [--kb-root <知识库仓>]`
    生成 `forecast-review-ledger/<date>.manifest.json`（DuckDB 截止日 + 材料 sha256 + 知识库 commit + `manifest_sha`）。两个考生只能用清单里列出的输入。
 2. **答卷**：每个考生除 markdown 正文外，同时落一份机器可读答卷
-   `forecast-review-ledger/<date>.answer.<agent>.json`（schema 见下），`manifest_sha` 必须引自当日清单。
+   `forecast-review-ledger/<date>.answer.<agent>[.<source>].json`（schema 见下），`manifest_sha` 必须引自当日清单。
+   `source` 段可选（duckdb/briefing/sellside），同日同 agent 按流各落一份时用它区分文件名，
+   且必须与答卷 JSON 内的 `source` 字段一致（validate 会校验）。
 3. **收卷**：`python3 scripts/dual_blind_forecast.py validate <答卷.json>...` 必须全 OK。
-4. **回检**：T+1/T+3 按统一指标回填答卷 JSON 的 `recheck` 块（`pick_returns_t1/t3`、`beat_benchmark_t3`、`market_threshold_hit`）。
-5. **看趋势**：`python3 scripts/dual_blind_forecast.py aggregate` 出按 agent 的跨期统计表；系统性偏差确认后才沉淀经验卡/rubric 检查项。
+4. **回检**：数值类指标由脚本自动回填：`python3 scripts/dual_blind_forecast.py recheck <答卷.json>...`（从 DuckDB 算 `pick_returns_t1/t3`、`benchmark_return_t3`、`beat_benchmark_t3`；基准统一为上证指数 `sh000001`，写进 recheck 块保证跨期可比）。`market_threshold_hit` 是自然语言阈值，仍由人判定回填，脚本不覆盖人工字段。人只负责批注归因。
+5. **盘后验证**：逐假设裁定写验证草稿 JSON（`{date, verdicts:[{id, agent, verdict, actual, evidence_ref}]}`，
+   可选字段 `stream`（盘面/晨汇/卖方，缺省盘面）、`horizon`（T+1/T+3/T+5，缺省 T+1）、
+   `failure_mode`（miss/partial 归因，如「阈值定早」「位置情绪不配合」）），
+   `python3 scripts/dual_blind_forecast.py verdict <草稿.json>` 校验后落盘 `forecast-review-ledger/<date>.verdict.json`
+   （盘后验证唯一写入口），并自动把回检表渲染进当日 `<date>.md` 的标记区——**当日 md 回检表不再手填**。
+6. **状态总表**：`python3 scripts/dual_blind_forecast.py index` 重建 `index.md` 的机检状态总表（manifest/答卷/校验/验证/命中率）。
+7. **看趋势**：`python3 scripts/dual_blind_forecast.py aggregate` 出按 agent 的跨期统计表（含按流×时点命中率与 miss 归因分布）；系统性偏差确认后才沉淀经验卡/rubric 检查项。
+
+> 每日出题按三条信息流（DuckDB 盘面流 / 晨汇事件流 / 晚间卖方流）的固定问句模板，见 `forecast-question-templates.md`。
 
 ### 答卷 JSON schema（v1.0）
 
@@ -24,6 +34,7 @@
   "schema_version": "1.0",
   "date": "2026-07-03",
   "agent": "codex",
+  "source": "duckdb",
   "manifest_sha": "<来自当日 manifest>",
   "stage": "底部横盘第3天",
   "main_judgment": "一句话市场结构判断",
@@ -33,6 +44,8 @@
   "recheck": {}
 }
 ```
+
+`source` 三流分账（可省略，默认 `duckdb`）：`duckdb`=盘面流（T+1 回检）、`briefing`=晨汇事件流（当日/T+1）、`sellside`=晚间卖方流（T+3/T+5）。三流验证窗口和评判标准不同，`aggregate` 按 `agent/source` 分开统计，不混池。各流的标准问句/检测点/证伪点见 [forecast-question-templates.md](forecast-question-templates.md)。
 
 ---
 

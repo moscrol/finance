@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-07-02T14:07:44Z",
+  "generated_at": "2026-07-06T09:39:52Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -117,7 +117,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:20742721b53006f2aaff4d069a8ecfac3448ab63403c59b8fc89f4636edc5f59",
+      "computedHash": "sha256:31bd1598b09fed9ca244dc6b6184d1d0d28618f9cfaabe529bb2c5ce190a7b3e",
       "agentOnly": false,
       "views": []
     },
@@ -126,28 +126,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/disclosure-archive/SKILL.md",
-      "description": "题材雷达(theme-radar)证据归档——围绕题材/概念抓取A股公司公开披露，输出结构化证据供后续入库审核。触发词：补公告、补公司硬证据、查年报、查半年报、查招股书、查互动易、查官网产品页、查扩产/投产/订单/中标/合同/客户认证资料、披露归档、disclosure archive、归档公告。",
-      "triggers": [
-        "补公告",
-        "补公司硬证据",
-        "查年报",
-        "查半年报",
-        "查招股书",
-        "查互动易",
-        "查官网产品页",
-        "查扩产",
-        "投产",
-        "订单",
-        "中标",
-        "合同",
-        "客户认证资料",
-        "披露归档",
-        "disclosure archive",
-        "归档公告"
-      ],
+      "description": "题材证据披露归档（补公告、补公司硬证据、查年报/招股书/互动易/官网产品页、披露归档、disclosure archive）——canonical 实现已归一到 knowledge-base-private，本文件只是指针。",
+      "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7726717f400ae0e5df9cf0e60448d6b9940d8f8c0b1bd7b261be8e12e03ad422",
+      "computedHash": "sha256:ae12df8472fd29881e132fbe019e7cd5c57a43b14ee6a145e584005e8e495f61",
       "agentOnly": false,
       "views": [],
       "split": {
@@ -353,7 +336,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:b286de75e2b0d070c4c4be36e4996e6f3fb4ac7e078ec074a3708b778646ddc0",
+      "computedHash": "sha256:9c8cc418d758193eeab9358e9cf1f8396932a73516361ce34b6b0723ad10ed35",
       "agentOnly": false,
       "views": []
     },
@@ -806,7 +789,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7e2013bdbb00489432a352d704892a958a10099653dfb97b16e2df02b01139a8",
+      "computedHash": "sha256:5eda3a56d6c6c660b367658904b22b64b0f70767fe6bc93e5505d8d837ccff17",
       "agentOnly": false,
       "views": [
         {
@@ -882,7 +865,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:054ef26c737b35e7ac1e1f6b2c9c9e908ee55449a80cf22990f55a8ca56061f5",
+      "computedHash": "sha256:4fe03ff30ab9b9fc7685f605663d25a451a0c547525b273612218053abe0e186",
       "agentOnly": false,
       "views": [
         {
@@ -975,7 +958,7 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/hard-fact-review/SKILL.md",
-      "description": "把 entity-delta 回填 payload 里「清过硬事实红线」的 update 挑出来排成人工复核队列，供人逐条决定是否写进实体正文",
+      "description": "把 entity-delta 回填 payload 里「清过硬事实红线」的 update 挑出来排成人工复核队列，供人逐条决定是否写进实体正文 ## 边际变化。suggest-only、绝不自动写正文。触发：硬事实候选、entity 正文回填候选、边际变化复核队列、hard-fact review。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
@@ -1065,7 +1048,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:673c81e1ba68def5fd9a48ffc2cb12df71498f9658ae8b52f5b5ccf9622f4364",
+      "computedHash": "sha256:fce50e23b4ac66713bcf9156c34caa3ced7edb36b0311c03cf3de4857cba485b",
       "agentOnly": false,
       "views": [
         {
@@ -1084,7 +1067,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a511a084cb769f5bb81a77f570c70f2d0149cc826b61ab80ca07e6a8933b6234",
+      "computedHash": "sha256:729e632f4c67914a49bcada3a939e2fb67882f5c33f96f74966a39c612bd8af1",
       "agentOnly": false,
       "views": [
         {
