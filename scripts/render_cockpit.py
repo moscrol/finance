@@ -30,6 +30,8 @@ DAILY = FUPAN / "daily"
 WINRATE = FUPAN / "winrate"
 MATRICES = FUPAN / "matrices"
 HEADTOHEAD = FUPAN / "headtohead"
+MONEYFLOW = FUPAN / "moneyflow" / "index.html"
+DUALBLIND = FUPAN / "dualblind" / "index.html"
 OUT_PATH = FUPAN / "index.html"
 
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
@@ -179,6 +181,27 @@ def headtohead_cards() -> list[str]:
     return cards
 
 
+def moneyflow_cards() -> list[str]:
+    if not MONEYFLOW.exists():
+        return [empty_card(
+            "暂无资金流看板。生成：python3 scripts/render_moneyflow_html.py（需先用 "
+            "scripts/moneyflow/ 扫描脚本写入 DuckDB）"
+        )]
+    head = f'<a class="c-title" href="{rel(MONEYFLOW)}">大单资金流看板</a>'
+    return [card(
+        "L2 Moneyflow", head,
+        "昨日涨停榜 / 成交额前100榜 / 量化单榜 · 自有大单口径 · 按日期回看", [])]
+
+
+def dualblind_cards() -> list[str]:
+    if not DUALBLIND.exists():
+        return [empty_card("暂无每日四问看板。生成：python3 scripts/render_dual_blind_qa.py")]
+    head = f'<a class="c-title" href="{rel(DUALBLIND)}">每日四问看板</a>'
+    return [card(
+        "Dual-Blind Ledger", head,
+        "Codex vs Claude 双盲问答台账 · 答卷/T+1 回填/批注/命中率 · 按日期回看", [])]
+
+
 def briefing_cards(knowledge_root: Path) -> list[str]:
     dashboard = knowledge_root / "dashboard" / "index.html"
     briefings_dir = knowledge_root / "wiki" / "briefings"
@@ -232,6 +255,8 @@ def main() -> int:
     briefing = briefing_cards(knowledge_root)
     matrices = matrix_cards()
     headtohead = headtohead_cards()
+    moneyflow = moneyflow_cards()
+    dualblind = dualblind_cards()
 
     built = datetime.date.today().isoformat()
     css = base_css() + EXTRA_CSS
@@ -241,12 +266,16 @@ def main() -> int:
     n_brief = sum(1 for c in briefing if "empty" not in c)
     n_matrix = len(matrices)
     n_h2h = sum(1 for c in headtohead if "empty" not in c)
+    n_flow = sum(1 for c in moneyflow if "empty" not in c)
+    n_db = sum(1 for c in dualblind if "empty" not in c)
     kpis = [
         (n_daily, "每日复盘"),
         (n_win, "胜率榜"),
         (n_brief, "晨汇看板"),
         (n_matrix, "策略矩阵"),
         (n_h2h, "人机台账"),
+        (n_flow, "资金流"),
+        (n_db, "每日四问"),
     ]
     kpi_html = "".join(
         f'<div class="kpi"><div class="n">{n}</div><div class="l">{escape(label)}</div></div>'
@@ -262,6 +291,8 @@ def main() -> int:
                 ("briefing", "晨汇边际变化"),
                 ("matrices", "策略矩阵"),
                 ("headtohead", "人机对照台账"),
+                ("moneyflow", "大单资金流"),
+                ("dualblind", "每日四问"),
             ],
             1,
         )
@@ -286,6 +317,8 @@ def main() -> int:
         + section("briefing", "晨汇边际变化", briefing)
         + section("matrices", "策略矩阵", matrices)
         + section("headtohead", "人机对照台账", headtohead)
+        + section("moneyflow", "大单资金流", moneyflow)
+        + section("dualblind", "每日四问", dualblind)
     )
 
     html = (
@@ -308,7 +341,8 @@ def main() -> int:
     print(OUT_PATH)
     print(
         f"daily: {n_daily} | winrate: {n_win} | briefing: {n_brief} | matrices: {n_matrix} "
-        f"| headtohead: {n_h2h} | size: {len(html) // 1024} KB"
+        f"| headtohead: {n_h2h} | moneyflow: {n_flow} | dualblind: {n_db} "
+        f"| size: {len(html) // 1024} KB"
     )
     return 0
 
