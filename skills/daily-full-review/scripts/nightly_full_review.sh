@@ -5,6 +5,7 @@
 set -uo pipefail
 
 WORKSPACE="/Users/a77/finance-workspace-private"
+export FINANCE_WS="$WORKSPACE"
 export FORESIGHT_USER="linxiaoqi5111"
 export FORESIGHT_USERS_DIR="/Users/a77/agent-memory/.foresight"
 export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
@@ -48,6 +49,20 @@ if [ -n "$answers" ]; then
   /usr/bin/python3 scripts/dual_blind_forecast.py recheck ${=answers} \
     && /usr/bin/python3 scripts/dual_blind_forecast.py index --html \
     || echo "[$(date '+%F %T')] 双盲答卷 recheck 失败（不阻断复盘收尾）"
+fi
+
+# 资金流段：L2 大单资金流三榜（串行于复盘之后，避免 DuckDB 写锁冲突；失败不阻断收尾）
+MONEYFLOW_DIR="$WORKSPACE/scripts/moneyflow"
+[ -f "$HOME/.secrets/clickhouse.env" ] && source "$HOME/.secrets/clickhouse.env"
+if [ -d "$MONEYFLOW_DIR" ] && [ -n "${CH_PASSWORD:-}" ]; then
+  (cd "$MONEYFLOW_DIR" \
+    && python3 scan_limitup.py "$D" \
+    && python3 scan_top100.py "$D" \
+    && python3 scan_quant.py "$D" \
+    && python3 "$WORKSPACE/scripts/render_moneyflow_html.py") \
+    || echo "[$(date '+%F %T')] 资金流段失败（不阻断复盘收尾）"
+else
+  echo "[$(date '+%F %T')] 资金流段跳过（scripts/moneyflow 未合并或缺 CH_PASSWORD）"
 fi
 
 echo "[$(date '+%F %T')] === 全量复盘完成 date=$D ==="
