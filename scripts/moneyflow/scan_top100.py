@@ -23,7 +23,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from moneyflow import make_client, fetch_trades_retry, analyze, stock_info, run_scan
+from moneyflow import (make_client, fetch_trades_retry, analyze, stock_info,
+                       run_scan, duck_top_turnover_codes)
 from config import out_path
 from write_to_duckdb import write_capital_flow
 
@@ -44,6 +45,15 @@ def top_turnover_stocks(client, date, n=100):
         if codes:
             print(f"读取缓存名单 {cache}: {len(codes)} 只")
             return codes[:n]
+    try:
+        codes = duck_top_turnover_codes(date, n)
+        if codes:
+            print(f"DuckDB 取成交额前{n}名单: {len(codes)} 只")
+            with open(cache, "w") as f:
+                f.write("\n".join(codes))
+            return codes
+    except Exception as e:
+        print(f"DuckDB 取名单失败({e})，回退 ClickHouse 聚合")
     sql = """
     SELECT SecurityID, argMax(TotalValueTrade, TradeTime) AS val
     FROM share.level2

@@ -37,7 +37,53 @@ from config import HOST, PORT, USER, PASSWORD, out_path  # noqa: E402
 
 def make_client():
     return Client(host=HOST, port=PORT, user=USER, password=PASSWORD,
-                  connect_timeout=20, send_receive_timeout=300)
+                  connect_timeout=20, send_receive_timeout=300,
+                  settings={"max_execution_time": 120})
+
+
+def duck_limitup_codes(prev_date):
+    """从本地 DuckDB 取 prev_date 收盘涨停名单（免打 ClickHouse 重聚合）。
+    涨停比例：创业/科创 20%，ST 主板 5%，其余主板 10%。"""
+    import duckdb
+    from config import DUCKDB_PATH
+    con = duckdb.connect(DUCKDB_PATH, read_only=True)
+    try:
+        rows = con.execute(
+            "SELECT stock_ts_code, stock_name, close, pre_close "
+            "FROM fact_stock_daily WHERE trade_date = ? AND pre_close > 0",
+            [prev_date]).fetchall()
+    finally:
+        con.close()
+    codes = []
+    for ts, name, close, pre in rows:
+        code = ts.split(".")[0]
+        if code[:2] not in ("00", "30", "60", "68"):
+            continue
+        if code[:2] in ("30", "68"):
+            ratio = 1.2
+        elif "ST" in (name or ""):
+            ratio = 1.05
+        else:
+            ratio = 1.1
+        if abs(close - round(pre * ratio, 2)) < 0.005:
+            codes.append(code)
+    return sorted(codes)
+
+
+def duck_top_turnover_codes(date, n=100):
+    """从本地 DuckDB 取当日成交额前 n 名单（免打 ClickHouse 重聚合）。"""
+    import duckdb
+    from config import DUCKDB_PATH
+    con = duckdb.connect(DUCKDB_PATH, read_only=True)
+    try:
+        rows = con.execute(
+            "SELECT stock_ts_code FROM fact_stock_daily "
+            "WHERE trade_date = ? AND substr(stock_ts_code, 1, 2) IN ('00','30','60','68') "
+            "AND amount IS NOT NULL ORDER BY amount DESC LIMIT ?",
+            [date, n]).fetchall()
+    finally:
+        con.close()
+    return [r[0].split(".")[0] for r in rows]
 
 
 def fetch_trades_retry(client, code, date, retries=3):
