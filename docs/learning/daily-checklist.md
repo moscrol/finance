@@ -84,6 +84,12 @@
   系统性偏差确认后才沉淀经验卡。
 - 双盲比较时让 Claude / Codex 各答一份（互不可见），你只做批注和裁决。
 
+> **已自动化（2026-07-07 起）**：launchd `com.financeworkspace.dual-blind-forecast` 每交易日 09:10
+> 自动跑 `scripts/dual_blind_auto.sh`——manifest 冻结（视角日=DuckDB 最新交易日，依赖 09:00 deltapull）
+> → Codex（`codex exec`）/ Claude（`claude -p`）双盲各落一份答卷 JSON → validate 收卷 → index 重建。
+> T+1/T+3 数值回检由 18:30 全量复盘链自动追加（recheck + index，人工字段不覆盖）。
+> 你只剩：看 index.html 并排对比、批注裁决、跨期说「跑 aggregate」。
+
 ### 其他随手可问（挑着问）
 
 - 「今天框架解读哪条判断我不认可」→ 直接说出来，落 correction。
