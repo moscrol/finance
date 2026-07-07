@@ -13,14 +13,13 @@
 注意：请仅在盘后运行，脚本对每只股票逐一查询并有间隔，避免占用数据库资源。
 """
 import sys
-import time
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from moneyflow import make_client, fetch_trades_retry, analyze, stock_info
+from moneyflow import make_client, fetch_trades_retry, analyze, stock_info, run_scan
 from config import out_path
 from write_to_duckdb import write_capital_flow
 
@@ -71,26 +70,21 @@ def main():
     codes = limit_up_stocks(client, prev)
     print(f"昨日({prev})涨停股: {len(codes)} 只，开始逐只计算 {date} 大单资金流...")
 
-    results = []
-    for i, code in enumerate(codes, 1):
-        try:
-            client, df = fetch_trades_retry(client, code, date)
-            if df.empty:
-                continue
-            big = analyze(df, big_thr)
-            if big.empty:
-                continue
-            active = big["active_net"].iloc[-1] / 1e4
-            total = big["total_net"].iloc[-1] / 1e4
-            last_px = df["price"].iloc[-1]
-            first_px = df["price"].iloc[0]
-            chg = (last_px / first_px - 1) * 100
-            results.append({"code": code, "主买净额(万)": round(active),
-                            "总买净额(万)": round(total), "当日涨幅%": round(chg, 2)})
-            print(f"[{i}/{len(codes)}] {code} 主买:{active:.0f}万 总买:{total:.0f}万")
-        except Exception as e:
-            print(f"[{i}/{len(codes)}] {code} 失败: {e}")
-        time.sleep(0.3)  # 限速，避免占用数据库资源
+    def compute(client, code):
+        client, df = fetch_trades_retry(client, code, date)
+        if df.empty:
+            return client, None
+        big = analyze(df, big_thr)
+        if big.empty:
+            return client, None
+        active = big["active_net"].iloc[-1] / 1e4
+        total = big["total_net"].iloc[-1] / 1e4
+        chg = (df["price"].iloc[-1] / df["price"].iloc[0] - 1) * 100
+        print(f"{code} 主买:{active:.0f}万 总买:{total:.0f}万")
+        return client, {"code": code, "主买净额(万)": round(active),
+                        "总买净额(万)": round(total), "当日涨幅%": round(chg, 2)}
+
+    client, results = run_scan(client, codes, date, "limitup", compute)
 
     res = pd.DataFrame(results)
     if res.empty:

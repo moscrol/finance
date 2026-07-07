@@ -14,7 +14,6 @@
     CH_PASSWORD=... python3 scan_quant.py 2026-07-03 50 200
 """
 import sys
-import time
 
 import matplotlib
 matplotlib.use("Agg")
@@ -22,7 +21,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from moneyflow import (make_client, fetch_trades_retry, analyze,
-                       detect_quant_orders, stock_info)
+                       detect_quant_orders, stock_info, run_scan)
 from scan_top100 import top_turnover_stocks
 from config import out_path
 from write_to_duckdb import write_quant_orders
@@ -43,39 +42,36 @@ def main():
     codes = top_turnover_stocks(client, date)
     print(f"{date} 成交额前{len(codes)}股票，开始逐只识别规律量化买单...")
 
-    results = []
-    for i, code in enumerate(codes, 1):
-        try:
-            client, df = fetch_trades_retry(client, code, date)
-            if df.empty:
-                continue
-            big = analyze(df, big_thr)
-            if big.empty:
-                continue
-            buys = (big[big["buyer_big"]].groupby("buy_no")
-                    .agg(t=("t", "last"), amount=("amount", "sum")).reset_index())
-            infos, hits = detect_quant_orders(
-                buys, min_amount=quant_thr * 1e4, top_n=100)
-            if not infos:
-                continue
-            quant_total = sum(q["total"] for q in infos)  # 万元
-            quant_count = sum(q["count"] for q in infos)
-            buy_total = buys["amount"].sum() / 1e4
-            biggest = max(infos, key=lambda q: q["total"])
-            results.append({
-                "code": code,
-                "量化单总额(万)": round(quant_total),
-                "占大单买入%": round(quant_total / buy_total * 100, 2),
-                "簇数": len(infos), "笔数": quant_count,
-                "最大簇": f"{biggest['lo']:.0f}-{biggest['hi']:.0f}万x{biggest['count']}笔"
-                          f"={biggest['total']:.0f}万",
-                "当日涨幅%": round((df["price"].iloc[-1] / df["price"].iloc[0] - 1) * 100, 2),
-            })
-            print(f"[{i}/{len(codes)}] {code} 量化单:{quant_total:.0f}万 "
-                  f"占比:{quant_total / buy_total * 100:.1f}% 簇:{len(infos)}")
-        except Exception as e:
-            print(f"[{i}/{len(codes)}] {code} 失败: {e}")
-        time.sleep(0.3)  # 限速，避免占用数据库资源
+    def compute(client, code):
+        client, df = fetch_trades_retry(client, code, date)
+        if df.empty:
+            return client, None
+        big = analyze(df, big_thr)
+        if big.empty:
+            return client, None
+        buys = (big[big["buyer_big"]].groupby("buy_no")
+                .agg(t=("t", "last"), amount=("amount", "sum")).reset_index())
+        infos, _ = detect_quant_orders(
+            buys, min_amount=quant_thr * 1e4, top_n=100)
+        if not infos:
+            return client, None
+        quant_total = sum(q["total"] for q in infos)  # 万元
+        quant_count = sum(q["count"] for q in infos)
+        buy_total = buys["amount"].sum() / 1e4
+        biggest = max(infos, key=lambda q: q["total"])
+        print(f"{code} 量化单:{quant_total:.0f}万 "
+              f"占比:{quant_total / buy_total * 100:.1f}% 簇:{len(infos)}")
+        return client, {
+            "code": code,
+            "量化单总额(万)": round(quant_total),
+            "占大单买入%": round(quant_total / buy_total * 100, 2),
+            "簇数": len(infos), "笔数": quant_count,
+            "最大簇": f"{biggest['lo']:.0f}-{biggest['hi']:.0f}万x{biggest['count']}笔"
+                      f"={biggest['total']:.0f}万",
+            "当日涨幅%": round((df["price"].iloc[-1] / df["price"].iloc[0] - 1) * 100, 2),
+        }
+
+    client, results = run_scan(client, codes, date, "quant", compute)
 
     res = pd.DataFrame(results)
     if res.empty:

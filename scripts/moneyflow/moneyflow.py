@@ -15,6 +15,9 @@ BuyNo > SellNo => 主动买入；SellNo > BuyNo => 主动卖出。
     python3 moneyflow.py <股票代码> <日期> [阈值万元]
     python3 moneyflow.py 300775 2026-07-03 50
 """
+import json
+import os
+import random
 import sys
 import time
 import urllib.request
@@ -38,19 +41,84 @@ def make_client():
 
 
 def fetch_trades_retry(client, code, date, retries=3):
-    """带重连重试的 fetch_trades，返回 (client, df)，服务器繁忙时退避重试"""
+    """带重连重试的 fetch_trades，返回 (client, df)。
+    退避时长指数增长并加随机抖动，避免限流后同步重试再次撞限。"""
     for k in range(retries):
         try:
             return client, fetch_trades(client, code, date)
         except Exception:
             if k == retries - 1:
                 raise
-            time.sleep(10 * (k + 1))
+            time.sleep(min(60.0, 5.0 * (2 ** k)) + random.uniform(0, 3))
             try:
                 client.disconnect()
             except Exception:
                 pass
             client = make_client()
+
+
+class AdaptiveThrottle:
+    """自适应限速：报错/限流时指数加大逐股间隔，连续成功后逐步回落到基准。"""
+
+    def __init__(self, base=0.3, max_sleep=30.0):
+        self.base, self.max, self.cur = base, max_sleep, base
+
+    def wait(self):
+        time.sleep(self.cur + random.uniform(0, self.cur * 0.3))
+
+    def ok(self):
+        self.cur = max(self.base, self.cur * 0.8)
+
+    def fail(self):
+        self.cur = min(self.max, max(self.cur * 2.0, 2.0))
+
+
+def run_scan(client, codes, date, tag, compute, passes=3):
+    """逐股扫描骨架：自适应限速 + 断点缓存 + 失败股票多轮兜底重试。
+
+    compute(client, code) -> (client, row|None)；row 为 None 表示该股无结果。
+    已完成结果缓存到 outputs/scan_cache_<tag>_<date>.json，中断重跑不重复打库。
+    返回 (client, rows)。"""
+    cache_file = out_path(f"scan_cache_{tag}_{date}.json")
+    done = {}
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file) as f:
+                done = json.load(f)
+            print(f"断点缓存 {cache_file}: 已完成 {len(done)} 只")
+        except Exception:
+            done = {}
+
+    def save():
+        with open(cache_file, "w") as f:
+            json.dump(done, f, ensure_ascii=False)
+
+    throttle = AdaptiveThrottle()
+    pending = [c for c in codes if c not in done]
+    for rnd in range(1, passes + 1):
+        if not pending:
+            break
+        if rnd > 1:
+            print(f"== 第{rnd}轮兜底重试: {len(pending)} 只 ==")
+            time.sleep(min(120.0, 20.0 * rnd))
+        failed = []
+        for i, code in enumerate(pending, 1):
+            try:
+                client, row = compute(client, code)
+                done[code] = row
+                throttle.ok()
+                if i % 10 == 0:
+                    save()
+            except Exception as e:
+                print(f"[{i}/{len(pending)}] {code} 失败: {e}")
+                failed.append(code)
+                throttle.fail()
+            throttle.wait()
+        save()
+        pending = failed
+    if pending:
+        print(f"!! 兜底后仍失败 {len(pending)} 只: {','.join(pending[:20])}")
+    return client, [r for c, r in done.items() if r]
 
 
 def fetch_trades(client, code, date):
