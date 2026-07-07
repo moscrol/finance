@@ -40,4 +40,14 @@ if [ $rc -ne 0 ]; then
 fi
 
 python3 -m intelligence.cli agent-daily --date "$D"
+
+# 双盲答卷 T+1/T+3 数值回检（幂等，只回填脚本可算指标；人工字段不覆盖）
+LEDGER="docs/learning/forecast-review-ledger"
+answers=$(ls "$LEDGER"/*.answer.*.json 2>/dev/null | tail -12)
+if [ -n "$answers" ]; then
+  /usr/bin/python3 scripts/dual_blind_forecast.py recheck ${=answers} \
+    && /usr/bin/python3 scripts/dual_blind_forecast.py index --html \
+    || echo "[$(date '+%F %T')] 双盲答卷 recheck 失败（不阻断复盘收尾）"
+fi
+
 echo "[$(date '+%F %T')] === 全量复盘完成 date=$D ==="

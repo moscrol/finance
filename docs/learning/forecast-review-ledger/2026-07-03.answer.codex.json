@@ -282,5 +282,13 @@
       ]
     }
   ],
-  "recheck": {}
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-03",
+    "recheck_t3_date": null,
+    "pick_returns_t1": [],
+    "pick_returns_t3": [],
+    "benchmark_return_t3": null,
+    "recheck_generated_at": "2026-07-07T21:07:18+08:00"
+  }
 }

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd：每日 09:10 每日四问自动链（manifest 冻结 → codex/claude 双盲答卷 → validate → index）。
+  实际逻辑在 scripts/dual_blind_auto.sh；周末在脚本内跳过；
+  依赖 09:00 的 com.mfs.deltapull 先把 DuckDB 更新到昨日截止。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.financeworkspace.dual-blind-forecast</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>/Users/a77/finance-workspace-private/scripts/dual_blind_auto.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/a77/finance-workspace-private</string>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>10</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/a77/finance-workspace-private/logs/dual-blind-forecast.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/a77/finance-workspace-private/logs/dual-blind-forecast.err.log</string>
+</dict>
+</plist>
