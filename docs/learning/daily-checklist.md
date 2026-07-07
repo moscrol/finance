@@ -135,6 +135,11 @@
 - 不提交 `.env*`/密钥/PDF/duckdb/`.DS_Store`；大任务必开分支；不擅自合 main。
 - user_framework.json / corrections / checkpoints 在 `intelligence/users/default/`（gitignored 私有层），
   换机器要单独同步（可设 `FORESIGHT_USERS_DIR` 指向云盘）。
+- **共享台账已统一到 `FORESIGHT_USERS_DIR=/Users/a77/agent-memory/.foresight`**（2026-07-07 起）：
+  - 交互式 zsh 与非交互 zsh 均自动带上（`~/.zshrc` + `~/.zshenv`）；launchd 走 plist 内 env（launchd 不读 zsh 配置，改路径要两处同步）。
+  - **agent（Codex/Devin 等）经 bash/sh 非交互执行 checkpoint / red-team / calibrate 时，必须显式带上**：
+    `FORESIGHT_USERS_DIR=/Users/a77/agent-memory/.foresight python3 -m intelligence.cli checkpoint status --user linxiaoqi5111`
+    或统一 `zsh -c '...'`；否则会误读仓库内默认空台账。
 
 ## 附：四个循环的关系（比旧图多一条反方线）
 
