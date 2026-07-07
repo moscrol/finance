@@ -48,6 +48,8 @@ answers=$(ls "$LEDGER"/*.answer.*.json 2>/dev/null | tail -12)
 if [ -n "$answers" ]; then
   /usr/bin/python3 scripts/dual_blind_forecast.py recheck ${=answers} \
     && /usr/bin/python3 scripts/dual_blind_forecast.py index --html \
+    && /usr/bin/python3 scripts/dual_blind_answers_to_md.py \
+    && /usr/bin/python3 scripts/render_dual_blind_qa.py \
     || echo "[$(date '+%F %T')] 双盲答卷 recheck 失败（不阻断复盘收尾）"
 fi
 
