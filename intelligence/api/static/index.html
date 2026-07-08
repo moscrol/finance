@@ -30,6 +30,13 @@
   form input { flex:1; padding:10px 14px; border:1px solid var(--line); border-radius:10px; font-size:15px; }
   form button { padding:10px 20px; border:0; border-radius:10px; background:var(--accent); color:#fff; font-size:15px; cursor:pointer; }
   form button:disabled { opacity:.5; }
+  .followups { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .fu-card { border:1px solid var(--line); border-radius:10px; padding:8px 12px; font-size:13px; cursor:pointer; background:#fafbfc; max-width:48%; }
+  .fu-card:hover { border-color:var(--accent); background:#eef2ff; }
+  .fu-card .fu-type { display:inline-block; font-size:11px; color:var(--accent); border:1px solid #c7d5f8; border-radius:999px; padding:0 8px; margin-right:6px; }
+  .fu-card .fu-rationale { color:var(--dim); font-size:12px; }
+  .parent-link { font-size:12px; color:var(--dim); margin-bottom:4px; }
+  .parent-link a { color:var(--accent); cursor:pointer; text-decoration:none; }
 </style>
 </head>
 <body>
@@ -67,15 +74,27 @@ function artifactCard(runId, a) {
     <a href="${url}" target="_blank">预览</a> <a href="${url}" download>下载</a></div>`;
 }
 
+function followupCard(f) {
+  return `<div class="fu-card" data-q="${f.question.replace(/"/g,'&quot;')}">
+    <span class="fu-type">${f.type_label || f.type}</span>${f.question}
+    ${f.rationale ? `<div class="fu-rationale">${f.rationale}</div>` : ""}</div>`;
+}
+
 async function renderRun(runId) {
-  const [run, trace] = await Promise.all([
+  const [run, trace, fus] = await Promise.all([
     fetch(`/api/runs/${runId}`).then(r=>r.json()),
     fetch(`/api/runs/${runId}/trace`).then(r=>r.json()),
+    fetch(`/api/runs/${runId}/followups`).then(r=>r.json()).catch(()=>({followups:[]})),
   ]);
+  let parentQ = null;
+  if (run.parent_run_id) {
+    parentQ = await fetch(`/api/runs/${run.parent_run_id}`).then(r=>r.ok?r.json():null).then(p=>p&&p.question).catch(()=>null);
+  }
   const el = document.createElement("div");
   el.className = "card";
   const secs = run.finished_at ? Math.max(1, Math.round((new Date(run.finished_at)-new Date(run.created_at))/1000)) : null;
   el.innerHTML = `
+    ${run.parent_run_id ? `<div class="parent-link">↳ 追问自：<a data-parent="${run.parent_run_id}">${parentQ || run.parent_run_id}</a></div>` : ""}
     <div style="font-weight:600;margin-bottom:6px">${run.question}</div>
     <div class="disclaimer">以下内容由 AI 生成，仅作为研究学习，不构成任何投资建议</div>
     ${run.degrades.length ? `<div class="disclaimer">数据源降级：${run.degrades.join("；")}</div>` : ""}
@@ -83,12 +102,17 @@ async function renderRun(runId) {
       ${trace.map(stepRow).join("")}</details>
     ${(run.artifacts||[]).map(a=>artifactCard(runId,a)).join("")}
     ${run.error ? `<div class="step"><span class="fail">●</span>失败：${run.error}</div>` : ""}
-    <pre class="answer" data-run="${runId}">加载中…</pre>`;
+    <pre class="answer" data-run="${runId}">加载中…</pre>
+    ${(fus.followups||[]).length ? `<div style="font-size:13px;color:var(--dim);margin-top:10px">猜你想问</div>
+      <div class="followups">${fus.followups.map(followupCard).join("")}</div>` : ""}`;
   thread.appendChild(el);
   const md = (run.artifacts||[]).find(a=>a.path==="answer.md");
   const pre = $(`pre[data-run="${runId}"]`, el);
   if (md) pre.textContent = await fetch(`/api/runs/${runId}/artifacts/answer.md`).then(r=>r.text());
   else pre.remove();
+  el.querySelectorAll(".fu-card").forEach(c => c.onclick = () => startRun(c.dataset.q, runId));
+  const pl = $("a[data-parent]", el);
+  if (pl) pl.onclick = () => { thread.innerHTML=""; renderRun(pl.dataset.parent); };
   el.scrollIntoView({behavior:"smooth", block:"end"});
 }
 
@@ -112,15 +136,20 @@ async function loadRuns() {
   runsEl.querySelectorAll(".run-item").forEach(el => el.onclick = () => { thread.innerHTML=""; renderRun(el.dataset.id); });
 }
 
+async function startRun(q, parentRunId=null) {
+  $("#send").disabled = true;
+  const {run_id} = await fetch("/api/runs", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({question:q, parent_run_id:parentRunId})}).then(r=>r.json());
+  $("#send").disabled = false;
+  follow(run_id);
+}
+
 $("#ask-form").onsubmit = async (e) => {
   e.preventDefault();
   const q = $("#q").value.trim();
   if (!q) return;
-  $("#q").value = ""; $("#send").disabled = true;
-  const {run_id} = await fetch("/api/runs", {method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({question:q})}).then(r=>r.json());
-  $("#send").disabled = false;
-  follow(run_id);
+  $("#q").value = "";
+  await startRun(q);
 };
 
 loadRuns();

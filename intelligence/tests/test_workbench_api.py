@@ -97,6 +97,35 @@ def test_failed_run_surfaces_error(client: TestClient, monkeypatch) -> None:
     assert run["status"] == "failed" and run["error"] == "boom"
 
 
+def test_followups_endpoint_and_parent_link(client: TestClient, monkeypatch) -> None:
+    from intelligence.services import followups as fu_svc
+
+    def fake_run_ask(store: RunStore, run_id: str, req) -> None:
+        fu = fu_svc.generate_followups(req.question, matched_theme="液冷", use_llm=False)
+        store.add_artifact(run_id, "followups.json", fu.to_json(), renderer="json", title="猜你想问")
+        store.finish_run(run_id, rs.STATUS_COMPLETED)
+
+    monkeypatch.setattr(app_module, "_run_ask", fake_run_ask)
+    parent_id = client.post("/api/runs", json={"question": "液冷题材怎么看"}).json()["run_id"]
+    _wait_terminal(client, parent_id)
+
+    doc = client.get(f"/api/runs/{parent_id}/followups").json()
+    assert len(doc["followups"]) == 5
+    first = doc["followups"][0]
+    assert first["type"] == "evidence" and "液冷" in first["question"]
+
+    child_id = client.post("/api/runs", json={
+        "question": first["question"], "parent_run_id": parent_id}).json()["run_id"]
+    child = _wait_terminal(client, child_id)
+    assert child["parent_run_id"] == parent_id
+
+
+def test_followups_missing_returns_empty(client: TestClient) -> None:
+    run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    _wait_terminal(client, run_id)
+    assert client.get(f"/api/runs/{run_id}/followups").json() == {"followups": []}
+
+
 def test_index_serves_workbench_page(client: TestClient) -> None:
     resp = client.get("/")
     assert resp.status_code == 200
