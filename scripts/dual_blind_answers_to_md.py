@@ -73,7 +73,13 @@ def direction_section(answers: dict[str, dict]) -> list[str]:
         if isinstance(dr, list) and dr:
             lines.append(f"### {agent} 方向排序")
             lines.append("")
-            lines += [f"{i}. {x}" for i, x in enumerate(dr, 1)]
+            for i, x in enumerate(dr, 1):
+                if isinstance(x, dict):
+                    sector = x.get("sector") or x.get("direction") or ""
+                    rationale = x.get("rationale") or x.get("reason") or ""
+                    lines.append(f"{i}. {sector}" + (f"：{rationale}" if rationale else ""))
+                else:
+                    lines.append(f"{i}. {x}")
             lines.append("")
         th = ans.get("thresholds")
         if isinstance(th, dict) and th:
@@ -106,7 +112,8 @@ def hypotheses_section(answers: dict[str, dict]) -> list[str]:
     for agent, ans in answers.items():
         for h in ans.get("hypotheses") or []:
             if isinstance(h, dict):
-                rows.append([agent, h.get("id", ""), h.get("claim", ""),
+                rows.append([agent, h.get("id", ""),
+                             h.get("claim") or h.get("text") or "",
                              h.get("metric", ""), h.get("falsify_when", "")])
     if not rows:
         return []
@@ -126,14 +133,23 @@ def recheck_section(answers: dict[str, dict]) -> list[str]:
         has = True
         lines.append(f"### {agent}")
         lines.append("")
+        picks = ans.get("picks") or []
         for label, key in (("T+1", "pick_returns_t1"), ("T+3", "pick_returns_t3")):
             rows = rec.get(key)
-            if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+            if not (isinstance(rows, list) and rows):
+                continue
+            lines.append(f"{label} 标的回报：")
+            lines.append("")
+            if isinstance(rows[0], dict):
                 ks = list(rows[0].keys())
-                lines.append(f"{label} 标的回报：")
-                lines.append("")
                 lines += _table([[r.get(k, "") for k in ks] for r in rows], ks)
-                lines.append("")
+            else:
+                trows = []
+                for i, r in enumerate(rows):
+                    pick = picks[i] if i < len(picks) and isinstance(picks[i], dict) else {}
+                    trows.append([pick.get("code", ""), pick.get("name", ""), r])
+                lines += _table(trows, ["code", "name", "回报%"])
+            lines.append("")
         info = [f"基准 {rec.get('benchmark')}"]
         if rec.get("recheck_t1_date"):
             info.append(f"T+1 回检日 {rec['recheck_t1_date']}")
