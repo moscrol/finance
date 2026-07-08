@@ -23,6 +23,11 @@ dispatcher 解决的就是这个问题：**每个新 session 进来的第一个�
 3. **未匹配 → 走 fallback 路径**（见下方）
 4. **检测到批量/高风险关键词 → 先走 task-planner 采访，再 handoff 到匹配的 skill**
 5. **不要绕过 dispatcher 直接手动跑命令**——这是 6.24 踩坑的根本原因
+6. **每轮回答前必带检索前置（prime）**：`route.py` 默认在路由结果后自动附带 `python3 -m intelligence.cli prime "<问题>"` 的输出——
+   校准（checkpoint 胜率+到期回检提醒）+ 个人库（画像/反馈亲和/纠偏/核心判断）+ 图谱（概念/公司暴露/证据）拼成的上下文前缀。
+   **把该前缀前置到本轮推理**：按校准调节自信度、以图谱证据做 grounding、遵守纠偏原则；证据不足明说缺口。
+   后续追问轮次没有再过 route.py 时，也应直接跑 `python3 -m intelligence.cli prime "<新问题>"` 拿前缀再作答（只读、可离线、秒级）。
+   跳过用 `--no-prime`（仅限纯路由调试）。
 
 ## 路由流程
 
