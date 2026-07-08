@@ -94,7 +94,7 @@ def _run_ask(store: RunStore, run_id: str, req: CreateRunRequest) -> None:
     for w in result.warnings:
         if "不可用" in w or "降级" in w or "unavailable" in w.lower():
             store.add_degrade(run_id, w)
-    if not result.llm_refined and req.compose:
+    if req.compose and not (result.llm_refined or result.synthesis):
         store.add_degrade(run_id, "llm_unavailable_template_answer")
 
     t1 = rs._now_iso()
@@ -107,6 +107,7 @@ def _run_ask(store: RunStore, run_id: str, req: CreateRunRequest) -> None:
         "question_type": result.question_plan.question_type if result.question_plan else None,
         "citations": len(result.citations),
         "llm_refined": result.llm_refined,
+        "llm_composed": bool(result.synthesis),
         "warnings": list(result.warnings),
     }
     store.add_artifact(run_id, "summary.json", json.dumps(summary, ensure_ascii=False, indent=2),
