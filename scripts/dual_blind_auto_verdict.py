@@ -232,22 +232,35 @@ def judge_direction(texts: list[str], sectors: dict[str, dict[str, float]]) -> t
     return "partial", actual
 
 
+SOURCE_STREAM = {"duckdb": ("盘面", "T+1"), "briefing": ("晨汇", "T+1"), "sellside": ("卖方", "T+3")}
+
+
+def _eval_date_for(con: Any, answer: dict[str, Any], date: str, ledger_dir: Path) -> str | None:
+    """分流回检日：盘面/晨汇 = 研判日当天；卖方 = 视角日后第 3 个交易日（未到返回 None）。"""
+    source = str(answer.get("source") or "duckdb").lower()
+    if source != "sellside":
+        return date
+    from dual_blind_forecast import manifest_path_for  # noqa: PLC0415
+
+    mpath = manifest_path_for(date, ledger_dir)
+    if not mpath.exists():
+        return None
+    perspective = str(json.loads(mpath.read_text(encoding="utf-8")).get("perspective_date") or "")
+    rows = con.execute(
+        "SELECT DISTINCT trade_date FROM fact_market_daily WHERE trade_date > ? ORDER BY trade_date LIMIT 3",
+        [perspective],
+    ).fetchall()
+    return str(rows[2][0]) if len(rows) >= 3 else None
+
+
 def build_verdicts_for_date(date: str, ledger_dir: Path, db_path: Path) -> tuple[dict[str, Any] | None, list[str]]:
     import duckdb  # noqa: PLC0415 可选依赖延迟导入
 
     warnings: list[str] = []
     con = duckdb.connect(str(db_path), read_only=True)
+    market_cache: dict[str, Any] = {}
+    sector_cache: dict[str, Any] = {}
     try:
-        market = market_actuals(con, date)
-        if market is None:
-            return None, [f"{date} 无 fact_market_daily 行情，跳过"]
-        sectors = sector_rows(con, date)
-        vals = {k: market.get(k) for k in ("advancers", "limit_up", "limit_down", "total_amount", "volume_ratio", "high_history")}
-        market_actual_str = (
-            f"涨家数{int(market['advancers'])}、涨停{int(market['limit_up'])}、跌停{int(market['limit_down'])}、"
-            f"成交额{market['total_amount']:.0f}亿、量比{market['volume_ratio']:.1f}、上证{market['sh_pct']:+.2f}%（{market['stage']}）"
-        )
-
         entries: list[dict[str, Any]] = []
         for key, apath in sorted(answer_paths_for(date, ledger_dir).items()):
             try:
@@ -256,6 +269,25 @@ def build_verdicts_for_date(date: str, ledger_dir: Path, db_path: Path) -> tuple
                 warnings.append(f"{apath.name} 不可读：{exc}")
                 continue
             agent = str(answer.get("agent") or key.split(".", 1)[0]).lower()
+            source = str(answer.get("source") or "duckdb").lower()
+            stream, horizon = SOURCE_STREAM.get(source, ("盘面", "T+1"))
+            eval_date = _eval_date_for(con, answer, date, ledger_dir)
+            if eval_date is None:
+                warnings.append(f"{apath.name} 回检日未到（{stream}流 {horizon}），本次不裁")
+                continue
+            if eval_date not in market_cache:
+                market_cache[eval_date] = market_actuals(con, eval_date)
+                sector_cache[eval_date] = sector_rows(con, eval_date) if market_cache[eval_date] else {}
+            market = market_cache[eval_date]
+            if market is None:
+                warnings.append(f"{apath.name} 回检日 {eval_date} 无行情，本次不裁")
+                continue
+            sectors = sector_cache[eval_date]
+            vals = {k: market.get(k) for k in ("advancers", "limit_up", "limit_down", "total_amount", "volume_ratio", "high_history")}
+            market_actual_str = (
+                f"涨家数{int(market['advancers'])}、涨停{int(market['limit_up'])}、跌停{int(market['limit_down'])}、"
+                f"成交额{market['total_amount']:.0f}亿、量比{market['volume_ratio']:.1f}、上证{market['sh_pct']:+.2f}%（{market['stage']}）"
+            )
             thresholds = answer.get("thresholds") or {}
             hyps = {str(h.get("id")): h for h in answer.get("hypotheses") or [] if h.get("id")}
             picks = {str(p.get("code") or ""): p for p in answer.get("picks") or []}
@@ -272,7 +304,7 @@ def build_verdicts_for_date(date: str, ledger_dir: Path, db_path: Path) -> tuple
                     structured = by_stock.get(code) or by_stock.get(code.split(".", 1)[0]) if isinstance(by_stock, dict) else None
                     texts = [str(thresholds.get("targets") or ""), str(hyp.get("claim") or ""),
                              str(hyp.get("falsify_when") or "")]
-                    verdict, actual = judge_target(code, name, texts, stock_row(con, date, code),
+                    verdict, actual = judge_target(code, name, texts, stock_row(con, eval_date, code),
                                                    market.get("sh_pct"), structured)
                 elif hid == "direction" or str(hyp.get("type") or "") == "direction" or hid.startswith("direction:"):
                     ranking = answer.get("direction_ranking") or []
@@ -305,9 +337,9 @@ def build_verdicts_for_date(date: str, ledger_dir: Path, db_path: Path) -> tuple
                     "agent": agent,
                     "verdict": verdict,
                     "actual": actual,
-                    "stream": "盘面",
-                    "horizon": "T+1",
-                    "evidence_ref": f"auto:dual_blind_auto_verdict.py DuckDB {date}",
+                    "stream": stream,
+                    "horizon": horizon,
+                    "evidence_ref": f"auto:dual_blind_auto_verdict.py DuckDB {eval_date}",
                 }
                 if verdict in {"miss", "partial"}:
                     entry["failure_mode"] = "机判待人工归因"
@@ -319,16 +351,40 @@ def build_verdicts_for_date(date: str, ledger_dir: Path, db_path: Path) -> tuple
         con.close()
 
 
-def pending_dates(ledger_dir: Path, db_path: Path) -> list[str]:
-    import duckdb  # noqa: PLC0415 可选依赖延迟导入
+def _is_auto(entry: dict[str, Any]) -> bool:
+    return str(entry.get("evidence_ref") or "").startswith("auto:")
 
-    con = duckdb.connect(str(db_path), read_only=True)
-    try:
-        have = {str(r[0]) for r in con.execute("SELECT DISTINCT trade_date FROM fact_market_daily").fetchall()}
-    finally:
-        con.close()
+
+def _entry_key(entry: dict[str, Any]) -> tuple[str, str, str]:
+    return (str(entry.get("agent") or "").lower(), str(entry.get("id") or ""),
+            str(entry.get("stream") or "盘面"))
+
+
+def merge_with_existing(auto_entries: list[dict[str, Any]], existing: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """人工条目（evidence_ref 非 auto:）优先保留；同 key 的机判条目刷新；新 key 追加。"""
+    if not existing:
+        return auto_entries
+    old = list(existing.get("verdicts") or [])
+    manual_keys = {_entry_key(e) for e in old if not _is_auto(e)}
+    merged = [e for e in old if not _is_auto(e)]
+    seen = set(manual_keys)
+    for e in auto_entries:
+        if _entry_key(e) in manual_keys:
+            continue  # 人工已裁，不覆盖
+        merged.append(e)
+        seen.add(_entry_key(e))
+    # 保留旧机判里本次没重新生成的条目（如回检日数据已裁过的其它流）
+    for e in old:
+        if _is_auto(e) and _entry_key(e) not in seen:
+            merged.append(e)
+            seen.add(_entry_key(e))
+    return sorted(merged, key=_entry_key)
+
+
+def pending_dates(ledger_dir: Path, db_path: Path, limit: int = 15) -> list[str]:
+    """最近 limit 个有答卷的日期（含已有 verdict 的：卖方流 T+3 可能后到，靠 merge 幂等补裁）。"""
     dates = sorted({p.name.split(".", 1)[0] for p in ledger_dir.glob("*.answer.*.json")})
-    return [d for d in dates if d in have and not verdict_path_for(d, ledger_dir).exists()]
+    return dates[-limit:]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -336,8 +392,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ledger-dir", default=str(LEDGER_DIR))
     parser.add_argument("--db", default=str(DB_PATH))
     parser.add_argument("--date", action="append", default=[], help="裁定日期，可重复")
-    parser.add_argument("--all-pending", action="store_true", help="裁定所有未出 verdict 且已有当日行情的答卷日期")
-    parser.add_argument("--force", action="store_true", help="覆盖已存在的 verdict.json（默认跳过，保护人工裁决）")
+    parser.add_argument("--all-pending", action="store_true", help="处理最近有答卷的日期（幂等 merge，人工条目保留）")
+    parser.add_argument("--force", action="store_true", help="丢弃旧机判条目全量重生成（人工条目仍保留）")
     args = parser.parse_args(argv)
 
     ledger_dir = Path(args.ledger_dir).expanduser()
@@ -352,16 +408,29 @@ def main(argv: list[str] | None = None) -> int:
     failed = False
     for date in sorted(dates):
         out_path = verdict_path_for(date, ledger_dir)
-        if out_path.exists() and not args.force:
-            print(f"SKIP  {out_path.name} 已存在（人工裁决优先，--force 覆盖）")
-            continue
+        existing: dict[str, Any] | None = None
+        if out_path.exists():
+            try:
+                existing = json.loads(out_path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                print(f"ERROR {date}: 旧 verdict 不可读：{exc}", file=sys.stderr)
+                failed = True
+                continue
         draft, warnings = build_verdicts_for_date(date, ledger_dir, db_path)
         for warn in warnings:
             print(f"WARN {date}: {warn}", file=sys.stderr)
         if draft is None:
-            failed = True
+            if existing is None and not args.all_pending:
+                failed = True
             continue
-        errors = validate_verdict(draft, ledger_dir=ledger_dir)
+        if args.force and existing:
+            existing = {"verdicts": [e for e in existing.get("verdicts") or [] if not _is_auto(e)]}
+        merged = merge_with_existing(draft["verdicts"], existing)
+        if existing and merged == (existing.get("verdicts") or []):
+            print(f"SKIP  {out_path.name} 无变化")
+            continue
+        draft_body = {"schema_version": "1.0", "date": date, "verdicts": merged}
+        errors = validate_verdict(draft_body, ledger_dir=ledger_dir)
         if errors:
             failed = True
             for err in errors:
@@ -370,7 +439,7 @@ def main(argv: list[str] | None = None) -> int:
         body = {
             "schema_version": "1.0",
             "date": date,
-            "verdicts": draft["verdicts"],
+            "verdicts": merged,
             "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         }
         out_path.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

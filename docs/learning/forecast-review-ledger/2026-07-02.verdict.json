@@ -3,11 +3,60 @@
   "date": "2026-07-02",
   "verdicts": [
     {
+      "id": "hardware_rebound",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "半导体-5.51%、CPO-5.10%，没有价格反弹，科技硬件继续分歧/退潮。",
+      "evidence_ref": "DuckDB fact_sector_daily 2026-07-02"
+    },
+    {
       "id": "market",
-      "agent": "codex",
-      "verdict": "partial",
-      "actual": "成交34503.10亿仍>3.4万亿、量比108.42；但涨家2219、涨停93仅中性下沿，跌停从7扩到40，上证-2.03%，双红35（前日183）。分化确认命中，风险强度低于中性预期。",
-      "evidence_ref": "DuckDB fact_market_daily/fact_sector_daily 2026-07-02"
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "实际涨家2219<2500且成交环比-5.72%，触发Claude阈值中的“三日分歧/量能转负”分支；修复延续条件未成立。",
+      "evidence_ref": "DuckDB fact_market_daily 2026-07-02"
+    },
+    {
+      "id": "style_switch",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "证券-2.23%/diff-27.86、保险-1.29%/diff-34.27，均未续双红；大金融风格切换未确立。",
+      "evidence_ref": "DuckDB fact_sector_daily 2026-07-02"
+    },
+    {
+      "id": "target:002714",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "牧原股份+1.00%，显著跑赢沪指；农业/养殖低位周期样本相对强。",
+      "evidence_ref": "DuckDB fact_stock_daily 2026-07-02"
+    },
+    {
+      "id": "target:300059",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "东方财富-3.36%，跑输沪指-2.03%，互联网金融未续强。",
+      "evidence_ref": "DuckDB fact_stock_daily 2026-07-02"
+    },
+    {
+      "id": "target:300442",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "润泽科技-2.51%，跑输沪指；IDC/数据中心承接未保留。",
+      "evidence_ref": "DuckDB fact_stock_daily/fact_sector_daily 2026-07-02"
+    },
+    {
+      "id": "target:600030",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "中信证券-2.88%，跑输沪指-2.03%，券商核心未续强。",
+      "evidence_ref": "DuckDB fact_stock_daily 2026-07-02"
+    },
+    {
+      "id": "target:601628",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "中国人寿-0.70%，跑赢沪指-2.03%；但保险板块diff转负，所以只在个股相对强弱层面命中。",
+      "evidence_ref": "DuckDB fact_stock_daily/fact_sector_daily 2026-07-02"
     },
     {
       "id": "h2_ai_diffusion",
@@ -52,18 +101,11 @@
       "evidence_ref": "DuckDB fact_sw_l1_daily 2026-07-02"
     },
     {
-      "id": "target:300442",
+      "id": "market",
       "agent": "codex",
-      "verdict": "miss",
-      "actual": "润泽科技-2.51%，跑输沪指-2.03%，数据中心-2.54%、算力租赁-2.04%，算力承接未延续。",
-      "evidence_ref": "DuckDB fact_stock_daily/fact_sector_daily 2026-07-02"
-    },
-    {
-      "id": "target:300033",
-      "agent": "codex",
-      "verdict": "miss",
-      "actual": "同花顺-4.01%，跑输沪指；证券-2.23%/diff-27.86，软件/金融科技风险偏好未延续。",
-      "evidence_ref": "DuckDB fact_stock_daily/fact_sector_daily 2026-07-02"
+      "verdict": "partial",
+      "actual": "成交34503.10亿仍>3.4万亿、量比108.42；但涨家2219、涨停93仅中性下沿，跌停从7扩到40，上证-2.03%，双红35（前日183）。分化确认命中，风险强度低于中性预期。",
+      "evidence_ref": "DuckDB fact_market_daily/fact_sector_daily 2026-07-02"
     },
     {
       "id": "target:002747",
@@ -73,10 +115,10 @@
       "evidence_ref": "DuckDB fact_stock_daily/fact_theme_limit_heat_daily 2026-07-02"
     },
     {
-      "id": "target:600584",
+      "id": "target:300033",
       "agent": "codex",
       "verdict": "miss",
-      "actual": "长电科技-10.00%，半导体-5.51%、先进封装-4.89%，高位半导体韧性样本失败。",
+      "actual": "同花顺-4.01%，跑输沪指；证券-2.23%/diff-27.86，软件/金融科技风险偏好未延续。",
       "evidence_ref": "DuckDB fact_stock_daily/fact_sector_daily 2026-07-02"
     },
     {
@@ -87,61 +129,19 @@
       "evidence_ref": "DuckDB fact_stock_daily/fact_sector_daily 2026-07-02"
     },
     {
-      "id": "market",
-      "agent": "claude",
-      "verdict": "hit",
-      "actual": "实际涨家2219<2500且成交环比-5.72%，触发Claude阈值中的“三日分歧/量能转负”分支；修复延续条件未成立。",
-      "evidence_ref": "DuckDB fact_market_daily 2026-07-02"
-    },
-    {
-      "id": "style_switch",
-      "agent": "claude",
+      "id": "target:300442",
+      "agent": "codex",
       "verdict": "miss",
-      "actual": "证券-2.23%/diff-27.86、保险-1.29%/diff-34.27，均未续双红；大金融风格切换未确立。",
-      "evidence_ref": "DuckDB fact_sector_daily 2026-07-02"
-    },
-    {
-      "id": "hardware_rebound",
-      "agent": "claude",
-      "verdict": "miss",
-      "actual": "半导体-5.51%、CPO-5.10%，没有价格反弹，科技硬件继续分歧/退潮。",
-      "evidence_ref": "DuckDB fact_sector_daily 2026-07-02"
-    },
-    {
-      "id": "target:600030",
-      "agent": "claude",
-      "verdict": "miss",
-      "actual": "中信证券-2.88%，跑输沪指-2.03%，券商核心未续强。",
-      "evidence_ref": "DuckDB fact_stock_daily 2026-07-02"
-    },
-    {
-      "id": "target:300059",
-      "agent": "claude",
-      "verdict": "miss",
-      "actual": "东方财富-3.36%，跑输沪指-2.03%，互联网金融未续强。",
-      "evidence_ref": "DuckDB fact_stock_daily 2026-07-02"
-    },
-    {
-      "id": "target:601628",
-      "agent": "claude",
-      "verdict": "hit",
-      "actual": "中国人寿-0.70%，跑赢沪指-2.03%；但保险板块diff转负，所以只在个股相对强弱层面命中。",
+      "actual": "润泽科技-2.51%，跑输沪指-2.03%，数据中心-2.54%、算力租赁-2.04%，算力承接未延续。",
       "evidence_ref": "DuckDB fact_stock_daily/fact_sector_daily 2026-07-02"
     },
     {
-      "id": "target:002714",
-      "agent": "claude",
-      "verdict": "hit",
-      "actual": "牧原股份+1.00%，显著跑赢沪指；农业/养殖低位周期样本相对强。",
-      "evidence_ref": "DuckDB fact_stock_daily 2026-07-02"
-    },
-    {
-      "id": "target:300442",
-      "agent": "claude",
+      "id": "target:600584",
+      "agent": "codex",
       "verdict": "miss",
-      "actual": "润泽科技-2.51%，跑输沪指；IDC/数据中心承接未保留。",
+      "actual": "长电科技-10.00%，半导体-5.51%、先进封装-4.89%，高位半导体韧性样本失败。",
       "evidence_ref": "DuckDB fact_stock_daily/fact_sector_daily 2026-07-02"
     }
   ],
-  "generated_at": "2026-07-06T13:53:18+08:00"
+  "generated_at": "2026-07-08T22:38:04+08:00"
 }
