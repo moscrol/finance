@@ -253,6 +253,24 @@ def list_all(skills: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def run_prime(query: str) -> None:
+    """检索前置：路由之后自动跑 prime，把校准+个人库+图谱前缀一并带出（失败只降级不阻断路由）。"""
+    import subprocess
+
+    cmd = [sys.executable, "-m", "intelligence.cli", "prime", query]
+    try:
+        proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=60)
+    except Exception as exc:
+        print(f"\n[prime 检索前置降级：{exc}]", file=sys.stderr)
+        return
+    if proc.returncode == 0 and proc.stdout.strip():
+        print("\n" + proc.stdout.rstrip())
+    else:
+        err = (proc.stderr or "").strip().splitlines()
+        tail = err[-1] if err else f"exit {proc.returncode}"
+        print(f"\n[prime 检索前置降级：{tail}]", file=sys.stderr)
+
+
 def main():
     ap = argparse.ArgumentParser(description="skill dispatcher 路由器")
     ap.add_argument("query", nargs="*", help="用户输入（自然语言）")
@@ -260,6 +278,7 @@ def main():
     ap.add_argument("--json", action="store_true", help="JSON 格式输出")
     ap.add_argument("--top", type=int, default=3, help="返回前 N 个匹配")
     ap.add_argument("--show-skill", action="store_true", help="同时输出匹配 skill 的 SKILL.md 全文")
+    ap.add_argument("--no-prime", action="store_true", help="跳过 prime 检索前置（默认每次路由都附带）")
     args = ap.parse_args()
     
     skills = load_all_skills()
@@ -278,6 +297,10 @@ def main():
     
     results = match_skill(query, skills)
     print(format_output(results[:args.top], query, as_json=args.json))
+
+    # 检索前置：路由后默认附带 prime 前缀（校准+个人库+图谱），--no-prime / --json 时跳过
+    if not args.no_prime and not args.json:
+        run_prime(query)
     
     # 如果 --show-skill 且有匹配，输出 SKILL.md 全文
     if args.show_skill and results:

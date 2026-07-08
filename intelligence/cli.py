@@ -902,6 +902,62 @@ def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.set_defaults(func=cmd_foresight)
 
 
+def add_prime_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "prime",
+        help="检索前置：每轮回答前必跑——问题→自动查 checkpoint 校准+个人库（画像/亲和/纠偏/判断）+图谱→拼上下文前缀（只读、可离线）",
+    )
+    parser.add_argument("query", help="本轮用户问题 / 题材词，如 液冷服务器")
+    parser.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录（含 relations/）；默认 env/auto")
+    parser.add_argument("--top-concepts", type=int, default=5, help="图谱概念命中上限（默认5）")
+    parser.add_argument("--top-companies", type=int, default=8, help="公司暴露召回上限（默认8）")
+    parser.add_argument("--max-evidence", type=int, default=6, help="证据条数上限（默认6）")
+    parser.add_argument("--affinity-top", type=int, default=8, help="反馈亲和条数上限（默认8，问题相关的优先）")
+    parser.add_argument("--corrections-window", type=int, default=5, help="注入最近几条纠偏（默认5）")
+    parser.add_argument("--judgments-window", type=int, default=5, help="注入最近几条核心判断（默认5）")
+    parser.add_argument("--calibration-min-n", type=int, default=2, help="校准类别最小样本数（默认2）")
+    parser.add_argument("--wiki-rag", action="store_true", help="附带 W（wiki 向量语义召回，较慢；失败只降级）")
+    parser.add_argument("--wiki-rag-k", type=int, default=4, help="W 召回条数（默认4）")
+    parser.add_argument("--wiki-rag-timeout", type=int, default=30, help="W 超时秒数（默认30）")
+    parser.add_argument("--json", action="store_true", help="输出机器可读 JSON（含 prefix 字段）")
+    parser.set_defaults(func=cmd_prime)
+
+
+def cmd_prime(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services.prime import (
+        PrimeOptions,
+        build_prime,
+        render_prefix,
+        result_to_dict,
+    )
+
+    result = build_prime(
+        PrimeOptions(
+            query=args.query,
+            user=args.user,
+            kb_wiki=args.kb_wiki,
+            top_concepts=args.top_concepts,
+            top_companies=args.top_companies,
+            max_evidence=args.max_evidence,
+            affinity_top=args.affinity_top,
+            corrections_window=args.corrections_window,
+            judgments_window=args.judgments_window,
+            calibration_min_n=args.calibration_min_n,
+            use_wiki_rag=args.wiki_rag,
+            wiki_rag_k=args.wiki_rag_k,
+            wiki_rag_timeout=args.wiki_rag_timeout,
+        )
+    )
+    if args.json:
+        print(_json.dumps(result_to_dict(result), ensure_ascii=False, indent=2))
+    else:
+        print(render_prefix(result))
+    return 0
+
+
 def add_record_interaction_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "record-interaction",
@@ -2405,6 +2461,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_daily_agent_parser(subparsers)
     add_effectiveness_parser(subparsers)
     add_foresight_parser(subparsers)
+    add_prime_parser(subparsers)
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)
     add_refresh_profile_parser(subparsers)
