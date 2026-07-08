@@ -19,7 +19,7 @@
 4. **回检**：数值类指标由脚本自动回填：`python3 scripts/dual_blind_forecast.py recheck <答卷.json>...`（从 DuckDB 算 `pick_returns_t1/t3`、`benchmark_return_t3`、`beat_benchmark_t3`；基准统一为上证指数 `sh000001`，写进 recheck 块保证跨期可比）。`market_threshold_hit` 是自然语言阈值，仍由人判定回填，脚本不覆盖人工字段。人只负责批注归因。
 5. **盘后验证**：逐假设裁定写验证草稿 JSON（`{date, verdicts:[{id, agent, verdict, actual, evidence_ref}]}`，
    可选字段 `stream`（盘面/晨汇/卖方，缺省盘面）、`horizon`（T+1/T+3/T+5，缺省 T+1）、
-   `failure_mode`（miss/partial 归因，如「阈值定早」「位置情绪不配合」）），
+   `failure_mode`（miss/partial 归因，优先用 [forecast-scoring-frameworks.md](forecast-scoring-frameworks.md) 六类代码 A1-A6，可附注如「阈值定早」）），
    `python3 scripts/dual_blind_forecast.py verdict <草稿.json>` 校验后落盘 `forecast-review-ledger/<date>.verdict.json`
    （盘后验证唯一写入口），并自动把回检表渲染进当日 `<date>.md` 的标记区——**当日 md 回检表不再手填**。
 6. **状态总表**：`python3 scripts/dual_blind_forecast.py index` 重建 `index.md` 的机检状态总表（manifest/答卷/校验/验证/命中率）。
@@ -71,6 +71,7 @@
 
 ### 3. 方向排序
 优先级 + 理由（用策略一二三四的市场状态语言：主线流动性池/强趋势延续/分歧回流/流动性切换）。
+先判场景（A 恐慌反弹 / B 主升浪 / C 高位拥挤），再按 [forecast-scoring-frameworks.md](forecast-scoring-frameworks.md) 五维（确定性/弹性/兑现时间/拥挤度/已定价）打分排序，给出总分与第 1/2 名分差；异动性质用四分类（情绪脉冲/资金切换/主线扩散/假突破）语言描述。
 
 ### 4. 标的池（5 只）
 | 标的 | 所属策略 | 选择理由（绑定 §1 字段证据） |
