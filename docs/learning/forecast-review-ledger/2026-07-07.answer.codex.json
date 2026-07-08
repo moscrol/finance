@@ -241,5 +241,13 @@
       "falsify_when": "跌破18.0且金刚石篮子少于2只红盘"
     }
   ],
-  "recheck": {}
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-07",
+    "recheck_t3_date": null,
+    "pick_returns_t1": [],
+    "pick_returns_t3": [],
+    "benchmark_return_t3": null,
+    "recheck_generated_at": "2026-07-08T20:06:02+08:00"
+  }
 }

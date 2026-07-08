@@ -1,0 +1,163 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-06",
+  "verdicts": [
+    {
+      "id": "direction",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "机器人 -2.20%/diff-5.45；减速器 -3.52%/diff-11.03；汽车零部件 -2.04%/diff-5.91；人形机器人 -2.83%/diff-8.57；军工 -2.63%/diff-2.56；军工装备 -2.49%/diff-11.79",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "falsify",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "证伪条件未触发；涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06"
+    },
+    {
+      "id": "market",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:002050.SZ",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "三花智控 收盘46.15（-5.80%），上证-0.06%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:600143.SH",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "金发科技 收盘16.16（-5.00%），上证-0.06%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:600879.SH",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "航天电子 收盘21.51（-3.41%），上证-0.06%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:601689.SH",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "拓普集团 收盘60.57（-2.98%），上证-0.06%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:688017.SH",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "绿的谐波 收盘453.98（-6.97%），上证-0.06%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "direction",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "人形机器人 -2.83%/diff-8.57；机器人 -2.20%/diff-5.45；汽车零部件 -2.04%/diff-5.91；减速器 -3.52%/diff-11.03",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "falsify",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "证伪条件已触发；涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "market",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:002050",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "三花智控 收盘46.15（-5.80%），上证-0.06%，低于T+1阈值46.5",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:002472",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "双环传动 收盘46.75（+0.04%），上证-0.06%，≥T+1阈值44.66",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06"
+    },
+    {
+      "id": "target:002747",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "埃斯顿 收盘46.03（+2.81%），上证-0.06%，≥T+1阈值42.53",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06"
+    },
+    {
+      "id": "target:601689",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "拓普集团 收盘60.57（-2.98%），上证-0.06%，≥T+1阈值59.31",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06"
+    },
+    {
+      "id": "target:688017",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "绿的谐波 收盘453.98（-6.97%），上证-0.06%，低于T+1阈值463.6",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    }
+  ],
+  "generated_at": "2026-07-08T22:19:11+08:00"
+}

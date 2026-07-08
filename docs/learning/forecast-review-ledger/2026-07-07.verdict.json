@@ -1,0 +1,164 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-07",
+  "verdicts": [
+    {
+      "id": "direction",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "创新药 -3.85%/diff-29.16；减肥药 -4.05%/diff-26.47；CRO -3.74%/diff-23.72；数据中心 -2.80%/diff-14.89；液冷服务器 -2.42%/diff-18.18",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "falsify",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "证伪条件未触发；涨家数693、涨停33、跌停31、成交额25810亿、量比80.8、上证-1.26%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07"
+    },
+    {
+      "id": "market",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "涨家数693、涨停33、跌停31、成交额25810亿、量比80.8、上证-1.26%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:000938",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "紫光股份 收盘31.48（-5.49%），上证-1.26%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:300759",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "康龙化成 收盘30.57（-0.10%），上证-1.26%，低于T+1阈值30.8但未破证伪价29.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:600276",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "恒瑞医药 收盘55.36（-2.48%），上证-1.26%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:603087",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "甘李药业 收盘65.54（-2.31%），上证-1.26%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:688629",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "华丰科技 收盘199.40（-0.92%），上证-1.26%，低于T+1阈值200.0但未破证伪价185.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "direction:medicine-double-red",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "创新药 -3.85%/diff-29.16；化学制药 -4.17%/diff-29.93；减肥药 -4.05%/diff-26.47；数据中心 -2.80%/diff-14.89；液冷服务器 -2.42%/diff-18.18；机器人 -2.63%/diff-17.72；人形机器人 -2.68%/diff-19.06；减速器 -2.98%/diff-23.89",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "market:path-20260707",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "涨家数693、涨停33、跌停31、成交额25810亿、量比80.8、上证-1.26%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "sentiment:limit-heat-advance",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "涨家数693、涨停33、跌停31、成交额25810亿、量比80.8、上证-1.26%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:000938.SZ",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "紫光股份 收盘31.48（-5.49%），上证-1.26%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:300684.SZ",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "中石科技 收盘69.38（-6.76%），上证-1.26%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:600172.SH",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "黄河旋风 收盘18.36（-1.02%），上证-1.26%，跑赢上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07"
+    },
+    {
+      "id": "target:600276.SH",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "恒瑞医药 收盘55.36（-2.48%），上证-1.26%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:688629.SH",
+      "agent": "codex",
+      "verdict": "hit",
+      "actual": "华丰科技 收盘199.40（-0.92%），上证-1.26%，跑赢上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-07"
+    }
+  ],
+  "generated_at": "2026-07-08T22:19:11+08:00"
+}

@@ -1,0 +1,380 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-08",
+  "agent": "codex",
+  "source": "duckdb",
+  "manifest_sha": "2ef25942670069a4",
+  "input_freeze": {
+    "perspective_date": "2026-07-07",
+    "duckdb_cutoff": "2026-07-07",
+    "duckdb_path": "db/market_feature_store.duckdb",
+    "kb_commit": "b6c32fb714a811f73bd6d5627bdfd8faf69afc07",
+    "materials_count": 0,
+    "data_gap": "manifest 未冻结额外复盘材料；本答卷只使用 DuckDB 盘面流。"
+  },
+  "stage": "底部横盘阶段第6天；7月7日从沸点降为强势缩量观望，广度与新高同步收缩，处于抱团分歧末端而非全面加速。",
+  "section1_metrics": {
+    "stage": {
+      "market_stage": "底部横盘阶段",
+      "stage_day": 6,
+      "strength_status": "强势",
+      "sh_index_close": 3990.235,
+      "sh_index_pct_chg": -1.2621,
+      "concentration_state": "集中",
+      "top3_industry_ratio_pct": 48.6,
+      "top3_industries": [
+        {
+          "name": "电子",
+          "ratio_pct": 32.1
+        },
+        {
+          "name": "机械设备",
+          "ratio_pct": 9.1
+        },
+        {
+          "name": "电力设备",
+          "ratio_pct": 7.7
+        }
+      ]
+    },
+    "volume": {
+      "total_amount_yi": 25810.0,
+      "amount_vs_yesterday_pct": -16.5,
+      "amount_ma20_yi": 31942.56,
+      "volume_ratio_pct": 80.8,
+      "volume_state": "缩量观望"
+    },
+    "breadth": {
+      "advancers": 693,
+      "advancers_prior_trade_day": 1876,
+      "advancers_change": -1183,
+      "limit_up": 33,
+      "limit_up_prior_trade_day": 64,
+      "limit_up_change": -31,
+      "limit_down": 31,
+      "limit_down_prior_trade_day": 46,
+      "limit_down_change": -15
+    },
+    "double_red": {
+      "definition": "pct_chg > 0 且 diff_ratio > 0",
+      "count": 1,
+      "sectors_by_diff": [
+        {
+          "sector_name": "游戏",
+          "sw_l1": "传媒",
+          "pct_chg": 1.16,
+          "diff_ratio": 62.41,
+          "amount_yi": 265.02
+        }
+      ],
+      "red_sector_count": 3,
+      "diff_positive_sector_count": 9
+    },
+    "limit_up_heat": {
+      "market_limit_up_count": 33,
+      "distinct_limit_stock_count": 33,
+      "max_limit_height": 6,
+      "advance_pool_count": 5,
+      "top_sectors": [
+        {
+          "sector_name": "机器人概念",
+          "limit_up_count": 10,
+          "total_count": 1212,
+          "limit_up_ratio_pct": 0.83,
+          "market_share_pct": 30.3,
+          "fd_amount_wan": 180942.85,
+          "rank": 1
+        },
+        {
+          "sector_name": "芯片概念",
+          "limit_up_count": 10,
+          "total_count": 911,
+          "limit_up_ratio_pct": 1.1,
+          "market_share_pct": 30.3,
+          "fd_amount_wan": 126980.55,
+          "rank": 2
+        },
+        {
+          "sector_name": "光伏概念",
+          "limit_up_count": 7,
+          "total_count": 607,
+          "limit_up_ratio_pct": 1.15,
+          "market_share_pct": 21.21,
+          "fd_amount_wan": 52892.72,
+          "rank": 3
+        },
+        {
+          "sector_name": "人工智能",
+          "limit_up_count": 6,
+          "total_count": 1080,
+          "limit_up_ratio_pct": 0.56,
+          "market_share_pct": 18.18,
+          "fd_amount_wan": 84021.12,
+          "rank": 4
+        },
+        {
+          "sector_name": "半导体",
+          "limit_up_count": 4,
+          "total_count": 180,
+          "limit_up_ratio_pct": 2.22,
+          "market_share_pct": 12.12,
+          "fd_amount_wan": 86885.68,
+          "rank": 7
+        }
+      ],
+      "high_board_stocks": [
+        {
+          "code": "603137.SH",
+          "name": "恒尚节能",
+          "boards": 6
+        },
+        {
+          "code": "600793.SH",
+          "name": "宜宾纸业",
+          "boards": 5
+        },
+        {
+          "code": "600246.SH",
+          "name": "万通发展",
+          "boards": 2
+        },
+        {
+          "code": "603861.SH",
+          "name": "白云电器",
+          "boards": 2
+        },
+        {
+          "code": "600288.SH",
+          "name": "大恒科技",
+          "boards": 2
+        }
+      ]
+    },
+    "new_high": {
+      "history_high_count": 21,
+      "three_year_high_count": 32,
+      "two_year_high_count": 34,
+      "one_year_high_count": 38,
+      "one_hundred_twenty_day_high_count": 47,
+      "sixty_day_high_count": 62,
+      "twenty_day_high_count": 181,
+      "history_high_count_prior_trade_day": 41,
+      "twenty_day_high_count_prior_trade_day": 509,
+      "capacity_new_highs": [
+        {
+          "code": "002747.SZ",
+          "name": "埃斯顿",
+          "label": "历史新高",
+          "pct_chg": 6.45,
+          "amount_yi": 83.04,
+          "market_cap_yi": 383.38
+        },
+        {
+          "code": "688702.SH",
+          "name": "盛科通信-U",
+          "label": "历史新高",
+          "pct_chg": 7.0,
+          "amount_yi": 48.22,
+          "market_cap_yi": 775.43
+        },
+        {
+          "code": "688362.SH",
+          "name": "甬矽电子",
+          "label": "历史新高",
+          "pct_chg": 6.89,
+          "amount_yi": 44.43,
+          "market_cap_yi": 464.53
+        },
+        {
+          "code": "002025.SZ",
+          "name": "航天电器",
+          "label": "历史新高",
+          "pct_chg": -2.09,
+          "amount_yi": 33.0,
+          "market_cap_yi": 409.16
+        }
+      ]
+    },
+    "core_stocks": {
+      "engines": [
+        {
+          "code": "002185.SZ",
+          "name": "华天科技",
+          "role": "半导体/AI算力涨停容量核心",
+          "pct_chg": 9.98,
+          "amount_yi": 119.99,
+          "float_mcap_yi": 728.66
+        },
+        {
+          "code": "002747.SZ",
+          "name": "埃斯顿",
+          "role": "机器人历史新高容量核心",
+          "pct_chg": 6.45,
+          "amount_yi": 83.04,
+          "market_cap_yi": 383.38
+        },
+        {
+          "code": "688702.SH",
+          "name": "盛科通信-U",
+          "role": "芯片概念历史新高容量核心",
+          "pct_chg": 7.0,
+          "amount_yi": 48.22,
+          "market_cap_yi": 775.43
+        },
+        {
+          "code": "002558.SZ",
+          "name": "巨人网络",
+          "role": "游戏唯一真双红板块容量核心",
+          "pct_chg": 6.01,
+          "amount_yi": 53.75,
+          "high_status": "20日新高",
+          "float_mcap_yi": 552.87
+        }
+      ]
+    }
+  },
+  "main_judgment": "7月7日是缩量抱团分歧日：市场广度和新高大幅降温，但半导体/机器人涨停热度与少数容量新高仍在，T+1更可能走弱修复与抱团切换，而不是全面退潮或普涨加速。",
+  "direction_ranking": [
+    "半导体/芯片概念：策略一主线流动性池，涨停热度10只、半导体设备涨2.21%，但半导体diff=-11.07，必须看T+1边际量修复。",
+    "机器人概念：策略二强趋势延续，涨停热度10只且埃斯顿历史新高，但板块级双红未确认，适合看核心承接。",
+    "游戏：策略四流动性切换，唯一真双红板块，pct=1.16、diff=62.41、成交265.02亿，但涨停热度不足，先按切换试探而非主线确认。",
+    "光伏/储能：策略三分歧回流备选，光伏涨停7只但储能pct=-2.56、diff=-17.65，只有放量转正才升级。"
+  ],
+  "picks": [
+    {
+      "code": "002185.SZ",
+      "name": "华天科技",
+      "strategy": "策略一",
+      "reason": "半导体/AI算力容量核心，7月7日涨停9.98%，成交119.99亿；芯片概念与机器人概念均为涨停热度第一梯队，各10只涨停。"
+    },
+    {
+      "code": "002747.SZ",
+      "name": "埃斯顿",
+      "strategy": "策略二",
+      "reason": "机器人方向容量新高核心，7月7日历史新高，涨6.45%，成交83.04亿；机器人概念涨停热度10只、市场占比30.3%。"
+    },
+    {
+      "code": "688702.SH",
+      "name": "盛科通信-U",
+      "strategy": "策略二",
+      "reason": "芯片概念容量新高，7月7日历史新高，涨7.0%，成交48.22亿，市值775.43亿；对应电子行业仍占前三行业集中度32.1%。"
+    },
+    {
+      "code": "688362.SH",
+      "name": "甬矽电子",
+      "strategy": "策略二",
+      "reason": "先进封装容量新高，7月7日历史新高，涨6.89%，成交44.43亿；先进封装涨停4只、市场占比12.12%，是芯片内部强分支。"
+    },
+    {
+      "code": "002558.SZ",
+      "name": "巨人网络",
+      "strategy": "策略四",
+      "reason": "游戏是唯一真双红板块，pct=1.16、diff=62.41；巨人网络为游戏容量核心，涨6.01%、成交53.75亿、20日新高。"
+    }
+  ],
+  "thresholds": {
+    "market": "T+1：涨家数900-2200、成交额24500-29500亿、涨停数>=30、跌停数<=45，视为弱修复/抱团切换路径成立；T+3：成交额3日均值>=25500亿且涨家数至少1天>2000，视为横盘未破。",
+    "direction": "T+1：芯片概念涨停数>=7且半导体diff_ratio较-11.07改善到>-8，机器人概念涨停数>=7，游戏维持pct>0且diff_ratio>20；T+3：半导体或机器人至少一个方向转为pct>0且diff_ratio>0。",
+    "targets": "T+1收盘触发价：华天科技>=21.93、埃斯顿>=49.00、盛科通信-U>=382.00、甬矽电子>=102.54、巨人网络>=29.09；T+3确认价：华天科技>=22.50、埃斯顿>=50.50、盛科通信-U>=390.00、甬矽电子>=106.00、巨人网络>=30.00。",
+    "falsify": "T+1若涨家数<600且成交额<24500亿且跌停数>45，或芯片概念涨停数<4且半导体diff_ratio<-15，同时游戏pct<=0/diff_ratio<=0，则推翻弱修复与抱团切换判断；T+3若历史新高数<15且5只标的均值跌幅<=-3%，推翻主判断。",
+    "t1": {
+      "market_advancers_min": 900,
+      "market_advancers_max": 2200,
+      "total_amount_yi_min": 24500,
+      "total_amount_yi_max": 29500,
+      "limit_up_min": 30,
+      "limit_down_max": 45,
+      "chip_limit_up_min": 7,
+      "semiconductor_diff_ratio_min": -8,
+      "robot_limit_up_min": 7,
+      "game_pct_chg_min": 0,
+      "game_diff_ratio_min": 20
+    },
+    "t3": {
+      "three_day_amount_avg_yi_min": 25500,
+      "at_least_one_day_advancers_min": 2000,
+      "direction_confirm_count_min": 1,
+      "direction_confirm_definition": "半导体或机器人至少一个方向 pct_chg>0 且 diff_ratio>0",
+      "history_high_count_falsify_below": 15,
+      "pick_avg_return_falsify_pct_max": -3
+    },
+    "targets_by_stock": {
+      "002185.SZ": {
+        "t1_close_min": 21.93,
+        "t3_close_min": 22.5,
+        "falsify_close_below": 20.83
+      },
+      "002747.SZ": {
+        "t1_close_min": 49.0,
+        "t3_close_min": 50.5,
+        "falsify_close_below": 46.55
+      },
+      "688702.SH": {
+        "t1_close_min": 382.0,
+        "t3_close_min": 390.0,
+        "falsify_close_below": 362.9
+      },
+      "688362.SH": {
+        "t1_close_min": 102.54,
+        "t3_close_min": 106.0,
+        "falsify_close_below": 97.4
+      },
+      "002558.SZ": {
+        "t1_close_min": 29.09,
+        "t3_close_min": 30.0,
+        "falsify_close_below": 27.64
+      }
+    }
+  },
+  "hypotheses": [
+    {
+      "id": "market",
+      "horizon": "T+1",
+      "claim": "市场走弱修复/抱团切换，涨家数900-2200、成交额24500-29500亿、涨停数>=30、跌停数<=45。"
+    },
+    {
+      "id": "direction",
+      "horizon": "T+1/T+3",
+      "claim": "半导体/机器人保持涨停热度，游戏作为唯一双红方向承担切换试探；T+3至少一个核心方向转双红。"
+    },
+    {
+      "id": "target:002185.SZ",
+      "horizon": "T+1/T+3",
+      "claim": "华天科技T+1收盘不低于21.93，T+3不低于22.50。"
+    },
+    {
+      "id": "target:002747.SZ",
+      "horizon": "T+1/T+3",
+      "claim": "埃斯顿T+1收盘不低于49.00，T+3不低于50.50。"
+    },
+    {
+      "id": "target:688702.SH",
+      "horizon": "T+1/T+3",
+      "claim": "盛科通信-U T+1收盘不低于382.00，T+3不低于390.00。"
+    },
+    {
+      "id": "target:688362.SH",
+      "horizon": "T+1/T+3",
+      "claim": "甬矽电子T+1收盘不低于102.54，T+3不低于106.00。"
+    },
+    {
+      "id": "target:002558.SZ",
+      "horizon": "T+1/T+3",
+      "claim": "巨人网络T+1收盘不低于29.09，T+3不低于30.00。"
+    },
+    {
+      "id": "falsify",
+      "horizon": "T+1/T+3",
+      "claim": "T+1极弱广度叠加放不出量，或T+3新高与标的池同步失效，则主判断证伪。"
+    }
+  ],
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-08",
+    "recheck_t3_date": null,
+    "pick_returns_t1": [],
+    "pick_returns_t3": [],
+    "benchmark_return_t3": null,
+    "recheck_generated_at": "2026-07-08T20:06:02+08:00"
+  }
+}

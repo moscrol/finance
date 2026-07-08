@@ -26,9 +26,10 @@
 
 | 研判日 | manifest | 答卷 | 答卷校验 | 验证 | 命中率（hit/已裁定） |
 |---|---|---|---|---|---|
-| 2026-07-07 | ✅ | claude, codex | claude:✅ codex:✅ | — | — |
-| 2026-07-06 | ✅ | claude, codex | claude:✅ codex:✅ | — | — |
-| 2026-07-03 | ✅ | codex | codex:✅ | — | — |
+| 2026-07-08 | ✅ | claude, codex | claude:✅ codex:✅ | ✅ | claude:3/8 codex:3/8 |
+| 2026-07-07 | ✅ | claude, codex | claude:✅ codex:✅ | ✅ | claude:1/8 codex:2/8 |
+| 2026-07-06 | ✅ | claude, codex | claude:✅ codex:✅ | ✅ | claude:1/8 codex:3/8 |
+| 2026-07-03 | ✅ | claude, codex | claude:✅ codex:✅ | ✅ | claude:4/8 codex:0/2 |
 | 2026-07-02 | ✅ | claude, codex | claude:✅ codex:✅ | ✅ | claude:3/8 codex:1/12 |
 
 <!-- END AUTO dual-blind-status -->

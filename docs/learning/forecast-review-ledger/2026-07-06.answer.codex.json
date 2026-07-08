@@ -225,5 +225,26 @@
       "text": "埃斯顿T+1/T+3不跌破42.53且机器人涨停热度不低于20。"
     }
   ],
-  "recheck": {}
+  "recheck": {
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-06",
+    "recheck_t3_date": "2026-07-08",
+    "pick_returns_t1": [
+      -5.8,
+      -6.97,
+      -2.98,
+      0.04,
+      2.81
+    ],
+    "pick_returns_t3": [
+      -14.2478,
+      -19.877,
+      -12.3338,
+      -9.3944,
+      -1.4965
+    ],
+    "benchmark_return_t3": -1.7994,
+    "recheck_generated_at": "2026-07-08T20:06:02+08:00",
+    "beat_benchmark_t3": false
+  }
 }
