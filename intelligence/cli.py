@@ -1812,11 +1812,13 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_reg.add_argument("--source", default=None, help="判断产出模块（校准第二聚合维度，如 logic_lifecycle/framework_interpretation；手工登记可缺省）")
     p_reg.add_argument("--theme", dest="themes", action="append", default=[], help="关联题材（可多次）")
     p_reg.add_argument("--stock", dest="stocks", action="append", default=[], help="关联个股（可多次）")
-    p_reg.add_argument("--metric-type", default=None, choices=["stock_return", "kb_evidence", "manual"], help="机检规格类型；缺省走人工判定")
+    p_reg.add_argument("--metric-type", default=None, choices=["stock_return", "kb_evidence", "market_daily", "manual"], help="机检规格类型；缺省走人工判定")
     p_reg.add_argument("--op", default=">=", choices=[">=", ">", "<=", "<", "=="], help="阈值比较符（默认 >=）")
     p_reg.add_argument("--target", type=float, default=None, help="数值阈值（stock_return=涨幅%%，kb_evidence=新增证据条数）")
     p_reg.add_argument("--window-days", type=int, default=None, help="stock_return 回看窗口天数（默认 60）")
     p_reg.add_argument("--target-name", default=None, help="机检主标的名（个股/题材/公司，缺省取首个 stock/theme）")
+    p_reg.add_argument("--condition", dest="conditions", action="append", default=[], help="market_daily 阈值条件（可多次），形如 advancers>=3000、limit_down<=25（字段=fact_market_daily 列名）")
+    p_reg.add_argument("--trade-date", default=None, help="market_daily 取数交易日（缺省用 due）")
     p_reg.add_argument("--from-judgment", default=None, help="反链 B 核心判断的 ts（可选）")
     p_reg.add_argument("--session", default=None, help="来源会话 id（可选）")
     p_reg.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
@@ -2161,7 +2163,11 @@ def cmd_checkpoint_register(args: argparse.Namespace) -> int:
     metric: dict[str, object] | None = None
     if args.metric_type:
         metric = {"type": args.metric_type}
-        if args.metric_type != "manual":
+        if args.metric_type == "market_daily":
+            metric["conditions"] = list(args.conditions or [])
+            if args.trade_date:
+                metric["trade_date"] = args.trade_date
+        elif args.metric_type != "manual":
             metric["op"] = args.op
             metric["target"] = args.target
             if args.window_days is not None:

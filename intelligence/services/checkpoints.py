@@ -45,9 +45,12 @@ VERDICTS = ("hit", "partial", "miss", "unverifiable")
 TERMINAL_VERDICTS = ("hit", "partial", "miss")
 SCORE_MAP: dict[str, float | None] = {"hit": 1.0, "partial": 0.5, "miss": 0.0, "unverifiable": None}
 
-METRIC_TYPES = ("stock_return", "kb_evidence", "manual")
+METRIC_TYPES = ("stock_return", "kb_evidence", "market_daily", "manual")
 NUMERIC_METRIC_TYPES = ("stock_return", "kb_evidence")
 VALID_OPS = (">=", ">", "<=", "<", "==")
+
+# market_daily 条件字段名：只允许安全标识符（真实列名在查询时再校验，查不到→unverifiable）。
+_FIELD_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 DEFAULT_WINDOW_DAYS = 60
 DEFAULT_CALIBRATION_MIN_N = 2
@@ -102,6 +105,8 @@ def normalize_metric(metric: dict[str, Any] | None) -> dict[str, Any] | None:
         raise ValueError(f"非法 metric.type={mtype!r}（允许 {METRIC_TYPES}）")
     if mtype == "manual":
         return {"type": "manual"}
+    if mtype == "market_daily":
+        return _normalize_market_daily_metric(metric)
     out: dict[str, Any] = {"type": mtype}
     op = str(metric.get("op") or ">=").strip()
     if op not in VALID_OPS:
@@ -118,6 +123,42 @@ def normalize_metric(metric: dict[str, Any] | None) -> dict[str, Any] | None:
         out["window_days"] = int(metric.get("window_days") or DEFAULT_WINDOW_DAYS)
     if metric.get("target_name"):
         out["target_name"] = str(metric["target_name"]).strip()
+    return out
+
+
+def _normalize_market_daily_metric(metric: dict[str, Any]) -> dict[str, Any]:
+    """规整 ``market_daily`` 机检规格：到期日拉 ``fact_market_daily`` 当日行，逐条比较。
+
+    ``conditions`` 为条件列表，全部达标=hit、任一不达标=miss、查无当日行=unverifiable：
+    ``[{"field": "advancers", "op": ">=", "target": 3000}, ...]``
+    也接受字符串简写 ``"advancers>=3000"``。可选 ``trade_date`` 覆盖取数日（默认 due）。
+    """
+    raw = metric.get("conditions")
+    if not raw or not isinstance(raw, list):
+        raise ValueError("market_daily 需要非空 conditions 列表")
+    conditions: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, str):
+            m = re.match(r"^\s*([a-z][a-z0-9_]*)\s*(>=|<=|==|>|<)\s*(-?[\d.]+)\s*$", item)
+            if not m:
+                raise ValueError(f"非法 market_daily 条件 {item!r}（形如 advancers>=3000）")
+            item = {"field": m.group(1), "op": m.group(2), "target": m.group(3)}
+        if not isinstance(item, dict):
+            raise ValueError(f"非法 market_daily 条件 {item!r}")
+        field_name = str(item.get("field") or "").strip()
+        if not _FIELD_RE.match(field_name):
+            raise ValueError(f"非法 market_daily 字段名 {field_name!r}")
+        op = str(item.get("op") or ">=").strip()
+        if op not in VALID_OPS:
+            raise ValueError(f"非法 market_daily op={op!r}（允许 {VALID_OPS}）")
+        try:
+            target = float(item.get("target"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"非法 market_daily target={item.get('target')!r}（需数值）") from exc
+        conditions.append({"field": field_name, "op": op, "target": target})
+    out: dict[str, Any] = {"type": "market_daily", "conditions": conditions}
+    if metric.get("trade_date"):
+        out["trade_date"] = _parse_date(metric["trade_date"])
     return out
 
 

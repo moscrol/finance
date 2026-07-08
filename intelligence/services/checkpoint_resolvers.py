@@ -7,6 +7,9 @@
   →返回 ``unverifiable``（绝不编造），下次有数据环境再判。
 - ``kb_evidence`` → :class:`KnowledgeResolver`：查注册后是否出现新证据（``wiki/relations``，
   云端也在仓里，随处可跑）。
+- ``market_daily`` → :class:`MarketDailyResolver`：拉 ``fact_market_daily`` 到期日整行，
+  逐条比较 ``conditions``（全部达标=hit，任一不达标=miss，查无当日行=unverifiable）。
+  市场路径类 claim（涨家/涨停/成交额阈值）用它机检，不再落 manual。
 - 其他 / 无 metric → 走人工：返回 ``unverifiable``，等 ``checkpoint score`` 人工打分。
 
 **红线**：缺数、报错、连不上一律降级为 ``unverifiable``，永不臆造 hit/miss。
@@ -121,6 +124,73 @@ class MarketResolver:
 
 
 # --------------------------------------------------------------------------- #
+# 盘面 resolver：fact_market_daily 当日多条件阈值（DuckDB，缺则 unverifiable）。
+# --------------------------------------------------------------------------- #
+# 给 MarketDailyResolver 注入的「当日行」函数签名（便于离线单测）：date -> row dict | None
+MarketDailyRowFn = Callable[[str], "dict[str, Any] | None"]
+
+
+@dataclass
+class MarketDailyResolver:
+    db_path: str | None = None
+    row_fn: MarketDailyRowFn | None = None
+
+    def _default_row(self, date: str) -> dict[str, Any] | None:
+        from intelligence.adapters.market import MarketAdapter
+
+        return MarketAdapter(db_path=self.db_path).market_daily_row(date)
+
+    def resolve(self, checkpoint: dict[str, Any]) -> ResolveOutcome:
+        metric = checkpoint.get("metric") or {}
+        conditions = metric.get("conditions") or []
+        if not conditions:
+            return _unverifiable("market", "market_daily 缺 conditions，无法机检")
+        trade_date = str(metric.get("trade_date") or "") or checkpoints._parse_date(checkpoint.get("due"))
+        fn = self.row_fn or self._default_row
+        try:
+            row = fn(trade_date)
+        except Exception as exc:  # 无 duckdb / 无 db / 查询失败 → 降级
+            return _unverifiable(
+                "market",
+                f"盘面数据不可用（{type(exc).__name__}）：本机有 DuckDB 时重跑 recheck 即可判定",
+                {"trade_date": trade_date},
+            )
+        if not row:
+            return _unverifiable(
+                "market",
+                f"fact_market_daily 查无 {trade_date} 行（未同步/非交易日）",
+                {"trade_date": trade_date},
+            )
+        observed: dict[str, Any] = {"trade_date": trade_date, "conditions": []}
+        passed_all = True
+        for cond in conditions:
+            field_name = str(cond.get("field") or "")
+            op = str(cond.get("op") or ">=")
+            try:
+                target = float(cond.get("target"))
+            except (TypeError, ValueError):
+                return _unverifiable("market", f"条件 {field_name} 缺有效 target，无法机检", observed)
+            value = row.get(field_name)
+            if value is None:
+                return _unverifiable("market", f"字段 {field_name} 当日无值/不存在，无法机检", observed)
+            try:
+                value_f = float(value)
+            except (TypeError, ValueError):
+                return _unverifiable("market", f"字段 {field_name} 非数值（{value!r}），无法机检", observed)
+            ok = _compare(value_f, op, target)
+            observed["conditions"].append({"field": field_name, "op": op, "target": target, "value": value_f, "pass": ok})
+            if not ok:
+                passed_all = False
+        verdict = "hit" if passed_all else "miss"
+        detail = "，".join(
+            f"{c['field']}={c['value']}{'✓' if c['pass'] else '✗'}({c['op']}{c['target']})"
+            for c in observed["conditions"]
+        )
+        reason = f"{trade_date} 盘面：{detail}：{'全部达标' if passed_all else '未全部达标'}"
+        return ResolveOutcome(verdict, checkpoints.SCORE_MAP[verdict], "market", reason, observed)
+
+
+# --------------------------------------------------------------------------- #
 # 知识库 resolver：注册后是否出现新证据（relations/evidence_index.json）。
 # --------------------------------------------------------------------------- #
 @dataclass
@@ -184,6 +254,8 @@ def resolve_checkpoint(
         return MarketResolver(db_path=db_path, returns_fn=market_returns_fn).resolve(checkpoint)
     if mtype == "kb_evidence":
         return KnowledgeResolver(wiki_root=wiki_root, adapter=knowledge_adapter).resolve(checkpoint)
+    if mtype == "market_daily":
+        return MarketDailyResolver(db_path=db_path).resolve(checkpoint)
     return _unverifiable(
         "manual",
         "无机检规格（manual）：用 `checkpoint score --id <id> --verdict hit|miss|partial` 人工打分",

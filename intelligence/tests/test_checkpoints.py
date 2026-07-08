@@ -251,6 +251,80 @@ class MarketResolverTests(unittest.TestCase):
         self.assertEqual(out.verdict, "unverifiable")
 
 
+class MarketDailyResolverTests(unittest.TestCase):
+    def _checkpoint(self, conditions: list[dict] | None = None) -> dict:
+        return {
+            "id": "ck-md",
+            "ts": "2026-07-06T00:00:00",
+            "due": "2026-07-07",
+            "metric": {
+                "type": "market_daily",
+                "conditions": conditions or [
+                    {"field": "advancers", "op": ">=", "target": 3000},
+                    {"field": "limit_down", "op": "<=", "target": 25},
+                ],
+            },
+        }
+
+    def test_hit_when_all_conditions_pass(self) -> None:
+        row = {"advancers": 3400, "limit_down": 12}
+        out = resolvers.MarketDailyResolver(row_fn=lambda d: row).resolve(self._checkpoint())
+        self.assertEqual(out.verdict, "hit")
+        self.assertEqual(out.score, 1.0)
+        self.assertEqual(out.observed["trade_date"], "2026-07-07")
+
+    def test_miss_when_any_condition_fails(self) -> None:
+        row = {"advancers": 2400, "limit_down": 12}
+        out = resolvers.MarketDailyResolver(row_fn=lambda d: row).resolve(self._checkpoint())
+        self.assertEqual(out.verdict, "miss")
+        self.assertEqual(out.score, 0.0)
+
+    def test_unverifiable_when_no_row(self) -> None:
+        out = resolvers.MarketDailyResolver(row_fn=lambda d: None).resolve(self._checkpoint())
+        self.assertEqual(out.verdict, "unverifiable")
+        self.assertIn("查无", out.reason)
+
+    def test_unverifiable_when_field_missing(self) -> None:
+        out = resolvers.MarketDailyResolver(row_fn=lambda d: {"advancers": 3200}).resolve(self._checkpoint())
+        self.assertEqual(out.verdict, "unverifiable")
+
+    def test_graceful_degradation_when_row_fn_raises(self) -> None:
+        def boom(date):
+            raise ModuleNotFoundError("No module named 'duckdb'")
+
+        out = resolvers.MarketDailyResolver(row_fn=boom).resolve(self._checkpoint())
+        self.assertEqual(out.verdict, "unverifiable")
+        self.assertIn("盘面数据不可用", out.reason)
+
+    def test_metric_trade_date_overrides_due(self) -> None:
+        ck = self._checkpoint()
+        ck["metric"]["trade_date"] = "2026-07-06"
+        seen: list[str] = []
+
+        def fn(date):
+            seen.append(date)
+            return {"advancers": 3400, "limit_down": 12}
+
+        resolvers.MarketDailyResolver(row_fn=fn).resolve(ck)
+        self.assertEqual(seen, ["2026-07-06"])
+
+    def test_normalize_market_daily_metric(self) -> None:
+        metric = checkpoints.normalize_metric({
+            "type": "market_daily",
+            "conditions": ["advancers>=3000", {"field": "limit_down", "op": "<=", "target": "25"}],
+        })
+        self.assertEqual(metric["conditions"][0], {"field": "advancers", "op": ">=", "target": 3000.0})
+        self.assertEqual(metric["conditions"][1], {"field": "limit_down", "op": "<=", "target": 25.0})
+
+    def test_normalize_rejects_bad_conditions(self) -> None:
+        with self.assertRaises(ValueError):
+            checkpoints.normalize_metric({"type": "market_daily", "conditions": []})
+        with self.assertRaises(ValueError):
+            checkpoints.normalize_metric({"type": "market_daily", "conditions": ["DROP TABLE>=1;"]})
+        with self.assertRaises(ValueError):
+            checkpoints.normalize_metric({"type": "market_daily", "conditions": [{"field": "advancers", "op": "~", "target": 1}]})
+
+
 class KnowledgeResolverTests(unittest.TestCase):
     class _FakeAdapter:
         def __init__(self, items: list[dict]) -> None:
