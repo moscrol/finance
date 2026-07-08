@@ -144,8 +144,9 @@ def market_section(answers: dict[str, dict], con=None, persp: str | None = None)
             if sw:
                 lines += ["### 1.2 行业成交结构（申万一级，成交前 9）", ""]
                 lines += _table(
-                    [[r["sw_l1"], _fmt(r["pct_chg"], pct=True), _fmt(r["amount"])]
-                     for r in sw], ["行业", "涨跌幅", "成交"])
+                    [[r["sw_l1"], _fmt(r["pct_chg"], pct=True),
+                      _fmt(r["amount"] / 100 if isinstance(r["amount"], (int, float)) else r["amount"])]
+                     for r in sw], ["行业", "涨跌幅", "成交(亿)"])
                 lines.append("")
             dbl = _fetch_all(con, (
                 "select sector_name, pct_chg, diff_ratio, amount "
@@ -157,7 +158,7 @@ def market_section(answers: dict[str, dict], con=None, persp: str | None = None)
                 lines += _table(
                     [[r["sector_name"], _fmt(r["pct_chg"], pct=True),
                       _fmt(r["diff_ratio"]), _fmt(r["amount"])] for r in dbl],
-                    ["板块", "涨跌幅", "diff_ratio", "成交"])
+                    ["板块", "涨跌幅", "diff_ratio", "成交(亿)"])
                 lines.append("")
             return lines
     ans = answers.get("codex") or {}
@@ -205,9 +206,18 @@ def direction_section(answers: dict[str, dict]) -> list[str]:
             lines.append("")
             names = {"market": "市场", "direction": "方向", "targets": "标的", "falsify": "证伪"}
             lines += _table(
-                [[names.get(k, k), v] for k, v in th.items()], ["维度", "条件"])
+                [[names.get(k, k), _threshold_text(v)] for k, v in th.items()],
+                ["维度", "条件"])
             lines.append("")
     return lines
+
+
+def _threshold_text(v) -> str:
+    if isinstance(v, dict):
+        return "；".join(f"{k}={_threshold_text(x)}" for k, x in v.items())
+    if isinstance(v, list):
+        return "；".join(_threshold_text(x) for x in v)
+    return str(v)
 
 
 def picks_section(answers: dict[str, dict]) -> list[str]:
@@ -247,6 +257,9 @@ def recheck_section(answers: dict[str, dict]) -> list[str]:
     for agent, ans in answers.items():
         rec = ans.get("recheck")
         if not isinstance(rec, dict):
+            continue
+        if rec.get("benchmark") is None and not any(
+                rec.get(k) for k in ("pick_returns_t1", "pick_returns_t3")):
             continue
         has = True
         lines.append(f"### {agent}")
@@ -339,7 +352,7 @@ def verification_section(date: str, answers: dict[str, dict], con) -> list[str]:
                 [date, name.removesuffix("概念")])
             dbl = (r.get("pct_chg") or 0) > 0 and (r.get("diff_ratio") or 0) > 0
             srows.append([name, _fmt(r["pct_chg"], pct=True), _fmt(r["diff_ratio"]),
-                          _fmt((heat or {}).get("limit_up_count")),
+                          _fmt((heat or {}).get("limit_up_count", 0) or 0),
                           "✅" if dbl else "✖"])
         if srows:
             lines += ["### 7.2 方向路径实际结果（取两份答卷方向排序并集）", ""]
@@ -414,6 +427,20 @@ def build_md(date: str, answers: dict[str, dict], con=None) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+ANNOT_HEAD = "## 8. 用户批注区"
+
+
+def _keep_annotations(old_md: str, new_md: str) -> str:
+    """重渲染时保留用户已填写的批注区（§8 起的全部内容）。"""
+    old_tail = old_md[old_md.index(ANNOT_HEAD):] if ANNOT_HEAD in old_md else ""
+    empty_tail = "\n".join(annotation_section()).rstrip() + "\n"
+    if not old_tail or old_tail.strip() == empty_tail.strip():
+        return new_md
+    if ANNOT_HEAD not in new_md:
+        return new_md.rstrip() + "\n\n" + old_tail
+    return new_md[:new_md.index(ANNOT_HEAD)] + old_tail
+
+
 def main(argv: list[str]) -> int:
     if argv:
         dates = argv
@@ -433,7 +460,10 @@ def main(argv: list[str]) -> int:
         if not answers:
             print(f"skip {date}（无答卷 JSON）")
             continue
-        md_path.write_text(build_md(date, answers, con=con), encoding="utf-8")
+        new_md = build_md(date, answers, con=con)
+        if md_path.exists():
+            new_md = _keep_annotations(md_path.read_text(encoding="utf-8"), new_md)
+        md_path.write_text(new_md, encoding="utf-8")
         print(f"write {md_path}")
     return 0
 

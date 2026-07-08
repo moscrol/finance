@@ -110,11 +110,19 @@ def picks_card(ans: dict) -> str:
     return card("4. 标的池", table(["标的", "策略", "理由（绑定§1证据）"], rows))
 
 
+def _threshold_text(v) -> str:
+    if isinstance(v, dict):
+        return "；".join(f"{k}={_threshold_text(x)}" for k, x in v.items())
+    if isinstance(v, list):
+        return "；".join(_threshold_text(x) for x in v)
+    return str(v)
+
+
 def thresholds_card(ans: dict) -> str:
     th = ans.get("thresholds")
     if not (isinstance(th, dict) and th):
         return ""
-    rows = [[esc(THRESHOLD_NAMES.get(k, k)), esc(v)] for k, v in th.items()]
+    rows = [[esc(THRESHOLD_NAMES.get(k, k)), esc(_threshold_text(v))] for k, v in th.items()]
     return card("5. 验证阈值", table(["维度", "条件"], rows))
 
 
@@ -138,6 +146,9 @@ def hypotheses_card(ans: dict) -> str:
 def recheck_card(ans: dict) -> str:
     rec = ans.get("recheck")
     if not isinstance(rec, dict):
+        return ""
+    if rec.get("benchmark") is None and not any(
+            rec.get(k) for k in ("pick_returns_t1", "pick_returns_t3")):
         return ""
     picks = ans.get("picks") or []
     parts = []
