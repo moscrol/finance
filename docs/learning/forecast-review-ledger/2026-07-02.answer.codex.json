@@ -272,12 +272,23 @@
       -10.0,
       -3.36
     ],
-    "pick_returns_t3": [],
+    "pick_returns_t3": [
+      -10.1155,
+      -5.0349,
+      12.1042,
+      -10.8308,
+      -1.2587
+    ],
     "beat_benchmark_t3": false,
     "market_threshold_hit": false,
     "benchmark_sh_index_pct_chg_t1": -2.0314,
     "notes": [
       "T+1 已回填；T+3 不可回填：当前 DuckDB 截止 2026-07-03。"
-    ]
+    ],
+    "benchmark": "sh000001",
+    "recheck_t1_date": "2026-07-02",
+    "recheck_t3_date": "2026-07-06",
+    "benchmark_return_t3": -1.7315,
+    "recheck_generated_at": "2026-07-08T20:06:02+08:00"
   }
 }

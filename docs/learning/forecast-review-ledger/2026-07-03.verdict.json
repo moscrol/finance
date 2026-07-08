@@ -1,0 +1,121 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-07-03",
+  "verdicts": [
+    {
+      "id": "direction",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "稀土永磁 +0.73%/diff-8.53；金属铜 +1.00%/diff-2.34；氟化工 -3.95%/diff-17.15；机器人 +2.38%/diff-0.38；黄金 +1.99%/diff+6.98",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "falsify",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "证伪条件未触发；涨家数3804、涨停108、跌停19、成交额31822亿、量比99.3、上证+0.37%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03"
+    },
+    {
+      "id": "market",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "涨家数3804、涨停108、跌停19、成交额31822亿、量比99.3、上证+0.37%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03"
+    },
+    {
+      "id": "target:000725",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "京东方Ａ 收盘8.38（-7.91%），上证+0.37%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:002167",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "东方锆业 收盘25.04（-3.88%），上证+0.37%，低于T+1阈值26.0",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:002407",
+      "agent": "claude",
+      "verdict": "miss",
+      "actual": "多氟多 收盘49.34（-10.00%），上证+0.37%，跑输上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "target:603259",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "药明康德 收盘124.12（+2.32%），上证+0.37%，跑赢上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03"
+    },
+    {
+      "id": "target:688017",
+      "agent": "claude",
+      "verdict": "hit",
+      "actual": "绿的谐波 收盘488.00（+18.15%），上证+0.37%，跑赢上证",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03"
+    },
+    {
+      "id": "direction:double-red-chem-metals",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "氟化工 -3.95%/diff-17.15；金属铜 +1.00%/diff-2.34；化学制品 -1.52%/diff-19.55",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "market:path-20260703",
+      "agent": "codex",
+      "verdict": "unverifiable",
+      "actual": "涨家数3804、涨停108、跌停19、成交额31822亿、量比99.3、上证+0.37%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03"
+    },
+    {
+      "id": "sellside:diamond-heat",
+      "agent": "codex",
+      "verdict": "partial",
+      "actual": "氟化工 -3.95%/diff-17.15；金属铜 +1.00%/diff-2.34；化学制品 -1.52%/diff-19.55",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "sentiment:limit-heat-advance",
+      "agent": "codex",
+      "verdict": "unverifiable",
+      "actual": "涨家数3804、涨停108、跌停19、成交额31822亿、量比99.3、上证+0.37%（底部横盘阶段）",
+      "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-03"
+    }
+  ],
+  "generated_at": "2026-07-08T22:19:11+08:00"
+}
