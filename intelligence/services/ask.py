@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import glob
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import date as date_cls, timedelta
@@ -137,7 +138,7 @@ class AskOptions:
     # 默认关，关时行为与旧版逐字节一致。开时若无 key/调用失败则降级回六段模板。
     compose: bool = False
     llm_model: str | None = None
-    llm_timeout: int = 60
+    llm_timeout: int = field(default_factory=lambda: int(os.environ.get("LLM_TIMEOUT", "60")))
     detail: bool = False
     user: str | None = None
     experience_cards_window: int = 12

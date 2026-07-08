@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-DEFAULT_LLM_TIMEOUT = 60
+DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
 
 # (provider, api_key_env, default_base_url, default_model). First env var that is
 # set wins. A generic LLM_API_KEY (+ LLM_BASE_URL / LLM_MODEL) overrides all.
@@ -90,6 +90,8 @@ def _build_user_prompt(query: str, theme: str, evidence_text: str) -> str:
 def _post_chat(provider: LLMProvider, messages: list[dict], timeout: int, temperature: float = 0.2) -> str:
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {"model": provider.model, "messages": messages, "temperature": temperature}
+    if os.environ.get("LLM_THINKING") == "disabled":
+        payload["thinking"] = {"type": "disabled"}
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -147,6 +149,8 @@ def _post_chat_message(
     in addition to / instead of ``content`` — needed to drive an agent loop."""
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
+    if os.environ.get("LLM_THINKING") == "disabled":
+        payload["thinking"] = {"type": "disabled"}
     if tools:
         payload["tools"] = tools
         if tool_choice is not None:
