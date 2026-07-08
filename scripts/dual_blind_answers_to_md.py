@@ -427,6 +427,20 @@ def build_md(date: str, answers: dict[str, dict], con=None) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+ANNOT_HEAD = "## 8. 用户批注区"
+
+
+def _keep_annotations(old_md: str, new_md: str) -> str:
+    """重渲染时保留用户已填写的批注区（§8 起的全部内容）。"""
+    old_tail = old_md[old_md.index(ANNOT_HEAD):] if ANNOT_HEAD in old_md else ""
+    empty_tail = "\n".join(annotation_section()).rstrip() + "\n"
+    if not old_tail or old_tail.strip() == empty_tail.strip():
+        return new_md
+    if ANNOT_HEAD not in new_md:
+        return new_md.rstrip() + "\n\n" + old_tail
+    return new_md[:new_md.index(ANNOT_HEAD)] + old_tail
+
+
 def main(argv: list[str]) -> int:
     if argv:
         dates = argv
@@ -446,7 +460,10 @@ def main(argv: list[str]) -> int:
         if not answers:
             print(f"skip {date}（无答卷 JSON）")
             continue
-        md_path.write_text(build_md(date, answers, con=con), encoding="utf-8")
+        new_md = build_md(date, answers, con=con)
+        if md_path.exists():
+            new_md = _keep_annotations(md_path.read_text(encoding="utf-8"), new_md)
+        md_path.write_text(new_md, encoding="utf-8")
         print(f"write {md_path}")
     return 0
 
