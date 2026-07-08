@@ -144,8 +144,9 @@ def market_section(answers: dict[str, dict], con=None, persp: str | None = None)
             if sw:
                 lines += ["### 1.2 行业成交结构（申万一级，成交前 9）", ""]
                 lines += _table(
-                    [[r["sw_l1"], _fmt(r["pct_chg"], pct=True), _fmt(r["amount"])]
-                     for r in sw], ["行业", "涨跌幅", "成交"])
+                    [[r["sw_l1"], _fmt(r["pct_chg"], pct=True),
+                      _fmt(r["amount"] / 100 if isinstance(r["amount"], (int, float)) else r["amount"])]
+                     for r in sw], ["行业", "涨跌幅", "成交(亿)"])
                 lines.append("")
             dbl = _fetch_all(con, (
                 "select sector_name, pct_chg, diff_ratio, amount "
@@ -157,7 +158,7 @@ def market_section(answers: dict[str, dict], con=None, persp: str | None = None)
                 lines += _table(
                     [[r["sector_name"], _fmt(r["pct_chg"], pct=True),
                       _fmt(r["diff_ratio"]), _fmt(r["amount"])] for r in dbl],
-                    ["板块", "涨跌幅", "diff_ratio", "成交"])
+                    ["板块", "涨跌幅", "diff_ratio", "成交(亿)"])
                 lines.append("")
             return lines
     ans = answers.get("codex") or {}
@@ -205,9 +206,18 @@ def direction_section(answers: dict[str, dict]) -> list[str]:
             lines.append("")
             names = {"market": "市场", "direction": "方向", "targets": "标的", "falsify": "证伪"}
             lines += _table(
-                [[names.get(k, k), v] for k, v in th.items()], ["维度", "条件"])
+                [[names.get(k, k), _threshold_text(v)] for k, v in th.items()],
+                ["维度", "条件"])
             lines.append("")
     return lines
+
+
+def _threshold_text(v) -> str:
+    if isinstance(v, dict):
+        return "；".join(f"{k}={_threshold_text(x)}" for k, x in v.items())
+    if isinstance(v, list):
+        return "；".join(_threshold_text(x) for x in v)
+    return str(v)
 
 
 def picks_section(answers: dict[str, dict]) -> list[str]:
@@ -247,6 +257,9 @@ def recheck_section(answers: dict[str, dict]) -> list[str]:
     for agent, ans in answers.items():
         rec = ans.get("recheck")
         if not isinstance(rec, dict):
+            continue
+        if rec.get("benchmark") is None and not any(
+                rec.get(k) for k in ("pick_returns_t1", "pick_returns_t3")):
             continue
         has = True
         lines.append(f"### {agent}")
@@ -339,7 +352,7 @@ def verification_section(date: str, answers: dict[str, dict], con) -> list[str]:
                 [date, name.removesuffix("概念")])
             dbl = (r.get("pct_chg") or 0) > 0 and (r.get("diff_ratio") or 0) > 0
             srows.append([name, _fmt(r["pct_chg"], pct=True), _fmt(r["diff_ratio"]),
-                          _fmt((heat or {}).get("limit_up_count")),
+                          _fmt((heat or {}).get("limit_up_count", 0) or 0),
                           "✅" if dbl else "✖"])
         if srows:
             lines += ["### 7.2 方向路径实际结果（取两份答卷方向排序并集）", ""]
