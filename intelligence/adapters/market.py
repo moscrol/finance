@@ -427,6 +427,22 @@ class MarketAdapter:
         finally:
             con.close()
 
+    def market_daily_row(self, date: str) -> dict[str, Any] | None:
+        """``fact_market_daily`` 指定交易日整行（无该日→None）。
+
+        用途：可证伪点回检（``market_daily`` metric）核对「某日涨家/涨停/成交额是否达标」。
+        """
+        con = self.connect()
+        try:
+            rows = self._rows(con.execute(
+                "SELECT * FROM fact_market_daily WHERE trade_date = ?", [date]
+            ))
+            if not rows:
+                return None
+            return self._serialized_row(rows[0])
+        finally:
+            con.close()
+
     def interval_returns(self, stocks: list[str], start: str, end: str) -> dict[str, dict[str, Any]]:
         """指定个股在 ``[start, end]`` 的区间涨幅（首日 pre_close → 末日 close）。
 
