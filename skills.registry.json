@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-07-06T09:39:52Z",
+  "generated_at": "2026-07-08T07:59:32Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 30
+      "skills": 31
     },
     {
       "name": "knowledge-base-private",
@@ -278,6 +278,29 @@
           "target": "../../skills/ifind"
         }
       ]
+    },
+    "ws/l2-moneyflow": {
+      "name": "l2-moneyflow",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": ".claude/skills/l2-moneyflow/SKILL.md",
+      "description": "Level2 大单资金流分析（ClickHouse 逐笔成交 → 榜单/个股图 → DuckDB 特征表）。触发词：大单资金流、主买净额、总买净额、涨停股资金流、资金流榜单、量化单、量化买单、大单扫描、moneyflow。注意：问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
+      "triggers": [
+        "大单资金流",
+        "主买净额",
+        "总买净额",
+        "涨停股资金流",
+        "资金流榜单",
+        "量化单",
+        "量化买单",
+        "大单扫描",
+        "moneyflow"
+      ],
+      "note": "问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
+      "entrypoint": null,
+      "computedHash": "sha256:1f811a2e00a939c4f010265d1cdde4c25b64f41750847578b8c0098451e78bda",
+      "agentOnly": true,
+      "views": []
     },
     "ws/limit-advance": {
       "name": "limit-advance",
@@ -760,15 +783,9 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:3b7cf9f6a0a0e82fc37ec4ed11cda0f6f3a7b5d0fb003d96c2641ef546f4826d",
+      "computedHash": "sha256:e6c998f02d6317cf805f78753195dfd9d42b16df730f55d52839b51ad935d014",
       "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/catalyst-calendar",
-          "type": "symlink",
-          "target": "../../skills/catalyst-calendar"
-        }
-      ]
+      "views": []
     },
     "kb/company-baseline-ingest": {
       "name": "company-baseline-ingest",
@@ -910,7 +927,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9c59f3fdb065ea49f02934158083d9c251da0ac3e91c20072bbaff03637204f2",
+      "computedHash": "sha256:8fa59d72473cea1164259aa91a5dcb18fb66f2b56f7a0212288dce3f9d398d5c",
       "agentOnly": false,
       "views": [
         {
@@ -958,19 +975,13 @@
       "repo": "knowledge-base-private",
       "sourceType": "local",
       "skillPath": "skills/hard-fact-review/SKILL.md",
-      "description": "把 entity-delta 回填 payload 里「清过硬事实红线」的 update 挑出来排成人工复核队列，供人逐条决定是否写进实体正文 ## 边际变化。suggest-only、绝不自动写正文。触发：硬事实候选、entity 正文回填候选、边际变化复核队列、hard-fact review。",
+      "description": "把 entity-delta 回填 payload 里「清过硬事实红线」的 update 挑出来排成人工复核队列，供人逐条决定是否写进实体正文",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e7ed4c4cbd27a5b8a04c0514077fde736ce802840db2a15c70e23f0f9614aa77",
+      "computedHash": "sha256:7ec611f9e4b68d93ee329f39a41497e36130b4acd80a8a15e8e38a41ccae5edd",
       "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/hard-fact-review",
-          "type": "symlink",
-          "target": "../../skills/hard-fact-review"
-        }
-      ]
+      "views": []
     },
     "kb/ingest-planner": {
       "name": "ingest-planner",
@@ -992,15 +1003,9 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9cf3f4f4d236283653ebb0ab8ba6e3b1593e4d68bc21eb9ac968810a12d7f241",
+      "computedHash": "sha256:cd61a82a584d48376531b6ed37678e0bde53c66ac79f5907d7bcec82c06a40ee",
       "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/ingest-planner",
-          "type": "symlink",
-          "target": "../../skills/ingest-planner"
-        }
-      ]
+      "views": []
     },
     "kb/ingest-qa": {
       "name": "ingest-qa",
@@ -1048,15 +1053,9 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:fce50e23b4ac66713bcf9156c34caa3ced7edb36b0311c03cf3de4857cba485b",
+      "computedHash": "sha256:4261a6411d683252c4693c87940ed3a633a6cc3c2005c5deb2c77721ac6ed19a",
       "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/material-router",
-          "type": "symlink",
-          "target": "../../skills/material-router"
-        }
-      ]
+      "views": []
     },
     "kb/morning-briefing": {
       "name": "morning-briefing",
@@ -1139,15 +1138,9 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:33538fb1e2fa54b4808e07930af5943be50fb10d18ee84f3fb25203ea3af8b50",
+      "computedHash": "sha256:46584288592b80b63756d07b3e2530ef3e858c713927c8c26a0877b75df5587c",
       "agentOnly": false,
-      "views": [
-        {
-          "path": ".claude/skills/planning-with-files",
-          "type": "symlink",
-          "target": "../../skills/planning-with-files"
-        }
-      ]
+      "views": []
     },
     "kb/sellside-coverage-cross": {
       "name": "sellside-coverage-cross",
