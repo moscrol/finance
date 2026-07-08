@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Market Intelligence Workbench</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --ink:#1c2330; --dim:#6b7684; --accent:#2563eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.7 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 22px; background:var(--card); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:16px; margin:0; }
+  #status { font-size:12px; color:var(--dim); border:1px solid var(--line); border-radius:999px; padding:2px 10px; }
+  main { display:grid; grid-template-columns:230px 1fr; gap:16px; padding:16px 22px 120px; max-width:1200px; margin:0 auto; }
+  aside, section { min-width:0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+  aside .run-item { padding:8px 10px; border-radius:8px; cursor:pointer; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  aside .run-item:hover, aside .run-item.active { background:#eef2ff; }
+  .disclaimer { background:#fef9e7; border:1px solid #f5e2a8; color:#8a6d1a; font-size:13px; border-radius:8px; padding:6px 12px; margin-bottom:10px; }
+  details.trace { margin:10px 0; }
+  details.trace summary { cursor:pointer; color:var(--dim); font-size:13px; }
+  .step { display:flex; gap:10px; align-items:baseline; font-size:13px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; margin:6px 0; background:#fafbfc; }
+  .step .name { font-family:ui-monospace,monospace; }
+  .step .ok { color:#16803c; } .step .fail { color:#b91c1c; } .step .running { color:var(--accent); }
+  .step .warn { color:#b45309; font-size:12px; }
+  .artifact { display:flex; gap:10px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin:6px 0; font-size:13px; }
+  .artifact a { color:var(--accent); text-decoration:none; }
+  pre.answer { white-space:pre-wrap; font:13px/1.7 ui-monospace,monospace; background:#fafbfc; border:1px solid var(--line); border-radius:8px; padding:12px; max-height:60vh; overflow:auto; }
+  form { position:fixed; left:0; right:0; bottom:0; background:var(--card); border-top:1px solid var(--line); padding:12px 22px; display:flex; gap:10px; }
+  form input { flex:1; padding:10px 14px; border:1px solid var(--line); border-radius:10px; font-size:15px; }
+  form button { padding:10px 20px; border:0; border-radius:10px; background:var(--accent); color:#fff; font-size:15px; cursor:pointer; }
+  form button:disabled { opacity:.5; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Market Intelligence Workbench</h1>
+  <span id="status">空闲中</span>
+</header>
+<main>
+  <aside class="card">
+    <div style="font-size:13px;color:var(--dim);margin-bottom:6px">历史任务</div>
+    <div id="runs"></div>
+  </aside>
+  <section>
+    <div id="thread"></div>
+  </section>
+</main>
+<form id="ask-form">
+  <input id="q" placeholder="输入问题，例如：帮我分析液冷题材当前的位置" autocomplete="off" />
+  <button id="send" type="submit">发送</button>
+</form>
+<script>
+const $ = (s, el=document) => el.querySelector(s);
+const statusEl = $("#status"), thread = $("#thread"), runsEl = $("#runs");
+
+function stepRow(s) {
+  const cls = s.status === "completed" ? "ok" : s.status === "failed" ? "fail" : "running";
+  const warn = (s.warnings||[]).length ? `<span class="warn">⚠ ${s.warnings.join("；")}</span>` : "";
+  return `<div class="step"><span class="${cls}">●</span><span class="name">${s.name}</span>
+    <span>${s.output_summary || s.input_summary || ""}</span>${warn}</div>`;
+}
+
+function artifactCard(runId, a) {
+  const url = `/api/runs/${runId}/artifacts/${a.path}`;
+  return `<div class="artifact">📄 <b>${a.title}</b> <span style="color:var(--dim)">${a.path} · ${a.bytes} B</span>
+    <a href="${url}" target="_blank">预览</a> <a href="${url}" download>下载</a></div>`;
+}
+
+async function renderRun(runId) {
+  const [run, trace] = await Promise.all([
+    fetch(`/api/runs/${runId}`).then(r=>r.json()),
+    fetch(`/api/runs/${runId}/trace`).then(r=>r.json()),
+  ]);
+  const el = document.createElement("div");
+  el.className = "card";
+  const secs = run.finished_at ? Math.max(1, Math.round((new Date(run.finished_at)-new Date(run.created_at))/1000)) : null;
+  el.innerHTML = `
+    <div style="font-weight:600;margin-bottom:6px">${run.question}</div>
+    <div class="disclaimer">以下内容由 AI 生成，仅作为研究学习，不构成任何投资建议</div>
+    ${run.degrades.length ? `<div class="disclaimer">数据源降级：${run.degrades.join("；")}</div>` : ""}
+    <details class="trace"><summary>${secs?`思考了 ${secs} 秒 · `:""}${trace.length} 个工具步骤</summary>
+      ${trace.map(stepRow).join("")}</details>
+    ${(run.artifacts||[]).map(a=>artifactCard(runId,a)).join("")}
+    ${run.error ? `<div class="step"><span class="fail">●</span>失败：${run.error}</div>` : ""}
+    <pre class="answer" data-run="${runId}">加载中…</pre>`;
+  thread.appendChild(el);
+  const md = (run.artifacts||[]).find(a=>a.path==="answer.md");
+  const pre = $(`pre[data-run="${runId}"]`, el);
+  if (md) pre.textContent = await fetch(`/api/runs/${runId}/artifacts/answer.md`).then(r=>r.text());
+  else pre.remove();
+  el.scrollIntoView({behavior:"smooth", block:"end"});
+}
+
+function follow(runId) {
+  statusEl.textContent = "运行中";
+  const live = document.createElement("div");
+  live.className = "card";
+  live.innerHTML = `<div style="font-weight:600">运行中…</div><div class="live-steps"></div>`;
+  thread.appendChild(live);
+  const es = new EventSource(`/api/runs/${runId}/events`);
+  es.addEventListener("step", e => {
+    $(".live-steps", live).insertAdjacentHTML("beforeend", stepRow(JSON.parse(e.data)));
+  });
+  es.addEventListener("run", async () => { es.close(); live.remove(); await renderRun(runId); statusEl.textContent = "空闲中"; loadRuns(); });
+  es.addEventListener("timeout", () => { es.close(); statusEl.textContent = "超时"; });
+}
+
+async function loadRuns() {
+  const runs = await fetch("/api/runs").then(r=>r.json());
+  runsEl.innerHTML = runs.map(r=>`<div class="run-item" data-id="${r.run_id}" title="${r.question}">${r.question}</div>`).join("");
+  runsEl.querySelectorAll(".run-item").forEach(el => el.onclick = () => { thread.innerHTML=""; renderRun(el.dataset.id); });
+}
+
+$("#ask-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const q = $("#q").value.trim();
+  if (!q) return;
+  $("#q").value = ""; $("#send").disabled = true;
+  const {run_id} = await fetch("/api/runs", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({question:q})}).then(r=>r.json());
+  $("#send").disabled = false;
+  follow(run_id);
+};
+
+loadRuns();
+</script>
+</body>
+</html>
