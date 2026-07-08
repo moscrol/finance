@@ -6,7 +6,7 @@
       "id": "direction",
       "agent": "claude",
       "verdict": "miss",
-      "actual": "机器人 -2.20%/diff-5.45；减速器 -3.52%/diff-11.03；汽车零部件 -2.04%/diff-5.91；人形机器人 -2.83%/diff-8.57；军工 -2.63%/diff-2.56；军工装备 -2.49%/diff-11.79",
+      "actual": "机器人 -2.20%/diff-5.45；减速器 -3.52%/diff-11.03；汽车零部件 -2.04%/diff-5.91；人形机器人 -2.83%/diff-8.57；军工装备 -2.49%/diff-11.79；军工 -2.63%/diff-2.56",
       "stream": "盘面",
       "horizon": "T+1",
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
@@ -20,6 +20,76 @@
       "stream": "盘面",
       "horizon": "T+1",
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06"
+    },
+    {
+      "id": "h_ccl_rebound",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "h_cloth_exhaust",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "h_inductor_fade",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "h_market_range",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "h_robot_strong",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "h_store_pulse",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "h_tier_misgrade",
+      "agent": "claude",
+      "verdict": "partial",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
     },
     {
       "id": "market",
@@ -77,6 +147,56 @@
       "verdict": "miss",
       "actual": "绿的谐波 收盘453.98（-6.97%），上证-0.06%，跑输上证",
       "stream": "盘面",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "briefing_direction_vs_tier1_ai_hardware",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "briefing_event_shape_humanoid_robot",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "briefing_market_support",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "briefing_pick_pool_validation",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
+      "horizon": "T+1",
+      "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
+      "failure_mode": "机判待人工归因"
+    },
+    {
+      "id": "briefing_tier_upgrade_check",
+      "agent": "codex",
+      "verdict": "miss",
+      "actual": "涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）",
+      "stream": "晨汇",
       "horizon": "T+1",
       "evidence_ref": "auto:dual_blind_auto_verdict.py DuckDB 2026-07-06",
       "failure_mode": "机判待人工归因"
@@ -159,5 +279,5 @@
       "failure_mode": "机判待人工归因"
     }
   ],
-  "generated_at": "2026-07-08T22:19:11+08:00"
+  "generated_at": "2026-07-08T23:18:36+08:00"
 }

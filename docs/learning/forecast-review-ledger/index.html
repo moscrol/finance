@@ -39,12 +39,12 @@
 </head>
 <body>
 <header><h1>双盲复盘台账总入口</h1>
-<p>每日各 agent 先验假设（主判断 + 市场/方向/证伪阈值 + 标的池）与盘后验证。由 dual_blind_forecast.py index --html 生成于 2026-07-08T22:19:50+08:00，勿手改。</p></header>
+<p>每日各 agent 先验假设（主判断 + 市场/方向/证伪阈值 + 标的池）与盘后验证。由 dual_blind_forecast.py index --html 生成于 2026-07-08T23:18:36+08:00，勿手改。</p></header>
 <main><section><h2>2026-07-08 <small><a href="2026-07-08.md">md</a> · <a href="2026-07-08.html">并排页</a></small></h2><div class="cards"><div class="card"><h3>claude</h3><p class="judgment">底部横盘第6天冰点恐慌宣泄——前主线医药全面补跌(减肥药-4.05%/创新药-3.85%/化学制药-4.17%，diff-23~-29，07-06双红→07-07崩=主线退潮确认)+广度693极值+量能冰点80.8，全市场严格双红=0(仅游戏1个diff+62.41小盘避险)，资金试探抱团半导体设备自主可控(唯一红盘+2.21%+新高集群)；新高20d从509→181腰斩/history 41→21；发动机中际旭创(成交第一+2.09%)/寒武纪，容量核心长电+6.2%/东山精密+5.53%。属恐慌末段相对强度而非进攻主线，倾向T+1超跌技术性反抽，但无主线承接反抽空间有限。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+1涨家数&gt;2500且成交额&gt;31000亿(vol_ratio&gt;95)=冰点反抽确认；1500-2500=弱反抽/分化；&lt;1500或跌停&gt;50=退潮加速破位(主判断证伪方向)；sh指数收复4000=修复、跌破3950=破位<div class="actual">实际：涨家数1593、涨停47、跌停42、成交额25634亿、量比80.3、上证-0.49%（底部横盘阶段）</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">direction</td><td>半导体设备T+1 diff_ratio转正(&gt;0)=集群双红扩散确认(今-11.68)，维持负且板块涨幅&lt;0=仅龙头独立趋势；机器人板块diff转正=扩散否则埃斯顿独立；创新药T+1 diff继续&lt;-20=医药主线退潮确认(支撑回避判断)<div class="actual">实际：半导体设备 +2.00%/diff+21.04；半导体 -0.66%/diff+8.92；机器人 -2.08%/diff+0.04；创新药 -1.14%/diff-15.07；先进封装 -2.53%/diff+3.31；新型工业化 -2.60%/diff-4.39</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">falsify</td><td>T+1/T+3涨家数持续&lt;1500且跌停&gt;50且sh跌破3950=冰点未止跌转探底(恐慌末段判断证伪)；或涨家数&gt;3500+成交&gt;33000亿+跌停&lt;20=主升启动(场景A证伪，转B)；或半导体设备T+1 diff转正且板块涨&gt;2%但长电/华天同步跌=板块beta虚涨、相对强度证伪<div class="actual">实际：证伪条件未触发；涨家数1593、涨停47、跌停42、成交额25634亿、量比80.3、上证-0.49%（底部横盘阶段）</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:600584</td><td>长电科技 半导体封测容量核心+6.2%(收100.99)，绑定§1半导体设备板块+2.21%唯一红盘抗跌+先进封装新高集群(甬矽电子/沐曦)；大市值封测龙头，恐慌日逆势放量<div class="actual">实际：长电科技 收盘94.11（-6.81%），上证-0.49%，跌破证伪价97.0</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:002747</td><td>埃斯顿 机器人龙头历史新高+6.45%(收49.0)，绑定§1新高集群机械设备11家(最大)+涨停热度机器人概念top1(10家)；板块-2.63%=龙头独立趋势单(非板块beta)<div class="actual">实际：埃斯顿 收盘44.10（-10.00%），上证-0.49%，跌破证伪价46.0</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:688702</td><td>盛科通信 以太网交换芯片国产替代，历史新高+7.0%(收382.0)，绑定§1半导体新高集群+涨停热度芯片概念top2(10家)；交换芯片自主可控硬逻辑<div class="actual">实际：盛科通信 收盘401.50（+5.10%），上证-0.49%，≥T+1阈值375.0</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:002185</td><td>华天科技 封测涨停+9.98%(收21.93)，成交最大的涨停股，跨4个涨停热度主题(芯片/半导体/先进封装/存储)；绑定§1半导体设备集群扩散，T+1封板验证<div class="actual">实际：华天科技 收盘21.57（-1.64%），上证-0.49%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:300308</td><td>中际旭创 光模块发动机+2.09%(收1121.9)，全市场成交第一，绑定§1算力硬件容量核心抗跌(新易盛+0.63%/天孚+2.99%)；发动机属性，反抽首选容量标的<div class="actual">实际：中际旭创 收盘1128.35（+0.57%），上证-0.49%，≥T+1阈值1120.0</div></td><td><span class="v v-hit">✅ hit</span></td></tr></tbody></table></div><div class="card"><h3>codex</h3><p class="judgment">7月7日是缩量抱团分歧日：市场广度和新高大幅降温，但半导体/机器人涨停热度与少数容量新高仍在，T+1更可能走弱修复与抱团切换，而不是全面退潮或普涨加速。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+1：涨家数900-2200、成交额24500-29500亿、涨停数&gt;=30、跌停数&lt;=45，视为弱修复/抱团切换路径成立；T+3：成交额3日均值&gt;=25500亿且涨家数至少1天&gt;2000，视为横盘未破。<div class="actual">实际：涨家数1593、涨停47、跌停42、成交额25634亿、量比80.3、上证-0.49%（底部横盘阶段）</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">direction</td><td>T+1：芯片概念涨停数&gt;=7且半导体diff_ratio较-11.07改善到&gt;-8，机器人概念涨停数&gt;=7，游戏维持pct&gt;0且diff_ratio&gt;20；T+3：半导体或机器人至少一个方向转为pct&gt;0且diff_ratio&gt;0。<div class="actual">实际：半导体 -0.66%/diff+8.92；机器人 -2.08%/diff+0.04；游戏 -1.36%/diff-18.18；芯片 -2.02%/diff+5.48；半导体设备 +2.00%/diff+21.04</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">falsify</td><td>T+1若涨家数&lt;600且成交额&lt;24500亿且跌停数&gt;45，或芯片概念涨停数&lt;4且半导体diff_ratio&lt;-15，同时游戏pct&lt;=0/diff_ratio&lt;=0，则推翻弱修复与抱团切换判断；T+3若历史新高数&lt;15且5只标的均值跌幅&lt;=-3%，推翻主判断。<div class="actual">实际：证伪条件未触发；涨家数1593、涨停47、跌停42、成交额25634亿、量比80.3、上证-0.49%（底部横盘阶段）</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:002185.SZ</td><td>华天科技 半导体/AI算力容量核心，7月7日涨停9.98%，成交119.99亿；芯片概念与机器人概念均为涨停热度第一梯队，各10只涨停。<div class="actual">实际：华天科技 收盘21.57（-1.64%），上证-0.49%，低于T+1阈值21.93但未破证伪价20.83</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">target:002747.SZ</td><td>埃斯顿 机器人方向容量新高核心，7月7日历史新高，涨6.45%，成交83.04亿；机器人概念涨停热度10只、市场占比30.3%。<div class="actual">实际：埃斯顿 收盘44.10（-10.00%），上证-0.49%，跌破证伪价46.55</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:688702.SH</td><td>盛科通信-U 芯片概念容量新高，7月7日历史新高，涨7.0%，成交48.22亿，市值775.43亿；对应电子行业仍占前三行业集中度32.1%。<div class="actual">实际：盛科通信-U 收盘401.50（+5.10%），上证-0.49%，≥T+1阈值382.0</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:688362.SH</td><td>甬矽电子 先进封装容量新高，7月7日历史新高，涨6.89%，成交44.43亿；先进封装涨停4只、市场占比12.12%，是芯片内部强分支。<div class="actual">实际：甬矽电子 收盘98.00（-4.43%），上证-0.49%，低于T+1阈值102.54但未破证伪价97.4</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">target:002558.SZ</td><td>巨人网络 游戏是唯一真双红板块，pct=1.16、diff=62.41；巨人网络为游戏容量核心，涨6.01%、成交53.75亿、20日新高。<div class="actual">实际：巨人网络 收盘28.00（-3.75%），上证-0.49%，低于T+1阈值29.09但未破证伪价27.64</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr></tbody></table></div></div><details class="raw"><summary>当日原文（2026-07-08.md，点开展开）</summary><pre>&lt;!-- auto-generated from answer JSON --&gt;
 # 2026-07-08 复盘推演验证台账
 
 &gt; 观察视角：站在 2026-07-07 盘后，前瞻 2026-07-08 行情。
-&gt; 本页由双盲答卷 JSON 自动生成（codex），manifest `2ef25942670069a4`。
+&gt; 本页由双盲答卷 JSON 自动生成（codex / claude），manifest `2ef25942670069a4`。
 &gt; 说明：本页不是投资建议，是“可证伪推演 + 次日回检表”。
 
 ## 1. 当时市场底稿
@@ -96,6 +96,11 @@
 - 阶段：底部横盘阶段第6天；7月7日从沸点降为强势缩量观望，广度与新高同步收缩，处于抱团分歧末端而非全面加速。
 - 判断：7月7日是缩量抱团分歧日：市场广度和新高大幅降温，但半导体/机器人涨停热度与少数容量新高仍在，T+1更可能走弱修复与抱团切换，而不是全面退潮或普涨加速。
 
+### claude
+
+- 阶段：底部横盘第6天→接近冰点恐慌宣泄临界(冰点day1)。量能：成交25810亿(-16.5%)，vol_ratio 80.80跌破冰点阈值85(60d分位5.0%/120d分位3.3%)，amount_ma20=31942亿。广度：涨家693(12.6%极值，5日轨迹4240→2219→3804→1876→693连续塌缩)，涨停33/跌停31，连板高度6板(恒尚节能)但1→2板晋级率仅5%(3/56)、接力极弱。阶段切换：缩量分歧→冰点恐慌，向破位或反抽二选一临界；场景判A(恐慌反弹/止跌初期)。
+- 判断：底部横盘第6天冰点恐慌宣泄——前主线医药全面补跌(减肥药-4.05%/创新药-3.85%/化学制药-4.17%，diff-23~-29，07-06双红→07-07崩=主线退潮确认)+广度693极值+量能冰点80.8，全市场严格双红=0(仅游戏1个diff+62.41小盘避险)，资金试探抱团半导体设备自主可控(唯一红盘+2.21%+新高集群)；新高20d从509→181腰斩/history 41→21；发动机中际旭创(成交第一+2.09%)/寒武纪，容量核心长电+6.2%/东山精密+5.53%。属恐慌末段相对强度而非进攻主线，倾向T+1超跌技术性反抽，但无主线承接反抽空间有限。
+
 ## 3. 方向排序与验证条件
 
 ### codex 方向排序
@@ -117,6 +122,23 @@
 | t3 | three_day_amount_avg_yi_min=25500；at_least_one_day_advancers_min=2000；direction_confirm_count_min=1；direction_confirm_definition=半导体或机器人至少一个方向 pct_chg&gt;0 且 diff_ratio&gt;0；history_high_count_falsify_below=15；pick_avg_return_falsify_pct_max=-3 |
 | targets_by_stock | 002185.SZ=t1_close_min=21.93；t3_close_min=22.5；falsify_close_below=20.83；002747.SZ=t1_close_min=49.0；t3_close_min=50.5；falsify_close_below=46.55；688702.SH=t1_close_min=382.0；t3_close_min=390.0；falsify_close_below=362.9；688362.SH=t1_close_min=102.54；t3_close_min=106.0；falsify_close_below=97.4；002558.SZ=t1_close_min=29.09；t3_close_min=30.0；falsify_close_below=27.64 |
 
+### claude 方向排序
+
+1. [场景A 五维3.4分·居首] 半导体设备/先进封装(自主可控)：唯一红盘抗跌(半导体设备+2.21%/半导体+0.56%/长电+6.2%/北方华创+0.35%)+新高集群(盛科通信/甬矽电子历史新高、先锋精科+15.22%/沐曦+14.09%)+涨停集群(华天科技/有研新材/正帆/上海合晶/有研硅20cm)，相对强度最强=恐慌末段资金避风港
+2. [3.1分·与第1分差0.3临界等价] 机器人/新型工业化：新高集群最大(机械设备11家，埃斯顿历史新高+6.45%/三丰智能涨停)+涨停热度top1(机器人概念10家/30.3% share)，但板块-2.63%(diff-17.72)=龙头独立分化非板块beta，需T+1扩散确认
+3. [3.05分] 算力硬件(光模块/液冷)：容量核心抗跌(中际旭创+2.09%全市场成交第一/新易盛+0.63%/天孚+2.99%/海光+1.06%)，但液冷服务器板块-2.42%连续4日回调=发动机稳而板块弱，已定价较多
+4. [2.7分] 游戏/传媒：唯双红(游戏diff+62.41/影视院线diff+21.79)，但小盘265亿+涨幅仅+1.16%=避险轮动非主线，拥挤度低(荒漠)但确定性弱
+5. [置底/一票否决] 医药(创新药/减肥药/CRO前主线)：全面补跌(-3.7~-4.3%，diff-23~-30)，主线退潮衰竭，回避追高
+
+### claude 验证阈值
+
+| 维度 | 条件 |
+|---|---|
+| 市场 | T+1涨家数&gt;2500且成交额&gt;31000亿(vol_ratio&gt;95)=冰点反抽确认；1500-2500=弱反抽/分化；&lt;1500或跌停&gt;50=退潮加速破位(主判断证伪方向)；sh指数收复4000=修复、跌破3950=破位 |
+| 方向 | 半导体设备T+1 diff_ratio转正(&gt;0)=集群双红扩散确认(今-11.68)，维持负且板块涨幅&lt;0=仅龙头独立趋势；机器人板块diff转正=扩散否则埃斯顿独立；创新药T+1 diff继续&lt;-20=医药主线退潮确认(支撑回避判断) |
+| 标的 | 长电科技站稳100/破97止损；埃斯顿站稳48/破46(历史新高不破=延续)；盛科通信站稳375/破360；中际旭创站稳1120/破1080；华天科技(已涨停)T+1封板为强、高开低走破21.5为弱 |
+| 证伪 | T+1/T+3涨家数持续&lt;1500且跌停&gt;50且sh跌破3950=冰点未止跌转探底(恐慌末段判断证伪)；或涨家数&gt;3500+成交&gt;33000亿+跌停&lt;20=主升启动(场景A证伪，转B)；或半导体设备T+1 diff转正且板块涨&gt;2%但长电/华天同步跌=板块beta虚涨、相对强度证伪 |
+
 ## 4. 观察标的
 
 &gt; 方向观察样本，不是买卖建议。
@@ -130,6 +152,16 @@
 | 688702.SH | 盛科通信-U | 策略二 | 芯片概念容量新高，7月7日历史新高，涨7.0%，成交48.22亿，市值775.43亿；对应电子行业仍占前三行业集中度32.1%。 |
 | 688362.SH | 甬矽电子 | 策略二 | 先进封装容量新高，7月7日历史新高，涨6.89%，成交44.43亿；先进封装涨停4只、市场占比12.12%，是芯片内部强分支。 |
 | 002558.SZ | 巨人网络 | 策略四 | 游戏是唯一真双红板块，pct=1.16、diff=62.41；巨人网络为游戏容量核心，涨6.01%、成交53.75亿、20日新高。 |
+
+### claude 观察标的
+
+| code | name | strategy | reason |
+|---|---|---|---|
+| 600584 | 长电科技 | 主线流动性池（容量核心） | 半导体封测容量核心+6.2%(收100.99)，绑定§1半导体设备板块+2.21%唯一红盘抗跌+先进封装新高集群(甬矽电子/沐曦)；大市值封测龙头，恐慌日逆势放量 |
+| 002747 | 埃斯顿 | 强趋势延续（新高集群龙头） | 机器人龙头历史新高+6.45%(收49.0)，绑定§1新高集群机械设备11家(最大)+涨停热度机器人概念top1(10家)；板块-2.63%=龙头独立趋势单(非板块beta) |
+| 688702 | 盛科通信 | 强趋势延续（国产替代新高） | 以太网交换芯片国产替代，历史新高+7.0%(收382.0)，绑定§1半导体新高集群+涨停热度芯片概念top2(10家)；交换芯片自主可控硬逻辑 |
+| 002185 | 华天科技 | 分歧回流（涨停新高共振） | 封测涨停+9.98%(收21.93)，成交最大的涨停股，跨4个涨停热度主题(芯片/半导体/先进封装/存储)；绑定§1半导体设备集群扩散，T+1封板验证 |
+| 300308 | 中际旭创 | 主线流动性池（发动机） | 光模块发动机+2.09%(收1121.9)，全市场成交第一，绑定§1算力硬件容量核心抗跌(新易盛+0.63%/天孚+2.99%)；发动机属性，反抽首选容量标的 |
 
 ## 5. 待验证假设
 
@@ -182,6 +214,8 @@
 | 游戏 | -1.36% | -18.18 | 0 | ✖ |
 | 光伏 | -2.85% | -1.73 | 3 | ✖ |
 | 储能 | -2.53% | -1.42 | 4 | ✖ |
+| 先进封装 | -2.53% | 3.31 | 1 | ✖ |
+| 新型工业化 | -2.60% | -4.39 | 4 | ✖ |
 
 ### 7.3 代表标的观察结果
 
@@ -194,6 +228,16 @@
 | 盛科通信-U | 688702.SH | 5.10% | 50.02 | 跑赢上证 |
 | 甬矽电子 | 688362.SH | -4.43% | 38.86 | 跑输上证 |
 | 巨人网络 | 002558.SZ | -3.75% | 42.13 | 跑输上证 |
+
+#### claude 标的
+
+| 标的 | 代码 | 涨跌幅 | 成交 | vs 上证 |
+|---|---|---|---|---|
+| 长电科技 | 600584.SH | -6.81% | 199.14 | 跑输上证 |
+| 埃斯顿 | 002747.SZ | -10.00% | 11.68 | 跑输上证 |
+| 盛科通信-U | 688702.SH | 5.10% | 50.02 | 跑赢上证 |
+| 华天科技 | 002185.SZ | -1.64% | 148.12 | 跑输上证 |
+| 中际旭创 | 300308.SZ | 0.57% | 363.23 | 跑赢上证 |
 
 ## 8. 用户批注区
 
@@ -242,7 +286,7 @@
 
 &lt;!-- END AUTO dual-blind-verdict --&gt;
 </pre></details></section>
-<section><h2>2026-07-07 <small><a href="2026-07-07.md">md</a> · <a href="2026-07-07.html">并排页</a></small></h2><div class="cards"><div class="card"><h3>claude</h3><p class="judgment">底部横盘第5天缩量分歧——科技/AI算力容量主线退潮（太极-8.5%/领益-9.9%/昊华-10%，仅紫光股份逆势涨停）但低位小盘AI补涨，资金切向医药生物（创新药/减肥药/CRO双红diff集群+新高179家双确认）与煤炭/银行防御权重避险，属防御切换而非主升。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+1涨家数1500-2800=分歧延续(当前1876)；&gt;3500且成交额&gt;33000亿=主升修复信号；&lt;1500或跌停&gt;60=退潮加速；量能看vol_ratio是否回100以上（今96.45）<div class="actual">实际：涨家数693、涨停33、跌停31、成交额25810亿、量比80.8、上证-1.26%（底部横盘阶段）</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">direction</td><td>医药(创新药/减肥药/CRO)T+1 diff继续&gt;0=双红延续(&gt;5为强延续)，创新药或减肥药diff任一转负=医药分歧；液冷板块diff转正=集群扩散确认，否则仅龙头独立趋势<div class="actual">实际：创新药 -3.85%/diff-29.16；减肥药 -4.05%/diff-26.47；CRO -3.74%/diff-23.72；数据中心 -2.80%/diff-14.89；液冷服务器 -2.42%/diff-18.18</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">falsify</td><td>T+1/T+3涨家数&gt;3500且成交额&gt;33000亿且跌停&lt;20=主升启动(防御切换判断证伪)；或医药创新药+减肥药T+1 diff同时转负且跌幅&gt;板块均值=医药主线证伪(资金全面退潮而非切医药)<div class="actual">实际：证伪条件未触发；涨家数693、涨停33、跌停31、成交额25810亿、量比80.8、上证-1.26%（底部横盘阶段）</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:600276</td><td>恒瑞医药 医药发动机：101.5亿成交=全市场新高成交第一，减肥药20日新高+4.26%，绑定§1双红减肥药diff=27.28/创新药diff=27.66集群，医药新高179家龙头<div class="actual">实际：恒瑞医药 收盘55.36（-2.48%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:300759</td><td>康龙化成 CRO分支：20日新高+4.16%/27.1亿，绑定§1双红CRO diff=24.72，医药内仍在补涨分支（非已透支的减肥药主线）<div class="actual">实际：康龙化成 收盘30.57（-0.10%），上证-1.26%，低于T+1阈值30.8但未破证伪价29.0</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">target:603087</td><td>甘李药业 减肥药60日新高+涨停（+10%/15.6亿），绑定§1双红减肥药diff=27.28+医药新高集群，涨停新高共振标的（T+1封板验证）<div class="actual">实际：甘李药业 收盘65.54（-2.31%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:688629</td><td>华丰科技 液冷服务器历史新高+11.81%/66.8亿，绑定§1液冷16家新高集群；板块未双红=龙头独立趋势单（非板块beta）<div class="actual">实际：华丰科技 收盘199.40（-0.92%），上证-1.26%，低于T+1阈值200.0但未破证伪价185.0</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">target:000938</td><td>紫光股份 AI算力容量主线退潮中唯一逆势涨停（+10%/99.3亿），绑定§1涨停热度数据中心top1(17家)，发动机属性<div class="actual">实际：紫光股份 收盘31.48（-5.49%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr></tbody></table></div><div class="card"><h3>codex</h3><p class="judgment">7/6不是机器人主线分歧后修复，而是缩量下的主线切换观察日：广度降至1876、涨停降至64、跌停升至46，7/7只有医药双红和AI硬件涨停热度能承接时，市场才是弱修复，否则进入退潮确认。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+1若涨家数&gt;=2300、涨停&gt;=70、跌停&lt;=35且成交额&gt;=30000亿，则弱修复成立；若涨家数&lt;1600或跌停&gt;55，则退潮确认。T+3至少2日跌停&lt;=40且涨家数不连续低于2000，才算底部横盘未破。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">direction</td><td>创新药/化学制药/减肥药三者T+1至少2个继续双红，且创新药成交&gt;1200亿；数据中心/液冷服务器若涨停热度维持Top3且核心股不大幅回落，则AI硬件承接有效；机器人链只有人形机器人、减速器、汽车零部件至少2个重新pct&gt;0且diff&gt;0，才恢复主线资格。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">falsify</td><td>若T+1医药三板块全部diff&lt;0，且数据中心涨停热度&lt;8，同时市场跌停&gt;55，则主判断miss；若T+1机器人链重新至少2个板块双红且机器人概念涨停&gt;20，则我对机器人退潮判断过早。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:600276.SH</td><td>恒瑞医药 绑定§1：创新药 pct+1.10%、diff+27.66、成交1478.11亿；个股7/6 +4.26%、成交101.53亿、20日新高，是医药承接的容量样本。<div class="actual">实际：恒瑞医药 收盘55.36（-2.48%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:000938.SZ</td><td>紫光股份 绑定§1：数据中心涨停17、芯片概念15居热度前二；个股7/6涨停+10.01%、成交99.34亿、20日新高，是AI硬件承接强度样本。<div class="actual">实际：紫光股份 收盘31.48（-5.49%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:688629.SH</td><td>华丰科技 绑定§1：液冷服务器虽未双红但在涨停热度链中强；个股7/6 +11.81%、成交66.79亿、历史新高，验证AI硬件强趋势是否延续。<div class="actual">实际：华丰科技 收盘199.40（-0.92%），上证-1.26%，跑赢上证</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:300684.SZ</td><td>中石科技 绑定§1：AI硬件热度承接；个股7/6 +20.00%、成交33.57亿、历史新高，验证热度能否从涨停扩到趋势。<div class="actual">实际：中石科技 收盘69.38（-6.76%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:600172.SH</td><td>黄河旋风 绑定§1：7/6黄河旋风+10.02%、成交52.48亿，四方达+5.07%、惠丰钻石+11.09%、力量钻石+3.23%，说明前期金刚石散热信息增量在T+3附近获得盘面确认；本日作为残余强度观察。<div class="actual">实际：黄河旋风 收盘18.36（-1.02%），上证-1.26%，跑赢上证</div></td><td><span class="v v-hit">✅ hit</span></td></tr></tbody></table></div></div><details class="raw"><summary>当日原文（2026-07-07.md，点开展开）</summary><pre>&lt;!-- auto-generated from answer JSON --&gt;
+<section><h2>2026-07-07 <small><a href="2026-07-07.md">md</a> · <a href="2026-07-07.html">并排页</a></small></h2><div class="cards"><div class="card"><h3>claude</h3><p class="judgment">底部横盘第5天缩量分歧——科技/AI算力容量主线退潮（太极-8.5%/领益-9.9%/昊华-10%，仅紫光股份逆势涨停）但低位小盘AI补涨，资金切向医药生物（创新药/减肥药/CRO双红diff集群+新高179家双确认）与煤炭/银行防御权重避险，属防御切换而非主升。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+1涨家数1500-2800=分歧延续(当前1876)；&gt;3500且成交额&gt;33000亿=主升修复信号；&lt;1500或跌停&gt;60=退潮加速；量能看vol_ratio是否回100以上（今96.45）<div class="actual">实际：涨家数693、涨停33、跌停31、成交额25810亿、量比80.8、上证-1.26%（底部横盘阶段）</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">direction</td><td>医药(创新药/减肥药/CRO)T+1 diff继续&gt;0=双红延续(&gt;5为强延续)，创新药或减肥药diff任一转负=医药分歧；液冷板块diff转正=集群扩散确认，否则仅龙头独立趋势<div class="actual">实际：创新药 -3.85%/diff-29.16；减肥药 -4.05%/diff-26.47；CRO -3.74%/diff-23.72；数据中心 -2.80%/diff-14.89；液冷服务器 -2.42%/diff-18.18</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">falsify</td><td>T+1/T+3涨家数&gt;3500且成交额&gt;33000亿且跌停&lt;20=主升启动(防御切换判断证伪)；或医药创新药+减肥药T+1 diff同时转负且跌幅&gt;板块均值=医药主线证伪(资金全面退潮而非切医药)<div class="actual">实际：证伪条件未触发；涨家数693、涨停33、跌停31、成交额25810亿、量比80.8、上证-1.26%（底部横盘阶段）</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:600276</td><td>恒瑞医药 医药发动机：101.5亿成交=全市场新高成交第一，减肥药20日新高+4.26%，绑定§1双红减肥药diff=27.28/创新药diff=27.66集群，医药新高179家龙头<div class="actual">实际：恒瑞医药 收盘55.36（-2.48%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:300759</td><td>康龙化成 CRO分支：20日新高+4.16%/27.1亿，绑定§1双红CRO diff=24.72，医药内仍在补涨分支（非已透支的减肥药主线）<div class="actual">实际：康龙化成 收盘30.57（-0.10%），上证-1.26%，低于T+1阈值30.8但未破证伪价29.0</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">target:603087</td><td>甘李药业 减肥药60日新高+涨停（+10%/15.6亿），绑定§1双红减肥药diff=27.28+医药新高集群，涨停新高共振标的（T+1封板验证）<div class="actual">实际：甘李药业 收盘65.54（-2.31%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:688629</td><td>华丰科技 液冷服务器历史新高+11.81%/66.8亿，绑定§1液冷16家新高集群；板块未双红=龙头独立趋势单（非板块beta）<div class="actual">实际：华丰科技 收盘199.40（-0.92%），上证-1.26%，低于T+1阈值200.0但未破证伪价185.0</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">target:000938</td><td>紫光股份 AI算力容量主线退潮中唯一逆势涨停（+10%/99.3亿），绑定§1涨停热度数据中心top1(17家)，发动机属性<div class="actual">实际：紫光股份 收盘31.48（-5.49%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr></tbody></table></div><div class="card"><h3>claude · sellside</h3><p class="judgment">卖方今晚在AI算力链回调后形成高密度看多共识，其中液冷(谷歌供应商大会7/13硬催化+龙头银轮逆势30日新高+板块最抗跌)判为信息增量，而CPO/光通信&#x27;再布局窗口&#x27;因Kyber延后2028+二季报低预期未消化+仍在创新低，透支/节奏风险更高。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+3(截至07-09)：上证不破3970(07-06收4041下方约-1.8%)；两市总成交额至少1日回升至32000亿以上(07-06为30909亿，量能不可再缩)；涨家数至少1日回到2500以上(07-06仅1876)。<div class="actual">实际：涨家数693、涨停33、跌停31、成交额25810亿、量比80.8、上证-1.26%（底部横盘阶段）</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">direction</td><td>T+3(截至07-09)：液冷服务器板块至少出现1日双红(pct_chg&gt;0且diff_ratio&gt;10且amount&gt;4000，07-06为-1.00%/diff-0.91/amt3681)；CPO板块不得连续3日创新低(07-06已-2.91%，不再现单日&lt;-3%)。<div class="actual">实际：创新药 -3.85%/diff-29.16；减肥药 -4.05%/diff-26.47；CRO -3.74%/diff-23.72；数据中心 -2.80%/diff-14.89；液冷服务器 -2.42%/diff-18.18</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">falsify</td><td>衰竭信号(T+3截至07-09任一即推翻主判断)：①液冷板块全程无双红 + 银轮收盘跌破55.2 → 信息增量miss、卖方回调中接刀；②上证跌破3970 + 涨家数连续2日&lt;1500 → 底部破位、回踩实为趋势反转；③CPO/天孚/新易盛 T+3继续创新低且覆盖再加密 → 证实CPO透支、整体再布局时点偏早。<div class="actual">实际：证伪条件未触发；涨家数693、涨停33、跌停31、成交额25810亿、量比80.8、上证-1.26%（底部横盘阶段）</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:002126</td><td>银轮股份 液冷簇最强龙头：07-06 +3.74%逆势收55.2(=30日新高，AI簇回调中独走强)；广发机械&#x27;千亿目标、液冷低位资产&#x27;核心标的，CDU钎焊板换+AI发电(绑定卡特)双逻辑，中期60万台柜测算55亿收入。卖方§1抗跌+新高证据硬度最高，作龙头新高确认锚。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:301018</td><td>申菱环境 液冷CDU弹性标的：07-06 +6.13%反弹(近窗第二强)，收125距30日高点132.93仍有空间；国金/天风/开源三家共推&#x27;大CDU订单+ASIC厂商催化&#x27;，Q3随Rubin起量预期。位置优于已透支的光通信。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002837</td><td>英维克 液冷全产业链龙头：07-06 +3.68%企稳反弹(前4日从79.56回调至71.4低点)；进英伟达RVL名单+谷歌核心合作伙伴(26H2东南亚机柜落地)，开源通信&#x27;全球液冷全自研龙头&#x27;。容量核心定位，流动性承接最佳。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:688629</td><td>华丰科技 昇腾950超节点高速连接器一供：07-06 +11.81%放量(韬定律V2+7/17昇腾950超节点发布催化)，112G线模组市占&gt;60%、224G完成华为验证；miracle纪要点名&#x27;弹性最大标的&#x27;。高Beta事件驱动，与液冷形成催化共振。<div class="actual">实际：华丰科技 收盘199.40（-0.92%），上证-1.26%，低于T+1阈值200.0但未破证伪价185.0</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">target:300308</td><td>中际旭创 光模块龙头再布局对冲标的：07-06 -1.53%连跌4日(1270→1098)，国投硬科技&#x27;预期出清后迎再布局窗口&#x27;；与液冷多头形成对冲，并作&#x27;CPO透支&#x27;假设的可证伪探针——跌破1039(07-06收-5%)即承认再布局偏早。</td><td><span class="v v-pending">待验证</span></td></tr></tbody></table></div><div class="card"><h3>codex</h3><p class="judgment">7/6不是机器人主线分歧后修复，而是缩量下的主线切换观察日：广度降至1876、涨停降至64、跌停升至46，7/7只有医药双红和AI硬件涨停热度能承接时，市场才是弱修复，否则进入退潮确认。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+1若涨家数&gt;=2300、涨停&gt;=70、跌停&lt;=35且成交额&gt;=30000亿，则弱修复成立；若涨家数&lt;1600或跌停&gt;55，则退潮确认。T+3至少2日跌停&lt;=40且涨家数不连续低于2000，才算底部横盘未破。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">direction</td><td>创新药/化学制药/减肥药三者T+1至少2个继续双红，且创新药成交&gt;1200亿；数据中心/液冷服务器若涨停热度维持Top3且核心股不大幅回落，则AI硬件承接有效；机器人链只有人形机器人、减速器、汽车零部件至少2个重新pct&gt;0且diff&gt;0，才恢复主线资格。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">falsify</td><td>若T+1医药三板块全部diff&lt;0，且数据中心涨停热度&lt;8，同时市场跌停&gt;55，则主判断miss；若T+1机器人链重新至少2个板块双红且机器人概念涨停&gt;20，则我对机器人退潮判断过早。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:600276.SH</td><td>恒瑞医药 绑定§1：创新药 pct+1.10%、diff+27.66、成交1478.11亿；个股7/6 +4.26%、成交101.53亿、20日新高，是医药承接的容量样本。<div class="actual">实际：恒瑞医药 收盘55.36（-2.48%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:000938.SZ</td><td>紫光股份 绑定§1：数据中心涨停17、芯片概念15居热度前二；个股7/6涨停+10.01%、成交99.34亿、20日新高，是AI硬件承接强度样本。<div class="actual">实际：紫光股份 收盘31.48（-5.49%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:688629.SH</td><td>华丰科技 绑定§1：液冷服务器虽未双红但在涨停热度链中强；个股7/6 +11.81%、成交66.79亿、历史新高，验证AI硬件强趋势是否延续。<div class="actual">实际：华丰科技 收盘199.40（-0.92%），上证-1.26%，跑赢上证</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:300684.SZ</td><td>中石科技 绑定§1：AI硬件热度承接；个股7/6 +20.00%、成交33.57亿、历史新高，验证热度能否从涨停扩到趋势。<div class="actual">实际：中石科技 收盘69.38（-6.76%），上证-1.26%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:600172.SH</td><td>黄河旋风 绑定§1：7/6黄河旋风+10.02%、成交52.48亿，四方达+5.07%、惠丰钻石+11.09%、力量钻石+3.23%，说明前期金刚石散热信息增量在T+3附近获得盘面确认；本日作为残余强度观察。<div class="actual">实际：黄河旋风 收盘18.36（-1.02%），上证-1.26%，跑赢上证</div></td><td><span class="v v-hit">✅ hit</span></td></tr></tbody></table></div><div class="card"><h3>codex · sellside</h3><p class="judgment">晚间卖方流里液冷/AIDC制冷是信息增量而非单纯跟风，原因是覆盖密度集中在7.13谷歌供应商大会和Q3订单兑现窗口，但7月6日液冷服务器板块仍未双红，T+3必须看到板块转双红、核心股继续新高且成交额放大，否则降级为跟风透支。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+3确认需要至少1日涨家数&gt;2800且全市场成交额&gt;32000亿；若T+3期间任一日跌停数&gt;60且涨停数&lt;55，说明卖方覆盖方向承接失败。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">direction</td><td>液冷服务器T+3确认阈值：到2026-07-09收盘pct&gt;0、diff_ratio&gt;0形成双红，成交额较2026-07-06的3681.24亿放大至少15%至4233亿以上，且板块涨停数不少于8只；数据中心作为外延确认需pct&gt;0且涨停数不少于17只。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">falsify</td><td>主判断被推翻的硬条件：到2026-07-09收盘液冷服务器pct&lt;=0或diff_ratio&lt;=0，成交额&lt;3681亿，且核心池5只中至少3只较2026-07-06收盘下跌；或CPO/PCB反而双红且成交额较2026-07-06放大20%以上，说明主线从液冷切回光通信/PCB。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002837.SZ</td><td>英维克 raw中被列为全球液冷全产业链全自研龙头、谷歌核心合作伙伴、进入英伟达RVL名单；7月6日液冷服务器板块未双红但公司收涨3.68%、成交48.75亿，是主方向里承接较强的容量核心。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:301018.SZ</td><td>申菱环境 raw中多次出现大CDU订单、ASIC厂商订单催化和液冷优质企业推荐；7月6日收涨6.13%、历史新高、成交29.99亿，若液冷信息增量成立，应继续承担龙头新高确认功能。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002126.SZ</td><td>银轮股份 raw中给出液冷CDU核心部件、头部G客户、AI发电绑定卡特和收入弹性测算；7月6日收涨3.74%、20日新高、成交38.93亿，适合观察卖方覆盖能否转成资金继续抬升。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:603757.SH</td><td>大元泵业 raw中被标为电子屏蔽泵竞争格局较好、6月起陆续拿到G链订单；7月6日涨停10.00%、成交12.22亿，液冷服务器涨停热度top中位列核心个股，T+3看能否二次确认而非一日脉冲。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002965.SZ</td><td>祥鑫科技 raw中作为新增推荐，逻辑是双鸿核心供应商波纹管、70%份额且HBM/DIMM液冷认知度较低；7月6日收涨3.25%、3年新高、流通市值约103亿，若资金从高位光模块切低位液冷细分，应有弹性。</td><td><span class="v v-pending">待验证</span></td></tr></tbody></table></div></div><details class="raw"><summary>当日原文（2026-07-07.md，点开展开）</summary><pre>&lt;!-- auto-generated from answer JSON --&gt;
 # 2026-07-07 复盘推演验证台账
 
 &gt; 观察视角：站在 2026-07-06 盘后，前瞻 2026-07-07 行情。
@@ -509,7 +553,7 @@ T+1 标的回报：
 
 &lt;!-- END AUTO dual-blind-verdict --&gt;
 </pre></details></section>
-<section><h2>2026-07-06 <small><a href="2026-07-06.md">md</a> · <a href="2026-07-06.html">并排页</a></small></h2><div class="cards"><div class="card"><h3>claude</h3><p class="judgment">07-03 是缩量修复（量比 99.3 跌破 100，volume_state 由主线抱团转正常量能）下的广度 V 型修复：广度回来了（涨家 3804、涨停 108、跌停 19 收敛），但量能没回来（成交 31822 亿，连续两日萎缩）。资金没有扩散，反而更极端地抱团机器人单一题材（机器人概念涨停 45 只占全市场 41.67%），AI 应用/算力/数据要素/大金融的扩散均未兑现。07-06 最可能路径：缩量震荡→机器人链（减速器/汽车零部件/人形机器人）盘中分歧后再强化→指数小阳或十字星收盘。距发酵加速远（连板高度未破 4 板、量能萎缩），距退潮亦有距离（跌停收敛、涨家 MA5 升至 3157）。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>成交额 07-06 &gt;3.2万亿 &amp; 涨家&gt;3000 = 缩量修复延续；成交&lt;3.0万亿 &amp; 涨家&lt;2500 = 缩量退潮(miss)；涨停&lt;80=热度退潮<div class="actual">实际：涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">direction</td><td>减速器/汽车零部件/人形机器人 07-06 至少 2 个续双红(pct&gt;0 &amp; df&gt;0)=机器人单极延续；3 个全部不再双红=抱团瓦解(miss)；军工装备续双红(pct&gt;0&amp;df&gt;0)才确认非一日反抽<div class="actual">实际：机器人 -2.20%/diff-5.45；减速器 -3.52%/diff-11.03；汽车零部件 -2.04%/diff-5.91；人形机器人 -2.83%/diff-8.57；军工 -2.63%/diff-2.56；军工装备 -2.49%/diff-11.79</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">falsify</td><td>主判断证伪：07-06 机器人概念涨停&lt;25只(从45大幅萎缩) 或 减速器/人形机器人 pct&lt;-2% → 单极抱团瓦解、主判断 miss；上证涨跌幅&gt;±1% 证伪小阳十字星路径<div class="actual">实际：证伪条件未触发；涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:688017.SH</td><td>绿的谐波 07-03 +18.15%(科创板涨停)、成交板块top1、5日+32.08%/20日+49.01%趋势最强；减速器绝对龙头，leader_plate=机器人。验证减速器主升是否成立。<div class="actual">实际：绿的谐波 收盘453.98（-6.97%），上证-0.06%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:601689.SH</td><td>拓普集团 07-03 +10.01%涨停、成交板块top1、5日+18.35%；汽零容量龙头兼人形机器人执行器，验证汽零+机器人交叉承接。备选双环传动002472(5日+26.54%更纯机器人属性)。<div class="actual">实际：拓普集团 收盘60.57（-2.98%），上证-0.06%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:002050.SZ</td><td>三花智控 07-03 +9.06%、成交板块正涨容量最大、5日+18.05%；人形机器人执行器容量代表，验证下游承载。<div class="actual">实际：三花智控 收盘46.15（-5.80%），上证-0.06%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:600879.SH</td><td>航天电子 07-03 +6.40%、5日+11.24%/20日+12.99%趋势稳；军工+航天电子双属性，验证军工反包能否升级延续（备选中国卫星600118商业航天）。<div class="actual">实际：航天电子 收盘21.51（-3.41%），上证-0.06%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:600143.SH</td><td>金发科技 07-03 +10.03%涨停、5日+10.74%；PEEK/改性塑料龙头，验证材料端是否跟随机器人链扩散。<div class="actual">实际：金发科技 收盘16.16（-5.00%），上证-0.06%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr></tbody></table></div><div class="card"><h3>codex</h3><p class="judgment">市场处在底部横盘后的分歧修复发酵期，7.3 是缩量广度修复而非放量加速，7.6 的关键是机器人/汽车链分歧后能否继续维持双红与涨停热度。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+1：涨家数&gt;=3000、涨停&gt;=95、跌停&lt;=25、成交额&gt;=30000亿且量比&gt;=95%，则分歧修复发酵成立；T+3：至少2日涨家数&gt;=2800且市场未出现跌停&gt;35。若T+1涨家数&lt;2500或跌停&gt;30，主判断降级。<div class="actual">实际：涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">direction</td><td>T+1：人形机器人保持红盘数&gt;=300且diff_ratio&gt;0、涨停热度&gt;=20；汽车零部件保持红盘数&gt;=200且diff_ratio&gt;0、涨停热度&gt;=12。T+3：两条主线至少一条连续2日双红，且diff_ratio不连续为负。<div class="actual">实际：人形机器人 -2.83%/diff-8.57；机器人 -2.20%/diff-5.45；汽车零部件 -2.04%/diff-5.91；减速器 -3.52%/diff-11.03</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">falsify</td><td>若T+1市场涨停&lt;90且跌停&gt;30，或人形机器人与汽车零部件同时diff_ratio&lt;0，或1进2晋级率&lt;15%，则§2主判断证伪；若贵金属/防御方向替代成为涨停热度Top1且机器人热度&lt;15，方向排序证伪。<div class="actual">实际：证伪条件已触发；涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:002050</td><td>三花智控 绑定§1：人形机器人红盘359/458、涨停热度31；个股7.3涨幅9.06%、成交153.71亿、20日新高，是容量核心。<div class="actual">实际：三花智控 收盘46.15（-5.80%），上证-0.06%，低于T+1阈值46.5</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:688017</td><td>绿的谐波 绑定§1：减速器diff=27.41、红盘128/138、涨停热度14；个股7.3涨幅18.15%、成交125.29亿、历史新高。<div class="actual">实际：绿的谐波 收盘453.98（-6.97%），上证-0.06%，低于T+1阈值463.6</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:601689</td><td>拓普集团 绑定§1：汽车零部件diff=33.25、红盘250/273、涨停热度20；个股7.3涨停、成交52.24亿，兼具汽车链与机器人链映射。<div class="actual">实际：拓普集团 收盘60.57（-2.98%），上证-0.06%，≥T+1阈值59.31</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:002472</td><td>双环传动 绑定§1：减速器与汽车零部件双红；个股7.3涨停、成交34.12亿、60日新高，适合看分歧后承接。<div class="actual">实际：双环传动 收盘46.75（+0.04%），上证-0.06%，≥T+1阈值44.66</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:002747</td><td>埃斯顿 绑定§1：人形机器人涨停热度31；个股7.3涨停、成交55.08亿、历史新高，是机器人自动化方向的强趋势样本。<div class="actual">实际：埃斯顿 收盘46.03（+2.81%），上证-0.06%，≥T+1阈值42.53</div></td><td><span class="v v-hit">✅ hit</span></td></tr></tbody></table></div></div><details class="raw"><summary>当日原文（2026-07-06.md，点开展开）</summary><pre>&lt;!-- auto-generated from answer JSON --&gt;
+<section><h2>2026-07-06 <small><a href="2026-07-06.md">md</a> · <a href="2026-07-06.html">并排页</a></small></h2><div class="cards"><div class="card"><h3>claude</h3><p class="judgment">07-03 是缩量修复（量比 99.3 跌破 100，volume_state 由主线抱团转正常量能）下的广度 V 型修复：广度回来了（涨家 3804、涨停 108、跌停 19 收敛），但量能没回来（成交 31822 亿，连续两日萎缩）。资金没有扩散，反而更极端地抱团机器人单一题材（机器人概念涨停 45 只占全市场 41.67%），AI 应用/算力/数据要素/大金融的扩散均未兑现。07-06 最可能路径：缩量震荡→机器人链（减速器/汽车零部件/人形机器人）盘中分歧后再强化→指数小阳或十字星收盘。距发酵加速远（连板高度未破 4 板、量能萎缩），距退潮亦有距离（跌停收敛、涨家 MA5 升至 3157）。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>成交额 07-06 &gt;3.2万亿 &amp; 涨家&gt;3000 = 缩量修复延续；成交&lt;3.0万亿 &amp; 涨家&lt;2500 = 缩量退潮(miss)；涨停&lt;80=热度退潮<div class="actual">实际：涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">direction</td><td>减速器/汽车零部件/人形机器人 07-06 至少 2 个续双红(pct&gt;0 &amp; df&gt;0)=机器人单极延续；3 个全部不再双红=抱团瓦解(miss)；军工装备续双红(pct&gt;0&amp;df&gt;0)才确认非一日反抽<div class="actual">实际：机器人 -2.20%/diff-5.45；减速器 -3.52%/diff-11.03；汽车零部件 -2.04%/diff-5.91；人形机器人 -2.83%/diff-8.57；军工装备 -2.49%/diff-11.79；军工 -2.63%/diff-2.56</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">falsify</td><td>主判断证伪：07-06 机器人概念涨停&lt;25只(从45大幅萎缩) 或 减速器/人形机器人 pct&lt;-2% → 单极抱团瓦解、主判断 miss；上证涨跌幅&gt;±1% 证伪小阳十字星路径<div class="actual">实际：证伪条件未触发；涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:688017.SH</td><td>绿的谐波 07-03 +18.15%(科创板涨停)、成交板块top1、5日+32.08%/20日+49.01%趋势最强；减速器绝对龙头，leader_plate=机器人。验证减速器主升是否成立。<div class="actual">实际：绿的谐波 收盘453.98（-6.97%），上证-0.06%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:601689.SH</td><td>拓普集团 07-03 +10.01%涨停、成交板块top1、5日+18.35%；汽零容量龙头兼人形机器人执行器，验证汽零+机器人交叉承接。备选双环传动002472(5日+26.54%更纯机器人属性)。<div class="actual">实际：拓普集团 收盘60.57（-2.98%），上证-0.06%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:002050.SZ</td><td>三花智控 07-03 +9.06%、成交板块正涨容量最大、5日+18.05%；人形机器人执行器容量代表，验证下游承载。<div class="actual">实际：三花智控 收盘46.15（-5.80%），上证-0.06%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:600879.SH</td><td>航天电子 07-03 +6.40%、5日+11.24%/20日+12.99%趋势稳；军工+航天电子双属性，验证军工反包能否升级延续（备选中国卫星600118商业航天）。<div class="actual">实际：航天电子 收盘21.51（-3.41%），上证-0.06%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:600143.SH</td><td>金发科技 07-03 +10.03%涨停、5日+10.74%；PEEK/改性塑料龙头，验证材料端是否跟随机器人链扩散。<div class="actual">实际：金发科技 收盘16.16（-5.00%），上证-0.06%，跑输上证</div></td><td><span class="v v-miss">❌ miss</span></td></tr></tbody></table></div><div class="card"><h3>claude · briefing</h3><p class="judgment">晨汇Tier1（AI硬件通胀：存储/电子布/CCL/芯片电感/金刚石）公告与认知三维最强，但盘面维背离——存储芯片板块07-03 diff-8.9、半导体-10.2、MLCC-21.2集体退潮，涨停热度top在机器人(概念45家/人形31家)而非存储/电感，故07-06兑现形态偏&#x27;盘中脉冲&#x27;(硬催化冲高但板块不配合难封板)而非直接涨停；存储链(江波龙7/3业绩预告=唯一硬公告)仍是三维交叉第一方向，机器人(Tier2)获盘面双红+涨停热度双确认反为当日盘面最强兑现。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>07-06涨家1500-3500=横盘延续(当前07-03为3804)；&gt;3500且成交额&gt;33000亿=主升修复信号；&lt;1500或跌停&gt;60=退潮加速；vol_ratio看是否回100以上(07-03=99.33)，涨停家数看是否维持&gt;80(07-03=108)<div class="actual">实际：涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-partial">⚠️ partial</span></td></tr><tr><td class="hid">direction</td><td>存储芯片板块T+1 diff转正(&gt;0)=双红修复确认(当前-8.9)；人形机器人/减速器diff继续&gt;0=双红延续(当前10.7/27.4)；存储+半导体任一板块涨停热度&gt;15家且diff转正=AI硬件通胀盘面修复(消除背离)<div class="actual">实际：机器人 -2.20%/diff-5.45；减速器 -3.52%/diff-11.03；汽车零部件 -2.04%/diff-5.91；人形机器人 -2.83%/diff-8.57；军工装备 -2.49%/diff-11.79；军工 -2.63%/diff-2.56</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">falsify</td><td>07-06涨家&gt;3500且成交&gt;33000亿且跌停&lt;20=主升启动(横盘+高切低判断证伪)；或存储/半导体/MLCC板块T+1 diff全部转正且涨停热度top转回AI硬件通胀链=盘面维背离消除(脉冲/高切低判断证伪，应追科技主线)<div class="actual">实际：证伪条件未触发；涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:301308</td><td>江波龙 存储模组龙头，三维交叉第一方向：公告维=7/3业绩预告超预期（唯一硬公告）；认知维=存储芯片/DRAM一致认同+三日主线；盘面维=07-03+3.14%回踩反弹（06-29起涨+6.4%→07-01/02深调-5.1/-10.3→07-03反弹），距区间高-14.5%有空间，业绩预告当日反应温和未透支</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002056</td><td>横店东磁 芯片电感：07-03+7.04%创历史新高（high_label=历史新高）+40.7亿成交，绑定晨电感首个空间测算(58→198→434亿)+横店东磁已供国内GPU头部客户/2025出货翻倍/2026继续翻倍；盘面最强个股但位置已高=追高单</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002850</td><td>科达利 机器人Tier2获盘面最强三维印证：07-03涨停+10.0%创历史新高(limit U)+人形机器人板块双红(diff10.7)+涨停热度top(机器人概念45家/人形31家)；晨汇催化=产线开始安装+7-8月V3发布+谐波减速器特斯拉最大份额，盘面兑现度最高</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:600183</td><td>生益科技 CCL龙头：07-03+5.81%/123.7亿回踩反弹（距区间高-14.1%有空间），绑定晨汇马8出货250-300万张/马九1900元张+毛利率30%→45-50%；电子布★★★★★第六轮印证，CCL分支回踩有空间优于已透支的电子布龙头</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:600176</td><td>中国巨石 电子布龙头：07-03+4.54%但166.5亿天量（全市场成交前列）距区间高仅-4.3%=透支风险标志；绑定晨汇7628布价8.8→9-10元上修+T布缺口超70%，作电子布链量能风向标——天量后高开低走即确认第六轮透支</td><td><span class="v v-pending">待验证</span></td></tr></tbody></table></div><div class="card"><h3>codex</h3><p class="judgment">市场处在底部横盘后的分歧修复发酵期，7.3 是缩量广度修复而非放量加速，7.6 的关键是机器人/汽车链分歧后能否继续维持双红与涨停热度。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>T+1：涨家数&gt;=3000、涨停&gt;=95、跌停&lt;=25、成交额&gt;=30000亿且量比&gt;=95%，则分歧修复发酵成立；T+3：至少2日涨家数&gt;=2800且市场未出现跌停&gt;35。若T+1涨家数&lt;2500或跌停&gt;30，主判断降级。<div class="actual">实际：涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">direction</td><td>T+1：人形机器人保持红盘数&gt;=300且diff_ratio&gt;0、涨停热度&gt;=20；汽车零部件保持红盘数&gt;=200且diff_ratio&gt;0、涨停热度&gt;=12。T+3：两条主线至少一条连续2日双红，且diff_ratio不连续为负。<div class="actual">实际：人形机器人 -2.83%/diff-8.57；机器人 -2.20%/diff-5.45；汽车零部件 -2.04%/diff-5.91；减速器 -3.52%/diff-11.03</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">falsify</td><td>若T+1市场涨停&lt;90且跌停&gt;30，或人形机器人与汽车零部件同时diff_ratio&lt;0，或1进2晋级率&lt;15%，则§2主判断证伪；若贵金属/防御方向替代成为涨停热度Top1且机器人热度&lt;15，方向排序证伪。<div class="actual">实际：证伪条件已触发；涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:002050</td><td>三花智控 绑定§1：人形机器人红盘359/458、涨停热度31；个股7.3涨幅9.06%、成交153.71亿、20日新高，是容量核心。<div class="actual">实际：三花智控 收盘46.15（-5.80%），上证-0.06%，低于T+1阈值46.5</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:688017</td><td>绿的谐波 绑定§1：减速器diff=27.41、红盘128/138、涨停热度14；个股7.3涨幅18.15%、成交125.29亿、历史新高。<div class="actual">实际：绿的谐波 收盘453.98（-6.97%），上证-0.06%，低于T+1阈值463.6</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:601689</td><td>拓普集团 绑定§1：汽车零部件diff=33.25、红盘250/273、涨停热度20；个股7.3涨停、成交52.24亿，兼具汽车链与机器人链映射。<div class="actual">实际：拓普集团 收盘60.57（-2.98%），上证-0.06%，≥T+1阈值59.31</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:002472</td><td>双环传动 绑定§1：减速器与汽车零部件双红；个股7.3涨停、成交34.12亿、60日新高，适合看分歧后承接。<div class="actual">实际：双环传动 收盘46.75（+0.04%），上证-0.06%，≥T+1阈值44.66</div></td><td><span class="v v-hit">✅ hit</span></td></tr><tr><td class="hid">target:002747</td><td>埃斯顿 绑定§1：人形机器人涨停热度31；个股7.3涨停、成交55.08亿、历史新高，是机器人自动化方向的强趋势样本。<div class="actual">实际：埃斯顿 收盘46.03（+2.81%），上证-0.06%，≥T+1阈值42.53</div></td><td><span class="v v-hit">✅ hit</span></td></tr></tbody></table></div><div class="card"><h3>codex · briefing</h3><p class="judgment">0706 晨汇最可能兑现的是人形机器人链：特斯拉产线安装与 V3 窗口是事件增量，库内已有一致认知，且 7/3 人形机器人/减速器已经处于涨停热度第一梯队；但因 7/3 已有涨停潮，今日更像盘中脉冲而非无差别直接涨停。</p><table><thead><tr><th>假设</th><th>内容</th><th>验证</th></tr></thead><tbody><tr><td class="hid">market</td><td>7/6 事件兑现所需市场底线：全市场成交额 &gt;= 30000 亿、上涨家数 &gt;= 2500、涨停家数 &gt;= 80；若成交额 &gt;= 34000 亿且上涨家数 &gt;= 3200，则可支持直接涨停扩散，否则默认只看盘中脉冲。<div class="actual">实际：涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">direction</td><td>人形机器人方向当日 pct_chg &gt;= 1.5 且 diff_ratio &gt; 5，或人形机器人涨停数 &gt;= 20；减速器方向当日 pct_chg &gt;= 2.0 且 diff_ratio &gt; 10，或减速器涨停数 &gt;= 8。低于前述一半阈值则事件兑现不足。<div class="actual">实际：人形机器人 -2.83%/diff-8.57；机器人 -2.20%/diff-5.45；汽车零部件 -2.04%/diff-5.91；减速器 -3.52%/diff-11.03</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">falsify</td><td>若 7/6 人形机器人涨停数 &lt; 10、减速器涨停数 &lt; 5、5 只标的均未收盘涨幅 &gt;= 5%，则主判断 miss；若存储芯片或 PCB 涨停数 &gt;= 10 且机器人链不达标，则方向排序 miss；若 5 只中 4 只以上收盘涨停，则兑现形态应为直接涨停而非盘中脉冲。<div class="actual">实际：证伪条件已触发；涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段）</div></td><td><span class="v v-miss">❌ miss</span></td></tr><tr><td class="hid">target:002850.SZ</td><td>科达利 晨汇点名谐波减速器特斯拉最大份额；7/3 收 226.16 元、涨 10.00%、历史新高、涨停，且在减速器涨停热度 top stocks 中。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:688279.SH</td><td>峰岹科技 晨汇点名空心杯电机；7/3 收 241.35 元、涨 5.86%、20 日新高，位置较核心涨停票低一档，适合观察事件扩散而非封板一致性。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:300969.SZ</td><td>恒帅股份 晨汇点名无刷电机；7/3 收 117.00 元、涨 10.93%、20 日新高，和电机板块 diff=37.23 的低位扩散相匹配。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002747.SZ</td><td>埃斯顿 7/3 人形机器人涨停热度 top stocks，收 44.77 元、涨 10.00%、历史新高、涨停；用于验证板块 beta 是否继续有承接。</td><td><span class="v v-pending">待验证</span></td></tr><tr><td class="hid">target:002979.SZ</td><td>雷赛智能 7/3 人形机器人涨停热度 top stocks，收 69.55 元、涨 10.00%、历史新高、涨停，且 7/2、7/3 连续涨停，弹性最强但拥挤度也最高。</td><td><span class="v v-pending">待验证</span></td></tr></tbody></table></div></div><details class="raw"><summary>当日原文（2026-07-06.md，点开展开）</summary><pre>&lt;!-- auto-generated from answer JSON --&gt;
 # 2026-07-06 复盘推演验证台账
 
 &gt; 观察视角：站在 2026-07-03 盘后，前瞻 2026-07-06 行情。
@@ -775,14 +819,26 @@ T+3 标的回报：
 
 | 假设 id | agent | 流 | 时点 | 判定 | 实际 | 归因 | 证据 |
 |---|---|---|---|---|---|---|---|
-| direction | claude | 盘面 | T+1 | ❌ miss | 机器人 -2.20%/diff-5.45；减速器 -3.52%/diff-11.03；汽车零部件 -2.04%/diff-5.91；人形机器人 -2.83%/diff-8.57；军工 -2.63%/diff-2.56；军工装备 -2.49%/diff-11.79 | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| direction | claude | 盘面 | T+1 | ❌ miss | 机器人 -2.20%/diff-5.45；减速器 -3.52%/diff-11.03；汽车零部件 -2.04%/diff-5.91；人形机器人 -2.83%/diff-8.57；军工装备 -2.49%/diff-11.79；军工 -2.63%/diff-2.56 | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | falsify | claude | 盘面 | T+1 | ✅ hit | 证伪条件未触发；涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | — | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| h_ccl_rebound | claude | 晨汇 | T+1 | ⚠️ partial | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| h_cloth_exhaust | claude | 晨汇 | T+1 | ⚠️ partial | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| h_inductor_fade | claude | 晨汇 | T+1 | ⚠️ partial | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| h_market_range | claude | 晨汇 | T+1 | ⚠️ partial | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| h_robot_strong | claude | 晨汇 | T+1 | ⚠️ partial | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| h_store_pulse | claude | 晨汇 | T+1 | ⚠️ partial | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| h_tier_misgrade | claude | 晨汇 | T+1 | ⚠️ partial | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | market | claude | 盘面 | T+1 | ⚠️ partial | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | target:002050.SZ | claude | 盘面 | T+1 | ❌ miss | 三花智控 收盘46.15（-5.80%），上证-0.06%，跑输上证 | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | target:600143.SH | claude | 盘面 | T+1 | ❌ miss | 金发科技 收盘16.16（-5.00%），上证-0.06%，跑输上证 | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | target:600879.SH | claude | 盘面 | T+1 | ❌ miss | 航天电子 收盘21.51（-3.41%），上证-0.06%，跑输上证 | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | target:601689.SH | claude | 盘面 | T+1 | ❌ miss | 拓普集团 收盘60.57（-2.98%），上证-0.06%，跑输上证 | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | target:688017.SH | claude | 盘面 | T+1 | ❌ miss | 绿的谐波 收盘453.98（-6.97%），上证-0.06%，跑输上证 | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| briefing_direction_vs_tier1_ai_hardware | codex | 晨汇 | T+1 | ❌ miss | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| briefing_event_shape_humanoid_robot | codex | 晨汇 | T+1 | ❌ miss | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| briefing_market_support | codex | 晨汇 | T+1 | ❌ miss | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| briefing_pick_pool_validation | codex | 晨汇 | T+1 | ❌ miss | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
+| briefing_tier_upgrade_check | codex | 晨汇 | T+1 | ❌ miss | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | direction | codex | 盘面 | T+1 | ❌ miss | 人形机器人 -2.83%/diff-8.57；机器人 -2.20%/diff-5.45；汽车零部件 -2.04%/diff-5.91；减速器 -3.52%/diff-11.03 | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | falsify | codex | 盘面 | T+1 | ❌ miss | 证伪条件已触发；涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | market | codex | 盘面 | T+1 | ❌ miss | 涨家数1876、涨停64、跌停46、成交额30909亿、量比96.5、上证-0.06%（底部横盘阶段） | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
@@ -792,7 +848,7 @@ T+3 标的回报：
 | target:601689 | codex | 盘面 | T+1 | ✅ hit | 拓普集团 收盘60.57（-2.98%），上证-0.06%，≥T+1阈值59.31 | — | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 | target:688017 | codex | 盘面 | T+1 | ❌ miss | 绿的谐波 收盘453.98（-6.97%），上证-0.06%，低于T+1阈值463.6 | 机判待人工归因 | auto:dual_blind_auto_verdict.py DuckDB 2026-07-06 |
 
-&gt; 命中率（hit/已裁定）：claude 1/8，codex 3/8
+&gt; 命中率（hit/已裁定）：claude 1/15，codex 3/13
 
 &lt;!-- END AUTO dual-blind-verdict --&gt;
 </pre></details></section>
@@ -800,7 +856,7 @@ T+3 标的回报：
 # 2026-07-03 复盘推演验证台账
 
 &gt; 观察视角：站在 2026-07-02 盘后，前瞻 2026-07-03 行情。
-&gt; 本页由双盲答卷 JSON 自动生成（codex），manifest `09da01fc5a8db39e`。
+&gt; 本页由双盲答卷 JSON 自动生成（codex / claude），manifest `09da01fc5a8db39e`。
 &gt; 说明：本页不是投资建议，是“可证伪推演 + 次日回检表”。
 
 ## 1. 当时市场底稿
@@ -861,6 +917,11 @@ T+3 标的回报：
 - 阶段：2026-07-02收盘后输入冻结；市场处于放量后强分歧，叠加晚间卖方覆盖密度交叉样本。
 - 判断：截至2026-07-02收盘，市场处于分歧阶段而非退潮：上涨家数从4240降至2219，涨停从148降至93且跌停升至40，但成交34503.1亿、量能仍为20日均量108.42%。今日主路径看低开/平开分歧后，资源化工承接并观察科技午后止跌修复；金刚石散热是卖方交叉中的信息增量，但尚未确认主线。
 
+### claude
+
+- 阶段：底部横盘第3天(stage_day=3)，上证-2.03%中阴杀跌致科技金融主线退潮，由主升段切入分歧/退潮段（量比仍108、涨停仍93，非冰点崩塌）
+- 判断：中阴杀跌使严格双红从07-01的44个塌缩至8个、历史新高从165降至56，资金从证券/AI/创新药进攻主线切向有色资源(黄金/铜/稀土)避险与氟化工/机器人容量新高——属主升后健康分歧退潮，非冰点崩塌。
+
 ## 3. 方向排序与验证条件
 
 ### codex 方向排序
@@ -879,6 +940,22 @@ T+3 标的回报：
 | 标的 | 涨停热度看降温但不冰点：若涨停维持70以上、跌停少于50，且连板最高高度不低于4板或2板晋级率不继续下探，则分歧修复路径仍可观察。金刚石散热观察黄河旋风、四方达、惠丰钻石中至少2只T+3继续跑赢市场。 |
 | 证伪 | 若开盘后涨停数快速跌破70、跌停扩到50以上、全市场成交缩到20日均量以下，同时氟化工和金属铜双双翻绿且diff跌破10，则主路径失败，切到退潮/高低切失败剧本；若卖方覆盖继续加密但金刚石核心样本不再创新高且观察篮子成交缩回120亿以下，则金刚石散热降级为一日脉冲。 |
 
+### claude 方向排序
+
+1. 有色资源(黄金/铜/钴/稀土永磁)：当日唯一容量双红集群，避险+资源切换，diff 27/23/17居前
+2. 氟化工/化工：氟化工双红(diff14.49)+多氟多/昊华/巨化历史新高集群，承接资金
+3. 机器人/减速器：涨停热度第一(机器人20家占21.5%)+绿的谐波历史新高，情绪主线未死
+4. 医药(创新药/化学制药)：化学制药抗跌双红雏形(+1.10%)+药明/恒瑞新高+海南海药4板高标
+
+### claude 验证阈值
+
+| 维度 | 条件 |
+|---|---|
+| 市场 | T+1：涨家数&gt;3000且涨停&gt;80=分歧修复延续；涨家&lt;1800且跌停&gt;50=退潮加速；沪成交额须&gt;34500亿(不续缩)，&lt;32000亿=缩量退潮；阶段切换：涨家&lt;1500且上证&lt;3980=底部横盘失败转探底。 |
+| 方向 | T+1：有色资源(稀土永磁/金属铜)diff须维持&gt;0且板块不翻绿=延续，翻绿且diff&lt;0=衰竭证伪；氟化工diff须&gt;0维持双红；机器人概念涨停家数须&gt;15维持热度第一；三者T+1全部翻绿且无新双红接续=主线彻底退潮。 |
+| 标的 | 京东方Ａ(000725)T+1收盘&gt;9.20确认3年新高延续，跌破pre_close8.77=假突破；东方锆业(002167)T+1连板封板28.6+或站稳26.0，炸板收&lt;25.0=衰竭；多氟多(002407)T+1收复pre_close55.25确认历史新高有效，跌破53.0=新高失效；绿的谐波(688017)T+1站上pre_close423.98确认回流，跌破400=补跌；药明康德(603259)T+1收复pre_close125.20确认回流，跌破118=破位。 |
+| 证伪 | 推翻&#x27;主升后健康分歧&#x27;主判断的信号：T+1涨家&lt;1500、跌停&gt;60、上证跌破3980(向07-01前低)——不是分歧而是转探底/冰点崩塌；或有色/氟化工/机器人三大方向T+1全部翻绿且当日无新双红板块接续——主线彻底退潮而非健康分歧。 |
+
 ## 4. 观察标的
 
 &gt; 方向观察样本，不是买卖建议。
@@ -890,6 +967,16 @@ T+3 标的回报：
 | 300179.SZ | 四方达 | 卖方覆盖密度交叉·早期增量观察 | 知识库0702卖方交叉显示金刚石库内仅2家覆盖；四方达20亿定增投PCD微钻为L2公告级底座，盘面7/2涨5.54%、成交48.48亿。 |
 | 600172.SH | 黄河旋风 | 卖方覆盖密度交叉·盘面龙头观察 | 7/2涨停+10.01%、成交40.55亿，是金刚石散热/超硬材料观察篮子中最强盘面样本。 |
 | 920725.BJ | 惠丰钻石 | 卖方覆盖密度交叉·弹性样本观察 | 7/2涨9.88%、成交10.12亿，作为北交所弹性腿观察方向扩散是否成立。 |
+
+### claude 观察标的
+
+| code | name | strategy | reason |
+|---|---|---|---|
+| 000725 | 京东方Ａ | 策略一 | 容量核心新高延续：07-02逆势+3.76%收9.10，3年新高，成交493亿为当日最大容量新高(§新高)，电子/长安汽车概念。对应主线流动性池强势延续，杀跌日仍放量创新高=资金主动承接。 |
+| 002167 | 东方锆业 | 策略一 | 有色稀土双红龙头：稀土永磁板块双红(diff17.79/pct1.01%/额850亿，§双红第6)，个股历史新高+涨停Z+7.29%收26.05(§新高)，对应§1第一方向有色资源的最强进攻型标的。 |
+| 002407 | 多氟多 | 策略一 | 氟化工双红链龙头新高：氟化工板块双红(diff14.49/pct0.66%/额1631亿，§双红)，个股历史新高额207亿(§新高第2)，对应§1第二方向氟化工的容量新高承接。 |
+| 688017 | 绿的谐波 | 策略三 | 机器人情绪主线分歧回流候选：机器人概念涨停20家居热度第一(§涨停)，减速器核心个股历史新高额90亿(§新高)，杀跌日-2.58%但仍维持历史新高，属主线分歧后回流标的。 |
+| 603259 | 药明康德 | 策略三 | 医药主线容量核心分歧回流：创新药3年新高额105亿(§新高)，化学制药板块当日抗跌双红雏形(+1.10%，§双红红盘)，个股-3.12%随大盘调整但新高结构未破，属§1第四方向医药的容量回流候选。 |
 
 ## 5. 待验证假设
 
@@ -937,6 +1024,8 @@ T+3 标的回报：
 | 氟化工 | -3.95% | -17.15 | 1 | ✖ |
 | 金属铜 | 1.00% | -2.34 | 3 | ✖ |
 | 化学制品 | -1.52% | -19.55 | 1 | ✖ |
+| 机器人 | 2.38% | -0.38 | 45 | ✖ |
+| 减速器 | 5.74% | 27.41 | 14 | ✅ |
 
 ### 7.3 代表标的观察结果
 
@@ -947,6 +1036,16 @@ T+3 标的回报：
 | 四方达 | 300179.SZ | -5.04% | 29.59 | 跑输上证 |
 | 黄河旋风 | 600172.SH | -6.49% | 44.47 | 跑输上证 |
 | 惠丰钻石 | 920725.BJ | -6.90% | 6.55 | 跑输上证 |
+
+#### claude 标的
+
+| 标的 | 代码 | 涨跌幅 | 成交 | vs 上证 |
+|---|---|---|---|---|
+| 京东方Ａ | 000725.SZ | -7.91% | 355.97 | 跑输上证 |
+| 东方锆业 | 002167.SZ | -3.88% | 41.81 | 跑输上证 |
+| 多氟多 | 002407.SZ | -10.00% | 119.63 | 跑输上证 |
+| 绿的谐波 | 688017.SH | 18.15% | 125.29 | 跑赢上证 |
+| 药明康德 | 603259.SH | 2.32% | 87.54 | 跑赢上证 |
 
 ## 8. 用户批注区
 
@@ -1353,6 +1452,37 @@ AI 应用、AI 智能体、数据要素、算力租赁是 7 月 1 日最清晰�
 - 问题：
 - 应该改成：
 - 下次硬规则：
+
+&lt;!-- BEGIN AUTO dual-blind-verdict 本表由 dual_blind_forecast.py verdict 渲染，勿手改 --&gt;
+
+### 盘后验证回检表（脚本渲染，来源 2026-07-02.verdict.json）
+
+| 假设 id | agent | 流 | 时点 | 判定 | 实际 | 归因 | 证据 |
+|---|---|---|---|---|---|---|---|
+| hardware_rebound | claude | 盘面 | T+1 | ❌ miss | 半导体-5.51%、CPO-5.10%，没有价格反弹，科技硬件继续分歧/退潮。 | — | DuckDB fact_sector_daily 2026-07-02 |
+| market | claude | 盘面 | T+1 | ✅ hit | 实际涨家2219&lt;2500且成交环比-5.72%，触发Claude阈值中的“三日分歧/量能转负”分支；修复延续条件未成立。 | — | DuckDB fact_market_daily 2026-07-02 |
+| style_switch | claude | 盘面 | T+1 | ❌ miss | 证券-2.23%/diff-27.86、保险-1.29%/diff-34.27，均未续双红；大金融风格切换未确立。 | — | DuckDB fact_sector_daily 2026-07-02 |
+| target:002714 | claude | 盘面 | T+1 | ✅ hit | 牧原股份+1.00%，显著跑赢沪指；农业/养殖低位周期样本相对强。 | — | DuckDB fact_stock_daily 2026-07-02 |
+| target:300059 | claude | 盘面 | T+1 | ❌ miss | 东方财富-3.36%，跑输沪指-2.03%，互联网金融未续强。 | — | DuckDB fact_stock_daily 2026-07-02 |
+| target:300442 | claude | 盘面 | T+1 | ❌ miss | 润泽科技-2.51%，跑输沪指；IDC/数据中心承接未保留。 | — | DuckDB fact_stock_daily/fact_sector_daily 2026-07-02 |
+| target:600030 | claude | 盘面 | T+1 | ❌ miss | 中信证券-2.88%，跑输沪指-2.03%，券商核心未续强。 | — | DuckDB fact_stock_daily 2026-07-02 |
+| target:601628 | claude | 盘面 | T+1 | ✅ hit | 中国人寿-0.70%，跑赢沪指-2.03%；但保险板块diff转负，所以只在个股相对强弱层面命中。 | — | DuckDB fact_stock_daily/fact_sector_daily 2026-07-02 |
+| h2_ai_diffusion | codex | 盘面 | T+1 | ❌ miss | AI应用-1.12%/diff+1.45/涨停5，AI智能体-1.38%/diff-5.49/涨停4，数据要素-1.19%/diff-14.04/涨停3，算力租赁-2.04%/diff-12.72/涨停3；未达到2-3个方向继续上涨且热度维持。 | — | DuckDB fact_sector_daily/fact_theme_limit_heat_daily 2026-07-02 |
+| h3_robot | codex | 盘面 | T+1 | ⚠️ partial | 机器人概念涨停20、人形机器人13，低于升级阈值25-30，但未跌破机器人&lt;15的明确降级线；机器人-0.93%/diff-4.60，人形机器人-0.64%/diff-0.11，热度仍居前但边际走弱。 | — | DuckDB fact_sector_daily/fact_theme_limit_heat_daily 2026-07-02 |
+| h4_hardware | codex | 盘面 | T+1 | ❌ miss | 半导体-5.51%/diff-13.98，CPO-5.10%/diff-9.11，先进封装-4.89%/diff-12.77，长电科技-10.00%；未止跌，外盘映射未转化为A股硬件承接。 | — | DuckDB fact_sector_daily/fact_stock_daily 2026-07-02 |
+| h4b_sellside_increment | codex | 盘面 | T+1 | ❌ miss | 数据中心-2.54%/diff-10.22/涨停6，MLCC-4.87%/diff-8.85，存储芯片-5.67%/diff-12.94/涨停2；PR188真增量组未被盘面选择，反而与硬件拥挤方向一起回落。 | — | DuckDB fact_sector_daily/fact_theme_limit_heat_daily 2026-07-02 |
+| h5_power_equipment | codex | 盘面 | T+1 | ❌ miss | 电力设备一级-2.41%；储能-1.46%/diff-7.92/涨停12，光伏-2.03%/diff-13.07/涨停9，风电-1.19%/diff-5.56/涨停3；没有从概念反抽升级为行业承接。 | — | DuckDB fact_sw_l1_daily/fact_sector_daily 2026-07-02 |
+| h6_risk_preference | codex | 盘面 | T+1 | ⚠️ partial | 非银金融-2.11%、医药生物-0.12%、基础化工-0.57%，相对电子-7.13%更抗跌，但并非继续强势；更像风险收缩中的相对防守/切换，而非健康多线扩散。 | — | DuckDB fact_sw_l1_daily 2026-07-02 |
+| market | codex | 盘面 | T+1 | ⚠️ partial | 成交34503.10亿仍&gt;3.4万亿、量比108.42；但涨家2219、涨停93仅中性下沿，跌停从7扩到40，上证-2.03%，双红35（前日183）。分化确认命中，风险强度低于中性预期。 | — | DuckDB fact_market_daily/fact_sector_daily 2026-07-02 |
+| target:002747 | codex | 盘面 | T+1 | ✅ hit | 埃斯顿-0.88%，明显跑赢沪指；机器人概念涨停20仍为全市场热度第一，虽未升级但个股未明显掉队。 | — | DuckDB fact_stock_daily/fact_theme_limit_heat_daily 2026-07-02 |
+| target:300033 | codex | 盘面 | T+1 | ❌ miss | 同花顺-4.01%，跑输沪指；证券-2.23%/diff-27.86，软件/金融科技风险偏好未延续。 | — | DuckDB fact_stock_daily/fact_sector_daily 2026-07-02 |
+| target:300059 | codex | 盘面 | T+1 | ❌ miss | 东方财富-3.36%，跑输沪指；证券-2.23%/diff-27.86，非银金融风险偏好脉冲未延续。 | — | DuckDB fact_stock_daily/fact_sector_daily 2026-07-02 |
+| target:300442 | codex | 盘面 | T+1 | ❌ miss | 润泽科技-2.51%，跑输沪指-2.03%，数据中心-2.54%、算力租赁-2.04%，算力承接未延续。 | — | DuckDB fact_stock_daily/fact_sector_daily 2026-07-02 |
+| target:600584 | codex | 盘面 | T+1 | ❌ miss | 长电科技-10.00%，半导体-5.51%、先进封装-4.89%，高位半导体韧性样本失败。 | — | DuckDB fact_stock_daily/fact_sector_daily 2026-07-02 |
+
+&gt; 命中率（hit/已裁定）：claude 3/8，codex 1/12
+
+&lt;!-- END AUTO dual-blind-verdict --&gt;
 </pre></details></section></main>
 </body>
 </html>
