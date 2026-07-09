@@ -113,11 +113,11 @@ def fetch_eastmoney_news(
         "clientVersion": "curr",
         "param": {
             "cmsArticleWebOld": {
-                "searchScope": "default",
+                # 只搜标题：全文模糊匹配会捞进大量标题无关资讯（正文命中），标题命中才是事件存在性证据
+                "searchScope": "title",
                 "sort": "time",
                 "pageIndex": 1,
-                # 标题相关性硬过滤会丢掉大部分全文模糊命中，需要放大取数窗口再筛
-                "pageSize": max(40, int(page_size) * 5),
+                "pageSize": max(1, int(page_size) * 2),
                 "preTag": "<em>",
                 "postTag": "</em>",
             }
