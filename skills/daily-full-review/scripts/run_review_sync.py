@@ -116,16 +116,28 @@ def preflight() -> list[str]:
         )
         return problems  # proxy 都不在, 登录态无从检查
 
+    # 登录态检查带上 host：命中的标签页可能还停在 about:blank 或非 fupanhui 页
+    # （fresh 标签页刚导航/旧页卡死），此时 localStorage 是别的 origin 的，直接判
+    # 「未登录」是误报。host 不对或拿到 'no' 时等页面加载完再复查两次。
+    _login_js = (
+        "(()=>{try{if(location.host.indexOf('fupanhui.com')<0)return 'wrong-host:'+location.host;"
+        "var s=JSON.parse(localStorage.getItem('user-auth-storage')||'{}');"
+        "return (s.state&&s.state.token)?'ok':(localStorage.getItem('user_token')?'ok':'no');"
+        "}catch(e){return 'no';}})()"
+    )
     try:
         from market_feature_store.sources import fupanhui_source as fs
-        raw = fs.cdp_eval(
-            "(()=>{try{var s=JSON.parse(localStorage.getItem('user-auth-storage')||'{}');"
-            "return (s.state&&s.state.token)?'ok':(localStorage.getItem('user_token')?'ok':'no');"
-            "}catch(e){return 'no';}})()",
-            timeout=30, retries=1,
-        )
+        raw = ""
+        for attempt in range(3):
+            raw = fs.cdp_eval(_login_js, timeout=30, retries=1)
+            if raw == "ok":
+                break
+            time.sleep(5)
         if raw != "ok":
-            problems.append("fupanhui 未登录: 请在 Chrome 重新登录 fupanhui.com 后重跑")
+            problems.append(
+                f"fupanhui 未登录或标签页未就绪（检查结果={raw}）: "
+                "请确认 Chrome 已登录 fupanhui.com 且标签页可加载后重跑"
+            )
     except Exception as e:  # noqa: BLE001
         problems.append(f"fupanhui 登录态检查失败: {e}")
 
