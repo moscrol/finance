@@ -34,8 +34,8 @@ notify() {
 python3 skills/daily-full-review/scripts/run_review_sync.py --date "$D"
 rc=$?
 if [ $rc -ne 0 ]; then
-  echo "[$(date '+%F %T')] 同步段失败 rc=$rc（常见原因：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），停止后续生成段"
-  notify "⚠️ 全量复盘 $D 同步段失败 rc=$rc（常见：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），后续生成段未跑；日志 logs/daily-full-review.out.log"
+  echo "[$(date '+%F %T')] 同步段失败 rc=${rc}（常见原因：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），停止后续生成段"
+  notify "⚠️ 全量复盘 $D 同步段失败 rc=${rc}（常见：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），后续生成段未跑；日志 logs/daily-full-review.out.log"
   exit $rc
 fi
 
@@ -44,7 +44,7 @@ python3 -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-revi
 rc=$?
 if [ $rc -ne 0 ]; then
   echo "[$(date '+%F %T')] 生成段失败 rc=$rc"
-  notify "⚠️ 全量复盘 $D 生成段失败 rc=$rc（同步已完成，可手动重跑 intelligence.cli daily --skip-sync）；日志 logs/daily-full-review.out.log"
+  notify "⚠️ 全量复盘 $D 生成段失败 rc=${rc}（同步已完成，可手动重跑 intelligence.cli daily --skip-sync）；日志 logs/daily-full-review.out.log"
   exit $rc
 fi
 
