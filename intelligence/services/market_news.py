@@ -116,7 +116,8 @@ def fetch_eastmoney_news(
                 "searchScope": "default",
                 "sort": "time",
                 "pageIndex": 1,
-                "pageSize": max(1, int(page_size) * 2),
+                # 标题相关性硬过滤会丢掉大部分全文模糊命中，需要放大取数窗口再筛
+                "pageSize": max(40, int(page_size) * 5),
                 "preTag": "<em>",
                 "postTag": "</em>",
             }
