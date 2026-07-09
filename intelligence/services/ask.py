@@ -28,7 +28,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, research_brief, user_memory
+from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, research_brief, scenario_tree, user_memory
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -163,6 +163,9 @@ class AskOptions:
     # W7 web 事件检索块：仅当问题命中「事件/消息/催化/涨价/对标」意图且能解析到关键词（实体/题材）时生成，
     # 走东财免费资讯搜索取近 N 天新闻（日期/来源/标题/链接），只列不编，补消息面缺口。
     include_news_block: bool = True
+    # 情景树/推演表达层：推演类问题命中时向 synthesis prompt 注入「变量表→情景分支→监控信号」
+    # 表达契约（禁数值概率，likelihood 只准高/中/低并注依据）；非推演问题不注入，行为不变。
+    include_scenario_guidance: bool = True
     # M 用户记忆检索块：按相关性召回 judgments/corrections/回检胜率注入证据链；
     # 台账缺失或无相关记录时不追加块，无记忆用户行为逐字节不变。
     include_memory_block: bool = True
@@ -972,6 +975,14 @@ def answer_query(options: AskOptions) -> AskResult:
         selected_cards = experience_cards.select_relevant_cards(cards, options.query)
         experience_guidance = experience_cards.render_for_prompt(selected_cards)
         exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
+        if options.include_scenario_guidance:
+            scenario_guidance = scenario_tree.scenario_guidance_for_query(
+                options.query, question_plan.question_type
+            )
+            if scenario_guidance:
+                experience_guidance = (
+                    f"{experience_guidance}\n\n{scenario_guidance}" if experience_guidance else scenario_guidance
+                )
         msgs = llm_refine.build_synthesis_messages(
             options.query,
             theme,
