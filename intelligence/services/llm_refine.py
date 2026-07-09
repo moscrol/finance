@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -431,12 +432,23 @@ def synthesize_messages(
             "未配置 LLM key，有机合成降级为模板。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
         )
-    try:
-        content = _post_chat(provider, messages, timeout, temperature)
-    except urllib.error.HTTPError as exc:  # pragma: no cover - network
-        return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
-    except Exception as exc:  # pragma: no cover - network
-        return None, f"LLM 合成失败（{type(exc).__name__}），已降级为模板"
+    # 网络抖动（连接被重置/DNS 瞬断等 URLError）重试一次再降级：合成是整条回答的
+    # 可读性关键，单次瞬断不值得整答退回模板。HTTP 4xx/5xx 不重试（重试大概率同样失败）。
+    last_exc: Exception | None = None
+    content = None
+    for attempt in range(2):
+        try:
+            content = _post_chat(provider, messages, timeout, temperature)
+            break
+        except urllib.error.HTTPError as exc:  # pragma: no cover - network
+            return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
+        except Exception as exc:  # pragma: no cover - network
+            last_exc = exc
+            if attempt == 0:
+                time.sleep(2)
+    if content is None and last_exc is not None:
+        detail = str(getattr(last_exc, "reason", last_exc))[:120]
+        return None, f"LLM 合成失败（{type(last_exc).__name__}: {detail}），已降级为模板"
     text = (content or "").strip()
     if not text:
         return None, "LLM 合成返回空内容，已降级为模板"
