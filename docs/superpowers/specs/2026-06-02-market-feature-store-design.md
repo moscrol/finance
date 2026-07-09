@@ -4,6 +4,8 @@ created: 2026-06-02
 status: draft-approved-for-incremental-implementation
 ---
 
+> ⚠ 历史设计文档（2026-06-02）。文中「飞书 Bitable」数据源与同步路径已废弃：复盘数据统一走 `daily-full` → DuckDB（权威来源见根目录 `CLAUDE.md`「核心工作流」；旧库说明见 `docs/learning/current-duckdb-source.md`）。
+
 # Market Feature Store Design
 
 ## Objective
