@@ -132,6 +132,24 @@ def preflight() -> list[str]:
     return problems
 
 
+def _notify(msg: str) -> None:
+    """告警双通道（与 nightly_full_review.sh 的 notify() 同款）：Mac 系统通知必达本机，
+    飞书可选；告警自身失败静默，不影响同步流程。"""
+    try:
+        subprocess.run(
+            ["osascript", "-e",
+             f'display notification "{msg}" with title "全量复盘告警" sound name "Basso"'],
+            timeout=10, capture_output=True,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        subprocess.run([PY, str(ROOT / "scripts" / "notify_feishu.py"), msg],
+                       timeout=30, capture_output=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def run_step(label: str, argv: list[str], timeout: int) -> dict:
     """跑一个子进程模块，stdout 继承到终端（看得到进度），返回结果。"""
     print(f"\n>>> {label}: {' '.join(argv)} (timeout={timeout}s)", flush=True)
@@ -316,6 +334,12 @@ def main() -> int:
             res = plan[i][1]()
             res["note"] = (str(res.get("note") or "") + f" [retry r{round_no}]").strip()
             results[i] = res
+
+    # 单模块失败告警：整段 rc 可能仍为 0（闸门通过），但 fail/timeout/partial 模块要即时报出来，
+    # 不能只沉在 runlog 里等人翻。告警自身失败不影响同步结果。
+    bad = [f"{r['label']}({r['status']})" for r in results if r["status"] in {"fail", "timeout", "partial"}]
+    if bad:
+        _notify(f"⚠️ 全量复盘 {args.date} 同步段模块未全绿：{', '.join(bad)}；详见 state/runlog.md")
 
     # 审计
     gate = subprocess.run([PY, "scripts/check_daily_review_data.py", args.date], cwd=str(ROOT))

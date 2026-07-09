@@ -6,6 +6,7 @@
 """
 import argparse
 import sys
+from pathlib import Path
 
 from . import __version__
 from .db import DB_PATH, connect, init_db, list_tables
@@ -589,6 +590,28 @@ def cmd_check(_args) -> int:
     return 0
 
 
+def cmd_check_daily(args) -> int:
+    import json as _json
+
+    from .quality import check_daily
+
+    res = check_daily(trade_date=args.trade_date, window=args.window)
+    print(f"\u8de8\u65e5\u8d28\u68c0 @{res['trade_date']} (\u65e5\u5386\u7a97\u53e3={args.window})")
+    for g in res["gaps"]:
+        print(f"  [\u65ad\u6863] {g['table']}: {', '.join(g['missing_dates'])}" + (f" ({g['note']})" if g.get("note") else ""))
+    for a in res["row_anomalies"]:
+        print(f"  [\u884c\u6570\u5f02\u5e38] {a['table']}: {a['note']}")
+    for v in res["range_violations"]:
+        print(f"  [\u503c\u57df] {v['field']}={v['value']} {v['note']}")
+    print(f"RESULT: {'PASS' if res['ok'] else 'FAIL'} | {res['brief']}")
+    if args.json:
+        out = Path(args.json)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(_json.dumps(res, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"json -> {out}")
+    return 0 if res["ok"] else 2
+
+
 def cmd_sector_stocks(args) -> int:
     from .query import sector_stocks
 
@@ -1007,6 +1030,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_df.set_defaults(func=cmd_daily_full)
 
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
+
+    p_cd = sub.add_parser("check-daily", help="跨日质检 (历史断档/行数异常/值域越界); rc=2 表示未通过")
+    p_cd.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
+    p_cd.add_argument("--window", type=int, default=20, help="交易日历窗口, 默认20")
+    p_cd.add_argument("--json", default=None, help="质检报告 JSON 落盘路径, 可选")
+    p_cd.set_defaults(func=cmd_check_daily)
 
     p_wg = sub.add_parser("weighted-gainers", help="区间加权涨幅排行 (本地计算)")
     p_wg.add_argument("--start", required=True, help="区间起始交易日 YYYY-MM-DD")
