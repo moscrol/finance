@@ -189,6 +189,10 @@ class AskOptions:
     use_l3_lookup: bool = False
     l3_lookup_timeout: int = 480
     l3_lookup_limit: int = 5
+    # 质检 WARN 回灌修订（修订版在前契约）：compose 回答经 output_review 闸门后若有 WARN，
+    # 把意见送回同一段对话做一轮定向修订，用户拿到修订版全文，审查意见退居「输出质检」附录。
+    # 仅影响 compose 路径；模板路径与无 WARN 时行为逐字节不变。
+    compose_revise_on_warn: bool = True
 
 
 @dataclass
@@ -363,6 +367,37 @@ def _evidence_is_stale(item: dict[str, Any], stale_days: int) -> bool:
     except ValueError:
         return False
     return (date_cls.today() - ev_date).days > stale_days
+
+
+# 旧结论核验门：这些 wiki 目录里的页面本质是“某个时点的判断”而非可直接引用的事实，
+# W 召回命中时打〔历史基线〕标签，合成层按先验处理（当下盘面核验 + 四态对照）。
+_PRIOR_CONCLUSION_DIRS = ("synthesis/", "briefings/")
+
+
+def _is_prior_conclusion_page(file_path: str) -> bool:
+    p = str(file_path).replace("\\", "/").lstrip("/")
+    if p.startswith("wiki/"):
+        p = p[len("wiki/"):]
+    return p.startswith(_PRIOR_CONCLUSION_DIRS)
+
+
+# 结论 TTL：跟踪类判断默认 30 天复查，过期引用须先经当下盘面复核。
+CONCLUSION_TTL_DAYS = 30
+
+
+def _conclusion_ttl_line(trade_date: str | None) -> str:
+    until = ""
+    m = re.search(r"(\d{4})\D?(\d{2})\D?(\d{2})", str(trade_date or ""))
+    if m:
+        try:
+            until = (
+                date_cls(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                + timedelta(days=CONCLUSION_TTL_DAYS)
+            ).isoformat()
+        except ValueError:
+            until = ""
+    suffix = f"（至 {until}）" if until else ""
+    return f"观点有效期：建议 {CONCLUSION_TTL_DAYS} 天内复查{suffix}；过期引用本结论须先经当下盘面复核。"
 
 
 def answer_query(options: AskOptions) -> AskResult:
@@ -569,8 +604,15 @@ def answer_query(options: AskOptions) -> AskResult:
             for h in wr.hits:
                 nb = "·邻居扩展" if h.via_neighbor else ""
                 tag = cite("W", f"knowledge-base · {h.file_path}", f"{wr.command}｜{h.title}")
+                # 旧结论核验门：synthesis/briefings 页是历史判断而非当前事实，打〔历史基线〕
+                # 标签供合成层按 prior 处理（引用前须用当下盘面核验，给四态对照）。
+                baseline = (
+                    "〔历史基线·仅作先验，须以当下盘面核验〕"
+                    if _is_prior_conclusion_page(h.file_path)
+                    else ""
+                )
                 wiki_lines.append(
-                    f"{h.title}（相关度 {round(h.score, 4)}{nb}）：{h.excerpt} {tag}"
+                    f"{baseline}{h.title}（相关度 {round(h.score, 4)}{nb}）：{h.excerpt} {tag}"
                 )
             if wr.warning:  # 全文版索引缺失回退默认索引时，仍把提示记进 warnings
                 result.warnings.append(f"wiki-rag：{wr.warning}")
@@ -663,6 +705,7 @@ def answer_query(options: AskOptions) -> AskResult:
         f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
         route_line,
         "（注：结论与交易含义为模板化骨架，待接 LLM 精修；证据链/分歧/模块召回为真实检索结果。）",
+        _conclusion_ttl_line(result.trade_date),
     ]
 
     follow_ups: list[str] = []
@@ -1058,6 +1101,35 @@ def answer_query(options: AskOptions) -> AskResult:
     result.warnings.extend(
         f"输出质检：{c.name}——{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
     )
+    # 修订版在前契约：WARN 意见回灌同一段对话做一轮定向修订，用户拿到可直接引用的
+    # 修订版全文，审查意见退居「输出质检」附录；修订失败时保留初稿并记录原因。
+    if (
+        options.compose_revise_on_warn
+        and result.synthesis is not None
+        and result.synthesis_messages is not None
+        and result.review_gate.warn_count > 0
+    ):
+        warn_notes = [
+            f"{c.name}：{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
+        ]
+        revision_user = {"role": "user", "content": llm_refine.gate_revision_user_content(warn_notes)}
+        revised, rev_reason = llm_refine.synthesize_messages(
+            result.synthesis_messages + [revision_user],
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+            temperature=0.2,
+        )
+        if revised is not None:
+            result.synthesis = revised.answer
+            result.synthesis_messages = result.synthesis_messages + [
+                revision_user,
+                {"role": "assistant", "content": revised.answer},
+            ]
+            result.warnings.append(
+                f"输出质检 {len(warn_notes)} 条 WARN 已回灌定向修订（正文为修订版，审查意见见「输出质检」附录）"
+            )
+        elif rev_reason:
+            result.warnings.append(f"质检 WARN 回灌修订失败，保留初稿：{rev_reason}")
     result.sections = {
         "结论": conclusion,
         "证据链": evidence_chain,

@@ -103,3 +103,12 @@ curl -s http://localhost:3456/targets
 | Using DOM scraping for industry data | Use market API `.industry_spread` for reliable structured data |
 | Assuming API field names | Check actual response keys first (`latest_date` not `trade_date`, `trade_date` not `date`) |
 | Hover 位置偏左取到14:30蜡烛 | 用 `width * 0.97`（非0.9），提取后用上证日收交叉验证偏离符号 |
+
+## 输入契约（给足→满分 / 缺料→降级）
+
+| 你提供什么 | 输出质量 |
+|---|---|
+| 指定日期（交易日）+ 关注的题材/个股清单 | 满分：全景复盘 + 定向深看你关注的对象 |
+| 只说"复盘"（默认最近交易日） | 标准：全景复盘，不定向深看 |
+| 日期为非交易日/数据未出 | 降级：回退最近有数据的交易日并显式声明，不硬造当日数据 |
+| API 部分接口失败 | 降级：能取的段照常输出，缺的段显式标「数据缺失」而非跳过 |
