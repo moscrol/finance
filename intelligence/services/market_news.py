@@ -6,7 +6,8 @@
 - 补的缺口：横向联想/事件题里 PQC、涨价、海外对标等消息面全靠 web，工作台此前完全缺失。
 - 关键词优先用实体锚定名 > 匹配题材名；命中「事件/消息/催化/进展/涨价/制裁/中标/量产…」
   意图词且能拿到关键词才追加本块，否则行为不变。
-- 单源东财（中文财媒聚合）；海外英文源/通用搜索作 #2b 加固项（接 web-access 通用搜索）后续再补。
+- 双 provider：东财（中文财媒聚合）+ web-access CDP proxy（Bing News 全网/海外源，#2b）；
+  proxy 不可达或 FINANCE_NEWS_WEB_FETCH=0 时静默降级为单源东财，行为不变。
 """
 
 from __future__ import annotations
@@ -21,7 +22,14 @@ from datetime import datetime, timedelta
 from typing import Any, Callable
 
 FETCH_ENV_FLAG = "FINANCE_NEWS_FETCH"
+WEB_FETCH_ENV_FLAG = "FINANCE_NEWS_WEB_FETCH"
+PROXY_URL_ENV = "WEB_ACCESS_PROXY_URL"
 _SEARCH_URL = "https://search-api-web.eastmoney.com/search/jsonp"
+_DEFAULT_PROXY_URL = "http://localhost:3456"
+_BING_NEWS_URL = "https://www.bing.com/news/search"
+
+PROVIDER_EASTMONEY = "东财"
+PROVIDER_WEB = "web"
 
 DEFAULT_PAGE_SIZE = 8
 DEFAULT_WITHIN_DAYS = 90
@@ -59,10 +67,15 @@ class NewsItem:
     source: str  # 媒体名
     title: str
     url: str
+    provider: str = PROVIDER_EASTMONEY  # 取数通道：东财 / web（web-access 全网检索）
 
 
 def fetch_enabled() -> bool:
     return os.environ.get(FETCH_ENV_FLAG, "1").strip().lower() not in {"0", "false", "off"}
+
+
+def web_fetch_enabled() -> bool:
+    return os.environ.get(WEB_FETCH_ENV_FLAG, "1").strip().lower() not in {"0", "false", "off"}
 
 
 def parse_news_intent(query: str) -> bool:
@@ -163,6 +176,149 @@ def fetch_eastmoney_news(
     return out
 
 
+_REL_TIME_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"(\d+)\s*分钟前"), "minutes"),
+    (re.compile(r"(\d+)\s*小时前"), "hours"),
+    (re.compile(r"(\d+)\s*天前"), "days"),
+    (re.compile(r"(\d+)\s*min(?:ute)?s?\s*ago", re.I), "minutes"),
+    (re.compile(r"(\d+)\s*h(?:our)?s?\s*ago", re.I), "hours"),
+    (re.compile(r"(\d+)\s*d(?:ay)?s?\s*ago", re.I), "days"),
+)
+_ABS_CN_DATE_RE = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日")
+
+
+def _normalize_time_text(text: str) -> str:
+    """把 Bing 的相对时间（「3 小时前」/「2 days ago」）best-effort 转成日期字符串；
+    无法解析时原样保留（展示层直接透传，不伪造精度）。"""
+    text = str(text or "").strip()
+    if not text:
+        return ""
+    for pattern, unit in _REL_TIME_PATTERNS:
+        m = pattern.search(text)
+        if m:
+            delta = timedelta(**{unit: int(m.group(1))})
+            dt = datetime.now() - delta
+            if unit == "days":
+                return dt.strftime("%Y-%m-%d")
+            return dt.strftime("%Y-%m-%d %H:%M:00")
+    if "昨天" in text or text.lower().startswith("yesterday"):
+        return (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    m = _ABS_CN_DATE_RE.search(text)
+    if m:
+        return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+    return text
+
+
+_BING_EXTRACT_JS = """
+JSON.stringify(Array.from(document.querySelectorAll('.news-card')).map(c => ({
+  title: c.getAttribute('data-title') || '',
+  url: c.getAttribute('data-url') || '',
+  source: c.getAttribute('data-author') || '',
+  time: (c.querySelector('span[aria-label]') || {getAttribute: () => ''}).getAttribute('aria-label') || ''
+})))
+""".strip()
+
+
+def _proxy_request(
+    proxy_url: str, path: str, body: str | None = None, timeout: float = 8.0
+) -> str:
+    req = urllib.request.Request(
+        proxy_url.rstrip("/") + path,
+        data=body.encode("utf-8") if body is not None else None,
+        method="POST" if body is not None else "GET",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", "replace")
+
+
+def fetch_web_access_news(
+    keyword: str,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    within_days: int = DEFAULT_WITHIN_DAYS,
+    timeout: float = 20.0,
+    proxy_url: str | None = None,
+) -> list[NewsItem]:
+    """#2b 第二 provider：经 web-access CDP proxy（真实 Chrome）搜 Bing News 全网/海外源。
+
+    Best-effort：proxy 不可达/页面结构变化/任何异常都返回空列表，不影响东财主通道。
+    英文/海外标题不做「关键词在标题内」硬过滤（跨语种无法子串匹配），靠搜索引擎
+    相关性排序 + 小 page_size 控噪；条目带 provider=web 标记供展示层区分。
+    """
+    kw = str(keyword or "").strip()
+    if not kw:
+        return []
+    proxy = (proxy_url or os.environ.get(PROXY_URL_ENV) or _DEFAULT_PROXY_URL).strip()
+    target_id = ""
+    try:
+        _proxy_request(proxy, "/health", timeout=2.0)
+        search_url = f"{_BING_NEWS_URL}?q={urllib.parse.quote(kw)}"
+        created = json.loads(
+            _proxy_request(proxy, f"/new?url={urllib.parse.quote(search_url, safe='')}", timeout=timeout)
+        )
+        target_id = str(created.get("targetId") or "").strip()
+        if not target_id:
+            return []
+        evaled = json.loads(
+            _proxy_request(proxy, f"/eval?target={target_id}", body=_BING_EXTRACT_JS, timeout=timeout)
+        )
+        rows = json.loads(evaled.get("value") or "[]")
+    except Exception:
+        return []
+    finally:
+        if target_id:
+            try:
+                _proxy_request(proxy, f"/close?target={target_id}", timeout=5.0)
+            except Exception:
+                pass
+    out: list[NewsItem] = []
+    for row in rows if isinstance(rows, list) else []:
+        title = str(row.get("title") or "").strip()
+        url = str(row.get("url") or "").strip()
+        if not title or not url:
+            continue
+        date_str = _normalize_time_text(str(row.get("time") or ""))
+        if not _within_days(date_str, within_days):
+            continue
+        out.append(
+            NewsItem(
+                date=date_str or "未标注",
+                source=str(row.get("source") or "").strip() or "未标注",
+                title=title,
+                url=url,
+                provider=PROVIDER_WEB,
+            )
+        )
+        if len(out) >= int(page_size):
+            break
+    return out
+
+
+def merge_news_items(
+    primary: list[NewsItem], secondary: list[NewsItem]
+) -> list[NewsItem]:
+    """双 provider 合并去重（URL/标题归一化后去重，东财优先保留），按日期新→旧排序；
+    日期不可解析的条目排末尾（保留不丢，不伪造时间）。"""
+    seen: set[str] = set()
+    merged: list[NewsItem] = []
+    for item in list(primary) + list(secondary):
+        keys = {k for k in (item.url.strip().rstrip("/"), item.title.strip()) if k}
+        if keys & seen:
+            continue
+        seen |= keys
+        merged.append(item)
+
+    def _has_date(it: NewsItem) -> bool:
+        try:
+            datetime.strptime(it.date[:10], "%Y-%m-%d")
+        except ValueError:
+            return False
+        return True
+
+    dated = sorted((it for it in merged if _has_date(it)), key=lambda it: it.date, reverse=True)
+    undated = [it for it in merged if not _has_date(it)]
+    return dated + undated
+
+
 def build_news_block(
     keyword: str,
     items: list[NewsItem],
@@ -170,23 +326,28 @@ def build_news_block(
     fetch_disabled: bool = False,
 ) -> str:
     """生成 W7 web 事件检索块（注入 compose）；缺数时仍返回带显式缺口的块。"""
-    lines = ["## web 事件检索块 [W7]（东财资讯搜索，可溯源；只列标题/来源/链接，不代为解读）"]
+    lines = ["## web 事件检索块 [W7]（东财资讯 + web-access 全网检索，可溯源；只列标题/来源/链接，不代为解读）"]
     if fetch_disabled:
         lines.append(f"- ⚠事件取数已被 {FETCH_ENV_FLAG}=0 关闭：消息面按缺口处理，需说明数据不可得。")
         return "\n".join(lines)
     if not items:
         lines.append(
-            f"- ⚠缺消息面：东财资讯搜索未取到「{keyword}」近 {within_days} 天内相关资讯，"
+            f"- ⚠缺消息面：东财资讯与 web-access 全网检索均未取到「{keyword}」近 {within_days} 天内相关资讯，"
             "事件/催化按缺口处理，不得编造。"
         )
         return "\n".join(lines)
-    lines.append(f"- 检索词「{keyword}」，近 {within_days} 天资讯 {len(items)} 条（按时间新→旧）：")
+    n_web = sum(1 for it in items if it.provider == PROVIDER_WEB)
+    lines.append(
+        f"- 检索词「{keyword}」，近 {within_days} 天资讯 {len(items)} 条"
+        f"（东财 {len(items) - n_web} + web {n_web}，按时间新→旧）："
+    )
     for it in items:
         url = f"（{it.url}）" if it.url else ""
-        lines.append(f"- | {it.date} | {it.source} | {it.title} |{url}")
+        lines.append(f"- [{it.provider}] | {it.date} | {it.source} | {it.title} |{url}")
     lines.append(
         "- 使用要求：仅可引用上列标题/来源/时间作为消息面存在性证据；事件影响/因果/概率须条件化表述，"
-        "禁止把标题当结论或编造未列出的事件。海外/英文源暂未覆盖（待 #2b web-access 通用搜索加固）。"
+        "禁止把标题当结论或编造未列出的事件。[web] 条目来自搜索引擎相关性排序（含海外/英文源），"
+        "相关性弱于标题命中的 [东财] 条目，引用时须注意甄别。"
     )
     return "\n".join(lines)
 
@@ -196,8 +357,9 @@ def news_block_for_keyword(
     page_size: int = DEFAULT_PAGE_SIZE,
     within_days: int = DEFAULT_WITHIN_DAYS,
     fetcher: Callable[..., list[NewsItem]] | None = None,
+    web_fetcher: Callable[..., list[NewsItem]] | None = None,
 ) -> str:
-    """给定关键词，取数并渲染 W7 块；关键词为空返回空串（不追加块）。"""
+    """给定关键词，双 provider 取数合并后渲染 W7 块；关键词为空返回空串（不追加块）。"""
     kw = (keyword or "").strip()
     if not kw:
         return ""
@@ -205,4 +367,7 @@ def news_block_for_keyword(
         return build_news_block(kw, [], within_days, fetch_disabled=True)
     fetch = fetcher or fetch_eastmoney_news
     items = fetch(kw, page_size, within_days)
+    if web_fetch_enabled():
+        web_fetch = web_fetcher or fetch_web_access_news
+        items = merge_news_items(items, web_fetch(kw, page_size, within_days))
     return build_news_block(kw, items, within_days)

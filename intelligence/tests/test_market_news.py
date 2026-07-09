@@ -7,10 +7,15 @@ from datetime import datetime, timedelta
 from unittest import mock
 
 from intelligence.services.market_news import (
+    PROVIDER_EASTMONEY,
+    PROVIDER_WEB,
     NewsItem,
+    _normalize_time_text,
     _within_days,
     build_news_block,
     fetch_eastmoney_news,
+    fetch_web_access_news,
+    merge_news_items,
     news_block_for_keyword,
     parse_news_intent,
     resolve_news_keyword,
@@ -109,9 +114,108 @@ class NewsBlockForKeywordTests(unittest.TestCase):
             captured["kw"] = kw
             return [NewsItem("2026-07-08 10:00:00", "新华财经", "标题A", "http://x/a")]
 
-        block = news_block_for_keyword("数据安全", fetcher=fake_fetch)
+        block = news_block_for_keyword("数据安全", fetcher=fake_fetch, web_fetcher=lambda *a: [])
         self.assertEqual(captured["kw"], "数据安全")
         self.assertIn("标题A", block)
+
+    def test_merges_web_provider_items(self) -> None:
+        def fake_em(kw: str, page_size: int, within_days: int) -> list[NewsItem]:
+            return [NewsItem("2026-07-08 10:00:00", "新华财经", "标题A", "http://x/a")]
+
+        def fake_web(kw: str, page_size: int, within_days: int) -> list[NewsItem]:
+            return [NewsItem("2026-07-07", "Reuters", "PQC executive order", "http://x/b", provider=PROVIDER_WEB)]
+
+        block = news_block_for_keyword("后量子密码", fetcher=fake_em, web_fetcher=fake_web)
+        self.assertIn("标题A", block)
+        self.assertIn("PQC executive order", block)
+        self.assertIn("[web]", block)
+        self.assertIn("东财 1 + web 1", block)
+
+    def test_web_disabled_by_env(self) -> None:
+        def fake_em(kw: str, page_size: int, within_days: int) -> list[NewsItem]:
+            return [NewsItem("2026-07-08 10:00:00", "新华财经", "标题A", "http://x/a")]
+
+        def fail_web(*args: object) -> list[NewsItem]:
+            raise AssertionError("web fetcher should not be called when disabled")
+
+        with mock.patch.dict("os.environ", {"FINANCE_NEWS_WEB_FETCH": "0"}):
+            block = news_block_for_keyword("数据安全", fetcher=fake_em, web_fetcher=fail_web)
+        self.assertIn("标题A", block)
+
+
+class MergeNewsItemsTests(unittest.TestCase):
+    def test_dedupes_by_url_and_title(self) -> None:
+        em = [NewsItem("2026-07-08 10:00:00", "证券时报", "同一标题", "http://x/a")]
+        web = [
+            NewsItem("2026-07-08", "Bing", "同一标题", "http://x/other", provider=PROVIDER_WEB),
+            NewsItem("2026-07-07", "Bing", "另一条", "http://x/a/", provider=PROVIDER_WEB),
+            NewsItem("2026-07-06", "Reuters", "unique", "http://x/c", provider=PROVIDER_WEB),
+        ]
+        merged = merge_news_items(em, web)
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(merged[0].provider, PROVIDER_EASTMONEY)
+        self.assertEqual(merged[1].title, "unique")
+
+    def test_sorts_dated_desc_and_keeps_undated_last(self) -> None:
+        items = merge_news_items(
+            [NewsItem("2026-07-06 09:00:00", "a", "旧", "http://x/1")],
+            [
+                NewsItem("刚刚", "b", "无日期", "http://x/2", provider=PROVIDER_WEB),
+                NewsItem("2026-07-08", "c", "新", "http://x/3", provider=PROVIDER_WEB),
+            ],
+        )
+        self.assertEqual([it.title for it in items], ["新", "旧", "无日期"])
+
+
+class NormalizeTimeTextTests(unittest.TestCase):
+    def test_relative_chinese(self) -> None:
+        self.assertEqual(_normalize_time_text("2 天前"), (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d"))
+        self.assertTrue(_normalize_time_text("3 小时前").startswith((datetime.now() - timedelta(hours=3)).strftime("%Y-%m-%d")))
+
+    def test_relative_english(self) -> None:
+        self.assertEqual(_normalize_time_text("2 days ago"), (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d"))
+
+    def test_absolute_chinese_date(self) -> None:
+        self.assertEqual(_normalize_time_text("2026年7月1日"), "2026-07-01")
+
+    def test_unparseable_passthrough(self) -> None:
+        self.assertEqual(_normalize_time_text("刚刚"), "刚刚")
+        self.assertEqual(_normalize_time_text(""), "")
+
+
+class FetchWebAccessNewsTests(unittest.TestCase):
+    def test_proxy_unreachable_returns_empty(self) -> None:
+        with mock.patch("urllib.request.urlopen", side_effect=OSError("connection refused")):
+            self.assertEqual(fetch_web_access_news("后量子密码"), [])
+
+    def test_empty_keyword_returns_empty(self) -> None:
+        self.assertEqual(fetch_web_access_news(""), [])
+
+    def test_parses_proxy_responses(self) -> None:
+        today = datetime.now().strftime("%Y-%m-%d")
+        cards = [
+            {"title": "ST launches PQC chip", "url": "http://x/1", "source": "Reuters", "time": "2 天前"},
+            {"title": "", "url": "http://x/2", "source": "a", "time": "1 天前"},
+        ]
+        responses = [
+            "{}",  # /health
+            json.dumps({"targetId": "T1"}),  # /new
+            json.dumps({"value": json.dumps(cards)}),  # /eval
+            "{}",  # /close
+        ]
+
+        def fake_urlopen(req, timeout=0):  # noqa: ANN001, ANN202
+            resp = mock.MagicMock()
+            resp.__enter__.return_value = io.BytesIO(responses.pop(0).encode("utf-8"))
+            return resp
+
+        with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            items = fetch_web_access_news("后量子密码")
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].provider, PROVIDER_WEB)
+        self.assertEqual(items[0].source, "Reuters")
+        self.assertNotEqual(items[0].date, today)  # 2 天前
+        self.assertIn("PQC", items[0].title)
 
 
 if __name__ == "__main__":
