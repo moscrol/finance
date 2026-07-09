@@ -28,7 +28,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_midterm, market_news, market_timeseries, research_brief
+from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_midterm, market_news, market_timeseries, research_brief, user_memory
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -160,6 +160,9 @@ class AskOptions:
     # W7 web 事件检索块：仅当问题命中「事件/消息/催化/涨价/对标」意图且能解析到关键词（实体/题材）时生成，
     # 走东财免费资讯搜索取近 N 天新闻（日期/来源/标题/链接），只列不编，补消息面缺口。
     include_news_block: bool = True
+    # M 用户记忆检索块：按相关性召回 judgments/corrections/回检胜率注入证据链；
+    # 台账缺失或无相关记录时不追加块，无记忆用户行为逐字节不变。
+    include_memory_block: bool = True
     # 实体锚定：图谱语义检索前先做确定性实体解析（股票名/代码→entity_exposures 精确匹配），
     # 命中后用实体自身概念暴露定锚；未命中行为逐字节不变。
     use_entity_anchor: bool = True
@@ -841,6 +844,23 @@ def answer_query(options: AskOptions) -> AskResult:
                         "D7",
                         "东财 F10 逐季财报数据块",
                         "目标近 N 期累计营收/归母净利/毛利率/净利率（+同比），业绩兑现节奏视角",
+                    )
+                )
+        if options.include_memory_block:
+            memory_block = user_memory.memory_block_for_query(
+                options.query,
+                theme,
+                result.anchored_entity.entity if result.anchored_entity is not None else None,
+                user=options.user,
+            )
+            result.d_block_stats.append(_d_block_stat("M", "用户记忆检索", memory_block))
+            if memory_block:
+                evidence_text = f"{evidence_text}\n\n{memory_block}"
+                citations.append(
+                    Citation(
+                        "M",
+                        "用户记忆检索块",
+                        "相关性召回的用户既有核心判断/纠偏原则/回检胜率（非市场事实，承接往前推）",
                     )
                 )
         if options.include_market_value_block:
