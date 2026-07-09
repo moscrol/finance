@@ -25,9 +25,10 @@ fi
 cd "$WORKSPACE" || exit 1
 echo "[$(date '+%F %T')] === 全量复盘开始 date=$D ==="
 
-# 失败告警：阻断性失败时经飞书主动通知用户（告警自身失败不影响退出码）
+# 失败告警：Mac 系统通知（零配置必达本机）+ 飞书（可选，凭证/权限就绪才发）；告警自身失败不影响退出码
 notify() {
-  python3 "$WORKSPACE/scripts/notify_feishu.py" "$1" || true
+  osascript -e "display notification \"$1\" with title \"全量复盘告警\" sound name \"Basso\"" 2>/dev/null || true
+  python3 "$WORKSPACE/scripts/notify_feishu.py" "$1" 2>/dev/null || true
 }
 
 python3 skills/daily-full-review/scripts/run_review_sync.py --date "$D"
@@ -76,8 +77,11 @@ else
   echo "[$(date '+%F %T')] 资金流段跳过（scripts/moneyflow 未合并或缺 CH_PASSWORD）"
 fi
 
-# 知识库证据断更监控（超 7 天未 ingest 新批次则飞书告警；不阻断收尾）
-python3 "$WORKSPACE/scripts/check_kb_freshness.py" --max-age 7 --alert || true
+# 知识库证据断更监控（超 7 天未 ingest 新批次则告警；不阻断收尾）
+kb_msg=$(python3 "$WORKSPACE/scripts/check_kb_freshness.py" --max-age 7)
+if [ $? -eq 2 ]; then
+  notify "$kb_msg——研报证据需要补 ingest（PDF 批次）"
+fi
 
 echo "[$(date '+%F %T')] === 全量复盘完成 date=$D ==="
 
