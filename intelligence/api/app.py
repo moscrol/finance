@@ -9,6 +9,7 @@
 接口：
 
     POST /api/runs                     {question, user?, task_type?, session_id?, parent_run_id?, compose?}
+    GET  /api/runs/{run_id}/followups  追问卡片（followups.json 产物的结构化视图）
     GET  /api/runs?user=               run 列表（新→旧）
     GET  /api/runs/{run_id}?user=      run.json
     GET  /api/runs/{run_id}/trace      trace 步骤数组
@@ -42,6 +43,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from intelligence.services import followups as followups_svc
 from intelligence.services import run_store as rs
 from intelligence.services.run_store import RunStore
 
@@ -115,6 +117,31 @@ def _run_ask(store: RunStore, run_id: str, req: CreateRunRequest) -> None:
     store.append_step(run_id, step_id="s02", name="render_artifacts", status="completed",
                       started_at=t1, finished_at=rs._now_iso(),
                       output_summary="answer.md + summary.json")
+
+    # 第 2 步：回答后生成追问卡片（foresight 追问闭环）。追问是增强体验而非答案
+    # 正确性的一部分，所以单独 try：失败只记 failed step，不拖死主答案。
+    t2 = rs._now_iso()
+    store.append_step(run_id, step_id="s03", name="foresight_followups", status="running",
+                      input_summary=req.question, started_at=t2)
+    try:
+        fu = followups_svc.generate_followups(
+            req.question,
+            matched_theme=result.matched_theme,
+            answer_excerpt=result.synthesis or answer_md,
+        )
+        store.add_artifact(run_id, "followups.json", fu.to_json(),
+                           renderer="json", title="猜你想问")
+        if not fu.llm_used:
+            store.add_degrade(run_id, "llm_unavailable_template_followups")
+        store.append_step(run_id, step_id="s03", name="foresight_followups", status="completed",
+                          input_summary=req.question, started_at=t2, finished_at=rs._now_iso(),
+                          output_summary=f"追问 {len(fu.followups)} 条（{'LLM' if fu.llm_used else '模板'}）",
+                          warnings=list(fu.warnings))
+    except Exception as exc:  # noqa: BLE001
+        store.append_step(run_id, step_id="s03", name="foresight_followups", status="failed",
+                          input_summary=req.question, started_at=t2, finished_at=rs._now_iso(),
+                          warnings=[f"{type(exc).__name__}: {exc}"])
+
     store.finish_run(run_id, rs.STATUS_COMPLETED)
 
 
@@ -155,6 +182,14 @@ def create_app() -> FastAPI:
         if not store.run_path(run_id).exists():
             raise HTTPException(404, f"run 不存在：{run_id}")
         return store.load_trace(run_id)
+
+    @app.get("/api/runs/{run_id}/followups")
+    def get_followups(run_id: str, user: str | None = None) -> dict[str, Any]:
+        store = RunStore(user_id=user)
+        path = store.run_dir(run_id) / "followups.json"
+        if not path.is_file():
+            return {"followups": []}
+        return json.loads(path.read_text(encoding="utf-8"))
 
     @app.get("/api/runs/{run_id}/events")
     def run_events(run_id: str, user: str | None = None) -> StreamingResponse:

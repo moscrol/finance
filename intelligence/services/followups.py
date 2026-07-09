@@ -1,0 +1,137 @@
+"""回答后的「猜你想问」追问卡片生成（第 2 步：foresight 追问闭环）。
+
+与 ``foresight.py`` 同一套哲学，但目标不同：foresight 是"盘面驱动、每日主动发问"，
+本模块是"回答驱动、围绕刚生成的这份答案往深处追问"。两者共用 ``llm_refine``
+的 provider 链与降级机制。
+
+设计取舍（教学）：
+- **LLM 可选、模板兜底**：无 key 时按五类固定模板（证据加深/反证验证/替代标的/
+  盘面回检/题材迁移）用 matched_theme 填充出可用追问；有 key 时让 LLM 基于答案
+  正文生成更具体的问题，再落回同样的五类。保证"追问卡片"永远出现，机制可审。
+- **类型即产品语义**：每张卡片带 type，UI 可按类型着色/分组；这五类来自
+  产品设计稿 3.4 节，是研究方法论的一部分而非随机问题。
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass, field
+
+from intelligence.services import llm_refine
+
+FOLLOWUP_TYPES = ["evidence", "counter", "alternative", "recheck", "migration"]
+TYPE_LABELS = {
+    "evidence": "证据加深",
+    "counter": "反证验证",
+    "alternative": "替代标的",
+    "recheck": "盘面回检",
+    "migration": "题材迁移",
+}
+
+
+@dataclass
+class Followup:
+    question: str
+    type: str
+    rationale: str = ""
+    type_label: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.type_label:
+            self.type_label = TYPE_LABELS.get(self.type, self.type)
+
+
+@dataclass
+class FollowupResult:
+    followups: list[Followup] = field(default_factory=list)
+    llm_used: bool = False
+    llm_provider: str | None = None
+    warnings: list[str] = field(default_factory=list)
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "followups": [asdict(f) for f in self.followups],
+                "llm_used": self.llm_used,
+                "llm_provider": self.llm_provider,
+                "warnings": self.warnings,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+
+
+def _template_followups(question: str, theme: str | None) -> list[Followup]:
+    subject = theme or question[:16]
+    return [
+        Followup(f"{subject}目前最硬的一条公司级证据是什么，出自哪份公告或研报？", "evidence",
+                 "把结论锚到可核对的一手材料上"),
+        Followup(f"如果{subject}的逻辑不成立，最先出现的反证信号会是什么？", "counter",
+                 "预设可证伪条件，避免单边叙事"),
+        Followup(f"除了当前提到的标的，{subject}产业链上还有哪些暴露度相近的替代标的？", "alternative",
+                 "对比同链条标的的证据硬度与位置"),
+        Followup(f"{subject}最近 5 个交易日的板块双红 / 边际量 / 涨停热度表现如何？", "recheck",
+                 "用盘面数据回检叙事是否被资金认可"),
+        Followup(f"{subject}的资金和逻辑接下来最可能向哪个相邻题材迁移？", "migration",
+                 "提前布局题材扩散的下一站"),
+    ]
+
+
+def _llm_followups(question: str, theme: str | None, answer_excerpt: str,
+                   n: int, model: str | None, timeout: int) -> tuple[list[Followup], str | None, str]:
+    system = (
+        "你是 A 股主题研究助手。基于用户问题与刚生成的研究回答，生成后续追问。"
+        "每条必须具体、可执行、可证伪，且只能属于以下类型之一："
+        "evidence(证据加深)/counter(反证验证)/alternative(替代标的)/recheck(盘面回检)/migration(题材迁移)。"
+        '只输出 JSON：{"followups":[{"question":"...","type":"evidence","rationale":"..."}]}'
+    )
+    user = (
+        f"用户问题：{question}\n匹配题材：{theme or '—'}\n\n回答摘录：\n{answer_excerpt[:2000]}\n\n"
+        f"请生成 {n} 条覆盖不同类型的追问。"
+    )
+    content, provider, reason = llm_refine.complete(
+        [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        model_override=model, timeout=timeout, temperature=0.7,
+    )
+    provider_name = provider.name if provider else None
+    if content is None:
+        return [], provider_name, reason or "LLM 不可用"
+    obj = llm_refine._extract_json(content)
+    raw = obj.get("followups") if isinstance(obj, dict) else None
+    if not isinstance(raw, list):
+        return [], provider_name, 'LLM 返回无法解析为 {"followups":[...]}'
+    out: list[Followup] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        q = str(item.get("question") or "").strip()
+        t = str(item.get("type") or "").strip()
+        if q and t in FOLLOWUP_TYPES:
+            out.append(Followup(q, t, str(item.get("rationale") or "").strip()))
+    return out[:n], provider_name, "" if out else "LLM 未给出任何有效追问"
+
+
+def generate_followups(
+    question: str,
+    *,
+    matched_theme: str | None = None,
+    answer_excerpt: str = "",
+    n: int = 5,
+    llm_model: str | None = None,
+    llm_timeout: int = 60,
+    use_llm: bool = True,
+) -> FollowupResult:
+    """生成 3-5 条追问卡片；LLM 不可用时优雅降级为五类模板。"""
+    result = FollowupResult()
+    if use_llm:
+        followups, provider, warn = _llm_followups(
+            question, matched_theme, answer_excerpt, n, llm_model, llm_timeout
+        )
+        if followups:
+            result.followups = followups
+            result.llm_used = True
+            result.llm_provider = provider
+            return result
+        result.warnings.append(f"{warn}（已降级为模板追问）")
+    result.followups = _template_followups(question, matched_theme)[:n]
+    return result
