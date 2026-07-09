@@ -27,6 +27,6 @@ Step 3: 查记忆
 - 三库分工进一步清晰：共享库=历史场景模板+操作框架（常驻高优先级），用户库=个人复盘/thesis，图谱=产业链关系——各管一维，检索时按维度定向路由，不是混合召回。
 
 ## 与本地对照 / 回灌
-- 我们的确定性替代路线（台账 #11 候选）依然成立且更强：fact_* 历史区间（题材双红连续段、高位→低位切换段）做"历史窗口相似检索"——我们有真实盘面数据，它只有文字模板。
-- 但它的"场景模板"层我们也缺：复盘沉淀目前是流水（wiki/log、复盘 daily），没有提炼成**可检索的场景卡**（"2026-04 CPO→国产算力切换：结构特征+后续走法+适用条件"）。回灌候选：在 10_knowledge 或 wiki/synthesis 下建 case-library（场景卡），从历届复盘中提炼，供 theme-fermentation-tracer/回放类问题检索。
-- 组合拳：场景卡（定性结构）+ DuckDB 历史窗口（定量验证）= 比 Knevo 单靠文字模板更硬的历史类比。
+- **更新（2026-07-09 检查）：台账 #11 已落地**——PR #157 feat/ask-analog-block（已合并）实现 D8 历史类比检索块（intelligence/services/market_analogs.py）：①同题材形态签名（双红天数/成交额首末比/均涨）滑窗加权距离取 K 段相似窗口，后续 5/10/20 日走法只报 fact_sector_daily 事实不给概率；②跨题材剧本卡库 market_playbooks.jsonl（特征向量匹配：drawdown_pct/rebound_retrace_ratio/volume_shrink_ratio 归一化距离），仅 review_status=approved 的人工审核卡生效。
+- 对照结论：我们的实现已同时覆盖 Knevo 的"场景模板"层（剧本卡=其共享库场景模板的可溯源版）+ 它没有的定量层（DuckDB 逐日行）。剩余差距只在剧本卡数量（需持续从复盘提炼入 market_playbooks.jsonl）。
+- q9 原回灌候选"建 case-library"作废，改为：**持续扩充 market_playbooks.jsonl 卡片数**，历届复盘中的切换/见顶案例按卡片 schema 提炼送审。
