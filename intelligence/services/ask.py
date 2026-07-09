@@ -28,7 +28,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, research_brief, scenario_tree, user_memory
+from intelligence.services import checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, research_brief, scenario_tree, user_memory
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -172,6 +172,10 @@ class AskOptions:
     # M 用户记忆检索块：按相关性召回 judgments/corrections/回检胜率注入证据链；
     # 台账缺失或无相关记录时不追加块，无记忆用户行为逐字节不变。
     include_memory_block: bool = True
+    # V 回检块：检索系统对该题材/个股登记过的可证伪判断（checkpoints）及其最新裁决
+    # （hit/miss/partial/unverifiable），附数据新鲜度自检（台账/盘面截至日，过期显式声明）；
+    # 台账缺失或无相关记录时不追加块，行为逐字节不变。
+    include_recall_block: bool = True
     # 实体锚定：图谱语义检索前先做确定性实体解析（股票名/代码→entity_exposures 精确匹配），
     # 命中后用实体自身概念暴露定锚；未命中行为逐字节不变。
     use_entity_anchor: bool = True
@@ -921,6 +925,25 @@ def answer_query(options: AskOptions) -> AskResult:
                         "相关性召回的用户既有核心判断/纠偏原则/回检胜率（非市场事实，承接往前推）",
                     )
                 )
+        if options.include_recall_block:
+            recall_block = checkpoint_recall.recall_block_for_query(
+                options.query,
+                theme,
+                result.anchored_entity.entity if result.anchored_entity is not None else None,
+                user=options.user,
+                data_asof=_market_data_asof(options.market_db_path),
+            )
+            result.d_block_stats.append(_d_block_stat("V", "回检块", recall_block))
+            if recall_block:
+                evidence_text = f"{evidence_text}\n\n{recall_block}"
+                citations.append(
+                    Citation(
+                        "V",
+                        "回检块（历史可证伪判断×裁决）",
+                        "系统对该题材/个股登记过的可证伪判断及最新裁决 hit/miss/partial/unverifiable，"
+                        "附数据新鲜度自检（裁决快照非新预测，未终态不作数）",
+                    )
+                )
         if options.include_market_value_block:
             market_value_block = _market_value_block_for_llm(
                 options.query,
@@ -1469,6 +1492,24 @@ def _d_block_stat(tag: str, source: str, block: str | None) -> research_brief.DB
         line_count=len(text.splitlines()) if text else 0,
         note="" if text else "无匹配数据或未提供 market_db_path",
     )
+
+
+def _market_data_asof(market_db_path: str | Path | None) -> str | None:
+    """盘面库 fact_market_daily 最新交易日（回检块新鲜度自检用）；库/duckdb 不可用返回 None。"""
+    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    if not db_path.exists():
+        return None
+    try:
+        import duckdb  # type: ignore
+
+        con = duckdb.connect(str(db_path), read_only=True)
+        try:
+            row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
+        finally:
+            con.close()
+        return str(row[0]) if row and row[0] else None
+    except Exception:
+        return None
 
 
 def _market_value_block_for_llm(
