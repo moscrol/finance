@@ -81,6 +81,35 @@ class FinancialsBlockTests(unittest.TestCase):
         self.assertEqual(captured["periods"], 4)
         self.assertIn("2026一季报", block)
 
+    def test_fallback_used_when_primary_empty(self) -> None:
+        def empty_fetch(ts_code: str, name: str, periods: int) -> list[QuarterFinancials]:
+            return []
+
+        def fallback_fetch(ts_code: str, name: str, periods: int) -> list[QuarterFinancials]:
+            return self._rows()
+
+        block = financials_block_for_target(
+            "300454.SZ", "深信服", fetcher=empty_fetch, fallback_fetcher=fallback_fetch
+        )
+        self.assertIn("AKShare·新浪财务摘要", block)
+        self.assertIn("2026一季报", block)
+
+    def test_both_sources_empty_declare_dual_gap(self) -> None:
+        def empty_fetch(ts_code: str, name: str, periods: int) -> list[QuarterFinancials]:
+            return []
+
+        block = financials_block_for_target(
+            "300454.SZ", "深信服", fetcher=empty_fetch, fallback_fetcher=empty_fetch
+        )
+        self.assertIn("东财 F10 与 AKShare(新浪财务摘要) 均未取到", block)
+
+    def test_primary_success_keeps_eastmoney_source(self) -> None:
+        block = financials_block_for_target(
+            "300454.SZ", "深信服", fetcher=lambda *a: self._rows()
+        )
+        self.assertIn("东财 F10 主要财务指标", block)
+        self.assertNotIn("AKShare", block)
+
 
 if __name__ == "__main__":
     unittest.main()

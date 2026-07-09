@@ -2,6 +2,8 @@
 
 - 取数走东财免费接口 `RPT_F10_FINANCE_MAINFINADATA`，不依赖 iFinD / 问财 key；
   与 D5 估值块（valuation_estimate）同一条东财免费路线。
+- 东财失败时 fallback 到 AKShare `stock_financial_abstract`（新浪财务摘要，同为累计口径），
+  块内标注实际数据源；两源都失败才写缺口。
 - 口径为**累计值**（中报=H1、三季报=前三季累计），同比字段 `*TZ` 为东财原始累计同比，
   是卖方读「业绩兑现节奏」的主流口径；本块不做单季还原，避免引入推算误差。
 - 补的缺口：brief/D4/D5 只有当日盘面与当前估值快照，无逐季营收/净利/毛利率序列，
@@ -89,7 +91,7 @@ def _secucode(ts_code: str) -> str | None:
 
 
 def _num(value: Any, scale: float = 1.0) -> float | None:
-    if not isinstance(value, (int, float)):
+    if not isinstance(value, (int, float)) or value != value:  # 非数值或 NaN
         return None
     return round(float(value) / scale, 2)
 
@@ -145,6 +147,68 @@ def fetch_quarterly_financials(
     return out
 
 
+_ABSTRACT_INDICATORS = {
+    "营业总收入": "revenue",
+    "归母净利润": "netprofit",
+    "毛利率": "gross_margin",
+    "销售净利率": "net_margin",
+    "营业总收入增长率": "revenue_yoy",
+    "归属母公司净利润增长率": "netprofit_yoy",
+}
+
+
+def _report_name(report_date: str) -> str:
+    year, md = report_date[:4], report_date[5:]
+    suffix = {"03-31": "一季报", "06-30": "中报", "09-30": "三季报", "12-31": "年报"}.get(md)
+    return f"{year}{suffix}" if suffix else report_date
+
+
+def fetch_quarterly_financials_akshare(
+    ts_code: str, name: str = "", periods: int = DEFAULT_PERIODS
+) -> list[QuarterFinancials]:
+    """AKShare fallback：新浪财务摘要 `stock_financial_abstract`（累计口径，与东财 F10 一致）。
+    任何异常返回空列表，由上层写缺口。"""
+    secucode = _secucode(ts_code)
+    if secucode is None:
+        return []
+    try:
+        import akshare as ak
+
+        df = ak.stock_financial_abstract(symbol=secucode[:6])
+    except Exception:
+        return []
+    if df is None or df.empty or "指标" not in df.columns:
+        return []
+    date_cols = sorted((c for c in df.columns if re.fullmatch(r"\d{8}", str(c))), reverse=True)
+    values: dict[str, dict[str, Any]] = {}
+    for _, row in df.iterrows():
+        key = _ABSTRACT_INDICATORS.get(str(row["指标"]))
+        if key is None:
+            continue
+        for col in date_cols[: max(1, int(periods))]:
+            values.setdefault(col, {}).setdefault(key, row[col])
+    out: list[QuarterFinancials] = []
+    for col in date_cols[: max(1, int(periods))]:
+        v = values.get(col) or {}
+        report_date = f"{col[:4]}-{col[4:6]}-{col[6:]}"
+        q = QuarterFinancials(
+            report_name=_report_name(report_date),
+            report_date=report_date,
+            revenue_yi=_num(v.get("revenue"), 1e8),
+            revenue_yoy=_num(v.get("revenue_yoy")),
+            netprofit_yi=_num(v.get("netprofit"), 1e8),
+            netprofit_yoy=_num(v.get("netprofit_yoy")),
+            gross_margin=_num(v.get("gross_margin")),
+            net_margin=_num(v.get("net_margin")),
+        )
+        if any(
+            x is not None
+            for x in (q.revenue_yi, q.netprofit_yi, q.gross_margin, q.net_margin)
+        ):
+            out.append(q)
+    return out
+
+
 def _fmt(value: float | None, unit: str = "") -> str:
     if value is None:
         return "缺"
@@ -156,14 +220,15 @@ def build_financials_block(
     ts_code: str,
     rows: list[QuarterFinancials],
     fetch_disabled: bool = False,
+    data_source: str = "东财 F10",
 ) -> str:
     """生成 D7 逐季财报数据块（注入 compose）；缺数时仍返回带显式缺口的块或空串。"""
-    lines = ["## 逐季财报数据块 [D7]（东财 F10 主要财务指标，硬数据；口径=累计值）"]
+    lines = [f"## 逐季财报数据块 [D7]（{data_source} 主要财务指标，硬数据；口径=累计值）"]
     if fetch_disabled:
         lines.append(f"- ⚠财报取数已被 {FETCH_ENV_FLAG}=0 关闭：逐季营收/净利/毛利率全部为缺口，需说明数据不可得。")
         return "\n".join(lines)
     if not rows:
-        lines.append("- ⚠缺逐季财报：东财 F10 未取到目标公司主要财务指标，业绩兑现节奏按缺口处理，不得编造。")
+        lines.append("- ⚠缺逐季财报：东财 F10 与 AKShare(新浪财务摘要) 均未取到目标公司主要财务指标，业绩兑现节奏按缺口处理，不得编造。")
         return "\n".join(lines)
     lines.append(f"- 目标：{target_name}（{ts_code}），近 {len(rows)} 期累计口径（新→旧）：")
     lines.append("- | 报告期 | 营收(亿) | 营收同比% | 归母净利(亿) | 净利同比% | 销售毛利率% | 销售净利率% |")
@@ -190,10 +255,18 @@ def financials_block_for_target(
     name: str = "",
     periods: int = DEFAULT_PERIODS,
     fetcher: Callable[..., list[QuarterFinancials]] | None = None,
+    fallback_fetcher: Callable[..., list[QuarterFinancials]] | None = None,
 ) -> str:
-    """给定目标股，取数并渲染 D7 块；取数关闭/失败时返回带缺口的块。"""
+    """给定目标股，取数并渲染 D7 块；主源（东财 F10）失败时 fallback 到 AKShare，
+    块头标注实际数据源；两源都失败才写缺口。"""
     if not fetch_enabled():
         return build_financials_block(name or ts_code, ts_code, [], fetch_disabled=True)
     fetch = fetcher or fetch_quarterly_financials
     rows = fetch(ts_code, name, periods)
-    return build_financials_block(name or ts_code, ts_code, rows)
+    source = "东财 F10"
+    if not rows:
+        fallback = fallback_fetcher or fetch_quarterly_financials_akshare
+        rows = fallback(ts_code, name, periods)
+        if rows:
+            source = "AKShare·新浪财务摘要（东财 F10 不可用，已降级备源）"
+    return build_financials_block(name or ts_code, ts_code, rows, data_source=source)
