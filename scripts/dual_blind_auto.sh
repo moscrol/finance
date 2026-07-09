@@ -72,10 +72,19 @@ run_agent() {
     "$CODEX_BIN" exec --skip-git-repo-check "$(prompt_for codex)" >> "logs/dual-blind.$D.codex.log" 2>&1
     rc=$?
   else
-    "$CLAUDE_BIN" -p "$(prompt_for claude)" \
-      --allowedTools "Read,Glob,Grep,Write,Edit,Bash(python3:*),Bash(/usr/bin/python3:*)" \
-      >> "logs/dual-blind.$D.claude.log" 2>&1
-    rc=$?
+    # claude 网关（open.bigmodel.cn）早高峰常返回 529，未落答卷则间隔重试
+    local attempt=1
+    while :; do
+      "$CLAUDE_BIN" -p "$(prompt_for claude)" \
+        --allowedTools "Read,Glob,Grep,Write,Edit,Bash(python3:*),Bash(/usr/bin/python3:*)" \
+        >> "logs/dual-blind.$D.claude.log" 2>&1
+      rc=$?
+      [ -f "$LEDGER/$D.answer.claude.json" ] && { rc=0; break; }
+      [ "$attempt" -ge 3 ] && break
+      echo "[$(date '+%F %T')] claude 第 $attempt 次未落答卷（rc=$rc，疑似网关高峰），600s 后重试"
+      attempt=$((attempt+1))
+      sleep 600
+    done
   fi
   echo "[$(date '+%F %T')] --- $agent 结束 rc=$rc ---"
   return $rc
