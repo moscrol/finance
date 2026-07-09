@@ -1,16 +1,36 @@
 from __future__ import annotations
 
+import io
+import json
 import unittest
 from datetime import datetime, timedelta
+from unittest import mock
 
 from intelligence.services.market_news import (
     NewsItem,
     _within_days,
     build_news_block,
+    fetch_eastmoney_news,
     news_block_for_keyword,
     parse_news_intent,
     resolve_news_keyword,
 )
+
+
+class FetchTitleRelevanceFilterTests(unittest.TestCase):
+    def test_drops_articles_without_keyword_in_title(self) -> None:
+        today = datetime.now().strftime("%Y-%m-%d")
+        articles = [
+            {"date": today, "title": "<em>后量子密码</em>标准落地", "mediaName": "证券时报", "url": "http://x/1"},
+            {"date": today, "title": "高盛重磅发声：做多中国AI价值链", "mediaName": "财联社", "url": "http://x/2"},
+        ]
+        payload = "x(" + json.dumps({"result": {"cmsArticleWebOld": articles}}, ensure_ascii=False) + ")"
+        resp = mock.MagicMock()
+        resp.__enter__.return_value = io.BytesIO(payload.encode("utf-8"))
+        with mock.patch("urllib.request.urlopen", return_value=resp):
+            items = fetch_eastmoney_news("后量子密码")
+        self.assertEqual(len(items), 1)
+        self.assertIn("后量子密码", items[0].title)
 
 
 class ParseNewsIntentTests(unittest.TestCase):

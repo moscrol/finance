@@ -145,6 +145,10 @@ def fetch_eastmoney_news(
         title = _EM_TAG_RE.sub("", str(a.get("title") or "")).strip()
         if not title:
             continue
+        # 相关性硬过滤：东财搜索是全文模糊匹配，正文命中会捞进大量标题无关的资讯；
+        # 只保留标题含完整检索词的条目，宁缺勿滥（缺数走显式缺口，不给噪声）。
+        if kw not in title:
+            continue
         out.append(
             NewsItem(
                 date=date_str,

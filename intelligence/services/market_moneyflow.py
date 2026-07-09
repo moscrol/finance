@@ -155,20 +155,20 @@ def moneyflow_block_for_llm(
 
         top = con.execute(
             f"""
-            select rank, stock_name, main_buy_net_wan, total_buy_net_wan, score, pct_change
+            select rank, scan_type, stock_name, main_buy_net_wan, total_buy_net_wan, score, pct_change
             from feature_l2_capital_flow_daily
-            where trade_date = ? order by rank asc limit {int(top_k)}
+            where trade_date = ? order by score desc nulls last limit {int(top_k)}
             """,
             [latest_date],
         ).fetchall()
         if top:
             lines.append("")
             lines.append(f"### 最新扫描日（{latest_date}）大单净流入榜 top{len(top)}")
-            lines.append("| 名次 | 股票 | 主买净额(万) | 总买净额(万) | 净流入强度% | 涨幅% |")
-            lines.append("|" + "---|" * 6)
+            lines.append("| 口径内名次 | 扫描口径 | 股票 | 主买净额(万) | 总买净额(万) | 净流入强度% | 涨幅% |")
+            lines.append("|" + "---|" * 7)
             for r in top:
                 lines.append(
-                    f"| {r[0]} | {r[1]} | {_fmt(r[2])} | {_fmt(r[3])} | {_fmt(r[4], 2)} | {_fmt(r[5])} |"
+                    f"| {r[0]} | {r[1]} | {r[2]} | {_fmt(r[3])} | {_fmt(r[4])} | {_fmt(r[5], 2)} | {_fmt(r[6])} |"
                 )
         if missing:
             lines.append("")
