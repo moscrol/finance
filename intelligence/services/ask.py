@@ -28,7 +28,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, research_brief, scenario_tree, user_memory
+from intelligence.services import ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, research_brief, scenario_tree, user_memory
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -176,6 +176,12 @@ class AskOptions:
     # （hit/miss/partial/unverifiable），附数据新鲜度自检（台账/盘面截至日，过期显式声明）；
     # 台账缺失或无相关记录时不追加块，行为逐字节不变。
     include_recall_block: bool = True
+    # 澄清追问前置门（clarify-then-act）：问题明确模糊（空问题/纯空泛词面）时不硬答，
+    # 返回结构化澄清问题（对象/口径/日期），跳过整次检索；带实质内容的问题行为逐字节不变。
+    clarify: bool = True
+    # 子任务并行：把命中的独立取数块（D0/D6/D9/D8/D7/W7/M/V/D1/D4/D2/D5）扔进线程池并行取，
+    # 仍按固定顺序汇总，evidence_text/引用编号与串行逐字节一致；关掉退回串行（调试用）。
+    parallel_blocks: bool = True
     # 实体锚定：图谱语义检索前先做确定性实体解析（股票名/代码→entity_exposures 精确匹配），
     # 命中后用实体自身概念暴露定锚；未命中行为逐字节不变。
     use_entity_anchor: bool = True
@@ -217,6 +223,8 @@ class AskResult:
     synthesis_messages: list[dict] | None = None
     # 问答编排层：先解析问题类型/深度/视角/证据计划，再进入 compose。
     question_plan: QuestionPlan | None = None
+    # 澄清追问：问题明确模糊时的结构化追问；非 None 表示本次未检索、等用户补充。
+    clarify: ask_clarify.ClarifyDecision | None = None
     # 实体锚定结果：确定性实体解析命中的实体与锚定概念；None=未命中/未启用。
     anchored_entity: entity_anchor.EntityAnchor | None = None
     # 行情前瞻前置查漏门：从 daily-agent research_queue 判断是否应先补 DeepDive / L3 证据。
@@ -358,6 +366,19 @@ def _evidence_is_stale(item: dict[str, Any], stale_days: int) -> bool:
 
 
 def answer_query(options: AskOptions) -> AskResult:
+    if options.clarify:
+        clarify_decision = ask_clarify.clarify_for_query(options.query)
+        if clarify_decision.needs_clarification:
+            result = AskResult(
+                query=options.query,
+                trade_date=None,
+                matched_theme=None,
+                candidate_tier=None,
+                priority_score=None,
+            )
+            result.clarify = clarify_decision
+            result.warnings.append(f"澄清追问：{clarify_decision.reason}，本次未检索")
+            return result
     resolved_kb_wiki = Path(options.kb_wiki).expanduser() if options.kb_wiki else default_paths().knowledge_wiki
     knowledge = KnowledgeAdapter(wiki_root=resolved_kb_wiki)
     loaded = load_theme_candidates(options.exports_dir, options.date)
@@ -810,184 +831,158 @@ def answer_query(options: AskOptions) -> AskResult:
             evidence_text = f"{evidence_text}\n\n{result.valuation_note.to_prompt_block()}"
         if result.forecast_preflight is not None:
             evidence_text = f"{evidence_text}\n\n{forecast_preflight.render_preflight_prompt(result.forecast_preflight)}"
+        # --- planner-worker 并行取数：规则门控先定「要哪些块」，命中的块作为互相独立的
+        # 子任务并行取数（ask_planner），取回后仍按固定顺序汇总——evidence_text/引用编号
+        # 与串行版逐字节一致，并行只是快。D3 依赖前面块的 evidence_text，单独串行收尾。---
+        anchored_name = result.anchored_entity.entity if result.anchored_entity is not None else None
+        block_tasks: list[ask_planner.BlockTask] = []
+
         if options.include_timeseries_block:
             ts_intent = market_timeseries.parse_timeseries_intent(options.query)
             if ts_intent is not None:
-                timeseries_block = market_timeseries.timeseries_block_for_llm(ts_intent, options.market_db_path)
-                result.d_block_stats.append(_d_block_stat("D0", "盘面时序直查", timeseries_block))
-                if timeseries_block:
-                    evidence_text = f"{evidence_text}\n\n{timeseries_block}"
-                    metric_labels = "/".join(spec.label for spec in ts_intent.metrics)
-                    citations.append(
-                        Citation(
-                            "D0",
-                            "本地 DuckDB 盘面时序直查数据块",
-                            f"白名单指标逐日直查（{metric_labels}，过去 {ts_intent.window} 个交易日）",
-                        )
+                def _build_d0(intent=ts_intent):
+                    block = market_timeseries.timeseries_block_for_llm(intent, options.market_db_path)
+                    metric_labels = "/".join(spec.label for spec in intent.metrics)
+                    return block, Citation(
+                        "D0",
+                        "本地 DuckDB 盘面时序直查数据块",
+                        f"白名单指标逐日直查（{metric_labels}，过去 {intent.window} 个交易日）",
                     )
+
+                block_tasks.append(ask_planner.BlockTask("D0", "盘面时序直查", _build_d0))
         if options.include_midterm_block:
             midterm_intent = market_midterm.parse_midterm_intent(options.query)
             if midterm_intent is not None:
-                midterm_block = market_midterm.midterm_trend_block_for_llm(
-                    options.query,
-                    theme,
-                    options.market_db_path,
-                    midterm_intent.window,
-                )
-                result.d_block_stats.append(_d_block_stat("D6", "多日中期趋势", midterm_block))
-                if midterm_block:
-                    evidence_text = f"{evidence_text}\n\n{midterm_block}"
-                    citations.append(
-                        Citation(
-                            "D6",
-                            "本地 DuckDB 多日/中期趋势数据块",
-                            f"题材近 {midterm_intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
-                        )
+                def _build_d6(intent=midterm_intent):
+                    block = market_midterm.midterm_trend_block_for_llm(
+                        options.query, theme, options.market_db_path, intent.window,
                     )
+                    return block, Citation(
+                        "D6",
+                        "本地 DuckDB 多日/中期趋势数据块",
+                        f"题材近 {intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
+                    )
+
+                block_tasks.append(ask_planner.BlockTask("D6", "多日中期趋势", _build_d6))
         if options.include_moneyflow_block and market_moneyflow.parse_moneyflow_intent(options.query):
-            moneyflow_block = market_moneyflow.moneyflow_block_for_llm(
-                options.query,
-                result.anchored_entity.entity if result.anchored_entity is not None else None,
-                options.market_db_path,
-            )
-            result.d_block_stats.append(_d_block_stat("D9", "L2 大单资金流", moneyflow_block))
-            if moneyflow_block:
-                evidence_text = f"{evidence_text}\n\n{moneyflow_block}"
-                citations.append(
-                    Citation(
-                        "D9",
-                        "本地 DuckDB L2 大单资金流数据块",
-                        "个股近日主买/总买净额+量化单特征 + 最新扫描日大单净流入榜（自有大单口径，非全市场）",
-                    )
+            def _build_d9():
+                block = market_moneyflow.moneyflow_block_for_llm(
+                    options.query, anchored_name, options.market_db_path,
                 )
+                return block, Citation(
+                    "D9",
+                    "本地 DuckDB L2 大单资金流数据块",
+                    "个股近日主买/总买净额+量化单特征 + 最新扫描日大单净流入榜（自有大单口径，非全市场）",
+                )
+
+            block_tasks.append(ask_planner.BlockTask("D9", "L2 大单资金流", _build_d9))
         if options.include_analog_block and market_analogs.parse_analog_intent(options.query):
-            analog_block = market_analogs.analog_block_for_llm(
-                options.query,
-                theme,
-                options.market_db_path,
-            )
-            result.d_block_stats.append(_d_block_stat("D8", "历史类比检索", analog_block))
-            if analog_block:
-                evidence_text = f"{evidence_text}\n\n{analog_block}"
-                citations.append(
-                    Citation(
-                        "D8",
-                        "本地 DuckDB 历史类比检索数据块",
-                        f"题材自身历史上与当前 {market_analogs.DEFAULT_WINDOW} 日形态最相似窗口及后续 5/10/20 日实际走法（小样本历史事实，非概率预测）",
-                    )
+            def _build_d8():
+                block = market_analogs.analog_block_for_llm(options.query, theme, options.market_db_path)
+                return block, Citation(
+                    "D8",
+                    "本地 DuckDB 历史类比检索数据块",
+                    f"题材自身历史上与当前 {market_analogs.DEFAULT_WINDOW} 日形态最相似窗口及后续 5/10/20 日实际走法（小样本历史事实，非概率预测）",
                 )
+
+            block_tasks.append(ask_planner.BlockTask("D8", "历史类比检索", _build_d8))
         if options.include_financials_block and market_financials.parse_financials_intent(options.query):
-            financials_block = _financials_block_for_llm(
-                options.query,
-                options.market_db_path,
-            )
-            result.d_block_stats.append(_d_block_stat("D7", "逐季财报", financials_block))
-            if financials_block:
-                evidence_text = f"{evidence_text}\n\n{financials_block}"
-                citations.append(
-                    Citation(
-                        "D7",
-                        "东财 F10 逐季财报数据块",
-                        "目标近 N 期累计营收/归母净利/毛利率/净利率（+同比），业绩兑现节奏视角",
-                    )
+            def _build_d7():
+                block = _financials_block_for_llm(options.query, options.market_db_path)
+                return block, Citation(
+                    "D7",
+                    "东财 F10 逐季财报数据块",
+                    "目标近 N 期累计营收/归母净利/毛利率/净利率（+同比），业绩兑现节奏视角",
                 )
+
+            block_tasks.append(ask_planner.BlockTask("D7", "逐季财报", _build_d7))
         if options.include_news_block and market_news.parse_news_intent(options.query):
-            news_keyword = market_news.resolve_news_keyword(
-                options.query,
-                theme,
-                result.anchored_entity.entity if result.anchored_entity is not None else None,
-            )
-            news_block = market_news.news_block_for_keyword(news_keyword)
-            result.d_block_stats.append(_d_block_stat("W7", "web 事件检索", news_block))
-            if news_block:
-                evidence_text = f"{evidence_text}\n\n{news_block}"
-                citations.append(
-                    Citation(
-                        "W7",
-                        "web 事件检索数据块（东财资讯 + web-access 全网检索）",
-                        f"「{news_keyword}」近 {market_news.DEFAULT_WITHIN_DAYS} 天资讯日期/来源/标题/链接（只列不编，消息面存在性证据）",
-                    )
+            def _build_w7():
+                news_keyword = market_news.resolve_news_keyword(options.query, theme, anchored_name)
+                block = market_news.news_block_for_keyword(news_keyword)
+                return block, Citation(
+                    "W7",
+                    "web 事件检索数据块（东财资讯 + web-access 全网检索）",
+                    f"「{news_keyword}」近 {market_news.DEFAULT_WITHIN_DAYS} 天资讯日期/来源/标题/链接（只列不编，消息面存在性证据）",
                 )
+
+            block_tasks.append(ask_planner.BlockTask("W7", "web 事件检索", _build_w7))
         if options.include_memory_block:
-            memory_block = user_memory.memory_block_for_query(
-                options.query,
-                theme,
-                result.anchored_entity.entity if result.anchored_entity is not None else None,
-                user=options.user,
-            )
-            result.d_block_stats.append(_d_block_stat("M", "用户记忆检索", memory_block))
-            if memory_block:
-                evidence_text = f"{evidence_text}\n\n{memory_block}"
-                citations.append(
-                    Citation(
-                        "M",
-                        "用户记忆检索块",
-                        "相关性召回的用户既有核心判断/纠偏原则/回检胜率（非市场事实，承接往前推）",
-                    )
+            def _build_m():
+                block = user_memory.memory_block_for_query(
+                    options.query, theme, anchored_name, user=options.user,
                 )
+                return block, Citation(
+                    "M",
+                    "用户记忆检索块",
+                    "相关性召回的用户既有核心判断/纠偏原则/回检胜率（非市场事实，承接往前推）",
+                )
+
+            block_tasks.append(ask_planner.BlockTask("M", "用户记忆检索", _build_m))
         if options.include_recall_block:
-            recall_block = checkpoint_recall.recall_block_for_query(
-                options.query,
-                theme,
-                result.anchored_entity.entity if result.anchored_entity is not None else None,
-                user=options.user,
-                data_asof=_market_data_asof(options.market_db_path),
-            )
-            result.d_block_stats.append(_d_block_stat("V", "回检块", recall_block))
-            if recall_block:
-                evidence_text = f"{evidence_text}\n\n{recall_block}"
-                citations.append(
-                    Citation(
-                        "V",
-                        "回检块（历史可证伪判断×裁决）",
-                        "系统对该题材/个股登记过的可证伪判断及最新裁决 hit/miss/partial/unverifiable，"
-                        "附数据新鲜度自检（裁决快照非新预测，未终态不作数）",
-                    )
+            def _build_v():
+                block = checkpoint_recall.recall_block_for_query(
+                    options.query, theme, anchored_name,
+                    user=options.user,
+                    data_asof=_market_data_asof(options.market_db_path),
                 )
+                return block, Citation(
+                    "V",
+                    "回检块（历史可证伪判断×裁决）",
+                    "系统对该题材/个股登记过的可证伪判断及最新裁决 hit/miss/partial/unverifiable，"
+                    "附数据新鲜度自检（裁决快照非新预测，未终态不作数）",
+                )
+
+            block_tasks.append(ask_planner.BlockTask("V", "回检块", _build_v))
         if options.include_market_value_block:
-            market_value_block = _market_value_block_for_llm(
-                options.query,
-                theme,
-                options.market_db_path,
-            )
-            result.d_block_stats.append(_d_block_stat("D1", "市场价值与替代队列", market_value_block))
-            if market_value_block:
-                evidence_text = f"{evidence_text}\n\n{market_value_block}"
-                citations.append(
-                    Citation(
-                        "D1",
-                        "本地 DuckDB 市场价值数据块",
-                        "CAR/峰后回撤/半衰期代理/同题材强势替代队列",
-                    )
+            def _build_d1():
+                block = _market_value_block_for_llm(options.query, theme, options.market_db_path)
+                return block, Citation(
+                    "D1",
+                    "本地 DuckDB 市场价值数据块",
+                    "CAR/峰后回撤/半衰期代理/同题材强势替代队列",
                 )
+
+            block_tasks.append(ask_planner.BlockTask("D1", "市场价值与替代队列", _build_d1))
         if options.include_mainline_context_block:
-            mainline_context_block = _mainline_context_block_for_llm(
-                options.query,
-                theme,
-                options.market_db_path,
-            )
-            result.d_block_stats.append(_d_block_stat("D4", "主线题材结构", mainline_context_block))
-            if mainline_context_block:
-                evidence_text = f"{evidence_text}\n\n{mainline_context_block}"
-                citations.append(
-                    Citation(
-                        "D4",
-                        "本地 DuckDB 主线题材结构数据块",
-                        "每日主线题材/核心板块/cycle_status/缩放量解释",
-                    )
+            def _build_d4():
+                block = _mainline_context_block_for_llm(options.query, theme, options.market_db_path)
+                return block, Citation(
+                    "D4",
+                    "本地 DuckDB 主线题材结构数据块",
+                    "每日主线题材/核心板块/cycle_status/缩放量解释",
                 )
+
+            block_tasks.append(ask_planner.BlockTask("D4", "主线题材结构", _build_d4))
         if options.include_customer_hardness_block:
-            customer_hardness_block = _customer_evidence_hardness_block_for_llm(evidence_chain, gap_lines)
-            result.d_block_stats.append(_d_block_stat("D2", "客户证据硬度", customer_hardness_block))
-            if customer_hardness_block:
-                evidence_text = f"{evidence_text}\n\n{customer_hardness_block}"
-                citations.append(
-                    Citation(
-                        "D2",
-                        "本地证据链客户硬度数据块",
-                        "客户/订单/量产/送样/验证证据按硬度分层",
-                    )
+            def _build_d2():
+                block = _customer_evidence_hardness_block_for_llm(evidence_chain, gap_lines)
+                return block, Citation(
+                    "D2",
+                    "本地证据链客户硬度数据块",
+                    "客户/订单/量产/送样/验证证据按硬度分层",
                 )
+
+            block_tasks.append(ask_planner.BlockTask("D2", "客户证据硬度", _build_d2))
+        if options.include_valuation_block and question_plan.question_type == QUESTION_VALUATION:
+            def _build_d5():
+                block = _valuation_block_for_llm(options.query, result.matched_theme, options.market_db_path)
+                return block, Citation(
+                    "D5",
+                    "东财快照估值数据块",
+                    "目标 PE/PB/市值 + 同题材可比估值带与横截面分位",
+                )
+
+            block_tasks.append(ask_planner.BlockTask("D5", "估值数据块", _build_d5))
+
+        outcomes = ask_planner.run_block_tasks(block_tasks, parallel=options.parallel_blocks)
+        d5_outcome: ask_planner.BlockOutcome | None = None
+        for outcome in outcomes:
+            if outcome.tag == "D5":
+                d5_outcome = outcome  # D5 按原有顺序在 D3 之后汇总
+                continue
+            evidence_text = _append_block_outcome(result, outcome, evidence_text, citations)
+        # D3 依赖此前累积的 evidence_text（文本兜底路径），必须在其他块汇总后串行生成。
         if options.include_second_derivative_block:
             second_derivative_block = _second_derivative_queue_block_for_llm(
                 options.query,
@@ -1005,22 +1000,8 @@ def answer_query(options: AskOptions) -> AskResult:
                         "强势替代表达/目标股再升级/产业瓶颈补盲",
                     )
                 )
-        if options.include_valuation_block and question_plan.question_type == QUESTION_VALUATION:
-            valuation_block = _valuation_block_for_llm(
-                options.query,
-                result.matched_theme,
-                options.market_db_path,
-            )
-            result.d_block_stats.append(_d_block_stat("D5", "估值数据块", valuation_block))
-            if valuation_block:
-                evidence_text = f"{evidence_text}\n\n{valuation_block}"
-                citations.append(
-                    Citation(
-                        "D5",
-                        "东财快照估值数据块",
-                        "目标 PE/PB/市值 + 同题材可比估值带与横截面分位",
-                    )
-                )
+        if d5_outcome is not None:
+            evidence_text = _append_block_outcome(result, d5_outcome, evidence_text, citations)
         citation_legend = "\n".join(
             f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
         )
@@ -1482,6 +1463,23 @@ def _extract_bottleneck_terms(text: str) -> list[str]:
     return out
 
 
+def _append_block_outcome(
+    result: AskResult,
+    outcome: ask_planner.BlockOutcome,
+    evidence_text: str,
+    citations: list[Citation],
+) -> str:
+    """把并行子任务的取数结果按原有串行语义汇总：登记可观测、拼 evidence、记引用。"""
+    if outcome.error:
+        result.warnings.append(f"{outcome.tag} {outcome.label}块生成失败（已降级为缺失）：{outcome.error}")
+    result.d_block_stats.append(_d_block_stat(outcome.tag, outcome.label, outcome.block))
+    if outcome.block:
+        evidence_text = f"{evidence_text}\n\n{outcome.block}"
+        if outcome.citation is not None:
+            citations.append(outcome.citation)
+    return evidence_text
+
+
 def _d_block_stat(tag: str, source: str, block: str | None) -> research_brief.DBlockStat:
     text = (block or "").strip()
     return research_brief.DBlockStat(
@@ -1858,6 +1856,13 @@ SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检�
 def render_answer(result: AskResult) -> str:
     lines: list[str] = []
     lines.append(f"# ask：{result.query}")
+    if result.clarify is not None:
+        lines.append("")
+        lines.append("## 【澄清追问】")
+        lines.extend(f"- {line}" for line in result.clarify.summary_lines())
+        lines.append("")
+        lines.append("（问题过于模糊，本次未检索；补充后重新提问，或用 --no-clarify 强制硬答。）")
+        return "\n".join(lines) + "\n"
     meta = [
         f"盘面日期={result.trade_date or '—'}",
         f"命中主题={result.matched_theme or '—'}",

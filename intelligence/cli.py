@@ -117,6 +117,16 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
         default=None,
         help="检索审计台账 JSONL 路径：每次回答追加一条 query→命中→质量记录（检索模式/命中分布/分数/降级/证据裁定/失败标签），供 recall 评估与失败样本复盘",
     )
+    parser.add_argument(
+        "--no-clarify",
+        action="store_true",
+        help="关闭澄清追问前置门（默认开：空问题/纯空泛词面先反问不硬答；带实质内容的问题不受影响）。",
+    )
+    parser.add_argument(
+        "--serial-blocks",
+        action="store_true",
+        help="关闭 compose 取数块并行（退回串行，调试用；输出与并行逐字节一致）。",
+    )
     parser.set_defaults(func=cmd_ask)
 
 
@@ -164,6 +174,11 @@ def add_chat_parser(subparsers: argparse._SubParsersAction) -> None:
         help="追问（可重复）。提供后走非交互：首轮+依次跑完所有追问即退出（便于脚本/演示）。"
         "不提供则进入交互 REPL（输入追问，空行 / exit / quit 退出）。",
     )
+    parser.add_argument(
+        "--no-clarify",
+        action="store_true",
+        help="关闭澄清追问前置门（默认开：首轮问题明确模糊时先反问、不烧整次检索）。",
+    )
     parser.set_defaults(func=cmd_chat)
 
 
@@ -194,6 +209,7 @@ def cmd_chat(args: argparse.Namespace) -> int:
             compose=True,
             user=args.user,
             experience_cards_window=args.experience_cards_window,
+            clarify=not args.no_clarify,
         ),
         model_override=args.llm_model,
         timeout=args.llm_timeout,
@@ -209,6 +225,9 @@ def cmd_chat(args: argparse.Namespace) -> int:
     print(f"# chat：{args.query}\n")
     first = conv.start()
     _emit(first)
+    if conv.first_result is not None and conv.first_result.clarify is not None:
+        # 澄清追问：结构化追问已作为首轮回复印出，用户补充后重新发起 chat。
+        return 0
     if first.composed and not args.no_score:
         _auto_score_answer(args.query, first.answer, user=args.user)
     if not conv.ready:
@@ -1133,8 +1152,16 @@ def cmd_ask(args: argparse.Namespace) -> int:
             use_l3_lookup=args.l3_lookup,
             l3_lookup_timeout=args.l3_lookup_timeout,
             l3_lookup_limit=args.l3_lookup_limit,
+            clarify=not args.no_clarify,
+            parallel_blocks=not args.serial_blocks,
         )
     )
+    if _result.clarify is not None:
+        # 澄清追问短路：印出结构化追问即退出（未检索、不评分）。
+        if args.summary_json:
+            summary.write_json(args.summary_json)
+        print(answer, end="")
+        return 0
     if args.summary_json:
         summary.write_json(args.summary_json)
     if args.brief_json:

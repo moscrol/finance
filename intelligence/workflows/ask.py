@@ -32,6 +32,8 @@ class AskWorkflowOptions:
     use_l3_lookup: bool = False
     l3_lookup_timeout: int = 480
     l3_lookup_limit: int = 5
+    clarify: bool = True
+    parallel_blocks: bool = True
 
 
 def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, str]:
@@ -66,9 +68,23 @@ def run_ask(options: AskWorkflowOptions) -> tuple[WorkflowSummary, AskResult, st
             use_l3_lookup=options.use_l3_lookup,
             l3_lookup_timeout=options.l3_lookup_timeout,
             l3_lookup_limit=options.l3_lookup_limit,
+            clarify=options.clarify,
+            parallel_blocks=options.parallel_blocks,
         )
     )
     answer = render_answer(result)
+    if result.clarify is not None:
+        # 澄清追问短路：本次未检索，只登记门控步骤；其余检索步骤不适用。
+        summary.steps.append(
+            WorkflowStep(
+                name="clarify-gate",
+                status="WARN",
+                outputs=[f"reason={result.clarify.reason}", f"questions={len(result.clarify.questions)}"],
+            )
+        )
+        summary.warnings = list(result.warnings)
+        summary.finish("WARN")
+        return summary, result, answer
     plan = result.question_plan
 
     summary.steps.append(
