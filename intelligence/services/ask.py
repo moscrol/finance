@@ -28,7 +28,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_timeseries, research_brief
+from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_midterm, market_timeseries, research_brief
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -151,6 +151,9 @@ class AskOptions:
     include_valuation_block: bool = True
     # D0 盘面时序直查数据块：仅当问题命中「白名单指标 × 过去 N 日逐日」时序取数意图时生成。
     include_timeseries_block: bool = True
+    # D6 多日/中期趋势数据块：仅当问题命中「中期/赔率/配置/未来 N 个月」时间尺度意图时生成，
+    # 给出题材近 N 日双红天数/成交额趋势/拥挤度分位，纠正 brief/D4 的当日快照偏置。
+    include_midterm_block: bool = True
     # 实体锚定：图谱语义检索前先做确定性实体解析（股票名/代码→entity_exposures 精确匹配），
     # 命中后用实体自身概念暴露定锚；未命中行为逐字节不变。
     use_entity_anchor: bool = True
@@ -798,6 +801,25 @@ def answer_query(options: AskOptions) -> AskResult:
                             "D0",
                             "本地 DuckDB 盘面时序直查数据块",
                             f"白名单指标逐日直查（{metric_labels}，过去 {ts_intent.window} 个交易日）",
+                        )
+                    )
+        if options.include_midterm_block:
+            midterm_intent = market_midterm.parse_midterm_intent(options.query)
+            if midterm_intent is not None:
+                midterm_block = market_midterm.midterm_trend_block_for_llm(
+                    options.query,
+                    theme,
+                    options.market_db_path,
+                    midterm_intent.window,
+                )
+                result.d_block_stats.append(_d_block_stat("D6", "多日中期趋势", midterm_block))
+                if midterm_block:
+                    evidence_text = f"{evidence_text}\n\n{midterm_block}"
+                    citations.append(
+                        Citation(
+                            "D6",
+                            "本地 DuckDB 多日/中期趋势数据块",
+                            f"题材近 {midterm_intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
                         )
                     )
         if options.include_market_value_block:
