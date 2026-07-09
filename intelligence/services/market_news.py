@@ -186,6 +186,7 @@ _REL_TIME_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(\d+)\s*d(?:ay)?s?\s*ago", re.I), "days"),
 )
 _ABS_CN_DATE_RE = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日")
+_ABS_US_DATE_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b")
 
 
 def _normalize_time_text(text: str) -> str:
@@ -207,6 +208,11 @@ def _normalize_time_text(text: str) -> str:
     m = _ABS_CN_DATE_RE.search(text)
     if m:
         return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+    m = _ABS_US_DATE_RE.search(text)
+    if m:  # Bing 英文卡片的 M/D/YYYY
+        return f"{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"
+    if not any(ch.isdigit() for ch in text):
+        return ""  # 非时间文本（如栏目标签「Opinion」），不充当日期
     return text
 
 

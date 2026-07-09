@@ -178,8 +178,12 @@ class NormalizeTimeTextTests(unittest.TestCase):
     def test_absolute_chinese_date(self) -> None:
         self.assertEqual(_normalize_time_text("2026年7月1日"), "2026-07-01")
 
-    def test_unparseable_passthrough(self) -> None:
-        self.assertEqual(_normalize_time_text("刚刚"), "刚刚")
+    def test_absolute_us_date(self) -> None:
+        self.assertEqual(_normalize_time_text("6/24/2026"), "2026-06-24")
+
+    def test_non_time_text_dropped(self) -> None:
+        self.assertEqual(_normalize_time_text("Opinion"), "")
+        self.assertEqual(_normalize_time_text("刚刚"), "")
         self.assertEqual(_normalize_time_text(""), "")
 
 
