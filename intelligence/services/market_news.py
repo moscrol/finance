@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -258,10 +259,16 @@ def fetch_web_access_news(
         target_id = str(created.get("targetId") or "").strip()
         if not target_id:
             return []
-        evaled = json.loads(
-            _proxy_request(proxy, f"/eval?target={target_id}", body=_BING_EXTRACT_JS, timeout=timeout)
-        )
-        rows = json.loads(evaled.get("value") or "[]")
+        # 新闻卡片是页面 load 之后异步渲染的，轮询直到出现或超时
+        rows: list[Any] = []
+        for _ in range(5):
+            evaled = json.loads(
+                _proxy_request(proxy, f"/eval?target={target_id}", body=_BING_EXTRACT_JS, timeout=timeout)
+            )
+            rows = json.loads(evaled.get("value") or "[]")
+            if rows:
+                break
+            time.sleep(1.5)
     except Exception:
         return []
     finally:
