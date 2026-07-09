@@ -8,7 +8,21 @@ from datetime import date
 from pathlib import Path
 
 
-VAULT = Path(os.path.expanduser(os.environ.get("CONCEPT_VAULT", os.environ.get("ENTITY_VAULT", "~/Desktop/c c/知识库/wiki"))))
+def _resolve_vault():
+    for env in ("CONCEPT_VAULT", "ENTITY_VAULT"):
+        value = os.environ.get(env)
+        if value:
+            return Path(os.path.expanduser(value))
+    for cand in (
+        Path(os.path.expanduser("~/Desktop/c c/知识库/wiki")),
+        Path.home() / "repos" / "knowledge-base-private" / "wiki",
+    ):
+        if cand.exists():
+            return cand
+    return Path(os.path.expanduser("~/Desktop/c c/知识库/wiki"))
+
+
+VAULT = _resolve_vault()
 RELATIONS_DIR = VAULT / "relations"
 
 
@@ -158,6 +172,9 @@ def update_concept_graph(
         "sources": [],
         "confidence": normalize_confidence(confidence),
     })
+    if not isinstance(node.get("supply_chain"), dict):
+        legacy = node.get("supply_chain") or []
+        node["supply_chain"] = {"未分层": [str(v) for v in legacy]} if legacy else {}
     node["confidence"] = normalize_confidence(confidence or node.get("confidence"))
     if source_name:
         source_link = wikilink(source_name)
