@@ -28,7 +28,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_midterm, market_timeseries, research_brief
+from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_midterm, market_timeseries, research_brief
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -154,6 +154,9 @@ class AskOptions:
     # D6 多日/中期趋势数据块：仅当问题命中「中期/赔率/配置/未来 N 个月」时间尺度意图时生成，
     # 给出题材近 N 日双红天数/成交额趋势/拥挤度分位，纠正 brief/D4 的当日快照偏置。
     include_midterm_block: bool = True
+    # D7 逐季财报数据块：仅当问题命中「财报/业绩/营收/净利/毛利率」意图且能解析到目标股时生成，
+    # 走东财免费 F10 取逐季营收/归母净利/毛利率/净利率（+同比），补业绩兑现节奏缺口。
+    include_financials_block: bool = True
     # 实体锚定：图谱语义检索前先做确定性实体解析（股票名/代码→entity_exposures 精确匹配），
     # 命中后用实体自身概念暴露定锚；未命中行为逐字节不变。
     use_entity_anchor: bool = True
@@ -822,6 +825,21 @@ def answer_query(options: AskOptions) -> AskResult:
                             f"题材近 {midterm_intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
                         )
                     )
+        if options.include_financials_block and market_financials.parse_financials_intent(options.query):
+            financials_block = _financials_block_for_llm(
+                options.query,
+                options.market_db_path,
+            )
+            result.d_block_stats.append(_d_block_stat("D7", "逐季财报", financials_block))
+            if financials_block:
+                evidence_text = f"{evidence_text}\n\n{financials_block}"
+                citations.append(
+                    Citation(
+                        "D7",
+                        "东财 F10 逐季财报数据块",
+                        "目标近 N 期累计营收/归母净利/毛利率/净利率（+同比），业绩兑现节奏视角",
+                    )
+                )
         if options.include_market_value_block:
             market_value_block = _market_value_block_for_llm(
                 options.query,
@@ -1629,6 +1647,42 @@ def _valuation_block_for_llm(
     target = fetch(target_code, target_name)
     peers = valuation_estimate.snapshots_for(peer_codes, fetcher=fetch)
     return valuation_estimate.build_valuation_block(target, peers)
+
+
+def _financials_block_for_llm(
+    query: str,
+    market_db_path: str | Path | None,
+    fetcher: Any = None,
+) -> str:
+    """Build the D7 quarterly-financials block for a single target stock.
+
+    目标股从本地 DuckDB 解析（代码/名称），逐季财务走东财免费 F10（market_financials）；
+    解析不到目标股时返回空串（不追加块），网络/库不可用时返回带显式缺口的块。
+    """
+    if not market_financials.fetch_enabled():
+        return market_financials.build_financials_block("", "", [], fetch_disabled=True)
+    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    target_code: str | None = None
+    target_name = ""
+    if db_path.exists():
+        try:
+            import duckdb  # type: ignore
+
+            con = duckdb.connect(str(db_path), read_only=True)
+            try:
+                stock = _resolve_stock_for_market_block(con, query)
+                if stock:
+                    target_code, target_name = stock
+            finally:
+                con.close()
+        except Exception:
+            pass
+    if target_code is None:
+        code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
+        if not code_match:
+            return ""
+        target_code = code_match.group(0)
+    return market_financials.financials_block_for_target(target_code, target_name, fetcher=fetcher)
 
 
 def _format_alternative_queue_lines(con: Any, latest_date: Any, stock_code: str, sector_names: list[str]) -> list[str]:
