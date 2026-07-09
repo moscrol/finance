@@ -28,7 +28,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_midterm, market_timeseries, research_brief
+from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_midterm, market_news, market_timeseries, research_brief
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -157,6 +157,9 @@ class AskOptions:
     # D7 逐季财报数据块：仅当问题命中「财报/业绩/营收/净利/毛利率」意图且能解析到目标股时生成，
     # 走东财免费 F10 取逐季营收/归母净利/毛利率/净利率（+同比），补业绩兑现节奏缺口。
     include_financials_block: bool = True
+    # W7 web 事件检索块：仅当问题命中「事件/消息/催化/涨价/对标」意图且能解析到关键词（实体/题材）时生成，
+    # 走东财免费资讯搜索取近 N 天新闻（日期/来源/标题/链接），只列不编，补消息面缺口。
+    include_news_block: bool = True
     # 实体锚定：图谱语义检索前先做确定性实体解析（股票名/代码→entity_exposures 精确匹配），
     # 命中后用实体自身概念暴露定锚；未命中行为逐字节不变。
     use_entity_anchor: bool = True
