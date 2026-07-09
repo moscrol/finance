@@ -28,7 +28,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_midterm, market_news, market_timeseries, research_brief, user_memory
+from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, research_brief, user_memory
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -154,6 +154,9 @@ class AskOptions:
     # D6 多日/中期趋势数据块：仅当问题命中「中期/赔率/配置/未来 N 个月」时间尺度意图时生成，
     # 给出题材近 N 日双红天数/成交额趋势/拥挤度分位，纠正 brief/D4 的当日快照偏置。
     include_midterm_block: bool = True
+    # D8 历史类比检索块：仅当问题命中「类似/历史上/上一次/先例」意图时生成，从题材自身历史
+    # 找与当前 N 日形态最相似的窗口及其后续 5/10/20 日实际走法，只列历史事实不给概率。
+    include_analog_block: bool = True
     # D7 逐季财报数据块：仅当问题命中「财报/业绩/营收/净利/毛利率」意图且能解析到目标股时生成，
     # 走东财免费 F10 取逐季营收/归母净利/毛利率/净利率（+同比），补业绩兑现节奏缺口。
     include_financials_block: bool = True
@@ -831,6 +834,22 @@ def answer_query(options: AskOptions) -> AskResult:
                             f"题材近 {midterm_intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
                         )
                     )
+        if options.include_analog_block and market_analogs.parse_analog_intent(options.query):
+            analog_block = market_analogs.analog_block_for_llm(
+                options.query,
+                theme,
+                options.market_db_path,
+            )
+            result.d_block_stats.append(_d_block_stat("D8", "历史类比检索", analog_block))
+            if analog_block:
+                evidence_text = f"{evidence_text}\n\n{analog_block}"
+                citations.append(
+                    Citation(
+                        "D8",
+                        "本地 DuckDB 历史类比检索数据块",
+                        f"题材自身历史上与当前 {market_analogs.DEFAULT_WINDOW} 日形态最相似窗口及后续 5/10/20 日实际走法（小样本历史事实，非概率预测）",
+                    )
+                )
         if options.include_financials_block and market_financials.parse_financials_intent(options.query):
             financials_block = _financials_block_for_llm(
                 options.query,
