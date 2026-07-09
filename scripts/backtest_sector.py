@@ -155,8 +155,11 @@ class SignalDetector:
 
     三种信号：
     1. 大盘放量 — 成交额较前日增长 > 10%
-    2. MA5 峰次日 — MA5 大波段顶点的下一个交易日
-    3. MA5 谷次日 — MA5 大波段底点的下一个交易日
+    2. MA5 峰确认 — MA5 自波段高点回落 ≥ 阈值的当日（确认日）
+    3. MA5 谷确认 — MA5 自波段低点回升 ≥ 阈值的当日（确认日）
+
+    峰/谷信号只在确认日发出，且只用截至确认日的数据（无前视）；
+    追加未来数据不会改变已发出的历史信号。
     """
 
     def __init__(self,
@@ -199,29 +202,28 @@ class SignalDetector:
                     ))
             prev_vol = vol
 
-        # --- 信号2 & 3: MA5 峰/谷次日 ---
+        # --- 信号2 & 3: MA5 峰/谷确认日 ---
         pivots = self._find_pivots(adv_dict, dates)
         for d in dates:
-            idx = dates.index(d)
-            if idx == 0:
-                continue
-            prev_d = dates[idx - 1]
-            if prev_d in pivots:
-                pt = pivots[prev_d]
+            if d in pivots:
+                pt, pivot_date, pivot_ma5 = pivots[d]
                 signals.append(Signal(
                     date=d,
-                    type=f"{'peak' if pt == 'peak' else 'valley'}_next",
-                    detail=f"{'顶' if pt == 'peak' else '谷'}点日 {prev_d} MA5={adv_dict[prev_d]['ma5']:.0f}",
+                    type=f"{'peak' if pt == 'peak' else 'valley'}_confirmed",
+                    detail=f"{'顶' if pt == 'peak' else '谷'}点日 {pivot_date} MA5={pivot_ma5:.0f} 于 {d} 确认",
                     ma5=adv_dict[d]["ma5"] if d in adv_dict else None,
                 ))
 
         # 去重 + 按日期排序（同一天可能有多个信号，合并）
         return self._dedup_signals(signals)
 
-    def _find_pivots(self, adv_dict: dict, dates: list[str]) -> dict[str, str]:
-        """Zigzag 算法找 MA5 大波段峰谷。
+    def _find_pivots(self, adv_dict: dict, dates: list[str]) -> dict[str, tuple[str, str, float]]:
+        """Zigzag 算法找 MA5 大波段峰谷（流式、无前视）。
 
-        返回 {date: 'peak'|'valley'}
+        峰/谷只在「确认日」产出：即 MA5 相对此前波段极值反向波动 ≥ 阈值的当日。
+        每个确认只依赖截至确认日的数据，因此追加未来数据不会改变已产出的结果。
+
+        返回 {确认日: (pivot_type 'peak'|'valley', 极值日, 极值MA5)}
         """
         # 构建 MA5 序列
         ma5_seq = []
@@ -230,47 +232,44 @@ class SignalDetector:
             if a and a["ma5"] is not None:
                 ma5_seq.append((d, a["ma5"]))
 
-        if len(ma5_seq) < 3:
+        if len(ma5_seq) < 2:
             return {}
 
-        pivots = [ma5_seq[0]]
+        confirms: dict[str, tuple[str, str, float]] = {}
+        hi_date, hi = ma5_seq[0]
+        lo_date, lo = ma5_seq[0]
         direction = None  # 1=up, -1=down
 
-        for i in range(1, len(ma5_seq)):
-            cur_date, cur_ma5 = ma5_seq[i]
-            _, last_ma5 = pivots[-1]
-
+        for cur_date, cur_ma5 in ma5_seq[1:]:
             if direction is None:
-                if cur_ma5 > last_ma5:
+                if cur_ma5 > hi:
+                    hi_date, hi = cur_date, cur_ma5
+                if cur_ma5 < lo:
+                    lo_date, lo = cur_date, cur_ma5
+                if hi - cur_ma5 >= self.ma5_min_swing:
+                    confirms[cur_date] = ("peak", hi_date, hi)
+                    direction = -1
+                    lo_date, lo = cur_date, cur_ma5
+                elif cur_ma5 - lo >= self.ma5_min_swing:
+                    confirms[cur_date] = ("valley", lo_date, lo)
                     direction = 1
-                elif cur_ma5 < last_ma5:
+                    hi_date, hi = cur_date, cur_ma5
+            elif direction == 1:
+                if cur_ma5 > hi:
+                    hi_date, hi = cur_date, cur_ma5
+                elif hi - cur_ma5 >= self.ma5_min_swing:
+                    confirms[cur_date] = ("peak", hi_date, hi)
                     direction = -1
-                if direction == 1 and cur_ma5 > last_ma5:
-                    pivots[-1] = (cur_date, cur_ma5)
-                elif direction == -1 and cur_ma5 < last_ma5:
-                    pivots[-1] = (cur_date, cur_ma5)
-                continue
-
-            if direction == 1:
-                if cur_ma5 > last_ma5:
-                    pivots[-1] = (cur_date, cur_ma5)
-                elif last_ma5 - cur_ma5 >= self.ma5_min_swing:
-                    pivots.append((cur_date, cur_ma5))
-                    direction = -1
+                    lo_date, lo = cur_date, cur_ma5
             else:
-                if cur_ma5 < last_ma5:
-                    pivots[-1] = (cur_date, cur_ma5)
-                elif cur_ma5 - last_ma5 >= self.ma5_min_swing:
-                    pivots.append((cur_date, cur_ma5))
+                if cur_ma5 < lo:
+                    lo_date, lo = cur_date, cur_ma5
+                elif cur_ma5 - lo >= self.ma5_min_swing:
+                    confirms[cur_date] = ("valley", lo_date, lo)
                     direction = 1
+                    hi_date, hi = cur_date, cur_ma5
 
-        result = {}
-        for i, (pdate, pma5) in enumerate(pivots):
-            if i == 0:
-                continue
-            prev_pma5 = pivots[i - 1][1]
-            result[pdate] = "peak" if pma5 > prev_pma5 else "valley"
-        return result
+        return confirms
 
     def _dedup_signals(self, signals: list[Signal]) -> list[Signal]:
         """合并同一天的多个信号。"""
@@ -345,7 +344,8 @@ class SectorBacktestEngine:
                  min_marginal: float = DEFAULT_MIN_MARGINAL,
                  min_pct_chg: float = DEFAULT_MIN_PCT_CHG,
                  initial_capital: float = 1_000_000.0,
-                 allow_overlap: bool = False):
+                 allow_overlap: bool = False,
+                 provider: SectorDataProvider | None = None):
         self.top_n = top_n
         self.hold_days = hold_days
         self.min_marginal = min_marginal
@@ -353,7 +353,7 @@ class SectorBacktestEngine:
         self.initial_capital = initial_capital
         self.allow_overlap = allow_overlap  # 是否允许重叠持仓
 
-        self.provider = SectorDataProvider()
+        self.provider = provider if provider is not None else SectorDataProvider()
 
     def run(self, start: str, end: str) -> BacktestResult:
         """执行回测。"""
@@ -429,15 +429,16 @@ class SectorBacktestEngine:
             for pos in closed_today:
                 active_positions.remove(pos)
 
-            # --- 检查信号 ---
+            # --- 检查信号（信号日收盘后确认，次一交易日入场） ---
             if date in signal_dates:
                 can_enter = self.allow_overlap or len(active_positions) == 0
-                has_exit_date = i + self.hold_days <= len(trading_dates) - 1
+                entry_idx = i + 1
+                exit_idx = entry_idx + self.hold_days
+                has_exit_date = exit_idx <= len(trading_dates) - 1
                 if can_enter and capital > 0 and has_exit_date:
                     sectors = self._select_sectors(date, trading_dates)
                     if sectors:
-                        # 计算出场日
-                        exit_idx = i + self.hold_days
+                        entry_date = trading_dates[entry_idx]
                         exit_date = trading_dates[exit_idx]
 
                         # 等权分配资金
@@ -447,13 +448,15 @@ class SectorBacktestEngine:
                         alloc = capital if not self.allow_overlap else capital * 0.5
 
                         active_positions.append(
-                            (date, exit_date, sectors, alloc, signal_map[date].type)
+                            (entry_date, exit_date, sectors, alloc, signal_map[date].type)
                         )
 
             # --- 记录当日净值 ---
             # 未实现盈亏 = 活跃仓位的当日价值变化
             unrealized = 0.0
             for entry_d, exit_d, sectors, entry_cap, _ in active_positions:
+                if date < entry_d:
+                    continue
                 for sec in sectors:
                     r = self._calc_return(sector_prices, sec, entry_d, date)
                     if r is not None:
