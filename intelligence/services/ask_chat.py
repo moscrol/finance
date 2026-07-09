@@ -70,6 +70,17 @@ class AskConversation:
         """Run turn-1: full multi-source retrieval + 有机合成."""
         result = answer_query(self.options)
         self.first_result = result
+        if result.clarify is not None:
+            # 澄清追问：本次未检索，把结构化追问作为一轮对话回给用户；
+            # 用户补充后作为新首轮重新提问（不占用 turn-1 的证据上下文）。
+            turn = ConversationTurn(
+                question=self.options.query,
+                answer="\n".join(result.clarify.summary_lines()),
+                composed=False,
+                warning="澄清追问：问题过于模糊，本次未检索；请补充后重新提问。",
+            )
+            self.turns.append(turn)
+            return turn
         if result.synthesis and result.synthesis_messages:
             self.messages = list(result.synthesis_messages)
             turn = ConversationTurn(
