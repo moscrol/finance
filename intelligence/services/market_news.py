@@ -87,15 +87,42 @@ def parse_news_intent(query: str) -> bool:
     return any(term in text for term in _NEWS_TERMS)
 
 
+# 从问句兼射关键词时要剥离的脚手架：时间窗口词 + 提问/意图词（确定性词面，非 NLP）。
+_QUERY_SCAFFOLD_RE = re.compile(
+    r"(最近|近|过去)?\s*\d+\s*(天|个月|月|周|年)内?"
+    r"|最近|近期|目前|现在|今年|今天"
+    r"|有什么|什么|哪些|有没有|是否|怎么样|如何|为什么"
+    r"|实质|重大|重要|相关"
+    r"|催化|进展|消息|事件|新闻|资讯|发生了|变化|动态"
+    r"|[？?吗呢吧。，,、\s]"
+)
+
+
+def _extract_query_keyword(query: str) -> str | None:
+    """无实体/题材可锚时的兜底：从问句里剥离时间窗口词与提问/意图词，取剩余主题词。
+    纯确定性正则剥离（非 NLP）；剩余过长/过短视为提不出主题，返回 None 不检索。"""
+    text = str(query or "").strip()
+    if not text:
+        return None
+    kw = _QUERY_SCAFFOLD_RE.sub("", text).strip()
+    if 2 <= len(kw) <= 16:
+        return kw
+    return None
+
+
 def resolve_news_keyword(
     query: str, theme: str | None = None, entity: str | None = None
 ) -> str | None:
-    """检索关键词：实体锚定名 > 匹配题材名（都无则不检索）。"""
+    """检索关键词：实体锚定名 > 匹配题材名 > 问句剥离兜底（都无则不检索）。
+
+    注意：theme 入参应传真实匹配到的题材（matched_theme），不要传「题材兼射不到就用
+    整句 query」的兜底值：整句问题当检索词会导致标题搜索零命中（PQC 回归的根因）。"""
+    query_text = str(query or "").strip()
     for cand in (entity, theme):
         cand = (cand or "").strip()
-        if cand:
+        if cand and cand != query_text:
             return cand
-    return None
+    return _extract_query_keyword(query_text)
 
 
 def _within_days(date_str: str, within_days: int) -> bool:

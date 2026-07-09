@@ -59,6 +59,21 @@ class ResolveKeywordTests(unittest.TestCase):
     def test_none_when_both_missing(self) -> None:
         self.assertIsNone(resolve_news_keyword("q", theme=None, entity=""))
 
+    def test_query_fallback_strips_scaffolding(self) -> None:
+        self.assertEqual(
+            resolve_news_keyword("后量子密码最近90天有什么实质催化", theme=None, entity=None),
+            "后量子密码",
+        )
+
+    def test_theme_equal_to_query_falls_through_to_extraction(self) -> None:
+        q = "后量子密码最近90天有什么实质催化"
+        self.assertEqual(resolve_news_keyword(q, theme=q, entity=None), "后量子密码")
+
+    def test_query_fallback_none_when_residual_too_long(self) -> None:
+        self.assertIsNone(
+            resolve_news_keyword("请帮我系统性梳理一下整个半导体产业链上下游各环节的所有相关公司情况如何", theme=None, entity=None)
+        )
+
 
 class WithinDaysTests(unittest.TestCase):
     def test_recent_kept(self) -> None:
