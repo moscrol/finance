@@ -28,7 +28,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, research_brief
+from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_midterm, market_timeseries, research_brief
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -149,6 +149,14 @@ class AskOptions:
     include_mainline_context_block: bool = True
     # D5 估值数据块：仅 valuation 问题类型 + compose 时生成（东财快照取数，可用 FINANCE_VALUATION_FETCH=0 关闭）。
     include_valuation_block: bool = True
+    # D0 盘面时序直查数据块：仅当问题命中「白名单指标 × 过去 N 日逐日」时序取数意图时生成。
+    include_timeseries_block: bool = True
+    # D6 多日/中期趋势数据块：仅当问题命中「中期/赔率/配置/未来 N 个月」时间尺度意图时生成，
+    # 给出题材近 N 日双红天数/成交额趋势/拥挤度分位，纠正 brief/D4 的当日快照偏置。
+    include_midterm_block: bool = True
+    # 实体锚定：图谱语义检索前先做确定性实体解析（股票名/代码→entity_exposures 精确匹配），
+    # 命中后用实体自身概念暴露定锚；未命中行为逐字节不变。
+    use_entity_anchor: bool = True
     # L3 runtime evidence tools: official announcements / exchange interaction.
     use_l3_lookup: bool = False
     l3_lookup_timeout: int = 480
@@ -187,6 +195,8 @@ class AskResult:
     synthesis_messages: list[dict] | None = None
     # 问答编排层：先解析问题类型/深度/视角/证据计划，再进入 compose。
     question_plan: QuestionPlan | None = None
+    # 实体锚定结果：确定性实体解析命中的实体与锚定概念；None=未命中/未启用。
+    anchored_entity: entity_anchor.EntityAnchor | None = None
     # 行情前瞻前置查漏门：从 daily-agent research_queue 判断是否应先补 DeepDive / L3 证据。
     forecast_preflight: dict[str, Any] | None = None
     # 运行时 L3 官方证据补查。默认空；只有 use_l3_lookup 时才尝试调用外接 CLI。
@@ -349,6 +359,15 @@ def answer_query(options: AskOptions) -> AskResult:
         if not result.forecast_preflight.get("can_generate_formal"):
             result.warnings.append(f"forecast-preflight：{result.forecast_preflight.get('human_summary')}")
 
+    anchor: entity_anchor.EntityAnchor | None = None
+    if options.use_entity_anchor:
+        anchor = entity_anchor.resolve_entity_anchor(options.query, knowledge)
+    result.anchored_entity = anchor
+    if anchor is not None:
+        result.warnings.extend(f"entity-anchor：{w}" for w in anchor.warnings)
+    # 命中实体后，图谱/向量检索用「实体名+概念暴露」定锚，替代问题原文；未命中保持原文。
+    graph_query = anchor.graph_query if anchor is not None else options.query
+
     citations: list[Citation] = []
 
     def cite(prefix: str, source: str, detail: str = "") -> str:
@@ -382,7 +401,11 @@ def answer_query(options: AskOptions) -> AskResult:
 
     # --- G: graph (concepts + company tiers) from KB relations ---
     graph_concept_lines: list[str] = []
-    concepts = knowledge.get_concept_matches(options.query, limit=options.top_concepts)
+    if anchor is not None:
+        result.found_graph = True
+        tag = cite("G", "knowledge-base · wiki/relations/entity_exposures.json", f"实体解析 matched_by={anchor.matched_by}")
+        graph_concept_lines.append(f"{anchor.summary()} {tag}")
+    concepts = knowledge.get_concept_matches(graph_query, limit=options.top_concepts)
     if concepts.get("found"):
         result.found_graph = True
         names = "、".join(f"{i['concept']}({i['score']})" for i in concepts["items"])
@@ -390,7 +413,7 @@ def answer_query(options: AskOptions) -> AskResult:
         graph_concept_lines.append(f"命中概念：{names} {tag}")
 
     company_lines: list[str] = []
-    exposures = knowledge.get_exposure_matches(options.query, limit=options.top_companies)
+    exposures = knowledge.get_exposure_matches(graph_query, limit=options.top_companies)
     tiers: dict[str, list[str]] = {"core": [], "peripheral": [], "other": []}
     if exposures.get("found"):
         result.found_graph = True
@@ -418,6 +441,8 @@ def answer_query(options: AskOptions) -> AskResult:
     stale_notes: list[str] = []
     seen_evidence: set[str] = set()
     targets: list[str] = []
+    if anchor is not None:
+        targets.append(anchor.entity)
     if result.matched_theme:
         targets.append(result.matched_theme)
     targets.append(options.query)
@@ -476,7 +501,7 @@ def answer_query(options: AskOptions) -> AskResult:
     }
     if options.use_wiki_rag:
         wr = kb_rag.retrieve(
-            options.query,
+            graph_query,
             resolved_kb_wiki,
             k=options.wiki_rag_k,
             mode=options.wiki_rag_mode,
@@ -517,7 +542,7 @@ def answer_query(options: AskOptions) -> AskResult:
         routed = route_modules(options.query, list(options.modules) if options.modules else None)
         result.routed_modules = list(routed)
         for name in routed:
-            mr = run_module(name, options.query, resolved_kb_wiki, options.module_timeout)
+            mr = run_module(name, graph_query, resolved_kb_wiki, options.module_timeout)
             module_block.append(f"{SUBHEAD}模块·{MODULE_LABELS.get(name, name)}")
             if mr.ok and mr.highlights:
                 result.found_graph = True
@@ -734,6 +759,7 @@ def answer_query(options: AskOptions) -> AskResult:
     # --- ③ optional 有机合成 (compose): 把多源证据融成一段自由形态、带内联引用的回答 ---
     if not options.compose:
         result.d_block_stats = [
+            research_brief.DBlockStat("D0", "盘面时序直查", note="仅 --compose + 时序取数意图生成"),
             research_brief.DBlockStat("D1", "市场价值与替代队列", note="仅 --compose 路径生成"),
             research_brief.DBlockStat("D2", "客户证据硬度", note="仅 --compose 路径生成"),
             research_brief.DBlockStat("D3", "二阶导研究队列", note="仅 --compose 路径生成"),
@@ -762,6 +788,40 @@ def answer_query(options: AskOptions) -> AskResult:
             evidence_text = f"{evidence_text}\n\n{result.valuation_note.to_prompt_block()}"
         if result.forecast_preflight is not None:
             evidence_text = f"{evidence_text}\n\n{forecast_preflight.render_preflight_prompt(result.forecast_preflight)}"
+        if options.include_timeseries_block:
+            ts_intent = market_timeseries.parse_timeseries_intent(options.query)
+            if ts_intent is not None:
+                timeseries_block = market_timeseries.timeseries_block_for_llm(ts_intent, options.market_db_path)
+                result.d_block_stats.append(_d_block_stat("D0", "盘面时序直查", timeseries_block))
+                if timeseries_block:
+                    evidence_text = f"{evidence_text}\n\n{timeseries_block}"
+                    metric_labels = "/".join(spec.label for spec in ts_intent.metrics)
+                    citations.append(
+                        Citation(
+                            "D0",
+                            "本地 DuckDB 盘面时序直查数据块",
+                            f"白名单指标逐日直查（{metric_labels}，过去 {ts_intent.window} 个交易日）",
+                        )
+                    )
+        if options.include_midterm_block:
+            midterm_intent = market_midterm.parse_midterm_intent(options.query)
+            if midterm_intent is not None:
+                midterm_block = market_midterm.midterm_trend_block_for_llm(
+                    options.query,
+                    theme,
+                    options.market_db_path,
+                    midterm_intent.window,
+                )
+                result.d_block_stats.append(_d_block_stat("D6", "多日中期趋势", midterm_block))
+                if midterm_block:
+                    evidence_text = f"{evidence_text}\n\n{midterm_block}"
+                    citations.append(
+                        Citation(
+                            "D6",
+                            "本地 DuckDB 多日/中期趋势数据块",
+                            f"题材近 {midterm_intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
+                        )
+                    )
         if options.include_market_value_block:
             market_value_block = _market_value_block_for_llm(
                 options.query,
