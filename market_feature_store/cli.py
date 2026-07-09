@@ -6,6 +6,7 @@
 """
 import argparse
 import sys
+from pathlib import Path
 
 from . import __version__
 from .db import DB_PATH, connect, init_db, list_tables

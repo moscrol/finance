@@ -23,6 +23,15 @@ GAP_TABLES = [
     "fact_stock_daily",
 ]
 
+# 行数异常收缩只查"宇宙规模近似恒定"的结构表；新高/涨停/晋级类表行数随行情天然大幅波动，
+# 用中位数收缩比会天天误报（Mac 真实库验证：新高家数 139 vs 中位 367 属正常市况）。
+ROW_ANOMALY_TABLES = [
+    "fact_sector_daily",
+    "fact_sw_l1_daily",
+    "fact_sector_stock_daily",
+    "fact_stock_daily",
+]
+
 # (字段, 下限, 上限)；None = 不设界。基于 A 股常识口径，宁松勿严，只拦明显脏数。
 MARKET_VALUE_RANGES: list[tuple[str, float | None, float | None]] = [
     ("total_amount", 1.0, None),
@@ -103,7 +112,7 @@ def row_count_anomalies(
     con = con or _connect_ro()
     try:
         anomalies: list[dict[str, Any]] = []
-        for table in tables or GAP_TABLES:
+        for table in tables or ROW_ANOMALY_TABLES:
             today = con.execute(
                 f"SELECT COUNT(*) FROM {table} WHERE trade_date = ?", [trade_date]
             ).fetchone()[0]
