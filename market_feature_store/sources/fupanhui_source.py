@@ -22,6 +22,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 CDP_PROXY = os.environ.get("CDP_HOST", "http://localhost:3456")
 FUPANHUI_BASE = "https://fupanhui.com"
@@ -125,8 +126,44 @@ def cdp_eval(js_expr: str, timeout: int = 120, retries: int = 3):
     raise FupanhuiError(f"CDP eval 失败: {last_error}") from last_error
 
 
+# 直连模式：reviews/topics 等端点实测不校验登录，直接 HTTPS 请求比 CDP 快且稳
+# （不依赖 Chrome 标签页状态）。默认开启；FUPANHUI_DIRECT=0 退回纯 CDP 路径。
+# 直连失败（401/403 或网络错误）自动兜底走 CDP，认证端点行为不变。
+DIRECT_MODE = os.environ.get("FUPANHUI_DIRECT", "1") != "0"
+
+
+def _direct_api_get(api_path: str, params: dict | None = None, timeout: int = 30):
+    """直连 HTTPS 请求（api_path 为含 /api/v1/client 的完整路径），解析并返回 data 字段。"""
+    query = ""
+    if params:
+        items = [(k, v) for k, v in params.items() if v is not None]
+        if items:
+            query = "?" + urllib.parse.urlencode(items)
+    url = f"{FUPANHUI_BASE}{api_path}{query}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = resp.read().decode()
+    parsed = json.loads(raw)
+    code = parsed.get("code") if isinstance(parsed, dict) else None
+    if code not in (None, 0, 200):
+        msg = parsed.get("message") or parsed.get("msg") or "unknown"
+        raise FupanhuiError(f"API 错误 {code} ({api_path}): {msg}")
+    if isinstance(parsed, dict) and "data" in parsed:
+        return parsed["data"]
+    return parsed
+
+
 def api_get(api_path: str, params: dict | None = None, timeout: int = 60):
-    """在浏览器内同步 fetch 一个 fupanhui API, 解析并返回 data 字段。"""
+    """请求一个 fupanhui API, 解析并返回 data 字段。
+
+    直连模式下先直接 HTTPS 请求；失败（需登录/网络错误）再回退到浏览器内 fetch。"""
+    if DIRECT_MODE:
+        try:
+            return _direct_api_get(api_path, params, timeout=min(timeout, 30))
+        except FupanhuiError:
+            raise
+        except Exception:  # noqa: BLE001 - 401/超时等，回退 CDP
+            pass
     query = ""
     if params:
         items = [(k, v) for k, v in params.items() if v is not None]
@@ -190,6 +227,30 @@ def api_get_public(api_path: str, params: dict | None = None, timeout: int = 30)
     if isinstance(parsed, dict) and "data" in parsed:
         return parsed["data"]
     return parsed
+
+
+def _direct_batch(ts_codes: list, fetch_one, concurrency: int):
+    """直连批量抓取：线程池并发（IO 等待型，线程数=原 JS 批并发数）。
+
+    单个 code 失败返回空结果（与 CDP 路径 JS 的 catch 行为一致，调用方按缺失重试）；
+    全部失败则抛错，让调用方回退 CDP 路径。"""
+    results = []
+    failures = []
+
+    def _safe(ts):
+        try:
+            return fetch_one(ts)
+        except Exception as e:  # noqa: BLE001
+            failures.append(e)
+            return None
+
+    with ThreadPoolExecutor(max_workers=max(1, int(concurrency))) as pool:
+        for r in pool.map(_safe, ts_codes):
+            if r is not None:
+                results.append(r)
+    if not results and failures:
+        raise FupanhuiError(f"直连批量全部失败: {failures[0]}") from failures[0]
+    return results
 
 
 # ── 公开 API 便捷函数 ──────────────────────────────────────
@@ -308,6 +369,24 @@ def get_sector_klines_batch(
     复盘会 kline 要求 days>=20, 这里强制下限。
     """
     days = max(int(days), 20)
+    if DIRECT_MODE:
+        params = {"days": days, "period": "daily", "mode": "auto"}
+        if trade_date:
+            params["trade_date"] = trade_date
+
+        def _one_kline(ts):
+            d = _direct_api_get(f"/api/v1/client/reviews/sector-cycle/{ts}/kline", params)
+            k = (d or {}).get("kline") or [] if isinstance(d, dict) else []
+            return ts, [
+                {"trade_date": (x.get("date") or x.get("trade_date")), "pct_chg": x.get("pct_chg"),
+                 "diff_ratio": x.get("diff_ratio"), "amount": x.get("amount")}
+                for x in k
+            ]
+
+        try:
+            return dict(_direct_batch(ts_codes, _one_kline, batch))
+        except Exception:  # noqa: BLE001 - 直连失败回退 CDP
+            pass
     codes_json = json.dumps(ts_codes)
     td_param = f"&trade_date={trade_date}" if trade_date else ""
     js = (
@@ -351,6 +430,28 @@ def get_sector_stocks_batch(
     调用方应分块 (chunk) 传入, 控制单次 eval 响应大小。
     slim 字段与 fact_sector_stock_daily 所需列对齐 (含 p3/hs/hl/lt/rt/cm/lsp)。
     """
+    if DIRECT_MODE:
+        params = {"trade_date": trade_date} if trade_date else None
+
+        def _one_stocks(ts):
+            dd = _direct_api_get(f"/api/v1/client/reviews/sector-cycle/{ts}/stocks", params)
+            dd = dd if isinstance(dd, dict) else {}
+            arr = [
+                {"c": s.get("ts_code"), "n": s.get("name"), "p": s.get("price"),
+                 "pc": s.get("pct_chg"), "a": s.get("amount"), "p3": s.get("pct_chg_3d"),
+                 "p5": s.get("pct_chg_5d"), "p10": s.get("pct_chg_10d"), "p20": s.get("pct_chg_20d"),
+                 "f1": s.get("fund_flow_1d"), "f5": s.get("fund_flow_5d"), "sw": s.get("sw_industry"),
+                 "lp": s.get("leader_plate"), "hs": s.get("high_status"), "hl": s.get("high_status_label"),
+                 "lt": s.get("limit_times"), "rt": s.get("role_tags"), "cm": s.get("circ_mv")}
+                for s in (dd.get("stocks") or [])
+            ]
+            return ts, {"td": dd.get("trade_date"), "nm": dd.get("name"),
+                        "sc": dd.get("stock_count"), "st": arr}
+
+        try:
+            return dict(_direct_batch(ts_codes, _one_stocks, batch))
+        except Exception:  # noqa: BLE001 - 直连失败回退 CDP
+            pass
     codes_json = json.dumps(ts_codes)
     td_param = f"?trade_date={trade_date}" if trade_date else ""
     js = (
