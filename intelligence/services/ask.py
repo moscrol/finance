@@ -28,7 +28,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, research_brief, scenario_tree, user_memory
+from intelligence.services import entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, research_brief, scenario_tree, user_memory
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -163,6 +163,9 @@ class AskOptions:
     # W7 web 事件检索块：仅当问题命中「事件/消息/催化/涨价/对标」意图且能解析到关键词（实体/题材）时生成，
     # 走东财免费资讯搜索取近 N 天新闻（日期/来源/标题/链接），只列不编，补消息面缺口。
     include_news_block: bool = True
+    # D9 L2 大单资金流数据块：仅当问题命中「资金流/大单/主买/量化单」意图时生成，直查
+    # l2-moneyflow 盘后特征表；榜单只扫涨停股+成交额 top100，缺行≠无资金流入，块内强制声明口径。
+    include_moneyflow_block: bool = True
     # 情景树/推演表达层：推演类问题命中时向 synthesis prompt 注入「变量表→情景分支→监控信号」
     # 表达契约（禁数值概率，likelihood 只准高/中/低并注依据）；非推演问题不注入，行为不变。
     include_scenario_guidance: bool = True
@@ -837,6 +840,22 @@ def answer_query(options: AskOptions) -> AskResult:
                             f"题材近 {midterm_intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
                         )
                     )
+        if options.include_moneyflow_block and market_moneyflow.parse_moneyflow_intent(options.query):
+            moneyflow_block = market_moneyflow.moneyflow_block_for_llm(
+                options.query,
+                result.anchored_entity.entity if result.anchored_entity is not None else None,
+                options.market_db_path,
+            )
+            result.d_block_stats.append(_d_block_stat("D9", "L2 大单资金流", moneyflow_block))
+            if moneyflow_block:
+                evidence_text = f"{evidence_text}\n\n{moneyflow_block}"
+                citations.append(
+                    Citation(
+                        "D9",
+                        "本地 DuckDB L2 大单资金流数据块",
+                        "个股近日主买/总买净额+量化单特征 + 最新扫描日大单净流入榜（自有大单口径，非全市场）",
+                    )
+                )
         if options.include_analog_block and market_analogs.parse_analog_intent(options.query):
             analog_block = market_analogs.analog_block_for_llm(
                 options.query,

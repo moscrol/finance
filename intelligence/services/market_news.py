@@ -113,7 +113,8 @@ def fetch_eastmoney_news(
         "clientVersion": "curr",
         "param": {
             "cmsArticleWebOld": {
-                "searchScope": "default",
+                # 只搜标题：全文模糊匹配会捞进大量标题无关资讯（正文命中），标题命中才是事件存在性证据
+                "searchScope": "title",
                 "sort": "time",
                 "pageIndex": 1,
                 "pageSize": max(1, int(page_size) * 2),
@@ -144,6 +145,10 @@ def fetch_eastmoney_news(
             continue
         title = _EM_TAG_RE.sub("", str(a.get("title") or "")).strip()
         if not title:
+            continue
+        # 相关性硬过滤：东财搜索是全文模糊匹配，正文命中会捞进大量标题无关的资讯；
+        # 只保留标题含完整检索词的条目，宁缺勿滥（缺数走显式缺口，不给噪声）。
+        if kw not in title:
             continue
         out.append(
             NewsItem(
