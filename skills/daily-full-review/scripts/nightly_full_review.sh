@@ -25,10 +25,16 @@ fi
 cd "$WORKSPACE" || exit 1
 echo "[$(date '+%F %T')] === 全量复盘开始 date=$D ==="
 
+# 失败告警：阻断性失败时经飞书主动通知用户（告警自身失败不影响退出码）
+notify() {
+  python3 "$WORKSPACE/scripts/notify_feishu.py" "$1" || true
+}
+
 python3 skills/daily-full-review/scripts/run_review_sync.py --date "$D"
 rc=$?
 if [ $rc -ne 0 ]; then
   echo "[$(date '+%F %T')] 同步段失败 rc=$rc（常见原因：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），停止后续生成段"
+  notify "⚠️ 全量复盘 $D 同步段失败 rc=$rc（常见：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），后续生成段未跑；日志 logs/daily-full-review.out.log"
   exit $rc
 fi
 
@@ -37,6 +43,7 @@ python3 -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-revi
 rc=$?
 if [ $rc -ne 0 ]; then
   echo "[$(date '+%F %T')] 生成段失败 rc=$rc"
+  notify "⚠️ 全量复盘 $D 生成段失败 rc=$rc（同步已完成，可手动重跑 intelligence.cli daily --skip-sync）；日志 logs/daily-full-review.out.log"
   exit $rc
 fi
 
@@ -68,6 +75,9 @@ if [ -d "$MONEYFLOW_DIR" ] && [ -n "${CH_PASSWORD:-}" ]; then
 else
   echo "[$(date '+%F %T')] 资金流段跳过（scripts/moneyflow 未合并或缺 CH_PASSWORD）"
 fi
+
+# 知识库证据断更监控（超 7 天未 ingest 新批次则飞书告警；不阻断收尾）
+python3 "$WORKSPACE/scripts/check_kb_freshness.py" --max-age 7 --alert || true
 
 echo "[$(date '+%F %T')] === 全量复盘完成 date=$D ==="
 
