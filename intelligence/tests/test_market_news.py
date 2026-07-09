@@ -13,6 +13,7 @@ from intelligence.services.market_news import (
     _normalize_time_text,
     _within_days,
     build_news_block,
+    english_alias,
     fetch_eastmoney_news,
     fetch_web_access_news,
     merge_news_items,
@@ -156,6 +157,26 @@ class NewsBlockForKeywordTests(unittest.TestCase):
         with mock.patch.dict("os.environ", {"FINANCE_NEWS_WEB_FETCH": "0"}):
             block = news_block_for_keyword("数据安全", fetcher=fake_em, web_fetcher=fail_web)
         self.assertIn("标题A", block)
+
+
+class EnglishAliasTests(unittest.TestCase):
+    def test_known_theme_maps_to_english(self) -> None:
+        self.assertEqual(english_alias("后量子密码"), "post-quantum cryptography")
+
+    def test_unknown_returns_none(self) -> None:
+        self.assertIsNone(english_alias("不存在的题材"))
+        self.assertIsNone(english_alias(""))
+
+    def test_web_fetcher_receives_alias_and_block_notes_it(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_web(kw: str, page_size: int, within_days: int) -> list[NewsItem]:
+            captured["kw"] = kw
+            return [NewsItem("2026-07-07", "Reuters", "PQC news", "http://x/b", provider=PROVIDER_WEB)]
+
+        block = news_block_for_keyword("后量子密码", fetcher=lambda *a: [], web_fetcher=fake_web)
+        self.assertEqual(captured["kw"], "post-quantum cryptography")
+        self.assertIn("web 检索词「post-quantum cryptography」", block)
 
 
 class MergeNewsItemsTests(unittest.TestCase):

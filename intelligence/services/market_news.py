@@ -20,6 +20,8 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Callable
 
 FETCH_ENV_FLAG = "FINANCE_NEWS_FETCH"
@@ -31,6 +33,9 @@ _BING_NEWS_URL = "https://www.bing.com/news/search"
 
 PROVIDER_EASTMONEY = "东财"
 PROVIDER_WEB = "web"
+
+# 中→英关键词别名表：Bing News 对中文题材词命中极差，web 通道检索前先查表换英文词。
+_ALIAS_PATH = Path(__file__).resolve().parents[1] / "data" / "news_keyword_aliases.json"
 
 DEFAULT_PAGE_SIZE = 8
 DEFAULT_WITHIN_DAYS = 90
@@ -108,6 +113,24 @@ def _extract_query_keyword(query: str) -> str | None:
     if 2 <= len(kw) <= 16:
         return kw
     return None
+
+
+@lru_cache(maxsize=1)
+def _load_keyword_aliases() -> dict[str, str]:
+    try:
+        raw = json.loads(_ALIAS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return {
+        str(k).strip(): str(v).strip()
+        for k, v in raw.items()
+        if not str(k).startswith("_") and str(v).strip()
+    }
+
+
+def english_alias(keyword: str) -> str | None:
+    """查中→英别名（精确匹配）；无别名返回 None，web 通道用原词检索。"""
+    return _load_keyword_aliases().get(str(keyword or "").strip()) or None
 
 
 def resolve_news_keyword(
@@ -364,6 +387,7 @@ def build_news_block(
     items: list[NewsItem],
     within_days: int = DEFAULT_WITHIN_DAYS,
     fetch_disabled: bool = False,
+    web_keyword: str | None = None,
 ) -> str:
     """生成 W7 web 事件检索块（注入 compose）；缺数时仍返回带显式缺口的块。"""
     lines = ["## web 事件检索块 [W7]（东财资讯 + web-access 全网检索，可溯源；只列标题/来源/链接，不代为解读）"]
@@ -377,8 +401,9 @@ def build_news_block(
         )
         return "\n".join(lines)
     n_web = sum(1 for it in items if it.provider == PROVIDER_WEB)
+    web_note = f"，web 检索词「{web_keyword}」" if web_keyword and web_keyword != keyword else ""
     lines.append(
-        f"- 检索词「{keyword}」，近 {within_days} 天资讯 {len(items)} 条"
+        f"- 检索词「{keyword}」{web_note}，近 {within_days} 天资讯 {len(items)} 条"
         f"（东财 {len(items) - n_web} + web {n_web}，按时间新→旧）："
     )
     for it in items:
@@ -407,7 +432,9 @@ def news_block_for_keyword(
         return build_news_block(kw, [], within_days, fetch_disabled=True)
     fetch = fetcher or fetch_eastmoney_news
     items = fetch(kw, page_size, within_days)
+    web_kw: str | None = None
     if web_fetch_enabled():
         web_fetch = web_fetcher or fetch_web_access_news
-        items = merge_news_items(items, web_fetch(kw, page_size, within_days))
-    return build_news_block(kw, items, within_days)
+        web_kw = english_alias(kw) or kw
+        items = merge_news_items(items, web_fetch(web_kw, page_size, within_days))
+    return build_news_block(kw, items, within_days, web_keyword=web_kw)
