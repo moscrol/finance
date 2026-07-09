@@ -887,6 +887,23 @@ def answer_query(options: AskOptions) -> AskResult:
                         "目标近 N 期累计营收/归母净利/毛利率/净利率（+同比），业绩兑现节奏视角",
                     )
                 )
+        if options.include_news_block and market_news.parse_news_intent(options.query):
+            news_keyword = market_news.resolve_news_keyword(
+                options.query,
+                theme,
+                result.anchored_entity.entity if result.anchored_entity is not None else None,
+            )
+            news_block = market_news.news_block_for_keyword(news_keyword)
+            result.d_block_stats.append(_d_block_stat("W7", "web 事件检索", news_block))
+            if news_block:
+                evidence_text = f"{evidence_text}\n\n{news_block}"
+                citations.append(
+                    Citation(
+                        "W7",
+                        "web 事件检索数据块（东财资讯 + web-access 全网检索）",
+                        f"「{news_keyword}」近 {market_news.DEFAULT_WITHIN_DAYS} 天资讯日期/来源/标题/链接（只列不编，消息面存在性证据）",
+                    )
+                )
         if options.include_memory_block:
             memory_block = user_memory.memory_block_for_query(
                 options.query,
