@@ -37,12 +37,13 @@ MSHA=$(/usr/bin/python3 -c "import json;print(json.load(open('$LEDGER/$D.manifes
 
 # 上游原料检查
 if [ "$SOURCE" = "briefing" ]; then
-  MATERIAL="$KNOWLEDGE_WIKI/briefings/$D.md"
+  # 晨汇标注日期 = 材料日（盘后电话会等，$P 盘后产出），用来预判次日（$D）日内
+  MATERIAL="$KNOWLEDGE_WIKI/briefings/$P.md"
   if [ ! -f "$MATERIAL" ]; then
-    echo "[$(date '+%F %T')] $D 晨汇产物缺（$MATERIAL），跳过 briefing 流"
+    echo "[$(date '+%F %T')] 视角日 $P 晨汇产物缺（$MATERIAL），跳过 briefing 流"
     exit 0
   fi
-  MATERIAL_DESC="当日晨汇产物 $MATERIAL（三维交叉结果）"
+  MATERIAL_DESC="视角日盘后晨汇产物 $MATERIAL（三维交叉结果，$P 盘后材料，用于预判 $D 日内）"
   QSECTION="第二节（晨汇事件流）"
   EXTRA="回检窗口 T+1（当日收盘）：兑现形态（直接涨停/高开低走/盘中脉冲/不反应）判断要写进 hypotheses 的 falsify_when。"
 elif [ "$SOURCE" = "sellside" ]; then
@@ -86,10 +87,19 @@ run_agent() {
     "$CODEX_BIN" exec --skip-git-repo-check "$(prompt_for codex)" >> "logs/dual-blind.$D.codex.$SOURCE.log" 2>&1
     rc=$?
   else
-    "$CLAUDE_BIN" -p "$(prompt_for claude)" \
-      --allowedTools "Read,Glob,Grep,Write,Edit,Bash(python3:*),Bash(/usr/bin/python3:*)" \
-      >> "logs/dual-blind.$D.claude.$SOURCE.log" 2>&1
-    rc=$?
+    # claude 网关（open.bigmodel.cn）早高峰常返回 529，未落答卷则间隔重试
+    local attempt=1
+    while :; do
+      "$CLAUDE_BIN" -p "$(prompt_for claude)" \
+        --allowedTools "Read,Glob,Grep,Write,Edit,Bash(python3:*),Bash(/usr/bin/python3:*)" \
+        >> "logs/dual-blind.$D.claude.$SOURCE.log" 2>&1
+      rc=$?
+      [ -f "$LEDGER/$D.answer.claude.$SOURCE.json" ] && { rc=0; break; }
+      [ "$attempt" -ge 3 ] && break
+      echo "[$(date '+%F %T')] claude $SOURCE 第 $attempt 次未落答卷（rc=$rc，疑似网关高峰），600s 后重试"
+      attempt=$((attempt+1))
+      sleep 600
+    done
   fi
   echo "[$(date '+%F %T')] --- $agent $SOURCE 结束 rc=$rc ---"
   return $rc
