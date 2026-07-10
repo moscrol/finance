@@ -18,6 +18,10 @@
 自动核验只回答“源行是否一致”，不替人判断复杂语义。比如“涨家数 3200”可以自动对账；
 “因此主线已切换”仍需人工金标准和历史重放。
 
+历史回放不能只看 `trade_date`。当前 DuckDB 行必须同时满足
+`updated_at < as_of + 1 day`，才能证明它在当时已经进入本地数据集；D0 后回填的历史行一律
+不能冒充 PIT 快照。答卷数字优先与冻结的 `input.snapshot.json` 核对，而不是与后来可能修订的主库核对。
+
 ### 2. 历史重放
 
 每个 case 使用两个物理分离的文件：
@@ -66,6 +70,8 @@ python3 scripts/fidelity_replay_eval.py gold-template \
 - `entity_classification`：`pass / fail / pending`；
 - `timeline_sequence`：`pass / fail / pending`；
 - `causal_evidence_binding`：`pass / fail / pending`。
+
+与某条 claim 无关的维度使用 `not_applicable`，不会混入分母；证据不足才使用 `pending`。
 
 不得把 `pending` 当作通过，也不得用今天的知识回填历史缺口。
 

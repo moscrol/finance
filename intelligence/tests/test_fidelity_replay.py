@@ -74,16 +74,17 @@ class FidelityReplayTests(unittest.TestCase):
                 CREATE TABLE fact_market_daily (
                     trade_date DATE,
                     advancers INTEGER,
-                    market_stage VARCHAR
+                    market_stage VARCHAR,
+                    updated_at TIMESTAMP
                 )
                 """
             )
             con.execute(
                 """
                 INSERT INTO fact_market_daily VALUES
-                ('2026-07-01', 2800, '震荡'),
-                ('2026-07-02', 3200, '修复'),
-                ('2026-07-03', 3500, '修复')
+                ('2026-07-01', 2800, '震荡', '2026-07-01 20:00:00'),
+                ('2026-07-02', 3200, '修复', '2026-07-02 20:00:00'),
+                ('2026-07-03', 3500, '修复', '2026-07-03 20:00:00')
                 """
             )
             con.execute(
@@ -92,12 +93,16 @@ class FidelityReplayTests(unittest.TestCase):
                     trade_date DATE,
                     sector_name VARCHAR,
                     pct_chg DOUBLE,
-                    strength DOUBLE
+                    strength DOUBLE,
+                    updated_at TIMESTAMP
                 )
                 """
             )
             con.execute(
-                "INSERT INTO fact_sector_daily VALUES ('2026-07-02', '储能', 2.0, 8.0)"
+                """
+                INSERT INTO fact_sector_daily
+                VALUES ('2026-07-02', '储能', 2.0, 8.0, '2026-07-02 20:00:00')
+                """
             )
             con.execute(
                 """
@@ -106,14 +111,18 @@ class FidelityReplayTests(unittest.TestCase):
                     stock_ts_code VARCHAR,
                     stock_name VARCHAR,
                     pct_chg DOUBLE,
-                    amount DOUBLE
+                    amount DOUBLE,
+                    updated_at TIMESTAMP
                 )
                 """
             )
             con.execute(
                 """
                 INSERT INTO fact_stock_daily
-                VALUES ('2026-07-02', '000001.SZ', '平安银行', 1.0, 100.0)
+                VALUES (
+                    '2026-07-02', '000001.SZ', '平安银行', 1.0, 100.0,
+                    '2026-07-02 20:00:00'
+                )
                 """
             )
         finally:
@@ -178,6 +187,7 @@ class FidelityReplayTests(unittest.TestCase):
                 "as_of": "2026-07-02",
                 "target_date": "2026-07-03",
                 "kb_snapshot": {"commit": "abc"},
+                "status": "ready",
             }
             snapshot = build_input_snapshot(db, case)
             dates = {
@@ -226,6 +236,19 @@ class FidelityReplayTests(unittest.TestCase):
         audit = audit_answer(answer, _manifest())
         self.assertEqual(audit["counts"]["claims"], 1)
         self.assertEqual(audit["metrics"]["evidence_coverage_rate"]["value"], 1.0)
+
+    def test_numeric_audit_prefers_frozen_snapshot(self) -> None:
+        snapshot = {
+            "data": {
+                "market_history": [
+                    {"trade_date": "2026-07-02", "advancers": 3200}
+                ]
+            }
+        }
+        audit = audit_answer(
+            _answer(), _manifest(), input_snapshot=snapshot
+        )
+        self.assertEqual(audit["metrics"]["numeric_match_rate"]["value"], 1.0)
 
     def test_aggregate_preserves_pending_counts(self) -> None:
         audit = audit_answer(_answer(), _manifest())

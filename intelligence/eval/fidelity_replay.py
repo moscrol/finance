@@ -33,7 +33,7 @@ OPTIONAL_REPLAY_TABLES = (
     "fact_limit_advance_daily",
     "fact_theme_limit_heat_daily",
 )
-ALLOWED_GOLD_STATUSES = {"pass", "fail", "pending"}
+ALLOWED_GOLD_STATUSES = {"pass", "fail", "pending", "not_applicable"}
 ALLOWED_CLAIM_TYPES = {"observation", "inference", "prediction"}
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _CODE = re.compile(r"^\d{6}(?:\.[A-Za-z]+)?$")
@@ -238,6 +238,27 @@ def validate_gold(gold: dict[str, Any]) -> list[str]:
     return errors
 
 
+def validate_answer_claims(answer: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    claims = extract_claims(answer)
+    catalog = answer.get("evidence_catalog")
+    catalog_ids = set(catalog) if isinstance(catalog, dict) else set()
+    seen: set[str] = set()
+    for claim in claims:
+        claim_id = claim["id"]
+        if claim_id in seen:
+            errors.append(f"claim id 重复：{claim_id}")
+        seen.add(claim_id)
+        if claim["declared_type"] not in ALLOWED_CLAIM_TYPES:
+            errors.append(
+                f"{claim_id}.declared_type 应为 {sorted(ALLOWED_CLAIM_TYPES)}"
+            )
+        for evidence_ref in claim["evidence_refs"]:
+            if evidence_ref not in catalog_ids:
+                errors.append(f"{claim_id} 引用不存在的 evidence id：{evidence_ref}")
+    return errors
+
+
 def _entity_filters(
     columns: list[str], entity: Any
 ) -> tuple[str, list[Any], str | None]:
@@ -276,18 +297,57 @@ def _compare_value(expected: Any, actual: Any) -> bool:
     return str(expected) == str(actual)
 
 
+def _snapshot_rows(
+    snapshot: dict[str, Any], source: str, source_time: str
+) -> list[dict[str, Any]]:
+    data = snapshot.get("data") or {}
+    key = "market_history" if source == "fact_market_daily" else source
+    rows = data.get(key) or []
+    return [
+        row
+        for row in rows
+        if isinstance(row, dict)
+        and str(row.get("trade_date") or "")[:10] == source_time
+    ]
+
+
+def _snapshot_entity_match(row: dict[str, Any], entity: Any) -> bool:
+    value = str(entity or "").strip()
+    if not value or value.lower() == "market":
+        return True
+    if _CODE.fullmatch(value):
+        for column in ("stock_ts_code", "ts_code", "sector_ts_code"):
+            actual = str(row.get(column) or "")
+            if actual and (
+                actual == value or actual.split(".", maxsplit=1)[0] == value
+            ):
+                return True
+        return False
+    return any(
+        str(row.get(column) or "") == value
+        for column in (
+            "stock_name",
+            "sector_name",
+            "theme_name",
+            "name",
+            "entity_name",
+        )
+    )
+
+
 def audit_numeric_evidence(
     answer: dict[str, Any],
     *,
     db_path: str | Path | None,
     cutoff: str,
+    input_snapshot: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     catalog = answer.get("evidence_catalog")
     if not isinstance(catalog, dict):
         return [], _metric(0, 0, 0)
     audits: list[dict[str, Any]] = []
     passed = checked = pending = 0
-    con = _connect(db_path) if db_path else None
+    con = _connect(db_path) if db_path and input_snapshot is None else None
     try:
         for evidence_id, evidence in catalog.items():
             if not isinstance(evidence, dict):
@@ -307,7 +367,29 @@ def audit_numeric_evidence(
                 "status": "pending",
                 "reason": "",
             }
-            if not con:
+            if input_snapshot is not None:
+                rows = [
+                    row
+                    for row in _snapshot_rows(input_snapshot, source, source_time)
+                    if _snapshot_entity_match(row, evidence.get("entity"))
+                ]
+                if len(rows) != 1:
+                    item["reason"] = f"冻结快照源行数量={len(rows)}，无法唯一核对"
+                    pending += 1
+                elif field not in rows[0]:
+                    item["reason"] = "冻结快照中不存在该字段"
+                    pending += 1
+                else:
+                    actual = rows[0][field]
+                    item["actual"] = actual
+                    checked += 1
+                    if _compare_value(expected, actual):
+                        item["status"] = "pass"
+                        passed += 1
+                    else:
+                        item["status"] = "fail"
+                        item["reason"] = "答卷值与冻结快照不一致"
+            elif not con:
                 item["reason"] = "未提供 DuckDB"
                 pending += 1
             elif not _IDENTIFIER.fullmatch(source) or not source.startswith("fact_"):
@@ -373,6 +455,8 @@ def _review_metric(
         status = str(review.get(field) or "pending")
         if status == "pending":
             pending += 1
+        elif status == "not_applicable":
+            continue
         elif status in {"pass", "fail"}:
             checked += 1
             passed += int(status == "pass")
@@ -387,6 +471,7 @@ def audit_answer(
     *,
     db_path: str | Path | None = None,
     gold: dict[str, Any] | None = None,
+    input_snapshot: dict[str, Any] | None = None,
     answer_path: str = "",
 ) -> dict[str, Any]:
     cutoff = str(manifest.get("perspective_date") or "")[:10]
@@ -394,7 +479,10 @@ def audit_answer(
     evidence = catalog if isinstance(catalog, dict) else {}
     claims = extract_claims(answer)
     numeric_audits, numeric_metric = audit_numeric_evidence(
-        answer, db_path=db_path, cutoff=cutoff
+        answer,
+        db_path=db_path,
+        cutoff=cutoff,
+        input_snapshot=input_snapshot,
     )
 
     cutoff_violations: list[str] = []
@@ -428,6 +516,7 @@ def audit_answer(
     confusion_metric = _rate_metric(confusion, type_checked, type_pending)
 
     gold_errors = validate_gold(gold) if gold is not None else []
+    answer_errors = validate_answer_claims(answer)
     return {
         "schema_version": "1.0",
         "answer_path": answer_path,
@@ -460,8 +549,15 @@ def audit_answer(
         "numeric_audits": numeric_audits,
         "claim_audits": claims,
         "gold_errors": gold_errors,
+        "answer_errors": answer_errors,
         "decision_eligible": False,
-        "status": "invalid_gold" if gold_errors else "audited",
+        "status": (
+            "invalid_gold"
+            if gold_errors
+            else "invalid_answer"
+            if answer_errors
+            else "audited"
+        ),
     }
 
 
@@ -643,6 +739,49 @@ def _table_count(con: Any, table: str, as_of: str) -> int | None:
     return int(row[0]) if row else 0
 
 
+def _table_readiness(con: Any, table: str, as_of: str) -> dict[str, Any]:
+    columns = _table_columns(con, table)
+    if not columns or "trade_date" not in columns:
+        return {
+            "total_rows": 0,
+            "provable_as_of_rows": 0,
+            "status": "missing",
+            "timestamp_field": None,
+        }
+    total = _table_count(con, table, as_of) or 0
+    if not total:
+        return {
+            "total_rows": 0,
+            "provable_as_of_rows": 0,
+            "status": "missing",
+            "timestamp_field": "updated_at" if "updated_at" in columns else None,
+        }
+    if "updated_at" not in columns:
+        return {
+            "total_rows": total,
+            "provable_as_of_rows": 0,
+            "status": "unverifiable",
+            "timestamp_field": None,
+        }
+    row = con.execute(
+        f"""
+        SELECT COUNT(*)
+        FROM {table}
+        WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)
+          AND updated_at < CAST(? AS DATE) + INTERVAL 1 DAY
+        """,
+        [as_of, as_of],
+    ).fetchone()
+    provable = int(row[0]) if row else 0
+    status = "ready" if provable == total else "partial" if provable else "unavailable"
+    return {
+        "total_rows": total,
+        "provable_as_of_rows": provable,
+        "status": status,
+        "timestamp_field": "updated_at",
+    }
+
+
 def build_pilot_plan(
     db_path: str | Path,
     kb_root: str | Path,
@@ -657,20 +796,38 @@ def build_pilot_plan(
     try:
         for item in selected:
             as_of = item["as_of"]
-            table_counts = {
-                table: _table_count(con, table, as_of)
+            readiness = {
+                table: _table_readiness(con, table, as_of)
                 for table in (*BASELINE_TABLES, *OPTIONAL_REPLAY_TABLES)
             }
+            table_counts = {
+                table: item["total_rows"] for table, item in readiness.items()
+            }
             missing_baseline = [
-                table for table in BASELINE_TABLES if not table_counts.get(table)
+                table
+                for table in BASELINE_TABLES
+                if readiness[table]["status"] != "ready"
             ]
             optional_gaps = [
-                table for table in OPTIONAL_REPLAY_TABLES if not table_counts.get(table)
+                (
+                    f"{table}({readiness[table]['status']} "
+                    f"{readiness[table]['provable_as_of_rows']}/"
+                    f"{readiness[table]['total_rows']})"
+                )
+                for table in OPTIONAL_REPLAY_TABLES
+                if readiness[table]["status"] != "ready"
             ]
             kb = find_kb_commit_as_of(kb_root, as_of)
             blockers: list[str] = []
             if missing_baseline:
-                blockers.append("缺基础表快照：" + "、".join(missing_baseline))
+                blockers.extend(
+                    (
+                        f"无可证明的 as-of {table} 快照："
+                        f"{readiness[table]['provable_as_of_rows']}/"
+                        f"{readiness[table]['total_rows']} 行在截止前写入"
+                    )
+                    for table in missing_baseline
+                )
             if not kb:
                 blockers.append("无 as-of 知识库 commit")
             cases.append(
@@ -678,6 +835,7 @@ def build_pilot_plan(
                     "case_id": f"FR-{as_of}",
                     **item,
                     "db_table_counts": table_counts,
+                    "db_table_readiness": readiness,
                     "kb_snapshot": kb,
                     "optional_gaps": optional_gaps,
                     "status": "ready" if not blockers else "pending",
@@ -701,7 +859,9 @@ def build_pilot_plan(
             "lookahead": "answer input contains D0 and earlier only",
             "missing": "pending; never backfill from current knowledge",
             "outcomes": "generated by a separate command after answers are frozen",
+            "db_pit": "trade_date alone is insufficient; rows require updated_at before cutoff",
         },
+        "sampling_note": "market_stage is used only for stratification and comes from the current DB row; it is not treated as PIT gold.",
     }
     body["plan_sha256"] = _canonical_sha(body)
     return body
@@ -731,6 +891,15 @@ def _best_order(columns: list[str], candidates: tuple[str, ...]) -> str:
         if candidate in columns:
             return f"{candidate} DESC NULLS LAST"
     return "trade_date DESC"
+
+
+def _pit_where(columns: list[str], base_where: str) -> str:
+    if "updated_at" not in columns:
+        return f"({base_where}) AND FALSE"
+    return (
+        f"({base_where}) "
+        "AND updated_at < CAST(? AS DATE) + INTERVAL 1 DAY"
+    )
 
 
 def _max_embedded_date(value: Any) -> str | None:
@@ -766,15 +935,21 @@ def build_input_snapshot(
     stock_limit: int = 30,
 ) -> dict[str, Any]:
     """Build an answer-phase artifact that cannot contain future market rows."""
+    if case.get("status") != "ready":
+        raise ValueError(f"{case.get('case_id')} is pending and cannot produce an input snapshot")
     as_of = str(case["as_of"])
     con = _connect(db_path)
     try:
+        market_columns = _table_columns(con, "fact_market_daily")
         data: dict[str, Any] = {
             "market_history": _ordered_rows(
                 con,
                 "fact_market_daily",
-                "CAST(trade_date AS DATE) <= CAST(? AS DATE)",
-                [as_of],
+                _pit_where(
+                    market_columns,
+                    "CAST(trade_date AS DATE) <= CAST(? AS DATE)",
+                ),
+                [as_of, as_of],
                 order_by="trade_date DESC",
                 limit=20,
             )
@@ -795,8 +970,11 @@ def build_input_snapshot(
             data[table] = _ordered_rows(
                 con,
                 table,
-                "CAST(trade_date AS DATE) = CAST(? AS DATE)",
-                [as_of],
+                _pit_where(
+                    columns,
+                    "CAST(trade_date AS DATE) = CAST(? AS DATE)",
+                ),
+                [as_of, as_of],
                 order_by=_best_order(
                     columns,
                     (

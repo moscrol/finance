@@ -118,11 +118,13 @@ def cmd_score(args: argparse.Namespace) -> int:
     answer = _read(args.answer)
     manifest = _read(args.manifest)
     gold = _read(args.gold) if args.gold else None
+    snapshot = _read(args.snapshot) if args.snapshot else None
     audit = audit_answer(
         answer,
         manifest,
         db_path=args.db,
         gold=gold,
+        input_snapshot=snapshot,
         answer_path=str(Path(args.answer).expanduser()),
     )
     if args.out:
@@ -195,6 +197,7 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_argument("--answer", required=True)
     score.add_argument("--manifest", required=True)
     score.add_argument("--db")
+    score.add_argument("--snapshot", help="优先使用冻结 input.snapshot.json 核对数字")
     score.add_argument("--gold")
     score.add_argument("--out")
     score.set_defaults(func=cmd_score)
