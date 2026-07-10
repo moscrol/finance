@@ -367,7 +367,10 @@ def audit_numeric_evidence(
                 "status": "pending",
                 "reason": "",
             }
-            if input_snapshot is not None:
+            if not source_time or (cutoff and source_time > cutoff):
+                item["reason"] = "证据时间缺失或越过 cutoff"
+                pending += 1
+            elif input_snapshot is not None:
                 rows = [
                     row
                     for row in _snapshot_rows(input_snapshot, source, source_time)
@@ -400,11 +403,13 @@ def audit_numeric_evidence(
                 pending += 1
             else:
                 columns = _table_columns(con, source)
-                if not columns or "trade_date" not in columns or field not in columns:
-                    item["reason"] = "表、trade_date 或字段不存在"
-                    pending += 1
-                elif not source_time or source_time > cutoff:
-                    item["reason"] = "证据时间越过 cutoff"
+                if (
+                    not columns
+                    or "trade_date" not in columns
+                    or "updated_at" not in columns
+                    or field not in columns
+                ):
+                    item["reason"] = "表、trade_date、updated_at 或字段不存在"
                     pending += 1
                 else:
                     entity_sql, entity_params, reason = _entity_filters(
@@ -417,8 +422,9 @@ def audit_numeric_evidence(
                         rows = con.execute(
                             f"SELECT {field} FROM {source} "
                             f"WHERE CAST(trade_date AS DATE) = CAST(? AS DATE){entity_sql} "
+                            "AND updated_at < CAST(? AS DATE) + INTERVAL 1 DAY "
                             "LIMIT 2",
-                            [source_time, *entity_params],
+                            [source_time, *entity_params, cutoff],
                         ).fetchall()
                         if len(rows) != 1:
                             item["reason"] = f"源行数量={len(rows)}，无法唯一核对"
@@ -652,6 +658,8 @@ def select_pilot_dates(
     db_path: str | Path, start: str, end: str, *, count: int = 10
 ) -> list[dict[str, Any]]:
     """Choose deterministic dates across month × market-stage buckets."""
+    if count <= 0:
+        return []
     rows = _market_rows(db_path, start, end)
     if not rows:
         return []
@@ -666,10 +674,14 @@ def select_pilot_dates(
         }
     )
     if len(candidates) > count:
-        candidates = [
-            candidates[round(i * (len(candidates) - 1) / (count - 1))]
-            for i in range(count)
-        ]
+        candidates = (
+            [candidates[len(candidates) // 2]]
+            if count == 1
+            else [
+                candidates[round(i * (len(candidates) - 1) / (count - 1))]
+                for i in range(count)
+            ]
+        )
     selected = set(candidates)
     while len(selected) < min(count, len(rows)):
         remaining = [i for i in range(len(rows)) if i not in selected]

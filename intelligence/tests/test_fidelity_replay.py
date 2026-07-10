@@ -212,6 +212,14 @@ class FidelityReplayTests(unittest.TestCase):
             self.assertEqual(first, second)
             self.assertEqual(len(first), 2)
             self.assertTrue(any(case["target_date"] for case in first))
+            self.assertEqual(
+                len(select_pilot_dates(db, "2026-07-01", "2026-07-03", count=1)),
+                1,
+            )
+            self.assertEqual(
+                select_pilot_dates(db, "2026-07-01", "2026-07-03", count=0),
+                [],
+            )
 
     def test_explicit_claim_schema_is_supported(self) -> None:
         answer = {
@@ -249,6 +257,25 @@ class FidelityReplayTests(unittest.TestCase):
             _answer(), _manifest(), input_snapshot=snapshot
         )
         self.assertEqual(audit["metrics"]["numeric_match_rate"]["value"], 1.0)
+
+    def test_backfilled_database_row_is_not_treated_as_pit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db = self._db(Path(tmp))
+            con = self.duckdb.connect(str(db))
+            try:
+                con.execute(
+                    """
+                    UPDATE fact_market_daily
+                    SET updated_at = '2026-07-10 20:00:00'
+                    WHERE trade_date = '2026-07-02'
+                    """
+                )
+            finally:
+                con.close()
+            audit = audit_answer(_answer(), _manifest(), db_path=db)
+            metric = audit["metrics"]["numeric_match_rate"]
+            self.assertIsNone(metric["value"])
+            self.assertEqual(metric["pending"], 1)
 
     def test_aggregate_preserves_pending_counts(self) -> None:
         audit = audit_answer(_answer(), _manifest())
