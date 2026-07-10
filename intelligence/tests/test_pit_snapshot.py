@@ -138,9 +138,12 @@ class PitSnapshotTests(unittest.TestCase):
             self.assertEqual(manifest["status"], "frozen")
             self.assertEqual(manifest["write_status"], "written")
             snapshot_path = out / "2026-07-10.snapshot.json.gz"
+            manifest_path = out / "2026-07-10.manifest.json"
             snapshot = json.loads(gzip.decompress(snapshot_path.read_bytes()))
             self.assertEqual(snapshot["boundary"]["max_embedded_date"], "2026-07-10")
             self.assertFalse(snapshot["boundary"]["outcome_data_included"])
+            self.assertEqual(snapshot_path.stat().st_mode & 0o777, 0o444)
+            self.assertEqual(manifest_path.stat().st_mode & 0o777, 0o444)
 
             repeated = freeze_daily_snapshot(
                 db,

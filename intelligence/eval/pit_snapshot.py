@@ -444,6 +444,7 @@ def _write_atomic(path: Path, data: bytes) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_bytes(data)
     temporary.replace(path)
+    path.chmod(0o444)
 
 
 def _latest_trade_date(db_path: str | Path) -> str:
@@ -559,18 +560,39 @@ def _pit_table_status(con: Any, table: str, as_of: str) -> dict[str, Any]:
     }
 
 
-def _dated_artifacts(root: str | Path, commit: str, as_of: str) -> list[str]:
+def _artifact_kind(repo_name: str, path: str) -> str | None:
+    if path.startswith("market_feature_store/exports/"):
+        return "market_export"
+    if path.startswith("docs/learning/forecast-review-ledger/"):
+        return "answer_archive"
+    if path.startswith("复盘/"):
+        return "review_artifact"
+    if path.startswith("raw/") or (
+        repo_name == "wiki"
+        and (path.startswith("wiki/raw/") or path.startswith("wiki/sources/"))
+    ):
+        return "source_material"
+    return None
+
+
+def _dated_artifacts(
+    root: str | Path, commit: str, as_of: str, repo_name: str
+) -> list[dict[str, str]]:
     try:
         paths = _git(root, ["ls-tree", "-r", "--name-only", commit]).stdout.splitlines()
     except (OSError, subprocess.CalledProcessError):
         return []
     compact = as_of.replace("-", "")
-    return sorted(
-        path
-        for path in paths
-        if (as_of in path or compact in path)
-        and Path(path).suffix.lower() in ARTIFACT_SUFFIXES
-    )
+    artifacts = []
+    for path in paths:
+        kind = _artifact_kind(repo_name, path)
+        if (
+            kind
+            and (as_of in path or compact in path)
+            and Path(path).suffix.lower() in ARTIFACT_SUFFIXES
+        ):
+            artifacts.append({"path": path, "kind": kind})
+    return sorted(artifacts, key=lambda item: (item["kind"], item["path"]))
 
 
 def build_historical_inventory(
@@ -606,11 +628,18 @@ def build_historical_inventory(
             for name, root in (("finance", finance_root), ("wiki", kb_root)):
                 state = git_state(root, as_of=as_of)
                 artifacts = (
-                    _dated_artifacts(root, state["commit"], as_of) if state else []
+                    _dated_artifacts(root, state["commit"], as_of, name)
+                    if state
+                    else []
                 )
+                kind_counts = {
+                    kind: sum(item["kind"] == kind for item in artifacts)
+                    for kind in sorted({item["kind"] for item in artifacts})
+                }
                 repos[name] = {
                     **(state or {"commit": None, "committed_at": None}),
                     "artifact_count": len(artifacts),
+                    "artifact_kind_counts": kind_counts,
                     "artifacts": artifacts[:100],
                 }
             artifact_count = sum(item["artifact_count"] for item in repos.values())
