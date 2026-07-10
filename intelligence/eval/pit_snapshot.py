@@ -144,19 +144,23 @@ def _trade_dates(con: Any, as_of: str, lookback: int) -> list[str]:
 
 
 def _table_rows(
-    con: Any, table: str, dates: Iterable[str]
+    con: Any, table: str, dates: Iterable[str], cutoff_local: datetime
 ) -> list[dict[str, Any]]:
     selected_dates = list(dates)
     if not selected_dates:
         return []
     placeholders = ", ".join("?" for _ in selected_dates)
+    columns = _table_columns(con, table)
+    if "updated_at" not in columns:
+        return []
     cursor = con.execute(
         f"""
         SELECT *
         FROM {table}
         WHERE CAST(trade_date AS VARCHAR) IN ({placeholders})
+          AND updated_at < ?
         """,
-        selected_dates,
+        [*selected_dates, cutoff_local],
     )
     columns = [str(item[0]) for item in cursor.description]
     rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -193,26 +197,31 @@ def _table_stats(
             "d0_rows": d0_rows,
             "timestamp_field": None,
         }
+    cutoff_local = datetime.fromisoformat(as_of) + timedelta(days=1)
     row = con.execute(
         f"""
         SELECT
             COUNT(*) FILTER (WHERE updated_at IS NOT NULL),
             MIN(updated_at),
             MAX(updated_at),
-            COUNT(*) FILTER (WHERE updated_at > ?)
+            COUNT(*) FILTER (WHERE updated_at > ?),
+            COUNT(*) FILTER (WHERE updated_at >= ?)
         FROM {table}
         WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)
         """,
-        [captured_local, as_of],
+        [captured_local, cutoff_local, as_of],
     ).fetchone()
     timestamped = int(row[0] or 0)
-    unsafe = int(row[3] or 0)
+    future_timestamp_rows = int(row[3] or 0)
+    after_cutoff_rows = int(row[4] or 0)
     if not d0_rows:
         status = "missing"
     elif timestamped != d0_rows:
         status = "unverifiable"
-    elif unsafe:
+    elif future_timestamp_rows:
         status = "future_timestamp"
+    elif after_cutoff_rows:
+        status = "after_cutoff"
     else:
         status = "captured"
     return {
@@ -222,7 +231,8 @@ def _table_stats(
         "timestamped_rows": timestamped,
         "min_updated_at": _json_default(row[1]) if row[1] else None,
         "max_updated_at": _json_default(row[2]) if row[2] else None,
-        "future_timestamp_rows": unsafe,
+        "future_timestamp_rows": future_timestamp_rows,
+        "after_cutoff_rows": after_cutoff_rows,
         "timestamp_field": "updated_at",
     }
 
@@ -275,6 +285,20 @@ def _coverage_checks(con: Any, as_of: str) -> dict[str, Any]:
         [as_of],
     ).fetchone()
     previous_stock_rows = int(previous[1]) if previous else None
+    missing_sector_rows = con.execute(
+        """
+        SELECT sector_ts_code
+        FROM dim_sector
+        WHERE COALESCE(is_active, TRUE)
+          AND sector_ts_code NOT IN (
+              SELECT sector_ts_code
+              FROM fact_sector_daily
+              WHERE CAST(trade_date AS DATE) = CAST(? AS DATE)
+          )
+        ORDER BY sector_ts_code
+        """,
+        [as_of],
+    ).fetchall()
     return {
         "active_sectors": active_sectors,
         "sector_daily": {
@@ -283,6 +307,7 @@ def _coverage_checks(con: Any, as_of: str) -> dict[str, Any]:
             "rate": round(sector_daily / active_sectors, 6)
             if active_sectors
             else None,
+            "missing_sector_codes": [str(row[0]) for row in missing_sector_rows],
         },
         "sector_stock": {
             "covered": sector_stock,
@@ -328,17 +353,25 @@ def build_daily_snapshot(
             for table in SNAPSHOT_TABLES
         }
         data: dict[str, list[dict[str, Any]]] = {}
+        cutoff_local = datetime.fromisoformat(as_of) + timedelta(days=1)
         for table, mode in SNAPSHOT_TABLES.items():
             if stats[table]["status"] == "missing_table":
                 data[table] = []
                 continue
             data[table] = _table_rows(
-                con, table, dates if mode == "history" else [as_of]
+                con,
+                table,
+                dates if mode == "history" else [as_of],
+                cutoff_local,
             )
         coverage = _coverage_checks(con, as_of)
     finally:
         con.close()
 
+    finance_as_of = git_state(finance_root, as_of=as_of)
+    wiki_as_of = git_state(kb_root, as_of=as_of)
+    finance_current = git_state(finance_root)
+    wiki_current = git_state(kb_root)
     required_failures = [
         table
         for table in sorted(REQUIRED_TABLES)
@@ -349,11 +382,16 @@ def build_daily_snapshot(
         for name in ("sector_daily", "sector_stock")
         if coverage[name]["rate"] is not None and coverage[name]["rate"] < 1
     ]
+    repository_gaps = [
+        name
+        for name, state in (("finance", finance_as_of), ("wiki", wiki_as_of))
+        if state is None
+    ]
     status = (
         "pending"
         if required_failures
         else "frozen_with_gaps"
-        if coverage_gaps
+        if coverage_gaps or repository_gaps
         else "frozen"
     )
     snapshot = {
@@ -370,8 +408,15 @@ def build_daily_snapshot(
             "result_phase_physically_separate": True,
         },
         "repositories": {
-            "finance": git_state(finance_root),
-            "wiki": git_state(kb_root),
+            "input_materials": {
+                "finance": finance_as_of,
+                "wiki": wiki_as_of,
+            },
+            "capture_implementation": finance_current,
+            "working_trees": {
+                "finance_dirty": bool((finance_current or {}).get("dirty")),
+                "wiki_dirty": bool((wiki_current or {}).get("dirty")),
+            },
         },
         "data": data,
     }
@@ -384,6 +429,7 @@ def build_daily_snapshot(
         "status": status,
         "required_failures": required_failures,
         "coverage_gaps": coverage_gaps,
+        "repository_gaps": repository_gaps,
         "coverage": coverage,
         "tables": stats,
         "snapshot_sha256": _sha256(canonical),

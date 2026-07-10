@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 from intelligence.eval.pit_snapshot import (
+    build_daily_snapshot,
     build_historical_inventory,
     freeze_daily_snapshot,
 )
@@ -169,6 +170,38 @@ class PitSnapshotTests(unittest.TestCase):
             )
             self.assertEqual(manifest["write_status"], "dry_run")
             self.assertFalse(out.exists())
+
+    def test_rows_written_after_d0_cutoff_are_excluded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = self._db(root)
+            con = self.duckdb.connect(str(db))
+            try:
+                con.execute(
+                    """
+                    UPDATE fact_sw_l1_daily
+                    SET updated_at = '2026-07-11 00:10:00'
+                    WHERE trade_date = '2026-07-10'
+                    """
+                )
+            finally:
+                con.close()
+            finance = self._repo(root, "finance")
+            wiki = self._repo(root, "wiki")
+            self._commit(finance, "README.md", "finance", "2026-07-10T10:00:00+08:00")
+            self._commit(wiki, "README.md", "wiki", "2026-07-10T10:00:00+08:00")
+            snapshot, manifest = build_daily_snapshot(
+                db,
+                as_of="2026-07-10",
+                finance_root=finance,
+                kb_root=wiki,
+            )
+            self.assertEqual(manifest["status"], "pending")
+            self.assertIn("fact_sw_l1_daily", manifest["required_failures"])
+            self.assertEqual(
+                manifest["tables"]["fact_sw_l1_daily"]["after_cutoff_rows"], 1
+            )
+            self.assertEqual(snapshot["data"]["fact_sw_l1_daily"], [])
 
     def test_inventory_only_accepts_artifact_committed_before_cutoff(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
