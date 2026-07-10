@@ -21,18 +21,34 @@
 在任何按日期/分区追加的数据仓（数据库同步、离线特征表、日志归档）都通用。
 """
 from __future__ import annotations
-import argparse, json, os, sys, zipfile, datetime
+import argparse, hashlib, json, os, sys, zipfile, datetime
 import duckdb
 
 CANDIDATE_DATE_COLS = ("trade_date", "date", "dt", "day", "stat_date")
 # 滚动窗口 / 静态表：不参与单日增量（靠目标机重算或整库快照）
 SKIP_PREFIXES = ("feature_", "config_", "dim_")
 
+# 包级数据契约版本。import 端据此判定校验能力；不兼容的旧包应被拒绝而非静默降级。
+# v1: 引入 schema_version / 每文件 sha256 / 零行分区表登记 / 列清单。
+SCHEMA_VERSION = 1
+
+
+def _sha256(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _table_columns(con, table: str) -> list[str]:
+    return [r[0] for r in con.execute(
+        "select column_name from information_schema.columns "
+        "where table_name=? order by ordinal_position", [table]).fetchall()]
+
 
 def _date_col(con, table: str) -> str | None:
-    cols = [r[0] for r in con.execute(
-        "select column_name from information_schema.columns where table_name=?",
-        [table]).fetchall()]
+    cols = _table_columns(con, table)
     return next((c for c in CANDIDATE_DATE_COLS if c in cols), None)
 
 
@@ -76,7 +92,8 @@ def main() -> int:
     else:
         tables = discover_tables(con, a.include_skipped)
 
-    manifest = {"trade_date": date, "db": os.path.basename(a.db),
+    manifest = {"schema_version": SCHEMA_VERSION,
+                "trade_date": date, "db": os.path.basename(a.db),
                 "exported_at": datetime.datetime.now().isoformat(timespec="seconds"),
                 "tables": []}
     total_rows = 0
@@ -84,14 +101,23 @@ def main() -> int:
         n = con.execute(
             'select count(*) from "%s" where cast("%s" as varchar)=?' % (t, dc),
             [date]).fetchone()[0]
+        cols = _table_columns(con, t)
+        entry = {"table": t, "date_col": dc, "rows": n, "columns": cols}
+        # 零行分区表也登记（rows=0, file=None）：让 import 端能把目标从「非零」修正为「零」，
+        # 而不是因为包里缺这张表就默默跳过、留下过期数据。
         if n == 0:
-            continue  # 当天没这表的数据，跳过
+            entry["file"] = None
+            entry["sha256"] = None
+            manifest["tables"].append(entry)
+            print(f"  {t:42s} {dc:12s} {n:>8} 行 (零行登记)")
+            continue
         pq = os.path.join(work, f"{t}.parquet")
         con.execute(
             'copy (select * from "%s" where cast("%s" as varchar)=?) '
             "to '%s' (format parquet)" % (t, dc, pq), [date])
-        manifest["tables"].append({"table": t, "date_col": dc, "rows": n,
-                                    "file": f"{t}.parquet"})
+        entry["file"] = f"{t}.parquet"
+        entry["sha256"] = _sha256(pq)
+        manifest["tables"].append(entry)
         total_rows += n
         print(f"  {t:42s} {dc:12s} {n:>8} 行")
     con.close()
@@ -107,7 +133,9 @@ def main() -> int:
     os.rmdir(work)
 
     size = os.path.getsize(out_zip)
-    print(f"\n[ok] {len(manifest['tables'])} 张表 / {total_rows} 行 → "
+    n_data = sum(1 for e in manifest["tables"] if e["rows"] > 0)
+    n_zero = len(manifest["tables"]) - n_data
+    print(f"\n[ok] {n_data} 张有数据表 + {n_zero} 张零行登记 / {total_rows} 行 → "
           f"{out_zip} ({size/1024:.0f} KB)")
     return 0
 
