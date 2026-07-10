@@ -28,7 +28,13 @@ class KbRagRetrieveFilterTests(unittest.TestCase):
                     "file_path": "wiki/concepts/光刻机.md",
                     "title": "光刻机",
                     "score": 0.9,
-                    "snippet": "fallback",
+                    "best_chunk_id": "wiki/concepts/光刻机.md::2",
+                    "section": "供需",
+                    "content_hash": "deadbeef",
+                    "evidence_text": "命中的供需章节，而不是页面开头。",
+                    "index_built_at": "2026-07-10T12:00:00+00:00",
+                    "index_source_revision": "abc123",
+                    "index_freshness": "fresh",
                     "evidence_layer": "L0_concept",
                     "fact_hardness": "structured_mapping",
                     "source_type": "concept_page",
@@ -59,6 +65,10 @@ class KbRagRetrieveFilterTests(unittest.TestCase):
             self.assertEqual(res.hits[0].evidence_layer, "L0_concept")
             self.assertEqual(res.hits[0].fact_hardness, "structured_mapping")
             self.assertEqual(res.hits[0].source_type, "concept_page")
+            self.assertEqual(res.hits[0].excerpt, "命中的供需章节，而不是页面开头。")
+            self.assertEqual(res.hits[0].best_chunk_id, "wiki/concepts/光刻机.md::2")
+            self.assertEqual(res.hits[0].section, "供需")
+            self.assertEqual(res.telemetry.index_freshness, "fresh")
 
 
 class KbRagTelemetryTests(unittest.TestCase):
@@ -78,8 +88,21 @@ class KbRagTelemetryTests(unittest.TestCase):
             root = self._setup_repo(td)
             (root / ".rag_index").mkdir()
             payload = [
-                {"page_id": "a", "file_path": "wiki/concepts/光刻机.md", "title": "A", "score": 0.9},
-                {"page_id": "b", "file_path": "wiki/concepts/光刻机.md", "title": "B", "score": 0.5, "via_neighbor": True},
+                {
+                    "page_id": "a",
+                    "file_path": "wiki/concepts/光刻机.md",
+                    "title": "A",
+                    "score": 0.9,
+                    "evidence_text": "A matched chunk",
+                },
+                {
+                    "page_id": "b",
+                    "file_path": "wiki/concepts/光刻机.md",
+                    "title": "B",
+                    "score": 0.5,
+                    "evidence_text": "B matched chunk",
+                    "via_neighbor": True,
+                },
             ]
             proc = mock.Mock(returncode=0, stdout=json.dumps(payload, ensure_ascii=False), stderr="")
             with mock.patch.dict("os.environ", {"KB_RAG_PYTHON": "/tmp/rag-python"}, clear=True):

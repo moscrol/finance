@@ -22,14 +22,22 @@
   两边列顺序不同也不会错位（比按位置 INSERT 稳）；前提是目标表已存在同名 schema。
 - delete+insert vs `INSERT OR REPLACE`/MERGE：DuckDB 的 upsert 依赖主键约束，而这些
   fact 表大多没声明主键，所以用「按分区键 delete 再 insert」最稳、最好懂，也天然幂等。
-- 要求目标库已有表结构：单日增量不负责建表/迁移 schema。第一次在新机器上，应先用整库
-  快照（db_delta_export 的整库 zip / EXPORT DATABASE）建好底库，之后再每天打增量。
+- 要求目标库已有表结构：单日增量不负责建表/迁移 schema。第一次在新机器上，应先用
+  ``db_baseline_export.py`` 生成的全量基线建好底库，之后再每天打增量。
 
 可复用知识点：分区表的增量同步普遍用「同一分区先删后插 + 事务」保证幂等，离线数仓、
 特征平台、报表库都这么做；配合「manifest + 每文件校验和 + 导入后自检」形成端到端数据契约。
 """
 from __future__ import annotations
-import argparse, hashlib, json, os, re, sys, tempfile, zipfile
+import argparse
+import hashlib
+import json
+import os
+import re
+import sys
+import tempfile
+import zipfile
+from datetime import datetime
 import duckdb
 
 # 复用 export 端的表发现逻辑，保证「可参与单日增量的表集合」两端语义一致。
@@ -45,6 +53,7 @@ except ImportError:  # pragma: no cover - 脚本直跑时的退路
 SUPPORTED_SCHEMA_VERSIONS = frozenset({1})
 
 _HEX64 = re.compile(r"\A[0-9a-f]{64}\Z")
+SCHEMA_LEDGER_SUFFIX = ".delta_schema_ledger.jsonl"
 
 
 class DeltaImportError(Exception):
@@ -198,6 +207,35 @@ def _validate_entry(con, tmp: str, date: str, item: dict, existing: set[str]) ->
             f"表 {t} 有 {bad} 行日期列 {dc} 为 NULL 或不等于 manifest trade_date {date}（串日期）")
 
 
+def _schema_snapshot(con) -> dict:
+    rows = con.execute(
+        "select table_name, column_name, data_type, ordinal_position "
+        "from information_schema.columns where table_schema='main' "
+        "order by table_name, ordinal_position"
+    ).fetchall()
+    tables: dict[str, list[dict]] = {}
+    for table, column, dtype, pos in rows:
+        tables.setdefault(table, []).append({"name": column, "type": dtype, "ordinal": pos})
+    stable = json.dumps(tables, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return {"hash": hashlib.sha256(stable.encode("utf-8")).hexdigest(), "tables": tables}
+
+
+def _append_schema_ledger(db_path: str, record: dict) -> str:
+    ledger_path = db_path + SCHEMA_LEDGER_SUFFIX
+    payload = dict(record)
+    payload["recorded_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+    tmp = ledger_path + ".tmp"
+    previous = ""
+    if os.path.exists(ledger_path):
+        with open(ledger_path, encoding="utf-8") as handle:
+            previous = handle.read()
+    with open(tmp, "w", encoding="utf-8") as handle:
+        handle.write(previous)
+        handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+    os.replace(tmp, ledger_path)
+    return ledger_path
+
+
 def import_delta(zip_path: str, db_path: str, dry_run: bool = False,
                  allow_partial: bool = False) -> dict:
     """校验并把单日增量 zip 幂等合并进本地 DuckDB。返回摘要 dict；不一致时抛异常。
@@ -222,6 +260,7 @@ def import_delta(zip_path: str, db_path: str, dry_run: bool = False,
               + ("  (dry-run)" if dry_run else ""))
 
         con = duckdb.connect(db_path, read_only=dry_run)
+        before_schema = _schema_snapshot(con)
         existing = {r[0] for r in con.execute(
             "select table_name from information_schema.tables "
             "where table_schema='main'").fetchall()}
@@ -273,7 +312,7 @@ def import_delta(zip_path: str, db_path: str, dry_run: bool = False,
                 print(f"  {t:42s} 现有当天 {before} 行 → 将替换为包内 {rows} 行")
             print("[dry-run] 未写库")
             return {"trade_date": date, "applied": 0, "dry_run": True,
-                    "tables": len(man["tables"])}
+                    "tables": len(man["tables"]), "schema_hash": before_schema["hash"]}
 
         applied = 0
         con.execute("begin transaction")
@@ -305,9 +344,21 @@ def import_delta(zip_path: str, db_path: str, dry_run: bool = False,
         except Exception:
             con.execute("rollback")
             raise
+        after_schema = _schema_snapshot(con)
+        ledger_path = _append_schema_ledger(db_path, {
+            "event": "delta_import",
+            "trade_date": date,
+            "zip": os.path.basename(zip_path),
+            "manifest_schema_version": man["schema_version"],
+            "partial": bool(man.get("partial")),
+            "tables": sorted(seen_tables),
+            "schema_hash_before": before_schema["hash"],
+            "schema_hash_after": after_schema["hash"],
+        })
         print(f"\n[ok] 已合并 {applied} 张表的 {date} 增量进 {db_path}")
         return {"trade_date": date, "applied": applied, "dry_run": False,
-                "tables": len(man["tables"])}
+                "tables": len(man["tables"]), "schema_hash": after_schema["hash"],
+                "schema_ledger": ledger_path}
     finally:
         if con is not None:
             con.close()

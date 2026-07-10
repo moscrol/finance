@@ -112,6 +112,14 @@ class DeltaContractTest(unittest.TestCase):
         con.close()
         res = import_delta(self.zip, self.db)
         self.assertEqual(res["applied"], 3)
+        self.assertTrue(res["schema_hash"])
+        self.assertTrue(os.path.exists(self.db + ".delta_schema_ledger.jsonl"))
+        with open(self.db + ".delta_schema_ledger.jsonl", encoding="utf-8") as handle:
+            ledger = [json.loads(line) for line in handle if line.strip()]
+        self.assertEqual(ledger[-1]["event"], "delta_import")
+        self.assertEqual(ledger[-1]["trade_date"], DATE)
+        self.assertEqual(ledger[-1]["manifest_schema_version"], exp.SCHEMA_VERSION)
+        self.assertEqual(ledger[-1]["schema_hash_before"], ledger[-1]["schema_hash_after"])
         self.assertEqual(self._count("fact_a"), 2)
         self.assertEqual(self._count("fact_b"), 1)
         # 其它日期不受影响
@@ -157,6 +165,7 @@ class DeltaContractTest(unittest.TestCase):
         _repack(self.zip, bad, mut)
         with self.assertRaises(DeltaImportError):
             import_delta(bad, self.db)
+        self.assertFalse(os.path.exists(self.db + ".delta_schema_ledger.jsonl"))
 
     # ---- 混入其它日期 ----
     def test_foreign_date_row_fails(self):

@@ -4,10 +4,10 @@
 scoring over the committed ``wiki/relations/*.json``. That只命中已入图谱的关系；
 this module adds a *semantic* recall path that closes the loop between finance
 review and the knowledge base: it fans the query out to the knowledge-base repo's
-hybrid vector retriever (``scripts/rag_index.py query --json`` — BGE-m3 dense +
-BM25 + RRF) to **select candidate wiki pages**, then reads those page bodies as
-numbered ``[W#]`` evidence. Per the KB convention, embedding 只替换「找哪些页」，
-不替换「读全文」: the RAG picks pages, we read their raw bodies for the excerpt.
+    hybrid vector retriever (``scripts/rag_index.py query --json`` — BGE-m3 dense +
+    BM25 + RRF) to select candidate chunks and uses the returned matched chunk text
+    as numbered ``[W#]`` evidence. Chunk identity and index revision stay attached
+    so ranking and citation use the same snapshot.
 
 Following the existing cross-repo wiring (``theme_modules`` replay/scan/migrate),
 the retriever lives in the *knowledge-base* repo and is invoked by subprocess with
@@ -103,6 +103,12 @@ class WikiHit:
     title: str
     score: float
     excerpt: str
+    best_chunk_id: str = ""
+    section: str = ""
+    content_hash: str = ""
+    index_built_at: str = ""
+    index_source_revision: str = ""
+    index_freshness: str = ""
     evidence_layer: str = ""
     fact_hardness: str = ""
     source_type: str = ""
@@ -154,6 +160,9 @@ class RetrievalTelemetry:
     score_min: float | None = None
     score_mean: float | None = None
     latency_ms: int | None = None  # 检索子进程耗时（毫秒）
+    index_built_at: str = ""
+    index_source_revision: str = ""
+    index_freshness: str = ""
     warning: str = ""
 
     def summary_line(self) -> str:
@@ -176,6 +185,10 @@ class RetrievalTelemetry:
             parts.append(f"耗时={self.latency_ms}ms")
         if self.degraded:
             parts.append("⚠索引降级")
+        if self.index_freshness:
+            parts.append(f"新鲜度={self.index_freshness}")
+        if self.index_built_at:
+            parts.append(f"构建={self.index_built_at}")
         parts.append(f"状态={self.status}")
         return " | ".join(parts)
 
@@ -215,22 +228,9 @@ def _resolve_rag_python(root: Path) -> str:
     return sys.executable
 
 
-def _read_excerpt(page_path: Path, fallback: str, max_chars: int) -> str:
-    """Read a candidate page body for a clean excerpt (strip YAML frontmatter)."""
-    try:
-        text = page_path.read_text(encoding="utf-8")
-    except Exception:
-        return (fallback or "").strip()[:max_chars]
-    # strip a leading Obsidian/YAML frontmatter block
-    if text.startswith("---"):
-        end = text.find("\n---", 3)
-        if end != -1:
-            nl = text.find("\n", end + 1)
-            text = text[nl + 1:] if nl != -1 else ""
-    body = re.sub(r"\s+", " ", text).strip()
-    if not body:
-        return (fallback or "").strip()[:max_chars]
-    return body[:max_chars]
+def _matched_excerpt(item: dict, max_chars: int) -> str:
+    text = str(item.get("evidence_text") or item.get("snippet") or "")
+    return re.sub(r"\s+", " ", text).strip()[:max_chars]
 
 
 def retrieve(
@@ -320,7 +320,7 @@ def retrieve(
         tel.filters["source_type"] = source_type
     filter_note = f" filters={','.join(filters)}" if filters else ""
     res.command = f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
-    res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（hybrid 向量召回 wiki 候选页）"
+    res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（匹配 chunk 证据）"
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
     _t0 = time.monotonic()
@@ -362,7 +362,9 @@ def retrieve(
         if not isinstance(item, dict):
             continue
         rel = str(item.get("file_path") or "")
-        excerpt = _read_excerpt(root / rel, str(item.get("snippet") or ""), excerpt_chars)
+        excerpt = _matched_excerpt(item, excerpt_chars)
+        if not rel or not excerpt:
+            continue
         hits.append(
             WikiHit(
                 page_id=str(item.get("page_id") or ""),
@@ -370,6 +372,12 @@ def retrieve(
                 title=str(item.get("title") or item.get("page_id") or "(无标题)"),
                 score=float(item.get("score") or 0.0),
                 excerpt=excerpt,
+                best_chunk_id=str(item.get("best_chunk_id") or ""),
+                section=str(item.get("section") or ""),
+                content_hash=str(item.get("content_hash") or ""),
+                index_built_at=str(item.get("index_built_at") or ""),
+                index_source_revision=str(item.get("index_source_revision") or ""),
+                index_freshness=str(item.get("index_freshness") or ""),
                 evidence_layer=str(item.get("evidence_layer") or ""),
                 fact_hardness=str(item.get("fact_hardness") or ""),
                 source_type=str(item.get("source_type") or ""),
@@ -381,6 +389,9 @@ def retrieve(
     tel.hit_count = len(hits)
     tel.neighbor_hits = sum(1 for h in hits if h.via_neighbor)
     if hits:
+        tel.index_built_at = hits[0].index_built_at
+        tel.index_source_revision = hits[0].index_source_revision
+        tel.index_freshness = hits[0].index_freshness
         scores = [h.score for h in hits]
         tel.score_max = max(scores)
         tel.score_min = min(scores)

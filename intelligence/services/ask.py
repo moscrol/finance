@@ -603,7 +603,14 @@ def answer_query(options: AskOptions) -> AskResult:
             result.found_graph = True
             for h in wr.hits:
                 nb = "·邻居扩展" if h.via_neighbor else ""
-                tag = cite("W", f"knowledge-base · {h.file_path}", f"{wr.command}｜{h.title}")
+                chunk_ref = h.best_chunk_id or h.file_path
+                section_ref = f"｜section={h.section}" if h.section else ""
+                revision_ref = f"｜index={h.index_source_revision[:12]}" if h.index_source_revision else ""
+                tag = cite(
+                    "W",
+                    f"knowledge-base · {h.file_path}",
+                    f"{wr.command}｜{h.title}｜chunk={chunk_ref}{section_ref}{revision_ref}",
+                )
                 # 旧结论核验门：synthesis/briefings 页是历史判断而非当前事实，打〔历史基线〕
                 # 标签供合成层按 prior 处理（引用前须用当下盘面核验，给四态对照）。
                 baseline = (

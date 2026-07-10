@@ -55,10 +55,15 @@ if mode == "garbage":
 hits = [
     {"page_id": "page_a", "file_path": "wiki/synthesis/page_a.md",
      "title": "页A·钨供给瓶颈", "score": 0.812345, "best_chunk_id": "page_a#0",
-     "via_neighbor": False, "snippet": "snippet-A-fallback"},
+     "section": "供需", "content_hash": "hash-a",
+     "index_built_at": "2026-07-10T12:00:00+00:00",
+     "index_source_revision": "abc123", "index_freshness": "fresh",
+     "via_neighbor": False, "snippet": "snippet-A-fallback",
+     "evidence_text": "匹配块：钨精矿供给出现瓶颈，江钨等龙头受益。"},
     {"page_id": "page_b", "file_path": "wiki/synthesis/page_b.md",
      "title": "页B·海绵钛", "score": 0.501234, "best_chunk_id": "page_b#0",
-     "via_neighbor": True, "snippet": "snippet-B-fallback"},
+     "via_neighbor": True, "snippet": "snippet-B-fallback",
+     "evidence_text": "匹配块：海绵钛价格企稳。"},
 ]
 print(json.dumps(hits, ensure_ascii=False, indent=2))
 '''
@@ -69,7 +74,7 @@ import os, sys, json
 idx = os.environ.get("RAG_INDEX_DIR", "<none>")
 hits = [{"page_id": "page_a", "file_path": "wiki/synthesis/page_a.md",
          "title": "IDX=" + idx, "score": 0.9, "best_chunk_id": "page_a#0",
-         "via_neighbor": False, "snippet": "s"}]
+         "via_neighbor": False, "snippet": "s", "evidence_text": "matched"}]
 print(json.dumps(hits, ensure_ascii=False))
 '''
 
@@ -152,8 +157,12 @@ def main() -> int:
             h0 = wr.hits[0]
             check("retrieve: file_path relative + title parsed",
                   h0.file_path == "wiki/synthesis/page_a.md" and "钨供给瓶颈" in h0.title, repr(h0))
-            check("retrieve: excerpt read from page body (frontmatter stripped)",
-                  "钨精矿供给出现瓶颈" in h0.excerpt and "type: synthesis" not in h0.excerpt, repr(h0.excerpt))
+            check("retrieve: excerpt comes from the exact matched chunk",
+                  h0.excerpt.startswith("匹配块：钨精矿供给出现瓶颈") and "正文第一段" not in h0.excerpt,
+                  repr(h0.excerpt))
+            check("retrieve: chunk identity + index snapshot preserved",
+                  h0.best_chunk_id == "page_a#0" and h0.section == "供需"
+                  and h0.index_source_revision == "abc123", repr(h0))
             check("retrieve: via_neighbor flag preserved (hit B)", wr.hits[1].via_neighbor is True)
 
         r1 = _ask(wiki1)
