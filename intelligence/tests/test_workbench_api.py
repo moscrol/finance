@@ -1,4 +1,3 @@
-import json
 import time
 
 import pytest
@@ -14,19 +13,42 @@ from intelligence.services.run_store import RunStore  # noqa: E402
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    """隔离环境：runs 落 tmp 目录；ask 执行体换成确定性 fake（不依赖 LLM/数据）。"""
-    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    users_root = tmp_path / "users"
+    repo_root = tmp_path / "repo"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+
+    daily_dir = repo_root / "复盘" / "daily" / "2026-07-09"
+    daily_dir.mkdir(parents=True)
+    (daily_dir / "2026-07-09-daily-agent.html").write_text("<h1>daily</h1>", encoding="utf-8")
+    exports = repo_root / "market_feature_store" / "exports"
+    exports.mkdir(parents=True)
+    (exports / "2026-07-09-daily-agent.json").write_text("{}", encoding="utf-8")
 
     def fake_run_ask(store: RunStore, run_id: str, req) -> None:
-        store.append_step(run_id, step_id="s01", name="ask_retrieve_compose",
-                          status="completed", input_summary=req.question,
-                          output_summary="fake 命中")
-        store.add_artifact(run_id, "answer.md", f"# 答\n{req.question}",
-                           renderer="markdown", title="研究回答")
+        store.append_step(
+            run_id,
+            step_id="s01",
+            name="ask_retrieve_compose",
+            status="completed",
+            input_summary=req.question,
+            output_summary="fake 命中",
+            retrieval={
+                "sources": ["market"],
+                "citation_counts": {"S": 2},
+                "trade_date": "2026-07-09",
+            },
+        )
+        store.add_artifact(
+            run_id,
+            "answer.md",
+            f"# 答\n{req.question}",
+            renderer="markdown",
+            title="研究回答",
+        )
         store.finish_run(run_id, rs.STATUS_COMPLETED)
 
     monkeypatch.setattr(app_module, "_run_ask", fake_run_ask)
-    return TestClient(app_module.create_app())
+    return TestClient(app_module.create_app(repo_root=repo_root))
 
 
 def _wait_terminal(client: TestClient, run_id: str, timeout: float = 5.0) -> dict:
@@ -46,7 +68,7 @@ def test_create_run_and_fetch_artifacts(client: TestClient) -> None:
 
     run = _wait_terminal(client, run_id)
     assert run["status"] == "completed"
-    assert [a["path"] for a in run["artifacts"]] == ["answer.md"]
+    assert [artifact["path"] for artifact in run["artifacts"]] == ["answer.md"]
 
     trace = client.get(f"/api/runs/{run_id}/trace").json()
     assert trace[0]["name"] == "ask_retrieve_compose"
@@ -77,9 +99,10 @@ def test_sse_replays_steps_and_ends_with_run(client: TestClient) -> None:
 def test_missing_run_404(client: TestClient) -> None:
     assert client.get("/api/runs/run_nope").status_code == 404
     assert client.get("/api/runs/run_nope/trace").status_code == 404
+    assert client.get("/api/runs/run_nope/context").status_code == 404
 
 
-def test_artifact_path_traversal_rejected(client: TestClient) -> None:
+def test_run_artifact_path_traversal_rejected(client: TestClient) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     _wait_terminal(client, run_id)
     resp = client.get(f"/api/runs/{run_id}/artifacts/..%2Frun.json")
@@ -91,31 +114,41 @@ def test_failed_run_surfaces_error(client: TestClient, monkeypatch) -> None:
         store.finish_run(run_id, rs.STATUS_FAILED, error="boom")
 
     monkeypatch.setattr(app_module, "_run_ask", failing)
-    c = TestClient(app_module.create_app())
-    run_id = c.post("/api/runs", json={"question": "q"}).json()["run_id"]
-    run = _wait_terminal(c, run_id)
-    assert run["status"] == "failed" and run["error"] == "boom"
+    failed_client = TestClient(app_module.create_app())
+    run_id = failed_client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    run = _wait_terminal(failed_client, run_id)
+    assert run["status"] == "failed"
+    assert run["error"] == "boom"
 
 
 def test_followups_endpoint_and_parent_link(client: TestClient, monkeypatch) -> None:
     from intelligence.services import followups as fu_svc
 
     def fake_run_ask(store: RunStore, run_id: str, req) -> None:
-        fu = fu_svc.generate_followups(req.question, matched_theme="液冷", use_llm=False)
-        store.add_artifact(run_id, "followups.json", fu.to_json(), renderer="json", title="猜你想问")
+        followups = fu_svc.generate_followups(req.question, matched_theme="液冷", use_llm=False)
+        store.add_artifact(
+            run_id,
+            "followups.json",
+            followups.to_json(),
+            renderer="json",
+            title="猜你想问",
+        )
         store.finish_run(run_id, rs.STATUS_COMPLETED)
 
     monkeypatch.setattr(app_module, "_run_ask", fake_run_ask)
     parent_id = client.post("/api/runs", json={"question": "液冷题材怎么看"}).json()["run_id"]
     _wait_terminal(client, parent_id)
 
-    doc = client.get(f"/api/runs/{parent_id}/followups").json()
-    assert len(doc["followups"]) == 5
-    first = doc["followups"][0]
-    assert first["type"] == "evidence" and "液冷" in first["question"]
+    document = client.get(f"/api/runs/{parent_id}/followups").json()
+    assert len(document["followups"]) == 5
+    first = document["followups"][0]
+    assert first["type"] == "evidence"
+    assert "液冷" in first["question"]
 
-    child_id = client.post("/api/runs", json={
-        "question": first["question"], "parent_run_id": parent_id}).json()["run_id"]
+    child_id = client.post(
+        "/api/runs",
+        json={"question": first["question"], "parent_run_id": parent_id},
+    ).json()["run_id"]
     child = _wait_terminal(client, child_id)
     assert child["parent_run_id"] == parent_id
 
@@ -124,6 +157,51 @@ def test_followups_missing_returns_empty(client: TestClient) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     _wait_terminal(client, run_id)
     assert client.get(f"/api/runs/{run_id}/followups").json() == {"followups": []}
+
+
+def test_run_context_projects_available_evidence(client: TestClient) -> None:
+    run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    _wait_terminal(client, run_id)
+    context = client.get(f"/api/runs/{run_id}/context").json()
+    assert context["evidence"][0]["label"] == "盘面快照"
+    assert any(item["label"] == "盘面证据" for item in context["evidence"])
+    assert context["memory"] == []
+    assert context["review"] == []
+
+
+def test_artifact_api_filters_describes_and_serves_registered_content(client: TestClient) -> None:
+    artifacts = client.get("/api/artifacts", params={"category": "daily_agent", "date": "2026-07-09"}).json()
+    html_artifact = next(item for item in artifacts if item["format"] == "html")
+    assert not html_artifact["source_path"].startswith("/")
+    assert html_artifact["canonical_exists"] is True
+
+    detail = client.get(f"/api/artifacts/{html_artifact['artifact_id']}").json()
+    assert detail["artifact_id"] == html_artifact["artifact_id"]
+
+    content = client.get(f"/api/artifacts/{html_artifact['artifact_id']}/content")
+    assert content.status_code == 200
+    assert "<h1>daily</h1>" in content.text
+    assert "sandbox" in content.headers["content-security-policy"]
+
+
+def test_artifact_content_rejects_unregistered_and_traversal_ids(client: TestClient) -> None:
+    assert client.get("/api/artifacts/not-registered/content").status_code == 404
+    response = client.get("/api/artifacts/..%2Fetc%2Fpasswd/content")
+    assert response.status_code in (404, 405)
+
+
+def test_bootstrap_returns_workflows_runs_and_latest_artifact(client: TestClient) -> None:
+    run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    _wait_terminal(client, run_id)
+    bootstrap = client.get("/api/workbench/bootstrap").json()
+    assert [workflow["id"] for workflow in bootstrap["workflows"]] == [
+        "daily",
+        "theme",
+        "stock_research",
+    ]
+    assert bootstrap["recent_runs"][0]["run_id"] == run_id
+    assert bootstrap["latest_daily_artifact"]["date"] == "2026-07-09"
+    assert bootstrap["data_cutoff"] == "2026-07-09"
 
 
 def test_index_serves_workbench_page(client: TestClient) -> None:

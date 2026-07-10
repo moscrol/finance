@@ -1,0 +1,84 @@
+from pathlib import Path
+
+from intelligence.api.artifacts import ArtifactRegistry
+from intelligence.services.run_store import RunStore
+
+
+def _registry(tmp_path: Path) -> tuple[ArtifactRegistry, RunStore]:
+    store = RunStore(user_id="default", root=tmp_path / "users" / "default" / "runs")
+    return ArtifactRegistry(repo_root=tmp_path, run_store=store), store
+
+
+def test_registry_discovers_known_providers_and_run_artifacts(tmp_path: Path) -> None:
+    daily_dir = tmp_path / "复盘" / "daily" / "2026-07-09"
+    daily_dir.mkdir(parents=True)
+    (daily_dir / "2026-07-09-daily-agent.html").write_text("<h1>daily</h1>", encoding="utf-8")
+    exports = tmp_path / "market_feature_store" / "exports"
+    exports.mkdir(parents=True)
+    (exports / "2026-07-09-daily-agent.json").write_text("{}", encoding="utf-8")
+
+    matrix_dir = tmp_path / "复盘" / "matrices"
+    matrix_dir.mkdir(parents=True)
+    (matrix_dir / "strategy1-priority-stock-matrix.md").write_text("# matrix", encoding="utf-8")
+    (matrix_dir / "strategy1-priority-stock-matrix.html").write_text("<h1>matrix</h1>", encoding="utf-8")
+
+    registry, store = _registry(tmp_path)
+    run = store.create_run("测试", "ask")
+    store.add_artifact(run.run_id, "answer.md", "# answer", renderer="markdown", title="回答")
+    store.finish_run(run.run_id, "completed")
+
+    artifacts = registry.list()
+    assert len({item.artifact_id for item in artifacts}) == len(artifacts)
+    assert any(item.category == "daily_agent" and item.status == "ok" for item in artifacts)
+    assert any(item.category == "strategy_matrix" and item.canonical_exists for item in artifacts)
+    assert any(item.category == "run" and item.related_run_id == run.run_id for item in artifacts)
+    assert all(not item.source_path.startswith("/") for item in artifacts)
+
+
+def test_registry_filters_and_sorts_latest_first(tmp_path: Path) -> None:
+    exports = tmp_path / "market_feature_store" / "exports"
+    exports.mkdir(parents=True)
+    for date in ("2026-07-08", "2026-07-09"):
+        (exports / f"{date}-theme-candidates.md").write_text(f"# {date}", encoding="utf-8")
+
+    registry, _ = _registry(tmp_path)
+    filtered = registry.list(category="theme_candidates", date="2026-07-09", query="题材")
+    assert [item.date for item in filtered] == ["2026-07-09"]
+    assert registry.list(category="theme_candidates")[0].date == "2026-07-09"
+
+
+def test_registry_keeps_known_artifact_as_missing_after_deletion(tmp_path: Path) -> None:
+    exports = tmp_path / "market_feature_store" / "exports"
+    exports.mkdir(parents=True)
+    path = exports / "2026-07-09-daily-agent.md"
+    path.write_text("# daily", encoding="utf-8")
+
+    registry, _ = _registry(tmp_path)
+    descriptor = next(item for item in registry.list() if item.source_path.endswith("daily-agent.md"))
+    path.unlink()
+
+    missing = registry.get(descriptor.artifact_id)
+    assert missing is not None
+    assert missing.status == "missing"
+    assert registry.list(status="missing")
+
+
+def test_registry_registers_missing_cockpit_without_exposing_arbitrary_path(tmp_path: Path) -> None:
+    registry, _ = _registry(tmp_path)
+    cockpit = next(item for item in registry.list(category="cockpit") if item.title == "驾驶舱总入口")
+    assert cockpit.status == "missing"
+    assert cockpit.source_path == "复盘/index.html"
+    assert registry.get("../etc/passwd") is None
+
+
+def test_content_path_is_only_resolved_from_registered_descriptor(tmp_path: Path) -> None:
+    exports = tmp_path / "market_feature_store" / "exports"
+    exports.mkdir(parents=True)
+    path = exports / "2026-07-09-theme-candidates.md"
+    path.write_text("# themes", encoding="utf-8")
+
+    registry, _ = _registry(tmp_path)
+    descriptor = next(item for item in registry.list() if item.source_path.endswith("theme-candidates.md"))
+    resolved_descriptor, resolved = registry.content_path(descriptor.artifact_id)
+    assert resolved_descriptor.artifact_id == descriptor.artifact_id
+    assert resolved == path.resolve()
