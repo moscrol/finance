@@ -33,7 +33,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: python -m pip install pytest duckdb==1.4.3
+        run: |
+          python -m pip install pytest duckdb==1.4.3
+          python -m pip install -r skills/report-search/scripts/requirements.txt
 
       - name: Test delta import/export data contract
         run: python -m pytest -q tests/test_db_delta.py
