@@ -224,6 +224,135 @@ class DeltaContractTest(unittest.TestCase):
         with self.assertRaises(DeltaImportError):
             import_delta(bad, self.db)
 
+    def _bad_manifest(self, mutate_manifest):
+        """把 manifest dict 交给 mutate_manifest 改后重打包，返回坏包路径。"""
+        bad = os.path.join(self.tmp, "bad.zip")
+
+        def mut(d):
+            m = json.load(open(os.path.join(d, "manifest.json")))
+            mutate_manifest(m)
+            json.dump(m, open(os.path.join(d, "manifest.json"), "w"))
+        _repack(self.zip, bad, mut)
+        return bad
+
+    # ---- schema_version = 0 / 负数 应被拒绝（不再是 <= 判断）----
+    def test_zero_schema_version_fails(self):
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(
+                lambda m: m.update(schema_version=0)), self.db)
+
+    def test_negative_schema_version_fails(self):
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(
+                lambda m: m.update(schema_version=-1)), self.db)
+
+    # ---- v1 非零表 sha256 / columns 缺失应被拒绝 ----
+    def test_missing_sha256_fails(self):
+        def m(man):
+            for e in man["tables"]:
+                if e["table"] == "fact_a":
+                    e.pop("sha256", None)
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
+    def test_bad_sha256_format_fails(self):
+        def m(man):
+            for e in man["tables"]:
+                if e["table"] == "fact_a":
+                    e["sha256"] = "deadbeef"  # 非 64 位
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
+    def test_missing_columns_fails(self):
+        def m(man):
+            for e in man["tables"]:
+                if e["table"] == "fact_a":
+                    e.pop("columns", None)
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
+    def test_columns_mismatch_fails(self):
+        def m(man):
+            for e in man["tables"]:
+                if e["table"] == "fact_a":
+                    e["columns"] = ["trade_date"]  # 少了 val，与 parquet 实际列不符
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
+    # ---- item.file 指向解压目录外 / 绝对路径 ----
+    def test_file_traversal_in_manifest_fails(self):
+        def m(man):
+            for e in man["tables"]:
+                if e["table"] == "fact_a":
+                    e["file"] = "../evil.parquet"
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
+    def test_file_absolute_in_manifest_fails(self):
+        def m(man):
+            for e in man["tables"]:
+                if e["table"] == "fact_a":
+                    e["file"] = "/etc/passwd"
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
+    # ---- 日期列 NULL 也算串日期 ----
+    def test_null_date_row_fails(self):
+        bad = os.path.join(self.tmp, "bad.zip")
+
+        def mut(d):
+            pq = os.path.join(d, "fact_a.parquet")
+            c = duckdb.connect()
+            c.execute("create table t as select * from read_parquet('%s')" % pq)
+            c.execute("insert into t values (NULL, 7)")
+            os.remove(pq)
+            c.execute("copy t to '%s' (format parquet)" % pq)
+            c.close()
+            m = json.load(open(os.path.join(d, "manifest.json")))
+            for e in m["tables"]:
+                if e["table"] == "fact_a":
+                    e["rows"] = 3
+                    e["sha256"] = exp._sha256(pq)
+            json.dump(m, open(os.path.join(d, "manifest.json"), "w"))
+        _repack(self.zip, bad, mut)
+        with self.assertRaises(DeltaImportError):
+            import_delta(bad, self.db)
+
+    # ---- 重复 table / 重复 file ----
+    def test_duplicate_table_fails(self):
+        def m(man):
+            dup = dict(man["tables"][0])
+            man["tables"].append(dup)
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
+    def test_duplicate_file_fails(self):
+        def m(man):
+            # 让 fact_b 复用 fact_a 的文件名 → 重复 file
+            fa = next(e for e in man["tables"] if e["table"] == "fact_a")
+            for e in man["tables"]:
+                if e["table"] == "fact_b":
+                    e["file"] = fa["file"]
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
+    # ---- 非法 rows：负数 / 非整数 ----
+    def test_negative_rows_fails(self):
+        def m(man):
+            for e in man["tables"]:
+                if e["table"] == "fact_a":
+                    e["rows"] = -1
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
+    def test_non_integer_rows_fails(self):
+        def m(man):
+            for e in man["tables"]:
+                if e["table"] == "fact_a":
+                    e["rows"] = 2.0
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
 
 class SafeExtractTest(unittest.TestCase):
     def setUp(self):

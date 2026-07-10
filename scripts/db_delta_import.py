@@ -29,15 +29,25 @@
 特征平台、报表库都这么做；配合「manifest + 每文件校验和 + 导入后自检」形成端到端数据契约。
 """
 from __future__ import annotations
-import argparse, hashlib, json, os, sys, tempfile, zipfile
+import argparse, hashlib, json, os, re, sys, tempfile, zipfile
 import duckdb
 
-# 能识别的最高 manifest 契约版本（见 db_delta_export.SCHEMA_VERSION）。
-SUPPORTED_SCHEMA_VERSION = 1
+# 能识别的 manifest 契约版本集合（见 db_delta_export.SCHEMA_VERSION）。
+# 只接受明确在列的版本；0 / 负数 / 未来版本均拒绝，不静默降级。
+SUPPORTED_SCHEMA_VERSIONS = frozenset({1})
+
+_HEX64 = re.compile(r"\A[0-9a-f]{64}\Z")
 
 
 class DeltaImportError(Exception):
     """包级数据契约校验失败（安全/完整性/一致性任一不满足）。"""
+
+
+def _qi(name: str) -> str:
+    """把标识符（表名/列名）安全地双引号 quote，防止 manifest 插值注入。"""
+    if not isinstance(name, str) or '"' in name or "\x00" in name:
+        raise DeltaImportError(f"非法标识符: {name!r}")
+    return '"' + name + '"'
 
 
 def _sha256(path: str) -> str:
@@ -46,6 +56,24 @@ def _sha256(path: str) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _resolve_member(tmp: str, fn: str) -> str:
+    """把 manifest 里的 file 字段解析成解压目录内的真实路径。
+
+    拒绝绝对路径 / `..` 逆回 / 指向解压目录外；只允许包内普通文件（非目录/非符链）。
+    """
+    if not isinstance(fn, str) or not fn:
+        raise DeltaImportError(f"非法文件名: {fn!r}")
+    if os.path.isabs(fn) or fn.startswith(("/", "\\")) or (len(fn) >= 2 and fn[1] == ":"):
+        raise DeltaImportError(f"file 字段含绝对路径，拒绝: {fn!r}")
+    troot = os.path.realpath(tmp)
+    target = os.path.realpath(os.path.join(tmp, fn))
+    if target != troot and not target.startswith(troot + os.sep):
+        raise DeltaImportError(f"file 字段越出解压目录（目录穿越），拒绝: {fn!r}")
+    if os.path.islink(target) or not os.path.isfile(target):
+        raise DeltaImportError(f"file 字段非包内普通文件，拒绝: {fn!r}")
+    return target
 
 
 def safe_extract(zip_path: str, dest: str) -> None:
@@ -75,9 +103,10 @@ def _load_manifest(tmp: str) -> dict:
     if ver is None:
         raise DeltaImportError(
             "manifest 缺少 schema_version（旧格式不兼容，请用新版 db_delta_export.py 重新导出）")
-    if not isinstance(ver, int) or ver > SUPPORTED_SCHEMA_VERSION:
+    # 只接受明确支持的版本；bool 是 int 子类需单独排除。0/负数/未知版本一律拒绝。
+    if isinstance(ver, bool) or not isinstance(ver, int) or ver not in SUPPORTED_SCHEMA_VERSIONS:
         raise DeltaImportError(
-            f"manifest schema_version={ver} 超出支持范围（本脚本最高 {SUPPORTED_SCHEMA_VERSION}）")
+            f"manifest schema_version={ver!r} 不在支持集合 {sorted(SUPPORTED_SCHEMA_VERSIONS)}")
     if "trade_date" not in man or "tables" not in man:
         raise DeltaImportError("manifest 缺少 trade_date / tables 字段")
     return man
@@ -88,8 +117,11 @@ def _validate_entry(con, tmp: str, date: str, item: dict, existing: set[str]) ->
     t = item.get("table")
     dc = item.get("date_col")
     rows = item.get("rows")
-    if not t or not dc or rows is None:
+    if not isinstance(t, str) or not t or not isinstance(dc, str) or not dc:
         raise DeltaImportError(f"manifest 表项字段不完整: {item!r}")
+    # rows 必须是非负整数（bool 是 int 子类，单独排除）
+    if isinstance(rows, bool) or not isinstance(rows, int) or rows < 0:
+        raise DeltaImportError(f"表 {t} rows 非法（需非负整数）: {rows!r}")
 
     # 目标缺表 → fail-fast（不 skip）
     if t not in existing:
@@ -107,25 +139,34 @@ def _validate_entry(con, tmp: str, date: str, item: dict, existing: set[str]) ->
             raise DeltaImportError(f"表 {t} rows=0 却带了文件 {item['file']}")
         return
 
+    # v1 非零表：sha256 / columns 必须存在（不允许缺失后静默跳过校验）
     fn = item.get("file")
     if not fn:
         raise DeltaImportError(f"表 {t} rows={rows} 但 manifest 未记录文件名")
-    pq = os.path.join(tmp, fn)
-    if not os.path.exists(pq):
-        raise DeltaImportError(f"表 {t} 声明的文件缺失: {fn}")
+    pq = _resolve_member(tmp, fn)
 
-    # SHA-256 完整性
     want_sha = item.get("sha256")
-    if want_sha:
-        got_sha = _sha256(pq)
-        if got_sha != want_sha:
-            raise DeltaImportError(
-                f"表 {t} 文件 {fn} SHA-256 不匹配（期望 {want_sha[:12]}… 实得 {got_sha[:12]}…）")
+    if not isinstance(want_sha, str) or not _HEX64.match(want_sha):
+        raise DeltaImportError(f"表 {t} sha256 缺失或格式非法（需 64 位小写十六进制）: {want_sha!r}")
+    got_sha = _sha256(pq)
+    if got_sha != want_sha:
+        raise DeltaImportError(
+            f"表 {t} 文件 {fn} SHA-256 不匹配（期望 {want_sha[:12]}… 实得 {got_sha[:12]}…）")
+
+    man_cols = item.get("columns")
+    if not isinstance(man_cols, list) or not man_cols or not all(
+            isinstance(c, str) for c in man_cols):
+        raise DeltaImportError(f"表 {t} manifest columns 缺失或非法")
 
     pql = pq.replace("'", "''")
-    # schema 兼容：parquet 列必须都在目标表里（否则 INSERT BY NAME 会失败/漂移）
+    # manifest columns 必须与 parquet 实际列（名称与顺序）完全一致
     pq_cols = [d[0] for d in con.execute(
         "select * from read_parquet('%s') limit 0" % pql).description]
+    if pq_cols != man_cols:
+        raise DeltaImportError(
+            f"表 {t} manifest columns 与 parquet 实际列不一致：manifest={man_cols} parquet={pq_cols}")
+
+    # schema 兼容：parquet 列必须都在目标表里（否则 INSERT BY NAME 会失败/漂移）
     drift = [c for c in pq_cols if c not in target_cols]
     if drift:
         raise DeltaImportError(f"表 {t} schema drift：parquet 多出目标库没有的列 {drift}")
@@ -135,13 +176,13 @@ def _validate_entry(con, tmp: str, date: str, item: dict, existing: set[str]) ->
     if actual != rows:
         raise DeltaImportError(f"表 {t} 行数不符：manifest {rows} 行，parquet 实有 {actual} 行")
 
-    # 日期列每一行都必须等于 manifest trade_date（防混入其它日期）
+    # 日期列每一行都必须等于 manifest trade_date（防混入其它日期 / NULL）
     bad = con.execute(
-        'select count(*) from read_parquet(\'%s\') where cast("%s" as varchar) <> ?'
-        % (pql, dc), [date]).fetchone()[0]
+        'select count(*) from read_parquet(\'%s\') where %s is null or cast(%s as varchar) <> ?'
+        % (pql, _qi(dc), _qi(dc)), [date]).fetchone()[0]
     if bad:
         raise DeltaImportError(
-            f"表 {t} 有 {bad} 行日期列 {dc} 不等于 manifest trade_date {date}（串日期）")
+            f"表 {t} 有 {bad} 行日期列 {dc} 为 NULL 或不等于 manifest trade_date {date}（串日期）")
 
 
 def import_delta(zip_path: str, db_path: str, dry_run: bool = False) -> dict:
@@ -166,6 +207,20 @@ def import_delta(zip_path: str, db_path: str, dry_run: bool = False) -> dict:
             "select table_name from information_schema.tables "
             "where table_schema='main'").fetchall()}
 
+        # 拒绝重复 table / 重复 file（同一包里重复会让 delete+insert 语义不确定）
+        seen_tables: set[str] = set()
+        seen_files: set[str] = set()
+        for item in man["tables"]:
+            t = item.get("table")
+            if t in seen_tables:
+                raise DeltaImportError(f"manifest 重复表项: {t}")
+            seen_tables.add(t)
+            f = item.get("file")
+            if f:
+                if f in seen_files:
+                    raise DeltaImportError(f"manifest 重复文件: {f}")
+                seen_files.add(f)
+
         # 先全量校验（fail-fast）：任一表不过关就在写任何库之前直接失败
         for item in man["tables"]:
             _validate_entry(con, tmp, date, item, existing)
@@ -174,8 +229,8 @@ def import_delta(zip_path: str, db_path: str, dry_run: bool = False) -> dict:
             for item in man["tables"]:
                 t, dc, rows = item["table"], item["date_col"], item["rows"]
                 before = con.execute(
-                    'select count(*) from "%s" where cast("%s" as varchar)=?'
-                    % (t, dc), [date]).fetchone()[0]
+                    "select count(*) from %s where cast(%s as varchar)=?"
+                    % (_qi(t), _qi(dc)), [date]).fetchone()[0]
                 print(f"  {t:42s} 现有当天 {before} 行 → 将替换为包内 {rows} 行")
             print("[dry-run] 未写库")
             return {"trade_date": date, "applied": 0, "dry_run": True,
@@ -187,19 +242,19 @@ def import_delta(zip_path: str, db_path: str, dry_run: bool = False) -> dict:
             for item in man["tables"]:
                 t, dc, rows = item["table"], item["date_col"], item["rows"]
                 before = con.execute(
-                    'select count(*) from "%s" where cast("%s" as varchar)=?'
-                    % (t, dc), [date]).fetchone()[0]
+                    "select count(*) from %s where cast(%s as varchar)=?"
+                    % (_qi(t), _qi(dc)), [date]).fetchone()[0]
                 # 幂等 + 零行更正：无论包内 rows 是否为 0，都先删当天分区
-                con.execute('delete from "%s" where cast("%s" as varchar)=?'
-                            % (t, dc), [date])
+                con.execute("delete from %s where cast(%s as varchar)=?"
+                            % (_qi(t), _qi(dc)), [date])
                 if rows > 0:
-                    pql = os.path.join(tmp, item["file"]).replace("'", "''")
+                    pql = _resolve_member(tmp, item["file"]).replace("'", "''")
                     con.execute(
-                        'insert into "%s" by name select * from read_parquet(\'%s\')'
-                        % (t, pql))
+                        "insert into %s by name select * from read_parquet('%s')"
+                        % (_qi(t), pql))
                 after = con.execute(
-                    'select count(*) from "%s" where cast("%s" as varchar)=?'
-                    % (t, dc), [date]).fetchone()[0]
+                    "select count(*) from %s where cast(%s as varchar)=?"
+                    % (_qi(t), _qi(dc)), [date]).fetchone()[0]
                 # 导入后自检：当天行数必须精确等于 manifest rows
                 if after != rows:
                     raise DeltaImportError(
