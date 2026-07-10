@@ -249,6 +249,7 @@ class PitSnapshotTests(unittest.TestCase):
             )
             case = inventory["cases"][0]
             self.assertEqual(case["status"], "artifact_candidate")
+            self.assertEqual(case["candidate_scope"], "market_state")
             self.assertEqual(case["repositories"]["finance"]["artifact_count"], 1)
             self.assertEqual(case["repositories"]["wiki"]["artifact_count"], 0)
 

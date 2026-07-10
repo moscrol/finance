@@ -643,6 +643,20 @@ def build_historical_inventory(
                     "artifacts": artifacts[:100],
                 }
             artifact_count = sum(item["artifact_count"] for item in repos.values())
+            artifact_kinds = {
+                kind
+                for repo in repos.values()
+                for kind in repo["artifact_kind_counts"]
+            }
+            candidate_scope = (
+                "market_state"
+                if "market_export" in artifact_kinds
+                else "semantic_evidence"
+                if "source_material" in artifact_kinds
+                else "answer_archive"
+                if "answer_archive" in artifact_kinds
+                else None
+            )
             status = (
                 "ready_db"
                 if db_ready
@@ -657,6 +671,7 @@ def build_historical_inventory(
                     "db_tables": db_tables,
                     "repositories": repos,
                     "artifact_count": artifact_count,
+                    "candidate_scope": candidate_scope,
                     "note": (
                         "artifact_candidate 仅证明文件在 cutoff 前存在；"
                         "仍需人工确认其字段与语义足以重建当日输入。"
@@ -671,6 +686,10 @@ def build_historical_inventory(
         status: sum(case["status"] == status for case in cases)
         for status in ("ready_db", "artifact_candidate", "pending")
     }
+    scope_counts = {
+        scope: sum(case["candidate_scope"] == scope for case in cases)
+        for scope in ("market_state", "semantic_evidence", "answer_archive")
+    }
     return {
         "schema_version": "pit-historical-inventory-1.0",
         "task_id": "pit-snapshot-inventory-v1",
@@ -678,6 +697,7 @@ def build_historical_inventory(
         "range": {"start": start, "end": end},
         "trade_date_count": len(cases),
         "status_counts": counts,
+        "candidate_scope_counts": scope_counts,
         "cases": cases,
         "rules": [
             "DuckDB ready 要求基线表全部行 updated_at < as_of + 1 day。",
@@ -696,12 +716,14 @@ def render_historical_inventory(inventory: dict[str, Any]) -> str:
         f"- 交易日：{inventory['trade_date_count']}",
         f"- DuckDB 可证明：{counts['ready_db']}",
         f"- Git 旧资料候选：{counts['artifact_candidate']}",
+        f"- 其中市场状态候选：{inventory['candidate_scope_counts']['market_state']}",
+        f"- 仅语义证据候选：{inventory['candidate_scope_counts']['semantic_evidence']}",
         f"- 无候选：{counts['pending']}",
         "",
         "> `artifact_candidate` 仅证明资料当时已存在，不代表已通过人工金标准。",
         "",
-        "| 日期 | 状态 | DB ready | finance 资料 | wiki 资料 |",
-        "|---|---:|---:|---:|---:|",
+        "| 日期 | 状态 | 候选范围 | DB ready | finance 资料 | wiki 资料 |",
+        "|---|---:|---:|---:|---:|---:|",
     ]
     for case in inventory["cases"]:
         db_ready = sum(
@@ -709,7 +731,8 @@ def render_historical_inventory(inventory: dict[str, Any]) -> str:
         )
         repos = case["repositories"]
         lines.append(
-            f"| {case['as_of']} | {case['status']} | {db_ready}/{len(PIT_BASELINE_TABLES)} "
+            f"| {case['as_of']} | {case['status']} | {case['candidate_scope'] or '-'} "
+            f"| {db_ready}/{len(PIT_BASELINE_TABLES)} "
             f"| {repos['finance']['artifact_count']} | {repos['wiki']['artifact_count']} |"
         )
     lines.extend(["", "## 判定规则", ""])
