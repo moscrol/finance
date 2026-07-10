@@ -3,7 +3,7 @@ name: stock-deep-dive
 metadata:
   pattern: pipeline
   also: [reviewer]
-description: 个股深挖 / 复盘先验（行情前瞻）的输出契约与质检门——把 agent-memory 中「95 分生成路径 + 自审框架 + 编排层」固化成当次必读的运行时指令：先注入确定性数据块（D1 市场价值/D2 证据硬度/D3 二阶导队列），按十二视角生成叙事，最终稿必须过 answer_lint.py（exit 0）才能交付。触发词：个股深挖、深挖、深度分析个股、这只股怎么看、复盘先验、行情前瞻、明日研判、次日研判、前瞻研判。
+description: 个股深挖 / 复盘先验（行情前瞻）的输出契约与结构质检——先注入确定性数据块（D1 市场价值/D2 证据硬度/D3 二阶导队列），再用 answer_lint.py 拦截整段缺失。lint 只检查结构，不代表预测质量，不得当评分裁判。触发词：个股深挖、深挖、深度分析个股、这只股怎么看、复盘先验、行情前瞻、明日研判、次日研判、前瞻研判。
 ---
 
 # Stock Deep Dive / 复盘先验（输出契约 + 质检门）
@@ -15,10 +15,10 @@ description: 个股深挖 / 复盘先验（行情前瞻）的输出契约与质�
 「知识笔记」，靠 LLM 在长上下文里记得去照做，输出不稳定。本 skill 把它们硬化成：
 
 1. **当次必读的输出契约**（本文件）——dispatcher 命中触发词后必须加载；
-2. **程序化质检门**（`scripts/answer_lint.py`）——最终稿 exit 0 才能交付，
-   体例同 `task-planner/check_task_plan.py` 的 exit-code 门。
+2. **程序化结构质检**（`scripts/answer_lint.py`）——拦截整个视角漏写，
+   但不验证数字真伪、因果链或预测准确率。
 
-规则管结构，LLM 管表达。
+确定性数据规则管截止和证据，lint 管结构，LLM 只管表达与候选审稿。
 
 ## 适用范围
 
@@ -84,7 +84,7 @@ python3 -m intelligence.cli ask "复盘先验" --compose --detail
 "受益"证据够硬还是只有 L1 观点？目标是不是这条链的最优表达？生命周期升级还是降级？
 有没有主动找反证和二阶导？有缺口就重写。只输出最终稿，不输出审稿过程。
 
-### 第 5 步 · 质检门（硬性）
+### 第 5 步 · 结构质检
 
 ```bash
 # 把最终稿写到临时文件后：
@@ -96,6 +96,8 @@ python3 skills/stock-deep-dive/scripts/answer_lint.py /tmp/answer.md --type fore
 - exit 1 → 按输出的 MISSING 维度补写后重跑，最多两轮；两轮仍不过 →
   在答案开头标注「低置信：未通过质检门，缺 X/Y」再交付，不许静默交付；
 - exit 2 → 用法错误。
+
+注意：exit 0 只表示结构字段齐全，不表示结论正确；评分和 PASS/WARN 不得自动阻断。
 
 ## 输出契约（lint 检查的维度）
 

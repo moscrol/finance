@@ -27,23 +27,75 @@
 
 > 每日出题按三条信息流（DuckDB 盘面流 / 晨汇事件流 / 晚间卖方流）的固定问句模板，见 `forecast-question-templates.md`。
 
-### 答卷 JSON schema（v1.0）
+### 答卷 JSON schema（v1.1）
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "date": "2026-07-03",
   "agent": "codex",
   "source": "duckdb",
   "manifest_sha": "<来自当日 manifest>",
+  "evidence_catalog": {
+    "M1": {
+      "level": "L4",
+      "source": "fact_market_daily",
+      "source_time": "2026-07-02",
+      "entity": "market",
+      "field": "advancers",
+      "value": 3210,
+      "direction": "support"
+    },
+    "R1": {
+      "level": "L2",
+      "source": "strategy1-matrix",
+      "source_time": "2026-07-02",
+      "direction": "neutral"
+    }
+  },
   "stage": "底部横盘第3天",
+  "stage_features": {
+    "rule_id": "market-stage-v1",
+    "as_of": "2026-07-02",
+    "metrics": {"advancers": {"value": 3210, "evidence_ref": "M1"}},
+    "evidence_refs": ["M1"]
+  },
   "main_judgment": "一句话市场结构判断",
   "direction_ranking": ["储能", "创新药"],
-  "picks": [{"code": "688323", "name": "瑞华泰", "strategy": "策略三", "reason": "绑定§1字段证据"}],
+  "picks": [{
+    "code": "688323",
+    "name": "瑞华泰",
+    "strategy": "策略三",
+    "reason": "绑定§1字段证据",
+    "evidence_refs": ["M1"],
+    "evidence_as_of": "2026-07-02"
+  }],
   "thresholds": {"market": "涨家数>3500", "direction": "储能 diff 继续>0", "targets": "逐只触发价", "falsify": "什么信号推翻主判断"},
+  "threshold_provenance": {
+    "market": {"origin": "backtest", "evidence_ref": "M1", "as_of": "2026-07-02"},
+    "direction": {"origin": "fixed_rule", "evidence_ref": "R1", "as_of": "2026-07-02"},
+    "targets": {"origin": "mechanical", "evidence_ref": "M1", "as_of": "2026-07-02"},
+    "falsify": {"origin": "heuristic", "evidence_ref": "R1", "as_of": "2026-07-02"}
+  },
+  "hypotheses": [{
+    "id": "market",
+    "category": "market",
+    "claim": "T+1 涨家数超过 3500",
+    "horizon": "T+1",
+    "confidence": "medium",
+    "confidence_probability": 0.6,
+    "evidence_refs": ["M1"],
+    "evidence_as_of": "2026-07-02",
+    "falsify_when": "T+1 涨家数低于 2500"
+  }],
   "recheck": {}
 }
 ```
+
+`origin` 只能取：`fixed_rule`（固定规则）、`backtest`（回测校准）、
+`mechanical`（机械推导）、`heuristic`（经验值）。经验值可以使用，但不得冒充硬门槛。
+所有引用必须先登记到 `evidence_catalog`，并标 L1-L4、来源、时间和支持/反证方向。
+校验会拒绝晚于 `perspective_date` 的证据，并核对阶段特征值与证据行是否一致。
 
 `source` 三流分账（可省略，默认 `duckdb`）：`duckdb`=盘面流（T+1 回检）、`briefing`=晨汇事件流（当日/T+1）、`sellside`=晚间卖方流（T+3/T+5）。三流验证窗口和评判标准不同，`aggregate` 按 `agent/source` 分开统计，不混池。各流的标准问句/检测点/证伪点见 [forecast-question-templates.md](forecast-question-templates.md)。
 
