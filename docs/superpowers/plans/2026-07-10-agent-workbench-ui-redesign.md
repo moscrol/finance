@@ -115,8 +115,8 @@ intelligence/webapp/
 
 - [x] 只提交 Workbench/API/Registry/测试/实施计划和 Vite 构建产物。
 - [x] 不提交用户 runs、未跟踪复盘数据、虚拟环境、node_modules 或本地密钥。
-- [ ] 推送到 `codex/feat/workbench-ui-redesign` 并创建 PR；不合并 `main`。
-- [ ] 检查 CI、预览链接和 review comments，修复范围内问题。
+- [x] 推送到 `codex/feat/workbench-ui-redesign` 并创建 PR；不合并 `main`。
+- [x] 检查 CI、预览链接和 review comments，修复范围内问题。
 
 ## MVP 完成定义
 
