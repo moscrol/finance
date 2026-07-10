@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -50,8 +51,7 @@ def is_null(value: object) -> bool:
     return value is None or str(value) in {"nan", "NaT", "None"}
 
 
-def main() -> int:
-    date = sys.argv[1]
+def main(date: str, data_only: bool = False) -> int:
     con = connect(read_only=True)
     missing: list[str] = []
 
@@ -64,16 +64,17 @@ def main() -> int:
         if not count:
             missing.append(f"{table} 无 {date} 数据，最新 {max_date}")
 
-    row = con.execute("select * from fact_market_daily where trade_date=?", [date]).fetchdf()
-    if row.empty:
+    cursor = con.execute("select * from fact_market_daily where trade_date=?", [date])
+    values = cursor.fetchone()
+    if values is None:
         missing.append("fact_market_daily 缺失整行")
     else:
-        cols = set(row.columns)
+        row = {column[0]: value for column, value in zip(cursor.description, values)}
         for field in MARKET_FIELDS:
-            if field not in cols:
+            if field not in row:
                 missing.append(f"fact_market_daily.{field} 字段不存在")
                 continue
-            value = row.iloc[0][field]
+            value = row[field]
             if is_null(value):
                 missing.append(f"fact_market_daily.{field} 为空")
 
@@ -93,15 +94,16 @@ def main() -> int:
     for code, name, limit_up_count, _stock_rows in empty_detail:
         missing.append(f"涨停题材 {code}/{name} 有 {limit_up_count} 个涨停但明细为空")
 
-    report = Path(f"market_feature_store/exports/{date}-daily-review.md")
-    if not report.exists():
-        missing.append(f"{report} 不存在")
-    else:
-        text = report.read_text(encoding="utf-8")
-        for token in PLACEHOLDERS:
-            count = text.count(token)
-            if count:
-                missing.append(f"日报存在占位/缺失：{token} x{count}")
+    if not data_only:
+        report = Path(f"market_feature_store/exports/{date}-daily-review.md")
+        if not report.exists():
+            missing.append(f"{report} 不存在")
+        else:
+            text = report.read_text(encoding="utf-8")
+            for token in PLACEHOLDERS:
+                count = text.count(token)
+                if count:
+                    missing.append(f"日报存在占位/缺失：{token} x{count}")
 
     print("RESULT:", "INCOMPLETE" if missing else "COMPLETE")
     for item in missing:
@@ -110,4 +112,12 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("date")
+    parser.add_argument(
+        "--data-only",
+        action="store_true",
+        help="生成前只检查 DuckDB 数据，不要求日报文件已经存在",
+    )
+    args = parser.parse_args()
+    raise SystemExit(main(args.date, data_only=args.data_only))

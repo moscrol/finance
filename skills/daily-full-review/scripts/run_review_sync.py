@@ -354,7 +354,10 @@ def main() -> int:
         _notify(f"⚠️ 全量复盘 {args.date} 同步段模块未全绿：{', '.join(bad)}；详见 state/runlog.md")
 
     # 审计
-    gate = subprocess.run([PY, "scripts/check_daily_review_data.py", args.date], cwd=str(ROOT))
+    gate = subprocess.run(
+        [PY, "scripts/check_daily_review_data.py", args.date, "--data-only"],
+        cwd=str(ROOT),
+    )
     gate_ok = gate.returncode == 0
 
     # 收尾：导出当日增量到 iCloud（小 parquet，几 MB；配合全量基线可还原）。

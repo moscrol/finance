@@ -7,6 +7,7 @@ import duckdb
 from market_feature_store import db
 from market_feature_store.reports.daily_review import _coverage, _sw_l1_degradation_warning
 from market_feature_store.sync import sync_akshare_sw_l1_daily as sw_sync
+from scripts import check_daily_review_data
 
 
 def _connect_test_db(path):
@@ -128,3 +129,35 @@ def test_sw_l1_sync_falls_back_to_fupanhui_aggregate_when_realtime_empty(tmp_pat
     assert sw_l1_status == "OK（降级 3/3：复盘会聚合代理）"
     assert warning is not None
     assert "不可等同于申万指数官方口径" in warning
+
+
+def test_data_only_gate_does_not_require_a_report_file(tmp_path, monkeypatch):
+    db_path = tmp_path / "market_feature_store.duckdb"
+    init_db = _init_test_db(db_path)
+    connect = _connect_test_db(db_path)
+    init_db()
+    con = connect()
+    try:
+        con.execute(
+            """
+            INSERT INTO fact_market_daily (trade_date, source)
+            VALUES ('2026-07-10', 'test')
+            """
+        )
+        con.execute(
+            """
+            INSERT INTO fact_sw_l1_daily
+                (trade_date, sw_l1_code, sw_l1, source)
+            VALUES ('2026-07-10', '801080', '电子', 'test')
+            """
+        )
+    finally:
+        con.close()
+
+    monkeypatch.setattr(check_daily_review_data, "connect", connect)
+    monkeypatch.setattr(check_daily_review_data, "TABLES", ["fact_sw_l1_daily"])
+    monkeypatch.setattr(check_daily_review_data, "MARKET_FIELDS", [])
+    monkeypatch.chdir(tmp_path)
+
+    assert check_daily_review_data.main("2026-07-10", data_only=True) == 0
+    assert check_daily_review_data.main("2026-07-10", data_only=False) == 1
