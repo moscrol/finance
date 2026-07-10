@@ -68,6 +68,15 @@ class OutputReviewTests(unittest.TestCase):
         gate = _gate(WEAK_CHAIN, conclusion_lines=["按预期交易档对待，待 L3 确认"])
         self.assertEqual(gate.checks[5].status, PASS)
 
+    def test_final_answer_is_checked_instead_of_template_conclusion(self) -> None:
+        gate = _gate(
+            WEAK_CHAIN,
+            conclusion_lines=["按预期交易档对待，待 L3 确认"],
+            final_answer="该股确定受益，结论已证实。",
+        )
+        self.assertEqual(gate.checks[5].status, WARN)
+        self.assertIn("已证实", gate.checks[5].note)
+
     def test_summary_lines_render(self) -> None:
         lines = _gate(GOOD_CHAIN).summary_lines()
         self.assertIn("输出质检闸门", lines[0])

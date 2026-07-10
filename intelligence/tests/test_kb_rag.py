@@ -93,14 +93,22 @@ class KbRagTelemetryTests(unittest.TestCase):
                     "file_path": "wiki/concepts/光刻机.md",
                     "title": "A",
                     "score": 0.9,
+                    "best_chunk_id": "a::0",
+                    "content_hash": "hash-a",
                     "evidence_text": "A matched chunk",
+                    "index_source_revision": "abc123",
+                    "index_freshness": "fresh",
                 },
                 {
                     "page_id": "b",
                     "file_path": "wiki/concepts/光刻机.md",
                     "title": "B",
                     "score": 0.5,
+                    "best_chunk_id": "b::0",
+                    "content_hash": "hash-b",
                     "evidence_text": "B matched chunk",
+                    "index_source_revision": "abc123",
+                    "index_freshness": "fresh",
                     "via_neighbor": True,
                 },
             ]
@@ -122,6 +130,59 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertIsNotNone(tel.latency_ms)
             self.assertFalse(tel.degraded)
             self.assertIn("检索方式=hybrid", tel.summary_line())
+
+    def test_propagates_stale_warning_and_marks_degraded(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            payload = [
+                {
+                    "page_id": "a",
+                    "file_path": "wiki/concepts/光刻机.md",
+                    "title": "A",
+                    "score": 0.9,
+                    "best_chunk_id": "a::0",
+                    "content_hash": "hash-a",
+                    "evidence_text": "A matched chunk",
+                    "index_source_revision": "abc123",
+                    "index_freshness": "stale",
+                }
+            ]
+            proc = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(payload, ensure_ascii=False),
+                stderr="[query] WARNING 索引过期: age=15.0d>14d\n",
+            )
+            with mock.patch.dict("os.environ", {"KB_RAG_PYTHON": "/tmp/rag-python"}, clear=True):
+                with mock.patch("subprocess.run", return_value=proc):
+                    res = kb_rag.retrieve("光刻机", root / "wiki")
+
+            self.assertTrue(res.ok)
+            self.assertTrue(res.telemetry.degraded)
+            self.assertIn("WARNING 索引过期", res.warning)
+            self.assertIn("新鲜度=stale", res.warning)
+
+    def test_rejects_hits_without_chunk_snapshot_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            payload = [
+                {
+                    "page_id": "legacy",
+                    "file_path": "wiki/concepts/光刻机.md",
+                    "title": "Legacy",
+                    "score": 0.9,
+                    "evidence_text": "Page-level legacy hit",
+                }
+            ]
+            proc = mock.Mock(returncode=0, stdout=json.dumps(payload, ensure_ascii=False), stderr="")
+            with mock.patch.dict("os.environ", {"KB_RAG_PYTHON": "/tmp/rag-python"}, clear=True):
+                with mock.patch("subprocess.run", return_value=proc):
+                    res = kb_rag.retrieve("光刻机", root / "wiki")
+
+            self.assertFalse(res.ok)
+            self.assertEqual(res.telemetry.status, "empty")
+            self.assertIn("缺少 chunk/hash/快照绑定", res.warning)
 
     def test_telemetry_skipped_when_index_missing(self) -> None:
         with tempfile.TemporaryDirectory() as td:

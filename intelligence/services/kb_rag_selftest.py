@@ -62,6 +62,8 @@ hits = [
      "evidence_text": "匹配块：钨精矿供给出现瓶颈，江钨等龙头受益。"},
     {"page_id": "page_b", "file_path": "wiki/synthesis/page_b.md",
      "title": "页B·海绵钛", "score": 0.501234, "best_chunk_id": "page_b#0",
+     "content_hash": "hash-b", "index_source_revision": "abc123",
+     "index_freshness": "fresh",
      "via_neighbor": True, "snippet": "snippet-B-fallback",
      "evidence_text": "匹配块：海绵钛价格企稳。"},
 ]
@@ -74,6 +76,8 @@ import os, sys, json
 idx = os.environ.get("RAG_INDEX_DIR", "<none>")
 hits = [{"page_id": "page_a", "file_path": "wiki/synthesis/page_a.md",
          "title": "IDX=" + idx, "score": 0.9, "best_chunk_id": "page_a#0",
+         "content_hash": "hash-a", "index_source_revision": "abc123",
+         "index_freshness": "fresh",
          "via_neighbor": False, "snippet": "s", "evidence_text": "matched"}]
 print(json.dumps(hits, ensure_ascii=False))
 '''
@@ -169,6 +173,15 @@ def main() -> int:
         wtags = [c for c in r1.citations if c.tag.startswith("W")]
         check("ask: found_wiki=True", r1.found_wiki is True)
         check("ask: 2 [W#] citations", len(wtags) == 2, f"{[c.tag for c in wtags]}")
+        if wtags:
+            check(
+                "ask: structured citation keeps chunk/hash/snapshot binding",
+                wtags[0].chunk_id == "page_a#0"
+                and wtags[0].content_hash == "hash-a"
+                and wtags[0].index_source_revision == "abc123"
+                and wtags[0].index_freshness == "fresh",
+                repr(wtags[0]),
+            )
         wlines = _wiki_chain_lines(r1)
         check("ask: 证据链 has wiki block with excerpt + [W1]",
               any("钨精矿供给出现瓶颈" in ln and "[W1]" in ln for ln in wlines), repr(wlines))

@@ -343,6 +343,10 @@ def retrieve(
         tel.status = "error"
         tel.warning = res.warning
         return res
+    warnings = [res.warning] if res.warning else []
+    stderr_warning = re.sub(r"\s+", " ", (proc.stderr or "")).strip()
+    if stderr_warning:
+        warnings.append(stderr_warning[:500])
 
     try:
         raw = json.loads(proc.stdout or "[]")
@@ -358,13 +362,27 @@ def retrieve(
         return res
 
     hits: list[WikiHit] = []
+    rejected_hits = 0
+    expected_revision = ""
     for item in raw:
         if not isinstance(item, dict):
             continue
         rel = str(item.get("file_path") or "")
         excerpt = _matched_excerpt(item, excerpt_chars)
-        if not rel or not excerpt:
+        chunk_id = str(item.get("best_chunk_id") or "")
+        content_hash = str(item.get("content_hash") or "")
+        revision = str(item.get("index_source_revision") or "")
+        freshness = str(item.get("index_freshness") or "")
+        if not rel or not excerpt or not chunk_id or not content_hash or not revision or not freshness:
+            rejected_hits += 1
             continue
+        if freshness not in {"fresh", "stale", "unknown"}:
+            rejected_hits += 1
+            continue
+        if expected_revision and revision != expected_revision:
+            rejected_hits += 1
+            continue
+        expected_revision = expected_revision or revision
         hits.append(
             WikiHit(
                 page_id=str(item.get("page_id") or ""),
@@ -372,18 +390,25 @@ def retrieve(
                 title=str(item.get("title") or item.get("page_id") or "(无标题)"),
                 score=float(item.get("score") or 0.0),
                 excerpt=excerpt,
-                best_chunk_id=str(item.get("best_chunk_id") or ""),
+                best_chunk_id=chunk_id,
                 section=str(item.get("section") or ""),
-                content_hash=str(item.get("content_hash") or ""),
+                content_hash=content_hash,
                 index_built_at=str(item.get("index_built_at") or ""),
-                index_source_revision=str(item.get("index_source_revision") or ""),
-                index_freshness=str(item.get("index_freshness") or ""),
+                index_source_revision=revision,
+                index_freshness=freshness,
                 evidence_layer=str(item.get("evidence_layer") or ""),
                 fact_hardness=str(item.get("fact_hardness") or ""),
                 source_type=str(item.get("source_type") or ""),
                 via_neighbor=bool(item.get("via_neighbor")),
             )
         )
+    if rejected_hits:
+        warnings.append(f"wiki-rag 丢弃 {rejected_hits} 条缺少 chunk/hash/快照绑定或快照不一致的命中")
+    freshness_states = sorted({hit.index_freshness for hit in hits})
+    if any(state != "fresh" for state in freshness_states):
+        tel.degraded = True
+        warnings.append(f"wiki-rag 索引新鲜度={','.join(freshness_states)}，结果按降级证据处理")
+    res.warning = "；".join(dict.fromkeys(warning for warning in warnings if warning))
     res.hits = hits
     res.ok = bool(hits)
     tel.hit_count = len(hits)
@@ -399,7 +424,7 @@ def retrieve(
         tel.status = "ok"
         tel.warning = res.warning  # 可能携带索引降级提示
     else:
-        res.warning = "wiki-rag 无命中"
+        res.warning = "；".join(filter(None, [res.warning, "wiki-rag 无可用 chunk 命中"]))
         tel.status = "empty"
         tel.warning = res.warning
     return res
