@@ -39,8 +39,10 @@ def _build_db(path: str) -> None:
     con.close()
 
 
-def _export(db: str, out_zip: str) -> None:
+def _export(db: str, out_zip: str, tables: str | None = None) -> None:
     argv = ["db_delta_export.py", "--trade-date", DATE, "--db", db, "--out", out_zip]
+    if tables:
+        argv += ["--tables", tables]
     old = sys.argv
     sys.argv = argv
     try:
@@ -353,6 +355,57 @@ class DeltaContractTest(unittest.TestCase):
         with self.assertRaises(DeltaImportError):
             import_delta(self._bad_manifest(m), self.db)
 
+    # ---- 完整表集合：目标库多出一张 manifest 没有的可增量表（漏表）----
+    def test_full_package_missing_table_fails(self):
+        con = duckdb.connect(self.db)
+        con.execute("create table fact_d (trade_date varchar, z integer)")
+        con.execute("insert into fact_d values (?, 1)", [DATE])
+        con.close()
+        # 包是导出时的完整集（无 fact_d），目标现在多了可增量的 fact_d → 漏表 → 失败
+        with self.assertRaises(DeltaImportError):
+            import_delta(self.zip, self.db)
+
+    # ---- 完整表集合：manifest 含目标不认的额外表 ----
+    def test_full_package_extra_table_fails(self):
+        def m(man):
+            e = dict(man["tables"][0])
+            e["table"] = "fact_not_in_target"
+            man["tables"].append(e)
+        with self.assertRaises(DeltaImportError):
+            import_delta(self._bad_manifest(m), self.db)
+
+    # ---- partial 子集包：默认拒绝，需 --allow-partial ----
+    def test_partial_package_rejected_by_default(self):
+        sub = os.path.join(self.tmp, "sub.zip")
+        _export(self.db, sub, tables="fact_a")
+        man = _read_manifest(sub)
+        self.assertTrue(man["partial"])
+        self.assertEqual({e["table"] for e in man["tables"]}, {"fact_a"})
+        with self.assertRaises(DeltaImportError):
+            import_delta(sub, self.db)  # allow_partial 默认 False
+
+    def test_partial_package_accepted_with_optin(self):
+        sub = os.path.join(self.tmp, "sub.zip")
+        _export(self.db, sub, tables="fact_a")
+        # 先把 fact_a 当天清空，确认 partial 导入确实恢复了它、且不碰其它表
+        con = duckdb.connect(self.db)
+        con.execute("delete from fact_a where trade_date=?", [DATE])
+        con.close()
+        res = import_delta(sub, self.db, allow_partial=True)
+        self.assertEqual(res["applied"], 1)
+        self.assertEqual(self._count("fact_a"), 2)
+        self.assertEqual(self._count("fact_b"), 1)  # 未在子集里，保持原样
+
+    def test_full_package_not_partial_flag(self):
+        self.assertFalse(_read_manifest(self.zip)["partial"])
+
+    # ---- 非法 trade_date（非严格 ISO）----
+    def test_non_iso_trade_date_fails(self):
+        for bad_date in ("2026-7-10", "20260710", "2026-07-10T00:00:00", "2026-13-01"):
+            with self.assertRaises(DeltaImportError):
+                import_delta(self._bad_manifest(
+                    lambda m, d=bad_date: m.update(trade_date=d)), self.db)
+
 
 class SafeExtractTest(unittest.TestCase):
     def setUp(self):
@@ -379,6 +432,19 @@ class SafeExtractTest(unittest.TestCase):
         os.makedirs(dest)
         with self.assertRaises(DeltaImportError):
             safe_extract(zp, dest)
+
+    def test_export_rejects_non_iso_date(self):
+        db = os.path.join(self.tmp, "e.duckdb")
+        _build_db(db)
+        for bad in ("2026-7-1", "20260701", "2026/07/01", "notadate"):
+            argv = ["db_delta_export.py", "--trade-date", bad, "--db", db,
+                    "--out", os.path.join(self.tmp, "o.zip")]
+            old = sys.argv
+            sys.argv = argv
+            try:
+                self.assertEqual(exp.main(), 2, bad)
+            finally:
+                sys.argv = old
 
     def test_allows_normal_members(self):
         zp = os.path.join(self.tmp, "ok.zip")

@@ -32,6 +32,14 @@ from __future__ import annotations
 import argparse, hashlib, json, os, re, sys, tempfile, zipfile
 import duckdb
 
+# 复用 export 端的表发现逻辑，保证「可参与单日增量的表集合」两端语义一致。
+# 兼容两种运行方式：作为脚本（scripts/ 在 sys.path）与作为包（from scripts import ...）。
+try:
+    from scripts import db_delta_export as _exp
+except ImportError:  # pragma: no cover - 脚本直跑时的退路
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import db_delta_export as _exp
+
 # 能识别的 manifest 契约版本集合（见 db_delta_export.SCHEMA_VERSION）。
 # 只接受明确在列的版本；0 / 负数 / 未来版本均拒绝，不静默降级。
 SUPPORTED_SCHEMA_VERSIONS = frozenset({1})
@@ -109,6 +117,11 @@ def _load_manifest(tmp: str) -> dict:
             f"manifest schema_version={ver!r} 不在支持集合 {sorted(SUPPORTED_SCHEMA_VERSIONS)}")
     if "trade_date" not in man or "tables" not in man:
         raise DeltaImportError("manifest 缺少 trade_date / tables 字段")
+    if not _exp.is_iso_date(man["trade_date"]):
+        raise DeltaImportError(
+            f"manifest trade_date 非严格 ISO YYYY-MM-DD: {man['trade_date']!r}")
+    if not isinstance(man["tables"], list):
+        raise DeltaImportError("manifest tables 必须是列表")
     return man
 
 
@@ -185,8 +198,13 @@ def _validate_entry(con, tmp: str, date: str, item: dict, existing: set[str]) ->
             f"表 {t} 有 {bad} 行日期列 {dc} 为 NULL 或不等于 manifest trade_date {date}（串日期）")
 
 
-def import_delta(zip_path: str, db_path: str, dry_run: bool = False) -> dict:
-    """校验并把单日增量 zip 幂等合并进本地 DuckDB。返回摘要 dict；不一致时抛异常。"""
+def import_delta(zip_path: str, db_path: str, dry_run: bool = False,
+                 allow_partial: bool = False) -> dict:
+    """校验并把单日增量 zip 幂等合并进本地 DuckDB。返回摘要 dict；不一致时抛异常。
+
+    allow_partial=False（默认）时，只接受「当日完整日期分区表集」包；partial 子集包
+    （export 用 --tables / --include-skipped 产出）必须显式 allow_partial=True 才导入。
+    """
     if not os.path.exists(zip_path):
         raise DeltaImportError(f"zip 不存在: {zip_path}")
     if not os.path.exists(db_path):
@@ -198,7 +216,8 @@ def import_delta(zip_path: str, db_path: str, dry_run: bool = False) -> dict:
         safe_extract(zip_path, tmp)
         man = _load_manifest(tmp)
         date = man["trade_date"]
-        print(f"[*] 增量日期 {date}，contract v{man['schema_version']}，"
+        kind = "partial 子集" if man.get("partial") else "完整表集"
+        print(f"[*] 增量日期 {date}，contract v{man['schema_version']}（{kind}），"
               f"{len(man['tables'])} 张表，目标库 {db_path}"
               + ("  (dry-run)" if dry_run else ""))
 
@@ -220,6 +239,26 @@ def import_delta(zip_path: str, db_path: str, dry_run: bool = False) -> dict:
                 if f in seen_files:
                     raise DeltaImportError(f"manifest 重复文件: {f}")
                 seen_files.add(f)
+
+        # 完整表集合契约：
+        #  - 完整包（partial=false）：manifest 表集合必须与目标库「可参与单日增量的表集合」
+        #    完全一致——漏表（少同步一张 → 目标留过期数据）或额外表都 fail-fast。
+        #  - 子集包（partial=true，来自 --tables / --include-skipped）：只有显式 --allow-partial
+        #    才接受，否则拒绝，防止子集包被误当成完整同步。
+        partial = bool(man.get("partial"))
+        if partial:
+            if not allow_partial:
+                raise DeltaImportError(
+                    "manifest 标记 partial（子集导出），需显式 --allow-partial 才能导入")
+        else:
+            eligible = {t for t, _dc in _exp.discover_tables(con, include_skipped=False)}
+            missing = eligible - seen_tables
+            extra = seen_tables - eligible
+            if missing or extra:
+                raise DeltaImportError(
+                    "完整包表集合与目标库不一致（"
+                    f"漏表={sorted(missing)} 额外表={sorted(extra)}）；"
+                    "如确为子集，请用 --tables 导出并以 --allow-partial 导入")
 
         # 先全量校验（fail-fast）：任一表不过关就在写任何库之前直接失败
         for item in man["tables"]:
@@ -285,9 +324,12 @@ def main() -> int:
     ap.add_argument("--zip", required=True, help="db_delta_export.py 产出的 zip")
     ap.add_argument("--db", default="db/market_feature_store.duckdb")
     ap.add_argument("--dry-run", action="store_true", help="只校验并打印将要做的操作，不写库")
+    ap.add_argument("--allow-partial", action="store_true",
+                    help="接受 partial 子集包（export 用 --tables/--include-skipped 产出）；"
+                         "默认只接受当日完整表集包")
     a = ap.parse_args()
     try:
-        import_delta(a.zip, a.db, dry_run=a.dry_run)
+        import_delta(a.zip, a.db, dry_run=a.dry_run, allow_partial=a.allow_partial)
     except DeltaImportError as e:
         print(f"[err] 数据契约校验失败，未写库: {e}", file=sys.stderr)
         return 2

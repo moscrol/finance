@@ -21,8 +21,21 @@
 在任何按日期/分区追加的数据仓（数据库同步、离线特征表、日志归档）都通用。
 """
 from __future__ import annotations
-import argparse, hashlib, json, os, sys, zipfile, datetime
+import argparse, hashlib, json, os, re, sys, zipfile, datetime
 import duckdb
+
+_ISO_DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
+
+
+def is_iso_date(s: object) -> bool:
+    """严格 ISO YYYY-MM-DD（且是真实日历）。不接受 2026-7-1 / 20260701 / 时间后缀。"""
+    if not isinstance(s, str) or not _ISO_DATE.match(s):
+        return False
+    try:
+        datetime.date.fromisoformat(s)
+        return True
+    except ValueError:
+        return False
 
 CANDIDATE_DATE_COLS = ("trade_date", "date", "dt", "day", "stat_date")
 # 滚动窗口 / 静态表：不参与单日增量（靠目标机重算或整库快照）
@@ -77,6 +90,8 @@ def main() -> int:
     a = ap.parse_args()
 
     date = a.trade_date
+    if not is_iso_date(date):
+        print(f"[err] --trade-date 需严格 ISO YYYY-MM-DD: {date!r}", file=sys.stderr); return 2
     if not os.path.exists(a.db):
         print(f"[err] DB 不存在: {a.db}", file=sys.stderr); return 2
     out_zip = a.out or os.path.join(
@@ -85,6 +100,9 @@ def main() -> int:
     os.makedirs(work, exist_ok=True)
 
     con = duckdb.connect(a.db, read_only=True)
+    # partial 判定：--tables 子集导出 或 --include-skipped（非默认可增量表集）都不是
+    # 「当日完整日期分区表集」，import 需显式 --allow-partial 才能接受。
+    partial = bool(a.tables) or bool(a.include_skipped)
     if a.tables:
         want = [t.strip() for t in a.tables.split(",") if t.strip()]
         tables = [(t, _date_col(con, t)) for t in want]
@@ -94,6 +112,7 @@ def main() -> int:
 
     manifest = {"schema_version": SCHEMA_VERSION,
                 "trade_date": date, "db": os.path.basename(a.db),
+                "partial": partial,
                 "exported_at": datetime.datetime.now().isoformat(timespec="seconds"),
                 "tables": []}
     total_rows = 0
