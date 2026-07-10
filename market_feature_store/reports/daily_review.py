@@ -826,8 +826,42 @@ def _coverage(con, trade_date):
             """,
             [trade_date],
         ).fetchone()
-        rows.append([table, str(max_date), cnt, target_cnt, "OK" if target_cnt > 0 else "缺目标日"])
+        status = "OK" if target_cnt > 0 else "缺目标日"
+        if table == "fact_sw_l1_daily" and target_cnt > 0:
+            degraded = con.execute(
+                """
+                SELECT COUNT(*)
+                FROM fact_sw_l1_daily
+                WHERE trade_date = ?
+                  AND source LIKE 'degraded_fupanhui_sw_l1_aggregate%'
+                """,
+                [trade_date],
+            ).fetchone()[0]
+            if degraded:
+                status = f"OK（降级 {degraded}/{target_cnt}：复盘会聚合代理）"
+        rows.append([table, str(max_date), cnt, target_cnt, status])
     return rows
+
+
+def _sw_l1_degradation_warning(con, trade_date) -> str | None:
+    row = con.execute(
+        """
+        SELECT COUNT(*) FILTER (
+                 WHERE source LIKE 'degraded_fupanhui_sw_l1_aggregate%'
+               ) AS degraded_count,
+               COUNT(*) AS total_count
+        FROM fact_sw_l1_daily
+        WHERE trade_date = ?
+        """,
+        [trade_date],
+    ).fetchone()
+    degraded_count, total_count = row if row else (0, 0)
+    if not degraded_count:
+        return None
+    return (
+        f"申万一级实时/历史源当日缺数，{degraded_count}/{total_count} 行使用"
+        "`fact_sector_daily` 按申万一级聚合的代理数据；涨跌幅/成交额不可等同于申万指数官方口径。"
+    )
 
 
 def build_daily_review(trade_date: str | None = None, output_path: str | None = None, chart_path: str | None = None, start_date: str | None = None) -> dict:
@@ -1025,6 +1059,9 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
         lines.append(f"# {td} 每日市场复盘")
         lines.append("")
         lines.append("> 自动生成自 `market_feature_store` 本地 DuckDB。报告只读取已入库数据，不临时编造缺失项。")
+        sw_l1_warning = _sw_l1_degradation_warning(con, td)
+        if sw_l1_warning:
+            lines.append(f"> ⚠️ 数据降级：{sw_l1_warning}")
         lines.append("")
         lines.append("## 核心看板")
         lines.append(_table(
