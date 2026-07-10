@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import json
+import os
+import threading
 import time
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from intelligence import userspace
+from intelligence.paths import default_paths
 from intelligence.api.artifacts import ArtifactRegistry
 from intelligence.api.daily_reports import (
     project_daily_agent,
@@ -36,9 +41,93 @@ from intelligence.services.run_store import RunStore
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="workbench-run")
 _SSE_POLL_SECONDS = 0.5
 _SSE_MAX_SECONDS = 15 * 60
+_WORKER_COUNT = 2
+_RESTART_REASON = "workbench_restarted_before_completion"
+
+
+class RunSupervisor:
+    def __init__(
+        self,
+        max_workers: int = _WORKER_COUNT,
+        timeout_sec: float = _SSE_MAX_SECONDS,
+    ) -> None:
+        self.max_workers = max_workers
+        self.timeout_sec = timeout_sec
+        self._executor = ThreadPoolExecutor(
+            max_workers=max_workers,
+            thread_name_prefix="workbench-run",
+        )
+        self._futures: dict[tuple[str, str], Future[None]] = {}
+        self._timers: dict[tuple[str, str], threading.Timer] = {}
+        self._stores: dict[tuple[str, str], RunStore] = {}
+        self._lock = threading.Lock()
+
+    def submit(self, store: RunStore, run_id: str, req: CreateRunRequest) -> None:
+        key = (store.user_id, run_id)
+        store.mark_running(run_id)
+        timer = threading.Timer(
+            self.timeout_sec,
+            self._expire,
+            args=(store, run_id, key),
+        )
+        timer.daemon = True
+        with self._lock:
+            future = self._executor.submit(_run_ask, store, run_id, req)
+            self._futures[key] = future
+            self._timers[key] = timer
+            self._stores[key] = store
+        future.add_done_callback(lambda _: self._forget(key))
+        timer.start()
+
+    def cancel(self, store: RunStore, run_id: str) -> bool:
+        key = (store.user_id, run_id)
+        with self._lock:
+            future = self._futures.get(key)
+            timer = self._timers.get(key)
+            active_store = self._stores.get(key, store)
+        if timer is not None:
+            timer.cancel()
+        queued_cancelled = future.cancel() if future is not None else False
+        active_store.finish_run(run_id, rs.STATUS_CANCELLED, error="cancelled_by_user")
+        return queued_cancelled
+
+    def active_count(self) -> int:
+        with self._lock:
+            return sum(not future.done() for future in self._futures.values())
+
+    def shutdown(self) -> None:
+        with self._lock:
+            timers = list(self._timers.values())
+        for timer in timers:
+            timer.cancel()
+        self._executor.shutdown(wait=False, cancel_futures=True)
+
+    def _forget(self, key: tuple[str, str]) -> None:
+        with self._lock:
+            self._futures.pop(key, None)
+            timer = self._timers.pop(key, None)
+            self._stores.pop(key, None)
+        if timer is not None:
+            timer.cancel()
+
+    def _expire(
+        self,
+        store: RunStore,
+        run_id: str,
+        key: tuple[str, str],
+    ) -> None:
+        with self._lock:
+            future = self._futures.get(key)
+        if future is None or future.done():
+            return
+        future.cancel()
+        store.fail_active_run(
+            run_id,
+            error="executor_timeout",
+            degrade="executor_timeout",
+        )
 
 
 class CreateRunRequest(BaseModel):
@@ -49,6 +138,14 @@ class CreateRunRequest(BaseModel):
     parent_run_id: str | None = None
     compose: bool = True
     repo_root: Path | None = Field(default=None, exclude=True)
+
+
+def _run_terminal(store: RunStore, run_id: str) -> bool:
+    return store.load_run(run_id).status in (
+        rs.STATUS_COMPLETED,
+        rs.STATUS_FAILED,
+        rs.STATUS_CANCELLED,
+    )
 
 
 def _run_ask(
@@ -71,6 +168,8 @@ def _run_ask(
         event_type="report_start",
         payload={"report": report},
     )
+    if _run_terminal(store, run_id):
+        return
 
     report_warnings: list[str] = []
     report_date: str | None = None
@@ -91,6 +190,8 @@ def _run_ask(
             report_warnings.extend(daily_warnings)
             for module in daily_modules:
                 emit_module(module)
+            if _run_terminal(store, run_id):
+                return
         except Exception as exc:  # noqa: BLE001
             warning = f"日报 canonical 投影失败（{type(exc).__name__}）"
             report_warnings.append(warning)
@@ -108,6 +209,8 @@ def _run_ask(
         if snapshot.status != "ok":
             for warning in snapshot.warnings:
                 store.add_degrade(run_id, warning)
+        if _run_terminal(store, run_id):
+            return
 
     started_at = rs._now_iso()
     store.append_step(
@@ -143,7 +246,11 @@ def _run_ask(
             kb_index_built_at=str(rag_telemetry.get("index_built_at") or "") or None,
             kb_index_freshness=str(rag_telemetry.get("index_freshness") or "") or None,
         )
+        if _run_terminal(store, run_id):
+            return
     except Exception as exc:  # noqa: BLE001
+        if _run_terminal(store, run_id):
+            return
         store.append_step(
             run_id,
             step_id="s01",
@@ -262,6 +369,8 @@ def _run_ask(
         finished_at=rs._now_iso(),
         output_summary="answer.md + summary.json",
     )
+    if _run_terminal(store, run_id):
+        return
 
     followup_started_at = rs._now_iso()
     store.append_step(
@@ -311,6 +420,8 @@ def _run_ask(
             warnings=[f"{type(exc).__name__}: {exc}"],
         )
 
+    if _run_terminal(store, run_id):
+        return
     store.finish_run(run_id, rs.STATUS_COMPLETED)
 
 
@@ -455,10 +566,53 @@ def _run_context(store: RunStore, run_id: str) -> dict[str, object]:
     }
 
 
-def create_app(*, repo_root: Path | None = None) -> FastAPI:
+def create_app(
+    *,
+    repo_root: Path | None = None,
+    run_timeout_sec: float = _SSE_MAX_SECONDS,
+) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
-    app = FastAPI(title="Market Intelligence Workbench API")
+    runtime_paths = default_paths()
+    supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        yield
+        supervisor.shutdown()
+
+    app = FastAPI(title="Market Intelligence Workbench API", lifespan=lifespan)
     registries: dict[str, ArtifactRegistry] = {}
+    recovered_runs: list[str] = []
+
+    user_ids = {userspace.DEFAULT_USER}
+    users_root = userspace.users_dir()
+    if users_root.is_dir():
+        user_ids.update(
+            path.name
+            for path in users_root.iterdir()
+            if path.is_dir() and (path / "runs").is_dir()
+        )
+    for user_id in sorted(user_ids):
+        try:
+            store = RunStore(user_id=user_id)
+            for run in store.requeue_incomplete_runs(reason=_RESTART_REASON):
+                recovered_runs.append(run.run_id)
+                supervisor.submit(
+                    store,
+                    run.run_id,
+                    CreateRunRequest(
+                        question=run.question,
+                        user=run.user,
+                        task_type=run.task_type,
+                        session_id=run.session_id,
+                        parent_run_id=run.parent_run_id,
+                        repo_root=root,
+                    ),
+                )
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+    app.state.supervisor = supervisor
+    app.state.recovered_runs = recovered_runs
 
     def store_for(user: str | None) -> RunStore:
         return RunStore(user_id=user)
@@ -471,6 +625,61 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
             registries[store.user_id] = registry
         return registry
 
+    def dependency_checks() -> dict[str, bool]:
+        return {
+            "repo_root": root.is_dir(),
+            "knowledge_wiki": runtime_paths.knowledge_wiki.is_dir(),
+            "relations": (runtime_paths.knowledge_wiki / "relations").is_dir(),
+            "vector_index": runtime_paths.vector_index_dir.is_dir(),
+            "market_snapshot": runtime_paths.market_snapshot_dir.is_dir(),
+            "frontend_built": (STATIC_DIR / "index.html").is_file(),
+        }
+
+    @app.get("/api/health")
+    @app.get("/api/health/live")
+    def health_live() -> dict[str, object]:
+        checks = dependency_checks()
+        return {
+            "status": "healthy",
+            "timestamp": rs._now_iso(),
+            "dependencies": checks,
+        }
+
+    @app.get("/api/readiness")
+    @app.get("/api/health/ready")
+    def health_ready(user: str | None = None) -> JSONResponse:
+        store = store_for(user)
+        run_root_ready = False
+        try:
+            store.root.mkdir(parents=True, exist_ok=True)
+            run_root_ready = store.root.is_dir() and os.access(store.root, os.W_OK)
+        except OSError:
+            pass
+        checks = {
+            **dependency_checks(),
+            "run_store_writable": run_root_ready,
+        }
+        critical = {
+            "repo_root": checks["repo_root"],
+            "run_store_writable": checks["run_store_writable"],
+            "knowledge_wiki": checks["knowledge_wiki"],
+            "relations": checks["relations"],
+        }
+        ready = all(critical.values())
+        payload = {
+            "status": "ready" if ready else "not_ready",
+            "timestamp": rs._now_iso(),
+            "checks": checks,
+            "critical": critical,
+            "workers": {
+                "active": supervisor.active_count(),
+                "capacity": supervisor.max_workers,
+                "timeout_sec": supervisor.timeout_sec,
+            },
+            "recovered_runs": len(recovered_runs),
+        }
+        return JSONResponse(payload, status_code=200 if ready else 503)
+
     @app.post("/api/runs")
     def create_run(req: CreateRunRequest) -> dict[str, object]:
         req.repo_root = root
@@ -481,7 +690,19 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
             session_id=req.session_id,
             parent_run_id=req.parent_run_id,
         )
-        _EXECUTOR.submit(_run_ask, store, run.run_id, req)
+        supervisor.submit(store, run.run_id, req)
+        return {"run_id": run.run_id, "status": run.status}
+
+    @app.post("/api/runs/{run_id}/cancel")
+    def cancel_run(run_id: str, user: str | None = None) -> dict[str, object]:
+        store = store_for(user)
+        try:
+            run = store.load_run(run_id)
+        except (FileNotFoundError, ValueError) as exc:
+            raise HTTPException(404, f"run 不存在：{run_id}") from exc
+        if run.status not in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
+            supervisor.cancel(store, run_id)
+            run = store.load_run(run_id)
         return {"run_id": run.run_id, "status": run.status}
 
     @app.get("/api/runs")
