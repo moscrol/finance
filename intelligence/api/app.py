@@ -709,7 +709,7 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
             {
                 "id": "daily",
                 "title": "今日复盘",
-                "description": "打开最新日常产物，再继续追问",
+                "description": "调用 GLM 综合证据，并流式生成日报与 L2 资金流模块",
                 "task_type": "daily",
                 "artifact_id": latest_daily.artifact_id if latest_daily else None,
                 "prompt": "基于最新收盘数据，总结今日盘面、主线、反证和下一交易日验证点。",
