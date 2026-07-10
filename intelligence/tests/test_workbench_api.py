@@ -178,6 +178,55 @@ def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestC
     assert current["modules"] == [module]
 
 
+def test_daily_run_uses_one_pass_llm_and_template_followups(tmp_path, monkeypatch) -> None:
+    from intelligence.services import ask as ask_svc
+    from intelligence.services import followups as followups_svc
+    from intelligence.services.ask import AskResult
+
+    captured: dict[str, object] = {}
+
+    def fake_answer(options):
+        captured["options"] = options
+        result = AskResult(
+            query=options.query,
+            trade_date="2026-07-10",
+            matched_theme="算力",
+            candidate_tier="watch",
+            priority_score=80,
+        )
+        result.synthesis = "一轮 GLM 综合结果。"
+        result.llm_provider = "glm"
+        result.sections = {"结论": ["市场修复延续。"]}
+        return result
+
+    def fake_followups(*args, use_llm=True, **kwargs):
+        captured["followups_use_llm"] = use_llm
+        return followups_svc.FollowupResult()
+
+    monkeypatch.setattr(ask_svc, "answer_query", fake_answer)
+    monkeypatch.setattr(ask_svc, "render_answer", lambda result: "# 结论\n市场修复延续。")
+    monkeypatch.setattr(followups_svc, "generate_followups", fake_followups)
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    store = RunStore(root=tmp_path / "runs")
+    run = store.create_run("今日复盘", "daily")
+    request = app_module.CreateRunRequest(
+        question="今日复盘",
+        task_type="daily",
+        repo_root=repo_root,
+    )
+
+    app_module._run_ask(store, run.run_id, request)
+
+    options = captured["options"]
+    assert options.compose_self_review is False
+    assert options.compose_revise_on_warn is False
+    assert options.force_moneyflow_block is True
+    assert captured["followups_use_llm"] is False
+    assert store.load_run(run.run_id).status == rs.STATUS_COMPLETED
+
+
 def test_missing_run_404(client: TestClient) -> None:
     assert client.get("/api/runs/run_nope").status_code == 404
     assert client.get("/api/runs/run_nope/trace").status_code == 404
