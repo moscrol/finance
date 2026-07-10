@@ -173,6 +173,12 @@ def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestC
     assert "event: report_start" in streamed
     assert "event: report_module" in streamed
     assert "id: module:l2_moneyflow" in streamed
+    resumed = client.get(
+        f"/api/runs/{run_id}/events",
+        headers={"Last-Event-ID": "report:start"},
+    ).text
+    assert "event: report_start" not in resumed
+    assert "event: report_module" in resumed
 
     current = client.get(f"/api/runs/{run_id}/report").json()
     assert current["modules"] == [module]
@@ -196,6 +202,7 @@ def test_daily_run_uses_one_pass_llm_and_template_followups(tmp_path, monkeypatc
         )
         result.synthesis = "一轮 GLM 综合结果。"
         result.llm_provider = "glm"
+        result.warnings = ["输出质检：盘面数据需要复核"]
         result.sections = {"结论": ["市场修复延续。"]}
         return result
 
@@ -224,7 +231,10 @@ def test_daily_run_uses_one_pass_llm_and_template_followups(tmp_path, monkeypatc
     assert options.compose_revise_on_warn is False
     assert options.force_moneyflow_block is True
     assert captured["followups_use_llm"] is False
-    assert store.load_run(run.run_id).status == rs.STATUS_COMPLETED
+    saved = store.load_run(run.run_id)
+    assert saved.status == rs.STATUS_COMPLETED
+    assert saved.source_date == "2026-07-10"
+    assert "输出质检：盘面数据需要复核" in saved.degrades
 
 
 def test_missing_run_404(client: TestClient) -> None:

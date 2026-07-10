@@ -113,3 +113,22 @@ def test_llm_and_deterministic_sections_share_one_report_contract() -> None:
     assert report["modules"][0]["module_id"] == "llm_synthesis"
     assert report["modules"][1]["kind"] == "summary"
     assert "html" not in json.dumps(report, ensure_ascii=False).lower()
+
+
+def test_ask_warnings_mark_user_facing_modules_degraded() -> None:
+    result = AskResult(
+        query="今日复盘",
+        trade_date="2026-07-10",
+        matched_theme="算力",
+        candidate_tier="watch",
+        priority_score=80,
+    )
+    result.synthesis = "保留初稿。"
+    result.warnings = ["wiki-rag 索引新鲜度=stale，结果按降级证据处理"]
+    result.sections = {"结论": ["需要刷新索引后复核。"]}
+
+    modules = ask_result_modules(result)
+
+    assert modules[0]["status"] == "degraded"
+    assert modules[0]["warnings"] == result.warnings
+    assert modules[1]["status"] == "degraded"

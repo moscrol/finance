@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -131,6 +131,18 @@ def _run_ask(
                 force_moneyflow_block=req.task_type == "daily",
             )
         )
+        rag_telemetry = (
+            asdict(result.wiki_rag_telemetry)
+            if result.wiki_rag_telemetry is not None
+            else {}
+        )
+        store.update_provenance(
+            run_id,
+            source_date=result.trade_date,
+            kb_commit=str(rag_telemetry.get("index_source_revision") or "") or None,
+            kb_index_built_at=str(rag_telemetry.get("index_built_at") or "") or None,
+            kb_index_freshness=str(rag_telemetry.get("index_freshness") or "") or None,
+        )
     except Exception as exc:  # noqa: BLE001
         store.append_step(
             run_id,
@@ -180,13 +192,13 @@ def _run_ask(
         retrieval={
             "sources": hits,
             "citation_counts": citation_counts,
+            "citations": [asdict(citation) for citation in result.citations],
             "trade_date": result.trade_date,
             "matched_theme": result.matched_theme,
         },
     )
     for warning in result.warnings:
-        if "不可用" in warning or "降级" in warning or "unavailable" in warning.lower():
-            store.add_degrade(run_id, warning)
+        store.add_degrade(run_id, warning)
     if req.compose and not (result.llm_refined or result.synthesis):
         store.add_degrade(run_id, "llm_unavailable_template_answer")
 
@@ -208,6 +220,7 @@ def _run_ask(
         "question_type": result.question_plan.question_type if result.question_plan else None,
         "citations": len(result.citations),
         "citation_counts": citation_counts,
+        "citation_records": [asdict(citation) for citation in result.citations],
         "llm_refined": result.llm_refined,
         "llm_composed": bool(result.synthesis),
         "warnings": list(result.warnings),
@@ -351,6 +364,38 @@ def _run_context(store: RunStore, run_id: str) -> dict[str, object]:
                     "status": "hit",
                 }
             )
+        citation_records = retrieval.get("citations", [])
+        if isinstance(citation_records, list):
+            for citation in citation_records:
+                if not isinstance(citation, dict):
+                    continue
+                tag = str(citation.get("tag") or "")
+                source = str(citation.get("source") or "")
+                if not tag or not source:
+                    continue
+                binding = [
+                    f"chunk={citation.get('chunk_id')}" if citation.get("chunk_id") else "",
+                    f"hash={str(citation.get('content_hash'))[:12]}"
+                    if citation.get("content_hash")
+                    else "",
+                    f"index={str(citation.get('index_source_revision'))[:12]}"
+                    if citation.get("index_source_revision")
+                    else "",
+                    f"freshness={citation.get('index_freshness')}"
+                    if citation.get("index_freshness")
+                    else "",
+                ]
+                evidence.append(
+                    {
+                        "id": f"citation-record:{tag}",
+                        "label": f"[{tag}] {source}",
+                        "kind": "citation_record",
+                        "classification": "bound_evidence",
+                        "detail": " · ".join(item for item in binding if item)
+                        or str(citation.get("detail") or "已记录引用"),
+                        "status": "hit",
+                    }
+                )
         counts = retrieval.get("citation_counts", {})
         if isinstance(counts, dict):
             citation_counts.update(
@@ -403,6 +448,8 @@ def _run_context(store: RunStore, run_id: str) -> dict[str, object]:
             "source_date": run.source_date,
             "duckdb_cutoff": run.duckdb_cutoff,
             "kb_commit": run.kb_commit,
+            "kb_index_built_at": run.kb_index_built_at,
+            "kb_index_freshness": run.kb_index_freshness,
             "manifest_ref": run.manifest_ref,
         },
     }
@@ -479,7 +526,7 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
         return payload if isinstance(payload, dict) else {"followups": []}
 
     @app.get("/api/runs/{run_id}/events")
-    def run_events(run_id: str, user: str | None = None) -> StreamingResponse:
+    def run_events(run_id: str, request: Request, user: str | None = None) -> StreamingResponse:
         store = store_for(user)
         try:
             if not store.run_path(run_id).exists():
@@ -487,9 +534,12 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
+        last_event_id = request.headers.get("last-event-id", "")
+
         def stream():
             sent = 0
             sent_report_events = 0
+            resume_after = last_event_id
             deadline = time.monotonic() + _SSE_MAX_SECONDS
             while True:
                 steps = store.load_trace(run_id)
@@ -497,6 +547,16 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
                     yield f"event: step\ndata: {json.dumps(step, ensure_ascii=False)}\n\n"
                 sent = len(steps)
                 report_events = store.load_stream_events(run_id)
+                if resume_after:
+                    sent_report_events = next(
+                        (
+                            index + 1
+                            for index, event in enumerate(report_events)
+                            if event.get("event_id") == resume_after
+                        ),
+                        0,
+                    )
+                    resume_after = ""
                 for event in report_events[sent_report_events:]:
                     yield (
                         f"id: {event['event_id']}\n"

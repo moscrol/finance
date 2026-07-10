@@ -171,10 +171,14 @@ export function RunView({
           <StructuredReportView report={structuredReport} />
         ) : answer ? (
           <MarkdownView source={answer} />
-        ) : run.status === "failed" ? (
+        ) : run.status === "failed" || run.status === "completed" ? (
           <div className="quiet-empty">
             <span>没有生成回答产物</span>
-            <small>已保留运行轨迹和失败原因，可据此重试。</small>
+            <small>
+              {run.status === "failed"
+                ? "已保留运行轨迹和失败原因，可据此重试。"
+                : "运行已结束，但回答产物不可用；请查看上方错误并重试。"}
+            </small>
           </div>
         ) : (
           <div className="answer-loading">

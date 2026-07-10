@@ -25,6 +25,8 @@ export interface Run {
   source_date: string | null;
   duckdb_cutoff: string | null;
   kb_commit: string | null;
+  kb_index_built_at: string | null;
+  kb_index_freshness: string | null;
   manifest_ref: string | null;
   degrades: string[];
   error: string | null;
@@ -43,6 +45,7 @@ export interface TraceStep {
   retrieval?: {
     sources?: string[];
     citation_counts?: Record<string, number>;
+    citations?: Array<Record<string, string>>;
     trade_date?: string | null;
     matched_theme?: string | null;
   };
@@ -79,6 +82,8 @@ export interface RunContext {
     source_date: string | null;
     duckdb_cutoff: string | null;
     kb_commit: string | null;
+    kb_index_built_at: string | null;
+    kb_index_freshness: string | null;
     manifest_ref: string | null;
   };
 }

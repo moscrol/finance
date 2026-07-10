@@ -15,6 +15,7 @@ import { ArtifactViewer } from "./ArtifactViewer";
 import { ResearchHome } from "./ResearchHome";
 import { ResearchInspector } from "./ResearchInspector";
 import { RunView } from "./RunView";
+import { StructuredReportView } from "./StructuredReportView";
 
 const apiMocks = vi.hoisted(() => ({
   createRun: vi.fn(),
@@ -104,6 +105,8 @@ const bundle: RunBundle = {
     source_date: "2026-07-09",
     duckdb_cutoff: "2026-07-09",
     kb_commit: "abc123",
+    kb_index_built_at: "2026-07-09T16:00:00+08:00",
+    kb_index_freshness: "fresh",
     manifest_ref: null,
     degrades: ["llm_unavailable_template_answer"],
     error: null,
@@ -158,6 +161,8 @@ const bundle: RunBundle = {
       source_date: "2026-07-09",
       duckdb_cutoff: "2026-07-09",
       kb_commit: "abc123",
+      kb_index_built_at: "2026-07-09T16:00:00+08:00",
+      kb_index_freshness: "fresh",
       manifest_ref: null,
     },
   },
@@ -372,6 +377,33 @@ describe("Workbench components", () => {
     expect(screen.getByText("ask_retrieve_compose")).not.toBeVisible();
     await user.click(screen.getByText("命中盘面与图谱"));
     expect(screen.getByText("ask_retrieve_compose")).toBeVisible();
+  });
+
+  it("shows report degradation warnings and the bound KB snapshot", () => {
+    render(
+      <>
+        <StructuredReportView
+          report={{
+            schema_version: 1,
+            report_id: "run_demo",
+            title: "今日复盘",
+            task_type: "daily",
+            status: "completed",
+            as_of: "2026-07-10",
+            llm: { used: true, provider: "glm", model: "glm-5.2" },
+            warnings: ["wiki-rag 索引新鲜度=stale"],
+            modules: [],
+          }}
+        />
+        <ResearchInspector bundle={bundle} artifact={null} open onClose={vi.fn()} />
+      </>,
+    );
+
+    expect(screen.getByText("本报告包含降级或质量警告")).toBeVisible();
+    expect(screen.getByText("wiki-rag 索引新鲜度=stale")).toBeVisible();
+    expect(screen.getByText("知识库索引快照")).toBeVisible();
+    expect(screen.getByText(/revision=abc123/)).toBeVisible();
+    expect(screen.getByText(/freshness=fresh/)).toBeVisible();
   });
 });
 

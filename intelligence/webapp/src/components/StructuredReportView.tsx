@@ -138,9 +138,24 @@ export function StructuredReportView({ report }: { report: StructuredReport }) {
         <span>
           {report.status === "streaming"
             ? `流式生成中 · 已完成 ${report.modules.length} 个模块`
-            : `结构化报告 · ${report.modules.length} 个模块`}
+            : `结构化报告 · ${report.modules.length} 个模块${
+                report.warnings.length > 0 ? " · 已降级" : ""
+              }`}
         </span>
       </header>
+      {report.warnings.length > 0 && (
+        <div className="alert alert-warning stream-report-warning" role="status">
+          <AlertTriangle aria-hidden="true" size={16} />
+          <div>
+            <strong>本报告包含降级或质量警告</strong>
+            <ul>
+              {report.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
       <div className="stream-module-list">
         {report.modules.map((module) => (
           <ReportModule module={module} key={module.module_id} />

@@ -183,19 +183,28 @@ def moneyflow_module(snapshot: MoneyflowSnapshot) -> dict[str, Any]:
 
 def ask_result_modules(result: AskResult) -> list[dict[str, Any]]:
     modules: list[dict[str, Any]] = []
+    review_degraded = result.review_gate is not None and result.review_gate.warn_count > 0
+    rag_degraded = (
+        result.wiki_rag_telemetry is not None
+        and (
+            result.wiki_rag_telemetry.degraded
+            or result.wiki_rag_telemetry.status not in {"ok", "pending"}
+        )
+    )
+    answer_degraded = bool(result.warnings) or review_degraded or rag_degraded
     if result.synthesis:
         modules.append(
             {
                 "module_id": "llm_synthesis",
                 "title": "LLM 综合判断",
                 "kind": "narrative",
-                "status": "complete",
+                "status": "degraded" if answer_degraded else "complete",
                 "summary": "LLM 只在已检索证据边界内组织表达；请按引用核对。",
                 "content": result.synthesis,
                 "metrics": [],
                 "items": [],
                 "table": None,
-                "warnings": [],
+                "warnings": list(dict.fromkeys(result.warnings)) if answer_degraded else [],
                 "provenance": {
                     "source": "retrieved_evidence",
                     "as_of": result.trade_date,
@@ -214,6 +223,11 @@ def ask_result_modules(result: AskResult) -> list[dict[str, Any]]:
         "引用来源": "sources",
     }
     for index, (title, lines) in enumerate(result.sections.items(), start=1):
+        section_degraded = (
+            (title == "输出质检" and review_degraded)
+            or (title in {"证据链", "检索可观测", "引用来源"} and rag_degraded)
+            or (title in {"结论", "交易含义"} and answer_degraded)
+        )
         items = []
         for line in lines:
             text = str(line)
@@ -233,13 +247,13 @@ def ask_result_modules(result: AskResult) -> list[dict[str, Any]]:
                 "module_id": f"research_{index}_{section_kinds.get(title, 'section')}",
                 "title": title,
                 "kind": section_kinds.get(title, "list"),
-                "status": "complete",
+                "status": "degraded" if section_degraded else "complete",
                 "summary": None,
                 "content": None,
                 "metrics": [],
                 "items": items,
                 "table": None,
-                "warnings": [],
+                "warnings": list(dict.fromkeys(result.warnings)) if section_degraded else [],
                 "provenance": {
                     "source": "ask_retrieval_pipeline",
                     "as_of": result.trade_date,

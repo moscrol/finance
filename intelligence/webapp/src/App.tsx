@@ -92,6 +92,7 @@ export default function App() {
         const run = await getRun(runId, user);
         if (generation !== runRequestGeneration.current) return;
         const answerArtifact = run.artifacts.find((item) => item.path === "answer.md");
+        const outputLoadErrors: string[] = [];
         const [trace, followups, context, registeredArtifacts, answer, structuredReport] =
           await Promise.all([
           getTrace(runId, user),
@@ -99,9 +100,19 @@ export default function App() {
           getRunContext(runId, user),
           listArtifacts({ category: "run" }, user),
           answerArtifact
-            ? getRunArtifactText(runId, answerArtifact.path, user).catch(() => null)
+            ? getRunArtifactText(runId, answerArtifact.path, user).catch((caught) => {
+                outputLoadErrors.push(
+                  `回答产物读取失败：${caught instanceof Error ? caught.message : "未知错误"}`,
+                );
+                return null;
+              })
             : Promise.resolve(null),
-          getRunReport(runId, user).catch(() => null),
+          getRunReport(runId, user).catch((caught) => {
+            outputLoadErrors.push(
+              `结构化报告读取失败：${caught instanceof Error ? caught.message : "未知错误"}`,
+            );
+            return null;
+          }),
         ]);
         if (generation !== runRequestGeneration.current) return;
         setRunBundle({
@@ -116,7 +127,7 @@ export default function App() {
           ),
         });
         setArtifact(null);
-        setError(null);
+        setError(outputLoadErrors.length > 0 ? outputLoadErrors.join("；") : null);
       } catch (caught) {
         if (generation === runRequestGeneration.current) {
           setError(caught instanceof Error ? caught.message : "无法加载研究运行");

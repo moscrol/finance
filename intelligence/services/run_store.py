@@ -114,6 +114,8 @@ class Run:
     source_date: str | None = None
     duckdb_cutoff: str | None = None
     kb_commit: str | None = None
+    kb_index_built_at: str | None = None
+    kb_index_freshness: str | None = None
     manifest_ref: str | None = None
     degrades: list[str] = field(default_factory=list)
     error: str | None = None
@@ -246,6 +248,30 @@ class RunStore:
         if reason not in run.degrades:
             run.degrades.append(reason)
             self._write_run(run)
+
+    def update_provenance(
+        self,
+        run_id: str,
+        *,
+        source_date: str | None = None,
+        duckdb_cutoff: str | None = None,
+        kb_commit: str | None = None,
+        kb_index_built_at: str | None = None,
+        kb_index_freshness: str | None = None,
+    ) -> Run:
+        run = self.load_run(run_id)
+        if source_date is not None:
+            run.source_date = source_date
+        if duckdb_cutoff is not None:
+            run.duckdb_cutoff = duckdb_cutoff
+        if kb_commit is not None:
+            run.kb_commit = kb_commit
+        if kb_index_built_at is not None:
+            run.kb_index_built_at = kb_index_built_at
+        if kb_index_freshness is not None:
+            run.kb_index_freshness = kb_index_freshness
+        self._write_run(run)
+        return run
 
     def finish_run(self, run_id: str, status: str, *, error: str | None = None) -> Run:
         if status not in _TERMINAL_STATUSES:
