@@ -14,6 +14,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { assertTsCode, buildUrl, buildXhrExpr, encodePathSegment } from "./lib.js";
 
 const CDP_HOST = process.env.CDP_HOST || "http://localhost:3456";
 const FUPANHUI_BASE = "https://fupanhui.com";
@@ -49,20 +50,10 @@ async function getTarget() {
 
 async function cdpFetch(apiPath, params = {}) {
   const target = await getTarget();
-  const query = Object.entries(params)
-    .filter(([, v]) => v !== undefined && v !== null)
-    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-    .join("&");
-
-  const url = query ? `${apiPath}?${query}` : apiPath;
+  const url = buildUrl(apiPath, params);
 
   // Use synchronous XHR inside browser to get response immediately
-  const js = `(function(){
-    var x = new XMLHttpRequest();
-    x.open("GET", "${url}", false);
-    x.send();
-    return x.responseText;
-  })()`;
+  const js = buildXhrExpr(url);
 
   // CDP proxy /eval does NOT URL-decode the body — send raw expr
   const res = await fetch(`${CDP_HOST}/eval?target=${target}`, {
@@ -245,7 +236,7 @@ server.tool(
     const params = { days, period: "daily" };
     if (trade_date) params.trade_date = trade_date;
 
-    const data = await cdpFetch(`/api/v1/client/reviews/sector-cycle/${ts_code}/kline`, params);
+    const data = await cdpFetch(`/api/v1/client/reviews/sector-cycle/${encodePathSegment(assertTsCode(ts_code))}/kline`, params);
     const kline = data.kline || [];
     const name = data.name || ts_code;
 
@@ -276,7 +267,7 @@ server.tool(
     const params = {};
     if (trade_date) params.trade_date = trade_date;
 
-    const data = await cdpFetch(`/api/v1/client/reviews/sector-cycle/${ts_code}/stocks`, params);
+    const data = await cdpFetch(`/api/v1/client/reviews/sector-cycle/${encodePathSegment(assertTsCode(ts_code))}/stocks`, params);
     let stocks = data.stocks || [];
     const sectorName = data.name || ts_code;
 
@@ -323,7 +314,7 @@ server.tool(
     if (trade_date) params.trade_date = trade_date;
 
     // Get stock kline for latest data
-    const data = await cdpFetch(`/api/v1/client/stock-kline/${ts_code}/kline`, {
+    const data = await cdpFetch(`/api/v1/client/stock-kline/${encodePathSegment(assertTsCode(ts_code))}/kline`, {
       period: "daily",
       limit: 1,
       offset: 0,
