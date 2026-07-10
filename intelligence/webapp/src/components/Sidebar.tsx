@@ -49,7 +49,12 @@ export function Sidebar({
         <PanelLeftClose className="desktop-only" aria-hidden="true" size={17} />
       </div>
 
-      <button className="new-research-button" type="button" onClick={onHome}>
+      <button
+        className="new-research-button"
+        type="button"
+        aria-label="新建研究"
+        onClick={onHome}
+      >
         <Plus aria-hidden="true" size={17} />
         <span>新建研究</span>
       </button>
@@ -59,6 +64,7 @@ export function Sidebar({
           type="button"
           className={surface.kind === "home" ? "nav-row active" : "nav-row"}
           onClick={onHome}
+          aria-label="研究首页"
           title="研究首页"
         >
           <Search aria-hidden="true" size={17} />
@@ -68,6 +74,7 @@ export function Sidebar({
           type="button"
           className={surface.kind === "library" ? "nav-row active" : "nav-row"}
           onClick={onLibrary}
+          aria-label="产物库"
           title="产物库"
         >
           <Archive aria-hidden="true" size={17} />

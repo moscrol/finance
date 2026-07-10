@@ -99,6 +99,51 @@ export interface ArtifactDescriptor {
   canonical_exists: boolean;
 }
 
+export interface ReportMetric {
+  label: string;
+  value: string;
+  tone?: string;
+  context?: string;
+}
+
+export interface ReportMeta {
+  label: string;
+  value: string;
+}
+
+export interface ReportItem {
+  title: string;
+  summary: string;
+  badges: string[];
+  meta?: ReportMeta[];
+  next_action?: string;
+  details?: string[];
+}
+
+export interface ReportSection {
+  title: string;
+  items: ReportItem[];
+}
+
+export interface DailyReportProjection {
+  report_type: "daily_agent" | "daily_review";
+  title: string;
+  date: string | null;
+  source_mode: "canonical_json" | "canonical_markdown" | "legacy_html_projection";
+  plain_summary: string[];
+  metrics: ReportMetric[];
+  sections: ReportSection[];
+  glossary: Array<{ term: string; definition: string }>;
+  provenance: {
+    canonical_path: string | null;
+    rendered_path: string | null;
+    warnings: string[];
+    original_report_available: boolean;
+    original_artifact_id?: string | null;
+    generated_at?: string | null;
+  };
+}
+
 export interface Workflow {
   id: "daily" | "theme" | "stock_research";
   title: string;

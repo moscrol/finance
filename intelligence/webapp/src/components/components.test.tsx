@@ -1,9 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import App from "../App";
+import { upsertTraceStep } from "../trace";
 import type {
   ArtifactDescriptor,
   Bootstrap,
+  Run,
   RunBundle,
 } from "../types";
 import { ArtifactLibrary } from "./ArtifactLibrary";
@@ -11,6 +14,26 @@ import { ArtifactViewer } from "./ArtifactViewer";
 import { ResearchHome } from "./ResearchHome";
 import { ResearchInspector } from "./ResearchInspector";
 import { RunView } from "./RunView";
+
+const apiMocks = vi.hoisted(() => ({
+  createRun: vi.fn(),
+  getArtifact: vi.fn(),
+  getArtifactProjection: vi.fn(),
+  getArtifactText: vi.fn(),
+  getBootstrap: vi.fn(),
+  getFollowups: vi.fn(),
+  getRun: vi.fn(),
+  getRunArtifactText: vi.fn(),
+  getRunContext: vi.fn(),
+  getTrace: vi.fn(),
+  listArtifacts: vi.fn(),
+}));
+
+vi.mock("../api", () => ({
+  ...apiMocks,
+  artifactContentUrl: (artifactId: string) => `/api/artifacts/${artifactId}/content`,
+  runEventsUrl: (runId: string) => `/api/runs/${runId}/events`,
+}));
 
 const artifact: ArtifactDescriptor = {
   artifact_id: "daily:2026-07-09:md:1",
@@ -140,6 +163,14 @@ const bundle: RunBundle = {
   registeredArtifacts: [{ ...artifact, related_run_id: "run_demo", source_path: "user:default/runs/run_demo/answer.md" }],
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
+
 describe("Workbench components", () => {
   it("starts a workflow preset and submits from the unified composer", async () => {
     const user = userEvent.setup();
@@ -212,6 +243,32 @@ describe("Workbench components", () => {
     expect(container.querySelector("script")).toBeNull();
   });
 
+  it("keeps workflow summaries in their native JSON viewer", () => {
+    render(
+      <ArtifactViewer
+        artifact={{
+          ...artifact,
+          artifact_id: "daily_review:2026-07-09:json:summary",
+          category: "daily_review",
+          format: "json",
+          viewer: "native_json",
+          source_path:
+            "market_feature_store/exports/2026-07-09-daily-workflow-summary.json",
+          source_of_truth:
+            "market_feature_store/exports/2026-07-09-daily-workflow-summary.json",
+        }}
+        content='{"status":"completed"}'
+        loading={false}
+        contentUrl="/api/artifacts/summary/content"
+        onBack={vi.fn()}
+        onOpenRun={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/"status": "completed"/)).toBeVisible();
+    expect(screen.queryByText("正在生成原生报告…")).toBeNull();
+  });
+
   it("filters the artifact registry by date", async () => {
     const user = userEvent.setup();
     const olderArtifact = {
@@ -243,5 +300,140 @@ describe("Workbench components", () => {
     expect(screen.getByText("ask_retrieve_compose")).not.toBeVisible();
     await user.click(screen.getByText("命中盘面与图谱"));
     expect(screen.getByText("ask_retrieve_compose")).toBeVisible();
+  });
+});
+
+describe("Workbench navigation reliability", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Object.defineProperty(window, "scrollTo", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    apiMocks.getFollowups.mockResolvedValue([]);
+    apiMocks.getRunContext.mockResolvedValue(bundle.context);
+    apiMocks.getTrace.mockResolvedValue([]);
+    apiMocks.getRunArtifactText.mockResolvedValue(null);
+    apiMocks.createRun.mockResolvedValue({ run_id: "run_created", status: "queued" });
+  });
+
+  it("does not let a late run response replace the current selection", async () => {
+    const first = deferred<Run>();
+    const second = deferred<Run>();
+    const runA = {
+      ...bundle.run,
+      run_id: "run_a",
+      question: "先打开的研究",
+      artifacts: [],
+    };
+    const runB = {
+      ...bundle.run,
+      run_id: "run_b",
+      question: "当前研究",
+      artifacts: [],
+    };
+    apiMocks.getBootstrap.mockResolvedValue({
+      ...bootstrap,
+      recent_runs: [runA, runB],
+    });
+    apiMocks.getRun.mockImplementation((runId: string) =>
+      runId === "run_a" ? first.promise : second.promise,
+    );
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "新建研究" })).toHaveAttribute(
+      "aria-label",
+      "新建研究",
+    );
+    expect(screen.getByRole("button", { name: "研究首页" })).toHaveAttribute(
+      "aria-label",
+      "研究首页",
+    );
+    expect(screen.getByRole("button", { name: "产物库" })).toHaveAttribute(
+      "aria-label",
+      "产物库",
+    );
+    await user.click(await screen.findByRole("button", { name: /先打开的研究/ }));
+    await user.click(screen.getByRole("button", { name: /当前研究/ }));
+    await act(async () => second.resolve(runB));
+    expect(await screen.findByRole("heading", { name: "当前研究" })).toBeVisible();
+    expect(window.scrollTo).toHaveBeenLastCalledWith({
+      top: 0,
+      behavior: "auto",
+    });
+
+    await act(async () => first.resolve(runA));
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "先打开的研究" })).toBeNull();
+      expect(screen.getByRole("heading", { name: "当前研究" })).toBeVisible();
+    });
+  });
+
+  it("does not let a late artifact response replace the current selection", async () => {
+    const first = deferred<ArtifactDescriptor>();
+    const second = deferred<ArtifactDescriptor>();
+    const artifactA: ArtifactDescriptor = {
+      ...artifact,
+      artifact_id: "briefing:a",
+      title: "先打开的报告",
+      category: "briefing",
+      source_path: "reports/a.md",
+      source_of_truth: "reports/a.md",
+    };
+    const artifactB: ArtifactDescriptor = {
+      ...artifactA,
+      artifact_id: "briefing:b",
+      title: "当前报告",
+      source_path: "reports/b.md",
+      source_of_truth: "reports/b.md",
+    };
+    apiMocks.getBootstrap.mockResolvedValue(bootstrap);
+    apiMocks.listArtifacts.mockResolvedValue([artifactA, artifactB]);
+    apiMocks.getArtifact.mockImplementation((artifactId: string) =>
+      artifactId === "briefing:a" ? first.promise : second.promise,
+    );
+    apiMocks.getArtifactText.mockImplementation((artifactId: string) =>
+      Promise.resolve(artifactId === "briefing:a" ? "# 旧正文" : "# 当前正文"),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "产物库" }));
+    await user.click(await screen.findByRole("button", { name: /先打开的报告/ }));
+    await user.click(screen.getByRole("button", { name: "产物库" }));
+    await user.click(screen.getByRole("button", { name: /当前报告/ }));
+    await act(async () => second.resolve(artifactB));
+    expect(await screen.findByRole("heading", { name: "当前报告" })).toBeVisible();
+
+    await act(async () => first.resolve(artifactA));
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "先打开的报告" })).toBeNull();
+      expect(screen.getByRole("heading", { name: "当前报告" })).toBeVisible();
+    });
+  });
+
+  it("upserts replayed trace steps by step_id", async () => {
+    const replayed = {
+      ...bundle.trace[0],
+      output_summary: "重放后更新",
+    };
+    const trace = upsertTraceStep(
+      upsertTraceStep([], bundle.trace[0]),
+      replayed,
+    );
+    const user = userEvent.setup();
+    render(
+      <ResearchInspector
+        bundle={{ ...bundle, trace }}
+        artifact={null}
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "运行" }));
+    expect(screen.getAllByText("重放后更新")).toHaveLength(1);
   });
 });

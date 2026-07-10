@@ -1,0 +1,64 @@
+name: workbench-check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  workbench-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install -r intelligence/api/requirements.txt pytest PyYAML duckdb==1.4.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.12.1 --activate
+
+      - name: Install frontend dependencies
+        working-directory: intelligence/webapp
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        working-directory: intelligence/webapp
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Test intelligence package
+        run: python -m pytest -q intelligence/tests
+
+      - name: Lint frontend
+        working-directory: intelligence/webapp
+        run: pnpm lint
+
+      - name: Typecheck frontend
+        working-directory: intelligence/webapp
+        run: pnpm typecheck
+
+      - name: Test frontend components
+        working-directory: intelligence/webapp
+        run: pnpm test
+
+      - name: Build production frontend
+        working-directory: intelligence/webapp
+        run: pnpm build
+
+      - name: Test Workbench end to end
+        working-directory: intelligence/webapp
+        env:
+          WORKBENCH_PYTHON: python
+        run: pnpm test:e2e

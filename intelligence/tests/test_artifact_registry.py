@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from intelligence.api.artifacts import ArtifactRegistry
 from intelligence.services.run_store import RunStore
 
@@ -82,3 +84,72 @@ def test_content_path_is_only_resolved_from_registered_descriptor(tmp_path: Path
     resolved_descriptor, resolved = registry.content_path(descriptor.artifact_id)
     assert resolved_descriptor.artifact_id == descriptor.artifact_id
     assert resolved == path.resolve()
+
+
+def test_canonical_path_is_only_resolved_from_registered_descriptor(tmp_path: Path) -> None:
+    daily_dir = tmp_path / "复盘" / "daily" / "2026-07-09"
+    daily_dir.mkdir(parents=True)
+    html_path = daily_dir / "2026-07-09-daily-review.html"
+    markdown_path = daily_dir / "2026-07-09-daily-review.md"
+    html_path.write_text("<h1>review</h1>", encoding="utf-8")
+    markdown_path.write_text("# review", encoding="utf-8")
+
+    registry, _ = _registry(tmp_path)
+    descriptor = next(
+        item
+        for item in registry.list(category="daily_review")
+        if item.content_path == html_path.resolve()
+    )
+    resolved_descriptor, canonical = registry.canonical_path(descriptor.artifact_id)
+
+    assert resolved_descriptor.artifact_id == descriptor.artifact_id
+    assert canonical == markdown_path.resolve()
+    assert registry.get(markdown_path.as_posix()) is None
+
+
+def test_asset_path_stays_in_registered_artifact_directory(tmp_path: Path) -> None:
+    daily_dir = tmp_path / "复盘" / "daily" / "2026-07-09"
+    daily_dir.mkdir(parents=True)
+    html_path = daily_dir / "2026-07-09-daily-review.html"
+    chart_path = daily_dir / "chart.png"
+    html_path.write_text("<img src='chart.png'>", encoding="utf-8")
+    chart_path.write_bytes(b"png")
+    secret = tmp_path / "复盘" / "secret.txt"
+    secret.write_text("secret", encoding="utf-8")
+    (daily_dir / "escaped.txt").symlink_to(secret)
+
+    registry, _ = _registry(tmp_path)
+    descriptor = next(
+        item
+        for item in registry.list(category="daily_review")
+        if item.content_path == html_path.resolve()
+    )
+
+    resolved_descriptor, asset = registry.asset_path(descriptor.artifact_id, "chart.png")
+    assert resolved_descriptor.artifact_id == descriptor.artifact_id
+    assert asset == chart_path.resolve()
+    with pytest.raises(PermissionError):
+        registry.asset_path(descriptor.artifact_id, "../secret.txt")
+    with pytest.raises(PermissionError):
+        registry.asset_path(descriptor.artifact_id, "escaped.txt")
+
+
+def test_daily_agent_markdown_uses_json_as_canonical_source(tmp_path: Path) -> None:
+    exports = tmp_path / "market_feature_store" / "exports"
+    exports.mkdir(parents=True)
+    markdown = exports / "2026-07-09-daily-agent.md"
+    canonical = exports / "2026-07-09-daily-agent.json"
+    markdown.write_text("# Daily Agent", encoding="utf-8")
+    canonical.write_text('{"date":"2026-07-09"}', encoding="utf-8")
+
+    registry, _ = _registry(tmp_path)
+    descriptor = next(
+        item
+        for item in registry.list(category="daily_agent")
+        if item.content_path == markdown.resolve()
+    )
+
+    assert descriptor.source_of_truth == (
+        "market_feature_store/exports/2026-07-09-daily-agent.json"
+    )
+    assert registry.canonical_path(descriptor.artifact_id)[1] == canonical.resolve()
