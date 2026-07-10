@@ -6,6 +6,7 @@
 
 import os
 import json
+import copy
 import logging
 from typing import Dict, Any, Optional
 
@@ -47,7 +48,7 @@ class Config:
         Args:
             config_file: 配置文件路径，如果为None则使用默认配置
         """
-        self.config = DEFAULT_CONFIG.copy()
+        self.config = copy.deepcopy(DEFAULT_CONFIG)
         
         # 从配置文件加载配置（如果提供）
         if config_file and os.path.exists(config_file):

@@ -6,6 +6,7 @@
 
 import os
 import sys
+import json
 import unittest
 import tempfile
 from pathlib import Path
@@ -16,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import Config, get_config
 from data_processor import DataProcessor
-from api_client import APIClient, APIError
+from api_client import APIClient
 
 
 class TestConfig(unittest.TestCase):
@@ -244,12 +245,13 @@ class TestAPIClient(unittest.TestCase):
         }
         mock_post.return_value = mock_response
         
-        # 调用搜索
-        articles = self.client.search_reports("测试", limit=5)
+        # 调用搜索（透明传递：返回完整 API 响应 dict，data 提取由调用方负责）
+        response = self.client.search_reports("测试", limit=5)
         
         # 验证结果
-        self.assertEqual(len(articles), 1)
-        self.assertEqual(articles[0]["title"], "测试报告")
+        self.assertIsInstance(response, dict)
+        self.assertEqual(len(response["data"]), 1)
+        self.assertEqual(response["data"][0]["title"], "测试报告")
         
         # 验证请求参数
         mock_post.assert_called_once()
@@ -269,7 +271,7 @@ class TestAPIClient(unittest.TestCase):
     
     @patch('requests.post')
     def test_search_reports_api_error(self, mock_post):
-        """测试API错误"""
+        """测试API错误（透明传递：错误响应体原样返回，不抛异常）"""
         # 模拟API错误响应
         mock_response = MagicMock()
         mock_response.status_code = 401
@@ -278,20 +280,19 @@ class TestAPIClient(unittest.TestCase):
         }
         mock_post.return_value = mock_response
         
-        # 验证抛出APIError
-        with self.assertRaises(APIError) as context:
-            self.client.search_reports("测试")
-        
-        self.assertIn("认证失败", str(context.exception))
+        # 符合问财网关规范条件六：错误响应也透明传递给调用方，由其处理
+        response = self.client.search_reports("测试")
+        self.assertIn("认证失败", response.get("message", ""))
     
+    @patch('time.sleep', return_value=None)
     @patch('requests.post')
-    def test_search_reports_network_error(self, mock_post):
-        """测试网络错误"""
+    def test_search_reports_network_error(self, mock_post, _mock_sleep):
+        """测试网络错误（重试耗尽后原始异常向上抛出）"""
         # 模拟网络错误
         mock_post.side_effect = ConnectionError("网络连接失败")
         
-        # 验证抛出APIError
-        with self.assertRaises(APIError) as context:
+        # 重试次数耗尽后透明抛出原始 ConnectionError（由调用方捕获处理）
+        with self.assertRaises(ConnectionError) as context:
             self.client.search_reports("测试")
         
         self.assertIn("网络连接失败", str(context.exception))
@@ -361,8 +362,9 @@ class TestIntegration(unittest.TestCase):
         client = APIClient()
         processor = DataProcessor()
         
-        # 搜索研究报告
-        articles = client.search_reports("人工智能", limit=5)
+        # 搜索研究报告（透明传递：返回完整响应 dict）
+        response = client.search_reports("人工智能", limit=5)
+        articles = response["data"]
         
         # 数据处理
         processed = processor.extract_key_info(articles)
