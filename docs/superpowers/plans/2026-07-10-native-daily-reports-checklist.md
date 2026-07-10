@@ -262,16 +262,16 @@ Daily Review Markdown ------+--> DailyReportProjection --> React DailyReportView
 - 新建：`intelligence/api/daily_reports.py`
 - 新建：`intelligence/tests/test_daily_report_projection.py`
 
-- [ ] **Step 1：先写 Daily Agent JSON projection 失败测试**
+- [x] **Step 1：先写 Daily Agent JSON projection 失败测试**
 
 创建 fixture，断言：
 
-- [ ] 面向读者的摘要。
-- [ ] 队列数量。
-- [ ] 已翻译的生命周期/证据标签。
-- [ ] 术语表条目。
-- [ ] canonical 来源追溯。
-- [ ] projection 不暴露内部 JSON 键。
+- [x] 面向读者的摘要。
+- [x] 队列数量。
+- [x] 已翻译的生命周期/证据标签。
+- [x] 术语表条目。
+- [x] canonical 来源追溯。
+- [x] projection 不暴露内部 JSON 键。
 
 ```python
 projection = project_daily_agent(payload, source_path="exports/2026-07-01-daily-agent.json")
@@ -280,17 +280,17 @@ assert projection["metrics"][0]["label"] == "旧逻辑重新活跃"
 assert "old_logic_wakeup" not in json.dumps(projection, ensure_ascii=False)
 ```
 
-- [ ] **Step 2：先写 Markdown 和历史 HTML projection 失败测试**
+- [x] **Step 2：先写 Markdown 和历史 HTML projection 失败测试**
 
 断言：
 
-- [ ] 提取核心看板。
-- [ ] 提取市场判断。
-- [ ] 正确标记 `source_mode`。
-- [ ] 包含兼容模式 warning。
-- [ ] 未知标题和脚本不进入 projection。
+- [x] 提取核心看板。
+- [x] 提取市场判断。
+- [x] 正确标记 `source_mode`。
+- [x] 包含兼容模式 warning。
+- [x] 未知标题和脚本不进入 projection。
 
-- [ ] **Step 3：运行 projection 测试并确认失败**
+- [x] **Step 3：运行 projection 测试并确认失败**
 
 运行：
 
@@ -300,7 +300,7 @@ python -m pytest -q intelligence/tests/test_daily_report_projection.py
 
 预期：由于 `intelligence.api.daily_reports` 尚不存在，测试收集失败。
 
-- [ ] **Step 4：实现 projection 契约和有边界适配器**
+- [x] **Step 4：实现 projection 契约和有边界适配器**
 
 实现以下聚焦函数：
 
@@ -312,12 +312,12 @@ def project_daily_review_html(source: str, *, source_path: str, date: str | None
 
 约束：
 
-- [ ] 使用确定性字段映射。
-- [ ] 使用标准库 `HTMLParser` 子类。
-- [ ] 摘要最多三条。
-- [ ] 候选和行动列表数量有明确上限。
+- [x] 使用确定性字段映射。
+- [x] 使用标准库 `HTMLParser` 子类。
+- [x] 摘要最多三条。
+- [x] 候选和行动列表数量有明确上限。
 
-- [ ] **Step 5：运行 projection 测试**
+- [x] **Step 5：运行 projection 测试**
 
 预期：所有 projection 测试通过。
 
@@ -330,7 +330,7 @@ def project_daily_review_html(source: str, *, source_path: str, date: str | None
 - 修改：`intelligence/tests/test_artifact_registry.py`
 - 修改：`intelligence/tests/test_workbench_api.py`
 
-- [ ] **Step 1：新增失败 API 测试**
+- [x] **Step 1：新增失败 API 测试**
 
 覆盖：
 
@@ -343,20 +343,20 @@ assert asset.status_code == 200
 assert client.get(f"/api/artifacts/{review_id}/..%2Fsecret.txt").status_code in (403, 404)
 ```
 
-- [ ] **Step 2：新增安全 canonical 与同目录资源解析**
+- [x] **Step 2：新增安全 canonical 与同目录资源解析**
 
 新增 Registry 方法：
 
-- [ ] 只解析 descriptor 已注册的 canonical 路径。
-- [ ] 只解析 descriptor 所在的同目录资源。
-- [ ] 解析符号链接后拒绝根目录之外的路径。
+- [x] 只解析 descriptor 已注册的 canonical 路径。
+- [x] 只解析 descriptor 所在的同目录资源。
+- [x] 解析符号链接后拒绝根目录之外的路径。
 
-- [ ] **Step 3：新增 projection 与配套资源路由**
+- [x] **Step 3：新增 projection 与配套资源路由**
 
-- [ ] `GET /api/artifacts/{artifact_id}/projection`：选择对应 daily adapter。
-- [ ] `GET /api/artifacts/{artifact_id}/{asset_path:path}`：只为已注册旧内容提供安全的同目录文件。
+- [x] `GET /api/artifacts/{artifact_id}/projection`：选择对应 daily adapter。
+- [x] `GET /api/artifacts/{artifact_id}/{asset_path:path}`：只为已注册旧内容提供安全的同目录文件。
 
-- [ ] **Step 4：运行后端 API 测试**
+- [x] **Step 4：运行后端 API 测试**
 
 运行：
 
@@ -381,58 +381,58 @@ python -m pytest -q \
 - 修改：`intelligence/webapp/src/components/ArtifactViewer.tsx`
 - 修改：`intelligence/webapp/src/styles.css`
 
-- [ ] **Step 1：先写失败组件测试**
+- [x] **Step 1：先写失败组件测试**
 
 断言：
 
-- [ ] 五层报告结构。
-- [ ] 面向读者的中文标签。
-- [ ] 术语表折叠区。
-- [ ] 兼容模式 warning。
-- [ ] 次级原始报告折叠区。
+- [x] 五层报告结构。
+- [x] 面向读者的中文标签。
+- [x] 术语表折叠区。
+- [x] 兼容模式 warning。
+- [x] 次级原始报告折叠区。
 
-- [ ] **Step 2：新增 TypeScript projection 类型和 API client**
+- [x] **Step 2：新增 TypeScript projection 类型和 API client**
 
 定义：
 
-- [ ] `DailyReportProjection`
-- [ ] `ReportMetric`
-- [ ] `ReportSection`
-- [ ] `ReportItem`
+- [x] `DailyReportProjection`
+- [x] `ReportMetric`
+- [x] `ReportSection`
+- [x] `ReportItem`
 
 新增：
 
-- [ ] `getArtifactProjection()`
+- [x] `getArtifactProjection()`
 
-- [ ] **Step 3：实现 `DailyReportView`**
+- [x] **Step 3：实现 `DailyReportView`**
 
 渲染：
 
-- [ ] 无外框报告布局。
-- [ ] 紧凑摘要带。
-- [ ] 稳定指标网格。
-- [ ] 有序行动行。
-- [ ] 证据标签。
-- [ ] 术语表折叠区。
+- [x] 无外框报告布局。
+- [x] 紧凑摘要带。
+- [x] 稳定指标网格。
+- [x] 有序行动行。
+- [x] 证据标签。
+- [x] 术语表折叠区。
 
 约束：
 
-- [ ] 不渲染未知的原始 JSON 字段。
+- [x] 不渲染未知的原始 JSON 字段。
 
-- [ ] **Step 4：将原生 projection 设为日常报告默认视图**
+- [x] **Step 4：将原生 projection 设为日常报告默认视图**
 
-- [ ] `daily_agent` 和 `daily_review` 由 `App` 请求 projection。
-- [ ] `ArtifactViewer` 渲染 projection。
-- [ ] sandbox iframe 移入 `原始报告` 折叠区。
+- [x] `daily_agent` 和 `daily_review` 由 `App` 请求 projection。
+- [x] `ArtifactViewer` 渲染 projection。
+- [x] sandbox iframe 移入 `原始报告` 折叠区。
 
-- [ ] **Step 5：新增响应式 Workbench 样式**
+- [x] **Step 5：新增响应式 Workbench 样式**
 
-- [ ] 沿用现有 design tokens 和断点。
-- [ ] 验证固定网格约束。
-- [ ] 验证文本换行。
-- [ ] 验证页面无横向溢出。
+- [x] 沿用现有 design tokens 和断点。
+- [x] 验证固定网格约束。
+- [x] 验证文本换行。
+- [x] 验证页面无横向溢出。
 
-- [ ] **Step 6：运行组件检查**
+- [x] **Step 6：运行组件检查**
 
 在 `intelligence/webapp` 下运行：
 
@@ -453,20 +453,20 @@ pnpm test
 - 修改：`intelligence/webapp/src/components/components.test.tsx`
 - 修改：`intelligence/webapp/e2e/workbench.spec.ts`
 
-- [ ] **Step 1：新增迟到响应隔离和 trace 去重测试**
+- [x] **Step 1：新增迟到响应隔离和 trace 去重测试**
 
-- [ ] 使用 deferred request 证明迟到的 Run 响应不能替换当前选择。
-- [ ] 使用 deferred request 证明迟到的 artifact 响应不能替换当前选择。
-- [ ] 重放同一 `step_id`，断言只显示一条 trace。
+- [x] 使用 deferred request 证明迟到的 Run 响应不能替换当前选择。
+- [x] 使用 deferred request 证明迟到的 artifact 响应不能替换当前选择。
+- [x] 重放同一 `step_id`，断言只显示一条 trace。
 
-- [ ] **Step 2：实现请求代际保护**
+- [x] **Step 2：实现请求代际保护**
 
-- [ ] 使用 ref 跟踪 Run 请求代际。
-- [ ] 使用 ref 跟踪 artifact 请求代际。
-- [ ] 加载前清除旧状态。
-- [ ] 仅在响应代际仍为当前值时应用结果。
+- [x] 使用 ref 跟踪 Run 请求代际。
+- [x] 使用 ref 跟踪 artifact 请求代际。
+- [x] 加载前清除旧状态。
+- [x] 仅在响应代际仍为当前值时应用结果。
 
-- [ ] **Step 3：切换 surface identity 时重置滚动**
+- [x] **Step 3：切换 surface identity 时重置滚动**
 
 调用：
 
@@ -474,18 +474,18 @@ pnpm test
 window.scrollTo({ top: 0, behavior: "auto" });
 ```
 
-- [ ] **Step 4：保留移动端无障碍名称**
+- [x] **Step 4：保留移动端无障碍名称**
 
 为以下按钮添加显式 `aria-label`，不依赖可见文字或徽标：
 
-- [ ] 新建研究。
-- [ ] 首页。
-- [ ] 产物库。
+- [x] 新建研究。
+- [x] 首页。
+- [x] 产物库。
 
-- [ ] **Step 5：对 SSE step 去重**
+- [x] **Step 5：对 SSE step 去重**
 
-- [ ] 在 App state 中按 `step_id` upsert。
-- [ ] 初始 trace 拉取、SSE 重放和重连都不能产生重复 inspector 行。
+- [x] 在 App state 中按 `step_id` upsert。
+- [x] 初始 trace 拉取、SSE 重放和重连都不能产生重复 inspector 行。
 
 ### Task 5：可复现 E2E 与 CI
 
@@ -495,48 +495,48 @@ window.scrollTo({ top: 0, behavior: "auto" });
 - 修改：`intelligence/webapp/e2e/workbench.spec.ts`
 - 新建：`.github/workflows/workbench-check.yml`
 
-- [ ] **Step 1：在 Playwright 配置中发现 Python 可执行文件**
+- [x] **Step 1：在 Playwright 配置中发现 Python 可执行文件**
 
 按以下顺序选择：
 
-1. [ ] `WORKBENCH_PYTHON`
-2. [ ] 仓库 `.venv-workbench`
-3. [ ] 仓库 `.venv`
-4. [ ] `python3`
+1. [x] `WORKBENCH_PYTHON`
+2. [x] 仓库 `.venv-workbench`
+3. [x] 仓库 `.venv`
+4. [x] `python3`
 
-- [ ] 构造一个正确引号包裹的 uvicorn 命令。
+- [x] 构造一个正确引号包裹的 uvicorn 命令。
 
-- [ ] **Step 2：扩展 E2E mock 与断言**
+- [x] **Step 2：扩展 E2E mock 与断言**
 
-- [ ] mock projection 响应。
-- [ ] 测试原生 Daily Agent。
-- [ ] 测试原生 Daily Review。
-- [ ] 测试原始报告折叠区。
-- [ ] 测试滚动重置。
-- [ ] 在 1440、1024、390 三种宽度验证无横向溢出。
+- [x] mock projection 响应。
+- [x] 测试原生 Daily Agent。
+- [x] 测试原生 Daily Review。
+- [x] 测试原始报告折叠区。
+- [x] 测试滚动重置。
+- [x] 在 1440、1024、390 三种宽度验证无横向溢出。
 
-- [ ] **Step 3：新增 GitHub Actions 发布门禁**
+- [x] **Step 3：新增 GitHub Actions 发布门禁**
 
 安装：
 
-- [ ] Python 3.12。
-- [ ] API requirements。
-- [ ] pytest。
-- [ ] PyYAML。
-- [ ] Node 22。
-- [ ] pnpm 10.12.1。
-- [ ] Playwright Chromium。
+- [x] Python 3.12。
+- [x] API requirements。
+- [x] pytest。
+- [x] PyYAML。
+- [x] Node 22。
+- [x] pnpm 10.12.1。
+- [x] Playwright Chromium。
 
 执行：
 
-- [ ] intelligence 测试套件。
-- [ ] lint。
-- [ ] TypeScript。
-- [ ] 组件测试。
-- [ ] production build。
-- [ ] Playwright。
+- [x] intelligence 测试套件。
+- [x] lint。
+- [x] TypeScript。
+- [x] 组件测试。
+- [x] production build。
+- [x] Playwright。
 
-- [ ] **Step 4：运行完整本地门禁**
+- [x] **Step 4：运行完整本地门禁**
 
 运行：
 
@@ -555,9 +555,9 @@ pnpm test:e2e
 
 预期：
 
-- [ ] 817+ 个 Python 测试通过。
-- [ ] 所有前端检查通过。
-- [ ] 无需手工创建 `.venv` 符号链接。
+- [x] 817+ 个 Python 测试通过。
+- [x] 所有前端检查通过。
+- [x] 无需手工创建 `.venv` 符号链接。
 
 ### Task 6：真实产物与视觉验证
 
@@ -565,10 +565,10 @@ pnpm test:e2e
 
 - 通过 `pnpm build` 更新 `intelligence/api/static/` 下的生成构建产物。
 
-- [ ] **Step 1：从隔离的 PR worktree 启动 FastAPI**
+- [x] **Step 1：从隔离的 PR worktree 启动 FastAPI**
 
-- [ ] 使用已发现的 Python 可执行文件。
-- [ ] 使用空闲 localhost 端口。
+- [x] 使用已发现的 Python 可执行文件。
+- [x] 使用空闲 localhost 端口。
 
 - [ ] **Step 2：检查真实 Daily Agent 和 Daily Review 产物**
 
@@ -592,8 +592,8 @@ pnpm test:e2e
 - [ ] 无标签裁切。
 - [ ] 无未命名控件。
 
-- [ ] **Step 4：提交并更新 PR #177**
+- [ ] **Step 4：提交并创建新 PR**
 
 - [ ] 对照仓库红线审查暂存文件。
 - [ ] 提交实现。
-- [ ] 将结果 fast-forward 推送到 `codex/feat/workbench-ui-redesign`。
+- [ ] 推送当前 `feat/native-daily-reports` 分支并创建新 PR。

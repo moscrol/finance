@@ -170,7 +170,7 @@ def _daily_canonical(context: ProviderContext, path: Path, category: str) -> str
             exports / f"{date}-theme-candidates.md",
         ],
         "daily_review": [
-            exports / f"{date}-daily-workflow-summary.json",
+            path.with_suffix(".md"),
             exports / f"{date}-daily-review.md",
         ],
         "dual_blind": [
@@ -178,7 +178,9 @@ def _daily_canonical(context: ProviderContext, path: Path, category: str) -> str
             context.repo_root / "docs" / "learning" / "forecast-review-ledger" / f"{date}.manifest.json",
         ],
     }
-    if path.suffix in {".md", ".json"}:
+    if path.suffix in {".md", ".json"} and not (
+        category == "daily_agent" and path.suffix == ".md"
+    ):
         return context.repo_relative(path)
     for candidate in candidates.get(category, []):
         if candidate.is_file():
@@ -255,7 +257,7 @@ class DailyArtifactProvider:
                     path,
                     title=_title_for(path, title),
                     category=category,
-                    source_of_truth=context.repo_relative(path),
+                    source_of_truth=_daily_canonical(context, path, category),
                 )
 
 
@@ -466,6 +468,37 @@ class ArtifactRegistry:
         path = descriptor.content_path.resolve()
         if not self._allowed(path):
             raise PermissionError(artifact_id)
+        return descriptor, path
+
+    def canonical_path(self, artifact_id: str) -> tuple[ArtifactDescriptor, Path]:
+        descriptor = self.get(artifact_id)
+        if descriptor is None:
+            raise KeyError(artifact_id)
+        source = descriptor.source_of_truth
+        if not source or source.startswith(("run:", "user:")):
+            raise FileNotFoundError(artifact_id)
+        path = (self.repo_root / source).resolve()
+        if not _is_within(path, self.repo_root):
+            raise PermissionError(artifact_id)
+        if not path.is_file():
+            raise FileNotFoundError(artifact_id)
+        return descriptor, path
+
+    def asset_path(
+        self, artifact_id: str, asset_path: str
+    ) -> tuple[ArtifactDescriptor, Path]:
+        descriptor, content = self.content_path(artifact_id)
+        if descriptor.viewer != "legacy_html":
+            raise PermissionError(artifact_id)
+        requested = Path(asset_path)
+        if requested.is_absolute():
+            raise PermissionError(asset_path)
+        root = content.parent.resolve()
+        path = (root / requested).resolve()
+        if not _is_within(path, root):
+            raise PermissionError(asset_path)
+        if not path.is_file():
+            raise FileNotFoundError(asset_path)
         return descriptor, path
 
     def _allowed(self, path: Path) -> bool:

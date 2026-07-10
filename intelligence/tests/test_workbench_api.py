@@ -1,3 +1,4 @@
+import json
 import time
 
 import pytest
@@ -20,9 +21,44 @@ def client(tmp_path, monkeypatch):
     daily_dir = repo_root / "复盘" / "daily" / "2026-07-09"
     daily_dir.mkdir(parents=True)
     (daily_dir / "2026-07-09-daily-agent.html").write_text("<h1>daily</h1>", encoding="utf-8")
+    (daily_dir / "2026-07-09-daily-review.html").write_text(
+        """<h2>核心看板</h2><table>
+        <tr><th>维度</th><th>结论</th></tr>
+        <tr><td>市场性质</td><td>普通交易日</td></tr>
+        <tr><td>指数表现</td><td>上证上涨 1%</td></tr>
+        </table><h2>市场环境总评</h2><p>市场回暖，等待量能确认。</p>""",
+        encoding="utf-8",
+    )
+    (daily_dir / "chart.png").write_bytes(b"png")
+    (repo_root / "复盘" / "secret.txt").write_text("secret", encoding="utf-8")
     exports = repo_root / "market_feature_store" / "exports"
     exports.mkdir(parents=True)
-    (exports / "2026-07-09-daily-agent.json").write_text("{}", encoding="utf-8")
+    (exports / "2026-07-09-daily-agent.json").write_text(
+        json.dumps(
+            {
+                "date": "2026-07-09",
+                "decision": {
+                    "old_logic_wakeup": [],
+                    "new_logic_candidate": [],
+                    "data_gap": [],
+                    "noise_or_unconfirmed": [],
+                },
+                "research_queue": {
+                    "today_do_ima": [],
+                    "today_find_official_evidence": [],
+                    "today_wait_market_validation": [],
+                    "today_downgrade_or_watch": [],
+                    "summary": {"total": 0},
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (exports / "2026-07-09-daily-workflow-summary.json").write_text(
+        '{"date":"2026-07-09"}',
+        encoding="utf-8",
+    )
 
     def fake_run_ask(store: RunStore, run_id: str, req) -> None:
         store.append_step(
@@ -188,6 +224,67 @@ def test_artifact_content_rejects_unregistered_and_traversal_ids(client: TestCli
     assert client.get("/api/artifacts/not-registered/content").status_code == 404
     response = client.get("/api/artifacts/..%2Fetc%2Fpasswd/content")
     assert response.status_code in (404, 405)
+
+
+def test_artifact_projection_and_registered_asset_routes(client: TestClient) -> None:
+    artifacts = client.get("/api/artifacts").json()
+    agent = next(
+        item
+        for item in artifacts
+        if item["category"] == "daily_agent" and item["format"] == "json"
+    )
+    review = next(
+        item
+        for item in artifacts
+        if item["category"] == "daily_review" and item["format"] == "html"
+    )
+
+    projection = client.get(f"/api/artifacts/{agent['artifact_id']}/projection")
+    assert projection.status_code == 200
+    assert projection.json()["report_type"] == "daily_agent"
+    assert projection.json()["provenance"]["original_report_available"] is True
+    assert (
+        projection.json()["provenance"]["original_artifact_id"]
+        != agent["artifact_id"]
+    )
+
+    review_projection = client.get(
+        f"/api/artifacts/{review['artifact_id']}/projection"
+    )
+    assert review_projection.status_code == 200
+    assert review_projection.json()["source_mode"] == "legacy_html_projection"
+
+    asset = client.get(f"/api/artifacts/{review['artifact_id']}/chart.png")
+    assert asset.status_code == 200
+    assert asset.content == b"png"
+    traversal = client.get(
+        f"/api/artifacts/{review['artifact_id']}/..%2F..%2Fsecret.txt"
+    )
+    assert traversal.status_code in (403, 404)
+
+
+def test_artifact_asset_route_rejects_non_legacy_parent(client: TestClient) -> None:
+    artifact = next(
+        item
+        for item in client.get("/api/artifacts").json()
+        if item["category"] == "daily_agent" and item["format"] == "json"
+    )
+    assert (
+        client.get(f"/api/artifacts/{artifact['artifact_id']}/anything.png").status_code
+        == 403
+    )
+
+
+def test_workflow_summary_does_not_claim_daily_review_projection(
+    client: TestClient,
+) -> None:
+    artifact = next(
+        item
+        for item in client.get("/api/artifacts").json()
+        if item["source_path"].endswith("daily-workflow-summary.json")
+    )
+    response = client.get(f"/api/artifacts/{artifact['artifact_id']}/projection")
+    assert response.status_code == 404
 
 
 def test_bootstrap_returns_workflows_runs_and_latest_artifact(client: TestClient) -> None:

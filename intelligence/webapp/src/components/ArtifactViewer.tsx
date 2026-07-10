@@ -5,7 +5,12 @@ import {
   ExternalLink,
   FileQuestion,
 } from "lucide-react";
-import type { ArtifactDescriptor } from "../types";
+import { supportsDailyProjection } from "../dailyReports";
+import type {
+  ArtifactDescriptor,
+  DailyReportProjection,
+} from "../types";
+import { DailyReportView } from "./DailyReportView";
 import { MarkdownView } from "./MarkdownView";
 import { StatusBadge } from "./StatusBadge";
 
@@ -14,6 +19,9 @@ interface ArtifactViewerProps {
   content: string | null;
   loading: boolean;
   contentUrl: string;
+  projection?: DailyReportProjection | null;
+  projectionError?: string | null;
+  originalReportUrl?: string;
   onBack: () => void;
   onOpenRun: (runId: string) => void;
 }
@@ -33,9 +41,14 @@ export function ArtifactViewer({
   content,
   loading,
   contentUrl,
+  projection = null,
+  projectionError = null,
+  originalReportUrl,
   onBack,
   onOpenRun,
 }: ArtifactViewerProps) {
+  const isDailyReport = supportsDailyProjection(artifact);
+
   return (
     <div className="artifact-viewer">
       <header className="artifact-header">
@@ -74,7 +87,7 @@ export function ArtifactViewer({
               查看生成任务
             </button>
           )}
-          {artifact.status !== "missing" && (
+          {artifact.status !== "missing" && !isDailyReport && (
             <>
               <a className="secondary-button" href={contentUrl} target="_blank" rel="noreferrer">
                 <ExternalLink aria-hidden="true" size={15} />
@@ -105,6 +118,33 @@ export function ArtifactViewer({
           <h2>产物文件不存在</h2>
           <p>Registry 保留了来源记录。请重新运行对应生成流程后再打开。</p>
           <code>{artifact.source_path}</code>
+        </div>
+      ) : isDailyReport && loading ? (
+        <div className="quiet-empty">正在生成原生报告…</div>
+      ) : isDailyReport && projection ? (
+        <DailyReportView
+          projection={projection}
+          originalReportUrl={originalReportUrl}
+        />
+      ) : isDailyReport && projectionError ? (
+        <div className="native-report-error" role="alert">
+          <FileQuestion aria-hidden="true" size={30} />
+          <h2>暂时无法生成原生报告</h2>
+          <p>{projectionError}</p>
+          <p>请检查 canonical 来源后重试。原始报告可用时仍可在下方核对。</p>
+          {originalReportUrl && (
+            <details className="daily-disclosure original-report">
+              <summary>原始报告</summary>
+              <div className="iframe-shell">
+                <iframe
+                  title={`原始报告：${artifact.title}`}
+                  src={originalReportUrl}
+                  sandbox="allow-scripts"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            </details>
+          )}
         </div>
       ) : artifact.viewer === "legacy_html" ? (
         <div className="iframe-shell">

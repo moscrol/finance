@@ -15,6 +15,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from intelligence.api.artifacts import ArtifactRegistry
+from intelligence.api.daily_reports import (
+    project_daily_agent,
+    project_daily_review_html,
+    project_daily_review_markdown,
+)
 from intelligence.services import followups as followups_svc
 from intelligence.services import run_store as rs
 from intelligence.services.run_store import RunStore
@@ -443,12 +448,101 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
             )
         return FileResponse(path, headers=headers)
 
+    @app.get("/api/artifacts/{artifact_id}/projection")
+    def get_artifact_projection(
+        artifact_id: str, user: str | None = None
+    ) -> dict[str, object]:
+        registry = registry_for(user)
+        descriptor = registry.get(artifact_id)
+        if descriptor is None:
+            raise HTTPException(404, f"产物未注册：{artifact_id}")
+        if descriptor.category not in {"daily_agent", "daily_review"}:
+            raise HTTPException(404, "该产物不支持原生投影")
+        if (
+            descriptor.category == "daily_review"
+            and not Path(descriptor.source_path).name.endswith(
+                ("-daily-review.html", "-daily-review.md")
+            )
+        ):
+            raise HTTPException(404, "该产物不支持原生投影")
+
+        original = next(
+            (
+                item
+                for item in registry.list(
+                    category=descriptor.category,
+                    date=descriptor.date,
+                )
+                if item.viewer == "legacy_html" and item.status != "missing"
+            ),
+            None,
+        )
+        try:
+            if descriptor.category == "daily_agent":
+                _, source = registry.canonical_path(artifact_id)
+                payload = json.loads(source.read_text(encoding="utf-8"))
+                if not isinstance(payload, dict):
+                    raise ValueError("Daily Agent canonical JSON 必须是对象")
+                projection = project_daily_agent(
+                    payload,
+                    source_path=source.relative_to(root).as_posix(),
+                )
+            else:
+                try:
+                    _, source = registry.canonical_path(artifact_id)
+                except FileNotFoundError:
+                    _, source = registry.content_path(artifact_id)
+                source_path = source.relative_to(root).as_posix()
+                if source.suffix.lower() == ".md":
+                    projection = project_daily_review_markdown(
+                        source.read_text(encoding="utf-8"),
+                        source_path=source_path,
+                        date=descriptor.date,
+                    )
+                elif source.suffix.lower() == ".html":
+                    projection = project_daily_review_html(
+                        source.read_text(encoding="utf-8"),
+                        source_path=source_path,
+                        date=descriptor.date,
+                    )
+                else:
+                    raise ValueError("Daily Review 需要 canonical Markdown 或历史 HTML")
+        except KeyError as exc:
+            raise HTTPException(404, f"产物未注册：{artifact_id}") from exc
+        except FileNotFoundError as exc:
+            raise HTTPException(404, "原生投影来源不存在") from exc
+        except PermissionError as exc:
+            raise HTTPException(403, "投影来源路径不在允许目录") from exc
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as exc:
+            raise HTTPException(422, f"无法生成原生投影：{exc}") from exc
+
+        provenance = projection.get("provenance")
+        if isinstance(provenance, dict) and original is not None:
+            provenance["rendered_path"] = original.source_path
+            provenance["original_report_available"] = True
+            provenance["original_artifact_id"] = original.artifact_id
+        return projection
+
     @app.get("/api/artifacts/{artifact_id}")
     def get_artifact_descriptor(artifact_id: str, user: str | None = None) -> dict[str, object]:
         descriptor = registry_for(user).get(artifact_id)
         if descriptor is None:
             raise HTTPException(404, f"产物未注册：{artifact_id}")
         return descriptor.public_dict()
+
+    @app.get("/api/artifacts/{artifact_id}/{asset_path:path}")
+    def get_artifact_asset(
+        artifact_id: str, asset_path: str, user: str | None = None
+    ) -> FileResponse:
+        try:
+            _, path = registry_for(user).asset_path(artifact_id, asset_path)
+        except KeyError as exc:
+            raise HTTPException(404, f"产物未注册：{artifact_id}") from exc
+        except FileNotFoundError as exc:
+            raise HTTPException(404, f"配套资源不存在：{asset_path}") from exc
+        except PermissionError as exc:
+            raise HTTPException(403, "配套资源路径不在产物目录内") from exc
+        return FileResponse(path)
 
     @app.get("/api/workbench/bootstrap")
     def workbench_bootstrap(user: str | None = None) -> dict[str, object]:

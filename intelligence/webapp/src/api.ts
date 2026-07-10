@@ -1,6 +1,7 @@
 import type {
   ArtifactDescriptor,
   Bootstrap,
+  DailyReportProjection,
   Followup,
   Run,
   RunContext,
@@ -95,6 +96,15 @@ export function listArtifacts(
 export function getArtifact(artifactId: string, user?: string): Promise<ArtifactDescriptor> {
   return request<ArtifactDescriptor>(
     withUser(`/api/artifacts/${encodeURIComponent(artifactId)}`, user),
+  );
+}
+
+export function getArtifactProjection(
+  artifactId: string,
+  user?: string,
+): Promise<DailyReportProjection> {
+  return request<DailyReportProjection>(
+    withUser(`/api/artifacts/${encodeURIComponent(artifactId)}/projection`, user),
   );
 }
 

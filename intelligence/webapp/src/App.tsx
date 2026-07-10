@@ -1,9 +1,10 @@
 import { PanelRightOpen, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   artifactContentUrl,
   createRun,
   getArtifact,
+  getArtifactProjection,
   getArtifactText,
   getBootstrap,
   getFollowups,
@@ -21,9 +22,12 @@ import { ResearchHome } from "./components/ResearchHome";
 import { ResearchInspector } from "./components/ResearchInspector";
 import { RunView } from "./components/RunView";
 import { Sidebar } from "./components/Sidebar";
+import { supportsDailyProjection } from "./dailyReports";
+import { deduplicateTrace, upsertTraceStep } from "./trace";
 import type {
   ArtifactDescriptor,
   Bootstrap,
+  DailyReportProjection,
   Run,
   RunBundle,
   Surface,
@@ -44,9 +48,17 @@ export default function App() {
   const [artifacts, setArtifacts] = useState<ArtifactDescriptor[]>([]);
   const [artifact, setArtifact] = useState<ArtifactDescriptor | null>(null);
   const [artifactContent, setArtifactContent] = useState<string | null>(null);
+  const [artifactProjection, setArtifactProjection] =
+    useState<DailyReportProjection | null>(null);
+  const [artifactProjectionError, setArtifactProjectionError] =
+    useState<string | null>(null);
+  const [originalReportArtifactId, setOriginalReportArtifactId] =
+    useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const runRequestGeneration = useRef(0);
+  const artifactRequestGeneration = useRef(0);
 
   const user = bootstrap?.user;
 
@@ -67,10 +79,15 @@ export default function App() {
   }, [refreshBootstrap]);
 
   const loadRunBundle = useCallback(
-    async (runId: string) => {
+    async (
+      runId: string,
+      generation = ++runRequestGeneration.current,
+    ) => {
       setLoading(true);
+      setRunBundle(null);
       try {
         const run = await getRun(runId, user);
+        if (generation !== runRequestGeneration.current) return;
         const answerArtifact = run.artifacts.find((item) => item.path === "answer.md");
         const [trace, followups, context, registeredArtifacts, answer] = await Promise.all([
           getTrace(runId, user),
@@ -81,9 +98,10 @@ export default function App() {
             ? getRunArtifactText(runId, answerArtifact.path, user).catch(() => null)
             : Promise.resolve(null),
         ]);
+        if (generation !== runRequestGeneration.current) return;
         setRunBundle({
           run,
-          trace,
+          trace: deduplicateTrace(trace),
           followups,
           context,
           answer,
@@ -94,9 +112,13 @@ export default function App() {
         setArtifact(null);
         setError(null);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "无法加载研究运行");
+        if (generation === runRequestGeneration.current) {
+          setError(caught instanceof Error ? caught.message : "无法加载研究运行");
+        }
       } finally {
-        setLoading(false);
+        if (generation === runRequestGeneration.current) {
+          setLoading(false);
+        }
       }
     },
     [user],
@@ -104,9 +126,17 @@ export default function App() {
 
   const openRun = useCallback(
     (runId: string) => {
+      artifactRequestGeneration.current += 1;
+      const generation = ++runRequestGeneration.current;
       setSurface({ kind: "run", runId });
+      setRunBundle(null);
+      setArtifact(null);
+      setArtifactContent(null);
+      setArtifactProjection(null);
+      setArtifactProjectionError(null);
+      setOriginalReportArtifactId(null);
       setInspectorOpen(false);
-      void loadRunBundle(runId);
+      void loadRunBundle(runId, generation);
     },
     [loadRunBundle],
   );
@@ -118,24 +148,27 @@ export default function App() {
     const run = runBundle?.run;
     if (!run || surface.kind !== "run" || terminalStatuses.has(run.status)) return;
 
+    const generation = runRequestGeneration.current;
     const events = new EventSource(runEventsUrl(run.run_id, user));
     events.onopen = () => setConnection("connected");
     events.addEventListener("step", (event) => {
+      if (generation !== runRequestGeneration.current) return;
       const step = JSON.parse((event as MessageEvent<string>).data) as TraceStep;
       setRunBundle((current) =>
         current
           ? {
               ...current,
-              trace: [...current.trace, step],
+              trace: upsertTraceStep(current.trace, step),
             }
           : current,
       );
     });
     events.addEventListener("run", (event) => {
+      if (generation !== runRequestGeneration.current) return;
       const nextRun = JSON.parse((event as MessageEvent<string>).data) as Run;
       setRunBundle((current) => (current ? { ...current, run: nextRun } : current));
       events.close();
-      void loadRunBundle(nextRun.run_id);
+      void loadRunBundle(nextRun.run_id, generation);
       void refreshBootstrap();
     });
     events.onerror = () => setConnection("reconnecting");
@@ -163,33 +196,83 @@ export default function App() {
   }, [user]);
 
   const openLibrary = () => {
+    runRequestGeneration.current += 1;
+    artifactRequestGeneration.current += 1;
     setSurface({ kind: "library" });
+    setRunBundle(null);
     setArtifact(null);
+    setArtifactContent(null);
+    setArtifactProjection(null);
+    setArtifactProjectionError(null);
+    setOriginalReportArtifactId(null);
     setInspectorOpen(false);
     void loadLibrary();
   };
 
   const openArtifact = useCallback(
     async (artifactId: string) => {
+      runRequestGeneration.current += 1;
+      const generation = ++artifactRequestGeneration.current;
       setSurface({ kind: "artifact", artifactId });
       setLoading(true);
+      setRunBundle(null);
+      setArtifact(null);
       setArtifactContent(null);
+      setArtifactProjection(null);
+      setArtifactProjectionError(null);
+      setOriginalReportArtifactId(null);
       setInspectorOpen(false);
       try {
         const descriptor = await getArtifact(artifactId, user);
+        if (generation !== artifactRequestGeneration.current) return;
         setArtifact(descriptor);
-        setRunBundle(null);
-        if (
+        if (descriptor.viewer === "legacy_html") {
+          setOriginalReportArtifactId(descriptor.artifact_id);
+        }
+        if (descriptor.status !== "missing" && supportsDailyProjection(descriptor)) {
+          try {
+            const projection = await getArtifactProjection(artifactId, user);
+            if (generation !== artifactRequestGeneration.current) return;
+            setArtifactProjection(projection);
+          } catch (caught) {
+            if (generation === artifactRequestGeneration.current) {
+              try {
+                const candidates = await listArtifacts(
+                  { category: descriptor.category, date: descriptor.date ?? undefined },
+                  user,
+                );
+                if (generation !== artifactRequestGeneration.current) return;
+                const original = candidates.find(
+                  (candidate) => candidate.viewer === "legacy_html",
+                );
+                setOriginalReportArtifactId(original?.artifact_id ?? null);
+              } catch {
+                if (generation !== artifactRequestGeneration.current) return;
+              }
+              setArtifactProjectionError(
+                caught instanceof Error ? caught.message : "无法生成原生报告",
+              );
+            }
+          }
+        } else if (
           descriptor.status !== "missing" &&
           ["native_markdown", "native_json"].includes(descriptor.viewer)
         ) {
-          setArtifactContent(await getArtifactText(artifactId, user));
+          const content = await getArtifactText(artifactId, user);
+          if (generation !== artifactRequestGeneration.current) return;
+          setArtifactContent(content);
         }
-        setError(null);
+        if (generation === artifactRequestGeneration.current) {
+          setError(null);
+        }
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "无法加载产物");
+        if (generation === artifactRequestGeneration.current) {
+          setError(caught instanceof Error ? caught.message : "无法加载产物");
+        }
       } finally {
-        setLoading(false);
+        if (generation === artifactRequestGeneration.current) {
+          setLoading(false);
+        }
       }
     },
     [user],
@@ -227,18 +310,43 @@ export default function App() {
       void openArtifact(workflow.artifact_id);
       return;
     }
+    runRequestGeneration.current += 1;
+    artifactRequestGeneration.current += 1;
     setSurface({ kind: "home" });
+    setRunBundle(null);
+    setArtifact(null);
+    setArtifactContent(null);
+    setArtifactProjection(null);
+    setArtifactProjectionError(null);
+    setOriginalReportArtifactId(null);
     setTaskType(workflow.task_type);
     setDraft(workflow.prompt);
   };
 
   const showHome = () => {
+    runRequestGeneration.current += 1;
+    artifactRequestGeneration.current += 1;
     setSurface({ kind: "home" });
     setRunBundle(null);
     setArtifact(null);
+    setArtifactContent(null);
+    setArtifactProjection(null);
+    setArtifactProjectionError(null);
+    setOriginalReportArtifactId(null);
     setTaskType("ask");
     setInspectorOpen(false);
   };
+
+  const surfaceIdentity =
+    surface.kind === "run"
+      ? `run:${surface.runId}`
+      : surface.kind === "artifact"
+        ? `artifact:${surface.artifactId}`
+        : surface.kind;
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [surfaceIdentity]);
 
   return (
     <div className="app-shell">
@@ -297,6 +405,20 @@ export default function App() {
             content={artifactContent}
             loading={loading}
             contentUrl={artifactContentUrl(artifact.artifact_id, user)}
+            projection={artifactProjection}
+            projectionError={artifactProjectionError}
+            originalReportUrl={
+              (artifactProjection?.provenance.original_artifact_id ??
+              originalReportArtifactId)
+                ? artifactContentUrl(
+                    artifactProjection?.provenance.original_artifact_id ??
+                      originalReportArtifactId!,
+                    user,
+                  )
+                : artifact.viewer === "legacy_html"
+                  ? artifactContentUrl(artifact.artifact_id, user)
+                  : undefined
+            }
             onBack={openLibrary}
             onOpenRun={openRun}
           />
