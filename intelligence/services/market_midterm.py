@@ -31,15 +31,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from market_feature_store.signals import is_double_red
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_WINDOW = 20
 MIN_WINDOW = 5
 MAX_WINDOW = 120
 CROWDING_LOOKBACK = 60  # 拥挤度分位的回看窗口（交易日）
-
-# 双红严格口径（与 market_timeseries / strategy1-matrix 一致）。
-DOUBLE_RED_WHERE = "pct_chg > 0 AND diff_ratio > 10 AND amount > 500"
 
 # 中期/赔率/配置意图词。命中任一即视为「中期时间尺度」问题。
 _MIDTERM_TERMS = (
@@ -160,11 +159,7 @@ def _fetch_theme_trend(con: Any, theme: str, window: int) -> dict[str, Any] | No
     amounts = [float(r[3]) for r in rows if r[3] is not None]
     pcts = [float(r[1]) for r in rows if r[1] is not None]
     diffs = [float(r[2]) for r in rows if r[2] is not None]
-    double_red_days = sum(
-        1 for r in rows
-        if r[1] is not None and r[2] is not None and r[3] is not None
-        and float(r[1]) > 0 and float(r[2]) > 10 and float(r[3]) > 500
-    )
+    double_red_days = sum(1 for r in rows if is_double_red(r[1], r[2], r[3]))
     first_amt = amounts[0] if amounts else None
     last_amt = amounts[-1] if amounts else None
     avg_pct = sum(pcts) / len(pcts) if pcts else None

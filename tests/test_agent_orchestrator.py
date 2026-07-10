@@ -67,6 +67,25 @@ class AgentOrchestratorTest(unittest.TestCase):
         self.assertEqual(result.paths[0].status, "skipped")
         self.assertEqual(result.paths[0].skip_reason, "auto_execute_false")
 
+    def test_execute_skips_low_confidence_bare_theme_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch.object(orch, "run_command_step") as run:
+                _summary, result, _ = orch.run_agent_orchestrator(
+                    orch.OrchestratorOptions(
+                        query="液冷服务器",
+                        date="2026-06-26",
+                        knowledge_wiki=Path(td) / "wiki",
+                        finance_root=Path(td),
+                        execute=True,
+                    )
+                )
+
+        self.assertFalse(run.called)
+        self.assertTrue(result.paths)
+        auto_low_risk = [path for path in result.paths if path.auto_execute and path.risk_level == "low"]
+        self.assertTrue(auto_low_risk)
+        self.assertTrue(all(path.skip_reason == "route_confidence_too_low" for path in auto_low_risk))
+
 
 if __name__ == "__main__":
     unittest.main()

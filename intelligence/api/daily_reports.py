@@ -5,6 +5,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from html.parser import HTMLParser
 
+from market_feature_store.signals import DOUBLE_RED_DESCRIPTION
+
 
 MAX_SUMMARY_ITEMS = 3
 MAX_CANDIDATE_ITEMS = 6
@@ -123,7 +125,7 @@ _AGENT_GLOSSARY = (
 )
 
 _REVIEW_GLOSSARY = (
-    ("双红", "题材涨幅为正、边际量大于 10 且成交额大于 500 亿。"),
+    ("双红", DOUBLE_RED_DESCRIPTION),
     ("边际量", "相对近期基准的成交变化，用于观察资金增减。"),
     ("市场阶段", "根据指数、量能和广度归纳的当前市场位置。"),
 )

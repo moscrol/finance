@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""
-Compute derived feature tables for market_feature_store.duckdb.
-Fills: feature_stock_technical_daily, feature_stock_window, feature_sector_window.
-Runs on Mac where both DBs live.
+"""Archived one-off feature backfill.
+
+No active workflow consumes these materialized tables. The script retains its
+historical Mac paths and frozen 2026-06-17 cutoff for reproducibility only.
 """
 import duckdb
 import time
