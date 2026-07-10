@@ -17,6 +17,8 @@
 from __future__ import annotations
 
 import re
+from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +39,44 @@ _MONEYFLOW_TERMS = (
     "接力资金",
     "moneyflow",
 )
+
+
+@dataclass(frozen=True)
+class MoneyflowRow:
+    stock_code: str
+    stock_name: str
+    scan_type: str
+    main_buy_net_wan: float | None
+    total_buy_net_wan: float | None
+    score: float | None
+    rank: int | None
+    pct_change: float | None
+
+
+@dataclass(frozen=True)
+class QuantOrderRow:
+    stock_code: str
+    stock_name: str
+    quant_amount_wan: float | None
+    quant_pct_of_big_buy: float | None
+    cluster_count: int | None
+    biggest_cluster: str | None
+    rank: int | None
+
+
+@dataclass(frozen=True)
+class MoneyflowSnapshot:
+    status: str
+    target_date: str | None
+    trade_date: str | None
+    coverage: dict[str, int]
+    leaders: tuple[MoneyflowRow, ...]
+    quant_orders: tuple[QuantOrderRow, ...]
+    warnings: tuple[str, ...]
+    source: str = "feature_l2_capital_flow_daily + feature_l2_quant_orders_daily"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 def parse_moneyflow_intent(query: str) -> bool:
@@ -80,12 +120,159 @@ def _fmt(value: Any, digits: int = 1, suffix: str = "") -> str:
         return str(value)
 
 
+def _date_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat() if isinstance(value, date) else str(value)
+
+
+def load_moneyflow_snapshot(
+    market_db_path: str | Path | None,
+    *,
+    as_of_date: str | None = None,
+    top_k: int = TOP_K,
+) -> MoneyflowSnapshot:
+    """Return a bounded, UI-safe L2 snapshot without rendering Markdown or HTML."""
+    db_path = (
+        Path(market_db_path).expanduser()
+        if market_db_path
+        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    )
+    missing = MoneyflowSnapshot(
+        status="missing",
+        target_date=as_of_date,
+        trade_date=None,
+        coverage={},
+        leaders=(),
+        quant_orders=(),
+        warnings=("L2 资金流特征库不可用；本模块未据此下资金面结论。",),
+    )
+    if not db_path.exists():
+        return missing
+    try:
+        import duckdb  # type: ignore
+    except Exception:
+        return missing
+    try:
+        con = duckdb.connect(str(db_path), read_only=True)
+    except Exception:
+        return missing
+    try:
+        if as_of_date:
+            latest = con.execute(
+                """
+                select max(trade_date)
+                from feature_l2_capital_flow_daily
+                where trade_date <= ?
+                """,
+                [as_of_date],
+            ).fetchone()
+        else:
+            latest = con.execute(
+                "select max(trade_date) from feature_l2_capital_flow_daily"
+            ).fetchone()
+        trade_date = _date_text(latest[0] if latest else None)
+        if trade_date is None:
+            return missing
+
+        coverage = {
+            str(scan_type): int(count)
+            for scan_type, count in con.execute(
+                """
+                select scan_type, count(distinct stock_code)
+                from feature_l2_capital_flow_daily
+                where trade_date = ?
+                group by scan_type
+                order by scan_type
+                """,
+                [trade_date],
+            ).fetchall()
+        }
+        raw_leaders = con.execute(
+            """
+            select stock_code, stock_name, scan_type, main_buy_net_wan,
+                   total_buy_net_wan, score, rank, pct_change
+            from feature_l2_capital_flow_daily
+            where trade_date = ?
+            order by score desc nulls last, rank asc nulls last
+            """,
+            [trade_date],
+        ).fetchall()
+        leaders: list[MoneyflowRow] = []
+        seen_stocks: set[str] = set()
+        for row in raw_leaders:
+            stock_code = str(row[0] or "")
+            if not stock_code or stock_code in seen_stocks:
+                continue
+            seen_stocks.add(stock_code)
+            leaders.append(
+                MoneyflowRow(
+                    stock_code=stock_code,
+                    stock_name=str(row[1] or stock_code),
+                    scan_type=str(row[2] or ""),
+                    main_buy_net_wan=row[3],
+                    total_buy_net_wan=row[4],
+                    score=row[5],
+                    rank=row[6],
+                    pct_change=row[7],
+                )
+            )
+            if len(leaders) >= max(1, int(top_k)):
+                break
+
+        quant_rows = con.execute(
+            """
+            select stock_code, stock_name, quant_amount_wan,
+                   quant_pct_of_big_buy, cluster_count, biggest_cluster, rank
+            from feature_l2_quant_orders_daily
+            where trade_date = ?
+            order by rank asc nulls last, quant_pct_of_big_buy desc nulls last
+            limit ?
+            """,
+            [trade_date, max(1, int(top_k))],
+        ).fetchall()
+        quant_orders = tuple(
+            QuantOrderRow(
+                stock_code=str(row[0] or ""),
+                stock_name=str(row[1] or row[0] or ""),
+                quant_amount_wan=row[2],
+                quant_pct_of_big_buy=row[3],
+                cluster_count=row[4],
+                biggest_cluster=str(row[5]) if row[5] is not None else None,
+                rank=row[6],
+            )
+            for row in quant_rows
+        )
+        warnings = [
+            "仅覆盖昨日涨停股和成交额前 100；缺行不等于无资金流入。",
+            "大单方向由委托编号口径推断，不等同于问财或全市场资金流口径。",
+        ]
+        status = "ok"
+        if as_of_date and trade_date < as_of_date:
+            status = "stale"
+            warnings.insert(0, f"L2 最新扫描日为 {trade_date}，早于报告日 {as_of_date}。")
+        return MoneyflowSnapshot(
+            status=status,
+            target_date=as_of_date,
+            trade_date=trade_date,
+            coverage=coverage,
+            leaders=tuple(leaders),
+            quant_orders=quant_orders,
+            warnings=tuple(warnings),
+        )
+    except Exception:
+        return missing
+    finally:
+        con.close()
+
+
 def moneyflow_block_for_llm(
     query: str,
     anchored_entity: str | None,
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
     top_k: int = TOP_K,
+    as_of_date: str | None = None,
 ) -> str:
     """把 L2 大单资金流特征渲染成带 [D9] 引用编号的确定性数据块（空串=未取到）。"""
     db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
@@ -101,9 +288,19 @@ def moneyflow_block_for_llm(
         return ""
     try:
         try:
-            latest = con.execute(
-                "select max(trade_date) from feature_l2_capital_flow_daily"
-            ).fetchone()
+            if as_of_date:
+                latest = con.execute(
+                    """
+                    select max(trade_date)
+                    from feature_l2_capital_flow_daily
+                    where trade_date <= ?
+                    """,
+                    [as_of_date],
+                ).fetchone()
+            else:
+                latest = con.execute(
+                    "select max(trade_date) from feature_l2_capital_flow_daily"
+                ).fetchone()
         except Exception:
             return ""
         if not latest or latest[0] is None:

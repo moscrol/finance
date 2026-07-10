@@ -132,6 +132,52 @@ def test_sse_replays_steps_and_ends_with_run(client: TestClient) -> None:
     assert events[-1] == "run"
 
 
+def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestClient) -> None:
+    run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    _wait_terminal(client, run_id)
+    store = RunStore()
+    report = {
+        "schema_version": 1,
+        "report_id": run_id,
+        "title": "q",
+        "task_type": "daily",
+        "status": "streaming",
+        "modules": [],
+        "warnings": [],
+    }
+    module = {
+        "module_id": "l2_moneyflow",
+        "title": "L2 大单资金流",
+        "kind": "table",
+        "status": "complete",
+        "metrics": [],
+        "items": [],
+        "table": {"columns": [], "rows": []},
+        "warnings": [],
+        "provenance": {"source": "duckdb"},
+    }
+    store.append_stream_event(
+        run_id,
+        event_id="report:start",
+        event_type="report_start",
+        payload={"report": report},
+    )
+    store.append_stream_event(
+        run_id,
+        event_id="module:l2_moneyflow",
+        event_type="report_module",
+        payload={"module": module},
+    )
+
+    streamed = client.get(f"/api/runs/{run_id}/events").text
+    assert "event: report_start" in streamed
+    assert "event: report_module" in streamed
+    assert "id: module:l2_moneyflow" in streamed
+
+    current = client.get(f"/api/runs/{run_id}/report").json()
+    assert current["modules"] == [module]
+
+
 def test_missing_run_404(client: TestClient) -> None:
     assert client.get("/api/runs/run_nope").status_code == 404
     assert client.get("/api/runs/run_nope/trace").status_code == 404

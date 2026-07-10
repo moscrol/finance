@@ -166,6 +166,8 @@ class AskOptions:
     # D9 L2 大单资金流数据块：仅当问题命中「资金流/大单/主买/量化单」意图时生成，直查
     # l2-moneyflow 盘后特征表；榜单只扫涨停股+成交额 top100，缺行≠无资金流入，块内强制声明口径。
     include_moneyflow_block: bool = True
+    # 固定日报工作流需把 L2 作为显式模块，即使用户问题没有重复写“资金流”也要取数。
+    force_moneyflow_block: bool = False
     # 情景树/推演表达层：推演类问题命中时向 synthesis prompt 注入「变量表→情景分支→监控信号」
     # 表达契约（禁数值概率，likelihood 只准高/中/低并注依据）；非推演问题不注入，行为不变。
     include_scenario_guidance: bool = True
@@ -907,10 +909,16 @@ def answer_query(options: AskOptions) -> AskResult:
                     )
 
                 block_tasks.append(ask_planner.BlockTask("D6", "多日中期趋势", _build_d6))
-        if options.include_moneyflow_block and market_moneyflow.parse_moneyflow_intent(options.query):
+        if options.include_moneyflow_block and (
+            options.force_moneyflow_block
+            or market_moneyflow.parse_moneyflow_intent(options.query)
+        ):
             def _build_d9():
                 block = market_moneyflow.moneyflow_block_for_llm(
-                    options.query, anchored_name, options.market_db_path,
+                    options.query,
+                    anchored_name,
+                    options.market_db_path,
+                    as_of_date=options.date,
                 )
                 return block, Citation(
                     "D9",

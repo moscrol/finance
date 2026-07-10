@@ -61,6 +61,18 @@ def redact(text: str) -> str:
     return out
 
 
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_redact_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _redact_value(item) for key, item in value.items()}
+    return value
+
+
 def _now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
@@ -183,6 +195,24 @@ class RunStore:
             fh.write(json.dumps(step, ensure_ascii=False) + "\n")
         return step
 
+    def append_stream_event(
+        self,
+        run_id: str,
+        *,
+        event_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        event = {
+            "event_id": redact(event_id),
+            "event_type": redact(event_type),
+            "created_at": _now_iso(),
+            "payload": _redact_value(payload),
+        }
+        with self.stream_path(run_id).open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+        return event
+
     def add_artifact(
         self,
         run_id: str,
@@ -240,6 +270,9 @@ class RunStore:
     def trace_path(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "trace.jsonl"
 
+    def stream_path(self, run_id: str) -> Path:
+        return self.run_dir(run_id) / "stream.jsonl"
+
     def load_run(self, run_id: str) -> Run:
         payload = json.loads(self.run_path(run_id).read_text(encoding="utf-8"))
         return Run(**payload)
@@ -254,6 +287,17 @@ class RunStore:
             if line:
                 steps.append(json.loads(line))
         return steps
+
+    def load_stream_events(self, run_id: str) -> list[dict[str, Any]]:
+        path = self.stream_path(run_id)
+        if not path.exists():
+            return []
+        events = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                events.append(json.loads(line))
+        return events
 
     def list_runs(self) -> list[Run]:
         if not self.root.exists():
