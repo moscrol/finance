@@ -29,7 +29,7 @@ negative control，不用今天的报告或邻近日报告替代。
 | PIT 完整度 | partial 18、pending 62 |
 | 行情阶段 | 11 类均被覆盖 |
 
-## 五项现状忠实度指标
+## 五项现状忠实度指标（初始运行）
 
 | 指标 | 分子 / 分母 | pending | 结果 |
 |---|---:|---:|---:|
@@ -42,6 +42,54 @@ negative control，不用今天的报告或邻近日报告替代。
 数字一致率在 80 日样本仍保持约 99.4%，说明明确字段映射和单位换算较稳定；
 但 inferred mapping 只用于数值复核，不计入原始逐声明证据，因此证据覆盖率仍为 0。
 扩样不能把“可复算”误写成“有出处”。
+
+P3 审计后确认，初始 `333 / 335` 使用了过宽的全局表头映射，不能继续作为
+有效结论；以下 P3 结果取代该数字结论。
+
+### P3：两个 mismatch 的根因
+
+两个 mismatch 都来自同一份
+`2026-06-02-20d-plus-new-highs.md`：
+
+- 国瓷材料 `涨幅%=13.50` 被错误映射到
+  `fact_stock_daily.pct_chg=13.28`；
+- 朝阳科技 `成交额(亿)=1.91` 被错误映射到
+  `fact_stock_daily.amount=1.915`。
+
+它们不是两个独立的 rounding 特例。该报告由
+`fact_stock_high_daily` 生成，正确值分别是 `pct_chg=13.50` 和
+`amount=1.91`。修复采用 **report source contract**：先按 canonical
+artifact family 选择源表，再按列名选择字段；不能只看“涨幅%/成交额”这些通用
+表头就猜 `fact_stock_daily`。
+
+替代方案是放宽小数容差或给两只股票写例外，但前者仍无法解释 13.50/13.28，
+后者会把数据血缘错误伪装成数值修复。source contract 可迁移到其他由专用特征表
+生成的报告。
+
+还要注意：2026-06-02 的 `fact_stock_high_daily` 行在当前库中的
+`updated_at` 晚于 PIT cutoff。因此修复后这些声明应转为 `unverifiable`，而不是
+借用当日已存在的 `fact_stock_daily` 行判成 matched。数字分母缩小是更诚实的
+PIT 结果，不是通过隐藏 mismatch 提高分数。
+
+真实 a77 重跑结果：
+
+```json
+{
+  "numeric_match_rate": {
+    "numerator": 0,
+    "denominator": 0,
+    "pending": 39492,
+    "status": "pending"
+  },
+  "mismatch_count": 0,
+  "new_high_contract_claims": 916,
+  "new_high_contract_unverifiable": 916,
+  "decision_eligible": false
+}
+```
+
+这不是“数字全部不匹配”，而是没有声明同时满足“正确源表 + cutoff 前已知”两个
+条件，故不能进入 numeric fidelity 分母。
 
 ## 声明与历史重放
 
@@ -85,6 +133,8 @@ Phase 2 使用三个独立步骤：
 - input 目录不存在 `final_history`；
 - outcome 目录不存在 `as_known_at`；
 - 55 个无报告负对照在 claim evaluator 中仍为 missing，没有被替换；
+- `phase2.negative-controls.json` 单独列出 55 个日期，并验证它们对五项
+  fidelity metric 的分母贡献均为 0；
 - DuckDB 运行前后签名均为
   `16777231 10239282 3208654848 1783682464`。
 
@@ -112,7 +162,8 @@ Phase 2 已完成 80 个历史截面的扩量执行，但验收结论仍是：
 }
 ```
 
-扩样证明自动数值对账在更大样本上稳定，也证明真正的瓶颈不是样本量，而是：
+P3 说明初始自动数值对账曾被错误的跨表映射高估，也再次证明真正的瓶颈不是
+样本量，而是：
 
 1. canonical 报告缺失；
 2. 原始逐声明 evidence 缺失；
@@ -125,3 +176,7 @@ Phase 2 已完成 80 个历史截面的扩量执行，但验收结论仍是：
 - **可复算不等于可溯源**：inferred mapping 与 claim-level evidence 必须分开计分。
 - **PIT 隔离要靠文件边界证明**：先冻结输入，再生成结果，避免结果字段回流。
 - **负对照必须保持为空**：缺资料日期若被邻近或当前报告填充，会制造虚假召回率。
+- **表头不是数据血缘**：同名字段可能来自不同事实表；报告族 source contract
+  比全局列名映射更可靠。
+- **分母缩小不一定是退步**：移除无法 PIT 证明的样本，比把错误来源算作 matched
+  更符合审计目标。

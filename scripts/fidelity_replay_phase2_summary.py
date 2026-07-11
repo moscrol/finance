@@ -37,11 +37,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     output = Path(args.out_dir).expanduser()
     write_json(output / "phase2.summary.json", summary)
+    write_json(
+        output / "phase2.negative-controls.json",
+        summary["negative_controls"],
+    )
     (output / "phase2.summary.md").write_text(
         render_phase2_summary(summary),
         encoding="utf-8",
     )
     print(output / "phase2.summary.json")
+    print(output / "phase2.negative-controls.json")
     print(output / "phase2.summary.md")
     return 0
 

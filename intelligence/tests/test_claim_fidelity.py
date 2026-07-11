@@ -212,6 +212,97 @@ class ClaimFidelityTests(unittest.TestCase):
         )
         self.assertEqual(metrics["cutoff_violation_rate"]["value"], 0.0)
 
+    def test_new_high_report_uses_its_canonical_source_table(self) -> None:
+        claim = _claim(
+            "N1",
+            text="国瓷材料 涨幅为 13.50%",
+            value=13.5,
+            unit="%",
+        )
+        claim["report_path"] = (
+            "market_feature_store/exports/"
+            "2026-06-02-20d-plus-new-highs.md"
+        )
+        claim["report_date"] = "2026-06-02"
+        claim["cutoff_timestamp"] = "2026-06-02T23:59:59+08:00"
+        claim["subject"] = "国瓷材料"
+        claim["predicate"] = "涨幅%"
+        snapshot = {
+            "tables": {
+                "fact_stock_daily": {
+                    "rows": [
+                        {
+                            "trade_date": "2026-06-02",
+                            "stock_name": "国瓷材料",
+                            "pct_chg": 13.28,
+                            "known_at": "2026-06-02T21:42:55+08:00",
+                        }
+                    ]
+                },
+                "fact_stock_high_daily": {
+                    "rows": [
+                        {
+                            "trade_date": "2026-06-02",
+                            "stock_name": "国瓷材料",
+                            "pct_chg": 13.5,
+                            "known_at": "2026-06-02T22:30:00+08:00",
+                        }
+                    ]
+                },
+            }
+        }
+        verified = verify_claim(claim, snapshot=snapshot)
+        self.assertEqual(verified["verification_status"], "matched")
+        self.assertEqual(
+            verified["verification_source"]["source"],
+            "fact_stock_high_daily",
+        )
+        self.assertEqual(
+            verified["verification_source"]["report_source_contract"],
+            "20d-plus-new-highs",
+        )
+        self.assertEqual(
+            verified["verification_source"]["source_time"],
+            "2026-06-02T22:30:00+08:00",
+        )
+
+    def test_new_high_report_is_unverifiable_without_pit_source_row(self) -> None:
+        claim = _claim(
+            "N1",
+            text="朝阳科技 成交额为 1.91 亿",
+            value=1.91,
+            unit="亿",
+        )
+        claim["report_path"] = (
+            "market_feature_store/exports/"
+            "2026-06-02-20d-plus-new-highs.md"
+        )
+        claim["report_date"] = "2026-06-02"
+        claim["subject"] = "朝阳科技"
+        claim["predicate"] = "成交额(亿)"
+        snapshot = {
+            "tables": {
+                "fact_stock_daily": {
+                    "rows": [
+                        {
+                            "trade_date": "2026-06-02",
+                            "stock_name": "朝阳科技",
+                            "amount": 1.915,
+                            "known_at": "2026-06-02T21:42:55+08:00",
+                        }
+                    ]
+                },
+                "fact_stock_high_daily": {"rows": []},
+            }
+        }
+        verified = verify_claim(claim, snapshot=snapshot)
+        self.assertEqual(verified["verification_status"], "unverifiable")
+        self.assertEqual(
+            verified["verification_source"]["source"],
+            "fact_stock_high_daily",
+        )
+        self.assertIn("源行数量=0", verified["verification_reason"])
+
     def test_post_cutoff_announcement_is_rejected(self) -> None:
         claim = _claim(
             "N1",
