@@ -276,7 +276,15 @@ export default function App() {
           if (nextRun.run_id !== identity.runId) return;
           events.close();
           if (eventSourceRef.current === events) eventSourceRef.current = null;
-          void loadConversationData(identity.conversationId);
+          void loadConversationData(identity.conversationId).then(() => {
+            setLiveMessages((current) => {
+              const state = current[identity.messageId];
+              if (!state || state.runId !== identity.runId) return current;
+              const next = { ...current };
+              delete next[identity.messageId];
+              return next;
+            });
+          });
           void listConversations(user).then(setConversations);
         } catch {
           setError("运行结束事件格式无效");

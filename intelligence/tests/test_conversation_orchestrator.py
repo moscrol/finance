@@ -11,6 +11,7 @@ from intelligence.services.ask import AskOptions, AskResult
 from intelligence.services.conversation_orchestrator import (
     TurnOrchestrator,
     build_conversation_context,
+    sanitize_conversation_answer,
 )
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.run_store import RunStore
@@ -277,7 +278,8 @@ def test_current_skill_output_is_injected_as_current_turn_evidence(tmp_path) -> 
     )
 
     assert len(calls) == 1
-    assert '"涨家数", "value": 3210' in calls[0].supplemental_evidence
+    assert "指标：涨家数=3210" in calls[0].supplemental_evidence
+    assert '"value": 3210' not in calls[0].supplemental_evidence
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.selected_skill_ids == ["fixture"]
     assert assistant.invoked_skill_ids == ["fixture"]
@@ -415,7 +417,8 @@ def test_template_answer_is_saved_and_streamed_once_without_llm(tmp_path) -> Non
     ]
     run = run_store.load_run(run_id)
     assert len(text_events) == 1
-    assert "本轮检索：无 key 也要回答" in text_events[0]["payload"]["delta"]
+    assert "自然语言综合暂时不可用" in text_events[0]["payload"]["delta"]
+    assert "命中主题" not in text_events[0]["payload"]["delta"]
     assert [artifact["path"] for artifact in run.artifacts] == [
         "answer.md",
         "report.json",
@@ -499,6 +502,105 @@ def test_recovered_turn_prefixes_event_ids_to_avoid_replay_collisions(
         event["event_id"].startswith("recovery:2:")
         for event in events
     )
+
+
+def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "今日复盘",
+    )
+    raw_answer = (
+        "**数据截至 2026-07-10。**\n\n"
+        "以下基于 Daily Review 确定性投影数据。盘面 L4 信号待确认，"
+        "replay 发酵信号也未匹配到任何主题，wiki 向量检索无可用命中。"
+        "公司只有 graph_only/低置信暴露，整体证据层分布为 "
+        "L1×6、L2×6、L4×1，尚缺 L3 硬证据。[D4]"
+        "本轮未命中任何 L3硬证据硬证据。优先走 L3 证据工具补查。"
+        "本轮检索完全未命中任何 L3硬证据的硬证据。"
+        "8 个被 daily-agent 标记需要补证据的方向。"
+        "当前属于 high/L1_L3_candidate，L1/L2 认知完整但 "
+        "分析基于 local Daily Review 确定性投影，知识图谱命中的概念。"
+        "证据以 L1行业资料和 L2公司基础资料为主，也有 L2基础资料。"
+        "未取到 L3公告/订单/认证/量产等硬证据，盘面 L4盘面信号待确认。"
+        "当日日报指标来自本地数据库的确定性投影。"
+        "cycle_status 仍需确认，RAG检索的wiki向量源降级未接入。"
+    )
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        assert options.stream_text_delta is not None
+        options.stream_text_delta(raw_answer)
+        return _ask_result(
+            options.query,
+            synthesis=raw_answer,
+            llm_provider="zhipu",
+        )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="今日复盘",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.content == sanitize_conversation_answer(raw_answer)
+    assert "2026-07-10" in assistant.content
+    assert "本地复盘数据" in assistant.content
+    assert "历史发酵信号" in assistant.content
+    assert "知识库没有提供可用补充" in assistant.content
+    assert "较高置信候选" in assistant.content
+    assert "行业资料/公司基础资料" in assistant.content
+    assert "阶段状态" in assistant.content
+    assert "知识库资料没有提供可用补充" in assistant.content
+    assert "公告等硬证据工具" in assistant.content
+    assert "硬证据证据" not in assistant.content
+    assert "硬证据硬证据" not in assistant.content
+    assert "公告等硬证据的硬证据" not in assistant.content
+    assert "每日复盘流程标记需要补证据" in assistant.content
+    assert "本地复盘数据" in assistant.content
+    assert "知识图谱关联到的概念" in assistant.content
+    assert "local" not in assistant.content.lower()
+    assert "确定性投影" not in assistant.content
+    assert "知识知识图谱" not in assistant.content
+    assert "行业资料行业资料" not in assistant.content
+    assert "公司基础资料公司基础资料" not in assistant.content
+    assert "公司基础资料基础资料" not in assistant.content
+    assert "公告等硬证据公告" not in assistant.content
+    assert "盘面信号盘面信号" not in assistant.content
+    assert "盘面盘面信号" not in assistant.content
+    assert "证据以行业资料和公司基础资料为主" in assistant.content
+    assert "也有公司基础资料" in assistant.content
+    assert "未取到公告/订单/认证/量产等硬证据" in assistant.content
+    assert "当日日报指标来自本地数据库的数据" in assistant.content
+    for internal in (
+        "Daily Review",
+        "daily-agent",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "replay",
+        "wiki",
+        "graph_only",
+        "high/L1_L3_candidate",
+        "cycle_status",
+        "RAG",
+        "[D4]",
+    ):
+        assert internal not in assistant.content
 
 
 def test_cancellation_between_text_deltas_marks_run_cancelled(tmp_path) -> None:

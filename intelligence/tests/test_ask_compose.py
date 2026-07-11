@@ -9,10 +9,13 @@ from intelligence.services import llm_refine
 from intelligence.services.ask import (
     AskResult,
     _customer_evidence_hardness_block_for_llm,
+    _daily_market_overview_block_for_llm,
     _mainline_context_block_for_llm,
     _market_value_block_for_llm,
+    _resolve_market_data_context,
     _second_derivative_queue_block_for_llm,
     render_answer,
+    render_conversation_answer,
 )
 from intelligence.services.llm_refine import LLMProvider, SynthesisResult, build_synthesis_messages, synthesize, synthesize_messages_with_review
 
@@ -107,6 +110,23 @@ class SynthesizeTests(unittest.TestCase):
         self.assertIn("严禁照抄", msgs[1]["content"])
         self.assertIn("deep-dive-demo", msgs[1]["content"])
 
+    def test_synthesis_prompt_hides_internal_diagnostics_from_users(self) -> None:
+        msgs = llm_refine.build_synthesis_messages(
+            "请复盘最新交易日",
+            "全市场",
+            "## 主线题材结构数据块 [D4]\n- cycle_status=分歧",
+            citation_legend="[D4] 本地 DuckDB 主线结构",
+        )
+
+        system = msgs[0]["content"]
+        user = msgs[1]["content"]
+
+        self.assertIn("不得在正文显示任何内部引用编号", system)
+        self.assertIn("严禁输出原始 JSON", system)
+        self.assertIn("L1/L2/L3/L4 必须分别转译", system)
+        self.assertIn("graph_only、replay、Daily Review", system)
+        self.assertIn("最终回答不得显示编号", user)
+
     def test_exemplar_guidance_loader_routes_by_question_type(self) -> None:
         from intelligence.services.ask import _exemplar_guidance_for
         from intelligence.services.answer_orchestrator import (
@@ -148,7 +168,7 @@ class SynthesizeTests(unittest.TestCase):
         self.assertIn("是否孤立看个股", system)
         self.assertIn("证据是否够硬", system)
         self.assertIn("更优表达", system)
-        self.assertIn("D4 主线题材结构数据块", system)
+        self.assertIn("主线题材结构数据", system)
         self.assertIn("主线连续性", system)
         self.assertIn("缩量强修复/存量抱团", system)
         self.assertIn("先在内部写出核心矛盾句", system)
@@ -215,6 +235,137 @@ class RenderComposeTests(unittest.TestCase):
         self.assertIn("市场结构推演路径", out)
         self.assertIn("20日量能回归", out)
         self.assertIn("板块承接", out)
+
+    def test_conversation_fallback_hides_internal_diagnostics(self) -> None:
+        result = self._base_result(None)
+        result.data_notice = (
+            "**数据降级：当前未连接本地 DuckDB。** "
+            "以下仅使用历史 snapshot/export，不能视为最新交易日复盘。"
+        )
+        result.warnings = ["命中 D4；发生降权"]
+
+        out = render_conversation_answer(result)
+
+        self.assertIn("不能视为最新交易日复盘", out)
+        self.assertIn("运行详情", out)
+        self.assertNotIn("命中主题", out)
+        self.assertNotIn("模块路由", out)
+        self.assertNotIn("D4", out)
+        self.assertNotIn("降权", out)
+
+    def test_conversation_fallback_uses_readable_duckdb_summary(self) -> None:
+        result = self._base_result(None)
+        result.data_notice = "**数据截至 2026-07-10。**"
+        result.market_summary = (
+            "## 本地 DuckDB 最新市场总览\n"
+            "- 市场数据截至：2026-07-10。\n"
+            "- 涨跌结构：上涨 3774 家；涨停 92 家；跌停 4 家。"
+        )
+
+        out = render_conversation_answer(result)
+
+        self.assertIn("## 市场概览", out)
+        self.assertIn("上涨 3774 家", out)
+        self.assertNotIn("本地 DuckDB 最新市场总览", out)
+
+
+class DailyMarketOverviewTests(unittest.TestCase):
+    def test_prefers_duckdb_date_over_older_snapshot(self) -> None:
+        with mock.patch(
+            "intelligence.services.ask._market_data_asof",
+            return_value="2026-07-10",
+        ):
+            trade_date, source, notice, warnings = _resolve_market_data_context(
+                "2026-07-01",
+                "/tmp/market.duckdb",
+            )
+
+        self.assertEqual(trade_date, "2026-07-10")
+        self.assertEqual(source, "duckdb")
+        self.assertIn("2026-07-10", notice or "")
+        self.assertIn("2026-07-01", warnings[0])
+
+    def test_marks_snapshot_as_fallback_when_duckdb_is_missing(self) -> None:
+        with mock.patch(
+            "intelligence.services.ask._market_data_asof",
+            return_value=None,
+        ):
+            trade_date, source, notice, warnings = _resolve_market_data_context(
+                "2026-07-01",
+                "/tmp/missing.duckdb",
+            )
+
+        self.assertEqual(trade_date, "2026-07-01")
+        self.assertEqual(source, "snapshot_fallback")
+        self.assertIn("不能视为最新交易日复盘", notice or "")
+        self.assertIn("未连接本地 DuckDB", warnings[0])
+
+    def test_builds_current_market_block_and_marks_lagging_subtable(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_market_daily(
+                  trade_date date,
+                  market_stage varchar,
+                  stage_day integer,
+                  total_amount double,
+                  amount_vs_yesterday_pct double,
+                  volume_ratio double,
+                  volume_state varchar,
+                  advancers integer,
+                  limit_up integer,
+                  limit_down integer,
+                  sh_index_close double,
+                  sh_index_pct_chg double,
+                  concentration_state varchar,
+                  industry_1 varchar,
+                  industry_1_ratio double,
+                  strength_avg_pct double,
+                  strength_marginal_pct double,
+                  strength_status varchar
+                )
+                """
+            )
+            con.execute(
+                """
+                insert into fact_market_daily values (
+                  '2026-07-10', '底部横盘阶段', 9, 33883.62, 16.3, 104.35,
+                  '主线抱团', 3774, 92, 4, 3996.162, -1.0, '集中',
+                  '电子', 35.4, 9.62, -69.37, '沸点'
+                )
+                """
+            )
+            con.execute(
+                """
+                create table fact_mainline_theme_daily(
+                  trade_date date,
+                  theme_name varchar,
+                  sector_count integer,
+                  min_sort integer
+                )
+                """
+            )
+            con.execute(
+                "insert into fact_mainline_theme_daily values ('2026-07-10', '半导体', 3, 1)"
+            )
+            con.execute(
+                "create table fact_mainline_sector_daily(trade_date date)"
+            )
+            con.execute(
+                "insert into fact_mainline_sector_daily values ('2026-06-30')"
+            )
+            con.close()
+
+            block = _daily_market_overview_block_for_llm(db_path)
+
+        self.assertIn("市场数据截至：2026-07-10", block)
+        self.assertIn("上涨 3774 家", block)
+        self.assertIn("半导体（3 个核心板块）", block)
+        self.assertIn("主线板块明细表仅更新到 2026-06-30", block)
+        self.assertIn("不能覆盖整体日期", block)
 
 
 class MarketValueBlockTests(unittest.TestCase):
