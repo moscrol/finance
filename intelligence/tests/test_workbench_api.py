@@ -1,4 +1,5 @@
 import json
+import threading
 import time
 
 import pytest
@@ -17,6 +18,9 @@ def client(tmp_path, monkeypatch):
     users_root = tmp_path / "users"
     repo_root = tmp_path / "repo"
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
 
     daily_dir = repo_root / "复盘" / "daily" / "2026-07-09"
     daily_dir.mkdir(parents=True)
@@ -115,6 +119,99 @@ def test_create_run_and_fetch_artifacts(client: TestClient) -> None:
 
     listed = client.get("/api/runs").json()
     assert listed[0]["run_id"] == run_id
+
+
+def test_health_endpoints_report_worker_and_storage_state(client: TestClient) -> None:
+    health = client.get("/api/health").json()
+    assert health["status"] == "healthy"
+    assert health["dependencies"]["knowledge_wiki"] is True
+
+    response = client.get("/api/readiness")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert payload["checks"]["repo_root"] is True
+    assert payload["checks"]["run_store_writable"] is True
+    assert payload["workers"]["capacity"] == 2
+
+
+def test_cancel_run_is_terminal_even_when_worker_finishes_later(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    started = threading.Event()
+    release = threading.Event()
+
+    def slow_run(store, run_id, req):
+        started.set()
+        release.wait(timeout=2)
+        store.finish_run(run_id, rs.STATUS_COMPLETED)
+
+    monkeypatch.setattr(app_module, "_run_ask", slow_run)
+    run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    assert started.wait(timeout=1)
+
+    cancelled = client.post(f"/api/runs/{run_id}/cancel")
+    release.set()
+
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "cancelled"
+    time.sleep(0.05)
+    assert client.get(f"/api/runs/{run_id}").json()["status"] == "cancelled"
+
+
+def test_executor_timeout_marks_run_failed(tmp_path, monkeypatch) -> None:
+    users_root = tmp_path / "users"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    release = threading.Event()
+
+    def slow_run(store, run_id, req):
+        release.wait(timeout=1)
+        if not app_module._run_terminal(store, run_id):
+            store.finish_run(run_id, rs.STATUS_COMPLETED)
+
+    monkeypatch.setattr(app_module, "_run_ask", slow_run)
+    timeout_client = TestClient(
+        app_module.create_app(repo_root=tmp_path, run_timeout_sec=0.05)
+    )
+    run_id = timeout_client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+
+    run = _wait_terminal(timeout_client, run_id)
+    release.set()
+
+    assert run["status"] == "failed"
+    assert run["error"] == "executor_timeout"
+    assert run["degrades"] == ["executor_timeout"]
+
+
+def test_create_app_recovers_interrupted_runs(tmp_path, monkeypatch) -> None:
+    users_root = tmp_path / "users"
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    interrupted = RunStore().create_run("q", "ask")
+    finished = threading.Event()
+
+    def recovered_run(store, run_id, req):
+        store.finish_run(run_id, rs.STATUS_COMPLETED)
+        finished.set()
+
+    monkeypatch.setattr(app_module, "_run_ask", recovered_run)
+    recovered_client = TestClient(app_module.create_app(repo_root=tmp_path))
+    assert finished.wait(timeout=1)
+    recovered = recovered_client.get(f"/api/runs/{interrupted.run_id}").json()
+    readiness = recovered_client.get("/api/readiness").json()
+
+    assert recovered["status"] == "completed"
+    assert recovered["degrades"] == ["workbench_restarted_before_completion"]
+    events = RunStore().load_stream_events(interrupted.run_id)
+    assert events[0]["event_type"] == "run_recovered"
+    assert readiness["recovered_runs"] == 1
 
 
 def test_sse_replays_steps_and_ends_with_run(client: TestClient) -> None:
