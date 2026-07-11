@@ -16,6 +16,26 @@ test -d "${EXPORTS}"
 test -f "${DB}"
 
 export MARKET_FEATURE_STORE_DB="${DB}"
+
+HAS_TRADE_DATE=$(
+  /usr/bin/python3 - "${DB}" "${D}" <<'PY'
+import sys
+
+import duckdb
+
+with duckdb.connect(sys.argv[1], read_only=True) as connection:
+    row = connection.execute(
+        "SELECT COUNT(*) FROM fact_market_daily WHERE trade_date = ?",
+        [sys.argv[2]],
+    ).fetchone()
+print(1 if row and row[0] else 0)
+PY
+)
+if [ "${HAS_TRADE_DATE}" != "1" ]; then
+  echo "skip fidelity daily agent: no fact_market_daily row for ${D}"
+  exit 0
+fi
+
 cd "${CODE_ROOT}"
 
 cleanup() {

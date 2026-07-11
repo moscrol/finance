@@ -30,7 +30,7 @@
    - `com.financeworkspace.fidelity-daily-agent`
    - `com.financeworkspace.pit-snapshot`
 
-   20:05 任务先从固定代码根重新生成带 lineage 的 theme-candidates，经 schema/evidence 校验后原子替换当日产物，并把旧版本保存在 `/Users/a77/fidelity-runtime/backups/<date>/`；随后生成 daily-agent。PIT 在 20:30 从同一代码 commit 冻结 DuckDB 与知识库输入。
+   20:05 任务先确认 `fact_market_daily` 存在当天交易日；周末、节假日或数据尚未落库时安全跳过。通过后再从固定代码根重新生成带 lineage 的 theme-candidates，经 schema/evidence 校验后原子替换当日产物，并把旧版本保存在 `/Users/a77/fidelity-runtime/backups/<date>/`；随后生成 daily-agent。PIT 在 20:30 从同一代码 commit 冻结 DuckDB 与知识库输入。
 
 3. 用统一状态门检查：
 
