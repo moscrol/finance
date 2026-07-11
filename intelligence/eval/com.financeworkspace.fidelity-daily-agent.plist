@@ -17,6 +17,8 @@
     <string>/Users/a77/finance-workspace-runtime</string>
     <key>FINANCE_WS</key>
     <string>/Users/a77/finance-workspace-private</string>
+    <key>FIDELITY_RUNTIME_ROOT</key>
+    <string>/Users/a77/fidelity-runtime</string>
     <key>KNOWLEDGE_WIKI</key>
     <string>/Users/a77/knowledge-base-private/wiki</string>
     <key>MARKET_FEATURE_STORE_DB</key>
