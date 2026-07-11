@@ -47,6 +47,50 @@ RECOMMENDED_THRESHOLDS = {
     "cutoff_violation_rate": {"operator": "==", "value": 0.0},
     "fact_inference_confusion_rate": {"operator": "<=", "value": 0.05},
 }
+INFERRED_NUMERIC_SOURCES = {
+    "涨幅%": ("fact_stock_daily", "pct_chg", "%"),
+    "涨跌幅": ("fact_stock_daily", "pct_chg", "%"),
+    "成交额(亿)": ("fact_stock_daily", "amount", "亿"),
+    "成交额": ("fact_market_daily", "total_amount", None),
+    "量比": ("fact_market_daily", "volume_ratio", None),
+    "涨家数": ("fact_market_daily", "advancers", None),
+    "上涨家数": ("fact_market_daily", "advancers", None),
+    "涨停": ("fact_market_daily", "limit_up", None),
+    "涨停数": ("fact_market_daily", "limit_up", None),
+    "跌停": ("fact_market_daily", "limit_down", None),
+    "跌停数": ("fact_market_daily", "limit_down", None),
+    "上证涨跌幅": ("fact_market_daily", "sh_index_pct_chg", "%"),
+    "前三行业占比": (
+        "fact_market_daily",
+        "top3_industry_ratio",
+        "%",
+    ),
+    "历史新高数": (
+        "fact_market_daily",
+        "stock_high_count_history",
+        None,
+    ),
+    "120 日新高数": (
+        "fact_market_daily",
+        "stock_high_count_120d",
+        None,
+    ),
+    "120日新高数": (
+        "fact_market_daily",
+        "stock_high_count_120d",
+        None,
+    ),
+    "20 日新高数": (
+        "fact_market_daily",
+        "stock_high_count_20d",
+        None,
+    ),
+    "20日新高数": (
+        "fact_market_daily",
+        "stock_high_count_20d",
+        None,
+    ),
+}
 FIXED_PILOT_DATES = (
     "2026-03-06",
     "2026-04-23",
@@ -458,6 +502,49 @@ def _markdown_claims(
             prose.append(raw_line)
             continue
         row = dict(zip(headers, cells))
+        if headers[0] == "字段":
+            metric = cells[0]
+            for column_index, (header, cell) in enumerate(
+                zip(headers[1:], cells[1:]),
+                start=1,
+            ):
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", header):
+                    continue
+                normalized_cell = cell.removeprefix("约").strip()
+                numeric = re.fullmatch(
+                    r"([-+]?\d+(?:,\d{3})*(?:\.\d+)?)"
+                    r"\s*(%|％|万亿元|亿元|万元|亿|万|元|倍|家|只|个|板)?",
+                    normalized_cell,
+                )
+                if not numeric:
+                    continue
+                value = float(numeric.group(1).replace(",", ""))
+                if value.is_integer():
+                    value = int(value)
+                claim = _claim(
+                    report_date=report_date,
+                    report_path=report_path,
+                    location=f"$.table[{line_index}][{column_index}]",
+                    text_span=f"{header} {metric}={cell}",
+                    claim_type="number",
+                    subject="market",
+                    predicate=metric,
+                    value=value,
+                    unit=numeric.group(2),
+                )
+                claim["claim_valid_time"] = header
+                claims.append(claim)
+            reading = row.get("读法")
+            if reading:
+                claims.extend(
+                    _text_claims(
+                        reading,
+                        report_date=report_date,
+                        report_path=report_path,
+                        location=f"$.table[{line_index}].读法",
+                    )
+                )
+            continue
         subject = next(
             (
                 row[key]
@@ -484,6 +571,11 @@ def _markdown_claims(
                 value = float(numeric.group(1).replace(",", ""))
                 if value.is_integer():
                     value = int(value)
+                unit = numeric.group(2)
+                if unit is None and "%" in header:
+                    unit = "%"
+                elif unit is None and "(亿)" in header:
+                    unit = "亿"
                 claims.append(
                     _claim(
                         report_date=report_date,
@@ -494,7 +586,7 @@ def _markdown_claims(
                         subject=subject,
                         predicate=header,
                         value=value,
-                        unit=numeric.group(2),
+                        unit=unit,
                     )
                 )
             elif any(
@@ -877,6 +969,33 @@ def _snapshot_rows(
     return [row for row in rows if isinstance(row, dict)]
 
 
+def _inferred_source_ref(
+    claim: dict[str, object],
+) -> dict[str, object] | None:
+    predicate = str(claim.get("predicate") or "").strip()
+    mapping = INFERRED_NUMERIC_SOURCES.get(predicate)
+    if mapping is None or claim.get("claim_type") != "number":
+        return None
+    table, field, source_unit = mapping
+    subject = str(claim.get("subject") or "")
+    if table == "fact_market_daily":
+        subject = "market"
+    valid_time = str(
+        claim.get("claim_valid_time")
+        or claim.get("report_date")
+        or ""
+    )[:10]
+    return {
+        "scope": "inferred",
+        "source": table,
+        "field": field,
+        "entity": subject,
+        "valid_time": valid_time,
+        "source_time": valid_time,
+        "source_unit": source_unit,
+    }
+
+
 def _entity_matches(row: dict[str, object], entity: str) -> bool:
     if not entity or entity.lower() == "market":
         return True
@@ -943,6 +1062,10 @@ def verify_claim(
 ) -> dict[str, object]:
     result = dict(claim)
     source_ref = _single_source_ref(claim)
+    inferred = False
+    if source_ref is None:
+        source_ref = _inferred_source_ref(claim)
+        inferred = source_ref is not None
     claim_type = str(claim.get("claim_type") or "")
     if source_ref is None:
         result["verification_status"] = (
@@ -952,10 +1075,13 @@ def verify_claim(
         )
         result["verification_reason"] = "缺少逐声明 source_ref"
         return result
-    if source_ref.get("scope") != "claim":
+    if source_ref.get("scope") not in {"claim", "inferred"}:
         result["verification_status"] = "missing"
         result["verification_reason"] = "报告级引用不能替代逐声明证据"
         return result
+    if inferred:
+        result["verification_source"] = source_ref
+        result["verification_method"] = "deterministic_inferred_mapping"
     source_time = _source_time(source_ref)
     cutoff = str(claim.get("cutoff_timestamp") or "")
     if not source_time:
@@ -1189,16 +1315,21 @@ def score_claims(
         and claim["source_ref"].get("scope") == "claim"
         for claim in factual
     )
-    refs = [
-        claim
-        for claim in claims
-        if isinstance(claim.get("source_ref"), dict)
-    ]
+    refs: list[tuple[dict[str, object], dict[str, object]]] = []
+    for claim in claims:
+        source = claim.get("source_ref")
+        if not isinstance(source, dict):
+            source = claim.get("verification_source")
+        if isinstance(source, dict):
+            refs.append((claim, source))
     cutoff_checked = [
-        claim for claim in refs if _source_time(claim["source_ref"])
+        (claim, source)
+        for claim, source in refs
+        if _source_time(source)
     ]
     cutoff_violations = sum(
-        bool(claim.get("cutoff_violation")) for claim in cutoff_checked
+        bool(claim.get("cutoff_violation"))
+        for claim, unused_source in cutoff_checked
     )
 
     entity_passed = entity_checked = entity_pending = 0
@@ -1449,8 +1580,29 @@ def evaluate_registry(
             report_date=report_date,
             repo_root=root,
         )
+        snapshot_cache: dict[
+            str,
+            dict[str, object] | None,
+        ] = {report_date: snapshot}
+
+        def snapshot_for(claim: dict[str, object]) -> dict[str, object] | None:
+            valid_time = str(
+                claim.get("claim_valid_time") or report_date
+            )[:10]
+            if valid_time not in snapshot_cache:
+                claim_snapshot_path = (
+                    pit / "as_known_at" / f"{valid_time}.known.json"
+                )
+                snapshot_cache[valid_time] = (
+                    _read_json(claim_snapshot_path)
+                    if claim_snapshot_path.is_file()
+                    else None
+                )
+            return snapshot_cache[valid_time]
+
         verified = [
-            verify_claim(claim, snapshot=snapshot) for claim in claims
+            verify_claim(claim, snapshot=snapshot_for(claim))
+            for claim in claims
         ]
         gold_path = (
             gold_root / f"{report_date}.gold.json" if gold_root else None

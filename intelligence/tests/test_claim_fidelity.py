@@ -175,6 +175,43 @@ class ClaimFidelityTests(unittest.TestCase):
             0,
         )
 
+    def test_inferred_numeric_mapping_uses_frozen_snapshot_only(self) -> None:
+        claim = _claim(
+            "N1",
+            text="工业富联 涨幅为 8.49%",
+            value=8.49,
+            unit="%",
+        )
+        claim["subject"] = "工业富联"
+        claim["predicate"] = "涨幅%"
+        snapshot = {
+            "tables": {
+                "fact_stock_daily": {
+                    "rows": [
+                        {
+                            "trade_date": "2026-07-02",
+                            "stock_name": "工业富联",
+                            "pct_chg": 8.49,
+                            "known_at": "2026-07-02T21:00:00+08:00",
+                        }
+                    ]
+                }
+            }
+        }
+        verified = verify_claim(claim, snapshot=snapshot)
+        metrics = score_claims([verified], None)
+        self.assertEqual(verified["verification_status"], "matched")
+        self.assertEqual(
+            verified["verification_method"],
+            "deterministic_inferred_mapping",
+        )
+        self.assertEqual(metrics["numeric_match_rate"]["value"], 1.0)
+        self.assertEqual(
+            metrics["evidence_coverage_rate"]["value"],
+            0.0,
+        )
+        self.assertEqual(metrics["cutoff_violation_rate"]["value"], 0.0)
+
     def test_post_cutoff_announcement_is_rejected(self) -> None:
         claim = _claim(
             "N1",
@@ -344,6 +381,37 @@ class ClaimFidelityTests(unittest.TestCase):
             }
             self.assertTrue(claims)
             self.assertTrue(required.issubset(claims[0]))
+
+    def test_wide_markdown_table_preserves_claim_valid_time(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "report.md"
+            report.write_text(
+                "\n".join(
+                    [
+                        "| 字段 | 2026-07-01 | 读法 |",
+                        "|---|---:|---|",
+                        "| 涨家数 | 4240 | 广度扩散 |",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            claims = extract_claims(
+                "report.md",
+                report_date="2026-07-02",
+                repo_root=root,
+            )
+            numeric = [
+                claim
+                for claim in claims
+                if claim.get("claim_type") == "number"
+            ]
+            self.assertEqual(len(numeric), 1)
+            self.assertEqual(numeric[0]["predicate"], "涨家数")
+            self.assertEqual(
+                numeric[0]["claim_valid_time"],
+                "2026-07-01",
+            )
 
     def test_source_signature_change_fails(self) -> None:
         signature = {
