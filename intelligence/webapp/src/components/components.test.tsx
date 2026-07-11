@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
+import { upsertStructuredReportModule } from "../structuredReport";
 import { upsertTraceStep } from "../trace";
 import type {
   ArtifactDescriptor,
@@ -14,6 +15,7 @@ import { ArtifactViewer } from "./ArtifactViewer";
 import { ResearchHome } from "./ResearchHome";
 import { ResearchInspector } from "./ResearchInspector";
 import { RunView } from "./RunView";
+import { StructuredReportView } from "./StructuredReportView";
 
 const apiMocks = vi.hoisted(() => ({
   createRun: vi.fn(),
@@ -25,6 +27,7 @@ const apiMocks = vi.hoisted(() => ({
   getRun: vi.fn(),
   getRunArtifactText: vi.fn(),
   getRunContext: vi.fn(),
+  getRunReport: vi.fn(),
   getTrace: vi.fn(),
   listArtifacts: vi.fn(),
 }));
@@ -102,6 +105,8 @@ const bundle: RunBundle = {
     source_date: "2026-07-09",
     duckdb_cutoff: "2026-07-09",
     kb_commit: "abc123",
+    kb_index_built_at: "2026-07-09T16:00:00+08:00",
+    kb_index_freshness: "fresh",
     manifest_ref: null,
     degrades: ["llm_unavailable_template_answer"],
     error: null,
@@ -156,10 +161,13 @@ const bundle: RunBundle = {
       source_date: "2026-07-09",
       duckdb_cutoff: "2026-07-09",
       kb_commit: "abc123",
+      kb_index_built_at: "2026-07-09T16:00:00+08:00",
+      kb_index_freshness: "fresh",
       manifest_ref: null,
     },
   },
   answer: "# 结论\n证据仍需下一交易日确认。",
+  structuredReport: null,
   registeredArtifacts: [{ ...artifact, related_run_id: "run_demo", source_path: "user:default/runs/run_demo/answer.md" }],
 };
 
@@ -225,6 +233,75 @@ describe("Workbench components", () => {
     expect(screen.getByText("证据仍需下一交易日确认。")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /哪些证据最容易证伪/ }));
     expect(onFollowup).toHaveBeenCalledWith("哪些证据最容易证伪？");
+  });
+
+  it("renders LLM and L2 modules without an HTML artifact", () => {
+    render(
+      <RunView
+        bundle={{
+          ...bundle,
+          structuredReport: {
+            schema_version: 1,
+            report_id: "run_demo",
+            title: "今日复盘",
+            task_type: "daily",
+            status: "completed",
+            as_of: "2026-07-10",
+            llm: { used: true, provider: "glm", model: "glm-5.2" },
+            warnings: [],
+            modules: [
+              {
+                module_id: "llm_synthesis",
+                title: "LLM 综合判断",
+                kind: "narrative",
+                status: "complete",
+                summary: "只在证据边界内组织表达。",
+                content: "量能修复，仍需验证。",
+                metrics: [],
+                items: [],
+                table: null,
+                warnings: [],
+                provenance: {
+                  source: "retrieved_evidence",
+                  as_of: "2026-07-10",
+                  generated_by: "llm:glm",
+                },
+              },
+              {
+                module_id: "l2_moneyflow",
+                title: "L2 大单资金流",
+                kind: "table",
+                status: "degraded",
+                summary: "自有逐笔成交口径。",
+                content: null,
+                metrics: [{ label: "扫描日期", value: "2026-07-08" }],
+                items: [],
+                table: {
+                  columns: [{ key: "stock", label: "股票" }],
+                  rows: [{ stock: "深信服" }],
+                },
+                warnings: ["L2 最新扫描日早于报告日。"],
+                provenance: {
+                  source: "feature_l2_capital_flow_daily",
+                  as_of: "2026-07-08",
+                  generated_by: "deterministic_duckdb_query",
+                },
+              },
+            ],
+          },
+        }}
+        connection="connected"
+        onOpenRun={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("glm · glm-5.2")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "LLM 综合判断" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "L2 大单资金流" })).toBeVisible();
+    expect(screen.getByText("深信服")).toBeVisible();
+    expect(screen.getByText("L2 最新扫描日早于报告日。")).toBeVisible();
   });
 
   it("sanitizes markdown before rendering an artifact", () => {
@@ -301,6 +378,33 @@ describe("Workbench components", () => {
     await user.click(screen.getByText("命中盘面与图谱"));
     expect(screen.getByText("ask_retrieve_compose")).toBeVisible();
   });
+
+  it("shows report degradation warnings and the bound KB snapshot", () => {
+    render(
+      <>
+        <StructuredReportView
+          report={{
+            schema_version: 1,
+            report_id: "run_demo",
+            title: "今日复盘",
+            task_type: "daily",
+            status: "completed",
+            as_of: "2026-07-10",
+            llm: { used: true, provider: "glm", model: "glm-5.2" },
+            warnings: ["wiki-rag 索引新鲜度=stale"],
+            modules: [],
+          }}
+        />
+        <ResearchInspector bundle={bundle} artifact={null} open onClose={vi.fn()} />
+      </>,
+    );
+
+    expect(screen.getByText("本报告包含降级或质量警告")).toBeVisible();
+    expect(screen.getByText("wiki-rag 索引新鲜度=stale")).toBeVisible();
+    expect(screen.getByText("知识库索引快照")).toBeVisible();
+    expect(screen.getByText(/revision=abc123/)).toBeVisible();
+    expect(screen.getByText(/freshness=fresh/)).toBeVisible();
+  });
 });
 
 describe("Workbench navigation reliability", () => {
@@ -312,9 +416,66 @@ describe("Workbench navigation reliability", () => {
     });
     apiMocks.getFollowups.mockResolvedValue([]);
     apiMocks.getRunContext.mockResolvedValue(bundle.context);
+    apiMocks.getRunReport.mockResolvedValue(null);
     apiMocks.getTrace.mockResolvedValue([]);
     apiMocks.getRunArtifactText.mockResolvedValue(null);
     apiMocks.createRun.mockResolvedValue({ run_id: "run_created", status: "queued" });
+  });
+
+  it("starts a new streaming run for the daily workflow", async () => {
+    apiMocks.getBootstrap.mockResolvedValue(bootstrap);
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    apiMocks.getRun.mockResolvedValue({
+      ...bundle.run,
+      run_id: "run_created",
+      task_type: "daily",
+      status: "completed",
+      artifacts: [],
+    });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: /今日复盘/ }).length).toBeGreaterThan(0);
+    });
+    await user.click(screen.getAllByRole("button", { name: /今日复盘/ })[0]);
+
+    expect(apiMocks.createRun).toHaveBeenCalledWith("复盘", "daily", "default", null);
+  });
+
+  it("upserts replayed report modules by module_id", () => {
+    const report = {
+      schema_version: 1,
+      report_id: "run_demo",
+      title: "今日复盘",
+      task_type: "daily",
+      status: "streaming" as const,
+      as_of: "2026-07-10",
+      llm: { used: false, provider: null, model: null },
+      warnings: [],
+      modules: [],
+    };
+    const module = {
+      module_id: "l2_moneyflow",
+      title: "L2 大单资金流",
+      kind: "table",
+      status: "complete" as const,
+      summary: null,
+      content: null,
+      metrics: [],
+      items: [],
+      table: null,
+      warnings: [],
+      provenance: { source: "duckdb" },
+    };
+
+    const replayed = upsertStructuredReportModule(
+      upsertStructuredReportModule(report, module),
+      { ...module, summary: "重放后更新" },
+    );
+
+    expect(replayed.modules).toHaveLength(1);
+    expect(replayed.modules[0].summary).toBe("重放后更新");
   });
 
   it("does not let a late run response replace the current selection", async () => {

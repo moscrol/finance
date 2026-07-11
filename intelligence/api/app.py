@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -20,7 +20,16 @@ from intelligence.api.daily_reports import (
     project_daily_review_html,
     project_daily_review_markdown,
 )
+from intelligence.api.structured_reports import (
+    ask_result_modules,
+    complete_report,
+    daily_projection_modules,
+    moneyflow_module,
+    new_structured_report,
+    upsert_report_module,
+)
 from intelligence.services import followups as followups_svc
+from intelligence.services import market_moneyflow
 from intelligence.services import run_store as rs
 from intelligence.services.run_store import RunStore
 
@@ -39,10 +48,66 @@ class CreateRunRequest(BaseModel):
     session_id: str | None = None
     parent_run_id: str | None = None
     compose: bool = True
+    repo_root: Path | None = Field(default=None, exclude=True)
 
 
-def _run_ask(store: RunStore, run_id: str, req: CreateRunRequest) -> None:
+def _run_ask(
+    store: RunStore,
+    run_id: str,
+    req: CreateRunRequest,
+) -> None:
     from intelligence.services.ask import AskOptions, answer_query, render_answer
+    from intelligence.services.llm_refine import detect_provider
+
+    repo_root = req.repo_root or REPO_ROOT
+    report = new_structured_report(
+        run_id=run_id,
+        question=req.question,
+        task_type=req.task_type,
+    )
+    store.append_stream_event(
+        run_id,
+        event_id="report:start",
+        event_type="report_start",
+        payload={"report": report},
+    )
+
+    report_warnings: list[str] = []
+    report_date: str | None = None
+
+    def emit_module(module: dict[str, object]) -> None:
+        upsert_report_module(report, module)
+        store.append_stream_event(
+            run_id,
+            event_id=f"module:{module['module_id']}",
+            event_type="report_module",
+            payload={"module": module},
+        )
+
+    if req.task_type == "daily":
+        try:
+            report_date, daily_modules, daily_warnings = daily_projection_modules(repo_root)
+            report["as_of"] = report_date
+            report_warnings.extend(daily_warnings)
+            for module in daily_modules:
+                emit_module(module)
+        except Exception as exc:  # noqa: BLE001
+            warning = f"日报 canonical 投影失败（{type(exc).__name__}）"
+            report_warnings.append(warning)
+            store.add_degrade(run_id, warning)
+
+    wants_moneyflow = req.task_type == "daily" or market_moneyflow.parse_moneyflow_intent(
+        req.question
+    )
+    if wants_moneyflow:
+        snapshot = market_moneyflow.load_moneyflow_snapshot(
+            repo_root / "db" / "market_feature_store.duckdb",
+            as_of_date=report_date,
+        )
+        emit_module(moneyflow_module(snapshot))
+        if snapshot.status != "ok":
+            for warning in snapshot.warnings:
+                store.add_degrade(run_id, warning)
 
     started_at = rs._now_iso()
     store.append_step(
@@ -54,7 +119,30 @@ def _run_ask(store: RunStore, run_id: str, req: CreateRunRequest) -> None:
         started_at=started_at,
     )
     try:
-        result = answer_query(AskOptions(query=req.question, user=req.user, compose=req.compose))
+        result = answer_query(
+            AskOptions(
+                query=req.question,
+                date=report_date,
+                user=req.user,
+                compose=req.compose,
+                compose_self_review=req.task_type != "daily",
+                compose_revise_on_warn=req.task_type != "daily",
+                market_db_path=repo_root / "db" / "market_feature_store.duckdb",
+                force_moneyflow_block=req.task_type == "daily",
+            )
+        )
+        rag_telemetry = (
+            asdict(result.wiki_rag_telemetry)
+            if result.wiki_rag_telemetry is not None
+            else {}
+        )
+        store.update_provenance(
+            run_id,
+            source_date=result.trade_date,
+            kb_commit=str(rag_telemetry.get("index_source_revision") or "") or None,
+            kb_index_built_at=str(rag_telemetry.get("index_built_at") or "") or None,
+            kb_index_freshness=str(rag_telemetry.get("index_freshness") or "") or None,
+        )
     except Exception as exc:  # noqa: BLE001
         store.append_step(
             run_id,
@@ -65,6 +153,15 @@ def _run_ask(store: RunStore, run_id: str, req: CreateRunRequest) -> None:
             started_at=started_at,
             finished_at=rs._now_iso(),
             warnings=[f"{type(exc).__name__}: {exc}"],
+        )
+        report["status"] = "failed"
+        report_warnings.append(f"{type(exc).__name__}: {exc}")
+        report["warnings"] = report_warnings
+        store.append_stream_event(
+            run_id,
+            event_id="report:error",
+            event_type="report_error",
+            payload={"report": report},
         )
         store.finish_run(run_id, rs.STATUS_FAILED, error=f"{type(exc).__name__}: {exc}")
         return
@@ -95,15 +192,18 @@ def _run_ask(store: RunStore, run_id: str, req: CreateRunRequest) -> None:
         retrieval={
             "sources": hits,
             "citation_counts": citation_counts,
+            "citations": [asdict(citation) for citation in result.citations],
             "trade_date": result.trade_date,
             "matched_theme": result.matched_theme,
         },
     )
     for warning in result.warnings:
-        if "不可用" in warning or "降级" in warning or "unavailable" in warning.lower():
-            store.add_degrade(run_id, warning)
+        store.add_degrade(run_id, warning)
     if req.compose and not (result.llm_refined or result.synthesis):
         store.add_degrade(run_id, "llm_unavailable_template_answer")
+
+    for module in ask_result_modules(result):
+        emit_module(module)
 
     render_started_at = rs._now_iso()
     answer_md = render_answer(result)
@@ -120,6 +220,7 @@ def _run_ask(store: RunStore, run_id: str, req: CreateRunRequest) -> None:
         "question_type": result.question_plan.question_type if result.question_plan else None,
         "citations": len(result.citations),
         "citation_counts": citation_counts,
+        "citation_records": [asdict(citation) for citation in result.citations],
         "llm_refined": result.llm_refined,
         "llm_composed": bool(result.synthesis),
         "warnings": list(result.warnings),
@@ -130,6 +231,27 @@ def _run_ask(store: RunStore, run_id: str, req: CreateRunRequest) -> None:
         json.dumps(summary, ensure_ascii=False, indent=2),
         renderer="json",
         title="结构化摘要",
+    )
+    provider = detect_provider()
+    complete_report(
+        report,
+        as_of=result.trade_date or report_date,
+        warnings=[*report_warnings, *result.warnings],
+        llm_provider=result.llm_provider,
+        llm_model=provider.model if provider and result.llm_provider else None,
+    )
+    store.add_artifact(
+        run_id,
+        "report.json",
+        json.dumps(report, ensure_ascii=False, indent=2),
+        renderer="structured_report",
+        title="结构化流式报告",
+    )
+    store.append_stream_event(
+        run_id,
+        event_id="report:complete",
+        event_type="report_complete",
+        payload={"report": report},
     )
     store.append_step(
         run_id,
@@ -155,6 +277,7 @@ def _run_ask(store: RunStore, run_id: str, req: CreateRunRequest) -> None:
             req.question,
             matched_theme=result.matched_theme,
             answer_excerpt=result.synthesis or answer_md,
+            use_llm=req.task_type != "daily",
         )
         store.add_artifact(
             run_id,
@@ -241,6 +364,38 @@ def _run_context(store: RunStore, run_id: str) -> dict[str, object]:
                     "status": "hit",
                 }
             )
+        citation_records = retrieval.get("citations", [])
+        if isinstance(citation_records, list):
+            for citation in citation_records:
+                if not isinstance(citation, dict):
+                    continue
+                tag = str(citation.get("tag") or "")
+                source = str(citation.get("source") or "")
+                if not tag or not source:
+                    continue
+                binding = [
+                    f"chunk={citation.get('chunk_id')}" if citation.get("chunk_id") else "",
+                    f"hash={str(citation.get('content_hash'))[:12]}"
+                    if citation.get("content_hash")
+                    else "",
+                    f"index={str(citation.get('index_source_revision'))[:12]}"
+                    if citation.get("index_source_revision")
+                    else "",
+                    f"freshness={citation.get('index_freshness')}"
+                    if citation.get("index_freshness")
+                    else "",
+                ]
+                evidence.append(
+                    {
+                        "id": f"citation-record:{tag}",
+                        "label": f"[{tag}] {source}",
+                        "kind": "citation_record",
+                        "classification": "bound_evidence",
+                        "detail": " · ".join(item for item in binding if item)
+                        or str(citation.get("detail") or "已记录引用"),
+                        "status": "hit",
+                    }
+                )
         counts = retrieval.get("citation_counts", {})
         if isinstance(counts, dict):
             citation_counts.update(
@@ -293,6 +448,8 @@ def _run_context(store: RunStore, run_id: str) -> dict[str, object]:
             "source_date": run.source_date,
             "duckdb_cutoff": run.duckdb_cutoff,
             "kb_commit": run.kb_commit,
+            "kb_index_built_at": run.kb_index_built_at,
+            "kb_index_freshness": run.kb_index_freshness,
             "manifest_ref": run.manifest_ref,
         },
     }
@@ -316,6 +473,7 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
 
     @app.post("/api/runs")
     def create_run(req: CreateRunRequest) -> dict[str, object]:
+        req.repo_root = root
         store = store_for(req.user)
         run = store.create_run(
             req.question,
@@ -368,7 +526,7 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
         return payload if isinstance(payload, dict) else {"followups": []}
 
     @app.get("/api/runs/{run_id}/events")
-    def run_events(run_id: str, user: str | None = None) -> StreamingResponse:
+    def run_events(run_id: str, request: Request, user: str | None = None) -> StreamingResponse:
         store = store_for(user)
         try:
             if not store.run_path(run_id).exists():
@@ -376,14 +534,36 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
+        last_event_id = request.headers.get("last-event-id", "")
+
         def stream():
             sent = 0
+            sent_report_events = 0
+            resume_after = last_event_id
             deadline = time.monotonic() + _SSE_MAX_SECONDS
             while True:
                 steps = store.load_trace(run_id)
                 for step in steps[sent:]:
                     yield f"event: step\ndata: {json.dumps(step, ensure_ascii=False)}\n\n"
                 sent = len(steps)
+                report_events = store.load_stream_events(run_id)
+                if resume_after:
+                    sent_report_events = next(
+                        (
+                            index + 1
+                            for index, event in enumerate(report_events)
+                            if event.get("event_id") == resume_after
+                        ),
+                        0,
+                    )
+                    resume_after = ""
+                for event in report_events[sent_report_events:]:
+                    yield (
+                        f"id: {event['event_id']}\n"
+                        f"event: {event['event_type']}\n"
+                        f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    )
+                sent_report_events = len(report_events)
                 run = store.load_run(run_id)
                 if run.status in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
                     yield f"event: run\ndata: {json.dumps(asdict(run), ensure_ascii=False)}\n\n"
@@ -394,6 +574,32 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
                 time.sleep(_SSE_POLL_SECONDS)
 
         return StreamingResponse(stream(), media_type="text/event-stream")
+
+    @app.get("/api/runs/{run_id}/report")
+    def get_run_report(run_id: str, user: str | None = None) -> dict[str, object] | None:
+        store = store_for(user)
+        try:
+            run_dir = store.run_dir(run_id)
+            if not store.run_path(run_id).exists():
+                raise HTTPException(404, f"run 不存在：{run_id}")
+        except ValueError as exc:
+            raise HTTPException(404, f"run 不存在：{run_id}") from exc
+        report_path = run_dir / "report.json"
+        if report_path.is_file():
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            return payload if isinstance(payload, dict) else None
+        report: dict[str, object] | None = None
+        for event in store.load_stream_events(run_id):
+            payload = event.get("payload", {})
+            if event.get("event_type") in {"report_start", "report_complete", "report_error"}:
+                candidate = payload.get("report") if isinstance(payload, dict) else None
+                if isinstance(candidate, dict):
+                    report = candidate
+            elif event.get("event_type") == "report_module" and report is not None:
+                module = payload.get("module") if isinstance(payload, dict) else None
+                if isinstance(module, dict):
+                    upsert_report_module(report, module)
+        return report
 
     @app.get("/api/runs/{run_id}/artifacts/{name:path}")
     def get_run_artifact(run_id: str, name: str, user: str | None = None) -> FileResponse:
@@ -566,7 +772,7 @@ def create_app(*, repo_root: Path | None = None) -> FastAPI:
             {
                 "id": "daily",
                 "title": "今日复盘",
-                "description": "打开最新日常产物，再继续追问",
+                "description": "调用 GLM 综合证据，并流式生成日报与 L2 资金流模块",
                 "task_type": "daily",
                 "artifact_id": latest_daily.artifact_id if latest_daily else None,
                 "prompt": "基于最新收盘数据，总结今日盘面、主线、反证和下一交易日验证点。",

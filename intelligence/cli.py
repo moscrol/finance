@@ -863,7 +863,7 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
         print(rubric.format_score(scored))
         if card_path is not None:
             print(f"\n经验卡片已保存 → {card_path}")
-    return 0 if scored.percent >= 60 else 1
+    return 0
 
 
 def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:

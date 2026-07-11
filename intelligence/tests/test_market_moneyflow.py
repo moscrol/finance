@@ -5,6 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from intelligence.services.market_moneyflow import (
+    load_moneyflow_snapshot,
     moneyflow_block_for_llm,
     parse_moneyflow_intent,
 )
@@ -95,6 +96,51 @@ class MoneyflowBlockTests(unittest.TestCase):
             db = Path(tmp) / "t.duckdb"
             duckdb.connect(str(db)).close()
             self.assertEqual(moneyflow_block_for_llm("大单资金流", None, db), "")
+
+    def test_snapshot_is_structured_and_deduplicates_cross_scan_stocks(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+            con = duckdb.connect(str(db))
+            con.execute(
+                "insert into feature_l2_capital_flow_daily values "
+                "('2026-07-08','top100','300454','300454.XSHE','深信服',11000,14000,300,0.50,9.9,500,4,null,'l2',now())"
+            )
+            con.close()
+
+            snapshot = load_moneyflow_snapshot(db, as_of_date="2026-07-08")
+
+            self.assertEqual(snapshot.status, "ok")
+            self.assertEqual(snapshot.trade_date, "2026-07-08")
+            self.assertEqual([row.stock_name for row in snapshot.leaders].count("深信服"), 1)
+            self.assertEqual(snapshot.coverage, {"limitup": 1, "top100": 2})
+            self.assertEqual(snapshot.quant_orders[0].stock_name, "深信服")
+
+    def test_snapshot_uses_last_available_day_and_marks_stale(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+
+            snapshot = load_moneyflow_snapshot(db, as_of_date="2026-07-10")
+
+            self.assertEqual(snapshot.status, "stale")
+            self.assertEqual(snapshot.trade_date, "2026-07-08")
+            self.assertIn("早于报告日", snapshot.warnings[0])
+
+    def test_llm_block_respects_as_of_date(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+
+            block = moneyflow_block_for_llm(
+                "大单资金流",
+                None,
+                db,
+                as_of_date="2026-07-07",
+            )
+
+            self.assertIn("最新扫描日 2026-07-07", block)
+            self.assertNotIn("京东方", block)
 
 
 if __name__ == "__main__":

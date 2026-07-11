@@ -5,6 +5,7 @@ import type {
   Followup,
   Run,
   RunContext,
+  StructuredReport,
   TraceStep,
 } from "./types";
 
@@ -44,6 +45,15 @@ export async function getFollowups(runId: string, user?: string): Promise<Follow
 
 export function getRunContext(runId: string, user?: string): Promise<RunContext> {
   return request<RunContext>(withUser(`/api/runs/${encodeURIComponent(runId)}/context`, user));
+}
+
+export function getRunReport(
+  runId: string,
+  user?: string,
+): Promise<StructuredReport | null> {
+  return request<StructuredReport | null>(
+    withUser(`/api/runs/${encodeURIComponent(runId)}/report`, user),
+  );
 }
 
 export async function getRunArtifactText(

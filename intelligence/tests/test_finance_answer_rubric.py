@@ -166,8 +166,10 @@ class FinanceAnswerRubricTests(unittest.TestCase):
             payload = json.loads(proc.stdout)
             rows = [json.loads(line) for line in card_path.read_text(encoding="utf-8").splitlines()]
 
-        self.assertEqual(proc.returncode, 1)  # 低分仍保留评分退出码，但卡片已保存。
+        self.assertEqual(proc.returncode, 0)  # 评分仅供审稿，显式保存卡片仍由人工决定。
         self.assertEqual(payload["experience_card_path"], str(card_path))
+        self.assertEqual(payload["role"], "advisory_review")
+        self.assertFalse(payload["decision_eligible"])
         self.assertEqual(rows[0]["question"], "科技细分里哪个方向还有上涨空间")
         self.assertIn("回答板块空间问题", rows[0]["prompt_rule"])
 

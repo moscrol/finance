@@ -132,6 +132,111 @@ def test_sse_replays_steps_and_ends_with_run(client: TestClient) -> None:
     assert events[-1] == "run"
 
 
+def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestClient) -> None:
+    run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    _wait_terminal(client, run_id)
+    store = RunStore()
+    report = {
+        "schema_version": 1,
+        "report_id": run_id,
+        "title": "q",
+        "task_type": "daily",
+        "status": "streaming",
+        "modules": [],
+        "warnings": [],
+    }
+    module = {
+        "module_id": "l2_moneyflow",
+        "title": "L2 大单资金流",
+        "kind": "table",
+        "status": "complete",
+        "metrics": [],
+        "items": [],
+        "table": {"columns": [], "rows": []},
+        "warnings": [],
+        "provenance": {"source": "duckdb"},
+    }
+    store.append_stream_event(
+        run_id,
+        event_id="report:start",
+        event_type="report_start",
+        payload={"report": report},
+    )
+    store.append_stream_event(
+        run_id,
+        event_id="module:l2_moneyflow",
+        event_type="report_module",
+        payload={"module": module},
+    )
+
+    streamed = client.get(f"/api/runs/{run_id}/events").text
+    assert "event: report_start" in streamed
+    assert "event: report_module" in streamed
+    assert "id: module:l2_moneyflow" in streamed
+    resumed = client.get(
+        f"/api/runs/{run_id}/events",
+        headers={"Last-Event-ID": "report:start"},
+    ).text
+    assert "event: report_start" not in resumed
+    assert "event: report_module" in resumed
+
+    current = client.get(f"/api/runs/{run_id}/report").json()
+    assert current["modules"] == [module]
+
+
+def test_daily_run_uses_one_pass_llm_and_template_followups(tmp_path, monkeypatch) -> None:
+    from intelligence.services import ask as ask_svc
+    from intelligence.services import followups as followups_svc
+    from intelligence.services.ask import AskResult
+
+    captured: dict[str, object] = {}
+
+    def fake_answer(options):
+        captured["options"] = options
+        result = AskResult(
+            query=options.query,
+            trade_date="2026-07-10",
+            matched_theme="算力",
+            candidate_tier="watch",
+            priority_score=80,
+        )
+        result.synthesis = "一轮 GLM 综合结果。"
+        result.llm_provider = "glm"
+        result.warnings = ["输出质检：盘面数据需要复核"]
+        result.sections = {"结论": ["市场修复延续。"]}
+        return result
+
+    def fake_followups(*args, use_llm=True, **kwargs):
+        captured["followups_use_llm"] = use_llm
+        return followups_svc.FollowupResult()
+
+    monkeypatch.setattr(ask_svc, "answer_query", fake_answer)
+    monkeypatch.setattr(ask_svc, "render_answer", lambda result: "# 结论\n市场修复延续。")
+    monkeypatch.setattr(followups_svc, "generate_followups", fake_followups)
+
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    store = RunStore(root=tmp_path / "runs")
+    run = store.create_run("今日复盘", "daily")
+    request = app_module.CreateRunRequest(
+        question="今日复盘",
+        task_type="daily",
+        repo_root=repo_root,
+    )
+
+    app_module._run_ask(store, run.run_id, request)
+
+    options = captured["options"]
+    assert options.compose_self_review is False
+    assert options.compose_revise_on_warn is False
+    assert options.force_moneyflow_block is True
+    assert captured["followups_use_llm"] is False
+    saved = store.load_run(run.run_id)
+    assert saved.status == rs.STATUS_COMPLETED
+    assert saved.source_date == "2026-07-10"
+    assert "输出质检：盘面数据需要复核" in saved.degrades
+
+
 def test_missing_run_404(client: TestClient) -> None:
     assert client.get("/api/runs/run_nope").status_code == 404
     assert client.get("/api/runs/run_nope/trace").status_code == 404

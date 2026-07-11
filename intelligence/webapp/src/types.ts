@@ -25,6 +25,8 @@ export interface Run {
   source_date: string | null;
   duckdb_cutoff: string | null;
   kb_commit: string | null;
+  kb_index_built_at: string | null;
+  kb_index_freshness: string | null;
   manifest_ref: string | null;
   degrades: string[];
   error: string | null;
@@ -43,6 +45,7 @@ export interface TraceStep {
   retrieval?: {
     sources?: string[];
     citation_counts?: Record<string, number>;
+    citations?: Array<Record<string, string>>;
     trade_date?: string | null;
     matched_theme?: string | null;
   };
@@ -79,6 +82,8 @@ export interface RunContext {
     source_date: string | null;
     duckdb_cutoff: string | null;
     kb_commit: string | null;
+    kb_index_built_at: string | null;
+    kb_index_freshness: string | null;
     manifest_ref: string | null;
   };
 }
@@ -144,6 +149,71 @@ export interface DailyReportProjection {
   };
 }
 
+export interface StructuredReportMetric {
+  label: string;
+  value: string;
+  context?: string | null;
+  tone?: string;
+}
+
+export interface StructuredReportItem {
+  title?: string;
+  summary: string;
+  badges?: string[];
+  meta?: ReportMeta[];
+  next_action?: string;
+}
+
+export interface StructuredReportTable {
+  columns: Array<{ key: string; label: string }>;
+  rows: Array<Record<string, string | number | null>>;
+}
+
+export interface StructuredReportModule {
+  module_id: string;
+  title: string;
+  kind: string;
+  status: "complete" | "degraded";
+  summary: string | null;
+  content: string | null;
+  metrics: StructuredReportMetric[];
+  items: StructuredReportItem[];
+  table: StructuredReportTable | null;
+  warnings: string[];
+  provenance: {
+    source: string | null;
+    as_of?: string | null;
+    generated_by?: string;
+  };
+}
+
+export interface StructuredReport {
+  schema_version: number;
+  report_id: string;
+  title: string;
+  task_type: string;
+  status: "streaming" | "completed" | "failed";
+  as_of: string | null;
+  llm: {
+    used: boolean;
+    provider: string | null;
+    model: string | null;
+  };
+  modules: StructuredReportModule[];
+  warnings: string[];
+  completed_at?: string;
+}
+
+export interface StructuredReportEvent {
+  event_id: string;
+  event_type: "report_start" | "report_module" | "report_complete" | "report_error";
+  created_at: string;
+  payload: {
+    report?: StructuredReport;
+    module?: StructuredReportModule;
+  };
+}
+
 export interface Workflow {
   id: "daily" | "theme" | "stock_research";
   title: string;
@@ -170,6 +240,7 @@ export interface RunBundle {
   followups: Followup[];
   context: RunContext;
   answer: string | null;
+  structuredReport: StructuredReport | null;
   registeredArtifacts: ArtifactDescriptor[];
 }
 
