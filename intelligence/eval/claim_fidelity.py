@@ -1617,6 +1617,9 @@ def evaluate_registry(
                 "canonical_report_path": report_path or None,
                 "status": "missing",
                 "claims": [],
+                "claim_status_counts": {
+                    status: 0 for status in VERIFICATION_STATUSES
+                },
                 "metrics": score_claims([], None),
                 "version_gap_audit": audit_version_gaps(snapshot),
                 "decision_eligible": False,
@@ -1682,6 +1685,13 @@ def evaluate_registry(
             "status": "audited",
             "claim_count": len(verified),
             "claims": verified,
+            "claim_status_counts": {
+                status: sum(
+                    claim.get("verification_status") == status
+                    for claim in verified
+                )
+                for status in VERIFICATION_STATUSES
+            },
             "metrics": metrics,
             "version_gap_audit": audit_version_gaps(snapshot),
             "decision_eligible": False,
@@ -1695,6 +1705,46 @@ def evaluate_registry(
         "timeline_recall",
         "stage_feature_accuracy",
     )
+    compact_reports = [
+        {
+            key: value
+            for key, value in report.items()
+            if key != "claims"
+        }
+        for report in reports
+    ]
+    claim_status_counts = {
+        status: sum(
+            int(report.get("claim_status_counts", {}).get(status, 0))
+            for report in reports
+            if isinstance(report.get("claim_status_counts"), dict)
+        )
+        for status in VERIFICATION_STATUSES
+    }
+    causal_counts = {
+        status: sum(
+            int(metrics.get("causal_statements", {}).get(status, 0))
+            for report in reports
+            if isinstance((metrics := report.get("metrics")), dict)
+            and isinstance(metrics.get("causal_statements"), dict)
+        )
+        for status in (
+            "supported",
+            "unsupported",
+            "unverifiable",
+            "pending",
+        )
+    }
+    version_gap_status_counts = {
+        status: sum(
+            gap.get("status") == status
+            for report in reports
+            if isinstance(report.get("version_gap_audit"), dict)
+            for gap in report["version_gap_audit"].get("gaps", [])
+            if isinstance(gap, dict)
+        )
+        for status in ("pending", "partial", "needs_review", "unverifiable")
+    }
     summary = {
         "schema_version": "claim-fidelity-pilot-1.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -1709,6 +1759,13 @@ def evaluate_registry(
         "historical_replay": {
             name: _aggregate_metric(reports, name) for name in replay_names
         },
+        "causal_statement_counts": causal_counts,
+        "claim_status_counts": claim_status_counts,
+        "version_gap_status_counts": version_gap_status_counts,
+        "gold_candidate_status_counts": {
+            "candidate": len(reports),
+            "approved": 0,
+        },
         "recommended_thresholds": RECOMMENDED_THRESHOLDS,
         "blocking_version_gap_dates": [
             report["report_date"]
@@ -1718,7 +1775,7 @@ def evaluate_registry(
         ],
         "decision_eligible": False,
         "phase_2_allowed": False,
-        "reports": reports,
+        "reports": compact_reports,
     }
     _write_json(output / "summary.json", summary)
     return summary

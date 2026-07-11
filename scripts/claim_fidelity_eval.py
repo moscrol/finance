@@ -56,6 +56,35 @@ def render_markdown(summary: dict[str, object]) -> str:
     lines.extend(
         [
             "",
+            "## 历史重放指标",
+            "",
+            "| 指标 | 值 | 分子 / 分母 | pending |",
+            "|---|---:|---:|---:|",
+        ]
+    )
+    replay = summary.get("historical_replay")
+    if isinstance(replay, dict):
+        for name, label in (
+            ("timeline_precision", "时间线 precision"),
+            ("timeline_recall", "时间线 recall"),
+            ("stage_feature_accuracy", "阶段特征准确率"),
+        ):
+            lines.append(_metric_line(label, replay.get(name)))
+    claim_statuses = summary.get("claim_status_counts")
+    gap_statuses = summary.get("version_gap_status_counts")
+    lines.extend(
+        [
+            "",
+            "## 待审与缺口",
+            "",
+            f"- claim 状态：`{json.dumps(claim_statuses, ensure_ascii=False)}`",
+            f"- 版本缺口：`{json.dumps(gap_statuses, ensure_ascii=False)}`",
+            "- gold candidate：10；approved：0（等待人工审定）。",
+        ]
+    )
+    lines.extend(
+        [
+            "",
             "## 逐日状态",
             "",
             "| 日期 | canonical 报告 | 状态 | claims | 版本缺口 |",
