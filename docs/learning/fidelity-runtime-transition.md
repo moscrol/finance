@@ -1,6 +1,6 @@
 # Fidelity runtime 渐进迁移
 
-目标是先把逐声明 lineage 与 PIT v1.1 放进稳定运行链，再迁移会写入大量日常产物的旧任务。
+目标是把逐声明 lineage 与 fidelity contract 1.2 放进稳定运行链，再迁移会写入大量日常产物的旧任务。
 
 ## 运行目录
 
@@ -42,7 +42,22 @@
      --date YYYY-MM-DD
    ```
 
-   只有代码 worktree clean、daily-agent 存在非空 `claim-lineage-v1`、PIT manifest 为 `pit-daily-manifest-1.1` 时，`capture_ready` 才为 true。`replay_ready` 还要求 manifest 自身的 `replay_eligible=true`；两者分开，避免把“新链路已运行”误写成“已可用于决策”。
+   `capture_ready` 要求代码 worktree clean，并同时验证：
+
+   - daily-agent、Theme Radar 上游和 PIT 都满足
+     `fidelity-contract-1.2`；
+   - `report_generated_at`、`evidence_cutoff`、
+     `decision_cutoff`、`snapshot_captured_at` 的顺序合法；
+   - `generator_commit`、`run_id`、`artifact_sha`、
+     `manifest_sha` 完整且上下游一致；
+   - JSON、Markdown、HTML 共享同一 provenance marker；
+   - 所有对外叙述都进入 canonical claim manifest；
+   - 报告确实在目标交易日生成，历史补跑不能冒充前向产物。
+
+   PIT manifest 必须为 `pit-daily-manifest-1.2`，且连接同日
+   daily-agent 的 run/hash/commit。`replay_ready` 还要求 manifest
+   自身的 `replay_eligible=true`；`decision_eligible` 在积累足够前向
+   交易日和 Gold 审核前固定为 false。
 
 ## 暂不迁移
 

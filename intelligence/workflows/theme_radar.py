@@ -6,6 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from intelligence.services import ThemeRadarService
+from intelligence.services.fidelity_contract import (
+    git_commit,
+    provenance_marker,
+    seal_artifact,
+)
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 
 
@@ -43,7 +48,29 @@ def run_theme_radar(options: ThemeRadarOptions) -> WorkflowSummary:
         summary.finish("FAIL")
         return summary
 
-    result = ThemeRadarService().build_market_triggered_candidates(options.date, top=options.top)
+    result = ThemeRadarService().build_market_triggered_candidates(
+        options.date,
+        top=options.top,
+    )
+    generated_at = now_iso()
+    generator_commit = git_commit(Path(__file__).resolve().parents[2])
+    seal_artifact(
+        result,
+        artifact_kind="theme-candidates",
+        report_date=options.date,
+        generator_commit=generator_commit,
+        snapshot_captured_at=summary.started_at,
+        report_generated_at=generated_at,
+        manifest_payload={
+            "lineage_schema_version": result.get("lineage_schema_version"),
+            "evidence_catalog": result.get("evidence_catalog"),
+            "candidate_evidence_refs": [
+                candidate.get("evidence_refs")
+                for candidate in result.get("candidates", [])
+                if isinstance(candidate, dict)
+            ],
+        },
+    )
     summary.steps.append(_step_from_candidates(result))
     summary.outputs = [
         f"trade_date={result.get('trade_date')}",
@@ -145,6 +172,7 @@ def render_market_triggered_markdown(result: dict[str, Any], top: int = 50) -> s
         lines.extend(_candidate_section(int(item.get("rank") or 0), item))
     if result.get("warnings"):
         lines.extend(["## 六、Warnings", "", *[f"- {warning}" for warning in result.get("warnings", [])], ""])
+    lines.extend(["", f"<!-- {provenance_marker(result)} -->", ""])
     return "\n".join(lines)
 
 

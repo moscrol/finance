@@ -20,6 +20,7 @@ python3 scripts/pit_snapshot_inventory.py freeze \
   --finance-root . \
   --kb-root /Users/a77/knowledge-base-private \
   --out-dir /Users/a77/fidelity-replay/pit-snapshots \
+  --daily-agent-dir market_feature_store/exports \
   --as-of 2026-07-10 \
   --dry-run
 ```
@@ -33,7 +34,7 @@ python3 scripts/pit_snapshot_inventory.py freeze \
 `already_frozen`。这采用的是 **content-addressed artifact（内容寻址产物）**
 思路：文件名标识日期，hash 标识内容，任何事后改写都会被发现。
 
-`pit-daily-snapshot-1.1` 还会给每一行增加 `_pit`：
+`pit-daily-snapshot-1.2` 还会给每一行增加 `_pit`：
 
 ```json
 {
@@ -50,8 +51,14 @@ python3 scripts/pit_snapshot_inventory.py freeze \
 - `known_at`：本地库实际获得该行的 `updated_at`；
 - `source_time`：优先使用源发布时间 `source_update_time`，缺失时明确标为
   `ingestion_fallback`，不能假装是官方发布时间；
-- 选行必须同时满足 `updated_at <= captured_at` 与
-  `updated_at < as_of + 1 day`。
+- 选行必须同时满足 `known_at <= evidence_cutoff` 与
+  `source_time <= evidence_cutoff`。1.2 把 `evidence_cutoff` 与
+  `decision_cutoff` 显式写入 snapshot 和 manifest，避免 20:30
+  捕获时误纳入 18:30 决策冻结后才出现的数据。
+
+PIT manifest 还保存同日 daily-agent 的 `run_id`、`artifact_sha`、
+`manifest_sha` 与 `generator_commit`。上游缺失、无效或不是同一代码
+commit 时，快照仍可作为诊断产物保存，但 `replay_eligible=false`。
 
 每份新 manifest 会保存前一份 manifest 文件的 SHA-256，形成日级 hash
 chain。单文件 checksum 能发现快照损坏；hash chain 还能发现旧 manifest
@@ -67,7 +74,8 @@ python3 scripts/pit_snapshot_inventory.py validate \
 ```
 
 校验会同时检查 gzip、压缩前 payload、manifest payload、前序链、日期边界和
-逐行 `known_at`。
+逐行 `known_at` / `source_time`、四个时间字段、generator commit、
+上下游 provenance 和 artifact/manifest SHA-256。
 
 ## 自动冻结
 

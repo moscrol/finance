@@ -21,6 +21,8 @@
     <string>/Users/a77/knowledge-base-private</string>
     <key>PIT_SNAPSHOT_DIR</key>
     <string>/Users/a77/fidelity-replay/pit-snapshots</string>
+    <key>PIT_DAILY_AGENT_DIR</key>
+    <string>/Users/a77/finance-workspace-private/market_feature_store/exports</string>
   </dict>
   <key>StartCalendarInterval</key>
   <dict>

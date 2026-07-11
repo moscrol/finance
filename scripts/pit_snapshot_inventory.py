@@ -38,6 +38,7 @@ def cmd_freeze(args: argparse.Namespace) -> int:
         out_dir=args.out_dir,
         lookback=args.lookback,
         dry_run=args.dry_run,
+        daily_agent_dir=args.daily_agent_dir,
     )
     print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
     return 0 if manifest["status"] != "pending" else 2
@@ -80,6 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     freeze.add_argument("--as-of")
     freeze.add_argument("--lookback", type=int, default=20)
     freeze.add_argument("--dry-run", action="store_true")
+    freeze.add_argument("--daily-agent-dir")
     freeze.set_defaults(func=cmd_freeze)
 
     validate = sub.add_parser(

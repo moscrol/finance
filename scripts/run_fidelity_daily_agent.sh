@@ -52,6 +52,9 @@ trap cleanup EXIT
 /usr/bin/python3 - "${TMP_JSON}" <<'PY'
 import json
 import sys
+from pathlib import Path
+
+from intelligence.services.fidelity_contract import contract_errors
 
 with open(sys.argv[1], encoding="utf-8") as handle:
     body = json.load(handle)
@@ -59,6 +62,23 @@ if body.get("lineage_schema_version") != "claim-lineage-v1":
     raise SystemExit("theme candidates missing claim-lineage-v1")
 if body.get("candidate_count", 0) and not body.get("evidence_catalog"):
     raise SystemExit("theme candidates missing evidence catalog")
+if body.get("trade_date") != Path(sys.argv[1]).name[:10]:
+    raise SystemExit("theme candidate trade_date mismatch")
+manifest_payload = {
+    "lineage_schema_version": body.get("lineage_schema_version"),
+    "evidence_catalog": body.get("evidence_catalog"),
+    "candidate_evidence_refs": [
+        candidate.get("evidence_refs")
+        for candidate in body.get("candidates", [])
+        if isinstance(candidate, dict)
+    ],
+}
+errors = contract_errors(body, manifest_payload=manifest_payload)
+if errors:
+    raise SystemExit(
+        "theme candidates invalid fidelity contract 1.2: "
+        + "; ".join(errors)
+    )
 PY
 
 BACKUP="${STATE_ROOT}/backups/${D}"
