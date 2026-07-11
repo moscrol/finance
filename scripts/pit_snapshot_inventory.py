@@ -12,10 +12,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from intelligence.eval.pit_snapshot import (
+from intelligence.eval.pit_snapshot import (  # noqa: E402
     build_historical_inventory,
     freeze_daily_snapshot,
     render_historical_inventory,
+    validate_frozen_snapshot,
 )
 
 
@@ -61,6 +62,12 @@ def cmd_inventory(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_validate(args: argparse.Namespace) -> int:
+    manifest = validate_frozen_snapshot(args.out_dir, args.as_of)
+    print(json.dumps(manifest, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -74,6 +81,14 @@ def build_parser() -> argparse.ArgumentParser:
     freeze.add_argument("--lookback", type=int, default=20)
     freeze.add_argument("--dry-run", action="store_true")
     freeze.set_defaults(func=cmd_freeze)
+
+    validate = sub.add_parser(
+        "validate",
+        help="校验冻结快照、manifest checksum 与前序 hash chain",
+    )
+    validate.add_argument("--out-dir", required=True)
+    validate.add_argument("--as-of", required=True)
+    validate.set_defaults(func=cmd_validate)
 
     inventory = sub.add_parser(
         "inventory", help="盘点 cutoff 前已存在的 DuckDB 行与 Git 资料"

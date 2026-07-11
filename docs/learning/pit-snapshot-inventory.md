@@ -33,11 +33,53 @@ python3 scripts/pit_snapshot_inventory.py freeze \
 `already_frozen`。这采用的是 **content-addressed artifact（内容寻址产物）**
 思路：文件名标识日期，hash 标识内容，任何事后改写都会被发现。
 
+`pit-daily-snapshot-1.1` 还会给每一行增加 `_pit`：
+
+```json
+{
+  "valid_time": "2026-07-10",
+  "known_at": "2026-07-10T18:30:00",
+  "captured_at": "2026-07-10T20:30:00+08:00",
+  "source_time": "2026-07-10T18:20:00",
+  "source_time_field": "source_update_time",
+  "source_time_kind": "source_publication"
+}
+```
+
+- `valid_time`：事实适用日期；
+- `known_at`：本地库实际获得该行的 `updated_at`；
+- `source_time`：优先使用源发布时间 `source_update_time`，缺失时明确标为
+  `ingestion_fallback`，不能假装是官方发布时间；
+- 选行必须同时满足 `updated_at <= captured_at` 与
+  `updated_at < as_of + 1 day`。
+
+每份新 manifest 会保存前一份 manifest 文件的 SHA-256，形成日级 hash
+chain。单文件 checksum 能发现快照损坏；hash chain 还能发现旧 manifest
+在后续日期冻结后被改写。它不是区块链，也不替代离线备份，但比互不关联的
+checksum 更适合审计型时间序列。
+
+校验命令：
+
+```bash
+python3 scripts/pit_snapshot_inventory.py validate \
+  --out-dir /Users/a77/fidelity-replay/pit-snapshots \
+  --as-of 2026-07-10
+```
+
+校验会同时检查 gzip、压缩前 payload、manifest payload、前序链、日期边界和
+逐行 `known_at`。
+
 ## 自动冻结
 
 `intelligence/eval/com.financeworkspace.pit-snapshot.plist` 在每天 20:30
 运行 `scripts/freeze_daily_pit_snapshot.sh`。它晚于 18:30 的
 `daily-full-review`，给申万一级等较晚同步步骤留出缓冲。
+
+冻结时 finance/wiki 工作树必须干净，才能把 Git commit 当作精确知识输入。
+脏工作树不会被静默忽略：manifest 增加
+`finance_dirty_worktree` / `wiki_dirty_worktree`，并将
+`replay_eligible=false`。替代方案是把整个工作树每天打包，但会产生大量重复
+存储；当前优先采用“commit 内容寻址 + 脏树硬门控”。
 
 ## 历史资料盘点
 

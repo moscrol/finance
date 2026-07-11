@@ -9,6 +9,7 @@ import subprocess
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from zoneinfo import ZoneInfo
 
 SNAPSHOT_TABLES = {
     "fact_market_daily": "history",
@@ -49,6 +50,7 @@ ARTIFACT_SUFFIXES = {
     ".yaml",
     ".yml",
 }
+LOCAL_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 
 def _json_default(value: Any) -> str:
@@ -144,7 +146,11 @@ def _trade_dates(con: Any, as_of: str, lookback: int) -> list[str]:
 
 
 def _table_rows(
-    con: Any, table: str, dates: Iterable[str], cutoff_local: datetime
+    con: Any,
+    table: str,
+    dates: Iterable[str],
+    cutoff_local: datetime,
+    captured_local: datetime,
 ) -> list[dict[str, Any]]:
     selected_dates = list(dates)
     if not selected_dates:
@@ -159,17 +165,61 @@ def _table_rows(
         FROM {table}
         WHERE CAST(trade_date AS VARCHAR) IN ({placeholders})
           AND updated_at < ?
+          AND updated_at <= ?
         """,
-        [*selected_dates, cutoff_local],
+        [*selected_dates, cutoff_local, captured_local],
     )
     columns = [str(item[0]) for item in cursor.description]
-    rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    rows = [
+        _annotate_pit_row(table, dict(zip(columns, row)), captured_local)
+        for row in cursor.fetchall()
+    ]
     rows.sort(
         key=lambda row: json.dumps(
             row, ensure_ascii=False, sort_keys=True, default=_json_default
         )
     )
     return rows
+
+
+def _annotate_pit_row(
+    table: str,
+    row: dict[str, Any],
+    captured_local: datetime,
+) -> dict[str, Any]:
+    source_time_field = (
+        "source_update_time"
+        if row.get("source_update_time") is not None
+        else "updated_at"
+    )
+    source_field = next(
+        (
+            field
+            for field in (
+                "source",
+                "strength_source",
+                "stock_high_source",
+                "sh_index_source",
+            )
+            if row.get(field) not in {None, ""}
+        ),
+        None,
+    )
+    row["_pit"] = {
+        "valid_time": _json_default(row.get("trade_date")),
+        "known_at": _json_default(row.get("updated_at")),
+        "captured_at": captured_local.replace(tzinfo=LOCAL_TIMEZONE).isoformat(),
+        "source_time": _json_default(row.get(source_time_field)),
+        "source_time_field": source_time_field,
+        "source_time_kind": (
+            "source_publication"
+            if source_time_field == "source_update_time"
+            else "ingestion_fallback"
+        ),
+        "source": row.get(source_field) if source_field else table,
+        "source_field": source_field,
+    }
+    return row
 
 
 def _table_stats(
@@ -338,7 +388,8 @@ def build_daily_snapshot(
     con = _connect(db_path)
     try:
         captured_at = datetime.now(timezone.utc)
-        captured_local = datetime.now()
+        captured_local_aware = captured_at.astimezone(LOCAL_TIMEZONE)
+        captured_local = captured_local_aware.replace(tzinfo=None)
         if as_of is None:
             row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
             if not row or not row[0]:
@@ -362,6 +413,7 @@ def build_daily_snapshot(
                 table,
                 dates if mode == "history" else [as_of],
                 cutoff_local,
+                captured_local,
             )
         coverage = _coverage_checks(con, as_of)
     finally:
@@ -386,6 +438,17 @@ def build_daily_snapshot(
         for name, state in (("finance", finance_as_of), ("wiki", wiki_as_of))
         if state is None
     ]
+    dirty_repositories = [
+        name
+        for name, state in (
+            ("finance", finance_current),
+            ("wiki", wiki_current),
+        )
+        if bool((state or {}).get("dirty"))
+    ]
+    repository_gaps.extend(
+        f"{name}_dirty_worktree" for name in dirty_repositories
+    )
     status = (
         "pending"
         if required_failures
@@ -394,11 +457,11 @@ def build_daily_snapshot(
         else "frozen"
     )
     snapshot = {
-        "schema_version": "pit-daily-snapshot-1.0",
+        "schema_version": "pit-daily-snapshot-1.1",
         "task_id": "pit-snapshot-inventory-v1",
         "as_of": as_of,
         "captured_at": _json_default(captured_at),
-        "captured_at_local": _json_default(captured_local),
+        "captured_at_local": captured_local_aware.isoformat(),
         "timezone": "Asia/Shanghai",
         "lookback_trade_dates": dates,
         "boundary": {
@@ -421,7 +484,7 @@ def build_daily_snapshot(
     }
     canonical = _canonical_bytes(snapshot)
     manifest = {
-        "schema_version": "pit-daily-manifest-1.0",
+        "schema_version": "pit-daily-manifest-1.1",
         "task_id": "pit-snapshot-inventory-v1",
         "as_of": as_of,
         "captured_at": snapshot["captured_at"],
@@ -429,11 +492,23 @@ def build_daily_snapshot(
         "required_failures": required_failures,
         "coverage_gaps": coverage_gaps,
         "repository_gaps": repository_gaps,
+        "replay_eligible": not (
+            required_failures or coverage_gaps or repository_gaps
+        ),
         "coverage": coverage,
         "tables": stats,
         "snapshot_sha256": _sha256(canonical),
         "repositories": snapshot["repositories"],
         "boundary": snapshot["boundary"],
+        "known_at_contract": {
+            "row_known_at_field": "updated_at",
+            "source_publication_field": "source_update_time",
+            "source_publication_fallback": "updated_at",
+            "selection_rule": (
+                "updated_at <= captured_at_local AND "
+                "updated_at < as_of + 1 day"
+            ),
+        },
     }
     return snapshot, manifest
 
@@ -464,11 +539,99 @@ def _existing_frozen_manifest(root: Path, as_of: str) -> dict[str, Any] | None:
         return None
     if not manifest_path.exists() or not snapshot_path.exists():
         raise ValueError(f"incomplete frozen pair for {as_of}")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    compressed_sha = _sha256(snapshot_path.read_bytes())
-    if compressed_sha != manifest.get("compressed_sha256"):
-        raise ValueError(f"frozen snapshot checksum mismatch for {as_of}")
+    manifest = validate_frozen_snapshot(root, as_of)
     return {**manifest, "write_status": "already_frozen"}
+
+
+def _previous_manifest_link(root: Path, as_of: str) -> dict[str, str] | None:
+    candidates = sorted(
+        path
+        for path in root.glob("*.manifest.json")
+        if path.name[:10] < as_of
+    )
+    if not candidates:
+        return None
+    previous = candidates[-1]
+    return {
+        "as_of": previous.name[:10],
+        "manifest_file": previous.name,
+        "manifest_file_sha256": _sha256(previous.read_bytes()),
+    }
+
+
+def _local_datetime(value: object) -> datetime | None:
+    if value in {None, ""}:
+        return None
+    parsed = datetime.fromisoformat(str(value))
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(LOCAL_TIMEZONE).replace(tzinfo=None)
+    return parsed
+
+
+def validate_frozen_snapshot(
+    out_dir: str | Path,
+    as_of: str,
+) -> dict[str, Any]:
+    root = Path(out_dir).expanduser()
+    manifest_path = root / f"{as_of}.manifest.json"
+    snapshot_path = root / f"{as_of}.snapshot.json.gz"
+    if not manifest_path.exists() or not snapshot_path.exists():
+        raise ValueError(f"incomplete frozen pair for {as_of}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    compressed = snapshot_path.read_bytes()
+    if _sha256(compressed) != manifest.get("compressed_sha256"):
+        raise ValueError(f"frozen snapshot checksum mismatch for {as_of}")
+    try:
+        canonical = gzip.decompress(compressed)
+    except (OSError, EOFError) as exc:
+        raise ValueError(f"frozen snapshot gzip is invalid for {as_of}") from exc
+    if _sha256(canonical) != manifest.get("snapshot_sha256"):
+        raise ValueError(f"snapshot payload checksum mismatch for {as_of}")
+    snapshot = json.loads(canonical)
+    if snapshot.get("as_of") != as_of:
+        raise ValueError(f"snapshot as_of mismatch for {as_of}")
+    if (snapshot.get("boundary") or {}).get("max_embedded_date") != as_of:
+        raise ValueError(f"snapshot boundary mismatch for {as_of}")
+    payload_sha = manifest.get("manifest_payload_sha256")
+    if payload_sha:
+        payload = dict(manifest)
+        payload.pop("manifest_payload_sha256", None)
+        if _sha256(_canonical_bytes(payload)) != payload_sha:
+            raise ValueError(f"manifest payload checksum mismatch for {as_of}")
+    previous = manifest.get("previous_manifest")
+    if isinstance(previous, dict):
+        previous_path = root / str(previous.get("manifest_file") or "")
+        if not previous_path.exists():
+            raise ValueError(f"previous manifest missing for {as_of}")
+        if _sha256(previous_path.read_bytes()) != previous.get(
+            "manifest_file_sha256"
+        ):
+            raise ValueError(f"previous manifest chain mismatch for {as_of}")
+    if snapshot.get("schema_version") == "pit-daily-snapshot-1.1":
+        captured_local = _local_datetime(snapshot.get("captured_at_local"))
+        cutoff_local = datetime.fromisoformat(as_of) + timedelta(days=1)
+        for table, rows in (snapshot.get("data") or {}).items():
+            if not isinstance(rows, list):
+                raise ValueError(f"snapshot table is not a list: {table}")
+            for row in rows:
+                pit = row.get("_pit") if isinstance(row, dict) else None
+                if not isinstance(pit, dict):
+                    raise ValueError(f"row PIT metadata missing: {table}")
+                known_at = _local_datetime(pit.get("known_at"))
+                if known_at is None:
+                    raise ValueError(f"row known_at missing: {table}")
+                if known_at >= cutoff_local:
+                    raise ValueError(f"row known_at crosses cutoff: {table}")
+                if captured_local is not None and known_at > captured_local:
+                    raise ValueError(f"row known_at crosses capture: {table}")
+                source_time = _local_datetime(pit.get("source_time"))
+                if source_time is None:
+                    raise ValueError(f"row source_time missing: {table}")
+                if source_time >= cutoff_local:
+                    raise ValueError(f"row source_time crosses cutoff: {table}")
+                if captured_local is not None and source_time > captured_local:
+                    raise ValueError(f"row source_time crosses capture: {table}")
+    return {**manifest, "validation_status": "valid"}
 
 
 def freeze_daily_snapshot(
@@ -509,16 +672,21 @@ def freeze_daily_snapshot(
             "uncompressed_bytes": len(canonical),
             "compressed_bytes": len(compressed),
             "write_status": "dry_run" if dry_run else "written",
+            "previous_manifest": _previous_manifest_link(
+                root,
+                resolved_as_of,
+            ),
         }
     )
+    manifest["manifest_payload_sha256"] = _sha256(_canonical_bytes(manifest))
     if not dry_run:
         _write_atomic(snapshot_path, compressed)
+        manifest_bytes = json.dumps(
+            manifest, ensure_ascii=False, indent=2, default=_json_default
+        ).encode("utf-8")
         _write_atomic(
             manifest_path,
-            json.dumps(
-                manifest, ensure_ascii=False, indent=2, default=_json_default
-            ).encode("utf-8")
-            + b"\n",
+            manifest_bytes + b"\n",
         )
     return manifest
 
@@ -566,10 +734,10 @@ def _artifact_kind(repo_name: str, path: str) -> str | None:
         return "answer_archive"
     if path.startswith("复盘/"):
         return "review_artifact"
-    if path.startswith("raw/") or (
-        repo_name == "wiki"
-        and (path.startswith("wiki/raw/") or path.startswith("wiki/sources/"))
-    ):
+    wiki_source = repo_name == "wiki" and (
+        path.startswith("wiki/raw/") or path.startswith("wiki/sources/")
+    )
+    if path.startswith("raw/") or wiki_source:
         return "source_material"
     return None
 
@@ -585,11 +753,9 @@ def _dated_artifacts(
     artifacts = []
     for path in paths:
         kind = _artifact_kind(repo_name, path)
-        if (
-            kind
-            and (as_of in path or compact in path)
-            and Path(path).suffix.lower() in ARTIFACT_SUFFIXES
-        ):
+        matches_date = as_of in path or compact in path
+        supported_suffix = Path(path).suffix.lower() in ARTIFACT_SUFFIXES
+        if kind and matches_date and supported_suffix:
             artifacts.append({"path": path, "kind": kind})
     return sorted(artifacts, key=lambda item: (item["kind"], item["path"]))
 

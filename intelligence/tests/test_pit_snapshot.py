@@ -12,6 +12,7 @@ from intelligence.eval.pit_snapshot import (
     build_daily_snapshot,
     build_historical_inventory,
     freeze_daily_snapshot,
+    validate_frozen_snapshot,
 )
 
 
@@ -76,7 +77,11 @@ class PitSnapshotTests(unittest.TestCase):
                 "fact_sector_stock_daily": "sector_ts_code VARCHAR, stock_ts_code VARCHAR",
                 "fact_stock_daily": "stock_ts_code VARCHAR",
                 "fact_stock_high_daily": "stock_ts_code VARCHAR",
-                "fact_theme_limit_heat_daily": "sector_name VARCHAR",
+                "fact_theme_limit_heat_daily": (
+                    "sector_name VARCHAR, "
+                    "source_update_time TIMESTAMP, "
+                    "source VARCHAR"
+                ),
                 "fact_theme_limit_stock_daily": "stock_ts_code VARCHAR",
                 "fact_limit_advance_daily": "stock_ts_code VARCHAR",
                 "fact_limit_advance_presence": "stock_ts_code VARCHAR",
@@ -115,6 +120,18 @@ class PitSnapshotTests(unittest.TestCase):
             }
             for table, values in required.items():
                 con.execute(f"INSERT INTO {table} VALUES {values}")
+            con.execute(
+                """
+                INSERT INTO fact_theme_limit_heat_daily VALUES
+                (
+                    '2026-07-10',
+                    '算力',
+                    '2026-07-10 17:50:00',
+                    'fupanhui',
+                    '2026-07-10 18:00:00'
+                )
+                """
+            )
         finally:
             con.close()
         return path
@@ -140,8 +157,35 @@ class PitSnapshotTests(unittest.TestCase):
             snapshot_path = out / "2026-07-10.snapshot.json.gz"
             manifest_path = out / "2026-07-10.manifest.json"
             snapshot = json.loads(gzip.decompress(snapshot_path.read_bytes()))
+            self.assertEqual(
+                snapshot["schema_version"],
+                "pit-daily-snapshot-1.1",
+            )
             self.assertEqual(snapshot["boundary"]["max_embedded_date"], "2026-07-10")
             self.assertFalse(snapshot["boundary"]["outcome_data_included"])
+            row_pit = snapshot["data"]["fact_market_daily"][-1]["_pit"]
+            self.assertEqual(row_pit["valid_time"], "2026-07-10")
+            self.assertEqual(row_pit["known_at"], "2026-07-10T18:00:00")
+            self.assertEqual(row_pit["source_time_kind"], "ingestion_fallback")
+            source_pit = snapshot["data"]["fact_theme_limit_heat_daily"][0][
+                "_pit"
+            ]
+            self.assertEqual(
+                source_pit["source_time"],
+                "2026-07-10T17:50:00",
+            )
+            self.assertEqual(
+                source_pit["source_time_kind"],
+                "source_publication",
+            )
+            self.assertEqual(source_pit["source"], "fupanhui")
+            self.assertTrue(manifest["replay_eligible"])
+            self.assertEqual(
+                validate_frozen_snapshot(out, "2026-07-10")[
+                    "validation_status"
+                ],
+                "valid",
+            )
             self.assertEqual(snapshot_path.stat().st_mode & 0o777, 0o444)
             self.assertEqual(manifest_path.stat().st_mode & 0o777, 0o444)
 
@@ -153,6 +197,80 @@ class PitSnapshotTests(unittest.TestCase):
                 out_dir=out,
             )
             self.assertEqual(repeated["write_status"], "already_frozen")
+
+    def test_manifest_chain_detects_previous_manifest_rewrite(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = self._db(root)
+            finance = self._repo(root, "finance")
+            wiki = self._repo(root, "wiki")
+            self._commit(
+                finance,
+                "README.md",
+                "finance",
+                "2026-07-09T10:00:00+08:00",
+            )
+            self._commit(
+                wiki,
+                "README.md",
+                "wiki",
+                "2026-07-09T10:00:00+08:00",
+            )
+            out = root / "snapshots"
+            freeze_daily_snapshot(
+                db,
+                as_of="2026-07-09",
+                finance_root=finance,
+                kb_root=wiki,
+                out_dir=out,
+            )
+            second = freeze_daily_snapshot(
+                db,
+                as_of="2026-07-10",
+                finance_root=finance,
+                kb_root=wiki,
+                out_dir=out,
+            )
+            self.assertEqual(
+                second["previous_manifest"]["as_of"],
+                "2026-07-09",
+            )
+            previous = out / "2026-07-09.manifest.json"
+            previous.chmod(0o644)
+            previous.write_text("{}\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "chain mismatch"):
+                validate_frozen_snapshot(out, "2026-07-10")
+
+    def test_dirty_repository_blocks_replay_eligibility(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = self._db(root)
+            finance = self._repo(root, "finance")
+            wiki = self._repo(root, "wiki")
+            self._commit(
+                finance,
+                "README.md",
+                "finance",
+                "2026-07-10T10:00:00+08:00",
+            )
+            self._commit(
+                wiki,
+                "README.md",
+                "wiki",
+                "2026-07-10T10:00:00+08:00",
+            )
+            (wiki / "dirty.md").write_text("dirty", encoding="utf-8")
+            _, manifest = build_daily_snapshot(
+                db,
+                as_of="2026-07-10",
+                finance_root=finance,
+                kb_root=wiki,
+            )
+            self.assertFalse(manifest["replay_eligible"])
+            self.assertIn(
+                "wiki_dirty_worktree",
+                manifest["repository_gaps"],
+            )
 
     def test_dry_run_does_not_write_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
