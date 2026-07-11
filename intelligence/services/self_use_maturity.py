@@ -2,18 +2,28 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import tempfile
-import threading
 from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime
 from pathlib import Path
+from typing import Literal, cast
 
 from intelligence.services.run_store import redact
 
 
-WORKFLOWS = frozenset(
+Workflow = Literal[
+    "daily_market",
+    "theme_research",
+    "stock_research",
+    "news_impact",
+    "watchlist",
+]
+Outcome = Literal["success", "degraded", "failed"]
+
+WORKFLOWS: frozenset[str] = frozenset(
     {
         "daily_market",
         "theme_research",
@@ -22,16 +32,7 @@ WORKFLOWS = frozenset(
         "watchlist",
     }
 )
-OUTCOMES = frozenset({"success", "degraded", "failed"})
-
-_LEDGER_LOCKS: dict[str, threading.Lock] = {}
-_LEDGER_LOCKS_GUARD = threading.Lock()
-
-
-def _ledger_lock(path: Path) -> threading.Lock:
-    key = str(path.resolve())
-    with _LEDGER_LOCKS_GUARD:
-        return _LEDGER_LOCKS.setdefault(key, threading.Lock())
+OUTCOMES: frozenset[str] = frozenset({"success", "degraded", "failed"})
 
 
 def _now_iso() -> str:
@@ -41,8 +42,8 @@ def _now_iso() -> str:
 @dataclass(frozen=True)
 class SelfUseEvent:
     trade_date: str
-    workflow: str
-    outcome: str
+    workflow: Workflow
+    outcome: Outcome
     manual_rescue: bool
     severe_fact_error: bool
     useful: bool
@@ -51,7 +52,7 @@ class SelfUseEvent:
     recorded_at: str | None = None
     schema_version: int = 1
 
-    def validated(self) -> SelfUseEvent:
+    def validated(self, *, generate_recorded_at: bool = True) -> SelfUseEvent:
         if type(self.schema_version) is not int or self.schema_version != 1:
             raise ValueError(f"invalid schema_version: {self.schema_version!r}")
         if not isinstance(self.trade_date, str):
@@ -88,6 +89,8 @@ class SelfUseEvent:
 
         if self.recorded_at is not None and not isinstance(self.recorded_at, str):
             raise ValueError("recorded_at must be an ISO datetime string or None")
+        if self.recorded_at is None and not generate_recorded_at:
+            raise ValueError("recorded_at is required when loading a persisted event")
         recorded_at = self.recorded_at.strip() if self.recorded_at is not None else _now_iso()
         try:
             parsed_recorded_at = datetime.fromisoformat(recorded_at)
@@ -99,23 +102,29 @@ class SelfUseEvent:
         return replace(
             self,
             trade_date=trade_date,
-            workflow=workflow,
-            outcome=outcome,
+            workflow=cast(Workflow, workflow),
+            outcome=cast(Outcome, outcome),
             note=note,
             run_id=run_id,
             recorded_at=recorded_at,
         )
 
 
+class SelfUseLedgerIntegrityError(ValueError):
+    """A JSONL row cannot be decoded into a valid persisted event."""
+
+
 class SelfUseLedger:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
+        self.lock_path = self.path.with_name(f".{self.path.name}.lock")
 
     def record(self, event: SelfUseEvent) -> SelfUseEvent:
         validated = event.validated()
         line = json.dumps(asdict(validated), ensure_ascii=False) + "\n"
-        with _ledger_lock(self.path):
-            self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.lock_path.open("a+b") as lock_handle:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
             existing = self.path.read_bytes() if self.path.exists() else b""
             separator = b"\n" if existing and not existing.endswith(b"\n") else b""
             fd, temporary_name = tempfile.mkstemp(
@@ -131,6 +140,14 @@ class SelfUseLedger:
                     handle.flush()
                     os.fsync(handle.fileno())
                 os.replace(temporary_name, self.path)
+                directory_fd = os.open(
+                    self.path.parent,
+                    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+                )
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
             except BaseException:
                 try:
                     os.unlink(temporary_name)
@@ -144,7 +161,15 @@ class SelfUseLedger:
             return []
         events: list[SelfUseEvent] = []
         with self.path.open(encoding="utf-8") as handle:
-            for line in handle:
-                if line.strip():
-                    events.append(SelfUseEvent(**json.loads(line)).validated())
+            for line_number, line in enumerate(handle, start=1):
+                try:
+                    payload = json.loads(line)
+                    if not isinstance(payload, dict):
+                        raise TypeError("event row must be a JSON object")
+                    event = SelfUseEvent(**payload).validated(generate_recorded_at=False)
+                except Exception as exc:
+                    raise SelfUseLedgerIntegrityError(
+                        f"invalid self-use ledger {self.path} at JSONL line {line_number}"
+                    ) from exc
+                events.append(event)
         return events
