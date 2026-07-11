@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import sys
 from datetime import datetime, timezone
@@ -18,12 +19,15 @@ from intelligence.eval.gold_review import (  # noqa: E402
     HUMAN_APPROVAL_CONFIRMATION,
     approve_consensus,
     build_consensus_candidate,
+    build_gold_candidate_from_sample_batch,
     build_review_template,
+    collect_claim_review_samples,
     mark_non_approved_status,
     read_json,
     render_review_summary,
     review_completion,
     select_stratified_review_dates,
+    validate_claim_review_batch,
     validate_review,
     write_json,
 )
@@ -164,6 +168,73 @@ def _select(args: argparse.Namespace) -> int:
     return 0
 
 
+def _expand_reports(patterns: list[str]) -> list[str]:
+    reports: list[str] = []
+    for pattern in patterns:
+        matches = sorted(glob.glob(pattern))
+        reports.extend(matches or [pattern])
+    return sorted(dict.fromkeys(reports))
+
+
+def _sample_claims(args: argparse.Namespace) -> int:
+    batch = collect_claim_review_samples(
+        _expand_reports(args.reports),
+        target_count=args.target_count,
+        seed=args.seed,
+    )
+    write_json(args.out, batch, protect_approved=False)
+    print(
+        json.dumps(
+            {
+                "status": batch["status"],
+                "selected_count": batch["selected_count"],
+                "invalid_report_count": len(batch["invalid_reports"]),
+                "batch_sha256": batch["batch_sha256"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    print(f"written: {args.out}")
+    return 0
+
+
+def _validate_batch(args: argparse.Namespace) -> int:
+    batch = read_json(args.batch)
+    errors = validate_claim_review_batch(batch)
+    if errors:
+        print(
+            json.dumps(
+                {"ok": False, "errors": errors},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 1
+    print(json.dumps({"ok": True}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _init_batch_review(args: argparse.Namespace) -> int:
+    batch = read_json(args.batch)
+    candidate = build_gold_candidate_from_sample_batch(batch)
+    review = build_review_template(candidate, reviewer=args.reviewer)
+    write_json(args.out, review)
+    print(
+        json.dumps(
+            {
+                "reviewer": args.reviewer,
+                "claim_count": len(review["claims"]),
+                "source_batch_sha256": review["source_batch_sha256"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    print(f"written: {args.out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -233,6 +304,26 @@ def build_parser() -> argparse.ArgumentParser:
     select.add_argument("--count", type=int, default=20)
     select.add_argument("--out", required=True)
     select.set_defaults(handler=_select)
+
+    sample_claims = subparsers.add_parser("sample-claims")
+    sample_claims.add_argument("--reports", nargs="+", required=True)
+    sample_claims.add_argument("--target-count", type=int, default=200)
+    sample_claims.add_argument(
+        "--seed",
+        default="fidelity-gold-review-v1",
+    )
+    sample_claims.add_argument("--out", required=True)
+    sample_claims.set_defaults(handler=_sample_claims)
+
+    validate_batch = subparsers.add_parser("validate-batch")
+    validate_batch.add_argument("--batch", required=True)
+    validate_batch.set_defaults(handler=_validate_batch)
+
+    init_batch = subparsers.add_parser("init-batch-review")
+    init_batch.add_argument("--batch", required=True)
+    init_batch.add_argument("--reviewer", required=True)
+    init_batch.add_argument("--out", required=True)
+    init_batch.set_defaults(handler=_init_batch_review)
     return parser
 
 
