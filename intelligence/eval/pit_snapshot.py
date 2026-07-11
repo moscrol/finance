@@ -6,7 +6,7 @@ import gzip
 import hashlib
 import json
 import subprocess
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -337,9 +337,8 @@ def build_daily_snapshot(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     con = _connect(db_path)
     try:
-        captured_at, captured_local = con.execute(
-            "SELECT current_timestamp, current_localtimestamp()"
-        ).fetchone()
+        captured_at = datetime.now(timezone.utc)
+        captured_local = datetime.now()
         if as_of is None:
             row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
             if not row or not row[0]:
