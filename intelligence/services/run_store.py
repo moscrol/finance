@@ -61,6 +61,18 @@ def redact(text: str) -> str:
     return out
 
 
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_redact_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _redact_value(item) for key, item in value.items()}
+    return value
+
+
 def _now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
@@ -102,6 +114,8 @@ class Run:
     source_date: str | None = None
     duckdb_cutoff: str | None = None
     kb_commit: str | None = None
+    kb_index_built_at: str | None = None
+    kb_index_freshness: str | None = None
     manifest_ref: str | None = None
     degrades: list[str] = field(default_factory=list)
     error: str | None = None
@@ -183,6 +197,24 @@ class RunStore:
             fh.write(json.dumps(step, ensure_ascii=False) + "\n")
         return step
 
+    def append_stream_event(
+        self,
+        run_id: str,
+        *,
+        event_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        event = {
+            "event_id": redact(event_id),
+            "event_type": redact(event_type),
+            "created_at": _now_iso(),
+            "payload": _redact_value(payload),
+        }
+        with self.stream_path(run_id).open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+        return event
+
     def add_artifact(
         self,
         run_id: str,
@@ -217,6 +249,30 @@ class RunStore:
             run.degrades.append(reason)
             self._write_run(run)
 
+    def update_provenance(
+        self,
+        run_id: str,
+        *,
+        source_date: str | None = None,
+        duckdb_cutoff: str | None = None,
+        kb_commit: str | None = None,
+        kb_index_built_at: str | None = None,
+        kb_index_freshness: str | None = None,
+    ) -> Run:
+        run = self.load_run(run_id)
+        if source_date is not None:
+            run.source_date = source_date
+        if duckdb_cutoff is not None:
+            run.duckdb_cutoff = duckdb_cutoff
+        if kb_commit is not None:
+            run.kb_commit = kb_commit
+        if kb_index_built_at is not None:
+            run.kb_index_built_at = kb_index_built_at
+        if kb_index_freshness is not None:
+            run.kb_index_freshness = kb_index_freshness
+        self._write_run(run)
+        return run
+
     def finish_run(self, run_id: str, status: str, *, error: str | None = None) -> Run:
         if status not in _TERMINAL_STATUSES:
             raise ValueError(f"finish_run 只接受终态：{_TERMINAL_STATUSES}，得到 {status!r}")
@@ -240,6 +296,9 @@ class RunStore:
     def trace_path(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "trace.jsonl"
 
+    def stream_path(self, run_id: str) -> Path:
+        return self.run_dir(run_id) / "stream.jsonl"
+
     def load_run(self, run_id: str) -> Run:
         payload = json.loads(self.run_path(run_id).read_text(encoding="utf-8"))
         return Run(**payload)
@@ -254,6 +313,17 @@ class RunStore:
             if line:
                 steps.append(json.loads(line))
         return steps
+
+    def load_stream_events(self, run_id: str) -> list[dict[str, Any]]:
+        path = self.stream_path(run_id)
+        if not path.exists():
+            return []
+        events = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                events.append(json.loads(line))
+        return events
 
     def list_runs(self) -> list[Run]:
         if not self.root.exists():

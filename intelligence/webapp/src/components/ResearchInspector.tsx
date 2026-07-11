@@ -120,6 +120,32 @@ export function ResearchInspector({
                   </div>
                 </div>
               )}
+              {context &&
+                (context.metadata.kb_commit ||
+                  context.metadata.kb_index_built_at ||
+                  context.metadata.kb_index_freshness) && (
+                  <div className="inspector-source-card">
+                    <Database aria-hidden="true" size={18} />
+                    <div>
+                      <strong>知识库索引快照</strong>
+                      <code>
+                        {[
+                          context.metadata.kb_commit
+                            ? `revision=${context.metadata.kb_commit.slice(0, 12)}`
+                            : "",
+                          context.metadata.kb_index_built_at
+                            ? `built_at=${context.metadata.kb_index_built_at}`
+                            : "",
+                          context.metadata.kb_index_freshness
+                            ? `freshness=${context.metadata.kb_index_freshness}`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </code>
+                    </div>
+                  </div>
+                )}
               {context?.evidence.map((item) => (
                 <div className="inspector-item" key={item.id}>
                   <span className="evidence-mark" aria-hidden="true" />

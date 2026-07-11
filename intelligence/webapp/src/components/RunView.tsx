@@ -11,6 +11,7 @@ import {
 import type { RunBundle, TraceStep } from "../types";
 import { MarkdownView } from "./MarkdownView";
 import { StatusBadge } from "./StatusBadge";
+import { StructuredReportView } from "./StructuredReportView";
 
 const stageNames: Record<string, string> = {
   ask_retrieve_compose: "查询盘面与检索证据",
@@ -39,7 +40,7 @@ export function RunView({
   onOpenArtifact,
   onFollowup,
 }: RunViewProps) {
-  const { run, trace, followups, answer, registeredArtifacts } = bundle;
+  const { run, trace, followups, answer, structuredReport, registeredArtifacts } = bundle;
   const steps = latestSteps(trace);
 
   return (
@@ -162,16 +163,22 @@ export function RunView({
       <section className="run-section answer-section" aria-labelledby="answer-heading">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">研究正文</span>
-            <h2 id="answer-heading">回答</h2>
+            <span className="eyebrow">结构化流式输出</span>
+            <h2 id="answer-heading">{structuredReport ? "研究报告" : "回答"}</h2>
           </div>
         </div>
-        {answer ? (
+        {structuredReport ? (
+          <StructuredReportView report={structuredReport} />
+        ) : answer ? (
           <MarkdownView source={answer} />
-        ) : run.status === "failed" ? (
+        ) : run.status === "failed" || run.status === "completed" ? (
           <div className="quiet-empty">
             <span>没有生成回答产物</span>
-            <small>已保留运行轨迹和失败原因，可据此重试。</small>
+            <small>
+              {run.status === "failed"
+                ? "已保留运行轨迹和失败原因，可据此重试。"
+                : "运行已结束，但回答产物不可用；请查看上方错误并重试。"}
+            </small>
           </div>
         ) : (
           <div className="answer-loading">

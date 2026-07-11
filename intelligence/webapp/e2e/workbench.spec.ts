@@ -121,11 +121,12 @@ const dailyReviewProjection = {
 };
 
 function runPayload(runId = "run_demo", question = "半导体方向怎么看？") {
+  const isDaily = runId === "run_daily";
   return {
     run_id: runId,
     user: "default",
     question,
-    task_type: "ask",
+    task_type: isDaily ? "daily" : "ask",
     status: "completed",
     schema_version: 1,
     session_id: "session_demo",
@@ -155,6 +156,62 @@ function runPayload(runId = "run_demo", question = "半导体方向怎么看？"
         : [],
   };
 }
+
+const structuredDailyReport = {
+  schema_version: 1,
+  report_id: "run_daily",
+  title: "今日复盘",
+  task_type: "daily",
+  status: "completed",
+  as_of: "2026-07-10",
+  llm: { used: true, provider: "glm", model: "glm-5.2" },
+  warnings: [],
+  modules: [
+    {
+      module_id: "llm_synthesis",
+      title: "LLM 综合判断",
+      kind: "narrative",
+      status: "complete",
+      summary: "只在证据边界内组织表达。",
+      content: "市场处于修复阶段，下一交易日验证成交额能否延续。",
+      metrics: [],
+      items: [],
+      table: null,
+      warnings: [],
+      provenance: {
+        source: "retrieved_evidence",
+        as_of: "2026-07-10",
+        generated_by: "llm:glm",
+      },
+    },
+    {
+      module_id: "l2_moneyflow",
+      title: "L2 大单资金流",
+      kind: "table",
+      status: "degraded",
+      summary: "自有逐笔成交口径。",
+      content: null,
+      metrics: [
+        { label: "扫描日期", value: "2026-07-08" },
+        { label: "覆盖股票", value: "112", context: "涨停股 + 成交额前100" },
+      ],
+      items: [],
+      table: {
+        columns: [
+          { key: "stock", label: "股票" },
+          { key: "main_buy_net_wan", label: "主买净额(万)" },
+        ],
+        rows: [{ stock: "深信服", main_buy_net_wan: 12000 }],
+      },
+      warnings: ["L2 最新扫描日早于报告日。"],
+      provenance: {
+        source: "feature_l2_capital_flow_daily",
+        as_of: "2026-07-08",
+        generated_by: "deterministic_duckdb_query",
+      },
+    },
+  ],
+};
 
 function artifactId(url: string): string {
   const parts = new URL(url).pathname.split("/");
@@ -239,9 +296,17 @@ async function mockWorkbench(page: Page) {
     return route.fulfill({
       json: runPayload(
         runId,
-        runId === "run_child" ? "哪些证据最容易证伪？" : "半导体方向怎么看？",
+        runId === "run_child"
+          ? "哪些证据最容易证伪？"
+          : runId === "run_daily"
+            ? "今日复盘"
+            : "半导体方向怎么看？",
       ),
     });
+  });
+  await page.route(/\/api\/runs\/([^/]+)\/report/, (route) => {
+    const runId = new URL(route.request().url()).pathname.split("/").at(-2);
+    return route.fulfill({ json: runId === "run_daily" ? structuredDailyReport : null });
   });
   await page.route(/\/api\/runs\/([^/]+)\/trace/, (route) =>
     route.fulfill({
@@ -302,7 +367,13 @@ async function mockWorkbench(page: Page) {
   );
   await page.route("**/api/runs", async (route) => {
     if (route.request().method() === "POST") {
-      return route.fulfill({ json: { run_id: "run_child", status: "queued" } });
+      const requestBody = route.request().postDataJSON() as { task_type?: string };
+      return route.fulfill({
+        json: {
+          run_id: requestBody.task_type === "daily" ? "run_daily" : "run_child",
+          status: "queued",
+        },
+      });
     }
     return route.continue();
   });
@@ -342,6 +413,18 @@ test("homepage remains readable with explicitly named mobile controls", async ({
     "aria-label",
     "产物库",
   );
+  await expectNoHorizontalOverflow(page);
+});
+
+test("daily workflow opens an LLM and L2 structured report", async ({ page }) => {
+  await page.locator(".workflow-row", { hasText: "今日复盘" }).click();
+
+  await expect(page.getByText("glm · glm-5.2")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "LLM 综合判断" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "L2 大单资金流" })).toBeVisible();
+  await expect(page.getByText("深信服")).toBeVisible();
+  await expect(page.getByText("L2 最新扫描日早于报告日。")).toBeVisible();
+  await expect(page.locator(".iframe-shell")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
 
