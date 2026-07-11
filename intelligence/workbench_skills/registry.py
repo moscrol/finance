@@ -80,7 +80,7 @@ def _register_builtin_skills() -> None:
     register_skill(
         SkillDefinition(
             skill_id="daily-review",
-            name="Daily Review",
+            name="每日复盘",
             description="把 canonical 每日市场复盘投影为原生结构化消息块。",
             version="1.0.0",
             triggers=(

@@ -243,7 +243,7 @@ const conversations: Conversation[] = [
 const productSkills: ProductSkillDescription[] = [
   {
     skill_id: "daily-review",
-    name: "Daily Review",
+    name: "每日复盘",
     description: "市场复盘",
     version: "1.0.0",
     triggers: ["复盘"],
@@ -284,6 +284,12 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
+
+interface MockEventSourceInstance {
+  emit: (eventType: string, data: unknown) => void;
+}
+
+let mockEventSources: MockEventSourceInstance[] = [];
 
 describe("Workbench components", () => {
   it("starts a workflow preset and submits from the unified composer", async () => {
@@ -341,7 +347,7 @@ describe("Workbench components", () => {
     expect(onFollowup).toHaveBeenCalledWith("哪些证据最容易证伪？");
   });
 
-  it("renders LLM and L2 modules without an HTML artifact", () => {
+  it("keeps structured modules behind the explicit run inspector", () => {
     const structuredBundle: RunBundle = {
       ...bundle,
       structuredReport: {
@@ -407,11 +413,19 @@ describe("Workbench components", () => {
       />,
     );
 
-    expect(screen.getByText("glm · glm-5.2")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "LLM 综合判断" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "L2 大单资金流" })).toBeVisible();
-    expect(screen.getByText("深信服")).toBeVisible();
-    expect(screen.getByText("L2 最新扫描日早于报告日。")).toBeVisible();
+    expect(screen.getByText("这是模板回答。")).toBeVisible();
+    expect(screen.getByText("运行详情")).toBeVisible();
+    expect(screen.queryByText("glm · glm-5.2")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "LLM 综合判断" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "L2 大单资金流" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("深信服")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("L2 最新扫描日早于报告日。"),
+    ).not.toBeInTheDocument();
   });
 
   it("sanitizes markdown before rendering an artifact", () => {
@@ -655,14 +669,14 @@ describe("Chat-first conversation components", () => {
     );
 
     expect(screen.getByRole("button", { name: "选择 Skill" })).toBeVisible();
-    expect(screen.getByText("Daily Review")).toBeVisible();
+    expect(screen.getByText("每日复盘")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "选择 Skill" }));
     await user.click(screen.getByRole("checkbox", { name: /Daily Agent/ }));
     expect(onSelectionChange).toHaveBeenCalledWith([
       "daily-review",
       "daily-agent",
     ]);
-    await user.click(screen.getByRole("button", { name: "移除 Daily Review" }));
+    await user.click(screen.getByRole("button", { name: "移除 每日复盘" }));
     expect(onSelectionChange).toHaveBeenLastCalledWith([]);
   });
 
@@ -676,7 +690,7 @@ describe("Chat-first conversation components", () => {
       />,
     );
 
-    expect(screen.getByText("手动指定 · Daily Review")).toBeVisible();
+    expect(screen.getByText("手动指定 · 每日复盘")).toBeVisible();
     expect(screen.getByText("自动调用 · Daily Agent")).toBeVisible();
     expect(screen.queryByText("daily_projection_modules")).toBeNull();
   });
@@ -884,12 +898,30 @@ describe("Chat-first conversation components", () => {
 describe("Workbench navigation reliability", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEventSources = [];
     class MockEventSource {
       onopen: (() => void) | null = null;
       onerror: (() => void) | null = null;
+      private readonly listeners = new Map<string, EventListener>();
 
-      addEventListener = vi.fn();
+      constructor() {
+        mockEventSources.push(this);
+      }
+
+      addEventListener = vi.fn(
+        (eventType: string, listener: EventListenerOrEventListenerObject) => {
+          if (typeof listener === "function") {
+            this.listeners.set(eventType, listener);
+          }
+        },
+      );
       close = vi.fn();
+
+      emit = (eventType: string, data: unknown) => {
+        this.listeners.get(eventType)?.(
+          new MessageEvent(eventType, { data: JSON.stringify(data) }),
+        );
+      };
     }
     vi.stubGlobal("EventSource", MockEventSource);
     Object.defineProperty(window, "scrollTo", {
@@ -945,6 +977,81 @@ describe("Workbench navigation reliability", () => {
         user: "default",
       },
     );
+  });
+
+  it("reconciles terminal runs to the persisted completed message", async () => {
+    const finalMessage: ChatMessage = {
+      ...assistantMessage,
+      message_id: "msg_assistant_new",
+      content: "数据截至 2026-07-10。最终可读回答。",
+      status: "completed",
+      run_id: "run_created",
+    };
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          ...assistantMessage,
+          message_id: "msg_user_new",
+          role: "user",
+          content: "请复盘最新交易日",
+          status: "completed",
+          run_id: "run_created",
+        },
+        finalMessage,
+      ]);
+    apiMocks.getRun.mockResolvedValue({
+      ...bundle.run,
+      run_id: "run_created",
+      status: "completed",
+      artifacts: [],
+    });
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: /今日复盘/ }));
+    const events = mockEventSources.at(-1);
+    expect(events).toBeDefined();
+
+    await act(async () => {
+      events?.emit("text.delta", {
+        schema_version: 1,
+        event_id: "text:1",
+        event_type: "text.delta",
+        run_id: "run_created",
+        conversation_id: "conv_recent",
+        message_id: "msg_assistant_new",
+        seq: 1,
+        created_at: "2026-07-11T09:00:00+08:00",
+        payload: { delta: "cycle_status raw stream" },
+      });
+    });
+    expect(screen.getByText("cycle_status raw stream")).toBeVisible();
+    expect(
+      screen.getByText("正在研究", { selector: ".agent-status" }),
+    ).toBeVisible();
+
+    await act(async () => {
+      events?.emit("run", {
+        ...bundle.run,
+        run_id: "run_created",
+        status: "completed",
+        artifacts: [],
+      });
+    });
+
+    expect(
+      await screen.findByText("数据截至 2026-07-10。最终可读回答。"),
+    ).toBeVisible();
+    expect(screen.queryByText("cycle_status raw stream")).toBeNull();
+    expect(screen.getByText("空闲", { selector: ".agent-status" })).toBeVisible();
+    expect(
+      screen.getByText("已完成", {
+        selector: ".assistant-message-header span",
+      }),
+    ).toBeVisible();
   });
 
   it("configures session-only BYOK without exposing the key", async () => {

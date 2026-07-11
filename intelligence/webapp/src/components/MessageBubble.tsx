@@ -9,7 +9,6 @@ import type {
 import { MarkdownView } from "./MarkdownView";
 import { RunView } from "./RunView";
 import { SkillInvocation } from "./SkillInvocation";
-import { StructuredReportView } from "./StructuredReportView";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -33,7 +32,6 @@ export function MessageBubble({
   onFollowup,
 }: MessageBubbleProps) {
   const content = live?.narrative || message.content;
-  const report = live?.report ?? bundle?.structuredReport ?? null;
   const invokedSkillIds = [
     ...new Set([
       ...message.invoked_skill_ids,
@@ -91,7 +89,6 @@ export function MessageBubble({
         {message.degrades.includes("llm_unavailable_template_answer") && (
           <span className="template-answer-label">模板表达 · 未配置 LLM</span>
         )}
-        {report && <StructuredReportView report={report} />}
         {content ? (
           <MarkdownView source={content} />
         ) : terminalNotice ? null : (

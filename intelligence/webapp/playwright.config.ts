@@ -24,6 +24,7 @@ const fixtureRoot = resolve(
 );
 const usersRoot = resolve(webappRoot, "test-results/workbench-users");
 const emptyLlmKeys = [
+  "FORESIGHT_BUILTIN_LLM_API_KEY",
   "DEEPSEEK_API_KEY",
   "MOONSHOT_API_KEY",
   "KIMI_API_KEY",

@@ -24,23 +24,6 @@ async function expectComposerDoesNotOverlapThread(page: Page) {
   expect(boxes!.threadBottom).toBeLessThanOrEqual(boxes!.composerTop + 1);
 }
 
-async function expectReportTableReadable(page: Page) {
-  const table = page.locator(".stream-table-shell").first();
-  await expect(table).toBeVisible();
-  const layout = await table.evaluate((element) => {
-    const box = element.getBoundingClientRect();
-    return {
-      left: box.left,
-      right: box.right,
-      viewport: window.innerWidth,
-      overflowX: window.getComputedStyle(element).overflowX,
-    };
-  });
-  expect(layout.left).toBeGreaterThanOrEqual(0);
-  expect(layout.right).toBeLessThanOrEqual(layout.viewport);
-  expect(["auto", "scroll"]).toContain(layout.overflowX);
-}
-
 async function submitQuestion(
   page: Page,
   question: string,
@@ -133,14 +116,30 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   const thirdQuestion = `${marker} 第三轮有哪些风险`;
 
   await submitQuestion(page, firstQuestion, 1);
-  await expect(page.getByText("自动调用 · Daily Review")).toBeVisible();
-  await expect(page.getByText("上证上涨 0.8%").first()).toBeVisible();
-  await expectReportTableReadable(page);
+  await expect(page.getByText("自动调用 · 每日复盘")).toBeVisible();
+  const firstAnswer = page.getByLabel("研究助手消息").first();
+  await expect(
+    firstAnswer.getByText(/数据降级：当前未连接本地 DuckDB/),
+  ).toBeVisible();
+  await expect(firstAnswer.getByText(/命中主题=/)).toHaveCount(0);
+  await expect(firstAnswer.locator(".stream-table-shell")).toHaveCount(0);
+  await firstAnswer.getByText("运行详情", { exact: true }).click();
+  await expect(
+    firstAnswer.getByRole("heading", { name: "运行轨迹" }),
+  ).toBeVisible();
+  await expect(
+    firstAnswer.getByRole("button", { name: "结构化对话报告" }),
+  ).toBeVisible();
 
   await selectManualDailyAgent(page);
   await submitQuestion(page, secondQuestion, 2);
   await expect(page.getByText("手动指定 · Daily Agent")).toBeVisible();
-  await expect(page.getByText("氢能源", { exact: true }).last()).toBeVisible();
+  const secondAnswer = page.getByLabel("研究助手消息").nth(1);
+  await expect(secondAnswer.locator(".stream-table-shell")).toHaveCount(0);
+  await secondAnswer.getByText("运行详情", { exact: true }).click();
+  await expect(
+    secondAnswer.getByRole("button", { name: "结构化对话报告" }),
+  ).toBeVisible();
 
   await submitQuestion(page, thirdQuestion, 3);
   await expect(page.getByLabel("你的消息")).toHaveCount(3);
@@ -171,7 +170,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await page.reload();
   await expect(page.getByText(firstQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText(secondQuestion, { exact: true })).toBeVisible();
-  await expect(page.getByText("自动调用 · Daily Review")).toBeVisible();
+  await expect(page.getByText("自动调用 · 每日复盘")).toBeVisible();
   await expect(page.getByText("手动指定 · Daily Agent")).toBeVisible();
   await expect(page.getByText("模板表达 · 未配置 LLM")).toHaveCount(4);
 
