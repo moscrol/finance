@@ -1,4 +1,4 @@
-"""Review 层输出闸门（手册§三第4层）：回答前六项确定性检查.
+"""Review 层候选审稿助手（手册§三第4层）：回答前六项确定性检查.
 
 对应 docs/learning/finance-agent-skill-expansion-brainstorm.md §三 Review Layer：
 回答前检查——
@@ -12,11 +12,11 @@
 
 与 answer_quality 的区别：answer_quality 是"提示词引导"（把质检清单塞给
 LLM 让它自查，柔性）；本模块是确定性闸门（对最终 AskResult 的结构化产物
-逐项判 PASS/WARN，硬性、可测试、可统计）。两层互补——面试可讲：LLM 应用
+逐项判 PASS/WARN，可测试、可统计）。两层互补——面试可讲：LLM 应用
 的质量保障要"prompt 引导 + 程序化 gate"双层，只靠 prompt 无法保证稳定性。
 
-只读检查、不修改回答内容；WARN 不阻断输出（研究辅助场景宁可带警告输出，
-也不要静默吞掉答案），全部结果落到 sections 供人和台账消费。
+只读检查、不修改回答内容；WARN 不阻断输出。该规则集尚未通过历史盲测证明
+能区分预测 hit/miss，只能提供候选审稿意见，不能充当评分裁判或自动硬闸门。
 """
 
 from __future__ import annotations
@@ -56,6 +56,8 @@ class ReviewCheck:
 @dataclass
 class OutputReviewGate:
     checks: list[ReviewCheck] = field(default_factory=list)
+    decision_role: str = "advisory_review"
+    blocking: bool = False
 
     @property
     def status(self) -> str:
@@ -66,10 +68,17 @@ class OutputReviewGate:
         return sum(1 for c in self.checks if c.status == WARN)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"status": self.status, "checks": [c.to_dict() for c in self.checks]}
+        return {
+            "status": self.status,
+            "decision_role": self.decision_role,
+            "blocking": self.blocking,
+            "checks": [c.to_dict() for c in self.checks],
+        }
 
     def summary_lines(self) -> list[str]:
-        lines = [f"输出质检闸门：{self.status}（{len(self.checks) - self.warn_count}/{len(self.checks)} 项通过）"]
+        lines = [
+            f"输出质检助手：{self.status}（{len(self.checks) - self.warn_count}/{len(self.checks)} 项通过；仅提示，不阻断）"
+        ]
         for c in self.checks:
             mark = "✓" if c.status == PASS else "⚠️"
             lines.append(f"{mark} {c.name}：{c.note}" if c.note else f"{mark} {c.name}")
@@ -144,6 +153,7 @@ def review_output(
     gap_lines: list[str] | None,
     follow_ups: list[str] | None,
     conclusion_lines: list[str] | None,
+    final_answer: str | None = None,
     today: date | None = None,
 ) -> OutputReviewGate:
     gate = OutputReviewGate()
@@ -152,5 +162,6 @@ def review_output(
     gate.checks.append(_check_counterevidence(counter_plan))
     gate.checks.append(_check_gaps(gap_lines))
     gate.checks.append(_check_verifiable(follow_ups))
-    gate.checks.append(_check_overclaim(audit, conclusion_lines))
+    visible_lines = [final_answer] if final_answer else conclusion_lines
+    gate.checks.append(_check_overclaim(audit, visible_lines))
     return gate

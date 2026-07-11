@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -50,49 +51,54 @@ def is_null(value: object) -> bool:
     return value is None or str(value) in {"nan", "NaT", "None"}
 
 
-def main() -> int:
-    date = sys.argv[1]
-    con = connect(read_only=True)
+def check_data(date: str) -> list[str]:
     missing: list[str] = []
+    con = connect(read_only=True)
+    try:
+        print(f"CHECK DATA {date}")
+        for table in TABLES:
+            max_date, count = con.execute(
+                f"select max(trade_date), count(*) filter(where trade_date=?) from {table}", [date]
+            ).fetchone()
+            print(f"{table}: rows={count} max={max_date}")
+            if not count:
+                missing.append(f"{table} 无 {date} 数据，最新 {max_date}")
 
-    print(f"CHECK {date}")
-    for table in TABLES:
-        max_date, count = con.execute(
-            f"select max(trade_date), count(*) filter(where trade_date=?) from {table}", [date]
-        ).fetchone()
-        print(f"{table}: rows={count} max={max_date}")
-        if not count:
-            missing.append(f"{table} 无 {date} 数据，最新 {max_date}")
+        row = con.execute("select * from fact_market_daily where trade_date=?", [date]).fetchdf()
+        if row.empty:
+            missing.append("fact_market_daily 缺失整行")
+        else:
+            cols = set(row.columns)
+            for field in MARKET_FIELDS:
+                if field not in cols:
+                    missing.append(f"fact_market_daily.{field} 字段不存在")
+                    continue
+                value = row.iloc[0][field]
+                if is_null(value):
+                    missing.append(f"fact_market_daily.{field} 为空")
 
-    row = con.execute("select * from fact_market_daily where trade_date=?", [date]).fetchdf()
-    if row.empty:
-        missing.append("fact_market_daily 缺失整行")
-    else:
-        cols = set(row.columns)
-        for field in MARKET_FIELDS:
-            if field not in cols:
-                missing.append(f"fact_market_daily.{field} 字段不存在")
-                continue
-            value = row.iloc[0][field]
-            if is_null(value):
-                missing.append(f"fact_market_daily.{field} 为空")
+        empty_detail = con.execute(
+            """
+            SELECT h.sector_ts_code, h.sector_name, h.limit_up_count, COUNT(s.stock_ts_code) AS stock_rows
+            FROM fact_theme_limit_heat_daily h
+            LEFT JOIN fact_theme_limit_stock_daily s
+              ON h.trade_date = s.trade_date AND h.sector_ts_code = s.sector_ts_code
+            WHERE h.trade_date = ? AND COALESCE(h.limit_up_count, 0) > 0
+            GROUP BY 1, 2, 3
+            HAVING COUNT(s.stock_ts_code) = 0
+            ORDER BY h.limit_up_count DESC
+            """,
+            [date],
+        ).fetchall()
+        for code, name, limit_up_count, _stock_rows in empty_detail:
+            missing.append(f"涨停题材 {code}/{name} 有 {limit_up_count} 个涨停但明细为空")
+        return missing
+    finally:
+        con.close()
 
-    empty_detail = con.execute(
-        """
-        SELECT h.sector_ts_code, h.sector_name, h.limit_up_count, COUNT(s.stock_ts_code) AS stock_rows
-        FROM fact_theme_limit_heat_daily h
-        LEFT JOIN fact_theme_limit_stock_daily s
-          ON h.trade_date = s.trade_date AND h.sector_ts_code = s.sector_ts_code
-        WHERE h.trade_date = ? AND COALESCE(h.limit_up_count, 0) > 0
-        GROUP BY 1, 2, 3
-        HAVING COUNT(s.stock_ts_code) = 0
-        ORDER BY h.limit_up_count DESC
-        """,
-        [date],
-    ).fetchall()
-    for code, name, limit_up_count, _stock_rows in empty_detail:
-        missing.append(f"涨停题材 {code}/{name} 有 {limit_up_count} 个涨停但明细为空")
 
+def check_report(date: str) -> list[str]:
+    missing: list[str] = []
     report = Path(f"market_feature_store/exports/{date}-daily-review.md")
     if not report.exists():
         missing.append(f"{report} 不存在")
@@ -102,11 +108,25 @@ def main() -> int:
             count = text.count(token)
             if count:
                 missing.append(f"日报存在占位/缺失：{token} x{count}")
+    return missing
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("date")
+    parser.add_argument("--phase", choices=("data", "report", "all"), default="all")
+    args = parser.parse_args(argv)
+
+    missing: list[str] = []
+    if args.phase in {"data", "all"}:
+        missing.extend(check_data(args.date))
+    if args.phase in {"report", "all"}:
+        missing.extend(check_report(args.date))
 
     print("RESULT:", "INCOMPLETE" if missing else "COMPLETE")
     for item in missing:
         print("-", item)
-    return 1 if missing else 0
+    return 2 if missing else 0
 
 
 if __name__ == "__main__":

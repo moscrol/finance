@@ -45,7 +45,7 @@ def test_validate_verdict_catches_errors(ledger: Path) -> None:
         {"id": "market", "agent": "codex", "verdict": "great", "actual": "x"},
     ])
     errors = d.validate_verdict(draft, ledger_dir=ledger)
-    assert any("不在 codex 答卷假设集" in e for e in errors)
+    assert any("不在 codex/duckdb 答卷假设集" in e for e in errors)
     assert any("无对应答卷" in e for e in errors)
     assert any("必须填 actual" in e for e in errors)
     assert any("verdict 应为" in e for e in errors)
@@ -105,9 +105,10 @@ def test_validate_verdict_stream_horizon(ledger: Path) -> None:
         {"id": "market", "agent": "codex", "verdict": "miss", "actual": "x", "stream": "别的", "horizon": "T+9"},
     ])
     errors = d.validate_verdict(draft, ledger_dir=ledger)
+    assert any("source=sellside 无对应答卷" in e for e in errors)
     assert any("stream 应为" in e for e in errors)
     assert any("horizon 应为" in e for e in errors)
-    assert len(errors) == 2
+    assert len(errors) == 3
 
 
 def test_verdict_table_shows_stream_horizon_failure_mode(ledger: Path) -> None:
@@ -141,9 +142,10 @@ def test_aggregate_verdicts_by_stream_horizon(ledger: Path) -> None:
         ],
     }), encoding="utf-8")
     report = d.aggregate(ledger)
-    stats = report["agents"]["codex"]["verdicts_by_stream_horizon"]
-    assert stats["盘面/T+1"]["hit"] == 1
-    assert stats["卖方/T+3"]["miss"] == 1
-    assert report["agents"]["codex"]["failure_modes"] == {"阈值定早": 1}
+    duckdb_stats = report["agents"]["codex/duckdb"]["verdicts_by_stream_horizon"]
+    sellside = report["agents"]["codex/sellside"]
+    assert duckdb_stats["盘面/T+1"]["hit"] == 1
+    assert sellside["verdicts_by_stream_horizon"]["卖方/T+3"]["miss"] == 1
+    assert sellside["failure_modes"] == {"阈值定早": 1}
     md = d._render_aggregate_md(report)
     assert "盘后验证按流×时点" in md and "阈值定早×1" in md

@@ -61,7 +61,38 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
         argv = ["python3", "-m", "market_feature_store.cli", "daily-update", "--trade-date", date]
         if options.skip_long:
             argv.append("--skip-long")
+        argv.extend([
+            "--status-json",
+            str(paths.finance_root / "skills" / "daily-full-review" / "state" / f"daily-update-{date}.json"),
+        ])
         plan.append(CommandSpec(name="daily-update", argv=argv, outputs=[]))
+
+    plan.append(CommandSpec(
+        name="quality-gate",
+        argv=["python3", "scripts/check_daily_review_data.py", date, "--phase", "data"],
+        outputs=[],
+    ))
+
+    plan.append(CommandSpec(
+        name="cross-day-quality-gate",
+        argv=[
+            "python3", "-m", "market_feature_store.cli", "check-daily",
+            "--trade-date", date,
+            "--json", str(paths.finance_root / "skills" / "daily-full-review" / "state" / f"quality-{date}.json"),
+        ],
+        outputs=[],
+    ))
+
+    plan.append(CommandSpec(
+        name="export-increment",
+        argv=[
+            "python3",
+            "skills/daily-full-review/scripts/export_increment.py",
+            "--date",
+            date,
+        ],
+        outputs=[],
+    ))
 
     review_argv = ["python3", "-m", "market_feature_store.cli", "daily-review", "--trade-date", date]
     if options.start_date:
@@ -73,12 +104,6 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             str(exports / f"{date}-daily-review.md"),
             str(exports / f"{date}-advancers-ma5.png"),
         ],
-    ))
-
-    plan.append(CommandSpec(
-        name="quality-gate",
-        argv=["python3", "scripts/check_daily_review_data.py", date],
-        outputs=[],
     ))
 
     plan.append(CommandSpec(
@@ -227,12 +252,32 @@ def filter_plan(plan: list[CommandSpec], options: DailyReviewOptions) -> tuple[l
             return [], [f"unknown --from-step: {options.from_step}; allowed: {', '.join(step_names)}"]
         index = step_names.index(options.from_step)
         warnings.append(f"starting from step: {options.from_step}")
+        release_index = step_names.index("export-increment")
+        if index > release_index:
+            prerequisites = [
+                step
+                for step in plan
+                if step.name in {"quality-gate", "cross-day-quality-gate", "export-increment"}
+            ]
+            warnings.append("pre-report quality gates and export were prepended; downstream steps cannot bypass them")
+            return prerequisites + plan[index:], warnings
         return plan[index:], warnings
     if options.only_step:
         if options.only_step not in step_names:
             return [], [f"unknown --only-step: {options.only_step}; allowed: {', '.join(step_names)}"]
         warnings.append(f"running only step: {options.only_step}")
-        return [step for step in plan if step.name == options.only_step], warnings
+        index = step_names.index(options.only_step)
+        release_index = step_names.index("export-increment")
+        selected = [step for step in plan if step.name == options.only_step]
+        if index > release_index:
+            prerequisites = [
+                step
+                for step in plan
+                if step.name in {"quality-gate", "cross-day-quality-gate", "export-increment"}
+            ]
+            warnings.append("pre-report quality gates and export were prepended; downstream steps cannot bypass them")
+            return prerequisites + selected, warnings
+        return selected, warnings
     return plan, warnings
 
 
@@ -274,13 +319,13 @@ def can_downgrade_daily_update_failure(step: WorkflowStep, options: DailyReviewO
         return False
     if step.status != "FAIL":
         return False
-    combined_tail = "\n".join(step.stdout_tail + step.stderr_tail)
-    return "质检: OK" in combined_tail
+    structured = step.structured_result or {}
+    return structured.get("status") == "WARN" and structured.get("recoverable") is True
 
 
 def downgrade_daily_update_failure(step: WorkflowStep) -> None:
     step.status = "WARN"
-    step.warnings.append("daily-update returned non-zero but stdout_tail contains 质检: OK; downgraded by --continue-on-warn")
+    step.warnings.append("daily-update returned structured WARN status; downgraded by --continue-on-warn")
     step.errors = []
 
 

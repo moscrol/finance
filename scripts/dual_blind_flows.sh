@@ -69,7 +69,7 @@ prompt_for() {
 
 严格按 docs/learning/dual-blind-forecast-template.md 与 docs/learning/forecast-question-templates.md $QSECTION 执行：
 1. 冻结输入 = $LEDGER/$D.manifest.json（DuckDB db/market_feature_store.duckdb 截至 $P）＋ $MATERIAL_DESC。可用 /usr/bin/python3 + duckdb 查询任何表，但不得使用 $P 之后的行情数据。
-2. 按 $QSECTION 的问句模板独立作答，同时保持答卷 JSON schema 与盘面流一致（schema_version "1.0"，agent "$agent"，source "$SOURCE"，manifest_sha "$MSHA"；主判断一句话；方向排序；标的池 5 只绑定证据；hypotheses 每条带 id/claim/falsify_when；thresholds 给强制数值阈值与 falsify；recheck 留空对象）。$EXTRA
+2. 按 $QSECTION 的问句模板独立作答，同时保持答卷 JSON schema 与盘面流一致（schema_version "1.1"，agent "$agent"，source "$SOURCE"，manifest_sha "$MSHA"；先建 evidence_catalog 登记 L1-L4/source/source_time/field/value/direction；stage_features、标的、threshold_provenance、hypotheses 都引用 catalog id；hypotheses 带 id/category/claim/horizon/confidence/confidence_probability/evidence_as_of/falsify_when；recheck 留空对象）。$EXTRA
 3. 落盘到 $LEDGER/$D.answer.$agent.$SOURCE.json，然后跑 /usr/bin/python3 scripts/dual_blind_forecast.py validate $LEDGER/$D.answer.$agent.$SOURCE.json，必须 OK，不 OK 就修到 OK。
 4. 双盲纪律：禁止读取或参考另一位考生的任何答卷（$LEDGER/$D.answer.*.json 中非你名下的文件），禁止对比、批注、裁决。
 5. 除答卷 JSON 外不要改动仓库任何文件，不要 git commit。
@@ -121,4 +121,3 @@ for agent in codex claude; do
 done
 /usr/bin/python3 scripts/dual_blind_forecast.py index --html
 echo "[$(date '+%F %T')] === $SOURCE 流双盲结束 通过答卷数=$ok/2 ==="
-

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from intelligence.paths import ProjectPaths
-from intelligence.workflows.daily_review import DailyReviewOptions, build_daily_review_plan
+from intelligence.workflows.daily_review import DailyReviewOptions, build_daily_review_plan, filter_plan
 from scripts import render_review_workbench
 
 
@@ -26,6 +26,29 @@ class DailyReviewAgentEntryTest(unittest.TestCase):
             agent = plan[names.index("agent-daily")]
             self.assertIn(str(paths.market_exports / "2026-06-11-daily-agent.md"), agent.outputs)
             self.assertIn(str(paths.review_daily_root / "2026-06-11" / "2026-06-11-daily-agent.html"), agent.outputs)
+
+    def test_daily_plan_gates_and_exports_before_report_generation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_paths(Path(tmp))
+            plan = build_daily_review_plan(DailyReviewOptions(date="2026-06-11"), paths)
+            names = [step.name for step in plan]
+
+            self.assertLess(names.index("daily-update"), names.index("quality-gate"))
+            self.assertLess(names.index("quality-gate"), names.index("cross-day-quality-gate"))
+            self.assertLess(names.index("cross-day-quality-gate"), names.index("export-increment"))
+            self.assertLess(names.index("export-increment"), names.index("daily-review"))
+
+    def test_resume_from_report_cannot_bypass_release_gates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_paths(Path(tmp))
+            options = DailyReviewOptions(date="2026-06-11", from_step="daily-review")
+            plan, warnings = filter_plan(build_daily_review_plan(options, paths), options)
+
+            self.assertEqual(
+                [step.name for step in plan[:4]],
+                ["quality-gate", "cross-day-quality-gate", "export-increment", "daily-review"],
+            )
+            self.assertTrue(any("cannot bypass" in warning for warning in warnings))
 
     def test_daily_plan_uses_explicit_kb_wiki_for_agent_and_cockpit(self):
         with tempfile.TemporaryDirectory() as tmp:

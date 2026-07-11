@@ -55,6 +55,8 @@ ALLOWED_AGENTS = {"codex", "claude", "devin"}
 # 问句模板见 docs/learning/forecast-question-templates.md
 ALLOWED_SOURCES = {"duckdb", "briefing", "sellside"}
 DEFAULT_SOURCE = "duckdb"
+LATEST_ANSWER_SCHEMA = "1.1"
+ALLOWED_ANSWER_SCHEMAS = {"1.0", LATEST_ANSWER_SCHEMA}
 REQUIRED_ANSWER_FIELDS = (
     "schema_version",
     "date",
@@ -68,11 +70,23 @@ REQUIRED_ANSWER_FIELDS = (
 )
 REQUIRED_PICK_FIELDS = ("code", "name", "strategy", "reason")
 REQUIRED_THRESHOLD_FIELDS = ("market", "direction", "targets", "falsify")
+V11_REQUIRED_FIELDS = (
+    "evidence_catalog",
+    "stage_features",
+    "threshold_provenance",
+    "hypotheses",
+)
+ALLOWED_EVIDENCE_LEVELS = {"L1", "L2", "L3", "L4"}
+ALLOWED_EVIDENCE_DIRECTIONS = {"support", "counter", "neutral"}
+ALLOWED_THRESHOLD_ORIGINS = {"fixed_rule", "backtest", "mechanical", "heuristic"}
+ALLOWED_CONFIDENCE = {"high", "medium", "low"}
+ALLOWED_HYPOTHESIS_CATEGORIES = {"market", "direction", "target", "falsify"}
 VERDICT_VALUES = {"hit", "miss", "partial", "unverifiable"}
 VERDICT_LABELS = {"hit": "✅ hit", "miss": "❌ miss", "partial": "⚠️ partial", "unverifiable": "❓ unverifiable"}
 REQUIRED_VERDICT_FIELDS = ("id", "agent", "verdict")
 VERDICT_STREAMS = {"盘面", "晨汇", "卖方"}
 VERDICT_HORIZONS = {"T+1", "T+3", "T+5"}
+STREAM_TO_SOURCE = {"盘面": "duckdb", "晨汇": "briefing", "卖方": "sellside"}
 INDEX_BEGIN = "<!-- BEGIN AUTO dual-blind-status 本表由 dual_blind_forecast.py index 生成，勿手改 -->"
 INDEX_END = "<!-- END AUTO dual-blind-status -->"
 VERDICT_BEGIN = "<!-- BEGIN AUTO dual-blind-verdict 本表由 dual_blind_forecast.py verdict 渲染，勿手改 -->"
@@ -189,6 +203,11 @@ def validate_answer(answer_path: Path, *, ledger_dir: Path = LEDGER_DIR) -> list
             errors.append(f"缺必填字段 {field}")
     if errors:
         return errors
+    schema_version = str(answer.get("schema_version") or "")
+    if schema_version not in ALLOWED_ANSWER_SCHEMAS:
+        errors.append(
+            f"schema_version 应为 {sorted(ALLOWED_ANSWER_SCHEMAS)} 之一，实际 {schema_version}"
+        )
 
     if str(answer["agent"]).lower() not in ALLOWED_AGENTS:
         errors.append(f"agent 应为 {sorted(ALLOWED_AGENTS)} 之一，实际 {answer['agent']}")
@@ -228,6 +247,207 @@ def validate_answer(answer_path: Path, *, ledger_dir: Path = LEDGER_DIR) -> list
                 f"manifest_sha 不一致：答卷 {answer['manifest_sha']} vs 清单 {manifest.get('manifest_sha')}"
                 "——输入未冻结或引用了旧清单"
             )
+        if schema_version == LATEST_ANSWER_SCHEMA:
+            errors.extend(
+                _validate_v11_answer(
+                    answer,
+                    cutoff=str(manifest.get("perspective_date") or ""),
+                )
+            )
+    return errors
+
+
+def _date_not_after(value: Any, cutoff: str) -> bool:
+    raw = str(value or "")[:10]
+    return bool(raw and cutoff and raw <= cutoff[:10])
+
+
+def _nonempty_refs(value: Any) -> bool:
+    return isinstance(value, list) and bool([x for x in value if str(x).strip()])
+
+
+def _validate_v11_answer(answer: dict[str, Any], *, cutoff: str) -> list[str]:
+    errors: list[str] = []
+    for field in V11_REQUIRED_FIELDS:
+        if not answer.get(field):
+            errors.append(f"schema 1.1 缺字段 {field}")
+
+    catalog = answer.get("evidence_catalog")
+    if isinstance(catalog, dict) and catalog:
+        for evidence_id, evidence in catalog.items():
+            if not isinstance(evidence, dict):
+                errors.append(f"evidence_catalog.{evidence_id} 应为对象")
+                continue
+            for field in ("level", "source", "source_time", "direction"):
+                if not evidence.get(field):
+                    errors.append(f"evidence_catalog.{evidence_id} 缺字段 {field}")
+            if str(evidence.get("level") or "") not in ALLOWED_EVIDENCE_LEVELS:
+                errors.append(
+                    f"evidence_catalog.{evidence_id}.level 应为 "
+                    f"{sorted(ALLOWED_EVIDENCE_LEVELS)} 之一"
+                )
+            if str(evidence.get("direction") or "") not in ALLOWED_EVIDENCE_DIRECTIONS:
+                errors.append(
+                    f"evidence_catalog.{evidence_id}.direction 应为 "
+                    f"{sorted(ALLOWED_EVIDENCE_DIRECTIONS)} 之一"
+                )
+            if evidence.get("source_time") and cutoff and not _date_not_after(
+                evidence["source_time"], cutoff
+            ):
+                errors.append(
+                    f"evidence_catalog.{evidence_id}.source_time={evidence['source_time']} "
+                    f"晚于输入截止 {cutoff}"
+                )
+    elif catalog is not None:
+        errors.append("evidence_catalog 应为非空对象")
+    catalog_ids = set(catalog) if isinstance(catalog, dict) else set()
+
+    def check_refs(path: str, refs: Any) -> None:
+        if not _nonempty_refs(refs):
+            errors.append(f"{path} 应为非空列表")
+            return
+        unknown = sorted({str(ref) for ref in refs} - catalog_ids)
+        if unknown:
+            errors.append(f"{path} 引用了不存在的 evidence id：{unknown}")
+
+    stage = answer.get("stage_features")
+    if isinstance(stage, dict):
+        for field in ("rule_id", "as_of", "metrics", "evidence_refs"):
+            if not stage.get(field):
+                errors.append(f"stage_features 缺字段 {field}")
+        metrics = stage.get("metrics")
+        if not isinstance(metrics, dict) or not metrics:
+            errors.append("stage_features.metrics 应为非空对象，阶段标签必须绑定确定性特征")
+        else:
+            for metric_name, metric in metrics.items():
+                if not isinstance(metric, dict) or "value" not in metric or not metric.get(
+                    "evidence_ref"
+                ):
+                    errors.append(
+                        f"stage_features.metrics.{metric_name} 应含 value/evidence_ref"
+                    )
+                    continue
+                evidence_ref = str(metric["evidence_ref"])
+                if evidence_ref not in catalog_ids:
+                    errors.append(
+                        f"stage_features.metrics.{metric_name}.evidence_ref "
+                        f"引用不存在的 evidence id：{evidence_ref}"
+                    )
+                    continue
+                evidence = catalog[evidence_ref]
+                if not isinstance(evidence, dict):
+                    continue
+                if evidence.get("field") and str(evidence["field"]) != str(metric_name):
+                    errors.append(
+                        f"stage_features.metrics.{metric_name} 与证据字段 "
+                        f"{evidence['field']} 不一致"
+                    )
+                if "value" in evidence and evidence["value"] != metric["value"]:
+                    errors.append(
+                        f"stage_features.metrics.{metric_name} 数值 {metric['value']} "
+                        f"与证据 {evidence_ref} 的 {evidence['value']} 不一致"
+                    )
+        check_refs("stage_features.evidence_refs", stage.get("evidence_refs"))
+        if stage.get("as_of") and cutoff and not _date_not_after(stage["as_of"], cutoff):
+            errors.append(
+                f"stage_features.as_of={stage['as_of']} 晚于输入截止 {cutoff}"
+            )
+    elif stage is not None:
+        errors.append("stage_features 应为对象")
+
+    provenance = answer.get("threshold_provenance")
+    if isinstance(provenance, dict):
+        for field in REQUIRED_THRESHOLD_FIELDS:
+            item = provenance.get(field)
+            if not isinstance(item, dict):
+                errors.append(f"threshold_provenance.{field} 应为对象")
+                continue
+            origin = str(item.get("origin") or "")
+            if origin not in ALLOWED_THRESHOLD_ORIGINS:
+                errors.append(
+                    f"threshold_provenance.{field}.origin 应为 "
+                    f"{sorted(ALLOWED_THRESHOLD_ORIGINS)} 之一"
+                )
+            if not item.get("evidence_ref"):
+                errors.append(f"threshold_provenance.{field} 缺 evidence_ref")
+            elif str(item["evidence_ref"]) not in catalog_ids:
+                errors.append(
+                    f"threshold_provenance.{field}.evidence_ref 引用不存在的 evidence id："
+                    f"{item['evidence_ref']}"
+                )
+            if not item.get("as_of"):
+                errors.append(f"threshold_provenance.{field} 缺 as_of")
+            elif cutoff and not _date_not_after(item["as_of"], cutoff):
+                errors.append(
+                    f"threshold_provenance.{field}.as_of={item['as_of']} 晚于输入截止 {cutoff}"
+                )
+    elif provenance is not None:
+        errors.append("threshold_provenance 应为对象")
+
+    for i, pick in enumerate(answer.get("picks") or []):
+        check_refs(f"picks[{i}].evidence_refs", pick.get("evidence_refs"))
+        if not pick.get("evidence_as_of"):
+            errors.append(f"picks[{i}] 缺 evidence_as_of")
+        elif cutoff and not _date_not_after(pick["evidence_as_of"], cutoff):
+            errors.append(
+                f"picks[{i}].evidence_as_of={pick['evidence_as_of']} 晚于输入截止 {cutoff}"
+            )
+
+    hypotheses = answer.get("hypotheses")
+    if isinstance(hypotheses, list) and hypotheses:
+        seen_ids: set[str] = set()
+        for i, hypothesis in enumerate(hypotheses):
+            if not isinstance(hypothesis, dict):
+                errors.append(f"hypotheses[{i}] 应为对象")
+                continue
+            for field in (
+                "id",
+                "category",
+                "claim",
+                "horizon",
+                "confidence",
+                "confidence_probability",
+                "evidence_refs",
+                "evidence_as_of",
+                "falsify_when",
+            ):
+                if not hypothesis.get(field):
+                    errors.append(f"hypotheses[{i}] 缺字段 {field}")
+            hypothesis_id = str(hypothesis.get("id") or "")
+            if hypothesis_id in seen_ids:
+                errors.append(f"hypotheses[{i}].id 重复：{hypothesis_id}")
+            seen_ids.add(hypothesis_id)
+            if str(hypothesis.get("category") or "") not in ALLOWED_HYPOTHESIS_CATEGORIES:
+                errors.append(
+                    f"hypotheses[{i}].category 应为 "
+                    f"{sorted(ALLOWED_HYPOTHESIS_CATEGORIES)} 之一"
+                )
+            if str(hypothesis.get("confidence") or "") not in ALLOWED_CONFIDENCE:
+                errors.append(
+                    f"hypotheses[{i}].confidence 应为 {sorted(ALLOWED_CONFIDENCE)} 之一"
+                )
+            probability = hypothesis.get("confidence_probability")
+            if not isinstance(probability, (int, float)) or isinstance(probability, bool):
+                errors.append(f"hypotheses[{i}].confidence_probability 应为 0~1 数字")
+            elif not 0 <= float(probability) <= 1:
+                errors.append(f"hypotheses[{i}].confidence_probability 应在 0~1 之间")
+            if str(hypothesis.get("horizon") or "") not in VERDICT_HORIZONS:
+                errors.append(
+                    f"hypotheses[{i}].horizon 应为 {sorted(VERDICT_HORIZONS)} 之一"
+                )
+            check_refs(
+                f"hypotheses[{i}].evidence_refs",
+                hypothesis.get("evidence_refs"),
+            )
+            if hypothesis.get("evidence_as_of") and cutoff and not _date_not_after(
+                hypothesis["evidence_as_of"], cutoff
+            ):
+                errors.append(
+                    f"hypotheses[{i}].evidence_as_of={hypothesis['evidence_as_of']} "
+                    f"晚于输入截止 {cutoff}"
+                )
+    elif hypotheses is not None:
+        errors.append("hypotheses 应为非空列表")
     return errors
 
 
@@ -277,6 +497,8 @@ def validate_verdict(draft: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) ->
 
     answers = answer_paths_for(date, ledger_dir)
     ids_by_agent: dict[str, set[str]] = {}
+    ids_by_agent_source: dict[tuple[str, str], set[str]] = {}
+    sources_by_agent: dict[str, set[str]] = {}
     for key, path in answers.items():
         try:
             answer = json.loads(path.read_text(encoding="utf-8"))
@@ -284,7 +506,11 @@ def validate_verdict(draft: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) ->
             errors.append(f"答卷 {path.name} 不可读：{exc}")
             continue
         agent = str(answer.get("agent") or key.split(".", 1)[0]).lower()
-        ids_by_agent.setdefault(agent, set()).update(hypothesis_ids(answer))
+        source = str(answer.get("source") or DEFAULT_SOURCE).lower()
+        answer_ids = hypothesis_ids(answer)
+        ids_by_agent.setdefault(agent, set()).update(answer_ids)
+        ids_by_agent_source.setdefault((agent, source), set()).update(answer_ids)
+        sources_by_agent.setdefault(agent, set()).add(source)
 
     for i, entry in enumerate(verdicts):
         for field in REQUIRED_VERDICT_FIELDS:
@@ -296,10 +522,26 @@ def validate_verdict(draft: dict[str, Any], *, ledger_dir: Path = LEDGER_DIR) ->
             errors.append(
                 f"verdicts[{i}] agent={agent} 无对应答卷 {date}.answer.{agent}[.<source>].json——先有答卷再有验证"
             )
-        elif agent and entry.get("id") and str(entry["id"]) not in ids_by_agent[agent]:
-            errors.append(
-                f"verdicts[{i}] id={entry['id']} 不在 {agent} 答卷假设集 {sorted(ids_by_agent[agent])} 内"
-            )
+        elif agent and entry.get("id"):
+            available_sources = sources_by_agent.get(agent, set())
+            if len(available_sources) > 1 and not entry.get("source") and not entry.get(
+                "stream"
+            ):
+                errors.append(
+                    f"verdicts[{i}] {agent} 同日有多流答卷，必须填 source 或 stream"
+                )
+            source = _verdict_source(entry, available_sources=available_sources)
+            source_ids = ids_by_agent_source.get((agent, source))
+            if source_ids is None:
+                errors.append(
+                    f"verdicts[{i}] source={source} 无对应答卷 "
+                    f"{date}.answer.{agent}.{source}.json"
+                )
+            elif str(entry["id"]) not in source_ids:
+                errors.append(
+                    f"verdicts[{i}] id={entry['id']} 不在 {agent}/{source} "
+                    f"答卷假设集 {sorted(source_ids)} 内"
+                )
         if entry.get("verdict") and str(entry["verdict"]) not in VERDICT_VALUES:
             errors.append(f"verdicts[{i}] verdict 应为 {sorted(VERDICT_VALUES)} 之一，实际 {entry['verdict']}")
         if str(entry.get("verdict")) in {"hit", "miss", "partial"} and not entry.get("actual"):
@@ -605,9 +847,82 @@ def _mean(values: list[float]) -> float | None:
     return round(sum(values) / len(values), 4) if values else None
 
 
+def _hypothesis_category(hypothesis_id: str) -> str:
+    if hypothesis_id.startswith("target:"):
+        return "target"
+    if hypothesis_id in ALLOWED_HYPOTHESIS_CATEGORIES:
+        return hypothesis_id
+    return "unknown"
+
+
+def _verdict_source(
+    entry: dict[str, Any],
+    *,
+    available_sources: set[str],
+) -> str:
+    explicit = str(entry.get("source") or "").lower()
+    if explicit in ALLOWED_SOURCES:
+        return explicit
+    if entry.get("stream"):
+        return STREAM_TO_SOURCE.get(str(entry["stream"]), DEFAULT_SOURCE)
+    if len(available_sources) == 1:
+        return next(iter(available_sources))
+    return DEFAULT_SOURCE
+
+
+def _calibration_metrics(samples: list[tuple[float, int]]) -> dict[str, Any]:
+    if not samples:
+        return {
+            "n": 0,
+            "auc": None,
+            "brier": None,
+            "ece_5bin": None,
+            "decision_eligible": False,
+            "reason": "没有同时包含概率与 hit/miss 裁定的样本",
+        }
+    positives = [score for score, label in samples if label == 1]
+    negatives = [score for score, label in samples if label == 0]
+    auc: float | None = None
+    if positives and negatives:
+        wins = sum(
+            1.0 if positive > negative else 0.5 if positive == negative else 0.0
+            for positive in positives
+            for negative in negatives
+        )
+        auc = round(wins / (len(positives) * len(negatives)), 4)
+    brier = round(
+        sum((score - label) ** 2 for score, label in samples) / len(samples),
+        4,
+    )
+    weighted_error = 0.0
+    for bin_index in range(5):
+        lower = bin_index / 5
+        upper = (bin_index + 1) / 5
+        bucket = []
+        for score, label in samples:
+            in_bucket = lower <= score <= upper if bin_index == 4 else lower <= score < upper
+            if in_bucket:
+                bucket.append((score, label))
+        if not bucket:
+            continue
+        mean_score = sum(score for score, _ in bucket) / len(bucket)
+        hit_rate = sum(label for _, label in bucket) / len(bucket)
+        weighted_error += len(bucket) / len(samples) * abs(mean_score - hit_rate)
+    return {
+        "n": len(samples),
+        "auc": auc,
+        "brier": brier,
+        "ece_5bin": round(weighted_error, 4),
+        "decision_eligible": False,
+        "reason": "指标只做观测；需预注册最小样本和样本外验收阈值后才能升级硬闸门",
+    }
+
+
 def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
-    """聚合所有答卷 JSON（含人工/脚本回填的 recheck 块），按 agent 出长期统计。"""
-    per_agent: dict[str, dict[str, Any]] = {}
+    """聚合答卷与裁定，严格按 agent/source/category/confidence 分账。"""
+    per_agent: dict[tuple[str, str], dict[str, Any]] = {}
+    answer_sources: dict[tuple[str, str], set[str]] = {}
+    hypothesis_meta: dict[tuple[str, str, str, str], dict[str, str]] = {}
     for answer_path in sorted(ledger_dir.glob("*.answer.*.json")):
         try:
             answer = json.loads(answer_path.read_text(encoding="utf-8"))
@@ -615,6 +930,23 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
             continue
         agent = str(answer.get("agent") or "unknown").lower()
         source = str(answer.get("source") or DEFAULT_SOURCE).lower()
+        answer_date = str(answer.get("date") or "")
+        answer_sources.setdefault((answer_date, agent), set()).add(source)
+        for hypothesis in answer.get("hypotheses") or []:
+            if not isinstance(hypothesis, dict) or not hypothesis.get("id"):
+                continue
+            hypothesis_id = str(hypothesis["id"])
+            hypothesis_meta[(answer_date, agent, source, hypothesis_id)] = {
+                "category": str(
+                    hypothesis.get("category") or _hypothesis_category(hypothesis_id)
+                ),
+                "confidence": str(hypothesis.get("confidence") or "unknown"),
+                "confidence_probability": str(
+                    hypothesis.get("confidence_probability")
+                    if hypothesis.get("confidence_probability") is not None
+                    else ""
+                ),
+            }
         stat = per_agent.setdefault(
             (agent, source),
             {
@@ -644,22 +976,67 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
             if recheck["market_threshold_hit"]:
                 stat["market_threshold_hits"] += 1
 
-    verdict_stats: dict[str, dict[str, dict[str, int]]] = {}
-    failure_modes: dict[str, dict[str, int]] = {}
+    verdict_stats: dict[tuple[str, str], dict[str, dict[str, int]]] = {}
+    category_stats: dict[tuple[str, str], dict[str, dict[str, int]]] = {}
+    confidence_stats: dict[tuple[str, str], dict[str, dict[str, int]]] = {}
+    calibration_samples: dict[tuple[str, str], list[tuple[float, int]]] = {}
+    failure_modes: dict[tuple[str, str], dict[str, int]] = {}
     for vpath in sorted(ledger_dir.glob("*.verdict.json")):
         try:
             verdict = json.loads(vpath.read_text(encoding="utf-8"))
         except Exception:
             continue
+        verdict_date = str(verdict.get("date") or "")
         for entry in verdict.get("verdicts") or []:
             agent = str(entry.get("agent") or "unknown").lower()
+            source = _verdict_source(
+                entry,
+                available_sources=answer_sources.get((verdict_date, agent), set()),
+            )
+            agent_source = (agent, source)
             key = f"{entry.get('stream') or '盘面'}/{entry.get('horizon') or 'T+1'}"
-            bucket = verdict_stats.setdefault(agent, {}).setdefault(key, {v: 0 for v in sorted(VERDICT_VALUES)})
+            bucket = verdict_stats.setdefault(agent_source, {}).setdefault(
+                key, {v: 0 for v in sorted(VERDICT_VALUES)}
+            )
             value = str(entry.get("verdict") or "")
             if value in bucket:
                 bucket[value] += 1
+            hypothesis_id = str(entry.get("id") or "")
+            meta = hypothesis_meta.get(
+                (verdict_date, agent, source, hypothesis_id),
+                {},
+            )
+            category = str(
+                entry.get("category")
+                or meta.get("category")
+                or _hypothesis_category(hypothesis_id)
+            )
+            category_bucket = category_stats.setdefault(agent_source, {}).setdefault(
+                category, {v: 0 for v in sorted(VERDICT_VALUES)}
+            )
+            if value in category_bucket:
+                category_bucket[value] += 1
+            confidence = str(entry.get("confidence") or meta.get("confidence") or "unknown")
+            confidence_bucket = confidence_stats.setdefault(agent_source, {}).setdefault(
+                confidence, {v: 0 for v in sorted(VERDICT_VALUES)}
+            )
+            if value in confidence_bucket:
+                confidence_bucket[value] += 1
+            probability_raw = entry.get(
+                "confidence_probability",
+                meta.get("confidence_probability"),
+            )
+            if value in {"hit", "miss"}:
+                try:
+                    probability = float(probability_raw)
+                except (TypeError, ValueError):
+                    probability = -1.0
+                if 0 <= probability <= 1:
+                    calibration_samples.setdefault(agent_source, []).append(
+                        (probability, 1 if value == "hit" else 0)
+                    )
             if entry.get("failure_mode"):
-                fm = failure_modes.setdefault(agent, {})
+                fm = failure_modes.setdefault(agent_source, {})
                 fm[str(entry["failure_mode"])] = fm.get(str(entry["failure_mode"]), 0) + 1
 
     agents: dict[str, Any] = {}
@@ -677,11 +1054,19 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
             "market_threshold_hit_rate": (
                 round(stat["market_threshold_hits"] / checked, 4) if checked else None
             ),
-            "verdicts_by_stream_horizon": verdict_stats.get(agent, {}),
-            "failure_modes": failure_modes.get(agent, {}),
+            "verdicts_by_stream_horizon": verdict_stats.get((agent, source), {}),
+            "verdicts_by_category": category_stats.get((agent, source), {}),
+            "verdicts_by_confidence": confidence_stats.get((agent, source), {}),
+            "calibration_metrics": _calibration_metrics(
+                calibration_samples.get((agent, source), [])
+            ),
+            "failure_modes": failure_modes.get((agent, source), {}),
         }
-    for agent in sorted(set(verdict_stats) - set(agents)):
-        agents[agent] = {
+    for agent, source in sorted(set(verdict_stats) - set(per_agent)):
+        key = f"{agent}/{source}"
+        agents[key] = {
+            "agent": agent,
+            "source": source,
             "answers": 0,
             "rechecked": 0,
             "dates": [],
@@ -689,8 +1074,13 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
             "avg_pick_return_t3": None,
             "beat_benchmark_t3": 0,
             "market_threshold_hit_rate": None,
-            "verdicts_by_stream_horizon": verdict_stats[agent],
-            "failure_modes": failure_modes.get(agent, {}),
+            "verdicts_by_stream_horizon": verdict_stats[(agent, source)],
+            "verdicts_by_category": category_stats.get((agent, source), {}),
+            "verdicts_by_confidence": confidence_stats.get((agent, source), {}),
+            "calibration_metrics": _calibration_metrics(
+                calibration_samples.get((agent, source), [])
+            ),
+            "failure_modes": failure_modes.get((agent, source), {}),
         }
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -698,6 +1088,8 @@ def aggregate(ledger_dir: Path = LEDGER_DIR) -> dict[str, Any]:
         "agents": agents,
         "notes": [
             "分流分账：同一 agent 的 duckdb/briefing/sellside 三流分开统计，验证窗口不同不可混池。",
+            "分类分账：市场、方向、标的、证伪分别统计，禁止用总分掩盖方向或标的选择偏弱。",
+            "信心分桶仅用于校准观察；样本不足或高/中/低命中率不单调时，不得升级为评分或硬闸门。",
             "单期噪声大：answers < 10 的 agent 统计只作参考，不下结论。",
             "recheck 块由回检人/脚本按统一指标回填：pick_returns_t1/t3（标的池各标的收益%）、",
             "beat_benchmark_t3（标的池 T+3 是否跑赢基准）、market_threshold_hit（§5 市场阈值是否命中）。",
@@ -741,6 +1133,49 @@ def _render_aggregate_md(report: dict[str, Any]) -> str:
             "|---|---|---|---:|---:|---:|---:|---:|",
             *verdict_rows,
         ]
+        for title, field in (
+            ("按判断类别", "verdicts_by_category"),
+            ("按信心档", "verdicts_by_confidence"),
+        ):
+            rows = []
+            for agent, stat in report["agents"].items():
+                for group, bucket in sorted((stat.get(field) or {}).items()):
+                    judged = bucket["hit"] + bucket["miss"] + bucket["partial"]
+                    rows.append(
+                        f"| {agent} | {group} | {bucket['hit']} | {bucket['miss']} "
+                        f"| {bucket['partial']} | {bucket['unverifiable']} | "
+                        f"{round(bucket['hit'] / judged, 4) if judged else '-'} |"
+                    )
+            if rows:
+                lines += [
+                    "",
+                    f"## {title}",
+                    "",
+                    "| agent/流 | 分组 | hit | miss | partial | unverifiable | 命中率 |",
+                    "|---|---|---:|---:|---:|---:|---:|",
+                    *rows,
+                ]
+        calibration_rows = []
+        for agent, stat in report["agents"].items():
+            metrics = stat.get("calibration_metrics") or {}
+            calibration_rows.append(
+                f"| {agent} | {metrics.get('n', 0)} | "
+                f"{metrics.get('auc') if metrics.get('auc') is not None else '-'} | "
+                f"{metrics.get('brier') if metrics.get('brier') is not None else '-'} | "
+                f"{metrics.get('ece_5bin') if metrics.get('ece_5bin') is not None else '-'} | "
+                f"{'是' if metrics.get('decision_eligible') else '否'} |"
+            )
+        if calibration_rows:
+            lines += [
+                "",
+                "## 概率校准观察",
+                "",
+                "| agent/流 | 已决样本 | AUC | Brier | ECE(5 bins) | 可进入硬闸门 |",
+                "|---|---:|---:|---:|---:|---|",
+                *calibration_rows,
+                "",
+                "> 校准指标当前只做观测；升级条件必须预注册，不能看完结果后临时改门槛。",
+            ]
         fm_lines = []
         for agent, stat in report["agents"].items():
             fms = stat.get("failure_modes") or {}

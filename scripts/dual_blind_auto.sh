@@ -54,7 +54,7 @@ prompt_for() {
 
 严格按 docs/learning/dual-blind-forecast-template.md 与 docs/learning/forecast-question-templates.md 执行：
 1. 只用 $LEDGER/$D.manifest.json 冻结的输入（DuckDB db/market_feature_store.duckdb 截至 $P、知识库 commit）。可用 /usr/bin/python3 + duckdb 查询任何表，但不得使用 $P 之后的数据。
-2. 独立完成 §0-§5 答卷，落机器可读 JSON 到 $LEDGER/$D.answer.$agent.json，schema_version "1.0"，agent 填 "$agent"，manifest_sha 填 "$MSHA"。阶段/量能/广度/双红/涨停/新高/核心股全部落数值；主判断一句话；方向排序；标的池 5 只（绑定 §1 字段证据）；thresholds 给 T+1/T+3 强制数值阈值与 falsify 证伪信号；recheck 留空对象。
+2. 独立完成 §0-§5 答卷，落机器可读 JSON 到 $LEDGER/$D.answer.$agent.json，schema_version "1.1"，agent 填 "$agent"，manifest_sha 填 "$MSHA"。先建 evidence_catalog，逐条登记 L1-L4、source/source_time、field/value、support/counter/neutral；stage_features 的每个 metric、标的、阈值和 hypotheses 都只能引用 catalog id；threshold_provenance 标固定规则/回测/机械推导/经验值；hypotheses 每条带 category/confidence/confidence_probability/evidence_as_of/falsify_when；recheck 留空对象。
 3. 落盘后跑 /usr/bin/python3 scripts/dual_blind_forecast.py validate $LEDGER/$D.answer.$agent.json，必须 OK，不 OK 就修到 OK。
 4. 双盲纪律：禁止读取或参考另一位考生的答卷（$LEDGER/$D.answer.*.json 中非你名下的文件），禁止做对比、批注、裁决。
 5. 除答卷 JSON 外不要改动仓库任何文件，不要 git commit。
