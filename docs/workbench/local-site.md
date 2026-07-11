@@ -127,6 +127,32 @@ curl --fail --silent http://127.0.0.1:8788/api/skills | python -m json.tool
 第二条应返回包含 `daily-review` 与 `daily-agent` 的 JSON 数组。若根路径返回
 `503`，先在 `intelligence/webapp` 运行 `pnpm build`。
 
+## Self-use 真实运行 smoke
+
+服务启动后，用 smoke 脚本创建一个 Conversation、发送 hybrid mode 问题、消费并
+按 cursor 重放 SSE、检查终态与结构化 report：
+
+```bash
+python scripts/smoke_workbench_self_use.py \
+  --base-url http://127.0.0.1:8788 \
+  --user linxiaoqi5111 \
+  --question "今天市场怎么样" \
+  --timeout 180 \
+  --output /tmp/workbench-self-use-smoke.json
+```
+
+输出 JSON 只保存聚合状态、Run ID、事件计数、report/model 元数据和 secret scan
+结果；不保存问题正文、回答正文、完整 citation、Authorization header、API key
+或用户私有路径。secret scan 仅扫描 RunStore/ConversationStore 已脱敏后的响应
+字符串，命中时只记录字段位置和 marker 类型，不回显原值。summary 使用同目录
+临时文件、`fsync` 和原子替换写入。
+
+退出码：
+
+- `0`：Run completed，包含显式 degraded completed；
+- `1`：Run failed 或 cancelled；
+- `2`：HTTP/SSE/report 协议异常，或 secret scan 命中。
+
 ## 公开部署前的安全门
 
 以下项目必须全部设计、实现、测试并经过安全评审；当前代码中的路径校验和脱敏
