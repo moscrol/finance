@@ -129,37 +129,73 @@ class ThemeRadarService:
             )
         candidate["market_evidence"]["sector_metrics"] = {
             "sector_ts_code": row.get("sector_ts_code"),
+            "sw_l1": row.get("sw_l1"),
             "pct_chg": row.get("pct_chg"),
             "diff_ratio": row.get("diff_ratio"),
             "amount": row.get("amount"),
             "in_capacity_top3": in_capacity,
         }
         candidate["market_evidence"]["capacity_sector"] = capacity_match or {}
-        for field in ("sector_ts_code", "pct_chg", "diff_ratio", "amount"):
+        for field in (
+            "sector_ts_code",
+            "sw_l1",
+            "pct_chg",
+            "diff_ratio",
+            "amount",
+        ):
             ThemeRadarService._add_lineage(
                 candidate,
                 f"sector_metrics.{field}",
                 row,
                 field,
             )
-        ThemeRadarService._add_lineage(
-            candidate,
-            "sector_metrics.in_capacity_top3",
-            row,
-            "in_capacity_top3",
-            derivation={
-                "operation": "membership",
-                "rule": "sw_l1 in top-3 capacity sectors",
-            },
-        )
         if capacity_match:
-            for field in ("rank", "name", "ratio", "capacity_type"):
+            for field in ("name", "ratio"):
                 ThemeRadarService._add_lineage(
                     candidate,
                     f"capacity_sector.{field}",
                     capacity_match,
                     field,
                 )
+            ThemeRadarService._add_lineage(
+                candidate,
+                "capacity_sector.rank",
+                capacity_match,
+                "rank",
+                derivation={
+                    "operation": "ordinal_position",
+                    "rule": "industry slot in fact_market_daily",
+                    "input_field_paths": [
+                        "capacity_sector.name",
+                        "capacity_sector.ratio",
+                    ],
+                },
+            )
+            ThemeRadarService._add_lineage(
+                candidate,
+                "capacity_sector.capacity_type",
+                capacity_match,
+                "capacity_type",
+                derivation={
+                    "operation": "capacity_type",
+                    "rule": "MarketAdapter._capacity_type(ratio)",
+                    "input_field_paths": ["capacity_sector.ratio"],
+                },
+            )
+            ThemeRadarService._add_lineage(
+                candidate,
+                "sector_metrics.in_capacity_top3",
+                row,
+                "in_capacity_top3",
+                derivation={
+                    "operation": "membership",
+                    "rule": "sw_l1 in top-3 capacity sectors",
+                    "input_field_paths": [
+                        "sector_metrics.sw_l1",
+                        "capacity_sector.name",
+                    ],
+                },
+            )
         return candidate
 
     @staticmethod
@@ -261,9 +297,22 @@ class ThemeRadarService:
         }
         inherited_derivation = meta.get("derivation")
         if isinstance(inherited_derivation, dict):
-            source_ref["derivation"] = inherited_derivation
+            source_ref["derivation"] = dict(inherited_derivation)
         if derivation:
-            source_ref["derivation"] = derivation
+            source_ref["derivation"] = dict(derivation)
+        derivation_body = source_ref.get("derivation")
+        if isinstance(derivation_body, dict):
+            input_paths = derivation_body.pop("input_field_paths", None)
+            if isinstance(input_paths, list):
+                source_ref["input_field_paths"] = input_paths
+            else:
+                input_source_ref = dict(source_ref)
+                input_source_ref["source_kind"] = "query_result"
+                input_source_ref.pop("derivation", None)
+                input_source_ref["source_locator"] = (
+                    f"{source_ref['source_locator']}#query-input"
+                )
+                source_ref["input_source_refs"] = [input_source_ref]
         candidate.setdefault("_market_lineage", {})[field_path] = source_ref
 
     @staticmethod

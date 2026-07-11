@@ -45,6 +45,10 @@ class FakeMarketAdapter:
                         "table": "fact_market_daily",
                         "entity": "market",
                     },
+                    "_source_fields": {
+                        "name": "industry_1",
+                        "ratio": "industry_1_ratio",
+                    },
                 }
             ][:top],
             "warnings": [],
@@ -144,6 +148,23 @@ class ThemeRadarLineageTests(unittest.TestCase):
         derived_ref = report["evidence_catalog"][derived_ref_id]
         self.assertEqual(derived_ref["source_kind"], "derived")
         self.assertIn("derivation", derived_ref)
+        input_refs = derived_ref["derivation"]["input_evidence_refs"]
+        self.assertEqual(len(input_refs), 2)
+        self.assertTrue(
+            all(ref_id in report["evidence_catalog"] for ref_id in input_refs)
+        )
+        capacity_ref_id = candidate["evidence_refs"]["capacity_sector.ratio"][0]
+        capacity_ref = report["evidence_catalog"][capacity_ref_id]
+        self.assertEqual(capacity_ref["field"], "industry_1_ratio")
+        capacity_type_ref_id = candidate["evidence_refs"][
+            "capacity_sector.capacity_type"
+        ][0]
+        capacity_type_ref = report["evidence_catalog"][capacity_type_ref_id]
+        self.assertEqual(capacity_type_ref["source_kind"], "derived")
+        self.assertEqual(
+            capacity_type_ref["derivation"]["input_evidence_refs"],
+            [capacity_ref_id],
+        )
         self.assertNotIn("_source_meta", candidate["market_evidence"])
 
 

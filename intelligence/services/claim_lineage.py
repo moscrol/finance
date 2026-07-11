@@ -54,11 +54,45 @@ def materialize_candidate_lineage(
         if not isinstance(raw_lineage, dict):
             continue
         evidence_refs: dict[str, list[str]] = {}
+        materialized: dict[str, str] = {}
+        active: set[str] = set()
+
+        def materialize(field_path: str) -> str | None:
+            if field_path in materialized:
+                return materialized[field_path]
+            source_ref = raw_lineage.get(field_path)
+            if not isinstance(source_ref, dict) or field_path in active:
+                return None
+            active.add(field_path)
+            normalized = deepcopy(source_ref)
+            input_paths = normalized.pop("input_field_paths", [])
+            input_source_refs = normalized.pop("input_source_refs", [])
+            input_ids = []
+            if isinstance(input_paths, list):
+                for input_path in input_paths:
+                    input_id = materialize(str(input_path))
+                    if input_id:
+                        input_ids.append(input_id)
+            if isinstance(input_source_refs, list):
+                for input_source_ref in input_source_refs:
+                    if isinstance(input_source_ref, dict):
+                        input_ids.append(
+                            register_evidence(catalog, input_source_ref)
+                        )
+            derivation = normalized.get("derivation")
+            if isinstance(derivation, dict) and input_ids:
+                derivation["input_evidence_refs"] = list(dict.fromkeys(input_ids))
+            ref_id = register_evidence(catalog, normalized)
+            materialized[field_path] = ref_id
+            active.remove(field_path)
+            return ref_id
+
         for field_path, source_ref in sorted(raw_lineage.items()):
             if not isinstance(source_ref, dict):
                 continue
-            ref_id = register_evidence(catalog, source_ref)
-            evidence_refs[str(field_path)] = [ref_id]
+            ref_id = materialize(str(field_path))
+            if ref_id:
+                evidence_refs[str(field_path)] = [ref_id]
         if evidence_refs:
             candidate["evidence_refs"] = evidence_refs
     return catalog
