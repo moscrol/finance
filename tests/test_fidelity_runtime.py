@@ -37,14 +37,14 @@ class FidelityRuntimeStatusTests(unittest.TestCase):
             self.assertEqual(status["evidence_count"], 1)
             self.assertFalse(status["contract_ready"])
 
-    def test_legacy_pit_manifest_is_not_contract_ready(self):
+    def test_pre_delta_pit_manifest_is_not_contract_ready(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             path = root / "2026-07-10.manifest.json"
             path.write_text(
                 json.dumps(
                     {
-                        "schema_version": "pit-daily-manifest-1.1",
+                        "schema_version": "pit-daily-manifest-1.2",
                         "status": "frozen",
                         "replay_eligible": True,
                         "capture_root": "/runtime",
@@ -69,9 +69,11 @@ class FidelityRuntimeStatusTests(unittest.TestCase):
             "run_id": "daily-run",
             "artifact_sha": "b" * 64,
             "manifest_sha": "c" * 64,
+            "knowledge_snapshot_artifact_sha": "d" * 64,
             "report_generated_at": "2026-07-10T20:05:00+08:00",
             "evidence_cutoff": "2026-07-10T18:30:00+08:00",
             "decision_cutoff": "2026-07-10T20:05:00+08:00",
+            "snapshot_captured_at": "2026-07-10T18:30:00+08:00",
         }
         pit = {
             "schema_ready": True,
@@ -87,6 +89,17 @@ class FidelityRuntimeStatusTests(unittest.TestCase):
                 "run_id": daily["run_id"],
                 "artifact_sha": daily["artifact_sha"],
                 "manifest_sha": daily["manifest_sha"],
+                "knowledge_snapshot_artifact_sha": daily[
+                    "knowledge_snapshot_artifact_sha"
+                ],
+                "daily_snapshot_captured_at": daily[
+                    "snapshot_captured_at"
+                ],
+            },
+            "wiki_content_delta": {
+                "artifact_sha": daily[
+                    "knowledge_snapshot_artifact_sha"
+                ],
             },
         }
         with (
@@ -117,6 +130,35 @@ class FidelityRuntimeStatusTests(unittest.TestCase):
         self.assertTrue(status["capture_ready"])
         self.assertTrue(status["replay_ready"])
         self.assertFalse(status["decision_eligible"])
+
+        pit["wiki_content_delta"]["artifact_sha"] = "e" * 64
+        with (
+            mock.patch(
+                "intelligence.eval.runtime_status.git_runtime_status",
+                return_value={
+                    "clean": True,
+                    "commit": "a" * 40,
+                    "dirty_paths": [],
+                },
+            ),
+            mock.patch(
+                "intelligence.eval.runtime_status.daily_agent_status",
+                return_value=daily,
+            ),
+            mock.patch(
+                "intelligence.eval.runtime_status.pit_manifest_status",
+                return_value=pit,
+            ),
+        ):
+            mismatched = build_runtime_status(
+                code_root="/code",
+                data_root="/data",
+                snapshot_dir="/snapshots",
+                report_date="2026-07-10",
+            )
+
+        self.assertFalse(mismatched["provenance_linked"])
+        self.assertFalse(mismatched["replay_ready"])
 
     def test_runtime_blocks_dirty_or_mismatched_provenance(self):
         with (

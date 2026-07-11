@@ -11,6 +11,9 @@ from pathlib import Path
 from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
+from intelligence.services.content_delta import (
+    content_delta_errors,
+)
 from intelligence.services.fidelity_contract import (
     CONTRACT_SCHEMA_VERSION,
     PIT_MANIFEST_SCHEMA_VERSION,
@@ -420,6 +423,9 @@ def _daily_agent_upstream(
     upstream_errors = validate_daily_agent_report(daily_agent)
     if daily_agent.get("date") != as_of:
         upstream_errors.append("daily agent report date mismatch")
+    knowledge_snapshot = daily_agent.get("knowledge_snapshot")
+    if not isinstance(knowledge_snapshot, dict):
+        knowledge_snapshot = {}
     return daily_agent, {
         "status": "valid" if not upstream_errors else "invalid",
         "path": str(path),
@@ -427,10 +433,39 @@ def _daily_agent_upstream(
         "report_generated_at": daily_agent.get("report_generated_at"),
         "evidence_cutoff": daily_agent.get("evidence_cutoff"),
         "decision_cutoff": daily_agent.get("decision_cutoff"),
+        "daily_snapshot_captured_at": daily_agent.get(
+            "snapshot_captured_at"
+        ),
         "generator_commit": daily_agent.get("generator_commit"),
         "run_id": daily_agent.get("run_id"),
         "artifact_sha": daily_agent.get("artifact_sha"),
         "manifest_sha": daily_agent.get("manifest_sha"),
+        "knowledge_snapshot_artifact_sha": knowledge_snapshot.get(
+            "artifact_sha"
+        ),
+        "knowledge_snapshot_base_commit": knowledge_snapshot.get(
+            "base_commit"
+        ),
+    }
+
+
+def _content_delta_summary(delta: object) -> dict[str, Any] | None:
+    if not isinstance(delta, dict):
+        return None
+    return {
+        key: delta.get(key)
+        for key in (
+            "schema_version",
+            "captured_at",
+            "base_commit",
+            "base_committed_at",
+            "scope",
+            "dirty",
+            "entry_count",
+            "total_bytes",
+            "artifact_sha",
+            "replay_recipe",
+        )
     }
 
 
@@ -527,16 +562,52 @@ def build_daily_snapshot(
         for name, state in (("finance", finance_as_of), ("wiki", wiki_as_of))
         if state is None
     ]
-    dirty_repositories = [
-        name
-        for name, state in (
-            ("finance", finance_current),
-            ("wiki", wiki_current),
-        )
-        if bool((state or {}).get("dirty"))
-    ]
-    repository_gaps.extend(
-        f"{name}_dirty_worktree" for name in dirty_repositories
+    if bool((finance_current or {}).get("dirty")):
+        repository_gaps.append("finance_dirty_worktree")
+    wiki_content_delta = (
+        daily_agent.get("knowledge_snapshot")
+        if isinstance(daily_agent, dict)
+        else None
+    )
+    wiki_delta_errors = content_delta_errors(
+        wiki_content_delta,
+        evidence_cutoff=str(cutoff_fields["evidence_cutoff"]),
+    )
+    if isinstance(wiki_content_delta, dict):
+        base_commit = str(wiki_content_delta.get("base_commit") or "")
+        try:
+            _git(
+                kb_root,
+                ["cat-file", "-e", f"{base_commit}^{{commit}}"],
+            )
+            actual_committed_at = _git(
+                kb_root,
+                ["show", "-s", "--format=%cI", base_commit],
+            ).stdout.strip()
+        except (OSError, subprocess.CalledProcessError):
+            wiki_delta_errors.append(
+                "content delta base commit is unavailable"
+            )
+        else:
+            if actual_committed_at != wiki_content_delta.get(
+                "base_committed_at"
+            ):
+                wiki_delta_errors.append(
+                    "content delta base commit timestamp mismatch"
+                )
+    if wiki_delta_errors:
+        repository_gaps.append("wiki_content_delta_invalid")
+    wiki_input_state = (
+        {
+            "root": str(Path(kb_root).expanduser()),
+            "commit": wiki_content_delta.get("base_commit"),
+            "committed_at": wiki_content_delta.get("base_committed_at"),
+            "content_delta_artifact_sha": wiki_content_delta.get(
+                "artifact_sha"
+            ),
+        }
+        if isinstance(wiki_content_delta, dict) and not wiki_delta_errors
+        else wiki_as_of
     )
     status = (
         "pending"
@@ -557,6 +628,8 @@ def build_daily_snapshot(
         provenance_gaps.append("daily_agent_contract_not_linked")
     elif upstream.get("generator_commit") != generator_commit:
         provenance_gaps.append("daily_agent_generator_commit_mismatch")
+    if wiki_delta_errors:
+        provenance_gaps.append("wiki_content_delta_not_replayable")
     if provenance_gaps and status == "frozen":
         status = "frozen_with_gaps"
     snapshot = {
@@ -580,13 +653,14 @@ def build_daily_snapshot(
         "repositories": {
             "input_materials": {
                 "finance": finance_as_of,
-                "wiki": wiki_as_of,
+                "wiki": wiki_input_state,
             },
             "capture_implementation": finance_current,
             "working_trees": {
                 "finance_dirty": bool((finance_current or {}).get("dirty")),
                 "wiki_dirty": bool((wiki_current or {}).get("dirty")),
             },
+            "wiki_content_delta": wiki_content_delta,
         },
         "data": data,
     }
@@ -616,7 +690,12 @@ def build_daily_snapshot(
         "snapshot_sha256": _sha256(canonical),
         "artifact_sha": _sha256(canonical),
         "upstream_daily_agent": upstream,
-        "repositories": snapshot["repositories"],
+        "repositories": {
+            **snapshot["repositories"],
+            "wiki_content_delta": _content_delta_summary(
+                wiki_content_delta
+            ),
+        },
         "boundary": snapshot["boundary"],
         "known_at_contract": {
             "row_known_at_field": "updated_at",
@@ -773,6 +852,77 @@ def validate_frozen_snapshot(
         "upstream_daily_agent"
     ):
         raise ValueError(f"upstream daily agent mismatch for {as_of}")
+    repositories = snapshot.get("repositories") or {}
+    wiki_content_delta = repositories.get("wiki_content_delta")
+    manifest_repositories = manifest.get("repositories") or {}
+    if manifest_repositories.get(
+        "wiki_content_delta"
+    ) != _content_delta_summary(wiki_content_delta):
+        raise ValueError(f"wiki content delta summary mismatch for {as_of}")
+    if isinstance(wiki_content_delta, dict):
+        delta_validation = content_delta_errors(
+            wiki_content_delta,
+            evidence_cutoff=str(manifest.get("evidence_cutoff") or ""),
+        )
+        if delta_validation:
+            raise ValueError(
+                f"wiki content delta invalid for {as_of}: "
+                + "; ".join(delta_validation)
+            )
+        upstream_delta_sha = (
+            (manifest.get("upstream_daily_agent") or {}).get(
+                "knowledge_snapshot_artifact_sha"
+            )
+        )
+        if upstream_delta_sha != wiki_content_delta.get("artifact_sha"):
+            raise ValueError(f"wiki content delta link mismatch for {as_of}")
+        input_materials = repositories.get("input_materials")
+        if not isinstance(input_materials, dict):
+            input_materials = {}
+        wiki_input = input_materials.get("wiki")
+        if not isinstance(wiki_input, dict):
+            wiki_input = {}
+        if (
+            wiki_input.get("commit")
+            != wiki_content_delta.get("base_commit")
+            or wiki_input.get("committed_at")
+            != wiki_content_delta.get("base_committed_at")
+            or wiki_input.get("content_delta_artifact_sha")
+            != wiki_content_delta.get("artifact_sha")
+        ):
+            raise ValueError(
+                f"wiki input material link mismatch for {as_of}"
+            )
+        try:
+            delta_captured_at = parse_timestamp(
+                wiki_content_delta.get("captured_at")
+            )
+            upstream_captured_at = parse_timestamp(
+                (manifest.get("upstream_daily_agent") or {}).get(
+                    "daily_snapshot_captured_at"
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"wiki content delta capture is invalid for {as_of}"
+            ) from exc
+        if delta_captured_at != upstream_captured_at:
+            raise ValueError(
+                f"wiki content delta capture mismatch for {as_of}"
+            )
+    elif "wiki_content_delta_invalid" not in (
+        manifest.get("repository_gaps") or []
+    ):
+        raise ValueError(f"wiki content delta missing for {as_of}")
+    gap_fields = (
+        manifest.get("required_failures") or [],
+        manifest.get("coverage_gaps") or [],
+        manifest.get("repository_gaps") or [],
+        manifest.get("provenance_gaps") or [],
+    )
+    expected_replay_eligible = not any(gap_fields)
+    if manifest.get("replay_eligible") is not expected_replay_eligible:
+        raise ValueError(f"replay eligibility mismatch for {as_of}")
     previous = manifest.get("previous_manifest")
     if isinstance(previous, dict):
         previous_path = root / str(previous.get("manifest_file") or "")

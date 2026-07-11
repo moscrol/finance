@@ -15,6 +15,9 @@ from intelligence.eval.pit_snapshot import (
     freeze_daily_snapshot,
     validate_frozen_snapshot,
 )
+from intelligence.services.content_delta import (
+    build_content_delta,
+)
 from intelligence.services.fidelity_contract import (
     report_manifest_payload,
     seal_artifact,
@@ -166,6 +169,38 @@ class PitSnapshotTests(unittest.TestCase):
             encoding="utf-8",
         )
 
+    def _daily_agent(
+        self,
+        finance: Path,
+        wiki: Path,
+    ) -> dict[str, object]:
+        generator_commit = subprocess.run(
+            ["git", "-C", str(finance), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        daily_agent = _valid_report()
+        daily_agent["knowledge_snapshot"] = build_content_delta(
+            wiki,
+            captured_at=daily_agent["snapshot_captured_at"],
+        )
+        seal_artifact(
+            daily_agent,
+            artifact_kind="daily-agent",
+            report_date="2026-07-10",
+            generator_commit=generator_commit,
+            snapshot_captured_at=daily_agent[
+                "snapshot_captured_at"
+            ],
+            report_generated_at=daily_agent[
+                "report_generated_at"
+            ],
+            manifest_payload=report_manifest_payload(daily_agent),
+            run_id=daily_agent["run_id"],
+        )
+        return daily_agent
+
     def test_freeze_writes_immutable_pair_and_is_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -189,11 +224,11 @@ class PitSnapshotTests(unittest.TestCase):
             snapshot = json.loads(gzip.decompress(snapshot_path.read_bytes()))
             self.assertEqual(
                 snapshot["schema_version"],
-                "pit-daily-snapshot-1.2",
+                "pit-daily-snapshot-1.3",
             )
             self.assertEqual(
                 manifest["schema_version"],
-                "pit-daily-manifest-1.2",
+                "pit-daily-manifest-1.3",
             )
             self.assertEqual(manifest["artifact_sha"], manifest["snapshot_sha256"])
             self.assertEqual(len(manifest["manifest_sha"]), 64)
@@ -218,7 +253,10 @@ class PitSnapshotTests(unittest.TestCase):
             self.assertFalse(manifest["replay_eligible"])
             self.assertEqual(
                 manifest["provenance_gaps"],
-                ["daily_agent_contract_not_linked"],
+                [
+                    "daily_agent_contract_not_linked",
+                    "wiki_content_delta_not_replayable",
+                ],
             )
             self.assertEqual(
                 validate_frozen_snapshot(out, "2026-07-10")[
@@ -377,27 +415,7 @@ class PitSnapshotTests(unittest.TestCase):
                 "wiki",
                 "2026-07-10T10:00:00+08:00",
             )
-            generator_commit = subprocess.run(
-                ["git", "-C", str(finance), "rev-parse", "HEAD"],
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
-            daily_agent = _valid_report()
-            seal_artifact(
-                daily_agent,
-                artifact_kind="daily-agent",
-                report_date="2026-07-10",
-                generator_commit=generator_commit,
-                snapshot_captured_at=daily_agent[
-                    "snapshot_captured_at"
-                ],
-                report_generated_at=daily_agent[
-                    "report_generated_at"
-                ],
-                manifest_payload=report_manifest_payload(daily_agent),
-                run_id=daily_agent["run_id"],
-            )
+            daily_agent = self._daily_agent(finance, wiki)
             daily_dir = root / "daily"
             daily_dir.mkdir()
             (daily_dir / "2026-07-10-daily-agent.json").write_text(
@@ -438,7 +456,60 @@ class PitSnapshotTests(unittest.TestCase):
                 )
             )
 
-    def test_dirty_repository_blocks_replay_eligibility(self) -> None:
+    def test_content_addressed_wiki_delta_allows_replay(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = self._db(root)
+            finance = self._repo(root, "finance")
+            wiki = self._repo(root, "wiki")
+            self._commit(
+                finance,
+                "README.md",
+                "finance",
+                "2026-07-10T10:00:00+08:00",
+            )
+            self._commit(
+                wiki,
+                "README.md",
+                "wiki",
+                "2026-07-10T10:00:00+08:00",
+            )
+            dirty = wiki / "dirty.md"
+            dirty.write_text("dirty evidence\n", encoding="utf-8")
+            timestamp = 1783677600
+            os.utime(dirty, (timestamp, timestamp))
+            daily_agent = self._daily_agent(finance, wiki)
+            daily_dir = root / "daily"
+            daily_dir.mkdir()
+            (daily_dir / "2026-07-10-daily-agent.json").write_text(
+                json.dumps(daily_agent, ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+            manifest = freeze_daily_snapshot(
+                db,
+                as_of="2026-07-10",
+                finance_root=finance,
+                kb_root=wiki,
+                out_dir=root / "snapshots",
+                daily_agent_dir=daily_dir,
+            )
+
+            self.assertTrue(manifest["replay_eligible"])
+            self.assertEqual(manifest["repository_gaps"], [])
+            self.assertTrue(
+                manifest["repositories"]["working_trees"]["wiki_dirty"]
+            )
+            delta = manifest["repositories"]["wiki_content_delta"]
+            self.assertTrue(delta["dirty"])
+            self.assertEqual(delta["entry_count"], 1)
+            self.assertEqual(
+                delta["artifact_sha"],
+                daily_agent["knowledge_snapshot"]["artifact_sha"],
+            )
+            validate_frozen_snapshot(root / "snapshots", "2026-07-10")
+
+    def test_missing_wiki_delta_blocks_replay_eligibility(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             db = self._db(root)
@@ -465,7 +536,57 @@ class PitSnapshotTests(unittest.TestCase):
             )
             self.assertFalse(manifest["replay_eligible"])
             self.assertIn(
-                "wiki_dirty_worktree",
+                "wiki_content_delta_invalid",
+                manifest["repository_gaps"],
+            )
+
+    def test_dirty_finance_code_still_blocks_replay(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = self._db(root)
+            finance = self._repo(root, "finance")
+            wiki = self._repo(root, "wiki")
+            self._commit(
+                finance,
+                "README.md",
+                "finance",
+                "2026-07-10T10:00:00+08:00",
+            )
+            self._commit(
+                wiki,
+                "README.md",
+                "wiki",
+                "2026-07-10T10:00:00+08:00",
+            )
+            daily_agent = self._daily_agent(finance, wiki)
+            daily_dir = root / "daily"
+            daily_dir.mkdir()
+            (daily_dir / "2026-07-10-daily-agent.json").write_text(
+                json.dumps(daily_agent, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            (finance / "dirty.py").write_text(
+                "print('dirty')\n",
+                encoding="utf-8",
+            )
+
+            _, manifest = build_daily_snapshot(
+                db,
+                as_of="2026-07-10",
+                finance_root=finance,
+                kb_root=wiki,
+                daily_agent_path=(
+                    daily_dir / "2026-07-10-daily-agent.json"
+                ),
+            )
+
+            self.assertFalse(manifest["replay_eligible"])
+            self.assertIn(
+                "finance_dirty_worktree",
+                manifest["repository_gaps"],
+            )
+            self.assertNotIn(
+                "wiki_content_delta_invalid",
                 manifest["repository_gaps"],
             )
 

@@ -54,10 +54,17 @@
    - 所有对外叙述都进入 canonical claim manifest；
    - 报告确实在目标交易日生成，历史补跑不能冒充前向产物。
 
-   PIT manifest 必须为 `pit-daily-manifest-1.2`，且连接同日
+   PIT manifest 必须为 `pit-daily-manifest-1.3`，且连接同日
    daily-agent 的 run/hash/commit。`replay_ready` 还要求 manifest
    自身的 `replay_eligible=true`；`decision_eligible` 在积累足够前向
    交易日和 Gold 审核前固定为 false。
+
+   P4-C 将 wiki 的可重放条件从“工作树必须干净”升级为
+   `base_commit + content-delta-1.0`。daily-agent 在使用知识库前后捕获
+   同一 content hash；PIT 继承完整 delta，并在 manifest 中保存
+   summary/hash。因此 wiki 可以保持 dirty，但逐文件内容、mtime cutoff、
+   base commit 和 daily-agent/PIT hash link 必须全部有效。finance runtime
+   代码仍要求 clean，`decision_eligible` 仍固定为 false。
 
 ## 暂不迁移
 

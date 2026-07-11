@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 
 from intelligence.eval.fidelity_replay import validate_answer_claims
+from intelligence.services.content_delta import content_delta_payload
 from intelligence.services.fidelity_contract import (
     build_claim_manifest_metadata,
     public_narratives,
@@ -10,6 +11,7 @@ from intelligence.services.fidelity_contract import (
     rendered_output_errors,
     report_manifest_payload,
     seal_artifact,
+    sha256_value,
     validate_daily_agent_report,
 )
 
@@ -44,6 +46,22 @@ def _valid_report() -> dict[str, object]:
             }
         ],
     }
+    knowledge_snapshot = {
+        "schema_version": "content-delta-1.0",
+        "captured_at": "2026-07-10T18:30:00+08:00",
+        "base_commit": "d" * 40,
+        "base_committed_at": "2026-07-10T17:00:00+08:00",
+        "scope": "wiki",
+        "dirty": False,
+        "entry_count": 0,
+        "total_bytes": 0,
+        "entries": [],
+        "replay_recipe": "checkout base_commit, then apply entries by path",
+    }
+    knowledge_snapshot["artifact_sha"] = sha256_value(
+        content_delta_payload(knowledge_snapshot)
+    )
+    report["knowledge_snapshot"] = knowledge_snapshot
     claims = [
         {
             "claim_id": "claim-evidence",
@@ -202,6 +220,26 @@ def test_source_time_after_evidence_cutoff_fails() -> None:
 
     assert (
         "evidence ev-1 is after evidence_cutoff"
+        in validate_daily_agent_report(report)
+    )
+
+
+def test_knowledge_content_delta_tampering_fails() -> None:
+    report = _valid_report()
+    report["knowledge_snapshot"]["artifact_sha"] = "0" * 64
+    seal_artifact(
+        report,
+        artifact_kind="daily-agent",
+        report_date="2026-07-10",
+        generator_commit="a" * 40,
+        snapshot_captured_at=report["snapshot_captured_at"],
+        report_generated_at=report["report_generated_at"],
+        manifest_payload=report_manifest_payload(report),
+        run_id=report["run_id"],
+    )
+
+    assert (
+        "knowledge snapshot: content delta artifact hash mismatch"
         in validate_daily_agent_report(report)
     )
 
