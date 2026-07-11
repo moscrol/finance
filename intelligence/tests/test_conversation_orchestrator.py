@@ -522,6 +522,7 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
         "L1×6、L2×6、L4×1，尚缺 L3 硬证据。[D4]"
         "本轮未命中任何 L3硬证据硬证据。优先走 L3 证据工具补查。"
         "当前属于 high/L1_L3_candidate，L1/L2 认知完整但 "
+        "分析基于 local Daily Review 确定性投影，知识图谱命中的概念。"
         "cycle_status 仍需确认，RAG检索的wiki向量源降级未接入。"
     )
 
@@ -562,6 +563,11 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assert "公告等硬证据工具" in assistant.content
     assert "硬证据证据" not in assistant.content
     assert "硬证据硬证据" not in assistant.content
+    assert "本地复盘数据" in assistant.content
+    assert "知识图谱关联到的概念" in assistant.content
+    assert "local" not in assistant.content.lower()
+    assert "确定性投影" not in assistant.content
+    assert "知识知识图谱" not in assistant.content
     for internal in (
         "Daily Review",
         "L1",

@@ -182,6 +182,12 @@ def sanitize_conversation_answer(text: str) -> str:
     cleaned = re.sub(
         r"公告等硬证据(?:\s*(?:硬)?证据)+", "公告等硬证据", cleaned
     )
+    cleaned = re.sub(
+        r"(?<![A-Za-z])local(?![A-Za-z])", "本地", cleaned, flags=re.IGNORECASE
+    )
+    cleaned = re.sub(r"本地\s*本地", "本地", cleaned)
+    cleaned = re.sub(r"本地复盘\s*确定性投影(?:数据)?", "本地复盘数据", cleaned)
+    cleaned = cleaned.replace("知识知识图谱", "知识图谱")
     cleaned = _INTERNAL_CODE_PATTERN.sub("", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"(?<=[\u4e00-\u9fff]) (?=[\u4e00-\u9fff])", "", cleaned)
