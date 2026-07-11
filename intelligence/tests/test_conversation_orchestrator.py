@@ -521,6 +521,8 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
         "公司只有 graph_only/低置信暴露，整体证据层分布为 "
         "L1×6、L2×6、L4×1，尚缺 L3 硬证据。[D4]"
         "本轮未命中任何 L3硬证据硬证据。优先走 L3 证据工具补查。"
+        "本轮检索完全未命中任何 L3硬证据的硬证据。"
+        "8 个被 daily-agent 标记需要补证据的方向。"
         "当前属于 high/L1_L3_candidate，L1/L2 认知完整但 "
         "分析基于 local Daily Review 确定性投影，知识图谱命中的概念。"
         "证据以 L1行业资料和 L2公司基础资料为主，也有 L2基础资料。"
@@ -566,6 +568,8 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assert "公告等硬证据工具" in assistant.content
     assert "硬证据证据" not in assistant.content
     assert "硬证据硬证据" not in assistant.content
+    assert "公告等硬证据的硬证据" not in assistant.content
+    assert "每日复盘流程标记需要补证据" in assistant.content
     assert "本地复盘数据" in assistant.content
     assert "知识图谱关联到的概念" in assistant.content
     assert "local" not in assistant.content.lower()
@@ -583,6 +587,7 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assert "当日日报指标来自本地数据库的数据" in assistant.content
     for internal in (
         "Daily Review",
+        "daily-agent",
         "L1",
         "L2",
         "L3",

@@ -72,6 +72,7 @@ _JSON_BLOCK_PATTERN = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _HUMAN_READABLE_REPLACEMENTS = (
+    ("daily-agent", "每日复盘流程"),
     ("Daily Review 确定性投影数据", "本地复盘数据"),
     ("Daily Review", "本地复盘"),
     ("本地复盘确定性投影数据", "本地复盘数据"),
@@ -180,7 +181,9 @@ def sanitize_conversation_answer(text: str) -> str:
         cleaned,
     )
     cleaned = re.sub(
-        r"公告等硬证据(?:\s*(?:硬)?证据)+", "公告等硬证据", cleaned
+        r"公告等硬证据(?:\s*(?:的\s*)?(?:硬)?证据)+",
+        "公告等硬证据",
+        cleaned,
     )
     cleaned = re.sub(r"行业资料(?:\s*行业资料)+", "行业资料", cleaned)
     cleaned = re.sub(
