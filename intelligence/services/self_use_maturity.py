@@ -124,6 +124,7 @@ def evaluate_maturity(
 ) -> MaturityResult:
     """Evaluate deterministic self-use maturity without mutating the ledger."""
 
+    normalized_user_approved = bool(user_approved)
     event_count = len(events)
     trade_dates = {event.trade_date for event in events}
     covered_workflows = sorted({event.workflow for event in events})
@@ -148,7 +149,7 @@ def evaluate_maturity(
     blockers: list[str] = []
     if len(trade_dates) < 10:
         blockers.append("minimum_trade_dates")
-    if not WORKFLOWS.issubset(covered_workflows):
+    if set(covered_workflows) != WORKFLOWS:
         blockers.append("missing_workflows")
     if not event_count or success_count * 100 < event_count * 95:
         blockers.append("success_rate")
@@ -165,8 +166,8 @@ def evaluate_maturity(
         metrics=metrics,
         blockers=blocker_tuple,
         eligible_for_user_decision=eligible_for_user_decision,
-        user_approved=user_approved,
-        passed=eligible_for_user_decision and user_approved,
+        user_approved=normalized_user_approved,
+        passed=eligible_for_user_decision and normalized_user_approved,
     )
 
 

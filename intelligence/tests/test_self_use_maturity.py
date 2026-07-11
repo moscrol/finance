@@ -95,6 +95,18 @@ def test_explicit_user_approval_passes_an_eligible_result() -> None:
     assert result.passed is True
 
 
+def test_truthy_non_boolean_user_approval_is_normalized_to_bool() -> None:
+    result = evaluate_maturity(
+        make_complete_maturity_events(),
+        user_approved="approved",  # type: ignore[arg-type]
+    )
+
+    assert result.user_approved is True
+    assert type(result.user_approved) is bool
+    assert result.passed is True
+    assert type(result.passed) is bool
+
+
 def test_severe_fact_error_blocks_maturity() -> None:
     events = make_complete_maturity_events()
     events[0] = make_event(
@@ -189,6 +201,23 @@ def test_missing_workflow_is_reported_after_minimum_trade_dates_passes() -> None
 
     assert result.blockers == ("missing_workflows",)
     assert result.metrics["covered_workflows"] == ["daily_market"]
+
+
+def test_extra_unvalidated_workflow_prevents_exact_workflow_coverage() -> None:
+    events = make_complete_maturity_events()
+    events.append(make_event(workflow="freeform"))
+
+    result = evaluate_maturity(events)
+
+    assert result.blockers == ("missing_workflows",)
+    assert result.metrics["covered_workflows"] == [
+        "daily_market",
+        "freeform",
+        "news_impact",
+        "stock_research",
+        "theme_research",
+        "watchlist",
+    ]
 
 
 def test_blockers_follow_stable_contract_order() -> None:
