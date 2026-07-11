@@ -75,6 +75,11 @@ python3 scripts/pit_snapshot_inventory.py validate \
 运行 `scripts/freeze_daily_pit_snapshot.sh`。它晚于 18:30 的
 `daily-full-review`，给申万一级等较晚同步步骤留出缓冲。
 
+生产 plist 从 `/Users/a77/finance-workspace-runtime` 的固定 commit
+执行快照代码；DuckDB、知识库和快照目录仍通过环境变量指向独立数据根。
+渐进迁移与回滚步骤见
+`docs/learning/fidelity-runtime-transition.md`。
+
 冻结时 finance/wiki 工作树必须干净，才能把 Git commit 当作精确知识输入。
 脏工作树不会被静默忽略：manifest 增加
 `finance_dirty_worktree` / `wiki_dirty_worktree`，并将

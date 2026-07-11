@@ -38,8 +38,8 @@ jobs:
         working-directory: intelligence/webapp
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Test intelligence package
-        run: python -m pytest -q intelligence/tests
+      - name: Test Python packages
+        run: python -m pytest -q
 
       - name: Lint frontend
         working-directory: intelligence/webapp
