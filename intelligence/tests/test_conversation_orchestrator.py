@@ -523,6 +523,8 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
         "本轮未命中任何 L3硬证据硬证据。优先走 L3 证据工具补查。"
         "当前属于 high/L1_L3_candidate，L1/L2 认知完整但 "
         "分析基于 local Daily Review 确定性投影，知识图谱命中的概念。"
+        "证据以 L1行业资料和 L2公司基础资料为主，也有 L2基础资料。"
+        "未取到 L3公告/订单/认证/量产等硬证据，盘面 L4盘面信号待确认。"
         "cycle_status 仍需确认，RAG检索的wiki向量源降级未接入。"
     )
 
@@ -568,6 +570,15 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assert "local" not in assistant.content.lower()
     assert "确定性投影" not in assistant.content
     assert "知识知识图谱" not in assistant.content
+    assert "行业资料行业资料" not in assistant.content
+    assert "公司基础资料公司基础资料" not in assistant.content
+    assert "公司基础资料基础资料" not in assistant.content
+    assert "公告等硬证据公告" not in assistant.content
+    assert "盘面信号盘面信号" not in assistant.content
+    assert "盘面盘面信号" not in assistant.content
+    assert "证据以行业资料和公司基础资料为主" in assistant.content
+    assert "也有公司基础资料" in assistant.content
+    assert "未取到公告/订单/认证/量产等硬证据" in assistant.content
     for internal in (
         "Daily Review",
         "L1",

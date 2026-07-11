@@ -182,6 +182,13 @@ def sanitize_conversation_answer(text: str) -> str:
     cleaned = re.sub(
         r"公告等硬证据(?:\s*(?:硬)?证据)+", "公告等硬证据", cleaned
     )
+    cleaned = re.sub(r"行业资料(?:\s*行业资料)+", "行业资料", cleaned)
+    cleaned = re.sub(
+        r"公司基础资料(?:\s*(?:公司)?基础资料)+", "公司基础资料", cleaned
+    )
+    cleaned = re.sub(r"盘面信号(?:\s*盘面信号)+", "盘面信号", cleaned)
+    cleaned = re.sub(r"盘面\s*盘面信号", "盘面信号", cleaned)
+    cleaned = re.sub(r"公告等硬证据\s*(?=(?:公告|订单|认证|量产|客户验证))", "", cleaned)
     cleaned = re.sub(
         r"(?<![A-Za-z])local(?![A-Za-z])", "本地", cleaned, flags=re.IGNORECASE
     )
