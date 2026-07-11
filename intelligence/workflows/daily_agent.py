@@ -23,6 +23,25 @@ from intelligence.services import logic_effectiveness
 from intelligence.services import market_validation
 from intelligence.services import research_queue
 from intelligence.services import research_judge
+from intelligence.services.claim_lineage import (
+    LINEAGE_SCHEMA_VERSION,
+    build_daily_agent_claim_manifest,
+)
+from intelligence.services.content_delta import (
+    build_content_delta,
+    content_delta_worktree_errors,
+)
+from intelligence.services.fidelity_contract import (
+    build_claim_manifest_metadata,
+    contract_errors,
+    git_commit,
+    provenance_marker,
+    rendered_output_errors,
+    report_manifest_payload,
+    seal_artifact,
+    sha256_bytes,
+    validate_daily_agent_report,
+)
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 from intelligence.userspace import user_space
 from scripts.build_daily_ops_ledger import build_ledger
@@ -91,6 +110,65 @@ def _select_dates(date: str, recent: int, exports_dir: Path) -> list[str]:
     if date not in selected:
         selected.append(date)
     return selected
+
+
+def _theme_manifest_payload(body: dict[str, Any]) -> dict[str, object]:
+    return {
+        "lineage_schema_version": body.get("lineage_schema_version"),
+        "evidence_catalog": body.get("evidence_catalog"),
+        "candidate_evidence_refs": [
+            candidate.get("evidence_refs")
+            for candidate in body.get("candidates", [])
+            if isinstance(candidate, dict)
+        ],
+    }
+
+
+def _input_artifacts(
+    exports_dir: Path,
+    selected_dates: list[str],
+) -> list[dict[str, object]]:
+    artifacts: list[dict[str, object]] = []
+    for selected_date in selected_dates:
+        path = exports_dir / f"{selected_date}-theme-candidates.json"
+        if not path.is_file():
+            artifacts.append(
+                {
+                    "artifact_kind": "theme-candidates",
+                    "report_date": selected_date,
+                    "path": str(path),
+                    "contract_valid": False,
+                    "contract_errors": ["artifact missing"],
+                }
+            )
+            continue
+        raw = path.read_bytes()
+        body = json.loads(raw)
+        errors = contract_errors(
+            body,
+            manifest_payload=_theme_manifest_payload(body),
+        )
+        if body.get("trade_date") != selected_date:
+            errors.append("theme candidate trade_date mismatch")
+        artifacts.append(
+            {
+                "artifact_kind": "theme-candidates",
+                "report_date": selected_date,
+                "path": str(path),
+                "file_sha256": sha256_bytes(raw),
+                "fidelity_contract_version": body.get(
+                    "fidelity_contract_version"
+                ),
+                "generator_commit": body.get("generator_commit"),
+                "run_id": body.get("run_id"),
+                "artifact_sha": body.get("artifact_sha"),
+                "manifest_sha": body.get("manifest_sha"),
+                "evidence_cutoff": body.get("evidence_cutoff"),
+                "contract_valid": not errors,
+                "contract_errors": errors,
+            }
+        )
+    return artifacts
 
 
 def _route_for_result(row: dict[str, Any]) -> str:
@@ -493,7 +571,12 @@ def _agent_next_actions(report: dict[str, Any]) -> list[str]:
 
 
 def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
+    snapshot_captured_at = now_iso()
     paths = _paths_from_options(options)
+    knowledge_snapshot = build_content_delta(
+        paths.knowledge_wiki,
+        captured_at=snapshot_captured_at,
+    )
     ledger = build_ledger(options.date, paths)
     selected_dates = _select_dates(options.date, options.recent, paths.market_exports)
     batch = batch_match_logic_to_market(
@@ -568,14 +651,27 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         resolved_themes=kb_queue_receipt.resolved_themes(paths.knowledge_wiki),
     )
     catalyst_attribution.enrich_kb_ingest_queue(catalyst_index, kb_queue)
+    knowledge_snapshot_after = build_content_delta(
+        paths.knowledge_wiki,
+        captured_at=snapshot_captured_at,
+    )
+    if (
+        knowledge_snapshot_after["artifact_sha"]
+        != knowledge_snapshot["artifact_sha"]
+    ):
+        raise ValueError(
+            "knowledge worktree changed during daily-agent generation"
+        )
+    report_generated_at = now_iso()
     report = {
         "date": options.date,
-        "generated_at": now_iso(),
+        "generated_at": report_generated_at,
         "paths": {
             "finance_root": str(paths.finance_root),
             "knowledge_wiki": str(paths.knowledge_wiki),
             "market_exports": str(paths.market_exports),
         },
+        "knowledge_snapshot": knowledge_snapshot,
         "ledger": ledger,
         "logic_batch": batch,
         "decision": decision,
@@ -614,7 +710,31 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
             "kb_ingest_queue 是跨仓待办任务包：只给知识库 repo 接收、校验和归档，不自动写入 wiki。",
         ],
     }
+    report["input_artifacts"] = _input_artifacts(
+        paths.market_exports,
+        selected_dates,
+    )
     report["next_actions"] = _agent_next_actions(report)
+    claims, evidence_catalog = build_daily_agent_claim_manifest(
+        report,
+        report_date=options.date,
+    )
+    report["lineage_schema_version"] = LINEAGE_SCHEMA_VERSION
+    report["claims"] = claims
+    report["evidence_catalog"] = evidence_catalog
+    report["claim_manifest"] = build_claim_manifest_metadata(
+        report,
+        claims,
+    )
+    seal_artifact(
+        report,
+        artifact_kind="daily-agent",
+        report_date=options.date,
+        generator_commit=git_commit(Path(__file__).resolve().parents[2]),
+        snapshot_captured_at=snapshot_captured_at,
+        report_generated_at=report_generated_at,
+        manifest_payload=report_manifest_payload(report),
+    )
     return report
 
 
@@ -827,6 +947,30 @@ def render_daily_agent(report: dict[str, Any]) -> str:
     lines.extend(["", "## 今日研究任务队列", "", *_research_queue_rows(report.get("research_queue") or {})])
     lines.extend(["", "## 知识库回补任务包", "", *_kb_ingest_queue_rows(report.get("kb_ingest_queue") or {})])
     lines.extend(["", "## 逻辑证据卡", "", *_evidence_card_rows(decision)])
+    lines.extend(["", "## 逐声明证据血缘", ""])
+    claims = [
+        claim
+        for claim in report.get("claims") or []
+        if claim.get("evidence_refs")
+    ]
+    catalog = report.get("evidence_catalog") or {}
+    if claims:
+        for claim in claims[:20]:
+            ref_ids = claim.get("evidence_refs") or []
+            source_ref = (
+                catalog.get(str(ref_ids[0]), {})
+                if ref_ids and isinstance(catalog, dict)
+                else {}
+            )
+            lines.append(
+                f"- {claim.get('text')}｜"
+                f"{source_ref.get('table') or source_ref.get('source')}"
+                f".{source_ref.get('field')}｜"
+                f"valid={source_ref.get('valid_time')}｜"
+                f"known={source_ref.get('source_time')}"
+            )
+    else:
+        lines.append("- 无可证明的逐声明证据；不使用报告级引用或事后猜测补齐。")
     if report["semantic_rag"]["warnings"]:
         lines.extend(["", "## 向量旧材料告警", ""])
         for warning in report["semantic_rag"]["warnings"][:10]:
@@ -837,6 +981,8 @@ def render_daily_agent(report: dict[str, Any]) -> str:
     lines.extend(["", "## 说明", ""])
     for note in report["notes"]:
         lines.append(f"- {note}")
+    lines.append("")
+    lines.append(f"<!-- {provenance_marker(report)} -->")
     lines.append("")
     return "\n".join(lines)
 
@@ -912,6 +1058,47 @@ def _html_table(rows: list[dict[str, Any]], empty: str) -> str:
         "<th>题材</th><th>优先级</th><th>可信度</th><th>强势股</th><th>缺口</th><th>旧材料</th><th>生命周期</th><th>盘面验证</th><th>证据裁判</th><th>建议动作</th>"
         "</tr></thead><tbody>"
         + "".join(body)
+        + "</tbody></table></div>"
+    )
+
+
+def _html_claim_lineage(report: dict[str, Any]) -> str:
+    claims = [
+        claim
+        for claim in report.get("claims") or []
+        if claim.get("evidence_refs")
+    ]
+    catalog = report.get("evidence_catalog") or {}
+    if not claims:
+        return (
+            '<p class="empty">'
+            "无可证明的逐声明证据；不使用报告级引用或事后猜测补齐。"
+            "</p>"
+        )
+    rows = []
+    for claim in claims[:20]:
+        ref_ids = claim.get("evidence_refs") or []
+        source_ref = (
+            catalog.get(str(ref_ids[0]), {})
+            if ref_ids and isinstance(catalog, dict)
+            else {}
+        )
+        rows.append(
+            "<tr>"
+            f"<td>{escape(str(claim.get('text') or '-'))}</td>"
+            f"<td>{escape(str(source_ref.get('table') or source_ref.get('source') or '-'))}</td>"
+            f"<td>{escape(str(source_ref.get('field') or '-'))}</td>"
+            f"<td>{escape(str(source_ref.get('entity') or '-'))}</td>"
+            f"<td>{escape(str(source_ref.get('valid_time') or '-'))}</td>"
+            f"<td>{escape(str(source_ref.get('source_time') or '-'))}</td>"
+            "</tr>"
+        )
+    return (
+        '<div class="table-wrap"><table><thead><tr>'
+        "<th>声明</th><th>表</th><th>字段</th><th>实体</th>"
+        "<th>valid time</th><th>source time</th>"
+        "</tr></thead><tbody>"
+        + "".join(rows)
         + "</tbody></table></div>"
     )
 
@@ -1061,6 +1248,7 @@ def render_daily_agent_html(report: dict[str, Any], markdown: str) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="fidelity-contract" content="{provenance_marker(report)}">
 <title>{escape(title)}</title>
 <style>
 :root{{--paper:#fffaf1;--ink:#17140f;--muted:#746b5d;--line:#d8cbbb;--accent:#0057ff;--card:#fffdf8;--good:#0f7b43;--watch:#a35b00;--gap:#b3261e;--soft:#f3eadb}}
@@ -1166,6 +1354,10 @@ tr:last-child td{{border-bottom:0}}
     {_html_evidence_cards(decision)}
   </section>
   <section class="section">
+    <h2>逐声明证据血缘</h2>
+    {_html_claim_lineage(report)}
+  </section>
+  <section class="section">
     <h2>下一步</h2>
     <ul class="actions">{next_actions}</ul>
   </section>
@@ -1249,6 +1441,37 @@ def write_daily_agent_outputs(
 ) -> None:
     json_path = Path(out_json).expanduser()
     md_path = Path(out_md).expanduser()
+    contract_validation = validate_daily_agent_report(report)
+    knowledge_path = (
+        (report.get("paths") or {}).get("knowledge_wiki")
+        if isinstance(report.get("paths"), dict)
+        else None
+    )
+    worktree_validation = (
+        content_delta_worktree_errors(
+            knowledge_path,
+            report.get("knowledge_snapshot"),
+        )
+        if knowledge_path
+        else ["knowledge wiki path missing"]
+    )
+    expected_markdown = render_daily_agent(report)
+    html = render_daily_agent_html(report, markdown)
+    output_validation = rendered_output_errors(
+        report,
+        markdown=markdown,
+        html=html,
+        expected_markdown=expected_markdown,
+    )
+    errors = (
+        contract_validation
+        + worktree_validation
+        + output_validation
+    )
+    if errors:
+        raise ValueError(
+            "invalid fidelity contract 1.2: " + "; ".join(errors)
+        )
     json_path.parent.mkdir(parents=True, exist_ok=True)
     md_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -1260,4 +1483,4 @@ def write_daily_agent_outputs(
     if out_html:
         html_path = Path(out_html).expanduser()
         html_path.parent.mkdir(parents=True, exist_ok=True)
-        html_path.write_text(render_daily_agent_html(report, markdown), encoding="utf-8")
+        html_path.write_text(html, encoding="utf-8")

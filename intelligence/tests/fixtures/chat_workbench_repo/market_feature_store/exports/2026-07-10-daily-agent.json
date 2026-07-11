@@ -1,0 +1,60 @@
+{
+  "date": "2026-07-10",
+  "generated_at": "2026-07-10T20:00:00+08:00",
+  "decision": {
+    "old_logic_wakeup": [
+      {
+        "matched_theme": "氢能源",
+        "priority_score": 194.57,
+        "strong_stocks": [
+          "金宏气体"
+        ],
+        "logic_lifecycle": {
+          "生命周期阶段": "旧逻辑唤醒",
+          "阶段变化": "旧材料唤醒"
+        },
+        "research_judgment": {
+          "证据状态": "旧逻辑待验证",
+          "缺失证据层": [
+            "L3 官方验证"
+          ],
+          "建议动作": "查公告和订单。"
+        },
+        "market_validation": {
+          "验证结论": "盘面共振，但仍需官方事实确认。"
+        }
+      }
+    ],
+    "new_logic_candidate": [],
+    "data_gap": [],
+    "noise_or_unconfirmed": []
+  },
+  "research_queue": {
+    "today_do_ima": [],
+    "today_find_official_evidence": [
+      {
+        "目标": "氢能源",
+        "理由": "旧逻辑需要官方事实确认。",
+        "优先级": 194.57,
+        "生命周期阶段": "旧逻辑唤醒",
+        "证据状态": "旧逻辑待验证",
+        "强势股": [
+          "金宏气体"
+        ],
+        "建议动作": "查公告和订单。"
+      }
+    ],
+    "today_wait_market_validation": [],
+    "today_downgrade_or_watch": [],
+    "summary": {
+      "today_do_ima": 0,
+      "today_find_official_evidence": 1,
+      "today_wait_market_validation": 0,
+      "today_downgrade_or_watch": 0,
+      "total": 1
+    }
+  },
+  "notes": [
+    "只读研究入口，不自动交易。"
+  ]
+}

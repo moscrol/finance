@@ -35,6 +35,34 @@ python3 scripts/detect_turning_points.py
 python3 scripts/backfill_sector_marginal.py 2026-05-19,2026-05-20 <CDP_TARGET_ID>
 ```
 
+## Chat-first Skill Workbench（本地/私有）
+
+Workbench 是可恢复的多轮研究对话界面：每轮重新检索当前证据，并支持自动或
+手动调用 Daily Review / Daily Agent。当前版本没有生产级身份认证，**只能绑定
+本机回环地址或部署在受控私网，不能作为公开互联网服务**。
+
+```bash
+# Python 3.10+；推荐独立虚拟环境
+python3 -m venv .venv-workbench
+source .venv-workbench/bin/activate
+python -m pip install -r intelligence/api/requirements.txt PyYAML "duckdb==1.4.3"
+
+# Node.js 22 + pnpm 10.12.1；构建结果写入 FastAPI 静态目录
+cd intelligence/webapp
+corepack enable
+corepack prepare pnpm@10.12.1 --activate
+pnpm install --frozen-lockfile
+pnpm build
+cd ../..
+
+# 仅监听本机
+python -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port 8788
+```
+
+浏览器打开 `http://127.0.0.1:8788`。LLM 未配置时会诚实降级为结构化模板，
+不会阻止本地启动。环境变量、数据目录、健康检查和公开部署安全门详见
+[本地私有站点运行说明](docs/workbench/local-site.md)。
+
 ## 数据流
 
 ```

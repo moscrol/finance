@@ -45,7 +45,7 @@ git branch --show-current
    > ⚠ stock-daily 用默认东财快照（`--stock-source snapshot`），日常单日复盘**不要带 `--stock-source mootdx`**（mootdx 仅首次建库/多日历史回填，慢且当日值与快照一致）。详见 market-overview SKILL.md。
 2. **连板晋级** → `limit-advance/scripts/scrape.py [日期]` → 展示 + 写入飞书
 3. **涨幅排行** → `top-gainers` skill：iFinD个股涨幅 + AKShare板块涨幅并行
-4. **策略回测（待迁移）** → ⚠️ `detect_turning_points.py`/`backfill_sector_marginal.py` 连旧库、**当前 broken**（详见「本地数据库 → Legacy 残骸」）；新分析用 `fact_*` 表 + `compute_features`
+4. **策略回测（待迁移）** → ⚠️ `detect_turning_points.py`/`backfill_sector_marginal.py` 连旧库、**当前 broken**（详见「本地数据库 → Legacy 残骸」）；新分析直接查询 `fact_*` 表
 5. **概念入库** → 加载知识库仓 `concept-ingest` skill（已迁至 `<知识库>/skills/concept-ingest/`）→ 先判断 is_concept → 检索 raw 文件 → web 补充信息 → LLM 提取 v3 JSON（含 core_thesis/key_insights/key_data/risks）→ `python3 <知识库>/scripts/ingest.py concept ...` 去重+代码匹配+交叉对比 → 写入 Obsidian vault
 6. **公司边际变化入库** → 加载知识库仓 `entity-delta-ingest` skill（已迁至 `<知识库>/skills/entity-delta-ingest/`）→ 读取早知道/评级日报/纪要/公告 → 抽取公司边际变化 JSON → `python3 <知识库>/scripts/ingest.py entity-delta ...` 更新 Obsidian `entities/`，纯榜单进观察列表
 
@@ -76,7 +76,7 @@ git branch --show-current
 | fact_sw_l1_daily | 申万一级日行情 | AKShare + 飞书 |
 | fact_mainline_*_daily | 主线结构（sector/stock/theme；sector 停在 06-30，stock/theme 到 07-03） | 飞书 |
 | dim_sector | 板块维度（224 个：ts_code/name/sw_l1） | 配置 |
-| feature_*_window | 窗口特征（market/sector/stock） | compute_features |
+| feature_*_window | 历史物化窗口特征（无活跃消费者，可能过期） | 已归档脚本 |
 
 严格双红定义（见 strategy1-matrix）：`pct_chg>0 且 diff_ratio>10 且 amount>500`。
 
@@ -93,7 +93,7 @@ python3 scripts/sync_to_local.py --incremental # 增量同步
 
 ### 信号检测
 
-> ⚠️ **Legacy 残骸**：`detect_turning_points.py` 连旧库 `db/market.duckdb`、查 `advancers/daily_market`，**当前 broken**。新流程用 `market_feature_store` + `compute_features`。
+> ⚠️ **Legacy 残骸**：`detect_turning_points.py` 连旧库 `db/market.duckdb`、查 `advancers/daily_market`，**当前 broken**。新流程直接查询 `market_feature_store` 的 `fact_*` 表；`scripts/archive/compute_features.py` 仅保留历史复现，不是日常入口。
 
 ```bash
 python3 scripts/detect_turning_points.py           # 全部历史

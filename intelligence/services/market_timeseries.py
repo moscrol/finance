@@ -18,14 +18,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from market_feature_store.signals import DOUBLE_RED_SQL
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_WINDOW = 10
 MIN_WINDOW = 2
 MAX_WINDOW = 60
-
-# 双红严格口径（与 strategy1-matrix / MarketAdapter.get_double_red_themes 一致）。
-DOUBLE_RED_WHERE = "pct_chg > 0 AND diff_ratio > 10 AND amount > 500"
 
 
 @dataclass(frozen=True)
@@ -66,7 +65,7 @@ METRICS: dict[str, MetricSpec] = {
     ),
     "double_red_count": MetricSpec(
         "double_red_count", "双红板块数", "个", ("双红板块", "双红题材", "双红"),
-        f"fact_sector_daily 当日满足 {DOUBLE_RED_WHERE} 的板块数（严格双红定义）",
+        f"fact_sector_daily 当日满足 {DOUBLE_RED_SQL} 的板块数（严格双红定义）",
     ),
 }
 
@@ -185,7 +184,7 @@ def fetch_timeseries(
                 f"""
                 SELECT trade_date, COUNT(*)
                 FROM fact_sector_daily
-                WHERE trade_date >= ? AND {DOUBLE_RED_WHERE}
+                WHERE trade_date >= ? AND {DOUBLE_RED_SQL}
                 GROUP BY 1
                 """,
                 [start],

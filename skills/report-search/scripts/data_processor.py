@@ -77,7 +77,9 @@ class DataProcessor:
                 from_date = datetime.strptime(date_from, "%Y-%m-%d")
             
             if date_to:
-                to_date = datetime.strptime(date_to, "%Y-%m-%d")
+                # date_to 为闭区间：解析成当天 23:59:59，覆盖当天全部时间点
+                to_date = datetime.strptime(date_to, "%Y-%m-%d").replace(
+                    hour=23, minute=59, second=59)
             
             # 过滤文章
             for article in articles:

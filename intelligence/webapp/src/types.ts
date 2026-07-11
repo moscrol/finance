@@ -25,6 +25,8 @@ export interface Run {
   source_date: string | null;
   duckdb_cutoff: string | null;
   kb_commit: string | null;
+  kb_index_built_at: string | null;
+  kb_index_freshness: string | null;
   manifest_ref: string | null;
   degrades: string[];
   error: string | null;
@@ -43,6 +45,7 @@ export interface TraceStep {
   retrieval?: {
     sources?: string[];
     citation_counts?: Record<string, number>;
+    citations?: Array<Record<string, string>>;
     trade_date?: string | null;
     matched_theme?: string | null;
   };
@@ -79,6 +82,8 @@ export interface RunContext {
     source_date: string | null;
     duckdb_cutoff: string | null;
     kb_commit: string | null;
+    kb_index_built_at: string | null;
+    kb_index_freshness: string | null;
     manifest_ref: string | null;
   };
 }
@@ -144,6 +149,88 @@ export interface DailyReportProjection {
   };
 }
 
+export interface StructuredReportMetric {
+  label: string;
+  value: string;
+  context?: string | null;
+  tone?: string;
+}
+
+export interface StructuredReportItem {
+  title?: string;
+  summary: string;
+  badges?: string[];
+  meta?: ReportMeta[];
+  next_action?: string;
+}
+
+export interface StructuredReportTable {
+  columns: Array<{ key: string; label: string }>;
+  rows: Array<Record<string, string | number | null>>;
+}
+
+export interface StructuredReportModule {
+  module_id: string;
+  title: string;
+  kind: string;
+  status: "complete" | "degraded";
+  summary: string | null;
+  content: string | null;
+  metrics: StructuredReportMetric[];
+  items: StructuredReportItem[];
+  table: StructuredReportTable | null;
+  warnings: string[];
+  provenance: {
+    source: string | null;
+    as_of?: string | null;
+    generated_by?: string;
+  };
+}
+
+export interface StructuredReport {
+  schema_version: number;
+  report_id: string;
+  title: string;
+  task_type: string;
+  status: "streaming" | "completed" | "failed";
+  as_of: string | null;
+  llm: {
+    used: boolean;
+    provider: string | null;
+    model: string | null;
+  };
+  modules: StructuredReportModule[];
+  warnings: string[];
+  completed_at?: string;
+}
+
+export interface StreamEnvelope<TPayload extends Record<string, unknown> = Record<string, unknown>> {
+  schema_version: number;
+  event_id: string;
+  event_type: string;
+  run_id: string;
+  conversation_id: string | null;
+  message_id: string | null;
+  seq: number;
+  created_at: string;
+  payload: TPayload;
+}
+
+export type StructuredReportEvent = StreamEnvelope<{
+    report?: StructuredReport;
+    module?: StructuredReportModule;
+  }> & {
+    event_type:
+      | "report.start"
+      | "report.module"
+      | "report.complete"
+      | "report.error"
+      | "report_start"
+      | "report_module"
+      | "report_complete"
+      | "report_error";
+  };
+
 export interface Workflow {
   id: "daily" | "theme" | "stock_research";
   title: string;
@@ -170,7 +257,110 @@ export interface RunBundle {
   followups: Followup[];
   context: RunContext;
   answer: string | null;
+  structuredReport: StructuredReport | null;
   registeredArtifacts: ArtifactDescriptor[];
+}
+
+export interface Conversation {
+  conversation_id: string;
+  user_id: string;
+  title: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  summary: string;
+  last_run_id: string | null;
+}
+
+export interface ChatMessage {
+  message_id: string;
+  conversation_id: string;
+  role: string;
+  content: string;
+  created_at: string;
+  status: string;
+  run_id: string | null;
+  selected_skill_ids: string[];
+  invoked_skill_ids: string[];
+  citations: Array<Record<string, unknown>>;
+  degrades: string[];
+}
+
+export type SkillMode = "manual" | "auto" | "hybrid";
+
+export interface ProductSkillDescription {
+  skill_id: string;
+  name: string;
+  description: string;
+  version: string;
+  triggers: string[];
+  input_schema: Record<string, unknown>;
+  permissions: string[];
+  timeout_seconds: number;
+}
+
+export interface CreateMessageRequest {
+  content: string;
+  skill_mode: SkillMode;
+  selected_skill_ids?: string[];
+  user?: string;
+}
+
+export interface CreateMessageResponse {
+  conversation_id: string;
+  user_message_id: string;
+  assistant_message_id: string;
+  run_id: string;
+}
+
+export type LLMProviderId =
+  | "zhipu"
+  | "openai"
+  | "deepseek"
+  | "moonshot"
+  | "dashscope";
+
+export interface LLMConfig {
+  mode: "built_in" | "byok";
+  display_name: string;
+  ready: boolean;
+  session_only: boolean;
+  built_in_ready: boolean;
+  provider: LLMProviderId | null;
+  model: string | null;
+}
+
+export interface ConfigureLLMRequest {
+  provider: LLMProviderId;
+  api_key: string;
+  model?: string;
+  user?: string;
+}
+
+export type SkillInvocationStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "degraded"
+  | "failed";
+
+export interface LiveSkillInvocation {
+  skill_id: string;
+  selection_source: "manual" | "rule" | "llm" | "unknown";
+  reason: string;
+  status: SkillInvocationStatus;
+  warnings: string[];
+}
+
+export interface LiveMessageState {
+  conversationId: string;
+  messageId: string;
+  runId: string;
+  narrative: string;
+  report: StructuredReport | null;
+  skillInvocations: Record<string, LiveSkillInvocation>;
+  status: "pending" | "streaming" | "completed" | "failed" | "cancelled";
+  connection: "connected" | "reconnecting";
 }
 
 export type Surface =

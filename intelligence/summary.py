@@ -26,6 +26,7 @@ class WorkflowStep:
     outputs: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    structured_result: dict[str, object] | None = None
 
     def __post_init__(self) -> None:
         if self.status not in VALID_STATUSES:

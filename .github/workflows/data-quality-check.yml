@@ -1,0 +1,44 @@
+name: data-quality-check
+
+# 轻量数据质量回归：只在增量包契约脚本 / 研报搜索脚本相关文件变动时触发，
+# 跑 db_delta 契约测试与 report-search 单测，确保这些回归测试不只在本地跑。
+on:
+  pull_request:
+    paths:
+      - "scripts/db_delta_export.py"
+      - "scripts/db_delta_import.py"
+      - "tests/test_db_delta.py"
+      - "skills/report-search/scripts/**"
+      - ".github/workflows/data-quality-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/db_delta_export.py"
+      - "scripts/db_delta_import.py"
+      - "tests/test_db_delta.py"
+      - "skills/report-search/scripts/**"
+      - ".github/workflows/data-quality-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  data-quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install pytest duckdb==1.4.3
+          python -m pip install -r skills/report-search/scripts/requirements.txt
+
+      - name: Test delta import/export data contract
+        run: python -m pytest -q tests/test_db_delta.py
+
+      - name: Test report-search
+        run: python -m pytest -q skills/report-search/scripts/test_basic.py

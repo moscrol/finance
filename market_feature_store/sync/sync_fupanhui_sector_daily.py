@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime, date
+from math import ceil
 import time
 
 from ..db import connect, init_db
@@ -84,6 +85,66 @@ def _existing_sector_daily_counts(con, dates):
         dates,
     ).fetchall()
     return {r[0]: {"rows": int(r[1]), "null_diff": int(r[2])} for r in rows}
+
+
+def _fresh_sector_daily_counts(con, dates, updated_since: datetime):
+    if not dates:
+        return {}
+    placeholders = ",".join(["?"] * len(dates))
+    rows = con.execute(
+        f"""
+        SELECT CAST(trade_date AS VARCHAR),
+               COUNT(*),
+               COUNT(*) FILTER (WHERE updated_at >= ?),
+               COUNT(*) FILTER (WHERE updated_at >= ? AND diff_ratio IS NULL)
+        FROM fact_sector_daily
+        WHERE CAST(trade_date AS VARCHAR) IN ({placeholders})
+        GROUP BY trade_date
+        """,
+        [updated_since, updated_since, *dates],
+    ).fetchall()
+    return {
+        r[0]: {
+            "rows": int(r[1]),
+            "fresh_rows": int(r[2]),
+            "fresh_null_diff": int(r[3]),
+        }
+        for r in rows
+    }
+
+
+def _validate_synced_dates(dates, sector_count: int, updated_since: datetime, min_ratio: float = 0.9):
+    con = connect(read_only=True)
+    try:
+        counts = _fresh_sector_daily_counts(con, dates, updated_since)
+    finally:
+        con.close()
+    minimum_rows = max(1, ceil(sector_count * min_ratio))
+    return {
+        trade_date: {
+            **counts.get(trade_date, {"rows": 0, "fresh_rows": 0, "fresh_null_diff": 0}),
+            "minimum_rows": minimum_rows,
+            "ok": (
+                counts.get(trade_date, {}).get("fresh_rows", 0) >= minimum_rows
+                and counts.get(trade_date, {}).get("fresh_null_diff", 0) == 0
+            ),
+        }
+        for trade_date in dates
+    }
+
+
+def _sector_daily_table_stats():
+    con = connect(read_only=True)
+    try:
+        return con.execute(
+            """
+            SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),
+                   COUNT(CASE WHEN diff_ratio IS NULL THEN 1 END)
+            FROM fact_sector_daily
+            """
+        ).fetchone()
+    finally:
+        con.close()
 
 
 def sync_fact_sector_daily(trade_date: str | None = None, days: int = 25) -> dict:
@@ -196,7 +257,7 @@ def sync_fact_sector_daily_range(
         existing_info = existing.get(d, {"rows": 0, "null_diff": 0})
         existing_rows = existing_info["rows"]
         null_diff = existing_info["null_diff"]
-        if not refresh and existing_rows >= max(1, int(sector_count * 0.9)) and null_diff == 0:
+        if not refresh and existing_rows >= max(1, ceil(sector_count * 0.9)) and null_diff == 0:
             skipped.append({"trade_date": d, "existing_rows": existing_rows, "null_diff": null_diff})
         else:
             targets.append(d)
@@ -204,42 +265,52 @@ def sync_fact_sector_daily_range(
     synced = []
     failures = []
     total_rows_written = 0
+    failed_chunks = 0
     chunk_days = max(1, int(chunk_days))
     for i in range(0, len(targets), chunk_days):
         chunk = targets[i:i + chunk_days]
         if not chunk:
             continue
         chunk_end = chunk[-1]
+        chunk_started = datetime.now()
         try:
             stats = sync_fact_sector_daily(
                 trade_date=chunk_end,
                 days=max(20, len(chunk) + 5),
             )
-            synced.extend(chunk)
             total_rows_written += int(stats["rows_written"])
+            coverage = _validate_synced_dates(chunk, sector_count, chunk_started)
+            chunk_failed = False
+            for trade_date in chunk:
+                result = coverage[trade_date]
+                if result["ok"]:
+                    synced.append(trade_date)
+                else:
+                    chunk_failed = True
+                    failures.append({
+                        "trade_date": trade_date,
+                        "error": (
+                            f"partial response: fresh_rows={result['fresh_rows']}/"
+                            f"{result['minimum_rows']}, fresh_null_diff={result['fresh_null_diff']}"
+                        ),
+                    })
+            if chunk_failed:
+                failed_chunks += 1
         except Exception as e:
-            failures.append({"trade_date": chunk_end, "error": str(e)})
+            failed_chunks += 1
+            failures.extend({"trade_date": trade_date, "error": str(e)} for trade_date in chunk)
         if sleep:
             time.sleep(float(sleep))
 
-    con = connect()
-    try:
-        table_stats = con.execute(
-            """
-            SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),
-                   COUNT(CASE WHEN diff_ratio IS NULL THEN 1 END)
-            FROM fact_sector_daily
-            """
-        ).fetchone()
-    finally:
-        con.close()
+    table_stats = _sector_daily_table_stats()
 
     return {
         "requested_dates": len(dates),
         "date_source": date_source,
         "synced_dates": len(synced),
         "skipped_dates": len(skipped),
-        "failed_chunks": len(failures),
+        "failed_chunks": failed_chunks,
+        "failed_dates": len(failures),
         "total_rows_written": total_rows_written,
         "skipped": skipped,
         "failures": failures,

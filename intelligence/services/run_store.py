@@ -26,13 +26,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from intelligence import userspace
+from intelligence.api.stream_events import (
+    STREAM_SCHEMA_VERSION,
+    StreamEnvelope,
+    canonical_event_type,
+)
 
 SCHEMA_VERSION = 1
 
@@ -52,6 +60,17 @@ _SECRET_PATTERNS = [
     re.compile(r"(?i)\b(api[_-]?key|token|secret|password|authorization)\s*[=:]\s*\S+"),
 ]
 
+# This makes append linearizable across RunStore instances in one process. A
+# multi-process deployment still needs an OS/file lock or a transactional store.
+_STREAM_LOCKS: dict[str, Lock] = {}
+_STREAM_LOCKS_GUARD = Lock()
+
+
+def _stream_lock(path: Path) -> Lock:
+    key = str(path.resolve())
+    with _STREAM_LOCKS_GUARD:
+        return _STREAM_LOCKS.setdefault(key, Lock())
+
 
 def redact(text: str) -> str:
     """写入 run/trace 任何 UI 可见字段前的脱敏：命中密钥形态一律替换为占位符。"""
@@ -59,6 +78,18 @@ def redact(text: str) -> str:
     for pat in _SECRET_PATTERNS:
         out = pat.sub("[REDACTED]", out)
     return out
+
+
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_redact_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _redact_value(item) for key, item in value.items()}
+    return value
 
 
 def _now_iso() -> str:
@@ -102,6 +133,8 @@ class Run:
     source_date: str | None = None
     duckdb_cutoff: str | None = None
     kb_commit: str | None = None
+    kb_index_built_at: str | None = None
+    kb_index_freshness: str | None = None
     manifest_ref: str | None = None
     degrades: list[str] = field(default_factory=list)
     error: str | None = None
@@ -115,6 +148,7 @@ class RunStore:
         us = userspace.user_space(user_id)
         self.user_id = us.user_id
         self.root = root if root is not None else us.root / "runs"
+        self._state_lock = threading.RLock()
 
     # ---------- 写路径 ----------
 
@@ -183,6 +217,62 @@ class RunStore:
             fh.write(json.dumps(step, ensure_ascii=False) + "\n")
         return step
 
+    def append_stream_event(
+        self,
+        run_id: str,
+        *,
+        event_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        conversation_id: str | None = None,
+        message_id: str | None = None,
+    ) -> dict[str, Any]:
+        run = self.load_run(run_id)
+        path = self.stream_path(run_id)
+        safe_id = redact(event_id)
+        safe_type = canonical_event_type(redact(event_type))
+        if not safe_id.strip():
+            raise ValueError("event_id must not be blank")
+        if not safe_type.strip():
+            raise ValueError("event_type must not be blank")
+        if not isinstance(payload, dict):
+            raise ValueError("payload must be an object")
+        source_conversation = conversation_id if conversation_id is not None else run.session_id
+        safe_conversation = (
+            redact(source_conversation) if source_conversation is not None else None
+        )
+        safe_message = redact(message_id) if message_id is not None else None
+        safe_payload = _redact_value(payload)
+        with _stream_lock(path):
+            if path.exists() and path.stat().st_size and not path.read_bytes().endswith(b"\n"):
+                raise ValueError("refuse append: nonempty stream file lacks final newline")
+            existing = self.load_stream_events(run_id)
+            for event in existing:
+                if event["event_id"] != safe_id:
+                    continue
+                identity = (safe_type, safe_conversation, safe_message, safe_payload)
+                stored = (event["event_type"], event["conversation_id"], event["message_id"], event["payload"])
+                if identity == stored:
+                    return event
+                raise ValueError(f"conflicting duplicate event_id: {safe_id}")
+            envelope = StreamEnvelope(
+                schema_version=STREAM_SCHEMA_VERSION,
+                event_id=safe_id,
+                event_type=safe_type,
+                run_id=run_id,
+                conversation_id=safe_conversation,
+                message_id=safe_message,
+                seq=(existing[-1]["seq"] + 1 if existing else 1),
+                created_at=_now_iso(),
+                payload=safe_payload,
+            )
+            event = asdict(envelope)
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+                fh.flush()
+                os.fsync(fh.fileno())
+            return event
+
     def add_artifact(
         self,
         run_id: str,
@@ -192,40 +282,115 @@ class RunStore:
         renderer: str,
         title: str,
     ) -> Artifact:
-        data = content.encode("utf-8") if isinstance(content, str) else content
-        path = self.run_dir(run_id) / filename
-        path.write_bytes(data)
-        artifact = Artifact(
-            artifact_id=f"artifact_{filename.replace('.', '_')}",
-            path=filename,
-            renderer=renderer,
-            title=title,
-            sha256=hashlib.sha256(data).hexdigest(),
-            bytes=len(data),
-        )
-        run = self.load_run(run_id)
-        run.artifacts = [a for a in run.artifacts if a.get("path") != filename]
-        run.artifacts.append(asdict(artifact))
-        self._write_run(run)
-        return artifact
+        with self._state_lock:
+            data = content.encode("utf-8") if isinstance(content, str) else content
+            path = self.run_dir(run_id) / filename
+            path.write_bytes(data)
+            artifact = Artifact(
+                artifact_id=f"artifact_{filename.replace('.', '_')}",
+                path=filename,
+                renderer=renderer,
+                title=title,
+                sha256=hashlib.sha256(data).hexdigest(),
+                bytes=len(data),
+            )
+            run = self.load_run(run_id)
+            run.artifacts = [a for a in run.artifacts if a.get("path") != filename]
+            run.artifacts.append(asdict(artifact))
+            self._write_run(run)
+            return artifact
 
     def add_degrade(self, run_id: str, reason: str) -> None:
         """数据源降级一等公民化：录屏里「ftshare 不可用」这类事件落到 run 元数据。"""
-        run = self.load_run(run_id)
-        reason = redact(reason)
-        if reason not in run.degrades:
-            run.degrades.append(reason)
+        with self._state_lock:
+            run = self.load_run(run_id)
+            reason = redact(reason)
+            if reason not in run.degrades:
+                run.degrades.append(reason)
+                self._write_run(run)
+
+    def update_provenance(
+        self,
+        run_id: str,
+        *,
+        source_date: str | None = None,
+        duckdb_cutoff: str | None = None,
+        kb_commit: str | None = None,
+        kb_index_built_at: str | None = None,
+        kb_index_freshness: str | None = None,
+    ) -> Run:
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if source_date is not None:
+                run.source_date = source_date
+            if duckdb_cutoff is not None:
+                run.duckdb_cutoff = duckdb_cutoff
+            if kb_commit is not None:
+                run.kb_commit = kb_commit
+            if kb_index_built_at is not None:
+                run.kb_index_built_at = kb_index_built_at
+            if kb_index_freshness is not None:
+                run.kb_index_freshness = kb_index_freshness
             self._write_run(run)
+            return run
 
     def finish_run(self, run_id: str, status: str, *, error: str | None = None) -> Run:
         if status not in _TERMINAL_STATUSES:
             raise ValueError(f"finish_run 只接受终态：{_TERMINAL_STATUSES}，得到 {status!r}")
-        run = self.load_run(run_id)
-        run.status = status
-        run.finished_at = _now_iso()
-        run.error = redact(error) if error else None
-        self._write_run(run)
-        return run
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if run.status in _TERMINAL_STATUSES:
+                return run
+            run.status = status
+            run.finished_at = _now_iso()
+            run.error = redact(error) if error else None
+            self._write_run(run)
+            return run
+
+    def mark_running(self, run_id: str) -> Run:
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if run.status in _TERMINAL_STATUSES:
+                return run
+            run.status = STATUS_RUNNING
+            run.finished_at = None
+            run.error = None
+            self._write_run(run)
+            return run
+
+    def fail_active_run(self, run_id: str, *, error: str, degrade: str) -> Run:
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if run.status in _TERMINAL_STATUSES:
+                return run
+            degrade = redact(degrade)
+            if degrade not in run.degrades:
+                run.degrades.append(degrade)
+            run.status = STATUS_FAILED
+            run.finished_at = _now_iso()
+            run.error = redact(error)
+            self._write_run(run)
+            return run
+
+    def requeue_incomplete_runs(self, *, reason: str) -> list[Run]:
+        recovered: list[Run] = []
+        for run in self.list_runs():
+            if run.status not in {STATUS_QUEUED, STATUS_RUNNING}:
+                continue
+            if reason not in run.degrades:
+                run.degrades.append(redact(reason))
+            run.status = STATUS_QUEUED
+            run.finished_at = None
+            run.error = None
+            self._write_run(run)
+            self.append_stream_event(
+                run.run_id,
+                event_id=f"recovery:{_now_iso()}",
+                event_type="run_recovered",
+                payload={"reason": reason},
+            )
+            recovered.append(run)
+        return recovered
 
     # ---------- 读路径 ----------
 
@@ -239,6 +404,9 @@ class RunStore:
 
     def trace_path(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "trace.jsonl"
+
+    def stream_path(self, run_id: str) -> Path:
+        return self.run_dir(run_id) / "stream.jsonl"
 
     def load_run(self, run_id: str) -> Run:
         payload = json.loads(self.run_path(run_id).read_text(encoding="utf-8"))
@@ -254,6 +422,96 @@ class RunStore:
             if line:
                 steps.append(json.loads(line))
         return steps
+
+    def load_stream_events(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
+        if isinstance(after, bool) or not isinstance(after, int) or after < 0:
+            raise ValueError("stream cursor must be nonnegative")
+        path = self.stream_path(run_id)
+        if not path.exists():
+            return []
+        run = self.load_run(run_id)
+        raw = path.read_text(encoding="utf-8")
+        lines = raw.splitlines()
+        events: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+        previous_seq = 0
+        for index, line in enumerate(lines):
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                if index == len(lines) - 1 and not raw.endswith("\n"):
+                    break
+                raise ValueError(f"corrupt stream row {index + 1}") from exc
+            expected_seq = previous_seq + 1
+            if not isinstance(row, dict):
+                raise ValueError(f"invalid stream row {index + 1}")
+            native_fields = {
+                "schema_version",
+                "run_id",
+                "conversation_id",
+                "message_id",
+                "seq",
+            }
+            is_native = bool(native_fields.intersection(row))
+            if is_native:
+                valid_optional_ids = all(
+                    value is None
+                    or (isinstance(value, str) and bool(value.strip()))
+                    for value in (row.get("conversation_id"), row.get("message_id"))
+                )
+                seq = row.get("seq")
+                valid = (
+                    row.get("schema_version") == STREAM_SCHEMA_VERSION
+                    and not isinstance(row.get("schema_version"), bool)
+                    and row.get("run_id") == run_id
+                    and isinstance(seq, int)
+                    and not isinstance(seq, bool)
+                    and seq == expected_seq
+                    and valid_optional_ids
+                    and isinstance(row.get("event_id"), str)
+                    and bool(row["event_id"].strip())
+                    and isinstance(row.get("event_type"), str)
+                    and bool(row["event_type"].strip())
+                    and isinstance(row.get("created_at"), str)
+                    and bool(row["created_at"].strip())
+                    and isinstance(row.get("payload"), dict)
+                )
+            else:
+                seq = expected_seq
+                valid = (
+                    isinstance(row.get("event_id"), str)
+                    and bool(row["event_id"].strip())
+                    and isinstance(row.get("event_type"), str)
+                    and bool(row["event_type"].strip())
+                    and isinstance(row.get("created_at"), str)
+                    and bool(row["created_at"].strip())
+                    and isinstance(row.get("payload"), dict)
+                )
+            event_id = row.get("event_id")
+            if not valid or event_id in seen_ids:
+                raise ValueError(f"invalid stream row {index + 1}")
+            previous_seq = seq
+            seen_ids.add(event_id)
+            event = asdict(
+                StreamEnvelope(
+                    schema_version=STREAM_SCHEMA_VERSION,
+                    event_id=event_id,
+                    event_type=canonical_event_type(row["event_type"]),
+                    run_id=run_id,
+                    conversation_id=(
+                        row.get("conversation_id") if is_native else run.session_id
+                    ),
+                    message_id=row.get("message_id") if is_native else None,
+                    seq=seq,
+                    created_at=row["created_at"],
+                    payload=row["payload"],
+                )
+            )
+            if seq > after:
+                events.append(event)
+        return events
 
     def list_runs(self) -> list[Run]:
         if not self.root.exists():

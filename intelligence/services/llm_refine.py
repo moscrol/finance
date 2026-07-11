@@ -25,7 +25,12 @@ import re
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field, replace
+
+from intelligence.services.run_store import redact
 
 DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
 
@@ -37,8 +42,8 @@ _PROVIDERS: tuple[tuple[str, str, str, str], ...] = (
     ("kimi", "KIMI_API_KEY", "https://api.moonshot.cn/v1", "moonshot-v1-8k"),
     ("dashscope", "DASHSCOPE_API_KEY", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
     ("qwen", "QWEN_API_KEY", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
-    ("zhipu", "ZHIPU_API_KEY", "https://open.bigmodel.cn/api/paas/v4", "glm-4-plus"),
-    ("glm", "GLM_API_KEY", "https://open.bigmodel.cn/api/paas/v4", "glm-4-plus"),
+    ("zhipu", "ZHIPU_API_KEY", "https://open.bigmodel.cn/api/paas/v4", "glm-5.2"),
+    ("glm", "GLM_API_KEY", "https://open.bigmodel.cn/api/paas/v4", "glm-5.2"),
     ("openai", "OPENAI_API_KEY", "https://api.openai.com/v1", "gpt-4o-mini"),
 )
 
@@ -46,13 +51,32 @@ _PROVIDERS: tuple[tuple[str, str, str, str], ...] = (
 @dataclass
 class LLMProvider:
     name: str
-    api_key: str
+    api_key: str = field(repr=False)
     base_url: str
     model: str
 
 
+_PROVIDER_OVERRIDE: ContextVar[LLMProvider | None] = ContextVar(
+    "llm_provider_override",
+    default=None,
+)
+
+
+class LLMStreamCancelled(RuntimeError):
+    pass
+
+
+class LLMStreamingUnsupported(RuntimeError):
+    pass
+
+
 def detect_provider(model_override: str | None = None) -> LLMProvider | None:
     """Resolve an LLM provider from environment variables, or ``None``."""
+    configured = _PROVIDER_OVERRIDE.get()
+    if configured is not None:
+        if model_override:
+            return replace(configured, model=model_override)
+        return configured
     generic = os.environ.get("LLM_API_KEY")
     if generic:
         base = os.environ.get("LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1"
@@ -65,6 +89,15 @@ def detect_provider(model_override: str | None = None) -> LLMProvider | None:
             model = model_override or os.environ.get("LLM_MODEL") or default_model
             return LLMProvider(name=name, api_key=key, base_url=base_url, model=model)
     return None
+
+
+@contextmanager
+def provider_override(provider: LLMProvider) -> Iterator[None]:
+    token = _PROVIDER_OVERRIDE.set(provider)
+    try:
+        yield
+    finally:
+        _PROVIDER_OVERRIDE.reset(token)
 
 
 _SYSTEM_PROMPT = (
@@ -298,13 +331,14 @@ def refine_or_reason(
 # 更接近"对话式分析"。仍严守：只用给定证据、不编造、带引用编号、（非投资建议）。
 _SYNTHESIS_SYSTEM_PROMPT = (
     "你是资深A股题材研究员，回答风格像一位严谨的分析师在对话中讲清一个题材。"
-    "下面给你的是已经检索好的多源证据：盘面信号(S)、知识图谱概念与公司分层(G)、"
-    "证据条目(R)、wiki 语义召回(W)、题材模块产出。请把它们【有机融合】成一段自然、"
+    "下面给你的是已经检索好的多源证据。证据中的字母编号、优先级代码、字段名和模块名"
+    "都只是系统内部审计标记，不是给用户看的内容。请把证据【有机融合】成一段自然、"
     "连贯的回答，而不是逐段填模板。你的底层思考要像 daily-agent：先判断市场正在定价什么，"
     "再判断题材/个股处在什么生命周期，最后才谈后续空间。硬性要求："
     "1) 只能使用证据中出现的事实/公司/数字，严禁引入证据里没有的内容；信息不足就直说"
     "「证据不足/仅盘面驱动」，绝不编造公司、数字或催化；"
-    "2) 关键判断、公司、数字、催化之后必须用方括号标注引用编号（如 [S1][R4][G2]），可多个；"
+    "2) 不得在正文显示任何内部引用编号；需要交代依据时，使用「本地盘面数据」「公司公告」"
+    "「券商研报」「知识库资料」等人类可理解的来源名称，并尽量带数据日期；"
     "3) 先在内部写出核心矛盾句：这家公司真实业务是什么，市场正在交易什么预期，最大的证据缺口或反证是什么；"
     "所有视角都必须服务这个核心矛盾，禁止按公司本体、盘面、二阶导、反证逐项填空；"
     "每一段都要回答这个事实改变了什么判断，比如改变了对空间、生命周期、资金选择、证据硬度或替代表达的判断；"
@@ -312,11 +346,11 @@ _SYNTHESIS_SYSTEM_PROMPT = (
     "一句话结论 → 市场/板块/个股三层资金传导 → 全量盘面数据的正反推导（每个关键数据要说明支持什么、"
     "反证什么，尤其解释强板块弱个股/个股反弹但市场缩量/情绪回落的含义）→ 逻辑生命周期（新出现/旧逻辑唤醒/升温验证/加速定价/"
     "高位分歧/衰退观察/证伪退出，结合 priority、强势股、触发信号、新高、涨停、双红、加权强度等证据）"
-    "→ 产业链与公司分层（务必区分 核心/真实暴露 与 graph_only 低置信待验证 两类，后者只能当预期差线索、"
+    "→ 产业链与公司分层（务必区分 核心/真实暴露 与 仅有图谱关联、尚待验证 两类，后者只能当预期差线索、"
     "不可当基本面依据）→ 关键催化与证据 → 二阶导/替代标的/产业瓶颈 → 分歧与风险 → 接下来该跟踪什么；"
-    "如果证据里有 D2 客户证据硬度数据块，必须区分硬证据、候选证据、弱证据和反证/缺口；"
-    "如果证据里有 D3 二阶导研究队列数据块，必须把 P0/P1/P2 转译成自然语言的研究判断，不能机械照抄；"
-    "如果证据里有 D4 主线题材结构数据块，必须用它判断主线连续性、核心板块、cycle_status、启动/顺势/分歧/消亡，"
+    "如果证据里有客户证据硬度数据，必须区分硬证据、候选证据、弱证据和反证/缺口；"
+    "如果证据里有二阶导研究队列，必须把内部优先级转译成自然语言的研究判断，不能机械照抄；"
+    "如果证据里有主线题材结构数据，必须用它判断主线连续性、核心板块、启动/顺势/分歧/消亡，"
     "并区分真正双红/增量启动与缩量强修复/存量抱团；"
     "5) 对“上涨空间/怎么看/深挖”类问题，必须回答：它是领先核心、同步确认、后排补涨、二阶段回流、"
     "高低切承接还是高位兑现；同时必须回答市场正在奖励谁、抛弃谁、犹豫谁。如果证据缺失，要明确缺了哪类 daily-agent 数据，而不是跳过；"
@@ -327,8 +361,14 @@ _SYNTHESIS_SYSTEM_PROMPT = (
     "核验数据缺失时明确写「历史基线未经当下数据核验」；"
     "8) 升级/降级/证伪条件必须写成组合门槛（至少两条信号同现，或主信号+确认信号搭配），"
     "禁止单一信号直接触发结论切换；"
-    "9) 不输出任何买卖指令，结尾以「（非投资建议）」收尾；"
-    "10) 直接输出回答正文，不要输出 JSON，不要复述本提示，不要附加质检过程或审稿过程。"
+    "9) 首段必须明确本轮整体数据截止日；如果证据说明 DuckDB 不可用并发生快照回退，"
+    "必须在开头直说这是历史快照、不能视为最新交易日；局部表滞后时单独标注，不能覆盖整体日期；"
+    "10) 严禁输出原始 JSON、文件路径、命中主题、模块路由、降权、rerank、RAG 遥测、"
+    "模型下载进度、warning 数组，或 D/P/L/G/R/S/W 等内部编号与字段名；"
+    "L1/L2/L3/L4 必须分别转译成人类可理解的行业资料、公司基础资料、公告等硬证据、盘面信号，"
+    "graph_only、replay、Daily Review 等工程名也不得原样出现；"
+    "11) 不输出任何买卖指令，结尾以「（非投资建议）」收尾；"
+    "12) 直接输出回答正文，不要复述本提示，不要附加质检过程或审稿过程。"
 )
 
 
@@ -348,7 +388,12 @@ def _build_synthesis_prompt(
     experience_guidance: str = "",
     exemplar_guidance: str = "",
 ) -> str:
-    legend = f"\n\n## 引用图例（编号 → 来源，回答里请沿用这些编号）\n{citation_legend}" if citation_legend else ""
+    legend = (
+        "\n\n## 内部引用图例（只用于事实核验；最终回答不得显示编号）\n"
+        f"{citation_legend}"
+        if citation_legend
+        else ""
+    )
     quality_block = ""
     if quality_context is not None and hasattr(quality_context, "to_prompt_block"):
         quality_block = f"\n\n{quality_context.to_prompt_block()}"
@@ -404,10 +449,10 @@ def build_synthesis_messages(
     ]
 
 
-# 追问时附在用户问题前的薄约束：复用首轮已给证据、不引入新事实、保留引用编号。
+# 追问时附在用户问题前的薄约束：复用首轮已给证据、不引入新事实、不暴露内部编号。
 _FOLLOWUP_NUDGE = (
     "（追问，请仅基于本次对话前面已经给出的多源证据回答：不要引入证据里没有的新公司/"
-    "数字/催化，继续用 [编号] 标注引用；若已有证据不足以回答就直说「证据不足」，"
+    "数字/催化，不要显示内部编号、字段名或工程诊断；若已有证据不足以回答就直说「证据不足」，"
     "不要编造。结尾仍以「（非投资建议）」收尾。）\n\n"
 )
 
@@ -458,6 +503,120 @@ def synthesize_messages(
     if not text:
         return None, "LLM 合成返回空内容，已降级为模板"
     return SynthesisResult(answer=text, provider=provider.name, model=provider.model), ""
+
+
+def _post_chat_stream(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: int,
+    temperature: float,
+    on_delta: Callable[[str], None],
+    is_cancelled: Callable[[], bool] | None,
+) -> str:
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload = {
+        "model": provider.model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True,
+    }
+    if os.environ.get("LLM_THINKING") == "disabled":
+        payload["thinking"] = {"type": "disabled"}
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {provider.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+        },
+        method="POST",
+    )
+    chunks: list[str] = []
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        for raw_line in response:
+            if is_cancelled is not None and is_cancelled():
+                raise LLMStreamCancelled()
+            line = raw_line.decode("utf-8", "replace").strip()
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            try:
+                event = json.loads(data)
+                delta = event["choices"][0]["delta"].get("content")
+            except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+                continue
+            if isinstance(delta, str) and delta:
+                on_delta(delta)
+                chunks.append(delta)
+    if not chunks:
+        raise LLMStreamingUnsupported()
+    return "".join(chunks)
+
+
+def synthesize_messages_stream(
+    messages: list[dict],
+    *,
+    on_delta: Callable[[str], None],
+    is_cancelled: Callable[[], bool] | None = None,
+    model_override: str | None = None,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+    temperature: float = 0.3,
+) -> tuple[SynthesisResult | None, str]:
+    provider = detect_provider(model_override)
+    if provider is None:
+        return None, (
+            "未配置 LLM key，有机合成降级为模板。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
+            "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
+        )
+    try:
+        content = _post_chat_stream(
+            provider,
+            messages,
+            timeout,
+            temperature,
+            on_delta,
+            is_cancelled,
+        )
+    except LLMStreamCancelled:
+        raise
+    except urllib.error.HTTPError as exc:
+        if exc.code not in {400, 404, 405, 415, 422, 501}:
+            return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"
+        fallback, reason = synthesize_messages(
+            messages,
+            model_override=model_override,
+            timeout=timeout,
+            temperature=temperature,
+        )
+        if fallback is not None:
+            on_delta(fallback.answer)
+        return fallback, reason
+    except LLMStreamingUnsupported:
+        fallback, reason = synthesize_messages(
+            messages,
+            model_override=model_override,
+            timeout=timeout,
+            temperature=temperature,
+        )
+        if fallback is not None:
+            on_delta(fallback.answer)
+        return fallback, reason
+    except Exception as exc:  # pragma: no cover - network
+        detail = redact(str(getattr(exc, "reason", exc))[:120])
+        return None, f"LLM 流式合成失败（{type(exc).__name__}: {detail}），已降级为模板"
+    if not content.strip():
+        return None, "LLM 流式合成返回空内容，已降级为模板"
+    return (
+        SynthesisResult(
+            answer=content,
+            provider=provider.name,
+            model=provider.model,
+        ),
+        "",
+    )
 
 
 _SELF_REVIEW_REVISION_PROMPT = (
@@ -521,11 +680,11 @@ def synthesize_messages_with_review(
     ]
     try:
         content = _post_chat(provider, review_messages, timeout, review_temperature)
-    except Exception:
-        return draft, ""
+    except Exception as exc:
+        return draft, f"LLM 二次自审失败（{type(exc).__name__}），保留初稿并标记降级"
     revised = (content or "").strip()
     if not revised:
-        return draft, ""
+        return draft, "LLM 二次自审返回空内容，保留初稿并标记降级"
     return SynthesisResult(answer=revised, provider=provider.name, model=provider.model), ""
 
 

@@ -1,10 +1,18 @@
 import type {
   ArtifactDescriptor,
   Bootstrap,
+  ChatMessage,
+  Conversation,
+  ConfigureLLMRequest,
+  CreateMessageRequest,
+  CreateMessageResponse,
   DailyReportProjection,
   Followup,
+  LLMConfig,
+  ProductSkillDescription,
   Run,
   RunContext,
+  StructuredReport,
   TraceStep,
 } from "./types";
 
@@ -46,6 +54,15 @@ export function getRunContext(runId: string, user?: string): Promise<RunContext>
   return request<RunContext>(withUser(`/api/runs/${encodeURIComponent(runId)}/context`, user));
 }
 
+export function getRunReport(
+  runId: string,
+  user?: string,
+): Promise<StructuredReport | null> {
+  return request<StructuredReport | null>(
+    withUser(`/api/runs/${encodeURIComponent(runId)}/report`, user),
+  );
+}
+
 export async function getRunArtifactText(
   runId: string,
   name: string,
@@ -77,6 +94,116 @@ export function createRun(
       parent_run_id: parentRunId || undefined,
       compose: true,
     }),
+  });
+}
+
+export function createConversation(
+  title = "新对话",
+  user?: string,
+): Promise<Conversation> {
+  return request<Conversation>(withUser("/api/conversations", user), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, user: user || undefined }),
+  });
+}
+
+export function listConversations(user?: string): Promise<Conversation[]> {
+  return request<Conversation[]>(withUser("/api/conversations", user));
+}
+
+export function getConversation(
+  conversationId: string,
+  user?: string,
+): Promise<Conversation> {
+  return request<Conversation>(
+    withUser(`/api/conversations/${encodeURIComponent(conversationId)}`, user),
+  );
+}
+
+export function renameConversation(
+  conversationId: string,
+  title: string,
+  user?: string,
+): Promise<Conversation> {
+  return request<Conversation>(
+    withUser(`/api/conversations/${encodeURIComponent(conversationId)}`, user),
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, user: user || undefined }),
+    },
+  );
+}
+
+export function archiveConversation(
+  conversationId: string,
+  user?: string,
+): Promise<Conversation> {
+  return request<Conversation>(
+    withUser(`/api/conversations/${encodeURIComponent(conversationId)}/archive`, user),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user: user || undefined }),
+    },
+  );
+}
+
+export function getConversationMessages(
+  conversationId: string,
+  user?: string,
+): Promise<ChatMessage[]> {
+  return request<ChatMessage[]>(
+    withUser(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, user),
+  );
+}
+
+export function createConversationMessage(
+  conversationId: string,
+  message: CreateMessageRequest,
+): Promise<CreateMessageResponse> {
+  return request<CreateMessageResponse>(
+    withUser(
+      `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
+      message.user,
+    ),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+    },
+  );
+}
+
+export function getSkills(user?: string): Promise<ProductSkillDescription[]> {
+  return request<ProductSkillDescription[]>(withUser("/api/skills", user));
+}
+
+export function getLLMConfig(user?: string): Promise<LLMConfig> {
+  return request<LLMConfig>(withUser("/api/llm/config", user));
+}
+
+export function configureLLM(config: ConfigureLLMRequest): Promise<LLMConfig> {
+  return request<LLMConfig>("/api/llm/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+}
+
+export function selectBuiltInLLM(user?: string): Promise<LLMConfig> {
+  return request<LLMConfig>(withUser("/api/llm/config", user), {
+    method: "DELETE",
+  });
+}
+
+export function cancelRun(
+  runId: string,
+  user?: string,
+): Promise<{ run_id: string; cancel_requested: true }> {
+  return request(withUser(`/api/runs/${encodeURIComponent(runId)}/cancel`, user), {
+    method: "POST",
   });
 }
 

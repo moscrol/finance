@@ -19,13 +19,16 @@ import os
 import re
 import sys
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Literal
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from market_feature_store import db as mfs_db  # noqa: E402
+from market_feature_store.signals import is_double_red  # noqa: E402
 
 
 # ---------------------------------------------------------------- 知识库路径
@@ -153,29 +156,47 @@ def collect_member_stocks(theme: str, concepts: list[str], vault: Path) -> dict[
 
 # ---------------------------------------------------------------- 盘面
 
-def query(con, sql: str, params: list) -> list[dict]:
+@dataclass(frozen=True)
+class QueryResult:
+    status: Literal["success", "no_data", "error"]
+    rows: list[dict[str, object]]
+    error: str | None = None
+
+
+class QueryExecutionError(RuntimeError):
+    pass
+
+
+def query(con, sql: str, params: list[object]) -> QueryResult:
     try:
         cur = con.execute(sql, params)
         cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, row)) for row in cur.fetchall()]
+        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+        return QueryResult("success" if rows else "no_data", rows)
     except Exception as exc:
-        print(f"[warn] 查询失败: {exc}", file=sys.stderr)
-        return []
+        return QueryResult("error", [], str(exc))
+
+
+def query_rows(con, sql: str, params: list[object]) -> list[dict[str, object]]:
+    result = query(con, sql, params)
+    if result.status == "error":
+        raise QueryExecutionError(result.error or "unknown query error")
+    return result.rows
 
 
 def theme_sectors(con, theme: str) -> list[dict]:
-    rows = query(con, "SELECT sector_ts_code, sector_name, match_type, confidence FROM config_theme_sector_link WHERE theme = ?", [theme])
+    rows = query_rows(con, "SELECT sector_ts_code, sector_name, match_type, confidence FROM config_theme_sector_link WHERE theme = ?", [theme])
     if rows:
         return rows
-    return query(con, "SELECT DISTINCT sector_ts_code, sector_name, 'fuzzy' AS match_type, 0.5 AS confidence FROM fact_sector_daily WHERE sector_name LIKE ?", [f"%{theme}%"])
+    return query_rows(con, "SELECT DISTINCT sector_ts_code, sector_name, 'fuzzy' AS match_type, 0.5 AS confidence FROM fact_sector_daily WHERE sector_name LIKE ?", [f"%{theme}%"])
 
 
 def sector_timeline(con, sector_codes: list[str], start: date, end: date) -> list[dict]:
-    """板块逐日: 双红(pct_chg>0 且 diff_ratio>0)、连续双红天数、多周期共振。"""
+    """板块逐日: 严格双红、连续双红天数、多周期共振。"""
     if not sector_codes:
         return []
     ph = ",".join("?" for _ in sector_codes)
-    rows = query(con, f"""
+    rows = query_rows(con, f"""
         SELECT trade_date, sector_name, pct_chg, amount, diff_ratio, multi_period_resonance
         FROM fact_sector_daily
         WHERE sector_ts_code IN ({ph}) AND trade_date BETWEEN ? AND ?
@@ -183,7 +204,7 @@ def sector_timeline(con, sector_codes: list[str], start: date, end: date) -> lis
     """, sector_codes + [start, end])
     streak: dict[str, int] = defaultdict(int)
     for r in rows:
-        red = (r.get("pct_chg") or 0) > 0 and (r.get("diff_ratio") or 0) > 0
+        red = is_double_red(r.get("pct_chg"), r.get("diff_ratio"), r.get("amount"))
         name = r["sector_name"]
         streak[name] = streak[name] + 1 if red else 0
         r["double_red"] = red
@@ -195,7 +216,7 @@ def limit_heat(con, sector_codes: list[str], start: date, end: date) -> list[dic
     if not sector_codes:
         return []
     ph = ",".join("?" for _ in sector_codes)
-    return query(con, f"""
+    return query_rows(con, f"""
         SELECT trade_date, sector_name, limit_up_count, total_count, rank
         FROM fact_theme_limit_heat_daily
         WHERE sector_ts_code IN ({ph}) AND trade_date BETWEEN ? AND ?
@@ -211,7 +232,7 @@ def member_interval_gains(con, members: dict[str, dict], start: date, end: date)
         codes = info["codes"]
         if codes:
             ph = ",".join("?" for _ in codes)
-            rows = query(con, f"""
+            rows = query_rows(con, f"""
                 SELECT (LAST(close ORDER BY trade_date) / FIRST(close ORDER BY trade_date) - 1) * 100 AS g
                 FROM fact_stock_daily
                 WHERE stock_ts_code IN ({ph}) AND close IS NOT NULL AND trade_date BETWEEN ? AND ?
@@ -219,7 +240,7 @@ def member_interval_gains(con, members: dict[str, dict], start: date, end: date)
             if rows and rows[0].get("g") is not None:
                 gain = rows[0]["g"]
         if gain is None:
-            rows = query(con, """
+            rows = query_rows(con, """
                 SELECT (LAST(price ORDER BY trade_date) / FIRST(price ORDER BY trade_date) - 1) * 100 AS g
                 FROM fact_sector_stock_daily
                 WHERE stock_name = ? AND price IS NOT NULL AND price > 0 AND trade_date BETWEEN ? AND ?
@@ -254,7 +275,7 @@ def stock_start_days(con, members: dict[str, dict], sector_codes: list[str], sta
         codes = info["codes"]
         first_limit = None
         first_surge = None
-        rows = query(con, """
+        rows = query_rows(con, """
             SELECT MIN(trade_date) AS d FROM fact_limit_advance_daily
             WHERE stock_name = ? AND trade_date BETWEEN ? AND ?
         """, [name, start, end])
@@ -262,7 +283,7 @@ def stock_start_days(con, members: dict[str, dict], sector_codes: list[str], sta
             first_limit = rows[0]["d"]
         if first_limit is None and sector_codes:
             ph = ",".join("?" for _ in sector_codes)
-            rows = query(con, f"""
+            rows = query_rows(con, f"""
                 SELECT MIN(trade_date) AS d FROM fact_theme_limit_stock_daily
                 WHERE stock_name = ? AND sector_ts_code IN ({ph})
                   AND COALESCE(limit_times, 0) >= 1 AND trade_date BETWEEN ? AND ?
@@ -271,13 +292,13 @@ def stock_start_days(con, members: dict[str, dict], sector_codes: list[str], sta
                 first_limit = rows[0]["d"]
         if codes:
             ph = ",".join("?" for _ in codes)
-            rows = query(con, f"""
+            rows = query_rows(con, f"""
                 SELECT MIN(trade_date) AS d FROM fact_stock_daily
                 WHERE stock_ts_code IN ({ph}) AND pct_chg >= ? AND trade_date BETWEEN ? AND ?
             """, codes + [pct_th, start, end])
             if rows and rows[0].get("d"):
                 first_surge = rows[0]["d"]
-        rows = query(con, """
+        rows = query_rows(con, """
             SELECT MIN(trade_date) AS d FROM fact_sector_stock_daily
             WHERE stock_name = ? AND pct_chg >= ? AND trade_date BETWEEN ? AND ?
         """, [name, pct_th, start, end])
@@ -418,13 +439,17 @@ def main() -> int:
         return 1
     con = mfs_db.connect(read_only=True)
     try:
-        sectors = theme_sectors(con, args.theme)
-        codes = [s["sector_ts_code"] for s in sectors if s.get("sector_ts_code")]
-        sec_tl = sector_timeline(con, codes, start, end)
-        heat = limit_heat(con, codes, start, end)
-        gains = member_interval_gains(con, members, start, end)
-        members, dropped = filter_members_by_gain(members, gains, args.max_members)
-        starts = stock_start_days(con, members, codes, start, end, args.pct_threshold)
+        try:
+            sectors = theme_sectors(con, args.theme)
+            codes = [s["sector_ts_code"] for s in sectors if s.get("sector_ts_code")]
+            sec_tl = sector_timeline(con, codes, start, end)
+            heat = limit_heat(con, codes, start, end)
+            gains = member_interval_gains(con, members, start, end)
+            members, dropped = filter_members_by_gain(members, gains, args.max_members)
+            starts = stock_start_days(con, members, codes, start, end, args.pct_threshold)
+        except QueryExecutionError as exc:
+            print(f"[error] DuckDB 查询失败: {exc}", file=sys.stderr)
+            return 2
     finally:
         con.close()
 

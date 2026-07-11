@@ -1,0 +1,67 @@
+{
+  "schema_version": "claim-fidelity-report-registry-1.0",
+  "task_id": "fidelity-replay-acceptance-v1",
+  "selection_rule": "Use an existing report artifact labelled for the fixed date. Do not regenerate or substitute a current report.",
+  "reports": [
+    {
+      "report_date": "2026-03-06",
+      "canonical_report_path": null,
+      "status": "missing",
+      "note": "No historical report artifact was found in repository history."
+    },
+    {
+      "report_date": "2026-04-23",
+      "canonical_report_path": null,
+      "status": "missing",
+      "note": "No historical report artifact was found in repository history."
+    },
+    {
+      "report_date": "2026-06-02",
+      "canonical_report_path": "market_feature_store/exports/2026-06-02-20d-plus-new-highs.md",
+      "status": "registered",
+      "note": "Existing dated market-feature report; not regenerated for this acceptance run."
+    },
+    {
+      "report_date": "2026-06-11",
+      "canonical_report_path": "market_feature_store/exports/2026-06-11-daily-agent.json",
+      "status": "registered",
+      "note": "Existing structured daily-agent artifact."
+    },
+    {
+      "report_date": "2026-06-22",
+      "canonical_report_path": "market_feature_store/exports/2026-06-22-daily-agent.json",
+      "status": "registered",
+      "note": "Existing structured daily-agent artifact."
+    },
+    {
+      "report_date": "2026-06-23",
+      "canonical_report_path": "复盘/daily/2026-06-23/2026-06-23-daily-review.html",
+      "status": "registered",
+      "note": "No daily-agent JSON exists for this date; use the existing dated daily-review artifact."
+    },
+    {
+      "report_date": "2026-06-24",
+      "canonical_report_path": "market_feature_store/exports/2026-06-24-daily-agent.json",
+      "status": "registered",
+      "note": "Existing structured daily-agent artifact."
+    },
+    {
+      "report_date": "2026-07-01",
+      "canonical_report_path": "market_feature_store/exports/2026-07-01-daily-agent.json",
+      "status": "registered",
+      "note": "Existing structured daily-agent artifact."
+    },
+    {
+      "report_date": "2026-07-02",
+      "canonical_report_path": "docs/learning/forecast-review-ledger/2026-07-02.md",
+      "status": "registered",
+      "note": "Existing human-readable forecast-review ledger."
+    },
+    {
+      "report_date": "2026-07-03",
+      "canonical_report_path": "docs/learning/forecast-review-ledger/2026-07-03.md",
+      "status": "registered",
+      "note": "Existing human-readable forecast-review ledger."
+    }
+  ]
+}

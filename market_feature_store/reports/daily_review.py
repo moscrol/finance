@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..db import PROJECT_DIR, connect
+from ..signals import DOUBLE_RED_SQL
 
 
 def _fmt(value, digits: int = 2):
@@ -897,10 +898,10 @@ def build_daily_review(trade_date: str | None = None, output_path: str | None = 
                 ])
 
         double_red = _dict_rows(con.execute(
-            """
+            f"""
             SELECT sector_name, sw_l1, pct_chg, diff_ratio, amount
             FROM fact_sector_daily
-            WHERE trade_date = ? AND pct_chg > 0 AND diff_ratio > 10 AND amount > 500
+            WHERE trade_date = ? AND {DOUBLE_RED_SQL}
             ORDER BY sw_l1, diff_ratio DESC, amount DESC
             """,
             [td],

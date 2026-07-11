@@ -11,6 +11,7 @@ permissions:
 jobs:
   workbench-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -19,7 +20,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Python dependencies
-        run: python -m pip install -r intelligence/api/requirements.txt pytest PyYAML duckdb==1.4.3
+        run: python -m pip install -r intelligence/api/requirements.txt pytest PyYAML duckdb==1.4.3 numpy==2.2.1 pandas==2.2.3 requests==2.32.4
 
       - uses: actions/setup-node@v4
         with:
@@ -38,8 +39,8 @@ jobs:
         working-directory: intelligence/webapp
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Test intelligence package
-        run: python -m pytest -q intelligence/tests
+      - name: Test Python packages
+        run: python -m pytest -q
 
       - name: Lint frontend
         working-directory: intelligence/webapp
@@ -62,3 +63,12 @@ jobs:
         env:
           WORKBENCH_PYTHON: python
         run: pnpm test:e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: intelligence/webapp/test-results
+          if-no-files-found: ignore
+          retention-days: 7

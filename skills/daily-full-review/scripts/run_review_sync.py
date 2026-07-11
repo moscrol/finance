@@ -180,6 +180,37 @@ def run_step(label: str, argv: list[str], timeout: int) -> dict:
     return {"label": label, "status": status, "code": code, "elapsed": elapsed}
 
 
+def run_release_steps(trade_date: str, timeout: int) -> tuple[list[dict], bool]:
+    """质量门全部通过后才允许导出；任一 gate 失败即停止下游产物。"""
+    results: list[dict] = []
+    same_day = run_step(
+        "same-day-gate",
+        [PY, "scripts/check_daily_review_data.py", trade_date, "--phase", "data"],
+        timeout,
+    )
+    results.append(same_day)
+    if same_day["status"] != "ok":
+        return results, False
+
+    quality_json = SKILL_DIR / "state" / f"quality-{trade_date}.json"
+    cross_day = run_step(
+        "cross-day-gate",
+        CLI + ["check-daily", "--trade-date", trade_date, "--json", str(quality_json)],
+        timeout,
+    )
+    results.append(cross_day)
+    if cross_day["status"] != "ok":
+        return results, False
+
+    export = run_step(
+        "export-increment",
+        [PY, str(SKILL_DIR / "scripts" / "export_increment.py"), "--date", trade_date],
+        timeout,
+    )
+    results.append(export)
+    return results, export["status"] == "ok"
+
+
 def sync_sector_stocks(trade_date: str, timeout: int, max_loops: int = 20) -> dict:
     """逐批续跑直到所有板块抓全；默认跳过已抓板块，超时杀掉续下一批。"""
     loops = 0
@@ -353,23 +384,13 @@ def main() -> int:
     if bad:
         _notify(f"⚠️ 全量复盘 {args.date} 同步段模块未全绿：{', '.join(bad)}；详见 state/runlog.md")
 
-    # 审计
-    gate = subprocess.run(
-        [PY, "scripts/check_daily_review_data.py", args.date, "--data-only"],
-        cwd=str(ROOT),
-    )
-    gate_ok = gate.returncode == 0
-
-    # 收尾：导出当日增量到 iCloud（小 parquet，几 MB；配合全量基线可还原）。
-    # 失败不影响复盘结果，仅告警。
-    export_res = run_step(
-        "export-increment",
-        [PY, str(SKILL_DIR / "scripts" / "export_increment.py"), "--date", args.date],
-        args.timeout,
-    )
-    results.append({**export_res, "label": "export-increment"})
+    release_results, gate_ok = run_release_steps(args.date, args.timeout)
+    results.extend(release_results)
 
     write_runlog(args.date, results, gate_ok)
+    if not gate_ok:
+        print("\n== 质量门/导出失败：停止生成报告与 agent ==", flush=True)
+        return 1
     print("\n== 同步段结束 ==", flush=True)
     print("下一步生成段：", flush=True)
     print(f"  python3 -m intelligence.cli daily --date {args.date} --skip-sync --from-step daily-review \\", flush=True)
