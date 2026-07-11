@@ -520,7 +520,8 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
         "replay 发酵信号也未匹配到任何主题，wiki 向量检索无可用命中。"
         "公司只有 graph_only/低置信暴露，整体证据层分布为 "
         "L1×6、L2×6、L4×1，尚缺 L3 硬证据。[D4]"
-        "优先走 L3 证据工具补查。当前属于 high/L1_L3_candidate，L1/L2 认知完整但 "
+        "本轮未命中任何 L3硬证据硬证据。优先走 L3 证据工具补查。"
+        "当前属于 high/L1_L3_candidate，L1/L2 认知完整但 "
         "cycle_status 仍需确认，RAG检索的wiki向量源降级未接入。"
     )
 
@@ -560,6 +561,7 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assert "知识库资料没有提供可用补充" in assistant.content
     assert "公告等硬证据工具" in assistant.content
     assert "硬证据证据" not in assistant.content
+    assert "硬证据硬证据" not in assistant.content
     for internal in (
         "Daily Review",
         "L1",
