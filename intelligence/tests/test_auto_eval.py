@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
-from pathlib import Path
 from unittest import mock
 
 from intelligence import userspace
@@ -15,7 +14,7 @@ class AutoEvalTests(unittest.TestCase):
         with mock.patch.dict("os.environ", {userspace.ENV_USERS_DIR: tmp}):
             return auto_eval.evaluate_answer(question, answer, user="tester")
 
-    def test_low_score_answer_records_ledger_and_card(self) -> None:
+    def test_low_score_answer_records_advisory_without_auto_card(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             outcome = self._run(tmp, "科技细分里哪个方向还有上涨空间", "科技都很好，可以看好。")
 
@@ -24,15 +23,16 @@ class AutoEvalTests(unittest.TestCase):
             record = json.loads(outcome.ledger_path.read_text(encoding="utf-8").splitlines()[0])
             self.assertEqual(record["question"], "科技细分里哪个方向还有上涨空间")
             self.assertIn("grade", record)
+            self.assertEqual(record["role"], "advisory_review")
+            self.assertFalse(record["decision_eligible"])
+            self.assertTrue(record["flagged_for_review"])
 
-            self.assertIsNotNone(outcome.card_path)
-            card = json.loads(Path(outcome.card_path).read_text(encoding="utf-8").splitlines()[0])
-            self.assertEqual(card["source"], "auto-score")
-            self.assertEqual(card["promotion"], "candidate")
+            self.assertIsNone(outcome.card_path)
+            self.assertTrue(outcome.flagged_for_review)
 
             notice = auto_eval.render_notice(outcome)
-            self.assertIn("[answer-score]", notice)
-            self.assertIn("经验卡候选", notice)
+            self.assertIn("[answer-review/advisory]", notice)
+            self.assertIn("未自动回灌", notice)
 
     def test_high_score_answer_skips_card(self) -> None:
         answer = (
@@ -47,6 +47,7 @@ class AutoEvalTests(unittest.TestCase):
 
             self.assertGreaterEqual(outcome.score.total_score, auto_eval.LOW_SCORE_THRESHOLD)
             self.assertIsNone(outcome.card_path)
+            self.assertFalse(outcome.flagged_for_review)
             self.assertTrue(outcome.ledger_path.exists())
 
 

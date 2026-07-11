@@ -1,10 +1,9 @@
-"""Finance-domain answer rubric for vertical agent quality scoring.
+"""Deterministic finance-answer structure review.
 
-This module scores the *thinking quality* of a financial answer, complementing
-``agent_eval`` which mostly guards grounding mechanics such as citations and
-tool budgets. The scorer is deterministic by design: no LLM, no I/O, no network.
-That makes it suitable as a cheap regression baseline before adding an optional
-LLM-as-judge layer.
+The keyword rubric finds missing sections; it does not measure prediction
+quality or reasoning correctness. It is deterministic by design: no LLM, no
+I/O, no network. Until a historical blind test shows that its scores separate
+hit from miss, all outputs remain advisory and decision-ineligible.
 """
 
 from __future__ import annotations
@@ -53,6 +52,9 @@ class FinanceAnswerScore:
     dimensions: list[RubricDimension]
     failures: list[str] = field(default_factory=list)
     question_type: str | None = None
+    role: str = "advisory_review"
+    calibration_status: str = "unvalidated"
+    decision_eligible: bool = False
 
     @property
     def percent(self) -> float:
@@ -74,6 +76,9 @@ class FinanceAnswerScore:
             "grade": self.grade,
             "failures": list(self.failures),
             "dimensions": [d.to_dict() for d in self.dimensions],
+            "role": self.role,
+            "calibration_status": self.calibration_status,
+            "decision_eligible": self.decision_eligible,
         }
 
     def to_json(self) -> str:
@@ -124,9 +129,11 @@ def score_answer(
 
 
 def format_score(score: FinanceAnswerScore) -> str:
-    """Render a human-readable markdown scorecard."""
+    """Render advisory review hints; the score is not a decision gate."""
     lines = [
-        f"# 金融回答质量评分：{score.total_score}/{score.max_score}（{score.grade}）",
+        f"# 金融回答候选审稿意见：{score.total_score}/{score.max_score}（{score.grade}）",
+        "",
+        "> 仅用于发现结构缺口；未经历史盲测校准，不代表预测质量，不得自动阻断或自动回灌。",
         "",
         "| 维度 | 得分 | 评语 |",
         "|---|---:|---|",
