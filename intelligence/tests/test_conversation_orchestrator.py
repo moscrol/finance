@@ -277,7 +277,8 @@ def test_current_skill_output_is_injected_as_current_turn_evidence(tmp_path) -> 
     )
 
     assert len(calls) == 1
-    assert '"涨家数", "value": 3210' in calls[0].supplemental_evidence
+    assert "指标：涨家数=3210" in calls[0].supplemental_evidence
+    assert '"value": 3210' not in calls[0].supplemental_evidence
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.selected_skill_ids == ["fixture"]
     assert assistant.invoked_skill_ids == ["fixture"]

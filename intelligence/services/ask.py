@@ -224,6 +224,9 @@ class AskResult:
     matched_theme: str | None
     candidate_tier: str | None
     priority_score: float | None
+    market_data_source: str = "unknown"
+    snapshot_date: str | None = None
+    data_notice: str | None = None
     sections: dict[str, list[str]] = field(default_factory=dict)
     citations: list[Citation] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -314,9 +317,57 @@ def load_theme_candidates(exports_dir: str | Path | None, date: str | None) -> d
     return {"found": True, "path": str(path), "warnings": [], "doc": doc}
 
 
-def _forecast_preflight_for_options(options: AskOptions, market_doc: dict[str, Any]) -> dict[str, Any]:
+def _resolve_market_data_context(
+    snapshot_date: str | None,
+    market_db_path: str | Path | None,
+    requested_date: str | None = None,
+) -> tuple[str | None, str, str | None, list[str]]:
+    if requested_date:
+        return requested_date, "requested_date", None, []
+
+    market_date = _market_data_asof(market_db_path)
+    if market_date:
+        warnings: list[str] = []
+        if snapshot_date and snapshot_date != market_date:
+            warnings.append(
+                f"题材候选快照截至 {snapshot_date}，早于本地 DuckDB 的 {market_date}；"
+                "快照仅作辅助参考，不作为本轮整体数据日期。"
+            )
+        notice = (
+            f"**数据截至 {market_date}。** 市场总览优先读取本地 DuckDB；"
+            "日报导出和题材候选快照仅作补充，并按各自日期标注。"
+        )
+        return market_date, "duckdb", notice, warnings
+
+    if snapshot_date:
+        notice = (
+            "**数据降级：当前未连接本地 DuckDB。** "
+            f"以下仅使用截至 {snapshot_date} 的 snapshot/export，不能视为最新交易日复盘。"
+        )
+        return snapshot_date, "snapshot_fallback", notice, [
+            f"未连接本地 DuckDB；本轮回退到截至 {snapshot_date} 的 snapshot/export。"
+        ]
+
+    notice = (
+        "**数据降级：当前未连接本地 DuckDB，且没有可用的 snapshot/export。** "
+        "本轮无法完成最新交易日复盘。"
+    )
+    return None, "unavailable", notice, [
+        "未连接本地 DuckDB，且没有可用 snapshot/export。"
+    ]
+
+
+def _forecast_preflight_for_options(
+    options: AskOptions,
+    market_doc: dict[str, Any],
+    trade_date_override: str | None = None,
+) -> dict[str, Any]:
     base = _resolve_exports_dir(options.exports_dir)
-    trade_date = options.date or str(market_doc.get("trade_date") or "").strip()
+    trade_date = (
+        options.date
+        or trade_date_override
+        or str(market_doc.get("trade_date") or "").strip()
+    )
     path: Path | None = None
     if trade_date:
         candidate = base / f"{trade_date}-daily-agent.json"
@@ -434,21 +485,37 @@ def answer_query(options: AskOptions) -> AskResult:
     loaded = load_theme_candidates(options.exports_dir, options.date)
     doc = loaded["doc"] if loaded["found"] else {}
     candidate = match_candidate(options.query, doc) if doc else None
+    snapshot_date = str(doc.get("trade_date") or "").strip() or None
+    trade_date, market_data_source, data_notice, data_warnings = (
+        _resolve_market_data_context(
+            snapshot_date,
+            options.market_db_path,
+            requested_date=options.date,
+        )
+    )
 
     result = AskResult(
         query=options.query,
-        trade_date=doc.get("trade_date"),
+        trade_date=trade_date,
         matched_theme=(candidate or {}).get("canonical_concept") or (candidate or {}).get("market_theme"),
         candidate_tier=(candidate or {}).get("candidate_tier"),
         priority_score=(candidate or {}).get("priority_score"),
+        market_data_source=market_data_source,
+        snapshot_date=snapshot_date,
+        data_notice=data_notice,
     )
     result.warnings.extend(loaded.get("warnings", []))
+    result.warnings.extend(data_warnings)
     result.found_market = candidate is not None
     question_plan = plan_answer_question(options.query)
     result.question_plan = question_plan
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
     if question_plan.question_type == QUESTION_MARKET_FORECAST:
-        result.forecast_preflight = _forecast_preflight_for_options(options, doc)
+        result.forecast_preflight = _forecast_preflight_for_options(
+            options,
+            doc,
+            trade_date_override=result.trade_date,
+        )
         if not result.forecast_preflight.get("can_generate_formal"):
             result.warnings.append(f"forecast-preflight：{result.forecast_preflight.get('human_summary')}")
 
@@ -795,6 +862,22 @@ def answer_query(options: AskOptions) -> AskResult:
         + [f"{SUBHEAD}图谱·语义召回(wiki 向量)"] + wiki_section
         + module_block
     )
+    if question_plan.question_type == QUESTION_MARKET_FORECAST:
+        daily_market_block = _daily_market_overview_block_for_llm(
+            options.market_db_path
+        )
+        if daily_market_block:
+            evidence_chain.extend(
+                [f"{SUBHEAD}最新市场总览（本地 DuckDB）", daily_market_block]
+            )
+            citations.append(
+                Citation(
+                    "M1",
+                    "本地 DuckDB 市场总览",
+                    f"fact_market_daily / fact_mainline_theme_daily，截至 {result.trade_date}",
+                )
+            )
+            result.found_market = True
 
     # --- L: runtime L3 official evidence lookup (announcements / interactions) ---
     if options.use_l3_lookup:
@@ -901,6 +984,10 @@ def answer_query(options: AskOptions) -> AskResult:
         ]
     if options.compose:
         evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
+        if result.data_notice:
+            evidence_text = (
+                f"## 本轮数据说明\n{result.data_notice}\n\n{evidence_text}"
+            )
         if result.question_plan is not None:
             evidence_text = f"{result.question_plan.to_prompt_block()}\n\n{evidence_text}"
         evidence_text = (
@@ -1146,9 +1233,18 @@ def answer_query(options: AskOptions) -> AskResult:
                 },
             )
         if options.stream_text_delta is not None:
+            notice_emitted = False
+
+            def _emit_human_delta(delta: str) -> None:
+                nonlocal notice_emitted
+                if result.data_notice and not notice_emitted:
+                    options.stream_text_delta(f"{result.data_notice}\n\n")
+                    notice_emitted = True
+                options.stream_text_delta(delta)
+
             composed, reason = llm_refine.synthesize_messages_stream(
                 msgs,
-                on_delta=options.stream_text_delta,
+                on_delta=_emit_human_delta,
                 is_cancelled=options.stream_cancel_check,
                 model_override=options.llm_model,
                 timeout=options.llm_timeout,
@@ -1162,9 +1258,15 @@ def answer_query(options: AskOptions) -> AskResult:
                 msgs, model_override=options.llm_model, timeout=options.llm_timeout,
             )
         if composed is not None:
-            result.synthesis = composed.answer
+            result.synthesis = (
+                f"{result.data_notice}\n\n{composed.answer}"
+                if result.data_notice
+                else composed.answer
+            )
             result.llm_provider = composed.provider
-            result.synthesis_messages = msgs + [{"role": "assistant", "content": composed.answer}]
+            result.synthesis_messages = msgs + [
+                {"role": "assistant", "content": result.synthesis}
+            ]
             if reason:
                 result.warnings.append(reason)
         else:
@@ -1202,10 +1304,14 @@ def answer_query(options: AskOptions) -> AskResult:
             temperature=0.2,
         )
         if revised is not None:
-            result.synthesis = revised.answer
+            result.synthesis = (
+                f"{result.data_notice}\n\n{revised.answer}"
+                if result.data_notice
+                else revised.answer
+            )
             result.synthesis_messages = result.synthesis_messages + [
                 revision_user,
-                {"role": "assistant", "content": revised.answer},
+                {"role": "assistant", "content": result.synthesis},
             ]
             result.warnings.append(
                 f"输出质检 {len(warn_notes)} 条 WARN 已回灌定向修订（正文为修订版，审查意见见「输出质检」附录）"
@@ -1644,6 +1750,167 @@ def _d_block_stat(tag: str, source: str, block: str | None) -> research_brief.DB
         line_count=len(text.splitlines()) if text else 0,
         note="" if text else "无匹配数据或未提供 market_db_path",
     )
+
+
+def _daily_market_overview_block_for_llm(
+    market_db_path: str | Path | None,
+) -> str:
+    db_path = (
+        Path(market_db_path).expanduser()
+        if market_db_path
+        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    )
+    if not db_path.exists():
+        return ""
+    try:
+        import duckdb
+
+        con = duckdb.connect(str(db_path), read_only=True)
+    except Exception:
+        return ""
+
+    try:
+        table_names = {
+            str(row[0])
+            for row in con.execute(
+                """
+                select table_name
+                from information_schema.tables
+                where table_schema = 'main'
+                """
+            ).fetchall()
+        }
+        if "fact_market_daily" not in table_names:
+            return ""
+
+        available_columns = {
+            str(row[1])
+            for row in con.execute("pragma table_info('fact_market_daily')").fetchall()
+        }
+        wanted_columns = (
+            "trade_date",
+            "market_stage",
+            "stage_day",
+            "total_amount",
+            "amount_vs_yesterday_pct",
+            "volume_ratio",
+            "volume_state",
+            "advancers",
+            "limit_up",
+            "limit_down",
+            "sh_index_close",
+            "sh_index_pct_chg",
+            "concentration_state",
+            "industry_1",
+            "industry_1_ratio",
+            "industry_2",
+            "industry_2_ratio",
+            "industry_3",
+            "industry_3_ratio",
+            "strength_avg_pct",
+            "strength_marginal_pct",
+            "strength_status",
+        )
+        select_columns = [
+            column if column in available_columns else f"null as {column}"
+            for column in wanted_columns
+        ]
+        row = con.execute(
+            f"""
+            select {", ".join(select_columns)}
+            from fact_market_daily
+            order by trade_date desc
+            limit 1
+            """
+        ).fetchone()
+        if not row or not row[0]:
+            return ""
+
+        values = dict(zip(wanted_columns, row, strict=True))
+        trade_date = str(values["trade_date"])
+        stage = str(values["market_stage"] or "未标注")
+        stage_day = values["stage_day"]
+        stage_text = f"{stage}（第 {stage_day} 天）" if stage_day is not None else stage
+        lines = [
+            "## 本地 DuckDB 最新市场总览",
+            f"- 市场数据截至：{trade_date}。该日期是本轮整体盘面日期。",
+            f"- 市场阶段：{stage_text}；量能状态：{values['volume_state'] or '未标注'}。",
+            (
+                f"- 全市场成交额：{_fmt_optional(values['total_amount'])} 亿元；"
+                f"较前一日 {_fmt_optional(values['amount_vs_yesterday_pct'])}%；"
+                f"量比 {_fmt_optional(values['volume_ratio'])}%。"
+            ),
+            (
+                f"- 涨跌结构：上涨 {values['advancers'] if values['advancers'] is not None else '-'} 家；"
+                f"涨停 {values['limit_up'] if values['limit_up'] is not None else '-'} 家；"
+                f"跌停 {values['limit_down'] if values['limit_down'] is not None else '-'} 家。"
+            ),
+            (
+                f"- 上证指数：{_fmt_optional(values['sh_index_close'], 3)} 点，"
+                f"当日 {_fmt_optional(values['sh_index_pct_chg'])}%。"
+            ),
+            (
+                f"- 强势股状态：{values['strength_status'] or '未标注'}；"
+                f"平均涨幅 {_fmt_optional(values['strength_avg_pct'])}%；"
+                f"边际变化 {_fmt_optional(values['strength_marginal_pct'])}%。"
+            ),
+        ]
+
+        industries = [
+            (values["industry_1"], values["industry_1_ratio"]),
+            (values["industry_2"], values["industry_2_ratio"]),
+            (values["industry_3"], values["industry_3_ratio"]),
+        ]
+        industry_text = "、".join(
+            f"{name}（{_fmt_optional(ratio)}%）"
+            for name, ratio in industries
+            if name
+        )
+        if industry_text:
+            lines.append(
+                f"- 行业集中度：{values['concentration_state'] or '未标注'}；"
+                f"领先行业为 {industry_text}。"
+            )
+
+        if "fact_mainline_theme_daily" in table_names:
+            theme_date_row = con.execute(
+                "select max(trade_date) from fact_mainline_theme_daily"
+            ).fetchone()
+            theme_date = theme_date_row[0] if theme_date_row else None
+            if theme_date:
+                themes = con.execute(
+                    """
+                    select theme_name, sector_count
+                    from fact_mainline_theme_daily
+                    where trade_date = ?
+                    order by min_sort nulls last, theme_name
+                    limit 10
+                    """,
+                    [theme_date],
+                ).fetchall()
+                theme_text = "、".join(
+                    f"{name}（{sector_count or 0} 个核心板块）"
+                    for name, sector_count in themes
+                    if name
+                )
+                if theme_text:
+                    lines.append(f"- 主线题材（截至 {theme_date}）：{theme_text}。")
+
+        if "fact_mainline_sector_daily" in table_names:
+            sector_date_row = con.execute(
+                "select max(trade_date) from fact_mainline_sector_daily"
+            ).fetchone()
+            sector_date = sector_date_row[0] if sector_date_row else None
+            if sector_date and str(sector_date) != trade_date:
+                lines.append(
+                    f"- 局部数据提示：主线板块明细表仅更新到 {sector_date}，"
+                    f"早于整体盘面日期 {trade_date}；只能作历史参考，不能覆盖整体日期。"
+                )
+        return "\n".join(lines)
+    except Exception:
+        return ""
+    finally:
+        con.close()
 
 
 def _market_data_asof(market_db_path: str | Path | None) -> str | None:

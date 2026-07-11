@@ -331,7 +331,7 @@ describe("Workbench components", () => {
     expect(onFollowup).toHaveBeenCalledWith("哪些证据最容易证伪？");
   });
 
-  it("renders LLM and L2 modules without an HTML artifact", () => {
+  it("keeps structured modules behind the explicit run inspector", () => {
     const structuredBundle: RunBundle = {
       ...bundle,
       structuredReport: {
@@ -397,11 +397,19 @@ describe("Workbench components", () => {
       />,
     );
 
-    expect(screen.getByText("glm · glm-5.2")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "LLM 综合判断" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "L2 大单资金流" })).toBeVisible();
-    expect(screen.getByText("深信服")).toBeVisible();
-    expect(screen.getByText("L2 最新扫描日早于报告日。")).toBeVisible();
+    expect(screen.getByText("这是模板回答。")).toBeVisible();
+    expect(screen.getByText("运行详情")).toBeVisible();
+    expect(screen.queryByText("glm · glm-5.2")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "LLM 综合判断" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "L2 大单资金流" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("深信服")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("L2 最新扫描日早于报告日。"),
+    ).not.toBeInTheDocument();
   });
 
   it("sanitizes markdown before rendering an artifact", () => {

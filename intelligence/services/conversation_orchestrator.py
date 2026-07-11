@@ -677,7 +677,37 @@ class TurnOrchestrator:
     def _skill_evidence(outputs: Sequence[SkillOutput]) -> str:
         if not outputs:
             return ""
-        return json.dumps([asdict(output) for output in outputs], ensure_ascii=False)
+        lines: list[str] = []
+        for output in outputs:
+            as_of = f"（截至 {output.as_of}）" if output.as_of else ""
+            lines.append(f"### {output.skill_id}{as_of}")
+            for module in output.modules:
+                title = module.get("title")
+                if isinstance(title, str) and title.strip():
+                    lines.append(f"- {title.strip()}")
+                summary = module.get("summary")
+                if isinstance(summary, str) and summary.strip():
+                    lines.append(f"  - 摘要：{summary.strip()}")
+                content = module.get("content")
+                if isinstance(content, str) and content.strip():
+                    lines.append(f"  - 正文：{content.strip()}")
+                metrics = module.get("metrics")
+                if isinstance(metrics, list):
+                    metric_bits: list[str] = []
+                    for metric in metrics:
+                        if not isinstance(metric, dict):
+                            continue
+                        label = metric.get("label")
+                        value = metric.get("value")
+                        if isinstance(label, str) and value is not None:
+                            metric_bits.append(f"{label}={value}")
+                    if metric_bits:
+                        lines.append("  - 指标：" + "；".join(metric_bits))
+            if output.warnings:
+                lines.append(
+                    "- 数据质量提示：" + "；".join(output.warnings[:3])
+                )
+        return "\n".join(lines)
 
     @staticmethod
     def _skill_warning_module(skill_id: str, warning: str) -> dict[str, object]:
