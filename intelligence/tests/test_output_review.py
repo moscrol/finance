@@ -79,8 +79,15 @@ class OutputReviewTests(unittest.TestCase):
 
     def test_summary_lines_render(self) -> None:
         lines = _gate(GOOD_CHAIN).summary_lines()
-        self.assertIn("输出质检闸门", lines[0])
+        self.assertIn("输出质检助手", lines[0])
+        self.assertIn("不阻断", lines[0])
         self.assertEqual(len(lines), 7)
+
+    def test_gate_is_explicitly_advisory(self) -> None:
+        gate = _gate(GOOD_CHAIN)
+        payload = gate.to_dict()
+        self.assertEqual(payload["decision_role"], "advisory_review")
+        self.assertFalse(payload["blocking"])
 
 
 if __name__ == "__main__":

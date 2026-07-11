@@ -30,7 +30,72 @@ def _answer(date: str, agent: str, manifest_sha: str, recheck: dict | None = Non
     }
 
 
+def _answer_v11(date: str, agent: str, manifest_sha: str) -> dict:
+    answer = _answer(date, agent, manifest_sha)
+    answer["schema_version"] = "1.1"
+    answer["evidence_catalog"] = {
+        "M1": {
+            "level": "L4",
+            "source": "fact_market_daily",
+            "source_time": "2026-07-02",
+            "field": "advancers",
+            "value": 3200,
+            "direction": "support",
+        },
+        "R1": {
+            "level": "L2",
+            "source": "strategy1-matrix",
+            "source_time": "2026-07-02",
+            "direction": "neutral",
+        },
+    }
+    answer["stage_features"] = {
+        "rule_id": "market-stage-v1",
+        "as_of": "2026-07-02",
+        "metrics": {"advancers": {"value": 3200, "evidence_ref": "M1"}},
+        "evidence_refs": ["M1"],
+    }
+    answer["threshold_provenance"] = {
+        field: {
+            "origin": origin,
+            "evidence_ref": "M1" if field in {"market", "targets"} else "R1",
+            "as_of": "2026-07-02",
+        }
+        for field, origin in {
+            "market": "backtest",
+            "direction": "fixed_rule",
+            "targets": "mechanical",
+            "falsify": "heuristic",
+        }.items()
+    }
+    answer["picks"][0]["evidence_refs"] = ["M1"]
+    answer["picks"][0]["evidence_as_of"] = "2026-07-02"
+    answer["hypotheses"] = [
+        {
+            "id": "market",
+            "category": "market",
+            "claim": "T+1 涨家数超过 3500",
+            "horizon": "T+1",
+            "confidence": "medium",
+            "confidence_probability": 0.6,
+            "evidence_refs": ["M1"],
+            "evidence_as_of": "2026-07-02",
+            "falsify_when": "T+1 涨家数低于 2500",
+        }
+    ]
+    return answer
+
+
 class DualBlindForecastTests(unittest.TestCase):
+    def test_calibration_metrics_expose_ranking_and_probability_error(self) -> None:
+        metrics = dual_blind_forecast._calibration_metrics(
+            [(0.9, 1), (0.8, 1), (0.2, 0), (0.1, 0)]
+        )
+        self.assertEqual(metrics["n"], 4)
+        self.assertEqual(metrics["auc"], 1.0)
+        self.assertEqual(metrics["brier"], 0.025)
+        self.assertFalse(metrics["decision_eligible"])
+
     def test_manifest_then_validate_ok(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ledger = Path(tmp)
@@ -63,6 +128,43 @@ class DualBlindForecastTests(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(dual_blind_forecast.validate_answer(answer_path, ledger_dir=ledger), [])
+
+    def test_schema_v11_requires_provenance_and_rejects_future_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp)
+            dual_blind_forecast.main(
+                [
+                    "--ledger-dir",
+                    str(ledger),
+                    "manifest",
+                    "--date",
+                    "2026-07-03",
+                    "--perspective",
+                    "2026-07-02",
+                    "--db",
+                    str(ledger / "x.duckdb"),
+                ]
+            )
+            manifest = json.loads(
+                (ledger / "2026-07-03.manifest.json").read_text(encoding="utf-8")
+            )
+            answer = _answer_v11("2026-07-03", "codex", manifest["manifest_sha"])
+            path = ledger / "2026-07-03.answer.codex.json"
+            path.write_text(json.dumps(answer, ensure_ascii=False), encoding="utf-8")
+            self.assertEqual(
+                dual_blind_forecast.validate_answer(path, ledger_dir=ledger), []
+            )
+
+            answer["threshold_provenance"]["market"]["origin"] = "guess"
+            answer["picks"][0]["evidence_as_of"] = "2026-07-03"
+            answer["stage_features"]["metrics"]["advancers"]["value"] = 3100
+            path.write_text(json.dumps(answer, ensure_ascii=False), encoding="utf-8")
+            errors = "\n".join(
+                dual_blind_forecast.validate_answer(path, ledger_dir=ledger)
+            )
+            self.assertIn("origin", errors)
+            self.assertIn("晚于输入截止", errors)
+            self.assertIn("数值", errors)
 
     def test_validate_catches_stale_manifest_and_missing_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -152,6 +254,49 @@ class DualBlindForecastTests(unittest.TestCase):
             self.assertEqual(report["agents"]["codex/duckdb"]["answers"], 1)
             self.assertEqual(report["agents"]["codex/sellside"]["answers"], 1)
 
+    def test_aggregate_splits_verdicts_by_source_category_and_confidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp)
+            answer = _answer("2026-07-01", "codex", "sha1")
+            answer["source"] = "sellside"
+            answer["hypotheses"] = [
+                {
+                    "id": "direction",
+                    "category": "direction",
+                    "confidence": "high",
+                    "confidence_probability": 0.8,
+                }
+            ]
+            (ledger / "2026-07-01.answer.codex.sellside.json").write_text(
+                json.dumps(answer, ensure_ascii=False), encoding="utf-8"
+            )
+            verdict = {
+                "date": "2026-07-01",
+                "verdicts": [
+                    {
+                        "id": "direction",
+                        "agent": "codex",
+                        "stream": "卖方",
+                        "horizon": "T+3",
+                        "verdict": "miss",
+                        "actual": "方向未延续",
+                    }
+                ],
+            }
+            (ledger / "2026-07-01.verdict.json").write_text(
+                json.dumps(verdict, ensure_ascii=False), encoding="utf-8"
+            )
+
+            stat = dual_blind_forecast.aggregate(ledger)["agents"]["codex/sellside"]
+            self.assertEqual(
+                stat["verdicts_by_stream_horizon"]["卖方/T+3"]["miss"], 1
+            )
+            self.assertEqual(stat["verdicts_by_category"]["direction"]["miss"], 1)
+            self.assertEqual(stat["verdicts_by_confidence"]["high"]["miss"], 1)
+            self.assertEqual(stat["calibration_metrics"]["n"], 1)
+            self.assertEqual(stat["calibration_metrics"]["brier"], 0.64)
+            self.assertFalse(stat["calibration_metrics"]["decision_eligible"])
+
     def test_multi_source_filenames_same_day(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ledger = Path(tmp)
@@ -173,7 +318,13 @@ class DualBlindForecastTests(unittest.TestCase):
             self.assertEqual(dual_blind_forecast.parse_answer_filename("2026-07-03.answer.codex.json"), ("codex", None))
             draft = {
                 "date": "2026-07-03",
-                "verdicts": [{"id": "market", "agent": "codex", "verdict": "hit", "actual": "涨家数3804"}],
+                "verdicts": [{
+                    "id": "market",
+                    "agent": "codex",
+                    "source": "duckdb",
+                    "verdict": "hit",
+                    "actual": "涨家数3804",
+                }],
             }
             self.assertEqual(dual_blind_forecast.validate_verdict(draft, ledger_dir=ledger), [])
 
