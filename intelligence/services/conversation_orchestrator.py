@@ -179,6 +179,7 @@ def sanitize_conversation_answer(text: str) -> str:
         lambda match: _EVIDENCE_LAYER_REPLACEMENTS[match.group(1)],
         cleaned,
     )
+    cleaned = re.sub(r"公告等硬证据\s*证据", "公告等硬证据", cleaned)
     cleaned = _INTERNAL_CODE_PATTERN.sub("", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"(?<=[\u4e00-\u9fff]) (?=[\u4e00-\u9fff])", "", cleaned)
