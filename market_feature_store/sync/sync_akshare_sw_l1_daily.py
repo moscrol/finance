@@ -156,6 +156,49 @@ def _fetch_realtime() -> dict[str, dict]:
     return out
 
 
+def _aggregate_fupanhui_sw_l1_proxy(con, trade_date: date, industries: list[dict]) -> dict[str, dict]:
+    code_by_name = {item["name"]: item["code"] for item in industries}
+    rows = con.execute(
+        """
+        SELECT sw_l1,
+               COUNT(*) AS sector_count,
+               SUM(amount) AS amount,
+               SUM(pct_chg * amount) / NULLIF(SUM(CASE WHEN pct_chg IS NOT NULL THEN amount END), 0) AS pct_chg
+        FROM fact_sector_daily
+        WHERE trade_date = ?
+          AND sw_l1 IS NOT NULL
+          AND amount IS NOT NULL
+        GROUP BY sw_l1
+        """,
+        [trade_date],
+    ).fetchall()
+    out = {}
+    for name, sector_count, amount, pct_chg in rows:
+        if name not in code_by_name:
+            continue
+        out[name] = {
+            "code": code_by_name[name],
+            "close": None,
+            "pre_close": None,
+            "pct_chg": _num(pct_chg),
+            "amount": _num(amount),
+            "source": f"degraded_fupanhui_sw_l1_aggregate:sector_count={sector_count}",
+        }
+    for name, code in code_by_name.items():
+        out.setdefault(
+            name,
+            {
+                "code": code,
+                "close": None,
+                "pre_close": None,
+                "pct_chg": None,
+                "amount": None,
+                "source": "degraded_fupanhui_sw_l1_aggregate:no_sector_rows",
+            },
+        )
+    return out
+
+
 def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> dict:
     init_db()
     con = connect()
@@ -187,7 +230,11 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
                         **hist[d],
                     }
             time.sleep(0.2)
-        realtime = _fetch_realtime()
+        realtime = {}
+        try:
+            realtime = _fetch_realtime()
+        except Exception as exc:
+            failures.append({"sw_l1": "realtime", "code": "index_realtime_sw", "error": str(exc)})
         for name, item in realtime.items():
             if name in by_name:
                 records[(end, name)] = {
@@ -200,6 +247,25 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
                     "amount": item["amount"],
                     "source": item["source"],
                 }
+        degraded_rows = 0
+        missing_end_names = [item["name"] for item in industries_all if (end, item["name"]) not in records]
+        if missing_end_names:
+            proxy = _aggregate_fupanhui_sw_l1_proxy(con, end, industries_all)
+            for name in missing_end_names:
+                item = proxy.get(name)
+                if not item:
+                    continue
+                records[(end, name)] = {
+                    "trade_date": end,
+                    "sw_l1_code": item["code"],
+                    "sw_l1": name,
+                    "close": item["close"],
+                    "pre_close": item["pre_close"],
+                    "pct_chg": item["pct_chg"],
+                    "amount": item["amount"],
+                    "source": item["source"],
+                }
+                degraded_rows += 1
         now = datetime.now()
         rows = []
         for key in sorted(records):
@@ -263,4 +329,5 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
         "ratio_count": stats[4],
         "current": current,
         "failures": failures,
+        "degraded_rows": degraded_rows,
     }

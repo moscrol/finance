@@ -448,6 +448,15 @@ def _assessment_text(lines: list[str]) -> str:
     return " ".join(candidates[:2])
 
 
+def _markdown_warnings(source: str) -> tuple[str, ...]:
+    warnings = []
+    for line in source.splitlines():
+        text = _clean_markdown_text(line)
+        if line.strip().startswith(">") and "数据降级" in text:
+            warnings.append(text)
+    return tuple(warnings[:3])
+
+
 def _project_daily_review(
     core_rows: list[tuple[str, str]],
     assessment: str,
@@ -456,6 +465,7 @@ def _project_daily_review(
     source_path: str,
     date: str | None,
     source_mode: str,
+    warnings: tuple[str, ...] = (),
 ) -> dict[str, object]:
     if not core_rows and not assessment:
         raise ValueError("Daily Review source does not contain supported sections")
@@ -499,12 +509,11 @@ def _project_daily_review(
         for label, value in core_rows
         if label in {"市场性质", "指数表现", "量能状态", "情绪状态", "成交集中", "强度状态"}
     )
-    warnings: tuple[str, ...] = ()
     canonical_path: str | None = source_path
     rendered_path: str | None = None
     original_report_available = False
     if source_mode == "legacy_html_projection":
-        warnings = (
+        warnings = warnings + (
             "当前内容来自历史 HTML 的兼容投影，仅提取核心看板和市场环境判断；请对照原始报告核验。",
         )
         canonical_path = None
@@ -549,6 +558,7 @@ def project_daily_review_markdown(
         source_path=source_path,
         date=date,
         source_mode="canonical_markdown",
+        warnings=_markdown_warnings(source),
     )
 
 

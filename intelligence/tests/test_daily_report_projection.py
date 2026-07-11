@@ -114,6 +114,8 @@ def test_project_daily_agent_rejects_payload_without_report_data() -> None:
 def test_project_daily_review_markdown_extracts_bounded_sections() -> None:
     source = """# 2026-07-01 每日市场复盘
 
+> ⚠️ 数据降级：31/31 行使用复盘会聚合代理，不可等同于申万指数官方口径。
+
 ## 核心看板
 | 维度 | 结论 |
 |---|---|
@@ -150,6 +152,10 @@ def test_project_daily_review_markdown_extracts_bounded_sections() -> None:
     risk = next(section for section in projection["sections"] if section["title"] == "风险与验证")
     assert any(item["title"] == "市场环境判断" for item in risk["items"])
     assert any("缺目标日" in item["summary"] for item in risk["items"])
+    assert any(
+        "不可等同于申万指数官方口径" in warning
+        for warning in projection["provenance"]["warnings"]
+    )
     rendered = json.dumps(projection, ensure_ascii=False)
     assert "未知内部诊断" not in rendered
     assert "调试信息" not in rendered

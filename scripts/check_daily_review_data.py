@@ -64,16 +64,17 @@ def check_data(date: str) -> list[str]:
             if not count:
                 missing.append(f"{table} 无 {date} 数据，最新 {max_date}")
 
-        row = con.execute("select * from fact_market_daily where trade_date=?", [date]).fetchdf()
-        if row.empty:
+        cursor = con.execute("select * from fact_market_daily where trade_date=?", [date])
+        values = cursor.fetchone()
+        if values is None:
             missing.append("fact_market_daily 缺失整行")
         else:
-            cols = set(row.columns)
+            row = {column[0]: value for column, value in zip(cursor.description, values)}
             for field in MARKET_FIELDS:
-                if field not in cols:
+                if field not in row:
                     missing.append(f"fact_market_daily.{field} 字段不存在")
                     continue
-                value = row.iloc[0][field]
+                value = row[field]
                 if is_null(value):
                     missing.append(f"fact_market_daily.{field} 为空")
 
@@ -111,7 +112,12 @@ def check_report(date: str) -> list[str]:
     return missing
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | str | None = None, data_only: bool = False) -> int:
+    direct_date = isinstance(argv, str)
+    if direct_date:
+        argv = [argv]
+    if data_only:
+        argv = [*(argv or []), "--phase", "data"]
     parser = argparse.ArgumentParser()
     parser.add_argument("date")
     parser.add_argument("--phase", choices=("data", "report", "all"), default="all")
@@ -126,7 +132,9 @@ def main(argv=None) -> int:
     print("RESULT:", "INCOMPLETE" if missing else "COMPLETE")
     for item in missing:
         print("-", item)
-    return 2 if missing else 0
+    if not missing:
+        return 0
+    return 1 if direct_date else 2
 
 
 if __name__ == "__main__":

@@ -166,6 +166,8 @@ def cmd_sync_sw_l1_daily(args) -> int:
     focus = [row for row in stats["current"] if row[0] in ("电子", "通信", "机械设备", "电力设备")]
     for sw_l1, pct_chg, ratio, source in focus:
         print(f"{sw_l1}: 涨跌幅={pct_chg} 占比={ratio} 来源={source}")
+    if stats.get("degraded_rows"):
+        print(f"降级: {stats['degraded_rows']} 个申万一级使用复盘会板块聚合代理源")
     if stats.get("failures"):
         print("失败行业: " + ", ".join(f"{x['sw_l1']}({x['error'][:40]})" for x in stats["failures"][:10]))
     return 0
