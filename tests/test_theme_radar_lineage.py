@@ -1,6 +1,15 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
+from intelligence.services.fidelity_contract import contract_errors
 from intelligence.services.theme_radar import ThemeRadarService
+from intelligence.workflows.theme_radar import (
+    ThemeRadarOptions,
+    run_theme_radar,
+)
 
 
 SOURCE_META = {
@@ -166,6 +175,53 @@ class ThemeRadarLineageTests(unittest.TestCase):
             [capacity_ref_id],
         )
         self.assertNotIn("_source_meta", candidate["market_evidence"])
+
+    def test_theme_workflow_seals_candidate_artifact(self):
+        service = ThemeRadarService(
+            market_adapter=FakeMarketAdapter(),
+            knowledge_adapter=FakeKnowledgeAdapter(),
+        )
+        result = service.build_market_triggered_candidates(
+            "2026-06-11",
+            top=10,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "candidates.json"
+            with mock.patch(
+                "intelligence.workflows.theme_radar.ThemeRadarService"
+            ) as service_type:
+                service_type.return_value.build_market_triggered_candidates.return_value = (
+                    result
+                )
+                summary = run_theme_radar(
+                    ThemeRadarOptions(
+                        date="2026-06-11",
+                        market_triggered=True,
+                        out_json=str(out),
+                    )
+                )
+            body = json.loads(out.read_text(encoding="utf-8"))
+            manifest_payload = {
+                "lineage_schema_version": body["lineage_schema_version"],
+                "evidence_catalog": body["evidence_catalog"],
+                "candidate_evidence_refs": [
+                    candidate.get("evidence_refs")
+                    for candidate in body["candidates"]
+                ],
+            }
+
+            self.assertEqual(summary.status, "PASS")
+            self.assertEqual(
+                body["fidelity_contract_version"],
+                "fidelity-contract-1.2",
+            )
+            self.assertEqual(
+                contract_errors(
+                    body,
+                    manifest_payload=manifest_payload,
+                ),
+                [],
+            )
 
 
 if __name__ == "__main__":

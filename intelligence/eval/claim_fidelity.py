@@ -17,6 +17,10 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Iterable
 
+from intelligence.services.fidelity_contract import (
+    validate_daily_agent_report,
+)
+
 
 CLAIM_TYPES = {
     "number",
@@ -320,6 +324,7 @@ def _claim(
     value: object = None,
     unit: str | None = None,
     source_ref: object = None,
+    cutoff_timestamp: str | None = None,
 ) -> dict[str, object]:
     status = "needs_review"
     if claim_type in {"number", "entity"}:
@@ -341,7 +346,7 @@ def _claim(
         "value": value,
         "unit": unit,
         "source_ref": source_ref,
-        "cutoff_timestamp": _cutoff(report_date),
+        "cutoff_timestamp": cutoff_timestamp or _cutoff(report_date),
         "verification_status": status,
         "verification_reason": "",
     }
@@ -369,6 +374,9 @@ def _explicit_claims(
     if not isinstance(raw_claims, list):
         return []
     catalog = _catalog(body)
+    cutoff_timestamp = str(
+        body.get("evidence_cutoff") or _cutoff(report_date)
+    )
     claims: list[dict[str, object]] = []
     for index, raw in enumerate(raw_claims):
         if not isinstance(raw, dict):
@@ -405,6 +413,7 @@ def _explicit_claims(
                 value=raw.get("value"),
                 unit=str(raw.get("unit")) if raw.get("unit") else None,
                 source_ref=source_ref,
+                cutoff_timestamp=cutoff_timestamp,
             )
         )
     return claims
@@ -1696,6 +1705,26 @@ def evaluate_registry(
             )
             continue
         raw = source.read_bytes()
+        contract_audit: dict[str, object] = {
+            "status": "not_applicable",
+            "errors": [],
+        }
+        if source.suffix.lower() == ".json":
+            source_body = _read_json(source)
+            if (
+                source_body.get("fidelity_contract_version")
+                or source.name.endswith("-daily-agent.json")
+            ):
+                contract_validation = validate_daily_agent_report(source_body)
+                contract_audit = {
+                    "status": (
+                        "valid" if not contract_validation else "invalid"
+                    ),
+                    "errors": contract_validation,
+                    "artifact_sha": source_body.get("artifact_sha"),
+                    "manifest_sha": source_body.get("manifest_sha"),
+                    "run_id": source_body.get("run_id"),
+                }
         claims = extract_claims(
             report_path,
             report_date=report_date,
@@ -1758,6 +1787,7 @@ def evaluate_registry(
                 for status in VERIFICATION_STATUSES
             },
             "metrics": metrics,
+            "contract_audit": contract_audit,
             "version_gap_audit": audit_version_gaps(snapshot),
             "decision_eligible": False,
         }

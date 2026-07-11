@@ -1,4 +1,6 @@
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -6,7 +8,13 @@ from unittest import mock
 
 from intelligence.paths import ProjectPaths
 from intelligence.services import kb_rag
-from intelligence.workflows.daily_agent import DailyAgentOptions, render_daily_agent_html, run_daily_agent
+from intelligence.services.fidelity_contract import seal_artifact
+from intelligence.workflows.daily_agent import (
+    DailyAgentOptions,
+    render_daily_agent_html,
+    run_daily_agent,
+    write_daily_agent_outputs,
+)
 
 
 class DailyAgentTest(unittest.TestCase):
@@ -137,6 +145,30 @@ class DailyAgentTest(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        candidate_path = exports / "2026-06-11-theme-candidates.json"
+        candidate_body = json.loads(candidate_path.read_text(encoding="utf-8"))
+        seal_artifact(
+            candidate_body,
+            artifact_kind="theme-candidates",
+            report_date="2026-06-11",
+            generator_commit="a" * 40,
+            snapshot_captured_at="2026-06-11T18:30:00+08:00",
+            report_generated_at="2026-06-11T18:31:00+08:00",
+            manifest_payload={
+                "lineage_schema_version": candidate_body.get(
+                    "lineage_schema_version"
+                ),
+                "evidence_catalog": candidate_body.get("evidence_catalog"),
+                "candidate_evidence_refs": [
+                    candidate.get("evidence_refs")
+                    for candidate in candidate_body.get("candidates", [])
+                ],
+            },
+        )
+        candidate_path.write_text(
+            json.dumps(candidate_body, ensure_ascii=False),
+            encoding="utf-8",
+        )
         (relations / "concept_graph.json").write_text(
             json.dumps({"concepts": {"液冷服务器": {"sources": ["[[液冷服务器深度报告]]"]}}}, ensure_ascii=False),
             encoding="utf-8",
@@ -179,6 +211,29 @@ class DailyAgentTest(unittest.TestCase):
         (relations / "catalyst_calendar.json").write_text("{}", encoding="utf-8")
         (relations / "mention_frequency.json").write_text("{}", encoding="utf-8")
         (sources / "液冷服务器深度报告.md").write_text("# source\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-q", str(wiki)], check=True)
+        subprocess.run(["git", "-C", str(wiki), "add", "."], check=True)
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(wiki),
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-q",
+                "-m",
+                "fixture",
+            ],
+            check=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_DATE": "2026-06-11T17:00:00+08:00",
+                "GIT_COMMITTER_DATE": "2026-06-11T17:00:00+08:00",
+            },
+        )
         return ProjectPaths(finance_root=finance, knowledge_wiki=wiki, finance_site=root / "site", market_snapshot_dir=root / "snapshot", vector_index_dir=wiki.parent / ".rag_index")
 
     def test_daily_agent_summarizes_daily_surfaces_and_logic_routes(self):
@@ -201,10 +256,24 @@ class DailyAgentTest(unittest.TestCase):
             self.assertEqual(report["decision"]["old_logic_wakeup"][0]["query"], "液冷服务器")
             self.assertEqual(report["decision"]["noise_or_unconfirmed"][0]["query"], "连板未映射")
             self.assertEqual(report["lineage_schema_version"], "claim-lineage-v1")
-            self.assertEqual(len(report["claims"]), 3)
+            evidence_claims = [
+                claim
+                for claim in report["claims"]
+                if claim["manifest_scope"] == "evidence_fact"
+            ]
+            public_claims = [
+                claim
+                for claim in report["claims"]
+                if claim["manifest_scope"] == "public_narrative"
+            ]
+            self.assertEqual(len(evidence_claims), 3)
+            self.assertEqual(
+                len(public_claims),
+                report["claim_manifest"]["public_narrative_count"],
+            )
             self.assertEqual(len(report["evidence_catalog"]), 3)
             self.assertTrue(
-                all(claim["evidence_refs"] for claim in report["claims"])
+                all(claim["evidence_refs"] for claim in evidence_claims)
             )
             self.assertTrue(
                 all(
@@ -216,6 +285,69 @@ class DailyAgentTest(unittest.TestCase):
             self.assertIn("液冷服务器", markdown)
             self.assertIn("连板未映射", markdown)
             self.assertNotIn("旧逻辑证据卡：连板未映射", markdown)
+
+            output = Path(tmp) / "output"
+            write_daily_agent_outputs(
+                report,
+                markdown,
+                output / "daily-agent.json",
+                output / "daily-agent.md",
+                output / "daily-agent.html",
+            )
+            self.assertTrue((output / "daily-agent.json").is_file())
+            with self.assertRaisesRegex(
+                ValueError,
+                "markdown provenance marker mismatch",
+            ):
+                write_daily_agent_outputs(
+                    report,
+                    markdown.replace(
+                        report["artifact_sha"],
+                        "0" * 64,
+                    ),
+                    output / "tampered.json",
+                    output / "tampered.md",
+                    output / "tampered.html",
+                )
+            self.assertFalse((output / "tampered.json").exists())
+            with self.assertRaisesRegex(
+                ValueError,
+                "markdown content does not match canonical report",
+            ):
+                write_daily_agent_outputs(
+                    report,
+                    "tampered\n" + markdown,
+                    output / "content-tampered.json",
+                    output / "content-tampered.md",
+                    output / "content-tampered.html",
+                )
+            self.assertFalse(
+                (output / "content-tampered.json").exists()
+            )
+
+    def test_daily_agent_rejects_wiki_changes_during_generation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_fixture(Path(tmp))
+            with mock.patch(
+                "intelligence.workflows.daily_agent.build_content_delta",
+                side_effect=[
+                    {"artifact_sha": "a" * 64},
+                    {"artifact_sha": "b" * 64},
+                ],
+            ):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "knowledge worktree changed",
+                ):
+                    run_daily_agent(
+                        DailyAgentOptions(
+                            date="2026-06-11",
+                            finance_root=paths.finance_root,
+                            kb_wiki=paths.knowledge_wiki,
+                            top_per_date=2,
+                            semantic_rag_top_n=0,
+                        )
+                    )
 
     def test_daily_agent_builds_chinese_semantic_evidence_card(self):
         with tempfile.TemporaryDirectory() as tmp:
