@@ -123,6 +123,8 @@ class SynthesizeTests(unittest.TestCase):
 
         self.assertIn("不得在正文显示任何内部引用编号", system)
         self.assertIn("严禁输出原始 JSON", system)
+        self.assertIn("L1/L2/L3/L4 必须分别转译", system)
+        self.assertIn("graph_only、replay、Daily Review", system)
         self.assertIn("最终回答不得显示编号", user)
 
     def test_exemplar_guidance_loader_routes_by_question_type(self) -> None:

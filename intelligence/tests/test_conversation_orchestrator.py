@@ -11,6 +11,7 @@ from intelligence.services.ask import AskOptions, AskResult
 from intelligence.services.conversation_orchestrator import (
     TurnOrchestrator,
     build_conversation_context,
+    sanitize_conversation_answer,
 )
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.run_store import RunStore
@@ -501,6 +502,68 @@ def test_recovered_turn_prefixes_event_ids_to_avoid_replay_collisions(
         event["event_id"].startswith("recovery:2:")
         for event in events
     )
+
+
+def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "今日复盘",
+    )
+    raw_answer = (
+        "**数据截至 2026-07-10。**\n\n"
+        "以下基于 Daily Review 确定性投影数据。盘面 L4 信号待确认，"
+        "replay 发酵信号也未匹配到任何主题，wiki 向量检索无可用命中。"
+        "公司只有 graph_only/低置信暴露，整体证据层分布为 "
+        "L1×6、L2×6、L4×1，尚缺 L3 硬证据。[D4]"
+    )
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        assert options.stream_text_delta is not None
+        options.stream_text_delta(raw_answer)
+        return _ask_result(
+            options.query,
+            synthesis=raw_answer,
+            llm_provider="zhipu",
+        )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="今日复盘",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.content == sanitize_conversation_answer(raw_answer)
+    assert "2026-07-10" in assistant.content
+    assert "本地复盘数据" in assistant.content
+    assert "历史发酵信号" in assistant.content
+    assert "知识库没有提供可用补充" in assistant.content
+    for internal in (
+        "Daily Review",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "replay",
+        "wiki",
+        "graph_only",
+        "[D4]",
+    ):
+        assert internal not in assistant.content
 
 
 def test_cancellation_between_text_deltas_marks_run_cancelled(tmp_path) -> None:

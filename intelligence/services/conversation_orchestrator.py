@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import asdict, dataclass
@@ -42,6 +43,47 @@ from intelligence.workbench_skills.router import (
 
 RECENT_MESSAGE_LIMIT = 6
 SUMMARY_CHAR_LIMIT = 2400
+_INTERNAL_CITATION_PATTERN = re.compile(
+    r"\[(?:D|P|L|G|R|S|W)\d+\]"
+)
+_INTERNAL_CODE_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9_])(?:L[1-4](?:\s*级(?:别)?)?|[DPGRSW]\d+)(?![A-Za-z0-9_])"
+)
+_EVIDENCE_LAYER_SUMMARY_PATTERN = re.compile(
+    r"(?:整体)?证据层分布为\s*"
+    r"L[1-4](?:\s*[×x*]\s*\d+)?"
+    r"(?:\s*[、,，]\s*L[1-4](?:\s*[×x*]\s*\d+)?)*"
+    r"\s*[，,]?\s*"
+)
+_INTERNAL_FIELD_PATTERN = re.compile(
+    r'"?(?:candidate_tier|priority_score|cycle_status|warnings?)"?'
+    r'\s*[:=]\s*(?:"[^"]*"|[^,，}\]\n]+)[,，]?',
+    re.IGNORECASE,
+)
+_JSON_BLOCK_PATTERN = re.compile(
+    r"```(?:json)?\s*[\[{].*?[\]}]\s*```",
+    re.IGNORECASE | re.DOTALL,
+)
+_HUMAN_READABLE_REPLACEMENTS = (
+    ("Daily Review 确定性投影数据", "本地复盘数据"),
+    ("Daily Review", "本地复盘"),
+    ("replay 发酵信号也未匹配到任何主题", "历史发酵信号也未提供可用信息"),
+    ("replay 发酵信号", "历史发酵信号"),
+    ("模块 replay", "历史信号回检"),
+    ("replay", "历史信号回检"),
+    ("wiki 向量检索无可用命中", "知识库没有提供可用补充"),
+    ("wiki 向量检索", "知识库检索"),
+    ("wiki-rag", "知识库检索"),
+    ("graph_only/低置信暴露", "低置信关联"),
+    ("graph_only", "低置信关联"),
+    ("DuckDB 同题材强势替代队列为空", "本地盘面数据没有提供同题材强势替代方向"),
+    ("命中主题=", "相关主题："),
+    ("模块路由", "分析路径"),
+    ("rerank", "检索重排"),
+    ("RAG 遥测", "检索诊断"),
+    ("RAG", "知识库检索"),
+    ("降权", "降低可信度"),
+)
 
 
 @dataclass(frozen=True)
@@ -87,6 +129,21 @@ def _redact_object(value: object) -> object:
             for key, item in value.items()
         }
     return value
+
+
+def sanitize_conversation_answer(text: str) -> str:
+    cleaned = _JSON_BLOCK_PATTERN.sub("", text)
+    cleaned = _INTERNAL_FIELD_PATTERN.sub("", cleaned)
+    cleaned = _EVIDENCE_LAYER_SUMMARY_PATTERN.sub("", cleaned)
+    cleaned = _INTERNAL_CITATION_PATTERN.sub("", cleaned)
+    for internal, readable in _HUMAN_READABLE_REPLACEMENTS:
+        cleaned = cleaned.replace(internal, readable)
+    cleaned = _INTERNAL_CODE_PATTERN.sub("", cleaned)
+    cleaned = re.sub(r"[ \t]+", " ", cleaned)
+    cleaned = re.sub(r"(?<=[\u4e00-\u9fff]) (?=[\u4e00-\u9fff])", "", cleaned)
+    cleaned = re.sub(r" +([，。；：、])", r"\1", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
 
 
 def build_conversation_context(
@@ -376,7 +433,9 @@ class TurnOrchestrator:
                 )
 
             answer_text = render_conversation_answer(result)
-            if text_chunks:
+            if result.synthesis is not None:
+                answer_text = sanitize_conversation_answer(answer_text)
+            elif text_chunks:
                 answer_text = "".join(text_chunks)
             else:
                 emit_text_delta(answer_text)
