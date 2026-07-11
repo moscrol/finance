@@ -19,7 +19,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Python dependencies
-        run: python -m pip install -r intelligence/api/requirements.txt pytest PyYAML duckdb==1.4.3
+        run: python -m pip install -r intelligence/api/requirements.txt pytest PyYAML duckdb==1.4.3 numpy==2.2.1 pandas==2.2.3
 
       - uses: actions/setup-node@v4
         with:
