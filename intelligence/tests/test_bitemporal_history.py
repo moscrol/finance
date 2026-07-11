@@ -167,6 +167,78 @@ class BitemporalHistoryTests(unittest.TestCase):
                 },
             )
 
+    def test_phase2_inputs_and_outcomes_use_separate_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db = self._db(root)
+            inputs = root / "inputs"
+            outcomes = root / "outcomes"
+            result = main(
+                [
+                    "inputs",
+                    "--db",
+                    str(db),
+                    "--kb-root",
+                    str(root),
+                    "--finance-root",
+                    str(root),
+                    "--dates",
+                    '["2026-07-01"]',
+                    "--out-dir",
+                    str(inputs),
+                    "--feature-contract",
+                    "fact_market_daily:total_amount:1",
+                ]
+            )
+            self.assertEqual(result, 0)
+            self.assertTrue(
+                (
+                    inputs
+                    / "as_known_at"
+                    / "2026-07-01.known.json"
+                ).exists()
+            )
+            self.assertFalse((inputs / "final_history").exists())
+            self.assertTrue((inputs / "input.report.json").exists())
+
+            result = main(
+                [
+                    "outcomes",
+                    "--db",
+                    str(db),
+                    "--dates",
+                    '["2026-07-01"]',
+                    "--out-dir",
+                    str(outcomes),
+                ]
+            )
+            self.assertEqual(result, 0)
+            self.assertTrue(
+                (
+                    outcomes
+                    / "final_history"
+                    / "2026-07-01.final.json"
+                ).exists()
+            )
+            comparison = root / "comparison.json"
+            result = main(
+                [
+                    "compare-batch",
+                    "--known-dir",
+                    str(inputs / "as_known_at"),
+                    "--final-dir",
+                    str(outcomes / "final_history"),
+                    "--dates",
+                    '["2026-07-01"]',
+                    "--out",
+                    str(comparison),
+                ]
+            )
+            self.assertEqual(result, 0)
+            body = json.loads(comparison.read_text(encoding="utf-8"))
+            self.assertTrue(body["physically_separate"])
+            self.assertEqual(body["date_count"], 1)
+
     def test_feature_contract_detects_gaps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "contract.duckdb"

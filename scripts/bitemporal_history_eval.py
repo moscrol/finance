@@ -84,14 +84,32 @@ def _load_json(path: str | Path) -> dict:
     return json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
 
 
+def _file_signature(path: str | Path) -> dict[str, int]:
+    stat = Path(path).expanduser().stat()
+    return {
+        "device": int(stat.st_dev),
+        "inode": int(stat.st_ino),
+        "size": int(stat.st_size),
+        "modified_ns": int(stat.st_mtime_ns),
+    }
+
+
+def _write_gold_if_absent(path: Path, value: str) -> None:
+    if not path.exists():
+        write_json(path, build_gold_standard_template(value))
+
+
 def cmd_pilot(args: argparse.Namespace) -> int:
     dates = _parse_dates(args.dates)
     output = Path(args.out_dir).expanduser()
+    known_only = bool(getattr(args, "known_only", False))
     final_dir = output / "final_history"
     known_dir = output / "as_known_at"
     gold_dir = output / "gold"
     if final_dir == known_dir:
         raise ValueError("final and known outputs must be physically isolated")
+    if known_only and final_dir.exists():
+        raise ValueError("input output already contains final_history")
 
     contracts = (
         [_parse_contract(raw) for raw in args.feature_contract]
@@ -120,11 +138,12 @@ def cmd_pilot(args: argparse.Namespace) -> int:
         known_path = known_dir / f"{value}.known.json"
         if final_path.parent == known_path.parent:
             raise ValueError("final and known snapshots share a directory")
-        write_json(final_path, final)
+        if not known_only:
+            write_json(final_path, final)
         write_json(known_path, known)
-        write_json(
+        _write_gold_if_absent(
             gold_dir / f"{value}.gold.json",
-            build_gold_standard_template(value),
+            value,
         )
 
         final_counts[final["status"]] += 1
@@ -140,7 +159,9 @@ def cmd_pilot(args: argparse.Namespace) -> int:
             {
                 "date": value,
                 "cutoff_timestamp": cutoff.isoformat(),
-                "final_path": str(final_path),
+                "final_path": (
+                    str(final_path) if not known_only else None
+                ),
                 "known_path": str(known_path),
                 "gold_path": str(gold_dir / f"{value}.gold.json"),
                 "final_status": final["status"],
@@ -171,14 +192,27 @@ def cmd_pilot(args: argparse.Namespace) -> int:
             }
         )
     report = {
-        "schema_version": "bitemporal-history-pilot-1.0",
-        "task_id": "bitemporal-history-v1",
+        "schema_version": (
+            "bitemporal-history-input-1.0"
+            if known_only
+            else "bitemporal-history-pilot-1.0"
+        ),
+        "task_id": (
+            "fidelity-replay-phase2-v1"
+            if known_only
+            else "bitemporal-history-v1"
+        ),
         "date_count": len(dates),
         "dates": dates,
         "output_isolation": {
-            "final_history": str(final_dir),
+            "final_history": (
+                str(final_dir) if not known_only else None
+            ),
             "as_known_at": str(known_dir),
-            "physically_separate": final_dir != known_dir,
+            "physically_separate": (
+                known_only or final_dir != known_dir
+            ),
+            "outcome_not_written": known_only,
         },
         "status_counts": {
             "final": dict(final_counts),
@@ -188,11 +222,17 @@ def cmd_pilot(args: argparse.Namespace) -> int:
         "cases": cases,
         "decision_eligible": False,
         "next_gate": (
-            "Human review is required before expanding beyond 10 dates."
+            (
+                "Freeze report evaluation, then generate outcomes "
+                "with the independent outcomes command."
+            )
+            if known_only
+            else "Human review is required before expanding beyond 10 dates."
         ),
     }
-    write_json(output / "pilot.report.json", report)
-    report_path = output / "pilot.report.md"
+    report_name = "input.report" if known_only else "pilot.report"
+    write_json(output / f"{report_name}.json", report)
+    report_path = output / f"{report_name}.md"
     report_path.write_text(render_pilot_report(report), encoding="utf-8")
     print(json.dumps(report["status_counts"], ensure_ascii=False))
     print(f"written: {report_path}")
@@ -201,11 +241,88 @@ def cmd_pilot(args: argparse.Namespace) -> int:
 
 def cmd_outcomes(args: argparse.Namespace) -> int:
     output = Path(args.out_dir).expanduser()
-    for value in _parse_dates(args.dates):
-        write_json(
-            output / f"{value}.final.json",
-            build_final_history(value, args.db),
+    final_dir = output / "final_history"
+    if (output / "as_known_at").exists():
+        raise ValueError("outcome output cannot contain as_known_at")
+    dates = _parse_dates(args.dates)
+    source_signature = _file_signature(args.db)
+    status_counts: Counter[str] = Counter()
+    cases = []
+    for value in dates:
+        final = build_final_history(value, args.db)
+        if _file_signature(args.db) != source_signature:
+            raise RuntimeError(
+                "source database changed during outcome generation"
+            )
+        target = final_dir / f"{value}.final.json"
+        write_json(target, final)
+        status_counts[str(final["status"])] += 1
+        cases.append(
+            {
+                "date": value,
+                "cutoff_timestamp": final["cutoff_timestamp"],
+                "final_path": str(target),
+                "final_status": final["status"],
+                "final_rows": _rows(final),
+                "ex_post_rows": _ex_post_rows(final),
+            }
         )
+    report = {
+        "schema_version": "bitemporal-history-outcome-1.0",
+        "task_id": "fidelity-replay-phase2-v1",
+        "date_count": len(dates),
+        "dates": dates,
+        "source_database_signature": source_signature,
+        "status_counts": dict(status_counts),
+        "output_isolation": {
+            "final_history": str(final_dir),
+            "contains_as_known_at": False,
+        },
+        "cases": cases,
+        "decision_eligible": False,
+    }
+    write_json(output / "outcome.report.json", report)
+    print(json.dumps(report["status_counts"], ensure_ascii=False))
+    return 0
+
+
+def cmd_compare_batch(args: argparse.Namespace) -> int:
+    known_dir = Path(args.known_dir).expanduser().resolve()
+    final_dir = Path(args.final_dir).expanduser().resolve()
+    if known_dir == final_dir:
+        raise ValueError("known and final directories must be separate")
+    counts: Counter[str] = Counter()
+    cases = []
+    for value in _parse_dates(args.dates):
+        known = _load_json(known_dir / f"{value}.known.json")
+        final = _load_json(final_dir / f"{value}.final.json")
+        comparison = compare_snapshots(final, known)
+        counts[str(comparison["status"])] += 1
+        cases.append(
+            {
+                "date": value,
+                "known_snapshot_sha256": known["snapshot_sha256"],
+                "final_snapshot_sha256": final["snapshot_sha256"],
+                "status": comparison["status"],
+                "counts": comparison["counts"],
+                "needs_review_count": len(
+                    comparison["needs_review"]
+                ),
+            }
+        )
+    report = {
+        "schema_version": "bitemporal-history-comparison-1.0",
+        "task_id": "fidelity-replay-phase2-v1",
+        "date_count": len(cases),
+        "known_dir": str(known_dir),
+        "final_dir": str(final_dir),
+        "physically_separate": known_dir != final_dir,
+        "status_counts": dict(counts),
+        "cases": cases,
+        "decision_eligible": False,
+    }
+    write_json(args.out, report)
+    print(json.dumps(report["status_counts"], ensure_ascii=False))
     return 0
 
 
@@ -272,7 +389,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         metavar="TABLE:METRIC:DAYS",
     )
-    pilot.set_defaults(func=cmd_pilot)
+    pilot.set_defaults(func=cmd_pilot, known_only=False)
+
+    inputs = sub.add_parser(
+        "inputs",
+        help="生成独立的 PIT 输入快照，不写最终结果",
+    )
+    inputs.add_argument("--db", required=True)
+    inputs.add_argument("--kb-root", required=True)
+    inputs.add_argument("--finance-root", required=True)
+    inputs.add_argument("--dates", required=True)
+    inputs.add_argument("--out-dir", required=True)
+    inputs.add_argument(
+        "--feature-contract",
+        action="append",
+        default=[],
+        metavar="TABLE:METRIC:DAYS",
+    )
+    inputs.set_defaults(func=cmd_pilot, known_only=True)
 
     outcomes = sub.add_parser(
         "outcomes",
@@ -282,6 +416,16 @@ def build_parser() -> argparse.ArgumentParser:
     outcomes.add_argument("--dates", required=True)
     outcomes.add_argument("--out-dir", required=True)
     outcomes.set_defaults(func=cmd_outcomes)
+
+    compare = sub.add_parser(
+        "compare-batch",
+        help="比较物理隔离的 PIT 输入与最终结果",
+    )
+    compare.add_argument("--known-dir", required=True)
+    compare.add_argument("--final-dir", required=True)
+    compare.add_argument("--dates", required=True)
+    compare.add_argument("--out", required=True)
+    compare.set_defaults(func=cmd_compare_batch)
 
     gold = sub.add_parser(
         "gold-template",
