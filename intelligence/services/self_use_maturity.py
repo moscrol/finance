@@ -124,14 +124,18 @@ def evaluate_maturity(
 ) -> MaturityResult:
     """Evaluate deterministic self-use maturity without mutating the ledger."""
 
-    normalized_user_approved = bool(user_approved)
-    event_count = len(events)
-    trade_dates = {event.trade_date for event in events}
-    covered_workflows = sorted({event.workflow for event in events})
-    success_count = sum(event.outcome == "success" for event in events)
-    useful_count = sum(event.useful for event in events)
-    manual_rescue_count = sum(event.manual_rescue for event in events)
-    severe_fact_errors = sum(event.severe_fact_error for event in events)
+    if type(user_approved) is not bool:
+        raise TypeError("user_approved must be a boolean")
+    validated_events = [
+        event.validated(generate_recorded_at=False) for event in events
+    ]
+    event_count = len(validated_events)
+    trade_dates = {event.trade_date for event in validated_events}
+    covered_workflows = sorted({event.workflow for event in validated_events})
+    success_count = sum(event.outcome == "success" for event in validated_events)
+    useful_count = sum(event.useful for event in validated_events)
+    manual_rescue_count = sum(event.manual_rescue for event in validated_events)
+    severe_fact_errors = sum(event.severe_fact_error for event in validated_events)
 
     def rate(numerator: int) -> float:
         return round(numerator / event_count, 6) if event_count else 0.0
@@ -166,8 +170,8 @@ def evaluate_maturity(
         metrics=metrics,
         blockers=blocker_tuple,
         eligible_for_user_decision=eligible_for_user_decision,
-        user_approved=normalized_user_approved,
-        passed=eligible_for_user_decision and normalized_user_approved,
+        user_approved=user_approved,
+        passed=eligible_for_user_decision and user_approved,
     )
 
 
