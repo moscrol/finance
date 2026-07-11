@@ -521,11 +521,11 @@ def synthesize_messages_with_review(
     ]
     try:
         content = _post_chat(provider, review_messages, timeout, review_temperature)
-    except Exception:
-        return draft, ""
+    except Exception as exc:
+        return draft, f"LLM 二次自审失败（{type(exc).__name__}），保留初稿并标记降级"
     revised = (content or "").strip()
     if not revised:
-        return draft, ""
+        return draft, "LLM 二次自审返回空内容，保留初稿并标记降级"
     return SynthesisResult(answer=revised, provider=provider.name, model=provider.model), ""
 
 

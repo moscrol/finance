@@ -153,6 +153,7 @@ def review_output(
     gap_lines: list[str] | None,
     follow_ups: list[str] | None,
     conclusion_lines: list[str] | None,
+    final_answer: str | None = None,
     today: date | None = None,
 ) -> OutputReviewGate:
     gate = OutputReviewGate()
@@ -161,5 +162,6 @@ def review_output(
     gate.checks.append(_check_counterevidence(counter_plan))
     gate.checks.append(_check_gaps(gap_lines))
     gate.checks.append(_check_verifiable(follow_ups))
-    gate.checks.append(_check_overclaim(audit, conclusion_lines))
+    visible_lines = [final_answer] if final_answer else conclusion_lines
+    gate.checks.append(_check_overclaim(audit, visible_lines))
     return gate
