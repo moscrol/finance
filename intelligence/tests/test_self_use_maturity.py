@@ -12,9 +12,11 @@ import pytest
 
 from intelligence.services import self_use_maturity
 from intelligence.services.self_use_maturity import (
+    MaturityResult,
     SelfUseEvent,
     SelfUseLedger,
     SelfUseLedgerIntegrityError,
+    evaluate_maturity,
 )
 
 
@@ -44,6 +46,185 @@ def make_event(**overrides: object) -> SelfUseEvent:
     }
     values.update(overrides)
     return SelfUseEvent(**values)  # type: ignore[arg-type]
+
+
+def make_complete_maturity_events() -> list[SelfUseEvent]:
+    workflows = [
+        "daily_market",
+        "theme_research",
+        "stock_research",
+        "news_impact",
+        "watchlist",
+    ]
+    return [
+        make_event(trade_date=f"2026-06-{day:02d}", workflow=workflow)
+        for day in range(1, 11)
+        for workflow in workflows
+    ]
+
+
+def test_complete_ten_day_workflow_set_is_eligible_but_requires_user_approval() -> None:
+    result = evaluate_maturity(make_complete_maturity_events())
+
+    assert result.blockers == ()
+    assert result.eligible_for_user_decision is True
+    assert result.user_approved is False
+    assert result.passed is False
+    assert result.metrics == {
+        "distinct_trade_dates": 10,
+        "covered_workflows": [
+            "daily_market",
+            "news_impact",
+            "stock_research",
+            "theme_research",
+            "watchlist",
+        ],
+        "core_success_rate": 1.0,
+        "useful_rate": 1.0,
+        "manual_rescue_rate": 0.0,
+        "severe_fact_errors": 0,
+        "event_count": 50,
+    }
+
+
+def test_explicit_user_approval_passes_an_eligible_result() -> None:
+    result = evaluate_maturity(make_complete_maturity_events(), user_approved=True)
+
+    assert result.eligible_for_user_decision is True
+    assert result.user_approved is True
+    assert result.passed is True
+
+
+def test_severe_fact_error_blocks_maturity() -> None:
+    events = make_complete_maturity_events()
+    events[0] = make_event(
+        trade_date=events[0].trade_date,
+        workflow=events[0].workflow,
+        severe_fact_error=True,
+    )
+
+    result = evaluate_maturity(events)
+
+    assert result.metrics["severe_fact_errors"] == 1
+    assert result.blockers == ("severe_fact_error",)
+    assert result.eligible_for_user_decision is False
+    assert result.passed is False
+
+
+def test_user_approval_cannot_bypass_mechanical_blockers() -> None:
+    result = evaluate_maturity([make_event()], user_approved=True)
+
+    assert result.user_approved is True
+    assert result.eligible_for_user_decision is False
+    assert result.passed is False
+
+
+def test_rate_thresholds_are_inclusive_at_95_5_and_80_percent() -> None:
+    events = [
+        make_event(
+            trade_date=f"2026-06-{index // 2 + 1:02d}",
+            workflow=(
+                "daily_market",
+                "theme_research",
+                "stock_research",
+                "news_impact",
+                "watchlist",
+            )[index % 5],
+            outcome="failed" if index == 0 else "success",
+            manual_rescue=index == 1,
+            useful=index < 16,
+        )
+        for index in range(20)
+    ]
+
+    result = evaluate_maturity(events)
+
+    assert result.blockers == ()
+    assert result.metrics["core_success_rate"] == 0.95
+    assert result.metrics["manual_rescue_rate"] == 0.05
+    assert result.metrics["useful_rate"] == 0.8
+
+
+def test_rates_are_rounded_to_six_decimal_places() -> None:
+    events = [
+        make_event(
+            outcome="failed" if index == 2 else "success",
+            manual_rescue=index == 0,
+            useful=index < 2,
+        )
+        for index in range(3)
+    ]
+
+    result = evaluate_maturity(events)
+
+    assert result.metrics["core_success_rate"] == 0.666667
+    assert result.metrics["manual_rescue_rate"] == 0.333333
+    assert result.metrics["useful_rate"] == 0.666667
+
+
+def test_empty_events_have_zero_rates_and_expected_blockers() -> None:
+    result = evaluate_maturity([])
+
+    assert result.metrics == {
+        "distinct_trade_dates": 0,
+        "covered_workflows": [],
+        "core_success_rate": 0.0,
+        "useful_rate": 0.0,
+        "manual_rescue_rate": 0.0,
+        "severe_fact_errors": 0,
+        "event_count": 0,
+    }
+    assert result.blockers == (
+        "minimum_trade_dates",
+        "missing_workflows",
+        "success_rate",
+        "useful_rate",
+    )
+
+
+def test_missing_workflow_is_reported_after_minimum_trade_dates_passes() -> None:
+    events = [make_event(trade_date=f"2026-06-{day:02d}") for day in range(1, 11)]
+
+    result = evaluate_maturity(events)
+
+    assert result.blockers == ("missing_workflows",)
+    assert result.metrics["covered_workflows"] == ["daily_market"]
+
+
+def test_blockers_follow_stable_contract_order() -> None:
+    result = evaluate_maturity(
+        [
+            make_event(
+                outcome="failed",
+                manual_rescue=True,
+                severe_fact_error=True,
+                useful=False,
+            )
+        ]
+    )
+
+    assert result.blockers == (
+        "minimum_trade_dates",
+        "missing_workflows",
+        "success_rate",
+        "severe_fact_error",
+        "manual_rescue_rate",
+        "useful_rate",
+    )
+
+
+def test_evaluation_does_not_mutate_events_or_event_list() -> None:
+    events = make_complete_maturity_events()
+    original_events = list(events)
+    original_payloads = [asdict(event) for event in events]
+
+    result = evaluate_maturity(events)
+
+    assert events == original_events
+    assert [asdict(event) for event in events] == original_payloads
+    with pytest.raises(FrozenInstanceError):
+        result.passed = True  # type: ignore[misc]
+    assert isinstance(result, MaturityResult)
 
 
 def test_record_appends_schema_workflow_and_run_id(tmp_path) -> None:

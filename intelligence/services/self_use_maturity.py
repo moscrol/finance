@@ -110,6 +110,66 @@ class SelfUseEvent:
         )
 
 
+@dataclass(frozen=True)
+class MaturityResult:
+    metrics: dict[str, float | int | list[str]]
+    blockers: tuple[str, ...]
+    eligible_for_user_decision: bool
+    user_approved: bool
+    passed: bool
+
+
+def evaluate_maturity(
+    events: list[SelfUseEvent], *, user_approved: bool = False
+) -> MaturityResult:
+    """Evaluate deterministic self-use maturity without mutating the ledger."""
+
+    event_count = len(events)
+    trade_dates = {event.trade_date for event in events}
+    covered_workflows = sorted({event.workflow for event in events})
+    success_count = sum(event.outcome == "success" for event in events)
+    useful_count = sum(event.useful for event in events)
+    manual_rescue_count = sum(event.manual_rescue for event in events)
+    severe_fact_errors = sum(event.severe_fact_error for event in events)
+
+    def rate(numerator: int) -> float:
+        return round(numerator / event_count, 6) if event_count else 0.0
+
+    metrics: dict[str, float | int | list[str]] = {
+        "distinct_trade_dates": len(trade_dates),
+        "covered_workflows": covered_workflows,
+        "core_success_rate": rate(success_count),
+        "useful_rate": rate(useful_count),
+        "manual_rescue_rate": rate(manual_rescue_count),
+        "severe_fact_errors": severe_fact_errors,
+        "event_count": event_count,
+    }
+
+    blockers: list[str] = []
+    if len(trade_dates) < 10:
+        blockers.append("minimum_trade_dates")
+    if not WORKFLOWS.issubset(covered_workflows):
+        blockers.append("missing_workflows")
+    if not event_count or success_count * 100 < event_count * 95:
+        blockers.append("success_rate")
+    if severe_fact_errors:
+        blockers.append("severe_fact_error")
+    if event_count and manual_rescue_count * 100 > event_count * 5:
+        blockers.append("manual_rescue_rate")
+    if not event_count or useful_count * 100 < event_count * 80:
+        blockers.append("useful_rate")
+
+    blocker_tuple = tuple(blockers)
+    eligible_for_user_decision = not blocker_tuple
+    return MaturityResult(
+        metrics=metrics,
+        blockers=blocker_tuple,
+        eligible_for_user_decision=eligible_for_user_decision,
+        user_approved=user_approved,
+        passed=eligible_for_user_decision and user_approved,
+    )
+
+
 class SelfUseLedgerIntegrityError(ValueError):
     """A JSONL row cannot be decoded into a valid persisted event."""
 
