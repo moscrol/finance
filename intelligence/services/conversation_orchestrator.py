@@ -47,7 +47,14 @@ _INTERNAL_CITATION_PATTERN = re.compile(
     r"\[(?:D|P|L|G|R|S|W)\d+\]"
 )
 _INTERNAL_CODE_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9_])(?:L[1-4](?:\s*级(?:别)?)?|[DPGRSW]\d+)(?![A-Za-z0-9_])"
+    r"(?<![A-Za-z0-9_])[DPGRSW]\d+(?![A-Za-z0-9_])"
+)
+_EVIDENCE_LAYER_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9_])L([1-4])(?:\s*级(?:别)?)?(?![A-Za-z0-9_])"
+)
+_INTERNAL_TIER_TOKEN_PATTERN = re.compile(
+    r"(?:high/)?L[1-4](?:_L[1-4])+(?:_[A-Za-z0-9]+)*",
+    re.IGNORECASE,
 )
 _EVIDENCE_LAYER_SUMMARY_PATTERN = re.compile(
     r"(?:整体)?证据层分布为\s*"
@@ -67,23 +74,52 @@ _JSON_BLOCK_PATTERN = re.compile(
 _HUMAN_READABLE_REPLACEMENTS = (
     ("Daily Review 确定性投影数据", "本地复盘数据"),
     ("Daily Review", "本地复盘"),
+    ("本地复盘确定性投影数据", "本地复盘数据"),
+    ("本地复盘确定性投影", "本地复盘数据"),
+    ('并被系统标注为"沸点"', '，盘面状态达到"沸点"'),
+    ("系统统一标注为", "盘面表现为"),
+    ("盘面 L4 信号", "盘面信号"),
+    ("盘面L4信号", "盘面信号"),
+    ("L4 信号", "盘面信号"),
+    ("L4信号", "盘面信号"),
+    ("L3 硬证据", "公告等硬证据"),
+    ("L3硬证据", "公告等硬证据"),
+    ("RAG检索的wiki向量源降级未接入", "知识库资料没有提供可用补充"),
+    ("RAG 检索的 wiki 向量源降级未接入", "知识库资料没有提供可用补充"),
     ("replay 发酵信号也未匹配到任何主题", "历史发酵信号也未提供可用信息"),
     ("replay 发酵信号", "历史发酵信号"),
     ("模块 replay", "历史信号回检"),
     ("replay", "历史信号回检"),
     ("wiki 向量检索无可用命中", "知识库没有提供可用补充"),
     ("wiki 向量检索", "知识库检索"),
+    ("wiki向量源", "知识库资料"),
+    ("wiki 向量源", "知识库资料"),
     ("wiki-rag", "知识库检索"),
+    ("图谱命中的", "知识图谱关联到的"),
+    ("图谱命中", "知识图谱关联"),
+    ("graph_only低置信关联", "低置信关联"),
     ("graph_only/低置信暴露", "低置信关联"),
     ("graph_only", "低置信关联"),
     ("DuckDB 同题材强势替代队列为空", "本地盘面数据没有提供同题材强势替代方向"),
     ("命中主题=", "相关主题："),
+    ("命中主要来自", "现有信息主要来自"),
+    ("cycle_status", "阶段状态"),
+    ("candidate_tier", "候选分层"),
+    ("priority_score", "优先级"),
+    ("diff_ratio", "成交边际变化"),
     ("模块路由", "分析路径"),
     ("rerank", "检索重排"),
     ("RAG 遥测", "检索诊断"),
     ("RAG", "知识库检索"),
+    ("wiki", "知识库"),
     ("降权", "降低可信度"),
 )
+_EVIDENCE_LAYER_REPLACEMENTS = {
+    "1": "行业资料",
+    "2": "公司基础资料",
+    "3": "公告等硬证据",
+    "4": "盘面信号",
+}
 
 
 @dataclass(frozen=True)
@@ -138,6 +174,11 @@ def sanitize_conversation_answer(text: str) -> str:
     cleaned = _INTERNAL_CITATION_PATTERN.sub("", cleaned)
     for internal, readable in _HUMAN_READABLE_REPLACEMENTS:
         cleaned = cleaned.replace(internal, readable)
+    cleaned = _INTERNAL_TIER_TOKEN_PATTERN.sub("较高置信候选", cleaned)
+    cleaned = _EVIDENCE_LAYER_PATTERN.sub(
+        lambda match: _EVIDENCE_LAYER_REPLACEMENTS[match.group(1)],
+        cleaned,
+    )
     cleaned = _INTERNAL_CODE_PATTERN.sub("", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"(?<=[\u4e00-\u9fff]) (?=[\u4e00-\u9fff])", "", cleaned)

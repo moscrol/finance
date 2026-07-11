@@ -520,6 +520,8 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
         "replay 发酵信号也未匹配到任何主题，wiki 向量检索无可用命中。"
         "公司只有 graph_only/低置信暴露，整体证据层分布为 "
         "L1×6、L2×6、L4×1，尚缺 L3 硬证据。[D4]"
+        "当前属于 high/L1_L3_candidate，L1/L2 认知完整但 "
+        "cycle_status 仍需确认，RAG检索的wiki向量源降级未接入。"
     )
 
     def answer_spy(options: AskOptions) -> AskResult:
@@ -552,6 +554,10 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assert "本地复盘数据" in assistant.content
     assert "历史发酵信号" in assistant.content
     assert "知识库没有提供可用补充" in assistant.content
+    assert "较高置信候选" in assistant.content
+    assert "行业资料/公司基础资料" in assistant.content
+    assert "阶段状态" in assistant.content
+    assert "知识库资料没有提供可用补充" in assistant.content
     for internal in (
         "Daily Review",
         "L1",
@@ -561,6 +567,9 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
         "replay",
         "wiki",
         "graph_only",
+        "high/L1_L3_candidate",
+        "cycle_status",
+        "RAG",
         "[D4]",
     ):
         assert internal not in assistant.content

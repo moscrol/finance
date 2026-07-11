@@ -233,7 +233,7 @@ const conversations: Conversation[] = [
 const productSkills: ProductSkillDescription[] = [
   {
     skill_id: "daily-review",
-    name: "Daily Review",
+    name: "每日复盘",
     description: "市场复盘",
     version: "1.0.0",
     triggers: ["复盘"],
@@ -599,14 +599,14 @@ describe("Chat-first conversation components", () => {
     );
 
     expect(screen.getByRole("button", { name: "选择 Skill" })).toBeVisible();
-    expect(screen.getByText("Daily Review")).toBeVisible();
+    expect(screen.getByText("每日复盘")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "选择 Skill" }));
     await user.click(screen.getByRole("checkbox", { name: /Daily Agent/ }));
     expect(onSelectionChange).toHaveBeenCalledWith([
       "daily-review",
       "daily-agent",
     ]);
-    await user.click(screen.getByRole("button", { name: "移除 Daily Review" }));
+    await user.click(screen.getByRole("button", { name: "移除 每日复盘" }));
     expect(onSelectionChange).toHaveBeenLastCalledWith([]);
   });
 
@@ -620,7 +620,7 @@ describe("Chat-first conversation components", () => {
       />,
     );
 
-    expect(screen.getByText("手动指定 · Daily Review")).toBeVisible();
+    expect(screen.getByText("手动指定 · 每日复盘")).toBeVisible();
     expect(screen.getByText("自动调用 · Daily Agent")).toBeVisible();
     expect(screen.queryByText("daily_projection_modules")).toBeNull();
   });

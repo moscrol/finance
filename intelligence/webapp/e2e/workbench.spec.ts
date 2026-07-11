@@ -117,7 +117,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   const thirdQuestion = `${marker} 第三轮有哪些风险`;
 
   await submitQuestion(page, firstQuestion, 1);
-  await expect(page.getByText("自动调用 · Daily Review")).toBeVisible();
+  await expect(page.getByText("自动调用 · 每日复盘")).toBeVisible();
   const firstAnswer = page.getByLabel("研究助手消息").first();
   await expect(
     firstAnswer.getByText(/数据降级：当前未连接本地 DuckDB/),
@@ -171,7 +171,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await page.reload();
   await expect(page.getByText(firstQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText(secondQuestion, { exact: true })).toBeVisible();
-  await expect(page.getByText("自动调用 · Daily Review")).toBeVisible();
+  await expect(page.getByText("自动调用 · 每日复盘")).toBeVisible();
   await expect(page.getByText("手动指定 · Daily Agent")).toBeVisible();
   await expect(page.getByText("模板表达 · 未配置 LLM")).toHaveCount(4);
 
