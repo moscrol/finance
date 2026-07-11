@@ -560,6 +560,26 @@ def _markdown_claims(
             ),
             "",
         )
+        if not subject:
+            subject = next(
+                (
+                    cell
+                    for header, cell in zip(headers, cells)
+                    if any(
+                        keyword in header
+                        for keyword in (
+                            "方向",
+                            "行业",
+                            "板块",
+                            "题材",
+                            "股票",
+                            "公司",
+                        )
+                    )
+                    and cell
+                ),
+                "",
+            )
         for column_index, (header, cell) in enumerate(zip(headers, cells)):
             location = f"$.table[{line_index}][{column_index}]"
             numeric = re.fullmatch(
@@ -979,7 +999,12 @@ def _inferred_source_ref(
     table, field, source_unit = mapping
     subject = str(claim.get("subject") or "")
     if table == "fact_market_daily":
-        subject = "market"
+        if subject.lower() != "market":
+            if predicate in {"涨停", "涨停数"}:
+                table = "fact_theme_limit_heat_daily"
+                field = "limit_up_count"
+            else:
+                return None
     valid_time = str(
         claim.get("claim_valid_time")
         or claim.get("report_date")
@@ -993,6 +1018,7 @@ def _inferred_source_ref(
         "valid_time": valid_time,
         "source_time": valid_time,
         "source_unit": source_unit,
+        "rounding_decimals": 2,
     }
 
 
