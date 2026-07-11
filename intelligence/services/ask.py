@@ -227,6 +227,7 @@ class AskResult:
     market_data_source: str = "unknown"
     snapshot_date: str | None = None
     data_notice: str | None = None
+    market_summary: str | None = None
     sections: dict[str, list[str]] = field(default_factory=dict)
     citations: list[Citation] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -867,6 +868,7 @@ def answer_query(options: AskOptions) -> AskResult:
             options.market_db_path
         )
         if daily_market_block:
+            result.market_summary = daily_market_block
             evidence_chain.extend(
                 [f"{SUBHEAD}最新市场总览（本地 DuckDB）", daily_market_block]
             )
@@ -2324,3 +2326,30 @@ def render_answer(result: AskResult) -> str:
             lines.append("")
             lines.append("</details>")
     return "\n".join(lines) + "\n"
+
+
+def render_conversation_answer(result: AskResult) -> str:
+    if result.synthesis:
+        return result.synthesis
+
+    lines: list[str] = []
+    if result.data_notice:
+        lines.append(result.data_notice)
+    if result.market_summary:
+        if lines:
+            lines.append("")
+        lines.append(
+            result.market_summary.replace(
+                "## 本地 DuckDB 最新市场总览",
+                "## 市场概览",
+                1,
+            )
+        )
+    if not result.market_summary:
+        if lines:
+            lines.append("")
+        lines.append(
+            "本轮检索已完成，但自然语言综合暂时不可用。"
+            "数据来源、运行轨迹和结构化产物保留在“运行详情”中，请稍后重试。"
+        )
+    return "\n".join(lines).rstrip() + "\n"

@@ -23,6 +23,7 @@ const fixtureRoot = resolve(
 const usersRoot = resolve(webappRoot, "test-results/workbench-users");
 rmSync(usersRoot, { recursive: true, force: true });
 const emptyLlmKeys = [
+  "FORESIGHT_BUILTIN_LLM_API_KEY",
   "DEEPSEEK_API_KEY",
   "MOONSHOT_API_KEY",
   "DASHSCOPE_API_KEY",

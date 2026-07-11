@@ -416,7 +416,8 @@ def test_template_answer_is_saved_and_streamed_once_without_llm(tmp_path) -> Non
     ]
     run = run_store.load_run(run_id)
     assert len(text_events) == 1
-    assert "本轮检索：无 key 也要回答" in text_events[0]["payload"]["delta"]
+    assert "自然语言综合暂时不可用" in text_events[0]["payload"]["delta"]
+    assert "命中主题" not in text_events[0]["payload"]["delta"]
     assert [artifact["path"] for artifact in run.artifacts] == [
         "answer.md",
         "report.json",

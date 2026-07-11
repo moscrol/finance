@@ -13,7 +13,12 @@ from intelligence.api.structured_reports import (
     upsert_report_module,
 )
 from intelligence.services import run_store as rs
-from intelligence.services.ask import AskOptions, AskResult, answer_query, render_answer
+from intelligence.services.ask import (
+    AskOptions,
+    AskResult,
+    answer_query,
+    render_conversation_answer,
+)
 from intelligence.services.conversation_store import (
     Conversation,
     ConversationStore,
@@ -370,7 +375,7 @@ class TurnOrchestrator:
                     conversation_id,
                 )
 
-            answer_text = result.synthesis or render_answer(result)
+            answer_text = render_conversation_answer(result)
             if text_chunks:
                 answer_text = "".join(text_chunks)
             else:

@@ -15,6 +15,7 @@ from intelligence.services.ask import (
     _resolve_market_data_context,
     _second_derivative_queue_block_for_llm,
     render_answer,
+    render_conversation_answer,
 )
 from intelligence.services.llm_refine import LLMProvider, SynthesisResult, build_synthesis_messages, synthesize, synthesize_messages_with_review
 
@@ -232,6 +233,38 @@ class RenderComposeTests(unittest.TestCase):
         self.assertIn("市场结构推演路径", out)
         self.assertIn("20日量能回归", out)
         self.assertIn("板块承接", out)
+
+    def test_conversation_fallback_hides_internal_diagnostics(self) -> None:
+        result = self._base_result(None)
+        result.data_notice = (
+            "**数据降级：当前未连接本地 DuckDB。** "
+            "以下仅使用历史 snapshot/export，不能视为最新交易日复盘。"
+        )
+        result.warnings = ["命中 D4；发生降权"]
+
+        out = render_conversation_answer(result)
+
+        self.assertIn("不能视为最新交易日复盘", out)
+        self.assertIn("运行详情", out)
+        self.assertNotIn("命中主题", out)
+        self.assertNotIn("模块路由", out)
+        self.assertNotIn("D4", out)
+        self.assertNotIn("降权", out)
+
+    def test_conversation_fallback_uses_readable_duckdb_summary(self) -> None:
+        result = self._base_result(None)
+        result.data_notice = "**数据截至 2026-07-10。**"
+        result.market_summary = (
+            "## 本地 DuckDB 最新市场总览\n"
+            "- 市场数据截至：2026-07-10。\n"
+            "- 涨跌结构：上涨 3774 家；涨停 92 家；跌停 4 家。"
+        )
+
+        out = render_conversation_answer(result)
+
+        self.assertIn("## 市场概览", out)
+        self.assertIn("上涨 3774 家", out)
+        self.assertNotIn("本地 DuckDB 最新市场总览", out)
 
 
 class DailyMarketOverviewTests(unittest.TestCase):
