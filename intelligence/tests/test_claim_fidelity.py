@@ -382,6 +382,76 @@ class ClaimFidelityTests(unittest.TestCase):
             self.assertTrue(claims)
             self.assertTrue(required.issubset(claims[0]))
 
+    def test_explicit_claim_manifest_resolves_claim_level_lineage(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "daily-agent.json"
+            report.write_text(
+                json.dumps(
+                    {
+                        "date": "2026-07-02",
+                        "evidence_catalog": {
+                            "ev-sector": {
+                                "scope": "claim",
+                                "source_kind": "table_row",
+                                "source": "fupanhui",
+                                "table": "fact_sector_daily",
+                                "field": "pct_chg",
+                                "entity": "885864.TI",
+                                "valid_time": "2026-07-02",
+                                "source_time": "2026-07-02T18:00:00+08:00",
+                                "source_unit": "%",
+                                "source_artifact": "db/market_feature_store.duckdb",
+                            }
+                        },
+                        "claims": [
+                            {
+                                "text": "光刻胶 sector_metrics.pct_chg = 2.21",
+                                "claim_type": "number",
+                                "subject": "光刻胶",
+                                "predicate": "sector_metrics.pct_chg",
+                                "value": 2.21,
+                                "unit": "%",
+                                "evidence_refs": ["ev-sector"],
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            claims = extract_claims(
+                "daily-agent.json",
+                report_date="2026-07-02",
+                repo_root=root,
+            )
+            self.assertEqual(len(claims), 1)
+            self.assertEqual(claims[0]["predicate"], "sector_metrics.pct_chg")
+            self.assertEqual(claims[0]["source_ref"]["scope"], "claim")
+            self.assertEqual(
+                claims[0]["source_ref"]["table"],
+                "fact_sector_daily",
+            )
+            verified = verify_claim(
+                claims[0],
+                snapshot={
+                    "tables": {
+                        "fact_sector_daily": {
+                            "rows": [
+                                {
+                                    "trade_date": "2026-07-02",
+                                    "sector_ts_code": "885864.TI",
+                                    "pct_chg": 2.21,
+                                }
+                            ]
+                        }
+                    }
+                },
+            )
+            self.assertEqual(verified["verification_status"], "matched")
+
     def test_wide_markdown_table_preserves_claim_valid_time(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

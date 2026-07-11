@@ -69,6 +69,42 @@ class DailyAgentTest(unittest.TestCase):
                 {
                     "found": True,
                     "trade_date": "2026-06-11",
+                    "lineage_schema_version": "claim-lineage-v1",
+                    "evidence_catalog": {
+                        "ev-sector-pct": {
+                            "scope": "claim",
+                            "source_kind": "table_row",
+                            "source": "fixture",
+                            "table": "fact_sector_daily",
+                            "field": "pct_chg",
+                            "entity": "885001.TI",
+                            "valid_time": "2026-06-11",
+                            "source_time": "2026-06-11T18:00:00",
+                            "source_artifact": "db/market_feature_store.duckdb",
+                        },
+                        "ev-sector-amount": {
+                            "scope": "claim",
+                            "source_kind": "table_row",
+                            "source": "fixture",
+                            "table": "fact_sector_daily",
+                            "field": "amount",
+                            "entity": "885001.TI",
+                            "valid_time": "2026-06-11",
+                            "source_time": "2026-06-11T18:00:00",
+                            "source_artifact": "db/market_feature_store.duckdb",
+                        },
+                        "ev-stock-pct": {
+                            "scope": "claim",
+                            "source_kind": "table_row",
+                            "source": "fixture",
+                            "table": "fact_sector_stock_daily",
+                            "field": "pct_chg",
+                            "entity": "301128.SZ",
+                            "valid_time": "2026-06-11",
+                            "source_time": "2026-06-11T18:00:00",
+                            "source_artifact": "db/market_feature_store.duckdb",
+                        },
+                    },
                     "candidates": [
                         {
                             "market_theme": "液冷服务器",
@@ -82,6 +118,11 @@ class DailyAgentTest(unittest.TestCase):
                                 "strong_stocks": [
                                     {"stock_name": "强瑞技术", "stock_ts_code": "301128.SZ", "pct_chg": 12.3}
                                 ]
+                            },
+                            "evidence_refs": {
+                                "sector_metrics.pct_chg": ["ev-sector-pct"],
+                                "sector_metrics.amount": ["ev-sector-amount"],
+                                "strong_stocks.0.pct_chg": ["ev-stock-pct"],
                             },
                         },
                         {
@@ -159,6 +200,18 @@ class DailyAgentTest(unittest.TestCase):
             self.assertEqual(report["logic_batch"]["summary"]["old_logic_wakeup_count"], 1)
             self.assertEqual(report["decision"]["old_logic_wakeup"][0]["query"], "液冷服务器")
             self.assertEqual(report["decision"]["noise_or_unconfirmed"][0]["query"], "连板未映射")
+            self.assertEqual(report["lineage_schema_version"], "claim-lineage-v1")
+            self.assertEqual(len(report["claims"]), 3)
+            self.assertEqual(len(report["evidence_catalog"]), 3)
+            self.assertTrue(
+                all(claim["evidence_refs"] for claim in report["claims"])
+            )
+            self.assertTrue(
+                all(
+                    ref["scope"] == "claim"
+                    for ref in report["evidence_catalog"].values()
+                )
+            )
             self.assertIn("## 今日判断", markdown)
             self.assertIn("液冷服务器", markdown)
             self.assertIn("连板未映射", markdown)
@@ -216,6 +269,8 @@ class DailyAgentTest(unittest.TestCase):
             self.assertEqual(card["命中材料"][0]["作用"], "旧逻辑主线")
             self.assertIn("找公告", card["下一步"])
             self.assertIn("## 逻辑证据卡", markdown)
+            self.assertIn("## 逐声明证据血缘", markdown)
+            self.assertIn("fact_sector_daily.pct_chg", markdown)
             self.assertIn("## 今日研究任务队列", markdown)
             self.assertIn("今日该找公告/调研/订单", markdown)
             self.assertIn("盘面验证：中等验证", markdown)
@@ -232,6 +287,9 @@ class DailyAgentTest(unittest.TestCase):
             self.assertIn("中等验证", html)
             self.assertIn("需要回补：概念 / 公司 / 证据 / 来源", html)
             self.assertIn("逻辑证据卡", html)
+            self.assertIn("逐声明证据血缘", html)
+            self.assertIn("fact_sector_daily", html)
+            self.assertIn("pct_chg", html)
             self.assertIn("生命周期", html)
             self.assertIn("证据裁判", html)
             self.assertIn("evidence-card", html)

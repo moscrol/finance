@@ -23,6 +23,10 @@ from intelligence.services import logic_effectiveness
 from intelligence.services import market_validation
 from intelligence.services import research_queue
 from intelligence.services import research_judge
+from intelligence.services.claim_lineage import (
+    LINEAGE_SCHEMA_VERSION,
+    build_daily_agent_claim_manifest,
+)
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 from intelligence.userspace import user_space
 from scripts.build_daily_ops_ledger import build_ledger
@@ -614,6 +618,13 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
             "kb_ingest_queue 是跨仓待办任务包：只给知识库 repo 接收、校验和归档，不自动写入 wiki。",
         ],
     }
+    claims, evidence_catalog = build_daily_agent_claim_manifest(
+        batch,
+        report_date=options.date,
+    )
+    report["lineage_schema_version"] = LINEAGE_SCHEMA_VERSION
+    report["claims"] = claims
+    report["evidence_catalog"] = evidence_catalog
     report["next_actions"] = _agent_next_actions(report)
     return report
 
@@ -827,6 +838,26 @@ def render_daily_agent(report: dict[str, Any]) -> str:
     lines.extend(["", "## 今日研究任务队列", "", *_research_queue_rows(report.get("research_queue") or {})])
     lines.extend(["", "## 知识库回补任务包", "", *_kb_ingest_queue_rows(report.get("kb_ingest_queue") or {})])
     lines.extend(["", "## 逻辑证据卡", "", *_evidence_card_rows(decision)])
+    lines.extend(["", "## 逐声明证据血缘", ""])
+    claims = report.get("claims") or []
+    catalog = report.get("evidence_catalog") or {}
+    if claims:
+        for claim in claims[:20]:
+            ref_ids = claim.get("evidence_refs") or []
+            source_ref = (
+                catalog.get(str(ref_ids[0]), {})
+                if ref_ids and isinstance(catalog, dict)
+                else {}
+            )
+            lines.append(
+                f"- {claim.get('text')}｜"
+                f"{source_ref.get('table') or source_ref.get('source')}"
+                f".{source_ref.get('field')}｜"
+                f"valid={source_ref.get('valid_time')}｜"
+                f"known={source_ref.get('source_time')}"
+            )
+    else:
+        lines.append("- 无可证明的逐声明证据；不使用报告级引用或事后猜测补齐。")
     if report["semantic_rag"]["warnings"]:
         lines.extend(["", "## 向量旧材料告警", ""])
         for warning in report["semantic_rag"]["warnings"][:10]:
@@ -912,6 +943,43 @@ def _html_table(rows: list[dict[str, Any]], empty: str) -> str:
         "<th>题材</th><th>优先级</th><th>可信度</th><th>强势股</th><th>缺口</th><th>旧材料</th><th>生命周期</th><th>盘面验证</th><th>证据裁判</th><th>建议动作</th>"
         "</tr></thead><tbody>"
         + "".join(body)
+        + "</tbody></table></div>"
+    )
+
+
+def _html_claim_lineage(report: dict[str, Any]) -> str:
+    claims = report.get("claims") or []
+    catalog = report.get("evidence_catalog") or {}
+    if not claims:
+        return (
+            '<p class="empty">'
+            "无可证明的逐声明证据；不使用报告级引用或事后猜测补齐。"
+            "</p>"
+        )
+    rows = []
+    for claim in claims[:20]:
+        ref_ids = claim.get("evidence_refs") or []
+        source_ref = (
+            catalog.get(str(ref_ids[0]), {})
+            if ref_ids and isinstance(catalog, dict)
+            else {}
+        )
+        rows.append(
+            "<tr>"
+            f"<td>{escape(str(claim.get('text') or '-'))}</td>"
+            f"<td>{escape(str(source_ref.get('table') or source_ref.get('source') or '-'))}</td>"
+            f"<td>{escape(str(source_ref.get('field') or '-'))}</td>"
+            f"<td>{escape(str(source_ref.get('entity') or '-'))}</td>"
+            f"<td>{escape(str(source_ref.get('valid_time') or '-'))}</td>"
+            f"<td>{escape(str(source_ref.get('source_time') or '-'))}</td>"
+            "</tr>"
+        )
+    return (
+        '<div class="table-wrap"><table><thead><tr>'
+        "<th>声明</th><th>表</th><th>字段</th><th>实体</th>"
+        "<th>valid time</th><th>source time</th>"
+        "</tr></thead><tbody>"
+        + "".join(rows)
         + "</tbody></table></div>"
     )
 
@@ -1164,6 +1232,10 @@ tr:last-child td{{border-bottom:0}}
   <section class="section">
     <h2>逻辑证据卡</h2>
     {_html_evidence_cards(decision)}
+  </section>
+  <section class="section">
+    <h2>逐声明证据血缘</h2>
+    {_html_claim_lineage(report)}
   </section>
   <section class="section">
     <h2>下一步</h2>

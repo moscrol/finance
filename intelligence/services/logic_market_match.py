@@ -8,6 +8,7 @@ from typing import Any
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.services.ask import DEFAULT_EXPORTS_DIR, load_theme_candidates, match_candidate
+from intelligence.services.claim_lineage import resolve_candidate_lineage
 
 
 LABEL_OLD_WAKEUP = "old_logic_wakeup"
@@ -45,6 +46,8 @@ class LogicMarketMatchResult:
     priority_score: float | None = None
     trigger_types: list[str] = field(default_factory=list)
     strong_stocks: list[dict[str, Any]] = field(default_factory=list)
+    market_evidence: dict[str, Any] = field(default_factory=dict)
+    market_evidence_lineage: dict[str, dict[str, object]] = field(default_factory=dict)
     concept_matches: list[dict[str, Any]] = field(default_factory=list)
     entity_exposures: list[dict[str, Any]] = field(default_factory=list)
     evidence_items: list[dict[str, Any]] = field(default_factory=list)
@@ -65,6 +68,8 @@ class LogicMarketMatchResult:
             "priority_score": self.priority_score,
             "trigger_types": self.trigger_types,
             "strong_stocks": self.strong_stocks,
+            "market_evidence": self.market_evidence,
+            "market_evidence_lineage": self.market_evidence_lineage,
             "concept_matches": self.concept_matches,
             "entity_exposures": self.entity_exposures,
             "evidence_items": self.evidence_items,
@@ -252,6 +257,11 @@ def match_logic_to_market(
     doc = loaded["doc"] if loaded.get("found") else {}
     candidate = match_candidate(query, doc) if doc else None
     theme = _candidate_theme(candidate, query)
+    evidence_catalog = doc.get("evidence_catalog")
+    candidate_lineage = resolve_candidate_lineage(
+        candidate or {},
+        evidence_catalog if isinstance(evidence_catalog, dict) else {},
+    )
 
     if _is_placeholder_market_theme(
         query,
@@ -271,6 +281,8 @@ def match_logic_to_market(
             priority_score=(candidate or {}).get("priority_score"),
             trigger_types=list((candidate or {}).get("trigger_types") or []),
             strong_stocks=_strong_stocks(candidate, top_companies),
+            market_evidence=dict((candidate or {}).get("market_evidence") or {}),
+            market_evidence_lineage=candidate_lineage,
             data_gaps=gaps,
             next_actions=_next_actions(LABEL_NOISE, gaps),
             warnings=list(loaded.get("warnings", [])),
@@ -319,6 +331,8 @@ def match_logic_to_market(
         priority_score=(candidate or {}).get("priority_score"),
         trigger_types=list((candidate or {}).get("trigger_types") or []),
         strong_stocks=_strong_stocks(candidate, top_companies),
+        market_evidence=dict((candidate or {}).get("market_evidence") or {}),
+        market_evidence_lineage=candidate_lineage,
         concept_matches=concepts,
         entity_exposures=exposures,
         evidence_items=evidence,

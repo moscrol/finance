@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from intelligence.adapters import KnowledgeAdapter, MarketAdapter
+from intelligence.services.claim_lineage import (
+    LINEAGE_SCHEMA_VERSION,
+    materialize_candidate_lineage,
+)
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,7 @@ class ThemeRadarService:
         candidates = [self._with_knowledge_status(candidate) for candidate in candidates]
         candidates = sorted(candidates, key=lambda row: (-row["priority_score"], row["market_theme"]))
         tiers = self._candidate_tiers(candidates)
+        evidence_catalog = materialize_candidate_lineage(candidates)
         warnings = []
         warnings.extend(market_daily.get("warnings", []))
         warnings.extend(capacity.get("warnings", []))
@@ -69,6 +74,8 @@ class ThemeRadarService:
             "found": bool(candidates),
             "trade_date": self._resolve_trade_date(market_daily, capacity, double_red, limit_heat, advance, period_rank, new_high),
             "source": "market-triggered",
+            "lineage_schema_version": LINEAGE_SCHEMA_VERSION,
+            "evidence_catalog": evidence_catalog,
             "market_context": {
                 "market_stage": market_daily.get("data", {}).get("market_stage") if market_daily.get("data") else None,
                 "total_amount": market_daily.get("data", {}).get("total_amount") if market_daily.get("data") else None,
@@ -122,12 +129,73 @@ class ThemeRadarService:
             )
         candidate["market_evidence"]["sector_metrics"] = {
             "sector_ts_code": row.get("sector_ts_code"),
+            "sw_l1": row.get("sw_l1"),
             "pct_chg": row.get("pct_chg"),
             "diff_ratio": row.get("diff_ratio"),
             "amount": row.get("amount"),
             "in_capacity_top3": in_capacity,
         }
         candidate["market_evidence"]["capacity_sector"] = capacity_match or {}
+        for field in (
+            "sector_ts_code",
+            "sw_l1",
+            "pct_chg",
+            "diff_ratio",
+            "amount",
+        ):
+            ThemeRadarService._add_lineage(
+                candidate,
+                f"sector_metrics.{field}",
+                row,
+                field,
+            )
+        if capacity_match:
+            for field in ("name", "ratio"):
+                ThemeRadarService._add_lineage(
+                    candidate,
+                    f"capacity_sector.{field}",
+                    capacity_match,
+                    field,
+                )
+            ThemeRadarService._add_lineage(
+                candidate,
+                "capacity_sector.rank",
+                capacity_match,
+                "rank",
+                derivation={
+                    "operation": "ordinal_position",
+                    "rule": "industry slot in fact_market_daily",
+                    "input_field_paths": [
+                        "capacity_sector.name",
+                        "capacity_sector.ratio",
+                    ],
+                },
+            )
+            ThemeRadarService._add_lineage(
+                candidate,
+                "capacity_sector.capacity_type",
+                capacity_match,
+                "capacity_type",
+                derivation={
+                    "operation": "capacity_type",
+                    "rule": "MarketAdapter._capacity_type(ratio)",
+                    "input_field_paths": ["capacity_sector.ratio"],
+                },
+            )
+            ThemeRadarService._add_lineage(
+                candidate,
+                "sector_metrics.in_capacity_top3",
+                row,
+                "in_capacity_top3",
+                derivation={
+                    "operation": "membership",
+                    "rule": "sw_l1 in top-3 capacity sectors",
+                    "input_field_paths": [
+                        "sector_metrics.sw_l1",
+                        "capacity_sector.name",
+                    ],
+                },
+            )
         return candidate
 
     @staticmethod
@@ -140,6 +208,7 @@ class ThemeRadarService:
             "score_detail": [],
             "trigger_types": [],
             "signal_sources": [],
+            "_market_lineage": {},
             "market_evidence": {
                 "sector_metrics": {},
                 "capacity_sector": {},
@@ -193,6 +262,83 @@ class ThemeRadarService:
         })
 
     @staticmethod
+    def _add_lineage(
+        candidate: dict[str, Any],
+        field_path: str,
+        row: dict[str, Any],
+        source_field: str,
+        *,
+        derivation: dict[str, object] | None = None,
+    ) -> None:
+        meta = row.get("_source_meta")
+        if not isinstance(meta, dict) or not meta.get("source_time"):
+            return
+        source_fields = row.get("_source_fields")
+        actual_field = (
+            source_fields.get(source_field, source_field)
+            if isinstance(source_fields, dict)
+            else source_field
+        )
+        source_ref: dict[str, object] = {
+            "scope": "claim",
+            "source_kind": "derived" if derivation or meta.get("derivation") else "table_row",
+            "source": meta.get("source") or meta.get("table"),
+            "table": meta.get("table"),
+            "field": actual_field,
+            "entity": meta.get("entity"),
+            "valid_time": meta.get("valid_time"),
+            "source_time": meta.get("source_time"),
+            "source_unit": ThemeRadarService._source_unit(actual_field),
+            "source_artifact": meta.get("source_artifact"),
+            "source_locator": (
+                f"{meta.get('table')}[entity={meta.get('entity')}]."
+                f"{actual_field}"
+            ),
+        }
+        inherited_derivation = meta.get("derivation")
+        if isinstance(inherited_derivation, dict):
+            source_ref["derivation"] = dict(inherited_derivation)
+        if derivation:
+            source_ref["derivation"] = dict(derivation)
+        derivation_body = source_ref.get("derivation")
+        if isinstance(derivation_body, dict):
+            input_paths = derivation_body.pop("input_field_paths", None)
+            if isinstance(input_paths, list):
+                source_ref["input_field_paths"] = input_paths
+            else:
+                input_source_ref = dict(source_ref)
+                input_source_ref["source_kind"] = "query_result"
+                input_source_ref.pop("derivation", None)
+                input_source_ref["source_locator"] = (
+                    f"{source_ref['source_locator']}#query-input"
+                )
+                source_ref["input_source_refs"] = [input_source_ref]
+        candidate.setdefault("_market_lineage", {})[field_path] = source_ref
+
+    @staticmethod
+    def _source_unit(field: str) -> str | None:
+        if field in {
+            "pct_chg",
+            "diff_ratio",
+            "market_share",
+            "ratio",
+            "change_pct",
+        }:
+            return "%"
+        if field in {"amount", "high_amount"}:
+            return "亿元"
+        if field in {
+            "limit_up_count",
+            "total_count",
+            "high_count",
+            "stock_count",
+        }:
+            return "只"
+        if field == "max_boards":
+            return "板"
+        return None
+
+    @staticmethod
     def _merge_limit_heat(candidates_by_theme: dict[str, dict[str, Any]], row: dict[str, Any]) -> None:
         candidate = ThemeRadarService._candidate(candidates_by_theme, row.get("sector_name"))
         ThemeRadarService._add_score(
@@ -209,6 +355,13 @@ class ThemeRadarService:
             "fd_amount": row.get("fd_amount"),
             "rank": row.get("rank"),
         }
+        for field in ("limit_up_count", "total_count", "market_share", "fd_amount", "rank"):
+            ThemeRadarService._add_lineage(
+                candidate,
+                f"limit_heat.{field}",
+                row,
+                field,
+            )
 
     @staticmethod
     def _merge_advance(candidates_by_theme: dict[str, dict[str, Any]], row: dict[str, Any]) -> None:
@@ -232,12 +385,39 @@ class ThemeRadarService:
             "dominant_sw_l1_counts": row.get("dominant_sw_l1_counts", []),
             "in_capacity_top3": row.get("in_capacity_top3"),
         }
+        for field in (
+            "stock_count",
+            "max_boards",
+            "dominant_sw_l1",
+            "in_capacity_top3",
+        ):
+            ThemeRadarService._add_lineage(
+                candidate,
+                f"advance.{field}",
+                row,
+                field,
+            )
         candidate["market_evidence"]["advance_stocks"] = ThemeRadarService._merge_rows(
             candidate["market_evidence"].get("advance_stocks", []),
             row.get("advance_stocks", []),
             "stock_ts_code",
             10,
         )
+        for index, stock in enumerate(candidate["market_evidence"]["advance_stocks"]):
+            for field in (
+                "stock_name",
+                "stock_ts_code",
+                "boards",
+                "pct_chg",
+                "amount",
+                "high_status_label",
+            ):
+                ThemeRadarService._add_lineage(
+                    candidate,
+                    f"advance_stocks.{index}.{field}",
+                    stock,
+                    field,
+                )
 
     @staticmethod
     def _merge_period_rank(candidates_by_theme: dict[str, dict[str, Any]], row: dict[str, Any]) -> None:
@@ -261,6 +441,14 @@ class ThemeRadarService:
             "period_type",
             8,
         )
+        index = len(candidate["market_evidence"]["period_ranks"]) - 1
+        for field in ("period_type", "rank", "change_pct", "limit_up_count", "badge"):
+            ThemeRadarService._add_lineage(
+                candidate,
+                f"period_ranks.{index}.{field}",
+                row,
+                field,
+            )
 
     @staticmethod
     def _merge_new_high_direction(candidates_by_theme: dict[str, dict[str, Any]], row: dict[str, Any]) -> None:
@@ -277,6 +465,13 @@ class ThemeRadarService:
             "high_amount": row.get("high_amount"),
             "in_capacity_top3": row.get("in_capacity_top3"),
         }
+        for field in ("high_count", "high_amount", "in_capacity_top3"):
+            ThemeRadarService._add_lineage(
+                candidate,
+                f"new_high_direction.{field}",
+                row,
+                field,
+            )
 
     @staticmethod
     def _merge_stock_signals(candidates_by_theme: dict[str, dict[str, Any]], signals: dict[str, dict[str, Any]]) -> None:
@@ -296,6 +491,22 @@ class ThemeRadarService:
                 "stock_ts_code",
                 10,
             )
+            for field_name in ("strong_stocks", "new_high_stocks"):
+                for index, stock in enumerate(candidate["market_evidence"][field_name]):
+                    for field in (
+                        "stock_name",
+                        "stock_ts_code",
+                        "pct_chg",
+                        "amount",
+                        "high_status_label",
+                        "high_label",
+                    ):
+                        ThemeRadarService._add_lineage(
+                            candidate,
+                            f"{field_name}.{index}.{field}",
+                            stock,
+                            field,
+                        )
             if signal.get("new_high_cluster_score"):
                 ThemeRadarService._add_score(
                     candidate,
@@ -330,7 +541,19 @@ class ThemeRadarService:
     def _finalize_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
         candidate["priority_score"] = round(float(candidate.get("priority_score") or 0), 2)
         candidate["score_detail"] = sorted(candidate.get("score_detail", []), key=lambda row: -float(row.get("score") or 0))
+        ThemeRadarService._strip_source_meta(candidate.get("market_evidence"))
         return candidate
+
+    @staticmethod
+    def _strip_source_meta(value: Any) -> None:
+        if isinstance(value, dict):
+            value.pop("_source_meta", None)
+            value.pop("_source_fields", None)
+            for item in value.values():
+                ThemeRadarService._strip_source_meta(item)
+        elif isinstance(value, list):
+            for item in value:
+                ThemeRadarService._strip_source_meta(item)
 
     @staticmethod
     def _candidate_tiers(candidates: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
