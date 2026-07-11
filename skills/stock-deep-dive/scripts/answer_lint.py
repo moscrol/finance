@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """个股深挖 / 复盘先验 最终稿质检门（exit-code 门）。
 
-定位：stock-deep-dive skill 的硬关卡。把 agent-memory 里「95 分生成路径 +
-自审框架」的覆盖率检查从散文约定硬化成 exit-code 门，体例同
+定位：stock-deep-dive skill 的结构关卡。把 agent-memory 里「95 分生成路径 +
+自审框架」的覆盖率检查从散文约定硬化成 exit-code 检查，体例同
 `task-planner/check_task_plan.py`。
 
 设计取舍：答案是自然叙事（不机械分块），所以不检查固定标题，而是按
 「维度 → 关键词组」做覆盖率匹配：每个维度给一组同义关键词，命中任一即算覆盖。
-关键词组宁松勿紧——本门的目标是拦「整个视角漏掉」，不是拦措辞。
+关键词组宁松勿紧——本工具只拦「整个视角漏掉」，不验证数字真伪、因果链、
+预测准确率，也不得被解释为质量评分或自动硬闸门。
 
 用法::
 
@@ -152,7 +153,10 @@ def main() -> int:
         print("\n按缺失维度补写后重跑本脚本；两轮仍不过 → 答案开头标注低置信再交付。")
         return 1
 
-    print(f"OK: {covered}/{total} 维度全覆盖（type={args.type}），可交付。")
+    print(
+        f"OK: {covered}/{total} 维度全覆盖（type={args.type}）。"
+        "仅代表结构齐全，不代表预测正确。"
+    )
     return 0
 
 

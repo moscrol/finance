@@ -54,17 +54,17 @@ def build_sample_db(db_path: Path) -> None:
 
         # 板块逐日：06-02/03/04 连续双红（streak 1→3），06-04 多周期共振；06-05 断；06-09 再启动
         sector_rows = [
-            ("2026-06-02", 1.2, 0.15, False),
-            ("2026-06-03", 2.0, 0.30, False),
-            ("2026-06-04", 1.8, 0.20, True),
-            ("2026-06-05", -0.5, -0.10, False),
-            ("2026-06-09", 1.0, 0.10, False),
+            ("2026-06-02", 1.2, 15.0, False),
+            ("2026-06-03", 2.0, 30.0, False),
+            ("2026-06-04", 1.8, 20.0, True),
+            ("2026-06-05", -0.5, -10.0, False),
+            ("2026-06-09", 1.0, 12.0, False),
         ]
         for d, pct, diff, mpr in sector_rows:
             con.execute(
                 "INSERT INTO fact_sector_daily (trade_date, sector_ts_code, sector_name, pct_chg, amount, diff_ratio, multi_period_resonance) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [d, SECTOR_CODE, SECTOR_NAME, pct, 100.0, diff, mpr],
+                [d, SECTOR_CODE, SECTOR_NAME, pct, 600.0, diff, mpr],
             )
 
         # 涨停热度：峰值在 06-04（5 家）

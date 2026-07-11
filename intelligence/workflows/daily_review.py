@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from intelligence import userspace
 from intelligence.paths import ProjectPaths, default_paths, vector_index_dir_for
 from intelligence.runner import run_command_step
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
+from scripts.notify_feishu import send_alert
 
 
 @dataclass(frozen=True)
@@ -13,6 +16,7 @@ class CommandSpec:
     name: str
     argv: list[str]
     outputs: list[str]
+    timeout_sec: float | None = None
 
     @property
     def command_line(self) -> str:
@@ -22,6 +26,7 @@ class CommandSpec:
 @dataclass(frozen=True)
 class DailyReviewOptions:
     date: str
+    user: str | None = None
     skip_sync: bool = False
     skip_long: bool = False
     skip_theme: bool = False
@@ -34,6 +39,13 @@ class DailyReviewOptions:
     only_step: str | None = None
     continue_on_warn: bool = False
     kb_wiki: str | Path | None = None
+    step_timeout_sec: float = 1800
+    alerts_enabled: bool = True
+    alert_on_warn: bool = False
+
+    def __post_init__(self) -> None:
+        if self.step_timeout_sec <= 0:
+            raise ValueError("step_timeout_sec must be positive")
 
 
 def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | None = None) -> list[CommandSpec]:
@@ -57,11 +69,43 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             name="preflight-db-lock",
             argv=["python3", "scripts/check_db_lock.py"],
             outputs=[],
+            timeout_sec=30,
         ))
         argv = ["python3", "-m", "market_feature_store.cli", "daily-update", "--trade-date", date]
         if options.skip_long:
             argv.append("--skip-long")
+        argv.extend([
+            "--status-json",
+            str(paths.finance_root / "skills" / "daily-full-review" / "state" / f"daily-update-{date}.json"),
+        ])
         plan.append(CommandSpec(name="daily-update", argv=argv, outputs=[]))
+
+    plan.append(CommandSpec(
+        name="quality-gate",
+        argv=["python3", "scripts/check_daily_review_data.py", date, "--phase", "data"],
+        outputs=[],
+    ))
+
+    plan.append(CommandSpec(
+        name="cross-day-quality-gate",
+        argv=[
+            "python3", "-m", "market_feature_store.cli", "check-daily",
+            "--trade-date", date,
+            "--json", str(paths.finance_root / "skills" / "daily-full-review" / "state" / f"quality-{date}.json"),
+        ],
+        outputs=[],
+    ))
+
+    plan.append(CommandSpec(
+        name="export-increment",
+        argv=[
+            "python3",
+            "skills/daily-full-review/scripts/export_increment.py",
+            "--date",
+            date,
+        ],
+        outputs=[],
+    ))
 
     review_argv = ["python3", "-m", "market_feature_store.cli", "daily-review", "--trade-date", date]
     if options.start_date:
@@ -73,12 +117,6 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             str(exports / f"{date}-daily-review.md"),
             str(exports / f"{date}-advancers-ma5.png"),
         ],
-    ))
-
-    plan.append(CommandSpec(
-        name="quality-gate",
-        argv=["python3", "scripts/check_daily_review_data.py", date],
-        outputs=[],
     ))
 
     plan.append(CommandSpec(
@@ -227,18 +265,39 @@ def filter_plan(plan: list[CommandSpec], options: DailyReviewOptions) -> tuple[l
             return [], [f"unknown --from-step: {options.from_step}; allowed: {', '.join(step_names)}"]
         index = step_names.index(options.from_step)
         warnings.append(f"starting from step: {options.from_step}")
+        release_index = step_names.index("export-increment")
+        if index > release_index:
+            prerequisites = [
+                step
+                for step in plan
+                if step.name in {"quality-gate", "cross-day-quality-gate", "export-increment"}
+            ]
+            warnings.append("pre-report quality gates and export were prepended; downstream steps cannot bypass them")
+            return prerequisites + plan[index:], warnings
         return plan[index:], warnings
     if options.only_step:
         if options.only_step not in step_names:
             return [], [f"unknown --only-step: {options.only_step}; allowed: {', '.join(step_names)}"]
         warnings.append(f"running only step: {options.only_step}")
-        return [step for step in plan if step.name == options.only_step], warnings
+        index = step_names.index(options.only_step)
+        release_index = step_names.index("export-increment")
+        selected = [step for step in plan if step.name == options.only_step]
+        if index > release_index:
+            prerequisites = [
+                step
+                for step in plan
+                if step.name in {"quality-gate", "cross-day-quality-gate", "export-increment"}
+            ]
+            warnings.append("pre-report quality gates and export were prepended; downstream steps cannot bypass them")
+            return prerequisites + selected, warnings
+        return selected, warnings
     return plan, warnings
 
 
 def summary_inputs(options: DailyReviewOptions, dry_run: bool) -> dict:
     return {
         "date": options.date,
+        "user": options.user,
         "skip_sync": options.skip_sync,
         "skip_long": options.skip_long,
         "skip_theme": options.skip_theme,
@@ -250,6 +309,9 @@ def summary_inputs(options: DailyReviewOptions, dry_run: bool) -> dict:
         "only_step": options.only_step,
         "continue_on_warn": options.continue_on_warn,
         "kb_wiki": str(options.kb_wiki) if options.kb_wiki else None,
+        "step_timeout_sec": options.step_timeout_sec,
+        "alerts_enabled": options.alerts_enabled,
+        "alert_on_warn": options.alert_on_warn,
         "dry_run": dry_run,
     }
 
@@ -274,14 +336,61 @@ def can_downgrade_daily_update_failure(step: WorkflowStep, options: DailyReviewO
         return False
     if step.status != "FAIL":
         return False
-    combined_tail = "\n".join(step.stdout_tail + step.stderr_tail)
-    return "质检: OK" in combined_tail
+    structured = step.structured_result or {}
+    return structured.get("status") == "WARN" and structured.get("recoverable") is True
 
 
 def downgrade_daily_update_failure(step: WorkflowStep) -> None:
     step.status = "WARN"
-    step.warnings.append("daily-update returned non-zero but stdout_tail contains 质检: OK; downgraded by --continue-on-warn")
+    step.warnings.append("daily-update returned structured WARN status; downgraded by --continue-on-warn")
     step.errors = []
+
+
+def notify_daily_review(summary: WorkflowSummary, options: DailyReviewOptions) -> None:
+    should_alert = summary.status == "FAIL" or (
+        summary.status == "WARN" and options.alert_on_warn
+    )
+    if not options.alerts_enabled or not should_alert:
+        return
+    failed_steps = [step.name for step in summary.steps if step.status == "FAIL"]
+    warning_steps = [step.name for step in summary.steps if step.status == "WARN"]
+    parts = [
+        f"[daily-review {summary.status}] date={options.date}",
+        f"failed={','.join(failed_steps) or '-'}",
+        f"warn={','.join(warning_steps) or '-'}",
+    ]
+    if summary.errors:
+        parts.append(f"error={summary.errors[0]}")
+    if not send_alert(" | ".join(parts)):
+        summary.warnings.append("operational alert delivery failed")
+
+
+def record_daily_review_metrics(
+    summary: WorkflowSummary,
+    options: DailyReviewOptions,
+) -> None:
+    record = {
+        "ts": summary.finished_at or now_iso(),
+        "workflow_id": f"daily:{options.date}:{summary.started_at}",
+        "workflow": summary.workflow,
+        "date": options.date,
+        "status": summary.status,
+        "failed_steps": [
+            step.name for step in summary.steps if step.status == "FAIL"
+        ],
+        "duration_sec": round(
+            sum(step.duration_sec or 0 for step in summary.steps),
+            3,
+        ),
+        "degradations": list(summary.warnings),
+    }
+    path = userspace.user_space(options.user).root / "workflow_metrics.jsonl"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        summary.warnings.append(f"workflow metrics write failed: {exc}")
 
 
 def dry_run_daily_review(options: DailyReviewOptions, paths: ProjectPaths | None = None) -> WorkflowSummary:
@@ -317,7 +426,10 @@ def run_daily_review(options: DailyReviewOptions, paths: ProjectPaths | None = N
     base_plan = build_daily_review_plan(options, paths)
     plan, plan_messages = filter_plan(base_plan, options)
     if not plan and plan_messages:
-        return invalid_plan_summary(options, plan_messages, dry_run=False)
+        summary = invalid_plan_summary(options, plan_messages, dry_run=False)
+        notify_daily_review(summary, options)
+        record_daily_review_metrics(summary, options)
+        return summary
     summary = WorkflowSummary(
         workflow="daily",
         status="PASS",
@@ -337,7 +449,13 @@ def run_daily_review(options: DailyReviewOptions, paths: ProjectPaths | None = N
                 warnings=["skipped because a previous required step failed"],
             ))
             continue
-        result = run_command_step(step.name, step.argv, cwd=paths.finance_root, outputs=step.outputs)
+        result = run_command_step(
+            step.name,
+            step.argv,
+            cwd=paths.finance_root,
+            outputs=step.outputs,
+            timeout_sec=step.timeout_sec or options.step_timeout_sec,
+        )
         if can_downgrade_daily_update_failure(result, options):
             downgrade_daily_update_failure(result)
         summary.steps.append(result)
@@ -357,4 +475,6 @@ def run_daily_review(options: DailyReviewOptions, paths: ProjectPaths | None = N
         summary.finish("WARN")
     else:
         summary.finish("PASS")
+    notify_daily_review(summary, options)
+    record_daily_review_metrics(summary, options)
     return summary

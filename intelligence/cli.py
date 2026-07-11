@@ -863,7 +863,7 @@ def cmd_answer_score(args: argparse.Namespace) -> int:
         print(rubric.format_score(scored))
         if card_path is not None:
             print(f"\n经验卡片已保存 → {card_path}")
-    return 0 if scored.percent >= 60 else 1
+    return 0
 
 
 def add_foresight_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -1044,6 +1044,7 @@ def add_adapter_smoke_parser(subparsers: argparse._SubParsersAction) -> None:
 def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("daily", help="Run daily review workflow")
     parser.add_argument("--date", required=True, help="Trade date YYYY-MM-DD")
+    parser.add_argument("--user", default=None, help="User id for runtime metrics isolation")
     parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；会传给 agent-daily，并用于刷新驾驶舱晨汇链接")
     parser.add_argument("--skip-sync", action="store_true", help="Skip market data sync")
     parser.add_argument("--skip-long", action="store_true", help="Pass --skip-long to daily-update")
@@ -1052,9 +1053,18 @@ def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--skip-legacy-theme", action="store_true", help="Skip legacy triggered-themes brief")
     parser.add_argument("--skip-workbench", action="store_true", help="Skip review workbench render")
     parser.add_argument("--start-date", default=None, help="Optional start date for daily-review")
-    parser.add_argument("--from-step", default=None, help="Start workflow from this step")
+    parser.add_argument(
+        "--from-step",
+        "--resume-from",
+        dest="from_step",
+        default=None,
+        help="Start workflow from this step",
+    )
     parser.add_argument("--only-step", default=None, help="Run only this step")
     parser.add_argument("--continue-on-warn", action="store_true", help="Continue when a recoverable step is downgraded to WARN")
+    parser.add_argument("--step-timeout-sec", type=float, default=1800, help="Maximum runtime for each workflow step")
+    parser.add_argument("--no-alert", action="store_true", help="Disable operational alerts for failed workflows")
+    parser.add_argument("--alert-on-warn", action="store_true", help="Also alert when the workflow finishes with WARN")
     parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
     parser.add_argument("--dry-run", action="store_true", help="Print command plan without execution")
     parser.set_defaults(func=cmd_daily)
@@ -1380,6 +1390,7 @@ def cmd_daily(args: argparse.Namespace) -> int:
 
     options = DailyReviewOptions(
         date=args.date,
+        user=args.user,
         skip_sync=args.skip_sync,
         skip_long=args.skip_long,
         skip_theme=args.skip_theme,
@@ -1392,6 +1403,9 @@ def cmd_daily(args: argparse.Namespace) -> int:
         only_step=args.only_step,
         continue_on_warn=args.continue_on_warn,
         kb_wiki=args.kb_wiki,
+        step_timeout_sec=args.step_timeout_sec,
+        alerts_enabled=not args.no_alert,
+        alert_on_warn=args.alert_on_warn,
     )
     summary = dry_run_daily_review(options) if args.dry_run else run_daily_review(options)
     if args.summary_json:

@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from intelligence.services.ask_clarify import clarify_for_query
 from intelligence.services.path_registry import PathSpec, load_registry
 
 
@@ -22,9 +23,6 @@ DATA_GAP_TRIGGERS = (
     "缺", "missing", "没有source", "没source", "没有 raw", "没 raw", "没有raw",
     "没进库", "未入库", "补库", "补齐", "查漏补缺", "trace", "可追溯",
 )
-CLARIFY_TRIGGERS = ("随便", "帮我看看", "分析一下", "看看")
-
-
 @dataclass(frozen=True)
 class RoutePath:
     id: str
@@ -125,6 +123,16 @@ def route_question(query: str, registry: list[PathSpec] | None = None) -> RouteD
             plan_steps=["请补充你要分析的题材、个股、日期或材料类型。"],
         )
 
+    clarify = clarify_for_query(raw_query)
+    if clarify.needs_clarification:
+        return RouteDecision(
+            query=raw_query,
+            route_type=ROUTE_CLARIFICATION,
+            confidence=0.5,
+            plan_steps=clarify.summary_lines(),
+            next_action="ask_user_to_clarify",
+        )
+
     matched: list[RoutePath] = []
     for spec in specs:
         hits = trigger_hits(raw_query, spec)
@@ -221,15 +229,6 @@ def route_question(query: str, registry: list[PathSpec] | None = None) -> RouteD
             plan_steps=["命中已知路径，但意图不够强；建议先输出 dry-run 计划。"],
             next_action=f"preview:{matched[0].id}",
             warnings=["weak intent; route with caution"],
-        )
-
-    if any(token == raw_query for token in CLARIFY_TRIGGERS):
-        return RouteDecision(
-            query=raw_query,
-            route_type=ROUTE_CLARIFICATION,
-            confidence=0.5,
-            plan_steps=["请用户补充题材/个股/日期/材料类型。"],
-            next_action="ask_user_to_clarify",
         )
 
     return RouteDecision(

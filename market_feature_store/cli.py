@@ -5,11 +5,22 @@
     python3 -m market_feature_store.cli info    # 查看库内表与行数
 """
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from . import __version__
 from .db import DB_PATH, connect, init_db, list_tables
+
+
+def _write_status_json(path: str | None, payload: dict[str, object]) -> None:
+    if not path:
+        return
+    target = Path(path).expanduser()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_suffix(target.suffix + ".tmp")
+    temp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temp.replace(target)
 
 
 def cmd_init(_args) -> int:
@@ -482,7 +493,18 @@ def cmd_daily_update(args) -> int:
     for t in v["tables"]:
         status = "OK" if t["ok"] else "MISS"
         print(f"  [{status}] {t['table']} max={t['max_date']} rows={t['rows']}")
-    return 0 if result["ok"] else 1
+    failed_steps = [step["name"] for step in result["steps"] if not step["ok"]]
+    validation_ok = bool(v["ok"])
+    structured_status = "PASS" if result["ok"] else ("WARN" if validation_ok else "FAIL")
+    _write_status_json(args.status_json, {
+        "status": structured_status,
+        "ok": bool(result["ok"]),
+        "validation_ok": validation_ok,
+        "recoverable": structured_status == "WARN",
+        "failed_steps": failed_steps,
+        "trade_date": str(result["trade_date"]),
+    })
+    return 0 if result["ok"] else (1 if validation_ok else 2)
 
 
 def cmd_daily_review(args) -> int:
@@ -516,9 +538,14 @@ def cmd_daily_full(args) -> int:
         print(f"[{status}] {step['name']}")
         if not step["ok"]:
             print(f"  {step['error']}")
-    print(f"报告: {result['review']['output_path']}")
-    if result["review"].get("chart_path"):
-        print(f"图表: {result['review']['chart_path']}")
+    cross_day = result["cross_day_gate"]
+    print(f"跨日质检: {'OK' if cross_day['ok'] else 'FAIL'} | {cross_day['brief']}")
+    if result["review"]:
+        print(f"报告: {result['review']['output_path']}")
+        if result["review"].get("chart_path"):
+            print(f"图表: {result['review']['chart_path']}")
+    else:
+        print("报告: 未生成（质量门未通过）")
     return 0 if result["ok"] else 1
 
 
@@ -1012,6 +1039,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_du.add_argument("--no-chart", action="store_true", help="不生成/同步涨家数 MA5 图")
     p_du.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot",
                       help="全A日线取数: snapshot=东财快照(默认,快); mootdx=通达信逐只(慢,可拉历史)")
+    p_du.add_argument("--status-json", default=None, help="写出结构化执行状态，供上层编排判断 PASS/WARN/FAIL")
     p_du.set_defaults(func=cmd_daily_update)
 
     p_dr = sub.add_parser("daily-review", help="从 DuckDB 生成完整每日复盘 Markdown")

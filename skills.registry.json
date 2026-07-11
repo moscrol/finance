@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-07-10T08:39:47Z",
+  "generated_at": "2026-07-10T17:14:59Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -434,7 +434,7 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/stock-deep-dive/SKILL.md",
-      "description": "个股深挖 / 复盘先验（行情前瞻）的输出契约与质检门——把 agent-memory 中「95 分生成路径 + 自审框架 + 编排层」固化成当次必读的运行时指令：先注入确定性数据块（D1 市场价值/D2 证据硬度/D3 二阶导队列），按十二视角生成叙事，最终稿必须过 answer_lint.py（exit 0）才能交付。触发词：个股深挖、深挖、深度分析个股、这只股怎么看、复盘先验、行情前瞻、明日研判、次日研判、前瞻研判。",
+      "description": "个股深挖 / 复盘先验（行情前瞻）的输出契约与结构质检——先注入确定性数据块（D1 市场价值/D2 证据硬度/D3 二阶导队列），再用 answer_lint.py 拦截整段缺失。lint 只检查结构，不代表预测质量，不得当评分裁判。触发词：个股深挖、深挖、深度分析个股、这只股怎么看、复盘先验、行情前瞻、明日研判、次日研判、前瞻研判。",
       "triggers": [
         "个股深挖",
         "深挖",
@@ -448,7 +448,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:14af3b4eeadc022efd5a64ac691a13cf573dad28cb6fafcbff8f758864e2fe1a",
+      "computedHash": "sha256:085bfe8f349e6c65454387fe32248ce8355b675e0bdc44d27b6cb01d3594d7d3",
       "agentOnly": false,
       "views": []
     },

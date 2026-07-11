@@ -8,6 +8,7 @@ import json
 from collections import Counter, defaultdict
 
 from .db import connect
+from .signals import DOUBLE_RED_SQL
 
 
 def _latest_date(con, table: str):
@@ -474,13 +475,13 @@ def strong_subtheme_trace(start_date: str | None = None, end_date: str | None = 
         start = dates[0]
         end = dates[-1]
         double_rows = con.execute(
-            """
+            f"""
             WITH filtered AS (
                 SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, diff_ratio, amount,
                        ROW_NUMBER() OVER (PARTITION BY sector_ts_code ORDER BY trade_date) AS rn
                 FROM fact_sector_daily
                 WHERE trade_date >= ? AND trade_date <= ?
-                  AND pct_chg > 0 AND diff_ratio > 10 AND amount > 500
+                  AND {DOUBLE_RED_SQL}
             )
             SELECT trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, diff_ratio, amount
             FROM filtered
