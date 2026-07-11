@@ -10,13 +10,22 @@ from intelligence.eval.gold_review import (
     HUMAN_APPROVAL_CONFIRMATION,
     approve_consensus,
     build_consensus_candidate,
+    build_gold_candidate_from_sample_batch,
     build_review_template,
+    collect_claim_review_samples,
     render_review_summary,
     review_completion,
     reviewer_agreement,
     select_stratified_review_dates,
+    validate_claim_review_batch,
     write_json,
 )
+from intelligence.services.fidelity_contract import (
+    build_claim_manifest_metadata,
+    report_manifest_payload,
+    seal_artifact,
+)
+from intelligence.tests.test_fidelity_contract import _valid_report
 
 
 def _candidate() -> dict[str, object]:
@@ -56,6 +65,52 @@ def _completed_review(
     return review
 
 
+def _report_with_claims(count: int) -> dict[str, object]:
+    report = _valid_report()
+    claims = [
+        claim
+        for claim in report["claims"]
+        if claim["manifest_scope"] == "public_narrative"
+    ]
+    for index in range(count):
+        claims.append(
+            {
+                "claim_id": f"sample-claim-{index}",
+                "manifest_scope": "evidence_fact",
+                "text": f"样本声明 {index}",
+                "text_span": f"样本声明 {index}",
+                "claim_type": (
+                    "number"
+                    if index % 4 == 0
+                    else (
+                        "classification"
+                        if index % 4 == 1
+                        else "fact"
+                    )
+                ),
+                "expected_type": "factual_statement",
+                "subject": f"主题{index % 7}",
+                "predicate": "测试",
+                "value": index,
+                "valid_time": "2026-07-10",
+                "evidence_refs": ["ev-1"] if index % 2 else [],
+            }
+        )
+    report["claims"] = claims
+    report["claim_manifest"] = build_claim_manifest_metadata(report, claims)
+    seal_artifact(
+        report,
+        artifact_kind="daily-agent",
+        report_date="2026-07-10",
+        generator_commit="a" * 40,
+        snapshot_captured_at=report["snapshot_captured_at"],
+        report_generated_at=report["report_generated_at"],
+        manifest_payload=report_manifest_payload(report),
+        run_id=report["run_id"],
+    )
+    return report
+
+
 class GoldReviewTests(unittest.TestCase):
     def test_review_template_never_auto_approves(self) -> None:
         review = build_review_template(_candidate(), reviewer="reviewer-a")
@@ -72,6 +127,15 @@ class GoldReviewTests(unittest.TestCase):
         self.assertEqual(agreement["value"], 0.875)
         self.assertTrue(agreement["target_met"])
         self.assertEqual(len(agreement["disagreements"]), 1)
+        self.assertIsNotNone(
+            agreement["by_field"]["entity_classification"]["kappa"]
+        )
+
+    def test_same_reviewer_is_not_independent_review(self) -> None:
+        left = _completed_review("reviewer-a")
+        right = _completed_review("reviewer-a")
+        with self.assertRaises(ValueError):
+            reviewer_agreement(left, right)
 
     def test_disagreement_requires_adjudication_before_approval(self) -> None:
         consensus = build_consensus_candidate(
@@ -176,6 +240,76 @@ class GoldReviewTests(unittest.TestCase):
         self.assertEqual(summary["paired_report_count"], 1)
         self.assertEqual(summary["agreement"]["value"], 1.0)
         self.assertIn("Gold 人工审核工作台", html)
+
+    def test_claim_sampling_builds_blind_review_batch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            reports = []
+            for index, count in enumerate((90, 90, 90)):
+                path = root / f"2026-07-{10 + index}-daily-agent.json"
+                write_json(
+                    path,
+                    _report_with_claims(count),
+                    protect_approved=False,
+                )
+                reports.append(path)
+
+            batch = collect_claim_review_samples(
+                reports,
+                target_count=150,
+                seed="unit-test-seed",
+            )
+            again = collect_claim_review_samples(
+                list(reversed(reports)),
+                target_count=150,
+                seed="unit-test-seed",
+            )
+
+            self.assertEqual(batch["status"], "sampling_ready")
+            self.assertEqual(batch["selected_count"], 150)
+            self.assertEqual(batch["batch_sha256"], again["batch_sha256"])
+            self.assertGreater(len(batch["strata"]), 1)
+            self.assertFalse(validate_claim_review_batch(batch))
+
+            candidate = build_gold_candidate_from_sample_batch(batch)
+            review = build_review_template(candidate, reviewer="reviewer-a")
+
+            self.assertEqual(review["review_status"], "in_review")
+            self.assertEqual(len(review["claims"]), 150)
+            self.assertEqual(
+                review["source_batch_sha256"],
+                batch["batch_sha256"],
+            )
+            self.assertEqual(
+                len(review["sample_metadata"]),
+                150,
+            )
+            self.assertIn(
+                "independently",
+                review["instructions"]["blind_review_protocol"],
+            )
+
+    def test_claim_sampling_flags_insufficient_forward_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "2026-07-10-daily-agent.json"
+            write_json(
+                path,
+                _report_with_claims(5),
+                protect_approved=False,
+            )
+
+            batch = collect_claim_review_samples(
+                [path],
+                target_count=150,
+            )
+
+            self.assertEqual(batch["status"], "insufficient_forward_claims")
+            self.assertIn(
+                "selected_count is below 150",
+                validate_claim_review_batch(batch),
+            )
+            with self.assertRaises(ValueError):
+                build_gold_candidate_from_sample_batch(batch)
 
 
 if __name__ == "__main__":

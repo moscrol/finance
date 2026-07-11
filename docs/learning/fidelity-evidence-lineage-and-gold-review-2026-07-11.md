@@ -93,6 +93,68 @@ python3 scripts/gold_review_workbench.py select \
 4. 显式批准；
 5. 确认不可验证项未被算作通过。
 
+## P4-D：150–300 条 claim 分层抽样
+
+P4-D 不再只抽“日期”，而是从 P4-B/P4-C 之后的 forward daily-agent
+claim manifest 中抽“声明”。当前先把工具和审核协议固定下来；7/13–7/17
+真实 forward artifacts 出来后再填首批样本。
+
+推荐命令：
+
+```bash
+python3 scripts/gold_review_workbench.py sample-claims \
+  --reports 'market_feature_store/exports/*-daily-agent.json' \
+  --target-count 200 \
+  --seed fidelity-gold-review-v1 \
+  --out gold-review-claim-batch.json
+
+python3 scripts/gold_review_workbench.py validate-batch \
+  --batch gold-review-claim-batch.json
+
+python3 scripts/gold_review_workbench.py init-batch-review \
+  --batch gold-review-claim-batch.json \
+  --reviewer reviewer-a \
+  --out gold-review.reviewer-a.json
+
+python3 scripts/gold_review_workbench.py init-batch-review \
+  --batch gold-review-claim-batch.json \
+  --reviewer reviewer-b \
+  --out gold-review.reviewer-b.json
+```
+
+抽样规则是 deterministic 的：
+
+```text
+valid fidelity-contract daily-agent reports
+  -> bucket(public/evidence scope, manifest_scope, claim_type, evidence coverage)
+  -> hash-order within each stratum by seed
+  -> sorted-stratum round-robin until 150–300 target_count
+```
+
+这样能避免被海量 public narrative 或单一数字 claim 淹没。`batch_sha256`
+封住样本集；改 seed、claim 内容、report hash 或样本顺序都会改变 batch hash。
+
+样本不足 150 时 batch 状态为 `insufficient_forward_claims`，不能初始化 Gold
+review，也不能作为 decision evidence。这正是当前阶段的预期：工具先就绪，
+等 forward claims 足量后再开始双人独立审核。
+
+双盲纪律：
+
+- reviewer-a / reviewer-b 分别拿各自 JSON；
+- 未完成前不得读取对方 review 或 consensus；
+- 两个 reviewer 名必须不同；
+- `summary` 会输出逐字段一致率和 Cohen's kappa；
+- 有任何分歧时 consensus 保持 `needs_review`，必须人工裁决；
+- `pending`、`unverifiable`、`needs_review` 都不算通过。
+
+目标口径：
+
+- 首批 claim 样本：150–300 条，推荐 200；
+- 双人一致率：先用 `>= 0.80` 作为最低门槛；
+- 不可验证项单独统计，不允许混入通过率；
+- 仍保持 `decision_eligible=false`，直到 10–20 个前向交易日、replay 通过率、
+  claim coverage、Gold 审核一致率全部达标。
+
 ## 技术选型对比
 
 | 方案 | 优点 | 缺点 | 结论 |
