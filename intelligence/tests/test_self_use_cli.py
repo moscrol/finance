@@ -181,6 +181,25 @@ def test_status_os_error_returns_two_and_writes_stderr(
     assert "simulated read failure" in captured.err
 
 
+def test_record_invalid_date_returns_two_and_writes_stderr(tmp_path, capsys) -> None:
+    args = _record_args(tmp_path / "events.jsonl")
+    args[args.index("2026-07-11")] = "not-a-date"
+
+    assert cli.main(args) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "self-use record failed: invalid trade_date" in captured.err
+
+
+def test_explicit_ledger_expands_user_home(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    assert cli.main(_record_args("~/self-use/events.jsonl")) == 0
+    capsys.readouterr()
+
+    assert (tmp_path / "self-use" / "events.jsonl").exists()
+
+
 def test_default_ledger_uses_user_space_root(tmp_path, monkeypatch, capsys) -> None:
     root = tmp_path / "private-user"
     seen: list[str | None] = []

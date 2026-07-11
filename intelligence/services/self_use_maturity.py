@@ -33,6 +33,7 @@ WORKFLOWS: frozenset[str] = frozenset(
     }
 )
 OUTCOMES: frozenset[str] = frozenset({"success", "degraded", "failed"})
+MINIMUM_TRADE_DATES = 10
 
 
 def _now_iso() -> str:
@@ -149,7 +150,7 @@ def evaluate_maturity(
     }
 
     blockers: list[str] = []
-    if len(trade_dates) < 10:
+    if len(trade_dates) < MINIMUM_TRADE_DATES:
         blockers.append("minimum_trade_dates")
     if set(covered_workflows) != WORKFLOWS:
         blockers.append("missing_workflows")

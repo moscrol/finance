@@ -2489,7 +2489,7 @@ def cmd_checkpoint_status(args: argparse.Namespace) -> int:
 
 def _self_use_ledger_path(args: argparse.Namespace) -> Path:
     if args.ledger:
-        return Path(args.ledger)
+        return Path(args.ledger).expanduser()
 
     from intelligence import userspace
 
@@ -2525,7 +2525,12 @@ def cmd_self_use_record(args: argparse.Namespace) -> int:
 def cmd_self_use_status(args: argparse.Namespace) -> int:
     from dataclasses import asdict
 
-    from intelligence.services.self_use_maturity import SelfUseLedger, evaluate_maturity
+    from intelligence.services.self_use_maturity import (
+        MINIMUM_TRADE_DATES,
+        WORKFLOWS,
+        SelfUseLedger,
+        evaluate_maturity,
+    )
 
     try:
         events = SelfUseLedger(_self_use_ledger_path(args)).load()
@@ -2541,8 +2546,8 @@ def cmd_self_use_status(args: argparse.Namespace) -> int:
         workflows = metrics["covered_workflows"]
         blockers = ", ".join(result.blockers) if result.blockers else "none"
         print(
-            f"{metrics['distinct_trade_dates']}/10交易日 · "
-            f"workflow {len(workflows)}/5"
+            f"{metrics['distinct_trade_dates']}/{MINIMUM_TRADE_DATES}交易日 · "
+            f"workflow {len(workflows)}/{len(WORKFLOWS)}"
         )
         print(f"blockers: {blockers}")
         print(f"passed: {str(result.passed).lower()}")
@@ -2550,14 +2555,7 @@ def cmd_self_use_status(args: argparse.Namespace) -> int:
 
 
 def add_self_use_parser(subparsers: argparse._SubParsersAction) -> None:
-    workflows = (
-        "daily_market",
-        "theme_research",
-        "stock_research",
-        "news_impact",
-        "watchlist",
-    )
-    outcomes = ("success", "degraded", "failed")
+    from intelligence.services.self_use_maturity import OUTCOMES, WORKFLOWS
 
     parser = subparsers.add_parser(
         "self-use", help="Record and evaluate the private self-use maturity gate"
@@ -2568,8 +2566,8 @@ def add_self_use_parser(subparsers: argparse._SubParsersAction) -> None:
     record.add_argument("--user", default=None, help="User id for the default private ledger")
     record.add_argument("--ledger", default=None, help="Explicit ledger path for testing or diagnostics")
     record.add_argument("--date", required=True, help="Trading date in YYYY-MM-DD format")
-    record.add_argument("--workflow", required=True, choices=workflows)
-    record.add_argument("--outcome", required=True, choices=outcomes)
+    record.add_argument("--workflow", required=True, choices=sorted(WORKFLOWS))
+    record.add_argument("--outcome", required=True, choices=sorted(OUTCOMES))
     useful = record.add_mutually_exclusive_group(required=True)
     useful.add_argument("--useful", dest="useful", action="store_true")
     useful.add_argument("--not-useful", dest="useful", action="store_false")
