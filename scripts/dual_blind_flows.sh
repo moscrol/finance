@@ -5,7 +5,7 @@
 #       <date>.answer.<agent>.<source>.json → validate 收卷 → index 重建。
 # 冻结口径：与盘面流同一 manifest_sha（DuckDB 截止=前一交易日）；
 #   briefing 额外允许读当日晨汇产物；sellside 额外允许读视角日晚间 raw 研报。
-# 模型：codex 固定 -m gpt-5.4-mini（勿用默认 5.6）。
+# 模型：codex 固定 -m gpt-5.5（勿用 5.6 控额度；勿用 5.4 过弱）。
 set -uo pipefail
 
 WORKSPACE="/Users/a77/finance-workspace-private"
@@ -17,7 +17,7 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:/Users/
 
 CODEX_BIN="${CODEX_BIN:-/Applications/ChatGPT.app/Contents/Resources/codex}"
 CLAUDE_BIN="/Users/a77/.local/bin/claude"
-CODEX_DUAL_BLIND_MODEL="${CODEX_DUAL_BLIND_MODEL:-gpt-5.4-mini}"
+CODEX_DUAL_BLIND_MODEL="${CODEX_DUAL_BLIND_MODEL:-gpt-5.5}"
 LEDGER="docs/learning/forecast-review-ledger"
 
 SOURCE="${1:?用法: dual_blind_flows.sh <briefing|sellside> [date]}"

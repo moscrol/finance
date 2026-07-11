@@ -3,7 +3,7 @@
 # 链路：manifest 冻结（DuckDB 截止=库内最新交易日）→ codex / claude 双盲各落一份答卷 JSON
 #       → validate 收卷 → index 重建状态总表。
 # 双盲纪律：两考生互不可见（prompt 中禁止读对方答卷），对比/裁决归用户。
-# 模型：codex 固定 -m gpt-5.4-mini（勿用默认 5.6，控日额度）。
+# 模型：codex 固定 -m gpt-5.5（勿用 5.6 控额度；勿用 5.4 过弱）。
 set -uo pipefail
 
 WORKSPACE="/Users/a77/finance-workspace-private"
@@ -16,8 +16,8 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:/Users/
 # ChatGPT.app 内嵌 codex（旧 Codex.app 路径已失效）
 CODEX_BIN="${CODEX_BIN:-/Applications/ChatGPT.app/Contents/Resources/codex}"
 CLAUDE_BIN="/Users/a77/.local/bin/claude"
-# 双盲批跑专用轻量模型；可用环境变量覆盖，例如 CODEX_DUAL_BLIND_MODEL=gpt-5.4
-CODEX_DUAL_BLIND_MODEL="${CODEX_DUAL_BLIND_MODEL:-gpt-5.4-mini}"
+# 双盲批跑模型；可用环境变量覆盖，例如 CODEX_DUAL_BLIND_MODEL=gpt-5.4-mini
+CODEX_DUAL_BLIND_MODEL="${CODEX_DUAL_BLIND_MODEL:-gpt-5.5}"
 LEDGER="docs/learning/forecast-review-ledger"
 
 D="${1:-$(date +%F)}"
