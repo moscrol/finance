@@ -10,6 +10,18 @@ class Phase2SummaryTest(unittest.TestCase):
         summary = build_phase2_summary(
             selection={
                 "selected_count": 80,
+                "dates": [
+                    {
+                        "report_date": "2026-03-02",
+                        "report_status": "missing",
+                        "canonical_report_path": None,
+                    },
+                    {
+                        "report_date": "2026-06-02",
+                        "report_status": "registered",
+                        "canonical_report_path": "report.md",
+                    },
+                ],
                 "selected_strata": {
                     "report_status": {
                         "registered": 25,
@@ -36,6 +48,28 @@ class Phase2SummaryTest(unittest.TestCase):
                     "approved": 0,
                 },
                 "blocking_version_gap_dates": ["2026-03-02"],
+                "reports": [
+                    {
+                        "report_date": "2026-03-02",
+                        "status": "missing",
+                        "metrics": {
+                            "numeric_match_rate": {"checked": 0},
+                            "evidence_coverage_rate": {
+                                "denominator": 0
+                            },
+                        },
+                    },
+                    {
+                        "report_date": "2026-06-02",
+                        "status": "audited",
+                        "metrics": {
+                            "numeric_match_rate": {"checked": 10},
+                            "evidence_coverage_rate": {
+                                "denominator": 20
+                            },
+                        },
+                    },
+                ],
             },
             outcome_report={
                 "status_counts": {"ready": 80},
@@ -50,8 +84,23 @@ class Phase2SummaryTest(unittest.TestCase):
         )
         self.assertTrue(
             summary["negative_controls"][
-                "preserved_without_substitution"
+                "dates_preserved_without_substitution"
             ]
+        )
+        self.assertTrue(
+            summary["negative_controls"][
+                "denominator_isolation_passed"
+            ]
+        )
+        self.assertEqual(
+            summary["negative_controls"]["missing_report_dates"],
+            ["2026-03-02"],
+        )
+        self.assertEqual(
+            summary["negative_controls"][
+                "missing_report_denominator_contribution"
+            ]["numeric_match_rate"],
+            0,
         )
         self.assertTrue(summary["physical_isolation"]["passed"])
         self.assertFalse(summary["decision_eligible"])

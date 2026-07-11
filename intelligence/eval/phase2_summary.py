@@ -6,11 +6,120 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+FIDELITY_METRICS = (
+    "numeric_match_rate",
+    "entity_classification_accuracy",
+    "evidence_coverage_rate",
+    "cutoff_violation_rate",
+    "fact_inference_confusion_rate",
+)
+
 
 def read_json(path: str | Path) -> dict[str, object]:
     return json.loads(
         Path(path).expanduser().read_text(encoding="utf-8")
     )
+
+
+def _metric_denominator(metric: object) -> int:
+    if not isinstance(metric, dict):
+        return 0
+    return int(metric.get("denominator", metric.get("checked", 0)) or 0)
+
+
+def build_negative_control_summary(
+    *,
+    selection: dict[str, object],
+    claim_summary: dict[str, object],
+) -> dict[str, object]:
+    selected_rows = selection.get("dates")
+    selected_rows = selected_rows if isinstance(selected_rows, list) else []
+    selected_missing_dates = sorted(
+        str(row.get("report_date"))
+        for row in selected_rows
+        if isinstance(row, dict) and row.get("report_status") == "missing"
+    )
+    selected_registered_dates = sorted(
+        str(row.get("report_date"))
+        for row in selected_rows
+        if isinstance(row, dict)
+        and row.get("report_status") == "registered"
+    )
+    report_rows = claim_summary.get("reports")
+    report_rows = report_rows if isinstance(report_rows, list) else []
+    evaluated_missing = [
+        row
+        for row in report_rows
+        if isinstance(row, dict) and row.get("status") == "missing"
+    ]
+    evaluated_missing_dates = sorted(
+        str(row.get("report_date")) for row in evaluated_missing
+    )
+    denominator_contribution = {
+        name: sum(
+            _metric_denominator(
+                row.get("metrics", {}).get(name)
+                if isinstance(row.get("metrics"), dict)
+                else None
+            )
+            for row in evaluated_missing
+        )
+        for name in FIDELITY_METRICS
+    }
+    strata = selection.get("selected_strata")
+    report_status = (
+        strata.get("report_status")
+        if isinstance(strata, dict)
+        else {}
+    )
+    selected_missing_count = (
+        len(selected_missing_dates)
+        if selected_rows
+        else int(report_status.get("missing", 0))
+        if isinstance(report_status, dict)
+        else 0
+    )
+    selected_registered_count = (
+        len(selected_registered_dates)
+        if selected_rows
+        else int(report_status.get("registered", 0))
+        if isinstance(report_status, dict)
+        else 0
+    )
+    claim_statuses = claim_summary.get("report_status_counts")
+    evaluated_missing_count = (
+        len(evaluated_missing_dates)
+        if report_rows
+        else int(claim_statuses.get("missing", 0))
+        if isinstance(claim_statuses, dict)
+        else 0
+    )
+    dates_match = (
+        selected_missing_dates == evaluated_missing_dates
+        if selected_rows and report_rows
+        else selected_missing_count == evaluated_missing_count
+    )
+    denominator_isolation = all(
+        value == 0 for value in denominator_contribution.values()
+    )
+    return {
+        "schema_version": "fidelity-negative-controls-1.0",
+        "control_type": "report_availability",
+        "selected_trading_dates": selection.get("selected_count"),
+        "registered_canonical_report_count": selected_registered_count,
+        "missing_report_count": selected_missing_count,
+        "missing_report_dates": selected_missing_dates,
+        "claim_evaluator_missing_report_count": evaluated_missing_count,
+        "claim_evaluator_missing_report_dates": evaluated_missing_dates,
+        "dates_preserved_without_substitution": dates_match,
+        "substitution_allowed": False,
+        "fidelity_metric_denominator_scope": (
+            "registered exact-date canonical reports only"
+        ),
+        "missing_report_denominator_contribution": denominator_contribution,
+        "denominator_isolation_passed": denominator_isolation,
+        "passed": dates_match and denominator_isolation,
+    }
 
 
 def build_phase2_summary(
@@ -22,21 +131,9 @@ def build_phase2_summary(
     comparison_report: dict[str, object],
 ) -> dict[str, object]:
     selected_strata = selection.get("selected_strata")
-    report_strata = (
-        selected_strata.get("report_status")
-        if isinstance(selected_strata, dict)
-        else {}
-    )
-    negative_controls = (
-        int(report_strata.get("missing", 0))
-        if isinstance(report_strata, dict)
-        else 0
-    )
-    claim_statuses = claim_summary.get("report_status_counts")
-    preserved_missing = (
-        int(claim_statuses.get("missing", 0))
-        if isinstance(claim_statuses, dict)
-        else 0
+    negative_control_summary = build_negative_control_summary(
+        selection=selection,
+        claim_summary=claim_summary,
     )
     input_isolation = input_report.get("output_isolation")
     outcome_isolation = outcome_report.get("output_isolation")
@@ -63,13 +160,7 @@ def build_phase2_summary(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "selected_count": selection.get("selected_count"),
         "selected_strata": selected_strata,
-        "negative_controls": {
-            "selected_missing_reports": negative_controls,
-            "claim_evaluator_missing_reports": preserved_missing,
-            "preserved_without_substitution": (
-                negative_controls == preserved_missing
-            ),
-        },
+        "negative_controls": negative_control_summary,
         "current_state_metrics": claim_summary.get("metrics"),
         "historical_replay_metrics": claim_summary.get(
             "historical_replay"
@@ -134,7 +225,7 @@ def render_phase2_summary(summary: dict[str, object]) -> str:
     gates = summary["gates"]
     negative_status = (
         "未替换"
-        if negatives["preserved_without_substitution"]
+        if negatives["dates_preserved_without_substitution"]
         else "异常"
     )
     lines = [
@@ -172,9 +263,14 @@ def render_phase2_summary(summary: dict[str, object]) -> str:
             ),
             (
                 "- 无报告负对照："
-                f"{negatives['selected_missing_reports']} "
+                f"{negatives['missing_report_count']} "
                 "个；"
                 f"{negative_status}"
+            ),
+            (
+                "- 负对照分母隔离："
+                f"{'通过' if negatives['denominator_isolation_passed'] else '失败'}；"
+                "只对 exact-date canonical reports 计算忠实度。"
             ),
             (
                 "- approved gold："

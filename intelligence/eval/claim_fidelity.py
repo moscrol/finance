@@ -91,6 +91,14 @@ INFERRED_NUMERIC_SOURCES = {
         None,
     ),
 }
+REPORT_NUMERIC_SOURCE_CONTRACTS = {
+    "20d-plus-new-highs": {
+        "涨幅%": ("fact_stock_high_daily", "pct_chg", "%"),
+        "10日涨幅%": ("fact_stock_high_daily", "pct_chg_10d", "%"),
+        "成交额(亿)": ("fact_stock_high_daily", "amount", "亿"),
+        "市值(亿)": ("fact_stock_high_daily", "market_cap", "亿"),
+    },
+}
 FIXED_PILOT_DATES = (
     "2026-03-06",
     "2026-04-23",
@@ -1017,7 +1025,20 @@ def _inferred_source_ref(
     claim: dict[str, object],
 ) -> dict[str, object] | None:
     predicate = str(claim.get("predicate") or "").strip()
-    mapping = INFERRED_NUMERIC_SOURCES.get(predicate)
+    report_path = str(claim.get("report_path") or "")
+    report_contract = next(
+        (
+            (name, contract)
+            for name, contract in REPORT_NUMERIC_SOURCE_CONTRACTS.items()
+            if name in report_path
+        ),
+        None,
+    )
+    mapping = (
+        report_contract[1].get(predicate)
+        if report_contract is not None
+        else None
+    ) or INFERRED_NUMERIC_SOURCES.get(predicate)
     if mapping is None or claim.get("claim_type") != "number":
         return None
     table, field, source_unit = mapping
@@ -1037,16 +1058,18 @@ def _inferred_source_ref(
         or claim.get("report_date")
         or ""
     )[:10]
-    return {
+    source_ref = {
         "scope": "inferred",
         "source": table,
         "field": field,
         "entity": subject,
         "valid_time": valid_time,
-        "source_time": valid_time,
         "source_unit": source_unit,
         "rounding_decimals": 2,
     }
+    if report_contract is not None:
+        source_ref["report_source_contract"] = report_contract[0]
+    return source_ref
 
 
 def _entity_matches(row: dict[str, object], entity: str) -> bool:
@@ -1075,7 +1098,7 @@ def _entity_matches(row: dict[str, object], entity: str) -> bool:
 def _find_snapshot_value(
     snapshot: dict[str, object],
     evidence: dict[str, object],
-) -> tuple[str, object, str]:
+) -> tuple[str, object, str, dict[str, object] | None]:
     table = str(evidence.get("table") or evidence.get("source") or "")
     field = str(evidence.get("field") or "")
     entity = str(evidence.get("entity") or "")
@@ -1086,7 +1109,12 @@ def _find_snapshot_value(
         or ""
     )[:10]
     if not table or not field or not source_date:
-        return "unverifiable", None, "evidence 缺 table/field/valid_time"
+        return (
+            "unverifiable",
+            None,
+            "evidence 缺 table/field/valid_time",
+            None,
+        )
     rows = [
         row
         for row in _snapshot_rows(snapshot, table)
@@ -1095,10 +1123,28 @@ def _find_snapshot_value(
         and _entity_matches(row, entity)
     ]
     if len(rows) != 1:
-        return "unverifiable", None, f"冻结快照源行数量={len(rows)}"
+        return (
+            "unverifiable",
+            None,
+            f"冻结快照源行数量={len(rows)}",
+            None,
+        )
     if field not in rows[0]:
-        return "unverifiable", None, f"冻结快照缺字段 {field}"
-    return "matched", rows[0][field], ""
+        return "unverifiable", None, f"冻结快照缺字段 {field}", rows[0]
+    return "matched", rows[0][field], "", rows[0]
+
+
+def _snapshot_row_source_time(row: dict[str, object]) -> str | None:
+    pit = row.get("_pit")
+    if isinstance(pit, dict):
+        value = pit.get("known_at") or pit.get("source_time")
+        if value:
+            return str(value)
+    for key in ("known_at", "updated_at", "source_time"):
+        value = row.get(key)
+        if value:
+            return str(value)
+    return None
 
 
 def _single_source_ref(claim: dict[str, object]) -> dict[str, object] | None:
@@ -1135,18 +1181,19 @@ def verify_claim(
     if inferred:
         result["verification_source"] = source_ref
         result["verification_method"] = "deterministic_inferred_mapping"
-    source_time = _source_time(source_ref)
     cutoff = str(claim.get("cutoff_timestamp") or "")
-    if not source_time:
-        result["verification_status"] = "unverifiable"
-        result["verification_reason"] = "证据缺 source_published_at/source_time"
-        return result
-    if cutoff and source_time > cutoff:
-        result["verification_status"] = "mismatch"
-        result["verification_reason"] = "证据发布时间越过 cutoff"
-        result["cutoff_violation"] = True
-        return result
-    result["cutoff_violation"] = False
+    if not inferred:
+        source_time = _source_time(source_ref)
+        if not source_time:
+            result["verification_status"] = "unverifiable"
+            result["verification_reason"] = "证据缺 source_published_at/source_time"
+            return result
+        if cutoff and source_time > cutoff:
+            result["verification_status"] = "mismatch"
+            result["verification_reason"] = "证据发布时间越过 cutoff"
+            result["cutoff_violation"] = True
+            return result
+        result["cutoff_violation"] = False
     if claim_type != "number":
         result["verification_status"] = "needs_review"
         result["verification_reason"] = "语义声明需人工金标准"
@@ -1155,11 +1202,29 @@ def verify_claim(
         result["verification_status"] = "unverifiable"
         result["verification_reason"] = "缺冻结 as_known_at 快照"
         return result
-    status, actual, reason = _find_snapshot_value(snapshot, source_ref)
+    status, actual, reason, source_row = _find_snapshot_value(
+        snapshot,
+        source_ref,
+    )
     if status != "matched":
         result["verification_status"] = status
         result["verification_reason"] = reason
         return result
+    if inferred:
+        source_time = _snapshot_row_source_time(source_row or {})
+        if not source_time:
+            result["verification_status"] = "unverifiable"
+            result["verification_reason"] = "冻结源行缺 known_at/updated_at"
+            return result
+        inferred_source = dict(source_ref)
+        inferred_source["source_time"] = source_time
+        result["verification_source"] = inferred_source
+        if cutoff and source_time > cutoff:
+            result["verification_status"] = "mismatch"
+            result["verification_reason"] = "冻结源行 known_at 越过 cutoff"
+            result["cutoff_violation"] = True
+            return result
+        result["cutoff_violation"] = False
     try:
         matched = numbers_match(
             claim.get("value"),
