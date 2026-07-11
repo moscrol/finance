@@ -502,6 +502,23 @@ def _markdown_claims(
             prose.append(raw_line)
             continue
         row = dict(zip(headers, cells))
+        table_valid_time: str | None = None
+        for header in headers:
+            full_date = _DATE.search(header)
+            if full_date:
+                table_valid_time = full_date.group(0)
+                break
+            month_day = re.search(
+                r"(?<!\d)(\d{1,2})/(\d{1,2})(?!\d)",
+                header,
+            )
+            if month_day:
+                table_valid_time = (
+                    f"{report_date[:4]}-"
+                    f"{int(month_day.group(1)):02d}-"
+                    f"{int(month_day.group(2)):02d}"
+                )
+                break
         if headers[0] == "字段":
             metric = cells[0]
             for column_index, (header, cell) in enumerate(
@@ -596,19 +613,20 @@ def _markdown_claims(
                     unit = "%"
                 elif unit is None and "(亿)" in header:
                     unit = "亿"
-                claims.append(
-                    _claim(
-                        report_date=report_date,
-                        report_path=report_path,
-                        location=location,
-                        text_span=f"{subject or '报告'} {header}={cell}",
-                        claim_type="number",
-                        subject=subject,
-                        predicate=header,
-                        value=value,
-                        unit=unit,
-                    )
+                claim = _claim(
+                    report_date=report_date,
+                    report_path=report_path,
+                    location=location,
+                    text_span=f"{subject or '报告'} {header}={cell}",
+                    claim_type="number",
+                    subject=subject,
+                    predicate=header,
+                    value=value,
+                    unit=unit,
                 )
+                if table_valid_time:
+                    claim["claim_valid_time"] = table_valid_time
+                claims.append(claim)
             elif any(
                 keyword in header
                 for keyword in ("行业", "板块", "题材", "分类")
@@ -958,13 +976,19 @@ def numbers_match(
     absolute_tolerance: float = 1e-6,
     rounding_decimals: int | None = None,
 ) -> bool:
+    if rounding_decimals is not None:
+        report_value = round(
+            normalize_number(report_value, None),
+            rounding_decimals,
+        )
+        source_value = round(
+            normalize_number(source_value, None),
+            rounding_decimals,
+        )
     left = normalize_number(report_value, report_unit)
     right = normalize_number(source_value, source_unit)
     if math.isnan(left) or math.isnan(right):
         return False
-    if rounding_decimals is not None:
-        left = round(left, rounding_decimals)
-        right = round(right, rounding_decimals)
     return math.isclose(
         left,
         right,
@@ -998,6 +1022,9 @@ def _inferred_source_ref(
         return None
     table, field, source_unit = mapping
     subject = str(claim.get("subject") or "")
+    if predicate == "涨跌幅" and subject.lower() != "market":
+        table = "fact_sector_daily"
+        field = "pct_chg"
     if table == "fact_market_daily":
         if subject.lower() != "market":
             if predicate in {"涨停", "涨停数"}:
