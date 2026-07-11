@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
 import subprocess
 import time
 from collections.abc import Sequence
@@ -42,7 +44,13 @@ def _load_structured_result(path: Path | None) -> tuple[dict[str, object] | None
     return payload, None
 
 
-def run_command_step(name: str, argv: Sequence[str], cwd: str | Path, outputs: list[str] | None = None) -> WorkflowStep:
+def run_command_step(
+    name: str,
+    argv: Sequence[str],
+    cwd: str | Path,
+    outputs: list[str] | None = None,
+    timeout_sec: float | None = None,
+) -> WorkflowStep:
     started = time.monotonic()
     status_path = _status_json_path(argv)
     if status_path is not None:
@@ -59,12 +67,43 @@ def run_command_step(name: str, argv: Sequence[str], cwd: str | Path, outputs: l
                 errors=[f"failed to clear stale structured status: {exc}"],
             )
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             [str(item) for item in argv],
             cwd=str(cwd),
             text=True,
-            capture_output=True,
-            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        stdout, stderr = process.communicate(timeout=timeout_sec)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            stdout, stderr = process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            stdout, stderr = process.communicate()
+        duration = round(time.monotonic() - started, 3)
+        structured_result, structured_error = _load_structured_result(status_path)
+        timeout_label = f"{timeout_sec:g}" if timeout_sec is not None else "configured"
+        return WorkflowStep(
+            name=name,
+            status="FAIL",
+            command=command_line(argv),
+            returncode=process.returncode,
+            duration_sec=duration,
+            stdout_tail=tail_lines(stdout),
+            stderr_tail=tail_lines(stderr),
+            outputs=outputs or [],
+            warnings=[structured_error] if structured_error else [],
+            errors=[f"command timed out after {timeout_label} seconds"],
+            structured_result=structured_result,
         )
     except Exception as exc:
         duration = round(time.monotonic() - started, 3)
@@ -79,18 +118,18 @@ def run_command_step(name: str, argv: Sequence[str], cwd: str | Path, outputs: l
         )
 
     duration = round(time.monotonic() - started, 3)
-    status = "PASS" if result.returncode == 0 else "FAIL"
+    status = "PASS" if process.returncode == 0 else "FAIL"
     structured_result, structured_error = _load_structured_result(status_path)
     return WorkflowStep(
         name=name,
         status=status,
         command=command_line(argv),
-        returncode=result.returncode,
+        returncode=process.returncode,
         duration_sec=duration,
-        stdout_tail=tail_lines(result.stdout),
-        stderr_tail=tail_lines(result.stderr),
+        stdout_tail=tail_lines(stdout),
+        stderr_tail=tail_lines(stderr),
         outputs=outputs or [],
         warnings=[structured_error] if structured_error else [],
-        errors=[] if result.returncode == 0 else [f"command failed with returncode {result.returncode}"],
+        errors=[] if process.returncode == 0 else [f"command failed with returncode {process.returncode}"],
         structured_result=structured_result,
     )
