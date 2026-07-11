@@ -35,6 +35,10 @@
 - 阶段特征是否与当时可得事实一致；
 - 因果陈述是否绑定证据，是否遗漏关键中间变量或替代解释。
 
+每日不可变快照和旧资料盘点见
+[`pit-snapshot-inventory.md`](pit-snapshot-inventory.md)；首日执行结果见
+[`pit-snapshot-inventory-2026-07-10.md`](pit-snapshot-inventory-2026-07-10.md)。
+
 ## 10 日 pilot
 
 ```bash
