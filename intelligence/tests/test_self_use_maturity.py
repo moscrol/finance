@@ -88,6 +88,34 @@ def test_complete_ten_day_workflow_set_is_eligible_but_requires_user_approval() 
     }
 
 
+def test_new_events_without_recorded_at_can_be_evaluated() -> None:
+    workflows = [
+        "daily_market",
+        "theme_research",
+        "stock_research",
+        "news_impact",
+        "watchlist",
+    ]
+    events = [
+        SelfUseEvent(
+            trade_date=f"2026-06-{day:02d}",
+            workflow=workflow,  # type: ignore[arg-type]
+            outcome="success",
+            manual_rescue=False,
+            severe_fact_error=False,
+            useful=True,
+        )
+        for day in range(1, 11)
+        for workflow in workflows
+    ]
+
+    result = evaluate_maturity(events)
+
+    assert result.eligible_for_user_decision is True
+    assert result.metrics["event_count"] == 50
+    assert all(event.recorded_at is None for event in events)
+
+
 def test_explicit_user_approval_passes_an_eligible_result() -> None:
     result = evaluate_maturity(make_complete_maturity_events(), user_approved=True)
 
@@ -218,7 +246,6 @@ def test_evaluation_rejects_extra_unvalidated_workflow() -> None:
         ("severe_fact_error", 0, "severe_fact_error"),
         ("useful", 1, "useful"),
         ("schema_version", 2, "schema_version"),
-        ("recorded_at", None, "recorded_at"),
     ],
 )
 def test_evaluation_rejects_unvalidated_event_contract_values(

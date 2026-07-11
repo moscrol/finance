@@ -126,9 +126,7 @@ def evaluate_maturity(
 
     if type(user_approved) is not bool:
         raise TypeError("user_approved must be a boolean")
-    validated_events = [
-        event.validated(generate_recorded_at=False) for event in events
-    ]
+    validated_events = [event.validated() for event in events]
     event_count = len(validated_events)
     trade_dates = {event.trade_date for event in validated_events}
     covered_workflows = sorted({event.workflow for event in validated_events})
