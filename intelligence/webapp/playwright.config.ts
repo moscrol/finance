@@ -1,10 +1,12 @@
-import { existsSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
 const webappRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(webappRoot, "../..");
+const serverPort = process.env.WORKBENCH_E2E_PORT ?? "8791";
+const serverURL = `http://127.0.0.1:${serverPort}`;
 const pythonCandidates = [
   process.env.WORKBENCH_PYTHON,
   resolve(repoRoot, ".venv-workbench/bin/python"),
@@ -21,15 +23,18 @@ const fixtureRoot = resolve(
   "intelligence/tests/fixtures/chat_workbench_repo",
 );
 const usersRoot = resolve(webappRoot, "test-results/workbench-users");
-rmSync(usersRoot, { recursive: true, force: true });
 const emptyLlmKeys = [
   "FORESIGHT_BUILTIN_LLM_API_KEY",
   "DEEPSEEK_API_KEY",
   "MOONSHOT_API_KEY",
+  "KIMI_API_KEY",
   "DASHSCOPE_API_KEY",
+  "QWEN_API_KEY",
   "ZHIPU_API_KEY",
+  "GLM_API_KEY",
   "OPENAI_API_KEY",
   "LLM_API_KEY",
+  "FORESIGHT_BUILTIN_LLM_API_KEY",
 ]
   .map((name) => `${name}=`)
   .join(" ");
@@ -40,12 +45,12 @@ export default defineConfig({
   workers: 1,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:8791",
+    baseURL: serverURL,
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `cd ${shellQuote(repoRoot)} && WORKBENCH_REPO_ROOT=${shellQuote(fixtureRoot)} FORESIGHT_USERS_DIR=${shellQuote(usersRoot)} ${emptyLlmKeys} ${shellQuote(python)} -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port 8791`,
-    url: "http://127.0.0.1:8791",
+    command: `rm -rf ${shellQuote(usersRoot)} && mkdir -p ${shellQuote(usersRoot)} && cd ${shellQuote(repoRoot)} && WORKBENCH_REPO_ROOT=${shellQuote(fixtureRoot)} WORKBENCH_TEST_RUN_DELAY_MS=500 FINANCE_WS=${shellQuote(fixtureRoot)} KB_VAULT=${shellQuote(resolve(fixtureRoot, "wiki"))} FORESIGHT_USERS_DIR=${shellQuote(usersRoot)} ${emptyLlmKeys} ${shellQuote(python)} -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port ${shellQuote(serverPort)}`,
+    url: serverURL,
     reuseExistingServer: false,
     timeout: 120000,
   },

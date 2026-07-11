@@ -12,10 +12,15 @@ pytest.importorskip("fastapi")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from intelligence import userspace  # noqa: E402
 from intelligence.api import app as app_module  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.conversation_store import ConversationStore  # noqa: E402
 from intelligence.services.run_store import RunStore  # noqa: E402
+from intelligence.services.self_use_maturity import (  # noqa: E402
+    SelfUseEvent,
+    SelfUseLedger,
+)
 
 
 @pytest.fixture()
@@ -1272,6 +1277,73 @@ def test_bootstrap_returns_workflows_runs_and_latest_artifact(client: TestClient
     assert bootstrap["recent_runs"][0]["run_id"] == run_id
     assert bootstrap["latest_daily_artifact"]["date"] == "2026-07-09"
     assert bootstrap["data_cutoff"] == "2026-07-09"
+
+
+def test_bootstrap_returns_self_use_maturity_projection(client: TestClient) -> None:
+    ledger = SelfUseLedger(
+        userspace.user_space("demo").root / "self-use" / "events.jsonl"
+    )
+    ledger.record(
+        SelfUseEvent(
+            trade_date="2026-07-11",
+            workflow="daily_market",
+            outcome="success",
+            manual_rescue=False,
+            severe_fact_error=False,
+            useful=True,
+            note="private note",
+            run_id="private-run-id",
+        )
+    )
+
+    response = client.get("/api/workbench/bootstrap", params={"user": "demo"})
+
+    assert response.status_code == 200
+    assert response.json()["self_use_maturity"] == {
+        "distinct_trade_dates": 1,
+        "success_rate": 1.0,
+        "useful_rate": 1.0,
+        "manual_rescue_rate": 0.0,
+        "covered_workflows": ["daily_market"],
+        "blockers": ["minimum_trade_dates", "missing_workflows"],
+        "eligible_for_user_decision": False,
+        "passed": False,
+    }
+    assert "private note" not in response.text
+    assert "private-run-id" not in response.text
+
+
+def test_bootstrap_does_not_create_missing_self_use_ledger(
+    client: TestClient,
+) -> None:
+    ledger_path = (
+        userspace.user_space("read-only").root / "self-use" / "events.jsonl"
+    )
+    assert not ledger_path.exists()
+
+    response = client.get(
+        "/api/workbench/bootstrap",
+        params={"user": "read-only"},
+    )
+
+    assert response.status_code == 200
+    assert not ledger_path.exists()
+
+
+def test_bootstrap_reports_malformed_self_use_ledger(client: TestClient) -> None:
+    ledger_path = (
+        userspace.user_space("corrupt").root / "self-use" / "events.jsonl"
+    )
+    ledger_path.parent.mkdir(parents=True)
+    ledger_path.write_text('{"workflow": ', encoding="utf-8")
+
+    response = client.get(
+        "/api/workbench/bootstrap",
+        params={"user": "corrupt"},
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "自用成熟度台账不可读"}
 
 
 def test_index_serves_workbench_page(client: TestClient) -> None:

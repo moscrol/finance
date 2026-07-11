@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import asdict, dataclass
@@ -302,6 +303,7 @@ class TurnOrchestrator:
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
             )
+            route_started = time.monotonic()
             route = self.route_skills(
                 query,
                 "ask",
@@ -326,6 +328,7 @@ class TurnOrchestrator:
                         for selection in route.selections
                     ],
                     "fallback_to_ask": route.fallback_to_ask,
+                    "elapsed_ms": self._elapsed_ms(route_started),
                 },
             )
             self._check_cancelled()
@@ -350,6 +353,8 @@ class TurnOrchestrator:
                     max_workers=1,
                     thread_name_prefix=f"workbench-{skill_id}",
                 )
+                future = None
+                skill_started = time.monotonic()
                 try:
                     future = skill_pool.submit(
                         self.skill_registry.executors[skill_id].execute,
@@ -394,6 +399,12 @@ class TurnOrchestrator:
                             "skill_id": skill_id,
                             "status": "degraded",
                             "warnings": [warning],
+                            "elapsed_ms": self._elapsed_ms(skill_started),
+                            "task_may_continue": (
+                                isinstance(exc, FuturesTimeoutError)
+                                and future is not None
+                                and not future.done()
+                            ),
                         },
                         conversation_id,
                     )
@@ -421,6 +432,8 @@ class TurnOrchestrator:
                             "skill_id": skill_id,
                             "status": "degraded" if output.warnings else "completed",
                             "output": asdict(output),
+                            "elapsed_ms": self._elapsed_ms(skill_started),
+                            "task_may_continue": False,
                         },
                         conversation_id,
                     )
@@ -440,6 +453,7 @@ class TurnOrchestrator:
                     conversation_id,
                 )
 
+            compose_started = time.monotonic()
             result = self.answer_query(
                 AskOptions(
                     query=query,
@@ -462,6 +476,7 @@ class TurnOrchestrator:
                 assistant_message_id,
                 conversation_id,
                 result,
+                elapsed_ms=self._elapsed_ms(compose_started),
             )
             self.run_store.update_provenance(run_id, source_date=result.trade_date)
             warnings.extend(result.warnings)
@@ -675,7 +690,10 @@ class TurnOrchestrator:
         message_id: str,
         conversation_id: str,
         result: AskResult,
+        *,
+        elapsed_ms: int,
     ) -> None:
+        wiki_telemetry = result.wiki_rag_telemetry
         self._trace(
             run_id,
             message_id,
@@ -686,8 +704,22 @@ class TurnOrchestrator:
                 "trade_date": result.trade_date,
                 "matched_theme": result.matched_theme,
                 "citation_count": len(result.citations),
+                "elapsed_ms": elapsed_ms,
+                "wiki_rag": (
+                    {
+                        "status": wiki_telemetry.status,
+                        "hit_count": wiki_telemetry.hit_count,
+                        "latency_ms": wiki_telemetry.latency_ms,
+                    }
+                    if wiki_telemetry is not None
+                    else None
+                ),
             },
         )
+
+    @staticmethod
+    def _elapsed_ms(started: float) -> int:
+        return max(0, round((time.monotonic() - started) * 1000))
 
     def _cancel(
         self,

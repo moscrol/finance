@@ -834,6 +834,7 @@ p {
 
 .structured-report {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
 }
 
@@ -856,6 +857,8 @@ p {
 
 .stream-module-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
 }
 
 .stream-module {
@@ -947,6 +950,9 @@ p {
 }
 
 .stream-table-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   margin-top: 22px;
   border-block: 1px solid var(--line);

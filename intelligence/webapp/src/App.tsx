@@ -815,6 +815,7 @@ export default function App() {
       </main>
 
       <ResearchInspector
+        bootstrap={bootstrap}
         bundle={inspectorBundle}
         artifact={artifact}
         open={inspectorOpen}

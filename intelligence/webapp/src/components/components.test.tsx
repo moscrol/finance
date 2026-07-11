@@ -114,6 +114,16 @@ const bootstrap: Bootstrap = {
   pending_review_count: 0,
   needs_human_action: 0,
   data_cutoff: "2026-07-09",
+  self_use_maturity: {
+    distinct_trade_dates: 1,
+    success_rate: 1,
+    useful_rate: 1,
+    manual_rescue_rate: 0,
+    covered_workflows: ["daily_market"],
+    blockers: ["minimum_trade_dates", "missing_workflows"],
+    eligible_for_user_decision: false,
+    passed: false,
+  },
 };
 
 const llmConfig: LLMConfig = {
@@ -485,7 +495,13 @@ describe("Workbench components", () => {
   it("exposes internal tool names only inside run details", async () => {
     const user = userEvent.setup();
     render(
-      <ResearchInspector bundle={bundle} artifact={null} open onClose={vi.fn()} />,
+      <ResearchInspector
+        bootstrap={bootstrap}
+        bundle={bundle}
+        artifact={null}
+        open
+        onClose={vi.fn()}
+      />,
     );
     await user.click(screen.getByRole("tab", { name: "运行" }));
     expect(screen.getByText("ask_retrieve_compose")).not.toBeVisible();
@@ -509,7 +525,13 @@ describe("Workbench components", () => {
             modules: [],
           }}
         />
-        <ResearchInspector bundle={bundle} artifact={null} open onClose={vi.fn()} />
+        <ResearchInspector
+          bootstrap={bootstrap}
+          bundle={bundle}
+          artifact={null}
+          open
+          onClose={vi.fn()}
+        />
       </>,
     );
 
@@ -519,6 +541,48 @@ describe("Workbench components", () => {
     expect(screen.getByText(/revision=abc123/)).toBeVisible();
     expect(screen.getByText(/freshness=fresh/)).toBeVisible();
   });
+
+  it("shows aggregate self-use maturity without private event details", () => {
+    render(
+      <ResearchInspector
+        bootstrap={bootstrap}
+        bundle={null}
+        artifact={null}
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "自用成熟度 1/10 交易日" }),
+    ).toBeVisible();
+    expect(screen.getByText("核心工作流 1/5")).toBeVisible();
+    expect(screen.getByText("成功 100% · 有用 100% · 人工救场 0%")).toBeVisible();
+    expect(screen.getByText("阻塞项 2")).toBeVisible();
+    expect(screen.queryByText("可由用户最终裁决")).toBeNull();
+    expect(screen.queryByText("private note")).toBeNull();
+    expect(screen.queryByText("private-run-id")).toBeNull();
+  });
+  it("shows the final-decision prompt only after mechanical eligibility", () => {
+    render(
+      <ResearchInspector
+        bootstrap={{
+          ...bootstrap,
+          self_use_maturity: {
+            ...bootstrap.self_use_maturity,
+            eligible_for_user_decision: true,
+          },
+        }}
+        bundle={null}
+        artifact={null}
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("可由用户最终裁决")).toBeVisible();
+  });
+
 });
 
 describe("Chat-first conversation components", () => {
@@ -1182,6 +1246,7 @@ describe("Workbench navigation reliability", () => {
     const user = userEvent.setup();
     render(
       <ResearchInspector
+        bootstrap={bootstrap}
         bundle={{ ...bundle, trace }}
         artifact={null}
         open

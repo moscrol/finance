@@ -50,6 +50,11 @@ from intelligence.services.conversation_store import (
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.run_store import RunStore
+from intelligence.services.self_use_maturity import (
+    SelfUseLedger,
+    SelfUseLedgerIntegrityError,
+    evaluate_maturity,
+)
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -74,6 +79,9 @@ class CancellationSignal:
 
     def is_set(self) -> bool:
         return self._event.is_set()
+
+    def wait(self, timeout: float) -> bool:
+        return self._event.wait(timeout)
 
 
 class RunSupervisor:
@@ -331,6 +339,15 @@ def _run_conversation_turn(
     event_id_prefix: str = "",
     llm_provider: LLMProvider | None = None,
 ) -> None:
+    try:
+        test_delay_ms = int(
+            os.environ.get("WORKBENCH_TEST_RUN_DELAY_MS", "0")
+        )
+    except ValueError:
+        test_delay_ms = 0
+    test_delay_ms = min(5000, max(0, test_delay_ms))
+    if test_delay_ms and cancellation_signal.wait(test_delay_ms / 1000):
+        return
     provider_context = (
         llm_refine.provider_override(llm_provider)
         if llm_provider is not None
@@ -943,6 +960,26 @@ def create_app(
     def conversation_store_for(user: str | None) -> ConversationStore:
         return ConversationStore(user_id=store_for(user).user_id)
 
+    def self_use_projection(user: str | None) -> dict[str, object]:
+        conversation_store = conversation_store_for(user)
+        ledger = SelfUseLedger(
+            conversation_store.root.parent / "self-use" / "events.jsonl"
+        )
+        try:
+            result = evaluate_maturity(ledger.load())
+        except (OSError, SelfUseLedgerIntegrityError) as exc:
+            raise HTTPException(500, "自用成熟度台账不可读") from exc
+        return {
+            "distinct_trade_dates": result.metrics["distinct_trade_dates"],
+            "success_rate": result.metrics["core_success_rate"],
+            "useful_rate": result.metrics["useful_rate"],
+            "manual_rescue_rate": result.metrics["manual_rescue_rate"],
+            "covered_workflows": result.metrics["covered_workflows"],
+            "blockers": list(result.blockers),
+            "eligible_for_user_decision": result.eligible_for_user_decision,
+            "passed": result.passed,
+        }
+
     def conversation_lock_for(user: str | None, conversation_id: str) -> Lock:
         resolved_user_id = store_for(user).user_id
         key = (resolved_user_id, conversation_id)
@@ -1281,6 +1318,7 @@ def create_app(
             current_cursor = cursor
             replay_trace = cursor == 0
             deadline = time.monotonic() + _SSE_MAX_SECONDS
+            terminal_event_deadline: float | None = None
             while True:
                 if replay_trace:
                     steps = store.load_trace(run_id)
@@ -1297,6 +1335,21 @@ def create_app(
                     current_cursor = event["seq"]
                 run = store.load_run(run_id)
                 if run.status in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
+                    terminal_message_missing = run.session_id and not any(
+                        event["event_type"] in {"message.complete", "message.error"}
+                        for event in store.load_stream_events(run_id)
+                    )
+                    if terminal_message_missing:
+                        terminal_event_deadline = (
+                            terminal_event_deadline
+                            or time.monotonic() + 2 * _SSE_POLL_SECONDS
+                        )
+                    if (
+                        terminal_message_missing
+                        and time.monotonic() < terminal_event_deadline
+                    ):
+                        time.sleep(_SSE_POLL_SECONDS)
+                        continue
                     yield f"event: run\ndata: {json.dumps(asdict(run), ensure_ascii=False)}\n\n"
                     return
                 if time.monotonic() > deadline:
@@ -1536,6 +1589,7 @@ def create_app(
                 1 for artifact in artifacts if artifact.status in {"warn", "missing"}
             ),
             "data_cutoff": data_cutoff,
+            "self_use_maturity": self_use_projection(user),
         }
 
     assets_dir = STATIC_DIR / "assets"
