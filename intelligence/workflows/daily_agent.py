@@ -27,6 +27,10 @@ from intelligence.services.claim_lineage import (
     LINEAGE_SCHEMA_VERSION,
     build_daily_agent_claim_manifest,
 )
+from intelligence.services.content_delta import (
+    build_content_delta,
+    content_delta_worktree_errors,
+)
 from intelligence.services.fidelity_contract import (
     build_claim_manifest_metadata,
     contract_errors,
@@ -569,6 +573,10 @@ def _agent_next_actions(report: dict[str, Any]) -> list[str]:
 def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
     snapshot_captured_at = now_iso()
     paths = _paths_from_options(options)
+    knowledge_snapshot = build_content_delta(
+        paths.knowledge_wiki,
+        captured_at=snapshot_captured_at,
+    )
     ledger = build_ledger(options.date, paths)
     selected_dates = _select_dates(options.date, options.recent, paths.market_exports)
     batch = batch_match_logic_to_market(
@@ -643,6 +651,17 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         resolved_themes=kb_queue_receipt.resolved_themes(paths.knowledge_wiki),
     )
     catalyst_attribution.enrich_kb_ingest_queue(catalyst_index, kb_queue)
+    knowledge_snapshot_after = build_content_delta(
+        paths.knowledge_wiki,
+        captured_at=snapshot_captured_at,
+    )
+    if (
+        knowledge_snapshot_after["artifact_sha"]
+        != knowledge_snapshot["artifact_sha"]
+    ):
+        raise ValueError(
+            "knowledge worktree changed during daily-agent generation"
+        )
     report_generated_at = now_iso()
     report = {
         "date": options.date,
@@ -652,6 +671,7 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
             "knowledge_wiki": str(paths.knowledge_wiki),
             "market_exports": str(paths.market_exports),
         },
+        "knowledge_snapshot": knowledge_snapshot,
         "ledger": ledger,
         "logic_batch": batch,
         "decision": decision,
@@ -1422,6 +1442,19 @@ def write_daily_agent_outputs(
     json_path = Path(out_json).expanduser()
     md_path = Path(out_md).expanduser()
     contract_validation = validate_daily_agent_report(report)
+    knowledge_path = (
+        (report.get("paths") or {}).get("knowledge_wiki")
+        if isinstance(report.get("paths"), dict)
+        else None
+    )
+    worktree_validation = (
+        content_delta_worktree_errors(
+            knowledge_path,
+            report.get("knowledge_snapshot"),
+        )
+        if knowledge_path
+        else ["knowledge wiki path missing"]
+    )
     expected_markdown = render_daily_agent(report)
     html = render_daily_agent_html(report, markdown)
     output_validation = rendered_output_errors(
@@ -1430,7 +1463,11 @@ def write_daily_agent_outputs(
         html=html,
         expected_markdown=expected_markdown,
     )
-    errors = contract_validation + output_validation
+    errors = (
+        contract_validation
+        + worktree_validation
+        + output_validation
+    )
     if errors:
         raise ValueError(
             "invalid fidelity contract 1.2: " + "; ".join(errors)

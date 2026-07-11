@@ -34,7 +34,7 @@ python3 scripts/pit_snapshot_inventory.py freeze \
 `already_frozen`。这采用的是 **content-addressed artifact（内容寻址产物）**
 思路：文件名标识日期，hash 标识内容，任何事后改写都会被发现。
 
-`pit-daily-snapshot-1.2` 还会给每一行增加 `_pit`：
+`pit-daily-snapshot-1.3` 还会给每一行增加 `_pit`：
 
 ```json
 {
@@ -88,11 +88,29 @@ python3 scripts/pit_snapshot_inventory.py validate \
 渐进迁移与回滚步骤见
 `docs/learning/fidelity-runtime-transition.md`。
 
-冻结时 finance/wiki 工作树必须干净，才能把 Git commit 当作精确知识输入。
-脏工作树不会被静默忽略：manifest 增加
-`finance_dirty_worktree` / `wiki_dirty_worktree`，并将
-`replay_eligible=false`。替代方案是把整个工作树每天打包，但会产生大量重复
-存储；当前优先采用“commit 内容寻址 + 脏树硬门控”。
+P4-C 不再要求 wiki 工作树必须干净。daily-agent 生成前后各捕获一次
+`content-delta-1.0`：
+
+- base 是知识库 Git commit；
+- 只保存相对 base 改动的 regular file / deletion；
+- 未跟踪和 `.gitignore` 命中的 wiki 文件也纳入，避免“检索能看到、快照没看到”；
+- 每个文件保存 mode、mtime、size、内容 SHA-256 和 base64 bytes；
+- 整个 delta 再计算 `artifact_sha`，并进入 daily-agent、PIT snapshot、
+  PIT manifest summary 与 runtime provenance link。
+
+只要 delta hash、逐文件 hash、base commit、cutoff 和上下游链接都可验证，
+`wiki_dirty=true` 不再单独阻断 replay。这样重放输入是
+`base_commit + content_delta`，而不是错误地把 HEAD commit 当作完整知识状态。
+`apply_content_delta()` 会在 base checkout 上恢复 modified/untracked/ignored
+内容并执行 deletion；测试会再次捕获恢复后的工作树，确认 delta hash 完全一致。
+
+finance 代码工作树仍必须干净；代码脏树无法仅靠知识 delta 证明实际执行版本。
+wiki delta 超过 10 MiB、包含特殊文件、mtime 晚于 `evidence_cutoff`、base commit
+不可用，或 daily-agent 运行期间内容发生变化时，继续硬阻断
+`replay_eligible`。替代方案包括完整 tar 快照和 `git diff --binary`：前者重复
+存储大，后者不能可靠覆盖 ignored/untracked 文件，因此本轮选逐文件内容寻址。
+PIT schema 同步升为 1.3，使缺少 delta 的 1.2/legacy artifact 不会被误判为
+满足新 replay contract。
 
 ## 历史资料盘点
 

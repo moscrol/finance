@@ -10,11 +10,13 @@ from pathlib import Path
 from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
+from intelligence.services.content_delta import content_delta_errors
+
 
 CONTRACT_SCHEMA_VERSION = "fidelity-contract-1.2"
 CLAIM_MANIFEST_SCHEMA_VERSION = "claim-manifest-1.2"
-PIT_SNAPSHOT_SCHEMA_VERSION = "pit-daily-snapshot-1.2"
-PIT_MANIFEST_SCHEMA_VERSION = "pit-daily-manifest-1.2"
+PIT_SNAPSHOT_SCHEMA_VERSION = "pit-daily-snapshot-1.3"
+PIT_MANIFEST_SCHEMA_VERSION = "pit-daily-manifest-1.3"
 LOCAL_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 REQUIRED_TIME_FIELDS = (
@@ -409,6 +411,27 @@ def validate_daily_agent_report(
         expected_generator_commit=expected_generator_commit,
         require_claim_manifest=True,
     )
+    knowledge_snapshot = report.get("knowledge_snapshot")
+    errors.extend(
+        f"knowledge snapshot: {error}"
+        for error in content_delta_errors(
+            knowledge_snapshot,
+            evidence_cutoff=str(report.get("evidence_cutoff") or ""),
+        )
+    )
+    if isinstance(knowledge_snapshot, dict):
+        try:
+            knowledge_captured_at = parse_timestamp(
+                knowledge_snapshot.get("captured_at")
+            )
+            report_captured_at = parse_timestamp(
+                report.get("snapshot_captured_at")
+            )
+        except (TypeError, ValueError):
+            errors.append("knowledge snapshot capture is invalid")
+        else:
+            if knowledge_captured_at != report_captured_at:
+                errors.append("knowledge snapshot capture mismatch")
     try:
         generated_at_matches = parse_timestamp(
             report.get("generated_at")

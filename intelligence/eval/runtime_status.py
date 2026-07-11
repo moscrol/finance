@@ -72,6 +72,9 @@ def daily_agent_status(
     claim_count = len(claims) if isinstance(claims, list) else 0
     evidence_count = len(catalog) if isinstance(catalog, dict) else 0
     contract_validation = validate_daily_agent_report(body)
+    knowledge_snapshot = body.get("knowledge_snapshot")
+    if not isinstance(knowledge_snapshot, dict):
+        knowledge_snapshot = {}
     upstream_complete = bool(
         isinstance(input_artifacts, list)
         and input_artifacts
@@ -108,6 +111,13 @@ def daily_agent_status(
         "run_id": body.get("run_id"),
         "artifact_sha": body.get("artifact_sha"),
         "manifest_sha": body.get("manifest_sha"),
+        "knowledge_snapshot_artifact_sha": knowledge_snapshot.get(
+            "artifact_sha"
+        ),
+        "knowledge_snapshot_base_commit": knowledge_snapshot.get(
+            "base_commit"
+        ),
+        "knowledge_snapshot_dirty": knowledge_snapshot.get("dirty"),
         "contract_errors": contract_validation,
         "contract_ready": not contract_validation,
         "upstream_complete": upstream_complete,
@@ -137,6 +147,9 @@ def pit_manifest_status(
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         body = _read_json(path)
         validation_errors = [str(exc)]
+    repositories = body.get("repositories")
+    if not isinstance(repositories, dict):
+        repositories = {}
     return {
         "path": str(path),
         "exists": True,
@@ -156,6 +169,7 @@ def pit_manifest_status(
         "artifact_sha": body.get("artifact_sha"),
         "manifest_sha": body.get("manifest_sha"),
         "upstream_daily_agent": body.get("upstream_daily_agent"),
+        "wiki_content_delta": repositories.get("wiki_content_delta"),
         "validation_errors": validation_errors,
         "schema_ready": (
             body.get("schema_version") == PIT_MANIFEST_SCHEMA_VERSION
@@ -191,6 +205,14 @@ def build_runtime_status(
         == daily_agent.get("evidence_cutoff")
         and pit_manifest.get("decision_cutoff")
         == daily_agent.get("decision_cutoff")
+        and upstream.get("daily_snapshot_captured_at")
+        == daily_agent.get("snapshot_captured_at")
+        and upstream.get("knowledge_snapshot_artifact_sha")
+        == daily_agent.get("knowledge_snapshot_artifact_sha")
+        and (pit_manifest.get("wiki_content_delta") or {}).get(
+            "artifact_sha"
+        )
+        == daily_agent.get("knowledge_snapshot_artifact_sha")
     )
     generator_commit_matches = bool(
         runtime["commit"]

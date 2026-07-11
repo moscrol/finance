@@ -1,4 +1,6 @@
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -209,6 +211,29 @@ class DailyAgentTest(unittest.TestCase):
         (relations / "catalyst_calendar.json").write_text("{}", encoding="utf-8")
         (relations / "mention_frequency.json").write_text("{}", encoding="utf-8")
         (sources / "液冷服务器深度报告.md").write_text("# source\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-q", str(wiki)], check=True)
+        subprocess.run(["git", "-C", str(wiki), "add", "."], check=True)
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(wiki),
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-q",
+                "-m",
+                "fixture",
+            ],
+            check=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_DATE": "2026-06-11T17:00:00+08:00",
+                "GIT_COMMITTER_DATE": "2026-06-11T17:00:00+08:00",
+            },
+        )
         return ProjectPaths(finance_root=finance, knowledge_wiki=wiki, finance_site=root / "site", market_snapshot_dir=root / "snapshot", vector_index_dir=wiki.parent / ".rag_index")
 
     def test_daily_agent_summarizes_daily_surfaces_and_logic_routes(self):
@@ -299,6 +324,30 @@ class DailyAgentTest(unittest.TestCase):
             self.assertFalse(
                 (output / "content-tampered.json").exists()
             )
+
+    def test_daily_agent_rejects_wiki_changes_during_generation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.make_fixture(Path(tmp))
+            with mock.patch(
+                "intelligence.workflows.daily_agent.build_content_delta",
+                side_effect=[
+                    {"artifact_sha": "a" * 64},
+                    {"artifact_sha": "b" * 64},
+                ],
+            ):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "knowledge worktree changed",
+                ):
+                    run_daily_agent(
+                        DailyAgentOptions(
+                            date="2026-06-11",
+                            finance_root=paths.finance_root,
+                            kb_wiki=paths.knowledge_wiki,
+                            top_per_date=2,
+                            semantic_rag_top_n=0,
+                        )
+                    )
 
     def test_daily_agent_builds_chinese_semantic_evidence_card(self):
         with tempfile.TemporaryDirectory() as tmp:
