@@ -9,11 +9,17 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
-import type { ArtifactDescriptor, RunBundle, TraceStep } from "../types";
+import type {
+  ArtifactDescriptor,
+  Bootstrap,
+  RunBundle,
+  TraceStep,
+} from "../types";
 
 type InspectorTab = "evidence" | "trace" | "memory" | "review";
 
 interface ResearchInspectorProps {
+  bootstrap: Bootstrap | null;
   bundle: RunBundle | null;
   artifact: ArtifactDescriptor | null;
   open: boolean;
@@ -65,6 +71,7 @@ function TraceItem({ step }: { step: TraceStep }) {
 }
 
 export function ResearchInspector({
+  bootstrap,
   bundle,
   artifact,
   open,
@@ -72,6 +79,7 @@ export function ResearchInspector({
 }: ResearchInspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("evidence");
   const context = bundle?.context;
+  const maturity = bootstrap?.self_use_maturity;
   const runStatusLabel =
     bundle?.run.status === "running"
       ? "执行中"
@@ -137,6 +145,22 @@ export function ResearchInspector({
                 <dd>{bundle.run.artifacts.length}</dd>
               </div>
             </dl>
+          </section>
+        )}
+
+        {maturity && (
+          <section aria-label="自用成熟度" className="inspector-section">
+            <h3>自用成熟度 {maturity.distinct_trade_dates}/10 交易日</h3>
+            <p>核心工作流 {maturity.covered_workflows.length}/5</p>
+            <p>
+              成功 {(maturity.success_rate * 100).toFixed(0)}% · 有用{" "}
+              {(maturity.useful_rate * 100).toFixed(0)}% · 人工救场{" "}
+              {(maturity.manual_rescue_rate * 100).toFixed(0)}%
+            </p>
+            <p>阻塞项 {maturity.blockers.length}</p>
+            {maturity.eligible_for_user_decision ? (
+              <p>可由用户最终裁决</p>
+            ) : null}
           </section>
         )}
 

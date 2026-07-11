@@ -240,6 +240,17 @@ export interface Workflow {
   prompt: string;
 }
 
+export interface SelfUseMaturity {
+  distinct_trade_dates: number;
+  success_rate: number;
+  useful_rate: number;
+  manual_rescue_rate: number;
+  covered_workflows: string[];
+  blockers: string[];
+  eligible_for_user_decision: boolean;
+  passed: boolean;
+}
+
 export interface Bootstrap {
   user: string;
   workflows: Workflow[];
@@ -249,6 +260,7 @@ export interface Bootstrap {
   pending_review_count: number;
   needs_human_action: number;
   data_cutoff: string | null;
+  self_use_maturity: SelfUseMaturity;
 }
 
 export interface RunBundle {
