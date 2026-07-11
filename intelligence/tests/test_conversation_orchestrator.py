@@ -525,6 +525,7 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
         "分析基于 local Daily Review 确定性投影，知识图谱命中的概念。"
         "证据以 L1行业资料和 L2公司基础资料为主，也有 L2基础资料。"
         "未取到 L3公告/订单/认证/量产等硬证据，盘面 L4盘面信号待确认。"
+        "当日日报指标来自本地数据库的确定性投影。"
         "cycle_status 仍需确认，RAG检索的wiki向量源降级未接入。"
     )
 
@@ -579,6 +580,7 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assert "证据以行业资料和公司基础资料为主" in assistant.content
     assert "也有公司基础资料" in assistant.content
     assert "未取到公告/订单/认证/量产等硬证据" in assistant.content
+    assert "当日日报指标来自本地数据库的数据" in assistant.content
     for internal in (
         "Daily Review",
         "L1",
