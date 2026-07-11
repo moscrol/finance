@@ -138,7 +138,10 @@ def render_phase2_summary(summary: dict[str, object]) -> str:
         else "异常"
     )
     lines = [
-        "# Phase 2：80 日现状忠实度 / 历史重放验收",
+        (
+            "# Phase 2："
+            f"{summary.get('selected_count')} 日现状忠实度 / 历史重放验收"
+        ),
         "",
         f"- 样本数：{summary.get('selected_count')}",
         "- 决策资格：否；人工金标准和版本缺口仍是硬门。",
