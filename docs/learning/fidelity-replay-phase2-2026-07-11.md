@@ -29,7 +29,7 @@ negative control，不用今天的报告或邻近日报告替代。
 | PIT 完整度 | partial 18、pending 62 |
 | 行情阶段 | 11 类均被覆盖 |
 
-## 五项现状忠实度指标
+## 五项现状忠实度指标（初始运行）
 
 | 指标 | 分子 / 分母 | pending | 结果 |
 |---|---:|---:|---:|
@@ -42,6 +42,9 @@ negative control，不用今天的报告或邻近日报告替代。
 数字一致率在 80 日样本仍保持约 99.4%，说明明确字段映射和单位换算较稳定；
 但 inferred mapping 只用于数值复核，不计入原始逐声明证据，因此证据覆盖率仍为 0。
 扩样不能把“可复算”误写成“有出处”。
+
+P3 审计后确认，初始 `333 / 335` 使用了过宽的全局表头映射，不能继续作为
+有效结论；以下 P3 结果取代该数字结论。
 
 ### P3：两个 mismatch 的根因
 
@@ -67,6 +70,26 @@ artifact family 选择源表，再按列名选择字段；不能只看“涨幅%
 `updated_at` 晚于 PIT cutoff。因此修复后这些声明应转为 `unverifiable`，而不是
 借用当日已存在的 `fact_stock_daily` 行判成 matched。数字分母缩小是更诚实的
 PIT 结果，不是通过隐藏 mismatch 提高分数。
+
+真实 a77 重跑结果：
+
+```json
+{
+  "numeric_match_rate": {
+    "numerator": 0,
+    "denominator": 0,
+    "pending": 39492,
+    "status": "pending"
+  },
+  "mismatch_count": 0,
+  "new_high_contract_claims": 916,
+  "new_high_contract_unverifiable": 916,
+  "decision_eligible": false
+}
+```
+
+这不是“数字全部不匹配”，而是没有声明同时满足“正确源表 + cutoff 前已知”两个
+条件，故不能进入 numeric fidelity 分母。
 
 ## 声明与历史重放
 
@@ -139,7 +162,8 @@ Phase 2 已完成 80 个历史截面的扩量执行，但验收结论仍是：
 }
 ```
 
-扩样证明自动数值对账在更大样本上稳定，也证明真正的瓶颈不是样本量，而是：
+P3 说明初始自动数值对账曾被错误的跨表映射高估，也再次证明真正的瓶颈不是
+样本量，而是：
 
 1. canonical 报告缺失；
 2. 原始逐声明 evidence 缺失；

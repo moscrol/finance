@@ -87,6 +87,10 @@ class Phase2SummaryTest(unittest.TestCase):
                 "dates_preserved_without_substitution"
             ]
         )
+        self.assertEqual(
+            summary["schema_version"],
+            "fidelity-replay-phase2-summary-1.1",
+        )
         self.assertTrue(
             summary["negative_controls"][
                 "denominator_isolation_passed"

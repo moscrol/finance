@@ -155,7 +155,7 @@ def build_phase2_summary(
         len(blocking_dates) if isinstance(blocking_dates, list) else 0
     )
     return {
-        "schema_version": "fidelity-replay-phase2-summary-1.0",
+        "schema_version": "fidelity-replay-phase2-summary-1.1",
         "task_id": "fidelity-replay-phase2-v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "selected_count": selection.get("selected_count"),
