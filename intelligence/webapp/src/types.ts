@@ -204,15 +204,32 @@ export interface StructuredReport {
   completed_at?: string;
 }
 
-export interface StructuredReportEvent {
+export interface StreamEnvelope<TPayload extends Record<string, unknown> = Record<string, unknown>> {
+  schema_version: number;
   event_id: string;
-  event_type: "report_start" | "report_module" | "report_complete" | "report_error";
+  event_type: string;
+  run_id: string;
+  conversation_id: string | null;
+  message_id: string | null;
+  seq: number;
   created_at: string;
-  payload: {
+  payload: TPayload;
+}
+
+export type StructuredReportEvent = StreamEnvelope<{
     report?: StructuredReport;
     module?: StructuredReportModule;
+  }> & {
+    event_type:
+      | "report.start"
+      | "report.module"
+      | "report.complete"
+      | "report.error"
+      | "report_start"
+      | "report_module"
+      | "report_complete"
+      | "report_error";
   };
-}
 
 export interface Workflow {
   id: "daily" | "theme" | "stock_research";
@@ -242,6 +259,108 @@ export interface RunBundle {
   answer: string | null;
   structuredReport: StructuredReport | null;
   registeredArtifacts: ArtifactDescriptor[];
+}
+
+export interface Conversation {
+  conversation_id: string;
+  user_id: string;
+  title: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  summary: string;
+  last_run_id: string | null;
+}
+
+export interface ChatMessage {
+  message_id: string;
+  conversation_id: string;
+  role: string;
+  content: string;
+  created_at: string;
+  status: string;
+  run_id: string | null;
+  selected_skill_ids: string[];
+  invoked_skill_ids: string[];
+  citations: Array<Record<string, unknown>>;
+  degrades: string[];
+}
+
+export type SkillMode = "manual" | "auto" | "hybrid";
+
+export interface ProductSkillDescription {
+  skill_id: string;
+  name: string;
+  description: string;
+  version: string;
+  triggers: string[];
+  input_schema: Record<string, unknown>;
+  permissions: string[];
+  timeout_seconds: number;
+}
+
+export interface CreateMessageRequest {
+  content: string;
+  skill_mode: SkillMode;
+  selected_skill_ids?: string[];
+  user?: string;
+}
+
+export interface CreateMessageResponse {
+  conversation_id: string;
+  user_message_id: string;
+  assistant_message_id: string;
+  run_id: string;
+}
+
+export type LLMProviderId =
+  | "zhipu"
+  | "openai"
+  | "deepseek"
+  | "moonshot"
+  | "dashscope";
+
+export interface LLMConfig {
+  mode: "built_in" | "byok";
+  display_name: string;
+  ready: boolean;
+  session_only: boolean;
+  built_in_ready: boolean;
+  provider: LLMProviderId | null;
+  model: string | null;
+}
+
+export interface ConfigureLLMRequest {
+  provider: LLMProviderId;
+  api_key: string;
+  model?: string;
+  user?: string;
+}
+
+export type SkillInvocationStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "degraded"
+  | "failed";
+
+export interface LiveSkillInvocation {
+  skill_id: string;
+  selection_source: "manual" | "rule" | "llm" | "unknown";
+  reason: string;
+  status: SkillInvocationStatus;
+  warnings: string[];
+}
+
+export interface LiveMessageState {
+  conversationId: string;
+  messageId: string;
+  runId: string;
+  narrative: string;
+  report: StructuredReport | null;
+  skillInvocations: Record<string, LiveSkillInvocation>;
+  status: "pending" | "streaming" | "completed" | "failed" | "cancelled";
+  connection: "connected" | "reconnecting";
 }
 
 export type Surface =

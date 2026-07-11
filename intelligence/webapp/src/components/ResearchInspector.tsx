@@ -72,6 +72,16 @@ export function ResearchInspector({
 }: ResearchInspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("evidence");
   const context = bundle?.context;
+  const runStatusLabel =
+    bundle?.run.status === "running"
+      ? "执行中"
+      : bundle?.run.status === "completed"
+        ? "已完成"
+        : bundle?.run.status === "failed"
+          ? "失败"
+          : bundle?.run.status === "cancelled"
+            ? "已停止"
+            : "排队中";
 
   return (
     <>
@@ -79,8 +89,8 @@ export function ResearchInspector({
       <aside className={`research-inspector ${open ? "open" : ""}`} aria-label="研究检查器">
         <header className="inspector-header">
           <div>
-            <span className="eyebrow">Research Inspector</span>
-            <strong>研究检查器</strong>
+            <span className="eyebrow">TASK CONTEXT</span>
+            <strong>研究上下文</strong>
           </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="关闭检查器">
             <X className="drawer-close" aria-hidden="true" size={18} />
@@ -106,6 +116,29 @@ export function ResearchInspector({
             );
           })}
         </div>
+
+        {bundle && (
+          <section className="inspector-task-summary" aria-label="当前任务摘要">
+            <div>
+              <span>当前任务</span>
+              <strong data-status={bundle.run.status}>{runStatusLabel}</strong>
+            </div>
+            <dl>
+              <div>
+                <dt>步骤</dt>
+                <dd>{bundle.trace.length}</dd>
+              </div>
+              <div>
+                <dt>证据</dt>
+                <dd>{context?.evidence.length ?? 0}</dd>
+              </div>
+              <div>
+                <dt>产物</dt>
+                <dd>{bundle.run.artifacts.length}</dd>
+              </div>
+            </dl>
+          </section>
+        )}
 
         <div className="inspector-body">
           {tab === "evidence" && (

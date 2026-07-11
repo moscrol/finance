@@ -2,34 +2,60 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
+import {
+  applyChatStreamEvent,
+  createLiveMessageState,
+  StreamEventDeduper,
+} from "../streamEvents";
 import { upsertStructuredReportModule } from "../structuredReport";
 import { upsertTraceStep } from "../trace";
 import type {
   ArtifactDescriptor,
   Bootstrap,
-  Run,
+  ChatMessage,
+  Conversation,
+  LLMConfig,
+  ProductSkillDescription,
   RunBundle,
+  StreamEnvelope,
 } from "../types";
 import { ArtifactLibrary } from "./ArtifactLibrary";
 import { ArtifactViewer } from "./ArtifactViewer";
+import { Composer } from "./Composer";
+import { ConversationList } from "./ConversationList";
+import { MessageBubble } from "./MessageBubble";
+import { MessageThread } from "./MessageThread";
 import { ResearchHome } from "./ResearchHome";
 import { ResearchInspector } from "./ResearchInspector";
 import { RunView } from "./RunView";
+import { SkillInvocation } from "./SkillInvocation";
+import { SkillPicker } from "./SkillPicker";
 import { StructuredReportView } from "./StructuredReportView";
 
 const apiMocks = vi.hoisted(() => ({
+  archiveConversation: vi.fn(),
+  cancelRun: vi.fn(),
+  configureLLM: vi.fn(),
+  createConversation: vi.fn(),
+  createConversationMessage: vi.fn(),
   createRun: vi.fn(),
   getArtifact: vi.fn(),
   getArtifactProjection: vi.fn(),
   getArtifactText: vi.fn(),
   getBootstrap: vi.fn(),
+  getConversationMessages: vi.fn(),
   getFollowups: vi.fn(),
+  getLLMConfig: vi.fn(),
   getRun: vi.fn(),
   getRunArtifactText: vi.fn(),
   getRunContext: vi.fn(),
   getRunReport: vi.fn(),
   getTrace: vi.fn(),
+  getSkills: vi.fn(),
   listArtifacts: vi.fn(),
+  listConversations: vi.fn(),
+  renameConversation: vi.fn(),
+  selectBuiltInLLM: vi.fn(),
 }));
 
 vi.mock("../api", () => ({
@@ -88,6 +114,16 @@ const bootstrap: Bootstrap = {
   pending_review_count: 0,
   needs_human_action: 0,
   data_cutoff: "2026-07-09",
+};
+
+const llmConfig: LLMConfig = {
+  mode: "built_in",
+  display_name: "Foresight 默认模型",
+  ready: true,
+  session_only: false,
+  built_in_ready: true,
+  provider: "zhipu",
+  model: "glm-5.2",
 };
 
 const bundle: RunBundle = {
@@ -171,6 +207,66 @@ const bundle: RunBundle = {
   registeredArtifacts: [{ ...artifact, related_run_id: "run_demo", source_path: "user:default/runs/run_demo/answer.md" }],
 };
 
+const conversations: Conversation[] = [
+  {
+    conversation_id: "conv_recent",
+    user_id: "default",
+    title: "液冷跟踪",
+    status: "active",
+    created_at: "2026-07-10T10:00:00+08:00",
+    updated_at: "2026-07-11T09:00:00+08:00",
+    summary: "跟踪液冷证据",
+    last_run_id: "run_demo",
+  },
+  {
+    conversation_id: "conv_old",
+    user_id: "default",
+    title: "机器人",
+    status: "active",
+    created_at: "2026-07-09T10:00:00+08:00",
+    updated_at: "2026-07-10T09:00:00+08:00",
+    summary: "",
+    last_run_id: null,
+  },
+];
+
+const productSkills: ProductSkillDescription[] = [
+  {
+    skill_id: "daily-review",
+    name: "Daily Review",
+    description: "市场复盘",
+    version: "1.0.0",
+    triggers: ["复盘"],
+    input_schema: { type: "object" },
+    permissions: ["local_read"],
+    timeout_seconds: 30,
+  },
+  {
+    skill_id: "daily-agent",
+    name: "Daily Agent",
+    description: "研究雷达",
+    version: "1.0.0",
+    triggers: ["研究雷达"],
+    input_schema: { type: "object" },
+    permissions: ["local_read"],
+    timeout_seconds: 30,
+  },
+];
+
+const assistantMessage: ChatMessage = {
+  message_id: "msg_assistant",
+  conversation_id: "conv_recent",
+  role: "assistant",
+  content: "这是模板回答。",
+  created_at: "2026-07-11T09:00:02+08:00",
+  status: "completed",
+  run_id: "run_demo",
+  selected_skill_ids: ["daily-review"],
+  invoked_skill_ids: ["daily-review", "daily-agent"],
+  citations: [],
+  degrades: ["llm_unavailable_template_answer"],
+};
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((next) => {
@@ -229,69 +325,73 @@ describe("Workbench components", () => {
       />,
     );
 
-    expect(screen.getByText("本次研究使用了降级路径")).toBeInTheDocument();
-    expect(screen.getByText("证据仍需下一交易日确认。")).toBeInTheDocument();
+    await user.click(screen.getByText("运行详情"));
+    expect(screen.getByText(/本轮使用降级路径/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /哪些证据最容易证伪/ }));
     expect(onFollowup).toHaveBeenCalledWith("哪些证据最容易证伪？");
   });
 
   it("renders LLM and L2 modules without an HTML artifact", () => {
-    render(
-      <RunView
-        bundle={{
-          ...bundle,
-          structuredReport: {
-            schema_version: 1,
-            report_id: "run_demo",
-            title: "今日复盘",
-            task_type: "daily",
-            status: "completed",
-            as_of: "2026-07-10",
-            llm: { used: true, provider: "glm", model: "glm-5.2" },
+    const structuredBundle: RunBundle = {
+      ...bundle,
+      structuredReport: {
+        schema_version: 1,
+        report_id: "run_demo",
+        title: "今日复盘",
+        task_type: "daily",
+        status: "completed",
+        as_of: "2026-07-10",
+        llm: { used: true, provider: "glm", model: "glm-5.2" },
+        warnings: [],
+        modules: [
+          {
+            module_id: "llm_synthesis",
+            title: "LLM 综合判断",
+            kind: "narrative",
+            status: "complete",
+            summary: "只在证据边界内组织表达。",
+            content: "量能修复，仍需验证。",
+            metrics: [],
+            items: [],
+            table: null,
             warnings: [],
-            modules: [
-              {
-                module_id: "llm_synthesis",
-                title: "LLM 综合判断",
-                kind: "narrative",
-                status: "complete",
-                summary: "只在证据边界内组织表达。",
-                content: "量能修复，仍需验证。",
-                metrics: [],
-                items: [],
-                table: null,
-                warnings: [],
-                provenance: {
-                  source: "retrieved_evidence",
-                  as_of: "2026-07-10",
-                  generated_by: "llm:glm",
-                },
-              },
-              {
-                module_id: "l2_moneyflow",
-                title: "L2 大单资金流",
-                kind: "table",
-                status: "degraded",
-                summary: "自有逐笔成交口径。",
-                content: null,
-                metrics: [{ label: "扫描日期", value: "2026-07-08" }],
-                items: [],
-                table: {
-                  columns: [{ key: "stock", label: "股票" }],
-                  rows: [{ stock: "深信服" }],
-                },
-                warnings: ["L2 最新扫描日早于报告日。"],
-                provenance: {
-                  source: "feature_l2_capital_flow_daily",
-                  as_of: "2026-07-08",
-                  generated_by: "deterministic_duckdb_query",
-                },
-              },
-            ],
+            provenance: {
+              source: "retrieved_evidence",
+              as_of: "2026-07-10",
+              generated_by: "llm:glm",
+            },
           },
-        }}
-        connection="connected"
-        onOpenRun={vi.fn()}
+          {
+            module_id: "l2_moneyflow",
+            title: "L2 大单资金流",
+            kind: "table",
+            status: "degraded",
+            summary: "自有逐笔成交口径。",
+            content: null,
+            metrics: [{ label: "扫描日期", value: "2026-07-08" }],
+            items: [],
+            table: {
+              columns: [{ key: "stock", label: "股票" }],
+              rows: [{ stock: "深信服" }],
+            },
+            warnings: ["L2 最新扫描日早于报告日。"],
+            provenance: {
+              source: "feature_l2_capital_flow_daily",
+              as_of: "2026-07-08",
+              generated_by: "deterministic_duckdb_query",
+            },
+          },
+        ],
+      },
+    };
+    render(
+      <MessageBubble
+        message={assistantMessage}
+        skills={productSkills}
+        live={null}
+        bundle={structuredBundle}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
         onOpenArtifact={vi.fn()}
         onFollowup={vi.fn()}
       />,
@@ -407,40 +507,438 @@ describe("Workbench components", () => {
   });
 });
 
+describe("Chat-first conversation components", () => {
+  it("restores, switches and archives conversations in the mobile drawer", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const onArchive = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <ConversationList
+        conversations={conversations}
+        activeConversationId="conv_recent"
+        mobileOpen
+        onSelect={onSelect}
+        onNew={vi.fn()}
+        onArchive={onArchive}
+        onClose={onClose}
+        onLibrary={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("会话列表")).toHaveClass("open");
+    await user.click(screen.getByRole("button", { name: /^机器人/ }));
+    expect(onSelect).toHaveBeenCalledWith("conv_old");
+    await user.click(screen.getByRole("button", { name: "归档机器人" }));
+    expect(onArchive).toHaveBeenCalledWith("conv_old");
+    await user.click(screen.getByRole("button", { name: "关闭会话列表" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("filters conversation history without changing the active conversation", async () => {
+    const user = userEvent.setup();
+    render(
+      <ConversationList
+        conversations={conversations}
+        activeConversationId="conv_recent"
+        mobileOpen={false}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onArchive={vi.fn()}
+        onClose={vi.fn()}
+        onLibrary={vi.fn()}
+      />,
+    );
+
+    await user.type(screen.getByRole("searchbox", { name: "搜索会话" }), "机器人");
+    expect(screen.getByRole("button", { name: /^机器人/ })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /^液冷跟踪/ })).toBeNull();
+  });
+
+  it("starts a guided research workflow from the empty conversation", async () => {
+    const user = userEvent.setup();
+    const onFollowup = vi.fn();
+    render(
+      <MessageThread
+        messages={[]}
+        skills={productSkills}
+        liveMessages={{}}
+        runBundles={{}}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={onFollowup}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /今日复盘/ }));
+    expect(onFollowup).toHaveBeenCalledWith(
+      "请复盘最新交易日的市场结构、主线、赚钱效应和主要风险。",
+    );
+    expect(screen.getByText(/每轮新检索/)).toBeVisible();
+  });
+
+  it("selects and removes product skills while keeping hybrid as default", async () => {
+    const user = userEvent.setup();
+    const onSelectionChange = vi.fn();
+    render(
+      <SkillPicker
+        skills={productSkills}
+        mode="hybrid"
+        selectedSkillIds={["daily-review"]}
+        onModeChange={vi.fn()}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "选择 Skill" })).toBeVisible();
+    expect(screen.getByText("Daily Review")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "选择 Skill" }));
+    await user.click(screen.getByRole("checkbox", { name: /Daily Agent/ }));
+    expect(onSelectionChange).toHaveBeenCalledWith([
+      "daily-review",
+      "daily-agent",
+    ]);
+    await user.click(screen.getByRole("button", { name: "移除 Daily Review" }));
+    expect(onSelectionChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it("distinguishes manual skills from automatically invoked skills", () => {
+    render(
+      <SkillInvocation
+        skills={productSkills}
+        selectedSkillIds={["daily-review"]}
+        invokedSkillIds={["daily-review", "daily-agent"]}
+        statuses={{ "daily-review": "completed", "daily-agent": "running" }}
+      />,
+    );
+
+    expect(screen.getByText("手动指定 · Daily Review")).toBeVisible();
+    expect(screen.getByText("自动调用 · Daily Agent")).toBeVisible();
+    expect(screen.queryByText("daily_projection_modules")).toBeNull();
+  });
+
+  it("offers stop while a message is running", async () => {
+    const user = userEvent.setup();
+    const onStop = vi.fn();
+    render(
+      <Composer
+        value="继续追问"
+        taskType="ask"
+        running
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onStop={onStop}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "停止生成" }));
+    expect(onStop).toHaveBeenCalled();
+  });
+
+  it("marks template answers and regenerates without hiding the old answer", async () => {
+    const user = userEvent.setup();
+    const onRegenerate = vi.fn();
+    render(
+      <MessageBubble
+        message={assistantMessage}
+        skills={productSkills}
+        live={null}
+        bundle={bundle}
+        canRegenerate
+        onRegenerate={onRegenerate}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("这是模板回答。")).toBeVisible();
+    expect(screen.getByText("模板表达 · 未配置 LLM")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "重新生成回答" }));
+    expect(onRegenerate).toHaveBeenCalledWith(assistantMessage);
+    expect(screen.getByText("这是模板回答。")).toBeVisible();
+  });
+
+  it("replaces loading with a persistent cancelled message", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "",
+          status: "cancelled",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={null}
+        bundle={null}
+        canRegenerate
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("已停止生成，已保留已生成内容。"),
+    ).toBeVisible();
+    expect(screen.queryByText("正在检索本轮证据")).toBeNull();
+  });
+
+  it("applies identity-checked deltas, module upserts and replay deduplication", () => {
+    const deduper = new StreamEventDeduper();
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const envelope = (
+      eventId: string,
+      eventType: string,
+      payload: Record<string, unknown>,
+      conversationId = "conv_recent",
+    ): StreamEnvelope => ({
+      schema_version: 1,
+      event_id: eventId,
+      event_type: eventType,
+      run_id: "run_demo",
+      conversation_id: conversationId,
+      message_id: "msg_assistant",
+      seq: Number(eventId.replace(/\D/g, "")) || 1,
+      created_at: "2026-07-11T09:00:00+08:00",
+      payload,
+    });
+    const firstDelta = envelope("evt-1", "text.delta", { delta: "真实" });
+    const withText = applyChatStreamEvent(initial, firstDelta, deduper);
+    const duplicate = applyChatStreamEvent(withText, firstDelta, deduper);
+    const staleConversation = applyChatStreamEvent(
+      duplicate,
+      envelope("evt-2", "text.delta", { delta: "旧会话" }, "conv_old"),
+      deduper,
+    );
+    const module = {
+      module_id: "daily_overview",
+      title: "今日核心",
+      kind: "summary",
+      status: "complete",
+      summary: "第一版",
+      content: null,
+      metrics: [],
+      items: [],
+      table: null,
+      warnings: [],
+      provenance: { source: "canonical" },
+    };
+    const withModule = applyChatStreamEvent(
+      staleConversation,
+      envelope("evt-3", "report.module", { module }),
+      deduper,
+    );
+    const replayedModule = applyChatStreamEvent(
+      withModule,
+      envelope("evt-4", "report.module", {
+        module: { ...module, summary: "重连更新" },
+      }),
+      deduper,
+    );
+
+    expect(withText.narrative).toBe("真实");
+    expect(duplicate).toBe(withText);
+    expect(staleConversation).toBe(withText);
+    expect(replayedModule.report?.modules).toHaveLength(1);
+    expect(replayedModule.report?.modules[0].summary).toBe("重连更新");
+  });
+
+  it("tracks skill results and ends loading on complete or cancel", () => {
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const makeEnvelope = (
+      eventId: string,
+      eventType: string,
+      payload: Record<string, unknown>,
+    ): StreamEnvelope => ({
+      schema_version: 1,
+      event_id: eventId,
+      event_type: eventType,
+      run_id: "run_demo",
+      conversation_id: "conv_recent",
+      message_id: "msg_assistant",
+      seq: 1,
+      created_at: "2026-07-11T09:00:00+08:00",
+      payload,
+    });
+    const started = applyChatStreamEvent(
+      initial,
+      makeEnvelope("skill-start", "skill.start", {
+        skill_id: "daily_review",
+        selection_source: "rule",
+        reason: "命中复盘规则",
+      }),
+    );
+    const completed = applyChatStreamEvent(
+      started,
+      makeEnvelope("skill-result", "skill.result", {
+        skill_id: "daily_review",
+        status: "degraded",
+        warnings: ["缺少最新日期"],
+      }),
+    );
+    const messageComplete = applyChatStreamEvent(
+      completed,
+      makeEnvelope("message-complete", "message.complete", {
+        message: { ...assistantMessage, content: "最终回答" },
+      }),
+    );
+    const cancelled = applyChatStreamEvent(
+      started,
+      makeEnvelope("message-cancel", "message.error", {
+        message: {
+          ...assistantMessage,
+          status: "cancelled",
+          content: "已保留片段",
+        },
+      }),
+    );
+
+    expect(completed.skillInvocations.daily_review).toMatchObject({
+      selection_source: "rule",
+      status: "degraded",
+      warnings: ["缺少最新日期"],
+    });
+    expect(messageComplete).toMatchObject({
+      narrative: "最终回答",
+      status: "completed",
+    });
+    expect(cancelled).toMatchObject({
+      narrative: "已保留片段",
+      status: "cancelled",
+    });
+  });
+});
+
 describe("Workbench navigation reliability", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    class MockEventSource {
+      onopen: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+
+      addEventListener = vi.fn();
+      close = vi.fn();
+    }
+    vi.stubGlobal("EventSource", MockEventSource);
     Object.defineProperty(window, "scrollTo", {
       configurable: true,
       value: vi.fn(),
     });
+    apiMocks.getBootstrap.mockResolvedValue(bootstrap);
+    apiMocks.listConversations.mockResolvedValue([]);
+    apiMocks.getConversationMessages.mockResolvedValue([]);
+    apiMocks.getSkills.mockResolvedValue(productSkills);
     apiMocks.getFollowups.mockResolvedValue([]);
+    apiMocks.getLLMConfig.mockResolvedValue(llmConfig);
     apiMocks.getRunContext.mockResolvedValue(bundle.context);
     apiMocks.getRunReport.mockResolvedValue(null);
     apiMocks.getTrace.mockResolvedValue([]);
     apiMocks.getRunArtifactText.mockResolvedValue(null);
-    apiMocks.createRun.mockResolvedValue({ run_id: "run_created", status: "queued" });
+    apiMocks.createConversationMessage.mockResolvedValue({
+      conversation_id: "conv_recent",
+      user_message_id: "msg_user_new",
+      assistant_message_id: "msg_assistant_new",
+      run_id: "run_created",
+    });
+    apiMocks.renameConversation.mockResolvedValue({
+      ...conversations[0],
+      title: "新的研究问题",
+    });
+    apiMocks.configureLLM.mockResolvedValue({
+      ...llmConfig,
+      mode: "byok",
+      display_name: "自带密钥",
+      session_only: true,
+      provider: "deepseek",
+      model: "deepseek-chat",
+    });
+    apiMocks.selectBuiltInLLM.mockResolvedValue(llmConfig);
   });
 
-  it("starts a new streaming run for the daily workflow", async () => {
-    apiMocks.getBootstrap.mockResolvedValue(bootstrap);
-    apiMocks.listArtifacts.mockResolvedValue([]);
-    apiMocks.getRun.mockResolvedValue({
-      ...bundle.run,
-      run_id: "run_created",
-      task_type: "daily",
-      status: "completed",
-      artifacts: [],
-    });
+  it("restores the latest conversation and submits in hybrid mode", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
     const user = userEvent.setup();
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getAllByRole("button", { name: /今日复盘/ }).length).toBeGreaterThan(0);
-    });
-    await user.click(screen.getAllByRole("button", { name: /今日复盘/ })[0]);
+    expect(await screen.findByText("每轮重新检索当前证据")).toBeVisible();
+    await user.type(screen.getByLabelText("输入研究问题"), "新的研究问题");
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
 
-    expect(apiMocks.createRun).toHaveBeenCalledWith("复盘", "daily", "default", null);
+    expect(apiMocks.createConversationMessage).toHaveBeenCalledWith(
+      "conv_recent",
+      {
+        content: "新的研究问题",
+        skill_mode: "hybrid",
+        selected_skill_ids: [],
+        user: "default",
+      },
+    );
+  });
+
+  it("configures session-only BYOK without exposing the key", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "配置模型" }));
+    expect(screen.getByRole("dialog", { name: "模型连接" })).toBeVisible();
+    await user.selectOptions(screen.getByLabelText("选择模型服务商"), "deepseek");
+    await user.type(screen.getByLabelText("模型 API Key"), "sk-private-test");
+    await user.click(screen.getByRole("button", { name: "使用自带密钥" }));
+
+    await waitFor(() => {
+      expect(apiMocks.configureLLM).toHaveBeenCalledWith({
+        provider: "deepseek",
+        api_key: "sk-private-test",
+        model: "deepseek-chat",
+        user: "default",
+      });
+    });
+    expect(screen.getByRole("button", { name: "配置模型" })).toHaveTextContent(
+      "自带密钥",
+    );
+    expect(screen.queryByText("sk-private-test")).not.toBeInTheDocument();
+  });
+
+  it("regenerates as a new message without replacing the old answer", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([
+      {
+        ...assistantMessage,
+        message_id: "msg_question",
+        role: "user",
+        content: "原问题",
+        run_id: null,
+      },
+      {
+        ...assistantMessage,
+        message_id: "msg_old_answer",
+        content: "原回答仍保留",
+        run_id: null,
+      },
+    ]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: "重新生成回答" }),
+    );
+
+    expect(screen.getByText("原回答仍保留")).toBeVisible();
+    expect(apiMocks.createConversationMessage).toHaveBeenCalledWith(
+      "conv_recent",
+      expect.objectContaining({
+        content: "原问题",
+        skill_mode: "hybrid",
+      }),
+    );
   });
 
   it("upserts replayed report modules by module_id", () => {
@@ -478,57 +976,48 @@ describe("Workbench navigation reliability", () => {
     expect(replayed.modules[0].summary).toBe("重放后更新");
   });
 
-  it("does not let a late run response replace the current selection", async () => {
-    const first = deferred<Run>();
-    const second = deferred<Run>();
-    const runA = {
-      ...bundle.run,
-      run_id: "run_a",
-      question: "先打开的研究",
-      artifacts: [],
-    };
-    const runB = {
-      ...bundle.run,
-      run_id: "run_b",
-      question: "当前研究",
-      artifacts: [],
-    };
-    apiMocks.getBootstrap.mockResolvedValue({
-      ...bootstrap,
-      recent_runs: [runA, runB],
-    });
-    apiMocks.getRun.mockImplementation((runId: string) =>
-      runId === "run_a" ? first.promise : second.promise,
+  it("does not let a late conversation response replace the current thread", async () => {
+    const first = deferred<ChatMessage[]>();
+    const second = deferred<ChatMessage[]>();
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockImplementation(
+      (conversationId: string) =>
+        conversationId === "conv_recent" ? first.promise : second.promise,
     );
-    apiMocks.listArtifacts.mockResolvedValue([]);
     const user = userEvent.setup();
     render(<App />);
 
-    expect(await screen.findByRole("button", { name: "新建研究" })).toHaveAttribute(
-      "aria-label",
-      "新建研究",
+    await user.click(
+      await screen.findByRole("button", { name: /^机器人/ }),
     );
-    expect(screen.getByRole("button", { name: "研究首页" })).toHaveAttribute(
-      "aria-label",
-      "研究首页",
+    await act(async () =>
+      second.resolve([
+        {
+          ...assistantMessage,
+          message_id: "current_message",
+          conversation_id: "conv_old",
+          role: "user",
+          content: "当前会话内容",
+          run_id: null,
+        },
+      ]),
     );
-    expect(screen.getByRole("button", { name: "产物库" })).toHaveAttribute(
-      "aria-label",
-      "产物库",
-    );
-    await user.click(await screen.findByRole("button", { name: /先打开的研究/ }));
-    await user.click(screen.getByRole("button", { name: /当前研究/ }));
-    await act(async () => second.resolve(runB));
-    expect(await screen.findByRole("heading", { name: "当前研究" })).toBeVisible();
-    expect(window.scrollTo).toHaveBeenLastCalledWith({
-      top: 0,
-      behavior: "auto",
-    });
+    expect(await screen.findByText("当前会话内容")).toBeVisible();
 
-    await act(async () => first.resolve(runA));
+    await act(async () =>
+      first.resolve([
+        {
+          ...assistantMessage,
+          message_id: "stale_message",
+          role: "user",
+          content: "旧会话迟到内容",
+          run_id: null,
+        },
+      ]),
+    );
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "先打开的研究" })).toBeNull();
-      expect(screen.getByRole("heading", { name: "当前研究" })).toBeVisible();
+      expect(screen.queryByText("旧会话迟到内容")).toBeNull();
+      expect(screen.getByText("当前会话内容")).toBeVisible();
     });
   });
 
@@ -550,7 +1039,6 @@ describe("Workbench navigation reliability", () => {
       source_path: "reports/b.md",
       source_of_truth: "reports/b.md",
     };
-    apiMocks.getBootstrap.mockResolvedValue(bootstrap);
     apiMocks.listArtifacts.mockResolvedValue([artifactA, artifactB]);
     apiMocks.getArtifact.mockImplementation((artifactId: string) =>
       artifactId === "briefing:a" ? first.promise : second.promise,

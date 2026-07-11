@@ -25,7 +25,12 @@ import re
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field, replace
+
+from intelligence.services.run_store import redact
 
 DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
 
@@ -37,8 +42,8 @@ _PROVIDERS: tuple[tuple[str, str, str, str], ...] = (
     ("kimi", "KIMI_API_KEY", "https://api.moonshot.cn/v1", "moonshot-v1-8k"),
     ("dashscope", "DASHSCOPE_API_KEY", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
     ("qwen", "QWEN_API_KEY", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
-    ("zhipu", "ZHIPU_API_KEY", "https://open.bigmodel.cn/api/paas/v4", "glm-4-plus"),
-    ("glm", "GLM_API_KEY", "https://open.bigmodel.cn/api/paas/v4", "glm-4-plus"),
+    ("zhipu", "ZHIPU_API_KEY", "https://open.bigmodel.cn/api/paas/v4", "glm-5.2"),
+    ("glm", "GLM_API_KEY", "https://open.bigmodel.cn/api/paas/v4", "glm-5.2"),
     ("openai", "OPENAI_API_KEY", "https://api.openai.com/v1", "gpt-4o-mini"),
 )
 
@@ -46,13 +51,32 @@ _PROVIDERS: tuple[tuple[str, str, str, str], ...] = (
 @dataclass
 class LLMProvider:
     name: str
-    api_key: str
+    api_key: str = field(repr=False)
     base_url: str
     model: str
 
 
+_PROVIDER_OVERRIDE: ContextVar[LLMProvider | None] = ContextVar(
+    "llm_provider_override",
+    default=None,
+)
+
+
+class LLMStreamCancelled(RuntimeError):
+    pass
+
+
+class LLMStreamingUnsupported(RuntimeError):
+    pass
+
+
 def detect_provider(model_override: str | None = None) -> LLMProvider | None:
     """Resolve an LLM provider from environment variables, or ``None``."""
+    configured = _PROVIDER_OVERRIDE.get()
+    if configured is not None:
+        if model_override:
+            return replace(configured, model=model_override)
+        return configured
     generic = os.environ.get("LLM_API_KEY")
     if generic:
         base = os.environ.get("LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1"
@@ -65,6 +89,15 @@ def detect_provider(model_override: str | None = None) -> LLMProvider | None:
             model = model_override or os.environ.get("LLM_MODEL") or default_model
             return LLMProvider(name=name, api_key=key, base_url=base_url, model=model)
     return None
+
+
+@contextmanager
+def provider_override(provider: LLMProvider) -> Iterator[None]:
+    token = _PROVIDER_OVERRIDE.set(provider)
+    try:
+        yield
+    finally:
+        _PROVIDER_OVERRIDE.reset(token)
 
 
 _SYSTEM_PROMPT = (
@@ -458,6 +491,120 @@ def synthesize_messages(
     if not text:
         return None, "LLM 合成返回空内容，已降级为模板"
     return SynthesisResult(answer=text, provider=provider.name, model=provider.model), ""
+
+
+def _post_chat_stream(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: int,
+    temperature: float,
+    on_delta: Callable[[str], None],
+    is_cancelled: Callable[[], bool] | None,
+) -> str:
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload = {
+        "model": provider.model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True,
+    }
+    if os.environ.get("LLM_THINKING") == "disabled":
+        payload["thinking"] = {"type": "disabled"}
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {provider.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+        },
+        method="POST",
+    )
+    chunks: list[str] = []
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        for raw_line in response:
+            if is_cancelled is not None and is_cancelled():
+                raise LLMStreamCancelled()
+            line = raw_line.decode("utf-8", "replace").strip()
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            try:
+                event = json.loads(data)
+                delta = event["choices"][0]["delta"].get("content")
+            except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+                continue
+            if isinstance(delta, str) and delta:
+                on_delta(delta)
+                chunks.append(delta)
+    if not chunks:
+        raise LLMStreamingUnsupported()
+    return "".join(chunks)
+
+
+def synthesize_messages_stream(
+    messages: list[dict],
+    *,
+    on_delta: Callable[[str], None],
+    is_cancelled: Callable[[], bool] | None = None,
+    model_override: str | None = None,
+    timeout: int = DEFAULT_LLM_TIMEOUT,
+    temperature: float = 0.3,
+) -> tuple[SynthesisResult | None, str]:
+    provider = detect_provider(model_override)
+    if provider is None:
+        return None, (
+            "未配置 LLM key，有机合成降级为模板。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
+            "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
+        )
+    try:
+        content = _post_chat_stream(
+            provider,
+            messages,
+            timeout,
+            temperature,
+            on_delta,
+            is_cancelled,
+        )
+    except LLMStreamCancelled:
+        raise
+    except urllib.error.HTTPError as exc:
+        if exc.code not in {400, 404, 405, 415, 422, 501}:
+            return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"
+        fallback, reason = synthesize_messages(
+            messages,
+            model_override=model_override,
+            timeout=timeout,
+            temperature=temperature,
+        )
+        if fallback is not None:
+            on_delta(fallback.answer)
+        return fallback, reason
+    except LLMStreamingUnsupported:
+        fallback, reason = synthesize_messages(
+            messages,
+            model_override=model_override,
+            timeout=timeout,
+            temperature=temperature,
+        )
+        if fallback is not None:
+            on_delta(fallback.answer)
+        return fallback, reason
+    except Exception as exc:  # pragma: no cover - network
+        detail = redact(str(getattr(exc, "reason", exc))[:120])
+        return None, f"LLM 流式合成失败（{type(exc).__name__}: {detail}），已降级为模板"
+    if not content.strip():
+        return None, "LLM 流式合成返回空内容，已降级为模板"
+    return (
+        SynthesisResult(
+            answer=content,
+            provider=provider.name,
+            model=provider.model,
+        ),
+        "",
+    )
 
 
 _SELF_REVIEW_REVISION_PROMPT = (

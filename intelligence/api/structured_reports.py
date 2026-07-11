@@ -66,6 +66,7 @@ def daily_projection_modules(
         date=date_text,
     )
     warnings = list(projection.get("provenance", {}).get("warnings", []))
+    metrics = list(projection.get("metrics", []))
     modules: list[dict[str, Any]] = [
         {
             "module_id": "daily_overview",
@@ -74,12 +75,26 @@ def daily_projection_modules(
             "status": "degraded" if warnings else "complete",
             "summary": "基于 canonical Daily Review 的确定性投影。",
             "content": None,
-            "metrics": projection.get("metrics", []),
+            "metrics": metrics,
             "items": [
                 {"summary": line, "badges": [], "meta": []}
                 for line in projection.get("plain_summary", [])
             ],
-            "table": None,
+            "table": {
+                "columns": [
+                    {"key": "dimension", "label": "维度"},
+                    {"key": "conclusion", "label": "结论"},
+                ],
+                "rows": [
+                    {
+                        "dimension": metric.get("label"),
+                        "conclusion": metric.get("value"),
+                    }
+                    for metric in metrics
+                ],
+            }
+            if metrics
+            else None,
             "warnings": warnings,
             "provenance": {
                 "source": projection.get("provenance", {}).get("canonical_path"),
@@ -109,6 +124,63 @@ def daily_projection_modules(
             }
         )
     return date_text, modules, warnings
+
+
+def daily_agent_projection_modules(
+    projection: dict[str, Any],
+) -> list[dict[str, Any]]:
+    provenance = projection.get("provenance", {})
+    warnings = list(provenance.get("warnings", []))
+    date_text = projection.get("date")
+    source = provenance.get("canonical_path")
+    modules: list[dict[str, Any]] = [
+        {
+            "module_id": "daily_agent_overview",
+            "title": str(projection.get("title") or "日常研究雷达"),
+            "kind": "summary",
+            "status": "degraded" if warnings else "complete",
+            "summary": "基于 canonical Daily Agent JSON 的确定性投影。",
+            "content": None,
+            "metrics": list(projection.get("metrics", [])),
+            "items": [
+                {"summary": line, "badges": [], "meta": []}
+                for line in projection.get("plain_summary", [])
+            ],
+            "table": None,
+            "warnings": warnings,
+            "provenance": {
+                "source": source,
+                "as_of": date_text,
+                "generated_by": "deterministic_projection",
+            },
+        }
+    ]
+    section_kinds = {
+        "今天要做什么": "actions",
+        "证据边界": "evidence",
+    }
+    for index, section in enumerate(projection.get("sections", []), start=1):
+        title = str(section.get("title") or f"研究章节 {index}")
+        modules.append(
+            {
+                "module_id": f"daily_agent_section_{index}",
+                "title": title,
+                "kind": section_kinds.get(title, "list"),
+                "status": "complete",
+                "summary": None,
+                "content": None,
+                "metrics": [],
+                "items": list(section.get("items", [])),
+                "table": None,
+                "warnings": [],
+                "provenance": {
+                    "source": source,
+                    "as_of": date_text,
+                    "generated_by": "deterministic_projection",
+                },
+            }
+        )
+    return modules
 
 
 def moneyflow_module(snapshot: MoneyflowSnapshot) -> dict[str, Any]:

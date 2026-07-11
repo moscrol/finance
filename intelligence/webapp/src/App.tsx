@@ -1,53 +1,120 @@
-import { PanelRightOpen, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  BrainCircuit,
+  KeyRound,
+  LoaderCircle,
+  LockKeyhole,
+  PanelLeftOpen,
+  PanelRightOpen,
+  RefreshCw,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  archiveConversation,
   artifactContentUrl,
-  createRun,
+  cancelRun,
+  configureLLM,
+  createConversation,
+  createConversationMessage,
   getArtifact,
   getArtifactProjection,
   getArtifactText,
   getBootstrap,
+  getConversationMessages,
   getFollowups,
+  getLLMConfig,
   getRun,
   getRunArtifactText,
   getRunContext,
   getRunReport,
+  getSkills,
   getTrace,
   listArtifacts,
+  listConversations,
+  renameConversation,
   runEventsUrl,
+  selectBuiltInLLM,
 } from "./api";
 import { ArtifactLibrary } from "./components/ArtifactLibrary";
 import { ArtifactViewer } from "./components/ArtifactViewer";
 import { Composer } from "./components/Composer";
-import { ResearchHome } from "./components/ResearchHome";
+import { ConversationList } from "./components/ConversationList";
+import { MessageThread } from "./components/MessageThread";
+import { ModelSettings } from "./components/ModelSettings";
 import { ResearchInspector } from "./components/ResearchInspector";
-import { RunView } from "./components/RunView";
-import { Sidebar } from "./components/Sidebar";
 import { supportsDailyProjection } from "./dailyReports";
-import { upsertStructuredReportModule } from "./structuredReport";
-import { deduplicateTrace, upsertTraceStep } from "./trace";
+import {
+  applyChatStreamEvent,
+  createLiveMessageState,
+  parseStreamEnvelopeJson,
+  StreamEventDeduper,
+} from "./streamEvents";
+import { deduplicateTrace } from "./trace";
 import type {
   ArtifactDescriptor,
   Bootstrap,
+  ChatMessage,
+  Conversation,
   DailyReportProjection,
+  LiveMessageState,
+  LLMConfig,
+  LLMProviderId,
+  ProductSkillDescription,
   Run,
   RunBundle,
-  StructuredReportEvent,
+  SkillMode,
   Surface,
-  TraceStep,
-  Workflow,
 } from "./types";
 
-const terminalStatuses = new Set(["completed", "failed", "cancelled"]);
+const chatEventTypes = [
+  "message.start",
+  "trace.step",
+  "skill.start",
+  "skill.result",
+  "report.start",
+  "report.module",
+  "citation.ready",
+  "text.delta",
+  "report.complete",
+  "report.error",
+  "message.complete",
+  "message.error",
+];
+
+interface StreamIdentity {
+  conversationId: string;
+  messageId: string;
+  runId: string;
+}
 
 export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [surface, setSurface] = useState<Surface>({ kind: "home" });
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [skills, setSkills] = useState<ProductSkillDescription[]>([]);
+  const [runBundles, setRunBundles] = useState<Record<string, RunBundle>>({});
+  const [liveMessages, setLiveMessages] = useState<
+    Record<string, LiveMessageState>
+  >({});
   const [draft, setDraft] = useState("");
-  const [taskType, setTaskType] = useState("ask");
+  const [skillMode, setSkillMode] = useState<SkillMode>("hybrid");
+  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
+  const [llmConfig, setLLMConfig] = useState<LLMConfig | null>(null);
+  const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
+  const [modelSettingsSaving, setModelSettingsSaving] = useState(false);
+  const [modelSettingsError, setModelSettingsError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [runBundle, setRunBundle] = useState<RunBundle | null>(null);
-  const [connection, setConnection] = useState<"connected" | "reconnecting">("connected");
+  const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [artifacts, setArtifacts] = useState<ArtifactDescriptor[]>([]);
   const [artifact, setArtifact] = useState<ArtifactDescriptor | null>(null);
   const [artifactContent, setArtifactContent] = useState<string | null>(null);
@@ -58,173 +125,437 @@ export default function App() {
   const [originalReportArtifactId, setOriginalReportArtifactId] =
     useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const runRequestGeneration = useRef(0);
-  const artifactRequestGeneration = useRef(0);
+  const activeConversationRef = useRef<string | null>(null);
+  const conversationGeneration = useRef(0);
+  const artifactGeneration = useRef(0);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
-  const user = bootstrap?.user;
+  const user = bootstrap?.user ?? "default";
 
-  const refreshBootstrap = useCallback(async () => {
-    try {
-      const next = await getBootstrap(user);
-      setBootstrap(next);
-      setError(null);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Workbench 初始化失败");
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  const fetchRunBundle = useCallback(
+    async (runId: string): Promise<RunBundle> => {
+      const run = await getRun(runId, user);
+      const answerArtifact = run.artifacts.find(
+        (item) => item.path === "answer.md",
+      );
+      const [
+        trace,
+        followups,
+        context,
+        registeredArtifacts,
+        answer,
+        structuredReport,
+      ] = await Promise.all([
+        getTrace(runId, user),
+        getFollowups(runId, user),
+        getRunContext(runId, user),
+        listArtifacts({ category: "run" }, user),
+        answerArtifact
+          ? getRunArtifactText(runId, answerArtifact.path, user).catch(
+              () => null,
+            )
+          : Promise.resolve(null),
+        getRunReport(runId, user).catch(() => null),
+      ]);
+      return {
+        run,
+        trace: deduplicateTrace(trace),
+        followups,
+        context,
+        answer,
+        structuredReport,
+        registeredArtifacts: registeredArtifacts.filter(
+          (item) => item.related_run_id === runId,
+        ),
+      };
+    },
+    [user],
+  );
 
-  useEffect(() => {
-    void refreshBootstrap();
-  }, [refreshBootstrap]);
-
-  const loadRunBundle = useCallback(
-    async (
-      runId: string,
-      generation = ++runRequestGeneration.current,
-    ) => {
-      setLoading(true);
-      setRunBundle(null);
-      try {
-        const run = await getRun(runId, user);
-        if (generation !== runRequestGeneration.current) return;
-        const answerArtifact = run.artifacts.find((item) => item.path === "answer.md");
-        const outputLoadErrors: string[] = [];
-        const [trace, followups, context, registeredArtifacts, answer, structuredReport] =
-          await Promise.all([
-          getTrace(runId, user),
-          getFollowups(runId, user),
-          getRunContext(runId, user),
-          listArtifacts({ category: "run" }, user),
-          answerArtifact
-            ? getRunArtifactText(runId, answerArtifact.path, user).catch((caught) => {
-                outputLoadErrors.push(
-                  `回答产物读取失败：${caught instanceof Error ? caught.message : "未知错误"}`,
-                );
-                return null;
-              })
-            : Promise.resolve(null),
-          getRunReport(runId, user).catch((caught) => {
-            outputLoadErrors.push(
-              `结构化报告读取失败：${caught instanceof Error ? caught.message : "未知错误"}`,
-            );
-            return null;
-          }),
-        ]);
-        if (generation !== runRequestGeneration.current) return;
-        setRunBundle({
-          run,
-          trace: deduplicateTrace(trace),
-          followups,
-          context,
-          answer,
-          structuredReport,
-          registeredArtifacts: registeredArtifacts.filter(
-            (item) => item.related_run_id === runId,
+  const loadConversationData = useCallback(
+    async (conversationId: string): Promise<ChatMessage[]> => {
+      const generation = ++conversationGeneration.current;
+      const nextMessages = await getConversationMessages(conversationId, user);
+      const runIds = [
+        ...new Set(
+          nextMessages
+            .map((message) => message.run_id)
+            .filter((runId): runId is string => Boolean(runId)),
+        ),
+      ];
+      const bundles = await Promise.all(
+        runIds.map((runId) =>
+          fetchRunBundle(runId)
+            .then((bundle) => [runId, bundle] as const)
+            .catch(() => null),
+        ),
+      );
+      if (
+        activeConversationRef.current === conversationId &&
+        conversationGeneration.current === generation
+      ) {
+        setMessages(nextMessages);
+        setRunBundles(
+          Object.fromEntries(
+            bundles.filter(
+              (item): item is readonly [string, RunBundle] => item !== null,
+            ),
           ),
+        );
+      }
+      return nextMessages;
+    },
+    [fetchRunBundle, user],
+  );
+
+  const connectStream = useCallback(
+    (identity: StreamIdentity) => {
+      eventSourceRef.current?.close();
+      const deduper = new StreamEventDeduper();
+      const events = new EventSource(runEventsUrl(identity.runId, user));
+      eventSourceRef.current = events;
+
+      setLiveMessages((current) => ({
+        ...current,
+        [identity.messageId]:
+          current[identity.messageId] ??
+          createLiveMessageState(identity),
+      }));
+
+      const applyEvent = (rawEvent: Event) => {
+        const envelope = parseStreamEnvelopeJson(
+          (rawEvent as MessageEvent<string>).data,
+        );
+        if (!envelope) return;
+        setLiveMessages((current) => {
+          const state = current[identity.messageId];
+          if (!state) return current;
+          const next = applyChatStreamEvent(state, envelope, deduper);
+          return next === state
+            ? current
+            : { ...current, [identity.messageId]: next };
         });
-        setArtifact(null);
-        setError(outputLoadErrors.length > 0 ? outputLoadErrors.join("；") : null);
-      } catch (caught) {
-        if (generation === runRequestGeneration.current) {
-          setError(caught instanceof Error ? caught.message : "无法加载研究运行");
+      };
+      chatEventTypes.forEach((eventType) =>
+        events.addEventListener(eventType, applyEvent),
+      );
+      events.onopen = () => {
+        setLiveMessages((current) => {
+          const state = current[identity.messageId];
+          return state
+            ? {
+                ...current,
+                [identity.messageId]: {
+                  ...state,
+                  connection: "connected",
+                },
+              }
+            : current;
+        });
+      };
+      events.onerror = () => {
+        setLiveMessages((current) => {
+          const state = current[identity.messageId];
+          return state
+            ? {
+                ...current,
+                [identity.messageId]: {
+                  ...state,
+                  connection: "reconnecting",
+                },
+              }
+            : current;
+        });
+      };
+      events.addEventListener("run", (rawEvent) => {
+        try {
+          const nextRun = JSON.parse(
+            (rawEvent as MessageEvent<string>).data,
+          ) as Run;
+          if (nextRun.run_id !== identity.runId) return;
+          events.close();
+          if (eventSourceRef.current === events) eventSourceRef.current = null;
+          void loadConversationData(identity.conversationId);
+          void listConversations(user).then(setConversations);
+        } catch {
+          setError("运行结束事件格式无效");
         }
+      });
+    },
+    [loadConversationData, user],
+  );
+
+  const selectConversation = useCallback(
+    async (conversationId: string) => {
+      eventSourceRef.current?.close();
+      eventSourceRef.current = null;
+      activeConversationRef.current = conversationId;
+      setActiveConversationId(conversationId);
+      setSurface({ kind: "home" });
+      setMessages([]);
+      setRunBundles({});
+      setLiveMessages({});
+      setConversationDrawerOpen(false);
+      setLoading(true);
+      try {
+        const nextMessages = await loadConversationData(conversationId);
+        const pending = [...nextMessages]
+          .reverse()
+          .find(
+            (message) =>
+              message.role === "assistant" &&
+              message.status === "pending" &&
+              message.run_id,
+          );
+        if (
+          pending?.run_id &&
+          activeConversationRef.current === conversationId
+        ) {
+          connectStream({
+            conversationId,
+            messageId: pending.message_id,
+            runId: pending.run_id,
+          });
+        }
+        setError(null);
+      } catch (caught) {
+        setError(
+          caught instanceof Error ? caught.message : "无法恢复会话",
+        );
       } finally {
-        if (generation === runRequestGeneration.current) {
+        if (activeConversationRef.current === conversationId) {
           setLoading(false);
         }
+      }
+    },
+    [connectStream, loadConversationData],
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    void getBootstrap()
+      .then(async (nextBootstrap) => {
+        if (disposed) return;
+        setBootstrap(nextBootstrap);
+        const [nextConversations, nextSkills, nextLLMConfig] = await Promise.all([
+          listConversations(nextBootstrap.user),
+          getSkills(nextBootstrap.user),
+          getLLMConfig(nextBootstrap.user).catch(() => null),
+        ]);
+        if (disposed) return;
+        setConversations(nextConversations);
+        setSkills(nextSkills);
+        setLLMConfig(nextLLMConfig);
+        if (nextConversations[0]) {
+          await selectConversation(nextConversations[0].conversation_id);
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((caught) => {
+        if (!disposed) {
+          setError(
+            caught instanceof Error ? caught.message : "Workbench 初始化失败",
+          );
+          setLoading(false);
+        }
+      });
+    return () => {
+      disposed = true;
+      eventSourceRef.current?.close();
+    };
+  }, [selectConversation]);
+
+  const saveBYOK = useCallback(
+    async (provider: LLMProviderId, apiKey: string, model: string) => {
+      setModelSettingsSaving(true);
+      setModelSettingsError(null);
+      try {
+        const configured = await configureLLM({
+          provider,
+          api_key: apiKey,
+          model,
+          user,
+        });
+        setLLMConfig(configured);
+      } catch (caught) {
+        setModelSettingsError(
+          caught instanceof Error ? caught.message : "模型连接失败",
+        );
+      } finally {
+        setModelSettingsSaving(false);
       }
     },
     [user],
   );
 
-  const openRun = useCallback(
-    (runId: string) => {
-      artifactRequestGeneration.current += 1;
-      const generation = ++runRequestGeneration.current;
-      setSurface({ kind: "run", runId });
-      setRunBundle(null);
-      setArtifact(null);
-      setArtifactContent(null);
-      setArtifactProjection(null);
-      setArtifactProjectionError(null);
-      setOriginalReportArtifactId(null);
-      setInspectorOpen(false);
-      void loadRunBundle(runId, generation);
+  const restoreBuiltInLLM = useCallback(async () => {
+    setModelSettingsSaving(true);
+    setModelSettingsError(null);
+    try {
+      setLLMConfig(await selectBuiltInLLM(user));
+    } catch (caught) {
+      setModelSettingsError(
+        caught instanceof Error ? caught.message : "无法切换默认模型",
+      );
+    } finally {
+      setModelSettingsSaving(false);
+    }
+  }, [user]);
+
+  const newConversation = useCallback(async (): Promise<Conversation> => {
+    const created = await createConversation("新对话", user);
+    setConversations((current) => [created, ...current]);
+    await selectConversation(created.conversation_id);
+    return created;
+  }, [selectConversation, user]);
+
+  const submitResearch = useCallback(
+    async (question: string) => {
+      if (submitting) return;
+      setSubmitting(true);
+      try {
+        let conversationId = activeConversationRef.current;
+        let conversation = conversations.find(
+          (item) => item.conversation_id === conversationId,
+        );
+        if (!conversationId) {
+          conversation = await newConversation();
+          conversationId = conversation.conversation_id;
+        }
+        const created = await createConversationMessage(conversationId, {
+          content: question,
+          skill_mode: skillMode,
+          selected_skill_ids: selectedSkillIds,
+          user,
+        });
+        const now = new Date().toISOString();
+        const userMessage: ChatMessage = {
+          message_id: created.user_message_id,
+          conversation_id: conversationId,
+          role: "user",
+          content: question,
+          created_at: now,
+          status: "completed",
+          run_id: created.run_id,
+          selected_skill_ids: selectedSkillIds,
+          invoked_skill_ids: [],
+          citations: [],
+          degrades: [],
+        };
+        const assistantMessage: ChatMessage = {
+          message_id: created.assistant_message_id,
+          conversation_id: conversationId,
+          role: "assistant",
+          content: "",
+          created_at: now,
+          status: "pending",
+          run_id: created.run_id,
+          selected_skill_ids: selectedSkillIds,
+          invoked_skill_ids: [],
+          citations: [],
+          degrades: [],
+        };
+        setMessages((current) => [
+          ...current,
+          userMessage,
+          assistantMessage,
+        ]);
+        setLiveMessages((current) => ({
+          ...current,
+          [created.assistant_message_id]: createLiveMessageState({
+            conversationId,
+            messageId: created.assistant_message_id,
+            runId: created.run_id,
+          }),
+        }));
+        setDraft("");
+        setSelectedSkillIds([]);
+        connectStream({
+          conversationId,
+          messageId: created.assistant_message_id,
+          runId: created.run_id,
+        });
+        if (conversation?.title === "新对话") {
+          const renamed = await renameConversation(
+            conversationId,
+            question.slice(0, 28),
+            user,
+          );
+          setConversations((current) =>
+            current.map((item) =>
+              item.conversation_id === conversationId ? renamed : item,
+            ),
+          );
+        }
+      } catch (caught) {
+        setError(
+          caught instanceof Error ? caught.message : "发送消息失败",
+        );
+      } finally {
+        setSubmitting(false);
+      }
     },
-    [loadRunBundle],
+    [
+      connectStream,
+      conversations,
+      newConversation,
+      selectedSkillIds,
+      skillMode,
+      submitting,
+      user,
+    ],
   );
 
-  const activeRunId = runBundle?.run.run_id;
-  const activeRunStatus = runBundle?.run.status;
+  const regenerate = (assistant: ChatMessage) => {
+    const assistantIndex = messages.findIndex(
+      (message) => message.message_id === assistant.message_id,
+    );
+    const originalQuestion = messages
+      .slice(0, assistantIndex)
+      .reverse()
+      .find((message) => message.role === "user");
+    if (originalQuestion) void submitResearch(originalQuestion.content);
+  };
 
-  useEffect(() => {
-    const run = runBundle?.run;
-    if (!run || surface.kind !== "run" || terminalStatuses.has(run.status)) return;
+  const runningLive = Object.values(liveMessages).find(
+    (message) =>
+      message.conversationId === activeConversationId &&
+      (message.status === "pending" || message.status === "streaming"),
+  );
 
-    const generation = runRequestGeneration.current;
-    const events = new EventSource(runEventsUrl(run.run_id, user));
-    events.onopen = () => setConnection("connected");
-    events.addEventListener("step", (event) => {
-      if (generation !== runRequestGeneration.current) return;
-      const step = JSON.parse((event as MessageEvent<string>).data) as TraceStep;
-      setRunBundle((current) =>
-        current
-          ? {
-              ...current,
-              trace: upsertTraceStep(current.trace, step),
-            }
-          : current,
+  const stopGeneration = () => {
+    if (runningLive) {
+      void cancelRun(runningLive.runId, user).catch((caught) =>
+        setError(
+          caught instanceof Error ? caught.message : "停止请求失败",
+        ),
       );
-    });
-    const applyReportEvent = (event: Event) => {
-      if (generation !== runRequestGeneration.current) return;
-      const streamEvent = JSON.parse(
-        (event as MessageEvent<string>).data,
-      ) as StructuredReportEvent;
-      setRunBundle((current) => {
-        if (!current) return current;
-        if (streamEvent.payload.report) {
-          return { ...current, structuredReport: streamEvent.payload.report };
+    }
+  };
+
+  const archive = async (conversationId: string) => {
+    try {
+      await archiveConversation(conversationId, user);
+      const remaining = conversations.filter(
+        (item) => item.conversation_id !== conversationId,
+      );
+      setConversations(remaining);
+      if (activeConversationId === conversationId) {
+        if (remaining[0]) {
+          await selectConversation(remaining[0].conversation_id);
+        } else {
+          activeConversationRef.current = null;
+          setActiveConversationId(null);
+          setMessages([]);
+          setRunBundles({});
         }
-        if (streamEvent.payload.module && current.structuredReport) {
-          return {
-            ...current,
-            structuredReport: upsertStructuredReportModule(
-              current.structuredReport,
-              streamEvent.payload.module,
-            ),
-          };
-        }
-        return current;
-      });
-    };
-    events.addEventListener("report_start", applyReportEvent);
-    events.addEventListener("report_module", applyReportEvent);
-    events.addEventListener("report_complete", applyReportEvent);
-    events.addEventListener("report_error", applyReportEvent);
-    events.addEventListener("run", (event) => {
-      if (generation !== runRequestGeneration.current) return;
-      const nextRun = JSON.parse((event as MessageEvent<string>).data) as Run;
-      setRunBundle((current) => (current ? { ...current, run: nextRun } : current));
-      events.close();
-      void loadRunBundle(nextRun.run_id, generation);
-      void refreshBootstrap();
-    });
-    events.onerror = () => setConnection("reconnecting");
-    return () => events.close();
-  }, [
-    activeRunId,
-    activeRunStatus,
-    loadRunBundle,
-    refreshBootstrap,
-    runBundle?.run,
-    surface.kind,
-    user,
-  ]);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "归档失败");
+    }
+  };
 
   const loadLibrary = useCallback(async () => {
     setLoading(true);
@@ -239,61 +570,44 @@ export default function App() {
   }, [user]);
 
   const openLibrary = () => {
-    runRequestGeneration.current += 1;
-    artifactRequestGeneration.current += 1;
     setSurface({ kind: "library" });
-    setRunBundle(null);
+    setConversationDrawerOpen(false);
     setArtifact(null);
-    setArtifactContent(null);
-    setArtifactProjection(null);
-    setArtifactProjectionError(null);
-    setOriginalReportArtifactId(null);
     setInspectorOpen(false);
     void loadLibrary();
   };
 
   const openArtifact = useCallback(
     async (artifactId: string) => {
-      runRequestGeneration.current += 1;
-      const generation = ++artifactRequestGeneration.current;
+      const generation = ++artifactGeneration.current;
       setSurface({ kind: "artifact", artifactId });
       setLoading(true);
-      setRunBundle(null);
       setArtifact(null);
       setArtifactContent(null);
       setArtifactProjection(null);
       setArtifactProjectionError(null);
       setOriginalReportArtifactId(null);
-      setInspectorOpen(false);
       try {
         const descriptor = await getArtifact(artifactId, user);
-        if (generation !== artifactRequestGeneration.current) return;
+        if (generation !== artifactGeneration.current) return;
         setArtifact(descriptor);
         if (descriptor.viewer === "legacy_html") {
           setOriginalReportArtifactId(descriptor.artifact_id);
         }
-        if (descriptor.status !== "missing" && supportsDailyProjection(descriptor)) {
+        if (
+          descriptor.status !== "missing" &&
+          supportsDailyProjection(descriptor)
+        ) {
           try {
-            const projection = await getArtifactProjection(artifactId, user);
-            if (generation !== artifactRequestGeneration.current) return;
-            setArtifactProjection(projection);
+            setArtifactProjection(
+              await getArtifactProjection(artifactId, user),
+            );
           } catch (caught) {
-            if (generation === artifactRequestGeneration.current) {
-              try {
-                const candidates = await listArtifacts(
-                  { category: descriptor.category, date: descriptor.date ?? undefined },
-                  user,
-                );
-                if (generation !== artifactRequestGeneration.current) return;
-                const original = candidates.find(
-                  (candidate) => candidate.viewer === "legacy_html",
-                );
-                setOriginalReportArtifactId(original?.artifact_id ?? null);
-              } catch {
-                if (generation !== artifactRequestGeneration.current) return;
-              }
+            if (generation === artifactGeneration.current) {
               setArtifactProjectionError(
-                caught instanceof Error ? caught.message : "无法生成原生报告",
+                caught instanceof Error
+                  ? caught.message
+                  : "无法生成原生报告",
               );
             }
           }
@@ -301,119 +615,110 @@ export default function App() {
           descriptor.status !== "missing" &&
           ["native_markdown", "native_json"].includes(descriptor.viewer)
         ) {
-          const content = await getArtifactText(artifactId, user);
-          if (generation !== artifactRequestGeneration.current) return;
-          setArtifactContent(content);
+          setArtifactContent(await getArtifactText(artifactId, user));
         }
-        if (generation === artifactRequestGeneration.current) {
-          setError(null);
-        }
+        setError(null);
       } catch (caught) {
-        if (generation === artifactRequestGeneration.current) {
+        if (generation === artifactGeneration.current) {
           setError(caught instanceof Error ? caught.message : "无法加载产物");
         }
       } finally {
-        if (generation === artifactRequestGeneration.current) {
-          setLoading(false);
-        }
+        if (generation === artifactGeneration.current) setLoading(false);
       }
     },
     [user],
   );
 
-  const submitResearch = useCallback(
-    async (
-      question: string,
-      parentRunId?: string | null,
-      taskTypeOverride?: string,
-    ) => {
-      setSubmitting(true);
-      try {
-        const created = await createRun(
-          question,
-          taskTypeOverride ?? taskType,
-          user,
-          parentRunId,
-        );
-        setDraft("");
-        setTaskType("ask");
-        openRun(created.run_id);
-        void refreshBootstrap();
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "创建研究失败");
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [openRun, refreshBootstrap, taskType, user],
+  const activeConversation = conversations.find(
+    (item) => item.conversation_id === activeConversationId,
+  );
+  const inspectorBundle = useMemo(
+    () =>
+      [...messages]
+        .reverse()
+        .map((message) =>
+          message.run_id ? runBundles[message.run_id] : undefined,
+        )
+        .find((bundle): bundle is RunBundle => Boolean(bundle)) ?? null,
+    [messages, runBundles],
   );
 
-  const handleWorkflow = (workflow: Workflow) => {
-    if (workflow.id === "daily") {
-      void submitResearch(workflow.prompt, null, workflow.task_type);
-      return;
-    }
-    runRequestGeneration.current += 1;
-    artifactRequestGeneration.current += 1;
-    setSurface({ kind: "home" });
-    setRunBundle(null);
-    setArtifact(null);
-    setArtifactContent(null);
-    setArtifactProjection(null);
-    setArtifactProjectionError(null);
-    setOriginalReportArtifactId(null);
-    setTaskType(workflow.task_type);
-    setDraft(workflow.prompt);
-  };
-
-  const showHome = () => {
-    runRequestGeneration.current += 1;
-    artifactRequestGeneration.current += 1;
-    setSurface({ kind: "home" });
-    setRunBundle(null);
-    setArtifact(null);
-    setArtifactContent(null);
-    setArtifactProjection(null);
-    setArtifactProjectionError(null);
-    setOriginalReportArtifactId(null);
-    setTaskType("ask");
-    setInspectorOpen(false);
-  };
-
-  const surfaceIdentity =
-    surface.kind === "run"
-      ? `run:${surface.runId}`
-      : surface.kind === "artifact"
-        ? `artifact:${surface.artifactId}`
-        : surface.kind;
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "auto" });
-  }, [surfaceIdentity]);
-
   return (
-    <div className="app-shell">
-      <Sidebar
-        bootstrap={bootstrap}
-        surface={surface}
-        onHome={showHome}
+    <div className="app-shell chat-first-shell">
+      <ConversationList
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        mobileOpen={conversationDrawerOpen}
+        onSelect={(conversationId) => void selectConversation(conversationId)}
+        onNew={() => void newConversation()}
+        onArchive={(conversationId) => void archive(conversationId)}
+        onClose={() => setConversationDrawerOpen(false)}
         onLibrary={openLibrary}
-        onOpenRun={openRun}
-        onWorkflow={handleWorkflow}
       />
 
-      <main className="main-surface">
-        <div className="mobile-topbar">
-          <strong>Market Intelligence</strong>
+      <main className="main-surface chat-surface">
+        <header className="chat-topbar">
           <button
-            className="icon-button inspector-toggle"
+            className="icon-button conversation-toggle"
             type="button"
-            aria-label="打开研究检查器"
-            onClick={() => setInspectorOpen(true)}
+            aria-label="打开会话列表"
+            title="打开会话列表"
+            onClick={() => setConversationDrawerOpen(true)}
           >
-            <PanelRightOpen aria-hidden="true" size={19} />
+            <PanelLeftOpen aria-hidden="true" size={19} />
           </button>
-        </div>
+          <div className="chat-title">
+            <span className="thread-kicker">研究线程</span>
+            <strong>{activeConversation?.title ?? "新对话"}</strong>
+            <small>每轮重新检索当前证据</small>
+          </div>
+          <div className="chat-topbar-actions">
+            <button
+              className={`model-status-button ${
+                llmConfig?.ready ? "ready" : "pending"
+              }`}
+              type="button"
+              aria-label="配置模型"
+              title="配置模型"
+              onClick={() => {
+                setModelSettingsError(null);
+                setModelSettingsOpen(true);
+              }}
+            >
+              {llmConfig?.mode === "byok" ? (
+                <KeyRound aria-hidden="true" size={13} />
+              ) : (
+                <BrainCircuit aria-hidden="true" size={14} />
+              )}
+              {llmConfig?.mode === "byok" ? "自带密钥" : "默认模型"}
+              <span aria-hidden="true" />
+            </button>
+            <span
+              className={`agent-status ${runningLive ? "running" : ""}`}
+              role="status"
+            >
+              {runningLive ? (
+                <LoaderCircle className="spin" aria-hidden="true" size={13} />
+              ) : (
+                <span className="agent-status-dot" aria-hidden="true" />
+              )}
+              {runningLive ? "正在研究" : "空闲"}
+            </span>
+            <span className="private-mode-badge">
+              <LockKeyhole aria-hidden="true" size={13} />
+              私有
+            </span>
+            <button
+              className="icon-button inspector-toggle"
+              type="button"
+              aria-label="打开研究检查器"
+              title="打开研究检查器"
+              onClick={() => setInspectorOpen(true)}
+            >
+              <PanelRightOpen aria-hidden="true" size={19} />
+            </button>
+          </div>
+        </header>
 
         {error && (
           <div className="global-error" role="alert">
@@ -426,20 +731,41 @@ export default function App() {
         )}
 
         {surface.kind === "home" && (
-          <ResearchHome
-            bootstrap={bootstrap}
-            draft={draft}
-            taskType={taskType}
-            submitting={submitting}
-            onDraftChange={setDraft}
-            onSubmit={(question) => void submitResearch(question)}
-            onWorkflow={handleWorkflow}
-            onOpenRun={openRun}
-          />
+          <div className="conversation-surface">
+            <MessageThread
+              messages={messages}
+              skills={skills}
+              liveMessages={liveMessages}
+              runBundles={runBundles}
+              onRegenerate={regenerate}
+              onOpenArtifact={(artifactId) => void openArtifact(artifactId)}
+              onFollowup={(question) => void submitResearch(question)}
+            />
+            <div className="chat-composer-dock">
+              <Composer
+                value={draft}
+                taskType="ask"
+                disabled={submitting}
+                running={Boolean(runningLive)}
+                skills={skills}
+                skillMode={skillMode}
+                selectedSkillIds={selectedSkillIds}
+                onChange={setDraft}
+                onSubmit={(question) => void submitResearch(question)}
+                onStop={stopGeneration}
+                onSkillModeChange={setSkillMode}
+                onSkillSelectionChange={setSelectedSkillIds}
+              />
+            </div>
+          </div>
         )}
 
         {surface.kind === "library" && (
-          <ArtifactLibrary artifacts={artifacts} loading={loading} onOpen={openArtifact} />
+          <ArtifactLibrary
+            artifacts={artifacts}
+            loading={loading}
+            onOpen={openArtifact}
+          />
         )}
 
         {surface.kind === "artifact" && artifact && (
@@ -463,54 +789,41 @@ export default function App() {
                   : undefined
             }
             onBack={openLibrary}
-            onOpenRun={openRun}
+            onOpenRun={(runId) => {
+              void fetchRunBundle(runId).then((bundle) => {
+                setRunBundles((current) => ({
+                  ...current,
+                  [runId]: bundle,
+                }));
+                setInspectorOpen(true);
+              });
+            }}
           />
         )}
 
-        {surface.kind === "run" && runBundle && (
-          <>
-            <RunView
-              bundle={runBundle}
-              connection={connection}
-              onOpenRun={openRun}
-              onOpenArtifact={(artifactId) => void openArtifact(artifactId)}
-              onFollowup={(question) => {
-                void submitResearch(question, runBundle.run.run_id, "ask");
-              }}
-            />
-            <div className="run-composer-dock">
-              <Composer
-                compact
-                value={draft}
-                taskType="ask"
-                disabled={submitting}
-                onChange={setDraft}
-                onSubmit={(question) =>
-                  void submitResearch(question, runBundle.run.run_id, "ask")
-                }
-              />
-            </div>
-          </>
-        )}
-
-        {loading && surface.kind === "run" && !runBundle && (
-          <div className="surface-loading">正在读取研究运行…</div>
+        {loading && surface.kind === "home" && messages.length === 0 && (
+          <div className="surface-loading">正在恢复会话…</div>
         )}
       </main>
 
-      <button
-        className="floating-inspector-button"
-        type="button"
-        aria-label="打开研究检查器"
-        onClick={() => setInspectorOpen(true)}
-      >
-        <PanelRightOpen aria-hidden="true" size={18} />
-      </button>
       <ResearchInspector
-        bundle={runBundle}
+        bundle={inspectorBundle}
         artifact={artifact}
         open={inspectorOpen}
         onClose={() => setInspectorOpen(false)}
+      />
+      <ModelSettings
+        open={modelSettingsOpen}
+        config={llmConfig}
+        saving={modelSettingsSaving}
+        error={modelSettingsError}
+        onClose={() => setModelSettingsOpen(false)}
+        onSave={(provider, apiKey, model) => {
+          void saveBYOK(provider, apiKey, model);
+        }}
+        onUseBuiltIn={() => {
+          void restoreBuiltInLLM();
+        }}
       />
     </div>
   );

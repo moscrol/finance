@@ -42,6 +42,10 @@ def test_daily_projection_becomes_bounded_stream_modules(tmp_path) -> None:
     assert report_date == "2026-07-10"
     assert warnings == []
     assert modules[0]["module_id"] == "daily_overview"
+    assert modules[0]["table"]["rows"][1] == {
+        "dimension": "量能状态",
+        "conclusion": "成交额 18000 亿",
+    }
     rendered = json.dumps(modules, ensure_ascii=False)
     assert "修复阶段" in rendered
     assert "<script>" not in rendered

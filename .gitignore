@@ -101,6 +101,7 @@ intelligence/users/*/perspectives/
 # 潜意识模式运行时态：会话 buffer / active 标记，以及未设 SUBCONSCIOUS_VAULT 时的回退沉淀 vault
 intelligence/users/*/.subconscious/
 intelligence/users/*/runs/
+intelligence/users/*/conversations/
 intelligence/users/*/_vault/
 
 # evolve 进化系统：只跟踪代码与参数，忽略生成产物（可由 params.json 确定性重建）

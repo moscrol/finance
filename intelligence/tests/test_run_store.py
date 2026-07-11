@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -179,3 +180,216 @@ def test_golden_run_fixture_conforms_to_protocol() -> None:
             step = json.loads(line)
             assert STEP_REQUIRED_KEYS <= set(step.keys())
             assert step["status"] in run_store.STEP_STATUSES
+
+
+def test_stream_envelope_sequence_cursor_and_idempotency(store: RunStore) -> None:
+    run = store.create_run("q", "ask", session_id="conversation-1")
+    first = store.append_stream_event(
+        run.run_id, event_id="e1", event_type="report_start",
+        message_id="message-1", payload={"token": "sk-abcdef1234567890"},
+    )
+    second = store.append_stream_event(
+        run.run_id, event_id="e2", event_type="report.module", payload={"n": 2},
+    )
+    retry = store.append_stream_event(
+        run.run_id, event_id="e1", event_type="report.start",
+        message_id="message-1", payload={"token": "sk-abcdef1234567890"},
+    )
+    assert [first["seq"], second["seq"]] == [1, 2]
+    assert first == retry
+    assert first["schema_version"] == 1
+    assert first["conversation_id"] == "conversation-1"
+    assert first["message_id"] == "message-1"
+    assert first["event_type"] == "report.start"
+    assert "sk-abcdef" not in json.dumps(first)
+    assert store.load_stream_events(run.run_id, after=1) == [second]
+    with pytest.raises(ValueError, match="cursor"):
+        store.load_stream_events(run.run_id, after=-1)
+    with pytest.raises(ValueError, match="duplicate"):
+        store.append_stream_event(
+            run.run_id, event_id="e1", event_type="report.start", payload={"different": True}
+        )
+
+
+@pytest.mark.parametrize("field", ["event_id", "event_type"])
+@pytest.mark.parametrize("value", ["", "   "])
+def test_append_stream_event_rejects_blank_identity_fields(
+    store: RunStore, field: str, value: str
+) -> None:
+    run = store.create_run("q", "ask")
+    kwargs = {"event_id": "e1", "event_type": "report.start", "payload": {}}
+    kwargs[field] = value
+
+    with pytest.raises(ValueError, match=field):
+        store.append_stream_event(run.run_id, **kwargs)
+
+
+def test_default_stream_conversation_id_is_redacted(store: RunStore) -> None:
+    run = store.create_run("q", "ask", session_id="token=super-secret-value")
+
+    event = store.append_stream_event(
+        run.run_id, event_id="e1", event_type="report.start", payload={}
+    )
+
+    assert event["conversation_id"] == "[REDACTED]"
+
+
+def test_concurrent_stream_appends_have_linear_unique_sequences(tmp_path: Path) -> None:
+    root = tmp_path / "runs"
+    first_store = RunStore(user_id="default", root=root)
+    run = first_store.create_run("q", "ask")
+
+    def append(index: int) -> dict:
+        return RunStore(user_id="default", root=root).append_stream_event(
+            run.run_id, event_id=f"e{index}", event_type="trace.step", payload={"i": index}
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(append, range(40)))
+    events = first_store.load_stream_events(run.run_id)
+    assert [event["seq"] for event in events] == list(range(1, 41))
+    assert len({event["event_id"] for event in events}) == 40
+
+
+def test_legacy_stream_projection_and_corruption_rules(store: RunStore) -> None:
+    run = store.create_run("q", "ask", session_id="conversation-legacy")
+    path = store.stream_path(run.run_id)
+    legacy = {"event_id": "old", "event_type": "report_module", "created_at": "then", "payload": {"x": 1}}
+    legacy2 = legacy | {"event_id": "old2", "payload": {"x": 2}}
+    path.write_text(
+        "\n\n" + json.dumps(legacy) + "\n\n" + json.dumps(legacy2) + "\n" + '{"truncated":',
+        encoding="utf-8",
+    )
+    events = store.load_stream_events(run.run_id)
+    assert [event["seq"] for event in events] == [1, 2]
+    assert events == [
+        {
+            "schema_version": 1, "event_id": "old", "event_type": "report.module",
+            "run_id": run.run_id, "conversation_id": "conversation-legacy",
+            "message_id": None, "seq": 1, "created_at": "then", "payload": {"x": 1},
+        },
+        {
+            "schema_version": 1, "event_id": "old2", "event_type": "report.module",
+            "run_id": run.run_id, "conversation_id": "conversation-legacy",
+            "message_id": None, "seq": 2, "created_at": "then", "payload": {"x": 2},
+        },
+    ]
+    with pytest.raises(ValueError, match="newline"):
+        store.append_stream_event(run.run_id, event_id="new", event_type="report.complete", payload={})
+
+    path.write_text(json.dumps(legacy) + "\nnot-json\n" + json.dumps(legacy | {"event_id": "old2"}) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="corrupt"):
+        store.load_stream_events(run.run_id)
+
+
+def test_persisted_stream_sequence_must_start_at_one_and_be_contiguous(
+    store: RunStore,
+) -> None:
+    run = store.create_run("q", "ask", session_id="conversation-native")
+    path = store.stream_path(run.run_id)
+    envelope = {
+        "schema_version": 1,
+        "event_id": "e1",
+        "event_type": "report.start",
+        "run_id": run.run_id,
+        "conversation_id": "conversation-native",
+        "message_id": None,
+        "seq": 2,
+        "created_at": "then",
+        "payload": {},
+    }
+    path.write_text(json.dumps(envelope) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=r"^invalid stream row 1$"):
+        store.load_stream_events(run.run_id)
+
+    path.write_text(
+        json.dumps(envelope | {"seq": 1}) + "\n"
+        + json.dumps(envelope | {"event_id": "e2", "seq": 3}) + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match=r"^invalid stream row 2$"):
+        store.load_stream_events(run.run_id)
+
+
+@pytest.mark.parametrize(
+    "bad_row",
+    [
+        [],
+        {"schema_version": 2},
+        {"schema_version": "1"},
+    ],
+)
+def test_native_stream_rejects_invalid_row_or_schema(
+    store: RunStore, bad_row: object
+) -> None:
+    run = store.create_run("q", "ask")
+    store.stream_path(run.run_id).write_text(
+        json.dumps(bad_row) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="stream row 1"):
+        store.load_stream_events(run.run_id)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("run_id", "another-run"),
+        ("seq", True),
+        ("seq", 2),
+        ("event_id", ""),
+        ("event_id", "   "),
+        ("event_type", ""),
+        ("event_type", "   "),
+        ("created_at", ""),
+        ("created_at", 3),
+        ("payload", []),
+    ],
+)
+def test_native_stream_rejects_invalid_envelope_fields(
+    store: RunStore, field: str, value: object
+) -> None:
+    run = store.create_run("q", "ask")
+    envelope = {
+        "schema_version": 1,
+        "event_id": "e1",
+        "event_type": "report.start",
+        "run_id": run.run_id,
+        "conversation_id": None,
+        "message_id": None,
+        "seq": 1,
+        "created_at": "then",
+        "payload": {},
+    }
+    envelope[field] = value
+    store.stream_path(run.run_id).write_text(
+        json.dumps(envelope) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="stream row 1") as exc_info:
+        store.load_stream_events(run.run_id)
+    assert str(store.stream_path(run.run_id)) not in str(exc_info.value)
+    assert "another-run" not in str(exc_info.value)
+
+
+def test_native_stream_rejects_duplicate_ids_with_safe_row_number(store: RunStore) -> None:
+    run = store.create_run("q", "ask")
+    base = {
+        "schema_version": 1,
+        "event_id": "secret-event-id",
+        "event_type": "report.start",
+        "run_id": run.run_id,
+        "conversation_id": None,
+        "message_id": None,
+        "seq": 1,
+        "created_at": "then",
+        "payload": {},
+    }
+    store.stream_path(run.run_id).write_text(
+        json.dumps(base) + "\n" + json.dumps(base | {"seq": 2}) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="stream row 2") as exc_info:
+        store.load_stream_events(run.run_id)
+    assert "secret-event-id" not in str(exc_info.value)

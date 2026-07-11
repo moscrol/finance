@@ -1,0 +1,119 @@
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from threading import Lock
+
+from intelligence.services.llm_refine import LLMProvider, detect_provider
+
+
+@dataclass(frozen=True)
+class ProviderPreset:
+    provider_id: str
+    base_url: str
+    default_model: str
+
+
+PROVIDER_PRESETS: dict[str, ProviderPreset] = {
+    "zhipu": ProviderPreset(
+        provider_id="zhipu",
+        base_url="https://open.bigmodel.cn/api/paas/v4",
+        default_model="glm-5.2",
+    ),
+    "openai": ProviderPreset(
+        provider_id="openai",
+        base_url="https://api.openai.com/v1",
+        default_model="gpt-4o-mini",
+    ),
+    "deepseek": ProviderPreset(
+        provider_id="deepseek",
+        base_url="https://api.deepseek.com/v1",
+        default_model="deepseek-chat",
+    ),
+    "moonshot": ProviderPreset(
+        provider_id="moonshot",
+        base_url="https://api.moonshot.cn/v1",
+        default_model="moonshot-v1-8k",
+    ),
+    "dashscope": ProviderPreset(
+        provider_id="dashscope",
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        default_model="qwen-plus",
+    ),
+}
+
+
+class SessionLLMSettings:
+    def __init__(self) -> None:
+        self._byok: dict[str, LLMProvider] = {}
+        self._lock = Lock()
+
+    def configure_byok(
+        self,
+        user_id: str,
+        *,
+        provider_id: str,
+        api_key: str,
+        model: str | None = None,
+    ) -> LLMProvider:
+        preset = PROVIDER_PRESETS[provider_id]
+        provider = LLMProvider(
+            name=provider_id,
+            api_key=api_key,
+            base_url=preset.base_url,
+            model=model or preset.default_model,
+        )
+        with self._lock:
+            self._byok[user_id] = provider
+        return provider
+
+    def byok_provider(self, user_id: str) -> LLMProvider | None:
+        with self._lock:
+            return self._byok.get(user_id)
+
+    def clear_byok(self, user_id: str) -> None:
+        with self._lock:
+            self._byok.pop(user_id, None)
+
+    def clear_all(self) -> None:
+        with self._lock:
+            self._byok.clear()
+
+    def built_in_provider(self) -> LLMProvider | None:
+        managed_glm_key = os.environ.get("FORESIGHT_BUILTIN_LLM_API_KEY")
+        glm_key = (
+            managed_glm_key
+            or os.environ.get("ZHIPU_API_KEY")
+            or os.environ.get("GLM_API_KEY")
+        )
+        if glm_key:
+            return LLMProvider(
+                name="zhipu",
+                api_key=glm_key,
+                base_url=os.environ.get("FORESIGHT_BUILTIN_LLM_BASE_URL")
+                or (
+                    "https://open.bigmodel.cn/api/coding/paas/v4"
+                    if managed_glm_key
+                    else "https://open.bigmodel.cn/api/paas/v4"
+                ),
+                model=os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL")
+                or "glm-5.2",
+            )
+        return detect_provider()
+
+    def provider_for(self, user_id: str) -> LLMProvider | None:
+        return self.byok_provider(user_id) or self.built_in_provider()
+
+    def describe(self, user_id: str) -> dict[str, object]:
+        byok = self.byok_provider(user_id)
+        built_in = self.built_in_provider()
+        active = byok or built_in
+        return {
+            "mode": "byok" if byok is not None else "built_in",
+            "display_name": "自带密钥" if byok is not None else "Foresight 默认模型",
+            "ready": active is not None,
+            "session_only": byok is not None,
+            "built_in_ready": built_in is not None,
+            "provider": active.name if active is not None else None,
+            "model": active.model if active is not None else None,
+        }

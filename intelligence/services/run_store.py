@@ -26,14 +26,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from intelligence import userspace
+from intelligence.api.stream_events import (
+    STREAM_SCHEMA_VERSION,
+    StreamEnvelope,
+    canonical_event_type,
+)
 
 SCHEMA_VERSION = 1
 
@@ -52,6 +59,17 @@ _SECRET_PATTERNS = [
     re.compile(r"\b(sk|ghp|gho|ghu|ghs|xoxb|xoxp)[-_][A-Za-z0-9_\-]{8,}"),
     re.compile(r"(?i)\b(api[_-]?key|token|secret|password|authorization)\s*[=:]\s*\S+"),
 ]
+
+# This makes append linearizable across RunStore instances in one process. A
+# multi-process deployment still needs an OS/file lock or a transactional store.
+_STREAM_LOCKS: dict[str, Lock] = {}
+_STREAM_LOCKS_GUARD = Lock()
+
+
+def _stream_lock(path: Path) -> Lock:
+    key = str(path.resolve())
+    with _STREAM_LOCKS_GUARD:
+        return _STREAM_LOCKS.setdefault(key, Lock())
 
 
 def redact(text: str) -> str:
@@ -206,16 +224,54 @@ class RunStore:
         event_id: str,
         event_type: str,
         payload: dict[str, Any],
+        conversation_id: str | None = None,
+        message_id: str | None = None,
     ) -> dict[str, Any]:
-        event = {
-            "event_id": redact(event_id),
-            "event_type": redact(event_type),
-            "created_at": _now_iso(),
-            "payload": _redact_value(payload),
-        }
-        with self.stream_path(run_id).open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(event, ensure_ascii=False) + "\n")
-        return event
+        run = self.load_run(run_id)
+        path = self.stream_path(run_id)
+        safe_id = redact(event_id)
+        safe_type = canonical_event_type(redact(event_type))
+        if not safe_id.strip():
+            raise ValueError("event_id must not be blank")
+        if not safe_type.strip():
+            raise ValueError("event_type must not be blank")
+        if not isinstance(payload, dict):
+            raise ValueError("payload must be an object")
+        source_conversation = conversation_id if conversation_id is not None else run.session_id
+        safe_conversation = (
+            redact(source_conversation) if source_conversation is not None else None
+        )
+        safe_message = redact(message_id) if message_id is not None else None
+        safe_payload = _redact_value(payload)
+        with _stream_lock(path):
+            if path.exists() and path.stat().st_size and not path.read_bytes().endswith(b"\n"):
+                raise ValueError("refuse append: nonempty stream file lacks final newline")
+            existing = self.load_stream_events(run_id)
+            for event in existing:
+                if event["event_id"] != safe_id:
+                    continue
+                identity = (safe_type, safe_conversation, safe_message, safe_payload)
+                stored = (event["event_type"], event["conversation_id"], event["message_id"], event["payload"])
+                if identity == stored:
+                    return event
+                raise ValueError(f"conflicting duplicate event_id: {safe_id}")
+            envelope = StreamEnvelope(
+                schema_version=STREAM_SCHEMA_VERSION,
+                event_id=safe_id,
+                event_type=safe_type,
+                run_id=run_id,
+                conversation_id=safe_conversation,
+                message_id=safe_message,
+                seq=(existing[-1]["seq"] + 1 if existing else 1),
+                created_at=_now_iso(),
+                payload=safe_payload,
+            )
+            event = asdict(envelope)
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+                fh.flush()
+                os.fsync(fh.fileno())
+            return event
 
     def add_artifact(
         self,
@@ -367,15 +423,94 @@ class RunStore:
                 steps.append(json.loads(line))
         return steps
 
-    def load_stream_events(self, run_id: str) -> list[dict[str, Any]]:
+    def load_stream_events(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
+        if isinstance(after, bool) or not isinstance(after, int) or after < 0:
+            raise ValueError("stream cursor must be nonnegative")
         path = self.stream_path(run_id)
         if not path.exists():
             return []
-        events = []
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line:
-                events.append(json.loads(line))
+        run = self.load_run(run_id)
+        raw = path.read_text(encoding="utf-8")
+        lines = raw.splitlines()
+        events: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+        previous_seq = 0
+        for index, line in enumerate(lines):
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                if index == len(lines) - 1 and not raw.endswith("\n"):
+                    break
+                raise ValueError(f"corrupt stream row {index + 1}") from exc
+            expected_seq = previous_seq + 1
+            if not isinstance(row, dict):
+                raise ValueError(f"invalid stream row {index + 1}")
+            native_fields = {
+                "schema_version",
+                "run_id",
+                "conversation_id",
+                "message_id",
+                "seq",
+            }
+            is_native = bool(native_fields.intersection(row))
+            if is_native:
+                valid_optional_ids = all(
+                    value is None
+                    or (isinstance(value, str) and bool(value.strip()))
+                    for value in (row.get("conversation_id"), row.get("message_id"))
+                )
+                seq = row.get("seq")
+                valid = (
+                    row.get("schema_version") == STREAM_SCHEMA_VERSION
+                    and not isinstance(row.get("schema_version"), bool)
+                    and row.get("run_id") == run_id
+                    and isinstance(seq, int)
+                    and not isinstance(seq, bool)
+                    and seq == expected_seq
+                    and valid_optional_ids
+                    and isinstance(row.get("event_id"), str)
+                    and bool(row["event_id"].strip())
+                    and isinstance(row.get("event_type"), str)
+                    and bool(row["event_type"].strip())
+                    and isinstance(row.get("created_at"), str)
+                    and bool(row["created_at"].strip())
+                    and isinstance(row.get("payload"), dict)
+                )
+            else:
+                seq = expected_seq
+                valid = (
+                    isinstance(row.get("event_id"), str)
+                    and bool(row["event_id"].strip())
+                    and isinstance(row.get("event_type"), str)
+                    and bool(row["event_type"].strip())
+                    and isinstance(row.get("created_at"), str)
+                    and bool(row["created_at"].strip())
+                    and isinstance(row.get("payload"), dict)
+                )
+            event_id = row.get("event_id")
+            if not valid or event_id in seen_ids:
+                raise ValueError(f"invalid stream row {index + 1}")
+            previous_seq = seq
+            seen_ids.add(event_id)
+            event = asdict(
+                StreamEnvelope(
+                    schema_version=STREAM_SCHEMA_VERSION,
+                    event_id=event_id,
+                    event_type=canonical_event_type(row["event_type"]),
+                    run_id=run_id,
+                    conversation_id=(
+                        row.get("conversation_id") if is_native else run.session_id
+                    ),
+                    message_id=row.get("message_id") if is_native else None,
+                    seq=seq,
+                    created_at=row["created_at"],
+                    payload=row["payload"],
+                )
+            )
+            if seq > after:
+                events.append(event)
         return events
 
     def list_runs(self) -> list[Run]:

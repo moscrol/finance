@@ -20,6 +20,7 @@ import glob
 import json
 import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date as date_cls, timedelta
 from pathlib import Path
@@ -195,6 +196,14 @@ class AskOptions:
     # 把意见送回同一段对话做一轮定向修订，用户拿到修订版全文，审查意见退居「输出质检」附录。
     # 仅影响 compose 路径；模板路径与无 WARN 时行为逐字节不变。
     compose_revise_on_warn: bool = True
+    conversation_context: str = ""
+    supplemental_evidence: str = ""
+    stream_text_delta: Callable[[str], None] | None = field(
+        default=None, repr=False, compare=False
+    )
+    stream_cancel_check: Callable[[], bool] | None = field(
+        default=None, repr=False, compare=False
+    )
 
 
 @dataclass
@@ -1089,6 +1098,11 @@ def answer_query(options: AskOptions) -> AskResult:
                 )
         if d5_outcome is not None:
             evidence_text = _append_block_outcome(result, d5_outcome, evidence_text, citations)
+        if options.supplemental_evidence:
+            evidence_text = (
+                f"{evidence_text}\n\n## 本轮产品 Skill 结构化结果\n"
+                f"{options.supplemental_evidence}"
+            )
         citation_legend = "\n".join(
             f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
         )
@@ -1119,7 +1133,27 @@ def answer_query(options: AskOptions) -> AskResult:
             experience_guidance=experience_guidance,
             exemplar_guidance=exemplar_guidance,
         )
-        if options.compose_self_review:
+        if options.conversation_context:
+            msgs.insert(
+                1,
+                {
+                    "role": "system",
+                    "content": (
+                        "以下会话上下文仅用于理解指代和用户意图，不是本轮检索证据；"
+                        "事实判断仍须引用当前轮证据：\n"
+                        f"{options.conversation_context}"
+                    ),
+                },
+            )
+        if options.stream_text_delta is not None:
+            composed, reason = llm_refine.synthesize_messages_stream(
+                msgs,
+                on_delta=options.stream_text_delta,
+                is_cancelled=options.stream_cancel_check,
+                model_override=options.llm_model,
+                timeout=options.llm_timeout,
+            )
+        elif options.compose_self_review:
             composed, reason = llm_refine.synthesize_messages_with_review(
                 msgs, model_override=options.llm_model, timeout=options.llm_timeout,
             )
@@ -1152,6 +1186,7 @@ def answer_query(options: AskOptions) -> AskResult:
     # 修订版全文，审查意见退居「输出质检」附录；修订失败时保留初稿并记录原因。
     if (
         options.compose_revise_on_warn
+        and options.stream_text_delta is None
         and result.synthesis is not None
         and result.synthesis_messages is not None
         and result.review_gate.warn_count > 0
