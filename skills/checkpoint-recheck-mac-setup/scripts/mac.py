@@ -7,7 +7,7 @@
 
 环境变量：
     CC_REMOTE_EXEC_TOKEN  必填，Bearer 鉴权 token。
-    CC_REMOTE_EXEC_URL    可选，默认 https://exec.industry7view.com/api/exec 。
+    CC_REMOTE_EXEC_URL    可选，默认 https://exec-a77.industry7view.com/api/exec 。
 
 要点：
 - 必须带「curl 样式」User-Agent，否则 Cloudflare WAF 返回 error 1010 拦截。
@@ -25,7 +25,10 @@ import sys
 import urllib.error
 import urllib.request
 
-URL = os.environ.get("CC_REMOTE_EXEC_URL", "https://exec.industry7view.com/api/exec")
+URL = os.environ.get(
+    "CC_REMOTE_EXEC_URL",
+    "https://exec-a77.industry7view.com/api/exec",
+)
 
 
 def main() -> int:
