@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import time
 from collections.abc import Sequence
@@ -17,8 +18,46 @@ def command_line(argv: Sequence[str]) -> str:
     return " ".join(str(item) for item in argv)
 
 
+def _status_json_path(argv: Sequence[str]) -> Path | None:
+    items = [str(item) for item in argv]
+    if "--status-json" not in items:
+        return None
+    index = items.index("--status-json")
+    if index + 1 >= len(items):
+        return None
+    return Path(items[index + 1]).expanduser()
+
+
+def _load_structured_result(path: Path | None) -> tuple[dict[str, object] | None, str | None]:
+    if path is None:
+        return None, None
+    if not path.is_file():
+        return None, f"structured status file not found: {path}"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, f"invalid structured status file {path}: {exc}"
+    if not isinstance(payload, dict):
+        return None, f"structured status must be a JSON object: {path}"
+    return payload, None
+
+
 def run_command_step(name: str, argv: Sequence[str], cwd: str | Path, outputs: list[str] | None = None) -> WorkflowStep:
     started = time.monotonic()
+    status_path = _status_json_path(argv)
+    if status_path is not None:
+        try:
+            status_path.unlink(missing_ok=True)
+        except OSError as exc:
+            return WorkflowStep(
+                name=name,
+                status="FAIL",
+                command=command_line(argv),
+                returncode=None,
+                duration_sec=round(time.monotonic() - started, 3),
+                outputs=outputs or [],
+                errors=[f"failed to clear stale structured status: {exc}"],
+            )
     try:
         result = subprocess.run(
             [str(item) for item in argv],
@@ -41,6 +80,7 @@ def run_command_step(name: str, argv: Sequence[str], cwd: str | Path, outputs: l
 
     duration = round(time.monotonic() - started, 3)
     status = "PASS" if result.returncode == 0 else "FAIL"
+    structured_result, structured_error = _load_structured_result(status_path)
     return WorkflowStep(
         name=name,
         status=status,
@@ -50,5 +90,7 @@ def run_command_step(name: str, argv: Sequence[str], cwd: str | Path, outputs: l
         stdout_tail=tail_lines(result.stdout),
         stderr_tail=tail_lines(result.stderr),
         outputs=outputs or [],
+        warnings=[structured_error] if structured_error else [],
         errors=[] if result.returncode == 0 else [f"command failed with returncode {result.returncode}"],
+        structured_result=structured_result,
     )

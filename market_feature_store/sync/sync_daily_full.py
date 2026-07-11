@@ -168,7 +168,27 @@ def run_daily_full(
     stock_source: str = "snapshot",
 ) -> dict:
     from ..reports.daily_review import build_daily_review
+    from ..quality import check_daily
 
-    update = run_daily_update(trade_date=trade_date, chart_table=chart_table, skip_long=skip_long, with_chart=True, stock_source=stock_source)
-    review = build_daily_review(trade_date=update["trade_date"])
-    return {"trade_date": update["trade_date"], "update": update, "review": review, "ok": update["ok"]}
+    update = run_daily_update(
+        trade_date=trade_date,
+        chart_table=chart_table,
+        skip_long=skip_long,
+        with_chart=False,
+        stock_source=stock_source,
+    )
+    cross_day_gate = check_daily(trade_date=update["trade_date"]) if update["ok"] else {
+        "trade_date": update["trade_date"],
+        "ok": False,
+        "brief": "same-day gate failed; cross-day gate skipped",
+        "skipped": True,
+    }
+    gates_ok = update["ok"] and cross_day_gate["ok"]
+    review = build_daily_review(trade_date=update["trade_date"]) if gates_ok else None
+    return {
+        "trade_date": update["trade_date"],
+        "update": update,
+        "cross_day_gate": cross_day_gate,
+        "review": review,
+        "ok": gates_ok,
+    }
