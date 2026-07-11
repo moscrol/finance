@@ -2487,6 +2487,110 @@ def cmd_checkpoint_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def _self_use_ledger_path(args: argparse.Namespace) -> Path:
+    if args.ledger:
+        return Path(args.ledger)
+
+    from intelligence import userspace
+
+    return userspace.user_space(args.user).root / "self-use" / "events.jsonl"
+
+
+def cmd_self_use_record(args: argparse.Namespace) -> int:
+    from dataclasses import asdict
+
+    from intelligence.services.self_use_maturity import SelfUseEvent, SelfUseLedger
+
+    try:
+        recorded = SelfUseLedger(_self_use_ledger_path(args)).record(
+            SelfUseEvent(
+                trade_date=args.date,
+                workflow=args.workflow,
+                outcome=args.outcome,
+                manual_rescue=args.manual_rescue,
+                severe_fact_error=args.severe_fact_error,
+                useful=args.useful,
+                run_id=args.run_id,
+                note=args.note,
+            )
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        print(f"self-use record failed: {exc}", file=sys.stderr)
+        return 2
+
+    print(json.dumps(asdict(recorded), ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_self_use_status(args: argparse.Namespace) -> int:
+    from dataclasses import asdict
+
+    from intelligence.services.self_use_maturity import SelfUseLedger, evaluate_maturity
+
+    try:
+        events = SelfUseLedger(_self_use_ledger_path(args)).load()
+        result = evaluate_maturity(events, user_approved=args.user_approved)
+    except (OSError, TypeError, ValueError) as exc:
+        print(f"self-use status failed: {exc}", file=sys.stderr)
+        return 2
+
+    if args.json:
+        print(json.dumps(asdict(result), ensure_ascii=False, indent=2))
+    else:
+        metrics = result.metrics
+        workflows = metrics["covered_workflows"]
+        blockers = ", ".join(result.blockers) if result.blockers else "none"
+        print(
+            f"{metrics['distinct_trade_dates']}/10交易日 · "
+            f"workflow {len(workflows)}/5"
+        )
+        print(f"blockers: {blockers}")
+        print(f"passed: {str(result.passed).lower()}")
+    return 0 if result.passed else 1
+
+
+def add_self_use_parser(subparsers: argparse._SubParsersAction) -> None:
+    workflows = (
+        "daily_market",
+        "theme_research",
+        "stock_research",
+        "news_impact",
+        "watchlist",
+    )
+    outcomes = ("success", "degraded", "failed")
+
+    parser = subparsers.add_parser(
+        "self-use", help="Record and evaluate the private self-use maturity gate"
+    )
+    commands = parser.add_subparsers(dest="self_use_command", required=True)
+
+    record = commands.add_parser("record", help="Record one explicit self-use event")
+    record.add_argument("--user", default=None, help="User id for the default private ledger")
+    record.add_argument("--ledger", default=None, help="Explicit ledger path for testing or diagnostics")
+    record.add_argument("--date", required=True, help="Trading date in YYYY-MM-DD format")
+    record.add_argument("--workflow", required=True, choices=workflows)
+    record.add_argument("--outcome", required=True, choices=outcomes)
+    useful = record.add_mutually_exclusive_group(required=True)
+    useful.add_argument("--useful", dest="useful", action="store_true")
+    useful.add_argument("--not-useful", dest="useful", action="store_false")
+    record.add_argument("--manual-rescue", action="store_true")
+    record.add_argument("--severe-fact-error", action="store_true")
+    record.add_argument("--run-id", default=None)
+    record.add_argument("--note", default="")
+    record.set_defaults(func=cmd_self_use_record)
+
+    status = commands.add_parser("status", help="Evaluate the self-use maturity gate")
+    status.add_argument("--user", default=None, help="User id for the default private ledger")
+    status.add_argument("--ledger", default=None, help="Explicit ledger path for testing or diagnostics")
+    status.add_argument("--json", action="store_true", help="Print the complete result as JSON")
+    status.add_argument(
+        "--user-approved",
+        action="store_true",
+        help="Record explicit user approval for this evaluation only",
+    )
+    status.set_defaults(func=cmd_self_use_status)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Financial intelligence product CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -2522,6 +2626,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_red_team_parser(subparsers)
     add_retrieval_audit_parser(subparsers)
     add_perspective_parser(subparsers)
+    add_self_use_parser(subparsers)
     return parser
 
 
