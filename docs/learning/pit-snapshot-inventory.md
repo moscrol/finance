@@ -20,6 +20,7 @@ python3 scripts/pit_snapshot_inventory.py freeze \
   --finance-root . \
   --kb-root /Users/a77/knowledge-base-private \
   --out-dir /Users/a77/fidelity-replay/pit-snapshots \
+  --daily-agent-dir market_feature_store/exports \
   --as-of 2026-07-10 \
   --dry-run
 ```
@@ -33,7 +34,7 @@ python3 scripts/pit_snapshot_inventory.py freeze \
 `already_frozen`。这采用的是 **content-addressed artifact（内容寻址产物）**
 思路：文件名标识日期，hash 标识内容，任何事后改写都会被发现。
 
-`pit-daily-snapshot-1.1` 还会给每一行增加 `_pit`：
+`pit-daily-snapshot-1.3` 还会给每一行增加 `_pit`：
 
 ```json
 {
@@ -50,8 +51,14 @@ python3 scripts/pit_snapshot_inventory.py freeze \
 - `known_at`：本地库实际获得该行的 `updated_at`；
 - `source_time`：优先使用源发布时间 `source_update_time`，缺失时明确标为
   `ingestion_fallback`，不能假装是官方发布时间；
-- 选行必须同时满足 `updated_at <= captured_at` 与
-  `updated_at < as_of + 1 day`。
+- 选行必须同时满足 `known_at <= evidence_cutoff` 与
+  `source_time <= evidence_cutoff`。1.2 把 `evidence_cutoff` 与
+  `decision_cutoff` 显式写入 snapshot 和 manifest，避免 20:30
+  捕获时误纳入 18:30 决策冻结后才出现的数据。
+
+PIT manifest 还保存同日 daily-agent 的 `run_id`、`artifact_sha`、
+`manifest_sha` 与 `generator_commit`。上游缺失、无效或不是同一代码
+commit 时，快照仍可作为诊断产物保存，但 `replay_eligible=false`。
 
 每份新 manifest 会保存前一份 manifest 文件的 SHA-256，形成日级 hash
 chain。单文件 checksum 能发现快照损坏；hash chain 还能发现旧 manifest
@@ -67,7 +74,8 @@ python3 scripts/pit_snapshot_inventory.py validate \
 ```
 
 校验会同时检查 gzip、压缩前 payload、manifest payload、前序链、日期边界和
-逐行 `known_at`。
+逐行 `known_at` / `source_time`、四个时间字段、generator commit、
+上下游 provenance 和 artifact/manifest SHA-256。
 
 ## 自动冻结
 
@@ -80,11 +88,29 @@ python3 scripts/pit_snapshot_inventory.py validate \
 渐进迁移与回滚步骤见
 `docs/learning/fidelity-runtime-transition.md`。
 
-冻结时 finance/wiki 工作树必须干净，才能把 Git commit 当作精确知识输入。
-脏工作树不会被静默忽略：manifest 增加
-`finance_dirty_worktree` / `wiki_dirty_worktree`，并将
-`replay_eligible=false`。替代方案是把整个工作树每天打包，但会产生大量重复
-存储；当前优先采用“commit 内容寻址 + 脏树硬门控”。
+P4-C 不再要求 wiki 工作树必须干净。daily-agent 生成前后各捕获一次
+`content-delta-1.0`：
+
+- base 是知识库 Git commit；
+- 只保存相对 base 改动的 regular file / deletion；
+- 未跟踪和 `.gitignore` 命中的 wiki 文件也纳入，避免“检索能看到、快照没看到”；
+- 每个文件保存 mode、mtime、size、内容 SHA-256 和 base64 bytes；
+- 整个 delta 再计算 `artifact_sha`，并进入 daily-agent、PIT snapshot、
+  PIT manifest summary 与 runtime provenance link。
+
+只要 delta hash、逐文件 hash、base commit、cutoff 和上下游链接都可验证，
+`wiki_dirty=true` 不再单独阻断 replay。这样重放输入是
+`base_commit + content_delta`，而不是错误地把 HEAD commit 当作完整知识状态。
+`apply_content_delta()` 会在 base checkout 上恢复 modified/untracked/ignored
+内容并执行 deletion；测试会再次捕获恢复后的工作树，确认 delta hash 完全一致。
+
+finance 代码工作树仍必须干净；代码脏树无法仅靠知识 delta 证明实际执行版本。
+wiki delta 超过 10 MiB、包含特殊文件、mtime 晚于 `evidence_cutoff`、base commit
+不可用，或 daily-agent 运行期间内容发生变化时，继续硬阻断
+`replay_eligible`。替代方案包括完整 tar 快照和 `git diff --binary`：前者重复
+存储大，后者不能可靠覆盖 ignored/untracked 文件，因此本轮选逐文件内容寻址。
+PIT schema 同步升为 1.3，使缺少 delta 的 1.2/legacy artifact 不会被误判为
+满足新 replay contract。
 
 ## 历史资料盘点
 

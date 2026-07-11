@@ -21,6 +21,11 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable
 
+from intelligence.services.fidelity_contract import (
+    CONTRACT_SCHEMA_VERSION,
+    validate_daily_agent_report,
+)
+
 BASELINE_TABLES = (
     "fact_market_daily",
     "fact_sector_daily",
@@ -240,6 +245,11 @@ def validate_gold(gold: dict[str, Any]) -> list[str]:
 
 def validate_answer_claims(answer: dict[str, Any]) -> list[str]:
     errors: list[str] = []
+    if answer.get("fidelity_contract_version") == CONTRACT_SCHEMA_VERSION:
+        errors.extend(
+            f"fidelity contract: {error}"
+            for error in validate_daily_agent_report(answer)
+        )
     claims = extract_claims(answer)
     catalog = answer.get("evidence_catalog")
     catalog_ids = set(catalog) if isinstance(catalog, dict) else set()

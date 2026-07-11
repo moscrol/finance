@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-07-10T17:14:59Z",
+  "generated_at": "2026-07-11T14:02:11Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -85,7 +85,7 @@
       ],
       "note": "只是登点/打分/校准等台账操作本身用 intelligence.cli checkpoint 子命令即可；本 skill 专管「在 Mac 上经隧道把这套定时跑起来 + 多机台账接通 + 多字节安全核对」的安装与排障。",
       "entrypoint": null,
-      "computedHash": "sha256:90930462de134155430971b49f8a75ff67e638869d2f8225fc72bdc55ac6e4d6",
+      "computedHash": "sha256:8b0afa65fead25e7ad78d836a6fd3c8a20d7006ceb200a7cd3ac81510e47c5ad",
       "agentOnly": false,
       "views": []
     },

@@ -31,7 +31,7 @@ python3 skills/checkpoint-recheck-mac-setup/scripts/mac.py 'echo ok; sw_vers -pr
 python3 skills/checkpoint-recheck-mac-setup/scripts/mac.py 'cd ~/Desktop/c\ c/金 && pwd > ~/.evolve_root && cat ~/.evolve_root | wc -c'
 ```
 
-`mac.py` 需要环境变量 `CC_REMOTE_EXEC_TOKEN`（Bearer）；端点默认 `https://exec.industry7view.com/api/exec`，可用 `CC_REMOTE_EXEC_URL` 覆盖。
+`mac.py` 需要环境变量 `CC_REMOTE_EXEC_TOKEN`（Bearer）；端点默认 `https://exec-a77.industry7view.com/api/exec`，可用 `CC_REMOTE_EXEC_URL` 覆盖。
 
 ## Core rules
 

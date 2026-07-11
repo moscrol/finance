@@ -5,6 +5,11 @@ import json
 from copy import deepcopy
 from datetime import date, datetime
 
+from intelligence.services.fidelity_contract import (
+    public_narratives,
+    sha256_value,
+)
+
 
 LINEAGE_SCHEMA_VERSION = "claim-lineage-v1"
 
@@ -161,53 +166,92 @@ def _unit_for_path(field_path: str) -> str | None:
 
 
 def build_daily_agent_claim_manifest(
-    batch: dict[str, object],
+    report: dict[str, object],
     *,
     report_date: str,
 ) -> tuple[list[dict[str, object]], dict[str, dict[str, object]]]:
     claims: list[dict[str, object]] = []
     catalog: dict[str, dict[str, object]] = {}
+    batch = report.get("logic_batch")
+    if not isinstance(batch, dict):
+        batch = {}
     results = batch.get("results")
-    if not isinstance(results, list):
-        return claims, catalog
-    for result_index, result in enumerate(results):
-        if not isinstance(result, dict):
-            continue
-        market_evidence = result.get("market_evidence")
-        lineage = result.get("market_evidence_lineage")
-        if not isinstance(market_evidence, dict) or not isinstance(lineage, dict):
-            continue
-        subject_value = result.get("matched_theme")
-        if not subject_value:
-            subject_value = result.get("market_theme")
-        if not subject_value:
-            subject_value = result.get("query")
-        subject = str(subject_value or "")
-        for field_path, source_ref in sorted(lineage.items()):
-            if not isinstance(source_ref, dict):
+    if isinstance(results, list):
+        for result_index, result in enumerate(results):
+            if not isinstance(result, dict):
                 continue
-            value = _value_at_path(market_evidence, str(field_path))
-            if value is None or isinstance(value, (dict, list)):
+            market_evidence = result.get("market_evidence")
+            lineage = result.get("market_evidence_lineage")
+            if not isinstance(market_evidence, dict) or not isinstance(
+                lineage,
+                dict,
+            ):
                 continue
-            ref_id = register_evidence(catalog, source_ref)
-            claim_id = f"claim-{report_date}-{result_index + 1}-{len(claims) + 1}"
-            claim: dict[str, object] = {
-                "claim_id": claim_id,
-                "text": f"{subject} {field_path} = {value}",
+            subject_value = result.get("matched_theme")
+            if not subject_value:
+                subject_value = result.get("market_theme")
+            if not subject_value:
+                subject_value = result.get("query")
+            subject = str(subject_value or "")
+            for field_path, source_ref in sorted(lineage.items()):
+                if not isinstance(source_ref, dict):
+                    continue
+                value = _value_at_path(market_evidence, str(field_path))
+                if value is None or isinstance(value, (dict, list)):
+                    continue
+                ref_id = register_evidence(catalog, source_ref)
+                identity = {
+                    "report_date": report_date,
+                    "result_index": result_index,
+                    "field_path": field_path,
+                    "value": value,
+                }
+                claim: dict[str, object] = {
+                    "claim_id": f"claim-{sha256_value(identity)[:20]}",
+                    "manifest_scope": "evidence_fact",
+                    "text": f"{subject} {field_path} = {value}",
+                    "claim_type": _claim_type(value),
+                    "expected_type": (
+                        "numeric_fact"
+                        if _claim_type(value) == "number"
+                        else "factual_statement"
+                    ),
+                    "subject": subject,
+                    "predicate": str(field_path),
+                    "value": value,
+                    "valid_time": report_date,
+                    "evidence_refs": [ref_id],
+                }
+                unit = _unit_for_path(str(field_path))
+                if unit:
+                    claim["unit"] = unit
+                claims.append(claim)
+
+    public_report = dict(report)
+    public_report["evidence_catalog"] = catalog
+    for narrative in public_narratives(public_report):
+        value = narrative["value"]
+        location = str(narrative["location"])
+        text = str(narrative["text"])
+        narrative_key = str(narrative["narrative_key"])
+        claims.append(
+            {
+                "claim_id": f"claim-{narrative_key[:20]}",
+                "manifest_scope": "public_narrative",
+                "narrative_key": narrative_key,
+                "location": location,
+                "text": text,
                 "claim_type": _claim_type(value),
                 "expected_type": (
                     "numeric_fact"
                     if _claim_type(value) == "number"
                     else "factual_statement"
                 ),
-                "subject": subject,
-                "predicate": str(field_path),
+                "subject": "",
+                "predicate": location,
                 "value": value,
                 "valid_time": report_date,
-                "evidence_refs": [ref_id],
+                "evidence_refs": [],
             }
-            unit = _unit_for_path(str(field_path))
-            if unit:
-                claim["unit"] = unit
-            claims.append(claim)
+        )
     return claims, catalog

@@ -483,6 +483,7 @@ class ClaimFidelityTests(unittest.TestCase):
                 json.dumps(
                     {
                         "date": "2026-07-02",
+                        "evidence_cutoff": "2026-07-02T18:30:00+08:00",
                         "evidence_catalog": {
                             "ev-sector": {
                                 "scope": "claim",
@@ -520,6 +521,10 @@ class ClaimFidelityTests(unittest.TestCase):
             )
             self.assertEqual(len(claims), 1)
             self.assertEqual(claims[0]["predicate"], "sector_metrics.pct_chg")
+            self.assertEqual(
+                claims[0]["cutoff_timestamp"],
+                "2026-07-02T18:30:00+08:00",
+            )
             self.assertEqual(claims[0]["source_ref"]["scope"], "claim")
             self.assertEqual(
                 claims[0]["source_ref"]["table"],
