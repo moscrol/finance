@@ -95,9 +95,7 @@ test.beforeEach(async ({ page }) => {
 
 test("model settings switch between managed model and session BYOK", async ({
   page,
-}, testInfo) => {
-  test.skip(testInfo.project.name !== "desktop", "single shared BYOK registry");
-
+}) => {
   await page.getByRole("button", { name: "配置模型" }).click();
   await expect(page.getByRole("dialog", { name: "模型连接" })).toBeVisible();
   await page.getByLabel("选择模型服务商").selectOption("zhipu");
@@ -128,6 +126,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   page,
 }, testInfo) => {
   test.slow();
+  await startNewConversation(page, testInfo);
   const marker = `E2E-${testInfo.project.name}-${Date.now()}`;
   const firstQuestion = `${marker} 请复盘今天市场怎么样`;
   const secondQuestion = `${marker} 第二轮请看今天研究什么`;

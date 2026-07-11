@@ -31,10 +31,14 @@ from intelligence.workbench_skills.router import (  # noqa: E402
 _LLM_KEY_NAMES = (
     "DEEPSEEK_API_KEY",
     "MOONSHOT_API_KEY",
+    "KIMI_API_KEY",
     "DASHSCOPE_API_KEY",
+    "QWEN_API_KEY",
     "ZHIPU_API_KEY",
+    "GLM_API_KEY",
     "OPENAI_API_KEY",
     "LLM_API_KEY",
+    "FORESIGHT_BUILTIN_LLM_API_KEY",
 )
 
 
@@ -91,6 +95,8 @@ def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
         Path(__file__).parent / "fixtures" / "chat_workbench_repo"
     )
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FINANCE_WS", str(repo_root))
+    monkeypatch.setenv("KB_VAULT", str(repo_root / "wiki"))
     for key_name in _LLM_KEY_NAMES:
         monkeypatch.delenv(key_name, raising=False)
 
@@ -198,6 +204,17 @@ def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
         assert requested.json()["cancel_requested"] is True
         cancelled_run = _wait_terminal(client, cancelled_run_id)
         assert cancelled_run["status"] == "cancelled"
+        cancelled_stream = client.get(
+            f"/api/runs/{cancelled_run_id}/events",
+            params={"user": "alice"},
+        )
+        cancelled_stream.raise_for_status()
+        cancelled_payloads = _stream_payloads(cancelled_stream.text)
+        assert any(
+            payload["event_type"] == "message.error"
+            and payload["payload"]["status"] == "cancelled"
+            for payload in cancelled_payloads
+        )
         cancelled_messages = client.get(
             f"/api/conversations/{cancel_conversation['conversation_id']}/messages",
             params={"user": "alice"},
@@ -346,5 +363,13 @@ def test_skill_timeout_degrades_one_module_and_continues(
         event["event_type"] == "skill.result"
         and event["payload"]["skill_id"] == "slow-skill"
         and event["payload"]["status"] == "degraded"
+        and event["payload"]["task_may_continue"] is True
         for event in events
     )
+    retrieve_step = next(
+        step
+        for step in run_store.load_trace(run.run_id)
+        if step["step_id"] == "retrieve"
+    )
+    retrieve_summary = json.loads(retrieve_step["output_summary"])
+    assert retrieve_summary["elapsed_ms"] >= 0

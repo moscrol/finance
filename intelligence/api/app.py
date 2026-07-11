@@ -80,6 +80,9 @@ class CancellationSignal:
     def is_set(self) -> bool:
         return self._event.is_set()
 
+    def wait(self, timeout: float) -> bool:
+        return self._event.wait(timeout)
+
 
 class RunSupervisor:
     def __init__(
@@ -336,6 +339,15 @@ def _run_conversation_turn(
     event_id_prefix: str = "",
     llm_provider: LLMProvider | None = None,
 ) -> None:
+    try:
+        test_delay_ms = int(
+            os.environ.get("WORKBENCH_TEST_RUN_DELAY_MS", "0")
+        )
+    except ValueError:
+        test_delay_ms = 0
+    test_delay_ms = min(5000, max(0, test_delay_ms))
+    if test_delay_ms and cancellation_signal.wait(test_delay_ms / 1000):
+        return
     provider_context = (
         llm_refine.provider_override(llm_provider)
         if llm_provider is not None
@@ -1306,6 +1318,7 @@ def create_app(
             current_cursor = cursor
             replay_trace = cursor == 0
             deadline = time.monotonic() + _SSE_MAX_SECONDS
+            terminal_event_deadline: float | None = None
             while True:
                 if replay_trace:
                     steps = store.load_trace(run_id)
@@ -1322,6 +1335,21 @@ def create_app(
                     current_cursor = event["seq"]
                 run = store.load_run(run_id)
                 if run.status in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
+                    terminal_message_missing = run.session_id and not any(
+                        event["event_type"] in {"message.complete", "message.error"}
+                        for event in store.load_stream_events(run_id)
+                    )
+                    if terminal_message_missing:
+                        terminal_event_deadline = (
+                            terminal_event_deadline
+                            or time.monotonic() + 2 * _SSE_POLL_SECONDS
+                        )
+                    if (
+                        terminal_message_missing
+                        and time.monotonic() < terminal_event_deadline
+                    ):
+                        time.sleep(_SSE_POLL_SECONDS)
+                        continue
                     yield f"event: run\ndata: {json.dumps(asdict(run), ensure_ascii=False)}\n\n"
                     return
                 if time.monotonic() > deadline:
