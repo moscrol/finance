@@ -275,6 +275,12 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+interface MockEventSourceInstance {
+  emit: (eventType: string, data: unknown) => void;
+}
+
+let mockEventSources: MockEventSourceInstance[] = [];
+
 describe("Workbench components", () => {
   it("starts a workflow preset and submits from the unified composer", async () => {
     const user = userEvent.setup();
@@ -828,12 +834,30 @@ describe("Chat-first conversation components", () => {
 describe("Workbench navigation reliability", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEventSources = [];
     class MockEventSource {
       onopen: (() => void) | null = null;
       onerror: (() => void) | null = null;
+      private readonly listeners = new Map<string, EventListener>();
 
-      addEventListener = vi.fn();
+      constructor() {
+        mockEventSources.push(this);
+      }
+
+      addEventListener = vi.fn(
+        (eventType: string, listener: EventListenerOrEventListenerObject) => {
+          if (typeof listener === "function") {
+            this.listeners.set(eventType, listener);
+          }
+        },
+      );
       close = vi.fn();
+
+      emit = (eventType: string, data: unknown) => {
+        this.listeners.get(eventType)?.(
+          new MessageEvent(eventType, { data: JSON.stringify(data) }),
+        );
+      };
     }
     vi.stubGlobal("EventSource", MockEventSource);
     Object.defineProperty(window, "scrollTo", {
@@ -889,6 +913,81 @@ describe("Workbench navigation reliability", () => {
         user: "default",
       },
     );
+  });
+
+  it("reconciles terminal runs to the persisted completed message", async () => {
+    const finalMessage: ChatMessage = {
+      ...assistantMessage,
+      message_id: "msg_assistant_new",
+      content: "数据截至 2026-07-10。最终可读回答。",
+      status: "completed",
+      run_id: "run_created",
+    };
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          ...assistantMessage,
+          message_id: "msg_user_new",
+          role: "user",
+          content: "请复盘最新交易日",
+          status: "completed",
+          run_id: "run_created",
+        },
+        finalMessage,
+      ]);
+    apiMocks.getRun.mockResolvedValue({
+      ...bundle.run,
+      run_id: "run_created",
+      status: "completed",
+      artifacts: [],
+    });
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: /今日复盘/ }));
+    const events = mockEventSources.at(-1);
+    expect(events).toBeDefined();
+
+    await act(async () => {
+      events?.emit("text.delta", {
+        schema_version: 1,
+        event_id: "text:1",
+        event_type: "text.delta",
+        run_id: "run_created",
+        conversation_id: "conv_recent",
+        message_id: "msg_assistant_new",
+        seq: 1,
+        created_at: "2026-07-11T09:00:00+08:00",
+        payload: { delta: "cycle_status raw stream" },
+      });
+    });
+    expect(screen.getByText("cycle_status raw stream")).toBeVisible();
+    expect(
+      screen.getByText("正在研究", { selector: ".agent-status" }),
+    ).toBeVisible();
+
+    await act(async () => {
+      events?.emit("run", {
+        ...bundle.run,
+        run_id: "run_created",
+        status: "completed",
+        artifacts: [],
+      });
+    });
+
+    expect(
+      await screen.findByText("数据截至 2026-07-10。最终可读回答。"),
+    ).toBeVisible();
+    expect(screen.queryByText("cycle_status raw stream")).toBeNull();
+    expect(screen.getByText("空闲", { selector: ".agent-status" })).toBeVisible();
+    expect(
+      screen.getByText("已完成", {
+        selector: ".assistant-message-header span",
+      }),
+    ).toBeVisible();
   });
 
   it("configures session-only BYOK without exposing the key", async () => {
