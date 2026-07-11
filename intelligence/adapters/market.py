@@ -151,6 +151,13 @@ class MarketAdapter:
             if row is None:
                 return {"found": False, "trade_date": str(trade_date), "data": None, "warnings": ["market daily row not found"], "errors": []}
             data = {column: self._serialize_value(value) for column, value in zip(MARKET_DAILY_COLUMNS, row)}
+            data["_source_meta"] = self._source_meta(
+                table="fact_market_daily",
+                entity="market",
+                valid_time=data.get("trade_date"),
+                source_time=data.get("updated_at"),
+                source=data.get("source"),
+            )
             return {"found": True, "trade_date": str(data["trade_date"]), "data": data, "warnings": [], "errors": []}
         except Exception as exc:
             return {"found": False, "trade_date": date, "data": None, "warnings": [], "errors": [str(exc)]}
@@ -179,6 +186,11 @@ class MarketAdapter:
                 "name": name,
                 "ratio": ratio,
                 "capacity_type": self._capacity_type(ratio),
+                "_source_meta": data.get("_source_meta", {}),
+                "_source_fields": {
+                    "name": f"industry_{rank}",
+                    "ratio": f"industry_{rank}_ratio",
+                },
             })
         return {
             "found": True,
@@ -206,7 +218,8 @@ class MarketAdapter:
             capacity_names = {item["name"] for item in capacity.get("capacity_sectors", [])}
             rows = con.execute(
                 """
-                SELECT sector_ts_code, sector_name, sw_l1, pct_chg, diff_ratio, amount
+                SELECT sector_ts_code, sector_name, sw_l1, pct_chg, diff_ratio, amount,
+                       source, updated_at
                 FROM fact_sector_daily
                 WHERE trade_date = ? AND pct_chg > 0 AND diff_ratio > 10 AND amount > 500
                 ORDER BY diff_ratio DESC, amount DESC
@@ -214,11 +227,27 @@ class MarketAdapter:
                 """,
                 [trade_date, top],
             ).fetchall()
-            columns = ["sector_ts_code", "sector_name", "sw_l1", "pct_chg", "diff_ratio", "amount"]
+            columns = [
+                "sector_ts_code",
+                "sector_name",
+                "sw_l1",
+                "pct_chg",
+                "diff_ratio",
+                "amount",
+                "source",
+                "updated_at",
+            ]
             themes = []
             for row in rows:
                 item = {column: self._serialize_value(value) for column, value in zip(columns, row)}
                 item["in_capacity_top3"] = item.get("sw_l1") in capacity_names
+                item["_source_meta"] = self._source_meta(
+                    table="fact_sector_daily",
+                    entity=item.get("sector_ts_code") or item.get("sector_name"),
+                    valid_time=trade_date,
+                    source_time=item.get("updated_at"),
+                    source=item.get("source"),
+                )
                 themes.append(item)
             return {
                 "found": True,
@@ -242,7 +271,8 @@ class MarketAdapter:
                 return {"found": False, "trade_date": None, "themes": [], "warnings": ["fact_theme_limit_heat_daily has no rows"], "errors": []}
             rows = con.execute(
                 """
-                SELECT sector_name, limit_up_count, total_count, market_share, fd_amount, rank
+                SELECT sector_name, limit_up_count, total_count, market_share, fd_amount,
+                       rank, source, updated_at
                 FROM fact_theme_limit_heat_daily
                 WHERE trade_date = ? AND COALESCE(limit_up_count, 0) >= 2
                 ORDER BY limit_up_count DESC, market_share DESC
@@ -250,11 +280,27 @@ class MarketAdapter:
                 """,
                 [trade_date, limit],
             ).fetchall()
-            columns = ["sector_name", "limit_up_count", "total_count", "market_share", "fd_amount", "rank"]
+            columns = [
+                "sector_name",
+                "limit_up_count",
+                "total_count",
+                "market_share",
+                "fd_amount",
+                "rank",
+                "source",
+                "updated_at",
+            ]
             themes = []
             for row in rows:
                 item = {column: self._serialize_value(value) for column, value in zip(columns, row)}
                 item["score"] = min(4 + float(item.get("limit_up_count") or 0) * 0.35, 18)
+                item["_source_meta"] = self._source_meta(
+                    table="fact_theme_limit_heat_daily",
+                    entity=item.get("sector_name"),
+                    valid_time=trade_date,
+                    source_time=item.get("updated_at"),
+                    source=item.get("source"),
+                )
                 themes.append(item)
             return {"found": True, "trade_date": str(trade_date), "count": len(themes), "themes": themes, "warnings": [], "errors": []}
         except Exception as exc:
@@ -276,7 +322,8 @@ class MarketAdapter:
                        COUNT(*) AS stock_count,
                        MAX(boards) AS max_boards,
                        string_agg(stock_name, '、' ORDER BY boards DESC, stock_name) AS stock_names,
-                       string_agg(stock_ts_code, '、' ORDER BY boards DESC, stock_name) AS stock_codes
+                       string_agg(stock_ts_code, '、' ORDER BY boards DESC, stock_name) AS stock_codes,
+                       MAX(updated_at) AS updated_at
                 FROM fact_limit_advance_daily
                 WHERE trade_date = ? AND boards >= 2
                 GROUP BY theme
@@ -284,7 +331,14 @@ class MarketAdapter:
                 """,
                 [trade_date],
             ).fetchall()
-            columns = ["theme", "stock_count", "max_boards", "stock_names", "stock_codes"]
+            columns = [
+                "theme",
+                "stock_count",
+                "max_boards",
+                "stock_names",
+                "stock_codes",
+                "updated_at",
+            ]
             themes = []
             for row in rows:
                 item = {column: self._serialize_value(value) for column, value in zip(columns, row)}
@@ -299,6 +353,18 @@ class MarketAdapter:
                 item["in_capacity_top3"] = in_capacity
                 item["score"] = 65 + count * 8 + max_boards * 4 + (18 if in_capacity else 0) if count >= 2 else 18 + max_boards * 3 + (6 if in_capacity else 0)
                 item["advance_stocks"] = self._advance_stocks(con, str(trade_date), str(item.get("theme") or ""))
+                item["_source_meta"] = self._source_meta(
+                    table="fact_limit_advance_daily",
+                    entity=item.get("theme") or "unmapped",
+                    valid_time=trade_date,
+                    source_time=item.get("updated_at"),
+                    source="derived aggregate",
+                    derivation={
+                        "operation": "group_by",
+                        "group_by": ["theme"],
+                        "filters": ["boards >= 2"],
+                    },
+                )
                 themes.append(item)
             return {
                 "found": True,
@@ -321,14 +387,24 @@ class MarketAdapter:
                 return {"found": False, "trade_date": None, "themes": [], "warnings": ["fact_sector_period_rank_daily has no rows"], "errors": []}
             rows = con.execute(
                 """
-                SELECT period_type, rank, sector_name, change_pct, limit_up_count, badge
+                SELECT period_type, rank, sector_name, change_pct, limit_up_count,
+                       badge, source, updated_at
                 FROM fact_sector_period_rank_daily
                 WHERE trade_date = ? AND rank <= ?
                 ORDER BY period_type, rank
                 """,
                 [trade_date, rank_limit],
             ).fetchall()
-            columns = ["period_type", "rank", "sector_name", "change_pct", "limit_up_count", "badge"]
+            columns = [
+                "period_type",
+                "rank",
+                "sector_name",
+                "change_pct",
+                "limit_up_count",
+                "badge",
+                "source",
+                "updated_at",
+            ]
             raw = [{column: self._serialize_value(value) for column, value in zip(columns, row)} for row in rows]
             seen_periods: dict[str, set[str]] = defaultdict(set)
             for item in raw:
@@ -337,6 +413,13 @@ class MarketAdapter:
             for item in raw:
                 periods = seen_periods[str(item.get("sector_name") or "")]
                 item["score"] = 6 + max(0, 11 - int(item.get("rank") or 11)) * 0.8 + max(0, len(periods) - 1) * 5
+                item["_source_meta"] = self._source_meta(
+                    table="fact_sector_period_rank_daily",
+                    entity=item.get("sector_name"),
+                    valid_time=trade_date,
+                    source_time=item.get("updated_at"),
+                    source=item.get("source"),
+                )
                 themes.append(item)
             return {"found": True, "trade_date": str(trade_date), "count": len(themes), "themes": themes, "warnings": [], "errors": []}
         except Exception as exc:
@@ -355,12 +438,16 @@ class MarketAdapter:
             rows = con.execute(
                 """
                 WITH high_stocks AS (
-                  SELECT stock_ts_code, stock_name, primary_high_label, amount, pct_chg
+                  SELECT stock_ts_code, stock_name, primary_high_label, amount, pct_chg,
+                         updated_at
                   FROM fact_stock_high_daily
                   WHERE trade_date = ? AND amount IS NOT NULL
                 ),
                 joined AS (
-                  SELECT s.sector_name, s.sw_l1, h.stock_ts_code, h.stock_name, h.primary_high_label, h.amount, h.pct_chg
+                  SELECT s.sector_name, s.sw_l1, h.stock_ts_code, h.stock_name,
+                         h.primary_high_label, h.amount, h.pct_chg,
+                         h.updated_at AS high_updated_at,
+                         s.updated_at AS sector_updated_at
                   FROM fact_sector_stock_daily s
                   JOIN high_stocks h ON h.stock_ts_code = s.stock_ts_code
                   WHERE s.trade_date = ? AND s.sector_name IS NOT NULL AND s.sector_name <> ''
@@ -368,7 +455,9 @@ class MarketAdapter:
                 SELECT sector_name,
                        sw_l1,
                        COUNT(DISTINCT stock_ts_code) AS high_count,
-                       SUM(amount) AS high_amount
+                       SUM(amount) AS high_amount,
+                       MAX(high_updated_at) AS high_updated_at,
+                       MAX(sector_updated_at) AS sector_updated_at
                 FROM joined
                 GROUP BY 1, 2
                 HAVING COUNT(DISTINCT stock_ts_code) >= 2 AND SUM(amount) >= 80
@@ -377,7 +466,14 @@ class MarketAdapter:
                 """,
                 [trade_date, trade_date, limit],
             ).fetchall()
-            columns = ["sector_name", "sw_l1", "high_count", "high_amount"]
+            columns = [
+                "sector_name",
+                "sw_l1",
+                "high_count",
+                "high_amount",
+                "high_updated_at",
+                "sector_updated_at",
+            ]
             themes = []
             for row in rows:
                 item = {column: self._serialize_value(value) for column, value in zip(columns, row)}
@@ -391,6 +487,29 @@ class MarketAdapter:
                     continue
                 item["in_capacity_top3"] = in_capacity
                 item["score"] = 18 + min(high_count * 1.4, 22) + min(high_amount / 80, 18) + (10 if in_capacity else 0)
+                source_times = [
+                    str(value)
+                    for value in (
+                        item.get("high_updated_at"),
+                        item.get("sector_updated_at"),
+                    )
+                    if value
+                ]
+                item["_source_meta"] = self._source_meta(
+                    table="fact_stock_high_daily+fact_sector_stock_daily",
+                    entity=item.get("sector_name"),
+                    valid_time=trade_date,
+                    source_time=max(source_times) if source_times else None,
+                    source="derived aggregate",
+                    derivation={
+                        "operation": "join_group_by",
+                        "input_tables": [
+                            "fact_stock_high_daily",
+                            "fact_sector_stock_daily",
+                        ],
+                        "group_by": ["sector_name", "sw_l1"],
+                    },
+                )
                 themes.append(item)
             return {
                 "found": True,
@@ -529,27 +648,26 @@ class MarketAdapter:
         return {"sw_l1": rows[0]["sw_l1"] if rows else "", "counts": [self._serialized_row(row) for row in rows]}
 
     def _advance_stocks(self, con: duckdb.DuckDBPyConnection, trade_date: str, theme: str) -> list[dict[str, Any]]:
-        return [
-            self._serialized_row(row)
-            for row in self._rows(con.execute(
+        rows = self._rows(con.execute(
                 """
                 WITH advance AS (
-                  SELECT stock_name, stock_ts_code, boards, pct_chg
+                  SELECT stock_name, stock_ts_code, boards, pct_chg, updated_at
                   FROM fact_limit_advance_daily
                   WHERE trade_date = ? AND theme = ? AND boards >= 2
                 ),
                 stock_base AS (
                   SELECT stock_ts_code,
-                         MAX(pct_chg) AS pct_chg,
-                         MAX(amount) AS amount,
-                         MAX(high_status_label) AS high_status_label
+                     MAX(pct_chg) AS pct_chg,
+                     MAX(amount) AS amount,
+                     MAX(high_status_label) AS high_status_label,
+                     MAX(updated_at) AS updated_at
                   FROM fact_sector_stock_daily
                   WHERE trade_date = ?
                     AND stock_ts_code IN (SELECT stock_ts_code FROM advance)
                   GROUP BY stock_ts_code
                 ),
                 high_base AS (
-                  SELECT stock_ts_code, primary_high_label
+                  SELECT stock_ts_code, primary_high_label, updated_at
                   FROM fact_stock_high_daily
                   WHERE trade_date = ?
                     AND stock_ts_code IN (SELECT stock_ts_code FROM advance)
@@ -559,7 +677,8 @@ class MarketAdapter:
                        a.boards,
                        COALESCE(s.pct_chg, a.pct_chg) AS pct_chg,
                        s.amount,
-                       COALESCE(s.high_status_label, h.primary_high_label) AS high_status_label
+                       COALESCE(s.high_status_label, h.primary_high_label) AS high_status_label,
+                       GREATEST(a.updated_at, s.updated_at, h.updated_at) AS updated_at
                 FROM advance a
                 LEFT JOIN stock_base s ON s.stock_ts_code = a.stock_ts_code
                 LEFT JOIN high_base h ON h.stock_ts_code = a.stock_ts_code
@@ -567,15 +686,32 @@ class MarketAdapter:
                 """,
                 [trade_date, theme, trade_date, trade_date],
             ))
-        ]
+        out = []
+        for row in rows:
+            item = self._serialized_row(row)
+            item["_source_meta"] = self._source_meta(
+                table="fact_limit_advance_daily+fact_sector_stock_daily+fact_stock_high_daily",
+                entity=item.get("stock_ts_code") or item.get("stock_name"),
+                valid_time=trade_date,
+                source_time=item.get("updated_at"),
+                source="derived join",
+                derivation={
+                    "operation": "left_join",
+                    "input_tables": [
+                        "fact_limit_advance_daily",
+                        "fact_sector_stock_daily",
+                        "fact_stock_high_daily",
+                    ],
+                },
+            )
+            out.append(item)
+        return out
 
     def _strong_stocks(self, con: duckdb.DuckDBPyConnection, trade_date: str, theme: str, limit: int) -> list[dict[str, Any]]:
-        return [
-            self._serialized_row(row)
-            for row in self._rows(con.execute(
+        rows = self._rows(con.execute(
                 """
-                SELECT stock_name, stock_ts_code, pct_chg, amount, high_status_label, high_status,
-                       sqrt(amount) * pct_chg AS weighted
+                SELECT stock_name, stock_ts_code, pct_chg, amount, high_status_label,
+                       high_status, sqrt(amount) * pct_chg AS weighted, source, updated_at
                 FROM fact_sector_stock_daily
                 WHERE trade_date = ? AND sector_name = ? AND pct_chg IS NOT NULL AND amount IS NOT NULL
                 ORDER BY weighted DESC NULLS LAST
@@ -583,14 +719,25 @@ class MarketAdapter:
                 """,
                 [trade_date, theme, limit],
             ))
-        ]
+        out = []
+        for row in rows:
+            item = self._serialized_row(row)
+            item["_source_meta"] = self._source_meta(
+                table="fact_sector_stock_daily",
+                entity=item.get("stock_ts_code") or item.get("stock_name"),
+                valid_time=trade_date,
+                source_time=item.get("updated_at"),
+                source=item.get("source"),
+            )
+            out.append(item)
+        return out
 
     def _new_high_stocks(self, con: duckdb.DuckDBPyConnection, trade_date: str, theme: str, limit: int) -> list[dict[str, Any]]:
-        return [
-            self._serialized_row(row)
-            for row in self._rows(con.execute(
+        rows = self._rows(con.execute(
                 """
-                SELECT DISTINCT h.stock_name, h.stock_ts_code, h.primary_high_label AS high_label, h.pct_chg, h.amount
+                SELECT DISTINCT h.stock_name, h.stock_ts_code,
+                       h.primary_high_label AS high_label, h.pct_chg, h.amount,
+                       h.source, GREATEST(h.updated_at, s.updated_at) AS updated_at
                 FROM fact_stock_high_daily h
                 JOIN fact_sector_stock_daily s ON h.trade_date = s.trade_date AND h.stock_ts_code = s.stock_ts_code
                 WHERE h.trade_date = ? AND s.sector_name = ?
@@ -599,10 +746,50 @@ class MarketAdapter:
                 """,
                 [trade_date, theme, limit],
             ))
-        ]
+        out = []
+        for row in rows:
+            item = self._serialized_row(row)
+            item["_source_meta"] = self._source_meta(
+                table="fact_stock_high_daily+fact_sector_stock_daily",
+                entity=item.get("stock_ts_code") or item.get("stock_name"),
+                valid_time=trade_date,
+                source_time=item.get("updated_at"),
+                source=item.get("source"),
+                derivation={
+                    "operation": "inner_join",
+                    "input_tables": [
+                        "fact_stock_high_daily",
+                        "fact_sector_stock_daily",
+                    ],
+                },
+            )
+            out.append(item)
+        return out
 
     def _serialized_row(self, row: dict[str, Any]) -> dict[str, Any]:
         return {key: self._serialize_value(value) for key, value in row.items()}
+
+    @staticmethod
+    def _source_meta(
+        *,
+        table: str,
+        entity: object,
+        valid_time: object,
+        source_time: object,
+        source: object,
+        derivation: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        meta: dict[str, object] = {
+            "table": table,
+            "entity": str(entity or ""),
+            "valid_time": str(valid_time or ""),
+            "source_time": str(source_time or ""),
+            "source": str(source or table),
+            "source_artifact": "db/market_feature_store.duckdb",
+        }
+        if derivation:
+            meta["derivation"] = derivation
+        return meta
 
     @staticmethod
     def _serialize_value(value: Any) -> Any:

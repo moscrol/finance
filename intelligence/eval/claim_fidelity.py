@@ -1076,7 +1076,7 @@ def _find_snapshot_value(
     snapshot: dict[str, object],
     evidence: dict[str, object],
 ) -> tuple[str, object, str]:
-    table = str(evidence.get("source") or evidence.get("table") or "")
+    table = str(evidence.get("table") or evidence.get("source") or "")
     field = str(evidence.get("field") or "")
     entity = str(evidence.get("entity") or "")
     source_date = str(
