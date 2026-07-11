@@ -1,6 +1,7 @@
 import unittest
 
 from intelligence.services.question_router import (
+    ROUTE_CLARIFICATION,
     ROUTE_DATA_GAP,
     ROUTE_KNOWN,
     ROUTE_PLANNER,
@@ -38,6 +39,14 @@ class QuestionRouterTest(unittest.TestCase):
 
         self.assertEqual(decision.route_type, ROUTE_PLANNER)
         self.assertEqual(decision.next_action, "run_logic_match")
+
+    def test_vague_queries_require_clarification_before_bare_theme_routing(self):
+        for query in ("随便", "帮我看看", "分析一下", "看看"):
+            with self.subTest(query=query):
+                decision = route_question(query)
+                self.assertEqual(decision.route_type, ROUTE_CLARIFICATION)
+                self.assertEqual(decision.next_action, "ask_user_to_clarify")
+                self.assertEqual(decision.selected_paths, [])
 
     def test_natural_language_full_daily_review_uses_kb_wiki_path(self):
         decision = route_question("帮我跑今天的全量复盘")

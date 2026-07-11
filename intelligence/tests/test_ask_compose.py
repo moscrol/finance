@@ -66,6 +66,24 @@ class SynthesizeTests(unittest.TestCase):
         self.assertIn("用户影子审稿人", review_user_msg)
         self.assertIn("是否模板化", review_user_msg)
 
+    def test_synthesize_messages_with_review_marks_review_failure(self) -> None:
+        msgs = build_synthesis_messages("深挖澜起科技", "存储芯片", "## 证据链\n- 澜起科技 [S1]")
+        with mock.patch.object(llm_refine, "detect_provider", return_value=_provider()), mock.patch.object(
+            llm_refine,
+            "_post_chat",
+            side_effect=[
+                "初稿：澜起是存储芯片龙头[S1]。（非投资建议）",
+                TimeoutError("review timeout"),
+            ],
+        ):
+            out, reason = synthesize_messages_with_review(msgs)
+
+        self.assertIsNotNone(out)
+        assert out is not None
+        self.assertIn("初稿", out.answer)
+        self.assertIn("二次自审失败", reason)
+        self.assertIn("保留初稿", reason)
+
     def test_synthesis_prompt_includes_experience_guidance(self) -> None:
         msgs = llm_refine.build_synthesis_messages(
             "科技细分里哪个方向还有上涨空间",

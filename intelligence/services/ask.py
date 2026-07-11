@@ -166,6 +166,8 @@ class AskOptions:
     # D9 L2 大单资金流数据块：仅当问题命中「资金流/大单/主买/量化单」意图时生成，直查
     # l2-moneyflow 盘后特征表；榜单只扫涨停股+成交额 top100，缺行≠无资金流入，块内强制声明口径。
     include_moneyflow_block: bool = True
+    # 固定日报工作流需把 L2 作为显式模块，即使用户问题没有重复写“资金流”也要取数。
+    force_moneyflow_block: bool = False
     # 情景树/推演表达层：推演类问题命中时向 synthesis prompt 注入「变量表→情景分支→监控信号」
     # 表达契约（禁数值概率，likelihood 只准高/中/低并注依据）；非推演问题不注入，行为不变。
     include_scenario_guidance: bool = True
@@ -200,6 +202,10 @@ class Citation:
     tag: str  # e.g. "S1", "G2", "R3"
     source: str
     detail: str = ""
+    chunk_id: str = ""
+    content_hash: str = ""
+    index_source_revision: str = ""
+    index_freshness: str = ""
 
 
 @dataclass
@@ -448,10 +454,29 @@ def answer_query(options: AskOptions) -> AskResult:
 
     citations: list[Citation] = []
 
-    def cite(prefix: str, source: str, detail: str = "") -> str:
+    def cite(
+        prefix: str,
+        source: str,
+        detail: str = "",
+        *,
+        chunk_id: str = "",
+        content_hash: str = "",
+        index_source_revision: str = "",
+        index_freshness: str = "",
+    ) -> str:
         n = sum(1 for c in citations if c.tag.startswith(prefix)) + 1
         tag = f"{prefix}{n}"
-        citations.append(Citation(tag=tag, source=source, detail=detail))
+        citations.append(
+            Citation(
+                tag=tag,
+                source=source,
+                detail=detail,
+                chunk_id=chunk_id,
+                content_hash=content_hash,
+                index_source_revision=index_source_revision,
+                index_freshness=index_freshness,
+            )
+        )
         return f"[{tag}]"
 
     export_name = Path(loaded.get("path", "")).name
@@ -603,7 +628,20 @@ def answer_query(options: AskOptions) -> AskResult:
             result.found_graph = True
             for h in wr.hits:
                 nb = "·邻居扩展" if h.via_neighbor else ""
-                tag = cite("W", f"knowledge-base · {h.file_path}", f"{wr.command}｜{h.title}")
+                section_ref = f"｜section={h.section}" if h.section else ""
+                tag = cite(
+                    "W",
+                    f"knowledge-base · {h.file_path}",
+                    (
+                        f"{wr.command}｜{h.title}｜chunk={h.best_chunk_id}{section_ref}"
+                        f"｜hash={h.content_hash[:12]}｜index={h.index_source_revision[:12]}"
+                        f"｜freshness={h.index_freshness}"
+                    ),
+                    chunk_id=h.best_chunk_id,
+                    content_hash=h.content_hash,
+                    index_source_revision=h.index_source_revision,
+                    index_freshness=h.index_freshness,
+                )
                 # 旧结论核验门：synthesis/briefings 页是历史判断而非当前事实，打〔历史基线〕
                 # 标签供合成层按 prior 处理（引用前须用当下盘面核验，给四态对照）。
                 baseline = (
@@ -907,10 +945,16 @@ def answer_query(options: AskOptions) -> AskResult:
                     )
 
                 block_tasks.append(ask_planner.BlockTask("D6", "多日中期趋势", _build_d6))
-        if options.include_moneyflow_block and market_moneyflow.parse_moneyflow_intent(options.query):
+        if options.include_moneyflow_block and (
+            options.force_moneyflow_block
+            or market_moneyflow.parse_moneyflow_intent(options.query)
+        ):
             def _build_d9():
                 block = market_moneyflow.moneyflow_block_for_llm(
-                    options.query, anchored_name, options.market_db_path,
+                    options.query,
+                    anchored_name,
+                    options.market_db_path,
+                    as_of_date=options.date,
                 )
                 return block, Citation(
                     "D9",
@@ -1087,6 +1131,8 @@ def answer_query(options: AskOptions) -> AskResult:
             result.synthesis = composed.answer
             result.llm_provider = composed.provider
             result.synthesis_messages = msgs + [{"role": "assistant", "content": composed.answer}]
+            if reason:
+                result.warnings.append(reason)
         else:
             result.warnings.append(reason)
 
@@ -1097,6 +1143,7 @@ def answer_query(options: AskOptions) -> AskResult:
         gap_lines=gap_lines,
         follow_ups=follow_ups,
         conclusion_lines=conclusion,
+        final_answer=result.synthesis,
     )
     result.warnings.extend(
         f"输出质检：{c.name}——{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN

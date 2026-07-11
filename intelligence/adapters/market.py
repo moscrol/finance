@@ -9,6 +9,7 @@ import duckdb
 
 from market_feature_store import query as market_query
 from market_feature_store.db import DB_PATH
+from market_feature_store.signals import DOUBLE_RED_SQL
 
 
 MARKET_DAILY_COLUMNS = [
@@ -217,11 +218,11 @@ class MarketAdapter:
             capacity = self.get_capacity_sectors(str(trade_date), top=3)
             capacity_names = {item["name"] for item in capacity.get("capacity_sectors", [])}
             rows = con.execute(
-                """
+                f"""
                 SELECT sector_ts_code, sector_name, sw_l1, pct_chg, diff_ratio, amount,
                        source, updated_at
                 FROM fact_sector_daily
-                WHERE trade_date = ? AND pct_chg > 0 AND diff_ratio > 10 AND amount > 500
+                WHERE trade_date = ? AND {DOUBLE_RED_SQL}
                 ORDER BY diff_ratio DESC, amount DESC
                 LIMIT ?
                 """,
@@ -252,7 +253,7 @@ class MarketAdapter:
             return {
                 "found": True,
                 "trade_date": str(trade_date),
-                "definition": "pct_chg > 0 AND diff_ratio > 10 AND amount > 500",
+                "definition": DOUBLE_RED_SQL,
                 "count": len(themes),
                 "themes": themes,
                 "warnings": capacity.get("warnings", []),

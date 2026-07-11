@@ -22,6 +22,8 @@ RUN_REQUIRED_KEYS = {
     "source_date",
     "duckdb_cutoff",
     "kb_commit",
+    "kb_index_built_at",
+    "kb_index_freshness",
     "manifest_ref",
     "degrades",
     "error",
@@ -79,11 +81,54 @@ def test_failed_run_records_error(store: RunStore) -> None:
     assert done.status == run_store.STATUS_FAILED
     assert done.error == "LLM 超时"
 
+def test_update_provenance_persists_source_and_index_snapshot(store: RunStore) -> None:
+    run = store.create_run("q", "ask")
+    updated = store.update_provenance(
+        run.run_id,
+        source_date="2026-07-10",
+        duckdb_cutoff="2026-07-10T15:00:00+08:00",
+        kb_commit="abc123",
+        kb_index_built_at="2026-07-10T12:00:00+00:00",
+        kb_index_freshness="fresh",
+    )
+
+    assert updated.source_date == "2026-07-10"
+    assert updated.duckdb_cutoff == "2026-07-10T15:00:00+08:00"
+    assert updated.kb_commit == "abc123"
+    assert updated.kb_index_built_at == "2026-07-10T12:00:00+00:00"
+    assert updated.kb_index_freshness == "fresh"
+
 
 def test_finish_rejects_non_terminal_status(store: RunStore) -> None:
     run = store.create_run("q", "ask")
     with pytest.raises(ValueError):
         store.finish_run(run.run_id, run_store.STATUS_RUNNING)
+
+
+def test_terminal_status_cannot_be_overwritten(store: RunStore) -> None:
+    run = store.create_run("q", "ask")
+    store.finish_run(run.run_id, run_store.STATUS_CANCELLED, error="cancelled")
+
+    saved = store.finish_run(run.run_id, run_store.STATUS_COMPLETED)
+
+    assert saved.status == run_store.STATUS_CANCELLED
+    assert saved.error == "cancelled"
+
+
+def test_requeue_incomplete_runs_marks_only_active_runs_queued(store: RunStore) -> None:
+    interrupted = store.create_run("q1", "ask")
+    completed = store.create_run("q2", "ask")
+    store.finish_run(completed.run_id, run_store.STATUS_COMPLETED)
+
+    recovered = store.requeue_incomplete_runs(reason="service_restarted")
+
+    assert [run.run_id for run in recovered] == [interrupted.run_id]
+    saved = store.load_run(interrupted.run_id)
+    assert saved.status == run_store.STATUS_QUEUED
+    assert saved.error is None
+    assert saved.degrades == ["service_restarted"]
+    assert store.load_stream_events(interrupted.run_id)[0]["event_type"] == "run_recovered"
+    assert store.load_run(completed.run_id).status == run_store.STATUS_COMPLETED
 
 
 def test_append_step_rejects_bad_status(store: RunStore) -> None:

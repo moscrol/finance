@@ -12,6 +12,8 @@
   "source_date": "2026-07-08",
   "duckdb_cutoff": "2026-07-08",
   "kb_commit": "abc123",
+  "kb_index_built_at": "2026-07-08T14:30:00+00:00",
+  "kb_index_freshness": "fresh",
   "manifest_ref": null,
   "degrades": [
     "ftshare_unavailable"

@@ -48,8 +48,6 @@ if [ $rc -ne 0 ]; then
   exit $rc
 fi
 
-python3 -m intelligence.cli agent-daily --date "$D"
-
 # 双盲答卷 T+1/T+3 数值回检（幂等，只回填脚本可算指标；人工字段不覆盖）
 LEDGER="docs/learning/forecast-review-ledger"
 answers=$(ls "$LEDGER"/*.answer.*.json 2>/dev/null | tail -12)
@@ -77,14 +75,6 @@ else
   echo "[$(date '+%F %T')] 资金流段跳过（scripts/moneyflow 未合并或缺 CH_PASSWORD）"
 fi
 
-# 跨日数据质检（历史断档/行数异常/值域越界；告警不阻断，报告 JSON 落 state/ 留审计）
-QJ="skills/daily-full-review/state/quality-$D.json"
-python3 -m market_feature_store.cli check-daily --trade-date "$D" --json "$QJ"
-if [ $? -eq 2 ]; then
-  brief=$(python3 -c "import json;print(json.load(open('$QJ'))['brief'])" 2>/dev/null || echo "详见 $QJ")
-  notify "⚠️ 数据质检 $D 未通过：$brief"
-fi
-
 # 知识库证据断更监控（超 7 天未 ingest 新批次则告警；不阻断收尾）
 kb_msg=$(python3 "$WORKSPACE/scripts/check_kb_freshness.py" --max-age 7)
 if [ $? -eq 2 ]; then
@@ -92,4 +82,3 @@ if [ $? -eq 2 ]; then
 fi
 
 echo "[$(date '+%F %T')] === 全量复盘完成 date=$D ==="
-

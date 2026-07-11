@@ -11,6 +11,7 @@ import {
   getRun,
   getRunArtifactText,
   getRunContext,
+  getRunReport,
   getTrace,
   listArtifacts,
   runEventsUrl,
@@ -23,6 +24,7 @@ import { ResearchInspector } from "./components/ResearchInspector";
 import { RunView } from "./components/RunView";
 import { Sidebar } from "./components/Sidebar";
 import { supportsDailyProjection } from "./dailyReports";
+import { upsertStructuredReportModule } from "./structuredReport";
 import { deduplicateTrace, upsertTraceStep } from "./trace";
 import type {
   ArtifactDescriptor,
@@ -30,6 +32,7 @@ import type {
   DailyReportProjection,
   Run,
   RunBundle,
+  StructuredReportEvent,
   Surface,
   TraceStep,
   Workflow,
@@ -89,14 +92,27 @@ export default function App() {
         const run = await getRun(runId, user);
         if (generation !== runRequestGeneration.current) return;
         const answerArtifact = run.artifacts.find((item) => item.path === "answer.md");
-        const [trace, followups, context, registeredArtifacts, answer] = await Promise.all([
+        const outputLoadErrors: string[] = [];
+        const [trace, followups, context, registeredArtifacts, answer, structuredReport] =
+          await Promise.all([
           getTrace(runId, user),
           getFollowups(runId, user),
           getRunContext(runId, user),
           listArtifacts({ category: "run" }, user),
           answerArtifact
-            ? getRunArtifactText(runId, answerArtifact.path, user).catch(() => null)
+            ? getRunArtifactText(runId, answerArtifact.path, user).catch((caught) => {
+                outputLoadErrors.push(
+                  `回答产物读取失败：${caught instanceof Error ? caught.message : "未知错误"}`,
+                );
+                return null;
+              })
             : Promise.resolve(null),
+          getRunReport(runId, user).catch((caught) => {
+            outputLoadErrors.push(
+              `结构化报告读取失败：${caught instanceof Error ? caught.message : "未知错误"}`,
+            );
+            return null;
+          }),
         ]);
         if (generation !== runRequestGeneration.current) return;
         setRunBundle({
@@ -105,12 +121,13 @@ export default function App() {
           followups,
           context,
           answer,
+          structuredReport,
           registeredArtifacts: registeredArtifacts.filter(
             (item) => item.related_run_id === runId,
           ),
         });
         setArtifact(null);
-        setError(null);
+        setError(outputLoadErrors.length > 0 ? outputLoadErrors.join("；") : null);
       } catch (caught) {
         if (generation === runRequestGeneration.current) {
           setError(caught instanceof Error ? caught.message : "无法加载研究运行");
@@ -163,6 +180,32 @@ export default function App() {
           : current,
       );
     });
+    const applyReportEvent = (event: Event) => {
+      if (generation !== runRequestGeneration.current) return;
+      const streamEvent = JSON.parse(
+        (event as MessageEvent<string>).data,
+      ) as StructuredReportEvent;
+      setRunBundle((current) => {
+        if (!current) return current;
+        if (streamEvent.payload.report) {
+          return { ...current, structuredReport: streamEvent.payload.report };
+        }
+        if (streamEvent.payload.module && current.structuredReport) {
+          return {
+            ...current,
+            structuredReport: upsertStructuredReportModule(
+              current.structuredReport,
+              streamEvent.payload.module,
+            ),
+          };
+        }
+        return current;
+      });
+    };
+    events.addEventListener("report_start", applyReportEvent);
+    events.addEventListener("report_module", applyReportEvent);
+    events.addEventListener("report_complete", applyReportEvent);
+    events.addEventListener("report_error", applyReportEvent);
     events.addEventListener("run", (event) => {
       if (generation !== runRequestGeneration.current) return;
       const nextRun = JSON.parse((event as MessageEvent<string>).data) as Run;
@@ -306,8 +349,8 @@ export default function App() {
   );
 
   const handleWorkflow = (workflow: Workflow) => {
-    if (workflow.id === "daily" && workflow.artifact_id) {
-      void openArtifact(workflow.artifact_id);
+    if (workflow.id === "daily") {
+      void submitResearch(workflow.prompt, null, workflow.task_type);
       return;
     }
     runRequestGeneration.current += 1;

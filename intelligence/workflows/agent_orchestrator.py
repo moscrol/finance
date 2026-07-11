@@ -13,6 +13,9 @@ from intelligence.services.question_router import RouteDecision, RoutePath, rend
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 
 
+MIN_AUTO_EXECUTION_CONFIDENCE = 0.7
+
+
 @dataclass(frozen=True)
 class OrchestratorOptions:
     query: str
@@ -85,8 +88,8 @@ def run_agent_orchestrator(options: OrchestratorOptions) -> tuple[WorkflowSummar
     context = _context(options)
     planned = [_plan_path(path, context) for path in decision.selected_paths]
     for item in planned:
-        step = _step_for_plan(item, options)
-        if options.execute and _is_executable(item):
+        step = _step_for_plan(item, options, decision.confidence)
+        if options.execute and _is_executable(item, decision.confidence):
             step = run_command_step(f"execute:{item.id}", item.argv, context["finance_root"])
             item.status = "executed" if step.status == "PASS" else "failed"
             item.outputs = list(step.outputs)
@@ -157,11 +160,17 @@ def _format_token(token: str, context: dict[str, Any]) -> str:
     return token.format_map({key: str(value) for key, value in context.items()})
 
 
-def _is_executable(item: OrchestratedPath) -> bool:
-    return bool(item.argv) and item.auto_execute and item.risk_level == "low" and not item.skip_reason
+def _is_executable(item: OrchestratedPath, confidence: float) -> bool:
+    return (
+        bool(item.argv)
+        and item.auto_execute
+        and item.risk_level == "low"
+        and confidence >= MIN_AUTO_EXECUTION_CONFIDENCE
+        and not item.skip_reason
+    )
 
 
-def _step_for_plan(item: OrchestratedPath, options: OrchestratorOptions) -> WorkflowStep:
+def _step_for_plan(item: OrchestratedPath, options: OrchestratorOptions, confidence: float) -> WorkflowStep:
     if item.skip_reason:
         return WorkflowStep(
             name=f"plan:{item.id}",
@@ -182,6 +191,9 @@ def _step_for_plan(item: OrchestratedPath, options: OrchestratorOptions) -> Work
     elif item.risk_level != "low":
         item.status = "skipped"
         item.skip_reason = "risk_not_low"
+    elif confidence < MIN_AUTO_EXECUTION_CONFIDENCE:
+        item.status = "skipped"
+        item.skip_reason = "route_confidence_too_low"
     if item.skip_reason:
         return WorkflowStep(
             name=f"plan:{item.id}",

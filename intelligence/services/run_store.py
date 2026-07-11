@@ -27,6 +27,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -59,6 +60,18 @@ def redact(text: str) -> str:
     for pat in _SECRET_PATTERNS:
         out = pat.sub("[REDACTED]", out)
     return out
+
+
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_redact_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _redact_value(item) for key, item in value.items()}
+    return value
 
 
 def _now_iso() -> str:
@@ -102,6 +115,8 @@ class Run:
     source_date: str | None = None
     duckdb_cutoff: str | None = None
     kb_commit: str | None = None
+    kb_index_built_at: str | None = None
+    kb_index_freshness: str | None = None
     manifest_ref: str | None = None
     degrades: list[str] = field(default_factory=list)
     error: str | None = None
@@ -115,6 +130,7 @@ class RunStore:
         us = userspace.user_space(user_id)
         self.user_id = us.user_id
         self.root = root if root is not None else us.root / "runs"
+        self._state_lock = threading.RLock()
 
     # ---------- 写路径 ----------
 
@@ -183,6 +199,24 @@ class RunStore:
             fh.write(json.dumps(step, ensure_ascii=False) + "\n")
         return step
 
+    def append_stream_event(
+        self,
+        run_id: str,
+        *,
+        event_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        event = {
+            "event_id": redact(event_id),
+            "event_type": redact(event_type),
+            "created_at": _now_iso(),
+            "payload": _redact_value(payload),
+        }
+        with self.stream_path(run_id).open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+        return event
+
     def add_artifact(
         self,
         run_id: str,
@@ -192,40 +226,115 @@ class RunStore:
         renderer: str,
         title: str,
     ) -> Artifact:
-        data = content.encode("utf-8") if isinstance(content, str) else content
-        path = self.run_dir(run_id) / filename
-        path.write_bytes(data)
-        artifact = Artifact(
-            artifact_id=f"artifact_{filename.replace('.', '_')}",
-            path=filename,
-            renderer=renderer,
-            title=title,
-            sha256=hashlib.sha256(data).hexdigest(),
-            bytes=len(data),
-        )
-        run = self.load_run(run_id)
-        run.artifacts = [a for a in run.artifacts if a.get("path") != filename]
-        run.artifacts.append(asdict(artifact))
-        self._write_run(run)
-        return artifact
+        with self._state_lock:
+            data = content.encode("utf-8") if isinstance(content, str) else content
+            path = self.run_dir(run_id) / filename
+            path.write_bytes(data)
+            artifact = Artifact(
+                artifact_id=f"artifact_{filename.replace('.', '_')}",
+                path=filename,
+                renderer=renderer,
+                title=title,
+                sha256=hashlib.sha256(data).hexdigest(),
+                bytes=len(data),
+            )
+            run = self.load_run(run_id)
+            run.artifacts = [a for a in run.artifacts if a.get("path") != filename]
+            run.artifacts.append(asdict(artifact))
+            self._write_run(run)
+            return artifact
 
     def add_degrade(self, run_id: str, reason: str) -> None:
         """数据源降级一等公民化：录屏里「ftshare 不可用」这类事件落到 run 元数据。"""
-        run = self.load_run(run_id)
-        reason = redact(reason)
-        if reason not in run.degrades:
-            run.degrades.append(reason)
+        with self._state_lock:
+            run = self.load_run(run_id)
+            reason = redact(reason)
+            if reason not in run.degrades:
+                run.degrades.append(reason)
+                self._write_run(run)
+
+    def update_provenance(
+        self,
+        run_id: str,
+        *,
+        source_date: str | None = None,
+        duckdb_cutoff: str | None = None,
+        kb_commit: str | None = None,
+        kb_index_built_at: str | None = None,
+        kb_index_freshness: str | None = None,
+    ) -> Run:
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if source_date is not None:
+                run.source_date = source_date
+            if duckdb_cutoff is not None:
+                run.duckdb_cutoff = duckdb_cutoff
+            if kb_commit is not None:
+                run.kb_commit = kb_commit
+            if kb_index_built_at is not None:
+                run.kb_index_built_at = kb_index_built_at
+            if kb_index_freshness is not None:
+                run.kb_index_freshness = kb_index_freshness
             self._write_run(run)
+            return run
 
     def finish_run(self, run_id: str, status: str, *, error: str | None = None) -> Run:
         if status not in _TERMINAL_STATUSES:
             raise ValueError(f"finish_run 只接受终态：{_TERMINAL_STATUSES}，得到 {status!r}")
-        run = self.load_run(run_id)
-        run.status = status
-        run.finished_at = _now_iso()
-        run.error = redact(error) if error else None
-        self._write_run(run)
-        return run
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if run.status in _TERMINAL_STATUSES:
+                return run
+            run.status = status
+            run.finished_at = _now_iso()
+            run.error = redact(error) if error else None
+            self._write_run(run)
+            return run
+
+    def mark_running(self, run_id: str) -> Run:
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if run.status in _TERMINAL_STATUSES:
+                return run
+            run.status = STATUS_RUNNING
+            run.finished_at = None
+            run.error = None
+            self._write_run(run)
+            return run
+
+    def fail_active_run(self, run_id: str, *, error: str, degrade: str) -> Run:
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if run.status in _TERMINAL_STATUSES:
+                return run
+            degrade = redact(degrade)
+            if degrade not in run.degrades:
+                run.degrades.append(degrade)
+            run.status = STATUS_FAILED
+            run.finished_at = _now_iso()
+            run.error = redact(error)
+            self._write_run(run)
+            return run
+
+    def requeue_incomplete_runs(self, *, reason: str) -> list[Run]:
+        recovered: list[Run] = []
+        for run in self.list_runs():
+            if run.status not in {STATUS_QUEUED, STATUS_RUNNING}:
+                continue
+            if reason not in run.degrades:
+                run.degrades.append(redact(reason))
+            run.status = STATUS_QUEUED
+            run.finished_at = None
+            run.error = None
+            self._write_run(run)
+            self.append_stream_event(
+                run.run_id,
+                event_id=f"recovery:{_now_iso()}",
+                event_type="run_recovered",
+                payload={"reason": reason},
+            )
+            recovered.append(run)
+        return recovered
 
     # ---------- 读路径 ----------
 
@@ -239,6 +348,9 @@ class RunStore:
 
     def trace_path(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "trace.jsonl"
+
+    def stream_path(self, run_id: str) -> Path:
+        return self.run_dir(run_id) / "stream.jsonl"
 
     def load_run(self, run_id: str) -> Run:
         payload = json.loads(self.run_path(run_id).read_text(encoding="utf-8"))
@@ -254,6 +366,17 @@ class RunStore:
             if line:
                 steps.append(json.loads(line))
         return steps
+
+    def load_stream_events(self, run_id: str) -> list[dict[str, Any]]:
+        path = self.stream_path(run_id)
+        if not path.exists():
+            return []
+        events = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                events.append(json.loads(line))
+        return events
 
     def list_runs(self) -> list[Run]:
         if not self.root.exists():
