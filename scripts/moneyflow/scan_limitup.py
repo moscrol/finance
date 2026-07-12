@@ -112,6 +112,7 @@ def main():
     res = pd.DataFrame(results)
     if res.empty:
         print("无结果")
+        write_capital_flow(date, "limitup", res, big_thr, prev_limitup_date=prev)
         return
     info = stock_info(res["code"])
     res["name"] = res["code"].map(lambda c: info.get(c, {}).get("name", ""))
@@ -124,10 +125,7 @@ def main():
 
     csv_path = out_path(f"limitup_scan_{date}.csv")
     res.sort_values("综合得分", ascending=False).to_csv(csv_path, index=False)
-    try:
-        write_capital_flow(date, "limitup", res, big_thr, prev_limitup_date=prev)
-    except Exception as e:
-        print(f"写入 DuckDB 失败（榜单不受影响）: {e}")
+    write_capital_flow(date, "limitup", res, big_thr, prev_limitup_date=prev)
 
     sel = res[(res["主买净额(万)"] > 0) & (res["总买净额(万)"] > 0)
               & ((res["主买净额(万)"] > net_thr) | (res["总买净额(万)"] > net_thr))]

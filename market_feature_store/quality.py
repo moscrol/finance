@@ -21,6 +21,9 @@ GAP_TABLES = [
     "fact_theme_limit_heat_daily",
     "fact_limit_advance_daily",
     "fact_stock_daily",
+    "fact_mainline_theme_daily",
+    "fact_mainline_stock_daily",
+    "fact_mainline_sector_daily",
 ]
 
 # 行数异常收缩只查"宇宙规模近似恒定"的结构表；新高/涨停/晋级类表行数随行情天然大幅波动，
@@ -30,6 +33,10 @@ ROW_ANOMALY_TABLES = [
     "fact_sw_l1_daily",
     "fact_sector_stock_daily",
     "fact_stock_daily",
+    "fact_mainline_theme_daily",
+    "fact_mainline_stock_daily",
+    "fact_mainline_sector_daily",
+    "fact_sector_period_rank_daily",
 ]
 
 # (字段, 下限, 上限)；None = 不设界。基于 A 股常识口径，宁松勿严，只拦明显脏数。

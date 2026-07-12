@@ -4,6 +4,8 @@
     python3 -m market_feature_store.cli init    # 初始化 schema (幂等)
     python3 -m market_feature_store.cli info    # 查看库内表与行数
 """
+from __future__ import annotations
+
 import argparse
 import json
 import sys
@@ -120,7 +122,8 @@ def cmd_sync_mainline_sector_daily(args) -> int:
             print(f"  - {f['theme_code']} {f['theme_name']}: {f['error']}")
     else:
         print("失败题材: 0")
-    return 0
+    print(f"同步状态: {stats['status']}")
+    return 0 if stats["status"] == "complete" else 2
 
 
 def cmd_sync_market_daily(_args) -> int:
@@ -170,7 +173,8 @@ def cmd_sync_sw_l1_daily(args) -> int:
         print(f"降级: {stats['degraded_rows']} 个申万一级使用复盘会板块聚合代理源")
     if stats.get("failures"):
         print("失败行业: " + ", ".join(f"{x['sw_l1']}({x['error'][:40]})" for x in stats["failures"][:10]))
-    return 0
+    print(f"同步状态: {stats['status']}")
+    return 0 if stats["status"] in {"complete", "degraded"} else 2
 
 
 def cmd_sync_market_strength(args) -> int:
@@ -345,7 +349,15 @@ def cmd_sync_mainline_daily(args) -> int:
         td = str(row[0]) if row and row[0] is not None else None
     s = sync_mainline_daily(td)
     print(f"交易日: {td} | 主线题材: {s['themes']} | 主线个股: {s['stocks']}")
-    return 0
+    if s["failures"]:
+        print(f"失败题材 ({len(s['failures'])}):")
+        for failure in s["failures"]:
+            print(
+                f"  - {failure.get('theme_code', '')} "
+                f"{failure.get('theme_name', '')}: {failure['error']}"
+            )
+    print(f"同步状态: {s['status']}")
+    return 0 if s["status"] == "complete" else 2
 
 
 def cmd_sync_theme_flow_daily(args) -> int:
