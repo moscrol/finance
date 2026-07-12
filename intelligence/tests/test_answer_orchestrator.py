@@ -10,6 +10,7 @@ from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
     QUESTION_MARKET_FORECAST,
+    QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
     QUESTION_THEME_ANALYSIS,
@@ -77,6 +78,24 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("个股深挖里的盘面视角", joined_contract)
         self.assertIn("策略组合", joined_contract)
         self.assertIn("先补 DeepDive", "\n".join(plan.missing_data_policy))
+
+    def test_latest_trading_day_review_routes_to_compact_market_review(self) -> None:
+        plan = plan_answer_question(
+            "请复盘最新交易日的市场结构、主线、赚钱效应和主要风险。"
+        )
+
+        self.assertEqual(plan.question_type, QUESTION_MARKET_REVIEW)
+        self.assertEqual(plan.depth, DEPTH_STANDARD)
+        joined_lenses = "\n".join(plan.required_lenses)
+        joined_sources = "\n".join(plan.retrieval_plan)
+        joined_contract = "\n".join(plan.output_contract)
+        self.assertIn("市场结构", joined_lenses)
+        self.assertIn("主线与赚钱效应", joined_lenses)
+        self.assertIn("DuckDB market context", joined_sources)
+        self.assertIn("Daily Review", joined_sources)
+        self.assertIn("少量自然小标题", joined_contract)
+        self.assertIn("不要机械覆盖公司本体", joined_contract)
+        self.assertIn("主线数据滞后", joined_contract)
 
     def test_deep_dive_trigger_beats_industry_chain_keyword(self) -> None:
         plan = plan_answer_question("深挖英维克，它在液冷产业链的位置")
@@ -164,6 +183,39 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("问答编排计划", captured["prompt"])
         self.assertIn("问题类型：stock_deep_dive", captured["prompt"])
         self.assertIn("公司本体", captured["prompt"])
+
+    def test_market_review_compose_excludes_deep_dive_evidence_blocks(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured["prompt"] = str(messages[1]["content"])
+            return None, "mocked"
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch(
+            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            side_effect=fake_synthesize,
+        ):
+            wiki = Path(tmp) / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            result = answer_query(
+                AskOptions(
+                    query="请复盘最新交易日的市场结构、主线、赚钱效应和主要风险。",
+                    exports_dir=tmp,
+                    kb_wiki=wiki,
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                )
+            )
+
+        self.assertIsNotNone(result.question_plan)
+        assert result.question_plan is not None
+        self.assertEqual(result.question_plan.question_type, QUESTION_MARKET_REVIEW)
+        self.assertIn("问题类型：market_review", captured["prompt"])
+        self.assertNotIn("图谱·公司分层", captured["prompt"])
+        self.assertNotIn("客户证据硬度数据块", captured["prompt"])
+        self.assertNotIn("二阶导研究队列数据块", captured["prompt"])
+        self.assertNotIn("检索遥测", captured["prompt"])
 
     def test_market_forecast_compose_injects_forecast_preflight_gate(self) -> None:
         captured: dict[str, str] = {}

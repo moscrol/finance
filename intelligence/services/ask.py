@@ -33,6 +33,7 @@ from intelligence.services import ask_clarify, ask_planner, checkpoint_recall, e
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
+    QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
     QUESTION_THEME_ANALYSIS,
@@ -863,7 +864,7 @@ def answer_query(options: AskOptions) -> AskResult:
         + [f"{SUBHEAD}图谱·语义召回(wiki 向量)"] + wiki_section
         + module_block
     )
-    if question_plan.question_type == QUESTION_MARKET_FORECAST:
+    if question_plan.question_type in {QUESTION_MARKET_REVIEW, QUESTION_MARKET_FORECAST}:
         daily_market_block = _daily_market_overview_block_for_llm(
             options.market_db_path
         )
@@ -985,17 +986,27 @@ def answer_query(options: AskOptions) -> AskResult:
             research_brief.DBlockStat("D5", "估值数据块", note="仅 --compose + 估值问题类型生成"),
         ]
     if options.compose:
-        evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
+        is_market_review = question_plan.question_type == QUESTION_MARKET_REVIEW
+        compose_evidence_chain = (
+            _market_review_evidence_chain(evidence_chain)
+            if is_market_review
+            else evidence_chain
+        )
+        evidence_text = _evidence_text_for_llm(
+            compose_evidence_chain,
+            [] if is_market_review else gap_lines,
+        )
         if result.data_notice:
             evidence_text = (
                 f"## 本轮数据说明\n{result.data_notice}\n\n{evidence_text}"
             )
         if result.question_plan is not None:
             evidence_text = f"{result.question_plan.to_prompt_block()}\n\n{evidence_text}"
-        evidence_text = (
-            f"{evidence_text}\n\n{audit.to_prompt_block()}"
-            f"\n\n{telemetry.to_prompt_block()}\n\n{counter_plan.to_prompt_block()}"
-        )
+        if not is_market_review:
+            evidence_text = (
+                f"{evidence_text}\n\n{audit.to_prompt_block()}"
+                f"\n\n{telemetry.to_prompt_block()}\n\n{counter_plan.to_prompt_block()}"
+            )
         if result.stock_brief is not None:
             evidence_text = f"{evidence_text}\n\n{result.stock_brief.to_prompt_block()}"
         if result.market_state is not None:
@@ -1119,7 +1130,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 )
 
             block_tasks.append(ask_planner.BlockTask("V", "回检块", _build_v))
-        if options.include_market_value_block:
+        if options.include_market_value_block and not is_market_review:
             def _build_d1():
                 block = _market_value_block_for_llm(options.query, theme, options.market_db_path)
                 return block, Citation(
@@ -1139,7 +1150,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 )
 
             block_tasks.append(ask_planner.BlockTask("D4", "主线题材结构", _build_d4))
-        if options.include_customer_hardness_block:
+        if options.include_customer_hardness_block and not is_market_review:
             def _build_d2():
                 block = _customer_evidence_hardness_block_for_llm(evidence_chain, gap_lines)
                 return block, Citation(
@@ -1168,7 +1179,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 continue
             evidence_text = _append_block_outcome(result, outcome, evidence_text, citations)
         # D3 依赖此前累积的 evidence_text（文本兜底路径），必须在其他块汇总后串行生成。
-        if options.include_second_derivative_block:
+        if options.include_second_derivative_block and not is_market_review:
             second_derivative_block = _second_derivative_queue_block_for_llm(
                 options.query,
                 theme,
@@ -1345,6 +1356,26 @@ def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> s
     out.append("## 分歧反证")
     out.extend(f"- {g}" for g in gap_lines)
     return "\n".join(out)
+
+
+def _market_review_evidence_chain(evidence_chain: list[str]) -> list[str]:
+    """Keep broad market-review synthesis focused on market-level evidence."""
+    allowed_sections = {
+        "盘面",
+        "最新市场总览（本地 DuckDB）",
+    }
+    filtered: list[str] = []
+    include_section = False
+    for item in evidence_chain:
+        if item.startswith(SUBHEAD):
+            section = item[len(SUBHEAD):]
+            include_section = section in allowed_sections
+            if include_section:
+                filtered.append(item)
+            continue
+        if include_section:
+            filtered.append(item)
+    return filtered
 
 
 def _customer_evidence_hardness_block_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:

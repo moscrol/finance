@@ -177,6 +177,19 @@ class SynthesizeTests(unittest.TestCase):
         self.assertIn("每一段都要回答这个事实改变了什么判断", system)
         self.assertIn("不要附加质检过程或审稿过程", system)
 
+    def test_synthesis_system_prompt_obeys_question_specific_contract(self) -> None:
+        msgs = llm_refine.build_synthesis_messages(
+            "请复盘最新交易日的市场结构、主线、赚钱效应和主要风险。",
+            "全市场",
+            "## 问答编排计划\n- 问题类型：market_review",
+        )
+
+        system = msgs[0]["content"]
+
+        self.assertIn("先服从证据中的「问答编排计划」", system)
+        self.assertIn("结构和篇幅由问题复杂度决定", system)
+        self.assertIn("不得为了显得完整而套用深度研究模板", system)
+
     def test_degrades_on_empty_content(self) -> None:
         with mock.patch.object(llm_refine, "detect_provider", return_value=_provider()), mock.patch.object(
             llm_refine, "_post_chat", return_value="   "
