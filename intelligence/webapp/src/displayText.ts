@@ -14,6 +14,9 @@ const localPathPattern = /\/(?:Users|home)\/|[A-Za-z]:\\/;
 export function userFacingIssue(issue: string): string {
   const value = issue.trim();
   if (issueLabels[value]) return issueLabels[value];
+  if (/canonical Daily Review Markdown/i.test(value)) {
+    return "最新日报基础文件暂不可用；本轮仅使用可用盘面数据和补充快照。";
+  }
   if (/^wiki-rag\b/i.test(value)) {
     return value.includes("stale")
       ? "知识库索引已过期；相关证据仅供参考。"

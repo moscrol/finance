@@ -365,6 +365,13 @@ describe("Workbench components", () => {
     expect(userFacingIssue("找不到 /Users/a77/scripts/rag_index.py")).toBe(
       "某项本地研究数据暂不可用；相关证据未纳入本轮结论。",
     );
+    expect(
+      userFacingIssue(
+        "未找到 canonical Daily Review Markdown；日报基础模块缺失。",
+      ),
+    ).toBe(
+      "最新日报基础文件暂不可用；本轮仅使用可用盘面数据和补充快照。",
+    );
     expect(userFacingStage("ask_current_turn")).toBe("检索本轮证据");
   });
 
