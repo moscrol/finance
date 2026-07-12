@@ -31,17 +31,17 @@ async function submitQuestion(
 ) {
   await page.getByLabel("输入研究问题").fill(question);
   await page.getByRole("button", { name: "发送研究问题" }).click();
-  await expect(page.getByText("模板表达 · 未配置 LLM")).toHaveCount(
+  await expect(page.getByText("自然语言综合暂时不可用")).toHaveCount(
     completedAnswerCount,
     { timeout: 20_000 },
   );
 }
 
 async function selectManualDailyAgent(page: Page) {
-  await page.getByLabel("Skill 调用模式").selectOption("manual");
-  await page.getByRole("button", { name: "选择 Skill" }).click();
+  await page.getByLabel("研究工具选择方式").selectOption("manual");
+  await page.getByRole("button", { name: "选择研究工具" }).click();
   await page.getByRole("checkbox", { name: /Daily Agent/ }).check();
-  await expect(page.getByLabel("已选 Skill")).toContainText("Daily Agent");
+  await expect(page.getByLabel("已选研究工具")).toContainText("Daily Agent");
 }
 
 async function activeConversationMessages(page: Page) {
@@ -116,7 +116,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   const thirdQuestion = `${marker} 第三轮有哪些风险`;
 
   await submitQuestion(page, firstQuestion, 1);
-  await expect(page.getByText("自动调用 · 每日复盘")).toBeVisible();
+  await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
   const firstAnswer = page.getByLabel("研究助手消息").first();
   await expect(
     firstAnswer.getByText(/数据降级：当前未连接本地 DuckDB/),
@@ -133,7 +133,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
 
   await selectManualDailyAgent(page);
   await submitQuestion(page, secondQuestion, 2);
-  await expect(page.getByText("手动指定 · Daily Agent")).toBeVisible();
+  await expect(page.getByText("已指定工具 · Daily Agent")).toBeVisible();
   const secondAnswer = page.getByLabel("研究助手消息").nth(1);
   await expect(secondAnswer.locator(".stream-table-shell")).toHaveCount(0);
   await secondAnswer.getByText("运行详情", { exact: true }).click();
@@ -149,7 +149,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   const originalRunId = beforeRegeneration.at(-1)?.run_id;
   expect(originalRunId).toBeTruthy();
   await page.getByRole("button", { name: "重新生成回答" }).click();
-  await expect(page.getByText("模板表达 · 未配置 LLM")).toHaveCount(4, {
+  await expect(page.getByText("自然语言综合暂时不可用")).toHaveCount(4, {
     timeout: 20_000,
   });
   await expect(page.getByText(thirdQuestion, { exact: true })).toHaveCount(2);
@@ -170,9 +170,9 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await page.reload();
   await expect(page.getByText(firstQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText(secondQuestion, { exact: true })).toBeVisible();
-  await expect(page.getByText("自动调用 · 每日复盘")).toBeVisible();
-  await expect(page.getByText("手动指定 · Daily Agent")).toBeVisible();
-  await expect(page.getByText("模板表达 · 未配置 LLM")).toHaveCount(4);
+  await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
+  await expect(page.getByText("已指定工具 · Daily Agent")).toBeVisible();
+  await expect(page.getByText("自然语言综合暂时不可用")).toHaveCount(4);
 
   await expectNoHorizontalOverflow(page);
   await expectComposerDoesNotOverlapThread(page);
