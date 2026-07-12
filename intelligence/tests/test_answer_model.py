@@ -192,7 +192,7 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         spec = resolve_theme_research_spec("分析稳定币支付产业链")
         verified = make_claim(
             claim_id="market-1",
-            text="支付板块当日涨停 3 家。",
+            text="涨幅与边际成交同步转强：涨幅2.61%，边际量18.28%。",
             claim_type="market_signal",
             theme=spec.theme,
             status=ClaimStatus.VERIFIED,
@@ -216,7 +216,29 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         )
         answer = AnswerSpec(
             research_spec=spec,
-            summary=(verified, company_claim),
+            summary=(
+                make_claim(
+                    claim_id="summary:definition",
+                    text=f"{spec.theme}的研究范围是：{spec.definition}",
+                    claim_type="summary",
+                    theme=spec.theme,
+                    status=ClaimStatus.INFERRED,
+                ),
+                make_claim(
+                    claim_id="summary:market",
+                    text="盘面关注度有所升温，但仍需公司级证据确认。",
+                    claim_type="summary",
+                    theme=spec.theme,
+                    status=ClaimStatus.CANDIDATE,
+                ),
+                make_claim(
+                    claim_id="summary:company-gap",
+                    text="尚未形成可回查的公司级证据。",
+                    claim_type="summary",
+                    theme=spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
             verified_facts=(verified,),
             company_table=build_company_assessments(
                 [candidate],
@@ -245,13 +267,21 @@ class PresenterAndLLMGateTests(unittest.TestCase):
     def test_presenter_uses_information_pyramid_and_hides_internal_terms(self) -> None:
         rendered = render_answer_spec(self._answer())
 
-        self.assertIn("# 稳定币支付：当前判断与证据边界", rendered)
-        self.assertIn("## 先给结论", rendered)
+        self.assertIn("# 稳定币支付：研究结论", rendered)
+        self.assertIn("## 核心判断", rendered)
+        self.assertIn("**题材是什么：**", rendered)
+        self.assertIn("## 题材怎么理解", rendered)
+        self.assertIn("发行、储备、合规托管与清算基础设施", rendered)
+        self.assertIn("## 为什么这样判断", rendered)
+        self.assertIn(
+            "这说明上涨同时得到新增成交支持，关注度并非只靠缩量拉升",
+            rendered,
+        )
         self.assertIn("## 公司证据", rendered)
-        self.assertIn("## 为什么现在还不能下更强结论", rendered)
-        self.assertIn("## 下一步看什么", rendered)
+        self.assertIn("## 反证与缺口", rendered)
+        self.assertIn("## 下一步如何验证", rendered)
         self.assertIn("<details>", rendered)
-        self.assertIn("仅有概念关联，尚无公司级证据", rendered)
+        self.assertIn("候选资料，需公告或年报确认", rendered)
         self.assertNotIn("graph_only", rendered)
         self.assertEqual(rendered.count("核对公告或年报。"), 1)
 
@@ -345,7 +375,9 @@ class AskIntegrationTests(unittest.TestCase):
             "stablecoin_payment",
         )
         rendered = render_conversation_answer(result)
-        self.assertIn("## 先给结论", rendered)
+        self.assertIn("## 核心判断", rendered)
+        self.assertIn("## 题材怎么理解", rendered)
+        self.assertIn("## 为什么这样判断", rendered)
         self.assertIn("## 公司证据", rendered)
         self.assertNotIn("graph_only", rendered)
         self.assertNotIn("模块路由", rendered)

@@ -83,6 +83,36 @@ _PRESENTER_REPLACEMENTS = (
     ("DuckDB", "本地市场数据库"),
     ("snapshot/export", "历史盘面快照"),
 )
+_SIGNAL_INTERPRETATIONS = (
+    (
+        "涨幅与边际成交同步转强",
+        "说明上涨同时得到新增成交支持，关注度并非只靠缩量拉升",
+    ),
+    (
+        "新高方向确认",
+        "说明一批个股正在突破近期高点，板块强度已经开始扩散",
+    ),
+    (
+        "新高个股集中",
+        "说明强势不只集中在单一龙头，板块内部出现了一定共振",
+    ),
+    (
+        "涨停热度集中",
+        "说明短线资金参与度较高，同时也要警惕拥挤后的分歧",
+    ),
+    (
+        "连板晋级集中",
+        "说明短线接力意愿较强，但持续性仍要看后续承接",
+    ),
+    (
+        "成交容量居前",
+        "说明这个方向能够承接较大成交，但容量大不等于公司逻辑已经兑现",
+    ),
+    (
+        "市场环境",
+        "它只是本轮判断所处的整体市场背景，不代表题材已经获得公司级验证",
+    ),
+)
 
 
 class ClaimStatus(str, Enum):
@@ -564,10 +594,38 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     if notices:
         lines.append(humanize(notices[0]))
         lines.append("")
-    lines.append(f"# {humanize(answer_spec.research_spec.theme)}：当前判断与证据边界")
-    lines.extend(["", "## 先给结论"])
-    for index, claim in enumerate(answer_spec.summary[:3], start=1):
-        lines.append(f"{index}. {_present_summary_claim(claim)}")
+    lines.append(f"# {humanize(answer_spec.research_spec.theme)}：研究结论")
+    lines.extend(["", "## 核心判断"])
+    for index, claim in enumerate(answer_spec.summary[:3]):
+        if index:
+            lines.append("")
+        lines.append(
+            f"**{_summary_label(claim)}：** {_present_summary_claim(claim)}"
+        )
+    chain = " → ".join(humanize(stage) for stage in answer_spec.research_spec.chain_stages)
+    lines.extend(["", "## 题材怎么理解"])
+    if chain:
+        lines.append(
+            f"这条产业链可以按“{chain}”来拆。"
+            f"{humanize(answer_spec.research_spec.company_scope)}"
+        )
+    else:
+        lines.append(
+            "本轮研究配置尚未给出可靠的产业链拆分，"
+            "需要先补齐上下游环节，再讨论公司受益关系。"
+        )
+    lines.extend(["", "## 为什么这样判断"])
+    visible_facts = _dedupe_claims(answer_spec.verified_facts)
+    if visible_facts:
+        lines.append("本轮可回查的数据主要给出以下信号：")
+        lines.extend(
+            f"- {_present_supporting_fact(claim)}" for claim in visible_facts[:5]
+        )
+    else:
+        lines.append(
+            "本轮没有形成可回查的盘面或公司级事实，因此只能保留题材框架，"
+            "不能据此判断资金共识或公司受益关系。"
+        )
     lines.extend(["", "## 公司证据"])
     if answer_spec.company_table:
         core_count = sum(
@@ -609,12 +667,12 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
             "目前没有公司达到可展示的证据门槛。题材框架可以继续研究，"
             "但还不能据此确认任何一家公司的直接受益关系。"
         )
-    lines.extend(["", "## 为什么现在还不能下更强结论"])
+    lines.extend(["", "## 反证与缺口"])
     lines.append("目前最需要警惕的是以下反证和证据缺口：")
     risk_claims = _dedupe_claims((*answer_spec.counter_evidence, *answer_spec.gaps))
     for claim in risk_claims[:4]:
         lines.append(f"- {_present_claim(claim)}")
-    lines.extend(["", "## 下一步看什么"])
+    lines.extend(["", "## 下一步如何验证"])
     verified_keys = {
         _normalize(claim.text) for claim in _dedupe_claims(answer_spec.verified_facts)
     }
@@ -643,19 +701,14 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     for index, action in enumerate(ordered_actions[:4], start=1):
         lines.append(f"{index}. {action}")
     detail_lines: list[str] = []
-    if answer_spec.verified_facts:
-        detail_lines.extend(["### 已出现的支持信号"])
-        detail_lines.extend(
-            f"- {humanize(claim.text)}" for claim in _dedupe_claims(answer_spec.verified_facts)
-        )
     if answer_spec.sources:
-        detail_lines.extend(["", "### 来源与证据边界"])
+        detail_lines.extend(["### 来源与证据边界"])
         detail_lines.extend(_present_sources(answer_spec.sources))
     if len(notices) > 1:
         detail_lines.extend(["", "### 数据说明"])
         detail_lines.extend(f"- {humanize(notice)}" for notice in notices[1:])
     if detail_lines:
-        lines.extend(["", "<details><summary>展开盘面依据、来源和数据说明</summary>", ""])
+        lines.extend(["", "<details><summary>展开来源和数据说明</summary>", ""])
         lines.extend(detail_lines)
         lines.extend(["", "</details>"])
     return "\n".join(lines).rstrip() + "\n"
@@ -811,14 +864,49 @@ def _present_claim(claim: Claim) -> str:
 
 
 def _present_summary_claim(claim: Claim) -> str:
-    prefix = {
-        ClaimStatus.VERIFIED: "",
-        ClaimStatus.CANDIDATE: "当前判断：",
-        ClaimStatus.INFERRED: "",
-        ClaimStatus.MISSING: "证据边界：",
-        ClaimStatus.CONFLICT: "主要风险：",
+    return humanize(claim.text)
+
+
+def _summary_label(claim: Claim) -> str:
+    if claim.claim_id == "summary:definition":
+        return "题材是什么"
+    if claim.claim_id in {"summary:market", "summary:market-gap"}:
+        return "盘面判断"
+    if claim.claim_id == "summary:company":
+        return "公司判断"
+    if claim.claim_id == "summary:company-gap":
+        return "证据边界"
+    return {
+        ClaimStatus.VERIFIED: "已核验结论",
+        ClaimStatus.CANDIDATE: "当前判断",
+        ClaimStatus.INFERRED: "研究判断",
+        ClaimStatus.MISSING: "证据边界",
+        ClaimStatus.CONFLICT: "主要风险",
     }[claim.status]
-    return prefix + humanize(claim.text)
+
+
+def _present_supporting_fact(claim: Claim) -> str:
+    rendered = humanize(claim.text).rstrip("。")
+    label, separator, detail = rendered.partition("：")
+    interpretation = next(
+        (
+            meaning
+            for signal, meaning in _SIGNAL_INTERPRETATIONS
+            if signal in label
+        ),
+        "",
+    )
+    if separator:
+        statement = f"**{label}：** {detail.rstrip('。')}"
+    else:
+        statement = rendered
+    if interpretation:
+        statement += (
+            f"。这{interpretation}"
+            if interpretation.startswith("说明")
+            else f"。{interpretation}"
+        )
+    return statement.rstrip("。") + "。"
 
 
 def _company_tier_label(tier: CompanyTier) -> str:
