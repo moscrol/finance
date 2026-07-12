@@ -8,12 +8,15 @@ from unittest import mock
 from intelligence.services import llm_refine
 from intelligence.services.ask import (
     AskResult,
+    AskOptions,
+    _company_exposure_tier,
     _customer_evidence_hardness_block_for_llm,
     _daily_market_overview_block_for_llm,
     _mainline_context_block_for_llm,
     _market_value_block_for_llm,
     _resolve_market_data_context,
     _second_derivative_queue_block_for_llm,
+    answer_query,
     render_answer,
     render_conversation_answer,
 )
@@ -292,6 +295,98 @@ class RenderComposeTests(unittest.TestCase):
 
         self.assertIn("日期待交易日历确认", out)
         self.assertNotIn("2026-06-12", out)
+
+    def test_conversation_fallback_renders_deterministic_sections(self) -> None:
+        result = self._base_result(None)
+        result.citations = [
+            type("CitationFixture", (), {"tag": "S1", "source": "fixture", "detail": ""})()
+        ]
+        result.sections = {
+            "结论": ["稳定币支付仍需核验公司级证据。"],
+            "证据链": ["四方精创：关联层，未达到核心层门槛。"],
+            "分歧反证": ["缺少公告或客户验证。"],
+            "后续验证点": ["核对公司公告。"],
+            "交易含义": ["不把弱关联公司视为核心受益。"],
+        }
+
+        out = render_conversation_answer(result)
+
+        self.assertIn("稳定币支付仍需核验公司级证据", out)
+        self.assertIn("四方精创", out)
+        self.assertIn("缺少公告或客户验证", out)
+        self.assertIn("自然语言综合暂时不可用", out)
+
+    def test_index_comparison_marks_unavailable_indices_without_guessing(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_market_daily(
+                  trade_date date,
+                  sh_index_close double,
+                  sh_index_pct_chg double,
+                  sh_index_amount double,
+                  sh_index_volume double,
+                  sh_index_source varchar
+                )
+                """
+            )
+            con.execute(
+                """
+                insert into fact_market_daily values
+                ('2026-07-10', 3996.162, -1.0014, null, 62745006500,
+                 'akshare:stock_zh_index_daily:sh000001')
+                """
+            )
+            con.close()
+
+            with mock.patch(
+                "intelligence.services.ask.next_trading_day",
+                return_value="2026-07-13",
+            ):
+                result = answer_query(
+                    AskOptions(
+                        query=(
+                            "比较 2026-07-10 的上证指数、深证成指和创业板指，"
+                            "逐项给出涨跌、成交、来源和截止日。"
+                        ),
+                        exports_dir=root,
+                        market_db_path=db_path,
+                    )
+                )
+
+        rendered = render_conversation_answer(result)
+        self.assertIn("上证指数：收盘 3996.162", rendered)
+        self.assertIn("当日涨跌 -1.00%", rendered)
+        self.assertIn("深证成指：当日涨跌、成交或强弱指标均缺失", rendered)
+        self.assertIn("创业板指：当日涨跌、成交或强弱指标均缺失", rendered)
+        self.assertIn("下一交易日为 2026-07-13", rendered)
+        self.assertNotIn("2026-07-11", rendered)
+
+    def test_company_core_requires_direct_high_confidence_evidence(self) -> None:
+        self.assertEqual(
+            _company_exposure_tier(
+                {
+                    "strength": "related",
+                    "confidence": "high",
+                    "evidence_layer": "L1_L3_candidate",
+                }
+            ),
+            "other",
+        )
+        self.assertEqual(
+            _company_exposure_tier(
+                {
+                    "strength": "core",
+                    "confidence": "high",
+                    "evidence_layer": "L3",
+                }
+            ),
+            "core",
+        )
 
 
 class DailyMarketOverviewTests(unittest.TestCase):

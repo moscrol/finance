@@ -73,6 +73,15 @@ _JSON_BLOCK_PATTERN = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _HUMAN_READABLE_REPLACEMENTS = (
+    (
+        "knowledge-base · wiki/relations/entity_exposures.json",
+        "本地知识库 · 公司题材关联",
+    ),
+    (
+        "knowledge-base · wiki/relations/evidence_index.json",
+        "本地知识库 · 公司证据索引",
+    ),
+    ("knowledge-base · wiki/relations/", "本地知识库 · "),
     ("daily-agent", "每日复盘流程"),
     ("Daily Review 确定性投影数据", "本地复盘数据"),
     ("Daily Review", "本地复盘"),
@@ -122,6 +131,21 @@ _EVIDENCE_LAYER_REPLACEMENTS = {
     "3": "公告等硬证据",
     "4": "盘面信号",
 }
+_CREDENTIAL_IDENTIFIER_PATTERN = re.compile(
+    r"\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\b"
+)
+_LOCAL_PATH_PATTERN = re.compile(r"/(?:Users|home)/|[A-Za-z]:\\")
+_INTERNAL_ERROR_PATTERN = re.compile(
+    r"Traceback|File \".+\", line \d+|"
+    r"\b[A-Za-z_][\w.]+(?:Error|Exception)\b"
+)
+_PUBLIC_REPORT_REPLACEMENTS = (
+    ("ask_retrieval_pipeline", "研究检索流程"),
+    ("deterministic_projection", "确定性数据整理"),
+    ("deterministic_duckdb_query", "本地数据查询"),
+    ("retrieved_evidence", "已检索证据"),
+    ("canonical", "原始来源"),
+)
 
 
 @dataclass(frozen=True)
@@ -158,7 +182,7 @@ def _summarize_messages(messages: Sequence[Message]) -> str:
 
 def _redact_object(value: object) -> object:
     if isinstance(value, str):
-        return redact(value)
+        return sanitize_user_visible_artifact_text(value)
     if isinstance(value, list):
         return [_redact_object(item) for item in value]
     if isinstance(value, dict):
@@ -167,6 +191,37 @@ def _redact_object(value: object) -> object:
             for key, item in value.items()
         }
     return value
+
+
+def _sanitize_citation_list(
+    citations: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    sanitized: list[dict[str, object]] = []
+    for citation in citations:
+        item = dict(citation)
+        for key in ("source", "detail", "label", "title"):
+            value = item.get(key)
+            if isinstance(value, str):
+                item[key] = sanitize_user_visible_artifact_text(value)
+        sanitized.append(item)
+    return sanitized
+
+
+def sanitize_user_visible_artifact_text(text: str) -> str:
+    cleaned = redact(text)
+    if re.search(r"未配置 LLM key", cleaned, re.IGNORECASE):
+        return "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
+    if re.search(r"HF_TOKEN|Hugging\s*Face", cleaned, re.IGNORECASE):
+        return "外部语义检索当前不可用或受限，未使用其结果。"
+    if _LOCAL_PATH_PATTERN.search(cleaned):
+        return "本地研究数据（路径已隐藏）。"
+    if _INTERNAL_ERROR_PATTERN.search(cleaned):
+        return "研究过程中出现内部错误；相关结果未纳入结论。"
+    cleaned = sanitize_conversation_answer(cleaned)
+    cleaned = _CREDENTIAL_IDENTIFIER_PATTERN.sub("模型服务凭据", cleaned)
+    for internal, readable in _PUBLIC_REPORT_REPLACEMENTS:
+        cleaned = cleaned.replace(internal, readable)
+    return cleaned
 
 
 def sanitize_conversation_answer(text: str) -> str:
@@ -490,6 +545,7 @@ class TurnOrchestrator:
                 }
                 for citation in result.citations
             )
+            citations = _sanitize_citation_list(citations)
             for index, module in enumerate(ask_result_modules(result), start=1):
                 self._emit_module(
                     run_id,
@@ -510,11 +566,10 @@ class TurnOrchestrator:
                 )
 
             answer_text = render_conversation_answer(result)
-            if result.synthesis is not None:
-                answer_text = sanitize_conversation_answer(answer_text)
-            elif text_chunks:
+            if result.synthesis is None and text_chunks:
                 answer_text = "".join(text_chunks)
-            else:
+            answer_text = sanitize_conversation_answer(answer_text)
+            if not text_chunks:
                 emit_text_delta(answer_text)
             if result.synthesis is None:
                 fallback = "llm_unavailable_template_answer"
@@ -528,6 +583,9 @@ class TurnOrchestrator:
                 llm_provider=result.llm_provider,
                 llm_model=self.llm_model if result.llm_provider else None,
             )
+            public_report = _redact_object(report)
+            if isinstance(public_report, dict):
+                report = public_report
             self.run_store.add_artifact(
                 run_id,
                 "answer.md",
@@ -538,7 +596,7 @@ class TurnOrchestrator:
             self.run_store.add_artifact(
                 run_id,
                 "report.json",
-                json.dumps(_redact_object(report), ensure_ascii=False, indent=2),
+                json.dumps(report, ensure_ascii=False, indent=2),
                 renderer="structured_report",
                 title="结构化对话报告",
             )
@@ -649,13 +707,16 @@ class TurnOrchestrator:
         module: dict,
         event_id: str,
     ) -> None:
-        upsert_report_module(report, module)
+        public_module = _redact_object(module)
+        if not isinstance(public_module, dict):
+            return
+        upsert_report_module(report, public_module)
         self._emit(
             run_id,
             message_id,
             event_id,
             "report.module",
-            {"module": module},
+            {"module": public_module},
             conversation_id,
         )
 

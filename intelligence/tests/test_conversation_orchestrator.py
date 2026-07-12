@@ -12,6 +12,7 @@ from intelligence.services.conversation_orchestrator import (
     TurnOrchestrator,
     build_conversation_context,
     sanitize_conversation_answer,
+    sanitize_user_visible_artifact_text,
 )
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.run_store import RunStore
@@ -169,6 +170,29 @@ def test_context_keeps_six_recent_messages_and_summarizes_older(tmp_path) -> Non
     assert "message-0" in context.summary
     assert "message-3" in context.summary
     assert "message-4" not in context.summary
+
+
+def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None:
+    no_llm = sanitize_user_visible_artifact_text(
+        "未配置 LLM key。设置 DEEPSEEK_API_KEY / HF_TOKEN 即可启用"
+    )
+    internal = sanitize_user_visible_artifact_text(
+        "wiki-rag replay canonical ask_retrieval_pipeline deterministic_projection"
+    )
+    local_path = sanitize_user_visible_artifact_text(
+        'File "/Users/a77/repo/module.py", line 12, in run'
+    )
+
+    assert no_llm == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
+    assert "API_KEY" not in no_llm
+    assert "TOKEN" not in no_llm
+    assert "wiki-rag" not in internal
+    assert "replay" not in internal
+    assert "canonical" not in internal
+    assert "ask_retrieval_pipeline" not in internal
+    assert "deterministic_projection" not in internal
+    assert "/Users/" not in local_path
+    assert "module.py" not in local_path
 
 
 def test_market_question_automatically_selects_daily_review() -> None:
