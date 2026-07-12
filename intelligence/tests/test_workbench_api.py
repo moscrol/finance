@@ -1299,13 +1299,18 @@ def test_bootstrap_returns_self_use_maturity_projection(client: TestClient) -> N
     response = client.get("/api/workbench/bootstrap", params={"user": "demo"})
 
     assert response.status_code == 200
+    # 测试仓库根目录下没有 market_feature_store.duckdb → 日历不可用 → fail-closed。
     assert response.json()["self_use_maturity"] == {
         "distinct_trade_dates": 1,
         "success_rate": 1.0,
         "useful_rate": 1.0,
         "manual_rescue_rate": 0.0,
         "covered_workflows": ["daily_market"],
-        "blockers": ["minimum_trade_dates", "missing_workflows"],
+        "blockers": [
+            "trading_calendar_unavailable",
+            "minimum_trade_dates",
+            "missing_workflows",
+        ],
         "eligible_for_user_decision": False,
         "passed": False,
     }

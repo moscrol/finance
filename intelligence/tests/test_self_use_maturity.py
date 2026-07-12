@@ -11,13 +11,65 @@ from typing import Any, get_args, get_type_hints
 import pytest
 
 from intelligence.services import self_use_maturity
+from intelligence.services.run_store import RunStore
 from intelligence.services.self_use_maturity import (
+    LLM_FALLBACK_DEGRADE,
+    SELF_USE_LLM_MODEL,
+    SELF_USE_LLM_PROVIDER,
+    ApprovalRecord,
     MaturityResult,
+    RunBindingError,
+    SelfUseApprovalStore,
     SelfUseEvent,
     SelfUseLedger,
     SelfUseLedgerIntegrityError,
+    dedupe_events,
     evaluate_maturity,
+    ingest_self_use_event,
+    verify_run_binding,
 )
+
+# 12 个连续的 canonical A 股交易日（工作日，测试语境下视为无节假日），跳过周末
+# 6/6、6/7、6/13、6/14。它们是「日历唯一来源」——不在此列表里的任何日期都会被判为
+# 非交易日（周末/节假日的统一表现）。
+TRADING_DAYS = [
+    "2026-06-01",
+    "2026-06-02",
+    "2026-06-03",
+    "2026-06-04",
+    "2026-06-05",
+    "2026-06-08",
+    "2026-06-09",
+    "2026-06-10",
+    "2026-06-11",
+    "2026-06-12",
+    "2026-06-15",
+    "2026-06-16",
+]
+# 明显晚于全部日历日期，保证 make_event 默认事件都不是「未来」。
+TODAY = "2026-07-01"
+WORKFLOW_NAMES = [
+    "daily_market",
+    "theme_research",
+    "stock_research",
+    "news_impact",
+    "watchlist",
+]
+
+
+def evaluate(
+    events: list[SelfUseEvent],
+    *,
+    trading_days: list[str] | None = TRADING_DAYS,
+    today: object = TODAY,
+    user_approved: bool = False,
+) -> MaturityResult:
+    return evaluate_maturity(
+        events,
+        trading_days=trading_days,
+        today=today,  # type: ignore[arg-type]
+        user_approved=user_approved,
+    )
 
 
 def _record_from_process(path: str, start_event: Any, index: int) -> None:
@@ -35,37 +87,107 @@ def _record_from_process(path: str, start_event: Any, index: int) -> None:
     )
 
 
+def _record_once_from_process(path: str, start_event: Any) -> None:
+    start_event.wait(timeout=10)
+    SelfUseLedger(path).record_once(
+        SelfUseEvent(
+            trade_date="2026-07-11",
+            workflow="daily_market",
+            outcome="success",
+            manual_rescue=False,
+            severe_fact_error=False,
+            useful=True,
+            run_id="same-run",
+        )
+    )
+
+
 def make_event(**overrides: object) -> SelfUseEvent:
     values: dict[str, object] = {
-        "trade_date": "2026-07-11",
+        "trade_date": TRADING_DAYS[0],
         "workflow": "daily_market",
         "outcome": "success",
         "manual_rescue": False,
         "severe_fact_error": False,
         "useful": True,
-        "recorded_at": "2026-07-11T09:00:00+08:00",
+        "recorded_at": "2026-06-01T09:00:00+08:00",
     }
     values.update(overrides)
     return SelfUseEvent(**values)  # type: ignore[arg-type]
 
 
 def make_complete_maturity_events() -> list[SelfUseEvent]:
-    workflows = [
-        "daily_market",
-        "theme_research",
-        "stock_research",
-        "news_impact",
-        "watchlist",
-    ]
     return [
-        make_event(trade_date=f"2026-06-{day:02d}", workflow=workflow)
-        for day in range(1, 11)
-        for workflow in workflows
+        make_event(trade_date=TRADING_DAYS[day], workflow=workflow)
+        for day in range(10)
+        for workflow in WORKFLOW_NAMES
     ]
+
+
+def make_completed_run(
+    run_store: RunStore,
+    run_id: str,
+    *,
+    llm_used: bool = True,
+    llm_provider: str = SELF_USE_LLM_PROVIDER,
+    llm_model: str = SELF_USE_LLM_MODEL,
+    report_id: str | None = None,
+    report_status: str = "completed",
+    report_as_of: str = TRADING_DAYS[0],
+    degrade: str | None = None,
+    with_stream: bool = True,
+    with_report: bool = True,
+    with_report_stream: bool = True,
+) -> str:
+    """在临时 RunStore 里造一个终态成功、带 SSE/报告证据的 run，供 run-binding 测试复用。"""
+    run_dir = run_store.run_dir(run_id)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    from intelligence.services import run_store as run_store_module
+
+    payload = run_store_module.Run(
+        run_id=run_id,
+        user="tester",
+        question="q",
+        task_type="conversation",
+        status=run_store_module.STATUS_COMPLETED,
+        degrades=[degrade] if degrade else [],
+    )
+    (run_dir / "run.json").write_text(
+        json.dumps(asdict(payload), ensure_ascii=False), encoding="utf-8"
+    )
+    if with_report:
+        report = {
+            "report_id": report_id or run_id,
+            "status": report_status,
+            "as_of": report_as_of,
+            "llm": {
+                "used": llm_used,
+                "provider": llm_provider,
+                "model": llm_model,
+            },
+        }
+        (run_dir / "report.json").write_text(
+            json.dumps(report, ensure_ascii=False), encoding="utf-8"
+        )
+    if with_stream:
+        run_store.append_stream_event(
+            run_id,
+            event_id="evt-1",
+            event_type="answer",
+            payload={"text": "ok"},
+        )
+        if with_report_stream and with_report:
+            run_store.append_stream_event(
+                run_id,
+                event_id="report:complete",
+                event_type="report.complete",
+                payload={"report": report},
+            )
+    return run_id
 
 
 def test_complete_ten_day_workflow_set_is_eligible_but_requires_user_approval() -> None:
-    result = evaluate_maturity(make_complete_maturity_events())
+    result = evaluate(make_complete_maturity_events())
 
     assert result.blockers == ()
     assert result.eligible_for_user_decision is True
@@ -86,30 +208,24 @@ def test_complete_ten_day_workflow_set_is_eligible_but_requires_user_approval() 
         "severe_fact_errors": 0,
         "event_count": 50,
     }
+    assert result.fingerprint  # 裁决快照指纹随结果一起产出
 
 
 def test_new_events_without_recorded_at_can_be_evaluated() -> None:
-    workflows = [
-        "daily_market",
-        "theme_research",
-        "stock_research",
-        "news_impact",
-        "watchlist",
-    ]
     events = [
         SelfUseEvent(
-            trade_date=f"2026-06-{day:02d}",
+            trade_date=TRADING_DAYS[day],
             workflow=workflow,  # type: ignore[arg-type]
             outcome="success",
             manual_rescue=False,
             severe_fact_error=False,
             useful=True,
         )
-        for day in range(1, 11)
-        for workflow in workflows
+        for day in range(10)
+        for workflow in WORKFLOW_NAMES
     ]
 
-    result = evaluate_maturity(events)
+    result = evaluate(events)
 
     assert result.eligible_for_user_decision is True
     assert result.metrics["event_count"] == 50
@@ -117,7 +233,7 @@ def test_new_events_without_recorded_at_can_be_evaluated() -> None:
 
 
 def test_explicit_user_approval_passes_an_eligible_result() -> None:
-    result = evaluate_maturity(make_complete_maturity_events(), user_approved=True)
+    result = evaluate(make_complete_maturity_events(), user_approved=True)
 
     assert result.eligible_for_user_decision is True
     assert result.user_approved is True
@@ -127,7 +243,7 @@ def test_explicit_user_approval_passes_an_eligible_result() -> None:
 @pytest.mark.parametrize("user_approved", ["false", 0])
 def test_non_boolean_user_approval_is_rejected(user_approved: object) -> None:
     with pytest.raises(TypeError, match="user_approved"):
-        evaluate_maturity(
+        evaluate(
             make_complete_maturity_events(),
             user_approved=user_approved,  # type: ignore[arg-type]
         )
@@ -141,7 +257,7 @@ def test_severe_fact_error_blocks_maturity() -> None:
         severe_fact_error=True,
     )
 
-    result = evaluate_maturity(events)
+    result = evaluate(events)
 
     assert result.metrics["severe_fact_errors"] == 1
     assert result.blockers == ("severe_fact_error",)
@@ -150,7 +266,7 @@ def test_severe_fact_error_blocks_maturity() -> None:
 
 
 def test_user_approval_cannot_bypass_mechanical_blockers() -> None:
-    result = evaluate_maturity([make_event()], user_approved=True)
+    result = evaluate([make_event()], user_approved=True)
 
     assert result.user_approved is True
     assert result.eligible_for_user_decision is False
@@ -160,7 +276,7 @@ def test_user_approval_cannot_bypass_mechanical_blockers() -> None:
 def test_rate_thresholds_are_inclusive_at_95_5_and_80_percent() -> None:
     events = [
         make_event(
-            trade_date=f"2026-06-{index // 2 + 1:02d}",
+            trade_date=TRADING_DAYS[index // 2],
             workflow=(
                 "daily_market",
                 "theme_research",
@@ -175,7 +291,7 @@ def test_rate_thresholds_are_inclusive_at_95_5_and_80_percent() -> None:
         for index in range(20)
     ]
 
-    result = evaluate_maturity(events)
+    result = evaluate(events)
 
     assert result.blockers == ()
     assert result.metrics["core_success_rate"] == 0.95
@@ -186,6 +302,7 @@ def test_rate_thresholds_are_inclusive_at_95_5_and_80_percent() -> None:
 def test_rates_are_rounded_to_six_decimal_places() -> None:
     events = [
         make_event(
+            run_id=f"run-{index}",
             outcome="failed" if index == 2 else "success",
             manual_rescue=index == 0,
             useful=index < 2,
@@ -193,7 +310,7 @@ def test_rates_are_rounded_to_six_decimal_places() -> None:
         for index in range(3)
     ]
 
-    result = evaluate_maturity(events)
+    result = evaluate(events)
 
     assert result.metrics["core_success_rate"] == 0.666667
     assert result.metrics["manual_rescue_rate"] == 0.333333
@@ -201,7 +318,7 @@ def test_rates_are_rounded_to_six_decimal_places() -> None:
 
 
 def test_empty_events_have_zero_rates_and_expected_blockers() -> None:
-    result = evaluate_maturity([])
+    result = evaluate([])
 
     assert result.metrics == {
         "distinct_trade_dates": 0,
@@ -212,6 +329,7 @@ def test_empty_events_have_zero_rates_and_expected_blockers() -> None:
         "severe_fact_errors": 0,
         "event_count": 0,
     }
+    # 空台账不会被自动补齐 Day 1；只是列出机械阻塞项。
     assert result.blockers == (
         "minimum_trade_dates",
         "missing_workflows",
@@ -221,12 +339,97 @@ def test_empty_events_have_zero_rates_and_expected_blockers() -> None:
 
 
 def test_missing_workflow_is_reported_after_minimum_trade_dates_passes() -> None:
-    events = [make_event(trade_date=f"2026-06-{day:02d}") for day in range(1, 11)]
+    events = [make_event(trade_date=TRADING_DAYS[day]) for day in range(10)]
 
-    result = evaluate_maturity(events)
+    result = evaluate(events)
 
     assert result.blockers == ("missing_workflows",)
     assert result.metrics["covered_workflows"] == ["daily_market"]
+
+
+def test_weekend_or_holiday_date_is_rejected_as_non_trading_day() -> None:
+    # 2026-06-06 是周六、2026-06-19 是（此日历里的）节假日/非交易日：都不在日历里。
+    events = make_complete_maturity_events()
+    events[0] = make_event(trade_date="2026-06-06", workflow="daily_market")
+
+    result = evaluate(events)
+
+    assert "non_trading_day" in result.blockers
+    assert result.eligible_for_user_decision is False
+
+
+def test_future_trade_date_is_rejected() -> None:
+    calendar = TRADING_DAYS + ["2026-07-15"]
+    events = make_complete_maturity_events()
+    events[0] = make_event(trade_date="2026-07-15", workflow="daily_market")
+
+    result = evaluate(events, trading_days=calendar, today="2026-07-01")
+
+    assert "future_trade_date" in result.blockers
+    assert result.eligible_for_user_decision is False
+
+
+def test_non_contiguous_trading_day_streak_is_rejected() -> None:
+    # 用 10 个日历日，但故意跳过中间一个 canonical 交易日 → 非连续段。
+    picked = TRADING_DAYS[:5] + TRADING_DAYS[6:11]
+    events = [
+        make_event(trade_date=day, workflow=workflow)
+        for day in picked
+        for workflow in WORKFLOW_NAMES
+    ]
+
+    result = evaluate_maturity(
+        events,
+        trading_days=TRADING_DAYS,
+        today=TODAY,
+        require_consecutive_trading_days=True,
+    )
+
+    assert "non_contiguous_streak" in result.blockers
+    assert result.eligible_for_user_decision is False
+
+
+def test_non_contiguous_trading_days_are_allowed_without_explicit_policy() -> None:
+    picked = TRADING_DAYS[:5] + TRADING_DAYS[6:11]
+    events = [
+        make_event(trade_date=day, workflow=workflow)
+        for day in picked
+        for workflow in WORKFLOW_NAMES
+    ]
+
+    result = evaluate(events)
+
+    assert "non_contiguous_streak" not in result.blockers
+    assert result.eligible_for_user_decision is True
+
+
+def test_missing_calendar_fails_closed() -> None:
+    for calendar in (None, []):
+        result = evaluate(make_complete_maturity_events(), trading_days=calendar)
+        assert result.blockers == ("trading_calendar_unavailable",)
+        assert result.eligible_for_user_decision is False
+
+
+def test_duplicate_run_date_workflow_does_not_dilute_rates() -> None:
+    events = make_complete_maturity_events()
+    bound = [make_event(trade_date=e.trade_date, workflow=e.workflow, run_id=f"r-{i}")
+             for i, e in enumerate(events)]
+    # 把第一条重复摄入 5 次（相同 run_id/date/workflow）——不得稀释指标或计数。
+    duplicated = bound + [bound[0]] * 5
+
+    result = evaluate(duplicated)
+
+    assert result.metrics["event_count"] == 50
+    assert result.metrics["distinct_trade_dates"] == 10
+    assert result.metrics["core_success_rate"] == 1.0
+    assert result.blockers == ()
+
+
+def test_dedupe_events_keeps_first_and_is_stable() -> None:
+    a = make_event(run_id="run-a")
+    b = make_event(run_id="run-a")  # same identity
+    c = make_event(run_id="run-b")
+    assert dedupe_events([a, b, c]) == [a, c]
 
 
 def test_evaluation_rejects_extra_unvalidated_workflow() -> None:
@@ -234,7 +437,7 @@ def test_evaluation_rejects_extra_unvalidated_workflow() -> None:
     events.append(make_event(workflow="freeform"))
 
     with pytest.raises(ValueError, match="workflow"):
-        evaluate_maturity(events)
+        evaluate(events)
 
 
 @pytest.mark.parametrize(
@@ -254,13 +457,14 @@ def test_evaluation_rejects_unvalidated_event_contract_values(
     event = make_event(**{field_name: invalid_value})
 
     with pytest.raises(ValueError, match=message):
-        evaluate_maturity([event])
+        evaluate([event])
 
 
 def test_blockers_follow_stable_contract_order() -> None:
-    result = evaluate_maturity(
+    result = evaluate(
         [
             make_event(
+                trade_date="2026-06-06",  # 非交易日
                 outcome="failed",
                 manual_rescue=True,
                 severe_fact_error=True,
@@ -270,6 +474,7 @@ def test_blockers_follow_stable_contract_order() -> None:
     )
 
     assert result.blockers == (
+        "non_trading_day",
         "minimum_trade_dates",
         "missing_workflows",
         "success_rate",
@@ -284,13 +489,271 @@ def test_evaluation_does_not_mutate_events_or_event_list() -> None:
     original_events = list(events)
     original_payloads = [asdict(event) for event in events]
 
-    result = evaluate_maturity(events)
+    result = evaluate(events)
 
     assert events == original_events
     assert [asdict(event) for event in events] == original_payloads
     with pytest.raises(FrozenInstanceError):
         result.passed = True  # type: ignore[misc]
     assert isinstance(result, MaturityResult)
+
+
+# ---------------------------------------------------------------------------
+# gap 2：run 绑定校验（真实、终态成功、llm.used、SSE/报告证据）
+# ---------------------------------------------------------------------------
+
+
+def test_verify_run_binding_accepts_completed_llm_backed_run(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-ok")
+
+    evidence = verify_run_binding(store, "run-ok")
+
+    assert evidence.status == "completed"
+    assert evidence.llm_used is True
+    assert evidence.llm_provider == SELF_USE_LLM_PROVIDER
+    assert evidence.llm_model == SELF_USE_LLM_MODEL
+    assert evidence.report_as_of == TRADING_DAYS[0]
+    assert evidence.stream_event_count >= 1
+
+
+@pytest.mark.parametrize("run_id", [None, "", "   "])
+def test_verify_run_binding_rejects_missing_run_id(tmp_path, run_id) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    with pytest.raises(RunBindingError, match="run_id"):
+        verify_run_binding(store, run_id)
+
+
+def test_verify_run_binding_rejects_fake_run_id(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    with pytest.raises(RunBindingError, match="not found"):
+        verify_run_binding(store, "run-does-not-exist")
+
+
+@pytest.mark.parametrize("status", ["queued", "running", "failed", "cancelled"])
+def test_verify_run_binding_rejects_nonterminal_or_failed_run(tmp_path, status) -> None:
+    from intelligence.services import run_store as run_store_module
+
+    store = RunStore("tester", root=tmp_path / "runs")
+    run_dir = store.run_dir("run-x")
+    run_dir.mkdir(parents=True, exist_ok=True)
+    payload = run_store_module.Run(
+        run_id="run-x", user="tester", question="q", task_type="conversation", status=status
+    )
+    (run_dir / "run.json").write_text(json.dumps(asdict(payload)), encoding="utf-8")
+    (run_dir / "report.json").write_text(
+        json.dumps(
+            {
+                "report_id": "run-x",
+                "status": status,
+                "as_of": TRADING_DAYS[0],
+                "llm": {
+                    "used": True,
+                    "provider": SELF_USE_LLM_PROVIDER,
+                    "model": SELF_USE_LLM_MODEL,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RunBindingError, match="terminal-successful"):
+        verify_run_binding(store, "run-x")
+
+
+def test_verify_run_binding_rejects_template_fallback_run(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-fb", degrade=LLM_FALLBACK_DEGRADE)
+
+    with pytest.raises(RunBindingError, match="template"):
+        verify_run_binding(store, "run-fb")
+
+
+def test_verify_run_binding_rejects_llm_unused_report(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-noml", llm_used=False)
+
+    with pytest.raises(RunBindingError, match="llm.used"):
+        verify_run_binding(store, "run-noml")
+
+
+def test_verify_run_binding_rejects_missing_report(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-norep", with_report=False)
+
+    with pytest.raises(RunBindingError, match="report.json"):
+        verify_run_binding(store, "run-norep")
+
+
+def test_verify_run_binding_rejects_missing_stream_evidence(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-nostream", with_stream=False)
+
+    with pytest.raises(RunBindingError, match="SSE|stream"):
+        verify_run_binding(store, "run-nostream")
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"report_id": "another-run"}, "report_id"),
+        ({"report_status": "streaming"}, "report is not completed"),
+        ({"llm_provider": "glm"}, "model binding mismatch"),
+        ({"llm_model": "glm-4-air"}, "model binding mismatch"),
+    ],
+)
+def test_verify_run_binding_rejects_report_or_model_mismatch(
+    tmp_path, overrides, message
+) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-mismatch", **overrides)
+
+    with pytest.raises(RunBindingError, match=message):
+        verify_run_binding(store, "run-mismatch")
+
+
+def test_verify_run_binding_rejects_missing_report_complete_stream_event(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-no-report-event", with_report_stream=False)
+
+    with pytest.raises(RunBindingError, match="report.complete"):
+        verify_run_binding(store, "run-no-report-event")
+
+
+def test_verify_run_binding_rejects_streamed_report_mismatch(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-stream-mismatch", with_report_stream=False)
+    store.append_stream_event(
+        "run-stream-mismatch",
+        event_id="report:complete",
+        event_type="report.complete",
+        payload={
+            "report": {
+                "report_id": "run-stream-mismatch",
+                "status": "completed",
+                "as_of": TRADING_DAYS[1],
+                "llm": {
+                    "used": True,
+                    "provider": SELF_USE_LLM_PROVIDER,
+                    "model": SELF_USE_LLM_MODEL,
+                },
+            }
+        },
+    )
+
+    with pytest.raises(RunBindingError, match="does not match"):
+        verify_run_binding(store, "run-stream-mismatch")
+
+
+# ---------------------------------------------------------------------------
+# gap 1+2+3：ingest 校验 + 幂等
+# ---------------------------------------------------------------------------
+
+
+def test_ingest_is_idempotent_for_duplicate_run_date_workflow(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-1")
+    ledger = SelfUseLedger(tmp_path / "events.jsonl")
+    event = make_event(trade_date=TRADING_DAYS[0], run_id="run-1")
+
+    first = ingest_self_use_event(
+        ledger, event, run_store=store, trading_days=TRADING_DAYS, today=TODAY
+    )
+    second = ingest_self_use_event(
+        ledger, event, run_store=store, trading_days=TRADING_DAYS, today=TODAY
+    )
+
+    assert (first.run_id, first.trade_date, first.workflow) == (
+        second.run_id, second.trade_date, second.workflow
+    )
+    assert len(ledger.load()) == 1
+
+
+def test_ingest_rejects_non_trading_day(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-1")
+    ledger = SelfUseLedger(tmp_path / "events.jsonl")
+
+    with pytest.raises(ValueError, match="trading day"):
+        ingest_self_use_event(
+            ledger,
+            make_event(trade_date="2026-06-06", run_id="run-1"),
+            run_store=store,
+            trading_days=TRADING_DAYS,
+            today=TODAY,
+        )
+    assert ledger.load() == []
+
+
+def test_ingest_rejects_run_without_binding(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    ledger = SelfUseLedger(tmp_path / "events.jsonl")
+
+    with pytest.raises(RunBindingError):
+        ingest_self_use_event(
+            ledger,
+            make_event(trade_date=TRADING_DAYS[0], run_id="ghost"),
+            run_store=store,
+            trading_days=TRADING_DAYS,
+            today=TODAY,
+        )
+    assert ledger.load() == []
+
+
+def test_ingest_rejects_report_date_mismatch(tmp_path) -> None:
+    store = RunStore("tester", root=tmp_path / "runs")
+    make_completed_run(store, "run-wrong-date", report_as_of=TRADING_DAYS[1])
+    ledger = SelfUseLedger(tmp_path / "events.jsonl")
+
+    with pytest.raises(RunBindingError, match="does not match trade_date"):
+        ingest_self_use_event(
+            ledger,
+            make_event(trade_date=TRADING_DAYS[0], run_id="run-wrong-date"),
+            run_store=store,
+            trading_days=TRADING_DAYS,
+            today=TODAY,
+        )
+    assert ledger.load() == []
+
+
+# ---------------------------------------------------------------------------
+# gap 5：持久化审批 + 指纹失效
+# ---------------------------------------------------------------------------
+
+
+def test_approval_persists_auditable_record_and_matches_fingerprint(tmp_path) -> None:
+    result = evaluate(make_complete_maturity_events())
+    store = SelfUseApprovalStore(tmp_path / "approval.json")
+
+    record = store.approve(result, approved_by="a77")
+
+    assert isinstance(record, ApprovalRecord)
+    assert record.approved_at
+    assert record.approved_by == "a77"
+    assert record.eligibility_fingerprint == result.fingerprint
+    assert store.is_approved_for(result) is True
+    # 复读一次也命中（真正落盘了）
+    assert SelfUseApprovalStore(tmp_path / "approval.json").is_approved_for(result) is True
+
+
+def test_approval_invalidated_when_ledger_changes(tmp_path) -> None:
+    base_events = make_complete_maturity_events()
+    result = evaluate(base_events)
+    store = SelfUseApprovalStore(tmp_path / "approval.json")
+    store.approve(result, approved_by="a77")
+
+    # 台账新增一条（改变去重后集合/指标）→ 指纹变化 → 旧审批失效。
+    changed = evaluate(base_events + [make_event(trade_date=TRADING_DAYS[10], run_id="extra")])
+    assert changed.fingerprint != result.fingerprint
+    assert store.is_approved_for(changed) is False
+
+
+def test_approval_rejects_ineligible_result(tmp_path) -> None:
+    result = evaluate([make_event()])  # not eligible
+    store = SelfUseApprovalStore(tmp_path / "approval.json")
+
+    with pytest.raises(ValueError, match="eligible"):
+        store.approve(result, approved_by="a77")
 
 
 def test_record_appends_schema_workflow_and_run_id(tmp_path) -> None:
@@ -522,3 +985,21 @@ def test_concurrent_processes_do_not_lose_appends(tmp_path) -> None:
     assert {event.run_id for event in SelfUseLedger(path).load()} == {
         f"run_{index}" for index in range(8)
     }
+
+
+def test_concurrent_record_once_deduplicates_atomically(tmp_path) -> None:
+    path = tmp_path / "events.jsonl"
+    context = multiprocessing.get_context("spawn")
+    start_event = context.Event()
+    processes = [
+        context.Process(target=_record_once_from_process, args=(str(path), start_event))
+        for _ in range(8)
+    ]
+    for process in processes:
+        process.start()
+    start_event.set()
+    for process in processes:
+        process.join(timeout=15)
+
+    assert [process.exitcode for process in processes] == [0] * len(processes)
+    assert len(SelfUseLedger(path).load()) == 1

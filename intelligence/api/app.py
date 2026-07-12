@@ -51,9 +51,11 @@ from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.run_store import RunStore
 from intelligence.services.self_use_maturity import (
+    SelfUseApprovalStore,
     SelfUseLedger,
     SelfUseLedgerIntegrityError,
     evaluate_maturity,
+    trading_days_from_duckdb,
 )
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
 
@@ -890,6 +892,7 @@ def create_app(
     *,
     repo_root: Path | None = None,
     run_timeout_sec: float = _SSE_MAX_SECONDS,
+    self_use_require_consecutive_trading_days: bool = False,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
     runtime_paths = default_paths()
@@ -962,13 +965,24 @@ def create_app(
 
     def self_use_projection(user: str | None) -> dict[str, object]:
         conversation_store = conversation_store_for(user)
-        ledger = SelfUseLedger(
-            conversation_store.root.parent / "self-use" / "events.jsonl"
+        self_use_dir = conversation_store.root.parent / "self-use"
+        ledger = SelfUseLedger(self_use_dir / "events.jsonl")
+        trading_days = trading_days_from_duckdb(
+            root / "db" / "market_feature_store.duckdb"
         )
         try:
-            result = evaluate_maturity(ledger.load())
+            result = evaluate_maturity(
+                ledger.load(),
+                trading_days=trading_days,
+                require_consecutive_trading_days=(
+                    self_use_require_consecutive_trading_days
+                ),
+            )
         except (OSError, SelfUseLedgerIntegrityError) as exc:
             raise HTTPException(500, "自用成熟度台账不可读") from exc
+        # passed 由持久化审批驱动：审批指纹须与当前裁决快照一致，否则失效。
+        approvals = SelfUseApprovalStore(self_use_dir / "approval.json")
+        passed = bool(result.eligible_for_user_decision and approvals.is_approved_for(result))
         return {
             "distinct_trade_dates": result.metrics["distinct_trade_dates"],
             "success_rate": result.metrics["core_success_rate"],
@@ -977,7 +991,7 @@ def create_app(
             "covered_workflows": result.metrics["covered_workflows"],
             "blockers": list(result.blockers),
             "eligible_for_user_decision": result.eligible_for_user_decision,
-            "passed": result.passed,
+            "passed": passed,
         }
 
     def conversation_lock_for(user: str | None, conversation_id: str) -> Lock:

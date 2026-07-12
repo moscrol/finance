@@ -2496,13 +2496,43 @@ def _self_use_ledger_path(args: argparse.Namespace) -> Path:
     return userspace.user_space(args.user).root / "self-use" / "events.jsonl"
 
 
+def _self_use_approval_path(ledger_path: Path) -> Path:
+    return ledger_path.parent / "approval.json"
+
+
+def _self_use_trading_days(args: argparse.Namespace) -> list[str]:
+    """解析 canonical A 股交易日历：显式 --trading-day / --calendar-db / 默认本地 DuckDB。"""
+    from intelligence.services.self_use_maturity import trading_days_from_duckdb
+
+    injected = getattr(args, "trading_day", None)
+    if injected:
+        return sorted(set(injected))
+    calendar_db = getattr(args, "calendar_db", None)
+    if not calendar_db:
+        calendar_db = Path(__file__).resolve().parents[1] / "db" / "market_feature_store.duckdb"
+    return trading_days_from_duckdb(calendar_db)
+
+
+def _self_use_run_store(args: argparse.Namespace):
+    from intelligence.services.run_store import RunStore
+
+    run_root = getattr(args, "run_root", None)
+    return RunStore(args.user, root=Path(run_root).expanduser() if run_root else None)
+
+
 def cmd_self_use_record(args: argparse.Namespace) -> int:
     from dataclasses import asdict
 
-    from intelligence.services.self_use_maturity import SelfUseEvent, SelfUseLedger
+    from intelligence.services.self_use_maturity import (
+        RunBindingError,
+        SelfUseEvent,
+        SelfUseLedger,
+        ingest_self_use_event,
+    )
 
     try:
-        recorded = SelfUseLedger(_self_use_ledger_path(args)).record(
+        recorded = ingest_self_use_event(
+            SelfUseLedger(_self_use_ledger_path(args)),
             SelfUseEvent(
                 trade_date=args.date,
                 workflow=args.workflow,
@@ -2512,9 +2542,12 @@ def cmd_self_use_record(args: argparse.Namespace) -> int:
                 useful=args.useful,
                 run_id=args.run_id,
                 note=args.note,
-            )
+            ),
+            run_store=_self_use_run_store(args),
+            trading_days=_self_use_trading_days(args),
+            today=getattr(args, "today", None),
         )
-    except (OSError, TypeError, ValueError) as exc:
+    except (OSError, TypeError, ValueError, RunBindingError) as exc:
         print(f"self-use record failed: {exc}", file=sys.stderr)
         return 2
 
@@ -2528,19 +2561,39 @@ def cmd_self_use_status(args: argparse.Namespace) -> int:
     from intelligence.services.self_use_maturity import (
         MINIMUM_TRADE_DATES,
         WORKFLOWS,
+        SelfUseApprovalStore,
         SelfUseLedger,
         evaluate_maturity,
     )
 
     try:
-        events = SelfUseLedger(_self_use_ledger_path(args)).load()
-        result = evaluate_maturity(events, user_approved=args.user_approved)
+        ledger_path = _self_use_ledger_path(args)
+        events = SelfUseLedger(ledger_path).load()
+        trading_days = _self_use_trading_days(args)
+        base = evaluate_maturity(
+            events,
+            trading_days=trading_days,
+            today=getattr(args, "today", None),
+            require_consecutive_trading_days=args.require_consecutive_trading_days,
+        )
+        approvals = SelfUseApprovalStore(_self_use_approval_path(ledger_path))
+        persisted_approval = approvals.is_approved_for(base)
+        user_approved = bool(persisted_approval or args.user_approved)
+        result = evaluate_maturity(
+            events,
+            trading_days=trading_days,
+            today=getattr(args, "today", None),
+            user_approved=user_approved,
+            require_consecutive_trading_days=args.require_consecutive_trading_days,
+        )
     except (OSError, TypeError, ValueError) as exc:
         print(f"self-use status failed: {exc}", file=sys.stderr)
         return 2
 
     if args.json:
-        print(json.dumps(asdict(result), ensure_ascii=False, indent=2))
+        payload = asdict(result)
+        payload["persisted_approval"] = persisted_approval
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
         metrics = result.metrics
         workflows = metrics["covered_workflows"]
@@ -2552,6 +2605,74 @@ def cmd_self_use_status(args: argparse.Namespace) -> int:
         print(f"blockers: {blockers}")
         print(f"passed: {str(result.passed).lower()}")
     return 0 if result.passed else 1
+
+
+def cmd_self_use_approve(args: argparse.Namespace) -> int:
+    from intelligence.services.self_use_maturity import (
+        SelfUseApprovalStore,
+        SelfUseLedger,
+        evaluate_maturity,
+    )
+
+    try:
+        ledger_path = _self_use_ledger_path(args)
+        events = SelfUseLedger(ledger_path).load()
+        result = evaluate_maturity(
+            events,
+            trading_days=_self_use_trading_days(args),
+            today=getattr(args, "today", None),
+            require_consecutive_trading_days=args.require_consecutive_trading_days,
+        )
+        if not result.eligible_for_user_decision:
+            print(
+                "self-use approve rejected: not eligible_for_user_decision "
+                f"(blockers: {', '.join(result.blockers)})",
+                file=sys.stderr,
+            )
+            return 2
+        record = SelfUseApprovalStore(_self_use_approval_path(ledger_path)).approve(
+            result, approved_by=args.by
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        print(f"self-use approve failed: {exc}", file=sys.stderr)
+        return 2
+
+    print(
+        json.dumps(
+            {
+                "approved_at": record.approved_at,
+                "approved_by": record.approved_by,
+                "eligibility_fingerprint": record.eligibility_fingerprint,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def _add_self_use_calendar_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--calendar-db",
+        default=None,
+        help="DuckDB path holding fact_stock_daily (defaults to db/market_feature_store.duckdb)",
+    )
+    parser.add_argument(
+        "--trading-day",
+        action="append",
+        default=None,
+        help="Inject a canonical trading day (repeatable; for testing/diagnostics)",
+    )
+    parser.add_argument(
+        "--today",
+        default=None,
+        help="Override 'today' for the future-date check (ISO date; testing/diagnostics)",
+    )
+    parser.add_argument(
+        "--require-consecutive-trading-days",
+        action="store_true",
+        help="Apply the optional product policy requiring one consecutive trading-day streak",
+    )
 
 
 def add_self_use_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -2573,8 +2694,10 @@ def add_self_use_parser(subparsers: argparse._SubParsersAction) -> None:
     useful.add_argument("--not-useful", dest="useful", action="store_false")
     record.add_argument("--manual-rescue", action="store_true")
     record.add_argument("--severe-fact-error", action="store_true")
-    record.add_argument("--run-id", default=None)
+    record.add_argument("--run-id", default=None, help="Workbench run_id to bind (required)")
+    record.add_argument("--run-root", default=None, help="RunStore root override for testing or diagnostics")
     record.add_argument("--note", default="")
+    _add_self_use_calendar_args(record)
     record.set_defaults(func=cmd_self_use_record)
 
     status = commands.add_parser("status", help="Evaluate the self-use maturity gate")
@@ -2584,9 +2707,19 @@ def add_self_use_parser(subparsers: argparse._SubParsersAction) -> None:
     status.add_argument(
         "--user-approved",
         action="store_true",
-        help="Record explicit user approval for this evaluation only",
+        help="Transient diagnostic approval for this evaluation only (not persisted)",
     )
+    _add_self_use_calendar_args(status)
     status.set_defaults(func=cmd_self_use_status)
+
+    approve = commands.add_parser(
+        "approve", help="Persist an auditable user approval bound to the current evaluation"
+    )
+    approve.add_argument("--user", default=None, help="User id for the default private ledger")
+    approve.add_argument("--ledger", default=None, help="Explicit ledger path for testing or diagnostics")
+    approve.add_argument("--by", required=True, help="Approver identity recorded as approved_by")
+    _add_self_use_calendar_args(approve)
+    approve.set_defaults(func=cmd_self_use_approve)
 
 
 def build_parser() -> argparse.ArgumentParser:

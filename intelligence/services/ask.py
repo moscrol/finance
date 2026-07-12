@@ -688,6 +688,7 @@ def answer_query(options: AskOptions) -> AskResult:
             timeout=options.wiki_rag_timeout,
             excerpt_chars=options.wiki_rag_excerpt,
             index_dir=options.wiki_rag_index_dir,
+            require_fresh=True,  # formal 证据路径：过期/未知命中 fail-closed，不进 LLM 证据
         )
         wiki_stats.update(
             {
