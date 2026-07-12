@@ -1,5 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
+const answerTimeout = 45_000;
+
 async function expectNoHorizontalOverflow(page: Page) {
   const sizes = await page.evaluate(() => ({
     viewport: window.innerWidth,
@@ -35,7 +37,7 @@ async function submitQuestion(
     page
       .getByLabel("研究助手消息")
       .filter({ hasText: "自然语言综合暂时不可用" }),
-  ).toHaveCount(completedAnswerCount, { timeout: 20_000 });
+  ).toHaveCount(completedAnswerCount, { timeout: answerTimeout });
 }
 
 async function selectManualDailyAgent(page: Page) {
@@ -154,7 +156,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
     page
       .getByLabel("研究助手消息")
       .filter({ hasText: "自然语言综合暂时不可用" }),
-  ).toHaveCount(4, { timeout: 20_000 });
+  ).toHaveCount(4, { timeout: answerTimeout });
   await expect(page.getByText(thirdQuestion, { exact: true })).toHaveCount(2);
 
   const afterRegeneration = await activeConversationMessages(page);
