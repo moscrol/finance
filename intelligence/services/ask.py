@@ -1007,19 +1007,19 @@ def answer_query(options: AskOptions) -> AskResult:
                 f"{evidence_text}\n\n{audit.to_prompt_block()}"
                 f"\n\n{telemetry.to_prompt_block()}\n\n{counter_plan.to_prompt_block()}"
             )
-        if result.stock_brief is not None:
+        if result.stock_brief is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.stock_brief.to_prompt_block()}"
-        if result.market_state is not None:
+        if result.market_state is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.market_state.to_prompt_block()}"
-        if result.theme_lifecycle is not None:
+        if result.theme_lifecycle is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.theme_lifecycle.to_prompt_block()}"
-        if result.event_brief is not None:
+        if result.event_brief is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.event_brief.to_prompt_block()}"
-        if result.gap_radar is not None:
+        if result.gap_radar is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.gap_radar.to_prompt_block()}"
-        if result.valuation_note is not None:
+        if result.valuation_note is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.valuation_note.to_prompt_block()}"
-        if result.forecast_preflight is not None:
+        if result.forecast_preflight is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{forecast_preflight.render_preflight_prompt(result.forecast_preflight)}"
         # --- planner-worker 并行取数：规则门控先定「要哪些块」，命中的块作为互相独立的
         # 子任务并行取数（ask_planner），取回后仍按固定顺序汇总——evidence_text/引用编号
@@ -1142,11 +1142,23 @@ def answer_query(options: AskOptions) -> AskResult:
             block_tasks.append(ask_planner.BlockTask("D1", "市场价值与替代队列", _build_d1))
         if options.include_mainline_context_block:
             def _build_d4():
-                block = _mainline_context_block_for_llm(options.query, theme, options.market_db_path)
+                block = (
+                    _market_review_mainline_context_block_for_llm(
+                        options.query,
+                        theme,
+                        options.market_db_path,
+                    )
+                    if is_market_review
+                    else _mainline_context_block_for_llm(
+                        options.query,
+                        theme,
+                        options.market_db_path,
+                    )
+                )
                 return block, Citation(
                     "D4",
                     "本地 DuckDB 主线题材结构数据块",
-                    "每日主线题材/核心板块/cycle_status/缩放量解释",
+                    "同日主线结构；若快照滞后则仅提供数据边界",
                 )
 
             block_tasks.append(ask_planner.BlockTask("D4", "主线题材结构", _build_d4))
@@ -1229,8 +1241,8 @@ def answer_query(options: AskOptions) -> AskResult:
             theme,
             evidence_text,
             citation_legend=citation_legend,
-            quality_context=quality_context,
-            experience_guidance=experience_guidance,
+            quality_context=None if is_market_review else quality_context,
+            experience_guidance="" if is_market_review else experience_guidance,
             exemplar_guidance=exemplar_guidance,
         )
         if options.conversation_context:
@@ -1570,6 +1582,42 @@ def _mainline_context_block_for_llm(
             con.close()
         except Exception:
             pass
+
+
+def _market_review_mainline_context_block_for_llm(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+) -> str:
+    market_date = _market_data_asof(market_db_path)
+    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    if not market_date or not db_path.exists():
+        return ""
+    try:
+        import duckdb  # type: ignore
+
+        con = duckdb.connect(str(db_path), read_only=True)
+        try:
+            row = con.execute(
+                "select max(trade_date) from fact_mainline_sector_daily"
+            ).fetchone()
+        finally:
+            con.close()
+    except Exception:
+        return ""
+    mainline_date = str(row[0]) if row and row[0] else None
+    if not mainline_date:
+        return ""
+    if mainline_date == market_date:
+        return _mainline_context_block_for_llm(query, theme, market_db_path)
+    return "\n".join(
+        [
+            "## 市场复盘主线数据边界",
+            f"- 当日市场总览截至 {market_date}；主线题材快照仅截至 {mainline_date}。",
+            "- 当前交易日主线未知。旧快照只能作为历史基线，禁止把其中的题材、板块、涨幅、"
+            "生命周期或标的写成当日事实。",
+        ]
+    )
 
 
 def _resolve_mainline_theme(con: Any, query: str, theme: str | None, latest_date: Any) -> str | None:

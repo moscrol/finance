@@ -96,6 +96,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("少量自然小标题", joined_contract)
         self.assertIn("不要机械覆盖公司本体", joined_contract)
         self.assertIn("主线数据滞后", joined_contract)
+        self.assertIn("不要出现反方审稿", joined_contract)
 
     def test_deep_dive_trigger_beats_industry_chain_keyword(self) -> None:
         plan = plan_answer_question("深挖英维克，它在液冷产业链的位置")
@@ -191,9 +192,20 @@ class AnswerOrchestratorTests(unittest.TestCase):
             captured["prompt"] = str(messages[1]["content"])
             return None, "mocked"
 
-        with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
-            side_effect=fake_synthesize,
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+                side_effect=fake_synthesize,
+            ),
+            mock.patch(
+                "intelligence.services.ask._market_review_mainline_context_block_for_llm",
+                return_value=(
+                    "## 市场复盘主线数据边界\n"
+                    "- 当日市场总览截至 2026-07-10；主线题材快照仅截至 2026-06-30。\n"
+                    "- 当前交易日主线未知。"
+                ),
+            ),
         ):
             wiki = Path(tmp) / "wiki"
             (wiki / "relations").mkdir(parents=True)
@@ -216,6 +228,11 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertNotIn("客户证据硬度数据块", captured["prompt"])
         self.assertNotIn("二阶导研究队列数据块", captured["prompt"])
         self.assertNotIn("检索遥测", captured["prompt"])
+        self.assertNotIn("市场结构状态机", captured["prompt"])
+        self.assertNotIn("回答质量约束", captured["prompt"])
+        self.assertNotIn("第一性原理门槛", captured["prompt"])
+        self.assertNotIn("- 反方审稿：", captured["prompt"])
+        self.assertIn("当前交易日主线未知", captured["prompt"])
 
     def test_market_forecast_compose_injects_forecast_preflight_gate(self) -> None:
         captured: dict[str, str] = {}
