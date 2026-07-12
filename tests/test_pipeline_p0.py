@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 import importlib.util
 from pathlib import Path
+import sys
 
 import duckdb
 import pandas as pd
@@ -343,6 +344,7 @@ def test_l2_gate_accepts_completed_empty_results(tmp_path, monkeypatch):
     _database(db_path).close()
     moneyflow_dir = ROOT / "scripts" / "moneyflow"
     monkeypatch.syspath_prepend(str(moneyflow_dir))
+    monkeypatch.delitem(sys.modules, "config", raising=False)
     spec = importlib.util.spec_from_file_location(
         "test_write_to_duckdb", moneyflow_dir / "write_to_duckdb.py"
     )
