@@ -2340,7 +2340,7 @@ def render_answer(result: AskResult) -> str:
 def render_conversation_answer(result: AskResult) -> str:
     evidence_notice = f"{NO_EVIDENCE_NOTICE}\n\n" if not result.citations else ""
     if result.synthesis:
-        return evidence_notice + result.synthesis
+        return result.synthesis
 
     lines: list[str] = []
     if evidence_notice:
