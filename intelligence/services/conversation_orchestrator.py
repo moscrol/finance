@@ -112,6 +112,13 @@ _HUMAN_READABLE_REPLACEMENTS = (
     ("graph_only/低置信暴露", "低置信关联"),
     ("graph_only", "低置信关联"),
     ("DuckDB 同题材强势替代队列为空", "本地盘面数据没有提供同题材强势替代方向"),
+    ("snapshot/export", "历史盘面快照"),
+    ("capacity_industry", "成交容量居前"),
+    ("market_context", "市场环境"),
+    ("knowledge_evidence", "知识库候选资料"),
+    ("exposure_only", "仅有概念关联"),
+    ("L1_L3_candidate", "候选资料，需公告或年报确认"),
+    ("DuckDB", "本地市场数据"),
     ("命中主题=", "相关主题："),
     ("命中主要来自", "现有信息主要来自"),
     ("cycle_status", "阶段状态"),
@@ -299,8 +306,18 @@ def sanitize_conversation_answer(text: str) -> str:
     cleaned = _INTERNAL_FIELD_PATTERN.sub("", cleaned)
     cleaned = _EVIDENCE_LAYER_SUMMARY_PATTERN.sub("", cleaned)
     cleaned = _INTERNAL_CITATION_PATTERN.sub("", cleaned)
+    cleaned = re.sub(
+        r"\bMarketAdapter\.get_[A-Za-z0-9_]+\b",
+        "本地盘面数据",
+        cleaned,
+    )
     for internal, readable in _HUMAN_READABLE_REPLACEMENTS:
         cleaned = cleaned.replace(internal, readable)
+    cleaned = re.sub(
+        r"\b(?:True|False)\b",
+        lambda match: "是" if match.group(0) == "True" else "否",
+        cleaned,
+    )
     cleaned = _INTERNAL_TIER_TOKEN_PATTERN.sub("较高置信候选", cleaned)
     cleaned = _EVIDENCE_LAYER_PATTERN.sub(
         lambda match: _EVIDENCE_LAYER_REPLACEMENTS[match.group(1)],

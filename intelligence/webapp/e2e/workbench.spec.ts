@@ -156,8 +156,11 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
   const firstAnswer = page.getByLabel("研究助手消息").first();
   await expect(
-    firstAnswer.getByText(/数据降级：当前未连接本地 DuckDB/),
+    firstAnswer.getByText("数据说明：本轮没有连接本地市场数据。", {
+      exact: true,
+    }),
   ).toBeVisible();
+  await expect(firstAnswer.getByText(/DuckDB/)).toHaveCount(0);
   await expect(firstAnswer.getByText(/命中主题=/)).toHaveCount(0);
   await expect(firstAnswer.locator(".stream-table-shell")).toHaveCount(0);
   await firstAnswer.getByText("运行详情", { exact: true }).click();
