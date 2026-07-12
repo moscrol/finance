@@ -70,6 +70,11 @@ def test_get_evidence_filters_company_facts_by_concept(tmp_path) -> None:
                         "concept": "算力租赁",
                         "evidence": "公司投资算力租赁设备。",
                     },
+                    {
+                        "target": "天阳科技",
+                        "concept": "金融IT",
+                        "evidence": "公司布局算力和航空场景，并提及稳定币政策。",
+                    },
                 ]
             },
             ensure_ascii=False,

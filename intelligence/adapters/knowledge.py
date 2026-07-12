@@ -157,17 +157,23 @@ class KnowledgeAdapter:
                 "warnings": ["evidence_index.items is not a list"],
                 "errors": [],
             }
-        matched = []
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            if item.get("target") != target:
-                continue
-            if concept and not self._evidence_matches_concept(item, concept):
-                continue
-            matched.append(item)
-            if len(matched) >= limit:
-                break
+        target_items = [
+            item
+            for item in items
+            if isinstance(item, dict) and item.get("target") == target
+        ]
+        if concept:
+            exact_items = [
+                item
+                for item in target_items
+                if self._normalize(item.get("concept")) == self._normalize(concept)
+            ]
+            target_items = exact_items or [
+                item
+                for item in target_items
+                if self._evidence_matches_concept(item, concept)
+            ]
+        matched = target_items[:limit]
         return {
             "found": bool(matched),
             "target": target,
