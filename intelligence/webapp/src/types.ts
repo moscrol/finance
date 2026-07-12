@@ -264,6 +264,172 @@ export interface Bootstrap {
   self_use_maturity: SelfUseMaturity;
 }
 
+export type WorkbenchSection =
+  | "today"
+  | "themes"
+  | "signals"
+  | "validation"
+  | "ask";
+
+export interface DataFreshnessStatus {
+  key: string;
+  label: string;
+  date: string | null;
+  status: "complete" | "stale" | "missing" | "partial" | "failed" | "running";
+  row_count: number;
+  message: string;
+  coverage?: {
+    covered: number;
+    total: number;
+    missing: number;
+  };
+}
+
+export interface MarketOverview {
+  trade_date: string | null;
+  stage: string;
+  stage_source?: string;
+  advancers?: number | null;
+  advancers_ma5?: number | null;
+  breadth_trend?: string;
+  limit_up?: number | null;
+  limit_down?: number | null;
+  total_amount?: number | null;
+  amount_vs_yesterday_pct?: number | null;
+  amount_vs_ma20_pct?: number | null;
+  mainlines: string[];
+  risks: string[];
+  concentration_pct?: number | null;
+  concentration_state?: string;
+  strength_marginal_pct?: number | null;
+  strength_status?: string;
+  validation_points: string[];
+}
+
+export interface ThemeState {
+  theme_code: string;
+  name: string;
+  knowledge_stage: string;
+  knowledge_stage_index: number;
+  knowledge_date: string | null;
+  market_stage: string;
+  market_stage_index: number;
+  market_date: string | null;
+  source_count: number;
+  sector_count: number;
+  stock_count: number;
+  sectors: string[];
+  direction: string;
+  evidence_type: string;
+  detail_status: "current" | "stale";
+}
+
+export interface SignalCard {
+  bucket: "new" | "strengthened" | "weakened" | "pending";
+  bucket_label: string;
+  title: string;
+  change: string;
+  summary: string;
+  source_type: string;
+  source_date: string | null;
+  impact: string;
+  market_confirmation: string;
+  next_validation: string;
+}
+
+export interface WinrateRow {
+  source_id: string;
+  name: string;
+  sample_count: number;
+  t5_win_rate: number | null;
+  t10_win_rate: number | null;
+  average_excess: number;
+  median_excess: number;
+  average_drawdown: number | null;
+  best_window: string;
+}
+
+export interface SellsideFlowItem {
+  theme: string;
+  source: string;
+  report_date: string | null;
+  mention_count: number;
+  reason: string;
+}
+
+export interface MoneyflowLeader {
+  stock_code: string;
+  stock_name: string;
+  scan_type: string;
+  main_buy_net_wan: number | null;
+  total_buy_net_wan: number | null;
+  score: number | null;
+  rank: number | null;
+  pct_change: number | null;
+}
+
+export interface QuantOrder {
+  stock_code: string;
+  stock_name: string;
+  quant_amount_wan: number | null;
+  quant_pct_of_big_buy: number | null;
+  cluster_count: number | null;
+  biggest_cluster: string | null;
+  rank: number | null;
+}
+
+export interface MoneyflowTrend {
+  stock_code: string;
+  stock_name: string;
+  trade_date: string;
+  history_days: number;
+  consecutive_inflow_days: number;
+  rank_change: number | null;
+  is_new: boolean;
+  divergence: string | null;
+}
+
+export interface WorkbenchOverview {
+  as_of_date: string | null;
+  market: MarketOverview;
+  themes: ThemeState[];
+  theme_axes: {
+    knowledge: string[];
+    market: string[];
+  };
+  signals: {
+    new: SignalCard[];
+    strengthened: SignalCard[];
+    weakened: SignalCard[];
+    pending: SignalCard[];
+  };
+  signal_date: string | null;
+  winrate: WinrateRow[];
+  sellside_flow: {
+    priority: SellsideFlowItem[];
+    confirmation: SellsideFlowItem[];
+    caution: SellsideFlowItem[];
+  };
+  sellside_date: string | null;
+  moneyflow: {
+    status: string;
+    target_date: string | null;
+    trade_date: string | null;
+    coverage: Record<string, number>;
+    leaders: MoneyflowLeader[];
+    quant_orders: QuantOrder[];
+    warnings: string[];
+    source: string;
+  };
+  moneyflow_trends: MoneyflowTrend[];
+  validation: {
+    logic_effectiveness: Record<string, unknown>;
+    hypothesis_status: string;
+  };
+  data_status: DataFreshnessStatus[];
+  agent_artifact: string | null;
+}
+
 export interface RunBundle {
   run: Run;
   trace: TraceStep[];
@@ -379,6 +545,7 @@ export interface LiveMessageState {
 
 export type Surface =
   | { kind: "home" }
+  | { kind: WorkbenchSection }
   | { kind: "run"; runId: string }
   | { kind: "library" }
   | { kind: "artifact"; artifactId: string };

@@ -1,14 +1,31 @@
 import {
   Archive,
+  BadgeCheck,
   Boxes,
+  CalendarDays,
   ChevronRight,
   FolderArchive,
+  Layers3,
+  MessageCircle,
   MessageSquarePlus,
   PanelLeftClose,
+  RadioTower,
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Conversation } from "../types";
+import type { Conversation, WorkbenchSection } from "../types";
+
+const outputNavigation = [
+  { section: "today", label: "今日", Icon: CalendarDays },
+  { section: "themes", label: "主题", Icon: Layers3 },
+  { section: "signals", label: "信号", Icon: RadioTower },
+  { section: "validation", label: "验证", Icon: BadgeCheck },
+  { section: "ask", label: "问答", Icon: MessageCircle },
+] satisfies Array<{
+  section: WorkbenchSection;
+  label: string;
+  Icon: typeof CalendarDays;
+}>;
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -19,6 +36,8 @@ interface ConversationListProps {
   onArchive: (conversationId: string) => void;
   onClose: () => void;
   onLibrary: () => void;
+  activeSection: WorkbenchSection;
+  onSection: (section: WorkbenchSection) => void;
 }
 
 function displayConversationTitle(title: string): string {
@@ -34,6 +53,8 @@ export function ConversationList({
   onArchive,
   onClose,
   onLibrary,
+  activeSection,
+  onSection,
 }: ConversationListProps) {
   const [query, setQuery] = useState("");
   const filteredConversations = useMemo(() => {
@@ -89,6 +110,21 @@ export function ConversationList({
           </span>
           <ChevronRight aria-hidden="true" size={14} />
         </div>
+
+        <nav className="output-navigation" aria-label="工作台一级导航">
+          {outputNavigation.map(({ section, label, Icon }) => (
+            <button
+              className={activeSection === section ? "active" : ""}
+              type="button"
+              aria-current={activeSection === section ? "page" : undefined}
+              key={section}
+              onClick={() => onSection(section)}
+            >
+              <Icon aria-hidden="true" size={16} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
 
         <button
           className="new-conversation-button"

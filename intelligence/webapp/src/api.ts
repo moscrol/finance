@@ -14,6 +14,7 @@ import type {
   RunContext,
   StructuredReport,
   TraceStep,
+  WorkbenchOverview,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -33,6 +34,10 @@ function withUser(path: string, user?: string): string {
 
 export function getBootstrap(user?: string): Promise<Bootstrap> {
   return request<Bootstrap>(withUser("/api/workbench/bootstrap", user));
+}
+
+export function getWorkbenchOverview(): Promise<WorkbenchOverview> {
+  return request<WorkbenchOverview>("/api/workbench/overview");
 }
 
 export function getRun(runId: string, user?: string): Promise<Run> {

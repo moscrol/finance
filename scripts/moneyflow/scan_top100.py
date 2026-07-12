@@ -32,7 +32,7 @@ plt.rcParams["font.sans-serif"] = ["WenQuanYi Zen Hei"]
 plt.rcParams["axes.unicode_minus"] = False
 
 
-def top_turnover_stocks(client, date, n=50):
+def top_turnover_stocks(client, date, n=100):
     """当日成交额前 n 的股票（用 level2 收盘快照的累计成交额）。
 
     按代码前缀分4批查询再合并，单批负担小；每批失败自动重试。
@@ -42,9 +42,11 @@ def top_turnover_stocks(client, date, n=50):
     if os.path.exists(cache):
         with open(cache) as f:
             codes = [ln.strip() for ln in f if ln.strip()]
-        if codes:
+        if len(codes) >= n:
             print(f"读取缓存名单 {cache}: {len(codes)} 只")
             return codes[:n]
+        if codes:
+            print(f"缓存名单仅 {len(codes)} 只，重新获取成交额前{n}名单")
     try:
         codes = duck_top_turnover_codes(date, n)
         if codes:

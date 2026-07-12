@@ -74,8 +74,42 @@ async function startNewConversation(page: Page, testInfo: TestInfo) {
   await page.getByRole("button", { name: "新对话" }).click();
 }
 
-test.beforeEach(async ({ page }) => {
+async function selectWorkbenchSection(
+  page: Page,
+  testInfo: TestInfo,
+  section: "今日" | "主题" | "信号" | "验证" | "问答",
+) {
+  if (testInfo.project.name === "mobile") {
+    await page.getByRole("button", { name: "打开会话列表" }).click();
+  }
+  await page.getByRole("button", { name: section, exact: true }).click();
+}
+
+test.beforeEach(async ({ page }, testInfo) => {
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: "数据缺失" })).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "问答");
+  await expect(page.getByLabel("输入研究问题")).toBeVisible();
+});
+
+test("structured workbench keeps five surfaces available", async ({
+  page,
+}, testInfo) => {
+  await selectWorkbenchSection(page, testInfo, "今日");
+  await expect(page.getByRole("heading", { name: "数据缺失" })).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "主题");
+  await expect(
+    page.getByRole("heading", { name: "知识共识 × 盘面确认" }),
+  ).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "信号");
+  await expect(
+    page.getByRole("heading", { name: "只推变化，不重复旧观点" }),
+  ).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "验证");
+  await expect(
+    page.getByRole("heading", { name: "机构胜率、资金流与假设回检" }),
+  ).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "问答");
   await expect(page.getByLabel("输入研究问题")).toBeVisible();
 });
 
@@ -173,6 +207,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   expect(regeneratedRun.parent_run_id).toBe(originalRunId);
 
   await page.reload();
+  await selectWorkbenchSection(page, testInfo, "问答");
   await expect(page.getByText(firstQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText(secondQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
@@ -204,6 +239,7 @@ test("stop preserves cancellation and responsive drawers remain closable", async
   });
 
   await page.reload();
+  await selectWorkbenchSection(page, testInfo, "问答");
   await expect(page.getByText("已停止生成，已保留已生成内容。")).toBeVisible();
   const messages = await activeConversationMessages(page);
   expect(messages.at(-1)?.status).toBe("cancelled");
@@ -220,15 +256,21 @@ test("stop preserves cancellation and responsive drawers remain closable", async
       page.getByRole("complementary", { name: "会话列表" }),
     ).not.toHaveClass(/open/);
   }
-  if (testInfo.project.name !== "desktop") {
+  const inspector = page.getByRole("complementary", {
+    name: "研究检查器",
+    includeHidden: true,
+  });
+  if (testInfo.project.name === "desktop") {
+    await expect(inspector).toHaveClass(/open/);
+  } else {
     await page.getByRole("button", { name: "打开研究检查器" }).click();
-    await expect(
-      page.getByRole("complementary", { name: "研究检查器" }),
-    ).toHaveClass(/open/);
-    await page.getByRole("button", { name: "关闭检查器" }).click();
-    await expect(
-      page.getByRole("complementary", { name: "研究检查器" }),
-    ).not.toHaveClass(/open/);
+    await expect(inspector).toHaveClass(/open/);
+  }
+  await page.getByRole("button", { name: "关闭检查器" }).click();
+  await expect(inspector).not.toHaveClass(/open/);
+  if (testInfo.project.name === "desktop") {
+    await page.getByRole("button", { name: "打开研究检查器" }).click();
+    await expect(inspector).toHaveClass(/open/);
   }
 
   await expectNoHorizontalOverflow(page);

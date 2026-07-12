@@ -57,6 +57,7 @@ from intelligence.services.self_use_maturity import (
     evaluate_maturity,
     trading_days_from_duckdb,
 )
+from intelligence.services.workbench_overview import build_workbench_overview
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -1605,6 +1606,10 @@ def create_app(
             "data_cutoff": data_cutoff,
             "self_use_maturity": self_use_projection(user),
         }
+
+    @app.get("/api/workbench/overview")
+    def workbench_overview() -> dict[str, object]:
+        return build_workbench_overview(root, runtime_paths.knowledge_wiki)
 
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.is_dir():

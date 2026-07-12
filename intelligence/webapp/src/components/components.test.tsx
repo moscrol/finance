@@ -20,6 +20,7 @@ import type {
   Run,
   RunBundle,
   StreamEnvelope,
+  WorkbenchOverview,
 } from "../types";
 import { ArtifactLibrary } from "./ArtifactLibrary";
 import { ArtifactViewer } from "./ArtifactViewer";
@@ -53,6 +54,7 @@ const apiMocks = vi.hoisted(() => ({
   getRunContext: vi.fn(),
   getRunReport: vi.fn(),
   getTrace: vi.fn(),
+  getWorkbenchOverview: vi.fn(),
   getSkills: vi.fn(),
   listArtifacts: vi.fn(),
   listConversations: vi.fn(),
@@ -126,6 +128,68 @@ const bootstrap: Bootstrap = {
     eligible_for_user_decision: false,
     passed: false,
   },
+};
+
+const workbenchOverview: WorkbenchOverview = {
+  as_of_date: "2026-07-10",
+  market: {
+    trade_date: "2026-07-10",
+    stage: "轮动",
+    mainlines: ["半导体"],
+    risks: ["板块明细未更新"],
+    validation_points: ["验证成交额"],
+  },
+  themes: [],
+  theme_axes: {
+    knowledge: ["暗流", "观察", "萌芽", "第一轮", "催化共振", "一致认同"],
+    market: ["未确认", "首次响应", "扩散", "主升", "分歧 / 兑现"],
+  },
+  signals: {
+    new: [
+      {
+        bucket: "new",
+        bucket_label: "新出现",
+        title: "半导体",
+        change: "首次进入观察",
+        summary: "研究叙事等待验证",
+        source_type: "晨汇 / 研究队列",
+        source_date: "2026-07-01",
+        impact: "半导体",
+        market_confirmation: "等待同日盘面核对",
+        next_validation: "补公司基础资料与官方披露",
+      },
+    ],
+    strengthened: [],
+    weakened: [],
+    pending: [],
+  },
+  signal_date: "2026-07-01",
+  winrate: [],
+  sellside_flow: { priority: [], confirmation: [], caution: [] },
+  sellside_date: null,
+  moneyflow: {
+    status: "missing",
+    target_date: "2026-07-10",
+    trade_date: null,
+    coverage: {},
+    leaders: [],
+    quant_orders: [],
+    warnings: ["暂无 L2 数据"],
+    source: "local features",
+  },
+  moneyflow_trends: [],
+  validation: { logic_effectiveness: {}, hypothesis_status: "等待同日知识事件" },
+  data_status: [
+    {
+      key: "market",
+      label: "市场总览",
+      date: "2026-07-10",
+      status: "complete",
+      row_count: 1,
+      message: "已更新",
+    },
+  ],
+  agent_artifact: null,
 };
 
 const llmConfig: LLMConfig = {
@@ -696,6 +760,8 @@ describe("Chat-first conversation components", () => {
         onArchive={onArchive}
         onClose={onClose}
         onLibrary={vi.fn()}
+        activeSection="ask"
+        onSection={vi.fn()}
       />,
     );
 
@@ -720,6 +786,8 @@ describe("Chat-first conversation components", () => {
         onArchive={vi.fn()}
         onClose={vi.fn()}
         onLibrary={vi.fn()}
+        activeSection="ask"
+        onSection={vi.fn()}
       />,
     );
 
@@ -1067,6 +1135,7 @@ describe("Workbench navigation reliability", () => {
       value: vi.fn(),
     });
     apiMocks.getBootstrap.mockResolvedValue(bootstrap);
+    apiMocks.getWorkbenchOverview.mockResolvedValue(workbenchOverview);
     apiMocks.listConversations.mockResolvedValue([]);
     apiMocks.getConversationMessages.mockResolvedValue([]);
     apiMocks.getSkills.mockResolvedValue(productSkills);
@@ -1097,11 +1166,36 @@ describe("Workbench navigation reliability", () => {
     apiMocks.selectBuiltInLLM.mockResolvedValue(llmConfig);
   });
 
+  it("opens on today and navigates across the five product surfaces", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "轮动" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "主题" }));
+    expect(
+      await screen.findByRole("heading", { name: "知识共识 × 盘面确认" }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "信号" }));
+    expect(
+      await screen.findByRole("heading", { name: "只推变化，不重复旧观点" }),
+    ).toBeVisible();
+    expect(screen.getByText("晨汇 / 研究队列")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "验证" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "机构胜率、资金流与假设回检",
+      }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "问答" }));
+    expect(screen.getByLabelText("输入研究问题")).toBeVisible();
+  });
+
   it("restores the latest conversation and submits in hybrid mode", async () => {
     apiMocks.listConversations.mockResolvedValue(conversations);
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(await screen.findByRole("button", { name: "问答" }));
     expect(await screen.findByText("每轮重新检索当前证据")).toBeVisible();
     expect(screen.getByText("Demo · 非计分 · Day 1 未开始")).toBeVisible();
     await user.type(screen.getByLabelText("输入研究问题"), "新的研究问题");
@@ -1151,6 +1245,7 @@ describe("Workbench navigation reliability", () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(await screen.findByRole("button", { name: "问答" }));
     await user.click(await screen.findByRole("button", { name: /今日复盘/ }));
     expect(apiMocks.createConversationMessage).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "发送研究问题" }));
@@ -1230,6 +1325,7 @@ describe("Workbench navigation reliability", () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(await screen.findByRole("button", { name: "问答" }));
     await user.click(await screen.findByRole("button", { name: /今日复盘/ }));
     await user.click(screen.getByRole("button", { name: "发送研究问题" }));
     const events = mockEventSources.at(-1);
@@ -1262,6 +1358,7 @@ describe("Workbench navigation reliability", () => {
     const user = userEvent.setup();
     const view = render(<App />);
 
+    await user.click(await screen.findByRole("button", { name: "问答" }));
     await user.click(await screen.findByRole("button", { name: /今日复盘/ }));
     await user.click(screen.getByRole("button", { name: "发送研究问题" }));
     const events = mockEventSources.at(-1);
@@ -1318,6 +1415,7 @@ describe("Workbench navigation reliability", () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(await screen.findByRole("button", { name: "问答" }));
     await user.click(
       await screen.findByRole("button", { name: "重新生成回答" }),
     );

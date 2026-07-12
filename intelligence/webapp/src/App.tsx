@@ -34,6 +34,7 @@ import {
   getRunReport,
   getSkills,
   getTrace,
+  getWorkbenchOverview,
   listArtifacts,
   listConversations,
   renameConversation,
@@ -46,6 +47,7 @@ import { Composer } from "./components/Composer";
 import { ConversationList } from "./components/ConversationList";
 import { MessageThread } from "./components/MessageThread";
 import { ModelSettings } from "./components/ModelSettings";
+import { OutputWorkbench } from "./components/OutputWorkbench";
 import { ResearchInspector } from "./components/ResearchInspector";
 import { supportsDailyProjection } from "./dailyReports";
 import { userFacingIssue } from "./displayText";
@@ -70,6 +72,8 @@ import type {
   RunBundle,
   SkillMode,
   Surface,
+  WorkbenchOverview,
+  WorkbenchSection,
 } from "./types";
 
 const chatEventTypes = [
@@ -95,7 +99,9 @@ interface StreamIdentity {
 
 export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
-  const [surface, setSurface] = useState<Surface>({ kind: "home" });
+  const [surface, setSurface] = useState<Surface>({ kind: "today" });
+  const [overview, setOverview] = useState<WorkbenchOverview | null>(null);
+  const [overviewRefreshing, setOverviewRefreshing] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
@@ -115,7 +121,9 @@ export default function App() {
   const [modelSettingsError, setModelSettingsError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(
+    () => window.innerWidth >= 1180,
+  );
   const [artifacts, setArtifacts] = useState<ArtifactDescriptor[]>([]);
   const [artifact, setArtifact] = useState<ArtifactDescriptor | null>(null);
   const [artifactContent, setArtifactContent] = useState<string | null>(null);
@@ -395,17 +403,24 @@ export default function App() {
   );
 
   const selectConversation = useCallback(
-    async (conversationId: string) => {
+    async (
+      conversationId: string,
+      options: { closeDrawer?: boolean; openAsk?: boolean } = {},
+    ) => {
       eventSourceRef.current?.close();
       eventSourceRef.current = null;
       clearRunPolling();
       activeConversationRef.current = conversationId;
       setActiveConversationId(conversationId);
-      setSurface({ kind: "home" });
+      if (options.openAsk !== false) {
+        setSurface({ kind: "ask" });
+      }
       setMessages([]);
       setRunBundles({});
       setLiveMessages({});
-      setConversationDrawerOpen(false);
+      if (options.closeDrawer !== false) {
+        setConversationDrawerOpen(false);
+      }
       setLoading(true);
       try {
         const nextMessages = await loadConversationData(conversationId);
@@ -447,17 +462,27 @@ export default function App() {
       .then(async (nextBootstrap) => {
         if (disposed) return;
         setBootstrap(nextBootstrap);
-        const [nextConversations, nextSkills, nextLLMConfig] = await Promise.all([
+        const [
+          nextConversations,
+          nextSkills,
+          nextLLMConfig,
+          nextOverview,
+        ] = await Promise.all([
           listConversations(nextBootstrap.user),
           getSkills(nextBootstrap.user),
           getLLMConfig(nextBootstrap.user).catch(() => null),
+          getWorkbenchOverview().catch(() => null),
         ]);
         if (disposed) return;
         setConversations(nextConversations);
         setSkills(nextSkills);
         setLLMConfig(nextLLMConfig);
+        setOverview(nextOverview);
         if (nextConversations[0]) {
-          await selectConversation(nextConversations[0].conversation_id);
+          await selectConversation(nextConversations[0].conversation_id, {
+            closeDrawer: false,
+            openAsk: false,
+          });
         } else {
           setLoading(false);
         }
@@ -476,6 +501,18 @@ export default function App() {
       clearRunPolling();
     };
   }, [clearRunPolling, selectConversation]);
+
+  const refreshOverview = useCallback(async () => {
+    setOverviewRefreshing(true);
+    try {
+      setOverview(await getWorkbenchOverview());
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "无法刷新数据状态");
+    } finally {
+      setOverviewRefreshing(false);
+    }
+  }, []);
 
   const saveBYOK = useCallback(
     async (provider: LLMProviderId, apiKey: string, model: string) => {
@@ -768,9 +805,34 @@ export default function App() {
         .find((bundle): bundle is RunBundle => Boolean(bundle)) ?? null,
     [messages, runBundles],
   );
+  const activeSection: WorkbenchSection = (
+    ["today", "themes", "signals", "validation", "ask"] as const
+  ).includes(surface.kind as WorkbenchSection)
+    ? (surface.kind as WorkbenchSection)
+    : "ask";
+  const sectionTitles: Record<WorkbenchSection, [string, string, string]> = {
+    today: ["结构化工作台", "今日态势", "市场 · 主线 · 明日验证"],
+    themes: ["主题雷达", "主题状态矩阵", "知识共识与盘面确认分轴展示"],
+    signals: ["事件收件箱", "晨会边际变化", "只推变化，不重复旧观点"],
+    validation: ["回检台", "验证与校准", "机构胜率 · Level2 · 假设回检"],
+    ask: ["研究线程", activeConversation?.title ?? "新对话", "每轮重新检索当前证据"],
+  };
+  const [sectionKicker, sectionTitle, sectionSubtitle] =
+    sectionTitles[activeSection];
+  const navigateSection = (section: WorkbenchSection) => {
+    setSurface({ kind: section });
+    setConversationDrawerOpen(false);
+    if (window.innerWidth < 1180) {
+      setInspectorOpen(false);
+    }
+  };
 
   return (
-    <div className="app-shell chat-first-shell">
+    <div
+      className={`app-shell chat-first-shell ${
+        inspectorOpen ? "inspector-open" : "inspector-closed"
+      }`}
+    >
       <ConversationList
         conversations={conversations}
         activeConversationId={activeConversationId}
@@ -780,6 +842,8 @@ export default function App() {
         onArchive={(conversationId) => void archive(conversationId)}
         onClose={() => setConversationDrawerOpen(false)}
         onLibrary={openLibrary}
+        activeSection={activeSection}
+        onSection={navigateSection}
       />
 
       <main className="main-surface chat-surface">
@@ -794,9 +858,9 @@ export default function App() {
             <PanelLeftOpen aria-hidden="true" size={19} />
           </button>
           <div className="chat-title">
-            <span className="thread-kicker">研究线程</span>
-            <strong>{activeConversation?.title ?? "新对话"}</strong>
-            <small>每轮重新检索当前证据</small>
+            <span className="thread-kicker">{sectionKicker}</span>
+            <strong>{sectionTitle}</strong>
+            <small>{sectionSubtitle}</small>
           </div>
           <div className="chat-topbar-actions">
             <button
@@ -859,7 +923,7 @@ export default function App() {
           </div>
         )}
 
-        {surface.kind === "home" && (
+        {(surface.kind === "home" || surface.kind === "ask") && (
           <div className="conversation-surface">
             <MessageThread
               messages={messages}
@@ -890,6 +954,20 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {(["today", "themes", "signals", "validation"] as const).includes(
+          surface.kind as "today" | "themes" | "signals" | "validation",
+        ) &&
+          overview && (
+            <OutputWorkbench
+              overview={overview}
+              section={
+                surface.kind as "today" | "themes" | "signals" | "validation"
+              }
+              refreshing={overviewRefreshing}
+              onRefresh={() => void refreshOverview()}
+            />
+          )}
 
         {surface.kind === "library" && (
           <ArtifactLibrary
@@ -932,9 +1010,16 @@ export default function App() {
           />
         )}
 
-        {loading && surface.kind === "home" && messages.length === 0 && (
+        {loading &&
+          (surface.kind === "home" || surface.kind === "ask") &&
+          messages.length === 0 && (
           <div className="surface-loading">正在恢复会话…</div>
         )}
+        {!loading &&
+          !overview &&
+          (["today", "themes", "signals", "validation"] as const).includes(
+            surface.kind as "today" | "themes" | "signals" | "validation",
+          ) && <div className="surface-loading">结构化数据暂不可用</div>}
       </main>
 
       <ResearchInspector

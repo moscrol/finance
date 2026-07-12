@@ -1279,6 +1279,16 @@ def test_bootstrap_returns_workflows_runs_and_latest_artifact(client: TestClient
     assert bootstrap["data_cutoff"] == "2026-07-09"
 
 
+def test_workbench_overview_is_fail_closed_without_market_database(
+    client: TestClient,
+) -> None:
+    response = client.get("/api/workbench/overview")
+
+    assert response.status_code == 200
+    assert response.json()["market"]["stage"] == "数据缺失"
+    assert response.json()["data_status"][0]["status"] == "missing"
+
+
 def test_bootstrap_returns_self_use_maturity_projection(client: TestClient) -> None:
     ledger = SelfUseLedger(
         userspace.user_space("demo").root / "self-use" / "events.jsonl"
