@@ -16,6 +16,7 @@ from intelligence import userspace  # noqa: E402
 from intelligence.api import app as app_module  # noqa: E402
 from intelligence.services import run_store as rs  # noqa: E402
 from intelligence.services.conversation_store import ConversationStore  # noqa: E402
+from intelligence.services import perspective_lab  # noqa: E402
 from intelligence.services.run_store import RunStore  # noqa: E402
 from intelligence.services.self_use_maturity import (  # noqa: E402
     SelfUseEvent,
@@ -299,6 +300,8 @@ def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None
     assert [message["role"] for message in messages] == ["user", "assistant"]
     assert messages[0]["content"] == "今天市场怎么样？"
     assert messages[0]["selected_skill_ids"] == ["daily-review"]
+    assert messages[0]["perspective_mode"] == "neutral"
+    assert messages[0]["selected_perspective_ids"] == []
     assert messages[1]["status"] == "pending"
     assert messages[1]["run_id"] == response["run_id"]
 
@@ -315,6 +318,94 @@ def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None
     )
     assert archived.status_code == 200
     assert archived.json()["status"] == "archived"
+
+
+def test_perspective_selection_is_validated_listed_and_persisted(
+    client: TestClient,
+) -> None:
+    us = userspace.user_space("alice")
+    perspective_lab.init_perspective(
+        us,
+        "fengyuan94",
+        display_name="风远94",
+        ptype="blogger",
+    )
+    listed = client.get("/api/perspectives", params={"user": "alice"})
+    assert listed.status_code == 200
+    assert listed.json() == [
+        {
+            "perspective_id": "fengyuan94",
+            "display_name": "风远94",
+            "type": "blogger",
+            "article_count": 0,
+            "profile_confidence": "low",
+        }
+    ]
+    assert client.get("/api/perspectives", params={"user": "bob"}).json() == []
+    conversation_id = client.post(
+        "/api/conversations", json={"user": "alice"}
+    ).json()["conversation_id"]
+
+    sent = client.post(
+        f"/api/conversations/{conversation_id}/messages",
+        json={
+            "content": "按风远视角复盘",
+            "skill_mode": "auto",
+            "perspective_mode": "single",
+            "selected_perspective_ids": ["fengyuan94"],
+            "user": "alice",
+        },
+    )
+
+    assert sent.status_code == 202
+    messages = client.get(
+        f"/api/conversations/{conversation_id}/messages",
+        params={"user": "alice"},
+    ).json()
+    assert messages[0]["perspective_mode"] == "single"
+    assert messages[0]["selected_perspective_ids"] == ["fengyuan94"]
+    assert messages[1]["perspective_mode"] == "single"
+    assert messages[1]["selected_perspective_ids"] == ["fengyuan94"]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "perspective_mode": "neutral",
+            "selected_perspective_ids": ["fengyuan94"],
+        },
+        {"perspective_mode": "single", "selected_perspective_ids": []},
+        {"perspective_mode": "single", "selected_perspective_ids": ["missing"]},
+        {"perspective_mode": "compare", "selected_perspective_ids": []},
+        {
+            "perspective_mode": "compare",
+            "selected_perspective_ids": ["same", "same"],
+        },
+        {"perspective_mode": "single", "selected_perspective_ids": ["../escape"]},
+        {
+            "perspective_mode": "compare",
+            "selected_perspective_ids": ["one", "two", "three", "four"],
+        },
+    ],
+)
+def test_invalid_perspective_selection_is_rejected(
+    client: TestClient,
+    payload: dict[str, object],
+) -> None:
+    conversation_id = client.post(
+        "/api/conversations", json={"user": "alice"}
+    ).json()["conversation_id"]
+    response = client.post(
+        f"/api/conversations/{conversation_id}/messages",
+        json={
+            "content": "复盘",
+            "skill_mode": "auto",
+            "user": "alice",
+            **payload,
+        },
+    )
+    assert response.status_code == 422
 
 
 def test_conversation_message_run_parent_chains_across_turns(client: TestClient) -> None:
@@ -843,6 +934,8 @@ def test_create_app_recovers_interrupted_conversation_turn(tmp_path, monkeypatch
         run_id=run.run_id,
         skill_mode="manual",
         selected_skill_ids=["daily-agent"],
+        perspective_mode="compare",
+        selected_perspective_ids=["fengyuan94"],
     )
     assistant_message = conversation_store.append_message(
         conversation.conversation_id,
@@ -894,6 +987,8 @@ def test_create_app_recovers_interrupted_conversation_turn(tmp_path, monkeypatch
     assert captured["query"] == user_message.content
     assert captured["skill_mode"] == "manual"
     assert captured["selected_skill_ids"] == ["daily-agent"]
+    assert captured["perspective_mode"] == "compare"
+    assert captured["selected_perspective_ids"] == ["fengyuan94"]
     assert str(captured["event_id_prefix"]).startswith("recovery:")
 
 

@@ -9,6 +9,7 @@ import type {
   DailyReportProjection,
   Followup,
   LLMConfig,
+  PerspectiveDescription,
   ProductSkillDescription,
   Run,
   RunContext,
@@ -178,6 +179,10 @@ export function createConversationMessage(
 
 export function getSkills(user?: string): Promise<ProductSkillDescription[]> {
   return request<ProductSkillDescription[]>(withUser("/api/skills", user));
+}
+
+export function getPerspectives(user?: string): Promise<PerspectiveDescription[]> {
+  return request<PerspectiveDescription[]>(withUser("/api/perspectives", user));
 }
 
 export function getLLMConfig(user?: string): Promise<LLMConfig> {

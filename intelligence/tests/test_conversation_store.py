@@ -50,6 +50,29 @@ def test_create_append_reload_and_archive_preserves_messages(tmp_path):
     assert reloaded.load_messages(conversation.conversation_id) == [message]
 
 
+def test_message_perspective_selection_persists_without_leaking_to_other_conversations(
+    tmp_path,
+):
+    store = ConversationStore("alice", root=tmp_path)
+    first = store.create_conversation("风远视角")
+    second = store.create_conversation("数据中立")
+
+    stored = store.append_message(
+        first.conversation_id,
+        "user",
+        "怎么看今天行情",
+        perspective_mode="single",
+        selected_perspective_ids=["fengyuan94"],
+    )
+    neutral = store.append_message(second.conversation_id, "user", "复盘")
+
+    assert stored.perspective_mode == "single"
+    assert stored.selected_perspective_ids == ["fengyuan94"]
+    assert store.load_messages(first.conversation_id)[0] == stored
+    assert neutral.perspective_mode == "neutral"
+    assert neutral.selected_perspective_ids == []
+
+
 def test_defaults_to_demo_user(tmp_path):
     store = ConversationStore(root=tmp_path)
     conversation = store.create_conversation()

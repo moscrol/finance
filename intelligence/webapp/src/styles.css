@@ -4175,6 +4175,30 @@ button.model-choice {
   padding: 0;
 }
 
+.perspective-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.perspective-menu-popover {
+  width: min(380px, calc(100vw - 48px));
+  max-height: min(480px, 64vh);
+  overflow-y: auto;
+}
+
+.perspective-options {
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.perspective-options .skill-option {
+  padding-left: 24px;
+}
+
+.perspective-chips {
+  display: none;
+}
+
 .skill-menu-trigger {
   white-space: nowrap;
 }

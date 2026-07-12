@@ -29,7 +29,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, research_brief, scenario_tree, user_memory
+from intelligence.services import ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, perspective_lab, research_brief, scenario_tree, user_memory
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -198,6 +198,8 @@ class AskOptions:
     compose_revise_on_warn: bool = True
     conversation_context: str = ""
     supplemental_evidence: str = ""
+    perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL
+    perspective_ids: tuple[str, ...] = ()
     stream_text_delta: Callable[[str], None] | None = field(
         default=None, repr=False, compare=False
     )
@@ -1196,14 +1198,26 @@ def answer_query(options: AskOptions) -> AskResult:
             f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
         )
         us = userspace.user_space(options.user)
-        cards, card_warn = experience_cards.load_cards(
-            us.experience_cards_path,
-            window=options.experience_cards_window,
+        perspective_context = perspective_lab.build_runtime_context(
+            us,
+            mode=options.perspective_mode,
+            perspective_ids=options.perspective_ids,
+            query=options.query,
         )
-        if card_warn:
-            result.warnings.append(card_warn)
-        selected_cards = experience_cards.select_relevant_cards(cards, options.query)
-        experience_guidance = experience_cards.render_for_prompt(selected_cards)
+        experience_guidance = ""
+        if options.include_memory_block:
+            cards, card_warn = experience_cards.load_cards(
+                us.experience_cards_path,
+                window=options.experience_cards_window,
+            )
+            if card_warn:
+                result.warnings.append(card_warn)
+            selected_cards = experience_cards.select_relevant_cards(
+                cards, options.query
+            )
+            experience_guidance = experience_cards.render_for_prompt(
+                selected_cards
+            )
         exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
         if options.include_scenario_guidance:
             scenario_guidance = scenario_tree.scenario_guidance_for_query(
@@ -1221,6 +1235,10 @@ def answer_query(options: AskOptions) -> AskResult:
             quality_context=quality_context,
             experience_guidance=experience_guidance,
             exemplar_guidance=exemplar_guidance,
+        )
+        msgs[0]["content"] = (
+            f"{msgs[0]['content']}\n\n## 本轮视角约束\n"
+            f"{perspective_context.prompt}"
         )
         if options.conversation_context:
             msgs.insert(

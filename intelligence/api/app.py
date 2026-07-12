@@ -41,6 +41,7 @@ from intelligence.api.stream_events import legacy_event_type
 from intelligence.services import followups as followups_svc
 from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
+from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
 from intelligence.services.conversation_orchestrator import TurnOrchestrator
 from intelligence.services.conversation_store import (
@@ -122,6 +123,8 @@ class RunSupervisor:
         query: str,
         skill_mode: Literal["manual", "auto", "hybrid"],
         selected_skill_ids: list[str],
+        perspective_mode: Literal["neutral", "single", "compare"],
+        selected_perspective_ids: list[str],
         event_id_prefix: str = "",
         llm_provider: LLMProvider | None = None,
     ) -> None:
@@ -138,6 +141,8 @@ class RunSupervisor:
                 query=query,
                 skill_mode=skill_mode,
                 selected_skill_ids=selected_skill_ids,
+                perspective_mode=perspective_mode,
+                selected_perspective_ids=selected_perspective_ids,
                 cancellation_signal=signal,
                 event_id_prefix=event_id_prefix,
                 llm_provider=llm_provider,
@@ -302,6 +307,8 @@ class CreateMessageRequest(BaseModel):
     content: str = Field(min_length=1)
     skill_mode: Literal["manual", "auto", "hybrid"]
     selected_skill_ids: list[str] = Field(default_factory=list)
+    perspective_mode: Literal["neutral", "single", "compare"] = "neutral"
+    selected_perspective_ids: list[str] = Field(default_factory=list)
     user: str | None = None
 
     @field_validator("content")
@@ -336,6 +343,8 @@ def _run_conversation_turn(
     skill_mode: Literal["manual", "auto", "hybrid"],
     selected_skill_ids: list[str],
     cancellation_signal: CancellationSignal,
+    perspective_mode: Literal["neutral", "single", "compare"] = "neutral",
+    selected_perspective_ids: list[str] | None = None,
     event_id_prefix: str = "",
     llm_provider: LLMProvider | None = None,
 ) -> None:
@@ -369,6 +378,8 @@ def _run_conversation_turn(
             query=query,
             skill_mode=skill_mode,
             selected_skill_ids=selected_skill_ids,
+            perspective_mode=perspective_mode,
+            selected_perspective_ids=selected_perspective_ids or [],
         )
 
 
@@ -881,6 +892,8 @@ def _resume_conversation_run(
         query=user_message.content,
         skill_mode=user_message.skill_mode,
         selected_skill_ids=list(user_message.selected_skill_ids),
+        perspective_mode=user_message.perspective_mode,
+        selected_perspective_ids=list(user_message.selected_perspective_ids),
         event_id_prefix=event_id_prefix,
     )
     return True
@@ -1174,6 +1187,14 @@ def create_app(
                 raise HTTPException(422, "unknown product skill")
             if len(dict.fromkeys(req.selected_skill_ids)) > 3:
                 raise HTTPException(422, "at most 3 product skills may be selected")
+            try:
+                selected_perspective_ids = perspective_lab.validate_runtime_selection(
+                    userspace.user_space(conversation.user_id),
+                    req.perspective_mode,
+                    req.selected_perspective_ids,
+                )
+            except (ValueError, FileNotFoundError) as exc:
+                raise HTTPException(422, str(exc)) from exc
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
             run = run_store.create_run(
@@ -1191,6 +1212,8 @@ def create_app(
                     run_id=run.run_id,
                     skill_mode=req.skill_mode,
                     selected_skill_ids=req.selected_skill_ids,
+                    perspective_mode=req.perspective_mode,
+                    selected_perspective_ids=list(selected_perspective_ids),
                 )
                 assistant_message = store.append_message(
                     conversation_id,
@@ -1198,6 +1221,8 @@ def create_app(
                     "",
                     status="pending",
                     run_id=run.run_id,
+                    perspective_mode=req.perspective_mode,
+                    selected_perspective_ids=list(selected_perspective_ids),
                 )
                 current = store.load_conversation(conversation_id)
                 store.update_summary(
@@ -1213,6 +1238,8 @@ def create_app(
                     query=req.content,
                     skill_mode=req.skill_mode,
                     selected_skill_ids=list(req.selected_skill_ids),
+                    perspective_mode=req.perspective_mode,
+                    selected_perspective_ids=list(selected_perspective_ids),
                     llm_provider=llm_settings.provider_for(run_store.user_id),
                 )
             except Exception:
@@ -1246,6 +1273,11 @@ def create_app(
                 return []
             raise
         return [asdict(skill) for skill in registry.SKILL_REGISTRY.values()]
+
+    @app.get("/api/perspectives")
+    def list_perspectives(user: str | None = None) -> list[dict[str, object]]:
+        user_id = store_for(user).user_id
+        return perspective_lab.list_profiles(userspace.user_space(user_id))
 
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
