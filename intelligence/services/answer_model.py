@@ -22,6 +22,12 @@ _ENGINEERING_TERMS = (
     "graph_only",
     "exposure_only",
     "L1_L3_candidate",
+    "capacity_industry",
+    "market_context",
+    "knowledge_evidence",
+    "MarketAdapter.",
+    "snapshot/export",
+    "DuckDB",
     "retrieval",
     "rerank",
     "Run ID",
@@ -29,6 +35,38 @@ _ENGINEERING_TERMS = (
     "Daily Review",
 )
 _PRESENTER_REPLACEMENTS = (
+    ("仅有 graph_only 关联", "仅有概念关联，尚无公司级证据"),
+    (
+        "知识图谱未命中该词：可能是新词/别名未登记，建议先 concept-ingest 或 disclosure-archive 补证",
+        "知识库尚未识别这个题材或别名，需要补充题材定义，并核对公告、年报等公司资料",
+    ),
+    ("公司本体不清", "公司业务关联度不清晰"),
+    ("逻辑高度直接受限", "这条逻辑的直接性将明显下降"),
+    ("事实、推测与待验证边界：", "当前的事实边界是："),
+    ("观点有效期：", "复核时间："),
+    ("L3 官方证据缺失", "缺少公告等公司级硬证据"),
+    ("MarketAdapter.get_double_red_themes", "板块涨幅与边际成交数据"),
+    ("MarketAdapter.get_theme_stock_signals", "题材个股盘面数据"),
+    ("MarketAdapter.get_new_high_directions", "新高方向盘面数据"),
+    ("MarketAdapter.get_limit_heat_themes", "涨停热度盘面数据"),
+    ("MarketAdapter.get_limit_advance_themes", "连板晋级盘面数据"),
+    ("MarketAdapter.get_capacity_sectors", "行业成交容量数据"),
+    ("score_detail.new_high_direction", "新高方向信号"),
+    ("score_detail.new_high_cluster", "新高个股集中信号"),
+    ("score_detail.limit_advance_cluster", "连板晋级信号"),
+    ("score_detail.capacity_industry", "行业成交容量信号"),
+    ("score_detail.double_red", "涨幅与边际成交同步转强信号"),
+    ("score_detail.limit_heat", "涨停热度信号"),
+    ("new_high_direction", "新高方向确认"),
+    ("new_high_cluster", "新高个股集中"),
+    ("limit_advance_cluster", "连板晋级集中"),
+    ("capacity_industry", "成交容量居前"),
+    ("double_red", "涨幅与边际成交同步转强"),
+    ("limit_heat", "涨停热度集中"),
+    ("market_context", "市场环境"),
+    ("knowledge_evidence", "知识库候选资料"),
+    ("super_capacity", "超大成交容量"),
+    ("long_tail", "长尾候选"),
     ("graph_only", "仅有概念关联，未发现公司级证据"),
     ("exposure_only", "仅有概念关联，未发现公司级证据"),
     ("L1_L3_candidate", "候选资料，需公告或年报确认"),
@@ -43,7 +81,7 @@ _PRESENTER_REPLACEMENTS = (
     ("evidence_index", "证据索引"),
     ("wiki 向量", "知识库语义检索"),
     ("DuckDB", "本地市场数据库"),
-    ("snapshot/export", "盘面快照或导出数据"),
+    ("snapshot/export", "历史盘面快照"),
 )
 
 
@@ -526,11 +564,26 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     if notices:
         lines.append(humanize(notices[0]))
         lines.append("")
-    lines.append("## 三行结论")
-    for claim in answer_spec.summary[:3]:
-        lines.append(f"- {_present_claim(claim)}")
-    lines.extend(["", "## 公司证据表"])
+    lines.append(f"# {humanize(answer_spec.research_spec.theme)}：当前判断与证据边界")
+    lines.extend(["", "## 先给结论"])
+    for index, claim in enumerate(answer_spec.summary[:3], start=1):
+        lines.append(f"{index}. {_present_summary_claim(claim)}")
+    lines.extend(["", "## 公司证据"])
     if answer_spec.company_table:
+        core_count = sum(
+            company.tier == CompanyTier.CORE for company in answer_spec.company_table
+        )
+        if core_count:
+            lines.append(
+                f"本轮有 {core_count} 家公司达到核心分层，"
+                "其余公司仍需按公开披露逐项核对。"
+            )
+        else:
+            lines.append(
+                "以下公司只是一份待核验清单，不等于核心受益者。"
+                "只有公告、年报、官网产品资料或客户订单，才能把公司与题材直接绑定。"
+            )
+        lines.append("")
         lines.extend(
             [
                 "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
@@ -552,37 +605,57 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
                 + " |"
             )
     else:
-        lines.append("- 未形成可展示的公司级证据表。")
-    lines.extend(["", "## 最大缺口与反证"])
+        lines.append(
+            "目前没有公司达到可展示的证据门槛。题材框架可以继续研究，"
+            "但还不能据此确认任何一家公司的直接受益关系。"
+        )
+    lines.extend(["", "## 为什么现在还不能下更强结论"])
+    lines.append("目前最需要警惕的是以下反证和证据缺口：")
     risk_claims = _dedupe_claims((*answer_spec.counter_evidence, *answer_spec.gaps))
     for claim in risk_claims[:4]:
         lines.append(f"- {_present_claim(claim)}")
-    lines.extend(["", "## 下一步核验"])
-    for action in _dedupe(answer_spec.next_actions)[:4]:
-        lines.append(f"- {humanize(action)}")
+    lines.extend(["", "## 下一步看什么"])
+    verified_keys = {
+        _normalize(claim.text) for claim in _dedupe_claims(answer_spec.verified_facts)
+    }
+    future_triggers = [
+        humanize(claim.text)
+        for claim in _dedupe_claims(answer_spec.triggers)
+        if _normalize(claim.text) not in verified_keys
+    ]
+    if future_triggers:
+        lines.append(
+            "**判断升级需要：** "
+            + "；".join(future_triggers[:3]).rstrip("。")
+            + "。"
+        )
+    actions = _dedupe(answer_spec.next_actions)
+    review_window = next(
+        (action for action in actions if action.startswith("复核时间：")),
+        "",
+    )
+    if review_window:
+        lines.append(f"**{review_window}**")
+    lines.append("建议按下面的顺序核验；公司级证据出现前，不把候选升级为核心：")
+    ordered_actions = [
+        action for action in actions if not action.startswith("复核时间：")
+    ]
+    for index, action in enumerate(ordered_actions[:4], start=1):
+        lines.append(f"{index}. {action}")
     detail_lines: list[str] = []
     if answer_spec.verified_facts:
-        detail_lines.extend(["### 已核验事实"])
+        detail_lines.extend(["### 已出现的支持信号"])
         detail_lines.extend(
             f"- {humanize(claim.text)}" for claim in _dedupe_claims(answer_spec.verified_facts)
         )
-    if answer_spec.triggers:
-        detail_lines.extend(["", "### 触发条件"])
-        detail_lines.extend(
-            f"- {humanize(claim.text)}" for claim in _dedupe_claims(answer_spec.triggers)
-        )
     if answer_spec.sources:
-        detail_lines.extend(["", "### 完整来源"])
-        detail_lines.extend(
-            f"- [{source.evidence_id}] {humanize(source.source)}"
-            + (f" — {humanize(source.detail)}" if source.detail else "")
-            for source in answer_spec.sources
-        )
+        detail_lines.extend(["", "### 来源与证据边界"])
+        detail_lines.extend(_present_sources(answer_spec.sources))
     if len(notices) > 1:
-        detail_lines.extend(["", "### 检索状态"])
+        detail_lines.extend(["", "### 数据说明"])
         detail_lines.extend(f"- {humanize(notice)}" for notice in notices[1:])
     if detail_lines:
-        lines.extend(["", "<details><summary>展开盘面、来源与检索状态</summary>", ""])
+        lines.extend(["", "<details><summary>展开盘面依据、来源和数据说明</summary>", ""])
         lines.extend(detail_lines)
         lines.extend(["", "</details>"])
     return "\n".join(lines).rstrip() + "\n"
@@ -645,10 +718,36 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
 def humanize(text: str) -> str:
     rendered = str(text or "")
     rendered = re.sub(r"^\[[^\]]+\]\s*", "", rendered)
+    rendered = re.sub(
+        r"\b(20\d{2}-\d{2}-\d{2})-theme-candidates\.json\b",
+        r"\1 题材候选快照",
+        rendered,
+    )
     for internal, public in _PRESENTER_REPLACEMENTS:
         rendered = rendered.replace(internal, public)
     rendered = rendered.replace("检索失败", "该资料源本轮不可用，未用于结论")
     rendered = re.sub(r"\[([A-Z]\d+)\]", "", rendered)
+    rendered = re.sub(
+        r"(?<![\d.])-?\d+\.\d{4,}(?!\d)",
+        lambda match: _format_decimal(match.group(0)),
+        rendered,
+    )
+    rendered = re.sub(
+        r"^信号\s+([^（]+)（-?\d+(?:\.\d+)?）：",
+        r"\1：",
+        rendered,
+    )
+    rendered = re.sub(
+        r"市场占比(\d+(?:\.\d+)?)(?![%\d.])",
+        r"市场占比\1%",
+        rendered,
+    )
+    rendered = rendered.replace("容量前三=True", "且属于成交容量前三")
+    rendered = rendered.replace("容量前三=False", "但未进入成交容量前三")
+    rendered = re.sub(r"\bTrue\b", "是", rendered)
+    rendered = re.sub(r"\bFalse\b", "否", rendered)
+    rendered = rendered.replace("本地 本地市场数据库", "本地市场数据库")
+    rendered = rendered.replace("盘面快照或导出数据", "历史盘面快照")
     rendered = re.sub(r"\s{2,}", " ", rendered)
     return rendered.strip()
 
@@ -703,10 +802,21 @@ def _prompt_claim(claim: Claim) -> str:
 def _present_claim(claim: Claim) -> str:
     prefix = {
         ClaimStatus.VERIFIED: "",
-        ClaimStatus.CANDIDATE: "候选判断：",
-        ClaimStatus.INFERRED: "研究口径：",
-        ClaimStatus.MISSING: "证据缺口：",
-        ClaimStatus.CONFLICT: "反证：",
+        ClaimStatus.CANDIDATE: "当前判断（待验证）：",
+        ClaimStatus.INFERRED: "",
+        ClaimStatus.MISSING: "还缺：",
+        ClaimStatus.CONFLICT: "风险：",
+    }[claim.status]
+    return prefix + humanize(claim.text)
+
+
+def _present_summary_claim(claim: Claim) -> str:
+    prefix = {
+        ClaimStatus.VERIFIED: "",
+        ClaimStatus.CANDIDATE: "当前判断：",
+        ClaimStatus.INFERRED: "",
+        ClaimStatus.MISSING: "证据边界：",
+        ClaimStatus.CONFLICT: "主要风险：",
     }[claim.status]
     return prefix + humanize(claim.text)
 
@@ -732,9 +842,8 @@ def _dedupe(items: tuple[str, ...] | list[str]) -> list[str]:
     result: list[str] = []
     for item in items:
         cleaned = humanize(item)
-        key = _normalize(
-            re.sub(r"^(?:核验动作|下一步|建议)[:：]\s*", "", cleaned)
-        )
+        cleaned = re.sub(r"^(?:核验动作|下一步|建议)[:：]\s*", "", cleaned)
+        key = _normalize(cleaned)
         if not cleaned or not key or key in seen:
             continue
         seen.add(key)
@@ -752,3 +861,44 @@ def _dedupe_claims(items: tuple[Claim, ...]) -> tuple[Claim, ...]:
         seen.add(key)
         result.append(claim)
     return tuple(result)
+
+
+def _format_decimal(value: str) -> str:
+    number = round(float(value), 2)
+    if number.is_integer():
+        return str(int(number))
+    return f"{number:.2f}".rstrip("0").rstrip(".")
+
+
+def _present_sources(sources: tuple[EvidenceRef, ...]) -> list[str]:
+    grouped: dict[tuple[str, str], list[str]] = {}
+    for source in sources:
+        source_name = humanize(source.source)
+        detail = humanize(source.detail)
+        key = (source_name, detail)
+        grouped.setdefault(key, []).append(source.evidence_id)
+    rows: list[str] = []
+    for (source_name, detail), evidence_ids in grouped.items():
+        label = _format_evidence_ids(evidence_ids)
+        prefix = f"[{label}] " if label else ""
+        rows.append(prefix + source_name + (f" — {detail}" if detail else ""))
+    return [f"- {row}" for row in rows]
+
+
+def _format_evidence_ids(evidence_ids: list[str]) -> str:
+    unique_ids = list(dict.fromkeys(evidence_ids))
+    if unique_ids == ["ONTOLOGY"]:
+        return "研究框架"
+    if len(unique_ids) == 1:
+        return unique_ids[0]
+    parsed = [re.fullmatch(r"([A-Z])(\d+)", evidence_id) for evidence_id in unique_ids]
+    if all(match is not None for match in parsed):
+        prefixes = {match.group(1) for match in parsed if match is not None}
+        numbers = [int(match.group(2)) for match in parsed if match is not None]
+        if (
+            len(prefixes) == 1
+            and numbers == list(range(numbers[0], numbers[0] + len(numbers)))
+        ):
+            prefix = prefixes.pop()
+            return f"{prefix}{numbers[0]}–{prefix}{numbers[-1]}"
+    return "、".join(unique_ids)

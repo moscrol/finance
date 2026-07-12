@@ -448,7 +448,9 @@ class DailyMarketOverviewTests(unittest.TestCase):
         self.assertEqual(trade_date, "2026-07-01")
         self.assertEqual(source, "snapshot_fallback")
         self.assertIn("不能视为最新交易日复盘", notice or "")
-        self.assertIn("未连接本地 DuckDB", warnings[0])
+        self.assertIn("没有连接本地市场数据", warnings[0])
+        self.assertNotIn("DuckDB", warnings[0])
+        self.assertNotIn("snapshot/export", warnings[0])
 
     def test_builds_current_market_block_and_marks_lagging_subtable(self) -> None:
         duckdb = __import__("duckdb")

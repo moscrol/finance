@@ -11,6 +11,42 @@ const internalIssuePattern =
   /Traceback|File ".+", line \d+|^[A-Za-z_][\w.]+(?:Error|Exception):|^[a-z][a-z0-9_]+$/;
 const localPathPattern = /\/(?:Users|home)\/|[A-Za-z]:\\/;
 
+const publicTextReplacements: Array<[RegExp, string]> = [
+  [/\bDuckDB\b/gi, "本地市场数据"],
+  [/snapshot\/export/gi, "历史盘面快照"],
+  [/\bcapacity_industry\b/g, "成交容量居前"],
+  [/\bmarket_context\b/g, "市场环境"],
+  [/\bknowledge_evidence\b/g, "知识库候选资料"],
+  [/\bMarketAdapter\.get_[A-Za-z0-9_]+\b/g, "本地盘面数据"],
+  [/\bgraph_only\b/g, "仅有概念关联，未发现公司级证据"],
+  [/\bL1_L3_candidate\b/g, "候选资料，需公告或年报确认"],
+  [/\bTrue\b/g, "是"],
+  [/\bFalse\b/g, "否"],
+  [/\brun trace\b/gi, "本次研究记录"],
+];
+
+export function userFacingText(text: string): string {
+  let value = text.trim();
+  if (!value) return value;
+  if (/chunk=|hash=|index=/.test(value)) {
+    return "该来源已绑定到本轮回答，可在运行记录中回查。";
+  }
+  if (localPathPattern.test(value)) return "本地研究文件";
+  value = value.replace(/^\[[A-Z]\d+\]\s*/, "");
+  value = value.replace(
+    /\b(20\d{2}-\d{2}-\d{2})-theme-candidates\.json\b/g,
+    "$1 题材候选快照",
+  );
+  for (const [pattern, replacement] of publicTextReplacements) {
+    value = value.replace(pattern, replacement);
+  }
+  return value
+    .replace("本地 本地市场数据", "本地市场数据")
+    .replace(/到\s+历史盘面快照/g, "到历史盘面快照")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 export function userFacingIssue(issue: string): string {
   const value = issue.trim();
   if (issueLabels[value]) return issueLabels[value];
@@ -34,6 +70,8 @@ export function userFacingIssue(issue: string): string {
   if (localPathPattern.test(value)) {
     return "某项本地研究数据暂不可用；相关证据未纳入本轮结论。";
   }
+  const humanized = userFacingText(value);
+  if (humanized !== value) return humanized;
   if (internalIssuePattern.test(value)) {
     return "研究过程中出现内部错误；相关结论可能不完整，已保留其他可用证据。";
   }

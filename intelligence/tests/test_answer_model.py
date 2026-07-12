@@ -245,14 +245,74 @@ class PresenterAndLLMGateTests(unittest.TestCase):
     def test_presenter_uses_information_pyramid_and_hides_internal_terms(self) -> None:
         rendered = render_answer_spec(self._answer())
 
-        self.assertIn("## 三行结论", rendered)
-        self.assertIn("## 公司证据表", rendered)
-        self.assertIn("## 最大缺口与反证", rendered)
-        self.assertIn("## 下一步核验", rendered)
+        self.assertIn("# 稳定币支付：当前判断与证据边界", rendered)
+        self.assertIn("## 先给结论", rendered)
+        self.assertIn("## 公司证据", rendered)
+        self.assertIn("## 为什么现在还不能下更强结论", rendered)
+        self.assertIn("## 下一步看什么", rendered)
         self.assertIn("<details>", rendered)
-        self.assertIn("仅有概念关联，未发现公司级证据", rendered)
+        self.assertIn("仅有概念关联，尚无公司级证据", rendered)
         self.assertNotIn("graph_only", rendered)
         self.assertEqual(rendered.count("核对公告或年报。"), 1)
+
+    def test_presenter_formats_values_and_deduplicates_user_visible_sources(self) -> None:
+        spec = resolve_theme_research_spec("分析人形机器人产业链")
+        signal = make_claim(
+            claim_id="market-noisy",
+            text=(
+                "信号 new_high_direction（61.35）：新高股63只，"
+                "新高成交907.6599999999997亿，容量前三=True"
+            ),
+            claim_type="market_signal",
+            theme=spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L4",
+            evidence_ids=("S1",),
+        )
+        answer = AnswerSpec(
+            research_spec=spec,
+            summary=(signal,),
+            verified_facts=(signal,),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="gap-noisy",
+                    text="缺少公司级公告。",
+                    claim_type="evidence_gap",
+                    theme=spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(signal,),
+            next_actions=("核验动作：核对客户和认证状态",),
+            sources=tuple(
+                EvidenceRef(
+                    f"R{index}",
+                    "2026-07-01-theme-candidates.json · knowledge_evidence",
+                )
+                for index in range(1, 5)
+            ),
+            system_notices=(
+                "未连接本地 DuckDB；本轮回退到截至 2026-07-01 的 snapshot/export。",
+            ),
+        )
+
+        rendered = render_answer_spec(answer)
+
+        self.assertIn("新高成交907.66亿", rendered)
+        self.assertIn("且属于成交容量前三", rendered)
+        self.assertIn("[R1–R4]", rendered)
+        self.assertEqual(rendered.count("知识库候选资料"), 1)
+        for internal in (
+            "new_high_direction",
+            "knowledge_evidence",
+            "DuckDB",
+            "snapshot/export",
+            "True",
+            "907.6599999999997",
+        ):
+            self.assertNotIn(internal, rendered)
 
     def test_llm_gate_rejects_new_company_and_number(self) -> None:
         issues = validate_llm_answer(
@@ -285,8 +345,8 @@ class AskIntegrationTests(unittest.TestCase):
             "stablecoin_payment",
         )
         rendered = render_conversation_answer(result)
-        self.assertIn("## 三行结论", rendered)
-        self.assertIn("## 公司证据表", rendered)
+        self.assertIn("## 先给结论", rendered)
+        self.assertIn("## 公司证据", rendered)
         self.assertNotIn("graph_only", rendered)
         self.assertNotIn("模块路由", rendered)
 

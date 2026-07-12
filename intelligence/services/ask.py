@@ -338,30 +338,31 @@ def _resolve_market_data_context(
         warnings: list[str] = []
         if snapshot_date and snapshot_date != market_date:
             warnings.append(
-                f"题材候选快照截至 {snapshot_date}，早于本地 DuckDB 的 {market_date}；"
+                f"题材候选快照截至 {snapshot_date}，早于本地市场数据的 {market_date}；"
                 "快照仅作辅助参考，不作为本轮整体数据日期。"
             )
         notice = (
-            f"**数据截至 {market_date}。** 市场总览优先读取本地 DuckDB；"
+            f"**数据截至 {market_date}。** 市场总览优先读取本地市场数据；"
             "日报导出和题材候选快照仅作补充，并按各自日期标注。"
         )
         return market_date, "duckdb", notice, warnings
 
     if snapshot_date:
         notice = (
-            "**数据降级：当前未连接本地 DuckDB。** "
-            f"以下仅使用截至 {snapshot_date} 的 snapshot/export，不能视为最新交易日复盘。"
+            "**数据说明：本轮没有连接本地市场数据。** "
+            f"以下使用截至 {snapshot_date} 的历史盘面快照，仅供辅助判断，"
+            "不能视为最新交易日复盘。"
         )
         return snapshot_date, "snapshot_fallback", notice, [
-            f"未连接本地 DuckDB；本轮回退到截至 {snapshot_date} 的 snapshot/export。"
+            f"本轮没有连接本地市场数据，已使用截至 {snapshot_date} 的历史盘面快照。"
         ]
 
     notice = (
-        "**数据降级：当前未连接本地 DuckDB，且没有可用的 snapshot/export。** "
+        "**数据说明：本轮没有连接本地市场数据，也没有可用的历史盘面快照。** "
         "本轮无法完成最新交易日复盘。"
     )
     return None, "unavailable", notice, [
-        "未连接本地 DuckDB，且没有可用 snapshot/export。"
+        "本轮没有连接本地市场数据，也没有可用的历史盘面快照。"
     ]
 
 
@@ -626,12 +627,12 @@ def answer_query(options: AskOptions) -> AskResult:
         ctx = doc.get("market_context") or {}
         if ctx:
             caps = "、".join(
-                f"{s.get('name')}({s.get('ratio')}%,{s.get('capacity_type')})"
+                f"{s.get('name')}（占比 {s.get('ratio')}%）"
                 for s in (ctx.get("capacity_sectors") or [])[:3]
             )
             tag = cite("S", f"{export_name} · market_context")
             line = (
-                f"市场环境：{ctx.get('market_stage')}，成交 {ctx.get('total_amount')}，"
+                f"市场环境：{ctx.get('market_stage')}，成交 {ctx.get('total_amount')} 亿，"
                 f"涨停 {ctx.get('limit_up')} / 跌停 {ctx.get('limit_down')}，容量前三 {caps} {tag}"
             )
             market_lines.append(line)
@@ -1755,41 +1756,116 @@ def _build_answer_spec_for_result(
     citations: list[Citation],
 ) -> answer_model.AnswerSpec:
     claims = _dedupe_structured_claims(structured_claims)
-    evidence_ids = tuple(
-        dict.fromkeys(
-            evidence_id
-            for claim in claims
-            for evidence_id in claim.evidence_ids
-        )
+    company_table = answer_model.build_company_assessments(
+        company_candidates,
+        claims,
     )
-    summary_lines = [
-        line
-        for line in conclusion_lines
-        if line
-        and not line.startswith("模块路由")
-        and "确定性结构化结果" not in line
-        and not line.startswith("观点有效期")
+    market_claims = [
+        claim
+        for claim in claims
+        if claim.claim_type in {"market_signal", "market_context"}
+        and claim.status == answer_model.ClaimStatus.VERIFIED
     ]
-    summary: list[answer_model.Claim] = []
-    for index, line in enumerate(summary_lines[:3], start=1):
-        is_definition = "题材定义" in line
+    signal_labels: list[str] = []
+    for claim in market_claims:
+        rendered = answer_model.humanize(claim.text)
+        if claim.claim_type != "market_signal":
+            continue
+        label = rendered.split("：", 1)[0].strip()
+        if label and label not in signal_labels:
+            signal_labels.append(label)
+    summary: list[answer_model.Claim] = [
+        answer_model.make_claim(
+            claim_id="summary:definition",
+            text=(
+                f"{research_spec.theme}的研究范围是："
+                f"{research_spec.definition.rstrip('。')}。"
+            ),
+            claim_type="summary",
+            theme=research_spec.theme,
+            status=answer_model.ClaimStatus.INFERRED,
+            evidence_tier="research_ontology",
+            evidence_ids=("ONTOLOGY",),
+        )
+    ]
+    if signal_labels:
+        market_evidence_ids = tuple(
+            dict.fromkeys(
+                evidence_id
+                for claim in market_claims
+                for evidence_id in claim.evidence_ids
+            )
+        )
         summary.append(
             answer_model.make_claim(
-                claim_id=f"summary:{index}",
-                text=line,
+                claim_id="summary:market",
+                text=(
+                    f"盘面上已经出现{'、'.join(signal_labels[:3])}，"
+                    "说明市场关注度有所升温；但这些信号只能反映资金行为，"
+                    "不能替代公司公告、客户、订单或收入证据。"
+                ),
                 claim_type="summary",
                 theme=research_spec.theme,
-                status=(
-                    answer_model.ClaimStatus.INFERRED
-                    if is_definition
-                    else answer_model.ClaimStatus.CANDIDATE
+                status=answer_model.ClaimStatus.CANDIDATE,
+                evidence_tier="market_data",
+                evidence_ids=market_evidence_ids,
+            )
+        )
+    else:
+        summary.append(
+            answer_model.make_claim(
+                claim_id="summary:market-gap",
+                text=(
+                    "盘面数据本轮不足，暂时无法判断资金是否已经形成持续共识。"
                 ),
-                evidence_tier="research_ontology" if is_definition else "adjudicated",
-                evidence_ids=(
-                    ("ONTOLOGY",)
-                    if is_definition
-                    else evidence_ids or ("ONTOLOGY",)
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.MISSING,
+            )
+        )
+    verified_company_claims = [
+        claim
+        for claim in claims
+        if claim.company and claim.status == answer_model.ClaimStatus.VERIFIED
+    ]
+    if verified_company_claims:
+        verified_companies = list(
+            dict.fromkeys(
+                claim.company for claim in verified_company_claims if claim.company
+            )
+        )
+        summary.append(
+            answer_model.make_claim(
+                claim_id="summary:company",
+                text=(
+                    f"公司层面已找到可回查的公开材料，覆盖"
+                    f"{'、'.join(verified_companies[:3])}；是否属于核心受益者，"
+                    "仍需结合业务直接性和收入贡献判断。"
                 ),
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.VERIFIED,
+                evidence_tier="company_evidence",
+                evidence_ids=tuple(
+                    dict.fromkeys(
+                        evidence_id
+                        for claim in verified_company_claims
+                        for evidence_id in claim.evidence_ids
+                    )
+                ),
+            )
+        )
+    else:
+        summary.append(
+            answer_model.make_claim(
+                claim_id="summary:company-gap",
+                text=(
+                    "公司层面尚未形成可回查的公告、年报、官网产品或客户订单证据，"
+                    "因此不能把任何公司列为核心受益者。"
+                ),
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.MISSING,
             )
         )
     user_gaps = [
@@ -1911,24 +1987,24 @@ def _build_answer_spec_for_result(
         for term in ("失败", "不可用", "timeout", "degraded")
     ):
         notices.append("部分资料源本轮不可用，未用于结论。")
-    actions = [
+    actions = list(research_spec.verification_actions)
+    actions.extend(
+        line for line in conclusion_lines if line.startswith("观点有效期")
+    )
+    actions.extend(
         line
         for line in follow_ups
         if line
         and "市场结构推演路径" not in line
         and not re.match(r"^\[[^\]]+\]", line)
-    ]
-    actions.extend(research_spec.verification_actions)
+    )
     spec = answer_model.AnswerSpec(
         research_spec=research_spec,
         summary=tuple(summary),
         verified_facts=tuple(
             claim for claim in claims if claim.status == answer_model.ClaimStatus.VERIFIED
         ),
-        company_table=answer_model.build_company_assessments(
-            company_candidates,
-            claims,
-        ),
+        company_table=company_table,
         counter_evidence=counter_evidence,
         gaps=gaps,
         triggers=tuple(triggers),
