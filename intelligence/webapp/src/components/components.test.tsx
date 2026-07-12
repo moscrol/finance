@@ -362,6 +362,9 @@ describe("Workbench components", () => {
     ).toBe(
       "研究过程中出现内部错误；相关结论可能不完整，已保留其他可用证据。",
     );
+    expect(userFacingIssue("找不到 /Users/a77/scripts/rag_index.py")).toBe(
+      "某项本地研究数据暂不可用；相关证据未纳入本轮结论。",
+    );
     expect(userFacingStage("ask_current_turn")).toBe("检索本轮证据");
   });
 

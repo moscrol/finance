@@ -8,7 +8,8 @@ const issueLabels: Record<string, string> = {
 };
 
 const internalIssuePattern =
-  /Traceback|File ".+", line \d+|\/(?:Users|home)\/|[A-Za-z]:\\|^[A-Za-z_][\w.]+(?:Error|Exception):|^[a-z][a-z0-9_]+$/;
+  /Traceback|File ".+", line \d+|^[A-Za-z_][\w.]+(?:Error|Exception):|^[a-z][a-z0-9_]+$/;
+const localPathPattern = /\/(?:Users|home)\/|[A-Za-z]:\\/;
 
 export function userFacingIssue(issue: string): string {
   const value = issue.trim();
@@ -27,8 +28,11 @@ export function userFacingIssue(issue: string): string {
   if (/未配置 LLM key/i.test(value)) {
     return "自然语言综合暂时不可用；已保留可核验数据与结构化产物。";
   }
-  if (internalIssuePattern.test(value)) {
+  if (localPathPattern.test(value)) {
     return "某项本地研究数据暂不可用；相关证据未纳入本轮结论。";
+  }
+  if (internalIssuePattern.test(value)) {
+    return "研究过程中出现内部错误；相关结论可能不完整，已保留其他可用证据。";
   }
   return value;
 }
