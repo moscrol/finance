@@ -176,6 +176,8 @@ class SynthesizeTests(unittest.TestCase):
         self.assertIn("禁止按公司本体、盘面、二阶导、反证逐项填空", system)
         self.assertIn("每一段都要回答这个事实改变了什么判断", system)
         self.assertIn("不要附加质检过程或审稿过程", system)
+        self.assertIn("只能使用证据中“交易日历约束”给出的日期", system)
+        self.assertIn("严禁自然日加一天或猜日期", system)
 
     def test_degrades_on_empty_content(self) -> None:
         with mock.patch.object(llm_refine, "detect_provider", return_value=_provider()), mock.patch.object(
@@ -222,6 +224,7 @@ class RenderComposeTests(unittest.TestCase):
         out = render_answer(self._base_result(None))
         self.assertNotIn("【对话式回答】", out)
         self.assertIn("【结论】", out)
+        self.assertIn("本轮没有可验证来源", out)
 
     def test_render_preserves_fupanhui_methodology_path(self) -> None:
         r = self._base_result(None)

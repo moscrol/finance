@@ -41,6 +41,7 @@ from intelligence.services.answer_orchestrator import (
     plan_answer_question,
 )
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_estimate, valuation_gap
+from intelligence.services.trading_calendar import trading_day_prompt_block
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
     MODULE_DEEP_DIVE,
@@ -1193,6 +1194,10 @@ def answer_query(options: AskOptions) -> AskResult:
                 f"{evidence_text}\n\n## 本轮产品 Skill 结构化结果\n"
                 f"{options.supplemental_evidence}"
             )
+        evidence_text = (
+            f"{evidence_text}\n\n"
+            f"{trading_day_prompt_block(result.trade_date, db_path=options.market_db_path)}"
+        )
         citation_legend = "\n".join(
             f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
         )
@@ -2275,6 +2280,7 @@ def _pct(value: float) -> float:
 
 SUBHEAD = "\x00SUB\x00"
 SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检索可观测", "输出质检", "交易含义", "引用来源"]
+NO_EVIDENCE_NOTICE = "本轮没有可验证来源，以下内容只能作为待验证推测。"
 
 
 def render_answer(result: AskResult) -> str:
@@ -2299,6 +2305,8 @@ def render_answer(result: AskResult) -> str:
     lines.append("> " + " | ".join(meta))
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
+    if not result.citations:
+        lines.append(f"> {NO_EVIDENCE_NOTICE}")
     if result.synthesis:
         lines.append("")
         lines.append("## 【对话式回答】"
@@ -2330,11 +2338,16 @@ def render_answer(result: AskResult) -> str:
 
 
 def render_conversation_answer(result: AskResult) -> str:
+    evidence_notice = f"{NO_EVIDENCE_NOTICE}\n\n" if not result.citations else ""
     if result.synthesis:
-        return result.synthesis
+        return evidence_notice + result.synthesis
 
     lines: list[str] = []
+    if evidence_notice:
+        lines.append(NO_EVIDENCE_NOTICE)
     if result.data_notice:
+        if lines:
+            lines.append("")
         lines.append(result.data_notice)
     if result.market_summary:
         if lines:

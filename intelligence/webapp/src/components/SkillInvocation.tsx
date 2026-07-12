@@ -22,7 +22,7 @@ export function SkillInvocation({
   const selected = new Set(selectedSkillIds);
 
   return (
-    <div className="skill-invocations" aria-label="Skill 调用">
+    <div className="skill-invocations" aria-label="研究工具">
       {ids.map((skillId) => {
         const skill = skills.find((item) => item.skill_id === skillId);
         if (!skill) return null;
@@ -44,7 +44,7 @@ export function SkillInvocation({
               aria-hidden="true"
               size={13}
             />
-            {selected.has(skillId) ? "手动指定" : "自动调用"} · {skill.name}
+            {selected.has(skillId) ? "已指定工具" : "已自动选择"} · {skill.name}
           </span>
         );
       })}

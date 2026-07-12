@@ -63,6 +63,7 @@ class ArtifactDescriptor:
     date: str | None
     viewer: str
     source_of_truth: str | None
+    source_label: str | None
     source_path: str
     related_run_id: str | None
     status: str
@@ -80,6 +81,7 @@ class ArtifactDescriptor:
             "date": self.date,
             "viewer": self.viewer,
             "source_of_truth": self.source_of_truth,
+            "source_label": self.source_label,
             "source_path": self.source_path,
             "related_run_id": self.related_run_id,
             "status": self.status,
@@ -109,9 +111,11 @@ def _descriptor(
     title: str,
     category: str,
     source_of_truth: str | None = None,
+    source_label: str | None = None,
     related_run_id: str | None = None,
     source_path: str | None = None,
     viewer: str | None = None,
+    artifact_date: str | None = None,
 ) -> ArtifactDescriptor:
     resolved = path.resolve()
     public_path = source_path or context.repo_relative(path)
@@ -124,7 +128,7 @@ def _descriptor(
         else:
             canonical_exists = (context.repo_root / source_of_truth).is_file()
     status = "missing" if not resolved.is_file() else ("ok" if canonical_exists else "warn")
-    date = _date_from_path(path)
+    date = artifact_date or _date_from_path(path)
     return ArtifactDescriptor(
         artifact_id=_artifact_id(category, public_path, fmt, date),
         title=title,
@@ -133,6 +137,7 @@ def _descriptor(
         date=date,
         viewer=viewer or VIEWER_BY_SUFFIX.get(suffix, "download"),
         source_of_truth=source_of_truth,
+        source_label=source_label,
         source_path=public_path,
         related_run_id=related_run_id,
         status=status,
@@ -203,15 +208,27 @@ class RunArtifactProvider:
                     "json": "native_json",
                     "html": "legacy_html",
                 }.get(renderer, VIEWER_BY_SUFFIX.get(path.suffix.lower(), "download"))
+                question = re.sub(r"\s+", " ", run.question).strip()
+                source_label = (
+                    f"研究任务：{question[:48]}{'…' if len(question) > 48 else ''}"
+                    if question
+                    else "研究任务"
+                )
                 yield _descriptor(
                     context,
                     path,
                     title=str(artifact.get("title") or relative),
                     category="run",
                     source_of_truth=f"run:{run.run_id}",
+                    source_label=source_label,
                     source_path=f"user:{context.run_store.user_id}/runs/{run.run_id}/{relative}",
                     related_run_id=run.run_id,
                     viewer=viewer,
+                    artifact_date=(
+                        run.source_date
+                        or run.duckdb_cutoff
+                        or run.created_at[:10]
+                    ),
                 )
 
 

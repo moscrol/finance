@@ -48,6 +48,7 @@ import { MessageThread } from "./components/MessageThread";
 import { ModelSettings } from "./components/ModelSettings";
 import { ResearchInspector } from "./components/ResearchInspector";
 import { supportsDailyProjection } from "./dailyReports";
+import { userFacingIssue } from "./displayText";
 import {
   applyChatStreamEvent,
   createLiveMessageState,
@@ -130,6 +131,9 @@ export default function App() {
   const conversationGeneration = useRef(0);
   const artifactGeneration = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const runPollTimerRef = useRef<number | null>(null);
+  const runPollInFlightRef = useRef(false);
+  const finalizingRunRef = useRef<string | null>(null);
 
   const user = bootstrap?.user ?? "default";
 
@@ -209,9 +213,70 @@ export default function App() {
     [fetchRunBundle, user],
   );
 
+  const clearRunPolling = useCallback(() => {
+    if (runPollTimerRef.current !== null) {
+      window.clearInterval(runPollTimerRef.current);
+      runPollTimerRef.current = null;
+    }
+    runPollInFlightRef.current = false;
+  }, []);
+
+  const finalizeRun = useCallback(
+    async (
+      identity: StreamIdentity,
+      status: "completed" | "failed" | "cancelled",
+      events: EventSource,
+    ) => {
+      if (eventSourceRef.current !== events) return;
+      if (finalizingRunRef.current === identity.runId) return;
+      finalizingRunRef.current = identity.runId;
+      setLiveMessages((current) => {
+        const state = current[identity.messageId];
+        return state?.runId === identity.runId
+          ? {
+              ...current,
+              [identity.messageId]: {
+                ...state,
+                status,
+                connection: "connected",
+              },
+            }
+          : current;
+      });
+      clearRunPolling();
+      events.close();
+      eventSourceRef.current = null;
+      try {
+        await Promise.all([
+          loadConversationData(identity.conversationId),
+          listConversations(user).then(setConversations),
+        ]);
+        setLiveMessages((current) => {
+          const state = current[identity.messageId];
+          if (!state || state.runId !== identity.runId) return current;
+          const next = { ...current };
+          delete next[identity.messageId];
+          return next;
+        });
+      } catch (caught) {
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "运行已结束，但最新结果暂时无法加载",
+        );
+      } finally {
+        if (finalizingRunRef.current === identity.runId) {
+          finalizingRunRef.current = null;
+        }
+      }
+    },
+    [clearRunPolling, loadConversationData, user],
+  );
+
   const connectStream = useCallback(
     (identity: StreamIdentity) => {
       eventSourceRef.current?.close();
+      clearRunPolling();
       const deduper = new StreamEventDeduper();
       const events = new EventSource(runEventsUrl(identity.runId, user));
       eventSourceRef.current = events;
@@ -224,6 +289,7 @@ export default function App() {
       }));
 
       const applyEvent = (rawEvent: Event) => {
+        if (eventSourceRef.current !== events) return;
         const envelope = parseStreamEnvelopeJson(
           (rawEvent as MessageEvent<string>).data,
         );
@@ -241,6 +307,7 @@ export default function App() {
         events.addEventListener(eventType, applyEvent),
       );
       events.onopen = () => {
+        if (eventSourceRef.current !== events) return;
         setLiveMessages((current) => {
           const state = current[identity.messageId];
           return state
@@ -254,7 +321,40 @@ export default function App() {
             : current;
         });
       };
+      const reconcileStatus = async () => {
+        if (eventSourceRef.current !== events) return;
+        if (runPollInFlightRef.current) return;
+        runPollInFlightRef.current = true;
+        try {
+          const run = await getRun(identity.runId, user);
+          if (eventSourceRef.current !== events) return;
+          if (["completed", "failed", "cancelled"].includes(run.status)) {
+            await finalizeRun(
+              identity,
+              run.status as "completed" | "failed" | "cancelled",
+              events,
+            );
+          }
+        } catch {
+          if (eventSourceRef.current !== events) return;
+          setLiveMessages((current) => {
+            const state = current[identity.messageId];
+            return state
+              ? {
+                  ...current,
+                  [identity.messageId]: {
+                    ...state,
+                    connection: "reconnecting",
+                  },
+                }
+              : current;
+          });
+        } finally {
+          runPollInFlightRef.current = false;
+        }
+      };
       events.onerror = () => {
+        if (eventSourceRef.current !== events) return;
         setLiveMessages((current) => {
           const state = current[identity.messageId];
           return state
@@ -267,37 +367,38 @@ export default function App() {
               }
             : current;
         });
+        void reconcileStatus();
       };
+      void reconcileStatus();
+      runPollTimerRef.current = window.setInterval(() => {
+        void reconcileStatus();
+      }, 2000);
       events.addEventListener("run", (rawEvent) => {
         try {
           const nextRun = JSON.parse(
             (rawEvent as MessageEvent<string>).data,
           ) as Run;
           if (nextRun.run_id !== identity.runId) return;
-          events.close();
-          if (eventSourceRef.current === events) eventSourceRef.current = null;
-          void loadConversationData(identity.conversationId).then(() => {
-            setLiveMessages((current) => {
-              const state = current[identity.messageId];
-              if (!state || state.runId !== identity.runId) return current;
-              const next = { ...current };
-              delete next[identity.messageId];
-              return next;
-            });
-          });
-          void listConversations(user).then(setConversations);
+          if (["completed", "failed", "cancelled"].includes(nextRun.status)) {
+            void finalizeRun(
+              identity,
+              nextRun.status as "completed" | "failed" | "cancelled",
+              events,
+            );
+          }
         } catch {
           setError("运行结束事件格式无效");
         }
       });
     },
-    [loadConversationData, user],
+    [clearRunPolling, finalizeRun, user],
   );
 
   const selectConversation = useCallback(
     async (conversationId: string) => {
       eventSourceRef.current?.close();
       eventSourceRef.current = null;
+      clearRunPolling();
       activeConversationRef.current = conversationId;
       setActiveConversationId(conversationId);
       setSurface({ kind: "home" });
@@ -337,7 +438,7 @@ export default function App() {
         }
       }
     },
-    [connectStream, loadConversationData],
+    [clearRunPolling, connectStream, loadConversationData],
   );
 
   useEffect(() => {
@@ -372,8 +473,9 @@ export default function App() {
     return () => {
       disposed = true;
       eventSourceRef.current?.close();
+      clearRunPolling();
     };
-  }, [selectConversation]);
+  }, [clearRunPolling, selectConversation]);
 
   const saveBYOK = useCallback(
     async (provider: LLMProviderId, apiKey: string, model: string) => {
@@ -534,12 +636,28 @@ export default function App() {
   );
 
   const stopGeneration = () => {
-    if (runningLive) {
-      void cancelRun(runningLive.runId, user).catch((caught) =>
-        setError(
-          caught instanceof Error ? caught.message : "停止请求失败",
-        ),
-      );
+    if (runningLive && !runningLive.cancelRequested) {
+      void cancelRun(runningLive.runId, user)
+        .then(() => {
+          setLiveMessages((current) => {
+            const state = current[runningLive.messageId];
+            return state
+              ? {
+                  ...current,
+                  [runningLive.messageId]: {
+                    ...state,
+                    cancelRequested: true,
+                    connection: "reconnecting",
+                  },
+                }
+              : current;
+          });
+        })
+        .catch((caught) =>
+          setError(
+            caught instanceof Error ? caught.message : "停止请求失败",
+          ),
+        );
     }
   };
 
@@ -716,6 +834,9 @@ export default function App() {
               <LockKeyhole aria-hidden="true" size={13} />
               私有
             </span>
+            <span className="demo-stage-badge">
+              Demo · 非计分 · Day 1 未开始
+            </span>
             <button
               className="icon-button inspector-toggle"
               type="button"
@@ -730,7 +851,7 @@ export default function App() {
 
         {error && (
           <div className="global-error" role="alert">
-            <span>{error}</span>
+            <span>{userFacingIssue(error)}</span>
             <button type="button" onClick={() => window.location.reload()}>
               <RefreshCw aria-hidden="true" size={15} />
               重试
@@ -748,6 +869,7 @@ export default function App() {
               onRegenerate={regenerate}
               onOpenArtifact={(artifactId) => void openArtifact(artifactId)}
               onFollowup={(question) => void submitResearch(question)}
+              onStarter={setDraft}
             />
             <div className="chat-composer-dock">
               <Composer
@@ -755,6 +877,7 @@ export default function App() {
                 taskType="ask"
                 disabled={submitting}
                 running={Boolean(runningLive)}
+                stopRequested={runningLive?.cancelRequested ?? false}
                 skills={skills}
                 skillMode={skillMode}
                 selectedSkillIds={selectedSkillIds}

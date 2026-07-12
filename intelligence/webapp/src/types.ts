@@ -96,6 +96,7 @@ export interface ArtifactDescriptor {
   date: string | null;
   viewer: "native_markdown" | "native_json" | "legacy_html" | "download";
   source_of_truth: string | null;
+  source_label?: string | null;
   source_path: string;
   related_run_id: string | null;
   status: "ok" | "warn" | "missing";
@@ -373,6 +374,7 @@ export interface LiveMessageState {
   skillInvocations: Record<string, LiveSkillInvocation>;
   status: "pending" | "streaming" | "completed" | "failed" | "cancelled";
   connection: "connected" | "reconnecting";
+  cancelRequested: boolean;
 }
 
 export type Surface =
