@@ -618,7 +618,9 @@ describe("Workbench components", () => {
     );
 
     expect(screen.getByText("本报告包含降级或质量警告")).toBeVisible();
-    expect(screen.getByText("wiki-rag 索引新鲜度=stale")).toBeVisible();
+    expect(
+      screen.getByText("知识库索引已过期；相关证据仅供参考。"),
+    ).toBeVisible();
     expect(screen.getByText("知识库索引快照")).toBeVisible();
     expect(screen.getByText(/版本=abc123/)).toBeVisible();
     expect(screen.getByText(/时效=当前/)).toBeVisible();

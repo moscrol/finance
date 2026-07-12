@@ -8,13 +8,27 @@ const issueLabels: Record<string, string> = {
 };
 
 const internalIssuePattern =
-  /Traceback|File ".+", line \d+|^[A-Za-z_][\w.]+(?:Error|Exception):|^[a-z][a-z0-9_]+$/;
+  /Traceback|File ".+", line \d+|\/(?:Users|home)\/|[A-Za-z]:\\|^[A-Za-z_][\w.]+(?:Error|Exception):|^[a-z][a-z0-9_]+$/;
 
 export function userFacingIssue(issue: string): string {
   const value = issue.trim();
   if (issueLabels[value]) return issueLabels[value];
+  if (/^wiki-rag\b/i.test(value)) {
+    return value.includes("stale")
+      ? "知识库索引已过期；相关证据仅供参考。"
+      : "知识库检索暂不可用；本轮未使用知识库语义证据。";
+  }
+  if (/^answer-orchestrator[:：]/i.test(value)) {
+    return "问题类型未能高置信识别；本轮按通用研究问题处理，结论需显式说明假设。";
+  }
+  if (/^(?:模块\s+)?replay[:：]/i.test(value)) {
+    return "当前题材缺少历史发酵信号，相关历史回放未执行。";
+  }
+  if (/未配置 LLM key/i.test(value)) {
+    return "自然语言综合暂时不可用；已保留可核验数据与结构化产物。";
+  }
   if (internalIssuePattern.test(value)) {
-    return "研究过程中出现内部错误；相关结论可能不完整，已保留其他可用证据。";
+    return "某项本地研究数据暂不可用；相关证据未纳入本轮结论。";
   }
   return value;
 }

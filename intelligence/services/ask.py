@@ -41,7 +41,10 @@ from intelligence.services.answer_orchestrator import (
     plan_answer_question,
 )
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_estimate, valuation_gap
-from intelligence.services.trading_calendar import trading_day_prompt_block
+from intelligence.services.trading_calendar import (
+    next_trading_day,
+    trading_day_prompt_block,
+)
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
     MODULE_DEEP_DIVE,
@@ -225,6 +228,7 @@ class AskResult:
     matched_theme: str | None
     candidate_tier: str | None
     priority_score: float | None
+    next_trade_date: str | None = None
     market_data_source: str = "unknown"
     snapshot_date: str | None = None
     data_notice: str | None = None
@@ -502,6 +506,7 @@ def answer_query(options: AskOptions) -> AskResult:
         matched_theme=(candidate or {}).get("canonical_concept") or (candidate or {}).get("market_theme"),
         candidate_tier=(candidate or {}).get("candidate_tier"),
         priority_score=(candidate or {}).get("priority_score"),
+        next_trade_date=next_trading_day(trade_date, db_path=options.market_db_path),
         market_data_source=market_data_source,
         snapshot_date=snapshot_date,
         data_notice=data_notice,
@@ -2349,6 +2354,15 @@ def render_conversation_answer(result: AskResult) -> str:
         if lines:
             lines.append("")
         lines.append(result.data_notice)
+    if re.search(r"T\+1|下一交易日|明天", result.query, re.IGNORECASE):
+        if lines:
+            lines.append("")
+        if result.next_trade_date:
+            lines.append(
+                f"下一交易日为 {result.next_trade_date}（按交易日历确认，不按自然日顺延）。"
+            )
+        else:
+            lines.append("下一交易日（日期待交易日历确认），不得按自然日猜测。")
     if result.market_summary:
         if lines:
             lines.append("")

@@ -271,6 +271,28 @@ class RenderComposeTests(unittest.TestCase):
         self.assertIn("上涨 3774 家", out)
         self.assertNotIn("本地 DuckDB 最新市场总览", out)
 
+    def test_conversation_fallback_includes_verified_next_trading_day(self) -> None:
+        result = self._base_result(None)
+        result.query = "请明确下一交易日日期"
+        result.trade_date = "2026-07-10"
+        result.next_trade_date = "2026-07-13"
+        result.data_notice = "**数据截至 2026-07-10。**"
+
+        out = render_conversation_answer(result)
+
+        self.assertIn("下一交易日为 2026-07-13", out)
+        self.assertNotIn("2026-07-11", out)
+
+    def test_conversation_fallback_fails_closed_without_calendar(self) -> None:
+        result = self._base_result(None)
+        result.query = "T+1 是哪一天"
+        result.next_trade_date = None
+
+        out = render_conversation_answer(result)
+
+        self.assertIn("日期待交易日历确认", out)
+        self.assertNotIn("2026-06-12", out)
+
 
 class DailyMarketOverviewTests(unittest.TestCase):
     def test_prefers_duckdb_date_over_older_snapshot(self) -> None:
