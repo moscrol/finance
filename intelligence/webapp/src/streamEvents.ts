@@ -64,6 +64,7 @@ export function createLiveMessageState(identity: {
     skillInvocations: {},
     status: "pending",
     connection: "connected",
+    cancelRequested: false,
   };
 }
 

@@ -21,6 +21,10 @@ interface ConversationListProps {
   onLibrary: () => void;
 }
 
+function displayConversationTitle(title: string): string {
+  return title === "新对话" ? "未命名研究" : title;
+}
+
 export function ConversationList({
   conversations,
   activeConversationId,
@@ -131,7 +135,7 @@ export function ConversationList({
                 }
                 onClick={() => onSelect(conversation.conversation_id)}
               >
-                <strong>{conversation.title}</strong>
+                <strong>{displayConversationTitle(conversation.title)}</strong>
                 <small>
                   {new Date(conversation.updated_at).toLocaleDateString("zh-CN")}
                 </small>
@@ -139,8 +143,8 @@ export function ConversationList({
               <button
                 className="conversation-archive"
                 type="button"
-                aria-label={`归档${conversation.title}`}
-                title={`归档${conversation.title}`}
+                aria-label={`归档${displayConversationTitle(conversation.title)}`}
+                title={`归档${displayConversationTitle(conversation.title)}`}
                 onClick={() => onArchive(conversation.conversation_id)}
               >
                 <Archive aria-hidden="true" size={15} />

@@ -165,6 +165,44 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("问题类型：stock_deep_dive", captured["prompt"])
         self.assertIn("公司本体", captured["prompt"])
 
+    def test_ask_compose_injects_canonical_next_trading_day(self) -> None:
+        duckdb = __import__("duckdb")
+        captured: dict[str, str] = {}
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured["prompt"] = str(messages[1]["content"])
+            return None, "mocked"
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch(
+            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            side_effect=fake_synthesize,
+        ):
+            base = Path(tmp)
+            wiki = base / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            market_db = base / "market.duckdb"
+            con = duckdb.connect(str(market_db))
+            con.execute("create table fact_stock_daily(trade_date date)")
+            con.execute("insert into fact_stock_daily values ('2026-07-10')")
+            con.execute("create table fact_market_daily(trade_date date)")
+            con.execute("insert into fact_market_daily values ('2026-07-10')")
+            con.close()
+
+            answer_query(
+                AskOptions(
+                    query="请预测下一交易日的市场风险",
+                    exports_dir=base,
+                    kb_wiki=wiki,
+                    market_db_path=market_db,
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                )
+            )
+
+        self.assertIn("下一交易日：2026-07-13", captured["prompt"])
+        self.assertNotIn("下一交易日：2026-07-11", captured["prompt"])
+
     def test_market_forecast_compose_injects_forecast_preflight_gate(self) -> None:
         captured: dict[str, str] = {}
 

@@ -5,16 +5,9 @@ import {
   FileJson2,
   FileText,
 } from "lucide-react";
+import { userFacingIssue, userFacingStage } from "../displayText";
 import type { RunBundle, TraceStep } from "../types";
 import { StatusBadge } from "./StatusBadge";
-
-const stageNames: Record<string, string> = {
-  ask_retrieve_compose: "检索本轮证据并组织回答",
-  render_artifacts: "生成回答与产物",
-  foresight_followups: "生成后续研究问题",
-  route_skills: "选择本轮 Skill",
-  ask_current_turn: "执行本轮检索",
-};
 
 function latestSteps(trace: TraceStep[]): TraceStep[] {
   const steps = new Map<string, TraceStep>();
@@ -57,10 +50,6 @@ export function RunView({
       <div className="message-run-body">
         <dl className="message-run-meta">
           <div>
-            <dt>Run</dt>
-            <dd>{run.run_id}</dd>
-          </div>
-          <div>
             <dt>数据截止</dt>
             <dd>{run.source_date ?? run.duckdb_cutoff ?? "未记录"}</dd>
           </div>
@@ -69,13 +58,16 @@ export function RunView({
         {run.error && (
           <div className="message-run-warning" role="alert">
             <AlertTriangle aria-hidden="true" size={15} />
-            {run.error}
+            {userFacingIssue(run.error)}
           </div>
         )}
         {run.degrades.length > 0 && (
           <div className="message-run-warning" role="status">
             <AlertTriangle aria-hidden="true" size={15} />
-            <span>本轮使用降级路径：{run.degrades.join("；")}</span>
+            <span>
+              本轮存在限制：
+              {[...new Set(run.degrades.map(userFacingIssue))].join("；")}
+            </span>
           </div>
         )}
 
@@ -89,7 +81,7 @@ export function RunView({
               <li key={step.step_id}>
                 <details>
                   <summary>
-                    <span>{stageNames[step.name] ?? "研究步骤"}</span>
+                    <span>{userFacingStage(step.name)}</span>
                     <StatusBadge
                       status={
                         step.status === "completed"
@@ -101,10 +93,6 @@ export function RunView({
                     />
                   </summary>
                   <dl>
-                    <div>
-                      <dt>内部工具</dt>
-                      <dd>{step.name}</dd>
-                    </div>
                     <div>
                       <dt>结果</dt>
                       <dd>
@@ -120,6 +108,20 @@ export function RunView({
             {trace.length === 0 && <li>尚未写入运行步骤</li>}
           </ol>
         </section>
+
+        <details className="message-technical-details">
+          <summary>高级详情</summary>
+          <dl>
+            <div>
+              <dt>运行编号</dt>
+              <dd>{run.run_id}</dd>
+            </div>
+            <div>
+              <dt>步骤标识</dt>
+              <dd>{latestSteps(trace).map((step) => step.name).join("、") || "无"}</dd>
+            </div>
+          </dl>
+        </details>
 
         {run.artifacts.length > 0 && (
           <section aria-labelledby={`artifacts-${run.run_id}`}>

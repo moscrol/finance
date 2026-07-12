@@ -22,6 +22,7 @@ interface MessageThreadProps {
   onRegenerate: (message: ChatMessage) => void;
   onOpenArtifact: (artifactId: string) => void;
   onFollowup: (question: string) => void;
+  onStarter: (prompt: string) => void;
 }
 
 export function MessageThread({
@@ -32,6 +33,7 @@ export function MessageThread({
   onRegenerate,
   onOpenArtifact,
   onFollowup,
+  onStarter,
 }: MessageThreadProps) {
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -69,8 +71,8 @@ export function MessageThread({
         <span className="onboarding-eyebrow">FORESIGHT · LOCAL RESEARCH</span>
         <h1>交给 Foresight 一项研究任务</h1>
         <p>
-          像开启一个任务线程一样，描述判断、标的和时间范围。Agent 会编排
-          Skill、重新检索证据，并在右侧持续展示来源与执行进度。
+          描述判断、标的和时间范围。系统会重新检索本轮证据，并持续展示来源与研究进度。
+          快捷入口只会填入问题，你可以补充后再发送。
         </p>
         <div className="starter-grid" aria-label="快捷研究入口">
           {starters.map((starter) => {
@@ -79,7 +81,7 @@ export function MessageThread({
               <button
                 type="button"
                 key={starter.title}
-                onClick={() => onFollowup(starter.prompt)}
+                onClick={() => onStarter(starter.prompt)}
               >
                 <span className="starter-icon">
                   <Icon aria-hidden="true" size={17} />

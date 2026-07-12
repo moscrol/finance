@@ -3327,6 +3327,11 @@ p {
   padding: 0 11px;
 }
 
+.stop-generation-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .message-action {
   min-height: 28px;
   margin-top: 10px;
@@ -3413,6 +3418,55 @@ p {
   color: var(--amber);
   background: var(--amber-soft);
   font-size: 9px;
+}
+
+.message-evidence-warning {
+  margin: 8px 0 12px;
+  padding: 9px 11px;
+  border: 1px solid #ead5af;
+  border-radius: 8px;
+  color: #7f551e;
+  background: #fff8e9;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.message-technical-details,
+.artifact-technical-details {
+  margin-top: 12px;
+  color: var(--faint);
+  font-size: 9px;
+}
+
+.message-technical-details > summary,
+.artifact-technical-details > summary {
+  cursor: pointer;
+}
+
+.message-technical-details dl,
+.artifact-technical-details dl {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.message-technical-details dl div,
+.artifact-technical-details dl div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.message-technical-details dd,
+.artifact-technical-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.artifact-technical-details {
+  margin: 0 0 18px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--line);
 }
 
 .message-trace-list {
@@ -3717,6 +3771,20 @@ p {
   color: #685d52;
   border-color: #e3ded7;
   background: #f3f0eb;
+}
+
+.demo-stage-badge {
+  display: inline-flex;
+  min-height: 27px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid #e7c9a6;
+  border-radius: 999px;
+  color: #87541f;
+  background: #fff6e8;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .model-status-button {
@@ -4220,6 +4288,13 @@ button.model-choice {
 
   .agent-status {
     padding: 0 7px;
+  }
+
+  .demo-stage-badge {
+    max-width: 116px;
+    padding: 0 7px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .model-status-button {

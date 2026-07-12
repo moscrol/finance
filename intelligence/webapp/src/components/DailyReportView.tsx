@@ -1,4 +1,5 @@
 import { AlertTriangle, ChevronDown } from "lucide-react";
+import { userFacingIssue } from "../displayText";
 import type {
   DailyReportProjection,
   ReportItem,
@@ -10,8 +11,8 @@ interface DailyReportViewProps {
 }
 
 const sourceLabels = {
-  canonical_json: "Canonical JSON",
-  canonical_markdown: "Canonical Markdown",
+  canonical_json: "结构化原始数据",
+  canonical_markdown: "原始研究报告",
   legacy_html_projection: "历史 HTML 兼容投影",
 };
 
@@ -166,14 +167,16 @@ export function DailyReportView({
         <h3>来源与边界</h3>
         {projection.provenance.warnings.map((warning) => (
           <p className="provenance-warning" key={warning}>
-            {warning}
+            {userFacingIssue(warning)}
           </p>
         ))}
         <dl>
           <div>
-            <dt>Canonical 来源</dt>
+            <dt>原始来源</dt>
             <dd>
-              <code>{projection.provenance.canonical_path ?? "历史产物未关联 canonical"}</code>
+              <code>
+                {projection.provenance.canonical_path ?? "历史产物未关联原始来源"}
+              </code>
             </dd>
           </div>
           {projection.provenance.generated_at && (
