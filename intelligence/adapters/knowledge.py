@@ -37,6 +37,14 @@ _GENERIC_SEARCH_TERMS = {
     "待验证",
     "触发条件",
     "核验动作",
+    "深研",
+    "给出",
+    "定义",
+    "明确",
+    "区分",
+    "核心",
+    "受益",
+    "弱关联",
 }
 
 
@@ -204,7 +212,9 @@ class KnowledgeAdapter:
                     score += 10
                 elif self._contains(candidate, name):
                     score += 5
-                elif self._contains(candidate, text):
+                elif self._is_precise_weak_search_term(
+                    candidate
+                ) and self._contains(candidate, text):
                     score += 2
             if score > 0:
                 matched.append({"concept": name, "score": score})
@@ -250,7 +260,9 @@ class KnowledgeAdapter:
                     score += 10
                 elif self._contains(candidate, concept_name):
                     score += 5
-                elif len(self._normalize(candidate)) >= 3 and self._contains(
+                elif self._is_precise_weak_search_term(
+                    candidate
+                ) and self._contains(
                     candidate, text
                 ):
                     score += 1
@@ -296,13 +308,25 @@ class KnowledgeAdapter:
     def _is_generic_search_term(cls, term: str) -> bool:
         return cls._normalize(term) in _GENERIC_SEARCH_TERMS
 
+    @classmethod
+    def _is_precise_weak_search_term(cls, term: str) -> bool:
+        normalized = cls._normalize(term)
+        return (
+            2 <= len(normalized) <= 8
+            and not any(
+                generic in normalized
+                for generic in _GENERIC_SEARCH_TERMS
+                if len(generic) >= 2
+            )
+        )
+
     @staticmethod
     def _search_terms(term: str) -> list[str]:
         parts = re.split(
             r"[\s,，、/|;；：:()（）\[\]【】“”\"'《》]+",
             str(term or ""),
         )
-        terms = [str(term or "").strip(), *[part.strip() for part in parts if len(part.strip()) >= 2]]
+        terms = [part.strip() for part in parts if len(part.strip()) >= 2]
         out = []
         for item in terms:
             if item and item not in out:

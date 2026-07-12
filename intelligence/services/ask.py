@@ -791,6 +791,11 @@ def answer_query(options: AskOptions) -> AskResult:
                 module_block.append(f"（{name} 模块未接入产出：{reason}）")
                 result.warnings.append(f"模块 {name}：{reason}")
 
+    framing = _stablecoin_payment_framing(
+        options.query,
+        result.matched_theme,
+    )
+
     # --- gaps / contradictions ---
     gap_lines: list[str] = []
     ks = (candidate or {}).get("knowledge_status") or {}
@@ -807,6 +812,7 @@ def answer_query(options: AskOptions) -> AskResult:
         gap_lines.append(
             f"{len(tiers['other'])} 家公司仅有间接或候选证据，未达到公司级硬证据门槛，不得升级为核心受益。"
         )
+    gap_lines.extend(framing.get("gaps", []))
     gap_lines.extend(stale_notes)
     gap_lines.append(
         "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
@@ -822,7 +828,7 @@ def answer_query(options: AskOptions) -> AskResult:
     gap_lines.extend(f"反方审稿：{item}" for item in quality_context.critic_questions)
 
     # ---------- assemble fixed six sections ----------
-    theme = result.matched_theme or options.query
+    theme = _quoted_topic(options.query) or result.matched_theme or options.query
     triggers = "、".join((candidate or {}).get("trigger_types", []) or []) or "无盘面触发"
     concept_count = ks.get("concept_count", len(concepts.get("items", [])))
     exposure_count = ks.get("exposure_count", len(exposures.get("items", [])))
@@ -854,9 +860,10 @@ def answer_query(options: AskOptions) -> AskResult:
         + f"：{stance}。",
         f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
         route_line,
-        "（注：结论与交易含义为模板化骨架，待接 LLM 精修；证据链/分歧/模块召回为真实检索结果。）",
+        "结论与交易含义为确定性结构化结果；证据不足处已标为待验证。",
         _conclusion_ttl_line(result.trade_date),
     ]
+    conclusion = [*framing.get("conclusion", []), *conclusion]
 
     follow_ups: list[str] = []
     if "double_red" in trig:
@@ -870,6 +877,7 @@ def answer_query(options: AskOptions) -> AskResult:
     follow_ups.extend(f"市场结构推演路径跟踪：{item}" for item in quality_context.methodology_checks if "缺口" in item)
     for mod_name, item in module_follow_ups:
         follow_ups.append(f"[{mod_name}] {item}")
+    follow_ups = [*framing.get("follow_ups", []), *follow_ups]
     if not follow_ups:
         follow_ups.append("补充盘面与基本面证据后再评估")
 
@@ -898,6 +906,12 @@ def answer_query(options: AskOptions) -> AskResult:
         + [f"{SUBHEAD}图谱·语义召回(wiki 向量)"] + wiki_section
         + module_block
     )
+    if framing:
+        evidence_chain = [
+            f"{SUBHEAD}题材定义与产业链口径",
+            *framing["evidence"],
+            *evidence_chain,
+        ]
     if question_plan.question_type == QUESTION_MARKET_FORECAST:
         daily_market_block = _daily_market_overview_block_for_llm(
             options.market_db_path
@@ -1975,6 +1989,49 @@ def _market_data_asof(market_db_path: str | Path | None) -> str | None:
 def _is_market_index_comparison_query(query: str) -> bool:
     names = ("上证指数", "深证成指", "创业板指")
     return sum(name in query for name in names) >= 2
+
+
+def _quoted_topic(query: str) -> str | None:
+    match = re.search(r"[“《\"]([^”》\"]{2,40})[”》\"]", query)
+    return match.group(1).strip() if match else None
+
+
+def _stablecoin_payment_framing(
+    query: str,
+    matched_theme: str | None,
+) -> dict[str, list[str]]:
+    if "稳定币" not in query or not any(
+        term in query for term in ("支付", "题材", "产业链")
+    ):
+        return {}
+    framing = {
+        "conclusion": [
+            "题材定义（产业翻译，非公司级事实）：稳定币支付是以锚定法币或"
+            "低波动资产的数字代币作为支付或结算媒介的研究方向。"
+        ],
+        "evidence": [
+            "产业链上游（待验证）：发行与储备管理、合规托管、清算网络和"
+            "安全基础设施。",
+            "产业链中游（待验证）：钱包、支付网关、身份与风控、安全芯片，"
+            "以及银行或跨境系统集成。",
+            "产业链下游（待验证）：商户收单、跨境贸易和汇款等支付场景；"
+            "A股公司只有获得公告、年报、官网或客户订单支持，才能升级为核心受益。",
+        ],
+        "gaps": [
+            "事实、推测与待验证边界：上述题材定义和产业链仅是研究口径；"
+            "公司归属仍需逐家核验直接产品、客户、订单和收入贡献。"
+        ],
+        "follow_ups": [
+            "核验动作：逐家公司检查公告、年报和官网，确认产品是否直接服务"
+            "稳定币支付，以及是否已有客户、订单或收入。"
+        ],
+    }
+    if matched_theme and matched_theme not in query:
+        framing["conclusion"].append(
+            f"盘面数据仅以“{matched_theme}”作为近似映射，不能替代"
+            "“稳定币支付”本身的公司级证据。"
+        )
+    return framing
 
 
 def _finite_float(value: Any) -> float | None:

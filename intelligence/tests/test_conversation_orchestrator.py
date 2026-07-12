@@ -182,6 +182,12 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
     local_path = sanitize_user_visible_artifact_text(
         'File "/Users/a77/repo/module.py", line 12, in run'
     )
+    retrieval_progress = sanitize_user_visible_artifact_text(
+        "检索降级：Fetching 30 files: 100% | Loading weights: 100%"
+    )
+    internal_module = sanitize_user_visible_artifact_text(
+        "模块·deep-dive（产业维 · radar.py --mode deep-dive 题材深拆）"
+    )
 
     assert no_llm == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
     assert "API_KEY" not in no_llm
@@ -193,6 +199,8 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
     assert "deterministic_projection" not in internal
     assert "/Users/" not in local_path
     assert "module.py" not in local_path
+    assert retrieval_progress == "外部语义检索当前不可用或受限，未使用其结果。"
+    assert internal_module == "外部语义检索当前不可用或受限，未使用其结果。"
 
 
 def test_market_question_automatically_selects_daily_review() -> None:

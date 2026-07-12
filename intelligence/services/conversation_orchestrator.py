@@ -119,6 +119,29 @@ _HUMAN_READABLE_REPLACEMENTS = (
     ("priority_score", "优先级"),
     ("diff_ratio", "成交边际变化"),
     ("模块路由", "分析路径"),
+    ("deep-dive", "产业链研究"),
+    ("disclosure-archive → apply", "官方公告与年报"),
+    ("图谱·语义召回(知识库向量)", "知识库补充"),
+    ("图谱·语义召回(wiki 向量)", "知识库补充"),
+    ("检索可观测", "资料覆盖情况"),
+    ("输出质检", "回答质量检查"),
+    ("theme-radar", "题材盘面快照"),
+    ("double_red", "涨幅与边际量同步增强"),
+    ("new_high_cluster", "新高个股聚集"),
+    ("new_high_direction", "新高方向确认"),
+    ("limit_advance_cluster", "连板晋级聚集"),
+    ("limit_heat", "涨停热度"),
+    ("super_capacity", "超大容量"),
+    ("long_tail", "长尾观察"),
+    ("score_detail.", "盘面信号."),
+    ("medium/", "中置信/"),
+    ("low/", "低置信/"),
+    ("high/", "高置信/"),
+    (
+        "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
+        "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边",
+        "时效边界：以上证据仅按来源日期标注，使用前需复核是否仍然有效。",
+    ),
     ("rerank", "检索重排"),
     ("RAG 遥测", "检索诊断"),
     ("RAG", "知识库检索"),
@@ -139,12 +162,34 @@ _INTERNAL_ERROR_PATTERN = re.compile(
     r"Traceback|File \".+\", line \d+|"
     r"\b[A-Za-z_][\w.]+(?:Error|Exception)\b"
 )
+_INTERNAL_RETRIEVAL_DIAGNOSTIC_PATTERN = re.compile(
+    r"Fetching\s+\d+\s+files:|Loading weights:|"
+    r"检索方式=hybrid|BM25|BGE-m3|RRF|"
+    r"\bchunk(?:_id)?=|\bhash=|\bindex=|\bk=\d+|耗时=\d+ms|状态=empty|"
+    r"[DMVW]\s*源|命中来源分布|检索质量裁定|公告等硬证据覆盖|"
+    r"--mode\b|\b\w+\.py\b",
+    re.IGNORECASE,
+)
 _PUBLIC_REPORT_REPLACEMENTS = (
     ("ask_retrieval_pipeline", "研究检索流程"),
     ("deterministic_projection", "确定性数据整理"),
     ("deterministic_duckdb_query", "本地数据查询"),
     ("retrieved_evidence", "已检索证据"),
     ("canonical", "原始来源"),
+    ("disclosure-archive → apply", "官方公告与年报"),
+    ("图谱·语义召回(知识库向量)", "知识库补充"),
+    ("图谱·语义召回(wiki 向量)", "知识库补充"),
+    (
+        "模块·deep-dive（产业维 · radar.py --mode deep-dive 题材深拆）",
+        "产业链研究",
+    ),
+    ("模块·deep-dive", "产业链研究"),
+    ("[deep-dive]", ""),
+    (
+        "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
+        "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边",
+        "时效边界：以上证据仅按来源日期标注，使用前需复核是否仍然有效。",
+    ),
 )
 
 
@@ -213,6 +258,8 @@ def sanitize_user_visible_artifact_text(text: str) -> str:
         return "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
     if re.search(r"HF_TOKEN|Hugging\s*Face", cleaned, re.IGNORECASE):
         return "外部语义检索当前不可用或受限，未使用其结果。"
+    if _INTERNAL_RETRIEVAL_DIAGNOSTIC_PATTERN.search(cleaned):
+        return "外部语义检索当前不可用或受限，未使用其结果。"
     if _LOCAL_PATH_PATTERN.search(cleaned):
         return "本地研究数据（路径已隐藏）。"
     if _INTERNAL_ERROR_PATTERN.search(cleaned):
@@ -226,6 +273,16 @@ def sanitize_user_visible_artifact_text(text: str) -> str:
 
 def sanitize_conversation_answer(text: str) -> str:
     cleaned = _JSON_BLOCK_PATTERN.sub("", text)
+    cleaned = re.sub(
+        r"(?m)^.*(?:Fetching\s+\d+\s+files:|Loading weights:|"
+        r"检索方式=hybrid|BM25|BGE-m3|RRF|"
+        r"\bchunk(?:_id)?=|\bhash=|\bindex=|\bk=\d+|"
+        r"耗时=\d+ms|状态=empty|[DMVW]\s*源|命中来源分布|"
+        r"检索质量裁定|公告等硬证据覆盖|--mode\b|\b\w+\.py\b).*$",
+        "外部语义检索当前不可用或受限，未使用其结果。",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
     cleaned = _INTERNAL_FIELD_PATTERN.sub("", cleaned)
     cleaned = _EVIDENCE_LAYER_SUMMARY_PATTERN.sub("", cleaned)
     cleaned = _INTERNAL_CITATION_PATTERN.sub("", cleaned)
@@ -256,6 +313,7 @@ def sanitize_conversation_answer(text: str) -> str:
     cleaned = cleaned.replace("知识知识图谱", "知识图谱")
     cleaned = cleaned.replace("确定性投影", "数据")
     cleaned = re.sub(r"本地复盘数据(?:\s*数据)+", "本地复盘数据", cleaned)
+    cleaned = re.sub(r"\bnormal\b", "常规容量", cleaned, flags=re.IGNORECASE)
     cleaned = _INTERNAL_CODE_PATTERN.sub("", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"(?<=[\u4e00-\u9fff]) (?=[\u4e00-\u9fff])", "", cleaned)

@@ -29,6 +29,14 @@ def test_long_theme_query_matches_named_concept_not_generic_company_terms(
                         "confidence": "high",
                         "evidence_layer": "L1_L3_candidate",
                     },
+                    {
+                        "company": "另一无关公司",
+                        "concept": "光学膜",
+                        "reason": "不得把弱关联公司写成核心受益。",
+                        "strength": "related",
+                        "confidence": "high",
+                        "evidence_layer": "L1_L3_candidate",
+                    },
                 ]
             },
             ensure_ascii=False,
@@ -37,7 +45,9 @@ def test_long_theme_query_matches_named_concept_not_generic_company_terms(
     )
 
     matches = KnowledgeAdapter(wiki_root=tmp_path).get_exposure_matches(
-        "深研“稳定币支付”题材：给出A股相关公司分层、每家公司可验证证据和证据缺口。"
+        "深研“稳定币支付”题材：给出题材定义、产业链上下游、A股相关公司分层、"
+        "每家公司可验证证据、证据缺口、反证、触发条件和下一步核验动作。"
+        "明确区分事实、推测和待验证项，不得把弱关联公司写成核心受益。"
     )
 
     assert [item["company"] for item in matches["items"]] == ["四方精创"]

@@ -16,6 +16,7 @@ from intelligence.services.ask import (
     _market_value_block_for_llm,
     _resolve_market_data_context,
     _second_derivative_queue_block_for_llm,
+    _stablecoin_payment_framing,
     answer_query,
     render_answer,
     render_conversation_answer,
@@ -388,6 +389,27 @@ class RenderComposeTests(unittest.TestCase):
             ),
             "core",
         )
+
+    def test_stablecoin_framing_covers_definition_chain_and_verification(
+        self,
+    ) -> None:
+        framing = _stablecoin_payment_framing(
+            "深研“稳定币支付”题材：给出定义、产业链、事实边界和核验动作。",
+            "数字货币",
+        )
+        rendered = "\n".join(
+            item
+            for values in framing.values()
+            for item in values
+        )
+
+        self.assertIn("题材定义", rendered)
+        self.assertIn("产业链上游", rendered)
+        self.assertIn("产业链中游", rendered)
+        self.assertIn("产业链下游", rendered)
+        self.assertIn("事实、推测与待验证边界", rendered)
+        self.assertIn("核验动作", rendered)
+        self.assertIn("近似映射", rendered)
 
 
 class DailyMarketOverviewTests(unittest.TestCase):
