@@ -1598,26 +1598,79 @@ def _market_review_mainline_context_block_for_llm(
 
         con = duckdb.connect(str(db_path), read_only=True)
         try:
-            row = con.execute(
-                "select max(trade_date) from fact_mainline_sector_daily"
-            ).fetchone()
+            table_names = {
+                str(row[0])
+                for row in con.execute(
+                    """
+                    select table_name
+                    from information_schema.tables
+                    where table_schema = 'main'
+                    """
+                ).fetchall()
+            }
+            theme_date = None
+            themes: list[tuple[str, int]] = []
+            if "fact_mainline_theme_daily" in table_names:
+                row = con.execute(
+                    "select max(trade_date) from fact_mainline_theme_daily"
+                ).fetchone()
+                theme_date = str(row[0]) if row and row[0] else None
+                if theme_date == market_date:
+                    themes = [
+                        (str(name), int(sector_count or 0))
+                        for name, sector_count in con.execute(
+                            """
+                            select theme_name, sector_count
+                            from fact_mainline_theme_daily
+                            where trade_date = ?
+                            order by min_sort nulls last, theme_name
+                            limit 10
+                            """,
+                            [theme_date],
+                        ).fetchall()
+                        if name
+                    ]
+            sector_date = None
+            if "fact_mainline_sector_daily" in table_names:
+                row = con.execute(
+                    "select max(trade_date) from fact_mainline_sector_daily"
+                ).fetchone()
+                sector_date = str(row[0]) if row and row[0] else None
         finally:
             con.close()
     except Exception:
         return ""
-    mainline_date = str(row[0]) if row and row[0] else None
-    if not mainline_date:
-        return ""
-    if mainline_date == market_date:
+    if sector_date == market_date:
         return _mainline_context_block_for_llm(query, theme, market_db_path)
-    return "\n".join(
-        [
-            "## 市场复盘主线数据边界",
-            f"- 当日市场总览截至 {market_date}；主线题材快照仅截至 {mainline_date}。",
-            "- 当前交易日主线未知。旧快照只能作为历史基线，禁止把其中的题材、板块、涨幅、"
-            "生命周期或标的写成当日事实。",
-        ]
+    lines = ["## 市场复盘主线数据边界"]
+    if theme_date == market_date and themes:
+        theme_text = "、".join(name for name, _ in themes)
+        lines.append(
+            f"- 当日市场总览和题材级主线汇总均截至 {market_date}；"
+            f"当前主线题材为 {theme_text}。"
+        )
+    elif theme_date:
+        lines.append(
+            f"- 当日市场总览截至 {market_date}；主线题材汇总仅截至 {theme_date}。"
+        )
+        lines.append(
+            "- 当前交易日的题材级主线未知，禁止把旧题材名称写成当日事实。"
+        )
+    else:
+        lines.append(
+            f"- 当日市场总览截至 {market_date}；没有可用的同日主线题材汇总。"
+        )
+        lines.append("- 当前交易日的题材级主线未知。")
+    if sector_date:
+        lines.append(
+            f"- 核心板块明细仅截至 {sector_date}；当前核心板块、周期状态和标的未知。"
+        )
+    else:
+        lines.append("- 没有可用的核心板块明细；当前核心板块、周期状态和标的未知。")
+    lines.append(
+        "- 禁止把旧板块名称、涨幅、生命周期或标的写成当日事实。"
     )
+    return "\n".join(lines)
 
 
 def _resolve_mainline_theme(con: Any, query: str, theme: str | None, latest_date: Any) -> str | None:
@@ -1953,6 +2006,7 @@ def _daily_market_overview_block_for_llm(
                 f"领先行业为 {industry_text}。"
             )
 
+        theme_date = None
         if "fact_mainline_theme_daily" in table_names:
             theme_date_row = con.execute(
                 "select max(trade_date) from fact_mainline_theme_daily"
@@ -1974,8 +2028,13 @@ def _daily_market_overview_block_for_llm(
                     for name, sector_count in themes
                     if name
                 )
-                if theme_text:
+                if theme_text and str(theme_date) == trade_date:
                     lines.append(f"- 主线题材（截至 {theme_date}）：{theme_text}。")
+                elif theme_text:
+                    lines.append(
+                        f"- 主线题材汇总仅截至 {theme_date}，早于整体盘面日期 {trade_date}；"
+                        "当前题材级主线未知，不展示旧题材名称。"
+                    )
 
         if "fact_mainline_sector_daily" in table_names:
             sector_date_row = con.execute(
@@ -1983,10 +2042,16 @@ def _daily_market_overview_block_for_llm(
             ).fetchone()
             sector_date = sector_date_row[0] if sector_date_row else None
             if sector_date and str(sector_date) != trade_date:
-                lines.append(
-                    f"- 局部数据提示：主线板块明细表仅更新到 {sector_date}，"
-                    f"早于整体盘面日期 {trade_date}；只能作历史参考，不能覆盖整体日期。"
-                )
+                if theme_date and str(theme_date) == trade_date:
+                    lines.append(
+                        f"- 局部数据提示：题材级主线汇总已更新到 {trade_date}，"
+                        f"但核心板块明细仅更新到 {sector_date}；当前核心板块、周期状态和标的未知。"
+                    )
+                else:
+                    lines.append(
+                        f"- 局部数据提示：核心板块明细仅更新到 {sector_date}，"
+                        f"早于整体盘面日期 {trade_date}；只能作历史参考。"
+                    )
         return "\n".join(lines)
     except Exception:
         return ""

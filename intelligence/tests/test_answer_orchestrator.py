@@ -95,8 +95,9 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("Daily Review", joined_sources)
         self.assertIn("少量自然小标题", joined_contract)
         self.assertIn("不要机械覆盖公司本体", joined_contract)
-        self.assertIn("主线数据滞后", joined_contract)
+        self.assertIn("按数据粒度表述主线缺口", joined_contract)
         self.assertIn("不要出现反方审稿", joined_contract)
+        self.assertIn("最多使用 5 个二级标题", joined_contract)
 
     def test_deep_dive_trigger_beats_industry_chain_keyword(self) -> None:
         plan = plan_answer_question("深挖英维克，它在液冷产业链的位置")
