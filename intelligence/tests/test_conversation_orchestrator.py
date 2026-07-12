@@ -195,6 +195,9 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
     no_llm_code = sanitize_user_visible_artifact_text(
         "llm_unavailable_template_answer"
     )
+    answer_route = sanitize_user_visible_artifact_text(
+        "answer-orchestrator：未高置信识别问题类型"
+    )
 
     assert no_llm == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
     assert "API_KEY" not in no_llm
@@ -211,6 +214,7 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
     assert evidence_detail == "对象=天阳科技；来源=天阳科技_最新逻辑跟踪，质量中等"
     assert module_id == "资料覆盖情况"
     assert no_llm_code == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
+    assert answer_route == "问题理解：未高置信识别问题类型"
 
 
 def test_market_question_automatically_selects_daily_review() -> None:

@@ -183,6 +183,7 @@ _PUBLIC_REPORT_REPLACEMENTS = (
         "llm_unavailable_template_answer",
         "自然语言综合暂时不可用；已保留可核验数据与结构化产物。",
     ),
+    ("answer-orchestrator", "问题理解"),
     ("ask_retrieval_pipeline", "研究检索流程"),
     ("deterministic_projection", "确定性数据整理"),
     ("deterministic_duckdb_query", "本地数据查询"),
