@@ -361,6 +361,7 @@ class RenderComposeTests(unittest.TestCase):
         rendered = render_conversation_answer(result)
         self.assertIn("上证指数：收盘 3996.162", rendered)
         self.assertIn("当日涨跌 -1.00%", rendered)
+        self.assertIn("成交额缺失；可用强弱指标为成交量 627.45 亿", rendered)
         self.assertIn("深证成指：当日涨跌、成交或强弱指标均缺失", rendered)
         self.assertIn("创业板指：当日涨跌、成交或强弱指标均缺失", rendered)
         self.assertIn("下一交易日为 2026-07-13", rendered)

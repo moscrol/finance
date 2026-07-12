@@ -2037,11 +2037,14 @@ def _populate_market_index_comparison(
             if raw_source.startswith("akshare:")
             else "本地市场数据"
         )
-        metric = "成交或强弱指标缺失"
+        metric = "成交额缺失；成交量等可用强弱指标也缺失"
         if amount is not None:
             metric = f"成交额 {amount / 100_000_000:.2f} 亿元"
         elif volume is not None:
-            metric = f"成交量 {volume / 100_000_000:.2f} 亿"
+            metric = (
+                f"成交额缺失；可用强弱指标为成交量 "
+                f"{volume / 100_000_000:.2f} 亿"
+            )
         close_text = f"{close:.3f}" if close is not None else "缺失"
         pct_text = f"{pct_chg:+.2f}%" if pct_chg is not None else "缺失"
         evidence.append(
