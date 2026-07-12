@@ -33,11 +33,17 @@ export function SkillInvocation({
             : status === "completed"
               ? Check
               : TriangleAlert;
+        const statusLabel =
+          status === "completed"
+            ? "已完成"
+            : status === "failed"
+              ? "未完成"
+              : "研究中";
         return (
           <span
             className={`skill-invocation skill-${status}`}
             key={skillId}
-            title={`${skill.description} · ${status}`}
+            title={`${skill.name} · ${statusLabel}`}
           >
             <Icon
               className={status === "running" ? "spin" : undefined}

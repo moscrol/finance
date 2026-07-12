@@ -788,8 +788,14 @@ describe("Chat-first conversation components", () => {
       />,
     );
 
-    expect(screen.getByText("已指定工具 · 每日复盘")).toBeVisible();
-    expect(screen.getByText("已自动选择 · Daily Agent")).toBeVisible();
+    expect(screen.getByText("已指定工具 · 每日复盘")).toHaveAttribute(
+      "title",
+      "每日复盘 · 已完成",
+    );
+    expect(screen.getByText("已自动选择 · Daily Agent")).toHaveAttribute(
+      "title",
+      "Daily Agent · 研究中",
+    );
     expect(screen.queryByText("daily_projection_modules")).toBeNull();
   });
 
