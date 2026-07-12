@@ -171,6 +171,18 @@ _INTERNAL_RETRIEVAL_DIAGNOSTIC_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _PUBLIC_REPORT_REPLACEMENTS = (
+    ("research_1_summary", "结论"),
+    ("research_2_evidence", "证据链"),
+    ("research_3_risks", "分歧反证"),
+    ("research_4_actions", "后续验证点"),
+    ("research_5_telemetry", "资料覆盖情况"),
+    ("research_6_review", "回答质量检查"),
+    ("research_7_implications", "交易含义"),
+    ("research_8_sources", "引用来源"),
+    (
+        "llm_unavailable_template_answer",
+        "自然语言综合暂时不可用；已保留可核验数据与结构化产物。",
+    ),
     ("ask_retrieval_pipeline", "研究检索流程"),
     ("deterministic_projection", "确定性数据整理"),
     ("deterministic_duckdb_query", "本地数据查询"),
