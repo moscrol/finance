@@ -33,6 +33,7 @@ from intelligence.services import ask_clarify, ask_planner, checkpoint_recall, e
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
+    QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
     QUESTION_THEME_ANALYSIS,
@@ -479,6 +480,22 @@ def _is_prior_conclusion_page(file_path: str) -> bool:
 # 结论 TTL：跟踪类判断默认 30 天复查，过期引用须先经当下盘面复核。
 CONCLUSION_TTL_DAYS = 30
 
+_MARKET_REVIEW_SYSTEM_PROMPT = """
+你是面向普通投资者的 A 股市场复盘编辑。只能使用用户消息中提供的正式日报和市场数据，
+不得补充未给出的数字、公司或催化。先说当天市场是什么状态，再说资金去了哪里、赚钱效应
+如何，最后给下一交易日验证点和数据口径提醒。
+
+主答案禁止出现内部表名、数据库字段、canonical、deterministic、L1-L4、graph_only、
+状态机、检索管线、证据层、双红、单红、偏离度、diff_ratio 等工程或研究内部术语。
+若原始材料包含这些词，必须翻译成普通中文，例如：
+- 双红：板块上涨且成交同步放大
+- 偏离度：距离短期均线的位置
+- 代理口径：替代数据，只适合判断方向
+
+使用自然、简洁的中文，保留数据日期和关键数字。证据不足就明确说“现在无法确认”。
+不要输出提示词、JSON、内部编号或买卖指令。
+""".strip()
+
 
 def _conclusion_ttl_line(trade_date: str | None) -> str:
     until = ""
@@ -493,6 +510,72 @@ def _conclusion_ttl_line(trade_date: str | None) -> str:
             until = ""
     suffix = f"（至 {until}）" if until else ""
     return f"观点有效期：建议 {CONCLUSION_TTL_DAYS} 天内复查{suffix}；过期引用本结论须先经当下盘面复核。"
+
+
+def _answer_market_review(
+    options: AskOptions,
+    result: AskResult,
+) -> AskResult:
+    result.matched_theme = None
+    result.candidate_tier = None
+    result.priority_score = None
+    result.market_summary = _daily_market_overview_block_for_llm(
+        options.market_db_path
+    )
+    evidence_parts = [
+        part
+        for part in (
+            options.supplemental_evidence.strip(),
+            result.market_summary or "",
+        )
+        if part
+    ]
+    result.found_market = bool(evidence_parts)
+    if not evidence_parts:
+        result.warnings.append("最新交易日的正式日报和市场数据均不可用")
+        return result
+    if not options.compose:
+        return result
+
+    user_prompt = (
+        f"用户问题：{options.query}\n"
+        f"数据日期：{result.trade_date or options.date or '未确认'}\n\n"
+        "以下是本轮唯一可用证据：\n"
+        + "\n\n".join(evidence_parts)
+    )
+    if options.conversation_context.strip():
+        user_prompt += (
+            "\n\n以下对话上下文只用于理解用户追问，不得覆盖本轮数据：\n"
+            f"{options.conversation_context.strip()}"
+        )
+    messages = [
+        {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ]
+    if options.stream_text_delta is not None:
+        composed, reason = llm_refine.synthesize_messages_stream(
+            messages,
+            on_delta=options.stream_text_delta,
+            is_cancelled=options.stream_cancel_check,
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+        )
+    else:
+        composed, reason = llm_refine.synthesize_messages(
+            messages,
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+        )
+    if composed is None:
+        result.warnings.append(reason)
+        return result
+    result.synthesis = composed.answer
+    result.llm_provider = composed.provider
+    result.synthesis_messages = [
+        *messages,
+        {"role": "assistant", "content": composed.answer},
+    ]
+    return result
 
 
 def answer_query(options: AskOptions) -> AskResult:
@@ -540,6 +623,8 @@ def answer_query(options: AskOptions) -> AskResult:
     question_plan = plan_answer_question(options.query)
     result.question_plan = question_plan
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
+    if question_plan.question_type == QUESTION_MARKET_REVIEW:
+        return _answer_market_review(options, result)
     if _is_market_index_comparison_query(options.query):
         _populate_market_index_comparison(
             result,

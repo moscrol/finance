@@ -147,6 +147,19 @@ def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
         assert assistants[1]["invoked_skill_ids"] == ["daily-agent"]
         assert assistants[2]["invoked_skill_ids"] == []
         assert "llm_unavailable_template_answer" in assistants[0]["degrades"]
+        assert "一句话结论" in assistants[0]["content"]
+        assert "市场发生了什么" in assistants[0]["content"]
+        assert "自然语言综合暂时不可用" not in assistants[0]["content"]
+        for internal_term in (
+            "图谱命中",
+            "状态机",
+            "graph_only",
+            "检索骨架",
+            "确定性结构化结果",
+            "fact_market_daily",
+            "canonical",
+        ):
+            assert internal_term not in assistants[0]["content"]
         assert first_run["parent_run_id"] is None
         assert second_run["parent_run_id"] == first["run_id"]
         assert third_run["parent_run_id"] == second["run_id"]
@@ -161,6 +174,7 @@ def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
         report = report_response.json()
         module_ids = [module["module_id"] for module in report["modules"]]
         assert "daily_overview" in module_ids
+        assert not any(module_id.startswith("research_") for module_id in module_ids)
 
         stream_response = client.get(
             f"/api/runs/{first['run_id']}/events",

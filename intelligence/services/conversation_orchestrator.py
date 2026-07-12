@@ -12,6 +12,7 @@ from intelligence.api.structured_reports import (
     ask_result_modules,
     complete_report,
     new_structured_report,
+    render_daily_review_answer,
     upsert_report_module,
 )
 from intelligence.services import run_store as rs
@@ -20,6 +21,10 @@ from intelligence.services.ask import (
     AskResult,
     answer_query,
     render_conversation_answer,
+)
+from intelligence.services.answer_orchestrator import (
+    QUESTION_MARKET_REVIEW,
+    plan_answer_question,
 )
 from intelligence.services.conversation_store import (
     Conversation,
@@ -589,9 +594,27 @@ class TurnOrchestrator:
                 )
 
             compose_started = time.monotonic()
+            daily_review_output = next(
+                (
+                    output
+                    for output in skill_outputs
+                    if output.skill_id == "daily-review"
+                ),
+                None,
+            )
+            market_review_requested = (
+                plan_answer_question(query).question_type
+                == QUESTION_MARKET_REVIEW
+            )
             result = self.answer_query(
                 AskOptions(
                     query=query,
+                    date=(
+                        daily_review_output.as_of
+                        if daily_review_output is not None
+                        and market_review_requested
+                        else None
+                    ),
                     user=self.run_store.user_id,
                     compose=True,
                     compose_self_review=False,
@@ -606,6 +629,16 @@ class TurnOrchestrator:
                 )
             )
             self._check_cancelled()
+            is_market_review = (
+                daily_review_output is not None
+                and market_review_requested
+            )
+            if (
+                is_market_review
+                and daily_review_output is not None
+                and result.trade_date is None
+            ):
+                result.trade_date = daily_review_output.as_of
             self._record_retrieval(
                 run_id,
                 assistant_message_id,
@@ -646,6 +679,16 @@ class TurnOrchestrator:
                 )
 
             answer_text = render_conversation_answer(result)
+            if (
+                result.synthesis is None
+                and is_market_review
+                and daily_review_output is not None
+            ):
+                answer_text = render_daily_review_answer(
+                    date_text=daily_review_output.as_of,
+                    modules=daily_review_output.modules,
+                    warnings=daily_review_output.warnings,
+                )
             if result.synthesis is None and text_chunks:
                 answer_text = "".join(text_chunks)
             answer_text = sanitize_conversation_answer(answer_text)
@@ -1002,6 +1045,21 @@ class TurnOrchestrator:
                             metric_bits.append(f"{label}={value}")
                     if metric_bits:
                         lines.append("  - 指标：" + "；".join(metric_bits))
+                items = module.get("items")
+                if isinstance(items, list):
+                    for item in items:
+                        if not isinstance(item, dict):
+                            continue
+                        title = item.get("title")
+                        summary = item.get("summary")
+                        if not isinstance(summary, str) or not summary.strip():
+                            continue
+                        prefix = (
+                            f"{title.strip()}："
+                            if isinstance(title, str) and title.strip()
+                            else ""
+                        )
+                        lines.append(f"  - {prefix}{summary.strip()}")
             if output.warnings:
                 lines.append(
                     "- 数据质量提示：" + "；".join(output.warnings[:3])

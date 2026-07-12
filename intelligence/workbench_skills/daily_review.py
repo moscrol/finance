@@ -26,7 +26,7 @@ class DailyReviewSkill:
                 skill_id=self.skill_id,
                 modules=[],
                 citations=[],
-                warnings=["canonical Daily Review Markdown 无法读取。"],
+                warnings=["本地正式日报无法读取。"],
                 as_of=None,
                 raw_result_ref=None,
             )
@@ -53,7 +53,7 @@ class DailyReviewSkill:
         citations: list[JsonObject] = [
             {
                 "source": source,
-                "title": "Canonical Daily Review",
+                "title": "本地正式日报",
                 "evidence_layer": "canonical",
                 "as_of": date_text,
             }
