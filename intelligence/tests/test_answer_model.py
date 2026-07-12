@@ -1,0 +1,295 @@
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from intelligence.services.answer_model import (
+    AnswerSpec,
+    ClaimStatus,
+    CompanyCandidate,
+    CompanyTier,
+    EvidenceRef,
+    build_company_assessments,
+    evaluate_answer_spec,
+    finalize_answer_spec,
+    humanize,
+    make_claim,
+    render_answer_spec,
+    resolve_theme_research_spec,
+    validate_llm_answer,
+)
+from intelligence.services.ask import AskOptions, answer_query, render_conversation_answer
+
+
+class ThemeResearchSpecTests(unittest.TestCase):
+    def test_domain_packs_share_one_protocol(self) -> None:
+        cases = {
+            "稳定币支付": "stablecoin_payment",
+            "人形机器人": "robotics",
+            "AI 算力": "compute_infrastructure",
+            "低空经济": "low_altitude_economy",
+        }
+        for query, pack_id in cases.items():
+            spec = resolve_theme_research_spec(f"分析 2026-07-10 的{query}产业链")
+            self.assertEqual(spec.pack_id, pack_id)
+            self.assertEqual(spec.as_of, "2026-07-10")
+            self.assertEqual(len(spec.chain_stages), 3)
+            self.assertIn("company_mapping", spec.requested_sections)
+            self.assertTrue(spec.evidence_requirements)
+            self.assertTrue(spec.counter_evidence_requirements)
+            self.assertTrue(spec.verification_actions)
+
+
+class ClaimAdjudicationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.spec = resolve_theme_research_spec("分析人形机器人产业链")
+
+    def test_company_cannot_be_core_without_bound_verified_claim(self) -> None:
+        candidate = CompanyCandidate(
+            company="示例科技",
+            ticker="000001",
+            chain_stage="执行器",
+            directness="直接",
+            requested_tier=CompanyTier.CORE,
+            evidence_layer="L3",
+        )
+        candidate_claim = make_claim(
+            claim_id="candidate-1",
+            text="示例科技存在机器人执行器候选资料。",
+            claim_type="company_evidence",
+            theme=self.spec.theme,
+            status=ClaimStatus.CANDIDATE,
+            evidence_tier="L1_L3_candidate",
+            company="示例科技",
+            evidence_ids=("R1",),
+        )
+
+        assessment = build_company_assessments([candidate], [candidate_claim])[0]
+
+        self.assertEqual(assessment.tier, CompanyTier.CANDIDATE)
+        self.assertIn("需公告、年报", assessment.evidence_gaps[0])
+
+    def test_verified_company_claim_can_upgrade_core_tier(self) -> None:
+        candidate = CompanyCandidate(
+            company="示例科技",
+            requested_tier=CompanyTier.CORE,
+        )
+        verified_claim = make_claim(
+            claim_id="verified-1",
+            text="示例科技公告披露机器人执行器量产订单。",
+            claim_type="company_evidence",
+            theme=self.spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L3",
+            company="示例科技",
+            evidence_ids=("L1",),
+        )
+
+        assessment = build_company_assessments([candidate], [verified_claim])[0]
+
+        self.assertEqual(assessment.tier, CompanyTier.CORE)
+        self.assertFalse(assessment.evidence_gaps)
+
+    def test_verified_claim_does_not_override_candidate_directness(self) -> None:
+        candidate = CompanyCandidate(
+            company="示例科技",
+            requested_tier=CompanyTier.CANDIDATE,
+        )
+        verified_claim = make_claim(
+            claim_id="verified-2",
+            text="示例科技公告披露机器人相关产品。",
+            claim_type="company_evidence",
+            theme=self.spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L3",
+            company="示例科技",
+            evidence_ids=("L2",),
+        )
+
+        assessment = build_company_assessments([candidate], [verified_claim])[0]
+
+        self.assertEqual(assessment.tier, CompanyTier.CANDIDATE)
+
+    def test_quality_gate_rejects_candidate_as_verified_fact(self) -> None:
+        candidate_fact = make_claim(
+            claim_id="candidate-fact",
+            text="示例科技已经形成量产收入。",
+            claim_type="company_evidence",
+            theme=self.spec.theme,
+            status=ClaimStatus.CANDIDATE,
+            evidence_ids=("R1",),
+        )
+        answer = AnswerSpec(
+            research_spec=self.spec,
+            summary=(candidate_fact,),
+            verified_facts=(candidate_fact,),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="gap-1",
+                    text="缺少公告确认。",
+                    claim_type="evidence_gap",
+                    theme=self.spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=("核对公告。",),
+            sources=(EvidenceRef("R1", "候选研报"),),
+            system_notices=(),
+        )
+
+        report = evaluate_answer_spec(answer)
+
+        self.assertFalse(report.passed)
+        self.assertIn(
+            "candidate_promoted_to_fact",
+            {issue.code for issue in report.issues},
+        )
+
+    def test_quality_gate_detects_theme_contamination_and_term_leak(self) -> None:
+        other_theme_claim = make_claim(
+            claim_id="other-theme",
+            text="graph_only 公司被误串入。",
+            claim_type="company_mapping",
+            theme="稳定币支付",
+            status=ClaimStatus.CANDIDATE,
+            evidence_ids=("G1",),
+        )
+        answer = AnswerSpec(
+            research_spec=self.spec,
+            summary=(other_theme_claim,),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="gap-1",
+                    text="缺少公司级证据。",
+                    claim_type="evidence_gap",
+                    theme=self.spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=("核对公告。",),
+            sources=(EvidenceRef("G1", "图谱"),),
+            system_notices=(),
+        )
+
+        report = evaluate_answer_spec(answer)
+        codes = {issue.code for issue in report.issues}
+
+        self.assertIn("theme_contamination", codes)
+        self.assertNotIn("engineering_term_leak", codes)
+        self.assertIn("仅有概念关联", humanize(other_theme_claim.text))
+
+
+class PresenterAndLLMGateTests(unittest.TestCase):
+    def _answer(self) -> AnswerSpec:
+        spec = resolve_theme_research_spec("分析稳定币支付产业链")
+        verified = make_claim(
+            claim_id="market-1",
+            text="支付板块当日涨停 3 家。",
+            claim_type="market_signal",
+            theme=spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L4",
+            evidence_ids=("S1",),
+        )
+        candidate = CompanyCandidate(
+            company="示例科技",
+            chain_stage="支付网关",
+            directness="间接",
+        )
+        company_claim = make_claim(
+            claim_id="company-1",
+            text="示例科技仅有 graph_only 关联。",
+            claim_type="company_mapping",
+            theme=spec.theme,
+            status=ClaimStatus.CANDIDATE,
+            evidence_tier="graph_only",
+            company="示例科技",
+            evidence_ids=("G1",),
+        )
+        answer = AnswerSpec(
+            research_spec=spec,
+            summary=(verified, company_claim),
+            verified_facts=(verified,),
+            company_table=build_company_assessments(
+                [candidate],
+                [company_claim],
+            ),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="gap-1",
+                    text="缺少公告或年报确认。",
+                    claim_type="evidence_gap",
+                    theme=spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(verified,),
+            next_actions=("核对公告或年报。", "核对公告或年报。"),
+            sources=(
+                EvidenceRef("S1", "盘面快照"),
+                EvidenceRef("G1", "公司概念图谱"),
+            ),
+            system_notices=(),
+        )
+        return finalize_answer_spec(answer)
+
+    def test_presenter_uses_information_pyramid_and_hides_internal_terms(self) -> None:
+        rendered = render_answer_spec(self._answer())
+
+        self.assertIn("## 三行结论", rendered)
+        self.assertIn("## 公司证据表", rendered)
+        self.assertIn("## 最大缺口与反证", rendered)
+        self.assertIn("## 下一步核验", rendered)
+        self.assertIn("<details>", rendered)
+        self.assertIn("仅有概念关联，未发现公司级证据", rendered)
+        self.assertNotIn("graph_only", rendered)
+        self.assertEqual(rendered.count("核对公告或年报。"), 1)
+
+    def test_llm_gate_rejects_new_company_and_number(self) -> None:
+        issues = validate_llm_answer(
+            "新增科技未来订单将达到 20 亿元。",
+            self._answer(),
+        )
+        codes = {issue.code for issue in issues}
+
+        self.assertIn("llm_added_company", codes)
+        self.assertIn("llm_added_number", codes)
+
+
+class AskIntegrationTests(unittest.TestCase):
+    def test_answer_query_builds_answer_spec_before_presentation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query="深研“稳定币支付”题材：给出定义、产业链、反证和核验动作。",
+                    exports_dir=Path(tmp),
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        self.assertIsNotNone(result.answer_spec)
+        assert result.answer_spec is not None
+        self.assertEqual(
+            result.answer_spec.research_spec.pack_id,
+            "stablecoin_payment",
+        )
+        rendered = render_conversation_answer(result)
+        self.assertIn("## 三行结论", rendered)
+        self.assertIn("## 公司证据表", rendered)
+        self.assertNotIn("graph_only", rendered)
+        self.assertNotIn("模块路由", rendered)
+
+
+if __name__ == "__main__":
+    unittest.main()

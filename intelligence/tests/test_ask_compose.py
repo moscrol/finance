@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest import mock
 
 from intelligence.services import llm_refine
+from intelligence.services.answer_model import resolve_theme_research_spec
 from intelligence.services.ask import (
     AskResult,
     AskOptions,
@@ -16,7 +17,7 @@ from intelligence.services.ask import (
     _market_value_block_for_llm,
     _resolve_market_data_context,
     _second_derivative_queue_block_for_llm,
-    _stablecoin_payment_framing,
+    _theme_research_framing,
     answer_query,
     render_answer,
     render_conversation_answer,
@@ -228,7 +229,7 @@ class RenderComposeTests(unittest.TestCase):
         out = render_answer(self._base_result(None))
         self.assertNotIn("【对话式回答】", out)
         self.assertIn("【结论】", out)
-        self.assertIn("本轮没有可验证来源", out)
+        self.assertIn("本轮没有形成可用于结论的可验证来源", out)
 
     def test_render_preserves_fupanhui_methodology_path(self) -> None:
         r = self._base_result(None)
@@ -390,26 +391,32 @@ class RenderComposeTests(unittest.TestCase):
             "core",
         )
 
-    def test_stablecoin_framing_covers_definition_chain_and_verification(
+    def test_generic_theme_protocol_covers_multiple_domain_packs(
         self,
     ) -> None:
-        framing = _stablecoin_payment_framing(
-            "深研“稳定币支付”题材：给出定义、产业链、事实边界和核验动作。",
-            "数字货币",
+        cases = (
+            ("稳定币支付", "stablecoin_payment"),
+            ("人形机器人", "robotics"),
+            ("AI 算力", "compute_infrastructure"),
+            ("低空经济", "low_altitude_economy"),
         )
-        rendered = "\n".join(
-            item
-            for values in framing.values()
-            for item in values
-        )
-
-        self.assertIn("题材定义", rendered)
-        self.assertIn("产业链上游", rendered)
-        self.assertIn("产业链中游", rendered)
-        self.assertIn("产业链下游", rendered)
-        self.assertIn("事实、推测与待验证边界", rendered)
-        self.assertIn("核验动作", rendered)
-        self.assertIn("近似映射", rendered)
+        for theme, pack_id in cases:
+            spec = resolve_theme_research_spec(
+                f"深研“{theme}”题材：给出定义、产业链、事实边界和核验动作。"
+            )
+            framing = _theme_research_framing(spec, None)
+            rendered = "\n".join(
+                item
+                for values in framing.values()
+                for item in values
+            )
+            self.assertEqual(spec.pack_id, pack_id)
+            self.assertIn("题材定义", rendered)
+            self.assertIn("产业链上游", rendered)
+            self.assertIn("产业链中游", rendered)
+            self.assertIn("产业链下游", rendered)
+            self.assertIn("事实、推测与待验证边界", rendered)
+            self.assertIn("核验动作", rendered)
 
 
 class DailyMarketOverviewTests(unittest.TestCase):

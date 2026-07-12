@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from intelligence.services.answer_model import ThemeResearchSpec, resolve_theme_research_spec
+
 
 QUESTION_STOCK_DEEP_DIVE = "stock_deep_dive"
 QUESTION_THEME_ANALYSIS = "theme_analysis"
@@ -39,6 +41,7 @@ class QuestionPlan:
     output_contract: list[str] = field(default_factory=list)
     missing_data_policy: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    research_spec: ThemeResearchSpec | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -52,6 +55,7 @@ class QuestionPlan:
             "output_contract": self.output_contract,
             "missing_data_policy": self.missing_data_policy,
             "warnings": self.warnings,
+            "research_spec": self.research_spec.to_dict() if self.research_spec else None,
         }
 
     def to_json(self) -> str:
@@ -78,10 +82,15 @@ class QuestionPlan:
         if self.warnings:
             lines.append("- 编排警告：")
             lines.extend(f"  - {item}" for item in self.warnings)
+        if self.research_spec is not None:
+            lines.extend(["", self.research_spec.to_prompt_block()])
         return "\n".join(lines)
 
 
-def plan_answer_question(query: str) -> QuestionPlan:
+def plan_answer_question(
+    query: str,
+    matched_theme: str | None = None,
+) -> QuestionPlan:
     raw_query = str(query or "").strip()
     if not raw_query:
         return QuestionPlan(
@@ -106,6 +115,16 @@ def plan_answer_question(query: str) -> QuestionPlan:
     output_contract = _output_contract(question_type, depth)
     missing_data_policy = _missing_data_policy(question_type)
     warnings = _warnings(raw_query, q, question_type, retrieval_plan)
+    research_spec = (
+        resolve_theme_research_spec(raw_query, matched_theme)
+        if question_type
+        in {
+            QUESTION_THEME_ANALYSIS,
+            QUESTION_NEWS_IMPACT,
+            QUESTION_STOCK_DEEP_DIVE,
+        }
+        else None
+    )
     return QuestionPlan(
         query=raw_query,
         question_type=question_type,
@@ -117,6 +136,7 @@ def plan_answer_question(query: str) -> QuestionPlan:
         output_contract=output_contract,
         missing_data_policy=missing_data_policy,
         warnings=warnings,
+        research_spec=research_spec,
     )
 
 
@@ -139,7 +159,7 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         return QUESTION_MARKET_FORECAST, 0.9
     if _has_any(q, ("拍估值", "估值带", "贵不贵", "隐含预期", "隐含增长", "值多少钱", "估值分位", "估值怎么看", "合理估值")):
         return QUESTION_VALUATION, 0.88
-    if _has_any(q, ("公告", "新闻", "链接", "传导", "冲击", "影响", "产业链")):
+    if _has_any(q, ("公告", "新闻", "链接", "传导", "冲击", "影响")):
         return QUESTION_NEWS_IMPACT, 0.82
     if _has_any(q, ("行情", "大盘", "今天", "明天", "盘前", "收盘", "6.", "走势", "市场怎么看")):
         return QUESTION_MARKET_FORECAST, 0.8
