@@ -51,3 +51,35 @@ def test_long_theme_query_matches_named_concept_not_generic_company_terms(
     )
 
     assert [item["company"] for item in matches["items"]] == ["四方精创"]
+
+
+def test_get_evidence_filters_company_facts_by_concept(tmp_path) -> None:
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    (relations / "evidence_index.json").write_text(
+        json.dumps(
+            {
+                "items": [
+                    {
+                        "target": "天阳科技",
+                        "concept": "稳定币",
+                        "evidence": "公司披露稳定币跨境支付场景适配。",
+                    },
+                    {
+                        "target": "天阳科技",
+                        "concept": "算力租赁",
+                        "evidence": "公司投资算力租赁设备。",
+                    },
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    evidence = KnowledgeAdapter(wiki_root=tmp_path).get_evidence(
+        "天阳科技",
+        concept="稳定币",
+    )
+
+    assert [item["concept"] for item in evidence["items"]] == ["稳定币"]

@@ -631,12 +631,17 @@ def answer_query(options: AskOptions) -> AskResult:
     company_lines: list[str] = []
     exposures = knowledge.get_exposure_matches(graph_query, limit=options.top_companies)
     tiers: dict[str, list[str]] = {"core": [], "peripheral": [], "other": []}
+    company_evidence_concepts: dict[str, str] = {}
     if exposures.get("found"):
         result.found_graph = True
         for row in exposures["items"]:
             conf = str(row.get("confidence") or "").lower()
             layer = str(row.get("evidence_layer") or "")
-            label = f"{row.get('company')}({row.get('ticker')}|{row.get('role') or '—'}|{conf or '?'}/{layer or '?'})"
+            company = str(row.get("company") or "").strip()
+            concept = str(row.get("concept") or "").strip()
+            if company and concept:
+                company_evidence_concepts[company] = concept
+            label = f"{company}({row.get('ticker')}|{row.get('role') or '—'}|{conf or '?'}/{layer or '?'})"
             tiers[_company_exposure_tier(row)].append(label)
         tag = cite("G", "knowledge-base · wiki/relations/entity_exposures.json")
         if tiers["core"]:
@@ -656,10 +661,13 @@ def answer_query(options: AskOptions) -> AskResult:
     if result.matched_theme:
         targets.append(result.matched_theme)
     targets.append(options.query)
-    for label in [*tiers["core"][:3], *tiers["other"][:3]]:
-        targets.append(label.split("(")[0])
+    targets.extend(company_evidence_concepts)
     for target in dict.fromkeys(t for t in targets if t):
-        ev = knowledge.get_evidence(target, limit=options.max_evidence)
+        ev = knowledge.get_evidence(
+            target,
+            concept=company_evidence_concepts.get(target),
+            limit=options.max_evidence,
+        )
         if not ev.get("found"):
             continue
         for item in ev["items"]:

@@ -188,6 +188,9 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
     internal_module = sanitize_user_visible_artifact_text(
         "模块·deep-dive（产业维 · radar.py --mode deep-dive 题材深拆）"
     )
+    evidence_detail = sanitize_user_visible_artifact_text(
+        "target=天阳科技 source=[[天阳科技_最新逻辑跟踪]]，质量 medium"
+    )
 
     assert no_llm == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
     assert "API_KEY" not in no_llm
@@ -201,6 +204,7 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
     assert "module.py" not in local_path
     assert retrieval_progress == "外部语义检索当前不可用或受限，未使用其结果。"
     assert internal_module == "外部语义检索当前不可用或受限，未使用其结果。"
+    assert evidence_detail == "对象=天阳科技；来源=天阳科技_最新逻辑跟踪，质量中等"
 
 
 def test_market_question_automatically_selects_daily_review() -> None:

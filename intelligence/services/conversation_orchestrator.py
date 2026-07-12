@@ -314,6 +314,15 @@ def sanitize_conversation_answer(text: str) -> str:
     cleaned = cleaned.replace("确定性投影", "数据")
     cleaned = re.sub(r"本地复盘数据(?:\s*数据)+", "本地复盘数据", cleaned)
     cleaned = re.sub(r"\bnormal\b", "常规容量", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"质量\s+medium\b", "质量中等", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"质量\s+high\b", "质量较高", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"质量\s+low\b", "质量较低", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r"\btarget=([^\s]+)\s+source=",
+        r"对象=\1；来源=",
+        cleaned,
+    )
+    cleaned = cleaned.replace("[[", "").replace("]]", "")
     cleaned = _INTERNAL_CODE_PATTERN.sub("", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"(?<=[\u4e00-\u9fff]) (?=[\u4e00-\u9fff])", "", cleaned)
