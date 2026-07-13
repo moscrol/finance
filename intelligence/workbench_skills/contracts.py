@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, TypeAlias
 
@@ -216,7 +216,9 @@ class SkillExecutionContext:
     repo_root: Path
     run_store: RunStore
     conversation_context: str = ""
-    execution_budget: ExecutionBudget | None = None
+    execution_budget: ExecutionBudget | None = field(
+        default=None, repr=False, compare=False
+    )
 
 
 class SkillExecutor(Protocol):

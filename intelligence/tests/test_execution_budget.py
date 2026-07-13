@@ -67,17 +67,31 @@ def test_exhausted_includes_exact_deadline_boundary() -> None:
     assert budget.exhausted(now=25.0) is True
 
 
-@pytest.mark.parametrize("total_seconds", [-0.001, -1.0])
-def test_start_rejects_negative_total_seconds(total_seconds: float) -> None:
+@pytest.mark.parametrize(
+    "total_seconds",
+    [-0.001, -1.0, float("nan"), float("inf"), float("-inf")],
+)
+def test_start_rejects_non_finite_or_negative_total_seconds(
+    total_seconds: float,
+) -> None:
     with pytest.raises(ValueError, match="total_seconds"):
         ExecutionBudget.start(total_seconds)
 
 
 @pytest.mark.parametrize(
     ("requested", "reserve", "field_name"),
-    [(-0.001, 0.0, "requested"), (1.0, -0.001, "reserve")],
+    [
+        (-0.001, 0.0, "requested"),
+        (float("nan"), 0.0, "requested"),
+        (float("inf"), 0.0, "requested"),
+        (float("-inf"), 0.0, "requested"),
+        (1.0, -0.001, "reserve"),
+        (1.0, float("nan"), "reserve"),
+        (1.0, float("inf"), "reserve"),
+        (1.0, float("-inf"), "reserve"),
+    ],
 )
-def test_child_timeout_rejects_negative_inputs(
+def test_child_timeout_rejects_non_finite_or_negative_inputs(
     requested: float,
     reserve: float,
     field_name: str,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass
 
@@ -15,8 +16,8 @@ class ExecutionBudget:
 
     @classmethod
     def start(cls, total_seconds: float) -> ExecutionBudget:
-        if total_seconds < 0:
-            raise ValueError("total_seconds must be non-negative")
+        if not math.isfinite(total_seconds) or total_seconds < 0:
+            raise ValueError("total_seconds must be finite and non-negative")
         started_at = time.monotonic()
         return cls(started_at=started_at, deadline_at=started_at + total_seconds)
 
@@ -30,10 +31,10 @@ class ExecutionBudget:
         reserve: float = 0,
         now: float | None = None,
     ) -> float:
-        if requested < 0:
-            raise ValueError("requested must be non-negative")
-        if reserve < 0:
-            raise ValueError("reserve must be non-negative")
+        if not math.isfinite(requested) or requested < 0:
+            raise ValueError("requested must be finite and non-negative")
+        if not math.isfinite(reserve) or reserve < 0:
+            raise ValueError("reserve must be finite and non-negative")
         available = max(0.0, self.remaining_seconds(now=now) - reserve)
         return min(requested, available)
 

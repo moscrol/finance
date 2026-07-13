@@ -242,7 +242,9 @@ class AskOptions:
     stream_cancel_check: Callable[[], bool] | None = field(
         default=None, repr=False, compare=False
     )
-    execution_budget: ExecutionBudget | None = None
+    execution_budget: ExecutionBudget | None = field(
+        default=None, repr=False, compare=False
+    )
 
 
 @dataclass
