@@ -130,7 +130,12 @@ def test_unrecoverable_status_stops_after_first_attempt() -> None:
 
     def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
         calls.append((query, mode, timeout))
-        return _response(query, [], status="skipped", warning="index unavailable")
+        return _response(
+            query,
+            [_hit("液冷旧索引", 0.8, hardness="hard")],
+            status="skipped",
+            warning="index unavailable",
+        )
 
     result = retrieve_closed_loop(
         "液冷怎么看",
@@ -142,30 +147,35 @@ def test_unrecoverable_status_stops_after_first_attempt() -> None:
     assert len(calls) == 1
     assert result.attempts[0].status == "skipped"
     assert result.attempts[0].mode == "bm25"
-    assert result.warnings[0] == "index unavailable"
-    assert any(
-        "narrow retrieval empty after 1 attempts" in warning
-        for warning in result.warnings
-    )
+    assert result.warnings == ["index unavailable"]
+    assert result.conclusion == []
+    assert result.clues == []
+    assert result.counter_clues == []
+    assert result.discarded == []
 
 
-def test_stale_index_stops_after_first_attempt() -> None:
-    calls = 0
+def test_untrusted_freshness_stops_and_never_buckets_returned_hits() -> None:
+    for freshness in ("stale", "unknown", "", "unexpected"):
+        calls = 0
 
-    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
-        nonlocal calls
-        calls += 1
-        return _response(query, [_hit("液冷", 0.5)], freshness="stale")
+        def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+            nonlocal calls
+            calls += 1
+            return _response(query, [_hit("液冷", 0.5)], freshness=freshness)
 
-    result = retrieve_closed_loop(
-        "液冷怎么看",
-        anchor=None,
-        subject="液冷",
-        retrieve=retrieve,
-    )
+        result = retrieve_closed_loop(
+            "液冷怎么看",
+            anchor=None,
+            subject="液冷",
+            retrieve=retrieve,
+        )
 
-    assert calls == 1
-    assert len(result.attempts) == 1
+        assert calls == 1
+        assert len(result.attempts) == 1
+        assert result.conclusion == []
+        assert result.clues == []
+        assert result.counter_clues == []
+        assert result.discarded == []
 
 
 def test_budget_timeout_is_recorded_without_calling_retriever() -> None:
@@ -189,6 +199,10 @@ def test_budget_timeout_is_recorded_without_calling_retriever() -> None:
     assert len(result.attempts) == 1
     assert result.attempts[0].status == "timeout"
     assert result.attempts[0].timeout_seconds == 0
+    assert any(
+        "budget exhausted" in warning and "retrieval not executed" in warning
+        for warning in result.warnings
+    )
 
 
 def test_budget_skips_dense_when_semantic_window_is_too_small() -> None:
@@ -209,6 +223,10 @@ def test_budget_skips_dense_when_semantic_window_is_too_small() -> None:
 
     assert calls == ["bm25", "bm25", "bm25"]
     assert result.dense_initializations == 0
+    assert any(
+        "semantic retrieval skipped" in warning and "insufficient budget" in warning
+        for warning in result.warnings
+    )
 
 
 def test_irrelevant_hard_evidence_is_discarded() -> None:
@@ -242,6 +260,44 @@ def test_irrelevant_hard_evidence_is_discarded() -> None:
     assert result.conclusion == []
     assert result.clues == []
     assert [item.hit.title for item in result.discarded] == ["公司公告"]
+
+
+def test_generic_query_words_cannot_make_unrelated_hard_evidence_relevant() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [
+                    _hit(
+                        "半导体投资机会",
+                        0.9,
+                        hardness="hard",
+                        excerpt="半导体设备的投资机会与估值判断",
+                    ),
+                    _hit(
+                        "温控设备",
+                        0.3,
+                        excerpt="液冷系统需要温控设备与冷却单元",
+                    ),
+                ],
+            )
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "液冷怎么看投资机会",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert [item.hit.title for item in result.discarded] == ["半导体投资机会"]
+    assert [item.hit.title for item in result.clues] == ["温控设备"]
+    assert result.conclusion == []
 
 
 def test_relevant_soft_hit_is_clue_and_hard_hit_is_conclusion() -> None:
@@ -317,3 +373,28 @@ def test_inspector_keeps_attempt_telemetry_and_adds_mode_timeout() -> None:
         "status": "empty",
         "hit_count": 0,
     }
+
+
+def test_telemetry_tracks_last_attempt_including_hybrid_error() -> None:
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        if mode == "hybrid":
+            return _response(
+                query,
+                [],
+                status="error",
+                freshness="fresh",
+                warning="dense unavailable",
+            )
+        return _response(query, [], freshness="fresh")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    assert result.telemetry is not None
+    assert result.telemetry.status == "error"
+    assert result.attempts[-1].mode == "hybrid"
+    assert result.attempts[-1].status == "error"

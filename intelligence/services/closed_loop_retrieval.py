@@ -15,9 +15,6 @@ RetrievalMode: TypeAlias = Literal["bm25", "hybrid"]
 Retrieve: TypeAlias = Callable[[str, RetrievalMode, float], WikiRagResult]
 
 _TERM_RE = re.compile(r"[\u4e00-\u9fff]{2,8}|[A-Za-z][A-Za-z0-9.+-]{2,20}")
-_QUESTION_WORDS_RE = re.compile(
-    r"最近|怎么样|怎么看|是什么|为什么|为何|分析|输出|请|一下|能否|是否"
-)
 _GENERIC_TERMS = {
     "公司",
     "行业",
@@ -118,11 +115,9 @@ def retrieve_closed_loop(
             "counter", counter_query, "bm25", retrieve, result, budget=budget, now=now
         )
 
-    relevance_terms = _relevance_terms(
-        query, anchor, (), subject=explicit_subject
-    )
+    relevance_terms = _relevance_terms(anchor, (), subject=explicit_subject)
     broad_relevance_terms = _relevance_terms(
-        query, anchor, narrow_hits, subject=explicit_subject
+        anchor, narrow_hits, subject=explicit_subject
     )
     bm25_entries = (
         *(("narrow", hit) for hit in narrow_hits),
@@ -141,11 +136,13 @@ def retrieve_closed_loop(
         if budget is None
         else budget.remaining_seconds(now=now())
     )
-    if (
-        not stop
-        and not result.conclusion
-        and remaining >= semantic_min_seconds
-    ):
+    should_consider_semantic = not stop and not result.conclusion
+    if should_consider_semantic and remaining < semantic_min_seconds:
+        result.warnings.append(
+            "semantic retrieval skipped: insufficient budget "
+            f"({remaining:.1f}s remaining, {semantic_min_seconds:.1f}s required)"
+        )
+    if should_consider_semantic and remaining >= semantic_min_seconds:
         hybrid_hits, _ = _run_one(
             "narrow",
             narrow_query,
@@ -206,11 +203,13 @@ def _run_one(
                 hit_count=0,
             )
         )
+        result.warnings.append(
+            f"{aperture} {mode} retrieval not executed: budget exhausted"
+        )
         return [], True
 
     response = retrieve(query, mode, timeout)
-    if result.telemetry is None or response.hits:
-        result.telemetry = response.telemetry
+    result.telemetry = response.telemetry
     result.attempts.append(
         RetrievalAttempt(
             aperture=aperture,
@@ -226,13 +225,18 @@ def _run_one(
 
     status = response.telemetry.status.casefold()
     freshness = response.telemetry.index_freshness.casefold()
-    stop = status in {"skipped", "error", "timeout"} or freshness in {
-        "stale",
-        "unknown",
-    }
+    untrusted_freshness = freshness != "fresh"
+    stop = status in {"skipped", "error", "timeout"} or untrusted_freshness
+    if untrusted_freshness:
+        freshness_label = freshness or "missing"
+        warning = f"untrusted index freshness: {freshness_label}"
+        if warning not in result.warnings:
+            result.warnings.append(warning)
+    if stop:
+        return [], True
     if response.ok and response.hits:
-        return response.hits, stop
-    return [], stop
+        return response.hits, False
+    return [], False
 
 
 def _narrow_queries(subject: str, anchor: EntityAnchor | None) -> tuple[str, ...]:
@@ -294,23 +298,35 @@ def _extract_terms(hits: Sequence[WikiHit]) -> list[str]:
 
 
 def _relevance_terms(
-    query: str,
     anchor: EntityAnchor | None,
     narrow_hits: Sequence[WikiHit],
     *,
     subject: str = "",
 ) -> tuple[str, ...]:
-    stripped_query = _QUESTION_WORDS_RE.sub(" ", query)
-    terms = _TERM_RE.findall(stripped_query)
+    terms: list[str] = [subject]
     if anchor is not None:
         terms.extend((anchor.entity, anchor.ticker, *anchor.concepts))
-    elif subject:
-        terms.append(subject)
-    terms.extend(_extract_terms(narrow_hits))
-    return tuple(
+    base_terms = tuple(
         dict.fromkeys(
             term.strip().casefold()
             for term in terms
+            if len(term.strip()) >= 2 and term.strip() not in _GENERIC_TERMS
+        )
+    )
+    anchored_narrow_hits = [
+        hit
+        for hit in narrow_hits
+        if hit.score > 0
+        and any(
+            term in f"{hit.title} {hit.excerpt}".casefold()
+            for term in base_terms
+        )
+    ]
+    expanded_terms = (*base_terms, *_extract_terms(anchored_narrow_hits))
+    return tuple(
+        dict.fromkeys(
+            term.strip().casefold()
+            for term in expanded_terms
             if len(term.strip()) >= 2 and term.strip() not in _GENERIC_TERMS
         )
     )
