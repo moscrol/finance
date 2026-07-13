@@ -134,8 +134,8 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
     assert len(calls) == 3
     assert calls[0].perspective_mode == "neutral"
     assert calls[0].perspective_ids == ()
-    assert calls[0].include_memory_block is False
-    assert calls[0].include_recall_block is False
+    assert calls[0].include_memory_block is True
+    assert calls[0].include_recall_block is True
     assert "较早消息摘要" in calls[1].conversation_context
     assert "第一轮：液冷怎么样？" in calls[1].conversation_context
     assert "第二轮：证据够硬吗？" not in calls[1].conversation_context

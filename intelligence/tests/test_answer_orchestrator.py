@@ -246,6 +246,89 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("普通投资者", captured["system"])
         self.assertNotIn("知识图谱", captured["prompt"])
 
+    def test_market_review_compose_injects_memory_as_incremental_prior(
+        self,
+    ) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured["prompt"] = str(messages[1]["content"])
+            return None, "mocked"
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                side_effect=fake_synthesize,
+            ),
+            mock.patch(
+                "intelligence.services.ask.user_memory.memory_block_for_query",
+                return_value="## 用户记忆检索块 [M]\n- 上次判断：缩量轮动",
+            ),
+            mock.patch(
+                "intelligence.services.ask.checkpoint_recall.recall_block_for_query",
+                return_value="## 回检块 [V]\n- 上次判断已半对",
+            ),
+            mock.patch(
+                "intelligence.services.ask.experience_cards.load_cards",
+                return_value=([], None),
+            ),
+            mock.patch(
+                "intelligence.services.ask.experience_cards.render_for_prompt",
+                return_value="- 只讲相较上次的新变化",
+            ),
+        ):
+            wiki = Path(tmp) / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            result = answer_query(
+                AskOptions(
+                    query="请复盘最新交易日的市场结构和主要风险",
+                    exports_dir=tmp,
+                    kb_wiki=wiki,
+                    supplemental_evidence="### daily-review\n- 上涨 3774 只",
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                )
+            )
+
+        self.assertIn("以下历史记忆只作为先验", captured["prompt"])
+        self.assertIn("相较上次", captured["prompt"])
+        self.assertIn("用户记忆检索块 [M]", captured["prompt"])
+        self.assertIn("回检块 [V]", captured["prompt"])
+        self.assertIn("只讲相较上次的新变化", captured["prompt"])
+        self.assertEqual({citation.tag for citation in result.citations}, {"M", "V"})
+
+    def test_market_review_without_memory_keeps_prior_block_absent(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured["prompt"] = str(messages[1]["content"])
+            return None, "mocked"
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch(
+            "intelligence.services.ask.llm_refine.synthesize_messages",
+            side_effect=fake_synthesize,
+        ):
+            wiki = Path(tmp) / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            result = answer_query(
+                AskOptions(
+                    query="请复盘最新交易日的市场结构和主要风险",
+                    exports_dir=tmp,
+                    kb_wiki=wiki,
+                    supplemental_evidence="### daily-review\n- 上涨 3774 只",
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                )
+            )
+
+        self.assertNotIn("以下历史记忆只作为先验", captured["prompt"])
+        self.assertEqual(result.citations, [])
+
     def test_market_review_compose_excludes_deep_dive_evidence_blocks(self) -> None:
         captured: dict[str, str] = {}
 

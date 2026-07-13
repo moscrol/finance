@@ -58,6 +58,9 @@ class BuildMemoryBlockTests(unittest.TestCase):
         self.assertIn("回检校准", block)
         self.assertIn("命中率 75%", block)
         self.assertIn("使用要求", block)
+        self.assertIn("历史先验（prior）", block)
+        self.assertIn("相比上次发生了什么变化", block)
+        self.assertIn("价格、产能、订单等易变项必须以本轮检索为准", block)
 
     def test_correction_falls_back_to_correction_text(self) -> None:
         block = build_memory_block([], [{"correction": "应该看板块容量", "ts": "2026-07-02T00:00:00Z"}])

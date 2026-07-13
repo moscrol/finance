@@ -548,6 +548,52 @@ def _answer_market_review(
     if not options.compose:
         return result
 
+    prior_parts: list[str] = []
+    if options.include_memory_block:
+        memory_block = user_memory.memory_block_for_query(
+            options.query,
+            user=options.user,
+        )
+        if memory_block:
+            prior_parts.append(memory_block)
+            result.citations.append(
+                Citation(
+                    "M",
+                    "用户记忆检索块",
+                    "历史判断与纠偏原则，仅作先验，不替代当前市场事实",
+                )
+            )
+        user_space = userspace.user_space(options.user)
+        cards, card_warning = experience_cards.load_cards(
+            user_space.experience_cards_path,
+            window=options.experience_cards_window,
+        )
+        if card_warning:
+            result.warnings.append(card_warning)
+        card_guidance = experience_cards.render_for_prompt(
+            experience_cards.select_relevant_cards(cards, options.query)
+        )
+        if card_guidance:
+            prior_parts.append(
+                "## 历史经验卡片（回答方法，不是市场事实）\n"
+                f"{card_guidance}"
+            )
+    if options.include_recall_block:
+        recall_block = checkpoint_recall.recall_block_for_query(
+            options.query,
+            user=options.user,
+            data_asof=_market_data_asof(options.market_db_path),
+        )
+        if recall_block:
+            prior_parts.append(recall_block)
+            result.citations.append(
+                Citation(
+                    "V",
+                    "回检块（历史可证伪判断×裁决）",
+                    "历史裁决快照，仅用于增量核对",
+                )
+            )
+
     plan_block = (
         result.question_plan.to_prompt_block()
         if result.question_plan is not None
@@ -564,6 +610,13 @@ def _answer_market_review(
         user_prompt += (
             "\n\n以下对话上下文只用于理解用户追问，不得覆盖本轮数据：\n"
             f"{options.conversation_context.strip()}"
+        )
+    if prior_parts:
+        user_prompt += (
+            "\n\n以下历史记忆只作为先验：用于决定增量起点、篇幅、语气和反方重点，"
+            "不得覆盖本轮数据。价格、产能、订单等易变项以当前检索为准；"
+            "已聊过的对象优先说明相较上次的变化，不重跑全模板：\n"
+            + "\n\n".join(prior_parts)
         )
     messages = [
         {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
@@ -1664,7 +1717,7 @@ def answer_query(options: AskOptions) -> AskResult:
             result.answer_spec.to_prompt_block(),
             citation_legend=citation_legend,
             quality_context=None if is_market_review else quality_context,
-            experience_guidance="" if is_market_review else experience_guidance,
+            experience_guidance=experience_guidance,
             exemplar_guidance=exemplar_guidance,
         )
         msgs[0]["content"] = (
