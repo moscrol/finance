@@ -150,22 +150,21 @@ def _normalize_explicit_tail(tail: str, timeframe: str | None) -> str:
     return normalized
 
 
-def _explicit_theme(text: str, timeframe: str | None) -> tuple[str | None, bool]:
-    cue = _EXPLICIT_CUE_RE.search(text)
-    if cue is None:
-        return None, False
-    tail = _normalize_explicit_tail(text[cue.end() :], timeframe)
-    match = _EXPLICIT_TOPIC_RE.match(tail)
-    if match is None:
-        return None, True
-    subject = match.group(1).strip()
-    if (
-        not subject
-        or subject in _GENERIC_EXPLICIT_SUBJECTS
-        or subject.startswith(_GENERIC_EXPLICIT_PREFIXES)
-    ):
-        return None, True
-    return subject, True
+def _explicit_theme(text: str, timeframe: str | None) -> str | None:
+    for cue in reversed(tuple(_EXPLICIT_CUE_RE.finditer(text))):
+        tail = _normalize_explicit_tail(text[cue.end() :], timeframe)
+        match = _EXPLICIT_TOPIC_RE.match(tail)
+        if match is None:
+            continue
+        subject = match.group(1).strip()
+        if (
+            not subject
+            or subject in _GENERIC_EXPLICIT_SUBJECTS
+            or subject.startswith(_GENERIC_EXPLICIT_PREFIXES)
+        ):
+            continue
+        return subject
+    return None
 
 
 def understand_query(
@@ -238,7 +237,7 @@ def understand_query(
             0.72,
         )
 
-    explicit, has_explicit_cue = _explicit_theme(text, timeframe)
+    explicit = _explicit_theme(text, timeframe)
     if explicit:
         return QueryEnvelope(
             "theme_analysis",
@@ -248,17 +247,6 @@ def understand_query(
             timeframe,
             "explicit",
             0.8,
-        )
-
-    if has_explicit_cue:
-        return QueryEnvelope(
-            "general_finance_qa",
-            "unknown",
-            None,
-            _decision_goal(text),
-            timeframe,
-            "generic",
-            0.4 if text else 0.1,
         )
 
     if sum(term in text for term in _MARKET_PATTERN_TERMS) >= 2:
