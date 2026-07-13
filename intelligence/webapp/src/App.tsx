@@ -433,9 +433,12 @@ export default function App() {
       setLoading(true);
       try {
         const nextMessages = await loadConversationData(conversationId);
+        if (activeConversationRef.current !== conversationId) return;
         const lastUserMessage = [...nextMessages]
           .reverse()
           .find((message) => message.role === "user");
+        setSkillMode(lastUserMessage?.skill_mode ?? "hybrid");
+        setSelectedSkillIds(lastUserMessage?.selected_skill_ids ?? []);
         setPerspectiveMode(lastUserMessage?.perspective_mode ?? "neutral");
         setSelectedPerspectiveIds(
           lastUserMessage?.selected_perspective_ids ?? [],
@@ -571,10 +574,20 @@ export default function App() {
   }, [user]);
 
   const newConversation = useCallback(async (): Promise<Conversation> => {
-    const created = await createConversation("新对话", user);
-    setConversations((current) => [created, ...current]);
-    await selectConversation(created.conversation_id);
-    return created;
+    setLoading(true);
+    setSkillMode("hybrid");
+    setSelectedSkillIds([]);
+    setPerspectiveMode("neutral");
+    setSelectedPerspectiveIds([]);
+    try {
+      const created = await createConversation("新对话", user);
+      setConversations((current) => [created, ...current]);
+      await selectConversation(created.conversation_id);
+      return created;
+    } catch (caught) {
+      setLoading(false);
+      throw caught;
+    }
   }, [selectConversation, user]);
 
   const submitResearch = useCallback(
@@ -653,7 +666,6 @@ export default function App() {
           }),
         }));
         setDraft("");
-        setSelectedSkillIds([]);
         connectStream({
           conversationId,
           messageId: created.assistant_message_id,
@@ -981,7 +993,7 @@ export default function App() {
               <Composer
                 value={draft}
                 taskType="ask"
-                disabled={submitting}
+                disabled={submitting || loading}
                 running={Boolean(runningLive)}
                 stopRequested={runningLive?.cancelRequested ?? false}
                 skills={skills}

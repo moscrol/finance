@@ -9,6 +9,8 @@ from unittest import mock
 from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
+    QUESTION_GENERAL,
+    QUESTION_FINANCIAL_ANALYSIS,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
@@ -17,11 +19,34 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_VALUATION,
     plan_answer_question,
 )
-from intelligence.services.ask import AskOptions, answer_query
+from intelligence.services.ask import AskOptions, answer_query, render_conversation_answer
+from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.llm_refine import SynthesisResult
+from intelligence.services.kb_rag import (
+    RetrievalTelemetry,
+    WikiHit,
+    WikiRagResult,
+)
 
 
 class AnswerOrchestratorTests(unittest.TestCase):
+    def test_base_finance_mode_keeps_retrieval_floor_for_quick_answers(self) -> None:
+        plan = plan_answer_question("600519 快答：最近消息、产业链和财务估值怎么看")
+
+        self.assertIsNotNone(plan.base_finance_mode)
+        assert plan.base_finance_mode is not None
+        self.assertTrue(plan.base_finance_mode.require_market)
+        self.assertTrue(plan.base_finance_mode.require_memory)
+        self.assertTrue(plan.base_finance_mode.require_news)
+        self.assertTrue(plan.base_finance_mode.require_graph)
+        self.assertTrue(plan.base_finance_mode.require_financials)
+        self.assertTrue(plan.base_finance_mode.quick_answer)
+        prompt = plan.to_prompt_block()
+        self.assertIn("“快答”只缩短表达，不得跳过已触发的检索", prompt)
+        self.assertIn("直接定性、最强证据、主要风险、条件边界", prompt)
+        self.assertIn("用户观点只作为待检验假设", prompt)
+        self.assertIn("缺 X → 仍可判 Y → 验证窗口 Z", prompt)
+
     def test_stock_deep_dive_plan_requires_multilens_and_hybrid_rag(self) -> None:
         plan = plan_answer_question("用 hybrid 深挖飞凯材料，还有没有上涨空间")
 
@@ -39,6 +64,72 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("D1/D2/D3", joined_sources)
         self.assertIn("L3 硬证据", "\n".join(plan.missing_data_policy))
         self.assertIn("市场正在奖励谁、抛弃谁、犹豫谁", joined_gates)
+
+    def test_financial_analysis_has_its_own_plan_and_can_be_forced(self) -> None:
+        classified = plan_answer_question("分析一下贵州茅台财报")
+        forced = plan_answer_question(
+            "贵州茅台怎么看",
+            question_type_override=QUESTION_FINANCIAL_ANALYSIS,
+        )
+
+        for plan in (classified, forced):
+            self.assertEqual(plan.question_type, QUESTION_FINANCIAL_ANALYSIS)
+            self.assertEqual(plan.depth, DEPTH_DEEP)
+            self.assertIn("财务验鲜", "\n".join(plan.required_lenses))
+            self.assertIn("逐季财报", "\n".join(plan.retrieval_plan))
+            self.assertIn("业绩兑现结论", "\n".join(plan.output_contract))
+            self.assertIn("累计口径与单季口径不能混用", "\n".join(plan.missing_data_policy))
+            assert plan.base_finance_mode is not None
+            self.assertTrue(plan.base_finance_mode.require_financials)
+
+        with self.assertRaisesRegex(ValueError, "unknown question type"):
+            plan_answer_question("贵州茅台", question_type_override="unknown")
+
+    def test_entity_anchor_turns_on_market_and_memory_floor(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.entity_anchor.resolve_entity_anchor",
+                return_value=EntityAnchor(
+                    entity="贵州茅台",
+                    ticker="600519.SH",
+                    concepts=("白酒",),
+                ),
+            ),
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="茅台最近怎么样",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        self.assertIsNotNone(result.question_plan)
+        assert result.question_plan is not None
+        self.assertIsNotNone(result.question_plan.base_finance_mode)
+        assert result.question_plan.base_finance_mode is not None
+        self.assertTrue(result.question_plan.base_finance_mode.require_market)
+        self.assertTrue(result.question_plan.base_finance_mode.require_memory)
+
+    def test_general_base_presenter_does_not_echo_question_as_title(self) -> None:
+        query = "E2E-desktop-123 第三轮有哪些风险"
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        self.assertIn("# 金融问题裁决", rendered)
+        self.assertNotIn(f"# {query}", rendered)
 
     def test_market_forecast_plan_requires_verifiable_hypotheses(self) -> None:
         plan = plan_answer_question("站在6.29视角，6.30的行情怎么看")
@@ -160,6 +251,94 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("强势股队列", joined_lenses)
         self.assertIn("theme candidates", joined_sources)
 
+    def test_ambiguous_output_word_does_not_route_to_answer_review(self) -> None:
+        plan = plan_answer_question("输出未来三天要验证的风险点")
+
+        self.assertEqual(plan.question_type, QUESTION_GENERAL)
+        self.assertLess(plan.confidence, 0.6)
+
+    def test_bare_how_do_you_view_it_uses_general_base_finance_fallback(self) -> None:
+        plan = plan_answer_question("怎么看")
+
+        self.assertEqual(plan.question_type, QUESTION_GENERAL)
+        self.assertLess(plan.confidence, 0.6)
+
+    def test_short_query_does_not_default_to_theme_template(self) -> None:
+        plan = plan_answer_question("人工智能")
+
+        self.assertEqual(plan.question_type, QUESTION_GENERAL)
+        self.assertLess(plan.confidence, 0.6)
+
+    def test_explicit_stock_wording_still_routes_to_deep_dive(self) -> None:
+        plan = plan_answer_question("这只股怎么看")
+
+        self.assertEqual(plan.question_type, QUESTION_STOCK_DEEP_DIVE)
+
+    def test_closed_loop_keeps_weak_positive_out_but_retains_counter_clue(
+        self,
+    ) -> None:
+        calls = 0
+
+        def fake_retrieve(query: str, *_args: object, **_kwargs: object):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                hits = [
+                    WikiHit(
+                        page_id="weak",
+                        file_path="wiki/weak.md",
+                        title="弱相关首页",
+                        score=0.2,
+                        excerpt="排名靠前但证据很弱",
+                        best_chunk_id="weak",
+                    )
+                ]
+            elif "风险 证伪" in query:
+                hits = [
+                    WikiHit(
+                        page_id="counter",
+                        file_path="wiki/counter.md",
+                        title="需求下滑风险",
+                        score=0.1,
+                        excerpt="需求可能不及预期，仍待核验",
+                        best_chunk_id="counter",
+                    )
+                ]
+            else:
+                hits = []
+            return WikiRagResult(
+                ok=bool(hits),
+                hits=hits,
+                telemetry=RetrievalTelemetry(
+                    status="ok" if hits else "empty",
+                    hit_count=len(hits),
+                ),
+            )
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.kb_rag.retrieve",
+                side_effect=fake_retrieve,
+            ),
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="测试对象最近怎么样",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=True,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        self.assertNotIn("弱相关首页", rendered)
+        self.assertIn("需求下滑风险", rendered)
+        assert result.closed_loop_retrieval is not None
+        self.assertEqual(len(result.closed_loop_retrieval.clues), 2)
+        self.assertEqual(len(result.closed_loop_retrieval.counter_clues), 1)
+
     def test_prompt_block_exposes_plan_without_requiring_template_output(self) -> None:
         plan = plan_answer_question("深挖顺络电子")
         block = plan.to_prompt_block()
@@ -246,6 +425,89 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("普通投资者", captured["system"])
         self.assertNotIn("知识图谱", captured["prompt"])
 
+    def test_market_review_compose_injects_memory_as_incremental_prior(
+        self,
+    ) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured["prompt"] = str(messages[1]["content"])
+            return None, "mocked"
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                side_effect=fake_synthesize,
+            ),
+            mock.patch(
+                "intelligence.services.ask.user_memory.memory_block_for_query",
+                return_value="## 用户记忆检索块 [M]\n- 上次判断：缩量轮动",
+            ),
+            mock.patch(
+                "intelligence.services.ask.checkpoint_recall.recall_block_for_query",
+                return_value="## 回检块 [V]\n- 上次判断已半对",
+            ),
+            mock.patch(
+                "intelligence.services.ask.experience_cards.load_cards",
+                return_value=([], None),
+            ),
+            mock.patch(
+                "intelligence.services.ask.experience_cards.render_for_prompt",
+                return_value="- 只讲相较上次的新变化",
+            ),
+        ):
+            wiki = Path(tmp) / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            result = answer_query(
+                AskOptions(
+                    query="请复盘最新交易日的市场结构和主要风险",
+                    exports_dir=tmp,
+                    kb_wiki=wiki,
+                    supplemental_evidence="### daily-review\n- 上涨 3774 只",
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                )
+            )
+
+        self.assertIn("以下历史记忆只作为先验", captured["prompt"])
+        self.assertIn("相较上次", captured["prompt"])
+        self.assertIn("用户记忆检索块 [M]", captured["prompt"])
+        self.assertIn("回检块 [V]", captured["prompt"])
+        self.assertIn("只讲相较上次的新变化", captured["prompt"])
+        self.assertEqual({citation.tag for citation in result.citations}, {"M", "V"})
+
+    def test_market_review_without_memory_keeps_prior_block_absent(self) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured["prompt"] = str(messages[1]["content"])
+            return None, "mocked"
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch(
+            "intelligence.services.ask.llm_refine.synthesize_messages",
+            side_effect=fake_synthesize,
+        ):
+            wiki = Path(tmp) / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            result = answer_query(
+                AskOptions(
+                    query="请复盘最新交易日的市场结构和主要风险",
+                    exports_dir=tmp,
+                    kb_wiki=wiki,
+                    supplemental_evidence="### daily-review\n- 上涨 3774 只",
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                )
+            )
+
+        self.assertNotIn("以下历史记忆只作为先验", captured["prompt"])
+        self.assertEqual(result.citations, [])
+
     def test_market_review_compose_excludes_deep_dive_evidence_blocks(self) -> None:
         captured: dict[str, str] = {}
 
@@ -294,6 +556,14 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertNotIn("第一性原理门槛", captured["prompt"])
         self.assertNotIn("- 反方审稿：", captured["prompt"])
         self.assertIn("当前交易日主线未知", captured["prompt"])
+        self.assertIsNotNone(result.answer_spec)
+        rendered = render_conversation_answer(result)
+        self.assertIn("**直接定性：**", rendered)
+        self.assertIn("**最强证据：**", rendered)
+        self.assertIn("**主要风险：**", rendered)
+        self.assertIn("**条件边界：**", rendered)
+        self.assertIn("**下一步验证：**", rendered)
+        self.assertNotIn("检索遥测", rendered)
 
     def test_ask_compose_injects_canonical_next_trading_day(self) -> None:
         duckdb = __import__("duckdb")

@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "target": "英维克",
+      "concept": "液冷",
+      "evidence": "公司公告披露其液冷相关产品已应用于数据中心温控场景。",
+      "source": "公司公告",
+      "source_date": "2026-07-10",
+      "confidence": "high",
+      "evidence_layer": "L3"
+    }
+  ]
+}
