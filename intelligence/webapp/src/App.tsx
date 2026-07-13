@@ -436,6 +436,8 @@ export default function App() {
         const lastUserMessage = [...nextMessages]
           .reverse()
           .find((message) => message.role === "user");
+        setSkillMode(lastUserMessage?.skill_mode ?? "hybrid");
+        setSelectedSkillIds(lastUserMessage?.selected_skill_ids ?? []);
         setPerspectiveMode(lastUserMessage?.perspective_mode ?? "neutral");
         setSelectedPerspectiveIds(
           lastUserMessage?.selected_perspective_ids ?? [],
@@ -653,7 +655,6 @@ export default function App() {
           }),
         }));
         setDraft("");
-        setSelectedSkillIds([]);
         connectStream({
           conversationId,
           messageId: created.assistant_message_id,

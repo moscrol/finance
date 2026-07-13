@@ -11,8 +11,10 @@ from intelligence.services import llm_refine
 from intelligence.services import perspective_lab
 from intelligence.services.ask import AskOptions, AskResult
 from intelligence.services.conversation_orchestrator import (
+    ConversationContext,
     TurnOrchestrator,
     build_conversation_context,
+    contextualize_follow_up_query,
     sanitize_conversation_answer,
     sanitize_user_visible_artifact_text,
 )
@@ -228,6 +230,29 @@ def test_context_keeps_six_recent_messages_and_summarizes_older(tmp_path) -> Non
     assert "message-0" in context.summary
     assert "message-3" in context.summary
     assert "message-4" not in context.summary
+
+
+def test_contextualizes_pronoun_follow_up_with_previous_user_turn(tmp_path) -> None:
+    store = ConversationStore("alice", root=tmp_path)
+    conversation = store.create_conversation()
+    previous = store.append_message(
+        conversation.conversation_id,
+        "user",
+        "请个股深挖英维克的液冷业务",
+        run_id="run-first",
+    )
+    context = ConversationContext(summary="", recent_messages=(previous,))
+
+    assert contextualize_follow_up_query(
+        "那它的主要风险和下一步验证是什么？",
+        context,
+    ) == (
+        "请个股深挖英维克的液冷业务\n"
+        "追问：那它的主要风险和下一步验证是什么？"
+    )
+    assert contextualize_follow_up_query("今天市场怎么样？", context) == (
+        "今天市场怎么样？"
+    )
 
 
 def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None:

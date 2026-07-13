@@ -232,14 +232,14 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await expect(page.getByText(firstQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText(secondQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
-  await expect(page.getByText("已指定工具 · Daily Agent")).toBeVisible();
+  await expect(page.getByText("已指定工具 · Daily Agent")).toHaveCount(3);
   await expect(page.getByLabel("研究助手消息")).toHaveCount(4);
 
   await expectNoHorizontalOverflow(page);
   await expectComposerDoesNotOverlapThread(page);
 });
 
-test("stock deep-dive owns a traceable Workbench answer", async ({
+test("stock deep-dive owns and continues a traceable Workbench answer", async ({
   page,
 }, testInfo) => {
   test.slow();
@@ -270,6 +270,21 @@ test("stock deep-dive owns a traceable Workbench answer", async ({
       /数据要素|entity_exposures|evidence_index|evidence_count|concept_graph|RAG|DuckDB|registry|internal|baseline|multi-source|人工 review|sanity check|Provider|\brelated\b/,
     ),
   ).toHaveCount(0);
+
+  await expect(page.getByLabel("已选研究工具")).toContainText("个股深挖");
+  await submitQuestion(page, "那它的主要风险和下一步验证是什么？", 2);
+
+  const followUp = page.getByLabel("研究助手消息").nth(1);
+  await expect(
+    followUp.getByRole("heading", { name: "个股深挖" }),
+  ).toBeVisible();
+  await expect(followUp.getByText(/英维克/).first()).toBeVisible();
+  await expect(
+    followUp.getByRole("heading", { name: "反证与缺口" }),
+  ).toBeVisible();
+  await expect(
+    followUp.getByRole("heading", { name: "下一步如何验证" }),
+  ).toBeVisible();
 });
 
 test("stop preserves cancellation and responsive drawers remain closable", async ({
