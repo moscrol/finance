@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from dataclasses import fields
 from pathlib import Path
 
 import pytest
 
+from intelligence.services.query_understanding import understand_query
 from intelligence.services.run_store import RunStore
 from intelligence.workbench_skills.contracts import (
     SkillDefinition,
@@ -329,3 +331,62 @@ def test_no_semantic_selection_enters_base_finance_chain() -> None:
     assert result.selections == ()
     assert result.fallback_to_ask is False
     assert result.base_finance_fallback is True
+
+
+def test_auto_market_pattern_excludes_theme_research_from_rules_and_llm() -> None:
+    query = (
+        "如果一个A股题材连续上涨，但板块成交占比开始下降，我应该怎么判断"
+        "它是健康分歧还是行情高潮？"
+    )
+    envelope = understand_query(query)
+    captured_candidates: list[str] = []
+
+    def select_forbidden_theme(messages: list[dict[str, str]]):
+        payload = json.loads(messages[1]["content"])
+        captured_candidates.extend(
+            candidate["skill_id"] for candidate in payload["candidates"]
+        )
+        return (
+            '{"skill_ids":["theme-research"],'
+            '"reasons":{"theme-research":"规则和语义都像题材研究"}}',
+            object(),
+            "",
+        )
+
+    result = route_skills(
+        query,
+        "ask",
+        "auto",
+        [],
+        registry={
+            "theme-research": definition("theme-research", "连续上涨"),
+            "daily-review": definition("daily-review", "今日复盘"),
+        },
+        llm_complete=select_forbidden_theme,
+        query_envelope=envelope,
+    )
+
+    assert captured_candidates == ["daily-review"]
+    assert result.selections == ()
+    assert result.base_finance_fallback is True
+
+
+def test_manual_market_pattern_preserves_user_selected_theme_research() -> None:
+    query = "指数上涨但涨停家数减少，是否背离？"
+    envelope = understand_query(query)
+
+    result = route_skills(
+        query,
+        "ask",
+        "manual",
+        ["theme-research"],
+        registry={"theme-research": definition("theme-research", "指数上涨")},
+        llm_complete=lambda _: pytest.fail("manual mode must not call LLM"),
+        query_envelope=envelope,
+    )
+
+    assert [selection.skill_id for selection in result.selections] == [
+        "theme-research"
+    ]
+    assert result.selections[0].selection_source == "manual"
+    assert result.base_finance_fallback is False

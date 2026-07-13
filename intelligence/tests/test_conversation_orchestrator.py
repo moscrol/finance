@@ -19,6 +19,7 @@ from intelligence.services.conversation_orchestrator import (
     sanitize_user_visible_artifact_text,
 )
 from intelligence.services.conversation_store import ConversationStore
+from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.run_store import RunStore
 from intelligence.workbench_skills.contracts import (
     SkillDefinition,
@@ -323,6 +324,61 @@ def test_market_question_automatically_selects_daily_review() -> None:
     assert [selection.skill_id for selection in route.selections] == [
         "daily-review"
     ]
+
+
+def test_turn_routes_with_query_envelope_and_records_it_in_trace(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "指数上涨但涨停家数减少，是否背离？"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    routed: list[QueryEnvelope] = []
+
+    def route_spy(
+        routed_query: str,
+        task_type: str,
+        skill_mode: str,
+        selected_skill_ids: list[str],
+        *,
+        registry: dict[str, SkillDefinition],
+        query_envelope: QueryEnvelope,
+    ) -> SkillRouteResult:
+        assert routed_query == query
+        assert task_type == "ask"
+        assert skill_mode == "auto"
+        assert selected_skill_ids == []
+        assert registry == {}
+        routed.append(query_envelope)
+        return SkillRouteResult((), fallback_to_ask=False, base_finance_fallback=True)
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=route_spy,
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert len(routed) == 1
+    assert routed[0].subject_kind == "market_pattern"
+    route_step = next(
+        step for step in run_store.load_trace(run_id) if step["name"] == "route_skills"
+    )
+    route_output = json.loads(route_step["output_summary"])
+    assert route_output["query_envelope"] == routed[0].to_dict()
 
 
 class _FailingSkill:

@@ -34,6 +34,7 @@ from intelligence.services.conversation_store import (
 )
 from intelligence.services.llm_refine import LLMStreamCancelled
 from intelligence.services import perspective_lab
+from intelligence.services.query_understanding import understand_query
 from intelligence.services.run_store import RunStore, redact
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
@@ -521,6 +522,7 @@ class TurnOrchestrator:
                 conversation_id, context.summary
             )
             contextual_query = contextualize_follow_up_query(query, context)
+            routing_envelope = understand_query(contextual_query)
             route_started = time.monotonic()
             route = self.route_skills(
                 contextual_query,
@@ -528,6 +530,7 @@ class TurnOrchestrator:
                 skill_mode,
                 selected_skill_ids,
                 registry=self.skill_registry.definitions,
+                query_envelope=routing_envelope,
             )
             selected = [selection.skill_id for selection in route.selections]
             self._trace(
@@ -547,6 +550,7 @@ class TurnOrchestrator:
                     ],
                     "fallback_to_ask": route.fallback_to_ask,
                     "base_finance_fallback": route.base_finance_fallback,
+                    "query_envelope": routing_envelope.to_dict(),
                     "elapsed_ms": self._elapsed_ms(route_started),
                 },
             )
