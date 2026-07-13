@@ -12,10 +12,10 @@ RetrievalAperture: TypeAlias = Literal["narrow", "broad", "counter"]
 Retrieve: TypeAlias = Callable[[str], WikiRagResult]
 
 MAX_EMPTY_ATTEMPTS = 3
-CONCLUSION_SCORE = 0.55
-HARD_EVIDENCE_SCORE = 0.35
-CLUE_SCORE = 0.18
 _TERM_RE = re.compile(r"[\u4e00-\u9fff]{2,8}|[A-Za-z][A-Za-z0-9.+-]{2,20}")
+_QUESTION_WORDS_RE = re.compile(
+    r"最近|怎么样|怎么看|是什么|为什么|为何|分析|输出|请|一下|能否|是否"
+)
 _GENERIC_TERMS = {
     "公司",
     "行业",
@@ -109,6 +109,8 @@ def retrieve_closed_loop(
             *(("counter", hit) for hit in counter_hits),
         ),
         result,
+        relevance_terms=_relevance_terms(query, anchor, ()),
+        broad_relevance_terms=_relevance_terms(query, anchor, narrow_hits),
     )
     for aperture in ("narrow", "broad", "counter"):
         attempts = [item for item in result.attempts if item.aperture == aperture]
@@ -205,9 +207,31 @@ def _extract_terms(hits: Sequence[WikiHit]) -> list[str]:
     return terms
 
 
+def _relevance_terms(
+    query: str,
+    anchor: EntityAnchor | None,
+    narrow_hits: Sequence[WikiHit],
+) -> tuple[str, ...]:
+    stripped_query = _QUESTION_WORDS_RE.sub(" ", query)
+    terms = _TERM_RE.findall(stripped_query)
+    if anchor is not None:
+        terms.extend((anchor.entity, anchor.ticker, *anchor.concepts))
+    terms.extend(_extract_terms(narrow_hits))
+    return tuple(
+        dict.fromkeys(
+            term.strip().casefold()
+            for term in terms
+            if len(term.strip()) >= 2 and term.strip() not in _GENERIC_TERMS
+        )
+    )
+
+
 def _bucket_hits(
     entries: Sequence[tuple[str, WikiHit]],
     result: ClosedLoopRetrievalResult,
+    *,
+    relevance_terms: Sequence[str],
+    broad_relevance_terms: Sequence[str],
 ) -> None:
     seen: set[tuple[str, str, str]] = set()
     for raw_aperture, hit in entries:
@@ -231,11 +255,16 @@ def _bucket_hits(
             "l4",
             "canonical",
         }
-        if hit.score >= CONCLUSION_SCORE or (
-            hard_source and hit.score >= HARD_EVIDENCE_SCORE
-        ):
+        searchable = f"{hit.title} {hit.excerpt}".casefold()
+        aperture_terms = (
+            broad_relevance_terms
+            if typed_aperture == "broad"
+            else relevance_terms
+        )
+        direct_overlap = any(term in searchable for term in aperture_terms)
+        if hit.score > 0 and (hard_source or direct_overlap):
             result.conclusion.append(item)
-        elif hit.score >= CLUE_SCORE:
+        elif hit.score > 0:
             result.clues.append(item)
         else:
             result.discarded.append(item)

@@ -114,3 +114,22 @@ def test_hard_evidence_can_enter_conclusion_at_lower_score() -> None:
     result = retrieve_closed_loop("公告影响", anchor=None, retrieve=retrieve)
 
     assert [item.hit.title for item in result.conclusion] == ["公司公告"]
+
+
+def test_relevant_hit_is_scale_independent_for_rrf_scores() -> None:
+    calls = 0
+
+    def retrieve(query: str) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(query, [_hit("液冷需求", 0.012)])
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "液冷最近怎么样",
+        anchor=EntityAnchor(entity="液冷"),
+        retrieve=retrieve,
+    )
+
+    assert [item.hit.title for item in result.conclusion] == ["液冷需求"]
