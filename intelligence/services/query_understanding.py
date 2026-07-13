@@ -35,9 +35,9 @@ _TICKER_RE = re.compile(
     r"(?<![A-Za-z0-9])\d{6}(?:\.(?:SH|SZ|BJ))?(?![A-Za-z0-9])",
     re.I,
 )
-_EXPLICIT_THEME_RE = re.compile(
-    r"(?:研究|分析|看看|深挖)\s*([\u4e00-\u9fffA-Za-z0-9+.\-\s]{2,40}?)"
-    r"(?:题材|板块|产业链|方向)"
+_EXPLICIT_CUE_RE = re.compile(r"(?:研究|分析|看看|深挖)")
+_EXPLICIT_TOPIC_RE = re.compile(
+    r"([\u4e00-\u9fffA-Za-z0-9+.-]{2,16}?)(?:题材|板块|产业链|方向)"
 )
 _GENERIC_EXPLICIT_SUBJECTS = frozenset(
     {
@@ -54,6 +54,18 @@ _GENERIC_EXPLICIT_SUBJECTS = frozenset(
         "这类",
         "该类",
     }
+)
+_GENERIC_EXPLICIT_PREFIXES = (
+    "为什么",
+    "这个",
+    "那个",
+    "某个",
+    "一个",
+    "某一",
+    "这一",
+    "这类",
+    "该类",
+    "该",
 )
 _MARKET_PATTERN_TERMS = (
     "连续上涨",
@@ -114,26 +126,46 @@ def _decision_goal(query: str) -> str:
     return "形成条件化判断"
 
 
-def _explicit_theme(text: str, timeframe: str | None) -> str | None:
-    match = _EXPLICIT_THEME_RE.search(text)
-    if match is None:
-        return None
-    subject = match.group(1).strip()
-    for prompt_prefix in ("一下子", "一下"):
-        if subject.startswith(prompt_prefix):
-            subject = subject[len(prompt_prefix) :].strip()
-            break
+def _normalize_explicit_tail(tail: str, timeframe: str | None) -> str:
+    prefixes = ["我想了解", "什么是", "一下子", "一下", "A股"]
     if timeframe:
-        for date_prefix in (f"截至{timeframe}", timeframe):
-            if subject.startswith(date_prefix):
-                subject = subject[len(date_prefix) :].strip()
-                subject = subject.removeprefix("的").strip()
+        prefixes.extend(
+            (
+                f"截至{timeframe}的",
+                f"截至{timeframe}",
+                f"{timeframe}的",
+                timeframe,
+            )
+        )
+    prefixes.sort(key=len, reverse=True)
+
+    normalized = tail.strip()
+    while normalized:
+        for prefix in prefixes:
+            if normalized.startswith(prefix):
+                normalized = normalized[len(prefix) :].strip()
                 break
-    if subject.startswith("A股"):
-        subject = subject[len("A股") :].strip()
-    if not subject or subject in _GENERIC_EXPLICIT_SUBJECTS:
-        return None
-    return subject
+        else:
+            break
+    return normalized
+
+
+def _explicit_theme(text: str, timeframe: str | None) -> tuple[str | None, bool]:
+    cue = _EXPLICIT_CUE_RE.search(text)
+    if cue is None:
+        return None, False
+    tail = _normalize_explicit_tail(text[cue.end() :], timeframe)
+    match = _EXPLICIT_TOPIC_RE.match(tail)
+    if match is None:
+        return None, True
+    subject = match.group(1).strip()
+    if (
+        not subject
+        or subject in _GENERIC_EXPLICIT_SUBJECTS
+        or subject.startswith(_GENERIC_EXPLICIT_PREFIXES)
+    ):
+        return None, True
+    return subject, True
 
 
 def understand_query(
@@ -206,7 +238,7 @@ def understand_query(
             0.72,
         )
 
-    explicit = _explicit_theme(text, timeframe)
+    explicit, has_explicit_cue = _explicit_theme(text, timeframe)
     if explicit:
         return QueryEnvelope(
             "theme_analysis",
@@ -216,6 +248,17 @@ def understand_query(
             timeframe,
             "explicit",
             0.8,
+        )
+
+    if has_explicit_cue:
+        return QueryEnvelope(
+            "general_finance_qa",
+            "unknown",
+            None,
+            _decision_goal(text),
+            timeframe,
+            "generic",
+            0.4 if text else 0.1,
         )
 
     if sum(term in text for term in _MARKET_PATTERN_TERMS) >= 2:
