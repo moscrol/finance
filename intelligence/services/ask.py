@@ -389,9 +389,21 @@ def _resolve_market_data_context(
     if market_date:
         warnings: list[str] = []
         if snapshot_date and snapshot_date != market_date:
+            freshness = _snapshot_freshness(snapshot_date, market_date)
+            if freshness == "stale":
+                relation = (
+                    f"{snapshot_date}，早于本地市场数据日期 {market_date}"
+                )
+            elif freshness == "conflict":
+                relation = (
+                    f"{snapshot_date}，晚于本地市场数据日期 {market_date}"
+                )
+            else:
+                relation = (
+                    f"{snapshot_date} 与本地市场数据日期 {market_date} 不一致"
+                )
             warnings.append(
-                f"题材候选快照截至 {snapshot_date}，早于本地市场数据的 {market_date}；"
-                "快照仅作辅助参考，不作为本轮整体数据日期。"
+                f"题材候选快照日期 {relation}；快照不作为本轮整体数据日期。"
             )
         notice = (
             f"**数据截至 {market_date}。** 市场总览优先读取本地市场数据；"
@@ -439,6 +451,23 @@ def _snapshot_freshness(
     if snapshot == comparison:
         return "fresh"
     return "stale" if snapshot < comparison else "conflict"
+
+
+_THEME_CANDIDATE_EXPORT_NAME = re.compile(
+    r"^(\d{4}-\d{2}-\d{2})-theme-candidates\.json$"
+)
+
+
+def _theme_candidate_export_date(path_value: object) -> str | None:
+    try:
+        filename = Path(path_value).name
+    except (OSError, TypeError, ValueError):
+        return None
+    match = _THEME_CANDIDATE_EXPORT_NAME.fullmatch(filename)
+    if match is None:
+        return None
+    parsed = _canonical_iso_date(match.group(1))
+    return parsed.isoformat() if parsed is not None else None
 
 
 def _forecast_preflight_for_options(
@@ -993,9 +1022,26 @@ def answer_query(options: AskOptions) -> AskResult:
     loaded = load_theme_candidates(options.exports_dir, options.date)
     doc = loaded["doc"] if loaded["found"] else {}
     snapshot_date = str(doc.get("trade_date") or "").strip() or None
+    export_date = _theme_candidate_export_date(loaded.get("path"))
+    parsed_snapshot_date = _canonical_iso_date(snapshot_date)
+    parsed_requested_date = _canonical_iso_date(options.date)
+    export_contract_valid = bool(
+        loaded["found"]
+        and export_date
+        and parsed_snapshot_date
+        and export_date == parsed_snapshot_date.isoformat()
+        and (
+            options.date is None
+            or (
+                parsed_requested_date is not None
+                and export_date == parsed_requested_date.isoformat()
+            )
+        )
+    )
+    context_snapshot_date = snapshot_date if export_contract_valid else None
     trade_date, market_data_source, data_notice, data_warnings = (
         _resolve_market_data_context(
-            snapshot_date,
+            context_snapshot_date,
             options.market_db_path,
             requested_date=options.date,
         )
@@ -1003,32 +1049,37 @@ def answer_query(options: AskOptions) -> AskResult:
     comparison_date = (
         options.date
         if options.date is not None
-        else trade_date if market_data_source == "duckdb" else None
+        else trade_date if market_data_source == "duckdb" else export_date
     )
     snapshot_freshness = _snapshot_freshness(
         snapshot_date,
         comparison_date,
     )
-    current_export_usable = (
-        options.date is not None or snapshot_freshness == "fresh"
+    export_usable = (
+        export_contract_valid and snapshot_freshness == "fresh"
     )
     candidate = (
         match_candidate(options.query, doc)
-        if doc and current_export_usable
+        if doc and export_usable
         else None
     )
     derivative_warnings: list[str] = []
-    if options.date is None and snapshot_freshness == "stale":
+    if snapshot_freshness == "stale":
         derivative_warnings.append(
-            "stale_derivative: theme-candidates export is older than "
-            "the current DuckDB cutoff and was excluded from current facts"
+            "stale_derivative: theme-candidates payload is older than "
+            "its comparison date and was excluded from market facts"
         )
-    elif options.date is None and snapshot_freshness == "conflict":
+    elif snapshot_freshness == "conflict":
         derivative_warnings.append(
-            "conflicting_derivative: theme-candidates export is newer than "
-            "the current DuckDB cutoff and was excluded from current facts"
+            "conflicting_derivative: theme-candidates payload is newer than "
+            "its comparison date and was excluded from market facts"
         )
-    usable_market_doc = doc if current_export_usable else {}
+    elif loaded["found"] and not export_contract_valid:
+        derivative_warnings.append(
+            "invalid_derivative: theme-candidates filename/payload date contract "
+            "failed and was excluded from market facts"
+        )
+    usable_market_doc = doc if export_usable else {}
 
     result = AskResult(
         query=options.query,

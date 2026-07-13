@@ -19,7 +19,12 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_VALUATION,
     plan_answer_question,
 )
-from intelligence.services.ask import AskOptions, answer_query, render_conversation_answer
+from intelligence.services.ask import (
+    AskOptions,
+    _resolve_market_data_context,
+    answer_query,
+    render_conversation_answer,
+)
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.llm_refine import SynthesisResult
 from intelligence.services.kb_rag import (
@@ -30,6 +35,20 @@ from intelligence.services.kb_rag import (
 
 
 class AnswerOrchestratorTests(unittest.TestCase):
+    def test_snapshot_newer_than_duckdb_is_reported_as_a_conflict(self) -> None:
+        with mock.patch(
+            "intelligence.services.ask._market_data_asof",
+            return_value="2026-07-13",
+        ):
+            _, source, _, warnings = _resolve_market_data_context(
+                "2026-07-14",
+                "unused.duckdb",
+            )
+
+        self.assertEqual(source, "duckdb")
+        self.assertIn("晚于本地市场数据日期", "\n".join(warnings))
+        self.assertNotIn("早于本地市场数据日期", "\n".join(warnings))
+
     def test_stale_theme_export_cannot_become_current_candidate_fact(self) -> None:
         duckdb = __import__("duckdb")
         with tempfile.TemporaryDirectory() as tmp:
@@ -123,6 +142,184 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertTrue(result.found_market)
         self.assertEqual(result.snapshot_freshness, "fresh")
         self.assertEqual(result.candidate_tier, "A")
+
+    def test_historical_payload_date_mismatch_cannot_become_market_fact(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wiki = root / "wiki"
+            exports = root / "exports"
+            (wiki / "relations").mkdir(parents=True)
+            exports.mkdir()
+            (exports / "2026-07-10-theme-candidates.json").write_text(
+                json.dumps(
+                    {
+                        "trade_date": "2026-07-01",
+                        "candidates": [
+                            {
+                                "canonical_concept": "液冷",
+                                "candidate_tier": "A",
+                                "score_detail": [
+                                    {
+                                        "signal": "伪当前信号",
+                                        "score": 99,
+                                        "reason": "伪盘面上下文",
+                                    }
+                                ],
+                            }
+                        ],
+                        "market_context": {
+                            "market_stage": "伪盘面上下文",
+                            "total_amount": 999,
+                            "limit_up": 99,
+                            "limit_down": 0,
+                            "capacity_sectors": [],
+                        },
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = answer_query(
+                AskOptions(
+                    query="液冷当时是不是主线",
+                    date="2026-07-10",
+                    exports_dir=exports,
+                    kb_wiki=wiki,
+                    compose=False,
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        self.assertEqual(result.trade_date, "2026-07-10")
+        self.assertEqual(result.snapshot_date, "2026-07-01")
+        self.assertEqual(result.snapshot_freshness, "stale")
+        self.assertFalse(result.found_market)
+        self.assertIsNone(result.matched_theme)
+        self.assertIsNone(result.candidate_tier)
+        self.assertFalse(any(c.tag.startswith("S") for c in result.citations))
+        self.assertNotIn(
+            "伪盘面上下文",
+            json.dumps(result.sections, ensure_ascii=False),
+        )
+        self.assertIsNotNone(result.answer_spec)
+        assert result.answer_spec is not None
+        verified_and_triggers = (
+            *result.answer_spec.verified_facts,
+            *result.answer_spec.triggers,
+        )
+        self.assertFalse(
+            any("伪盘面上下文" in claim.text for claim in verified_and_triggers)
+        )
+        self.assertTrue(
+            any("stale_derivative" in warning for warning in result.warnings)
+        )
+
+    def test_current_query_can_use_a_contract_valid_export_without_duckdb(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wiki = root / "wiki"
+            exports = root / "exports"
+            (wiki / "relations").mkdir(parents=True)
+            exports.mkdir()
+            (exports / "2026-07-10-theme-candidates.json").write_text(
+                json.dumps(
+                    {
+                        "trade_date": "2026-07-10",
+                        "candidates": [
+                            {
+                                "canonical_concept": "液冷",
+                                "candidate_tier": "A",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = answer_query(
+                AskOptions(
+                    query="液冷现在是不是主线",
+                    exports_dir=exports,
+                    kb_wiki=wiki,
+                    compose=False,
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        self.assertEqual(result.trade_date, "2026-07-10")
+        self.assertEqual(result.market_data_source, "snapshot_fallback")
+        self.assertEqual(result.snapshot_freshness, "fresh")
+        self.assertTrue(result.found_market)
+        self.assertEqual(result.candidate_tier, "A")
+
+    def test_current_query_rejects_mismatched_or_invalid_export_without_duckdb(
+        self,
+    ) -> None:
+        cases = (
+            (
+                "2026-07-10-theme-candidates.json",
+                "2026-07-01",
+                "stale",
+                "stale_derivative",
+            ),
+            (
+                "2026-99-99-theme-candidates.json",
+                "2026-07-01",
+                "missing",
+                "invalid_derivative",
+            ),
+        )
+        for filename, payload_date, freshness, warning_token in cases:
+            with self.subTest(filename=filename), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                wiki = root / "wiki"
+                exports = root / "exports"
+                (wiki / "relations").mkdir(parents=True)
+                exports.mkdir()
+                (exports / filename).write_text(
+                    json.dumps(
+                        {
+                            "trade_date": payload_date,
+                            "candidates": [
+                                {
+                                    "canonical_concept": "液冷",
+                                    "candidate_tier": "A",
+                                }
+                            ],
+                        },
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+
+                result = answer_query(
+                    AskOptions(
+                        query="液冷现在是不是主线",
+                        exports_dir=exports,
+                        kb_wiki=wiki,
+                        compose=False,
+                        use_modules=False,
+                        use_wiki_rag=False,
+                    )
+                )
+
+            self.assertIsNone(result.trade_date)
+            self.assertEqual(result.market_data_source, "unavailable")
+            self.assertEqual(result.snapshot_date, payload_date)
+            self.assertEqual(result.snapshot_freshness, freshness)
+            self.assertFalse(result.found_market)
+            self.assertIsNone(result.candidate_tier)
+            self.assertNotIn("以下使用截至", result.data_notice or "")
+            self.assertNotIn("已使用截至", "\n".join(result.warnings))
+            self.assertIn(warning_token, "\n".join(result.warnings))
 
     def test_empty_query_and_entity_anchor_are_preserved_in_query_envelope(
         self,
