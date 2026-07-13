@@ -433,6 +433,7 @@ export default function App() {
       setLoading(true);
       try {
         const nextMessages = await loadConversationData(conversationId);
+        if (activeConversationRef.current !== conversationId) return;
         const lastUserMessage = [...nextMessages]
           .reverse()
           .find((message) => message.role === "user");
@@ -573,14 +574,20 @@ export default function App() {
   }, [user]);
 
   const newConversation = useCallback(async (): Promise<Conversation> => {
+    setLoading(true);
     setSkillMode("hybrid");
     setSelectedSkillIds([]);
     setPerspectiveMode("neutral");
     setSelectedPerspectiveIds([]);
-    const created = await createConversation("新对话", user);
-    setConversations((current) => [created, ...current]);
-    await selectConversation(created.conversation_id);
-    return created;
+    try {
+      const created = await createConversation("新对话", user);
+      setConversations((current) => [created, ...current]);
+      await selectConversation(created.conversation_id);
+      return created;
+    } catch (caught) {
+      setLoading(false);
+      throw caught;
+    }
   }, [selectConversation, user]);
 
   const submitResearch = useCallback(
@@ -986,7 +993,7 @@ export default function App() {
               <Composer
                 value={draft}
                 taskType="ask"
-                disabled={submitting}
+                disabled={submitting || loading}
                 running={Boolean(runningLive)}
                 stopRequested={runningLive?.cancelRequested ?? false}
                 skills={skills}

@@ -244,6 +244,7 @@ test("stock deep-dive owns and continues a traceable Workbench answer", async ({
 }, testInfo) => {
   test.slow();
   await startNewConversation(page, testInfo);
+  await expect(page.getByLabel("研究工具选择方式")).toBeEnabled();
   await expect(page.getByLabel("已选研究工具")).toHaveCount(0);
   await selectManualSkill(page, /个股深挖/);
   await expect(page.getByLabel("已选研究工具")).toContainText("个股深挖");
