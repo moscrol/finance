@@ -232,10 +232,9 @@ def _run_one(
     response = retrieve(query, mode, timeout)
     response_telemetry = response.telemetry
     result._attempt_telemetries.append(response_telemetry)
-    result.dense_initializations = min(
-        1,
+    result.dense_initializations = (
         result.dense_initializations
-        + max(0, int(response_telemetry.dense_initializations)),
+        + int(response_telemetry.dense_initializations)
     )
     for hit in response.hits:
         result._hit_telemetry.setdefault(_hit_identity(hit), response_telemetry)
@@ -281,38 +280,88 @@ def _run_one(
 def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
     """Publish evidence provenance while retaining aggregate execution cost.
 
-    Accepted conclusion/clue provenance wins over later empty/error attempts so
-    the public snapshot stays aligned with the W evidence actually cited.  When
-    nothing survives the relevance gate, the terminal response remains public
-    for failure diagnosis.  Latency and dense initialization are whole-loop
+    Only conclusion/counter-clue provenance can win over later empty/error
+    attempts because those are the buckets Ask actually emits as W citations.
+    When nothing outputtable survives, the terminal response remains public for
+    failure diagnosis. Latency and dense initialization are whole-loop
     aggregates in both cases.
     """
     if not result._attempt_telemetries:
         return
 
-    accepted: list[BucketedHit] = []
+    # Ask 只会把 conclusion 和 counter_clues 写成 W 引用；普通 clues
+    # 只是内部研究线索，不得覆盖最后一次 error/timeout 的终态遥测。
+    output_evidence: list[BucketedHit] = []
     seen: set[tuple[str, str]] = set()
-    for item in (*result.conclusion, *result.clues):
+    for item in (*result.conclusion, *result.counter_clues):
         identity = _hit_identity(item.hit)
         if identity in seen:
             continue
         seen.add(identity)
-        accepted.append(item)
+        output_evidence.append(item)
 
-    contributor: RetrievalTelemetry | None = None
-    contributor_hits: list[WikiHit] = []
-    for item in accepted:
+    contributors: list[
+        tuple[BucketedHit, RetrievalTelemetry, tuple[str, str]]
+    ] = []
+    for item in output_evidence:
         item_telemetry = result._hit_telemetry.get(_hit_identity(item.hit))
         if item_telemetry is None:
             continue
-        if contributor is None:
-            contributor = item_telemetry
-        if item_telemetry is contributor:
-            contributor_hits.append(item.hit)
+        snapshot = (
+            item.hit.index_source_revision
+            or item_telemetry.index_source_revision,
+            item.hit.index_freshness or item_telemetry.index_freshness,
+        )
+        contributors.append((item, item_telemetry, snapshot))
 
-    if contributor is not None and contributor_hits:
-        public = replace(contributor)
+    if contributors:
+        canonical_snapshot = contributors[0][2]
+        conflicts = [
+            record for record in contributors if record[2] != canonical_snapshot
+        ]
+        if conflicts:
+            conflict_keys = {
+                (item.aperture, *_hit_identity(item.hit))
+                for item, _, _ in conflicts
+            }
+
+            def keep(item: BucketedHit) -> bool:
+                return (
+                    item.aperture,
+                    *_hit_identity(item.hit),
+                ) not in conflict_keys
+
+            result.conclusion = [item for item in result.conclusion if keep(item)]
+            result.counter_clues = [
+                item for item in result.counter_clues if keep(item)
+            ]
+            # counter_clues 也会出现在 clues，必须同步移除，避免
+            # inspector 还把已禁止引用的快照冲突项报成可用线索。
+            result.clues = [item for item in result.clues if keep(item)]
+            discarded_keys = {
+                (item.aperture, *_hit_identity(item.hit))
+                for item in result.discarded
+            }
+            for item, _, _ in conflicts:
+                key = (item.aperture, *_hit_identity(item.hit))
+                if key not in discarded_keys:
+                    result.discarded.append(item)
+                    discarded_keys.add(key)
+            result.warnings.append(
+                "snapshot conflict: discarded "
+                f"{len(conflicts)} output hit(s); canonical "
+                f"revision={canonical_snapshot[0] or 'missing'}, "
+                f"freshness={canonical_snapshot[1] or 'missing'}"
+            )
+            contributors = [
+                record for record in contributors if record[2] == canonical_snapshot
+            ]
+
+    if contributors:
+        public = replace(contributors[0][1])
+        contributor_hits = [item.hit for item, _, _ in contributors]
         representative = contributor_hits[0]
+        canonical_snapshot = contributors[0][2]
         public.status = "ok"
         public.hit_count = len(contributor_hits)
         public.neighbor_hits = sum(hit.via_neighbor for hit in contributor_hits)
@@ -323,13 +372,8 @@ def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
         public.index_built_at = (
             representative.index_built_at or public.index_built_at
         )
-        public.index_source_revision = (
-            representative.index_source_revision
-            or public.index_source_revision
-        )
-        public.index_freshness = (
-            representative.index_freshness or public.index_freshness
-        )
+        public.index_source_revision = canonical_snapshot[0]
+        public.index_freshness = canonical_snapshot[1]
     else:
         public = replace(result._attempt_telemetries[-1])
 

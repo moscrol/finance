@@ -683,6 +683,141 @@ def test_public_telemetry_prefers_contributing_snapshot_over_later_empty() -> No
     )
 
 
+def test_soft_clue_does_not_hide_terminal_hybrid_error() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(query, [_hit("液冷需求线索", 0.4)])
+        if mode == "hybrid":
+            return _response(
+                query,
+                [],
+                status="error",
+                warning="dense unavailable",
+                dense_initializations=1,
+            )
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    assert [item.hit.title for item in result.clues] == ["液冷需求线索"]
+    assert result.telemetry is not None
+    assert result.telemetry.status == "error"
+
+
+def test_snapshot_conflict_discards_later_broad_output() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [_hit("液冷 rev1 公告", 0.9, hardness="hard", revision="rev-1")],
+                revision="rev-1",
+            )
+        if calls == 2:
+            return _response(
+                query,
+                [_hit("液冷 rev2 公告", 0.8, hardness="hard", revision="rev-2")],
+                revision="rev-2",
+            )
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert [item.hit.title for item in result.conclusion] == ["液冷 rev1 公告"]
+    assert [item.hit.title for item in result.discarded] == ["液冷 rev2 公告"]
+    assert any("snapshot conflict" in warning for warning in result.warnings)
+    assert result.telemetry is not None
+    assert result.telemetry.hit_count == 1
+    assert result.telemetry.index_source_revision == "rev-1"
+
+
+def test_same_snapshot_outputs_aggregate_across_responses() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [_hit("液冷狭口公告", 0.9, hardness="hard", revision="rev-1")],
+                revision="rev-1",
+            )
+        if calls == 2:
+            return _response(
+                query,
+                [_hit("液冷广口公告", 0.7, hardness="hard", revision="rev-1")],
+                revision="rev-1",
+            )
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert len(result.conclusion) == 2
+    assert result.telemetry is not None
+    assert result.telemetry.hit_count == 2
+    assert result.telemetry.score_max == 0.9
+    assert result.telemetry.score_min == 0.7
+    assert result.telemetry.score_mean == 0.8
+
+
+def test_counter_snapshot_conflict_is_removed_from_both_output_buckets() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [_hit("液冷 rev1 公告", 0.9, hardness="hard", revision="rev-1")],
+                revision="rev-1",
+            )
+        if calls == 3:
+            return _response(
+                query,
+                [_hit("液冷 rev2 风险", 0.6, revision="rev-2")],
+                revision="rev-2",
+            )
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert result.counter_clues == []
+    assert all(item.hit.title != "液冷 rev2 风险" for item in result.clues)
+    assert [item.hit.title for item in result.discarded] == ["液冷 rev2 风险"]
+
+
 def test_telemetry_tracks_last_attempt_including_hybrid_error() -> None:
     def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
         if mode == "hybrid":
@@ -692,7 +827,7 @@ def test_telemetry_tracks_last_attempt_including_hybrid_error() -> None:
                 status="error",
                 freshness="fresh",
                 warning="dense unavailable",
-                dense_initializations=1,
+                dense_initializations=2,
                 timeout_seconds=3.0,
                 latency_ms=7,
             )
@@ -708,8 +843,8 @@ def test_telemetry_tracks_last_attempt_including_hybrid_error() -> None:
     assert result.telemetry is not None
     assert result.telemetry.status == "error"
     assert result.telemetry.latency_ms == 13
-    assert result.telemetry.dense_initializations == 1
-    assert result.dense_initializations == 1
+    assert result.telemetry.dense_initializations == 2
+    assert result.dense_initializations == 2
     assert result.attempts[-1].mode == "hybrid"
     assert result.attempts[-1].status == "error"
     assert result.attempts[-1].timeout_seconds == 3.0
