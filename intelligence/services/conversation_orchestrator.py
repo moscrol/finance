@@ -52,6 +52,9 @@ from intelligence.workbench_skills.router import (
 
 RECENT_MESSAGE_LIMIT = 6
 SUMMARY_CHAR_LIMIT = 2400
+_FOLLOW_UP_REFERENCE_PATTERN = re.compile(
+    r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
+)
 _INTERNAL_CITATION_PATTERN = re.compile(
     r"\[(?:D|P|L|G|R|S|W)\d+\]"
 )
@@ -269,7 +272,10 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         candidate_tier=None,
         priority_score=None,
         found_graph=bool(contract.answer_spec.verified_facts),
-        question_plan=plan_answer_question(query),
+        question_plan=plan_answer_question(
+            query,
+            question_type_override=contract.question_type,
+        ),
         citations=citations,
         answer_spec=contract.answer_spec,
     )
@@ -418,6 +424,26 @@ def build_conversation_context(
     return ConversationContext(summary=summary, recent_messages=recent)
 
 
+def contextualize_follow_up_query(
+    query: str,
+    context: ConversationContext,
+) -> str:
+    cleaned = query.strip()
+    if not _FOLLOW_UP_REFERENCE_PATTERN.search(cleaned):
+        return cleaned
+    previous_user = next(
+        (
+            message.content.strip()
+            for message in reversed(context.recent_messages)
+            if message.role == "user" and message.content.strip()
+        ),
+        "",
+    )
+    if not previous_user:
+        return cleaned
+    return f"{previous_user}\n追问：{cleaned}"
+
+
 class TurnOrchestrator:
     def __init__(
         self,
@@ -494,9 +520,10 @@ class TurnOrchestrator:
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
             )
+            contextual_query = contextualize_follow_up_query(query, context)
             route_started = time.monotonic()
             route = self.route_skills(
-                query,
+                contextual_query,
                 "ask",
                 skill_mode,
                 selected_skill_ids,
@@ -551,13 +578,14 @@ class TurnOrchestrator:
                     future = skill_pool.submit(
                         self.skill_registry.executors[skill_id].execute,
                         SkillExecutionContext(
-                            query=query,
+                            query=contextual_query,
                             task_type="ask",
                             user_id=self.run_store.user_id,
                             run_id=run_id,
                             conversation_id=conversation_id,
                             repo_root=self.repo_root,
                             run_store=self.run_store,
+                            conversation_context=context.to_prompt_block(),
                         ),
                     )
                     output = future.result(
@@ -663,7 +691,7 @@ class TurnOrchestrator:
                 None,
             )
             market_review_requested = (
-                plan_answer_question(query).question_type
+                plan_answer_question(contextual_query).question_type
                 == QUESTION_MARKET_REVIEW
             )
             if owner_output is not None:
@@ -687,7 +715,7 @@ class TurnOrchestrator:
             else:
                 result = self.answer_query(
                     AskOptions(
-                        query=query,
+                        query=contextual_query,
                         date=(
                             daily_review_output.as_of
                             if daily_review_output is not None
@@ -949,6 +977,8 @@ class TurnOrchestrator:
         step_id: str,
         name: str,
         output: dict[str, object],
+        *,
+        retrieval: dict[str, object] | None = None,
     ) -> None:
         step = self.run_store.append_step(
             run_id,
@@ -956,6 +986,7 @@ class TurnOrchestrator:
             name=name,
             status="completed",
             output_summary=json.dumps(output, ensure_ascii=False),
+            retrieval=retrieval,
         )
         self._emit(
             run_id,
@@ -976,6 +1007,19 @@ class TurnOrchestrator:
         elapsed_ms: int,
     ) -> None:
         wiki_telemetry = result.wiki_rag_telemetry
+        citation_counts: dict[str, int] = {}
+        citation_records: list[dict[str, str]] = []
+        for citation in result.citations:
+            prefix = citation.tag[:1]
+            if prefix:
+                citation_counts[prefix] = citation_counts.get(prefix, 0) + 1
+            citation_records.append(
+                {
+                    "tag": citation.tag,
+                    "source": citation.source,
+                    "detail": citation.detail,
+                }
+            )
         self._trace(
             run_id,
             message_id,
@@ -1001,6 +1045,10 @@ class TurnOrchestrator:
                     if result.closed_loop_retrieval is not None
                     else None
                 ),
+            },
+            retrieval={
+                "citations": citation_records,
+                "citation_counts": citation_counts,
             },
         )
 

@@ -76,6 +76,13 @@ def register_skill(
 def _register_builtin_skills() -> None:
     from intelligence.workbench_skills.daily_agent import DailyAgentSkill
     from intelligence.workbench_skills.daily_review import DailyReviewSkill
+    from intelligence.workbench_skills.research_owner import (
+        FINANCIAL_ANALYSIS,
+        NEWS_IMPACT,
+        STOCK_DEEP_DIVE,
+        THEME_RESEARCH,
+        ResearchOwnerSkill,
+    )
 
     register_skill(
         SkillDefinition(
@@ -109,6 +116,79 @@ def _register_builtin_skills() -> None:
         ),
         DailyAgentSkill(),
     )
+    for config, name, description, triggers in (
+        (
+            STOCK_DEEP_DIVE,
+            "个股深挖",
+            "围绕公司本体、硬证据、市场选择、生命周期与反证形成专项答案。",
+            (
+                "个股深挖",
+                "深挖",
+                "深度分析个股",
+                "这只股怎么看",
+                "股票怎么看",
+                "上涨空间",
+                "后续空间",
+            ),
+        ),
+        (
+            THEME_RESEARCH,
+            "题材研究",
+            "拆解题材定义、产业链、核心公司、市场阶段与反方线索。",
+            (
+                "题材研究",
+                "题材雷达",
+                "新词雷达",
+                "题材",
+                "板块",
+                "产业链",
+                "细分方向",
+            ),
+        ),
+        (
+            NEWS_IMPACT,
+            "消息与公告冲击",
+            "核对消息事实，推导产业链冲击、受益受损分层与证伪条件。",
+            (
+                "消息冲击",
+                "公告冲击",
+                "公告",
+                "新闻",
+                "事件影响",
+                "催化",
+                "传导",
+            ),
+        ),
+        (
+            FINANCIAL_ANALYSIS,
+            "财报分析",
+            "核对逐季财务与公告证据，判断增长质量、兑现节奏和后续验证。",
+            (
+                "财报分析",
+                "财务分析",
+                "业绩分析",
+                "财报",
+                "业绩兑现",
+                "营收",
+                "净利润",
+                "毛利率",
+                "净利率",
+            ),
+        ),
+    ):
+        register_skill(
+            SkillDefinition(
+                skill_id=config.skill_id,
+                name=name,
+                description=description,
+                version="1.0.0",
+                triggers=triggers,
+                input_schema={"type": "object", "additionalProperties": False},
+                permissions=("local_read",),
+                timeout_seconds=240,
+            ),
+            ResearchOwnerSkill(config),
+        )
 
 
 _register_builtin_skills()

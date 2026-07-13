@@ -33,6 +33,17 @@ _ENGINEERING_TERMS = (
     "Run ID",
     "run_id",
     "Daily Review",
+    "RAG",
+    "baseline",
+    "multi-source",
+    "人工 review",
+    "Provider",
+    "concept_graph",
+    "entity_exposures",
+    "evidence_index",
+    "evidence_count",
+    "registry",
+    "internal",
 )
 _PRESENTER_REPLACEMENTS = (
     ("仅有 graph_only 关联", "仅有概念关联，尚无公司级证据"),
@@ -71,6 +82,7 @@ _PRESENTER_REPLACEMENTS = (
     ("exposure_only", "仅有概念关联，未发现公司级证据"),
     ("L1_L3_candidate", "候选资料，需公告或年报确认"),
     ("L1/L2/L3/L4", "行业资料、公司资料、公告硬证据和盘面信号"),
+    ("L3 evidence tools", "公告等公司级证据核验工具"),
     ("L1", "行业资料"),
     ("L2", "公司基础资料"),
     ("L3", "公告等硬证据"),
@@ -78,8 +90,23 @@ _PRESENTER_REPLACEMENTS = (
     ("disclosure-archive → apply", "公告与年报核验"),
     ("disclosure-archive", "公告与年报核验"),
     ("concept-ingest", "补充题材概念登记"),
+    ("evidence_index.json", "公司证据资料"),
     ("evidence_index", "证据索引"),
+    ("entity_exposures.json", "公司题材关联资料"),
+    ("concept_graph.json", "题材关系资料"),
+    ("wiki hybrid RAG", "知识库语义检索"),
+    ("wiki entity", "知识库公司资料"),
     ("wiki 向量", "知识库语义检索"),
+    ("experience_cards", "历史纠偏和优秀样板"),
+    ("answer_quality", "多视角质检"),
+    ("iFinD baseline", "iFinD 基础资料"),
+    ("multi-source", "多来源交叉核验"),
+    ("人工 review", "人工复核"),
+    ("sanity check", "合理性校验"),
+    ("baseline", "基础资料"),
+    ("Provider", "数据提供方"),
+    ("RAG", "语义检索"),
+    ("registry", "工具目录"),
     ("DuckDB", "本地市场数据库"),
     ("snapshot/export", "历史盘面快照"),
 )
@@ -601,7 +628,12 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     if notices:
         lines.append(humanize(notices[0]))
         lines.append("")
-    lines.append(f"# {humanize(answer_spec.research_spec.theme)}：研究结论")
+    title = (
+        humanize(answer_spec.presentation_title)
+        if answer_spec.presentation_title
+        else f"{humanize(answer_spec.research_spec.theme)}：研究结论"
+    )
+    lines.append(f"# {title}")
     lines.extend(["", "## 核心判断"])
     for index, claim in enumerate(answer_spec.summary[:3]):
         if index:
@@ -662,7 +694,7 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
                     (
                         company.company + (f"（{company.ticker}）" if company.ticker else ""),
                         humanize(company.chain_stage),
-                        humanize(company.directness),
+                        _company_directness_label(company.directness),
                         _company_tier_label(company.tier),
                         _company_evidence_label(company),
                     )
@@ -701,7 +733,14 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     )
     if review_window:
         lines.append(f"**{review_window}**")
-    lines.append("建议按下面的顺序核验；公司级证据出现前，不把候选升级为核心：")
+    if any(
+        company.tier == CompanyTier.CORE
+        and any(claim.status == ClaimStatus.VERIFIED for claim in company.claims)
+        for company in answer_spec.company_table
+    ):
+        lines.append("建议按下面的顺序核验；已有公司级材料仍需持续复核业务贡献和兑现节奏：")
+    else:
+        lines.append("建议按下面的顺序核验；公司级证据出现前，不把候选升级为核心：")
     ordered_actions = [
         action for action in actions if not action.startswith("复核时间：")
     ]
@@ -1019,6 +1058,18 @@ def _company_tier_label(tier: CompanyTier) -> str:
         CompanyTier.CANDIDATE: "候选",
         CompanyTier.PERIPHERAL: "外围",
     }[tier]
+
+
+def _company_directness_label(directness: str) -> str:
+    return {
+        "core": "直接",
+        "direct": "直接",
+        "strong": "较直接",
+        "related": "相关",
+        "indirect": "间接",
+        "peripheral": "间接",
+        "weak": "较间接",
+    }.get(str(directness).strip().lower(), humanize(directness))
 
 
 def _company_evidence_label(company: CompanyAssessment) -> str:

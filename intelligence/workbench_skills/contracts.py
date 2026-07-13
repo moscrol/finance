@@ -50,6 +50,7 @@ class SkillAnswerContract:
     retrieval_plan: tuple[str, ...]
     output_contract: tuple[str, ...]
     answer_spec: answer_model.AnswerSpec
+    question_type: str | None = None
 
 
 def build_module_answer_contract(
@@ -213,6 +214,7 @@ class SkillExecutionContext:
     conversation_id: str | None
     repo_root: Path
     run_store: RunStore
+    conversation_context: str = ""
 
 
 class SkillExecutor(Protocol):

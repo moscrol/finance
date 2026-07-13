@@ -11,8 +11,10 @@ from intelligence.services import llm_refine
 from intelligence.services import perspective_lab
 from intelligence.services.ask import AskOptions, AskResult
 from intelligence.services.conversation_orchestrator import (
+    ConversationContext,
     TurnOrchestrator,
     build_conversation_context,
+    contextualize_follow_up_query,
     sanitize_conversation_answer,
     sanitize_user_visible_artifact_text,
 )
@@ -228,6 +230,29 @@ def test_context_keeps_six_recent_messages_and_summarizes_older(tmp_path) -> Non
     assert "message-0" in context.summary
     assert "message-3" in context.summary
     assert "message-4" not in context.summary
+
+
+def test_contextualizes_pronoun_follow_up_with_previous_user_turn(tmp_path) -> None:
+    store = ConversationStore("alice", root=tmp_path)
+    conversation = store.create_conversation()
+    previous = store.append_message(
+        conversation.conversation_id,
+        "user",
+        "请个股深挖英维克的液冷业务",
+        run_id="run-first",
+    )
+    context = ConversationContext(summary="", recent_messages=(previous,))
+
+    assert contextualize_follow_up_query(
+        "那它的主要风险和下一步验证是什么？",
+        context,
+    ) == (
+        "请个股深挖英维克的液冷业务\n"
+        "追问：那它的主要风险和下一步验证是什么？"
+    )
+    assert contextualize_follow_up_query("今天市场怎么样？", context) == (
+        "今天市场怎么样？"
+    )
 
 
 def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None:
@@ -496,6 +521,13 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     assert "**最强证据：**" in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert "llm_unavailable_template_answer" not in assistant.degrades
+    retrieval = next(
+        step["retrieval"]
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "ask_retrieve_compose"
+    )
+    assert retrieval["citations"][0]["source"] == "专项正式资料"
+    assert retrieval["citation_counts"] == {"K": 1}
 
 
 def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path) -> None:
@@ -770,7 +802,7 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.content == (
         "当前视角：数据中立\n"
-        "来源范围：Provider、公开来源与本轮检索证据\n\n"
+        "来源范围：数据提供方、公开来源与本轮检索证据\n\n"
         f"{sanitize_conversation_answer(raw_answer)}"
     )
     assert "2026-07-10" in assistant.content

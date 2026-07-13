@@ -257,9 +257,16 @@ def test_skill_artifacts_and_visible_values_are_redacted(tmp_path: Path) -> None
 
 
 def test_daily_skills_are_registered_as_local_read_executors() -> None:
-    assert list(SKILL_REGISTRY) == ["daily-review", "daily-agent"]
-    assert list(SKILL_EXECUTORS) == ["daily-review", "daily-agent"]
-    assert SKILL_REGISTRY["daily-review"].permissions == ("local_read",)
-    assert SKILL_REGISTRY["daily-agent"].permissions == ("local_read",)
-    assert SKILL_EXECUTORS["daily-review"].skill_id == "daily-review"
-    assert SKILL_EXECUTORS["daily-agent"].skill_id == "daily-agent"
+    expected = [
+        "daily-review",
+        "daily-agent",
+        "stock-deep-dive",
+        "theme-research",
+        "news-impact",
+        "financial-analysis",
+    ]
+    assert list(SKILL_REGISTRY) == expected
+    assert list(SKILL_EXECUTORS) == expected
+    for skill_id in expected:
+        assert SKILL_REGISTRY[skill_id].permissions == ("local_read",)
+        assert SKILL_EXECUTORS[skill_id].skill_id == skill_id

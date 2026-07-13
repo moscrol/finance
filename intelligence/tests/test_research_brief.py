@@ -34,6 +34,11 @@ class ClassifyLineTests(unittest.TestCase):
     def test_official_source_plus_hard_action_is_l3(self) -> None:
         self.assertEqual(classify_evidence_line(FULL_CHAIN[0], "R"), LAYER_L3)
 
+    def test_official_deployed_product_is_l3(self) -> None:
+        line = "英维克公司公告披露液冷产品已应用于数据中心温控场景 [R1]"
+
+        self.assertEqual(classify_evidence_line(line, "R"), LAYER_L3)
+
     def test_speculative_report_line_is_not_l3(self) -> None:
         line = "研报预计公司量产液冷快接头，有望进入公告披露节奏 [W1]"
         self.assertNotEqual(classify_evidence_line(line, "W"), LAYER_L3)
