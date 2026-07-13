@@ -279,14 +279,32 @@ class RunSupervisor:
             args=(store, run_id, key),
         )
         timer.daemon = True
-        with self._lock:
-            future = self._executor.submit(runner, signal)
-            self._futures[key] = future
-            self._timers[key] = timer
-            self._stores[key] = store
-            self._signals[key] = signal
-            if on_terminal is not None:
-                self._terminal_handlers[key] = on_terminal
+        try:
+            with self._lock:
+                future = self._executor.submit(runner, signal)
+                self._futures[key] = future
+                self._timers[key] = timer
+                self._stores[key] = store
+                self._signals[key] = signal
+                if on_terminal is not None:
+                    self._terminal_handlers[key] = on_terminal
+        except BaseException:  # noqa: BLE001
+            timer.cancel()
+            claimed = signal.claim_terminal("executor_submit_failed")
+            failed = store.fail_active_run(
+                run_id,
+                error="message persistence or submission failed",
+                degrade="executor_submit_failed",
+            )
+            won_failed_terminal = (
+                claimed
+                and failed.status == rs.STATUS_FAILED
+                and failed.error == "message persistence or submission failed"
+                and "executor_submit_failed" in failed.degrades
+            )
+            if won_failed_terminal and on_terminal is not None:
+                on_terminal("executor_submit_failed")
+            raise
         future.add_done_callback(lambda _: self._forget(key))
         timer.start()
 
@@ -528,14 +546,22 @@ def _terminalize_pending_message(
     warning = (
         "用户已取消本轮执行"
         if status == rs.STATUS_CANCELLED
-        else "本轮执行超时"
+        else (
+            "本轮执行未能启动"
+            if reason == "executor_submit_failed"
+            else "本轮执行超时"
+        )
     )
     content = (
-        current.content
-        if reason != "executor_timeout"
-        else (
+        (
             "本轮研究超过时间预算，未完成的检索已停止。你可以重试；"
             "系统不会把未完成检索写成已验证结论。"
+        )
+        if reason == "executor_timeout"
+        else (
+            "本轮执行未能启动，请重试。"
+            if reason == "executor_submit_failed"
+            else current.content
         )
     )
     message = conversation_store.revise_message(

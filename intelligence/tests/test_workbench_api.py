@@ -589,6 +589,67 @@ def test_executor_submit_failure_marks_created_run_failed(client: TestClient) ->
         f"/api/conversations/{conversation_id}/messages", params={"user": "alice"}
     ).json()
     assert [message["role"] for message in messages] == ["user", "assistant"]
+    assert messages[-1]["status"] == "failed"
+    assert messages[-1]["content"] == "本轮执行未能启动，请重试。"
+    assert "secret executor detail" not in json.dumps(messages[-1])
+
+
+def test_generic_submit_failure_is_compensated_inside_supervisor(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    store = RunStore("alice", root=tmp_path / "runs")
+    run = store.create_run("q", "ask")
+    supervisor = app_module.RunSupervisor(max_workers=1)
+
+    def fail_submit(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("secret generic submit detail")
+
+    monkeypatch.setattr(supervisor._executor, "submit", fail_submit)
+    with pytest.raises(RuntimeError, match="secret generic submit detail"):
+        supervisor.submit(
+            store,
+            run.run_id,
+            app_module.CreateRunRequest(question="q"),
+        )
+
+    saved = store.load_run(run.run_id)
+    assert saved.status == "failed"
+    assert saved.error == "message persistence or submission failed"
+    assert saved.degrades == ["executor_submit_failed"]
+    assert supervisor.active_count() == 0
+    assert supervisor.cancellation_signals == {}
+    assert "secret generic submit detail" not in json.dumps(saved.__dict__)
+    supervisor.shutdown()
+
+
+def test_executor_capacity_failure_compensates_second_run_without_mapping(
+    tmp_path,
+) -> None:
+    store = RunStore("alice", root=tmp_path / "runs")
+    first = store.create_run("first", "ask")
+    second = store.create_run("second", "ask")
+    supervisor = app_module.RunSupervisor(max_workers=1, timeout_sec=60)
+    started = threading.Event()
+    release = threading.Event()
+    supervisor._submit(
+        store,
+        first.run_id,
+        lambda signal: (started.set(), release.wait(timeout=1)),
+    )
+    assert started.wait(timeout=1)
+    try:
+        with pytest.raises(RuntimeError, match="capacity"):
+            supervisor._submit(store, second.run_id, lambda signal: None)
+
+        saved = store.load_run(second.run_id)
+        assert saved.status == "failed"
+        assert saved.error == "message persistence or submission failed"
+        assert saved.degrades == ["executor_submit_failed"]
+        assert (store.user_id, second.run_id) not in supervisor.cancellation_signals
+    finally:
+        release.set()
+        supervisor.shutdown()
 
 
 @pytest.mark.parametrize("path", ["/api/conversations", "/api/conversations/{conversation_id}"])
