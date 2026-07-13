@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from intelligence.services.answer_model import ThemeResearchSpec, resolve_theme_research_spec
@@ -223,6 +223,23 @@ def plan_answer_question(
             question_type, confidence = classified_type, classified_confidence
     depth = _classify_depth(raw_query, q, question_type)
     required_lenses = _required_lenses(question_type, depth)
+    if query_envelope.subject_kind == "market_pattern":
+        required_lenses = [
+            "市场广度：上涨家数、涨停家数与晋级率是否扩散或收缩",
+            "核心承接：权重与龙头是否稳定，指数贡献是否过度集中",
+            "量价效率：新增成交额是否换来更好的涨幅与市场广度",
+            "次日确认：修复、延续或继续恶化对应不同生命周期判断",
+            "反证视角：区分真实资金退出与全市场放量造成的分母效应",
+        ]
+    elif (
+        query_envelope.subject_kind == "unknown"
+        and question_type == QUESTION_GENERAL
+    ):
+        required_lenses = [
+            "问题边界：先确认研究对象、数据日期、判断指标和决策目标",
+            "证据边界：未提供可核验数据时，只能给条件判断",
+            "反证视角：主动说明哪些缺口会使当前回答失效",
+        ]
     retrieval_plan = _retrieval_plan(question_type, depth, q)
     quality_gates = _quality_gates(question_type, depth)
     output_contract = _output_contract(question_type, depth)
@@ -245,6 +262,12 @@ def plan_answer_question(
         }
         else None
     )
+    if (
+        research_spec is not None
+        and query_envelope.subject_kind == "company"
+        and query_envelope.subject
+    ):
+        research_spec = replace(research_spec, theme=query_envelope.subject)
     return QuestionPlan(
         query=raw_query,
         question_type=question_type,
@@ -373,7 +396,22 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         return QUESTION_FINANCIAL_ANALYSIS, 0.84
     if _has_any(q, ("公告", "新闻", "链接", "传导", "冲击", "影响")):
         return QUESTION_NEWS_IMPACT, 0.82
-    if _has_any(q, ("行情", "大盘", "今天", "明天", "盘前", "收盘", "6.", "走势", "市场怎么看")):
+    if _has_any(
+        q,
+        (
+            "行情",
+            "大盘",
+            "今天",
+            "明天",
+            "盘前",
+            "收盘",
+            "6.",
+            "走势",
+            "市场怎么看",
+            "预测",
+            "下一交易日",
+        ),
+    ):
         return QUESTION_MARKET_FORECAST, 0.8
     if _has_any(q, ("题材", "板块", "方向", "细分", "产业", "主线", "双红")):
         return QUESTION_THEME_ANALYSIS, 0.76

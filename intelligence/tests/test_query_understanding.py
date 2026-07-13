@@ -87,6 +87,14 @@ def test_market_pattern_requires_two_terms_and_explains_divergence() -> None:
     assert two_terms.decision_goal == "解释市场背离"
 
 
+def test_compact_index_breadth_divergence_is_a_market_pattern() -> None:
+    envelope = understand_query("指数涨、涨停数降、成交额放大，应该怎么理解？")
+
+    assert envelope.subject_kind == "market_pattern"
+    assert envelope.subject is None
+    assert envelope.decision_goal == "解释指数上涨与赚钱效应收缩"
+
+
 def test_ticker_and_date_match_next_to_chinese_text() -> None:
     bare_ticker = understand_query("分析002837怎么看")
     suffixed_ticker = understand_query("600000.SH怎么看")

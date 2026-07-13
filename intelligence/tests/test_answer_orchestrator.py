@@ -404,6 +404,186 @@ class AnswerOrchestratorTests(unittest.TestCase):
             )
             self.assertTrue(all(claim.theme == expected_subject for claim in claims))
 
+    def test_company_anchor_stays_the_answer_subject_with_theme_aliases(self) -> None:
+        anchor = EntityAnchor(entity="英维克", ticker="002837.SZ")
+        for query in (
+            "深挖英维克，它在液冷产业链的位置",
+            "深挖英维克，它和“机器人”题材是什么关系",
+        ):
+            with self.subTest(query=query):
+                plan = plan_answer_question(query, anchor=anchor)
+                self.assertEqual(plan.query_envelope.subject_kind, "company")
+                self.assertIsNotNone(plan.research_spec)
+                assert plan.research_spec is not None
+                self.assertEqual(plan.research_spec.theme, "英维克")
+
+                with tempfile.TemporaryDirectory() as tmp, mock.patch(
+                    "intelligence.services.ask.entity_anchor.resolve_entity_anchor",
+                    return_value=anchor,
+                ):
+                    result = answer_query(
+                        AskOptions(
+                            query=query,
+                            exports_dir=tmp,
+                            kb_wiki=Path(tmp),
+                            use_modules=False,
+                            use_wiki_rag=False,
+                            compose=False,
+                            include_memory_block=False,
+                            include_recall_block=False,
+                        )
+                    )
+
+                self.assertIsNotNone(result.answer_spec)
+                assert result.answer_spec is not None
+                self.assertEqual(result.answer_spec.research_spec.theme, "英维克")
+                self.assertEqual(
+                    result.answer_spec.presentation_title,
+                    "英维克：个股研究结论",
+                )
+                self.assertIn("公司「英维克」", "\n".join(result.sections["结论"]))
+                self.assertIn(
+                    "# 英维克：个股研究结论",
+                    render_conversation_answer(result),
+                )
+                claims = (
+                    *result.answer_spec.summary,
+                    *result.answer_spec.verified_facts,
+                    *result.answer_spec.counter_evidence,
+                    *result.answer_spec.gaps,
+                    *result.answer_spec.triggers,
+                )
+                self.assertTrue(all(claim.theme == "英维克" for claim in claims))
+
+    def test_market_pattern_answer_uses_market_structure_not_theme_template(
+        self,
+    ) -> None:
+        query = (
+            "如果一个A股题材连续上涨，但板块成交占比开始下降，我应该怎么判断"
+            "它是健康分歧还是行情高潮？请给出直接判断、证据、反证和下一步验证。"
+        )
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch("intelligence.services.ask.kb_rag.retrieve") as retrieve,
+            mock.patch("intelligence.services.ask.run_module") as run_module,
+        ):
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=True,
+                    use_wiki_rag=True,
+                    compose=False,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                )
+            )
+
+        retrieve.assert_not_called()
+        run_module.assert_not_called()
+        rendered = render_conversation_answer(result)
+        self.assertIsNotNone(result.answer_spec)
+        assert result.answer_spec is not None
+        all_output = (
+            rendered
+            + json.dumps(result.sections, ensure_ascii=False)
+            + json.dumps(result.answer_spec.to_dict(), ensure_ascii=False)
+        )
+        for required in (
+            "单一的板块成交占比下降不足以判断",
+            "广度",
+            "龙头承接",
+            "量价效率",
+            "次日修复",
+            "分母效应",
+            "下一交易日",
+        ):
+            self.assertIn(required, all_output)
+        for forbidden in (
+            "题材怎么理解",
+            "产业链",
+            "公司映射",
+            "公司证据",
+            "公告",
+            "年报",
+            "官网",
+            "concept-ingest",
+            "disclosure-archive",
+        ):
+            self.assertNotIn(forbidden, all_output)
+        self.assertIn("**直接定性：**", rendered)
+        self.assertIn("**最强证据：**", rendered)
+        self.assertIn("**主要风险：**", rendered)
+        self.assertIn("**条件边界：**", rendered)
+        self.assertIn("**下一步验证：**", rendered)
+
+    def test_index_breadth_divergence_gets_a_structural_market_answer(self) -> None:
+        query = "指数涨、涨停数降、成交额放大，应该怎么理解？"
+        plan = plan_answer_question(query)
+
+        self.assertEqual(plan.query_envelope.subject_kind, "market_pattern")
+        self.assertEqual(
+            plan.query_envelope.decision_goal,
+            "解释指数上涨与赚钱效应收缩",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=False,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        for required in (
+            "权重",
+            "结构性上涨",
+            "赚钱效应收缩",
+            "成交额",
+            "下一交易日",
+        ):
+            self.assertIn(required, rendered)
+
+    def test_unknown_general_answer_does_not_fall_into_theme_research_template(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query="输出未来三天要验证的风险点",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=False,
+                    clarify=False,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        self.assertIn("# 金融问题裁决", rendered)
+        self.assertIsNotNone(result.answer_spec)
+        assert result.answer_spec is not None
+        all_output = rendered + json.dumps(
+            result.answer_spec.to_dict(),
+            ensure_ascii=False,
+        )
+        for forbidden in (
+            "题材怎么理解",
+            "产业链",
+            "公司映射",
+            "公告",
+            "年报",
+            "官网",
+            "concept-ingest",
+        ):
+            self.assertNotIn(forbidden, all_output)
+
     def test_subjectless_market_pattern_skips_subject_rag_and_module_fanout(
         self,
     ) -> None:

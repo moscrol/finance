@@ -71,7 +71,10 @@ _MARKET_PATTERN_TERMS = (
     "连续上涨",
     "成交占比",
     "涨停家数",
+    "涨停数降",
     "指数上涨",
+    "指数涨",
+    "成交额放大",
     "背离",
     "健康分歧",
     "行情高潮",
@@ -123,6 +126,11 @@ def _decision_goal(query: str) -> str:
         return "区分健康分歧与行情高潮"
     if "背离" in query:
         return "解释市场背离"
+    if (
+        any(term in query for term in ("指数上涨", "指数涨"))
+        and any(term in query for term in ("涨停家数减少", "涨停家数下降", "涨停数降"))
+    ):
+        return "解释指数上涨与赚钱效应收缩"
     return "形成条件化判断"
 
 

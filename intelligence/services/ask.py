@@ -765,6 +765,130 @@ def _answer_research_spec(
     return answer_model.resolve_theme_research_spec("", subject)
 
 
+def _general_finance_guidance(
+    question_plan: QuestionPlan,
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    decision_goal = question_plan.query_envelope.decision_goal
+    if decision_goal == "区分健康分歧与行情高潮":
+        direct = (
+            "单一的板块成交占比下降不足以判断健康分歧还是行情高潮；"
+            "必须把广度、龙头承接、量价效率和次日修复放在一起看。",
+            "关键证据是上涨与涨停广度是否扩散、龙头是否稳住、"
+            "新增成交额能否换来更好的涨幅与广度，以及分歧后能否次日修复。",
+            "广度未坍塌、龙头承接稳定、量价效率企稳且次日修复，更接近健康分歧；"
+            "四项同步恶化且次日不能修复，更接近行情高潮。",
+        )
+        risks = (
+            "板块成交占比下降可能只是全市场成交额扩张更快造成的分母效应，"
+            "不能直接等同于板块资金流出。",
+            "本轮没有逐日盘面数据，尚未核验广度、龙头承接和量价效率，"
+            "因此不能把条件判断写成已发生事实。",
+        )
+        conditions = (
+            "若广度止跌、龙头不破关键承接位、量价效率回升并在次日修复，"
+            "健康分歧判断升级。",
+            "若放量但广度继续收缩、龙头承接转弱且次日无修复，"
+            "行情高潮判断升级。",
+        )
+        actions = (
+            "下一交易日复核上涨与涨停广度、龙头承接、量价效率和板块成交占比；"
+            "四项至少三项同向后再定性。",
+        )
+        return direct, risks, conditions, actions
+    if decision_goal == "解释指数上涨与赚钱效应收缩":
+        direct = (
+            "指数上涨且成交额放大，并不自动代表赚钱效应改善；"
+            "若涨停数下降，更可能是权重或少数方向推动的结构性上涨，"
+            "同时伴随赚钱效应收缩。",
+            "关键证据要拆开看指数贡献权重、个股涨跌中位数与上涨广度、"
+            "涨停家数和晋级率，以及成交额是否向少数权重集中。",
+            "只有指数贡献扩散到多数个股、涨停广度回升且成交额集中度下降，"
+            "才能把放量上涨升级为更健康的普遍修复。",
+        )
+        risks = (
+            "单日涨停数下降可能受前一日基数和涨停晋级节奏影响，"
+            "不能只凭一个宽度指标确认退潮。",
+            "成交额放大若主要集中在权重股，会抬高指数却不改善多数个股体验。",
+        )
+        conditions = (
+            "若下一交易日上涨广度和涨停晋级率回升、成交额不再集中于少数权重，"
+            "赚钱效应收缩判断降级。",
+            "若指数继续上涨但个股中位数、涨停广度和晋级率继续走弱，"
+            "结构性上涨判断升级。",
+        )
+        actions = (
+            "下一交易日核对指数贡献拆分、个股涨跌中位数、上涨家数、"
+            "涨停家数与晋级率、成交额集中度。",
+        )
+        return direct, risks, conditions, actions
+    direct = (
+        "当前问题没有可安全识别的公司、板块或市场模式，"
+        "不能套用专项研究模板形成对象级结论。",
+        "关键证据尚缺明确研究对象、数据日期、判断指标和决策目标。",
+    )
+    risks = (
+        "对象和时间边界不清时，任何确定性结论都可能回答了错误的问题。",
+    )
+    conditions = (
+        "补齐研究对象、日期和判断指标后，再选择对应的市场、公司或事件分析路径。",
+    )
+    actions = (
+        "补充要研究的对象、截至日期，以及希望判断的风险、机会或验证窗口。",
+    )
+    return direct, risks, conditions, actions
+
+
+def _answer_general_finance(
+    options: AskOptions,
+    result: AskResult,
+    question_plan: QuestionPlan,
+) -> AskResult:
+    subject = _answer_subject(question_plan)
+    direct, risks, conditions, actions = _general_finance_guidance(question_plan)
+    direct = (f"问题「{subject}」：{direct[0]}", *direct[1:])
+    result.matched_theme = None
+    result.candidate_tier = None
+    result.priority_score = None
+    result.found_market = False
+    result.found_graph = False
+    result.evidence_audit = research_brief.audit_evidence_chain([], list(risks))
+    result.retrieval_telemetry = research_brief.build_retrieval_telemetry(
+        audit=result.evidence_audit,
+        citation_tags=[],
+        wiki_stats={
+            "attempted": bool(options.use_wiki_rag),
+            "mode": options.wiki_rag_mode,
+            "index": "full" if options.wiki_rag_index_dir else "structured",
+            "warning": (
+                "no explicit subject; subject RAG skipped"
+                if options.use_wiki_rag
+                else None
+            ),
+        },
+    )
+    result.sections = {
+        "结论": list(direct),
+        "证据链": [f"待核验关键证据：{line}" for line in direct[1:2]],
+        "分歧反证": list(risks),
+        "后续验证点": list(actions),
+        "交易含义": list(conditions),
+        "引用来源": [],
+    }
+    result.answer_spec = _build_base_answer_spec_from_sections(
+        result,
+        theme=subject,
+        direct_lines=direct,
+        risk_lines=risks,
+        action_lines=actions,
+    )
+    if question_plan.query_envelope.subject_kind == "unknown":
+        result.answer_spec = replace(
+            result.answer_spec,
+            presentation_title="金融问题裁决",
+        )
+    return result
+
+
 def answer_query(options: AskOptions) -> AskResult:
     progress = _safe_progress_callback(options.progress_callback)
     if options.clarify:
@@ -852,6 +976,19 @@ def answer_query(options: AskOptions) -> AskResult:
         progress("synthesis", "running")
         progress("synthesis", "degraded")
         return result
+    if (
+        envelope.subject_kind == "market_pattern"
+        or (
+            envelope.subject_kind == "unknown"
+            and question_plan.question_type == QUESTION_GENERAL
+            and bool(options.query.strip())
+        )
+    ):
+        progress("deterministic_recall", "completed")
+        progress("synthesis", "running")
+        general_result = _answer_general_finance(options, result, question_plan)
+        progress("synthesis", "completed")
+        return general_result
     if question_plan.question_type == QUESTION_MARKET_FORECAST:
         result.forecast_preflight = _forecast_preflight_for_options(
             options,
@@ -1346,7 +1483,11 @@ def answer_query(options: AskOptions) -> AskResult:
     subject_label = (
         "问题"
         if question_plan.query_envelope.subject_kind == "market_pattern"
-        else "主题"
+        else (
+            "公司"
+            if question_plan.query_envelope.subject_kind == "company"
+            else "主题"
+        )
     )
     triggers = "、".join((candidate or {}).get("trigger_types", []) or []) or "无盘面触发"
     concept_count = ks.get("concept_count", len(concepts.get("items", [])))
@@ -2382,12 +2523,16 @@ def _build_answer_spec_for_result(
             else "base_finance"
         ),
         presentation_title=(
-            {
-                QUESTION_MARKET_FORECAST: "市场判断",
-                QUESTION_VALUATION: "估值判断",
-            }.get(
-                result.question_plan.question_type,
-                "金融问题裁决",
+            (
+                f"{research_spec.theme}：个股研究结论"
+                if result.question_plan.query_envelope.subject_kind == "company"
+                else {
+                    QUESTION_MARKET_FORECAST: "市场判断",
+                    QUESTION_VALUATION: "估值判断",
+                }.get(
+                    result.question_plan.question_type,
+                    "金融问题裁决",
+                )
             )
             if result.question_plan is not None
             else "金融问题裁决"
