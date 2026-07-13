@@ -227,7 +227,13 @@ def plan_answer_question(
     quality_gates = _quality_gates(question_type, depth)
     output_contract = _output_contract(question_type, depth)
     missing_data_policy = _missing_data_policy(question_type)
-    warnings = _warnings(raw_query, q, question_type, retrieval_plan)
+    warnings = _warnings(
+        raw_query,
+        q,
+        question_type,
+        retrieval_plan,
+        query_envelope,
+    )
     base_finance_mode = _base_finance_mode(raw_query, q, question_type, depth)
     research_spec = (
         resolve_theme_research_spec(raw_query, query_envelope.subject)
@@ -739,9 +745,23 @@ def _missing_data_policy(question_type: str) -> list[str]:
     return base
 
 
-def _warnings(raw_query: str, q: str, question_type: str, retrieval_plan: list[str]) -> list[str]:
+def _warnings(
+    raw_query: str,
+    q: str,
+    question_type: str,
+    retrieval_plan: list[str],
+    query_envelope: QueryEnvelope,
+) -> list[str]:
     warnings: list[str] = []
-    if question_type == QUESTION_GENERAL and len(raw_query) > 20:
+    is_confident_market_pattern = (
+        query_envelope.subject_kind == "market_pattern"
+        and query_envelope.confidence >= 0.8
+    )
+    if (
+        question_type == QUESTION_GENERAL
+        and len(raw_query) > 20
+        and not is_confident_market_pattern
+    ):
         warnings.append("未高置信识别问题类型，建议先按通用金融问答处理并显式说明假设")
     if "web" in q or "搜索" in q:
         warnings.append("用户提到搜索时，应优先说明本地知识库/金融库与外部搜索的分工")

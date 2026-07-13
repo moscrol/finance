@@ -306,6 +306,104 @@ class AnswerOrchestratorTests(unittest.TestCase):
             plan.query_envelope.to_dict(),
         )
 
+    def test_real_market_pattern_query_never_becomes_a_theme_or_claim_subject(
+        self,
+    ) -> None:
+        query = (
+            "如果一个A股题材连续上涨，但板块成交占比开始下降，我应该怎么判断"
+            "它是健康分歧还是行情高潮？请给出直接判断、证据、反证和下一步验证。"
+        )
+        plan = plan_answer_question(query)
+
+        self.assertEqual(plan.query_envelope.subject_kind, "market_pattern")
+        self.assertIsNone(plan.query_envelope.subject)
+        self.assertFalse(
+            any("未高置信识别问题类型" in warning for warning in plan.warnings)
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=False,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                )
+            )
+
+        self.assertIsNotNone(result.answer_spec)
+        assert result.answer_spec is not None
+        sections_text = json.dumps(result.sections, ensure_ascii=False)
+        structured_text = json.dumps(result.answer_spec.to_dict(), ensure_ascii=False)
+        module_text = json.dumps(result.detail_reports, ensure_ascii=False)
+        self.assertNotIn(f"主题「{query}」", sections_text)
+        self.assertNotIn(query, structured_text)
+        self.assertNotIn(query, module_text)
+        self.assertIn("问题「通用市场结构问题」", sections_text)
+        self.assertEqual(
+            result.answer_spec.research_spec.theme,
+            "通用市场结构问题",
+        )
+        rendered = render_conversation_answer(result)
+        self.assertIn("**直接定性：**", rendered)
+        self.assertIn("**最强证据：**", rendered)
+        self.assertIn("**主要风险：**", rendered)
+        self.assertIn("**下一步验证：**", rendered)
+
+    def test_safe_subject_fallback_preserves_explicit_quoted_and_company_targets(
+        self,
+    ) -> None:
+        cases = (
+            ("研究空芯光纤题材", None, "空芯光纤"),
+            ("分析“机器人”板块", None, "机器人"),
+            (
+                "英维克怎么看",
+                EntityAnchor(entity="英维克", ticker="002837.SZ"),
+                "英维克",
+            ),
+        )
+
+        for query, anchor, expected_subject in cases:
+            with (
+                self.subTest(query=query),
+                tempfile.TemporaryDirectory() as tmp,
+                mock.patch(
+                    "intelligence.services.ask.entity_anchor.resolve_entity_anchor",
+                    return_value=anchor,
+                ),
+            ):
+                result = answer_query(
+                    AskOptions(
+                        query=query,
+                        exports_dir=tmp,
+                        kb_wiki=Path(tmp),
+                        use_modules=False,
+                        use_wiki_rag=False,
+                        compose=False,
+                        include_memory_block=False,
+                        include_recall_block=False,
+                    )
+                )
+
+            self.assertIsNotNone(result.answer_spec)
+            assert result.answer_spec is not None
+            self.assertEqual(
+                result.answer_spec.research_spec.theme,
+                expected_subject,
+            )
+            claims = (
+                *result.answer_spec.summary,
+                *result.answer_spec.verified_facts,
+                *result.answer_spec.counter_evidence,
+                *result.answer_spec.gaps,
+                *result.answer_spec.triggers,
+            )
+            self.assertTrue(all(claim.theme == expected_subject for claim in claims))
+
     def test_subjectless_market_pattern_skips_subject_rag_and_module_fanout(
         self,
     ) -> None:

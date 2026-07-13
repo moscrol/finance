@@ -58,6 +58,7 @@ from intelligence.services.answer_quality import (
 )
 from intelligence.services.answer_orchestrator import (
     QUESTION_FINANCIAL_ANALYSIS,
+    QUESTION_GENERAL,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
@@ -739,6 +740,31 @@ def _answer_market_review(
     return result
 
 
+def _answer_subject(question_plan: QuestionPlan) -> str:
+    """Return a safe research object without ever falling back to query prose."""
+    if question_plan.research_spec is not None:
+        theme = question_plan.research_spec.theme.strip()
+        if theme:
+            return theme
+    envelope = question_plan.query_envelope
+    if envelope.subject:
+        return envelope.subject
+    if envelope.subject_kind == "market_pattern":
+        return "通用市场结构问题"
+    if question_plan.question_type == QUESTION_GENERAL:
+        return "通用金融问题"
+    return "未命名研究对象"
+
+
+def _answer_research_spec(
+    question_plan: QuestionPlan,
+) -> answer_model.ThemeResearchSpec:
+    if question_plan.research_spec is not None:
+        return question_plan.research_spec
+    subject = _answer_subject(question_plan)
+    return answer_model.resolve_theme_research_spec("", subject)
+
+
 def answer_query(options: AskOptions) -> AskResult:
     progress = _safe_progress_callback(options.progress_callback)
     if options.clarify:
@@ -797,11 +823,7 @@ def answer_query(options: AskOptions) -> AskResult:
     result.question_plan = question_plan
     progress("deterministic_recall", "running")
     envelope = question_plan.query_envelope
-    claim_theme = (
-        question_plan.research_spec.theme
-        if question_plan.research_spec is not None
-        else result.matched_theme or options.query
-    )
+    claim_theme = _answer_subject(question_plan)
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
     if question_plan.question_type == QUESTION_MARKET_REVIEW:
         progress("deterministic_recall", "completed")
@@ -1320,10 +1342,11 @@ def answer_query(options: AskOptions) -> AskResult:
     gap_lines.extend(f"反方审稿：{item}" for item in quality_context.critic_questions)
 
     # ---------- assemble fixed six sections ----------
-    theme = (
-        question_plan.research_spec.theme
-        if question_plan.research_spec is not None
-        else _quoted_topic(options.query) or result.matched_theme or options.query
+    theme = _answer_subject(question_plan)
+    subject_label = (
+        "问题"
+        if question_plan.query_envelope.subject_kind == "market_pattern"
+        else "主题"
     )
     triggers = "、".join((candidate or {}).get("trigger_types", []) or []) or "无盘面触发"
     concept_count = ks.get("concept_count", len(concepts.get("items", [])))
@@ -1347,7 +1370,7 @@ def answer_query(options: AskOptions) -> AskResult:
         + ("｜" + "；".join(module_summ) if module_summ else "")
     )
     conclusion = [
-        f"主题「{theme}」"
+        f"{subject_label}「{theme}」"
         + (
             f"（{result.candidate_tier or '候选'}，盘面评分 {result.priority_score}，所属 {(candidate or {}).get('sw_l1', '?')}）"
             if candidate
@@ -1508,7 +1531,7 @@ def answer_query(options: AskOptions) -> AskResult:
     gap_lines.append(f"市场结构状态机：阶段={market_state.phase}；{market_state.playbook}")
     if question_plan.question_type == QUESTION_THEME_ANALYSIS:
         diag = theme_lifecycle.diagnose_theme_lifecycle(
-            result.matched_theme or options.query,
+            theme,
             evidence_chain,
             gap_lines,
             market_state,
@@ -1843,13 +1866,7 @@ def answer_query(options: AskOptions) -> AskResult:
         )
         result.answer_spec = _build_answer_spec_for_result(
             result=result,
-            research_spec=(
-                question_plan.research_spec
-                or answer_model.resolve_theme_research_spec(
-                    options.query,
-                    result.matched_theme,
-                )
-            ),
+            research_spec=_answer_research_spec(question_plan),
             conclusion_lines=conclusion,
             structured_claims=structured_claims,
             company_candidates=company_candidates,
@@ -1880,13 +1897,7 @@ def answer_query(options: AskOptions) -> AskResult:
     if result.answer_spec is None:
         result.answer_spec = _build_answer_spec_for_result(
             result=result,
-            research_spec=(
-                question_plan.research_spec
-                or answer_model.resolve_theme_research_spec(
-                    options.query,
-                    result.matched_theme,
-                )
-            ),
+            research_spec=_answer_research_spec(question_plan),
             conclusion_lines=conclusion,
             structured_claims=structured_claims,
             company_candidates=company_candidates,
