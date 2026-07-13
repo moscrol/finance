@@ -8,6 +8,7 @@ from typing import Any
 
 QUESTION_STOCK_DEEP_DIVE = "stock_deep_dive"
 QUESTION_THEME_ANALYSIS = "theme_analysis"
+QUESTION_MARKET_REVIEW = "market_review"
 QUESTION_MARKET_FORECAST = "market_forecast"
 QUESTION_NEWS_IMPACT = "news_impact"
 QUESTION_VALUATION = "valuation_estimate"
@@ -137,6 +138,11 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         return QUESTION_STOCK_DEEP_DIVE, 0.9
     if _has_any(q, ("复盘先验", "先验复盘", "行情前瞻", "明日研判", "次日研判", "前瞻研判")):
         return QUESTION_MARKET_FORECAST, 0.9
+    if _has_any(q, ("复盘",)) and _has_any(
+        q,
+        ("市场", "行情", "大盘", "交易日", "收盘", "盘面", "赚钱效应", "涨跌家数"),
+    ):
+        return QUESTION_MARKET_REVIEW, 0.9
     if _has_any(q, ("拍估值", "估值带", "贵不贵", "隐含预期", "隐含增长", "值多少钱", "估值分位", "估值怎么看", "合理估值")):
         return QUESTION_VALUATION, 0.88
     if _has_any(q, ("公告", "新闻", "链接", "传导", "冲击", "影响", "产业链")):
@@ -161,7 +167,7 @@ def _classify_depth(raw_query: str, q: str, question_type: str) -> str:
         return DEPTH_QUICK
     if question_type in {QUESTION_STOCK_DEEP_DIVE, QUESTION_NEWS_IMPACT, QUESTION_ANSWER_REVIEW, QUESTION_VALUATION}:
         return DEPTH_DEEP
-    if question_type in {QUESTION_THEME_ANALYSIS, QUESTION_MARKET_FORECAST}:
+    if question_type in {QUESTION_THEME_ANALYSIS, QUESTION_MARKET_REVIEW, QUESTION_MARKET_FORECAST}:
         return DEPTH_STANDARD
     return DEPTH_STANDARD
 
@@ -190,6 +196,14 @@ def _required_lenses(question_type: str, depth: str) -> list[str]:
             "产业链分层：上游瓶颈、中游制造、下游需求和二阶受益",
             "逻辑生命周期：题材有没有产生过真实市场价值，CAR/相对强度/半衰期如何",
             *common,
+        ]
+    if question_type == QUESTION_MARKET_REVIEW:
+        return [
+            "数据边界：先确认最新交易日，并分别检查题材级汇总与核心板块明细的日期",
+            "市场结构：指数、成交额、涨跌家数、涨停跌停、行业聚散度和风格",
+            "主线与赚钱效应：回答资金集中在哪里、扩散到哪里、哪些方向承压",
+            "主要风险：只保留会改变当前市场判断的风险和数据缺口",
+            "验证信号：给出下一交易日最少且可核验的升级/降级条件",
         ]
     if question_type == QUESTION_MARKET_FORECAST:
         return [
@@ -263,6 +277,12 @@ def _retrieval_plan(question_type: str, depth: str, q: str) -> list[str]:
             "同题材强势股队列：领先核心、补涨、替代方向",
             *common,
         ]
+    if question_type == QUESTION_MARKET_REVIEW:
+        return [
+            "DuckDB market context：最新交易日指数、成交额、涨跌家数、涨停跌停和行业聚散度",
+            "Daily Review：当日市场结构、赚钱效应和风险摘要",
+            "DuckDB mainline sectors：主线连续性、核心板块、cycle_status 和量价状态",
+        ]
     if question_type == QUESTION_MARKET_FORECAST:
         return [
             "DuckDB market context：大盘阶段、成交额、量能回归、涨跌家数、MA5、涨停跌停",
@@ -320,6 +340,14 @@ def _quality_gates(question_type: str, depth: str) -> list[str]:
                 "必须说明市场正在奖励谁、抛弃谁、犹豫谁",
             ]
         )
+    if question_type == QUESTION_MARKET_REVIEW:
+        gates.extend(
+            [
+                "必须直接回答市场结构、主线、赚钱效应和主要风险，不扩展成个股深挖",
+                "当日市场数据与较旧主线快照必须分开表述，不能把历史主线当成当日事实",
+                "没有当日题材数据时应保留未知，不用公司线索、产业链或二阶导填补",
+            ]
+        )
     if question_type == QUESTION_MARKET_FORECAST:
         gates.extend(
             [
@@ -371,6 +399,16 @@ def _output_contract(question_type: str, depth: str) -> list[str]:
             "每条假设要标明支持/反证来源：全量盘面、晚间卖方、晨汇、fupanhui 外盘、web 最新美股或缺数据",
             "盘后应能回填验证结果和纠偏经验",
         ]
+    if question_type == QUESTION_MARKET_REVIEW:
+        return [
+            "先用一句话给出直接结论，再说明整体数据截止日和局部数据缺口",
+            "围绕用户问题组织为市场结构、主线与赚钱效应、主要风险、后续验证，使用少量自然小标题",
+            "最多使用 5 个二级标题；数据边界放在开头，强势股动能并入市场结构或风险，不单独拆章",
+            "默认只写支撑结论的关键数据；不要机械覆盖公司本体、产业链、客户证据、二阶导、完整生命周期或策略矩阵",
+            "按数据粒度表述主线缺口：题材级汇总同日时可写当前题材名；核心板块明细滞后时，板块、周期和标的必须写未知",
+            "标题和正文只用用户语言；不要出现反方审稿、第一性原理、质检、证据硬度等内部研究口吻",
+            "结尾给 2-4 个可核验信号，不输出买卖指令",
+        ]
     if question_type == QUESTION_NEWS_IMPACT:
         return [
             "先复述事实，不扩写无证据信息",
@@ -407,6 +445,9 @@ def _missing_data_policy(question_type: str) -> list[str]:
         base.append("fupanhui 外盘若只返回昨日 source_trade_date，应用 web/finance search 补当晚美股涨跌幅")
         base.append("缺 daily-agent 策略候选时，可以基于策略底层方法论手工推演，但必须标注未读取候选池")
         base.append("daily-agent research_queue 存在今日该做 IMA / 今日该找公告或调研时，先补 DeepDive / L3 证据并 ingest；未补前只能生成带缺口标记的草稿")
+    if question_type == QUESTION_MARKET_REVIEW:
+        base.append("缺最新 DuckDB 市场总览时，不能伪装成最新交易日复盘")
+        base.append("主线表滞后时只能描述历史基线，并把当日主线标为未知")
     if question_type == QUESTION_NEWS_IMPACT:
         base.append("缺原文或公告时，先要求材料或实时查源，不能根据标题扩写")
     if question_type == QUESTION_VALUATION:

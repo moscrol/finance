@@ -57,7 +57,7 @@ def daily_projection_modules(
     exports = repo_root / "market_feature_store" / "exports"
     candidates = sorted(exports.glob("*-daily-review.md"), reverse=True)
     if not candidates:
-        return None, [], ["未找到 canonical Daily Review Markdown；日报基础模块缺失。"]
+        return None, [], ["未找到本地复盘报告；日报基础模块缺失。"]
     source_path = candidates[0]
     date_text = source_path.name.removesuffix("-daily-review.md")
     projection = project_daily_review_markdown(
@@ -73,7 +73,7 @@ def daily_projection_modules(
             "title": "今日核心",
             "kind": "summary",
             "status": "degraded" if warnings else "complete",
-            "summary": "基于 canonical Daily Review 的确定性投影。",
+            "summary": "基于本地复盘报告的确定性投影。",
             "content": None,
             "metrics": metrics,
             "items": [

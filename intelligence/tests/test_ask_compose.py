@@ -13,6 +13,7 @@ from intelligence.services.ask import (
     _customer_evidence_hardness_block_for_llm,
     _daily_market_overview_block_for_llm,
     _mainline_context_block_for_llm,
+    _market_review_mainline_context_block_for_llm,
     _market_value_block_for_llm,
     _resolve_market_data_context,
     _second_derivative_queue_block_for_llm,
@@ -182,6 +183,19 @@ class SynthesizeTests(unittest.TestCase):
         self.assertIn("不要附加质检过程或审稿过程", system)
         self.assertIn("只能使用证据中“交易日历约束”给出的日期", system)
         self.assertIn("严禁自然日加一天或猜日期", system)
+
+    def test_synthesis_system_prompt_obeys_question_specific_contract(self) -> None:
+        msgs = llm_refine.build_synthesis_messages(
+            "请复盘最新交易日的市场结构、主线、赚钱效应和主要风险。",
+            "全市场",
+            "## 问答编排计划\n- 问题类型：market_review",
+        )
+
+        system = msgs[0]["content"]
+
+        self.assertIn("先服从证据中的「问答编排计划」", system)
+        self.assertIn("结构和篇幅由问题复杂度决定", system)
+        self.assertIn("不得为了显得完整而套用深度研究模板", system)
 
     def test_degrades_on_empty_content(self) -> None:
         with mock.patch.object(llm_refine, "detect_provider", return_value=_provider()), mock.patch.object(
@@ -507,8 +521,9 @@ class DailyMarketOverviewTests(unittest.TestCase):
         self.assertIn("市场数据截至：2026-07-10", block)
         self.assertIn("上涨 3774 家", block)
         self.assertIn("半导体（3 个核心板块）", block)
-        self.assertIn("主线板块明细表仅更新到 2026-06-30", block)
-        self.assertIn("不能覆盖整体日期", block)
+        self.assertIn("题材级主线汇总已更新到 2026-07-10", block)
+        self.assertIn("核心板块明细仅更新到 2026-06-30", block)
+        self.assertIn("当前核心板块、周期状态和标的未知", block)
 
 
 class MarketValueBlockTests(unittest.TestCase):
@@ -574,6 +589,74 @@ class MarketValueBlockTests(unittest.TestCase):
 
 
 class EvidenceDataBlockTests(unittest.TestCase):
+    def test_market_review_mainline_block_hides_stale_theme_details(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute("create table fact_market_daily(trade_date date)")
+            con.execute("insert into fact_market_daily values ('2026-07-10')")
+            con.execute(
+                "create table fact_mainline_sector_daily("
+                "trade_date date, theme_name varchar, sector_name varchar)"
+            )
+            con.execute(
+                "insert into fact_mainline_sector_daily values "
+                "('2026-06-30', 'AI算力', '共封装光学(CPO)')"
+            )
+            con.close()
+
+            block = _market_review_mainline_context_block_for_llm(
+                "请复盘最新交易日的市场结构、主线、赚钱效应和主要风险。",
+                None,
+                db_path,
+            )
+
+        self.assertIn("当日市场总览截至 2026-07-10", block)
+        self.assertIn("没有可用的同日主线题材汇总", block)
+        self.assertIn("当前交易日的题材级主线未知", block)
+        self.assertIn("核心板块明细仅截至 2026-06-30", block)
+        self.assertNotIn("AI算力", block)
+        self.assertNotIn("共封装光学", block)
+
+    def test_market_review_mainline_block_keeps_current_themes_but_hides_stale_sectors(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute("create table fact_market_daily(trade_date date)")
+            con.execute("insert into fact_market_daily values ('2026-07-10')")
+            con.execute(
+                "create table fact_mainline_theme_daily("
+                "trade_date date, theme_name varchar, sector_count integer, min_sort integer)"
+            )
+            con.execute(
+                "insert into fact_mainline_theme_daily values "
+                "('2026-07-10', '半导体', 3, 1), "
+                "('2026-07-10', 'AI算力', 2, 2)"
+            )
+            con.execute(
+                "create table fact_mainline_sector_daily("
+                "trade_date date, theme_name varchar, sector_name varchar)"
+            )
+            con.execute(
+                "insert into fact_mainline_sector_daily values "
+                "('2026-06-30', 'AI算力', '共封装光学(CPO)')"
+            )
+            con.close()
+
+            block = _market_review_mainline_context_block_for_llm(
+                "请复盘最新交易日的市场结构、主线、赚钱效应和主要风险。",
+                None,
+                db_path,
+            )
+
+        self.assertIn("题材级主线汇总均截至 2026-07-10", block)
+        self.assertIn("当前主线题材为 半导体、AI算力", block)
+        self.assertIn("核心板块明细仅截至 2026-06-30", block)
+        self.assertIn("当前核心板块、周期状态和标的未知", block)
+        self.assertNotIn("共封装光学", block)
+
     def test_mainline_context_block_adds_theme_sector_cycle_state(self) -> None:
         duckdb = __import__("duckdb")
         with tempfile.TemporaryDirectory() as tmp:

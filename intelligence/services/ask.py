@@ -33,6 +33,7 @@ from intelligence.services import ask_clarify, ask_planner, checkpoint_recall, e
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
+    QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
     QUESTION_THEME_ANALYSIS,
@@ -922,7 +923,10 @@ def answer_query(options: AskOptions) -> AskResult:
             *framing["evidence"],
             *evidence_chain,
         ]
-    if question_plan.question_type == QUESTION_MARKET_FORECAST:
+    if question_plan.question_type in {
+        QUESTION_MARKET_REVIEW,
+        QUESTION_MARKET_FORECAST,
+    }:
         daily_market_block = _daily_market_overview_block_for_llm(
             options.market_db_path
         )
@@ -1044,30 +1048,40 @@ def answer_query(options: AskOptions) -> AskResult:
             research_brief.DBlockStat("D5", "估值数据块", note="仅 --compose + 估值问题类型生成"),
         ]
     if options.compose:
-        evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
+        is_market_review = question_plan.question_type == QUESTION_MARKET_REVIEW
+        compose_evidence_chain = (
+            _market_review_evidence_chain(evidence_chain)
+            if is_market_review
+            else evidence_chain
+        )
+        evidence_text = _evidence_text_for_llm(
+            compose_evidence_chain,
+            [] if is_market_review else gap_lines,
+        )
         if result.data_notice:
             evidence_text = (
                 f"## 本轮数据说明\n{result.data_notice}\n\n{evidence_text}"
             )
         if result.question_plan is not None:
             evidence_text = f"{result.question_plan.to_prompt_block()}\n\n{evidence_text}"
-        evidence_text = (
-            f"{evidence_text}\n\n{audit.to_prompt_block()}"
-            f"\n\n{telemetry.to_prompt_block()}\n\n{counter_plan.to_prompt_block()}"
-        )
-        if result.stock_brief is not None:
+        if not is_market_review:
+            evidence_text = (
+                f"{evidence_text}\n\n{audit.to_prompt_block()}"
+                f"\n\n{telemetry.to_prompt_block()}\n\n{counter_plan.to_prompt_block()}"
+            )
+        if result.stock_brief is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.stock_brief.to_prompt_block()}"
-        if result.market_state is not None:
+        if result.market_state is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.market_state.to_prompt_block()}"
-        if result.theme_lifecycle is not None:
+        if result.theme_lifecycle is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.theme_lifecycle.to_prompt_block()}"
-        if result.event_brief is not None:
+        if result.event_brief is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.event_brief.to_prompt_block()}"
-        if result.gap_radar is not None:
+        if result.gap_radar is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.gap_radar.to_prompt_block()}"
-        if result.valuation_note is not None:
+        if result.valuation_note is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.valuation_note.to_prompt_block()}"
-        if result.forecast_preflight is not None:
+        if result.forecast_preflight is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{forecast_preflight.render_preflight_prompt(result.forecast_preflight)}"
         # --- planner-worker 并行取数：规则门控先定「要哪些块」，命中的块作为互相独立的
         # 子任务并行取数（ask_planner），取回后仍按固定顺序汇总——evidence_text/引用编号
@@ -1178,7 +1192,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 )
 
             block_tasks.append(ask_planner.BlockTask("V", "回检块", _build_v))
-        if options.include_market_value_block:
+        if options.include_market_value_block and not is_market_review:
             def _build_d1():
                 block = _market_value_block_for_llm(options.query, theme, options.market_db_path)
                 return block, Citation(
@@ -1190,15 +1204,27 @@ def answer_query(options: AskOptions) -> AskResult:
             block_tasks.append(ask_planner.BlockTask("D1", "市场价值与替代队列", _build_d1))
         if options.include_mainline_context_block:
             def _build_d4():
-                block = _mainline_context_block_for_llm(options.query, theme, options.market_db_path)
+                block = (
+                    _market_review_mainline_context_block_for_llm(
+                        options.query,
+                        theme,
+                        options.market_db_path,
+                    )
+                    if is_market_review
+                    else _mainline_context_block_for_llm(
+                        options.query,
+                        theme,
+                        options.market_db_path,
+                    )
+                )
                 return block, Citation(
                     "D4",
                     "本地 DuckDB 主线题材结构数据块",
-                    "每日主线题材/核心板块/cycle_status/缩放量解释",
+                    "同日主线结构；若快照滞后则仅提供数据边界",
                 )
 
             block_tasks.append(ask_planner.BlockTask("D4", "主线题材结构", _build_d4))
-        if options.include_customer_hardness_block:
+        if options.include_customer_hardness_block and not is_market_review:
             def _build_d2():
                 block = _customer_evidence_hardness_block_for_llm(evidence_chain, gap_lines)
                 return block, Citation(
@@ -1227,7 +1253,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 continue
             evidence_text = _append_block_outcome(result, outcome, evidence_text, citations)
         # D3 依赖此前累积的 evidence_text（文本兜底路径），必须在其他块汇总后串行生成。
-        if options.include_second_derivative_block:
+        if options.include_second_derivative_block and not is_market_review:
             second_derivative_block = _second_derivative_queue_block_for_llm(
                 options.query,
                 theme,
@@ -1293,8 +1319,8 @@ def answer_query(options: AskOptions) -> AskResult:
             theme,
             evidence_text,
             citation_legend=citation_legend,
-            quality_context=quality_context,
-            experience_guidance=experience_guidance,
+            quality_context=None if is_market_review else quality_context,
+            experience_guidance="" if is_market_review else experience_guidance,
             exemplar_guidance=exemplar_guidance,
         )
         msgs[0]["content"] = (
@@ -1424,6 +1450,26 @@ def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> s
     out.append("## 分歧反证")
     out.extend(f"- {g}" for g in gap_lines)
     return "\n".join(out)
+
+
+def _market_review_evidence_chain(evidence_chain: list[str]) -> list[str]:
+    """Keep broad market-review synthesis focused on market-level evidence."""
+    allowed_sections = {
+        "盘面",
+        "最新市场总览（本地 DuckDB）",
+    }
+    filtered: list[str] = []
+    include_section = False
+    for item in evidence_chain:
+        if item.startswith(SUBHEAD):
+            section = item[len(SUBHEAD):]
+            include_section = section in allowed_sections
+            if include_section:
+                filtered.append(item)
+            continue
+        if include_section:
+            filtered.append(item)
+    return filtered
 
 
 def _customer_evidence_hardness_block_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:
@@ -1618,6 +1664,95 @@ def _mainline_context_block_for_llm(
             con.close()
         except Exception:
             pass
+
+
+def _market_review_mainline_context_block_for_llm(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+) -> str:
+    market_date = _market_data_asof(market_db_path)
+    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    if not market_date or not db_path.exists():
+        return ""
+    try:
+        import duckdb  # type: ignore
+
+        con = duckdb.connect(str(db_path), read_only=True)
+        try:
+            table_names = {
+                str(row[0])
+                for row in con.execute(
+                    """
+                    select table_name
+                    from information_schema.tables
+                    where table_schema = 'main'
+                    """
+                ).fetchall()
+            }
+            theme_date = None
+            themes: list[tuple[str, int]] = []
+            if "fact_mainline_theme_daily" in table_names:
+                row = con.execute(
+                    "select max(trade_date) from fact_mainline_theme_daily"
+                ).fetchone()
+                theme_date = str(row[0]) if row and row[0] else None
+                if theme_date == market_date:
+                    themes = [
+                        (str(name), int(sector_count or 0))
+                        for name, sector_count in con.execute(
+                            """
+                            select theme_name, sector_count
+                            from fact_mainline_theme_daily
+                            where trade_date = ?
+                            order by min_sort nulls last, theme_name
+                            limit 10
+                            """,
+                            [theme_date],
+                        ).fetchall()
+                        if name
+                    ]
+            sector_date = None
+            if "fact_mainline_sector_daily" in table_names:
+                row = con.execute(
+                    "select max(trade_date) from fact_mainline_sector_daily"
+                ).fetchone()
+                sector_date = str(row[0]) if row and row[0] else None
+        finally:
+            con.close()
+    except Exception:
+        return ""
+    if sector_date == market_date:
+        return _mainline_context_block_for_llm(query, theme, market_db_path)
+    lines = ["## 市场复盘主线数据边界"]
+    if theme_date == market_date and themes:
+        theme_text = "、".join(name for name, _ in themes)
+        lines.append(
+            f"- 当日市场总览和题材级主线汇总均截至 {market_date}；"
+            f"当前主线题材为 {theme_text}。"
+        )
+    elif theme_date:
+        lines.append(
+            f"- 当日市场总览截至 {market_date}；主线题材汇总仅截至 {theme_date}。"
+        )
+        lines.append(
+            "- 当前交易日的题材级主线未知，禁止把旧题材名称写成当日事实。"
+        )
+    else:
+        lines.append(
+            f"- 当日市场总览截至 {market_date}；没有可用的同日主线题材汇总。"
+        )
+        lines.append("- 当前交易日的题材级主线未知。")
+    if sector_date:
+        lines.append(
+            f"- 核心板块明细仅截至 {sector_date}；当前核心板块、周期状态和标的未知。"
+        )
+    else:
+        lines.append("- 没有可用的核心板块明细；当前核心板块、周期状态和标的未知。")
+    lines.append(
+        "- 禁止把旧板块名称、涨幅、生命周期或标的写成当日事实。"
+    )
+    return "\n".join(lines)
 
 
 def _resolve_mainline_theme(con: Any, query: str, theme: str | None, latest_date: Any) -> str | None:
@@ -1953,6 +2088,7 @@ def _daily_market_overview_block_for_llm(
                 f"领先行业为 {industry_text}。"
             )
 
+        theme_date = None
         if "fact_mainline_theme_daily" in table_names:
             theme_date_row = con.execute(
                 "select max(trade_date) from fact_mainline_theme_daily"
@@ -1974,8 +2110,13 @@ def _daily_market_overview_block_for_llm(
                     for name, sector_count in themes
                     if name
                 )
-                if theme_text:
+                if theme_text and str(theme_date) == trade_date:
                     lines.append(f"- 主线题材（截至 {theme_date}）：{theme_text}。")
+                elif theme_text:
+                    lines.append(
+                        f"- 主线题材汇总仅截至 {theme_date}，早于整体盘面日期 {trade_date}；"
+                        "当前题材级主线未知，不展示旧题材名称。"
+                    )
 
         if "fact_mainline_sector_daily" in table_names:
             sector_date_row = con.execute(
@@ -1983,10 +2124,16 @@ def _daily_market_overview_block_for_llm(
             ).fetchone()
             sector_date = sector_date_row[0] if sector_date_row else None
             if sector_date and str(sector_date) != trade_date:
-                lines.append(
-                    f"- 局部数据提示：主线板块明细表仅更新到 {sector_date}，"
-                    f"早于整体盘面日期 {trade_date}；只能作历史参考，不能覆盖整体日期。"
-                )
+                if theme_date and str(theme_date) == trade_date:
+                    lines.append(
+                        f"- 局部数据提示：题材级主线汇总已更新到 {trade_date}，"
+                        f"但核心板块明细仅更新到 {sector_date}；当前核心板块、周期状态和标的未知。"
+                    )
+                else:
+                    lines.append(
+                        f"- 局部数据提示：核心板块明细仅更新到 {sector_date}，"
+                        f"早于整体盘面日期 {trade_date}；只能作历史参考。"
+                    )
         return "\n".join(lines)
     except Exception:
         return ""
