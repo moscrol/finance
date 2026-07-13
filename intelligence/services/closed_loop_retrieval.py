@@ -336,7 +336,6 @@ def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
                 item for item in items if id(item) not in discarded_ids
             )
 
-    had_snapshot_conflict = False
     canonical_by_identity: dict[tuple[str, str], tuple[str, str]] = {}
     identity_conflicts: list[BucketedHit] = []
     for item, _, snapshot, _ in records:
@@ -345,7 +344,6 @@ def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
         if snapshot != canonical:
             identity_conflicts.append(item)
     if identity_conflicts:
-        had_snapshot_conflict = True
         remove_items(identity_conflicts, discard=True)
         result.warnings.append(
             "snapshot conflict: discarded "
@@ -382,7 +380,6 @@ def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
             if record[2] != canonical_output_snapshot
         ]
         if output_conflicts:
-            had_snapshot_conflict = True
             conflict_items = [record[0] for record in output_conflicts]
             remove_items(conflict_items, discard=True)
             result.warnings.append(
