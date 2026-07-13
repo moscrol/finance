@@ -166,6 +166,33 @@ def test_explicit_theme_prefers_longest_prompt_filler() -> None:
     assert (envelope.subject, envelope.matched_by) == ("空芯光纤", "explicit")
 
 
+def test_explicit_theme_strips_repeated_intent_prefixes() -> None:
+    envelope = understand_query("请分析一下 我想了解空芯光纤题材")
+
+    assert (envelope.subject_kind, envelope.subject, envelope.matched_by) == (
+        "theme",
+        "空芯光纤",
+        "explicit",
+    )
+
+
+def test_explicit_theme_strips_question_prefix() -> None:
+    envelope = understand_query("分析一下 什么是空芯光纤题材")
+
+    assert (envelope.subject_kind, envelope.subject, envelope.matched_by) == (
+        "theme",
+        "空芯光纤",
+        "explicit",
+    )
+
+
+def test_explicit_market_question_never_invents_generic_subject() -> None:
+    envelope = understand_query("研究为什么一个板块连续上涨、成交占比下降")
+
+    assert envelope.subject_kind == "unknown"
+    assert envelope.subject is None
+
+
 def test_theme_alias_config_rejects_malformed_collection_types(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
