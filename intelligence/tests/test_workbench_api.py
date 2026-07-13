@@ -197,10 +197,12 @@ def test_session_byok_flows_to_the_conversation_worker(
     monkeypatch,
 ) -> None:
     captured: list[object] = []
+    captured_runtime_inputs: list[object] = []
     finished = threading.Event()
 
     def capture_run_conversation_turn(**kwargs: object) -> None:
         captured.append(kwargs["llm_provider"])
+        captured_runtime_inputs.append(kwargs["runtime_inputs"])
         run_store = kwargs["run_store"]
         run_id = kwargs["run_id"]
         assert isinstance(run_store, RunStore)
@@ -238,6 +240,10 @@ def test_session_byok_flows_to_the_conversation_worker(
     assert provider.name == "zhipu"
     assert provider.model == "glm-5.2"
     assert provider.api_key == "glm-secret-value"
+    runtime_inputs = client.app.state.runtime_inputs
+    assert captured_runtime_inputs == [runtime_inputs]
+    assert captured_runtime_inputs[0] is runtime_inputs
+    assert runtime_inputs.code_root != runtime_inputs.data_root
 
 
 def test_conversation_worker_passes_selected_model_to_orchestrator(

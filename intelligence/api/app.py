@@ -52,6 +52,7 @@ from intelligence.services.conversation_store import (
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.run_store import RunStore
+from intelligence.services.runtime_inputs import RuntimeResearchInputs
 from intelligence.services.self_use_maturity import (
     SelfUseApprovalStore,
     SelfUseLedger,
@@ -225,6 +226,7 @@ class RunSupervisor:
         selected_skill_ids: list[str],
         perspective_mode: Literal["neutral", "single", "compare"],
         selected_perspective_ids: list[str],
+        runtime_inputs: RuntimeResearchInputs | None = None,
         event_id_prefix: str = "",
         llm_provider: LLMProvider | None = None,
     ) -> None:
@@ -233,6 +235,7 @@ class RunSupervisor:
             run_id,
             lambda signal: _run_conversation_turn(
                 repo_root=repo_root,
+                runtime_inputs=runtime_inputs,
                 conversation_store=conversation_store,
                 run_store=store,
                 conversation_id=conversation_id,
@@ -464,6 +467,7 @@ class ConfigureLLMRequest(BaseModel):
 def _run_conversation_turn(
     *,
     repo_root: Path,
+    runtime_inputs: RuntimeResearchInputs | None = None,
     conversation_store: ConversationStore,
     run_store: RunStore,
     conversation_id: str,
@@ -496,6 +500,7 @@ def _run_conversation_turn(
     with provider_context:
         TurnOrchestrator(
             repo_root=repo_root,
+            runtime_inputs=runtime_inputs,
             conversation_store=conversation_store,
             run_store=run_store,
             llm_model=llm_provider.model if llm_provider is not None else None,
@@ -1007,6 +1012,7 @@ def _resume_conversation_run(
     store: RunStore,
     run: rs.Run,
     repo_root: Path,
+    runtime_inputs: RuntimeResearchInputs | None = None,
 ) -> bool:
     if run.session_id is None:
         return False
@@ -1035,6 +1041,7 @@ def _resume_conversation_run(
         store,
         run.run_id,
         repo_root=repo_root,
+        runtime_inputs=runtime_inputs,
         conversation_store=conversation_store,
         conversation_id=run.session_id,
         assistant_message_id=assistant_message.message_id,
@@ -1056,6 +1063,14 @@ def create_app(
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
     runtime_paths = default_paths()
+    runtime_inputs = RuntimeResearchInputs.from_roots(
+        code_root=Path(__file__).resolve().parents[2],
+        data_root=root,
+        users_root=userspace.users_dir(),
+        knowledge_wiki=runtime_paths.knowledge_wiki,
+        vector_index_dir=runtime_paths.vector_index_dir,
+        market_snapshot_dir=runtime_paths.market_snapshot_dir,
+    )
     supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
     llm_settings = SessionLLMSettings()
 
@@ -1074,7 +1089,7 @@ def create_app(
     conversation_locks_guard = Lock()
 
     user_ids = {userspace.DEFAULT_USER}
-    users_root = userspace.users_dir()
+    users_root = runtime_inputs.users_root
     if users_root.is_dir():
         user_ids.update(
             path.name
@@ -1087,7 +1102,13 @@ def create_app(
             for run in store.requeue_incomplete_runs(reason=_RESTART_REASON):
                 recovered_runs.append(run.run_id)
                 try:
-                    if _resume_conversation_run(supervisor, store, run, root):
+                    if _resume_conversation_run(
+                        supervisor,
+                        store,
+                        run,
+                        root,
+                        runtime_inputs,
+                    ):
                         continue
                 except (
                     FileNotFoundError,
@@ -1116,6 +1137,7 @@ def create_app(
     app.state.conversation_locks = conversation_locks
     app.state.conversation_locks_guard = conversation_locks_guard
     app.state.llm_settings = llm_settings
+    app.state.runtime_inputs = runtime_inputs
 
     def store_for(user: str | None) -> RunStore:
         return RunStore(user_id=user)
@@ -1397,6 +1419,7 @@ def create_app(
                     run_store,
                     run.run_id,
                     repo_root=root,
+                    runtime_inputs=runtime_inputs,
                     conversation_store=store,
                     conversation_id=conversation_id,
                     assistant_message_id=assistant_message.message_id,

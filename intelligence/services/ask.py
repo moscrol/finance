@@ -279,6 +279,7 @@ class AskResult:
     next_trade_date: str | None = None
     market_data_source: str = "unknown"
     snapshot_date: str | None = None
+    snapshot_freshness: str = "missing"
     data_notice: str | None = None
     market_summary: str | None = None
     sections: dict[str, list[str]] = field(default_factory=dict)
@@ -415,6 +416,29 @@ def _resolve_market_data_context(
     return None, "unavailable", notice, [
         "本轮没有连接本地市场数据，也没有可用的历史盘面快照。"
     ]
+
+
+def _canonical_iso_date(raw: str | None) -> date_cls | None:
+    if not raw:
+        return None
+    try:
+        parsed = date_cls.fromisoformat(raw)
+    except ValueError:
+        return None
+    return parsed if parsed.isoformat() == raw else None
+
+
+def _snapshot_freshness(
+    snapshot_date: str | None,
+    comparison_date: str | None,
+) -> str:
+    snapshot = _canonical_iso_date(snapshot_date)
+    comparison = _canonical_iso_date(comparison_date)
+    if snapshot is None or comparison is None:
+        return "missing"
+    if snapshot == comparison:
+        return "fresh"
+    return "stale" if snapshot < comparison else "conflict"
 
 
 def _forecast_preflight_for_options(
@@ -968,7 +992,6 @@ def answer_query(options: AskOptions) -> AskResult:
     knowledge = KnowledgeAdapter(wiki_root=resolved_kb_wiki)
     loaded = load_theme_candidates(options.exports_dir, options.date)
     doc = loaded["doc"] if loaded["found"] else {}
-    candidate = match_candidate(options.query, doc) if doc else None
     snapshot_date = str(doc.get("trade_date") or "").strip() or None
     trade_date, market_data_source, data_notice, data_warnings = (
         _resolve_market_data_context(
@@ -977,6 +1000,35 @@ def answer_query(options: AskOptions) -> AskResult:
             requested_date=options.date,
         )
     )
+    comparison_date = (
+        options.date
+        if options.date is not None
+        else trade_date if market_data_source == "duckdb" else None
+    )
+    snapshot_freshness = _snapshot_freshness(
+        snapshot_date,
+        comparison_date,
+    )
+    current_export_usable = (
+        options.date is not None or snapshot_freshness == "fresh"
+    )
+    candidate = (
+        match_candidate(options.query, doc)
+        if doc and current_export_usable
+        else None
+    )
+    derivative_warnings: list[str] = []
+    if options.date is None and snapshot_freshness == "stale":
+        derivative_warnings.append(
+            "stale_derivative: theme-candidates export is older than "
+            "the current DuckDB cutoff and was excluded from current facts"
+        )
+    elif options.date is None and snapshot_freshness == "conflict":
+        derivative_warnings.append(
+            "conflicting_derivative: theme-candidates export is newer than "
+            "the current DuckDB cutoff and was excluded from current facts"
+        )
+    usable_market_doc = doc if current_export_usable else {}
 
     result = AskResult(
         query=options.query,
@@ -987,10 +1039,12 @@ def answer_query(options: AskOptions) -> AskResult:
         next_trade_date=next_trading_day(trade_date, db_path=options.market_db_path),
         market_data_source=market_data_source,
         snapshot_date=snapshot_date,
+        snapshot_freshness=snapshot_freshness,
         data_notice=data_notice,
     )
     result.warnings.extend(loaded.get("warnings", []))
     result.warnings.extend(data_warnings)
+    result.warnings.extend(derivative_warnings)
     result.found_market = candidate is not None
     anchor: entity_anchor.EntityAnchor | None = None
     if options.use_entity_anchor:
@@ -1052,7 +1106,7 @@ def answer_query(options: AskOptions) -> AskResult:
     if question_plan.question_type == QUESTION_MARKET_FORECAST:
         result.forecast_preflight = _forecast_preflight_for_options(
             options,
-            doc,
+            usable_market_doc,
             trade_date_override=result.trade_date,
         )
         if not result.forecast_preflight.get("can_generate_formal"):

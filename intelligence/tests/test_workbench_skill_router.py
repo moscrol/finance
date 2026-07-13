@@ -87,10 +87,18 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "conversation_id",
         "repo_root",
         "run_store",
+        "runtime_inputs",
         "conversation_context",
         "execution_budget",
         "progress_callback",
     ]
+    runtime_inputs_field = next(
+        field
+        for field in fields(SkillExecutionContext)
+        if field.name == "runtime_inputs"
+    )
+    assert runtime_inputs_field.repr is False
+    assert runtime_inputs_field.compare is False
     store = RunStore(root=tmp_path / "runs")
     budget = ExecutionBudget(started_at=10.0, deadline_at=20.0)
     context = SkillExecutionContext(

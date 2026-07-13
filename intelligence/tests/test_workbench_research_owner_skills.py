@@ -11,6 +11,7 @@ from intelligence.services.answer_orchestrator import plan_answer_question
 from intelligence.services.ask import AskOptions, AskResult, Citation
 from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.run_store import RunStore
+from intelligence.services.runtime_inputs import RuntimeResearchInputs
 from intelligence.workbench_skills.contracts import SkillExecutionContext
 from intelligence.workbench_skills.research_owner import (
     FINANCIAL_ANALYSIS,
@@ -98,6 +99,7 @@ def _context(
     query: str,
     execution_budget: ExecutionBudget | None = None,
     progress_callback: Callable[[str, str], None] | None = None,
+    runtime_inputs: RuntimeResearchInputs | None = None,
 ) -> SkillExecutionContext:
     return SkillExecutionContext(
         query=query,
@@ -107,9 +109,20 @@ def _context(
         conversation_id="conversation-1",
         repo_root=tmp_path,
         run_store=store,
+        runtime_inputs=runtime_inputs,
         conversation_context="用户上一轮强调只看公告级证据。",
         execution_budget=execution_budget,
         progress_callback=progress_callback,
+    )
+
+
+def _runtime_inputs(tmp_path: Path) -> RuntimeResearchInputs:
+    return RuntimeResearchInputs.from_roots(
+        code_root=tmp_path / "code-worktree",
+        data_root=tmp_path / "canonical-data",
+        users_root=tmp_path / "users",
+        knowledge_wiki=tmp_path / "knowledge" / "wiki",
+        vector_index_dir=tmp_path / "knowledge" / ".rag_index",
     )
 
 
@@ -191,6 +204,36 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
     )
     assert artifact["owned"] is True
     assert artifact["retrieval_plan"] == list(config.retrieval_plan)
+
+
+def test_research_owner_uses_explicit_runtime_data_paths(tmp_path: Path) -> None:
+    captured: list[AskOptions] = []
+    runtime_inputs = _runtime_inputs(tmp_path)
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run("深挖英维克", "ask")
+
+    ResearchOwnerSkill(
+        STOCK_DEEP_DIVE,
+        answer_query_fn=lambda options: captured.append(options)
+        or _result(
+            options.query,
+            STOCK_DEEP_DIVE.question_type,
+            evidence_id="R1",
+        ),
+    ).execute(
+        _context(
+            runtime_inputs.code_root,
+            store,
+            run.run_id,
+            "深挖英维克",
+            runtime_inputs=runtime_inputs,
+        )
+    )
+
+    assert captured[0].market_db_path == runtime_inputs.market_db_path
+    assert captured[0].exports_dir == runtime_inputs.exports_dir
+    assert captured[0].kb_wiki == runtime_inputs.knowledge_wiki
+    assert captured[0].wiki_rag_index_dir == runtime_inputs.vector_index_dir
 
 
 def test_research_owner_falls_back_without_current_traceable_evidence(

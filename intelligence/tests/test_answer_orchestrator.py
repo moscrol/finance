@@ -30,6 +30,100 @@ from intelligence.services.kb_rag import (
 
 
 class AnswerOrchestratorTests(unittest.TestCase):
+    def test_stale_theme_export_cannot_become_current_candidate_fact(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wiki = root / "wiki"
+            exports = root / "exports"
+            (wiki / "relations").mkdir(parents=True)
+            exports.mkdir()
+            (exports / "2026-07-01-theme-candidates.json").write_text(
+                json.dumps(
+                    {
+                        "trade_date": "2026-07-01",
+                        "candidates": [
+                            {
+                                "canonical_concept": "液冷",
+                                "candidate_tier": "A",
+                                "priority_score": 90,
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            db_path = root / "market.duckdb"
+            connection = duckdb.connect(str(db_path))
+            connection.execute("create table fact_market_daily(trade_date date)")
+            connection.execute(
+                "insert into fact_market_daily values ('2026-07-13')"
+            )
+            connection.close()
+
+            result = answer_query(
+                AskOptions(
+                    query="液冷现在是不是主线",
+                    exports_dir=exports,
+                    kb_wiki=wiki,
+                    market_db_path=db_path,
+                    compose=False,
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        self.assertEqual(result.trade_date, "2026-07-13")
+        self.assertEqual(result.snapshot_date, "2026-07-01")
+        self.assertEqual(result.snapshot_freshness, "stale")
+        self.assertFalse(result.found_market)
+        self.assertIsNone(result.matched_theme)
+        self.assertIsNone(result.candidate_tier)
+        self.assertIsNone(result.priority_score)
+        self.assertTrue(
+            any("stale_derivative" in warning for warning in result.warnings)
+        )
+
+    def test_explicit_historical_date_can_use_its_matching_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wiki = root / "wiki"
+            exports = root / "exports"
+            (wiki / "relations").mkdir(parents=True)
+            exports.mkdir()
+            (exports / "2026-07-01-theme-candidates.json").write_text(
+                json.dumps(
+                    {
+                        "trade_date": "2026-07-01",
+                        "candidates": [
+                            {
+                                "canonical_concept": "液冷",
+                                "candidate_tier": "A",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            result = answer_query(
+                AskOptions(
+                    query="液冷当时是不是主线",
+                    date="2026-07-01",
+                    exports_dir=exports,
+                    kb_wiki=wiki,
+                    compose=False,
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        self.assertTrue(result.found_market)
+        self.assertEqual(result.snapshot_freshness, "fresh")
+        self.assertEqual(result.candidate_tier, "A")
+
     def test_empty_query_and_entity_anchor_are_preserved_in_query_envelope(
         self,
     ) -> None:

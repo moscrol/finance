@@ -51,6 +51,18 @@ class ResearchOwnerSkill:
             if context.execution_budget is not None
             else 30
         )
+        if context.runtime_inputs is not None:
+            market_db_path = context.runtime_inputs.market_db_path
+            exports_dir = context.runtime_inputs.exports_dir
+            kb_wiki = context.runtime_inputs.knowledge_wiki
+            wiki_rag_index_dir = context.runtime_inputs.vector_index_dir
+        else:
+            market_db_path = (
+                context.repo_root / "db" / "market_feature_store.duckdb"
+            )
+            exports_dir = context.repo_root / "market_feature_store" / "exports"
+            kb_wiki = context.repo_root / "wiki"
+            wiki_rag_index_dir = context.repo_root / ".rag_index"
         result = self._answer_query(
             AskOptions(
                 query=context.query,
@@ -59,9 +71,10 @@ class ResearchOwnerSkill:
                 synthesize=False,
                 compose_self_review=False,
                 compose_revise_on_warn=False,
-                market_db_path=(
-                    context.repo_root / "db" / "market_feature_store.duckdb"
-                ),
+                market_db_path=market_db_path,
+                exports_dir=exports_dir,
+                kb_wiki=kb_wiki,
+                wiki_rag_index_dir=wiki_rag_index_dir,
                 conversation_context=context.conversation_context,
                 include_memory_block=True,
                 include_recall_block=True,

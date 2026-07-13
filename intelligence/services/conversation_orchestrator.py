@@ -44,6 +44,7 @@ from intelligence.services.run_store import (
     RunStore,
     redact,
 )
+from intelligence.services.runtime_inputs import RuntimeResearchInputs
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -649,6 +650,7 @@ class TurnOrchestrator:
         repo_root: Path,
         conversation_store: ConversationStore,
         run_store: RunStore,
+        runtime_inputs: RuntimeResearchInputs | None = None,
         answer_query_fn: Callable[[AskOptions], AskResult] | None = None,
         route_skills_fn: Callable[..., SkillRouteResult] | None = None,
         skill_registry: SkillRegistry | None = None,
@@ -661,6 +663,13 @@ class TurnOrchestrator:
         budget_factory: Callable[[], ExecutionBudget] | None = None,
     ) -> None:
         self.repo_root = repo_root
+        self.runtime_inputs = runtime_inputs or RuntimeResearchInputs.from_roots(
+            code_root=repo_root,
+            data_root=repo_root,
+            users_root=repo_root / "intelligence" / "users",
+            knowledge_wiki=repo_root / "wiki",
+            vector_index_dir=repo_root / ".rag_index",
+        )
         self.conversation_store = conversation_store
         self.run_store = run_store
         self.answer_query = answer_query_fn or answer_query
@@ -900,6 +909,7 @@ class TurnOrchestrator:
                         conversation_id=conversation_id,
                         repo_root=self.repo_root,
                         run_store=guarded_run_store,  # type: ignore[arg-type]
+                        runtime_inputs=self.runtime_inputs,
                         conversation_context=context.to_prompt_block(),
                         execution_budget=execution_budget,
                         progress_callback=skill_progress,
@@ -1073,9 +1083,10 @@ class TurnOrchestrator:
                             use_wiki_rag=not budget_degraded,
                             compose_self_review=False,
                             compose_revise_on_warn=False,
-                            market_db_path=self.repo_root
-                            / "db"
-                            / "market_feature_store.duckdb",
+                            market_db_path=self.runtime_inputs.market_db_path,
+                            exports_dir=self.runtime_inputs.exports_dir,
+                            kb_wiki=self.runtime_inputs.knowledge_wiki,
+                            wiki_rag_index_dir=self.runtime_inputs.vector_index_dir,
                             conversation_context=context.to_prompt_block(),
                             supplemental_evidence=self._skill_evidence(skill_outputs),
                             include_memory_block=True,

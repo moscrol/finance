@@ -25,6 +25,7 @@ from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.run_store import RunStore
+from intelligence.services.runtime_inputs import RuntimeResearchInputs
 from intelligence.workbench_skills.contracts import (
     SkillDefinition,
     SkillExecutionContext,
@@ -124,6 +125,13 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation("三轮测试")
     calls: list[AskOptions] = []
+    runtime_inputs = RuntimeResearchInputs.from_roots(
+        code_root=tmp_path / "code-worktree",
+        data_root=tmp_path / "canonical-data",
+        users_root=tmp_path / "users",
+        knowledge_wiki=tmp_path / "knowledge" / "wiki",
+        vector_index_dir=tmp_path / "knowledge" / ".rag_index",
+    )
 
     def answer_spy(options: AskOptions) -> AskResult:
         calls.append(options)
@@ -136,7 +144,8 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
             conversation_store, run_store, conversation.conversation_id, query
         )
         TurnOrchestrator(
-            repo_root=tmp_path,
+            repo_root=runtime_inputs.code_root,
+            runtime_inputs=runtime_inputs,
             conversation_store=conversation_store,
             run_store=run_store,
             answer_query_fn=answer_spy,
@@ -165,6 +174,10 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
     assert calls[0].perspective_ids == ()
     assert calls[0].include_memory_block is True
     assert calls[0].include_recall_block is True
+    assert calls[0].market_db_path == runtime_inputs.market_db_path
+    assert calls[0].exports_dir == runtime_inputs.exports_dir
+    assert calls[0].kb_wiki == runtime_inputs.knowledge_wiki
+    assert calls[0].wiki_rag_index_dir == runtime_inputs.vector_index_dir
     assert "较早消息摘要" in calls[1].conversation_context
     assert "第一轮：液冷怎么样？" in calls[1].conversation_context
     assert "第二轮：证据够硬吗？" not in calls[1].conversation_context

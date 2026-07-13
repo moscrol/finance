@@ -8,6 +8,7 @@ from typing import Protocol, TypeAlias
 from intelligence.services import answer_model
 from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.run_store import RunStore, redact
+from intelligence.services.runtime_inputs import RuntimeResearchInputs
 
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
@@ -216,6 +217,9 @@ class SkillExecutionContext:
     conversation_id: str | None
     repo_root: Path
     run_store: RunStore
+    runtime_inputs: RuntimeResearchInputs | None = field(
+        default=None, repr=False, compare=False
+    )
     conversation_context: str = ""
     execution_budget: ExecutionBudget | None = field(
         default=None, repr=False, compare=False
