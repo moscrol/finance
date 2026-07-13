@@ -38,6 +38,9 @@ _TRUSTED_ALIAS_GROUPS = (
     frozenset({"空芯光纤", "空心光纤", "hcf", "hollow core fiber", "hollow-core fiber"}),
     frozenset({"液冷", "liquid cooling", "liquid-cooling"}),
 )
+_NON_REVERSIBLE_SHORT_ALIASES = frozenset({"hcf"})
+_SHORT_ASCII_TERM_RE = re.compile(r"[a-z][a-z0-9]{1,4}", re.I)
+_HCF_CONTEXT_TERMS = ("fiber", "optical", "光纤", "光通信")
 
 
 @dataclass(frozen=True)
@@ -326,7 +329,10 @@ def _relevance_terms(
     )
     aliases: list[str] = []
     for group in _TRUSTED_ALIAS_GROUPS:
-        if any(term in group for term in base_terms):
+        if any(
+            term in group and term not in _NON_REVERSIBLE_SHORT_ALIASES
+            for term in base_terms
+        ):
             aliases.extend(group)
     expanded_terms = (*base_terms, *aliases)
     return tuple(
@@ -362,7 +368,9 @@ def _bucket_hits(
             if typed_aperture == "broad"
             else relevance_terms
         )
-        direct_overlap = any(term in searchable for term in aperture_terms)
+        direct_overlap = any(
+            _relevance_term_matches(term, searchable) for term in aperture_terms
+        )
         if hit.score <= 0 or not direct_overlap:
             result.discarded.append(item)
             continue
@@ -385,3 +393,14 @@ def _bucket_hits(
 
 def _hit_identity(hit: WikiHit) -> tuple[str, str]:
     return hit.file_path, hit.best_chunk_id
+
+
+def _relevance_term_matches(term: str, searchable: str) -> bool:
+    if _SHORT_ASCII_TERM_RE.fullmatch(term):
+        token_pattern = rf"(?<![A-Za-z0-9]){re.escape(term)}(?![A-Za-z0-9])"
+        if re.search(token_pattern, searchable, flags=re.I) is None:
+            return False
+        if term.casefold() == "hcf":
+            return any(context in searchable for context in _HCF_CONTEXT_TERMS)
+        return True
+    return term in searchable

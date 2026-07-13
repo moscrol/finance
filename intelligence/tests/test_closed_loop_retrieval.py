@@ -384,10 +384,28 @@ def test_hybrid_can_use_trusted_subject_alias_but_not_unrelated_hard_hit() -> No
                 query,
                 [
                     _hit(
-                        "HCF产业进展",
+                        "AHCF光纤公告",
+                        0.95,
+                        hardness="hard",
+                        excerpt="AHCF optical fiber product announcement",
+                    ),
+                    _hit(
+                        "hcfoo optical fiber update",
+                        0.94,
+                        hardness="hard",
+                        excerpt="hcfoo optical fiber product update",
+                    ),
+                    _hit(
+                        "HCF Healthcare Fund",
+                        0.9,
+                        hardness="hard",
+                        excerpt="HCF Healthcare Fund portfolio update",
+                    ),
+                    _hit(
+                        "HCF optical fiber progress",
                         0.7,
                         hardness="hard",
-                        excerpt="HCF commercialization and capacity progress",
+                        excerpt="HCF optical fiber commercialization progress",
                     ),
                     _hit(
                         "半导体设备公告",
@@ -408,8 +426,72 @@ def test_hybrid_can_use_trusted_subject_alias_but_not_unrelated_hard_hit() -> No
     )
 
     assert calls == ["bm25", "bm25", "bm25", "hybrid"]
-    assert [item.hit.title for item in result.conclusion] == ["HCF产业进展"]
-    assert [item.hit.title for item in result.discarded] == ["半导体设备公告"]
+    assert [item.hit.title for item in result.conclusion] == [
+        "HCF optical fiber progress"
+    ]
+    assert [item.hit.title for item in result.discarded] == [
+        "AHCF光纤公告",
+        "hcfoo optical fiber update",
+        "HCF Healthcare Fund",
+        "半导体设备公告",
+    ]
+
+
+def test_long_hollow_core_fiber_alias_remains_bidirectional() -> None:
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        if mode == "hybrid":
+            return _response(
+                query,
+                [
+                    _hit(
+                        "Hollow core fiber capacity",
+                        0.6,
+                        hardness="hard",
+                        excerpt="Hollow core fiber capacity expansion",
+                    )
+                ],
+                freshness="fresh",
+            )
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "空芯光纤怎么看",
+        anchor=None,
+        subject="空芯光纤",
+        retrieve=retrieve,
+    )
+
+    assert [item.hit.title for item in result.conclusion] == [
+        "Hollow core fiber capacity"
+    ]
+
+
+def test_bare_hcf_subject_does_not_expand_back_to_canonical_aliases() -> None:
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        if mode == "hybrid":
+            return _response(
+                query,
+                [
+                    _hit(
+                        "空芯光纤产业进展",
+                        0.8,
+                        hardness="hard",
+                        excerpt="空芯光纤产能扩张",
+                    )
+                ],
+                freshness="fresh",
+            )
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "HCF怎么看",
+        anchor=None,
+        subject="HCF",
+        retrieve=retrieve,
+    )
+
+    assert result.conclusion == []
+    assert [item.hit.title for item in result.discarded] == ["空芯光纤产业进展"]
 
 
 def test_relevant_soft_hit_is_clue_and_hard_hit_is_conclusion() -> None:
