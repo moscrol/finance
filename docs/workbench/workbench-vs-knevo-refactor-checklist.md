@@ -21,14 +21,14 @@
 
 ## P0c — 常驻 Base Finance Mode + 统一 Presenter 出口
 
-- [ ] 新建常驻基座规则（对标 Knevo `finance-mode`，无论是否命中 skill 都生效）：
+- [x] 新建常驻基座规则（对标 Knevo `finance-mode`，无论是否命中 skill 都生效）：— `817f1e3`；`BaseFinanceMode` 固化检索底线、五元素结论、缺数三档和反顺从约束。
   - 检索硬触发：有具体标的必查行情+记忆；问最近事件必查新闻；问产业链必查图谱/关系数据；问财务估值必查财务数据；"快答"只是写短，不跳过检索底线。
   - 输出纪律：先内部写核心矛盾句；结论段固定要素 = 直接定性 / 最强证据 / 主要风险 / 条件边界（翻转条件）/ 下一步验证或替代路径。
   - 缺数三档：区间推理（标"推断"+假设前提）→ 替代锚点 → 显式 gap（"缺 X → 仍可判 Y → 验证窗口 Z"），禁止编造确定性。
   - 反顺从：用户观点先当待检验假设，允许"你的直觉有道理，但我会改成 X"。
-- [ ] 统一唯一出口：所有路径（含 LLM 不可用/解析失败/门禁拒绝的 fallback）都走 `Evidence → Claim → AnswerSpec → Presenter`；内部表名、检索状态、证据计数、warning 只进 Inspector 面板，不进主正文（参考 ask.py L3569-3607 现有确定性列表路径）。
-- [ ] 正则 humanizer（conversation_orchestrator.py L287 附近）降级为安全兜底，不再承担主要"人话转换"；叙事组织由 composer 负责（复用 `llm_refine` 中已有的 narrative composer 约束，见 agent-memory `finance-narrative-answer-composer.md`：rubric 防漏项、composer 防模板化）。
-- [ ] 精简 `llm_refine.py` L332 附近的合成 prompt：十几个维度从"强制逐项覆盖"改为"内部自检清单 + 围绕核心矛盾选段"（对标 Knevo 的 L1 固定段 + L2 弹性段型库 + 结论元素配方）。
+- [x] 统一唯一出口：所有路径（含 LLM 不可用/解析失败/门禁拒绝的 fallback）都走 `Evidence → Claim → AnswerSpec → Presenter`；内部表名、检索状态、证据计数、warning 只进 Inspector 面板，不进主正文（参考 ask.py L3569-3607 现有确定性列表路径）。— `817f1e3`；市场复盘、指数对比和通用 fallback 均先构造 `AnswerSpec`，LLM 输出继续通过门禁。
+- [x] 正则 humanizer（conversation_orchestrator.py L287 附近）降级为安全兜底，不再承担主要"人话转换"；叙事组织由 composer 负责（复用 `llm_refine` 中已有的 narrative composer 约束，见 agent-memory `finance-narrative-answer-composer.md`：rubric 防漏项、composer 防模板化）。— `817f1e3`；主叙事改由结构化 Presenter/composer 生成，humanizer 仅清理残余内部标记。
+- [x] 精简 `llm_refine.py` L332 附近的合成 prompt：十几个维度从"强制逐项覆盖"改为"内部自检清单 + 围绕核心矛盾选段"（对标 Knevo 的 L1 固定段 + L2 弹性段型库 + 结论元素配方）。— `817f1e3`；全量 `intelligence/tests` 1218 项通过。
 
 ## P1 — Router 与检索闭环
 
