@@ -573,6 +573,10 @@ export default function App() {
   }, [user]);
 
   const newConversation = useCallback(async (): Promise<Conversation> => {
+    setSkillMode("hybrid");
+    setSelectedSkillIds([]);
+    setPerspectiveMode("neutral");
+    setSelectedPerspectiveIds([]);
     const created = await createConversation("新对话", user);
     setConversations((current) => [created, ...current]);
     await selectConversation(created.conversation_id);
