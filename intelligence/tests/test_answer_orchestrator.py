@@ -403,6 +403,94 @@ class AnswerOrchestratorTests(unittest.TestCase):
                 self.assertIn(warning_label, result.warnings)
                 self.assertNotIn(str(root), "\n".join(result.warnings))
 
+    def test_theme_export_nested_structures_fail_closed_before_consumption(
+        self,
+    ) -> None:
+        cases: tuple[tuple[dict[str, object], str], ...] = (
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": "液冷",
+                            "score_detail": {
+                                "signal": "嵌套伪事实",
+                            },
+                        }
+                    ],
+                },
+                "invalid_derivative: score_detail_not_list",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": "液冷",
+                            "score_detail": ["嵌套伪事实"],
+                        }
+                    ],
+                },
+                "invalid_derivative: score_detail_item_not_object",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [{"canonical_concept": "液冷"}],
+                    "market_context": {
+                        "capacity_sectors": {"name": "嵌套伪事实"}
+                    },
+                },
+                "invalid_derivative: capacity_sectors_not_list",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [{"canonical_concept": "液冷"}],
+                    "market_context": {
+                        "capacity_sectors": ["嵌套伪事实"]
+                    },
+                },
+                "invalid_derivative: capacity_sector_not_object",
+            ),
+        )
+        for payload, warning_label in cases:
+            with self.subTest(warning=warning_label):
+                with tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    wiki = root / "wiki"
+                    exports = root / "exports"
+                    (wiki / "relations").mkdir(parents=True)
+                    exports.mkdir()
+                    (exports / "2026-07-10-theme-candidates.json").write_text(
+                        json.dumps(payload, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
+
+                    result = answer_query(
+                        AskOptions(
+                            query="液冷现在是不是主线",
+                            exports_dir=exports,
+                            kb_wiki=wiki,
+                            market_db_path=root / "missing.duckdb",
+                            compose=False,
+                            use_modules=False,
+                            use_wiki_rag=False,
+                        )
+                    )
+
+                self.assertEqual(result.market_data_source, "unavailable")
+                self.assertFalse(result.found_market)
+                self.assertIsNone(result.candidate_tier)
+                self.assertFalse(
+                    any(citation.tag.startswith("S") for citation in result.citations)
+                )
+                self.assertNotIn(
+                    "嵌套伪事实",
+                    json.dumps(result.sections, ensure_ascii=False),
+                )
+                self.assertIn(warning_label, result.warnings)
+
     def test_empty_query_and_entity_anchor_are_preserved_in_query_envelope(
         self,
     ) -> None:

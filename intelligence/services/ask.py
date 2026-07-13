@@ -484,13 +484,29 @@ def _validate_theme_export_payload(
         value = payload[field_name]
         if not isinstance(value, list):
             return None, "invalid_derivative: candidate_list_not_list"
-        if any(not isinstance(item, dict) for item in value):
-            return None, "invalid_derivative: candidate_item_not_object"
+        for item in value:
+            if not isinstance(item, dict):
+                return None, "invalid_derivative: candidate_item_not_object"
+            if "score_detail" not in item:
+                continue
+            score_detail = item["score_detail"]
+            if not isinstance(score_detail, list):
+                return None, "invalid_derivative: score_detail_not_list"
+            if any(not isinstance(detail, dict) for detail in score_detail):
+                return None, "invalid_derivative: score_detail_item_not_object"
         has_candidate_list = True
 
     has_market_context = "market_context" in payload
-    if has_market_context and not isinstance(payload["market_context"], dict):
-        return None, "invalid_derivative: market_context_not_object"
+    if has_market_context:
+        market_context = payload["market_context"]
+        if not isinstance(market_context, dict):
+            return None, "invalid_derivative: market_context_not_object"
+        if "capacity_sectors" in market_context:
+            capacity_sectors = market_context["capacity_sectors"]
+            if not isinstance(capacity_sectors, list):
+                return None, "invalid_derivative: capacity_sectors_not_list"
+            if any(not isinstance(sector, dict) for sector in capacity_sectors):
+                return None, "invalid_derivative: capacity_sector_not_object"
     if not has_candidate_list and not has_market_context:
         return None, "invalid_derivative: missing_market_payload"
     return payload, None
