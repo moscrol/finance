@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal, TypeAlias
 
 from intelligence.services.entity_anchor import EntityAnchor
@@ -69,6 +69,18 @@ class ClosedLoopRetrievalResult:
     warnings: list[str] = field(default_factory=list)
     telemetry: RetrievalTelemetry | None = None
     dense_initializations: int = 0
+    _attempt_telemetries: list[RetrievalTelemetry] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+        compare=False,
+    )
+    _hit_telemetry: dict[tuple[str, str], RetrievalTelemetry] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     def inspector_dict(self) -> dict[str, object]:
         return {
@@ -162,8 +174,6 @@ def retrieve_closed_loop(
             budget=budget,
             now=now,
         )
-        if result.attempts[-1].timeout_seconds > 0:
-            result.dense_initializations = 1
         bm25_identities = {
             _hit_identity(hit)
             for hit in (*narrow_hits, *broad_hits, *counter_hits)
@@ -184,6 +194,7 @@ def retrieve_closed_loop(
             result.warnings.append(
                 f"{aperture} retrieval empty after {len(attempts)} attempts"
             )
+    _finalize_telemetry(result)
     return result
 
 
@@ -219,22 +230,35 @@ def _run_one(
         return [], True
 
     response = retrieve(query, mode, timeout)
-    result.telemetry = response.telemetry
+    response_telemetry = response.telemetry
+    result._attempt_telemetries.append(response_telemetry)
+    result.dense_initializations = min(
+        1,
+        result.dense_initializations
+        + max(0, int(response_telemetry.dense_initializations)),
+    )
+    for hit in response.hits:
+        result._hit_telemetry.setdefault(_hit_identity(hit), response_telemetry)
+    actual_timeout = (
+        response_telemetry.timeout_seconds
+        if response_telemetry.timeout_seconds > 0
+        else timeout
+    )
     result.attempts.append(
         RetrievalAttempt(
             aperture=aperture,
             query=query,
             mode=mode,
-            timeout_seconds=timeout,
-            status=response.telemetry.status,
+            timeout_seconds=actual_timeout,
+            status=response_telemetry.status,
             hit_count=len(response.hits),
         )
     )
     if response.warning and response.warning not in result.warnings:
         result.warnings.append(response.warning)
 
-    status = response.telemetry.status.casefold()
-    freshness = response.telemetry.index_freshness.casefold()
+    status = response_telemetry.status.casefold()
+    freshness = response_telemetry.index_freshness.casefold()
     recoverable_empty_without_freshness = (
         status == "empty" and not response.hits and not freshness
     )
@@ -252,6 +276,71 @@ def _run_one(
     if response.ok and response.hits:
         return response.hits, False
     return [], False
+
+
+def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
+    """Publish evidence provenance while retaining aggregate execution cost.
+
+    Accepted conclusion/clue provenance wins over later empty/error attempts so
+    the public snapshot stays aligned with the W evidence actually cited.  When
+    nothing survives the relevance gate, the terminal response remains public
+    for failure diagnosis.  Latency and dense initialization are whole-loop
+    aggregates in both cases.
+    """
+    if not result._attempt_telemetries:
+        return
+
+    accepted: list[BucketedHit] = []
+    seen: set[tuple[str, str]] = set()
+    for item in (*result.conclusion, *result.clues):
+        identity = _hit_identity(item.hit)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        accepted.append(item)
+
+    contributor: RetrievalTelemetry | None = None
+    contributor_hits: list[WikiHit] = []
+    for item in accepted:
+        item_telemetry = result._hit_telemetry.get(_hit_identity(item.hit))
+        if item_telemetry is None:
+            continue
+        if contributor is None:
+            contributor = item_telemetry
+        if item_telemetry is contributor:
+            contributor_hits.append(item.hit)
+
+    if contributor is not None and contributor_hits:
+        public = replace(contributor)
+        representative = contributor_hits[0]
+        public.status = "ok"
+        public.hit_count = len(contributor_hits)
+        public.neighbor_hits = sum(hit.via_neighbor for hit in contributor_hits)
+        scores = [hit.score for hit in contributor_hits]
+        public.score_max = max(scores)
+        public.score_min = min(scores)
+        public.score_mean = sum(scores) / len(scores)
+        public.index_built_at = (
+            representative.index_built_at or public.index_built_at
+        )
+        public.index_source_revision = (
+            representative.index_source_revision
+            or public.index_source_revision
+        )
+        public.index_freshness = (
+            representative.index_freshness or public.index_freshness
+        )
+    else:
+        public = replace(result._attempt_telemetries[-1])
+
+    latencies = [
+        telemetry.latency_ms
+        for telemetry in result._attempt_telemetries
+        if telemetry.latency_ms is not None
+    ]
+    public.latency_ms = sum(latencies) if latencies else None
+    public.dense_initializations = result.dense_initializations
+    result.telemetry = public
 
 
 def _narrow_queries(subject: str, anchor: EntityAnchor | None) -> tuple[str, ...]:

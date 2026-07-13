@@ -13,6 +13,7 @@ def _hit(
     hardness: str = "",
     path: str | None = None,
     excerpt: str | None = None,
+    revision: str = "rev-1",
 ) -> WikiHit:
     return WikiHit(
         page_id=title,
@@ -21,6 +22,9 @@ def _hit(
         score=score,
         excerpt=excerpt if excerpt is not None else f"{title} 液冷 服务器 供应链",
         best_chunk_id=title,
+        content_hash=f"hash-{title}",
+        index_source_revision=revision,
+        index_freshness="fresh",
         fact_hardness=hardness,
     )
 
@@ -32,6 +36,10 @@ def _response(
     status: str | None = None,
     freshness: str = "fresh",
     warning: str = "",
+    dense_initializations: int = 0,
+    timeout_seconds: float = 10.0,
+    revision: str = "rev-1",
+    latency_ms: int | None = None,
 ) -> WikiRagResult:
     resolved_status = status or ("ok" if hits else "empty")
     return WikiRagResult(
@@ -41,6 +49,10 @@ def _response(
             status=resolved_status,
             hit_count=len(hits),
             index_freshness=freshness,
+            index_source_revision=revision,
+            dense_initializations=dense_initializations,
+            timeout_seconds=timeout_seconds,
+            latency_ms=latency_ms,
         ),
         command=query,
         warning=warning,
@@ -77,6 +89,7 @@ def test_subject_uses_three_bm25_queries_and_at_most_one_hybrid() -> None:
             return _response(
                 query,
                 [_hit("液冷产业公告", 0.4, hardness="hard")],
+                dense_initializations=1,
             )
         return _response(query, [])
 
@@ -101,7 +114,13 @@ def test_real_adapter_empty_shape_continues_all_layers() -> None:
 
     def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
         calls.append(mode)
-        return _response(query, [], status="empty", freshness="")
+        return _response(
+            query,
+            [],
+            status="empty",
+            freshness="",
+            dense_initializations=1 if mode == "hybrid" else 0,
+        )
 
     result = retrieve_closed_loop(
         "液冷怎么看",
@@ -146,6 +165,7 @@ def test_hybrid_deduplicates_hits_already_seen_by_bm25() -> None:
             return _response(
                 query,
                 [duplicate, _hit("液冷新公告", 0.5, hardness="hard")],
+                dense_initializations=1,
             )
         return _response(query, [])
 
@@ -415,6 +435,7 @@ def test_hybrid_can_use_trusted_subject_alias_but_not_unrelated_hard_hit() -> No
                     ),
                 ],
                 freshness="fresh",
+                dense_initializations=1,
             )
         return _response(query, [], status="empty", freshness="")
 
@@ -451,6 +472,7 @@ def test_long_hollow_core_fiber_alias_remains_bidirectional() -> None:
                     )
                 ],
                 freshness="fresh",
+                dense_initializations=1,
             )
         return _response(query, [], status="empty", freshness="")
 
@@ -480,6 +502,7 @@ def test_bare_hcf_subject_does_not_expand_back_to_canonical_aliases() -> None:
                     )
                 ],
                 freshness="fresh",
+                dense_initializations=1,
             )
         return _response(query, [], status="empty", freshness="")
 
@@ -569,6 +592,76 @@ def test_inspector_keeps_attempt_telemetry_and_adds_mode_timeout() -> None:
     }
 
 
+def test_attempt_uses_adapter_reported_timeout_after_callback_cap() -> None:
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        assert timeout == 10.0
+        return _response(
+            query,
+            [],
+            timeout_seconds=3.0,
+        )
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert all(attempt.timeout_seconds == 3.0 for attempt in result.attempts)
+
+
+def test_public_telemetry_prefers_contributing_snapshot_over_later_empty() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [
+                    _hit(
+                        "液冷量产公告",
+                        0.9,
+                        hardness="hard",
+                        revision="rev-contributor",
+                    )
+                ],
+                revision="rev-contributor",
+                latency_ms=5,
+            )
+        return _response(
+            query,
+            [],
+            status="empty",
+            freshness="",
+            revision="rev-empty",
+            latency_ms=2,
+        )
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert [item.hit.title for item in result.conclusion] == ["液冷量产公告"]
+    assert result.telemetry is not None
+    assert result.telemetry.status == "ok"
+    assert result.telemetry.hit_count == 1
+    assert result.telemetry.index_freshness == "fresh"
+    assert result.telemetry.index_source_revision == "rev-contributor"
+    assert result.telemetry.latency_ms == 9
+    assert (
+        result.conclusion[0].hit.index_source_revision
+        == result.telemetry.index_source_revision
+    )
+
+
 def test_telemetry_tracks_last_attempt_including_hybrid_error() -> None:
     def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
         if mode == "hybrid":
@@ -578,8 +671,11 @@ def test_telemetry_tracks_last_attempt_including_hybrid_error() -> None:
                 status="error",
                 freshness="fresh",
                 warning="dense unavailable",
+                dense_initializations=1,
+                timeout_seconds=3.0,
+                latency_ms=7,
             )
-        return _response(query, [], freshness="fresh")
+        return _response(query, [], freshness="fresh", latency_ms=2)
 
     result = retrieve_closed_loop(
         "液冷怎么看",
@@ -590,5 +686,9 @@ def test_telemetry_tracks_last_attempt_including_hybrid_error() -> None:
 
     assert result.telemetry is not None
     assert result.telemetry.status == "error"
+    assert result.telemetry.latency_ms == 13
+    assert result.telemetry.dense_initializations == 1
+    assert result.dense_initializations == 1
     assert result.attempts[-1].mode == "hybrid"
     assert result.attempts[-1].status == "error"
+    assert result.attempts[-1].timeout_seconds == 3.0

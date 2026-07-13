@@ -148,6 +148,7 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertFalse(res.ok)
             self.assertEqual(res.telemetry.status, "timeout")
             self.assertEqual(res.telemetry.dense_initializations, 0)
+            self.assertEqual(res.telemetry.timeout_seconds, 0.0)
 
     def test_hybrid_float_timeout_counts_one_dense_initialization(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -165,6 +166,7 @@ class KbRagTelemetryTests(unittest.TestCase):
 
             self.assertEqual(run.call_args.kwargs["timeout"], 3.5)
             self.assertEqual(res.telemetry.dense_initializations, 1)
+            self.assertEqual(res.telemetry.timeout_seconds, 3.5)
 
     def test_bm25_does_not_initialize_dense_model(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -315,6 +317,7 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertFalse(res.ok)
             self.assertEqual(res.telemetry.status, "skipped")
             self.assertEqual(res.telemetry.index_kind, "structured")
+            self.assertEqual(res.telemetry.dense_initializations, 0)
 
     def test_telemetry_marks_index_degradation(self) -> None:
         with tempfile.TemporaryDirectory() as td:

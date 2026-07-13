@@ -363,6 +363,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                         content_hash="hash-liquid-cooling",
                         index_source_revision="rev-1",
                         index_freshness="fresh",
+                        fact_hardness="hard",
                     )
                 ]
                 if mode == "hybrid"
@@ -377,6 +378,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     hit_count=len(hits),
                     index_freshness="fresh" if hits else "",
                     dense_initializations=1 if mode == "hybrid" else 0,
+                    timeout_seconds=float(kwargs["timeout"]),
                 ),
             )
 
@@ -409,6 +411,24 @@ class AnswerOrchestratorTests(unittest.TestCase):
             result.closed_loop_retrieval.inspector_dict()["dense_initializations"],
             1,
         )
+        self.assertTrue(
+            all(
+                attempt["timeout_seconds"] == 3.0
+                for attempt in result.closed_loop_retrieval.inspector_dict()[
+                    "attempts"
+                ]
+            )
+        )
+        assert result.wiki_rag_telemetry is not None
+        wiki_citations = [
+            citation for citation in result.citations if citation.tag.startswith("W")
+        ]
+        self.assertEqual(result.wiki_rag_telemetry.status, "ok")
+        self.assertEqual(result.wiki_rag_telemetry.index_freshness, "fresh")
+        self.assertEqual(result.wiki_rag_telemetry.index_source_revision, "rev-1")
+        self.assertEqual(len(wiki_citations), 1)
+        self.assertEqual(wiki_citations[0].index_source_revision, "rev-1")
+        self.assertEqual(wiki_citations[0].index_freshness, "fresh")
 
     def test_explicit_stock_wording_still_routes_to_deep_dive(self) -> None:
         plan = plan_answer_question("这只股怎么看")
