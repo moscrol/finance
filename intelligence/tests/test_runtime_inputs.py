@@ -276,3 +276,28 @@ def test_probe_market_inputs_returns_a_bounded_warning_for_invalid_duckdb(
     assert status.duckdb_cutoff is None
     assert status.warning == "duckdb_unavailable"
     assert str(tmp_path) not in status.warning
+
+
+def test_probe_market_inputs_bounds_snapshot_validator_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _runtime_inputs(tmp_path)
+    private_error = f"snapshot exploded at {tmp_path}"
+
+    def fail_snapshot(_root: Path):
+        raise RuntimeError(private_error)
+
+    monkeypatch.setattr(
+        "intelligence.services.runtime_inputs.validate_market_snapshot_root",
+        fail_snapshot,
+    )
+
+    status = probe_market_inputs(inputs)
+
+    assert status.market_snapshot_available is False
+    assert status.market_snapshot_date is None
+    assert status.market_data_available is False
+    assert status.snapshot_warning == "snapshot_unavailable"
+    assert str(tmp_path) not in status.snapshot_warning
+    assert private_error not in repr(status)

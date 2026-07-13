@@ -882,6 +882,7 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["status"] == "ready"
     assert payload["checks"]["repo_root"] is True
     assert payload["checks"]["run_store_writable"] is True
+    assert payload["checks"]["market_data"] is True
     assert payload["critical"]["market_data"] is True
     assert payload["capabilities"]["market_data"] == {
         "available": True,
@@ -934,6 +935,7 @@ def test_readiness_uses_duckdb_when_market_snapshot_is_missing(
     payload = response.json()
     assert payload["status"] == "ready"
     assert payload["checks"]["market_snapshot"] is False
+    assert payload["checks"]["market_data"] is True
     assert payload["critical"]["market_data"] is True
     assert payload["capabilities"]["market_data"] == {
         "available": True,
@@ -978,6 +980,7 @@ def test_readiness_fails_without_any_contract_valid_market_data(
     payload = response.json()
     assert payload["status"] == "not_ready"
     assert payload["checks"]["market_snapshot"] is False
+    assert payload["checks"]["market_data"] is False
     assert payload["critical"]["market_data"] is False
     assert payload["capabilities"]["market_data"] == {
         "available": False,
@@ -991,6 +994,48 @@ def test_readiness_fails_without_any_contract_valid_market_data(
     assert payload["missing_critical"] == ["market_data"]
     assert str(tmp_path) not in response.text
     assert "provider-secret-value" not in response.text
+
+
+def test_readiness_bounds_snapshot_probe_failures(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    market_snapshot = tmp_path / "market-snapshot"
+    market_snapshot.mkdir()
+    monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    private_error = f"snapshot exploded at {tmp_path}"
+
+    def fail_snapshot(_root):
+        raise RuntimeError(private_error)
+
+    monkeypatch.setattr(
+        "intelligence.services.runtime_inputs.validate_market_snapshot_root",
+        fail_snapshot,
+    )
+    probe = TestClient(app_module.create_app(repo_root=repo_root))
+
+    response = probe.get("/api/health/ready")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["status"] == "not_ready"
+    assert payload["checks"]["market_snapshot"] is True
+    assert payload["checks"]["market_data"] is False
+    assert payload["critical"]["market_data"] is False
+    assert payload["capabilities"]["market_snapshot"] == {
+        "available": False,
+        "as_of": None,
+        "warning": "snapshot_unavailable",
+    }
+    assert payload["missing_critical"] == ["market_data"]
+    assert str(tmp_path) not in response.text
+    assert "RuntimeError" not in response.text
+    assert private_error not in response.text
 
 
 def test_cancel_run_is_terminal_even_when_worker_finishes_later(

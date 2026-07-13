@@ -1238,6 +1238,7 @@ def create_app(
             "run_store_writable": run_root_ready,
         }
         market_inputs = probe_market_inputs(app.state.runtime_inputs)
+        checks["market_data"] = market_inputs.market_data_available
         if market_inputs.duckdb_available:
             market_data_source = "duckdb"
             market_data_cutoff = market_inputs.duckdb_cutoff
@@ -1254,6 +1255,12 @@ def create_app(
         }
         if market_inputs.export_warning:
             market_exports["warning"] = market_inputs.export_warning
+        market_snapshot: dict[str, object] = {
+            "available": market_inputs.market_snapshot_available,
+            "as_of": market_inputs.market_snapshot_date,
+        }
+        if market_inputs.snapshot_warning:
+            market_snapshot["warning"] = market_inputs.snapshot_warning
         capabilities = {
             "market_data": {
                 "available": market_inputs.market_data_available,
@@ -1261,10 +1268,7 @@ def create_app(
                 "cutoff": market_data_cutoff,
             },
             "market_exports": market_exports,
-            "market_snapshot": {
-                "available": market_inputs.market_snapshot_available,
-                "as_of": market_inputs.market_snapshot_date,
-            },
+            "market_snapshot": market_snapshot,
         }
         critical = {
             "repo_root": checks["repo_root"],

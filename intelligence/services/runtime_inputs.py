@@ -61,6 +61,7 @@ class MarketInputStatus:
     market_data_available: bool
     warning: str | None = None
     export_warning: str | None = None
+    snapshot_warning: str | None = None
 
 
 def _parse_iso_date(raw: str) -> date | None:
@@ -127,24 +128,34 @@ def probe_market_inputs(inputs: RuntimeResearchInputs) -> MarketInputStatus:
     else:
         export_freshness = "missing"
 
-    snapshot_validation = validate_market_snapshot_root(inputs.market_snapshot_dir)
-    snapshot_status = snapshot_validation.get("status")
-    snapshot_errors = snapshot_validation.get("errors") or []
-    snapshot_warnings = snapshot_validation.get("warnings") or []
-    snapshot_date = _parse_iso_date(str(snapshot_validation.get("date") or ""))
-    missing_core_market = any(
-        str(item) == "market must be an object"
-        or str(item).startswith("missing market.")
-        for item in snapshot_warnings
-    )
-    snapshot_available = snapshot_date is not None and (
-        snapshot_status == "PASS"
-        or (
-            snapshot_status == "WARN"
-            and not snapshot_errors
-            and not missing_core_market
+    snapshot_warning = None
+    try:
+        snapshot_validation = validate_market_snapshot_root(
+            inputs.market_snapshot_dir
         )
-    )
+        snapshot_status = snapshot_validation.get("status")
+        snapshot_errors = snapshot_validation.get("errors") or []
+        snapshot_warnings = snapshot_validation.get("warnings") or []
+        snapshot_date = _parse_iso_date(
+            str(snapshot_validation.get("date") or "")
+        )
+        missing_core_market = any(
+            str(item) == "market must be an object"
+            or str(item).startswith("missing market.")
+            for item in snapshot_warnings
+        )
+        snapshot_available = snapshot_date is not None and (
+            snapshot_status == "PASS"
+            or (
+                snapshot_status == "WARN"
+                and not snapshot_errors
+                and not missing_core_market
+            )
+        )
+    except Exception:  # Snapshot validation is an optional, external input boundary.
+        snapshot_available = False
+        snapshot_date = None
+        snapshot_warning = "snapshot_unavailable"
 
     return MarketInputStatus(
         duckdb_available=cutoff is not None,
@@ -158,4 +169,5 @@ def probe_market_inputs(inputs: RuntimeResearchInputs) -> MarketInputStatus:
         market_data_available=cutoff is not None or snapshot_available,
         warning=warning,
         export_warning=export_warning,
+        snapshot_warning=snapshot_warning,
     )
