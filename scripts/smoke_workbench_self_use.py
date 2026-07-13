@@ -299,16 +299,22 @@ def _stream_until_terminal(
                     stage = event_payload.get("stage")
                     status = event_payload.get("status")
                     elapsed_ms = event_payload.get("elapsed_ms")
+                    elapsed_is_valid = (
+                        isinstance(elapsed_ms, int)
+                        and not isinstance(elapsed_ms, bool)
+                        and elapsed_ms >= 0
+                    ) or (
+                        isinstance(elapsed_ms, float)
+                        and math.isfinite(elapsed_ms)
+                        and elapsed_ms >= 0
+                    )
                     if (
                         not isinstance(stage, str)
                         or not SAFE_SOURCE_COMPONENT.fullmatch(stage)
                         or stage not in PUBLIC_WORKBENCH_STAGES
                         or not isinstance(status, str)
                         or status not in PUBLIC_STAGE_STATUSES
-                        or isinstance(elapsed_ms, bool)
-                        or not isinstance(elapsed_ms, (int, float))
-                        or not math.isfinite(elapsed_ms)
-                        or elapsed_ms < 0
+                        or not elapsed_is_valid
                     ):
                         raise SmokeProtocolError("stage_progress")
                     stage_events.append(stage)

@@ -187,6 +187,39 @@ def test_smoke_stream_terminal_paths_keep_unique_stage_order(
     ]
 
 
+def test_smoke_stream_accepts_arbitrarily_large_nonnegative_integer_elapsed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "event_type": "stage.progress",
+        "seq": 1,
+        "payload": {
+            "stage": "understanding",
+            "status": "running",
+            "elapsed_ms": 10**1000,
+        },
+    }
+    body = (
+        f"event: stage.progress\ndata: {json.dumps(payload)}\n\n"
+        'event: run\ndata: {"run_id":"run-1","status":"completed","degrades":[]}\n\n'
+    )
+    monkeypatch.setattr(
+        smoke,
+        "_open",
+        lambda *_args, **_kwargs: BytesIO(body.encode()),
+    )
+
+    _, summary = smoke._stream_until_terminal(
+        base_url="http://127.0.0.1:8795",
+        user="alice",
+        run_id="run-1",
+        timeout=3.0,
+        scanner=smoke.SecretScanner(),
+    )
+
+    assert summary["stages"] == ["understanding"]
+
+
 @pytest.mark.parametrize(
     "event_payload",
     [
