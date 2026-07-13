@@ -75,6 +75,9 @@ def test_calculate_max_drawdown_tracks_the_actual_peak_and_trough() -> None:
 
     assert result is not None
     assert result.max_drawdown_pct == -25.0
+    assert result.daily_change_pct == 44.44
+    assert result.return_5d_pct is None
+    assert result.return_10d_pct is None
     assert result.peak_date == "2026-01-05"
     assert result.peak_price == 120
     assert result.trough_date == "2026-01-07"
@@ -97,6 +100,21 @@ def test_calculate_max_drawdown_uses_last_n_deduplicated_trading_days() -> None:
     assert result.start_date == "2026-01-05"
     assert result.end_date == "2026-01-06"
     assert result.max_drawdown_pct == 0
+    assert result.daily_change_pct == 5.56
+
+
+def test_calculate_max_drawdown_includes_5d_and_10d_returns() -> None:
+    bars = [
+        DailyBar(date(2026, 1, day), 99 + day)
+        for day in range(1, 13)
+    ]
+
+    result = calculate_max_drawdown(bars, window=10)
+
+    assert result is not None
+    assert result.daily_change_pct == 0.91
+    assert result.return_5d_pct == 4.72
+    assert result.return_10d_pct == 9.9
 
 
 def test_parse_trading_day_window_defaults_and_bounds() -> None:
@@ -180,6 +198,9 @@ def test_service_ranks_drawdowns_and_falls_back_to_cache(tmp_path: Path) -> None
     assert [row.ticker for row in report.rows] == ["AAA", "BBB"]
     assert [row.rank for row in report.rows] == [1, 2]
     assert [row.max_drawdown_pct for row in report.rows] == [-25.0, -9.09]
+    assert [row.daily_change_pct for row in report.rows] == [-25.0, -9.09]
+    assert all(row.return_5d_pct is None for row in report.rows)
+    assert all(row.return_10d_pct is None for row in report.rows)
     assert report.as_of == "2026-01-06"
     assert report.start_date == "2026-01-02"
     assert cache_path.exists()
@@ -274,6 +295,9 @@ def test_skill_emits_structured_table_and_artifact(tmp_path: Path) -> None:
                 name="Alpha",
                 group="芯片",
                 max_drawdown_pct=-25,
+                daily_change_pct=2.5,
+                return_5d_pct=-3.25,
+                return_10d_pct=8.75,
                 peak_date="2026-01-02",
                 peak_price=120,
                 trough_date="2026-01-20",
@@ -297,6 +321,9 @@ def test_skill_emits_structured_table_and_artifact(tmp_path: Path) -> None:
     assert output.as_of == "2026-01-20"
     assert output.answer_contract is not None
     assert output.modules[0]["table"]["rows"][0]["max_drawdown"] == "-25.00%"
+    assert output.modules[0]["table"]["rows"][0]["daily_change"] == "2.50%"
+    assert output.modules[0]["table"]["rows"][0]["return_5d"] == "-3.25%"
+    assert output.modules[0]["table"]["rows"][0]["return_10d"] == "8.75%"
     assert output.citations[0]["evidence_layer"] == "market_data"
     assert output.raw_result_ref is not None
     persisted = json.loads(

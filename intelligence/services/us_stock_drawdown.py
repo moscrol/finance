@@ -49,6 +49,9 @@ class DailyBar:
 @dataclass(frozen=True)
 class DrawdownStats:
     max_drawdown_pct: float
+    daily_change_pct: float | None
+    return_5d_pct: float | None
+    return_10d_pct: float | None
     peak_date: str
     peak_price: float
     trough_date: str
@@ -66,6 +69,9 @@ class DrawdownRow:
     name: str
     group: str
     max_drawdown_pct: float | None
+    daily_change_pct: float | None
+    return_5d_pct: float | None
+    return_10d_pct: float | None
     peak_date: str | None
     peak_price: float | None
     trough_date: str | None
@@ -141,7 +147,8 @@ def calculate_max_drawdown(
         key=lambda bar: bar.trade_date,
     )
     deduplicated = {bar.trade_date: bar for bar in clean}
-    selected = sorted(deduplicated.values(), key=lambda bar: bar.trade_date)[-window:]
+    ordered = sorted(deduplicated.values(), key=lambda bar: bar.trade_date)
+    selected = ordered[-window:]
     if len(selected) < 2:
         return None
 
@@ -160,6 +167,9 @@ def calculate_max_drawdown(
 
     return DrawdownStats(
         max_drawdown_pct=round(max_drawdown * 100, 2),
+        daily_change_pct=_calculate_period_return(ordered, periods=1),
+        return_5d_pct=_calculate_period_return(ordered, periods=5),
+        return_10d_pct=_calculate_period_return(ordered, periods=10),
         peak_date=drawdown_peak.trade_date.isoformat(),
         peak_price=round(drawdown_peak.close, 2),
         trough_date=trough.trade_date.isoformat(),
@@ -169,6 +179,16 @@ def calculate_max_drawdown(
         trading_days=len(selected),
         status="完整" if len(selected) == window else "交易日不足",
     )
+
+
+def _calculate_period_return(
+    bars: Sequence[DailyBar],
+    *,
+    periods: int,
+) -> float | None:
+    if len(bars) <= periods:
+        return None
+    return round((bars[-1].close / bars[-periods - 1].close - 1) * 100, 2)
 
 
 def completed_market_date(now: datetime) -> date:
@@ -443,6 +463,9 @@ class UsStockDrawdownService:
                         name=entry.name,
                         group=entry.group,
                         max_drawdown_pct=None,
+                        daily_change_pct=None,
+                        return_5d_pct=None,
+                        return_10d_pct=None,
                         peak_date=None,
                         peak_price=None,
                         trough_date=None,
@@ -461,6 +484,9 @@ class UsStockDrawdownService:
                     name=entry.name,
                     group=entry.group,
                     max_drawdown_pct=calculated.max_drawdown_pct,
+                    daily_change_pct=calculated.daily_change_pct,
+                    return_5d_pct=calculated.return_5d_pct,
+                    return_10d_pct=calculated.return_10d_pct,
                     peak_date=calculated.peak_date,
                     peak_price=calculated.peak_price,
                     trough_date=calculated.trough_date,

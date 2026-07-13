@@ -109,13 +109,14 @@ class UsAiDrawdownSkill:
                     "读取可配置的美股 AI 标的池",
                     "通过 Alpaca IEX 获取复权日线并保留最近 N 个"
                     "已完成交易日",
+                    "使用最新收盘价计算当日、5 日和 10 日涨幅",
                     "使用滚动峰值计算每个标的区间内最大回撤及"
                     "对应峰谷",
                 ),
                 output_contract=(
                     "按最大回撤幅度从深到浅排序",
-                    "同时展示峰值日、峰值价、谷底日、谷底价和"
-                    "有效交易日数",
+                    "同时展示当日、5 日、10 日涨幅，峰值日、峰值价、"
+                    "谷底日、谷底价和有效交易日数",
                     "缺数标的必须明确标记，不补造价格",
                 ),
             ),
@@ -150,6 +151,21 @@ class UsAiDrawdownSkill:
                         if row.max_drawdown_pct is not None
                         else None
                     ),
+                    "daily_change": (
+                        f"{row.daily_change_pct:.2f}%"
+                        if row.daily_change_pct is not None
+                        else None
+                    ),
+                    "return_5d": (
+                        f"{row.return_5d_pct:.2f}%"
+                        if row.return_5d_pct is not None
+                        else None
+                    ),
+                    "return_10d": (
+                        f"{row.return_10d_pct:.2f}%"
+                        if row.return_10d_pct is not None
+                        else None
+                    ),
                     "peak_date": row.peak_date,
                     "peak_price": row.peak_price,
                     "trough_date": row.trough_date,
@@ -165,8 +181,9 @@ class UsAiDrawdownSkill:
             "status": "degraded" if report.warnings else "complete",
             "summary": summary,
             "content": (
-                "口径：使用复权收盘价；最大回撤是区间内任一时点"
-                "相对此前滚动最高收盘价的最大跌幅。"
+                "口径：使用复权收盘价；当日、5 日和 10 日涨幅分别"
+                "对比 1、5、10 个交易日前收盘价；最大回撤是区间内"
+                "任一时点相对此前滚动最高收盘价的最大跌幅。"
             ),
             "metrics": [
                 {
@@ -199,6 +216,9 @@ class UsAiDrawdownSkill:
                     {"key": "name", "label": "公司"},
                     {"key": "group", "label": "阵营"},
                     {"key": "max_drawdown", "label": "最大回撤"},
+                    {"key": "daily_change", "label": "当日涨幅"},
+                    {"key": "return_5d", "label": "5日涨幅"},
+                    {"key": "return_10d", "label": "10日涨幅"},
                     {"key": "peak_date", "label": "峰值日期"},
                     {"key": "peak_price", "label": "峰值价格"},
                     {"key": "trough_date", "label": "谷底日期"},

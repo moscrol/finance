@@ -67,9 +67,10 @@ cd ../..
 - 默认仓库根目录由应用源码位置推导。
 - Daily Review / Daily Agent 仅读取
   `market_feature_store/exports/` 中的 canonical Markdown / JSON。
-- “美股 AI 回撤榜” Skill 从 Alpaca Market Data 读取 IEX 复权日线。服务端需由
-  secret manager 注入 `ALPACA_API_KEY_ID` 与 `ALPACA_API_SECRET_KEY`；密钥不能
-  写入 `.env`、前端变量、Run 产物或仓库。标的池配置位于
+- “美股 AI 回撤榜” Skill 从 Alpaca Market Data 读取 IEX 复权日线，展示当日、
+  5 日、10 日涨幅及窗口最大回撤。服务端需由 secret manager 注入
+  `ALPACA_API_KEY_ID` 与 `ALPACA_API_SECRET_KEY`；密钥不能写入 `.env`、前端变量、
+  Run 产物或仓库。标的池配置位于
   `intelligence/config/us_ai_watchlist.json`，行情缓存按用户写入
   `<FORESIGHT_USERS_DIR>/<user_id>/market-cache/`。
 - `WORKBENCH_REPO_ROOT` 仅用于显式切换研究数据根目录，例如隔离测试 fixture。
