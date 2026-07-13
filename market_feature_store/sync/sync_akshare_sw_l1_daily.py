@@ -241,7 +241,9 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
             )
         if not industries_all:
             raise RuntimeError("申万一级目录为空，且本地库没有可降级的行业名称")
-        industries = [item for item in industries_all if not focus_names or item["name"] in focus_names]
+        # 历史指数必须覆盖全部 31 个一级行业，不能只取 focus_names（fact_market_daily
+        # 只记录成交占比靠前的行业，按它过滤会漏掉其余行业的真实指数）
+        industries = list(industries_all)
         by_name = {item["name"]: item for item in industries_all}
         records: dict[tuple[date, str], dict] = {}
         for item in industries:
