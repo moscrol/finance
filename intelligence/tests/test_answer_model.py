@@ -63,6 +63,14 @@ class ThemeResearchSpecTests(unittest.TestCase):
 
         self.assertIsNone(match_candidate("请个股深挖英维克的液冷业务", doc))
 
+    def test_generic_question_is_not_reused_as_theme_name(self) -> None:
+        query = "如果一个A股题材连续上涨，怎么区分健康分歧和行情高潮？"
+
+        spec = resolve_theme_research_spec(query)
+
+        self.assertEqual(spec.theme, "未命名题材")
+        self.assertNotEqual(spec.theme, query)
+
 
 class ClaimAdjudicationTests(unittest.TestCase):
     def setUp(self) -> None:
