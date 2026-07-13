@@ -146,6 +146,10 @@ def test_daily_review_skill_preserves_canonical_values_and_artifact(tmp_path: Pa
         }
     ]
     assert output.raw_result_ref == "daily-review-skill-result.json"
+    assert output.answer_contract is not None
+    assert output.answer_contract.retrieval_plan == (
+        "读取最新 canonical 正式日报",
+    )
     artifact = json.loads(
         (store.run_dir(run.run_id) / output.raw_result_ref).read_text(encoding="utf-8")
     )
@@ -181,6 +185,10 @@ def test_daily_agent_skill_projects_summary_actions_evidence_and_provenance(
     assert "L3 官方验证" in output.modules[3]["items"][0]["summary"]
     assert output.citations[0]["source"] == source.relative_to(tmp_path).as_posix()
     assert output.raw_result_ref == "daily-agent-skill-result.json"
+    assert output.answer_contract is not None
+    assert output.answer_contract.output_contract == (
+        "先裁决研究优先级，再给证据缺口和可执行核验动作",
+    )
     artifact = json.loads(
         (store.run_dir(run.run_id) / output.raw_result_ref).read_text(encoding="utf-8")
     )
@@ -249,9 +257,16 @@ def test_skill_artifacts_and_visible_values_are_redacted(tmp_path: Path) -> None
 
 
 def test_daily_skills_are_registered_as_local_read_executors() -> None:
-    assert list(SKILL_REGISTRY) == ["daily-review", "daily-agent"]
-    assert list(SKILL_EXECUTORS) == ["daily-review", "daily-agent"]
-    assert SKILL_REGISTRY["daily-review"].permissions == ("local_read",)
-    assert SKILL_REGISTRY["daily-agent"].permissions == ("local_read",)
-    assert SKILL_EXECUTORS["daily-review"].skill_id == "daily-review"
-    assert SKILL_EXECUTORS["daily-agent"].skill_id == "daily-agent"
+    expected = [
+        "daily-review",
+        "daily-agent",
+        "stock-deep-dive",
+        "theme-research",
+        "news-impact",
+        "financial-analysis",
+    ]
+    assert list(SKILL_REGISTRY) == expected
+    assert list(SKILL_EXECUTORS) == expected
+    for skill_id in expected:
+        assert SKILL_REGISTRY[skill_id].permissions == ("local_read",)
+        assert SKILL_EXECUTORS[skill_id].skill_id == skill_id

@@ -180,7 +180,7 @@ class RuntimePerspectiveContext:
 
     def answer_header(self) -> str:
         if self.mode == PERSPECTIVE_MODE_NEUTRAL:
-            return "当前视角：数据中立\n来源范围：Provider、公开来源与本轮检索证据"
+            return "当前视角：数据中立\n来源范围：数据提供方、公开来源与本轮检索证据"
         if self.mode == PERSPECTIVE_MODE_SINGLE:
             return (
                 f"当前视角：{self.display_names[0]}\n"
@@ -466,7 +466,7 @@ def build_runtime_context(
             perspective_ids=(),
             display_names=(),
             prompt=(
-                "本轮使用数据中立视角。只使用 Provider、公开来源和本轮检索证据；"
+                "本轮使用数据中立视角。只使用数据提供方、公开来源和本轮检索证据；"
                 "不得调用或模拟任何 KOL 观点、个人金融记忆或历史经验判断。"
                 "输出时明确区分事实、未知和 AI 推理，不把推理写成事实。"
             ),

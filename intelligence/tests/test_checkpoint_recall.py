@@ -92,6 +92,7 @@ class BuildRecallBlockTests(unittest.TestCase):
         self.assertIn("最新登记 2026-06-20", block)
         self.assertIn("最近回检 2026-07-05", block)
         self.assertIn("使用要求", block)
+        self.assertIn("相对旧判断的增量变化", block)
 
     def test_due_passed_without_verdict_marks_pending(self) -> None:
         ck = {"id": "x1", "claim": "老判断", "due": "2026-01-01", "category": "拐点", "themes": ["数据安全"]}

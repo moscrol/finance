@@ -10,6 +10,7 @@ from intelligence.workbench_skills.contracts import (
     JsonValue,
     SkillExecutionContext,
     SkillOutput,
+    build_module_answer_contract,
     redact_json,
 )
 
@@ -94,4 +95,16 @@ class DailyAgentSkill:
             warnings=warnings,
             as_of=as_of,
             raw_result_ref=artifact.path,
+            answer_contract=build_module_answer_contract(
+                skill_id=self.skill_id,
+                title="研究雷达",
+                modules=modules,
+                citations=citations,
+                warnings=warnings,
+                as_of=as_of,
+                retrieval_plan=("读取最新 canonical Daily Agent 研究队列",),
+                output_contract=(
+                    "先裁决研究优先级，再给证据缺口和可执行核验动作",
+                ),
+            ),
         )
