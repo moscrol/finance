@@ -70,6 +70,8 @@ def test_smoke_metrics_clamp_negative_elapsed_and_filter_unsafe_stages() -> None
         stage_events=[
             "understanding",
             "../private",
+            "internal_stage",
+            "sk-abcdefgh",
             7,  # type: ignore[list-item]
             "understanding",
         ],
@@ -106,7 +108,11 @@ def test_smoke_stream_terminal_paths_keep_unique_stage_order(
             {
                 "event_type": "stage.progress",
                 "seq": 1,
-                "payload": {"stage": "understanding"},
+                "payload": {
+                    "stage": "understanding",
+                    "status": "running",
+                    "elapsed_ms": 0.0,
+                },
             },
         ),
         (
@@ -114,7 +120,11 @@ def test_smoke_stream_terminal_paths_keep_unique_stage_order(
             {
                 "event_type": "stage.progress",
                 "seq": 2,
-                "payload": {"stage": "deterministic_recall"},
+                "payload": {
+                    "stage": "deterministic_recall",
+                    "status": "completed",
+                    "elapsed_ms": 1.0,
+                },
             },
         ),
     ]
@@ -124,7 +134,11 @@ def test_smoke_stream_terminal_paths_keep_unique_stage_order(
             {
                 "event_type": "stage.progress",
                 "seq": 3,
-                "payload": {"stage": "understanding"},
+                "payload": {
+                    "stage": "understanding",
+                    "status": "completed",
+                    "elapsed_ms": 2,
+                },
             },
         ),
         (
@@ -132,7 +146,11 @@ def test_smoke_stream_terminal_paths_keep_unique_stage_order(
             {
                 "event_type": "stage.progress",
                 "seq": 4,
-                "payload": {"stage": "synthesis"},
+                "payload": {
+                    "stage": "synthesis",
+                    "status": "degraded",
+                    "elapsed_ms": 3.5,
+                },
             },
         ),
         ("run", {"run_id": "run-1", "status": "completed", "degrades": []}),
@@ -169,20 +187,40 @@ def test_smoke_stream_terminal_paths_keep_unique_stage_order(
     ]
 
 
-@pytest.mark.parametrize("stage", [7, "../private"])
+@pytest.mark.parametrize(
+    "event_payload",
+    [
+        {"stage": 7, "status": "running", "elapsed_ms": 0},
+        {"stage": "../private", "status": "running", "elapsed_ms": 0},
+        {"stage": "internal_stage", "status": "running", "elapsed_ms": 0},
+        {"stage": "sk-abcdefgh", "status": "running", "elapsed_ms": 0},
+        {"stage": "understanding", "elapsed_ms": 0},
+        {"stage": "understanding", "status": "done", "elapsed_ms": 0},
+        {"stage": "understanding", "status": ["running"], "elapsed_ms": 0},
+        {"stage": "understanding", "status": "running", "elapsed_ms": float("nan")},
+        {"stage": "understanding", "status": "running", "elapsed_ms": -1},
+        {"stage": "understanding", "status": "running", "elapsed_ms": True},
+        ["understanding", "running", 0],
+    ],
+)
 def test_smoke_stream_rejects_invalid_stage_progress(
     monkeypatch: pytest.MonkeyPatch,
-    stage: object,
+    event_payload: object,
 ) -> None:
     payload = {
         "event_type": "stage.progress",
         "seq": 1,
-        "payload": {"stage": stage},
+        "payload": event_payload,
     }
-    response = BytesIO(
-        f"event: stage.progress\ndata: {json.dumps(payload)}\n\n".encode()
+    body = (
+        f"event: stage.progress\ndata: {json.dumps(payload)}\n\n"
+        'event: run\ndata: {"run_id":"run-1","status":"completed","degrades":[]}\n\n'
     )
-    monkeypatch.setattr(smoke, "_open", lambda *_args, **_kwargs: response)
+    monkeypatch.setattr(
+        smoke,
+        "_open",
+        lambda *_args, **_kwargs: BytesIO(body.encode()),
+    )
 
     with pytest.raises(smoke.SmokeProtocolError, match="stage_progress") as exc:
         smoke._stream_until_terminal(
@@ -194,6 +232,41 @@ def test_smoke_stream_rejects_invalid_stage_progress(
         )
 
     assert exc.value.stage == "stage_progress"
+
+
+@pytest.mark.parametrize("timeout", ["nan", "inf", "-inf"])
+def test_smoke_main_rejects_non_finite_timeout_without_running(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    timeout: str,
+) -> None:
+    output = tmp_path / "smoke.json"
+
+    def unexpected_run_smoke(_args: object) -> tuple[int, dict[str, object]]:
+        raise AssertionError("run_smoke must not be called")
+
+    monkeypatch.setattr(smoke, "run_smoke", unexpected_run_smoke)
+
+    exit_code = smoke.main(
+        [
+            "--base-url",
+            "http://127.0.0.1:8795",
+            "--user",
+            "alice",
+            "--question",
+            "今天市场怎么样",
+            f"--timeout={timeout}",
+            "--output",
+            str(output),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert captured.out == ""
+    assert captured.err == "invalid smoke arguments\n"
+    assert not output.exists()
 
 
 def _wait_terminal(

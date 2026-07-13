@@ -21,6 +21,16 @@ TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled"}
 SAFE_LABEL = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 SAFE_SOURCE_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+PUBLIC_WORKBENCH_STAGES = frozenset(
+    {
+        "understanding",
+        "deterministic_recall",
+        "semantic_recall",
+        "evidence_gate",
+        "synthesis",
+    }
+)
+PUBLIC_STAGE_STATUSES = frozenset({"running", "completed", "degraded"})
 SECRET_PATTERNS = (
     (
         "token_prefix",
@@ -58,6 +68,7 @@ def smoke_metrics(
         if (
             isinstance(stage, str)
             and SAFE_SOURCE_COMPONENT.fullmatch(stage)
+            and stage in PUBLIC_WORKBENCH_STAGES
             and stage not in stages
         ):
             stages.append(stage)
@@ -283,13 +294,21 @@ def _stream_until_terminal(
                     terminal_event_count += 1
                 if canonical_type == "stage.progress":
                     event_payload = payload.get("payload")
-                    stage = (
-                        event_payload.get("stage")
-                        if isinstance(event_payload, dict)
-                        else None
-                    )
-                    if not isinstance(stage, str) or not SAFE_SOURCE_COMPONENT.fullmatch(
-                        stage
+                    if not isinstance(event_payload, dict):
+                        raise SmokeProtocolError("stage_progress")
+                    stage = event_payload.get("stage")
+                    status = event_payload.get("status")
+                    elapsed_ms = event_payload.get("elapsed_ms")
+                    if (
+                        not isinstance(stage, str)
+                        or not SAFE_SOURCE_COMPONENT.fullmatch(stage)
+                        or stage not in PUBLIC_WORKBENCH_STAGES
+                        or not isinstance(status, str)
+                        or status not in PUBLIC_STAGE_STATUSES
+                        or isinstance(elapsed_ms, bool)
+                        or not isinstance(elapsed_ms, (int, float))
+                        or not math.isfinite(elapsed_ms)
+                        or elapsed_ms < 0
                     ):
                         raise SmokeProtocolError("stage_progress")
                     stage_events.append(stage)
@@ -446,7 +465,9 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         )
         raw_stage_events = sse_summary.get("stages")
         if not isinstance(raw_stage_events, list) or not all(
-            isinstance(stage, str) and SAFE_SOURCE_COMPONENT.fullmatch(stage)
+            isinstance(stage, str)
+            and SAFE_SOURCE_COMPONENT.fullmatch(stage)
+            and stage in PUBLIC_WORKBENCH_STAGES
             for stage in raw_stage_events
         ):
             raise SmokeProtocolError("stage_progress")
@@ -563,7 +584,12 @@ def main(argv: list[str] | None = None) -> int:
         args.base_url = _validated_base_url(args.base_url)
         args.user = args.user.strip()
         args.question = args.question.strip()
-        if not args.user or not args.question or args.timeout <= 0:
+        if (
+            not args.user
+            or not args.question
+            or not math.isfinite(args.timeout)
+            or args.timeout <= 0
+        ):
             raise ValueError
         output = Path(args.output).expanduser()
     except ValueError:
