@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Protocol, TypeAlias
 
 from intelligence.services import answer_model
+from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.run_store import RunStore, redact
 
 JsonScalar: TypeAlias = str | int | float | bool | None
@@ -215,6 +216,7 @@ class SkillExecutionContext:
     repo_root: Path
     run_store: RunStore
     conversation_context: str = ""
+    execution_budget: ExecutionBudget | None = None
 
 
 class SkillExecutor(Protocol):

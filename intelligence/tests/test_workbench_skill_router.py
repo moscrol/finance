@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from intelligence.services.ask import AskOptions
+from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.query_understanding import understand_query
 from intelligence.services.run_store import RunStore
 from intelligence.workbench_skills.contracts import (
@@ -78,7 +80,19 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "raw_result_ref",
         "answer_contract",
     ]
+    assert [field.name for field in fields(SkillExecutionContext)] == [
+        "query",
+        "task_type",
+        "user_id",
+        "run_id",
+        "conversation_id",
+        "repo_root",
+        "run_store",
+        "conversation_context",
+        "execution_budget",
+    ]
     store = RunStore(root=tmp_path / "runs")
+    budget = ExecutionBudget(started_at=10.0, deadline_at=20.0)
     context = SkillExecutionContext(
         query="今日复盘",
         task_type="daily_review",
@@ -87,9 +101,11 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         conversation_id="conv1",
         repo_root=tmp_path,
         run_store=store,
+        execution_budget=budget,
     )
     assert context.repo_root == tmp_path
     assert context.run_store is store
+    assert context.execution_budget is budget
     assert FakeExecutor("daily").execute(context).skill_id == "daily"
     assert SkillExecutionContext(
         query="q",
@@ -100,6 +116,7 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         repo_root=tmp_path,
         run_store=store,
     ).conversation_id is None
+    assert AskOptions(query="q", execution_budget=budget).execution_budget is budget
 
 
 def test_global_registries_are_independent_dicts() -> None:

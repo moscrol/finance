@@ -67,6 +67,7 @@ from intelligence.services.answer_orchestrator import (
     QuestionPlan,
     plan_answer_question,
 )
+from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_estimate, valuation_gap
 from intelligence.services.trading_calendar import (
     next_trading_day,
@@ -241,6 +242,7 @@ class AskOptions:
     stream_cancel_check: Callable[[], bool] | None = field(
         default=None, repr=False, compare=False
     )
+    execution_budget: ExecutionBudget | None = None
 
 
 @dataclass
