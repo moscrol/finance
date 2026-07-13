@@ -436,6 +436,86 @@ def test_timed_out_skill_cannot_persist_artifact_after_turn_continues(tmp_path) 
     )
 
 
+def test_timed_out_owner_progress_is_revoked_before_late_callback(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "慢owner",
+        selected_skill_ids=["owner"],
+    )
+    release = Event()
+    finished = Event()
+
+    class SlowOwnerSkill:
+        skill_id = "owner"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            assert context.progress_callback is not None
+            context.progress_callback("synthesis", "running")
+            release.wait(timeout=1)
+            context.progress_callback("synthesis", "completed")
+            finished.set()
+            return SkillOutput(skill_id=self.skill_id)
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="owner",
+            name="Owner",
+            description="slow owner",
+            version="1.0.0",
+            triggers=(),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        ),
+        SlowOwnerSkill(),
+    )
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (SkillSelection("owner", "manual", "owner"),), False
+        ),
+        skill_registry=registry,
+        budget_factory=lambda: _FixedBudget(20.05),  # type: ignore[return-value]
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="慢owner",
+        skill_mode="manual",
+        selected_skill_ids=["owner"],
+    )
+    before_release = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "stage.progress"
+        and event["payload"]["stage"] == "synthesis"
+    ]
+    release.set()
+
+    assert result.status == "completed"
+    assert [event["payload"]["status"] for event in before_release] == [
+        "running",
+        "degraded",
+    ]
+    assert finished.wait(timeout=1)
+    after_release = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "stage.progress"
+        and event["payload"]["stage"] == "synthesis"
+    ]
+    assert after_release == before_release
+
+
 def test_guard_stop_and_terminal_state_serialize_against_artifact_write(tmp_path) -> None:
     entered = Event()
     release = Event()
@@ -844,6 +924,56 @@ def test_turn_degrades_a_running_stage_before_failure(tmp_path) -> None:
     assert synthesis == [
         ("synthesis", "running"),
         ("synthesis", "degraded"),
+    ]
+
+
+def test_progress_producers_track_the_same_stage_independently() -> None:
+    events: list[tuple[str, str, int]] = []
+    progress = orchestrator_module._TurnProgressEmitter(
+        can_emit=lambda: True,
+        emit_event=lambda stage, status, sequence: events.append(
+            (stage, status, sequence)
+        ),
+    )
+    first = progress.producer("skill:first")
+    second = progress.producer("skill:second")
+
+    first("semantic_recall", "running")
+    second("semantic_recall", "running")
+    first("semantic_recall", "completed")
+    first.revoke()
+    second.revoke()
+
+    assert events == [
+        ("semantic_recall", "running", 1),
+        ("semantic_recall", "running", 2),
+        ("semantic_recall", "completed", 3),
+        ("semantic_recall", "degraded", 4),
+    ]
+
+
+def test_progress_producer_revoke_blocks_late_events_and_close_finishes_leftovers() -> None:
+    events: list[tuple[str, str, int]] = []
+    progress = orchestrator_module._TurnProgressEmitter(
+        can_emit=lambda: True,
+        emit_event=lambda stage, status, sequence: events.append(
+            (stage, status, sequence)
+        ),
+    )
+    timed_out = progress.producer("skill:owner")
+    base = progress.producer("turn:base")
+    timed_out("synthesis", "running")
+    timed_out.revoke()
+    timed_out("synthesis", "completed")
+    base("deterministic_recall", "running")
+    progress.close()
+    base("deterministic_recall", "completed")
+
+    assert events == [
+        ("synthesis", "running", 1),
+        ("synthesis", "degraded", 2),
+        ("deterministic_recall", "running", 3),
+        ("deterministic_recall", "degraded", 4),
     ]
 
 

@@ -740,7 +740,7 @@ def _answer_market_review(
 
 
 def answer_query(options: AskOptions) -> AskResult:
-    progress = options.progress_callback or (lambda stage, status: None)
+    progress = _safe_progress_callback(options.progress_callback)
     if options.clarify:
         clarify_decision = ask_clarify.clarify_for_query(options.query)
         if clarify_decision.needs_clarification:
@@ -1125,7 +1125,7 @@ def answer_query(options: AskOptions) -> AskResult:
             anchor=anchor,
             subject=envelope.subject,
             budget=options.execution_budget,
-            progress=options.progress_callback,
+            progress=progress,
             retrieve=lambda retrieval_query, mode, timeout: kb_rag.retrieve(
                 retrieval_query,
                 resolved_kb_wiki,
@@ -1982,6 +1982,23 @@ def answer_query(options: AskOptions) -> AskResult:
         "completed" if result.synthesis is not None else "degraded",
     )
     return result
+
+
+def _safe_progress_callback(
+    callback: Callable[[str, str], None] | None,
+) -> Callable[[str, str], None]:
+    disabled = callback is None
+
+    def safe_progress(stage: str, status: str) -> None:
+        nonlocal disabled
+        if disabled or callback is None:
+            return
+        try:
+            callback(stage, status)
+        except Exception:
+            disabled = True
+
+    return safe_progress
 
 
 def _claims_from_data_block(

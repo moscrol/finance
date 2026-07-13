@@ -110,8 +110,6 @@ def test_subject_uses_three_bm25_queries_and_at_most_one_hybrid() -> None:
     assert any("液冷服务器" in query and "上下游" in query for query, _, _ in calls)
     assert any("风险 证伪 不及预期" in query for query, _, _ in calls)
     assert progress == [
-        ("evidence_gate", "running"),
-        ("evidence_gate", "completed"),
         ("semantic_recall", "running"),
         ("semantic_recall", "completed"),
         ("evidence_gate", "running"),
@@ -135,6 +133,26 @@ def test_hybrid_error_reports_a_normalized_degraded_stage() -> None:
 
     assert ("semantic_recall", "degraded") in progress
     assert all(status != "error" for _, status in progress)
+
+
+def test_throwing_progress_callback_never_interrupts_retrieval() -> None:
+    calls = 0
+
+    def throwing_progress(stage: str, status: str) -> None:
+        nonlocal calls
+        calls += 1
+        raise RuntimeError("progress sink unavailable")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=lambda query, mode, timeout: _response(query, []),
+        progress=throwing_progress,
+    )
+
+    assert len(result.attempts) == 4
+    assert calls == 1
 
 
 def test_real_adapter_empty_shape_continues_all_layers() -> None:

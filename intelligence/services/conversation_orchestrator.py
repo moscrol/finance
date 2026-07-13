@@ -552,6 +552,96 @@ def contextualize_follow_up_query(
     return f"{previous_user}\n追问：{cleaned}"
 
 
+class _ProgressProducer:
+    def __init__(self, emitter: _TurnProgressEmitter, producer_id: str) -> None:
+        self._emitter = emitter
+        self.producer_id = producer_id
+
+    def __call__(self, stage: str, status: str) -> None:
+        self._emitter.emit(self.producer_id, stage, status)
+
+    def revoke(self) -> None:
+        self._emitter.revoke(self.producer_id)
+
+
+class _TurnProgressEmitter:
+    """Best-effort stage stream with isolated, revocable producers."""
+
+    def __init__(
+        self,
+        *,
+        can_emit: Callable[[], bool],
+        emit_event: Callable[[str, str, int], None],
+    ) -> None:
+        self._can_emit = can_emit
+        self._emit_event = emit_event
+        self._lock = RLock()
+        self._active = True
+        self._sequence = 0
+        self._producers: set[str] = set()
+        self._running: set[tuple[str, str]] = set()
+
+    def producer(self, producer_id: str) -> _ProgressProducer:
+        with self._lock:
+            if self._active:
+                self._producers.add(producer_id)
+        return _ProgressProducer(self, producer_id)
+
+    def emit(self, producer_id: str, stage: str, status: str) -> None:
+        with self._lock:
+            self._emit_locked(producer_id, stage, status)
+
+    def revoke(self, producer_id: str) -> None:
+        with self._lock:
+            if producer_id not in self._producers:
+                return
+            stages = sorted(
+                stage
+                for current_producer, stage in self._running
+                if current_producer == producer_id
+            )
+            for stage in stages:
+                self._emit_locked(producer_id, stage, "degraded")
+            self._producers.discard(producer_id)
+            self._running = {
+                item for item in self._running if item[0] != producer_id
+            }
+
+    def close(self) -> None:
+        with self._lock:
+            for producer_id in sorted(self._producers):
+                self.revoke(producer_id)
+            self._active = False
+            self._producers.clear()
+            self._running.clear()
+
+    def _emit_locked(self, producer_id: str, stage: str, status: str) -> None:
+        if not self._active or producer_id not in self._producers:
+            return
+        try:
+            allowed = self._can_emit()
+        except Exception:
+            allowed = False
+        if not allowed:
+            self._disable_locked()
+            return
+        key = (producer_id, stage)
+        if status == "running":
+            self._running.add(key)
+        else:
+            self._running.discard(key)
+        self._sequence += 1
+        try:
+            self._emit_event(stage, status, self._sequence)
+        except Exception:
+            self._disable_locked()
+
+    def _disable_locked(self) -> None:
+        self._active = False
+        self._producers.clear()
+        self._running.clear()
+
+
 class TurnOrchestrator:
     def __init__(
         self,
@@ -614,46 +704,34 @@ class TurnOrchestrator:
         citations: list[dict[str, object]] = []
         text_chunks: list[str] = []
         skill_outputs: list[SkillOutput] = []
-        stage_sequence = 0
-        progress_active = True
-        progress_lock = RLock()
-        running_stages: set[str] = set()
 
-        def emit_progress(stage: str, status: str) -> None:
-            nonlocal stage_sequence, progress_active
-            with progress_lock:
-                if not progress_active or self.is_cancelled():
-                    return
-                try:
-                    run = self.run_store.load_run(run_id)
-                except (FileNotFoundError, ValueError):
-                    return
-                if run.status != rs.STATUS_RUNNING:
-                    progress_active = False
-                    return
-                if status == "running":
-                    running_stages.add(stage)
-                else:
-                    running_stages.discard(stage)
-                stage_sequence += 1
-                self._emit(
-                    run_id,
-                    assistant_message_id,
-                    f"stage:{stage}:{stage_sequence:02d}",
-                    "stage.progress",
-                    {
-                        "stage": stage,
-                        "status": status,
-                        "elapsed_ms": self._elapsed_ms(turn_started),
-                    },
-                    conversation_id,
-                )
+        def can_emit_progress() -> bool:
+            if self.is_cancelled():
+                return False
+            try:
+                run = self.run_store.load_run(run_id)
+            except (OSError, ValueError):
+                return False
+            return run.status == rs.STATUS_RUNNING
 
-        def degrade_running_progress() -> None:
-            with progress_lock:
-                stages = tuple(running_stages)
-            for stage in stages:
-                emit_progress(stage, "degraded")
+        def append_progress_event(stage: str, status: str, sequence: int) -> None:
+            self._emit(
+                run_id,
+                assistant_message_id,
+                f"stage:{stage}:{sequence:02d}",
+                "stage.progress",
+                {
+                    "stage": stage,
+                    "status": status,
+                    "elapsed_ms": self._elapsed_ms(turn_started),
+                },
+                conversation_id,
+            )
+
+        turn_progress = _TurnProgressEmitter(
+            can_emit=can_emit_progress,
+            emit_event=append_progress_event,
+        )
 
         self._emit(
             run_id,
@@ -682,7 +760,8 @@ class TurnOrchestrator:
                 conversation_id, context.summary
             )
             contextual_query = contextualize_follow_up_query(query, context)
-            emit_progress("understanding", "running")
+            understanding_progress = turn_progress.producer("turn:understanding")
+            understanding_progress("understanding", "running")
             try:
                 routing_envelope = understand_query(contextual_query)
                 route_started = time.monotonic()
@@ -697,10 +776,12 @@ class TurnOrchestrator:
                     execution_budget=execution_budget,
                 )
             except Exception:
-                emit_progress("understanding", "degraded")
+                understanding_progress("understanding", "degraded")
+                understanding_progress.revoke()
                 raise
             selected = [selection.skill_id for selection in route.selections]
-            emit_progress("understanding", "completed")
+            understanding_progress("understanding", "completed")
+            understanding_progress.revoke()
             self._trace(
                 run_id,
                 assistant_message_id,
@@ -724,7 +805,7 @@ class TurnOrchestrator:
             )
             self._check_cancelled()
 
-            for selection in route.selections:
+            for selection_index, selection in enumerate(route.selections, start=1):
                 self._check_cancelled()
                 skill_id = selection.skill_id
                 skill_timeout = execution_budget.child_timeout(
@@ -787,6 +868,9 @@ class TurnOrchestrator:
                         conversation_id,
                     )
                     continue
+                skill_progress = turn_progress.producer(
+                    f"skill:{selection_index}:{skill_id}"
+                )
                 future: Future[SkillOutput] = Future()
                 guarded_run_store = _SkillRunStoreGuard(
                     self.run_store,
@@ -818,7 +902,7 @@ class TurnOrchestrator:
                         run_store=guarded_run_store,  # type: ignore[arg-type]
                         conversation_context=context.to_prompt_block(),
                         execution_budget=execution_budget,
-                        progress_callback=emit_progress,
+                        progress_callback=skill_progress,
                     )
                     _start_skill_worker(
                         future,
@@ -830,6 +914,7 @@ class TurnOrchestrator:
                     worker_started = True
                     output = future.result(timeout=skill_timeout)
                 except Exception as exc:  # noqa: BLE001
+                    skill_progress.revoke()
                     if isinstance(exc, FuturesTimeoutError) and future is not None:
                         future.cancel()
                     warning = (
@@ -901,6 +986,7 @@ class TurnOrchestrator:
                     else:
                         self._check_cancelled()
                 finally:
+                    skill_progress.revoke()
                     guarded_run_store.stop()
                     future.cancel()
                     if not worker_started:
@@ -970,39 +1056,41 @@ class TurnOrchestrator:
                     if not budget_degraded
                     else 1
                 )
-                result = self.answer_query(
-                    AskOptions(
-                        query=contextual_query,
-                        date=(
-                            daily_review_output.as_of
-                            if daily_review_output is not None
-                            and market_review_requested
-                            else None
-                        ),
-                        user=self.run_store.user_id,
-                        compose=not budget_degraded,
-                        use_modules=not budget_degraded,
-                        use_wiki_rag=not budget_degraded,
-                        compose_self_review=False,
-                        compose_revise_on_warn=False,
-                        market_db_path=self.repo_root
-                        / "db"
-                        / "market_feature_store.duckdb",
-                        conversation_context=context.to_prompt_block(),
-                        supplemental_evidence=self._skill_evidence(skill_outputs),
-                        include_memory_block=True,
-                        include_recall_block=True,
-                        perspective_mode=perspective_mode,
-                        perspective_ids=tuple(selected_perspective_ids),
-                        stream_text_delta=emit_text_delta,
-                        stream_cancel_check=self.is_cancelled,
-                        execution_budget=execution_budget,
-                        progress_callback=emit_progress,
-                        llm_timeout=per_call_timeout,
+                base_progress = turn_progress.producer("turn:base")
+                try:
+                    result = self.answer_query(
+                        AskOptions(
+                            query=contextual_query,
+                            date=(
+                                daily_review_output.as_of
+                                if daily_review_output is not None
+                                and market_review_requested
+                                else None
+                            ),
+                            user=self.run_store.user_id,
+                            compose=not budget_degraded,
+                            use_modules=not budget_degraded,
+                            use_wiki_rag=not budget_degraded,
+                            compose_self_review=False,
+                            compose_revise_on_warn=False,
+                            market_db_path=self.repo_root
+                            / "db"
+                            / "market_feature_store.duckdb",
+                            conversation_context=context.to_prompt_block(),
+                            supplemental_evidence=self._skill_evidence(skill_outputs),
+                            include_memory_block=True,
+                            include_recall_block=True,
+                            perspective_mode=perspective_mode,
+                            perspective_ids=tuple(selected_perspective_ids),
+                            stream_text_delta=emit_text_delta,
+                            stream_cancel_check=self.is_cancelled,
+                            execution_budget=execution_budget,
+                            progress_callback=base_progress,
+                            llm_timeout=per_call_timeout,
+                        )
                     )
-                )
-            with progress_lock:
-                progress_active = False
+                finally:
+                    base_progress.revoke()
             self._check_cancelled()
             is_market_review = (
                 owner_output is None
@@ -1089,6 +1177,7 @@ class TurnOrchestrator:
                 warnings.append(fallback)
                 self.run_store.add_degrade(run_id, fallback)
 
+            turn_progress.close()
             complete_report(
                 report,
                 as_of=result.trade_date,
@@ -1155,7 +1244,7 @@ class TurnOrchestrator:
                 invoked_skill_ids=tuple(invoked),
             )
         except LLMStreamCancelled:
-            degrade_running_progress()
+            turn_progress.close()
             if self.cancellation_reason() == "executor_timeout":
                 return self._fail(
                     conversation_id,
@@ -1183,7 +1272,7 @@ class TurnOrchestrator:
                 text_chunks,
             )
         except Exception as exc:  # noqa: BLE001
-            degrade_running_progress()
+            turn_progress.close()
             return self._fail(
                 conversation_id,
                 run_id,

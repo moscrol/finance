@@ -545,6 +545,15 @@ export interface LiveSkillInvocation {
   warnings: string[];
 }
 
+export type ResearchStage =
+  | "understanding"
+  | "deterministic_recall"
+  | "semantic_recall"
+  | "evidence_gate"
+  | "synthesis";
+
+export type ResearchStageStatus = "running" | "completed" | "degraded";
+
 export interface LiveMessageState {
   conversationId: string;
   messageId: string;
@@ -552,7 +561,7 @@ export interface LiveMessageState {
   narrative: string;
   report: StructuredReport | null;
   skillInvocations: Record<string, LiveSkillInvocation>;
-  currentStage: string | null;
+  currentStage: ResearchStage | null;
   status: "pending" | "streaming" | "completed" | "failed" | "cancelled";
   connection: "connected" | "reconnecting";
   cancelRequested: boolean;

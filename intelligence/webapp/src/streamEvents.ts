@@ -3,6 +3,8 @@ import type {
   ChatMessage,
   LiveMessageState,
   LiveSkillInvocation,
+  ResearchStage,
+  ResearchStageStatus,
   StreamEnvelope,
   StructuredReport,
   StructuredReportModule,
@@ -10,6 +12,29 @@ import type {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const researchStages: readonly ResearchStage[] = [
+  "understanding",
+  "deterministic_recall",
+  "semantic_recall",
+  "evidence_gate",
+  "synthesis",
+];
+const researchStageStatuses: readonly ResearchStageStatus[] = [
+  "running",
+  "completed",
+  "degraded",
+];
+
+const isResearchStage = (value: unknown): value is ResearchStage =>
+  typeof value === "string" &&
+  researchStages.includes(value as ResearchStage);
+
+const isResearchStageStatus = (
+  value: unknown,
+): value is ResearchStageStatus =>
+  typeof value === "string" &&
+  researchStageStatuses.includes(value as ResearchStageStatus);
 
 export function parseStreamEnvelope<TPayload extends Record<string, unknown> = Record<string, unknown>>(
   value: unknown,
@@ -126,10 +151,19 @@ export function applyChatStreamEvent(
   if (deduper && !deduper.accept(event)) return state;
 
   const payload = event.payload;
-  if (
-    event.event_type === "stage.progress" &&
-    typeof payload.stage === "string"
-  ) {
+  if (event.event_type === "stage.progress") {
+    if (
+      state.status === "completed" ||
+      state.status === "failed" ||
+      state.status === "cancelled" ||
+      !isResearchStage(payload.stage) ||
+      !isResearchStageStatus(payload.status) ||
+      typeof payload.elapsed_ms !== "number" ||
+      !Number.isFinite(payload.elapsed_ms) ||
+      payload.elapsed_ms < 0
+    ) {
+      return state;
+    }
     return { ...state, currentStage: payload.stage, status: "streaming" };
   }
   if (event.event_type === "text.delta") {
@@ -208,6 +242,7 @@ export function applyChatStreamEvent(
     return {
       ...state,
       narrative: payload.message.content || state.narrative,
+      currentStage: null,
       status:
         payload.message.status === "cancelled"
           ? "cancelled"
@@ -217,7 +252,7 @@ export function applyChatStreamEvent(
     };
   }
   if (event.event_type === "message.start") {
-    return { ...state, status: "streaming" };
+    return { ...state, currentStage: null, status: "streaming" };
   }
   return state;
 }

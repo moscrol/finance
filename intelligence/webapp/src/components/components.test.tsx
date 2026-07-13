@@ -1115,6 +1115,95 @@ describe("Chat-first conversation components", () => {
     );
   });
 
+  it("rejects malformed or late stage progress and clears stages at boundaries", () => {
+    const initial = {
+      ...createLiveMessageState({
+        conversationId: "conv_recent",
+        messageId: "msg_assistant",
+        runId: "run_demo",
+      }),
+      currentStage: "semantic_recall" as const,
+      status: "streaming" as const,
+    };
+    const envelope = (
+      eventId: string,
+      eventType: string,
+      payload: Record<string, unknown>,
+    ): StreamEnvelope => ({
+      schema_version: 1,
+      event_id: eventId,
+      event_type: eventType,
+      run_id: "run_demo",
+      conversation_id: "conv_recent",
+      message_id: "msg_assistant",
+      seq: 1,
+      created_at: "2026-07-11T09:00:00+08:00",
+      payload,
+    });
+
+    expect(
+      applyChatStreamEvent(
+        initial,
+        envelope("bad-stage", "stage.progress", {
+          stage: "download_model",
+          status: "running",
+          elapsed_ms: 1,
+        }),
+      ),
+    ).toBe(initial);
+    expect(
+      applyChatStreamEvent(
+        initial,
+        envelope("bad-status", "stage.progress", {
+          stage: "evidence_gate",
+          status: "error",
+          elapsed_ms: 1,
+        }),
+      ),
+    ).toBe(initial);
+    expect(
+      applyChatStreamEvent(
+        initial,
+        envelope("bad-elapsed", "stage.progress", {
+          stage: "evidence_gate",
+          status: "running",
+          elapsed_ms: Number.NaN,
+        }),
+      ),
+    ).toBe(initial);
+
+    const completed = applyChatStreamEvent(
+      initial,
+      envelope("complete", "message.complete", {
+        message: { ...assistantMessage, content: "最终回答" },
+      }),
+    );
+    expect(completed.currentStage).toBeNull();
+    expect(
+      applyChatStreamEvent(
+        completed,
+        envelope("late-stage", "stage.progress", {
+          stage: "synthesis",
+          status: "completed",
+          elapsed_ms: 10,
+        }),
+      ),
+    ).toBe(completed);
+
+    const restarted = applyChatStreamEvent(
+      initial,
+      envelope("restart", "message.start", { status: "running" }),
+    );
+    expect(restarted.currentStage).toBeNull();
+    expect(
+      createLiveMessageState({
+        conversationId: "conv_next",
+        messageId: "msg_next",
+        runId: "run_next",
+      }).currentStage,
+    ).toBeNull();
+  });
+
   it("shows the live semantic recall stage while the answer is pending", () => {
     render(
       <MessageBubble

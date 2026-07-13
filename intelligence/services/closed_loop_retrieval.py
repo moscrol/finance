@@ -118,6 +118,7 @@ def retrieve_closed_loop(
     now: Callable[[], float] = time.monotonic,
     progress: Progress | None = None,
 ) -> ClosedLoopRetrievalResult:
+    progress = _safe_progress_callback(progress)
     result = ClosedLoopRetrievalResult()
     explicit_subject = anchor.entity if anchor is not None else (subject or "").strip()
     if not explicit_subject:
@@ -169,12 +170,11 @@ def retrieve_closed_loop(
         *(("broad", hit) for hit in broad_hits),
         *(("counter", hit) for hit in counter_hits),
     )
-    _bucket_with_progress(
+    _bucket_hits(
         bm25_entries,
         result,
         relevance_terms=relevance_terms,
         broad_relevance_terms=broad_relevance_terms,
-        progress=progress,
     )
 
     remaining = (
@@ -199,12 +199,11 @@ def retrieve_closed_loop(
             now=now,
             progress=progress,
         )
-        _bucket_with_progress(
+        _bucket_hits(
             tuple(("narrow", hit) for hit in hybrid_hits),
             result,
             relevance_terms=relevance_terms,
             broad_relevance_terms=broad_relevance_terms,
-            progress=progress,
         )
 
     for aperture in ("narrow", "broad", "counter"):
@@ -213,7 +212,7 @@ def retrieve_closed_loop(
             result.warnings.append(
                 f"{aperture} retrieval empty after {len(attempts)} attempts"
             )
-    _finalize_telemetry(result)
+    _finalize_with_progress(result, progress)
     return result
 
 
@@ -316,29 +315,37 @@ def _run_one(
     return [], False
 
 
-def _bucket_with_progress(
-    entries: Sequence[tuple[str, WikiHit]],
+def _finalize_with_progress(
     result: ClosedLoopRetrievalResult,
-    *,
-    relevance_terms: Sequence[str],
-    broad_relevance_terms: Sequence[str],
     progress: Progress | None,
 ) -> None:
     if progress is not None:
         progress("evidence_gate", "running")
     try:
-        _bucket_hits(
-            entries,
-            result,
-            relevance_terms=relevance_terms,
-            broad_relevance_terms=broad_relevance_terms,
-        )
+        _finalize_telemetry(result)
     except Exception:
         if progress is not None:
             progress("evidence_gate", "degraded")
         raise
     if progress is not None:
         progress("evidence_gate", "completed")
+
+
+def _safe_progress_callback(progress: Progress | None) -> Progress | None:
+    if progress is None:
+        return None
+    disabled = False
+
+    def safe_progress(stage: str, status: str) -> None:
+        nonlocal disabled
+        if disabled:
+            return
+        try:
+            progress(stage, status)
+        except Exception:
+            disabled = True
+
+    return safe_progress
 
 
 def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:

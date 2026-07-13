@@ -144,6 +144,28 @@ class AskIntegrationTest(unittest.TestCase):
             ],
         )
 
+    def test_throwing_progress_callback_never_interrupts_answer(self):
+        from intelligence.services.ask import AskOptions, answer_query
+
+        calls = 0
+
+        def throwing_progress(stage: str, status: str) -> None:
+            nonlocal calls
+            calls += 1
+            raise RuntimeError("progress sink unavailable")
+
+        result = answer_query(
+            AskOptions(
+                query="液冷服务器",
+                use_modules=False,
+                use_wiki_rag=False,
+                progress_callback=throwing_progress,
+            )
+        )
+
+        self.assertIsNotNone(result.answer_spec)
+        self.assertEqual(calls, 1)
+
     def test_parallel_and_serial_compose_identical(self):
         """并行 vs 串行：evidence 汇总/引用编号/可观测统计必须逐字节一致。"""
         from intelligence.services.ask import AskOptions, answer_query, render_answer
