@@ -185,6 +185,47 @@ def test_hybrid_deduplicates_hits_already_seen_by_bm25() -> None:
     assert "液冷新公告" in [item.hit.title for item in result.conclusion]
 
 
+def test_hybrid_same_identity_cross_snapshot_is_rejected_after_bm25_clue() -> None:
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        if mode == "bm25" and "上下游" not in query and "风险" not in query:
+            return _response(
+                query,
+                [_hit("液冷共享 chunk", 0.3, revision="rev-1")],
+                revision="rev-1",
+            )
+        if mode == "hybrid":
+            return _response(
+                query,
+                [
+                    _hit(
+                        "液冷共享 chunk",
+                        0.9,
+                        hardness="hard",
+                        revision="rev-2",
+                    )
+                ],
+                revision="rev-2",
+                dense_initializations=1,
+            )
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    assert result.conclusion == []
+    assert [item.hit.index_source_revision for item in result.clues] == ["rev-1"]
+    assert [item.hit.index_source_revision for item in result.discarded] == ["rev-2"]
+    assert any("snapshot conflict" in warning for warning in result.warnings)
+    assert result.telemetry is not None
+    assert result.telemetry.status == "error"
+    assert result.telemetry.hit_count == 0
+    assert result.telemetry.degraded
+
+
 def test_unrecoverable_status_stops_after_first_attempt() -> None:
     calls: list[tuple[str, str, float]] = []
 

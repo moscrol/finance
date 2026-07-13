@@ -75,7 +75,7 @@ class ClosedLoopRetrievalResult:
         repr=False,
         compare=False,
     )
-    _bucket_telemetry: dict[tuple[str, str, str], RetrievalTelemetry] = field(
+    _hit_provenance: dict[int, tuple[int, RetrievalTelemetry]] = field(
         default_factory=dict,
         init=False,
         repr=False,
@@ -174,15 +174,8 @@ def retrieve_closed_loop(
             budget=budget,
             now=now,
         )
-        bm25_identities = {
-            _hit_identity(hit)
-            for hit in (*narrow_hits, *broad_hits, *counter_hits)
-        }
-        novel_hybrid_hits = [
-            hit for hit in hybrid_hits if _hit_identity(hit) not in bm25_identities
-        ]
         _bucket_hits(
-            tuple(("narrow", hit) for hit in novel_hybrid_hits),
+            tuple(("narrow", hit) for hit in hybrid_hits),
             result,
             relevance_terms=relevance_terms,
             broad_relevance_terms=broad_relevance_terms,
@@ -236,10 +229,11 @@ def _run_one(
         result.dense_initializations
         + int(response_telemetry.dense_initializations)
     )
+    attempt_index = len(result._attempt_telemetries) - 1
     for hit in response.hits:
-        result._bucket_telemetry.setdefault(
-            (aperture, *_hit_identity(hit)),
-            response_telemetry,
+        result._hit_provenance.setdefault(
+            id(hit),
+            (attempt_index, response_telemetry),
         )
     actual_timeout = (
         response_telemetry.timeout_seconds
@@ -292,108 +286,123 @@ def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
     if not result._attempt_telemetries:
         return
 
-    # Ask 只会把 conclusion 和 counter_clues 写成 W 引用；普通 clues
-    # 只是内部研究线索，不得覆盖最后一次 error/timeout 的终态遥测。
-    # 必须保留原始输出项到快照检查完成；若先按 chunk identity
-    # 去重，同一 chunk 被两个 revision 返回时会吞掉冲突证据。
-    output_evidence = [*result.conclusion, *result.counter_clues]
-
-    contributors: list[
-        tuple[BucketedHit, RetrievalTelemetry, tuple[str, str]]
-    ] = []
-    for item in output_evidence:
-        item_telemetry = result._bucket_telemetry.get(
-            (item.aperture, *_hit_identity(item.hit))
-        )
-        if item_telemetry is None:
+    # 先纳入所有已通过相关性闸门的命中（包括普通 clue），再按
+    # 真实 attempt 顺序校验快照。这样 BM25 clue 不会被后来同 chunk 的
+    # hybrid 输出用另一 revision 覆盖。counter 在 clues 中的镜像用
+    # BucketedHit 对象 identity 去重，但 chunk identity 此时仍必须保留。
+    accepted_items: list[BucketedHit] = []
+    seen_items: set[int] = set()
+    for item in (*result.conclusion, *result.clues):
+        if id(item) in seen_items:
             continue
+        seen_items.add(id(item))
+        accepted_items.append(item)
+
+    output_item_ids = {
+        id(item) for item in (*result.conclusion, *result.counter_clues)
+    }
+    records: list[
+        tuple[BucketedHit, RetrievalTelemetry, tuple[str, str], int]
+    ] = []
+    for item in accepted_items:
+        provenance = result._hit_provenance.get(id(item.hit))
+        if provenance is None:
+            continue
+        attempt_index, item_telemetry = provenance
         snapshot = (
             item.hit.index_source_revision
             or item_telemetry.index_source_revision,
             item.hit.index_freshness or item_telemetry.index_freshness,
         )
-        contributors.append((item, item_telemetry, snapshot))
+        records.append((item, item_telemetry, snapshot, attempt_index))
+    records.sort(key=lambda record: record[3])
 
-    if contributors:
-        canonical_snapshot = contributors[0][2]
-        conflicts = [
-            record for record in contributors if record[2] != canonical_snapshot
+    def remove_items(items: list[BucketedHit], *, discard: bool) -> None:
+        remove_ids = {id(item) for item in items}
+        if not remove_ids:
+            return
+        result.conclusion = [
+            item for item in result.conclusion if id(item) not in remove_ids
         ]
-        if conflicts:
-            conflict_keys = {
-                (item.aperture, *_hit_identity(item.hit))
-                for item, _, _ in conflicts
-            }
+        result.counter_clues = [
+            item for item in result.counter_clues if id(item) not in remove_ids
+        ]
+        # counter_clues 与普通 clue 都必须精确按对象同步移除，
+        # 不能用 (aperture, chunk) 一刀切误删 canonical item。
+        result.clues = [item for item in result.clues if id(item) not in remove_ids]
+        if discard:
+            discarded_ids = {id(item) for item in result.discarded}
+            result.discarded.extend(
+                item for item in items if id(item) not in discarded_ids
+            )
 
-            def keep(item: BucketedHit) -> bool:
-                return (
-                    item.aperture,
-                    *_hit_identity(item.hit),
-                ) not in conflict_keys
+    had_snapshot_conflict = False
+    canonical_by_identity: dict[tuple[str, str], tuple[str, str]] = {}
+    identity_conflicts: list[BucketedHit] = []
+    for item, _, snapshot, _ in records:
+        identity = _hit_identity(item.hit)
+        canonical = canonical_by_identity.setdefault(identity, snapshot)
+        if snapshot != canonical:
+            identity_conflicts.append(item)
+    if identity_conflicts:
+        had_snapshot_conflict = True
+        remove_items(identity_conflicts, discard=True)
+        result.warnings.append(
+            "snapshot conflict: discarded "
+            f"{len(identity_conflicts)} same-identity hit(s) before output"
+        )
+        conflict_ids = {id(item) for item in identity_conflicts}
+        records = [record for record in records if id(record[0]) not in conflict_ids]
 
-            result.conclusion = [item for item in result.conclusion if keep(item)]
-            result.counter_clues = [
-                item for item in result.counter_clues if keep(item)
-            ]
-            # counter_clues 也会出现在 clues，必须同步移除，避免
-            # inspector 还把已禁止引用的快照冲突项报成可用线索。
-            result.clues = [item for item in result.clues if keep(item)]
-            discarded_keys = {
-                (item.aperture, *_hit_identity(item.hit))
-                for item in result.discarded
-            }
-            for item, _, _ in conflicts:
-                key = (item.aperture, *_hit_identity(item.hit))
-                if key not in discarded_keys:
-                    result.discarded.append(item)
-                    discarded_keys.add(key)
+    # 同快照、同 chunk 在安全校验后才去重；保留真实召回顺序
+    # 中的第一项，只精确移除后续重复项及 counter 镜像。
+    unique_records: list[
+        tuple[BucketedHit, RetrievalTelemetry, tuple[str, str], int]
+    ] = []
+    seen_identities: set[tuple[str, str]] = set()
+    duplicates: list[BucketedHit] = []
+    for record in records:
+        identity = _hit_identity(record[0].hit)
+        if identity in seen_identities:
+            duplicates.append(record[0])
+            continue
+        seen_identities.add(identity)
+        unique_records.append(record)
+    if duplicates:
+        remove_items(duplicates, discard=False)
+    records = unique_records
+
+    # 不同 chunk 的最终 W 输出也必须处于同一快照。
+    output_records = [record for record in records if id(record[0]) in output_item_ids]
+    if output_records:
+        canonical_output_snapshot = output_records[0][2]
+        output_conflicts = [
+            record
+            for record in output_records
+            if record[2] != canonical_output_snapshot
+        ]
+        if output_conflicts:
+            had_snapshot_conflict = True
+            conflict_items = [record[0] for record in output_conflicts]
+            remove_items(conflict_items, discard=True)
             result.warnings.append(
                 "snapshot conflict: discarded "
-                f"{len(conflicts)} output hit(s); canonical "
-                f"revision={canonical_snapshot[0] or 'missing'}, "
-                f"freshness={canonical_snapshot[1] or 'missing'}"
+                f"{len(conflict_items)} output hit(s); canonical "
+                f"revision={canonical_output_snapshot[0] or 'missing'}, "
+                f"freshness={canonical_output_snapshot[1] or 'missing'}"
             )
-            contributors = [
-                record for record in contributors if record[2] == canonical_snapshot
+            conflict_ids = {id(item) for item in conflict_items}
+            output_records = [
+                record
+                for record in output_records
+                if id(record[0]) not in conflict_ids
             ]
 
-        # 快照安全门通过后再按 chunk identity 去重。conclusion 在
-        # counter_clues 之前，因此同一证据同时被正/反分类时保留
-        # conclusion，同步移除重复 counter 及其 clues 镜像，避免 Ask 双引用。
-        unique_contributors: list[
-            tuple[BucketedHit, RetrievalTelemetry, tuple[str, str]]
-        ] = []
-        seen_identities: set[tuple[str, str]] = set()
-        duplicate_keys: set[tuple[str, str, str]] = set()
-        for record in contributors:
-            item = record[0]
-            identity = _hit_identity(item.hit)
-            if identity in seen_identities:
-                duplicate_keys.add((item.aperture, *identity))
-                continue
-            seen_identities.add(identity)
-            unique_contributors.append(record)
-        if duplicate_keys:
-            result.conclusion = [
-                item
-                for item in result.conclusion
-                if (item.aperture, *_hit_identity(item.hit)) not in duplicate_keys
-            ]
-            result.counter_clues = [
-                item
-                for item in result.counter_clues
-                if (item.aperture, *_hit_identity(item.hit)) not in duplicate_keys
-            ]
-            result.clues = [
-                item
-                for item in result.clues
-                if (item.aperture, *_hit_identity(item.hit)) not in duplicate_keys
-            ]
-        contributors = unique_contributors
+    contributors = output_records
 
     if contributors:
         public = replace(contributors[0][1])
-        contributor_hits = [item.hit for item, _, _ in contributors]
+        contributor_hits = [item.hit for item, _, _, _ in contributors]
         representative = contributor_hits[0]
         canonical_snapshot = contributors[0][2]
         public.status = "ok"
@@ -410,6 +419,18 @@ def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
         public.index_freshness = canonical_snapshot[1]
     else:
         public = replace(result._attempt_telemetries[-1])
+        if had_snapshot_conflict:
+            public.status = "error"
+            public.degraded = True
+            public.hit_count = 0
+            public.neighbor_hits = 0
+            public.score_max = None
+            public.score_min = None
+            public.score_mean = None
+            conflict_warning = "snapshot conflict removed all output evidence"
+            public.warning = "；".join(
+                filter(None, (public.warning, conflict_warning))
+            )
 
     latencies = [
         telemetry.latency_ms
