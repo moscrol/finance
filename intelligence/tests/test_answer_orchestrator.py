@@ -87,6 +87,23 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertTrue(result.question_plan.base_finance_mode.require_market)
         self.assertTrue(result.question_plan.base_finance_mode.require_memory)
 
+    def test_general_base_presenter_does_not_echo_question_as_title(self) -> None:
+        query = "E2E-desktop-123 第三轮有哪些风险"
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        self.assertIn("# 金融问题裁决", rendered)
+        self.assertNotIn(f"# {query}", rendered)
+
     def test_market_forecast_plan_requires_verifiable_hypotheses(self) -> None:
         plan = plan_answer_question("站在6.29视角，6.30的行情怎么看")
 

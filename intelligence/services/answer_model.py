@@ -300,6 +300,7 @@ class AnswerSpec:
     system_notices: tuple[str, ...]
     prompt_constraints: tuple[str, ...] = ()
     presentation_kind: str = "theme_research"
+    presentation_title: str = ""
     quality: AnswerQualityReport = field(default_factory=AnswerQualityReport)
 
     def to_dict(self) -> dict[str, object]:
@@ -316,6 +317,7 @@ class AnswerSpec:
             "system_notices": list(self.system_notices),
             "prompt_constraints": list(self.prompt_constraints),
             "presentation_kind": self.presentation_kind,
+            "presentation_title": self.presentation_title,
             "quality": self.quality.to_dict(),
         }
 
@@ -754,7 +756,7 @@ def _render_base_finance_answer_spec(answer_spec: AnswerSpec) -> str:
         lines.extend((humanize(notices[0]), ""))
     lines.extend(
         (
-            f"# {humanize(answer_spec.research_spec.theme)}",
+            f"# {humanize(answer_spec.presentation_title or answer_spec.research_spec.theme)}",
             "",
             "## 结论",
             f"**直接定性：** {direct}",

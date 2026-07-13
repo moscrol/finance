@@ -2317,6 +2317,17 @@ def _build_answer_spec_for_result(
             }
             else "base_finance"
         ),
+        presentation_title=(
+            {
+                QUESTION_MARKET_FORECAST: "市场判断",
+                QUESTION_VALUATION: "估值判断",
+            }.get(
+                result.question_plan.question_type,
+                "金融问题裁决",
+            )
+            if result.question_plan is not None
+            else "金融问题裁决"
+        ),
     )
     return answer_model.finalize_answer_spec(spec)
 
@@ -2493,6 +2504,7 @@ def _build_base_answer_spec_from_sections(
             if item
         ),
         presentation_kind="base_finance",
+        presentation_title=theme,
     )
     return answer_model.finalize_answer_spec(spec)
 
