@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from intelligence.services.answer_model import (
@@ -343,6 +344,31 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             "907.6599999999997",
         ):
             self.assertNotIn(internal, rendered)
+
+    def test_base_finance_presenter_uses_five_element_conclusion(self) -> None:
+        answer = replace(
+            self._answer(),
+            presentation_kind="base_finance",
+            sources=(
+                EvidenceRef(
+                    "S1",
+                    "fact_market_daily",
+                    "DuckDB retrieval evidence_count=4",
+                ),
+            ),
+        )
+
+        rendered = render_answer_spec(answer)
+
+        self.assertIn("**直接定性：**", rendered)
+        self.assertIn("**最强证据：**", rendered)
+        self.assertIn("**主要风险：**", rendered)
+        self.assertIn("**条件边界：**", rendered)
+        self.assertIn("**下一步验证：**", rendered)
+        self.assertNotIn("fact_market_daily", rendered)
+        self.assertNotIn("DuckDB", rendered)
+        self.assertNotIn("retrieval", rendered)
+        self.assertNotIn("evidence_count", rendered)
 
     def test_llm_gate_rejects_new_company_and_number(self) -> None:
         issues = validate_llm_answer(

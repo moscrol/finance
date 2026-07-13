@@ -24,6 +24,53 @@ DEPTH_DEEP = "deep"
 
 
 @dataclass(frozen=True)
+class BaseFinanceMode:
+    """不依赖专项 Skill 的常驻金融检索与表达底线。"""
+
+    require_market: bool
+    require_memory: bool
+    require_news: bool
+    require_graph: bool
+    require_financials: bool
+    quick_answer: bool
+
+    def to_dict(self) -> dict[str, bool]:
+        return {
+            "require_market": self.require_market,
+            "require_memory": self.require_memory,
+            "require_news": self.require_news,
+            "require_graph": self.require_graph,
+            "require_financials": self.require_financials,
+            "quick_answer": self.quick_answer,
+        }
+
+    def to_prompt_block(self) -> str:
+        required = [
+            label
+            for enabled, label in (
+                (self.require_market, "行情"),
+                (self.require_memory, "历史记忆"),
+                (self.require_news, "近期新闻"),
+                (self.require_graph, "产业链/关系"),
+                (self.require_financials, "财务与估值"),
+            )
+            if enabled
+        ]
+        return "\n".join(
+            (
+                "## Base Finance Mode（始终生效）",
+                f"- 检索底线：{'、'.join(required) or '通用金融证据'}；"
+                "“快答”只缩短表达，不得跳过已触发的检索。",
+                "- 内部先写核心矛盾句；正文结论必须覆盖：直接定性、最强证据、"
+                "主要风险、条件边界（翻转条件）、下一步验证或替代路径。",
+                "- 缺数按三档处理：先做标明假设的区间推断；再找替代锚点；"
+                "仍不足时写“缺 X → 仍可判 Y → 验证窗口 Z”，禁止补造确定性。",
+                "- 用户观点只作为待检验假设；允许明确纠正，而不是顺从用户预设。",
+            )
+        )
+
+
+@dataclass(frozen=True)
 class QuestionPlan:
     """Deterministic P0 planning layer before an answer is composed.
 
@@ -43,6 +90,7 @@ class QuestionPlan:
     missing_data_policy: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     research_spec: ThemeResearchSpec | None = None
+    base_finance_mode: BaseFinanceMode | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -57,6 +105,11 @@ class QuestionPlan:
             "missing_data_policy": self.missing_data_policy,
             "warnings": self.warnings,
             "research_spec": self.research_spec.to_dict() if self.research_spec else None,
+            "base_finance_mode": (
+                self.base_finance_mode.to_dict()
+                if self.base_finance_mode is not None
+                else None
+            ),
         }
 
     def to_json(self) -> str:
@@ -83,6 +136,8 @@ class QuestionPlan:
         if self.warnings:
             lines.append("- 编排警告：")
             lines.extend(f"  - {item}" for item in self.warnings)
+        if self.base_finance_mode is not None:
+            lines.extend(["", self.base_finance_mode.to_prompt_block()])
         if self.research_spec is not None:
             lines.extend(["", self.research_spec.to_prompt_block()])
         return "\n".join(lines)
@@ -116,6 +171,7 @@ def plan_answer_question(
     output_contract = _output_contract(question_type, depth)
     missing_data_policy = _missing_data_policy(question_type)
     warnings = _warnings(raw_query, q, question_type, retrieval_plan)
+    base_finance_mode = _base_finance_mode(raw_query, q, question_type, depth)
     research_spec = (
         resolve_theme_research_spec(raw_query, matched_theme)
         if question_type
@@ -138,6 +194,7 @@ def plan_answer_question(
         missing_data_policy=missing_data_policy,
         warnings=warnings,
         research_spec=research_spec,
+        base_finance_mode=base_finance_mode,
     )
 
 
@@ -147,6 +204,49 @@ def _normalize(text: str) -> str:
 
 def _has_any(text: str, tokens: tuple[str, ...]) -> bool:
     return any(_normalize(token) in text for token in tokens)
+
+
+def _base_finance_mode(
+    raw_query: str,
+    q: str,
+    question_type: str,
+    depth: str,
+) -> BaseFinanceMode:
+    has_specific_target = (
+        question_type in {QUESTION_STOCK_DEEP_DIVE, QUESTION_VALUATION}
+        or bool(re.search(r"\b\d{6}(?:\.(?:SH|SZ|BJ))?\b", raw_query, re.I))
+    )
+    asks_recent_event = question_type == QUESTION_NEWS_IMPACT or _has_any(
+        q,
+        ("最近", "近期", "最新", "新闻", "消息", "公告", "事件", "催化", "进展"),
+    )
+    asks_chain = question_type in {
+        QUESTION_THEME_ANALYSIS,
+        QUESTION_STOCK_DEEP_DIVE,
+        QUESTION_NEWS_IMPACT,
+    } or _has_any(q, ("产业链", "上下游", "供应链", "关系", "受益链"))
+    asks_financials = question_type == QUESTION_VALUATION or _has_any(
+        q,
+        (
+            "财报",
+            "财务",
+            "业绩",
+            "营收",
+            "净利",
+            "毛利率",
+            "估值",
+            "贵不贵",
+            "隐含增长",
+        ),
+    )
+    return BaseFinanceMode(
+        require_market=has_specific_target,
+        require_memory=has_specific_target,
+        require_news=asks_recent_event,
+        require_graph=asks_chain,
+        require_financials=asks_financials,
+        quick_answer=depth == DEPTH_QUICK,
+    )
 
 
 def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:

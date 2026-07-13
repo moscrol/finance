@@ -21,7 +21,7 @@ import json
 import os
 import re
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date as date_cls, timedelta
 from pathlib import Path
 from typing import Any
@@ -544,8 +544,32 @@ def _answer_market_review(
     result.found_market = bool(evidence_parts)
     if not evidence_parts:
         result.warnings.append("最新交易日的正式日报和市场数据均不可用")
+        result.answer_spec = _build_base_answer_spec_from_sections(
+            result,
+            theme="市场复盘",
+            direct_lines=("当前缺少最新交易日资料，无法形成可靠市场复盘。",),
+            risk_lines=("缺最新市场总览与正式日报，任何当日判断都不可靠。",),
+            action_lines=("补齐最新交易日市场总览和正式日报后重新复盘。",),
+        )
         return result
     if not options.compose:
+        result.answer_spec = _build_base_answer_spec_from_sections(
+            result,
+            theme="市场复盘",
+            evidence_blocks=tuple(evidence_parts),
+            direct_lines=(
+                f"截至 {result.trade_date or options.date or '当前可用日期'}，"
+                "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
+            ),
+            risk_lines=tuple(
+                line
+                for line in _presentable_lines(mainline_context)
+                if any(token in line for token in ("缺", "未知", "滞后", "风险"))
+            ),
+            action_lines=(
+                "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
+            ),
+        )
         return result
 
     prior_parts: list[str] = []
@@ -594,6 +618,23 @@ def _answer_market_review(
                 )
             )
 
+    result.answer_spec = _build_base_answer_spec_from_sections(
+        result,
+        theme="市场复盘",
+        evidence_blocks=tuple(evidence_parts),
+        direct_lines=(
+            f"截至 {result.trade_date or options.date or '当前可用日期'}，"
+            "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
+        ),
+        risk_lines=tuple(
+            line
+            for line in _presentable_lines(mainline_context)
+            if any(token in line for token in ("缺", "未知", "滞后", "风险"))
+        ),
+        action_lines=(
+            "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
+        ),
+    )
     plan_block = (
         result.question_plan.to_prompt_block()
         if result.question_plan is not None
@@ -603,8 +644,7 @@ def _answer_market_review(
         f"{plan_block}\n\n"
         f"用户问题：{options.query}\n"
         f"数据日期：{result.trade_date or options.date or '未确认'}\n\n"
-        "以下是本轮唯一可用证据：\n"
-        + "\n\n".join(evidence_parts)
+        f"{result.answer_spec.to_prompt_block()}"
     )
     if options.conversation_context.strip():
         user_prompt += (
@@ -622,22 +662,27 @@ def _answer_market_review(
         {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ]
-    if options.stream_text_delta is not None:
-        composed, reason = llm_refine.synthesize_messages_stream(
-            messages,
-            on_delta=options.stream_text_delta,
-            is_cancelled=options.stream_cancel_check,
-            model_override=options.llm_model,
-            timeout=options.llm_timeout,
-        )
-    else:
-        composed, reason = llm_refine.synthesize_messages(
-            messages,
-            model_override=options.llm_model,
-            timeout=options.llm_timeout,
-        )
+    composed, reason = llm_refine.synthesize_messages(
+        messages,
+        model_override=options.llm_model,
+        timeout=options.llm_timeout,
+    )
     if composed is None:
         result.warnings.append(reason)
+        return result
+    blocking_issues = [
+        issue
+        for issue in answer_model.validate_llm_answer(
+            composed.answer,
+            result.answer_spec,
+        )
+        if issue.severity == "error"
+    ]
+    if blocking_issues:
+        result.warnings.extend(
+            f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
+            for issue in blocking_issues
+        )
         return result
     result.synthesis = composed.answer
     result.llm_provider = composed.provider
@@ -706,6 +751,10 @@ def answer_query(options: AskOptions) -> AskResult:
             options.query,
             options.market_db_path,
         )
+        result.answer_spec = _build_base_answer_spec_from_sections(
+            result,
+            theme="三指数对比",
+        )
         return result
     if question_plan.question_type == QUESTION_MARKET_FORECAST:
         result.forecast_preflight = _forecast_preflight_for_options(
@@ -722,6 +771,16 @@ def answer_query(options: AskOptions) -> AskResult:
     result.anchored_entity = anchor
     if anchor is not None:
         result.warnings.extend(f"entity-anchor：{w}" for w in anchor.warnings)
+        if question_plan.base_finance_mode is not None:
+            question_plan = replace(
+                question_plan,
+                base_finance_mode=replace(
+                    question_plan.base_finance_mode,
+                    require_market=True,
+                    require_memory=True,
+                ),
+            )
+            result.question_plan = question_plan
     # 命中实体后，图谱/向量检索用「实体名+概念暴露」定锚，替代问题原文；未命中保持原文。
     graph_query = anchor.graph_query if anchor is not None else options.query
 
@@ -1499,7 +1558,13 @@ def answer_query(options: AskOptions) -> AskResult:
                 )
 
             block_tasks.append(ask_planner.BlockTask("D8", "历史类比检索", _build_d8))
-        if options.include_financials_block and market_financials.parse_financials_intent(options.query):
+        if options.include_financials_block and (
+            market_financials.parse_financials_intent(options.query)
+            or (
+                question_plan.base_finance_mode is not None
+                and question_plan.base_finance_mode.require_financials
+            )
+        ):
             def _build_d7():
                 block = _financials_block_for_llm(options.query, options.market_db_path)
                 return block, Citation(
@@ -1509,7 +1574,13 @@ def answer_query(options: AskOptions) -> AskResult:
                 )
 
             block_tasks.append(ask_planner.BlockTask("D7", "逐季财报", _build_d7))
-        if options.include_news_block and market_news.parse_news_intent(options.query):
+        if options.include_news_block and (
+            market_news.parse_news_intent(options.query)
+            or (
+                question_plan.base_finance_mode is not None
+                and question_plan.base_finance_mode.require_news
+            )
+        ):
             def _build_w7():
                 news_keyword = market_news.resolve_news_keyword(options.query, theme, anchored_name)
                 block = market_news.news_block_for_keyword(news_keyword)
@@ -2235,6 +2306,193 @@ def _build_answer_spec_for_result(
             )
             if item
         ),
+        presentation_kind=(
+            "theme_research"
+            if result.question_plan is not None
+            and result.question_plan.question_type
+            in {
+                QUESTION_THEME_ANALYSIS,
+                QUESTION_NEWS_IMPACT,
+                QUESTION_STOCK_DEEP_DIVE,
+            }
+            else "base_finance"
+        ),
+    )
+    return answer_model.finalize_answer_spec(spec)
+
+
+def _presentable_lines(*blocks: str) -> list[str]:
+    lines: list[str] = []
+    for block in blocks:
+        for raw in str(block or "").splitlines():
+            line = raw.strip().lstrip("-").strip()
+            if (
+                not line
+                or line.startswith("#")
+                or line.startswith("|")
+                or set(line) <= {"-", "|", ":", " "}
+            ):
+                continue
+            lines.append(line)
+    return list(dict.fromkeys(lines))
+
+
+def _build_base_answer_spec_from_sections(
+    result: AskResult,
+    *,
+    theme: str,
+    evidence_blocks: tuple[str, ...] = (),
+    direct_lines: tuple[str, ...] = (),
+    risk_lines: tuple[str, ...] = (),
+    action_lines: tuple[str, ...] = (),
+) -> answer_model.AnswerSpec:
+    citations = [
+        citation for citation in result.citations if citation.tag not in {"M", "V"}
+    ]
+    sources = [
+        answer_model.EvidenceRef(
+            evidence_id=citation.tag,
+            source=citation.source,
+            detail=citation.detail,
+        )
+        for citation in citations
+    ]
+    evidence_ids = tuple(dict.fromkeys(citation.tag for citation in citations))
+    if evidence_blocks:
+        sources.append(
+            answer_model.EvidenceRef(
+                evidence_id="BASE",
+                source="本轮可核验资料",
+                detail="用于统一答案裁决与展示。",
+            )
+        )
+        evidence_ids = (*evidence_ids, "BASE")
+
+    conclusions = list(direct_lines) or _presentable_lines(
+        "\n".join(result.sections.get("结论", []))
+    )
+    if not conclusions:
+        conclusions = ["当前证据不足，暂时不能形成可靠定性。"]
+    summary_status = (
+        answer_model.ClaimStatus.INFERRED
+        if evidence_ids
+        else answer_model.ClaimStatus.MISSING
+    )
+    summary = tuple(
+        answer_model.make_claim(
+            claim_id=f"base:summary:{index}",
+            text=line,
+            claim_type="summary",
+            theme=theme,
+            status=summary_status,
+            evidence_tier="base_finance",
+            evidence_ids=evidence_ids,
+        )
+        for index, line in enumerate(conclusions[:3], start=1)
+    )
+
+    evidence_lines = _presentable_lines(
+        "\n".join(result.sections.get("证据链", [])),
+        *evidence_blocks,
+    )
+    verified_facts = tuple(
+        answer_model.make_claim(
+            claim_id=f"base:fact:{index}",
+            text=line,
+            claim_type="supporting_fact",
+            theme=theme,
+            status=answer_model.ClaimStatus.VERIFIED,
+            evidence_tier="base_finance",
+            evidence_ids=evidence_ids,
+        )
+        for index, line in enumerate(evidence_lines[:8], start=1)
+        if evidence_ids
+    )
+
+    risks = list(risk_lines) or _presentable_lines(
+        "\n".join(result.sections.get("分歧反证", []))
+    )
+    if not risks:
+        risks = ["缺少足以独立复核结论的反方资料。"]
+    gaps = tuple(
+        answer_model.make_claim(
+            claim_id=f"base:gap:{index}",
+            text=line,
+            claim_type="evidence_gap",
+            theme=theme,
+            status=answer_model.ClaimStatus.MISSING,
+        )
+        for index, line in enumerate(risks[:6], start=1)
+    )
+
+    implications = _presentable_lines(
+        "\n".join(result.sections.get("交易含义", []))
+    )
+    boundary_lines = implications or [
+        "若关键证据或市场条件出现反向变化，当前判断应立即降级。"
+    ]
+    triggers = tuple(
+        answer_model.make_claim(
+            claim_id=f"base:trigger:{index}",
+            text=line,
+            claim_type="condition_boundary",
+            theme=theme,
+            status=answer_model.ClaimStatus.INFERRED,
+            evidence_tier="base_finance",
+            evidence_ids=evidence_ids,
+        )
+        for index, line in enumerate(boundary_lines[:3], start=1)
+    )
+
+    actions = list(action_lines) or _presentable_lines(
+        "\n".join(result.sections.get("后续验证点", []))
+    )
+    if not actions:
+        actions = ["补齐核心数据后重新裁决。"]
+    spec = answer_model.AnswerSpec(
+        research_spec=answer_model.ThemeResearchSpec(
+            theme=theme,
+            pack_id="base_finance_mode",
+            definition="常驻金融问答基座",
+            chain_stages=(),
+            company_scope="",
+            as_of=result.trade_date,
+            evidence_requirements=(),
+            counter_evidence_requirements=(),
+            trigger_conditions=(),
+            verification_actions=tuple(actions),
+            requested_sections=(
+                "direct_assessment",
+                "strongest_evidence",
+                "main_risk",
+                "condition_boundary",
+                "next_verification",
+            ),
+        ),
+        summary=summary,
+        verified_facts=verified_facts,
+        company_table=(),
+        counter_evidence=(),
+        gaps=gaps,
+        triggers=triggers,
+        next_actions=tuple(actions),
+        sources=tuple(dict.fromkeys(sources)),
+        system_notices=tuple(
+            item for item in (result.data_notice,) if item
+        ),
+        prompt_constraints=tuple(
+            item
+            for item in (
+                (
+                    result.question_plan.to_prompt_block()
+                    if result.question_plan is not None
+                    else ""
+                ),
+                *evidence_blocks,
+            )
+            if item
+        ),
+        presentation_kind="base_finance",
     )
     return answer_model.finalize_answer_spec(spec)
 
@@ -3504,11 +3762,7 @@ NO_EVIDENCE_NOTICE = "本轮没有形成可用于结论的可验证来源；以�
 
 
 def render_answer(result: AskResult) -> str:
-    use_research_answer_spec = (
-        result.answer_spec is not None
-        and result.question_plan is not None
-        and result.question_plan.research_spec is not None
-    )
+    use_research_answer_spec = result.answer_spec is not None
     lines: list[str] = []
     lines.append(f"# ask：{result.query}")
     if result.clarify is not None:
@@ -3585,11 +3839,7 @@ def render_conversation_answer(result: AskResult) -> str:
     evidence_notice = f"{NO_EVIDENCE_NOTICE}\n\n" if not result.citations else ""
     if result.synthesis:
         return result.synthesis
-    if (
-        result.answer_spec is not None
-        and result.question_plan is not None
-        and result.question_plan.research_spec is not None
-    ):
+    if result.answer_spec is not None:
         return answer_model.render_answer_spec(result.answer_spec)
 
     lines: list[str] = []

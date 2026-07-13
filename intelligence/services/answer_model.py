@@ -299,6 +299,7 @@ class AnswerSpec:
     sources: tuple[EvidenceRef, ...]
     system_notices: tuple[str, ...]
     prompt_constraints: tuple[str, ...] = ()
+    presentation_kind: str = "theme_research"
     quality: AnswerQualityReport = field(default_factory=AnswerQualityReport)
 
     def to_dict(self) -> dict[str, object]:
@@ -314,6 +315,7 @@ class AnswerSpec:
             "sources": [source.to_dict() for source in self.sources],
             "system_notices": list(self.system_notices),
             "prompt_constraints": list(self.prompt_constraints),
+            "presentation_kind": self.presentation_kind,
             "quality": self.quality.to_dict(),
         }
 
@@ -589,6 +591,9 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
 
 
 def render_answer_spec(answer_spec: AnswerSpec) -> str:
+    if answer_spec.presentation_kind == "base_finance":
+        return _render_base_finance_answer_spec(answer_spec)
+
     lines: list[str] = []
     notices = _dedupe(answer_spec.system_notices)
     if notices:
@@ -714,8 +719,96 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _render_base_finance_answer_spec(answer_spec: AnswerSpec) -> str:
+    notices = _dedupe(answer_spec.system_notices)
+    summary = _dedupe_claims(answer_spec.summary)
+    facts = _dedupe_claims(answer_spec.verified_facts)
+    risks = _dedupe_claims((*answer_spec.counter_evidence, *answer_spec.gaps))
+    conditions = _dedupe_claims(answer_spec.triggers)
+    actions = _dedupe(answer_spec.next_actions)
+
+    direct = (
+        _present_summary_claim(summary[0])
+        if summary
+        else "当前证据不足，暂时不能形成可靠定性。"
+    )
+    strongest = (
+        humanize(facts[0].text)
+        if facts
+        else "本轮没有形成可回查的硬证据，结论只能保持待验证。"
+    )
+    risk = (
+        _present_claim(risks[0])
+        if risks
+        else "暂未发现足以改变结论的反证，但仍需等待下一验证窗口。"
+    )
+    boundary = (
+        _present_claim(conditions[0])
+        if conditions
+        else "若关键证据或市场条件发生反向变化，当前判断应立即降级。"
+    )
+    next_step = actions[0] if actions else "补齐核心数据后重新裁决。"
+
+    lines: list[str] = []
+    if notices:
+        lines.extend((humanize(notices[0]), ""))
+    lines.extend(
+        (
+            f"# {humanize(answer_spec.research_spec.theme)}",
+            "",
+            "## 结论",
+            f"**直接定性：** {direct}",
+            f"**最强证据：** {strongest}",
+            f"**主要风险：** {risk}",
+            f"**条件边界：** {boundary}",
+            f"**下一步验证：** {humanize(next_step)}",
+        )
+    )
+    lines.extend(
+        f"**补充判断：** {_present_summary_claim(claim)}"
+        for claim in summary[1:3]
+    )
+    if len(facts) > 1:
+        lines.extend(("", "## 支撑依据"))
+        lines.extend(
+            f"- {humanize(claim.text)}" for claim in facts[1:6]
+        )
+    if len(risks) > 1:
+        lines.extend(("", "## 风险与缺口"))
+        lines.extend(f"- {_present_claim(claim)}" for claim in risks[1:5])
+    if len(actions) > 1:
+        lines.extend(("", "## 验证路径"))
+        lines.extend(
+            f"{index}. {humanize(action)}"
+            for index, action in enumerate(actions[1:5], start=1)
+        )
+    detail_lines: list[str] = []
+    if answer_spec.sources:
+        detail_lines.extend(("### 来源", *_present_sources(answer_spec.sources)))
+    if len(notices) > 1:
+        detail_lines.extend(
+            ("", "### 数据边界", *(f"- {humanize(item)}" for item in notices[1:]))
+        )
+    if detail_lines:
+        lines.extend(("", "<details><summary>展开来源和数据边界</summary>", ""))
+        lines.extend(detail_lines)
+        lines.extend(("", "</details>"))
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
     allowed = render_answer_spec(answer_spec) + "\n" + answer_spec.to_prompt_block()
+    allowed_number_text = allowed
+    for year, month, day in re.findall(
+        r"\b(20\d{2})-(\d{2})-(\d{2})\b",
+        allowed,
+    ):
+        month_number = int(month)
+        day_number = int(day)
+        allowed_number_text += (
+            f"\n{year}年{month_number}月{day_number}日"
+            f"\n{month_number}月{day_number}日"
+        )
     issues: list[QualityIssue] = []
     leaked = [term for term in _ENGINEERING_TERMS if term in answer]
     if leaked:
@@ -730,7 +823,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
         {
             token
             for token in (*_NUMBER_WITH_UNIT_RE.findall(answer), *_DATE_RE.findall(answer))
-            if token not in allowed
+            if token not in allowed_number_text
         }
     )
     if new_numbers:
@@ -778,6 +871,15 @@ def humanize(text: str) -> str:
     )
     for internal, public in _PRESENTER_REPLACEMENTS:
         rendered = rendered.replace(internal, public)
+    rendered = re.sub(
+        r"\b(?:fact|dim|feature|config)_[a-z0-9_]+\b",
+        "本地结构化数据",
+        rendered,
+        flags=re.I,
+    )
+    rendered = re.sub(r"\bevidence_count\s*=\s*\d+\b", "", rendered, flags=re.I)
+    rendered = re.sub(r"\bretrieval\b", "资料核验", rendered, flags=re.I)
+    rendered = re.sub(r"\brerank\b", "相关性复核", rendered, flags=re.I)
     rendered = rendered.replace("检索失败", "该资料源本轮不可用，未用于结论")
     rendered = re.sub(r"\[([A-Z]\d+)\]", "", rendered)
     rendered = re.sub(

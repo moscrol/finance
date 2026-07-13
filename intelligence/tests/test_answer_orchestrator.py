@@ -17,11 +17,29 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_VALUATION,
     plan_answer_question,
 )
-from intelligence.services.ask import AskOptions, answer_query
+from intelligence.services.ask import AskOptions, answer_query, render_conversation_answer
+from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.llm_refine import SynthesisResult
 
 
 class AnswerOrchestratorTests(unittest.TestCase):
+    def test_base_finance_mode_keeps_retrieval_floor_for_quick_answers(self) -> None:
+        plan = plan_answer_question("600519 快答：最近消息、产业链和财务估值怎么看")
+
+        self.assertIsNotNone(plan.base_finance_mode)
+        assert plan.base_finance_mode is not None
+        self.assertTrue(plan.base_finance_mode.require_market)
+        self.assertTrue(plan.base_finance_mode.require_memory)
+        self.assertTrue(plan.base_finance_mode.require_news)
+        self.assertTrue(plan.base_finance_mode.require_graph)
+        self.assertTrue(plan.base_finance_mode.require_financials)
+        self.assertTrue(plan.base_finance_mode.quick_answer)
+        prompt = plan.to_prompt_block()
+        self.assertIn("“快答”只缩短表达，不得跳过已触发的检索", prompt)
+        self.assertIn("直接定性、最强证据、主要风险、条件边界", prompt)
+        self.assertIn("用户观点只作为待检验假设", prompt)
+        self.assertIn("缺 X → 仍可判 Y → 验证窗口 Z", prompt)
+
     def test_stock_deep_dive_plan_requires_multilens_and_hybrid_rag(self) -> None:
         plan = plan_answer_question("用 hybrid 深挖飞凯材料，还有没有上涨空间")
 
@@ -39,6 +57,35 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("D1/D2/D3", joined_sources)
         self.assertIn("L3 硬证据", "\n".join(plan.missing_data_policy))
         self.assertIn("市场正在奖励谁、抛弃谁、犹豫谁", joined_gates)
+
+    def test_entity_anchor_turns_on_market_and_memory_floor(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.entity_anchor.resolve_entity_anchor",
+                return_value=EntityAnchor(
+                    entity="贵州茅台",
+                    ticker="600519.SH",
+                    concepts=("白酒",),
+                ),
+            ),
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="茅台最近怎么样",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        self.assertIsNotNone(result.question_plan)
+        assert result.question_plan is not None
+        self.assertIsNotNone(result.question_plan.base_finance_mode)
+        assert result.question_plan.base_finance_mode is not None
+        self.assertTrue(result.question_plan.base_finance_mode.require_market)
+        self.assertTrue(result.question_plan.base_finance_mode.require_memory)
 
     def test_market_forecast_plan_requires_verifiable_hypotheses(self) -> None:
         plan = plan_answer_question("站在6.29视角，6.30的行情怎么看")
@@ -377,6 +424,14 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertNotIn("第一性原理门槛", captured["prompt"])
         self.assertNotIn("- 反方审稿：", captured["prompt"])
         self.assertIn("当前交易日主线未知", captured["prompt"])
+        self.assertIsNotNone(result.answer_spec)
+        rendered = render_conversation_answer(result)
+        self.assertIn("**直接定性：**", rendered)
+        self.assertIn("**最强证据：**", rendered)
+        self.assertIn("**主要风险：**", rendered)
+        self.assertIn("**条件边界：**", rendered)
+        self.assertIn("**下一步验证：**", rendered)
+        self.assertNotIn("检索遥测", rendered)
 
     def test_ask_compose_injects_canonical_next_trading_day(self) -> None:
         duckdb = __import__("duckdb")
