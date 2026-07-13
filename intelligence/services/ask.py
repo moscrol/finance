@@ -295,7 +295,9 @@ class AskResult:
     ) = None
     routed_modules: list[str] = field(default_factory=list)
     llm_refined: bool = False
+    llm_attempted: bool = False
     llm_provider: str | None = None
+    llm_fallback_reason: str | None = None
     # 有机合成（--compose）的自由形态回答正文；None 表示未启用/已降级为模板
     synthesis: str | None = None
     # 首轮合成的完整对话 messages（system+user+assistant）；供多轮追问复用证据+历史。
@@ -327,6 +329,7 @@ class AskResult:
     valuation_note: valuation_gap.ValuationGapNote | None = None
     # Review 层：输出前六项确定性检查闸门（只读、WARN 不阻断）。
     review_gate: output_review.OutputReviewGate | None = None
+    quality_context: AnswerQualityContext | None = None
     # 裁决层唯一输出：表达层和 LLM 只能消费该结构，不能直接拼接检索字符串。
     answer_spec: answer_model.AnswerSpec | None = None
     # D1-D4 DuckDB 数据块的 per-block 可观测字段。
@@ -953,13 +956,19 @@ def _answer_market_review(
         {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ]
+    result.llm_attempted = (
+        llm_refine.detect_provider(options.llm_model) is not None
+    )
     composed, reason = llm_refine.synthesize_messages(
         messages,
         model_override=options.llm_model,
         timeout=options.llm_timeout,
     )
     if composed is None:
-        result.warnings.append(reason)
+        result.llm_fallback_reason = _stable_llm_fallback_reason(reason)
+        result.warnings.append(
+            f"LLM 合成未采用：{result.llm_fallback_reason}"
+        )
         return result
     blocking_issues = [
         issue
@@ -970,6 +979,7 @@ def _answer_market_review(
         if issue.severity == "error"
     ]
     if blocking_issues:
+        result.llm_fallback_reason = "quality_gate_rejected"
         result.warnings.extend(
             f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
             for issue in blocking_issues
@@ -977,6 +987,7 @@ def _answer_market_review(
         return result
     result.synthesis = composed.answer
     result.llm_provider = composed.provider
+    result.llm_fallback_reason = None
     result.synthesis_messages = [
         *messages,
         {"role": "assistant", "content": composed.answer},
@@ -1329,7 +1340,11 @@ def answer_query(options: AskOptions) -> AskResult:
         )
         progress("deterministic_recall", "completed")
         progress("synthesis", "running")
-        progress("synthesis", "degraded")
+        synthesize_existing_answer_spec(options, result)
+        progress(
+            "synthesis",
+            "completed" if result.synthesis is not None else "degraded",
+        )
         return result
     if (
         envelope.subject_kind == "market_pattern"
@@ -1342,7 +1357,11 @@ def answer_query(options: AskOptions) -> AskResult:
         progress("deterministic_recall", "completed")
         progress("synthesis", "running")
         general_result = _answer_general_finance(options, result, question_plan)
-        progress("synthesis", "completed")
+        synthesize_existing_answer_spec(options, general_result)
+        progress(
+            "synthesis",
+            "completed" if general_result.synthesis is not None else "degraded",
+        )
         return general_result
     if question_plan.question_type == QUESTION_MARKET_FORECAST:
         result.forecast_preflight = _forecast_preflight_for_options(
@@ -1829,6 +1848,7 @@ def answer_query(options: AskOptions) -> AskResult:
         market_lines=market_lines,
         gap_lines=gap_lines,
     )
+    result.quality_context = quality_context
     gap_lines.insert(0, f"阶段判断：{quality_context.stage}（证据层：{', '.join(quality_context.layers) or '未识别'}）")
     gap_lines.extend(f"市场结构推演路径：{item}" for item in quality_context.methodology_checks)
     gap_lines.extend(f"反方审稿：{item}" for item in quality_context.critic_questions)
@@ -2380,15 +2400,8 @@ def answer_query(options: AskOptions) -> AskResult:
             citations=citations,
         )
         if options.synthesize:
-            _synthesize_answer_spec(
-                options=options,
-                result=result,
-                question_plan=question_plan,
-                theme=theme,
-                citations=citations,
-                quality_context=quality_context,
-                is_market_review=is_market_review,
-            )
+            result.citations = citations
+            synthesize_existing_answer_spec(options, result)
 
     if result.answer_spec is None:
         result.answer_spec = _build_answer_spec_for_result(
@@ -3087,6 +3100,52 @@ def _dedupe_structured_claims(
     return result
 
 
+def _stable_llm_fallback_reason(reason: str | None) -> str:
+    normalized = str(reason or "").lower()
+    if (
+        "timeout" in normalized
+        or "timed out" in normalized
+        or "超时" in normalized
+        or "http 408" in normalized
+        or "http 504" in normalized
+    ):
+        return "provider_timeout"
+    return "provider_unavailable"
+
+
+def synthesize_existing_answer_spec(
+    options: AskOptions,
+    result: AskResult,
+) -> AskResult:
+    """Synthesize an existing AnswerSpec without running retrieval again."""
+    if (
+        not options.compose
+        or not options.synthesize
+        or result.answer_spec is None
+        or result.question_plan is None
+        or result.synthesis is not None
+        or result.llm_attempted
+        or result.llm_fallback_reason is not None
+    ):
+        return result
+    _synthesize_answer_spec(
+        options=options,
+        result=result,
+        question_plan=result.question_plan,
+        theme=(
+            result.answer_spec.presentation_title
+            or result.answer_spec.research_spec.theme
+            or _answer_subject(result.question_plan)
+        ),
+        citations=result.citations,
+        quality_context=result.quality_context,
+        is_market_review=(
+            result.question_plan.question_type == QUESTION_MARKET_REVIEW
+        ),
+    )
+    return result
+
+
 def _synthesize_answer_spec(
     *,
     options: AskOptions,
@@ -3094,7 +3153,7 @@ def _synthesize_answer_spec(
     question_plan: QuestionPlan,
     theme: str,
     citations: list[Citation],
-    quality_context: AnswerQualityContext,
+    quality_context: AnswerQualityContext | None,
     is_market_review: bool,
 ) -> None:
     if result.answer_spec is None:
@@ -3163,6 +3222,9 @@ def _synthesize_answer_spec(
                 ),
             },
         )
+    result.llm_attempted = (
+        llm_refine.detect_provider(options.llm_model) is not None
+    )
     if options.compose_self_review:
         composed, reason = llm_refine.synthesize_messages_with_review(
             messages,
@@ -3176,7 +3238,10 @@ def _synthesize_answer_spec(
             timeout=options.llm_timeout,
         )
     if composed is None:
-        result.warnings.append(reason)
+        result.llm_fallback_reason = _stable_llm_fallback_reason(reason)
+        result.warnings.append(
+            f"LLM 合成未采用：{result.llm_fallback_reason}"
+        )
         return
     proposed_synthesis = (
         f"{result.data_notice}\n\n{composed.answer}"
@@ -3192,6 +3257,7 @@ def _synthesize_answer_spec(
         if issue.severity == "error"
     ]
     if blocking_issues:
+        result.llm_fallback_reason = "quality_gate_rejected"
         result.warnings.extend(
             f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
             for issue in blocking_issues
@@ -3199,6 +3265,7 @@ def _synthesize_answer_spec(
         return
     result.synthesis = proposed_synthesis
     result.llm_provider = composed.provider
+    result.llm_fallback_reason = None
     result.synthesis_messages = [
         *messages,
         {"role": "assistant", "content": result.synthesis},
@@ -3206,7 +3273,7 @@ def _synthesize_answer_spec(
     if options.stream_text_delta is not None:
         options.stream_text_delta(result.synthesis)
     if reason:
-        result.warnings.append(reason)
+        result.warnings.append("LLM 合成已采用，但附加自审未完成")
 
 
 def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:

@@ -187,6 +187,7 @@ def new_structured_report(
     run_id: str,
     question: str,
     task_type: str,
+    llm_configured: bool = False,
 ) -> dict[str, Any]:
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -195,7 +196,14 @@ def new_structured_report(
         "task_type": task_type,
         "status": "streaming",
         "as_of": None,
-        "llm": {"used": False, "provider": None, "model": None},
+        "llm": {
+            "configured": llm_configured,
+            "attempted": False,
+            "used": False,
+            "provider": None,
+            "model": None,
+            "fallback_reason": None,
+        },
         "modules": [],
         "warnings": [],
     }
@@ -710,14 +718,32 @@ def complete_report(
     warnings: list[str],
     llm_provider: str | None,
     llm_model: str | None,
+    llm_configured: bool = False,
+    llm_attempted: bool = False,
+    llm_fallback_reason: str | None = None,
 ) -> dict[str, Any]:
     report["status"] = "completed"
     report["as_of"] = as_of
     report["warnings"] = list(dict.fromkeys(warnings))
+    used = llm_provider is not None
+    stable_fallbacks = {
+        "provider_timeout",
+        "provider_unavailable",
+        "quality_gate_rejected",
+        "budget_exhausted",
+    }
+    fallback_reason = (
+        llm_fallback_reason
+        if llm_fallback_reason in stable_fallbacks and not used
+        else None
+    )
     report["llm"] = {
-        "used": llm_provider is not None,
-        "provider": llm_provider,
-        "model": llm_model,
+        "configured": llm_configured,
+        "attempted": llm_attempted,
+        "used": used,
+        "provider": llm_provider if used else None,
+        "model": llm_model if used else None,
+        "fallback_reason": fallback_reason,
     }
     report["completed_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     return report

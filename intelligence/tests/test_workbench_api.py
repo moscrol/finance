@@ -316,6 +316,7 @@ def test_conversation_worker_passes_selected_model_to_orchestrator(
         llm_provider=provider,
     )
 
+    assert captured["llm_configured"] is True
     assert captured["llm_model"] == "glm-4-flash"
 
 
@@ -1399,6 +1400,7 @@ def test_create_app_recovers_interrupted_conversation_turn(tmp_path, monkeypatch
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "recovery-secret")
 
     run_store = RunStore()
     conversation_store = ConversationStore(user_id=run_store.user_id)
@@ -1470,6 +1472,8 @@ def test_create_app_recovers_interrupted_conversation_turn(tmp_path, monkeypatch
     assert captured["selected_skill_ids"] == ["daily-agent"]
     assert captured["perspective_mode"] == "compare"
     assert captured["selected_perspective_ids"] == ["fengyuan94"]
+    assert isinstance(captured["llm_provider"], app_module.LLMProvider)
+    assert captured["llm_provider"].name == "zhipu"
     assert str(captured["event_id_prefix"]).startswith("recovery:")
 
 

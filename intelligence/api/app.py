@@ -506,6 +506,7 @@ def _run_conversation_turn(
             runtime_inputs=runtime_inputs,
             conversation_store=conversation_store,
             run_store=run_store,
+            llm_configured=llm_provider is not None,
             llm_model=llm_provider.model if llm_provider is not None else None,
             is_cancelled=cancellation_signal.is_set,
             cancellation_reason=lambda: cancellation_signal.reason,
@@ -601,10 +602,12 @@ def _run_ask(
     from intelligence.services.llm_refine import detect_provider
 
     repo_root = req.repo_root or REPO_ROOT
+    provider = detect_provider()
     report = new_structured_report(
         run_id=run_id,
         question=req.question,
         task_type=req.task_type,
+        llm_configured=provider is not None,
     )
     store.append_stream_event(
         run_id,
@@ -783,13 +786,15 @@ def _run_ask(
         renderer="json",
         title="结构化摘要",
     )
-    provider = detect_provider()
     complete_report(
         report,
         as_of=result.trade_date or report_date,
         warnings=[*report_warnings, *result.warnings],
         llm_provider=result.llm_provider,
         llm_model=provider.model if provider and result.llm_provider else None,
+        llm_configured=provider is not None,
+        llm_attempted=result.llm_attempted,
+        llm_fallback_reason=result.llm_fallback_reason,
     )
     store.add_artifact(
         run_id,
@@ -1016,6 +1021,7 @@ def _resume_conversation_run(
     run: rs.Run,
     repo_root: Path,
     runtime_inputs: RuntimeResearchInputs | None = None,
+    llm_provider: LLMProvider | None = None,
 ) -> bool:
     if run.session_id is None:
         return False
@@ -1054,6 +1060,7 @@ def _resume_conversation_run(
         perspective_mode=user_message.perspective_mode,
         selected_perspective_ids=list(user_message.selected_perspective_ids),
         event_id_prefix=event_id_prefix,
+        llm_provider=llm_provider,
     )
     return True
 
@@ -1111,6 +1118,7 @@ def create_app(
                         run,
                         root,
                         runtime_inputs,
+                        llm_settings.provider_for(store.user_id),
                     ):
                         continue
                 except (

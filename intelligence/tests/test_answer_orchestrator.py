@@ -1116,6 +1116,179 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("**条件边界：**", rendered)
         self.assertIn("**下一步验证：**", rendered)
 
+    def test_market_pattern_answer_spec_gets_one_bounded_synthesis(self) -> None:
+        query = "题材连续上涨但成交占比下降，怎么判断健康分歧还是高潮？"
+        synthesized = "成交占比下降需要结合广度与龙头承接判断。（非投资建议）"
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.detect_provider",
+                return_value=mock.Mock(),
+            ),
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                return_value=(
+                    SynthesisResult(
+                        answer=synthesized,
+                        provider="zhipu",
+                        model="glm-5.2",
+                    ),
+                    "",
+                ),
+            ) as synthesize,
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=[],
+            ) as gate,
+        ):
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                    compose_self_review=False,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                )
+            )
+
+        synthesize.assert_called_once()
+        gate.assert_called_once()
+        self.assertTrue(result.llm_attempted)
+        self.assertEqual(result.llm_provider, "zhipu")
+        assert result.synthesis is not None
+        self.assertTrue(result.synthesis.endswith(synthesized))
+        self.assertIsNone(result.llm_fallback_reason)
+
+    def test_market_pattern_timeout_keeps_answer_spec_with_stable_fallback(
+        self,
+    ) -> None:
+        query = "题材连续上涨但成交占比下降，怎么判断？"
+        private_reason = "TimeoutError at /private/provider/request"
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.detect_provider",
+                return_value=mock.Mock(),
+            ),
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                return_value=(None, private_reason),
+            ) as synthesize,
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+            ) as gate,
+        ):
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                    compose_self_review=False,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                )
+            )
+
+        synthesize.assert_called_once()
+        gate.assert_not_called()
+        self.assertTrue(result.llm_attempted)
+        self.assertEqual(result.llm_fallback_reason, "provider_timeout")
+        self.assertIsNone(result.llm_provider)
+        self.assertIsNone(result.synthesis)
+        self.assertIsNotNone(result.answer_spec)
+        self.assertNotIn(private_reason, "\n".join(result.warnings))
+
+    def test_market_pattern_unconfigured_provider_is_not_counted_as_attempted(
+        self,
+    ) -> None:
+        private_reason = "missing provider with secret header"
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.detect_provider",
+                return_value=None,
+            ),
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                return_value=(None, private_reason),
+            ) as synthesize,
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="题材分歧怎么判断？",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                    compose_self_review=False,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                )
+            )
+
+        synthesize.assert_called_once()
+        self.assertFalse(result.llm_attempted)
+        self.assertEqual(result.llm_fallback_reason, "provider_unavailable")
+        self.assertNotIn(private_reason, "\n".join(result.warnings))
+
+    def test_market_pattern_quality_gate_rejection_keeps_deterministic_spec(
+        self,
+    ) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.detect_provider",
+                return_value=mock.Mock(),
+            ),
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                return_value=(
+                    SynthesisResult(
+                        answer="越过证据边界的输出",
+                        provider="zhipu",
+                        model="glm-5.2",
+                    ),
+                    "",
+                ),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=[
+                    mock.Mock(
+                        severity="error",
+                        message="输出包含 AnswerSpec 外事实",
+                    )
+                ],
+            ),
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="题材分歧怎么判断？",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                    compose_self_review=False,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                )
+            )
+
+        self.assertTrue(result.llm_attempted)
+        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertIsNone(result.llm_provider)
+        self.assertIsNone(result.synthesis)
+        self.assertIsNotNone(result.answer_spec)
+
     def test_index_breadth_divergence_gets_a_structural_market_answer(self) -> None:
         query = "指数涨、涨停数降、成交额放大，应该怎么理解？"
         plan = plan_answer_question(query)

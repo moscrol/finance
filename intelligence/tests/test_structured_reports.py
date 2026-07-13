@@ -157,6 +157,7 @@ def test_llm_and_deterministic_sections_share_one_report_contract() -> None:
         priority_score=80,
     )
     result.synthesis = "量能修复，但须核对 L2 扫描时效。[D9]"
+    result.llm_attempted = True
     result.llm_provider = "glm"
     result.sections = {
         "结论": ["市场修复延续。"],
@@ -167,6 +168,7 @@ def test_llm_and_deterministic_sections_share_one_report_contract() -> None:
         run_id="run_demo",
         question="今日复盘",
         task_type="daily",
+        llm_configured=True,
     )
     for module in ask_result_modules(result):
         upsert_report_module(report, module)
@@ -176,13 +178,90 @@ def test_llm_and_deterministic_sections_share_one_report_contract() -> None:
         warnings=[],
         llm_provider="glm",
         llm_model="glm-5.2",
+        llm_configured=True,
+        llm_attempted=True,
+        llm_fallback_reason=None,
     )
 
     assert report["status"] == "completed"
-    assert report["llm"] == {"used": True, "provider": "glm", "model": "glm-5.2"}
+    assert report["llm"] == {
+        "configured": True,
+        "attempted": True,
+        "used": True,
+        "provider": "glm",
+        "model": "glm-5.2",
+        "fallback_reason": None,
+    }
     assert report["modules"][0]["module_id"] == "llm_synthesis"
     assert report["modules"][1]["kind"] == "summary"
     assert "html" not in json.dumps(report, ensure_ascii=False).lower()
+
+
+def test_llm_report_contract_distinguishes_three_non_sensitive_states() -> None:
+    configured = new_structured_report(
+        run_id="configured",
+        question="等待合成",
+        task_type="ask",
+        llm_configured=True,
+    )
+    assert configured["llm"] == {
+        "configured": True,
+        "attempted": False,
+        "used": False,
+        "provider": None,
+        "model": None,
+        "fallback_reason": None,
+    }
+
+    used = new_structured_report(
+        run_id="used",
+        question="已合成",
+        task_type="ask",
+        llm_configured=True,
+    )
+    complete_report(
+        used,
+        as_of="2026-07-11",
+        warnings=[],
+        llm_provider="zhipu",
+        llm_model="glm-5.2",
+        llm_configured=True,
+        llm_attempted=True,
+        llm_fallback_reason=None,
+    )
+    assert used["llm"] == {
+        "configured": True,
+        "attempted": True,
+        "used": True,
+        "provider": "zhipu",
+        "model": "glm-5.2",
+        "fallback_reason": None,
+    }
+
+    fallback = new_structured_report(
+        run_id="fallback",
+        question="合成超时",
+        task_type="ask",
+        llm_configured=True,
+    )
+    complete_report(
+        fallback,
+        as_of="2026-07-11",
+        warnings=["LLM 合成未采用：provider_timeout"],
+        llm_provider=None,
+        llm_model="must-not-leak-model",
+        llm_configured=True,
+        llm_attempted=True,
+        llm_fallback_reason="provider_timeout",
+    )
+    assert fallback["llm"] == {
+        "configured": True,
+        "attempted": True,
+        "used": False,
+        "provider": None,
+        "model": None,
+        "fallback_reason": "provider_timeout",
+    }
 
 
 def test_ask_warnings_mark_user_facing_modules_degraded() -> None:

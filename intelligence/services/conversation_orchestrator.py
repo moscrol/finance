@@ -24,6 +24,7 @@ from intelligence.services.ask import (
     Citation,
     answer_query,
     render_conversation_answer,
+    synthesize_existing_answer_spec,
 )
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_REVIEW,
@@ -654,6 +655,7 @@ class TurnOrchestrator:
         answer_query_fn: Callable[[AskOptions], AskResult] | None = None,
         route_skills_fn: Callable[..., SkillRouteResult] | None = None,
         skill_registry: SkillRegistry | None = None,
+        llm_configured: bool = False,
         llm_model: str | None = None,
         is_cancelled: Callable[[], bool] | None = None,
         cancellation_reason: Callable[[], str | None] | None = None,
@@ -675,6 +677,7 @@ class TurnOrchestrator:
         self.answer_query = answer_query_fn or answer_query
         self.route_skills = route_skills_fn or route_skills
         self.skill_registry = skill_registry or builtin_skill_registry()
+        self.llm_configured = llm_configured
         self.llm_model = llm_model
         self.is_cancelled = is_cancelled or (lambda: False)
         self.cancellation_reason = cancellation_reason or (lambda: None)
@@ -705,6 +708,7 @@ class TurnOrchestrator:
             run_id=run_id,
             question=query,
             task_type="ask",
+            llm_configured=self.llm_configured,
         )
         selected: list[str] = []
         manual_selected = list(dict.fromkeys(selected_skill_ids))
@@ -1038,6 +1042,37 @@ class TurnOrchestrator:
             )
             if owner_output is not None:
                 result = _skill_owner_result(query, owner_output)
+                owner_synthesis_allowance = execution_budget.child_timeout(
+                    30,
+                    reserve=3,
+                )
+                if owner_synthesis_allowance < 4.0:
+                    result.llm_fallback_reason = "budget_exhausted"
+                else:
+                    synthesize_existing_answer_spec(
+                        AskOptions(
+                            query=contextual_query,
+                            user=self.run_store.user_id,
+                            compose=True,
+                            synthesize=True,
+                            use_modules=False,
+                            use_wiki_rag=False,
+                            compose_self_review=False,
+                            compose_revise_on_warn=False,
+                            conversation_context=context.to_prompt_block(),
+                            perspective_mode=perspective_mode,
+                            perspective_ids=tuple(selected_perspective_ids),
+                            stream_text_delta=emit_text_delta,
+                            stream_cancel_check=self.is_cancelled,
+                            execution_budget=execution_budget,
+                            llm_model=self.llm_model,
+                            llm_timeout=max(
+                                1,
+                                int(owner_synthesis_allowance),
+                            ),
+                        ),
+                        result,
+                    )
                 self._trace(
                     run_id,
                     assistant_message_id,
@@ -1102,6 +1137,8 @@ class TurnOrchestrator:
                     )
                 finally:
                     base_progress.revoke()
+                if budget_degraded and result.llm_fallback_reason is None:
+                    result.llm_fallback_reason = "budget_exhausted"
             self._check_cancelled()
             is_market_review = (
                 owner_output is None
@@ -1195,6 +1232,9 @@ class TurnOrchestrator:
                 warnings=warnings,
                 llm_provider=result.llm_provider,
                 llm_model=self.llm_model if result.llm_provider else None,
+                llm_configured=self.llm_configured,
+                llm_attempted=result.llm_attempted,
+                llm_fallback_reason=result.llm_fallback_reason,
             )
             public_report = _redact_object(report)
             if isinstance(public_report, dict):

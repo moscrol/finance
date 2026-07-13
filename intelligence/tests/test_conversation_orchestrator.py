@@ -69,6 +69,8 @@ def _ask_result(
     *,
     synthesis: str | None = None,
     llm_provider: str | None = None,
+    llm_attempted: bool | None = None,
+    llm_fallback_reason: str | None = None,
 ) -> AskResult:
     return AskResult(
         query=query,
@@ -79,7 +81,13 @@ def _ask_result(
         sections={"结论": [f"本轮检索：{query}"], "引用来源": ["[S1] fixture"]},
         found_market=True,
         synthesis=synthesis,
+        llm_attempted=(
+            llm_provider is not None
+            if llm_attempted is None
+            else llm_attempted
+        ),
         llm_provider=llm_provider,
+        llm_fallback_reason=llm_fallback_reason,
     )
 
 
@@ -1321,6 +1329,7 @@ def test_current_skill_output_is_injected_as_current_turn_evidence(tmp_path) -> 
 
 def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     tmp_path,
+    monkeypatch,
 ) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
@@ -1396,12 +1405,42 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     def forbidden_answer_query(options: AskOptions) -> AskResult:
         raise AssertionError("answer owner must bypass generic Ask")
 
+    synthesis_calls = 0
+
+    def synthesize_once(messages, **kwargs):
+        nonlocal synthesis_calls
+        synthesis_calls += 1
+        return (
+            llm_refine.SynthesisResult(
+                answer=(
+                    "# 专项研究\n"
+                    "**直接定性：** 需求保持扩张。\n"
+                    "**最强证据：** 专项正式资料。\n"
+                    "**主要风险：** 新增订单待复核。\n"
+                    "**条件边界：** 仅限当前资料。\n"
+                    "**下一步验证：** 下一窗口复核新增订单。（非投资建议）"
+                ),
+                provider="zhipu",
+                model="glm-5.2",
+            ),
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: object())
+    monkeypatch.setattr(llm_refine, "synthesize_messages", synthesize_once)
+    monkeypatch.setattr(
+        "intelligence.services.ask.answer_model.validate_llm_answer",
+        lambda *_: [],
+    )
+
     result = TurnOrchestrator(
         repo_root=tmp_path,
         conversation_store=conversation_store,
         run_store=run_store,
         answer_query_fn=forbidden_answer_query,
         skill_registry=registry,
+        llm_configured=True,
+        llm_model="glm-5.2",
     ).run_turn(
         conversation_id=conversation.conversation_id,
         run_id=run_id,
@@ -1415,6 +1454,7 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     assert "# 专项研究" in result.content
     assert "**直接定性：**" in result.content
     assert "**最强证据：**" in result.content
+    assert synthesis_calls == 1
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert "llm_unavailable_template_answer" not in assistant.degrades
     retrieval = next(
@@ -1424,6 +1464,132 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     )
     assert retrieval["citations"][0]["source"] == "专项正式资料"
     assert retrieval["citation_counts"] == {"K": 1}
+
+
+def test_skill_answer_owner_skips_provider_when_synthesis_budget_is_too_low(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "预算不足的专项研究",
+        selected_skill_ids=["owner"],
+    )
+    modules = [
+        {
+            "type": "summary",
+            "summary": "保留确定性专项结论",
+            "metrics": [{"label": "资料覆盖", "value": "80%"}],
+            "items": [
+                {
+                    "title": "验证",
+                    "summary": "仍需复核新增订单",
+                    "next_action": "下一窗口复核新增订单。",
+                }
+            ],
+        }
+    ]
+    citations = [
+        {
+            "source": "owner.json",
+            "title": "专项正式资料",
+            "evidence_layer": "canonical",
+            "as_of": "2026-07-11",
+        }
+    ]
+
+    class OwnerSkill:
+        skill_id = "owner"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            return SkillOutput(
+                skill_id=self.skill_id,
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of="2026-07-11",
+                raw_result_ref=None,
+                answer_contract=build_module_answer_contract(
+                    skill_id=self.skill_id,
+                    title="专项研究",
+                    modules=modules,
+                    citations=citations,
+                    warnings=[],
+                    as_of="2026-07-11",
+                    retrieval_plan=("读取专项正式资料",),
+                    output_contract=("输出五元素裁决",),
+                ),
+            )
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="owner",
+            name="Owner",
+            description="answer owner",
+            version="1.0.0",
+            triggers=("专项",),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        ),
+        OwnerSkill(),
+    )
+
+    class OwnerBudget(_FixedBudget):
+        def child_timeout(
+            self,
+            requested: float,
+            reserve: float = 0,
+            now: float | None = None,
+        ) -> float:
+            if requested == 30 and reserve == 3:
+                return 3.0
+            return super().child_timeout(requested, reserve, now)
+
+    def forbidden_synthesis(*args, **kwargs):
+        raise AssertionError("budget exhausted owner must not call provider")
+
+    monkeypatch.setattr(
+        orchestrator_module,
+        "synthesize_existing_answer_spec",
+        forbidden_synthesis,
+    )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: pytest.fail("owner must not retrieve again"),
+        skill_registry=registry,
+        llm_configured=True,
+        llm_model="glm-5.2",
+        budget_factory=lambda: OwnerBudget(60),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="预算不足的专项研究",
+        skill_mode="manual",
+        selected_skill_ids=["owner"],
+    )
+
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    assert report["llm"] == {
+        "configured": True,
+        "attempted": False,
+        "used": False,
+        "provider": None,
+        "model": None,
+        "fallback_reason": "budget_exhausted",
+    }
 
 
 def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path) -> None:
@@ -1587,6 +1753,7 @@ def test_successful_llm_report_persists_selected_model(tmp_path) -> None:
             llm_provider="zhipu",
         ),
         skill_registry=SkillRegistry(),
+        llm_configured=True,
         llm_model="glm-4-flash",
     ).run_turn(
         conversation_id=conversation.conversation_id,
@@ -1601,9 +1768,57 @@ def test_successful_llm_report_persists_selected_model(tmp_path) -> None:
         (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
     )
     assert report["llm"] == {
+        "configured": True,
+        "attempted": True,
         "used": True,
         "provider": "zhipu",
         "model": "glm-4-flash",
+        "fallback_reason": None,
+    }
+
+
+def test_attempted_llm_fallback_persists_only_stable_reason(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "模型超时",
+    )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(
+            options.query,
+            llm_attempted=True,
+            llm_fallback_reason="provider_timeout",
+        ),
+        skill_registry=SkillRegistry(),
+        llm_configured=True,
+        llm_model="must-not-be-recorded",
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="模型超时",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    assert report["llm"] == {
+        "configured": True,
+        "attempted": True,
+        "used": False,
+        "provider": None,
+        "model": None,
+        "fallback_reason": "provider_timeout",
     }
 
 
