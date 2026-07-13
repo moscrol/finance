@@ -139,6 +139,148 @@ class IngestTests(unittest.TestCase):
             self.assertEqual(profile["confidence"]["article_count"], 0)
 
 
+class RuntimePerspectiveTests(unittest.TestCase):
+    def test_neutral_context_excludes_kol_and_personal_memory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            context = perspective_lab.build_runtime_context(
+                _us(tmp),
+                mode="neutral",
+                perspective_ids=[],
+                query="今天市场怎么样",
+            )
+
+        self.assertIn("数据中立", context.prompt)
+        self.assertIn("不得调用或模拟任何 KOL", context.prompt)
+        self.assertIn("个人金融记忆", context.prompt)
+        self.assertEqual(context.answer_header().splitlines()[0], "当前视角：数据中立")
+
+    def test_single_context_retrieves_only_selected_kol_article(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(
+                us, "fengyuan94", display_name="风远94", ptype="blogger"
+            )
+            perspective_lab.init_perspective(
+                us, "other", display_name="其他博主", ptype="blogger"
+            )
+            fengyuan = Path(tmp) / "fengyuan.md"
+            fengyuan.write_text("AI硬件第一次分歧时观察核心股成交承接。", encoding="utf-8")
+            other = Path(tmp) / "other.md"
+            other.write_text("AI硬件只看长期估值。", encoding="utf-8")
+            perspective_lab.ingest_article(
+                us,
+                "fengyuan94",
+                fengyuan,
+                title="AI硬件复盘",
+                date="2026-07-01",
+            )
+            perspective_lab.ingest_article(
+                us,
+                "other",
+                other,
+                title="其他观点",
+                date="2026-07-01",
+            )
+
+            context = perspective_lab.build_runtime_context(
+                us,
+                mode="single",
+                perspective_ids=["fengyuan94"],
+                query="AI硬件核心股怎么看",
+            )
+
+        self.assertIn("风远94", context.prompt)
+        self.assertIn("成交承接", context.prompt)
+        self.assertNotIn("其他博主", context.prompt)
+        self.assertNotIn("长期估值", context.prompt)
+        self.assertIn("该视角未知", context.prompt)
+
+    def test_compare_context_keeps_neutral_and_kol_sections_separate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(
+                us, "fengyuan94", display_name="风远94", ptype="blogger"
+            )
+            perspective_lab.init_perspective(
+                us, "other", display_name="其他博主", ptype="blogger"
+            )
+            context = perspective_lab.build_runtime_context(
+                us,
+                mode="compare",
+                perspective_ids=["fengyuan94", "other"],
+                query="复盘",
+            )
+
+        self.assertIn("先单列“数据中立”", context.prompt)
+        self.assertIn("视角冲突", context.prompt)
+        self.assertIn("风远94", context.prompt)
+        self.assertIn("其他博主", context.prompt)
+        self.assertIn("多视角并列", context.answer_header())
+
+    def test_article_bm25_orders_more_relevant_article_first(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x", ptype="blogger")
+            weak = Path(tmp) / "weak.md"
+            weak.write_text("今天市场平稳，结尾提到一次液冷。", encoding="utf-8")
+            strong = Path(tmp) / "strong.md"
+            strong.write_text(
+                "液冷服务器需求提升，液冷供应链扩产，液冷订单值得跟踪。",
+                encoding="utf-8",
+            )
+            perspective_lab.ingest_article(
+                us, "blogger_x", weak, title="弱相关", date="2026-07-01"
+            )
+            perspective_lab.ingest_article(
+                us, "blogger_x", strong, title="强相关", date="2026-07-02"
+            )
+
+            snippets = perspective_lab.retrieve_article_snippets(
+                us, "blogger_x", "液冷服务器订单"
+            )
+
+        self.assertEqual(snippets[0]["title"], "强相关")
+        self.assertIn("液冷服务器", snippets[0]["excerpt"])
+
+    def test_article_retrieval_rejects_manifest_path_outside_userspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            perspective_lab.init_perspective(us, "blogger_x", ptype="blogger")
+            outside = Path(tmp) / "outside.md"
+            outside.write_text("不应读取的液冷内容", encoding="utf-8")
+            perspective_lab.manifest_path(us, "blogger_x").write_text(
+                json.dumps(
+                    {
+                        "title": "越界文件",
+                        "raw_path": str(outside),
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            snippets = perspective_lab.retrieve_article_snippets(
+                us, "blogger_x", "液冷"
+            )
+
+        self.assertEqual(snippets, [])
+
+    def test_runtime_selection_rejects_invalid_shape_and_missing_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            us = _us(tmp)
+            with self.assertRaisesRegex(ValueError, "不能选择 KOL"):
+                perspective_lab.validate_runtime_selection(
+                    us, "neutral", ["fengyuan94"]
+                )
+            with self.assertRaisesRegex(ValueError, "必须选择 1 个"):
+                perspective_lab.validate_runtime_selection(us, "single", [])
+            with self.assertRaises(FileNotFoundError):
+                perspective_lab.validate_runtime_selection(
+                    us, "single", ["missing"]
+                )
+
+
 class DebateTests(unittest.TestCase):
     def _setup_roles(self, us: userspace.UserSpace) -> None:
         perspective_lab.init_perspective(us, "trend_trader", ptype="trend_trader")
