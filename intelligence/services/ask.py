@@ -778,12 +778,20 @@ def answer_query(options: AskOptions) -> AskResult:
     result.warnings.extend(loaded.get("warnings", []))
     result.warnings.extend(data_warnings)
     result.found_market = candidate is not None
+    anchor: entity_anchor.EntityAnchor | None = None
+    if options.use_entity_anchor:
+        anchor = entity_anchor.resolve_entity_anchor(options.query, knowledge)
+    result.anchored_entity = anchor
+    if anchor is not None:
+        result.warnings.extend(f"entity-anchor：{w}" for w in anchor.warnings)
     question_plan = plan_answer_question(
         options.query,
         result.matched_theme,
         question_type_override=options.question_type_override,
+        anchor=anchor,
     )
     result.question_plan = question_plan
+    envelope = question_plan.query_envelope
     claim_theme = (
         question_plan.research_spec.theme
         if question_plan.research_spec is not None
@@ -812,12 +820,7 @@ def answer_query(options: AskOptions) -> AskResult:
         if not result.forecast_preflight.get("can_generate_formal"):
             result.warnings.append(f"forecast-preflight：{result.forecast_preflight.get('human_summary')}")
 
-    anchor: entity_anchor.EntityAnchor | None = None
-    if options.use_entity_anchor:
-        anchor = entity_anchor.resolve_entity_anchor(options.query, knowledge)
-    result.anchored_entity = anchor
     if anchor is not None:
-        result.warnings.extend(f"entity-anchor：{w}" for w in anchor.warnings)
         if question_plan.base_finance_mode is not None:
             question_plan = replace(
                 question_plan,
@@ -1088,16 +1091,25 @@ def answer_query(options: AskOptions) -> AskResult:
         "mode": options.wiki_rag_mode,
         "index": "full" if options.wiki_rag_index_dir else "structured",
     }
-    if options.use_wiki_rag:
+    has_subject_rag = bool(
+        options.use_wiki_rag
+        and envelope.subject_kind in {"company", "theme"}
+        and envelope.subject
+    )
+    if options.use_wiki_rag and not has_subject_rag:
+        wiki_stats["warning"] = "no explicit subject; subject RAG skipped"
+    if has_subject_rag:
         loop = closed_loop_retrieval.retrieve_closed_loop(
             options.query,
             anchor=anchor,
-            retrieve=lambda retrieval_query: kb_rag.retrieve(
+            subject=envelope.subject,
+            budget=options.execution_budget,
+            retrieve=lambda retrieval_query, mode, timeout: kb_rag.retrieve(
                 retrieval_query,
                 resolved_kb_wiki,
                 k=options.wiki_rag_k,
-                mode=options.wiki_rag_mode,
-                timeout=options.wiki_rag_timeout,
+                mode=mode,
+                timeout=min(timeout, float(options.wiki_rag_timeout)),
                 excerpt_chars=options.wiki_rag_excerpt,
                 index_dir=options.wiki_rag_index_dir,
                 require_fresh=True,
@@ -1118,6 +1130,9 @@ def answer_query(options: AskOptions) -> AskResult:
                 "pages": [item.hit.file_path for item in loop.conclusion],
                 "warning": "；".join(loop.warnings),
                 "attempts": loop.inspector_dict()["attempts"],
+                "dense_initializations": loop.inspector_dict()[
+                    "dense_initializations"
+                ],
             }
         )
         result.wiki_rag_telemetry = loop.telemetry
@@ -1199,7 +1214,7 @@ def answer_query(options: AskOptions) -> AskResult:
     module_block: list[str] = []
     module_follow_ups: list[tuple[str, str]] = []
     module_summ: list[str] = []
-    if options.use_modules:
+    if options.use_modules and envelope.subject_kind != "market_pattern":
         routed = route_modules(options.query, list(options.modules) if options.modules else None)
         result.routed_modules = list(routed)
         for name in routed:

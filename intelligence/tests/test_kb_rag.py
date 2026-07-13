@@ -131,6 +131,57 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertFalse(tel.degraded)
             self.assertIn("检索方式=hybrid", tel.summary_line())
 
+    def test_zero_timeout_returns_without_spawning_subprocess(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+
+            with mock.patch("subprocess.run") as run:
+                res = kb_rag.retrieve(
+                    "光刻机",
+                    root / "wiki",
+                    mode="hybrid",
+                    timeout=0.0,
+                )
+
+            run.assert_not_called()
+            self.assertFalse(res.ok)
+            self.assertEqual(res.telemetry.status, "timeout")
+            self.assertEqual(res.telemetry.dense_initializations, 0)
+
+    def test_hybrid_float_timeout_counts_one_dense_initialization(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            proc = mock.Mock(returncode=0, stdout="[]", stderr="")
+
+            with mock.patch("subprocess.run", return_value=proc) as run:
+                res = kb_rag.retrieve(
+                    "光刻机",
+                    root / "wiki",
+                    mode="hybrid",
+                    timeout=3.5,
+                )
+
+            self.assertEqual(run.call_args.kwargs["timeout"], 3.5)
+            self.assertEqual(res.telemetry.dense_initializations, 1)
+
+    def test_bm25_does_not_initialize_dense_model(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            proc = mock.Mock(returncode=0, stdout="[]", stderr="")
+
+            with mock.patch("subprocess.run", return_value=proc):
+                res = kb_rag.retrieve(
+                    "光刻机",
+                    root / "wiki",
+                    mode="bm25",
+                    timeout=3.5,
+                )
+
+            self.assertEqual(res.telemetry.dense_initializations, 0)
+
     def _freshness_payload(self, freshness: str) -> list[dict]:
         return [
             {
@@ -170,6 +221,7 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertFalse(res.ok)
             self.assertEqual(res.hits, [])
             self.assertTrue(res.telemetry.degraded)
+            self.assertEqual(res.telemetry.index_freshness, "stale")
             self.assertIn("非 fresh", res.warning)
 
     def test_unknown_hits_fail_closed_by_default(self) -> None:

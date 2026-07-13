@@ -163,6 +163,7 @@ class RetrievalTelemetry:
     index_built_at: str = ""
     index_source_revision: str = ""
     index_freshness: str = ""
+    dense_initializations: int = 0
     warning: str = ""
 
     def summary_line(self) -> str:
@@ -238,7 +239,7 @@ def retrieve(
     kb_wiki: str | Path | None,
     k: int = DEFAULT_RAG_K,
     mode: str = DEFAULT_RAG_MODE,
-    timeout: int = DEFAULT_RAG_TIMEOUT,
+    timeout: float = DEFAULT_RAG_TIMEOUT,
     excerpt_chars: int = DEFAULT_EXCERPT_CHARS,
     evidence_layer: str | None = None,
     fact_hardness: str | None = None,
@@ -263,6 +264,11 @@ def retrieve(
     tel.mode = str(mode)
     tel.recall_desc = _MODE_RECALL_DESC.get(str(mode), "")
     tel.k = int(k)
+    if timeout <= 0:
+        res.warning = "wiki-rag 可用时间已耗尽，已跳过"
+        tel.status = "timeout"
+        tel.warning = res.warning
+        return res
     if not kb_wiki:
         res.warning = "wiki-rag 需要知识库 wiki 路径 (--kb-wiki / KNOWLEDGE_WIKI)"
         tel.status = "skipped"
@@ -330,6 +336,8 @@ def retrieve(
     res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（匹配 chunk 证据）"
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
+    if str(mode).casefold() in {"dense", "hybrid", "rerank"}:
+        tel.dense_initializations = 1
     _t0 = time.monotonic()
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(root), env=env)
@@ -411,6 +419,17 @@ def retrieve(
         )
     if rejected_hits:
         warnings.append(f"wiki-rag 丢弃 {rejected_hits} 条缺少 chunk/hash/快照绑定或快照不一致的命中")
+    if hits:
+        # 在 strict freshness 过滤前留下索引快照状态；否则 stale /
+        # unknown 命中被丢弃后，上层闭环会将缺失新鲜度误判为可继续。
+        tel.index_built_at = hits[0].index_built_at
+        tel.index_source_revision = hits[0].index_source_revision
+        raw_freshness = {hit.index_freshness for hit in hits}
+        # 混合批次若仍有 fresh 命中，strict 过滤后可以安全继续；
+        # 只有 stale/unknown 时则必须把非 fresh 状态透传给闭环并停止。
+        tel.index_freshness = (
+            "fresh" if "fresh" in raw_freshness else hits[0].index_freshness
+        )
     non_fresh_hits = [hit for hit in hits if hit.index_freshness != "fresh"]
     if require_fresh:
         # formal 契约：过期/未知命中一律丢弃，绝不进入 res.hits / LLM 证据。

@@ -128,6 +128,8 @@ class AnswerOrchestratorTests(unittest.TestCase):
         assert result.question_plan.base_finance_mode is not None
         self.assertTrue(result.question_plan.base_finance_mode.require_market)
         self.assertTrue(result.question_plan.base_finance_mode.require_memory)
+        self.assertEqual(result.question_plan.query_envelope.subject_kind, "company")
+        self.assertEqual(result.question_plan.query_envelope.subject, "贵州茅台")
 
     def test_general_base_presenter_does_not_echo_question_as_title(self) -> None:
         query = "E2E-desktop-123 第三轮有哪些风险"
@@ -304,6 +306,110 @@ class AnswerOrchestratorTests(unittest.TestCase):
             plan.query_envelope.to_dict(),
         )
 
+    def test_subjectless_market_pattern_skips_subject_rag_and_module_fanout(
+        self,
+    ) -> None:
+        query = (
+            "如果一个A股题材连续上涨，但板块成交占比开始下降，我应该怎么判断"
+            "它是健康分歧还是行情高潮？"
+        )
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch("intelligence.services.ask.kb_rag.retrieve") as retrieve,
+            mock.patch("intelligence.services.ask.run_module") as run_module,
+        ):
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=True,
+                    use_wiki_rag=True,
+                )
+            )
+
+        retrieve.assert_not_called()
+        run_module.assert_not_called()
+        assert result.question_plan is not None
+        self.assertEqual(
+            result.question_plan.query_envelope.subject_kind,
+            "market_pattern",
+        )
+        self.assertIsNone(result.closed_loop_retrieval)
+        assert result.retrieval_telemetry is not None
+        self.assertEqual(
+            result.retrieval_telemetry.wiki_degraded,
+            "no explicit subject; subject RAG skipped",
+        )
+
+    def test_named_theme_uses_three_argument_retriever_and_at_most_one_dense(
+        self,
+    ) -> None:
+        def fake_retrieve(
+            _query: str,
+            _wiki: Path,
+            **kwargs: object,
+        ) -> WikiRagResult:
+            mode = str(kwargs["mode"])
+            hits = (
+                [
+                    WikiHit(
+                        page_id="liquid-cooling",
+                        file_path="wiki/concepts/液冷.md",
+                        title="液冷",
+                        score=0.9,
+                        excerpt="液冷产业链供需证据",
+                        best_chunk_id="liquid-cooling::0",
+                        content_hash="hash-liquid-cooling",
+                        index_source_revision="rev-1",
+                        index_freshness="fresh",
+                    )
+                ]
+                if mode == "hybrid"
+                else []
+            )
+            return WikiRagResult(
+                ok=bool(hits),
+                hits=hits,
+                telemetry=RetrievalTelemetry(
+                    mode=mode,
+                    status="ok" if hits else "empty",
+                    hit_count=len(hits),
+                    index_freshness="fresh" if hits else "",
+                    dense_initializations=1 if mode == "hybrid" else 0,
+                ),
+            )
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.kb_rag.retrieve",
+                side_effect=fake_retrieve,
+            ) as retrieve,
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="分析液冷板块",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=True,
+                    wiki_rag_timeout=3,
+                )
+            )
+
+        modes = [call.kwargs["mode"] for call in retrieve.call_args_list]
+        timeouts = [call.kwargs["timeout"] for call in retrieve.call_args_list]
+        self.assertEqual(modes.count("hybrid"), 1)
+        self.assertEqual(modes.count("bm25"), 3)
+        self.assertTrue(all(timeout == 3.0 for timeout in timeouts))
+        assert result.closed_loop_retrieval is not None
+        self.assertEqual(result.closed_loop_retrieval.dense_initializations, 1)
+        self.assertEqual(
+            result.closed_loop_retrieval.inspector_dict()["dense_initializations"],
+            1,
+        )
+
     def test_explicit_stock_wording_still_routes_to_deep_dive(self) -> None:
         plan = plan_answer_question("这只股怎么看")
 
@@ -324,8 +430,9 @@ class AnswerOrchestratorTests(unittest.TestCase):
                         file_path="wiki/weak.md",
                         title="弱相关首页",
                         score=0.2,
-                        excerpt="排名靠前但证据很弱",
+                        excerpt="液冷排名靠前但证据很弱",
                         best_chunk_id="weak",
+                        index_freshness="fresh",
                     )
                 ]
             elif "风险 证伪" in query:
@@ -335,8 +442,9 @@ class AnswerOrchestratorTests(unittest.TestCase):
                         file_path="wiki/counter.md",
                         title="需求下滑风险",
                         score=0.1,
-                        excerpt="需求可能不及预期，仍待核验",
+                        excerpt="液冷需求可能不及预期，仍待核验",
                         best_chunk_id="counter",
+                        index_freshness="fresh",
                     )
                 ]
             else:
@@ -347,6 +455,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                 telemetry=RetrievalTelemetry(
                     status="ok" if hits else "empty",
                     hit_count=len(hits),
+                    index_freshness="fresh" if hits else "",
                 ),
             )
 
@@ -359,7 +468,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
         ):
             result = answer_query(
                 AskOptions(
-                    query="测试对象最近怎么样",
+                    query="分析液冷板块最近怎么样",
                     exports_dir=tmp,
                     kb_wiki=Path(tmp),
                     use_modules=False,
