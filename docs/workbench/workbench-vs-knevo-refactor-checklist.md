@@ -32,13 +32,15 @@
 
 ## P1 — Router 与检索闭环
 
-- [ ] `intelligence/workbench_skills/router.py` L115-129：去掉"LLM 只能在触发词命中的 allowlist 里选择"的硬门槛。规则命中作为加分/优先候选，LLM 可从全量 registry 语义路由；miss 时不再直接 fallback_to_ask，而是进入 P0c 的基座链路（orchestrator → 检索 → composer）。
-- [ ] `intelligence/services/answer_orchestrator.py` L152-194 分类器修复脆弱规则：
+- [x] `intelligence/workbench_skills/router.py` L115-129：去掉"LLM 只能在触发词命中的 allowlist 里选择"的硬门槛。规则命中作为加分/优先候选，LLM 可从全量 registry 语义路由；miss 时不再直接 fallback_to_ask，而是进入 P0c 的基座链路（orchestrator → 检索 → composer）。— `ac10c19` / PR #220；规则命中降级为 `rule_priority`，无 Skill 时显式进入 Base Finance。
+- [x] `intelligence/services/answer_orchestrator.py` L152-194 分类器修复脆弱规则：
   - "输出"→回答质检(0.86)、"怎么看"→个股深挖、≤12 字短问题默认题材分析(0.52) 等误路由案例，改为关键词+LLM 混合分类或提高置信度阈值，低置信走通用兜底而非硬套骨架。
-- [ ] 检索改闭环（对标 Knevo 窄/宽/反三口径）：
+  — `ac10c19` / PR #220；模糊短问保留 `QUESTION_GENERAL(0.45)`，只有明确质检或个股语义才进入专项骨架。
+- [x] 检索改闭环（对标 Knevo 窄/宽/反三口径）：
   - 窄口径（实体+代码多形态）+ 宽口径（上下游/同业/宏观，从窄口径命中结果里抽词）+ 反方向（为每个核心假设构造反事实检索词）。
   - 空结果改写重试（上限 3 次即停、报 gap）；召回结果三桶分层（结论桶/线索桶/丢弃桶），弱相关不得因排名靠前进主结论；反方线索即使不充分也保留。
-- [ ] Skill 成为答案 owner：命中专项 skill 时由 skill 决定检索计划与输出契约，而非仅作 `supplemental_evidence`（conversation_orchestrator.py L591 附近）塞回 generic Ask。
+  — `ac10c19` / PR #220；新增 `closed_loop_retrieval.py`，三口径各自最多三次空结果改写，并将反方弱线索保留为待核验 gap。
+- [x] Skill 成为答案 owner：命中专项 skill 时由 skill 决定检索计划与输出契约，而非仅作 `supplemental_evidence`（conversation_orchestrator.py L591 附近）塞回 generic Ask。— `ac10c19` / PR #220；新增 `SkillAnswerContract`，已让 `daily-review` / `daily-agent` 直接产出 `AnswerSpec` 并绕开 generic Ask。
 
 ## P2 — 扩充专项 Skill（最后做）
 
