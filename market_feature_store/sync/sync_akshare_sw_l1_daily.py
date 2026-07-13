@@ -247,10 +247,18 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
         by_name = {item["name"]: item for item in industries_all}
         records: dict[tuple[date, str], dict] = {}
         for item in industries:
-            try:
-                hist = _fetch_hist_by_code(item["code"], start - timedelta(days=10), end)
-            except Exception as exc:
-                failures.append({"sw_l1": item["name"], "code": item["code"], "error": str(exc)})
+            hist = None
+            for attempt in range(3):
+                try:
+                    hist = _fetch_hist_by_code(item["code"], start - timedelta(days=10), end)
+                except Exception as exc:
+                    if attempt == 2:
+                        failures.append({"sw_l1": item["name"], "code": item["code"], "error": str(exc)})
+                if hist is not None and end in hist:
+                    break
+                if attempt < 2:
+                    time.sleep(1.0 + attempt)
+            if hist is None:
                 continue
             for d in wanted_dates:
                 if d in hist:
