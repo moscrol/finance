@@ -82,82 +82,157 @@ def _parse_date(val):
     return None
 
 
-def sync(trade_date: str) -> dict:
+def sync(
+    trade_date: str,
+    *,
+    attempts: int = 3,
+    retry_delay: float = 0.5,
+) -> dict:
     """同步某日“主线题材 → 核心板块”到 fact_mainline_sector_daily。
 
     - 幂等: 主键 (trade_date, theme_code, sector_ts_code) upsert, 重复执行不膨胀。
-    - 单题材失败记入 failures, 不让整批崩掉。
-    - 每个 theme 之间 sleep 0.3 秒简单限流。
+    - 单题材失败记入 failures。
+    - 全部题材抓取并校验通过后才原子替换当日快照。
 
-    Returns: {"themes": int, "sectors": int, "failures": [...]}
+    Returns: {"themes": int, "sectors": int, "failures": [...], "status": str}
     """
-    themes = fs.get_mainline_themes(trade_date)
-    if not themes:
-        return {"themes": 0, "sectors": 0, "failures": []}
+    themes = None
+    last_theme_error = None
+    for attempt in range(max(1, attempts)):
+        if attempt:
+            time.sleep(retry_delay * attempt)
+        try:
+            candidate = fs.get_mainline_themes(trade_date)
+            if candidate:
+                themes = candidate
+                break
+            last_theme_error = RuntimeError("empty theme list")
+        except Exception as exc:  # noqa: BLE001
+            last_theme_error = exc
+    if themes is None:
+        return {
+            "themes": 0,
+            "sectors": 0,
+            "expected_themes": 0,
+            "failures": [{"scope": "themes", "error": str(last_theme_error)}],
+            "status": "failed",
+        }
 
     now = datetime.utcnow().isoformat()
+    theme_ok = 0
+    all_rows = []
+    failures = []
+    for t in themes:
+        tc = str(t.get("theme_code") or "").strip()
+        tn = str(t.get("theme_name") or "").strip()
+        if not tc:
+            failures.append(
+                {"scope": "theme", "theme_code": "", "theme_name": tn, "error": "missing theme_code"}
+            )
+            continue
+        sectors = None
+        last_error = None
+        for attempt in range(max(1, attempts)):
+            if attempt:
+                time.sleep(retry_delay * attempt)
+            try:
+                candidate = fs.get_mainline_sectors(trade_date, tc)
+                if not any(str(item.get("sector_code") or "").strip() for item in candidate or []):
+                    last_error = RuntimeError("empty sector list")
+                    continue
+                sectors = candidate
+            except Exception as e:  # noqa: BLE001 单题材失败不影响全批
+                last_error = e
+                continue
+            break
+        if sectors is None:
+            failures.append(
+                {"scope": "sectors", "theme_code": tc, "theme_name": tn, "error": str(last_error)}
+            )
+            continue
+
+        rows = []
+        for s in sectors:
+            sector_ts_code = str(s.get("sector_code") or "").strip()
+            if not sector_ts_code:
+                continue
+            rows.append((
+                trade_date, tc, tn,
+                sector_ts_code,
+                s.get("sector_name", ""),
+                s.get("sort_no"),
+                s.get("today_pct"),
+                s.get("limit_up_count"),
+                s.get("max_limit_height"),
+                s.get("amount"),
+                s.get("amount_estimated"),
+                s.get("amount_relative_ratio"),
+                s.get("net_inflow_1d"),
+                s.get("strength"),
+                s.get("strength_chg"),
+                s.get("cycle_level"),
+                s.get("cycle_status"),
+                _parse_date(s.get("startup_date_small")),
+                _parse_date(s.get("startup_date_big")),
+                _parse_date(s.get("startup_date_super")),
+                _parse_date(s.get("startup_date_extend")),
+                s.get("high_status"),
+                s.get("high_status_label"),
+                s.get("near_breakout_status"),
+                s.get("near_breakout_label"),
+                s.get("near_breakout_gap_pct"),
+                s.get("note", ""),
+                SOURCE,
+                now,
+            ))
+        if not rows:
+            failures.append(
+                {
+                    "scope": "sectors",
+                    "theme_code": tc,
+                    "theme_name": tn,
+                    "error": "empty sector list",
+                }
+            )
+            continue
+        all_rows.extend(rows)
+        theme_ok += 1
+        time.sleep(0.3)
+
+    status = "complete" if theme_ok == len(themes) and not failures else (
+        "partial" if theme_ok else "failed"
+    )
+    if status != "complete":
+        return {
+            "themes": 0,
+            "sectors": 0,
+            "expected_themes": len(themes),
+            "completed_themes": theme_ok,
+            "failures": failures,
+            "status": status,
+        }
 
     init_db()
     con = connect()
-
-    theme_ok = 0
-    sector_count = 0
-    failures = []
     try:
-        for t in themes:
-            tc = t.get("theme_code", "")
-            tn = t.get("theme_name", "")
-            if not tc:
-                continue
-            time.sleep(0.3)  # 简单限流
-            try:
-                sectors = fs.get_mainline_sectors(trade_date, tc)
-            except Exception as e:  # noqa: BLE001 单题材失败不影响全批
-                failures.append({"theme_code": tc, "theme_name": tn, "error": str(e)})
-                continue
-
-            rows = []
-            for s in sectors:
-                sector_ts_code = s.get("sector_code") or ""
-                if not sector_ts_code:
-                    continue
-                rows.append((
-                    trade_date, tc, tn,
-                    sector_ts_code,
-                    s.get("sector_name", ""),
-                    s.get("sort_no"),
-                    s.get("today_pct"),
-                    s.get("limit_up_count"),
-                    s.get("max_limit_height"),
-                    s.get("amount"),
-                    s.get("amount_estimated"),
-                    s.get("amount_relative_ratio"),
-                    s.get("net_inflow_1d"),
-                    s.get("strength"),
-                    s.get("strength_chg"),
-                    s.get("cycle_level"),
-                    s.get("cycle_status"),
-                    _parse_date(s.get("startup_date_small")),
-                    _parse_date(s.get("startup_date_big")),
-                    _parse_date(s.get("startup_date_super")),
-                    _parse_date(s.get("startup_date_extend")),
-                    s.get("high_status"),
-                    s.get("high_status_label"),
-                    s.get("near_breakout_status"),
-                    s.get("near_breakout_label"),
-                    s.get("near_breakout_gap_pct"),
-                    s.get("note", ""),
-                    SOURCE,
-                    now,
-                ))
-            if rows:
-                con.executemany(UPSERT_SQL, rows)
-                sector_count += len(rows)
-            theme_ok += 1
+        con.execute("BEGIN TRANSACTION")
+        con.execute("DELETE FROM fact_mainline_sector_daily WHERE trade_date = ?", [trade_date])
+        con.executemany(UPSERT_SQL, all_rows)
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
     finally:
         con.close()
 
-    return {"themes": theme_ok, "sectors": sector_count, "failures": failures}
+    return {
+        "themes": theme_ok,
+        "sectors": len(all_rows),
+        "expected_themes": len(themes),
+        "completed_themes": theme_ok,
+        "failures": [],
+        "status": "complete",
+    }
 
 
 if __name__ == "__main__":

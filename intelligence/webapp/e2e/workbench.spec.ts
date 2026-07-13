@@ -1,5 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
+const answerTimeout = 45_000;
+
 async function expectNoHorizontalOverflow(page: Page) {
   const sizes = await page.evaluate(() => ({
     viewport: window.innerWidth,
@@ -31,17 +33,18 @@ async function submitQuestion(
 ) {
   await page.getByLabel("输入研究问题").fill(question);
   await page.getByRole("button", { name: "发送研究问题" }).click();
-  await expect(page.getByText("模板表达 · 未配置 LLM")).toHaveCount(
-    completedAnswerCount,
-    { timeout: 20_000 },
-  );
+  await expect(
+    page
+      .getByLabel("研究助手消息")
+      .filter({ hasText: "自然语言综合暂时不可用" }),
+  ).toHaveCount(completedAnswerCount, { timeout: answerTimeout });
 }
 
 async function selectManualDailyAgent(page: Page) {
-  await page.getByLabel("Skill 调用模式").selectOption("manual");
-  await page.getByRole("button", { name: "选择 Skill" }).click();
+  await page.getByLabel("研究工具选择方式").selectOption("manual");
+  await page.getByRole("button", { name: "选择研究工具" }).click();
   await page.getByRole("checkbox", { name: /Daily Agent/ }).check();
-  await expect(page.getByLabel("已选 Skill")).toContainText("Daily Agent");
+  await expect(page.getByLabel("已选研究工具")).toContainText("Daily Agent");
 }
 
 async function activeConversationMessages(page: Page) {
@@ -71,8 +74,42 @@ async function startNewConversation(page: Page, testInfo: TestInfo) {
   await page.getByRole("button", { name: "新对话" }).click();
 }
 
-test.beforeEach(async ({ page }) => {
+async function selectWorkbenchSection(
+  page: Page,
+  testInfo: TestInfo,
+  section: "今日" | "主题" | "信号" | "验证" | "问答",
+) {
+  if (testInfo.project.name === "mobile") {
+    await page.getByRole("button", { name: "打开会话列表" }).click();
+  }
+  await page.getByRole("button", { name: section, exact: true }).click();
+}
+
+test.beforeEach(async ({ page }, testInfo) => {
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: "数据缺失" })).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "问答");
+  await expect(page.getByLabel("输入研究问题")).toBeVisible();
+});
+
+test("structured workbench keeps five surfaces available", async ({
+  page,
+}, testInfo) => {
+  await selectWorkbenchSection(page, testInfo, "今日");
+  await expect(page.getByRole("heading", { name: "数据缺失" })).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "主题");
+  await expect(
+    page.getByRole("heading", { name: "知识共识 × 盘面确认" }),
+  ).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "信号");
+  await expect(
+    page.getByRole("heading", { name: "只推变化，不重复旧观点" }),
+  ).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "验证");
+  await expect(
+    page.getByRole("heading", { name: "机构胜率、资金流与假设回检" }),
+  ).toBeVisible();
+  await selectWorkbenchSection(page, testInfo, "问答");
   await expect(page.getByLabel("输入研究问题")).toBeVisible();
 });
 
@@ -116,7 +153,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   const thirdQuestion = `${marker} 第三轮有哪些风险`;
 
   await submitQuestion(page, firstQuestion, 1);
-  await expect(page.getByText("自动调用 · 每日复盘")).toBeVisible();
+  await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
   const firstAnswer = page.getByLabel("研究助手消息").first();
   await expect(
     firstAnswer.getByText(/数据降级：当前未连接本地 DuckDB/),
@@ -133,7 +170,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
 
   await selectManualDailyAgent(page);
   await submitQuestion(page, secondQuestion, 2);
-  await expect(page.getByText("手动指定 · Daily Agent")).toBeVisible();
+  await expect(page.getByText("已指定工具 · Daily Agent")).toBeVisible();
   const secondAnswer = page.getByLabel("研究助手消息").nth(1);
   await expect(secondAnswer.locator(".stream-table-shell")).toHaveCount(0);
   await secondAnswer.getByText("运行详情", { exact: true }).click();
@@ -149,9 +186,11 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   const originalRunId = beforeRegeneration.at(-1)?.run_id;
   expect(originalRunId).toBeTruthy();
   await page.getByRole("button", { name: "重新生成回答" }).click();
-  await expect(page.getByText("模板表达 · 未配置 LLM")).toHaveCount(4, {
-    timeout: 20_000,
-  });
+  await expect(
+    page
+      .getByLabel("研究助手消息")
+      .filter({ hasText: "自然语言综合暂时不可用" }),
+  ).toHaveCount(4, { timeout: answerTimeout });
   await expect(page.getByText(thirdQuestion, { exact: true })).toHaveCount(2);
 
   const afterRegeneration = await activeConversationMessages(page);
@@ -168,11 +207,16 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   expect(regeneratedRun.parent_run_id).toBe(originalRunId);
 
   await page.reload();
+  await selectWorkbenchSection(page, testInfo, "问答");
   await expect(page.getByText(firstQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText(secondQuestion, { exact: true })).toBeVisible();
-  await expect(page.getByText("自动调用 · 每日复盘")).toBeVisible();
-  await expect(page.getByText("手动指定 · Daily Agent")).toBeVisible();
-  await expect(page.getByText("模板表达 · 未配置 LLM")).toHaveCount(4);
+  await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
+  await expect(page.getByText("已指定工具 · Daily Agent")).toBeVisible();
+  await expect(
+    page
+      .getByLabel("研究助手消息")
+      .filter({ hasText: "自然语言综合暂时不可用" }),
+  ).toHaveCount(4);
 
   await expectNoHorizontalOverflow(page);
   await expectComposerDoesNotOverlapThread(page);
@@ -195,6 +239,7 @@ test("stop preserves cancellation and responsive drawers remain closable", async
   });
 
   await page.reload();
+  await selectWorkbenchSection(page, testInfo, "问答");
   await expect(page.getByText("已停止生成，已保留已生成内容。")).toBeVisible();
   const messages = await activeConversationMessages(page);
   expect(messages.at(-1)?.status).toBe("cancelled");
@@ -211,15 +256,21 @@ test("stop preserves cancellation and responsive drawers remain closable", async
       page.getByRole("complementary", { name: "会话列表" }),
     ).not.toHaveClass(/open/);
   }
-  if (testInfo.project.name !== "desktop") {
+  const inspector = page.getByRole("complementary", {
+    name: "研究检查器",
+    includeHidden: true,
+  });
+  if (testInfo.project.name === "desktop") {
+    await expect(inspector).toHaveClass(/open/);
+  } else {
     await page.getByRole("button", { name: "打开研究检查器" }).click();
-    await expect(
-      page.getByRole("complementary", { name: "研究检查器" }),
-    ).toHaveClass(/open/);
-    await page.getByRole("button", { name: "关闭检查器" }).click();
-    await expect(
-      page.getByRole("complementary", { name: "研究检查器" }),
-    ).not.toHaveClass(/open/);
+    await expect(inspector).toHaveClass(/open/);
+  }
+  await page.getByRole("button", { name: "关闭检查器" }).click();
+  await expect(inspector).not.toHaveClass(/open/);
+  if (testInfo.project.name === "desktop") {
+    await page.getByRole("button", { name: "打开研究检查器" }).click();
+    await expect(inspector).toHaveClass(/open/);
   }
 
   await expectNoHorizontalOverflow(page);

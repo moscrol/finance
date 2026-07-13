@@ -35,6 +35,7 @@ import {
   getRunReport,
   getSkills,
   getTrace,
+  getWorkbenchOverview,
   listArtifacts,
   listConversations,
   renameConversation,
@@ -47,8 +48,10 @@ import { Composer } from "./components/Composer";
 import { ConversationList } from "./components/ConversationList";
 import { MessageThread } from "./components/MessageThread";
 import { ModelSettings } from "./components/ModelSettings";
+import { OutputWorkbench } from "./components/OutputWorkbench";
 import { ResearchInspector } from "./components/ResearchInspector";
 import { supportsDailyProjection } from "./dailyReports";
+import { userFacingIssue } from "./displayText";
 import {
   applyChatStreamEvent,
   createLiveMessageState,
@@ -72,6 +75,8 @@ import type {
   RunBundle,
   SkillMode,
   Surface,
+  WorkbenchOverview,
+  WorkbenchSection,
 } from "./types";
 
 const chatEventTypes = [
@@ -97,7 +102,9 @@ interface StreamIdentity {
 
 export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
-  const [surface, setSurface] = useState<Surface>({ kind: "home" });
+  const [surface, setSurface] = useState<Surface>({ kind: "today" });
+  const [overview, setOverview] = useState<WorkbenchOverview | null>(null);
+  const [overviewRefreshing, setOverviewRefreshing] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
@@ -123,7 +130,9 @@ export default function App() {
   const [modelSettingsError, setModelSettingsError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [conversationDrawerOpen, setConversationDrawerOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(
+    () => window.innerWidth >= 1180,
+  );
   const [artifacts, setArtifacts] = useState<ArtifactDescriptor[]>([]);
   const [artifact, setArtifact] = useState<ArtifactDescriptor | null>(null);
   const [artifactContent, setArtifactContent] = useState<string | null>(null);
@@ -139,6 +148,9 @@ export default function App() {
   const conversationGeneration = useRef(0);
   const artifactGeneration = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const runPollTimerRef = useRef<number | null>(null);
+  const runPollInFlightRef = useRef(false);
+  const finalizingRunRef = useRef<string | null>(null);
 
   const user = bootstrap?.user ?? "default";
 
@@ -218,9 +230,70 @@ export default function App() {
     [fetchRunBundle, user],
   );
 
+  const clearRunPolling = useCallback(() => {
+    if (runPollTimerRef.current !== null) {
+      window.clearInterval(runPollTimerRef.current);
+      runPollTimerRef.current = null;
+    }
+    runPollInFlightRef.current = false;
+  }, []);
+
+  const finalizeRun = useCallback(
+    async (
+      identity: StreamIdentity,
+      status: "completed" | "failed" | "cancelled",
+      events: EventSource,
+    ) => {
+      if (eventSourceRef.current !== events) return;
+      if (finalizingRunRef.current === identity.runId) return;
+      finalizingRunRef.current = identity.runId;
+      setLiveMessages((current) => {
+        const state = current[identity.messageId];
+        return state?.runId === identity.runId
+          ? {
+              ...current,
+              [identity.messageId]: {
+                ...state,
+                status,
+                connection: "connected",
+              },
+            }
+          : current;
+      });
+      clearRunPolling();
+      events.close();
+      eventSourceRef.current = null;
+      try {
+        await Promise.all([
+          loadConversationData(identity.conversationId),
+          listConversations(user).then(setConversations),
+        ]);
+        setLiveMessages((current) => {
+          const state = current[identity.messageId];
+          if (!state || state.runId !== identity.runId) return current;
+          const next = { ...current };
+          delete next[identity.messageId];
+          return next;
+        });
+      } catch (caught) {
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "运行已结束，但最新结果暂时无法加载",
+        );
+      } finally {
+        if (finalizingRunRef.current === identity.runId) {
+          finalizingRunRef.current = null;
+        }
+      }
+    },
+    [clearRunPolling, loadConversationData, user],
+  );
+
   const connectStream = useCallback(
     (identity: StreamIdentity) => {
       eventSourceRef.current?.close();
+      clearRunPolling();
       const deduper = new StreamEventDeduper();
       const events = new EventSource(runEventsUrl(identity.runId, user));
       eventSourceRef.current = events;
@@ -233,6 +306,7 @@ export default function App() {
       }));
 
       const applyEvent = (rawEvent: Event) => {
+        if (eventSourceRef.current !== events) return;
         const envelope = parseStreamEnvelopeJson(
           (rawEvent as MessageEvent<string>).data,
         );
@@ -250,6 +324,7 @@ export default function App() {
         events.addEventListener(eventType, applyEvent),
       );
       events.onopen = () => {
+        if (eventSourceRef.current !== events) return;
         setLiveMessages((current) => {
           const state = current[identity.messageId];
           return state
@@ -263,7 +338,40 @@ export default function App() {
             : current;
         });
       };
+      const reconcileStatus = async () => {
+        if (eventSourceRef.current !== events) return;
+        if (runPollInFlightRef.current) return;
+        runPollInFlightRef.current = true;
+        try {
+          const run = await getRun(identity.runId, user);
+          if (eventSourceRef.current !== events) return;
+          if (["completed", "failed", "cancelled"].includes(run.status)) {
+            await finalizeRun(
+              identity,
+              run.status as "completed" | "failed" | "cancelled",
+              events,
+            );
+          }
+        } catch {
+          if (eventSourceRef.current !== events) return;
+          setLiveMessages((current) => {
+            const state = current[identity.messageId];
+            return state
+              ? {
+                  ...current,
+                  [identity.messageId]: {
+                    ...state,
+                    connection: "reconnecting",
+                  },
+                }
+              : current;
+          });
+        } finally {
+          runPollInFlightRef.current = false;
+        }
+      };
       events.onerror = () => {
+        if (eventSourceRef.current !== events) return;
         setLiveMessages((current) => {
           const state = current[identity.messageId];
           return state
@@ -276,44 +384,52 @@ export default function App() {
               }
             : current;
         });
+        void reconcileStatus();
       };
+      void reconcileStatus();
+      runPollTimerRef.current = window.setInterval(() => {
+        void reconcileStatus();
+      }, 2000);
       events.addEventListener("run", (rawEvent) => {
         try {
           const nextRun = JSON.parse(
             (rawEvent as MessageEvent<string>).data,
           ) as Run;
           if (nextRun.run_id !== identity.runId) return;
-          events.close();
-          if (eventSourceRef.current === events) eventSourceRef.current = null;
-          void loadConversationData(identity.conversationId).then(() => {
-            setLiveMessages((current) => {
-              const state = current[identity.messageId];
-              if (!state || state.runId !== identity.runId) return current;
-              const next = { ...current };
-              delete next[identity.messageId];
-              return next;
-            });
-          });
-          void listConversations(user).then(setConversations);
+          if (["completed", "failed", "cancelled"].includes(nextRun.status)) {
+            void finalizeRun(
+              identity,
+              nextRun.status as "completed" | "failed" | "cancelled",
+              events,
+            );
+          }
         } catch {
           setError("运行结束事件格式无效");
         }
       });
     },
-    [loadConversationData, user],
+    [clearRunPolling, finalizeRun, user],
   );
 
   const selectConversation = useCallback(
-    async (conversationId: string) => {
+    async (
+      conversationId: string,
+      options: { closeDrawer?: boolean; openAsk?: boolean } = {},
+    ) => {
       eventSourceRef.current?.close();
       eventSourceRef.current = null;
+      clearRunPolling();
       activeConversationRef.current = conversationId;
       setActiveConversationId(conversationId);
-      setSurface({ kind: "home" });
+      if (options.openAsk !== false) {
+        setSurface({ kind: "ask" });
+      }
       setMessages([]);
       setRunBundles({});
       setLiveMessages({});
-      setConversationDrawerOpen(false);
+      if (options.closeDrawer !== false) {
+        setConversationDrawerOpen(false);
+      }
       setLoading(true);
       try {
         const nextMessages = await loadConversationData(conversationId);
@@ -353,7 +469,7 @@ export default function App() {
         }
       }
     },
-    [connectStream, loadConversationData],
+    [clearRunPolling, connectStream, loadConversationData],
   );
 
   useEffect(() => {
@@ -367,19 +483,25 @@ export default function App() {
           nextSkills,
           nextPerspectives,
           nextLLMConfig,
+          nextOverview,
         ] = await Promise.all([
           listConversations(nextBootstrap.user),
           getSkills(nextBootstrap.user),
           getPerspectives(nextBootstrap.user),
           getLLMConfig(nextBootstrap.user).catch(() => null),
+          getWorkbenchOverview().catch(() => null),
         ]);
         if (disposed) return;
         setConversations(nextConversations);
         setSkills(nextSkills);
         setPerspectives(nextPerspectives);
         setLLMConfig(nextLLMConfig);
+        setOverview(nextOverview);
         if (nextConversations[0]) {
-          await selectConversation(nextConversations[0].conversation_id);
+          await selectConversation(nextConversations[0].conversation_id, {
+            closeDrawer: false,
+            openAsk: false,
+          });
         } else {
           setLoading(false);
         }
@@ -395,8 +517,21 @@ export default function App() {
     return () => {
       disposed = true;
       eventSourceRef.current?.close();
+      clearRunPolling();
     };
-  }, [selectConversation]);
+  }, [clearRunPolling, selectConversation]);
+
+  const refreshOverview = useCallback(async () => {
+    setOverviewRefreshing(true);
+    try {
+      setOverview(await getWorkbenchOverview());
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "无法刷新数据状态");
+    } finally {
+      setOverviewRefreshing(false);
+    }
+  }, []);
 
   const saveBYOK = useCallback(
     async (provider: LLMProviderId, apiKey: string, model: string) => {
@@ -580,12 +715,28 @@ export default function App() {
   );
 
   const stopGeneration = () => {
-    if (runningLive) {
-      void cancelRun(runningLive.runId, user).catch((caught) =>
-        setError(
-          caught instanceof Error ? caught.message : "停止请求失败",
-        ),
-      );
+    if (runningLive && !runningLive.cancelRequested) {
+      void cancelRun(runningLive.runId, user)
+        .then(() => {
+          setLiveMessages((current) => {
+            const state = current[runningLive.messageId];
+            return state
+              ? {
+                  ...current,
+                  [runningLive.messageId]: {
+                    ...state,
+                    cancelRequested: true,
+                    connection: "reconnecting",
+                  },
+                }
+              : current;
+          });
+        })
+        .catch((caught) =>
+          setError(
+            caught instanceof Error ? caught.message : "停止请求失败",
+          ),
+        );
     }
   };
 
@@ -696,9 +847,34 @@ export default function App() {
         .find((bundle): bundle is RunBundle => Boolean(bundle)) ?? null,
     [messages, runBundles],
   );
+  const activeSection: WorkbenchSection = (
+    ["today", "themes", "signals", "validation", "ask"] as const
+  ).includes(surface.kind as WorkbenchSection)
+    ? (surface.kind as WorkbenchSection)
+    : "ask";
+  const sectionTitles: Record<WorkbenchSection, [string, string, string]> = {
+    today: ["结构化工作台", "今日态势", "市场 · 主线 · 明日验证"],
+    themes: ["主题雷达", "主题状态矩阵", "知识共识与盘面确认分轴展示"],
+    signals: ["事件收件箱", "晨会边际变化", "只推变化，不重复旧观点"],
+    validation: ["回检台", "验证与校准", "机构胜率 · Level2 · 假设回检"],
+    ask: ["研究线程", activeConversation?.title ?? "新对话", "每轮重新检索当前证据"],
+  };
+  const [sectionKicker, sectionTitle, sectionSubtitle] =
+    sectionTitles[activeSection];
+  const navigateSection = (section: WorkbenchSection) => {
+    setSurface({ kind: section });
+    setConversationDrawerOpen(false);
+    if (window.innerWidth < 1180) {
+      setInspectorOpen(false);
+    }
+  };
 
   return (
-    <div className="app-shell chat-first-shell">
+    <div
+      className={`app-shell chat-first-shell ${
+        inspectorOpen ? "inspector-open" : "inspector-closed"
+      }`}
+    >
       <ConversationList
         conversations={conversations}
         activeConversationId={activeConversationId}
@@ -708,6 +884,8 @@ export default function App() {
         onArchive={(conversationId) => void archive(conversationId)}
         onClose={() => setConversationDrawerOpen(false)}
         onLibrary={openLibrary}
+        activeSection={activeSection}
+        onSection={navigateSection}
       />
 
       <main className="main-surface chat-surface">
@@ -722,9 +900,9 @@ export default function App() {
             <PanelLeftOpen aria-hidden="true" size={19} />
           </button>
           <div className="chat-title">
-            <span className="thread-kicker">研究线程</span>
-            <strong>{activeConversation?.title ?? "新对话"}</strong>
-            <small>每轮重新检索当前证据</small>
+            <span className="thread-kicker">{sectionKicker}</span>
+            <strong>{sectionTitle}</strong>
+            <small>{sectionSubtitle}</small>
           </div>
           <div className="chat-topbar-actions">
             <button
@@ -762,6 +940,9 @@ export default function App() {
               <LockKeyhole aria-hidden="true" size={13} />
               私有
             </span>
+            <span className="demo-stage-badge">
+              Demo · 非计分 · Day 1 未开始
+            </span>
             <button
               className="icon-button inspector-toggle"
               type="button"
@@ -776,7 +957,7 @@ export default function App() {
 
         {error && (
           <div className="global-error" role="alert">
-            <span>{error}</span>
+            <span>{userFacingIssue(error)}</span>
             <button type="button" onClick={() => window.location.reload()}>
               <RefreshCw aria-hidden="true" size={15} />
               重试
@@ -784,7 +965,7 @@ export default function App() {
           </div>
         )}
 
-        {surface.kind === "home" && (
+        {(surface.kind === "home" || surface.kind === "ask") && (
           <div className="conversation-surface">
             <MessageThread
               messages={messages}
@@ -794,6 +975,7 @@ export default function App() {
               onRegenerate={regenerate}
               onOpenArtifact={(artifactId) => void openArtifact(artifactId)}
               onFollowup={(question) => void submitResearch(question)}
+              onStarter={setDraft}
             />
             <div className="chat-composer-dock">
               <Composer
@@ -801,6 +983,7 @@ export default function App() {
                 taskType="ask"
                 disabled={submitting}
                 running={Boolean(runningLive)}
+                stopRequested={runningLive?.cancelRequested ?? false}
                 skills={skills}
                 perspectives={perspectives}
                 skillMode={skillMode}
@@ -818,6 +1001,20 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {(["today", "themes", "signals", "validation"] as const).includes(
+          surface.kind as "today" | "themes" | "signals" | "validation",
+        ) &&
+          overview && (
+            <OutputWorkbench
+              overview={overview}
+              section={
+                surface.kind as "today" | "themes" | "signals" | "validation"
+              }
+              refreshing={overviewRefreshing}
+              onRefresh={() => void refreshOverview()}
+            />
+          )}
 
         {surface.kind === "library" && (
           <ArtifactLibrary
@@ -860,9 +1057,16 @@ export default function App() {
           />
         )}
 
-        {loading && surface.kind === "home" && messages.length === 0 && (
+        {loading &&
+          (surface.kind === "home" || surface.kind === "ask") &&
+          messages.length === 0 && (
           <div className="surface-loading">正在恢复会话…</div>
         )}
+        {!loading &&
+          !overview &&
+          (["today", "themes", "signals", "validation"] as const).includes(
+            surface.kind as "today" | "themes" | "signals" | "validation",
+          ) && <div className="surface-loading">结构化数据暂不可用</div>}
       </main>
 
       <ResearchInspector

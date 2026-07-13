@@ -9,6 +9,13 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import {
+  evidenceClassificationLabel,
+  freshnessLabel,
+  traceStatusLabel,
+  userFacingIssue,
+  userFacingStage,
+} from "../displayText";
 import type {
   ArtifactDescriptor,
   Bootstrap,
@@ -39,15 +46,11 @@ function TraceItem({ step }: { step: TraceStep }) {
       <summary>
         <span className={`trace-dot trace-${step.status}`} />
         <span>
-          <strong>{step.output_summary || "研究步骤"}</strong>
-          <small>{step.status}</small>
+          <strong>{step.output_summary || userFacingStage(step.name)}</strong>
+          <small>{traceStatusLabel(step.status)}</small>
         </span>
       </summary>
       <dl>
-        <div>
-          <dt>内部工具</dt>
-          <dd>{step.name}</dd>
-        </div>
         <div>
           <dt>开始</dt>
           <dd>{step.started_at}</dd>
@@ -62,7 +65,7 @@ function TraceItem({ step }: { step: TraceStep }) {
       {step.warnings.length > 0 && (
         <ul>
           {step.warnings.map((warning) => (
-            <li key={warning}>{warning}</li>
+            <li key={warning}>{userFacingIssue(warning)}</li>
           ))}
         </ul>
       )}
@@ -79,6 +82,10 @@ export function ResearchInspector({
 }: ResearchInspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("evidence");
   const context = bundle?.context;
+  const evidenceCount =
+    context?.evidence.filter(
+      (item) => item.classification === "bound_evidence",
+    ).length ?? 0;
   const maturity = bootstrap?.self_use_maturity;
   const runStatusLabel =
     bundle?.run.status === "running"
@@ -97,7 +104,7 @@ export function ResearchInspector({
       <aside className={`research-inspector ${open ? "open" : ""}`} aria-label="研究检查器">
         <header className="inspector-header">
           <div>
-            <span className="eyebrow">TASK CONTEXT</span>
+            <span className="eyebrow">研究状态</span>
             <strong>研究上下文</strong>
           </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="关闭检查器">
@@ -138,7 +145,7 @@ export function ResearchInspector({
               </div>
               <div>
                 <dt>证据</dt>
-                <dd>{context?.evidence.length ?? 0}</dd>
+                <dd>{evidenceCount}</dd>
               </div>
               <div>
                 <dt>产物</dt>
@@ -149,19 +156,20 @@ export function ResearchInspector({
         )}
 
         {maturity && (
-          <section aria-label="自用成熟度" className="inspector-section">
-            <h3>自用成熟度 {maturity.distinct_trade_dates}/10 交易日</h3>
-            <p>核心工作流 {maturity.covered_workflows.length}/5</p>
+          <details aria-label="自用成熟度预览" className="inspector-section">
+            <summary>自用成熟度预览（Demo 非计分）</summary>
+            <p>Day 1 尚未开始，以下指标仅供产品打磨参考。</p>
+            <p>
+              交易日 {maturity.distinct_trade_dates}/10 · 核心工作流{" "}
+              {maturity.covered_workflows.length}/5
+            </p>
             <p>
               成功 {(maturity.success_rate * 100).toFixed(0)}% · 有用{" "}
               {(maturity.useful_rate * 100).toFixed(0)}% · 人工救场{" "}
               {(maturity.manual_rescue_rate * 100).toFixed(0)}%
             </p>
             <p>阻塞项 {maturity.blockers.length}</p>
-            {maturity.eligible_for_user_decision ? (
-              <p>可由用户最终裁决</p>
-            ) : null}
-          </section>
+          </details>
         )}
 
         <div className="inspector-body">
@@ -172,8 +180,8 @@ export function ResearchInspector({
                 <div className="inspector-source-card">
                   <ShieldCheck aria-hidden="true" size={18} />
                   <div>
-                    <strong>{artifact.canonical_exists ? "Canonical 来源可用" : "Canonical 来源缺失"}</strong>
-                    <code>{artifact.source_of_truth ?? artifact.source_path}</code>
+                    <strong>{artifact.canonical_exists ? "原始来源可用" : "原始来源缺失"}</strong>
+                    <code>{artifact.source_label ?? artifact.title}</code>
                   </div>
                 </div>
               )}
@@ -188,13 +196,13 @@ export function ResearchInspector({
                       <code>
                         {[
                           context.metadata.kb_commit
-                            ? `revision=${context.metadata.kb_commit.slice(0, 12)}`
+                            ? `版本=${context.metadata.kb_commit.slice(0, 12)}`
                             : "",
                           context.metadata.kb_index_built_at
-                            ? `built_at=${context.metadata.kb_index_built_at}`
+                            ? `构建时间=${context.metadata.kb_index_built_at}`
                             : "",
                           context.metadata.kb_index_freshness
-                            ? `freshness=${context.metadata.kb_index_freshness}`
+                            ? `时效=${freshnessLabel(context.metadata.kb_index_freshness)}`
                             : "",
                         ]
                           .filter(Boolean)
@@ -209,7 +217,9 @@ export function ResearchInspector({
                   <div>
                     <strong>{item.label}</strong>
                     <p>{item.detail}</p>
-                    <small>{item.classification}</small>
+                    <small>
+                      {evidenceClassificationLabel(item.classification)}
+                    </small>
                   </div>
                 </div>
               ))}
@@ -218,7 +228,7 @@ export function ResearchInspector({
                   <AlertTriangle aria-hidden="true" size={16} />
                   <div>
                     <strong>数据缺口或降级</strong>
-                    <p>{gap}</p>
+                    <p>{userFacingIssue(gap)}</p>
                   </div>
                 </div>
               ))}

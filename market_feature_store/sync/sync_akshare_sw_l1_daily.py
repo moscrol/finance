@@ -156,6 +156,20 @@ def _fetch_realtime() -> dict[str, dict]:
     return out
 
 
+def _fallback_sw_l1_codes(con, names: set[str]) -> list[dict]:
+    rows = con.execute(
+        """
+        SELECT sw_l1, ARG_MAX(sw_l1_code, trade_date)
+        FROM fact_sw_l1_daily
+        WHERE sw_l1 IS NOT NULL
+        GROUP BY sw_l1
+        """
+    ).fetchall()
+    by_name = {str(name): str(code or "") for name, code in rows}
+    by_name.update({name: by_name.get(name, "") for name in names})
+    return [{"code": code, "name": name} for name, code in sorted(by_name.items())]
+
+
 def _aggregate_fupanhui_sw_l1_proxy(con, trade_date: date, industries: list[dict]) -> dict[str, dict]:
     code_by_name = {item["name"]: item["code"] for item in industries}
     rows = con.execute(
@@ -210,11 +224,26 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
         wanted_dates = set(dates)
         ratios = _market_ratio_rows(con, dates)
         focus_names = {name for _d, name in ratios}
-        industries_all = _fetch_sw_l1_codes()
+        failures = []
+        try:
+            industries_all = _fetch_sw_l1_codes()
+        except Exception as exc:  # noqa: BLE001
+            industries_all = []
+            failures.append({"sw_l1": "catalog", "code": "sw_index_first_info", "error": str(exc)})
+        if not industries_all:
+            industries_all = _fallback_sw_l1_codes(con, focus_names)
+            failures.append(
+                {
+                    "sw_l1": "catalog",
+                    "code": "sw_index_first_info",
+                    "error": "empty industry catalog; using existing/fact_market_daily names",
+                }
+            )
+        if not industries_all:
+            raise RuntimeError("申万一级目录为空，且本地库没有可降级的行业名称")
         industries = [item for item in industries_all if not focus_names or item["name"] in focus_names]
         by_name = {item["name"]: item for item in industries_all}
         records: dict[tuple[date, str], dict] = {}
-        failures = []
         for item in industries:
             try:
                 hist = _fetch_hist_by_code(item["code"], start - timedelta(days=10), end)
@@ -330,4 +359,5 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
         "current": current,
         "failures": failures,
         "degraded_rows": degraded_rows,
+        "status": "degraded" if degraded_rows else ("partial" if failures else "complete"),
     }

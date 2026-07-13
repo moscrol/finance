@@ -1,0 +1,406 @@
+from __future__ import annotations
+
+from datetime import date, timedelta
+import importlib.util
+from pathlib import Path
+import sys
+
+import duckdb
+import pandas as pd
+import pytest
+
+from market_feature_store import cli
+from market_feature_store.sync import sync_fupanhui_mainline_daily as mainline
+from market_feature_store.sync import sync_fupanhui_mainline_sector_daily as mainline_sector
+from scripts import check_daily_review_data
+from scripts.compute_features import compute_features
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SCHEMA = (ROOT / "market_feature_store" / "schema.sql").read_text(encoding="utf-8")
+TRADE_DATE = "2026-07-10"
+RUN_REVIEW_PATH = ROOT / "skills" / "daily-full-review" / "scripts" / "run_review_sync.py"
+RUN_REVIEW_SPEC = importlib.util.spec_from_file_location("run_review_sync", RUN_REVIEW_PATH)
+assert RUN_REVIEW_SPEC and RUN_REVIEW_SPEC.loader
+run_review_sync = importlib.util.module_from_spec(RUN_REVIEW_SPEC)
+RUN_REVIEW_SPEC.loader.exec_module(run_review_sync)
+
+
+def _database(path: Path | str = ":memory:") -> duckdb.DuckDBPyConnection:
+    con = duckdb.connect(str(path))
+    con.execute(SCHEMA)
+    return con
+
+
+def _theme(code: str = "T1") -> dict:
+    return {"theme_code": code, "theme_name": f"主题{code}", "sector_count": 1, "min_sort": 1}
+
+
+def _stock_payload(code: str = "000001.SZ") -> dict:
+    return {
+        "groups": [
+            {
+                "groupType": "核心",
+                "stocks": [
+                    {
+                        "ts_code": code,
+                        "name": "测试股",
+                        "price": 10,
+                        "changePct": 2,
+                        "amount": 100,
+                    }
+                ],
+            }
+        ]
+    }
+
+
+def _sector_payload(code: str = "885001.TI") -> list[dict]:
+    return [{"sector_code": code, "sector_name": "测试板块", "today_pct": 1.2}]
+
+
+def _patch_writer(monkeypatch, module, db_path: Path) -> None:
+    monkeypatch.setattr(module, "init_db", lambda: None)
+    monkeypatch.setattr(module, "connect", lambda: duckdb.connect(str(db_path)))
+    monkeypatch.setattr(module.time, "sleep", lambda _seconds: None)
+
+
+def test_mainline_complete_snapshot_is_atomic_and_idempotent(tmp_path, monkeypatch):
+    db_path = tmp_path / "mainline.duckdb"
+    _database(db_path).close()
+    _patch_writer(monkeypatch, mainline, db_path)
+    monkeypatch.setattr(mainline.fs, "get_mainline_themes", lambda _date: [_theme()])
+    monkeypatch.setattr(mainline.fs, "get_mainline_stocks", lambda _date, _code: _stock_payload())
+
+    first = mainline.sync(TRADE_DATE, attempts=1)
+    second = mainline.sync(TRADE_DATE, attempts=1)
+
+    assert first["status"] == second["status"] == "complete"
+    with duckdb.connect(str(db_path), read_only=True) as con:
+        assert con.execute(
+            "SELECT COUNT(*) FROM fact_mainline_theme_daily WHERE trade_date = ?", [TRADE_DATE]
+        ).fetchone()[0] == 1
+        assert con.execute(
+            "SELECT COUNT(*) FROM fact_mainline_stock_daily WHERE trade_date = ?", [TRADE_DATE]
+        ).fetchone()[0] == 1
+
+
+@pytest.mark.parametrize("failure_mode", ["exception", "empty_groups", "empty_stocks"])
+def test_mainline_partial_keeps_previous_snapshot(tmp_path, monkeypatch, failure_mode):
+    db_path = tmp_path / "mainline-partial.duckdb"
+    con = _database(db_path)
+    con.execute(
+        "INSERT INTO fact_mainline_theme_daily VALUES (?, 'OLD', '旧主题', 1, 1, 'seed', NOW())",
+        [TRADE_DATE],
+    )
+    con.execute(
+        """
+        INSERT INTO fact_mainline_stock_daily
+        VALUES (?, 'OLD', '旧主题', '核心', 'OLD.SZ', '旧股票', 1, 1, 1, 'seed', NOW())
+        """,
+        [TRADE_DATE],
+    )
+    con.close()
+    _patch_writer(monkeypatch, mainline, db_path)
+    monkeypatch.setattr(mainline.fs, "get_mainline_themes", lambda _date: [_theme("T1"), _theme("T2")])
+    calls = {"T1": 0, "T2": 0}
+
+    def get_stocks(_date, code):
+        calls[code] += 1
+        if code == "T1":
+            return _stock_payload()
+        if failure_mode == "exception":
+            raise RuntimeError("upstream unavailable")
+        if failure_mode == "empty_groups":
+            return {"groups": []}
+        return {"groups": [{"groupType": "核心", "stocks": []}]}
+
+    monkeypatch.setattr(mainline.fs, "get_mainline_stocks", get_stocks)
+
+    stats = mainline.sync(TRADE_DATE, attempts=2, retry_delay=0)
+
+    assert stats["status"] == "partial"
+    assert stats["themes"] == stats["stocks"] == 0
+    assert calls == {"T1": 1, "T2": 2}
+    with duckdb.connect(str(db_path), read_only=True) as con:
+        assert con.execute(
+            "SELECT theme_code FROM fact_mainline_theme_daily WHERE trade_date = ?", [TRADE_DATE]
+        ).fetchall() == [("OLD",)]
+        assert con.execute(
+            "SELECT stock_ts_code FROM fact_mainline_stock_daily WHERE trade_date = ?", [TRADE_DATE]
+        ).fetchall() == [("OLD.SZ",)]
+
+
+def test_mainline_empty_theme_list_is_failed_without_writing(tmp_path, monkeypatch):
+    db_path = tmp_path / "empty-themes.duckdb"
+    _database(db_path).close()
+    _patch_writer(monkeypatch, mainline, db_path)
+    monkeypatch.setattr(mainline.fs, "get_mainline_themes", lambda _date: [])
+
+    stats = mainline.sync(TRADE_DATE, attempts=2, retry_delay=0)
+
+    assert stats["status"] == "failed"
+    assert stats["expected_themes"] == 0
+
+
+@pytest.mark.parametrize("response", [[], RuntimeError("sector request failed")])
+def test_mainline_sector_failure_keeps_previous_snapshot(tmp_path, monkeypatch, response):
+    db_path = tmp_path / "mainline-sector.duckdb"
+    con = _database(db_path)
+    con.execute(
+        """
+        INSERT INTO fact_mainline_sector_daily (
+            trade_date, theme_code, theme_name, sector_ts_code, sector_name, source, updated_at
+        ) VALUES (?, 'OLD', '旧主题', 'OLD.TI', '旧板块', 'seed', NOW())
+        """,
+        [TRADE_DATE],
+    )
+    con.close()
+    _patch_writer(monkeypatch, mainline_sector, db_path)
+    monkeypatch.setattr(mainline_sector.fs, "get_mainline_themes", lambda _date: [_theme()])
+    calls = 0
+
+    def get_sectors(_date, _code):
+        nonlocal calls
+        calls += 1
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(mainline_sector.fs, "get_mainline_sectors", get_sectors)
+
+    stats = mainline_sector.sync(TRADE_DATE, attempts=2, retry_delay=0)
+
+    assert stats["status"] == "failed"
+    assert calls == 2
+    with duckdb.connect(str(db_path), read_only=True) as con:
+        assert con.execute(
+            "SELECT sector_ts_code FROM fact_mainline_sector_daily WHERE trade_date = ?",
+            [TRADE_DATE],
+        ).fetchall() == [("OLD.TI",)]
+
+
+def test_mainline_cli_returns_nonzero_for_partial(monkeypatch):
+    partial = {
+        "themes": 0,
+        "stocks": 0,
+        "failures": [{"theme_code": "T2", "error": "failed"}],
+        "status": "partial",
+    }
+    monkeypatch.setattr(mainline, "sync", lambda _date: partial)
+
+    assert cli.cmd_sync_mainline_daily(type("Args", (), {"trade_date": TRADE_DATE})()) == 2
+
+
+def _seed_feature_inputs(con: duckdb.DuckDBPyConnection, count: int = 70) -> str:
+    start = date(2026, 1, 1)
+    for offset in range(count):
+        current = start + timedelta(days=offset)
+        con.execute(
+            """
+            INSERT INTO fact_market_daily (
+                trade_date, total_amount, advancers, limit_up, limit_down, source, updated_at
+            ) VALUES (?, ?, ?, ?, ?, 'test', NOW())
+            """,
+            [current, 10000 + offset, 2000 + offset * 10, 40 + offset, 5],
+        )
+        con.execute(
+            """
+            INSERT INTO fact_stock_daily (
+                trade_date, stock_ts_code, stock_name, close, amount, source, updated_at
+            ) VALUES (?, '000001.SZ', '测试股', ?, ?, 'test', NOW())
+            """,
+            [current, 10 + offset / 10, 100 + offset],
+        )
+        con.execute(
+            """
+            INSERT INTO fact_sector_daily (
+                trade_date, sector_ts_code, sector_name, sw_l1, pct_chg, amount,
+                diff_ratio, source, updated_at
+            ) VALUES (?, '885001.TI', '测试板块', '一级行业', 1, ?, ?, 'test', NOW())
+            """,
+            [current, 1000 + offset, offset / 10],
+        )
+    return str(start + timedelta(days=count - 1))
+
+
+def test_compute_features_uses_latest_canonical_inputs():
+    con = _database()
+    latest = _seed_feature_inputs(con)
+
+    stats = compute_features(con=con)
+
+    assert stats["trade_date"] == latest
+    assert stats["status"] == "complete"
+    assert stats["tables"]["feature_market_window"] == 4
+    assert stats["tables"]["feature_stock_window"] == 4
+    assert stats["tables"]["feature_sector_window"] == 4
+    assert stats["tables"]["feature_stock_technical_daily"] == 1
+    assert stats["tables"]["fact_sector_period_rank_daily"] == 4
+    assert con.execute(
+        """
+        SELECT period_type, change_pct, source
+        FROM fact_sector_period_rank_daily
+        WHERE trade_date = ?
+        ORDER BY CASE period_type
+            WHEN 'daily' THEN 1 WHEN 'day3' THEN 2 WHEN 'day5' THEN 3 ELSE 4
+        END
+        """,
+        [latest],
+    ).fetchall() == [
+        ("daily", 1.0, "derived:fact_sector_daily"),
+        ("day3", 3.03, "derived:fact_sector_daily"),
+        ("day5", 5.1, "derived:fact_sector_daily"),
+        ("day10", 10.46, "derived:fact_sector_daily"),
+    ]
+    assert con.execute(
+        "SELECT COUNT(*) FROM feature_stock_technical_daily WHERE trade_date = ?", [latest]
+    ).fetchone()[0] == 1
+
+
+def test_compute_feature_failure_preserves_existing_rows():
+    con = _database()
+    latest = _seed_feature_inputs(con)
+    next_date = str(date.fromisoformat(latest) + timedelta(days=1))
+    con.execute(
+        """
+        INSERT INTO fact_market_daily (
+            trade_date, total_amount, advancers, limit_up, limit_down, source, updated_at
+        ) VALUES (?, 20000, 3000, 100, 1, 'test', NOW())
+        """,
+        [next_date],
+    )
+    con.execute(
+        """
+        INSERT INTO feature_market_window (
+            as_of_date, start_date, end_date, advancers_start, advancers_end,
+            advancers_change, calculated_at
+        ) VALUES (?, ?, ?, 1, 2, 1, NOW())
+        """,
+        [next_date, latest, next_date],
+    )
+
+    with pytest.raises(RuntimeError, match="feature_stock_window"):
+        compute_features(next_date, selected=("market", "stock"), con=con)
+
+    assert con.execute(
+        "SELECT advancers_start FROM feature_market_window WHERE as_of_date = ?", [next_date]
+    ).fetchall() == [(1,)]
+
+
+def test_daily_gate_reports_mainline_coverage_gap(tmp_path, monkeypatch):
+    db_path = tmp_path / "quality.duckdb"
+    con = _database(db_path)
+    con.execute(
+        "INSERT INTO fact_mainline_theme_daily VALUES (?, 'T1', '主题', 1, 1, 'test', NOW())",
+        [TRADE_DATE],
+    )
+    con.execute(
+        """
+        INSERT INTO fact_mainline_stock_daily
+        VALUES (?, 'T1', '主题', '核心', '000001.SZ', '测试股', 1, 1, 1, 'test', NOW())
+        """,
+        [TRADE_DATE],
+    )
+    con.close()
+    monkeypatch.setattr(
+        check_daily_review_data,
+        "connect",
+        lambda read_only=False: duckdb.connect(str(db_path), read_only=read_only),
+    )
+    monkeypatch.setattr(check_daily_review_data, "TABLES", ["fact_mainline_theme_daily"])
+    monkeypatch.setattr(check_daily_review_data, "MARKET_FIELDS", [])
+
+    missing = check_daily_review_data.check_data(TRADE_DATE)
+
+    assert any("主线题材 T1/主题 覆盖不完整" in item and "核心板块 0 行" in item for item in missing)
+
+
+def test_l2_gate_reports_stale_tables(tmp_path, monkeypatch):
+    db_path = tmp_path / "l2.duckdb"
+    con = _database(db_path)
+    con.execute(
+        """
+        INSERT INTO feature_l2_capital_flow_daily (
+            trade_date, scan_type, stock_code, stock_ts_code, stock_name, source, calculated_at
+        ) VALUES ('2026-07-09', 'top100', '000001', '000001.SZ', '测试股', 'test', NOW())
+        """
+    )
+    con.close()
+    monkeypatch.setattr(
+        check_daily_review_data,
+        "connect",
+        lambda read_only=False: duckdb.connect(str(db_path), read_only=read_only),
+    )
+
+    missing = check_daily_review_data.check_l2(TRADE_DATE)
+
+    assert len(missing) == 3
+    assert all("无 2026-07-10 完成记录" in item for item in missing)
+
+
+def test_l2_gate_accepts_completed_empty_results(tmp_path, monkeypatch):
+    db_path = tmp_path / "l2-empty.duckdb"
+    _database(db_path).close()
+    moneyflow_dir = ROOT / "scripts" / "moneyflow"
+    monkeypatch.syspath_prepend(str(moneyflow_dir))
+    monkeypatch.delitem(sys.modules, "config", raising=False)
+    spec = importlib.util.spec_from_file_location(
+        "test_write_to_duckdb", moneyflow_dir / "write_to_duckdb.py"
+    )
+    assert spec and spec.loader
+    writer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(writer)
+    monkeypatch.setattr(writer, "connect", lambda: duckdb.connect(str(db_path)))
+    monkeypatch.setattr(writer, "init_db", lambda con: con.execute(SCHEMA))
+    empty = pd.DataFrame()
+
+    writer.begin_l2_run(TRADE_DATE)
+    con = duckdb.connect(str(db_path), read_only=True)
+    try:
+        assert con.execute(
+            """
+            SELECT step, status
+            FROM ops_pipeline_run_daily
+            WHERE trade_date = ?
+            ORDER BY step
+            """,
+            [TRADE_DATE],
+        ).fetchall() == [
+            ("limitup", "running"),
+            ("quant", "running"),
+            ("top100", "running"),
+        ]
+    finally:
+        con.close()
+
+    writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50)
+    writer.write_capital_flow(TRADE_DATE, "top100", empty, 50)
+    writer.write_quant_orders(TRADE_DATE, empty, 50, 200)
+
+    monkeypatch.setattr(
+        check_daily_review_data,
+        "connect",
+        lambda read_only=False: duckdb.connect(str(db_path), read_only=read_only),
+    )
+
+    assert check_daily_review_data.check_l2(TRADE_DATE) == []
+
+
+def test_sync_plan_includes_mainline_sectors_and_features(monkeypatch):
+    monkeypatch.setattr(run_review_sync, "run_step", lambda *args, **kwargs: True)
+    names = [name for name, _runner in run_review_sync.build_plan(TRADE_DATE, 1, 2)]
+
+    assert names.index("mainline-sector-daily") == names.index("mainline-daily") + 1
+    assert names.index("features") > names.index("theme-flow-daily")
+
+
+def test_nightly_script_attempts_l2_before_sync_failure_exit():
+    script = (
+        ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
+    ).read_text(encoding="utf-8")
+    sync_result = script.index("rc=$?")
+    moneyflow = script.index("run_moneyflow", sync_result)
+    sync_exit = script.index("if [ $rc -ne 0 ]", moneyflow)
+
+    assert sync_result < moneyflow < sync_exit

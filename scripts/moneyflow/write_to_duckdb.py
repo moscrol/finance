@@ -23,11 +23,64 @@ from market_feature_store.db import connect, init_db  # noqa: E402
 from config import to_ts_code  # noqa: E402
 
 SOURCE = "clickhouse:share(level2逐笔)"
+STEPS = ("limitup", "top100", "quant")
+
+
+def begin_l2_run(date):
+    con = connect()
+    try:
+        init_db(con)
+        con.execute("BEGIN TRANSACTION")
+        for step in STEPS:
+            con.execute(
+                """
+                INSERT INTO ops_pipeline_run_daily
+                    (trade_date, pipeline, step, status, row_count, message, source, finished_at)
+                VALUES (?, 'l2-moneyflow', ?, 'running', NULL, NULL, ?, NULL)
+                ON CONFLICT (trade_date, pipeline, step) DO UPDATE SET
+                    status = excluded.status,
+                    row_count = excluded.row_count,
+                    message = excluded.message,
+                    source = excluded.source,
+                    finished_at = excluded.finished_at
+                """,
+                [date, step, SOURCE],
+            )
+        con.execute("COMMIT")
+    except Exception:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:
+            pass
+        raise
+    finally:
+        con.close()
+
+
+def _mark_complete(con, date, step, row_count):
+    con.execute(
+        """
+        INSERT INTO ops_pipeline_run_daily
+            (trade_date, pipeline, step, status, row_count, message, source, finished_at)
+        VALUES (?, 'l2-moneyflow', ?, 'complete', ?, NULL, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT (trade_date, pipeline, step) DO UPDATE SET
+            status = excluded.status,
+            row_count = excluded.row_count,
+            message = excluded.message,
+            source = excluded.source,
+            finished_at = excluded.finished_at
+        """,
+        [date, step, row_count, SOURCE],
+    )
 
 
 def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None):
     """res 列: code,name,主买净额(万),总买净额(万),流通市值(亿),综合得分,当日涨幅%"""
-    df = res.sort_values("综合得分", ascending=False).reset_index(drop=True)
+    df = (
+        res.sort_values("综合得分", ascending=False).reset_index(drop=True)
+        if not res.empty
+        else res
+    )
     now = datetime.now()
     rows = [(date, scan_type, r["code"], to_ts_code(r["code"]), r["name"],
              float(r["主买净额(万)"]), float(r["总买净额(万)"]),
@@ -39,12 +92,22 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None):
     con = connect()
     try:
         init_db(con)
+        con.execute("BEGIN TRANSACTION")
         con.execute(
             "DELETE FROM feature_l2_capital_flow_daily "
             "WHERE trade_date = ? AND scan_type = ?", [date, scan_type])
-        con.executemany(
-            "INSERT INTO feature_l2_capital_flow_daily VALUES "
-            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+        if rows:
+            con.executemany(
+                "INSERT INTO feature_l2_capital_flow_daily VALUES "
+                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+        _mark_complete(con, date, scan_type, len(rows))
+        con.execute("COMMIT")
+    except Exception:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:
+            pass
+        raise
     finally:
         con.close()
     print(f"DuckDB: feature_l2_capital_flow_daily {scan_type} {date} 写入 {len(rows)} 行")
@@ -52,7 +115,11 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None):
 
 def write_quant_orders(date, res, big_thr, quant_thr):
     """res 列: code,name,量化单总额(万),占大单买入%,簇数,笔数,最大簇,当日涨幅%"""
-    df = res.sort_values("占大单买入%", ascending=False).reset_index(drop=True)
+    df = (
+        res.sort_values("占大单买入%", ascending=False).reset_index(drop=True)
+        if not res.empty
+        else res
+    )
     now = datetime.now()
     rows = [(date, r["code"], to_ts_code(r["code"]), r["name"],
              float(r["量化单总额(万)"]), float(r["占大单买入%"]),
@@ -63,20 +130,37 @@ def write_quant_orders(date, res, big_thr, quant_thr):
     con = connect()
     try:
         init_db(con)
+        con.execute("BEGIN TRANSACTION")
         con.execute(
             "DELETE FROM feature_l2_quant_orders_daily WHERE trade_date = ?",
             [date])
-        con.executemany(
-            "INSERT INTO feature_l2_quant_orders_daily VALUES "
-            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+        if rows:
+            con.executemany(
+                "INSERT INTO feature_l2_quant_orders_daily VALUES "
+                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+        _mark_complete(con, date, "quant", len(rows))
+        con.execute("COMMIT")
+    except Exception:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:
+            pass
+        raise
     finally:
         con.close()
     print(f"DuckDB: feature_l2_quant_orders_daily {date} 写入 {len(rows)} 行")
 
 
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "--begin":
+        begin_l2_run(sys.argv[2])
+        print(f"DuckDB: l2-moneyflow {sys.argv[2]} 标记为 running")
+        return
     if len(sys.argv) < 4:
-        print("用法: python3 write_to_duckdb.py <csv路径> <limitup|top100|quant> <日期>")
+        print(
+            "用法: python3 write_to_duckdb.py --begin <日期> | "
+            "<csv路径> <limitup|top100|quant> <日期>"
+        )
         return
     csv_path, scan_type, date = sys.argv[1], sys.argv[2], sys.argv[3]
     res = pd.read_csv(csv_path, dtype={"code": str})

@@ -20,6 +20,33 @@ RELATION_FILES = {
     "theme_signals": "theme_signals.json",
 }
 
+_GENERIC_SEARCH_TERMS = {
+    "a股",
+    "公司",
+    "相关",
+    "题材",
+    "产业链",
+    "上游",
+    "下游",
+    "分层",
+    "证据",
+    "缺口",
+    "反证",
+    "事实",
+    "推测",
+    "待验证",
+    "触发条件",
+    "核验动作",
+    "深研",
+    "给出",
+    "定义",
+    "明确",
+    "区分",
+    "核心",
+    "受益",
+    "弱关联",
+}
+
 
 @dataclass(frozen=True)
 class KnowledgeAdapter:
@@ -130,17 +157,23 @@ class KnowledgeAdapter:
                 "warnings": ["evidence_index.items is not a list"],
                 "errors": [],
             }
-        matched = []
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            if item.get("target") != target:
-                continue
-            if concept and not self._evidence_matches_concept(item, concept):
-                continue
-            matched.append(item)
-            if len(matched) >= limit:
-                break
+        target_items = [
+            item
+            for item in items
+            if isinstance(item, dict) and item.get("target") == target
+        ]
+        if concept:
+            exact_items = [
+                item
+                for item in target_items
+                if self._normalize(item.get("concept")) == self._normalize(concept)
+            ]
+            target_items = exact_items or [
+                item
+                for item in target_items
+                if self._evidence_matches_concept(item, concept)
+            ]
+        matched = target_items[:limit]
         return {
             "found": bool(matched),
             "target": target,
@@ -170,16 +203,24 @@ class KnowledgeAdapter:
                 "errors": [],
             }
         terms = self._search_terms(term)
+        query_text = self._normalize(term)
         matched = []
         for name, payload in concepts.items():
             text = f"{name} {json.dumps(payload, ensure_ascii=False)[:2000]}"
             score = 0
+            normalized_name = self._normalize(name)
+            if normalized_name and normalized_name in query_text:
+                score += 10
             for candidate in terms:
-                if self._normalize(candidate) == self._normalize(name):
+                if self._is_generic_search_term(candidate):
+                    continue
+                if self._normalize(candidate) == normalized_name:
                     score += 10
                 elif self._contains(candidate, name):
                     score += 5
-                elif self._contains(candidate, text):
+                elif self._is_precise_weak_search_term(
+                    candidate
+                ) and self._contains(candidate, text):
                     score += 2
             if score > 0:
                 matched.append({"concept": name, "score": score})
@@ -203,21 +244,36 @@ class KnowledgeAdapter:
                 "errors": relation["errors"],
             }
         terms = self._search_terms(term)
+        query_text = self._normalize(term)
         matched = []
         for row in self._iter_exposure_rows(relation["data"]):
             score = 0
             concept_name = str(row.get("concept") or row.get("theme") or "")
+            company = str(
+                row.get("entity") or row.get("company") or row.get("name") or ""
+            ).strip()
             text = self._exposure_text(row)
+            normalized_concept = self._normalize(concept_name)
+            normalized_company = self._normalize(company)
+            if normalized_concept and normalized_concept in query_text:
+                score += 10
+            if normalized_company and normalized_company in query_text:
+                score += 8
             for candidate in terms:
-                if self._normalize(candidate) == self._normalize(concept_name):
+                if self._is_generic_search_term(candidate):
+                    continue
+                if self._normalize(candidate) == normalized_concept:
                     score += 10
                 elif self._contains(candidate, concept_name):
                     score += 5
-                elif self._contains(candidate, text):
+                elif self._is_precise_weak_search_term(
+                    candidate
+                ) and self._contains(
+                    candidate, text
+                ):
                     score += 1
             if score <= 0:
                 continue
-            company = str(row.get("entity") or row.get("company") or row.get("name") or "").strip()
             if not company:
                 continue
             matched.append(self._exposure_ref(row, score))
@@ -254,10 +310,29 @@ class KnowledgeAdapter:
     def _contains(cls, term: str, text: str) -> bool:
         return bool(term and text and cls._normalize(term) in cls._normalize(text))
 
+    @classmethod
+    def _is_generic_search_term(cls, term: str) -> bool:
+        return cls._normalize(term) in _GENERIC_SEARCH_TERMS
+
+    @classmethod
+    def _is_precise_weak_search_term(cls, term: str) -> bool:
+        normalized = cls._normalize(term)
+        return (
+            2 <= len(normalized) <= 8
+            and not any(
+                generic in normalized
+                for generic in _GENERIC_SEARCH_TERMS
+                if len(generic) >= 2
+            )
+        )
+
     @staticmethod
     def _search_terms(term: str) -> list[str]:
-        parts = re.split(r"[\s,，、/|;；：:()（）\[\]【】]+", str(term or ""))
-        terms = [str(term or "").strip(), *[part.strip() for part in parts if len(part.strip()) >= 2]]
+        parts = re.split(
+            r"[\s,，、/|;；：:()（）\[\]【】“”\"'《》]+",
+            str(term or ""),
+        )
+        terms = [part.strip() for part in parts if len(part.strip()) >= 2]
         out = []
         for item in terms:
             if item and item not in out:

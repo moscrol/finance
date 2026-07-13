@@ -15,6 +15,7 @@ interface ComposerProps {
   disabled?: boolean;
   compact?: boolean;
   running?: boolean;
+  stopRequested?: boolean;
   skills?: ProductSkillDescription[];
   perspectives?: PerspectiveDescription[];
   skillMode?: SkillMode;
@@ -36,6 +37,7 @@ export function Composer({
   disabled = false,
   compact = false,
   running = false,
+  stopRequested = false,
   skills = [],
   perspectives = [],
   skillMode = "hybrid",
@@ -122,12 +124,13 @@ export function Composer({
           <button
             className="stop-generation-button"
             type="button"
-            aria-label="停止生成"
-            title="停止生成"
+            aria-label={stopRequested ? "停止请求已提交" : "停止生成"}
+            title={stopRequested ? "停止请求已提交" : "停止生成"}
+            disabled={stopRequested}
             onClick={onStop}
           >
             <StopCircle aria-hidden="true" size={17} />
-            停止
+            {stopRequested ? "停止请求已提交" : "停止"}
           </button>
         ) : (
           <button

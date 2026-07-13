@@ -32,7 +32,7 @@ plt.rcParams["font.sans-serif"] = ["WenQuanYi Zen Hei"]
 plt.rcParams["axes.unicode_minus"] = False
 
 
-def top_turnover_stocks(client, date, n=50):
+def top_turnover_stocks(client, date, n=100):
     """当日成交额前 n 的股票（用 level2 收盘快照的累计成交额）。
 
     按代码前缀分4批查询再合并，单批负担小；每批失败自动重试。
@@ -42,9 +42,11 @@ def top_turnover_stocks(client, date, n=50):
     if os.path.exists(cache):
         with open(cache) as f:
             codes = [ln.strip() for ln in f if ln.strip()]
-        if codes:
+        if len(codes) >= n:
             print(f"读取缓存名单 {cache}: {len(codes)} 只")
             return codes[:n]
+        if codes:
+            print(f"缓存名单仅 {len(codes)} 只，重新获取成交额前{n}名单")
     try:
         codes = duck_top_turnover_codes(date, n)
         if codes:
@@ -118,6 +120,7 @@ def main():
     res = pd.DataFrame(results)
     if res.empty:
         print("无结果")
+        write_capital_flow(date, "top100", res, big_thr)
         return
     info = stock_info(res["code"])
     res["name"] = res["code"].map(lambda c: info.get(c, {}).get("name", ""))
@@ -129,10 +132,7 @@ def main():
 
     csv_path = out_path(f"top100_scan_{date}.csv")
     res.sort_values("综合得分", ascending=False).to_csv(csv_path, index=False)
-    try:
-        write_capital_flow(date, "top100", res, big_thr)
-    except Exception as e:
-        print(f"写入 DuckDB 失败（榜单不受影响）: {e}")
+    write_capital_flow(date, "top100", res, big_thr)
 
     sel = res[(res["主买净额(万)"] > 0) & (res["总买净额(万)"] > 0)]
     top = sel.sort_values("综合得分", ascending=False).head(20).reset_index(drop=True)

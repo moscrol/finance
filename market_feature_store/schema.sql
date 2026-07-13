@@ -103,6 +103,22 @@ CREATE TABLE IF NOT EXISTS fact_sector_daily (
 CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_date ON fact_sector_daily(trade_date);
 CREATE INDEX IF NOT EXISTS idx_fact_sector_daily_sector ON fact_sector_daily(sector_ts_code);
 
+CREATE TABLE IF NOT EXISTS fact_sector_period_rank_daily (
+    trade_date      DATE,
+    period_type     TEXT,
+    rank            INTEGER,
+    sector_ts_code  TEXT,
+    sector_name     TEXT,
+    change_pct      DOUBLE,
+    limit_up_count  INTEGER,
+    badge           TEXT,
+    source          TEXT,
+    updated_at      TIMESTAMP,
+    PRIMARY KEY (trade_date, period_type, rank, sector_name)
+);
+CREATE INDEX IF NOT EXISTS idx_fact_sector_period_rank_date
+    ON fact_sector_period_rank_daily(trade_date);
+
 CREATE TABLE IF NOT EXISTS fact_sw_l1_daily (
     trade_date      DATE,
     sw_l1_code      TEXT,
@@ -608,3 +624,17 @@ CREATE TABLE IF NOT EXISTS feature_l2_quant_orders_daily (
     PRIMARY KEY (trade_date, stock_code)
 );
 CREATE INDEX IF NOT EXISTS idx_feature_l2quant_date ON feature_l2_quant_orders_daily(trade_date);
+
+CREATE TABLE IF NOT EXISTS ops_pipeline_run_daily (
+    trade_date     DATE,
+    pipeline       TEXT,
+    step           TEXT,
+    status         TEXT,
+    row_count      INTEGER,
+    message        TEXT,
+    source         TEXT,
+    finished_at    TIMESTAMP,
+    PRIMARY KEY (trade_date, pipeline, step)
+);
+CREATE INDEX IF NOT EXISTS idx_ops_pipeline_run_date
+    ON ops_pipeline_run_daily(trade_date, pipeline);

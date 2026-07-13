@@ -75,6 +75,15 @@ _JSON_BLOCK_PATTERN = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _HUMAN_READABLE_REPLACEMENTS = (
+    (
+        "knowledge-base · wiki/relations/entity_exposures.json",
+        "本地知识库 · 公司题材关联",
+    ),
+    (
+        "knowledge-base · wiki/relations/evidence_index.json",
+        "本地知识库 · 公司证据索引",
+    ),
+    ("knowledge-base · wiki/relations/", "本地知识库 · "),
     ("daily-agent", "每日复盘流程"),
     ("Daily Review 确定性投影数据", "本地复盘数据"),
     ("Daily Review", "本地复盘"),
@@ -112,6 +121,29 @@ _HUMAN_READABLE_REPLACEMENTS = (
     ("priority_score", "优先级"),
     ("diff_ratio", "成交边际变化"),
     ("模块路由", "分析路径"),
+    ("deep-dive", "产业链研究"),
+    ("disclosure-archive → apply", "官方公告与年报"),
+    ("图谱·语义召回(知识库向量)", "知识库补充"),
+    ("图谱·语义召回(wiki 向量)", "知识库补充"),
+    ("检索可观测", "资料覆盖情况"),
+    ("输出质检", "回答质量检查"),
+    ("theme-radar", "题材盘面快照"),
+    ("double_red", "涨幅与边际量同步增强"),
+    ("new_high_cluster", "新高个股聚集"),
+    ("new_high_direction", "新高方向确认"),
+    ("limit_advance_cluster", "连板晋级聚集"),
+    ("limit_heat", "涨停热度"),
+    ("super_capacity", "超大容量"),
+    ("long_tail", "长尾观察"),
+    ("score_detail.", "盘面信号."),
+    ("medium/", "中置信/"),
+    ("low/", "低置信/"),
+    ("high/", "高置信/"),
+    (
+        "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
+        "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边",
+        "时效边界：以上证据仅按来源日期标注，使用前需复核是否仍然有效。",
+    ),
     ("rerank", "检索重排"),
     ("RAG 遥测", "检索诊断"),
     ("RAG", "知识库检索"),
@@ -124,6 +156,56 @@ _EVIDENCE_LAYER_REPLACEMENTS = {
     "3": "公告等硬证据",
     "4": "盘面信号",
 }
+_CREDENTIAL_IDENTIFIER_PATTERN = re.compile(
+    r"\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\b"
+)
+_LOCAL_PATH_PATTERN = re.compile(r"/(?:Users|home)/|[A-Za-z]:\\")
+_INTERNAL_ERROR_PATTERN = re.compile(
+    r"Traceback|File \".+\", line \d+|"
+    r"\b[A-Za-z_][\w.]+(?:Error|Exception)\b"
+)
+_INTERNAL_RETRIEVAL_DIAGNOSTIC_PATTERN = re.compile(
+    r"Fetching\s+\d+\s+files:|Loading weights:|"
+    r"检索方式=hybrid|BM25|BGE-m3|RRF|"
+    r"\bchunk(?:_id)?=|\bhash=|\bindex=|\bk=\d+|耗时=\d+ms|状态=empty|"
+    r"[DMVW]\s*源|命中来源分布|检索质量裁定|公告等硬证据覆盖|"
+    r"--mode\b|\b\w+\.py\b",
+    re.IGNORECASE,
+)
+_PUBLIC_REPORT_REPLACEMENTS = (
+    ("research_1_summary", "结论"),
+    ("research_2_evidence", "证据链"),
+    ("research_3_risks", "分歧反证"),
+    ("research_4_actions", "后续验证点"),
+    ("research_5_telemetry", "资料覆盖情况"),
+    ("research_6_review", "回答质量检查"),
+    ("research_7_implications", "交易含义"),
+    ("research_8_sources", "引用来源"),
+    (
+        "llm_unavailable_template_answer",
+        "自然语言综合暂时不可用；已保留可核验数据与结构化产物。",
+    ),
+    ("answer-orchestrator", "问题理解"),
+    ("ask_retrieval_pipeline", "研究检索流程"),
+    ("deterministic_projection", "确定性数据整理"),
+    ("deterministic_duckdb_query", "本地数据查询"),
+    ("retrieved_evidence", "已检索证据"),
+    ("canonical", "原始来源"),
+    ("disclosure-archive → apply", "官方公告与年报"),
+    ("图谱·语义召回(知识库向量)", "知识库补充"),
+    ("图谱·语义召回(wiki 向量)", "知识库补充"),
+    (
+        "模块·deep-dive（产业维 · radar.py --mode deep-dive 题材深拆）",
+        "产业链研究",
+    ),
+    ("模块·deep-dive", "产业链研究"),
+    ("[deep-dive]", ""),
+    (
+        "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
+        "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边",
+        "时效边界：以上证据仅按来源日期标注，使用前需复核是否仍然有效。",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -160,7 +242,7 @@ def _summarize_messages(messages: Sequence[Message]) -> str:
 
 def _redact_object(value: object) -> object:
     if isinstance(value, str):
-        return redact(value)
+        return sanitize_user_visible_artifact_text(value)
     if isinstance(value, list):
         return [_redact_object(item) for item in value]
     if isinstance(value, dict):
@@ -171,8 +253,51 @@ def _redact_object(value: object) -> object:
     return value
 
 
+def _sanitize_citation_list(
+    citations: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    sanitized: list[dict[str, object]] = []
+    for citation in citations:
+        item = dict(citation)
+        for key in ("source", "detail", "label", "title"):
+            value = item.get(key)
+            if isinstance(value, str):
+                item[key] = sanitize_user_visible_artifact_text(value)
+        sanitized.append(item)
+    return sanitized
+
+
+def sanitize_user_visible_artifact_text(text: str) -> str:
+    cleaned = redact(text)
+    if re.search(r"未配置 LLM key", cleaned, re.IGNORECASE):
+        return "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
+    if re.search(r"HF_TOKEN|Hugging\s*Face", cleaned, re.IGNORECASE):
+        return "外部语义检索当前不可用或受限，未使用其结果。"
+    if _INTERNAL_RETRIEVAL_DIAGNOSTIC_PATTERN.search(cleaned):
+        return "外部语义检索当前不可用或受限，未使用其结果。"
+    if _LOCAL_PATH_PATTERN.search(cleaned):
+        return "本地研究数据（路径已隐藏）。"
+    if _INTERNAL_ERROR_PATTERN.search(cleaned):
+        return "研究过程中出现内部错误；相关结果未纳入结论。"
+    cleaned = sanitize_conversation_answer(cleaned)
+    cleaned = _CREDENTIAL_IDENTIFIER_PATTERN.sub("模型服务凭据", cleaned)
+    for internal, readable in _PUBLIC_REPORT_REPLACEMENTS:
+        cleaned = cleaned.replace(internal, readable)
+    return cleaned
+
+
 def sanitize_conversation_answer(text: str) -> str:
     cleaned = _JSON_BLOCK_PATTERN.sub("", text)
+    cleaned = re.sub(
+        r"(?m)^.*(?:Fetching\s+\d+\s+files:|Loading weights:|"
+        r"检索方式=hybrid|BM25|BGE-m3|RRF|"
+        r"\bchunk(?:_id)?=|\bhash=|\bindex=|\bk=\d+|"
+        r"耗时=\d+ms|状态=empty|[DMVW]\s*源|命中来源分布|"
+        r"检索质量裁定|公告等硬证据覆盖|--mode\b|\b\w+\.py\b).*$",
+        "外部语义检索当前不可用或受限，未使用其结果。",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
     cleaned = _INTERNAL_FIELD_PATTERN.sub("", cleaned)
     cleaned = _EVIDENCE_LAYER_SUMMARY_PATTERN.sub("", cleaned)
     cleaned = _INTERNAL_CITATION_PATTERN.sub("", cleaned)
@@ -203,6 +328,16 @@ def sanitize_conversation_answer(text: str) -> str:
     cleaned = cleaned.replace("知识知识图谱", "知识图谱")
     cleaned = cleaned.replace("确定性投影", "数据")
     cleaned = re.sub(r"本地复盘数据(?:\s*数据)+", "本地复盘数据", cleaned)
+    cleaned = re.sub(r"\bnormal\b", "常规容量", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"质量\s+medium\b", "质量中等", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"质量\s+high\b", "质量较高", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"质量\s+low\b", "质量较低", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r"\btarget=([^\s]+)\s+source=",
+        r"对象=\1；来源=",
+        cleaned,
+    )
+    cleaned = cleaned.replace("[[", "").replace("]]", "")
     cleaned = _INTERNAL_CODE_PATTERN.sub("", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"(?<=[\u4e00-\u9fff]) (?=[\u4e00-\u9fff])", "", cleaned)
@@ -498,6 +633,7 @@ class TurnOrchestrator:
                 }
                 for citation in result.citations
             )
+            citations = _sanitize_citation_list(citations)
             for index, module in enumerate(ask_result_modules(result), start=1):
                 self._emit_module(
                     run_id,
@@ -518,11 +654,10 @@ class TurnOrchestrator:
                 )
 
             answer_text = render_conversation_answer(result)
-            if result.synthesis is not None:
-                answer_text = sanitize_conversation_answer(answer_text)
-            elif text_chunks:
+            if result.synthesis is None and text_chunks:
                 answer_text = "".join(text_chunks)
-            else:
+            answer_text = sanitize_conversation_answer(answer_text)
+            if not text_chunks:
                 emit_text_delta(answer_text)
             perspective_header = perspective_lab.runtime_answer_header(
                 userspace.user_space(self.run_store.user_id),
@@ -550,6 +685,9 @@ class TurnOrchestrator:
                 llm_provider=result.llm_provider,
                 llm_model=self.llm_model if result.llm_provider else None,
             )
+            public_report = _redact_object(report)
+            if isinstance(public_report, dict):
+                report = public_report
             self.run_store.add_artifact(
                 run_id,
                 "answer.md",
@@ -560,7 +698,7 @@ class TurnOrchestrator:
             self.run_store.add_artifact(
                 run_id,
                 "report.json",
-                json.dumps(_redact_object(report), ensure_ascii=False, indent=2),
+                json.dumps(report, ensure_ascii=False, indent=2),
                 renderer="structured_report",
                 title="结构化对话报告",
             )
@@ -671,13 +809,16 @@ class TurnOrchestrator:
         module: dict,
         event_id: str,
     ) -> None:
-        upsert_report_module(report, module)
+        public_module = _redact_object(module)
+        if not isinstance(public_module, dict):
+            return
+        upsert_report_module(report, public_module)
         self._emit(
             run_id,
             message_id,
             event_id,
             "report.module",
-            {"module": module},
+            {"module": public_module},
             conversation_id,
         )
 

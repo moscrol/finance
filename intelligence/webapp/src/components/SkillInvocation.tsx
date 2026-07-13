@@ -22,7 +22,7 @@ export function SkillInvocation({
   const selected = new Set(selectedSkillIds);
 
   return (
-    <div className="skill-invocations" aria-label="Skill 调用">
+    <div className="skill-invocations" aria-label="研究工具">
       {ids.map((skillId) => {
         const skill = skills.find((item) => item.skill_id === skillId);
         if (!skill) return null;
@@ -33,18 +33,24 @@ export function SkillInvocation({
             : status === "completed"
               ? Check
               : TriangleAlert;
+        const statusLabel =
+          status === "completed"
+            ? "已完成"
+            : status === "failed"
+              ? "未完成"
+              : "研究中";
         return (
           <span
             className={`skill-invocation skill-${status}`}
             key={skillId}
-            title={`${skill.description} · ${status}`}
+            title={`${skill.name} · ${statusLabel}`}
           >
             <Icon
               className={status === "running" ? "spin" : undefined}
               aria-hidden="true"
               size={13}
             />
-            {selected.has(skillId) ? "手动指定" : "自动调用"} · {skill.name}
+            {selected.has(skillId) ? "已指定工具" : "已自动选择"} · {skill.name}
           </span>
         );
       })}
