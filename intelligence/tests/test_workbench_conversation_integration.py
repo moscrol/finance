@@ -433,6 +433,16 @@ def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
         )
         report_response.raise_for_status()
         report = report_response.json()
+        expected_llm = {
+            "configured": False,
+            "attempted": False,
+            "used": False,
+            "provider": None,
+            "model": None,
+            "fallback_reason": "provider_unavailable",
+        }
+        assert report["status"] == "completed"
+        assert report["llm"] == expected_llm
         module_ids = [module["module_id"] for module in report["modules"]]
         assert "daily_overview" in module_ids
         assert not any(module_id.startswith("research_") for module_id in module_ids)
@@ -445,6 +455,20 @@ def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
         payloads = _stream_payloads(stream_response.text)
         assert any(payload["event_type"] == "text.delta" for payload in payloads)
         assert any(payload["event_type"] == "message.complete" for payload in payloads)
+        report_complete = [
+            payload
+            for payload in payloads
+            if payload["event_type"] == "report.complete"
+        ]
+        assert report_complete
+        assert all(
+            event["payload"]["report"]["status"] == "completed"
+            for event in report_complete
+        )
+        assert all(
+            event["payload"]["report"]["llm"] == expected_llm
+            for event in report_complete
+        )
         cursor = payloads[len(payloads) // 2]["seq"]
 
         resumed_response = client.get(

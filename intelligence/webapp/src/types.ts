@@ -196,9 +196,12 @@ export interface StructuredReport {
   status: "streaming" | "completed" | "failed";
   as_of: string | null;
   llm: {
+    configured: boolean;
+    attempted: boolean;
     used: boolean;
     provider: string | null;
     model: string | null;
+    fallback_reason: string | null;
   };
   modules: StructuredReportModule[];
   warnings: string[];

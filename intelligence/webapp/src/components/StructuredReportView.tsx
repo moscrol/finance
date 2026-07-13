@@ -14,6 +14,47 @@ function displayValue(value: string | number | null | undefined): string {
   return value;
 }
 
+const FALLBACK_LABELS: Record<string, string> = {
+  provider_timeout: "模型响应超时（provider_timeout）",
+  provider_unavailable: "模型服务暂不可用（provider_unavailable）",
+  quality_gate_rejected: "模型输出未通过质量门禁（quality_gate_rejected）",
+  budget_exhausted: "本轮时间预算不足（budget_exhausted）",
+};
+
+const SAFE_MODEL_LABEL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
+const UNSAFE_MODEL_LABEL =
+  /(?:\.\.|error|exception|prompt|authorization|api[_-]?key|secret|header|traceback)/i;
+
+function safeModelLabel(value: string | null): string | null {
+  if (
+    !value ||
+    !SAFE_MODEL_LABEL.test(value) ||
+    UNSAFE_MODEL_LABEL.test(value) ||
+    /^[A-Za-z]:\//.test(value) ||
+    value.includes("://")
+  ) {
+    return null;
+  }
+  return value;
+}
+
+function llmStatusLabel(report: StructuredReport): string {
+  const { llm } = report;
+  if (llm.used) {
+    const provider = safeModelLabel(llm.provider);
+    const model = safeModelLabel(llm.model);
+    if (provider && model) return `已使用 ${provider} · ${model}`;
+    if (provider) return `已使用 ${provider}`;
+    return "已使用内置模型";
+  }
+  if (!llm.configured) return "内置模型未配置 · 已使用确定性回退";
+  if (!llm.attempted) return "内置模型可用 · 本轮未调用";
+  const fallback = llm.fallback_reason
+    ? FALLBACK_LABELS[llm.fallback_reason]
+    : null;
+  return `内置模型已尝试 · 已回退：${fallback || "模型输出未采用"}`;
+}
+
 function ReportModule({ module }: { module: StructuredReportModule }) {
   return (
     <section
@@ -126,9 +167,7 @@ function ReportModule({ module }: { module: StructuredReportModule }) {
 }
 
 export function StructuredReportView({ report }: { report: StructuredReport }) {
-  const llmLabel = report.llm.used
-    ? `${report.llm.provider || "LLM"}${report.llm.model ? ` · ${report.llm.model}` : ""}`
-    : "LLM 等待中或已降级";
+  const llmLabel = llmStatusLabel(report);
   return (
     <div className="structured-report" aria-live="polite">
       <header className="structured-report-status">

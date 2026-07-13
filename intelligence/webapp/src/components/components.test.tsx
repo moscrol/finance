@@ -526,7 +526,14 @@ describe("Workbench components", () => {
         task_type: "daily",
         status: "completed",
         as_of: "2026-07-10",
-        llm: { used: true, provider: "glm", model: "glm-5.2" },
+        llm: {
+          configured: true,
+          attempted: true,
+          used: true,
+          provider: "glm",
+          model: "glm-5.2",
+          fallback_reason: null,
+        },
         warnings: [],
         modules: [
           {
@@ -715,7 +722,14 @@ describe("Workbench components", () => {
             task_type: "daily",
             status: "completed",
             as_of: "2026-07-10",
-            llm: { used: true, provider: "glm", model: "glm-5.2" },
+            llm: {
+              configured: true,
+              attempted: true,
+              used: true,
+              provider: "glm",
+              model: "glm-5.2",
+              fallback_reason: null,
+            },
             warnings: ["wiki-rag 索引新鲜度=stale"],
             modules: [],
           }}
@@ -737,6 +751,101 @@ describe("Workbench components", () => {
     expect(screen.getByText("知识库索引快照")).toBeVisible();
     expect(screen.getByText(/版本=abc123/)).toBeVisible();
     expect(screen.getByText(/时效=当前/)).toBeVisible();
+  });
+
+  it.each([
+    {
+      llm: {
+        configured: true,
+        attempted: true,
+        used: true,
+        provider: "zhipu",
+        model: "glm-5.2",
+        fallback_reason: null,
+      },
+      label: "已使用 zhipu · glm-5.2",
+    },
+    {
+      llm: {
+        configured: true,
+        attempted: true,
+        used: false,
+        provider: null,
+        model: null,
+        fallback_reason: "provider_timeout",
+      },
+      label:
+        "内置模型已尝试 · 已回退：模型响应超时（provider_timeout）",
+    },
+    {
+      llm: {
+        configured: true,
+        attempted: false,
+        used: false,
+        provider: null,
+        model: null,
+        fallback_reason: null,
+      },
+      label: "内置模型可用 · 本轮未调用",
+    },
+    {
+      llm: {
+        configured: false,
+        attempted: false,
+        used: false,
+        provider: null,
+        model: null,
+        fallback_reason: "provider_unavailable",
+      },
+      label: "内置模型未配置 · 已使用确定性回退",
+    },
+  ])("shows the canonical LLM state: $label", ({ llm, label }) => {
+    render(
+      <StructuredReportView
+        report={{
+          schema_version: 1,
+          report_id: "run_llm_state",
+          title: "LLM 状态",
+          task_type: "ask",
+          status: "completed",
+          as_of: "2026-07-10",
+          llm,
+          warnings: [],
+          modules: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByText(label)).toBeVisible();
+  });
+
+  it("never renders raw provider errors, prompts, keys, or headers", () => {
+    const dangerous = "Authorization: Bearer sk-private-value";
+    render(
+      <StructuredReportView
+        report={{
+          schema_version: 1,
+          report_id: "run_redacted_llm",
+          title: "LLM 安全状态",
+          task_type: "ask",
+          status: "completed",
+          as_of: null,
+          llm: {
+            configured: true,
+            attempted: true,
+            used: true,
+            provider: dangerous,
+            model: "raw prompt /private/model-error",
+            fallback_reason: dangerous,
+          },
+          warnings: [],
+          modules: [],
+        }}
+      />,
+    );
+
+    expect(screen.queryByText(/Authorization|sk-private|raw prompt|private/)).toBeNull();
+    expect(screen.getByText("已使用内置模型")).toBeVisible();
   });
 
   it("shows aggregate self-use maturity without private event details", () => {
@@ -1728,7 +1837,14 @@ describe("Workbench navigation reliability", () => {
       task_type: "daily",
       status: "streaming" as const,
       as_of: "2026-07-10",
-      llm: { used: false, provider: null, model: null },
+      llm: {
+        configured: false,
+        attempted: false,
+        used: false,
+        provider: null,
+        model: null,
+        fallback_reason: null,
+      },
       warnings: [],
       modules: [],
     };

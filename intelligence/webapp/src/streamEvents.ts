@@ -122,7 +122,14 @@ function emptyReport(runId: string): StructuredReport {
     task_type: "ask",
     status: "streaming",
     as_of: null,
-    llm: { used: false, provider: null, model: null },
+    llm: {
+      configured: false,
+      attempted: false,
+      used: false,
+      provider: null,
+      model: null,
+      fallback_reason: null,
+    },
     modules: [],
     warnings: [],
   };

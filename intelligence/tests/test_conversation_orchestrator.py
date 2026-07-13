@@ -1764,6 +1764,14 @@ def test_skill_answer_owner_skips_provider_when_synthesis_budget_is_too_low(
         "model": None,
         "fallback_reason": "budget_exhausted",
     }
+    report_complete = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "report.complete"
+    ]
+    assert len(report_complete) == 1
+    assert report_complete[0]["payload"]["report"]["status"] == "completed"
+    assert report_complete[0]["payload"]["report"]["llm"] == report["llm"]
 
 
 def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path) -> None:

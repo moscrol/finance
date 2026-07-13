@@ -100,6 +100,11 @@ class SmokeHandler(BaseHTTPRequestHandler):
                         "run",
                         {
                             "run_id": "run-1",
+                            "duckdb_cutoff": (
+                                "C:/private/market.duckdb"
+                                if type(self).mode == "unsafe_cutoff"
+                                else "2026-07-10"
+                            ),
                             "status": (
                                 type(self).mode
                                 if type(self).mode in {"failed", "cancelled"}
@@ -120,11 +125,56 @@ class SmokeHandler(BaseHTTPRequestHandler):
             self._send(200, body, "text/event-stream")
             return
         if parsed.path == "/api/runs/run-1/report":
+            llm = {
+                "configured": False,
+                "attempted": False,
+                "used": False,
+                "provider": None,
+                "model": None,
+                "fallback_reason": "provider_unavailable",
+            }
+            if type(self).mode == "used":
+                llm = {
+                    "configured": True,
+                    "attempted": True,
+                    "used": True,
+                    "provider": "zhipu",
+                    "model": "glm-5.2",
+                    "fallback_reason": None,
+                }
+            elif type(self).mode == "attempted":
+                llm.update(
+                    configured=True,
+                    attempted=True,
+                    fallback_reason="provider_timeout",
+                )
+            elif type(self).mode == "available":
+                llm.update(configured=True, fallback_reason=None)
+            elif type(self).mode == "unsafe_model":
+                llm.update(
+                    configured=True,
+                    attempted=True,
+                    used=True,
+                    provider="/private/model-error",
+                    model="glm-5.2",
+                    fallback_reason=None,
+                )
+            elif type(self).mode == "unsafe_fallback":
+                llm.update(
+                    configured=True,
+                    attempted=True,
+                    fallback_reason="raw_provider_error",
+                )
             report = {
                 "status": "completed",
+                "as_of": (
+                    "/private/report-prompt"
+                    if type(self).mode == "unsafe_as_of"
+                    else "2026-07-14"
+                ),
                 "modules": [{"module_id": "daily_overview"}],
                 "warnings": [],
-                "llm": {"used": False, "provider": None, "model": None},
+                "llm": llm,
             }
             if type(self).mode == "protocol":
                 report.pop("llm")
@@ -211,8 +261,18 @@ def test_completed_smoke_replays_sse_and_writes_redacted_summary(
     assert summary["report"] == {
         "present": True,
         "status": "completed",
+        "as_of": "2026-07-14",
         "module_count": 1,
+        "llm": {
+            "configured": False,
+            "attempted": False,
+            "used": False,
+            "provider": None,
+            "model": None,
+            "fallback_reason": "provider_unavailable",
+        },
     }
+    assert summary["run"] == {"duckdb_cutoff": "2026-07-10"}
     assert summary["model"] == {
         "metadata_present": True,
         "used": False,
@@ -223,6 +283,77 @@ def test_completed_smoke_replays_sse_and_writes_redacted_summary(
     assert "今天市场怎么样" not in raw_summary
     assert "private citation" not in raw_summary
     assert "example.invalid" not in raw_summary
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        (
+            "used",
+            {
+                "configured": True,
+                "attempted": True,
+                "used": True,
+                "provider": "zhipu",
+                "model": "glm-5.2",
+                "fallback_reason": None,
+            },
+        ),
+        (
+            "attempted",
+            {
+                "configured": True,
+                "attempted": True,
+                "used": False,
+                "provider": None,
+                "model": None,
+                "fallback_reason": "provider_timeout",
+            },
+        ),
+        (
+            "available",
+            {
+                "configured": True,
+                "attempted": False,
+                "used": False,
+                "provider": None,
+                "model": None,
+                "fallback_reason": None,
+            },
+        ),
+    ],
+)
+def test_smoke_summary_keeps_canonical_llm_state(
+    tmp_path: Path,
+    mode: str,
+    expected: dict[str, object],
+) -> None:
+    exit_code, summary, _ = run_cli(tmp_path, mode)
+
+    assert exit_code == 0
+    assert summary["report"]["llm"] == expected
+
+
+@pytest.mark.parametrize(
+    ("mode", "failure_stage", "unsafe_value"),
+    [
+        ("unsafe_model", "model_metadata", "/private/model-error"),
+        ("unsafe_fallback", "model_metadata", "raw_provider_error"),
+        ("unsafe_as_of", "report_metadata", "/private/report-prompt"),
+        ("unsafe_cutoff", "run_metadata", "C:/private/market.duckdb"),
+    ],
+)
+def test_smoke_rejects_unsafe_metadata_without_echoing_it(
+    tmp_path: Path,
+    mode: str,
+    failure_stage: str,
+    unsafe_value: str,
+) -> None:
+    exit_code, summary, raw_summary = run_cli(tmp_path, mode)
+
+    assert exit_code == 2
+    assert summary["failure_stage"] == failure_stage
+    assert unsafe_value not in raw_summary
 
 
 def test_degraded_completed_smoke_returns_zero(tmp_path: Path) -> None:

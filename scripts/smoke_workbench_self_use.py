@@ -21,6 +21,18 @@ TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled"}
 SAFE_LABEL = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 SAFE_SOURCE_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+UNSAFE_MODEL_LABEL = re.compile(
+    r"(?:\.\.|error|exception|prompt|authorization|api[_-]?key|secret|header|traceback)",
+    re.IGNORECASE,
+)
+SAFE_LLM_FALLBACK_REASONS = frozenset(
+    {
+        "provider_timeout",
+        "provider_unavailable",
+        "quality_gate_rejected",
+        "budget_exhausted",
+    }
+)
 PUBLIC_WORKBENCH_STAGES = frozenset(
     {
         "understanding",
@@ -352,6 +364,29 @@ def _safe_optional_label(value: object, stage: str) -> str | None:
     return value
 
 
+def _safe_optional_public_label(value: object, stage: str) -> str | None:
+    label = _safe_optional_label(value, stage)
+    if label is None:
+        return None
+    if (
+        label.startswith("/")
+        or "\\" in label
+        or re.match(r"^[A-Za-z]:/", label)
+        or "://" in label
+        or UNSAFE_MODEL_LABEL.search(label)
+    ):
+        raise SmokeProtocolError(stage)
+    return label
+
+
+def _safe_optional_fallback_reason(value: object, stage: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or value not in SAFE_LLM_FALLBACK_REASONS:
+        raise SmokeProtocolError(stage)
+    return value
+
+
 def _safe_identifier(value: object, stage: str) -> str:
     if (
         not isinstance(value, str)
@@ -512,9 +547,33 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         if run_status == "completed" and not isinstance(llm, dict):
             raise SmokeProtocolError("model_metadata")
         llm_payload = llm if isinstance(llm, dict) else {}
+        llm_configured = llm_payload.get("configured")
+        llm_attempted = llm_payload.get("attempted")
         llm_used = llm_payload.get("used")
-        if llm_payload and not isinstance(llm_used, bool):
+        if llm_payload and not all(
+            isinstance(value, bool)
+            for value in (llm_configured, llm_attempted, llm_used)
+        ):
             raise SmokeProtocolError("model_metadata")
+        llm_summary = {
+            "configured": (
+                llm_configured if isinstance(llm_configured, bool) else None
+            ),
+            "attempted": llm_attempted if isinstance(llm_attempted, bool) else None,
+            "used": llm_used if isinstance(llm_used, bool) else None,
+            "provider": _safe_optional_public_label(
+                llm_payload.get("provider"),
+                "model_metadata",
+            ),
+            "model": _safe_optional_public_label(
+                llm_payload.get("model"),
+                "model_metadata",
+            ),
+            "fallback_reason": _safe_optional_fallback_reason(
+                llm_payload.get("fallback_reason"),
+                "model_metadata",
+            ),
+        }
 
         outcome = (
             "degraded" if run_status == "completed" and degrades else str(run_status)
@@ -523,28 +582,33 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             {
                 "run_id": run_id,
                 "run_status": run_status,
+                "run": {
+                    "duckdb_cutoff": _safe_optional_public_label(
+                        terminal_run.get("duckdb_cutoff"),
+                        "run_metadata",
+                    ),
+                },
                 "terminal_outcome": outcome,
                 "degrade_count": len(degrades),
                 "sse": public_sse_summary,
                 "report": {
                     "present": report_present,
-                    "status": _safe_optional_label(
+                    "status": _safe_optional_public_label(
                         report_payload.get("status"),
                         "report_status",
                     ),
+                    "as_of": _safe_optional_public_label(
+                        report_payload.get("as_of"),
+                        "report_metadata",
+                    ),
                     "module_count": len(modules),
+                    "llm": llm_summary,
                 },
                 "model": {
                     "metadata_present": isinstance(llm, dict),
-                    "used": llm_used if isinstance(llm_used, bool) else None,
-                    "provider": _safe_optional_label(
-                        llm_payload.get("provider"),
-                        "model_metadata",
-                    ),
-                    "model": _safe_optional_label(
-                        llm_payload.get("model"),
-                        "model_metadata",
-                    ),
+                    "used": llm_summary["used"],
+                    "provider": llm_summary["provider"],
+                    "model": llm_summary["model"],
                 },
             }
         )
