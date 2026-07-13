@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from intelligence.services.closed_loop_retrieval import retrieve_closed_loop
 from intelligence.services.entity_anchor import EntityAnchor
+from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
 
 
@@ -11,41 +12,252 @@ def _hit(
     *,
     hardness: str = "",
     path: str | None = None,
+    excerpt: str | None = None,
 ) -> WikiHit:
     return WikiHit(
         page_id=title,
         file_path=path or f"wiki/{title}.md",
         title=title,
         score=score,
-        excerpt=f"{title} 液冷 服务器 供应链",
+        excerpt=excerpt if excerpt is not None else f"{title} 液冷 服务器 供应链",
         best_chunk_id=title,
         fact_hardness=hardness,
     )
 
 
-def _response(query: str, hits: list[WikiHit]) -> WikiRagResult:
+def _response(
+    query: str,
+    hits: list[WikiHit],
+    *,
+    status: str | None = None,
+    freshness: str = "fresh",
+    warning: str = "",
+) -> WikiRagResult:
+    resolved_status = status or ("ok" if hits else "empty")
     return WikiRagResult(
-        ok=bool(hits),
+        ok=resolved_status == "ok",
         hits=hits,
         telemetry=RetrievalTelemetry(
-            status="ok" if hits else "empty",
+            status=resolved_status,
             hit_count=len(hits),
+            index_freshness=freshness,
         ),
         command=query,
+        warning=warning,
     )
 
 
-def test_closed_loop_uses_entity_code_broad_terms_and_counter_queries() -> None:
-    queries: list[str] = []
+def test_subjectless_query_does_not_retrieve() -> None:
+    calls: list[tuple[str, str, float]] = []
 
-    def retrieve(query: str) -> WikiRagResult:
-        queries.append(query)
-        if len(queries) == 1:
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        calls.append((query, mode, timeout))
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "如果题材成交占比下降，该怎么判断行情阶段？",
+        anchor=None,
+        subject=None,
+        retrieve=retrieve,
+    )
+
+    assert calls == []
+    assert result.attempts == []
+    assert any("no explicit subject" in warning for warning in result.warnings)
+
+
+def test_subject_uses_three_bm25_queries_and_at_most_one_hybrid() -> None:
+    calls: list[tuple[str, str, float]] = []
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        calls.append((query, mode, timeout))
+        if mode == "bm25" and len(calls) == 1:
             return _response(query, [_hit("液冷服务器", 0.72)])
-        if "上下游" in query:
-            return _response(query, [_hit("温控设备", 0.62)])
-        if "风险" in query:
-            return _response(query, [_hit("需求不及预期", 0.12)])
+        if mode == "hybrid":
+            return _response(
+                query,
+                [_hit("液冷产业公告", 0.4, hardness="hard")],
+            )
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "液冷最近怎么样",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    assert [mode for _, mode, _ in calls] == ["bm25", "bm25", "bm25", "hybrid"]
+    assert all(timeout == 10 for _, _, timeout in calls)
+    assert sum(attempt.mode == "hybrid" for attempt in result.attempts) == 1
+    assert result.dense_initializations == 1
+    assert [item.hit.title for item in result.conclusion] == ["液冷产业公告"]
+    assert any("液冷服务器" in query and "上下游" in query for query, _, _ in calls)
+    assert any("风险 证伪 不及预期" in query for query, _, _ in calls)
+
+
+def test_hybrid_deduplicates_hits_already_seen_by_bm25() -> None:
+    duplicate = _hit("液冷服务器", 0.4, hardness="hard")
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        if mode == "bm25" and "上下游" not in query and "风险" not in query:
+            return _response(query, [_hit("液冷服务器", 0.2)])
+        if mode == "hybrid":
+            return _response(
+                query,
+                [duplicate, _hit("液冷新公告", 0.5, hardness="hard")],
+            )
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    all_titles = [
+        item.hit.title
+        for bucket in (result.conclusion, result.clues, result.discarded)
+        for item in bucket
+    ]
+    assert all_titles.count("液冷服务器") == 1
+    assert "液冷新公告" in [item.hit.title for item in result.conclusion]
+
+
+def test_unrecoverable_status_stops_after_first_attempt() -> None:
+    calls: list[tuple[str, str, float]] = []
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        calls.append((query, mode, timeout))
+        return _response(query, [], status="skipped", warning="index unavailable")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    assert len(calls) == 1
+    assert result.attempts[0].status == "skipped"
+    assert result.attempts[0].mode == "bm25"
+    assert result.warnings[0] == "index unavailable"
+    assert any(
+        "narrow retrieval empty after 1 attempts" in warning
+        for warning in result.warnings
+    )
+
+
+def test_stale_index_stops_after_first_attempt() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        return _response(query, [_hit("液冷", 0.5)], freshness="stale")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    assert calls == 1
+    assert len(result.attempts) == 1
+
+
+def test_budget_timeout_is_recorded_without_calling_retriever() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        budget=ExecutionBudget(started_at=0, deadline_at=5),
+        now=lambda: 0,
+    )
+
+    assert calls == 0
+    assert len(result.attempts) == 1
+    assert result.attempts[0].status == "timeout"
+    assert result.attempts[0].timeout_seconds == 0
+
+
+def test_budget_skips_dense_when_semantic_window_is_too_small() -> None:
+    calls: list[str] = []
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        calls.append(mode)
+        return _response(query, [_hit("液冷线索", 0.2)]) if len(calls) == 1 else _response(query, [])
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        budget=ExecutionBudget(started_at=0, deadline_at=20),
+        now=lambda: 10,
+    )
+
+    assert calls == ["bm25", "bm25", "bm25"]
+    assert result.dense_initializations == 0
+
+
+def test_irrelevant_hard_evidence_is_discarded() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [
+                    _hit(
+                        "公司公告",
+                        0.9,
+                        hardness="hard",
+                        excerpt="半导体设备订单增长",
+                    )
+                ],
+            )
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert result.conclusion == []
+    assert result.clues == []
+    assert [item.hit.title for item in result.discarded] == ["公司公告"]
+
+
+def test_relevant_soft_hit_is_clue_and_hard_hit_is_conclusion() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [
+                    _hit("液冷需求", 0.012),
+                    _hit("液冷公告", 0.01, hardness="hard"),
+                ],
+            )
         return _response(query, [])
 
     result = retrieve_closed_loop(
@@ -55,81 +267,53 @@ def test_closed_loop_uses_entity_code_broad_terms_and_counter_queries() -> None:
             ticker="002837.SZ",
             concepts=("液冷",),
         ),
+        subject="ignored",
         retrieve=retrieve,
     )
 
-    assert queries[0] == "英维克 002837.SZ"
-    assert any("液冷服务器" in query and "上下游" in query for query in queries)
-    assert any("风险 证伪 不及预期" in query for query in queries)
-    assert [item.hit.title for item in result.conclusion] == [
-        "液冷服务器",
-        "温控设备",
-    ]
-    assert [item.hit.title for item in result.counter_clues] == ["需求不及预期"]
+    assert [item.hit.title for item in result.clues] == ["液冷需求"]
+    assert [item.hit.title for item in result.conclusion] == ["液冷公告"]
+    assert result.attempts[0].query == "英维克 002837.SZ"
+    assert calls == 3
+    assert result.dense_initializations == 0
 
 
-def test_weak_ranked_hit_never_enters_conclusion_bucket() -> None:
-    calls = 0
-
-    def retrieve(query: str) -> WikiRagResult:
-        nonlocal calls
-        calls += 1
-        if calls == 1:
-            return _response(query, [_hit("弱相关首页", 0.2)])
-        return _response(query, [])
-
-    result = retrieve_closed_loop("短问题", anchor=None, retrieve=retrieve)
-
-    assert result.conclusion == []
-    assert any(item.hit.title == "弱相关首页" for item in result.clues)
-
-
-def test_empty_aperture_stops_after_three_rewrites_and_reports_gap() -> None:
-    calls: list[str] = []
-
-    def retrieve(query: str) -> WikiRagResult:
-        calls.append(query)
-        return _response(query, [])
-
-    result = retrieve_closed_loop("未知对象", anchor=None, retrieve=retrieve)
-
-    for aperture in ("narrow", "broad", "counter"):
-        assert len(
-            [attempt for attempt in result.attempts if attempt.aperture == aperture]
-        ) == 3
-    assert len(calls) == 9
-    assert len(result.warnings) == 3
-
-
-def test_hard_evidence_can_enter_conclusion_at_lower_score() -> None:
-    calls = 0
-
-    def retrieve(query: str) -> WikiRagResult:
-        nonlocal calls
-        calls += 1
-        if calls == 1:
-            return _response(query, [_hit("公司公告", 0.4, hardness="hard")])
-        return _response(query, [])
-
-    result = retrieve_closed_loop("公告影响", anchor=None, retrieve=retrieve)
-
-    assert [item.hit.title for item in result.conclusion] == ["公司公告"]
-
-
-def test_relevant_hit_is_scale_independent_for_rrf_scores() -> None:
-    calls = 0
-
-    def retrieve(query: str) -> WikiRagResult:
-        nonlocal calls
-        calls += 1
-        if calls == 1:
-            return _response(query, [_hit("液冷需求", 0.012)])
+def test_relevant_counter_hit_is_kept_as_counter_clue() -> None:
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        if "风险 证伪" in query:
+            return _response(query, [_hit("液冷需求不及预期", 0.12)])
         return _response(query, [])
 
     result = retrieve_closed_loop(
-        "液冷最近怎么样",
-        anchor=EntityAnchor(entity="液冷"),
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
         retrieve=retrieve,
+        semantic_min_seconds=100,
     )
 
-    assert [item.hit.title for item in result.conclusion] == ["液冷需求"]
+    assert [item.hit.title for item in result.counter_clues] == ["液冷需求不及预期"]
+    assert [item.hit.title for item in result.clues] == ["液冷需求不及预期"]
+
+
+def test_inspector_keeps_attempt_telemetry_and_adds_mode_timeout() -> None:
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    first = result.inspector_dict()["attempts"][0]
+    assert first == {
+        "aperture": "narrow",
+        "query": "液冷",
+        "mode": "bm25",
+        "timeout_seconds": 10,
+        "status": "empty",
+        "hit_count": 0,
+    }

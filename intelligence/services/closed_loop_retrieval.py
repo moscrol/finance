@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Literal, TypeAlias
 
 from intelligence.services.entity_anchor import EntityAnchor
+from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
 
 RetrievalAperture: TypeAlias = Literal["narrow", "broad", "counter"]
-Retrieve: TypeAlias = Callable[[str], WikiRagResult]
+RetrievalMode: TypeAlias = Literal["bm25", "hybrid"]
+Retrieve: TypeAlias = Callable[[str, RetrievalMode, float], WikiRagResult]
 
-MAX_EMPTY_ATTEMPTS = 3
 _TERM_RE = re.compile(r"[\u4e00-\u9fff]{2,8}|[A-Za-z][A-Za-z0-9.+-]{2,20}")
 _QUESTION_WORDS_RE = re.compile(
     r"最近|怎么样|怎么看|是什么|为什么|为何|分析|输出|请|一下|能否|是否"
@@ -36,6 +38,8 @@ _GENERIC_TERMS = {
 class RetrievalAttempt:
     aperture: RetrievalAperture
     query: str
+    mode: RetrievalMode
+    timeout_seconds: float
     status: str
     hit_count: int
 
@@ -55,6 +59,7 @@ class ClosedLoopRetrievalResult:
     attempts: list[RetrievalAttempt] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     telemetry: RetrievalTelemetry | None = None
+    dense_initializations: int = 0
 
     def inspector_dict(self) -> dict[str, object]:
         return {
@@ -62,6 +67,8 @@ class ClosedLoopRetrievalResult:
                 {
                     "aperture": attempt.aperture,
                     "query": attempt.query,
+                    "mode": attempt.mode,
+                    "timeout_seconds": attempt.timeout_seconds,
                     "status": attempt.status,
                     "hit_count": attempt.hit_count,
                 }
@@ -74,6 +81,7 @@ class ClosedLoopRetrievalResult:
                 "counter_clue": len(self.counter_clues),
             },
             "warnings": list(self.warnings),
+            "dense_initializations": self.dense_initializations,
         }
 
 
@@ -82,36 +90,87 @@ def retrieve_closed_loop(
     *,
     anchor: EntityAnchor | None,
     retrieve: Retrieve,
+    subject: str | None = None,
+    budget: ExecutionBudget | None = None,
+    semantic_min_seconds: float = 15,
+    now: Callable[[], float] = time.monotonic,
 ) -> ClosedLoopRetrievalResult:
     result = ClosedLoopRetrievalResult()
-    narrow_hits = _run_aperture(
-        "narrow",
-        _narrow_queries(query, anchor),
-        retrieve,
-        result,
+    explicit_subject = anchor.entity if anchor is not None else (subject or "").strip()
+    if not explicit_subject:
+        result.warnings.append("no explicit subject; closed-loop retrieval skipped")
+        return result
+
+    narrow_query = _narrow_queries(explicit_subject, anchor)[0]
+    narrow_hits, stop = _run_one(
+        "narrow", narrow_query, "bm25", retrieve, result, budget=budget, now=now
     )
-    broad_hits = _run_aperture(
-        "broad",
-        _broad_queries(query, anchor, narrow_hits),
-        retrieve,
-        result,
+    broad_hits: list[WikiHit] = []
+    counter_hits: list[WikiHit] = []
+    if not stop:
+        broad_query = _broad_queries(explicit_subject, anchor, narrow_hits)[0]
+        broad_hits, stop = _run_one(
+            "broad", broad_query, "bm25", retrieve, result, budget=budget, now=now
+        )
+    if not stop:
+        counter_query = _counter_queries(explicit_subject, anchor, narrow_hits)[0]
+        counter_hits, stop = _run_one(
+            "counter", counter_query, "bm25", retrieve, result, budget=budget, now=now
+        )
+
+    relevance_terms = _relevance_terms(
+        query, anchor, (), subject=explicit_subject
     )
-    counter_hits = _run_aperture(
-        "counter",
-        _counter_queries(query, anchor, narrow_hits),
-        retrieve,
-        result,
+    broad_relevance_terms = _relevance_terms(
+        query, anchor, narrow_hits, subject=explicit_subject
+    )
+    bm25_entries = (
+        *(("narrow", hit) for hit in narrow_hits),
+        *(("broad", hit) for hit in broad_hits),
+        *(("counter", hit) for hit in counter_hits),
     )
     _bucket_hits(
-        (
-            *(("narrow", hit) for hit in narrow_hits),
-            *(("broad", hit) for hit in broad_hits),
-            *(("counter", hit) for hit in counter_hits),
-        ),
+        bm25_entries,
         result,
-        relevance_terms=_relevance_terms(query, anchor, ()),
-        broad_relevance_terms=_relevance_terms(query, anchor, narrow_hits),
+        relevance_terms=relevance_terms,
+        broad_relevance_terms=broad_relevance_terms,
     )
+
+    remaining = (
+        float("inf")
+        if budget is None
+        else budget.remaining_seconds(now=now())
+    )
+    if (
+        not stop
+        and not result.conclusion
+        and remaining >= semantic_min_seconds
+    ):
+        hybrid_hits, _ = _run_one(
+            "narrow",
+            narrow_query,
+            "hybrid",
+            retrieve,
+            result,
+            budget=budget,
+            now=now,
+        )
+        if result.attempts[-1].timeout_seconds > 0:
+            result.dense_initializations = 1
+        bm25_identities = {
+            _hit_identity(hit)
+            for hit in (*narrow_hits, *broad_hits, *counter_hits)
+        }
+        novel_hybrid_hits = [
+            hit for hit in hybrid_hits if _hit_identity(hit) not in bm25_identities
+        ]
+        _bucket_hits(
+            tuple(("narrow", hit) for hit in novel_hybrid_hits),
+            result,
+            relevance_terms=relevance_terms,
+            broad_relevance_terms=broad_relevance_terms,
+        )
+
     for aperture in ("narrow", "broad", "counter"):
         attempts = [item for item in result.attempts if item.aperture == aperture]
         if attempts and all(item.hit_count == 0 for item in attempts):
@@ -121,40 +180,67 @@ def retrieve_closed_loop(
     return result
 
 
-def _run_aperture(
+def _run_one(
     aperture: RetrievalAperture,
-    queries: Sequence[str],
+    query: str,
+    mode: RetrievalMode,
     retrieve: Retrieve,
     result: ClosedLoopRetrievalResult,
-) -> list[WikiHit]:
-    for candidate in list(dict.fromkeys(q.strip() for q in queries if q.strip()))[
-        :MAX_EMPTY_ATTEMPTS
-    ]:
-        response = retrieve(candidate)
-        if result.telemetry is None or response.hits:
-            result.telemetry = response.telemetry
+    *,
+    budget: ExecutionBudget | None,
+    now: Callable[[], float],
+) -> tuple[list[WikiHit], bool]:
+    timeout = (
+        10.0
+        if budget is None
+        else budget.child_timeout(10, reserve=5, now=now())
+    )
+    if timeout <= 0:
         result.attempts.append(
             RetrievalAttempt(
                 aperture=aperture,
-                query=candidate,
-                status=response.telemetry.status,
-                hit_count=len(response.hits),
+                query=query,
+                mode=mode,
+                timeout_seconds=timeout,
+                status="timeout",
+                hit_count=0,
             )
         )
-        if response.warning:
-            if response.warning not in result.warnings:
-                result.warnings.append(response.warning)
-        if response.ok and response.hits:
-            return response.hits
-    return []
+        return [], True
+
+    response = retrieve(query, mode, timeout)
+    if result.telemetry is None or response.hits:
+        result.telemetry = response.telemetry
+    result.attempts.append(
+        RetrievalAttempt(
+            aperture=aperture,
+            query=query,
+            mode=mode,
+            timeout_seconds=timeout,
+            status=response.telemetry.status,
+            hit_count=len(response.hits),
+        )
+    )
+    if response.warning and response.warning not in result.warnings:
+        result.warnings.append(response.warning)
+
+    status = response.telemetry.status.casefold()
+    freshness = response.telemetry.index_freshness.casefold()
+    stop = status in {"skipped", "error", "timeout"} or freshness in {
+        "stale",
+        "unknown",
+    }
+    if response.ok and response.hits:
+        return response.hits, stop
+    return [], stop
 
 
-def _narrow_queries(query: str, anchor: EntityAnchor | None) -> tuple[str, ...]:
+def _narrow_queries(subject: str, anchor: EntityAnchor | None) -> tuple[str, ...]:
     if anchor is None:
         return (
-            query,
-            f"{query} 实体 代码",
-            f"{query} 公司 题材",
+            subject,
+            f"{subject} 实体 代码",
+            f"{subject} 公司 题材",
         )
     raw_code = anchor.ticker.split(".", 1)[0]
     return (
@@ -165,11 +251,11 @@ def _narrow_queries(query: str, anchor: EntityAnchor | None) -> tuple[str, ...]:
 
 
 def _broad_queries(
-    query: str,
+    subject: str,
     anchor: EntityAnchor | None,
     narrow_hits: Sequence[WikiHit],
 ) -> tuple[str, ...]:
-    subject = anchor.entity if anchor is not None else query
+    subject = anchor.entity if anchor is not None else subject
     terms = list(anchor.concepts if anchor is not None else ())
     terms.extend(_extract_terms(narrow_hits))
     context = " ".join(dict.fromkeys(terms[:6]))
@@ -181,11 +267,11 @@ def _broad_queries(
 
 
 def _counter_queries(
-    query: str,
+    subject: str,
     anchor: EntityAnchor | None,
     narrow_hits: Sequence[WikiHit],
 ) -> tuple[str, ...]:
-    subject = anchor.entity if anchor is not None else query
+    subject = anchor.entity if anchor is not None else subject
     terms = " ".join(_extract_terms(narrow_hits)[:4])
     return (
         f"{subject} {terms} 风险 证伪 不及预期".strip(),
@@ -211,11 +297,15 @@ def _relevance_terms(
     query: str,
     anchor: EntityAnchor | None,
     narrow_hits: Sequence[WikiHit],
+    *,
+    subject: str = "",
 ) -> tuple[str, ...]:
     stripped_query = _QUESTION_WORDS_RE.sub(" ", query)
     terms = _TERM_RE.findall(stripped_query)
     if anchor is not None:
         terms.extend((anchor.entity, anchor.ticker, *anchor.concepts))
+    elif subject:
+        terms.append(subject)
     terms.extend(_extract_terms(narrow_hits))
     return tuple(
         dict.fromkeys(
@@ -244,7 +334,17 @@ def _bucket_hits(
             continue
         seen.add(key)
         item = BucketedHit(typed_aperture, hit)
-        if typed_aperture == "counter" and hit.score > 0:
+        searchable = f"{hit.title} {hit.excerpt}".casefold()
+        aperture_terms = (
+            broad_relevance_terms
+            if typed_aperture == "broad"
+            else relevance_terms
+        )
+        direct_overlap = any(term in searchable for term in aperture_terms)
+        if hit.score <= 0 or not direct_overlap:
+            result.discarded.append(item)
+            continue
+        if typed_aperture == "counter":
             result.counter_clues.append(item)
             result.clues.append(item)
             continue
@@ -255,16 +355,11 @@ def _bucket_hits(
             "l4",
             "canonical",
         }
-        searchable = f"{hit.title} {hit.excerpt}".casefold()
-        aperture_terms = (
-            broad_relevance_terms
-            if typed_aperture == "broad"
-            else relevance_terms
-        )
-        direct_overlap = any(term in searchable for term in aperture_terms)
-        if hit.score > 0 and (hard_source or direct_overlap):
+        if hard_source:
             result.conclusion.append(item)
-        elif hit.score > 0:
-            result.clues.append(item)
         else:
-            result.discarded.append(item)
+            result.clues.append(item)
+
+
+def _hit_identity(hit: WikiHit) -> tuple[str, str]:
+    return hit.file_path, hit.best_chunk_id
