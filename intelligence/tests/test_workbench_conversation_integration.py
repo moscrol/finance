@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,8 @@ from intelligence.workbench_skills.router import (  # noqa: E402
     SkillRouteResult,
     SkillSelection,
 )
+from scripts import smoke_workbench_self_use as smoke  # noqa: E402
+from scripts.smoke_workbench_self_use import smoke_metrics  # noqa: E402
 
 _LLM_KEY_NAMES = (
     "DEEPSEEK_API_KEY",
@@ -40,6 +43,157 @@ _LLM_KEY_NAMES = (
     "LLM_API_KEY",
     "FORESIGHT_BUILTIN_LLM_API_KEY",
 )
+
+
+def test_smoke_metrics_report_elapsed_and_unique_stage_order() -> None:
+    metrics = smoke_metrics(
+        started_at=10.0,
+        finished_at=42.5,
+        stage_events=[
+            "understanding",
+            "deterministic_recall",
+            "understanding",
+            "synthesis",
+        ],
+    )
+
+    assert metrics == {
+        "elapsed_seconds": 32.5,
+        "stages": ["understanding", "deterministic_recall", "synthesis"],
+    }
+
+
+def test_smoke_metrics_clamp_negative_elapsed_and_filter_unsafe_stages() -> None:
+    metrics = smoke_metrics(
+        started_at=42.5,
+        finished_at=10.0,
+        stage_events=[
+            "understanding",
+            "../private",
+            7,  # type: ignore[list-item]
+            "understanding",
+        ],
+    )
+
+    assert metrics == {"elapsed_seconds": 0.0, "stages": ["understanding"]}
+
+
+@pytest.mark.parametrize(
+    ("started_at", "finished_at"),
+    [(float("nan"), 42.5), (10.0, float("inf"))],
+)
+def test_smoke_metrics_replace_non_finite_elapsed_with_zero(
+    started_at: float,
+    finished_at: float,
+) -> None:
+    metrics = smoke_metrics(
+        started_at=started_at,
+        finished_at=finished_at,
+        stage_events=["synthesis"],
+    )
+
+    assert metrics == {"elapsed_seconds": 0.0, "stages": ["synthesis"]}
+
+
+@pytest.mark.parametrize("replayed", [False, True])
+def test_smoke_stream_terminal_paths_keep_unique_stage_order(
+    monkeypatch: pytest.MonkeyPatch,
+    replayed: bool,
+) -> None:
+    first_events = [
+        (
+            "stage.progress",
+            {
+                "event_type": "stage.progress",
+                "seq": 1,
+                "payload": {"stage": "understanding"},
+            },
+        ),
+        (
+            "stage.progress",
+            {
+                "event_type": "stage.progress",
+                "seq": 2,
+                "payload": {"stage": "deterministic_recall"},
+            },
+        ),
+    ]
+    terminal_events = [
+        (
+            "stage.progress",
+            {
+                "event_type": "stage.progress",
+                "seq": 3,
+                "payload": {"stage": "understanding"},
+            },
+        ),
+        (
+            "stage.progress",
+            {
+                "event_type": "stage.progress",
+                "seq": 4,
+                "payload": {"stage": "synthesis"},
+            },
+        ),
+        ("run", {"run_id": "run-1", "status": "completed", "degrades": []}),
+    ]
+
+    def encode(events: list[tuple[str, dict[str, object]]]) -> BytesIO:
+        body = "".join(
+            f"event: {name}\ndata: {json.dumps(payload)}\n\n"
+            for name, payload in events
+        )
+        return BytesIO(body.encode("utf-8"))
+
+    responses = iter(
+        [encode(first_events + terminal_events)]
+        if not replayed
+        else [encode(first_events + [("timeout", {})]), encode(terminal_events)]
+    )
+    monkeypatch.setattr(smoke, "_open", lambda *_args, **_kwargs: next(responses))
+
+    terminal, summary = smoke._stream_until_terminal(
+        base_url="http://127.0.0.1:8795",
+        user="alice",
+        run_id="run-1",
+        timeout=3.0,
+        scanner=smoke.SecretScanner(),
+    )
+
+    assert terminal["status"] == "completed"
+    assert summary["replayed"] is replayed
+    assert summary["stages"] == [
+        "understanding",
+        "deterministic_recall",
+        "synthesis",
+    ]
+
+
+@pytest.mark.parametrize("stage", [7, "../private"])
+def test_smoke_stream_rejects_invalid_stage_progress(
+    monkeypatch: pytest.MonkeyPatch,
+    stage: object,
+) -> None:
+    payload = {
+        "event_type": "stage.progress",
+        "seq": 1,
+        "payload": {"stage": stage},
+    }
+    response = BytesIO(
+        f"event: stage.progress\ndata: {json.dumps(payload)}\n\n".encode()
+    )
+    monkeypatch.setattr(smoke, "_open", lambda *_args, **_kwargs: response)
+
+    with pytest.raises(smoke.SmokeProtocolError, match="stage_progress") as exc:
+        smoke._stream_until_terminal(
+            base_url="http://127.0.0.1:8795",
+            user="alice",
+            run_id="run-1",
+            timeout=3.0,
+            scanner=smoke.SecretScanner(),
+        )
+
+    assert exc.value.stage == "stage_progress"
 
 
 def _wait_terminal(

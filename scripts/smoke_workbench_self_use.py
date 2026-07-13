@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -41,6 +42,29 @@ class SmokeProtocolError(RuntimeError):
     def __init__(self, stage: str) -> None:
         super().__init__(stage)
         self.stage = stage
+
+
+def smoke_metrics(
+    *,
+    started_at: float,
+    finished_at: float,
+    stage_events: list[str],
+) -> dict[str, object]:
+    elapsed = finished_at - started_at
+    if not math.isfinite(elapsed):
+        elapsed = 0.0
+    stages: list[str] = []
+    for stage in stage_events:
+        if (
+            isinstance(stage, str)
+            and SAFE_SOURCE_COMPONENT.fullmatch(stage)
+            and stage not in stages
+        ):
+            stages.append(stage)
+    return {
+        "elapsed_seconds": round(max(0.0, elapsed), 3),
+        "stages": stages,
+    }
 
 
 class SecretScanner:
@@ -197,13 +221,14 @@ def _stream_until_terminal(
     run_id: str,
     timeout: float,
     scanner: SecretScanner,
-) -> tuple[dict[str, object], dict[str, int | bool]]:
+) -> tuple[dict[str, object], dict[str, object]]:
     deadline = time.monotonic() + timeout
     cursor = 0
     request_count = 0
     event_count = 0
     terminal_event_count = 0
     text_delta_count = 0
+    stage_events: list[str] = []
     no_progress_count = 0
 
     while time.monotonic() < deadline:
@@ -244,6 +269,7 @@ def _stream_until_terminal(
                         "terminal_event_count": terminal_event_count,
                         "text_delta_count": text_delta_count,
                         "replayed": request_count > 1,
+                        "stages": list(dict.fromkeys(stage_events)),
                     }
 
                 seq = payload.get("seq")
@@ -255,6 +281,18 @@ def _stream_until_terminal(
                 canonical_type = payload.get("event_type")
                 if canonical_type in {"message.complete", "message.error"}:
                     terminal_event_count += 1
+                if canonical_type == "stage.progress":
+                    event_payload = payload.get("payload")
+                    stage = (
+                        event_payload.get("stage")
+                        if isinstance(event_payload, dict)
+                        else None
+                    )
+                    if not isinstance(stage, str) or not SAFE_SOURCE_COMPONENT.fullmatch(
+                        stage
+                    ):
+                        raise SmokeProtocolError("stage_progress")
+                    stage_events.append(stage)
                 if canonical_type == "text.delta":
                     event_payload = payload.get("payload")
                     delta = (
@@ -328,9 +366,10 @@ def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
 
 
 def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
-    started = time.monotonic()
-    deadline = started + args.timeout
+    started_at = time.monotonic()
+    deadline = started_at + args.timeout
     scanner = SecretScanner()
+    stage_events: list[str] = []
     readiness = {"page": False, "skills": False}
     summary: dict[str, object] = {
         "schema_version": 1,
@@ -405,6 +444,16 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             timeout=remaining("sse_timeout"),
             scanner=scanner,
         )
+        raw_stage_events = sse_summary.get("stages")
+        if not isinstance(raw_stage_events, list) or not all(
+            isinstance(stage, str) and SAFE_SOURCE_COMPONENT.fullmatch(stage)
+            for stage in raw_stage_events
+        ):
+            raise SmokeProtocolError("stage_progress")
+        stage_events = raw_stage_events
+        public_sse_summary = {
+            key: value for key, value in sse_summary.items() if key != "stages"
+        }
         run_status = terminal_run["status"]
         degrades = terminal_run.get("degrades", [])
         if not isinstance(degrades, list) or not all(
@@ -449,7 +498,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
                 "run_status": run_status,
                 "terminal_outcome": outcome,
                 "degrade_count": len(degrades),
-                "sse": sse_summary,
+                "sse": public_sse_summary,
                 "report": {
                     "present": report_present,
                     "status": _safe_optional_label(
@@ -482,7 +531,13 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         "hit_count": len(scanner.hits),
         "hits": scanner.hits,
     }
-    summary["elapsed_seconds"] = round(time.monotonic() - started, 3)
+    summary.update(
+        smoke_metrics(
+            started_at=started_at,
+            finished_at=time.monotonic(),
+            stage_events=stage_events,
+        )
+    )
     if scanner.hits:
         summary["terminal_outcome"] = "secret_scan_failed"
         exit_code = 2
