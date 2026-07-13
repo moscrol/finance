@@ -612,6 +612,27 @@ def test_attempt_uses_adapter_reported_timeout_after_callback_cap() -> None:
     assert all(attempt.timeout_seconds == 3.0 for attempt in result.attempts)
 
 
+def test_attempt_falls_back_to_requested_timeout_when_adapter_does_not_report() -> None:
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        return WikiRagResult(
+            ok=False,
+            telemetry=RetrievalTelemetry(
+                status="empty",
+                index_freshness="",
+            ),
+        )
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert all(attempt.timeout_seconds == 10.0 for attempt in result.attempts)
+
+
 def test_public_telemetry_prefers_contributing_snapshot_over_later_empty() -> None:
     calls = 0
 

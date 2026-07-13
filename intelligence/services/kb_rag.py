@@ -160,7 +160,8 @@ class RetrievalTelemetry:
     score_min: float | None = None
     score_mean: float | None = None
     latency_ms: int | None = None  # 检索子进程耗时（毫秒）
-    timeout_seconds: float = 0.0  # adapter 实际收到的超时上限
+    # None=旧 adapter/fake 未上报；0.0=已上报且真实零预算。
+    timeout_seconds: float | None = None
     index_built_at: str = ""
     index_source_revision: str = ""
     index_freshness: str = ""

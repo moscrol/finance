@@ -241,7 +241,7 @@ def _run_one(
         result._hit_telemetry.setdefault(_hit_identity(hit), response_telemetry)
     actual_timeout = (
         response_telemetry.timeout_seconds
-        if response_telemetry.timeout_seconds > 0
+        if response_telemetry.timeout_seconds is not None
         else timeout
     )
     result.attempts.append(

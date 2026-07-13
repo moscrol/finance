@@ -430,6 +430,31 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(wiki_citations[0].index_source_revision, "rev-1")
         self.assertEqual(wiki_citations[0].index_freshness, "fresh")
 
+    def test_zero_adapter_cap_preserves_zero_timeout_without_spawning(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch("subprocess.run") as run,
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="分析液冷板块",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=True,
+                    wiki_rag_timeout=0,
+                )
+            )
+
+        run.assert_not_called()
+        assert result.closed_loop_retrieval is not None
+        assert result.wiki_rag_telemetry is not None
+        self.assertEqual(result.wiki_rag_telemetry.timeout_seconds, 0.0)
+        self.assertEqual(result.wiki_rag_telemetry.dense_initializations, 0)
+        attempts = result.closed_loop_retrieval.inspector_dict()["attempts"]
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(attempts[0]["timeout_seconds"], 0.0)
+
     def test_explicit_stock_wording_still_routes_to_deep_dive(self) -> None:
         plan = plan_answer_question("这只股怎么看")
 
