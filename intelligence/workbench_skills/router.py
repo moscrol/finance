@@ -28,6 +28,7 @@ class SkillSelection:
 class SkillRouteResult:
     selections: tuple[SkillSelection, ...]
     fallback_to_ask: bool
+    base_finance_fallback: bool = False
 
 
 def _dedupe(values: Sequence[str]) -> list[str]:
@@ -59,7 +60,7 @@ def _rule_candidates(
 
 
 def _parse_llm_selection(
-    content: str, allowlist: set[str], registry: Mapping[str, SkillDefinition]
+    content: str, registry: Mapping[str, SkillDefinition]
 ) -> list[SkillSelection] | None:
     try:
         value: JsonValue = json.loads(content)
@@ -74,7 +75,7 @@ def _parse_llm_selection(
     if any(not isinstance(skill_id, str) for skill_id in skill_ids):
         return None
     typed_ids = cast(list[str], skill_ids)
-    if any(skill_id not in registry or skill_id not in allowlist for skill_id in typed_ids):
+    if any(skill_id not in registry for skill_id in typed_ids):
         return None
     if set(reasons) != set(typed_ids):
         return None
@@ -111,27 +112,34 @@ def route_skills(
 
     manual = [SkillSelection(skill_id, "manual", "用户手动选择") for skill_id in manual_ids]
     if skill_mode == "manual":
-        return SkillRouteResult(tuple(manual), not manual)
+        return SkillRouteResult(
+            tuple(manual),
+            fallback_to_ask=False,
+            base_finance_fallback=not manual,
+        )
 
     rules = _rule_candidates(query, task_type, active_registry)
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
     available_slots = 3 if skill_mode == "auto" else 3 - len(manual)
-    if rules and available_slots > 0:
-        allowlist = {skill_id for skill_id, _ in rules}
+    if active_registry and available_slots > 0:
+        rule_ids = {skill_id for skill_id, _ in rules}
         candidates = [
             {
                 "skill_id": skill_id,
                 "name": active_registry[skill_id].name,
                 "description": active_registry[skill_id].description,
                 "triggers": list(active_registry[skill_id].triggers),
+                "rule_priority": skill_id in rule_ids,
             }
-            for skill_id in sorted(allowlist)
+            for skill_id in sorted(active_registry)
         ]
         messages = [
             {
                 "role": "system",
                 "content": (
-                    "Select zero or more skills from the allowlist. Return strict JSON only: "
+                    "Select zero or more semantically relevant skills from the full registry. "
+                    "Rule-priority candidates are hints, not an allowlist. "
+                    "Return strict JSON only: "
                     '{"skill_ids":[...],"reasons":{"id":"human reason"}}.'
                 ),
             },
@@ -153,7 +161,7 @@ def route_skills(
         except Exception:
             content = None
         if content is not None:
-            llm_selection = _parse_llm_selection(content, allowlist, active_registry)
+            llm_selection = _parse_llm_selection(content, active_registry)
             if llm_selection is not None:
                 automatic = llm_selection
 
@@ -166,4 +174,8 @@ def route_skills(
             seen.add(selection.skill_id)
         if len(selected) == 3:
             break
-    return SkillRouteResult(tuple(selected), not selected)
+    return SkillRouteResult(
+        tuple(selected),
+        fallback_to_ask=False,
+        base_finance_fallback=not selected,
+    )

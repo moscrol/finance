@@ -1071,6 +1071,7 @@ def create_app(
             "run_store_writable": checks["run_store_writable"],
             "knowledge_wiki": checks["knowledge_wiki"],
             "relations": checks["relations"],
+            "market_snapshot": checks["market_snapshot"],
         }
         ready = all(critical.values())
         payload = {
@@ -1078,6 +1079,9 @@ def create_app(
             "timestamp": rs._now_iso(),
             "checks": checks,
             "critical": critical,
+            "missing_critical": [
+                name for name, available in critical.items() if not available
+            ],
             "workers": {
                 "active": supervisor.active_count(),
                 "capacity": supervisor.max_workers,
