@@ -10,6 +10,7 @@ from intelligence.workbench_skills.contracts import (
     SkillDefinition,
     SkillExecutionContext,
     SkillOutput,
+    build_module_answer_contract,
 )
 from intelligence.workbench_skills.registry import (
     SKILL_EXECUTORS,
@@ -73,6 +74,7 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "warnings",
         "as_of",
         "raw_result_ref",
+        "answer_contract",
     ]
     store = RunStore(root=tmp_path / "runs")
     context = SkillExecutionContext(
@@ -146,6 +148,7 @@ def test_manual_mode_deduplicates_and_selects_only_manual_without_llm() -> None:
     ]
     assert all(item.reason == "用户手动选择" for item in result.selections)
     assert result.fallback_to_ask is False
+    assert result.base_finance_fallback is False
 
 
 def test_auto_mode_ignores_manual_selection_and_uses_stable_rules_without_llm() -> None:
@@ -168,6 +171,7 @@ def test_auto_mode_ignores_manual_selection_and_uses_stable_rules_without_llm() 
     ]
     assert all("匹配" in item.reason for item in result.selections)
     assert result.fallback_to_ask is False
+    assert result.base_finance_fallback is False
 
 
 def test_hybrid_preserves_manual_then_supplements_and_caps_total_at_three() -> None:
@@ -212,14 +216,15 @@ def test_three_manual_skills_skip_unnecessary_llm_call() -> None:
         '{"skill_ids":"a","reasons":{}}',
         '{"skill_ids":[1],"reasons":{}}',
         '{"skill_ids":["invented"],"reasons":{"invented":"x"}}',
-        '{"skill_ids":["registered_not_candidate"],"reasons":{"registered_not_candidate":"x"}}',
         '{"skill_ids":["a"],"reasons":[]}',
         '{"skill_ids":["a"],"reasons":{}}',
         '{"skill_ids":["a"],"reasons":{"a":1}}',
         '{"skill_ids":["a"],"reasons":{"a":"x"},"extra":true}',
     ],
 )
-def test_malformed_or_disallowed_llm_result_invalidates_whole_result_and_keeps_rules(payload: str) -> None:
+def test_malformed_or_unknown_llm_result_invalidates_whole_result_and_keeps_rules(
+    payload: str,
+) -> None:
     registry = {
         "a": definition("a", "命中"),
         "b": definition("b", "命中"),
@@ -252,7 +257,8 @@ def test_valid_empty_llm_selection_means_no_automatic_selection_and_fallback() -
         llm_complete=llm_response('{"skill_ids":[],"reasons":{}}'),
     )
     assert result.selections == ()
-    assert result.fallback_to_ask is True
+    assert result.fallback_to_ask is False
+    assert result.base_finance_fallback is True
 
 
 def test_llm_reason_is_redacted_before_becoming_visible() -> None:
@@ -272,10 +278,54 @@ def test_llm_reason_is_redacted_before_becoming_visible() -> None:
     assert "[REDACTED]" in reason
 
 
-def test_no_candidates_falls_back_without_calling_llm() -> None:
-    def forbidden_llm(messages: list[dict[str, str]]):
-        raise AssertionError("empty allowlist must not call LLM")
+def test_no_rule_candidates_still_routes_semantically_against_full_registry() -> None:
+    result = route_skills(
+        "整理今天的正式日报",
+        "ask",
+        "hybrid",
+        [],
+        registry={
+            "daily": definition("daily", "复盘"),
+            "agent": definition("agent", "研究队列"),
+        },
+        llm_complete=llm_response(
+            '{"skill_ids":["daily"],"reasons":{"daily":"语义上需要正式日报"}}'
+        ),
+    )
+    assert [item.skill_id for item in result.selections] == ["daily"]
+    assert result.selections[0].selection_source == "llm"
+    assert result.fallback_to_ask is False
+    assert result.base_finance_fallback is False
 
-    result = route_skills("无关问题", "ask", "hybrid", [], registry={"daily": definition("daily", "复盘")}, llm_complete=forbidden_llm)
+
+def test_llm_can_select_registered_skill_without_trigger_match() -> None:
+    registry = {
+        "matched": definition("matched", "复盘"),
+        "semantic": definition("semantic", "研究队列"),
+    }
+    result = route_skills(
+        "请做复盘并安排后续研究",
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        llm_complete=llm_response(
+            '{"skill_ids":["semantic"],"reasons":{"semantic":"需要安排研究任务"}}'
+        ),
+    )
+    assert [item.skill_id for item in result.selections] == ["semantic"]
+    assert result.selections[0].selection_source == "llm"
+
+
+def test_no_semantic_selection_enters_base_finance_chain() -> None:
+    result = route_skills(
+        "无关问题",
+        "ask",
+        "hybrid",
+        [],
+        registry={"daily": definition("daily", "复盘")},
+        llm_complete=llm_response('{"skill_ids":[],"reasons":{}}'),
+    )
     assert result.selections == ()
-    assert result.fallback_to_ask is True
+    assert result.fallback_to_ask is False
+    assert result.base_finance_fallback is True

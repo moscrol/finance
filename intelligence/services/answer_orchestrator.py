@@ -250,7 +250,10 @@ def _base_finance_mode(
 
 
 def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
-    if _has_any(q, ("质检", "打分", "评分", "claude", "输出", "回答质量", "模板")):
+    if _has_any(q, ("质检", "打分", "评分", "回答质量", "答案质量")) or (
+        _has_any(q, ("输出", "模板", "claude"))
+        and _has_any(q, ("这份回答", "这个回答", "这个答案", "上一版", "质量", "改写"))
+    ):
         return QUESTION_ANSWER_REVIEW, 0.86
     # 强触发词优先于泛化关键词：深挖/复盘先验是明确的任务指令，
     # 即便问句里同时出现 产业链/公告/板块 等弱信号也不应被抢路由。
@@ -285,12 +288,21 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         return QUESTION_MARKET_FORECAST, 0.8
     if _has_any(q, ("题材", "板块", "方向", "细分", "产业", "主线", "双红")):
         return QUESTION_THEME_ANALYSIS, 0.76
-    if _has_any(q, ("深挖", "个股", "上涨空间", "怎么看", "还有空间", "能不能涨", "后续空间")):
+    if _has_any(
+        q,
+        (
+            "个股",
+            "这只股",
+            "股票怎么看",
+            "上涨空间",
+            "还有空间",
+            "能不能涨",
+            "后续空间",
+        ),
+    ):
         return QUESTION_STOCK_DEEP_DIVE, 0.78
     if _has_any(q, ("方法论", "框架", "怎么做", "路径", "编排层", "怎么实现", "原理")):
         return QUESTION_METHODOLOGY, 0.74
-    if len(raw_query) <= 12:
-        return QUESTION_THEME_ANALYSIS, 0.52
     return QUESTION_GENERAL, 0.45
 
 

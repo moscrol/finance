@@ -22,6 +22,7 @@ from intelligence.workbench_skills.contracts import (
     SkillDefinition,
     SkillExecutionContext,
     SkillOutput,
+    build_module_answer_contract,
 )
 from intelligence.workbench_skills.registry import (
     SkillRegistry,
@@ -395,6 +396,106 @@ def test_current_skill_output_is_injected_as_current_turn_evidence(tmp_path) -> 
     assert assistant.selected_skill_ids == ["fixture"]
     assert assistant.invoked_skill_ids == ["fixture"]
     assert assistant.citations[0]["evidence_layer"] == "canonical"
+
+
+def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "使用专项研究",
+        selected_skill_ids=["owner"],
+    )
+
+    class OwnerSkill:
+        skill_id = "owner"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            modules = [
+                {
+                    "type": "summary",
+                    "summary": "专项资料显示需求保持扩张",
+                    "metrics": [{"label": "订单覆盖", "value": "80%"}],
+                    "items": [
+                        {
+                            "title": "验证",
+                            "summary": "仍需复核新增订单",
+                            "next_action": "下一窗口复核新增订单。",
+                        }
+                    ],
+                }
+            ]
+            citations = [
+                {
+                    "source": "owner.json",
+                    "title": "专项正式资料",
+                    "evidence_layer": "canonical",
+                    "as_of": "2026-07-11",
+                }
+            ]
+            return SkillOutput(
+                skill_id=self.skill_id,
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of="2026-07-11",
+                raw_result_ref=None,
+                answer_contract=build_module_answer_contract(
+                    skill_id=self.skill_id,
+                    title="专项研究",
+                    modules=modules,
+                    citations=citations,
+                    warnings=[],
+                    as_of="2026-07-11",
+                    retrieval_plan=("读取专项正式资料",),
+                    output_contract=("输出五元素裁决",),
+                ),
+            )
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="owner",
+            name="Owner",
+            description="answer owner",
+            version="1.0.0",
+            triggers=("专项",),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        ),
+        OwnerSkill(),
+    )
+
+    def forbidden_answer_query(options: AskOptions) -> AskResult:
+        raise AssertionError("answer owner must bypass generic Ask")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden_answer_query,
+        skill_registry=registry,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="使用专项研究",
+        skill_mode="manual",
+        selected_skill_ids=["owner"],
+    )
+
+    assert result.status == "completed"
+    assert "# 专项研究" in result.content
+    assert "**直接定性：**" in result.content
+    assert "**最强证据：**" in result.content
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert "llm_unavailable_template_answer" not in assistant.degrades
 
 
 def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path) -> None:

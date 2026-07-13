@@ -29,7 +29,29 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import answer_model, ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, perspective_lab, research_brief, scenario_tree, user_memory
+from intelligence.services import (
+    answer_model,
+    ask_clarify,
+    ask_planner,
+    checkpoint_recall,
+    closed_loop_retrieval,
+    entity_anchor,
+    experience_cards,
+    forecast_preflight,
+    kb_rag,
+    l3_evidence,
+    llm_refine,
+    market_analogs,
+    market_financials,
+    market_midterm,
+    market_moneyflow,
+    market_news,
+    market_timeseries,
+    perspective_lab,
+    research_brief,
+    scenario_tree,
+    user_memory,
+)
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -244,6 +266,9 @@ class AskResult:
     found_wiki: bool = False
     # W 源检索遥测（用了哪种索引/检索方式/命中质量）；None=未启用 W 源。
     wiki_rag_telemetry: kb_rag.RetrievalTelemetry | None = None
+    closed_loop_retrieval: (
+        closed_loop_retrieval.ClosedLoopRetrievalResult | None
+    ) = None
     routed_modules: list[str] = field(default_factory=list)
     llm_refined: bool = False
     llm_provider: str | None = None
@@ -1035,44 +1060,58 @@ def answer_query(options: AskOptions) -> AskResult:
 
     # --- W: 知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，打通复盘↔知识库闭环）---
     wiki_lines: list[str] = []
+    wiki_counter_lines: list[str] = []
     wiki_stats: dict[str, Any] = {
         "attempted": bool(options.use_wiki_rag),
         "mode": options.wiki_rag_mode,
         "index": "full" if options.wiki_rag_index_dir else "structured",
     }
     if options.use_wiki_rag:
-        wr = kb_rag.retrieve(
-            graph_query,
-            resolved_kb_wiki,
-            k=options.wiki_rag_k,
-            mode=options.wiki_rag_mode,
-            timeout=options.wiki_rag_timeout,
-            excerpt_chars=options.wiki_rag_excerpt,
-            index_dir=options.wiki_rag_index_dir,
-            require_fresh=True,  # formal 证据路径：过期/未知命中 fail-closed，不进 LLM 证据
+        loop = closed_loop_retrieval.retrieve_closed_loop(
+            options.query,
+            anchor=anchor,
+            retrieve=lambda retrieval_query: kb_rag.retrieve(
+                retrieval_query,
+                resolved_kb_wiki,
+                k=options.wiki_rag_k,
+                mode=options.wiki_rag_mode,
+                timeout=options.wiki_rag_timeout,
+                excerpt_chars=options.wiki_rag_excerpt,
+                index_dir=options.wiki_rag_index_dir,
+                require_fresh=True,
+            ),
         )
+        result.closed_loop_retrieval = loop
         wiki_stats.update(
             {
-                "ok": wr.ok,
-                "hits": len(wr.hits),
-                "scores": [h.score for h in wr.hits],
-                "neighbor_hits": sum(1 for h in wr.hits if h.via_neighbor),
-                "pages": [h.file_path for h in wr.hits],
-                "warning": wr.warning,
+                "ok": bool(loop.conclusion),
+                "hits": len(loop.conclusion),
+                "clues": len(loop.clues),
+                "discarded": len(loop.discarded),
+                "counter_clues": len(loop.counter_clues),
+                "scores": [item.hit.score for item in loop.conclusion],
+                "neighbor_hits": sum(
+                    1 for item in loop.conclusion if item.hit.via_neighbor
+                ),
+                "pages": [item.hit.file_path for item in loop.conclusion],
+                "warning": "；".join(loop.warnings),
+                "attempts": loop.inspector_dict()["attempts"],
             }
         )
-        result.wiki_rag_telemetry = wr.telemetry
-        if wr.ok and wr.hits:
+        result.wiki_rag_telemetry = loop.telemetry
+        if loop.conclusion:
             result.found_wiki = True
             result.found_graph = True
-            for h in wr.hits:
+            for bucketed in loop.conclusion:
+                h = bucketed.hit
                 nb = "·邻居扩展" if h.via_neighbor else ""
                 section_ref = f"｜section={h.section}" if h.section else ""
                 tag = cite(
                     "W",
                     f"knowledge-base · {h.file_path}",
                     (
-                        f"{wr.command}｜{h.title}｜chunk={h.best_chunk_id}{section_ref}"
+                        f"closed-loop:{bucketed.aperture}｜{h.title}"
+                        f"｜chunk={h.best_chunk_id}{section_ref}"
                         f"｜hash={h.content_hash[:12]}｜index={h.index_source_revision[:12]}"
                         f"｜freshness={h.index_freshness}"
                     ),
@@ -1113,10 +1152,26 @@ def answer_query(options: AskOptions) -> AskResult:
                         freshness=h.index_freshness,
                     )
                 )
-            if wr.warning:  # 全文版索引缺失回退默认索引时，仍把提示记进 warnings
-                result.warnings.append(f"wiki-rag：{wr.warning}")
-        elif wr.warning:
-            result.warnings.append(f"wiki-rag：{wr.warning}")
+        if loop.counter_clues:
+            result.found_wiki = True
+            for bucketed in loop.counter_clues:
+                h = bucketed.hit
+                tag = cite(
+                    "W",
+                    f"knowledge-base · {h.file_path}",
+                    (
+                        f"closed-loop:counter｜{h.title}"
+                        f"｜chunk={h.best_chunk_id}｜freshness={h.index_freshness}"
+                    ),
+                    chunk_id=h.best_chunk_id,
+                    content_hash=h.content_hash,
+                    index_source_revision=h.index_source_revision,
+                    index_freshness=h.index_freshness,
+                )
+                wiki_counter_lines.append(
+                    f"反方线索（待进一步核验）：{h.title}：{h.excerpt} {tag}"
+                )
+        result.warnings.extend(f"wiki-rag：{warning}" for warning in loop.warnings)
 
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
     module_block: list[str] = []
@@ -1191,6 +1246,7 @@ def answer_query(options: AskOptions) -> AskResult:
         )
     gap_lines.extend(framing.get("gaps", []))
     gap_lines.extend(stale_notes)
+    gap_lines.extend(wiki_counter_lines)
     gap_lines.append(
         "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
         "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边"

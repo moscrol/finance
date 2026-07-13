@@ -19,6 +19,7 @@ from intelligence.services import run_store as rs
 from intelligence.services.ask import (
     AskOptions,
     AskResult,
+    Citation,
     answer_query,
     render_conversation_answer,
 )
@@ -243,6 +244,35 @@ class TurnResult:
     content: str
     selected_skill_ids: tuple[str, ...]
     invoked_skill_ids: tuple[str, ...]
+
+
+def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
+    contract = output.answer_contract
+    if contract is None:
+        raise ValueError("skill owner output requires an answer contract")
+    citations = [
+        Citation(
+            tag=f"K{index}",
+            source=str(
+                citation.get("title")
+                or citation.get("source")
+                or output.skill_id
+            ),
+            detail=str(citation.get("source") or ""),
+        )
+        for index, citation in enumerate(output.citations, start=1)
+    ]
+    return AskResult(
+        query=query,
+        trade_date=output.as_of,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        found_graph=bool(contract.answer_spec.verified_facts),
+        question_plan=plan_answer_question(query),
+        citations=citations,
+        answer_spec=contract.answer_spec,
+    )
 
 
 def _summarize_messages(messages: Sequence[Message]) -> str:
@@ -489,6 +519,7 @@ class TurnOrchestrator:
                         for selection in route.selections
                     ],
                     "fallback_to_ask": route.fallback_to_ask,
+                    "base_finance_fallback": route.base_finance_fallback,
                     "elapsed_ms": self._elapsed_ms(route_started),
                 },
             )
@@ -615,6 +646,14 @@ class TurnOrchestrator:
                 )
 
             compose_started = time.monotonic()
+            owner_output = next(
+                (
+                    output
+                    for output in skill_outputs
+                    if output.answer_contract is not None
+                ),
+                None,
+            )
             daily_review_output = next(
                 (
                     output
@@ -627,35 +666,55 @@ class TurnOrchestrator:
                 plan_answer_question(query).question_type
                 == QUESTION_MARKET_REVIEW
             )
-            result = self.answer_query(
-                AskOptions(
-                    query=query,
-                    date=(
-                        daily_review_output.as_of
-                        if daily_review_output is not None
-                        and market_review_requested
-                        else None
-                    ),
-                    user=self.run_store.user_id,
-                    compose=True,
-                    compose_self_review=False,
-                    compose_revise_on_warn=False,
-                    market_db_path=self.repo_root
-                    / "db"
-                    / "market_feature_store.duckdb",
-                    conversation_context=context.to_prompt_block(),
-                    supplemental_evidence=self._skill_evidence(skill_outputs),
-                    include_memory_block=True,
-                    include_recall_block=True,
-                    perspective_mode=perspective_mode,
-                    perspective_ids=tuple(selected_perspective_ids),
-                    stream_text_delta=emit_text_delta,
-                    stream_cancel_check=self.is_cancelled,
+            if owner_output is not None:
+                result = _skill_owner_result(query, owner_output)
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "compose",
+                    "skill_answer_owner",
+                    {
+                        "skill_id": owner_output.skill_id,
+                        "retrieval_plan": list(
+                            owner_output.answer_contract.retrieval_plan
+                        ),
+                        "output_contract": list(
+                            owner_output.answer_contract.output_contract
+                        ),
+                    },
                 )
-            )
+            else:
+                result = self.answer_query(
+                    AskOptions(
+                        query=query,
+                        date=(
+                            daily_review_output.as_of
+                            if daily_review_output is not None
+                            and market_review_requested
+                            else None
+                        ),
+                        user=self.run_store.user_id,
+                        compose=True,
+                        compose_self_review=False,
+                        compose_revise_on_warn=False,
+                        market_db_path=self.repo_root
+                        / "db"
+                        / "market_feature_store.duckdb",
+                        conversation_context=context.to_prompt_block(),
+                        supplemental_evidence=self._skill_evidence(skill_outputs),
+                        include_memory_block=True,
+                        include_recall_block=True,
+                        perspective_mode=perspective_mode,
+                        perspective_ids=tuple(selected_perspective_ids),
+                        stream_text_delta=emit_text_delta,
+                        stream_cancel_check=self.is_cancelled,
+                    )
+                )
             self._check_cancelled()
             is_market_review = (
-                daily_review_output is not None
+                owner_output is None
+                and daily_review_output is not None
                 and market_review_requested
             )
             if (
@@ -726,14 +785,14 @@ class TurnOrchestrator:
             )
             fallback_notice = (
                 perspective_lab.runtime_fallback_notice(perspective_mode)
-                if result.synthesis is None
+                if result.synthesis is None and owner_output is None
                 else ""
             )
             answer_prefix = "\n\n".join(
                 block for block in (perspective_header, fallback_notice) if block
             )
             answer_text = f"{answer_prefix}\n\n{answer_text}"
-            if result.synthesis is None:
+            if result.synthesis is None and owner_output is None:
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
                 self.run_store.add_degrade(run_id, fallback)
@@ -935,6 +994,11 @@ class TurnOrchestrator:
                         "latency_ms": wiki_telemetry.latency_ms,
                     }
                     if wiki_telemetry is not None
+                    else None
+                ),
+                "closed_loop_retrieval": (
+                    result.closed_loop_retrieval.inspector_dict()
+                    if result.closed_loop_retrieval is not None
                     else None
                 ),
             },

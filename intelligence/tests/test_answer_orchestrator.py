@@ -9,6 +9,7 @@ from unittest import mock
 from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
+    QUESTION_GENERAL,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
@@ -20,6 +21,11 @@ from intelligence.services.answer_orchestrator import (
 from intelligence.services.ask import AskOptions, answer_query, render_conversation_answer
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.llm_refine import SynthesisResult
+from intelligence.services.kb_rag import (
+    RetrievalTelemetry,
+    WikiHit,
+    WikiRagResult,
+)
 
 
 class AnswerOrchestratorTests(unittest.TestCase):
@@ -223,6 +229,94 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("题材结构", joined_lenses)
         self.assertIn("强势股队列", joined_lenses)
         self.assertIn("theme candidates", joined_sources)
+
+    def test_ambiguous_output_word_does_not_route_to_answer_review(self) -> None:
+        plan = plan_answer_question("输出未来三天要验证的风险点")
+
+        self.assertEqual(plan.question_type, QUESTION_GENERAL)
+        self.assertLess(plan.confidence, 0.6)
+
+    def test_bare_how_do_you_view_it_uses_general_base_finance_fallback(self) -> None:
+        plan = plan_answer_question("怎么看")
+
+        self.assertEqual(plan.question_type, QUESTION_GENERAL)
+        self.assertLess(plan.confidence, 0.6)
+
+    def test_short_query_does_not_default_to_theme_template(self) -> None:
+        plan = plan_answer_question("人工智能")
+
+        self.assertEqual(plan.question_type, QUESTION_GENERAL)
+        self.assertLess(plan.confidence, 0.6)
+
+    def test_explicit_stock_wording_still_routes_to_deep_dive(self) -> None:
+        plan = plan_answer_question("这只股怎么看")
+
+        self.assertEqual(plan.question_type, QUESTION_STOCK_DEEP_DIVE)
+
+    def test_closed_loop_keeps_weak_positive_out_but_retains_counter_clue(
+        self,
+    ) -> None:
+        calls = 0
+
+        def fake_retrieve(query: str, *_args: object, **_kwargs: object):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                hits = [
+                    WikiHit(
+                        page_id="weak",
+                        file_path="wiki/weak.md",
+                        title="弱相关首页",
+                        score=0.2,
+                        excerpt="排名靠前但证据很弱",
+                        best_chunk_id="weak",
+                    )
+                ]
+            elif "风险 证伪" in query:
+                hits = [
+                    WikiHit(
+                        page_id="counter",
+                        file_path="wiki/counter.md",
+                        title="需求下滑风险",
+                        score=0.1,
+                        excerpt="需求可能不及预期，仍待核验",
+                        best_chunk_id="counter",
+                    )
+                ]
+            else:
+                hits = []
+            return WikiRagResult(
+                ok=bool(hits),
+                hits=hits,
+                telemetry=RetrievalTelemetry(
+                    status="ok" if hits else "empty",
+                    hit_count=len(hits),
+                ),
+            )
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.kb_rag.retrieve",
+                side_effect=fake_retrieve,
+            ),
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="测试对象最近怎么样",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=True,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        self.assertNotIn("弱相关首页", rendered)
+        self.assertIn("需求下滑风险", rendered)
+        assert result.closed_loop_retrieval is not None
+        self.assertEqual(len(result.closed_loop_retrieval.clues), 2)
+        self.assertEqual(len(result.closed_loop_retrieval.counter_clues), 1)
 
     def test_prompt_block_exposes_plan_without_requiring_template_output(self) -> None:
         plan = plan_answer_question("深挖顺络电子")
