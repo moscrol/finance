@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "英维克": {
+      "codes": ["002837.SZ"],
+      "concepts": {
+        "液冷": {}
+      },
+      "exposures": [
+        {
+          "concept": "液冷",
+          "chain_stage": "温控设备与液冷系统"
+        }
+      ]
+    }
+  },
+  "items": [
+    {
+      "company": "英维克",
+      "ticker": "002837.SZ",
+      "concept": "液冷",
+      "role": "温控设备与液冷系统",
+      "chain_stage": "中游设备",
+      "strength": "core",
+      "confidence": "high",
+      "evidence_layer": "L3"
+    }
+  ]
+}

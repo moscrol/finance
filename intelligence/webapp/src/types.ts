@@ -459,6 +459,7 @@ export interface ChatMessage {
   created_at: string;
   status: string;
   run_id: string | null;
+  skill_mode?: SkillMode;
   selected_skill_ids: string[];
   perspective_mode: PerspectiveMode;
   selected_perspective_ids: string[];

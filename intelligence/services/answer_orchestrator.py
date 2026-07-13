@@ -14,9 +14,25 @@ QUESTION_MARKET_REVIEW = "market_review"
 QUESTION_MARKET_FORECAST = "market_forecast"
 QUESTION_NEWS_IMPACT = "news_impact"
 QUESTION_VALUATION = "valuation_estimate"
+QUESTION_FINANCIAL_ANALYSIS = "financial_analysis"
 QUESTION_ANSWER_REVIEW = "answer_review"
 QUESTION_METHODOLOGY = "methodology_discussion"
 QUESTION_GENERAL = "general_finance_qa"
+
+QUESTION_TYPES = frozenset(
+    {
+        QUESTION_STOCK_DEEP_DIVE,
+        QUESTION_THEME_ANALYSIS,
+        QUESTION_MARKET_REVIEW,
+        QUESTION_MARKET_FORECAST,
+        QUESTION_NEWS_IMPACT,
+        QUESTION_VALUATION,
+        QUESTION_FINANCIAL_ANALYSIS,
+        QUESTION_ANSWER_REVIEW,
+        QUESTION_METHODOLOGY,
+        QUESTION_GENERAL,
+    }
+)
 
 DEPTH_QUICK = "quick"
 DEPTH_STANDARD = "standard"
@@ -146,6 +162,8 @@ class QuestionPlan:
 def plan_answer_question(
     query: str,
     matched_theme: str | None = None,
+    *,
+    question_type_override: str | None = None,
 ) -> QuestionPlan:
     raw_query = str(query or "").strip()
     if not raw_query:
@@ -163,7 +181,16 @@ def plan_answer_question(
         )
 
     q = _normalize(raw_query)
-    question_type, confidence = _classify_question_type(raw_query, q)
+    if (
+        question_type_override is not None
+        and question_type_override not in QUESTION_TYPES
+    ):
+        raise ValueError("unknown question type override")
+    question_type, confidence = (
+        (question_type_override, 1.0)
+        if question_type_override is not None
+        else _classify_question_type(raw_query, q)
+    )
     depth = _classify_depth(raw_query, q, question_type)
     required_lenses = _required_lenses(question_type, depth)
     retrieval_plan = _retrieval_plan(question_type, depth, q)
@@ -213,7 +240,12 @@ def _base_finance_mode(
     depth: str,
 ) -> BaseFinanceMode:
     has_specific_target = (
-        question_type in {QUESTION_STOCK_DEEP_DIVE, QUESTION_VALUATION}
+        question_type
+        in {
+            QUESTION_STOCK_DEEP_DIVE,
+            QUESTION_VALUATION,
+            QUESTION_FINANCIAL_ANALYSIS,
+        }
         or bool(re.search(r"\b\d{6}(?:\.(?:SH|SZ|BJ))?\b", raw_query, re.I))
     )
     asks_recent_event = question_type == QUESTION_NEWS_IMPACT or _has_any(
@@ -225,7 +257,10 @@ def _base_finance_mode(
         QUESTION_STOCK_DEEP_DIVE,
         QUESTION_NEWS_IMPACT,
     } or _has_any(q, ("产业链", "上下游", "供应链", "关系", "受益链"))
-    asks_financials = question_type == QUESTION_VALUATION or _has_any(
+    asks_financials = question_type in {
+        QUESTION_VALUATION,
+        QUESTION_FINANCIAL_ANALYSIS,
+    } or _has_any(
         q,
         (
             "财报",
@@ -250,7 +285,10 @@ def _base_finance_mode(
 
 
 def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
-    if _has_any(q, ("质检", "打分", "评分", "claude", "输出", "回答质量", "模板")):
+    if _has_any(q, ("质检", "打分", "评分", "回答质量", "答案质量")) or (
+        _has_any(q, ("输出", "模板", "claude"))
+        and _has_any(q, ("这份回答", "这个回答", "这个答案", "上一版", "质量", "改写"))
+    ):
         return QUESTION_ANSWER_REVIEW, 0.86
     # 强触发词优先于泛化关键词：深挖/复盘先验是明确的任务指令，
     # 即便问句里同时出现 产业链/公告/板块 等弱信号也不应被抢路由。
@@ -279,18 +317,44 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         return QUESTION_MARKET_REVIEW, 0.92
     if _has_any(q, ("拍估值", "估值带", "贵不贵", "隐含预期", "隐含增长", "值多少钱", "估值分位", "估值怎么看", "合理估值")):
         return QUESTION_VALUATION, 0.88
+    if _has_any(
+        q,
+        (
+            "财报分析",
+            "财报",
+            "财务分析",
+            "业绩分析",
+            "业绩兑现",
+            "营收",
+            "净利润",
+            "毛利率",
+            "净利率",
+            "季度业绩",
+            "基本面",
+        ),
+    ):
+        return QUESTION_FINANCIAL_ANALYSIS, 0.84
     if _has_any(q, ("公告", "新闻", "链接", "传导", "冲击", "影响")):
         return QUESTION_NEWS_IMPACT, 0.82
     if _has_any(q, ("行情", "大盘", "今天", "明天", "盘前", "收盘", "6.", "走势", "市场怎么看")):
         return QUESTION_MARKET_FORECAST, 0.8
     if _has_any(q, ("题材", "板块", "方向", "细分", "产业", "主线", "双红")):
         return QUESTION_THEME_ANALYSIS, 0.76
-    if _has_any(q, ("深挖", "个股", "上涨空间", "怎么看", "还有空间", "能不能涨", "后续空间")):
+    if _has_any(
+        q,
+        (
+            "个股",
+            "这只股",
+            "股票怎么看",
+            "上涨空间",
+            "还有空间",
+            "能不能涨",
+            "后续空间",
+        ),
+    ):
         return QUESTION_STOCK_DEEP_DIVE, 0.78
     if _has_any(q, ("方法论", "框架", "怎么做", "路径", "编排层", "怎么实现", "原理")):
         return QUESTION_METHODOLOGY, 0.74
-    if len(raw_query) <= 12:
-        return QUESTION_THEME_ANALYSIS, 0.52
     return QUESTION_GENERAL, 0.45
 
 
@@ -299,7 +363,13 @@ def _classify_depth(raw_query: str, q: str, question_type: str) -> str:
         return DEPTH_DEEP
     if _has_any(q, ("简单", "一句话", "快答", "简短")):
         return DEPTH_QUICK
-    if question_type in {QUESTION_STOCK_DEEP_DIVE, QUESTION_NEWS_IMPACT, QUESTION_ANSWER_REVIEW, QUESTION_VALUATION}:
+    if question_type in {
+        QUESTION_STOCK_DEEP_DIVE,
+        QUESTION_NEWS_IMPACT,
+        QUESTION_ANSWER_REVIEW,
+        QUESTION_VALUATION,
+        QUESTION_FINANCIAL_ANALYSIS,
+    }:
         return DEPTH_DEEP
     if question_type in {QUESTION_THEME_ANALYSIS, QUESTION_MARKET_REVIEW, QUESTION_MARKET_FORECAST}:
         return DEPTH_STANDARD
@@ -369,6 +439,15 @@ def _required_lenses(question_type: str, depth: str) -> list[str]:
             "隐含增长率反推：当前市值隐含了什么增速/份额假设，市场已经 price in 了多少",
             "情景估值表：悲观/中性/乐观三情景，每个情景绑定可验证条件（公告/订单/产能口径）",
             "证据审计：区分硬数据、研报推断（L1 降权）与缺口",
+            *common,
+        ]
+    if question_type == QUESTION_FINANCIAL_ANALYSIS:
+        return [
+            "财务验鲜：确认报告期、披露日期和累计/单季口径",
+            "增长质量：营收、归母净利、毛利率、净利率及其变化方向",
+            "兑现与分歧：区分收入增长、利润弹性和非经常性因素",
+            "公司证据：公告、定期报告、订单、产能和客户验证",
+            "反证条件：增长失速、利润率恶化、现金流或订单不及预期",
             *common,
         ]
     if question_type == QUESTION_ANSWER_REVIEW:
@@ -452,6 +531,14 @@ def _retrieval_plan(question_type: str, depth: str, q: str) -> list[str]:
             "L3 evidence tools：情景条件缺公告级证据时运行时补查",
             *common,
         ]
+    if question_type == QUESTION_FINANCIAL_ANALYSIS:
+        return [
+            "逐季财报：营收、归母净利、毛利率、净利率及同比方向",
+            "定期报告与公告：核对业绩变动原因、订单、产能和客户口径",
+            "公司本体与同业：业务结构、产业链位置和可比兑现节奏",
+            "盘面与估值：判断业绩是否已被交易、市场仍在定价什么",
+            *common,
+        ]
     if question_type == QUESTION_ANSWER_REVIEW:
         return [
             "answer rubric：按固定评分项打分",
@@ -514,6 +601,15 @@ def _quality_gates(question_type: str, depth: str) -> list[str]:
                 "研报盈利预测只能作为 L1 参考，不能当作硬输入",
             ]
         )
+    if question_type == QUESTION_FINANCIAL_ANALYSIS:
+        gates.extend(
+            [
+                "必须标注财报报告期、披露日期和累计/单季口径",
+                "缺逐季硬数据时不得用市场印象补齐增长率或利润率",
+                "必须区分收入增长、利润增长、利润率变化和非经常性因素",
+                "必须给出下一报告期可验证的升级、降级和证伪条件",
+            ]
+        )
     if question_type == QUESTION_NEWS_IMPACT:
         gates.extend(
             [
@@ -567,6 +663,13 @@ def _output_contract(question_type: str, depth: str) -> list[str]:
             "情景估值表每行带可验证条件",
             "结尾给证据审计与升级/降级/证伪条件，不输出买卖指令",
         ]
+    if question_type == QUESTION_FINANCIAL_ANALYSIS:
+        return [
+            "先给业绩兑现结论和最关键的增长质量变化",
+            "再拆营收、利润、利润率及其持续性",
+            "明确报告期、数据口径、异常项和仍缺的公司证据",
+            "结尾给下一报告期的升级、降级和证伪条件",
+        ]
     if question_type == QUESTION_ANSWER_REVIEW:
         return [
             "先给总分和核心缺口",
@@ -599,6 +702,9 @@ def _missing_data_policy(question_type: str) -> list[str]:
     if question_type == QUESTION_VALUATION:
         base.append("缺财务/估值数据时只能做框架推演，不得伪装成当前估值判断")
         base.append("缺可比公司数据时，必须说明可比集缺口，不能用印象估值带补齐")
+    if question_type == QUESTION_FINANCIAL_ANALYSIS:
+        base.append("缺逐季财务数据时只能给核验框架，不能编造营收、利润或利润率")
+        base.append("累计口径与单季口径不能混用；无法还原单季时必须显式说明")
     return base
 
 

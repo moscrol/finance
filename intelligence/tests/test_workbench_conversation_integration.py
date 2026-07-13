@@ -146,9 +146,10 @@ def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
         assert assistants[1]["selected_skill_ids"] == ["daily-agent"]
         assert assistants[1]["invoked_skill_ids"] == ["daily-agent"]
         assert assistants[2]["invoked_skill_ids"] == []
-        assert "llm_unavailable_template_answer" in assistants[0]["degrades"]
-        assert "一句话结论" in assistants[0]["content"]
-        assert "市场发生了什么" in assistants[0]["content"]
+        assert "llm_unavailable_template_answer" not in assistants[0]["degrades"]
+        assert "直接定性" in assistants[0]["content"]
+        assert "最强证据" in assistants[0]["content"]
+        assert "下一步验证" in assistants[0]["content"]
         assert "自然语言综合暂时不可用" not in assistants[0]["content"]
         for internal_term in (
             "图谱命中",

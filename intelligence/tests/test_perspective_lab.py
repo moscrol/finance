@@ -153,6 +153,8 @@ class RuntimePerspectiveTests(unittest.TestCase):
         self.assertIn("不得调用或模拟任何 KOL", context.prompt)
         self.assertIn("个人金融记忆", context.prompt)
         self.assertEqual(context.answer_header().splitlines()[0], "当前视角：数据中立")
+        self.assertIn("数据提供方", context.answer_header())
+        self.assertNotIn("Provider", context.answer_header())
 
     def test_single_context_retrieves_only_selected_kol_article(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

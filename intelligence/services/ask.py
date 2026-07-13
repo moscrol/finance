@@ -29,9 +29,35 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import answer_model, ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, perspective_lab, research_brief, scenario_tree, user_memory
-from intelligence.services.answer_quality import build_quality_context
+from intelligence.services import (
+    answer_model,
+    ask_clarify,
+    ask_planner,
+    checkpoint_recall,
+    closed_loop_retrieval,
+    entity_anchor,
+    experience_cards,
+    forecast_preflight,
+    kb_rag,
+    l3_evidence,
+    llm_refine,
+    market_analogs,
+    market_financials,
+    market_midterm,
+    market_moneyflow,
+    market_news,
+    market_timeseries,
+    perspective_lab,
+    research_brief,
+    scenario_tree,
+    user_memory,
+)
+from intelligence.services.answer_quality import (
+    AnswerQualityContext,
+    build_quality_context,
+)
 from intelligence.services.answer_orchestrator import (
+    QUESTION_FINANCIAL_ANALYSIS,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
@@ -143,6 +169,8 @@ class AskOptions:
     # compose: 让 LLM 把多源证据有机融合成一段连贯回答（自由形态，带内联引用）；
     # 默认关，关时行为与旧版逐字节一致。开时若无 key/调用失败则降级回六段模板。
     compose: bool = False
+    # 允许只运行 compose 取数和 AnswerSpec 裁决，不额外调用 LLM 生成自由文本。
+    synthesize: bool = True
     llm_model: str | None = None
     llm_timeout: int = field(default_factory=lambda: int(os.environ.get("LLM_TIMEOUT", "60")))
     detail: bool = False
@@ -187,6 +215,8 @@ class AskOptions:
     # 澄清追问前置门（clarify-then-act）：问题明确模糊（空问题/纯空泛词面）时不硬答，
     # 返回结构化澄清问题（对象/口径/日期），跳过整次检索；带实质内容的问题行为逐字节不变。
     clarify: bool = True
+    # Workbench 专项 Skill answer-owner 可固定问题类型，避免再次依赖脆弱词面分类。
+    question_type_override: str | None = None
     # 子任务并行：把命中的独立取数块（D0/D6/D9/D8/D7/W7/M/V/D1/D4/D2/D5）扔进线程池并行取，
     # 仍按固定顺序汇总，evidence_text/引用编号与串行逐字节一致；关掉退回串行（调试用）。
     parallel_blocks: bool = True
@@ -244,6 +274,9 @@ class AskResult:
     found_wiki: bool = False
     # W 源检索遥测（用了哪种索引/检索方式/命中质量）；None=未启用 W 源。
     wiki_rag_telemetry: kb_rag.RetrievalTelemetry | None = None
+    closed_loop_retrieval: (
+        closed_loop_retrieval.ClosedLoopRetrievalResult | None
+    ) = None
     routed_modules: list[str] = field(default_factory=list)
     llm_refined: bool = False
     llm_provider: str | None = None
@@ -428,7 +461,13 @@ def match_candidate(query: str, doc: dict[str, Any]) -> dict[str, Any] | None:
                 score = max(score, 60)
         for mc in cand.get("matched_concepts", []) or []:
             name = mc.get("concept") if isinstance(mc, dict) else None
-            if name and _contains(query, str(name)):
+            concept_score = mc.get("score") if isinstance(mc, dict) else None
+            if (
+                name
+                and isinstance(concept_score, (int, float))
+                and concept_score >= 5
+                and _contains(query, str(name))
+            ):
                 score = max(score, 30)
         if score > best_score:
             best_score, best = score, cand
@@ -735,7 +774,11 @@ def answer_query(options: AskOptions) -> AskResult:
     result.warnings.extend(loaded.get("warnings", []))
     result.warnings.extend(data_warnings)
     result.found_market = candidate is not None
-    question_plan = plan_answer_question(options.query, result.matched_theme)
+    question_plan = plan_answer_question(
+        options.query,
+        result.matched_theme,
+        question_type_override=options.question_type_override,
+    )
     result.question_plan = question_plan
     claim_theme = (
         question_plan.research_spec.theme
@@ -1035,44 +1078,58 @@ def answer_query(options: AskOptions) -> AskResult:
 
     # --- W: 知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，打通复盘↔知识库闭环）---
     wiki_lines: list[str] = []
+    wiki_counter_lines: list[str] = []
     wiki_stats: dict[str, Any] = {
         "attempted": bool(options.use_wiki_rag),
         "mode": options.wiki_rag_mode,
         "index": "full" if options.wiki_rag_index_dir else "structured",
     }
     if options.use_wiki_rag:
-        wr = kb_rag.retrieve(
-            graph_query,
-            resolved_kb_wiki,
-            k=options.wiki_rag_k,
-            mode=options.wiki_rag_mode,
-            timeout=options.wiki_rag_timeout,
-            excerpt_chars=options.wiki_rag_excerpt,
-            index_dir=options.wiki_rag_index_dir,
-            require_fresh=True,  # formal 证据路径：过期/未知命中 fail-closed，不进 LLM 证据
+        loop = closed_loop_retrieval.retrieve_closed_loop(
+            options.query,
+            anchor=anchor,
+            retrieve=lambda retrieval_query: kb_rag.retrieve(
+                retrieval_query,
+                resolved_kb_wiki,
+                k=options.wiki_rag_k,
+                mode=options.wiki_rag_mode,
+                timeout=options.wiki_rag_timeout,
+                excerpt_chars=options.wiki_rag_excerpt,
+                index_dir=options.wiki_rag_index_dir,
+                require_fresh=True,
+            ),
         )
+        result.closed_loop_retrieval = loop
         wiki_stats.update(
             {
-                "ok": wr.ok,
-                "hits": len(wr.hits),
-                "scores": [h.score for h in wr.hits],
-                "neighbor_hits": sum(1 for h in wr.hits if h.via_neighbor),
-                "pages": [h.file_path for h in wr.hits],
-                "warning": wr.warning,
+                "ok": bool(loop.conclusion),
+                "hits": len(loop.conclusion),
+                "clues": len(loop.clues),
+                "discarded": len(loop.discarded),
+                "counter_clues": len(loop.counter_clues),
+                "scores": [item.hit.score for item in loop.conclusion],
+                "neighbor_hits": sum(
+                    1 for item in loop.conclusion if item.hit.via_neighbor
+                ),
+                "pages": [item.hit.file_path for item in loop.conclusion],
+                "warning": "；".join(loop.warnings),
+                "attempts": loop.inspector_dict()["attempts"],
             }
         )
-        result.wiki_rag_telemetry = wr.telemetry
-        if wr.ok and wr.hits:
+        result.wiki_rag_telemetry = loop.telemetry
+        if loop.conclusion:
             result.found_wiki = True
             result.found_graph = True
-            for h in wr.hits:
+            for bucketed in loop.conclusion:
+                h = bucketed.hit
                 nb = "·邻居扩展" if h.via_neighbor else ""
                 section_ref = f"｜section={h.section}" if h.section else ""
                 tag = cite(
                     "W",
                     f"knowledge-base · {h.file_path}",
                     (
-                        f"{wr.command}｜{h.title}｜chunk={h.best_chunk_id}{section_ref}"
+                        f"closed-loop:{bucketed.aperture}｜{h.title}"
+                        f"｜chunk={h.best_chunk_id}{section_ref}"
                         f"｜hash={h.content_hash[:12]}｜index={h.index_source_revision[:12]}"
                         f"｜freshness={h.index_freshness}"
                     ),
@@ -1113,10 +1170,26 @@ def answer_query(options: AskOptions) -> AskResult:
                         freshness=h.index_freshness,
                     )
                 )
-            if wr.warning:  # 全文版索引缺失回退默认索引时，仍把提示记进 warnings
-                result.warnings.append(f"wiki-rag：{wr.warning}")
-        elif wr.warning:
-            result.warnings.append(f"wiki-rag：{wr.warning}")
+        if loop.counter_clues:
+            result.found_wiki = True
+            for bucketed in loop.counter_clues:
+                h = bucketed.hit
+                tag = cite(
+                    "W",
+                    f"knowledge-base · {h.file_path}",
+                    (
+                        f"closed-loop:counter｜{h.title}"
+                        f"｜chunk={h.best_chunk_id}｜freshness={h.index_freshness}"
+                    ),
+                    chunk_id=h.best_chunk_id,
+                    content_hash=h.content_hash,
+                    index_source_revision=h.index_source_revision,
+                    index_freshness=h.index_freshness,
+                )
+                wiki_counter_lines.append(
+                    f"反方线索（待进一步核验）：{h.title}：{h.excerpt} {tag}"
+                )
+        result.warnings.extend(f"wiki-rag：{warning}" for warning in loop.warnings)
 
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
     module_block: list[str] = []
@@ -1191,6 +1264,7 @@ def answer_query(options: AskOptions) -> AskResult:
         )
     gap_lines.extend(framing.get("gaps", []))
     gap_lines.extend(stale_notes)
+    gap_lines.extend(wiki_counter_lines)
     gap_lines.append(
         "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
         "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边"
@@ -1749,102 +1823,16 @@ def answer_query(options: AskOptions) -> AskResult:
             follow_ups=follow_ups,
             citations=citations,
         )
-        citation_legend = "\n".join(
-            f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
-        )
-        us = userspace.user_space(options.user)
-        perspective_context = perspective_lab.build_runtime_context(
-            us,
-            mode=options.perspective_mode,
-            perspective_ids=options.perspective_ids,
-            query=options.query,
-        )
-        experience_guidance = ""
-        if options.include_memory_block:
-            cards, card_warn = experience_cards.load_cards(
-                us.experience_cards_path,
-                window=options.experience_cards_window,
+        if options.synthesize:
+            _synthesize_answer_spec(
+                options=options,
+                result=result,
+                question_plan=question_plan,
+                theme=theme,
+                citations=citations,
+                quality_context=quality_context,
+                is_market_review=is_market_review,
             )
-            if card_warn:
-                result.warnings.append(card_warn)
-            selected_cards = experience_cards.select_relevant_cards(
-                cards, options.query
-            )
-            experience_guidance = experience_cards.render_for_prompt(
-                selected_cards
-            )
-        exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
-        if options.include_scenario_guidance:
-            scenario_guidance = scenario_tree.scenario_guidance_for_query(
-                options.query, question_plan.question_type
-            )
-            if scenario_guidance:
-                experience_guidance = (
-                    f"{experience_guidance}\n\n{scenario_guidance}" if experience_guidance else scenario_guidance
-                )
-        msgs = llm_refine.build_synthesis_messages(
-            options.query,
-            theme,
-            result.answer_spec.to_prompt_block(),
-            citation_legend=citation_legend,
-            quality_context=None if is_market_review else quality_context,
-            experience_guidance=experience_guidance,
-            exemplar_guidance=exemplar_guidance,
-        )
-        msgs[0]["content"] = (
-            f"{msgs[0]['content']}\n\n## 本轮视角约束\n"
-            f"{perspective_context.prompt}"
-        )
-        if options.conversation_context:
-            msgs.insert(
-                1,
-                {
-                    "role": "system",
-                    "content": (
-                        "以下会话上下文仅用于理解指代和用户意图，不是本轮检索证据；"
-                        "事实判断仍须引用当前轮证据：\n"
-                        f"{options.conversation_context}"
-                    ),
-                },
-            )
-        if options.compose_self_review:
-            composed, reason = llm_refine.synthesize_messages_with_review(
-                msgs, model_override=options.llm_model, timeout=options.llm_timeout,
-            )
-        else:
-            composed, reason = llm_refine.synthesize_messages(
-                msgs, model_override=options.llm_model, timeout=options.llm_timeout,
-            )
-        if composed is not None:
-            proposed_synthesis = (
-                f"{result.data_notice}\n\n{composed.answer}"
-                if result.data_notice
-                else composed.answer
-            )
-            llm_issues = answer_model.validate_llm_answer(
-                proposed_synthesis,
-                result.answer_spec,
-            )
-            blocking_issues = [
-                issue for issue in llm_issues if issue.severity == "error"
-            ]
-            if blocking_issues:
-                result.warnings.extend(
-                    f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
-                    for issue in blocking_issues
-                )
-            else:
-                result.synthesis = proposed_synthesis
-                result.llm_provider = composed.provider
-                result.synthesis_messages = msgs + [
-                    {"role": "assistant", "content": result.synthesis}
-                ]
-                if options.stream_text_delta is not None:
-                    options.stream_text_delta(result.synthesis)
-                if reason:
-                    result.warnings.append(reason)
-        else:
-            result.warnings.append(reason)
 
     if result.answer_spec is None:
         result.answer_spec = _build_answer_spec_for_result(
@@ -2237,6 +2225,7 @@ def _build_answer_spec_for_result(
             QUESTION_THEME_ANALYSIS,
             QUESTION_NEWS_IMPACT,
             QUESTION_STOCK_DEEP_DIVE,
+            QUESTION_FINANCIAL_ANALYSIS,
         }
     )
     has_verified_company_claim = any(
@@ -2521,6 +2510,128 @@ def _dedupe_structured_claims(
         seen.add(key)
         result.append(claim)
     return result
+
+
+def _synthesize_answer_spec(
+    *,
+    options: AskOptions,
+    result: AskResult,
+    question_plan: QuestionPlan,
+    theme: str,
+    citations: list[Citation],
+    quality_context: AnswerQualityContext,
+    is_market_review: bool,
+) -> None:
+    if result.answer_spec is None:
+        return
+    citation_legend = "\n".join(
+        f"[{citation.tag}] {citation.source}"
+        + (f" — {citation.detail}" if citation.detail else "")
+        for citation in citations
+    )
+    us = userspace.user_space(options.user)
+    perspective_context = perspective_lab.build_runtime_context(
+        us,
+        mode=options.perspective_mode,
+        perspective_ids=options.perspective_ids,
+        query=options.query,
+    )
+    experience_guidance = ""
+    if options.include_memory_block:
+        cards, card_warn = experience_cards.load_cards(
+            us.experience_cards_path,
+            window=options.experience_cards_window,
+        )
+        if card_warn:
+            result.warnings.append(card_warn)
+        selected_cards = experience_cards.select_relevant_cards(
+            cards,
+            options.query,
+        )
+        experience_guidance = experience_cards.render_for_prompt(
+            selected_cards
+        )
+    exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
+    if options.include_scenario_guidance:
+        scenario_guidance = scenario_tree.scenario_guidance_for_query(
+            options.query,
+            question_plan.question_type,
+        )
+        if scenario_guidance:
+            experience_guidance = (
+                f"{experience_guidance}\n\n{scenario_guidance}"
+                if experience_guidance
+                else scenario_guidance
+            )
+    messages = llm_refine.build_synthesis_messages(
+        options.query,
+        theme,
+        result.answer_spec.to_prompt_block(),
+        citation_legend=citation_legend,
+        quality_context=None if is_market_review else quality_context,
+        experience_guidance=experience_guidance,
+        exemplar_guidance=exemplar_guidance,
+    )
+    messages[0]["content"] = (
+        f"{messages[0]['content']}\n\n## 本轮视角约束\n"
+        f"{perspective_context.prompt}"
+    )
+    if options.conversation_context:
+        messages.insert(
+            1,
+            {
+                "role": "system",
+                "content": (
+                    "以下会话上下文仅用于理解指代和用户意图，不是本轮检索证据；"
+                    "事实判断仍须引用当前轮证据：\n"
+                    f"{options.conversation_context}"
+                ),
+            },
+        )
+    if options.compose_self_review:
+        composed, reason = llm_refine.synthesize_messages_with_review(
+            messages,
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+        )
+    else:
+        composed, reason = llm_refine.synthesize_messages(
+            messages,
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+        )
+    if composed is None:
+        result.warnings.append(reason)
+        return
+    proposed_synthesis = (
+        f"{result.data_notice}\n\n{composed.answer}"
+        if result.data_notice
+        else composed.answer
+    )
+    blocking_issues = [
+        issue
+        for issue in answer_model.validate_llm_answer(
+            proposed_synthesis,
+            result.answer_spec,
+        )
+        if issue.severity == "error"
+    ]
+    if blocking_issues:
+        result.warnings.extend(
+            f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
+            for issue in blocking_issues
+        )
+        return
+    result.synthesis = proposed_synthesis
+    result.llm_provider = composed.provider
+    result.synthesis_messages = [
+        *messages,
+        {"role": "assistant", "content": result.synthesis},
+    ]
+    if options.stream_text_delta is not None:
+        options.stream_text_delta(result.synthesis)
+    if reason:
+        result.warnings.append(reason)
 
 
 def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:

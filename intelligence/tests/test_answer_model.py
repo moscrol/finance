@@ -20,7 +20,12 @@ from intelligence.services.answer_model import (
     resolve_theme_research_spec,
     validate_llm_answer,
 )
-from intelligence.services.ask import AskOptions, answer_query, render_conversation_answer
+from intelligence.services.ask import (
+    AskOptions,
+    answer_query,
+    match_candidate,
+    render_conversation_answer,
+)
 
 
 class ThemeResearchSpecTests(unittest.TestCase):
@@ -29,6 +34,7 @@ class ThemeResearchSpecTests(unittest.TestCase):
             "稳定币支付": "stablecoin_payment",
             "人形机器人": "robotics",
             "AI 算力": "compute_infrastructure",
+            "英维克液冷": "compute_infrastructure",
             "低空经济": "low_altitude_economy",
         }
         for query, pack_id in cases.items():
@@ -40,6 +46,22 @@ class ThemeResearchSpecTests(unittest.TestCase):
             self.assertTrue(spec.evidence_requirements)
             self.assertTrue(spec.counter_evidence_requirements)
             self.assertTrue(spec.verification_actions)
+        self.assertEqual(
+            resolve_theme_research_spec("请个股深挖英维克的液冷业务").theme,
+            "液冷",
+        )
+
+    def test_market_candidate_ignores_weak_peripheral_concept_match(self) -> None:
+        doc = {
+            "candidates": [
+                {
+                    "canonical_concept": "数据要素",
+                    "matched_concepts": [{"concept": "液冷", "score": 2}],
+                }
+            ]
+        }
+
+        self.assertIsNone(match_candidate("请个股深挖英维克的液冷业务", doc))
 
 
 class ClaimAdjudicationTests(unittest.TestCase):
@@ -286,6 +308,55 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertNotIn("graph_only", rendered)
         self.assertEqual(rendered.count("核对公告或年报。"), 1)
 
+    def test_presenter_humanizes_company_directness_and_verified_followup(self) -> None:
+        spec = resolve_theme_research_spec("请个股深挖英维克的液冷业务")
+        verified = make_claim(
+            claim_id="company-verified",
+            text="英维克公告披露液冷产品已应用于数据中心温控场景。",
+            claim_type="company_evidence",
+            theme=spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L3",
+            company="英维克",
+            evidence_ids=("R1",),
+        )
+        answer = AnswerSpec(
+            research_spec=spec,
+            summary=(verified,),
+            verified_facts=(verified,),
+            company_table=build_company_assessments(
+                [
+                    CompanyCandidate(
+                        company="英维克",
+                        chain_stage="温控设备与液冷系统",
+                        directness="core",
+                        requested_tier=CompanyTier.CORE,
+                    ),
+                    CompanyCandidate(
+                        company="英维克关联方",
+                        chain_stage="待核验环节",
+                        directness="related",
+                        requested_tier=CompanyTier.PERIPHERAL,
+                    ),
+                ],
+                [verified],
+            ),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=("核对收入贡献。",),
+            sources=(EvidenceRef("R1", "公司公告"),),
+            system_notices=(),
+        )
+
+        rendered = render_answer_spec(finalize_answer_spec(answer))
+
+        self.assertIn("| 英维克 | 温控设备与液冷系统 | 直接 | 核心 |", rendered)
+        self.assertIn("| 英维克关联方 | 待核验环节 | 相关 | 外围 |", rendered)
+        self.assertNotIn("| related |", rendered)
+        self.assertIn("已有公司级材料仍需持续复核业务贡献和兑现节奏", rendered)
+        self.assertNotIn("公司级证据出现前", rendered)
+
     def test_presenter_formats_values_and_deduplicates_user_visible_sources(self) -> None:
         spec = resolve_theme_research_spec("分析人形机器人产业链")
         signal = make_claim(
@@ -316,13 +387,23 @@ class PresenterAndLLMGateTests(unittest.TestCase):
                 ),
             ),
             triggers=(signal,),
-            next_actions=("核验动作：核对客户和认证状态",),
-            sources=tuple(
+            next_actions=(
+                "核验动作：核对客户和认证状态",
+                "候选研究任务（人工 review）：做估值 sanity check",
+            ),
+            sources=(
+                *tuple(
+                    EvidenceRef(
+                        f"R{index}",
+                        "2026-07-01-theme-candidates.json · knowledge_evidence",
+                    )
+                    for index in range(1, 5)
+                ),
                 EvidenceRef(
-                    f"R{index}",
-                    "2026-07-01-theme-candidates.json · knowledge_evidence",
-                )
-                for index in range(1, 5)
+                    "R5",
+                    "knowledge-base · wiki/relations/concept_graph.json",
+                    "iFinD baseline multi-source Provider",
+                ),
             ),
             system_notices=(
                 "未连接本地 DuckDB；本轮回退到截至 2026-07-01 的 snapshot/export。",
@@ -335,6 +416,10 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertIn("且属于成交容量前三", rendered)
         self.assertIn("[R1–R4]", rendered)
         self.assertEqual(rendered.count("知识库候选资料"), 1)
+        self.assertIn("人工复核", rendered)
+        self.assertIn("合理性校验", rendered)
+        self.assertIn("题材关系资料", rendered)
+        self.assertIn("iFinD 基础资料 多来源交叉核验 数据提供方", rendered)
         for internal in (
             "new_high_direction",
             "knowledge_evidence",
@@ -342,6 +427,12 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             "snapshot/export",
             "True",
             "907.6599999999997",
+            "人工 review",
+            "sanity check",
+            "concept_graph",
+            "baseline",
+            "multi-source",
+            "Provider",
         ):
             self.assertNotIn(internal, rendered)
 

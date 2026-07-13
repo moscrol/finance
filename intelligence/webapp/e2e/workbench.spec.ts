@@ -33,18 +33,29 @@ async function submitQuestion(
 ) {
   await page.getByLabel("输入研究问题").fill(question);
   await page.getByRole("button", { name: "发送研究问题" }).click();
-  await expect(
-    page
-      .getByLabel("研究助手消息")
-      .filter({ hasText: "自然语言综合暂时不可用" }),
-  ).toHaveCount(completedAnswerCount, { timeout: answerTimeout });
+  await expect
+    .poll(
+      async () =>
+        (await activeConversationMessages(page)).filter(
+          (message) =>
+            message.role === "assistant" && message.status === "completed",
+        ).length,
+      { timeout: answerTimeout },
+    )
+    .toBe(completedAnswerCount);
+  await expect(page.getByLabel("研究助手消息")).toHaveCount(
+    completedAnswerCount,
+  );
 }
 
 async function selectManualDailyAgent(page: Page) {
+  await selectManualSkill(page, /Daily Agent/);
+}
+
+async function selectManualSkill(page: Page, name: RegExp) {
   await page.getByLabel("研究工具选择方式").selectOption("manual");
   await page.getByRole("button", { name: "选择研究工具" }).click();
-  await page.getByRole("checkbox", { name: /Daily Agent/ }).check();
-  await expect(page.getByLabel("已选研究工具")).toContainText("Daily Agent");
+  await page.getByRole("checkbox", { name }).check();
 }
 
 async function activeConversationMessages(page: Page) {
@@ -155,8 +166,8 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await submitQuestion(page, firstQuestion, 1);
   await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
   const firstAnswer = page.getByLabel("研究助手消息").first();
-  await expect(firstAnswer.getByText(/一句话结论/)).toBeVisible();
-  await expect(firstAnswer.getByText(/下一交易日重点看/)).toBeVisible();
+  await expect(firstAnswer.getByText(/直接定性/)).toBeVisible();
+  await expect(firstAnswer.getByText(/下一步验证/)).toBeVisible();
   await expect(firstAnswer.getByText(/图谱命中|状态机|检索骨架/)).toHaveCount(
     0,
   );
@@ -188,12 +199,20 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   const originalRunId = beforeRegeneration.at(-1)?.run_id;
   expect(originalRunId).toBeTruthy();
   await page.getByRole("button", { name: "重新生成回答" }).click();
-  await expect(
-    page
-      .getByLabel("研究助手消息")
-      .filter({ hasText: "自然语言综合暂时不可用" }),
-  ).toHaveCount(3, { timeout: answerTimeout });
   await expect(page.getByText(thirdQuestion, { exact: true })).toHaveCount(2);
+  await expect
+    .poll(
+      async () => {
+        const messages = await activeConversationMessages(page);
+        const latest = messages.at(-1);
+        return (
+          latest?.status === "completed" &&
+          latest.run_id !== originalRunId
+        );
+      },
+      { timeout: answerTimeout },
+    )
+    .toBe(true);
 
   const afterRegeneration = await activeConversationMessages(page);
   const regeneratedRunId = afterRegeneration.at(-1)?.run_id;
@@ -213,15 +232,61 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await expect(page.getByText(firstQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText(secondQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
-  await expect(page.getByText("已指定工具 · Daily Agent")).toBeVisible();
-  await expect(
-    page
-      .getByLabel("研究助手消息")
-      .filter({ hasText: "自然语言综合暂时不可用" }),
-  ).toHaveCount(4);
+  await expect(page.getByText("已指定工具 · Daily Agent")).toHaveCount(3);
+  await expect(page.getByLabel("研究助手消息")).toHaveCount(4);
 
   await expectNoHorizontalOverflow(page);
   await expectComposerDoesNotOverlapThread(page);
+});
+
+test("stock deep-dive owns and continues a traceable Workbench answer", async ({
+  page,
+}, testInfo) => {
+  test.slow();
+  await startNewConversation(page, testInfo);
+  await expect(page.getByLabel("研究工具选择方式")).toBeEnabled();
+  await expect(page.getByLabel("已选研究工具")).toHaveCount(0);
+  await selectManualSkill(page, /个股深挖/);
+  await expect(page.getByLabel("已选研究工具")).toContainText("个股深挖");
+
+  await submitQuestion(page, "请个股深挖英维克的液冷业务", 1);
+
+  await expect(page.getByText("已指定工具 · 个股深挖")).toBeVisible();
+  const answer = page.getByLabel("研究助手消息").first();
+  await expect(
+    answer.getByRole("heading", { name: "个股深挖" }),
+  ).toBeVisible();
+  await expect(answer.getByRole("heading", { name: "核心判断" })).toBeVisible();
+  await expect(answer.getByRole("heading", { name: "公司证据" })).toBeVisible();
+  await expect(
+    answer.getByRole("heading", { name: "下一步如何验证" }),
+  ).toBeVisible();
+  await expect(
+    answer.getByText(
+      "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
+    ),
+  ).toHaveCount(0);
+  await expect(answer.getByText(/液冷/).first()).toBeVisible();
+  await expect(
+    answer.getByText(
+      /数据要素|entity_exposures|evidence_index|evidence_count|concept_graph|RAG|DuckDB|registry|internal|baseline|multi-source|人工 review|sanity check|Provider|\brelated\b/,
+    ),
+  ).toHaveCount(0);
+
+  await expect(page.getByLabel("已选研究工具")).toContainText("个股深挖");
+  await submitQuestion(page, "那它的主要风险和下一步验证是什么？", 2);
+
+  const followUp = page.getByLabel("研究助手消息").nth(1);
+  await expect(
+    followUp.getByRole("heading", { name: "个股深挖" }),
+  ).toBeVisible();
+  await expect(followUp.getByText(/英维克/).first()).toBeVisible();
+  await expect(
+    followUp.getByRole("heading", { name: "反证与缺口" }),
+  ).toBeVisible();
+  await expect(
+    followUp.getByRole("heading", { name: "下一步如何验证" }),
+  ).toBeVisible();
 });
 
 test("stop preserves cancellation and responsive drawers remain closable", async ({

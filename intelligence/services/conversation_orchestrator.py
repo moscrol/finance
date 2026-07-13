@@ -19,6 +19,7 @@ from intelligence.services import run_store as rs
 from intelligence.services.ask import (
     AskOptions,
     AskResult,
+    Citation,
     answer_query,
     render_conversation_answer,
 )
@@ -51,6 +52,9 @@ from intelligence.workbench_skills.router import (
 
 RECENT_MESSAGE_LIMIT = 6
 SUMMARY_CHAR_LIMIT = 2400
+_FOLLOW_UP_REFERENCE_PATTERN = re.compile(
+    r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
+)
 _INTERNAL_CITATION_PATTERN = re.compile(
     r"\[(?:D|P|L|G|R|S|W)\d+\]"
 )
@@ -245,6 +249,38 @@ class TurnResult:
     invoked_skill_ids: tuple[str, ...]
 
 
+def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
+    contract = output.answer_contract
+    if contract is None:
+        raise ValueError("skill owner output requires an answer contract")
+    citations = [
+        Citation(
+            tag=f"K{index}",
+            source=str(
+                citation.get("title")
+                or citation.get("source")
+                or output.skill_id
+            ),
+            detail=str(citation.get("source") or ""),
+        )
+        for index, citation in enumerate(output.citations, start=1)
+    ]
+    return AskResult(
+        query=query,
+        trade_date=output.as_of,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        found_graph=bool(contract.answer_spec.verified_facts),
+        question_plan=plan_answer_question(
+            query,
+            question_type_override=contract.question_type,
+        ),
+        citations=citations,
+        answer_spec=contract.answer_spec,
+    )
+
+
 def _summarize_messages(messages: Sequence[Message]) -> str:
     text = "\n".join(f"{message.role}: {message.content}" for message in messages)
     if len(text) <= SUMMARY_CHAR_LIMIT:
@@ -388,6 +424,26 @@ def build_conversation_context(
     return ConversationContext(summary=summary, recent_messages=recent)
 
 
+def contextualize_follow_up_query(
+    query: str,
+    context: ConversationContext,
+) -> str:
+    cleaned = query.strip()
+    if not _FOLLOW_UP_REFERENCE_PATTERN.search(cleaned):
+        return cleaned
+    previous_user = next(
+        (
+            message.content.strip()
+            for message in reversed(context.recent_messages)
+            if message.role == "user" and message.content.strip()
+        ),
+        "",
+    )
+    if not previous_user:
+        return cleaned
+    return f"{previous_user}\n追问：{cleaned}"
+
+
 class TurnOrchestrator:
     def __init__(
         self,
@@ -464,9 +520,10 @@ class TurnOrchestrator:
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
             )
+            contextual_query = contextualize_follow_up_query(query, context)
             route_started = time.monotonic()
             route = self.route_skills(
-                query,
+                contextual_query,
                 "ask",
                 skill_mode,
                 selected_skill_ids,
@@ -489,6 +546,7 @@ class TurnOrchestrator:
                         for selection in route.selections
                     ],
                     "fallback_to_ask": route.fallback_to_ask,
+                    "base_finance_fallback": route.base_finance_fallback,
                     "elapsed_ms": self._elapsed_ms(route_started),
                 },
             )
@@ -520,13 +578,14 @@ class TurnOrchestrator:
                     future = skill_pool.submit(
                         self.skill_registry.executors[skill_id].execute,
                         SkillExecutionContext(
-                            query=query,
+                            query=contextual_query,
                             task_type="ask",
                             user_id=self.run_store.user_id,
                             run_id=run_id,
                             conversation_id=conversation_id,
                             repo_root=self.repo_root,
                             run_store=self.run_store,
+                            conversation_context=context.to_prompt_block(),
                         ),
                     )
                     output = future.result(
@@ -615,6 +674,14 @@ class TurnOrchestrator:
                 )
 
             compose_started = time.monotonic()
+            owner_output = next(
+                (
+                    output
+                    for output in skill_outputs
+                    if output.answer_contract is not None
+                ),
+                None,
+            )
             daily_review_output = next(
                 (
                     output
@@ -624,38 +691,58 @@ class TurnOrchestrator:
                 None,
             )
             market_review_requested = (
-                plan_answer_question(query).question_type
+                plan_answer_question(contextual_query).question_type
                 == QUESTION_MARKET_REVIEW
             )
-            result = self.answer_query(
-                AskOptions(
-                    query=query,
-                    date=(
-                        daily_review_output.as_of
-                        if daily_review_output is not None
-                        and market_review_requested
-                        else None
-                    ),
-                    user=self.run_store.user_id,
-                    compose=True,
-                    compose_self_review=False,
-                    compose_revise_on_warn=False,
-                    market_db_path=self.repo_root
-                    / "db"
-                    / "market_feature_store.duckdb",
-                    conversation_context=context.to_prompt_block(),
-                    supplemental_evidence=self._skill_evidence(skill_outputs),
-                    include_memory_block=True,
-                    include_recall_block=True,
-                    perspective_mode=perspective_mode,
-                    perspective_ids=tuple(selected_perspective_ids),
-                    stream_text_delta=emit_text_delta,
-                    stream_cancel_check=self.is_cancelled,
+            if owner_output is not None:
+                result = _skill_owner_result(query, owner_output)
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "compose",
+                    "skill_answer_owner",
+                    {
+                        "skill_id": owner_output.skill_id,
+                        "retrieval_plan": list(
+                            owner_output.answer_contract.retrieval_plan
+                        ),
+                        "output_contract": list(
+                            owner_output.answer_contract.output_contract
+                        ),
+                    },
                 )
-            )
+            else:
+                result = self.answer_query(
+                    AskOptions(
+                        query=contextual_query,
+                        date=(
+                            daily_review_output.as_of
+                            if daily_review_output is not None
+                            and market_review_requested
+                            else None
+                        ),
+                        user=self.run_store.user_id,
+                        compose=True,
+                        compose_self_review=False,
+                        compose_revise_on_warn=False,
+                        market_db_path=self.repo_root
+                        / "db"
+                        / "market_feature_store.duckdb",
+                        conversation_context=context.to_prompt_block(),
+                        supplemental_evidence=self._skill_evidence(skill_outputs),
+                        include_memory_block=True,
+                        include_recall_block=True,
+                        perspective_mode=perspective_mode,
+                        perspective_ids=tuple(selected_perspective_ids),
+                        stream_text_delta=emit_text_delta,
+                        stream_cancel_check=self.is_cancelled,
+                    )
+                )
             self._check_cancelled()
             is_market_review = (
-                daily_review_output is not None
+                owner_output is None
+                and daily_review_output is not None
                 and market_review_requested
             )
             if (
@@ -726,14 +813,14 @@ class TurnOrchestrator:
             )
             fallback_notice = (
                 perspective_lab.runtime_fallback_notice(perspective_mode)
-                if result.synthesis is None
+                if result.synthesis is None and owner_output is None
                 else ""
             )
             answer_prefix = "\n\n".join(
                 block for block in (perspective_header, fallback_notice) if block
             )
             answer_text = f"{answer_prefix}\n\n{answer_text}"
-            if result.synthesis is None:
+            if result.synthesis is None and owner_output is None:
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
                 self.run_store.add_degrade(run_id, fallback)
@@ -890,6 +977,8 @@ class TurnOrchestrator:
         step_id: str,
         name: str,
         output: dict[str, object],
+        *,
+        retrieval: dict[str, object] | None = None,
     ) -> None:
         step = self.run_store.append_step(
             run_id,
@@ -897,6 +986,7 @@ class TurnOrchestrator:
             name=name,
             status="completed",
             output_summary=json.dumps(output, ensure_ascii=False),
+            retrieval=retrieval,
         )
         self._emit(
             run_id,
@@ -917,6 +1007,19 @@ class TurnOrchestrator:
         elapsed_ms: int,
     ) -> None:
         wiki_telemetry = result.wiki_rag_telemetry
+        citation_counts: dict[str, int] = {}
+        citation_records: list[dict[str, str]] = []
+        for citation in result.citations:
+            prefix = citation.tag[:1]
+            if prefix:
+                citation_counts[prefix] = citation_counts.get(prefix, 0) + 1
+            citation_records.append(
+                {
+                    "tag": citation.tag,
+                    "source": citation.source,
+                    "detail": citation.detail,
+                }
+            )
         self._trace(
             run_id,
             message_id,
@@ -937,6 +1040,15 @@ class TurnOrchestrator:
                     if wiki_telemetry is not None
                     else None
                 ),
+                "closed_loop_retrieval": (
+                    result.closed_loop_retrieval.inspector_dict()
+                    if result.closed_loop_retrieval is not None
+                    else None
+                ),
+            },
+            retrieval={
+                "citations": citation_records,
+                "citation_counts": citation_counts,
             },
         )
 
