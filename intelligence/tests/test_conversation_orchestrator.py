@@ -496,6 +496,13 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     assert "**最强证据：**" in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert "llm_unavailable_template_answer" not in assistant.degrades
+    retrieval = next(
+        step["retrieval"]
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "ask_retrieve_compose"
+    )
+    assert retrieval["citations"][0]["source"] == "专项正式资料"
+    assert retrieval["citation_counts"] == {"K": 1}
 
 
 def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path) -> None:

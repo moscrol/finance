@@ -89,6 +89,13 @@ def client(tmp_path, monkeypatch):
             retrieval={
                 "sources": ["market"],
                 "citation_counts": {"S": 2},
+                "citations": [
+                    {
+                        "tag": "S1",
+                        "source": "盘面快照",
+                        "detail": "已记录引用",
+                    }
+                ],
                 "trade_date": "2026-07-09",
             },
         )
@@ -1317,6 +1324,11 @@ def test_run_context_projects_available_evidence(client: TestClient) -> None:
     _wait_terminal(client, run_id)
     context = client.get(f"/api/runs/{run_id}/context").json()
     assert context["evidence"][0]["label"] == "盘面快照"
+    assert any(
+        item["classification"] == "bound_evidence"
+        and item["label"] == "[S1] 盘面快照"
+        for item in context["evidence"]
+    )
     assert any(item["label"] == "盘面证据" for item in context["evidence"])
     assert context["memory"] == []
     assert context["review"] == []

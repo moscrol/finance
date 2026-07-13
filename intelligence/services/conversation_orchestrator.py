@@ -953,6 +953,8 @@ class TurnOrchestrator:
         step_id: str,
         name: str,
         output: dict[str, object],
+        *,
+        retrieval: dict[str, object] | None = None,
     ) -> None:
         step = self.run_store.append_step(
             run_id,
@@ -960,6 +962,7 @@ class TurnOrchestrator:
             name=name,
             status="completed",
             output_summary=json.dumps(output, ensure_ascii=False),
+            retrieval=retrieval,
         )
         self._emit(
             run_id,
@@ -980,6 +983,19 @@ class TurnOrchestrator:
         elapsed_ms: int,
     ) -> None:
         wiki_telemetry = result.wiki_rag_telemetry
+        citation_counts: dict[str, int] = {}
+        citation_records: list[dict[str, str]] = []
+        for citation in result.citations:
+            prefix = citation.tag[:1]
+            if prefix:
+                citation_counts[prefix] = citation_counts.get(prefix, 0) + 1
+            citation_records.append(
+                {
+                    "tag": citation.tag,
+                    "source": citation.source,
+                    "detail": citation.detail,
+                }
+            )
         self._trace(
             run_id,
             message_id,
@@ -1005,6 +1021,10 @@ class TurnOrchestrator:
                     if result.closed_loop_retrieval is not None
                     else None
                 ),
+            },
+            retrieval={
+                "citations": citation_records,
+                "citation_counts": citation_counts,
             },
         )
 

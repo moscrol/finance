@@ -260,7 +260,15 @@ test("stock deep-dive owns a traceable Workbench answer", async ({
     answer.getByRole("heading", { name: "下一步如何验证" }),
   ).toBeVisible();
   await expect(
-    answer.getByText(/entity_exposures|evidence_index|RAG|DuckDB/),
+    answer.getByText(
+      "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
+    ),
+  ).toHaveCount(0);
+  await expect(answer.getByText(/液冷/).first()).toBeVisible();
+  await expect(
+    answer.getByText(
+      /数据要素|entity_exposures|evidence_index|evidence_count|RAG|DuckDB|registry|internal/,
+    ),
   ).toHaveCount(0);
 });
 

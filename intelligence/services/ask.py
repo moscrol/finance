@@ -461,7 +461,13 @@ def match_candidate(query: str, doc: dict[str, Any]) -> dict[str, Any] | None:
                 score = max(score, 60)
         for mc in cand.get("matched_concepts", []) or []:
             name = mc.get("concept") if isinstance(mc, dict) else None
-            if name and _contains(query, str(name)):
+            concept_score = mc.get("score") if isinstance(mc, dict) else None
+            if (
+                name
+                and isinstance(concept_score, (int, float))
+                and concept_score >= 5
+                and _contains(query, str(name))
+            ):
                 score = max(score, 30)
         if score > best_score:
             best_score, best = score, cand

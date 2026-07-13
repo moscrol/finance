@@ -667,7 +667,7 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
                     (
                         company.company + (f"（{company.ticker}）" if company.ticker else ""),
                         humanize(company.chain_stage),
-                        humanize(company.directness),
+                        _company_directness_label(company.directness),
                         _company_tier_label(company.tier),
                         _company_evidence_label(company),
                     )
@@ -706,7 +706,14 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     )
     if review_window:
         lines.append(f"**{review_window}**")
-    lines.append("建议按下面的顺序核验；公司级证据出现前，不把候选升级为核心：")
+    if any(
+        company.tier == CompanyTier.CORE
+        and any(claim.status == ClaimStatus.VERIFIED for claim in company.claims)
+        for company in answer_spec.company_table
+    ):
+        lines.append("建议按下面的顺序核验；已有公司级材料仍需持续复核业务贡献和兑现节奏：")
+    else:
+        lines.append("建议按下面的顺序核验；公司级证据出现前，不把候选升级为核心：")
     ordered_actions = [
         action for action in actions if not action.startswith("复核时间：")
     ]
@@ -1024,6 +1031,15 @@ def _company_tier_label(tier: CompanyTier) -> str:
         CompanyTier.CANDIDATE: "候选",
         CompanyTier.PERIPHERAL: "外围",
     }[tier]
+
+
+def _company_directness_label(directness: str) -> str:
+    return {
+        "core": "直接",
+        "strong": "较直接",
+        "peripheral": "间接",
+        "weak": "较间接",
+    }.get(str(directness).strip().lower(), humanize(directness))
 
 
 def _company_evidence_label(company: CompanyAssessment) -> str:

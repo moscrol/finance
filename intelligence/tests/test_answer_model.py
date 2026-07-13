@@ -20,7 +20,12 @@ from intelligence.services.answer_model import (
     resolve_theme_research_spec,
     validate_llm_answer,
 )
-from intelligence.services.ask import AskOptions, answer_query, render_conversation_answer
+from intelligence.services.ask import (
+    AskOptions,
+    answer_query,
+    match_candidate,
+    render_conversation_answer,
+)
 
 
 class ThemeResearchSpecTests(unittest.TestCase):
@@ -29,6 +34,7 @@ class ThemeResearchSpecTests(unittest.TestCase):
             "稳定币支付": "stablecoin_payment",
             "人形机器人": "robotics",
             "AI 算力": "compute_infrastructure",
+            "英维克液冷": "compute_infrastructure",
             "低空经济": "low_altitude_economy",
         }
         for query, pack_id in cases.items():
@@ -40,6 +46,22 @@ class ThemeResearchSpecTests(unittest.TestCase):
             self.assertTrue(spec.evidence_requirements)
             self.assertTrue(spec.counter_evidence_requirements)
             self.assertTrue(spec.verification_actions)
+        self.assertEqual(
+            resolve_theme_research_spec("请个股深挖英维克的液冷业务").theme,
+            "液冷",
+        )
+
+    def test_market_candidate_ignores_weak_peripheral_concept_match(self) -> None:
+        doc = {
+            "candidates": [
+                {
+                    "canonical_concept": "数据要素",
+                    "matched_concepts": [{"concept": "液冷", "score": 2}],
+                }
+            ]
+        }
+
+        self.assertIsNone(match_candidate("请个股深挖英维克的液冷业务", doc))
 
 
 class ClaimAdjudicationTests(unittest.TestCase):
@@ -285,6 +307,48 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertIn("候选资料，需公告或年报确认", rendered)
         self.assertNotIn("graph_only", rendered)
         self.assertEqual(rendered.count("核对公告或年报。"), 1)
+
+    def test_presenter_humanizes_company_directness_and_verified_followup(self) -> None:
+        spec = resolve_theme_research_spec("请个股深挖英维克的液冷业务")
+        verified = make_claim(
+            claim_id="company-verified",
+            text="英维克公告披露液冷产品已应用于数据中心温控场景。",
+            claim_type="company_evidence",
+            theme=spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L3",
+            company="英维克",
+            evidence_ids=("R1",),
+        )
+        answer = AnswerSpec(
+            research_spec=spec,
+            summary=(verified,),
+            verified_facts=(verified,),
+            company_table=build_company_assessments(
+                [
+                    CompanyCandidate(
+                        company="英维克",
+                        chain_stage="温控设备与液冷系统",
+                        directness="core",
+                        requested_tier=CompanyTier.CORE,
+                    )
+                ],
+                [verified],
+            ),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=("核对收入贡献。",),
+            sources=(EvidenceRef("R1", "公司公告"),),
+            system_notices=(),
+        )
+
+        rendered = render_answer_spec(finalize_answer_spec(answer))
+
+        self.assertIn("| 英维克 | 温控设备与液冷系统 | 直接 | 核心 |", rendered)
+        self.assertNotIn("| core |", rendered)
+        self.assertIn("已有公司级材料仍需持续复核业务贡献和兑现节奏", rendered)
+        self.assertNotIn("公司级证据出现前", rendered)
 
     def test_presenter_formats_values_and_deduplicates_user_visible_sources(self) -> None:
         spec = resolve_theme_research_spec("分析人形机器人产业链")
