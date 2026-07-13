@@ -99,7 +99,11 @@ def _turn_work_seconds(answer_deadline_seconds: float) -> float:
 
 
 class _SkillRunStoreGuard:
-    """Prevent a timed-out/cancelled background skill from persisting artifacts."""
+    """Minimal artifact-only capability for background skills.
+
+    Deliberately do not proxy arbitrary RunStore methods: a late skill may stage
+    one artifact, but it cannot mutate provenance, steps, degrades, or run state.
+    """
 
     def __init__(self, store: RunStore, stopped: Callable[[], bool]) -> None:
         self._store = store
@@ -108,9 +112,6 @@ class _SkillRunStoreGuard:
         self._lock = RLock()
         self._run_id: str | None = None
         self._staged: dict[str, ArtifactPayload] = {}
-
-    def __getattr__(self, name: str) -> object:
-        return getattr(self._store, name)
 
     def add_artifact(
         self,
@@ -1084,6 +1085,9 @@ class TurnOrchestrator:
                                 1,
                                 int(owner_synthesis_allowance),
                             ),
+                            llm_finalization_reserve=(
+                                FINALIZATION_RESERVE_SECONDS
+                            ),
                         ),
                         result,
                     )
@@ -1162,6 +1166,9 @@ class TurnOrchestrator:
                             execution_budget=execution_budget,
                             progress_callback=base_progress,
                             llm_timeout=per_call_timeout,
+                            llm_finalization_reserve=(
+                                FINALIZATION_RESERVE_SECONDS
+                            ),
                         )
                     )
                 finally:

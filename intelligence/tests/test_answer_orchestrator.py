@@ -1163,6 +1163,126 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertTrue(result.synthesis.endswith(synthesized))
         self.assertIsNone(result.llm_fallback_reason)
 
+    def test_provider_timeout_is_recapped_after_pre_provider_work(self) -> None:
+        from intelligence.services import llm_refine
+
+        class MutableBudget:
+            def __init__(self) -> None:
+                self.remaining = 9.0
+
+            def remaining_seconds(self, now=None) -> float:
+                return self.remaining
+
+            def child_timeout(self, requested, reserve=0, now=None) -> float:
+                return min(requested, max(0.0, self.remaining - reserve))
+
+            def exhausted(self, now=None) -> bool:
+                return self.remaining <= 0
+
+        budget = MutableBudget()
+        original_build = llm_refine.build_synthesis_messages
+        provider_timeouts: list[int] = []
+
+        def build_after_work(*args, **kwargs):
+            budget.remaining = 7.0
+            return original_build(*args, **kwargs)
+
+        def synthesize(messages, **kwargs):
+            provider_timeouts.append(kwargs["timeout"])
+            return (
+                SynthesisResult(
+                    answer="当前证据只支持结构判断。（非投资建议）",
+                    provider="zhipu",
+                    model="glm-5.2",
+                ),
+                "",
+            )
+
+        self.assertEqual(budget.child_timeout(4, reserve=5), 4)
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch.object(
+                llm_refine,
+                "build_synthesis_messages",
+                side_effect=build_after_work,
+            ),
+            mock.patch.object(llm_refine, "detect_provider", return_value=mock.Mock()),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                side_effect=synthesize,
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=[],
+            ),
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="题材分歧怎么判断？",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                    compose_self_review=False,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                    execution_budget=budget,  # type: ignore[arg-type]
+                    compose_revise_on_warn=False,
+                    llm_timeout=4,
+                    llm_finalization_reserve=5,
+                )
+            )
+
+        self.assertEqual(provider_timeouts, [2])
+        self.assertTrue(result.llm_attempted)
+        self.assertEqual(result.llm_provider, "zhipu")
+
+    def test_exhausted_provider_budget_keeps_answer_spec_without_attempt(self) -> None:
+        class ExhaustedProviderBudget:
+            def child_timeout(self, requested, reserve=0, now=None) -> float:
+                return 0.5
+
+            def remaining_seconds(self, now=None) -> float:
+                return 5.5
+
+            def exhausted(self, now=None) -> bool:
+                return False
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.detect_provider",
+            ) as provider_probe,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+            ) as synthesize,
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="题材分歧怎么判断？",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                    compose_self_review=False,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                    execution_budget=ExhaustedProviderBudget(),  # type: ignore[arg-type]
+                    llm_timeout=4,
+                    llm_finalization_reserve=5,
+                )
+            )
+
+        provider_probe.assert_not_called()
+        synthesize.assert_not_called()
+        self.assertFalse(result.llm_attempted)
+        self.assertEqual(result.llm_fallback_reason, "budget_exhausted")
+        self.assertIsNone(result.synthesis)
+        self.assertIsNotNone(result.answer_spec)
+
     def test_market_pattern_timeout_keeps_answer_spec_with_stable_fallback(
         self,
     ) -> None:
@@ -1892,6 +2012,46 @@ class AnswerOrchestratorTests(unittest.TestCase):
         synthesize.assert_not_called()
         self.assertFalse(result.llm_attempted)
         self.assertIsNone(result.synthesis)
+        self.assertIsNotNone(result.answer_spec)
+
+    def test_market_review_exhausted_budget_skips_provider(self) -> None:
+        class ExhaustedProviderBudget:
+            def child_timeout(self, requested, reserve=0, now=None) -> float:
+                return 0.0
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.detect_provider",
+            ) as provider_probe,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+            ) as synthesize,
+        ):
+            wiki = Path(tmp) / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            result = answer_query(
+                AskOptions(
+                    query="请复盘最新交易日的市场结构和主要风险",
+                    exports_dir=tmp,
+                    kb_wiki=wiki,
+                    supplemental_evidence="### daily-review\n- 上涨 3774 只",
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                    synthesize=True,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                    execution_budget=ExhaustedProviderBudget(),  # type: ignore[arg-type]
+                    llm_timeout=4,
+                    llm_finalization_reserve=5,
+                )
+            )
+
+        provider_probe.assert_not_called()
+        synthesize.assert_not_called()
+        self.assertFalse(result.llm_attempted)
+        self.assertEqual(result.llm_fallback_reason, "budget_exhausted")
         self.assertIsNotNone(result.answer_spec)
 
     def test_market_review_compose_injects_memory_as_incremental_prior(

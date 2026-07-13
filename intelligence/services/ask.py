@@ -182,6 +182,8 @@ class AskOptions:
     synthesize: bool = True
     llm_model: str | None = None
     llm_timeout: int = field(default_factory=lambda: int(os.environ.get("LLM_TIMEOUT", "60")))
+    # Provider 调用前会按共享单调时钟预算重新封顶，并保留终态落盘窗口。
+    llm_finalization_reserve: float = 5.0
     detail: bool = False
     user: str | None = None
     experience_cards_window: int = 12
@@ -811,6 +813,26 @@ def _conclusion_ttl_line(trade_date: str | None) -> str:
     return f"观点有效期：建议 {CONCLUSION_TTL_DAYS} 天内复查{suffix}；过期引用本结论须先经当下盘面复核。"
 
 
+def _provider_call_timeout(options: AskOptions) -> int | None:
+    allowance = float(options.llm_timeout)
+    if options.execution_budget is not None:
+        allowance = options.execution_budget.child_timeout(
+            allowance,
+            reserve=options.llm_finalization_reserve,
+        )
+    if allowance < 1.0:
+        return None
+    return max(1, min(options.llm_timeout, int(allowance)))
+
+
+def _mark_provider_budget_exhausted(result: AskResult) -> None:
+    result.llm_attempted = False
+    result.llm_fallback_reason = "budget_exhausted"
+    warning = "LLM 合成未采用：budget_exhausted"
+    if warning not in result.warnings:
+        result.warnings.append(warning)
+
+
 def _answer_market_review(
     options: AskOptions,
     result: AskResult,
@@ -958,13 +980,17 @@ def _answer_market_review(
         {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ]
+    provider_timeout = _provider_call_timeout(options)
+    if provider_timeout is None:
+        _mark_provider_budget_exhausted(result)
+        return result
     result.llm_attempted = (
         llm_refine.detect_provider(options.llm_model) is not None
     )
     composed, reason = llm_refine.synthesize_messages(
         messages,
         model_override=options.llm_model,
-        timeout=options.llm_timeout,
+        timeout=provider_timeout,
     )
     if composed is None:
         result.llm_fallback_reason = _stable_llm_fallback_reason(reason)
@@ -2455,13 +2481,17 @@ def answer_query(options: AskOptions) -> AskResult:
             f"{c.name}：{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
         ]
         revision_user = {"role": "user", "content": llm_refine.gate_revision_user_content(warn_notes)}
-        revised, rev_reason = llm_refine.synthesize_messages(
-            result.synthesis_messages + [revision_user],
-            model_override=options.llm_model,
-            timeout=options.llm_timeout,
-            temperature=0.2,
-        )
-        if revised is not None:
+        revision_timeout = _provider_call_timeout(options)
+        if revision_timeout is None:
+            result.warnings.append("质检 WARN 回灌修订未执行：budget_exhausted")
+        else:
+            revised, rev_reason = llm_refine.synthesize_messages(
+                result.synthesis_messages + [revision_user],
+                model_override=options.llm_model,
+                timeout=revision_timeout,
+                temperature=0.2,
+            )
+        if revision_timeout is not None and revised is not None:
             proposed_revision = (
                 f"{result.data_notice}\n\n{revised.answer}"
                 if result.data_notice
@@ -2486,7 +2516,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 result.warnings.append(
                     f"输出质检 {len(warn_notes)} 条 WARN 已回灌定向修订（正文为修订版，审查意见见「输出质检」附录）"
                 )
-        elif rev_reason:
+        elif revision_timeout is not None and rev_reason:
             result.warnings.append(f"质检 WARN 回灌修订失败，保留初稿：{rev_reason}")
     result.sections = {
         "结论": conclusion,
@@ -3238,6 +3268,10 @@ def _synthesize_answer_spec(
                 ),
             },
         )
+    provider_timeout = _provider_call_timeout(options)
+    if provider_timeout is None:
+        _mark_provider_budget_exhausted(result)
+        return
     result.llm_attempted = (
         llm_refine.detect_provider(options.llm_model) is not None
     )
@@ -3245,13 +3279,13 @@ def _synthesize_answer_spec(
         composed, reason = llm_refine.synthesize_messages_with_review(
             messages,
             model_override=options.llm_model,
-            timeout=options.llm_timeout,
+            timeout=provider_timeout,
         )
     else:
         composed, reason = llm_refine.synthesize_messages(
             messages,
             model_override=options.llm_model,
-            timeout=options.llm_timeout,
+            timeout=provider_timeout,
         )
     if composed is None:
         result.llm_fallback_reason = _stable_llm_fallback_reason(reason)

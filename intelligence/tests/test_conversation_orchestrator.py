@@ -752,6 +752,32 @@ def test_skill_guard_stop_discards_staging_without_waiting_for_store_io(
     assert not (store.run_dir(run.run_id) / "discarded.json").exists()
 
 
+def test_skill_guard_does_not_expose_run_mutation_methods_after_stop(
+    tmp_path,
+) -> None:
+    store = RunStore("alice", root=tmp_path / "runs")
+    run = store.create_run("q", "ask")
+    guard = orchestrator_module._SkillRunStoreGuard(store, lambda: False)
+    guard.stop()
+    store.finish_run(run.run_id, "completed")
+
+    with pytest.raises(AttributeError):
+        guard.add_degrade(run.run_id, "late mutation")  # type: ignore[attr-defined]
+    discarded = guard.add_artifact(
+        run.run_id,
+        "late.json",
+        "{}",
+        renderer="json",
+        title="late",
+    )
+
+    assert discarded.artifact_id.startswith("discarded_")
+    completed = store.load_run(run.run_id)
+    assert completed.status == "completed"
+    assert completed.degrades == []
+    assert not (store.run_dir(run.run_id) / "late.json").exists()
+
+
 def test_skill_worker_capacity_exhaustion_skips_without_starting_thread(
     tmp_path, monkeypatch
 ) -> None:
