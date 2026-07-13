@@ -131,35 +131,106 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertFalse(tel.degraded)
             self.assertIn("检索方式=hybrid", tel.summary_line())
 
-    def test_propagates_stale_warning_and_marks_degraded(self) -> None:
+    def _freshness_payload(self, freshness: str) -> list[dict]:
+        return [
+            {
+                "page_id": "a",
+                "file_path": "wiki/concepts/光刻机.md",
+                "title": "A",
+                "score": 0.9,
+                "best_chunk_id": "a::0",
+                "content_hash": "hash-a",
+                "evidence_text": "A matched chunk",
+                "index_source_revision": "abc123",
+                "index_freshness": freshness,
+            }
+        ]
+
+    def _run_retrieve(self, root, payload, *, stderr="", **kwargs):
+        proc = mock.Mock(
+            returncode=0,
+            stdout=json.dumps(payload, ensure_ascii=False),
+            stderr=stderr,
+        )
+        with mock.patch.dict("os.environ", {"KB_RAG_PYTHON": "/tmp/rag-python"}, clear=True):
+            with mock.patch("subprocess.run", return_value=proc):
+                return kb_rag.retrieve("光刻机", root / "wiki", **kwargs)
+
+    def test_stale_hits_fail_closed_by_default(self) -> None:
+        # formal 默认 require_fresh=True：过期命中一律丢弃，不进证据；无 fresh 命中则 ok=False。
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            res = self._run_retrieve(
+                root,
+                self._freshness_payload("stale"),
+                stderr="[query] WARNING 索引过期: age=15.0d>14d\n",
+            )
+
+            self.assertFalse(res.ok)
+            self.assertEqual(res.hits, [])
+            self.assertTrue(res.telemetry.degraded)
+            self.assertIn("非 fresh", res.warning)
+
+    def test_unknown_hits_fail_closed_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            res = self._run_retrieve(root, self._freshness_payload("unknown"))
+
+            self.assertFalse(res.ok)
+            self.assertEqual(res.hits, [])
+            self.assertTrue(res.telemetry.degraded)
+
+    def test_mixed_freshness_keeps_only_fresh_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = self._setup_repo(td)
             (root / ".rag_index").mkdir()
             payload = [
                 {
-                    "page_id": "a",
+                    "page_id": "fresh",
                     "file_path": "wiki/concepts/光刻机.md",
-                    "title": "A",
+                    "title": "Fresh",
                     "score": 0.9,
-                    "best_chunk_id": "a::0",
-                    "content_hash": "hash-a",
-                    "evidence_text": "A matched chunk",
+                    "best_chunk_id": "fresh::0",
+                    "content_hash": "hash-fresh",
+                    "evidence_text": "fresh chunk",
+                    "index_source_revision": "abc123",
+                    "index_freshness": "fresh",
+                },
+                {
+                    "page_id": "stale",
+                    "file_path": "wiki/concepts/光刻机.md",
+                    "title": "Stale",
+                    "score": 0.8,
+                    "best_chunk_id": "stale::0",
+                    "content_hash": "hash-stale",
+                    "evidence_text": "stale chunk",
                     "index_source_revision": "abc123",
                     "index_freshness": "stale",
-                }
+                },
             ]
-            proc = mock.Mock(
-                returncode=0,
-                stdout=json.dumps(payload, ensure_ascii=False),
-                stderr="[query] WARNING 索引过期: age=15.0d>14d\n",
-            )
-            with mock.patch.dict("os.environ", {"KB_RAG_PYTHON": "/tmp/rag-python"}, clear=True):
-                with mock.patch("subprocess.run", return_value=proc):
-                    res = kb_rag.retrieve("光刻机", root / "wiki")
+            res = self._run_retrieve(root, payload)
 
             self.assertTrue(res.ok)
+            self.assertEqual([hit.page_id for hit in res.hits], ["fresh"])
             self.assertTrue(res.telemetry.degraded)
-            self.assertIn("WARNING 索引过期", res.warning)
+
+    def test_exploratory_mode_retains_stale_but_is_not_strict(self) -> None:
+        # 显式探索模式 require_fresh=False：保留 stale 命中，但标记 degraded 并告警。
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            res = self._run_retrieve(
+                root,
+                self._freshness_payload("stale"),
+                stderr="[query] WARNING 索引过期: age=15.0d>14d\n",
+                require_fresh=False,
+            )
+
+            self.assertTrue(res.ok)
+            self.assertEqual(len(res.hits), 1)
+            self.assertTrue(res.telemetry.degraded)
             self.assertIn("新鲜度=stale", res.warning)
 
     def test_rejects_hits_without_chunk_snapshot_binding(self) -> None:

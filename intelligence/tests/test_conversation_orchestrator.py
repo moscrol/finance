@@ -6,12 +6,15 @@ from threading import Event
 
 import pytest
 
+from intelligence import userspace
 from intelligence.services import llm_refine
+from intelligence.services import perspective_lab
 from intelligence.services.ask import AskOptions, AskResult
 from intelligence.services.conversation_orchestrator import (
     TurnOrchestrator,
     build_conversation_context,
     sanitize_conversation_answer,
+    sanitize_user_visible_artifact_text,
 )
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.run_store import RunStore
@@ -129,6 +132,10 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
         "第三轮：下一步看什么？",
     ]
     assert len(calls) == 3
+    assert calls[0].perspective_mode == "neutral"
+    assert calls[0].perspective_ids == ()
+    assert calls[0].include_memory_block is False
+    assert calls[0].include_recall_block is False
     assert "较早消息摘要" in calls[1].conversation_context
     assert "第一轮：液冷怎么样？" in calls[1].conversation_context
     assert "第二轮：证据够硬吗？" not in calls[1].conversation_context
@@ -139,6 +146,57 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
         "completed",
         "completed",
     ]
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.content.startswith("当前视角：数据中立")
+
+
+def test_single_perspective_is_forwarded_and_labels_final_answer(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+
+    perspective_lab.init_perspective(
+        userspace.user_space("alice"),
+        "fengyuan94",
+        display_name="风远94",
+        ptype="blogger",
+    )
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "怎么看 AI 硬件",
+    )
+    calls: list[AskOptions] = []
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        calls.append(options)
+        return _ask_result(options.query)
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="怎么看 AI 硬件",
+        skill_mode="auto",
+        selected_skill_ids=[],
+        perspective_mode="single",
+        selected_perspective_ids=["fengyuan94"],
+    )
+
+    assert calls[0].perspective_mode == "single"
+    assert calls[0].perspective_ids == ("fengyuan94",)
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.content.startswith("当前视角：风远94")
 
 
 def test_context_keeps_six_recent_messages_and_summarizes_older(tmp_path) -> None:
@@ -169,6 +227,51 @@ def test_context_keeps_six_recent_messages_and_summarizes_older(tmp_path) -> Non
     assert "message-0" in context.summary
     assert "message-3" in context.summary
     assert "message-4" not in context.summary
+
+
+def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None:
+    no_llm = sanitize_user_visible_artifact_text(
+        "未配置 LLM key。设置 DEEPSEEK_API_KEY / HF_TOKEN 即可启用"
+    )
+    internal = sanitize_user_visible_artifact_text(
+        "wiki-rag replay canonical ask_retrieval_pipeline deterministic_projection"
+    )
+    local_path = sanitize_user_visible_artifact_text(
+        'File "/Users/a77/repo/module.py", line 12, in run'
+    )
+    retrieval_progress = sanitize_user_visible_artifact_text(
+        "检索降级：Fetching 30 files: 100% | Loading weights: 100%"
+    )
+    internal_module = sanitize_user_visible_artifact_text(
+        "模块·deep-dive（产业维 · radar.py --mode deep-dive 题材深拆）"
+    )
+    evidence_detail = sanitize_user_visible_artifact_text(
+        "target=天阳科技 source=[[天阳科技_最新逻辑跟踪]]，质量 medium"
+    )
+    module_id = sanitize_user_visible_artifact_text("research_5_telemetry")
+    no_llm_code = sanitize_user_visible_artifact_text(
+        "llm_unavailable_template_answer"
+    )
+    answer_route = sanitize_user_visible_artifact_text(
+        "answer-orchestrator：未高置信识别问题类型"
+    )
+
+    assert no_llm == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
+    assert "API_KEY" not in no_llm
+    assert "TOKEN" not in no_llm
+    assert "wiki-rag" not in internal
+    assert "replay" not in internal
+    assert "canonical" not in internal
+    assert "ask_retrieval_pipeline" not in internal
+    assert "deterministic_projection" not in internal
+    assert "/Users/" not in local_path
+    assert "module.py" not in local_path
+    assert retrieval_progress == "外部语义检索当前不可用或受限，未使用其结果。"
+    assert internal_module == "外部语义检索当前不可用或受限，未使用其结果。"
+    assert evidence_detail == "对象=天阳科技；来源=天阳科技_最新逻辑跟踪，质量中等"
+    assert module_id == "资料覆盖情况"
+    assert no_llm_code == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
+    assert answer_route == "问题理解：未高置信识别问题类型"
 
 
 def test_market_question_automatically_selects_daily_review() -> None:
@@ -556,7 +659,11 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     )
 
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
-    assert assistant.content == sanitize_conversation_answer(raw_answer)
+    assert assistant.content == (
+        "当前视角：数据中立\n"
+        "来源范围：Provider、公开来源与本轮检索证据\n\n"
+        f"{sanitize_conversation_answer(raw_answer)}"
+    )
     assert "2026-07-10" in assistant.content
     assert "本地复盘数据" in assistant.content
     assert "历史发酵信号" in assistant.content

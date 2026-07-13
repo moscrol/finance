@@ -1,6 +1,12 @@
 import { ArrowUp, LoaderCircle, StopCircle } from "lucide-react";
 import { FormEvent, KeyboardEvent } from "react";
-import type { ProductSkillDescription, SkillMode } from "../types";
+import type {
+  PerspectiveDescription,
+  PerspectiveMode,
+  ProductSkillDescription,
+  SkillMode,
+} from "../types";
+import { PerspectivePicker } from "./PerspectivePicker";
 import { SkillPicker } from "./SkillPicker";
 
 interface ComposerProps {
@@ -9,14 +15,20 @@ interface ComposerProps {
   disabled?: boolean;
   compact?: boolean;
   running?: boolean;
+  stopRequested?: boolean;
   skills?: ProductSkillDescription[];
+  perspectives?: PerspectiveDescription[];
   skillMode?: SkillMode;
   selectedSkillIds?: string[];
+  perspectiveMode?: PerspectiveMode;
+  selectedPerspectiveIds?: string[];
   onChange: (value: string) => void;
   onSubmit: (question: string) => void;
   onStop?: () => void;
   onSkillModeChange?: (mode: SkillMode) => void;
   onSkillSelectionChange?: (skillIds: string[]) => void;
+  onPerspectiveModeChange?: (mode: PerspectiveMode) => void;
+  onPerspectiveSelectionChange?: (perspectiveIds: string[]) => void;
 }
 
 export function Composer({
@@ -25,14 +37,20 @@ export function Composer({
   disabled = false,
   compact = false,
   running = false,
+  stopRequested = false,
   skills = [],
+  perspectives = [],
   skillMode = "hybrid",
   selectedSkillIds = [],
+  perspectiveMode = "neutral",
+  selectedPerspectiveIds = [],
   onChange,
   onSubmit,
   onStop,
   onSkillModeChange,
   onSkillSelectionChange,
+  onPerspectiveModeChange,
+  onPerspectiveSelectionChange,
 }: ComposerProps) {
   const submit = () => {
     const question = value.trim();
@@ -88,6 +106,16 @@ export function Composer({
                 onSelectionChange={onSkillSelectionChange}
               />
             )}
+          {onPerspectiveModeChange && onPerspectiveSelectionChange && (
+            <PerspectivePicker
+              perspectives={perspectives}
+              mode={perspectiveMode}
+              selectedPerspectiveIds={selectedPerspectiveIds}
+              disabled={disabled || running}
+              onModeChange={onPerspectiveModeChange}
+              onSelectionChange={onPerspectiveSelectionChange}
+            />
+          )}
           <span className="composer-shortcut">
             Enter 发送 · Shift + Enter 换行
           </span>
@@ -96,12 +124,13 @@ export function Composer({
           <button
             className="stop-generation-button"
             type="button"
-            aria-label="停止生成"
-            title="停止生成"
+            aria-label={stopRequested ? "停止请求已提交" : "停止生成"}
+            title={stopRequested ? "停止请求已提交" : "停止生成"}
+            disabled={stopRequested}
             onClick={onStop}
           >
             <StopCircle aria-hidden="true" size={17} />
-            停止
+            {stopRequested ? "停止请求已提交" : "停止"}
           </button>
         ) : (
           <button

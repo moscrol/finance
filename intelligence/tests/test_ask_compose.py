@@ -8,6 +8,8 @@ from unittest import mock
 from intelligence.services import llm_refine
 from intelligence.services.ask import (
     AskResult,
+    AskOptions,
+    _company_exposure_tier,
     _customer_evidence_hardness_block_for_llm,
     _daily_market_overview_block_for_llm,
     _mainline_context_block_for_llm,
@@ -15,6 +17,8 @@ from intelligence.services.ask import (
     _market_value_block_for_llm,
     _resolve_market_data_context,
     _second_derivative_queue_block_for_llm,
+    _stablecoin_payment_framing,
+    answer_query,
     render_answer,
     render_conversation_answer,
 )
@@ -177,6 +181,8 @@ class SynthesizeTests(unittest.TestCase):
         self.assertIn("禁止按公司本体、盘面、二阶导、反证逐项填空", system)
         self.assertIn("每一段都要回答这个事实改变了什么判断", system)
         self.assertIn("不要附加质检过程或审稿过程", system)
+        self.assertIn("只能使用证据中“交易日历约束”给出的日期", system)
+        self.assertIn("严禁自然日加一天或猜日期", system)
 
     def test_synthesis_system_prompt_obeys_question_specific_contract(self) -> None:
         msgs = llm_refine.build_synthesis_messages(
@@ -236,6 +242,7 @@ class RenderComposeTests(unittest.TestCase):
         out = render_answer(self._base_result(None))
         self.assertNotIn("【对话式回答】", out)
         self.assertIn("【结论】", out)
+        self.assertIn("本轮没有可验证来源", out)
 
     def test_render_preserves_fupanhui_methodology_path(self) -> None:
         r = self._base_result(None)
@@ -281,6 +288,142 @@ class RenderComposeTests(unittest.TestCase):
         self.assertIn("## 市场概览", out)
         self.assertIn("上涨 3774 家", out)
         self.assertNotIn("本地 DuckDB 最新市场总览", out)
+
+    def test_conversation_fallback_includes_verified_next_trading_day(self) -> None:
+        result = self._base_result(None)
+        result.query = "请明确下一交易日日期"
+        result.trade_date = "2026-07-10"
+        result.next_trade_date = "2026-07-13"
+        result.data_notice = "**数据截至 2026-07-10。**"
+
+        out = render_conversation_answer(result)
+
+        self.assertIn("下一交易日为 2026-07-13", out)
+        self.assertNotIn("2026-07-11", out)
+
+    def test_conversation_fallback_fails_closed_without_calendar(self) -> None:
+        result = self._base_result(None)
+        result.query = "T+1 是哪一天"
+        result.next_trade_date = None
+
+        out = render_conversation_answer(result)
+
+        self.assertIn("日期待交易日历确认", out)
+        self.assertNotIn("2026-06-12", out)
+
+    def test_conversation_fallback_renders_deterministic_sections(self) -> None:
+        result = self._base_result(None)
+        result.citations = [
+            type("CitationFixture", (), {"tag": "S1", "source": "fixture", "detail": ""})()
+        ]
+        result.sections = {
+            "结论": ["稳定币支付仍需核验公司级证据。"],
+            "证据链": ["四方精创：关联层，未达到核心层门槛。"],
+            "分歧反证": ["缺少公告或客户验证。"],
+            "后续验证点": ["核对公司公告。"],
+            "交易含义": ["不把弱关联公司视为核心受益。"],
+        }
+
+        out = render_conversation_answer(result)
+
+        self.assertIn("稳定币支付仍需核验公司级证据", out)
+        self.assertIn("四方精创", out)
+        self.assertIn("缺少公告或客户验证", out)
+        self.assertIn("自然语言综合暂时不可用", out)
+
+    def test_index_comparison_marks_unavailable_indices_without_guessing(self) -> None:
+        duckdb = __import__("duckdb")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "market.duckdb"
+            con = duckdb.connect(str(db_path))
+            con.execute(
+                """
+                create table fact_market_daily(
+                  trade_date date,
+                  sh_index_close double,
+                  sh_index_pct_chg double,
+                  sh_index_amount double,
+                  sh_index_volume double,
+                  sh_index_source varchar
+                )
+                """
+            )
+            con.execute(
+                """
+                insert into fact_market_daily values
+                ('2026-07-10', 3996.162, -1.0014, null, 62745006500,
+                 'akshare:stock_zh_index_daily:sh000001')
+                """
+            )
+            con.close()
+
+            with mock.patch(
+                "intelligence.services.ask.next_trading_day",
+                return_value="2026-07-13",
+            ):
+                result = answer_query(
+                    AskOptions(
+                        query=(
+                            "比较 2026-07-10 的上证指数、深证成指和创业板指，"
+                            "逐项给出涨跌、成交、来源和截止日。"
+                        ),
+                        exports_dir=root,
+                        market_db_path=db_path,
+                    )
+                )
+
+        rendered = render_conversation_answer(result)
+        self.assertIn("上证指数：收盘 3996.162", rendered)
+        self.assertIn("当日涨跌 -1.00%", rendered)
+        self.assertIn("成交额缺失；可用强弱指标为成交量 627.45 亿", rendered)
+        self.assertIn("深证成指：当日涨跌、成交或强弱指标均缺失", rendered)
+        self.assertIn("创业板指：当日涨跌、成交或强弱指标均缺失", rendered)
+        self.assertIn("下一交易日为 2026-07-13", rendered)
+        self.assertNotIn("2026-07-11", rendered)
+
+    def test_company_core_requires_direct_high_confidence_evidence(self) -> None:
+        self.assertEqual(
+            _company_exposure_tier(
+                {
+                    "strength": "related",
+                    "confidence": "high",
+                    "evidence_layer": "L1_L3_candidate",
+                }
+            ),
+            "other",
+        )
+        self.assertEqual(
+            _company_exposure_tier(
+                {
+                    "strength": "core",
+                    "confidence": "high",
+                    "evidence_layer": "L3",
+                }
+            ),
+            "core",
+        )
+
+    def test_stablecoin_framing_covers_definition_chain_and_verification(
+        self,
+    ) -> None:
+        framing = _stablecoin_payment_framing(
+            "深研“稳定币支付”题材：给出定义、产业链、事实边界和核验动作。",
+            "数字货币",
+        )
+        rendered = "\n".join(
+            item
+            for values in framing.values()
+            for item in values
+        )
+
+        self.assertIn("题材定义", rendered)
+        self.assertIn("产业链上游", rendered)
+        self.assertIn("产业链中游", rendered)
+        self.assertIn("产业链下游", rendered)
+        self.assertIn("事实、推测与待验证边界", rendered)
+        self.assertIn("核验动作", rendered)
+        self.assertIn("近似映射", rendered)
 
 
 class DailyMarketOverviewTests(unittest.TestCase):

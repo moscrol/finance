@@ -1,6 +1,6 @@
 #!/bin/zsh
 # 全量复盘夜间定时入口（launchd 18:30 调用）。
-# 链路：preflight（run_review_sync 内置）→ 同步段 → 生成段（intelligence.cli daily）→ agent-daily。
+# 链路：preflight（run_review_sync 内置）→ 同步段 → 独立 L2 分支 → 生成段。
 # 周末直接跳过；非交易日由质检闸门拦截。preflight 失败（CDP proxy/登录态）会在日志里给出修复提示。
 set -uo pipefail
 
@@ -31,8 +31,36 @@ notify() {
   python3 "$WORKSPACE/scripts/notify_feishu.py" "$1" 2>/dev/null || true
 }
 
+run_moneyflow() {
+  local moneyflow_dir="$WORKSPACE/scripts/moneyflow"
+  [ -f "$HOME/.secrets/clickhouse.env" ] && source "$HOME/.secrets/clickhouse.env"
+  if [ ! -d "$moneyflow_dir" ] || [ -z "${CH_PASSWORD:-}" ]; then
+    echo "[$(date '+%F %T')] 资金流段跳过（scripts/moneyflow 未合并或缺 CH_PASSWORD）"
+    return 2
+  fi
+  (
+    cd "$moneyflow_dir" \
+      && python3 write_to_duckdb.py --begin "$D" \
+      && python3 scan_limitup.py "$D" \
+      && python3 scan_top100.py "$D" \
+      && python3 scan_quant.py "$D" \
+      && python3 "$WORKSPACE/scripts/render_moneyflow_html.py"
+  )
+}
+
 python3 skills/daily-full-review/scripts/run_review_sync.py --date "$D"
 rc=$?
+
+# L2 是独立 DAG 分支：同步段即使失败也会尝试，避免 SW-L1/复盘会故障截断资金流。
+run_moneyflow
+moneyflow_rc=$?
+if [ $moneyflow_rc -ne 0 ]; then
+  echo "[$(date '+%F %T')] 资金流段未完成 rc=${moneyflow_rc}（不阻断复盘主链）"
+  notify "⚠️ 全量复盘 $D 资金流段未完成 rc=${moneyflow_rc}；主链继续，日志 logs/daily-full-review.out.log"
+fi
+python3 scripts/check_daily_review_data.py "$D" --phase l2 \
+  || echo "[$(date '+%F %T')] L2 新鲜度检查未通过（不阻断复盘主链）"
+
 if [ $rc -ne 0 ]; then
   echo "[$(date '+%F %T')] 同步段失败 rc=${rc}（常见原因：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），停止后续生成段"
   notify "⚠️ 全量复盘 $D 同步段失败 rc=${rc}（常见：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），后续生成段未跑；日志 logs/daily-full-review.out.log"
@@ -59,20 +87,6 @@ if [ -n "$answers" ]; then
     && /usr/bin/python3 scripts/render_dual_blind_pair_html.py \
     && /usr/bin/python3 scripts/render_dual_blind_qa.py \
     || echo "[$(date '+%F %T')] 双盲答卷 recheck 失败（不阻断复盘收尾）"
-fi
-
-# 资金流段：L2 大单资金流三榜（串行于复盘之后，避免 DuckDB 写锁冲突；失败不阻断收尾）
-MONEYFLOW_DIR="$WORKSPACE/scripts/moneyflow"
-[ -f "$HOME/.secrets/clickhouse.env" ] && source "$HOME/.secrets/clickhouse.env"
-if [ -d "$MONEYFLOW_DIR" ] && [ -n "${CH_PASSWORD:-}" ]; then
-  (cd "$MONEYFLOW_DIR" \
-    && python3 scan_limitup.py "$D" \
-    && python3 scan_top100.py "$D" \
-    && python3 scan_quant.py "$D" \
-    && python3 "$WORKSPACE/scripts/render_moneyflow_html.py") \
-    || echo "[$(date '+%F %T')] 资金流段失败（不阻断复盘收尾）"
-else
-  echo "[$(date '+%F %T')] 资金流段跳过（scripts/moneyflow 未合并或缺 CH_PASSWORD）"
 fi
 
 # 知识库证据断更监控（超 7 天未 ingest 新批次则告警；不阻断收尾）

@@ -164,6 +164,7 @@ def run_scan(client, codes, date, tag, compute, passes=3):
         pending = failed
     if pending:
         print(f"!! 兜底后仍失败 {len(pending)} 只: {','.join(pending[:20])}")
+        raise RuntimeError(f"{tag} 兜底后仍有 {len(pending)} 只股票失败")
     return client, [r for c, r in done.items() if r]
 
 

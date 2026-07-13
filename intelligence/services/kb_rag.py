@@ -244,12 +244,19 @@ def retrieve(
     fact_hardness: str | None = None,
     source_type: str | None = None,
     index_dir: str | Path | None = None,
+    require_fresh: bool = True,
 ) -> WikiRagResult:
     """Run the KB hybrid retriever for ``query`` and return candidate wiki pages.
 
     Any unavailability (no wiki path / no rag_index.py / no built index / timeout /
     non-zero exit / unparsable JSON) sets ``warning`` and returns ``ok=False`` so
     the caller can skip the W source without breaking S/G/R.
+
+    ``require_fresh`` (default True) is the *formal* fail-closed contract: 命中若非
+    fresh（stale/unknown）一律在返回前丢弃，绝不进入 res.hits / LLM 证据；若过滤后没有
+    fresh 命中则 ok=False，只留降级/不可用告警——RAG 失效可让整体回答降级，但过期/未知
+    命中不得混进证据。显式探索模式 ``require_fresh=False`` 才保留 stale/unknown（标记
+    degraded + 告警），且不得被称作 strict。
     """
     res = WikiRagResult()
     tel = res.telemetry
@@ -404,10 +411,23 @@ def retrieve(
         )
     if rejected_hits:
         warnings.append(f"wiki-rag 丢弃 {rejected_hits} 条缺少 chunk/hash/快照绑定或快照不一致的命中")
-    freshness_states = sorted({hit.index_freshness for hit in hits})
-    if any(state != "fresh" for state in freshness_states):
-        tel.degraded = True
-        warnings.append(f"wiki-rag 索引新鲜度={','.join(freshness_states)}，结果按降级证据处理")
+    non_fresh_hits = [hit for hit in hits if hit.index_freshness != "fresh"]
+    if require_fresh:
+        # formal 契约：过期/未知命中一律丢弃，绝不进入 res.hits / LLM 证据。
+        if non_fresh_hits:
+            tel.degraded = True
+            states = ",".join(sorted({hit.index_freshness for hit in non_fresh_hits}))
+            warnings.append(
+                f"wiki-rag 丢弃 {len(non_fresh_hits)} 条非 fresh 命中（新鲜度={states}）；"
+                "formal 证据要求 fresh，过期/未知命中不进入证据"
+            )
+        hits = [hit for hit in hits if hit.index_freshness == "fresh"]
+    else:
+        # 显式探索(降级)模式：保留 stale/unknown，但标记 degraded 并告警。
+        if non_fresh_hits:
+            tel.degraded = True
+            states = ",".join(sorted({hit.index_freshness for hit in hits}))
+            warnings.append(f"wiki-rag 索引新鲜度={states}，探索模式保留降级证据")
     res.warning = "；".join(dict.fromkeys(warning for warning in warnings if warning))
     res.hits = hits
     res.ok = bool(hits)

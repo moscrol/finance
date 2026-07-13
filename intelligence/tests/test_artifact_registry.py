@@ -37,6 +37,62 @@ def test_registry_discovers_known_providers_and_run_artifacts(tmp_path: Path) ->
     assert all(not item.source_path.startswith("/") for item in artifacts)
 
 
+def test_run_artifact_uses_research_date_and_readable_source(tmp_path: Path) -> None:
+    registry, store = _registry(tmp_path)
+    run = store.create_run("复盘最新交易日的市场结构和主要风险", "ask")
+    store.update_provenance(
+        run.run_id,
+        source_date="2026-07-10",
+        duckdb_cutoff="2026-07-09",
+    )
+    store.add_artifact(
+        run.run_id,
+        "answer.md",
+        "# answer",
+        renderer="markdown",
+        title="回答",
+    )
+    store.finish_run(run.run_id, "completed")
+
+    descriptor = next(
+        item
+        for item in registry.list(category="run")
+        if item.related_run_id == run.run_id
+    )
+
+    assert descriptor.date == "2026-07-10"
+    assert descriptor.source_label == "研究任务：复盘最新交易日的市场结构和主要风险"
+    assert descriptor.source_of_truth == f"run:{run.run_id}"
+    assert descriptor.related_run_id == run.run_id
+
+
+def test_run_artifact_date_falls_back_to_cutoff_then_creation_date(
+    tmp_path: Path,
+) -> None:
+    registry, store = _registry(tmp_path)
+    cutoff_run = store.create_run("按数据截止日生成", "ask")
+    store.update_provenance(cutoff_run.run_id, duckdb_cutoff="2026-07-09")
+    created_run = store.create_run("按创建日生成", "ask")
+    for run in (cutoff_run, created_run):
+        store.add_artifact(
+            run.run_id,
+            "answer.md",
+            "# answer",
+            renderer="markdown",
+            title="回答",
+        )
+        store.finish_run(run.run_id, "completed")
+
+    descriptors = {
+        item.related_run_id: item
+        for item in registry.list(category="run")
+        if item.related_run_id in {cutoff_run.run_id, created_run.run_id}
+    }
+
+    assert descriptors[cutoff_run.run_id].date == "2026-07-09"
+    assert descriptors[created_run.run_id].date == created_run.created_at[:10]
+
+
 def test_registry_filters_and_sorts_latest_first(tmp_path: Path) -> None:
     exports = tmp_path / "market_feature_store" / "exports"
     exports.mkdir(parents=True)

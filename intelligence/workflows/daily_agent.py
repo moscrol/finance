@@ -483,6 +483,7 @@ def _enrich_decision_with_semantic_rag(
                 k=options.wiki_rag_k,
                 mode=options.wiki_rag_mode,
                 timeout=options.wiki_rag_timeout,
+                require_fresh=True,  # formal 证据路径：过期/未知命中 fail-closed，不进 LLM 证据
             )
             row["semantic_rag_query"] = query
             row["semantic_rag_mode"] = options.wiki_rag_mode

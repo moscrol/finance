@@ -9,11 +9,13 @@ import type {
   DailyReportProjection,
   Followup,
   LLMConfig,
+  PerspectiveDescription,
   ProductSkillDescription,
   Run,
   RunContext,
   StructuredReport,
   TraceStep,
+  WorkbenchOverview,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -33,6 +35,10 @@ function withUser(path: string, user?: string): string {
 
 export function getBootstrap(user?: string): Promise<Bootstrap> {
   return request<Bootstrap>(withUser("/api/workbench/bootstrap", user));
+}
+
+export function getWorkbenchOverview(): Promise<WorkbenchOverview> {
+  return request<WorkbenchOverview>("/api/workbench/overview");
 }
 
 export function getRun(runId: string, user?: string): Promise<Run> {
@@ -178,6 +184,10 @@ export function createConversationMessage(
 
 export function getSkills(user?: string): Promise<ProductSkillDescription[]> {
   return request<ProductSkillDescription[]>(withUser("/api/skills", user));
+}
+
+export function getPerspectives(user?: string): Promise<PerspectiveDescription[]> {
+  return request<PerspectiveDescription[]>(withUser("/api/perspectives", user));
 }
 
 export function getLLMConfig(user?: string): Promise<LLMConfig> {

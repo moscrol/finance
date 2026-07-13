@@ -23,7 +23,11 @@ export function SkillPicker({
   const pickerRef = useRef<HTMLDivElement>(null);
   const selected = new Set(selectedSkillIds);
   const modeLabel =
-    mode === "manual" ? "仅手动" : mode === "auto" ? "自动选择" : "智能编排";
+    mode === "manual"
+      ? "手动指定研究工具"
+      : mode === "auto"
+        ? "自动选择研究工具"
+        : "自动选择并补充指定工具";
   const triggerLabel =
     selectedSkillIds.length > 0
       ? `${modeLabel} · ${selectedSkillIds.length}`
@@ -67,7 +71,7 @@ export function SkillPicker({
           <button
             className="skill-menu-trigger"
             type="button"
-            aria-label="选择 Skill"
+            aria-label="选择研究工具"
             aria-expanded={open}
             aria-haspopup="menu"
             disabled={disabled}
@@ -80,8 +84,8 @@ export function SkillPicker({
           {open && (
             <div className="skill-menu-popover" role="menu">
               <div className="skill-menu-heading">
-                <strong>Skill 编排</strong>
-                <small>最多手动指定 3 个；智能模式会按问题补充调用。</small>
+                <strong>研究工具</strong>
+                <small>最多指定 3 个；自动模式会根据问题选择所需工具。</small>
               </div>
               {skills.map((skill) => (
                 <label className="skill-option" key={skill.skill_id}>
@@ -102,29 +106,29 @@ export function SkillPicker({
                 </label>
               ))}
               {skills.length === 0 && (
-                <p className="skill-menu-empty">暂无可用 Skill</p>
+                <p className="skill-menu-empty">暂无可用研究工具</p>
               )}
             </div>
           )}
         </div>
         <label className="skill-mode">
-          <span className="sr-only">Skill 调用模式</span>
+          <span className="sr-only">研究工具选择方式</span>
           <select
-            aria-label="Skill 调用模式"
+            aria-label="研究工具选择方式"
             value={mode}
             disabled={disabled}
             onChange={(event) =>
               onModeChange(event.target.value as SkillMode)
             }
           >
-            <option value="hybrid">智能 + 手动</option>
-            <option value="manual">仅手动</option>
-            <option value="auto">仅自动</option>
+            <option value="hybrid">自动选择并补充指定工具</option>
+            <option value="manual">手动指定研究工具</option>
+            <option value="auto">自动选择研究工具</option>
           </select>
         </label>
       </div>
       {selectedSkillIds.length > 0 && (
-        <div className="skill-chips" aria-label="已选 Skill">
+        <div className="skill-chips" aria-label="已选研究工具">
           {selectedSkillIds.map((skillId) => {
             const skill = skills.find((item) => item.skill_id === skillId);
             if (!skill) return null;

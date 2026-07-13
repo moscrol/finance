@@ -41,6 +41,7 @@ from intelligence.api.stream_events import legacy_event_type
 from intelligence.services import followups as followups_svc
 from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
+from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
 from intelligence.services.conversation_orchestrator import TurnOrchestrator
 from intelligence.services.conversation_store import (
@@ -51,10 +52,13 @@ from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.run_store import RunStore
 from intelligence.services.self_use_maturity import (
+    SelfUseApprovalStore,
     SelfUseLedger,
     SelfUseLedgerIntegrityError,
     evaluate_maturity,
+    trading_days_from_duckdb,
 )
+from intelligence.services.workbench_overview import build_workbench_overview
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -122,6 +126,8 @@ class RunSupervisor:
         query: str,
         skill_mode: Literal["manual", "auto", "hybrid"],
         selected_skill_ids: list[str],
+        perspective_mode: Literal["neutral", "single", "compare"],
+        selected_perspective_ids: list[str],
         event_id_prefix: str = "",
         llm_provider: LLMProvider | None = None,
     ) -> None:
@@ -138,6 +144,8 @@ class RunSupervisor:
                 query=query,
                 skill_mode=skill_mode,
                 selected_skill_ids=selected_skill_ids,
+                perspective_mode=perspective_mode,
+                selected_perspective_ids=selected_perspective_ids,
                 cancellation_signal=signal,
                 event_id_prefix=event_id_prefix,
                 llm_provider=llm_provider,
@@ -302,6 +310,8 @@ class CreateMessageRequest(BaseModel):
     content: str = Field(min_length=1)
     skill_mode: Literal["manual", "auto", "hybrid"]
     selected_skill_ids: list[str] = Field(default_factory=list)
+    perspective_mode: Literal["neutral", "single", "compare"] = "neutral"
+    selected_perspective_ids: list[str] = Field(default_factory=list)
     user: str | None = None
 
     @field_validator("content")
@@ -336,6 +346,8 @@ def _run_conversation_turn(
     skill_mode: Literal["manual", "auto", "hybrid"],
     selected_skill_ids: list[str],
     cancellation_signal: CancellationSignal,
+    perspective_mode: Literal["neutral", "single", "compare"] = "neutral",
+    selected_perspective_ids: list[str] | None = None,
     event_id_prefix: str = "",
     llm_provider: LLMProvider | None = None,
 ) -> None:
@@ -369,6 +381,8 @@ def _run_conversation_turn(
             query=query,
             skill_mode=skill_mode,
             selected_skill_ids=selected_skill_ids,
+            perspective_mode=perspective_mode,
+            selected_perspective_ids=selected_perspective_ids or [],
         )
 
 
@@ -881,6 +895,8 @@ def _resume_conversation_run(
         query=user_message.content,
         skill_mode=user_message.skill_mode,
         selected_skill_ids=list(user_message.selected_skill_ids),
+        perspective_mode=user_message.perspective_mode,
+        selected_perspective_ids=list(user_message.selected_perspective_ids),
         event_id_prefix=event_id_prefix,
     )
     return True
@@ -890,6 +906,7 @@ def create_app(
     *,
     repo_root: Path | None = None,
     run_timeout_sec: float = _SSE_MAX_SECONDS,
+    self_use_require_consecutive_trading_days: bool = False,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
     runtime_paths = default_paths()
@@ -962,13 +979,24 @@ def create_app(
 
     def self_use_projection(user: str | None) -> dict[str, object]:
         conversation_store = conversation_store_for(user)
-        ledger = SelfUseLedger(
-            conversation_store.root.parent / "self-use" / "events.jsonl"
+        self_use_dir = conversation_store.root.parent / "self-use"
+        ledger = SelfUseLedger(self_use_dir / "events.jsonl")
+        trading_days = trading_days_from_duckdb(
+            root / "db" / "market_feature_store.duckdb"
         )
         try:
-            result = evaluate_maturity(ledger.load())
+            result = evaluate_maturity(
+                ledger.load(),
+                trading_days=trading_days,
+                require_consecutive_trading_days=(
+                    self_use_require_consecutive_trading_days
+                ),
+            )
         except (OSError, SelfUseLedgerIntegrityError) as exc:
             raise HTTPException(500, "自用成熟度台账不可读") from exc
+        # passed 由持久化审批驱动：审批指纹须与当前裁决快照一致，否则失效。
+        approvals = SelfUseApprovalStore(self_use_dir / "approval.json")
+        passed = bool(result.eligible_for_user_decision and approvals.is_approved_for(result))
         return {
             "distinct_trade_dates": result.metrics["distinct_trade_dates"],
             "success_rate": result.metrics["core_success_rate"],
@@ -977,7 +1005,7 @@ def create_app(
             "covered_workflows": result.metrics["covered_workflows"],
             "blockers": list(result.blockers),
             "eligible_for_user_decision": result.eligible_for_user_decision,
-            "passed": result.passed,
+            "passed": passed,
         }
 
     def conversation_lock_for(user: str | None, conversation_id: str) -> Lock:
@@ -1174,6 +1202,14 @@ def create_app(
                 raise HTTPException(422, "unknown product skill")
             if len(dict.fromkeys(req.selected_skill_ids)) > 3:
                 raise HTTPException(422, "at most 3 product skills may be selected")
+            try:
+                selected_perspective_ids = perspective_lab.validate_runtime_selection(
+                    userspace.user_space(conversation.user_id),
+                    req.perspective_mode,
+                    req.selected_perspective_ids,
+                )
+            except (ValueError, FileNotFoundError) as exc:
+                raise HTTPException(422, str(exc)) from exc
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
             run = run_store.create_run(
@@ -1191,6 +1227,8 @@ def create_app(
                     run_id=run.run_id,
                     skill_mode=req.skill_mode,
                     selected_skill_ids=req.selected_skill_ids,
+                    perspective_mode=req.perspective_mode,
+                    selected_perspective_ids=list(selected_perspective_ids),
                 )
                 assistant_message = store.append_message(
                     conversation_id,
@@ -1198,6 +1236,8 @@ def create_app(
                     "",
                     status="pending",
                     run_id=run.run_id,
+                    perspective_mode=req.perspective_mode,
+                    selected_perspective_ids=list(selected_perspective_ids),
                 )
                 current = store.load_conversation(conversation_id)
                 store.update_summary(
@@ -1213,6 +1253,8 @@ def create_app(
                     query=req.content,
                     skill_mode=req.skill_mode,
                     selected_skill_ids=list(req.selected_skill_ids),
+                    perspective_mode=req.perspective_mode,
+                    selected_perspective_ids=list(selected_perspective_ids),
                     llm_provider=llm_settings.provider_for(run_store.user_id),
                 )
             except Exception:
@@ -1246,6 +1288,11 @@ def create_app(
                 return []
             raise
         return [asdict(skill) for skill in registry.SKILL_REGISTRY.values()]
+
+    @app.get("/api/perspectives")
+    def list_perspectives(user: str | None = None) -> list[dict[str, object]]:
+        user_id = store_for(user).user_id
+        return perspective_lab.list_profiles(userspace.user_space(user_id))
 
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
@@ -1591,6 +1638,10 @@ def create_app(
             "data_cutoff": data_cutoff,
             "self_use_maturity": self_use_projection(user),
         }
+
+    @app.get("/api/workbench/overview")
+    def workbench_overview() -> dict[str, object]:
+        return build_workbench_overview(root, runtime_paths.knowledge_wiki)
 
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.is_dir():

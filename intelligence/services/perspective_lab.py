@@ -29,8 +29,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import shutil
+from dataclasses import dataclass
 from datetime import date as date_cls, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -43,6 +45,15 @@ MANIFEST_SCHEMA_VERSION = 1
 
 PERSPECTIVE_TYPES = ("blogger", "trend_trader", "value_investor", "user_framework")
 MIN_ARTICLES_FOR_CONFIDENT_PROFILE = 3
+PERSPECTIVE_MODE_NEUTRAL = "neutral"
+PERSPECTIVE_MODE_SINGLE = "single"
+PERSPECTIVE_MODE_COMPARE = "compare"
+PERSPECTIVE_MODES = (
+    PERSPECTIVE_MODE_NEUTRAL,
+    PERSPECTIVE_MODE_SINGLE,
+    PERSPECTIVE_MODE_COMPARE,
+)
+MAX_RUNTIME_PERSPECTIVES = 3
 
 # perspective id 约束与 user_id 同风格：字母/数字开头，仅 [A-Za-z0-9._-]，≤64，防路径穿越。
 _PERSPECTIVE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -160,6 +171,25 @@ def outcomes_path(us: UserSpace) -> Path:
     return perspectives_root(us) / "outcomes.jsonl"
 
 
+@dataclass(frozen=True)
+class RuntimePerspectiveContext:
+    mode: str
+    perspective_ids: tuple[str, ...]
+    display_names: tuple[str, ...]
+    prompt: str
+
+    def answer_header(self) -> str:
+        if self.mode == PERSPECTIVE_MODE_NEUTRAL:
+            return "当前视角：数据中立\n来源范围：Provider、公开来源与本轮检索证据"
+        if self.mode == PERSPECTIVE_MODE_SINGLE:
+            return (
+                f"当前视角：{self.display_names[0]}\n"
+                f"来源范围：本轮事实证据 + {self.display_names[0]} 独立观点层"
+            )
+        names = "｜".join(("数据中立", *self.display_names))
+        return f"当前视角：多视角并列（{names}）\n来源范围：本轮事实证据 + 各视角独立观点层"
+
+
 # --------------------------------------------------------------------------- #
 # profile：init / load / render
 # --------------------------------------------------------------------------- #
@@ -241,6 +271,274 @@ def load_profile(us: UserSpace, perspective_id: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"角色画像不是 JSON 对象：{path}")
     return data
+
+
+def list_profiles(us: UserSpace) -> list[dict[str, Any]]:
+    root = perspectives_root(us) / "profiles"
+    if not root.exists():
+        return []
+    profiles: list[dict[str, Any]] = []
+    for path in sorted(root.glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        perspective_id = str(data.get("id") or "").strip()
+        try:
+            resolve_perspective_id(perspective_id)
+        except ValueError:
+            continue
+        confidence = data.get("confidence") or {}
+        profiles.append(
+            {
+                "perspective_id": perspective_id,
+                "display_name": str(data.get("display_name") or perspective_id),
+                "type": str(data.get("type") or "blogger"),
+                "article_count": int(confidence.get("article_count") or 0),
+                "profile_confidence": str(
+                    confidence.get("profile_confidence") or "low"
+                ),
+            }
+        )
+    return profiles
+
+
+def validate_runtime_selection(
+    us: UserSpace,
+    mode: str,
+    perspective_ids: list[str] | tuple[str, ...],
+) -> tuple[str, ...]:
+    if mode not in PERSPECTIVE_MODES:
+        raise ValueError(f"非法视角模式：{mode!r}")
+    resolved = tuple(resolve_perspective_id(item) for item in perspective_ids)
+    if len(set(resolved)) != len(resolved):
+        raise ValueError("视角不能重复选择")
+    if len(resolved) > MAX_RUNTIME_PERSPECTIVES:
+        raise ValueError(f"最多选择 {MAX_RUNTIME_PERSPECTIVES} 个视角")
+    if mode == PERSPECTIVE_MODE_NEUTRAL and resolved:
+        raise ValueError("数据中立模式不能选择 KOL 视角")
+    if mode == PERSPECTIVE_MODE_SINGLE and len(resolved) != 1:
+        raise ValueError("单一视角模式必须选择 1 个 KOL 视角")
+    if mode == PERSPECTIVE_MODE_COMPARE and not resolved:
+        raise ValueError("多视角并列模式至少选择 1 个 KOL 视角")
+    for perspective_id in resolved:
+        load_profile(us, perspective_id)
+    return resolved
+
+
+def _search_terms(text: str) -> list[str]:
+    normalized = re.sub(r"\s+", "", str(text or "").lower())
+    words = re.findall(r"[a-z0-9._-]+", normalized)
+    chinese = "".join(re.findall(r"[\u4e00-\u9fff]", normalized))
+    bigrams = [chinese[index : index + 2] for index in range(max(0, len(chinese) - 1))]
+    return list(dict.fromkeys([*words, *bigrams]))
+
+
+def _article_documents(us: UserSpace, perspective_id: str) -> list[dict[str, str]]:
+    documents: list[dict[str, str]] = []
+    for record in _read_manifest(manifest_path(us, perspective_id)):
+        raw_path = Path(str(record.get("raw_path") or ""))
+        try:
+            raw_path.resolve().relative_to(perspectives_root(us).resolve())
+        except (OSError, ValueError):
+            continue
+        if not raw_path.is_file():
+            continue
+        try:
+            text = raw_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        documents.append(
+            {
+                "title": str(record.get("title") or raw_path.stem),
+                "date": str(record.get("date") or ""),
+                "source": str(record.get("source") or ""),
+                "text": text,
+            }
+        )
+    return documents
+
+
+def retrieve_article_snippets(
+    us: UserSpace,
+    perspective_id: str,
+    query: str,
+    *,
+    limit: int = 3,
+    excerpt_chars: int = 360,
+) -> list[dict[str, str]]:
+    documents = _article_documents(us, perspective_id)
+    query_terms = _search_terms(query)
+    if not documents or not query_terms:
+        return []
+    tokenized = [_search_terms(document["text"]) for document in documents]
+    doc_count = len(documents)
+    avg_length = sum(len(tokens) for tokens in tokenized) / doc_count
+    document_frequency = {
+        term: sum(1 for tokens in tokenized if term in tokens) for term in query_terms
+    }
+    scored: list[tuple[float, dict[str, str]]] = []
+    for document, tokens in zip(documents, tokenized):
+        frequencies = {term: tokens.count(term) for term in query_terms}
+        score = 0.0
+        for term, frequency in frequencies.items():
+            if frequency == 0:
+                continue
+            idf = math.log(
+                1 + (doc_count - document_frequency[term] + 0.5)
+                / (document_frequency[term] + 0.5)
+            )
+            denominator = frequency + 1.5 * (
+                1 - 0.75 + 0.75 * len(tokens) / max(avg_length, 1)
+            )
+            score += idf * frequency * 2.5 / denominator
+        if score <= 0:
+            continue
+        normalized_text = re.sub(r"\s+", " ", document["text"]).strip()
+        positions = [
+            normalized_text.lower().find(term)
+            for term in query_terms
+            if normalized_text.lower().find(term) >= 0
+        ]
+        start = max(0, (min(positions) if positions else 0) - excerpt_chars // 4)
+        excerpt = normalized_text[start : start + excerpt_chars]
+        if start > 0:
+            excerpt = f"…{excerpt}"
+        if start + excerpt_chars < len(normalized_text):
+            excerpt = f"{excerpt}…"
+        scored.append(
+            (
+                score,
+                {
+                    "title": document["title"],
+                    "date": document["date"],
+                    "source": document["source"],
+                    "excerpt": excerpt,
+                },
+            )
+        )
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [document for _, document in scored[:limit]]
+
+
+def _profile_prompt(
+    profile: dict[str, Any],
+    snippets: list[dict[str, str]],
+) -> str:
+    confidence = profile.get("confidence") or {}
+    lines = [
+        f"### {profile.get('display_name')}（{profile.get('id')}）",
+        f"- 画像置信度：{confidence.get('profile_confidence', 'low')}；"
+        f"样本数：{confidence.get('article_count', 0)}",
+        "- 市场镜头："
+        + "；".join(
+            f"{lens.get('name')}：{lens.get('description')}"
+            for lens in profile.get("market_lenses") or []
+        ),
+        "- 机会偏好：" + "；".join(profile.get("opportunity_preferences") or []),
+        "- 风险信号：" + "；".join(profile.get("risk_triggers") or []),
+        "- 证伪方式：" + "；".join(profile.get("falsification_style") or []),
+        "- 原文召回（观点层，不是事实）：",
+    ]
+    if not snippets:
+        lines.append("  - 未召回相关文章；该视角未知，不得补写其观点。")
+    for snippet in snippets:
+        source = " / ".join(
+            item for item in (snippet["date"], snippet["source"], snippet["title"]) if item
+        )
+        lines.append(f"  - {source or '未标注来源'}：{snippet['excerpt']}")
+    return "\n".join(lines)
+
+
+def build_runtime_context(
+    us: UserSpace,
+    *,
+    mode: str,
+    perspective_ids: list[str] | tuple[str, ...],
+    query: str,
+) -> RuntimePerspectiveContext:
+    resolved = validate_runtime_selection(us, mode, perspective_ids)
+    if mode == PERSPECTIVE_MODE_NEUTRAL:
+        return RuntimePerspectiveContext(
+            mode=mode,
+            perspective_ids=(),
+            display_names=(),
+            prompt=(
+                "本轮使用数据中立视角。只使用 Provider、公开来源和本轮检索证据；"
+                "不得调用或模拟任何 KOL 观点、个人金融记忆或历史经验判断。"
+                "输出时明确区分事实、未知和 AI 推理，不把推理写成事实。"
+            ),
+        )
+    profiles = [load_profile(us, perspective_id) for perspective_id in resolved]
+    profile_blocks = [
+        _profile_prompt(
+            profile,
+            retrieve_article_snippets(us, str(profile["id"]), query),
+        )
+        for profile in profiles
+    ]
+    if mode == PERSPECTIVE_MODE_SINGLE:
+        contract = (
+            "只允许使用下方这一位 KOL 的画像与原文召回，不得混入其他 KOL 或个人记忆。"
+            "KOL 内容属于观点层，当前检索数据属于事实层，AI 映射属于推理层，三者必须分开。"
+            "按以下结构输出：当前视角、来源范围、KOL原始判断、当前行情映射、"
+            "支持/冲突数据、适用条件、失效条件、置信度、未知项。"
+            "原文未覆盖的问题必须写“该视角未知”，不得代替本人补写。"
+        )
+    else:
+        contract = (
+            "本轮使用多视角并列。先单列“数据中立”，再逐一单列下方每个 KOL；"
+            "各视角不得互相污染，不得以多数意见自动成为事实。"
+            "最后单列视角冲突、综合判断、风险与未知；综合判断必须标注为 AI 推理。"
+        )
+    return RuntimePerspectiveContext(
+        mode=mode,
+        perspective_ids=resolved,
+        display_names=tuple(
+            str(profile.get("display_name") or profile["id"]) for profile in profiles
+        ),
+        prompt=(
+            f"{contract}\n\n"
+            "以下为选中视角的私有观点上下文，只能用于解释本轮事实证据：\n"
+            + "\n\n".join(profile_blocks)
+        ),
+    )
+
+
+def runtime_answer_header(
+    us: UserSpace,
+    *,
+    mode: str,
+    perspective_ids: list[str] | tuple[str, ...],
+) -> str:
+    resolved = validate_runtime_selection(us, mode, perspective_ids)
+    display_names = tuple(
+        str(profile.get("display_name") or perspective_id)
+        for perspective_id in resolved
+        for profile in (load_profile(us, perspective_id),)
+    )
+    return RuntimePerspectiveContext(
+        mode=mode,
+        perspective_ids=resolved,
+        display_names=display_names,
+        prompt="",
+    ).answer_header()
+
+
+def runtime_fallback_notice(mode: str) -> str:
+    if mode == PERSPECTIVE_MODE_NEUTRAL:
+        return ""
+    if mode == PERSPECTIVE_MODE_SINGLE:
+        return (
+            "KOL原始判断：该视角未知（本轮未完成 LLM 视角映射）。\n"
+            "下方内容仅为数据中立事实底座，不代表该 KOL 的判断。"
+        )
+    return (
+        "各 KOL 原始判断：该视角未知（本轮未完成 LLM 多视角映射）。\n"
+        "下方内容仅为数据中立事实底座，不代表任何 KOL 的判断或共识。"
+    )
 
 
 def _save_profile(us: UserSpace, profile: dict[str, Any]) -> Path:

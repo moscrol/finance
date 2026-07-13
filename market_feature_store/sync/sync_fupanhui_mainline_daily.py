@@ -43,59 +43,114 @@ STOCK_UPSERT = """
 """
 
 
-def sync(trade_date: str) -> dict:
+def _status(expected: int, completed: int, failures: list[dict]) -> str:
+    if not failures and expected > 0 and completed == expected:
+        return "complete"
+    return "partial" if completed else "failed"
+
+
+def sync(
+    trade_date: str,
+    *,
+    attempts: int = 3,
+    retry_delay: float = 0.5,
+) -> dict:
     """同步某日的主线题材和个股。
 
-    Returns: {"themes": int, "stocks": int}
+    API 数据全部抓取并校验通过后才原子替换当日快照。任何题材失败时不写入，
+    避免把 partial response 伪装成完整数据。
     """
     now = datetime.utcnow().isoformat()
     source = "fupanhui:public-api/topics"
 
-    # 获取主线题材
-    themes = fs.get_mainline_themes(trade_date)
-    if not themes:
-        return {"themes": 0, "stocks": 0}
-
-    init_db()
-    con = connect()
+    themes = None
+    last_theme_error = None
+    for attempt in range(max(1, attempts)):
+        if attempt:
+            time.sleep(retry_delay * attempt)
+        try:
+            candidate = fs.get_mainline_themes(trade_date)
+            if candidate:
+                themes = candidate
+                break
+            last_theme_error = RuntimeError("empty theme list")
+        except Exception as exc:  # noqa: BLE001
+            last_theme_error = exc
+    if themes is None:
+        return {
+            "themes": 0,
+            "stocks": 0,
+            "expected_themes": 0,
+            "completed_themes": 0,
+            "failures": [{"scope": "themes", "error": str(last_theme_error)}],
+            "status": "failed",
+        }
 
     theme_rows = []
+    stock_rows = []
+    failures = []
+    completed = 0
     for t in themes:
+        tc = str(t.get("theme_code") or "").strip()
+        tn = str(t.get("theme_name") or "").strip()
+        if not tc:
+            failures.append(
+                {"scope": "theme", "theme_code": "", "theme_name": tn, "error": "missing theme_code"}
+            )
+            continue
         theme_rows.append((
             trade_date,
-            t.get("theme_code", ""),
-            t.get("theme_name", ""),
+            tc,
+            tn,
             t.get("sector_count"),
             t.get("min_sort"),
             source,
             now,
         ))
-
-    con.executemany(THEME_UPSERT, theme_rows)
-
-    # 获取每个主线的个股
-    stock_count = 0
-    for t in themes:
-        tc = t.get("theme_code", "")
-        tn = t.get("theme_name", "")
-        if not tc:
-            continue
-        time.sleep(0.3)  # 简单限流
-        try:
-            data = fs.get_mainline_stocks(trade_date, tc)
-        except fs.FupanhuiError:
+        data = None
+        last_error = None
+        for attempt in range(max(1, attempts)):
+            if attempt:
+                time.sleep(retry_delay * attempt)
+            try:
+                candidate = fs.get_mainline_stocks(trade_date, tc)
+                groups = candidate.get("groups") or []
+                has_stock = any(
+                    str(stock.get("ts_code") or "").strip()
+                    for group in groups
+                    for stock in (group.get("stocks") or [])
+                )
+                if not has_stock:
+                    last_error = RuntimeError("empty groups or stock list")
+                    continue
+                data = candidate
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+        if data is None:
+            failures.append(
+                {
+                    "scope": "stocks",
+                    "theme_code": tc,
+                    "theme_name": tn,
+                    "error": str(last_error),
+                }
+            )
             continue
         groups = data.get("groups") or []
-        stock_rows = []
+        rows = []
         for g in groups:
             gt = g.get("groupType", "")
             for s in g.get("stocks") or []:
-                stock_rows.append((
+                stock_ts_code = str(s.get("ts_code") or "").strip()
+                if not stock_ts_code:
+                    continue
+                rows.append((
                     trade_date,
                     tc,
                     tn,
                     gt,
-                    s.get("ts_code", ""),
+                    stock_ts_code,
                     s.get("name", ""),
                     s.get("price"),
                     s.get("changePct"),
@@ -103,9 +158,50 @@ def sync(trade_date: str) -> dict:
                     source,
                     now,
                 ))
-        if stock_rows:
-            con.executemany(STOCK_UPSERT, stock_rows)
-            stock_count += len(stock_rows)
+        if not rows:
+            failures.append(
+                {
+                    "scope": "stocks",
+                    "theme_code": tc,
+                    "theme_name": tn,
+                    "error": "empty groups or stock list",
+                }
+            )
+            continue
+        stock_rows.extend(rows)
+        completed += 1
+        time.sleep(0.3)
 
-    con.close()
-    return {"themes": len(theme_rows), "stocks": stock_count}
+    status = _status(len(themes), completed, failures)
+    if status != "complete":
+        return {
+            "themes": 0,
+            "stocks": 0,
+            "expected_themes": len(themes),
+            "completed_themes": completed,
+            "failures": failures,
+            "status": status,
+        }
+
+    init_db()
+    con = connect()
+    try:
+        con.execute("BEGIN TRANSACTION")
+        con.execute("DELETE FROM fact_mainline_stock_daily WHERE trade_date = ?", [trade_date])
+        con.execute("DELETE FROM fact_mainline_theme_daily WHERE trade_date = ?", [trade_date])
+        con.executemany(THEME_UPSERT, theme_rows)
+        con.executemany(STOCK_UPSERT, stock_rows)
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+    finally:
+        con.close()
+    return {
+        "themes": len(theme_rows),
+        "stocks": len(stock_rows),
+        "expected_themes": len(themes),
+        "completed_themes": completed,
+        "failures": [],
+        "status": "complete",
+    }

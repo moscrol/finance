@@ -172,6 +172,7 @@ def build_prime(options: PrimeOptions) -> PrimeResult:
             options.kb_wiki,
             k=options.wiki_rag_k,
             timeout=options.wiki_rag_timeout,
+            require_fresh=True,  # formal 证据路径：过期/未知命中 fail-closed，不进 LLM 证据
         )
         if rag.warning:
             result.warnings.append(f"wiki-rag：{rag.warning}")

@@ -66,7 +66,7 @@ export function ArtifactViewer({
         <dl className="artifact-meta">
           <div>
             <dt>日期</dt>
-            <dd>{artifact.date ?? "未标记"}</dd>
+            <dd>{artifact.date ?? "研究日期待补充"}</dd>
           </div>
           <div>
             <dt>格式</dt>
@@ -74,7 +74,7 @@ export function ArtifactViewer({
           </div>
           <div>
             <dt>来源</dt>
-            <dd>{artifact.source_of_truth ?? "仅有渲染物"}</dd>
+            <dd>{artifact.source_label ?? artifact.title}</dd>
           </div>
         </dl>
         <div className="artifact-actions">
@@ -102,11 +102,27 @@ export function ArtifactViewer({
         </div>
       </header>
 
+      <details className="artifact-technical-details">
+        <summary>高级详情</summary>
+        <dl>
+          <div>
+            <dt>原始来源</dt>
+            <dd>{artifact.source_of_truth ?? "未登记"}</dd>
+          </div>
+          {artifact.related_run_id && (
+            <div>
+              <dt>运行编号</dt>
+              <dd>{artifact.related_run_id}</dd>
+            </div>
+          )}
+        </dl>
+      </details>
+
       {!artifact.canonical_exists && (
         <div className="alert alert-warning" role="status">
           <AlertCircle aria-hidden="true" size={18} />
           <div>
-            <strong>Canonical 来源缺失</strong>
+            <strong>原始来源缺失</strong>
             <p>当前只能读取已注册的渲染物，不能把它视为新的事实源。</p>
           </div>
         </div>
@@ -116,7 +132,7 @@ export function ArtifactViewer({
         <div className="viewer-empty">
           <FileQuestion aria-hidden="true" size={34} />
           <h2>产物文件不存在</h2>
-          <p>Registry 保留了来源记录。请重新运行对应生成流程后再打开。</p>
+          <p>产物库保留了来源记录。请重新运行对应生成流程后再打开。</p>
           <code>{artifact.source_path}</code>
         </div>
       ) : isDailyReport && loading ? (
@@ -131,7 +147,7 @@ export function ArtifactViewer({
           <FileQuestion aria-hidden="true" size={30} />
           <h2>暂时无法生成原生报告</h2>
           <p>{projectionError}</p>
-          <p>请检查 canonical 来源后重试。原始报告可用时仍可在下方核对。</p>
+          <p>请检查原始来源后重试。原始报告可用时仍可在下方核对。</p>
           {originalReportUrl && (
             <details className="daily-disclosure original-report">
               <summary>原始报告</summary>

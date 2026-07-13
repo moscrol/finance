@@ -1,4 +1,5 @@
 import { AlertTriangle, Database, Sparkles } from "lucide-react";
+import { userFacingIssue } from "../displayText";
 import type {
   StructuredReport,
   StructuredReportModule,
@@ -106,7 +107,7 @@ function ReportModule({ module }: { module: StructuredReportModule }) {
           {module.warnings.map((warning) => (
             <li key={warning}>
               <AlertTriangle aria-hidden="true" size={14} />
-              {warning}
+              {userFacingIssue(warning)}
             </li>
           ))}
         </ul>
@@ -150,7 +151,7 @@ export function StructuredReportView({ report }: { report: StructuredReport }) {
             <strong>本报告包含降级或质量警告</strong>
             <ul>
               {report.warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
+                <li key={warning}>{userFacingIssue(warning)}</li>
               ))}
             </ul>
           </div>

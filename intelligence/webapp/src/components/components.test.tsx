@@ -7,6 +7,7 @@ import {
   createLiveMessageState,
   StreamEventDeduper,
 } from "../streamEvents";
+import { userFacingIssue, userFacingStage } from "../displayText";
 import { upsertStructuredReportModule } from "../structuredReport";
 import { upsertTraceStep } from "../trace";
 import type {
@@ -15,9 +16,12 @@ import type {
   ChatMessage,
   Conversation,
   LLMConfig,
+  PerspectiveDescription,
   ProductSkillDescription,
+  Run,
   RunBundle,
   StreamEnvelope,
+  WorkbenchOverview,
 } from "../types";
 import { ArtifactLibrary } from "./ArtifactLibrary";
 import { ArtifactViewer } from "./ArtifactViewer";
@@ -25,6 +29,7 @@ import { Composer } from "./Composer";
 import { ConversationList } from "./ConversationList";
 import { MessageBubble } from "./MessageBubble";
 import { MessageThread } from "./MessageThread";
+import { PerspectivePicker } from "./PerspectivePicker";
 import { ResearchHome } from "./ResearchHome";
 import { ResearchInspector } from "./ResearchInspector";
 import { RunView } from "./RunView";
@@ -46,11 +51,13 @@ const apiMocks = vi.hoisted(() => ({
   getConversationMessages: vi.fn(),
   getFollowups: vi.fn(),
   getLLMConfig: vi.fn(),
+  getPerspectives: vi.fn(),
   getRun: vi.fn(),
   getRunArtifactText: vi.fn(),
   getRunContext: vi.fn(),
   getRunReport: vi.fn(),
   getTrace: vi.fn(),
+  getWorkbenchOverview: vi.fn(),
   getSkills: vi.fn(),
   listArtifacts: vi.fn(),
   listConversations: vi.fn(),
@@ -124,6 +131,68 @@ const bootstrap: Bootstrap = {
     eligible_for_user_decision: false,
     passed: false,
   },
+};
+
+const workbenchOverview: WorkbenchOverview = {
+  as_of_date: "2026-07-10",
+  market: {
+    trade_date: "2026-07-10",
+    stage: "轮动",
+    mainlines: ["半导体"],
+    risks: ["板块明细未更新"],
+    validation_points: ["验证成交额"],
+  },
+  themes: [],
+  theme_axes: {
+    knowledge: ["暗流", "观察", "萌芽", "第一轮", "催化共振", "一致认同"],
+    market: ["未确认", "首次响应", "扩散", "主升", "分歧 / 兑现"],
+  },
+  signals: {
+    new: [
+      {
+        bucket: "new",
+        bucket_label: "新出现",
+        title: "半导体",
+        change: "首次进入观察",
+        summary: "研究叙事等待验证",
+        source_type: "晨汇 / 研究队列",
+        source_date: "2026-07-01",
+        impact: "半导体",
+        market_confirmation: "等待同日盘面核对",
+        next_validation: "补公司基础资料与官方披露",
+      },
+    ],
+    strengthened: [],
+    weakened: [],
+    pending: [],
+  },
+  signal_date: "2026-07-01",
+  winrate: [],
+  sellside_flow: { priority: [], confirmation: [], caution: [] },
+  sellside_date: null,
+  moneyflow: {
+    status: "missing",
+    target_date: "2026-07-10",
+    trade_date: null,
+    coverage: {},
+    leaders: [],
+    quant_orders: [],
+    warnings: ["暂无 L2 数据"],
+    source: "local features",
+  },
+  moneyflow_trends: [],
+  validation: { logic_effectiveness: {}, hypothesis_status: "等待同日知识事件" },
+  data_status: [
+    {
+      key: "market",
+      label: "市场总览",
+      date: "2026-07-10",
+      status: "complete",
+      row_count: 1,
+      message: "已更新",
+    },
+  ],
+  agent_artifact: null,
 };
 
 const llmConfig: LLMConfig = {
@@ -263,6 +332,23 @@ const productSkills: ProductSkillDescription[] = [
   },
 ];
 
+const perspectives: PerspectiveDescription[] = [
+  {
+    perspective_id: "fengyuan94",
+    display_name: "风远94",
+    type: "blogger",
+    article_count: 35,
+    profile_confidence: "medium",
+  },
+  {
+    perspective_id: "blogger_x",
+    display_name: "其他博主",
+    type: "blogger",
+    article_count: 5,
+    profile_confidence: "medium",
+  },
+];
+
 const assistantMessage: ChatMessage = {
   message_id: "msg_assistant",
   conversation_id: "conv_recent",
@@ -272,6 +358,8 @@ const assistantMessage: ChatMessage = {
   status: "completed",
   run_id: "run_demo",
   selected_skill_ids: ["daily-review"],
+  perspective_mode: "neutral",
+  selected_perspective_ids: [],
   invoked_skill_ids: ["daily-review", "daily-agent"],
   citations: [],
   degrades: ["llm_unavailable_template_answer"],
@@ -287,6 +375,8 @@ function deferred<T>() {
 
 interface MockEventSourceInstance {
   emit: (eventType: string, data: unknown) => void;
+  fail: () => void;
+  close: ReturnType<typeof vi.fn>;
 }
 
 let mockEventSources: MockEventSourceInstance[] = [];
@@ -342,9 +432,71 @@ describe("Workbench components", () => {
     );
 
     await user.click(screen.getByText("运行详情"));
-    expect(screen.getByText(/本轮使用降级路径/)).toBeInTheDocument();
+    expect(screen.getByText(/本轮存在限制/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /哪些证据最容易证伪/ }));
     expect(onFollowup).toHaveBeenCalledWith("哪些证据最容易证伪？");
+  });
+
+  it("translates internal failures and stages into user-facing language", () => {
+    expect(userFacingIssue("llm_unavailable_template_answer")).toContain(
+      "已保留可核验数据",
+    );
+    expect(
+      userFacingIssue(
+        'Traceback (most recent call last): File "ask.py", line 99',
+      ),
+    ).toBe(
+      "研究过程中出现内部错误；相关结论可能不完整，已保留其他可用证据。",
+    );
+    expect(userFacingIssue("找不到 /Users/a77/scripts/rag_index.py")).toBe(
+      "某项本地研究数据暂不可用；相关证据未纳入本轮结论。",
+    );
+    expect(
+      userFacingIssue(
+        "未找到 canonical Daily Review Markdown；日报基础模块缺失。",
+      ),
+    ).toBe(
+      "最新日报基础文件暂不可用；本轮仅使用可用盘面数据和补充快照。",
+    );
+    expect(userFacingStage("ask_current_turn")).toBe("检索本轮证据");
+  });
+
+  it("counts only evidence records bound to verifiable citations", () => {
+    render(
+      <ResearchInspector
+        bootstrap={bootstrap}
+        bundle={{
+          ...bundle,
+          context: {
+            ...bundle.context,
+            evidence: [
+              ...bundle.context.evidence,
+              {
+                id: "citation-record:S1",
+                label: "[S1] 盘面快照",
+                kind: "citation_record",
+                classification: "bound_evidence",
+                detail: "hash=abc123",
+                status: "hit",
+              },
+              {
+                id: "citation:S",
+                label: "盘面证据",
+                kind: "citation",
+                classification: "fact_or_context",
+                detail: "1 条引用",
+                status: "hit",
+              },
+            ],
+          },
+        }}
+        artifact={null}
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("当前任务摘要")).toHaveTextContent("证据1");
   });
 
   it("keeps structured modules behind the explicit run inspector", () => {
@@ -444,6 +596,32 @@ describe("Workbench components", () => {
     expect(container.querySelector("script")).toBeNull();
   });
 
+  it("shows a readable artifact date and source before technical metadata", async () => {
+    const user = userEvent.setup();
+    render(
+      <ArtifactViewer
+        artifact={{
+          ...artifact,
+          date: "2026-07-10",
+          source_label: "研究任务：复盘最新交易日",
+          source_of_truth: "run:run_demo",
+          related_run_id: "run_demo",
+        }}
+        content="# 研究结论"
+        loading={false}
+        contentUrl="/api/artifacts/demo/content"
+        onBack={vi.fn()}
+        onOpenRun={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("2026-07-10")).toBeVisible();
+    expect(screen.getByText("研究任务：复盘最新交易日")).toBeVisible();
+    expect(screen.getByText("run:run_demo")).not.toBeVisible();
+    await user.click(screen.getByText("高级详情"));
+    expect(screen.getByText("run:run_demo")).toBeVisible();
+  });
+
   it("keeps workflow summaries in their native JSON viewer", () => {
     render(
       <ArtifactViewer
@@ -492,7 +670,7 @@ describe("Workbench components", () => {
     expect(screen.queryByText("每日 Agent 简报 - 2026-07-08")).toBeNull();
   });
 
-  it("exposes internal tool names only inside run details", async () => {
+  it("keeps internal tool names out of the user-facing trace", async () => {
     const user = userEvent.setup();
     render(
       <ResearchInspector
@@ -504,9 +682,9 @@ describe("Workbench components", () => {
       />,
     );
     await user.click(screen.getByRole("tab", { name: "运行" }));
-    expect(screen.getByText("ask_retrieve_compose")).not.toBeVisible();
     await user.click(screen.getByText("命中盘面与图谱"));
-    expect(screen.getByText("ask_retrieve_compose")).toBeVisible();
+    expect(screen.queryByText("ask_retrieve_compose")).toBeNull();
+    expect(screen.getAllByText("已完成")).not.toHaveLength(0);
   });
 
   it("shows report degradation warnings and the bound KB snapshot", () => {
@@ -536,10 +714,12 @@ describe("Workbench components", () => {
     );
 
     expect(screen.getByText("本报告包含降级或质量警告")).toBeVisible();
-    expect(screen.getByText("wiki-rag 索引新鲜度=stale")).toBeVisible();
+    expect(
+      screen.getByText("知识库索引已过期；相关证据仅供参考。"),
+    ).toBeVisible();
     expect(screen.getByText("知识库索引快照")).toBeVisible();
-    expect(screen.getByText(/revision=abc123/)).toBeVisible();
-    expect(screen.getByText(/freshness=fresh/)).toBeVisible();
+    expect(screen.getByText(/版本=abc123/)).toBeVisible();
+    expect(screen.getByText(/时效=当前/)).toBeVisible();
   });
 
   it("shows aggregate self-use maturity without private event details", () => {
@@ -553,17 +733,17 @@ describe("Workbench components", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("heading", { name: "自用成熟度 1/10 交易日" }),
-    ).toBeVisible();
-    expect(screen.getByText("核心工作流 1/5")).toBeVisible();
+    expect(screen.getByText("自用成熟度预览（Demo 非计分）")).toBeVisible();
+    fireEvent.click(screen.getByText("自用成熟度预览（Demo 非计分）"));
+    expect(screen.getByText("Day 1 尚未开始，以下指标仅供产品打磨参考。")).toBeVisible();
+    expect(screen.getByText("交易日 1/10 · 核心工作流 1/5")).toBeVisible();
     expect(screen.getByText("成功 100% · 有用 100% · 人工救场 0%")).toBeVisible();
     expect(screen.getByText("阻塞项 2")).toBeVisible();
     expect(screen.queryByText("可由用户最终裁决")).toBeNull();
     expect(screen.queryByText("private note")).toBeNull();
     expect(screen.queryByText("private-run-id")).toBeNull();
   });
-  it("shows the final-decision prompt only after mechanical eligibility", () => {
+  it("does not start final self-use judgement during the demo stage", () => {
     render(
       <ResearchInspector
         bootstrap={{
@@ -580,7 +760,8 @@ describe("Workbench components", () => {
       />,
     );
 
-    expect(screen.getByText("可由用户最终裁决")).toBeVisible();
+    expect(screen.queryByText("可由用户最终裁决")).toBeNull();
+    expect(screen.getByText("自用成熟度预览（Demo 非计分）")).toBeVisible();
   });
 
 });
@@ -601,6 +782,8 @@ describe("Chat-first conversation components", () => {
         onArchive={onArchive}
         onClose={onClose}
         onLibrary={vi.fn()}
+        activeSection="ask"
+        onSection={vi.fn()}
       />,
     );
 
@@ -625,6 +808,8 @@ describe("Chat-first conversation components", () => {
         onArchive={vi.fn()}
         onClose={vi.fn()}
         onLibrary={vi.fn()}
+        activeSection="ask"
+        onSection={vi.fn()}
       />,
     );
 
@@ -636,6 +821,7 @@ describe("Chat-first conversation components", () => {
   it("starts a guided research workflow from the empty conversation", async () => {
     const user = userEvent.setup();
     const onFollowup = vi.fn();
+    const onStarter = vi.fn();
     render(
       <MessageThread
         messages={[]}
@@ -645,13 +831,15 @@ describe("Chat-first conversation components", () => {
         onRegenerate={vi.fn()}
         onOpenArtifact={vi.fn()}
         onFollowup={onFollowup}
+        onStarter={onStarter}
       />,
     );
 
     await user.click(screen.getByRole("button", { name: /今日复盘/ }));
-    expect(onFollowup).toHaveBeenCalledWith(
+    expect(onStarter).toHaveBeenCalledWith(
       "请复盘最新交易日的市场结构、主线、赚钱效应和主要风险。",
     );
+    expect(onFollowup).not.toHaveBeenCalled();
     expect(screen.getByText(/每轮新检索/)).toBeVisible();
   });
 
@@ -668,9 +856,9 @@ describe("Chat-first conversation components", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "选择 Skill" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "选择研究工具" })).toBeVisible();
     expect(screen.getByText("每日复盘")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "选择 Skill" }));
+    await user.click(screen.getByRole("button", { name: "选择研究工具" }));
     await user.click(screen.getByRole("checkbox", { name: /Daily Agent/ }));
     expect(onSelectionChange).toHaveBeenCalledWith([
       "daily-review",
@@ -678,6 +866,26 @@ describe("Chat-first conversation components", () => {
     ]);
     await user.click(screen.getByRole("button", { name: "移除 每日复盘" }));
     expect(onSelectionChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it("switches from data neutral to a selected KOL perspective", async () => {
+    const user = userEvent.setup();
+    const onModeChange = vi.fn();
+    const onSelectionChange = vi.fn();
+    render(
+      <PerspectivePicker
+        perspectives={perspectives}
+        mode="neutral"
+        selectedPerspectiveIds={[]}
+        onModeChange={onModeChange}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "选择分析视角" }));
+    await user.click(screen.getByRole("radio", { name: /指定 KOL/ }));
+    expect(onModeChange).toHaveBeenCalledWith("single");
+    expect(onSelectionChange).toHaveBeenCalledWith(["fengyuan94"]);
   });
 
   it("distinguishes manual skills from automatically invoked skills", () => {
@@ -690,8 +898,14 @@ describe("Chat-first conversation components", () => {
       />,
     );
 
-    expect(screen.getByText("手动指定 · 每日复盘")).toBeVisible();
-    expect(screen.getByText("自动调用 · Daily Agent")).toBeVisible();
+    expect(screen.getByText("已指定工具 · 每日复盘")).toHaveAttribute(
+      "title",
+      "每日复盘 · 已完成",
+    );
+    expect(screen.getByText("已自动选择 · Daily Agent")).toHaveAttribute(
+      "title",
+      "Daily Agent · 研究中",
+    );
     expect(screen.queryByText("daily_projection_modules")).toBeNull();
   });
 
@@ -730,10 +944,41 @@ describe("Chat-first conversation components", () => {
     );
 
     expect(screen.getByText("这是模板回答。")).toBeVisible();
-    expect(screen.getByText("模板表达 · 未配置 LLM")).toBeVisible();
+    expect(screen.getByText("自然语言综合暂时不可用")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "重新生成回答" }));
     expect(onRegenerate).toHaveBeenCalledWith(assistantMessage);
     expect(screen.getByText("这是模板回答。")).toBeVisible();
+  });
+
+  it("warns when a completed answer has no verifiable evidence", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "这是一个仍需核验的判断。",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={null}
+        bundle={{
+          ...bundle,
+          context: {
+            ...bundle.context,
+            evidence: [],
+          },
+        }}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "本轮没有可验证来源，以下内容只能作为待验证推测。",
+      ),
+    ).toBeVisible();
   });
 
   it("replaces loading with a persistent cancelled message", () => {
@@ -897,7 +1142,7 @@ describe("Chat-first conversation components", () => {
 
 describe("Workbench navigation reliability", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     mockEventSources = [];
     class MockEventSource {
       onopen: (() => void) | null = null;
@@ -922,6 +1167,9 @@ describe("Workbench navigation reliability", () => {
           new MessageEvent(eventType, { data: JSON.stringify(data) }),
         );
       };
+      fail = () => {
+        this.onerror?.();
+      };
     }
     vi.stubGlobal("EventSource", MockEventSource);
     Object.defineProperty(window, "scrollTo", {
@@ -929,9 +1177,11 @@ describe("Workbench navigation reliability", () => {
       value: vi.fn(),
     });
     apiMocks.getBootstrap.mockResolvedValue(bootstrap);
+    apiMocks.getWorkbenchOverview.mockResolvedValue(workbenchOverview);
     apiMocks.listConversations.mockResolvedValue([]);
     apiMocks.getConversationMessages.mockResolvedValue([]);
     apiMocks.getSkills.mockResolvedValue(productSkills);
+    apiMocks.getPerspectives.mockResolvedValue(perspectives);
     apiMocks.getFollowups.mockResolvedValue([]);
     apiMocks.getLLMConfig.mockResolvedValue(llmConfig);
     apiMocks.getRunContext.mockResolvedValue(bundle.context);
@@ -959,12 +1209,38 @@ describe("Workbench navigation reliability", () => {
     apiMocks.selectBuiltInLLM.mockResolvedValue(llmConfig);
   });
 
+  it("opens on today and navigates across the five product surfaces", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "轮动" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "主题" }));
+    expect(
+      await screen.findByRole("heading", { name: "知识共识 × 盘面确认" }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "信号" }));
+    expect(
+      await screen.findByRole("heading", { name: "只推变化，不重复旧观点" }),
+    ).toBeVisible();
+    expect(screen.getByText("晨汇 / 研究队列")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "验证" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "机构胜率、资金流与假设回检",
+      }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "问答" }));
+    expect(screen.getByLabelText("输入研究问题")).toBeVisible();
+  });
+
   it("restores the latest conversation and submits in hybrid mode", async () => {
     apiMocks.listConversations.mockResolvedValue(conversations);
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(await screen.findByRole("button", { name: "问答" }));
     expect(await screen.findByText("每轮重新检索当前证据")).toBeVisible();
+    expect(screen.getByText("Demo · 非计分 · Day 1 未开始")).toBeVisible();
     await user.type(screen.getByLabelText("输入研究问题"), "新的研究问题");
     await user.click(screen.getByRole("button", { name: "发送研究问题" }));
 
@@ -974,12 +1250,90 @@ describe("Workbench navigation reliability", () => {
         content: "新的研究问题",
         skill_mode: "hybrid",
         selected_skill_ids: [],
+        perspective_mode: "neutral",
+        selected_perspective_ids: [],
         user: "default",
       },
     );
   });
 
-  it("reconciles terminal runs to the persisted completed message", async () => {
+  it("submits an explicit KOL perspective without mixing other profiles", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await screen.findByText("每轮重新检索当前证据");
+    await user.click(screen.getByRole("button", { name: "选择分析视角" }));
+    await user.click(screen.getByRole("radio", { name: /指定 KOL/ }));
+    await user.type(screen.getByLabelText("输入研究问题"), "按风远视角复盘");
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+
+    expect(apiMocks.createConversationMessage).toHaveBeenCalledWith(
+      "conv_recent",
+      expect.objectContaining({
+        content: "按风远视角复盘",
+        perspective_mode: "single",
+        selected_perspective_ids: ["fengyuan94"],
+      }),
+    );
+  });
+
+  it("restores the perspective picker from the latest user message", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([
+      {
+        ...assistantMessage,
+        message_id: "msg_user",
+        role: "user",
+        content: "按风远视角复盘",
+        perspective_mode: "single",
+        selected_perspective_ids: ["fengyuan94"],
+      },
+      assistantMessage,
+    ]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await screen.findByText("按风远视角复盘");
+    expect(
+      screen.getByRole("button", { name: "选择分析视角" }),
+    ).toHaveTextContent("风远94");
+  });
+
+  it("regenerates with the original user message perspective", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    const originalUserMessage: ChatMessage = {
+      ...assistantMessage,
+      message_id: "msg_user",
+      role: "user",
+      content: "按风远视角复盘",
+      perspective_mode: "single",
+      selected_perspective_ids: ["fengyuan94"],
+    };
+    apiMocks.getConversationMessages.mockResolvedValue([
+      originalUserMessage,
+      assistantMessage,
+    ]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await screen.findByText("这是模板回答。");
+    await user.click(screen.getByRole("button", { name: "重新生成回答" }));
+
+    expect(apiMocks.createConversationMessage).toHaveBeenCalledWith(
+      "conv_recent",
+      expect.objectContaining({
+        content: "按风远视角复盘",
+        perspective_mode: "single",
+        selected_perspective_ids: ["fengyuan94"],
+      }),
+    );
+  });
+
+  it("recovers a persisted terminal run after the stream disconnects", async () => {
     const finalMessage: ChatMessage = {
       ...assistantMessage,
       message_id: "msg_assistant_new",
@@ -1001,17 +1355,21 @@ describe("Workbench navigation reliability", () => {
         },
         finalMessage,
       ]);
-    apiMocks.getRun.mockResolvedValue({
+    let runStatus: Run["status"] = "running";
+    apiMocks.getRun.mockImplementation(async () => ({
       ...bundle.run,
       run_id: "run_created",
-      status: "completed",
+      status: runStatus,
       artifacts: [],
-    });
+    }));
     apiMocks.listArtifacts.mockResolvedValue([]);
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(await screen.findByRole("button", { name: "问答" }));
     await user.click(await screen.findByRole("button", { name: /今日复盘/ }));
+    expect(apiMocks.createConversationMessage).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
     const events = mockEventSources.at(-1);
     expect(events).toBeDefined();
 
@@ -1033,14 +1391,9 @@ describe("Workbench navigation reliability", () => {
       screen.getByText("正在研究", { selector: ".agent-status" }),
     ).toBeVisible();
 
-    await act(async () => {
-      events?.emit("run", {
-        ...bundle.run,
-        run_id: "run_created",
-        status: "completed",
-        artifacts: [],
-      });
-    });
+    await waitFor(() => expect(apiMocks.getRun).toHaveBeenCalled());
+    runStatus = "completed";
+    await act(async () => events?.fail());
 
     expect(
       await screen.findByText("数据截至 2026-07-10。最终可读回答。"),
@@ -1052,6 +1405,91 @@ describe("Workbench navigation reliability", () => {
         selector: ".assistant-message-header span",
       }),
     ).toBeVisible();
+  });
+
+  it("keeps cancel pending until polling confirms the cancelled state", async () => {
+    const cancelledMessage: ChatMessage = {
+      ...assistantMessage,
+      message_id: "msg_assistant_new",
+      content: "",
+      status: "cancelled",
+      run_id: "run_created",
+    };
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          ...assistantMessage,
+          message_id: "msg_user_new",
+          role: "user",
+          content: "请复盘最新交易日",
+          status: "completed",
+          run_id: "run_created",
+        },
+        cancelledMessage,
+      ]);
+    let runStatus: Run["status"] = "running";
+    apiMocks.getRun.mockImplementation(async () => ({
+      ...bundle.run,
+      run_id: "run_created",
+      status: runStatus,
+      artifacts: [],
+    }));
+    apiMocks.cancelRun.mockResolvedValue({
+      ...bundle.run,
+      run_id: "run_created",
+      status: "running",
+      artifacts: [],
+    });
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await user.click(await screen.findByRole("button", { name: /今日复盘/ }));
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+    const events = mockEventSources.at(-1);
+    expect(events).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: "停止生成" }));
+    expect(
+      await screen.findByRole("button", { name: "停止请求已提交" }),
+    ).toBeDisabled();
+
+    await waitFor(() => expect(apiMocks.getRun).toHaveBeenCalled());
+    runStatus = "cancelled";
+    await act(async () => events?.fail());
+
+    expect(
+      await screen.findByText("已停止生成，已保留已生成内容。"),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "停止请求已提交" })).toBeNull();
+  });
+
+  it("closes the event stream and polling timer when unmounted", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getRun.mockResolvedValue({
+      ...bundle.run,
+      run_id: "run_created",
+      status: "running",
+      artifacts: [],
+    });
+    const clearIntervalSpy = vi.spyOn(window, "clearInterval");
+    const user = userEvent.setup();
+    const view = render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await user.click(await screen.findByRole("button", { name: /今日复盘/ }));
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+    const events = mockEventSources.at(-1);
+    expect(events).toBeDefined();
+
+    view.unmount();
+
+    expect(events?.close).toHaveBeenCalled();
+    expect(clearIntervalSpy).toHaveBeenCalled();
+    clearIntervalSpy.mockRestore();
   });
 
   it("configures session-only BYOK without exposing the key", async () => {
@@ -1098,6 +1536,7 @@ describe("Workbench navigation reliability", () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await user.click(await screen.findByRole("button", { name: "问答" }));
     await user.click(
       await screen.findByRole("button", { name: "重新生成回答" }),
     );

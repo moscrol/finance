@@ -419,6 +419,7 @@ class AgentSession:
             timeout=self.options.wiki_rag_timeout,
             excerpt_chars=self.options.wiki_rag_excerpt,
             index_dir=self.options.wiki_rag_index_dir,
+            require_fresh=True,  # formal 证据路径：过期/未知命中 fail-closed，不进 LLM 证据
         )
         if not wr.ok:
             return f"wiki 语义召回不可用：{wr.warning or '未知原因'}"

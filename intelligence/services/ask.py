@@ -29,7 +29,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, research_brief, scenario_tree, user_memory
+from intelligence.services import ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, perspective_lab, research_brief, scenario_tree, user_memory
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -42,6 +42,10 @@ from intelligence.services.answer_orchestrator import (
     plan_answer_question,
 )
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_estimate, valuation_gap
+from intelligence.services.trading_calendar import (
+    next_trading_day,
+    trading_day_prompt_block,
+)
 from intelligence.services.theme_modules import (
     MODULE_BRIEF,
     MODULE_DEEP_DIVE,
@@ -199,6 +203,8 @@ class AskOptions:
     compose_revise_on_warn: bool = True
     conversation_context: str = ""
     supplemental_evidence: str = ""
+    perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL
+    perspective_ids: tuple[str, ...] = ()
     stream_text_delta: Callable[[str], None] | None = field(
         default=None, repr=False, compare=False
     )
@@ -225,6 +231,7 @@ class AskResult:
     matched_theme: str | None
     candidate_tier: str | None
     priority_score: float | None
+    next_trade_date: str | None = None
     market_data_source: str = "unknown"
     snapshot_date: str | None = None
     data_notice: str | None = None
@@ -437,6 +444,29 @@ def _evidence_is_stale(item: dict[str, Any], stale_days: int) -> bool:
     return (date_cls.today() - ev_date).days > stale_days
 
 
+def _company_exposure_tier(row: dict[str, Any]) -> str:
+    strength = str(row.get("strength") or "").lower()
+    confidence = str(row.get("confidence") or "").lower()
+    evidence_layer = str(row.get("evidence_layer") or "").lower()
+    direct_company_evidence = (
+        evidence_layer in {"l3", "l2_l3", "l3_l4", "official"}
+        and "candidate" not in evidence_layer
+    )
+    if (
+        strength in {"core", "strong"}
+        and confidence == "high"
+        and direct_company_evidence
+    ):
+        return "core"
+    if (
+        strength in {"peripheral", "weak"}
+        or evidence_layer in {"graph_only", "exposure_only"}
+        or confidence == "low"
+    ):
+        return "peripheral"
+    return "other"
+
+
 # 旧结论核验门：这些 wiki 目录里的页面本质是“某个时点的判断”而非可直接引用的事实，
 # W 召回命中时打〔历史基线〕标签，合成层按先验处理（当下盘面核验 + 四态对照）。
 _PRIOR_CONCLUSION_DIRS = ("synthesis/", "briefings/")
@@ -502,6 +532,7 @@ def answer_query(options: AskOptions) -> AskResult:
         matched_theme=(candidate or {}).get("canonical_concept") or (candidate or {}).get("market_theme"),
         candidate_tier=(candidate or {}).get("candidate_tier"),
         priority_score=(candidate or {}).get("priority_score"),
+        next_trade_date=next_trading_day(trade_date, db_path=options.market_db_path),
         market_data_source=market_data_source,
         snapshot_date=snapshot_date,
         data_notice=data_notice,
@@ -512,6 +543,13 @@ def answer_query(options: AskOptions) -> AskResult:
     question_plan = plan_answer_question(options.query)
     result.question_plan = question_plan
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
+    if _is_market_index_comparison_query(options.query):
+        _populate_market_index_comparison(
+            result,
+            options.query,
+            options.market_db_path,
+        )
+        return result
     if question_plan.question_type == QUESTION_MARKET_FORECAST:
         result.forecast_preflight = _forecast_preflight_for_options(
             options,
@@ -596,19 +634,18 @@ def answer_query(options: AskOptions) -> AskResult:
     company_lines: list[str] = []
     exposures = knowledge.get_exposure_matches(graph_query, limit=options.top_companies)
     tiers: dict[str, list[str]] = {"core": [], "peripheral": [], "other": []}
+    company_evidence_concepts: dict[str, str] = {}
     if exposures.get("found"):
         result.found_graph = True
         for row in exposures["items"]:
-            strength = str(row.get("strength") or "").lower()
-            conf = str(row.get("confidence") or "")
+            conf = str(row.get("confidence") or "").lower()
             layer = str(row.get("evidence_layer") or "")
-            label = f"{row.get('company')}({row.get('ticker')}|{row.get('role') or '—'}|{conf or '?'}/{layer or '?'})"
-            if strength in {"core", "strong"} or conf in {"high"}:
-                tiers["core"].append(label)
-            elif strength in {"peripheral", "weak"} or layer in {"graph_only"}:
-                tiers["peripheral"].append(label)
-            else:
-                tiers["other"].append(label)
+            company = str(row.get("company") or "").strip()
+            concept = str(row.get("concept") or "").strip()
+            if company and concept:
+                company_evidence_concepts[company] = concept
+            label = f"{company}({row.get('ticker')}|{row.get('role') or '—'}|{conf or '?'}/{layer or '?'})"
+            tiers[_company_exposure_tier(row)].append(label)
         tag = cite("G", "knowledge-base · wiki/relations/entity_exposures.json")
         if tiers["core"]:
             company_lines.append(f"核心层：{'、'.join(tiers['core'])} {tag}")
@@ -627,10 +664,13 @@ def answer_query(options: AskOptions) -> AskResult:
     if result.matched_theme:
         targets.append(result.matched_theme)
     targets.append(options.query)
-    for label in tiers["core"][:3]:
-        targets.append(label.split("(")[0])
+    targets.extend(company_evidence_concepts)
     for target in dict.fromkeys(t for t in targets if t):
-        ev = knowledge.get_evidence(target, limit=options.max_evidence)
+        ev = knowledge.get_evidence(
+            target,
+            concept=company_evidence_concepts.get(target),
+            limit=options.max_evidence,
+        )
         if not ev.get("found"):
             continue
         for item in ev["items"]:
@@ -689,6 +729,7 @@ def answer_query(options: AskOptions) -> AskResult:
             timeout=options.wiki_rag_timeout,
             excerpt_chars=options.wiki_rag_excerpt,
             index_dir=options.wiki_rag_index_dir,
+            require_fresh=True,  # formal 证据路径：过期/未知命中 fail-closed，不进 LLM 证据
         )
         wiki_stats.update(
             {
@@ -761,6 +802,11 @@ def answer_query(options: AskOptions) -> AskResult:
                 module_block.append(f"（{name} 模块未接入产出：{reason}）")
                 result.warnings.append(f"模块 {name}：{reason}")
 
+    framing = _stablecoin_payment_framing(
+        options.query,
+        result.matched_theme,
+    )
+
     # --- gaps / contradictions ---
     gap_lines: list[str] = []
     ks = (candidate or {}).get("knowledge_status") or {}
@@ -773,6 +819,11 @@ def answer_query(options: AskOptions) -> AskResult:
         gap_lines.append(
             f"{len(tiers['peripheral'])} 家公司为 graph_only/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据"
         )
+    if tiers["other"]:
+        gap_lines.append(
+            f"{len(tiers['other'])} 家公司仅有间接或候选证据，未达到公司级硬证据门槛，不得升级为核心受益。"
+        )
+    gap_lines.extend(framing.get("gaps", []))
     gap_lines.extend(stale_notes)
     gap_lines.append(
         "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
@@ -788,7 +839,7 @@ def answer_query(options: AskOptions) -> AskResult:
     gap_lines.extend(f"反方审稿：{item}" for item in quality_context.critic_questions)
 
     # ---------- assemble fixed six sections ----------
-    theme = result.matched_theme or options.query
+    theme = _quoted_topic(options.query) or result.matched_theme or options.query
     triggers = "、".join((candidate or {}).get("trigger_types", []) or []) or "无盘面触发"
     concept_count = ks.get("concept_count", len(concepts.get("items", [])))
     exposure_count = ks.get("exposure_count", len(exposures.get("items", [])))
@@ -820,9 +871,10 @@ def answer_query(options: AskOptions) -> AskResult:
         + f"：{stance}。",
         f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
         route_line,
-        "（注：结论与交易含义为模板化骨架，待接 LLM 精修；证据链/分歧/模块召回为真实检索结果。）",
+        "结论与交易含义为确定性结构化结果；证据不足处已标为待验证。",
         _conclusion_ttl_line(result.trade_date),
     ]
+    conclusion = [*framing.get("conclusion", []), *conclusion]
 
     follow_ups: list[str] = []
     if "double_red" in trig:
@@ -836,6 +888,7 @@ def answer_query(options: AskOptions) -> AskResult:
     follow_ups.extend(f"市场结构推演路径跟踪：{item}" for item in quality_context.methodology_checks if "缺口" in item)
     for mod_name, item in module_follow_ups:
         follow_ups.append(f"[{mod_name}] {item}")
+    follow_ups = [*framing.get("follow_ups", []), *follow_ups]
     if not follow_ups:
         follow_ups.append("补充盘面与基本面证据后再评估")
 
@@ -864,7 +917,16 @@ def answer_query(options: AskOptions) -> AskResult:
         + [f"{SUBHEAD}图谱·语义召回(wiki 向量)"] + wiki_section
         + module_block
     )
-    if question_plan.question_type in {QUESTION_MARKET_REVIEW, QUESTION_MARKET_FORECAST}:
+    if framing:
+        evidence_chain = [
+            f"{SUBHEAD}题材定义与产业链口径",
+            *framing["evidence"],
+            *evidence_chain,
+        ]
+    if question_plan.question_type in {
+        QUESTION_MARKET_REVIEW,
+        QUESTION_MARKET_FORECAST,
+    }:
         daily_market_block = _daily_market_overview_block_for_llm(
             options.market_db_path
         )
@@ -1215,18 +1277,34 @@ def answer_query(options: AskOptions) -> AskResult:
                 f"{evidence_text}\n\n## 本轮产品 Skill 结构化结果\n"
                 f"{options.supplemental_evidence}"
             )
+        evidence_text = (
+            f"{evidence_text}\n\n"
+            f"{trading_day_prompt_block(result.trade_date, db_path=options.market_db_path)}"
+        )
         citation_legend = "\n".join(
             f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
         )
         us = userspace.user_space(options.user)
-        cards, card_warn = experience_cards.load_cards(
-            us.experience_cards_path,
-            window=options.experience_cards_window,
+        perspective_context = perspective_lab.build_runtime_context(
+            us,
+            mode=options.perspective_mode,
+            perspective_ids=options.perspective_ids,
+            query=options.query,
         )
-        if card_warn:
-            result.warnings.append(card_warn)
-        selected_cards = experience_cards.select_relevant_cards(cards, options.query)
-        experience_guidance = experience_cards.render_for_prompt(selected_cards)
+        experience_guidance = ""
+        if options.include_memory_block:
+            cards, card_warn = experience_cards.load_cards(
+                us.experience_cards_path,
+                window=options.experience_cards_window,
+            )
+            if card_warn:
+                result.warnings.append(card_warn)
+            selected_cards = experience_cards.select_relevant_cards(
+                cards, options.query
+            )
+            experience_guidance = experience_cards.render_for_prompt(
+                selected_cards
+            )
         exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
         if options.include_scenario_guidance:
             scenario_guidance = scenario_tree.scenario_guidance_for_query(
@@ -1244,6 +1322,10 @@ def answer_query(options: AskOptions) -> AskResult:
             quality_context=None if is_market_review else quality_context,
             experience_guidance="" if is_market_review else experience_guidance,
             exemplar_guidance=exemplar_guidance,
+        )
+        msgs[0]["content"] = (
+            f"{msgs[0]['content']}\n\n## 本轮视角约束\n"
+            f"{perspective_context.prompt}"
         )
         if options.conversation_context:
             msgs.insert(
@@ -2077,6 +2159,183 @@ def _market_data_asof(market_db_path: str | Path | None) -> str | None:
         return None
 
 
+def _is_market_index_comparison_query(query: str) -> bool:
+    names = ("上证指数", "深证成指", "创业板指")
+    return sum(name in query for name in names) >= 2
+
+
+def _quoted_topic(query: str) -> str | None:
+    match = re.search(r"[“《\"]([^”》\"]{2,40})[”》\"]", query)
+    return match.group(1).strip() if match else None
+
+
+def _stablecoin_payment_framing(
+    query: str,
+    matched_theme: str | None,
+) -> dict[str, list[str]]:
+    if "稳定币" not in query or not any(
+        term in query for term in ("支付", "题材", "产业链")
+    ):
+        return {}
+    framing = {
+        "conclusion": [
+            "题材定义（产业翻译，非公司级事实）：稳定币支付是以锚定法币或"
+            "低波动资产的数字代币作为支付或结算媒介的研究方向。"
+        ],
+        "evidence": [
+            "产业链上游（待验证）：发行与储备管理、合规托管、清算网络和"
+            "安全基础设施。",
+            "产业链中游（待验证）：钱包、支付网关、身份与风控、安全芯片，"
+            "以及银行或跨境系统集成。",
+            "产业链下游（待验证）：商户收单、跨境贸易和汇款等支付场景；"
+            "A股公司只有获得公告、年报、官网或客户订单支持，才能升级为核心受益。",
+        ],
+        "gaps": [
+            "事实、推测与待验证边界：上述题材定义和产业链仅是研究口径；"
+            "公司归属仍需逐家核验直接产品、客户、订单和收入贡献。"
+        ],
+        "follow_ups": [
+            "核验动作：逐家公司检查公告、年报和官网，确认产品是否直接服务"
+            "稳定币支付，以及是否已有客户、订单或收入。"
+        ],
+    }
+    if matched_theme and matched_theme not in query:
+        framing["conclusion"].append(
+            f"盘面数据仅以“{matched_theme}”作为近似映射，不能替代"
+            "“稳定币支付”本身的公司级证据。"
+        )
+    return framing
+
+
+def _finite_float(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number == number and abs(number) != float("inf") else None
+
+
+def _populate_market_index_comparison(
+    result: AskResult,
+    query: str,
+    market_db_path: str | Path | None,
+) -> None:
+    requested = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", query)
+    trade_date = requested.group(1) if requested else result.trade_date
+    result.trade_date = trade_date
+    result.next_trade_date = next_trading_day(
+        trade_date,
+        db_path=market_db_path,
+    )
+    db_path = (
+        Path(market_db_path).expanduser()
+        if market_db_path
+        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    )
+    row: tuple[Any, ...] | None = None
+    if trade_date and db_path.exists():
+        try:
+            import duckdb  # type: ignore
+
+            con = duckdb.connect(str(db_path), read_only=True)
+            try:
+                row = con.execute(
+                    """
+                    select sh_index_close, sh_index_pct_chg, sh_index_amount,
+                           sh_index_volume, sh_index_source
+                    from fact_market_daily
+                    where trade_date = ?
+                    """,
+                    [trade_date],
+                ).fetchone()
+            finally:
+                con.close()
+        except Exception:
+            row = None
+
+    evidence: list[str] = []
+    gaps: list[str] = []
+    citations: list[Citation] = []
+    if row:
+        close = _finite_float(row[0])
+        pct_chg = _finite_float(row[1])
+        amount = _finite_float(row[2])
+        volume = _finite_float(row[3])
+        raw_source = str(row[4] or "")
+        source = (
+            "AkShare 上证指数日线"
+            if raw_source.startswith("akshare:")
+            else "本地市场数据"
+        )
+        metric = "成交额缺失；成交量等可用强弱指标也缺失"
+        if amount is not None:
+            metric = f"成交额 {amount / 100_000_000:.2f} 亿元"
+        elif volume is not None:
+            metric = (
+                f"成交额缺失；可用强弱指标为成交量 "
+                f"{volume / 100_000_000:.2f} 亿"
+            )
+        close_text = f"{close:.3f}" if close is not None else "缺失"
+        pct_text = f"{pct_chg:+.2f}%" if pct_chg is not None else "缺失"
+        evidence.append(
+            f"上证指数：收盘 {close_text}，当日涨跌 {pct_text}，{metric}；"
+            f"来源：{source}；数据截止日：{trade_date}。[S1]"
+        )
+        citations.append(
+            Citation(
+                "S1",
+                source,
+                f"上证指数日线，截至 {trade_date}",
+            )
+        )
+        result.found_market = True
+    else:
+        evidence.append(
+            f"上证指数：当日涨跌、成交或强弱指标均缺失；"
+            f"当前本地数据源未找到 {trade_date or '目标日期'} 记录，不猜测。"
+        )
+        gaps.append("上证指数目标交易日记录缺失。")
+
+    for name in ("深证成指", "创业板指"):
+        evidence.append(
+            f"{name}：当日涨跌、成交或强弱指标均缺失；"
+            "当前本地市场库未覆盖该指数日线，不使用其他指数或自然语言描述代替。"
+        )
+        gaps.append(f"{name}日线未接入，无法完成三指数强弱排序。")
+
+    next_trade_line = (
+        f"下一交易日为 {result.next_trade_date}（按交易日历确认）。"
+        if result.next_trade_date
+        else "下一交易日待交易日历确认，不按自然日猜测。"
+    )
+    conclusion = [
+        f"{trade_date or '目标日期'} 的三指数对比只能部分完成："
+        "上证指数有可验证日线，深证成指和创业板指明确缺失。",
+        next_trade_line,
+    ]
+    result.sections = {
+        "结论": conclusion,
+        "证据链": evidence,
+        "分歧反证": gaps
+        or ["三项指数均有完整同口径日线，可直接比较。"],
+        "后续验证点": [
+            "补同步深证成指与创业板指同一交易日的收盘、涨跌幅和成交指标。",
+            "三项指数必须使用同一来源、同一截止日后再做强弱排序。",
+            f"在 {result.next_trade_date or '下一交易日'} 开盘前复核数据是否完成更新。",
+        ],
+        "检索可观测": [],
+        "输出质检": [],
+        "交易含义": [
+            "当前只能确认上证指数当日表现，不能据此推断深证成指或创业板指相对强弱。"
+        ],
+        "引用来源": [
+            f"[{citation.tag}] {citation.source} — {citation.detail}"
+            for citation in citations
+        ],
+    }
+    result.citations = citations
+
+
 def _market_value_block_for_llm(
     query: str,
     theme: str | None,
@@ -2418,6 +2677,7 @@ def _pct(value: float) -> float:
 
 SUBHEAD = "\x00SUB\x00"
 SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检索可观测", "输出质检", "交易含义", "引用来源"]
+NO_EVIDENCE_NOTICE = "本轮没有可验证来源，以下内容只能作为待验证推测。"
 
 
 def render_answer(result: AskResult) -> str:
@@ -2442,6 +2702,8 @@ def render_answer(result: AskResult) -> str:
     lines.append("> " + " | ".join(meta))
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
+    if not result.citations:
+        lines.append(f"> {NO_EVIDENCE_NOTICE}")
     if result.synthesis:
         lines.append("")
         lines.append("## 【对话式回答】"
@@ -2473,12 +2735,26 @@ def render_answer(result: AskResult) -> str:
 
 
 def render_conversation_answer(result: AskResult) -> str:
+    evidence_notice = f"{NO_EVIDENCE_NOTICE}\n\n" if not result.citations else ""
     if result.synthesis:
         return result.synthesis
 
     lines: list[str] = []
+    if evidence_notice:
+        lines.append(NO_EVIDENCE_NOTICE)
     if result.data_notice:
+        if lines:
+            lines.append("")
         lines.append(result.data_notice)
+    if re.search(r"T\+1|下一交易日|明天", result.query, re.IGNORECASE):
+        if lines:
+            lines.append("")
+        if result.next_trade_date:
+            lines.append(
+                f"下一交易日为 {result.next_trade_date}（按交易日历确认，不按自然日顺延）。"
+            )
+        else:
+            lines.append("下一交易日（日期待交易日历确认），不得按自然日猜测。")
     if result.market_summary:
         if lines:
             lines.append("")
@@ -2489,11 +2765,44 @@ def render_conversation_answer(result: AskResult) -> str:
                 1,
             )
         )
-    if not result.market_summary:
+
+    visible_sections = (
+        ("结论", 8),
+        ("证据链", 40),
+        ("分歧反证", 12),
+        ("后续验证点", 12),
+        ("交易含义", 6),
+        ("引用来源", 12),
+    )
+    rendered_sections = False
+    for title, limit in visible_sections:
+        if result.market_summary and title == "证据链":
+            continue
+        items = result.sections.get(title, [])
+        if not items:
+            continue
+        if lines:
+            lines.append("")
+        lines.append(f"## {title}")
+        for item in items[:limit]:
+            if item.startswith(SUBHEAD):
+                lines.append(f"### {item[len(SUBHEAD):]}")
+            else:
+                lines.append(f"- {item}")
+        rendered_sections = True
+
+    if rendered_sections or result.market_summary:
         if lines:
             lines.append("")
         lines.append(
-            "本轮检索已完成，但自然语言综合暂时不可用。"
-            "数据来源、运行轨迹和结构化产物保留在“运行详情”中，请稍后重试。"
+            "自然语言综合暂时不可用；以上为确定性检索结果，"
+            "缺失项未作猜测。完整来源和结构化产物保留在“运行详情”中。"
+        )
+    else:
+        if lines:
+            lines.append("")
+        lines.append(
+            "本轮检索已完成，但没有形成可展示的确定性结果。"
+            "自然语言综合暂时不可用，请在“运行详情”中核对数据缺口后重试。"
         )
     return "\n".join(lines).rstrip() + "\n"

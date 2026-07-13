@@ -59,6 +59,12 @@ export function MessageBubble({
         : terminalStatus === "failed"
           ? "失败"
           : "已完成";
+  const hasBoundEvidence =
+    bundle?.context.evidence.some(
+      (item) => item.classification === "bound_evidence",
+    ) ?? true;
+  const noEvidenceNotice =
+    "本轮没有可验证来源，以下内容只能作为待验证推测。";
 
   if (message.role === "user") {
     return (
@@ -87,7 +93,14 @@ export function MessageBubble({
           statuses={statuses}
         />
         {message.degrades.includes("llm_unavailable_template_answer") && (
-          <span className="template-answer-label">模板表达 · 未配置 LLM</span>
+          <span className="template-answer-label">
+            自然语言综合暂时不可用
+          </span>
+        )}
+        {!hasBoundEvidence && !content.includes(noEvidenceNotice) && (
+          <div className="message-evidence-warning" role="status">
+            {noEvidenceNotice}
+          </div>
         )}
         {content ? (
           <MarkdownView source={content} />
