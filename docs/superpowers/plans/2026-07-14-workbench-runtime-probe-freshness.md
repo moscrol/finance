@@ -122,3 +122,103 @@ if terminal_cutoff is None or terminal_cutoff < readiness_cutoff:
 ```bash
 git commit -m "fix: refresh runtime probe provenance"
 ```
+
+### Task 5: Include DuckDB WAL in the Version Boundary
+
+**Files:**
+- Modify: `intelligence/services/conversation_orchestrator.py`
+- Test: `intelligence/tests/test_conversation_orchestrator.py`
+
+- [ ] **Step 1: Add a real DuckDB writer/WAL regression test**
+
+```python
+writer = duckdb.connect(str(runtime_inputs.market_db_path))
+writer.execute("insert into fact_market_daily values (?)", ["2026-07-13"])
+wal_path = Path(f"{runtime_inputs.market_db_path}.wal")
+assert wal_path.is_file()
+assert _runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-13"
+```
+
+- [ ] **Step 2: Run the WAL test and confirm the old 07-10 cache is returned**
+
+Run: `pytest intelligence/tests/test_conversation_orchestrator.py -k wal -q`
+
+- [ ] **Step 3: Replace the single-file fingerprint with a DB/WAL composite**
+
+```python
+@dataclass(frozen=True)
+class _RuntimeDatabaseFingerprint:
+    database: _RuntimeFileFingerprint
+    wal: _RuntimeFileFingerprint
+```
+
+The WAL fingerprint records `exists=False` with nullable stat fields when absent. A stat error returns `None` for the composite. Resolve the WAL from `Path(f"{database.canonical_path}.wal")`.
+
+- [ ] **Step 4: Make probe-time fingerprint changes fail closed**
+
+```python
+effective_cutoff = (
+    cutoff
+    if inflight.fingerprint is not None
+    and completed_fingerprint == inflight.fingerprint
+    else None
+)
+inflight.future.set_result(effective_cutoff)
+```
+
+- [ ] **Step 5: Re-run the WAL and existing fingerprint tests**
+
+### Task 6: Bound Physical Probe Workers
+
+**Files:**
+- Modify: `intelligence/services/conversation_orchestrator.py`
+- Test: `intelligence/tests/test_conversation_orchestrator.py`
+
+- [ ] **Step 1: Add a short-lease capacity stress test**
+
+```python
+monkeypatch.setattr(module, "_RUNTIME_PROBE_SLOTS", BoundedSemaphore(2))
+for _ in range(6):
+    assert _runtime_cutoff_with_timeout(runtime_inputs) is None
+    time.sleep(0.01)
+assert probe_calls == 2
+assert max_active_workers == 2
+```
+
+- [ ] **Step 2: Assert releasing one old worker permits recovery**
+
+```python
+release_events[0].set()
+assert old_futures[0].result(timeout=0.2) == "2026-07-10"
+assert _runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-13"
+```
+
+- [ ] **Step 3: Run the capacity test and confirm calls exceed two before the fix**
+
+Run: `pytest intelligence/tests/test_conversation_orchestrator.py -k physical_capacity -q`
+
+- [ ] **Step 4: Acquire a non-blocking semaphore slot before creating inflight state**
+
+```python
+probe_slots = _RUNTIME_PROBE_SLOTS
+if not probe_slots.acquire(blocking=False):
+    return None
+```
+
+- [ ] **Step 5: Release the captured semaphore only when the actual worker exits**
+
+```python
+def probe_once() -> None:
+    try:
+        run_probe()
+    finally:
+        probe_slots.release()
+```
+
+- [ ] **Step 6: Run focused, expanded backend, frontend, static, and pre-commit checks**
+
+- [ ] **Step 7: Create one commit without push or merge**
+
+```bash
+git commit -m "fix: bound WAL-aware runtime probes"
+```

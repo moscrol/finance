@@ -4,7 +4,15 @@ import time
 import urllib.error
 from collections.abc import Callable
 from dataclasses import asdict, replace
-from threading import BoundedSemaphore, Event, Lock, Thread, current_thread
+from pathlib import Path
+from threading import (
+    BoundedSemaphore,
+    Event,
+    Lock,
+    Thread,
+    current_thread,
+    enumerate as enumerate_threads,
+)
 
 import pytest
 
@@ -1450,6 +1458,8 @@ def test_turn_persists_runtime_duckdb_cutoff_without_source_date_overwrite(
         knowledge_wiki=tmp_path / "wiki",
         vector_index_dir=tmp_path / ".rag_index",
     )
+    runtime_inputs.market_db_path.parent.mkdir(parents=True)
+    runtime_inputs.market_db_path.write_bytes(b"fixture-db")
     monkeypatch.setattr(
         orchestrator_module,
         "probe_market_inputs",
@@ -1685,6 +1695,102 @@ def test_runtime_probe_refreshes_after_canonical_db_version_changes(
     assert probe_calls == 2
 
 
+def test_runtime_probe_invalidates_cache_when_real_duckdb_wal_appears(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    runtime_inputs = RuntimeResearchInputs.from_roots(
+        code_root=tmp_path,
+        data_root=tmp_path / "data",
+        users_root=tmp_path / "users",
+        knowledge_wiki=tmp_path / "wiki",
+        vector_index_dir=tmp_path / ".rag_index",
+    )
+    runtime_inputs.market_db_path.parent.mkdir(parents=True)
+    initial_writer = duckdb.connect(str(runtime_inputs.market_db_path))
+    initial_writer.execute("create table fact_market_daily(trade_date date)")
+    initial_writer.execute(
+        "insert into fact_market_daily values (?)",
+        ["2026-07-10"],
+    )
+    initial_writer.close()
+    wal_path = Path(f"{runtime_inputs.market_db_path}.wal")
+    assert not wal_path.exists()
+
+    actual_probe = orchestrator_module.probe_market_inputs
+    probe_sources: list[str] = []
+
+    def initial_probe(inputs):
+        probe_sources.append("initial")
+        return actual_probe(inputs)
+
+    orchestrator_module._RUNTIME_PROBE_CACHE.clear()
+    orchestrator_module._RUNTIME_PROBE_INFLIGHT.clear()
+    monkeypatch.setattr(orchestrator_module, "probe_market_inputs", initial_probe)
+    assert (
+        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
+        == "2026-07-10"
+    )
+
+    writer = duckdb.connect(str(runtime_inputs.market_db_path))
+    try:
+        writer.execute("begin")
+        writer.execute(
+            "insert into fact_market_daily values (?)",
+            ["2026-07-13"],
+        )
+        writer.execute("commit")
+        assert wal_path.is_file()
+        assert wal_path.stat().st_size > 0
+
+        def wal_probe(inputs):
+            probe_sources.append("wal")
+            cutoff = writer.execute(
+                "select max(trade_date) from fact_market_daily"
+            ).fetchone()[0]
+            return type("Status", (), {"duckdb_cutoff": str(cutoff)})()
+
+        monkeypatch.setattr(orchestrator_module, "probe_market_inputs", wal_probe)
+        assert (
+            orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
+            == "2026-07-13"
+        )
+    finally:
+        writer.close()
+
+    assert probe_sources == ["initial", "wal"]
+
+
+def test_runtime_probe_fails_closed_when_wal_changes_during_probe(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    runtime_inputs = RuntimeResearchInputs.from_roots(
+        code_root=tmp_path,
+        data_root=tmp_path / "data",
+        users_root=tmp_path / "users",
+        knowledge_wiki=tmp_path / "wiki",
+        vector_index_dir=tmp_path / ".rag_index",
+    )
+    runtime_inputs.market_db_path.parent.mkdir(parents=True)
+    runtime_inputs.market_db_path.write_bytes(b"fixture-db")
+    wal_path = Path(f"{runtime_inputs.market_db_path}.wal")
+
+    def changing_wal_probe(inputs):
+        wal_path.write_bytes(b"new-committed-wal")
+        return type("Status", (), {"duckdb_cutoff": "2026-07-13"})()
+
+    orchestrator_module._RUNTIME_PROBE_CACHE.clear()
+    orchestrator_module._RUNTIME_PROBE_INFLIGHT.clear()
+    monkeypatch.setattr(orchestrator_module, "probe_market_inputs", changing_wal_probe)
+
+    assert orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) is None
+    assert orchestrator_module._runtime_probe_key(runtime_inputs) not in (
+        orchestrator_module._RUNTIME_PROBE_CACHE
+    )
+
+
 def test_runtime_probe_retries_immediately_after_transient_failure(
     tmp_path,
     monkeypatch,
@@ -1737,13 +1843,13 @@ def test_runtime_probe_does_not_use_success_cache_when_fingerprint_fails(
     )
     assert fingerprint is not None
     fingerprint_calls = 0
-    cutoffs = iter(("2026-07-10", "2026-07-13"))
+    cutoffs = iter(("2026-07-10", "2026-07-13", "2026-07-13"))
     probe_calls = 0
 
     def intermittent_fingerprint(path):
         nonlocal fingerprint_calls
         fingerprint_calls += 1
-        return fingerprint if fingerprint_calls <= 2 else None
+        return fingerprint if fingerprint_calls <= 2 or fingerprint_calls >= 5 else None
 
     def changing_probe(inputs):
         nonlocal probe_calls
@@ -1763,11 +1869,12 @@ def test_runtime_probe_does_not_use_success_cache_when_fingerprint_fails(
         orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
         == "2026-07-10"
     )
+    assert orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) is None
     assert (
         orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
         == "2026-07-13"
     )
-    assert probe_calls == 2
+    assert probe_calls == 3
 
 
 def test_runtime_probe_retries_after_hung_inflight_lease_expires(
@@ -1863,6 +1970,119 @@ def test_old_runtime_probe_generation_cannot_overwrite_new_cache(
         == "2026-07-13"
     )
     assert probe_calls == 2
+
+
+def test_runtime_probe_physical_capacity_bounds_hung_generations(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    runtime_inputs = RuntimeResearchInputs.from_roots(
+        code_root=tmp_path,
+        data_root=tmp_path / "data",
+        users_root=tmp_path / "users",
+        knowledge_wiki=tmp_path / "wiki",
+        vector_index_dir=tmp_path / ".rag_index",
+    )
+    runtime_inputs.market_db_path.parent.mkdir(parents=True)
+    runtime_inputs.market_db_path.write_bytes(b"fixture-db")
+    capacity = 2
+    release_events = [Event() for _ in range(12)]
+    started_events = [Event() for _ in range(12)]
+    futures = []
+    probe_calls = 0
+    active_workers = 0
+    max_active_workers = 0
+    state_lock = Lock()
+    recovery_mode = Event()
+    baseline_threads = sum(
+        thread.name.startswith("workbench-runtime-probe")
+        and thread.is_alive()
+        for thread in enumerate_threads()
+    )
+
+    def capacity_probe(inputs):
+        nonlocal probe_calls, active_workers, max_active_workers
+        with state_lock:
+            index = probe_calls
+            probe_calls += 1
+            active_workers += 1
+            max_active_workers = max(max_active_workers, active_workers)
+        started_events[index].set()
+        try:
+            if not recovery_mode.is_set():
+                release_events[index].wait(timeout=1)
+                return type("Status", (), {"duckdb_cutoff": "2026-07-10"})()
+            return type("Status", (), {"duckdb_cutoff": "2026-07-13"})()
+        finally:
+            with state_lock:
+                active_workers -= 1
+
+    orchestrator_module._RUNTIME_PROBE_CACHE.clear()
+    orchestrator_module._RUNTIME_PROBE_INFLIGHT.clear()
+    monkeypatch.setattr(orchestrator_module, "probe_market_inputs", capacity_probe)
+    monkeypatch.setattr(orchestrator_module, "RUNTIME_PROBE_TIMEOUT_SECONDS", 0.005)
+    monkeypatch.setattr(orchestrator_module, "RUNTIME_PROBE_LEASE_SECONDS", 0.01)
+    monkeypatch.setattr(orchestrator_module, "RUNTIME_PROBE_MAX_WORKERS", capacity)
+    monkeypatch.setattr(
+        orchestrator_module,
+        "_RUNTIME_PROBE_SLOTS",
+        BoundedSemaphore(orchestrator_module.RUNTIME_PROBE_MAX_WORKERS),
+    )
+
+    try:
+        for expected_call in range(capacity):
+            assert (
+                orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
+                is None
+            )
+            assert started_events[expected_call].wait(timeout=0.1)
+            current = next(
+                iter(orchestrator_module._RUNTIME_PROBE_INFLIGHT.values())
+            )
+            futures.append(current.future)
+            time.sleep(0.015)
+
+        for _ in range(5):
+            assert (
+                orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
+                is None
+            )
+            time.sleep(0.015)
+
+        live_threads = sum(
+            thread.name.startswith("workbench-runtime-probe")
+            and thread.is_alive()
+            for thread in enumerate_threads()
+        )
+        assert probe_calls <= capacity
+        assert max_active_workers <= capacity
+        assert live_threads - baseline_threads <= capacity
+
+        recovery_mode.set()
+        release_events[0].set()
+        assert futures[0].result(timeout=0.2) == "2026-07-10"
+        assert (
+            orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
+            == "2026-07-13"
+        )
+        assert probe_calls == capacity + 1
+        release_events[1].set()
+        assert futures[1].result(timeout=0.2) == "2026-07-10"
+        assert (
+            orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
+            == "2026-07-13"
+        )
+        assert probe_calls == capacity + 1
+        assert (
+            orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
+            == "2026-07-13"
+        )
+        assert probe_calls == capacity + 1
+    finally:
+        for event in release_events:
+            event.set()
+        for future in futures:
+            future.result(timeout=0.2)
 
 
 class _FailingSkill:

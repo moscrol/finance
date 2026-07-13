@@ -74,30 +74,39 @@ _SKILL_WORKER_SLOTS = BoundedSemaphore(8)
 RUNTIME_PROBE_TIMEOUT_SECONDS = 0.1
 RUNTIME_PROBE_CACHE_TTL_SECONDS = 30.0
 RUNTIME_PROBE_LEASE_SECONDS = 1.0
+RUNTIME_PROBE_MAX_WORKERS = 4
 _RUNTIME_PROBE_LOCK = RLock()
+_RUNTIME_PROBE_SLOTS = BoundedSemaphore(RUNTIME_PROBE_MAX_WORKERS)
 _RUNTIME_PROBE_GENERATION = 0
 
 
 @dataclass(frozen=True)
 class _RuntimeFileFingerprint:
     canonical_path: str
-    device: int
-    inode: int
-    mtime_ns: int
-    size: int
+    exists: bool
+    device: int | None
+    inode: int | None
+    mtime_ns: int | None
+    size: int | None
+
+
+@dataclass(frozen=True)
+class _RuntimeDatabaseFingerprint:
+    database: _RuntimeFileFingerprint
+    wal: _RuntimeFileFingerprint
 
 
 @dataclass(frozen=True)
 class _RuntimeProbeCacheEntry:
     cutoff: str
-    fingerprint: _RuntimeFileFingerprint
+    fingerprint: _RuntimeDatabaseFingerprint
     expires_at: float
 
 
 @dataclass(frozen=True)
 class _RuntimeProbeInflight:
     future: Future[str | None]
-    fingerprint: _RuntimeFileFingerprint | None
+    fingerprint: _RuntimeDatabaseFingerprint | None
     started_at: float
     generation: int
 
@@ -128,19 +137,42 @@ def _runtime_probe_key(inputs: RuntimeResearchInputs) -> str:
     )
 
 
-def _runtime_db_fingerprint(path: Path) -> _RuntimeFileFingerprint | None:
+def _runtime_file_fingerprint(path: Path) -> _RuntimeFileFingerprint | None:
     try:
-        canonical = path.resolve(strict=True)
-        stat = canonical.stat()
+        canonical = path.expanduser().resolve(strict=False)
     except (OSError, RuntimeError):
+        return None
+    try:
+        stat = canonical.stat()
+    except FileNotFoundError:
+        return _RuntimeFileFingerprint(
+            canonical_path=str(canonical),
+            exists=False,
+            device=None,
+            inode=None,
+            mtime_ns=None,
+            size=None,
+        )
+    except OSError:
         return None
     return _RuntimeFileFingerprint(
         canonical_path=str(canonical),
+        exists=True,
         device=stat.st_dev,
         inode=stat.st_ino,
         mtime_ns=stat.st_mtime_ns,
         size=stat.st_size,
     )
+
+
+def _runtime_db_fingerprint(path: Path) -> _RuntimeDatabaseFingerprint | None:
+    database = _runtime_file_fingerprint(path)
+    if database is None or not database.exists:
+        return None
+    wal = _runtime_file_fingerprint(Path(f"{path}.wal"))
+    if wal is None:
+        return None
+    return _RuntimeDatabaseFingerprint(database=database, wal=wal)
 
 
 def _prune_runtime_probe_state(now: float) -> None:
@@ -171,6 +203,7 @@ def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
     now = time.monotonic()
     fingerprint = _runtime_db_fingerprint(inputs.market_db_path)
     start_worker = False
+    probe_slots: BoundedSemaphore | None = None
     with _RUNTIME_PROBE_LOCK:
         _prune_runtime_probe_state(now)
         cached = _RUNTIME_PROBE_CACHE.get(key)
@@ -183,6 +216,9 @@ def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
             _RUNTIME_PROBE_INFLIGHT.pop(key, None)
             inflight = None
         if inflight is None:
+            probe_slots = _RUNTIME_PROBE_SLOTS
+            if not probe_slots.acquire(blocking=False):
+                return None
             _RUNTIME_PROBE_GENERATION += 1
             inflight = _RuntimeProbeInflight(
                 future=Future(),
@@ -194,43 +230,70 @@ def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
             start_worker = True
 
     if start_worker:
+        assert probe_slots is not None
+
         def probe_once() -> None:
+            effective_cutoff: str | None = None
             try:
-                cutoff = _valid_runtime_cutoff(
-                    probe_market_inputs(inputs).duckdb_cutoff
+                try:
+                    cutoff = _valid_runtime_cutoff(
+                        probe_market_inputs(inputs).duckdb_cutoff
+                    )
+                except Exception:  # Optional external input boundary.
+                    cutoff = None
+                completed_fingerprint = _runtime_db_fingerprint(
+                    inputs.market_db_path
                 )
-            except Exception:  # Optional external input boundary.
-                cutoff = None
-            completed_fingerprint = _runtime_db_fingerprint(
-                inputs.market_db_path
-            )
-            with _RUNTIME_PROBE_LOCK:
-                current = _RUNTIME_PROBE_INFLIGHT.get(key)
                 if (
-                    current is not None
-                    and current.generation == inflight.generation
+                    cutoff is not None
+                    and inflight.fingerprint is not None
+                    and completed_fingerprint == inflight.fingerprint
                 ):
+                    effective_cutoff = cutoff
+                with _RUNTIME_PROBE_LOCK:
+                    current = _RUNTIME_PROBE_INFLIGHT.get(key)
                     if (
-                        cutoff is not None
-                        and inflight.fingerprint is not None
-                        and completed_fingerprint == inflight.fingerprint
+                        effective_cutoff is not None
+                        and current is not None
+                        and current.generation == inflight.generation
                     ):
                         _RUNTIME_PROBE_CACHE[key] = _RuntimeProbeCacheEntry(
-                            cutoff=cutoff,
+                            cutoff=effective_cutoff,
                             fingerprint=inflight.fingerprint,
                             expires_at=(
                                 time.monotonic()
                                 + RUNTIME_PROBE_CACHE_TTL_SECONDS
                             ),
                         )
-                    _RUNTIME_PROBE_INFLIGHT.pop(key, None)
-            inflight.future.set_result(cutoff)
+            finally:
+                with _RUNTIME_PROBE_LOCK:
+                    current = _RUNTIME_PROBE_INFLIGHT.get(key)
+                    if (
+                        current is not None
+                        and current.generation == inflight.generation
+                    ):
+                        _RUNTIME_PROBE_INFLIGHT.pop(key, None)
+                probe_slots.release()
+                inflight.future.set_result(effective_cutoff)
 
-        Thread(
+        worker = Thread(
             target=probe_once,
             name="workbench-runtime-probe",
             daemon=True,
-        ).start()
+        )
+        try:
+            worker.start()
+        except RuntimeError:
+            with _RUNTIME_PROBE_LOCK:
+                current = _RUNTIME_PROBE_INFLIGHT.get(key)
+                if (
+                    current is not None
+                    and current.generation == inflight.generation
+                ):
+                    _RUNTIME_PROBE_INFLIGHT.pop(key, None)
+            probe_slots.release()
+            inflight.future.set_result(None)
+            return None
 
     try:
         return inflight.future.result(timeout=RUNTIME_PROBE_TIMEOUT_SECONDS)
