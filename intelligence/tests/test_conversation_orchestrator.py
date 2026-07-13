@@ -250,7 +250,7 @@ def test_turn_shares_one_sixty_second_budget_with_router_skill_and_ask(
         selected_skill_ids=["fixture"],
     )
 
-    assert budget.deadline_at - budget.started_at == 60.0
+    assert budget.deadline_at - budget.started_at == pytest.approx(60.0)
     assert routed_budgets == [budget]
     assert skill_budgets == [budget]
     assert ask_budgets == [budget]
