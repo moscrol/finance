@@ -267,7 +267,7 @@ test("stock deep-dive owns a traceable Workbench answer", async ({
   await expect(answer.getByText(/液冷/).first()).toBeVisible();
   await expect(
     answer.getByText(
-      /数据要素|entity_exposures|evidence_index|evidence_count|RAG|DuckDB|registry|internal/,
+      /数据要素|entity_exposures|evidence_index|evidence_count|concept_graph|RAG|DuckDB|registry|internal|baseline|multi-source|人工 review|sanity check|Provider|\brelated\b/,
     ),
   ).toHaveCount(0);
 });

@@ -777,7 +777,7 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.content == (
         "当前视角：数据中立\n"
-        "来源范围：Provider、公开来源与本轮检索证据\n\n"
+        "来源范围：数据提供方、公开来源与本轮检索证据\n\n"
         f"{sanitize_conversation_answer(raw_answer)}"
     )
     assert "2026-07-10" in assistant.content
