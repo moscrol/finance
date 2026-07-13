@@ -26,6 +26,41 @@ from intelligence.services.self_use_maturity import (  # noqa: E402
 )
 
 
+def _write_minimum_market_snapshot(root, trade_date: str = "2026-07-09") -> None:
+    root.mkdir(parents=True)
+    market = {
+        "stage": "repair",
+        "total_amount": 10000,
+        "amount_ratio": 1.0,
+        "advancers": 3000,
+        "decliners": 2000,
+        "limit_up": 50,
+        "limit_down": 5,
+        "capacity_top3": [],
+    }
+    daily = {
+        "schema_version": "market-snapshot/v1",
+        "trade_date": trade_date,
+        "market": market,
+        "themes": [],
+        "strong_stocks": [],
+    }
+    (root / "meta.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "market-snapshot/v1",
+                "latest_trade_date": trade_date,
+                "updated_at": f"{trade_date}T16:00:00+08:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (root / f"{trade_date}.json").write_text(
+        json.dumps(daily),
+        encoding="utf-8",
+    )
+
+
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     users_root = tmp_path / "users"
@@ -35,7 +70,7 @@ def client(tmp_path, monkeypatch):
     (knowledge_wiki / "relations").mkdir(parents=True)
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
     market_snapshot = tmp_path / "market_snapshot"
-    market_snapshot.mkdir()
+    _write_minimum_market_snapshot(market_snapshot)
     monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
 
     daily_dir = repo_root / "复盘" / "daily" / "2026-07-09"
@@ -847,15 +882,85 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["status"] == "ready"
     assert payload["checks"]["repo_root"] is True
     assert payload["checks"]["run_store_writable"] is True
-    assert payload["critical"]["market_snapshot"] is True
+    assert payload["critical"]["market_data"] is True
+    assert payload["capabilities"]["market_data"] == {
+        "available": True,
+        "source": "snapshot",
+        "cutoff": "2026-07-09",
+    }
+    assert payload["capabilities"]["market_snapshot"] == {
+        "available": True,
+        "as_of": "2026-07-09",
+    }
     assert payload["missing_critical"] == []
     assert payload["workers"]["capacity"] == 2
 
 
-def test_readiness_fails_when_market_snapshot_is_missing(
+def test_readiness_uses_duckdb_when_market_snapshot_is_missing(
     tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "provider-secret-value")
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    monkeypatch.setenv(
+        "MARKET_SNAPSHOT_DIR",
+        str(tmp_path / "missing-market-snapshot"),
+    )
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    market_db = repo_root / "db" / "market_feature_store.duckdb"
+    market_db.parent.mkdir()
+    import duckdb
+
+    connection = duckdb.connect(str(market_db))
+    connection.execute("create table fact_market_daily(trade_date date)")
+    connection.execute("insert into fact_market_daily values ('2026-07-13')")
+    connection.close()
+    probe = TestClient(app_module.create_app(repo_root=repo_root))
+    captured_runtime_inputs = []
+    original_probe_market_inputs = app_module.probe_market_inputs
+
+    def capture_probe(runtime_inputs):
+        captured_runtime_inputs.append(runtime_inputs)
+        return original_probe_market_inputs(runtime_inputs)
+
+    monkeypatch.setattr(app_module, "probe_market_inputs", capture_probe)
+
+    response = probe.get("/api/health/ready")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert payload["checks"]["market_snapshot"] is False
+    assert payload["critical"]["market_data"] is True
+    assert payload["capabilities"]["market_data"] == {
+        "available": True,
+        "source": "duckdb",
+        "cutoff": "2026-07-13",
+    }
+    assert payload["capabilities"]["market_snapshot"] == {
+        "available": False,
+        "as_of": None,
+    }
+    assert payload["capabilities"]["market_exports"] == {
+        "available": False,
+        "as_of": None,
+        "freshness": "missing",
+    }
+    assert payload["missing_critical"] == []
+    assert captured_runtime_inputs == [probe.app.state.runtime_inputs]
+    assert captured_runtime_inputs[0] is probe.app.state.runtime_inputs
+    assert str(tmp_path) not in response.text
+    assert "provider-secret-value" not in response.text
+
+
+def test_readiness_fails_without_any_contract_valid_market_data(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "provider-secret-value")
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
@@ -872,8 +977,20 @@ def test_readiness_fails_when_market_snapshot_is_missing(
     assert response.status_code == 503
     payload = response.json()
     assert payload["status"] == "not_ready"
-    assert payload["critical"]["market_snapshot"] is False
-    assert payload["missing_critical"] == ["market_snapshot"]
+    assert payload["checks"]["market_snapshot"] is False
+    assert payload["critical"]["market_data"] is False
+    assert payload["capabilities"]["market_data"] == {
+        "available": False,
+        "source": "none",
+        "cutoff": None,
+    }
+    assert payload["capabilities"]["market_snapshot"] == {
+        "available": False,
+        "as_of": None,
+    }
+    assert payload["missing_critical"] == ["market_data"]
+    assert str(tmp_path) not in response.text
+    assert "provider-secret-value" not in response.text
 
 
 def test_cancel_run_is_terminal_even_when_worker_finishes_later(

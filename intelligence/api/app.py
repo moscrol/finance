@@ -52,7 +52,10 @@ from intelligence.services.conversation_store import (
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.run_store import RunStore
-from intelligence.services.runtime_inputs import RuntimeResearchInputs
+from intelligence.services.runtime_inputs import (
+    RuntimeResearchInputs,
+    probe_market_inputs,
+)
 from intelligence.services.self_use_maturity import (
     SelfUseApprovalStore,
     SelfUseLedger,
@@ -1234,12 +1237,41 @@ def create_app(
             **dependency_checks(),
             "run_store_writable": run_root_ready,
         }
+        market_inputs = probe_market_inputs(app.state.runtime_inputs)
+        if market_inputs.duckdb_available:
+            market_data_source = "duckdb"
+            market_data_cutoff = market_inputs.duckdb_cutoff
+        elif market_inputs.market_snapshot_available:
+            market_data_source = "snapshot"
+            market_data_cutoff = market_inputs.market_snapshot_date
+        else:
+            market_data_source = "none"
+            market_data_cutoff = None
+        market_exports: dict[str, object] = {
+            "available": market_inputs.latest_export_date is not None,
+            "as_of": market_inputs.latest_export_date,
+            "freshness": market_inputs.export_freshness,
+        }
+        if market_inputs.export_warning:
+            market_exports["warning"] = market_inputs.export_warning
+        capabilities = {
+            "market_data": {
+                "available": market_inputs.market_data_available,
+                "source": market_data_source,
+                "cutoff": market_data_cutoff,
+            },
+            "market_exports": market_exports,
+            "market_snapshot": {
+                "available": market_inputs.market_snapshot_available,
+                "as_of": market_inputs.market_snapshot_date,
+            },
+        }
         critical = {
             "repo_root": checks["repo_root"],
             "run_store_writable": checks["run_store_writable"],
             "knowledge_wiki": checks["knowledge_wiki"],
             "relations": checks["relations"],
-            "market_snapshot": checks["market_snapshot"],
+            "market_data": market_inputs.market_data_available,
         }
         ready = all(critical.values())
         payload = {
@@ -1247,6 +1279,7 @@ def create_app(
             "timestamp": rs._now_iso(),
             "checks": checks,
             "critical": critical,
+            "capabilities": capabilities,
             "missing_critical": [
                 name for name, available in critical.items() if not available
             ],
