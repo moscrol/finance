@@ -255,6 +255,10 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
     answer_route = sanitize_user_visible_artifact_text(
         "answer-orchestrator：未高置信识别问题类型"
     )
+    market_internals = sanitize_user_visible_artifact_text(
+        "本地 DuckDB + snapshot/export；MarketAdapter.get_capacity_sectors；"
+        "capacity_industry=True；来源=knowledge_evidence"
+    )
 
     assert no_llm == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
     assert "API_KEY" not in no_llm
@@ -272,6 +276,10 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
     assert module_id == "资料覆盖情况"
     assert no_llm_code == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
     assert answer_route == "问题理解：未高置信识别问题类型"
+    assert market_internals == (
+        "本地市场数据 + 历史盘面快照；本地盘面数据；"
+        "成交容量居前=是；来源=知识库候选资料"
+    )
 
 
 def test_market_question_automatically_selects_daily_review() -> None:
@@ -668,7 +676,8 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assert "本地复盘数据" in assistant.content
     assert "历史发酵信号" in assistant.content
     assert "知识库没有提供可用补充" in assistant.content
-    assert "较高置信候选" in assistant.content
+    assert "候选资料，需公告或年报确认" in assistant.content
+    assert "L1_L3_candidate" not in assistant.content
     assert "行业资料/公司基础资料" in assistant.content
     assert "阶段状态" in assistant.content
     assert "知识库资料没有提供可用补充" in assistant.content

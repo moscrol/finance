@@ -7,7 +7,11 @@ import {
   createLiveMessageState,
   StreamEventDeduper,
 } from "../streamEvents";
-import { userFacingIssue, userFacingStage } from "../displayText";
+import {
+  userFacingIssue,
+  userFacingStage,
+  userFacingText,
+} from "../displayText";
 import { upsertStructuredReportModule } from "../structuredReport";
 import { upsertTraceStep } from "../trace";
 import type {
@@ -457,6 +461,19 @@ describe("Workbench components", () => {
       ),
     ).toBe(
       "最新日报基础文件暂不可用；本轮仅使用可用盘面数据和补充快照。",
+    );
+    expect(
+      userFacingIssue(
+        "未连接本地 DuckDB；本轮回退到 snapshot/export。",
+      ),
+    ).toBe("未连接本地市场数据；本轮回退到历史盘面快照。");
+    expect(
+      userFacingText(
+        "[S1] 2026-07-01-theme-candidates.json · market_context",
+      ),
+    ).toBe("2026-07-01 题材候选快照 · 市场环境");
+    expect(userFacingText("MarketAdapter.get_new_high_directions")).toBe(
+      "本地盘面数据",
     );
     expect(userFacingStage("ask_current_turn")).toBe("检索本轮证据");
   });
@@ -976,7 +993,7 @@ describe("Chat-first conversation components", () => {
 
     expect(
       screen.getByText(
-        "本轮没有可验证来源，以下内容只能作为待验证推测。",
+        "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
       ),
     ).toBeVisible();
   });

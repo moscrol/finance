@@ -64,7 +64,7 @@ export function MessageBubble({
       (item) => item.classification === "bound_evidence",
     ) ?? true;
   const noEvidenceNotice =
-    "本轮没有可验证来源，以下内容只能作为待验证推测。";
+    "本轮未形成可验证的公司级来源；公司判断均按待验证展示。";
 
   if (message.role === "user") {
     return (

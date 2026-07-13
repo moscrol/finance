@@ -15,6 +15,7 @@ import {
   traceStatusLabel,
   userFacingIssue,
   userFacingStage,
+  userFacingText,
 } from "../displayText";
 import type {
   ArtifactDescriptor,
@@ -46,7 +47,9 @@ function TraceItem({ step }: { step: TraceStep }) {
       <summary>
         <span className={`trace-dot trace-${step.status}`} />
         <span>
-          <strong>{step.output_summary || userFacingStage(step.name)}</strong>
+          <strong>
+            {userFacingText(step.output_summary || userFacingStage(step.name))}
+          </strong>
           <small>{traceStatusLabel(step.status)}</small>
         </span>
       </summary>
@@ -181,7 +184,9 @@ export function ResearchInspector({
                   <ShieldCheck aria-hidden="true" size={18} />
                   <div>
                     <strong>{artifact.canonical_exists ? "原始来源可用" : "原始来源缺失"}</strong>
-                    <code>{artifact.source_label ?? artifact.title}</code>
+                    <code>
+                      {userFacingText(artifact.source_label ?? artifact.title)}
+                    </code>
                   </div>
                 </div>
               )}
@@ -215,8 +220,8 @@ export function ResearchInspector({
                 <div className="inspector-item" key={item.id}>
                   <span className="evidence-mark" aria-hidden="true" />
                   <div>
-                    <strong>{item.label}</strong>
-                    <p>{item.detail}</p>
+                    <strong>{userFacingText(item.label)}</strong>
+                    <p>{userFacingText(item.detail)}</p>
                     <small>
                       {evidenceClassificationLabel(item.classification)}
                     </small>
@@ -256,14 +261,14 @@ export function ResearchInspector({
                   <BrainCircuit aria-hidden="true" size={16} />
                   <div>
                     <strong>{item.label}</strong>
-                    <p>{item.detail}</p>
-                    <small>{item.source}</small>
+                    <p>{userFacingText(item.detail)}</p>
+                    <small>{userFacingText(item.source)}</small>
                   </div>
                 </div>
               ))}
               {!context?.memory.length && (
                 <div className="inspector-empty">
-                  当前 Run 未记录记忆命中。不会把用户全部记忆误标为“本次已使用”。
+                  本次研究未使用已保存的用户记忆，也不会把未使用的记忆标成证据。
                 </div>
               )}
             </section>
@@ -277,13 +282,13 @@ export function ResearchInspector({
                   <History aria-hidden="true" size={16} />
                   <div>
                     <strong>{item.label}</strong>
-                    <p>{item.detail}</p>
-                    <small>{item.source}</small>
+                    <p>{userFacingText(item.detail)}</p>
+                    <small>{userFacingText(item.source)}</small>
                   </div>
                 </div>
               ))}
               {!context?.review.length && (
-                <div className="inspector-empty">当前 Run 没有关联 checkpoint 或历史 verdict。</div>
+                <div className="inspector-empty">本次研究没有关联的历史回检记录。</div>
               )}
             </section>
           )}

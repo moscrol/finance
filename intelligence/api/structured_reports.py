@@ -567,6 +567,70 @@ def ask_result_modules(result: AskResult) -> list[dict[str, Any]]:
         )
     )
     answer_degraded = bool(result.warnings) or review_degraded or rag_degraded
+    if (
+        result.answer_spec is not None
+        and result.question_plan is not None
+        and result.question_plan.research_spec is not None
+    ):
+        tier_labels = {
+            "core": "核心",
+            "candidate": "候选",
+            "peripheral": "外围",
+        }
+        modules.append(
+            {
+                "module_id": "answer_spec_company_table",
+                "title": "公司证据表",
+                "kind": "table",
+                "status": (
+                    "complete"
+                    if result.answer_spec.quality.passed
+                    else "degraded"
+                ),
+                "summary": "检索候选已经过主张绑定和证据裁决；候选资料不会作为已证实事实展示。",
+                "content": None,
+                "metrics": [],
+                "items": [],
+                "table": {
+                    "columns": [
+                        {"key": "company", "label": "公司"},
+                        {"key": "chain_stage", "label": "产业链位置"},
+                        {"key": "directness", "label": "直接性"},
+                        {"key": "tier", "label": "分层"},
+                        {"key": "evidence_status", "label": "证据状态"},
+                    ],
+                    "rows": [
+                        {
+                            "company": company.company,
+                            "chain_stage": company.chain_stage,
+                            "directness": company.directness,
+                            "tier": tier_labels[company.tier.value],
+                            "evidence_status": (
+                                "已绑定公司级硬证据"
+                                if any(
+                                    claim.status.value == "verified"
+                                    for claim in company.claims
+                                )
+                                else (
+                                    "候选资料，需公告或年报确认"
+                                    if company.claims
+                                    else "仅有概念关联，未发现公司级证据"
+                                )
+                            ),
+                        }
+                        for company in result.answer_spec.company_table
+                    ],
+                },
+                "warnings": [
+                    issue.message for issue in result.answer_spec.quality.issues
+                ],
+                "provenance": {
+                    "source": "adjudicated_answer_spec",
+                    "as_of": result.trade_date,
+                    "generated_by": "deterministic_claim_adjudicator",
+                },
+            }
+        )
     if result.synthesis:
         modules.append(
             {

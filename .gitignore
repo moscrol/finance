@@ -40,6 +40,7 @@ shared
 __pycache__/
 *.pyc
 .venv/
+.venv-*/
 venv/
 
 # Node

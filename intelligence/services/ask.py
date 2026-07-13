@@ -29,7 +29,7 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, perspective_lab, research_brief, scenario_tree, user_memory
+from intelligence.services import answer_model, ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, perspective_lab, research_brief, scenario_tree, user_memory
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
@@ -278,6 +278,8 @@ class AskResult:
     valuation_note: valuation_gap.ValuationGapNote | None = None
     # Review 层：输出前六项确定性检查闸门（只读、WARN 不阻断）。
     review_gate: output_review.OutputReviewGate | None = None
+    # 裁决层唯一输出：表达层和 LLM 只能消费该结构，不能直接拼接检索字符串。
+    answer_spec: answer_model.AnswerSpec | None = None
     # D1-D4 DuckDB 数据块的 per-block 可观测字段。
     d_block_stats: list[research_brief.DBlockStat] = field(default_factory=list)
     # (label, 完整报告全文) per routed module, only when --detail is set
@@ -339,30 +341,31 @@ def _resolve_market_data_context(
         warnings: list[str] = []
         if snapshot_date and snapshot_date != market_date:
             warnings.append(
-                f"题材候选快照截至 {snapshot_date}，早于本地 DuckDB 的 {market_date}；"
+                f"题材候选快照截至 {snapshot_date}，早于本地市场数据的 {market_date}；"
                 "快照仅作辅助参考，不作为本轮整体数据日期。"
             )
         notice = (
-            f"**数据截至 {market_date}。** 市场总览优先读取本地 DuckDB；"
+            f"**数据截至 {market_date}。** 市场总览优先读取本地市场数据；"
             "日报导出和题材候选快照仅作补充，并按各自日期标注。"
         )
         return market_date, "duckdb", notice, warnings
 
     if snapshot_date:
         notice = (
-            "**数据降级：当前未连接本地 DuckDB。** "
-            f"以下仅使用截至 {snapshot_date} 的 snapshot/export，不能视为最新交易日复盘。"
+            "**数据说明：本轮没有连接本地市场数据。** "
+            f"以下使用截至 {snapshot_date} 的历史盘面快照，仅供辅助判断，"
+            "不能视为最新交易日复盘。"
         )
         return snapshot_date, "snapshot_fallback", notice, [
-            f"未连接本地 DuckDB；本轮回退到截至 {snapshot_date} 的 snapshot/export。"
+            f"本轮没有连接本地市场数据，已使用截至 {snapshot_date} 的历史盘面快照。"
         ]
 
     notice = (
-        "**数据降级：当前未连接本地 DuckDB，且没有可用的 snapshot/export。** "
+        "**数据说明：本轮没有连接本地市场数据，也没有可用的历史盘面快照。** "
         "本轮无法完成最新交易日复盘。"
     )
     return None, "unavailable", notice, [
-        "未连接本地 DuckDB，且没有可用 snapshot/export。"
+        "本轮没有连接本地市场数据，也没有可用的历史盘面快照。"
     ]
 
 
@@ -634,8 +637,13 @@ def answer_query(options: AskOptions) -> AskResult:
     result.warnings.extend(loaded.get("warnings", []))
     result.warnings.extend(data_warnings)
     result.found_market = candidate is not None
-    question_plan = plan_answer_question(options.query)
+    question_plan = plan_answer_question(options.query, result.matched_theme)
     result.question_plan = question_plan
+    claim_theme = (
+        question_plan.research_spec.theme
+        if question_plan.research_spec is not None
+        else result.matched_theme or options.query
+    )
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
     if question_plan.question_type == QUESTION_MARKET_REVIEW:
         return _answer_market_review(options, result)
@@ -665,6 +673,8 @@ def answer_query(options: AskOptions) -> AskResult:
     graph_query = anchor.graph_query if anchor is not None else options.query
 
     citations: list[Citation] = []
+    structured_claims: list[answer_model.Claim] = []
+    company_candidates: list[answer_model.CompanyCandidate] = []
 
     def cite(
         prefix: str,
@@ -701,17 +711,39 @@ def answer_query(options: AskOptions) -> AskResult:
             sc = sd.get("score")
             reason = sd.get("reason", "")
             tag = cite("S", f"{export_name} · score_detail.{sig}", str(sd.get("source", "")))
-            market_lines.append(f"信号 {sig}（{sc}）：{reason} {tag}")
+            line = f"信号 {sig}（{sc}）：{reason} {tag}"
+            market_lines.append(line)
+            structured_claims.append(
+                answer_model.make_claim(
+                    claim_id=f"market:{tag.strip('[]')}",
+                    text=line,
+                    claim_type="market_signal",
+                    theme=claim_theme,
+                    status=answer_model.ClaimStatus.VERIFIED,
+                    evidence_tier="L4",
+                )
+            )
         ctx = doc.get("market_context") or {}
         if ctx:
             caps = "、".join(
-                f"{s.get('name')}({s.get('ratio')}%,{s.get('capacity_type')})"
+                f"{s.get('name')}（占比 {s.get('ratio')}%）"
                 for s in (ctx.get("capacity_sectors") or [])[:3]
             )
             tag = cite("S", f"{export_name} · market_context")
-            market_lines.append(
-                f"市场环境：{ctx.get('market_stage')}，成交 {ctx.get('total_amount')}，"
+            line = (
+                f"市场环境：{ctx.get('market_stage')}，成交 {ctx.get('total_amount')} 亿，"
                 f"涨停 {ctx.get('limit_up')} / 跌停 {ctx.get('limit_down')}，容量前三 {caps} {tag}"
+            )
+            market_lines.append(line)
+            structured_claims.append(
+                answer_model.make_claim(
+                    claim_id=f"market:{tag.strip('[]')}",
+                    text=line,
+                    claim_type="market_context",
+                    theme=claim_theme,
+                    status=answer_model.ClaimStatus.VERIFIED,
+                    evidence_tier="L4",
+                )
             )
 
     # --- G: graph (concepts + company tiers) from KB relations ---
@@ -725,7 +757,18 @@ def answer_query(options: AskOptions) -> AskResult:
         result.found_graph = True
         names = "、".join(f"{i['concept']}({i['score']})" for i in concepts["items"])
         tag = cite("G", "knowledge-base · wiki/relations/concept_graph.json")
-        graph_concept_lines.append(f"命中概念：{names} {tag}")
+        line = f"命中概念：{names} {tag}"
+        graph_concept_lines.append(line)
+        structured_claims.append(
+            answer_model.make_claim(
+                claim_id=f"concept:{tag.strip('[]')}",
+                text=line,
+                claim_type="theme_mapping",
+                theme=claim_theme,
+                status=answer_model.ClaimStatus.CANDIDATE,
+                evidence_tier="concept_graph",
+            )
+        )
 
     company_lines: list[str] = []
     exposures = knowledge.get_exposure_matches(graph_query, limit=options.top_companies)
@@ -740,9 +783,46 @@ def answer_query(options: AskOptions) -> AskResult:
             concept = str(row.get("concept") or "").strip()
             if company and concept:
                 company_evidence_concepts[company] = concept
+            exposure_tier = _company_exposure_tier(row)
             label = f"{company}({row.get('ticker')}|{row.get('role') or '—'}|{conf or '?'}/{layer or '?'})"
-            tiers[_company_exposure_tier(row)].append(label)
+            tiers[exposure_tier].append(label)
+            requested_tier = {
+                "core": answer_model.CompanyTier.CORE,
+                "peripheral": answer_model.CompanyTier.PERIPHERAL,
+            }.get(exposure_tier, answer_model.CompanyTier.CANDIDATE)
+            company_candidates.append(
+                answer_model.CompanyCandidate(
+                    company=company,
+                    ticker=str(row.get("ticker") or ""),
+                    chain_stage=str(row.get("chain_stage") or row.get("role") or "待确认"),
+                    directness=str(row.get("strength") or "待确认"),
+                    requested_tier=requested_tier,
+                    evidence_layer=layer,
+                )
+            )
         tag = cite("G", "knowledge-base · wiki/relations/entity_exposures.json")
+        for candidate_company in company_candidates:
+            is_direct = candidate_company.requested_tier == answer_model.CompanyTier.CORE
+            structured_claims.append(
+                answer_model.make_claim(
+                    claim_id=f"company:{candidate_company.company}:{tag.strip('[]')}",
+                    text=(
+                        f"{candidate_company.company}与"
+                        f"{company_evidence_concepts.get(candidate_company.company, '该题材')}"
+                        "存在公司级映射。"
+                    ),
+                    claim_type="company_mapping",
+                    theme=claim_theme,
+                    status=(
+                        answer_model.ClaimStatus.VERIFIED
+                        if is_direct
+                        else answer_model.ClaimStatus.CANDIDATE
+                    ),
+                    evidence_tier=candidate_company.evidence_layer,
+                    company=candidate_company.company,
+                    evidence_ids=(tag.strip("[]"),),
+                )
+            )
         if tiers["core"]:
             company_lines.append(f"核心层：{'、'.join(tiers['core'])} {tag}")
         if tiers["other"]:
@@ -788,6 +868,25 @@ def answer_query(options: AskOptions) -> AskResult:
                 f"质量 {item.get('confidence') or '?'}{mark}） {tag}"
             )
             evidence_lines.append(line)
+            layer_name = research_brief.classify_evidence_line(line, "R")
+            target_name = str(item.get("target") or "").strip()
+            structured_claims.append(
+                answer_model.make_claim(
+                    claim_id=f"evidence:{tag.strip('[]')}",
+                    text=line,
+                    claim_type="company_evidence" if target_name in company_evidence_concepts else "theme_evidence",
+                    theme=claim_theme,
+                    status=(
+                        answer_model.ClaimStatus.VERIFIED
+                        if layer_name == "L3" and not stale
+                        else answer_model.ClaimStatus.CANDIDATE
+                    ),
+                    evidence_tier=layer_name,
+                    company=target_name if target_name in company_evidence_concepts else None,
+                    confidence=_confidence_score(item.get("confidence")),
+                    freshness="stale" if stale else "current",
+                )
+            )
             if stale:
                 stale_notes.append(
                     f"{item.get('target')} 证据 {item.get('source_date')} 已超 {options.stale_days} 天，需复核是否被新数据证伪 {tag}"
@@ -805,8 +904,21 @@ def answer_query(options: AskOptions) -> AskResult:
             continue
         seen_evidence.add(key)
         tag = cite("R", f"{export_name} · knowledge_evidence")
-        evidence_lines.append(
+        line = (
             f"{ke.get('target')}：{src}（质量 {ke.get('quality') or '?'}，盘面候选携带） {tag}"
+        )
+        evidence_lines.append(line)
+        target_name = str(ke.get("target") or "").strip()
+        structured_claims.append(
+            answer_model.make_claim(
+                claim_id=f"candidate-evidence:{tag.strip('[]')}",
+                text=line,
+                claim_type="company_evidence" if target_name in company_evidence_concepts else "theme_evidence",
+                theme=claim_theme,
+                status=answer_model.ClaimStatus.CANDIDATE,
+                evidence_tier="candidate_snapshot",
+                company=target_name if target_name in company_evidence_concepts else None,
+            )
         )
 
     # --- W: 知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，打通复盘↔知识库闭环）---
@@ -864,8 +976,30 @@ def answer_query(options: AskOptions) -> AskResult:
                     if _is_prior_conclusion_page(h.file_path)
                     else ""
                 )
-                wiki_lines.append(
+                line = (
                     f"{baseline}{h.title}（相关度 {round(h.score, 4)}{nb}）：{h.excerpt} {tag}"
+                )
+                wiki_lines.append(line)
+                matched_company = next(
+                    (
+                        company
+                        for company in company_evidence_concepts
+                        if company in line
+                    ),
+                    None,
+                )
+                structured_claims.append(
+                    answer_model.make_claim(
+                        claim_id=f"wiki:{tag.strip('[]')}",
+                        text=line,
+                        claim_type="company_evidence" if matched_company else "theme_evidence",
+                        theme=claim_theme,
+                        status=answer_model.ClaimStatus.CANDIDATE,
+                        evidence_tier="wiki_candidate",
+                        company=matched_company,
+                        confidence=h.score,
+                        freshness=h.index_freshness,
+                    )
                 )
             if wr.warning:  # 全文版索引缺失回退默认索引时，仍把提示记进 warnings
                 result.warnings.append(f"wiki-rag：{wr.warning}")
@@ -898,10 +1032,34 @@ def answer_query(options: AskOptions) -> AskResult:
                 module_block.append(f"（{name} 模块未接入产出：{reason}）")
                 result.warnings.append(f"模块 {name}：{reason}")
 
-    framing = _stablecoin_payment_framing(
-        options.query,
+    framing = _theme_research_framing(
+        question_plan.research_spec,
         result.matched_theme,
     )
+    if question_plan.research_spec is not None:
+        structured_claims.append(
+            answer_model.make_claim(
+                claim_id="ontology:definition",
+                text=question_plan.research_spec.definition,
+                claim_type="theme_definition",
+                theme=claim_theme,
+                status=answer_model.ClaimStatus.INFERRED,
+                evidence_tier="research_ontology",
+                evidence_ids=("ONTOLOGY",),
+            )
+        )
+        structured_claims.extend(
+            answer_model.make_claim(
+                claim_id=f"ontology:chain:{index}",
+                text=stage,
+                claim_type="industry_chain",
+                theme=claim_theme,
+                status=answer_model.ClaimStatus.INFERRED,
+                evidence_tier="research_ontology",
+                evidence_ids=("ONTOLOGY",),
+            )
+            for index, stage in enumerate(question_plan.research_spec.chain_stages, start=1)
+        )
 
     # --- gaps / contradictions ---
     gap_lines: list[str] = []
@@ -935,7 +1093,11 @@ def answer_query(options: AskOptions) -> AskResult:
     gap_lines.extend(f"反方审稿：{item}" for item in quality_context.critic_questions)
 
     # ---------- assemble fixed six sections ----------
-    theme = _quoted_topic(options.query) or result.matched_theme or options.query
+    theme = (
+        question_plan.research_spec.theme
+        if question_plan.research_spec is not None
+        else _quoted_topic(options.query) or result.matched_theme or options.query
+    )
     triggers = "、".join((candidate or {}).get("trigger_types", []) or []) or "无盘面触发"
     concept_count = ks.get("concept_count", len(concepts.get("items", [])))
     exposure_count = ks.get("exposure_count", len(exposures.get("items", [])))
@@ -1041,6 +1203,17 @@ def answer_query(options: AskOptions) -> AskResult:
             result.found_market = True
 
     # --- L: runtime L3 official evidence lookup (announcements / interactions) ---
+    if anchor is not None and not any(
+        candidate.company == anchor.entity for candidate in company_candidates
+    ):
+        company_candidates.append(
+            answer_model.CompanyCandidate(
+                company=anchor.entity,
+                ticker=anchor.ticker,
+                directness="研究对象",
+                requested_tier=answer_model.CompanyTier.CANDIDATE,
+            )
+        )
     if options.use_l3_lookup:
         local_evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
         l3_bundle = l3_evidence.lookup_l3_evidence(
@@ -1057,6 +1230,39 @@ def answer_query(options: AskOptions) -> AskResult:
         result.warnings.extend(f"l3-evidence：{w}" for w in l3_bundle.warnings)
         l3_lines = l3_bundle.to_prompt_block().splitlines()
         evidence_chain.extend([f"{SUBHEAD}L3 官方证据工具补查", *l3_lines])
+        for index, item in enumerate(l3_bundle.items, start=1):
+            company = next(
+                (
+                    name
+                    for name in company_evidence_concepts
+                    if name in f"{item.title} {item.summary}"
+                ),
+                anchor.entity if anchor is not None else None,
+            )
+            if company is None and question_plan.question_type == QUESTION_STOCK_DEEP_DIVE:
+                company = _company_name_from_official_title(item.title)
+            if company and not any(
+                candidate.company == company for candidate in company_candidates
+            ):
+                company_candidates.append(
+                    answer_model.CompanyCandidate(
+                        company=company,
+                        directness="研究对象",
+                        requested_tier=answer_model.CompanyTier.CANDIDATE,
+                    )
+                )
+            structured_claims.append(
+                answer_model.make_claim(
+                    claim_id=f"official:L{index}",
+                    text=f"{item.title}：{item.summary}",
+                    claim_type="company_evidence" if company else "theme_evidence",
+                    theme=claim_theme,
+                    status=answer_model.ClaimStatus.VERIFIED,
+                    evidence_tier="L3",
+                    company=company,
+                    evidence_ids=(f"L{index}",),
+                )
+            )
 
     # --- P0 技能链：证据分层审计 → 检索遥测 → 反证计划 →（深挖时）研究简报 ---
     audit = research_brief.audit_evidence_chain(evidence_chain, gap_lines)
@@ -1342,6 +1548,15 @@ def answer_query(options: AskOptions) -> AskResult:
             block_tasks.append(ask_planner.BlockTask("D5", "估值数据块", _build_d5))
 
         outcomes = ask_planner.run_block_tasks(block_tasks, parallel=options.parallel_blocks)
+        for outcome in outcomes:
+            structured_claims.extend(
+                _claims_from_data_block(
+                    outcome.block,
+                    outcome.tag,
+                    outcome.label,
+                    claim_theme,
+                )
+            )
         d5_outcome: ask_planner.BlockOutcome | None = None
         for outcome in outcomes:
             if outcome.tag == "D5":
@@ -1358,6 +1573,14 @@ def answer_query(options: AskOptions) -> AskResult:
             )
             result.d_block_stats.append(_d_block_stat("D3", "二阶导研究队列", second_derivative_block))
             if second_derivative_block:
+                structured_claims.extend(
+                    _claims_from_data_block(
+                        second_derivative_block,
+                        "D3",
+                        "二阶导研究队列",
+                        claim_theme,
+                    )
+                )
                 evidence_text = f"{evidence_text}\n\n{second_derivative_block}"
                 citations.append(
                     Citation(
@@ -1376,6 +1599,31 @@ def answer_query(options: AskOptions) -> AskResult:
         evidence_text = (
             f"{evidence_text}\n\n"
             f"{trading_day_prompt_block(result.trade_date, db_path=options.market_db_path)}"
+        )
+        result.answer_spec = _build_answer_spec_for_result(
+            result=result,
+            research_spec=(
+                question_plan.research_spec
+                or answer_model.resolve_theme_research_spec(
+                    options.query,
+                    result.matched_theme,
+                )
+            ),
+            conclusion_lines=conclusion,
+            structured_claims=structured_claims,
+            company_candidates=company_candidates,
+            counter_lines=counter_plan.rebuttals,
+            gap_lines=gap_lines,
+            trigger_lines=[
+                *market_lines,
+                *(
+                    question_plan.research_spec.trigger_conditions
+                    if question_plan.research_spec is not None
+                    else ()
+                ),
+            ],
+            follow_ups=follow_ups,
+            citations=citations,
         )
         citation_legend = "\n".join(
             f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
@@ -1413,7 +1661,7 @@ def answer_query(options: AskOptions) -> AskResult:
         msgs = llm_refine.build_synthesis_messages(
             options.query,
             theme,
-            evidence_text,
+            result.answer_spec.to_prompt_block(),
             citation_legend=citation_legend,
             quality_context=None if is_market_review else quality_context,
             experience_guidance="" if is_market_review else experience_guidance,
@@ -1435,24 +1683,7 @@ def answer_query(options: AskOptions) -> AskResult:
                     ),
                 },
             )
-        if options.stream_text_delta is not None:
-            notice_emitted = False
-
-            def _emit_human_delta(delta: str) -> None:
-                nonlocal notice_emitted
-                if result.data_notice and not notice_emitted:
-                    options.stream_text_delta(f"{result.data_notice}\n\n")
-                    notice_emitted = True
-                options.stream_text_delta(delta)
-
-            composed, reason = llm_refine.synthesize_messages_stream(
-                msgs,
-                on_delta=_emit_human_delta,
-                is_cancelled=options.stream_cancel_check,
-                model_override=options.llm_model,
-                timeout=options.llm_timeout,
-            )
-        elif options.compose_self_review:
+        if options.compose_self_review:
             composed, reason = llm_refine.synthesize_messages_with_review(
                 msgs, model_override=options.llm_model, timeout=options.llm_timeout,
             )
@@ -1461,19 +1692,66 @@ def answer_query(options: AskOptions) -> AskResult:
                 msgs, model_override=options.llm_model, timeout=options.llm_timeout,
             )
         if composed is not None:
-            result.synthesis = (
+            proposed_synthesis = (
                 f"{result.data_notice}\n\n{composed.answer}"
                 if result.data_notice
                 else composed.answer
             )
-            result.llm_provider = composed.provider
-            result.synthesis_messages = msgs + [
-                {"role": "assistant", "content": result.synthesis}
+            llm_issues = answer_model.validate_llm_answer(
+                proposed_synthesis,
+                result.answer_spec,
+            )
+            blocking_issues = [
+                issue for issue in llm_issues if issue.severity == "error"
             ]
-            if reason:
-                result.warnings.append(reason)
+            if blocking_issues:
+                result.warnings.extend(
+                    f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
+                    for issue in blocking_issues
+                )
+            else:
+                result.synthesis = proposed_synthesis
+                result.llm_provider = composed.provider
+                result.synthesis_messages = msgs + [
+                    {"role": "assistant", "content": result.synthesis}
+                ]
+                if options.stream_text_delta is not None:
+                    options.stream_text_delta(result.synthesis)
+                if reason:
+                    result.warnings.append(reason)
         else:
             result.warnings.append(reason)
+
+    if result.answer_spec is None:
+        result.answer_spec = _build_answer_spec_for_result(
+            result=result,
+            research_spec=(
+                question_plan.research_spec
+                or answer_model.resolve_theme_research_spec(
+                    options.query,
+                    result.matched_theme,
+                )
+            ),
+            conclusion_lines=conclusion,
+            structured_claims=structured_claims,
+            company_candidates=company_candidates,
+            counter_lines=counter_plan.rebuttals,
+            gap_lines=gap_lines,
+            trigger_lines=[
+                *market_lines,
+                *(
+                    question_plan.research_spec.trigger_conditions
+                    if question_plan.research_spec is not None
+                    else ()
+                ),
+            ],
+            follow_ups=follow_ups,
+            citations=citations,
+        )
+    result.warnings.extend(
+        f"AnswerSpec 质检：{issue.message}"
+        for issue in result.answer_spec.quality.issues
+    )
 
     result.review_gate = output_review.review_output(
         trade_date=result.trade_date,
@@ -1507,18 +1785,30 @@ def answer_query(options: AskOptions) -> AskResult:
             temperature=0.2,
         )
         if revised is not None:
-            result.synthesis = (
+            proposed_revision = (
                 f"{result.data_notice}\n\n{revised.answer}"
                 if result.data_notice
                 else revised.answer
             )
-            result.synthesis_messages = result.synthesis_messages + [
-                revision_user,
-                {"role": "assistant", "content": result.synthesis},
-            ]
-            result.warnings.append(
-                f"输出质检 {len(warn_notes)} 条 WARN 已回灌定向修订（正文为修订版，审查意见见「输出质检」附录）"
+            revision_issues = answer_model.validate_llm_answer(
+                proposed_revision,
+                result.answer_spec,
             )
+            if any(issue.severity == "error" for issue in revision_issues):
+                result.warnings.extend(
+                    f"LLM 修订被 AnswerSpec 门禁拒绝：{issue.message}"
+                    for issue in revision_issues
+                    if issue.severity == "error"
+                )
+            else:
+                result.synthesis = proposed_revision
+                result.synthesis_messages = result.synthesis_messages + [
+                    revision_user,
+                    {"role": "assistant", "content": result.synthesis},
+                ]
+                result.warnings.append(
+                    f"输出质检 {len(warn_notes)} 条 WARN 已回灌定向修订（正文为修订版，审查意见见「输出质检」附录）"
+                )
         elif rev_reason:
             result.warnings.append(f"质检 WARN 回灌修订失败，保留初稿：{rev_reason}")
     result.sections = {
@@ -1532,6 +1822,381 @@ def answer_query(options: AskOptions) -> AskResult:
         "引用来源": [f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations],
     }
     result.citations = citations
+    return result
+
+
+def _claims_from_data_block(
+    block: str,
+    tag: str,
+    label: str,
+    theme: str,
+) -> list[answer_model.Claim]:
+    claims: list[answer_model.Claim] = []
+    for index, raw in enumerate(block.splitlines(), start=1):
+        line = raw.strip().lstrip("-").strip()
+        if not line or line.startswith("口径"):
+            continue
+        if line.startswith("#"):
+            status = answer_model.ClaimStatus.INFERRED
+        elif any(
+            term in line
+            for term in (
+                "缺失",
+                "未取得",
+                "未取到",
+                "不可用",
+                "无匹配",
+                "未识别",
+            )
+        ):
+            status = answer_model.ClaimStatus.MISSING
+        elif tag in {"D2", "D3"} or any(
+            term in line
+            for term in ("必须", "需要补", "使用要求", "回答时", "继续查")
+        ):
+            status = answer_model.ClaimStatus.INFERRED
+        else:
+            status = answer_model.ClaimStatus.VERIFIED
+        claims.append(
+            answer_model.make_claim(
+                claim_id=f"data:{tag}:{index}",
+                text=f"{label}：{line}",
+                claim_type="market_data",
+                theme=theme,
+                status=status,
+                evidence_tier="market_data",
+                evidence_ids=(tag,),
+            )
+        )
+    return claims
+
+
+def _company_name_from_official_title(title: str) -> str | None:
+    candidate = re.split(
+        r"(?:公告|问询函|回复|互动易|投资者关系|调研纪要)",
+        str(title or "").strip(),
+        maxsplit=1,
+    )[0].strip(" ：:（）()")
+    if re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9]{2,20}", candidate):
+        return candidate
+    return None
+
+
+def _build_answer_spec_for_result(
+    *,
+    result: AskResult,
+    research_spec: answer_model.ThemeResearchSpec,
+    conclusion_lines: list[str],
+    structured_claims: list[answer_model.Claim],
+    company_candidates: list[answer_model.CompanyCandidate],
+    counter_lines: list[str],
+    gap_lines: list[str],
+    trigger_lines: list[str],
+    follow_ups: list[str],
+    citations: list[Citation],
+) -> answer_model.AnswerSpec:
+    claims = _dedupe_structured_claims(structured_claims)
+    company_table = answer_model.build_company_assessments(
+        company_candidates,
+        claims,
+    )
+    market_claims = [
+        claim
+        for claim in claims
+        if claim.claim_type in {"market_signal", "market_context"}
+        and claim.status == answer_model.ClaimStatus.VERIFIED
+    ]
+    signal_labels: list[str] = []
+    for claim in market_claims:
+        rendered = answer_model.humanize(claim.text)
+        if claim.claim_type != "market_signal":
+            continue
+        label = rendered.split("：", 1)[0].strip()
+        if label and label not in signal_labels:
+            signal_labels.append(label)
+    summary: list[answer_model.Claim] = [
+        answer_model.make_claim(
+            claim_id="summary:definition",
+            text=(
+                f"{research_spec.theme}的研究范围是："
+                f"{research_spec.definition.rstrip('。')}。"
+            ),
+            claim_type="summary",
+            theme=research_spec.theme,
+            status=answer_model.ClaimStatus.INFERRED,
+            evidence_tier="research_ontology",
+            evidence_ids=("ONTOLOGY",),
+        )
+    ]
+    if signal_labels:
+        market_evidence_ids = tuple(
+            dict.fromkeys(
+                evidence_id
+                for claim in market_claims
+                for evidence_id in claim.evidence_ids
+            )
+        )
+        summary.append(
+            answer_model.make_claim(
+                claim_id="summary:market",
+                text=(
+                    f"盘面上已经出现{'、'.join(signal_labels[:3])}，"
+                    "说明市场关注度有所升温；但这些信号只能反映资金行为，"
+                    "不能替代公司公告、客户、订单或收入证据。"
+                ),
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.CANDIDATE,
+                evidence_tier="market_data",
+                evidence_ids=market_evidence_ids,
+            )
+        )
+    else:
+        summary.append(
+            answer_model.make_claim(
+                claim_id="summary:market-gap",
+                text=(
+                    "盘面数据本轮不足，暂时无法判断资金是否已经形成持续共识。"
+                ),
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.MISSING,
+            )
+        )
+    verified_company_claims = [
+        claim
+        for claim in claims
+        if claim.company and claim.status == answer_model.ClaimStatus.VERIFIED
+    ]
+    if verified_company_claims:
+        verified_companies = list(
+            dict.fromkeys(
+                claim.company for claim in verified_company_claims if claim.company
+            )
+        )
+        summary.append(
+            answer_model.make_claim(
+                claim_id="summary:company",
+                text=(
+                    f"公司层面已找到可回查的公开材料，覆盖"
+                    f"{'、'.join(verified_companies[:3])}；是否属于核心受益者，"
+                    "仍需结合业务直接性和收入贡献判断。"
+                ),
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.VERIFIED,
+                evidence_tier="company_evidence",
+                evidence_ids=tuple(
+                    dict.fromkeys(
+                        evidence_id
+                        for claim in verified_company_claims
+                        for evidence_id in claim.evidence_ids
+                    )
+                ),
+            )
+        )
+    else:
+        summary.append(
+            answer_model.make_claim(
+                claim_id="summary:company-gap",
+                text=(
+                    "公司层面尚未形成可回查的公告、年报、官网产品或客户订单证据，"
+                    "因此不能把任何公司列为核心受益者。"
+                ),
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.MISSING,
+            )
+        )
+    user_gaps = [
+        line
+        for line in gap_lines
+        if line
+        and not line.startswith(
+            (
+                "阶段判断",
+                "市场结构推演路径",
+                "反方审稿",
+                "市场结构状态机",
+                "证据分层审计",
+            )
+        )
+        and "Temporal Facts" not in line
+    ]
+    gaps = tuple(
+        answer_model.make_claim(
+            claim_id=f"gap:{index}",
+            text=line,
+            claim_type="evidence_gap",
+            theme=research_spec.theme,
+            status=answer_model.ClaimStatus.MISSING,
+        )
+        for index, line in enumerate(dict.fromkeys(user_gaps), start=1)
+    )
+    counter_evidence = tuple(
+        answer_model.make_claim(
+            claim_id=f"counter:{index}",
+            text=line,
+            claim_type="counter_evidence",
+            theme=research_spec.theme,
+            status=answer_model.ClaimStatus.CONFLICT,
+        )
+        for index, line in enumerate(dict.fromkeys(counter_lines), start=1)
+    )
+    triggers: list[answer_model.Claim] = []
+    for index, line in enumerate(dict.fromkeys(trigger_lines), start=1):
+        matching_claim = next(
+            (claim for claim in claims if answer_model.humanize(claim.text) == answer_model.humanize(line)),
+            None,
+        )
+        triggers.append(
+            answer_model.make_claim(
+                claim_id=f"trigger:{index}",
+                text=line,
+                claim_type="trigger",
+                theme=research_spec.theme,
+                status=(
+                    matching_claim.status
+                    if matching_claim is not None
+                    else answer_model.ClaimStatus.INFERRED
+                ),
+                evidence_tier=(
+                    matching_claim.evidence_tier
+                    if matching_claim is not None
+                    else "research_ontology"
+                ),
+                evidence_ids=(
+                    matching_claim.evidence_ids
+                    if matching_claim is not None
+                    else ("ONTOLOGY",)
+                ),
+            )
+        )
+    sources = [
+        answer_model.EvidenceRef(
+            evidence_id=citation.tag,
+            source=citation.source,
+            detail=citation.detail,
+        )
+        for citation in citations
+    ]
+    sources.append(
+        answer_model.EvidenceRef(
+            evidence_id="ONTOLOGY",
+            source=f"题材研究配置 · {research_spec.theme}",
+            detail="仅用于定义、产业链和核验协议，不作为公司级事实。",
+            tier="research_ontology",
+        )
+    )
+    for index, item in enumerate(result.l3_evidence.items, start=1):
+        sources.append(
+            answer_model.EvidenceRef(
+                evidence_id=f"L{index}",
+                source=item.citation or item.source_type,
+                detail=item.title,
+                tier="L3",
+            )
+        )
+    notices: list[str] = []
+    if result.data_notice:
+        notices.append(result.data_notice)
+    if re.search(r"T\+1|下一交易日|明天", result.query, re.IGNORECASE):
+        notices.append(
+            f"下一交易日为 {result.next_trade_date}（按交易日历确认，不按自然日顺延）。"
+            if result.next_trade_date
+            else "下一交易日（日期待交易日历确认），不得按自然日猜测。"
+        )
+    requires_company_evidence = (
+        result.question_plan is not None
+        and result.question_plan.question_type
+        in {
+            QUESTION_THEME_ANALYSIS,
+            QUESTION_NEWS_IMPACT,
+            QUESTION_STOCK_DEEP_DIVE,
+        }
+    )
+    has_verified_company_claim = any(
+        claim.company and claim.status == answer_model.ClaimStatus.VERIFIED
+        for claim in claims
+    )
+    if requires_company_evidence and not has_verified_company_claim:
+        notices.append("本轮未形成可验证的公司级来源；公司判断均按待验证展示。")
+    if any(
+        term in warning.lower()
+        for warning in result.warnings
+        for term in ("失败", "不可用", "timeout", "degraded")
+    ):
+        notices.append("部分资料源本轮不可用，未用于结论。")
+    actions = list(research_spec.verification_actions)
+    actions.extend(
+        line for line in conclusion_lines if line.startswith("观点有效期")
+    )
+    actions.extend(
+        line
+        for line in follow_ups
+        if line
+        and "市场结构推演路径" not in line
+        and not re.match(r"^\[[^\]]+\]", line)
+    )
+    spec = answer_model.AnswerSpec(
+        research_spec=research_spec,
+        summary=tuple(summary),
+        verified_facts=tuple(
+            claim for claim in claims if claim.status == answer_model.ClaimStatus.VERIFIED
+        ),
+        company_table=company_table,
+        counter_evidence=counter_evidence,
+        gaps=gaps,
+        triggers=tuple(triggers),
+        next_actions=tuple(dict.fromkeys(actions)),
+        sources=tuple(dict.fromkeys(sources)),
+        system_notices=tuple(dict.fromkeys(notices)),
+        prompt_constraints=tuple(
+            item
+            for item in (
+                result.question_plan.to_prompt_block()
+                if result.question_plan is not None
+                else "",
+                (
+                    "## 交易日历约束\n"
+                    f"- 数据交易日：{result.trade_date or '未确认'}\n"
+                    f"- 下一交易日：{result.next_trade_date or '日期待交易日历确认'}"
+                ),
+                (
+                    forecast_preflight.render_preflight_prompt(
+                        result.forecast_preflight
+                    )
+                    if result.forecast_preflight is not None
+                    else ""
+                ),
+                (
+                    result.l3_evidence.to_prompt_block()
+                    if result.l3_evidence is not None
+                    and (
+                        result.l3_evidence.items
+                        or result.l3_evidence.gaps
+                        or result.l3_evidence.warnings
+                    )
+                    else ""
+                ),
+            )
+            if item
+        ),
+    )
+    return answer_model.finalize_answer_spec(spec)
+
+
+def _dedupe_structured_claims(
+    claims: list[answer_model.Claim],
+) -> list[answer_model.Claim]:
+    seen: set[tuple[str, str | None, answer_model.ClaimStatus]] = set()
+    result: list[answer_model.Claim] = []
+    for claim in claims:
+        key = (answer_model.humanize(claim.text), claim.company, claim.status)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(claim)
     return result
 
 
@@ -2265,40 +2930,38 @@ def _quoted_topic(query: str) -> str | None:
     return match.group(1).strip() if match else None
 
 
-def _stablecoin_payment_framing(
-    query: str,
+def _theme_research_framing(
+    research_spec: answer_model.ThemeResearchSpec | None,
     matched_theme: str | None,
 ) -> dict[str, list[str]]:
-    if "稳定币" not in query or not any(
-        term in query for term in ("支付", "题材", "产业链")
-    ):
+    if research_spec is None:
         return {}
+    stage_labels = ("上游", "中游", "下游")
+    chain_lines = [
+        f"产业链{stage_labels[index] if index < len(stage_labels) else index + 1}"
+        f"（研究口径，待公司级证据验证）：{stage}。"
+        for index, stage in enumerate(research_spec.chain_stages)
+    ]
     framing = {
         "conclusion": [
-            "题材定义（产业翻译，非公司级事实）：稳定币支付是以锚定法币或"
-            "低波动资产的数字代币作为支付或结算媒介的研究方向。"
+            f"题材定义（研究口径，非公司级事实）：{research_spec.definition}"
         ],
         "evidence": [
-            "产业链上游（待验证）：发行与储备管理、合规托管、清算网络和"
-            "安全基础设施。",
-            "产业链中游（待验证）：钱包、支付网关、身份与风控、安全芯片，"
-            "以及银行或跨境系统集成。",
-            "产业链下游（待验证）：商户收单、跨境贸易和汇款等支付场景；"
-            "A股公司只有获得公告、年报、官网或客户订单支持，才能升级为核心受益。",
+            *chain_lines,
+            f"公司映射边界：{research_spec.company_scope}",
         ],
         "gaps": [
-            "事实、推测与待验证边界：上述题材定义和产业链仅是研究口径；"
-            "公司归属仍需逐家核验直接产品、客户、订单和收入贡献。"
+            "事实、推测与待验证边界：题材定义和产业链属于研究口径；"
+            f"公司结论必须满足：{'、'.join(research_spec.evidence_requirements)}。"
         ],
         "follow_ups": [
-            "核验动作：逐家公司检查公告、年报和官网，确认产品是否直接服务"
-            "稳定币支付，以及是否已有客户、订单或收入。"
+            f"核验动作：{action}" for action in research_spec.verification_actions
         ],
     }
-    if matched_theme and matched_theme not in query:
+    if matched_theme and matched_theme not in research_spec.theme:
         framing["conclusion"].append(
             f"盘面数据仅以“{matched_theme}”作为近似映射，不能替代"
-            "“稳定币支付”本身的公司级证据。"
+            f"“{research_spec.theme}”本身的公司级证据。"
         )
     return framing
 
@@ -2309,6 +2972,17 @@ def _finite_float(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return number if number == number and abs(number) != float("inf") else None
+
+
+def _confidence_score(value: Any) -> float | None:
+    normalized = str(value or "").strip().lower()
+    mapped = {
+        "high": 0.9,
+        "medium": 0.65,
+        "mid": 0.65,
+        "low": 0.35,
+    }.get(normalized)
+    return mapped if mapped is not None else _finite_float(value)
 
 
 def _populate_market_index_comparison(
@@ -2773,10 +3447,15 @@ def _pct(value: float) -> float:
 
 SUBHEAD = "\x00SUB\x00"
 SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检索可观测", "输出质检", "交易含义", "引用来源"]
-NO_EVIDENCE_NOTICE = "本轮没有可验证来源，以下内容只能作为待验证推测。"
+NO_EVIDENCE_NOTICE = "本轮没有形成可用于结论的可验证来源；以下内容仅作待验证线索。"
 
 
 def render_answer(result: AskResult) -> str:
+    use_research_answer_spec = (
+        result.answer_spec is not None
+        and result.question_plan is not None
+        and result.question_plan.research_spec is not None
+    )
     lines: list[str] = []
     lines.append(f"# ask：{result.query}")
     if result.clarify is not None:
@@ -2798,7 +3477,7 @@ def render_answer(result: AskResult) -> str:
     lines.append("> " + " | ".join(meta))
     if result.warnings:
         lines.append("> 警告：" + "；".join(result.warnings))
-    if not result.citations:
+    if not result.citations and not use_research_answer_spec:
         lines.append(f"> {NO_EVIDENCE_NOTICE}")
     if result.synthesis:
         lines.append("")
@@ -2809,6 +3488,25 @@ def render_answer(result: AskResult) -> str:
         lines.append("")
         lines.append("---")
         lines.append("*以下为确定性检索的结构化证据，供核对引用编号：*")
+    elif use_research_answer_spec:
+        assert result.answer_spec is not None
+        lines.append("")
+        lines.append(answer_model.render_answer_spec(result.answer_spec).rstrip())
+        if result.detail_reports:
+            lines.append("")
+            lines.append("## 【模块完整报告（--detail 钻取）】")
+            for label, body in result.detail_reports:
+                lines.extend(
+                    [
+                        "",
+                        f"<details><summary>完整报告 · {label}</summary>",
+                        "",
+                        body.rstrip(),
+                        "",
+                        "</details>",
+                    ]
+                )
+        return "\n".join(lines) + "\n"
     for name in SECTION_ORDER:
         lines.append("")
         lines.append(f"## 【{name}】")
@@ -2834,6 +3532,12 @@ def render_conversation_answer(result: AskResult) -> str:
     evidence_notice = f"{NO_EVIDENCE_NOTICE}\n\n" if not result.citations else ""
     if result.synthesis:
         return result.synthesis
+    if (
+        result.answer_spec is not None
+        and result.question_plan is not None
+        and result.question_plan.research_spec is not None
+    ):
+        return answer_model.render_answer_spec(result.answer_spec)
 
     lines: list[str] = []
     if evidence_notice:
