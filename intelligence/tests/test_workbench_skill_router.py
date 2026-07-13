@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from intelligence.services.ask import AskOptions
+from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.query_understanding import understand_query
 from intelligence.services.run_store import RunStore
@@ -464,3 +465,76 @@ def test_manual_market_pattern_preserves_user_selected_theme_research() -> None:
     ]
     assert result.selections[0].selection_source == "manual"
     assert result.base_finance_fallback is False
+
+
+@pytest.mark.parametrize("mode", ["auto", "hybrid"])
+def test_company_query_excludes_automatic_theme_research(mode: str) -> None:
+    query = "深挖英维克，它在液冷产业链的位置如何？"
+    envelope = understand_query(
+        query,
+        anchor=EntityAnchor(entity="英维克", ticker="002837.SZ", concepts=("液冷",)),
+    )
+    captured_candidates: list[str] = []
+
+    def select_stock_from_filtered_candidates(messages: list[dict[str, str]]):
+        payload = json.loads(messages[1]["content"])
+        captured_candidates.extend(
+            candidate["skill_id"] for candidate in payload["candidates"]
+        )
+        return (
+            '{"skill_ids":["stock-deep-dive"],'
+            '"reasons":{"stock-deep-dive":"公司深挖"}}',
+            object(),
+            "",
+        )
+
+    result = route_skills(
+        query,
+        "ask",
+        mode,
+        [],
+        registry={
+            "theme-research": definition("theme-research", "液冷产业链"),
+            "stock-deep-dive": definition("stock-deep-dive", "深挖公司"),
+        },
+        llm_complete=select_stock_from_filtered_candidates,
+        query_envelope=envelope,
+    )
+
+    assert captured_candidates == ["stock-deep-dive"]
+    assert [selection.skill_id for selection in result.selections] == [
+        "stock-deep-dive"
+    ]
+
+
+def test_hybrid_company_query_preserves_manually_selected_theme_research() -> None:
+    query = "深挖英维克，它在液冷产业链的位置如何？"
+    envelope = understand_query(
+        query,
+        anchor=EntityAnchor(entity="英维克", ticker="002837.SZ", concepts=("液冷",)),
+    )
+
+    result = route_skills(
+        query,
+        "ask",
+        "hybrid",
+        ["theme-research"],
+        registry={
+            "theme-research": definition("theme-research", "液冷产业链"),
+            "stock-deep-dive": definition("stock-deep-dive", "深挖公司"),
+        },
+        llm_complete=llm_response(
+            '{"skill_ids":["stock-deep-dive"],'
+            '"reasons":{"stock-deep-dive":"公司深挖"}}'
+        ),
+        query_envelope=envelope,
+    )
+
+    assert [selection.skill_id for selection in result.selections] == [
+        "theme-research",
+        "stock-deep-dive",
+    ]
+    assert [selection.selection_source for selection in result.selections] == [
+        "manual",
+        "llm",
+    ]

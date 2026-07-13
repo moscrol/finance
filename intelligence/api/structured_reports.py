@@ -389,9 +389,20 @@ def render_daily_review_answer(
     lines = [
         f"## {display_date}复盘",
         "",
-        f"**一句话结论：** 这是一个{core}的交易日。"
+        f"**直接定性：** 这是一个{core}的交易日。"
         + (f"{stage}。" if stage else "")
         + "短线机会不少，但持续性仍要看下一交易日的成交和扩散情况。",
+        "**最强证据：** "
+        + next(
+            (
+                text.rstrip("。")
+                for text in (index_text, mood_text, amount_text)
+                if text
+            ),
+            "本轮结构化复盘未形成可回查的核心指标",
+        )
+        + "。",
+        "**下一步验证：** 下一交易日核对上涨家数、成交额和热门方向是否继续扩散。",
         "",
         "### 市场发生了什么",
     ]

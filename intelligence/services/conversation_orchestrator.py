@@ -1035,11 +1035,16 @@ class TurnOrchestrator:
                 )
 
             compose_started = time.monotonic()
+            primary_question_type = plan_answer_question(
+                contextual_query
+            ).question_type
             owner_output = next(
                 (
                     output
                     for output in skill_outputs
                     if output.answer_contract is not None
+                    and output.answer_contract.question_type
+                    == primary_question_type
                 ),
                 None,
             )
@@ -1051,10 +1056,7 @@ class TurnOrchestrator:
                 ),
                 None,
             )
-            market_review_requested = (
-                plan_answer_question(contextual_query).question_type
-                == QUESTION_MARKET_REVIEW
-            )
+            market_review_requested = primary_question_type == QUESTION_MARKET_REVIEW
             if owner_output is not None:
                 result = _skill_owner_result(query, owner_output)
                 owner_synthesis_allowance = execution_budget.child_timeout(
@@ -1249,14 +1251,20 @@ class TurnOrchestrator:
             )
             fallback_notice = (
                 perspective_lab.runtime_fallback_notice(perspective_mode)
-                if result.synthesis is None and owner_output is None
+                if result.synthesis is None
+                and owner_output is None
+                and not is_market_review
                 else ""
             )
             answer_prefix = "\n\n".join(
                 block for block in (perspective_header, fallback_notice) if block
             )
             answer_text = f"{answer_prefix}\n\n{answer_text}"
-            if result.synthesis is None and owner_output is None:
+            if (
+                result.synthesis is None
+                and owner_output is None
+                and not is_market_review
+            ):
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
                 self.run_store.add_degrade(run_id, fallback)

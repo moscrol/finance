@@ -14,6 +14,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import date
 from pathlib import Path
 from typing import BinaryIO
 
@@ -21,6 +22,7 @@ TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled"}
 SAFE_LABEL = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 SAFE_SOURCE_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+SAFE_CUTOFF_DATE = re.compile(r"^20\d{2}-\d{2}-\d{2}$")
 UNSAFE_MODEL_LABEL = re.compile(
     r"(?:\.\.|error|exception|prompt|authorization|api[_-]?key|secret|header|traceback|credential)",
     re.IGNORECASE,
@@ -470,6 +472,47 @@ def _safe_optional_fallback_reason(value: object, stage: str) -> str | None:
     return value
 
 
+def _safe_market_data_cutoff(value: object, stage: str) -> str:
+    if not isinstance(value, str) or not SAFE_CUTOFF_DATE.fullmatch(value):
+        raise SmokeProtocolError(stage)
+    try:
+        date.fromisoformat(value)
+    except ValueError as exc:
+        raise SmokeProtocolError(stage) from exc
+    return value
+
+
+def _readiness_duckdb_cutoff(
+    payload: object,
+    *,
+    scanner: SecretScanner,
+) -> str | None:
+    stage = "readiness_market_data"
+    if not isinstance(payload, dict):
+        raise SmokeProtocolError(stage)
+    scanner.scan(payload, "readiness_health")
+    capabilities = payload.get("capabilities")
+    if not isinstance(capabilities, dict):
+        raise SmokeProtocolError(stage)
+    market_data = capabilities.get("market_data")
+    if not isinstance(market_data, dict):
+        raise SmokeProtocolError(stage)
+    available = market_data.get("available")
+    source = market_data.get("source")
+    if not isinstance(available, bool) or source not in {"duckdb", "snapshot", "none"}:
+        raise SmokeProtocolError(stage)
+    raw_cutoff = market_data.get("cutoff")
+    if raw_cutoff is not None:
+        validated_cutoff = _safe_market_data_cutoff(raw_cutoff, stage)
+    else:
+        validated_cutoff = None
+    if source == "duckdb":
+        if not available or validated_cutoff is None:
+            raise SmokeProtocolError(stage)
+        return validated_cutoff
+    return None
+
+
 def _safe_identifier(value: object, stage: str) -> str:
     if (
         not isinstance(value, str)
@@ -513,7 +556,8 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
     deadline = started_at + args.timeout
     scanner = SecretScanner()
     stage_events: list[str] = []
-    readiness = {"page": False, "skills": False}
+    readiness = {"page": False, "health": False, "skills": False}
+    readiness_duckdb_cutoff: str | None = None
     summary: dict[str, object] = {
         "schema_version": 1,
         "readiness": readiness,
@@ -536,6 +580,18 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         if not page.strip():
             raise SmokeProtocolError("readiness_page")
         readiness["page"] = True
+
+        health = _request_json(
+            "GET",
+            _url(args.base_url, "/api/health/ready"),
+            timeout=remaining("readiness_health"),
+            stage="readiness_health",
+        )
+        readiness_duckdb_cutoff = _readiness_duckdb_cutoff(
+            health,
+            scanner=scanner,
+        )
+        readiness["health"] = True
 
         skills = _request_json(
             "GET",
@@ -666,10 +722,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
                 "run_id": run_id,
                 "run_status": run_status,
                 "run": {
-                    "duckdb_cutoff": _safe_optional_public_label(
-                        terminal_run.get("duckdb_cutoff"),
-                        "run_metadata",
-                    ),
+                    "duckdb_cutoff": readiness_duckdb_cutoff,
                 },
                 "terminal_outcome": outcome,
                 "degrade_count": len(degrades),

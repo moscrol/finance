@@ -139,7 +139,7 @@ def route_skills(
             if skill_id != "theme-research"
         }
         if query_envelope is not None
-        and query_envelope.subject_kind == "market_pattern"
+        and query_envelope.subject_kind in {"market_pattern", "company"}
         else active_registry
     )
     rules = _rule_candidates(query, task_type, automatic_registry)

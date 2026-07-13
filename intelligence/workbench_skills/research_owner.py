@@ -217,7 +217,7 @@ STOCK_DEEP_DIVE = ResearchOwnerConfig(
         "融合公司本体、市场选择、生命周期、二阶导和反证",
         "结尾给升级、降级和证伪条件，不输出买卖指令",
     ),
-    presentation_kind="theme_research",
+    presentation_kind="stock_deep_dive",
     evidence_prefixes=("G", "R", "W", "D7", "L3"),
 )
 

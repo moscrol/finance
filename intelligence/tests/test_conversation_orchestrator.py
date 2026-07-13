@@ -1554,7 +1554,11 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
                 warnings=[],
                 as_of="2026-07-11",
                 raw_result_ref=None,
-                answer_contract=replace(contract, answer_spec=answer_spec),
+                answer_contract=replace(
+                    contract,
+                    answer_spec=answer_spec,
+                    question_type="general_finance_qa",
+                ),
             )
 
     registry = SkillRegistry()
@@ -1688,15 +1692,18 @@ def test_skill_answer_owner_skips_provider_when_synthesis_budget_is_too_low(
                 warnings=[],
                 as_of="2026-07-11",
                 raw_result_ref=None,
-                answer_contract=build_module_answer_contract(
-                    skill_id=self.skill_id,
-                    title="专项研究",
-                    modules=modules,
-                    citations=citations,
-                    warnings=[],
-                    as_of="2026-07-11",
-                    retrieval_plan=("读取专项正式资料",),
-                    output_contract=("输出五元素裁决",),
+                answer_contract=replace(
+                    build_module_answer_contract(
+                        skill_id=self.skill_id,
+                        title="专项研究",
+                        modules=modules,
+                        citations=citations,
+                        warnings=[],
+                        as_of="2026-07-11",
+                        retrieval_plan=("读取专项正式资料",),
+                        output_contract=("输出五元素裁决",),
+                    ),
+                    question_type="general_finance_qa",
                 ),
             )
 
@@ -1772,6 +1779,228 @@ def test_skill_answer_owner_skips_provider_when_synthesis_budget_is_too_low(
     assert len(report_complete) == 1
     assert report_complete[0]["payload"]["report"]["status"] == "completed"
     assert report_complete[0]["payload"]["report"]["llm"] == report["llm"]
+
+
+def test_owner_selection_uses_exact_primary_question_type_not_output_order(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "深挖英维克，它在液冷产业链的位置如何？"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+        selected_skill_ids=["theme-owner", "stock-owner"],
+    )
+
+    class TypedOwnerSkill:
+        def __init__(self, skill_id: str, question_type: str, marker: str) -> None:
+            self.skill_id = skill_id
+            self.question_type = question_type
+            self.marker = marker
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            modules = [{"type": "summary", "summary": self.marker}]
+            citations = [
+                {
+                    "source": f"{self.skill_id}.json",
+                    "title": self.marker,
+                    "evidence_layer": "canonical",
+                    "as_of": "2026-07-13",
+                }
+            ]
+            contract = build_module_answer_contract(
+                skill_id=self.skill_id,
+                title=self.marker,
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of="2026-07-13",
+                retrieval_plan=("fixture",),
+                output_contract=("fixture",),
+            )
+            assert contract is not None
+            return SkillOutput(
+                skill_id=self.skill_id,
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of="2026-07-13",
+                raw_result_ref=None,
+                answer_contract=replace(
+                    contract,
+                    question_type=self.question_type,
+                ),
+            )
+
+    registry = SkillRegistry()
+    for skill_id, question_type, marker in (
+        ("theme-owner", "theme_analysis", "错误题材 owner"),
+        ("stock-owner", "stock_deep_dive", "正确个股 owner"),
+    ):
+        registry.register(
+            SkillDefinition(
+                skill_id=skill_id,
+                name=marker,
+                description=marker,
+                version="1.0.0",
+                triggers=(marker,),
+                input_schema={"type": "object"},
+                permissions=("local_read",),
+                timeout_seconds=1,
+            ),
+            TypedOwnerSkill(skill_id, question_type, marker),
+        )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: pytest.fail("matching owner must answer"),
+        skill_registry=registry,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="manual",
+        selected_skill_ids=["theme-owner", "stock-owner"],
+    )
+
+    assert "正确个股 owner" in result.content
+    owner_trace = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "skill_answer_owner"
+    )
+    assert json.loads(owner_trace["output_summary"])["skill_id"] == "stock-owner"
+
+
+def test_theme_owner_cannot_take_over_company_query_when_stock_has_no_contract(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "深挖英维克，它在液冷产业链的位置如何？"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+        selected_skill_ids=["stock-worker", "theme-owner"],
+    )
+
+    class StockWorker:
+        skill_id = "stock-worker"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            return SkillOutput(
+                skill_id=self.skill_id,
+                modules=[{"type": "summary", "summary": "个股检索完成"}],
+                citations=[],
+                warnings=[],
+                as_of="2026-07-13",
+                raw_result_ref=None,
+                answer_contract=None,
+            )
+
+    class ThemeOwner:
+        skill_id = "theme-owner"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            modules = [{"type": "summary", "summary": "# 题材研究"}]
+            citations = [
+                {
+                    "source": "theme.json",
+                    "title": "错误题材证据",
+                    "evidence_layer": "canonical",
+                    "as_of": "2026-07-13",
+                }
+            ]
+            contract = build_module_answer_contract(
+                skill_id=self.skill_id,
+                title="题材研究",
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of="2026-07-13",
+                retrieval_plan=("fixture",),
+                output_contract=("fixture",),
+            )
+            assert contract is not None
+            return SkillOutput(
+                skill_id=self.skill_id,
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of="2026-07-13",
+                raw_result_ref=None,
+                answer_contract=replace(contract, question_type="theme_analysis"),
+            )
+
+    registry = SkillRegistry()
+    for definition, executor in (
+        (
+            SkillDefinition(
+                skill_id="stock-worker",
+                name="Stock",
+                description="stock fixture",
+                version="1.0.0",
+                triggers=("深挖",),
+                input_schema={"type": "object"},
+                permissions=("local_read",),
+                timeout_seconds=1,
+            ),
+            StockWorker(),
+        ),
+        (
+            SkillDefinition(
+                skill_id="theme-owner",
+                name="Theme",
+                description="theme fixture",
+                version="1.0.0",
+                triggers=("液冷",),
+                input_schema={"type": "object"},
+                permissions=("local_read",),
+                timeout_seconds=1,
+            ),
+            ThemeOwner(),
+        ),
+    ):
+        registry.register(definition, executor)
+
+    base_calls: list[str] = []
+
+    def answer_base(options: AskOptions) -> AskResult:
+        base_calls.append(options.query)
+        return _ask_result(options.query, synthesis="# 英维克：个股深挖\n公司定位待验证")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_base,
+        skill_registry=registry,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="manual",
+        selected_skill_ids=["stock-worker", "theme-owner"],
+    )
+
+    assert len(base_calls) == 1
+    assert "英维克" in result.content
+    assert "# 题材研究" not in result.content
+    assert all(
+        step["name"] != "skill_answer_owner"
+        for step in run_store.load_trace(run_id)
+    )
 
 
 def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path) -> None:

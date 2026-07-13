@@ -267,7 +267,19 @@ def plan_answer_question(
         and query_envelope.subject_kind == "company"
         and query_envelope.subject
     ):
-        research_spec = replace(research_spec, theme=query_envelope.subject)
+        company = query_envelope.subject
+        research_spec = replace(
+            research_spec,
+            theme=company,
+            definition=(
+                f"围绕{company}的公司本体、主营产品、产业链位置、客户与收入验证、"
+                "同链对比、市场表现及反证开展研究。"
+            ),
+            company_scope=(
+                f"以{company}为公司研究主体；同链公司只用于产业链位置和证据强弱"
+                "对比，不得替代公司本体结论。"
+            ),
+        )
     return QuestionPlan(
         query=raw_query,
         question_type=question_type,

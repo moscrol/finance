@@ -643,6 +643,27 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(anchored.query_envelope.subject, "英维克")
         self.assertEqual(anchored.question_type, QUESTION_STOCK_DEEP_DIVE)
 
+    def test_company_research_spec_keeps_company_ontology_and_chain_context(
+        self,
+    ) -> None:
+        plan = plan_answer_question(
+            "深挖英维克，它在液冷产业链的位置如何？",
+            anchor=EntityAnchor(
+                entity="英维克",
+                ticker="002837.SZ",
+                concepts=("液冷",),
+            ),
+        )
+
+        self.assertEqual(plan.question_type, QUESTION_STOCK_DEEP_DIVE)
+        assert plan.research_spec is not None
+        self.assertEqual(plan.research_spec.theme, "英维克")
+        self.assertIn("公司本体", plan.research_spec.definition)
+        self.assertIn("主营产品", plan.research_spec.definition)
+        self.assertIn("以英维克为公司研究主体", plan.research_spec.company_scope)
+        self.assertIn("液冷", "\n".join(plan.research_spec.chain_stages))
+        self.assertNotIn("算力服务变现", plan.research_spec.definition)
+
     def test_base_finance_mode_keeps_retrieval_floor_for_quick_answers(self) -> None:
         plan = plan_answer_question("600519 快答：最近消息、产业链和财务估值怎么看")
 

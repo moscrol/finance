@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "theme_research_specs.json"
+NO_TRACEABLE_EVIDENCE_NOTICE = "本轮未形成可回查的硬证据；当前判断按待验证展示。"
 _CITATION_RE = re.compile(r"\[([A-Z]\d+)\]")
 _DATE_RE = re.compile(r"\b20\d{2}[-/.年]\d{1,2}(?:[-/.月]\d{1,2}日?)?\b")
 _NUMBER_WITH_UNIT_RE = re.compile(
@@ -607,13 +608,13 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
         )
     if (
         any(claim.company for claim in answer_spec.verified_facts)
-        and any("未形成可验证的公司级来源" in notice for notice in answer_spec.system_notices)
+        and NO_TRACEABLE_EVIDENCE_NOTICE in answer_spec.system_notices
     ):
         issues.append(
             QualityIssue(
                 "evidence_notice_contradiction",
                 "error",
-                "存在已核验事实时仍声明未形成可验证的公司级来源。",
+                "存在已核验公司事实时仍声明本轮未形成可回查的硬证据。",
             )
         )
     return AnswerQualityReport(tuple(issues))
@@ -622,6 +623,8 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
 def render_answer_spec(answer_spec: AnswerSpec) -> str:
     if answer_spec.presentation_kind == "base_finance":
         return _render_base_finance_answer_spec(answer_spec)
+    if answer_spec.presentation_kind == "stock_deep_dive":
+        return _render_stock_deep_dive_answer_spec(answer_spec)
 
     lines: list[str] = []
     notices = _dedupe(answer_spec.system_notices)
@@ -757,6 +760,106 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
         lines.extend(["", "<details><summary>展开来源和数据说明</summary>", ""])
         lines.extend(detail_lines)
         lines.extend(["", "</details>"])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _render_stock_deep_dive_answer_spec(answer_spec: AnswerSpec) -> str:
+    notices = _dedupe(answer_spec.system_notices)
+    summary = _dedupe_claims(answer_spec.summary)
+    facts = _dedupe_claims(answer_spec.verified_facts)
+    risks = _dedupe_claims((*answer_spec.counter_evidence, *answer_spec.gaps))
+    actions = _dedupe(answer_spec.next_actions)
+    company = humanize(answer_spec.research_spec.theme)
+    title = humanize(answer_spec.presentation_title or f"{company}：个股深挖")
+
+    lines: list[str] = []
+    if notices:
+        lines.extend((humanize(notices[0]), ""))
+    lines.extend((f"# {title}", "", "## 公司定位"))
+    if summary:
+        labels = ("当前定位", "核心矛盾", "证据边界")
+        lines.extend(
+            f"**{labels[min(index, len(labels) - 1)]}：** "
+            f"{_present_summary_claim(claim)}"
+            for index, claim in enumerate(summary[:3])
+        )
+    else:
+        lines.append("当前证据不足，暂时不能形成可靠的公司定位。")
+
+    chain = " → ".join(
+        humanize(stage) for stage in answer_spec.research_spec.chain_stages
+    )
+    lines.extend(("", "## 产业链位置"))
+    lines.append(humanize(answer_spec.research_spec.definition))
+    if chain:
+        lines.append(f"产业链可按“{chain}”拆分。")
+    lines.append(humanize(answer_spec.research_spec.company_scope))
+
+    lines.extend(("", "## 最强证据"))
+    if facts:
+        lines.extend(f"- {_present_supporting_fact(claim)}" for claim in facts[:5])
+    elif NO_TRACEABLE_EVIDENCE_NOTICE in notices:
+        lines.append("公司本体、主营收入与客户验证仍待补齐。")
+    else:
+        lines.append(NO_TRACEABLE_EVIDENCE_NOTICE)
+
+    lines.extend(("", "## 同链证据"))
+    if answer_spec.company_table:
+        lines.extend(
+            (
+                "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
+                "| --- | --- | --- | --- | --- |",
+            )
+        )
+        for assessment in answer_spec.company_table:
+            lines.append(
+                "| "
+                + " | ".join(
+                    (
+                        assessment.company
+                        + (f"（{assessment.ticker}）" if assessment.ticker else ""),
+                        humanize(assessment.chain_stage),
+                        _company_directness_label(assessment.directness),
+                        _company_tier_label(assessment.tier),
+                        _company_evidence_label(assessment),
+                    )
+                )
+                + " |"
+            )
+    else:
+        lines.append("目前没有同链公司达到可展示的证据门槛。")
+
+    lines.extend(("", "## 反证与缺口"))
+    if risks:
+        lines.extend(f"- {_present_claim(claim)}" for claim in risks[:4])
+    else:
+        lines.append("暂未发现足以改变判断的反证，但公司级资料仍需持续复核。")
+
+    lines.extend(("", "## 下一步验证"))
+    future_triggers = [
+        humanize(claim.text) for claim in _dedupe_claims(answer_spec.triggers)
+    ]
+    if future_triggers:
+        lines.append("**判断条件：** " + "；".join(future_triggers[:3]))
+    if actions:
+        lines.extend(
+            f"{index}. {humanize(action)}"
+            for index, action in enumerate(actions[:4], start=1)
+        )
+    else:
+        lines.append("1. 补齐公司公告、主营收入和客户验证后重新裁决。")
+
+    detail_lines: list[str] = []
+    if answer_spec.sources:
+        detail_lines.extend(("### 来源", *_present_sources(answer_spec.sources)))
+    if len(notices) > 1:
+        detail_lines.extend(
+            ("", "### 数据边界", *(f"- {humanize(item)}" for item in notices[1:]))
+        )
+    if detail_lines:
+        lines.extend(("", "<details><summary>展开来源和数据边界</summary>", ""))
+        lines.extend(detail_lines)
+        lines.extend(("", "</details>"))
     return "\n".join(lines).rstrip() + "\n"
 
 

@@ -2849,7 +2849,7 @@ def _build_answer_spec_for_result(
         for claim in claims
     )
     if requires_company_evidence and not has_verified_company_claim:
-        notices.append("本轮未形成可验证的公司级来源；公司判断均按待验证展示。")
+        notices.append(answer_model.NO_TRACEABLE_EVIDENCE_NOTICE)
     if any(
         term in warning.lower()
         for warning in result.warnings
@@ -2912,15 +2912,16 @@ def _build_answer_spec_for_result(
             if item
         ),
         presentation_kind=(
-            "theme_research"
+            "stock_deep_dive"
             if result.question_plan is not None
-            and result.question_plan.question_type
-            in {
-                QUESTION_THEME_ANALYSIS,
-                QUESTION_NEWS_IMPACT,
-                QUESTION_STOCK_DEEP_DIVE,
-            }
-            else "base_finance"
+            and result.question_plan.question_type == QUESTION_STOCK_DEEP_DIVE
+            else (
+                "theme_research"
+                if result.question_plan is not None
+                and result.question_plan.question_type
+                in {QUESTION_THEME_ANALYSIS, QUESTION_NEWS_IMPACT}
+                else "base_finance"
+            )
         ),
         presentation_title=(
             (
