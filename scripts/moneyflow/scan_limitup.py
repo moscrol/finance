@@ -107,12 +107,12 @@ def main():
         return client, {"code": code, "主买净额(万)": round(active),
                         "总买净额(万)": round(total), "当日涨幅%": round(chg, 2)}
 
-    client, results = run_scan(client, codes, date, "limitup", compute)
+    client, results, stats = run_scan(client, codes, date, "limitup", compute)
 
     res = pd.DataFrame(results)
     if res.empty:
         print("无结果")
-        write_capital_flow(date, "limitup", res, big_thr, prev_limitup_date=prev)
+        write_capital_flow(date, "limitup", res, big_thr, prev_limitup_date=prev, stats=stats)
         return
     info = stock_info(res["code"])
     res["name"] = res["code"].map(lambda c: info.get(c, {}).get("name", ""))
@@ -125,7 +125,7 @@ def main():
 
     csv_path = out_path(f"limitup_scan_{date}.csv")
     res.sort_values("综合得分", ascending=False).to_csv(csv_path, index=False)
-    write_capital_flow(date, "limitup", res, big_thr, prev_limitup_date=prev)
+    write_capital_flow(date, "limitup", res, big_thr, prev_limitup_date=prev, stats=stats)
 
     sel = res[(res["主买净额(万)"] > 0) & (res["总买净额(万)"] > 0)
               & ((res["主买净额(万)"] > net_thr) | (res["总买净额(万)"] > net_thr))]

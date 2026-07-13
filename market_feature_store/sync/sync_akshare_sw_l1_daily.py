@@ -284,6 +284,9 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
                 item = proxy.get(name)
                 if not item:
                     continue
+                if item.get("pct_chg") is None and item.get("amount") is None:
+                    # 全空代理行不落库：无板块聚合数据时写空行只会掩盖缺口
+                    continue
                 records[(end, name)] = {
                     "trade_date": end,
                     "sw_l1_code": item["code"],
@@ -295,6 +298,12 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
                     "source": item["source"],
                 }
                 degraded_rows += 1
+        still_missing = [item["name"] for item in industries_all if (end, item["name"]) not in records]
+        if still_missing:
+            raise RuntimeError(
+                f"申万一级 {end} 有 {len(still_missing)} 个行业历史/实时/板块代理全部不可用，停止同步: "
+                f"{','.join(still_missing[:10])}; failures={failures}"
+            )
         now = datetime.now()
         rows = []
         for key in sorted(records):

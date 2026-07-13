@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 import duckdb
+import pytest
 
 from market_feature_store import db
 from market_feature_store.reports.daily_review import _coverage, _sw_l1_degradation_warning
@@ -69,7 +70,6 @@ def test_sw_l1_sync_falls_back_to_fupanhui_aggregate_when_realtime_empty(tmp_pat
         lambda: [
             {"code": "801080", "name": "电子"},
             {"code": "801750", "name": "计算机"},
-            {"code": "801980", "name": "美容护理"},
         ],
     )
     monkeypatch.setattr(
@@ -94,7 +94,7 @@ def test_sw_l1_sync_falls_back_to_fupanhui_aggregate_when_realtime_empty(tmp_pat
 
     stats = sw_sync.sync_akshare_sw_l1_daily(trade_date="2026-07-10", days=2)
 
-    assert stats["degraded_rows"] == 3
+    assert stats["degraded_rows"] == 2
     assert any(item["sw_l1"] == "realtime" for item in stats["failures"])
     con = connect(read_only=True)
     try:
@@ -109,15 +109,13 @@ def test_sw_l1_sync_falls_back_to_fupanhui_aggregate_when_realtime_empty(tmp_pat
     finally:
         con.close()
 
-    assert len(rows) == 3
+    assert len(rows) == 2
     by_name = {row[0]: row[1:] for row in rows}
     pct_chg, amount, ratio, source = by_name["电子"]
     assert round(pct_chg, 4) == -0.25
     assert amount == 400.0
     assert ratio == 13.5
     assert source == "degraded_fupanhui_sw_l1_aggregate:sector_count=2"
-    assert by_name["美容护理"][0] is None
-    assert by_name["美容护理"][3] == "degraded_fupanhui_sw_l1_aggregate:no_sector_rows"
 
     con = connect(read_only=True)
     try:
@@ -126,9 +124,48 @@ def test_sw_l1_sync_falls_back_to_fupanhui_aggregate_when_realtime_empty(tmp_pat
         warning = _sw_l1_degradation_warning(con, "2026-07-10")
     finally:
         con.close()
-    assert sw_l1_status == "OK（降级 3/3：复盘会聚合代理）"
+    assert sw_l1_status == "OK（降级 2/2：复盘会聚合代理）"
     assert warning is not None
     assert "不可等同于申万指数官方口径" in warning
+
+
+def test_sw_l1_sync_stops_when_industry_has_no_data_at_all(tmp_path, monkeypatch):
+    db_path = tmp_path / "market_feature_store.duckdb"
+    init_db = _init_test_db(db_path)
+    connect = _connect_test_db(db_path)
+    init_db()
+    con = connect()
+    try:
+        con.execute(
+            "INSERT INTO fact_market_daily (trade_date, source) VALUES ('2026-07-10', 'test')"
+        )
+    finally:
+        con.close()
+
+    monkeypatch.setattr(sw_sync, "connect", connect)
+    monkeypatch.setattr(sw_sync, "init_db", init_db)
+    monkeypatch.setattr(
+        sw_sync, "_fetch_sw_l1_codes", lambda: [{"code": "801980", "name": "美容护理"}]
+    )
+    monkeypatch.setattr(sw_sync, "_fetch_hist_by_code", lambda code, start, end: {})
+
+    def raise_realtime():
+        raise ValueError("realtime unavailable")
+
+    monkeypatch.setattr(sw_sync, "_fetch_realtime", raise_realtime)
+    monkeypatch.setattr(sw_sync.time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(RuntimeError, match="历史/实时/板块代理全部不可用"):
+        sw_sync.sync_akshare_sw_l1_daily(trade_date="2026-07-10", days=1)
+
+    con = connect(read_only=True)
+    try:
+        count, = con.execute(
+            "SELECT COUNT(*) FROM fact_sw_l1_daily WHERE trade_date = '2026-07-10'"
+        ).fetchone()
+    finally:
+        con.close()
+    assert count == 0
 
 
 def test_data_only_gate_does_not_require_a_report_file(tmp_path, monkeypatch):
@@ -147,8 +184,8 @@ def test_data_only_gate_does_not_require_a_report_file(tmp_path, monkeypatch):
         con.execute(
             """
             INSERT INTO fact_sw_l1_daily
-                (trade_date, sw_l1_code, sw_l1, source)
-            VALUES ('2026-07-10', '801080', '电子', 'test')
+                (trade_date, sw_l1_code, sw_l1, close, pct_chg, amount, source)
+            VALUES ('2026-07-10', '801080', '电子', 100.0, 1.0, 10.0, 'akshare:index_hist_sw:801080')
             """
         )
     finally:
@@ -157,6 +194,7 @@ def test_data_only_gate_does_not_require_a_report_file(tmp_path, monkeypatch):
     monkeypatch.setattr(check_daily_review_data, "connect", connect)
     monkeypatch.setattr(check_daily_review_data, "TABLES", ["fact_sw_l1_daily"])
     monkeypatch.setattr(check_daily_review_data, "MARKET_FIELDS", [])
+    monkeypatch.setattr(check_daily_review_data, "SW_L1_COUNT", 1)
     monkeypatch.chdir(tmp_path)
 
     assert check_daily_review_data.main("2026-07-10", data_only=True) == 0

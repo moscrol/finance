@@ -124,7 +124,8 @@ def run_scan(client, codes, date, tag, compute, passes=3):
 
     compute(client, code) -> (client, row|None)；row 为 None 表示该股无结果。
     已完成结果缓存到 outputs/scan_cache_<tag>_<date>.json，中断重跑不重复打库。
-    返回 (client, rows)。"""
+    返回 (client, rows, stats)；stats 含 input_count/processed_count/failed_count，
+    供写库时落入 ops_pipeline_run_daily 审计。"""
     cache_file = out_path(f"scan_cache_{tag}_{date}.json")
     done = {}
     if os.path.exists(cache_file):
@@ -164,8 +165,12 @@ def run_scan(client, codes, date, tag, compute, passes=3):
         pending = failed
     if pending:
         print(f"!! 兜底后仍失败 {len(pending)} 只: {','.join(pending[:20])}")
-        raise RuntimeError(f"{tag} 兜底后仍有 {len(pending)} 只股票失败")
-    return client, [r for c, r in done.items() if r]
+    stats = {
+        "input_count": len(codes),
+        "processed_count": sum(1 for c in codes if c in done),
+        "failed_count": len(pending),
+    }
+    return client, [r for c, r in done.items() if r], stats
 
 
 def fetch_trades(client, code, date):
