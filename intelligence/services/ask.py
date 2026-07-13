@@ -69,6 +69,13 @@ from intelligence.services.answer_orchestrator import (
     plan_answer_question,
 )
 from intelligence.services.execution_budget import ExecutionBudget
+from intelligence.services.query_understanding import (
+    DECISION_GOAL_CONDITIONAL,
+    DECISION_GOAL_INDEX_BREADTH,
+    DECISION_GOAL_MARKET_DIVERGENCE,
+    DECISION_GOAL_THEME_LIFECYCLE,
+    MARKET_PATTERN_DECISION_GOALS,
+)
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_estimate, valuation_gap
 from intelligence.services.trading_calendar import (
     next_trading_day,
@@ -769,7 +776,9 @@ def _general_finance_guidance(
     question_plan: QuestionPlan,
 ) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     decision_goal = question_plan.query_envelope.decision_goal
-    if decision_goal == "区分健康分歧与行情高潮":
+    if decision_goal not in MARKET_PATTERN_DECISION_GOALS:
+        decision_goal = DECISION_GOAL_CONDITIONAL
+    if decision_goal == DECISION_GOAL_THEME_LIFECYCLE:
         direct = (
             "单一的板块成交占比下降不足以判断健康分歧还是行情高潮；"
             "必须把广度、龙头承接、量价效率和次日修复放在一起看。",
@@ -795,7 +804,7 @@ def _general_finance_guidance(
             "四项至少三项同向后再定性。",
         )
         return direct, risks, conditions, actions
-    if decision_goal == "解释指数上涨与赚钱效应收缩":
+    if decision_goal == DECISION_GOAL_INDEX_BREADTH:
         direct = (
             "指数上涨且成交额放大，并不自动代表赚钱效应改善；"
             "若涨停数下降，更可能是权重或少数方向推动的结构性上涨，"
@@ -819,6 +828,57 @@ def _general_finance_guidance(
         actions = (
             "下一交易日核对指数贡献拆分、个股涨跌中位数、上涨家数、"
             "涨停家数与晋级率、成交额集中度。",
+        )
+        return direct, risks, conditions, actions
+    if (
+        question_plan.query_envelope.subject_kind == "market_pattern"
+        and decision_goal == DECISION_GOAL_MARKET_DIVERGENCE
+    ):
+        direct = (
+            "市场背离本身不是涨跌方向结论，只说明价格、市场广度、成交结构或"
+            "权重贡献之间至少有两组信号不同步。",
+            "关键证据要先明确背离的两端和时间窗口，再核对权重贡献、上涨广度、"
+            "个股涨跌中位数、成交额集中度及核心方向承接。",
+            "若价格走强同时广度和承接逐步修复，背离可能只是短暂结构差；"
+            "若价格继续走强而广度、承接和量价效率持续恶化，背离风险升级。",
+        )
+        risks = (
+            "不同指标的统计口径、基期或时间窗口不一致，也会制造表面背离，"
+            "不能在口径未对齐时直接判断退潮。",
+            "权重股集中上涨可能维持指数强势，却掩盖多数个股赚钱效应收缩。",
+        )
+        conditions = (
+            "若下一交易日广度回升、成交额集中度下降且核心方向承接稳定，"
+            "背离判断降级。",
+            "若价格强势但广度、个股中位数和承接继续恶化，背离判断升级。",
+        )
+        actions = (
+            "下一交易日对齐同一时间窗口，复核价格、上涨广度、权重贡献、"
+            "成交额集中度和核心方向承接。",
+        )
+        return direct, risks, conditions, actions
+    if question_plan.query_envelope.subject_kind == "market_pattern":
+        direct = (
+            "指数上涨且成交额放大只说明价格与总量同向，不足以确认市场结构健康；"
+            "还要检查上涨是否由少数权重集中推动。",
+            "关键证据是指数权重贡献、上涨广度、个股涨跌中位数、涨停晋级率、"
+            "成交额集中度和核心方向承接。",
+            "若放量同时广度扩散、个股中位数改善且成交额集中度下降，结构更健康；"
+            "若量增但广度收缩、成交更集中，仍是结构性上涨。",
+        )
+        risks = (
+            "成交额放大可能来自权重换手或少数方向集中交易，"
+            "不能直接等同于多数个股赚钱效应改善。",
+            "单日数据容易受基数和事件冲击影响，至少需要下一交易日确认延续性。",
+        )
+        conditions = (
+            "若上涨广度、个股中位数和涨停晋级率同步改善，且成交额集中度下降，"
+            "健康结构判断升级。",
+            "若指数继续上涨但广度和承接走弱、成交额更集中，结构性上涨判断升级。",
+        )
+        actions = (
+            "下一交易日核对指数权重贡献、上涨家数、个股涨跌中位数、"
+            "涨停晋级率、成交额集中度和核心方向承接。",
         )
         return direct, risks, conditions, actions
     direct = (

@@ -84,7 +84,15 @@ def test_market_pattern_requires_two_terms_and_explains_divergence() -> None:
 
     assert one_term.subject_kind == "unknown"
     assert two_terms.subject_kind == "market_pattern"
-    assert two_terms.decision_goal == "解释市场背离"
+    assert two_terms.decision_goal == "解释指数上涨与赚钱效应收缩"
+
+
+def test_default_market_pattern_goal_is_explicitly_supported() -> None:
+    envelope = understand_query("指数上涨且成交额放大，应该怎么判断？")
+
+    assert envelope.subject_kind == "market_pattern"
+    assert envelope.subject is None
+    assert envelope.decision_goal == "形成条件化判断"
 
 
 def test_compact_index_breadth_divergence_is_a_market_pattern() -> None:

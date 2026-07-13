@@ -549,6 +549,126 @@ class AnswerOrchestratorTests(unittest.TestCase):
         ):
             self.assertIn(required, rendered)
 
+    def test_index_breadth_query_with_divergence_word_uses_specific_goal(
+        self,
+    ) -> None:
+        query = "指数上涨但涨停家数减少，是否背离？"
+        plan = plan_answer_question(query)
+
+        self.assertEqual(plan.query_envelope.subject_kind, "market_pattern")
+        self.assertEqual(
+            plan.query_envelope.decision_goal,
+            "解释指数上涨与赚钱效应收缩",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=False,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        for required in (
+            "**直接定性：**",
+            "**最强证据：**",
+            "**主要风险：**",
+            "**条件边界：**",
+            "**下一步验证：**",
+            "权重",
+            "结构性上涨",
+            "赚钱效应收缩",
+        ):
+            self.assertIn(required, rendered)
+        self.assertNotIn("没有可安全识别的公司、板块或市场模式", rendered)
+
+    def test_default_market_pattern_goal_has_safe_market_structure_guidance(
+        self,
+    ) -> None:
+        query = "指数上涨且成交额放大，应该怎么判断？"
+        plan = plan_answer_question(query)
+
+        self.assertEqual(plan.query_envelope.subject_kind, "market_pattern")
+        self.assertEqual(plan.query_envelope.decision_goal, "形成条件化判断")
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=False,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        self.assertIsNotNone(result.answer_spec)
+        assert result.answer_spec is not None
+        all_output = rendered + json.dumps(
+            result.answer_spec.to_dict(),
+            ensure_ascii=False,
+        )
+        for required in (
+            "**直接定性：**",
+            "**最强证据：**",
+            "**主要风险：**",
+            "**条件边界：**",
+            "**下一步验证：**",
+            "不足以确认市场结构健康",
+            "权重贡献",
+            "上涨广度",
+            "成交额集中度",
+            "下一交易日",
+        ):
+            self.assertIn(required, all_output)
+        self.assertNotIn("没有可安全识别的公司、板块或市场模式", all_output)
+        for forbidden in (
+            "题材怎么理解",
+            "产业链",
+            "公司映射",
+            "公告",
+            "年报",
+            "官网",
+            "concept-ingest",
+        ):
+            self.assertNotIn(forbidden, all_output)
+
+    def test_generic_market_divergence_goal_never_uses_unknown_fallback(
+        self,
+    ) -> None:
+        query = "指数上涨与板块成交占比出现背离，怎么看？"
+        plan = plan_answer_question(query)
+
+        self.assertEqual(plan.query_envelope.subject_kind, "market_pattern")
+        self.assertEqual(plan.query_envelope.decision_goal, "解释市场背离")
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query=query,
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=False,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        for required in (
+            "市场背离本身不是涨跌方向结论",
+            "关键证据",
+            "统计口径",
+            "条件边界",
+            "下一交易日",
+        ):
+            self.assertIn(required, rendered)
+        self.assertNotIn("没有可安全识别的公司、板块或市场模式", rendered)
+
     def test_unknown_general_answer_does_not_fall_into_theme_research_template(
         self,
     ) -> None:

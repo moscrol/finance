@@ -79,6 +79,18 @@ _MARKET_PATTERN_TERMS = (
     "健康分歧",
     "行情高潮",
 )
+DECISION_GOAL_THEME_LIFECYCLE = "区分健康分歧与行情高潮"
+DECISION_GOAL_INDEX_BREADTH = "解释指数上涨与赚钱效应收缩"
+DECISION_GOAL_MARKET_DIVERGENCE = "解释市场背离"
+DECISION_GOAL_CONDITIONAL = "形成条件化判断"
+MARKET_PATTERN_DECISION_GOALS = frozenset(
+    {
+        DECISION_GOAL_THEME_LIFECYCLE,
+        DECISION_GOAL_INDEX_BREADTH,
+        DECISION_GOAL_MARKET_DIVERGENCE,
+        DECISION_GOAL_CONDITIONAL,
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -123,15 +135,15 @@ def _theme_aliases() -> tuple[str, ...]:
 
 def _decision_goal(query: str) -> str:
     if "健康分歧" in query or "行情高潮" in query:
-        return "区分健康分歧与行情高潮"
-    if "背离" in query:
-        return "解释市场背离"
+        return DECISION_GOAL_THEME_LIFECYCLE
     if (
         any(term in query for term in ("指数上涨", "指数涨"))
         and any(term in query for term in ("涨停家数减少", "涨停家数下降", "涨停数降"))
     ):
-        return "解释指数上涨与赚钱效应收缩"
-    return "形成条件化判断"
+        return DECISION_GOAL_INDEX_BREADTH
+    if "背离" in query:
+        return DECISION_GOAL_MARKET_DIVERGENCE
+    return DECISION_GOAL_CONDITIONAL
 
 
 def _normalize_explicit_tail(tail: str, timeframe: str | None) -> str:
