@@ -9,7 +9,7 @@
 ## P0a — 统一运行版本（受控对比前提）
 
 - [x] 盘点 Mac 上同时运行的多个 Workbench 服务（8791/8792/8795/8797/8798，来自不同 worktree/分支），确认各自的分支、模型配置（如 glm-5.2）、数据目录。— `c10baaf` / PR #217；2026-07-13 已核对 PID、worktree、branch/commit、模型与用户数据目录。
-- [ ] 保留唯一 canonical 端口 + main 分支运行时，其余停掉或明确标注用途。— 2026-07-13 已停止 8791/8795/8797/8798，仅保留 8792；8792 仍是 PR #206 detached runtime，待通过 secret manager 重新注入 GLM 密钥后切到最新 `main`，不从存量进程提取凭据。
+- [x] 保留唯一 canonical 端口 + main 分支运行时，其余停掉或明确标注用途。— `1d0355e` / PR #217；2026-07-13 已停止 8791/8795/8797/8798，8792 由 LaunchAgent 从 macOS Keychain 注入 GLM 密钥，运行 `/Users/a77/finance-workspace-runtime` → `main@86b1c7083ca6`，用户数据迁至仓库外持久目录。
 - [x] 健康检查收紧：`market_snapshot=false` 等关键数据缺失时不应整体显示 ready，至少在回答里显式披露数据缺口。— `c10baaf` / PR #217；readiness 返回 503，并列出 `missing_critical`。
 
 ## P0b — 打开 UI 链路的记忆/纠偏注入（性价比最高）
