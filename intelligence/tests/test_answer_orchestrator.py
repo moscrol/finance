@@ -453,6 +453,140 @@ class AnswerOrchestratorTests(unittest.TestCase):
                 },
                 "invalid_derivative: capacity_sector_not_object",
             ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": "液冷",
+                            "knowledge_evidence": {"source": "嵌套伪事实"},
+                        }
+                    ],
+                },
+                "invalid_derivative: knowledge_evidence_not_list",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": "液冷",
+                            "knowledge_evidence": ["嵌套伪事实"],
+                        }
+                    ],
+                },
+                "invalid_derivative: knowledge_evidence_item_not_object",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": "液冷",
+                            "knowledge_status": "嵌套伪事实",
+                        }
+                    ],
+                },
+                "invalid_derivative: knowledge_status_not_object",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": "液冷",
+                            "trigger_types": 42,
+                        }
+                    ],
+                },
+                "invalid_derivative: trigger_types_not_list",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": "液冷",
+                            "trigger_types": [42],
+                        }
+                    ],
+                },
+                "invalid_derivative: trigger_type_not_string",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": {"name": "嵌套伪事实"},
+                            "market_theme": "液冷",
+                        }
+                    ],
+                },
+                "invalid_derivative: canonical_concept_not_string",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": "液冷",
+                            "matched_concepts": {"concept": "嵌套伪事实"},
+                        }
+                    ],
+                },
+                "invalid_derivative: matched_concepts_not_list",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": "液冷",
+                            "matched_concepts": ["嵌套伪事实"],
+                        }
+                    ],
+                },
+                "invalid_derivative: matched_concept_not_object",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [
+                        {
+                            "canonical_concept": "液冷",
+                            "knowledge_status": {
+                                "concept_count": "嵌套伪事实",
+                            },
+                        }
+                    ],
+                },
+                "invalid_derivative: concept_count_not_integer",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [{"canonical_concept": "液冷"}],
+                    "market_context": {
+                        "capacity_sectors": [
+                            {"name": {"value": "嵌套伪事实"}, "ratio": 1}
+                        ]
+                    },
+                },
+                "invalid_derivative: capacity_sector_name_not_string",
+            ),
+            (
+                {
+                    "trade_date": "2026-07-10",
+                    "candidates": [{"canonical_concept": "液冷"}],
+                    "market_context": {
+                        "capacity_sectors": [
+                            {"name": "电子", "ratio": {"value": 1}}
+                        ]
+                    },
+                },
+                "invalid_derivative: capacity_sector_ratio_not_number",
+            ),
         )
         for payload, warning_label in cases:
             with self.subTest(warning=warning_label):
@@ -484,6 +618,9 @@ class AnswerOrchestratorTests(unittest.TestCase):
                 self.assertIsNone(result.candidate_tier)
                 self.assertFalse(
                     any(citation.tag.startswith("S") for citation in result.citations)
+                )
+                self.assertFalse(
+                    any(citation.tag.startswith("R") for citation in result.citations)
                 )
                 self.assertNotIn(
                     "嵌套伪事实",

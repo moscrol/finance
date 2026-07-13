@@ -462,6 +462,106 @@ _THEME_CANDIDATE_LIST_FIELDS = (
 )
 
 
+def _is_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _is_safe_scalar(value: object) -> bool:
+    return value is None or isinstance(value, (str, bool)) or _is_number(value)
+
+
+def _validate_candidate_item(item: dict[str, Any]) -> str | None:
+    for field_name in (
+        "canonical_concept",
+        "market_theme",
+        "candidate_tier",
+        "sw_l1",
+    ):
+        value = item.get(field_name)
+        if value is not None and not isinstance(value, str):
+            return f"invalid_derivative: {field_name}_not_string"
+
+    if not any(
+        isinstance(item.get(field_name), str) and item[field_name].strip()
+        for field_name in ("canonical_concept", "market_theme")
+    ):
+        return "invalid_derivative: candidate_subject_missing"
+
+    priority_score = item.get("priority_score")
+    if priority_score is not None and not _is_number(priority_score):
+        return "invalid_derivative: priority_score_not_number"
+
+    if "trigger_types" in item:
+        trigger_types = item["trigger_types"]
+        if not isinstance(trigger_types, list):
+            return "invalid_derivative: trigger_types_not_list"
+        if any(not isinstance(trigger_type, str) for trigger_type in trigger_types):
+            return "invalid_derivative: trigger_type_not_string"
+
+    if "score_detail" in item:
+        score_detail = item["score_detail"]
+        if not isinstance(score_detail, list):
+            return "invalid_derivative: score_detail_not_list"
+        if any(not isinstance(detail, dict) for detail in score_detail):
+            return "invalid_derivative: score_detail_item_not_object"
+
+    if "matched_concepts" in item:
+        matched_concepts = item["matched_concepts"]
+        if not isinstance(matched_concepts, list):
+            return "invalid_derivative: matched_concepts_not_list"
+        for matched_concept in matched_concepts:
+            if not isinstance(matched_concept, dict):
+                return "invalid_derivative: matched_concept_not_object"
+            if "concept" in matched_concept and not isinstance(
+                matched_concept["concept"], str
+            ):
+                return "invalid_derivative: matched_concept_name_not_string"
+            if "score" in matched_concept and not _is_number(
+                matched_concept["score"]
+            ):
+                return "invalid_derivative: matched_concept_score_not_number"
+
+    if "knowledge_evidence" in item:
+        knowledge_evidence = item["knowledge_evidence"]
+        if not isinstance(knowledge_evidence, list):
+            return "invalid_derivative: knowledge_evidence_not_list"
+        for evidence_item in knowledge_evidence:
+            if not isinstance(evidence_item, dict):
+                return "invalid_derivative: knowledge_evidence_item_not_object"
+            if any(
+                field_name in evidence_item
+                and not _is_safe_scalar(evidence_item[field_name])
+                for field_name in (
+                    "target",
+                    "source",
+                    "evidence",
+                    "source_date",
+                    "confidence",
+                    "quality",
+                )
+            ):
+                return "invalid_derivative: knowledge_evidence_field_not_scalar"
+
+    if "knowledge_status" in item:
+        knowledge_status = item["knowledge_status"]
+        if not isinstance(knowledge_status, dict):
+            return "invalid_derivative: knowledge_status_not_object"
+        if "backfill_gaps" in knowledge_status:
+            backfill_gaps = knowledge_status["backfill_gaps"]
+            if not isinstance(backfill_gaps, list):
+                return "invalid_derivative: backfill_gaps_not_list"
+            if any(not _is_safe_scalar(gap) for gap in backfill_gaps):
+                return "invalid_derivative: backfill_gap_not_scalar"
+        for count_field in ("concept_count", "exposure_count"):
+            if count_field in knowledge_status and (
+                not isinstance(knowledge_status[count_field], int)
+                or isinstance(knowledge_status[count_field], bool)
+            ):
+                return f"invalid_derivative: {count_field}_not_integer"
+
+    return None
+
+
 def _validate_theme_export_payload(
     payload: object,
 ) -> tuple[dict[str, Any] | None, str | None]:
@@ -487,13 +587,9 @@ def _validate_theme_export_payload(
         for item in value:
             if not isinstance(item, dict):
                 return None, "invalid_derivative: candidate_item_not_object"
-            if "score_detail" not in item:
-                continue
-            score_detail = item["score_detail"]
-            if not isinstance(score_detail, list):
-                return None, "invalid_derivative: score_detail_not_list"
-            if any(not isinstance(detail, dict) for detail in score_detail):
-                return None, "invalid_derivative: score_detail_item_not_object"
+            validation_warning = _validate_candidate_item(item)
+            if validation_warning:
+                return None, validation_warning
         has_candidate_list = True
 
     has_market_context = "market_context" in payload
@@ -501,12 +597,28 @@ def _validate_theme_export_payload(
         market_context = payload["market_context"]
         if not isinstance(market_context, dict):
             return None, "invalid_derivative: market_context_not_object"
+        if any(
+            field_name in market_context
+            and not _is_safe_scalar(market_context[field_name])
+            for field_name in (
+                "market_stage",
+                "total_amount",
+                "limit_up",
+                "limit_down",
+            )
+        ):
+            return None, "invalid_derivative: market_context_field_not_scalar"
         if "capacity_sectors" in market_context:
             capacity_sectors = market_context["capacity_sectors"]
             if not isinstance(capacity_sectors, list):
                 return None, "invalid_derivative: capacity_sectors_not_list"
-            if any(not isinstance(sector, dict) for sector in capacity_sectors):
-                return None, "invalid_derivative: capacity_sector_not_object"
+            for sector in capacity_sectors:
+                if not isinstance(sector, dict):
+                    return None, "invalid_derivative: capacity_sector_not_object"
+                if "name" in sector and not isinstance(sector["name"], str):
+                    return None, "invalid_derivative: capacity_sector_name_not_string"
+                if "ratio" in sector and not _is_number(sector["ratio"]):
+                    return None, "invalid_derivative: capacity_sector_ratio_not_number"
     if not has_candidate_list and not has_market_context:
         return None, "invalid_derivative: missing_market_payload"
     return payload, None
