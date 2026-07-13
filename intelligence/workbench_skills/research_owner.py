@@ -43,14 +43,6 @@ class ResearchOwnerSkill:
         self._answer_query = answer_query_fn
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
-        llm_timeout = (
-            max(
-                1,
-                int(context.execution_budget.child_timeout(30, reserve=3) / 2),
-            )
-            if context.execution_budget is not None
-            else 30
-        )
         if context.runtime_inputs is not None:
             market_db_path = context.runtime_inputs.market_db_path
             exports_dir = context.runtime_inputs.exports_dir
@@ -81,7 +73,6 @@ class ResearchOwnerSkill:
                 question_type_override=self.config.question_type,
                 execution_budget=context.execution_budget,
                 progress_callback=context.progress_callback,
-                llm_timeout=llm_timeout,
             )
         )
         retrieved_modules = self._modules(result)

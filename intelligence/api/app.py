@@ -1115,6 +1115,7 @@ def create_app(
     *,
     repo_root: Path | None = None,
     run_timeout_sec: float = _SSE_MAX_SECONDS,
+    answer_deadline_seconds: float | None = None,
     self_use_require_consecutive_trading_days: bool = False,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
@@ -1127,7 +1128,10 @@ def create_app(
         vector_index_dir=runtime_paths.vector_index_dir,
         market_snapshot_dir=runtime_paths.market_snapshot_dir,
     )
-    supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
+    supervisor = RunSupervisor(
+        timeout_sec=run_timeout_sec,
+        answer_deadline_seconds=answer_deadline_seconds,
+    )
     llm_settings = SessionLLMSettings()
 
     @asynccontextmanager

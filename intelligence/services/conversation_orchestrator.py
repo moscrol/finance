@@ -63,6 +63,9 @@ from intelligence.workbench_skills.router import (
 
 RECENT_MESSAGE_LIMIT = 6
 SUMMARY_CHAR_LIMIT = 2400
+FINALIZATION_RESERVE_SECONDS = 5.0
+SYNTHESIS_RESERVE_SECONDS = 20.0
+SKILL_RESERVE_SECONDS = 25.0
 _SKILL_WORKER_SLOTS = BoundedSemaphore(8)
 _FOLLOW_UP_REFERENCE_PATTERN = re.compile(
     r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
@@ -86,6 +89,13 @@ _EVIDENCE_LAYER_SUMMARY_PATTERN = re.compile(
     r"(?:\s*[、,，]\s*L[1-4](?:\s*[×x*]\s*\d+)?)*"
     r"\s*[，,]?\s*"
 )
+
+
+def _turn_work_seconds(answer_deadline_seconds: float) -> float:
+    return max(
+        1.0,
+        answer_deadline_seconds - FINALIZATION_RESERVE_SECONDS,
+    )
 
 
 class _SkillRunStoreGuard:
@@ -702,7 +712,9 @@ class TurnOrchestrator:
         execution_budget = (
             self.budget_factory()
             if self.budget_factory is not None
-            else ExecutionBudget.start(self.answer_deadline_seconds)
+            else ExecutionBudget.start(
+                _turn_work_seconds(self.answer_deadline_seconds)
+            )
         )
         report = new_structured_report(
             run_id=run_id,
@@ -717,6 +729,7 @@ class TurnOrchestrator:
         citations: list[dict[str, object]] = []
         text_chunks: list[str] = []
         skill_outputs: list[SkillOutput] = []
+        skill_timed_out = False
 
         def can_emit_progress() -> bool:
             if self.is_cancelled():
@@ -823,7 +836,7 @@ class TurnOrchestrator:
                 skill_id = selection.skill_id
                 skill_timeout = execution_budget.child_timeout(
                     self.skill_registry.definitions[skill_id].timeout_seconds,
-                    reserve=20,
+                    reserve=SKILL_RESERVE_SECONDS,
                 )
                 if skill_timeout <= 0:
                     warning = f"Skill {skill_id} 因时间预算不足已跳过"
@@ -930,6 +943,7 @@ class TurnOrchestrator:
                 except Exception as exc:  # noqa: BLE001
                     skill_progress.revoke()
                     if isinstance(exc, FuturesTimeoutError) and future is not None:
+                        skill_timed_out = True
                         future.cancel()
                     warning = (
                         f"Skill {skill_id} 执行超时"
@@ -1043,8 +1057,8 @@ class TurnOrchestrator:
             if owner_output is not None:
                 result = _skill_owner_result(query, owner_output)
                 owner_synthesis_allowance = execution_budget.child_timeout(
-                    30,
-                    reserve=3,
+                    SYNTHESIS_RESERVE_SECONDS,
+                    reserve=FINALIZATION_RESERVE_SECONDS,
                 )
                 if owner_synthesis_allowance < 4.0:
                     result.llm_fallback_reason = "budget_exhausted"
@@ -1090,17 +1104,21 @@ class TurnOrchestrator:
                     },
                 )
             else:
-                synthesis_allowance = execution_budget.child_timeout(30, reserve=3)
+                synthesis_allowance = execution_budget.child_timeout(
+                    SYNTHESIS_RESERVE_SECONDS,
+                    reserve=FINALIZATION_RESERVE_SECONDS,
+                )
                 budget_degraded = synthesis_allowance < 4.0
                 if budget_degraded:
                     budget_warning = "workbench_time_budget_exhausted_template_answer"
                     warnings.append(budget_warning)
                     self.run_store.add_degrade(run_id, budget_warning)
                 per_call_timeout = (
-                    max(1, int((synthesis_allowance - 2.0) / 2.0))
+                    max(1, int(synthesis_allowance))
                     if not budget_degraded
                     else 1
                 )
+                cheap_skill_timeout_fallback = skill_timed_out
                 base_progress = turn_progress.producer("turn:base")
                 try:
                     result = self.answer_query(
@@ -1114,8 +1132,15 @@ class TurnOrchestrator:
                             ),
                             user=self.run_store.user_id,
                             compose=not budget_degraded,
-                            use_modules=not budget_degraded,
-                            use_wiki_rag=not budget_degraded,
+                            synthesize=not budget_degraded,
+                            use_modules=(
+                                not budget_degraded
+                                and not cheap_skill_timeout_fallback
+                            ),
+                            use_wiki_rag=(
+                                not budget_degraded
+                                and not cheap_skill_timeout_fallback
+                            ),
                             compose_self_review=False,
                             compose_revise_on_warn=False,
                             market_db_path=self.runtime_inputs.market_db_path,
@@ -1124,8 +1149,12 @@ class TurnOrchestrator:
                             wiki_rag_index_dir=self.runtime_inputs.vector_index_dir,
                             conversation_context=context.to_prompt_block(),
                             supplemental_evidence=self._skill_evidence(skill_outputs),
-                            include_memory_block=True,
-                            include_recall_block=True,
+                            include_memory_block=(
+                                not cheap_skill_timeout_fallback
+                            ),
+                            include_recall_block=(
+                                not cheap_skill_timeout_fallback
+                            ),
                             perspective_mode=perspective_mode,
                             perspective_ids=tuple(selected_perspective_ids),
                             stream_text_delta=emit_text_delta,

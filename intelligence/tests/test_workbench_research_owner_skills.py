@@ -178,7 +178,6 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
     assert captured[0].include_memory_block is True
     assert captured[0].include_recall_block is True
     assert captured[0].conversation_context == "用户上一轮强调只看公告级证据。"
-    assert captured[0].llm_timeout == 30
     assert captured[0].progress_callback is progress
     assert output.answer_contract is not None
     assert output.answer_contract.retrieval_plan == config.retrieval_plan
@@ -265,9 +264,11 @@ def test_research_owner_falls_back_without_current_traceable_evidence(
     assert artifact["owned"] is False
 
 
-def test_research_owner_forwards_shared_budget_and_halves_synthesis_allowance(
+def test_research_owner_forwards_shared_budget_without_model_synthesis(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
+    monkeypatch.setenv("LLM_TIMEOUT", "47")
     captured: list[AskOptions] = []
 
     def fake_answer_query(options: AskOptions) -> AskResult:
@@ -288,7 +289,8 @@ def test_research_owner_forwards_shared_budget_and_halves_synthesis_allowance(
     )
 
     assert captured[0].execution_budget is budget
-    assert captured[0].llm_timeout == 8
+    assert captured[0].synthesize is False
+    assert captured[0].llm_timeout == 47
 
 
 def test_stock_owner_does_not_treat_market_only_evidence_as_company_fact(

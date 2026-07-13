@@ -278,6 +278,49 @@ def test_turn_shares_one_sixty_second_budget_with_router_skill_and_ask(
     assert ask_budgets == [budget]
 
 
+def test_turn_work_seconds_reserves_terminalization_window() -> None:
+    assert orchestrator_module._turn_work_seconds(60) == 55.0
+    assert orchestrator_module._turn_work_seconds(3) == 1.0
+
+
+def test_default_turn_budget_excludes_terminalization_reserve(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "默认预算",
+    )
+    captured_budgets: list[object] = []
+
+    def route_spy(*args: object, **kwargs: object) -> SkillRouteResult:
+        captured_budgets.append(kwargs["execution_budget"])
+        return SkillRouteResult((), False, True)
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=route_spy,
+        skill_registry=SkillRegistry(),
+        answer_deadline_seconds=60,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="默认预算",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    budget = captured_budgets[0]
+    assert isinstance(budget, ExecutionBudget)
+    assert budget.deadline_at - budget.started_at == pytest.approx(55.0)
+
+
 def test_budget_exhaustion_degrades_to_nonempty_deterministic_answer(tmp_path) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
@@ -317,6 +360,7 @@ def test_budget_exhaustion_degrades_to_nonempty_deterministic_answer(tmp_path) -
     assert captured[0].use_wiki_rag is False
     assert captured[0].use_modules is False
     assert captured[0].compose is False
+    assert captured[0].synthesize is False
     assert captured[0].execution_budget is budget
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert "workbench_time_budget_exhausted_template_answer" in assistant.degrades
@@ -436,7 +480,7 @@ def test_timed_out_skill_cannot_persist_artifact_after_turn_continues(tmp_path) 
             (SkillSelection("slow", "manual", "slow"),), False
         ),
         skill_registry=registry,
-        budget_factory=lambda: _FixedBudget(20.01),  # type: ignore[return-value]
+        budget_factory=lambda: _FixedBudget(25.01),  # type: ignore[return-value]
     ).run_turn(
         conversation_id=conversation.conversation_id,
         run_id=run_id,
@@ -505,7 +549,7 @@ def test_timed_out_owner_progress_is_revoked_before_late_callback(tmp_path) -> N
             (SkillSelection("owner", "manual", "owner"),), False
         ),
         skill_registry=registry,
-        budget_factory=lambda: _FixedBudget(20.05),  # type: ignore[return-value]
+        budget_factory=lambda: _FixedBudget(25.05),  # type: ignore[return-value]
     ).run_turn(
         conversation_id=conversation.conversation_id,
         run_id=run_id,
@@ -535,6 +579,93 @@ def test_timed_out_owner_progress_is_revoked_before_late_callback(tmp_path) -> N
         and event["payload"]["stage"] == "synthesis"
     ]
     assert after_release == before_release
+
+
+def test_timed_out_owner_uses_fast_base_ask_without_repeating_research(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "深挖英维克",
+        selected_skill_ids=["owner"],
+    )
+    release = Event()
+    captured: list[AskOptions] = []
+    budget = _FixedBudget(25.05)
+
+    class BlockingOwner:
+        skill_id = "owner"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            release.wait(timeout=1)
+            return SkillOutput(skill_id=self.skill_id)
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="owner",
+            name="Owner",
+            description="blocking owner",
+            version="1.0.0",
+            triggers=("深挖",),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        ),
+        BlockingOwner(),
+    )
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    started = time.monotonic()
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (SkillSelection("owner", "manual", "owner"),), False
+        ),
+        skill_registry=registry,
+        budget_factory=lambda: budget,  # type: ignore[return-value]
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="深挖英维克",
+        skill_mode="manual",
+        selected_skill_ids=["owner"],
+    )
+    elapsed = time.monotonic() - started
+    release.set()
+
+    assert result.status == "completed"
+    assert elapsed < 0.5
+    assert len(captured) == 1
+    assert captured[0].compose is True
+    assert captured[0].synthesize is True
+    assert captured[0].use_modules is False
+    assert captured[0].use_wiki_rag is False
+    assert (1, orchestrator_module.SKILL_RESERVE_SECONDS) in budget.child_calls
+    assert (
+        orchestrator_module.SYNTHESIS_RESERVE_SECONDS,
+        orchestrator_module.FINALIZATION_RESERVE_SECONDS,
+    ) in budget.child_calls
+    run = run_store.load_run(run_id)
+    assert run.status == "completed"
+    assert "executor_timeout" not in run.degrades
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    assert report["status"] == "completed"
+    assert any("执行超时" in warning for warning in report["warnings"])
 
 
 def test_guard_stop_and_terminal_state_serialize_against_artifact_write(tmp_path) -> None:
@@ -776,12 +907,12 @@ def test_router_skips_llm_when_timeout_or_shared_budget_is_exhausted(
 @pytest.mark.parametrize(
     ("remaining", "expected_compose", "expected_timeout"),
     [
-        (6.0, False, 1),
-        (7.0, True, 1),
-        (13.0, True, 4),
+        (8.0, False, 1),
+        (9.0, True, 4),
+        (13.0, True, 8),
     ],
 )
-def test_generic_ask_reserves_two_calls_and_retry_backoff(
+def test_generic_ask_reserves_finalization_time(
     tmp_path,
     remaining: float,
     expected_compose: bool,
@@ -825,9 +956,12 @@ def test_generic_ask_reserves_two_calls_and_retry_backoff(
     assert options.use_wiki_rag is expected_compose
     assert options.use_modules is expected_compose
     assert options.llm_timeout == expected_timeout
-    allowance = budget.child_timeout(30, reserve=3)
+    allowance = budget.child_timeout(
+        orchestrator_module.SYNTHESIS_RESERVE_SECONDS,
+        reserve=orchestrator_module.FINALIZATION_RESERVE_SECONDS,
+    )
     if expected_compose:
-        assert options.llm_timeout * 2 + 2 <= allowance
+        assert options.llm_timeout <= allowance
     else:
         assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
         assert "workbench_time_budget_exhausted_template_answer" in assistant.degrades
@@ -1562,7 +1696,7 @@ def test_skill_answer_owner_skips_provider_when_synthesis_budget_is_too_low(
             reserve: float = 0,
             now: float | None = None,
         ) -> float:
-            if requested == 30 and reserve == 3:
+            if requested == 20 and reserve == 5:
                 return 3.0
             return super().child_timeout(requested, reserve, now)
 

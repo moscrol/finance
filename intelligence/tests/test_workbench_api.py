@@ -1438,6 +1438,112 @@ def test_conversation_supervisor_uses_deadline_plus_five_timeout(
     supervisor.shutdown()
 
 
+def test_owner_skill_timeout_finishes_conversation_before_supervisor_timer(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from intelligence.services import conversation_orchestrator as orchestrator_svc
+    from intelligence.services.ask import AskOptions, AskResult
+    from intelligence.workbench_skills.contracts import (
+        SkillDefinition,
+        SkillExecutionContext,
+        SkillOutput,
+    )
+    from intelligence.workbench_skills.registry import SkillRegistry
+
+    users_root = tmp_path / "users"
+    repo_root = tmp_path / "repo"
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    repo_root.mkdir()
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+
+    release = threading.Event()
+    captured_options: list[AskOptions] = []
+
+    class BlockingOwner:
+        skill_id = "stock-deep-dive"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            release.wait(timeout=1)
+            return SkillOutput(skill_id=self.skill_id)
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="stock-deep-dive",
+            name="Stock deep dive",
+            description="blocking owner",
+            version="1.0.0",
+            triggers=("深挖",),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        ),
+        BlockingOwner(),
+    )
+
+    def deterministic_answer(options: AskOptions) -> AskResult:
+        captured_options.append(options)
+        return AskResult(
+            query=options.query,
+            trade_date="2026-07-11",
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+            sections={"结论": ["专项超时后保留确定性基础回答。"]},
+        )
+
+    monkeypatch.setattr(
+        orchestrator_svc,
+        "builtin_skill_registry",
+        lambda: registry,
+    )
+    monkeypatch.setattr(orchestrator_svc, "answer_query", deterministic_answer)
+
+    started = time.monotonic()
+    with TestClient(
+        app_module.create_app(
+            repo_root=repo_root,
+            run_timeout_sec=2,
+            answer_deadline_seconds=30.1,
+        )
+    ) as timeout_client:
+        conversation_id = timeout_client.post(
+            "/api/conversations",
+            json={"title": "timeout fallback"},
+        ).json()["conversation_id"]
+        run_id = timeout_client.post(
+            f"/api/conversations/{conversation_id}/messages",
+            json={
+                "content": "深挖英维克",
+                "skill_mode": "manual",
+                "selected_skill_ids": ["stock-deep-dive"],
+            },
+        ).json()["run_id"]
+        run = _wait_terminal(timeout_client, run_id)
+        report = timeout_client.get(f"/api/runs/{run_id}/report").json()
+        messages = timeout_client.get(
+            f"/api/conversations/{conversation_id}/messages"
+        ).json()
+    elapsed = time.monotonic() - started
+    release.set()
+
+    assert elapsed < 1.0
+    assert run["status"] == "completed"
+    assert report["status"] == "completed"
+    assert messages[-1]["status"] == "completed"
+    assert "executor_timeout" not in run["degrades"]
+    assert any("执行超时" in warning for warning in report["warnings"])
+    assert len(captured_options) == 1
+    options = captured_options[0]
+    assert options.compose is True
+    assert options.synthesize is True
+    assert options.use_modules is False
+    assert options.use_wiki_rag is False
+
+
 def test_cancel_terminalizes_running_conversation_message(
     tmp_path,
     monkeypatch,
