@@ -472,6 +472,110 @@ def test_router_default_llm_gets_timeout_and_injected_one_arg_double_still_works
     assert len(injected_calls) == 1
 
 
+@pytest.mark.parametrize(
+    ("llm_timeout", "budget"),
+    [
+        (0.0, _FixedBudget(60)),
+        (5.0, _FixedBudget(0)),
+    ],
+)
+def test_router_skips_llm_when_timeout_or_shared_budget_is_exhausted(
+    llm_timeout: float,
+    budget: _FixedBudget,
+) -> None:
+    calls = 0
+
+    def forbidden_complete(messages: list[dict[str, str]]):
+        nonlocal calls
+        calls += 1
+        return None, None, "must not run"
+
+    result = route_skills(
+        "q",
+        "ask",
+        "auto",
+        [],
+        registry={
+            "fixture": SkillDefinition(
+                skill_id="fixture",
+                name="Fixture",
+                description="fixture",
+                version="1.0.0",
+                triggers=("q",),
+                input_schema={"type": "object"},
+                permissions=("local_read",),
+                timeout_seconds=1,
+            )
+        },
+        llm_timeout=llm_timeout,
+        execution_budget=budget,  # type: ignore[arg-type]
+        llm_complete=forbidden_complete,
+    )
+
+    assert calls == 0
+    assert [selection.skill_id for selection in result.selections] == ["fixture"]
+
+
+@pytest.mark.parametrize(
+    ("remaining", "expected_compose", "expected_timeout"),
+    [
+        (6.0, False, 1),
+        (7.0, True, 1),
+        (13.0, True, 4),
+    ],
+)
+def test_generic_ask_reserves_two_calls_and_retry_backoff(
+    tmp_path,
+    remaining: float,
+    expected_compose: bool,
+    expected_timeout: int,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "预算边界",
+    )
+    budget = _FixedBudget(remaining)
+    captured: list[AskOptions] = []
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult((), False, True),
+        skill_registry=SkillRegistry(),
+        budget_factory=lambda: budget,  # type: ignore[return-value]
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="预算边界",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    options = captured[0]
+    assert options.compose is expected_compose
+    assert options.use_wiki_rag is expected_compose
+    assert options.use_modules is expected_compose
+    assert options.llm_timeout == expected_timeout
+    allowance = budget.child_timeout(30, reserve=3)
+    if expected_compose:
+        assert options.llm_timeout * 2 + 2 <= allowance
+    else:
+        assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+        assert "workbench_time_budget_exhausted_template_answer" in assistant.degrades
+
+
 def test_single_perspective_is_forwarded_and_labels_final_answer(
     tmp_path, monkeypatch
 ) -> None:

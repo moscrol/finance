@@ -806,12 +806,17 @@ class TurnOrchestrator:
                     },
                 )
             else:
-                budget_degraded = execution_budget.remaining_seconds() < 3
+                synthesis_allowance = execution_budget.child_timeout(30, reserve=3)
+                budget_degraded = synthesis_allowance < 4.0
                 if budget_degraded:
                     budget_warning = "workbench_time_budget_exhausted_template_answer"
                     warnings.append(budget_warning)
                     self.run_store.add_degrade(run_id, budget_warning)
-                synthesis_allowance = execution_budget.child_timeout(30, reserve=3)
+                per_call_timeout = (
+                    max(1, int((synthesis_allowance - 2.0) / 2.0))
+                    if not budget_degraded
+                    else 1
+                )
                 result = self.answer_query(
                     AskOptions(
                         query=contextual_query,
@@ -839,7 +844,7 @@ class TurnOrchestrator:
                         stream_text_delta=emit_text_delta,
                         stream_cancel_check=self.is_cancelled,
                         execution_budget=execution_budget,
-                        llm_timeout=max(1, int(synthesis_allowance / 2)),
+                        llm_timeout=per_call_timeout,
                     )
                 )
             self._check_cancelled()

@@ -145,7 +145,10 @@ def route_skills(
     rules = _rule_candidates(query, task_type, automatic_registry)
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
     available_slots = 3 if skill_mode == "auto" else 3 - len(manual)
-    if automatic_registry and available_slots > 0:
+    llm_allowed = llm_timeout > 0 and (
+        execution_budget is None or not execution_budget.exhausted()
+    )
+    if automatic_registry and available_slots > 0 and llm_allowed:
         rule_ids = {skill_id for skill_id, _ in rules}
         candidates = [
             {
