@@ -214,6 +214,21 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result.llm_stream_telemetry["provider"], "zhipu")
         self.assertEqual(result.llm_stream_telemetry["model"], "glm-5.2")
 
+    def test_empty_query_and_entity_anchor_are_preserved_in_query_envelope(
+        self,
+    ) -> None:
+        empty = plan_answer_question("")
+        anchored = plan_answer_question(
+            "英维克怎么看",
+            anchor=EntityAnchor(entity="英维克", ticker="002837.SZ"),
+        )
+
+        self.assertEqual(empty.query_envelope.subject_kind, "unknown")
+        self.assertIsNone(empty.query_envelope.subject)
+        self.assertEqual(anchored.query_envelope.subject_kind, "company")
+        self.assertEqual(anchored.query_envelope.subject, "英维克")
+        self.assertEqual(anchored.question_type, QUESTION_STOCK_DEEP_DIVE)
+
     def test_base_finance_mode_keeps_retrieval_floor_for_quick_answers(self) -> None:
         plan = plan_answer_question("600519 快答：最近消息、产业链和财务估值怎么看")
 
@@ -391,6 +406,8 @@ class AnswerOrchestratorTests(unittest.TestCase):
     def test_deep_dive_trigger_beats_industry_chain_keyword(self) -> None:
         plan = plan_answer_question("深挖英维克，它在液冷产业链的位置")
 
+        self.assertEqual(plan.query_envelope.subject_kind, "theme")
+        self.assertEqual(plan.query_envelope.subject, "液冷")
         self.assertEqual(plan.question_type, QUESTION_STOCK_DEEP_DIVE)
 
     def test_forecast_prior_short_query_routes_to_market_forecast(self) -> None:
@@ -452,6 +469,24 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         self.assertEqual(plan.question_type, QUESTION_GENERAL)
         self.assertLess(plan.confidence, 0.6)
+
+    def test_generic_theme_lifecycle_question_stays_a_subjectless_market_pattern(
+        self,
+    ) -> None:
+        plan = plan_answer_question(
+            "如果一个A股题材连续上涨，但板块成交占比开始下降，我应该怎么判断"
+            "它是健康分歧还是行情高潮？"
+        )
+
+        self.assertEqual(plan.query_envelope.subject_kind, "market_pattern")
+        self.assertIsNone(plan.query_envelope.subject)
+        self.assertEqual(plan.question_type, QUESTION_GENERAL)
+        self.assertEqual(plan.confidence, plan.query_envelope.confidence)
+        self.assertIsNone(plan.research_spec)
+        self.assertEqual(
+            plan.to_dict()["query_envelope"],
+            plan.query_envelope.to_dict(),
+        )
 
     def test_explicit_stock_wording_still_routes_to_deep_dive(self) -> None:
         plan = plan_answer_question("这只股怎么看")

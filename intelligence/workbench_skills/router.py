@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import llm_refine
+from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.run_store import redact
 from intelligence.workbench_skills.contracts import JsonValue, SkillDefinition
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
@@ -98,6 +99,7 @@ def route_skills(
     *,
     registry: Mapping[str, SkillDefinition] | None = None,
     llm_complete: LLMComplete | None = None,
+    query_envelope: QueryEnvelope | None = None,
 ) -> SkillRouteResult:
     active_registry = SKILL_REGISTRY if registry is None else registry
     complete = llm_refine.complete if llm_complete is None else llm_complete
@@ -118,20 +120,30 @@ def route_skills(
             base_finance_fallback=not manual,
         )
 
-    rules = _rule_candidates(query, task_type, active_registry)
+    automatic_registry = (
+        {
+            skill_id: definition
+            for skill_id, definition in active_registry.items()
+            if skill_id != "theme-research"
+        }
+        if query_envelope is not None
+        and query_envelope.subject_kind == "market_pattern"
+        else active_registry
+    )
+    rules = _rule_candidates(query, task_type, automatic_registry)
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
     available_slots = 3 if skill_mode == "auto" else 3 - len(manual)
-    if active_registry and available_slots > 0:
+    if automatic_registry and available_slots > 0:
         rule_ids = {skill_id for skill_id, _ in rules}
         candidates = [
             {
                 "skill_id": skill_id,
-                "name": active_registry[skill_id].name,
-                "description": active_registry[skill_id].description,
-                "triggers": list(active_registry[skill_id].triggers),
+                "name": automatic_registry[skill_id].name,
+                "description": automatic_registry[skill_id].description,
+                "triggers": list(automatic_registry[skill_id].triggers),
                 "rule_priority": skill_id in rule_ids,
             }
-            for skill_id in sorted(active_registry)
+            for skill_id in sorted(automatic_registry)
         ]
         messages = [
             {
@@ -161,7 +173,7 @@ def route_skills(
         except Exception:
             content = None
         if content is not None:
-            llm_selection = _parse_llm_selection(content, active_registry)
+            llm_selection = _parse_llm_selection(content, automatic_registry)
             if llm_selection is not None:
                 automatic = llm_selection
 
