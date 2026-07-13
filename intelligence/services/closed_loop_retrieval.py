@@ -75,7 +75,7 @@ class ClosedLoopRetrievalResult:
         repr=False,
         compare=False,
     )
-    _hit_telemetry: dict[tuple[str, str], RetrievalTelemetry] = field(
+    _bucket_telemetry: dict[tuple[str, str, str], RetrievalTelemetry] = field(
         default_factory=dict,
         init=False,
         repr=False,
@@ -237,7 +237,10 @@ def _run_one(
         + int(response_telemetry.dense_initializations)
     )
     for hit in response.hits:
-        result._hit_telemetry.setdefault(_hit_identity(hit), response_telemetry)
+        result._bucket_telemetry.setdefault(
+            (aperture, *_hit_identity(hit)),
+            response_telemetry,
+        )
     actual_timeout = (
         response_telemetry.timeout_seconds
         if response_telemetry.timeout_seconds is not None
@@ -291,20 +294,17 @@ def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
 
     # Ask 只会把 conclusion 和 counter_clues 写成 W 引用；普通 clues
     # 只是内部研究线索，不得覆盖最后一次 error/timeout 的终态遥测。
-    output_evidence: list[BucketedHit] = []
-    seen: set[tuple[str, str]] = set()
-    for item in (*result.conclusion, *result.counter_clues):
-        identity = _hit_identity(item.hit)
-        if identity in seen:
-            continue
-        seen.add(identity)
-        output_evidence.append(item)
+    # 必须保留原始输出项到快照检查完成；若先按 chunk identity
+    # 去重，同一 chunk 被两个 revision 返回时会吞掉冲突证据。
+    output_evidence = [*result.conclusion, *result.counter_clues]
 
     contributors: list[
         tuple[BucketedHit, RetrievalTelemetry, tuple[str, str]]
     ] = []
     for item in output_evidence:
-        item_telemetry = result._hit_telemetry.get(_hit_identity(item.hit))
+        item_telemetry = result._bucket_telemetry.get(
+            (item.aperture, *_hit_identity(item.hit))
+        )
         if item_telemetry is None:
             continue
         snapshot = (
@@ -356,6 +356,40 @@ def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
             contributors = [
                 record for record in contributors if record[2] == canonical_snapshot
             ]
+
+        # 快照安全门通过后再按 chunk identity 去重。conclusion 在
+        # counter_clues 之前，因此同一证据同时被正/反分类时保留
+        # conclusion，同步移除重复 counter 及其 clues 镜像，避免 Ask 双引用。
+        unique_contributors: list[
+            tuple[BucketedHit, RetrievalTelemetry, tuple[str, str]]
+        ] = []
+        seen_identities: set[tuple[str, str]] = set()
+        duplicate_keys: set[tuple[str, str, str]] = set()
+        for record in contributors:
+            item = record[0]
+            identity = _hit_identity(item.hit)
+            if identity in seen_identities:
+                duplicate_keys.add((item.aperture, *identity))
+                continue
+            seen_identities.add(identity)
+            unique_contributors.append(record)
+        if duplicate_keys:
+            result.conclusion = [
+                item
+                for item in result.conclusion
+                if (item.aperture, *_hit_identity(item.hit)) not in duplicate_keys
+            ]
+            result.counter_clues = [
+                item
+                for item in result.counter_clues
+                if (item.aperture, *_hit_identity(item.hit)) not in duplicate_keys
+            ]
+            result.clues = [
+                item
+                for item in result.clues
+                if (item.aperture, *_hit_identity(item.hit)) not in duplicate_keys
+            ]
+        contributors = unique_contributors
 
     if contributors:
         public = replace(contributors[0][1])

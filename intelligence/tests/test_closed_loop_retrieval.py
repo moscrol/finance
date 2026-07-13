@@ -818,6 +818,91 @@ def test_counter_snapshot_conflict_is_removed_from_both_output_buckets() -> None
     assert [item.hit.title for item in result.discarded] == ["液冷 rev2 风险"]
 
 
+def test_same_identity_snapshot_conflict_is_checked_before_deduplication() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [
+                    _hit(
+                        "液冷共享 chunk",
+                        0.9,
+                        hardness="hard",
+                        revision="rev-1",
+                    )
+                ],
+                revision="rev-1",
+            )
+        if calls == 3:
+            return _response(
+                query,
+                [_hit("液冷共享 chunk", 0.6, revision="rev-2")],
+                revision="rev-2",
+            )
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert [item.hit.title for item in result.conclusion] == ["液冷共享 chunk"]
+    assert result.counter_clues == []
+    assert all(item.aperture != "counter" for item in result.clues)
+    assert [item.aperture for item in result.discarded] == ["counter"]
+    assert any("snapshot conflict" in warning for warning in result.warnings)
+
+
+def test_same_snapshot_same_identity_is_deduplicated_after_validation() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [
+                    _hit(
+                        "液冷共享 chunk",
+                        0.9,
+                        hardness="hard",
+                        revision="rev-1",
+                    )
+                ],
+                revision="rev-1",
+            )
+        if calls == 3:
+            return _response(
+                query,
+                [_hit("液冷共享 chunk", 0.6, revision="rev-1")],
+                revision="rev-1",
+            )
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert len(result.conclusion) == 1
+    assert result.counter_clues == []
+    assert all(item.aperture != "counter" for item in result.clues)
+    assert result.telemetry is not None
+    assert result.telemetry.hit_count == 1
+    assert not any("snapshot conflict" in warning for warning in result.warnings)
+
+
 def test_telemetry_tracks_last_attempt_including_hybrid_error() -> None:
     def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
         if mode == "hybrid":
