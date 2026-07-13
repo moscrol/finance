@@ -419,18 +419,23 @@ def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
         public.index_freshness = canonical_snapshot[1]
     else:
         public = replace(result._attempt_telemetries[-1])
-        if had_snapshot_conflict:
-            public.status = "error"
+        if public.status.casefold() == "ok":
+            # Adapter 成功只说明检索子进程正常；若命中全部被
+            # relevance/snapshot/output gate 拒绝，Ask 实际没有 W 证据，
+            # 公开遥测必须归一为 empty，不得伪装 ok/hit_count>0。
+            public.status = "empty"
             public.degraded = True
             public.hit_count = 0
             public.neighbor_hits = 0
             public.score_max = None
             public.score_min = None
             public.score_mean = None
-            conflict_warning = "snapshot conflict removed all output evidence"
+            gate_warning = "all retrieved hits rejected by output evidence gates"
             public.warning = "；".join(
-                filter(None, (public.warning, conflict_warning))
+                filter(None, (public.warning, gate_warning))
             )
+            if gate_warning not in result.warnings:
+                result.warnings.append(gate_warning)
 
     latencies = [
         telemetry.latency_ms

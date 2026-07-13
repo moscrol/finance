@@ -455,6 +455,82 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(len(attempts), 1)
         self.assertEqual(attempts[0]["timeout_seconds"], 0.0)
 
+    def test_irrelevant_hybrid_hits_publish_empty_and_create_no_w_citations(
+        self,
+    ) -> None:
+        def fake_retrieve(
+            _query: str,
+            _wiki: Path,
+            **kwargs: object,
+        ) -> WikiRagResult:
+            mode = str(kwargs["mode"])
+            hits = (
+                [
+                    WikiHit(
+                        page_id=f"unrelated-{index}",
+                        file_path=f"wiki/unrelated-{index}.md",
+                        title=f"半导体设备{index}",
+                        score=0.9 - index / 10,
+                        excerpt="半导体设备订单增长",
+                        best_chunk_id=f"unrelated::{index}",
+                        content_hash=f"hash-{index}",
+                        index_source_revision="rev-1",
+                        index_freshness="fresh",
+                        fact_hardness="hard",
+                    )
+                    for index in range(4)
+                ]
+                if mode == "hybrid"
+                else []
+            )
+            return WikiRagResult(
+                ok=bool(hits),
+                hits=hits,
+                telemetry=RetrievalTelemetry(
+                    mode=mode,
+                    status="ok" if hits else "empty",
+                    hit_count=len(hits),
+                    index_source_revision="rev-1" if hits else "",
+                    index_freshness="fresh" if hits else "",
+                    dense_initializations=1 if mode == "hybrid" else 0,
+                    timeout_seconds=float(kwargs["timeout"]),
+                ),
+            )
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.kb_rag.retrieve",
+                side_effect=fake_retrieve,
+            ),
+        ):
+            result = answer_query(
+                AskOptions(
+                    query="分析液冷板块",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=True,
+                )
+            )
+
+        assert result.closed_loop_retrieval is not None
+        assert result.wiki_rag_telemetry is not None
+        assert result.retrieval_telemetry is not None
+        self.assertEqual(len(result.closed_loop_retrieval.discarded), 4)
+        self.assertFalse(result.retrieval_telemetry.wiki_ok)
+        self.assertFalse(
+            any(citation.tag.startswith("W") for citation in result.citations)
+        )
+        self.assertEqual(result.wiki_rag_telemetry.status, "empty")
+        self.assertEqual(result.wiki_rag_telemetry.hit_count, 0)
+        self.assertTrue(result.wiki_rag_telemetry.degraded)
+        self.assertIn("all retrieved hits rejected", result.wiki_rag_telemetry.warning)
+        self.assertIn(
+            "all retrieved hits rejected",
+            result.retrieval_telemetry.wiki_degraded or "",
+        )
+
     def test_explicit_stock_wording_still_routes_to_deep_dive(self) -> None:
         plan = plan_answer_question("这只股怎么看")
 

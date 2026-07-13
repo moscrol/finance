@@ -221,7 +221,7 @@ def test_hybrid_same_identity_cross_snapshot_is_rejected_after_bm25_clue() -> No
     assert [item.hit.index_source_revision for item in result.discarded] == ["rev-2"]
     assert any("snapshot conflict" in warning for warning in result.warnings)
     assert result.telemetry is not None
-    assert result.telemetry.status == "error"
+    assert result.telemetry.status == "empty"
     assert result.telemetry.hit_count == 0
     assert result.telemetry.degraded
 
@@ -752,6 +752,42 @@ def test_soft_clue_does_not_hide_terminal_hybrid_error() -> None:
     assert [item.hit.title for item in result.clues] == ["液冷需求线索"]
     assert result.telemetry is not None
     assert result.telemetry.status == "error"
+
+
+def test_soft_clue_only_success_is_published_as_empty_not_ok() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if "风险 证伪" in query:
+            return _response(query, [], status="empty", freshness="")
+        return _response(
+            query,
+            [_hit(f"液冷软线索{calls}", 0.3)],
+            dense_initializations=1 if mode == "hybrid" else 0,
+        )
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    assert result.conclusion == []
+    assert result.counter_clues == []
+    assert result.clues
+    assert result.telemetry is not None
+    assert result.telemetry.status == "empty"
+    assert result.telemetry.hit_count == 0
+    assert result.telemetry.neighbor_hits == 0
+    assert result.telemetry.score_max is None
+    assert result.telemetry.score_min is None
+    assert result.telemetry.score_mean is None
+    assert result.telemetry.degraded
+    assert "all retrieved hits rejected" in result.telemetry.warning
+    assert any("all retrieved hits rejected" in warning for warning in result.warnings)
 
 
 def test_snapshot_conflict_discards_later_broad_output() -> None:
