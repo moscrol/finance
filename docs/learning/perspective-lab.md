@@ -19,9 +19,9 @@
 |---|---|---|
 | 纯 prompt 角色卡 | 文章总结成一段 prompt 注入 | 最快，但不可追溯、学的是口癖，弃 |
 | **结构化画像（P0 采用）** | 文章 → JSON 画像（镜头/机会偏好/风险信号/证伪风格） | 稳定、便宜、可测试；缺原文上下文 |
-| 画像 + BM25/向量 RAG（P1/P2） | 回答时再召回相似历史片段 | 可追溯最强，工程重，后续接 |
+| **画像 + 轻量 BM25（Workbench 已接入）** | 只在选中 KOL 的独立文章目录召回片段 | 可追溯且隔离事实层；文章规模大后再接向量与 rerank |
 
-P0 完全确定性（不调 LLM、不建索引）：ingest 只抽确定性字段；debate 用画像信号词对硬事实
+CLI 的 P0 debate 完全确定性（不调 LLM）：ingest 只抽确定性字段；debate 用画像信号词对硬事实
 摘要做子串命中 + 交叉对比。LLM 抽取/合成是 P1 的开关。
 
 ## 怎么用
@@ -73,6 +73,33 @@ python3 -m intelligence.cli perspective debate \
 - 报告结构：硬事实底座 → 角色独立判断 → 固定三问质询 → 裁判合议 → 可证伪假设表；
 - 若各角色信号命中完全一致，报告会给「本次辩论无增量」退化提示（防假分歧）；
 - 每次合议落 `perspectives/debates.jsonl`（带 schema_version，供 P2 胜率聚合）。
+
+### 5. 在 Workbench 切换视角
+
+Chat-first Workbench 会把视角选择作为结构化字段写入 `messages.jsonl`，而不是把
+“切换视角”伪装成普通提示词：
+
+- `数据中立`：默认模式，只使用 Provider、公开来源和本轮检索证据；
+- `指定 KOL`：只加载一位 profile 与其文章召回，其他 KOL 不参与；
+- `多视角并列`：固定包含数据中立视角，并把最多 3 位 KOL 分区展示、保留冲突；
+- 每条用户消息和助手消息都保存 `perspective_mode` 与
+  `selected_perspective_ids`，切换会话时从最近一条用户消息恢复。
+
+文章召回使用独立的轻量 BM25，而不是把 KOL 原文并入统一知识库索引。这样能避免
+观点层污染事实层；等单个 KOL 的文章规模明显增大后，可再升级为
+`BM25 + vector + rerank` 的独立 Hybrid 检索。
+
+Workbench 只展示当前用户命名空间中已创建的视角。以风远94为例：
+
+```bash
+python3 -m intelligence.cli perspective init \
+  --user <id> --id fengyuan94 --name "风远94" --type blogger
+
+python3 -m intelligence.cli perspective ingest \
+  --user <id> --perspective fengyuan94 \
+  --input /path/to/article.md --title "文章标题" \
+  --date 2026-07-03 --source "风远94"
+```
 
 ## 常见误用边界
 

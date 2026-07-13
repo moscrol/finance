@@ -26,7 +26,7 @@ class DailyReviewSkill:
                 skill_id=self.skill_id,
                 modules=[],
                 citations=[],
-                warnings=["本地正式日报无法读取。"],
+                warnings=["本地复盘报告无法读取。"],
                 as_of=None,
                 raw_result_ref=None,
             )

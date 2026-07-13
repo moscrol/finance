@@ -32,7 +32,9 @@ from intelligence.services.conversation_store import (
     Message,
 )
 from intelligence.services.llm_refine import LLMStreamCancelled
+from intelligence.services import perspective_lab
 from intelligence.services.run_store import RunStore, redact
+from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
     SkillOutput,
@@ -404,6 +406,8 @@ class TurnOrchestrator:
         query: str,
         skill_mode: SkillMode,
         selected_skill_ids: Sequence[str],
+        perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
+        selected_perspective_ids: Sequence[str] = (),
     ) -> TurnResult:
         report = new_structured_report(
             run_id=run_id,
@@ -624,6 +628,10 @@ class TurnOrchestrator:
                     / "market_feature_store.duckdb",
                     conversation_context=context.to_prompt_block(),
                     supplemental_evidence=self._skill_evidence(skill_outputs),
+                    include_memory_block=False,
+                    include_recall_block=False,
+                    perspective_mode=perspective_mode,
+                    perspective_ids=tuple(selected_perspective_ids),
                     stream_text_delta=emit_text_delta,
                     stream_cancel_check=self.is_cancelled,
                 )
@@ -694,6 +702,20 @@ class TurnOrchestrator:
             answer_text = sanitize_conversation_answer(answer_text)
             if not text_chunks:
                 emit_text_delta(answer_text)
+            perspective_header = perspective_lab.runtime_answer_header(
+                userspace.user_space(self.run_store.user_id),
+                mode=perspective_mode,
+                perspective_ids=tuple(selected_perspective_ids),
+            )
+            fallback_notice = (
+                perspective_lab.runtime_fallback_notice(perspective_mode)
+                if result.synthesis is None
+                else ""
+            )
+            answer_prefix = "\n\n".join(
+                block for block in (perspective_header, fallback_notice) if block
+            )
+            answer_text = f"{answer_prefix}\n\n{answer_text}"
             if result.synthesis is None:
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
