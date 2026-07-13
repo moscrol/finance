@@ -1,3 +1,9 @@
+import json
+from pathlib import Path
+
+import pytest
+
+from intelligence.services import query_understanding
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.query_understanding import understand_query
 
@@ -79,3 +85,73 @@ def test_market_pattern_requires_two_terms_and_explains_divergence() -> None:
     assert one_term.subject_kind == "unknown"
     assert two_terms.subject_kind == "market_pattern"
     assert two_terms.decision_goal == "解释市场背离"
+
+
+def test_ticker_and_date_match_next_to_chinese_text() -> None:
+    bare_ticker = understand_query("分析002837怎么看")
+    suffixed_ticker = understand_query("600000.SH怎么看")
+    dated_theme = understand_query("分析2026年7月13日的液冷题材")
+
+    assert (bare_ticker.subject_kind, bare_ticker.subject, bare_ticker.matched_by) == (
+        "company",
+        "002837",
+        "ticker",
+    )
+    assert suffixed_ticker.subject == "600000.SH"
+    assert dated_theme.timeframe == "2026年7月13日"
+
+
+def test_ticker_and_explicit_theme_precede_market_pattern() -> None:
+    ticker = understand_query("分析002837的液冷业务", matched_theme="液冷")
+    explicit = understand_query("研究空芯光纤题材连续上涨、成交占比下降")
+
+    assert (ticker.subject_kind, ticker.subject, ticker.matched_by) == (
+        "company",
+        "002837",
+        "ticker",
+    )
+    assert (explicit.subject_kind, explicit.subject, explicit.matched_by) == (
+        "theme",
+        "空芯光纤",
+        "explicit",
+    )
+
+
+def test_explicit_theme_cleans_prompt_date_and_generic_references() -> None:
+    prompted = understand_query("研究一下空芯光纤题材")
+    dated = understand_query("分析2026年空芯光纤产业链")
+
+    assert (prompted.subject, prompted.matched_by) == ("空芯光纤", "explicit")
+    assert (dated.subject, dated.matched_by, dated.timeframe) == (
+        "空芯光纤",
+        "explicit",
+        "2026年",
+    )
+    for query in ("帮我看看这个板块", "深挖某个方向"):
+        envelope = understand_query(query)
+        assert envelope.subject_kind == "unknown"
+        assert envelope.subject is None
+
+
+def test_theme_alias_config_rejects_malformed_collection_types(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    malformed_docs = (
+        [],
+        {"packs": None},
+        {"packs": [None]},
+        {"packs": [{"aliases": None}]},
+        {"packs": [{"aliases": "液冷"}]},
+    )
+
+    try:
+        for index, doc in enumerate(malformed_docs):
+            config_path = tmp_path / f"malformed-{index}.json"
+            config_path.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+            monkeypatch.setattr(query_understanding, "THEME_CONFIG_PATH", config_path)
+            query_understanding._theme_aliases.cache_clear()
+
+            assert query_understanding._theme_aliases() == ()
+    finally:
+        query_understanding._theme_aliases.cache_clear()

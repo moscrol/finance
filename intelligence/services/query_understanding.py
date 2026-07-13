@@ -24,12 +24,36 @@ MatchedBy = Literal[
 THEME_CONFIG_PATH = (
     Path(__file__).resolve().parents[1] / "config" / "theme_research_specs.json"
 )
-_DATE_RE = re.compile(r"\b20\d{2}[-/.年]\d{1,2}(?:[-/.月]\d{1,2}日?)?\b")
+_DATE_RE = re.compile(
+    r"(?<!\d)20\d{2}(?:"
+    r"年(?:\d{1,2}(?:月(?:\d{1,2}日?)?)?)?"
+    r"|[-/.]\d{1,2}(?:[-/.]\d{1,2}日?)?"
+    r")(?!\d)"
+)
 _QUOTED_RE = re.compile(r"[“《\"]([^”》\"]{2,40})[”》\"]")
-_TICKER_RE = re.compile(r"\b\d{6}(?:\.(?:SH|SZ|BJ))?\b", re.I)
+_TICKER_RE = re.compile(
+    r"(?<![A-Za-z0-9])\d{6}(?:\.(?:SH|SZ|BJ))?(?![A-Za-z0-9])",
+    re.I,
+)
 _EXPLICIT_THEME_RE = re.compile(
     r"(?:研究|分析|看看|深挖)\s*([\u4e00-\u9fffA-Za-z0-9+.-]{2,16}?)"
     r"(?:题材|板块|产业链|方向)"
+)
+_GENERIC_EXPLICIT_SUBJECTS = frozenset(
+    {
+        "这",
+        "那",
+        "某",
+        "该",
+        "一个",
+        "这个",
+        "那个",
+        "某个",
+        "某一",
+        "这一",
+        "这类",
+        "该类",
+    }
 )
 _MARKET_PATTERN_TERMS = (
     "连续上涨",
@@ -64,13 +88,21 @@ def _theme_aliases() -> tuple[str, ...]:
         return ()
     if not isinstance(doc, dict):
         return ()
-    aliases = [
-        str(alias).strip()
-        for pack in doc.get("packs", [])
-        if isinstance(pack, dict)
-        for alias in pack.get("aliases", [])
-        if str(alias).strip()
-    ]
+    packs = doc.get("packs")
+    if not isinstance(packs, list):
+        return ()
+    aliases: list[str] = []
+    for pack in packs:
+        if not isinstance(pack, dict):
+            continue
+        pack_aliases = pack.get("aliases")
+        if not isinstance(pack_aliases, list):
+            continue
+        aliases.extend(
+            alias.strip()
+            for alias in pack_aliases
+            if isinstance(alias, str) and alias.strip()
+        )
     return tuple(sorted(dict.fromkeys(aliases), key=len, reverse=True))
 
 
@@ -80,6 +112,21 @@ def _decision_goal(query: str) -> str:
     if "背离" in query:
         return "解释市场背离"
     return "形成条件化判断"
+
+
+def _explicit_theme(text: str, timeframe: str | None) -> str | None:
+    match = _EXPLICIT_THEME_RE.search(text)
+    if match is None:
+        return None
+    subject = match.group(1).strip()
+    if subject.startswith("一下"):
+        subject = subject[len("一下") :].strip()
+    if timeframe and timeframe in subject:
+        subject = subject.replace(timeframe, "", 1).strip()
+    subject = subject.lstrip("的").strip()
+    if not subject or subject in _GENERIC_EXPLICIT_SUBJECTS:
+        return None
+    return subject
 
 
 def understand_query(
@@ -101,6 +148,18 @@ def understand_query(
             timeframe,
             "ticker" if anchor.matched_by == "code" else "entity",
             1.0,
+        )
+
+    ticker = _TICKER_RE.search(text)
+    if ticker:
+        return QueryEnvelope(
+            "stock_deep_dive",
+            "company",
+            ticker.group(0),
+            _decision_goal(text),
+            timeframe,
+            "ticker",
+            0.82,
         )
 
     normalized_theme = str(matched_theme or "").strip()
@@ -140,6 +199,18 @@ def understand_query(
             0.72,
         )
 
+    explicit = _explicit_theme(text, timeframe)
+    if explicit:
+        return QueryEnvelope(
+            "theme_analysis",
+            "theme",
+            explicit,
+            _decision_goal(text),
+            timeframe,
+            "explicit",
+            0.8,
+        )
+
     if sum(term in text for term in _MARKET_PATTERN_TERMS) >= 2:
         return QueryEnvelope(
             "general_finance_qa",
@@ -149,30 +220,6 @@ def understand_query(
             timeframe,
             "generic",
             0.9,
-        )
-
-    explicit = _EXPLICIT_THEME_RE.search(text)
-    if explicit:
-        return QueryEnvelope(
-            "theme_analysis",
-            "theme",
-            explicit.group(1).strip(),
-            _decision_goal(text),
-            timeframe,
-            "explicit",
-            0.8,
-        )
-
-    ticker = _TICKER_RE.search(text)
-    if ticker:
-        return QueryEnvelope(
-            "stock_deep_dive",
-            "company",
-            ticker.group(0),
-            _decision_goal(text),
-            timeframe,
-            "ticker",
-            0.82,
         )
 
     return QueryEnvelope(
