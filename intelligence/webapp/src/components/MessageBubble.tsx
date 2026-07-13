@@ -9,6 +9,7 @@ import type {
 import { MarkdownView } from "./MarkdownView";
 import { RunView } from "./RunView";
 import { SkillInvocation } from "./SkillInvocation";
+import { userFacingStage } from "../displayText";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -109,7 +110,9 @@ export function MessageBubble({
             <span className="typing-dot" />
             <span className="typing-dot" />
             <span className="typing-dot" />
-            正在检索本轮证据
+            {live?.currentStage
+              ? userFacingStage(live.currentStage)
+              : "正在检索本轮证据"}
           </div>
         )}
         {terminalNotice && (

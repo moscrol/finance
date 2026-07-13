@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, TypeAlias
@@ -217,6 +218,9 @@ class SkillExecutionContext:
     run_store: RunStore
     conversation_context: str = ""
     execution_budget: ExecutionBudget | None = field(
+        default=None, repr=False, compare=False
+    )
+    progress_callback: Callable[[str, str], None] | None = field(
         default=None, repr=False, compare=False
     )
 

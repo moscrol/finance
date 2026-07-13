@@ -119,6 +119,31 @@ class AskIntegrationTest(unittest.TestCase):
         )
         self.assertIsNone(result.clarify)
 
+    def test_answer_query_reports_real_deterministic_and_synthesis_boundaries(self):
+        from intelligence.services.ask import AskOptions, answer_query
+
+        progress: list[tuple[str, str]] = []
+        answer_query(
+            AskOptions(
+                query="液冷服务器",
+                use_modules=False,
+                use_wiki_rag=False,
+                progress_callback=lambda stage, status: progress.append(
+                    (stage, status)
+                ),
+            )
+        )
+
+        self.assertEqual(
+            progress,
+            [
+                ("deterministic_recall", "running"),
+                ("deterministic_recall", "completed"),
+                ("synthesis", "running"),
+                ("synthesis", "degraded"),
+            ],
+        )
+
     def test_parallel_and_serial_compose_identical(self):
         """并行 vs 串行：evidence 汇总/引用编号/可观测统计必须逐字节一致。"""
         from intelligence.services.ask import AskOptions, answer_query, render_answer

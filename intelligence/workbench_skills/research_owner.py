@@ -67,6 +67,7 @@ class ResearchOwnerSkill:
                 include_recall_block=True,
                 question_type_override=self.config.question_type,
                 execution_budget=context.execution_budget,
+                progress_callback=context.progress_callback,
                 llm_timeout=llm_timeout,
             )
         )

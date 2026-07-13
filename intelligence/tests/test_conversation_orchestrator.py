@@ -2,6 +2,7 @@ import io
 import json
 import time
 import urllib.error
+from collections.abc import Callable
 from dataclasses import asdict
 from threading import BoundedSemaphore, Event, Thread, current_thread
 
@@ -729,6 +730,121 @@ def test_generic_ask_reserves_two_calls_and_retry_backoff(
     else:
         assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
         assert "workbench_time_budget_exhausted_template_answer" in assistant.degrades
+
+
+def test_turn_streams_collision_free_progress_with_public_payloads(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "液冷怎么看",
+    )
+    callbacks: list[Callable[[str, str], None]] = []
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        assert options.progress_callback is not None
+        callbacks.append(options.progress_callback)
+        options.progress_callback("deterministic_recall", "running")
+        options.progress_callback("deterministic_recall", "completed")
+        options.progress_callback("evidence_gate", "running")
+        options.progress_callback("evidence_gate", "completed")
+        options.progress_callback("synthesis", "running")
+        options.progress_callback("synthesis", "completed")
+        return _ask_result(options.query, synthesis="阶段回答")
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult((), False, True),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="液冷怎么看",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    events = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "stage.progress"
+    ]
+    assert [(event["payload"]["stage"], event["payload"]["status"]) for event in events] == [
+        ("understanding", "running"),
+        ("understanding", "completed"),
+        ("deterministic_recall", "running"),
+        ("deterministic_recall", "completed"),
+        ("evidence_gate", "running"),
+        ("evidence_gate", "completed"),
+        ("synthesis", "running"),
+        ("synthesis", "completed"),
+    ]
+    assert [event["event_id"] for event in events] == [
+        f"stage:{event['payload']['stage']}:{index:02d}"
+        for index, event in enumerate(events, start=1)
+    ]
+    assert all(set(event["payload"]) == {"stage", "status", "elapsed_ms"} for event in events)
+    assert all(isinstance(event["payload"]["elapsed_ms"], int) for event in events)
+    callbacks[0]("synthesis", "completed")
+    assert len(
+        [
+            event
+            for event in run_store.load_stream_events(run_id)
+            if event["event_type"] == "stage.progress"
+        ]
+    ) == len(events)
+
+
+def test_turn_degrades_a_running_stage_before_failure(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "失败边界",
+    )
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        assert options.progress_callback is not None
+        options.progress_callback("synthesis", "running")
+        raise RuntimeError("fixture")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult((), False, True),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="失败边界",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "failed"
+    synthesis = [
+        (event["payload"]["stage"], event["payload"]["status"])
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "stage.progress"
+        and event["payload"]["stage"] == "synthesis"
+    ]
+    assert synthesis == [
+        ("synthesis", "running"),
+        ("synthesis", "degraded"),
+    ]
 
 
 def test_single_perspective_is_forwarded_and_labels_final_answer(

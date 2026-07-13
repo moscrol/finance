@@ -79,6 +79,11 @@ export function userFacingIssue(issue: string): string {
 }
 
 export const stageLabels: Record<string, string> = {
+  understanding: "理解问题与研究对象",
+  deterministic_recall: "读取盘面与关键词证据",
+  semantic_recall: "补充语义检索",
+  evidence_gate: "核验证据相关性与时效",
+  synthesis: "组织回答与保守质检",
   route_skills: "选择研究工具",
   ask_current_turn: "检索本轮证据",
   ask_retrieve_compose: "核对数据时效并组织回答",

@@ -596,6 +596,7 @@ class TurnOrchestrator:
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
     ) -> TurnResult:
+        turn_started = time.monotonic()
         execution_budget = (
             self.budget_factory()
             if self.budget_factory is not None
@@ -613,6 +614,47 @@ class TurnOrchestrator:
         citations: list[dict[str, object]] = []
         text_chunks: list[str] = []
         skill_outputs: list[SkillOutput] = []
+        stage_sequence = 0
+        progress_active = True
+        progress_lock = RLock()
+        running_stages: set[str] = set()
+
+        def emit_progress(stage: str, status: str) -> None:
+            nonlocal stage_sequence, progress_active
+            with progress_lock:
+                if not progress_active or self.is_cancelled():
+                    return
+                try:
+                    run = self.run_store.load_run(run_id)
+                except (FileNotFoundError, ValueError):
+                    return
+                if run.status != rs.STATUS_RUNNING:
+                    progress_active = False
+                    return
+                if status == "running":
+                    running_stages.add(stage)
+                else:
+                    running_stages.discard(stage)
+                stage_sequence += 1
+                self._emit(
+                    run_id,
+                    assistant_message_id,
+                    f"stage:{stage}:{stage_sequence:02d}",
+                    "stage.progress",
+                    {
+                        "stage": stage,
+                        "status": status,
+                        "elapsed_ms": self._elapsed_ms(turn_started),
+                    },
+                    conversation_id,
+                )
+
+        def degrade_running_progress() -> None:
+            with progress_lock:
+                stages = tuple(running_stages)
+            for stage in stages:
+                emit_progress(stage, "degraded")
+
         self._emit(
             run_id,
             assistant_message_id,
@@ -640,19 +682,25 @@ class TurnOrchestrator:
                 conversation_id, context.summary
             )
             contextual_query = contextualize_follow_up_query(query, context)
-            routing_envelope = understand_query(contextual_query)
-            route_started = time.monotonic()
-            route = self.route_skills(
-                contextual_query,
-                "ask",
-                skill_mode,
-                selected_skill_ids,
-                registry=self.skill_registry.definitions,
-                query_envelope=routing_envelope,
-                llm_timeout=execution_budget.child_timeout(5, reserve=50),
-                execution_budget=execution_budget,
-            )
+            emit_progress("understanding", "running")
+            try:
+                routing_envelope = understand_query(contextual_query)
+                route_started = time.monotonic()
+                route = self.route_skills(
+                    contextual_query,
+                    "ask",
+                    skill_mode,
+                    selected_skill_ids,
+                    registry=self.skill_registry.definitions,
+                    query_envelope=routing_envelope,
+                    llm_timeout=execution_budget.child_timeout(5, reserve=50),
+                    execution_budget=execution_budget,
+                )
+            except Exception:
+                emit_progress("understanding", "degraded")
+                raise
             selected = [selection.skill_id for selection in route.selections]
+            emit_progress("understanding", "completed")
             self._trace(
                 run_id,
                 assistant_message_id,
@@ -761,16 +809,17 @@ class TurnOrchestrator:
                         conversation_id,
                     )
                     skill_context = SkillExecutionContext(
-                            query=contextual_query,
-                            task_type="ask",
-                            user_id=self.run_store.user_id,
-                            run_id=run_id,
-                            conversation_id=conversation_id,
-                            repo_root=self.repo_root,
-                            run_store=guarded_run_store,  # type: ignore[arg-type]
-                            conversation_context=context.to_prompt_block(),
-                            execution_budget=execution_budget,
-                        )
+                        query=contextual_query,
+                        task_type="ask",
+                        user_id=self.run_store.user_id,
+                        run_id=run_id,
+                        conversation_id=conversation_id,
+                        repo_root=self.repo_root,
+                        run_store=guarded_run_store,  # type: ignore[arg-type]
+                        conversation_context=context.to_prompt_block(),
+                        execution_budget=execution_budget,
+                        progress_callback=emit_progress,
+                    )
                     _start_skill_worker(
                         future,
                         lambda: self.skill_registry.executors[skill_id].execute(
@@ -948,9 +997,12 @@ class TurnOrchestrator:
                         stream_text_delta=emit_text_delta,
                         stream_cancel_check=self.is_cancelled,
                         execution_budget=execution_budget,
+                        progress_callback=emit_progress,
                         llm_timeout=per_call_timeout,
                     )
                 )
+            with progress_lock:
+                progress_active = False
             self._check_cancelled()
             is_market_review = (
                 owner_output is None
@@ -1103,6 +1155,7 @@ class TurnOrchestrator:
                 invoked_skill_ids=tuple(invoked),
             )
         except LLMStreamCancelled:
+            degrade_running_progress()
             if self.cancellation_reason() == "executor_timeout":
                 return self._fail(
                     conversation_id,
@@ -1130,6 +1183,7 @@ class TurnOrchestrator:
                 text_chunks,
             )
         except Exception as exc:  # noqa: BLE001
+            degrade_running_progress()
             return self._fail(
                 conversation_id,
                 run_id,

@@ -81,6 +81,7 @@ import type {
 
 const chatEventTypes = [
   "message.start",
+  "stage.progress",
   "trace.step",
   "skill.start",
   "skill.result",

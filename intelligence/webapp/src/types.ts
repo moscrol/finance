@@ -552,6 +552,7 @@ export interface LiveMessageState {
   narrative: string;
   report: StructuredReport | null;
   skillInvocations: Record<string, LiveSkillInvocation>;
+  currentStage: string | null;
   status: "pending" | "streaming" | "completed" | "failed" | "cancelled";
   connection: "connected" | "reconnecting";
   cancelRequested: boolean;

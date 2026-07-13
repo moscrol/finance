@@ -14,7 +14,6 @@ from intelligence.workbench_skills.contracts import (
     SkillDefinition,
     SkillExecutionContext,
     SkillOutput,
-    build_module_answer_contract,
 )
 from intelligence.workbench_skills.registry import (
     SKILL_EXECUTORS,
@@ -90,6 +89,7 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "run_store",
         "conversation_context",
         "execution_budget",
+        "progress_callback",
     ]
     store = RunStore(root=tmp_path / "runs")
     budget = ExecutionBudget(started_at=10.0, deadline_at=20.0)
@@ -135,6 +135,37 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
     assert ask_options == AskOptions(query="q", execution_budget=other_budget)
     assert "execution_budget" not in repr(ask_options)
     assert "10.0" not in repr(ask_options)
+    def progress(stage: str, status: str) -> None:
+        pass
+
+    progress_context = SkillExecutionContext(
+        query="q",
+        task_type="ask",
+        user_id="u1",
+        run_id="run1",
+        conversation_id=None,
+        repo_root=tmp_path,
+        run_store=store,
+        progress_callback=progress,
+    )
+    assert progress_context.progress_callback is progress
+    assert progress_context == SkillExecutionContext(
+        query="q",
+        task_type="ask",
+        user_id="u1",
+        run_id="run1",
+        conversation_id=None,
+        repo_root=tmp_path,
+        run_store=store,
+        progress_callback=lambda stage, status: None,
+    )
+    assert "progress_callback" not in repr(progress_context)
+    progress_options = AskOptions(query="q", progress_callback=progress)
+    assert progress_options.progress_callback is progress
+    assert progress_options == AskOptions(
+        query="q", progress_callback=lambda stage, status: None
+    )
+    assert "progress_callback" not in repr(progress_options)
 
 
 def test_global_registries_are_independent_dicts() -> None:

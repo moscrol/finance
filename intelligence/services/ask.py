@@ -245,6 +245,9 @@ class AskOptions:
     execution_budget: ExecutionBudget | None = field(
         default=None, repr=False, compare=False
     )
+    progress_callback: Callable[[str, str], None] | None = field(
+        default=None, repr=False, compare=False
+    )
 
 
 @dataclass
@@ -737,6 +740,7 @@ def _answer_market_review(
 
 
 def answer_query(options: AskOptions) -> AskResult:
+    progress = options.progress_callback or (lambda stage, status: None)
     if options.clarify:
         clarify_decision = ask_clarify.clarify_for_query(options.query)
         if clarify_decision.needs_clarification:
@@ -791,6 +795,7 @@ def answer_query(options: AskOptions) -> AskResult:
         anchor=anchor,
     )
     result.question_plan = question_plan
+    progress("deterministic_recall", "running")
     envelope = question_plan.query_envelope
     claim_theme = (
         question_plan.research_spec.theme
@@ -799,7 +804,18 @@ def answer_query(options: AskOptions) -> AskResult:
     )
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
     if question_plan.question_type == QUESTION_MARKET_REVIEW:
-        return _answer_market_review(options, result)
+        progress("deterministic_recall", "completed")
+        progress("synthesis", "running")
+        try:
+            market_result = _answer_market_review(options, result)
+        except Exception:
+            progress("synthesis", "degraded")
+            raise
+        progress(
+            "synthesis",
+            "completed" if market_result.synthesis is not None else "degraded",
+        )
+        return market_result
     if _is_market_index_comparison_query(options.query):
         _populate_market_index_comparison(
             result,
@@ -810,6 +826,9 @@ def answer_query(options: AskOptions) -> AskResult:
             result,
             theme="三指数对比",
         )
+        progress("deterministic_recall", "completed")
+        progress("synthesis", "running")
+        progress("synthesis", "degraded")
         return result
     if question_plan.question_type == QUESTION_MARKET_FORECAST:
         result.forecast_preflight = _forecast_preflight_for_options(
@@ -1083,6 +1102,8 @@ def answer_query(options: AskOptions) -> AskResult:
             )
         )
 
+    progress("deterministic_recall", "completed")
+
     # --- W: 知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，打通复盘↔知识库闭环）---
     wiki_lines: list[str] = []
     wiki_counter_lines: list[str] = []
@@ -1104,6 +1125,7 @@ def answer_query(options: AskOptions) -> AskResult:
             anchor=anchor,
             subject=envelope.subject,
             budget=options.execution_budget,
+            progress=options.progress_callback,
             retrieve=lambda retrieval_query, mode, timeout: kb_rag.retrieve(
                 retrieval_query,
                 resolved_kb_wiki,
@@ -1544,6 +1566,8 @@ def answer_query(options: AskOptions) -> AskResult:
     else:
         implication_lines = [implication]
 
+    progress("synthesis", "running")
+
     # --- ③ optional 有机合成 (compose): 把多源证据融成一段自由形态、带内联引用的回答 ---
     if not options.compose:
         result.d_block_stats = [
@@ -1953,6 +1977,10 @@ def answer_query(options: AskOptions) -> AskResult:
         "引用来源": [f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations],
     }
     result.citations = citations
+    progress(
+        "synthesis",
+        "completed" if result.synthesis is not None else "degraded",
+    )
     return result
 
 

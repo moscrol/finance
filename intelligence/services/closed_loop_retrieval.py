@@ -13,6 +13,7 @@ from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagRes
 RetrievalAperture: TypeAlias = Literal["narrow", "broad", "counter"]
 RetrievalMode: TypeAlias = Literal["bm25", "hybrid"]
 Retrieve: TypeAlias = Callable[[str, RetrievalMode, float], WikiRagResult]
+Progress: TypeAlias = Callable[[str, str], None]
 
 _TERM_RE = re.compile(r"[\u4e00-\u9fff]{2,8}|[A-Za-z][A-Za-z0-9.+-]{2,20}")
 _GENERIC_TERMS = {
@@ -115,6 +116,7 @@ def retrieve_closed_loop(
     budget: ExecutionBudget | None = None,
     semantic_min_seconds: float = 15,
     now: Callable[[], float] = time.monotonic,
+    progress: Progress | None = None,
 ) -> ClosedLoopRetrievalResult:
     result = ClosedLoopRetrievalResult()
     explicit_subject = anchor.entity if anchor is not None else (subject or "").strip()
@@ -124,19 +126,40 @@ def retrieve_closed_loop(
 
     narrow_query = _narrow_queries(explicit_subject, anchor)[0]
     narrow_hits, stop = _run_one(
-        "narrow", narrow_query, "bm25", retrieve, result, budget=budget, now=now
+        "narrow",
+        narrow_query,
+        "bm25",
+        retrieve,
+        result,
+        budget=budget,
+        now=now,
+        progress=progress,
     )
     broad_hits: list[WikiHit] = []
     counter_hits: list[WikiHit] = []
     if not stop:
         broad_query = _broad_queries(explicit_subject, anchor, narrow_hits)[0]
         broad_hits, stop = _run_one(
-            "broad", broad_query, "bm25", retrieve, result, budget=budget, now=now
+            "broad",
+            broad_query,
+            "bm25",
+            retrieve,
+            result,
+            budget=budget,
+            now=now,
+            progress=progress,
         )
     if not stop:
         counter_query = _counter_queries(explicit_subject, anchor, narrow_hits)[0]
         counter_hits, stop = _run_one(
-            "counter", counter_query, "bm25", retrieve, result, budget=budget, now=now
+            "counter",
+            counter_query,
+            "bm25",
+            retrieve,
+            result,
+            budget=budget,
+            now=now,
+            progress=progress,
         )
 
     relevance_terms = _relevance_terms(anchor, subject=explicit_subject)
@@ -146,11 +169,12 @@ def retrieve_closed_loop(
         *(("broad", hit) for hit in broad_hits),
         *(("counter", hit) for hit in counter_hits),
     )
-    _bucket_hits(
+    _bucket_with_progress(
         bm25_entries,
         result,
         relevance_terms=relevance_terms,
         broad_relevance_terms=broad_relevance_terms,
+        progress=progress,
     )
 
     remaining = (
@@ -173,12 +197,14 @@ def retrieve_closed_loop(
             result,
             budget=budget,
             now=now,
+            progress=progress,
         )
-        _bucket_hits(
+        _bucket_with_progress(
             tuple(("narrow", hit) for hit in hybrid_hits),
             result,
             relevance_terms=relevance_terms,
             broad_relevance_terms=broad_relevance_terms,
+            progress=progress,
         )
 
     for aperture in ("narrow", "broad", "counter"):
@@ -200,7 +226,12 @@ def _run_one(
     *,
     budget: ExecutionBudget | None,
     now: Callable[[], float],
+    progress: Progress | None,
 ) -> tuple[list[WikiHit], bool]:
+    semantic = mode == "hybrid" and progress is not None
+    semantic_status = "degraded"
+    if semantic:
+        progress("semantic_recall", "running")
     timeout = (
         10.0
         if budget is None
@@ -220,9 +251,16 @@ def _run_one(
         result.warnings.append(
             f"{aperture} {mode} retrieval not executed: budget exhausted"
         )
+        if semantic:
+            progress("semantic_recall", semantic_status)
         return [], True
 
-    response = retrieve(query, mode, timeout)
+    try:
+        response = retrieve(query, mode, timeout)
+    except Exception:
+        if semantic:
+            progress("semantic_recall", semantic_status)
+        raise
     response_telemetry = response.telemetry
     result._attempt_telemetries.append(response_telemetry)
     result.dense_initializations = (
@@ -262,6 +300,10 @@ def _run_one(
         freshness != "fresh" and not recoverable_empty_without_freshness
     )
     stop = status in {"skipped", "error", "timeout"} or untrusted_freshness
+    if not stop:
+        semantic_status = "completed"
+    if semantic:
+        progress("semantic_recall", semantic_status)
     if untrusted_freshness:
         freshness_label = freshness or "missing"
         warning = f"untrusted index freshness: {freshness_label}"
@@ -272,6 +314,31 @@ def _run_one(
     if response.ok and response.hits:
         return response.hits, False
     return [], False
+
+
+def _bucket_with_progress(
+    entries: Sequence[tuple[str, WikiHit]],
+    result: ClosedLoopRetrievalResult,
+    *,
+    relevance_terms: Sequence[str],
+    broad_relevance_terms: Sequence[str],
+    progress: Progress | None,
+) -> None:
+    if progress is not None:
+        progress("evidence_gate", "running")
+    try:
+        _bucket_hits(
+            entries,
+            result,
+            relevance_terms=relevance_terms,
+            broad_relevance_terms=broad_relevance_terms,
+        )
+    except Exception:
+        if progress is not None:
+            progress("evidence_gate", "degraded")
+        raise
+    if progress is not None:
+        progress("evidence_gate", "completed")
 
 
 def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:

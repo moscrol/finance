@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -96,6 +97,7 @@ def _context(
     run_id: str,
     query: str,
     execution_budget: ExecutionBudget | None = None,
+    progress_callback: Callable[[str, str], None] | None = None,
 ) -> SkillExecutionContext:
     return SkillExecutionContext(
         query=query,
@@ -107,6 +109,7 @@ def _context(
         run_store=store,
         conversation_context="用户上一轮强调只看公告级证据。",
         execution_budget=execution_budget,
+        progress_callback=progress_callback,
     )
 
 
@@ -143,7 +146,18 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
     run = store.create_run("分析液冷", "ask")
     skill = ResearchOwnerSkill(config, answer_query_fn=fake_answer_query)
 
-    output = skill.execute(_context(tmp_path, store, run.run_id, "分析液冷"))
+    def progress(stage: str, status: str) -> None:
+        pass
+
+    output = skill.execute(
+        _context(
+            tmp_path,
+            store,
+            run.run_id,
+            "分析液冷",
+            progress_callback=progress,
+        )
+    )
 
     assert captured[0].question_type_override == config.question_type
     assert captured[0].compose is True
@@ -152,6 +166,7 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
     assert captured[0].include_recall_block is True
     assert captured[0].conversation_context == "用户上一轮强调只看公告级证据。"
     assert captured[0].llm_timeout == 30
+    assert captured[0].progress_callback is progress
     assert output.answer_contract is not None
     assert output.answer_contract.retrieval_plan == config.retrieval_plan
     assert output.answer_contract.output_contract == config.output_contract

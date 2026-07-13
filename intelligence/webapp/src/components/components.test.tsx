@@ -1087,6 +1087,64 @@ describe("Chat-first conversation components", () => {
     expect(replayedModule.report?.modules[0].summary).toBe("重连更新");
   });
 
+  it("tracks the current human-facing research stage", () => {
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const next = applyChatStreamEvent(initial, {
+      schema_version: 1,
+      event_id: "stage-1",
+      event_type: "stage.progress",
+      run_id: "run_demo",
+      conversation_id: "conv_recent",
+      message_id: "msg_assistant",
+      seq: 1,
+      created_at: "2026-07-11T09:00:00+08:00",
+      payload: {
+        stage: "evidence_gate",
+        status: "running",
+        elapsed_ms: 123,
+      },
+    });
+
+    expect(next.currentStage).toBe("evidence_gate");
+    expect(userFacingStage(next.currentStage!)).toBe(
+      "核验证据相关性与时效",
+    );
+  });
+
+  it("shows the live semantic recall stage while the answer is pending", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "",
+          status: "pending",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={{
+          ...createLiveMessageState({
+            conversationId: "conv_recent",
+            messageId: "msg_assistant",
+            runId: "run_demo",
+          }),
+          currentStage: "semantic_recall",
+        }}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("补充语义检索")).toBeVisible();
+    expect(screen.queryByText("正在检索本轮证据")).toBeNull();
+  });
+
   it("tracks skill results and ends loading on complete or cancel", () => {
     const initial = createLiveMessageState({
       conversationId: "conv_recent",

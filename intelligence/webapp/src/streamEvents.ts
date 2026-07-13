@@ -62,6 +62,7 @@ export function createLiveMessageState(identity: {
     narrative: "",
     report: null,
     skillInvocations: {},
+    currentStage: null,
     status: "pending",
     connection: "connected",
     cancelRequested: false,
@@ -125,6 +126,12 @@ export function applyChatStreamEvent(
   if (deduper && !deduper.accept(event)) return state;
 
   const payload = event.payload;
+  if (
+    event.event_type === "stage.progress" &&
+    typeof payload.stage === "string"
+  ) {
+    return { ...state, currentStage: payload.stage, status: "streaming" };
+  }
   if (event.event_type === "text.delta") {
     const delta = typeof payload.delta === "string" ? payload.delta : "";
     return {

@@ -80,6 +80,7 @@ def test_subjectless_query_does_not_retrieve() -> None:
 
 def test_subject_uses_three_bm25_queries_and_at_most_one_hybrid() -> None:
     calls: list[tuple[str, str, float]] = []
+    progress: list[tuple[str, str]] = []
 
     def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
         calls.append((query, mode, timeout))
@@ -98,6 +99,7 @@ def test_subject_uses_three_bm25_queries_and_at_most_one_hybrid() -> None:
         anchor=None,
         subject="液冷",
         retrieve=retrieve,
+        progress=lambda stage, status: progress.append((stage, status)),
     )
 
     assert [mode for _, mode, _ in calls] == ["bm25", "bm25", "bm25", "hybrid"]
@@ -107,6 +109,32 @@ def test_subject_uses_three_bm25_queries_and_at_most_one_hybrid() -> None:
     assert [item.hit.title for item in result.conclusion] == ["液冷产业公告"]
     assert any("液冷服务器" in query and "上下游" in query for query, _, _ in calls)
     assert any("风险 证伪 不及预期" in query for query, _, _ in calls)
+    assert progress == [
+        ("evidence_gate", "running"),
+        ("evidence_gate", "completed"),
+        ("semantic_recall", "running"),
+        ("semantic_recall", "completed"),
+        ("evidence_gate", "running"),
+        ("evidence_gate", "completed"),
+    ]
+
+
+def test_hybrid_error_reports_a_normalized_degraded_stage() -> None:
+    progress: list[tuple[str, str]] = []
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        return _response(query, [], status="error" if mode == "hybrid" else "empty")
+
+    retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        progress=lambda stage, status: progress.append((stage, status)),
+    )
+
+    assert ("semantic_recall", "degraded") in progress
+    assert all(status != "error" for _, status in progress)
 
 
 def test_real_adapter_empty_shape_continues_all_layers() -> None:
