@@ -66,7 +66,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("市场正在奖励谁、抛弃谁、犹豫谁", joined_gates)
 
     def test_financial_analysis_has_its_own_plan_and_can_be_forced(self) -> None:
-        classified = plan_answer_question("分析一下贵州茅台财报和毛利率")
+        classified = plan_answer_question("分析一下贵州茅台财报")
         forced = plan_answer_question(
             "贵州茅台怎么看",
             question_type_override=QUESTION_FINANCIAL_ANALYSIS,

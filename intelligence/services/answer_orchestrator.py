@@ -321,6 +321,7 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         q,
         (
             "财报分析",
+            "财报",
             "财务分析",
             "业绩分析",
             "业绩兑现",
