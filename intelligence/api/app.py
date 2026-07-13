@@ -95,10 +95,20 @@ class CancellationSignal:
     def __init__(self) -> None:
         self._event = Event()
         self.reason: str | None = None
+        self._terminal_owner: str | None = None
+        self._lock = Lock()
+
+    def claim_terminal(self, owner: str) -> bool:
+        with self._lock:
+            if self._terminal_owner is None:
+                self._terminal_owner = owner
+                return True
+            return self._terminal_owner == owner
 
     def set(self, reason: str) -> None:
-        self.reason = reason
-        self._event.set()
+        with self._lock:
+            self.reason = reason
+            self._event.set()
 
     def is_set(self) -> bool:
         return self._event.is_set()
@@ -228,6 +238,8 @@ class RunSupervisor:
             terminal_handler = self._terminal_handlers.get(key)
         if timer is not None:
             timer.cancel()
+        if signal is not None and not signal.claim_terminal("cancelled_by_user"):
+            return False
         if signal is not None:
             signal.set("cancelled_by_user")
         queued_cancelled = future.cancel() if future is not None else False
@@ -277,16 +289,18 @@ class RunSupervisor:
             terminal_handler = self._terminal_handlers.get(key)
         if future is None or future.done():
             return
+        if signal is not None and not signal.claim_terminal("executor_timeout"):
+            return
         if signal is not None:
             signal.set("executor_timeout")
         future.cancel()
-        if terminal_handler is not None:
-            terminal_handler("executor_timeout")
         store.fail_active_run(
             run_id,
             error="executor_timeout",
             degrade="executor_timeout",
         )
+        if terminal_handler is not None:
+            terminal_handler("executor_timeout")
 
 
 class CreateRunRequest(BaseModel):
@@ -405,6 +419,7 @@ def _run_conversation_turn(
             llm_model=llm_provider.model if llm_provider is not None else None,
             is_cancelled=cancellation_signal.is_set,
             cancellation_reason=lambda: cancellation_signal.reason,
+            claim_terminal=lambda: cancellation_signal.claim_terminal("worker"),
             event_id_prefix=event_id_prefix,
             answer_deadline_seconds=answer_deadline_seconds,
         ).run_turn(

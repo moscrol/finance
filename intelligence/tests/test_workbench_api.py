@@ -832,6 +832,85 @@ def test_cancel_run_is_terminal_even_when_worker_finishes_later(
     assert client.get(f"/api/runs/{run_id}").json()["status"] == "cancelled"
 
 
+def test_terminal_claim_is_once_only_but_idempotent_for_same_owner() -> None:
+    signal = app_module.CancellationSignal()
+
+    assert signal.claim_terminal("worker") is True
+    assert signal.claim_terminal("worker") is True
+    assert signal.claim_terminal("executor_timeout") is False
+
+
+def test_cancel_winner_cannot_be_overwritten_by_later_expire(tmp_path) -> None:
+    store = RunStore("alice", root=tmp_path / "runs")
+    run = store.create_run("q", "ask")
+    supervisor = app_module.RunSupervisor(timeout_sec=60)
+    started = threading.Event()
+    release = threading.Event()
+    terminal_reasons: list[str] = []
+
+    def runner(signal: app_module.CancellationSignal) -> None:
+        started.set()
+        release.wait(timeout=1)
+
+    supervisor._submit(
+        store,
+        run.run_id,
+        runner,
+        on_terminal=terminal_reasons.append,
+    )
+    assert started.wait(timeout=1)
+    key = (store.user_id, run.run_id)
+    try:
+        supervisor.cancel(store, run.run_id)
+        supervisor._expire(store, run.run_id, key)
+    finally:
+        release.set()
+        supervisor.shutdown()
+
+    saved = store.load_run(run.run_id)
+    assert saved.status == "cancelled"
+    assert saved.error == "cancelled_by_user"
+    assert terminal_reasons == ["cancelled_by_user"]
+
+
+def test_worker_terminal_winner_rejects_cancel_and_expire(tmp_path) -> None:
+    store = RunStore("alice", root=tmp_path / "runs")
+    run = store.create_run("q", "ask")
+    supervisor = app_module.RunSupervisor(timeout_sec=60)
+    claimed = threading.Event()
+    release = threading.Event()
+    terminal_reasons: list[str] = []
+
+    def runner(signal: app_module.CancellationSignal) -> None:
+        assert signal.claim_terminal("worker")
+        claimed.set()
+        release.wait(timeout=1)
+        store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+
+    supervisor._submit(
+        store,
+        run.run_id,
+        runner,
+        on_terminal=terminal_reasons.append,
+    )
+    assert claimed.wait(timeout=1)
+    key = (store.user_id, run.run_id)
+    try:
+        assert supervisor.cancel(store, run.run_id) is False
+        supervisor._expire(store, run.run_id, key)
+        assert store.load_run(run.run_id).status == "running"
+    finally:
+        release.set()
+    for _ in range(100):
+        if store.load_run(run.run_id).status == "completed":
+            break
+        time.sleep(0.01)
+    supervisor.shutdown()
+
+    assert store.load_run(run.run_id).status == "completed"
+    assert terminal_reasons == []
+
+
 def test_executor_timeout_marks_run_failed(tmp_path, monkeypatch) -> None:
     users_root = tmp_path / "users"
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))

@@ -2,13 +2,14 @@ import io
 import json
 import urllib.error
 from dataclasses import asdict
-from threading import Event
+from threading import BoundedSemaphore, Event, Thread, current_thread
 
 import pytest
 
 from intelligence import userspace
 from intelligence.services import llm_refine
 from intelligence.services import perspective_lab
+from intelligence.services import conversation_orchestrator as orchestrator_module
 from intelligence.services.ask import AskOptions, AskResult
 from intelligence.services.conversation_orchestrator import (
     ConversationContext,
@@ -371,11 +372,13 @@ def test_timed_out_skill_cannot_persist_artifact_after_turn_continues(tmp_path) 
     )
     release = Event()
     finished = Event()
+    worker_daemon: list[bool] = []
 
     class SlowSkill:
         skill_id = "slow"
 
         def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            worker_daemon.append(current_thread().daemon)
             release.wait(timeout=1)
             context.run_store.add_artifact(
                 context.run_id,
@@ -423,11 +426,115 @@ def test_timed_out_skill_cannot_persist_artifact_after_turn_continues(tmp_path) 
 
     assert result.status == "completed"
     assert finished.wait(timeout=1)
+    assert worker_daemon == [True]
     assert not (run_store.run_dir(run_id) / "late.json").exists()
     assert all(
         artifact["path"] != "late.json"
         for artifact in run_store.load_run(run_id).artifacts
     )
+
+
+def test_guard_stop_and_terminal_state_serialize_against_artifact_write(tmp_path) -> None:
+    entered = Event()
+    release = Event()
+
+    class BlockingRunStore(RunStore):
+        def add_artifact_if_active(self, *args, **kwargs):
+            entered.set()
+            release.wait(timeout=1)
+            return super().add_artifact_if_active(*args, **kwargs)
+
+    store = BlockingRunStore("alice", root=tmp_path / "runs")
+    run = store.create_run("q", "ask")
+    guard = orchestrator_module._SkillRunStoreGuard(store, lambda: False)
+    writer = Thread(
+        target=lambda: guard.add_artifact(
+            run.run_id,
+            "racy.json",
+            "{}",
+            renderer="json",
+            title="racy",
+        )
+    )
+    stopper = Thread(target=guard.stop)
+    writer.start()
+    assert entered.wait(timeout=1)
+    stopper.start()
+    store.finish_run(run.run_id, "cancelled")
+    release.set()
+    writer.join(timeout=1)
+    stopper.join(timeout=1)
+
+    assert not writer.is_alive()
+    assert not stopper.is_alive()
+    assert not (store.run_dir(run.run_id) / "racy.json").exists()
+    assert store.load_run(run.run_id).artifacts == []
+
+
+def test_skill_worker_capacity_exhaustion_skips_without_starting_thread(
+    tmp_path, monkeypatch
+) -> None:
+    slots = BoundedSemaphore(1)
+    assert slots.acquire(blocking=False)
+    monkeypatch.setattr(orchestrator_module, "_SKILL_WORKER_SLOTS", slots)
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "容量耗尽",
+        selected_skill_ids=["fixture"],
+    )
+    called = Event()
+
+    class ForbiddenSkill:
+        skill_id = "fixture"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            called.set()
+            return SkillOutput(skill_id=self.skill_id)
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="fixture",
+            name="Fixture",
+            description="fixture",
+            version="1.0.0",
+            triggers=(),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        ),
+        ForbiddenSkill(),
+    )
+    try:
+        result = TurnOrchestrator(
+            repo_root=tmp_path,
+            conversation_store=conversation_store,
+            run_store=run_store,
+            answer_query_fn=lambda options: _ask_result(options.query),
+            route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+                (SkillSelection("fixture", "manual", "fixture"),), False
+            ),
+            skill_registry=registry,
+        ).run_turn(
+            conversation_id=conversation.conversation_id,
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+            query="容量耗尽",
+            skill_mode="manual",
+            selected_skill_ids=["fixture"],
+        )
+    finally:
+        slots.release()
+
+    assert result.status == "completed"
+    assert not called.is_set()
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert any("并发容量" in warning for warning in assistant.degrades)
 
 
 def test_router_default_llm_gets_timeout_and_injected_one_arg_double_still_works(

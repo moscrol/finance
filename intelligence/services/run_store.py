@@ -283,22 +283,61 @@ class RunStore:
         title: str,
     ) -> Artifact:
         with self._state_lock:
-            data = content.encode("utf-8") if isinstance(content, str) else content
-            path = self.run_dir(run_id) / filename
-            path.write_bytes(data)
-            artifact = Artifact(
-                artifact_id=f"artifact_{filename.replace('.', '_')}",
-                path=filename,
+            run = self.load_run(run_id)
+            return self._add_artifact_locked(
+                run,
+                filename,
+                content,
                 renderer=renderer,
                 title=title,
-                sha256=hashlib.sha256(data).hexdigest(),
-                bytes=len(data),
             )
+
+    def add_artifact_if_active(
+        self,
+        run_id: str,
+        filename: str,
+        content: str | bytes,
+        *,
+        renderer: str,
+        title: str,
+    ) -> Artifact | None:
+        """Atomically persist an artifact only while the run is non-terminal."""
+        with self._state_lock:
             run = self.load_run(run_id)
-            run.artifacts = [a for a in run.artifacts if a.get("path") != filename]
-            run.artifacts.append(asdict(artifact))
-            self._write_run(run)
-            return artifact
+            if run.status in _TERMINAL_STATUSES:
+                return None
+            return self._add_artifact_locked(
+                run,
+                filename,
+                content,
+                renderer=renderer,
+                title=title,
+            )
+
+    def _add_artifact_locked(
+        self,
+        run: Run,
+        filename: str,
+        content: str | bytes,
+        *,
+        renderer: str,
+        title: str,
+    ) -> Artifact:
+        data = content.encode("utf-8") if isinstance(content, str) else content
+        path = self.run_dir(run.run_id) / filename
+        path.write_bytes(data)
+        artifact = Artifact(
+            artifact_id=f"artifact_{filename.replace('.', '_')}",
+            path=filename,
+            renderer=renderer,
+            title=title,
+            sha256=hashlib.sha256(data).hexdigest(),
+            bytes=len(data),
+        )
+        run.artifacts = [a for a in run.artifacts if a.get("path") != filename]
+        run.artifacts.append(asdict(artifact))
+        self._write_run(run)
+        return artifact
 
     def add_degrade(self, run_id: str, reason: str) -> None:
         """数据源降级一等公民化：录屏里「ftshare 不可用」这类事件落到 run 元数据。"""

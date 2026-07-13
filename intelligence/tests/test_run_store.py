@@ -116,6 +116,32 @@ def test_terminal_status_cannot_be_overwritten(store: RunStore) -> None:
     assert saved.error == "cancelled"
 
 
+def test_add_artifact_if_active_is_a_terminal_state_cas(store: RunStore) -> None:
+    run = store.create_run("q", "ask")
+    stored = store.add_artifact_if_active(
+        run.run_id,
+        "before.md",
+        "before",
+        renderer="markdown",
+        title="before",
+    )
+    store.finish_run(run.run_id, run_store.STATUS_CANCELLED)
+    rejected = store.add_artifact_if_active(
+        run.run_id,
+        "after.md",
+        "after",
+        renderer="markdown",
+        title="after",
+    )
+
+    assert stored is not None
+    assert rejected is None
+    assert not (store.run_dir(run.run_id) / "after.md").exists()
+    assert [item["path"] for item in store.load_run(run.run_id).artifacts] == [
+        "before.md"
+    ]
+
+
 def test_requeue_incomplete_runs_marks_only_active_runs_queued(store: RunStore) -> None:
     interrupted = store.create_run("q1", "ask")
     completed = store.create_run("q2", "ask")

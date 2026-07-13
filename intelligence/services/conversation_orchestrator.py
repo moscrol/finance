@@ -4,10 +4,10 @@ import json
 import re
 import time
 from collections.abc import Callable, Sequence
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import Future, TimeoutError as FuturesTimeoutError
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from threading import Event
+from threading import BoundedSemaphore, RLock, Thread
 
 from intelligence.api.structured_reports import (
     ask_result_modules,
@@ -55,6 +55,7 @@ from intelligence.workbench_skills.router import (
 
 RECENT_MESSAGE_LIMIT = 6
 SUMMARY_CHAR_LIMIT = 2400
+_SKILL_WORKER_SLOTS = BoundedSemaphore(8)
 _FOLLOW_UP_REFERENCE_PATTERN = re.compile(
     r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
 )
@@ -84,7 +85,9 @@ class _SkillRunStoreGuard:
 
     def __init__(self, store: RunStore, stopped: Callable[[], bool]) -> None:
         self._store = store
-        self._stopped = stopped
+        self._cancelled = stopped
+        self._stopped = False
+        self._lock = RLock()
 
     def __getattr__(self, name: str) -> object:
         return getattr(self._store, name)
@@ -98,14 +101,26 @@ class _SkillRunStoreGuard:
         renderer: str,
         title: str,
     ) -> Artifact:
-        if not self._stopped():
-            return self._store.add_artifact(
+        with self._lock:
+            if self._stopped or self._cancelled():
+                return self._discarded_artifact(filename, renderer, title)
+            artifact = self._store.add_artifact_if_active(
                 run_id,
                 filename,
                 content,
                 renderer=renderer,
                 title=title,
             )
+            if artifact is not None:
+                return artifact
+            return self._discarded_artifact(filename, renderer, title)
+
+    def stop(self) -> None:
+        with self._lock:
+            self._stopped = True
+
+    @staticmethod
+    def _discarded_artifact(filename: str, renderer: str, title: str) -> Artifact:
         return Artifact(
             artifact_id=f"discarded_{filename.replace('.', '_')}",
             path=filename,
@@ -116,6 +131,26 @@ class _SkillRunStoreGuard:
             previewable=False,
             downloadable=False,
         )
+
+
+def _start_skill_worker(
+    future: Future[SkillOutput],
+    execute: Callable[[], SkillOutput],
+    *,
+    name: str,
+) -> None:
+    def run() -> None:
+        try:
+            if not future.set_running_or_notify_cancel():
+                return
+            try:
+                future.set_result(execute())
+            except BaseException as exc:  # noqa: BLE001
+                future.set_exception(exc)
+        finally:
+            _SKILL_WORKER_SLOTS.release()
+
+    Thread(target=run, name=name, daemon=True).start()
 _INTERNAL_FIELD_PATTERN = re.compile(
     r'"?(?:candidate_tier|priority_score|cycle_status|warnings?)"?'
     r'\s*[:=]\s*(?:"[^"]*"|[^,，}\]\n]+)[,，]?',
@@ -499,6 +534,7 @@ class TurnOrchestrator:
         llm_model: str | None = None,
         is_cancelled: Callable[[], bool] | None = None,
         cancellation_reason: Callable[[], str | None] | None = None,
+        claim_terminal: Callable[[], bool] | None = None,
         event_id_prefix: str = "",
         answer_deadline_seconds: float = 60.0,
         budget_factory: Callable[[], ExecutionBudget] | None = None,
@@ -512,6 +548,7 @@ class TurnOrchestrator:
         self.llm_model = llm_model
         self.is_cancelled = is_cancelled or (lambda: False)
         self.cancellation_reason = cancellation_reason or (lambda: None)
+        self.claim_terminal = claim_terminal or (lambda: True)
         self.event_id_prefix = event_id_prefix
         self.answer_deadline_seconds = answer_deadline_seconds
         self.budget_factory = budget_factory
@@ -643,34 +680,56 @@ class TurnOrchestrator:
                         conversation_id,
                     )
                     continue
-                invoked.append(skill_id)
-                self._emit(
-                    run_id,
-                    assistant_message_id,
-                    f"skill:{skill_id}:start",
-                    "skill.start",
-                    {
-                        "skill_id": skill_id,
-                        "selection_source": selection.selection_source,
-                        "reason": selection.reason,
-                    },
-                    conversation_id,
-                )
-                skill_pool = ThreadPoolExecutor(
-                    max_workers=1,
-                    thread_name_prefix=f"workbench-{skill_id}",
-                )
-                future = None
-                skill_stopped = Event()
+                if not _SKILL_WORKER_SLOTS.acquire(blocking=False):
+                    warning = f"Skill {skill_id} 因并发容量不足已跳过"
+                    warnings.append(warning)
+                    self.run_store.add_degrade(run_id, warning)
+                    module = self._skill_warning_module(skill_id, warning)
+                    self._emit_module(
+                        run_id,
+                        assistant_message_id,
+                        conversation_id,
+                        report,
+                        module,
+                        f"skill:{skill_id}:warning",
+                    )
+                    self._emit(
+                        run_id,
+                        assistant_message_id,
+                        f"skill:{skill_id}:result",
+                        "skill.result",
+                        {
+                            "skill_id": skill_id,
+                            "status": "degraded",
+                            "warnings": [warning],
+                            "elapsed_ms": 0,
+                            "task_may_continue": False,
+                        },
+                        conversation_id,
+                    )
+                    continue
+                future: Future[SkillOutput] = Future()
                 guarded_run_store = _SkillRunStoreGuard(
                     self.run_store,
-                    lambda: skill_stopped.is_set() or self.is_cancelled(),
+                    self.is_cancelled,
                 )
+                worker_started = False
                 skill_started = time.monotonic()
                 try:
-                    future = skill_pool.submit(
-                        self.skill_registry.executors[skill_id].execute,
-                        SkillExecutionContext(
+                    invoked.append(skill_id)
+                    self._emit(
+                        run_id,
+                        assistant_message_id,
+                        f"skill:{skill_id}:start",
+                        "skill.start",
+                        {
+                            "skill_id": skill_id,
+                            "selection_source": selection.selection_source,
+                            "reason": selection.reason,
+                        },
+                        conversation_id,
+                    )
+                    skill_context = SkillExecutionContext(
                             query=contextual_query,
                             task_type="ask",
                             user_id=self.run_store.user_id,
@@ -680,8 +739,15 @@ class TurnOrchestrator:
                             run_store=guarded_run_store,  # type: ignore[arg-type]
                             conversation_context=context.to_prompt_block(),
                             execution_budget=execution_budget,
+                        )
+                    _start_skill_worker(
+                        future,
+                        lambda: self.skill_registry.executors[skill_id].execute(
+                            skill_context
                         ),
+                        name=f"workbench-{skill_id}",
                     )
+                    worker_started = True
                     output = future.result(timeout=skill_timeout)
                 except Exception as exc:  # noqa: BLE001
                     if isinstance(exc, FuturesTimeoutError) and future is not None:
@@ -750,8 +816,10 @@ class TurnOrchestrator:
                         conversation_id,
                     )
                 finally:
-                    skill_stopped.set()
-                    skill_pool.shutdown(wait=False, cancel_futures=True)
+                    guarded_run_store.stop()
+                    future.cancel()
+                    if not worker_started:
+                        _SKILL_WORKER_SLOTS.release()
                 self._check_cancelled()
 
             def emit_text_delta(delta: str) -> None:
@@ -943,21 +1011,27 @@ class TurnOrchestrator:
             public_report = _redact_object(report)
             if isinstance(public_report, dict):
                 report = public_report
-            self.run_store.add_artifact(
+            self._check_cancelled()
+            if not self.claim_terminal():
+                return self._terminal_state_result(run_id, selected, invoked)
+            answer_artifact = self.run_store.add_artifact_if_active(
                 run_id,
                 "answer.md",
                 redact(answer_text),
                 renderer="markdown",
                 title=redact(f"对话回答：{query[:24]}"),
             )
-            self.run_store.add_artifact(
+            if answer_artifact is None:
+                return self._terminal_state_result(run_id, selected, invoked)
+            report_artifact = self.run_store.add_artifact_if_active(
                 run_id,
                 "report.json",
                 json.dumps(report, ensure_ascii=False, indent=2),
                 renderer="structured_report",
                 title="结构化对话报告",
             )
-            self._check_cancelled()
+            if report_artifact is None:
+                return self._terminal_state_result(run_id, selected, invoked)
             assistant = self.conversation_store.revise_message(
                 conversation_id,
                 assistant_message_id,
@@ -1177,6 +1251,8 @@ class TurnOrchestrator:
         citations: list[dict[str, object]],
         text_chunks: list[str],
     ) -> TurnResult:
+        if not self.claim_terminal():
+            return self._terminal_state_result(run_id, selected, invoked)
         warning = "用户已取消本轮执行"
         if warning not in warnings:
             warnings.append(warning)
@@ -1194,7 +1270,7 @@ class TurnOrchestrator:
             citations=citations,
             degrades=warnings,
         )
-        self.run_store.add_artifact(
+        self.run_store.add_artifact_if_active(
             run_id,
             "report.json",
             json.dumps(_redact_object(report), ensure_ascii=False, indent=2),
@@ -1231,6 +1307,8 @@ class TurnOrchestrator:
         text_chunks: list[str],
         error: Exception,
     ) -> TurnResult:
+        if not self.claim_terminal():
+            return self._terminal_state_result(run_id, selected, invoked)
         warning = f"本轮执行失败（{type(error).__name__}）"
         warnings.append(warning)
         report["status"] = rs.STATUS_FAILED
@@ -1270,6 +1348,20 @@ class TurnOrchestrator:
         return TurnResult(
             status=rs.STATUS_FAILED,
             content=assistant.content,
+            selected_skill_ids=tuple(selected),
+            invoked_skill_ids=tuple(invoked),
+        )
+
+    def _terminal_state_result(
+        self,
+        run_id: str,
+        selected: Sequence[str],
+        invoked: Sequence[str],
+    ) -> TurnResult:
+        run = self.run_store.load_run(run_id)
+        return TurnResult(
+            status=run.status,
+            content="",
             selected_skill_ids=tuple(selected),
             invoked_skill_ids=tuple(invoked),
         )
