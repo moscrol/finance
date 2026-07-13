@@ -22,8 +22,29 @@ SAFE_LABEL = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 SAFE_SOURCE_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 UNSAFE_MODEL_LABEL = re.compile(
-    r"(?:\.\.|error|exception|prompt|authorization|api[_-]?key|secret|header|traceback)",
+    r"(?:\.\.|error|exception|prompt|authorization|api[_-]?key|secret|header|traceback|credential)",
     re.IGNORECASE,
+)
+PRIVATE_PATH_COMPONENT = re.compile(
+    r"(?:^|/)(?:users|home|private|var|tmp|etc)(?:/|$)", re.IGNORECASE
+)
+CREDENTIAL_PREFIX = re.compile(
+    r"^(?:sk[-_]|ghp_|github_pat_|xox[bp]-|bearer)", re.IGNORECASE
+)
+JWT_SHAPE = re.compile(r"^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$")
+SAFE_LLM_PROVIDERS = frozenset(
+    {
+        "zhipu",
+        "glm",
+        "openai",
+        "deepseek",
+        "moonshot",
+        "kimi",
+        "dashscope",
+        "qwen",
+        "tongyi",
+        "fixture",
+    }
 )
 SAFE_LLM_FALLBACK_REASONS = frozenset(
     {
@@ -46,7 +67,18 @@ PUBLIC_STAGE_STATUSES = frozenset({"running", "completed", "degraded"})
 SECRET_PATTERNS = (
     (
         "token_prefix",
-        re.compile(r"\b(?:sk|ghp|gho|ghu|ghs|xoxb|xoxp)[-_][A-Za-z0-9_-]{8,}"),
+        re.compile(
+            r"\b(?:sk[-_]|gh[pous]_|github_pat_|xox[bp]-)[A-Za-z0-9_-]{8,}",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "bearer_token",
+        re.compile(r"\bbearer(?:\s+|[-_:])[A-Za-z0-9._-]{8,}", re.IGNORECASE),
+    ),
+    (
+        "jwt_shape",
+        re.compile(r"\b[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"),
     ),
     (
         "secret_assignment",
@@ -374,6 +406,43 @@ def _safe_optional_public_label(value: object, stage: str) -> str | None:
         or re.match(r"^[A-Za-z]:/", label)
         or "://" in label
         or UNSAFE_MODEL_LABEL.search(label)
+        or PRIVATE_PATH_COMPONENT.search(label)
+    ):
+        raise SmokeProtocolError(stage)
+    return label
+
+
+def _looks_like_high_entropy_token(value: str) -> bool:
+    compact = value.replace("-", "").replace("_", "")
+    if len(compact) < 48 or re.fullmatch(r"[A-Za-z0-9]+", compact) is None:
+        return False
+    character_classes = sum(
+        bool(pattern.search(compact))
+        for pattern in (
+            re.compile(r"[a-z]"),
+            re.compile(r"[A-Z]"),
+            re.compile(r"[0-9]"),
+        )
+    )
+    return character_classes == 3 and len(set(compact)) >= 16
+
+
+def _safe_optional_provider_label(value: object, stage: str) -> str | None:
+    label = _safe_optional_public_label(value, stage)
+    if label is None:
+        return None
+    normalized = label.lower()
+    return normalized if normalized in SAFE_LLM_PROVIDERS else None
+
+
+def _safe_optional_model_label(value: object, stage: str) -> str | None:
+    label = _safe_optional_public_label(value, stage)
+    if label is None:
+        return None
+    if (
+        CREDENTIAL_PREFIX.search(label)
+        or JWT_SHAPE.fullmatch(label)
+        or _looks_like_high_entropy_token(label)
     ):
         raise SmokeProtocolError(stage)
     return label
@@ -561,11 +630,11 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             ),
             "attempted": llm_attempted if isinstance(llm_attempted, bool) else None,
             "used": llm_used if isinstance(llm_used, bool) else None,
-            "provider": _safe_optional_public_label(
+            "provider": _safe_optional_provider_label(
                 llm_payload.get("provider"),
                 "model_metadata",
             ),
-            "model": _safe_optional_public_label(
+            "model": _safe_optional_model_label(
                 llm_payload.get("model"),
                 "model_metadata",
             ),

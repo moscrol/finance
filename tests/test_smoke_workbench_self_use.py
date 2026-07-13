@@ -335,6 +335,39 @@ def test_smoke_summary_keeps_canonical_llm_state(
 
 
 @pytest.mark.parametrize(
+    ("provider", "expected"),
+    [
+        ("zhipu", "zhipu"),
+        ("QWEN", "qwen"),
+        ("fixture", "fixture"),
+        ("unknown-provider", None),
+    ],
+)
+def test_smoke_provider_labels_use_an_allowlist(
+    provider: str,
+    expected: str | None,
+) -> None:
+    assert smoke._safe_optional_provider_label(provider, "model_metadata") == expected
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "sk-private-value",
+        "ghp_abcdefghijklmnopqrstuvwxyz",
+        "xoxb-1234567890-abcdefghijklmnop",
+        "github_pat_abcdefghijklmnopqrstuvwxyz",
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.dGVzdHNpZ25hdHVyZQ",
+        "Bearer-credential-value",
+        "aB3dE5fG7hJ9kL2mN4pQ6rS8tV0wX1yZ3cD5eF7gH9jK2mN4",
+    ],
+)
+def test_smoke_rejects_credential_shaped_model_labels(model: str) -> None:
+    with pytest.raises(smoke.SmokeProtocolError, match="model_metadata"):
+        smoke._safe_optional_model_label(model, "model_metadata")
+
+
+@pytest.mark.parametrize(
     ("mode", "failure_stage", "unsafe_value"),
     [
         ("unsafe_model", "model_metadata", "/private/model-error"),

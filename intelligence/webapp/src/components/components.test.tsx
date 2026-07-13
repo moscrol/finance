@@ -516,7 +516,8 @@ describe("Workbench components", () => {
     expect(screen.getByLabelText("当前任务摘要")).toHaveTextContent("证据1");
   });
 
-  it("keeps structured modules behind the explicit run inspector", () => {
+  it("keeps structured modules behind the explicit run inspector", async () => {
+    const user = userEvent.setup();
     const structuredBundle: RunBundle = {
       ...bundle,
       structuredReport: {
@@ -577,16 +578,25 @@ describe("Workbench components", () => {
       },
     };
     render(
-      <MessageBubble
-        message={assistantMessage}
-        skills={productSkills}
-        live={null}
-        bundle={structuredBundle}
-        canRegenerate={false}
-        onRegenerate={vi.fn()}
-        onOpenArtifact={vi.fn()}
-        onFollowup={vi.fn()}
-      />,
+      <>
+        <MessageBubble
+          message={assistantMessage}
+          skills={productSkills}
+          live={null}
+          bundle={structuredBundle}
+          canRegenerate={false}
+          onRegenerate={vi.fn()}
+          onOpenArtifact={vi.fn()}
+          onFollowup={vi.fn()}
+        />
+        <ResearchInspector
+          bootstrap={bootstrap}
+          bundle={structuredBundle}
+          artifact={null}
+          open
+          onClose={vi.fn()}
+        />
+      </>,
     );
 
     expect(screen.getByText("这是模板回答。")).toBeVisible();
@@ -602,6 +612,105 @@ describe("Workbench components", () => {
     expect(
       screen.queryByText("L2 最新扫描日早于报告日。"),
     ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "运行" }));
+    expect(screen.getByText("已使用 glm · glm-5.2")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "LLM 综合判断" }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "L2 大单资金流" })).toBeVisible();
+    expect(screen.getByText("深信服")).toBeVisible();
+    expect(screen.getByText("L2 最新扫描日早于报告日。")).toBeVisible();
+    expect(document.querySelectorAll(".structured-report")).toHaveLength(1);
+    expect(screen.getAllByLabelText("当前任务摘要")).toHaveLength(1);
+  });
+
+  it.each([
+    {
+      label: "已使用 zhipu · glm-5.2",
+      llm: {
+        configured: true,
+        attempted: true,
+        used: true,
+        provider: "zhipu",
+        model: "glm-5.2",
+        fallback_reason: null,
+      },
+    },
+    {
+      label:
+        "内置模型已尝试 · 已回退：模型响应超时（provider_timeout）",
+      llm: {
+        configured: true,
+        attempted: true,
+        used: false,
+        provider: null,
+        model: null,
+        fallback_reason: "provider_timeout",
+      },
+    },
+    {
+      label: "内置模型未配置 · 已使用确定性回退",
+      llm: {
+        configured: false,
+        attempted: false,
+        used: false,
+        provider: null,
+        model: null,
+        fallback_reason: "provider_unavailable",
+      },
+    },
+  ])("shows the selected run report state in the inspector: $label", async ({
+    label,
+    llm,
+  }) => {
+    const user = userEvent.setup();
+    const inspectorBundle: RunBundle = {
+      ...bundle,
+      structuredReport: {
+        schema_version: 1,
+        report_id: "run_inspector_llm",
+        title: "Inspector LLM 状态",
+        task_type: "ask",
+        status: "completed",
+        as_of: null,
+        llm,
+        warnings: [],
+        modules: [],
+      },
+    };
+    render(
+      <ResearchInspector
+        bootstrap={bootstrap}
+        bundle={inspectorBundle}
+        artifact={null}
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(label)).toBeNull();
+    await user.click(screen.getByRole("tab", { name: "运行" }));
+    expect(screen.getByText(label)).toBeVisible();
+    expect(document.querySelectorAll(".structured-report")).toHaveLength(1);
+    expect(screen.getAllByLabelText("当前任务摘要")).toHaveLength(1);
+  });
+
+  it("does not render a structured report when the selected run has none", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <ResearchInspector
+        bootstrap={bootstrap}
+        bundle={{ ...bundle, structuredReport: null }}
+        artifact={null}
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "运行" }));
+    expect(container.querySelector(".structured-report")).toBeNull();
+    expect(screen.getAllByLabelText("当前任务摘要")).toHaveLength(1);
   });
 
   it("sanitizes markdown before rendering an artifact", () => {
@@ -846,6 +955,124 @@ describe("Workbench components", () => {
 
     expect(screen.queryByText(/Authorization|sk-private|raw prompt|private/)).toBeNull();
     expect(screen.getByText("已使用内置模型")).toBeVisible();
+  });
+
+  it.each([
+    "zhipu",
+    "glm",
+    "openai",
+    "deepseek",
+    "moonshot",
+    "kimi",
+    "dashscope",
+    "qwen",
+    "tongyi",
+    "fixture",
+  ])("renders the allowlisted provider %s", (provider) => {
+    render(
+      <StructuredReportView
+        report={{
+          schema_version: 1,
+          report_id: "run_allowlisted_provider",
+          title: "LLM provider 白名单",
+          task_type: "ask",
+          status: "completed",
+          as_of: null,
+          llm: {
+            configured: true,
+            attempted: true,
+            used: true,
+            provider,
+            model: "model-1.0",
+            fallback_reason: null,
+          },
+          warnings: [],
+          modules: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByText(`已使用 ${provider} · model-1.0`)).toBeVisible();
+  });
+
+  it("replaces an unknown provider with a safe placeholder", () => {
+    const { container } = render(
+      <StructuredReportView
+        report={{
+          schema_version: 1,
+          report_id: "run_unknown_provider",
+          title: "未知 provider",
+          task_type: "ask",
+          status: "completed",
+          as_of: null,
+          llm: {
+            configured: true,
+            attempted: true,
+            used: true,
+            provider: "unknown-provider",
+            model: "model-1.0",
+            fallback_reason: null,
+          },
+          warnings: [],
+          modules: [],
+        }}
+      />,
+    );
+
+    expect(container.textContent).not.toContain("unknown-provider");
+    expect(screen.getByText("已使用内置模型")).toBeVisible();
+  });
+
+  it.each(
+    ([
+      "sk-private-value",
+      "ghp_abcdefghijklmnopqrstuvwxyz",
+      "xoxb-1234567890-abcdefghijklmnop",
+      "github_pat_abcdefghijklmnopqrstuvwxyz",
+      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.dGVzdHNpZ25hdHVyZQ",
+      "Bearer-credential-value",
+      "aB3dE5fG7hJ9kL2mN4pQ6rS8tV0wX1yZ3cD5eF7gH9jK2mN4",
+    ] as const).flatMap((dangerous) =>
+      (["provider", "model"] as const).map((field) => ({
+        dangerous,
+        field,
+      })),
+    ),
+  )("redacts credential-shaped $field labels", ({ dangerous, field }) => {
+    const llm = {
+      configured: true,
+      attempted: true,
+      used: true,
+      provider: field === "provider" ? dangerous : "zhipu",
+      model: field === "model" ? dangerous : "glm-5.2",
+      fallback_reason: null,
+    };
+    const { container } = render(
+      <StructuredReportView
+        report={{
+          schema_version: 1,
+          report_id: "run_credential_label",
+          title: "LLM 凭证形态标签安全",
+          task_type: "ask",
+          status: "completed",
+          as_of: null,
+          llm,
+          warnings: [],
+          modules: [],
+        }}
+      />,
+    );
+
+    const rendered = container.textContent || "";
+    expect(rendered).not.toContain(dangerous);
+    expect(rendered).not.toContain(dangerous.slice(0, 12));
+    expect(
+      screen.getByText(
+        field === "provider"
+          ? "已使用内置模型"
+          : "已使用 zhipu · 模型信息已隐藏",
+      ),
+    ).toBeVisible();
   });
 
   it("shows aggregate self-use maturity without private event details", () => {

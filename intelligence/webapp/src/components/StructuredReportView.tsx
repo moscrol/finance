@@ -21,15 +21,52 @@ const FALLBACK_LABELS: Record<string, string> = {
   budget_exhausted: "本轮时间预算不足（budget_exhausted）",
 };
 
+const SAFE_LLM_PROVIDERS = new Set([
+  "zhipu",
+  "glm",
+  "openai",
+  "deepseek",
+  "moonshot",
+  "kimi",
+  "dashscope",
+  "qwen",
+  "tongyi",
+  "fixture",
+]);
 const SAFE_MODEL_LABEL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
+const CREDENTIAL_PREFIX =
+  /^(?:sk[-_]|ghp_|github_pat_|xox[bp]-|bearer)/i;
+const JWT_SHAPE =
+  /^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$/;
 const UNSAFE_MODEL_LABEL =
-  /(?:\.\.|error|exception|prompt|authorization|api[_-]?key|secret|header|traceback)/i;
+  /(?:\.\.|error|exception|prompt|authorization|api[_-]?key|secret|header|traceback|credential)/i;
+const PRIVATE_PATH_COMPONENT =
+  /(?:^|\/)(?:users|home|private|var|tmp|etc)(?:\/|$)/i;
+
+function safeProviderLabel(value: string | null): string | null {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  return SAFE_LLM_PROVIDERS.has(normalized) ? normalized : null;
+}
+
+function looksLikeHighEntropyToken(value: string): boolean {
+  const compact = value.replace(/[-_]/g, "");
+  if (compact.length < 48 || !/^[A-Za-z0-9]+$/.test(compact)) return false;
+  const characterClasses = [/[a-z]/, /[A-Z]/, /[0-9]/].filter((pattern) =>
+    pattern.test(compact),
+  ).length;
+  return characterClasses === 3 && new Set(compact).size >= 16;
+}
 
 function safeModelLabel(value: string | null): string | null {
   if (
     !value ||
     !SAFE_MODEL_LABEL.test(value) ||
+    CREDENTIAL_PREFIX.test(value) ||
+    JWT_SHAPE.test(value) ||
+    looksLikeHighEntropyToken(value) ||
     UNSAFE_MODEL_LABEL.test(value) ||
+    PRIVATE_PATH_COMPONENT.test(value) ||
     /^[A-Za-z]:\//.test(value) ||
     value.includes("://")
   ) {
@@ -41,10 +78,10 @@ function safeModelLabel(value: string | null): string | null {
 function llmStatusLabel(report: StructuredReport): string {
   const { llm } = report;
   if (llm.used) {
-    const provider = safeModelLabel(llm.provider);
+    const provider = safeProviderLabel(llm.provider);
     const model = safeModelLabel(llm.model);
     if (provider && model) return `已使用 ${provider} · ${model}`;
-    if (provider) return `已使用 ${provider}`;
+    if (provider) return `已使用 ${provider} · 模型信息已隐藏`;
     return "已使用内置模型";
   }
   if (!llm.configured) return "内置模型未配置 · 已使用确定性回退";
