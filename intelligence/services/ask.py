@@ -929,6 +929,8 @@ def _answer_market_review(
             "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
         ),
     )
+    if not options.compose or not options.synthesize:
+        return result
     plan_block = (
         result.question_plan.to_prompt_block()
         if result.question_plan is not None
@@ -3128,14 +3130,28 @@ def synthesize_existing_answer_spec(
         or result.llm_fallback_reason is not None
     ):
         return result
+    if result.quality_context is None:
+        result.quality_context = build_quality_context(
+            evidence_lines=[
+                claim.text for claim in result.answer_spec.verified_facts
+            ],
+            market_lines=[claim.text for claim in result.answer_spec.triggers],
+            gap_lines=[
+                claim.text
+                for claim in (
+                    *result.answer_spec.counter_evidence,
+                    *result.answer_spec.gaps,
+                )
+            ],
+        )
     _synthesize_answer_spec(
         options=options,
         result=result,
         question_plan=result.question_plan,
         theme=(
-            result.answer_spec.presentation_title
-            or result.answer_spec.research_spec.theme
+            result.answer_spec.research_spec.theme.strip()
             or _answer_subject(result.question_plan)
+            or result.answer_spec.presentation_title.strip()
         ),
         citations=result.citations,
         quality_context=result.quality_context,

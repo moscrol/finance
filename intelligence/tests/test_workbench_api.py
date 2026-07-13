@@ -26,6 +26,9 @@ from intelligence.services.self_use_maturity import (  # noqa: E402
 )
 
 
+_REAL_RUN_ASK = app_module._run_ask
+
+
 def _write_minimum_market_snapshot(root, trade_date: str = "2026-07-09") -> None:
     root.mkdir(parents=True)
     market = {
@@ -115,7 +118,7 @@ def client(tmp_path, monkeypatch):
         encoding="utf-8",
     )
 
-    def fake_run_ask(store: RunStore, run_id: str, req) -> None:
+    def fake_run_ask(store: RunStore, run_id: str, req, **_: object) -> None:
         store.append_step(
             run_id,
             step_id="s01",
@@ -279,6 +282,112 @@ def test_session_byok_flows_to_the_conversation_worker(
     assert captured_runtime_inputs == [runtime_inputs]
     assert captured_runtime_inputs[0] is runtime_inputs
     assert runtime_inputs.code_root != runtime_inputs.data_root
+
+
+def test_session_byok_flows_to_legacy_run_without_cross_user_leakage(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    from intelligence.services import ask as ask_svc
+    from intelligence.services import followups as followups_svc
+    from intelligence.services import llm_refine
+    from intelligence.services.ask import AskResult
+
+    for env_name in (
+        "FORESIGHT_BUILTIN_LLM_API_KEY",
+        "ZHIPU_API_KEY",
+        "GLM_API_KEY",
+        "LLM_API_KEY",
+        "OPENAI_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "MOONSHOT_API_KEY",
+        "DASHSCOPE_API_KEY",
+    ):
+        monkeypatch.delenv(env_name, raising=False)
+
+    observed: list[tuple[str | None, str | None, str | None]] = []
+
+    def fake_answer(options):
+        provider = llm_refine.detect_provider()
+        observed.append(
+            (
+                options.user,
+                provider.name if provider is not None else None,
+                provider.model if provider is not None else None,
+            )
+        )
+        return AskResult(
+            query=options.query,
+            trade_date="2026-07-10",
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+            synthesis="用户模型输出" if provider is not None else None,
+            llm_attempted=provider is not None,
+            llm_provider=provider.name if provider is not None else None,
+        )
+
+    monkeypatch.setattr(app_module, "_run_ask", _REAL_RUN_ASK)
+    monkeypatch.setattr(ask_svc, "answer_query", fake_answer)
+    monkeypatch.setattr(ask_svc, "render_answer", lambda result: "# 结论\n确定性回答")
+    monkeypatch.setattr(
+        followups_svc,
+        "generate_followups",
+        lambda *args, **kwargs: followups_svc.FollowupResult(),
+    )
+
+    configured = client.put(
+        "/api/llm/config",
+        json={
+            "provider": "zhipu",
+            "api_key": "alice-private-key",
+            "model": "glm-4-air",
+            "user": "alice",
+        },
+    )
+    assert configured.status_code == 200
+
+    alice_run_id = client.post(
+        "/api/runs",
+        json={"question": "alice legacy run", "user": "alice"},
+    ).json()["run_id"]
+    assert _wait_terminal(client, alice_run_id, user="alice")["status"] == "completed"
+    alice_report = client.get(
+        f"/api/runs/{alice_run_id}/report",
+        params={"user": "alice"},
+    ).json()
+
+    bob_run_id = client.post(
+        "/api/runs",
+        json={"question": "bob legacy run", "user": "bob"},
+    ).json()["run_id"]
+    assert _wait_terminal(client, bob_run_id, user="bob")["status"] == "completed"
+    bob_report = client.get(
+        f"/api/runs/{bob_run_id}/report",
+        params={"user": "bob"},
+    ).json()
+
+    assert observed == [
+        ("alice", "zhipu", "glm-4-air"),
+        ("bob", None, None),
+    ]
+    assert alice_report["llm"] == {
+        "configured": True,
+        "attempted": True,
+        "used": True,
+        "provider": "zhipu",
+        "model": "glm-4-air",
+        "fallback_reason": None,
+    }
+    assert bob_report["llm"] == {
+        "configured": False,
+        "attempted": False,
+        "used": False,
+        "provider": None,
+        "model": None,
+        "fallback_reason": None,
+    }
+    assert "alice-private-key" not in json.dumps(alice_report, ensure_ascii=False)
 
 
 def test_conversation_worker_passes_selected_model_to_orchestrator(
@@ -1046,7 +1155,7 @@ def test_cancel_run_is_terminal_even_when_worker_finishes_later(
     started = threading.Event()
     release = threading.Event()
 
-    def slow_run(store, run_id, req):
+    def slow_run(store, run_id, req, **_):
         started.set()
         release.wait(timeout=2)
         store.finish_run(run_id, rs.STATUS_COMPLETED)
@@ -1197,7 +1306,7 @@ def test_executor_timeout_marks_run_failed(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
     release = threading.Event()
 
-    def slow_run(store, run_id, req):
+    def slow_run(store, run_id, req, **_):
         release.wait(timeout=1)
         if not app_module._run_terminal(store, run_id):
             store.finish_run(run_id, rs.STATUS_COMPLETED)
@@ -1377,7 +1486,7 @@ def test_create_app_recovers_interrupted_runs(tmp_path, monkeypatch) -> None:
     interrupted = RunStore().create_run("q", "ask")
     finished = threading.Event()
 
-    def recovered_run(store, run_id, req):
+    def recovered_run(store, run_id, req, **_):
         store.finish_run(run_id, rs.STATUS_COMPLETED)
         finished.set()
 
@@ -1704,7 +1813,7 @@ def test_run_artifact_path_traversal_rejected(client: TestClient) -> None:
 
 
 def test_failed_run_surfaces_error(client: TestClient, monkeypatch) -> None:
-    def failing(store, run_id, req):
+    def failing(store, run_id, req, **_):
         store.finish_run(run_id, rs.STATUS_FAILED, error="boom")
 
     monkeypatch.setattr(app_module, "_run_ask", failing)
@@ -1718,7 +1827,12 @@ def test_failed_run_surfaces_error(client: TestClient, monkeypatch) -> None:
 def test_followups_endpoint_and_parent_link(client: TestClient, monkeypatch) -> None:
     from intelligence.services import followups as fu_svc
 
-    def fake_run_ask(store: RunStore, run_id: str, req) -> None:
+    def fake_run_ask(
+        store: RunStore,
+        run_id: str,
+        req,
+        **_: object,
+    ) -> None:
         followups = fu_svc.generate_followups(req.question, matched_theme="液冷", use_llm=False)
         store.add_artifact(
             run_id,

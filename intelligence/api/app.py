@@ -208,11 +208,27 @@ class RunSupervisor:
         self._terminal_handlers: dict[tuple[str, str], Callable[[str], None]] = {}
         self._lock = threading.Lock()
 
-    def submit(self, store: RunStore, run_id: str, req: CreateRunRequest) -> None:
+    def submit(
+        self,
+        store: RunStore,
+        run_id: str,
+        req: CreateRunRequest,
+        *,
+        llm_provider: LLMProvider | None = None,
+        llm_model: str | None = None,
+        llm_configured: bool | None = None,
+    ) -> None:
         self._submit(
             store,
             run_id,
-            lambda _: _run_ask(store, run_id, req),
+            lambda _: _run_ask(
+                store,
+                run_id,
+                req,
+                llm_provider=llm_provider,
+                llm_model=llm_model,
+                llm_configured=llm_configured,
+            ),
         )
 
     def submit_conversation(
@@ -597,17 +613,47 @@ def _run_ask(
     store: RunStore,
     run_id: str,
     req: CreateRunRequest,
+    *,
+    llm_provider: LLMProvider | None = None,
+    llm_model: str | None = None,
+    llm_configured: bool | None = None,
+) -> None:
+    provider = llm_provider
+    if provider is None and llm_configured is None:
+        provider = llm_refine.detect_provider()
+    configured = provider is not None if llm_configured is None else llm_configured
+    model = llm_model or (provider.model if provider is not None else None)
+    provider_scope = (
+        llm_refine.provider_override(provider)
+        if provider is not None
+        else nullcontext()
+    )
+    with provider_scope:
+        _run_ask_scoped(
+            store,
+            run_id,
+            req,
+            llm_model=model,
+            llm_configured=configured,
+        )
+
+
+def _run_ask_scoped(
+    store: RunStore,
+    run_id: str,
+    req: CreateRunRequest,
+    *,
+    llm_model: str | None,
+    llm_configured: bool,
 ) -> None:
     from intelligence.services.ask import AskOptions, answer_query, render_answer
-    from intelligence.services.llm_refine import detect_provider
 
     repo_root = req.repo_root or REPO_ROOT
-    provider = detect_provider()
     report = new_structured_report(
         run_id=run_id,
         question=req.question,
         task_type=req.task_type,
-        llm_configured=provider is not None,
+        llm_configured=llm_configured,
     )
     store.append_stream_event(
         run_id,
@@ -791,8 +837,8 @@ def _run_ask(
         as_of=result.trade_date or report_date,
         warnings=[*report_warnings, *result.warnings],
         llm_provider=result.llm_provider,
-        llm_model=provider.model if provider and result.llm_provider else None,
-        llm_configured=provider is not None,
+        llm_model=llm_model if result.llm_provider else None,
+        llm_configured=llm_configured,
         llm_attempted=result.llm_attempted,
         llm_fallback_reason=result.llm_fallback_reason,
     )
@@ -1128,6 +1174,7 @@ def create_app(
                     ConversationDataIntegrityError,
                 ):
                     pass
+                provider = llm_settings.provider_for(store.user_id)
                 supervisor.submit(
                     store,
                     run.run_id,
@@ -1139,6 +1186,9 @@ def create_app(
                         parent_run_id=run.parent_run_id,
                         repo_root=root,
                     ),
+                    llm_provider=provider,
+                    llm_model=provider.model if provider is not None else None,
+                    llm_configured=provider is not None,
                 )
         except (OSError, ValueError, json.JSONDecodeError):
             continue
@@ -1308,13 +1358,21 @@ def create_app(
     def create_run(req: CreateRunRequest) -> dict[str, object]:
         req.repo_root = root
         store = store_for(req.user)
+        provider = llm_settings.provider_for(store.user_id)
         run = store.create_run(
             req.question,
             req.task_type,
             session_id=req.session_id,
             parent_run_id=req.parent_run_id,
         )
-        supervisor.submit(store, run.run_id, req)
+        supervisor.submit(
+            store,
+            run.run_id,
+            req,
+            llm_provider=provider,
+            llm_model=provider.model if provider is not None else None,
+            llm_configured=provider is not None,
+        )
         return {"run_id": run.run_id, "status": run.status}
 
     @app.post("/api/runs/{run_id}/cancel")

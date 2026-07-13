@@ -1859,6 +1859,41 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("普通投资者", captured["system"])
         self.assertNotIn("知识图谱", captured["prompt"])
 
+    def test_market_review_synthesis_switch_skips_provider_after_answer_spec(
+        self,
+    ) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.detect_provider",
+            ) as provider_probe,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+            ) as synthesize,
+        ):
+            wiki = Path(tmp) / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            result = answer_query(
+                AskOptions(
+                    query="请复盘最新交易日的市场结构和主要风险",
+                    exports_dir=tmp,
+                    kb_wiki=wiki,
+                    supplemental_evidence="### daily-review\n- 上涨 3774 只",
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                    synthesize=False,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                )
+            )
+
+        provider_probe.assert_not_called()
+        synthesize.assert_not_called()
+        self.assertFalse(result.llm_attempted)
+        self.assertIsNone(result.synthesis)
+        self.assertIsNotNone(result.answer_spec)
+
     def test_market_review_compose_injects_memory_as_incremental_prior(
         self,
     ) -> None:

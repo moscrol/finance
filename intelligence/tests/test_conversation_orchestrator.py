@@ -3,7 +3,7 @@ import json
 import time
 import urllib.error
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from threading import BoundedSemaphore, Event, Thread, current_thread
 
 import pytest
@@ -1368,6 +1368,25 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
                     "as_of": "2026-07-11",
                 }
             ]
+            contract = build_module_answer_contract(
+                skill_id=self.skill_id,
+                title="个股深挖",
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of="2026-07-11",
+                retrieval_plan=("读取专项正式资料",),
+                output_contract=("输出五元素裁决",),
+            )
+            assert contract is not None
+            answer_spec = replace(
+                contract.answer_spec,
+                research_spec=replace(
+                    contract.answer_spec.research_spec,
+                    theme="英维克",
+                ),
+                presentation_title="个股深挖",
+            )
             return SkillOutput(
                 skill_id=self.skill_id,
                 modules=modules,
@@ -1375,16 +1394,7 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
                 warnings=[],
                 as_of="2026-07-11",
                 raw_result_ref=None,
-                answer_contract=build_module_answer_contract(
-                    skill_id=self.skill_id,
-                    title="专项研究",
-                    modules=modules,
-                    citations=citations,
-                    warnings=[],
-                    as_of="2026-07-11",
-                    retrieval_plan=("读取专项正式资料",),
-                    output_contract=("输出五元素裁决",),
-                ),
+                answer_contract=replace(contract, answer_spec=answer_spec),
             )
 
     registry = SkillRegistry()
@@ -1406,10 +1416,12 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
         raise AssertionError("answer owner must bypass generic Ask")
 
     synthesis_calls = 0
+    captured_prompt = ""
 
     def synthesize_once(messages, **kwargs):
-        nonlocal synthesis_calls
+        nonlocal captured_prompt, synthesis_calls
         synthesis_calls += 1
+        captured_prompt = "\n".join(str(message["content"]) for message in messages)
         return (
             llm_refine.SynthesisResult(
                 answer=(
@@ -1455,6 +1467,8 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     assert "**直接定性：**" in result.content
     assert "**最强证据：**" in result.content
     assert synthesis_calls == 1
+    assert "命中主题：英维克" in captured_prompt
+    assert "阶段判断：" in captured_prompt
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert "llm_unavailable_template_answer" not in assistant.degrades
     retrieval = next(
