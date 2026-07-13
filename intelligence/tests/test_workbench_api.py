@@ -114,10 +114,17 @@ def client(tmp_path, monkeypatch):
     return TestClient(app_module.create_app(repo_root=repo_root))
 
 
-def _wait_terminal(client: TestClient, run_id: str, timeout: float = 5.0) -> dict:
+def _wait_terminal(
+    client: TestClient,
+    run_id: str,
+    timeout: float = 5.0,
+    *,
+    user: str | None = None,
+) -> dict:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        run = client.get(f"/api/runs/{run_id}").json()
+        params = {"user": user} if user is not None else None
+        run = client.get(f"/api/runs/{run_id}", params=params).json()
         if run["status"] in ("completed", "failed", "cancelled"):
             return run
         time.sleep(0.05)
@@ -706,6 +713,7 @@ def test_cancel_missing_run_and_idempotence(client: TestClient) -> None:
     assert client.post(
         f"/api/runs/{run_id}/cancel", params={"user": "bob"}
     ).status_code == 404
+    _wait_terminal(client, run_id, user="alice")
     assert client.app.state.cancellation_registry == {}
     first = client.post(
         f"/api/runs/{run_id}/cancel", params={"user": "alice"}
