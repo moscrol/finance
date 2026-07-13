@@ -36,7 +36,7 @@ _TICKER_RE = re.compile(
     re.I,
 )
 _EXPLICIT_THEME_RE = re.compile(
-    r"(?:研究|分析|看看|深挖)\s*([\u4e00-\u9fffA-Za-z0-9+.-]{2,16}?)"
+    r"(?:研究|分析|看看|深挖)\s*([\u4e00-\u9fffA-Za-z0-9+.\-\s]{2,40}?)"
     r"(?:题材|板块|产业链|方向)"
 )
 _GENERIC_EXPLICIT_SUBJECTS = frozenset(
@@ -119,11 +119,18 @@ def _explicit_theme(text: str, timeframe: str | None) -> str | None:
     if match is None:
         return None
     subject = match.group(1).strip()
-    if subject.startswith("一下"):
-        subject = subject[len("一下") :].strip()
-    if timeframe and timeframe in subject:
-        subject = subject.replace(timeframe, "", 1).strip()
-    subject = subject.lstrip("的").strip()
+    for prompt_prefix in ("一下子", "一下"):
+        if subject.startswith(prompt_prefix):
+            subject = subject[len(prompt_prefix) :].strip()
+            break
+    if timeframe:
+        for date_prefix in (f"截至{timeframe}", timeframe):
+            if subject.startswith(date_prefix):
+                subject = subject[len(date_prefix) :].strip()
+                subject = subject.removeprefix("的").strip()
+                break
+    if subject.startswith("A股"):
+        subject = subject[len("A股") :].strip()
     if not subject or subject in _GENERIC_EXPLICIT_SUBJECTS:
         return None
     return subject

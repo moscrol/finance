@@ -133,6 +133,39 @@ def test_explicit_theme_cleans_prompt_date_and_generic_references() -> None:
         assert envelope.subject is None
 
 
+def test_explicit_theme_strips_as_of_date_prefix() -> None:
+    envelope = understand_query("分析截至2026年7月13日的空芯光纤产业链")
+
+    assert (envelope.subject_kind, envelope.subject, envelope.matched_by) == (
+        "theme",
+        "空芯光纤",
+        "explicit",
+    )
+    assert envelope.timeframe == "2026年7月13日"
+
+
+def test_explicit_theme_strips_prompt_and_spaced_a_share_prefix() -> None:
+    envelope = understand_query("请分析一下 A股空芯光纤题材")
+
+    assert (envelope.subject_kind, envelope.subject, envelope.matched_by) == (
+        "theme",
+        "空芯光纤",
+        "explicit",
+    )
+
+
+def test_explicit_theme_strips_a_share_prefix_without_space() -> None:
+    envelope = understand_query("深挖A股空芯光纤方向")
+
+    assert (envelope.subject, envelope.matched_by) == ("空芯光纤", "explicit")
+
+
+def test_explicit_theme_prefers_longest_prompt_filler() -> None:
+    envelope = understand_query("帮我分析一下子空芯光纤题材")
+
+    assert (envelope.subject, envelope.matched_by) == ("空芯光纤", "explicit")
+
+
 def test_theme_alias_config_rejects_malformed_collection_types(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
