@@ -32,6 +32,9 @@ def client(tmp_path, monkeypatch):
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    market_snapshot = tmp_path / "market_snapshot"
+    market_snapshot.mkdir()
+    monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
 
     daily_dir = repo_root / "复盘" / "daily" / "2026-07-09"
     daily_dir.mkdir(parents=True)
@@ -761,7 +764,33 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["status"] == "ready"
     assert payload["checks"]["repo_root"] is True
     assert payload["checks"]["run_store_writable"] is True
+    assert payload["critical"]["market_snapshot"] is True
+    assert payload["missing_critical"] == []
     assert payload["workers"]["capacity"] == 2
+
+
+def test_readiness_fails_when_market_snapshot_is_missing(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    monkeypatch.setenv(
+        "MARKET_SNAPSHOT_DIR",
+        str(tmp_path / "missing-market-snapshot"),
+    )
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    probe = TestClient(app_module.create_app(repo_root=repo_root))
+
+    response = probe.get("/api/health/ready")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["status"] == "not_ready"
+    assert payload["critical"]["market_snapshot"] is False
+    assert payload["missing_critical"] == ["market_snapshot"]
 
 
 def test_cancel_run_is_terminal_even_when_worker_finishes_later(

@@ -115,17 +115,37 @@ python -m uvicorn intelligence.api.app:app \
 打开 `http://127.0.0.1:8788`。本地首版使用进程内 worker；不要启动多个 Uvicorn
 worker 共享同一用户目录，否则当前单进程锁和取消信号无法提供跨进程保证。
 
+### a77 canonical runtime
+
+a77 Mac 只保留一个长期 Workbench 进程：
+
+- canonical 端口为 `8792`；
+- 代码入口必须是 `/Users/a77/finance-workspace-runtime`，且该软链指向
+  最新 `main` 的只读运行 worktree；
+- `WORKBENCH_REPO_ROOT`、`FINANCE_WS` 指向 canonical 数据仓库，
+  `FORESIGHT_USERS_DIR` 指向仓库外的持久用户目录；
+- `8791`、`8795`、`8797`、`8798` 只允许用于短期 PR 验收，验收结束后必须停止，
+  不得与 canonical 进程同时长期运行；
+- 模型密钥只由 LaunchAgent 或 secret manager 注入，禁止复制到脚本、plist、
+  日志或仓库。
+
+发布前先确认运行 worktree 的 commit 与 `origin/main` 一致，再重启 `8792`；不得让
+某个功能分支或 detached PR 验收目录长期充当 canonical runtime。
+
 ## 健康检查
 
-页面和 Skill Registry 都返回成功，才视为可用：
+页面、Skill Registry 和 readiness 都返回成功，才视为可用：
 
 ```bash
 curl --fail --silent --output /dev/null http://127.0.0.1:8788/
 curl --fail --silent http://127.0.0.1:8788/api/skills | python -m json.tool
+curl --fail --silent http://127.0.0.1:8788/api/health/ready | python -m json.tool
 ```
 
 第二条应返回包含 `daily-review` 与 `daily-agent` 的 JSON 数组。若根路径返回
-`503`，先在 `intelligence/webapp` 运行 `pnpm build`。
+`503`，先在 `intelligence/webapp` 运行 `pnpm build`。readiness 会把
+`market_snapshot` 作为关键研究数据检查；目录缺失时返回 `503 not_ready`，并在
+`missing_critical` 中列出缺口，不能再把“页面能打开”误报成完整可用。
 
 ## Self-use 真实运行 smoke
 
