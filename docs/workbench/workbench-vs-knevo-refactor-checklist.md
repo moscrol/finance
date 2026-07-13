@@ -14,10 +14,10 @@
 
 ## P0b — 打开 UI 链路的记忆/纠偏注入（性价比最高）
 
-- [ ] `intelligence/services/conversation_orchestrator.py` L648-649：UI 对话链路当前 `include_memory_block=False, include_recall_block=False`，导致纠偏（corrections）、experience cards、长期记忆完全不进合成链。改为默认开启。
-- [ ] 明确注入语义：**记忆是 prior，不是当前事实**——记忆影响篇幅、语气、增量起点、反方重点；价格/产能/订单等易变项仍以当前检索为终审。
-- [ ] 检查市场复盘路径二次清空 experience guidance 的逻辑（ask.py 相关），确认是否有意为之；若无必要则移除。
-- [ ] 回归验证：同一问题在"有记忆/无记忆"下输出对比，确认已知上下文时能降级为增量更新而非重跑全模板。
+- [x] `intelligence/services/conversation_orchestrator.py` L648-649：UI 对话链路当前 `include_memory_block=False, include_recall_block=False`，导致纠偏（corrections）、experience cards、长期记忆完全不进合成链。改为默认开启。— `6885108` / PR #218。
+- [x] 明确注入语义：**记忆是 prior，不是当前事实**——记忆影响篇幅、语气、增量起点、反方重点；价格/产能/订单等易变项仍以当前检索为终审。— `6885108` / PR #218；M/V prompt 明确增量更新和易变项终审边界。
+- [x] 检查市场复盘路径二次清空 experience guidance 的逻辑（ask.py 相关），确认是否有意为之；若无必要则移除。— `6885108` / PR #218；专用 market-review composer 接入 memory/recall/experience，通用路径移除无效二次清空。
+- [x] 回归验证：同一问题在"有记忆/无记忆"下输出对比，确认已知上下文时能降级为增量更新而非重跑全模板。— `6885108` / PR #218；相关 92 项测试通过。
 
 ## P0c — 常驻 Base Finance Mode + 统一 Presenter 出口
 
