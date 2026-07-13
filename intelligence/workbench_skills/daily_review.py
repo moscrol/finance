@@ -9,6 +9,7 @@ from intelligence.workbench_skills.contracts import (
     JsonValue,
     SkillExecutionContext,
     SkillOutput,
+    build_module_answer_contract,
     redact_json,
 )
 
@@ -80,4 +81,16 @@ class DailyReviewSkill:
             warnings=warnings,
             as_of=date_text,
             raw_result_ref=artifact.path,
+            answer_contract=build_module_answer_contract(
+                skill_id=self.skill_id,
+                title="每日市场复盘",
+                modules=modules,
+                citations=citations,
+                warnings=warnings,
+                as_of=date_text,
+                retrieval_plan=("读取最新 canonical 正式日报",),
+                output_contract=(
+                    "直接给出市场状态、最强数据、主要风险和下一交易日验证点",
+                ),
+            ),
         )
