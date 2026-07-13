@@ -752,6 +752,8 @@ def test_soft_clue_does_not_hide_terminal_hybrid_error() -> None:
     assert [item.hit.title for item in result.clues] == ["液冷需求线索"]
     assert result.telemetry is not None
     assert result.telemetry.status == "error"
+    assert "all retrieved hits rejected" not in result.telemetry.warning
+    assert not any("all retrieved hits rejected" in warning for warning in result.warnings)
 
 
 def test_soft_clue_only_success_is_published_as_empty_not_ok() -> None:
@@ -788,6 +790,49 @@ def test_soft_clue_only_success_is_published_as_empty_not_ok() -> None:
     assert result.telemetry.degraded
     assert "all retrieved hits rejected" in result.telemetry.warning
     assert any("all retrieved hits rejected" in warning for warning in result.warnings)
+
+
+def test_early_soft_clue_with_terminal_empty_is_degraded_with_gate_warning() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(query, [_hit("液冷早期线索", 0.3)])
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    assert result.telemetry is not None
+    assert result.telemetry.status == "empty"
+    assert result.telemetry.hit_count == 0
+    assert result.telemetry.degraded
+    assert "all retrieved hits rejected" in result.telemetry.warning
+    assert any("all retrieved hits rejected" in warning for warning in result.warnings)
+
+
+def test_all_empty_retrieval_stays_plain_empty_without_gate_warning() -> None:
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    assert result.telemetry is not None
+    assert result.telemetry.status == "empty"
+    assert not result.telemetry.degraded
+    assert "all retrieved hits rejected" not in result.telemetry.warning
+    assert not any("all retrieved hits rejected" in warning for warning in result.warnings)
 
 
 def test_snapshot_conflict_discards_later_broad_output() -> None:

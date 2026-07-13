@@ -419,10 +419,19 @@ def _finalize_telemetry(result: ClosedLoopRetrievalResult) -> None:
         public.index_freshness = canonical_snapshot[1]
     else:
         public = replace(result._attempt_telemetries[-1])
-        if public.status.casefold() == "ok":
+        has_non_output_hits = bool(result.clues or result.discarded) or any(
+            attempt.hit_count > 0 for attempt in result.attempts
+        )
+        terminal_status = public.status.casefold()
+        if has_non_output_hits and terminal_status not in {
+            "error",
+            "timeout",
+            "skipped",
+        }:
             # Adapter 成功只说明检索子进程正常；若命中全部被
             # relevance/snapshot/output gate 拒绝，Ask 实际没有 W 证据，
-            # 公开遥测必须归一为 empty，不得伪装 ok/hit_count>0。
+            # 即使最后一次恰好是 empty，公开遥测也必须带上整轮
+            # degraded 门禁语义；真正的 terminal failure 则原样保留。
             public.status = "empty"
             public.degraded = True
             public.hit_count = 0
