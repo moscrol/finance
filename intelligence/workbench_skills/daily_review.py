@@ -53,7 +53,7 @@ class DailyReviewSkill:
         citations: list[JsonObject] = [
             {
                 "source": source,
-                "title": "Canonical Daily Review",
+                "title": "本地正式日报",
                 "evidence_layer": "canonical",
                 "as_of": date_text,
             }

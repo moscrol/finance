@@ -133,14 +133,14 @@ def test_daily_review_skill_preserves_canonical_values_and_artifact(tmp_path: Pa
         "value": "上证上涨 0.8%",
     }
     assert any(
-        item["summary"] == "fact_stock_daily：缺目标日"
+        item["summary"] == "个股日行情数据：缺目标日"
         for module in output.modules
         for item in module.get("items", [])
     )
     assert output.citations == [
         {
             "source": source.relative_to(tmp_path).as_posix(),
-            "title": "Canonical Daily Review",
+            "title": "本地正式日报",
             "evidence_layer": "canonical",
             "as_of": "2026-07-10",
         }

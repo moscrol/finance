@@ -18,6 +18,7 @@ from intelligence.services.answer_orchestrator import (
     plan_answer_question,
 )
 from intelligence.services.ask import AskOptions, answer_query
+from intelligence.services.llm_refine import SynthesisResult
 
 
 class AnswerOrchestratorTests(unittest.TestCase):
@@ -93,11 +94,24 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("主线与赚钱效应", joined_lenses)
         self.assertIn("DuckDB market context", joined_sources)
         self.assertIn("Daily Review", joined_sources)
+        self.assertIn("内部表名", "\n".join(plan.quality_gates))
         self.assertIn("少量自然小标题", joined_contract)
         self.assertIn("不要机械覆盖公司本体", joined_contract)
         self.assertIn("按数据粒度表述主线缺口", joined_contract)
         self.assertIn("不要出现反方审稿", joined_contract)
         self.assertIn("最多使用 5 个二级标题", joined_contract)
+
+    def test_short_market_review_phrases_route_to_market_review(self) -> None:
+        for query in (
+            "今日复盘",
+            "市场总览",
+            "复盘一下今天的赚钱效应",
+        ):
+            with self.subTest(query=query):
+                self.assertEqual(
+                    plan_answer_question(query).question_type,
+                    QUESTION_MARKET_REVIEW,
+                )
 
     def test_deep_dive_trigger_beats_industry_chain_keyword(self) -> None:
         plan = plan_answer_question("深挖英维克，它在液冷产业链的位置")
@@ -186,6 +200,52 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("问题类型：stock_deep_dive", captured["prompt"])
         self.assertIn("公司本体", captured["prompt"])
 
+    def test_market_review_compose_uses_daily_evidence_without_topic_graph(
+        self,
+    ) -> None:
+        captured: dict[str, str] = {}
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured["system"] = str(messages[0]["content"])
+            captured["prompt"] = str(messages[1]["content"])
+            return (
+                SynthesisResult(
+                    answer="7月10日指数弱、个股强，成交放大。",
+                    provider="fixture",
+                    model="fixture-model",
+                ),
+                "",
+            )
+
+        with tempfile.TemporaryDirectory() as tmp, mock.patch(
+            "intelligence.services.ask.llm_refine.synthesize_messages",
+            side_effect=fake_synthesize,
+        ):
+            wiki = Path(tmp) / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            result = answer_query(
+                AskOptions(
+                    query="请复盘最新交易日的市场结构和主要风险",
+                    exports_dir=tmp,
+                    kb_wiki=wiki,
+                    supplemental_evidence=(
+                        "### daily-review（截至 2026-07-10）\n"
+                        "- 今日核心\n"
+                        "  - 指标：上涨 3774 只；涨停 92 只；跌停 4 只"
+                    ),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                    compose=True,
+                )
+            )
+
+        self.assertEqual(result.question_plan.question_type, QUESTION_MARKET_REVIEW)
+        self.assertIsNone(result.matched_theme)
+        self.assertEqual(result.synthesis, "7月10日指数弱、个股强，成交放大。")
+        self.assertIn("daily-review", captured["prompt"])
+        self.assertIn("普通投资者", captured["system"])
+        self.assertNotIn("知识图谱", captured["prompt"])
+
     def test_market_review_compose_excludes_deep_dive_evidence_blocks(self) -> None:
         captured: dict[str, str] = {}
 
@@ -196,7 +256,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as tmp,
             mock.patch(
-                "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+                "intelligence.services.ask.llm_refine.synthesize_messages",
                 side_effect=fake_synthesize,
             ),
             mock.patch(
