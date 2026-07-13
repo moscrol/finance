@@ -30,6 +30,15 @@ _GENERIC_TERMS = {
     "逻辑",
 }
 
+# theme_research_specs.json groups related research directions (for example,
+# 算力 and 液冷) rather than strict synonyms.  Reusing an entire pack here
+# would therefore weaken the evidence gate.  Keep only reviewed lexical
+# equivalences that are safe to treat as subject anchors without model or IO.
+_TRUSTED_ALIAS_GROUPS = (
+    frozenset({"空芯光纤", "空心光纤", "hcf", "hollow core fiber", "hollow-core fiber"}),
+    frozenset({"液冷", "liquid cooling", "liquid-cooling"}),
+)
+
 
 @dataclass(frozen=True)
 class RetrievalAttempt:
@@ -115,10 +124,8 @@ def retrieve_closed_loop(
             "counter", counter_query, "bm25", retrieve, result, budget=budget, now=now
         )
 
-    relevance_terms = _relevance_terms(anchor, (), subject=explicit_subject)
-    broad_relevance_terms = _relevance_terms(
-        anchor, narrow_hits, subject=explicit_subject
-    )
+    relevance_terms = _relevance_terms(anchor, subject=explicit_subject)
+    broad_relevance_terms = relevance_terms
     bm25_entries = (
         *(("narrow", hit) for hit in narrow_hits),
         *(("broad", hit) for hit in broad_hits),
@@ -225,7 +232,12 @@ def _run_one(
 
     status = response.telemetry.status.casefold()
     freshness = response.telemetry.index_freshness.casefold()
-    untrusted_freshness = freshness != "fresh"
+    recoverable_empty_without_freshness = (
+        status == "empty" and not response.hits and not freshness
+    )
+    untrusted_freshness = (
+        freshness != "fresh" and not recoverable_empty_without_freshness
+    )
     stop = status in {"skipped", "error", "timeout"} or untrusted_freshness
     if untrusted_freshness:
         freshness_label = freshness or "missing"
@@ -299,7 +311,6 @@ def _extract_terms(hits: Sequence[WikiHit]) -> list[str]:
 
 def _relevance_terms(
     anchor: EntityAnchor | None,
-    narrow_hits: Sequence[WikiHit],
     *,
     subject: str = "",
 ) -> tuple[str, ...]:
@@ -313,16 +324,11 @@ def _relevance_terms(
             if len(term.strip()) >= 2 and term.strip() not in _GENERIC_TERMS
         )
     )
-    anchored_narrow_hits = [
-        hit
-        for hit in narrow_hits
-        if hit.score > 0
-        and any(
-            term in f"{hit.title} {hit.excerpt}".casefold()
-            for term in base_terms
-        )
-    ]
-    expanded_terms = (*base_terms, *_extract_terms(anchored_narrow_hits))
+    aliases: list[str] = []
+    for group in _TRUSTED_ALIAS_GROUPS:
+        if any(term in group for term in base_terms):
+            aliases.extend(group)
+    expanded_terms = (*base_terms, *aliases)
     return tuple(
         dict.fromkeys(
             term.strip().casefold()

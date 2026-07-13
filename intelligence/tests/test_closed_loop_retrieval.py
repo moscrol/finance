@@ -96,6 +96,46 @@ def test_subject_uses_three_bm25_queries_and_at_most_one_hybrid() -> None:
     assert any("风险 证伪 不及预期" in query for query, _, _ in calls)
 
 
+def test_real_adapter_empty_shape_continues_all_layers() -> None:
+    calls: list[str] = []
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        calls.append(mode)
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+    )
+
+    assert calls == ["bm25", "bm25", "bm25", "hybrid"]
+    assert len(result.attempts) == 4
+    assert result.dense_initializations == 1
+    assert not any("untrusted index freshness: missing" in w for w in result.warnings)
+
+
+def test_explicit_untrusted_empty_response_still_stops() -> None:
+    for freshness in ("stale", "unknown"):
+        calls = 0
+
+        def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+            nonlocal calls
+            calls += 1
+            return _response(query, [], status="empty", freshness=freshness)
+
+        result = retrieve_closed_loop(
+            "液冷怎么看",
+            anchor=None,
+            subject="液冷",
+            retrieve=retrieve,
+        )
+
+        assert calls == 1
+        assert len(result.attempts) == 1
+
+
 def test_hybrid_deduplicates_hits_already_seen_by_bm25() -> None:
     duplicate = _hit("液冷服务器", 0.4, hardness="hard")
 
@@ -298,6 +338,78 @@ def test_generic_query_words_cannot_make_unrelated_hard_evidence_relevant() -> N
     assert [item.hit.title for item in result.discarded] == ["半导体投资机会"]
     assert [item.hit.title for item in result.clues] == ["温控设备"]
     assert result.conclusion == []
+
+
+def test_narrow_generic_terms_do_not_become_relevance_passes() -> None:
+    calls = 0
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(query, [_hit("液冷服务器", 0.3)])
+        if calls == 2:
+            return _response(
+                query,
+                [
+                    _hit(
+                        "AI服务器供应链公告",
+                        0.9,
+                        hardness="hard",
+                        excerpt="AI服务器供应链公告披露订单增长",
+                    )
+                ],
+            )
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "液冷怎么看",
+        anchor=None,
+        subject="液冷",
+        retrieve=retrieve,
+        semantic_min_seconds=100,
+    )
+
+    assert result.conclusion == []
+    assert [item.hit.title for item in result.discarded] == ["AI服务器供应链公告"]
+
+
+def test_hybrid_can_use_trusted_subject_alias_but_not_unrelated_hard_hit() -> None:
+    calls: list[str] = []
+
+    def retrieve(query: str, mode: str, timeout: float) -> WikiRagResult:
+        calls.append(mode)
+        if mode == "hybrid":
+            return _response(
+                query,
+                [
+                    _hit(
+                        "HCF产业进展",
+                        0.7,
+                        hardness="hard",
+                        excerpt="HCF commercialization and capacity progress",
+                    ),
+                    _hit(
+                        "半导体设备公告",
+                        0.9,
+                        hardness="hard",
+                        excerpt="半导体设备订单增长",
+                    ),
+                ],
+                freshness="fresh",
+            )
+        return _response(query, [], status="empty", freshness="")
+
+    result = retrieve_closed_loop(
+        "空芯光纤怎么看",
+        anchor=None,
+        subject="空芯光纤",
+        retrieve=retrieve,
+    )
+
+    assert calls == ["bm25", "bm25", "bm25", "hybrid"]
+    assert [item.hit.title for item in result.conclusion] == ["HCF产业进展"]
+    assert [item.hit.title for item in result.discarded] == ["半导体设备公告"]
 
 
 def test_relevant_soft_hit_is_clue_and_hard_hit_is_conclusion() -> None:
