@@ -33,11 +33,19 @@ async function submitQuestion(
 ) {
   await page.getByLabel("输入研究问题").fill(question);
   await page.getByRole("button", { name: "发送研究问题" }).click();
-  await expect(
-    page
-      .getByLabel("研究助手消息")
-      .filter({ hasText: "自然语言综合暂时不可用" }),
-  ).toHaveCount(completedAnswerCount, { timeout: answerTimeout });
+  await expect
+    .poll(
+      async () =>
+        (await activeConversationMessages(page)).filter(
+          (message) =>
+            message.role === "assistant" && message.status === "completed",
+        ).length,
+      { timeout: answerTimeout },
+    )
+    .toBe(completedAnswerCount);
+  await expect(page.getByLabel("研究助手消息")).toHaveCount(
+    completedAnswerCount,
+  );
 }
 
 async function selectManualDailyAgent(page: Page) {
@@ -155,8 +163,8 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await submitQuestion(page, firstQuestion, 1);
   await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
   const firstAnswer = page.getByLabel("研究助手消息").first();
-  await expect(firstAnswer.getByText(/一句话结论/)).toBeVisible();
-  await expect(firstAnswer.getByText(/下一交易日重点看/)).toBeVisible();
+  await expect(firstAnswer.getByText(/直接定性/)).toBeVisible();
+  await expect(firstAnswer.getByText(/下一步验证/)).toBeVisible();
   await expect(firstAnswer.getByText(/图谱命中|状态机|检索骨架/)).toHaveCount(
     0,
   );
@@ -188,12 +196,20 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   const originalRunId = beforeRegeneration.at(-1)?.run_id;
   expect(originalRunId).toBeTruthy();
   await page.getByRole("button", { name: "重新生成回答" }).click();
-  await expect(
-    page
-      .getByLabel("研究助手消息")
-      .filter({ hasText: "自然语言综合暂时不可用" }),
-  ).toHaveCount(3, { timeout: answerTimeout });
   await expect(page.getByText(thirdQuestion, { exact: true })).toHaveCount(2);
+  await expect
+    .poll(
+      async () => {
+        const messages = await activeConversationMessages(page);
+        const latest = messages.at(-1);
+        return (
+          latest?.status === "completed" &&
+          latest.run_id !== originalRunId
+        );
+      },
+      { timeout: answerTimeout },
+    )
+    .toBe(true);
 
   const afterRegeneration = await activeConversationMessages(page);
   const regeneratedRunId = afterRegeneration.at(-1)?.run_id;
@@ -214,11 +230,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await expect(page.getByText(secondQuestion, { exact: true })).toBeVisible();
   await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
   await expect(page.getByText("已指定工具 · Daily Agent")).toBeVisible();
-  await expect(
-    page
-      .getByLabel("研究助手消息")
-      .filter({ hasText: "自然语言综合暂时不可用" }),
-  ).toHaveCount(4);
+  await expect(page.getByLabel("研究助手消息")).toHaveCount(4);
 
   await expectNoHorizontalOverflow(page);
   await expectComposerDoesNotOverlapThread(page);
