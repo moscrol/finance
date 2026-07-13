@@ -44,9 +44,9 @@
 
 ## P2 — 扩充专项 Skill（最后做）
 
-- [ ] 在 P0/P1 完成、通用出口不再是模板之后，把 CLI 侧 ~31 个 SKILL.md 中的核心能力逐步注册进 Workbench runtime（当前 registry.py 只有 daily-review、daily-agent 两个）。
-- [ ] 优先顺序：个股深挖 → 题材研究 → 消息/公告冲击 → 财报分析。
-- [ ] 每个新 skill 按 P1 的"答案 owner"契约接入：定义自己的检索计划 + AnswerSpec 骨架，不走补证据包模式。
+- [x] 在 P0/P1 完成、通用出口不再是模板之后，把 CLI 侧 ~31 个 SKILL.md 中的核心能力逐步注册进 Workbench runtime（当前 registry.py 只有 daily-review、daily-agent 两个）。— `8217860` / PR #221；Workbench registry 新增四个专项研究 owner。
+- [x] 优先顺序：个股深挖 → 题材研究 → 消息/公告冲击 → 财报分析。— `8217860` / PR #221；四类能力均已注册并具备规则路由与手动选择入口。
+- [x] 每个新 skill 按 P1 的"答案 owner"契约接入：定义自己的检索计划 + AnswerSpec 骨架，不走补证据包模式。— `8217860` / PR #221；专项 owner 固定问题类型、检索计划、输出契约、证据门禁和 Presenter 元数据，无可追溯事实时不输出 supplemental evidence。
 
 ## 验收标准
 
