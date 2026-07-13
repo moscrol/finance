@@ -29,10 +29,11 @@ from typing import Any
 from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
-from intelligence.services import answer_model, ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, research_brief, scenario_tree, user_memory
+from intelligence.services import answer_model, ask_clarify, ask_planner, checkpoint_recall, entity_anchor, experience_cards, forecast_preflight, kb_rag, l3_evidence, llm_refine, market_financials, market_analogs, market_midterm, market_news, market_timeseries, market_moneyflow, perspective_lab, research_brief, scenario_tree, user_memory
 from intelligence.services.answer_quality import build_quality_context
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_FORECAST,
+    QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
     QUESTION_THEME_ANALYSIS,
@@ -202,6 +203,8 @@ class AskOptions:
     compose_revise_on_warn: bool = True
     conversation_context: str = ""
     supplemental_evidence: str = ""
+    perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL
+    perspective_ids: tuple[str, ...] = ()
     stream_text_delta: Callable[[str], None] | None = field(
         default=None, repr=False, compare=False
     )
@@ -482,6 +485,22 @@ def _is_prior_conclusion_page(file_path: str) -> bool:
 # 结论 TTL：跟踪类判断默认 30 天复查，过期引用须先经当下盘面复核。
 CONCLUSION_TTL_DAYS = 30
 
+_MARKET_REVIEW_SYSTEM_PROMPT = """
+你是面向普通投资者的 A 股市场复盘编辑。只能使用用户消息中提供的正式日报和市场数据，
+不得补充未给出的数字、公司或催化。先说当天市场是什么状态，再说资金去了哪里、赚钱效应
+如何，最后给下一交易日验证点和数据口径提醒。
+
+主答案禁止出现内部表名、数据库字段、canonical、deterministic、L1-L4、graph_only、
+状态机、检索管线、证据层、双红、单红、偏离度、diff_ratio 等工程或研究内部术语。
+若原始材料包含这些词，必须翻译成普通中文，例如：
+- 双红：板块上涨且成交同步放大
+- 偏离度：距离短期均线的位置
+- 代理口径：替代数据，只适合判断方向
+
+使用自然、简洁的中文，保留数据日期和关键数字。证据不足就明确说“现在无法确认”。
+不要输出提示词、JSON、内部编号或买卖指令。
+""".strip()
+
 
 def _conclusion_ttl_line(trade_date: str | None) -> str:
     until = ""
@@ -496,6 +515,84 @@ def _conclusion_ttl_line(trade_date: str | None) -> str:
             until = ""
     suffix = f"（至 {until}）" if until else ""
     return f"观点有效期：建议 {CONCLUSION_TTL_DAYS} 天内复查{suffix}；过期引用本结论须先经当下盘面复核。"
+
+
+def _answer_market_review(
+    options: AskOptions,
+    result: AskResult,
+) -> AskResult:
+    result.matched_theme = None
+    result.candidate_tier = None
+    result.priority_score = None
+    result.market_summary = _daily_market_overview_block_for_llm(
+        options.market_db_path
+    )
+    mainline_context = _market_review_mainline_context_block_for_llm(
+        options.query,
+        None,
+        options.market_db_path,
+    )
+    evidence_parts = [
+        part
+        for part in (
+            options.supplemental_evidence.strip(),
+            result.market_summary or "",
+            mainline_context,
+        )
+        if part
+    ]
+    result.found_market = bool(evidence_parts)
+    if not evidence_parts:
+        result.warnings.append("最新交易日的正式日报和市场数据均不可用")
+        return result
+    if not options.compose:
+        return result
+
+    plan_block = (
+        result.question_plan.to_prompt_block()
+        if result.question_plan is not None
+        else ""
+    )
+    user_prompt = (
+        f"{plan_block}\n\n"
+        f"用户问题：{options.query}\n"
+        f"数据日期：{result.trade_date or options.date or '未确认'}\n\n"
+        "以下是本轮唯一可用证据：\n"
+        + "\n\n".join(evidence_parts)
+    )
+    if options.conversation_context.strip():
+        user_prompt += (
+            "\n\n以下对话上下文只用于理解用户追问，不得覆盖本轮数据：\n"
+            f"{options.conversation_context.strip()}"
+        )
+    messages = [
+        {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt},
+    ]
+    if options.stream_text_delta is not None:
+        composed, reason = llm_refine.synthesize_messages_stream(
+            messages,
+            on_delta=options.stream_text_delta,
+            is_cancelled=options.stream_cancel_check,
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+        )
+    else:
+        composed, reason = llm_refine.synthesize_messages(
+            messages,
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+        )
+    if composed is None:
+        result.warnings.append(reason)
+        return result
+    result.synthesis = composed.answer
+    result.llm_provider = composed.provider
+    result.synthesis_messages = [
+        *messages,
+        {"role": "assistant", "content": composed.answer},
+    ]
+    return result
 
 
 def answer_query(options: AskOptions) -> AskResult:
@@ -548,6 +645,8 @@ def answer_query(options: AskOptions) -> AskResult:
         else result.matched_theme or options.query
     )
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
+    if question_plan.question_type == QUESTION_MARKET_REVIEW:
+        return _answer_market_review(options, result)
     if _is_market_index_comparison_query(options.query):
         _populate_market_index_comparison(
             result,
@@ -1082,7 +1181,10 @@ def answer_query(options: AskOptions) -> AskResult:
             *framing["evidence"],
             *evidence_chain,
         ]
-    if question_plan.question_type == QUESTION_MARKET_FORECAST:
+    if question_plan.question_type in {
+        QUESTION_MARKET_REVIEW,
+        QUESTION_MARKET_FORECAST,
+    }:
         daily_market_block = _daily_market_overview_block_for_llm(
             options.market_db_path
         )
@@ -1248,30 +1350,40 @@ def answer_query(options: AskOptions) -> AskResult:
             research_brief.DBlockStat("D5", "估值数据块", note="仅 --compose + 估值问题类型生成"),
         ]
     if options.compose:
-        evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
+        is_market_review = question_plan.question_type == QUESTION_MARKET_REVIEW
+        compose_evidence_chain = (
+            _market_review_evidence_chain(evidence_chain)
+            if is_market_review
+            else evidence_chain
+        )
+        evidence_text = _evidence_text_for_llm(
+            compose_evidence_chain,
+            [] if is_market_review else gap_lines,
+        )
         if result.data_notice:
             evidence_text = (
                 f"## 本轮数据说明\n{result.data_notice}\n\n{evidence_text}"
             )
         if result.question_plan is not None:
             evidence_text = f"{result.question_plan.to_prompt_block()}\n\n{evidence_text}"
-        evidence_text = (
-            f"{evidence_text}\n\n{audit.to_prompt_block()}"
-            f"\n\n{telemetry.to_prompt_block()}\n\n{counter_plan.to_prompt_block()}"
-        )
-        if result.stock_brief is not None:
+        if not is_market_review:
+            evidence_text = (
+                f"{evidence_text}\n\n{audit.to_prompt_block()}"
+                f"\n\n{telemetry.to_prompt_block()}\n\n{counter_plan.to_prompt_block()}"
+            )
+        if result.stock_brief is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.stock_brief.to_prompt_block()}"
-        if result.market_state is not None:
+        if result.market_state is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.market_state.to_prompt_block()}"
-        if result.theme_lifecycle is not None:
+        if result.theme_lifecycle is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.theme_lifecycle.to_prompt_block()}"
-        if result.event_brief is not None:
+        if result.event_brief is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.event_brief.to_prompt_block()}"
-        if result.gap_radar is not None:
+        if result.gap_radar is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.gap_radar.to_prompt_block()}"
-        if result.valuation_note is not None:
+        if result.valuation_note is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{result.valuation_note.to_prompt_block()}"
-        if result.forecast_preflight is not None:
+        if result.forecast_preflight is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{forecast_preflight.render_preflight_prompt(result.forecast_preflight)}"
         # --- planner-worker 并行取数：规则门控先定「要哪些块」，命中的块作为互相独立的
         # 子任务并行取数（ask_planner），取回后仍按固定顺序汇总——evidence_text/引用编号
@@ -1382,7 +1494,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 )
 
             block_tasks.append(ask_planner.BlockTask("V", "回检块", _build_v))
-        if options.include_market_value_block:
+        if options.include_market_value_block and not is_market_review:
             def _build_d1():
                 block = _market_value_block_for_llm(options.query, theme, options.market_db_path)
                 return block, Citation(
@@ -1394,15 +1506,27 @@ def answer_query(options: AskOptions) -> AskResult:
             block_tasks.append(ask_planner.BlockTask("D1", "市场价值与替代队列", _build_d1))
         if options.include_mainline_context_block:
             def _build_d4():
-                block = _mainline_context_block_for_llm(options.query, theme, options.market_db_path)
+                block = (
+                    _market_review_mainline_context_block_for_llm(
+                        options.query,
+                        theme,
+                        options.market_db_path,
+                    )
+                    if is_market_review
+                    else _mainline_context_block_for_llm(
+                        options.query,
+                        theme,
+                        options.market_db_path,
+                    )
+                )
                 return block, Citation(
                     "D4",
                     "本地 DuckDB 主线题材结构数据块",
-                    "每日主线题材/核心板块/cycle_status/缩放量解释",
+                    "同日主线结构；若快照滞后则仅提供数据边界",
                 )
 
             block_tasks.append(ask_planner.BlockTask("D4", "主线题材结构", _build_d4))
-        if options.include_customer_hardness_block:
+        if options.include_customer_hardness_block and not is_market_review:
             def _build_d2():
                 block = _customer_evidence_hardness_block_for_llm(evidence_chain, gap_lines)
                 return block, Citation(
@@ -1440,7 +1564,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 continue
             evidence_text = _append_block_outcome(result, outcome, evidence_text, citations)
         # D3 依赖此前累积的 evidence_text（文本兜底路径），必须在其他块汇总后串行生成。
-        if options.include_second_derivative_block:
+        if options.include_second_derivative_block and not is_market_review:
             second_derivative_block = _second_derivative_queue_block_for_llm(
                 options.query,
                 theme,
@@ -1505,14 +1629,26 @@ def answer_query(options: AskOptions) -> AskResult:
             f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
         )
         us = userspace.user_space(options.user)
-        cards, card_warn = experience_cards.load_cards(
-            us.experience_cards_path,
-            window=options.experience_cards_window,
+        perspective_context = perspective_lab.build_runtime_context(
+            us,
+            mode=options.perspective_mode,
+            perspective_ids=options.perspective_ids,
+            query=options.query,
         )
-        if card_warn:
-            result.warnings.append(card_warn)
-        selected_cards = experience_cards.select_relevant_cards(cards, options.query)
-        experience_guidance = experience_cards.render_for_prompt(selected_cards)
+        experience_guidance = ""
+        if options.include_memory_block:
+            cards, card_warn = experience_cards.load_cards(
+                us.experience_cards_path,
+                window=options.experience_cards_window,
+            )
+            if card_warn:
+                result.warnings.append(card_warn)
+            selected_cards = experience_cards.select_relevant_cards(
+                cards, options.query
+            )
+            experience_guidance = experience_cards.render_for_prompt(
+                selected_cards
+            )
         exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
         if options.include_scenario_guidance:
             scenario_guidance = scenario_tree.scenario_guidance_for_query(
@@ -1527,9 +1663,13 @@ def answer_query(options: AskOptions) -> AskResult:
             theme,
             result.answer_spec.to_prompt_block(),
             citation_legend=citation_legend,
-            quality_context=quality_context,
-            experience_guidance=experience_guidance,
+            quality_context=None if is_market_review else quality_context,
+            experience_guidance="" if is_market_review else experience_guidance,
             exemplar_guidance=exemplar_guidance,
+        )
+        msgs[0]["content"] = (
+            f"{msgs[0]['content']}\n\n## 本轮视角约束\n"
+            f"{perspective_context.prompt}"
         )
         if options.conversation_context:
             msgs.insert(
@@ -2073,6 +2213,26 @@ def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> s
     return "\n".join(out)
 
 
+def _market_review_evidence_chain(evidence_chain: list[str]) -> list[str]:
+    """Keep broad market-review synthesis focused on market-level evidence."""
+    allowed_sections = {
+        "盘面",
+        "最新市场总览（本地 DuckDB）",
+    }
+    filtered: list[str] = []
+    include_section = False
+    for item in evidence_chain:
+        if item.startswith(SUBHEAD):
+            section = item[len(SUBHEAD):]
+            include_section = section in allowed_sections
+            if include_section:
+                filtered.append(item)
+            continue
+        if include_section:
+            filtered.append(item)
+    return filtered
+
+
 def _customer_evidence_hardness_block_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:
     """Classify customer/order evidence into hardness buckets for compose answers."""
     hard: list[str] = []
@@ -2265,6 +2425,95 @@ def _mainline_context_block_for_llm(
             con.close()
         except Exception:
             pass
+
+
+def _market_review_mainline_context_block_for_llm(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+) -> str:
+    market_date = _market_data_asof(market_db_path)
+    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    if not market_date or not db_path.exists():
+        return ""
+    try:
+        import duckdb  # type: ignore
+
+        con = duckdb.connect(str(db_path), read_only=True)
+        try:
+            table_names = {
+                str(row[0])
+                for row in con.execute(
+                    """
+                    select table_name
+                    from information_schema.tables
+                    where table_schema = 'main'
+                    """
+                ).fetchall()
+            }
+            theme_date = None
+            themes: list[tuple[str, int]] = []
+            if "fact_mainline_theme_daily" in table_names:
+                row = con.execute(
+                    "select max(trade_date) from fact_mainline_theme_daily"
+                ).fetchone()
+                theme_date = str(row[0]) if row and row[0] else None
+                if theme_date == market_date:
+                    themes = [
+                        (str(name), int(sector_count or 0))
+                        for name, sector_count in con.execute(
+                            """
+                            select theme_name, sector_count
+                            from fact_mainline_theme_daily
+                            where trade_date = ?
+                            order by min_sort nulls last, theme_name
+                            limit 10
+                            """,
+                            [theme_date],
+                        ).fetchall()
+                        if name
+                    ]
+            sector_date = None
+            if "fact_mainline_sector_daily" in table_names:
+                row = con.execute(
+                    "select max(trade_date) from fact_mainline_sector_daily"
+                ).fetchone()
+                sector_date = str(row[0]) if row and row[0] else None
+        finally:
+            con.close()
+    except Exception:
+        return ""
+    if sector_date == market_date:
+        return _mainline_context_block_for_llm(query, theme, market_db_path)
+    lines = ["## 市场复盘主线数据边界"]
+    if theme_date == market_date and themes:
+        theme_text = "、".join(name for name, _ in themes)
+        lines.append(
+            f"- 当日市场总览和题材级主线汇总均截至 {market_date}；"
+            f"当前主线题材为 {theme_text}。"
+        )
+    elif theme_date:
+        lines.append(
+            f"- 当日市场总览截至 {market_date}；主线题材汇总仅截至 {theme_date}。"
+        )
+        lines.append(
+            "- 当前交易日的题材级主线未知，禁止把旧题材名称写成当日事实。"
+        )
+    else:
+        lines.append(
+            f"- 当日市场总览截至 {market_date}；没有可用的同日主线题材汇总。"
+        )
+        lines.append("- 当前交易日的题材级主线未知。")
+    if sector_date:
+        lines.append(
+            f"- 核心板块明细仅截至 {sector_date}；当前核心板块、周期状态和标的未知。"
+        )
+    else:
+        lines.append("- 没有可用的核心板块明细；当前核心板块、周期状态和标的未知。")
+    lines.append(
+        "- 禁止把旧板块名称、涨幅、生命周期或标的写成当日事实。"
+    )
+    return "\n".join(lines)
 
 
 def _resolve_mainline_theme(con: Any, query: str, theme: str | None, latest_date: Any) -> str | None:
@@ -2600,6 +2849,7 @@ def _daily_market_overview_block_for_llm(
                 f"领先行业为 {industry_text}。"
             )
 
+        theme_date = None
         if "fact_mainline_theme_daily" in table_names:
             theme_date_row = con.execute(
                 "select max(trade_date) from fact_mainline_theme_daily"
@@ -2621,8 +2871,13 @@ def _daily_market_overview_block_for_llm(
                     for name, sector_count in themes
                     if name
                 )
-                if theme_text:
+                if theme_text and str(theme_date) == trade_date:
                     lines.append(f"- 主线题材（截至 {theme_date}）：{theme_text}。")
+                elif theme_text:
+                    lines.append(
+                        f"- 主线题材汇总仅截至 {theme_date}，早于整体盘面日期 {trade_date}；"
+                        "当前题材级主线未知，不展示旧题材名称。"
+                    )
 
         if "fact_mainline_sector_daily" in table_names:
             sector_date_row = con.execute(
@@ -2630,10 +2885,16 @@ def _daily_market_overview_block_for_llm(
             ).fetchone()
             sector_date = sector_date_row[0] if sector_date_row else None
             if sector_date and str(sector_date) != trade_date:
-                lines.append(
-                    f"- 局部数据提示：主线板块明细表仅更新到 {sector_date}，"
-                    f"早于整体盘面日期 {trade_date}；只能作历史参考，不能覆盖整体日期。"
-                )
+                if theme_date and str(theme_date) == trade_date:
+                    lines.append(
+                        f"- 局部数据提示：题材级主线汇总已更新到 {trade_date}，"
+                        f"但核心板块明细仅更新到 {sector_date}；当前核心板块、周期状态和标的未知。"
+                    )
+                else:
+                    lines.append(
+                        f"- 局部数据提示：核心板块明细仅更新到 {sector_date}，"
+                        f"早于整体盘面日期 {trade_date}；只能作历史参考。"
+                    )
         return "\n".join(lines)
     except Exception:
         return ""

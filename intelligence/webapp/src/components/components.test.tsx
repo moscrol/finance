@@ -20,6 +20,7 @@ import type {
   ChatMessage,
   Conversation,
   LLMConfig,
+  PerspectiveDescription,
   ProductSkillDescription,
   Run,
   RunBundle,
@@ -32,6 +33,7 @@ import { Composer } from "./Composer";
 import { ConversationList } from "./ConversationList";
 import { MessageBubble } from "./MessageBubble";
 import { MessageThread } from "./MessageThread";
+import { PerspectivePicker } from "./PerspectivePicker";
 import { ResearchHome } from "./ResearchHome";
 import { ResearchInspector } from "./ResearchInspector";
 import { RunView } from "./RunView";
@@ -53,6 +55,7 @@ const apiMocks = vi.hoisted(() => ({
   getConversationMessages: vi.fn(),
   getFollowups: vi.fn(),
   getLLMConfig: vi.fn(),
+  getPerspectives: vi.fn(),
   getRun: vi.fn(),
   getRunArtifactText: vi.fn(),
   getRunContext: vi.fn(),
@@ -333,6 +336,23 @@ const productSkills: ProductSkillDescription[] = [
   },
 ];
 
+const perspectives: PerspectiveDescription[] = [
+  {
+    perspective_id: "fengyuan94",
+    display_name: "风远94",
+    type: "blogger",
+    article_count: 35,
+    profile_confidence: "medium",
+  },
+  {
+    perspective_id: "blogger_x",
+    display_name: "其他博主",
+    type: "blogger",
+    article_count: 5,
+    profile_confidence: "medium",
+  },
+];
+
 const assistantMessage: ChatMessage = {
   message_id: "msg_assistant",
   conversation_id: "conv_recent",
@@ -342,6 +362,8 @@ const assistantMessage: ChatMessage = {
   status: "completed",
   run_id: "run_demo",
   selected_skill_ids: ["daily-review"],
+  perspective_mode: "neutral",
+  selected_perspective_ids: [],
   invoked_skill_ids: ["daily-review", "daily-agent"],
   citations: [],
   degrades: ["llm_unavailable_template_answer"],
@@ -863,6 +885,26 @@ describe("Chat-first conversation components", () => {
     expect(onSelectionChange).toHaveBeenLastCalledWith([]);
   });
 
+  it("switches from data neutral to a selected KOL perspective", async () => {
+    const user = userEvent.setup();
+    const onModeChange = vi.fn();
+    const onSelectionChange = vi.fn();
+    render(
+      <PerspectivePicker
+        perspectives={perspectives}
+        mode="neutral"
+        selectedPerspectiveIds={[]}
+        onModeChange={onModeChange}
+        onSelectionChange={onSelectionChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "选择分析视角" }));
+    await user.click(screen.getByRole("radio", { name: /指定 KOL/ }));
+    expect(onModeChange).toHaveBeenCalledWith("single");
+    expect(onSelectionChange).toHaveBeenCalledWith(["fengyuan94"]);
+  });
+
   it("distinguishes manual skills from automatically invoked skills", () => {
     render(
       <SkillInvocation
@@ -1156,6 +1198,7 @@ describe("Workbench navigation reliability", () => {
     apiMocks.listConversations.mockResolvedValue([]);
     apiMocks.getConversationMessages.mockResolvedValue([]);
     apiMocks.getSkills.mockResolvedValue(productSkills);
+    apiMocks.getPerspectives.mockResolvedValue(perspectives);
     apiMocks.getFollowups.mockResolvedValue([]);
     apiMocks.getLLMConfig.mockResolvedValue(llmConfig);
     apiMocks.getRunContext.mockResolvedValue(bundle.context);
@@ -1224,8 +1267,86 @@ describe("Workbench navigation reliability", () => {
         content: "新的研究问题",
         skill_mode: "hybrid",
         selected_skill_ids: [],
+        perspective_mode: "neutral",
+        selected_perspective_ids: [],
         user: "default",
       },
+    );
+  });
+
+  it("submits an explicit KOL perspective without mixing other profiles", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await screen.findByText("每轮重新检索当前证据");
+    await user.click(screen.getByRole("button", { name: "选择分析视角" }));
+    await user.click(screen.getByRole("radio", { name: /指定 KOL/ }));
+    await user.type(screen.getByLabelText("输入研究问题"), "按风远视角复盘");
+    await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+
+    expect(apiMocks.createConversationMessage).toHaveBeenCalledWith(
+      "conv_recent",
+      expect.objectContaining({
+        content: "按风远视角复盘",
+        perspective_mode: "single",
+        selected_perspective_ids: ["fengyuan94"],
+      }),
+    );
+  });
+
+  it("restores the perspective picker from the latest user message", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([
+      {
+        ...assistantMessage,
+        message_id: "msg_user",
+        role: "user",
+        content: "按风远视角复盘",
+        perspective_mode: "single",
+        selected_perspective_ids: ["fengyuan94"],
+      },
+      assistantMessage,
+    ]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await screen.findByText("按风远视角复盘");
+    expect(
+      screen.getByRole("button", { name: "选择分析视角" }),
+    ).toHaveTextContent("风远94");
+  });
+
+  it("regenerates with the original user message perspective", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    const originalUserMessage: ChatMessage = {
+      ...assistantMessage,
+      message_id: "msg_user",
+      role: "user",
+      content: "按风远视角复盘",
+      perspective_mode: "single",
+      selected_perspective_ids: ["fengyuan94"],
+    };
+    apiMocks.getConversationMessages.mockResolvedValue([
+      originalUserMessage,
+      assistantMessage,
+    ]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await screen.findByText("这是模板回答。");
+    await user.click(screen.getByRole("button", { name: "重新生成回答" }));
+
+    expect(apiMocks.createConversationMessage).toHaveBeenCalledWith(
+      "conv_recent",
+      expect.objectContaining({
+        content: "按风远视角复盘",
+        perspective_mode: "single",
+        selected_perspective_ids: ["fengyuan94"],
+      }),
     );
   });
 

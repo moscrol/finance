@@ -460,12 +460,23 @@ export interface ChatMessage {
   status: string;
   run_id: string | null;
   selected_skill_ids: string[];
+  perspective_mode: PerspectiveMode;
+  selected_perspective_ids: string[];
   invoked_skill_ids: string[];
   citations: Array<Record<string, unknown>>;
   degrades: string[];
 }
 
 export type SkillMode = "manual" | "auto" | "hybrid";
+export type PerspectiveMode = "neutral" | "single" | "compare";
+
+export interface PerspectiveDescription {
+  perspective_id: string;
+  display_name: string;
+  type: string;
+  article_count: number;
+  profile_confidence: string;
+}
 
 export interface ProductSkillDescription {
   skill_id: string;
@@ -482,6 +493,8 @@ export interface CreateMessageRequest {
   content: string;
   skill_mode: SkillMode;
   selected_skill_ids?: string[];
+  perspective_mode?: PerspectiveMode;
+  selected_perspective_ids?: string[];
   user?: string;
 }
 

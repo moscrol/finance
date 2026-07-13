@@ -155,12 +155,11 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await submitQuestion(page, firstQuestion, 1);
   await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
   const firstAnswer = page.getByLabel("研究助手消息").first();
-  await expect(
-    firstAnswer.getByText("数据说明：本轮没有连接本地市场数据。", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(firstAnswer.getByText(/DuckDB/)).toHaveCount(0);
+  await expect(firstAnswer.getByText(/一句话结论/)).toBeVisible();
+  await expect(firstAnswer.getByText(/下一交易日重点看/)).toBeVisible();
+  await expect(firstAnswer.getByText(/图谱命中|状态机|检索骨架/)).toHaveCount(
+    0,
+  );
   await expect(firstAnswer.getByText(/命中主题=/)).toHaveCount(0);
   await expect(firstAnswer.locator(".stream-table-shell")).toHaveCount(0);
   await firstAnswer.getByText("运行详情", { exact: true }).click();
@@ -193,7 +192,7 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
     page
       .getByLabel("研究助手消息")
       .filter({ hasText: "自然语言综合暂时不可用" }),
-  ).toHaveCount(4, { timeout: answerTimeout });
+  ).toHaveCount(3, { timeout: answerTimeout });
   await expect(page.getByText(thirdQuestion, { exact: true })).toHaveCount(2);
 
   const afterRegeneration = await activeConversationMessages(page);

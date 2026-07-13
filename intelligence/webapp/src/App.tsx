@@ -28,6 +28,7 @@ import {
   getConversationMessages,
   getFollowups,
   getLLMConfig,
+  getPerspectives,
   getRun,
   getRunArtifactText,
   getRunContext,
@@ -67,6 +68,8 @@ import type {
   LiveMessageState,
   LLMConfig,
   LLMProviderId,
+  PerspectiveDescription,
+  PerspectiveMode,
   ProductSkillDescription,
   Run,
   RunBundle,
@@ -108,6 +111,7 @@ export default function App() {
   >(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [skills, setSkills] = useState<ProductSkillDescription[]>([]);
+  const [perspectives, setPerspectives] = useState<PerspectiveDescription[]>([]);
   const [runBundles, setRunBundles] = useState<Record<string, RunBundle>>({});
   const [liveMessages, setLiveMessages] = useState<
     Record<string, LiveMessageState>
@@ -115,6 +119,11 @@ export default function App() {
   const [draft, setDraft] = useState("");
   const [skillMode, setSkillMode] = useState<SkillMode>("hybrid");
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
+  const [perspectiveMode, setPerspectiveMode] =
+    useState<PerspectiveMode>("neutral");
+  const [selectedPerspectiveIds, setSelectedPerspectiveIds] = useState<string[]>(
+    [],
+  );
   const [llmConfig, setLLMConfig] = useState<LLMConfig | null>(null);
   const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
   const [modelSettingsSaving, setModelSettingsSaving] = useState(false);
@@ -424,6 +433,13 @@ export default function App() {
       setLoading(true);
       try {
         const nextMessages = await loadConversationData(conversationId);
+        const lastUserMessage = [...nextMessages]
+          .reverse()
+          .find((message) => message.role === "user");
+        setPerspectiveMode(lastUserMessage?.perspective_mode ?? "neutral");
+        setSelectedPerspectiveIds(
+          lastUserMessage?.selected_perspective_ids ?? [],
+        );
         const pending = [...nextMessages]
           .reverse()
           .find(
@@ -465,17 +481,20 @@ export default function App() {
         const [
           nextConversations,
           nextSkills,
+          nextPerspectives,
           nextLLMConfig,
           nextOverview,
         ] = await Promise.all([
           listConversations(nextBootstrap.user),
           getSkills(nextBootstrap.user),
+          getPerspectives(nextBootstrap.user),
           getLLMConfig(nextBootstrap.user).catch(() => null),
           getWorkbenchOverview().catch(() => null),
         ]);
         if (disposed) return;
         setConversations(nextConversations);
         setSkills(nextSkills);
+        setPerspectives(nextPerspectives);
         setLLMConfig(nextLLMConfig);
         setOverview(nextOverview);
         if (nextConversations[0]) {
@@ -559,10 +578,20 @@ export default function App() {
   }, [selectConversation, user]);
 
   const submitResearch = useCallback(
-    async (question: string) => {
+    async (
+      question: string,
+      perspectiveOverride?: {
+        mode: PerspectiveMode;
+        perspectiveIds: string[];
+      },
+    ) => {
       if (submitting) return;
       setSubmitting(true);
       try {
+        const effectivePerspectiveMode =
+          perspectiveOverride?.mode ?? perspectiveMode;
+        const effectivePerspectiveIds =
+          perspectiveOverride?.perspectiveIds ?? selectedPerspectiveIds;
         let conversationId = activeConversationRef.current;
         let conversation = conversations.find(
           (item) => item.conversation_id === conversationId,
@@ -575,6 +604,8 @@ export default function App() {
           content: question,
           skill_mode: skillMode,
           selected_skill_ids: selectedSkillIds,
+          perspective_mode: effectivePerspectiveMode,
+          selected_perspective_ids: effectivePerspectiveIds,
           user,
         });
         const now = new Date().toISOString();
@@ -587,6 +618,8 @@ export default function App() {
           status: "completed",
           run_id: created.run_id,
           selected_skill_ids: selectedSkillIds,
+          perspective_mode: effectivePerspectiveMode,
+          selected_perspective_ids: effectivePerspectiveIds,
           invoked_skill_ids: [],
           citations: [],
           degrades: [],
@@ -600,6 +633,8 @@ export default function App() {
           status: "pending",
           run_id: created.run_id,
           selected_skill_ids: selectedSkillIds,
+          perspective_mode: effectivePerspectiveMode,
+          selected_perspective_ids: effectivePerspectiveIds,
           invoked_skill_ids: [],
           citations: [],
           degrades: [],
@@ -649,7 +684,9 @@ export default function App() {
       conversations,
       newConversation,
       selectedSkillIds,
+      selectedPerspectiveIds,
       skillMode,
+      perspectiveMode,
       submitting,
       user,
     ],
@@ -663,7 +700,12 @@ export default function App() {
       .slice(0, assistantIndex)
       .reverse()
       .find((message) => message.role === "user");
-    if (originalQuestion) void submitResearch(originalQuestion.content);
+    if (originalQuestion) {
+      void submitResearch(originalQuestion.content, {
+        mode: originalQuestion.perspective_mode,
+        perspectiveIds: originalQuestion.selected_perspective_ids,
+      });
+    }
   };
 
   const runningLive = Object.values(liveMessages).find(
@@ -943,13 +985,18 @@ export default function App() {
                 running={Boolean(runningLive)}
                 stopRequested={runningLive?.cancelRequested ?? false}
                 skills={skills}
+                perspectives={perspectives}
                 skillMode={skillMode}
                 selectedSkillIds={selectedSkillIds}
+                perspectiveMode={perspectiveMode}
+                selectedPerspectiveIds={selectedPerspectiveIds}
                 onChange={setDraft}
                 onSubmit={(question) => void submitResearch(question)}
                 onStop={stopGeneration}
                 onSkillModeChange={setSkillMode}
                 onSkillSelectionChange={setSelectedSkillIds}
+                onPerspectiveModeChange={setPerspectiveMode}
+                onPerspectiveSelectionChange={setSelectedPerspectiveIds}
               />
             </div>
           </div>

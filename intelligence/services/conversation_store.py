@@ -76,6 +76,8 @@ class Message:
     run_id: str | None = None
     skill_mode: str = "hybrid"
     selected_skill_ids: list[str] = field(default_factory=list)
+    perspective_mode: str = "neutral"
+    selected_perspective_ids: list[str] = field(default_factory=list)
     invoked_skill_ids: list[str] = field(default_factory=list)
     citations: list[dict[str, object]] = field(default_factory=list)
     degrades: list[str] = field(default_factory=list)
@@ -144,6 +146,8 @@ class ConversationStore:
         run_id: str | None = None,
         skill_mode: str = "hybrid",
         selected_skill_ids: list[str] | None = None,
+        perspective_mode: str = "neutral",
+        selected_perspective_ids: list[str] | None = None,
         invoked_skill_ids: list[str] | None = None,
         citations: list[dict[str, object]] | None = None,
         degrades: list[str] | None = None,
@@ -159,6 +163,10 @@ class ConversationStore:
             run_id=redact(run_id) if run_id is not None else None,
             skill_mode=redact(skill_mode),
             selected_skill_ids=[redact(item) for item in (selected_skill_ids or [])],
+            perspective_mode=redact(perspective_mode),
+            selected_perspective_ids=[
+                redact(item) for item in (selected_perspective_ids or [])
+            ],
             invoked_skill_ids=[redact(item) for item in (invoked_skill_ids or [])],
             citations=[_redact_mapping(item) for item in (citations or [])],
             degrades=[redact(item) for item in (degrades or [])],
@@ -202,6 +210,8 @@ class ConversationStore:
                     else original.selected_skill_ids
                 )
             ],
+            perspective_mode=original.perspective_mode,
+            selected_perspective_ids=list(original.selected_perspective_ids),
             invoked_skill_ids=[
                 redact(item)
                 for item in (
