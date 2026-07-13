@@ -43,6 +43,14 @@ class ResearchOwnerSkill:
         self._answer_query = answer_query_fn
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
+        llm_timeout = (
+            max(
+                1,
+                int(context.execution_budget.child_timeout(30, reserve=3) / 2),
+            )
+            if context.execution_budget is not None
+            else 30
+        )
         result = self._answer_query(
             AskOptions(
                 query=context.query,
@@ -58,6 +66,8 @@ class ResearchOwnerSkill:
                 include_memory_block=True,
                 include_recall_block=True,
                 question_type_override=self.config.question_type,
+                execution_budget=context.execution_budget,
+                llm_timeout=llm_timeout,
             )
         )
         retrieved_modules = self._modules(result)

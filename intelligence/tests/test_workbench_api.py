@@ -895,7 +895,61 @@ def test_executor_timeout_marks_pending_conversation_message_failed(
     assert run["status"] == "failed"
     assert run["error"] == "executor_timeout"
     assert messages[-1]["status"] == "failed"
-    assert "本轮执行超时" in messages[-1]["degrades"]
+    assert messages[-1]["content"] == (
+        "本轮研究超过时间预算，未完成的检索已停止。你可以重试；"
+        "系统不会把未完成检索写成已验证结论。"
+    )
+    assert messages[-1]["content"].strip()
+
+
+@pytest.mark.parametrize("raw", ["bad", "", "nan", "inf", "-1", "0"])
+def test_answer_deadline_env_invalid_values_fall_back_to_sixty(
+    monkeypatch, raw: str
+) -> None:
+    monkeypatch.setenv("WORKBENCH_ANSWER_DEADLINE_SECONDS", raw)
+
+    assert app_module._answer_deadline_seconds() == 60.0
+
+
+def test_answer_deadline_env_is_clamped_to_at_least_one(monkeypatch) -> None:
+    monkeypatch.setenv("WORKBENCH_ANSWER_DEADLINE_SECONDS", "0.5")
+
+    assert app_module._answer_deadline_seconds() == 1.0
+
+
+def test_conversation_supervisor_uses_deadline_plus_five_timeout(
+    tmp_path, monkeypatch
+) -> None:
+    supervisor = app_module.RunSupervisor(
+        timeout_sec=900,
+        answer_deadline_seconds=12,
+    )
+    captured: list[float | None] = []
+
+    def submit_spy(*args: object, **kwargs: object) -> None:
+        captured.append(kwargs.get("timeout_sec"))
+
+    monkeypatch.setattr(supervisor, "_submit", submit_spy)
+    store = RunStore("alice", root=tmp_path / "runs")
+    run = store.create_run("q", "ask")
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+
+    supervisor.submit_conversation(
+        store,
+        run.run_id,
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        conversation_id="conversation-1",
+        assistant_message_id="message-1",
+        query="q",
+        skill_mode="auto",
+        selected_skill_ids=[],
+        perspective_mode="neutral",
+        selected_perspective_ids=[],
+    )
+
+    assert captured == [17]
+    supervisor.shutdown()
 
 
 def test_cancel_terminalizes_running_conversation_message(

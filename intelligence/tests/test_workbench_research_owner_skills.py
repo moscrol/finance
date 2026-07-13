@@ -8,6 +8,7 @@ import pytest
 from intelligence.services import answer_model
 from intelligence.services.answer_orchestrator import plan_answer_question
 from intelligence.services.ask import AskOptions, AskResult, Citation
+from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.run_store import RunStore
 from intelligence.workbench_skills.contracts import SkillExecutionContext
 from intelligence.workbench_skills.research_owner import (
@@ -94,6 +95,7 @@ def _context(
     store: RunStore,
     run_id: str,
     query: str,
+    execution_budget: ExecutionBudget | None = None,
 ) -> SkillExecutionContext:
     return SkillExecutionContext(
         query=query,
@@ -104,6 +106,7 @@ def _context(
         repo_root=tmp_path,
         run_store=store,
         conversation_context="用户上一轮强调只看公告级证据。",
+        execution_budget=execution_budget,
     )
 
 
@@ -148,6 +151,7 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
     assert captured[0].include_memory_block is True
     assert captured[0].include_recall_block is True
     assert captured[0].conversation_context == "用户上一轮强调只看公告级证据。"
+    assert captured[0].llm_timeout == 30
     assert output.answer_contract is not None
     assert output.answer_contract.retrieval_plan == config.retrieval_plan
     assert output.answer_contract.output_contract == config.output_contract
@@ -201,6 +205,32 @@ def test_research_owner_falls_back_without_current_traceable_evidence(
         )
     )
     assert artifact["owned"] is False
+
+
+def test_research_owner_forwards_shared_budget_and_halves_synthesis_allowance(
+    tmp_path: Path,
+) -> None:
+    captured: list[AskOptions] = []
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _result(options.query, STOCK_DEEP_DIVE.question_type, evidence_id="R1")
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run("深挖英维克", "ask")
+    budget = ExecutionBudget.start(21)
+    ResearchOwnerSkill(STOCK_DEEP_DIVE, answer_query_fn=fake_answer_query).execute(
+        _context(
+            tmp_path,
+            store,
+            run.run_id,
+            "深挖英维克",
+            execution_budget=budget,
+        )
+    )
+
+    assert captured[0].execution_budget is budget
+    assert captured[0].llm_timeout == 8
 
 
 def test_stock_owner_does_not_treat_market_only_evidence_as_company_fact(

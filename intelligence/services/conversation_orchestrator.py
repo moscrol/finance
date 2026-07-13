@@ -7,6 +7,7 @@ from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from threading import Event
 
 from intelligence.api.structured_reports import (
     ask_result_modules,
@@ -32,10 +33,11 @@ from intelligence.services.conversation_store import (
     ConversationStore,
     Message,
 )
+from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.llm_refine import LLMStreamCancelled
 from intelligence.services import perspective_lab
 from intelligence.services.query_understanding import understand_query
-from intelligence.services.run_store import RunStore, redact
+from intelligence.services.run_store import Artifact, RunStore, redact
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -75,6 +77,45 @@ _EVIDENCE_LAYER_SUMMARY_PATTERN = re.compile(
     r"(?:\s*[、,，]\s*L[1-4](?:\s*[×x*]\s*\d+)?)*"
     r"\s*[，,]?\s*"
 )
+
+
+class _SkillRunStoreGuard:
+    """Prevent a timed-out/cancelled background skill from persisting artifacts."""
+
+    def __init__(self, store: RunStore, stopped: Callable[[], bool]) -> None:
+        self._store = store
+        self._stopped = stopped
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._store, name)
+
+    def add_artifact(
+        self,
+        run_id: str,
+        filename: str,
+        content: str | bytes,
+        *,
+        renderer: str,
+        title: str,
+    ) -> Artifact:
+        if not self._stopped():
+            return self._store.add_artifact(
+                run_id,
+                filename,
+                content,
+                renderer=renderer,
+                title=title,
+            )
+        return Artifact(
+            artifact_id=f"discarded_{filename.replace('.', '_')}",
+            path=filename,
+            renderer=renderer,
+            title=title,
+            sha256="",
+            bytes=0,
+            previewable=False,
+            downloadable=False,
+        )
 _INTERNAL_FIELD_PATTERN = re.compile(
     r'"?(?:candidate_tier|priority_score|cycle_status|warnings?)"?'
     r'\s*[:=]\s*(?:"[^"]*"|[^,，}\]\n]+)[,，]?',
@@ -459,6 +500,8 @@ class TurnOrchestrator:
         is_cancelled: Callable[[], bool] | None = None,
         cancellation_reason: Callable[[], str | None] | None = None,
         event_id_prefix: str = "",
+        answer_deadline_seconds: float = 60.0,
+        budget_factory: Callable[[], ExecutionBudget] | None = None,
     ) -> None:
         self.repo_root = repo_root
         self.conversation_store = conversation_store
@@ -470,6 +513,8 @@ class TurnOrchestrator:
         self.is_cancelled = is_cancelled or (lambda: False)
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
+        self.answer_deadline_seconds = answer_deadline_seconds
+        self.budget_factory = budget_factory
 
     def run_turn(
         self,
@@ -483,6 +528,11 @@ class TurnOrchestrator:
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
     ) -> TurnResult:
+        execution_budget = (
+            self.budget_factory()
+            if self.budget_factory is not None
+            else ExecutionBudget.start(self.answer_deadline_seconds)
+        )
         report = new_structured_report(
             run_id=run_id,
             question=query,
@@ -531,6 +581,8 @@ class TurnOrchestrator:
                 selected_skill_ids,
                 registry=self.skill_registry.definitions,
                 query_envelope=routing_envelope,
+                llm_timeout=execution_budget.child_timeout(5, reserve=50),
+                execution_budget=execution_budget,
             )
             selected = [selection.skill_id for selection in route.selections]
             self._trace(
@@ -559,6 +611,38 @@ class TurnOrchestrator:
             for selection in route.selections:
                 self._check_cancelled()
                 skill_id = selection.skill_id
+                skill_timeout = execution_budget.child_timeout(
+                    self.skill_registry.definitions[skill_id].timeout_seconds,
+                    reserve=20,
+                )
+                if skill_timeout <= 0:
+                    warning = f"Skill {skill_id} 因时间预算不足已跳过"
+                    warnings.append(warning)
+                    self.run_store.add_degrade(run_id, warning)
+                    module = self._skill_warning_module(skill_id, warning)
+                    self._emit_module(
+                        run_id,
+                        assistant_message_id,
+                        conversation_id,
+                        report,
+                        module,
+                        f"skill:{skill_id}:warning",
+                    )
+                    self._emit(
+                        run_id,
+                        assistant_message_id,
+                        f"skill:{skill_id}:result",
+                        "skill.result",
+                        {
+                            "skill_id": skill_id,
+                            "status": "degraded",
+                            "warnings": [warning],
+                            "elapsed_ms": 0,
+                            "task_may_continue": False,
+                        },
+                        conversation_id,
+                    )
+                    continue
                 invoked.append(skill_id)
                 self._emit(
                     run_id,
@@ -577,6 +661,11 @@ class TurnOrchestrator:
                     thread_name_prefix=f"workbench-{skill_id}",
                 )
                 future = None
+                skill_stopped = Event()
+                guarded_run_store = _SkillRunStoreGuard(
+                    self.run_store,
+                    lambda: skill_stopped.is_set() or self.is_cancelled(),
+                )
                 skill_started = time.monotonic()
                 try:
                     future = skill_pool.submit(
@@ -588,16 +677,15 @@ class TurnOrchestrator:
                             run_id=run_id,
                             conversation_id=conversation_id,
                             repo_root=self.repo_root,
-                            run_store=self.run_store,
+                            run_store=guarded_run_store,  # type: ignore[arg-type]
                             conversation_context=context.to_prompt_block(),
+                            execution_budget=execution_budget,
                         ),
                     )
-                    output = future.result(
-                        timeout=self.skill_registry.definitions[
-                            skill_id
-                        ].timeout_seconds
-                    )
+                    output = future.result(timeout=skill_timeout)
                 except Exception as exc:  # noqa: BLE001
+                    if isinstance(exc, FuturesTimeoutError) and future is not None:
+                        future.cancel()
                     warning = (
                         f"Skill {skill_id} 执行超时"
                         if isinstance(exc, FuturesTimeoutError)
@@ -662,6 +750,7 @@ class TurnOrchestrator:
                         conversation_id,
                     )
                 finally:
+                    skill_stopped.set()
                     skill_pool.shutdown(wait=False, cancel_futures=True)
                 self._check_cancelled()
 
@@ -717,6 +806,12 @@ class TurnOrchestrator:
                     },
                 )
             else:
+                budget_degraded = execution_budget.remaining_seconds() < 3
+                if budget_degraded:
+                    budget_warning = "workbench_time_budget_exhausted_template_answer"
+                    warnings.append(budget_warning)
+                    self.run_store.add_degrade(run_id, budget_warning)
+                synthesis_allowance = execution_budget.child_timeout(30, reserve=3)
                 result = self.answer_query(
                     AskOptions(
                         query=contextual_query,
@@ -727,7 +822,9 @@ class TurnOrchestrator:
                             else None
                         ),
                         user=self.run_store.user_id,
-                        compose=True,
+                        compose=not budget_degraded,
+                        use_modules=not budget_degraded,
+                        use_wiki_rag=not budget_degraded,
                         compose_self_review=False,
                         compose_revise_on_warn=False,
                         market_db_path=self.repo_root
@@ -741,6 +838,8 @@ class TurnOrchestrator:
                         perspective_ids=tuple(selected_perspective_ids),
                         stream_text_delta=emit_text_delta,
                         stream_cancel_check=self.is_cancelled,
+                        execution_budget=execution_budget,
+                        llm_timeout=max(1, int(synthesis_allowance / 2)),
                     )
                 )
             self._check_cancelled()

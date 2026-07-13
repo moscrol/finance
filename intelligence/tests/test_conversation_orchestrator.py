@@ -19,6 +19,7 @@ from intelligence.services.conversation_orchestrator import (
     sanitize_user_visible_artifact_text,
 )
 from intelligence.services.conversation_store import ConversationStore
+from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.run_store import RunStore
 from intelligence.workbench_skills.contracts import (
@@ -36,6 +37,27 @@ from intelligence.workbench_skills.router import (
     SkillSelection,
     route_skills,
 )
+
+
+class _FixedBudget:
+    def __init__(self, remaining: float) -> None:
+        self.remaining = remaining
+        self.child_calls: list[tuple[float, float]] = []
+
+    def remaining_seconds(self, now: float | None = None) -> float:
+        return self.remaining
+
+    def child_timeout(
+        self,
+        requested: float,
+        reserve: float = 0,
+        now: float | None = None,
+    ) -> float:
+        self.child_calls.append((requested, reserve))
+        return min(requested, max(0.0, self.remaining - reserve))
+
+    def exhausted(self, now: float | None = None) -> bool:
+        return self.remaining <= 0
 
 
 def _ask_result(
@@ -152,6 +174,302 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
     ]
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.content.startswith("当前视角：数据中立")
+
+
+def test_turn_shares_one_sixty_second_budget_with_router_skill_and_ask(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "预算透传",
+        selected_skill_ids=["fixture"],
+    )
+    budget = ExecutionBudget.start(60)
+    routed_budgets: list[object] = []
+    skill_budgets: list[object] = []
+    ask_budgets: list[object] = []
+
+    def budget_factory() -> ExecutionBudget:
+        return budget
+
+    def route_spy(*args: object, **kwargs: object) -> SkillRouteResult:
+        routed_budgets.append(kwargs["execution_budget"])
+        assert kwargs["llm_timeout"] <= 5
+        return SkillRouteResult(
+            (SkillSelection("fixture", "manual", "fixture"),),
+            fallback_to_ask=False,
+        )
+
+    class CaptureSkill:
+        skill_id = "fixture"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            skill_budgets.append(context.execution_budget)
+            return SkillOutput(skill_id=self.skill_id)
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="fixture",
+            name="Fixture",
+            description="fixture",
+            version="1.0.0",
+            triggers=(),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=10,
+        ),
+        CaptureSkill(),
+    )
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        ask_budgets.append(options.execution_budget)
+        return _ask_result(options.query)
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        route_skills_fn=route_spy,
+        skill_registry=registry,
+        budget_factory=budget_factory,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="预算透传",
+        skill_mode="manual",
+        selected_skill_ids=["fixture"],
+    )
+
+    assert budget.deadline_at - budget.started_at == 60.0
+    assert routed_budgets == [budget]
+    assert skill_budgets == [budget]
+    assert ask_budgets == [budget]
+
+
+def test_budget_exhaustion_degrades_to_nonempty_deterministic_answer(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "题材生命周期怎么看",
+    )
+    budget = _FixedBudget(2.5)
+    captured: list[AskOptions] = []
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult((), False, True),
+        skill_registry=SkillRegistry(),
+        budget_factory=lambda: budget,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="题材生命周期怎么看",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    assert result.content.strip()
+    assert captured[0].use_wiki_rag is False
+    assert captured[0].use_modules is False
+    assert captured[0].compose is False
+    assert captured[0].execution_budget is budget
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert "workbench_time_budget_exhausted_template_answer" in assistant.degrades
+
+
+def test_skill_is_not_submitted_when_budget_reserve_is_unavailable(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "预算不足",
+        selected_skill_ids=["fixture"],
+    )
+    called = Event()
+
+    class ForbiddenSkill:
+        skill_id = "fixture"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            called.set()
+            raise AssertionError("budget-starved skill must not start")
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="fixture",
+            name="Fixture",
+            description="fixture",
+            version="1.0.0",
+            triggers=(),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=10,
+        ),
+        ForbiddenSkill(),
+    )
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (SkillSelection("fixture", "manual", "fixture"),), False
+        ),
+        skill_registry=registry,
+        budget_factory=lambda: _FixedBudget(19),  # type: ignore[return-value]
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="预算不足",
+        skill_mode="manual",
+        selected_skill_ids=["fixture"],
+    )
+
+    assert result.status == "completed"
+    assert called.is_set() is False
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.invoked_skill_ids == []
+    assert any("时间预算不足" in warning for warning in assistant.degrades)
+
+
+def test_timed_out_skill_cannot_persist_artifact_after_turn_continues(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "慢技能",
+        selected_skill_ids=["slow"],
+    )
+    release = Event()
+    finished = Event()
+
+    class SlowSkill:
+        skill_id = "slow"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            release.wait(timeout=1)
+            context.run_store.add_artifact(
+                context.run_id,
+                "late.json",
+                "{}",
+                renderer="json",
+                title="late",
+            )
+            finished.set()
+            return SkillOutput(skill_id=self.skill_id)
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="slow",
+            name="Slow",
+            description="slow",
+            version="1.0.0",
+            triggers=(),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        ),
+        SlowSkill(),
+    )
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (SkillSelection("slow", "manual", "slow"),), False
+        ),
+        skill_registry=registry,
+        budget_factory=lambda: _FixedBudget(20.01),  # type: ignore[return-value]
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="慢技能",
+        skill_mode="manual",
+        selected_skill_ids=["slow"],
+    )
+    release.set()
+
+    assert result.status == "completed"
+    assert finished.wait(timeout=1)
+    assert not (run_store.run_dir(run_id) / "late.json").exists()
+    assert all(
+        artifact["path"] != "late.json"
+        for artifact in run_store.load_run(run_id).artifacts
+    )
+
+
+def test_router_default_llm_gets_timeout_and_injected_one_arg_double_still_works(
+    monkeypatch,
+) -> None:
+    registry = {
+        "fixture": SkillDefinition(
+            skill_id="fixture",
+            name="Fixture",
+            description="fixture",
+            version="1.0.0",
+            triggers=(),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        )
+    }
+    timeouts: list[int] = []
+
+    def default_complete(messages: list[dict[str, str]], *, timeout: int):
+        timeouts.append(timeout)
+        return None, None, "fixture"
+
+    monkeypatch.setattr(llm_refine, "complete", default_complete)
+    route_skills("q", "ask", "auto", [], registry=registry, llm_timeout=4.9)
+    injected_calls: list[list[dict[str, str]]] = []
+    route_skills(
+        "q",
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        llm_timeout=2,
+        llm_complete=lambda messages: (
+            injected_calls.append(messages) and None,
+            None,
+            "fixture",
+        ),
+    )
+
+    assert timeouts == [4]
+    assert len(injected_calls) == 1
 
 
 def test_single_perspective_is_forwarded_and_labels_final_answer(
@@ -347,12 +665,16 @@ def test_turn_routes_with_query_envelope_and_records_it_in_trace(tmp_path) -> No
         *,
         registry: dict[str, SkillDefinition],
         query_envelope: QueryEnvelope,
+        llm_timeout: float,
+        execution_budget: ExecutionBudget,
     ) -> SkillRouteResult:
         assert routed_query == query
         assert task_type == "ask"
         assert skill_mode == "auto"
         assert selected_skill_ids == []
         assert registry == {}
+        assert llm_timeout <= 5
+        assert execution_budget.remaining_seconds() <= 60
         routed.append(query_envelope)
         return SkillRouteResult((), fallback_to_ask=False, base_finance_fallback=True)
 

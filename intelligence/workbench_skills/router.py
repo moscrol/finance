@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import llm_refine
+from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.run_store import redact
 from intelligence.workbench_skills.contracts import JsonValue, SkillDefinition
@@ -100,9 +101,20 @@ def route_skills(
     registry: Mapping[str, SkillDefinition] | None = None,
     llm_complete: LLMComplete | None = None,
     query_envelope: QueryEnvelope | None = None,
+    llm_timeout: float = 5.0,
+    execution_budget: ExecutionBudget | None = None,
 ) -> SkillRouteResult:
     active_registry = SKILL_REGISTRY if registry is None else registry
-    complete = llm_refine.complete if llm_complete is None else llm_complete
+    complete = (
+        (
+            lambda messages: llm_refine.complete(
+                messages,
+                timeout=max(1, int(llm_timeout)),
+            )
+        )
+        if llm_complete is None
+        else llm_complete
+    )
     if skill_mode not in ("manual", "auto", "hybrid"):
         raise ValueError("Unknown skill mode")
     manual_ids = _dedupe(selected_skill_ids)

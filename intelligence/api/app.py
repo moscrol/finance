@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import threading
 import time
@@ -72,6 +73,24 @@ _WORKER_COUNT = 2
 _RESTART_REASON = "workbench_restarted_before_completion"
 
 
+def _answer_deadline_seconds(raw: str | None = None) -> float:
+    value = (
+        os.environ.get("WORKBENCH_ANSWER_DEADLINE_SECONDS", "60")
+        if raw is None
+        else raw
+    )
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return 60.0
+    if not math.isfinite(parsed) or parsed <= 0:
+        return 60.0
+    return max(1.0, parsed)
+
+
+_WORKBENCH_ANSWER_DEADLINE_SECONDS = _answer_deadline_seconds()
+
+
 class CancellationSignal:
     def __init__(self) -> None:
         self._event = Event()
@@ -93,9 +112,15 @@ class RunSupervisor:
         self,
         max_workers: int = _WORKER_COUNT,
         timeout_sec: float = _SSE_MAX_SECONDS,
+        answer_deadline_seconds: float | None = None,
     ) -> None:
         self.max_workers = max_workers
         self.timeout_sec = timeout_sec
+        self.answer_deadline_seconds = (
+            _WORKBENCH_ANSWER_DEADLINE_SECONDS
+            if answer_deadline_seconds is None
+            else max(1.0, answer_deadline_seconds)
+        )
         self._executor = ThreadPoolExecutor(
             max_workers=max_workers,
             thread_name_prefix="workbench-run",
@@ -149,6 +174,7 @@ class RunSupervisor:
                 cancellation_signal=signal,
                 event_id_prefix=event_id_prefix,
                 llm_provider=llm_provider,
+                answer_deadline_seconds=self.answer_deadline_seconds,
             ),
             on_terminal=lambda reason: _terminalize_pending_message(
                 conversation_store,
@@ -158,6 +184,10 @@ class RunSupervisor:
                 run_id,
                 reason,
             ),
+            timeout_sec=min(
+                self.timeout_sec,
+                self.answer_deadline_seconds + 5,
+            ),
         )
 
     def _submit(
@@ -166,12 +196,13 @@ class RunSupervisor:
         run_id: str,
         runner: Callable[[CancellationSignal], None],
         on_terminal: Callable[[str], None] | None = None,
+        timeout_sec: float | None = None,
     ) -> None:
         key = (store.user_id, run_id)
         store.mark_running(run_id)
         signal = CancellationSignal()
         timer = threading.Timer(
-            self.timeout_sec,
+            self.timeout_sec if timeout_sec is None else timeout_sec,
             self._expire,
             args=(store, run_id, key),
         )
@@ -350,6 +381,7 @@ def _run_conversation_turn(
     selected_perspective_ids: list[str] | None = None,
     event_id_prefix: str = "",
     llm_provider: LLMProvider | None = None,
+    answer_deadline_seconds: float = _WORKBENCH_ANSWER_DEADLINE_SECONDS,
 ) -> None:
     try:
         test_delay_ms = int(
@@ -374,6 +406,7 @@ def _run_conversation_turn(
             is_cancelled=cancellation_signal.is_set,
             cancellation_reason=lambda: cancellation_signal.reason,
             event_id_prefix=event_id_prefix,
+            answer_deadline_seconds=answer_deadline_seconds,
         ).run_turn(
             conversation_id=conversation_id,
             run_id=run_id,
@@ -418,10 +451,18 @@ def _terminalize_pending_message(
         if status == rs.STATUS_CANCELLED
         else "本轮执行超时"
     )
+    content = (
+        current.content
+        if reason != "executor_timeout"
+        else (
+            "本轮研究超过时间预算，未完成的检索已停止。你可以重试；"
+            "系统不会把未完成检索写成已验证结论。"
+        )
+    )
     message = conversation_store.revise_message(
         conversation_id,
         message_id,
-        content=current.content,
+        content=content,
         status=status,
         selected_skill_ids=current.selected_skill_ids,
         invoked_skill_ids=current.invoked_skill_ids,
