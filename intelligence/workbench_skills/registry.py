@@ -61,16 +61,11 @@ def register_skill(
         raise ValueError("skill triggers must be nonblank strings")
     if not isinstance(definition.input_schema, dict):
         raise ValueError("skill input_schema must be an object")
-    allowed_permissions = {"local_read", "network_read"}
-    if (
-        not isinstance(definition.permissions, tuple)
-        or not definition.permissions
-        or len(set(definition.permissions)) != len(definition.permissions)
-        or any(
-            permission not in allowed_permissions
-            for permission in definition.permissions
-        )
-    ):
+    allowed_permission_sets = {
+        ("local_read",),
+        ("local_read", "network_read"),
+    }
+    if definition.permissions not in allowed_permission_sets:
         raise ValueError("skill permissions contain unsupported values")
     if (
         not isinstance(definition.timeout_seconds, int)
