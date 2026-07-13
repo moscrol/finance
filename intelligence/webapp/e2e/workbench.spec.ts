@@ -49,10 +49,13 @@ async function submitQuestion(
 }
 
 async function selectManualDailyAgent(page: Page) {
+  await selectManualSkill(page, /Daily Agent/);
+}
+
+async function selectManualSkill(page: Page, name: RegExp) {
   await page.getByLabel("研究工具选择方式").selectOption("manual");
   await page.getByRole("button", { name: "选择研究工具" }).click();
-  await page.getByRole("checkbox", { name: /Daily Agent/ }).check();
-  await expect(page.getByLabel("已选研究工具")).toContainText("Daily Agent");
+  await page.getByRole("checkbox", { name }).check();
 }
 
 async function activeConversationMessages(page: Page) {
@@ -234,6 +237,31 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
 
   await expectNoHorizontalOverflow(page);
   await expectComposerDoesNotOverlapThread(page);
+});
+
+test("stock deep-dive owns a traceable Workbench answer", async ({
+  page,
+}, testInfo) => {
+  test.slow();
+  await startNewConversation(page, testInfo);
+  await selectManualSkill(page, /个股深挖/);
+  await expect(page.getByLabel("已选研究工具")).toContainText("个股深挖");
+
+  await submitQuestion(page, "请个股深挖英维克的液冷业务", 1);
+
+  await expect(page.getByText("已指定工具 · 个股深挖")).toBeVisible();
+  const answer = page.getByLabel("研究助手消息").first();
+  await expect(
+    answer.getByRole("heading", { name: "个股深挖" }),
+  ).toBeVisible();
+  await expect(answer.getByRole("heading", { name: "核心判断" })).toBeVisible();
+  await expect(answer.getByRole("heading", { name: "公司证据" })).toBeVisible();
+  await expect(
+    answer.getByRole("heading", { name: "下一步如何验证" }),
+  ).toBeVisible();
+  await expect(
+    answer.getByText(/entity_exposures|evidence_index|RAG|DuckDB/),
+  ).toHaveCount(0);
 });
 
 test("stop preserves cancellation and responsive drawers remain closable", async ({

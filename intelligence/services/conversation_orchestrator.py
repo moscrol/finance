@@ -269,7 +269,10 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         candidate_tier=None,
         priority_score=None,
         found_graph=bool(contract.answer_spec.verified_facts),
-        question_plan=plan_answer_question(query),
+        question_plan=plan_answer_question(
+            query,
+            question_type_override=contract.question_type,
+        ),
         citations=citations,
         answer_spec=contract.answer_spec,
     )
@@ -558,6 +561,7 @@ class TurnOrchestrator:
                             conversation_id=conversation_id,
                             repo_root=self.repo_root,
                             run_store=self.run_store,
+                            conversation_context=context.to_prompt_block(),
                         ),
                     )
                     output = future.result(

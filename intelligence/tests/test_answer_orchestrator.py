@@ -10,6 +10,7 @@ from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
     QUESTION_GENERAL,
+    QUESTION_FINANCIAL_ANALYSIS,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
@@ -63,6 +64,26 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIn("D1/D2/D3", joined_sources)
         self.assertIn("L3 硬证据", "\n".join(plan.missing_data_policy))
         self.assertIn("市场正在奖励谁、抛弃谁、犹豫谁", joined_gates)
+
+    def test_financial_analysis_has_its_own_plan_and_can_be_forced(self) -> None:
+        classified = plan_answer_question("分析一下贵州茅台财报和毛利率")
+        forced = plan_answer_question(
+            "贵州茅台怎么看",
+            question_type_override=QUESTION_FINANCIAL_ANALYSIS,
+        )
+
+        for plan in (classified, forced):
+            self.assertEqual(plan.question_type, QUESTION_FINANCIAL_ANALYSIS)
+            self.assertEqual(plan.depth, DEPTH_DEEP)
+            self.assertIn("财务验鲜", "\n".join(plan.required_lenses))
+            self.assertIn("逐季财报", "\n".join(plan.retrieval_plan))
+            self.assertIn("业绩兑现结论", "\n".join(plan.output_contract))
+            self.assertIn("累计口径与单季口径不能混用", "\n".join(plan.missing_data_policy))
+            assert plan.base_finance_mode is not None
+            self.assertTrue(plan.base_finance_mode.require_financials)
+
+        with self.assertRaisesRegex(ValueError, "unknown question type"):
+            plan_answer_question("贵州茅台", question_type_override="unknown")
 
     def test_entity_anchor_turns_on_market_and_memory_floor(self) -> None:
         with (

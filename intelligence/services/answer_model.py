@@ -601,7 +601,12 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     if notices:
         lines.append(humanize(notices[0]))
         lines.append("")
-    lines.append(f"# {humanize(answer_spec.research_spec.theme)}：研究结论")
+    title = (
+        humanize(answer_spec.presentation_title)
+        if answer_spec.presentation_title
+        else f"{humanize(answer_spec.research_spec.theme)}：研究结论"
+    )
+    lines.append(f"# {title}")
     lines.extend(["", "## 核心判断"])
     for index, claim in enumerate(answer_spec.summary[:3]):
         if index:

@@ -52,8 +52,12 @@ from intelligence.services import (
     scenario_tree,
     user_memory,
 )
-from intelligence.services.answer_quality import build_quality_context
+from intelligence.services.answer_quality import (
+    AnswerQualityContext,
+    build_quality_context,
+)
 from intelligence.services.answer_orchestrator import (
+    QUESTION_FINANCIAL_ANALYSIS,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
@@ -165,6 +169,8 @@ class AskOptions:
     # compose: 让 LLM 把多源证据有机融合成一段连贯回答（自由形态，带内联引用）；
     # 默认关，关时行为与旧版逐字节一致。开时若无 key/调用失败则降级回六段模板。
     compose: bool = False
+    # 允许只运行 compose 取数和 AnswerSpec 裁决，不额外调用 LLM 生成自由文本。
+    synthesize: bool = True
     llm_model: str | None = None
     llm_timeout: int = field(default_factory=lambda: int(os.environ.get("LLM_TIMEOUT", "60")))
     detail: bool = False
@@ -209,6 +215,8 @@ class AskOptions:
     # 澄清追问前置门（clarify-then-act）：问题明确模糊（空问题/纯空泛词面）时不硬答，
     # 返回结构化澄清问题（对象/口径/日期），跳过整次检索；带实质内容的问题行为逐字节不变。
     clarify: bool = True
+    # Workbench 专项 Skill answer-owner 可固定问题类型，避免再次依赖脆弱词面分类。
+    question_type_override: str | None = None
     # 子任务并行：把命中的独立取数块（D0/D6/D9/D8/D7/W7/M/V/D1/D4/D2/D5）扔进线程池并行取，
     # 仍按固定顺序汇总，evidence_text/引用编号与串行逐字节一致；关掉退回串行（调试用）。
     parallel_blocks: bool = True
@@ -760,7 +768,11 @@ def answer_query(options: AskOptions) -> AskResult:
     result.warnings.extend(loaded.get("warnings", []))
     result.warnings.extend(data_warnings)
     result.found_market = candidate is not None
-    question_plan = plan_answer_question(options.query, result.matched_theme)
+    question_plan = plan_answer_question(
+        options.query,
+        result.matched_theme,
+        question_type_override=options.question_type_override,
+    )
     result.question_plan = question_plan
     claim_theme = (
         question_plan.research_spec.theme
@@ -1805,102 +1817,16 @@ def answer_query(options: AskOptions) -> AskResult:
             follow_ups=follow_ups,
             citations=citations,
         )
-        citation_legend = "\n".join(
-            f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations
-        )
-        us = userspace.user_space(options.user)
-        perspective_context = perspective_lab.build_runtime_context(
-            us,
-            mode=options.perspective_mode,
-            perspective_ids=options.perspective_ids,
-            query=options.query,
-        )
-        experience_guidance = ""
-        if options.include_memory_block:
-            cards, card_warn = experience_cards.load_cards(
-                us.experience_cards_path,
-                window=options.experience_cards_window,
+        if options.synthesize:
+            _synthesize_answer_spec(
+                options=options,
+                result=result,
+                question_plan=question_plan,
+                theme=theme,
+                citations=citations,
+                quality_context=quality_context,
+                is_market_review=is_market_review,
             )
-            if card_warn:
-                result.warnings.append(card_warn)
-            selected_cards = experience_cards.select_relevant_cards(
-                cards, options.query
-            )
-            experience_guidance = experience_cards.render_for_prompt(
-                selected_cards
-            )
-        exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
-        if options.include_scenario_guidance:
-            scenario_guidance = scenario_tree.scenario_guidance_for_query(
-                options.query, question_plan.question_type
-            )
-            if scenario_guidance:
-                experience_guidance = (
-                    f"{experience_guidance}\n\n{scenario_guidance}" if experience_guidance else scenario_guidance
-                )
-        msgs = llm_refine.build_synthesis_messages(
-            options.query,
-            theme,
-            result.answer_spec.to_prompt_block(),
-            citation_legend=citation_legend,
-            quality_context=None if is_market_review else quality_context,
-            experience_guidance=experience_guidance,
-            exemplar_guidance=exemplar_guidance,
-        )
-        msgs[0]["content"] = (
-            f"{msgs[0]['content']}\n\n## 本轮视角约束\n"
-            f"{perspective_context.prompt}"
-        )
-        if options.conversation_context:
-            msgs.insert(
-                1,
-                {
-                    "role": "system",
-                    "content": (
-                        "以下会话上下文仅用于理解指代和用户意图，不是本轮检索证据；"
-                        "事实判断仍须引用当前轮证据：\n"
-                        f"{options.conversation_context}"
-                    ),
-                },
-            )
-        if options.compose_self_review:
-            composed, reason = llm_refine.synthesize_messages_with_review(
-                msgs, model_override=options.llm_model, timeout=options.llm_timeout,
-            )
-        else:
-            composed, reason = llm_refine.synthesize_messages(
-                msgs, model_override=options.llm_model, timeout=options.llm_timeout,
-            )
-        if composed is not None:
-            proposed_synthesis = (
-                f"{result.data_notice}\n\n{composed.answer}"
-                if result.data_notice
-                else composed.answer
-            )
-            llm_issues = answer_model.validate_llm_answer(
-                proposed_synthesis,
-                result.answer_spec,
-            )
-            blocking_issues = [
-                issue for issue in llm_issues if issue.severity == "error"
-            ]
-            if blocking_issues:
-                result.warnings.extend(
-                    f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
-                    for issue in blocking_issues
-                )
-            else:
-                result.synthesis = proposed_synthesis
-                result.llm_provider = composed.provider
-                result.synthesis_messages = msgs + [
-                    {"role": "assistant", "content": result.synthesis}
-                ]
-                if options.stream_text_delta is not None:
-                    options.stream_text_delta(result.synthesis)
-                if reason:
-                    result.warnings.append(reason)
-        else:
-            result.warnings.append(reason)
 
     if result.answer_spec is None:
         result.answer_spec = _build_answer_spec_for_result(
@@ -2293,6 +2219,7 @@ def _build_answer_spec_for_result(
             QUESTION_THEME_ANALYSIS,
             QUESTION_NEWS_IMPACT,
             QUESTION_STOCK_DEEP_DIVE,
+            QUESTION_FINANCIAL_ANALYSIS,
         }
     )
     has_verified_company_claim = any(
@@ -2577,6 +2504,128 @@ def _dedupe_structured_claims(
         seen.add(key)
         result.append(claim)
     return result
+
+
+def _synthesize_answer_spec(
+    *,
+    options: AskOptions,
+    result: AskResult,
+    question_plan: QuestionPlan,
+    theme: str,
+    citations: list[Citation],
+    quality_context: AnswerQualityContext,
+    is_market_review: bool,
+) -> None:
+    if result.answer_spec is None:
+        return
+    citation_legend = "\n".join(
+        f"[{citation.tag}] {citation.source}"
+        + (f" — {citation.detail}" if citation.detail else "")
+        for citation in citations
+    )
+    us = userspace.user_space(options.user)
+    perspective_context = perspective_lab.build_runtime_context(
+        us,
+        mode=options.perspective_mode,
+        perspective_ids=options.perspective_ids,
+        query=options.query,
+    )
+    experience_guidance = ""
+    if options.include_memory_block:
+        cards, card_warn = experience_cards.load_cards(
+            us.experience_cards_path,
+            window=options.experience_cards_window,
+        )
+        if card_warn:
+            result.warnings.append(card_warn)
+        selected_cards = experience_cards.select_relevant_cards(
+            cards,
+            options.query,
+        )
+        experience_guidance = experience_cards.render_for_prompt(
+            selected_cards
+        )
+    exemplar_guidance = _exemplar_guidance_for(question_plan.question_type)
+    if options.include_scenario_guidance:
+        scenario_guidance = scenario_tree.scenario_guidance_for_query(
+            options.query,
+            question_plan.question_type,
+        )
+        if scenario_guidance:
+            experience_guidance = (
+                f"{experience_guidance}\n\n{scenario_guidance}"
+                if experience_guidance
+                else scenario_guidance
+            )
+    messages = llm_refine.build_synthesis_messages(
+        options.query,
+        theme,
+        result.answer_spec.to_prompt_block(),
+        citation_legend=citation_legend,
+        quality_context=None if is_market_review else quality_context,
+        experience_guidance=experience_guidance,
+        exemplar_guidance=exemplar_guidance,
+    )
+    messages[0]["content"] = (
+        f"{messages[0]['content']}\n\n## 本轮视角约束\n"
+        f"{perspective_context.prompt}"
+    )
+    if options.conversation_context:
+        messages.insert(
+            1,
+            {
+                "role": "system",
+                "content": (
+                    "以下会话上下文仅用于理解指代和用户意图，不是本轮检索证据；"
+                    "事实判断仍须引用当前轮证据：\n"
+                    f"{options.conversation_context}"
+                ),
+            },
+        )
+    if options.compose_self_review:
+        composed, reason = llm_refine.synthesize_messages_with_review(
+            messages,
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+        )
+    else:
+        composed, reason = llm_refine.synthesize_messages(
+            messages,
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+        )
+    if composed is None:
+        result.warnings.append(reason)
+        return
+    proposed_synthesis = (
+        f"{result.data_notice}\n\n{composed.answer}"
+        if result.data_notice
+        else composed.answer
+    )
+    blocking_issues = [
+        issue
+        for issue in answer_model.validate_llm_answer(
+            proposed_synthesis,
+            result.answer_spec,
+        )
+        if issue.severity == "error"
+    ]
+    if blocking_issues:
+        result.warnings.extend(
+            f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
+            for issue in blocking_issues
+        )
+        return
+    result.synthesis = proposed_synthesis
+    result.llm_provider = composed.provider
+    result.synthesis_messages = [
+        *messages,
+        {"role": "assistant", "content": result.synthesis},
+    ]
+    if options.stream_text_delta is not None:
+        options.stream_text_delta(result.synthesis)
+    if reason:
+        result.warnings.append(reason)
 
 
 def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:

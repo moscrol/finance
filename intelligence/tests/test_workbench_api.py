@@ -659,7 +659,14 @@ def test_message_rejects_unknown_product_skill_before_creating_run(
 def test_skills_lists_registered_product_skills(client: TestClient) -> None:
     skills = client.get("/api/skills").json()
 
-    assert [skill["skill_id"] for skill in skills] == ["daily-review", "daily-agent"]
+    assert [skill["skill_id"] for skill in skills] == [
+        "daily-review",
+        "daily-agent",
+        "stock-deep-dive",
+        "theme-research",
+        "news-impact",
+        "financial-analysis",
+    ]
     assert all(skill["permissions"] == ["local_read"] for skill in skills)
 
 
