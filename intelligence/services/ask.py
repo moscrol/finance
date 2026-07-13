@@ -2496,6 +2496,10 @@ def answer_query(options: AskOptions) -> AskResult:
                 if result.data_notice
                 else revised.answer
             )
+            proposed_revision = answer_model.preserve_required_system_notices(
+                proposed_revision,
+                result.answer_spec,
+            )
             revision_issues = answer_model.validate_llm_answer(
                 proposed_revision,
                 result.answer_spec,
@@ -3297,6 +3301,10 @@ def _synthesize_answer_spec(
         f"{result.data_notice}\n\n{composed.answer}"
         if result.data_notice
         else composed.answer
+    )
+    proposed_synthesis = answer_model.preserve_required_system_notices(
+        proposed_synthesis,
+        result.answer_spec,
     )
     blocking_issues = [
         issue
@@ -4653,6 +4661,11 @@ def render_answer(result: AskResult) -> str:
 def render_conversation_answer(result: AskResult) -> str:
     evidence_notice = f"{NO_EVIDENCE_NOTICE}\n\n" if not result.citations else ""
     if result.synthesis:
+        if result.answer_spec is not None:
+            return answer_model.preserve_required_system_notices(
+                result.synthesis,
+                result.answer_spec,
+            )
         return result.synthesis
     if result.answer_spec is not None:
         return answer_model.render_answer_spec(result.answer_spec)

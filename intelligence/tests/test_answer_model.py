@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 from intelligence.services.answer_model import (
     AnswerSpec,
@@ -23,10 +24,14 @@ from intelligence.services.answer_model import (
 )
 from intelligence.services.ask import (
     AskOptions,
+    AskResult,
     answer_query,
     match_candidate,
     render_conversation_answer,
+    synthesize_existing_answer_spec,
 )
+from intelligence.services.answer_orchestrator import plan_answer_question
+from intelligence.services.llm_refine import SynthesisResult
 
 
 class ThemeResearchSpecTests(unittest.TestCase):
@@ -586,6 +591,113 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             1,
         )
         self.assertNotIn("未形成可验证的公司级来源", rendered)
+
+    def test_synthesized_stock_answer_preserves_target_notice_exactly_once(self) -> None:
+        target_spec = replace(
+            self._answer(),
+            research_spec=replace(self._answer().research_spec, theme="英维克"),
+            presentation_kind="stock_deep_dive",
+            system_notices=(NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE,),
+        )
+        peer_fact = make_claim(
+            claim_id="peer-1",
+            text="高澜股份公告披露液冷业务进展。",
+            claim_type="company_evidence",
+            theme="英维克",
+            status=ClaimStatus.VERIFIED,
+            company="高澜股份",
+            evidence_ids=("R1",),
+        )
+        cases = (
+            (target_spec, "LLM 只写了盘面判断，没有保留系统提示。"),
+            (
+                replace(target_spec, verified_facts=(peer_fact,)),
+                f"{NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE}\n\n"
+                f"{NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE}\n\n同链判断。",
+            ),
+        )
+
+        for spec, synthesis in cases:
+            with self.subTest(synthesis=synthesis):
+                result = AskResult(
+                    query="深挖英维克",
+                    trade_date="2026-07-13",
+                    matched_theme="英维克",
+                    candidate_tier=None,
+                    priority_score=None,
+                    answer_spec=spec,
+                    synthesis=synthesis,
+                )
+                rendered = render_conversation_answer(result)
+
+                self.assertEqual(
+                    rendered.count(NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE),
+                    1,
+                )
+
+        issue_codes = {
+            issue.code
+            for issue in validate_llm_answer(
+                "LLM 省略了目标公司证据提示。",
+                target_spec,
+            )
+        }
+        self.assertIn("llm_missing_required_notice", issue_codes)
+
+    def test_existing_answer_spec_synthesis_injects_required_target_notice(self) -> None:
+        target_spec = replace(
+            self._answer(),
+            research_spec=replace(self._answer().research_spec, theme="英维克"),
+            presentation_kind="stock_deep_dive",
+            system_notices=(NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE,),
+        )
+        result = AskResult(
+            query="深挖英维克",
+            trade_date="2026-07-13",
+            matched_theme="英维克",
+            candidate_tier=None,
+            priority_score=None,
+            answer_spec=target_spec,
+            question_plan=plan_answer_question(
+                "深挖英维克",
+                question_type_override="stock_deep_dive",
+            ),
+        )
+
+        with (
+            mock.patch(
+                "intelligence.services.ask.llm_refine.detect_provider",
+                return_value=mock.Mock(),
+            ),
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                return_value=(
+                    SynthesisResult(
+                        answer="LLM 只输出盘面判断。",
+                        provider="zhipu",
+                        model="glm-5.2",
+                    ),
+                    "",
+                ),
+            ),
+        ):
+            synthesize_existing_answer_spec(
+                AskOptions(
+                    query=result.query,
+                    compose=True,
+                    synthesize=True,
+                    compose_self_review=False,
+                    include_memory_block=False,
+                    include_recall_block=False,
+                ),
+                result,
+            )
+
+        assert result.synthesis is not None
+        self.assertEqual(
+            result.synthesis.count(NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE),
+            1,
+        )
 
     def test_llm_gate_rejects_new_company_and_number(self) -> None:
         issues = validate_llm_answer(

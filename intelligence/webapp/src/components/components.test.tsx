@@ -1441,7 +1441,9 @@ describe("Chat-first conversation components", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("does not add a generic warning beside a target-company notice", () => {
+  it.each(["盘面证据", "高澜股份同链证据"])(
+    "keeps a target-company notice with bound %s",
+    (boundEvidenceLabel) => {
     render(
       <MessageBubble
         message={{
@@ -1456,7 +1458,14 @@ describe("Chat-first conversation components", () => {
           ...bundle,
           context: {
             ...bundle.context,
-            evidence: [],
+            evidence: [
+              {
+                ...bundle.context.evidence[0],
+                id: `bound:${boundEvidenceLabel}`,
+                label: boundEvidenceLabel,
+                classification: "bound_evidence",
+              },
+            ],
           },
         }}
         canRegenerate={false}
@@ -1476,7 +1485,8 @@ describe("Chat-first conversation components", () => {
         "本轮未形成可回查的硬证据；当前判断按待验证展示。",
       ),
     ).not.toBeInTheDocument();
-  });
+    },
+  );
 
   it("replaces loading with a persistent cancelled message", () => {
     render(

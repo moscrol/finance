@@ -167,12 +167,16 @@ class SmokeHandler(BaseHTTPRequestHandler):
                         {
                             "run_id": "run-1",
                             "duckdb_cutoff": (
-                                "C:/private/market.duckdb"
-                                if type(self).mode == "unsafe_cutoff"
+                                None
+                                if type(self).mode == "missing_cutoff"
                                 else (
-                                    "latest"
-                                    if type(self).mode == "bad_cutoff"
-                                    else "2026-07-10"
+                                    "C:/private/market.duckdb"
+                                    if type(self).mode == "unsafe_cutoff"
+                                    else (
+                                        "latest"
+                                        if type(self).mode == "bad_cutoff"
+                                        else "2026-07-10"
+                                    )
                                 )
                             ),
                             "status": (
@@ -587,6 +591,15 @@ def test_non_duckdb_readiness_does_not_override_terminal_run_cutoff(
 
     assert exit_code == 0
     assert summary["run"] == {"duckdb_cutoff": "2026-07-10"}
+
+
+def test_completed_duckdb_smoke_requires_terminal_run_cutoff(
+    tmp_path: Path,
+) -> None:
+    exit_code, summary, _ = run_cli(tmp_path, "missing_cutoff")
+
+    assert exit_code == 2
+    assert summary["failure_stage"] == "run_metadata"
 
 
 @pytest.mark.parametrize("status", ["failed", "cancelled"])

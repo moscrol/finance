@@ -566,6 +566,8 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
     scanner = SecretScanner()
     stage_events: list[str] = []
     readiness = {"page": False, "health": False, "skills": False}
+    readiness_duckdb_cutoff: str | None = None
+    terminal_duckdb_cutoff: str | None = None
     summary: dict[str, object] = {
         "schema_version": 1,
         "readiness": readiness,
@@ -595,7 +597,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             timeout=remaining("readiness_health"),
             stage="readiness_health",
         )
-        _readiness_duckdb_cutoff(
+        readiness_duckdb_cutoff = _readiness_duckdb_cutoff(
             health,
             scanner=scanner,
         )
@@ -664,6 +666,16 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             key: value for key, value in sse_summary.items() if key != "stages"
         }
         run_status = terminal_run["status"]
+        terminal_duckdb_cutoff = _safe_optional_market_data_cutoff(
+            terminal_run.get("duckdb_cutoff"),
+            "run_metadata",
+        )
+        if (
+            run_status == "completed"
+            and readiness_duckdb_cutoff is not None
+            and terminal_duckdb_cutoff is None
+        ):
+            raise SmokeProtocolError("run_metadata")
         degrades = terminal_run.get("degrades", [])
         if not isinstance(degrades, list) or not all(
             isinstance(item, str) for item in degrades
@@ -730,10 +742,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
                 "run_id": run_id,
                 "run_status": run_status,
                 "run": {
-                    "duckdb_cutoff": _safe_optional_market_data_cutoff(
-                        terminal_run.get("duckdb_cutoff"),
-                        "run_metadata",
-                    ),
+                    "duckdb_cutoff": terminal_duckdb_cutoff,
                 },
                 "terminal_outcome": outcome,
                 "degrade_count": len(degrades),

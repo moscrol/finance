@@ -4,7 +4,7 @@ import time
 import urllib.error
 from collections.abc import Callable
 from dataclasses import asdict, replace
-from threading import BoundedSemaphore, Event, Thread, current_thread
+from threading import BoundedSemaphore, Event, Lock, Thread, current_thread
 
 import pytest
 
@@ -1512,6 +1512,135 @@ def test_runtime_market_probe_failure_does_not_block_turn(tmp_path, monkeypatch)
     )
 
     assert result.status == "completed"
+
+
+def test_slow_runtime_probe_starts_after_first_events_and_does_not_block_turn(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "今天市场怎么样"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    events_seen_at_probe_start: list[str] = []
+
+    def slow_probe(inputs):
+        events_seen_at_probe_start.extend(
+            event["event_type"] for event in run_store.load_stream_events(run_id)
+        )
+        time.sleep(0.4)
+        return type("Status", (), {"duckdb_cutoff": "2026-07-13"})()
+
+    monkeypatch.setattr(orchestrator_module, "probe_market_inputs", slow_probe)
+    started = time.monotonic()
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="manual",
+        selected_skill_ids=[],
+    )
+    elapsed = time.monotonic() - started
+
+    assert result.status == "completed"
+    assert elapsed < 0.3
+    assert events_seen_at_probe_start[:2] == ["message.start", "report.start"]
+    assert run_store.load_run(run_id).duckdb_cutoff is None
+
+
+def test_concurrent_turns_share_runtime_probe_and_reuse_cached_cutoff(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    runtime_inputs = RuntimeResearchInputs.from_roots(
+        code_root=tmp_path,
+        data_root=tmp_path / "shared-data",
+        users_root=tmp_path / "users",
+        knowledge_wiki=tmp_path / "wiki",
+        vector_index_dir=tmp_path / ".rag_index",
+    )
+    probe_release = Event()
+    probe_returned = Event()
+    probe_calls = 0
+    probe_lock = Lock()
+
+    def shared_slow_probe(inputs):
+        nonlocal probe_calls
+        with probe_lock:
+            probe_calls += 1
+        probe_release.wait(timeout=1)
+        probe_returned.set()
+        return type("Status", (), {"duckdb_cutoff": "2026-07-13"})()
+
+    monkeypatch.setattr(
+        orchestrator_module,
+        "probe_market_inputs",
+        shared_slow_probe,
+    )
+
+    def run_one(label: str) -> RunStore:
+        conversation_store = ConversationStore(
+            label,
+            root=tmp_path / label / "conversations",
+        )
+        run_store = RunStore(label, root=tmp_path / label / "runs")
+        conversation = conversation_store.create_conversation()
+        run_id, assistant_message_id = _prepare_turn(
+            conversation_store,
+            run_store,
+            conversation.conversation_id,
+            "今天市场怎么样",
+        )
+        TurnOrchestrator(
+            repo_root=tmp_path,
+            runtime_inputs=runtime_inputs,
+            conversation_store=conversation_store,
+            run_store=run_store,
+            answer_query_fn=lambda options: _ask_result(options.query),
+            skill_registry=SkillRegistry(),
+        ).run_turn(
+            conversation_id=conversation.conversation_id,
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+            query="今天市场怎么样",
+            skill_mode="manual",
+            selected_skill_ids=[],
+        )
+        return run_store
+
+    workers = [Thread(target=run_one, args=(label,)) for label in ("a", "b")]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join(timeout=0.5)
+
+    assert all(not worker.is_alive() for worker in workers)
+    assert probe_calls == 1
+
+    probe_release.set()
+    assert probe_returned.wait(timeout=0.5)
+    cached_store = run_one("cached")
+    cached_run = max(
+        cached_store.root.iterdir(),
+        key=lambda path: path.stat().st_mtime_ns,
+    )
+
+    assert probe_calls == 1
+    assert cached_store.load_run(cached_run.name).duckdb_cutoff == "2026-07-13"
 
 
 class _FailingSkill:

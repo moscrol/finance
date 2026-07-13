@@ -71,6 +71,11 @@ FINALIZATION_RESERVE_SECONDS = 5.0
 SYNTHESIS_RESERVE_SECONDS = 20.0
 SKILL_RESERVE_SECONDS = 25.0
 _SKILL_WORKER_SLOTS = BoundedSemaphore(8)
+RUNTIME_PROBE_TIMEOUT_SECONDS = 0.1
+RUNTIME_PROBE_CACHE_TTL_SECONDS = 30.0
+_RUNTIME_PROBE_LOCK = RLock()
+_RUNTIME_PROBE_CACHE: dict[str, tuple[float, str | None]] = {}
+_RUNTIME_PROBE_INFLIGHT: dict[str, Future[str | None]] = {}
 _FOLLOW_UP_REFERENCE_PATTERN = re.compile(
     r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
 )
@@ -83,6 +88,68 @@ _INTERNAL_CODE_PATTERN = re.compile(
 _EVIDENCE_LAYER_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])L([1-4])(?:\s*级(?:别)?)?(?![A-Za-z0-9_])"
 )
+
+
+def _runtime_probe_key(inputs: RuntimeResearchInputs) -> str:
+    return "|".join(
+        (
+            str(inputs.market_db_path),
+            str(inputs.exports_dir),
+            str(inputs.market_snapshot_dir),
+        )
+    )
+
+
+def _valid_runtime_cutoff(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError:
+        return None
+    return value if parsed.isoformat() == value else None
+
+
+def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
+    key = _runtime_probe_key(inputs)
+    now = time.monotonic()
+    start_worker = False
+    with _RUNTIME_PROBE_LOCK:
+        cached = _RUNTIME_PROBE_CACHE.get(key)
+        if cached is not None and cached[0] > now:
+            return cached[1]
+        future = _RUNTIME_PROBE_INFLIGHT.get(key)
+        if future is None:
+            future = Future()
+            _RUNTIME_PROBE_INFLIGHT[key] = future
+            start_worker = True
+
+    if start_worker:
+        def probe_once() -> None:
+            try:
+                cutoff = _valid_runtime_cutoff(
+                    probe_market_inputs(inputs).duckdb_cutoff
+                )
+            except Exception:  # Optional external input boundary.
+                cutoff = None
+            with _RUNTIME_PROBE_LOCK:
+                _RUNTIME_PROBE_CACHE[key] = (
+                    time.monotonic() + RUNTIME_PROBE_CACHE_TTL_SECONDS,
+                    cutoff,
+                )
+                _RUNTIME_PROBE_INFLIGHT.pop(key, None)
+            future.set_result(cutoff)
+
+        Thread(
+            target=probe_once,
+            name="workbench-runtime-probe",
+            daemon=True,
+        ).start()
+
+    try:
+        return future.result(timeout=RUNTIME_PROBE_TIMEOUT_SECONDS)
+    except FuturesTimeoutError:
+        return None
 _INTERNAL_TIER_TOKEN_PATTERN = re.compile(
     r"(?:high/)?L[1-4](?:_L[1-4])+(?:_[A-Za-z0-9]+)*",
     re.IGNORECASE,
@@ -736,18 +803,6 @@ class TurnOrchestrator:
         skill_outputs: list[SkillOutput] = []
         skill_timed_out = False
 
-        try:
-            runtime_cutoff = probe_market_inputs(self.runtime_inputs).duckdb_cutoff
-            if runtime_cutoff is not None:
-                parsed_cutoff = date.fromisoformat(runtime_cutoff)
-                if parsed_cutoff.isoformat() == runtime_cutoff:
-                    self.run_store.update_provenance(
-                        run_id,
-                        duckdb_cutoff=runtime_cutoff,
-                    )
-        except Exception:  # Optional runtime probe must never block the turn.
-            pass
-
         def can_emit_progress() -> bool:
             if self.is_cancelled():
                 return False
@@ -792,6 +847,15 @@ class TurnOrchestrator:
             {"report": report},
             conversation_id,
         )
+        runtime_cutoff = _runtime_cutoff_with_timeout(self.runtime_inputs)
+        if runtime_cutoff is not None:
+            try:
+                self.run_store.update_provenance(
+                    run_id,
+                    duckdb_cutoff=runtime_cutoff,
+                )
+            except (OSError, ValueError):
+                pass
         try:
             conversation = self.conversation_store.load_conversation(conversation_id)
             context = build_conversation_context(

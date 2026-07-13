@@ -770,6 +770,20 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def preserve_required_system_notices(answer: str, answer_spec: AnswerSpec) -> str:
+    text = str(answer or "").strip()
+    required = (
+        NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE
+        if NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE
+        in answer_spec.system_notices
+        else None
+    )
+    if required is None:
+        return text
+    body = text.replace(required, "").strip()
+    return required + (f"\n\n{body}" if body else "")
+
+
 def _render_stock_deep_dive_answer_spec(answer_spec: AnswerSpec) -> str:
     notices = _dedupe(answer_spec.system_notices)
     target_company = answer_spec.research_spec.theme
@@ -998,6 +1012,18 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
             f"\n{month_number}月{day_number}日"
         )
     issues: list[QualityIssue] = []
+    if (
+        NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE
+        in answer_spec.system_notices
+        and answer.count(NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE) != 1
+    ):
+        issues.append(
+            QualityIssue(
+                "llm_missing_required_notice",
+                "error",
+                "LLM 输出必须且只能保留一次目标公司硬证据缺口提示。",
+            )
+        )
     leaked = [term for term in _ENGINEERING_TERMS if term in answer]
     if leaked:
         issues.append(
