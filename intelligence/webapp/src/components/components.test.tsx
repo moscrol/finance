@@ -993,9 +993,14 @@ describe("Chat-first conversation components", () => {
 
     expect(
       screen.getByText(
-        "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
+        "本轮未形成可回查的硬证据；当前判断按待验证展示。",
       ),
     ).toBeVisible();
+    expect(
+      screen.queryByText(
+        "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("replaces loading with a persistent cancelled message", () => {
