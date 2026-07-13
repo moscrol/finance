@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import time
 from collections.abc import Callable, Sequence
@@ -37,7 +38,12 @@ from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.llm_refine import LLMStreamCancelled
 from intelligence.services import perspective_lab
 from intelligence.services.query_understanding import understand_query
-from intelligence.services.run_store import Artifact, RunStore, redact
+from intelligence.services.run_store import (
+    Artifact,
+    ArtifactPayload,
+    RunStore,
+    redact,
+)
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -88,6 +94,8 @@ class _SkillRunStoreGuard:
         self._cancelled = stopped
         self._stopped = False
         self._lock = RLock()
+        self._run_id: str | None = None
+        self._staged: dict[str, ArtifactPayload] = {}
 
     def __getattr__(self, name: str) -> object:
         return getattr(self._store, name)
@@ -104,20 +112,43 @@ class _SkillRunStoreGuard:
         with self._lock:
             if self._stopped or self._cancelled():
                 return self._discarded_artifact(filename, renderer, title)
-            artifact = self._store.add_artifact_if_active(
-                run_id,
-                filename,
-                content,
+            if self._run_id is not None and self._run_id != run_id:
+                raise ValueError("skill artifact staging supports one run")
+            self._run_id = run_id
+            data = content.encode("utf-8") if isinstance(content, str) else content
+            artifact = Artifact(
+                artifact_id=f"artifact_{filename.replace('.', '_')}",
+                path=filename,
                 renderer=renderer,
                 title=title,
+                sha256=hashlib.sha256(data).hexdigest(),
+                bytes=len(data),
             )
-            if artifact is not None:
-                return artifact
-            return self._discarded_artifact(filename, renderer, title)
+            self._staged[filename] = ArtifactPayload(
+                filename,
+                content,
+                renderer,
+                title,
+            )
+            return artifact
 
     def stop(self) -> None:
         with self._lock:
             self._stopped = True
+            self._staged.clear()
+
+    def commit(self) -> bool:
+        with self._lock:
+            if self._stopped or self._cancelled():
+                self._staged.clear()
+                return False
+            run_id = self._run_id
+            payloads = tuple(self._staged.values())
+            self._staged.clear()
+            self._stopped = True
+        if run_id is None:
+            return True
+        return self._store.add_artifacts_if_active(run_id, payloads) is not None
 
     @staticmethod
     def _discarded_artifact(filename: str, renderer: str, title: str) -> Artifact:
@@ -787,34 +818,39 @@ class TurnOrchestrator:
                         conversation_id,
                     )
                 else:
-                    skill_outputs.append(output)
-                    warnings.extend(output.warnings)
-                    citations.extend(output.citations)
-                    for warning in output.warnings:
-                        self.run_store.add_degrade(run_id, warning)
-                    for index, module in enumerate(output.modules, start=1):
-                        self._emit_module(
+                    if guarded_run_store.commit():
+                        skill_outputs.append(output)
+                        warnings.extend(output.warnings)
+                        citations.extend(output.citations)
+                        for warning in output.warnings:
+                            self.run_store.add_degrade(run_id, warning)
+                        for index, module in enumerate(output.modules, start=1):
+                            self._emit_module(
+                                run_id,
+                                assistant_message_id,
+                                conversation_id,
+                                report,
+                                module,
+                                f"skill:{skill_id}:module:{index}",
+                            )
+                        self._emit(
                             run_id,
                             assistant_message_id,
+                            f"skill:{skill_id}:result",
+                            "skill.result",
+                            {
+                                "skill_id": skill_id,
+                                "status": (
+                                    "degraded" if output.warnings else "completed"
+                                ),
+                                "output": asdict(output),
+                                "elapsed_ms": self._elapsed_ms(skill_started),
+                                "task_may_continue": False,
+                            },
                             conversation_id,
-                            report,
-                            module,
-                            f"skill:{skill_id}:module:{index}",
                         )
-                    self._emit(
-                        run_id,
-                        assistant_message_id,
-                        f"skill:{skill_id}:result",
-                        "skill.result",
-                        {
-                            "skill_id": skill_id,
-                            "status": "degraded" if output.warnings else "completed",
-                            "output": asdict(output),
-                            "elapsed_ms": self._elapsed_ms(skill_started),
-                            "task_may_continue": False,
-                        },
-                        conversation_id,
-                    )
+                    else:
+                        self._check_cancelled()
                 finally:
                     guarded_run_store.stop()
                     future.cancel()
@@ -1014,25 +1050,24 @@ class TurnOrchestrator:
             self._check_cancelled()
             if not self.claim_terminal():
                 return self._terminal_state_result(run_id, selected, invoked)
-            answer_artifact = self.run_store.add_artifact_if_active(
+            finished = self.run_store.finish_run_with_artifacts(
                 run_id,
-                "answer.md",
-                redact(answer_text),
-                renderer="markdown",
-                title=redact(f"对话回答：{query[:24]}"),
+                rs.STATUS_COMPLETED,
+                (
+                    ArtifactPayload(
+                        "answer.md",
+                        redact(answer_text),
+                        "markdown",
+                        redact(f"对话回答：{query[:24]}"),
+                    ),
+                    ArtifactPayload(
+                        "report.json",
+                        json.dumps(report, ensure_ascii=False, indent=2),
+                        "structured_report",
+                        "结构化对话报告",
+                    ),
+                ),
             )
-            if answer_artifact is None:
-                return self._terminal_state_result(run_id, selected, invoked)
-            report_artifact = self.run_store.add_artifact_if_active(
-                run_id,
-                "report.json",
-                json.dumps(report, ensure_ascii=False, indent=2),
-                renderer="structured_report",
-                title="结构化对话报告",
-            )
-            if report_artifact is None:
-                return self._terminal_state_result(run_id, selected, invoked)
-            finished = self.run_store.finish_run(run_id, rs.STATUS_COMPLETED)
             if finished.status != rs.STATUS_COMPLETED:
                 return self._terminal_state_result(run_id, selected, invoked)
             assistant = self.conversation_store.revise_message(
@@ -1262,16 +1297,18 @@ class TurnOrchestrator:
         report["status"] = rs.STATUS_CANCELLED
         report["warnings"] = list(dict.fromkeys(warnings))
         content = "".join(text_chunks)
-        artifact = self.run_store.add_artifact_if_active(
+        finished = self.run_store.finish_run_with_artifacts(
             run_id,
-            "report.json",
-            json.dumps(_redact_object(report), ensure_ascii=False, indent=2),
-            renderer="structured_report",
-            title="已取消的结构化对话报告",
+            rs.STATUS_CANCELLED,
+            (
+                ArtifactPayload(
+                    "report.json",
+                    json.dumps(_redact_object(report), ensure_ascii=False, indent=2),
+                    "structured_report",
+                    "已取消的结构化对话报告",
+                ),
+            ),
         )
-        if artifact is None:
-            return self._terminal_state_result(run_id, selected, invoked)
-        finished = self.run_store.finish_run(run_id, rs.STATUS_CANCELLED)
         if finished.status != rs.STATUS_CANCELLED:
             return self._terminal_state_result(run_id, selected, invoked)
         assistant = self.conversation_store.revise_message(

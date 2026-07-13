@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -832,6 +834,52 @@ def test_cancel_run_is_terminal_even_when_worker_finishes_later(
     assert client.get(f"/api/runs/{run_id}").json()["status"] == "cancelled"
 
 
+def test_bounded_daemon_executor_caps_blocked_workers_and_uses_daemon_threads() -> None:
+    executor = app_module.BoundedDaemonExecutor(max_workers=1)
+    release = threading.Event()
+    daemon_flags: list[bool] = []
+
+    def blocked() -> None:
+        daemon_flags.append(threading.current_thread().daemon)
+        release.wait(timeout=1)
+
+    future = executor.submit(blocked)
+    for _ in range(100):
+        if daemon_flags:
+            break
+        time.sleep(0.01)
+    try:
+        with pytest.raises(RuntimeError, match="capacity"):
+            executor.submit(lambda: None)
+        executor.shutdown(wait=False, cancel_futures=True)
+    finally:
+        release.set()
+
+    future.result(timeout=1)
+    assert daemon_flags == [True]
+
+
+def test_bounded_daemon_executor_shutdown_does_not_hold_process_open() -> None:
+    code = (
+        "from threading import Event\n"
+        "from intelligence.api.app import BoundedDaemonExecutor\n"
+        "executor = BoundedDaemonExecutor(max_workers=1)\n"
+        "executor.submit(Event().wait)\n"
+        "executor.shutdown(wait=False, cancel_futures=True)\n"
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(app_module.REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=3,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
 def test_terminal_claim_is_once_only_but_idempotent_for_same_owner() -> None:
     signal = app_module.CancellationSignal()
 
@@ -936,6 +984,26 @@ def test_executor_timeout_marks_run_failed(tmp_path, monkeypatch) -> None:
     assert run["status"] == "failed"
     assert run["error"] == "executor_timeout"
     assert run["degrades"] == ["executor_timeout"]
+
+
+def test_executor_timeout_forgets_supervisor_mapping_while_runner_is_blocked(
+    tmp_path,
+) -> None:
+    store = RunStore("alice", root=tmp_path / "runs")
+    run = store.create_run("q", "ask")
+    release = threading.Event()
+    supervisor = app_module.RunSupervisor(max_workers=1, timeout_sec=0.02)
+    supervisor._submit(store, run.run_id, lambda signal: release.wait(timeout=1))
+    try:
+        for _ in range(100):
+            if store.load_run(run.run_id).status == "failed":
+                break
+            time.sleep(0.01)
+        assert supervisor.active_count() == 0
+        assert supervisor.cancellation_signals == {}
+    finally:
+        release.set()
+        supervisor.shutdown()
 
 
 def test_executor_timeout_marks_pending_conversation_message_failed(

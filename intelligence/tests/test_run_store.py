@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from intelligence.services import run_store
-from intelligence.services.run_store import RunStore
+from intelligence.services.run_store import ArtifactPayload, RunStore
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "golden_run"
 
@@ -140,6 +140,40 @@ def test_add_artifact_if_active_is_a_terminal_state_cas(store: RunStore) -> None
     assert [item["path"] for item in store.load_run(run.run_id).artifacts] == [
         "before.md"
     ]
+
+
+def test_finish_run_with_artifacts_commits_payloads_and_terminal_atomically(
+    store: RunStore,
+) -> None:
+    run = store.create_run("q", "ask")
+    done = store.finish_run_with_artifacts(
+        run.run_id,
+        run_store.STATUS_COMPLETED,
+        (
+            ArtifactPayload("answer.md", "answer", "markdown", "answer"),
+            ArtifactPayload("report.json", "{}", "json", "report"),
+        ),
+    )
+
+    assert done.status == run_store.STATUS_COMPLETED
+    assert [item["path"] for item in done.artifacts] == ["answer.md", "report.json"]
+    assert (store.run_dir(run.run_id) / "answer.md").read_text() == "answer"
+
+
+def test_finish_run_with_artifacts_terminal_loser_writes_nothing(
+    store: RunStore,
+) -> None:
+    run = store.create_run("q", "ask")
+    store.finish_run(run.run_id, run_store.STATUS_CANCELLED)
+    saved = store.finish_run_with_artifacts(
+        run.run_id,
+        run_store.STATUS_COMPLETED,
+        (ArtifactPayload("loser.md", "loser", "markdown", "loser"),),
+    )
+
+    assert saved.status == run_store.STATUS_CANCELLED
+    assert saved.artifacts == []
+    assert not (store.run_dir(run.run_id) / "loser.md").exists()
 
 
 def test_requeue_incomplete_runs_marks_only_active_runs_queued(store: RunStore) -> None:

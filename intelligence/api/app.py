@@ -9,7 +9,7 @@ import threading
 import time
 from collections import Counter
 from collections.abc import Callable
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future
 from contextlib import asynccontextmanager, nullcontext
 from dataclasses import asdict
 from importlib import import_module
@@ -117,6 +117,71 @@ class CancellationSignal:
         return self._event.wait(timeout)
 
 
+class BoundedDaemonExecutor:
+    """Small non-blocking executor whose bounded workers never hold process exit."""
+
+    def __init__(self, max_workers: int) -> None:
+        if not isinstance(max_workers, int) or isinstance(max_workers, bool) or max_workers <= 0:
+            raise ValueError("max_workers must be a positive integer")
+        self._slots = threading.BoundedSemaphore(max_workers)
+        self._lock = Lock()
+        self._shutdown = False
+        self._futures: set[Future[object]] = set()
+
+    def submit(self, fn: Callable[..., object], *args: object, **kwargs: object) -> Future:
+        with self._lock:
+            if self._shutdown:
+                raise RuntimeError("executor is shutdown")
+        if not self._slots.acquire(blocking=False):
+            raise RuntimeError("executor capacity exhausted")
+        future: Future[object] = Future()
+        with self._lock:
+            if self._shutdown:
+                self._slots.release()
+                raise RuntimeError("executor is shutdown")
+            self._futures.add(future)
+
+        def run() -> None:
+            try:
+                if not future.set_running_or_notify_cancel():
+                    return
+                try:
+                    future.set_result(fn(*args, **kwargs))
+                except BaseException as exc:  # noqa: BLE001
+                    future.set_exception(exc)
+            finally:
+                self._slots.release()
+                with self._lock:
+                    self._futures.discard(future)
+
+        try:
+            threading.Thread(
+                target=run,
+                name="workbench-run",
+                daemon=True,
+            ).start()
+        except Exception:
+            with self._lock:
+                self._futures.discard(future)
+            self._slots.release()
+            raise
+        return future
+
+    def shutdown(
+        self,
+        wait: bool = False,
+        *,
+        cancel_futures: bool = False,
+    ) -> None:
+        del wait
+        with self._lock:
+            self._shutdown = True
+            futures = tuple(self._futures)
+        if cancel_futures:
+            for future in futures:
+                future.cancel()
+
+
 class RunSupervisor:
     def __init__(
         self,
@@ -131,10 +196,7 @@ class RunSupervisor:
             if answer_deadline_seconds is None
             else max(1.0, answer_deadline_seconds)
         )
-        self._executor = ThreadPoolExecutor(
-            max_workers=max_workers,
-            thread_name_prefix="workbench-run",
-        )
+        self._executor = BoundedDaemonExecutor(max_workers=max_workers)
         self._futures: dict[tuple[str, str], Future[None]] = {}
         self._timers: dict[tuple[str, str], threading.Timer] = {}
         self._stores: dict[tuple[str, str], RunStore] = {}
@@ -250,6 +312,7 @@ class RunSupervisor:
         )
         if run.status == rs.STATUS_CANCELLED and terminal_handler is not None:
             terminal_handler("cancelled_by_user")
+        self._forget(key)
         return queued_cancelled
 
     @property
@@ -301,6 +364,7 @@ class RunSupervisor:
         )
         if terminal_handler is not None:
             terminal_handler("executor_timeout")
+        self._forget(key)
 
 
 class CreateRunRequest(BaseModel):

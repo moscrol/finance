@@ -1,5 +1,6 @@
 import io
 import json
+import time
 import urllib.error
 from dataclasses import asdict
 from threading import BoundedSemaphore, Event, Thread, current_thread
@@ -439,36 +440,83 @@ def test_guard_stop_and_terminal_state_serialize_against_artifact_write(tmp_path
     release = Event()
 
     class BlockingRunStore(RunStore):
-        def add_artifact_if_active(self, *args, **kwargs):
+        def add_artifacts_if_active(self, *args, **kwargs):
             entered.set()
             release.wait(timeout=1)
-            return super().add_artifact_if_active(*args, **kwargs)
+            return super().add_artifacts_if_active(*args, **kwargs)
 
     store = BlockingRunStore("alice", root=tmp_path / "runs")
     run = store.create_run("q", "ask")
     guard = orchestrator_module._SkillRunStoreGuard(store, lambda: False)
-    writer = Thread(
-        target=lambda: guard.add_artifact(
-            run.run_id,
-            "racy.json",
-            "{}",
-            renderer="json",
-            title="racy",
-        )
+    guard.add_artifact(
+        run.run_id,
+        "racy.json",
+        "{}",
+        renderer="json",
+        title="racy",
     )
+    writer = Thread(target=guard.commit)
     stopper = Thread(target=guard.stop)
     writer.start()
     assert entered.wait(timeout=1)
     stopper.start()
+    stopper.join(timeout=0.1)
+    assert not stopper.is_alive()
     store.finish_run(run.run_id, "cancelled")
     release.set()
     writer.join(timeout=1)
     stopper.join(timeout=1)
 
     assert not writer.is_alive()
-    assert not stopper.is_alive()
     assert not (store.run_dir(run.run_id) / "racy.json").exists()
     assert store.load_run(run.run_id).artifacts == []
+
+
+def test_skill_guard_stages_in_memory_and_only_success_commit_touches_disk(
+    tmp_path,
+) -> None:
+    store = RunStore("alice", root=tmp_path / "runs")
+    run = store.create_run("q", "ask")
+    guard = orchestrator_module._SkillRunStoreGuard(store, lambda: False)
+    artifact = guard.add_artifact(
+        run.run_id,
+        "staged.json",
+        "{}",
+        renderer="json",
+        title="staged",
+    )
+
+    assert artifact.sha256
+    assert artifact.bytes == 2
+    assert not (store.run_dir(run.run_id) / "staged.json").exists()
+    assert guard.commit() is True
+    assert (store.run_dir(run.run_id) / "staged.json").read_text() == "{}"
+
+
+def test_skill_guard_stop_discards_staging_without_waiting_for_store_io(
+    tmp_path,
+) -> None:
+    class ForbiddenStore(RunStore):
+        def add_artifacts_if_active(self, *args, **kwargs):
+            raise AssertionError("stopped staging must not touch disk")
+
+    store = ForbiddenStore("alice", root=tmp_path / "runs")
+    run = store.create_run("q", "ask")
+    guard = orchestrator_module._SkillRunStoreGuard(store, lambda: False)
+    guard.add_artifact(
+        run.run_id,
+        "discarded.json",
+        "{}",
+        renderer="json",
+        title="discarded",
+    )
+
+    started = time.monotonic()
+    guard.stop()
+
+    assert time.monotonic() - started < 0.1
+    assert guard.commit() is False
+    assert not (store.run_dir(run.run_id) / "discarded.json").exists()
 
 
 def test_skill_worker_capacity_exhaustion_skips_without_starting_thread(
@@ -1594,12 +1642,17 @@ def test_worker_persists_run_terminal_before_message_and_terminal_events(
     )
     order: list[str] = []
     original_finish = run_store.finish_run
+    original_finalize = run_store.finish_run_with_artifacts
     original_revise = conversation_store.revise_message
     original_event = run_store.append_stream_event
 
     def finish_spy(run_id: str, status: str, *, error: str | None = None):
         order.append(f"run:{status}")
         return original_finish(run_id, status, error=error)
+
+    def finalize_spy(run_id: str, status: str, payloads, *, error: str | None = None):
+        order.append(f"run:{status}")
+        return original_finalize(run_id, status, payloads, error=error)
 
     def revise_spy(*args, **kwargs):
         order.append(f"message:{kwargs['status']}")
@@ -1616,6 +1669,7 @@ def test_worker_persists_run_terminal_before_message_and_terminal_events(
         return original_event(*args, **kwargs)
 
     monkeypatch.setattr(run_store, "finish_run", finish_spy)
+    monkeypatch.setattr(run_store, "finish_run_with_artifacts", finalize_spy)
     monkeypatch.setattr(conversation_store, "revise_message", revise_spy)
     monkeypatch.setattr(run_store, "append_stream_event", event_spy)
 
@@ -1665,11 +1719,11 @@ def test_unexpected_finish_status_does_not_write_completed_message_or_events(
     )
     original_finish = run_store.finish_run
 
-    def conflicting_finish(run_id: str, status: str, *, error: str | None = None):
+    def conflicting_finish(run_id: str, status: str, payloads, *, error: str | None = None):
         assert status == "completed"
         return original_finish(run_id, "cancelled", error="external winner")
 
-    monkeypatch.setattr(run_store, "finish_run", conflicting_finish)
+    monkeypatch.setattr(run_store, "finish_run_with_artifacts", conflicting_finish)
     result = TurnOrchestrator(
         repo_root=tmp_path,
         conversation_store=conversation_store,
@@ -1693,6 +1747,9 @@ def test_unexpected_finish_status_does_not_write_completed_message_or_events(
     assert assistant.status == "pending"
     assert "message.complete" not in terminal_events
     assert "report.complete" not in terminal_events
+    assert run_store.load_run(run_id).artifacts == []
+    assert not (run_store.run_dir(run_id) / "answer.md").exists()
+    assert not (run_store.run_dir(run_id) / "report.json").exists()
 
 
 def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(tmp_path) -> None:

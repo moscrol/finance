@@ -29,6 +29,7 @@ import json
 import os
 import re
 import threading
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -114,6 +115,14 @@ class Artifact:
     bytes: int
     previewable: bool = True
     downloadable: bool = True
+
+
+@dataclass(frozen=True)
+class ArtifactPayload:
+    filename: str
+    content: str | bytes
+    renderer: str
+    title: str
 
 
 @dataclass
@@ -284,13 +293,15 @@ class RunStore:
     ) -> Artifact:
         with self._state_lock:
             run = self.load_run(run_id)
-            return self._add_artifact_locked(
+            artifact = self._add_artifact_locked(
                 run,
                 filename,
                 content,
                 renderer=renderer,
                 title=title,
             )
+            self._write_run(run)
+            return artifact
 
     def add_artifact_if_active(
         self,
@@ -306,13 +317,37 @@ class RunStore:
             run = self.load_run(run_id)
             if run.status in _TERMINAL_STATUSES:
                 return None
-            return self._add_artifact_locked(
+            artifact = self._add_artifact_locked(
                 run,
                 filename,
                 content,
                 renderer=renderer,
                 title=title,
             )
+            self._write_run(run)
+            return artifact
+
+    def add_artifacts_if_active(
+        self,
+        run_id: str,
+        payloads: Sequence[ArtifactPayload],
+    ) -> list[Artifact] | None:
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if run.status in _TERMINAL_STATUSES:
+                return None
+            artifacts = [
+                self._add_artifact_locked(
+                    run,
+                    payload.filename,
+                    payload.content,
+                    renderer=payload.renderer,
+                    title=payload.title,
+                )
+                for payload in payloads
+            ]
+            self._write_run(run)
+            return artifacts
 
     def _add_artifact_locked(
         self,
@@ -336,7 +371,6 @@ class RunStore:
         )
         run.artifacts = [a for a in run.artifacts if a.get("path") != filename]
         run.artifacts.append(asdict(artifact))
-        self._write_run(run)
         return artifact
 
     def add_degrade(self, run_id: str, reason: str) -> None:
@@ -380,6 +414,36 @@ class RunStore:
             run = self.load_run(run_id)
             if run.status in _TERMINAL_STATUSES:
                 return run
+            run.status = status
+            run.finished_at = _now_iso()
+            run.error = redact(error) if error else None
+            self._write_run(run)
+            return run
+
+    def finish_run_with_artifacts(
+        self,
+        run_id: str,
+        status: str,
+        payloads: Sequence[ArtifactPayload],
+        *,
+        error: str | None = None,
+    ) -> Run:
+        if status not in _TERMINAL_STATUSES:
+            raise ValueError(
+                f"finish_run_with_artifacts 只接受终态：{_TERMINAL_STATUSES}，得到 {status!r}"
+            )
+        with self._state_lock:
+            run = self.load_run(run_id)
+            if run.status in _TERMINAL_STATUSES:
+                return run
+            for payload in payloads:
+                self._add_artifact_locked(
+                    run,
+                    payload.filename,
+                    payload.content,
+                    renderer=payload.renderer,
+                    title=payload.title,
+                )
             run.status = status
             run.finished_at = _now_iso()
             run.error = redact(error) if error else None
