@@ -22,14 +22,58 @@ def _runtime_inputs(tmp_path: Path) -> RuntimeResearchInputs:
     )
 
 
-def _write_market_db(path: Path, trade_date: str) -> None:
+def _write_market_db(
+    path: Path,
+    trade_date: str,
+    *,
+    column_type: str = "date",
+) -> None:
     path.parent.mkdir(parents=True)
     connection = duckdb.connect(str(path))
     try:
-        connection.execute("create table fact_market_daily(trade_date date)")
+        connection.execute(
+            f"create table fact_market_daily(trade_date {column_type})"
+        )
         connection.execute("insert into fact_market_daily values (?)", [trade_date])
     finally:
         connection.close()
+
+
+def _complete_market_payload() -> dict[str, object]:
+    return {
+        "stage": "修复",
+        "total_amount": 1,
+        "amount_ratio": 1.0,
+        "advancers": 1,
+        "decliners": 1,
+        "limit_up": 1,
+        "limit_down": 0,
+        "capacity_top3": [],
+    }
+
+
+def _write_warn_snapshot(
+    inputs: RuntimeResearchInputs,
+    trade_date: str,
+    *,
+    market: dict[str, object],
+) -> None:
+    inputs.market_snapshot_dir.mkdir(parents=True)
+    (inputs.market_snapshot_dir / "meta.json").write_text(
+        json.dumps({"latest_trade_date": trade_date}), encoding="utf-8"
+    )
+    (inputs.market_snapshot_dir / f"{trade_date}.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "1",
+                "trade_date": trade_date,
+                "market": market,
+                "themes": [],
+                "strong_stocks": [],
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_runtime_inputs_keep_code_and_canonical_data_roots_separate(
@@ -97,6 +141,7 @@ def test_probe_market_inputs_reports_stale_export_and_missing_optional_snapshot(
         ("2026-07-13-theme-candidates.json", "2026-07-13", "fresh"),
         ("2026-07-14-theme-candidates.json", "2026-07-14", "conflict"),
         ("20260713-theme-candidates.json", None, "missing"),
+        ("2026-99-99-theme-candidates.json", None, "missing"),
     ],
 )
 def test_probe_market_inputs_classifies_only_canonical_exports(
@@ -136,21 +181,10 @@ def test_probe_market_inputs_accepts_a_warn_snapshot_with_a_real_daily_file(
     tmp_path: Path,
 ) -> None:
     inputs = _runtime_inputs(tmp_path)
-    inputs.market_snapshot_dir.mkdir(parents=True)
-    (inputs.market_snapshot_dir / "meta.json").write_text(
-        json.dumps({"latest_trade_date": "2026-07-13"}), encoding="utf-8"
-    )
-    (inputs.market_snapshot_dir / "2026-07-13.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "1",
-                "trade_date": "2026-07-13",
-                "market": {},
-                "themes": [],
-                "strong_stocks": [],
-            }
-        ),
-        encoding="utf-8",
+    _write_warn_snapshot(
+        inputs,
+        "2026-07-13",
+        market=_complete_market_payload(),
     )
 
     status = probe_market_inputs(inputs)
@@ -158,6 +192,75 @@ def test_probe_market_inputs_accepts_a_warn_snapshot_with_a_real_daily_file(
     assert status.market_snapshot_available is True
     assert status.market_snapshot_date == "2026-07-13"
     assert status.market_data_available is True
+
+
+def test_probe_market_inputs_rejects_a_warn_snapshot_without_core_market_payload(
+    tmp_path: Path,
+) -> None:
+    inputs = _runtime_inputs(tmp_path)
+    _write_warn_snapshot(inputs, "2026-07-13", market={})
+
+    status = probe_market_inputs(inputs)
+
+    assert status.market_snapshot_available is False
+    assert status.market_snapshot_date is None
+    assert status.market_data_available is False
+
+
+def test_probe_market_inputs_rejects_an_invalid_snapshot_date(tmp_path: Path) -> None:
+    inputs = _runtime_inputs(tmp_path)
+    _write_warn_snapshot(
+        inputs,
+        "2026-99-99",
+        market=_complete_market_payload(),
+    )
+
+    status = probe_market_inputs(inputs)
+
+    assert status.market_snapshot_available is False
+    assert status.market_snapshot_date is None
+    assert status.market_data_available is False
+
+
+def test_probe_market_inputs_rejects_an_invalid_varchar_duckdb_cutoff(
+    tmp_path: Path,
+) -> None:
+    inputs = _runtime_inputs(tmp_path)
+    _write_market_db(
+        inputs.market_db_path,
+        "2026-99-99",
+        column_type="varchar",
+    )
+
+    status = probe_market_inputs(inputs)
+
+    assert status.duckdb_available is False
+    assert status.duckdb_cutoff is None
+    assert status.market_data_available is False
+    assert status.warning == "duckdb_invalid_cutoff"
+
+
+def test_probe_market_inputs_bounds_export_directory_io_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inputs = _runtime_inputs(tmp_path)
+    inputs.exports_dir.mkdir(parents=True)
+    original_iterdir = Path.iterdir
+
+    def fail_exports(directory: Path):
+        if directory == inputs.exports_dir:
+            raise OSError(f"private failure at {directory}")
+        return original_iterdir(directory)
+
+    monkeypatch.setattr(Path, "iterdir", fail_exports)
+
+    status = probe_market_inputs(inputs)
+
+    assert status.latest_export_date is None
+    assert status.export_freshness == "missing"
+    assert status.export_warning == "exports_unavailable"
+    assert str(tmp_path) not in status.export_warning
 
 
 def test_probe_market_inputs_returns_a_bounded_warning_for_invalid_duckdb(
