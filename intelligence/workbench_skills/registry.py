@@ -61,8 +61,17 @@ def register_skill(
         raise ValueError("skill triggers must be nonblank strings")
     if not isinstance(definition.input_schema, dict):
         raise ValueError("skill input_schema must be an object")
-    if definition.permissions != ("local_read",):
-        raise ValueError("skill permissions must be exactly ('local_read',)")
+    allowed_permissions = {"local_read", "network_read"}
+    if (
+        not isinstance(definition.permissions, tuple)
+        or not definition.permissions
+        or len(set(definition.permissions)) != len(definition.permissions)
+        or any(
+            permission not in allowed_permissions
+            for permission in definition.permissions
+        )
+    ):
+        raise ValueError("skill permissions contain unsupported values")
     if (
         not isinstance(definition.timeout_seconds, int)
         or isinstance(definition.timeout_seconds, bool)
@@ -83,6 +92,7 @@ def _register_builtin_skills() -> None:
         THEME_RESEARCH,
         ResearchOwnerSkill,
     )
+    from intelligence.workbench_skills.us_ai_drawdown import UsAiDrawdownSkill
 
     register_skill(
         SkillDefinition(
@@ -115,6 +125,26 @@ def _register_builtin_skills() -> None:
             timeout_seconds=30,
         ),
         DailyAgentSkill(),
+    )
+    register_skill(
+        SkillDefinition(
+            skill_id="us-ai-drawdown",
+            name="美股 AI 回撤榜",
+            description="抓取 Alpaca 复权日线，生成美股 AI 阵营最大回撤峰谷排序。",
+            version="1.0.0",
+            triggers=(
+                "美股 AI 回撤",
+                "美股AI回撤",
+                "美股回撤榜",
+                "AI 阵营回撤",
+                "AI阵营回撤",
+                "最大回撤排序",
+            ),
+            input_schema={"type": "object", "additionalProperties": False},
+            permissions=("local_read", "network_read"),
+            timeout_seconds=30,
+        ),
+        UsAiDrawdownSkill(),
     )
     for config, name, description, triggers in (
         (

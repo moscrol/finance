@@ -67,6 +67,11 @@ cd ../..
 - 默认仓库根目录由应用源码位置推导。
 - Daily Review / Daily Agent 仅读取
   `market_feature_store/exports/` 中的 canonical Markdown / JSON。
+- “美股 AI 回撤榜” Skill 从 Alpaca Market Data 读取 IEX 复权日线。服务端需由
+  secret manager 注入 `ALPACA_API_KEY_ID` 与 `ALPACA_API_SECRET_KEY`；密钥不能
+  写入 `.env`、前端变量、Run 产物或仓库。标的池配置位于
+  `intelligence/config/us_ai_watchlist.json`，行情缓存按用户写入
+  `<FORESIGHT_USERS_DIR>/<user_id>/market-cache/`。
 - `WORKBENCH_REPO_ROOT` 仅用于显式切换研究数据根目录，例如隔离测试 fixture。
 - 不把会话、Run、DuckDB、凭据或真实用户数据提交到 Git。
 
@@ -142,8 +147,10 @@ curl --fail --silent http://127.0.0.1:8788/api/skills | python -m json.tool
 curl --fail --silent http://127.0.0.1:8788/api/health/ready | python -m json.tool
 ```
 
-第二条应返回包含 `daily-review` 与 `daily-agent` 的 JSON 数组。若根路径返回
-`503`，先在 `intelligence/webapp` 运行 `pnpm build`。readiness 会把
+第二条应返回包含 `daily-review`、`daily-agent` 与 `us-ai-drawdown` 的 JSON
+数组。可在 Workbench 输入“生成美股 AI 阵营最近 30 个交易日最大回撤排序”验证
+结构化榜单。若根路径返回 `503`，先在 `intelligence/webapp` 运行
+`pnpm build`。readiness 会把
 `market_snapshot` 作为关键研究数据检查；目录缺失时返回 `503 not_ready`，并在
 `missing_critical` 中列出缺口，不能再把“页面能打开”误报成完整可用。
 
