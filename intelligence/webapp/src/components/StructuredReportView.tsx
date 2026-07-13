@@ -34,8 +34,9 @@ const SAFE_LLM_PROVIDERS = new Set([
   "fixture",
 ]);
 const SAFE_MODEL_LABEL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
-const CREDENTIAL_PREFIX =
-  /^(?:sk[-_]|ghp_|github_pat_|xox[bp]-|bearer)/i;
+const CREDENTIAL_FAMILY_CASE_INSENSITIVE =
+  /^(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_]|bearer)/i;
+const CREDENTIAL_FAMILY_CASE_SENSITIVE = /^(?:AKIA|ASIA|AIza|ya29\.)/;
 const JWT_SHAPE =
   /^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$/;
 const UNSAFE_MODEL_LABEL =
@@ -62,7 +63,8 @@ function safeModelLabel(value: string | null): string | null {
   if (
     !value ||
     !SAFE_MODEL_LABEL.test(value) ||
-    CREDENTIAL_PREFIX.test(value) ||
+    CREDENTIAL_FAMILY_CASE_INSENSITIVE.test(value) ||
+    CREDENTIAL_FAMILY_CASE_SENSITIVE.test(value) ||
     JWT_SHAPE.test(value) ||
     looksLikeHighEntropyToken(value) ||
     UNSAFE_MODEL_LABEL.test(value) ||

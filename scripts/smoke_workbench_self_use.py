@@ -28,9 +28,10 @@ UNSAFE_MODEL_LABEL = re.compile(
 PRIVATE_PATH_COMPONENT = re.compile(
     r"(?:^|/)(?:users|home|private|var|tmp|etc)(?:/|$)", re.IGNORECASE
 )
-CREDENTIAL_PREFIX = re.compile(
-    r"^(?:sk[-_]|ghp_|github_pat_|xox[bp]-|bearer)", re.IGNORECASE
+CREDENTIAL_FAMILY_CASE_INSENSITIVE = re.compile(
+    r"^(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_]|bearer)", re.IGNORECASE
 )
+CREDENTIAL_FAMILY_CASE_SENSITIVE = re.compile(r"^(?:AKIA|ASIA|AIza|ya29\.)")
 JWT_SHAPE = re.compile(r"^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$")
 SAFE_LLM_PROVIDERS = frozenset(
     {
@@ -68,9 +69,13 @@ SECRET_PATTERNS = (
     (
         "token_prefix",
         re.compile(
-            r"\b(?:sk[-_]|gh[pous]_|github_pat_|xox[bp]-)[A-Za-z0-9_-]{8,}",
+            r"\b(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_])[A-Za-z0-9_-]{8,}",
             re.IGNORECASE,
         ),
+    ),
+    (
+        "cloud_token_prefix",
+        re.compile(r"\b(?:AKIA|ASIA|AIza|ya29\.)[A-Za-z0-9._-]{8,}"),
     ),
     (
         "bearer_token",
@@ -440,7 +445,8 @@ def _safe_optional_model_label(value: object, stage: str) -> str | None:
     if label is None:
         return None
     if (
-        CREDENTIAL_PREFIX.search(label)
+        CREDENTIAL_FAMILY_CASE_INSENSITIVE.search(label)
+        or CREDENTIAL_FAMILY_CASE_SENSITIVE.search(label)
         or JWT_SHAPE.fullmatch(label)
         or _looks_like_high_entropy_token(label)
     ):

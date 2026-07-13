@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from argparse import Namespace
 import json
 import threading
 from contextlib import contextmanager
@@ -10,6 +11,28 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from scripts import smoke_workbench_self_use as smoke
+
+
+_CREDENTIAL_LABELS = (
+    "sk-private-value",
+    "sk-proj-abcdefghijklmnopqrstuvwxyz",
+    "rk_live_abcdefghijklmnopqrstuvwxyz",
+    "ghp_abcdefghijklmnopqrstuvwxyz",
+    "gho_abcdefghijklmnopqrstuvwxyz",
+    "ghu_abcdefghijklmnopqrstuvwxyz",
+    "ghs_abcdefghijklmnopqrstuvwxyz",
+    "ghr_abcdefghijklmnopqrstuvwxyz",
+    "xoxb-1234567890-abcdefghijklmnop",
+    "xoxa-1234567890-abcdefghijklmnop",
+    "github_pat_abcdefghijklmnopqrstuvwxyz",
+    "AKIAIOSFODNN7EXAMPLE",
+    "ASIAIOSFODNN7EXAMPLE",
+    "AIzaSyD-abcdefghijklmnopqrstuvwxyz1234567",
+    "ya29.a0AfH6SMabcdefghijklmnopqrstuvwxyz",
+    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.dGVzdHNpZ25hdHVyZQ",
+    "Bearer-credential-value",
+    "aB3dE5fG7hJ9kL2mN4pQ6rS8tV0wX1yZ3cD5eF7gH9jK2mN4",
+)
 
 
 class SmokeHandler(BaseHTTPRequestHandler):
@@ -352,19 +375,84 @@ def test_smoke_provider_labels_use_an_allowlist(
 
 @pytest.mark.parametrize(
     "model",
-    [
-        "sk-private-value",
-        "ghp_abcdefghijklmnopqrstuvwxyz",
-        "xoxb-1234567890-abcdefghijklmnop",
-        "github_pat_abcdefghijklmnopqrstuvwxyz",
-        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.dGVzdHNpZ25hdHVyZQ",
-        "Bearer-credential-value",
-        "aB3dE5fG7hJ9kL2mN4pQ6rS8tV0wX1yZ3cD5eF7gH9jK2mN4",
-    ],
+    _CREDENTIAL_LABELS,
 )
 def test_smoke_rejects_credential_shaped_model_labels(model: str) -> None:
     with pytest.raises(smoke.SmokeProtocolError, match="model_metadata"):
         smoke._safe_optional_model_label(model, "model_metadata")
+
+
+@pytest.mark.parametrize("model", ["glm-5.2", "gpt-4.1", "deepseek-chat", "qwen-plus"])
+def test_smoke_keeps_legitimate_model_labels(model: str) -> None:
+    assert smoke._safe_optional_model_label(model, "model_metadata") == model
+
+
+@pytest.mark.parametrize("model", _CREDENTIAL_LABELS)
+def test_smoke_summary_never_echoes_credential_families(
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+) -> None:
+    report = {
+        "status": "completed",
+        "as_of": "2026-07-14",
+        "modules": [],
+        "warnings": [],
+        "llm": {
+            "configured": True,
+            "attempted": True,
+            "used": True,
+            "provider": "zhipu",
+            "model": model,
+            "fallback_reason": None,
+        },
+    }
+
+    def request_json(*_args: object, stage: str, **_kwargs: object) -> object:
+        return {
+            "readiness_skills": [],
+            "create_conversation": {"conversation_id": "conversation-1"},
+            "create_message": {"run_id": "run-1"},
+            "run_report": report,
+        }[stage]
+
+    monkeypatch.setattr(smoke, "_request_bytes", lambda *_args, **_kwargs: b"<html>")
+    monkeypatch.setattr(smoke, "_request_json", request_json)
+    monkeypatch.setattr(
+        smoke,
+        "_stream_until_terminal",
+        lambda **_kwargs: (
+            {
+                "run_id": "run-1",
+                "status": "completed",
+                "degrades": [],
+                "duckdb_cutoff": "2026-07-10",
+            },
+            {
+                "request_count": 1,
+                "event_count": 1,
+                "terminal_event_count": 1,
+                "text_delta_count": 0,
+                "replayed": False,
+                "stages": ["understanding", "synthesis"],
+            },
+        ),
+    )
+
+    exit_code, summary = smoke.run_smoke(
+        Namespace(
+            base_url="http://127.0.0.1:1",
+            user="alice",
+            question="测试安全摘要",
+            timeout=3.0,
+        )
+    )
+    raw_summary = json.dumps(summary, ensure_ascii=False)
+
+    assert exit_code == 2
+    assert model not in raw_summary
+    assert model[:12] not in raw_summary
+    if model != _CREDENTIAL_LABELS[-1]:
+        assert summary["secret_scan"]["hit_count"] >= 1
 
 
 @pytest.mark.parametrize(

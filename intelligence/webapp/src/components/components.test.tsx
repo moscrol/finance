@@ -1026,9 +1026,20 @@ describe("Workbench components", () => {
   it.each(
     ([
       "sk-private-value",
+      "sk-proj-abcdefghijklmnopqrstuvwxyz",
+      "rk_live_abcdefghijklmnopqrstuvwxyz",
       "ghp_abcdefghijklmnopqrstuvwxyz",
+      "gho_abcdefghijklmnopqrstuvwxyz",
+      "ghu_abcdefghijklmnopqrstuvwxyz",
+      "ghs_abcdefghijklmnopqrstuvwxyz",
+      "ghr_abcdefghijklmnopqrstuvwxyz",
       "xoxb-1234567890-abcdefghijklmnop",
+      "xoxa-1234567890-abcdefghijklmnop",
       "github_pat_abcdefghijklmnopqrstuvwxyz",
+      "AKIAIOSFODNN7EXAMPLE",
+      "ASIAIOSFODNN7EXAMPLE",
+      "AIzaSyD-abcdefghijklmnopqrstuvwxyz1234567",
+      "ya29.a0AfH6SMabcdefghijklmnopqrstuvwxyz",
       "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.dGVzdHNpZ25hdHVyZQ",
       "Bearer-credential-value",
       "aB3dE5fG7hJ9kL2mN4pQ6rS8tV0wX1yZ3cD5eF7gH9jK2mN4",
@@ -1074,6 +1085,36 @@ describe("Workbench components", () => {
       ),
     ).toBeVisible();
   });
+
+  it.each(["glm-5.2", "gpt-4.1", "deepseek-chat", "qwen-plus"])(
+    "keeps the legitimate model label %s",
+    (model) => {
+      render(
+        <StructuredReportView
+          report={{
+            schema_version: 1,
+            report_id: "run_legitimate_model",
+            title: "合法模型标签",
+            task_type: "ask",
+            status: "completed",
+            as_of: null,
+            llm: {
+              configured: true,
+              attempted: true,
+              used: true,
+              provider: "zhipu",
+              model,
+              fallback_reason: null,
+            },
+            warnings: [],
+            modules: [],
+          }}
+        />,
+      );
+
+      expect(screen.getByText(`已使用 zhipu · ${model}`)).toBeVisible();
+    },
+  );
 
   it("shows aggregate self-use maturity without private event details", () => {
     render(
