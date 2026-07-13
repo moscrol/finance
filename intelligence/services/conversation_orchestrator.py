@@ -1032,6 +1032,9 @@ class TurnOrchestrator:
             )
             if report_artifact is None:
                 return self._terminal_state_result(run_id, selected, invoked)
+            finished = self.run_store.finish_run(run_id, rs.STATUS_COMPLETED)
+            if finished.status != rs.STATUS_COMPLETED:
+                return self._terminal_state_result(run_id, selected, invoked)
             assistant = self.conversation_store.revise_message(
                 conversation_id,
                 assistant_message_id,
@@ -1058,7 +1061,6 @@ class TurnOrchestrator:
                 {"message": asdict(assistant)},
                 conversation_id,
             )
-            self.run_store.finish_run(run_id, rs.STATUS_COMPLETED)
             return TurnResult(
                 status=rs.STATUS_COMPLETED,
                 content=assistant.content,
@@ -1260,6 +1262,18 @@ class TurnOrchestrator:
         report["status"] = rs.STATUS_CANCELLED
         report["warnings"] = list(dict.fromkeys(warnings))
         content = "".join(text_chunks)
+        artifact = self.run_store.add_artifact_if_active(
+            run_id,
+            "report.json",
+            json.dumps(_redact_object(report), ensure_ascii=False, indent=2),
+            renderer="structured_report",
+            title="已取消的结构化对话报告",
+        )
+        if artifact is None:
+            return self._terminal_state_result(run_id, selected, invoked)
+        finished = self.run_store.finish_run(run_id, rs.STATUS_CANCELLED)
+        if finished.status != rs.STATUS_CANCELLED:
+            return self._terminal_state_result(run_id, selected, invoked)
         assistant = self.conversation_store.revise_message(
             conversation_id,
             message_id,
@@ -1270,13 +1284,6 @@ class TurnOrchestrator:
             citations=citations,
             degrades=warnings,
         )
-        self.run_store.add_artifact_if_active(
-            run_id,
-            "report.json",
-            json.dumps(_redact_object(report), ensure_ascii=False, indent=2),
-            renderer="structured_report",
-            title="已取消的结构化对话报告",
-        )
         self._emit(
             run_id,
             message_id,
@@ -1285,7 +1292,6 @@ class TurnOrchestrator:
             {"status": rs.STATUS_CANCELLED, "message": asdict(assistant)},
             conversation_id,
         )
-        self.run_store.finish_run(run_id, rs.STATUS_CANCELLED)
         return TurnResult(
             status=rs.STATUS_CANCELLED,
             content=assistant.content,
@@ -1314,6 +1320,13 @@ class TurnOrchestrator:
         report["status"] = rs.STATUS_FAILED
         report["warnings"] = list(dict.fromkeys(warnings))
         content = "".join(text_chunks)
+        finished = self.run_store.finish_run(
+            run_id,
+            rs.STATUS_FAILED,
+            error=warning,
+        )
+        if finished.status != rs.STATUS_FAILED:
+            return self._terminal_state_result(run_id, selected, invoked)
         assistant = self.conversation_store.revise_message(
             conversation_id,
             message_id,
@@ -1339,11 +1352,6 @@ class TurnOrchestrator:
             "message.error",
             {"status": rs.STATUS_FAILED, "message": asdict(assistant)},
             conversation_id,
-        )
-        self.run_store.finish_run(
-            run_id,
-            rs.STATUS_FAILED,
-            error=warning,
         )
         return TurnResult(
             status=rs.STATUS_FAILED,

@@ -1577,6 +1577,124 @@ def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> Non
     assert deltas == ["whole answer"]
 
 
+@pytest.mark.parametrize("terminal", ["completed", "cancelled", "failed"])
+def test_worker_persists_run_terminal_before_message_and_terminal_events(
+    tmp_path,
+    monkeypatch,
+    terminal: str,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        f"终态顺序-{terminal}",
+    )
+    order: list[str] = []
+    original_finish = run_store.finish_run
+    original_revise = conversation_store.revise_message
+    original_event = run_store.append_stream_event
+
+    def finish_spy(run_id: str, status: str, *, error: str | None = None):
+        order.append(f"run:{status}")
+        return original_finish(run_id, status, error=error)
+
+    def revise_spy(*args, **kwargs):
+        order.append(f"message:{kwargs['status']}")
+        return original_revise(*args, **kwargs)
+
+    def event_spy(*args, **kwargs):
+        if kwargs["event_type"] in {
+            "report.complete",
+            "message.complete",
+            "report.error",
+            "message.error",
+        }:
+            order.append(f"event:{kwargs['event_type']}")
+        return original_event(*args, **kwargs)
+
+    monkeypatch.setattr(run_store, "finish_run", finish_spy)
+    monkeypatch.setattr(conversation_store, "revise_message", revise_spy)
+    monkeypatch.setattr(run_store, "append_stream_event", event_spy)
+
+    def answer(options: AskOptions) -> AskResult:
+        if terminal == "failed":
+            raise RuntimeError("fixture")
+        return _ask_result(options.query)
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer,
+        skill_registry=SkillRegistry(),
+        is_cancelled=(lambda: terminal == "cancelled"),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=f"终态顺序-{terminal}",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == terminal
+    run_index = order.index(f"run:{terminal}")
+    assert run_index < order.index(f"message:{terminal}")
+    assert all(
+        run_index < index
+        for index, item in enumerate(order)
+        if item.startswith("event:")
+    )
+
+
+def test_unexpected_finish_status_does_not_write_completed_message_or_events(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "终态冲突",
+    )
+    original_finish = run_store.finish_run
+
+    def conflicting_finish(run_id: str, status: str, *, error: str | None = None):
+        assert status == "completed"
+        return original_finish(run_id, "cancelled", error="external winner")
+
+    monkeypatch.setattr(run_store, "finish_run", conflicting_finish)
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="终态冲突",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    terminal_events = {
+        event["event_type"] for event in run_store.load_stream_events(run_id)
+    }
+    assert result.status == "cancelled"
+    assert assistant.status == "pending"
+    assert "message.complete" not in terminal_events
+    assert "report.complete" not in terminal_events
+
+
 def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(tmp_path) -> None:
     store = ConversationStore("alice", root=tmp_path)
     conversation = store.create_conversation()
