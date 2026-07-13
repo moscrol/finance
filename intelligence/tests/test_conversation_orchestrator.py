@@ -1351,6 +1351,7 @@ def test_turn_routes_with_query_envelope_and_records_it_in_trace(tmp_path) -> No
         *,
         registry: dict[str, SkillDefinition],
         query_envelope: QueryEnvelope,
+        primary_question_type: str,
         llm_timeout: float,
         execution_budget: ExecutionBudget,
     ) -> SkillRouteResult:
@@ -1359,6 +1360,7 @@ def test_turn_routes_with_query_envelope_and_records_it_in_trace(tmp_path) -> No
         assert skill_mode == "auto"
         assert selected_skill_ids == []
         assert registry == {}
+        assert primary_question_type == "general_finance_qa"
         assert llm_timeout <= 5
         assert execution_budget.remaining_seconds() <= 60
         routed.append(query_envelope)
@@ -1387,6 +1389,129 @@ def test_turn_routes_with_query_envelope_and_records_it_in_trace(tmp_path) -> No
     )
     route_output = json.loads(route_step["output_summary"])
     assert route_output["query_envelope"] == routed[0].to_dict()
+
+
+def test_turn_routes_real_company_query_with_production_primary_question_type(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "深挖英维克，它在液冷产业链的位置如何？"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    routed_question_types: list[str] = []
+
+    def route_spy(*args, primary_question_type: str, **kwargs) -> SkillRouteResult:
+        routed_question_types.append(primary_question_type)
+        return SkillRouteResult((), fallback_to_ask=False, base_finance_fallback=True)
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=route_spy,
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert routed_question_types == ["stock_deep_dive"]
+
+
+def test_turn_persists_runtime_duckdb_cutoff_without_source_date_overwrite(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "今天市场怎么样"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    runtime_inputs = RuntimeResearchInputs.from_roots(
+        code_root=tmp_path,
+        data_root=tmp_path,
+        users_root=tmp_path / "users",
+        knowledge_wiki=tmp_path / "wiki",
+        vector_index_dir=tmp_path / ".rag_index",
+    )
+    monkeypatch.setattr(
+        orchestrator_module,
+        "probe_market_inputs",
+        lambda inputs: type("Status", (), {"duckdb_cutoff": "2026-07-13"})(),
+        raising=False,
+    )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        runtime_inputs=runtime_inputs,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="manual",
+        selected_skill_ids=[],
+    )
+
+    run = run_store.load_run(run_id)
+    assert run.duckdb_cutoff == "2026-07-13"
+    assert run.source_date == "2026-07-11"
+
+
+def test_runtime_market_probe_failure_does_not_block_turn(tmp_path, monkeypatch) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "今天市场怎么样"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    monkeypatch.setattr(
+        orchestrator_module,
+        "probe_market_inputs",
+        lambda inputs: (_ for _ in ()).throw(OSError("probe failed")),
+        raising=False,
+    )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="manual",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
 
 
 class _FailingSkill:

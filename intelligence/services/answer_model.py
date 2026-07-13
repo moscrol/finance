@@ -10,7 +10,9 @@ from pathlib import Path
 
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "theme_research_specs.json"
-NO_TRACEABLE_EVIDENCE_NOTICE = "本轮未形成可回查的硬证据；当前判断按待验证展示。"
+NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE = (
+    "本轮未形成可回查的目标公司级硬证据；当前公司判断按待验证展示。"
+)
 _CITATION_RE = re.compile(r"\[([A-Z]\d+)\]")
 _DATE_RE = re.compile(r"\b20\d{2}[-/.年]\d{1,2}(?:[-/.月]\d{1,2}日?)?\b")
 _NUMBER_WITH_UNIT_RE = re.compile(
@@ -607,14 +609,19 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
             QualityIssue("missing_next_actions", "error", "缺少下一步核验动作。")
         )
     if (
-        any(claim.company for claim in answer_spec.verified_facts)
-        and NO_TRACEABLE_EVIDENCE_NOTICE in answer_spec.system_notices
+        any(
+            claim.company == answer_spec.research_spec.theme
+            and claim.status == ClaimStatus.VERIFIED
+            for claim in answer_spec.verified_facts
+        )
+        and NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE
+        in answer_spec.system_notices
     ):
         issues.append(
             QualityIssue(
                 "evidence_notice_contradiction",
                 "error",
-                "存在已核验公司事实时仍声明本轮未形成可回查的硬证据。",
+                "存在已核验目标公司事实时仍声明本轮未形成目标公司级硬证据。",
             )
         )
     return AnswerQualityReport(tuple(issues))
@@ -765,11 +772,36 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
 
 def _render_stock_deep_dive_answer_spec(answer_spec: AnswerSpec) -> str:
     notices = _dedupe(answer_spec.system_notices)
-    summary = _dedupe_claims(answer_spec.summary)
+    target_company = answer_spec.research_spec.theme
+    company = humanize(target_company)
+    summary = _dedupe_claims(
+        claim
+        for claim in answer_spec.summary
+        if claim.company == target_company
+        or claim.claim_id in {"summary:definition", "summary:company-gap"}
+    )
     facts = _dedupe_claims(answer_spec.verified_facts)
+    target_facts = tuple(
+        claim
+        for claim in facts
+        if claim.company == target_company
+        and claim.status == ClaimStatus.VERIFIED
+    )
+    peer_facts = tuple(
+        claim
+        for claim in facts
+        if claim.company
+        and claim.company != target_company
+        and claim.status == ClaimStatus.VERIFIED
+    )
+    market_facts = tuple(
+        claim
+        for claim in facts
+        if claim.claim_type in {"market_signal", "market_context"}
+        and claim.status == ClaimStatus.VERIFIED
+    )
     risks = _dedupe_claims((*answer_spec.counter_evidence, *answer_spec.gaps))
     actions = _dedupe(answer_spec.next_actions)
-    company = humanize(answer_spec.research_spec.theme)
     title = humanize(answer_spec.presentation_title or f"{company}：个股深挖")
 
     lines: list[str] = []
@@ -796,14 +828,26 @@ def _render_stock_deep_dive_answer_spec(answer_spec: AnswerSpec) -> str:
     lines.append(humanize(answer_spec.research_spec.company_scope))
 
     lines.extend(("", "## 最强证据"))
-    if facts:
-        lines.extend(f"- {_present_supporting_fact(claim)}" for claim in facts[:5])
-    elif NO_TRACEABLE_EVIDENCE_NOTICE in notices:
+    if target_facts:
+        lines.extend(
+            f"- {_present_supporting_fact(claim)}" for claim in target_facts[:5]
+        )
+    elif NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE in notices:
         lines.append("公司本体、主营收入与客户验证仍待补齐。")
     else:
-        lines.append(NO_TRACEABLE_EVIDENCE_NOTICE)
+        lines.append(NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE)
+
+    lines.extend(("", "## 市场表现与盘面证据"))
+    if market_facts:
+        lines.extend(
+            f"- {_present_supporting_fact(claim)}" for claim in market_facts[:4]
+        )
+    else:
+        lines.append("本轮未形成可回查的市场表现或盘面证据。")
 
     lines.extend(("", "## 同链证据"))
+    if peer_facts:
+        lines.extend(f"- {_present_supporting_fact(claim)}" for claim in peer_facts[:5])
     if answer_spec.company_table:
         lines.extend(
             (
@@ -826,7 +870,7 @@ def _render_stock_deep_dive_answer_spec(answer_spec: AnswerSpec) -> str:
                 )
                 + " |"
             )
-    else:
+    elif not peer_facts:
         lines.append("目前没有同链公司达到可展示的证据门槛。")
 
     lines.extend(("", "## 反证与缺口"))

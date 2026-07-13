@@ -482,6 +482,15 @@ def _safe_market_data_cutoff(value: object, stage: str) -> str:
     return value
 
 
+def _safe_optional_market_data_cutoff(
+    value: object,
+    stage: str,
+) -> str | None:
+    if value is None:
+        return None
+    return _safe_market_data_cutoff(value, stage)
+
+
 def _readiness_duckdb_cutoff(
     payload: object,
     *,
@@ -557,7 +566,6 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
     scanner = SecretScanner()
     stage_events: list[str] = []
     readiness = {"page": False, "health": False, "skills": False}
-    readiness_duckdb_cutoff: str | None = None
     summary: dict[str, object] = {
         "schema_version": 1,
         "readiness": readiness,
@@ -587,7 +595,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             timeout=remaining("readiness_health"),
             stage="readiness_health",
         )
-        readiness_duckdb_cutoff = _readiness_duckdb_cutoff(
+        _readiness_duckdb_cutoff(
             health,
             scanner=scanner,
         )
@@ -722,7 +730,10 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
                 "run_id": run_id,
                 "run_status": run_status,
                 "run": {
-                    "duckdb_cutoff": readiness_duckdb_cutoff,
+                    "duckdb_cutoff": _safe_optional_market_data_cutoff(
+                        terminal_run.get("duckdb_cutoff"),
+                        "run_metadata",
+                    ),
                 },
                 "terminal_outcome": outcome,
                 "degrade_count": len(degrades),

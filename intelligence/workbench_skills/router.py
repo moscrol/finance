@@ -101,6 +101,7 @@ def route_skills(
     registry: Mapping[str, SkillDefinition] | None = None,
     llm_complete: LLMComplete | None = None,
     query_envelope: QueryEnvelope | None = None,
+    primary_question_type: str | None = None,
     llm_timeout: float = 5.0,
     execution_budget: ExecutionBudget | None = None,
 ) -> SkillRouteResult:
@@ -138,8 +139,11 @@ def route_skills(
             for skill_id, definition in active_registry.items()
             if skill_id != "theme-research"
         }
-        if query_envelope is not None
-        and query_envelope.subject_kind in {"market_pattern", "company"}
+        if primary_question_type == "stock_deep_dive"
+        or (
+            query_envelope is not None
+            and query_envelope.subject_kind == "market_pattern"
+        )
         else active_registry
     )
     rules = _rule_candidates(query, task_type, automatic_registry)

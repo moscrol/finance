@@ -66,6 +66,11 @@ export function MessageBubble({
     ) ?? true;
   const noEvidenceNotice =
     "本轮未形成可回查的硬证据；当前判断按待验证展示。";
+  const targetCompanyEvidenceNotice =
+    "本轮未形成可回查的目标公司级硬证据；当前公司判断按待验证展示。";
+  const hasVisibleEvidenceNotice =
+    content.includes(noEvidenceNotice) ||
+    content.includes(targetCompanyEvidenceNotice);
 
   if (message.role === "user") {
     return (
@@ -98,7 +103,7 @@ export function MessageBubble({
             自然语言综合暂时不可用
           </span>
         )}
-        {!hasBoundEvidence && !content.includes(noEvidenceNotice) && (
+        {!hasBoundEvidence && !hasVisibleEvidenceNotice && (
           <div className="message-evidence-warning" role="status">
             {noEvidenceNotice}
           </div>

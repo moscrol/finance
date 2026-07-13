@@ -11,7 +11,7 @@ from intelligence.services.answer_model import (
     CompanyCandidate,
     CompanyTier,
     EvidenceRef,
-    NO_TRACEABLE_EVIDENCE_NOTICE,
+    NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE,
     build_company_assessments,
     evaluate_answer_spec,
     finalize_answer_spec,
@@ -218,20 +218,21 @@ class ClaimAdjudicationTests(unittest.TestCase):
         self.assertNotIn("engineering_term_leak", codes)
         self.assertIn("仅有概念关联", humanize(other_theme_claim.text))
 
-    def test_quality_gate_rejects_neutral_no_evidence_notice_with_verified_company_fact(
+    def test_quality_gate_rejects_target_notice_with_verified_target_company_fact(
         self,
     ) -> None:
+        company_spec = replace(self.spec, theme="英维克")
         verified = make_claim(
             claim_id="company-verified",
             text="英维克公告披露液冷产品已用于数据中心温控。",
             claim_type="company_evidence",
-            theme=self.spec.theme,
+            theme=company_spec.theme,
             status=ClaimStatus.VERIFIED,
             company="英维克",
             evidence_ids=("R1",),
         )
         answer = AnswerSpec(
-            research_spec=self.spec,
+            research_spec=company_spec,
             summary=(verified,),
             verified_facts=(verified,),
             company_table=(),
@@ -241,19 +242,54 @@ class ClaimAdjudicationTests(unittest.TestCase):
                     claim_id="gap-1",
                     text="收入贡献仍待验证。",
                     claim_type="evidence_gap",
-                    theme=self.spec.theme,
+                    theme=company_spec.theme,
                     status=ClaimStatus.MISSING,
                 ),
             ),
             triggers=(),
             next_actions=("核对公告。",),
             sources=(EvidenceRef("R1", "公司公告"),),
-            system_notices=(NO_TRACEABLE_EVIDENCE_NOTICE,),
+            system_notices=(NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE,),
         )
 
         codes = {issue.code for issue in evaluate_answer_spec(answer).issues}
 
         self.assertIn("evidence_notice_contradiction", codes)
+
+    def test_quality_gate_allows_target_notice_with_market_fact_only(self) -> None:
+        company_spec = replace(self.spec, theme="英维克")
+        market_fact = make_claim(
+            claim_id="market-verified",
+            text="液冷板块成交活跃度上升。",
+            claim_type="market_signal",
+            theme=company_spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_ids=("S1",),
+        )
+        answer = AnswerSpec(
+            research_spec=company_spec,
+            summary=(market_fact,),
+            verified_facts=(market_fact,),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="gap-1",
+                    text="目标公司业务贡献仍待验证。",
+                    claim_type="evidence_gap",
+                    theme=company_spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=("核对公司公告。",),
+            sources=(EvidenceRef("S1", "盘面数据"),),
+            system_notices=(NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE,),
+        )
+
+        codes = {issue.code for issue in evaluate_answer_spec(answer).issues}
+
+        self.assertNotIn("evidence_notice_contradiction", codes)
 
 
 class PresenterAndLLMGateTests(unittest.TestCase):
@@ -540,12 +576,15 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             self._answer(),
             presentation_kind="stock_deep_dive",
             verified_facts=(),
-            system_notices=(NO_TRACEABLE_EVIDENCE_NOTICE,),
+            system_notices=(NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE,),
         )
 
         rendered = render_answer_spec(answer)
 
-        self.assertEqual(rendered.count(NO_TRACEABLE_EVIDENCE_NOTICE), 1)
+        self.assertEqual(
+            rendered.count(NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE),
+            1,
+        )
         self.assertNotIn("未形成可验证的公司级来源", rendered)
 
     def test_llm_gate_rejects_new_company_and_number(self) -> None:

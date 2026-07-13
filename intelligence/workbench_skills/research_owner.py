@@ -103,7 +103,7 @@ class ResearchOwnerSkill:
         result: AskResult,
     ) -> SkillAnswerContract | None:
         spec = result.answer_spec
-        if spec is None or not self._has_traceable_verified_fact(spec):
+        if spec is None or not self._has_traceable_verified_fact(result, spec):
             return None
         owned_spec = replace(
             spec,
@@ -116,7 +116,7 @@ class ResearchOwnerSkill:
                 )
             ),
             presentation_kind=self.config.presentation_kind,
-            presentation_title=self.config.title,
+            presentation_title=self._presentation_title(spec),
         )
         owned_spec = answer_model.finalize_answer_spec(owned_spec)
         return SkillAnswerContract(
@@ -126,8 +126,18 @@ class ResearchOwnerSkill:
             question_type=self.config.question_type,
         )
 
+    def _presentation_title(self, spec: answer_model.AnswerSpec) -> str:
+        if self.config.question_type != "stock_deep_dive":
+            return self.config.title
+        target = spec.research_spec.theme.strip()
+        existing = str(spec.presentation_title or "").strip()
+        if target and target in existing:
+            return existing
+        return f"{target}：个股深挖" if target else self.config.title
+
     def _has_traceable_verified_fact(
         self,
+        result: AskResult,
         spec: answer_model.AnswerSpec,
     ) -> bool:
         source_ids = {
@@ -135,8 +145,26 @@ class ResearchOwnerSkill:
             for source in spec.sources
             if source.evidence_id not in _PRIOR_ONLY_EVIDENCE
         }
+        target_company: str | None = None
+        if self.config.question_type == "stock_deep_dive":
+            target_company = spec.research_spec.theme.strip() or None
+            envelope = (
+                result.question_plan.query_envelope
+                if result.question_plan is not None
+                else None
+            )
+            if (
+                envelope is not None
+                and envelope.subject_kind == "company"
+                and envelope.subject
+                and envelope.subject.strip() != target_company
+            ):
+                return False
+            if target_company is None:
+                return False
         return any(
             claim.status == answer_model.ClaimStatus.VERIFIED
+            and (target_company is None or claim.company == target_company)
             and any(
                 evidence_id in source_ids
                 and evidence_id.startswith(self.config.evidence_prefixes)

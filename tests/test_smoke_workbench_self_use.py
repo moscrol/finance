@@ -91,10 +91,6 @@ class SmokeHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/health/ready":
             cutoff = "2026-07-13"
-            if type(self).mode == "unsafe_cutoff":
-                cutoff = "C:/private/market.duckdb"
-            elif type(self).mode == "bad_cutoff":
-                cutoff = "latest"
             self._json(
                 {
                     "status": "ready",
@@ -170,7 +166,15 @@ class SmokeHandler(BaseHTTPRequestHandler):
                         "run",
                         {
                             "run_id": "run-1",
-                            "duckdb_cutoff": "2026-07-10",
+                            "duckdb_cutoff": (
+                                "C:/private/market.duckdb"
+                                if type(self).mode == "unsafe_cutoff"
+                                else (
+                                    "latest"
+                                    if type(self).mode == "bad_cutoff"
+                                    else "2026-07-10"
+                                )
+                            ),
                             "status": (
                                 type(self).mode
                                 if type(self).mode in {"failed", "cancelled"}
@@ -306,10 +310,7 @@ def run_cli(tmp_path: Path, mode: str) -> tuple[int, dict[str, object], str]:
                 str(output),
             ]
         )
-        if mode in {"unsafe_cutoff", "bad_cutoff"}:
-            assert handler.received_question == ""
-        else:
-            assert handler.received_question == question
+        assert handler.received_question == question
     return exit_code, json.loads(output.read_text()), output.read_text()
 
 
@@ -342,7 +343,7 @@ def test_completed_smoke_replays_sse_and_writes_redacted_summary(
         },
     }
     assert summary["readiness"] == {"page": True, "health": True, "skills": True}
-    assert summary["run"] == {"duckdb_cutoff": "2026-07-13"}
+    assert summary["run"] == {"duckdb_cutoff": "2026-07-10"}
     assert summary["model"] == {
         "metadata_present": True,
         "used": False,
@@ -552,10 +553,10 @@ def test_smoke_summary_hides_unknown_model_families(
         ("unsafe_as_of", "report_metadata", "/private/report-prompt"),
         (
             "unsafe_cutoff",
-            "readiness_market_data",
+            "run_metadata",
             "C:/private/market.duckdb",
         ),
-        ("bad_cutoff", "readiness_market_data", "latest"),
+        ("bad_cutoff", "run_metadata", "latest"),
     ],
 )
 def test_smoke_rejects_unsafe_metadata_without_echoing_it(
@@ -579,13 +580,13 @@ def test_degraded_completed_smoke_returns_zero(tmp_path: Path) -> None:
     assert summary["degrade_count"] == 1
 
 
-def test_non_duckdb_readiness_source_never_reports_duckdb_cutoff(
+def test_non_duckdb_readiness_does_not_override_terminal_run_cutoff(
     tmp_path: Path,
 ) -> None:
     exit_code, summary, _ = run_cli(tmp_path, "snapshot_source")
 
     assert exit_code == 0
-    assert summary["run"] == {"duckdb_cutoff": None}
+    assert summary["run"] == {"duckdb_cutoff": "2026-07-10"}
 
 
 @pytest.mark.parametrize("status", ["failed", "cancelled"])

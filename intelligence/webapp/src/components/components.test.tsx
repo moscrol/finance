@@ -1441,6 +1441,43 @@ describe("Chat-first conversation components", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("does not add a generic warning beside a target-company notice", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content:
+            "本轮未形成可回查的目标公司级硬证据；当前公司判断按待验证展示。",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={null}
+        bundle={{
+          ...bundle,
+          context: {
+            ...bundle.context,
+            evidence: [],
+          },
+        }}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "本轮未形成可回查的目标公司级硬证据；当前公司判断按待验证展示。",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(
+        "本轮未形成可回查的硬证据；当前判断按待验证展示。",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
   it("replaces loading with a persistent cancelled message", () => {
     render(
       <MessageBubble

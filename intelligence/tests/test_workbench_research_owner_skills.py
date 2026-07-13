@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -29,15 +30,22 @@ def _answer_spec(
     query: str,
     *,
     evidence_id: str = "W1",
+    theme: str = "液冷",
+    company: str | None = None,
+    fact_text: str = "目标公司已披露液冷相关业务进展",
 ) -> answer_model.AnswerSpec:
-    research_spec = answer_model.resolve_theme_research_spec(query, "液冷")
+    research_spec = replace(
+        answer_model.resolve_theme_research_spec(query, "液冷"),
+        theme=theme,
+    )
     fact = answer_model.make_claim(
         claim_id="fact-1",
-        text="目标公司已披露液冷相关业务进展",
+        text=fact_text,
         claim_type="company_fact",
         theme=research_spec.theme,
         status=answer_model.ClaimStatus.VERIFIED,
         evidence_tier="公告",
+        company=company,
         evidence_ids=(evidence_id,),
     )
     spec = answer_model.AnswerSpec(
@@ -67,7 +75,12 @@ def _result(
     question_type: str,
     *,
     evidence_id: str = "W1",
+    theme: str = "液冷",
+    company: str | None = None,
+    fact_text: str = "目标公司已披露液冷相关业务进展",
 ) -> AskResult:
+    if company is None and question_type == STOCK_DEEP_DIVE.question_type:
+        company = theme
     result = AskResult(
         query=query,
         trade_date="2026-07-10",
@@ -81,7 +94,13 @@ def _result(
         "液冷",
         question_type_override=question_type,
     )
-    result.answer_spec = _answer_spec(query, evidence_id=evidence_id)
+    result.answer_spec = _answer_spec(
+        query,
+        evidence_id=evidence_id,
+        theme=theme,
+        company=company,
+        fact_text=fact_text,
+    )
     result.citations = [
         Citation(
             tag=evidence_id,
@@ -90,6 +109,44 @@ def _result(
         )
     ]
     return result
+
+
+@pytest.mark.parametrize(
+    ("existing_title", "expected_title"),
+    [
+        ("英维克：个股研究结论", "英维克：个股研究结论"),
+        ("个股研究结论", "英维克：个股深挖"),
+        (None, "英维克：个股深挖"),
+    ],
+)
+def test_stock_owner_presentation_title_keeps_target_company(
+    tmp_path: Path,
+    existing_title: str | None,
+    expected_title: str,
+) -> None:
+    result = _result(
+        "深挖英维克",
+        STOCK_DEEP_DIVE.question_type,
+        evidence_id="R1",
+        theme="英维克",
+        company="英维克",
+        fact_text="英维克公告披露液冷业务进展。",
+    )
+    assert result.answer_spec is not None
+    result.answer_spec = replace(
+        result.answer_spec,
+        presentation_title=existing_title,
+    )
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run("深挖英维克", "ask")
+
+    output = ResearchOwnerSkill(
+        STOCK_DEEP_DIVE,
+        answer_query_fn=lambda options: result,
+    ).execute(_context(tmp_path, store, run.run_id, "深挖英维克"))
+
+    assert output.answer_contract is not None
+    assert output.answer_contract.answer_spec.presentation_title == expected_title
 
 
 def _context(
@@ -183,12 +240,17 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
     assert output.answer_contract.retrieval_plan == config.retrieval_plan
     assert output.answer_contract.output_contract == config.output_contract
     assert output.answer_contract.question_type == config.question_type
-    assert output.answer_contract.answer_spec.presentation_title == config.title
+    expected_title = (
+        "液冷：个股深挖"
+        if config.question_type == STOCK_DEEP_DIVE.question_type
+        else config.title
+    )
+    assert output.answer_contract.answer_spec.presentation_title == expected_title
     assert (
         output.answer_contract.answer_spec.presentation_kind
         == config.presentation_kind
     )
-    assert f"# {config.title}" in answer_model.render_answer_spec(
+    assert f"# {expected_title}" in answer_model.render_answer_spec(
         output.answer_contract.answer_spec
     )
     assert all(
@@ -311,6 +373,41 @@ def test_stock_owner_does_not_treat_market_only_evidence_as_company_fact(
     ).execute(_context(tmp_path, store, run.run_id, "深挖液冷公司"))
 
     assert output.answer_contract is None
+
+
+def test_stock_owner_requires_target_company_fact_and_renderer_separates_peer_fact(
+    tmp_path: Path,
+) -> None:
+    result = _result(
+        "深挖英维克，它在液冷产业链的位置如何？",
+        STOCK_DEEP_DIVE.question_type,
+        evidence_id="R1",
+        theme="英维克",
+        company="高澜股份",
+        fact_text="高澜股份公告披露液冷产品业务进展。",
+    )
+    assert result.answer_spec is not None
+    result.answer_spec = replace(
+        result.answer_spec,
+        presentation_kind="stock_deep_dive",
+        presentation_title="英维克：个股深挖",
+    )
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(result.query, "ask")
+
+    output = ResearchOwnerSkill(
+        STOCK_DEEP_DIVE,
+        answer_query_fn=lambda options: result,
+    ).execute(_context(tmp_path, store, run.run_id, result.query))
+    rendered = answer_model.render_answer_spec(result.answer_spec)
+    position = rendered.split("## 公司定位", 1)[1].split("## 产业链位置", 1)[0]
+    strongest = rendered.split("## 最强证据", 1)[1].split("## 同链证据", 1)[0]
+    peers = rendered.split("## 同链证据", 1)[1].split("## 反证与缺口", 1)[0]
+
+    assert output.answer_contract is None
+    assert "高澜股份" not in position
+    assert "高澜股份" not in strongest
+    assert "高澜股份" in peers
 
 
 @pytest.mark.parametrize(

@@ -57,7 +57,6 @@ from intelligence.services.answer_quality import (
     build_quality_context,
 )
 from intelligence.services.answer_orchestrator import (
-    QUESTION_FINANCIAL_ANALYSIS,
     QUESTION_GENERAL,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
@@ -2834,22 +2833,22 @@ def _build_answer_spec_for_result(
             if result.next_trade_date
             else "下一交易日（日期待交易日历确认），不得按自然日猜测。"
         )
-    requires_company_evidence = (
+    has_company_target = (
         result.question_plan is not None
-        and result.question_plan.question_type
-        in {
-            QUESTION_THEME_ANALYSIS,
-            QUESTION_NEWS_IMPACT,
-            QUESTION_STOCK_DEEP_DIVE,
-            QUESTION_FINANCIAL_ANALYSIS,
-        }
+        and (
+            result.question_plan.question_type == QUESTION_STOCK_DEEP_DIVE
+            or result.question_plan.query_envelope.subject_kind == "company"
+        )
     )
-    has_verified_company_claim = any(
-        claim.company and claim.status == answer_model.ClaimStatus.VERIFIED
+    has_verified_target_company_claim = any(
+        claim.company == research_spec.theme
+        and claim.status == answer_model.ClaimStatus.VERIFIED
         for claim in claims
     )
-    if requires_company_evidence and not has_verified_company_claim:
-        notices.append(answer_model.NO_TRACEABLE_EVIDENCE_NOTICE)
+    if has_company_target and not has_verified_target_company_claim:
+        notices.append(
+            answer_model.NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE
+        )
     if any(
         term in warning.lower()
         for warning in result.warnings

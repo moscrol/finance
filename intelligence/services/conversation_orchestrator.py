@@ -7,6 +7,7 @@ import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future, TimeoutError as FuturesTimeoutError
 from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 from threading import BoundedSemaphore, RLock, Thread
 
@@ -45,7 +46,10 @@ from intelligence.services.run_store import (
     RunStore,
     redact,
 )
-from intelligence.services.runtime_inputs import RuntimeResearchInputs
+from intelligence.services.runtime_inputs import (
+    RuntimeResearchInputs,
+    probe_market_inputs,
+)
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -732,6 +736,18 @@ class TurnOrchestrator:
         skill_outputs: list[SkillOutput] = []
         skill_timed_out = False
 
+        try:
+            runtime_cutoff = probe_market_inputs(self.runtime_inputs).duckdb_cutoff
+            if runtime_cutoff is not None:
+                parsed_cutoff = date.fromisoformat(runtime_cutoff)
+                if parsed_cutoff.isoformat() == runtime_cutoff:
+                    self.run_store.update_provenance(
+                        run_id,
+                        duckdb_cutoff=runtime_cutoff,
+                    )
+        except Exception:  # Optional runtime probe must never block the turn.
+            pass
+
         def can_emit_progress() -> bool:
             if self.is_cancelled():
                 return False
@@ -787,6 +803,8 @@ class TurnOrchestrator:
                 conversation_id, context.summary
             )
             contextual_query = contextualize_follow_up_query(query, context)
+            primary_question_plan = plan_answer_question(contextual_query)
+            primary_question_type = primary_question_plan.question_type
             understanding_progress = turn_progress.producer("turn:understanding")
             understanding_progress("understanding", "running")
             try:
@@ -799,6 +817,7 @@ class TurnOrchestrator:
                     selected_skill_ids,
                     registry=self.skill_registry.definitions,
                     query_envelope=routing_envelope,
+                    primary_question_type=primary_question_type,
                     llm_timeout=execution_budget.child_timeout(5, reserve=50),
                     execution_budget=execution_budget,
                 )
@@ -1035,9 +1054,6 @@ class TurnOrchestrator:
                 )
 
             compose_started = time.monotonic()
-            primary_question_type = plan_answer_question(
-                contextual_query
-            ).question_type
             owner_output = next(
                 (
                     output
