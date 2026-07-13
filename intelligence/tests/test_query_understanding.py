@@ -189,8 +189,32 @@ def test_explicit_theme_strips_question_prefix() -> None:
 def test_explicit_market_question_never_invents_generic_subject() -> None:
     envelope = understand_query("研究为什么一个板块连续上涨、成交占比下降")
 
-    assert envelope.subject_kind == "unknown"
+    assert envelope.subject_kind == "market_pattern"
     assert envelope.subject is None
+
+
+def test_explicit_theme_uses_rightmost_valid_cue() -> None:
+    for query in (
+        "根据研究报告分析空芯光纤题材",
+        "用技术分析看看空芯光纤题材",
+        "请基于卖方研究分析空芯光纤题材",
+    ):
+        envelope = understand_query(query)
+        assert (envelope.subject_kind, envelope.subject, envelope.matched_by) == (
+            "theme",
+            "空芯光纤",
+            "explicit",
+        )
+
+
+def test_failed_explicit_cue_falls_through_to_market_pattern() -> None:
+    envelope = understand_query(
+        "从技术分析角度看，指数上涨但涨停家数减少，是否背离？"
+    )
+
+    assert envelope.subject_kind == "market_pattern"
+    assert envelope.subject is None
+    assert envelope.matched_by == "generic"
 
 
 def test_theme_alias_config_rejects_malformed_collection_types(
