@@ -371,9 +371,23 @@ def load_theme_candidates(exports_dir: str | Path | None, date: str | None) -> d
             return {"found": False, "path": str(base), "warnings": ["no theme-candidates export found"], "doc": {}}
         path = Path(matches[-1])
     try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:  # pragma: no cover - defensive
-        return {"found": False, "path": str(path), "warnings": [str(exc)], "doc": {}}
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # pragma: no cover - defensive
+        return {
+            "found": False,
+            "path": str(path),
+            "warnings": ["invalid_derivative: unreadable_json"],
+            "doc": {},
+        }
+    doc, contract_warning = _validate_theme_export_payload(payload)
+    if contract_warning is not None:
+        return {
+            "found": False,
+            "path": str(path),
+            "warnings": [contract_warning],
+            "doc": {},
+        }
+    assert doc is not None
     return {"found": True, "path": str(path), "warnings": [], "doc": doc}
 
 
@@ -438,6 +452,48 @@ def _canonical_iso_date(raw: str | None) -> date_cls | None:
     except ValueError:
         return None
     return parsed if parsed.isoformat() == raw else None
+
+
+_THEME_CANDIDATE_LIST_FIELDS = (
+    "candidates",
+    "deep_candidates",
+    "watch_candidates",
+    "long_tail_candidates",
+)
+
+
+def _validate_theme_export_payload(
+    payload: object,
+) -> tuple[dict[str, Any] | None, str | None]:
+    if not isinstance(payload, dict):
+        return None, "invalid_derivative: top_level_not_object"
+
+    raw_trade_date = payload.get("trade_date")
+    trade_date = _canonical_iso_date(
+        raw_trade_date if isinstance(raw_trade_date, str) else None
+    )
+    if trade_date is None:
+        return None, "invalid_derivative: invalid_trade_date"
+    if trade_date > date_cls.today():
+        return None, "invalid_derivative: future_trade_date"
+
+    has_candidate_list = False
+    for field_name in _THEME_CANDIDATE_LIST_FIELDS:
+        if field_name not in payload:
+            continue
+        value = payload[field_name]
+        if not isinstance(value, list):
+            return None, "invalid_derivative: candidate_list_not_list"
+        if any(not isinstance(item, dict) for item in value):
+            return None, "invalid_derivative: candidate_item_not_object"
+        has_candidate_list = True
+
+    has_market_context = "market_context" in payload
+    if has_market_context and not isinstance(payload["market_context"], dict):
+        return None, "invalid_derivative: market_context_not_object"
+    if not has_candidate_list and not has_market_context:
+        return None, "invalid_derivative: missing_market_payload"
+    return payload, None
 
 
 def _snapshot_freshness(
@@ -1022,8 +1078,14 @@ def answer_query(options: AskOptions) -> AskResult:
     loaded = load_theme_candidates(options.exports_dir, options.date)
     doc = loaded["doc"] if loaded["found"] else {}
     snapshot_date = str(doc.get("trade_date") or "").strip() or None
-    export_date = _theme_candidate_export_date(loaded.get("path"))
-    parsed_snapshot_date = _canonical_iso_date(snapshot_date)
+    export_date = (
+        _theme_candidate_export_date(loaded.get("path"))
+        if loaded["found"]
+        else None
+    )
+    parsed_snapshot_date = (
+        _canonical_iso_date(snapshot_date) if loaded["found"] else None
+    )
     parsed_requested_date = _canonical_iso_date(options.date)
     export_contract_valid = bool(
         loaded["found"]
