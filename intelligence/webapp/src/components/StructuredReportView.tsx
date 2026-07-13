@@ -35,8 +35,10 @@ const SAFE_LLM_PROVIDERS = new Set([
 ]);
 const SAFE_MODEL_LABEL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
 const CREDENTIAL_FAMILY_CASE_INSENSITIVE =
-  /^(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_]|bearer)/i;
+  /^(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_]|hf_|glpat-|xapp-|bearer)/i;
 const CREDENTIAL_FAMILY_CASE_SENSITIVE = /^(?:AKIA|ASIA|AIza|ya29\.)/;
+const SUPPORTED_MODEL_FAMILY =
+  /^(?:(?:glm|gpt|chatgpt|deepseek|kimi|moonshot|qwen|qwq|tongyi|claude)-[A-Za-z0-9][A-Za-z0-9._-]*|o[134](?:$|[-.][A-Za-z0-9][A-Za-z0-9._-]*)|fixture[A-Za-z0-9._-]*)$/i;
 const JWT_SHAPE =
   /^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$/;
 const UNSAFE_MODEL_LABEL =
@@ -74,7 +76,7 @@ function safeModelLabel(value: string | null): string | null {
   ) {
     return null;
   }
-  return value;
+  return SUPPORTED_MODEL_FAMILY.test(value) ? value : null;
 }
 
 function llmStatusLabel(report: StructuredReport): string {
@@ -84,14 +86,14 @@ function llmStatusLabel(report: StructuredReport): string {
     const model = safeModelLabel(llm.model);
     if (provider && model) return `已使用 ${provider} · ${model}`;
     if (provider) return `已使用 ${provider} · 模型信息已隐藏`;
-    return "已使用内置模型";
+    return "已使用模型 · 服务信息已隐藏";
   }
-  if (!llm.configured) return "内置模型未配置 · 已使用确定性回退";
-  if (!llm.attempted) return "内置模型可用 · 本轮未调用";
+  if (!llm.configured) return "模型服务未配置 · 已使用确定性回退";
+  if (!llm.attempted) return "模型服务可用 · 本轮未调用";
   const fallback = llm.fallback_reason
     ? FALLBACK_LABELS[llm.fallback_reason]
     : null;
-  return `内置模型已尝试 · 已回退：${fallback || "模型输出未采用"}`;
+  return `模型服务已尝试 · 已回退：${fallback || "模型输出未采用"}`;
 }
 
 function ReportModule({ module }: { module: StructuredReportModule }) {

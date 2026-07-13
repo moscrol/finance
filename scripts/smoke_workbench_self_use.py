@@ -29,10 +29,17 @@ PRIVATE_PATH_COMPONENT = re.compile(
     r"(?:^|/)(?:users|home|private|var|tmp|etc)(?:/|$)", re.IGNORECASE
 )
 CREDENTIAL_FAMILY_CASE_INSENSITIVE = re.compile(
-    r"^(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_]|bearer)", re.IGNORECASE
+    r"^(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_]|hf_|glpat-|xapp-|bearer)",
+    re.IGNORECASE,
 )
 CREDENTIAL_FAMILY_CASE_SENSITIVE = re.compile(r"^(?:AKIA|ASIA|AIza|ya29\.)")
 JWT_SHAPE = re.compile(r"^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$")
+SUPPORTED_MODEL_FAMILY = re.compile(
+    r"^(?:(?:glm|gpt|chatgpt|deepseek|kimi|moonshot|qwen|qwq|tongyi|claude)-"
+    r"[A-Za-z0-9][A-Za-z0-9._-]*|o[134](?:$|[-.][A-Za-z0-9][A-Za-z0-9._-]*)|"
+    r"fixture[A-Za-z0-9._-]*)$",
+    re.IGNORECASE,
+)
 SAFE_LLM_PROVIDERS = frozenset(
     {
         "zhipu",
@@ -69,7 +76,8 @@ SECRET_PATTERNS = (
     (
         "token_prefix",
         re.compile(
-            r"\b(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_])[A-Za-z0-9_-]{8,}",
+            r"\b(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_]|hf_|glpat-|xapp-)"
+            r"[A-Za-z0-9_-]{8,}",
             re.IGNORECASE,
         ),
     ),
@@ -451,7 +459,7 @@ def _safe_optional_model_label(value: object, stage: str) -> str | None:
         or _looks_like_high_entropy_token(label)
     ):
         raise SmokeProtocolError(stage)
-    return label
+    return label if SUPPORTED_MODEL_FAMILY.fullmatch(label) else None
 
 
 def _safe_optional_fallback_reason(value: object, stage: str) -> str | None:

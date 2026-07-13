@@ -41,6 +41,55 @@ import { SkillInvocation } from "./SkillInvocation";
 import { SkillPicker } from "./SkillPicker";
 import { StructuredReportView } from "./StructuredReportView";
 
+const supportedModelLabels = [
+  "glm-5.2",
+  "gpt-4.1",
+  "chatgpt-4o-latest",
+  "o1",
+  "o1-mini",
+  "o3",
+  "o3-mini",
+  "o4-mini",
+  "deepseek-chat",
+  "kimi-k2",
+  "moonshot-v1-8k",
+  "qwen-plus",
+  "qwq-32b",
+  "tongyi-qianwen",
+  "claude-3-7-sonnet",
+  "fixture",
+  "fixture-model",
+  "fixtureModel",
+] as const;
+const unknownModelLabels = [
+  ".model-safe",
+  "-model-safe",
+  "custom-model",
+] as const;
+const credentialLabels = [
+  "sk-private-value",
+  "sk-proj-abcdefghijklmnopqrstuvwxyz",
+  "rk_live_abcdefghijklmnopqrstuvwxyz",
+  "ghp_abcdefghijklmnopqrstuvwxyz",
+  "gho_abcdefghijklmnopqrstuvwxyz",
+  "ghu_abcdefghijklmnopqrstuvwxyz",
+  "ghs_abcdefghijklmnopqrstuvwxyz",
+  "ghr_abcdefghijklmnopqrstuvwxyz",
+  "xoxb-1234567890-abcdefghijklmnop",
+  "xoxa-1234567890-abcdefghijklmnop",
+  "github_pat_abcdefghijklmnopqrstuvwxyz",
+  "hf_abcdefghijklmnopqrstuvwxyz",
+  "glpat-abcdefghijklmnopqrstuvwxyz",
+  "xapp-1234567890-abcdefghijklmnop",
+  "AKIAIOSFODNN7EXAMPLE",
+  "ASIAIOSFODNN7EXAMPLE",
+  "AIzaSyD-abcdefghijklmnopqrstuvwxyz1234567",
+  "ya29.a0AfH6SMabcdefghijklmnopqrstuvwxyz",
+  "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.dGVzdHNpZ25hdHVyZQ",
+  "Bearer-credential-value",
+  "aB3dE5fG7hJ9kL2mN4pQ6rS8tV0wX1yZ3cD5eF7gH9jK2mN4",
+] as const;
+
 const apiMocks = vi.hoisted(() => ({
   archiveConversation: vi.fn(),
   cancelRun: vi.fn(),
@@ -639,7 +688,7 @@ describe("Workbench components", () => {
     },
     {
       label:
-        "内置模型已尝试 · 已回退：模型响应超时（provider_timeout）",
+        "模型服务已尝试 · 已回退：模型响应超时（provider_timeout）",
       llm: {
         configured: true,
         attempted: true,
@@ -650,7 +699,7 @@ describe("Workbench components", () => {
       },
     },
     {
-      label: "内置模型未配置 · 已使用确定性回退",
+      label: "模型服务未配置 · 已使用确定性回退",
       llm: {
         configured: false,
         attempted: false,
@@ -884,7 +933,7 @@ describe("Workbench components", () => {
         fallback_reason: "provider_timeout",
       },
       label:
-        "内置模型已尝试 · 已回退：模型响应超时（provider_timeout）",
+        "模型服务已尝试 · 已回退：模型响应超时（provider_timeout）",
     },
     {
       llm: {
@@ -895,7 +944,7 @@ describe("Workbench components", () => {
         model: null,
         fallback_reason: null,
       },
-      label: "内置模型可用 · 本轮未调用",
+      label: "模型服务可用 · 本轮未调用",
     },
     {
       llm: {
@@ -906,7 +955,7 @@ describe("Workbench components", () => {
         model: null,
         fallback_reason: "provider_unavailable",
       },
-      label: "内置模型未配置 · 已使用确定性回退",
+      label: "模型服务未配置 · 已使用确定性回退",
     },
   ])("shows the canonical LLM state: $label", ({ llm, label }) => {
     render(
@@ -954,7 +1003,7 @@ describe("Workbench components", () => {
     );
 
     expect(screen.queryByText(/Authorization|sk-private|raw prompt|private/)).toBeNull();
-    expect(screen.getByText("已使用内置模型")).toBeVisible();
+    expect(screen.getByText("已使用模型 · 服务信息已隐藏")).toBeVisible();
   });
 
   it.each([
@@ -983,7 +1032,7 @@ describe("Workbench components", () => {
             attempted: true,
             used: true,
             provider,
-            model: "model-1.0",
+            model: "glm-5.2",
             fallback_reason: null,
           },
           warnings: [],
@@ -992,7 +1041,7 @@ describe("Workbench components", () => {
       />,
     );
 
-    expect(screen.getByText(`已使用 ${provider} · model-1.0`)).toBeVisible();
+    expect(screen.getByText(`已使用 ${provider} · glm-5.2`)).toBeVisible();
   });
 
   it("replaces an unknown provider with a safe placeholder", () => {
@@ -1010,7 +1059,7 @@ describe("Workbench components", () => {
             attempted: true,
             used: true,
             provider: "unknown-provider",
-            model: "model-1.0",
+            model: "glm-5.2",
             fallback_reason: null,
           },
           warnings: [],
@@ -1020,30 +1069,11 @@ describe("Workbench components", () => {
     );
 
     expect(container.textContent).not.toContain("unknown-provider");
-    expect(screen.getByText("已使用内置模型")).toBeVisible();
+    expect(screen.getByText("已使用模型 · 服务信息已隐藏")).toBeVisible();
   });
 
   it.each(
-    ([
-      "sk-private-value",
-      "sk-proj-abcdefghijklmnopqrstuvwxyz",
-      "rk_live_abcdefghijklmnopqrstuvwxyz",
-      "ghp_abcdefghijklmnopqrstuvwxyz",
-      "gho_abcdefghijklmnopqrstuvwxyz",
-      "ghu_abcdefghijklmnopqrstuvwxyz",
-      "ghs_abcdefghijklmnopqrstuvwxyz",
-      "ghr_abcdefghijklmnopqrstuvwxyz",
-      "xoxb-1234567890-abcdefghijklmnop",
-      "xoxa-1234567890-abcdefghijklmnop",
-      "github_pat_abcdefghijklmnopqrstuvwxyz",
-      "AKIAIOSFODNN7EXAMPLE",
-      "ASIAIOSFODNN7EXAMPLE",
-      "AIzaSyD-abcdefghijklmnopqrstuvwxyz1234567",
-      "ya29.a0AfH6SMabcdefghijklmnopqrstuvwxyz",
-      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.dGVzdHNpZ25hdHVyZQ",
-      "Bearer-credential-value",
-      "aB3dE5fG7hJ9kL2mN4pQ6rS8tV0wX1yZ3cD5eF7gH9jK2mN4",
-    ] as const).flatMap((dangerous) =>
+    credentialLabels.flatMap((dangerous) =>
       (["provider", "model"] as const).map((field) => ({
         dangerous,
         field,
@@ -1080,13 +1110,13 @@ describe("Workbench components", () => {
     expect(
       screen.getByText(
         field === "provider"
-          ? "已使用内置模型"
+          ? "已使用模型 · 服务信息已隐藏"
           : "已使用 zhipu · 模型信息已隐藏",
       ),
     ).toBeVisible();
   });
 
-  it.each(["glm-5.2", "gpt-4.1", "deepseek-chat", "qwen-plus"])(
+  it.each(supportedModelLabels)(
     "keeps the legitimate model label %s",
     (model) => {
       render(
@@ -1113,6 +1143,37 @@ describe("Workbench components", () => {
       );
 
       expect(screen.getByText(`已使用 zhipu · ${model}`)).toBeVisible();
+    },
+  );
+
+  it.each(unknownModelLabels)(
+    "hides the unsupported model label %s",
+    (model) => {
+      const { container } = render(
+        <StructuredReportView
+          report={{
+            schema_version: 1,
+            report_id: "run_unknown_model",
+            title: "未知模型家族",
+            task_type: "ask",
+            status: "completed",
+            as_of: null,
+            llm: {
+              configured: true,
+              attempted: true,
+              used: true,
+              provider: "zhipu",
+              model,
+              fallback_reason: null,
+            },
+            warnings: [],
+            modules: [],
+          }}
+        />,
+      );
+
+      expect(container.textContent).not.toContain(model);
+      expect(screen.getByText("已使用 zhipu · 模型信息已隐藏")).toBeVisible();
     },
   );
 

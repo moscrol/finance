@@ -13,6 +13,27 @@ import pytest
 from scripts import smoke_workbench_self_use as smoke
 
 
+_SUPPORTED_MODEL_LABELS = (
+    "glm-5.2",
+    "gpt-4.1",
+    "chatgpt-4o-latest",
+    "o1",
+    "o1-mini",
+    "o3",
+    "o3-mini",
+    "o4-mini",
+    "deepseek-chat",
+    "kimi-k2",
+    "moonshot-v1-8k",
+    "qwen-plus",
+    "qwq-32b",
+    "tongyi-qianwen",
+    "claude-3-7-sonnet",
+    "fixture",
+    "fixture-model",
+    "fixtureModel",
+)
+_UNKNOWN_MODEL_LABELS = (".model-safe", "-model-safe", "custom-model")
 _CREDENTIAL_LABELS = (
     "sk-private-value",
     "sk-proj-abcdefghijklmnopqrstuvwxyz",
@@ -25,6 +46,9 @@ _CREDENTIAL_LABELS = (
     "xoxb-1234567890-abcdefghijklmnop",
     "xoxa-1234567890-abcdefghijklmnop",
     "github_pat_abcdefghijklmnopqrstuvwxyz",
+    "hf_abcdefghijklmnopqrstuvwxyz",
+    "glpat-abcdefghijklmnopqrstuvwxyz",
+    "xapp-1234567890-abcdefghijklmnop",
     "AKIAIOSFODNN7EXAMPLE",
     "ASIAIOSFODNN7EXAMPLE",
     "AIzaSyD-abcdefghijklmnopqrstuvwxyz1234567",
@@ -382,16 +406,20 @@ def test_smoke_rejects_credential_shaped_model_labels(model: str) -> None:
         smoke._safe_optional_model_label(model, "model_metadata")
 
 
-@pytest.mark.parametrize("model", ["glm-5.2", "gpt-4.1", "deepseek-chat", "qwen-plus"])
+@pytest.mark.parametrize("model", _SUPPORTED_MODEL_LABELS)
 def test_smoke_keeps_legitimate_model_labels(model: str) -> None:
     assert smoke._safe_optional_model_label(model, "model_metadata") == model
 
 
-@pytest.mark.parametrize("model", _CREDENTIAL_LABELS)
-def test_smoke_summary_never_echoes_credential_families(
+@pytest.mark.parametrize("model", _UNKNOWN_MODEL_LABELS)
+def test_smoke_hides_unknown_model_families(model: str) -> None:
+    assert smoke._safe_optional_model_label(model, "model_metadata") is None
+
+
+def _mock_smoke_summary_with_model(
     monkeypatch: pytest.MonkeyPatch,
     model: str,
-) -> None:
+) -> tuple[int, dict[str, object], str]:
     report = {
         "status": "completed",
         "as_of": "2026-07-14",
@@ -448,11 +476,39 @@ def test_smoke_summary_never_echoes_credential_families(
     )
     raw_summary = json.dumps(summary, ensure_ascii=False)
 
+    return exit_code, summary, raw_summary
+
+
+@pytest.mark.parametrize("model", _CREDENTIAL_LABELS)
+def test_smoke_summary_never_echoes_credential_families(
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+) -> None:
+    exit_code, summary, raw_summary = _mock_smoke_summary_with_model(
+        monkeypatch,
+        model,
+    )
+
     assert exit_code == 2
     assert model not in raw_summary
     assert model[:12] not in raw_summary
     if model != _CREDENTIAL_LABELS[-1]:
         assert summary["secret_scan"]["hit_count"] >= 1
+
+
+@pytest.mark.parametrize("model", _UNKNOWN_MODEL_LABELS)
+def test_smoke_summary_hides_unknown_model_families(
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+) -> None:
+    exit_code, summary, raw_summary = _mock_smoke_summary_with_model(
+        monkeypatch,
+        model,
+    )
+
+    assert exit_code == 0
+    assert summary["report"]["llm"]["model"] is None
+    assert model not in raw_summary
 
 
 @pytest.mark.parametrize(
