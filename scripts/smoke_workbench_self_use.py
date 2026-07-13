@@ -566,11 +566,13 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
     scanner = SecretScanner()
     stage_events: list[str] = []
     readiness = {"page": False, "health": False, "skills": False}
+    cutoffs: dict[str, str | None] = {"readiness": None, "terminal": None}
     readiness_duckdb_cutoff: str | None = None
     terminal_duckdb_cutoff: str | None = None
     summary: dict[str, object] = {
         "schema_version": 1,
         "readiness": readiness,
+        "cutoffs": cutoffs,
         "terminal_outcome": "protocol_error",
     }
 
@@ -601,6 +603,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             health,
             scanner=scanner,
         )
+        cutoffs["readiness"] = readiness_duckdb_cutoff
         readiness["health"] = True
 
         skills = _request_json(
@@ -670,10 +673,15 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             terminal_run.get("duckdb_cutoff"),
             "run_metadata",
         )
+        cutoffs["terminal"] = terminal_duckdb_cutoff
         if (
             run_status == "completed"
             and readiness_duckdb_cutoff is not None
-            and terminal_duckdb_cutoff is None
+            and (
+                terminal_duckdb_cutoff is None
+                or date.fromisoformat(terminal_duckdb_cutoff)
+                < date.fromisoformat(readiness_duckdb_cutoff)
+            )
         ):
             raise SmokeProtocolError("run_metadata")
         degrades = terminal_run.get("degrades", [])

@@ -18,6 +18,7 @@ from intelligence.services.answer_model import (
     finalize_answer_spec,
     humanize,
     make_claim,
+    preserve_required_system_notices,
     render_answer_spec,
     resolve_theme_research_spec,
     validate_llm_answer,
@@ -643,6 +644,18 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             )
         }
         self.assertIn("llm_missing_required_notice", issue_codes)
+
+    def test_notice_preserver_returns_unrelated_answer_byte_for_byte(self) -> None:
+        answer = "  原始非个股答案\n\n  保留缩进与尾换行。  \n"
+        no_notice_spec = replace(
+            self._answer(),
+            presentation_kind="theme_research",
+            system_notices=(),
+        )
+
+        preserved = preserve_required_system_notices(answer, no_notice_spec)
+
+        self.assertEqual(preserved, answer)
 
     def test_existing_answer_spec_synthesis_injects_required_target_notice(self) -> None:
         target_spec = replace(

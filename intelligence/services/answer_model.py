@@ -771,7 +771,6 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
 
 
 def preserve_required_system_notices(answer: str, answer_spec: AnswerSpec) -> str:
-    text = str(answer or "").strip()
     required = (
         NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE
         if NO_TRACEABLE_TARGET_COMPANY_EVIDENCE_NOTICE
@@ -779,7 +778,8 @@ def preserve_required_system_notices(answer: str, answer_spec: AnswerSpec) -> st
         else None
     )
     if required is None:
-        return text
+        return answer
+    text = str(answer or "").strip()
     body = text.replace(required, "").strip()
     return required + (f"\n\n{body}" if body else "")
 

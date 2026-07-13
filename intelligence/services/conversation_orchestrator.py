@@ -73,9 +73,37 @@ SKILL_RESERVE_SECONDS = 25.0
 _SKILL_WORKER_SLOTS = BoundedSemaphore(8)
 RUNTIME_PROBE_TIMEOUT_SECONDS = 0.1
 RUNTIME_PROBE_CACHE_TTL_SECONDS = 30.0
+RUNTIME_PROBE_LEASE_SECONDS = 1.0
 _RUNTIME_PROBE_LOCK = RLock()
-_RUNTIME_PROBE_CACHE: dict[str, tuple[float, str | None]] = {}
-_RUNTIME_PROBE_INFLIGHT: dict[str, Future[str | None]] = {}
+_RUNTIME_PROBE_GENERATION = 0
+
+
+@dataclass(frozen=True)
+class _RuntimeFileFingerprint:
+    canonical_path: str
+    device: int
+    inode: int
+    mtime_ns: int
+    size: int
+
+
+@dataclass(frozen=True)
+class _RuntimeProbeCacheEntry:
+    cutoff: str
+    fingerprint: _RuntimeFileFingerprint
+    expires_at: float
+
+
+@dataclass(frozen=True)
+class _RuntimeProbeInflight:
+    future: Future[str | None]
+    fingerprint: _RuntimeFileFingerprint | None
+    started_at: float
+    generation: int
+
+
+_RUNTIME_PROBE_CACHE: dict[str, _RuntimeProbeCacheEntry] = {}
+_RUNTIME_PROBE_INFLIGHT: dict[str, _RuntimeProbeInflight] = {}
 _FOLLOW_UP_REFERENCE_PATTERN = re.compile(
     r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
 )
@@ -100,6 +128,32 @@ def _runtime_probe_key(inputs: RuntimeResearchInputs) -> str:
     )
 
 
+def _runtime_db_fingerprint(path: Path) -> _RuntimeFileFingerprint | None:
+    try:
+        canonical = path.resolve(strict=True)
+        stat = canonical.stat()
+    except (OSError, RuntimeError):
+        return None
+    return _RuntimeFileFingerprint(
+        canonical_path=str(canonical),
+        device=stat.st_dev,
+        inode=stat.st_ino,
+        mtime_ns=stat.st_mtime_ns,
+        size=stat.st_size,
+    )
+
+
+def _prune_runtime_probe_state(now: float) -> None:
+    for key, cached in tuple(_RUNTIME_PROBE_CACHE.items()):
+        if cached.expires_at <= now:
+            _RUNTIME_PROBE_CACHE.pop(key, None)
+    for key, inflight in tuple(_RUNTIME_PROBE_INFLIGHT.items()):
+        if now - inflight.started_at >= RUNTIME_PROBE_LEASE_SECONDS:
+            current = _RUNTIME_PROBE_INFLIGHT.get(key)
+            if current is inflight:
+                _RUNTIME_PROBE_INFLIGHT.pop(key, None)
+
+
 def _valid_runtime_cutoff(value: object) -> str | None:
     if not isinstance(value, str):
         return None
@@ -111,17 +165,32 @@ def _valid_runtime_cutoff(value: object) -> str | None:
 
 
 def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
+    global _RUNTIME_PROBE_GENERATION
+
     key = _runtime_probe_key(inputs)
     now = time.monotonic()
+    fingerprint = _runtime_db_fingerprint(inputs.market_db_path)
     start_worker = False
     with _RUNTIME_PROBE_LOCK:
+        _prune_runtime_probe_state(now)
         cached = _RUNTIME_PROBE_CACHE.get(key)
-        if cached is not None and cached[0] > now:
-            return cached[1]
-        future = _RUNTIME_PROBE_INFLIGHT.get(key)
-        if future is None:
-            future = Future()
-            _RUNTIME_PROBE_INFLIGHT[key] = future
+        if cached is not None:
+            if fingerprint is not None and cached.fingerprint == fingerprint:
+                return cached.cutoff
+            _RUNTIME_PROBE_CACHE.pop(key, None)
+        inflight = _RUNTIME_PROBE_INFLIGHT.get(key)
+        if inflight is not None and inflight.fingerprint != fingerprint:
+            _RUNTIME_PROBE_INFLIGHT.pop(key, None)
+            inflight = None
+        if inflight is None:
+            _RUNTIME_PROBE_GENERATION += 1
+            inflight = _RuntimeProbeInflight(
+                future=Future(),
+                fingerprint=fingerprint,
+                started_at=now,
+                generation=_RUNTIME_PROBE_GENERATION,
+            )
+            _RUNTIME_PROBE_INFLIGHT[key] = inflight
             start_worker = True
 
     if start_worker:
@@ -132,13 +201,30 @@ def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
                 )
             except Exception:  # Optional external input boundary.
                 cutoff = None
+            completed_fingerprint = _runtime_db_fingerprint(
+                inputs.market_db_path
+            )
             with _RUNTIME_PROBE_LOCK:
-                _RUNTIME_PROBE_CACHE[key] = (
-                    time.monotonic() + RUNTIME_PROBE_CACHE_TTL_SECONDS,
-                    cutoff,
-                )
-                _RUNTIME_PROBE_INFLIGHT.pop(key, None)
-            future.set_result(cutoff)
+                current = _RUNTIME_PROBE_INFLIGHT.get(key)
+                if (
+                    current is not None
+                    and current.generation == inflight.generation
+                ):
+                    if (
+                        cutoff is not None
+                        and inflight.fingerprint is not None
+                        and completed_fingerprint == inflight.fingerprint
+                    ):
+                        _RUNTIME_PROBE_CACHE[key] = _RuntimeProbeCacheEntry(
+                            cutoff=cutoff,
+                            fingerprint=inflight.fingerprint,
+                            expires_at=(
+                                time.monotonic()
+                                + RUNTIME_PROBE_CACHE_TTL_SECONDS
+                            ),
+                        )
+                    _RUNTIME_PROBE_INFLIGHT.pop(key, None)
+            inflight.future.set_result(cutoff)
 
         Thread(
             target=probe_once,
@@ -147,7 +233,7 @@ def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
         ).start()
 
     try:
-        return future.result(timeout=RUNTIME_PROBE_TIMEOUT_SECONDS)
+        return inflight.future.result(timeout=RUNTIME_PROBE_TIMEOUT_SECONDS)
     except FuturesTimeoutError:
         return None
 _INTERNAL_TIER_TOKEN_PATTERN = re.compile(

@@ -175,7 +175,16 @@ class SmokeHandler(BaseHTTPRequestHandler):
                                     else (
                                         "latest"
                                         if type(self).mode == "bad_cutoff"
-                                        else "2026-07-10"
+                                        else (
+                                            "2026-07-10"
+                                            if type(self).mode
+                                            in {"older_cutoff", "snapshot_source"}
+                                            else (
+                                                "2026-07-14"
+                                                if type(self).mode == "later_cutoff"
+                                                else "2026-07-13"
+                                            )
+                                        )
                                     )
                                 )
                             ),
@@ -347,7 +356,11 @@ def test_completed_smoke_replays_sse_and_writes_redacted_summary(
         },
     }
     assert summary["readiness"] == {"page": True, "health": True, "skills": True}
-    assert summary["run"] == {"duckdb_cutoff": "2026-07-10"}
+    assert summary["run"] == {"duckdb_cutoff": "2026-07-13"}
+    assert summary["cutoffs"] == {
+        "readiness": "2026-07-13",
+        "terminal": "2026-07-13",
+    }
     assert summary["model"] == {
         "metadata_present": True,
         "used": False,
@@ -491,7 +504,7 @@ def _mock_smoke_summary_with_model(
                 "run_id": "run-1",
                 "status": "completed",
                 "degrades": [],
-                "duckdb_cutoff": "2026-07-10",
+                "duckdb_cutoff": "2026-07-13",
             },
             {
                 "request_count": 1,
@@ -600,6 +613,40 @@ def test_completed_duckdb_smoke_requires_terminal_run_cutoff(
 
     assert exit_code == 2
     assert summary["failure_stage"] == "run_metadata"
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_terminal"),
+    [
+        ("completed", "2026-07-13"),
+        ("later_cutoff", "2026-07-14"),
+    ],
+)
+def test_completed_duckdb_smoke_accepts_equal_or_later_terminal_cutoff(
+    tmp_path: Path,
+    mode: str,
+    expected_terminal: str,
+) -> None:
+    exit_code, summary, _ = run_cli(tmp_path, mode)
+
+    assert exit_code == 0
+    assert summary["cutoffs"] == {
+        "readiness": "2026-07-13",
+        "terminal": expected_terminal,
+    }
+
+
+def test_completed_duckdb_smoke_rejects_terminal_cutoff_older_than_readiness(
+    tmp_path: Path,
+) -> None:
+    exit_code, summary, _ = run_cli(tmp_path, "older_cutoff")
+
+    assert exit_code == 2
+    assert summary["failure_stage"] == "run_metadata"
+    assert summary["cutoffs"] == {
+        "readiness": "2026-07-13",
+        "terminal": "2026-07-10",
+    }
 
 
 @pytest.mark.parametrize("status", ["failed", "cancelled"])
