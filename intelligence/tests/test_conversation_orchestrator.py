@@ -2327,7 +2327,8 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
             "**最强证据：** 专项正式资料。\n"
             "**主要风险：** 新增订单待复核。\n"
             "**条件边界：** 仅限当前资料。\n"
-            "**下一步验证：** 下一窗口复核新增订单。（非投资建议）"
+            "**下一步验证：** 下一窗口复核新增订单。（非投资建议）\n"
+            "内部来源：/Users/a77/private/raw.json"
         )
         on_delta(answer)
         return (
@@ -2404,6 +2405,25 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
         "verified_draft",
         "validated_synthesis",
     ]
+    answer_artifact = (run_store.run_dir(run_id) / "answer.md").read_text(
+        encoding="utf-8"
+    )
+    public_payload = json.dumps(
+        {
+            "result": result.content,
+            "assistant": assistant.content,
+            "answer_artifact": answer_artifact,
+            "snapshots": snapshots,
+            "text_deltas": [
+                event["payload"]
+                for event in run_store.load_stream_events(run_id)
+                if event["event_type"] == "text.delta"
+            ],
+        },
+        ensure_ascii=False,
+    )
+    assert "/Users/a77/private/raw.json" not in public_payload
+    assert snapshots[-1]["text"] == assistant.content == answer_artifact
 
 
 def test_market_review_owner_with_graph_evidence_synthesizes_without_base_retrieval(
@@ -3261,6 +3281,70 @@ def test_failed_synthesis_publishes_verified_fallback_terminal_snapshot(
     )
 
 
+def test_real_quality_rejection_never_persists_dynamic_model_details(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "动态门禁拒绝",
+    )
+    provider = llm_refine.LLMProvider(
+        "zhipu", "fixture-key", "https://llm.invalid/v1", "glm-5.2"
+    )
+    raw_chunks = ("越界科技", "新增999亿元", "，RAG字段已证实。")
+
+    def rejected_stream(messages, *, on_delta, **kwargs):
+        del messages, kwargs
+        for chunk in raw_chunks:
+            on_delta(chunk)
+        return (
+            llm_refine.SynthesisResult(
+                answer="".join(raw_chunks),
+                provider=provider.name,
+                model=provider.model,
+            ),
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine,
+        "synthesize_messages_stream",
+        rejected_stream,
+    )
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _answer_spec_result(options.query),
+        skill_registry=SkillRegistry(),
+        llm_configured=True,
+        llm_model=provider.model,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="动态门禁拒绝",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    persisted = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in run_store.run_dir(run_id).iterdir()
+        if path.is_file()
+    )
+    for raw in ("越界科技", "999亿元", "RAG字段", "已证实"):
+        assert raw not in persisted
+    assert "quality_gate_rejected" in persisted
+
+
 def test_result_without_answer_spec_does_not_publish_empty_snapshot(tmp_path) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
@@ -3760,6 +3844,31 @@ class _StreamingResponse(io.BytesIO):
         return None
 
 
+class _SilentAfterFirstResponse:
+    def __init__(self) -> None:
+        self._sent_first = False
+        self._release = Event()
+
+    def __iter__(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
+    def __next__(self) -> bytes:
+        if not self._sent_first:
+            self._sent_first = True
+            return b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n'
+        self._release.wait(timeout=0.4)
+        raise StopIteration
+
+    def close(self) -> None:
+        self._release.set()
+
+
 def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> None:
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"
@@ -3820,6 +3929,80 @@ def test_openai_stream_checks_cancellation_between_provider_deltas(
         )
 
     assert deltas == ["first"]
+
+
+def test_stream_deadline_interrupts_silence_after_first_chunk(monkeypatch) -> None:
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
+    response = _SilentAfterFirstResponse()
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: response,
+    )
+    fallback_calls: list[int] = []
+    monkeypatch.setattr(
+        llm_refine,
+        "_post_chat",
+        lambda *args, **kwargs: fallback_calls.append(1),
+    )
+    deltas: list[str] = []
+    started = time.monotonic()
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=deltas.append,
+        timeout=0.05,
+    )
+
+    assert time.monotonic() - started < 0.2
+    assert result is None
+    assert "超时" in reason
+    assert deltas == ["first"]
+    assert fallback_calls == []
+    assert not any(
+        thread.name == "llm-stream-reader" and thread.is_alive()
+        for thread in enumerate_threads()
+    )
+
+
+def test_stream_cancellation_interrupts_silence_after_first_chunk(
+    monkeypatch,
+) -> None:
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
+    response = _SilentAfterFirstResponse()
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: response,
+    )
+    cancelled = Event()
+    deltas: list[str] = []
+
+    def capture(delta: str) -> None:
+        deltas.append(delta)
+        cancelled.set()
+
+    started = time.monotonic()
+    with pytest.raises(llm_refine.LLMStreamCancelled):
+        llm_refine.synthesize_messages_stream(
+            [{"role": "user", "content": "question"}],
+            on_delta=capture,
+            is_cancelled=cancelled.is_set,
+            timeout=10,
+        )
+
+    assert time.monotonic() - started < 0.2
+    assert deltas == ["first"]
+    assert not any(
+        thread.name == "llm-stream-reader" and thread.is_alive()
+        for thread in enumerate_threads()
+    )
 
 
 def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> None:

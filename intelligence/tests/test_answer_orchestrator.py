@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 import tempfile
+from contextlib import nullcontext
 from dataclasses import replace
 from pathlib import Path
 from unittest import mock
@@ -47,6 +48,7 @@ def _run_private_stream_case(
     gate_issues: list[object] | None = None,
     public_deltas: list[str],
     sanitizer=None,
+    real_gate: bool = False,
 ) -> tuple[AskResult, mock.MagicMock]:
     provider = llm_refine.LLMProvider(
         "zhipu",
@@ -70,6 +72,14 @@ def _run_private_stream_case(
             reason,
         )
 
+    gate_context = (
+        nullcontext()
+        if real_gate
+        else mock.patch(
+            "intelligence.services.ask.answer_model.validate_llm_answer",
+            return_value=gate_issues or [],
+        )
+    )
     with (
         tempfile.TemporaryDirectory() as tmp,
         mock.patch.object(llm_refine, "detect_provider", return_value=provider),
@@ -78,10 +88,7 @@ def _run_private_stream_case(
             "synthesize_messages_stream",
             side_effect=fake_stream,
         ) as synthesize_stream,
-        mock.patch(
-            "intelligence.services.ask.answer_model.validate_llm_answer",
-            return_value=gate_issues or [],
-        ),
+        gate_context,
     ):
         result = answer_query(
             AskOptions(
@@ -1397,6 +1404,30 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertNotIn("999亿元", "".join(public_deltas))
         assert result.llm_stream_telemetry is not None
         self.assertEqual(result.llm_stream_telemetry.chunk_count, 2)
+
+    def test_real_quality_gate_never_echoes_dynamic_rejection_details(self) -> None:
+        raw_answer = "越界科技声称新增999亿元，RAG字段已证实。"
+        public_deltas: list[str] = []
+        result, _ = _run_private_stream_case(
+            chunks=["越界科技", "新增999亿元", "，RAG字段已证实。"],
+            answer=raw_answer,
+            public_deltas=public_deltas,
+            real_gate=True,
+        )
+
+        public_result = json.dumps(
+            {
+                "warnings": result.warnings,
+                "fallback_reason": result.llm_fallback_reason,
+                "synthesis": result.synthesis,
+                "public_deltas": public_deltas,
+            },
+            ensure_ascii=False,
+        )
+        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        for raw in ("越界科技", "999亿元", "RAG", "已证实"):
+            self.assertNotIn(raw, public_result)
+        self.assertIn("quality_gate_rejected", public_result)
 
     def test_partial_stream_timeout_never_publishes_buffered_chunks(self) -> None:
         private_chunks = ["越界公司", " 999亿元"]

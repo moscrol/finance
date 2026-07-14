@@ -29,6 +29,8 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
+from queue import Empty, Queue
+from threading import Lock, Thread
 
 from intelligence.services.run_store import redact
 
@@ -67,6 +69,14 @@ class LLMStreamCancelled(RuntimeError):
 
 
 class LLMStreamingUnsupported(RuntimeError):
+    pass
+
+
+class LLMStreamDeadlineExceeded(TimeoutError):
+    pass
+
+
+class LLMStreamInterruptedAfterData(RuntimeError):
     pass
 
 
@@ -492,6 +502,7 @@ def _post_chat_stream(
     temperature: float,
     on_delta: Callable[[str], None],
     is_cancelled: Callable[[], bool] | None,
+    deadline: float,
 ) -> str:
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {
@@ -512,11 +523,75 @@ def _post_chat_stream(
         },
         method="POST",
     )
+    events: Queue[tuple[str, object]] = Queue()
+    response_lock = Lock()
+    active_response: list[object | None] = [None]
+
+    def close_active_response() -> None:
+        with response_lock:
+            response = active_response[0]
+        if response is not None:
+            try:
+                response.close()  # type: ignore[attr-defined]
+            except Exception:
+                pass
+
+    def read_provider_stream() -> None:
+        response = None
+        try:
+            remaining = max(0.1, deadline - time.monotonic())
+            response = urllib.request.urlopen(
+                request,
+                timeout=min(float(timeout), remaining),
+            )
+            with response_lock:
+                active_response[0] = response
+            for raw_line in response:
+                events.put(("line", raw_line))
+            events.put(("done", None))
+        except BaseException as exc:
+            events.put(("error", exc))
+        finally:
+            if response is not None:
+                try:
+                    response.close()
+                except Exception:
+                    pass
+            with response_lock:
+                if active_response[0] is response:
+                    active_response[0] = None
+
+    reader = Thread(
+        target=read_provider_stream,
+        name="llm-stream-reader",
+        daemon=True,
+    )
+    reader.start()
     chunks: list[str] = []
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        for raw_line in response:
+    try:
+        while True:
             if is_cancelled is not None and is_cancelled():
                 raise LLMStreamCancelled()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise LLMStreamDeadlineExceeded()
+            try:
+                event_type, value = events.get(timeout=min(0.05, remaining))
+            except Empty:
+                continue
+            if event_type == "done":
+                break
+            if event_type == "error":
+                if chunks:
+                    raise LLMStreamInterruptedAfterData() from (
+                        value if isinstance(value, BaseException) else None
+                    )
+                if isinstance(value, BaseException):
+                    raise value
+                raise RuntimeError("provider stream reader failed")
+            if event_type != "line" or not isinstance(value, bytes):
+                continue
+            raw_line = value
             line = raw_line.decode("utf-8", "replace").strip()
             if not line.startswith("data:"):
                 continue
@@ -531,6 +606,9 @@ def _post_chat_stream(
             if isinstance(delta, str) and delta:
                 on_delta(delta)
                 chunks.append(delta)
+    finally:
+        close_active_response()
+        reader.join(timeout=0.05)
     if not chunks:
         raise LLMStreamingUnsupported()
     return "".join(chunks)
@@ -561,9 +639,12 @@ def synthesize_messages_stream(
             temperature,
             on_delta,
             is_cancelled,
+            deadline,
         )
     except LLMStreamCancelled:
         raise
+    except (LLMStreamDeadlineExceeded, TimeoutError):
+        return None, "LLM 流式合成超时，已降级为模板"
     except urllib.error.HTTPError as exc:
         if exc.code not in {400, 404, 405, 415, 422, 501}:
             return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"

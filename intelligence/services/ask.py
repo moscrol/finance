@@ -1038,12 +1038,16 @@ def _synthesize_market_review_answer(
     ]
     if blocking_issues:
         result.llm_fallback_reason = "quality_gate_rejected"
-        result.warnings.extend(
-            f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
-            for issue in blocking_issues
-        )
+        _record_quality_gate_rejection(result)
         return result
-    result.synthesis = proposed_synthesis
+    result.synthesis = _canonicalize_validated_synthesis(
+        options,
+        proposed_synthesis,
+    )
+    if not result.synthesis:
+        result.llm_fallback_reason = "quality_gate_rejected"
+        _record_quality_gate_rejection(result)
+        return result
     result.llm_provider = composed.provider
     result.llm_fallback_reason = None
     result.synthesis_messages = [
@@ -2532,20 +2536,27 @@ def answer_query(options: AskOptions) -> AskResult:
                 result.answer_spec,
             )
             if any(issue.severity == "error" for issue in revision_issues):
-                result.warnings.extend(
-                    f"LLM 修订被 AnswerSpec 门禁拒绝：{issue.message}"
-                    for issue in revision_issues
-                    if issue.severity == "error"
-                )
+                warning = "LLM 修订未采用：quality_gate_rejected"
+                if warning not in result.warnings:
+                    result.warnings.append(warning)
             else:
-                result.synthesis = proposed_revision
-                result.synthesis_messages = result.synthesis_messages + [
-                    revision_user,
-                    {"role": "assistant", "content": result.synthesis},
-                ]
-                result.warnings.append(
-                    f"输出质检 {len(warn_notes)} 条 WARN 已回灌定向修订（正文为修订版，审查意见见「输出质检」附录）"
+                canonical_revision = _canonicalize_validated_synthesis(
+                    options,
+                    proposed_revision,
                 )
+                if canonical_revision:
+                    result.synthesis = canonical_revision
+                    result.synthesis_messages = result.synthesis_messages + [
+                        revision_user,
+                        {"role": "assistant", "content": result.synthesis},
+                    ]
+                    result.warnings.append(
+                        f"输出质检 {len(warn_notes)} 条 WARN 已回灌定向修订（正文为修订版，审查意见见「输出质检」附录）"
+                    )
+                else:
+                    result.warnings.append(
+                        "LLM 修订未采用：quality_gate_rejected"
+                    )
         elif revision_timeout is not None and rev_reason:
             result.warnings.append(f"质检 WARN 回灌修订失败，保留初稿：{rev_reason}")
     result.sections = {
@@ -3387,12 +3398,16 @@ def _synthesize_answer_spec(
     ]
     if blocking_issues:
         result.llm_fallback_reason = "quality_gate_rejected"
-        result.warnings.extend(
-            f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
-            for issue in blocking_issues
-        )
+        _record_quality_gate_rejection(result)
         return
-    result.synthesis = proposed_synthesis
+    result.synthesis = _canonicalize_validated_synthesis(
+        options,
+        proposed_synthesis,
+    )
+    if not result.synthesis:
+        result.llm_fallback_reason = "quality_gate_rejected"
+        _record_quality_gate_rejection(result)
+        return
     result.llm_provider = composed.provider
     result.llm_fallback_reason = None
     result.synthesis_messages = [
@@ -3489,13 +3504,25 @@ def _publish_validated_synthesis(options: AskOptions, synthesis: str) -> None:
 
     if options.stream_text_delta is None:
         return
-    public_text = (
+    options.stream_text_delta(synthesis)
+
+
+def _canonicalize_validated_synthesis(
+    options: AskOptions,
+    synthesis: str,
+) -> str:
+    canonical = (
         options.stream_text_sanitizer(synthesis)
         if options.stream_text_sanitizer is not None
         else synthesis
     )
-    if public_text.strip():
-        options.stream_text_delta(public_text)
+    return canonical.strip()
+
+
+def _record_quality_gate_rejection(result: AskResult) -> None:
+    warning = "LLM 合成未采用：quality_gate_rejected"
+    if warning not in result.warnings:
+        result.warnings.append(warning)
 
 
 def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:
