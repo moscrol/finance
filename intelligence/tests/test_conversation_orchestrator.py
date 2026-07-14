@@ -20,6 +20,7 @@ from threading import (
 import pytest
 
 from intelligence import userspace
+from intelligence.services import kb_rag
 from intelligence.services import llm_refine
 from intelligence.services import perspective_lab
 from intelligence.services import conversation_orchestrator as orchestrator_module
@@ -260,6 +261,59 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
     ]
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.content.startswith("当前视角：数据中立")
+
+
+def test_retrieval_trace_persists_hybrid_to_bm25_fallback_telemetry(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "检索遥测",
+    )
+    result = _ask_result("检索遥测")
+    result.wiki_rag_telemetry = kb_rag.RetrievalTelemetry(
+        status="error",
+        hit_count=0,
+        latency_ms=23,
+        requested_mode="hybrid",
+        effective_mode="bm25",
+        fallback_reason="dense_dependency_missing",
+    )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: result,
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="检索遥测",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    ask_trace = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "ask_retrieve_compose"
+    )
+    wiki_rag = json.loads(ask_trace["output_summary"])["wiki_rag"]
+    assert wiki_rag == {
+        "status": "error",
+        "hit_count": 0,
+        "latency_ms": 23,
+        "requested_mode": "hybrid",
+        "effective_mode": "bm25",
+        "fallback_reason": "dense_dependency_missing",
+    }
 
 
 def test_turn_shares_one_sixty_second_budget_with_router_skill_and_ask(

@@ -1851,6 +1851,9 @@ class TurnOrchestrator:
                         "status": wiki_telemetry.status,
                         "hit_count": wiki_telemetry.hit_count,
                         "latency_ms": wiki_telemetry.latency_ms,
+                        "requested_mode": wiki_telemetry.requested_mode,
+                        "effective_mode": wiki_telemetry.effective_mode,
+                        "fallback_reason": wiki_telemetry.fallback_reason,
                     }
                     if wiki_telemetry is not None
                     else None
