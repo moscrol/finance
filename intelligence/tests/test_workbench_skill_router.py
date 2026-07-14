@@ -12,7 +12,6 @@ from intelligence.workbench_skills.contracts import (
     SkillDefinition,
     SkillExecutionContext,
     SkillOutput,
-    build_module_answer_contract,
 )
 from intelligence.workbench_skills.registry import (
     SKILL_EXECUTORS,
