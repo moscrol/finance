@@ -321,6 +321,24 @@ def _sanitize_citation_list(
 
 def sanitize_user_visible_artifact_text(text: str) -> str:
     cleaned = redact(text)
+    cleaned = re.sub(
+        r"(?:LLM\s*合成未采用[:：]\s*)?provider_timeout",
+        "模型精修超时；已保留可核验版本。",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"untrusted\s+index\s+freshness:\s*missing",
+        "知识库索引时效无法确认；本轮未采用该检索结果。",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"narrow\s+retrieval\s+empty\s+after\s+\d+\s+attempts?",
+        "未检索到可核验的公司专项资料；已按证据缺口处理。",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
     if re.search(r"未配置 LLM key", cleaned, re.IGNORECASE):
         return "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
     if re.search(r"HF_TOKEN|Hugging\s*Face", cleaned, re.IGNORECASE):
