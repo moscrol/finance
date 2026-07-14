@@ -98,10 +98,85 @@ def _public_run_payload(run: rs.Run) -> dict[str, object]:
     return payload
 
 
-def _public_trace_value(value: object) -> object:
-    """Deep-sanitize trace projections without mutating the raw audit store."""
+_STABLE_MACHINE_FALLBACK_REASONS = frozenset(
+    {
+        "provider_timeout",
+        "provider_unavailable",
+        "quality_gate_rejected",
+        "budget_exhausted",
+    }
+)
+_PUBLIC_METADATA_STRING_FIELDS = frozenset(
+    {
+        "schema_version",
+        "event_id",
+        "event_type",
+        "run_id",
+        "conversation_id",
+        "message_id",
+        "step_id",
+        "skill_id",
+        "module_id",
+        "artifact_id",
+        "report_id",
+        "status",
+        "role",
+        "task_type",
+        "skill_mode",
+        "perspective_mode",
+        "phase",
+        "answer_phase",
+        "selection_source",
+        "kind",
+        "renderer",
+        "tag",
+    }
+)
+_PUBLIC_METADATA_STRING_LIST_FIELDS = frozenset(
+    {
+        "selected_skill_ids",
+        "invoked_skill_ids",
+        "selected_perspective_ids",
+    }
+)
+
+
+def _is_public_machine_enum(path: tuple[str, ...], value: str) -> bool:
+    return (
+        len(path) >= 3
+        and path[-3:] == ("report", "llm", "fallback_reason")
+        and value in _STABLE_MACHINE_FALLBACK_REASONS
+    )
+
+
+def _is_public_metadata_string(path: tuple[str, ...]) -> bool:
+    return bool(path) and (
+        path[-1] in _PUBLIC_METADATA_STRING_FIELDS
+        or (
+            len(path) >= 2
+            and path[-2] in _PUBLIC_METADATA_STRING_LIST_FIELDS
+        )
+    )
+
+
+def _public_value(
+    value: object,
+    *,
+    path: tuple[str, ...] = (),
+    preserve_text_paths: frozenset[tuple[str, ...]] = frozenset(),
+) -> object:
+    """Deep-sanitize public projections without mutating raw audit stores."""
 
     if isinstance(value, str):
+        if (
+            _is_public_machine_enum(path, value)
+            or _is_public_metadata_string(path)
+            or any(
+            len(path) >= len(suffix) and path[-len(suffix) :] == suffix
+            for suffix in preserve_text_paths
+            )
+        ):
+            return value
         stripped = value.strip()
         if stripped.startswith(("{", "[")):
             try:
@@ -111,29 +186,61 @@ def _public_trace_value(value: object) -> object:
             else:
                 if isinstance(decoded, (dict, list)):
                     return json.dumps(
-                        _public_trace_value(decoded),
+                        _public_value(
+                            decoded,
+                            path=path,
+                            preserve_text_paths=preserve_text_paths,
+                        ),
                         ensure_ascii=False,
                     )
         return sanitize_user_visible_artifact_text(value)
     if isinstance(value, list):
-        return [_public_trace_value(item) for item in value]
+        return [
+            _public_value(
+                item,
+                path=(*path, str(index)),
+                preserve_text_paths=preserve_text_paths,
+            )
+            for index, item in enumerate(value)
+        ]
     if isinstance(value, dict):
         return {
-            str(key): _public_trace_value(item)
+            str(key): _public_value(
+                item,
+                path=(*path, str(key)),
+                preserve_text_paths=preserve_text_paths,
+            )
             for key, item in value.items()
         }
     return value
 
 
 def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
-    projected = _public_trace_value(step)
+    projected = _public_value(step)
     return projected if isinstance(projected, dict) else {}
 
 
 def _public_stream_event(event: dict[str, object]) -> dict[str, object]:
-    if event.get("event_type") != "trace.step":
-        return event
-    projected = _public_trace_value(event)
+    event_type = event.get("event_type")
+    preserve_paths: set[tuple[str, ...]] = set()
+    if event_type == "answer.snapshot":
+        preserve_paths.add(("payload", "text"))
+    elif event_type == "text.delta":
+        preserve_paths.add(("payload", "delta"))
+    preserve_paths.add(("payload", "message", "content"))
+    projected = _public_value(
+        event,
+        preserve_text_paths=frozenset(preserve_paths),
+    )
+    return projected if isinstance(projected, dict) else {}
+
+
+def _public_message_payload(message: object) -> dict[str, object]:
+    payload = asdict(message)
+    projected = _public_value(
+        payload,
+        preserve_text_paths=frozenset({("content",)}),
+    )
     return projected if isinstance(projected, dict) else {}
 
 
@@ -1498,7 +1605,7 @@ def create_app(
     def list_messages(conversation_id: str, user: str | None = None) -> list[dict[str, object]]:
         conversation_or_404(user, conversation_id)
         return [
-            asdict(item)
+            _public_message_payload(item)
             for item in conversation_store_for(user).load_messages(conversation_id)
         ]
 

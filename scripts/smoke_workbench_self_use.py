@@ -264,16 +264,32 @@ class PublicLeakScanner:
         self.scanned_string_count = 0
         self.hits: list[dict[str, str]] = []
 
-    def scan(self, value: object, source: str) -> None:
+    def scan(
+        self,
+        value: object,
+        source: str,
+        *,
+        _path: tuple[str, ...] = (),
+    ) -> None:
         if isinstance(value, str):
             self.scanned_string_count += 1
+            if (
+                len(_path) >= 3
+                and _path[-3:] == ("report", "llm", "fallback_reason")
+                and value in SAFE_LLM_FALLBACK_REASONS
+            ):
+                return
             for marker, pattern in PUBLIC_LEAK_PATTERNS:
                 if pattern.search(value):
                     self.hits.append({"source": source, "marker": marker})
             return
         if isinstance(value, list):
             for index, item in enumerate(value):
-                self.scan(item, f"{source}[{index}]")
+                self.scan(
+                    item,
+                    f"{source}[{index}]",
+                    _path=(*_path, str(index)),
+                )
             return
         if isinstance(value, dict):
             for key, item in value.items():
@@ -282,7 +298,11 @@ class PublicLeakScanner:
                     if isinstance(key, str) and SAFE_SOURCE_COMPONENT.fullmatch(key)
                     else "field"
                 )
-                self.scan(item, f"{source}.{component}")
+                self.scan(
+                    item,
+                    f"{source}.{component}",
+                    _path=(*_path, str(key)),
+                )
 
 
 def _validate_public_step(payload: object, stage: str) -> dict[str, object]:
@@ -555,6 +575,7 @@ def _stream_until_terminal(
                     or canonical_type != expected_type
                 ):
                     raise SmokeProtocolError("sse_event_type")
+                public_scan.scan(payload, f"sse.{canonical_type}")
                 if canonical_type == "trace.step":
                     event_payload = payload.get("payload")
                     if not isinstance(event_payload, dict) or set(event_payload) != {
@@ -978,6 +999,21 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             _validate_public_step(step, "run_trace")
             scanner.scan(step, f"trace[{index}]")
             public_scanner.scan(step, f"trace[{index}]")
+
+        messages = _request_json(
+            "GET",
+            _url(
+                args.base_url,
+                f"/api/conversations/{urllib.parse.quote(conversation_id, safe='')}/messages",
+                {"user": args.user},
+            ),
+            timeout=remaining("conversation_messages"),
+            stage="conversation_messages",
+        )
+        if not isinstance(messages, list):
+            raise SmokeProtocolError("conversation_messages")
+        scanner.scan(messages, "messages")
+        public_scanner.scan(messages, "messages")
 
         report = _request_json(
             "GET",

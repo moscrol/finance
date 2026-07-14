@@ -187,6 +187,23 @@ class SmokeHandler(BaseHTTPRequestHandler):
                             },
                         ),
                     )
+                elif type(self).mode == "public_event_leak":
+                    events[2] = (
+                        "skill.result",
+                        {
+                            "event_type": "skill.result",
+                            "seq": 3,
+                            "payload": {
+                                "skill_id": "news-impact",
+                                "output": {
+                                    "warnings": [
+                                        'Traceback File "/Users/alice/private/rag_index.py", line 9',
+                                        "provider_timeout",
+                                    ]
+                                },
+                            },
+                        },
+                    )
             else:
                 assert after == 3
                 delta = (
@@ -289,6 +306,16 @@ class SmokeHandler(BaseHTTPRequestHandler):
                             },
                         ),
                     )
+                elif type(self).mode == "public_event_leak":
+                    events[2][1]["payload"] = {
+                        "message": {
+                            "status": "completed",
+                            "degrades": [
+                                "untrusted index freshness: missing",
+                                "narrow retrieval empty after 1 attempts",
+                            ],
+                        }
+                    }
             body = "".join(
                 f"event: {name}\ndata: {json.dumps(payload)}\n\n"
                 for name, payload in events
@@ -315,6 +342,23 @@ class SmokeHandler(BaseHTTPRequestHandler):
                 else []
             )
             self._json(payload)
+            return
+        if parsed.path == "/api/conversations/conversation-1/messages":
+            messages = (
+                [
+                    {
+                        "role": "assistant",
+                        "content": "可核验回答",
+                        "degrades": [
+                            'Traceback File "/Users/alice/private/rag_index.py", line 9',
+                            "provider_timeout",
+                        ],
+                    }
+                ]
+                if type(self).mode == "message_leak"
+                else []
+            )
+            self._json(messages)
             return
         if parsed.path == "/api/runs/run-1/report":
             llm = {
@@ -641,6 +685,7 @@ def _mock_smoke_summary_with_model(
             "create_conversation": {"conversation_id": "conversation-1"},
             "create_message": {"run_id": "run-1"},
             "run_trace": [],
+            "conversation_messages": [],
             "run_report": report,
         }[stage]
 
@@ -890,6 +935,21 @@ def test_smoke_fails_closed_when_public_trace_leaks_internal_diagnostics(
     assert exit_code == 2
     assert summary["terminal_outcome"] == "public_scan_failed"
     assert summary["public_scan"]["hit_count"] >= 3
+    assert "Traceback" not in raw_summary
+    assert "/Users/alice" not in raw_summary
+    assert "provider_timeout" not in raw_summary
+
+
+@pytest.mark.parametrize("mode", ["public_event_leak", "message_leak"])
+def test_smoke_public_scan_covers_all_canonical_events_and_messages(
+    tmp_path: Path,
+    mode: str,
+) -> None:
+    exit_code, summary, raw_summary = run_cli(tmp_path, mode)
+
+    assert exit_code == 2
+    assert summary["terminal_outcome"] == "public_scan_failed"
+    assert summary["public_scan"]["hit_count"] > 0
     assert "Traceback" not in raw_summary
     assert "/Users/alice" not in raw_summary
     assert "provider_timeout" not in raw_summary

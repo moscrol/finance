@@ -523,6 +523,55 @@ def test_conversation_api_serializes_terminal_answer_snapshot_metadata(
     ]
 
 
+def test_conversation_messages_deep_sanitize_diagnostics_without_mutating_store(
+    client: TestClient,
+) -> None:
+    conversation = client.post(
+        "/api/conversations", json={"title": "公开消息安全", "user": "alice"}
+    ).json()
+    store = ConversationStore("alice")
+    unsafe_path = 'Traceback File "/Users/alice/private/rag_index.py", line 9'
+    stored = store.append_message(
+        conversation["conversation_id"],
+        "assistant",
+        "可核验回答正文保持不变",
+        status="completed",
+        citations=[
+            {
+                "title": "公告",
+                "system_notices": [unsafe_path, "provider_timeout"],
+            }
+        ],
+        degrades=[
+            unsafe_path,
+            "provider_timeout",
+            "untrusted index freshness: missing",
+            "narrow retrieval empty after 1 attempts",
+        ],
+    )
+
+    raw = store.load_messages(conversation["conversation_id"])[0]
+    assert raw.message_id == stored.message_id
+    assert "Traceback" in json.dumps(raw.__dict__, ensure_ascii=False)
+
+    response = client.get(
+        f"/api/conversations/{conversation['conversation_id']}/messages",
+        params={"user": "alice"},
+    )
+    body = response.text
+    assert response.status_code == 200
+    assert "可核验回答正文保持不变" in body
+    assert "Traceback" not in body
+    assert "/Users/alice" not in body
+    assert "rag_index.py" not in body
+    assert "provider_timeout" not in body
+    assert "untrusted index freshness" not in body
+    assert "narrow retrieval empty" not in body
+    assert "模型精修超时" in body
+    assert "知识库索引时效无法确认" in body
+    assert "未检索到可核验的公司专项资料" in body
+
+
 def test_perspective_selection_is_validated_listed_and_persisted(
     client: TestClient,
 ) -> None:
@@ -1814,6 +1863,80 @@ def test_trace_endpoint_and_sse_deep_sanitize_nested_public_payloads(
         assert "模型精修超时" in body
         assert "知识库索引时效无法确认" in body
         assert "未检索到可核验的公司专项资料" in body
+
+
+def test_all_canonical_sse_payloads_use_public_projection_without_changing_machine_fields(
+    client: TestClient,
+) -> None:
+    store = RunStore()
+    run = store.create_run("canonical event safety", "ask")
+    unsafe = {
+        "diagnostic": 'Traceback File "/Users/alice/private/rag_index.py", line 9',
+        "warnings": [
+            "provider_timeout",
+            "untrusted index freshness: missing",
+            "narrow retrieval empty after 1 attempts",
+        ],
+    }
+    store.append_stream_event(
+        run.run_id,
+        event_id="skill:result",
+        event_type="skill.result",
+        payload={"skill_id": "news-impact", "output": unsafe},
+    )
+    store.append_stream_event(
+        run.run_id,
+        event_id="answer:snapshot:1",
+        event_type="answer.snapshot",
+        payload={
+            "revision": 1,
+            "phase": "verified_draft",
+            "text": "可核验草稿：英维克",
+            "final": False,
+        },
+    )
+    store.append_stream_event(
+        run.run_id,
+        event_id="message:complete",
+        event_type="message.complete",
+        payload={
+            "message": {
+                "status": "completed",
+                "degrades": unsafe["warnings"],
+                "system_notices": [unsafe["diagnostic"]],
+            }
+        },
+    )
+    store.append_stream_event(
+        run.run_id,
+        event_id="report:complete",
+        event_type="report.complete",
+        payload={
+            "report": {
+                "status": "completed",
+                "llm": {
+                    "attempted": True,
+                    "used": False,
+                    "fallback_reason": "provider_timeout",
+                },
+            }
+        },
+    )
+    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+
+    raw_events = json.dumps(store.load_stream_events(run.run_id), ensure_ascii=False)
+    assert "Traceback" in raw_events
+    assert "/Users/alice" in raw_events
+
+    body = client.get(f"/api/runs/{run.run_id}/events").text
+    assert "Traceback" not in body
+    assert "/Users/alice" not in body
+    assert "rag_index.py" not in body
+    assert "untrusted index freshness" not in body
+    assert "narrow retrieval empty" not in body
+    assert "可核验草稿：英维克" in body
+    assert "模型精修超时" in body
+    assert '"fallback_reason": "provider_timeout"' in body
 
 
 def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestClient) -> None:
