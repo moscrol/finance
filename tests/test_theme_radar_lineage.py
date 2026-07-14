@@ -1,4 +1,6 @@
+import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +12,34 @@ from intelligence.workflows.theme_radar import (
     ThemeRadarOptions,
     run_theme_radar,
 )
+
+_RADAR_SPEC = importlib.util.spec_from_file_location(
+    "theme_radar_script",
+    Path(__file__).resolve().parents[1] / "skills" / "theme-radar" / "scripts" / "radar.py",
+)
+radar_script = importlib.util.module_from_spec(_RADAR_SPEC)
+assert _RADAR_SPEC and _RADAR_SPEC.loader
+sys.modules["theme_radar_script"] = radar_script
+_RADAR_SPEC.loader.exec_module(radar_script)
+
+
+class RelationsFreshnessTests(unittest.TestCase):
+    def test_timezone_aware_updated_at_is_supported(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            relations = vault / "relations"
+            relations.mkdir()
+            (relations / "meta.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": radar_script.RELATIONS_SCHEMA_VERSION,
+                        "updated_at": "2000-01-01T12:00:00+08:00",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            warnings = radar_script.relations_freshness_warnings(vault)
+            self.assertTrue(any("relations 数据已" in warning for warning in warnings))
 
 
 SOURCE_META = {
