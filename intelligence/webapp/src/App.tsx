@@ -88,6 +88,7 @@ const chatEventTypes = [
   "report.module",
   "citation.ready",
   "text.delta",
+  "answer.snapshot",
   "report.complete",
   "report.error",
   "message.complete",
@@ -270,7 +271,13 @@ export default function App() {
         ]);
         setLiveMessages((current) => {
           const state = current[identity.messageId];
-          if (!state || state.runId !== identity.runId) return current;
+          if (
+            !state ||
+            state.runId !== identity.runId ||
+            state.answerPhase !== null
+          ) {
+            return current;
+          }
           const next = { ...current };
           delete next[identity.messageId];
           return next;

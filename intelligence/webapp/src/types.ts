@@ -545,11 +545,19 @@ export interface LiveSkillInvocation {
   warnings: string[];
 }
 
+export type AnswerPhase =
+  | "verified_draft"
+  | "validated_synthesis"
+  | "verified_fallback";
+
 export interface LiveMessageState {
   conversationId: string;
   messageId: string;
   runId: string;
   narrative: string;
+  answerRevision: number;
+  answerPhase: AnswerPhase | null;
+  answerFinal: boolean;
   report: StructuredReport | null;
   skillInvocations: Record<string, LiveSkillInvocation>;
   status: "pending" | "streaming" | "completed" | "failed" | "cancelled";

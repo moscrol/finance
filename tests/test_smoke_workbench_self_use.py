@@ -48,13 +48,31 @@ class SmokeHandler(BaseHTTPRequestHandler):
             after = int(query.get("after", ["0"])[0])
             if type(self).event_calls == 1:
                 assert after == 0
+                draft_text = (
+                    "ghp_abcdefghijklmnopqrstuvwxyz"
+                    if type(self).mode == "secret"
+                    else "redacted draft"
+                )
                 events = [
                     (
-                        "text.delta",
+                        "answer.snapshot",
                         {
-                            "event_type": "text.delta",
+                            "event_type": "answer.snapshot",
                             "seq": 1,
-                            "payload": {"delta": "redacted answer"},
+                            "payload": {
+                                "revision": (
+                                    0
+                                    if type(self).mode == "invalid_revision"
+                                    else 1
+                                ),
+                                "phase": (
+                                    "unknown"
+                                    if type(self).mode == "unknown_phase"
+                                    else "verified_draft"
+                                ),
+                                "text": draft_text,
+                                "final": type(self).mode == "invalid_final",
+                            },
                         },
                     ),
                     (
@@ -72,20 +90,24 @@ class SmokeHandler(BaseHTTPRequestHandler):
                     ),
                     ("timeout", {}),
                 ]
+                if type(self).mode == "missing_draft":
+                    events = events[1:]
+                if type(self).mode == "replay":
+                    events.insert(1, ("answer.snapshot", events[0][1]))
             else:
                 assert after == 2
-                delta = (
-                    "ghp_abcdefghijklmnopqrstuvwxyz"
-                    if type(self).mode == "secret"
-                    else "[REDACTED]"
-                )
                 events = [
                     (
-                        "text.delta",
+                        "answer.snapshot",
                         {
-                            "event_type": "text.delta",
+                            "event_type": "answer.snapshot",
                             "seq": 3,
-                            "payload": {"delta": delta},
+                            "payload": {
+                                "revision": 2,
+                                "phase": "verified_fallback",
+                                "text": "redacted terminal",
+                                "final": True,
+                            },
                         },
                     ),
                     (
@@ -113,6 +135,42 @@ class SmokeHandler(BaseHTTPRequestHandler):
                         },
                     ),
                 ]
+                if type(self).mode == "missing_terminal":
+                    events = events[1:]
+                if type(self).mode == "conflict":
+                    events.insert(
+                        1,
+                        (
+                            "answer.snapshot",
+                            {
+                                "event_type": "answer.snapshot",
+                                "seq": 4,
+                                "payload": {
+                                    "revision": 2,
+                                    "phase": "validated_synthesis",
+                                    "text": "conflicting terminal",
+                                    "final": True,
+                                },
+                            },
+                        ),
+                    )
+                if type(self).mode == "stale_revision":
+                    events.insert(
+                        1,
+                        (
+                            "answer.snapshot",
+                            {
+                                "event_type": "answer.snapshot",
+                                "seq": 4,
+                                "payload": {
+                                    "revision": 1,
+                                    "phase": "verified_draft",
+                                    "text": "stale draft",
+                                    "final": False,
+                                },
+                            },
+                        ),
+                    )
             body = "".join(
                 f"event: {name}\ndata: {json.dumps(payload)}\n\n"
                 for name, payload in events
@@ -129,6 +187,24 @@ class SmokeHandler(BaseHTTPRequestHandler):
             if type(self).mode == "protocol":
                 report.pop("llm")
             self._json(report)
+            return
+        if parsed.path == "/api/runs/run-1/trace":
+            self._json(
+                [
+                    {
+                        "name": "ask_retrieve_compose",
+                        "output_summary": json.dumps(
+                            {
+                                "wiki_rag": {
+                                    "requested_mode": "hybrid",
+                                    "effective_mode": "bm25",
+                                    "fallback_reason": "dense_dependency_missing",
+                                }
+                            }
+                        ),
+                    }
+                ]
+            )
             return
         self._json({"detail": "not found"}, status=404)
 
@@ -205,8 +281,14 @@ def test_completed_smoke_replays_sse_and_writes_redacted_summary(
         "request_count": 2,
         "event_count": 6,
         "terminal_event_count": 2,
-        "text_delta_count": 2,
+        "text_delta_count": 0,
         "replayed": True,
+    }
+    assert summary["answer_stream"] == {
+        "draft_seen": True,
+        "terminal_phase": "verified_fallback",
+        "highest_revision": 2,
+        "snapshot_count": 2,
     }
     assert summary["report"] == {
         "present": True,
@@ -219,10 +301,17 @@ def test_completed_smoke_replays_sse_and_writes_redacted_summary(
         "provider": None,
         "model": None,
     }
+    assert summary["retrieval"] == {
+        "requested_mode": "hybrid",
+        "effective_mode": "bm25",
+        "fallback_reason": "dense_dependency_missing",
+    }
     assert summary["secret_scan"]["hit_count"] == 0
     assert "今天市场怎么样" not in raw_summary
     assert "private citation" not in raw_summary
     assert "example.invalid" not in raw_summary
+    assert "redacted draft" not in raw_summary
+    assert "redacted terminal" not in raw_summary
 
 
 def test_degraded_completed_smoke_returns_zero(tmp_path: Path) -> None:
@@ -248,7 +337,10 @@ def test_secret_scan_hit_returns_two_without_echoing_secret(tmp_path: Path) -> N
     assert summary["terminal_outcome"] == "secret_scan_failed"
     assert summary["secret_scan"]["hit_count"] == 1
     assert summary["secret_scan"]["hits"] == [
-        {"source": "sse.text.delta.payload.delta", "marker": "token_prefix"}
+        {
+            "source": "sse.answer.snapshot.payload.text",
+            "marker": "token_prefix",
+        }
     ]
     assert "ghp_abcdefghijklmnopqrstuvwxyz" not in raw_summary
 
@@ -259,6 +351,39 @@ def test_completed_smoke_requires_model_metadata(tmp_path: Path) -> None:
     assert exit_code == 2
     assert summary["terminal_outcome"] == "protocol_error"
     assert summary["failure_stage"] == "model_metadata"
+
+
+@pytest.mark.parametrize(
+    ("mode", "failure_stage"),
+    [
+        ("missing_draft", "answer_snapshot_draft"),
+        ("missing_terminal", "answer_snapshot_terminal"),
+        ("invalid_revision", "answer_snapshot"),
+        ("unknown_phase", "answer_snapshot"),
+        ("invalid_final", "answer_snapshot"),
+        ("conflict", "answer_snapshot_conflict"),
+        ("stale_revision", "answer_snapshot_revision"),
+    ],
+)
+def test_completed_smoke_rejects_invalid_snapshot_state(
+    tmp_path: Path,
+    mode: str,
+    failure_stage: str,
+) -> None:
+    exit_code, summary, _ = run_cli(tmp_path, mode)
+
+    assert exit_code == 2
+    assert summary["terminal_outcome"] == "protocol_error"
+    assert summary["failure_stage"] == failure_stage
+
+
+def test_completed_smoke_accepts_idempotent_snapshot_replay(
+    tmp_path: Path,
+) -> None:
+    exit_code, summary, _ = run_cli(tmp_path, "replay")
+
+    assert exit_code == 0
+    assert summary["answer_stream"]["snapshot_count"] == 2
 
 
 def test_secret_scanner_ignores_redaction_placeholder() -> None:

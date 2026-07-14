@@ -17,6 +17,26 @@ from pathlib import Path
 from typing import BinaryIO
 
 TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled"}
+ANSWER_PHASES = {
+    "verified_draft",
+    "validated_synthesis",
+    "verified_fallback",
+}
+PUBLIC_EVENT_TYPES = {
+    "message.start",
+    "trace.step",
+    "skill.start",
+    "skill.result",
+    "report.start",
+    "report.module",
+    "citation.ready",
+    "text.delta",
+    "answer.snapshot",
+    "report.complete",
+    "report.error",
+    "message.complete",
+    "message.error",
+}
 SAFE_LABEL = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 SAFE_SOURCE_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -197,7 +217,7 @@ def _stream_until_terminal(
     run_id: str,
     timeout: float,
     scanner: SecretScanner,
-) -> tuple[dict[str, object], dict[str, int | bool]]:
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     deadline = time.monotonic() + timeout
     cursor = 0
     request_count = 0
@@ -205,6 +225,10 @@ def _stream_until_terminal(
     terminal_event_count = 0
     text_delta_count = 0
     no_progress_count = 0
+    snapshots: dict[int, tuple[str, str, bool]] = {}
+    highest_revision = 0
+    draft_seen = False
+    terminal_phase: str | None = None
 
     while time.monotonic() < deadline:
         request_count += 1
@@ -237,14 +261,34 @@ def _stream_until_terminal(
                     status = payload.get("status")
                     if status not in TERMINAL_RUN_STATUSES:
                         raise SmokeProtocolError("sse_terminal_status")
+                    if status == "completed":
+                        if not draft_seen:
+                            raise SmokeProtocolError("answer_snapshot_draft")
+                        latest_snapshot = snapshots.get(highest_revision)
+                        if (
+                            terminal_phase is None
+                            or latest_snapshot is None
+                            or latest_snapshot[0] == "verified_draft"
+                            or latest_snapshot[2] is not True
+                        ):
+                            raise SmokeProtocolError("answer_snapshot_terminal")
                     terminal_event_count += 1
-                    return payload, {
-                        "request_count": request_count,
-                        "event_count": event_count,
-                        "terminal_event_count": terminal_event_count,
-                        "text_delta_count": text_delta_count,
-                        "replayed": request_count > 1,
-                    }
+                    return (
+                        payload,
+                        {
+                            "request_count": request_count,
+                            "event_count": event_count,
+                            "terminal_event_count": terminal_event_count,
+                            "text_delta_count": text_delta_count,
+                            "replayed": request_count > 1,
+                        },
+                        {
+                            "draft_seen": draft_seen,
+                            "terminal_phase": terminal_phase,
+                            "highest_revision": highest_revision,
+                            "snapshot_count": len(snapshots),
+                        },
+                    )
 
                 seq = payload.get("seq")
                 if seq is not None:
@@ -253,6 +297,12 @@ def _stream_until_terminal(
                     cursor = max(cursor, seq)
 
                 canonical_type = payload.get("event_type")
+                if (
+                    not isinstance(canonical_type, str)
+                    or canonical_type not in PUBLIC_EVENT_TYPES
+                    or canonical_type != event_name
+                ):
+                    raise SmokeProtocolError("sse_public_event")
                 if canonical_type in {"message.complete", "message.error"}:
                     terminal_event_count += 1
                 if canonical_type == "text.delta":
@@ -266,6 +316,45 @@ def _stream_until_terminal(
                         raise SmokeProtocolError("text_delta")
                     if delta.strip():
                         text_delta_count += 1
+                if canonical_type == "answer.snapshot":
+                    event_payload = payload.get("payload")
+                    if not isinstance(event_payload, dict):
+                        raise SmokeProtocolError("answer_snapshot")
+                    revision = event_payload.get("revision")
+                    phase = event_payload.get("phase")
+                    text = event_payload.get("text")
+                    final = event_payload.get("final")
+                    if (
+                        not isinstance(revision, int)
+                        or isinstance(revision, bool)
+                        or revision < 1
+                        or not isinstance(phase, str)
+                        or phase not in ANSWER_PHASES
+                        or not isinstance(text, str)
+                        or not text.strip()
+                        or type(final) is not bool
+                        or (phase == "verified_draft" and final)
+                        or (phase != "verified_draft" and not final)
+                    ):
+                        raise SmokeProtocolError("answer_snapshot")
+                    identity = (phase, text, final)
+                    existing = snapshots.get(revision)
+                    if revision < highest_revision:
+                        raise SmokeProtocolError("answer_snapshot_revision")
+                    if existing is not None:
+                        if existing != identity:
+                            raise SmokeProtocolError("answer_snapshot_conflict")
+                        continue
+                    if phase == "verified_draft" and snapshots:
+                        raise SmokeProtocolError("answer_snapshot_revision")
+                    snapshots[revision] = identity
+                    highest_revision = revision
+                    if phase == "verified_draft":
+                        draft_seen = True
+                    else:
+                        if not draft_seen:
+                            raise SmokeProtocolError("answer_snapshot_draft")
+                        terminal_phase = phase
 
         if cursor == previous_cursor:
             no_progress_count += 1
@@ -297,6 +386,39 @@ def _safe_identifier(value: object, stage: str) -> str:
     ):
         raise SmokeProtocolError(stage)
     return value
+
+
+def _retrieval_summary(trace: object) -> dict[str, str | None]:
+    if not isinstance(trace, list):
+        raise SmokeProtocolError("run_trace")
+    summary: dict[str, str | None] = {
+        "requested_mode": None,
+        "effective_mode": None,
+        "fallback_reason": None,
+    }
+    for step in trace:
+        if not isinstance(step, dict):
+            raise SmokeProtocolError("run_trace")
+        if step.get("name") != "ask_retrieve_compose":
+            continue
+        output_summary = step.get("output_summary")
+        if not isinstance(output_summary, str):
+            raise SmokeProtocolError("run_trace")
+        try:
+            payload = json.loads(output_summary)
+        except json.JSONDecodeError as exc:
+            raise SmokeProtocolError("run_trace") from exc
+        wiki_rag = payload.get("wiki_rag") if isinstance(payload, dict) else None
+        if not isinstance(wiki_rag, dict):
+            continue
+        for key in summary:
+            value = wiki_rag.get(key)
+            summary[key] = _safe_optional_label(
+                value if value else None,
+                "run_trace",
+            )
+        break
+    return summary
 
 
 def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
@@ -398,7 +520,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             raise SmokeProtocolError("create_message")
         run_id = _safe_identifier(turn.get("run_id"), "create_message")
 
-        terminal_run, sse_summary = _stream_until_terminal(
+        terminal_run, sse_summary, answer_stream = _stream_until_terminal(
             base_url=args.base_url,
             user=args.user,
             run_id=run_id,
@@ -422,8 +544,19 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             timeout=remaining("run_report"),
             stage="run_report",
         )
+        trace = _request_json(
+            "GET",
+            _url(
+                args.base_url,
+                f"/api/runs/{urllib.parse.quote(run_id, safe='')}/trace",
+                {"user": args.user},
+            ),
+            timeout=remaining("run_trace"),
+            stage="run_trace",
+        )
         scanner.scan(terminal_run, "terminal_run")
         scanner.scan(report, "report")
+        scanner.scan(trace, "trace")
 
         report_present = isinstance(report, dict)
         if run_status == "completed" and not report_present:
@@ -450,6 +583,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
                 "terminal_outcome": outcome,
                 "degrade_count": len(degrades),
                 "sse": sse_summary,
+                "answer_stream": answer_stream,
                 "report": {
                     "present": report_present,
                     "status": _safe_optional_label(
@@ -470,6 +604,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
                         "model_metadata",
                     ),
                 },
+                "retrieval": _retrieval_summary(trace),
             }
         )
         exit_code = 0 if run_status == "completed" else 1

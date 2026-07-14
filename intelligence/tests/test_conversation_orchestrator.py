@@ -528,6 +528,103 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     )
     assert retrieval["citations"][0]["source"] == "专项正式资料"
     assert retrieval["citation_counts"] == {"K": 1}
+    snapshots = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert [event["payload"]["revision"] for event in snapshots] == [1, 2]
+    assert [event["payload"]["phase"] for event in snapshots] == [
+        "verified_draft",
+        "verified_fallback",
+    ]
+    assert snapshots[-1]["payload"]["text"] == result.content
+
+
+def test_cancellation_after_draft_keeps_last_safe_snapshot(tmp_path, monkeypatch) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "取消精修",
+    )
+    contract = build_module_answer_contract(
+        skill_id="fixture",
+        title="可核验回答",
+        modules=[
+            {
+                "module_id": "direct_assessment",
+                "title": "直接定性",
+                "summary": "当前证据只支持谨慎判断。",
+                "items": [],
+            }
+        ],
+        citations=[
+            {
+                "source": "fixture.json",
+                "title": "正式资料",
+                "evidence_layer": "canonical",
+                "as_of": "2026-07-11",
+            }
+        ],
+        warnings=[],
+        as_of="2026-07-11",
+        retrieval_plan=("读取正式资料",),
+        output_contract=("输出可核验结论",),
+    )
+    assert contract is not None
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        result = _ask_result(options.query)
+        result.answer_spec = contract.answer_spec
+        result.prepared_synthesis_messages = [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "evidence"},
+        ]
+        return result
+
+    monkeypatch.setattr(
+        "intelligence.services.conversation_orchestrator.synthesize_prepared_answer",
+        lambda prepared: (_ for _ in ()).throw(llm_refine.LLMStreamCancelled()),
+    )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="取消精修",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    snapshots = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert [snapshot["payload"]["phase"] for snapshot in snapshots] == [
+        "verified_draft",
+        "verified_fallback",
+    ]
+    assert result.status == "cancelled"
+    assert result.content == snapshots[-1]["payload"]["text"]
+    answer_artifact = next(
+        artifact
+        for artifact in run_store.load_run(run_id).artifacts
+        if artifact["path"] == "answer.md"
+    )
+    assert (
+        run_store.run_dir(run_id) / answer_artifact["path"]
+    ).read_text(encoding="utf-8") == result.content
 
 
 def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path) -> None:
@@ -986,6 +1083,46 @@ def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> Non
     assert result is not None
     assert result.answer == "whole answer"
     assert deltas == ["whole answer"]
+    assert result.fallback_reason == "stream_unsupported"
+
+
+def test_stream_fallback_uses_only_remaining_deadline(monkeypatch) -> None:
+    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine,
+        "_post_chat_stream",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            llm_refine.LLMStreamingUnsupported()
+        ),
+    )
+    observed: list[float] = []
+
+    def fake_post_chat(provider, messages, timeout, temperature):
+        del provider, messages, temperature
+        observed.append(timeout)
+        return "whole answer"
+
+    monkeypatch.setattr(llm_refine, "_post_chat", fake_post_chat)
+    deadline = type(
+        "FixtureDeadline",
+        (),
+        {
+            "require_remaining": lambda self, minimum=0: 2.0,
+            "remaining": lambda self: 2.2,
+        },
+    )()
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=lambda _: None,
+        timeout=30,
+        deadline=deadline,
+    )
+
+    assert reason == ""
+    assert result is not None
+    assert observed == [2.0]
 
 
 def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(tmp_path) -> None:

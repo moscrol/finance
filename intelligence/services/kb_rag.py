@@ -131,6 +131,21 @@ _MODE_RECALL_DESC = {
     "bm25": "BM25 关键词",
 }
 
+_DENSE_MODES = frozenset({"hybrid", "dense", "rerank"})
+_DENSE_DEPENDENCY_FAILURES = (
+    "flagembedding",
+    "bgem3flagmodel",
+    "no module named 'sentence_transformers'",
+    'no module named "sentence_transformers"',
+    "no module named 'torch'",
+    'no module named "torch"',
+)
+
+
+def _dense_dependency_failure(stderr: str) -> bool:
+    normalized = str(stderr or "").casefold()
+    return any(marker in normalized for marker in _DENSE_DEPENDENCY_FAILURES)
+
 
 def _index_kind(index_dir: Path | str) -> str:
     """索引类型：结构版 .rag_index / 全文版 .rag_index_full / 其他(自定义覆盖)。"""
@@ -153,6 +168,9 @@ class RetrievalTelemetry:
 
     # 检索计划
     mode: str = ""  # 检索方式：hybrid / rerank / ...
+    requested_mode: str = ""
+    effective_mode: str = ""
+    fallback_reason: str = ""
     recall_desc: str = ""  # mode 的人话说明（用了 BM25 / 向量 / rerank 哪些）
     index_kind: str = ""  # 索引类型：structured(.rag_index) / full(.rag_index_full) / custom
     index_dir: str = ""  # 实际使用的索引目录
@@ -181,8 +199,13 @@ class RetrievalTelemetry:
         kind_cn = {"structured": "结构版索引", "full": "全文版索引", "custom": "自定义索引"}.get(
             self.index_kind, self.index_kind or "?"
         )
-        recall = self.recall_desc or self.mode or "?"
-        parts = [f"检索方式={self.mode or '?'}（{recall}）", f"索引={kind_cn}", f"k={self.k}"]
+        effective = self.effective_mode or self.mode or "?"
+        recall = self.recall_desc or effective
+        parts = [f"检索方式={effective}（{recall}）", f"索引={kind_cn}", f"k={self.k}"]
+        if self.requested_mode and self.requested_mode != effective:
+            parts.append(f"请求方式={self.requested_mode}")
+        if self.fallback_reason:
+            parts.append(f"降级原因={self.fallback_reason}")
         if self.filters:
             parts.append("过滤=" + ",".join(f"{k}={v}" for k, v in self.filters.items()))
         parts.append(f"命中={self.hit_count}")
@@ -195,7 +218,7 @@ class RetrievalTelemetry:
         if self.latency_ms is not None:
             parts.append(f"耗时={self.latency_ms}ms")
         if self.degraded:
-            parts.append("⚠索引降级")
+            parts.append("⚠检索降级")
         if self.index_freshness:
             parts.append(f"新鲜度={self.index_freshness}")
         if self.index_built_at:
@@ -353,8 +376,11 @@ def retrieve(
     """
     res = WikiRagResult()
     tel = res.telemetry
-    tel.mode = str(mode)
-    tel.recall_desc = _MODE_RECALL_DESC.get(str(mode), "")
+    requested_mode = str(mode)
+    tel.mode = requested_mode
+    tel.requested_mode = requested_mode
+    tel.effective_mode = requested_mode
+    tel.recall_desc = _MODE_RECALL_DESC.get(requested_mode, "")
     tel.k = int(k)
     tel.display_excerpt_chars = int(excerpt_chars)
     if not kb_wiki:
@@ -455,6 +481,7 @@ def retrieve(
     res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（匹配 chunk 证据）"
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
+    fallback_warning = ""
     _t0 = time.monotonic()
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(root), env=env)
@@ -464,26 +491,81 @@ def retrieve(
         tel.status = "timeout"
         tel.warning = res.warning
         return res
-    except Exception as exc:  # pragma: no cover - defensive
-        res.warning = f"wiki-rag 调用失败: {exc}"
+    except Exception:  # pragma: no cover - defensive
+        res.warning = "wiki-rag 调用失败"
         tel.status = "error"
         tel.warning = res.warning
         return res
+
+    if (
+        proc.returncode != 0
+        and requested_mode in _DENSE_MODES
+        and _dense_dependency_failure(proc.stderr)
+    ):
+        tel.fallback_reason = "dense_dependency_missing"
+        remaining = float(timeout) - (time.monotonic() - _t0)
+        if remaining < 1:
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            res.warning = "wiki-rag dense 依赖不可用，剩余预算不足，未执行 BM25 回退"
+            tel.status = "error"
+            tel.warning = res.warning
+            return res
+
+        fallback_cmd = list(cmd)
+        fallback_cmd[fallback_cmd.index("--mode") + 1] = "bm25"
+        tel.mode = "bm25"
+        tel.effective_mode = "bm25"
+        tel.recall_desc = _MODE_RECALL_DESC["bm25"]
+        tel.degraded = True
+        res.command = (
+            f"rag_index.py query <q> --k {k} --mode bm25"
+            f" --evidence-chars {generation_evidence_chars}{filter_note} --json"
+        )
+        res.citation_source = (
+            f"knowledge-base · rag_index.py query --mode bm25{filter_note}"
+            "（匹配 chunk 证据；dense 不可用时回退）"
+        )
+        try:
+            proc = subprocess.run(
+                fallback_cmd,
+                capture_output=True,
+                text=True,
+                timeout=remaining,
+                cwd=str(root),
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            res.warning = "wiki-rag dense 依赖不可用，BM25 回退超时"
+            tel.status = "timeout"
+            tel.warning = res.warning
+            return res
+        except Exception:  # pragma: no cover - defensive
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            res.warning = "wiki-rag dense 依赖不可用，BM25 回退调用失败"
+            tel.status = "error"
+            tel.warning = res.warning
+            return res
+        fallback_warning = "wiki-rag dense 依赖不可用，已回退 BM25"
+
     tel.latency_ms = int((time.monotonic() - _t0) * 1000)
     if proc.returncode != 0:
-        res.warning = f"wiki-rag 退出码 {proc.returncode}: {(proc.stderr or '').strip()[:160]}"
+        if tel.fallback_reason:
+            res.warning = f"wiki-rag dense 依赖不可用，BM25 回退退出码 {proc.returncode}"
+        else:
+            res.warning = f"wiki-rag 检索失败（退出码 {proc.returncode}）"
         tel.status = "error"
         tel.warning = res.warning
         return res
-    warnings = [res.warning] if res.warning else []
+    warnings = [warning for warning in (res.warning, fallback_warning) if warning]
     stderr_warning = re.sub(r"\s+", " ", (proc.stderr or "")).strip()
     if stderr_warning:
-        warnings.append(stderr_warning[:500])
+        warnings.append("wiki-rag 检索器返回告警")
 
     try:
         raw = json.loads(proc.stdout or "[]")
-    except json.JSONDecodeError as exc:
-        res.warning = f"wiki-rag 输出非 JSON: {exc}"
+    except json.JSONDecodeError:
+        res.warning = "wiki-rag 输出非 JSON"
         tel.status = "error"
         tel.warning = res.warning
         return res

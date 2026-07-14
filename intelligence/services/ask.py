@@ -20,6 +20,7 @@ import glob
 import json
 import os
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import date as date_cls, timedelta
@@ -285,6 +286,16 @@ class AskResult:
     # 首轮合成的完整对话 messages（system+user+assistant）；供多轮追问复用证据+历史。
     # None 表示未启用/已降级（无法进入多轮对话）。
     synthesis_messages: list[dict] | None = None
+    prepared_synthesis_messages: list[dict] | None = field(
+        default=None,
+        repr=False,
+    )
+    prepared_synthesis_is_market_review: bool = field(
+        default=False,
+        repr=False,
+    )
+    llm_fallback_reason: str | None = None
+    llm_stream_telemetry: dict[str, object] = field(default_factory=dict)
     # 问答编排层：先解析问题类型/深度/视角/证据计划，再进入 compose。
     question_plan: QuestionPlan | None = None
     # 澄清追问：问题明确模糊时的结构化追问；非 None 表示本次未检索、等用户补充。
@@ -325,6 +336,12 @@ class AskResult:
         if self.found_market or self.found_graph:
             return "WARN"
         return "FAIL"
+
+
+@dataclass(frozen=True)
+class PreparedAnswer:
+    options: AskOptions
+    result: AskResult
 
 
 def _normalize(value: Any) -> str:
@@ -701,34 +718,10 @@ def _answer_market_review(
         {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
     ]
-    composed, reason = llm_refine.synthesize_messages(
-        messages,
-        model_override=options.llm_model,
-        timeout=options.llm_timeout,
-    )
-    if composed is None:
-        result.warnings.append(reason)
-        return result
-    blocking_issues = [
-        issue
-        for issue in answer_model.validate_llm_answer(
-            composed.answer,
-            result.answer_spec,
-        )
-        if issue.severity == "error"
-    ]
-    if blocking_issues:
-        result.warnings.extend(
-            f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
-            for issue in blocking_issues
-        )
-        return result
-    result.synthesis = composed.answer
-    result.llm_provider = composed.provider
-    result.synthesis_messages = [
-        *messages,
-        {"role": "assistant", "content": composed.answer},
-    ]
+    result.prepared_synthesis_messages = messages
+    result.prepared_synthesis_is_market_review = True
+    if options.synthesize:
+        synthesize_prepared_answer(PreparedAnswer(options=options, result=result))
     return result
 
 
@@ -1867,15 +1860,22 @@ def answer_query(options: AskOptions) -> AskResult:
             follow_ups=follow_ups,
             citations=citations,
         )
+        result.prepared_synthesis_messages = _prepare_answer_spec_synthesis(
+            options=options,
+            result=result,
+            question_plan=question_plan,
+            theme=theme,
+            citations=citations,
+            quality_context=quality_context,
+            is_market_review=is_market_review,
+        )
+        result.prepared_synthesis_is_market_review = is_market_review
         if options.synthesize:
-            _synthesize_answer_spec(
-                options=options,
-                result=result,
-                question_plan=question_plan,
-                theme=theme,
-                citations=citations,
-                quality_context=quality_context,
-                is_market_review=is_market_review,
+            synthesize_prepared_answer(
+                PreparedAnswer(
+                    options=options,
+                    result=result,
+                )
             )
 
     if result.answer_spec is None:
@@ -2556,7 +2556,7 @@ def _dedupe_structured_claims(
     return result
 
 
-def _synthesize_answer_spec(
+def _prepare_answer_spec_synthesis(
     *,
     options: AskOptions,
     result: AskResult,
@@ -2565,9 +2565,9 @@ def _synthesize_answer_spec(
     citations: list[Citation],
     quality_context: AnswerQualityContext,
     is_market_review: bool,
-) -> None:
+) -> list[dict]:
     if result.answer_spec is None:
-        return
+        return []
     citation_legend = "\n".join(
         f"[{citation.tag}] {citation.source}"
         + (f" — {citation.detail}" if citation.detail else "")
@@ -2632,24 +2632,71 @@ def _synthesize_answer_spec(
                 ),
             },
         )
-    if options.compose_self_review:
-        composed, reason = llm_refine.synthesize_messages_with_review(
-            messages,
-            model_override=options.llm_model,
-            timeout=options.llm_timeout,
-        )
-    else:
+    return messages
+
+
+def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
+    options = prepared.options
+    result = prepared.result
+    messages = result.prepared_synthesis_messages
+    if result.answer_spec is None or not messages:
+        return result
+    started = time.monotonic()
+    deadline = llm_refine.Deadline.from_timeout(options.llm_timeout)
+    chunks: list[str] = []
+    first_token_ms: int | None = None
+
+    def capture(delta: str) -> None:
+        nonlocal first_token_ms
+        if options.stream_cancel_check is not None and options.stream_cancel_check():
+            raise llm_refine.LLMStreamCancelled()
+        if first_token_ms is None:
+            first_token_ms = max(0, round((time.monotonic() - started) * 1000))
+        chunks.append(delta)
+
+    if result.prepared_synthesis_is_market_review:
         composed, reason = llm_refine.synthesize_messages(
             messages,
             model_override=options.llm_model,
             timeout=options.llm_timeout,
+            deadline=deadline,
+        )
+    elif options.compose_self_review:
+        composed, reason = llm_refine.synthesize_messages_with_review(
+            messages,
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+            deadline=deadline,
+        )
+    else:
+        composed, reason = llm_refine.synthesize_messages_stream(
+            messages,
+            on_delta=capture,
+            is_cancelled=options.stream_cancel_check,
+            model_override=options.llm_model,
+            timeout=options.llm_timeout,
+            deadline=deadline,
         )
     if composed is None:
         result.warnings.append(reason)
-        return
+        result.llm_fallback_reason = _stable_llm_fallback_reason(reason)
+        result.llm_stream_telemetry = {
+            "first_token_ms": first_token_ms,
+            "chunk_count": len(chunks),
+            "provider": None,
+            "model": options.llm_model,
+        }
+        return result
+    result.llm_fallback_reason = composed.fallback_reason
+    result.llm_stream_telemetry = {
+        "first_token_ms": first_token_ms,
+        "chunk_count": len(chunks),
+        "provider": composed.provider,
+        "model": composed.model,
+    }
     proposed_synthesis = (
         f"{result.data_notice}\n\n{composed.answer}"
-        if result.data_notice
+        if result.data_notice and not result.prepared_synthesis_is_market_review
         else composed.answer
     )
     blocking_issues = [
@@ -2665,7 +2712,8 @@ def _synthesize_answer_spec(
             f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
             for issue in blocking_issues
         )
-        return
+        result.llm_fallback_reason = "quality_gate_rejected"
+        return result
     result.synthesis = proposed_synthesis
     result.llm_provider = composed.provider
     result.synthesis_messages = [
@@ -2676,6 +2724,55 @@ def _synthesize_answer_spec(
         options.stream_text_delta(result.synthesis)
     if reason:
         result.warnings.append(reason)
+    return result
+
+
+def _stable_llm_fallback_reason(reason: str) -> str:
+    normalized = str(reason or "").casefold()
+    if "未配置" in normalized:
+        return "provider_unavailable"
+    if "截止时间" in normalized or "超时" in normalized:
+        return "timeout"
+    if "http" in normalized:
+        return "provider_http_error"
+    if "空内容" in normalized:
+        return "empty_response"
+    return "provider_unavailable"
+
+
+def prepare_answer(options: AskOptions) -> PreparedAnswer:
+    prepared_options = replace(
+        options,
+        synthesize=False,
+        compose_revise_on_warn=False,
+    )
+    return PreparedAnswer(
+        options=prepared_options,
+        result=answer_query(prepared_options),
+    )
+
+
+def prepare_existing_answer(
+    options: AskOptions,
+    result: AskResult,
+) -> PreparedAnswer:
+    if result.answer_spec is not None and result.prepared_synthesis_messages is None:
+        citation_legend = "\n".join(
+            f"[{citation.tag}] {citation.source}"
+            + (f" — {citation.detail}" if citation.detail else "")
+            for citation in result.citations
+        )
+        theme = result.matched_theme or result.answer_spec.presentation_title or options.query
+        result.prepared_synthesis_messages = llm_refine.build_synthesis_messages(
+            options.query,
+            theme,
+            result.answer_spec.to_prompt_block(),
+            citation_legend=citation_legend,
+        )
+    return PreparedAnswer(
+        options=replace(options, synthesize=False),
+        result=result,
+    )
 
 
 def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:

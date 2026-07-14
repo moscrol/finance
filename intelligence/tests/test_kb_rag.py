@@ -331,6 +331,150 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertTrue(tel.requested_index_dir.endswith(kb_rag.FULL_INDEX_DIRNAME))
             self.assertEqual(tel.status, "empty")
 
+    def test_dense_dependency_failure_falls_back_to_bm25(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            failed = mock.Mock(
+                returncode=1,
+                stdout="",
+                stderr="ModuleNotFoundError: No module named 'FlagEmbedding'",
+            )
+            success = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(self._freshness_payload("fresh"), ensure_ascii=False),
+                stderr="",
+            )
+
+            with mock.patch.dict(
+                "os.environ",
+                {"KB_RAG_PYTHON": "/tmp/rag-python"},
+                clear=True,
+            ):
+                with mock.patch(
+                    "subprocess.run",
+                    side_effect=[failed, success],
+                ) as run:
+                    res = kb_rag.retrieve(
+                        "光刻机",
+                        root / "wiki",
+                        mode="hybrid",
+                        timeout=5,
+                    )
+
+            self.assertTrue(res.ok)
+            self.assertEqual(run.call_count, 2)
+            self.assertIn("hybrid", run.call_args_list[0].args[0])
+            self.assertIn("bm25", run.call_args_list[1].args[0])
+            self.assertGreaterEqual(run.call_args_list[1].kwargs["timeout"], 1)
+            self.assertLessEqual(run.call_args_list[1].kwargs["timeout"], 5)
+            self.assertEqual(res.telemetry.requested_mode, "hybrid")
+            self.assertEqual(res.telemetry.effective_mode, "bm25")
+            self.assertEqual(res.telemetry.mode, "bm25")
+            self.assertEqual(
+                res.telemetry.fallback_reason,
+                "dense_dependency_missing",
+            )
+            self.assertTrue(res.telemetry.degraded)
+            self.assertIn("已回退 BM25", res.warning)
+
+    def test_bm25_fallback_still_rejects_stale_hits(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            failed = mock.Mock(
+                returncode=1,
+                stdout="",
+                stderr="ImportError: BGEM3FlagModel unavailable",
+            )
+            stale = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(self._freshness_payload("stale"), ensure_ascii=False),
+                stderr="",
+            )
+
+            with mock.patch.dict(
+                "os.environ",
+                {"KB_RAG_PYTHON": "/tmp/rag-python"},
+                clear=True,
+            ):
+                with mock.patch("subprocess.run", side_effect=[failed, stale]):
+                    res = kb_rag.retrieve(
+                        "光刻机",
+                        root / "wiki",
+                        mode="rerank",
+                        timeout=5,
+                    )
+
+            self.assertFalse(res.ok)
+            self.assertEqual(res.hits, [])
+            self.assertEqual(res.telemetry.effective_mode, "bm25")
+            self.assertEqual(res.telemetry.status, "empty")
+            self.assertIn("非 fresh", res.warning)
+
+    def test_dense_dependency_failure_skips_fallback_without_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            failed = mock.Mock(
+                returncode=1,
+                stdout="",
+                stderr="ModuleNotFoundError: No module named 'torch'",
+            )
+
+            with mock.patch.dict(
+                "os.environ",
+                {"KB_RAG_PYTHON": "/tmp/rag-python"},
+                clear=True,
+            ):
+                with mock.patch("subprocess.run", return_value=failed) as run:
+                    with mock.patch(
+                        "time.monotonic",
+                        side_effect=[10.0, 14.5, 14.5],
+                    ):
+                        res = kb_rag.retrieve(
+                            "光刻机",
+                            root / "wiki",
+                            mode="dense",
+                            timeout=5,
+                        )
+
+            self.assertEqual(run.call_count, 1)
+            self.assertFalse(res.ok)
+            self.assertEqual(res.telemetry.effective_mode, "dense")
+            self.assertEqual(res.telemetry.fallback_reason, "dense_dependency_missing")
+            self.assertIn("剩余预算不足", res.warning)
+
+    def test_unrelated_retriever_error_does_not_fall_back(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            failed = mock.Mock(
+                returncode=2,
+                stdout="",
+                stderr="ValueError: malformed query arguments",
+            )
+
+            with mock.patch.dict(
+                "os.environ",
+                {"KB_RAG_PYTHON": "/tmp/rag-python"},
+                clear=True,
+            ):
+                with mock.patch("subprocess.run", return_value=failed) as run:
+                    res = kb_rag.retrieve(
+                        "光刻机",
+                        root / "wiki",
+                        mode="hybrid",
+                        timeout=5,
+                    )
+
+            self.assertEqual(run.call_count, 1)
+            self.assertFalse(res.ok)
+            self.assertEqual(res.telemetry.effective_mode, "hybrid")
+            self.assertEqual(res.telemetry.fallback_reason, "")
+            self.assertEqual(res.warning, "wiki-rag 检索失败（退出码 2）")
+            self.assertNotIn("malformed query arguments", res.warning)
+
 
 class KbRagIndexResolutionTests(unittest.TestCase):
     def test_prefers_vector_index_dir_over_legacy_rag_index_dir(self) -> None:

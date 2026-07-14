@@ -51,14 +51,23 @@ export function MessageBubble({
       : terminalStatus === "failed"
         ? "本轮生成失败，请重试。"
         : null;
+  const answerStatus =
+    live?.answerPhase === "verified_draft"
+      ? "可核验草稿 · 模型精修中"
+      : live?.answerPhase === "validated_synthesis"
+        ? "自然语言精修完成"
+        : live?.answerPhase === "verified_fallback"
+          ? "已保留可核验版本"
+          : null;
   const assistantStatus =
-    terminalStatus === "pending" || terminalStatus === "streaming"
+    answerStatus ??
+    (terminalStatus === "pending" || terminalStatus === "streaming"
       ? "研究中"
       : terminalStatus === "cancelled"
         ? "已停止"
         : terminalStatus === "failed"
           ? "失败"
-          : "已完成";
+          : "已完成");
   const hasBoundEvidence =
     bundle?.context.evidence.some(
       (item) => item.classification === "bound_evidence",
@@ -92,7 +101,8 @@ export function MessageBubble({
           invokedSkillIds={invokedSkillIds}
           statuses={statuses}
         />
-        {message.degrades.includes("llm_unavailable_template_answer") && (
+        {(live?.answerPhase ?? null) === null &&
+          message.degrades.includes("llm_unavailable_template_answer") && (
           <span className="template-answer-label">
             自然语言综合暂时不可用
           </span>
