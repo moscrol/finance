@@ -1,8 +1,9 @@
-import io
+import asyncio
 import json
 import time
 import urllib.error
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 from dataclasses import asdict, replace
 from pathlib import Path
 from threading import (
@@ -3836,54 +3837,45 @@ def test_cancellation_between_text_deltas_marks_run_cancelled(tmp_path) -> None:
     assert assistant.status == "cancelled"
 
 
-class _StreamingResponse(io.BytesIO):
-    def __enter__(self):
-        return self
+@asynccontextmanager
+async def _stream_lines(lines: list[str]):
+    async def iterate():
+        for line in lines:
+            yield line
 
-    def __exit__(self, *args: object) -> None:
-        return None
+    yield iterate()
 
 
-class _SilentAfterFirstResponse:
-    def __init__(self) -> None:
-        self._sent_first = False
-        self._release = Event()
+@asynccontextmanager
+async def _silent_after_first_stream(*, exited: Event | None = None):
+    async def iterate():
+        yield 'data: {"choices":[{"delta":{"content":"first"}}]}'
+        await asyncio.Event().wait()
 
-    def __iter__(self):
-        return self
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args: object) -> None:
-        self.close()
-
-    def __next__(self) -> bytes:
-        if not self._sent_first:
-            self._sent_first = True
-            return b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n'
-        self._release.wait(timeout=0.4)
-        raise StopIteration
-
-    def close(self) -> None:
-        self._release.set()
+    try:
+        yield iterate()
+    finally:
+        if exited is not None:
+            exited.set()
 
 
 def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> None:
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"
     )
-    body = (
-        b'data: {"choices":[{"delta":{"content":"real "}}]}\n\n'
-        b'data: {"choices":[{"delta":{"content":"delta"}}]}\n\n'
-        b"data: [DONE]\n\n"
-    )
+    lines = [
+        'data: {"choices":[{"delta":{"content":"real "}}]}',
+        'data: {"choices":[{"delta":{"content":"delta"}}]}',
+        "data: [DONE]",
+    ]
+    request: dict[str, object] = {}
+
+    def stream_spy(**kwargs):
+        request.update(kwargs)
+        return _stream_lines(lines)
+
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
-    monkeypatch.setattr(
-        llm_refine.urllib.request,
-        "urlopen",
-        lambda *args, **kwargs: _StreamingResponse(body),
-    )
+    monkeypatch.setattr(llm_refine, "_httpx_stream_lines", stream_spy)
     deltas: list[str] = []
 
     result, reason = llm_refine.synthesize_messages_stream(
@@ -3895,6 +3887,19 @@ def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> 
     assert result is not None
     assert result.answer == "real delta"
     assert deltas == ["real ", "delta"]
+    assert request["url"] == "https://llm.invalid/v1/chat/completions"
+    assert request["payload"] == {
+        "model": "model",
+        "messages": [{"role": "user", "content": "question"}],
+        "temperature": 0.3,
+        "stream": True,
+    }
+    assert request["headers"] == {
+        "Authorization": "Bearer key",
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+    }
+    assert 0 < request["timeout"] <= llm_refine.DEFAULT_LLM_TIMEOUT
 
 
 def test_openai_stream_checks_cancellation_between_provider_deltas(
@@ -3903,16 +3908,16 @@ def test_openai_stream_checks_cancellation_between_provider_deltas(
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"
     )
-    body = (
-        b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n'
-        b'data: {"choices":[{"delta":{"content":"second"}}]}\n\n'
-        b"data: [DONE]\n\n"
-    )
+    lines = [
+        'data: {"choices":[{"delta":{"content":"first"}}]}',
+        'data: {"choices":[{"delta":{"content":"second"}}]}',
+        "data: [DONE]",
+    ]
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
-        "urlopen",
-        lambda *args, **kwargs: _StreamingResponse(body),
+        llm_refine,
+        "_httpx_stream_lines",
+        lambda **kwargs: _stream_lines(lines),
     )
     cancelled = Event()
     deltas: list[str] = []
@@ -3935,12 +3940,11 @@ def test_stream_deadline_interrupts_silence_after_first_chunk(monkeypatch) -> No
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"
     )
-    response = _SilentAfterFirstResponse()
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
-        "urlopen",
-        lambda *args, **kwargs: response,
+        llm_refine,
+        "_httpx_stream_lines",
+        lambda **kwargs: _silent_after_first_stream(),
     )
     fallback_calls: list[int] = []
     monkeypatch.setattr(
@@ -3968,18 +3972,46 @@ def test_stream_deadline_interrupts_silence_after_first_chunk(monkeypatch) -> No
     )
 
 
+def test_stream_return_never_leaves_reader_when_close_cannot_unblock(
+    monkeypatch,
+) -> None:
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
+    exited = Event()
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine,
+        "_httpx_stream_lines",
+        lambda **kwargs: _silent_after_first_stream(exited=exited),
+    )
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=lambda _: None,
+        timeout=0.05,
+    )
+
+    assert result is None
+    assert "超时" in reason
+    assert exited.is_set()
+    assert not any(
+        thread.name == "llm-stream-reader" and thread.is_alive()
+        for thread in enumerate_threads()
+    )
+
+
 def test_stream_cancellation_interrupts_silence_after_first_chunk(
     monkeypatch,
 ) -> None:
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"
     )
-    response = _SilentAfterFirstResponse()
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
-        "urlopen",
-        lambda *args, **kwargs: response,
+        llm_refine,
+        "_httpx_stream_lines",
+        lambda **kwargs: _silent_after_first_stream(),
     )
     cancelled = Event()
     deltas: list[str] = []
