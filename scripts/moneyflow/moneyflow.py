@@ -119,12 +119,16 @@ class AdaptiveThrottle:
         self.cur = min(self.max, max(self.cur * 2.0, 2.0))
 
 
-def run_scan(client, codes, date, tag, compute, passes=3):
-    """逐股扫描骨架：自适应限速 + 断点缓存 + 失败股票多轮兜底重试。
+def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_rest=15.0):
+    """逐股扫描骨架：自适应限速 + 小批量冷却 + 断点缓存 + 失败股票多轮兜底重试。
+
+    每处理 batch_size 只后落盘缓存、休息 batch_rest 秒（带抖动）并重建连接，
+    避免长连接一次性扫描过多触发限流。
 
     compute(client, code) -> (client, row|None)；row 为 None 表示该股无结果。
     已完成结果缓存到 outputs/scan_cache_<tag>_<date>.json，中断重跑不重复打库。
-    返回 (client, rows)。"""
+    返回 (client, rows, stats)；stats 含 input_count/processed_count/failed_count，
+    供写库时落入 ops_pipeline_run_daily 审计。"""
     cache_file = out_path(f"scan_cache_{tag}_{date}.json")
     done = {}
     if os.path.exists(cache_file):
@@ -160,12 +164,25 @@ def run_scan(client, codes, date, tag, compute, passes=3):
                 failed.append(code)
                 throttle.fail()
             throttle.wait()
+            if batch_size and i % batch_size == 0 and i < len(pending):
+                save()
+                print(f"-- 批次冷却: 已处理 {i}/{len(pending)}，休息 {batch_rest:.0f}s 并重建连接 --")
+                time.sleep(batch_rest + random.uniform(0, batch_rest * 0.3))
+                try:
+                    client.disconnect()
+                except Exception:
+                    pass
+                client = make_client()
         save()
         pending = failed
     if pending:
         print(f"!! 兜底后仍失败 {len(pending)} 只: {','.join(pending[:20])}")
-        raise RuntimeError(f"{tag} 兜底后仍有 {len(pending)} 只股票失败")
-    return client, [r for c, r in done.items() if r]
+    stats = {
+        "input_count": len(codes),
+        "processed_count": sum(1 for c in codes if c in done),
+        "failed_count": len(pending),
+    }
+    return client, [r for c, r in done.items() if r], stats
 
 
 def fetch_trades(client, code, date):

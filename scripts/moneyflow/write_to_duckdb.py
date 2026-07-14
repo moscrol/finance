@@ -35,11 +35,15 @@ def begin_l2_run(date):
             con.execute(
                 """
                 INSERT INTO ops_pipeline_run_daily
-                    (trade_date, pipeline, step, status, row_count, message, source, finished_at)
-                VALUES (?, 'l2-moneyflow', ?, 'running', NULL, NULL, ?, NULL)
+                    (trade_date, pipeline, step, status, row_count,
+                     input_count, processed_count, failed_count, message, source, finished_at)
+                VALUES (?, 'l2-moneyflow', ?, 'running', NULL, NULL, NULL, NULL, NULL, ?, NULL)
                 ON CONFLICT (trade_date, pipeline, step) DO UPDATE SET
                     status = excluded.status,
                     row_count = excluded.row_count,
+                    input_count = excluded.input_count,
+                    processed_count = excluded.processed_count,
+                    failed_count = excluded.failed_count,
                     message = excluded.message,
                     source = excluded.source,
                     finished_at = excluded.finished_at
@@ -57,25 +61,96 @@ def begin_l2_run(date):
         con.close()
 
 
-def _mark_complete(con, date, step, row_count):
+def _mark_status(con, date, step, status, row_count, stats, message):
+    stats = stats or {}
     con.execute(
         """
         INSERT INTO ops_pipeline_run_daily
-            (trade_date, pipeline, step, status, row_count, message, source, finished_at)
-        VALUES (?, 'l2-moneyflow', ?, 'complete', ?, NULL, ?, CURRENT_TIMESTAMP)
+            (trade_date, pipeline, step, status, row_count,
+             input_count, processed_count, failed_count, message, source, finished_at)
+        VALUES (?, 'l2-moneyflow', ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT (trade_date, pipeline, step) DO UPDATE SET
             status = excluded.status,
             row_count = excluded.row_count,
+            input_count = excluded.input_count,
+            processed_count = excluded.processed_count,
+            failed_count = excluded.failed_count,
             message = excluded.message,
             source = excluded.source,
             finished_at = excluded.finished_at
         """,
-        [date, step, row_count, SOURCE],
+        [date, step, status, row_count,
+         stats.get("input_count"), stats.get("processed_count"),
+         stats.get("failed_count"), message, SOURCE],
     )
 
 
-def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None):
+def _stats_problem(stats):
+    """完整处理统计才能标 complete：缺统计/零输入/处理不全/有失败都不合法。"""
+    if not stats:
+        return "missing scan stats"
+    inp = stats.get("input_count")
+    proc = stats.get("processed_count")
+    fail = stats.get("failed_count")
+    if inp is None or proc is None or fail is None:
+        return f"incomplete scan stats: {stats}"
+    if inp <= 0:
+        return f"input_count={inp}, no candidates scanned"
+    if fail:
+        return f"failed_count={fail}"
+    if proc != inp:
+        return f"processed_count={proc} != input_count={inp}"
+    return None
+
+
+def _require_valid_stats(date, step, stats):
+    """统计不合法时单独事务标 failed 并抛错，不写结果行。"""
+    problem = _stats_problem(stats)
+    if not problem:
+        return
+    con = connect()
+    try:
+        init_db(con)
+        _mark_status(con, date, step, "failed", None, stats, problem)
+    finally:
+        con.close()
+    raise RuntimeError(f"l2-moneyflow/{step} {date} 统计不完整，标记 failed: {problem}")
+
+
+def _mark_complete(con, date, step, row_count, stats):
+    _mark_status(con, date, step, "complete", row_count, stats, None)
+
+
+def mark_failed(date, message, steps=STEPS, only_running=True):
+    """把步骤标记为 failed（默认只覆盖仍处于 running 的步骤）。"""
+    con = connect()
+    try:
+        init_db(con)
+        con.execute("BEGIN TRANSACTION")
+        for step in steps:
+            if only_running:
+                row = con.execute(
+                    "SELECT status FROM ops_pipeline_run_daily "
+                    "WHERE trade_date = ? AND pipeline = 'l2-moneyflow' AND step = ?",
+                    [date, step],
+                ).fetchone()
+                if row is not None and row[0] == "complete":
+                    continue
+            _mark_status(con, date, step, "failed", None, None, message)
+        con.execute("COMMIT")
+    except Exception:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:
+            pass
+        raise
+    finally:
+        con.close()
+
+
+def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None, stats=None):
     """res 列: code,name,主买净额(万),总买净额(万),流通市值(亿),综合得分,当日涨幅%"""
+    _require_valid_stats(date, scan_type, stats)
     df = (
         res.sort_values("综合得分", ascending=False).reset_index(drop=True)
         if not res.empty
@@ -100,7 +175,7 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None):
             con.executemany(
                 "INSERT INTO feature_l2_capital_flow_daily VALUES "
                 "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
-        _mark_complete(con, date, scan_type, len(rows))
+        _mark_complete(con, date, scan_type, len(rows), stats)
         con.execute("COMMIT")
     except Exception:
         try:
@@ -113,8 +188,9 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None):
     print(f"DuckDB: feature_l2_capital_flow_daily {scan_type} {date} 写入 {len(rows)} 行")
 
 
-def write_quant_orders(date, res, big_thr, quant_thr):
+def write_quant_orders(date, res, big_thr, quant_thr, stats=None):
     """res 列: code,name,量化单总额(万),占大单买入%,簇数,笔数,最大簇,当日涨幅%"""
+    _require_valid_stats(date, "quant", stats)
     df = (
         res.sort_values("占大单买入%", ascending=False).reset_index(drop=True)
         if not res.empty
@@ -138,7 +214,7 @@ def write_quant_orders(date, res, big_thr, quant_thr):
             con.executemany(
                 "INSERT INTO feature_l2_quant_orders_daily VALUES "
                 "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
-        _mark_complete(con, date, "quant", len(rows))
+        _mark_complete(con, date, "quant", len(rows), stats)
         con.execute("COMMIT")
     except Exception:
         try:
@@ -156,18 +232,24 @@ def main():
         begin_l2_run(sys.argv[2])
         print(f"DuckDB: l2-moneyflow {sys.argv[2]} 标记为 running")
         return
+    if len(sys.argv) >= 3 and sys.argv[1] == "--fail":
+        message = sys.argv[3] if len(sys.argv) > 3 else "pipeline failed"
+        mark_failed(sys.argv[2], message)
+        print(f"DuckDB: l2-moneyflow {sys.argv[2]} 未完成步骤标记为 failed")
+        return
     if len(sys.argv) < 4:
         print(
-            "用法: python3 write_to_duckdb.py --begin <日期> | "
+            "用法: python3 write_to_duckdb.py --begin <日期> | --fail <日期> [原因] | "
             "<csv路径> <limitup|top100|quant> <日期>"
         )
         return
     csv_path, scan_type, date = sys.argv[1], sys.argv[2], sys.argv[3]
     res = pd.read_csv(csv_path, dtype={"code": str})
+    stats = {"input_count": len(res), "processed_count": len(res), "failed_count": 0}
     if scan_type == "quant":
-        write_quant_orders(date, res, big_thr=50.0, quant_thr=200.0)
+        write_quant_orders(date, res, big_thr=50.0, quant_thr=200.0, stats=stats)
     else:
-        write_capital_flow(date, scan_type, res, big_thr=50.0)
+        write_capital_flow(date, scan_type, res, big_thr=50.0, stats=stats)
 
 
 if __name__ == "__main__":

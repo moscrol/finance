@@ -55,16 +55,28 @@ rc=$?
 run_moneyflow
 moneyflow_rc=$?
 if [ $moneyflow_rc -ne 0 ]; then
-  echo "[$(date '+%F %T')] 资金流段未完成 rc=${moneyflow_rc}（不阻断复盘主链）"
-  notify "⚠️ 全量复盘 $D 资金流段未完成 rc=${moneyflow_rc}；主链继续，日志 logs/daily-full-review.out.log"
+  echo "[$(date '+%F %T')] 资金流段失败 rc=${moneyflow_rc}"
+  python3 scripts/moneyflow/write_to_duckdb.py --fail "$D" "nightly moneyflow rc=${moneyflow_rc}" \
+    || echo "[$(date '+%F %T')] L2 失败状态回写未成功"
+  notify "❌ 全量复盘 $D 资金流段失败 rc=${moneyflow_rc}；日志 logs/daily-full-review.out.log"
 fi
-python3 scripts/check_daily_review_data.py "$D" --phase l2 \
-  || echo "[$(date '+%F %T')] L2 新鲜度检查未通过（不阻断复盘主链）"
+python3 scripts/check_daily_review_data.py "$D" --phase l2
+l2_rc=$?
+if [ $l2_rc -ne 0 ]; then
+  echo "[$(date '+%F %T')] L2 质量门未通过 rc=${l2_rc}"
+  notify "❌ 全量复盘 $D L2 质量门未通过；日志 logs/daily-full-review.out.log"
+fi
 
 if [ $rc -ne 0 ]; then
   echo "[$(date '+%F %T')] 同步段失败 rc=${rc}（常见原因：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），停止后续生成段"
   notify "⚠️ 全量复盘 $D 同步段失败 rc=${rc}（常见：CDP proxy 未启动 / fupanhui 未登录 / 非交易日），后续生成段未跑；日志 logs/daily-full-review.out.log"
+  echo "[$(date '+%F %T')] === 全量复盘失败 date=$D 同步段 rc=${rc} ==="
   exit $rc
+fi
+
+if [ $moneyflow_rc -ne 0 ] || [ $l2_rc -ne 0 ]; then
+  echo "[$(date '+%F %T')] === 全量复盘失败 date=$D 资金流 rc=${moneyflow_rc} L2门 rc=${l2_rc} ==="
+  exit 1
 fi
 
 python3 -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-review \
@@ -93,6 +105,15 @@ fi
 kb_msg=$(python3 "$WORKSPACE/scripts/check_kb_freshness.py" --max-age 7)
 if [ $? -eq 2 ]; then
   notify "$kb_msg——研报证据需要补 ingest（PDF 批次）"
+fi
+
+# 最终硬门：数据/报告/L2 全部通过才允许宣布完成
+python3 scripts/check_daily_review_data.py "$D" --phase all
+all_rc=$?
+if [ $all_rc -ne 0 ]; then
+  echo "[$(date '+%F %T')] === 全量复盘失败 date=$D all gate rc=${all_rc} ==="
+  notify "❌ 全量复盘 $D 未通过最终质量门；日志 logs/daily-full-review.out.log"
+  exit $all_rc
 fi
 
 echo "[$(date '+%F %T')] === 全量复盘完成 date=$D ==="

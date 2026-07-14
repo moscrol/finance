@@ -339,9 +339,7 @@ def test_l2_gate_reports_stale_tables(tmp_path, monkeypatch):
     assert all("无 2026-07-10 完成记录" in item for item in missing)
 
 
-def test_l2_gate_accepts_completed_empty_results(tmp_path, monkeypatch):
-    db_path = tmp_path / "l2-empty.duckdb"
-    _database(db_path).close()
+def _load_l2_writer(monkeypatch, db_path):
     moneyflow_dir = ROOT / "scripts" / "moneyflow"
     monkeypatch.syspath_prepend(str(moneyflow_dir))
     monkeypatch.delitem(sys.modules, "config", raising=False)
@@ -353,38 +351,149 @@ def test_l2_gate_accepts_completed_empty_results(tmp_path, monkeypatch):
     spec.loader.exec_module(writer)
     monkeypatch.setattr(writer, "connect", lambda: duckdb.connect(str(db_path)))
     monkeypatch.setattr(writer, "init_db", lambda con: con.execute(SCHEMA))
-    empty = pd.DataFrame()
+    return writer
 
-    writer.begin_l2_run(TRADE_DATE)
-    con = duckdb.connect(str(db_path), read_only=True)
-    try:
-        assert con.execute(
-            """
-            SELECT step, status
-            FROM ops_pipeline_run_daily
-            WHERE trade_date = ?
-            ORDER BY step
-            """,
-            [TRADE_DATE],
-        ).fetchall() == [
-            ("limitup", "running"),
-            ("quant", "running"),
-            ("top100", "running"),
-        ]
-    finally:
-        con.close()
 
-    writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50)
-    writer.write_capital_flow(TRADE_DATE, "top100", empty, 50)
-    writer.write_quant_orders(TRADE_DATE, empty, 50, 200)
-
+def _gate_db(monkeypatch, db_path):
     monkeypatch.setattr(
         check_daily_review_data,
         "connect",
         lambda read_only=False: duckdb.connect(str(db_path), read_only=read_only),
     )
 
+
+def _stats(input_count, processed=None, failed=0):
+    return {
+        "input_count": input_count,
+        "processed_count": input_count if processed is None else processed,
+        "failed_count": failed,
+    }
+
+
+def test_l2_gate_rejects_empty_results_without_stats(tmp_path, monkeypatch):
+    db_path = tmp_path / "l2-nostats.duckdb"
+    _database(db_path).close()
+    writer = _load_l2_writer(monkeypatch, db_path)
+    empty = pd.DataFrame()
+
+    writer.begin_l2_run(TRADE_DATE)
+    with pytest.raises(RuntimeError, match="missing scan stats"):
+        writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50)
+
+    con = duckdb.connect(str(db_path), read_only=True)
+    try:
+        status, message = con.execute(
+            "SELECT status, message FROM ops_pipeline_run_daily "
+            "WHERE trade_date = ? AND step = 'limitup'",
+            [TRADE_DATE],
+        ).fetchone()
+    finally:
+        con.close()
+    assert status == "failed"
+    assert "missing scan stats" in message
+
+    _gate_db(monkeypatch, db_path)
+    missing = check_daily_review_data.check_l2(TRADE_DATE)
+    assert any("limitup 状态为 failed" in item for item in missing)
+
+
+def test_l2_gate_accepts_audited_zero_results(tmp_path, monkeypatch):
+    db_path = tmp_path / "l2-empty.duckdb"
+    _database(db_path).close()
+    writer = _load_l2_writer(monkeypatch, db_path)
+    empty = pd.DataFrame()
+
+    writer.begin_l2_run(TRADE_DATE)
+    writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50, stats=_stats(20))
+    writer.write_capital_flow(TRADE_DATE, "top100", empty, 50, stats=_stats(120))
+    writer.write_quant_orders(TRADE_DATE, empty, 50, 200, stats=_stats(150))
+
+    _gate_db(monkeypatch, db_path)
     assert check_daily_review_data.check_l2(TRADE_DATE) == []
+
+
+def test_l2_gate_rejects_failed_scan_stats(tmp_path, monkeypatch):
+    db_path = tmp_path / "l2-failed.duckdb"
+    _database(db_path).close()
+    writer = _load_l2_writer(monkeypatch, db_path)
+    empty = pd.DataFrame()
+
+    writer.begin_l2_run(TRADE_DATE)
+    with pytest.raises(RuntimeError, match="failed_count=3"):
+        writer.write_quant_orders(
+            TRADE_DATE, empty, 50, 200, stats=_stats(150, processed=147, failed=3)
+        )
+
+    _gate_db(monkeypatch, db_path)
+    missing = check_daily_review_data.check_l2(TRADE_DATE)
+    assert any("quant 状态为 failed" in item for item in missing)
+
+
+def test_l2_gate_rejects_top100_with_insufficient_inputs(tmp_path, monkeypatch):
+    db_path = tmp_path / "l2-top50.duckdb"
+    _database(db_path).close()
+    writer = _load_l2_writer(monkeypatch, db_path)
+    empty = pd.DataFrame()
+
+    writer.begin_l2_run(TRADE_DATE)
+    writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50, stats=_stats(20))
+    writer.write_capital_flow(TRADE_DATE, "top100", empty, 50, stats=_stats(50))
+    writer.write_quant_orders(TRADE_DATE, empty, 50, 200, stats=_stats(150))
+
+    _gate_db(monkeypatch, db_path)
+    missing = check_daily_review_data.check_l2(TRADE_DATE)
+    assert any("top100 input_count=50 < 100" in item for item in missing)
+
+
+def test_l2_gate_rejects_row_count_mismatch(tmp_path, monkeypatch):
+    db_path = tmp_path / "l2-mismatch.duckdb"
+    _database(db_path).close()
+    writer = _load_l2_writer(monkeypatch, db_path)
+    empty = pd.DataFrame()
+
+    writer.begin_l2_run(TRADE_DATE)
+    writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50, stats=_stats(20))
+    writer.write_capital_flow(TRADE_DATE, "top100", empty, 50, stats=_stats(120))
+    writer.write_quant_orders(TRADE_DATE, empty, 50, 200, stats=_stats(150))
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            "UPDATE ops_pipeline_run_daily SET row_count = 5 "
+            "WHERE trade_date = ? AND step = 'top100'",
+            [TRADE_DATE],
+        )
+    finally:
+        con.close()
+
+    _gate_db(monkeypatch, db_path)
+    missing = check_daily_review_data.check_l2(TRADE_DATE)
+    assert any("top100 状态表 row_count=5 与结果表实际 0 行不一致" in item for item in missing)
+
+
+def test_mark_failed_covers_running_steps_only(tmp_path, monkeypatch):
+    db_path = tmp_path / "l2-markfail.duckdb"
+    _database(db_path).close()
+    writer = _load_l2_writer(monkeypatch, db_path)
+    empty = pd.DataFrame()
+
+    writer.begin_l2_run(TRADE_DATE)
+    writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50, stats=_stats(20))
+    writer.mark_failed(TRADE_DATE, "nightly moneyflow rc=1")
+
+    con = duckdb.connect(str(db_path), read_only=True)
+    try:
+        rows = dict(con.execute(
+            "SELECT step, status FROM ops_pipeline_run_daily WHERE trade_date = ?",
+            [TRADE_DATE],
+        ).fetchall())
+    finally:
+        con.close()
+    assert rows == {"limitup": "complete", "top100": "failed", "quant": "failed"}
+
+    _gate_db(monkeypatch, db_path)
+    missing = check_daily_review_data.check_l2(TRADE_DATE)
+    assert any("top100 状态为 failed" in item for item in missing)
+    assert any("quant 状态为 failed" in item for item in missing)
 
 
 def test_sync_plan_includes_mainline_sectors_and_features(monkeypatch):

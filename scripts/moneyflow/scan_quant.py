@@ -71,12 +71,12 @@ def main():
             "当日涨幅%": round((df["price"].iloc[-1] / df["price"].iloc[0] - 1) * 100, 2),
         }
 
-    client, results = run_scan(client, codes, date, "quant", compute)
+    client, results, stats = run_scan(client, codes, date, "quant", compute)
 
     res = pd.DataFrame(results)
     if res.empty:
         print("无结果")
-        write_quant_orders(date, res, big_thr, quant_thr)
+        write_quant_orders(date, res, big_thr, quant_thr, stats=stats)
         return
     info = stock_info(res["code"])
     res["name"] = res["code"].map(lambda c: info.get(c, {}).get("name", ""))
@@ -85,7 +85,7 @@ def main():
 
     csv_path = out_path(f"quant_scan_{date}.csv")
     res.sort_values("占大单买入%", ascending=False).to_csv(csv_path, index=False)
-    write_quant_orders(date, res, big_thr, quant_thr)
+    write_quant_orders(date, res, big_thr, quant_thr, stats=stats)
 
     top = res.sort_values("占大单买入%", ascending=False).head(20).reset_index(drop=True)
     print("\n== 量化买单占比前20 ==")

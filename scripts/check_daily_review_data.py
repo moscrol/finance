@@ -23,6 +23,7 @@ TABLES = [
     "fact_mainline_theme_daily",
     "fact_mainline_stock_daily",
     "fact_mainline_sector_daily",
+    "fact_theme_flow_daily",
     "fact_sector_period_rank_daily",
     "feature_market_window",
     "feature_sector_window",
@@ -40,6 +41,15 @@ L2_TABLES = [
     "feature_l2_quant_orders_daily",
 ]
 L2_STEPS = ("limitup", "top100", "quant")
+L2_RESULT_SQL = {
+    "limitup": "SELECT COUNT(*) FROM feature_l2_capital_flow_daily "
+               "WHERE trade_date = ? AND scan_type = 'limitup'",
+    "top100": "SELECT COUNT(*) FROM feature_l2_capital_flow_daily "
+              "WHERE trade_date = ? AND scan_type = 'top100'",
+    "quant": "SELECT COUNT(*) FROM feature_l2_quant_orders_daily WHERE trade_date = ?",
+}
+SW_L1_COUNT = 31
+STOCK_COVERAGE_MIN = 0.98
 MARKET_FIELDS = [
     "sh_index_close",
     "sh_index_pct_chg",
@@ -136,9 +146,126 @@ def check_data(date: str) -> list[str]:
             missing.append(
                 f"主线题材 {code}/{name} 覆盖不完整：个股 {stock_rows} 行，核心板块 {sector_rows} 行"
             )
+
+        missing.extend(_check_sw_l1(con, date))
+        missing.extend(_check_sector_coverage(con, date))
+        missing.extend(_check_sector_stock_fields(con, date))
+        missing.extend(_check_stock_coverage(con, date))
         return missing
     finally:
         con.close()
+
+
+def _check_sw_l1(con, date: str) -> list[str]:
+    """申万一级：31 个行业齐全、close/pct_chg/amount 非空、不接受 degraded 代理源。"""
+    problems: list[str] = []
+    rows = con.execute(
+        "SELECT sw_l1, close, pct_chg, amount, source FROM fact_sw_l1_daily "
+        "WHERE trade_date = ? ORDER BY sw_l1",
+        [date],
+    ).fetchall()
+    if len(rows) != SW_L1_COUNT:
+        problems.append(f"fact_sw_l1_daily {date} 只有 {len(rows)} 个行业，应为 {SW_L1_COUNT}")
+    for sw_l1, close, pct_chg, amount, source in rows:
+        empties = [name for name, v in
+                   (("close", close), ("pct_chg", pct_chg), ("amount", amount))
+                   if is_null(v)]
+        if empties:
+            problems.append(f"fact_sw_l1_daily {sw_l1} 字段为空: {','.join(empties)}")
+        if source and str(source).startswith("degraded"):
+            problems.append(f"fact_sw_l1_daily {sw_l1} 使用降级代理源: {source}")
+    return problems
+
+
+def _check_sector_coverage(con, date: str) -> list[str]:
+    """板块行情：覆盖全部 active 板块，且 pct_chg/amount 非空。"""
+    problems: list[str] = []
+    missing_sectors = con.execute(
+        """
+        SELECT d.sector_ts_code, d.sector_name
+        FROM dim_sector d
+        LEFT JOIN fact_sector_daily f
+          ON f.trade_date = ? AND f.sector_ts_code = d.sector_ts_code
+        WHERE COALESCE(d.is_active, TRUE) AND f.sector_ts_code IS NULL
+        ORDER BY 1
+        """,
+        [date],
+    ).fetchall()
+    for code, name in missing_sectors:
+        problems.append(f"fact_sector_daily 缺失板块 {code}/{name}")
+    null_rows = con.execute(
+        "SELECT sector_ts_code, sector_name FROM fact_sector_daily "
+        "WHERE trade_date = ? AND (pct_chg IS NULL OR amount IS NULL) ORDER BY 1",
+        [date],
+    ).fetchall()
+    for code, name in null_rows:
+        problems.append(f"fact_sector_daily {code}/{name} pct_chg/amount 为空")
+    return problems
+
+
+def _check_sector_stock_fields(con, date: str) -> list[str]:
+    """板块成员行情：每个有行情板块当日都有成员，且 price/pct_chg/amount 非空。"""
+    problems: list[str] = []
+    no_member = con.execute(
+        """
+        SELECT f.sector_ts_code, f.sector_name
+        FROM fact_sector_daily f
+        LEFT JOIN fact_sector_stock_daily s
+          ON s.trade_date = f.trade_date AND s.sector_ts_code = f.sector_ts_code
+        WHERE f.trade_date = ?
+        GROUP BY 1, 2
+        HAVING COUNT(s.stock_ts_code) = 0
+        ORDER BY 1
+        """,
+        [date],
+    ).fetchall()
+    for code, name in no_member:
+        problems.append(f"fact_sector_stock_daily 板块 {code}/{name} 无当日成员行")
+    null_cnt, = con.execute(
+        "SELECT COUNT(*) FROM fact_sector_stock_daily WHERE trade_date = ? "
+        "AND (price IS NULL OR pct_chg IS NULL OR amount IS NULL)",
+        [date],
+    ).fetchone()
+    if null_cnt:
+        problems.append(f"fact_sector_stock_daily 有 {null_cnt} 行 price/pct_chg/amount 为空")
+    return problems
+
+
+def _check_stock_coverage(con, date: str) -> list[str]:
+    """个股日线覆盖：对比当日板块成员去重股票数，覆盖率 ≥ 98%。"""
+    problems: list[str] = []
+    member_cnt, covered_cnt = con.execute(
+        """
+        SELECT COUNT(DISTINCT m.stock_ts_code),
+               COUNT(DISTINCT m.stock_ts_code) FILTER (WHERE d.stock_ts_code IS NOT NULL)
+        FROM fact_sector_stock_daily m
+        LEFT JOIN fact_stock_daily d
+          ON d.trade_date = m.trade_date AND d.stock_ts_code = m.stock_ts_code
+        WHERE m.trade_date = ?
+        """,
+        [date],
+    ).fetchone()
+    if not member_cnt:
+        return problems  # 成员表缺失已在前面报错, 避免重复
+    ratio = covered_cnt / member_cnt
+    print(f"fact_stock_daily 覆盖率: {covered_cnt}/{member_cnt} = {ratio:.2%}")
+    if ratio < STOCK_COVERAGE_MIN:
+        missing_codes = [r[0] for r in con.execute(
+            """
+            SELECT DISTINCT m.stock_ts_code
+            FROM fact_sector_stock_daily m
+            LEFT JOIN fact_stock_daily d
+              ON d.trade_date = m.trade_date AND d.stock_ts_code = m.stock_ts_code
+            WHERE m.trade_date = ? AND d.stock_ts_code IS NULL
+            ORDER BY 1 LIMIT 30
+            """,
+            [date],
+        ).fetchall()]
+        problems.append(
+            f"fact_stock_daily 覆盖率 {ratio:.2%} < {STOCK_COVERAGE_MIN:.0%} "
+            f"({covered_cnt}/{member_cnt})，缺失示例: {','.join(missing_codes)}"
+        )
+    return problems
 
 
 def check_report(date: str) -> list[str]:
@@ -163,7 +290,7 @@ def check_l2(date: str) -> list[str]:
         for step in L2_STEPS:
             row = con.execute(
                 """
-                SELECT status, row_count, finished_at
+                SELECT status, row_count, input_count, processed_count, failed_count, finished_at
                 FROM ops_pipeline_run_daily
                 WHERE trade_date = ? AND pipeline = 'l2-moneyflow' AND step = ?
                 """,
@@ -172,8 +299,29 @@ def check_l2(date: str) -> list[str]:
             print(f"l2-moneyflow/{step}: {row or 'missing'}")
             if row is None:
                 missing.append(f"L2 步骤 {step} 无 {date} 完成记录")
-            elif row[0] != "complete":
-                missing.append(f"L2 步骤 {step} 状态为 {row[0]}，未完成")
+                continue
+            status, row_count, input_count, processed_count, failed_count, _finished = row
+            if status != "complete":
+                missing.append(f"L2 步骤 {step} 状态为 {status}，未完成")
+                continue
+            if input_count is None or processed_count is None or failed_count is None:
+                missing.append(f"L2 步骤 {step} 缺处理统计（input/processed/failed），不可审计")
+                continue
+            if input_count <= 0:
+                missing.append(f"L2 步骤 {step} input_count={input_count}，无扫描候选")
+            if step == "top100" and input_count < 100:
+                missing.append(f"L2 步骤 top100 input_count={input_count} < 100")
+            if failed_count:
+                missing.append(f"L2 步骤 {step} failed_count={failed_count}")
+            if processed_count != input_count:
+                missing.append(
+                    f"L2 步骤 {step} processed_count={processed_count} != input_count={input_count}"
+                )
+            actual, = con.execute(L2_RESULT_SQL[step], [date]).fetchone()
+            if row_count is None or actual != row_count:
+                missing.append(
+                    f"L2 步骤 {step} 状态表 row_count={row_count} 与结果表实际 {actual} 行不一致"
+                )
         for table in L2_TABLES:
             max_date, count = con.execute(
                 f"SELECT MAX(trade_date), COUNT(*) FILTER (WHERE trade_date = ?) FROM {table}",

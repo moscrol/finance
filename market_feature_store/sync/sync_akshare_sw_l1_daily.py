@@ -241,14 +241,24 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
             )
         if not industries_all:
             raise RuntimeError("申万一级目录为空，且本地库没有可降级的行业名称")
-        industries = [item for item in industries_all if not focus_names or item["name"] in focus_names]
+        # 历史指数必须覆盖全部 31 个一级行业，不能只取 focus_names（fact_market_daily
+        # 只记录成交占比靠前的行业，按它过滤会漏掉其余行业的真实指数）
+        industries = list(industries_all)
         by_name = {item["name"]: item for item in industries_all}
         records: dict[tuple[date, str], dict] = {}
         for item in industries:
-            try:
-                hist = _fetch_hist_by_code(item["code"], start - timedelta(days=10), end)
-            except Exception as exc:
-                failures.append({"sw_l1": item["name"], "code": item["code"], "error": str(exc)})
+            hist = None
+            for attempt in range(3):
+                try:
+                    hist = _fetch_hist_by_code(item["code"], start - timedelta(days=10), end)
+                except Exception as exc:
+                    if attempt == 2:
+                        failures.append({"sw_l1": item["name"], "code": item["code"], "error": str(exc)})
+                if hist is not None and end in hist:
+                    break
+                if attempt < 2:
+                    time.sleep(1.0 + attempt)
+            if hist is None:
                 continue
             for d in wanted_dates:
                 if d in hist:
@@ -284,6 +294,9 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
                 item = proxy.get(name)
                 if not item:
                     continue
+                if item.get("pct_chg") is None and item.get("amount") is None:
+                    # 全空代理行不落库：无板块聚合数据时写空行只会掩盖缺口
+                    continue
                 records[(end, name)] = {
                     "trade_date": end,
                     "sw_l1_code": item["code"],
@@ -295,6 +308,12 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
                     "source": item["source"],
                 }
                 degraded_rows += 1
+        still_missing = [item["name"] for item in industries_all if (end, item["name"]) not in records]
+        if still_missing:
+            raise RuntimeError(
+                f"申万一级 {end} 有 {len(still_missing)} 个行业历史/实时/板块代理全部不可用，停止同步: "
+                f"{','.join(still_missing[:10])}; failures={failures}"
+            )
         now = datetime.now()
         rows = []
         for key in sorted(records):

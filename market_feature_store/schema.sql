@@ -626,15 +626,21 @@ CREATE TABLE IF NOT EXISTS feature_l2_quant_orders_daily (
 CREATE INDEX IF NOT EXISTS idx_feature_l2quant_date ON feature_l2_quant_orders_daily(trade_date);
 
 CREATE TABLE IF NOT EXISTS ops_pipeline_run_daily (
-    trade_date     DATE,
-    pipeline       TEXT,
-    step           TEXT,
-    status         TEXT,
-    row_count      INTEGER,
-    message        TEXT,
-    source         TEXT,
-    finished_at    TIMESTAMP,
+    trade_date      DATE,
+    pipeline        TEXT,
+    step            TEXT,
+    status          TEXT,
+    row_count       INTEGER,
+    input_count     INTEGER,   -- 候选输入数（如扫描名单股票数）
+    processed_count INTEGER,   -- 成功处理数（含合法零结果个股）
+    failed_count    INTEGER,   -- 兜底后仍失败数
+    message         TEXT,
+    source          TEXT,
+    finished_at     TIMESTAMP,
     PRIMARY KEY (trade_date, pipeline, step)
 );
+ALTER TABLE ops_pipeline_run_daily ADD COLUMN IF NOT EXISTS input_count INTEGER;
+ALTER TABLE ops_pipeline_run_daily ADD COLUMN IF NOT EXISTS processed_count INTEGER;
+ALTER TABLE ops_pipeline_run_daily ADD COLUMN IF NOT EXISTS failed_count INTEGER;
 CREATE INDEX IF NOT EXISTS idx_ops_pipeline_run_date
     ON ops_pipeline_run_daily(trade_date, pipeline);
