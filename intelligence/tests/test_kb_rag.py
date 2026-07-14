@@ -31,7 +31,15 @@ class KbRagRetrieveFilterTests(unittest.TestCase):
                     "best_chunk_id": "wiki/concepts/光刻机.md::2",
                     "section": "供需",
                     "content_hash": "deadbeef",
-                    "evidence_text": "命中的供需章节，而不是页面开头。",
+                    "evidence_text": "旧版兼容字段。",
+                    "display_excerpt": "供需展示短摘录。",
+                    "llm_evidence_text": "命中块 wiki/concepts/光刻机.md::2: 命中的供需章节，而不是页面开头，并保留更多证据。",
+                    "evidence_chunk_ids": [
+                        "wiki/concepts/光刻机.md::2",
+                        "wiki/concepts/光刻机.md::1",
+                    ],
+                    "evidence_query_terms": ["光刻机", "供需"],
+                    "evidence_char_budget": 1200,
                     "index_built_at": "2026-07-10T12:00:00+00:00",
                     "index_source_revision": "abc123",
                     "index_freshness": "fresh",
@@ -65,10 +73,16 @@ class KbRagRetrieveFilterTests(unittest.TestCase):
             self.assertEqual(res.hits[0].evidence_layer, "L0_concept")
             self.assertEqual(res.hits[0].fact_hardness, "structured_mapping")
             self.assertEqual(res.hits[0].source_type, "concept_page")
-            self.assertEqual(res.hits[0].excerpt, "命中的供需章节，而不是页面开头。")
+            self.assertEqual(res.hits[0].excerpt, "供需展示短摘录。")
+            self.assertIn("更多证据", res.hits[0].llm_evidence)
+            self.assertEqual(
+                res.hits[0].evidence_chunk_ids,
+                ("wiki/concepts/光刻机.md::2", "wiki/concepts/光刻机.md::1"),
+            )
             self.assertEqual(res.hits[0].best_chunk_id, "wiki/concepts/光刻机.md::2")
             self.assertEqual(res.hits[0].section, "供需")
             self.assertEqual(res.telemetry.index_freshness, "fresh")
+            self.assertIn("--evidence-chars", cmd)
 
 
 class KbRagTelemetryTests(unittest.TestCase):
@@ -130,6 +144,43 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertIsNotNone(tel.latency_ms)
             self.assertFalse(tel.degraded)
             self.assertIn("检索方式=hybrid", tel.summary_line())
+            self.assertIn("LLM证据预算=", tel.summary_line())
+
+    def test_dynamic_budget_prioritizes_order_queries_and_total_cap(self) -> None:
+        per_hit, total = kb_rag.evidence_budget_for_query("002837 液冷订单是否兑现")
+        quick_hit, _ = kb_rag.evidence_budget_for_query("快速概览液冷")
+
+        self.assertGreater(per_hit, kb_rag.DEFAULT_LLM_EVIDENCE_CHARS)
+        self.assertLess(quick_hit, per_hit)
+
+        hits = [
+            kb_rag.WikiHit("a", "a.md", "A", 1.0, "短", llm_evidence="A" * 20),
+            kb_rag.WikiHit("b", "b.md", "B", 0.9, "短", llm_evidence="B" * 20),
+        ]
+        kb_rag.apply_total_llm_budget(hits, 25)
+
+        self.assertEqual(len(hits[0].llm_evidence), 20)
+        self.assertEqual(hits[1].llm_evidence, "BBBB…")
+
+        exhausted = [
+            kb_rag.WikiHit("c", "c.md", "C", 1.0, "展示", llm_evidence="完整证据")
+        ]
+        kb_rag.apply_total_llm_budget(exhausted, 0)
+        self.assertEqual(
+            exhausted[0].llm_evidence,
+            kb_rag.EVIDENCE_BUDGET_EXHAUSTED,
+        )
+
+    def test_neighbor_budget_is_lower_and_official_l3_can_be_higher(self) -> None:
+        direct = kb_rag._hit_evidence_limit({}, 1200)
+        neighbor = kb_rag._hit_evidence_limit({"via_neighbor": True}, 1200)
+        official = kb_rag._hit_evidence_limit(
+            {"evidence_layer": "L3", "source_type": "official_disclosure"},
+            1200,
+        )
+
+        self.assertLess(neighbor, direct)
+        self.assertGreater(official, direct)
 
     def _freshness_payload(self, freshness: str) -> list[dict]:
         return [

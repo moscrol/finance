@@ -1079,6 +1079,7 @@ def answer_query(options: AskOptions) -> AskResult:
     # --- W: 知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，打通复盘↔知识库闭环）---
     wiki_lines: list[str] = []
     wiki_counter_lines: list[str] = []
+    wiki_llm_line_pairs: list[tuple[str, str]] = []
     wiki_stats: dict[str, Any] = {
         "attempted": bool(options.use_wiki_rag),
         "mode": options.wiki_rag_mode,
@@ -1095,10 +1096,30 @@ def answer_query(options: AskOptions) -> AskResult:
                 mode=options.wiki_rag_mode,
                 timeout=options.wiki_rag_timeout,
                 excerpt_chars=options.wiki_rag_excerpt,
+                budget_query=options.query,
                 index_dir=options.wiki_rag_index_dir,
                 require_fresh=True,
             ),
         )
+        _, wiki_evidence_total_chars = kb_rag.evidence_budget_for_query(
+            options.query,
+            mode=options.wiki_rag_mode,
+            index_kind=loop.telemetry.index_kind if loop.telemetry else "",
+        )
+        conclusion_hits = [item.hit for item in loop.conclusion]
+        counter_hits = [item.hit for item in loop.counter_clues]
+        if counter_hits:
+            conclusion_budget = int(wiki_evidence_total_chars * 0.75)
+            kb_rag.apply_total_llm_budget(conclusion_hits, conclusion_budget)
+            kb_rag.apply_total_llm_budget(
+                counter_hits,
+                wiki_evidence_total_chars - conclusion_budget,
+            )
+        else:
+            kb_rag.apply_total_llm_budget(
+                conclusion_hits,
+                wiki_evidence_total_chars,
+            )
         result.closed_loop_retrieval = loop
         wiki_stats.update(
             {
@@ -1130,6 +1151,7 @@ def answer_query(options: AskOptions) -> AskResult:
                     (
                         f"closed-loop:{bucketed.aperture}｜{h.title}"
                         f"｜chunk={h.best_chunk_id}{section_ref}"
+                        f"｜evidence_chunks={','.join(h.evidence_chunk_ids or (h.best_chunk_id,))}"
                         f"｜hash={h.content_hash[:12]}｜index={h.index_source_revision[:12]}"
                         f"｜freshness={h.index_freshness}"
                     ),
@@ -1148,7 +1170,12 @@ def answer_query(options: AskOptions) -> AskResult:
                 line = (
                     f"{baseline}{h.title}（相关度 {round(h.score, 4)}{nb}）：{h.excerpt} {tag}"
                 )
+                llm_body = h.llm_evidence or h.excerpt
+                llm_line = (
+                    f"{baseline}{h.title}（相关度 {round(h.score, 4)}{nb}）：{llm_body} {tag}"
+                )
                 wiki_lines.append(line)
+                wiki_llm_line_pairs.append((line, llm_line))
                 matched_company = next(
                     (
                         company
@@ -1174,21 +1201,28 @@ def answer_query(options: AskOptions) -> AskResult:
             result.found_wiki = True
             for bucketed in loop.counter_clues:
                 h = bucketed.hit
+                section_ref = f"｜section={h.section}" if h.section else ""
                 tag = cite(
                     "W",
                     f"knowledge-base · {h.file_path}",
                     (
                         f"closed-loop:counter｜{h.title}"
-                        f"｜chunk={h.best_chunk_id}｜freshness={h.index_freshness}"
+                        f"｜chunk={h.best_chunk_id}{section_ref}"
+                        f"｜evidence_chunks={','.join(h.evidence_chunk_ids or (h.best_chunk_id,))}"
+                        f"｜hash={h.content_hash[:12]}｜index={h.index_source_revision[:12]}"
+                        f"｜freshness={h.index_freshness}"
                     ),
                     chunk_id=h.best_chunk_id,
                     content_hash=h.content_hash,
                     index_source_revision=h.index_source_revision,
                     index_freshness=h.index_freshness,
                 )
-                wiki_counter_lines.append(
-                    f"反方线索（待进一步核验）：{h.title}：{h.excerpt} {tag}"
+                line = f"反方线索（待进一步核验）：{h.title}：{h.excerpt} {tag}"
+                llm_line = (
+                    f"反方线索（待进一步核验）：{h.title}：{h.llm_evidence or h.excerpt} {tag}"
                 )
+                wiki_counter_lines.append(line)
+                wiki_llm_line_pairs.append((line, llm_line))
         result.warnings.extend(f"wiki-rag：{warning}" for warning in loop.warnings)
 
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
@@ -1401,7 +1435,10 @@ def answer_query(options: AskOptions) -> AskResult:
             )
         )
     if options.use_l3_lookup:
-        local_evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
+        local_evidence_text = _evidence_text_for_llm(
+            _evidence_chain_with_llm_wiki(evidence_chain, wiki_llm_line_pairs),
+            gap_lines,
+        )
         l3_bundle = l3_evidence.lookup_l3_evidence(
             options.query,
             question_plan,
@@ -1506,7 +1543,10 @@ def answer_query(options: AskOptions) -> AskResult:
 
     # --- ② optional LLM refinement of 结论 / 交易含义 (graceful degrade w/o key) ---
     if options.use_llm:
-        evidence_text = _evidence_text_for_llm(evidence_chain, gap_lines)
+        evidence_text = _evidence_text_for_llm(
+            _evidence_chain_with_llm_wiki(evidence_chain, wiki_llm_line_pairs),
+            gap_lines,
+        )
         refined, reason = llm_refine.refine_or_reason(
             options.query, theme, evidence_text,
             model_override=options.llm_model, timeout=options.llm_timeout,
@@ -1537,10 +1577,14 @@ def answer_query(options: AskOptions) -> AskResult:
         ]
     if options.compose:
         is_market_review = question_plan.question_type == QUESTION_MARKET_REVIEW
+        prompt_source_chain = _evidence_chain_with_llm_wiki(
+            evidence_chain,
+            wiki_llm_line_pairs,
+        )
         compose_evidence_chain = (
-            _market_review_evidence_chain(evidence_chain)
+            _market_review_evidence_chain(prompt_source_chain)
             if is_market_review
-            else evidence_chain
+            else prompt_source_chain
         )
         evidence_text = _evidence_text_for_llm(
             compose_evidence_chain,
@@ -2645,6 +2689,16 @@ def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> s
     out.append("## 分歧反证")
     out.extend(f"- {g}" for g in gap_lines)
     return "\n".join(out)
+
+
+def _evidence_chain_with_llm_wiki(
+    evidence_chain: list[str],
+    wiki_llm_line_pairs: list[tuple[str, str]],
+) -> list[str]:
+    if not wiki_llm_line_pairs:
+        return evidence_chain
+    replacements = dict(wiki_llm_line_pairs)
+    return [replacements.get(item, item) for item in evidence_chain]
 
 
 def _market_review_evidence_chain(evidence_chain: list[str]) -> list[str]:

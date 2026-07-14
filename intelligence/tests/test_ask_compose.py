@@ -13,6 +13,7 @@ from intelligence.services.ask import (
     _company_exposure_tier,
     _customer_evidence_hardness_block_for_llm,
     _daily_market_overview_block_for_llm,
+    _evidence_chain_with_llm_wiki,
     _mainline_context_block_for_llm,
     _market_review_mainline_context_block_for_llm,
     _market_value_block_for_llm,
@@ -31,6 +32,16 @@ def _provider() -> LLMProvider:
 
 
 class SynthesizeTests(unittest.TestCase):
+    def test_llm_prompt_uses_long_wiki_evidence_without_changing_display_chain(self) -> None:
+        display = "A公司：展示短摘录 [W1]"
+        llm = "A公司：命中块 a::1: 较完整证据；相邻块 a::0: 条件与风险 [W1]"
+        evidence_chain = ["§§图谱·语义召回(wiki 向量)", display]
+
+        prompt_chain = _evidence_chain_with_llm_wiki(evidence_chain, [(display, llm)])
+
+        self.assertEqual(evidence_chain[1], display)
+        self.assertEqual(prompt_chain[1], llm)
+
     def test_degrades_without_provider(self) -> None:
         with mock.patch.object(llm_refine, "detect_provider", return_value=None):
             out, reason = synthesize("液冷", "液冷服务器", "## 证据链\n- foo [S1]")

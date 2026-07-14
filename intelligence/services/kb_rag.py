@@ -34,6 +34,9 @@ DEFAULT_RAG_TIMEOUT = 90
 DEFAULT_RAG_K = 6
 DEFAULT_RAG_MODE = "hybrid"
 DEFAULT_EXCERPT_CHARS = 200
+DEFAULT_LLM_EVIDENCE_CHARS = 1200
+DEFAULT_LLM_EVIDENCE_TOTAL_CHARS = 4800
+EVIDENCE_BUDGET_EXHAUSTED = "（本条仅保留引用定位）"
 
 CITATION_PREFIX = "W"
 
@@ -103,7 +106,12 @@ class WikiHit:
     title: str
     score: float
     excerpt: str
+    llm_evidence: str = ""
+    display_excerpt: str = ""
     best_chunk_id: str = ""
+    evidence_chunk_ids: tuple[str, ...] = ()
+    evidence_query_terms: tuple[str, ...] = ()
+    evidence_char_budget: int = 0
     section: str = ""
     content_hash: str = ""
     index_built_at: str = ""
@@ -164,6 +172,9 @@ class RetrievalTelemetry:
     index_source_revision: str = ""
     index_freshness: str = ""
     warning: str = ""
+    display_excerpt_chars: int = 0
+    llm_evidence_chars: int = 0
+    llm_evidence_total_chars: int = 0
 
     def summary_line(self) -> str:
         """一行可观测摘要，供回答 / 日志展示。"""
@@ -189,6 +200,10 @@ class RetrievalTelemetry:
             parts.append(f"新鲜度={self.index_freshness}")
         if self.index_built_at:
             parts.append(f"构建={self.index_built_at}")
+        if self.llm_evidence_chars:
+            parts.append(
+                f"LLM证据预算={self.llm_evidence_chars}字/条，总{self.llm_evidence_total_chars}字"
+            )
         parts.append(f"状态={self.status}")
         return " | ".join(parts)
 
@@ -228,9 +243,84 @@ def _resolve_rag_python(root: Path) -> str:
     return sys.executable
 
 
+def _compact_text(value: object, max_chars: int | None = None) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if max_chars is not None:
+        return text[:max_chars]
+    return text
+
+
 def _matched_excerpt(item: dict, max_chars: int) -> str:
-    text = str(item.get("evidence_text") or item.get("snippet") or "")
-    return re.sub(r"\s+", " ", text).strip()[:max_chars]
+    text = item.get("display_excerpt") or item.get("snippet") or item.get("evidence_text") or ""
+    return _compact_text(text, max_chars)
+
+
+def _matched_llm_evidence(item: dict, max_chars: int) -> str:
+    text = item.get("llm_evidence_text") or item.get("evidence_text") or item.get("snippet") or ""
+    return _compact_text(text, max_chars)
+
+
+def _tuple_of_strings(value: object) -> tuple[str, ...]:
+    if isinstance(value, list):
+        return tuple(str(item) for item in value if str(item))
+    return ()
+
+
+def evidence_budget_for_query(
+    query: str,
+    *,
+    mode: str = DEFAULT_RAG_MODE,
+    index_kind: str = "",
+) -> tuple[int, int]:
+    q = str(query or "")
+    high_precision_terms = (
+        "订单", "合同", "中标", "收入", "营收", "兑现", "公告", "互动",
+        "认证", "量产", "出货", "客户", "金额", "生效", "条件", "L3", "l3",
+    )
+    broad_terms = ("深挖", "原文", "全文", "详细", "为什么", "如何", "证据")
+    quick_terms = ("快速", "速查", "概览", "简单")
+    per_hit = DEFAULT_LLM_EVIDENCE_CHARS
+    high_precision = any(term in q for term in high_precision_terms)
+    broad = any(term in q for term in broad_terms)
+    quick = any(term in q for term in quick_terms)
+    if high_precision:
+        per_hit = 1600
+    elif broad or str(mode).lower() == "rerank" or index_kind == "full":
+        per_hit = 1400
+    elif quick:
+        per_hit = 800
+    total = max(DEFAULT_LLM_EVIDENCE_TOTAL_CHARS, per_hit * 4)
+    return per_hit, min(total, 8000)
+
+
+def apply_total_llm_budget(hits: list[WikiHit], total_chars: int) -> None:
+    remaining = max(total_chars, 0)
+    for hit in hits:
+        text = hit.llm_evidence or hit.excerpt
+        if remaining <= 0:
+            hit.llm_evidence = EVIDENCE_BUDGET_EXHAUSTED
+            continue
+        if len(text) > remaining:
+            hit.llm_evidence = text[: max(0, remaining - 1)].rstrip() + "…"
+            remaining = 0
+        else:
+            hit.llm_evidence = text
+            remaining -= len(text)
+
+
+def _hit_evidence_limit(item: dict, base_chars: int) -> int:
+    limit = max(base_chars, 200)
+    if bool(item.get("via_neighbor")):
+        limit = max(400, limit // 2)
+    evidence_layer = str(item.get("evidence_layer") or "").upper()
+    source_type = str(item.get("source_type") or "").lower()
+    if evidence_layer.startswith("L3") or source_type in {
+        "official",
+        "announcement",
+        "official_disclosure",
+    }:
+        limit = min(max(limit, int(base_chars * 1.25)), 2000)
+    return limit
 
 
 def retrieve(
@@ -240,6 +330,9 @@ def retrieve(
     mode: str = DEFAULT_RAG_MODE,
     timeout: int = DEFAULT_RAG_TIMEOUT,
     excerpt_chars: int = DEFAULT_EXCERPT_CHARS,
+    llm_evidence_chars: int | None = None,
+    llm_evidence_total_chars: int | None = None,
+    budget_query: str | None = None,
     evidence_layer: str | None = None,
     fact_hardness: str | None = None,
     source_type: str | None = None,
@@ -263,6 +356,7 @@ def retrieve(
     tel.mode = str(mode)
     tel.recall_desc = _MODE_RECALL_DESC.get(str(mode), "")
     tel.k = int(k)
+    tel.display_excerpt_chars = int(excerpt_chars)
     if not kb_wiki:
         res.warning = "wiki-rag 需要知识库 wiki 路径 (--kb-wiki / KNOWLEDGE_WIKI)"
         tel.status = "skipped"
@@ -296,6 +390,18 @@ def retrieve(
     res.index_dir = str(chosen)
     tel.index_dir = str(chosen)
     tel.index_kind = _index_kind(chosen)
+    if llm_evidence_chars is None or llm_evidence_total_chars is None:
+        dynamic_chars, dynamic_total = evidence_budget_for_query(
+            budget_query or query,
+            mode=str(mode),
+            index_kind=tel.index_kind,
+        )
+        if llm_evidence_chars is None:
+            llm_evidence_chars = dynamic_chars
+        if llm_evidence_total_chars is None:
+            llm_evidence_total_chars = dynamic_total
+    tel.llm_evidence_chars = int(llm_evidence_chars)
+    tel.llm_evidence_total_chars = int(llm_evidence_total_chars)
     if requested is not None:
         tel.requested_index_dir = str(requested)
     if not chosen.exists():
@@ -308,7 +414,23 @@ def retrieve(
         return res
 
     rag_python = _resolve_rag_python(root)
-    cmd = [rag_python, str(script), "query", str(query), "--k", str(k), "--mode", str(mode), "--json"]
+    generation_evidence_chars = min(
+        max(int(llm_evidence_chars), int(llm_evidence_chars * 1.25)),
+        2000,
+    )
+    cmd = [
+        rag_python,
+        str(script),
+        "query",
+        str(query),
+        "--k",
+        str(k),
+        "--mode",
+        str(mode),
+        "--evidence-chars",
+        str(generation_evidence_chars),
+        "--json",
+    ]
     filters = []
     if evidence_layer:
         cmd.extend(["--evidence-layer", evidence_layer])
@@ -326,7 +448,10 @@ def retrieve(
     if source_type:
         tel.filters["source_type"] = source_type
     filter_note = f" filters={','.join(filters)}" if filters else ""
-    res.command = f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
+    res.command = (
+        f"rag_index.py query <q> --k {k} --mode {mode}"
+        f" --evidence-chars {generation_evidence_chars}{filter_note} --json"
+    )
     res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（匹配 chunk 证据）"
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
@@ -376,11 +501,13 @@ def retrieve(
             continue
         rel = str(item.get("file_path") or "")
         excerpt = _matched_excerpt(item, excerpt_chars)
+        evidence_limit = _hit_evidence_limit(item, int(llm_evidence_chars))
+        llm_evidence = _matched_llm_evidence(item, evidence_limit)
         chunk_id = str(item.get("best_chunk_id") or "")
         content_hash = str(item.get("content_hash") or "")
         revision = str(item.get("index_source_revision") or "")
         freshness = str(item.get("index_freshness") or "")
-        if not rel or not excerpt or not chunk_id or not content_hash or not revision or not freshness:
+        if not rel or not excerpt or not llm_evidence or not chunk_id or not content_hash or not revision or not freshness:
             rejected_hits += 1
             continue
         if freshness not in {"fresh", "stale", "unknown"}:
@@ -397,7 +524,15 @@ def retrieve(
                 title=str(item.get("title") or item.get("page_id") or "(无标题)"),
                 score=float(item.get("score") or 0.0),
                 excerpt=excerpt,
+                llm_evidence=llm_evidence,
+                display_excerpt=excerpt,
                 best_chunk_id=chunk_id,
+                evidence_chunk_ids=_tuple_of_strings(item.get("evidence_chunk_ids")),
+                evidence_query_terms=_tuple_of_strings(item.get("evidence_query_terms")),
+                evidence_char_budget=min(
+                    int(item.get("evidence_char_budget") or evidence_limit),
+                    evidence_limit,
+                ),
                 section=str(item.get("section") or ""),
                 content_hash=content_hash,
                 index_built_at=str(item.get("index_built_at") or ""),
@@ -430,6 +565,7 @@ def retrieve(
             warnings.append(f"wiki-rag 索引新鲜度={states}，探索模式保留降级证据")
     res.warning = "；".join(dict.fromkeys(warning for warning in warnings if warning))
     res.hits = hits
+    apply_total_llm_budget(res.hits, int(llm_evidence_total_chars))
     res.ok = bool(hits)
     tel.hit_count = len(hits)
     tel.neighbor_hits = sum(1 for h in hits if h.via_neighbor)
