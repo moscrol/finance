@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -12,6 +17,30 @@ from intelligence.services.llm_refine import (
     followup_user_content,
     synthesize_messages,
 )
+
+
+class DataRepoRootTests(unittest.TestCase):
+    def test_default_exports_dir_uses_workbench_repo_root(self) -> None:
+        repo_root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                **os.environ,
+                "WORKBENCH_REPO_ROOT": tmp,
+            }
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "from intelligence.services.ask import DEFAULT_EXPORTS_DIR; print(DEFAULT_EXPORTS_DIR)",
+                ],
+                cwd=repo_root,
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            expected = Path(tmp).resolve() / "market_feature_store" / "exports"
+            self.assertEqual(completed.stdout.strip(), str(expected))
 
 
 def _provider() -> LLMProvider:
