@@ -1043,7 +1043,7 @@ def test_create_app_recovers_interrupted_conversation_turn(tmp_path, monkeypatch
     assert str(captured["event_id_prefix"]).startswith("recovery:")
 
 
-def test_sse_replays_steps_and_ends_with_run(client: TestClient) -> None:
+def test_sse_does_not_expose_trace_rows_as_public_events(client: TestClient) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     _wait_terminal(client, run_id)
 
@@ -1054,8 +1054,7 @@ def test_sse_replays_steps_and_ends_with_run(client: TestClient) -> None:
                 events.append(line.removeprefix("event: "))
             if "event: run" in line:
                 break
-    assert events[0] == "step"
-    assert events[-1] == "run"
+    assert events == ["run"]
 
 
 def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestClient) -> None:
@@ -1096,21 +1095,23 @@ def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestC
     )
 
     streamed = client.get(f"/api/runs/{run_id}/events").text
-    assert "event: report_start" in streamed
-    assert "event: report_module" in streamed
+    assert "event: report.start" in streamed
+    assert "event: report.module" in streamed
+    assert "event: report_start" not in streamed
+    assert "event: report_module" not in streamed
     assert "id: module:l2_moneyflow" in streamed
     resumed = client.get(
         f"/api/runs/{run_id}/events",
         headers={"Last-Event-ID": "report:start"},
     ).text
-    assert "event: report_start" not in resumed
-    assert "event: report_module" in resumed
+    assert "event: report.start" not in resumed
+    assert "event: report.module" in resumed
 
     current = client.get(f"/api/runs/{run_id}/report").json()
     assert current["modules"] == [module]
 
 
-def test_sse_canonical_alias_cursor_and_terminal_replay(client: TestClient) -> None:
+def test_sse_canonical_cursor_and_terminal_replay(client: TestClient) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     _wait_terminal(client, run_id)
     store = RunStore()
@@ -1122,9 +1123,10 @@ def test_sse_canonical_alias_cursor_and_terminal_replay(client: TestClient) -> N
     )
 
     full = client.get(f"/api/runs/{run_id}/events").text
-    assert "event: report.start" in full and "event: report_start" in full
-    assert full.count(f"id: {start['event_id']}") == 2
-    assert "event: step" in full and "event: run" in full
+    assert "event: report.start" in full
+    assert "event: report_start" not in full
+    assert full.count(f"id: {start['event_id']}") == 1
+    assert "event: step" not in full and "event: run" in full
 
     after = client.get(f"/api/runs/{run_id}/events", params={"after": start["seq"]}).text
     assert "event: step" not in after
@@ -1146,13 +1148,16 @@ def test_sse_rejects_negative_after(client: TestClient) -> None:
     assert client.get(f"/api/runs/{run_id}/events", params={"after": -1}).status_code == 422
 
 
-def test_sse_initial_connection_keeps_polling_trace_after_report_event(
+def test_sse_initial_connection_keeps_polling_canonical_events(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = RunStore()
     run = store.create_run("live trace", "ask")
-    store.append_step(
-        run.run_id, step_id="s01", name="first", status="completed"
+    store.append_stream_event(
+        run.run_id,
+        event_id="trace:s01",
+        event_type="trace.step",
+        payload={"step": {"step_id": "s01", "name": "first", "status": "completed"}},
     )
     store.append_stream_event(
         run.run_id,
@@ -1167,15 +1172,19 @@ def test_sse_initial_connection_keeps_polling_trace_after_report_event(
         if slept:
             return
         slept = True
-        store.append_step(
-            run.run_id, step_id="s02", name="later", status="completed"
+        store.append_stream_event(
+            run.run_id,
+            event_id="trace:s02",
+            event_type="trace.step",
+            payload={"step": {"step_id": "s02", "name": "later", "status": "completed"}},
         )
         store.finish_run(run.run_id, rs.STATUS_COMPLETED)
 
     monkeypatch.setattr(app_module.time, "sleep", add_later_step)
     body = client.get(f"/api/runs/{run.run_id}/events").text
 
-    assert body.count("event: step") == 2
+    assert body.count("event: trace.step") == 2
+    assert "event: step" not in body
     assert '"step_id": "s02"' in body
 
 

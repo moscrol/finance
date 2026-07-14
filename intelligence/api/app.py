@@ -37,7 +37,6 @@ from intelligence.api.structured_reports import (
     new_structured_report,
     upsert_report_module,
 )
-from intelligence.api.stream_events import legacy_event_type
 from intelligence.services import followups as followups_svc
 from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
@@ -1365,24 +1364,14 @@ def create_app(
                 )
 
         def stream():
-            sent = 0
             current_cursor = cursor
-            replay_trace = cursor == 0
             deadline = time.monotonic() + _SSE_MAX_SECONDS
             terminal_event_deadline: float | None = None
             while True:
-                if replay_trace:
-                    steps = store.load_trace(run_id)
-                    for step in steps[sent:]:
-                        yield f"event: step\ndata: {json.dumps(step, ensure_ascii=False)}\n\n"
-                    sent = len(steps)
                 report_events = store.load_stream_events(run_id, after=current_cursor)
                 for event in report_events:
                     data = json.dumps(event, ensure_ascii=False)
                     yield f"id: {event['event_id']}\nevent: {event['event_type']}\ndata: {data}\n\n"
-                    alias = legacy_event_type(event["event_type"])
-                    if alias:
-                        yield f"id: {event['event_id']}\nevent: {alias}\ndata: {data}\n\n"
                     current_cursor = event["seq"]
                 run = store.load_run(run_id)
                 if run.status in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
