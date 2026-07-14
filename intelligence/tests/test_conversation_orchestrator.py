@@ -2317,20 +2317,22 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     synthesis_calls = 0
     captured_prompt = ""
 
-    def synthesize_once(messages, **kwargs):
+    def synthesize_once(messages, *, on_delta, **kwargs):
         nonlocal captured_prompt, synthesis_calls
         synthesis_calls += 1
         captured_prompt = "\n".join(str(message["content"]) for message in messages)
+        answer = (
+            "# 专项研究\n"
+            "**直接定性：** 需求保持扩张。\n"
+            "**最强证据：** 专项正式资料。\n"
+            "**主要风险：** 新增订单待复核。\n"
+            "**条件边界：** 仅限当前资料。\n"
+            "**下一步验证：** 下一窗口复核新增订单。（非投资建议）"
+        )
+        on_delta(answer)
         return (
             llm_refine.SynthesisResult(
-                answer=(
-                    "# 专项研究\n"
-                    "**直接定性：** 需求保持扩张。\n"
-                    "**最强证据：** 专项正式资料。\n"
-                    "**主要风险：** 新增订单待复核。\n"
-                    "**条件边界：** 仅限当前资料。\n"
-                    "**下一步验证：** 下一窗口复核新增订单。（非投资建议）"
-                ),
+                answer=answer,
                 provider="zhipu",
                 model="glm-5.2",
             ),
@@ -2338,7 +2340,9 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
         )
 
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: object())
-    monkeypatch.setattr(llm_refine, "synthesize_messages", synthesize_once)
+    monkeypatch.setattr(
+        llm_refine, "synthesize_messages_stream", synthesize_once
+    )
     monkeypatch.setattr(
         "intelligence.services.ask.answer_model.validate_llm_answer",
         lambda *_: [],
@@ -2370,13 +2374,27 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     assert "阶段判断：" in captured_prompt
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert "llm_unavailable_template_answer" not in assistant.degrades
-    retrieval = next(
-        step["retrieval"]
+    ask_trace = next(
+        step
         for step in run_store.load_trace(run_id)
         if step["name"] == "ask_retrieve_compose"
     )
+    retrieval = ask_trace["retrieval"]
     assert retrieval["citations"][0]["source"] == "专项正式资料"
     assert retrieval["citation_counts"] == {"K": 1}
+    stream_telemetry = json.loads(ask_trace["output_summary"])[
+        "llm_stream_telemetry"
+    ]
+    assert set(stream_telemetry) == {
+        "first_token_ms",
+        "chunk_count",
+        "provider",
+        "model",
+    }
+    assert stream_telemetry["chunk_count"] == 1
+    assert stream_telemetry["provider"] == "zhipu"
+    assert stream_telemetry["model"] == "glm-5.2"
+    assert "专项研究" not in json.dumps(stream_telemetry, ensure_ascii=False)
     snapshots = [
         event["payload"]
         for event in run_store.load_stream_events(run_id)
@@ -2470,9 +2488,10 @@ def test_market_review_owner_with_graph_evidence_synthesizes_without_base_retrie
     )
     synthesis_calls = 0
 
-    def synthesize_once(messages, **kwargs):
+    def synthesize_once(messages, *, on_delta, **kwargs):
         nonlocal synthesis_calls
         synthesis_calls += 1
+        on_delta("今日市场结构终稿")
         return (
             llm_refine.SynthesisResult(
                 answer="今日市场结构终稿",
@@ -2483,7 +2502,9 @@ def test_market_review_owner_with_graph_evidence_synthesizes_without_base_retrie
         )
 
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: object())
-    monkeypatch.setattr(llm_refine, "synthesize_messages", synthesize_once)
+    monkeypatch.setattr(
+        llm_refine, "synthesize_messages_stream", synthesize_once
+    )
     monkeypatch.setattr(
         "intelligence.services.ask.answer_model.validate_llm_answer",
         lambda *_: [],
@@ -3832,6 +3853,103 @@ def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> Non
     assert result is not None
     assert result.answer == "whole answer"
     assert deltas == ["whole answer"]
+
+
+def test_stream_fallback_reuses_only_original_deadline_remaining(
+    monkeypatch,
+) -> None:
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine,
+        "_post_chat_stream",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            llm_refine.LLMStreamingUnsupported()
+        ),
+    )
+    clock = iter((100.0, 104.0))
+    monkeypatch.setattr(llm_refine.time, "monotonic", lambda: next(clock))
+    fallback_timeouts: list[int] = []
+
+    def fallback(*args, **kwargs):
+        fallback_timeouts.append(kwargs.get("timeout", args[2]))
+        return "whole answer"
+
+    monkeypatch.setattr(llm_refine, "_post_chat", fallback)
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=lambda _: None,
+        timeout=10,
+    )
+
+    assert reason == ""
+    assert result is not None
+    assert result.answer == "whole answer"
+    assert fallback_timeouts == [6]
+
+
+def test_stream_fallback_does_not_start_without_one_second_remaining(
+    monkeypatch,
+) -> None:
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine,
+        "_post_chat_stream",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            llm_refine.LLMStreamingUnsupported()
+        ),
+    )
+    clock = iter((100.0, 109.5))
+    monkeypatch.setattr(llm_refine.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(llm_refine, "_post_chat", pytest.fail)
+    deltas: list[str] = []
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=deltas.append,
+        timeout=10,
+    )
+
+    assert result is None
+    assert "超时" in reason
+    assert deltas == []
+
+
+def test_stream_fallback_propagates_cancellation_before_public_delta(
+    monkeypatch,
+) -> None:
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine,
+        "_post_chat_stream",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            llm_refine.LLMStreamingUnsupported()
+        ),
+    )
+    monkeypatch.setattr(
+        llm_refine, "_post_chat", lambda *args, **kwargs: "private fallback"
+    )
+    checks = iter((False, True))
+    deltas: list[str] = []
+
+    with pytest.raises(llm_refine.LLMStreamCancelled):
+        llm_refine.synthesize_messages_stream(
+            [{"role": "user", "content": "question"}],
+            on_delta=deltas.append,
+            is_cancelled=lambda: next(checks),
+            timeout=10,
+        )
+
+    assert deltas == []
 
 
 @pytest.mark.parametrize("terminal", ["completed", "cancelled", "failed"])

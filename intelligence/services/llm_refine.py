@@ -545,6 +545,8 @@ def synthesize_messages_stream(
     timeout: int = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.3,
 ) -> tuple[SynthesisResult | None, str]:
+    started = time.monotonic()
+    deadline = started + max(0, timeout)
     provider = detect_provider(model_override)
     if provider is None:
         return None, (
@@ -565,25 +567,23 @@ def synthesize_messages_stream(
     except urllib.error.HTTPError as exc:
         if exc.code not in {400, 404, 405, 415, 422, 501}:
             return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"
-        fallback, reason = synthesize_messages(
+        return _fallback_stream_to_non_stream(
+            provider,
             messages,
-            model_override=model_override,
-            timeout=timeout,
+            deadline=deadline,
             temperature=temperature,
+            on_delta=on_delta,
+            is_cancelled=is_cancelled,
         )
-        if fallback is not None:
-            on_delta(fallback.answer)
-        return fallback, reason
     except LLMStreamingUnsupported:
-        fallback, reason = synthesize_messages(
+        return _fallback_stream_to_non_stream(
+            provider,
             messages,
-            model_override=model_override,
-            timeout=timeout,
+            deadline=deadline,
             temperature=temperature,
+            on_delta=on_delta,
+            is_cancelled=is_cancelled,
         )
-        if fallback is not None:
-            on_delta(fallback.answer)
-        return fallback, reason
     except Exception as exc:  # pragma: no cover - network
         detail = redact(str(getattr(exc, "reason", exc))[:120])
         return None, f"LLM 流式合成失败（{type(exc).__name__}: {detail}），已降级为模板"
@@ -592,6 +592,59 @@ def synthesize_messages_stream(
     return (
         SynthesisResult(
             answer=content,
+            provider=provider.name,
+            model=provider.model,
+        ),
+        "",
+    )
+
+
+def _fallback_stream_to_non_stream(
+    provider: LLMProvider,
+    messages: list[dict],
+    *,
+    deadline: float,
+    temperature: float,
+    on_delta: Callable[[str], None],
+    is_cancelled: Callable[[], bool] | None,
+) -> tuple[SynthesisResult | None, str]:
+    """Use one non-stream request without renewing the stream deadline.
+
+    ``synthesize_messages`` intentionally retries transient failures, so calling
+    it here would let the fallback spend the remaining allowance more than once.
+    A protocol fallback is therefore a single request capped by the original
+    monotonic deadline.
+    """
+
+    if is_cancelled is not None and is_cancelled():
+        raise LLMStreamCancelled()
+    remaining = deadline - time.monotonic()
+    if remaining < 1.0:
+        return None, "LLM 流式协议回退预算已超时，已降级为模板"
+    fallback_timeout = max(1, int(remaining))
+    try:
+        content = _post_chat(
+            provider,
+            messages,
+            fallback_timeout,
+            temperature,
+        )
+    except urllib.error.HTTPError as exc:  # pragma: no cover - network
+        return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
+    except Exception as exc:  # pragma: no cover - network
+        detail = redact(str(getattr(exc, "reason", exc))[:120])
+        return None, (
+            f"LLM 合成失败（{type(exc).__name__}: {detail}），已降级为模板"
+        )
+    if is_cancelled is not None and is_cancelled():
+        raise LLMStreamCancelled()
+    text = (content or "").strip()
+    if not text:
+        return None, "LLM 合成返回空内容，已降级为模板"
+    on_delta(text)
+    return (
+        SynthesisResult(
+            answer=text,
             provider=provider.name,
             model=provider.model,
         ),

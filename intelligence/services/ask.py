@@ -20,6 +20,7 @@ import glob
 import json
 import os
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import date as date_cls, timedelta
@@ -248,6 +249,12 @@ class AskOptions:
     stream_text_delta: Callable[[str], None] | None = field(
         default=None, repr=False, compare=False
     )
+    # Public compatibility deltas are emitted only after the complete model
+    # answer passes AnswerSpec. Workbench supplies its user-visible sanitizer so
+    # the single published value is safe before it reaches SSE persistence.
+    stream_text_sanitizer: Callable[[str], str] | None = field(
+        default=None, repr=False, compare=False
+    )
     stream_cancel_check: Callable[[], bool] | None = field(
         default=None, repr=False, compare=False
     )
@@ -268,6 +275,16 @@ class Citation:
     content_hash: str = ""
     index_source_revision: str = ""
     index_freshness: str = ""
+
+
+@dataclass(frozen=True)
+class LLMStreamTelemetry:
+    """Content-free metrics for one privately buffered model stream."""
+
+    first_token_ms: int | None
+    chunk_count: int
+    provider: str | None
+    model: str | None
 
 
 @dataclass
@@ -299,6 +316,7 @@ class AskResult:
     llm_attempted: bool = False
     llm_provider: str | None = None
     llm_fallback_reason: str | None = None
+    llm_stream_telemetry: LLMStreamTelemetry | None = None
     # 有机合成（--compose）的自由形态回答正文；None 表示未启用/已降级为模板
     synthesis: str | None = None
     # 首轮合成的完整对话 messages（system+user+assistant）；供多轮追问复用证据+历史。
@@ -994,13 +1012,11 @@ def _synthesize_market_review_answer(
     if provider_timeout is None:
         _mark_provider_budget_exhausted(result)
         return result
-    result.llm_attempted = (
-        llm_refine.detect_provider(options.llm_model) is not None
-    )
-    composed, reason = llm_refine.synthesize_messages(
-        messages,
-        model_override=options.llm_model,
-        timeout=provider_timeout,
+    composed, reason = _synthesize_messages_with_private_stream(
+        options=options,
+        result=result,
+        messages=messages,
+        provider_timeout=provider_timeout,
     )
     if composed is None:
         result.llm_fallback_reason = _stable_llm_fallback_reason(reason)
@@ -1008,10 +1024,14 @@ def _synthesize_market_review_answer(
             f"LLM 合成未采用：{result.llm_fallback_reason}"
         )
         return result
+    proposed_synthesis = answer_model.preserve_required_system_notices(
+        composed.answer,
+        result.answer_spec,
+    )
     blocking_issues = [
         issue
         for issue in answer_model.validate_llm_answer(
-            composed.answer,
+            proposed_synthesis,
             result.answer_spec,
         )
         if issue.severity == "error"
@@ -1023,14 +1043,15 @@ def _synthesize_market_review_answer(
             for issue in blocking_issues
         )
         return result
-    result.synthesis = composed.answer
+    result.synthesis = proposed_synthesis
     result.llm_provider = composed.provider
     result.llm_fallback_reason = None
     result.synthesis_messages = [
         *messages,
-        {"role": "assistant", "content": composed.answer},
+        {"role": "assistant", "content": result.synthesis},
     ]
     _refresh_review_gate_after_synthesis(result)
+    _publish_validated_synthesis(options, result.synthesis)
     return result
 
 
@@ -3325,20 +3346,21 @@ def _synthesize_answer_spec(
     if provider_timeout is None:
         _mark_provider_budget_exhausted(result)
         return
-    result.llm_attempted = (
-        llm_refine.detect_provider(options.llm_model) is not None
-    )
     if options.compose_self_review:
+        result.llm_attempted = (
+            llm_refine.detect_provider(options.llm_model) is not None
+        )
         composed, reason = llm_refine.synthesize_messages_with_review(
             messages,
             model_override=options.llm_model,
             timeout=provider_timeout,
         )
     else:
-        composed, reason = llm_refine.synthesize_messages(
-            messages,
-            model_override=options.llm_model,
-            timeout=provider_timeout,
+        composed, reason = _synthesize_messages_with_private_stream(
+            options=options,
+            result=result,
+            messages=messages,
+            provider_timeout=provider_timeout,
         )
     if composed is None:
         result.llm_fallback_reason = _stable_llm_fallback_reason(reason)
@@ -3378,10 +3400,102 @@ def _synthesize_answer_spec(
         {"role": "assistant", "content": result.synthesis},
     ]
     _refresh_review_gate_after_synthesis(result)
-    if options.stream_text_delta is not None:
-        options.stream_text_delta(result.synthesis)
+    _publish_validated_synthesis(options, result.synthesis)
     if reason:
         result.warnings.append("LLM 合成已采用，但附加自审未完成")
+
+
+def _synthesize_messages_with_private_stream(
+    *,
+    options: AskOptions,
+    result: AskResult,
+    messages: list[dict],
+    provider_timeout: int,
+) -> tuple[llm_refine.SynthesisResult | None, str]:
+    """Capture provider chunks when a public stream consumer is attached.
+
+    Non-stream callers retain the established retry/self-review behavior. The
+    Workbench always supplies ``stream_text_delta`` and therefore always takes
+    the private-buffer path.
+    """
+
+    if options.stream_text_delta is None:
+        result.llm_attempted = (
+            llm_refine.detect_provider(options.llm_model) is not None
+        )
+        return llm_refine.synthesize_messages(
+            messages,
+            model_override=options.llm_model,
+            timeout=provider_timeout,
+        )
+
+    provider = llm_refine.detect_provider(options.llm_model)
+    result.llm_attempted = provider is not None
+    chunks: list[str] = []
+    first_token_ms: int | None = None
+    started = time.monotonic()
+    deadline = started + max(0, provider_timeout)
+
+    def capture(delta: str) -> None:
+        nonlocal first_token_ms
+        if options.stream_cancel_check is not None and options.stream_cancel_check():
+            raise llm_refine.LLMStreamCancelled()
+        if time.monotonic() >= deadline:
+            raise TimeoutError("provider stream deadline exceeded")
+        if (
+            options.execution_budget is not None
+            and options.execution_budget.exhausted()
+        ):
+            raise TimeoutError("execution budget exhausted during provider stream")
+        if first_token_ms is None:
+            first_token_ms = max(0, round((time.monotonic() - started) * 1000))
+        chunks.append(delta)
+
+    try:
+        composed, reason = llm_refine.synthesize_messages_stream(
+            messages,
+            on_delta=capture,
+            is_cancelled=options.stream_cancel_check,
+            model_override=options.llm_model,
+            timeout=provider_timeout,
+        )
+    except llm_refine.LLMStreamCancelled:
+        result.llm_stream_telemetry = LLMStreamTelemetry(
+            first_token_ms=first_token_ms,
+            chunk_count=len(chunks),
+            provider=getattr(provider, "name", None),
+            model=getattr(provider, "model", options.llm_model),
+        )
+        raise
+    result.llm_stream_telemetry = LLMStreamTelemetry(
+        first_token_ms=first_token_ms,
+        chunk_count=len(chunks),
+        provider=(
+            composed.provider
+            if composed is not None
+            else getattr(provider, "name", None)
+        ),
+        model=(
+            composed.model
+            if composed is not None
+            else getattr(provider, "model", options.llm_model)
+        ),
+    )
+    return composed, reason
+
+
+def _publish_validated_synthesis(options: AskOptions, synthesis: str) -> None:
+    """Emit one complete, gated value for clients that still consume deltas."""
+
+    if options.stream_text_delta is None:
+        return
+    public_text = (
+        options.stream_text_sanitizer(synthesis)
+        if options.stream_text_sanitizer is not None
+        else synthesis
+    )
+    if public_text.strip():
+        options.stream_text_delta(public_text)
 
 
 def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:

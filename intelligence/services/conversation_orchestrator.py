@@ -1336,6 +1336,7 @@ class TurnOrchestrator:
                         perspective_mode=perspective_mode,
                         perspective_ids=tuple(selected_perspective_ids),
                         stream_text_delta=emit_text_delta,
+                        stream_text_sanitizer=_sanitize_verified_answer_text,
                         stream_cancel_check=self.is_cancelled,
                         execution_budget=execution_budget,
                         llm_model=self.llm_model,
@@ -1415,6 +1416,7 @@ class TurnOrchestrator:
                         perspective_mode=perspective_mode,
                         perspective_ids=tuple(selected_perspective_ids),
                         stream_text_delta=emit_text_delta,
+                        stream_text_sanitizer=_sanitize_verified_answer_text,
                         stream_cancel_check=self.is_cancelled,
                         execution_budget=execution_budget,
                         progress_callback=retrieval_progress,
@@ -1851,6 +1853,11 @@ class TurnOrchestrator:
                 "closed_loop_retrieval": (
                     result.closed_loop_retrieval.inspector_dict()
                     if result.closed_loop_retrieval is not None
+                    else None
+                ),
+                "llm_stream_telemetry": (
+                    asdict(result.llm_stream_telemetry)
+                    if result.llm_stream_telemetry is not None
                     else None
                 ),
             },

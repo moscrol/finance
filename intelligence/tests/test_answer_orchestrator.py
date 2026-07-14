@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
+from intelligence.services import llm_refine
 from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
@@ -23,6 +24,7 @@ from intelligence.services.answer_orchestrator import (
 )
 from intelligence.services.ask import (
     AskOptions,
+    AskResult,
     _resolve_market_data_context,
     answer_query,
     render_conversation_answer,
@@ -35,6 +37,68 @@ from intelligence.services.kb_rag import (
     WikiHit,
     WikiRagResult,
 )
+
+
+def _run_private_stream_case(
+    *,
+    chunks: list[str],
+    answer: str | None,
+    reason: str = "",
+    gate_issues: list[object] | None = None,
+    public_deltas: list[str],
+    sanitizer=None,
+) -> tuple[AskResult, mock.MagicMock]:
+    provider = llm_refine.LLMProvider(
+        "zhipu",
+        "fixture-key",
+        "https://llm.invalid/v1",
+        "glm-5.2",
+    )
+
+    def fake_stream(messages, *, on_delta, **kwargs):
+        del messages, kwargs
+        for chunk in chunks:
+            on_delta(chunk)
+        if answer is None:
+            return None, reason
+        return (
+            SynthesisResult(
+                answer=answer,
+                provider=provider.name,
+                model=provider.model,
+            ),
+            reason,
+        )
+
+    with (
+        tempfile.TemporaryDirectory() as tmp,
+        mock.patch.object(llm_refine, "detect_provider", return_value=provider),
+        mock.patch.object(
+            llm_refine,
+            "synthesize_messages_stream",
+            side_effect=fake_stream,
+        ) as synthesize_stream,
+        mock.patch(
+            "intelligence.services.ask.answer_model.validate_llm_answer",
+            return_value=gate_issues or [],
+        ),
+    ):
+        result = answer_query(
+            AskOptions(
+                query="题材分歧怎么判断？",
+                exports_dir=tmp,
+                kb_wiki=Path(tmp),
+                use_modules=False,
+                use_wiki_rag=False,
+                compose=True,
+                compose_self_review=False,
+                include_memory_block=False,
+                include_recall_block=False,
+                stream_text_delta=public_deltas.append,
+                stream_text_sanitizer=sanitizer,
+            )
+        )
+    return result, synthesize_stream
 
 
 class AnswerOrchestratorTests(unittest.TestCase):
@@ -1280,6 +1344,96 @@ class AnswerOrchestratorTests(unittest.TestCase):
         assert result.synthesis is not None
         self.assertTrue(result.synthesis.endswith(synthesized))
         self.assertIsNone(result.llm_fallback_reason)
+
+    def test_stream_chunks_stay_private_until_complete_answer_passes_gate(
+        self,
+    ) -> None:
+        chunks = ["当前证据", "只支持结构判断", "。（非投资建议）"]
+        complete = "".join(chunks)
+        public_deltas: list[str] = []
+
+        result, synthesize_stream = _run_private_stream_case(
+            chunks=chunks,
+            answer=complete,
+            public_deltas=public_deltas,
+            sanitizer=lambda text: text.replace("结构判断", "公开判断"),
+        )
+
+        synthesize_stream.assert_called_once()
+        assert result.synthesis is not None
+        self.assertEqual(
+            public_deltas,
+            [result.synthesis.replace("结构判断", "公开判断")],
+        )
+        self.assertNotEqual(public_deltas, chunks)
+        telemetry = result.llm_stream_telemetry
+        assert telemetry is not None
+        self.assertEqual(telemetry.chunk_count, 3)
+        self.assertIsNotNone(telemetry.first_token_ms)
+        self.assertEqual(telemetry.provider, "zhipu")
+        self.assertEqual(telemetry.model, "glm-5.2")
+        self.assertNotIn(complete, repr(telemetry))
+
+    def test_rejected_stream_chunks_never_reach_public_callback(self) -> None:
+        raw_chunks = ["越界公司", " 999亿元"]
+        public_deltas: list[str] = []
+        result, synthesize_stream = _run_private_stream_case(
+            chunks=raw_chunks,
+            answer="".join(raw_chunks),
+            gate_issues=[
+                mock.Mock(
+                    severity="error",
+                    message="输出包含 AnswerSpec 外事实",
+                )
+            ],
+            public_deltas=public_deltas,
+        )
+
+        synthesize_stream.assert_called_once()
+        self.assertIsNone(result.synthesis)
+        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertEqual(public_deltas, [])
+        self.assertNotIn("越界公司", "".join(public_deltas))
+        self.assertNotIn("999亿元", "".join(public_deltas))
+        assert result.llm_stream_telemetry is not None
+        self.assertEqual(result.llm_stream_telemetry.chunk_count, 2)
+
+    def test_partial_stream_timeout_never_publishes_buffered_chunks(self) -> None:
+        private_chunks = ["越界公司", " 999亿元"]
+        public_deltas: list[str] = []
+        result, _ = _run_private_stream_case(
+            chunks=private_chunks,
+            answer=None,
+            reason="TimeoutError at private provider",
+            public_deltas=public_deltas,
+        )
+
+        self.assertEqual(result.llm_fallback_reason, "provider_timeout")
+        self.assertEqual(public_deltas, [])
+        self.assertNotIn("越界公司", "".join(public_deltas))
+        self.assertNotIn("999亿元", "".join(public_deltas))
+        assert result.llm_stream_telemetry is not None
+        self.assertEqual(result.llm_stream_telemetry.chunk_count, 2)
+
+    def test_stream_timeout_without_chunks_has_explicit_empty_telemetry(
+        self,
+    ) -> None:
+        public_deltas: list[str] = []
+        result, _ = _run_private_stream_case(
+            chunks=[],
+            answer=None,
+            reason="TimeoutError at private provider",
+            public_deltas=public_deltas,
+        )
+
+        telemetry = result.llm_stream_telemetry
+        assert telemetry is not None
+        self.assertEqual(result.llm_fallback_reason, "provider_timeout")
+        self.assertEqual(public_deltas, [])
+        self.assertIsNone(telemetry.first_token_ms)
+        self.assertEqual(telemetry.chunk_count, 0)
+        self.assertEqual(telemetry.provider, "zhipu")
+        self.assertEqual(telemetry.model, "glm-5.2")
 
     def test_provider_timeout_is_recapped_after_pre_provider_work(self) -> None:
         from intelligence.services import llm_refine

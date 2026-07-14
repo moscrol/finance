@@ -1539,7 +1539,9 @@ def test_owner_skill_timeout_finishes_conversation_before_supervisor_timer(
     assert len(captured_options) == 1
     options = captured_options[0]
     assert options.compose is True
-    assert options.synthesize is True
+    # Two-phase answer flow: the base call retrieves/finalizes AnswerSpec first;
+    # synthesis is a later step only when that contract exists.
+    assert options.synthesize is False
     assert options.use_modules is False
     assert options.use_wiki_rag is False
 
