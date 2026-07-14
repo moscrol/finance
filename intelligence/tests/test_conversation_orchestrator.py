@@ -1024,6 +1024,87 @@ def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> 
     assert deltas == ["real ", "delta"]
 
 
+def test_synthesis_stream_payload_bounds_thinking_and_tokens(monkeypatch) -> None:
+    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    captured: dict[str, object] = {}
+    body = (
+        b'data: {"choices":[{"delta":{"content":"bounded"},"finish_reason":"stop"}]}\n\n'
+        b"data: [DONE]\n\n"
+    )
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.delenv("LLM_THINKING", raising=False)
+    monkeypatch.delenv("LLM_SYNTHESIS_THINKING", raising=False)
+
+    def fake_urlopen(request, *args, **kwargs):
+        del args, kwargs
+        captured["payload"] = json.loads(request.data.decode("utf-8"))
+        return _StreamingResponse(body)
+
+    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", fake_urlopen)
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=lambda _: None,
+    )
+
+    assert reason == ""
+    assert result is not None
+    assert captured["payload"]["thinking"] == {"type": "disabled"}
+    assert captured["payload"]["max_tokens"] == 2200
+
+
+def test_synthesis_stream_length_finish_reason_fails_closed(monkeypatch) -> None:
+    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    body = (
+        b'data: {"choices":[{"delta":{"content":"partial"},"finish_reason":"length"}]}\n\n'
+        b"data: [DONE]\n\n"
+    )
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: _StreamingResponse(body),
+    )
+    deltas: list[str] = []
+    finish_reasons: list[str | None] = []
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=deltas.append,
+        on_finish_reason=finish_reasons.append,
+    )
+
+    assert result is None
+    assert "截断" in reason
+    assert deltas == ["partial"]
+    assert finish_reasons == ["length"]
+
+
+def test_synthesis_stream_output_too_long_fails_closed(monkeypatch) -> None:
+    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    body = (
+        b'data: {"choices":[{"delta":{"content":"too-long"},"finish_reason":"stop"}]}\n\n'
+        b"data: [DONE]\n\n"
+    )
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: _StreamingResponse(body),
+    )
+    deltas: list[str] = []
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=deltas.append,
+        max_chars=3,
+    )
+
+    assert result is None
+    assert "输出超长" in reason
+    assert deltas == []
+
+
 def test_openai_stream_checks_cancellation_between_provider_deltas(
     monkeypatch,
 ) -> None:
@@ -1071,7 +1152,11 @@ def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> Non
         "_post_chat_stream",
         lambda *args, **kwargs: (_ for _ in ()).throw(unsupported),
     )
-    monkeypatch.setattr(llm_refine, "_post_chat", lambda *args, **kwargs: "whole answer")
+    monkeypatch.setattr(
+        llm_refine,
+        "_post_chat_synthesis",
+        lambda *args, **kwargs: ("whole answer", "stop"),
+    )
     deltas: list[str] = []
 
     result, reason = llm_refine.synthesize_messages_stream(
@@ -1098,12 +1183,13 @@ def test_stream_fallback_uses_only_remaining_deadline(monkeypatch) -> None:
     )
     observed: list[float] = []
 
-    def fake_post_chat(provider, messages, timeout, temperature):
+    def fake_post_chat(provider, messages, timeout, temperature, *args, **kwargs):
         del provider, messages, temperature
+        del args, kwargs
         observed.append(timeout)
-        return "whole answer"
+        return "whole answer", "stop"
 
-    monkeypatch.setattr(llm_refine, "_post_chat", fake_post_chat)
+    monkeypatch.setattr(llm_refine, "_post_chat_synthesis", fake_post_chat)
     deadline = type(
         "FixtureDeadline",
         (),

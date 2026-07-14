@@ -42,7 +42,9 @@ class SynthesizeMessagesTests(unittest.TestCase):
     def test_succeeds_with_mocked_llm(self) -> None:
         msgs = build_synthesis_messages("液冷", "液冷服务器", "## 证据链\n- 新高10只 [S1]")
         with mock.patch.object(llm_refine, "detect_provider", return_value=_provider()), mock.patch.object(
-            llm_refine, "_post_chat", return_value="液冷盘面强势[S1]。（非投资建议）"
+            llm_refine,
+            "_post_chat_synthesis",
+            return_value=("液冷盘面强势[S1]。（非投资建议）", "stop"),
         ) as posted:
             out, reason = synthesize_messages(msgs)
         self.assertEqual(reason, "")
