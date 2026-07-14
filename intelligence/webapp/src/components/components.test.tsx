@@ -704,6 +704,50 @@ describe("Workbench components", () => {
     expect(screen.getAllByText("已完成")).not.toHaveLength(0);
   });
 
+  it("shows the structured report inside the explicit run inspector", async () => {
+    const user = userEvent.setup();
+    render(
+      <ResearchInspector
+        bootstrap={bootstrap}
+        bundle={{
+          ...bundle,
+          structuredReport: {
+            schema_version: 1,
+            report_id: "run_inspector_report",
+            title: "运行报告",
+            task_type: "ask",
+            status: "completed",
+            as_of: "2026-07-10",
+            llm: { used: true, provider: "glm", model: "glm-5.2" },
+            warnings: [],
+            modules: [
+              {
+                module_id: "summary",
+                title: "综合判断",
+                kind: "narrative",
+                status: "complete",
+                summary: "证据边界内的结论。",
+                content: null,
+                metrics: [],
+                items: [],
+                table: null,
+                warnings: [],
+                provenance: { source: "retrieved_evidence" },
+              },
+            ],
+          },
+        }}
+        artifact={null}
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "运行" }));
+    expect(screen.getByText("已使用 glm · glm-5.2")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "综合判断" })).toBeVisible();
+  });
+
   it("shows report degradation warnings and the bound KB snapshot", () => {
     render(
       <>
@@ -737,6 +781,52 @@ describe("Workbench components", () => {
     expect(screen.getByText("知识库索引快照")).toBeVisible();
     expect(screen.getByText(/版本=abc123/)).toBeVisible();
     expect(screen.getByText(/时效=当前/)).toBeVisible();
+  });
+
+  it("shows only allowlisted provider and model metadata", () => {
+    render(
+      <StructuredReportView
+        report={{
+          schema_version: 1,
+          report_id: "run_safe_model",
+          title: "模型元数据",
+          task_type: "ask",
+          status: "completed",
+          as_of: "2026-07-10",
+          llm: { used: true, provider: "GLM", model: "glm-5.2" },
+          warnings: [],
+          modules: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("已使用 glm · glm-5.2")).toBeVisible();
+  });
+
+  it("hides credential-shaped provider and model metadata", () => {
+    render(
+      <StructuredReportView
+        report={{
+          schema_version: 1,
+          report_id: "run_unsafe_model",
+          title: "模型元数据",
+          task_type: "ask",
+          status: "completed",
+          as_of: "2026-07-10",
+          llm: {
+            used: true,
+            provider: "github_pat_private",
+            model: "ghp_abcdefghijklmnopqrstuvwxyz",
+          },
+          warnings: [],
+          modules: [],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("已使用模型 · 服务信息已隐藏")).toBeVisible();
+    expect(screen.queryByText(/github_pat_private/)).toBeNull();
+    expect(screen.queryByText(/ghp_abcdefghijklmnopqrstuvwxyz/)).toBeNull();
   });
 
   it("shows aggregate self-use maturity without private event details", () => {

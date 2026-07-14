@@ -186,6 +186,24 @@ class SmokeHandler(BaseHTTPRequestHandler):
             }
             if type(self).mode == "protocol":
                 report.pop("llm")
+            elif type(self).mode == "model_secret":
+                report["llm"] = {
+                    "used": True,
+                    "provider": "zhipu",
+                    "model": "ghp_abcdefghijklmnopqrstuvwxyz",
+                }
+            elif type(self).mode == "model_unknown":
+                report["llm"] = {
+                    "used": True,
+                    "provider": "unknown-provider",
+                    "model": "custom-model",
+                }
+            elif type(self).mode == "model_safe":
+                report["llm"] = {
+                    "used": True,
+                    "provider": "QWEN",
+                    "model": "qwen-plus",
+                }
             self._json(report)
             return
         if parsed.path == "/api/runs/run-1/trace":
@@ -351,6 +369,49 @@ def test_completed_smoke_requires_model_metadata(tmp_path: Path) -> None:
     assert exit_code == 2
     assert summary["terminal_outcome"] == "protocol_error"
     assert summary["failure_stage"] == "model_metadata"
+
+
+def test_smoke_rejects_credential_shaped_model_without_echoing_it(
+    tmp_path: Path,
+) -> None:
+    exit_code, summary, raw_summary = run_cli(tmp_path, "model_secret")
+
+    assert exit_code == 2
+    assert summary["terminal_outcome"] == "secret_scan_failed"
+    assert summary["secret_scan"]["hit_count"] > 0
+    assert "ghp_abcdefghijklmnopqrstuvwxyz" not in raw_summary
+
+
+def test_smoke_hides_unknown_model_metadata(tmp_path: Path) -> None:
+    exit_code, summary, raw_summary = run_cli(tmp_path, "model_unknown")
+
+    assert exit_code == 0
+    assert summary["model"]["provider"] is None
+    assert summary["model"]["model"] is None
+    assert "unknown-provider" not in raw_summary
+    assert "custom-model" not in raw_summary
+
+
+def test_smoke_keeps_allowlisted_model_metadata(tmp_path: Path) -> None:
+    exit_code, summary, _ = run_cli(tmp_path, "model_safe")
+
+    assert exit_code == 0
+    assert summary["model"]["provider"] == "qwen"
+    assert summary["model"]["model"] == "qwen-plus"
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "AKIAIOSFODNN7EXAMPLE",
+        "ya29.a0AfH6SMabcdefghijklmnopqrstuvwxyz",
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.dGVzdHNpZ25hdHVyZQ",
+        "aB3dE5fG7hJ9kL2mN4pQ6rS8tV0wX1yZ3cD5eF7gH9jK2mN4",
+    ],
+)
+def test_model_label_rejects_other_credential_families(model: str) -> None:
+    with pytest.raises(smoke.SmokeProtocolError, match="model_metadata"):
+        smoke._safe_optional_model_label(model, "model_metadata")
 
 
 @pytest.mark.parametrize(

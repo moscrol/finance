@@ -40,10 +40,64 @@ PUBLIC_EVENT_TYPES = {
 SAFE_LABEL = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 SAFE_SOURCE_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+UNSAFE_MODEL_LABEL = re.compile(
+    r"(?:\.\.|error|exception|prompt|authorization|api[_-]?key|secret|header|"
+    r"traceback|credential)",
+    re.IGNORECASE,
+)
+PRIVATE_PATH_COMPONENT = re.compile(
+    r"(?:^|/)(?:users|home|private|var|tmp|etc)(?:/|$)", re.IGNORECASE
+)
+CREDENTIAL_FAMILY_CASE_INSENSITIVE = re.compile(
+    r"^(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_]|hf_|glpat-|xapp-|bearer)",
+    re.IGNORECASE,
+)
+CREDENTIAL_FAMILY_CASE_SENSITIVE = re.compile(r"^(?:AKIA|ASIA|AIza|ya29\.)")
+JWT_SHAPE = re.compile(
+    r"^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$"
+)
+SUPPORTED_MODEL_FAMILY = re.compile(
+    r"^(?:(?:glm|gpt|chatgpt|deepseek|kimi|moonshot|qwen|qwq|tongyi|claude)-"
+    r"[A-Za-z0-9][A-Za-z0-9._-]*|o[134](?:$|[-.][A-Za-z0-9][A-Za-z0-9._-]*)|"
+    r"fixture[A-Za-z0-9._-]*)$",
+    re.IGNORECASE,
+)
+SAFE_LLM_PROVIDERS = frozenset(
+    {
+        "zhipu",
+        "glm",
+        "openai",
+        "deepseek",
+        "moonshot",
+        "kimi",
+        "dashscope",
+        "qwen",
+        "tongyi",
+        "fixture",
+    }
+)
 SECRET_PATTERNS = (
     (
         "token_prefix",
-        re.compile(r"\b(?:sk|ghp|gho|ghu|ghs|xoxb|xoxp)[-_][A-Za-z0-9_-]{8,}"),
+        re.compile(
+            r"\b(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_]|hf_|glpat-|xapp-)"
+            r"[A-Za-z0-9_-]{8,}",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "cloud_token_prefix",
+        re.compile(r"\b(?:AKIA|ASIA|AIza|ya29\.)[A-Za-z0-9._-]{8,}"),
+    ),
+    (
+        "bearer_token",
+        re.compile(r"\bbearer(?:\s+|[-_:])[A-Za-z0-9._-]{8,}", re.IGNORECASE),
+    ),
+    (
+        "jwt_shape",
+        re.compile(
+            r"\b[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"
+        ),
     ),
     (
         "secret_assignment",
@@ -378,6 +432,47 @@ def _safe_optional_label(value: object, stage: str) -> str | None:
     return value
 
 
+def _looks_like_high_entropy_token(value: str) -> bool:
+    compact = value.replace("-", "").replace("_", "")
+    if len(compact) < 48 or re.fullmatch(r"[A-Za-z0-9]+", compact) is None:
+        return False
+    character_classes = sum(
+        bool(pattern.search(compact))
+        for pattern in (
+            re.compile(r"[a-z]"),
+            re.compile(r"[A-Z]"),
+            re.compile(r"[0-9]"),
+        )
+    )
+    return character_classes == 3 and len(set(compact)) >= 16
+
+
+def _safe_optional_provider_label(value: object, stage: str) -> str | None:
+    label = _safe_optional_label(value, stage)
+    if label is None:
+        return None
+    normalized = label.lower()
+    return normalized if normalized in SAFE_LLM_PROVIDERS else None
+
+
+def _safe_optional_model_label(value: object, stage: str) -> str | None:
+    label = _safe_optional_label(value, stage)
+    if label is None:
+        return None
+    if (
+        CREDENTIAL_FAMILY_CASE_INSENSITIVE.search(label)
+        or CREDENTIAL_FAMILY_CASE_SENSITIVE.search(label)
+        or JWT_SHAPE.fullmatch(label)
+        or _looks_like_high_entropy_token(label)
+        or UNSAFE_MODEL_LABEL.search(label)
+        or PRIVATE_PATH_COMPONENT.search(label)
+        or re.match(r"^[A-Za-z]:/", label)
+        or "://" in label
+    ):
+        raise SmokeProtocolError(stage)
+    return label if SUPPORTED_MODEL_FAMILY.fullmatch(label) else None
+
+
 def _safe_identifier(value: object, stage: str) -> str:
     if (
         not isinstance(value, str)
@@ -595,11 +690,11 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
                 "model": {
                     "metadata_present": isinstance(llm, dict),
                     "used": llm_used if isinstance(llm_used, bool) else None,
-                    "provider": _safe_optional_label(
+                    "provider": _safe_optional_provider_label(
                         llm_payload.get("provider"),
                         "model_metadata",
                     ),
-                    "model": _safe_optional_label(
+                    "model": _safe_optional_model_label(
                         llm_payload.get("model"),
                         "model_metadata",
                     ),

@@ -23,6 +23,7 @@ import type {
   RunBundle,
   TraceStep,
 } from "../types";
+import { StructuredReportView } from "./StructuredReportView";
 
 type InspectorTab = "evidence" | "trace" | "memory" | "review";
 
@@ -246,6 +247,9 @@ export function ResearchInspector({
           {tab === "trace" && (
             <section aria-labelledby="inspector-trace-heading">
               <h2 id="inspector-trace-heading">运行详情</h2>
+              {bundle?.structuredReport && (
+                <StructuredReportView report={bundle.structuredReport} />
+              )}
               {bundle?.trace.map((step, index) => (
                 <TraceItem step={step} key={`${step.step_id}:${index}`} />
               ))}
