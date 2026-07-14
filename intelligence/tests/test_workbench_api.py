@@ -78,7 +78,9 @@ def client(tmp_path, monkeypatch):
 
     daily_dir = repo_root / "复盘" / "daily" / "2026-07-09"
     daily_dir.mkdir(parents=True)
-    (daily_dir / "2026-07-09-daily-agent.html").write_text("<h1>daily</h1>", encoding="utf-8")
+    (daily_dir / "2026-07-09-daily-agent.html").write_text(
+        "<h1>daily</h1>", encoding="utf-8"
+    )
     (daily_dir / "2026-07-09-daily-review.html").write_text(
         """<h2>核心看板</h2><table>
         <tr><th>维度</th><th>结论</th></tr>
@@ -205,7 +207,10 @@ def test_session_byok_api_is_user_scoped_and_never_returns_key(
         "model": "glm-4-air",
     }
     assert "glm-secret-value" not in configured.text
-    assert client.get("/api/llm/config", params={"user": "bob"}).json()["mode"] == "built_in"
+    assert (
+        client.get("/api/llm/config", params={"user": "bob"}).json()["mode"]
+        == "built_in"
+    )
 
     restored = client.delete("/api/llm/config", params={"user": "alice"})
     assert restored.status_code == 200
@@ -253,14 +258,17 @@ def test_session_byok_flows_to_the_conversation_worker(
         "_run_conversation_turn",
         capture_run_conversation_turn,
     )
-    assert client.put(
-        "/api/llm/config",
-        json={
-            "provider": "zhipu",
-            "api_key": "glm-secret-value",
-            "user": "alice",
-        },
-    ).status_code == 200
+    assert (
+        client.put(
+            "/api/llm/config",
+            json={
+                "provider": "zhipu",
+                "api_key": "glm-secret-value",
+                "user": "alice",
+            },
+        ).status_code
+        == 200
+    )
     conversation_id = client.post(
         "/api/conversations",
         json={"user": "alice"},
@@ -437,10 +445,15 @@ def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None
     conversation = created.json()
     conversation_id = conversation["conversation_id"]
     assert conversation["title"] == "盘面讨论"
-    assert client.get("/api/conversations", params={"user": "alice"}).json() == [conversation]
-    assert client.get(
-        f"/api/conversations/{conversation_id}", params={"user": "alice"}
-    ).json() == conversation
+    assert client.get("/api/conversations", params={"user": "alice"}).json() == [
+        conversation
+    ]
+    assert (
+        client.get(
+            f"/api/conversations/{conversation_id}", params={"user": "alice"}
+        ).json()
+        == conversation
+    )
 
     renamed = client.patch(
         f"/api/conversations/{conversation_id}",
@@ -462,7 +475,10 @@ def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None
     response = sent.json()
     assert response["conversation_id"] == conversation_id
     assert set(response) == {
-        "conversation_id", "user_message_id", "assistant_message_id", "run_id"
+        "conversation_id",
+        "user_message_id",
+        "assistant_message_id",
+        "run_id",
     }
     messages = client.get(
         f"/api/conversations/{conversation_id}/messages", params={"user": "alice"}
@@ -545,9 +561,9 @@ def test_perspective_selection_is_validated_listed_and_persisted(
         }
     ]
     assert client.get("/api/perspectives", params={"user": "bob"}).json() == []
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
 
     sent = client.post(
         f"/api/conversations/{conversation_id}/messages",
@@ -596,9 +612,9 @@ def test_invalid_perspective_selection_is_rejected(
     client: TestClient,
     payload: dict[str, object],
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     response = client.post(
         f"/api/conversations/{conversation_id}/messages",
         json={
@@ -611,10 +627,12 @@ def test_invalid_perspective_selection_is_rejected(
     assert response.status_code == 422
 
 
-def test_conversation_message_run_parent_chains_across_turns(client: TestClient) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+def test_conversation_message_run_parent_chains_across_turns(
+    client: TestClient,
+) -> None:
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     first = client.post(
         f"/api/conversations/{conversation_id}/messages",
         json={"content": "第一轮", "skill_mode": "auto", "user": "alice"},
@@ -627,17 +645,23 @@ def test_conversation_message_run_parent_chains_across_turns(client: TestClient)
         f"/api/runs/{second['run_id']}", params={"user": "alice"}
     ).json()
     assert second_run["parent_run_id"] == first["run_id"]
-    assert len(client.get(
-        f"/api/conversations/{conversation_id}/messages", params={"user": "alice"}
-    ).json()) == 4
+    assert (
+        len(
+            client.get(
+                f"/api/conversations/{conversation_id}/messages",
+                params={"user": "alice"},
+            ).json()
+        )
+        == 4
+    )
 
 
 def test_concurrent_messages_are_paired_and_runs_form_one_linear_chain(
     client: TestClient,
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     original_create_run = RunStore.create_run
 
     def slow_create_run(self: RunStore, *args: object, **kwargs: object):
@@ -678,22 +702,27 @@ def test_concurrent_messages_are_paired_and_runs_form_one_linear_chain(
         run_id: [child for child in runs.values() if child["parent_run_id"] == run_id]
         for run_id in runs
     }
-    assert sorted(len(children) for children in children_by_parent.values()) == [0, 1, 1, 1, 1, 1]
+    assert sorted(len(children) for children in children_by_parent.values()) == [
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+    ]
     assert len(client.app.state.conversation_locks) == 1
 
 
 def test_second_message_append_failure_marks_created_run_failed(
     client: TestClient,
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     original_append = ConversationStore.append_message
     append_count = 0
 
-    def fail_second_append(
-        self: ConversationStore, *args: object, **kwargs: object
-    ):
+    def fail_second_append(self: ConversationStore, *args: object, **kwargs: object):
         nonlocal append_count
         append_count += 1
         if append_count == 2:
@@ -720,9 +749,9 @@ def test_second_message_append_failure_marks_created_run_failed(
 def test_append_and_failure_state_persistence_errors_surface_generic_runtime_error(
     client: TestClient,
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
 
     def fail_append(*args: object, **kwargs: object) -> None:
         raise RuntimeError("secret append detail")
@@ -751,9 +780,9 @@ def test_append_and_failure_state_persistence_errors_surface_generic_runtime_err
 
 
 def test_executor_submit_failure_marks_created_run_failed(client: TestClient) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
 
     def fail_submit(*args: object, **kwargs: object) -> None:
         raise RuntimeError("secret executor detail")
@@ -836,13 +865,15 @@ def test_executor_capacity_failure_compensates_second_run_without_mapping(
         supervisor.shutdown()
 
 
-@pytest.mark.parametrize("path", ["/api/conversations", "/api/conversations/{conversation_id}"])
+@pytest.mark.parametrize(
+    "path", ["/api/conversations", "/api/conversations/{conversation_id}"]
+)
 def test_conversation_titles_reject_blank_whitespace(
     client: TestClient, path: str
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     resolved_path = path.format(conversation_id=conversation_id)
     response = client.request(
         "POST" if path == "/api/conversations" else "PATCH",
@@ -859,7 +890,11 @@ def test_conversation_titles_reject_blank_whitespace(
         ("patch", "/api/conversations/..%2Falice", {"title": "x"}),
         ("post", "/api/conversations/..%2Falice/archive", {}),
         ("get", "/api/conversations/..%2Falice/messages", None),
-        ("post", "/api/conversations/..%2Falice/messages", {"content": "x", "skill_mode": "auto"}),
+        (
+            "post",
+            "/api/conversations/..%2Falice/messages",
+            {"content": "x", "skill_mode": "auto"},
+        ),
         ("post", "/api/runs/..%2Falice/cancel", {}),
     ],
 )
@@ -872,29 +907,35 @@ def test_all_new_id_routes_reject_traversal(
 
 
 def test_conversation_input_validation_and_user_isolation(client: TestClient) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
     for body in (
         {"content": "", "skill_mode": "auto", "user": "alice"},
         {"content": "   ", "skill_mode": "auto", "user": "alice"},
         {"content": "x", "skill_mode": "invalid", "user": "alice"},
     ):
-        assert client.post(
-            f"/api/conversations/{conversation_id}/messages", json=body
-        ).status_code == 422
-    assert client.get(
-        f"/api/conversations/{conversation_id}", params={"user": "bob"}
-    ).status_code == 404
+        assert (
+            client.post(
+                f"/api/conversations/{conversation_id}/messages", json=body
+            ).status_code
+            == 422
+        )
+    assert (
+        client.get(
+            f"/api/conversations/{conversation_id}", params={"user": "bob"}
+        ).status_code
+        == 404
+    )
     assert client.get("/api/conversations", params={"user": "bob"}).json() == []
 
 
 def test_message_rejects_unknown_product_skill_before_creating_run(
     client: TestClient,
 ) -> None:
-    conversation_id = client.post(
-        "/api/conversations", json={"user": "alice"}
-    ).json()["conversation_id"]
+    conversation_id = client.post("/api/conversations", json={"user": "alice"}).json()[
+        "conversation_id"
+    ]
 
     response = client.post(
         f"/api/conversations/{conversation_id}/messages",
@@ -924,7 +965,9 @@ def test_skills_lists_registered_product_skills(client: TestClient) -> None:
     assert all(skill["permissions"] == ["local_read"] for skill in skills)
 
 
-def test_skills_serializes_only_product_registry_definitions(client: TestClient) -> None:
+def test_skills_serializes_only_product_registry_definitions(
+    client: TestClient,
+) -> None:
     @dataclass(frozen=True)
     class FakeSkillDefinition:
         skill_id: str
@@ -971,25 +1014,26 @@ def test_skills_serializes_only_product_registry_definitions(client: TestClient)
 
 def test_cancel_missing_run_and_idempotence(client: TestClient) -> None:
     assert client.post("/api/runs/run_missing/cancel").status_code == 404
-    run_id = client.post(
-        "/api/runs", json={"question": "q", "user": "alice"}
-    ).json()["run_id"]
-    assert client.post(
-        f"/api/runs/{run_id}/cancel", params={"user": "bob"}
-    ).status_code == 404
+    run_id = client.post("/api/runs", json={"question": "q", "user": "alice"}).json()[
+        "run_id"
+    ]
+    assert (
+        client.post(f"/api/runs/{run_id}/cancel", params={"user": "bob"}).status_code
+        == 404
+    )
     _wait_terminal(client, run_id, user="alice")
     assert client.app.state.cancellation_registry == {}
-    first = client.post(
-        f"/api/runs/{run_id}/cancel", params={"user": "alice"}
-    ).json()
-    second = client.post(
-        f"/api/runs/{run_id}/cancel", params={"user": "alice"}
-    ).json()
-    assert first == second == {
-        "run_id": run_id,
-        "status": "completed",
-        "cancel_requested": True,
-    }
+    first = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
+    second = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
+    assert (
+        first
+        == second
+        == {
+            "run_id": run_id,
+            "status": "completed",
+            "cancel_requested": True,
+        }
+    )
     assert client.app.state.cancellation_registry == {}
 
 
@@ -1139,9 +1183,7 @@ def test_readiness_fails_without_any_contract_valid_market_data(
     assert "provider-secret-value" not in response.text
 
 
-def test_readiness_bounds_snapshot_probe_failures(
-    tmp_path, monkeypatch
-) -> None:
+def test_readiness_bounds_snapshot_probe_failures(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
@@ -1644,7 +1686,9 @@ def test_create_app_recovers_interrupted_runs(tmp_path, monkeypatch) -> None:
     assert readiness["recovered_runs"] == 1
 
 
-def test_create_app_recovers_interrupted_conversation_turn(tmp_path, monkeypatch) -> None:
+def test_create_app_recovers_interrupted_conversation_turn(
+    tmp_path, monkeypatch
+) -> None:
     users_root = tmp_path / "users"
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
     knowledge_wiki = tmp_path / "wiki"
@@ -1742,7 +1786,36 @@ def test_sse_replays_steps_and_ends_with_run(client: TestClient) -> None:
     assert events[-1] == "run"
 
 
-def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestClient) -> None:
+def test_public_run_projections_hide_raw_tracebacks_and_local_paths(
+    client: TestClient,
+) -> None:
+    store = RunStore()
+    run = store.create_run("public safety", "ask")
+    unsafe = (
+        'wiki-rag failed: Traceback File "/Users/alice/private/rag_index.py", '
+        "line 223 ModuleNotFoundError"
+    )
+    store.add_degrade(run.run_id, unsafe)
+    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+
+    bodies = [
+        client.get(f"/api/runs/{run.run_id}").text,
+        client.get("/api/runs").text,
+        client.get(f"/api/runs/{run.run_id}/events").text,
+        client.get(f"/api/runs/{run.run_id}/context").text,
+        client.get("/api/workbench/bootstrap").text,
+    ]
+
+    for body in bodies:
+        assert "Traceback" not in body
+        assert "/Users/alice" not in body
+        assert "rag_index.py" not in body
+    assert "外部语义检索当前不可用或受限" in bodies[0]
+
+
+def test_sse_replays_structured_report_modules_and_report_endpoint(
+    client: TestClient,
+) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     _wait_terminal(client, run_id)
     store = RunStore()
@@ -1799,10 +1872,16 @@ def test_sse_canonical_alias_cursor_and_terminal_replay(client: TestClient) -> N
     _wait_terminal(client, run_id)
     store = RunStore()
     start = store.append_stream_event(
-        run_id, event_id="report:start:new", event_type="report.start", payload={"report": {"modules": []}}
+        run_id,
+        event_id="report:start:new",
+        event_type="report.start",
+        payload={"report": {"modules": []}},
     )
     module = store.append_stream_event(
-        run_id, event_id="report:module:new", event_type="report.module", payload={"module": {"module_id": "m1"}}
+        run_id,
+        event_id="report:module:new",
+        event_type="report.module",
+        payload={"module": {"module_id": "m1"}},
     )
 
     full = client.get(f"/api/runs/{run_id}/events").text
@@ -1810,7 +1889,9 @@ def test_sse_canonical_alias_cursor_and_terminal_replay(client: TestClient) -> N
     assert full.count(f"id: {start['event_id']}") == 2
     assert "event: step" in full and "event: run" in full
 
-    after = client.get(f"/api/runs/{run_id}/events", params={"after": start["seq"]}).text
+    after = client.get(
+        f"/api/runs/{run_id}/events", params={"after": start["seq"]}
+    ).text
     assert "event: step" not in after
     assert "report:start:new" not in after
     assert "report:module:new" in after
@@ -1827,7 +1908,10 @@ def test_sse_canonical_alias_cursor_and_terminal_replay(client: TestClient) -> N
 
 def test_sse_rejects_negative_after(client: TestClient) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
-    assert client.get(f"/api/runs/{run_id}/events", params={"after": -1}).status_code == 422
+    assert (
+        client.get(f"/api/runs/{run_id}/events", params={"after": -1}).status_code
+        == 422
+    )
 
 
 def test_sse_initial_connection_keeps_polling_trace_after_report_event(
@@ -1835,9 +1919,7 @@ def test_sse_initial_connection_keeps_polling_trace_after_report_event(
 ) -> None:
     store = RunStore()
     run = store.create_run("live trace", "ask")
-    store.append_step(
-        run.run_id, step_id="s01", name="first", status="completed"
-    )
+    store.append_step(run.run_id, step_id="s01", name="first", status="completed")
     store.append_stream_event(
         run.run_id,
         event_id="report:start:live",
@@ -1851,9 +1933,7 @@ def test_sse_initial_connection_keeps_polling_trace_after_report_event(
         if slept:
             return
         slept = True
-        store.append_step(
-            run.run_id, step_id="s02", name="later", status="completed"
-        )
+        store.append_step(run.run_id, step_id="s02", name="later", status="completed")
         store.finish_run(run.run_id, rs.STATUS_COMPLETED)
 
     monkeypatch.setattr(app_module.time, "sleep", add_later_step)
@@ -1887,7 +1967,9 @@ def test_sse_resumed_connection_never_replays_trace(client: TestClient) -> None:
     assert "event: step" not in header
 
 
-def test_daily_run_uses_one_pass_llm_and_template_followups(tmp_path, monkeypatch) -> None:
+def test_daily_run_uses_one_pass_llm_and_template_followups(
+    tmp_path, monkeypatch
+) -> None:
     from intelligence.services import ask as ask_svc
     from intelligence.services import followups as followups_svc
     from intelligence.services.ask import AskResult
@@ -1914,7 +1996,9 @@ def test_daily_run_uses_one_pass_llm_and_template_followups(tmp_path, monkeypatc
         return followups_svc.FollowupResult()
 
     monkeypatch.setattr(ask_svc, "answer_query", fake_answer)
-    monkeypatch.setattr(ask_svc, "render_answer", lambda result: "# 结论\n市场修复延续。")
+    monkeypatch.setattr(
+        ask_svc, "render_answer", lambda result: "# 结论\n市场修复延续。"
+    )
     monkeypatch.setattr(followups_svc, "generate_followups", fake_followups)
 
     repo_root = tmp_path / "repo"
@@ -1974,7 +2058,9 @@ def test_followups_endpoint_and_parent_link(client: TestClient, monkeypatch) -> 
         req,
         **_: object,
     ) -> None:
-        followups = fu_svc.generate_followups(req.question, matched_theme="液冷", use_llm=False)
+        followups = fu_svc.generate_followups(
+            req.question, matched_theme="液冷", use_llm=False
+        )
         store.add_artifact(
             run_id,
             "followups.json",
@@ -1985,7 +2071,9 @@ def test_followups_endpoint_and_parent_link(client: TestClient, monkeypatch) -> 
         store.finish_run(run_id, rs.STATUS_COMPLETED)
 
     monkeypatch.setattr(app_module, "_run_ask", fake_run_ask)
-    parent_id = client.post("/api/runs", json={"question": "液冷题材怎么看"}).json()["run_id"]
+    parent_id = client.post("/api/runs", json={"question": "液冷题材怎么看"}).json()[
+        "run_id"
+    ]
     _wait_terminal(client, parent_id)
 
     document = client.get(f"/api/runs/{parent_id}/followups").json()
@@ -2014,8 +2102,7 @@ def test_run_context_projects_available_evidence(client: TestClient) -> None:
     context = client.get(f"/api/runs/{run_id}/context").json()
     assert context["evidence"][0]["label"] == "盘面快照"
     assert any(
-        item["classification"] == "bound_evidence"
-        and item["label"] == "[S1] 盘面快照"
+        item["classification"] == "bound_evidence" and item["label"] == "[S1] 盘面快照"
         for item in context["evidence"]
     )
     assert any(item["label"] == "盘面证据" for item in context["evidence"])
@@ -2023,8 +2110,12 @@ def test_run_context_projects_available_evidence(client: TestClient) -> None:
     assert context["review"] == []
 
 
-def test_artifact_api_filters_describes_and_serves_registered_content(client: TestClient) -> None:
-    artifacts = client.get("/api/artifacts", params={"category": "daily_agent", "date": "2026-07-09"}).json()
+def test_artifact_api_filters_describes_and_serves_registered_content(
+    client: TestClient,
+) -> None:
+    artifacts = client.get(
+        "/api/artifacts", params={"category": "daily_agent", "date": "2026-07-09"}
+    ).json()
     html_artifact = next(item for item in artifacts if item["format"] == "html")
     assert not html_artifact["source_path"].startswith("/")
     assert html_artifact["canonical_exists"] is True
@@ -2038,7 +2129,9 @@ def test_artifact_api_filters_describes_and_serves_registered_content(client: Te
     assert "sandbox" in content.headers["content-security-policy"]
 
 
-def test_artifact_content_rejects_unregistered_and_traversal_ids(client: TestClient) -> None:
+def test_artifact_content_rejects_unregistered_and_traversal_ids(
+    client: TestClient,
+) -> None:
     assert client.get("/api/artifacts/not-registered/content").status_code == 404
     response = client.get("/api/artifacts/..%2Fetc%2Fpasswd/content")
     assert response.status_code in (404, 405)
@@ -2062,13 +2155,10 @@ def test_artifact_projection_and_registered_asset_routes(client: TestClient) -> 
     assert projection.json()["report_type"] == "daily_agent"
     assert projection.json()["provenance"]["original_report_available"] is True
     assert (
-        projection.json()["provenance"]["original_artifact_id"]
-        != agent["artifact_id"]
+        projection.json()["provenance"]["original_artifact_id"] != agent["artifact_id"]
     )
 
-    review_projection = client.get(
-        f"/api/artifacts/{review['artifact_id']}/projection"
-    )
+    review_projection = client.get(f"/api/artifacts/{review['artifact_id']}/projection")
     assert review_projection.status_code == 200
     assert review_projection.json()["source_mode"] == "legacy_html_projection"
 
@@ -2105,7 +2195,9 @@ def test_workflow_summary_does_not_claim_daily_review_projection(
     assert response.status_code == 404
 
 
-def test_bootstrap_returns_workflows_runs_and_latest_artifact(client: TestClient) -> None:
+def test_bootstrap_returns_workflows_runs_and_latest_artifact(
+    client: TestClient,
+) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     _wait_terminal(client, run_id)
     bootstrap = client.get("/api/workbench/bootstrap").json()
@@ -2171,9 +2263,7 @@ def test_bootstrap_returns_self_use_maturity_projection(client: TestClient) -> N
 def test_bootstrap_does_not_create_missing_self_use_ledger(
     client: TestClient,
 ) -> None:
-    ledger_path = (
-        userspace.user_space("read-only").root / "self-use" / "events.jsonl"
-    )
+    ledger_path = userspace.user_space("read-only").root / "self-use" / "events.jsonl"
     assert not ledger_path.exists()
 
     response = client.get(
@@ -2186,9 +2276,7 @@ def test_bootstrap_does_not_create_missing_self_use_ledger(
 
 
 def test_bootstrap_reports_malformed_self_use_ledger(client: TestClient) -> None:
-    ledger_path = (
-        userspace.user_space("corrupt").root / "self-use" / "events.jsonl"
-    )
+    ledger_path = userspace.user_space("corrupt").root / "self-use" / "events.jsonl"
     ledger_path.parent.mkdir(parents=True)
     ledger_path.write_text('{"workflow": ', encoding="utf-8")
 
