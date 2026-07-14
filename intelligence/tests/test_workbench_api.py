@@ -669,12 +669,22 @@ def test_skills_lists_registered_product_skills(client: TestClient) -> None:
     assert [skill["skill_id"] for skill in skills] == [
         "daily-review",
         "daily-agent",
+        "us-ai-drawdown",
         "stock-deep-dive",
         "theme-research",
         "news-impact",
         "financial-analysis",
     ]
-    assert all(skill["permissions"] == ["local_read"] for skill in skills)
+    permissions = {
+        skill["skill_id"]: skill["permissions"]
+        for skill in skills
+    }
+    assert permissions["us-ai-drawdown"] == ["local_read", "network_read"]
+    assert all(
+        value == ["local_read"]
+        for skill_id, value in permissions.items()
+        if skill_id != "us-ai-drawdown"
+    )
 
 
 def test_skills_serializes_only_product_registry_definitions(client: TestClient) -> None:

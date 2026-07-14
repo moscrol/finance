@@ -260,6 +260,7 @@ def test_daily_skills_are_registered_as_local_read_executors() -> None:
     expected = [
         "daily-review",
         "daily-agent",
+        "us-ai-drawdown",
         "stock-deep-dive",
         "theme-research",
         "news-impact",
@@ -268,5 +269,10 @@ def test_daily_skills_are_registered_as_local_read_executors() -> None:
     assert list(SKILL_REGISTRY) == expected
     assert list(SKILL_EXECUTORS) == expected
     for skill_id in expected:
-        assert SKILL_REGISTRY[skill_id].permissions == ("local_read",)
         assert SKILL_EXECUTORS[skill_id].skill_id == skill_id
+    assert SKILL_REGISTRY["us-ai-drawdown"].permissions == (
+        "local_read",
+        "network_read",
+    )
+    for skill_id in set(expected) - {"us-ai-drawdown"}:
+        assert SKILL_REGISTRY[skill_id].permissions == ("local_read",)

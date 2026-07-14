@@ -104,6 +104,7 @@ intelligence/users/*/.subconscious/
 intelligence/users/*/runs/
 intelligence/users/*/conversations/
 intelligence/users/*/self-use/
+intelligence/users/*/market-cache/
 intelligence/users/*/_vault/
 
 # evolve 进化系统：只跟踪代码与参数，忽略生成产物（可由 params.json 确定性重建）
