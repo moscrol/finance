@@ -333,6 +333,7 @@ def _stream_until_terminal(
     timeout: float,
     scanner: SecretScanner,
 ) -> tuple[dict[str, object], dict[str, object]]:
+    stream_started = time.monotonic()
     deadline = time.monotonic() + timeout
     cursor = 0
     request_count = 0
@@ -343,6 +344,8 @@ def _stream_until_terminal(
     draft_seen = False
     terminal_phase: str | None = None
     highest_revision = 0
+    draft_first_ms: int | None = None
+    terminal_ms: int | None = None
     stage_events: list[str] = []
     no_progress_count = 0
 
@@ -405,6 +408,8 @@ def _stream_until_terminal(
                             "terminal_phase": terminal_phase,
                             "highest_revision": highest_revision,
                             "snapshot_count": len(snapshots),
+                            "draft_first_ms": draft_first_ms,
+                            "terminal_ms": terminal_ms,
                         },
                     }
 
@@ -496,6 +501,9 @@ def _stream_until_terminal(
                         if revision != 1 or draft_seen or terminal_phase is not None:
                             raise SmokeProtocolError("answer_snapshot")
                         draft_seen = True
+                        draft_first_ms = max(
+                            0, round((time.monotonic() - stream_started) * 1000)
+                        )
                     else:
                         if (
                             revision != 2
@@ -504,6 +512,9 @@ def _stream_until_terminal(
                         ):
                             raise SmokeProtocolError("answer_snapshot")
                         terminal_phase = str(phase)
+                        terminal_ms = max(
+                            0, round((time.monotonic() - stream_started) * 1000)
+                        )
                     snapshots[revision] = dict(event_payload)
                     highest_revision = revision
 

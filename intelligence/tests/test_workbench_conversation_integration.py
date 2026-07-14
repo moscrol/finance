@@ -216,7 +216,14 @@ def test_smoke_stream_terminal_paths_keep_unique_stage_order(
         "terminal_phase": "verified_fallback",
         "highest_revision": 2,
         "snapshot_count": 2,
+        "draft_first_ms": summary["answer_stream"]["draft_first_ms"],
+        "terminal_ms": summary["answer_stream"]["terminal_ms"],
     }
+    assert (
+        0
+        <= summary["answer_stream"]["draft_first_ms"]
+        <= summary["answer_stream"]["terminal_ms"]
+    )
 
 
 def test_smoke_stream_accepts_arbitrarily_large_nonnegative_integer_elapsed(

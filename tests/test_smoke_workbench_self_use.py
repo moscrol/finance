@@ -410,12 +410,22 @@ def test_completed_smoke_replays_sse_and_writes_redacted_summary(
         "text_delta_count": 2,
         "replayed": True,
     }
-    assert summary["answer_stream"] == {
+    answer_stream = summary["answer_stream"]
+    assert {
+        key: answer_stream[key]
+        for key in (
+            "draft_seen",
+            "terminal_phase",
+            "highest_revision",
+            "snapshot_count",
+        )
+    } == {
         "draft_seen": True,
         "terminal_phase": "verified_fallback",
         "highest_revision": 2,
         "snapshot_count": 2,
     }
+    assert 0 <= answer_stream["draft_first_ms"] <= answer_stream["terminal_ms"]
     assert summary["report"] == {
         "present": True,
         "status": "completed",
@@ -454,12 +464,22 @@ def test_completed_smoke_accepts_idempotent_same_revision_replay(
     exit_code, summary, _ = run_cli(tmp_path, "same_revision_replay")
 
     assert exit_code == 0
-    assert summary["answer_stream"] == {
+    answer_stream = summary["answer_stream"]
+    assert {
+        key: answer_stream[key]
+        for key in (
+            "draft_seen",
+            "terminal_phase",
+            "highest_revision",
+            "snapshot_count",
+        )
+    } == {
         "draft_seen": True,
         "terminal_phase": "verified_fallback",
         "highest_revision": 2,
         "snapshot_count": 2,
     }
+    assert 0 <= answer_stream["draft_first_ms"] <= answer_stream["terminal_ms"]
 
 
 @pytest.mark.parametrize(
@@ -607,6 +627,8 @@ def _mock_smoke_summary_with_model(
                     "terminal_phase": "verified_fallback",
                     "highest_revision": 2,
                     "snapshot_count": 2,
+                    "draft_first_ms": 1,
+                    "terminal_ms": 2,
                 },
             },
         ),
