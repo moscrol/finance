@@ -85,7 +85,23 @@ from intelligence.services.theme_modules import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_EXPORTS_DIR = REPO_ROOT / "market_feature_store" / "exports"
+
+
+def _data_repo_root() -> Path:
+    """盘面/exports/DuckDB 等数据根目录。
+
+    双根架构：PYTHONPATH 指向 runtime 代码快照，真实数据在
+    WORKBENCH_REPO_ROOT / FINANCE_WS（private 仓）。未设置环境变量时回退代码根。
+    """
+    for name in ("WORKBENCH_REPO_ROOT", "FINANCE_WS", "FINANCE_ROOT"):
+        value = os.environ.get(name)
+        if value:
+            return Path(value).expanduser().resolve()
+    return REPO_ROOT
+
+
+DATA_REPO_ROOT = _data_repo_root()
+DEFAULT_EXPORTS_DIR = DATA_REPO_ROOT / "market_feature_store" / "exports"
 
 # few-shot 锚：高分样板目录。文件名前缀按问题类型路由（deep-dive-* / forecast-*），
 # 最多注入 EXEMPLAR_MAX_FILES 篇、总长度上限 EXEMPLAR_MAX_CHARS（超量会稀释证据注意力）。
