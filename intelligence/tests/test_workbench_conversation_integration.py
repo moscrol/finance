@@ -127,13 +127,26 @@ def test_smoke_stream_terminal_paths_keep_unique_stage_order(
                 },
             },
         ),
+        (
+            "answer.snapshot",
+            {
+                "event_type": "answer.snapshot",
+                "seq": 3,
+                "payload": {
+                    "revision": 1,
+                    "phase": "verified_draft",
+                    "text": "可核验草稿",
+                    "final": False,
+                },
+            },
+        ),
     ]
     terminal_events = [
         (
             "stage.progress",
             {
                 "event_type": "stage.progress",
-                "seq": 3,
+                "seq": 4,
                 "payload": {
                     "stage": "understanding",
                     "status": "completed",
@@ -145,11 +158,24 @@ def test_smoke_stream_terminal_paths_keep_unique_stage_order(
             "stage.progress",
             {
                 "event_type": "stage.progress",
-                "seq": 4,
+                "seq": 5,
                 "payload": {
                     "stage": "synthesis",
                     "status": "degraded",
                     "elapsed_ms": 3.5,
+                },
+            },
+        ),
+        (
+            "answer.snapshot",
+            {
+                "event_type": "answer.snapshot",
+                "seq": 6,
+                "payload": {
+                    "revision": 2,
+                    "phase": "verified_fallback",
+                    "text": "可核验草稿",
+                    "final": True,
                 },
             },
         ),
@@ -185,6 +211,12 @@ def test_smoke_stream_terminal_paths_keep_unique_stage_order(
         "deterministic_recall",
         "synthesis",
     ]
+    assert summary["answer_stream"] == {
+        "draft_seen": True,
+        "terminal_phase": "verified_fallback",
+        "highest_revision": 2,
+        "snapshot_count": 2,
+    }
 
 
 def test_smoke_stream_accepts_arbitrarily_large_nonnegative_integer_elapsed(
@@ -201,6 +233,12 @@ def test_smoke_stream_accepts_arbitrarily_large_nonnegative_integer_elapsed(
     }
     body = (
         f"event: stage.progress\ndata: {json.dumps(payload)}\n\n"
+        'event: answer.snapshot\ndata: {"event_type":"answer.snapshot","seq":2,'
+        '"payload":{"revision":1,"phase":"verified_draft","text":"draft",'
+        '"final":false}}\n\n'
+        'event: answer.snapshot\ndata: {"event_type":"answer.snapshot","seq":3,'
+        '"payload":{"revision":2,"phase":"verified_fallback","text":"draft",'
+        '"final":true}}\n\n'
         'event: run\ndata: {"run_id":"run-1","status":"completed","degrades":[]}\n\n'
     )
     monkeypatch.setattr(
@@ -351,9 +389,7 @@ def _stream_payloads(response_text: str) -> list[dict[str, object]]:
 def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    repo_root = (
-        Path(__file__).parent / "fixtures" / "chat_workbench_repo"
-    )
+    repo_root = Path(__file__).parent / "fixtures" / "chat_workbench_repo"
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
     monkeypatch.setenv("FINANCE_WS", str(repo_root))
     monkeypatch.setenv("KB_VAULT", str(repo_root / "wiki"))
@@ -655,9 +691,7 @@ def test_skill_timeout_degrades_one_module_and_continues(
     )
     assert result.status == "completed"
     assert any("slow-skill 执行超时" in warning for warning in report["warnings"])
-    assert any(
-        module["module_id"] == "fast_result" for module in report["modules"]
-    )
+    assert any(module["module_id"] == "fast_result" for module in report["modules"])
     assert any(
         event["event_type"] == "skill.result"
         and event["payload"]["skill_id"] == "slow-skill"

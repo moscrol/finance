@@ -74,6 +74,28 @@ PUBLIC_WORKBENCH_STAGES = frozenset(
     }
 )
 PUBLIC_STAGE_STATUSES = frozenset({"running", "completed", "degraded"})
+PUBLIC_EVENT_TYPES = frozenset(
+    {
+        "message.start",
+        "stage.progress",
+        "trace.step",
+        "skill.start",
+        "skill.result",
+        "report.start",
+        "report.module",
+        "citation.ready",
+        "text.delta",
+        "answer.snapshot",
+        "report.complete",
+        "report.error",
+        "message.complete",
+        "message.error",
+    }
+)
+ANSWER_PHASES = frozenset(
+    {"verified_draft", "validated_synthesis", "verified_fallback"}
+)
+TERMINAL_ANSWER_PHASES = frozenset({"validated_synthesis", "verified_fallback"})
 SECRET_PATTERNS = (
     (
         "token_prefix",
@@ -298,6 +320,10 @@ def _stream_until_terminal(
     event_count = 0
     terminal_event_count = 0
     text_delta_count = 0
+    snapshots: dict[int, dict[str, object]] = {}
+    draft_seen = False
+    terminal_phase: str | None = None
+    highest_revision = 0
     stage_events: list[str] = []
     no_progress_count = 0
 
@@ -332,6 +358,10 @@ def _stream_until_terminal(
                     status = payload.get("status")
                     if status not in TERMINAL_RUN_STATUSES:
                         raise SmokeProtocolError("sse_terminal_status")
+                    if status == "completed" and (
+                        not draft_seen or terminal_phase is None
+                    ):
+                        raise SmokeProtocolError("answer_snapshot")
                     terminal_event_count += 1
                     return payload, {
                         "request_count": request_count,
@@ -340,6 +370,12 @@ def _stream_until_terminal(
                         "text_delta_count": text_delta_count,
                         "replayed": request_count > 1,
                         "stages": list(dict.fromkeys(stage_events)),
+                        "answer_stream": {
+                            "draft_seen": draft_seen,
+                            "terminal_phase": terminal_phase,
+                            "highest_revision": highest_revision,
+                            "snapshot_count": len(snapshots),
+                        },
                     }
 
                 seq = payload.get("seq")
@@ -349,6 +385,12 @@ def _stream_until_terminal(
                     cursor = max(cursor, seq)
 
                 canonical_type = payload.get("event_type")
+                if (
+                    not isinstance(canonical_type, str)
+                    or canonical_type not in PUBLIC_EVENT_TYPES
+                    or canonical_type != event_name
+                ):
+                    raise SmokeProtocolError("sse_event_type")
                 if canonical_type in {"message.complete", "message.error"}:
                     terminal_event_count += 1
                 if canonical_type == "stage.progress":
@@ -388,6 +430,51 @@ def _stream_until_terminal(
                         raise SmokeProtocolError("text_delta")
                     if delta.strip():
                         text_delta_count += 1
+                if canonical_type == "answer.snapshot":
+                    event_payload = payload.get("payload")
+                    if not isinstance(event_payload, dict) or set(event_payload) != {
+                        "revision",
+                        "phase",
+                        "text",
+                        "final",
+                    }:
+                        raise SmokeProtocolError("answer_snapshot")
+                    revision = event_payload.get("revision")
+                    phase = event_payload.get("phase")
+                    text = event_payload.get("text")
+                    final = event_payload.get("final")
+                    if (
+                        not isinstance(revision, int)
+                        or isinstance(revision, bool)
+                        or revision < 1
+                        or phase not in ANSWER_PHASES
+                        or not isinstance(text, str)
+                        or not text.strip()
+                        or not isinstance(final, bool)
+                        or (phase == "verified_draft" and final)
+                        or (phase in TERMINAL_ANSWER_PHASES and not final)
+                    ):
+                        raise SmokeProtocolError("answer_snapshot")
+                    if revision < highest_revision:
+                        raise SmokeProtocolError("answer_snapshot")
+                    if revision == highest_revision:
+                        if snapshots.get(revision) != event_payload:
+                            raise SmokeProtocolError("answer_snapshot")
+                        continue
+                    if phase == "verified_draft":
+                        if revision != 1 or draft_seen or terminal_phase is not None:
+                            raise SmokeProtocolError("answer_snapshot")
+                        draft_seen = True
+                    else:
+                        if (
+                            revision != 2
+                            or not draft_seen
+                            or terminal_phase is not None
+                        ):
+                            raise SmokeProtocolError("answer_snapshot")
+                        terminal_phase = str(phase)
+                    snapshots[revision] = dict(event_payload)
+                    highest_revision = revision
 
         if cursor == previous_cursor:
             no_progress_count += 1
@@ -665,8 +752,13 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         ):
             raise SmokeProtocolError("stage_progress")
         stage_events = raw_stage_events
+        answer_stream = sse_summary.get("answer_stream")
+        if not isinstance(answer_stream, dict):
+            raise SmokeProtocolError("answer_snapshot")
         public_sse_summary = {
-            key: value for key, value in sse_summary.items() if key != "stages"
+            key: value
+            for key, value in sse_summary.items()
+            if key not in {"stages", "answer_stream"}
         }
         run_status = terminal_run["status"]
         terminal_duckdb_cutoff = _safe_optional_market_data_cutoff(
@@ -755,6 +847,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
                 "terminal_outcome": outcome,
                 "degrade_count": len(degrades),
                 "sse": public_sse_summary,
+                "answer_stream": answer_stream,
                 "report": {
                     "present": report_present,
                     "status": _safe_optional_public_label(
