@@ -173,7 +173,14 @@ class AskOptions:
     # 允许只运行 compose 取数和 AnswerSpec 裁决，不额外调用 LLM 生成自由文本。
     synthesize: bool = True
     llm_model: str | None = None
-    llm_timeout: int = field(default_factory=lambda: int(os.environ.get("LLM_TIMEOUT", "60")))
+    llm_timeout: int = field(
+        default_factory=lambda: int(
+            os.environ.get(
+                "LLM_SYNTHESIS_TIMEOUT",
+                os.environ.get("LLM_TIMEOUT", "60"),
+            )
+        )
+    )
     detail: bool = False
     user: str | None = None
     experience_cards_window: int = 12
@@ -2644,15 +2651,84 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     started = time.monotonic()
     deadline = llm_refine.Deadline.from_timeout(options.llm_timeout)
     chunks: list[str] = []
+    provider_connect_ms: int | None = None
     first_token_ms: int | None = None
+    last_token_ms: int | None = None
+    stream_elapsed_ms: int | None = None
+    quality_gate_ms: int | None = None
+    provider_finish_reason: str | None = None
+    provider = llm_refine.detect_provider(options.llm_model)
+
+    def capture_connected() -> None:
+        nonlocal provider_connect_ms
+        if provider_connect_ms is None:
+            provider_connect_ms = max(
+                0,
+                round((time.monotonic() - started) * 1000),
+            )
 
     def capture(delta: str) -> None:
-        nonlocal first_token_ms
+        nonlocal first_token_ms, last_token_ms
         if options.stream_cancel_check is not None and options.stream_cancel_check():
             raise llm_refine.LLMStreamCancelled()
+        elapsed_ms = max(0, round((time.monotonic() - started) * 1000))
         if first_token_ms is None:
-            first_token_ms = max(0, round((time.monotonic() - started) * 1000))
+            first_token_ms = elapsed_ms
+        last_token_ms = elapsed_ms
         chunks.append(delta)
+
+    def capture_finish_reason(finish_reason: str | None) -> None:
+        nonlocal provider_finish_reason
+        if finish_reason in {
+            "stop",
+            "length",
+            "content_filter",
+            "tool_calls",
+            "function_call",
+        }:
+            provider_finish_reason = finish_reason
+
+    def telemetry(
+        *,
+        composed: llm_refine.SynthesisResult | None,
+        fallback_reason: str | None,
+    ) -> dict[str, object]:
+        elapsed_ms = max(0, round((time.monotonic() - started) * 1000))
+        remaining_ms = max(0, round(deadline.remaining() * 1000))
+        text = composed.answer if composed is not None else "".join(chunks)
+        safe_finish_reason = (
+            composed.finish_reason
+            if composed is not None
+            and composed.finish_reason
+            in {"stop", "length", "content_filter", "tool_calls", "function_call"}
+            else provider_finish_reason
+        )
+        return {
+            "provider": (
+                composed.provider
+                if composed is not None
+                else provider.name if provider is not None else None
+            ),
+            "model": (
+                composed.model
+                if composed is not None
+                else provider.model if provider is not None else options.llm_model
+            ),
+            "deadline_ms": options.llm_timeout * 1000,
+            "remaining_budget_ms": remaining_ms,
+            "provider_connect_ms": provider_connect_ms,
+            "first_token_ms": first_token_ms,
+            "last_token_ms": last_token_ms,
+            "stream_elapsed_ms": stream_elapsed_ms,
+            "quality_gate_ms": quality_gate_ms,
+            "total_synthesis_ms": elapsed_ms,
+            "elapsed_ms": elapsed_ms,
+            "chunk_count": len(chunks),
+            "output_chars": len(text),
+            "finish_reason": safe_finish_reason,
+            "thinking_disabled": llm_refine.synthesis_thinking_disabled(),
+            "fallback_reason": fallback_reason,
+        }
 
     if result.prepared_synthesis_is_market_review:
         composed, reason = llm_refine.synthesize_messages(
@@ -2672,33 +2748,46 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         composed, reason = llm_refine.synthesize_messages_stream(
             messages,
             on_delta=capture,
+            on_connected=capture_connected,
+            on_finish_reason=capture_finish_reason,
             is_cancelled=options.stream_cancel_check,
             model_override=options.llm_model,
             timeout=options.llm_timeout,
             deadline=deadline,
         )
+    stream_elapsed_ms = max(0, round((time.monotonic() - started) * 1000))
     if composed is None:
         result.warnings.append(reason)
         result.llm_fallback_reason = _stable_llm_fallback_reason(reason)
-        result.llm_stream_telemetry = {
-            "first_token_ms": first_token_ms,
-            "chunk_count": len(chunks),
-            "provider": None,
-            "model": options.llm_model,
-        }
+        result.llm_stream_telemetry = telemetry(
+            composed=None,
+            fallback_reason=result.llm_fallback_reason,
+        )
+        return result
+    if composed.finish_reason is not None and composed.finish_reason != "stop":
+        reason = (
+            "LLM 合成响应被截断，已降级为模板"
+            if composed.finish_reason == "length"
+            else "LLM 合成未正常停止，已降级为模板"
+        )
+        result.warnings.append(reason)
+        result.llm_fallback_reason = _stable_llm_fallback_reason(reason)
+        result.llm_stream_telemetry = telemetry(
+            composed=composed,
+            fallback_reason=result.llm_fallback_reason,
+        )
         return result
     result.llm_fallback_reason = composed.fallback_reason
-    result.llm_stream_telemetry = {
-        "first_token_ms": first_token_ms,
-        "chunk_count": len(chunks),
-        "provider": composed.provider,
-        "model": composed.model,
-    }
+    result.llm_stream_telemetry = telemetry(
+        composed=composed,
+        fallback_reason=result.llm_fallback_reason,
+    )
     proposed_synthesis = (
         f"{result.data_notice}\n\n{composed.answer}"
         if result.data_notice and not result.prepared_synthesis_is_market_review
         else composed.answer
     )
+    quality_gate_started = time.monotonic()
     blocking_issues = [
         issue
         for issue in answer_model.validate_llm_answer(
@@ -2707,12 +2796,25 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         )
         if issue.severity == "error"
     ]
+    quality_gate_ms = max(
+        0,
+        round((time.monotonic() - quality_gate_started) * 1000),
+    )
+    result.llm_stream_telemetry["quality_gate_ms"] = quality_gate_ms
+    result.llm_stream_telemetry["total_synthesis_ms"] = max(
+        0,
+        round((time.monotonic() - started) * 1000),
+    )
+    result.llm_stream_telemetry["elapsed_ms"] = result.llm_stream_telemetry[
+        "total_synthesis_ms"
+    ]
     if blocking_issues:
         result.warnings.extend(
             f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
             for issue in blocking_issues
         )
         result.llm_fallback_reason = "quality_gate_rejected"
+        result.llm_stream_telemetry["fallback_reason"] = result.llm_fallback_reason
         return result
     result.synthesis = proposed_synthesis
     result.llm_provider = composed.provider
@@ -2733,6 +2835,12 @@ def _stable_llm_fallback_reason(reason: str) -> str:
         return "provider_unavailable"
     if "截止时间" in normalized or "超时" in normalized:
         return "timeout"
+    if "输出超长" in normalized or "too long" in normalized:
+        return "output_too_long"
+    if "截断" in normalized or "length" in normalized:
+        return "truncated_response"
+    if "未正常停止" in normalized or "stalled" in normalized:
+        return "provider_stalled"
     if "http" in normalized:
         return "provider_http_error"
     if "空内容" in normalized:

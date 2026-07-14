@@ -128,6 +128,91 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result.synthesis, "自然语言精修版")
         self.assertEqual(public_deltas, ["自然语言精修版"])
         self.assertEqual(result.llm_stream_telemetry["chunk_count"], 3)
+        self.assertEqual(result.llm_stream_telemetry["output_chars"], 7)
+        self.assertEqual(result.llm_stream_telemetry["finish_reason"], None)
+        self.assertEqual(result.llm_stream_telemetry["fallback_reason"], None)
+        for field in (
+            "provider_connect_ms",
+            "stream_elapsed_ms",
+            "quality_gate_ms",
+            "total_synthesis_ms",
+        ):
+            self.assertIn(field, result.llm_stream_telemetry)
+
+    def test_finish_reason_length_fails_closed_without_public_delta(self) -> None:
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages
+            on_delta("截断")
+            kwargs["on_finish_reason"]("length")
+            return None, "LLM 流式合成响应被截断，已降级为模板"
+
+        with mock.patch.object(
+            llm_refine,
+            "synthesize_messages_stream",
+            side_effect=fake_stream,
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertIsNone(result.synthesis)
+        self.assertEqual(result.llm_fallback_reason, "truncated_response")
+        self.assertEqual(public_deltas, [])
+        self.assertEqual(result.llm_stream_telemetry["finish_reason"], "length")
+        self.assertEqual(
+            result.llm_stream_telemetry["fallback_reason"],
+            "truncated_response",
+        )
+
+    def test_output_too_long_fails_closed_without_public_delta(self) -> None:
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages, kwargs
+            on_delta("私有chunk")
+            return None, "LLM 流式合成输出超长，已降级为模板"
+
+        with mock.patch.object(
+            llm_refine,
+            "synthesize_messages_stream",
+            side_effect=fake_stream,
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertIsNone(result.synthesis)
+        self.assertEqual(result.llm_fallback_reason, "output_too_long")
+        self.assertEqual(public_deltas, [])
+        self.assertEqual(
+            result.llm_stream_telemetry["fallback_reason"],
+            "output_too_long",
+        )
+
+    def test_provider_is_recorded_when_detected_stream_times_out(self) -> None:
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+        provider = llm_refine.LLMProvider(
+            "zhipu",
+            "key",
+            "https://llm.invalid/v1",
+            "glm-5.2",
+        )
+
+        with (
+            mock.patch.object(llm_refine, "detect_provider", return_value=provider),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages_stream",
+                return_value=(None, "LLM 流式合成超过共享截止时间，已降级为模板"),
+            ),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertIsNone(result.synthesis)
+        self.assertEqual(result.llm_fallback_reason, "timeout")
+        self.assertEqual(result.llm_stream_telemetry["provider"], "zhipu")
+        self.assertEqual(result.llm_stream_telemetry["model"], "glm-5.2")
 
     def test_base_finance_mode_keeps_retrieval_floor_for_quick_answers(self) -> None:
         plan = plan_answer_question("600519 快答：最近消息、产业链和财务估值怎么看")

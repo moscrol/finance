@@ -92,6 +92,10 @@ UI 会明确显示“未配置 LLM”。产品默认使用服务端托管的 GLM
 - 通用 OpenAI-compatible gateway：`LLM_API_KEY`。
 - 可选配置：`LLM_BASE_URL`、`OPENAI_BASE_URL`、`LLM_MODEL`、`LLM_TIMEOUT`、
   `LLM_THINKING`。
+- Workbench 精修专用配置：`LLM_SYNTHESIS_TIMEOUT`（默认继承
+  `LLM_TIMEOUT`，最终默认 60 秒）、`LLM_SYNTHESIS_MAX_TOKENS`（默认 2200）、
+  `LLM_SYNTHESIS_MAX_CHARS`（默认 16000）、`LLM_SYNTHESIS_THINKING`
+  （默认 `disabled`；显式设为 `enabled` 才开启）。
 
 通用 `LLM_API_KEY` 的优先级高于 provider key；provider key 按应用代码中的固定
 顺序选择。生产环境应只配置预期 provider，密钥只能存在于服务端 secret manager

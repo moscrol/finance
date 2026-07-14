@@ -30,9 +30,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 
-from intelligence.services.run_store import redact
-
 DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
+DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "2200"))
+DEFAULT_SYNTHESIS_MAX_CHARS = int(os.environ.get("LLM_SYNTHESIS_MAX_CHARS", "16000"))
+_ALLOWED_FINISH_REASONS = {"stop", "length", "content_filter", "tool_calls", "function_call"}
 
 # (provider, api_key_env, default_base_url, default_model). First env var that is
 # set wins. A generic LLM_API_KEY (+ LLM_BASE_URL / LLM_MODEL) overrides all.
@@ -71,6 +72,10 @@ class LLMStreamingUnsupported(RuntimeError):
 
 
 class LLMDeadlineExceeded(RuntimeError):
+    pass
+
+
+class LLMOutputTooLong(RuntimeError):
     pass
 
 
@@ -122,6 +127,22 @@ def provider_override(provider: LLMProvider) -> Iterator[None]:
         _PROVIDER_OVERRIDE.reset(token)
 
 
+def synthesis_thinking_disabled() -> bool:
+    configured = os.environ.get("LLM_SYNTHESIS_THINKING")
+    if configured is None:
+        return os.environ.get("LLM_THINKING", "").lower() != "enabled"
+    return configured.lower() == "disabled"
+
+
+def _stable_finish_reason(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    reason = value.strip()
+    if reason in _ALLOWED_FINISH_REASONS:
+        return reason
+    return None
+
+
 _SYSTEM_PROMPT = (
     "你是严谨的A股题材研究助手。任务：仅依据用户给出的「带编号证据」改写两段——"
     "【结论】和【交易含义】。硬性要求："
@@ -161,6 +182,41 @@ def _post_chat(provider: LLMProvider, messages: list[dict], timeout: int, temper
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         body = json.loads(resp.read().decode("utf-8"))
     return body["choices"][0]["message"]["content"]
+
+
+def _post_chat_synthesis(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: int,
+    temperature: float,
+    max_tokens: int,
+    max_chars: int,
+) -> tuple[str, str | None]:
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload = {
+        "model": provider.model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if synthesis_thinking_disabled():
+        payload["thinking"] = {"type": "disabled"}
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {provider.api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as resp:
+        body = json.loads(resp.read().decode("utf-8"))
+    choice = body["choices"][0]
+    content = choice["message"]["content"]
+    if len(content) > max_chars:
+        raise LLMOutputTooLong()
+    return content, _stable_finish_reason(choice.get("finish_reason"))
 
 
 def complete(
@@ -380,6 +436,7 @@ class SynthesisResult:
     provider: str
     model: str
     fallback_reason: str | None = None
+    finish_reason: str | None = None
 
 
 def _build_synthesis_prompt(
@@ -417,7 +474,8 @@ def _build_synthesis_prompt(
         f"命中主题：{theme}\n\n"
         f"以下是已检索到的多源证据（你的回答只能据此展开）：\n"
         f"{evidence_text}{legend}{quality_block}{experience_block}{exemplar_block}\n\n"
-        f"请据此有机融合成一段分析师口吻的回答。"
+        "请据此有机融合成一段分析师口吻的回答。默认控制在 1200–1800 个中文字符；"
+        "最多 8 个短段落；不得重复来源说明、风险和验证步骤。"
     )
 
 
@@ -475,6 +533,8 @@ def synthesize_messages(
     temperature: float = 0.3,
     *,
     deadline: Deadline | None = None,
+    max_tokens: int = DEFAULT_SYNTHESIS_MAX_TOKENS,
+    max_chars: int = DEFAULT_SYNTHESIS_MAX_CHARS,
 ) -> tuple[SynthesisResult | None, str]:
     """Run a synthesis turn from a full ``messages`` list (system + history).
 
@@ -492,15 +552,25 @@ def synthesize_messages(
     # 可读性关键，单次瞬断不值得整答退回模板。HTTP 4xx/5xx 不重试（重试大概率同样失败）。
     last_exc: Exception | None = None
     content = None
+    finish_reason: str | None = None
     for attempt in range(2):
         try:
             remaining = shared_deadline.require_remaining(1)
-            content = _post_chat(provider, messages, remaining, temperature)
+            content, finish_reason = _post_chat_synthesis(
+                provider,
+                messages,
+                remaining,
+                temperature,
+                max_tokens,
+                max_chars,
+            )
             break
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
             return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
         except LLMDeadlineExceeded:
             return None, "LLM 合成超过共享截止时间，已降级为模板"
+        except LLMOutputTooLong:
+            return None, "LLM 合成输出超长，已降级为模板"
         except Exception as exc:  # pragma: no cover - network
             last_exc = exc
             if attempt == 0:
@@ -513,7 +583,19 @@ def synthesize_messages(
     text = (content or "").strip()
     if not text:
         return None, "LLM 合成返回空内容，已降级为模板"
-    return SynthesisResult(answer=text, provider=provider.name, model=provider.model), ""
+    if finish_reason != "stop":
+        if finish_reason == "length":
+            return None, "LLM 合成响应被截断，已降级为模板"
+        return None, "LLM 合成未正常停止，已降级为模板"
+    return (
+        SynthesisResult(
+            answer=text,
+            provider=provider.name,
+            model=provider.model,
+            finish_reason=finish_reason,
+        ),
+        "",
+    )
 
 
 def _post_chat_stream(
@@ -522,17 +604,21 @@ def _post_chat_stream(
     timeout: int,
     temperature: float,
     on_delta: Callable[[str], None],
+    on_connected: Callable[[], None] | None,
     is_cancelled: Callable[[], bool] | None,
     deadline: Deadline,
-) -> str:
+    max_tokens: int,
+    max_chars: int,
+) -> tuple[str, str | None]:
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {
         "model": provider.model,
         "messages": messages,
         "temperature": temperature,
         "stream": True,
+        "max_tokens": max_tokens,
     }
-    if os.environ.get("LLM_THINKING") == "disabled":
+    if synthesis_thinking_disabled():
         payload["thinking"] = {"type": "disabled"}
     request = urllib.request.Request(
         url,
@@ -545,7 +631,11 @@ def _post_chat_stream(
         method="POST",
     )
     chunks: list[str] = []
+    output_chars = 0
+    finish_reason: str | None = None
     with urllib.request.urlopen(request, timeout=timeout) as response:
+        if on_connected is not None:
+            on_connected()
         for raw_line in response:
             if deadline.remaining() <= 0:
                 raise LLMDeadlineExceeded()
@@ -556,29 +646,40 @@ def _post_chat_stream(
                 continue
             data = line[5:].strip()
             if data == "[DONE]":
+                if finish_reason is None and chunks:
+                    finish_reason = "stop"
                 break
             try:
                 event = json.loads(data)
-                delta = event["choices"][0]["delta"].get("content")
+                choice = event["choices"][0]
+                finish_reason = _stable_finish_reason(choice.get("finish_reason")) or finish_reason
+                delta = choice["delta"].get("content")
             except (json.JSONDecodeError, KeyError, IndexError, TypeError):
                 continue
             if isinstance(delta, str) and delta:
+                output_chars += len(delta)
+                if output_chars > max_chars:
+                    raise LLMOutputTooLong()
                 on_delta(delta)
                 chunks.append(delta)
     if not chunks:
         raise LLMStreamingUnsupported()
-    return "".join(chunks)
+    return "".join(chunks), finish_reason
 
 
 def synthesize_messages_stream(
     messages: list[dict],
     *,
     on_delta: Callable[[str], None],
+    on_connected: Callable[[], None] | None = None,
+    on_finish_reason: Callable[[str | None], None] | None = None,
     is_cancelled: Callable[[], bool] | None = None,
     model_override: str | None = None,
     timeout: int = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.3,
     deadline: Deadline | None = None,
+    max_tokens: int = DEFAULT_SYNTHESIS_MAX_TOKENS,
+    max_chars: int = DEFAULT_SYNTHESIS_MAX_CHARS,
 ) -> tuple[SynthesisResult | None, str]:
     provider = detect_provider(model_override)
     if provider is None:
@@ -589,19 +690,26 @@ def synthesize_messages_stream(
     shared_deadline = deadline or Deadline.from_timeout(timeout)
     try:
         remaining = shared_deadline.require_remaining(1)
-        content = _post_chat_stream(
+        content, finish_reason = _post_chat_stream(
             provider,
             messages,
             remaining,
             temperature,
             on_delta,
+            on_connected,
             is_cancelled,
             shared_deadline,
+            max_tokens,
+            max_chars,
         )
+        if on_finish_reason is not None:
+            on_finish_reason(finish_reason)
     except LLMStreamCancelled:
         raise
     except LLMDeadlineExceeded:
         return None, "LLM 流式合成超过共享截止时间，已降级为模板"
+    except LLMOutputTooLong:
+        return None, "LLM 流式合成输出超长，已降级为模板"
     except urllib.error.HTTPError as exc:
         if exc.code not in {400, 404, 405, 415, 422, 501}:
             return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"
@@ -613,6 +721,8 @@ def synthesize_messages_stream(
             timeout=max(1, int(shared_deadline.remaining())),
             temperature=temperature,
             deadline=shared_deadline,
+            max_tokens=max_tokens,
+            max_chars=max_chars,
         )
         if fallback is not None:
             on_delta(fallback.answer)
@@ -627,6 +737,8 @@ def synthesize_messages_stream(
             timeout=max(1, int(shared_deadline.remaining())),
             temperature=temperature,
             deadline=shared_deadline,
+            max_tokens=max_tokens,
+            max_chars=max_chars,
         )
         if fallback is not None:
             on_delta(fallback.answer)
@@ -636,11 +748,16 @@ def synthesize_messages_stream(
         return None, f"LLM 流式合成失败（{type(exc).__name__}），已降级为模板"
     if not content.strip():
         return None, "LLM 流式合成返回空内容，已降级为模板"
+    if finish_reason != "stop":
+        if finish_reason == "length":
+            return None, "LLM 流式合成响应被截断，已降级为模板"
+        return None, "LLM 流式合成未正常停止，已降级为模板"
     return (
         SynthesisResult(
             answer=content,
             provider=provider.name,
             model=provider.model,
+            finish_reason=finish_reason,
         ),
         "",
     )
@@ -682,6 +799,8 @@ def synthesize_messages_with_review(
     review_temperature: float = 0.2,
     *,
     deadline: Deadline | None = None,
+    max_tokens: int = DEFAULT_SYNTHESIS_MAX_TOKENS,
+    max_chars: int = DEFAULT_SYNTHESIS_MAX_CHARS,
 ) -> tuple[SynthesisResult | None, str]:
     """Run draft -> shadow-user critique/rewrite for compose answers.
 
@@ -697,6 +816,8 @@ def synthesize_messages_with_review(
         timeout=timeout,
         temperature=temperature,
         deadline=shared_deadline,
+        max_tokens=max_tokens,
+        max_chars=max_chars,
     )
     if draft is None:
         return None, reason
