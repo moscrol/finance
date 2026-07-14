@@ -590,6 +590,33 @@ class TurnResult:
     invoked_skill_ids: tuple[str, ...]
 
 
+def _answer_snapshot_cursor(
+    events: Sequence[dict[str, object]],
+) -> tuple[int, str | None]:
+    highest_revision = 0
+    latest_text: str | None = None
+    for event in events:
+        if event.get("event_type") != "answer.snapshot":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        revision = payload.get("revision")
+        text = payload.get("text")
+        if (
+            isinstance(revision, bool)
+            or not isinstance(revision, int)
+            or revision < 1
+            or not isinstance(text, str)
+            or not text.strip()
+        ):
+            continue
+        if revision >= highest_revision:
+            highest_revision = revision
+            latest_text = text
+    return highest_revision, latest_text
+
+
 def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
     contract = output.answer_contract
     if contract is None:
@@ -1349,6 +1376,14 @@ class TurnOrchestrator:
                 )
                 cheap_skill_timeout_fallback = skill_timed_out
                 base_progress = turn_progress.producer("turn:base")
+                buffered_synthesis_progress: list[tuple[str, str]] = []
+
+                def retrieval_progress(stage: str, status: str) -> None:
+                    if stage == "synthesis":
+                        buffered_synthesis_progress.append((stage, status))
+                        return
+                    base_progress(stage, status)
+
                 try:
                     base_options = AskOptions(
                         query=contextual_query,
@@ -1382,11 +1417,18 @@ class TurnOrchestrator:
                         stream_text_delta=emit_text_delta,
                         stream_cancel_check=self.is_cancelled,
                         execution_budget=execution_budget,
-                        progress_callback=base_progress,
+                        progress_callback=retrieval_progress,
                         llm_timeout=per_call_timeout,
                         llm_finalization_reserve=(FINALIZATION_RESERVE_SECONDS),
                     )
                     result = self.answer_query(base_options)
+                    if result.synthesis is not None:
+                        for stage, status in buffered_synthesis_progress:
+                            base_progress(stage, status)
+                except Exception:
+                    for stage, status in buffered_synthesis_progress:
+                        base_progress(stage, status)
+                    raise
                 finally:
                     base_progress.revoke()
                 if budget_degraded and result.llm_fallback_reason is None:
@@ -1408,6 +1450,9 @@ class TurnOrchestrator:
                 mode=perspective_mode,
                 perspective_ids=tuple(selected_perspective_ids),
             )
+            snapshot_revision, latest_snapshot_text = _answer_snapshot_cursor(
+                self.run_store.load_stream_events(run_id)
+            )
             verified_draft_text: str | None = None
             if result.answer_spec is not None:
                 verified_draft_body = _sanitize_verified_answer_text(
@@ -1426,21 +1471,28 @@ class TurnOrchestrator:
                 verified_draft_text = redact(
                     f"{verified_draft_prefix}\n\n{verified_draft_body}"
                 )
-                if verified_draft_body:
+                if verified_draft_body and verified_draft_text != latest_snapshot_text:
+                    snapshot_revision += 1
                     self._emit(
                         run_id,
                         assistant_message_id,
-                        "answer:snapshot:0001",
+                        f"answer:snapshot:{snapshot_revision:04d}",
                         "answer.snapshot",
                         AnswerSnapshot(
-                            revision=1,
+                            revision=snapshot_revision,
                             phase=VERIFIED_DRAFT,
                             text=verified_draft_text,
                             final=False,
                         ).to_payload(),
                         conversation_id,
                     )
-            if synthesis_options is not None:
+            if synthesis_options is not None and result.answer_spec is not None:
+                synthesis_progress = turn_progress.producer("turn:synthesis")
+                synthesis_options = replace(
+                    synthesis_options,
+                    progress_callback=synthesis_progress,
+                )
+                synthesis_progress("synthesis", "running")
                 try:
                     synthesize_existing_answer_spec(synthesis_options, result)
                 except LLMStreamCancelled:
@@ -1455,6 +1507,12 @@ class TurnOrchestrator:
                     result.warnings.append(
                         f"LLM 合成未采用：{result.llm_fallback_reason}"
                     )
+                finally:
+                    synthesis_progress(
+                        "synthesis",
+                        "completed" if result.synthesis is not None else "degraded",
+                    )
+                    synthesis_progress.revoke()
             self._check_cancelled()
             if (
                 is_market_review
@@ -1595,13 +1653,14 @@ class TurnOrchestrator:
                     if result.synthesis is not None
                     else VERIFIED_FALLBACK
                 )
+                snapshot_revision += 1
                 self._emit(
                     run_id,
                     assistant_message_id,
-                    "answer:snapshot:0002",
+                    f"answer:snapshot:{snapshot_revision:04d}",
                     "answer.snapshot",
                     AnswerSnapshot(
-                        revision=2,
+                        revision=snapshot_revision,
                         phase=final_phase,
                         text=answer_text,
                         final=True,

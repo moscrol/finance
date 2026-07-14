@@ -330,6 +330,7 @@ class AskResult:
     valuation_note: valuation_gap.ValuationGapNote | None = None
     # Review 层：输出前六项确定性检查闸门（只读、WARN 不阻断）。
     review_gate: output_review.OutputReviewGate | None = None
+    market_review_prior_parts: tuple[str, ...] = ()
     quality_context: AnswerQualityContext | None = None
     # 裁决层唯一输出：表达层和 LLM 只能消费该结构，不能直接拼接检索字符串。
     answer_spec: answer_model.AnswerSpec | None = None
@@ -950,7 +951,17 @@ def _answer_market_review(
             "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
         ),
     )
+    result.market_review_prior_parts = tuple(prior_parts)
     if not options.compose or not options.synthesize:
+        return result
+    return _synthesize_market_review_answer(options, result)
+
+
+def _synthesize_market_review_answer(
+    options: AskOptions,
+    result: AskResult,
+) -> AskResult:
+    if result.answer_spec is None:
         return result
     plan_block = (
         result.question_plan.to_prompt_block()
@@ -968,12 +979,12 @@ def _answer_market_review(
             "\n\n以下对话上下文只用于理解用户追问，不得覆盖本轮数据：\n"
             f"{options.conversation_context.strip()}"
         )
-    if prior_parts:
+    if result.market_review_prior_parts:
         user_prompt += (
             "\n\n以下历史记忆只作为先验：用于决定增量起点、篇幅、语气和反方重点，"
             "不得覆盖本轮数据。价格、产能、订单等易变项以当前检索为准；"
             "已聊过的对象优先说明相较上次的变化，不重跑全模板：\n"
-            + "\n\n".join(prior_parts)
+            + "\n\n".join(result.market_review_prior_parts)
         )
     messages = [
         {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
@@ -1019,6 +1030,7 @@ def _answer_market_review(
         *messages,
         {"role": "assistant", "content": composed.answer},
     ]
+    _refresh_review_gate_after_synthesis(result)
     return result
 
 
@@ -2455,17 +2467,11 @@ def answer_query(options: AskOptions) -> AskResult:
         for issue in result.answer_spec.quality.issues
     )
 
-    result.review_gate = output_review.review_output(
-        trade_date=result.trade_date,
-        audit=audit,
-        counter_plan=counter_plan,
+    _set_output_review_gate(
+        result,
         gap_lines=gap_lines,
         follow_ups=follow_ups,
         conclusion_lines=conclusion,
-        final_answer=result.synthesis,
-    )
-    result.warnings.extend(
-        f"输出质检：{c.name}——{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
     )
     # 修订版在前契约：WARN 意见回灌同一段对话做一轮定向修订，用户拿到可直接引用的
     # 修订版全文，审查意见退居「输出质检」附录；修订失败时保留初稿并记录原因。
@@ -3149,6 +3155,45 @@ def _stable_llm_fallback_reason(reason: str | None) -> str:
     return "provider_unavailable"
 
 
+def _set_output_review_gate(
+    result: AskResult,
+    *,
+    gap_lines: list[str],
+    follow_ups: list[str],
+    conclusion_lines: list[str],
+) -> None:
+    result.review_gate = output_review.review_output(
+        trade_date=result.trade_date,
+        audit=result.evidence_audit,
+        counter_plan=result.counterevidence,
+        gap_lines=gap_lines,
+        follow_ups=follow_ups,
+        conclusion_lines=conclusion_lines,
+        final_answer=result.synthesis,
+    )
+    result.warnings = [
+        warning for warning in result.warnings if not warning.startswith("输出质检：")
+    ]
+    result.warnings.extend(
+        f"输出质检：{check.name}——{check.note}"
+        for check in result.review_gate.checks
+        if check.status == output_review.WARN
+    )
+    if "输出质检" in result.sections:
+        result.sections["输出质检"] = result.review_gate.summary_lines()
+
+
+def _refresh_review_gate_after_synthesis(result: AskResult) -> None:
+    if result.synthesis is None or result.review_gate is None:
+        return
+    _set_output_review_gate(
+        result,
+        gap_lines=result.sections.get("分歧反证", []),
+        follow_ups=result.sections.get("后续验证点", []),
+        conclusion_lines=result.sections.get("结论", []),
+    )
+
+
 def synthesize_existing_answer_spec(
     options: AskOptions,
     result: AskResult,
@@ -3164,6 +3209,10 @@ def synthesize_existing_answer_spec(
         or result.llm_fallback_reason is not None
     ):
         return result
+    if result.question_plan.question_type == QUESTION_MARKET_REVIEW:
+        if not result.found_market:
+            return result
+        return _synthesize_market_review_answer(options, result)
     if result.quality_context is None:
         result.quality_context = build_quality_context(
             evidence_lines=[
@@ -3328,6 +3377,7 @@ def _synthesize_answer_spec(
         *messages,
         {"role": "assistant", "content": result.synthesis},
     ]
+    _refresh_review_gate_after_synthesis(result)
     if options.stream_text_delta is not None:
         options.stream_text_delta(result.synthesis)
     if reason:

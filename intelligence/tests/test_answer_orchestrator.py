@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
@@ -25,6 +26,7 @@ from intelligence.services.ask import (
     _resolve_market_data_context,
     answer_query,
     render_conversation_answer,
+    synthesize_existing_answer_spec,
 )
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.llm_refine import SynthesisResult
@@ -2129,6 +2131,135 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertFalse(result.llm_attempted)
         self.assertIsNone(result.synthesis)
         self.assertIsNotNone(result.answer_spec)
+
+    def test_market_review_direct_and_split_synthesis_share_prompt_and_notices(
+        self,
+    ) -> None:
+        captured_messages: list[list[dict]] = []
+
+        def fake_synthesize(messages: list[dict], **_: object):
+            captured_messages.append(messages)
+            return (
+                SynthesisResult(
+                    answer="市场结构结论保持在已核验边界内。",
+                    provider="fixture",
+                    model="fixture-model",
+                ),
+                "",
+            )
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                side_effect=fake_synthesize,
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=[],
+            ),
+        ):
+            wiki = Path(tmp) / "wiki"
+            (wiki / "relations").mkdir(parents=True)
+            common = dict(
+                query="请复盘最新交易日的市场结构和主要风险",
+                exports_dir=tmp,
+                kb_wiki=wiki,
+                supplemental_evidence="### daily-review\n- 上涨 3774 只",
+                use_modules=False,
+                use_wiki_rag=False,
+                compose=True,
+                include_memory_block=False,
+                include_recall_block=False,
+                conversation_context="上一轮只用于理解追问",
+            )
+            direct = answer_query(AskOptions(**common, synthesize=True))
+            split = answer_query(AskOptions(**common, synthesize=False))
+            synthesize_existing_answer_spec(
+                AskOptions(**common, synthesize=True),
+                split,
+            )
+
+        self.assertEqual(len(captured_messages), 2)
+        self.assertEqual(captured_messages[0], captured_messages[1])
+        self.assertEqual(direct.synthesis, split.synthesis)
+        self.assertEqual(direct.synthesis_messages, split.synthesis_messages)
+        assert direct.answer_spec is not None
+        assert split.answer_spec is not None
+        self.assertEqual(
+            direct.answer_spec.system_notices,
+            split.answer_spec.system_notices,
+        )
+        self.assertIn("普通投资者", str(captured_messages[1][0]["content"]))
+
+    def test_split_synthesis_refreshes_review_gate_and_report_modules(
+        self,
+    ) -> None:
+        hard_final = "该方向确定受益，结论已证实。"
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                return_value=(
+                    SynthesisResult(
+                        answer=hard_final,
+                        provider="fixture",
+                        model="fixture-model",
+                    ),
+                    "",
+                ),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=[],
+            ),
+        ):
+            options = AskOptions(
+                query="题材分歧怎么判断？",
+                exports_dir=tmp,
+                kb_wiki=Path(tmp),
+                use_modules=False,
+                use_wiki_rag=False,
+                compose=True,
+                synthesize=False,
+                compose_self_review=False,
+                compose_revise_on_warn=False,
+                include_memory_block=False,
+                include_recall_block=False,
+            )
+            result = answer_query(options)
+            assert result.review_gate is not None
+            before = next(
+                check
+                for check in result.review_gate.checks
+                if check.name == "弱证据硬写"
+            )
+            synthesize_existing_answer_spec(
+                replace(options, synthesize=True),
+                result,
+            )
+
+        assert result.review_gate is not None
+        after = next(
+            check for check in result.review_gate.checks if check.name == "弱证据硬写"
+        )
+        self.assertEqual(after.status, "WARN")
+        self.assertNotEqual(before.note, after.note)
+        self.assertIn("确定、已证实", after.note)
+        self.assertTrue(
+            any("弱证据硬写" in line for line in result.sections["输出质检"])
+        )
+        from intelligence.api.structured_reports import ask_result_modules
+
+        review_module = next(
+            module
+            for module in ask_result_modules(result)
+            if module["title"] == "输出质检"
+        )
+        self.assertEqual(review_module["status"], "degraded")
+        self.assertTrue(
+            any("确定性措辞" in item["summary"] for item in review_module["items"])
+        )
 
     def test_market_review_exhausted_budget_skips_provider(self) -> None:
         class ExhaustedProviderBudget:

@@ -3136,6 +3136,196 @@ def test_result_without_answer_spec_does_not_publish_empty_snapshot(tmp_path) ->
     )
 
 
+def test_market_split_reports_synthesis_progress_from_real_second_phase(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "今日复盘",
+    )
+
+    def retrieve_with_stale_synthesis_progress(options: AskOptions) -> AskResult:
+        assert options.synthesize is False
+        assert options.progress_callback is not None
+        options.progress_callback("synthesis", "running")
+        options.progress_callback("synthesis", "degraded")
+        return _answer_spec_result(options.query)
+
+    def successful_synthesis(options: AskOptions, result: AskResult) -> AskResult:
+        result.synthesis = "市场复盘终稿"
+        result.llm_attempted = True
+        result.llm_provider = "fixture"
+        return result
+
+    monkeypatch.setattr(
+        orchestrator_module,
+        "synthesize_existing_answer_spec",
+        successful_synthesis,
+    )
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=retrieve_with_stale_synthesis_progress,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult((), False, True),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="今日复盘",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    synthesis_progress = [
+        event["payload"]["status"]
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "stage.progress"
+        and event["payload"]["stage"] == "synthesis"
+    ]
+    assert synthesis_progress == ["running", "completed"]
+
+
+def test_recovery_continues_snapshot_revision_after_persisted_draft(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "恢复后回答",
+    )
+    run_store.append_stream_event(
+        run_id,
+        event_id="answer:snapshot:0001",
+        event_type="answer.snapshot",
+        payload={
+            "revision": 1,
+            "phase": "verified_draft",
+            "text": "旧的中断草稿",
+            "final": False,
+        },
+        conversation_id=conversation.conversation_id,
+        message_id=assistant_message_id,
+    )
+
+    def failed_synthesis(options: AskOptions, result: AskResult) -> AskResult:
+        raise TimeoutError("恢复合成超时")
+
+    monkeypatch.setattr(
+        orchestrator_module,
+        "synthesize_existing_answer_spec",
+        failed_synthesis,
+    )
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _answer_spec_result(options.query),
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult((), False, True),
+        skill_registry=SkillRegistry(),
+        event_id_prefix="recovery:2:",
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="恢复后回答",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    snapshots = [
+        event["payload"]
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert [snapshot["revision"] for snapshot in snapshots] == [1, 2, 3]
+    assert snapshots[1]["text"] != snapshots[0]["text"]
+    assert snapshots[2]["phase"] == "verified_fallback"
+    assert snapshots[2]["text"] == snapshots[1]["text"]
+
+
+def test_recovery_skips_identical_persisted_draft_before_terminal_revision(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "恢复相同草稿"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    prepared = _answer_spec_result(query)
+    header = perspective_lab.runtime_answer_header(
+        userspace.user_space("alice"),
+        mode="neutral",
+        perspective_ids=(),
+    )
+    draft_body = orchestrator_module._sanitize_verified_answer_text(
+        orchestrator_module.render_conversation_answer(prepared)
+    )
+    persisted_draft = f"{header}\n\n{draft_body}"
+    run_store.append_stream_event(
+        run_id,
+        event_id="answer:snapshot:0001",
+        event_type="answer.snapshot",
+        payload={
+            "revision": 1,
+            "phase": "verified_draft",
+            "text": persisted_draft,
+            "final": False,
+        },
+        conversation_id=conversation.conversation_id,
+        message_id=assistant_message_id,
+    )
+
+    monkeypatch.setattr(
+        orchestrator_module,
+        "synthesize_existing_answer_spec",
+        lambda options, result: result,
+    )
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _answer_spec_result(options.query),
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult((), False, True),
+        skill_registry=SkillRegistry(),
+        event_id_prefix="recovery:2:",
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    snapshots = [
+        event["payload"]
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert [snapshot["revision"] for snapshot in snapshots] == [1, 2]
+    assert snapshots[0]["text"] == snapshots[1]["text"]
+    assert snapshots[1]["phase"] == "verified_fallback"
+
+
 def test_successful_llm_report_persists_selected_model(tmp_path) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
