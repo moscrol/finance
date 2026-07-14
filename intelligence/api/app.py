@@ -44,10 +44,7 @@ from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
-from intelligence.services.conversation_orchestrator import (
-    TurnOrchestrator,
-    sanitize_user_visible_artifact_text,
-)
+from intelligence.services.conversation_orchestrator import TurnOrchestrator
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
@@ -78,24 +75,6 @@ _SSE_POLL_SECONDS = 0.5
 _SSE_MAX_SECONDS = 15 * 60
 _WORKER_COUNT = 2
 _RESTART_REASON = "workbench_restarted_before_completion"
-
-
-def _public_degrades(values: list[str]) -> list[str]:
-    return list(
-        dict.fromkeys(
-            sanitize_user_visible_artifact_text(value)
-            for value in values
-            if isinstance(value, str) and value.strip()
-        )
-    )
-
-
-def _public_run_payload(run: rs.Run) -> dict[str, object]:
-    payload = asdict(run)
-    payload["degrades"] = _public_degrades(run.degrades)
-    if run.error:
-        payload["error"] = sanitize_user_visible_artifact_text(run.error)
-    return payload
 
 
 def _answer_deadline_seconds(raw: str | None = None) -> float:
@@ -146,20 +125,14 @@ class BoundedDaemonExecutor:
     """Small non-blocking executor whose bounded workers never hold process exit."""
 
     def __init__(self, max_workers: int) -> None:
-        if (
-            not isinstance(max_workers, int)
-            or isinstance(max_workers, bool)
-            or max_workers <= 0
-        ):
+        if not isinstance(max_workers, int) or isinstance(max_workers, bool) or max_workers <= 0:
             raise ValueError("max_workers must be a positive integer")
         self._slots = threading.BoundedSemaphore(max_workers)
         self._lock = Lock()
         self._shutdown = False
         self._futures: set[Future[object]] = set()
 
-    def submit(
-        self, fn: Callable[..., object], *args: object, **kwargs: object
-    ) -> Future:
+    def submit(self, fn: Callable[..., object], *args: object, **kwargs: object) -> Future:
         with self._lock:
             if self._shutdown:
                 raise RuntimeError("executor is shutdown")
@@ -530,7 +503,9 @@ def _run_conversation_turn(
     answer_deadline_seconds: float = _WORKBENCH_ANSWER_DEADLINE_SECONDS,
 ) -> None:
     try:
-        test_delay_ms = int(os.environ.get("WORKBENCH_TEST_RUN_DELAY_MS", "0"))
+        test_delay_ms = int(
+            os.environ.get("WORKBENCH_TEST_RUN_DELAY_MS", "0")
+        )
     except ValueError:
         test_delay_ms = 0
     test_delay_ms = min(5000, max(0, test_delay_ms))
@@ -588,12 +563,18 @@ def _terminalize_pending_message(
         rs.STATUS_CANCELLED,
     }:
         return
-    status = rs.STATUS_CANCELLED if reason == "cancelled_by_user" else rs.STATUS_FAILED
+    status = (
+        rs.STATUS_CANCELLED
+        if reason == "cancelled_by_user"
+        else rs.STATUS_FAILED
+    )
     warning = (
         "用户已取消本轮执行"
         if status == rs.STATUS_CANCELLED
         else (
-            "本轮执行未能启动" if reason == "executor_submit_failed" else "本轮执行超时"
+            "本轮执行未能启动"
+            if reason == "executor_submit_failed"
+            else "本轮执行超时"
         )
     )
     content = (
@@ -697,9 +678,7 @@ def _run_ask_scoped(
 
     if req.task_type == "daily":
         try:
-            report_date, daily_modules, daily_warnings = daily_projection_modules(
-                repo_root
-            )
+            report_date, daily_modules, daily_warnings = daily_projection_modules(repo_root)
             report["as_of"] = report_date
             report_warnings.extend(daily_warnings)
             for module in daily_modules:
@@ -711,9 +690,8 @@ def _run_ask_scoped(
             report_warnings.append(warning)
             store.add_degrade(run_id, warning)
 
-    wants_moneyflow = (
-        req.task_type == "daily"
-        or market_moneyflow.parse_moneyflow_intent(req.question)
+    wants_moneyflow = req.task_type == "daily" or market_moneyflow.parse_moneyflow_intent(
+        req.question
     )
     if wants_moneyflow:
         snapshot = market_moneyflow.load_moneyflow_snapshot(
@@ -797,9 +775,7 @@ def _run_ask_scoped(
         )
         if found
     ]
-    citation_counts = dict(
-        Counter(citation.tag[:1] for citation in result.citations if citation.tag)
-    )
+    citation_counts = dict(Counter(citation.tag[:1] for citation in result.citations if citation.tag))
     store.append_step(
         run_id,
         step_id="s01",
@@ -841,9 +817,7 @@ def _run_ask_scoped(
     summary = {
         "trade_date": result.trade_date,
         "matched_theme": result.matched_theme,
-        "question_type": result.question_plan.question_type
-        if result.question_plan
-        else None,
+        "question_type": result.question_plan.question_type if result.question_plan else None,
         "citations": len(result.citations),
         "citation_counts": citation_counts,
         "citation_records": [asdict(citation) for citation in result.citations],
@@ -951,9 +925,7 @@ def _pending_review_count(repo_root: Path) -> int:
     return sum(
         1
         for manifest in ledger.glob("20??-??-??.manifest.json")
-        if not manifest.with_name(
-            manifest.name.replace(".manifest.json", ".verdict.json")
-        ).is_file()
+        if not manifest.with_name(manifest.name.replace(".manifest.json", ".verdict.json")).is_file()
     )
 
 
@@ -1008,9 +980,7 @@ def _run_context(store: RunStore, run_id: str) -> dict[str, object]:
                 if not tag or not source:
                     continue
                 binding = [
-                    f"chunk={citation.get('chunk_id')}"
-                    if citation.get("chunk_id")
-                    else "",
+                    f"chunk={citation.get('chunk_id')}" if citation.get("chunk_id") else "",
                     f"hash={str(citation.get('content_hash'))[:12]}"
                     if citation.get("content_hash")
                     else "",
@@ -1073,14 +1043,13 @@ def _run_context(store: RunStore, run_id: str) -> dict[str, object]:
                 "source": run.manifest_ref or "run trace",
             }
         )
-    public_warnings = _public_degrades(warnings)
-    gaps = _public_degrades([*run.degrades, *warnings])
+    gaps = list(dict.fromkeys([*run.degrades, *warnings]))
     return {
         "evidence": evidence,
         "memory": memory,
         "review": review,
         "gaps": gaps,
-        "warnings": public_warnings,
+        "warnings": list(dict.fromkeys(warnings)),
         "metadata": {
             "source_date": run.source_date,
             "duckdb_cutoff": run.duckdb_cutoff,
@@ -1260,9 +1229,7 @@ def create_app(
             raise HTTPException(500, "自用成熟度台账不可读") from exc
         # passed 由持久化审批驱动：审批指纹须与当前裁决快照一致，否则失效。
         approvals = SelfUseApprovalStore(self_use_dir / "approval.json")
-        passed = bool(
-            result.eligible_for_user_decision and approvals.is_approved_for(result)
-        )
+        passed = bool(result.eligible_for_user_decision and approvals.is_approved_for(result))
         return {
             "distinct_trade_dates": result.metrics["distinct_trade_dates"],
             "success_rate": result.metrics["core_success_rate"],
@@ -1419,11 +1386,7 @@ def create_app(
             run = store.load_run(run_id)
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
-        if run.status not in (
-            rs.STATUS_COMPLETED,
-            rs.STATUS_FAILED,
-            rs.STATUS_CANCELLED,
-        ):
+        if run.status not in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
             supervisor.cancel(store, run_id)
             run = store.load_run(run_id)
         return {
@@ -1435,26 +1398,19 @@ def create_app(
     @app.post("/api/conversations")
     def create_conversation(req: CreateConversationRequest) -> dict[str, object]:
         try:
-            return asdict(
-                conversation_store_for(req.user).create_conversation(req.title)
-            )
+            return asdict(conversation_store_for(req.user).create_conversation(req.title))
         except ValueError as exc:
             raise HTTPException(422, "invalid user") from exc
 
     @app.get("/api/conversations")
     def list_conversations(user: str | None = None) -> list[dict[str, object]]:
         try:
-            return [
-                asdict(item)
-                for item in conversation_store_for(user).list_conversations()
-            ]
+            return [asdict(item) for item in conversation_store_for(user).list_conversations()]
         except ValueError as exc:
             raise HTTPException(422, "invalid user") from exc
 
     @app.get("/api/conversations/{conversation_id}")
-    def get_conversation(
-        conversation_id: str, user: str | None = None
-    ) -> dict[str, object]:
+    def get_conversation(conversation_id: str, user: str | None = None) -> dict[str, object]:
         return asdict(conversation_or_404(user, conversation_id))
 
     @app.patch("/api/conversations/{conversation_id}")
@@ -1470,9 +1426,7 @@ def create_app(
             )
 
     @app.post("/api/conversations/{conversation_id}/archive")
-    def archive_conversation(
-        conversation_id: str, req: UserRequest
-    ) -> dict[str, object]:
+    def archive_conversation(conversation_id: str, req: UserRequest) -> dict[str, object]:
         with conversation_lock_for(req.user, conversation_id):
             conversation_or_404(req.user, conversation_id)
             return asdict(
@@ -1480,9 +1434,7 @@ def create_app(
             )
 
     @app.get("/api/conversations/{conversation_id}/messages")
-    def list_messages(
-        conversation_id: str, user: str | None = None
-    ) -> list[dict[str, object]]:
+    def list_messages(conversation_id: str, user: str | None = None) -> list[dict[str, object]]:
         conversation_or_404(user, conversation_id)
         return [
             asdict(item)
@@ -1624,14 +1576,12 @@ def create_app(
 
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
-        return [
-            _public_run_payload(run) for run in reversed(store_for(user).list_runs())
-        ]
+        return [asdict(run) for run in reversed(store_for(user).list_runs())]
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str, user: str | None = None) -> dict[str, object]:
         try:
-            return _public_run_payload(store_for(user).load_run(run_id))
+            return asdict(store_for(user).load_run(run_id))
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
@@ -1686,11 +1636,7 @@ def create_app(
                 cursor = int(last_event_id)
             else:
                 cursor = next(
-                    (
-                        event["seq"]
-                        for event in store.load_stream_events(run_id)
-                        if event["event_id"] == last_event_id
-                    ),
+                    (event["seq"] for event in store.load_stream_events(run_id) if event["event_id"] == last_event_id),
                     0,
                 )
 
@@ -1715,11 +1661,7 @@ def create_app(
                         yield f"id: {event['event_id']}\nevent: {alias}\ndata: {data}\n\n"
                     current_cursor = event["seq"]
                 run = store.load_run(run_id)
-                if run.status in (
-                    rs.STATUS_COMPLETED,
-                    rs.STATUS_FAILED,
-                    rs.STATUS_CANCELLED,
-                ):
+                if run.status in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
                     terminal_message_missing = run.session_id and not any(
                         event["event_type"] in {"message.complete", "message.error"}
                         for event in store.load_stream_events(run_id)
@@ -1735,8 +1677,7 @@ def create_app(
                     ):
                         time.sleep(_SSE_POLL_SECONDS)
                         continue
-                    public_run = _public_run_payload(run)
-                    yield f"event: run\ndata: {json.dumps(public_run, ensure_ascii=False)}\n\n"
+                    yield f"event: run\ndata: {json.dumps(asdict(run), ensure_ascii=False)}\n\n"
                     return
                 if time.monotonic() > deadline:
                     yield "event: timeout\ndata: {}\n\n"
@@ -1746,9 +1687,7 @@ def create_app(
         return StreamingResponse(stream(), media_type="text/event-stream")
 
     @app.get("/api/runs/{run_id}/report")
-    def get_run_report(
-        run_id: str, user: str | None = None
-    ) -> dict[str, object] | None:
+    def get_run_report(run_id: str, user: str | None = None) -> dict[str, object] | None:
         store = store_for(user)
         try:
             run_dir = store.run_dir(run_id)
@@ -1763,11 +1702,7 @@ def create_app(
         report: dict[str, object] | None = None
         for event in store.load_stream_events(run_id):
             payload = event.get("payload", {})
-            if event.get("event_type") in {
-                "report.start",
-                "report.complete",
-                "report.error",
-            }:
+            if event.get("event_type") in {"report.start", "report.complete", "report.error"}:
                 candidate = payload.get("report") if isinstance(payload, dict) else None
                 if isinstance(candidate, dict):
                     report = candidate
@@ -1778,9 +1713,7 @@ def create_app(
         return report
 
     @app.get("/api/runs/{run_id}/artifacts/{name:path}")
-    def get_run_artifact(
-        run_id: str, name: str, user: str | None = None
-    ) -> FileResponse:
+    def get_run_artifact(run_id: str, name: str, user: str | None = None) -> FileResponse:
         store = store_for(user)
         try:
             run_dir = store.run_dir(run_id).resolve()
@@ -1842,9 +1775,12 @@ def create_app(
             raise HTTPException(404, f"产物未注册：{artifact_id}")
         if descriptor.category not in {"daily_agent", "daily_review"}:
             raise HTTPException(404, "该产物不支持原生投影")
-        if descriptor.category == "daily_review" and not Path(
-            descriptor.source_path
-        ).name.endswith(("-daily-review.html", "-daily-review.md")):
+        if (
+            descriptor.category == "daily_review"
+            and not Path(descriptor.source_path).name.endswith(
+                ("-daily-review.html", "-daily-review.md")
+            )
+        ):
             raise HTTPException(404, "该产物不支持原生投影")
 
         original = next(
@@ -1905,9 +1841,7 @@ def create_app(
         return projection
 
     @app.get("/api/artifacts/{artifact_id}")
-    def get_artifact_descriptor(
-        artifact_id: str, user: str | None = None
-    ) -> dict[str, object]:
+    def get_artifact_descriptor(artifact_id: str, user: str | None = None) -> dict[str, object]:
         descriptor = registry_for(user).get(artifact_id)
         if descriptor is None:
             raise HTTPException(404, f"产物未注册：{artifact_id}")
@@ -1936,19 +1870,14 @@ def create_app(
             (
                 artifact
                 for artifact in artifacts
-                if artifact.category
-                in {"daily_review", "daily_agent", "theme_candidates"}
+                if artifact.category in {"daily_review", "daily_agent", "theme_candidates"}
                 and artifact.status != "missing"
             ),
             None,
         )
-        data_cutoff = (
-            latest_daily.date
-            if latest_daily
-            else next(
-                (run.source_date for run in runs if run.source_date),
-                None,
-            )
+        data_cutoff = latest_daily.date if latest_daily else next(
+            (run.source_date for run in runs if run.source_date),
+            None,
         )
         workflows = [
             {
@@ -1979,11 +1908,9 @@ def create_app(
         return {
             "user": store.user_id,
             "workflows": workflows,
-            "recent_runs": [_public_run_payload(run) for run in runs],
+            "recent_runs": [asdict(run) for run in runs],
             "latest_artifacts": [artifact.public_dict() for artifact in artifacts[:10]],
-            "latest_daily_artifact": latest_daily.public_dict()
-            if latest_daily
-            else None,
+            "latest_daily_artifact": latest_daily.public_dict() if latest_daily else None,
             "pending_review_count": _pending_review_count(root),
             "needs_human_action": sum(
                 1 for artifact in artifacts if artifact.status in {"warn", "missing"}
