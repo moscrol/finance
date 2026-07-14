@@ -1,7 +1,8 @@
 import asyncio
+import gc
 import json
 import time
-import urllib.error
+import warnings
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from dataclasses import asdict, replace
@@ -11,6 +12,7 @@ from threading import (
     Event,
     Lock,
     Thread,
+    Timer,
     current_thread,
     enumerate as enumerate_threads,
 )
@@ -3859,6 +3861,32 @@ async def _silent_after_first_stream(*, exited: Event | None = None):
             exited.set()
 
 
+@asynccontextmanager
+async def _unsupported_stream(**kwargs):
+    raise llm_refine.LLMStreamingUnsupported()
+    yield  # pragma: no cover
+
+
+@asynccontextmanager
+async def _fake_httpx_client(*, client: object | None = None, **kwargs):
+    yield client or object()
+
+
+def _install_fake_httpx(
+    monkeypatch,
+    *,
+    client_request: dict[str, object] | None = None,
+) -> None:
+    @asynccontextmanager
+    async def client_spy(**kwargs):
+        if client_request is not None:
+            client_request.update(kwargs)
+        yield object()
+
+    monkeypatch.setattr(llm_refine, "_load_httpx_module", object)
+    monkeypatch.setattr(llm_refine, "_httpx_client", client_spy)
+
+
 def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> None:
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"
@@ -3869,12 +3897,14 @@ def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> 
         "data: [DONE]",
     ]
     request: dict[str, object] = {}
+    client_request: dict[str, object] = {}
 
     def stream_spy(**kwargs):
         request.update(kwargs)
         return _stream_lines(lines)
 
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    _install_fake_httpx(monkeypatch, client_request=client_request)
     monkeypatch.setattr(llm_refine, "_httpx_stream_lines", stream_spy)
     deltas: list[str] = []
 
@@ -3899,7 +3929,7 @@ def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> 
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
     }
-    assert 0 < request["timeout"] <= llm_refine.DEFAULT_LLM_TIMEOUT
+    assert 0 < client_request["timeout"] <= llm_refine.DEFAULT_LLM_TIMEOUT
 
 
 def test_openai_stream_checks_cancellation_between_provider_deltas(
@@ -3914,6 +3944,7 @@ def test_openai_stream_checks_cancellation_between_provider_deltas(
         "data: [DONE]",
     ]
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    _install_fake_httpx(monkeypatch)
     monkeypatch.setattr(
         llm_refine,
         "_httpx_stream_lines",
@@ -3941,6 +3972,7 @@ def test_stream_deadline_interrupts_silence_after_first_chunk(monkeypatch) -> No
         "fixture", "key", "https://llm.invalid/v1", "model"
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    _install_fake_httpx(monkeypatch)
     monkeypatch.setattr(
         llm_refine,
         "_httpx_stream_lines",
@@ -3980,6 +4012,7 @@ def test_stream_return_never_leaves_reader_when_close_cannot_unblock(
     )
     exited = Event()
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    _install_fake_httpx(monkeypatch)
     monkeypatch.setattr(
         llm_refine,
         "_httpx_stream_lines",
@@ -4008,6 +4041,7 @@ def test_stream_cancellation_interrupts_silence_after_first_chunk(
         "fixture", "key", "https://llm.invalid/v1", "model"
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    _install_fake_httpx(monkeypatch)
     monkeypatch.setattr(
         llm_refine,
         "_httpx_stream_lines",
@@ -4037,26 +4071,170 @@ def test_stream_cancellation_interrupts_silence_after_first_chunk(
     )
 
 
-def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> None:
+def test_non_stream_protocol_fallback_obeys_absolute_wall_deadline(
+    monkeypatch,
+) -> None:
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
+    fallback_started = Event()
+    fallback_exited = Event()
+
+    class DripClient:
+        async def post(self, *args, **kwargs):
+            fallback_started.set()
+            try:
+                for _ in range(100):
+                    await asyncio.sleep(0.01)
+            finally:
+                fallback_exited.set()
+            raise AssertionError("absolute deadline did not cancel drip body")
+
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(llm_refine, "_load_httpx_module", object)
+    monkeypatch.setattr(
+        llm_refine,
+        "_httpx_client",
+        lambda **kwargs: _fake_httpx_client(client=DripClient()),
+    )
+    monkeypatch.setattr(llm_refine, "_httpx_stream_lines", _unsupported_stream)
+    monkeypatch.setattr(llm_refine, "_post_chat", pytest.fail)
+    started = time.monotonic()
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=lambda _: None,
+        timeout=0.1,
+    )
+
+    assert time.monotonic() - started < 0.3
+    assert result is None
+    assert "超时" in reason
+    assert fallback_started.is_set()
+    assert fallback_exited.is_set()
+
+
+def test_non_stream_protocol_fallback_cancellation_closes_drip_body(
+    monkeypatch,
+) -> None:
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
+    cancelled = Event()
+    fallback_exited = Event()
+
+    class DripClient:
+        async def post(self, *args, **kwargs):
+            try:
+                while True:
+                    await asyncio.sleep(0.01)
+            finally:
+                fallback_exited.set()
+
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(llm_refine, "_load_httpx_module", object)
+    monkeypatch.setattr(
+        llm_refine,
+        "_httpx_client",
+        lambda **kwargs: _fake_httpx_client(client=DripClient()),
+    )
+    monkeypatch.setattr(llm_refine, "_httpx_stream_lines", _unsupported_stream)
+    monkeypatch.setattr(
+        llm_refine,
+        "_post_chat",
+        lambda *args, **kwargs: (time.sleep(0.5), "too late")[1],
+    )
+    timer = Timer(0.05, cancelled.set)
+    timer.start()
+    started = time.monotonic()
+
+    try:
+        with pytest.raises(llm_refine.LLMStreamCancelled):
+            llm_refine.synthesize_messages_stream(
+                [{"role": "user", "content": "question"}],
+                on_delta=lambda _: None,
+                is_cancelled=cancelled.is_set,
+                timeout=2,
+            )
+    finally:
+        timer.cancel()
+
+    assert time.monotonic() - started < 0.3
+    assert fallback_exited.is_set()
+
+
+def test_stream_sync_entry_in_running_loop_has_no_unawaited_warning(
+    monkeypatch,
+) -> None:
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
-    unsupported = urllib.error.HTTPError(
-        "https://llm.invalid/v1/chat/completions",
-        422,
-        "stream unsupported",
-        {},
-        None,
+
+    async def call_sync_entry():
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result, reason = llm_refine.synthesize_messages_stream(
+                [{"role": "user", "content": "question"}],
+                on_delta=lambda _: None,
+            )
+            gc.collect()
+        return result, reason, caught
+
+    result, reason, caught = asyncio.run(call_sync_entry())
+
+    assert result is None
+    assert "事件循环" in reason
+    assert not [item for item in caught if issubclass(item.category, RuntimeWarning)]
+
+
+def test_missing_httpx_is_stable_stream_unavailable_without_sync_fallback(
+    monkeypatch,
+    capsys,
+) -> None:
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
     )
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
         llm_refine,
-        "_post_chat_stream",
-        lambda *args, **kwargs: (_ for _ in ()).throw(unsupported),
+        "_load_httpx_module",
+        lambda: (_ for _ in ()).throw(llm_refine.LLMStreamingUnsupported()),
     )
-    monkeypatch.setattr(
-        llm_refine, "_post_chat", lambda *args, **kwargs: "whole answer"
+    monkeypatch.setattr(llm_refine, "_post_chat", pytest.fail)
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=lambda _: None,
     )
+
+    captured = capsys.readouterr()
+    assert result is None
+    assert "流式传输不可用" in reason
+    assert captured.err == ""
+
+
+def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> None:
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
+    client = object()
+    fallback_requests: list[dict[str, object]] = []
+
+    @asynccontextmanager
+    async def client_context(**kwargs):
+        yield client
+
+    async def fallback_spy(**kwargs) -> str:
+        fallback_requests.append(kwargs)
+        return "whole answer"
+
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(llm_refine, "_load_httpx_module", object)
+    monkeypatch.setattr(llm_refine, "_httpx_client", client_context)
+    monkeypatch.setattr(llm_refine, "_httpx_stream_lines", _unsupported_stream)
+    monkeypatch.setattr(llm_refine, "_httpx_post_chat", fallback_spy)
+    monkeypatch.setattr(llm_refine, "_post_chat", pytest.fail)
     deltas: list[str] = []
 
     result, reason = llm_refine.synthesize_messages_stream(
@@ -4068,31 +4246,46 @@ def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> Non
     assert result is not None
     assert result.answer == "whole answer"
     assert deltas == ["whole answer"]
+    assert len(fallback_requests) == 1
+    assert fallback_requests[0]["client"] is client
+    assert fallback_requests[0]["payload"] == {
+        "model": "model",
+        "messages": [{"role": "user", "content": "question"}],
+        "temperature": 0.3,
+        "stream": False,
+    }
 
 
-def test_stream_fallback_reuses_only_original_deadline_remaining(
+def test_stream_fallback_uses_same_client_for_stream_and_single_post(
     monkeypatch,
 ) -> None:
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"
     )
-    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
-    monkeypatch.setattr(
-        llm_refine,
-        "_post_chat_stream",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            llm_refine.LLMStreamingUnsupported()
-        ),
-    )
-    clock = iter((100.0, 104.0))
-    monkeypatch.setattr(llm_refine.time, "monotonic", lambda: next(clock))
-    fallback_timeouts: list[int] = []
+    client = object()
+    stream_clients: list[object] = []
+    post_clients: list[object] = []
 
-    def fallback(*args, **kwargs):
-        fallback_timeouts.append(kwargs.get("timeout", args[2]))
+    @asynccontextmanager
+    async def client_context(**kwargs):
+        yield client
+
+    @asynccontextmanager
+    async def unsupported_spy(**kwargs):
+        stream_clients.append(kwargs["client"])
+        raise llm_refine.LLMStreamingUnsupported()
+        yield  # pragma: no cover
+
+    async def post_spy(**kwargs) -> str:
+        post_clients.append(kwargs["client"])
         return "whole answer"
 
-    monkeypatch.setattr(llm_refine, "_post_chat", fallback)
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(llm_refine, "_load_httpx_module", object)
+    monkeypatch.setattr(llm_refine, "_httpx_client", client_context)
+    monkeypatch.setattr(llm_refine, "_httpx_stream_lines", unsupported_spy)
+    monkeypatch.setattr(llm_refine, "_httpx_post_chat", post_spy)
+    monkeypatch.setattr(llm_refine, "_post_chat", pytest.fail)
 
     result, reason = llm_refine.synthesize_messages_stream(
         [{"role": "user", "content": "question"}],
@@ -4103,32 +4296,27 @@ def test_stream_fallback_reuses_only_original_deadline_remaining(
     assert reason == ""
     assert result is not None
     assert result.answer == "whole answer"
-    assert fallback_timeouts == [6]
+    assert stream_clients == [client]
+    assert post_clients == [client]
 
 
-def test_stream_fallback_does_not_start_without_one_second_remaining(
+def test_stream_fallback_does_not_start_after_absolute_deadline(
     monkeypatch,
 ) -> None:
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
-    monkeypatch.setattr(
-        llm_refine,
-        "_post_chat_stream",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            llm_refine.LLMStreamingUnsupported()
-        ),
-    )
-    clock = iter((100.0, 109.5))
-    monkeypatch.setattr(llm_refine.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(llm_refine, "_load_httpx_module", object)
+    monkeypatch.setattr(llm_refine, "_httpx_client", pytest.fail)
+    monkeypatch.setattr(llm_refine, "_httpx_post_chat", pytest.fail)
     monkeypatch.setattr(llm_refine, "_post_chat", pytest.fail)
     deltas: list[str] = []
 
     result, reason = llm_refine.synthesize_messages_stream(
         [{"role": "user", "content": "question"}],
         on_delta=deltas.append,
-        timeout=10,
+        timeout=0,
     )
 
     assert result is None
@@ -4142,25 +4330,24 @@ def test_stream_fallback_propagates_cancellation_before_public_delta(
     provider = llm_refine.LLMProvider(
         "fixture", "key", "https://llm.invalid/v1", "model"
     )
+    cancelled = Event()
+
+    async def fallback_and_cancel(**kwargs) -> str:
+        cancelled.set()
+        return "private fallback"
+
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
-    monkeypatch.setattr(
-        llm_refine,
-        "_post_chat_stream",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            llm_refine.LLMStreamingUnsupported()
-        ),
-    )
-    monkeypatch.setattr(
-        llm_refine, "_post_chat", lambda *args, **kwargs: "private fallback"
-    )
-    checks = iter((False, True))
+    _install_fake_httpx(monkeypatch)
+    monkeypatch.setattr(llm_refine, "_httpx_stream_lines", _unsupported_stream)
+    monkeypatch.setattr(llm_refine, "_httpx_post_chat", fallback_and_cancel)
+    monkeypatch.setattr(llm_refine, "_post_chat", pytest.fail)
     deltas: list[str] = []
 
     with pytest.raises(llm_refine.LLMStreamCancelled):
         llm_refine.synthesize_messages_stream(
             [{"role": "user", "content": "question"}],
             on_delta=deltas.append,
-            is_cancelled=lambda: next(checks),
+            is_cancelled=cancelled.is_set,
             timeout=10,
         )
 

@@ -10,10 +10,9 @@ Design constraints:
 - **Graceful degrade is the default.** If no provider/key is detected, or the
   call/parse fails, :func:`refine` returns ``None`` and the caller keeps the
   template. Behaviour with no key is therefore identical to before.
-- **Zero extra dependencies.** Uses ``urllib`` against an OpenAI-compatible
-  ``/chat/completions`` endpoint, so it works for DeepSeek / Moonshot(Kimi) /
-  DashScope(Qwen) / Zhipu(GLM) / OpenAI and any compatible gateway without
-  installing an SDK.
+- **OpenAI-compatible transport.** Synchronous CLI calls retain the standard
+  library ``urllib`` path. Workbench streaming uses the API runtime's declared
+  ``httpx>=0.27`` dependency so cancellation can close in-flight requests.
 - **No secrets in code.** Keys come only from environment variables.
 """
 
@@ -26,7 +25,7 @@ import re
 import time
 import urllib.error
 import urllib.request
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
@@ -76,6 +75,10 @@ class LLMStreamDeadlineExceeded(TimeoutError):
 
 
 class LLMStreamInterruptedAfterData(RuntimeError):
+    pass
+
+
+class LLMStreamEventLoopRunning(RuntimeError):
     pass
 
 
@@ -503,6 +506,12 @@ def _post_chat_stream(
     is_cancelled: Callable[[], bool] | None,
     deadline: float,
 ) -> str:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+    else:
+        raise LLMStreamEventLoopRunning()
     return asyncio.run(
         _post_chat_stream_async(
             provider,
@@ -526,76 +535,99 @@ async def _post_chat_stream_async(
     deadline: float,
 ) -> str:
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload = {
+    stream_payload = {
         "model": provider.model,
         "messages": messages,
         "temperature": temperature,
         "stream": True,
     }
     if os.environ.get("LLM_THINKING") == "disabled":
-        payload["thinking"] = {"type": "disabled"}
+        stream_payload["thinking"] = {"type": "disabled"}
     headers = {
         "Authorization": f"Bearer {provider.api_key}",
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
     }
-    chunks: list[str] = []
-
-    async def consume() -> str:
+    httpx = _load_httpx_module()
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise LLMStreamDeadlineExceeded()
+    async with _httpx_client(
+        httpx=httpx,
+        timeout=min(float(timeout), remaining),
+    ) as client:
         try:
-            async with _httpx_stream_lines(
+            return await _run_stream_operation(
+                lambda: _consume_httpx_stream(
+                    client=client,
+                    httpx=httpx,
+                    url=url,
+                    payload=stream_payload,
+                    headers=headers,
+                    on_delta=on_delta,
+                    is_cancelled=is_cancelled,
+                ),
+                deadline=deadline,
+                is_cancelled=is_cancelled,
+            )
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {400, 404, 405, 415, 422, 501}:
+                raise
+        except LLMStreamingUnsupported:
+            pass
+
+        fallback_payload = dict(stream_payload)
+        fallback_payload["stream"] = False
+        content = await _run_stream_operation(
+            lambda: _httpx_post_chat(
+                client=client,
+                httpx=httpx,
                 url=url,
-                payload=payload,
-                headers=headers,
-                timeout=min(float(timeout), max(0.1, deadline - time.monotonic())),
-            ) as lines:
-                async for line in lines:
-                    if is_cancelled is not None and is_cancelled():
-                        raise LLMStreamCancelled()
-                    normalized = line.strip()
-                    if not normalized.startswith("data:"):
-                        continue
-                    data = normalized[5:].strip()
-                    if data == "[DONE]":
-                        break
-                    try:
-                        event = json.loads(data)
-                        delta = event["choices"][0]["delta"].get("content")
-                    except (json.JSONDecodeError, KeyError, IndexError, TypeError):
-                        continue
-                    if isinstance(delta, str) and delta:
-                        on_delta(delta)
-                        chunks.append(delta)
-                        if is_cancelled is not None and is_cancelled():
-                            raise LLMStreamCancelled()
-        except (LLMStreamCancelled, LLMStreamDeadlineExceeded):
-            raise
-        except Exception as exc:
-            if chunks:
-                raise LLMStreamInterruptedAfterData() from exc
-            raise
-        if not chunks:
+                payload=fallback_payload,
+                headers={
+                    "Authorization": headers["Authorization"],
+                    "Content-Type": headers["Content-Type"],
+                },
+            ),
+            deadline=deadline,
+            is_cancelled=is_cancelled,
+        )
+        if is_cancelled is not None and is_cancelled():
+            raise LLMStreamCancelled()
+        text = content.strip()
+        if not text:
             raise LLMStreamingUnsupported()
-        return "".join(chunks)
+        on_delta(text)
+        return text
+
+
+async def _run_stream_operation(
+    operation: Callable[[], Awaitable[str]],
+    *,
+    deadline: float,
+    is_cancelled: Callable[[], bool] | None,
+) -> str:
+    if is_cancelled is not None and is_cancelled():
+        raise LLMStreamCancelled()
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise LLMStreamDeadlineExceeded()
 
     async def wait_for_cancellation() -> None:
         assert is_cancelled is not None
         while not is_cancelled():
             await asyncio.sleep(0.05)
 
-    stream_task = asyncio.create_task(consume())
+    operation_task = asyncio.create_task(operation())
     cancel_task = (
         asyncio.create_task(wait_for_cancellation())
         if is_cancelled is not None
         else None
     )
-    tasks = {stream_task}
+    tasks = {operation_task}
     if cancel_task is not None:
         tasks.add(cancel_task)
     try:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise LLMStreamDeadlineExceeded()
         done, _ = await asyncio.wait(
             tasks,
             timeout=remaining,
@@ -605,7 +637,7 @@ async def _post_chat_stream_async(
             raise LLMStreamDeadlineExceeded()
         if cancel_task is not None and cancel_task in done:
             raise LLMStreamCancelled()
-        return await stream_task
+        return await operation_task
     finally:
         for task in tasks:
             if not task.done():
@@ -613,52 +645,107 @@ async def _post_chat_stream_async(
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
+async def _consume_httpx_stream(
+    *,
+    client: object,
+    httpx: object,
+    url: str,
+    payload: dict,
+    headers: dict[str, str],
+    on_delta: Callable[[str], None],
+    is_cancelled: Callable[[], bool] | None,
+) -> str:
+    chunks: list[str] = []
+    try:
+        async with _httpx_stream_lines(
+            client=client,
+            httpx=httpx,
+            url=url,
+            payload=payload,
+            headers=headers,
+        ) as lines:
+            async for line in lines:
+                if is_cancelled is not None and is_cancelled():
+                    raise LLMStreamCancelled()
+                normalized = line.strip()
+                if not normalized.startswith("data:"):
+                    continue
+                data = normalized[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    event = json.loads(data)
+                    delta = event["choices"][0]["delta"].get("content")
+                except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+                    continue
+                if isinstance(delta, str) and delta:
+                    on_delta(delta)
+                    chunks.append(delta)
+                    if is_cancelled is not None and is_cancelled():
+                        raise LLMStreamCancelled()
+    except (LLMStreamCancelled, LLMStreamDeadlineExceeded):
+        raise
+    except Exception as exc:
+        if chunks:
+            raise LLMStreamInterruptedAfterData() from exc
+        raise
+    if not chunks:
+        raise LLMStreamingUnsupported()
+    return "".join(chunks)
+
+
 def _load_httpx_module():
     try:
         import httpx
 
         return httpx
-    except ModuleNotFoundError:
-        try:
-            import httpx2
+    except ModuleNotFoundError as exc:
+        raise LLMStreamingUnsupported() from exc
 
-            return httpx2
-        except ModuleNotFoundError as exc:
-            raise LLMStreamingUnsupported() from exc
+
+@asynccontextmanager
+async def _httpx_client(*, httpx: object, timeout: float):
+    timeout_config = httpx.Timeout(timeout, read=None)  # type: ignore[attr-defined]
+    try:
+        async with httpx.AsyncClient(timeout=timeout_config) as client:  # type: ignore[attr-defined]
+            yield client
+    except asyncio.CancelledError:
+        raise
+    except httpx.TimeoutException as exc:  # type: ignore[attr-defined]
+        raise LLMStreamDeadlineExceeded() from exc
+    except httpx.RequestError as exc:  # type: ignore[attr-defined]
+        raise RuntimeError(
+            f"LLM stream transport failed ({type(exc).__name__})"
+        ) from None
 
 
 @asynccontextmanager
 async def _httpx_stream_lines(
     *,
+    client: object,
+    httpx: object,
     url: str,
     payload: dict,
     headers: dict[str, str],
-    timeout: float,
 ) -> AsyncIterator[AsyncIterator[str]]:
-    httpx = _load_httpx_module()
-    timeout_config = httpx.Timeout(
-        timeout,
-        read=None,
-    )
     try:
-        async with httpx.AsyncClient(timeout=timeout_config) as client:
-            async with client.stream(
-                "POST",
-                url,
-                json=payload,
-                headers=headers,
-            ) as response:
-                try:
-                    response.raise_for_status()
-                except httpx.HTTPStatusError as exc:
-                    raise urllib.error.HTTPError(
-                        url,
-                        exc.response.status_code,
-                        "stream request rejected",
-                        {},
-                        None,
-                    ) from None
-                yield response.aiter_lines()
+        async with client.stream(  # type: ignore[attr-defined]
+            "POST",
+            url,
+            json=payload,
+            headers=headers,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:  # type: ignore[attr-defined]
+                raise urllib.error.HTTPError(
+                    url,
+                    exc.response.status_code,
+                    "stream request rejected",
+                    {},
+                    None,
+                ) from None
+            yield response.aiter_lines()
     except urllib.error.HTTPError:
         raise
     except asyncio.CancelledError:
@@ -666,6 +753,44 @@ async def _httpx_stream_lines(
     except httpx.TimeoutException as exc:
         raise LLMStreamDeadlineExceeded() from exc
     except httpx.RequestError as exc:
+        raise RuntimeError(
+            f"LLM stream transport failed ({type(exc).__name__})"
+        ) from None
+
+
+async def _httpx_post_chat(
+    *,
+    client: object,
+    httpx: object,
+    url: str,
+    payload: dict,
+    headers: dict[str, str],
+) -> str:
+    try:
+        response = await client.post(  # type: ignore[attr-defined]
+            url,
+            json=payload,
+            headers=headers,
+        )
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:  # type: ignore[attr-defined]
+            raise urllib.error.HTTPError(
+                url,
+                exc.response.status_code,
+                "request rejected",
+                {},
+                None,
+            ) from None
+        body = response.json()
+        return body["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError:
+        raise
+    except asyncio.CancelledError:
+        raise
+    except httpx.TimeoutException as exc:  # type: ignore[attr-defined]
+        raise LLMStreamDeadlineExceeded() from exc
+    except httpx.RequestError as exc:  # type: ignore[attr-defined]
         raise RuntimeError(
             f"LLM stream transport failed ({type(exc).__name__})"
         ) from None
@@ -700,27 +825,15 @@ def synthesize_messages_stream(
         )
     except LLMStreamCancelled:
         raise
+    except LLMStreamEventLoopRunning:
+        return None, "LLM 流式入口不能在运行中的事件循环内同步调用，已保留可核验回答"
     except (LLMStreamDeadlineExceeded, TimeoutError):
         return None, "LLM 流式合成超时，已降级为模板"
     except urllib.error.HTTPError as exc:
-        if exc.code not in {400, 404, 405, 415, 422, 501}:
-            return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"
-        return _fallback_stream_to_non_stream(
-            provider,
-            messages,
-            deadline=deadline,
-            temperature=temperature,
-            on_delta=on_delta,
-            is_cancelled=is_cancelled,
-        )
+        return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"
     except LLMStreamingUnsupported:
-        return _fallback_stream_to_non_stream(
-            provider,
-            messages,
-            deadline=deadline,
-            temperature=temperature,
-            on_delta=on_delta,
-            is_cancelled=is_cancelled,
+        return None, (
+            "LLM 流式传输不可用，已保留可核验回答；请安装声明依赖 httpx>=0.27"
         )
     except Exception as exc:  # pragma: no cover - network
         detail = redact(str(getattr(exc, "reason", exc))[:120])
@@ -730,59 +843,6 @@ def synthesize_messages_stream(
     return (
         SynthesisResult(
             answer=content,
-            provider=provider.name,
-            model=provider.model,
-        ),
-        "",
-    )
-
-
-def _fallback_stream_to_non_stream(
-    provider: LLMProvider,
-    messages: list[dict],
-    *,
-    deadline: float,
-    temperature: float,
-    on_delta: Callable[[str], None],
-    is_cancelled: Callable[[], bool] | None,
-) -> tuple[SynthesisResult | None, str]:
-    """Use one non-stream request without renewing the stream deadline.
-
-    ``synthesize_messages`` intentionally retries transient failures, so calling
-    it here would let the fallback spend the remaining allowance more than once.
-    A protocol fallback is therefore a single request capped by the original
-    monotonic deadline.
-    """
-
-    if is_cancelled is not None and is_cancelled():
-        raise LLMStreamCancelled()
-    remaining = deadline - time.monotonic()
-    if remaining < 1.0:
-        return None, "LLM 流式协议回退预算已超时，已降级为模板"
-    fallback_timeout = max(1, int(remaining))
-    try:
-        content = _post_chat(
-            provider,
-            messages,
-            fallback_timeout,
-            temperature,
-        )
-    except urllib.error.HTTPError as exc:  # pragma: no cover - network
-        return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
-    except Exception as exc:  # pragma: no cover - network
-        detail = redact(str(getattr(exc, "reason", exc))[:120])
-        return None, (
-            f"LLM 合成失败（{type(exc).__name__}: {detail}），已降级为模板"
-        )
-    if is_cancelled is not None and is_cancelled():
-        raise LLMStreamCancelled()
-    text = (content or "").strip()
-    if not text:
-        return None, "LLM 合成返回空内容，已降级为模板"
-    on_delta(text)
-    return (
-        SynthesisResult(
-            answer=text,
             provider=provider.name,
             model=provider.model,
         ),
