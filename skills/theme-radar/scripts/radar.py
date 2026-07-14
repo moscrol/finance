@@ -63,10 +63,14 @@ def relations_freshness_warnings(vault: Path) -> list[str]:
         try:
             from datetime import datetime
 
-            age = (datetime.now() - datetime.fromisoformat(updated_at)).days
+            parsed = datetime.fromisoformat(str(updated_at))
+            # meta 常带 +08:00；datetime.now() 为 naive，混算会 TypeError 直接打崩 brief
+            if parsed.tzinfo is not None:
+                parsed = parsed.astimezone().replace(tzinfo=None)
+            age = (datetime.now() - parsed).days
             if age > RELATIONS_MAX_AGE_DAYS:
                 warnings.append(f"⚠️ 知识库 relations 数据已 {age} 天未更新（最后：{updated_at}），报告可能滞后于盘面")
-        except ValueError:
+        except (ValueError, TypeError):
             pass
     return warnings
 RELATION_FILES = {
