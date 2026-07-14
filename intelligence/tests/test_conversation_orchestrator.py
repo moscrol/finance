@@ -90,13 +90,60 @@ def _ask_result(
         found_market=True,
         synthesis=synthesis,
         llm_attempted=(
-            llm_provider is not None
-            if llm_attempted is None
-            else llm_attempted
+            llm_provider is not None if llm_attempted is None else llm_attempted
         ),
         llm_provider=llm_provider,
         llm_fallback_reason=llm_fallback_reason,
     )
+
+
+def _answer_spec_result(
+    query: str,
+    *,
+    include_internal_warning: bool = False,
+) -> AskResult:
+    internal_warning = (
+        "raw retrieval warning /Users/a77/private/raw-result.json"
+        if include_internal_warning
+        else ""
+    )
+    contract = build_module_answer_contract(
+        skill_id="fixture",
+        title="已核验回答",
+        modules=[
+            {
+                "type": "summary",
+                "summary": "专项资料支持已核验结论",
+                "items": [
+                    {
+                        "title": "验证",
+                        "summary": "下一窗口复核新增证据",
+                    }
+                ],
+            }
+        ],
+        citations=[
+            {
+                "source": (
+                    "/Users/a77/private/raw-result.json"
+                    if include_internal_warning
+                    else "fixture.json"
+                ),
+                "title": "专项正式资料",
+                "evidence_layer": "canonical",
+                "as_of": "2026-07-11",
+            }
+        ],
+        warnings=[internal_warning] if internal_warning else [],
+        as_of="2026-07-11",
+        retrieval_plan=("读取专项正式资料",),
+        output_contract=("输出核验结论",),
+    )
+    assert contract is not None
+    result = _ask_result(query)
+    result.answer_spec = contract.answer_spec
+    result.question_plan = orchestrator_module.plan_answer_question(query)
+    return result
 
 
 def _prepare_turn(
@@ -155,7 +202,11 @@ def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> Non
 
     parent_run_id = None
     run_ids: list[str] = []
-    for query in ("第一轮：液冷怎么样？", "第二轮：证据够硬吗？", "第三轮：下一步看什么？"):
+    for query in (
+        "第一轮：液冷怎么样？",
+        "第二轮：证据够硬吗？",
+        "第三轮：下一步看什么？",
+    ):
         run_id, assistant_message_id = _prepare_turn(
             conversation_store, run_store, conversation.conversation_id, query
         )
@@ -658,7 +709,7 @@ def test_timed_out_owner_uses_fast_base_ask_without_repeating_research(
     assert elapsed < 0.5
     assert len(captured) == 1
     assert captured[0].compose is True
-    assert captured[0].synthesize is True
+    assert captured[0].synthesize is False
     assert captured[0].use_modules is False
     assert captured[0].use_wiki_rag is False
     assert (1, orchestrator_module.SKILL_RESERVE_SECONDS) in budget.child_calls
@@ -676,7 +727,9 @@ def test_timed_out_owner_uses_fast_base_ask_without_repeating_research(
     assert any("执行超时" in warning for warning in report["warnings"])
 
 
-def test_guard_stop_and_terminal_state_serialize_against_artifact_write(tmp_path) -> None:
+def test_guard_stop_and_terminal_state_serialize_against_artifact_write(
+    tmp_path,
+) -> None:
     entered = Event()
     release = Event()
 
@@ -1045,7 +1098,9 @@ def test_turn_streams_collision_free_progress_with_public_payloads(tmp_path) -> 
         for event in run_store.load_stream_events(run_id)
         if event["event_type"] == "stage.progress"
     ]
-    assert [(event["payload"]["stage"], event["payload"]["status"]) for event in events] == [
+    assert [
+        (event["payload"]["stage"], event["payload"]["status"]) for event in events
+    ] == [
         ("understanding", "running"),
         ("understanding", "completed"),
         ("deterministic_recall", "running"),
@@ -1059,7 +1114,9 @@ def test_turn_streams_collision_free_progress_with_public_payloads(tmp_path) -> 
         f"stage:{event['payload']['stage']}:{index:02d}"
         for index, event in enumerate(events, start=1)
     ]
-    assert all(set(event["payload"]) == {"stage", "status", "elapsed_ms"} for event in events)
+    assert all(
+        set(event["payload"]) == {"stage", "status", "elapsed_ms"} for event in events
+    )
     assert all(isinstance(event["payload"]["elapsed_ms"], int) for event in events)
     callbacks[0]("synthesis", "completed")
     assert len(
@@ -1141,7 +1198,9 @@ def test_progress_producers_track_the_same_stage_independently() -> None:
     ]
 
 
-def test_progress_producer_revoke_blocks_late_events_and_close_finishes_leftovers() -> None:
+def test_progress_producer_revoke_blocks_late_events_and_close_finishes_leftovers() -> (
+    None
+):
     events: list[tuple[str, str, int]] = []
     progress = orchestrator_module._TurnProgressEmitter(
         can_emit=lambda: True,
@@ -1259,10 +1318,7 @@ def test_contextualizes_pronoun_follow_up_with_previous_user_turn(tmp_path) -> N
     assert contextualize_follow_up_query(
         "那它的主要风险和下一步验证是什么？",
         context,
-    ) == (
-        "请个股深挖英维克的液冷业务\n"
-        "追问：那它的主要风险和下一步验证是什么？"
-    )
+    ) == ("请个股深挖英维克的液冷业务\n追问：那它的主要风险和下一步验证是什么？")
     assert contextualize_follow_up_query("今天市场怎么样？", context) == (
         "今天市场怎么样？"
     )
@@ -1288,9 +1344,7 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
         "target=天阳科技 source=[[天阳科技_最新逻辑跟踪]]，质量 medium"
     )
     module_id = sanitize_user_visible_artifact_text("research_5_telemetry")
-    no_llm_code = sanitize_user_visible_artifact_text(
-        "llm_unavailable_template_answer"
-    )
+    no_llm_code = sanitize_user_visible_artifact_text("llm_unavailable_template_answer")
     answer_route = sanitize_user_visible_artifact_text(
         "answer-orchestrator：未高置信识别问题类型"
     )
@@ -1333,9 +1387,7 @@ def test_market_question_automatically_selects_daily_review() -> None:
         llm_complete=lambda _: (None, None, "fixture no llm"),
     )
 
-    assert [selection.skill_id for selection in route.selections] == [
-        "daily-review"
-    ]
+    assert [selection.skill_id for selection in route.selections] == ["daily-review"]
 
 
 def test_turn_routes_with_query_envelope_and_records_it_in_trace(tmp_path) -> None:
@@ -1488,7 +1540,9 @@ def test_turn_persists_runtime_duckdb_cutoff_without_source_date_overwrite(
     assert run.source_date == "2026-07-11"
 
 
-def test_runtime_market_probe_failure_does_not_block_turn(tmp_path, monkeypatch) -> None:
+def test_runtime_market_probe_failure_does_not_block_turn(
+    tmp_path, monkeypatch
+) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
@@ -1681,16 +1735,14 @@ def test_runtime_probe_refreshes_after_canonical_db_version_changes(
     monkeypatch.setattr(orchestrator_module, "probe_market_inputs", changing_probe)
 
     assert (
-        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-        == "2026-07-10"
+        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-10"
     )
     replacement = runtime_inputs.market_db_path.with_suffix(".replacement")
     replacement.write_bytes(b"new-db-version")
     replacement.replace(runtime_inputs.market_db_path)
 
     assert (
-        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-        == "2026-07-13"
+        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-13"
     )
     assert probe_calls == 2
 
@@ -1729,8 +1781,7 @@ def test_runtime_probe_invalidates_cache_when_real_duckdb_wal_appears(
     orchestrator_module._RUNTIME_PROBE_INFLIGHT.clear()
     monkeypatch.setattr(orchestrator_module, "probe_market_inputs", initial_probe)
     assert (
-        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-        == "2026-07-10"
+        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-10"
     )
 
     writer = duckdb.connect(str(runtime_inputs.market_db_path))
@@ -1819,8 +1870,7 @@ def test_runtime_probe_retries_immediately_after_transient_failure(
 
     assert orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) is None
     assert (
-        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-        == "2026-07-13"
+        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-13"
     )
     assert probe_calls == 2
 
@@ -1866,13 +1916,11 @@ def test_runtime_probe_does_not_use_success_cache_when_fingerprint_fails(
     monkeypatch.setattr(orchestrator_module, "probe_market_inputs", changing_probe)
 
     assert (
-        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-        == "2026-07-10"
+        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-10"
     )
     assert orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) is None
     assert (
-        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-        == "2026-07-13"
+        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-13"
     )
     assert probe_calls == 3
 
@@ -1903,18 +1951,17 @@ def test_runtime_probe_retries_after_hung_inflight_lease_expires(
 
     orchestrator_module._RUNTIME_PROBE_CACHE.clear()
     orchestrator_module._RUNTIME_PROBE_INFLIGHT.clear()
-    monkeypatch.setattr(orchestrator_module, "probe_market_inputs", hung_then_fast_probe)
+    monkeypatch.setattr(
+        orchestrator_module, "probe_market_inputs", hung_then_fast_probe
+    )
     monkeypatch.setattr(orchestrator_module, "RUNTIME_PROBE_TIMEOUT_SECONDS", 0.01)
     monkeypatch.setattr(orchestrator_module, "RUNTIME_PROBE_LEASE_SECONDS", 0.02)
 
     assert orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) is None
-    old_future = next(
-        iter(orchestrator_module._RUNTIME_PROBE_INFLIGHT.values())
-    ).future
+    old_future = next(iter(orchestrator_module._RUNTIME_PROBE_INFLIGHT.values())).future
     time.sleep(0.03)
     assert (
-        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-        == "2026-07-13"
+        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-13"
     )
     assert probe_calls == 2
     first_release.set()
@@ -1949,25 +1996,23 @@ def test_old_runtime_probe_generation_cannot_overwrite_new_cache(
 
     orchestrator_module._RUNTIME_PROBE_CACHE.clear()
     orchestrator_module._RUNTIME_PROBE_INFLIGHT.clear()
-    monkeypatch.setattr(orchestrator_module, "probe_market_inputs", old_slow_new_fast_probe)
+    monkeypatch.setattr(
+        orchestrator_module, "probe_market_inputs", old_slow_new_fast_probe
+    )
     monkeypatch.setattr(orchestrator_module, "RUNTIME_PROBE_TIMEOUT_SECONDS", 0.01)
     monkeypatch.setattr(orchestrator_module, "RUNTIME_PROBE_LEASE_SECONDS", 0.02)
 
     assert orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) is None
-    old_future = next(
-        iter(orchestrator_module._RUNTIME_PROBE_INFLIGHT.values())
-    ).future
+    old_future = next(iter(orchestrator_module._RUNTIME_PROBE_INFLIGHT.values())).future
     time.sleep(0.03)
     assert (
-        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-        == "2026-07-13"
+        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-13"
     )
     old_release.set()
     assert old_returned.wait(timeout=0.2)
     assert old_future.result(timeout=0.2) == "2026-07-10"
     assert (
-        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-        == "2026-07-13"
+        orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) == "2026-07-13"
     )
     assert probe_calls == 2
 
@@ -1995,8 +2040,7 @@ def test_runtime_probe_physical_capacity_bounds_hung_generations(
     state_lock = Lock()
     recovery_mode = Event()
     baseline_threads = sum(
-        thread.name.startswith("workbench-runtime-probe")
-        and thread.is_alive()
+        thread.name.startswith("workbench-runtime-probe") and thread.is_alive()
         for thread in enumerate_threads()
     )
 
@@ -2032,26 +2076,21 @@ def test_runtime_probe_physical_capacity_bounds_hung_generations(
     try:
         for expected_call in range(capacity):
             assert (
-                orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-                is None
+                orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) is None
             )
             assert started_events[expected_call].wait(timeout=0.1)
-            current = next(
-                iter(orchestrator_module._RUNTIME_PROBE_INFLIGHT.values())
-            )
+            current = next(iter(orchestrator_module._RUNTIME_PROBE_INFLIGHT.values()))
             futures.append(current.future)
             time.sleep(0.015)
 
         for _ in range(5):
             assert (
-                orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs)
-                is None
+                orchestrator_module._runtime_cutoff_with_timeout(runtime_inputs) is None
             )
             time.sleep(0.015)
 
         live_threads = sum(
-            thread.name.startswith("workbench-runtime-probe")
-            and thread.is_alive()
+            thread.name.startswith("workbench-runtime-probe") and thread.is_alive()
             for thread in enumerate_threads()
         )
         assert probe_calls <= capacity
@@ -2338,6 +2377,15 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     )
     assert retrieval["citations"][0]["source"] == "专项正式资料"
     assert retrieval["citation_counts"] == {"K": 1}
+    snapshots = [
+        event["payload"]
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert [snapshot["phase"] for snapshot in snapshots] == [
+        "verified_draft",
+        "validated_synthesis",
+    ]
 
 
 def test_skill_answer_owner_skips_provider_when_synthesis_budget_is_too_low(
@@ -2475,6 +2523,15 @@ def test_skill_answer_owner_skips_provider_when_synthesis_budget_is_too_low(
     assert len(report_complete) == 1
     assert report_complete[0]["payload"]["report"]["status"] == "completed"
     assert report_complete[0]["payload"]["report"]["llm"] == report["llm"]
+    snapshots = [
+        event["payload"]
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert [snapshot["phase"] for snapshot in snapshots] == [
+        "verified_draft",
+        "verified_fallback",
+    ]
 
 
 def test_owner_selection_uses_exact_primary_question_type_not_output_order(
@@ -2673,7 +2730,9 @@ def test_theme_owner_cannot_take_over_company_query_when_stock_has_no_contract(
 
     def answer_base(options: AskOptions) -> AskResult:
         base_calls.append(options.query)
-        return _ask_result(options.query, synthesis="# 英维克：个股深挖\n公司定位待验证")
+        return _ask_result(
+            options.query, synthesis="# 英维克：个股深挖\n公司定位待验证"
+        )
 
     result = TurnOrchestrator(
         repo_root=tmp_path,
@@ -2694,12 +2753,13 @@ def test_theme_owner_cannot_take_over_company_query_when_stock_has_no_contract(
     assert "英维克" in result.content
     assert "# 题材研究" not in result.content
     assert all(
-        step["name"] != "skill_answer_owner"
-        for step in run_store.load_trace(run_id)
+        step["name"] != "skill_answer_owner" for step in run_store.load_trace(run_id)
     )
 
 
-def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path) -> None:
+def test_skill_failure_degrades_only_its_module_and_ask_still_completes(
+    tmp_path,
+) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
@@ -2839,6 +2899,207 @@ def test_template_answer_is_saved_and_streamed_once_without_llm(tmp_path) -> Non
     assert "llm_unavailable_template_answer" in run.degrades
 
 
+def test_verified_draft_is_published_before_blocking_synthesis_finishes(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "渐进式回答",
+    )
+    synthesis_entered = Event()
+    release_synthesis = Event()
+    turn_result: list[object] = []
+    captured_options: list[AskOptions] = []
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        captured_options.append(options)
+        return _answer_spec_result(
+            options.query,
+            include_internal_warning=True,
+        )
+
+    def blocking_synthesis(options: AskOptions, result: AskResult) -> AskResult:
+        synthesis_entered.set()
+        assert release_synthesis.wait(timeout=3)
+        result.synthesis = "# 模型核验终稿\n\n已形成经模型校验的综合结论。"
+        result.llm_attempted = True
+        result.llm_provider = "fixture"
+        return result
+
+    monkeypatch.setattr(
+        orchestrator_module,
+        "synthesize_existing_answer_spec",
+        blocking_synthesis,
+    )
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+        llm_configured=True,
+        llm_model="fixture-model",
+    )
+    worker = Thread(
+        target=lambda: turn_result.append(
+            orchestrator.run_turn(
+                conversation_id=conversation.conversation_id,
+                run_id=run_id,
+                assistant_message_id=assistant_message_id,
+                query="渐进式回答",
+                skill_mode="auto",
+                selected_skill_ids=[],
+            )
+        ),
+        daemon=True,
+    )
+    worker.start()
+
+    assert synthesis_entered.wait(timeout=2)
+    in_flight_snapshots = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert len(in_flight_snapshots) == 1
+    draft = in_flight_snapshots[0]["payload"]
+    assert draft["revision"] == 1
+    assert draft["phase"] == "verified_draft"
+    assert draft["final"] is False
+    assert draft["text"].strip()
+    assert "专项资料支持已核验结论" in draft["text"]
+    assert "/Users/" not in draft["text"]
+    assert "raw retrieval warning" not in draft["text"]
+    assert set(draft) == {"revision", "phase", "text", "final"}
+    assert captured_options[0].synthesize is False
+
+    release_synthesis.set()
+    worker.join(timeout=3)
+    assert not worker.is_alive()
+    assert turn_result
+
+    events = run_store.load_stream_events(run_id)
+    snapshots = [event for event in events if event["event_type"] == "answer.snapshot"]
+    assert [snapshot["payload"]["revision"] for snapshot in snapshots] == [1, 2]
+    assert snapshots[1]["payload"]["phase"] == "validated_synthesis"
+    assert snapshots[1]["payload"]["final"] is True
+    event_types = [event["event_type"] for event in events]
+    assert event_types.index("answer.snapshot") < event_types.index("report.complete")
+    assert max(
+        index
+        for index, event_type in enumerate(event_types)
+        if event_type == "answer.snapshot"
+    ) < event_types.index("message.complete")
+
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    answer_artifact = (run_store.run_dir(run_id) / "answer.md").read_text(
+        encoding="utf-8"
+    )
+    assert snapshots[1]["payload"]["text"] == assistant.content
+    assert snapshots[1]["payload"]["text"] == answer_artifact
+
+
+@pytest.mark.parametrize(
+    "synthesis_error",
+    [
+        TimeoutError("raw provider timeout must not escape"),
+        RuntimeError("raw provider failure must not escape"),
+    ],
+)
+def test_failed_synthesis_publishes_verified_fallback_terminal_snapshot(
+    tmp_path,
+    monkeypatch,
+    synthesis_error: Exception,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "模型失败也要终态",
+    )
+
+    def failed_synthesis(options: AskOptions, result: AskResult) -> AskResult:
+        raise synthesis_error
+
+    monkeypatch.setattr(
+        orchestrator_module,
+        "synthesize_existing_answer_spec",
+        failed_synthesis,
+    )
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _answer_spec_result(options.query),
+        skill_registry=SkillRegistry(),
+        llm_configured=True,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="模型失败也要终态",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    snapshots = [
+        event["payload"]
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert [(item["revision"], item["phase"], item["final"]) for item in snapshots] == [
+        (1, "verified_draft", False),
+        (2, "verified_fallback", True),
+    ]
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert "raw provider" not in assistant.content
+    assert snapshots[1]["text"] == assistant.content
+    assert snapshots[1]["text"] == (run_store.run_dir(run_id) / "answer.md").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_result_without_answer_spec_does_not_publish_empty_snapshot(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "没有 AnswerSpec",
+    )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="没有 AnswerSpec",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert not any(
+        event["event_type"] == "answer.snapshot"
+        for event in run_store.load_stream_events(run_id)
+    )
+
+
 def test_successful_llm_report_persists_selected_model(tmp_path) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
@@ -2960,10 +3221,7 @@ def test_recovered_turn_prefixes_event_ids_to_avoid_replay_collisions(
 
     events = run_store.load_stream_events(run_id)
     assert events
-    assert all(
-        event["event_id"].startswith("recovery:2:")
-        for event in events
-    )
+    assert all(event["event_id"].startswith("recovery:2:") for event in events)
 
 
 def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
@@ -3120,7 +3378,9 @@ class _StreamingResponse(io.BytesIO):
 
 
 def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
     body = (
         b'data: {"choices":[{"delta":{"content":"real "}}]}\n\n'
         b'data: {"choices":[{"delta":{"content":"delta"}}]}\n\n'
@@ -3148,7 +3408,9 @@ def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> 
 def test_openai_stream_checks_cancellation_between_provider_deltas(
     monkeypatch,
 ) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
     body = (
         b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n'
         b'data: {"choices":[{"delta":{"content":"second"}}]}\n\n'
@@ -3178,7 +3440,9 @@ def test_openai_stream_checks_cancellation_between_provider_deltas(
 
 
 def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> None:
-    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+    provider = llm_refine.LLMProvider(
+        "fixture", "key", "https://llm.invalid/v1", "model"
+    )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     unsupported = urllib.error.HTTPError(
         "https://llm.invalid/v1/chat/completions",
@@ -3192,7 +3456,9 @@ def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> Non
         "_post_chat_stream",
         lambda *args, **kwargs: (_ for _ in ()).throw(unsupported),
     )
-    monkeypatch.setattr(llm_refine, "_post_chat", lambda *args, **kwargs: "whole answer")
+    monkeypatch.setattr(
+        llm_refine, "_post_chat", lambda *args, **kwargs: "whole answer"
+    )
     deltas: list[str] = []
 
     result, reason = llm_refine.synthesize_messages_stream(
@@ -3300,7 +3566,9 @@ def test_unexpected_finish_status_does_not_write_completed_message_or_events(
     )
     original_finish = run_store.finish_run
 
-    def conflicting_finish(run_id: str, status: str, payloads, *, error: str | None = None):
+    def conflicting_finish(
+        run_id: str, status: str, payloads, *, error: str | None = None
+    ):
         assert status == "completed"
         return original_finish(run_id, "cancelled", error="external winner")
 
@@ -3333,7 +3601,9 @@ def test_unexpected_finish_status_does_not_write_completed_message_or_events(
     assert not (run_store.run_dir(run_id) / "report.json").exists()
 
 
-def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(tmp_path) -> None:
+def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(
+    tmp_path,
+) -> None:
     store = ConversationStore("alice", root=tmp_path)
     conversation = store.create_conversation()
     pending = store.append_message(
@@ -3354,8 +3624,10 @@ def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(tmp_pat
 
     assert store.load_messages(conversation.conversation_id) == [completed]
     raw_lines = (
-        tmp_path / conversation.conversation_id / "messages.jsonl"
-    ).read_text(encoding="utf-8").splitlines()
+        (tmp_path / conversation.conversation_id / "messages.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
     assert [json.loads(line)["message_id"] for line in raw_lines] == [
         pending.message_id,
         pending.message_id,

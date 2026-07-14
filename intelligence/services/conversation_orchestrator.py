@@ -6,7 +6,7 @@ import re
 import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future, TimeoutError as FuturesTimeoutError
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date
 from pathlib import Path
 from threading import BoundedSemaphore, RLock, Thread
@@ -26,6 +26,12 @@ from intelligence.services.ask import (
     answer_query,
     render_conversation_answer,
     synthesize_existing_answer_spec,
+)
+from intelligence.services.answer_stream import (
+    AnswerSnapshot,
+    VALIDATED_SYNTHESIS,
+    VERIFIED_DRAFT,
+    VERIFIED_FALLBACK,
 )
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_REVIEW,
@@ -116,12 +122,8 @@ _RUNTIME_PROBE_INFLIGHT: dict[str, _RuntimeProbeInflight] = {}
 _FOLLOW_UP_REFERENCE_PATTERN = re.compile(
     r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
 )
-_INTERNAL_CITATION_PATTERN = re.compile(
-    r"\[(?:D|P|L|G|R|S|W)\d+\]"
-)
-_INTERNAL_CODE_PATTERN = re.compile(
-    r"(?<![A-Za-z0-9_])[DPGRSW]\d+(?![A-Za-z0-9_])"
-)
+_INTERNAL_CITATION_PATTERN = re.compile(r"\[(?:D|P|L|G|R|S|W)\d+\]")
+_INTERNAL_CODE_PATTERN = re.compile(r"(?<![A-Za-z0-9_])[DPGRSW]\d+(?![A-Za-z0-9_])")
 _EVIDENCE_LAYER_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_])L([1-4])(?:\s*级(?:别)?)?(?![A-Za-z0-9_])"
 )
@@ -241,9 +243,7 @@ def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
                     )
                 except Exception:  # Optional external input boundary.
                     cutoff = None
-                completed_fingerprint = _runtime_db_fingerprint(
-                    inputs.market_db_path
-                )
+                completed_fingerprint = _runtime_db_fingerprint(inputs.market_db_path)
                 if (
                     cutoff is not None
                     and inflight.fingerprint is not None
@@ -261,8 +261,7 @@ def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
                             cutoff=effective_cutoff,
                             fingerprint=inflight.fingerprint,
                             expires_at=(
-                                time.monotonic()
-                                + RUNTIME_PROBE_CACHE_TTL_SECONDS
+                                time.monotonic() + RUNTIME_PROBE_CACHE_TTL_SECONDS
                             ),
                         )
             finally:
@@ -286,10 +285,7 @@ def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
         except RuntimeError:
             with _RUNTIME_PROBE_LOCK:
                 current = _RUNTIME_PROBE_INFLIGHT.get(key)
-                if (
-                    current is not None
-                    and current.generation == inflight.generation
-                ):
+                if current is not None and current.generation == inflight.generation:
                     _RUNTIME_PROBE_INFLIGHT.pop(key, None)
             probe_slots.release()
             inflight.future.set_result(None)
@@ -299,6 +295,8 @@ def _runtime_cutoff_with_timeout(inputs: RuntimeResearchInputs) -> str | None:
         return inflight.future.result(timeout=RUNTIME_PROBE_TIMEOUT_SECONDS)
     except FuturesTimeoutError:
         return None
+
+
 _INTERNAL_TIER_TOKEN_PATTERN = re.compile(
     r"(?:high/)?L[1-4](?:_L[1-4])+(?:_[A-Za-z0-9]+)*",
     re.IGNORECASE,
@@ -415,6 +413,8 @@ def _start_skill_worker(
             _SKILL_WORKER_SLOTS.release()
 
     Thread(target=run, name=name, daemon=True).start()
+
+
 _INTERNAL_FIELD_PATTERN = re.compile(
     r'"?(?:candidate_tier|priority_score|cycle_status|warnings?)"?'
     r'\s*[:=]\s*(?:"[^"]*"|[^,，}\]\n]+)[,，]?',
@@ -598,9 +598,7 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         Citation(
             tag=f"K{index}",
             source=str(
-                citation.get("title")
-                or citation.get("source")
-                or output.skill_id
+                citation.get("title") or citation.get("source") or output.skill_id
             ),
             detail=str(citation.get("source") or ""),
         )
@@ -635,10 +633,7 @@ def _redact_object(value: object) -> object:
     if isinstance(value, list):
         return [_redact_object(item) for item in value]
     if isinstance(value, dict):
-        return {
-            redact(str(key)): _redact_object(item)
-            for key, item in value.items()
-        }
+        return {redact(str(key)): _redact_object(item) for key, item in value.items()}
     return value
 
 
@@ -673,6 +668,16 @@ def sanitize_user_visible_artifact_text(text: str) -> str:
     for internal, readable in _PUBLIC_REPORT_REPLACEMENTS:
         cleaned = cleaned.replace(internal, readable)
     return cleaned
+
+
+def _sanitize_verified_answer_text(text: str) -> str:
+    """Sanitize complete answer lines without discarding the safe body."""
+
+    cleaned = sanitize_conversation_answer(text)
+    return "\n".join(
+        sanitize_user_visible_artifact_text(line) if line.strip() else ""
+        for line in cleaned.splitlines()
+    ).strip()
 
 
 def sanitize_conversation_answer(text: str) -> str:
@@ -713,12 +718,12 @@ def sanitize_conversation_answer(text: str) -> str:
         cleaned,
     )
     cleaned = re.sub(r"行业资料(?:\s*行业资料)+", "行业资料", cleaned)
-    cleaned = re.sub(
-        r"公司基础资料(?:\s*(?:公司)?基础资料)+", "公司基础资料", cleaned
-    )
+    cleaned = re.sub(r"公司基础资料(?:\s*(?:公司)?基础资料)+", "公司基础资料", cleaned)
     cleaned = re.sub(r"盘面信号(?:\s*盘面信号)+", "盘面信号", cleaned)
     cleaned = re.sub(r"盘面\s*盘面信号", "盘面信号", cleaned)
-    cleaned = re.sub(r"公告等硬证据\s*(?=(?:公告|订单|认证|量产|客户验证))", "", cleaned)
+    cleaned = re.sub(
+        r"公告等硬证据\s*(?=(?:公告|订单|认证|量产|客户验证))", "", cleaned
+    )
     cleaned = re.sub(
         r"(?<![A-Za-z])local(?![A-Za-z])", "本地", cleaned, flags=re.IGNORECASE
     )
@@ -836,9 +841,7 @@ class _TurnProgressEmitter:
             for stage in stages:
                 self._emit_locked(producer_id, stage, "degraded")
             self._producers.discard(producer_id)
-            self._running = {
-                item for item in self._running if item[0] != producer_id
-            }
+            self._running = {item for item in self._running if item[0] != producer_id}
 
     def close(self) -> None:
         with self._lock:
@@ -933,9 +936,7 @@ class TurnOrchestrator:
         execution_budget = (
             self.budget_factory()
             if self.budget_factory is not None
-            else ExecutionBudget.start(
-                _turn_work_seconds(self.answer_deadline_seconds)
-            )
+            else ExecutionBudget.start(_turn_work_seconds(self.answer_deadline_seconds))
         )
         report = new_structured_report(
             run_id=run_id,
@@ -1272,8 +1273,7 @@ class TurnOrchestrator:
                     output
                     for output in skill_outputs
                     if output.answer_contract is not None
-                    and output.answer_contract.question_type
-                    == primary_question_type
+                    and output.answer_contract.question_type == primary_question_type
                 ),
                 None,
             )
@@ -1286,6 +1286,7 @@ class TurnOrchestrator:
                 None,
             )
             market_review_requested = primary_question_type == QUESTION_MARKET_REVIEW
+            synthesis_options: AskOptions | None = None
             if owner_output is not None:
                 result = _skill_owner_result(query, owner_output)
                 owner_synthesis_allowance = execution_budget.child_timeout(
@@ -1295,32 +1296,27 @@ class TurnOrchestrator:
                 if owner_synthesis_allowance < 4.0:
                     result.llm_fallback_reason = "budget_exhausted"
                 else:
-                    synthesize_existing_answer_spec(
-                        AskOptions(
-                            query=contextual_query,
-                            user=self.run_store.user_id,
-                            compose=True,
-                            synthesize=True,
-                            use_modules=False,
-                            use_wiki_rag=False,
-                            compose_self_review=False,
-                            compose_revise_on_warn=False,
-                            conversation_context=context.to_prompt_block(),
-                            perspective_mode=perspective_mode,
-                            perspective_ids=tuple(selected_perspective_ids),
-                            stream_text_delta=emit_text_delta,
-                            stream_cancel_check=self.is_cancelled,
-                            execution_budget=execution_budget,
-                            llm_model=self.llm_model,
-                            llm_timeout=max(
-                                1,
-                                int(owner_synthesis_allowance),
-                            ),
-                            llm_finalization_reserve=(
-                                FINALIZATION_RESERVE_SECONDS
-                            ),
+                    synthesis_options = AskOptions(
+                        query=contextual_query,
+                        user=self.run_store.user_id,
+                        compose=True,
+                        synthesize=True,
+                        use_modules=False,
+                        use_wiki_rag=False,
+                        compose_self_review=False,
+                        compose_revise_on_warn=False,
+                        conversation_context=context.to_prompt_block(),
+                        perspective_mode=perspective_mode,
+                        perspective_ids=tuple(selected_perspective_ids),
+                        stream_text_delta=emit_text_delta,
+                        stream_cancel_check=self.is_cancelled,
+                        execution_budget=execution_budget,
+                        llm_model=self.llm_model,
+                        llm_timeout=max(
+                            1,
+                            int(owner_synthesis_allowance),
                         ),
-                        result,
+                        llm_finalization_reserve=(FINALIZATION_RESERVE_SECONDS),
                     )
                 self._trace(
                     run_id,
@@ -1349,63 +1345,93 @@ class TurnOrchestrator:
                     warnings.append(budget_warning)
                     self.run_store.add_degrade(run_id, budget_warning)
                 per_call_timeout = (
-                    max(1, int(synthesis_allowance))
-                    if not budget_degraded
-                    else 1
+                    max(1, int(synthesis_allowance)) if not budget_degraded else 1
                 )
                 cheap_skill_timeout_fallback = skill_timed_out
                 base_progress = turn_progress.producer("turn:base")
                 try:
-                    result = self.answer_query(
-                        AskOptions(
-                            query=contextual_query,
-                            date=(
-                                daily_review_output.as_of
-                                if daily_review_output is not None
-                                and market_review_requested
-                                else None
-                            ),
-                            user=self.run_store.user_id,
-                            compose=not budget_degraded,
-                            synthesize=not budget_degraded,
-                            use_modules=(
-                                not budget_degraded
-                                and not cheap_skill_timeout_fallback
-                            ),
-                            use_wiki_rag=(
-                                not budget_degraded
-                                and not cheap_skill_timeout_fallback
-                            ),
-                            compose_self_review=False,
-                            compose_revise_on_warn=False,
-                            market_db_path=self.runtime_inputs.market_db_path,
-                            exports_dir=self.runtime_inputs.exports_dir,
-                            kb_wiki=self.runtime_inputs.knowledge_wiki,
-                            wiki_rag_index_dir=self.runtime_inputs.vector_index_dir,
-                            conversation_context=context.to_prompt_block(),
-                            supplemental_evidence=self._skill_evidence(skill_outputs),
-                            include_memory_block=(
-                                not cheap_skill_timeout_fallback
-                            ),
-                            include_recall_block=(
-                                not cheap_skill_timeout_fallback
-                            ),
-                            perspective_mode=perspective_mode,
-                            perspective_ids=tuple(selected_perspective_ids),
-                            stream_text_delta=emit_text_delta,
-                            stream_cancel_check=self.is_cancelled,
-                            execution_budget=execution_budget,
-                            progress_callback=base_progress,
-                            llm_timeout=per_call_timeout,
-                            llm_finalization_reserve=(
-                                FINALIZATION_RESERVE_SECONDS
-                            ),
-                        )
+                    base_options = AskOptions(
+                        query=contextual_query,
+                        date=(
+                            daily_review_output.as_of
+                            if daily_review_output is not None
+                            and market_review_requested
+                            else None
+                        ),
+                        user=self.run_store.user_id,
+                        compose=not budget_degraded,
+                        synthesize=False,
+                        use_modules=(
+                            not budget_degraded and not cheap_skill_timeout_fallback
+                        ),
+                        use_wiki_rag=(
+                            not budget_degraded and not cheap_skill_timeout_fallback
+                        ),
+                        compose_self_review=False,
+                        compose_revise_on_warn=False,
+                        market_db_path=self.runtime_inputs.market_db_path,
+                        exports_dir=self.runtime_inputs.exports_dir,
+                        kb_wiki=self.runtime_inputs.knowledge_wiki,
+                        wiki_rag_index_dir=self.runtime_inputs.vector_index_dir,
+                        conversation_context=context.to_prompt_block(),
+                        supplemental_evidence=self._skill_evidence(skill_outputs),
+                        include_memory_block=(not cheap_skill_timeout_fallback),
+                        include_recall_block=(not cheap_skill_timeout_fallback),
+                        perspective_mode=perspective_mode,
+                        perspective_ids=tuple(selected_perspective_ids),
+                        stream_text_delta=emit_text_delta,
+                        stream_cancel_check=self.is_cancelled,
+                        execution_budget=execution_budget,
+                        progress_callback=base_progress,
+                        llm_timeout=per_call_timeout,
+                        llm_finalization_reserve=(FINALIZATION_RESERVE_SECONDS),
                     )
+                    result = self.answer_query(base_options)
                 finally:
                     base_progress.revoke()
                 if budget_degraded and result.llm_fallback_reason is None:
                     result.llm_fallback_reason = "budget_exhausted"
+                if not budget_degraded:
+                    synthesis_options = replace(
+                        base_options,
+                        synthesize=True,
+                        progress_callback=None,
+                    )
+
+            verified_draft_text: str | None = None
+            if result.answer_spec is not None:
+                verified_draft_text = _sanitize_verified_answer_text(
+                    render_conversation_answer(result)
+                )
+                if verified_draft_text:
+                    self._emit(
+                        run_id,
+                        assistant_message_id,
+                        "answer:snapshot:0001",
+                        "answer.snapshot",
+                        AnswerSnapshot(
+                            revision=1,
+                            phase=VERIFIED_DRAFT,
+                            text=verified_draft_text,
+                            final=False,
+                        ).to_payload(),
+                        conversation_id,
+                    )
+            if synthesis_options is not None:
+                try:
+                    synthesize_existing_answer_spec(synthesis_options, result)
+                except LLMStreamCancelled:
+                    raise
+                except Exception as exc:  # Provider boundary degrades to draft.
+                    result.llm_attempted = True
+                    result.llm_fallback_reason = (
+                        "provider_timeout"
+                        if isinstance(exc, (TimeoutError, FuturesTimeoutError))
+                        else "provider_unavailable"
+                    )
+                    result.warnings.append(
+                        f"LLM 合成未采用：{result.llm_fallback_reason}"
+                    )
             self._check_cancelled()
             is_market_review = (
                 owner_output is None
@@ -1458,7 +1484,9 @@ class TurnOrchestrator:
                 )
 
             answer_text = render_conversation_answer(result)
-            if (
+            if result.synthesis is None and verified_draft_text is not None:
+                answer_text = verified_draft_text
+            elif (
                 result.synthesis is None
                 and is_market_review
                 and daily_review_output is not None
@@ -1468,7 +1496,7 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
-            if result.synthesis is None and text_chunks:
+            elif result.synthesis is None and text_chunks:
                 answer_text = "".join(text_chunks)
             answer_text = sanitize_conversation_answer(answer_text)
             if not text_chunks:
@@ -1488,7 +1516,7 @@ class TurnOrchestrator:
             answer_prefix = "\n\n".join(
                 block for block in (perspective_header, fallback_notice) if block
             )
-            answer_text = f"{answer_prefix}\n\n{answer_text}"
+            answer_text = redact(f"{answer_prefix}\n\n{answer_text}")
             if (
                 result.synthesis is None
                 and owner_output is None
@@ -1521,7 +1549,7 @@ class TurnOrchestrator:
                 (
                     ArtifactPayload(
                         "answer.md",
-                        redact(answer_text),
+                        answer_text,
                         "markdown",
                         redact(f"对话回答：{query[:24]}"),
                     ),
@@ -1545,6 +1573,25 @@ class TurnOrchestrator:
                 citations=citations,
                 degrades=warnings,
             )
+            if verified_draft_text is not None:
+                final_phase = (
+                    VALIDATED_SYNTHESIS
+                    if result.synthesis is not None
+                    else VERIFIED_FALLBACK
+                )
+                self._emit(
+                    run_id,
+                    assistant_message_id,
+                    "answer:snapshot:0002",
+                    "answer.snapshot",
+                    AnswerSnapshot(
+                        revision=2,
+                        phase=final_phase,
+                        text=answer_text,
+                        final=True,
+                    ).to_payload(),
+                    conversation_id,
+                )
             self._emit(
                 run_id,
                 assistant_message_id,
@@ -1924,9 +1971,7 @@ class TurnOrchestrator:
                         )
                         lines.append(f"  - {prefix}{summary.strip()}")
             if output.warnings:
-                lines.append(
-                    "- 数据质量提示：" + "；".join(output.warnings[:3])
-                )
+                lines.append("- 数据质量提示：" + "；".join(output.warnings[:3]))
         return "\n".join(lines)
 
     @staticmethod
