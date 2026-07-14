@@ -1398,12 +1398,35 @@ class TurnOrchestrator:
                         progress_callback=None,
                     )
 
+            is_market_review = (
+                owner_output is None
+                and daily_review_output is not None
+                and market_review_requested
+            )
+            perspective_header = perspective_lab.runtime_answer_header(
+                userspace.user_space(self.run_store.user_id),
+                mode=perspective_mode,
+                perspective_ids=tuple(selected_perspective_ids),
+            )
             verified_draft_text: str | None = None
             if result.answer_spec is not None:
-                verified_draft_text = _sanitize_verified_answer_text(
+                verified_draft_body = _sanitize_verified_answer_text(
                     render_conversation_answer(result)
                 )
-                if verified_draft_text:
+                draft_fallback_notice = (
+                    perspective_lab.runtime_fallback_notice(perspective_mode)
+                    if owner_output is None and not is_market_review
+                    else ""
+                )
+                verified_draft_prefix = "\n\n".join(
+                    block
+                    for block in (perspective_header, draft_fallback_notice)
+                    if block
+                )
+                verified_draft_text = redact(
+                    f"{verified_draft_prefix}\n\n{verified_draft_body}"
+                )
+                if verified_draft_body:
                     self._emit(
                         run_id,
                         assistant_message_id,
@@ -1433,11 +1456,6 @@ class TurnOrchestrator:
                         f"LLM 合成未采用：{result.llm_fallback_reason}"
                     )
             self._check_cancelled()
-            is_market_review = (
-                owner_output is None
-                and daily_review_output is not None
-                and market_review_requested
-            )
             if (
                 is_market_review
                 and daily_review_output is not None
@@ -1501,22 +1519,20 @@ class TurnOrchestrator:
             answer_text = sanitize_conversation_answer(answer_text)
             if not text_chunks:
                 emit_text_delta(answer_text)
-            perspective_header = perspective_lab.runtime_answer_header(
-                userspace.user_space(self.run_store.user_id),
-                mode=perspective_mode,
-                perspective_ids=tuple(selected_perspective_ids),
-            )
-            fallback_notice = (
-                perspective_lab.runtime_fallback_notice(perspective_mode)
-                if result.synthesis is None
-                and owner_output is None
-                and not is_market_review
-                else ""
-            )
-            answer_prefix = "\n\n".join(
-                block for block in (perspective_header, fallback_notice) if block
-            )
-            answer_text = redact(f"{answer_prefix}\n\n{answer_text}")
+            if result.synthesis is None and verified_draft_text is not None:
+                answer_text = verified_draft_text
+            else:
+                fallback_notice = (
+                    perspective_lab.runtime_fallback_notice(perspective_mode)
+                    if result.synthesis is None
+                    and owner_output is None
+                    and not is_market_review
+                    else ""
+                )
+                answer_prefix = "\n\n".join(
+                    block for block in (perspective_header, fallback_notice) if block
+                )
+                answer_text = redact(f"{answer_prefix}\n\n{answer_text}")
             if (
                 result.synthesis is None
                 and owner_output is None

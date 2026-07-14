@@ -2989,6 +2989,8 @@ def test_verified_draft_is_published_before_blocking_synthesis_finishes(
     assert [snapshot["payload"]["revision"] for snapshot in snapshots] == [1, 2]
     assert snapshots[1]["payload"]["phase"] == "validated_synthesis"
     assert snapshots[1]["payload"]["final"] is True
+    assert snapshots[0]["payload"]["text"].count("当前视角：数据中立") == 1
+    assert snapshots[1]["payload"]["text"].count("当前视角：数据中立") == 1
     event_types = [event["event_type"] for event in events]
     assert event_types.index("answer.snapshot") < event_types.index("report.complete")
     assert max(
@@ -3012,11 +3014,41 @@ def test_verified_draft_is_published_before_blocking_synthesis_finishes(
         RuntimeError("raw provider failure must not escape"),
     ],
 )
+@pytest.mark.parametrize(
+    ("perspective_mode", "perspective_ids", "expected_blocks"),
+    [
+        (
+            "neutral",
+            (),
+            ("当前视角：数据中立", "来源范围：数据提供方"),
+        ),
+        (
+            "single",
+            ("fengyuan94",),
+            (
+                "当前视角：风远94",
+                "KOL原始判断：该视角未知",
+                "下方内容仅为数据中立事实底座",
+            ),
+        ),
+    ],
+)
 def test_failed_synthesis_publishes_verified_fallback_terminal_snapshot(
     tmp_path,
     monkeypatch,
     synthesis_error: Exception,
+    perspective_mode: str,
+    perspective_ids: tuple[str, ...],
+    expected_blocks: tuple[str, ...],
 ) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    if perspective_mode == "single":
+        perspective_lab.init_perspective(
+            userspace.user_space("alice"),
+            "fengyuan94",
+            display_name="风远94",
+            ptype="blogger",
+        )
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
@@ -3049,6 +3081,8 @@ def test_failed_synthesis_publishes_verified_fallback_terminal_snapshot(
         query="模型失败也要终态",
         skill_mode="auto",
         selected_skill_ids=[],
+        perspective_mode=perspective_mode,
+        selected_perspective_ids=perspective_ids,
     )
 
     snapshots = [
@@ -3062,6 +3096,8 @@ def test_failed_synthesis_publishes_verified_fallback_terminal_snapshot(
     ]
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert "raw provider" not in assistant.content
+    assert snapshots[1]["text"] == snapshots[0]["text"]
+    assert all(block in snapshots[0]["text"] for block in expected_blocks)
     assert snapshots[1]["text"] == assistant.content
     assert snapshots[1]["text"] == (run_store.run_dir(run_id) / "answer.md").read_text(
         encoding="utf-8"
