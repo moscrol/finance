@@ -10,6 +10,7 @@ import pytest
 from intelligence.services import answer_model
 from intelligence.services.answer_orchestrator import plan_answer_question
 from intelligence.services.ask import AskOptions, AskResult, Citation
+from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.execution_budget import ExecutionBudget
 from intelligence.services.run_store import RunStore
 from intelligence.services.runtime_inputs import RuntimeResearchInputs
@@ -408,6 +409,113 @@ def test_stock_owner_requires_target_company_fact_and_renderer_separates_peer_fa
     assert "高澜股份" not in position
     assert "高澜股份" not in strongest
     assert "高澜股份" in peers
+
+
+def test_news_owner_enforces_explicit_company_boundary_across_contract_and_citations(
+    tmp_path: Path,
+) -> None:
+    query = "分析英维克近期消息与公告对股价逻辑的冲击"
+    result = _result(
+        query,
+        NEWS_IMPACT.question_type,
+        evidence_id="R1",
+        theme="英维克",
+        company="英维克",
+        fact_text="英维克公告披露业务进展。",
+    )
+    assert result.answer_spec is not None
+    peer = answer_model.make_claim(
+        claim_id="peer-fact",
+        text="中兴通讯公告披露业务进展。",
+        claim_type="company_fact",
+        theme="英维克",
+        status=answer_model.ClaimStatus.VERIFIED,
+        evidence_tier="公告",
+        company="中兴通讯",
+        evidence_ids=("W2",),
+    )
+    peer_assessment = answer_model.CompanyAssessment(
+        company="中兴通讯",
+        ticker="000063.SZ",
+        chain_stage="无关",
+        directness="无关",
+        tier=answer_model.CompanyTier.CANDIDATE,
+        claims=(peer,),
+    )
+    result.answer_spec = replace(
+        result.answer_spec,
+        summary=(*result.answer_spec.summary, peer),
+        verified_facts=(*result.answer_spec.verified_facts, peer),
+        company_table=(peer_assessment,),
+        sources=(
+            *result.answer_spec.sources,
+            answer_model.EvidenceRef(
+                evidence_id="W2",
+                source="中兴通讯公告",
+                tier="公告",
+                source_date="2026-07-10",
+            ),
+        ),
+    )
+    result.question_plan = plan_answer_question(
+        query,
+        question_type_override=NEWS_IMPACT.question_type,
+        anchor=EntityAnchor(entity="英维克", ticker="002837.SZ"),
+    )
+    result.citations.append(
+        Citation(tag="W2", source="中兴通讯公告", detail="无关公司公告")
+    )
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+
+    output = ResearchOwnerSkill(
+        NEWS_IMPACT,
+        answer_query_fn=lambda options: result,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert output.answer_contract is not None
+    prompt = output.answer_contract.answer_spec.to_prompt_block()
+    assert "英维克" in prompt
+    assert "中兴通讯" not in prompt
+    assert all(citation["tag"] != "W2" for citation in output.citations)
+    artifact_text = (store.run_dir(run.run_id) / output.raw_result_ref).read_text(
+        encoding="utf-8"
+    )
+    assert "中兴通讯" not in artifact_text
+
+
+def test_news_owner_returns_explicit_gap_when_subject_has_no_hard_fact(
+    tmp_path: Path,
+) -> None:
+    query = "分析英维克近期消息与公告对股价逻辑的冲击"
+    result = _result(
+        query,
+        NEWS_IMPACT.question_type,
+        evidence_id="W2",
+        theme="英维克",
+        company="中兴通讯",
+        fact_text="中兴通讯公告披露业务进展。",
+    )
+    result.question_plan = plan_answer_question(
+        query,
+        question_type_override=NEWS_IMPACT.question_type,
+        anchor=EntityAnchor(entity="英维克", ticker="002837.SZ"),
+    )
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+
+    output = ResearchOwnerSkill(
+        NEWS_IMPACT,
+        answer_query_fn=lambda options: result,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert output.answer_contract is not None
+    spec = output.answer_contract.answer_spec
+    assert spec.verified_facts == ()
+    assert spec.company_table == ()
+    rendered = answer_model.render_answer_spec(spec)
+    assert "未检索到英维克公司级公告硬证据" in rendered
+    assert "中兴通讯" not in rendered
 
 
 @pytest.mark.parametrize(

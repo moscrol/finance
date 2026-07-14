@@ -175,6 +175,7 @@ def plan_answer_question(
         raw_query,
         matched_theme=matched_theme,
         anchor=anchor,
+        question_type_override=question_type_override,
     )
     if not raw_query:
         return QuestionPlan(

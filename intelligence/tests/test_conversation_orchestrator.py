@@ -1409,6 +1409,15 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
         "本地 DuckDB + snapshot/export；MarketAdapter.get_capacity_sectors；"
         "capacity_industry=True；来源=knowledge_evidence"
     )
+    provider_timeout = sanitize_user_visible_artifact_text(
+        "LLM 合成未采用：provider_timeout"
+    )
+    missing_freshness = sanitize_user_visible_artifact_text(
+        "untrusted index freshness: missing"
+    )
+    empty_narrow = sanitize_user_visible_artifact_text(
+        "narrow retrieval empty after 1 attempts"
+    )
 
     assert no_llm == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
     assert "API_KEY" not in no_llm
@@ -1430,6 +1439,12 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
         "本地市场数据 + 历史盘面快照；本地盘面数据；"
         "成交容量居前=是；来源=知识库候选资料"
     )
+    assert provider_timeout == "模型精修超时；已保留可核验版本。"
+    assert missing_freshness == "知识库索引时效无法确认；本轮未采用该检索结果。"
+    assert empty_narrow == "未检索到可核验的公司专项资料；已按证据缺口处理。"
+    assert "provider_timeout" not in provider_timeout
+    assert "freshness" not in missing_freshness
+    assert "narrow retrieval" not in empty_narrow
 
 
 def test_market_question_automatically_selects_daily_review() -> None:
@@ -1544,6 +1559,123 @@ def test_turn_routes_real_company_query_with_production_primary_question_type(
     )
 
     assert routed_question_types == ["stock_deep_dive"]
+
+
+@pytest.mark.parametrize(
+    ("company", "ticker"),
+    [("英维克", "002837.SZ"), ("瑞华泰", "688323.SH")],
+)
+def test_turn_routes_company_announcement_with_entity_subject_boundary(
+    tmp_path,
+    company: str,
+    ticker: str,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = f"分析{company}近期消息与公告对股价逻辑的冲击"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    wiki = tmp_path / "wiki"
+    relations = wiki / "relations"
+    relations.mkdir(parents=True)
+    (relations / "entity_exposures.json").write_text(
+        json.dumps(
+            {
+                "entities": {
+                    company: {
+                        "codes": [ticker],
+                        "concepts": {"公司公告": {}},
+                    }
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    routed = []
+
+    def route_spy(
+        *args,
+        query_envelope,
+        primary_question_type: str,
+        **kwargs,
+    ) -> SkillRouteResult:
+        routed.append((query_envelope, primary_question_type))
+        return SkillRouteResult((), fallback_to_ask=False, base_finance_fallback=True)
+
+    runtime_inputs = RuntimeResearchInputs.from_roots(
+        code_root=tmp_path,
+        data_root=tmp_path,
+        users_root=tmp_path / "users",
+        knowledge_wiki=wiki,
+        vector_index_dir=tmp_path / ".rag_index",
+    )
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        runtime_inputs=runtime_inputs,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=route_spy,
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert len(routed) == 1
+    envelope, question_type = routed[0]
+    assert question_type == "news_impact"
+    assert envelope.question_type == "news_impact"
+    assert envelope.subject_kind == "company"
+    assert envelope.subject == company
+
+
+def test_turn_routes_announcement_without_entity_as_unknown(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "分析近期消息与公告对股价逻辑的冲击"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    routed = []
+
+    def route_spy(*args, query_envelope, **kwargs) -> SkillRouteResult:
+        routed.append(query_envelope)
+        return SkillRouteResult((), fallback_to_ask=False, base_finance_fallback=True)
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=route_spy,
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert routed[0].question_type == "news_impact"
+    assert routed[0].subject_kind == "unknown"
+    assert routed[0].subject is None
 
 
 def test_turn_persists_runtime_duckdb_cutoff_without_source_date_overwrite(

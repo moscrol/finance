@@ -168,6 +168,25 @@ class SmokeHandler(BaseHTTPRequestHandler):
                 elif type(self).mode == "unknown_event":
                     events[2] = ("private.debug", events[2][1])
                     events[2][1]["event_type"] = "private.debug"
+                elif type(self).mode == "timeout_object":
+                    events[-1] = ("timeout", {"internal": "must reject"})
+                elif type(self).mode == "bad_step_status":
+                    events.insert(
+                        0,
+                        (
+                            "step",
+                            {
+                                "step_id": "retrieve",
+                                "name": "retrieve",
+                                "status": "private",
+                                "started_at": "2026-07-14T00:00:00Z",
+                                "finished_at": None,
+                                "input_summary": "",
+                                "output_summary": "",
+                                "warnings": [],
+                            },
+                        ),
+                    )
             else:
                 assert after == 3
                 delta = (
@@ -275,6 +294,27 @@ class SmokeHandler(BaseHTTPRequestHandler):
                 for name, payload in events
             ).encode()
             self._send(200, body, "text/event-stream")
+            return
+        if parsed.path == "/api/runs/run-1/trace":
+            payload = (
+                [
+                    {
+                        "step_id": "retrieve",
+                        "name": "retrieve",
+                        "status": "completed",
+                        "started_at": "2026-07-14T00:00:00Z",
+                        "finished_at": None,
+                        "input_summary": "",
+                        "output_summary": (
+                            'Traceback File "/Users/alice/private/rag_index.py", line 9'
+                        ),
+                        "warnings": ["provider_timeout"],
+                    }
+                ]
+                if type(self).mode == "trace_leak"
+                else []
+            )
+            self._json(payload)
             return
         if parsed.path == "/api/runs/run-1/report":
             llm = {
@@ -600,6 +640,7 @@ def _mock_smoke_summary_with_model(
             "readiness_skills": [],
             "create_conversation": {"conversation_id": "conversation-1"},
             "create_message": {"run_id": "run-1"},
+            "run_trace": [],
             "run_report": report,
         }[stage]
 
@@ -821,6 +862,37 @@ def test_completed_smoke_rejects_non_public_event_type(tmp_path: Path) -> None:
 
     assert exit_code == 2
     assert summary["failure_stage"] == "sse_event_type"
+
+
+@pytest.mark.parametrize(
+    ("mode", "failure_stage"),
+    [
+        ("timeout_object", "sse_timeout_payload"),
+        ("bad_step_status", "sse_step"),
+    ],
+)
+def test_smoke_rejects_invalid_control_frame_schema(
+    tmp_path: Path,
+    mode: str,
+    failure_stage: str,
+) -> None:
+    exit_code, summary, _ = run_cli(tmp_path, mode)
+
+    assert exit_code == 2
+    assert summary["failure_stage"] == failure_stage
+
+
+def test_smoke_fails_closed_when_public_trace_leaks_internal_diagnostics(
+    tmp_path: Path,
+) -> None:
+    exit_code, summary, raw_summary = run_cli(tmp_path, "trace_leak")
+
+    assert exit_code == 2
+    assert summary["terminal_outcome"] == "public_scan_failed"
+    assert summary["public_scan"]["hit_count"] >= 3
+    assert "Traceback" not in raw_summary
+    assert "/Users/alice" not in raw_summary
+    assert "provider_timeout" not in raw_summary
 
 
 def test_secret_scanner_scans_answer_snapshot_payload(tmp_path: Path) -> None:

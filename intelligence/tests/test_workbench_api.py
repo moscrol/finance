@@ -1769,6 +1769,53 @@ def test_public_run_projections_hide_raw_tracebacks_and_local_paths(
     assert "外部语义检索当前不可用或受限" in bodies[0]
 
 
+def test_trace_endpoint_and_sse_deep_sanitize_nested_public_payloads(
+    client: TestClient,
+) -> None:
+    store = RunStore()
+    run = store.create_run("trace safety", "ask")
+    unsafe = {
+        "diagnostic": 'Traceback File "/Users/alice/private/rag_index.py", line 9',
+        "nested": [
+            {"warning": "provider_timeout"},
+            {"warning": "untrusted index freshness: missing"},
+            {"warning": "narrow retrieval empty after 1 attempts"},
+        ],
+    }
+    step = store.append_step(
+        run.run_id,
+        step_id="retrieve",
+        name="retrieve",
+        status="completed",
+        output_summary=json.dumps(unsafe, ensure_ascii=False),
+        retrieval={"raw": unsafe},
+    )
+    store.append_stream_event(
+        run.run_id,
+        event_id="trace:retrieve",
+        event_type="trace.step",
+        payload={"step": step, "nested": unsafe},
+    )
+    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+
+    raw_store = json.dumps(store.load_trace(run.run_id), ensure_ascii=False)
+    assert "Traceback" in raw_store
+    assert "/Users/alice" in raw_store
+
+    trace_body = client.get(f"/api/runs/{run.run_id}/trace").text
+    sse_body = client.get(f"/api/runs/{run.run_id}/events").text
+    for body in (trace_body, sse_body):
+        assert "Traceback" not in body
+        assert "/Users/alice" not in body
+        assert "rag_index.py" not in body
+        assert "provider_timeout" not in body
+        assert "untrusted index freshness" not in body
+        assert "narrow retrieval empty" not in body
+        assert "模型精修超时" in body
+        assert "知识库索引时效无法确认" in body
+        assert "未检索到可核验的公司专项资料" in body
+
+
 def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestClient) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     _wait_terminal(client, run_id)

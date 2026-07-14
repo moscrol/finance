@@ -52,6 +52,32 @@ def test_known_alias_and_entity_are_explicit_subjects() -> None:
     )
 
 
+@pytest.mark.parametrize("company", ["英维克", "瑞华泰"])
+def test_company_news_query_envelope_preserves_subject_and_news_intent(
+    company: str,
+) -> None:
+    envelope = understand_query(
+        f"分析{company}近期消息与公告对股价逻辑的冲击",
+        anchor=EntityAnchor(entity=company, matched_by="name"),
+        question_type_override="news_impact",
+    )
+
+    assert envelope.question_type == "news_impact"
+    assert envelope.subject_kind == "company"
+    assert envelope.subject == company
+
+
+def test_news_query_without_entity_remains_unknown() -> None:
+    envelope = understand_query(
+        "分析近期消息与公告对股价逻辑的冲击",
+        question_type_override="news_impact",
+    )
+
+    assert envelope.question_type == "news_impact"
+    assert envelope.subject_kind == "unknown"
+    assert envelope.subject is None
+
+
 def test_empty_or_unknown_query_never_becomes_a_theme() -> None:
     assert understand_query("").subject is None
     assert understand_query("帮我看看这个").subject is None

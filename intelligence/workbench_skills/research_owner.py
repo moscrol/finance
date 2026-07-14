@@ -75,15 +75,35 @@ class ResearchOwnerSkill:
                 progress_callback=context.progress_callback,
             )
         )
-        retrieved_modules = self._modules(result)
-        retrieved_citations = self._citations(result)
         warnings = list(result.warnings)
         contract = self._answer_contract(result)
         if contract is None:
             warnings.append("专项检索未形成可追溯事实，已回退基础金融回答。")
+        scoped_result = result
+        allowed_evidence_ids: set[str] | None = None
+        if contract is not None and self._company_subject(result) is not None:
+            allowed_evidence_ids = {
+                source.evidence_id for source in contract.answer_spec.sources
+            }
+            scoped_result = replace(
+                result,
+                answer_spec=contract.answer_spec,
+                citations=[
+                    citation
+                    for citation in result.citations
+                    if citation.tag in allowed_evidence_ids
+                ],
+                sections={},
+                synthesis=None,
+            )
+        retrieved_modules = self._modules(scoped_result)
+        retrieved_citations = self._citations(
+            scoped_result,
+            allowed_evidence_ids=allowed_evidence_ids,
+        )
         raw_result_ref = self._store_artifact(
             context,
-            result,
+            scoped_result,
             citations=retrieved_citations,
             warnings=warnings,
             owned=contract is not None,
@@ -103,7 +123,14 @@ class ResearchOwnerSkill:
         result: AskResult,
     ) -> SkillAnswerContract | None:
         spec = result.answer_spec
-        if spec is None or not self._has_traceable_verified_fact(result, spec):
+        if spec is None:
+            return None
+        subject = self._company_subject(result)
+        if self.config.question_type == "news_impact" and subject is not None:
+            spec = self._scope_news_spec_to_company(spec, subject)
+            if not self._has_traceable_verified_fact(result, spec):
+                spec = self._missing_company_news_spec(spec, subject)
+        elif not self._has_traceable_verified_fact(result, spec):
             return None
         owned_spec = replace(
             spec,
@@ -126,6 +153,150 @@ class ResearchOwnerSkill:
             question_type=self.config.question_type,
         )
 
+    def _company_subject(self, result: AskResult) -> str | None:
+        if self.config.question_type not in {"stock_deep_dive", "news_impact"}:
+            return None
+        envelope = (
+            result.question_plan.query_envelope
+            if result.question_plan is not None
+            else None
+        )
+        if (
+            envelope is None
+            or envelope.subject_kind != "company"
+            or not envelope.subject
+        ):
+            return None
+        return envelope.subject.strip() or None
+
+    @staticmethod
+    def _scope_news_spec_to_company(
+        spec: answer_model.AnswerSpec,
+        subject: str,
+    ) -> answer_model.AnswerSpec:
+        claims = (
+            *spec.summary,
+            *spec.verified_facts,
+            *spec.counter_evidence,
+            *spec.gaps,
+            *spec.triggers,
+            *(claim for company in spec.company_table for claim in company.claims),
+        )
+        excluded_companies = {
+            company
+            for company in (
+                *(claim.company for claim in claims),
+                *(assessment.company for assessment in spec.company_table),
+            )
+            if company and company != subject
+        }
+
+        def in_scope(claim: answer_model.Claim) -> bool:
+            return claim.company in {None, subject} and not any(
+                company in claim.text for company in excluded_companies
+            )
+
+        verified_facts = tuple(
+            claim for claim in spec.verified_facts if claim.company == subject
+        )
+        summary = tuple(claim for claim in spec.summary if in_scope(claim))
+        if not summary and verified_facts:
+            summary = verified_facts[:3]
+        counter_evidence = tuple(
+            claim for claim in spec.counter_evidence if in_scope(claim)
+        )
+        gaps = tuple(claim for claim in spec.gaps if in_scope(claim))
+        triggers = tuple(claim for claim in spec.triggers if in_scope(claim))
+        company_table = tuple(
+            replace(
+                assessment,
+                claims=tuple(claim for claim in assessment.claims if in_scope(claim)),
+            )
+            for assessment in spec.company_table
+            if assessment.company == subject
+        )
+        used_evidence_ids = {
+            evidence_id
+            for claim in (
+                *summary,
+                *verified_facts,
+                *counter_evidence,
+                *gaps,
+                *triggers,
+                *(claim for company in company_table for claim in company.claims),
+            )
+            for evidence_id in claim.evidence_ids
+        }
+        return replace(
+            spec,
+            research_spec=replace(
+                spec.research_spec,
+                theme=subject,
+                company_scope=f"仅限明确提问主体：{subject}",
+            ),
+            summary=summary,
+            verified_facts=verified_facts,
+            company_table=company_table,
+            counter_evidence=counter_evidence,
+            gaps=gaps,
+            triggers=triggers,
+            next_actions=tuple(
+                action
+                for action in spec.next_actions
+                if not any(company in action for company in excluded_companies)
+            ),
+            sources=tuple(
+                source
+                for source in spec.sources
+                if source.evidence_id in used_evidence_ids
+            ),
+            system_notices=tuple(
+                notice
+                for notice in spec.system_notices
+                if not any(company in notice for company in excluded_companies)
+            ),
+            prompt_constraints=tuple(
+                dict.fromkeys(
+                    (
+                        *spec.prompt_constraints,
+                        f"本轮公司主体硬边界为{subject}；不得新增其他公司或候选受益者。",
+                    )
+                )
+            ),
+        )
+
+    @staticmethod
+    def _missing_company_news_spec(
+        spec: answer_model.AnswerSpec,
+        subject: str,
+    ) -> answer_model.AnswerSpec:
+        gap = answer_model.make_claim(
+            claim_id="subject-company-evidence-gap",
+            text=(
+                f"未检索到{subject}公司级公告硬证据；本轮无法确认消息冲击，"
+                "需补充公告原文、披露日期和可核验经营数据。"
+            ),
+            claim_type="evidence_gap",
+            theme=subject,
+            status=answer_model.ClaimStatus.MISSING,
+            company=subject,
+        )
+        return replace(
+            spec,
+            summary=(gap,),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(gap,),
+            triggers=(),
+            next_actions=(
+                f"核对{subject}公告原文、披露日期与交易所链接",
+                f"补充{subject}订单、收入或产能等公司级验证数据",
+            ),
+            sources=(),
+            system_notices=("未形成公司级硬证据，本轮只披露证据缺口。",),
+        )
+
     def _presentation_title(self, spec: answer_model.AnswerSpec) -> str:
         if self.config.question_type != "stock_deep_dive":
             return self.config.title
@@ -145,23 +316,14 @@ class ResearchOwnerSkill:
             for source in spec.sources
             if source.evidence_id not in _PRIOR_ONLY_EVIDENCE
         }
-        target_company: str | None = None
+        target_company = self._company_subject(result)
         if self.config.question_type == "stock_deep_dive":
-            target_company = spec.research_spec.theme.strip() or None
-            envelope = (
-                result.question_plan.query_envelope
-                if result.question_plan is not None
-                else None
-            )
-            if (
-                envelope is not None
-                and envelope.subject_kind == "company"
-                and envelope.subject
-                and envelope.subject.strip() != target_company
-            ):
+            spec_company = spec.research_spec.theme.strip() or None
+            if target_company is not None and target_company != spec_company:
                 return False
-            if target_company is None:
-                return False
+            target_company = spec_company
+        if self.config.question_type == "stock_deep_dive" and target_company is None:
+            return False
         return any(
             claim.status == answer_model.ClaimStatus.VERIFIED
             and (target_company is None or claim.company == target_company)
@@ -181,7 +343,11 @@ class ResearchOwnerSkill:
         return [module for module in redacted if isinstance(module, dict)]
 
     @staticmethod
-    def _citations(result: AskResult) -> list[JsonObject]:
+    def _citations(
+        result: AskResult,
+        *,
+        allowed_evidence_ids: set[str] | None = None,
+    ) -> list[JsonObject]:
         return [
             {
                 "tag": citation.tag,
@@ -190,6 +356,7 @@ class ResearchOwnerSkill:
                 "as_of": result.trade_date,
             }
             for citation in result.citations
+            if allowed_evidence_ids is None or citation.tag in allowed_evidence_ids
         ]
 
     def _store_artifact(

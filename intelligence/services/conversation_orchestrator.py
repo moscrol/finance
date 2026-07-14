@@ -18,7 +18,8 @@ from intelligence.api.structured_reports import (
     render_daily_review_answer,
     upsert_report_module,
 )
-from intelligence.services import run_store as rs
+from intelligence.adapters.knowledge import KnowledgeAdapter
+from intelligence.services import entity_anchor, run_store as rs
 from intelligence.services.ask import (
     AskOptions,
     AskResult,
@@ -660,7 +661,22 @@ def _redact_object(value: object) -> object:
     if isinstance(value, list):
         return [_redact_object(item) for item in value]
     if isinstance(value, dict):
-        return {redact(str(key)): _redact_object(item) for key, item in value.items()}
+        return {
+            redact(str(key)): (
+                item
+                if key == "fallback_reason"
+                and isinstance(item, str)
+                and item
+                in {
+                    "provider_timeout",
+                    "provider_unavailable",
+                    "quality_gate_rejected",
+                    "budget_exhausted",
+                }
+                else _redact_object(item)
+            )
+            for key, item in value.items()
+        }
     return value
 
 
@@ -680,6 +696,24 @@ def _sanitize_citation_list(
 
 def sanitize_user_visible_artifact_text(text: str) -> str:
     cleaned = redact(text)
+    cleaned = re.sub(
+        r"(?:LLM\s*合成未采用[:：]\s*)?provider_timeout",
+        "模型精修超时；已保留可核验版本。",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"untrusted\s+index\s+freshness:\s*missing",
+        "知识库索引时效无法确认；本轮未采用该检索结果。",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"narrow\s+retrieval\s+empty\s+after\s+\d+\s+attempts?",
+        "未检索到可核验的公司专项资料；已按证据缺口处理。",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
     if re.search(r"未配置 LLM key", cleaned, re.IGNORECASE):
         return "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
     if re.search(r"HF_TOKEN|Hugging\s*Face", cleaned, re.IGNORECASE):
@@ -1049,7 +1083,15 @@ class TurnOrchestrator:
             understanding_progress = turn_progress.producer("turn:understanding")
             understanding_progress("understanding", "running")
             try:
-                routing_envelope = understand_query(contextual_query)
+                routing_anchor = entity_anchor.resolve_entity_anchor(
+                    contextual_query,
+                    KnowledgeAdapter(self.runtime_inputs.knowledge_wiki),
+                )
+                routing_envelope = understand_query(
+                    contextual_query,
+                    anchor=routing_anchor,
+                    question_type_override=primary_question_type,
+                )
                 route_started = time.monotonic()
                 route = self.route_skills(
                     contextual_query,

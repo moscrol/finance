@@ -192,6 +192,7 @@ def understand_query(
     *,
     matched_theme: str | None = None,
     anchor: EntityAnchor | None = None,
+    question_type_override: str | None = None,
 ) -> QueryEnvelope:
     text = str(query or "").strip()
     timeframe_match = _DATE_RE.search(text)
@@ -199,7 +200,7 @@ def understand_query(
 
     if anchor is not None:
         return QueryEnvelope(
-            "stock_deep_dive",
+            question_type_override or "stock_deep_dive",
             "company",
             anchor.entity,
             _decision_goal(text),
@@ -211,7 +212,7 @@ def understand_query(
     ticker = _TICKER_RE.search(text)
     if ticker:
         return QueryEnvelope(
-            "stock_deep_dive",
+            question_type_override or "stock_deep_dive",
             "company",
             ticker.group(0),
             _decision_goal(text),
@@ -223,7 +224,7 @@ def understand_query(
     normalized_theme = str(matched_theme or "").strip()
     if normalized_theme:
         return QueryEnvelope(
-            "theme_analysis",
+            question_type_override or "theme_analysis",
             "theme",
             normalized_theme,
             _decision_goal(text),
@@ -236,7 +237,7 @@ def understand_query(
     for alias in _theme_aliases():
         if alias.casefold() in folded_text:
             return QueryEnvelope(
-                "theme_analysis",
+                question_type_override or "theme_analysis",
                 "theme",
                 alias,
                 _decision_goal(text),
@@ -248,7 +249,7 @@ def understand_query(
     quoted = _QUOTED_RE.search(text)
     if quoted:
         return QueryEnvelope(
-            "theme_analysis",
+            question_type_override or "theme_analysis",
             "theme",
             quoted.group(1).strip(),
             _decision_goal(text),
@@ -260,7 +261,7 @@ def understand_query(
     explicit = _explicit_theme(text, timeframe)
     if explicit:
         return QueryEnvelope(
-            "theme_analysis",
+            question_type_override or "theme_analysis",
             "theme",
             explicit,
             _decision_goal(text),
@@ -271,7 +272,7 @@ def understand_query(
 
     if sum(term in text for term in _MARKET_PATTERN_TERMS) >= 2:
         return QueryEnvelope(
-            "general_finance_qa",
+            question_type_override or "general_finance_qa",
             "market_pattern",
             None,
             _decision_goal(text),
@@ -281,7 +282,7 @@ def understand_query(
         )
 
     return QueryEnvelope(
-        "general_finance_qa",
+        question_type_override or "general_finance_qa",
         "unknown",
         None,
         _decision_goal(text),

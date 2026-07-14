@@ -98,6 +98,45 @@ def _public_run_payload(run: rs.Run) -> dict[str, object]:
     return payload
 
 
+def _public_trace_value(value: object) -> object:
+    """Deep-sanitize trace projections without mutating the raw audit store."""
+
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith(("{", "[")):
+            try:
+                decoded = json.loads(stripped)
+            except json.JSONDecodeError:
+                pass
+            else:
+                if isinstance(decoded, (dict, list)):
+                    return json.dumps(
+                        _public_trace_value(decoded),
+                        ensure_ascii=False,
+                    )
+        return sanitize_user_visible_artifact_text(value)
+    if isinstance(value, list):
+        return [_public_trace_value(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            str(key): _public_trace_value(item)
+            for key, item in value.items()
+        }
+    return value
+
+
+def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
+    projected = _public_trace_value(step)
+    return projected if isinstance(projected, dict) else {}
+
+
+def _public_stream_event(event: dict[str, object]) -> dict[str, object]:
+    if event.get("event_type") != "trace.step":
+        return event
+    projected = _public_trace_value(event)
+    return projected if isinstance(projected, dict) else {}
+
+
 def _answer_deadline_seconds(raw: str | None = None) -> float:
     value = (
         os.environ.get("WORKBENCH_ANSWER_DEADLINE_SECONDS", "60")
@@ -1613,7 +1652,7 @@ def create_app(
         try:
             if not store.run_path(run_id).exists():
                 raise HTTPException(404, f"run 不存在：{run_id}")
-            return store.load_trace(run_id)
+            return [_public_trace_step(step) for step in store.load_trace(run_id)]
         except ValueError as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
@@ -1672,11 +1711,13 @@ def create_app(
                 if replay_trace:
                     steps = store.load_trace(run_id)
                     for step in steps[sent:]:
-                        yield f"event: step\ndata: {json.dumps(step, ensure_ascii=False)}\n\n"
+                        public_step = _public_trace_step(step)
+                        yield f"event: step\ndata: {json.dumps(public_step, ensure_ascii=False)}\n\n"
                     sent = len(steps)
                 report_events = store.load_stream_events(run_id, after=current_cursor)
                 for event in report_events:
-                    data = json.dumps(event, ensure_ascii=False)
+                    public_event = _public_stream_event(event)
+                    data = json.dumps(public_event, ensure_ascii=False)
                     yield f"id: {event['event_id']}\nevent: {event['event_type']}\ndata: {data}\n\n"
                     alias = legacy_event_type(event["event_type"])
                     if alias:

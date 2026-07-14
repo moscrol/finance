@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 TERMINAL_RUN_STATUSES = {"completed", "failed", "cancelled"}
+PUBLIC_STEP_STATUSES = {"running", "completed", "failed", "skipped"}
 SAFE_LABEL = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 SAFE_SOURCE_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -109,6 +110,43 @@ PUBLIC_STEP_FIELDS = frozenset(
         "output_summary",
         "warnings",
         "retrieval",
+        "tokens",
+    }
+)
+PUBLIC_RUN_FIELDS = frozenset(
+    {
+        "run_id",
+        "user",
+        "question",
+        "task_type",
+        "status",
+        "schema_version",
+        "session_id",
+        "parent_run_id",
+        "created_at",
+        "finished_at",
+        "source_date",
+        "duckdb_cutoff",
+        "kb_commit",
+        "kb_index_built_at",
+        "kb_index_freshness",
+        "manifest_ref",
+        "degrades",
+        "error",
+        "artifacts",
+    }
+)
+PUBLIC_STREAM_EVENT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "event_id",
+        "event_type",
+        "run_id",
+        "conversation_id",
+        "message_id",
+        "seq",
+        "created_at",
+        "payload",
     }
 )
 ANSWER_PHASES = frozenset(
@@ -141,6 +179,23 @@ SECRET_PATTERNS = (
         re.compile(
             r"(?i)\b(?:api[_-]?key|token|secret|password|authorization)"
             r"\s*[=:]\s*(?!\[REDACTED\](?:\s|$))\S+"
+        ),
+    ),
+)
+PUBLIC_LEAK_PATTERNS = (
+    ("traceback", re.compile(r"\bTraceback\b", re.IGNORECASE)),
+    (
+        "local_path",
+        re.compile(
+            r"(?:/Users/|/private/var/|/home/|[A-Za-z]:[/\\]).+?(?:\s|[\"'])"
+        ),
+    ),
+    (
+        "technical_code",
+        re.compile(
+            r"provider_timeout|untrusted\s+index\s+freshness|"
+            r"narrow\s+retrieval\s+empty",
+            re.IGNORECASE,
         ),
     ),
 )
@@ -202,6 +257,78 @@ class SecretScanner:
                     else "field"
                 )
                 self.scan(item, f"{source}.{component}")
+
+
+class PublicLeakScanner:
+    def __init__(self) -> None:
+        self.scanned_string_count = 0
+        self.hits: list[dict[str, str]] = []
+
+    def scan(self, value: object, source: str) -> None:
+        if isinstance(value, str):
+            self.scanned_string_count += 1
+            for marker, pattern in PUBLIC_LEAK_PATTERNS:
+                if pattern.search(value):
+                    self.hits.append({"source": source, "marker": marker})
+            return
+        if isinstance(value, list):
+            for index, item in enumerate(value):
+                self.scan(item, f"{source}[{index}]")
+            return
+        if isinstance(value, dict):
+            for key, item in value.items():
+                component = (
+                    key
+                    if isinstance(key, str) and SAFE_SOURCE_COMPONENT.fullmatch(key)
+                    else "field"
+                )
+                self.scan(item, f"{source}.{component}")
+
+
+def _validate_public_step(payload: object, stage: str) -> dict[str, object]:
+    if not isinstance(payload, dict) or not set(payload).issubset(PUBLIC_STEP_FIELDS):
+        raise SmokeProtocolError(stage)
+    if not all(
+        isinstance(payload.get(field), str)
+        for field in ("step_id", "name", "status")
+    ):
+        raise SmokeProtocolError(stage)
+    if any(
+        field in payload and not isinstance(payload[field], str)
+        for field in ("input_summary", "output_summary")
+    ):
+        raise SmokeProtocolError(stage)
+    if payload["status"] not in PUBLIC_STEP_STATUSES:
+        raise SmokeProtocolError(stage)
+    for field in ("started_at", "finished_at"):
+        if payload.get(field) is not None and not isinstance(payload.get(field), str):
+            raise SmokeProtocolError(stage)
+    warnings = payload.get("warnings", [])
+    if not isinstance(warnings, list) or not all(
+        isinstance(warning, str) for warning in warnings
+    ):
+        raise SmokeProtocolError(stage)
+    if "retrieval" in payload and not isinstance(payload["retrieval"], dict):
+        raise SmokeProtocolError(stage)
+    if "tokens" in payload and (
+        not isinstance(payload["tokens"], int)
+        or isinstance(payload["tokens"], bool)
+        or payload["tokens"] < 0
+    ):
+        raise SmokeProtocolError(stage)
+    return payload
+
+
+def _validate_terminal_run(payload: dict[str, object]) -> None:
+    if not set(payload).issubset(PUBLIC_RUN_FIELDS):
+        raise SmokeProtocolError("sse_run")
+    if payload.get("status") not in TERMINAL_RUN_STATUSES:
+        raise SmokeProtocolError("sse_terminal_status")
+    degrades = payload.get("degrades", [])
+    if not isinstance(degrades, list) or not all(
+        isinstance(item, str) for item in degrades
+    ):
+        raise SmokeProtocolError("sse_run")
 
 
 def _validated_base_url(value: str) -> str:
@@ -332,7 +459,9 @@ def _stream_until_terminal(
     run_id: str,
     timeout: float,
     scanner: SecretScanner,
+    public_scanner: PublicLeakScanner | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
+    public_scan = public_scanner or PublicLeakScanner()
     stream_started = time.monotonic()
     deadline = time.monotonic() + timeout
     cursor = 0
@@ -375,22 +504,19 @@ def _stream_until_terminal(
                 scanner.scan(payload, f"sse.{event_name}")
 
                 if event_name == "timeout":
+                    if payload:
+                        raise SmokeProtocolError("sse_timeout_payload")
                     continue
                 if event_name == "step":
-                    if (
-                        payload.get("event_type") is not None
-                        or not set(payload).issubset(PUBLIC_STEP_FIELDS)
-                        or not all(
-                            isinstance(payload.get(field), str)
-                            for field in ("step_id", "status")
-                        )
-                    ):
+                    if payload.get("event_type") is not None:
                         raise SmokeProtocolError("sse_event_type")
+                    _validate_public_step(payload, "sse_step")
+                    public_scan.scan(payload, "sse.step")
                     continue
                 if event_name == "run":
-                    status = payload.get("status")
-                    if status not in TERMINAL_RUN_STATUSES:
-                        raise SmokeProtocolError("sse_terminal_status")
+                    _validate_terminal_run(payload)
+                    public_scan.scan(payload, "sse.run")
+                    status = payload["status"]
                     if status == "completed" and (
                         not draft_seen or terminal_phase is None
                     ):
@@ -414,6 +540,8 @@ def _stream_until_terminal(
                     }
 
                 seq = payload.get("seq")
+                if not set(payload).issubset(PUBLIC_STREAM_EVENT_FIELDS):
+                    raise SmokeProtocolError("sse_event_schema")
                 if seq is not None:
                     if not isinstance(seq, int) or isinstance(seq, bool) or seq < 1:
                         raise SmokeProtocolError("sse_sequence")
@@ -427,6 +555,14 @@ def _stream_until_terminal(
                     or canonical_type != expected_type
                 ):
                     raise SmokeProtocolError("sse_event_type")
+                if canonical_type == "trace.step":
+                    event_payload = payload.get("payload")
+                    if not isinstance(event_payload, dict) or set(event_payload) != {
+                        "step"
+                    }:
+                        raise SmokeProtocolError("sse_step")
+                    _validate_public_step(event_payload.get("step"), "sse_step")
+                    public_scan.scan(payload, "sse.trace.step")
                 if canonical_type in {"message.complete", "message.error"}:
                     terminal_event_count += 1
                 if canonical_type == "stage.progress":
@@ -693,6 +829,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
     started_at = time.monotonic()
     deadline = started_at + args.timeout
     scanner = SecretScanner()
+    public_scanner = PublicLeakScanner()
     stage_events: list[str] = []
     readiness = {"page": False, "health": False, "skills": False}
     cutoffs: dict[str, str | None] = {"readiness": None, "terminal": None}
@@ -784,6 +921,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             run_id=run_id,
             timeout=remaining("sse_timeout"),
             scanner=scanner,
+            public_scanner=public_scanner,
         )
         raw_stage_events = sse_summary.get("stages")
         if not isinstance(raw_stage_events, list) or not all(
@@ -823,6 +961,23 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             isinstance(item, str) for item in degrades
         ):
             raise SmokeProtocolError("run_degrades")
+
+        trace = _request_json(
+            "GET",
+            _url(
+                args.base_url,
+                f"/api/runs/{urllib.parse.quote(run_id, safe='')}/trace",
+                {"user": args.user},
+            ),
+            timeout=remaining("run_trace"),
+            stage="run_trace",
+        )
+        if not isinstance(trace, list):
+            raise SmokeProtocolError("run_trace")
+        for index, step in enumerate(trace):
+            _validate_public_step(step, "run_trace")
+            scanner.scan(step, f"trace[{index}]")
+            public_scanner.scan(step, f"trace[{index}]")
 
         report = _request_json(
             "GET",
@@ -921,6 +1076,11 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         "hit_count": len(scanner.hits),
         "hits": scanner.hits,
     }
+    summary["public_scan"] = {
+        "scanned_string_count": public_scanner.scanned_string_count,
+        "hit_count": len(public_scanner.hits),
+        "hits": public_scanner.hits,
+    }
     summary.update(
         smoke_metrics(
             started_at=started_at,
@@ -930,6 +1090,9 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
     )
     if scanner.hits:
         summary["terminal_outcome"] = "secret_scan_failed"
+        exit_code = 2
+    elif public_scanner.hits:
+        summary["terminal_outcome"] = "public_scan_failed"
         exit_code = 2
     return exit_code, summary
 
