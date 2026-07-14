@@ -1639,6 +1639,14 @@ class TurnOrchestrator:
             )
             if finished.status != rs.STATUS_COMPLETED:
                 return self._terminal_state_result(run_id, selected, invoked)
+            final_phase = None
+            if verified_draft_text is not None:
+                final_phase = (
+                    VALIDATED_SYNTHESIS
+                    if result.synthesis is not None
+                    else VERIFIED_FALLBACK
+                )
+                snapshot_revision += 1
             assistant = self.conversation_store.revise_message(
                 conversation_id,
                 assistant_message_id,
@@ -1648,14 +1656,11 @@ class TurnOrchestrator:
                 invoked_skill_ids=invoked,
                 citations=citations,
                 degrades=warnings,
+                answer_revision=(snapshot_revision if final_phase is not None else None),
+                answer_phase=final_phase,
+                answer_final=(True if final_phase is not None else None),
             )
-            if verified_draft_text is not None:
-                final_phase = (
-                    VALIDATED_SYNTHESIS
-                    if result.synthesis is not None
-                    else VERIFIED_FALLBACK
-                )
-                snapshot_revision += 1
+            if final_phase is not None:
                 self._emit(
                     run_id,
                     assistant_message_id,

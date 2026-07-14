@@ -16,6 +16,11 @@ from pathlib import Path
 from uuid import uuid4
 
 from intelligence import userspace
+from intelligence.services.answer_stream import (
+    AnswerPhase,
+    VALIDATED_SYNTHESIS,
+    VERIFIED_FALLBACK,
+)
 from intelligence.services.run_store import redact
 
 _SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -65,6 +70,44 @@ class Conversation:
     last_run_id: str | None = None
 
 
+def _validate_terminal_answer_metadata(
+    revision: int | None,
+    phase: AnswerPhase | None,
+    final: bool | None,
+) -> tuple[int | None, AnswerPhase | None, bool | None]:
+    if revision is None and phase is None and final is None:
+        return None, None, None
+    if revision is None or phase is None or final is None:
+        raise ValueError("answer terminal metadata must be complete")
+    if isinstance(revision, bool) or not isinstance(revision, int):
+        raise TypeError("answer revision must be an integer")
+    if revision < 1:
+        raise ValueError("answer revision must be at least 1")
+    if phase not in {VALIDATED_SYNTHESIS, VERIFIED_FALLBACK}:
+        raise ValueError("answer phase must be terminal")
+    if final is not True:
+        raise ValueError("answer final must be true")
+    return revision, phase, final
+
+
+def _fail_closed_answer_metadata(record: object) -> object:
+    if not isinstance(record, dict):
+        return record
+    try:
+        _validate_terminal_answer_metadata(
+            record.get("answer_revision"),
+            record.get("answer_phase"),
+            record.get("answer_final"),
+        )
+    except (TypeError, ValueError):
+        sanitized = dict(record)
+        sanitized.pop("answer_revision", None)
+        sanitized.pop("answer_phase", None)
+        sanitized.pop("answer_final", None)
+        return sanitized
+    return record
+
+
 @dataclass
 class Message:
     message_id: str
@@ -81,6 +124,16 @@ class Message:
     invoked_skill_ids: list[str] = field(default_factory=list)
     citations: list[dict[str, object]] = field(default_factory=list)
     degrades: list[str] = field(default_factory=list)
+    answer_revision: int | None = None
+    answer_phase: AnswerPhase | None = None
+    answer_final: bool | None = None
+
+    def __post_init__(self) -> None:
+        _validate_terminal_answer_metadata(
+            self.answer_revision,
+            self.answer_phase,
+            self.answer_final,
+        )
 
 
 class ConversationStore:
@@ -151,8 +204,18 @@ class ConversationStore:
         invoked_skill_ids: list[str] | None = None,
         citations: list[dict[str, object]] | None = None,
         degrades: list[str] | None = None,
+        answer_revision: int | None = None,
+        answer_phase: AnswerPhase | None = None,
+        answer_final: bool | None = None,
     ) -> Message:
         conversation = self.load_conversation(conversation_id)
+        answer_revision, answer_phase, answer_final = (
+            _validate_terminal_answer_metadata(
+                answer_revision,
+                answer_phase,
+                answer_final,
+            )
+        )
         message = Message(
             message_id=f"msg_{uuid4().hex}",
             conversation_id=conversation.conversation_id,
@@ -170,6 +233,9 @@ class ConversationStore:
             invoked_skill_ids=[redact(item) for item in (invoked_skill_ids or [])],
             citations=[_redact_mapping(item) for item in (citations or [])],
             degrades=[redact(item) for item in (degrades or [])],
+            answer_revision=answer_revision,
+            answer_phase=answer_phase,
+            answer_final=answer_final,
         )
         self._append_message_record(message)
         return message
@@ -185,6 +251,9 @@ class ConversationStore:
         invoked_skill_ids: list[str] | None = None,
         citations: list[dict[str, object]] | None = None,
         degrades: list[str] | None = None,
+        answer_revision: int | None = None,
+        answer_phase: AnswerPhase | None = None,
+        answer_final: bool | None = None,
     ) -> Message:
         messages = self.load_messages(conversation_id)
         original = next(
@@ -193,6 +262,21 @@ class ConversationStore:
         )
         if original is None:
             raise FileNotFoundError(f"message 不存在：{message_id}")
+        if any(
+            value is not None
+            for value in (answer_revision, answer_phase, answer_final)
+        ):
+            terminal_metadata = _validate_terminal_answer_metadata(
+                answer_revision,
+                answer_phase,
+                answer_final,
+            )
+        else:
+            terminal_metadata = (
+                original.answer_revision,
+                original.answer_phase,
+                original.answer_final,
+            )
         revision = Message(
             message_id=original.message_id,
             conversation_id=original.conversation_id,
@@ -232,6 +316,9 @@ class ConversationStore:
                     degrades if degrades is not None else original.degrades
                 )
             ],
+            answer_revision=terminal_metadata[0],
+            answer_phase=terminal_metadata[1],
+            answer_final=terminal_metadata[2],
         )
         self._append_message_record(revision)
         return revision
@@ -246,7 +333,12 @@ class ConversationStore:
                         "messages.jsonl 末尾缺少换行，拒绝追加以避免记录粘连"
                     )
         with messages_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(asdict(message), ensure_ascii=False) + "\n")
+            record = asdict(message)
+            if message.answer_revision is None:
+                record.pop("answer_revision")
+                record.pop("answer_phase")
+                record.pop("answer_final")
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
         conversation = self.load_conversation(message.conversation_id)
@@ -265,8 +357,9 @@ class ConversationStore:
             if not line.strip():
                 continue
             try:
-                message = Message(**json.loads(line))
-            except (json.JSONDecodeError, TypeError, KeyError) as error:
+                record = _fail_closed_answer_metadata(json.loads(line))
+                message = Message(**record)
+            except (json.JSONDecodeError, TypeError, ValueError, KeyError) as error:
                 is_truncated_final = line_number == len(lines) and not line.endswith("\n")
                 if is_truncated_final and isinstance(error, json.JSONDecodeError):
                     break

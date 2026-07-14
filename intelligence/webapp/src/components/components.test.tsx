@@ -977,6 +977,109 @@ describe("Workbench components", () => {
     expect(screen.getByText(label)).toBeVisible();
   });
 
+  it.each([
+    ["validated_synthesis", "自然语言精修完成"],
+    ["verified_fallback", "已保留可核验版本"],
+  ] as const)(
+    "restores the persisted %s terminal answer phase without live state",
+    (phase, label) => {
+      render(
+        <MessageBubble
+          message={{
+            ...assistantMessage,
+            answer_revision: 2,
+            answer_phase: phase,
+            answer_final: true,
+          }}
+          skills={productSkills}
+          live={null}
+          bundle={null}
+          canRegenerate={false}
+          onRegenerate={vi.fn()}
+          onOpenArtifact={vi.fn()}
+          onFollowup={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText(label)).toBeVisible();
+    },
+  );
+
+  it("does not invent a terminal phase for legacy or persisted draft messages", () => {
+    const { rerender } = render(
+      <MessageBubble
+        message={{ ...assistantMessage }}
+        skills={productSkills}
+        live={null}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("自然语言精修完成")).toBeNull();
+    expect(screen.queryByText("已保留可核验版本")).toBeNull();
+
+    rerender(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          status: "pending",
+          answer_revision: 1,
+          answer_phase: "verified_draft",
+          answer_final: false,
+        }}
+        skills={productSkills}
+        live={null}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("可核验草稿 · 模型精修中")).toBeNull();
+    expect(screen.queryByText("自然语言精修完成")).toBeNull();
+    expect(screen.queryByText("已保留可核验版本")).toBeNull();
+  });
+
+  it("prefers a live draft phase over persisted terminal metadata", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          answer_revision: 2,
+          answer_phase: "validated_synthesis",
+          answer_final: true,
+        }}
+        skills={productSkills}
+        live={{
+          ...createLiveMessageState({
+            conversationId: "conv_recent",
+            messageId: "msg_assistant",
+            runId: "run_demo",
+          }),
+          narrative: "新一轮草稿",
+          answerRevision: 1,
+          answerPhase: "verified_draft",
+          answerFinal: false,
+          status: "streaming",
+        }}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("可核验草稿 · 模型精修中")).toBeVisible();
+    expect(screen.queryByText("自然语言精修完成")).toBeNull();
+  });
+
   it("never renders raw provider errors, prompts, keys, or headers", () => {
     const dangerous = "Authorization: Bearer sk-private-value";
     render(
@@ -2234,13 +2337,25 @@ describe("Workbench navigation reliability", () => {
     );
   });
 
-  it("recovers a persisted terminal run after the stream disconnects", async () => {
+  it.each([
+    ["validated_synthesis", "自然语言精修完成"],
+    ["verified_fallback", "已保留可核验版本"],
+  ] as const)(
+    "keeps the persisted %s phase after finalizing the live run",
+    async (phase, phaseLabel) => {
+    const finalContent =
+      phase === "validated_synthesis"
+        ? "数据截至 2026-07-10。最终可读回答。"
+        : "数据截至 2026-07-10。已保留可核验回答。";
     const finalMessage: ChatMessage = {
       ...assistantMessage,
       message_id: "msg_assistant_new",
-      content: "数据截至 2026-07-10。最终可读回答。",
+      content: finalContent,
       status: "completed",
       run_id: "run_created",
+      answer_revision: 2,
+      answer_phase: phase,
+      answer_final: true,
     };
     apiMocks.listConversations.mockResolvedValue(conversations);
     apiMocks.getConversationMessages
@@ -2291,6 +2406,22 @@ describe("Workbench navigation reliability", () => {
           final: false,
         },
       });
+      events?.emit("answer.snapshot", {
+        schema_version: 1,
+        event_id: "snapshot:2",
+        event_type: "answer.snapshot",
+        run_id: "run_created",
+        conversation_id: "conv_recent",
+        message_id: "msg_assistant_new",
+        seq: 2,
+        created_at: "2026-07-11T09:00:01+08:00",
+        payload: {
+          revision: 2,
+          phase,
+          text: finalContent,
+          final: true,
+        },
+      });
       events?.emit("text.delta", {
         schema_version: 1,
         event_id: "text:2",
@@ -2298,13 +2429,13 @@ describe("Workbench navigation reliability", () => {
         run_id: "run_created",
         conversation_id: "conv_recent",
         message_id: "msg_assistant_new",
-        seq: 2,
+        seq: 3,
         created_at: "2026-07-11T09:00:00+08:00",
         payload: { delta: "cycle_status raw stream" },
       });
     });
-    expect(screen.getByText("可核验草稿")).toBeVisible();
-    expect(screen.getByText("可核验草稿 · 模型精修中")).toBeVisible();
+    expect(screen.getByText(finalContent)).toBeVisible();
+    expect(screen.getByText(phaseLabel)).toBeVisible();
     expect(screen.queryByText("cycle_status raw stream")).toBeNull();
     expect(
       screen.getByText("正在研究", { selector: ".agent-status" }),
@@ -2315,15 +2446,44 @@ describe("Workbench navigation reliability", () => {
     await act(async () => events?.fail());
 
     expect(
-      await screen.findByText("数据截至 2026-07-10。最终可读回答。"),
+      await screen.findByText(finalContent),
     ).toBeVisible();
     expect(screen.queryByText("可核验草稿")).toBeNull();
+    expect(screen.getByText(phaseLabel)).toBeVisible();
     expect(screen.getByText("空闲", { selector: ".agent-status" })).toBeVisible();
     expect(
       screen.getByText("已完成", {
         selector: ".assistant-message-header span",
       }),
     ).toBeVisible();
+    },
+  );
+
+  it("restores a persisted terminal phase on a fresh conversation load without running state", async () => {
+    const persisted: ChatMessage = {
+      ...assistantMessage,
+      content: "刷新后仍可见的终稿",
+      answer_revision: 2,
+      answer_phase: "validated_synthesis",
+      answer_final: true,
+    };
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([
+      {
+        ...assistantMessage,
+        message_id: "msg_user",
+        role: "user",
+        content: "刷新恢复测试",
+      },
+      persisted,
+    ]);
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "问答" }));
+
+    expect(await screen.findByText("刷新后仍可见的终稿")).toBeVisible();
+    expect(screen.getByText("自然语言精修完成")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "停止生成" })).toBeNull();
   });
 
   it("keeps cancel pending until polling confirms the cancelled state", async () => {

@@ -33,6 +33,16 @@ export function MessageBubble({
   onFollowup,
 }: MessageBubbleProps) {
   const content = live?.narrative || message.content;
+  const persistedTerminalPhase =
+    message.answer_final === true &&
+    typeof message.answer_revision === "number" &&
+    Number.isSafeInteger(message.answer_revision) &&
+    message.answer_revision > 0 &&
+    (message.answer_phase === "validated_synthesis" ||
+      message.answer_phase === "verified_fallback")
+      ? message.answer_phase
+      : null;
+  const answerPhase = live?.answerPhase ?? persistedTerminalPhase;
   const invokedSkillIds = [
     ...new Set([
       ...message.invoked_skill_ids,
@@ -61,11 +71,11 @@ export function MessageBubble({
           ? "失败"
           : "已完成";
   const answerPhaseStatus =
-    live?.answerPhase === "verified_draft"
+    answerPhase === "verified_draft"
       ? "可核验草稿 · 模型精修中"
-      : live?.answerPhase === "validated_synthesis"
+      : answerPhase === "validated_synthesis"
         ? "自然语言精修完成"
-        : live?.answerPhase === "verified_fallback"
+        : answerPhase === "verified_fallback"
           ? "已保留可核验版本"
           : null;
   const hasBoundEvidence =
@@ -108,14 +118,14 @@ export function MessageBubble({
         />
         {answerPhaseStatus && (
           <span
-            className={`answer-phase-label answer-phase-${live?.answerPhase}`}
+            className={`answer-phase-label answer-phase-${answerPhase}`}
             role="status"
           >
             {answerPhaseStatus}
           </span>
         )}
         {message.degrades.includes("llm_unavailable_template_answer") &&
-          live?.answerPhase !== "validated_synthesis" && (
+          answerPhase !== "validated_synthesis" && (
           <span className="template-answer-label">
             自然语言综合暂时不可用
           </span>

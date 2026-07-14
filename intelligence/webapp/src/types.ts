@@ -469,6 +469,9 @@ export interface ChatMessage {
   invoked_skill_ids: string[];
   citations: Array<Record<string, unknown>>;
   degrades: string[];
+  answer_revision?: number | null;
+  answer_phase?: AnswerPhase | null;
+  answer_final?: boolean | null;
 }
 
 export type SkillMode = "manual" | "auto" | "hybrid";

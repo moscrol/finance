@@ -3185,6 +3185,9 @@ def test_verified_draft_is_published_before_blocking_synthesis_finishes(
     )
     assert snapshots[1]["payload"]["text"] == assistant.content
     assert snapshots[1]["payload"]["text"] == answer_artifact
+    assert assistant.answer_revision == 2
+    assert assistant.answer_phase == "validated_synthesis"
+    assert assistant.answer_final is True
 
 
 @pytest.mark.parametrize(
@@ -3279,6 +3282,9 @@ def test_failed_synthesis_publishes_verified_fallback_terminal_snapshot(
     assert snapshots[1]["text"] == snapshots[0]["text"]
     assert all(block in snapshots[0]["text"] for block in expected_blocks)
     assert snapshots[1]["text"] == assistant.content
+    assert assistant.answer_revision == 2
+    assert assistant.answer_phase == "verified_fallback"
+    assert assistant.answer_final is True
     assert snapshots[1]["text"] == (run_store.run_dir(run_id) / "answer.md").read_text(
         encoding="utf-8"
     )

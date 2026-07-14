@@ -490,6 +490,39 @@ def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None
     assert archived.json()["status"] == "archived"
 
 
+def test_conversation_api_serializes_terminal_answer_snapshot_metadata(
+    client: TestClient,
+) -> None:
+    conversation = client.post(
+        "/api/conversations", json={"title": "终态快照", "user": "alice"}
+    ).json()
+    store = ConversationStore("alice")
+    stored = store.append_message(
+        conversation["conversation_id"],
+        "assistant",
+        "已保留的可核验回答",
+        status="completed",
+        answer_revision=2,
+        answer_phase="verified_fallback",
+        answer_final=True,
+    )
+
+    response = client.get(
+        f"/api/conversations/{conversation['conversation_id']}/messages",
+        params={"user": "alice"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            **stored.__dict__,
+            "answer_revision": 2,
+            "answer_phase": "verified_fallback",
+            "answer_final": True,
+        }
+    ]
+
+
 def test_perspective_selection_is_validated_listed_and_persisted(
     client: TestClient,
 ) -> None:

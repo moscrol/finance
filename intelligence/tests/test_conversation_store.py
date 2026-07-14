@@ -50,6 +50,107 @@ def test_create_append_reload_and_archive_preserves_messages(tmp_path):
     assert reloaded.load_messages(conversation.conversation_id) == [message]
 
 
+def test_terminal_answer_snapshot_metadata_round_trips_and_old_records_remain_readable(
+    tmp_path,
+):
+    store = ConversationStore("alice", root=tmp_path)
+    conversation = store.create_conversation()
+    pending = store.append_message(
+        conversation.conversation_id,
+        "assistant",
+        "草稿",
+        status="pending",
+    )
+
+    completed = store.revise_message(
+        conversation.conversation_id,
+        pending.message_id,
+        content="终稿",
+        status="completed",
+        answer_revision=2,
+        answer_phase="validated_synthesis",
+        answer_final=True,
+    )
+
+    assert completed.answer_revision == 2
+    assert completed.answer_phase == "validated_synthesis"
+    assert completed.answer_final is True
+    assert store.load_messages(conversation.conversation_id) == [completed]
+
+    path = tmp_path / conversation.conversation_id / "messages.jsonl"
+    old_record = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    assert "answer_revision" not in old_record
+    assert "answer_phase" not in old_record
+    assert "answer_final" not in old_record
+
+
+@pytest.mark.parametrize(
+    ("revision", "phase", "final"),
+    [
+        (0, "validated_synthesis", True),
+        (2, "unknown", True),
+        (2, "verified_draft", False),
+        (2, "verified_fallback", False),
+    ],
+)
+def test_rejects_invalid_persisted_terminal_answer_metadata(
+    tmp_path, revision, phase, final
+):
+    store = ConversationStore("alice", root=tmp_path)
+    conversation = store.create_conversation()
+
+    with pytest.raises((TypeError, ValueError), match="answer"):
+        store.append_message(
+            conversation.conversation_id,
+            "assistant",
+            "回答",
+            answer_revision=revision,
+            answer_phase=phase,
+            answer_final=final,
+        )
+
+
+@pytest.mark.parametrize(
+    "corrupt_metadata",
+    [
+        {"answer_revision": 2},
+        {
+            "answer_revision": 2,
+            "answer_phase": "unknown",
+            "answer_final": True,
+        },
+        {
+            "answer_revision": 1,
+            "answer_phase": "verified_draft",
+            "answer_final": False,
+        },
+    ],
+)
+def test_load_messages_drops_invalid_terminal_metadata_but_keeps_message(
+    tmp_path, corrupt_metadata
+):
+    store = ConversationStore("alice", root=tmp_path)
+    conversation = store.create_conversation()
+    original = store.append_message(
+        conversation.conversation_id,
+        "assistant",
+        "旧消息正文仍须可读",
+    )
+    path = tmp_path / conversation.conversation_id / "messages.jsonl"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record.update(corrupt_metadata)
+    path.write_text(json.dumps(record, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    loaded = store.load_messages(conversation.conversation_id)
+
+    assert len(loaded) == 1
+    assert loaded[0].content == original.content
+    assert loaded[0].status == original.status
+    assert loaded[0].answer_revision is None
+    assert loaded[0].answer_phase is None
+    assert loaded[0].answer_final is None
+
+
 def test_message_perspective_selection_persists_without_leaking_to_other_conversations(
     tmp_path,
 ):
