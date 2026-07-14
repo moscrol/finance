@@ -472,6 +472,8 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertFalse(res.ok)
             self.assertEqual(res.telemetry.effective_mode, "hybrid")
             self.assertEqual(res.telemetry.fallback_reason, "")
+            self.assertEqual(res.warning, "wiki-rag 检索失败（退出码 2）")
+            self.assertNotIn("malformed query arguments", res.warning)
 
 
 class KbRagIndexResolutionTests(unittest.TestCase):

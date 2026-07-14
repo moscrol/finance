@@ -491,8 +491,8 @@ def retrieve(
         tel.status = "timeout"
         tel.warning = res.warning
         return res
-    except Exception as exc:  # pragma: no cover - defensive
-        res.warning = f"wiki-rag 调用失败: {exc}"
+    except Exception:  # pragma: no cover - defensive
+        res.warning = "wiki-rag 调用失败"
         tel.status = "error"
         tel.warning = res.warning
         return res
@@ -553,19 +553,19 @@ def retrieve(
         if tel.fallback_reason:
             res.warning = f"wiki-rag dense 依赖不可用，BM25 回退退出码 {proc.returncode}"
         else:
-            res.warning = f"wiki-rag 退出码 {proc.returncode}: {(proc.stderr or '').strip()[:160]}"
+            res.warning = f"wiki-rag 检索失败（退出码 {proc.returncode}）"
         tel.status = "error"
         tel.warning = res.warning
         return res
     warnings = [warning for warning in (res.warning, fallback_warning) if warning]
     stderr_warning = re.sub(r"\s+", " ", (proc.stderr or "")).strip()
     if stderr_warning:
-        warnings.append(stderr_warning[:500])
+        warnings.append("wiki-rag 检索器返回告警")
 
     try:
         raw = json.loads(proc.stdout or "[]")
-    except json.JSONDecodeError as exc:
-        res.warning = f"wiki-rag 输出非 JSON: {exc}"
+    except json.JSONDecodeError:
+        res.warning = "wiki-rag 输出非 JSON"
         tel.status = "error"
         tel.warning = res.warning
         return res
