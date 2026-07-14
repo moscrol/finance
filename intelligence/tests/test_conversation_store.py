@@ -111,6 +111,33 @@ def test_rejects_invalid_persisted_terminal_answer_metadata(
 
 
 @pytest.mark.parametrize(
+    ("role", "status"),
+    [
+        ("assistant", "pending"),
+        ("assistant", "failed"),
+        ("assistant", "cancelled"),
+        ("user", "completed"),
+    ],
+)
+def test_rejects_terminal_answer_metadata_outside_completed_assistant_messages(
+    tmp_path, role, status
+):
+    store = ConversationStore("alice", root=tmp_path)
+    conversation = store.create_conversation()
+
+    with pytest.raises(ValueError, match="answer.*assistant.*completed"):
+        store.append_message(
+            conversation.conversation_id,
+            role,
+            "回答",
+            status=status,
+            answer_revision=2,
+            answer_phase="verified_fallback",
+            answer_final=True,
+        )
+
+
+@pytest.mark.parametrize(
     "corrupt_metadata",
     [
         {"answer_revision": 2},
@@ -146,6 +173,48 @@ def test_load_messages_drops_invalid_terminal_metadata_but_keeps_message(
     assert len(loaded) == 1
     assert loaded[0].content == original.content
     assert loaded[0].status == original.status
+    assert loaded[0].answer_revision is None
+    assert loaded[0].answer_phase is None
+    assert loaded[0].answer_final is None
+
+
+@pytest.mark.parametrize(
+    ("role", "status"),
+    [
+        ("assistant", "pending"),
+        ("assistant", "failed"),
+        ("assistant", "cancelled"),
+        ("user", "completed"),
+    ],
+)
+def test_load_messages_drops_terminal_metadata_from_invalid_message_context(
+    tmp_path, role, status
+):
+    store = ConversationStore("alice", root=tmp_path)
+    conversation = store.create_conversation()
+    original = store.append_message(
+        conversation.conversation_id,
+        role,
+        "上下文非法但正文仍须可读",
+        status=status,
+    )
+    path = tmp_path / conversation.conversation_id / "messages.jsonl"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record.update(
+        {
+            "answer_revision": 2,
+            "answer_phase": "verified_fallback",
+            "answer_final": True,
+        }
+    )
+    path.write_text(json.dumps(record, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    loaded = store.load_messages(conversation.conversation_id)
+
+    assert len(loaded) == 1
+    assert loaded[0].content == original.content
+    assert loaded[0].role == role
+    assert loaded[0].status == status
     assert loaded[0].answer_revision is None
     assert loaded[0].answer_phase is None
     assert loaded[0].answer_final is None

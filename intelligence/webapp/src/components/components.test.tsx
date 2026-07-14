@@ -1046,6 +1046,68 @@ describe("Workbench components", () => {
     expect(screen.queryByText("已保留可核验版本")).toBeNull();
   });
 
+  it.each([
+    ["assistant", "pending"],
+    ["assistant", "failed"],
+    ["assistant", "cancelled"],
+    ["user", "completed"],
+  ] as const)(
+    "does not show persisted terminal metadata for a %s %s message",
+    (role, status) => {
+      render(
+        <MessageBubble
+          message={{
+            ...assistantMessage,
+            role,
+            status,
+            answer_revision: 2,
+            answer_phase: "verified_fallback",
+            answer_final: true,
+          }}
+          skills={productSkills}
+          live={null}
+          bundle={null}
+          canRegenerate={false}
+          onRegenerate={vi.fn()}
+          onOpenArtifact={vi.fn()}
+          onFollowup={vi.fn()}
+        />,
+      );
+
+      expect(screen.queryByText("已保留可核验版本")).toBeNull();
+    },
+  );
+
+  it("does not fall back to persisted terminal metadata while a new live run has no phase", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          answer_revision: 2,
+          answer_phase: "validated_synthesis",
+          answer_final: true,
+        }}
+        skills={productSkills}
+        live={{
+          ...createLiveMessageState({
+            conversationId: "conv_recent",
+            messageId: "msg_assistant",
+            runId: "run_new",
+          }),
+          status: "pending",
+        }}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("自然语言精修完成")).toBeNull();
+    expect(screen.queryByText("已保留可核验版本")).toBeNull();
+  });
+
   it("prefers a live draft phase over persisted terminal metadata", () => {
     render(
       <MessageBubble

@@ -34,6 +34,8 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const content = live?.narrative || message.content;
   const persistedTerminalPhase =
+    message.role === "assistant" &&
+    message.status === "completed" &&
     message.answer_final === true &&
     typeof message.answer_revision === "number" &&
     Number.isSafeInteger(message.answer_revision) &&
@@ -42,7 +44,7 @@ export function MessageBubble({
       message.answer_phase === "verified_fallback")
       ? message.answer_phase
       : null;
-  const answerPhase = live?.answerPhase ?? persistedTerminalPhase;
+  const answerPhase = live ? live.answerPhase : persistedTerminalPhase;
   const invokedSkillIds = [
     ...new Set([
       ...message.invoked_skill_ids,

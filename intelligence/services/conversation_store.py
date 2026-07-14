@@ -90,11 +90,28 @@ def _validate_terminal_answer_metadata(
     return revision, phase, final
 
 
+def _validate_message_answer_metadata(
+    role: object,
+    status: object,
+    revision: int | None,
+    phase: AnswerPhase | None,
+    final: bool | None,
+) -> tuple[int | None, AnswerPhase | None, bool | None]:
+    metadata = _validate_terminal_answer_metadata(revision, phase, final)
+    if metadata[0] is not None and (role != "assistant" or status != "completed"):
+        raise ValueError(
+            "answer terminal metadata requires assistant role and completed status"
+        )
+    return metadata
+
+
 def _fail_closed_answer_metadata(record: object) -> object:
     if not isinstance(record, dict):
         return record
     try:
-        _validate_terminal_answer_metadata(
+        _validate_message_answer_metadata(
+            record.get("role"),
+            record.get("status"),
             record.get("answer_revision"),
             record.get("answer_phase"),
             record.get("answer_final"),
@@ -129,7 +146,9 @@ class Message:
     answer_final: bool | None = None
 
     def __post_init__(self) -> None:
-        _validate_terminal_answer_metadata(
+        _validate_message_answer_metadata(
+            self.role,
+            self.status,
             self.answer_revision,
             self.answer_phase,
             self.answer_final,
