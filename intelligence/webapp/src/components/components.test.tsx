@@ -1577,6 +1577,253 @@ describe("Chat-first conversation components", () => {
     expect(replayedModule.report?.modules[0].summary).toBe("重连更新");
   });
 
+  it("applies only newer answer snapshots and ignores replayed or stale revisions", () => {
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const snapshot = (
+      eventId: string,
+      revision: number,
+      phase: string,
+      text: string,
+      final: boolean,
+    ): StreamEnvelope => ({
+      schema_version: 1,
+      event_id: eventId,
+      event_type: "answer.snapshot",
+      run_id: "run_demo",
+      conversation_id: "conv_recent",
+      message_id: "msg_assistant",
+      seq: revision,
+      created_at: "2026-07-14T09:00:00+08:00",
+      payload: { revision, phase, text, final },
+    });
+
+    const draft = applyChatStreamEvent(
+      initial,
+      snapshot("snapshot-1", 1, "verified_draft", "可核验草稿", false),
+    );
+    const synthesis = applyChatStreamEvent(
+      draft,
+      snapshot(
+        "snapshot-2",
+        2,
+        "validated_synthesis",
+        "自然语言精修版",
+        true,
+      ),
+    );
+    const replay = applyChatStreamEvent(
+      synthesis,
+      snapshot(
+        "snapshot-2-replay",
+        2,
+        "validated_synthesis",
+        "不应重复覆盖",
+        true,
+      ),
+    );
+    const stale = applyChatStreamEvent(
+      replay,
+      snapshot("snapshot-1-stale", 1, "verified_draft", "旧草稿", false),
+    );
+    const completed = applyChatStreamEvent(
+      stale,
+      {
+        ...snapshot(
+          "message-complete",
+          3,
+          "validated_synthesis",
+          "unused",
+          true,
+        ),
+        event_type: "message.complete",
+        payload: {
+          message: { ...assistantMessage, content: "不应反向覆盖快照" },
+        },
+      },
+    );
+
+    expect(draft).toMatchObject({
+      narrative: "可核验草稿",
+      answerRevision: 1,
+      answerPhase: "verified_draft",
+      answerFinal: false,
+    });
+    expect(synthesis).toMatchObject({
+      narrative: "自然语言精修版",
+      answerRevision: 2,
+      answerPhase: "validated_synthesis",
+      answerFinal: true,
+    });
+    expect(replay).toBe(synthesis);
+    expect(stale).toBe(synthesis);
+    expect(completed).toMatchObject({
+      narrative: "自然语言精修版",
+      answerRevision: 2,
+      status: "completed",
+    });
+  });
+
+  it("fails closed on malformed answer snapshots", () => {
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const invalidPayloads = [
+      { revision: 0, phase: "verified_draft", text: "草稿", final: false },
+      { revision: 1.5, phase: "verified_draft", text: "草稿", final: false },
+      { revision: 1, phase: "unknown", text: "草稿", final: false },
+      { revision: 1, phase: "verified_draft", text: "", final: false },
+      { revision: 1, phase: "verified_draft", text: "草稿", final: "false" },
+      { revision: 1, phase: "verified_draft", text: "草稿", final: true },
+      {
+        revision: 2,
+        phase: "validated_synthesis",
+        text: "精修版",
+        final: false,
+      },
+      {
+        revision: 2,
+        phase: "verified_fallback",
+        text: "草稿",
+        final: false,
+      },
+    ];
+
+    for (const [index, payload] of invalidPayloads.entries()) {
+      const next = applyChatStreamEvent(initial, {
+        schema_version: 1,
+        event_id: `invalid-snapshot-${index}`,
+        event_type: "answer.snapshot",
+        run_id: "run_demo",
+        conversation_id: "conv_recent",
+        message_id: "msg_assistant",
+        seq: index + 1,
+        created_at: "2026-07-14T09:00:00+08:00",
+        payload,
+      });
+      expect(next).toBe(initial);
+    }
+  });
+
+  it("keeps legacy deltas before snapshots and ignores them after a snapshot", () => {
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const event = (
+      eventId: string,
+      eventType: string,
+      payload: Record<string, unknown>,
+    ): StreamEnvelope => ({
+      schema_version: 1,
+      event_id: eventId,
+      event_type: eventType,
+      run_id: "run_demo",
+      conversation_id: "conv_recent",
+      message_id: "msg_assistant",
+      seq: Number(eventId.replace(/\D/g, "")) || 1,
+      created_at: "2026-07-14T09:00:00+08:00",
+      payload,
+    });
+
+    const legacy = applyChatStreamEvent(
+      initial,
+      event("delta-1", "text.delta", { delta: "旧客户端仍可用" }),
+    );
+    expect(legacy.narrative).toBe("旧客户端仍可用");
+    expect(legacy.answerRevision).toBe(0);
+
+    const draft = applyChatStreamEvent(
+      legacy,
+      event("snapshot-2", "answer.snapshot", {
+        revision: 1,
+        phase: "verified_draft",
+        text: "可核验草稿",
+        final: false,
+      }),
+    );
+    const polluted = applyChatStreamEvent(
+      draft,
+      event("delta-3", "text.delta", { delta: "模型 raw token" }),
+    );
+
+    expect(polluted).toBe(draft);
+    expect(polluted.narrative).toBe("可核验草稿");
+  });
+
+  it("keeps the verified draft text when fallback becomes terminal", () => {
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const applySnapshot = (
+      state: ReturnType<typeof createLiveMessageState>,
+      revision: number,
+      phase: "verified_draft" | "verified_fallback",
+      final: boolean,
+    ) =>
+      applyChatStreamEvent(state, {
+        schema_version: 1,
+        event_id: `fallback-${revision}`,
+        event_type: "answer.snapshot",
+        run_id: "run_demo",
+        conversation_id: "conv_recent",
+        message_id: "msg_assistant",
+        seq: revision,
+        created_at: "2026-07-14T09:00:00+08:00",
+        payload: { revision, phase, text: "同一份可核验草稿", final },
+      });
+
+    const draft = applySnapshot(initial, 1, "verified_draft", false);
+    const fallback = applySnapshot(draft, 2, "verified_fallback", true);
+
+    expect(fallback).toMatchObject({
+      narrative: "同一份可核验草稿",
+      answerRevision: 2,
+      answerPhase: "verified_fallback",
+      answerFinal: true,
+    });
+  });
+
+  it.each([
+    ["verified_draft", "可核验草稿 · 模型精修中", false],
+    ["validated_synthesis", "自然语言精修完成", true],
+    ["verified_fallback", "已保留可核验版本", true],
+  ] as const)("shows the %s answer phase status", (phase, label, final) => {
+    render(
+      <MessageBubble
+        message={{ ...assistantMessage, degrades: [] }}
+        skills={productSkills}
+        live={{
+          ...createLiveMessageState({
+            conversationId: "conv_recent",
+            messageId: "msg_assistant",
+            runId: "run_demo",
+          }),
+          narrative: "可核验正文",
+          answerRevision: phase === "verified_draft" ? 1 : 2,
+          answerPhase: phase,
+          answerFinal: final,
+          status: final ? "completed" : "streaming",
+        }}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(label)).toBeVisible();
+  });
+
   it("tracks the current human-facing research stage", () => {
     const initial = createLiveMessageState({
       conversationId: "conv_recent",
@@ -2028,19 +2275,37 @@ describe("Workbench navigation reliability", () => {
     expect(events).toBeDefined();
 
     await act(async () => {
-      events?.emit("text.delta", {
+      events?.emit("answer.snapshot", {
         schema_version: 1,
-        event_id: "text:1",
-        event_type: "text.delta",
+        event_id: "snapshot:1",
+        event_type: "answer.snapshot",
         run_id: "run_created",
         conversation_id: "conv_recent",
         message_id: "msg_assistant_new",
         seq: 1,
         created_at: "2026-07-11T09:00:00+08:00",
+        payload: {
+          revision: 1,
+          phase: "verified_draft",
+          text: "可核验草稿",
+          final: false,
+        },
+      });
+      events?.emit("text.delta", {
+        schema_version: 1,
+        event_id: "text:2",
+        event_type: "text.delta",
+        run_id: "run_created",
+        conversation_id: "conv_recent",
+        message_id: "msg_assistant_new",
+        seq: 2,
+        created_at: "2026-07-11T09:00:00+08:00",
         payload: { delta: "cycle_status raw stream" },
       });
     });
-    expect(screen.getByText("cycle_status raw stream")).toBeVisible();
+    expect(screen.getByText("可核验草稿")).toBeVisible();
+    expect(screen.getByText("可核验草稿 · 模型精修中")).toBeVisible();
+    expect(screen.queryByText("cycle_status raw stream")).toBeNull();
     expect(
       screen.getByText("正在研究", { selector: ".agent-status" }),
     ).toBeVisible();
@@ -2052,7 +2317,7 @@ describe("Workbench navigation reliability", () => {
     expect(
       await screen.findByText("数据截至 2026-07-10。最终可读回答。"),
     ).toBeVisible();
-    expect(screen.queryByText("cycle_status raw stream")).toBeNull();
+    expect(screen.queryByText("可核验草稿")).toBeNull();
     expect(screen.getByText("空闲", { selector: ".agent-status" })).toBeVisible();
     expect(
       screen.getByText("已完成", {

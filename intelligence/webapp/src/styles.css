@@ -3173,6 +3173,7 @@ p {
 }
 
 .skill-invocation,
+.answer-phase-label,
 .template-answer-label,
 .skill-chip {
   display: inline-flex;
@@ -3193,6 +3194,7 @@ p {
 }
 
 .skill-degraded,
+.answer-phase-verified_fallback,
 .template-answer-label {
   color: var(--amber);
   background: var(--amber-soft);
@@ -3203,8 +3205,19 @@ p {
   background: var(--red-soft);
 }
 
+.answer-phase-label,
 .template-answer-label {
   margin-bottom: 8px;
+}
+
+.answer-phase-verified_draft {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.answer-phase-validated_synthesis {
+  color: var(--forest-dark);
+  background: var(--forest-soft);
 }
 
 .chat-composer-dock {

@@ -1,5 +1,6 @@
 import { upsertStructuredReportModule } from "./structuredReport";
 import type {
+  AnswerPhase,
   ChatMessage,
   LiveMessageState,
   LiveSkillInvocation,
@@ -25,6 +26,11 @@ const researchStageStatuses: readonly ResearchStageStatus[] = [
   "completed",
   "degraded",
 ];
+const answerPhases: readonly AnswerPhase[] = [
+  "verified_draft",
+  "validated_synthesis",
+  "verified_fallback",
+];
 
 const isResearchStage = (value: unknown): value is ResearchStage =>
   typeof value === "string" &&
@@ -35,6 +41,40 @@ const isResearchStageStatus = (
 ): value is ResearchStageStatus =>
   typeof value === "string" &&
   researchStageStatuses.includes(value as ResearchStageStatus);
+
+const isAnswerPhase = (value: unknown): value is AnswerPhase =>
+  typeof value === "string" && answerPhases.includes(value as AnswerPhase);
+
+interface AnswerSnapshotPayload {
+  revision: number;
+  phase: AnswerPhase;
+  text: string;
+  final: boolean;
+}
+
+function parseAnswerSnapshotPayload(
+  value: unknown,
+): AnswerSnapshotPayload | null {
+  if (
+    !isRecord(value) ||
+    typeof value.revision !== "number" ||
+    !Number.isSafeInteger(value.revision) ||
+    value.revision < 1 ||
+    !isAnswerPhase(value.phase) ||
+    typeof value.text !== "string" ||
+    value.text.trim().length === 0 ||
+    typeof value.final !== "boolean"
+  ) {
+    return null;
+  }
+  if (
+    (value.phase === "verified_draft" && value.final) ||
+    (value.phase !== "verified_draft" && !value.final)
+  ) {
+    return null;
+  }
+  return value as unknown as AnswerSnapshotPayload;
+}
 
 export function parseStreamEnvelope<TPayload extends Record<string, unknown> = Record<string, unknown>>(
   value: unknown,
@@ -85,6 +125,9 @@ export function createLiveMessageState(identity: {
   return {
     ...identity,
     narrative: "",
+    answerRevision: 0,
+    answerPhase: null,
+    answerFinal: false,
     report: null,
     skillInvocations: {},
     currentStage: null,
@@ -173,7 +216,20 @@ export function applyChatStreamEvent(
     }
     return { ...state, currentStage: payload.stage, status: "streaming" };
   }
+  if (event.event_type === "answer.snapshot") {
+    const snapshot = parseAnswerSnapshotPayload(payload);
+    if (!snapshot || snapshot.revision <= state.answerRevision) return state;
+    return {
+      ...state,
+      narrative: snapshot.text,
+      answerRevision: snapshot.revision,
+      answerPhase: snapshot.phase,
+      answerFinal: snapshot.final,
+      status: "streaming",
+    };
+  }
   if (event.event_type === "text.delta") {
+    if (state.answerRevision > 0) return state;
     const delta = typeof payload.delta === "string" ? payload.delta : "";
     return {
       ...state,
@@ -248,7 +304,10 @@ export function applyChatStreamEvent(
   ) {
     return {
       ...state,
-      narrative: payload.message.content || state.narrative,
+      narrative:
+        state.answerRevision > 0
+          ? state.narrative
+          : payload.message.content || state.narrative,
       currentStage: null,
       status:
         payload.message.status === "cancelled"

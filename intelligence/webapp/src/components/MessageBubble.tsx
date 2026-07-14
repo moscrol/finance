@@ -60,6 +60,14 @@ export function MessageBubble({
         : terminalStatus === "failed"
           ? "失败"
           : "已完成";
+  const answerPhaseStatus =
+    live?.answerPhase === "verified_draft"
+      ? "可核验草稿 · 模型精修中"
+      : live?.answerPhase === "validated_synthesis"
+        ? "自然语言精修完成"
+        : live?.answerPhase === "verified_fallback"
+          ? "已保留可核验版本"
+          : null;
   const hasBoundEvidence =
     bundle?.context.evidence.some(
       (item) => item.classification === "bound_evidence",
@@ -98,7 +106,16 @@ export function MessageBubble({
           invokedSkillIds={invokedSkillIds}
           statuses={statuses}
         />
-        {message.degrades.includes("llm_unavailable_template_answer") && (
+        {answerPhaseStatus && (
+          <span
+            className={`answer-phase-label answer-phase-${live?.answerPhase}`}
+            role="status"
+          >
+            {answerPhaseStatus}
+          </span>
+        )}
+        {message.degrades.includes("llm_unavailable_template_answer") &&
+          live?.answerPhase !== "validated_synthesis" && (
           <span className="template-answer-label">
             自然语言综合暂时不可用
           </span>

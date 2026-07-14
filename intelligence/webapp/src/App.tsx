@@ -89,6 +89,7 @@ const chatEventTypes = [
   "report.module",
   "citation.ready",
   "text.delta",
+  "answer.snapshot",
   "report.complete",
   "report.error",
   "message.complete",

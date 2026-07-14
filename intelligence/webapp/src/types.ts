@@ -557,11 +557,19 @@ export type ResearchStage =
 
 export type ResearchStageStatus = "running" | "completed" | "degraded";
 
+export type AnswerPhase =
+  | "verified_draft"
+  | "validated_synthesis"
+  | "verified_fallback";
+
 export interface LiveMessageState {
   conversationId: string;
   messageId: string;
   runId: string;
   narrative: string;
+  answerRevision: number;
+  answerPhase: AnswerPhase | null;
+  answerFinal: boolean;
   report: StructuredReport | null;
   skillInvocations: Record<string, LiveSkillInvocation>;
   currentStage: ResearchStage | null;
