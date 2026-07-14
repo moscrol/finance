@@ -23,12 +23,28 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
 
 MAX_ANCHOR_CONCEPTS = 4
 MIN_NAME_LEN = 2
+_GENERIC_CONCEPT_SEEDS = {
+    "业务",
+    "产品",
+    "产业",
+    "产业链",
+    "公司",
+    "相关",
+    "市场",
+    "技术",
+    "数据",
+    "概念",
+    "中心",
+    "系统",
+    "行业",
+    "设备",
+    "题材",
+}
 
 _CODE_RE = re.compile(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", re.I)
 
@@ -102,23 +118,77 @@ def resolve_entity_anchor(query: str, knowledge: KnowledgeAdapter) -> EntityAnch
         raw = code_match.group(1)
         for rec in records:
             if any(str(code).startswith(raw) for code in rec.codes):
-                return _build_anchor(rec, matched_by="code")
+                return _build_anchor(rec, matched_by="code", query=text)
 
     named = [rec for rec in records if len(rec.name) >= MIN_NAME_LEN and rec.name in text]
     if named:
         named.sort(key=lambda rec: len(rec.name), reverse=True)
-        return _build_anchor(named[0], matched_by="name")
+        return _build_anchor(named[0], matched_by="name", query=text)
     return None
 
 
-def _build_anchor(rec: _EntityRecord, matched_by: str) -> EntityAnchor:
+def _normalize_concept_text(value: str) -> str:
+    return re.sub(r"[\W_]+", "", str(value or "").casefold())
+
+
+def _is_specific_concept_seed(value: str) -> bool:
+    if value in _GENERIC_CONCEPT_SEEDS:
+        return False
+    minimum_length = 3 if value.isascii() else 2
+    return len(value) >= minimum_length
+
+
+def _rank_concepts_for_query(concepts: list[str], query: str) -> list[str]:
+    normalized_query = _normalize_concept_text(query)
+    if not normalized_query:
+        return concepts
+    normalized_concepts = [
+        _normalize_concept_text(concept) for concept in concepts
+    ]
+    seeds = sorted(
+        (
+            (normalized_query.find(normalized), index, normalized)
+            for index, normalized in enumerate(normalized_concepts)
+            if _is_specific_concept_seed(normalized)
+            and normalized in normalized_query
+        ),
+        key=lambda item: (item[0], item[1]),
+    )
+    if not seeds:
+        return concepts
+
+    ranked_indices: list[int] = []
+    seen: set[int] = set()
+    for _, _, seed in seeds:
+        for index, normalized in enumerate(normalized_concepts):
+            if index in seen or not normalized:
+                continue
+            same_family = seed in normalized or (
+                _is_specific_concept_seed(normalized) and normalized in seed
+            )
+            if same_family:
+                seen.add(index)
+                ranked_indices.append(index)
+    ranked_indices.extend(
+        index for index in range(len(concepts)) if index not in seen
+    )
+    return [concepts[index] for index in ranked_indices]
+
+
+def _build_anchor(
+    rec: _EntityRecord,
+    matched_by: str,
+    *,
+    query: str,
+) -> EntityAnchor:
     warnings: list[str] = []
     if not rec.concepts:
         warnings.append(f"实体 {rec.name} 在 entity_exposures 无概念暴露登记，锚定退化为实体名本身")
+    ranked_concepts = _rank_concepts_for_query(rec.concepts, query)
     return EntityAnchor(
         entity=rec.name,
         ticker=rec.codes[0] if rec.codes else "",
-        concepts=tuple(rec.concepts[:MAX_ANCHOR_CONCEPTS]),
+        concepts=tuple(ranked_concepts[:MAX_ANCHOR_CONCEPTS]),
         matched_by=matched_by,
         warnings=tuple(warnings),
     )

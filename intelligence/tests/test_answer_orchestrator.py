@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
+from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
@@ -35,6 +36,100 @@ from intelligence.services.kb_rag import (
 
 
 class AnswerOrchestratorTests(unittest.TestCase):
+    def test_explicit_entity_concept_focuses_company_and_evidence_retrieval(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wiki = root / "wiki"
+            relations = wiki / "relations"
+            relations.mkdir(parents=True)
+            (relations / "entity_exposures.json").write_text(
+                json.dumps(
+                    {
+                        "entities": {
+                            "英维克": {
+                                "codes": ["002837.SZ"],
+                                "concepts": {
+                                    "ABF载板": {},
+                                    "AI容器": {},
+                                    "液冷": {},
+                                    "数据中心液冷": {},
+                                    "液冷散热": {},
+                                    "液冷服务器": {},
+                                },
+                            },
+                            "SK海力士": {
+                                "codes": ["000660.KS"],
+                                "concepts": {"ABF载板": {}},
+                            },
+                            "东方财富": {
+                                "codes": ["300059.SZ"],
+                                "concepts": {"AI容器": {}},
+                            },
+                            "高澜股份": {
+                                "codes": ["300499.SZ"],
+                                "concepts": {"液冷": {}},
+                            },
+                            "申菱环境": {
+                                "codes": ["301018.SZ"],
+                                "concepts": {"数据中心液冷": {}},
+                            },
+                        }
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            evidence_targets: list[str] = []
+
+            def evidence_spy(
+                adapter: KnowledgeAdapter,
+                target: str,
+                concept: str | None = None,
+                limit: int = 20,
+            ) -> dict[str, object]:
+                evidence_targets.append(target)
+                return {
+                    "found": False,
+                    "target": target,
+                    "concept": concept,
+                    "items": [],
+                    "warnings": ["evidence not found"],
+                    "errors": [],
+                }
+
+            with mock.patch.object(
+                KnowledgeAdapter,
+                "get_evidence",
+                new=evidence_spy,
+            ):
+                result = answer_query(
+                    AskOptions(
+                        query="英维克在液冷产业链位置如何？",
+                        date="2026-07-13",
+                        exports_dir=root / "exports",
+                        kb_wiki=wiki,
+                        compose=False,
+                        use_modules=False,
+                        use_wiki_rag=False,
+                        include_memory_block=False,
+                        include_recall_block=False,
+                    )
+                )
+
+        assert result.anchored_entity is not None
+        self.assertNotIn("ABF载板", result.anchored_entity.graph_query)
+        self.assertNotIn("AI容器", result.anchored_entity.graph_query)
+        assert result.answer_spec is not None
+        companies = {row.company for row in result.answer_spec.company_table}
+        self.assertTrue({"英维克", "高澜股份", "申菱环境"} <= companies)
+        self.assertTrue({"SK海力士", "东方财富"}.isdisjoint(companies))
+        self.assertIn("英维克", evidence_targets)
+        self.assertIn("高澜股份", evidence_targets)
+        self.assertIn("申菱环境", evidence_targets)
+        self.assertTrue({"SK海力士", "东方财富"}.isdisjoint(evidence_targets))
+
     def test_snapshot_newer_than_duckdb_is_reported_as_a_conflict(self) -> None:
         with mock.patch(
             "intelligence.services.ask._market_data_asof",

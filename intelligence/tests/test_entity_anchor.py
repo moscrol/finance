@@ -28,6 +28,17 @@ def _write_relations(wiki_root: Path) -> None:
                         "codes": ["002050.SZ"],
                         "concepts": {"机器人执行器": {}},
                     },
+                    "英维克": {
+                        "codes": ["002837.SZ"],
+                        "concepts": {
+                            "ABF载板": {},
+                            "AI容器": {},
+                            "液冷": {},
+                            "数据中心液冷": {},
+                            "液冷散热": {},
+                            "液冷服务器": {},
+                        },
+                    },
                     "无概念公司": {"codes": ["600000.SH"], "concepts": {}},
                 }
             },
@@ -67,6 +78,51 @@ class EntityAnchorTests(unittest.TestCase):
         assert anchor is not None
         self.assertEqual(anchor.entity, "中际旭创")
         self.assertEqual(anchor.matched_by, "code")
+
+    def test_explicit_concept_promotes_its_family_for_name_query(self) -> None:
+        anchor = resolve_entity_anchor(
+            "英维克在液冷产业链位置如何？",
+            self.knowledge,
+        )
+
+        assert anchor is not None
+        self.assertEqual(
+            anchor.concepts,
+            ("液冷", "数据中心液冷", "液冷散热", "液冷服务器"),
+        )
+        self.assertNotIn("ABF载板", anchor.graph_query)
+        self.assertNotIn("AI容器", anchor.graph_query)
+
+    def test_explicit_concept_promotes_its_family_for_code_query(self) -> None:
+        anchor = resolve_entity_anchor("002837 液冷怎么看", self.knowledge)
+
+        assert anchor is not None
+        self.assertEqual(anchor.matched_by, "code")
+        self.assertEqual(
+            anchor.concepts,
+            ("液冷", "数据中心液冷", "液冷散热", "液冷服务器"),
+        )
+
+    def test_multiple_explicit_seeds_follow_query_order(self) -> None:
+        anchor = resolve_entity_anchor(
+            "英维克的液冷和AI容器业务",
+            self.knowledge,
+        )
+
+        assert anchor is not None
+        self.assertEqual(
+            anchor.concepts,
+            ("液冷", "数据中心液冷", "液冷散热", "液冷服务器"),
+        )
+
+    def test_no_explicit_concept_preserves_original_first_four(self) -> None:
+        anchor = resolve_entity_anchor("英维克估值怎么看", self.knowledge)
+
+        assert anchor is not None
+        self.assertEqual(
+            anchor.concepts,
+            ("ABF载板", "AI容器", "液冷", "数据中心液冷"),
+        )
 
     def test_no_entity_returns_none(self) -> None:
         self.assertIsNone(resolve_entity_anchor("今天数据要素板块怎么样", self.knowledge))
