@@ -92,6 +92,25 @@ PUBLIC_EVENT_TYPES = frozenset(
         "message.error",
     }
 )
+PUBLIC_EVENT_ALIASES = {
+    "report_start": "report.start",
+    "report_module": "report.module",
+    "report_complete": "report.complete",
+    "report_error": "report.error",
+}
+PUBLIC_STEP_FIELDS = frozenset(
+    {
+        "step_id",
+        "name",
+        "status",
+        "started_at",
+        "finished_at",
+        "input_summary",
+        "output_summary",
+        "warnings",
+        "retrieval",
+    }
+)
 ANSWER_PHASES = frozenset(
     {"verified_draft", "validated_synthesis", "verified_fallback"}
 )
@@ -354,6 +373,17 @@ def _stream_until_terminal(
 
                 if event_name == "timeout":
                     continue
+                if event_name == "step":
+                    if (
+                        payload.get("event_type") is not None
+                        or not set(payload).issubset(PUBLIC_STEP_FIELDS)
+                        or not all(
+                            isinstance(payload.get(field), str)
+                            for field in ("step_id", "status")
+                        )
+                    ):
+                        raise SmokeProtocolError("sse_event_type")
+                    continue
                 if event_name == "run":
                     status = payload.get("status")
                     if status not in TERMINAL_RUN_STATUSES:
@@ -385,10 +415,11 @@ def _stream_until_terminal(
                     cursor = max(cursor, seq)
 
                 canonical_type = payload.get("event_type")
+                expected_type = PUBLIC_EVENT_ALIASES.get(event_name, event_name)
                 if (
                     not isinstance(canonical_type, str)
                     or canonical_type not in PUBLIC_EVENT_TYPES
-                    or canonical_type != event_name
+                    or canonical_type != expected_type
                 ):
                     raise SmokeProtocolError("sse_event_type")
                 if canonical_type in {"message.complete", "message.error"}:

@@ -258,6 +258,71 @@ def test_smoke_stream_accepts_arbitrarily_large_nonnegative_integer_elapsed(
     assert summary["stages"] == ["understanding"]
 
 
+def test_smoke_stream_accepts_public_step_frame_and_legacy_event_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events = [
+        (
+            "step",
+            {"step_id": "understand", "name": "理解问题", "status": "completed"},
+        ),
+        (
+            "report_start",
+            {
+                "event_type": "report.start",
+                "seq": 1,
+                "payload": {"status": "running"},
+            },
+        ),
+        (
+            "answer.snapshot",
+            {
+                "event_type": "answer.snapshot",
+                "seq": 2,
+                "payload": {
+                    "revision": 1,
+                    "phase": "verified_draft",
+                    "text": "draft",
+                    "final": False,
+                },
+            },
+        ),
+        (
+            "answer.snapshot",
+            {
+                "event_type": "answer.snapshot",
+                "seq": 3,
+                "payload": {
+                    "revision": 2,
+                    "phase": "verified_fallback",
+                    "text": "draft",
+                    "final": True,
+                },
+            },
+        ),
+        ("run", {"run_id": "run-1", "status": "completed", "degrades": []}),
+    ]
+    body = "".join(
+        f"event: {name}\ndata: {json.dumps(payload)}\n\n" for name, payload in events
+    )
+    monkeypatch.setattr(
+        smoke,
+        "_open",
+        lambda *_args, **_kwargs: BytesIO(body.encode()),
+    )
+
+    terminal, summary = smoke._stream_until_terminal(
+        base_url="http://127.0.0.1:8795",
+        user="alice",
+        run_id="run-1",
+        timeout=3.0,
+        scanner=smoke.SecretScanner(),
+    )
+
+    assert terminal["status"] == "completed"
+    assert summary["answer_stream"]["highest_revision"] == 2
+
+
 @pytest.mark.parametrize(
     "event_payload",
     [

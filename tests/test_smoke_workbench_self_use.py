@@ -167,6 +167,7 @@ class SmokeHandler(BaseHTTPRequestHandler):
                     events[1][1]["payload"]["internal"] = "must reject"
                 elif type(self).mode == "unknown_event":
                     events[2] = ("private.debug", events[2][1])
+                    events[2][1]["event_type"] = "private.debug"
             else:
                 assert after == 3
                 delta = (
