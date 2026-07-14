@@ -44,7 +44,10 @@ from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
-from intelligence.services.conversation_orchestrator import TurnOrchestrator
+from intelligence.services.conversation_orchestrator import (
+    TurnOrchestrator,
+    sanitize_user_visible_artifact_text,
+)
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
@@ -75,6 +78,24 @@ _SSE_POLL_SECONDS = 0.5
 _SSE_MAX_SECONDS = 15 * 60
 _WORKER_COUNT = 2
 _RESTART_REASON = "workbench_restarted_before_completion"
+
+
+def _public_degrades(values: list[str]) -> list[str]:
+    return list(
+        dict.fromkeys(
+            sanitize_user_visible_artifact_text(value)
+            for value in values
+            if isinstance(value, str) and value.strip()
+        )
+    )
+
+
+def _public_run_payload(run: rs.Run) -> dict[str, object]:
+    payload = asdict(run)
+    payload["degrades"] = _public_degrades(run.degrades)
+    if run.error:
+        payload["error"] = sanitize_user_visible_artifact_text(run.error)
+    return payload
 
 
 def _answer_deadline_seconds(raw: str | None = None) -> float:
@@ -1043,13 +1064,14 @@ def _run_context(store: RunStore, run_id: str) -> dict[str, object]:
                 "source": run.manifest_ref or "run trace",
             }
         )
-    gaps = list(dict.fromkeys([*run.degrades, *warnings]))
+    public_warnings = _public_degrades(warnings)
+    gaps = _public_degrades([*run.degrades, *warnings])
     return {
         "evidence": evidence,
         "memory": memory,
         "review": review,
         "gaps": gaps,
-        "warnings": list(dict.fromkeys(warnings)),
+        "warnings": public_warnings,
         "metadata": {
             "source_date": run.source_date,
             "duckdb_cutoff": run.duckdb_cutoff,
@@ -1576,12 +1598,12 @@ def create_app(
 
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
-        return [asdict(run) for run in reversed(store_for(user).list_runs())]
+        return [_public_run_payload(run) for run in reversed(store_for(user).list_runs())]
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str, user: str | None = None) -> dict[str, object]:
         try:
-            return asdict(store_for(user).load_run(run_id))
+            return _public_run_payload(store_for(user).load_run(run_id))
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
@@ -1677,7 +1699,8 @@ def create_app(
                     ):
                         time.sleep(_SSE_POLL_SECONDS)
                         continue
-                    yield f"event: run\ndata: {json.dumps(asdict(run), ensure_ascii=False)}\n\n"
+                    public_run = _public_run_payload(run)
+                    yield f"event: run\ndata: {json.dumps(public_run, ensure_ascii=False)}\n\n"
                     return
                 if time.monotonic() > deadline:
                     yield "event: timeout\ndata: {}\n\n"
@@ -1908,7 +1931,7 @@ def create_app(
         return {
             "user": store.user_id,
             "workflows": workflows,
-            "recent_runs": [asdict(run) for run in runs],
+            "recent_runs": [_public_run_payload(run) for run in runs],
             "latest_artifacts": [artifact.public_dict() for artifact in artifacts[:10]],
             "latest_daily_artifact": latest_daily.public_dict() if latest_daily else None,
             "pending_review_count": _pending_review_count(root),

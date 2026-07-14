@@ -1742,6 +1742,33 @@ def test_sse_replays_steps_and_ends_with_run(client: TestClient) -> None:
     assert events[-1] == "run"
 
 
+def test_public_run_projections_hide_raw_tracebacks_and_local_paths(
+    client: TestClient,
+) -> None:
+    store = RunStore()
+    run = store.create_run("public safety", "ask")
+    unsafe = (
+        'wiki-rag failed: Traceback File "/Users/alice/private/rag_index.py", '
+        "line 223 ModuleNotFoundError"
+    )
+    store.add_degrade(run.run_id, unsafe)
+    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+
+    bodies = [
+        client.get(f"/api/runs/{run.run_id}").text,
+        client.get("/api/runs").text,
+        client.get(f"/api/runs/{run.run_id}/events").text,
+        client.get(f"/api/runs/{run.run_id}/context").text,
+        client.get("/api/workbench/bootstrap").text,
+    ]
+
+    for body in bodies:
+        assert "Traceback" not in body
+        assert "/Users/alice" not in body
+        assert "rag_index.py" not in body
+    assert "外部语义检索当前不可用或受限" in bodies[0]
+
+
 def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestClient) -> None:
     run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
     _wait_terminal(client, run_id)
