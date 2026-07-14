@@ -3210,7 +3210,7 @@ def synthesize_existing_answer_spec(
     ):
         return result
     if result.question_plan.question_type == QUESTION_MARKET_REVIEW:
-        if not result.found_market:
+        if not result.found_market and not result.found_graph:
             return result
         return _synthesize_market_review_answer(options, result)
     if result.quality_context is None:

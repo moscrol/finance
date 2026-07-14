@@ -2388,6 +2388,142 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     ]
 
 
+def test_market_review_owner_with_graph_evidence_synthesizes_without_base_retrieval(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "今日复盘",
+        selected_skill_ids=["market-owner"],
+    )
+
+    class MarketOwnerSkill:
+        skill_id = "market-owner"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            contract = build_module_answer_contract(
+                skill_id=self.skill_id,
+                title="今日市场复盘",
+                modules=[
+                    {
+                        "type": "summary",
+                        "summary": "市场结构已形成可核验结论",
+                        "items": [
+                            {
+                                "title": "风险",
+                                "summary": "下一交易日复核承接",
+                            }
+                        ],
+                    }
+                ],
+                citations=[
+                    {
+                        "source": "market-owner.json",
+                        "title": "市场正式资料",
+                        "evidence_layer": "canonical",
+                        "as_of": "2026-07-11",
+                    }
+                ],
+                warnings=[],
+                as_of="2026-07-11",
+                retrieval_plan=("读取 owner 市场资料",),
+                output_contract=("输出市场复盘",),
+            )
+            assert contract is not None
+            return SkillOutput(
+                skill_id=self.skill_id,
+                modules=[],
+                citations=[
+                    {
+                        "source": "market-owner.json",
+                        "title": "市场正式资料",
+                    }
+                ],
+                warnings=[],
+                as_of="2026-07-11",
+                raw_result_ref=None,
+                answer_contract=replace(
+                    contract,
+                    question_type="market_review",
+                ),
+            )
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="market-owner",
+            name="Market Owner",
+            description="market review owner",
+            version="1.0.0",
+            triggers=("复盘",),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        ),
+        MarketOwnerSkill(),
+    )
+    synthesis_calls = 0
+
+    def synthesize_once(messages, **kwargs):
+        nonlocal synthesis_calls
+        synthesis_calls += 1
+        return (
+            llm_refine.SynthesisResult(
+                answer="今日市场结构终稿",
+                provider="fixture",
+                model="fixture-model",
+            ),
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: object())
+    monkeypatch.setattr(llm_refine, "synthesize_messages", synthesize_once)
+    monkeypatch.setattr(
+        "intelligence.services.ask.answer_model.validate_llm_answer",
+        lambda *_: [],
+    )
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: pytest.fail(
+            "market owner must not rerun base retrieval"
+        ),
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (SkillSelection("market-owner", "manual", "fixture"),),
+            False,
+        ),
+        skill_registry=registry,
+        llm_configured=True,
+        llm_model="fixture-model",
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="今日复盘",
+        skill_mode="manual",
+        selected_skill_ids=["market-owner"],
+    )
+
+    assert result.status == "completed"
+    assert synthesis_calls == 1
+    snapshots = [
+        event["payload"]
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert [snapshot["phase"] for snapshot in snapshots] == [
+        "verified_draft",
+        "validated_synthesis",
+    ]
+
+
 def test_skill_answer_owner_skips_provider_when_synthesis_budget_is_too_low(
     tmp_path,
     monkeypatch,

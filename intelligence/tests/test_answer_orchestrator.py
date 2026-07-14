@@ -2192,6 +2192,45 @@ class AnswerOrchestratorTests(unittest.TestCase):
         )
         self.assertIn("普通投资者", str(captured_messages[1][0]["content"]))
 
+    def test_market_review_split_without_market_or_graph_evidence_skips_provider(
+        self,
+    ) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask._daily_market_overview_block_for_llm",
+                return_value="",
+            ),
+            mock.patch(
+                "intelligence.services.ask._market_review_mainline_context_block_for_llm",
+                return_value="",
+            ),
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+            ) as synthesize,
+        ):
+            options = AskOptions(
+                query="今日复盘",
+                exports_dir=tmp,
+                kb_wiki=Path(tmp),
+                use_modules=False,
+                use_wiki_rag=False,
+                compose=True,
+                synthesize=False,
+                include_memory_block=False,
+                include_recall_block=False,
+            )
+            result = answer_query(options)
+            self.assertFalse(result.found_market)
+            self.assertFalse(result.found_graph)
+            synthesize_existing_answer_spec(
+                replace(options, synthesize=True),
+                result,
+            )
+
+        synthesize.assert_not_called()
+        self.assertIsNone(result.synthesis)
+
     def test_split_synthesis_refreshes_review_gate_and_report_modules(
         self,
     ) -> None:
