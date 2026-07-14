@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
+from intelligence.services import llm_refine
 from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
@@ -19,7 +20,14 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_VALUATION,
     plan_answer_question,
 )
-from intelligence.services.ask import AskOptions, answer_query, render_conversation_answer
+from intelligence.services.ask import (
+    AskOptions,
+    AskResult,
+    PreparedAnswer,
+    answer_query,
+    render_conversation_answer,
+    synthesize_prepared_answer,
+)
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.llm_refine import SynthesisResult
 from intelligence.services.kb_rag import (
@@ -30,6 +38,97 @@ from intelligence.services.kb_rag import (
 
 
 class AnswerOrchestratorTests(unittest.TestCase):
+    def _prepared_answer(
+        self,
+        *,
+        public_deltas: list[str],
+    ) -> PreparedAnswer:
+        options = AskOptions(
+            query="测试问题",
+            compose=True,
+            compose_self_review=False,
+            stream_text_delta=public_deltas.append,
+        )
+        result = AskResult(
+            query=options.query,
+            trade_date=None,
+            matched_theme="测试主题",
+            candidate_tier=None,
+            priority_score=None,
+        )
+        result.answer_spec = mock.Mock()
+        result.prepared_synthesis_messages = [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "evidence"},
+        ]
+        return PreparedAnswer(options=options, result=result)
+
+    def test_model_chunks_stay_private_when_quality_gate_rejects(self) -> None:
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+        issue = mock.Mock(severity="error", message="越界事实")
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages, kwargs
+            on_delta("越界公司")
+            on_delta(" 999亿元")
+            return SynthesisResult(
+                answer="越界公司 999亿元",
+                provider="fixture",
+                model="fixture-model",
+            ), ""
+
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages_stream",
+                side_effect=fake_stream,
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=(issue,),
+            ),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertIsNone(result.synthesis)
+        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertEqual(public_deltas, [])
+        self.assertEqual(result.llm_stream_telemetry["chunk_count"], 2)
+        self.assertNotIn("越界公司", str(result.llm_stream_telemetry))
+        self.assertNotIn("999亿元", str(result.llm_stream_telemetry))
+
+    def test_valid_model_stream_publishes_one_complete_answer(self) -> None:
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages, kwargs
+            for delta in ("自然", "语言", "精修版"):
+                on_delta(delta)
+            return SynthesisResult(
+                answer="自然语言精修版",
+                provider="fixture",
+                model="fixture-model",
+            ), ""
+
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages_stream",
+                side_effect=fake_stream,
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=(),
+            ),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertEqual(result.synthesis, "自然语言精修版")
+        self.assertEqual(public_deltas, ["自然语言精修版"])
+        self.assertEqual(result.llm_stream_telemetry["chunk_count"], 3)
+
     def test_base_finance_mode_keeps_retrieval_floor_for_quick_answers(self) -> None:
         plan = plan_answer_question("600519 快答：最近消息、产业链和财务估值怎么看")
 

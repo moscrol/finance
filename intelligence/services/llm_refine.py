@@ -70,6 +70,28 @@ class LLMStreamingUnsupported(RuntimeError):
     pass
 
 
+class LLMDeadlineExceeded(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class Deadline:
+    expires_at: float
+
+    @classmethod
+    def from_timeout(cls, timeout: float) -> "Deadline":
+        return cls(time.monotonic() + max(0.0, float(timeout)))
+
+    def remaining(self) -> float:
+        return max(0.0, self.expires_at - time.monotonic())
+
+    def require_remaining(self, minimum: float = 0.0) -> float:
+        remaining = self.remaining()
+        if remaining < minimum:
+            raise LLMDeadlineExceeded()
+        return remaining
+
+
 def detect_provider(model_override: str | None = None) -> LLMProvider | None:
     """Resolve an LLM provider from environment variables, or ``None``."""
     configured = _PROVIDER_OVERRIDE.get()
@@ -357,6 +379,7 @@ class SynthesisResult:
     answer: str
     provider: str
     model: str
+    fallback_reason: str | None = None
 
 
 def _build_synthesis_prompt(
@@ -450,6 +473,8 @@ def synthesize_messages(
     model_override: str | None = None,
     timeout: int = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.3,
+    *,
+    deadline: Deadline | None = None,
 ) -> tuple[SynthesisResult | None, str]:
     """Run a synthesis turn from a full ``messages`` list (system + history).
 
@@ -462,23 +487,29 @@ def synthesize_messages(
             "未配置 LLM key，有机合成降级为模板。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
         )
+    shared_deadline = deadline or Deadline.from_timeout(timeout)
     # 网络抖动（连接被重置/DNS 瞬断等 URLError）重试一次再降级：合成是整条回答的
     # 可读性关键，单次瞬断不值得整答退回模板。HTTP 4xx/5xx 不重试（重试大概率同样失败）。
     last_exc: Exception | None = None
     content = None
     for attempt in range(2):
         try:
-            content = _post_chat(provider, messages, timeout, temperature)
+            remaining = shared_deadline.require_remaining(1)
+            content = _post_chat(provider, messages, remaining, temperature)
             break
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
             return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
+        except LLMDeadlineExceeded:
+            return None, "LLM 合成超过共享截止时间，已降级为模板"
         except Exception as exc:  # pragma: no cover - network
             last_exc = exc
             if attempt == 0:
-                time.sleep(2)
+                remaining = shared_deadline.remaining()
+                if remaining < 1:
+                    return None, "LLM 合成超过共享截止时间，已降级为模板"
+                time.sleep(min(2, max(0.0, remaining - 0.5)))
     if content is None and last_exc is not None:
-        detail = str(getattr(last_exc, "reason", last_exc))[:120]
-        return None, f"LLM 合成失败（{type(last_exc).__name__}: {detail}），已降级为模板"
+        return None, f"LLM 合成失败（{type(last_exc).__name__}），已降级为模板"
     text = (content or "").strip()
     if not text:
         return None, "LLM 合成返回空内容，已降级为模板"
@@ -492,6 +523,7 @@ def _post_chat_stream(
     temperature: float,
     on_delta: Callable[[str], None],
     is_cancelled: Callable[[], bool] | None,
+    deadline: Deadline,
 ) -> str:
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {
@@ -515,6 +547,8 @@ def _post_chat_stream(
     chunks: list[str] = []
     with urllib.request.urlopen(request, timeout=timeout) as response:
         for raw_line in response:
+            if deadline.remaining() <= 0:
+                raise LLMDeadlineExceeded()
             if is_cancelled is not None and is_cancelled():
                 raise LLMStreamCancelled()
             line = raw_line.decode("utf-8", "replace").strip()
@@ -544,6 +578,7 @@ def synthesize_messages_stream(
     model_override: str | None = None,
     timeout: int = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.3,
+    deadline: Deadline | None = None,
 ) -> tuple[SynthesisResult | None, str]:
     provider = detect_provider(model_override)
     if provider is None:
@@ -551,42 +586,54 @@ def synthesize_messages_stream(
             "未配置 LLM key，有机合成降级为模板。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
         )
+    shared_deadline = deadline or Deadline.from_timeout(timeout)
     try:
+        remaining = shared_deadline.require_remaining(1)
         content = _post_chat_stream(
             provider,
             messages,
-            timeout,
+            remaining,
             temperature,
             on_delta,
             is_cancelled,
+            shared_deadline,
         )
     except LLMStreamCancelled:
         raise
+    except LLMDeadlineExceeded:
+        return None, "LLM 流式合成超过共享截止时间，已降级为模板"
     except urllib.error.HTTPError as exc:
         if exc.code not in {400, 404, 405, 415, 422, 501}:
             return None, f"LLM 流式合成 HTTP {exc.code}，已降级为模板"
+        if shared_deadline.remaining() < 1:
+            return None, "LLM 流式合成超过共享截止时间，已降级为模板"
         fallback, reason = synthesize_messages(
             messages,
             model_override=model_override,
-            timeout=timeout,
+            timeout=max(1, int(shared_deadline.remaining())),
             temperature=temperature,
+            deadline=shared_deadline,
         )
         if fallback is not None:
             on_delta(fallback.answer)
+            fallback.fallback_reason = "stream_unsupported"
         return fallback, reason
     except LLMStreamingUnsupported:
+        if shared_deadline.remaining() < 1:
+            return None, "LLM 流式合成超过共享截止时间，已降级为模板"
         fallback, reason = synthesize_messages(
             messages,
             model_override=model_override,
-            timeout=timeout,
+            timeout=max(1, int(shared_deadline.remaining())),
             temperature=temperature,
+            deadline=shared_deadline,
         )
         if fallback is not None:
             on_delta(fallback.answer)
+            fallback.fallback_reason = "stream_unsupported"
         return fallback, reason
     except Exception as exc:  # pragma: no cover - network
-        detail = redact(str(getattr(exc, "reason", exc))[:120])
-        return None, f"LLM 流式合成失败（{type(exc).__name__}: {detail}），已降级为模板"
+        return None, f"LLM 流式合成失败（{type(exc).__name__}），已降级为模板"
     if not content.strip():
         return None, "LLM 流式合成返回空内容，已降级为模板"
     return (
@@ -633,6 +680,8 @@ def synthesize_messages_with_review(
     timeout: int = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.3,
     review_temperature: float = 0.2,
+    *,
+    deadline: Deadline | None = None,
 ) -> tuple[SynthesisResult | None, str]:
     """Run draft -> shadow-user critique/rewrite for compose answers.
 
@@ -641,11 +690,13 @@ def synthesize_messages_with_review(
     final answer. If the review pass fails, keep the draft rather than dropping
     back to the deterministic template.
     """
+    shared_deadline = deadline or Deadline.from_timeout(timeout)
     draft, reason = synthesize_messages(
         messages,
         model_override=model_override,
         timeout=timeout,
         temperature=temperature,
+        deadline=shared_deadline,
     )
     if draft is None:
         return None, reason
@@ -658,8 +709,19 @@ def synthesize_messages_with_review(
         {"role": "assistant", "content": draft.answer},
         {"role": "user", "content": _SELF_REVIEW_REVISION_PROMPT},
     ]
+    if shared_deadline.remaining() < 1:
+        draft.fallback_reason = "review_timeout"
+        return draft, "LLM 二次自审因共享截止时间不足而跳过，保留初稿并标记降级"
     try:
-        content = _post_chat(provider, review_messages, timeout, review_temperature)
+        content = _post_chat(
+            provider,
+            review_messages,
+            shared_deadline.require_remaining(1),
+            review_temperature,
+        )
+    except LLMDeadlineExceeded:
+        draft.fallback_reason = "review_timeout"
+        return draft, "LLM 二次自审超过共享截止时间，保留初稿并标记降级"
     except Exception as exc:
         return draft, f"LLM 二次自审失败（{type(exc).__name__}），保留初稿并标记降级"
     revised = (content or "").strip()

@@ -1,5 +1,6 @@
 import { upsertStructuredReportModule } from "./structuredReport";
 import type {
+  AnswerPhase,
   ChatMessage,
   LiveMessageState,
   LiveSkillInvocation,
@@ -60,6 +61,9 @@ export function createLiveMessageState(identity: {
   return {
     ...identity,
     narrative: "",
+    answerRevision: 0,
+    answerPhase: null,
+    answerFinal: false,
     report: null,
     skillInvocations: {},
     status: "pending",
@@ -87,6 +91,15 @@ const isChatMessage = (value: unknown): value is ChatMessage =>
   isRecord(value) &&
   typeof value.message_id === "string" &&
   typeof value.content === "string";
+
+const answerPhases = new Set<AnswerPhase>([
+  "verified_draft",
+  "validated_synthesis",
+  "verified_fallback",
+]);
+
+const isAnswerPhase = (value: unknown): value is AnswerPhase =>
+  typeof value === "string" && answerPhases.has(value as AnswerPhase);
 
 function emptyReport(runId: string): StructuredReport {
   return {
@@ -126,10 +139,40 @@ export function applyChatStreamEvent(
 
   const payload = event.payload;
   if (event.event_type === "text.delta") {
+    if (state.answerRevision > 0) return state;
     const delta = typeof payload.delta === "string" ? payload.delta : "";
     return {
       ...state,
       narrative: `${state.narrative}${delta}`,
+      status: "streaming",
+    };
+  }
+  if (event.event_type === "answer.snapshot") {
+    const revision = payload.revision;
+    const phase = payload.phase;
+    const text = payload.text;
+    const final = payload.final;
+    if (
+      typeof revision !== "number" ||
+      !Number.isSafeInteger(revision) ||
+      revision < 1 ||
+      !isAnswerPhase(phase) ||
+      typeof text !== "string" ||
+      text.trim().length === 0 ||
+      typeof final !== "boolean" ||
+      (phase === "verified_draft" && final) ||
+      (phase !== "verified_draft" && !final)
+    ) {
+      return state;
+    }
+    if (revision < state.answerRevision) return state;
+    if (revision === state.answerRevision) return state;
+    return {
+      ...state,
+      narrative: text,
+      answerRevision: revision,
+      answerPhase: phase,
+      answerFinal: final,
       status: "streaming",
     };
   }
@@ -200,7 +243,10 @@ export function applyChatStreamEvent(
   ) {
     return {
       ...state,
-      narrative: payload.message.content || state.narrative,
+      narrative:
+        state.answerRevision > 0
+          ? state.narrative
+          : (payload.message.content || state.narrative),
       status:
         payload.message.status === "cancelled"
           ? "cancelled"

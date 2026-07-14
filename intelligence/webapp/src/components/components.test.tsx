@@ -1087,6 +1087,144 @@ describe("Chat-first conversation components", () => {
     expect(replayedModule.report?.modules[0].summary).toBe("重连更新");
   });
 
+  it("applies answer snapshots with monotonic overwrite semantics", () => {
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const envelope = (
+      eventId: string,
+      eventType: string,
+      payload: Record<string, unknown>,
+    ): StreamEnvelope => ({
+      schema_version: 1,
+      event_id: eventId,
+      event_type: eventType,
+      run_id: "run_demo",
+      conversation_id: "conv_recent",
+      message_id: "msg_assistant",
+      seq: Number(eventId.replace(/\D/g, "")) || 1,
+      created_at: "2026-07-11T09:00:00+08:00",
+      payload,
+    });
+    const draft = applyChatStreamEvent(
+      initial,
+      envelope("snapshot-1", "answer.snapshot", {
+        revision: 1,
+        phase: "verified_draft",
+        text: "可核验草稿",
+        final: false,
+      }),
+    );
+    const ignoredDelta = applyChatStreamEvent(
+      draft,
+      envelope("delta-2", "text.delta", { delta: "旧增量" }),
+    );
+    const terminal = applyChatStreamEvent(
+      ignoredDelta,
+      envelope("snapshot-3", "answer.snapshot", {
+        revision: 2,
+        phase: "validated_synthesis",
+        text: "自然语言精修版",
+        final: true,
+      }),
+    );
+    const replay = applyChatStreamEvent(
+      terminal,
+      envelope("snapshot-4", "answer.snapshot", {
+        revision: 2,
+        phase: "validated_synthesis",
+        text: "自然语言精修版",
+        final: true,
+      }),
+    );
+    const conflict = applyChatStreamEvent(
+      replay,
+      envelope("snapshot-5", "answer.snapshot", {
+        revision: 2,
+        phase: "verified_fallback",
+        text: "冲突版本",
+        final: true,
+      }),
+    );
+    const stale = applyChatStreamEvent(
+      conflict,
+      envelope("snapshot-6", "answer.snapshot", {
+        revision: 1,
+        phase: "verified_draft",
+        text: "旧草稿",
+        final: false,
+      }),
+    );
+    const completed = applyChatStreamEvent(
+      stale,
+      envelope("complete-7", "message.complete", {
+        message: { ...assistantMessage, content: "过期完成正文" },
+      }),
+    );
+    const invalid = applyChatStreamEvent(
+      completed,
+      envelope("snapshot-8", "answer.snapshot", {
+        revision: 3,
+        phase: "unknown",
+        text: "非法终态",
+        final: true,
+      }),
+    );
+
+    expect(draft).toMatchObject({
+      narrative: "可核验草稿",
+      answerRevision: 1,
+      answerPhase: "verified_draft",
+      answerFinal: false,
+    });
+    expect(ignoredDelta).toBe(draft);
+    expect(terminal).toMatchObject({
+      narrative: "自然语言精修版",
+      answerRevision: 2,
+      answerPhase: "validated_synthesis",
+      answerFinal: true,
+    });
+    expect(replay).toBe(terminal);
+    expect(conflict).toBe(terminal);
+    expect(stale).toBe(terminal);
+    expect(completed.narrative).toBe("自然语言精修版");
+    expect(invalid).toBe(completed);
+  });
+
+  it.each([
+    ["verified_draft", false, "可核验草稿 · 模型精修中"],
+    ["validated_synthesis", true, "自然语言精修完成"],
+    ["verified_fallback", true, "已保留可核验版本"],
+  ] as const)("shows the %s answer phase", (phase, final, label) => {
+    render(
+      <MessageBubble
+        message={{ ...assistantMessage, degrades: [] }}
+        skills={productSkills}
+        live={{
+          ...createLiveMessageState({
+            conversationId: "conv_recent",
+            messageId: "msg_assistant",
+            runId: "run_demo",
+          }),
+          narrative: "阶段回答",
+          answerRevision: phase === "verified_draft" ? 1 : 2,
+          answerPhase: phase,
+          answerFinal: final,
+          status: final ? "completed" : "streaming",
+        }}
+        bundle={bundle}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(label)).toBeVisible();
+  });
+
   it("tracks skill results and ends loading on complete or cancel", () => {
     const initial = createLiveMessageState({
       conversationId: "conv_recent",

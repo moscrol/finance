@@ -20,9 +20,13 @@ from intelligence.services.ask import (
     AskOptions,
     AskResult,
     Citation,
+    PreparedAnswer,
     answer_query,
+    prepare_existing_answer,
     render_conversation_answer,
+    synthesize_prepared_answer,
 )
+from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.answer_orchestrator import (
     QUESTION_MARKET_REVIEW,
     plan_answer_question,
@@ -661,9 +665,14 @@ class TurnOrchestrator:
                     skill_pool.shutdown(wait=False, cancel_futures=True)
                 self._check_cancelled()
 
-            def emit_text_delta(delta: str) -> None:
+            def capture_safe_text(text: str) -> None:
                 self._check_cancelled()
-                text_chunks.append(delta)
+                safe_text = sanitize_conversation_answer(text)
+                if safe_text:
+                    text_chunks.append(safe_text)
+
+            def emit_text_delta(delta: str) -> None:
+                capture_safe_text(delta)
                 self._emit(
                     run_id,
                     assistant_message_id,
@@ -694,8 +703,34 @@ class TurnOrchestrator:
                 plan_answer_question(contextual_query).question_type
                 == QUESTION_MARKET_REVIEW
             )
+            ask_options = AskOptions(
+                query=contextual_query,
+                date=(
+                    daily_review_output.as_of
+                    if daily_review_output is not None
+                    and market_review_requested
+                    else None
+                ),
+                user=self.run_store.user_id,
+                compose=True,
+                synthesize=False,
+                compose_self_review=False,
+                compose_revise_on_warn=False,
+                market_db_path=self.repo_root
+                / "db"
+                / "market_feature_store.duckdb",
+                conversation_context=context.to_prompt_block(),
+                supplemental_evidence=self._skill_evidence(skill_outputs),
+                include_memory_block=True,
+                include_recall_block=True,
+                perspective_mode=perspective_mode,
+                perspective_ids=tuple(selected_perspective_ids),
+                stream_text_delta=capture_safe_text,
+                stream_cancel_check=self.is_cancelled,
+            )
             if owner_output is not None:
                 result = _skill_owner_result(query, owner_output)
+                prepared = prepare_existing_answer(ask_options, result)
                 self._trace(
                     run_id,
                     assistant_message_id,
@@ -713,32 +748,8 @@ class TurnOrchestrator:
                     },
                 )
             else:
-                result = self.answer_query(
-                    AskOptions(
-                        query=contextual_query,
-                        date=(
-                            daily_review_output.as_of
-                            if daily_review_output is not None
-                            and market_review_requested
-                            else None
-                        ),
-                        user=self.run_store.user_id,
-                        compose=True,
-                        compose_self_review=False,
-                        compose_revise_on_warn=False,
-                        market_db_path=self.repo_root
-                        / "db"
-                        / "market_feature_store.duckdb",
-                        conversation_context=context.to_prompt_block(),
-                        supplemental_evidence=self._skill_evidence(skill_outputs),
-                        include_memory_block=True,
-                        include_recall_block=True,
-                        perspective_mode=perspective_mode,
-                        perspective_ids=tuple(selected_perspective_ids),
-                        stream_text_delta=emit_text_delta,
-                        stream_cancel_check=self.is_cancelled,
-                    )
-                )
+                result = self.answer_query(ask_options)
+                prepared = prepare_existing_answer(ask_options, result)
             self._check_cancelled()
             is_market_review = (
                 owner_output is None
@@ -759,9 +770,6 @@ class TurnOrchestrator:
                 elapsed_ms=self._elapsed_ms(compose_started),
             )
             self.run_store.update_provenance(run_id, source_date=result.trade_date)
-            warnings.extend(result.warnings)
-            for warning in result.warnings:
-                self.run_store.add_degrade(run_id, warning)
             citations.extend(
                 {
                     "tag": citation.tag,
@@ -790,6 +798,79 @@ class TurnOrchestrator:
                     conversation_id,
                 )
 
+            draft_text = render_conversation_answer(result)
+            if (
+                result.synthesis is None
+                and is_market_review
+                and daily_review_output is not None
+            ):
+                draft_text = render_daily_review_answer(
+                    date_text=daily_review_output.as_of,
+                    modules=daily_review_output.modules,
+                    warnings=daily_review_output.warnings,
+                )
+            perspective_header = perspective_lab.runtime_answer_header(
+                userspace.user_space(self.run_store.user_id),
+                mode=perspective_mode,
+                perspective_ids=tuple(selected_perspective_ids),
+            )
+            draft_text = sanitize_conversation_answer(
+                "\n\n".join(
+                    block
+                    for block in (perspective_header, draft_text)
+                    if block
+                )
+            )
+            has_answer_snapshot = result.answer_spec is not None
+            if has_answer_snapshot:
+                emit_text_delta(draft_text)
+                self._emit(
+                    run_id,
+                    assistant_message_id,
+                    "answer:snapshot:1",
+                    "answer.snapshot",
+                    AnswerSnapshot(
+                        revision=1,
+                        phase="verified_draft",
+                        text=draft_text,
+                        final=False,
+                    ).payload(),
+                    conversation_id,
+                )
+            elif not text_chunks:
+                emit_text_delta(draft_text)
+
+            if (
+                result.synthesis is None
+                and result.prepared_synthesis_messages
+            ):
+                synthesize_prepared_answer(
+                    PreparedAnswer(
+                        options=prepared.options,
+                        result=result,
+                    )
+                )
+            self._check_cancelled()
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "synthesize",
+                "answer_synthesis",
+                {
+                    "status": (
+                        "validated"
+                        if result.synthesis is not None
+                        else "fallback"
+                    ),
+                    "fallback_reason": result.llm_fallback_reason,
+                    "stream": result.llm_stream_telemetry,
+                },
+            )
+
+            warnings.extend(result.warnings)
+            for warning in result.warnings:
+                self.run_store.add_degrade(run_id, warning)
             answer_text = render_conversation_answer(result)
             if (
                 result.synthesis is None
@@ -801,16 +882,6 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
-            if result.synthesis is None and text_chunks:
-                answer_text = "".join(text_chunks)
-            answer_text = sanitize_conversation_answer(answer_text)
-            if not text_chunks:
-                emit_text_delta(answer_text)
-            perspective_header = perspective_lab.runtime_answer_header(
-                userspace.user_space(self.run_store.user_id),
-                mode=perspective_mode,
-                perspective_ids=tuple(selected_perspective_ids),
-            )
             fallback_notice = (
                 perspective_lab.runtime_fallback_notice(perspective_mode)
                 if result.synthesis is None and owner_output is None
@@ -819,11 +890,36 @@ class TurnOrchestrator:
             answer_prefix = "\n\n".join(
                 block for block in (perspective_header, fallback_notice) if block
             )
-            answer_text = f"{answer_prefix}\n\n{answer_text}"
+            answer_text = sanitize_conversation_answer(
+                "\n\n".join(
+                    block for block in (answer_prefix, answer_text) if block
+                )
+            )
             if result.synthesis is None and owner_output is None:
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
                 self.run_store.add_degrade(run_id, fallback)
+            if has_answer_snapshot:
+                text_chunks.append(answer_text)
+                self._emit(
+                    run_id,
+                    assistant_message_id,
+                    "answer:snapshot:2",
+                    "answer.snapshot",
+                    AnswerSnapshot(
+                        revision=2,
+                        phase=(
+                            "validated_synthesis"
+                            if result.synthesis is not None
+                            else "verified_fallback"
+                        ),
+                        text=answer_text,
+                        final=True,
+                    ).payload(),
+                    conversation_id,
+                )
+            elif not text_chunks or text_chunks[-1] != answer_text:
+                emit_text_delta(answer_text)
 
             complete_report(
                 report,
@@ -1034,6 +1130,9 @@ class TurnOrchestrator:
                 "wiki_rag": (
                     {
                         "status": wiki_telemetry.status,
+                        "requested_mode": wiki_telemetry.requested_mode,
+                        "effective_mode": wiki_telemetry.effective_mode,
+                        "fallback_reason": wiki_telemetry.fallback_reason,
                         "hit_count": wiki_telemetry.hit_count,
                         "latency_ms": wiki_telemetry.latency_ms,
                     }
@@ -1056,6 +1155,45 @@ class TurnOrchestrator:
     def _elapsed_ms(started: float) -> int:
         return max(0, round((time.monotonic() - started) * 1000))
 
+    def _ensure_terminal_safe_snapshot(
+        self,
+        *,
+        run_id: str,
+        message_id: str,
+        conversation_id: str,
+        fallback_text: str,
+    ) -> str:
+        snapshots = [
+            event
+            for event in self.run_store.load_stream_events(run_id)
+            if event["event_type"] == "answer.snapshot"
+        ]
+        if not snapshots:
+            return fallback_text
+        latest = max(
+            snapshots,
+            key=lambda event: int(event["payload"]["revision"]),
+        )
+        payload = latest["payload"]
+        latest_text = str(payload["text"])
+        if payload["final"] is True:
+            return latest_text
+        revision = int(payload["revision"]) + 1
+        self._emit(
+            run_id,
+            message_id,
+            f"answer:snapshot:{revision}",
+            "answer.snapshot",
+            AnswerSnapshot(
+                revision=revision,
+                phase="verified_fallback",
+                text=latest_text,
+                final=True,
+            ).payload(),
+            conversation_id,
+        )
+        return latest_text
+
     def _cancel(
         self,
         conversation_id: str,
@@ -1075,7 +1213,14 @@ class TurnOrchestrator:
         self.run_store.add_degrade(run_id, warning)
         report["status"] = rs.STATUS_CANCELLED
         report["warnings"] = list(dict.fromkeys(warnings))
-        content = "".join(text_chunks)
+        content = self._ensure_terminal_safe_snapshot(
+            run_id=run_id,
+            message_id=message_id,
+            conversation_id=conversation_id,
+            fallback_text=sanitize_conversation_answer(
+                text_chunks[-1] if text_chunks else ""
+            ),
+        )
         assistant = self.conversation_store.revise_message(
             conversation_id,
             message_id,
@@ -1085,6 +1230,13 @@ class TurnOrchestrator:
             invoked_skill_ids=invoked,
             citations=citations,
             degrades=warnings,
+        )
+        self.run_store.add_artifact(
+            run_id,
+            "answer.md",
+            redact(content),
+            renderer="markdown",
+            title="已取消的对话回答",
         )
         self.run_store.add_artifact(
             run_id,
@@ -1127,7 +1279,14 @@ class TurnOrchestrator:
         warnings.append(warning)
         report["status"] = rs.STATUS_FAILED
         report["warnings"] = list(dict.fromkeys(warnings))
-        content = "".join(text_chunks)
+        content = self._ensure_terminal_safe_snapshot(
+            run_id=run_id,
+            message_id=message_id,
+            conversation_id=conversation_id,
+            fallback_text=sanitize_conversation_answer(
+                text_chunks[-1] if text_chunks else ""
+            ),
+        )
         assistant = self.conversation_store.revise_message(
             conversation_id,
             message_id,
@@ -1137,6 +1296,13 @@ class TurnOrchestrator:
             invoked_skill_ids=invoked,
             citations=citations,
             degrades=warnings,
+        )
+        self.run_store.add_artifact(
+            run_id,
+            "answer.md",
+            redact(content),
+            renderer="markdown",
+            title="失败前保留的对话回答",
         )
         self._emit(
             run_id,
