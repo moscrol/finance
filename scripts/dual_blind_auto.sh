@@ -1,8 +1,9 @@
 #!/bin/zsh
-# 每日四问自动链（launchd 09:10 调用，周末跳过）。
+# 每日四问自动链（launchd 工作日 09:10；脚本内再挡周末——周末无增量盘面数据）。
 # 链路：manifest 冻结（DuckDB 截止=库内最新交易日）→ codex / claude 双盲各落一份答卷 JSON
 #       → validate 收卷 → index 重建状态总表。
 # 双盲纪律：两考生互不可见（prompt 中禁止读对方答卷），对比/裁决归用户。
+# 模型：codex 固定 -m gpt-5.5（勿用 5.6 控额度；勿用 5.4 过弱）。
 set -uo pipefail
 
 WORKSPACE="/Users/a77/finance-workspace-private"
@@ -12,15 +13,23 @@ export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
 export SUBCONSCIOUS_VAULT="/Users/a77/agent-memory"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:/Users/a77/.local/bin:$PATH"
 
-CODEX_BIN="/Applications/Codex.app/Contents/Resources/codex"
+# ChatGPT.app 内嵌 codex（旧 Codex.app 路径已失效）
+CODEX_BIN="${CODEX_BIN:-/Applications/ChatGPT.app/Contents/Resources/codex}"
 CLAUDE_BIN="/Users/a77/.local/bin/claude"
+# 双盲批跑模型；可用环境变量覆盖，例如 CODEX_DUAL_BLIND_MODEL=gpt-5.4-mini
+CODEX_DUAL_BLIND_MODEL="${CODEX_DUAL_BLIND_MODEL:-gpt-5.5}"
 LEDGER="docs/learning/forecast-review-ledger"
 
 D="${1:-$(date +%F)}"
+# %u: 1=周一 … 7=周日；周末无新数据进入，直接退出
 dow=$(date +%u)
-if [ "$dow" -gt 5 ]; then
-  echo "[$(date '+%F %T')] $D 周末，跳过每日四问"
+if [ "$dow" -ge 6 ]; then
+  echo "[$(date '+%F %T')] $D 周末（dow=$dow），无盘面增量，跳过每日四问"
   exit 0
+fi
+if [ ! -x "$CODEX_BIN" ]; then
+  echo "[$(date '+%F %T')] CODEX_BIN 不可执行: $CODEX_BIN"
+  exit 1
 fi
 
 cd "$WORKSPACE" || exit 1
@@ -69,7 +78,9 @@ run_agent() {
   fi
   echo "[$(date '+%F %T')] --- $agent 开始答卷 ---"
   if [ "$agent" = "codex" ]; then
-    "$CODEX_BIN" exec --skip-git-repo-check "$(prompt_for codex)" >> "logs/dual-blind.$D.codex.log" 2>&1
+    echo "[$(date '+%F %T')] codex model=$CODEX_DUAL_BLIND_MODEL"
+    "$CODEX_BIN" exec -m "$CODEX_DUAL_BLIND_MODEL" --skip-git-repo-check \
+      "$(prompt_for codex)" >> "logs/dual-blind.$D.codex.log" 2>&1
     rc=$?
   else
     # claude 网关（open.bigmodel.cn）早高峰常返回 529，未落答卷则间隔重试
