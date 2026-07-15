@@ -146,6 +146,22 @@ _SIGNAL_INTERPRETATIONS = (
     ),
 )
 
+_HARD_EVIDENCE_TIERS = frozenset(
+    {
+        "l3",
+        "l3_official",
+        "公告",
+        "官方",
+        "公司公告",
+        "年报",
+        "半年报",
+        "季报",
+        "定期报告",
+        "互动易",
+        "交易所",
+    }
+)
+
 
 class ClaimStatus(str, Enum):
     VERIFIED = "verified"
@@ -496,7 +512,10 @@ def build_company_assessments(
     assessments: list[CompanyAssessment] = []
     for candidate in candidates:
         company_claims = tuple(claim for claim in claims if claim.company == candidate.company)
-        verified = any(claim.status == ClaimStatus.VERIFIED for claim in company_claims)
+        verified = any(
+            claim_has_hard_company_evidence(claim)
+            for claim in company_claims
+        )
         if candidate.requested_tier == CompanyTier.PERIPHERAL:
             tier = CompanyTier.PERIPHERAL
         elif candidate.requested_tier == CompanyTier.CORE and verified:
@@ -522,8 +541,153 @@ def build_company_assessments(
     return tuple(assessments)
 
 
+def is_hard_evidence_tier(
+    evidence_tier: str,
+    evidence_ids: tuple[str, ...] = (),
+) -> bool:
+    tier = evidence_tier.strip().lower()
+    return bool(
+        evidence_ids
+        and (
+            tier in _HARD_EVIDENCE_TIERS
+            or tier.startswith("l3")
+            or any(
+                evidence_id.upper().startswith("L3")
+                for evidence_id in evidence_ids
+            )
+        )
+    )
+
+
+def claim_has_hard_evidence(claim: Claim) -> bool:
+    return bool(
+        claim.status == ClaimStatus.VERIFIED
+        and is_hard_evidence_tier(
+            claim.evidence_tier,
+            claim.evidence_ids,
+        )
+    )
+
+
+def claim_has_hard_company_evidence(claim: Claim) -> bool:
+    return bool(
+        claim.company
+        and claim.status == ClaimStatus.VERIFIED
+        and claim_has_hard_evidence(claim)
+    )
+
+
+def claim_has_resolved_hard_company_evidence(
+    claim: Claim,
+    sources: tuple[EvidenceRef, ...],
+) -> bool:
+    source_by_id = {
+        source.evidence_id: source
+        for source in sources
+    }
+    return bool(
+        claim_has_hard_company_evidence(claim)
+        and any(
+            evidence_id in source_by_id
+            and is_hard_evidence_tier(
+                source_by_id[evidence_id].tier,
+                (evidence_id,),
+            )
+            for evidence_id in claim.evidence_ids
+        )
+    )
+
+
+def _soften_certainty_text(text: str) -> str:
+    uncertain = "\x00UNCERTAIN\x00"
+    return (
+        str(text or "")
+        .replace("不确定", uncertain)
+        .replace("确定性", "证据可验证程度")
+        .replace("必然", "可能")
+        .replace("肯定", "可能")
+        .replace("已证实", "已有证据支持")
+        .replace("确定", "待验证")
+        .replace(uncertain, "不确定")
+    )
+
+
 def finalize_answer_spec(answer_spec: AnswerSpec) -> AnswerSpec:
-    return replace(answer_spec, quality=evaluate_answer_spec(answer_spec))
+    governed = apply_claim_evidence_policy(answer_spec)
+    return replace(governed, quality=evaluate_answer_spec(governed))
+
+
+def apply_claim_evidence_policy(answer_spec: AnswerSpec) -> AnswerSpec:
+    softened = False
+
+    def govern(claim: Claim) -> Claim:
+        nonlocal softened
+        if claim_has_hard_evidence(claim):
+            return claim
+        text = _soften_certainty_text(claim.text)
+        if text == claim.text:
+            return claim
+        softened = True
+        return replace(claim, text=text)
+
+    summary = tuple(govern(claim) for claim in answer_spec.summary)
+    verified_facts = tuple(
+        govern(claim) for claim in answer_spec.verified_facts
+    )
+    companies: list[CompanyAssessment] = []
+    for company in answer_spec.company_table:
+        governed_claims = tuple(govern(claim) for claim in company.claims)
+        tier = company.tier
+        gaps = company.evidence_gaps
+        if tier == CompanyTier.CORE and not any(
+            claim_has_resolved_hard_company_evidence(
+                claim,
+                answer_spec.sources,
+            )
+            for claim in governed_claims
+        ):
+            tier = CompanyTier.CANDIDATE
+            gaps = tuple(
+                dict.fromkeys(
+                    (
+                        *gaps,
+                        "公司级证据未解析到官方来源，暂不列为核心",
+                    )
+                )
+            )
+        companies.append(
+            replace(
+                company,
+                tier=tier,
+                claims=governed_claims,
+                evidence_gaps=gaps,
+            )
+        )
+    counter_evidence = tuple(
+        govern(claim) for claim in answer_spec.counter_evidence
+    )
+    gaps = tuple(govern(claim) for claim in answer_spec.gaps)
+    triggers = tuple(govern(claim) for claim in answer_spec.triggers)
+    notices = answer_spec.system_notices
+    if softened:
+        notices = tuple(
+            dict.fromkeys(
+                (
+                    *notices,
+                    "弱证据硬措辞已按证据门槛降级为条件化表述。",
+                )
+            )
+        )
+    return replace(
+        answer_spec,
+        summary=summary,
+        verified_facts=verified_facts,
+        company_table=tuple(companies),
+        counter_evidence=counter_evidence,
+        gaps=gaps,
+        triggers=triggers,
+        system_notices=notices,
+    )
 
 
 def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> AnswerQualityReport:
@@ -556,7 +720,11 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
         )
     for company in answer_spec.company_table:
         if company.tier == CompanyTier.CORE and not any(
-            claim.status == ClaimStatus.VERIFIED for claim in company.claims
+            claim_has_resolved_hard_company_evidence(
+                claim,
+                answer_spec.sources,
+            )
+            for claim in company.claims
         ):
             issues.append(
                 QualityIssue(
@@ -565,13 +733,19 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
                     f"{company.company} 被列为核心，但没有公司级已核验证据。",
                 )
             )
-    all_claims = (
-        *answer_spec.summary,
-        *answer_spec.verified_facts,
-        *answer_spec.counter_evidence,
-        *answer_spec.gaps,
-        *answer_spec.triggers,
-    )
+    all_claims = _all_answer_claims(answer_spec)
+    if any(
+        _soften_certainty_text(claim.text) != claim.text
+        and not claim_has_hard_evidence(claim)
+        for claim in all_claims
+    ):
+        issues.append(
+            QualityIssue(
+                "weak_evidence_hard_certainty",
+                "error",
+                "弱证据主张包含硬确定性措辞。",
+            )
+        )
     if any(claim.theme != answer_spec.research_spec.theme for claim in all_claims):
         issues.append(
             QualityIssue(
@@ -1024,6 +1198,7 @@ def _artifact_claim_marker(
 
 
 def render_answer_spec(answer_spec: AnswerSpec) -> str:
+    answer_spec = apply_claim_evidence_policy(answer_spec)
     if answer_spec.presentation_kind == "base_finance":
         return _apply_certainty_gate(
             _render_base_finance_answer_spec(answer_spec),
@@ -1077,12 +1252,19 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
         lines.extend(("", *artifact_lines))
     lines.extend(["", "## 公司证据"])
     if answer_spec.company_table:
-        core_count = sum(
-            company.tier == CompanyTier.CORE for company in answer_spec.company_table
+        core_companies = tuple(
+            company
+            for company in answer_spec.company_table
+            if company.tier == CompanyTier.CORE
         )
-        if core_count:
+        candidate_companies = tuple(
+            company
+            for company in answer_spec.company_table
+            if company.tier != CompanyTier.CORE
+        )
+        if core_companies:
             lines.append(
-                f"本轮有 {core_count} 家公司达到核心分层，"
+                f"本轮有 {len(core_companies)} 家公司达到核心分层，"
                 "其余公司仍需按公开披露逐项核对。"
             )
         else:
@@ -1090,26 +1272,33 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
                 "以下公司只是一份待核验清单，不等于核心受益者。"
                 "只有公告、年报、官网产品资料或客户订单，才能把公司与题材直接绑定。"
             )
-        lines.append("")
-        lines.extend(
-            [
-                "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
-                "| --- | --- | --- | --- | --- |",
-            ]
-        )
-        for company in answer_spec.company_table:
-            lines.append(
-                "| "
-                + " | ".join(
-                    (
-                        company.company + (f"（{company.ticker}）" if company.ticker else ""),
-                        humanize(company.chain_stage),
-                        _company_directness_label(company.directness),
-                        _company_tier_label(company.tier),
-                        _company_evidence_label(company),
-                    )
-                )
-                + " |"
+        if core_companies:
+            lines.extend(
+                [
+                    "",
+                    "### 核心公司",
+                    "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
+                    "| --- | --- | --- | --- | --- |",
+                ]
+            )
+            lines.extend(
+                _company_table_row(company, answer_spec.sources)
+                for company in core_companies
+            )
+        if candidate_companies:
+            lines.extend(
+                [
+                    "",
+                    "### 候选与外围公司",
+                    "以下条目只用于后续核验，不与核心公司混排。",
+                    "",
+                    "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
+                    "| --- | --- | --- | --- | --- |",
+                ]
+            )
+            lines.extend(
+                _company_table_row(company, answer_spec.sources)
+                for company in candidate_companies
             )
     else:
         lines.append(
@@ -1174,18 +1363,8 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
 
 
 def _apply_certainty_gate(text: str, answer_spec: AnswerSpec) -> str:
-    if any(
-        evidence_id.startswith("L3")
-        for claim in _all_answer_claims(answer_spec)
-        for evidence_id in claim.evidence_ids
-    ):
-        return text
-    return (
-        text.replace("确定性", "证据可验证程度")
-        .replace("必然", "可能")
-        .replace("肯定", "可能")
-        .replace("确定", "待验证")
-    )
+    del answer_spec
+    return text
 
 
 def _render_base_finance_answer_spec(answer_spec: AnswerSpec) -> str:
@@ -1690,12 +1869,38 @@ def _company_directness_label(directness: str) -> str:
     }.get(str(directness).strip().lower(), humanize(directness))
 
 
-def _company_evidence_label(company: CompanyAssessment) -> str:
-    if any(claim.status == ClaimStatus.VERIFIED for claim in company.claims):
+def _company_evidence_label(
+    company: CompanyAssessment,
+    sources: tuple[EvidenceRef, ...],
+) -> str:
+    if any(
+        claim_has_resolved_hard_company_evidence(claim, sources)
+        for claim in company.claims
+    ):
         return "已绑定公司级硬证据"
     if company.claims:
         return "候选资料，需公告或年报确认"
     return "仅有概念关联，未发现公司级证据"
+
+
+def _company_table_row(
+    company: CompanyAssessment,
+    sources: tuple[EvidenceRef, ...],
+) -> str:
+    return (
+        "| "
+        + " | ".join(
+            (
+                company.company
+                + (f"（{company.ticker}）" if company.ticker else ""),
+                humanize(company.chain_stage),
+                _company_directness_label(company.directness),
+                _company_tier_label(company.tier),
+                _company_evidence_label(company, sources),
+            )
+        )
+        + " |"
+    )
 
 
 def _dedupe(items: tuple[str, ...] | list[str]) -> list[str]:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -16,7 +17,10 @@ from intelligence.services.research_contract import (
     StageArtifact,
 )
 from intelligence.services.run_store import RunStore
-from intelligence.workbench_skills.contracts import SkillExecutionContext
+from intelligence.workbench_skills.contracts import (
+    SkillAnswerContract,
+    SkillExecutionContext,
+)
 from intelligence.workbench_skills.research_owner import (
     FINANCIAL_ANALYSIS,
     NEWS_IMPACT,
@@ -111,6 +115,155 @@ def _result(
         )
     ]
     return result
+
+
+def _quality_contract(
+    query: str,
+    *,
+    quality_error: bool = False,
+) -> SkillAnswerContract:
+    spec = _answer_spec(query)
+    summary = answer_model.make_claim(
+        claim_id="quality-summary",
+        text="财务指标已形成可回查的报告期结论。",
+        claim_type="summary",
+        theme=spec.research_spec.theme,
+        status=answer_model.ClaimStatus.VERIFIED,
+        evidence_tier="公告",
+        evidence_ids=("W1",),
+    )
+    gap = answer_model.make_claim(
+        claim_id="quality-gap",
+        text="仍需核对下一期经营数据。",
+        claim_type="evidence_gap",
+        theme=spec.research_spec.theme,
+        status=answer_model.ClaimStatus.MISSING,
+    )
+    governed = answer_model.finalize_answer_spec(
+        replace(spec, summary=(summary,), gaps=(gap,))
+    )
+    if quality_error:
+        governed = replace(
+            governed,
+            quality=answer_model.AnswerQualityReport(
+                issues=(
+                    answer_model.QualityIssue(
+                        code="forced_quality_error",
+                        severity="error",
+                        message="测试质量错误",
+                    ),
+                )
+            ),
+        )
+    return SkillAnswerContract(
+        retrieval_plan=FINANCIAL_ANALYSIS.retrieval_plan,
+        output_contract=FINANCIAL_ANALYSIS.output_contract,
+        answer_spec=governed,
+        question_type=FINANCIAL_ANALYSIS.question_type,
+    )
+
+
+def _required_stage(
+    stage: str,
+    *,
+    status: str = "completed",
+    evidence_atom_ids: tuple[str, ...] = ("atom-1",),
+    payload: dict[str, object] | None = None,
+) -> StageArtifact:
+    return StageArtifact(
+        stage=stage,
+        status=status,
+        elapsed_ms=1,
+        producer=f"test.{stage}",
+        artifact_type=f"{stage}.artifact",
+        required_output=True,
+        evidence_atom_ids=evidence_atom_ids,
+        payload=payload or {"available": True},
+    )
+
+
+def test_owner_result_status_adjudicates_all_four_states() -> None:
+    owner = ResearchOwnerSkill(FINANCIAL_ANALYSIS)
+    stages = tuple(
+        _required_stage(stage)
+        for stage in OWNER_RETRIEVAL_STAGES["financial-analysis"]
+    )
+    contract = _quality_contract("分析贵州茅台财报")
+
+    assert owner._owner_result_status(contract, stages, []) == "completed"
+
+    partial_stages = (
+        replace(stages[0], status="timeout"),
+        *stages[1:],
+    )
+    assert (
+        owner._owner_result_status(contract, partial_stages, [])
+        == "partial"
+    )
+
+    degraded_stages = (
+        replace(stages[0], evidence_atom_ids=()),
+        *stages[1:],
+    )
+    assert (
+        owner._owner_result_status(contract, degraded_stages, [])
+        == "degraded"
+    )
+    assert (
+        owner._owner_result_status(
+            _quality_contract(
+                "分析贵州茅台财报",
+                quality_error=True,
+            ),
+            stages,
+            [],
+        )
+        == "degraded"
+    )
+
+    failed_stages = tuple(
+        replace(stage, status="failed", evidence_atom_ids=())
+        for stage in stages
+    )
+    assert (
+        owner._owner_result_status(None, failed_stages, [])
+        == "failed"
+    )
+
+
+def test_company_evidence_stage_requires_company_bound_hard_source() -> None:
+    owner = ResearchOwnerSkill(STOCK_DEEP_DIVE)
+    market_only = _required_stage(
+        "company_evidence",
+        payload={
+            "available": True,
+            "claims": [
+                {
+                    "company": "示例科技",
+                    "status": "verified",
+                    "evidence_tier": "market_data",
+                    "evidence_ids": ["D7"],
+                }
+            ],
+        },
+    )
+    official = replace(
+        market_only,
+        payload={
+            "available": True,
+            "claims": [
+                {
+                    "company": "示例科技",
+                    "status": "verified",
+                    "evidence_tier": "L3",
+                    "evidence_ids": ["L3-1"],
+                }
+            ],
+        },
+    )
+
+    assert not owner._stage_meets_evidence_threshold(market_only)
+    assert owner._stage_meets_evidence_threshold(official)
 
 
 def _context(
@@ -468,6 +621,7 @@ def test_phase3_owner_blocks_survive_retrieval_failure(
     assert output.answer_contract is not None
     assert output.modules == []
     assert output.citations == []
+    assert output.status == "failed"
     assert output.stage_artifacts[0]["status"] == "failed"
     assert all(
         item["status"] != "completed" for item in output.stage_artifacts
@@ -580,6 +734,7 @@ def test_theme_required_blocks_survive_company_mapping_failure(
     assert output.answer_contract is not None
     assert output.modules == []
     assert output.citations == []
+    assert output.status == "partial"
     artifacts = {item["stage"]: item for item in output.stage_artifacts}
     assert artifacts["company_mapping"]["status"] == "failed"
     assert artifacts["market_lifecycle"]["status"] == "completed"

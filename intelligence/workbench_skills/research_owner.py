@@ -22,6 +22,7 @@ from intelligence.workbench_skills.contracts import (
     SkillAnswerContract,
     SkillExecutionContext,
     SkillOutput,
+    SkillResultStatus,
     redact_json,
 )
 from intelligence.workbench_skills.owner_dag import (
@@ -33,6 +34,13 @@ from intelligence.workbench_skills.owner_dag import (
 AnswerQuery = Callable[[AskOptions], AskResult]
 
 _PRIOR_ONLY_EVIDENCE = frozenset({"M", "ONTOLOGY", "V"})
+_STRUCTURAL_STAGES = frozenset(
+    {
+        "definition",
+        "chain_stages",
+        "company_master",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -100,11 +108,17 @@ class ResearchOwnerSkill:
         )
         if result is None:
             warnings = list(dag.warnings)
+            status = self._owner_result_status(
+                contract,
+                dag.artifacts,
+                warnings,
+            )
             raw_result_ref = self._store_partial_artifact(
                 context,
                 warnings=warnings,
                 stage_artifacts=stage_artifacts,
                 contract=contract,
+                status=status,
             )
             return SkillOutput(
                 skill_id=self.skill_id,
@@ -115,12 +129,18 @@ class ResearchOwnerSkill:
                 raw_result_ref=raw_result_ref,
                 answer_contract=contract,
                 stage_artifacts=stage_artifacts,
+                status=status,
             )
         retrieved_modules = self._modules(result)
         retrieved_citations = self._citations(result)
         warnings = list(dict.fromkeys((*result.warnings, *dag.warnings)))
         if contract is None:
             warnings.append("专项检索未形成可追溯事实，已回退基础金融回答。")
+        status = self._owner_result_status(
+            contract,
+            dag.artifacts,
+            warnings,
+        )
         raw_result_ref = self._store_artifact(
             context,
             result,
@@ -128,6 +148,7 @@ class ResearchOwnerSkill:
             warnings=warnings,
             owned=contract is not None,
             stage_artifacts=stage_artifacts,
+            status=status,
         )
         return SkillOutput(
             skill_id=self.skill_id,
@@ -138,6 +159,72 @@ class ResearchOwnerSkill:
             raw_result_ref=raw_result_ref,
             answer_contract=contract,
             stage_artifacts=stage_artifacts,
+            status=status,
+        )
+
+    def _owner_result_status(
+        self,
+        contract: SkillAnswerContract | None,
+        stage_artifacts: tuple[StageArtifact, ...],
+        warnings: list[str],
+    ) -> SkillResultStatus:
+        required = tuple(
+            artifact
+            for artifact in stage_artifacts
+            if artifact.required_output
+        )
+        completed = tuple(
+            artifact
+            for artifact in required
+            if artifact.status == "completed"
+        )
+        if not required or not completed or contract is None:
+            return "failed"
+        if any(artifact.status != "completed" for artifact in required):
+            return "partial"
+        if any(
+            not self._stage_meets_evidence_threshold(artifact)
+            for artifact in required
+        ):
+            return "degraded"
+        if not contract.answer_spec.quality.passed:
+            return "degraded"
+        if contract.answer_spec.quality.issues or warnings:
+            return "degraded"
+        return "completed"
+
+    @classmethod
+    def _stage_meets_evidence_threshold(
+        cls,
+        artifact: StageArtifact,
+    ) -> bool:
+        if artifact.payload.get("available") is False:
+            return False
+        if artifact.stage in _STRUCTURAL_STAGES:
+            return True
+        if artifact.stage == "company_evidence":
+            claims = artifact.payload.get("claims")
+            return isinstance(claims, list) and any(
+                cls._payload_has_hard_company_evidence(claim)
+                for claim in claims
+                if isinstance(claim, dict)
+            )
+        return bool(artifact.evidence_atom_ids)
+
+    @staticmethod
+    def _payload_has_hard_company_evidence(
+        claim: dict[str, object],
+    ) -> bool:
+        evidence_ids = claim.get("evidence_ids")
+        if not isinstance(evidence_ids, list):
+            return False
+        return bool(
+            claim.get("company")
+            and claim.get("status") == answer_model.ClaimStatus.VERIFIED.value
+            and answer_model.is_hard_evidence_tier(
+                str(claim.get("evidence_tier") or ""),
+                tuple(str(item) for item in evidence_ids),
+            )
         )
 
     def _answer_contract(
@@ -1619,6 +1706,7 @@ class ResearchOwnerSkill:
         warnings: list[str],
         owned: bool,
         stage_artifacts: list[JsonObject],
+        status: SkillResultStatus,
     ) -> str:
         payload: JsonObject = {
             "skill_id": self.skill_id,
@@ -1626,6 +1714,7 @@ class ResearchOwnerSkill:
             "query": context.query,
             "as_of": result.trade_date,
             "owned": owned,
+            "status": status,
             "retrieval_plan": list(self.config.retrieval_plan),
             "output_contract": list(self.config.output_contract),
             "citations": citations,
@@ -1654,6 +1743,7 @@ class ResearchOwnerSkill:
         warnings: list[str],
         stage_artifacts: list[JsonObject],
         contract: SkillAnswerContract | None = None,
+        status: SkillResultStatus,
     ) -> str:
         payload: JsonObject = {
             "skill_id": self.skill_id,
@@ -1661,6 +1751,7 @@ class ResearchOwnerSkill:
             "query": context.query,
             "as_of": None,
             "owned": contract is not None,
+            "status": status,
             "retrieval_plan": list(self.config.retrieval_plan),
             "output_contract": list(self.config.output_contract),
             "citations": [],

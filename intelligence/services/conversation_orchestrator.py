@@ -1015,11 +1015,14 @@ class TurnOrchestrator:
                         }
                     )
                 else:
+                    execution_status = output.status or (
+                        "degraded" if output.warnings else "completed"
+                    )
                     research_budget.record(
                         skill_id,
                         input_summary=contextual_query,
                         provider="skill_registry",
-                        status="degraded" if output.warnings else "completed",
+                        status=execution_status,
                         elapsed_ms=self._elapsed_ms(skill_started),
                         failure_reason="；".join(output.warnings),
                     )
@@ -1047,7 +1050,7 @@ class TurnOrchestrator:
                         "skill.result",
                         {
                             "skill_id": skill_id,
-                            "status": "degraded" if output.warnings else "completed",
+                            "status": execution_status,
                             "output": asdict(output),
                             "elapsed_ms": self._elapsed_ms(skill_started),
                             "task_may_continue": False,
