@@ -4,6 +4,7 @@ import type {
   ChatMessage,
   LiveMessageState,
   LiveSkillInvocation,
+  LiveWorkflow,
   StreamEnvelope,
   StructuredReport,
   StructuredReportModule,
@@ -65,6 +66,7 @@ export function createLiveMessageState(identity: {
     answerPhase: null,
     answerFinal: false,
     report: null,
+    workflow: null,
     skillInvocations: {},
     status: "pending",
     connection: "connected",
@@ -121,6 +123,44 @@ function selectionSource(
   return value === "manual" || value === "rule" || value === "llm"
     ? value
     : "unknown";
+}
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) &&
+  value.every((item): item is string => typeof item === "string");
+
+function liveWorkflow(
+  payload: Record<string, unknown>,
+): LiveWorkflow | null {
+  const executionMode = payload.execution_mode;
+  if (
+    typeof payload.owner !== "string" ||
+    typeof payload.label !== "string" ||
+    (executionMode !== "inline" && executionMode !== "subtask") ||
+    typeof payload.preset !== "string" ||
+    !isStringArray(payload.required_skill_ids) ||
+    !isStringArray(payload.retrieval_stages) ||
+    typeof payload.output_schema !== "string" ||
+    typeof payload.presentation_kind !== "string" ||
+    typeof payload.max_wall_time_seconds !== "number" ||
+    !Number.isSafeInteger(payload.max_wall_time_seconds) ||
+    payload.max_wall_time_seconds < 1 ||
+    payload.status !== "loaded"
+  ) {
+    return null;
+  }
+  return {
+    owner: payload.owner,
+    label: payload.label,
+    executionMode,
+    preset: payload.preset,
+    requiredSkillIds: payload.required_skill_ids,
+    retrievalStages: payload.retrieval_stages,
+    outputSchema: payload.output_schema,
+    presentationKind: payload.presentation_kind,
+    maxWallTimeSeconds: payload.max_wall_time_seconds,
+    status: "loaded",
+  };
 }
 
 export function applyChatStreamEvent(
@@ -198,6 +238,16 @@ export function applyChatStreamEvent(
     isStructuredReport(payload.report)
   ) {
     return { ...state, report: payload.report };
+  }
+  if (event.event_type === "workflow.loaded") {
+    const workflow = liveWorkflow(payload);
+    return workflow
+      ? {
+          ...state,
+          workflow,
+          status: "streaming",
+        }
+      : state;
   }
   if (
     (event.event_type === "skill.start" ||

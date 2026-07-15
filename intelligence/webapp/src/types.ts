@@ -545,6 +545,19 @@ export interface LiveSkillInvocation {
   warnings: string[];
 }
 
+export interface LiveWorkflow {
+  owner: string;
+  label: string;
+  executionMode: "inline" | "subtask";
+  preset: string;
+  requiredSkillIds: string[];
+  retrievalStages: string[];
+  outputSchema: string;
+  presentationKind: string;
+  maxWallTimeSeconds: number;
+  status: "loaded";
+}
+
 export type AnswerPhase =
   | "verified_draft"
   | "validated_synthesis"
@@ -559,6 +572,7 @@ export interface LiveMessageState {
   answerPhase: AnswerPhase | null;
   answerFinal: boolean;
   report: StructuredReport | null;
+  workflow: LiveWorkflow | null;
   skillInvocations: Record<string, LiveSkillInvocation>;
   status: "pending" | "streaming" | "completed" | "failed" | "cancelled";
   connection: "connected" | "reconnecting";

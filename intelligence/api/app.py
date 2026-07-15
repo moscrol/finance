@@ -37,7 +37,9 @@ from intelligence.api.structured_reports import (
     new_structured_report,
     upsert_report_module,
 )
+from intelligence.api.stream_events import PUBLIC_EVENT_TYPES
 from intelligence.services import followups as followups_svc
+from intelligence.services import kb_rag
 from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
@@ -1055,6 +1057,7 @@ def create_app(
     @app.get("/api/health/ready")
     def health_ready(user: str | None = None) -> JSONResponse:
         store = store_for(user)
+        rag_probe = kb_rag.probe_rag_cli(runtime_paths.knowledge_wiki)
         run_root_ready = False
         try:
             store.root.mkdir(parents=True, exist_ok=True)
@@ -1063,6 +1066,7 @@ def create_app(
             pass
         checks = {
             **dependency_checks(),
+            "rag_query_protocol": rag_probe.query_protocol_compatible,
             "run_store_writable": run_root_ready,
         }
         critical = {
@@ -1070,6 +1074,8 @@ def create_app(
             "run_store_writable": checks["run_store_writable"],
             "knowledge_wiki": checks["knowledge_wiki"],
             "relations": checks["relations"],
+            "vector_index": checks["vector_index"],
+            "rag_query_protocol": checks["rag_query_protocol"],
             "market_snapshot": checks["market_snapshot"],
         }
         ready = all(critical.values())
@@ -1081,6 +1087,7 @@ def create_app(
             "missing_critical": [
                 name for name, available in critical.items() if not available
             ],
+            "rag": rag_probe.to_dict(),
             "workers": {
                 "active": supervisor.active_count(),
                 "capacity": supervisor.max_workers,
@@ -1370,9 +1377,11 @@ def create_app(
             while True:
                 report_events = store.load_stream_events(run_id, after=current_cursor)
                 for event in report_events:
+                    current_cursor = event["seq"]
+                    if event["event_type"] not in PUBLIC_EVENT_TYPES:
+                        continue
                     data = json.dumps(event, ensure_ascii=False)
                     yield f"id: {event['event_id']}\nevent: {event['event_type']}\ndata: {data}\n\n"
-                    current_cursor = event["seq"]
                 run = store.load_run(run_id)
                 if run.status in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
                     terminal_message_missing = run.session_id and not any(
