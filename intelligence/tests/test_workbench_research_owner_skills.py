@@ -229,6 +229,10 @@ def test_owner_result_status_adjudicates_all_four_states() -> None:
         owner._owner_result_status(None, failed_stages, [])
         == "failed"
     )
+    assert (
+        owner._owner_result_status(contract, failed_stages, [])
+        == "failed"
+    )
 
 
 def test_company_evidence_stage_requires_company_bound_hard_source() -> None:
@@ -621,7 +625,7 @@ def test_phase3_owner_blocks_survive_retrieval_failure(
     assert output.answer_contract is not None
     assert output.modules == []
     assert output.citations == []
-    assert output.status == "failed"
+    assert output.status == "partial"
     assert output.stage_artifacts[0]["status"] == "failed"
     assert all(
         item["status"] != "completed" for item in output.stage_artifacts

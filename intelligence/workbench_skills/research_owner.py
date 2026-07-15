@@ -173,12 +173,12 @@ class ResearchOwnerSkill:
             for artifact in stage_artifacts
             if artifact.required_output
         )
-        completed = tuple(
-            artifact
+        if contract is None or not required:
+            return "failed"
+        if all(
+            artifact.status in {"failed", "timeout", "skipped"}
             for artifact in required
-            if artifact.status == "completed"
-        )
-        if not required or not completed or contract is None:
+        ):
             return "failed"
         if any(artifact.status != "completed" for artifact in required):
             return "partial"
