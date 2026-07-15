@@ -490,7 +490,7 @@ class ResearchOwnerSkill:
 
         def scenario_tree(
             result: AskResult | None,
-            _artifacts: tuple[StageArtifact, ...],
+            artifacts: tuple[StageArtifact, ...],
         ) -> StageExecution:
             if "scenario_tree" not in required_outputs:
                 return StageExecution(
@@ -498,6 +498,12 @@ class ResearchOwnerSkill:
                     payload={"available": False, "reason": "未请求情景树"},
                 )
             spec = result.answer_spec if result is not None else None
+            verified_facts = (
+                *self._claim_dicts(
+                    spec.verified_facts if spec is not None else ()
+                ),
+                *self._artifact_scenario_facts(artifacts),
+            )
             artifact = build_scenario_tree_artifact(
                 theme=(
                     spec.research_spec.theme
@@ -505,9 +511,7 @@ class ResearchOwnerSkill:
                     else research_spec.theme
                 ),
                 horizon=envelope.time_horizon,
-                verified_facts=self._claim_dicts(
-                    spec.verified_facts if spec is not None else ()
-                ),
+                verified_facts=verified_facts,
                 triggers=self._claim_dicts(
                     spec.triggers if spec is not None else ()
                 ),
@@ -516,7 +520,19 @@ class ResearchOwnerSkill:
                 ),
                 gaps=self._claim_dicts(spec.gaps if spec is not None else ()),
             )
-            atoms = self._evidence_atoms(result)
+            atoms = tuple(
+                dict.fromkeys(
+                    (
+                        *self._evidence_atoms(result),
+                        *(
+                            evidence_id
+                            for fact in verified_facts
+                            for evidence_id in fact.get("evidence_ids", ())
+                            if isinstance(evidence_id, str)
+                        ),
+                    )
+                )
+            )
             return StageExecution(
                 status=(
                     "completed"
@@ -530,21 +546,46 @@ class ResearchOwnerSkill:
 
         def counterevidence(
             result: AskResult | None,
-            _artifacts: tuple[StageArtifact, ...],
+            artifacts: tuple[StageArtifact, ...],
         ) -> StageExecution:
             spec = result.answer_spec if result is not None else None
-            upgrade = self._claim_dicts(
-                spec.triggers if spec is not None else ()
+            scenario_upgrade, scenario_downgrade = (
+                self._scenario_conditions(artifacts)
             )
-            downgrade = self._claim_dicts(
-                (
-                    *spec.counter_evidence,
-                    *spec.gaps,
-                )
-                if spec is not None
-                else ()
+            upgrade = (
+                *self._claim_dicts(
+                    spec.triggers if spec is not None else ()
+                ),
+                *scenario_upgrade,
+            )
+            downgrade = (
+                *self._claim_dicts(
+                    (
+                        *spec.counter_evidence,
+                        *spec.gaps,
+                    )
+                    if spec is not None
+                    else ()
+                ),
+                *scenario_downgrade,
             )
             available = bool(upgrade or downgrade)
+            evidence_atom_ids = tuple(
+                dict.fromkeys(
+                    (
+                        *self._evidence_atoms(result),
+                        *(
+                            evidence_id
+                            for condition in (*upgrade, *downgrade)
+                            for evidence_id in condition.get(
+                                "evidence_ids",
+                                (),
+                            )
+                            if isinstance(evidence_id, str)
+                        ),
+                    )
+                )
+            )
             return StageExecution(
                 status="completed" if available else "partial",
                 payload={
@@ -553,7 +594,7 @@ class ResearchOwnerSkill:
                     "upgrade_conditions": list(upgrade),
                     "downgrade_and_falsification_conditions": list(downgrade),
                 },
-                evidence_atom_ids=self._evidence_atoms(result),
+                evidence_atom_ids=evidence_atom_ids,
                 degrade_reason=(
                     None if available else "未形成升级、降级与证伪条件"
                 ),
@@ -632,6 +673,118 @@ class ResearchOwnerSkill:
         claims: tuple[answer_model.Claim, ...],
     ) -> tuple[dict[str, object], ...]:
         return tuple(claim.to_dict() for claim in claims)
+
+    @staticmethod
+    def _artifact_scenario_facts(
+        artifacts: tuple[StageArtifact, ...],
+    ) -> tuple[dict[str, object], ...]:
+        facts: list[dict[str, object]] = []
+        for artifact in artifacts:
+            if artifact.stage == "market_lifecycle":
+                rows = artifact.payload.get("trends")
+                if not isinstance(rows, list):
+                    continue
+                for index, row in enumerate(rows):
+                    if not isinstance(row, dict):
+                        continue
+                    evidence_ids = (
+                        (artifact.evidence_atom_ids[index],)
+                        if index < len(artifact.evidence_atom_ids)
+                        else ()
+                    )
+                    facts.append(
+                        {
+                            "text": (
+                                f"{row.get('theme', '题材')}中期趋势覆盖"
+                                f"{row.get('days', '未知')}个交易日，"
+                                f"双红{row.get('double_red_days', '未知')}天"
+                            ),
+                            "evidence_ids": evidence_ids,
+                            "status": "verified",
+                        }
+                    )
+            elif artifact.stage == "historical_analogs":
+                themes = artifact.payload.get("themes")
+                if not isinstance(themes, list):
+                    continue
+                atom_index = 0
+                for theme in themes:
+                    if not isinstance(theme, dict):
+                        continue
+                    analogs = theme.get("analogs")
+                    if not isinstance(analogs, list):
+                        continue
+                    for analog in analogs:
+                        if not isinstance(analog, dict):
+                            continue
+                        evidence_ids = (
+                            (artifact.evidence_atom_ids[atom_index],)
+                            if atom_index < len(artifact.evidence_atom_ids)
+                            else ()
+                        )
+                        atom_index += 1
+                        facts.append(
+                            {
+                                "text": (
+                                    f"{theme.get('theme', '题材')}存在历史类似窗口"
+                                    f"{analog.get('start_date', '未知')}至"
+                                    f"{analog.get('end_date', '未知')}"
+                                ),
+                                "evidence_ids": evidence_ids,
+                                "status": "verified",
+                            }
+                        )
+        return tuple(facts)
+
+    @staticmethod
+    def _scenario_conditions(
+        artifacts: tuple[StageArtifact, ...],
+    ) -> tuple[
+        tuple[dict[str, object], ...],
+        tuple[dict[str, object], ...],
+    ]:
+        scenario = next(
+            (
+                artifact
+                for artifact in artifacts
+                if artifact.stage == "scenario_tree"
+            ),
+            None,
+        )
+        if scenario is None:
+            return (), ()
+        branches = scenario.payload.get("branches")
+        if not isinstance(branches, list):
+            return (), ()
+        upgrade: list[dict[str, object]] = []
+        downgrade: list[dict[str, object]] = []
+        for branch in branches:
+            if not isinstance(branch, dict):
+                continue
+            branch_id = branch.get("branch_id")
+            target = (
+                upgrade
+                if branch_id == "upgrade"
+                else downgrade
+                if branch_id == "downgrade"
+                else None
+            )
+            if target is None:
+                continue
+            evidence_ids = tuple(
+                evidence_id
+                for evidence_id in branch.get("evidence_ids", ())
+                if isinstance(evidence_id, str)
+            )
+            for trigger in branch.get("triggers", ()):
+                if isinstance(trigger, str) and trigger.strip():
+                    target.append(
+                        {
+                            "text": trigger.strip(),
+                            "evidence_ids": evidence_ids,
+                        }
+                    )
+        return tuple(upgrade), tuple(downgrade)
 
     @staticmethod
     def _evidence_atoms(

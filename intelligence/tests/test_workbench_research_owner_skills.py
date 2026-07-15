@@ -377,6 +377,7 @@ def test_theme_required_blocks_survive_company_mapping_failure(
         "研究信创未来3到6个月的中期赔率，"
         "用历史类似窗口和情景树说明升级、降级与证伪条件"
     )
+    _write_theme_market_db(tmp_path)
 
     def unavailable_answer_query(_options: AskOptions) -> AskResult:
         raise RuntimeError("RAG unavailable")
@@ -393,14 +394,25 @@ def test_theme_required_blocks_survive_company_mapping_failure(
     assert output.citations == []
     artifacts = {item["stage"]: item for item in output.stage_artifacts}
     assert artifacts["company_mapping"]["status"] == "failed"
+    assert artifacts["market_lifecycle"]["status"] == "completed"
+    assert artifacts["historical_analogs"]["status"] == "completed"
+    assert artifacts["scenario_tree"]["status"] == "completed"
+    assert artifacts["counterevidence"]["status"] == "completed"
 
     spec = output.answer_contract.answer_spec
+    known_atom_ids = {
+        atom.atom_id
+        for atom in answer_model.evidence_atoms_from_answer_spec(spec)
+    }
+    assert known_atom_ids
+    assert set(artifacts["scenario_tree"]["evidence_atom_ids"]) <= known_atom_ids
+    assert set(artifacts["counterevidence"]["evidence_atom_ids"]) <= known_atom_ids
     rendered = answer_model.render_answer_spec(spec)
     assert "## 3–6 个月中期赔率的证据" in rendered
     assert "## 历史类似窗口" in rendered
     assert "## 情景树" in rendered
     assert "## 升级、降级与证伪条件" in rendered
-    assert "当前历史样本不足或未找到可比窗口" in rendered
+    assert "claim_id=analog-" in rendered
     assert "必然" not in rendered
     assert "确定" not in rendered
 
