@@ -975,7 +975,7 @@ def _theme_name(query: str, matched_theme: str | None, aliases: tuple[str, ...])
     for alias in sorted(aliases, key=len, reverse=True):
         if alias.lower() in query.lower():
             return alias
-    return matched_theme or query.strip() or "未命名题材"
+    return matched_theme or "未命名题材"
 
 
 def _clean_line(text: str) -> str:

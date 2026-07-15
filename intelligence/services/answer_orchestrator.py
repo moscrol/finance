@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from intelligence.services.answer_model import ThemeResearchSpec, resolve_theme_research_spec
+from intelligence.services.entity_anchor import EntityAnchor
+from intelligence.services.query_understanding import QueryEnvelope, understand_query
 
 
 QUESTION_STOCK_DEEP_DIVE = "stock_deep_dive"
@@ -99,6 +101,7 @@ class QuestionPlan:
     question_type: str
     depth: str
     confidence: float
+    query_envelope: QueryEnvelope
     required_lenses: list[str] = field(default_factory=list)
     retrieval_plan: list[str] = field(default_factory=list)
     quality_gates: list[str] = field(default_factory=list)
@@ -114,6 +117,7 @@ class QuestionPlan:
             "question_type": self.question_type,
             "depth": self.depth,
             "confidence": self.confidence,
+            "query_envelope": self.query_envelope.to_dict(),
             "required_lenses": self.required_lenses,
             "retrieval_plan": self.retrieval_plan,
             "quality_gates": self.quality_gates,
@@ -164,14 +168,21 @@ def plan_answer_question(
     matched_theme: str | None = None,
     *,
     question_type_override: str | None = None,
+    anchor: EntityAnchor | None = None,
 ) -> QuestionPlan:
     raw_query = str(query or "").strip()
+    query_envelope = understand_query(
+        raw_query,
+        matched_theme=matched_theme,
+        anchor=anchor,
+    )
     if not raw_query:
         return QuestionPlan(
             query=raw_query,
             question_type=QUESTION_GENERAL,
             depth=DEPTH_QUICK,
             confidence=0.1,
+            query_envelope=query_envelope,
             required_lenses=["先要求用户补充题材、个股、日期或材料"],
             retrieval_plan=[],
             quality_gates=["不能在问题为空时编造分析对象"],
@@ -186,11 +197,30 @@ def plan_answer_question(
         and question_type_override not in QUESTION_TYPES
     ):
         raise ValueError("unknown question type override")
-    question_type, confidence = (
-        (question_type_override, 1.0)
-        if question_type_override is not None
-        else _classify_question_type(raw_query, q)
-    )
+    if question_type_override is not None:
+        question_type, confidence = question_type_override, 1.0
+    elif query_envelope.subject_kind == "market_pattern":
+        question_type, confidence = QUESTION_GENERAL, query_envelope.confidence
+    elif query_envelope.subject_kind == "company":
+        question_type, confidence = (
+            query_envelope.question_type,
+            query_envelope.confidence,
+        )
+    else:
+        classified_type, classified_confidence = _classify_question_type(
+            raw_query,
+            q,
+        )
+        if (
+            query_envelope.subject_kind == "theme"
+            and classified_type != QUESTION_STOCK_DEEP_DIVE
+        ):
+            question_type, confidence = (
+                query_envelope.question_type,
+                query_envelope.confidence,
+            )
+        else:
+            question_type, confidence = classified_type, classified_confidence
     depth = _classify_depth(raw_query, q, question_type)
     required_lenses = _required_lenses(question_type, depth)
     retrieval_plan = _retrieval_plan(question_type, depth, q)
@@ -200,7 +230,7 @@ def plan_answer_question(
     warnings = _warnings(raw_query, q, question_type, retrieval_plan)
     base_finance_mode = _base_finance_mode(raw_query, q, question_type, depth)
     research_spec = (
-        resolve_theme_research_spec(raw_query, matched_theme)
+        resolve_theme_research_spec(raw_query, query_envelope.subject)
         if question_type
         in {
             QUESTION_THEME_ANALYSIS,
@@ -214,6 +244,7 @@ def plan_answer_question(
         question_type=question_type,
         depth=depth,
         confidence=confidence,
+        query_envelope=query_envelope,
         required_lenses=required_lenses,
         retrieval_plan=retrieval_plan,
         quality_gates=quality_gates,
