@@ -5,7 +5,7 @@ import re
 import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from intelligence.api.structured_reports import (
@@ -15,6 +15,7 @@ from intelligence.api.structured_reports import (
     render_daily_review_answer,
     upsert_report_module,
 )
+from intelligence.services import answer_model
 from intelligence.services import run_store as rs
 from intelligence.services.ask import (
     AskOptions,
@@ -49,6 +50,13 @@ from intelligence.services.query_understanding import understand_query
 from intelligence.services.research_policy import (
     ResearchExecutionBudget,
     ResearchExecutionPolicy,
+)
+from intelligence.services.research_contract import (
+    ResearchDeadline,
+    ResearchPlan,
+    TurnIntent,
+    build_turn_intent,
+    contextualize_intent_query,
 )
 from intelligence.services.run_store import RunStore, redact
 from intelligence.services.turn_controller import TurnDecision, decide_turn
@@ -302,6 +310,26 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
     )
 
 
+def _deadline_partial_result(query: str, warnings: Sequence[str]) -> AskResult:
+    return AskResult(
+        query=query,
+        trade_date=None,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        warnings=list(dict.fromkeys(warnings)),
+        sections={
+            "结论": ["专项研究达到统一截止时间，未启动第二套完整问答流程。"],
+            "证据链": [],
+            "分歧反证": ["未完成阶段保持未知，不能据此推断为没有证据。"],
+            "后续验证点": ["增加研究预算后，从未完成的 owner stage 继续。"],
+            "交易含义": ["当前证据不足，不新增交易判断。"],
+            "数据源状态": ["owner_timeout；返回截止前 partial artifacts。"],
+            "引用来源": [],
+        },
+    )
+
+
 def _summarize_messages(messages: Sequence[Message]) -> str:
     text = "\n".join(f"{message.role}: {message.content}" for message in messages)
     if len(text) <= SUMMARY_CHAR_LIMIT:
@@ -398,6 +426,12 @@ def sanitize_conversation_answer(text: str) -> str:
     )
     cleaned = re.sub(r"盘面信号(?:\s*盘面信号)+", "盘面信号", cleaned)
     cleaned = re.sub(r"盘面\s*盘面信号", "盘面信号", cleaned)
+    cleaned = re.sub(
+        r"(?<=[\u4e00-\u9fff])_(?:market_signal|market_context)\b",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
     cleaned = re.sub(r"公告等硬证据\s*(?=(?:公告|订单|认证|量产|客户验证))", "", cleaned)
     cleaned = re.sub(
         r"(?<![A-Za-z])local(?![A-Za-z])", "本地", cleaned, flags=re.IGNORECASE
@@ -475,6 +509,16 @@ def contextualize_follow_up_query(
     return f"{previous_user}\n追问：{cleaned}"
 
 
+def previous_turn_intent(
+    context: ConversationContext,
+) -> tuple[TurnIntent | None, str | None]:
+    for message in reversed(context.recent_messages):
+        intent = TurnIntent.from_dict(message.turn_intent)
+        if intent is not None:
+            return intent, message.message_id
+    return None, None
+
+
 class TurnOrchestrator:
     def __init__(
         self,
@@ -532,6 +576,9 @@ class TurnOrchestrator:
         text_chunks: list[str] = []
         skill_outputs: list[SkillOutput] = []
         answer_model_name = self.llm_model
+        research_deadline = ResearchDeadline.from_timeout(
+            self.research_policy.max_elapsed_seconds
+        )
         self._emit(
             run_id,
             assistant_message_id,
@@ -558,15 +605,32 @@ class TurnOrchestrator:
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
             )
-            contextual_query = contextualize_follow_up_query(query, context)
-            routing_envelope = understand_query(contextual_query)
+            raw_envelope = understand_query(query)
+            inherited_intent, inherited_turn_id = previous_turn_intent(context)
             controller_started = time.monotonic()
             decision = self.turn_controller(
-                contextual_query,
+                query,
                 context=context.to_prompt_block(),
                 skill_mode=skill_mode,
                 selected_skill_ids=selected_skill_ids,
+                previous_intent=inherited_intent,
+                previous_turn_id=inherited_turn_id,
             )
+            turn_intent = decision.turn_intent or build_turn_intent(
+                query,
+                raw_envelope,
+                previous_intent=inherited_intent,
+                previous_turn_id=inherited_turn_id,
+            )
+            research_plan = ResearchPlan.from_intent(turn_intent)
+            decision = replace(
+                decision,
+                question_type=turn_intent.question_type,
+                subject=turn_intent.primary_subject,
+                turn_intent=turn_intent,
+            )
+            contextual_query = contextualize_intent_query(query, turn_intent)
+            routing_envelope = understand_query(contextual_query)
             report["task_type"] = decision.lane
             legacy_lane = (
                 "knowledge"
@@ -581,6 +645,8 @@ class TurnOrchestrator:
                 "turn_controller",
                 {
                     "decision": decision.to_dict(),
+                    "turn_intent": turn_intent.to_dict(),
+                    "research_plan": research_plan.to_dict(),
                     "legacy_query_envelope": routing_envelope.to_dict(),
                     "legacy_lane": legacy_lane,
                     "decision_diverged_from_legacy": decision.lane != legacy_lane,
@@ -621,6 +687,7 @@ class TurnOrchestrator:
                                 include_memory_block=decision.needs_memory,
                                 include_recall_block=decision.needs_memory,
                                 question_type_override=QUESTION_CONCEPT_DEFINITION,
+                                deadline=research_deadline,
                             )
                         )
                     except Exception as exc:  # noqa: BLE001
@@ -738,13 +805,18 @@ class TurnOrchestrator:
                     base_finance_fallback=False,
                 )
             else:
+                route_kwargs: dict[str, object] = {
+                    "registry": self.skill_registry.definitions,
+                    "query_envelope": routing_envelope,
+                }
+                if turn_intent.answer_owner is not None:
+                    route_kwargs["answer_owner"] = turn_intent.answer_owner
                 route = self.route_skills(
                     contextual_query,
                     "ask",
                     skill_mode,
                     selected_skill_ids,
-                    registry=self.skill_registry.definitions,
-                    query_envelope=routing_envelope,
+                    **route_kwargs,
                 )
             selected = [selection.skill_id for selection in route.selections]
             self._trace(
@@ -772,11 +844,16 @@ class TurnOrchestrator:
             )
             self._check_cancelled()
 
-            research_budget = ResearchExecutionBudget(self.research_policy)
+            research_budget = ResearchExecutionBudget(
+                self.research_policy,
+                deadline=research_deadline,
+            )
             seen_skill_ids: set[str] = set()
+            retrieval_cache: dict[str, object] = {}
             pending_selections = list(route.selections)
             execution_feedback: list[dict[str, str]] = []
             fallback_route_round = 0
+            owner_timed_out = False
             while pending_selections:
                 selection = pending_selections.pop(0)
                 self._check_cancelled()
@@ -806,6 +883,9 @@ class TurnOrchestrator:
                         elapsed_ms=0,
                         failure_reason=warning,
                     )
+                    if skill_id == turn_intent.answer_owner:
+                        owner_timed_out = True
+                        pending_selections.clear()
                     continue
                 seen_skill_ids.add(skill_id)
                 invoked.append(skill_id)
@@ -839,6 +919,10 @@ class TurnOrchestrator:
                             repo_root=self.repo_root,
                             run_store=self.run_store,
                             conversation_context=context.to_prompt_block(),
+                            turn_intent=turn_intent.to_dict(),
+                            research_plan=research_plan.to_dict(),
+                            deadline=research_deadline,
+                            retrieval_cache=retrieval_cache,
                         ),
                     )
                     output = future.result(
@@ -872,6 +956,12 @@ class TurnOrchestrator:
                     )
                     warnings.append(warning)
                     self.run_store.add_degrade(run_id, warning)
+                    if (
+                        isinstance(exc, FuturesTimeoutError)
+                        and skill_id == turn_intent.answer_owner
+                    ):
+                        owner_timed_out = True
+                        pending_selections.clear()
                     module = self._skill_warning_module(skill_id, warning)
                     self._emit_module(
                         run_id,
@@ -922,6 +1012,9 @@ class TurnOrchestrator:
                     skill_outputs.append(output)
                     warnings.extend(output.warnings)
                     citations.extend(output.citations)
+                    if output.answer_contract is not None:
+                        pending_selections.clear()
+                        execution_feedback.clear()
                     for warning in output.warnings:
                         self.run_store.add_degrade(run_id, warning)
                     for index, module in enumerate(output.modules, start=1):
@@ -961,20 +1054,28 @@ class TurnOrchestrator:
                 if (
                     not pending_selections
                     and execution_feedback
+                    and not owner_timed_out
                     and skill_mode != "manual"
                     and research_budget.can_start()
                 ):
                     fallback_route_round += 1
                     fallback_route_started = time.monotonic()
+                    fallback_route_kwargs: dict[str, object] = {
+                        "registry": self.skill_registry.definitions,
+                        "query_envelope": routing_envelope,
+                        "excluded_skill_ids": tuple(seen_skill_ids),
+                        "execution_feedback": tuple(execution_feedback),
+                    }
+                    if turn_intent.answer_owner is not None:
+                        fallback_route_kwargs["answer_owner"] = (
+                            turn_intent.answer_owner
+                        )
                     fallback_route = self.route_skills(
                         contextual_query,
                         "ask",
                         skill_mode,
                         selected_skill_ids,
-                        registry=self.skill_registry.definitions,
-                        query_envelope=routing_envelope,
-                        excluded_skill_ids=tuple(seen_skill_ids),
-                        execution_feedback=tuple(execution_feedback),
+                        **fallback_route_kwargs,
                     )
                     replacements = [
                         item
@@ -1086,12 +1187,13 @@ class TurnOrchestrator:
                 question_type_override=(
                     QUESTION_CONCEPT_DEFINITION
                     if decision.lane == "knowledge"
-                    else None
+                    else turn_intent.question_type
                 ),
                 perspective_mode=perspective_mode,
                 perspective_ids=tuple(selected_perspective_ids),
                 stream_text_delta=capture_safe_text,
                 stream_cancel_check=self.is_cancelled,
+                deadline=research_deadline,
             )
             if owner_output is not None:
                 result = _skill_owner_result(query, owner_output)
@@ -1112,6 +1214,9 @@ class TurnOrchestrator:
                         ),
                     },
                 )
+            elif owner_timed_out:
+                result = _deadline_partial_result(contextual_query, warnings)
+                prepared = prepare_existing_answer(ask_options, result)
             else:
                 result = self.answer_query(ask_options)
                 prepared = (
@@ -1306,6 +1411,34 @@ class TurnOrchestrator:
                     block for block in (answer_prefix, answer_text) if block
                 )
             )
+            if result.answer_spec is not None:
+                atom_ids = tuple(
+                    atom.atom_id
+                    for atom in answer_model.evidence_atoms_from_answer_spec(
+                        result.answer_spec
+                    )
+                )
+                turn_intent = replace(
+                    turn_intent,
+                    evidence_atom_ids=atom_ids,
+                )
+                research_plan = ResearchPlan.from_intent(turn_intent)
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "validate",
+                    "evidence_atom_registry",
+                    {
+                        "status": "completed",
+                        "evidence_atom_count": len(atom_ids),
+                        "evidence_atom_ids": list(atom_ids),
+                        "quality_gate": (
+                            result.llm_fallback_reason
+                            or "structured_claim_ids_validated"
+                        ),
+                    },
+                )
             if (
                 decision.lane in {"research", "workflow"}
                 and result.synthesis is None
@@ -1370,6 +1503,8 @@ class TurnOrchestrator:
                 invoked_skill_ids=invoked,
                 citations=citations,
                 degrades=warnings,
+                turn_intent=turn_intent.to_dict(),
+                research_plan=research_plan.to_dict(),
             )
             self._emit(
                 run_id,

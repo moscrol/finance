@@ -81,6 +81,8 @@ class Message:
     invoked_skill_ids: list[str] = field(default_factory=list)
     citations: list[dict[str, object]] = field(default_factory=list)
     degrades: list[str] = field(default_factory=list)
+    turn_intent: dict[str, object] | None = None
+    research_plan: dict[str, object] | None = None
 
 
 class ConversationStore:
@@ -151,6 +153,8 @@ class ConversationStore:
         invoked_skill_ids: list[str] | None = None,
         citations: list[dict[str, object]] | None = None,
         degrades: list[str] | None = None,
+        turn_intent: dict[str, object] | None = None,
+        research_plan: dict[str, object] | None = None,
     ) -> Message:
         conversation = self.load_conversation(conversation_id)
         message = Message(
@@ -170,6 +174,12 @@ class ConversationStore:
             invoked_skill_ids=[redact(item) for item in (invoked_skill_ids or [])],
             citations=[_redact_mapping(item) for item in (citations or [])],
             degrades=[redact(item) for item in (degrades or [])],
+            turn_intent=(
+                _redact_mapping(turn_intent) if turn_intent is not None else None
+            ),
+            research_plan=(
+                _redact_mapping(research_plan) if research_plan is not None else None
+            ),
         )
         self._append_message_record(message)
         return message
@@ -185,6 +195,8 @@ class ConversationStore:
         invoked_skill_ids: list[str] | None = None,
         citations: list[dict[str, object]] | None = None,
         degrades: list[str] | None = None,
+        turn_intent: dict[str, object] | None = None,
+        research_plan: dict[str, object] | None = None,
     ) -> Message:
         messages = self.load_messages(conversation_id)
         original = next(
@@ -232,6 +244,16 @@ class ConversationStore:
                     degrades if degrades is not None else original.degrades
                 )
             ],
+            turn_intent=(
+                _redact_mapping(turn_intent)
+                if turn_intent is not None
+                else original.turn_intent
+            ),
+            research_plan=(
+                _redact_mapping(research_plan)
+                if research_plan is not None
+                else original.research_plan
+            ),
         )
         self._append_message_record(revision)
         return revision

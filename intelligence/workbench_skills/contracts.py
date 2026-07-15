@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, TypeAlias
 
 from intelligence.services import answer_model
+from intelligence.services.research_contract import ResearchDeadline
 from intelligence.services.run_store import RunStore, redact
 
 JsonScalar: TypeAlias = str | int | float | bool | None
@@ -43,6 +44,7 @@ class SkillOutput:
     as_of: str | None
     raw_result_ref: str | None
     answer_contract: SkillAnswerContract | None = None
+    stage_artifacts: list[JsonObject] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -215,6 +217,10 @@ class SkillExecutionContext:
     repo_root: Path
     run_store: RunStore
     conversation_context: str = ""
+    turn_intent: JsonObject | None = None
+    research_plan: JsonObject | None = None
+    deadline: ResearchDeadline | None = None
+    retrieval_cache: dict[str, object] = field(default_factory=dict)
 
 
 class SkillExecutor(Protocol):

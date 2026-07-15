@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+from intelligence.services.research_contract import TurnIntent
 from intelligence.services.turn_controller import decide_turn
 
 
@@ -99,6 +102,159 @@ def test_company_upside_with_freshness_uses_research_lane() -> None:
     assert decision.lane == "research"
     assert decision.needs_retrieval is True
     assert decision.needs_template is True
+
+
+@pytest.mark.parametrize(
+    ("query", "owner"),
+    (
+        ("瑞华泰还有上涨空间吗？", "stock-deep-dive"),
+        (
+            "请个股深挖英维克的液冷业务，收入和利润都要覆盖",
+            "stock-deep-dive",
+        ),
+        ("分析英维克最新财报", "financial-analysis"),
+        ("英维克最新液冷公告有什么影响", "news-impact"),
+    ),
+)
+def test_controller_is_unique_research_owner(query: str, owner: str) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner == owner
+
+
+def test_follow_up_inherits_subject_owner_and_evidence_set() -> None:
+    previous = TurnIntent(
+        primary_subject="英维克",
+        secondary_topics=("液冷",),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+        evidence_atom_ids=("atom-1", "atom-2"),
+    )
+
+    decision = decide_turn(
+        "那它的客户和订单呢？",
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.subject == "英维克"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner == "stock-deep-dive"
+    assert decision.turn_intent.inherited_from_turn == "msg-previous"
+    assert decision.turn_intent.evidence_atom_ids == ("atom-1", "atom-2")
+
+
+def test_explicit_follow_up_task_switch_keeps_subject_and_changes_owner() -> None:
+    previous = TurnIntent(
+        primary_subject="英维克",
+        secondary_topics=("液冷",),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+
+    decision = decide_turn(
+        "再看一下最新财报",
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.subject == "英维克"
+    assert decision.question_type == "financial_analysis"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner == "financial-analysis"
+
+
+def test_a04_comparison_inherits_theme_research_owner() -> None:
+    previous = TurnIntent(
+        primary_subject="液冷",
+        secondary_topics=(),
+        question_type="theme_analysis",
+        answer_owner="theme-research",
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+
+    decision = decide_turn(
+        "强瑞技术和冰轮环境，谁的证据更硬？只按可核验事实比较。",
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.subject == "液冷"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner == "theme-research"
+
+
+def test_a16_comparison_inherits_stock_deep_dive_owner() -> None:
+    previous = TurnIntent(
+        primary_subject="英维克",
+        secondary_topics=("液冷",),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+
+    decision = decide_turn(
+        "和高澜股份、申菱环境横向比，市场奖励谁、犹豫谁、抛弃谁？",
+        previous_intent=previous,
+        previous_turn_id="msg-a15",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.subject == "英维克"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner == "stock-deep-dive"
+    assert decision.turn_intent.inherited_from_turn == "msg-a15"
+
+
+@pytest.mark.parametrize(
+    ("case_id", "query", "owner"),
+    (
+        (
+            "A03",
+            "液冷现在处于什么阶段？产业链和核心公司怎么分层？",
+            "theme-research",
+        ),
+        (
+            "A15",
+            "请个股深挖英维克的液冷业务：公司本体、客户证据、"
+            "收入传导、市场选择和风险都要覆盖。",
+            "stock-deep-dive",
+        ),
+        (
+            "A17",
+            "分析英维克最新财报：收入、利润率、现金流和同比变化。",
+            "financial-analysis",
+        ),
+        (
+            "A18",
+            "英维克最新液冷公告会产生什么一阶和二阶影响？",
+            "news-impact",
+        ),
+    ),
+)
+def test_architecture_acceptance_fixture_owner(
+    case_id: str,
+    query: str,
+    owner: str,
+) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "research", case_id
+    assert decision.turn_intent is not None, case_id
+    assert decision.turn_intent.answer_owner == owner, case_id
 
 
 def test_explicit_product_workflows_do_not_depend_on_llm_classification() -> None:

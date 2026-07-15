@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -468,7 +469,14 @@ _SYNTHESIS_SYSTEM_PROMPT = (
     "公司、数字或催化。先服从证据中的「问答编排计划」和「输出契约」。"
     "AnswerSpec 是最终事实白名单；证据中若出现未被 AnswerSpec 输出契约或允许项覆盖的"
     "公司、数字、日期、比例或金额，一律不得写入正文，宁可改成定性表达。"
-    "不得用“如/例如/包括”等举例句式带出新增公司或数字。"
+    "每个正文段落或列表项必须单行输出，并在行末追加 AnswerSpec 给出的结构化 claim marker；"
+    "claim_id、EvidenceAtom ID 和 claim_type 必须逐字使用 registry 中的合法值。"
+    "事实行至少绑定一个 EvidenceAtom；推断和预期必须分别标为 inference、expectation。"
+    "不得输出 registry 外的 claim，不得省略 marker；marker 是机器门禁，最终展示层会移除。"
+    "除 Markdown 标题外，禁止输出任何没有 marker 的导语、过渡句、解释、来源说明或免责声明；"
+    "需要衔接时只能新增标题，正文必须逐行复用 registry 中的 claim。"
+    "marker 前的文字只用于段落布局，最终展示层会按 claim_id 渲染 registry 中的原始 claim，"
+    "因此不要试图在该文字中补充 registry 外事实。"
     "L1 固定结论配方：数据截止日、直接定性、最强证据、主要风险、条件边界、下一步验证；"
     "L2 弹性段型由问题决定，结构和篇幅由问题复杂度决定，不得为了显得完整而套用深度研究模板。"
     "个股/题材深挖先在内部写出核心矛盾句；所有视角都必须服务这个核心矛盾，"
@@ -693,34 +701,50 @@ def _post_chat_stream(
     output_chars = 0
     finish_reason: str | None = None
     with urllib.request.urlopen(request, timeout=timeout) as response:
+        deadline_timer = threading.Timer(
+            max(0.001, deadline.remaining()),
+            response.close,
+        )
+        deadline_timer.daemon = True
+        deadline_timer.start()
         if on_connected is not None:
             on_connected()
-        for raw_line in response:
+        try:
+            for raw_line in response:
+                if deadline.remaining() <= 0:
+                    raise LLMDeadlineExceeded()
+                if is_cancelled is not None and is_cancelled():
+                    raise LLMStreamCancelled()
+                line = raw_line.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    if finish_reason is None and chunks:
+                        finish_reason = "stop"
+                    break
+                try:
+                    event = json.loads(data)
+                    choice = event["choices"][0]
+                    finish_reason = (
+                        _stable_finish_reason(choice.get("finish_reason"))
+                        or finish_reason
+                    )
+                    delta = choice["delta"].get("content")
+                except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+                    continue
+                if isinstance(delta, str) and delta:
+                    output_chars += len(delta)
+                    if output_chars > max_chars:
+                        raise LLMOutputTooLong()
+                    on_delta(delta)
+                    chunks.append(delta)
+        except (OSError, ValueError) as exc:
             if deadline.remaining() <= 0:
-                raise LLMDeadlineExceeded()
-            if is_cancelled is not None and is_cancelled():
-                raise LLMStreamCancelled()
-            line = raw_line.decode("utf-8", "replace").strip()
-            if not line.startswith("data:"):
-                continue
-            data = line[5:].strip()
-            if data == "[DONE]":
-                if finish_reason is None and chunks:
-                    finish_reason = "stop"
-                break
-            try:
-                event = json.loads(data)
-                choice = event["choices"][0]
-                finish_reason = _stable_finish_reason(choice.get("finish_reason")) or finish_reason
-                delta = choice["delta"].get("content")
-            except (json.JSONDecodeError, KeyError, IndexError, TypeError):
-                continue
-            if isinstance(delta, str) and delta:
-                output_chars += len(delta)
-                if output_chars > max_chars:
-                    raise LLMOutputTooLong()
-                on_delta(delta)
-                chunks.append(delta)
+                raise LLMDeadlineExceeded() from exc
+            raise
+        finally:
+            deadline_timer.cancel()
     if not chunks:
         raise LLMStreamingUnsupported()
     return "".join(chunks), finish_reason
@@ -804,6 +828,8 @@ def synthesize_messages_stream(
             fallback.fallback_reason = "stream_unsupported"
         return fallback, reason
     except Exception as exc:  # pragma: no cover - network
+        if shared_deadline.remaining() <= 0:
+            return None, "LLM 流式合成超过共享截止时间，已降级为模板"
         return None, f"LLM 流式合成失败（{type(exc).__name__}），已降级为模板"
     if not content.strip():
         return None, "LLM 流式合成返回空内容，已降级为模板"
@@ -908,6 +934,25 @@ def synthesize_messages_with_review(
     if not revised:
         return draft, "LLM 二次自审返回空内容，保留初稿并标记降级"
     return SynthesisResult(answer=revised, provider=provider.name, model=provider.model), ""
+
+
+def claim_binding_revision_user_content(
+    error_notes: list[str],
+    registry_block: str,
+) -> str:
+    joined = "\n".join(f"- {note}" for note in error_notes)
+    return (
+        "上一版未通过结构化事实门禁。不要补充、删除或改写 AnswerSpec registry；"
+        "只允许重新组织 registry 中已有 claim。\n"
+        "请输出一份完整修订稿，并严格满足：\n"
+        "1. 标题可不带 marker。\n"
+        "2. 正文只能从下方 registry 逐字复制 5—10 条完整行；"
+        "禁止改写、拆分或合并 marker 与 EvidenceAtom ID。\n"
+        "3. 禁止输出任何没有 marker 的解释、过渡句、数据说明或引用。\n"
+        f"门禁错误：\n{joined}\n"
+        "可复制 registry：\n"
+        f"{registry_block}"
+    )
 
 
 def synthesize(

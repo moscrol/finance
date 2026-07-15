@@ -8,6 +8,11 @@ from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
+from intelligence.services.research_contract import (
+    TurnIntent,
+    build_turn_intent,
+    contextualize_intent_query,
+)
 
 TurnLane: TypeAlias = Literal[
     "chat",
@@ -86,6 +91,7 @@ class TurnDecision:
     reason: str = ""
     capabilities: tuple[str, ...] = ()
     clarification_questions: tuple[str, ...] = ()
+    turn_intent: TurnIntent | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -374,20 +380,63 @@ def decide_turn(
     skill_mode: str = "auto",
     selected_skill_ids: Sequence[str] = (),
     llm_complete: LLMComplete | None = None,
+    previous_intent: TurnIntent | None = None,
+    previous_turn_id: str | None = None,
 ) -> TurnDecision:
-    deterministic = _deterministic_decision(
+    envelope = understand_query(query)
+    intent = build_turn_intent(
         query,
+        envelope,
+        previous_intent=previous_intent,
+        previous_turn_id=previous_turn_id,
+    )
+    effective_query = contextualize_intent_query(query, intent)
+    deterministic = _deterministic_decision(
+        effective_query,
         skill_mode=skill_mode,
         selected_skill_ids=selected_skill_ids,
     )
     if deterministic is not None:
-        return deterministic
+        return _attach_turn_intent(deterministic, intent)
     complete = llm_refine.complete if llm_complete is None else llm_complete
     try:
-        content, _provider, _reason = complete(_controller_messages(query, context))
+        content, _provider, _reason = complete(
+            _controller_messages(effective_query, context)
+        )
     except Exception:
         content = None
     if content is None:
-        return _safe_fallback(query)
+        return _attach_turn_intent(_safe_fallback(effective_query), intent)
     parsed = _parse_llm_decision(content)
-    return parsed if parsed is not None else _safe_fallback(query)
+    decision = parsed if parsed is not None else _safe_fallback(effective_query)
+    return _attach_turn_intent(decision, intent)
+
+
+def _attach_turn_intent(
+    decision: TurnDecision,
+    intent: TurnIntent,
+) -> TurnDecision:
+    if (
+        intent.inherited_from_turn is not None
+        and intent.answer_owner is not None
+        and decision.lane in {
+        "chat",
+        "clarify",
+        "knowledge",
+        }
+    ):
+        decision = replace(
+            decision,
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=True,
+            needs_template=True,
+            reason="结构化追问继承既有研究任务",
+            clarification_questions=(),
+        )
+    return replace(
+        decision,
+        question_type=intent.question_type,
+        subject=intent.primary_subject,
+        turn_intent=intent,
+    )

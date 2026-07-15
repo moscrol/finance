@@ -1,0 +1,354 @@
+from __future__ import annotations
+
+import re
+import time
+from dataclasses import asdict, dataclass, field
+from typing import Literal, TypeAlias
+
+from intelligence.services.query_understanding import QueryEnvelope
+
+AnswerOwner: TypeAlias = Literal[
+    "stock-deep-dive",
+    "financial-analysis",
+    "news-impact",
+    "theme-research",
+]
+ClaimType: TypeAlias = Literal["fact", "inference", "expectation"]
+StageStatus: TypeAlias = Literal[
+    "pending",
+    "completed",
+    "partial",
+    "timeout",
+    "failed",
+    "skipped",
+]
+
+RESEARCH_OWNER_IDS = frozenset(
+    {
+        "stock-deep-dive",
+        "financial-analysis",
+        "news-impact",
+        "theme-research",
+    }
+)
+QUESTION_OWNER_SKILLS: dict[str, AnswerOwner] = {
+    "stock_deep_dive": "stock-deep-dive",
+    "valuation_estimate": "stock-deep-dive",
+    "theme_analysis": "theme-research",
+    "news_impact": "news-impact",
+    "financial_analysis": "financial-analysis",
+}
+OWNER_RETRIEVAL_STAGES: dict[AnswerOwner, tuple[str, ...]] = {
+    "stock-deep-dive": (
+        "company_master",
+        "company_evidence",
+        "financial_transmission",
+        "market_choice",
+        "counterevidence",
+    ),
+    "financial-analysis": (
+        "report_period",
+        "financial_metrics",
+        "segment_disclosure",
+        "prior_period_comparison",
+    ),
+    "news-impact": (
+        "original_disclosure",
+        "event_facts",
+        "impact_transmission",
+        "substitutes_and_harmed_directions",
+    ),
+    "theme-research": (
+        "definition",
+        "chain_stages",
+        "company_mapping",
+        "market_lifecycle",
+        "counterevidence",
+    ),
+}
+
+_FOLLOW_UP_REFERENCE_PATTERN = re.compile(
+    r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
+)
+_FOLLOW_UP_CONTINUATION_PATTERN = re.compile(
+    r"^(?:把|再|继续|接着|然后|只按|横向|分别|哪些逻辑|"
+    r"和[^，。！？?!]{2,24}(?:比|比较))"
+)
+_COMPARISON_PATTERN = re.compile(r"(?:比较|对比|相比|和.+比|与.+比)")
+_EXPLICIT_SWITCH_PATTERN = re.compile(
+    r"(?:改看|换成|切换到|另外看|再分析|重新分析|转向)"
+)
+_TASK_SWITCH_PATTERNS: dict[str, re.Pattern[str]] = {
+    "financial_analysis": re.compile(
+        r"(财报|年报|季报|中报|收入|营收|利润|毛利率|净利率|现金流)"
+    ),
+    "news_impact": re.compile(r"(公告|新闻|消息|事件).{0,12}(影响|冲击|利好|利空)"),
+    "stock_deep_dive": re.compile(
+        r"(个股深挖|公司深挖|上涨空间|后续空间|还能涨|估值|贵不贵)"
+    ),
+    "theme_analysis": re.compile(r"(题材|产业链|板块).{0,12}(研究|分析|梳理|深挖)"),
+}
+
+
+@dataclass(frozen=True)
+class TurnIntent:
+    primary_subject: str | None
+    secondary_topics: tuple[str, ...]
+    question_type: str
+    answer_owner: AnswerOwner | None
+    comparison_entities: tuple[str, ...]
+    inherited_from_turn: str | None
+    evidence_atom_ids: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, value: object) -> TurnIntent | None:
+        if not isinstance(value, dict):
+            return None
+        try:
+            primary_subject = value.get("primary_subject")
+            question_type = value["question_type"]
+            answer_owner = value.get("answer_owner")
+            inherited_from_turn = value.get("inherited_from_turn")
+            secondary_topics = value.get("secondary_topics", ())
+            comparison_entities = value.get("comparison_entities", ())
+            evidence_atom_ids = value.get("evidence_atom_ids", ())
+        except KeyError:
+            return None
+        if primary_subject is not None and not isinstance(primary_subject, str):
+            return None
+        if not isinstance(question_type, str):
+            return None
+        if answer_owner is not None and answer_owner not in RESEARCH_OWNER_IDS:
+            return None
+        if inherited_from_turn is not None and not isinstance(inherited_from_turn, str):
+            return None
+        for items in (secondary_topics, comparison_entities, evidence_atom_ids):
+            if not isinstance(items, (list, tuple)) or any(
+                not isinstance(item, str) for item in items
+            ):
+                return None
+        return cls(
+            primary_subject=primary_subject,
+            secondary_topics=tuple(secondary_topics),
+            question_type=question_type,
+            answer_owner=answer_owner,
+            comparison_entities=tuple(comparison_entities),
+            inherited_from_turn=inherited_from_turn,
+            evidence_atom_ids=tuple(evidence_atom_ids),
+        )
+
+
+@dataclass(frozen=True)
+class ResearchPlan:
+    primary_subject: str | None
+    question_type: str
+    answer_owner: AnswerOwner | None
+    retrieval_stages: tuple[str, ...]
+    comparison_entities: tuple[str, ...] = ()
+    inherited_from_turn: str | None = None
+    evidence_atom_ids: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+    @classmethod
+    def from_intent(cls, intent: TurnIntent) -> ResearchPlan:
+        stages = (
+            OWNER_RETRIEVAL_STAGES[intent.answer_owner]
+            if intent.answer_owner is not None
+            else ()
+        )
+        return cls(
+            primary_subject=intent.primary_subject,
+            question_type=intent.question_type,
+            answer_owner=intent.answer_owner,
+            retrieval_stages=stages,
+            comparison_entities=intent.comparison_entities,
+            inherited_from_turn=intent.inherited_from_turn,
+            evidence_atom_ids=intent.evidence_atom_ids,
+        )
+
+
+@dataclass(frozen=True)
+class ResearchDeadline:
+    expires_at: float
+
+    @classmethod
+    def from_timeout(cls, timeout: float) -> ResearchDeadline:
+        return cls(time.monotonic() + max(0.0, float(timeout)))
+
+    def remaining(self) -> float:
+        return max(0.0, self.expires_at - time.monotonic())
+
+    def stage_timeout(self, configured_limit: float) -> float:
+        return max(0.0, min(float(configured_limit), self.remaining()))
+
+    @property
+    def expired(self) -> bool:
+        return self.remaining() <= 0.0
+
+
+@dataclass(frozen=True)
+class EvidenceAtom:
+    atom_id: str
+    claim_text: str
+    entity_id: str | None
+    metric: str | None
+    value: str | int | float | None
+    unit: str | None
+    period: str | None
+    evidence_tier: str
+    source_id: str
+    source_date: str | None
+    provenance: dict[str, object]
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class StructuredClaim:
+    claim_id: str
+    claim: str
+    evidence_atom_ids: tuple[str, ...]
+    claim_type: ClaimType
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class StageArtifact:
+    stage: str
+    status: StageStatus
+    elapsed_ms: int
+    evidence_atom_ids: tuple[str, ...] = ()
+    payload: dict[str, object] = field(default_factory=dict)
+    degrade_reason: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+def is_follow_up(query: str) -> bool:
+    cleaned = query.strip()
+    return bool(
+        _FOLLOW_UP_REFERENCE_PATTERN.search(cleaned)
+        or _FOLLOW_UP_CONTINUATION_PATTERN.search(cleaned)
+        or _COMPARISON_PATTERN.search(cleaned)
+    )
+
+
+def answer_owner_for_question_type(question_type: str) -> AnswerOwner | None:
+    return QUESTION_OWNER_SKILLS.get(question_type)
+
+
+def build_turn_intent(
+    query: str,
+    envelope: QueryEnvelope,
+    *,
+    previous_intent: TurnIntent | None = None,
+    previous_turn_id: str | None = None,
+) -> TurnIntent:
+    cleaned = query.strip()
+    follow_up = previous_intent is not None and is_follow_up(cleaned)
+    explicit_task_type = _explicit_task_type(cleaned)
+    explicit_task_switch = (
+        explicit_task_type is not None
+        and previous_intent is not None
+        and explicit_task_type != previous_intent.question_type
+    )
+    explicit_subject_switch = bool(
+        previous_intent is not None
+        and envelope.subject
+        and envelope.subject != previous_intent.primary_subject
+        and _EXPLICIT_SWITCH_PATTERN.search(cleaned)
+    )
+    comparison_entities: tuple[str, ...] = ()
+    if (
+        previous_intent is not None
+        and envelope.subject
+        and envelope.subject != previous_intent.primary_subject
+        and _COMPARISON_PATTERN.search(cleaned)
+    ):
+        comparison_entities = (envelope.subject,)
+
+    if (
+        follow_up
+        and explicit_task_switch
+        and previous_intent is not None
+        and not explicit_subject_switch
+    ):
+        question_type = explicit_task_type or envelope.question_type
+        return TurnIntent(
+            primary_subject=previous_intent.primary_subject,
+            secondary_topics=previous_intent.secondary_topics,
+            question_type=question_type,
+            answer_owner=answer_owner_for_question_type(question_type),
+            comparison_entities=previous_intent.comparison_entities,
+            inherited_from_turn=previous_turn_id,
+            evidence_atom_ids=previous_intent.evidence_atom_ids,
+        )
+
+    inherit = follow_up and not explicit_task_switch and not explicit_subject_switch
+    if inherit and previous_intent is not None:
+        return TurnIntent(
+            primary_subject=previous_intent.primary_subject,
+            secondary_topics=_merge_topics(
+                previous_intent.secondary_topics,
+                _secondary_topics(envelope, previous_intent.primary_subject),
+            ),
+            question_type=previous_intent.question_type,
+            answer_owner=previous_intent.answer_owner,
+            comparison_entities=_merge_topics(
+                previous_intent.comparison_entities,
+                comparison_entities,
+            ),
+            inherited_from_turn=previous_turn_id,
+            evidence_atom_ids=previous_intent.evidence_atom_ids,
+        )
+
+    question_type = envelope.question_type
+    return TurnIntent(
+        primary_subject=envelope.subject,
+        secondary_topics=_secondary_topics(envelope, envelope.subject),
+        question_type=question_type,
+        answer_owner=answer_owner_for_question_type(question_type),
+        comparison_entities=comparison_entities,
+        inherited_from_turn=None,
+    )
+
+
+def contextualize_intent_query(query: str, intent: TurnIntent) -> str:
+    cleaned = query.strip()
+    if intent.inherited_from_turn is None or not intent.primary_subject:
+        return cleaned
+    comparison = (
+        "；比较对象：" + "、".join(intent.comparison_entities)
+        if intent.comparison_entities
+        else ""
+    )
+    return f"主体：{intent.primary_subject}{comparison}\n追问：{cleaned}"
+
+
+def _explicit_task_type(query: str) -> str | None:
+    for question_type, pattern in _TASK_SWITCH_PATTERNS.items():
+        if pattern.search(query):
+            return question_type
+    return None
+
+
+def _secondary_topics(
+    envelope: QueryEnvelope,
+    primary_subject: str | None,
+) -> tuple[str, ...]:
+    if envelope.subject and envelope.subject != primary_subject:
+        return (envelope.subject,)
+    return ()
+
+
+def _merge_topics(*groups: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(item for group in groups for item in group if item))

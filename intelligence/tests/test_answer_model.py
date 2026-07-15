@@ -16,6 +16,9 @@ from intelligence.services.answer_model import (
     finalize_answer_spec,
     humanize,
     make_claim,
+    repair_llm_answer,
+    evidence_atoms_from_answer_spec,
+    present_llm_answer,
     render_answer_spec,
     resolve_theme_research_spec,
     validate_llm_answer,
@@ -474,15 +477,99 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertNotIn("retrieval", rendered)
         self.assertNotIn("evidence_count", rendered)
 
-    def test_llm_gate_rejects_new_company_and_number(self) -> None:
+    def test_llm_gate_rejects_unbound_factual_content(self) -> None:
         issues = validate_llm_answer(
             "新增科技未来订单将达到 20 亿元。",
             self._answer(),
         )
         codes = {issue.code for issue in issues}
 
-        self.assertIn("llm_added_company", codes)
-        self.assertIn("llm_added_number", codes)
+        self.assertEqual(codes, {"llm_missing_claim_binding"})
+
+    def test_llm_gate_never_repairs_by_deleting_sentences(self) -> None:
+        answer = (
+            "## 核心判断\n"
+            "当前证据只支持谨慎判断，已核验事实仍需持续跟踪。"
+            "这是基于现有资料形成的边界判断，不代表未来结果。\n\n"
+            "## 证据\n"
+            "现有证据可以支持产业链位置判断，但不能支持订单规模外推。"
+            "新增科技未来订单将达到 20 亿元。\n\n"
+            "## 下一步\n"
+            "继续核对公司公告、客户验证和收入传导，发现反证时下调结论。"
+        )
+
+        repaired = repair_llm_answer(answer, self._answer())
+
+        self.assertIsNone(repaired)
+
+    def test_llm_gate_validates_claim_and_atom_ids_then_renders_registry_claim(
+        self,
+    ) -> None:
+        spec = self._answer()
+        claim = spec.verified_facts[0]
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.provenance["claim_id"] == claim.claim_id
+        )
+        answer = (
+            "## 核心判断\n"
+            f"- 模型不能借此注入任意新事实。"
+            f"<!-- claim_id={claim.claim_id}; "
+            f"evidence_atom_ids={atom.atom_id}; claim_type=fact -->"
+        )
+
+        self.assertEqual(validate_llm_answer(answer, spec), ())
+        rendered = present_llm_answer(answer, spec)
+        self.assertIn(claim.text, rendered)
+        self.assertNotIn("模型不能借此注入", rendered)
+        self.assertNotIn("claim_id=", rendered)
+
+    def test_llm_gate_rejects_invalid_claim_id(self) -> None:
+        spec = self._answer()
+        answer = (
+            "- 任意内容"
+            "<!-- claim_id=claim-does-not-exist; "
+            "evidence_atom_ids=atom-does-not-exist; claim_type=fact -->"
+        )
+
+        codes = {
+            issue.code for issue in validate_llm_answer(answer, spec)
+        }
+
+        self.assertIn("llm_invalid_claim_id", codes)
+
+    def test_llm_gate_rejects_invalid_evidence_atom_id(self) -> None:
+        spec = self._answer()
+        claim = spec.verified_facts[0]
+        answer = (
+            "- 任意内容"
+            f"<!-- claim_id={claim.claim_id}; "
+            "evidence_atom_ids=atom-does-not-exist; claim_type=fact -->"
+        )
+
+        codes = {
+            issue.code for issue in validate_llm_answer(answer, spec)
+        }
+
+        self.assertIn("llm_invalid_evidence_atom_id", codes)
+
+    def test_llm_gate_accepts_chinese_evidence_atom_delimiter(self) -> None:
+        spec = self._answer()
+        claim = spec.verified_facts[0]
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.provenance["claim_id"] == claim.claim_id
+        )
+        answer = (
+            "- 任意布局"
+            f"<!-- claim_id={claim.claim_id}; "
+            f"evidence_atom_ids={atom.atom_id}、{atom.atom_id}; "
+            "claim_type=fact -->"
+        )
+
+        self.assertEqual(validate_llm_answer(answer, spec), ())
 
 
 class AskIntegrationTests(unittest.TestCase):

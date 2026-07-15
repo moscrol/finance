@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 from dataclasses import asdict, dataclass, field
 
+from intelligence.services.research_contract import ResearchDeadline
+
 
 @dataclass(frozen=True)
 class ResearchExecutionPolicy:
@@ -27,11 +29,18 @@ class ResearchExecutionBudget:
     policy: ResearchExecutionPolicy
     started_at: float = field(default_factory=time.monotonic)
     attempts: list[ToolAttempt] = field(default_factory=list)
+    deadline: ResearchDeadline | None = None
+
+    def __post_init__(self) -> None:
+        if self.deadline is None:
+            self.deadline = ResearchDeadline.from_timeout(
+                self.policy.max_elapsed_seconds
+            )
 
     def can_start(self) -> bool:
         return (
             self.call_count < self.policy.max_skill_calls
-            and self.elapsed_seconds < self.policy.max_elapsed_seconds
+            and self.remaining_seconds > 0
         )
 
     @property
@@ -47,7 +56,9 @@ class ResearchExecutionBudget:
 
     @property
     def remaining_seconds(self) -> float:
-        return max(0.0, self.policy.max_elapsed_seconds - self.elapsed_seconds)
+        if self.deadline is None:
+            return 0.0
+        return self.deadline.remaining()
 
     def record(
         self,
@@ -78,5 +89,6 @@ class ResearchExecutionBudget:
             "call_count": self.call_count,
             "attempt_count": len(self.attempts),
             "elapsed_ms": round(self.elapsed_seconds * 1000),
+            "remaining_ms": round(self.remaining_seconds * 1000),
             "attempts": [asdict(attempt) for attempt in self.attempts],
         }

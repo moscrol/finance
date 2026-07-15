@@ -1,5 +1,6 @@
 import io
 import json
+import time
 import urllib.error
 from dataclasses import asdict
 from threading import Event
@@ -23,9 +24,10 @@ from intelligence.services.conversation_orchestrator import (
 )
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.query_understanding import QueryEnvelope
+from intelligence.services.research_contract import TurnIntent
 from intelligence.services.research_policy import ResearchExecutionPolicy
 from intelligence.services.run_store import RunStore
-from intelligence.services.turn_controller import TurnDecision
+from intelligence.services.turn_controller import TurnDecision, decide_turn
 from intelligence.workbench_skills.contracts import (
     SkillDefinition,
     SkillExecutionContext,
@@ -823,6 +825,105 @@ def test_turn_routes_with_query_envelope_and_records_it_in_trace(tmp_path) -> No
     assert route_output["query_envelope"] == routed[0].to_dict()
 
 
+def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    previous_intent = TurnIntent(
+        primary_subject="英维克",
+        secondary_topics=("液冷",),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+        evidence_atom_ids=("atom-1",),
+    )
+    conversation_store.append_message(
+        conversation.conversation_id,
+        "user",
+        "请个股深挖英维克的液冷业务",
+        run_id="run-previous",
+    )
+    previous_assistant = conversation_store.append_message(
+        conversation.conversation_id,
+        "assistant",
+        "上一轮回答",
+        run_id="run-previous",
+        turn_intent=previous_intent.to_dict(),
+    )
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "那它的客户和订单呢？",
+    )
+    routed: dict[str, object] = {}
+
+    def route_spy(
+        routed_query: str,
+        task_type: str,
+        skill_mode: str,
+        selected_skill_ids: list[str],
+        *,
+        registry: dict[str, SkillDefinition],
+        query_envelope: QueryEnvelope,
+        answer_owner: str,
+    ) -> SkillRouteResult:
+        routed.update(
+            query=routed_query,
+            task_type=task_type,
+            skill_mode=skill_mode,
+            selected_skill_ids=selected_skill_ids,
+            registry=registry,
+            query_envelope=query_envelope,
+            answer_owner=answer_owner,
+        )
+        return SkillRouteResult(
+            (),
+            fallback_to_ask=False,
+            base_finance_fallback=True,
+        )
+
+    def controller(query: str, **kwargs: object) -> TurnDecision:
+        return decide_turn(
+            query,
+            context=str(kwargs.get("context") or ""),
+            skill_mode=str(kwargs.get("skill_mode") or "auto"),
+            selected_skill_ids=tuple(kwargs.get("selected_skill_ids") or ()),
+            previous_intent=kwargs.get("previous_intent"),
+            previous_turn_id=kwargs.get("previous_turn_id"),
+            llm_complete=lambda _messages: (None, None, "fixture unavailable"),
+        )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=route_spy,
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="那它的客户和订单呢？",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert routed["answer_owner"] == "stock-deep-dive"
+    assert str(routed["query"]).startswith("主体：英维克")
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.turn_intent is not None
+    assert assistant.turn_intent["primary_subject"] == "英维克"
+    assert assistant.turn_intent["answer_owner"] == "stock-deep-dive"
+    assert assistant.turn_intent["inherited_from_turn"] == previous_assistant.message_id
+    assert assistant.turn_intent["evidence_atom_ids"] == ["atom-1"]
+    assert assistant.research_plan is not None
+    assert assistant.research_plan["answer_owner"] == "stock-deep-dive"
+
+
 class _FailingSkill:
     skill_id = "broken"
 
@@ -1000,7 +1101,7 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
         run_store,
         conversation.conversation_id,
         "使用专项研究",
-        selected_skill_ids=["owner"],
+        selected_skill_ids=["owner", "unused"],
     )
 
     class OwnerSkill:
@@ -1048,6 +1149,13 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
                 ),
             )
 
+    class UnusedSkill:
+        skill_id = "unused"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            del context
+            raise AssertionError("later skills must stop after answer owner")
+
     registry = SkillRegistry()
     registry.register(
         SkillDefinition(
@@ -1061,6 +1169,19 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
             timeout_seconds=1,
         ),
         OwnerSkill(),
+    )
+    registry.register(
+        SkillDefinition(
+            skill_id="unused",
+            name="Unused",
+            description="must not run after answer owner completes",
+            version="1.0.0",
+            triggers=("专项",),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        ),
+        UnusedSkill(),
     )
 
     def forbidden_answer_query(options: AskOptions) -> AskResult:
@@ -1079,10 +1200,11 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
         assistant_message_id=assistant_message_id,
         query="使用专项研究",
         skill_mode="manual",
-        selected_skill_ids=["owner"],
+        selected_skill_ids=["owner", "unused"],
     )
 
     assert result.status == "completed"
+    assert result.invoked_skill_ids == ("owner",)
     assert "# 专项研究" in result.content
     assert "**直接定性：**" in result.content
     assert "**最强证据：**" in result.content
@@ -1250,6 +1372,79 @@ def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path
     assert any("broken" in warning for warning in assistant.degrades)
     assert "must-not-leak" not in json.dumps(asdict(assistant), ensure_ascii=False)
     assert skill_result["payload"]["status"] == "degraded"
+
+
+def test_owner_timeout_returns_partial_without_starting_generic_pipeline(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "请个股深挖英维克的液冷业务"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+
+    class SlowOwner:
+        skill_id = "stock-deep-dive"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            assert context.deadline is not None
+            time.sleep(0.2)
+            return SkillOutput(
+                skill_id=self.skill_id,
+                modules=[],
+                citations=[],
+                warnings=[],
+                as_of=None,
+                raw_result_ref=None,
+            )
+
+    registry = SkillRegistry()
+    registry.register(
+        definition=SkillDefinition(
+            skill_id="stock-deep-dive",
+            name="Stock Deep Dive",
+            description="fixture owner",
+            version="1.0.0",
+            triggers=("个股深挖",),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+        ),
+        executor=SlowOwner(),
+    )
+
+    def forbidden_answer_query(options: AskOptions) -> AskResult:
+        raise AssertionError("owner timeout must not start generic full pipeline")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden_answer_query,
+        skill_registry=registry,
+        research_policy=ResearchExecutionPolicy(
+            max_skill_calls=3,
+            max_elapsed_seconds=0.1,
+        ),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    assert result.invoked_skill_ids == ("stock-deep-dive",)
+    assert "未启动第二套完整问答流程" in result.content
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert any("stock-deep-dive 执行超时" in item for item in assistant.degrades)
 
 
 def test_auto_mode_reroutes_after_skill_failure_within_budget(tmp_path) -> None:
@@ -1578,6 +1773,10 @@ def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
     assert "公告等硬证据公告" not in assistant.content
     assert "盘面信号盘面信号" not in assistant.content
     assert "盘面盘面信号" not in assistant.content
+    assert (
+        sanitize_conversation_answer("盘面信号_market_signal：等待确认")
+        == "盘面信号：等待确认"
+    )
     assert "证据以行业资料和公司基础资料为主" in assistant.content
     assert "也有公司基础资料" in assistant.content
     assert "未取到公告/订单/认证/量产等硬证据" in assistant.content
@@ -1787,6 +1986,50 @@ def test_openai_stream_checks_cancellation_between_provider_deltas(
         )
 
     assert deltas == ["first"]
+
+
+def test_openai_stream_closes_blocking_response_at_absolute_deadline(
+    monkeypatch,
+) -> None:
+    provider = llm_refine.LLMProvider("fixture", "key", "https://llm.invalid/v1", "model")
+
+    class BlockingResponse:
+        def __init__(self) -> None:
+            self.closed = Event()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            self.close()
+
+        def __iter__(self):
+            return self
+
+        def __next__(self) -> bytes:
+            self.closed.wait(1)
+            raise ValueError("response closed")
+
+        def close(self) -> None:
+            self.closed.set()
+
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
+    monkeypatch.setattr(
+        llm_refine.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: BlockingResponse(),
+    )
+    started_at = time.monotonic()
+
+    result, reason = llm_refine.synthesize_messages_stream(
+        [{"role": "user", "content": "question"}],
+        on_delta=lambda _: None,
+        deadline=llm_refine.Deadline.from_timeout(0.02),
+    )
+
+    assert result is None
+    assert "共享截止时间" in reason
+    assert time.monotonic() - started_at < 0.5
 
 
 def test_stream_unsupported_falls_back_to_one_complete_delta(monkeypatch) -> None:

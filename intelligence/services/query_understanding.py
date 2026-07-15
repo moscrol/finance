@@ -125,6 +125,42 @@ _VALUATION_SUBJECT_RE = re.compile(
     r"([\u4e00-\u9fffA-Za-z][\u4e00-\u9fffA-Za-z0-9·.&+-]{1,15}?)"
     r"(?:现在)?(?:估值怎么看|贵不贵|值多少钱|合理估值|估值分位)$"
 )
+_COMPANY_CUE_RES = (
+    re.compile(
+        r"(?:个股深挖|个股研究|深挖|研究|分析|看看)"
+        r"([\u4e00-\u9fffA-Za-z][\u4e00-\u9fffA-Za-z0-9·.&+-]{1,15}?)"
+        r"(?=的|最新|财报|公告|消息|新闻|现在|还有|上涨空间|估值|$)"
+    ),
+    re.compile(
+        r"^(?:请|帮我|麻烦)?"
+        r"([\u4e00-\u9fffA-Za-z][\u4e00-\u9fffA-Za-z0-9·.&+-]{1,15}?)"
+        r"(?=最新(?:[\u4e00-\u9fffA-Za-z0-9·.&+-]{0,8})?"
+        r"(?:财报|公告|消息|新闻)|还有上涨空间|上涨空间|"
+        r"的(?:[\u4e00-\u9fffA-Za-z0-9·.&+-]{0,8})?(?:业务|财报|公告)|"
+        r"现在(?:怎么样|怎么看|贵不贵|估值))"
+    ),
+)
+_GENERIC_COMPANY_SUBJECTS = frozenset(
+    {
+        "公司",
+        "个股",
+        "股票",
+        "题材",
+        "板块",
+        "行业",
+        "市场",
+        "固态电池",
+        "液冷",
+        "光刻胶",
+        "商业航天",
+        "AI眼镜",
+        "AI 眼镜",
+    }
+)
+_FINANCIAL_ANALYSIS_RE = re.compile(
+    r"(财报|定期报告|业绩|营收|收入|利润|归母|毛利率|净利率)"
+)
+_NEWS_IMPACT_RE = re.compile(r"(公告|消息|新闻|原文|影响)")
 
 
 @dataclass(frozen=True)
@@ -214,6 +250,52 @@ def _valuation_subject(query: str) -> str | None:
     ):
         return None
     return subject
+
+
+def _explicit_company_subject(query: str) -> str | None:
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    for pattern in _COMPANY_CUE_RES:
+        match = pattern.search(text)
+        if match is None:
+            continue
+        subject = match.group(1).strip()
+        if (
+            subject in _GENERIC_COMPANY_SUBJECTS
+            or subject.startswith(
+                ("某公司", "某个", "某一", "这个", "那个", "该", "截至", "为什么")
+            )
+            or any(
+                generic in subject
+                for generic in (
+                    "题材",
+                    "板块",
+                    "行业",
+                    "产业",
+                    "赛道",
+                    "方向",
+                    "连续",
+                    "成交",
+                )
+            )
+            or re.search(r"\d{4}年|\d{1,2}月|\d{1,2}日", subject)
+            or subject.endswith(
+                ("题材", "板块", "行业", "产业", "赛道", "方向", "产业链")
+            )
+            or any(subject.casefold() == alias.casefold() for alias in _theme_aliases())
+        ):
+            continue
+        return subject
+    return None
+
+
+def _company_question_type(query: str) -> str:
+    if re.search(r"(个股深挖|个股研究|深挖|深度分析个股)", query):
+        return "stock_deep_dive"
+    if _FINANCIAL_ANALYSIS_RE.search(query):
+        return "financial_analysis"
+    if _NEWS_IMPACT_RE.search(query):
+        return "news_impact"
+    return "stock_deep_dive"
 
 
 def _normalize_explicit_tail(tail: str, timeframe: str | None) -> str:
@@ -327,6 +409,18 @@ def understand_query(
             timeframe,
             "explicit",
             0.84,
+        )
+
+    explicit_company = _explicit_company_subject(text)
+    if explicit_company is not None:
+        return QueryEnvelope(
+            _company_question_type(text),
+            "company",
+            explicit_company,
+            _decision_goal(text),
+            timeframe,
+            "explicit",
+            0.86,
         )
 
     normalized_theme = str(matched_theme or "").strip()

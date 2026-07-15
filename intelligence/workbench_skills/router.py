@@ -7,6 +7,10 @@ from typing import Literal, TypeAlias, cast
 
 from intelligence.services import llm_refine
 from intelligence.services.query_understanding import QueryEnvelope
+from intelligence.services.research_contract import (
+    AnswerOwner,
+    RESEARCH_OWNER_IDS,
+)
 from intelligence.services.run_store import redact
 from intelligence.workbench_skills.contracts import JsonValue, SkillDefinition
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
@@ -16,8 +20,6 @@ SkillSelectionSource: TypeAlias = Literal["manual", "rule", "llm"]
 LLMComplete: TypeAlias = Callable[
     [list[dict[str, str]]], tuple[str | None, object | None, str]
 ]
-
-
 @dataclass(frozen=True)
 class SkillSelection:
     skill_id: str
@@ -100,6 +102,7 @@ def route_skills(
     registry: Mapping[str, SkillDefinition] | None = None,
     llm_complete: LLMComplete | None = None,
     query_envelope: QueryEnvelope | None = None,
+    answer_owner: AnswerOwner | None = None,
     excluded_skill_ids: Sequence[str] = (),
     execution_feedback: Sequence[Mapping[str, str]] = (),
 ) -> SkillRouteResult:
@@ -115,12 +118,29 @@ def route_skills(
         raise ValueError("manual skill selection supports at most 3 distinct ids")
     excluded = set(excluded_skill_ids)
 
-    manual = [SkillSelection(skill_id, "manual", "用户手动选择") for skill_id in manual_ids]
+    manual = [
+        SkillSelection(skill_id, "manual", "用户手动选择")
+        for skill_id in manual_ids
+        if answer_owner is None
+        or skill_id not in RESEARCH_OWNER_IDS
+        or skill_id == answer_owner
+    ]
+    owner_selection = (
+        SkillSelection(answer_owner, "rule", "Controller 指定唯一答案 owner")
+        if answer_owner is not None
+        and answer_owner in active_registry
+        and answer_owner not in excluded
+        else None
+    )
     if skill_mode == "manual":
+        combined_manual = [
+            *([owner_selection] if owner_selection is not None else []),
+            *manual,
+        ]
         return SkillRouteResult(
-            tuple(manual),
+            tuple(_unique_selections(combined_manual)),
             fallback_to_ask=False,
-            base_finance_fallback=not manual,
+            base_finance_fallback=not combined_manual,
         )
 
     if query_envelope is not None and query_envelope.question_type in {
@@ -142,7 +162,7 @@ def route_skills(
     automatic_registry = {
         skill_id: definition
         for skill_id, definition in automatic_registry.items()
-        if skill_id not in excluded
+        if skill_id not in excluded and skill_id not in RESEARCH_OWNER_IDS
     }
     rules = _rule_candidates(query, task_type, automatic_registry)
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
@@ -201,7 +221,12 @@ def route_skills(
             if llm_selection is not None:
                 automatic = llm_selection
 
-    combined = ([] if skill_mode == "auto" else manual) + automatic
+    manual_prefix = [] if skill_mode == "auto" else manual
+    combined = [
+        *([owner_selection] if owner_selection is not None else []),
+        *manual_prefix,
+        *automatic,
+    ]
     selected: list[SkillSelection] = []
     seen: set[str] = set()
     for selection in combined:
@@ -215,3 +240,15 @@ def route_skills(
         fallback_to_ask=False,
         base_finance_fallback=not selected,
     )
+
+
+def _unique_selections(
+    selections: Sequence[SkillSelection],
+) -> list[SkillSelection]:
+    unique: list[SkillSelection] = []
+    seen: set[str] = set()
+    for selection in selections:
+        if selection.skill_id not in seen:
+            unique.append(selection)
+            seen.add(selection.skill_id)
+    return unique

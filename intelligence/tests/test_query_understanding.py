@@ -53,6 +53,32 @@ def test_known_alias_and_entity_are_explicit_subjects() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "question_type", "subject"),
+    (
+        ("瑞华泰还有上涨空间吗？", "stock_deep_dive", "瑞华泰"),
+        (
+            "请个股深挖英维克的液冷业务，收入和利润都要覆盖",
+            "stock_deep_dive",
+            "英维克",
+        ),
+        ("分析英维克最新财报", "financial_analysis", "英维克"),
+        ("英维克最新液冷公告有什么影响", "news_impact", "英维克"),
+    ),
+)
+def test_explicit_company_cues_precede_theme_aliases(
+    query: str,
+    question_type: str,
+    subject: str,
+) -> None:
+    envelope = understand_query(query)
+
+    assert envelope.question_type == question_type
+    assert envelope.subject_kind == "company"
+    assert envelope.subject == subject
+    assert envelope.matched_by == "explicit"
+
+
+@pytest.mark.parametrize(
     ("query", "subject"),
     (
         ("贵州茅台估值怎么看", "贵州茅台"),

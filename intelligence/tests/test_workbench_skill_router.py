@@ -76,6 +76,7 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "as_of",
         "raw_result_ref",
         "answer_contract",
+        "stage_artifacts",
     ]
     store = RunStore(root=tmp_path / "runs")
     context = SkillExecutionContext(
@@ -173,6 +174,31 @@ def test_auto_mode_ignores_manual_selection_and_uses_stable_rules_without_llm() 
     assert all("匹配" in item.reason for item in result.selections)
     assert result.fallback_to_ask is False
     assert result.base_finance_fallback is False
+
+
+def test_controller_owner_excludes_other_research_owners() -> None:
+    registry = {
+        "news-impact": definition("news-impact", "影响"),
+        "stock-deep-dive": definition("stock-deep-dive", "深挖"),
+    }
+    envelope = understand_query("请个股深挖英维克的液冷业务")
+
+    result = route_skills(
+        "请个股深挖英维克的液冷业务和客户影响",
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        llm_complete=llm_response(
+            '{"skill_ids":["news-impact"],'
+            '"reasons":{"news-impact":"影响分析"}}'
+        ),
+        query_envelope=envelope,
+        answer_owner="stock-deep-dive",
+    )
+
+    assert [item.skill_id for item in result.selections] == ["stock-deep-dive"]
+    assert result.selections[0].reason == "Controller 指定唯一答案 owner"
 
 
 def test_hybrid_preserves_manual_then_supplements_and_caps_total_at_three() -> None:

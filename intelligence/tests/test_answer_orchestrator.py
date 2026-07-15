@@ -58,7 +58,15 @@ class AnswerOrchestratorTests(unittest.TestCase):
             candidate_tier=None,
             priority_score=None,
         )
-        result.answer_spec = mock.Mock()
+        result.answer_spec = mock.Mock(
+            sources=(),
+            summary=(),
+            verified_facts=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            company_table=(),
+        )
         result.prepared_synthesis_messages = [
             {"role": "system", "content": "system"},
             {"role": "user", "content": "evidence"},
@@ -90,6 +98,11 @@ class AnswerOrchestratorTests(unittest.TestCase):
                 "intelligence.services.ask.answer_model.validate_llm_answer",
                 return_value=(issue,),
             ),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                return_value=(None, "mocked correction unavailable"),
+            ),
         ):
             result = synthesize_prepared_answer(prepared)
 
@@ -99,6 +112,102 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result.llm_stream_telemetry["chunk_count"], 2)
         self.assertNotIn("越界公司", str(result.llm_stream_telemetry))
         self.assertNotIn("999亿元", str(result.llm_stream_telemetry))
+
+    def test_quality_issues_fail_closed_without_sentence_deletion(self) -> None:
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+        issue = mock.Mock(
+            code="llm_added_number",
+            severity="error",
+            message="越界数字",
+        )
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages, kwargs
+            on_delta("安全结论。越界数字 999亿元。")
+            return SynthesisResult(
+                answer="安全结论。越界数字 999亿元。",
+                provider="fixture",
+                model="fixture-model",
+            ), ""
+
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages_stream",
+                side_effect=fake_stream,
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=(issue,),
+            ),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                return_value=(None, "mocked correction unavailable"),
+            ),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertIsNone(result.synthesis)
+        self.assertEqual(public_deltas, [])
+        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertTrue(
+            any("门禁拒绝" in warning for warning in result.warnings)
+        )
+
+    def test_claim_binding_revision_can_recover_with_valid_ids(self) -> None:
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+        issue = mock.Mock(
+            code="llm_missing_claim_binding",
+            severity="error",
+            message="缺少 claim 绑定",
+        )
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages, kwargs
+            on_delta("未绑定初稿")
+            return SynthesisResult(
+                answer="未绑定初稿",
+                provider="fixture",
+                model="fixture-model",
+            ), ""
+
+        correction = SynthesisResult(
+            answer=(
+                "- 布局提示"
+                "<!-- claim_id=claim-1; "
+                "evidence_atom_ids=atom-1; claim_type=fact -->"
+            ),
+            provider="fixture",
+            model="fixture-model",
+        )
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages_stream",
+                side_effect=fake_stream,
+            ),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                return_value=(correction, ""),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                side_effect=((issue,), ()),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                return_value="安全结论。",
+            ),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertEqual(result.synthesis, "安全结论。")
+        self.assertEqual(public_deltas, ["安全结论。"])
+        self.assertIsNone(result.llm_fallback_reason)
 
     def test_external_market_plan_uses_quote_providers_only(self) -> None:
         plan = plan_answer_question("昨天美股的涨跌情况")
@@ -149,6 +258,10 @@ class AnswerOrchestratorTests(unittest.TestCase):
             mock.patch(
                 "intelligence.services.ask.answer_model.validate_llm_answer",
                 return_value=(),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                return_value="自然语言精修版",
             ),
         ):
             result = synthesize_prepared_answer(prepared)
@@ -664,9 +777,20 @@ class AnswerOrchestratorTests(unittest.TestCase):
                 "",
             )
 
-        with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages",
-            side_effect=fake_synthesize,
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                side_effect=fake_synthesize,
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=(),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                return_value="7月10日指数弱、个股强，成交放大。",
+            ),
         ):
             wiki = Path(tmp) / "wiki"
             (wiki / "relations").mkdir(parents=True)
