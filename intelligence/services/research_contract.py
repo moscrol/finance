@@ -64,6 +64,8 @@ OWNER_RETRIEVAL_STAGES: dict[AnswerOwner, tuple[str, ...]] = {
         "chain_stages",
         "company_mapping",
         "market_lifecycle",
+        "historical_analogs",
+        "scenario_tree",
         "counterevidence",
     ),
 }
@@ -170,6 +172,9 @@ class TurnIntent:
     comparison_entities: tuple[str, ...]
     inherited_from_turn: str | None
     evidence_atom_ids: tuple[str, ...] = ()
+    time_horizon: str = "unspecified"
+    operators: tuple[str, ...] = ()
+    required_outputs: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -186,6 +191,9 @@ class TurnIntent:
             secondary_topics = value.get("secondary_topics", ())
             comparison_entities = value.get("comparison_entities", ())
             evidence_atom_ids = value.get("evidence_atom_ids", ())
+            time_horizon = value.get("time_horizon", "unspecified")
+            operators = value.get("operators", ())
+            required_outputs = value.get("required_outputs", ())
         except KeyError:
             return None
         if primary_subject is not None and not isinstance(primary_subject, str):
@@ -196,7 +204,15 @@ class TurnIntent:
             return None
         if inherited_from_turn is not None and not isinstance(inherited_from_turn, str):
             return None
-        for items in (secondary_topics, comparison_entities, evidence_atom_ids):
+        if not isinstance(time_horizon, str):
+            return None
+        for items in (
+            secondary_topics,
+            comparison_entities,
+            evidence_atom_ids,
+            operators,
+            required_outputs,
+        ):
             if not isinstance(items, (list, tuple)) or any(
                 not isinstance(item, str) for item in items
             ):
@@ -209,6 +225,9 @@ class TurnIntent:
             comparison_entities=tuple(comparison_entities),
             inherited_from_turn=inherited_from_turn,
             evidence_atom_ids=tuple(evidence_atom_ids),
+            time_horizon=time_horizon,
+            operators=tuple(operators),
+            required_outputs=tuple(required_outputs),
         )
 
 
@@ -221,6 +240,9 @@ class ResearchPlan:
     comparison_entities: tuple[str, ...] = ()
     inherited_from_turn: str | None = None
     evidence_atom_ids: tuple[str, ...] = ()
+    time_horizon: str = "unspecified"
+    operators: tuple[str, ...] = ()
+    required_outputs: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -240,6 +262,9 @@ class ResearchPlan:
             comparison_entities=intent.comparison_entities,
             inherited_from_turn=intent.inherited_from_turn,
             evidence_atom_ids=intent.evidence_atom_ids,
+            time_horizon=intent.time_horizon,
+            operators=intent.operators,
+            required_outputs=intent.required_outputs,
         )
 
 
@@ -296,6 +321,12 @@ class StageArtifact:
     stage: str
     status: StageStatus
     elapsed_ms: int
+    producer: str = ""
+    input_hash: str = ""
+    artifact_type: str = ""
+    required_output: bool = False
+    timeout_seconds: float = 0.0
+    on_failure: str = ""
     evidence_atom_ids: tuple[str, ...] = ()
     payload: dict[str, object] = field(default_factory=dict)
     degrade_reason: str | None = None
@@ -362,6 +393,9 @@ def build_turn_intent(
             comparison_entities=previous_intent.comparison_entities,
             inherited_from_turn=previous_turn_id,
             evidence_atom_ids=previous_intent.evidence_atom_ids,
+            time_horizon=envelope.time_horizon,
+            operators=envelope.operators,
+            required_outputs=envelope.required_outputs,
         )
 
     inherit = follow_up and not explicit_task_switch and not explicit_subject_switch
@@ -380,6 +414,19 @@ def build_turn_intent(
             ),
             inherited_from_turn=previous_turn_id,
             evidence_atom_ids=previous_intent.evidence_atom_ids,
+            time_horizon=(
+                envelope.time_horizon
+                if envelope.time_horizon != "unspecified"
+                else previous_intent.time_horizon
+            ),
+            operators=_merge_topics(
+                previous_intent.operators,
+                envelope.operators,
+            ),
+            required_outputs=_merge_topics(
+                previous_intent.required_outputs,
+                envelope.required_outputs,
+            ),
         )
 
     question_type = envelope.question_type
@@ -390,6 +437,9 @@ def build_turn_intent(
         answer_owner=answer_owner_for_question_type(question_type),
         comparison_entities=comparison_entities,
         inherited_from_turn=None,
+        time_horizon=envelope.time_horizon,
+        operators=envelope.operators,
+        required_outputs=envelope.required_outputs,
     )
 
 

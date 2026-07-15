@@ -6,6 +6,7 @@ import pytest
 from intelligence.services import query_understanding
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.query_understanding import understand_query
+from intelligence.services.research_contract import build_turn_intent
 
 
 GENERIC_LIFECYCLE_QUERY = (
@@ -49,6 +50,60 @@ def test_known_alias_and_entity_are_explicit_subjects() -> None:
         "company",
         "英维克",
         "entity",
+    )
+
+
+def test_compositional_theme_intent_preserves_horizon_and_required_outputs() -> None:
+    envelope = understand_query(
+        "研究信创未来3到6个月的中期赔率，"
+        "用历史类似窗口和情景树说明升级、降级与证伪条件"
+    )
+
+    assert envelope.subject_kind == "theme"
+    assert envelope.subject == "信创"
+    assert envelope.question_type == "theme_analysis"
+    assert envelope.research_mode == "theme_research"
+    assert envelope.time_horizon == "3_to_6_months"
+    assert envelope.operators == (
+        "history_analog",
+        "scenario_tree",
+        "counterevidence",
+    )
+    assert envelope.required_outputs == (
+        "historical_analogs",
+        "scenario_tree",
+        "falsification_conditions",
+    )
+    intent = build_turn_intent(
+        "研究信创未来3到6个月的中期赔率，"
+        "用历史类似窗口和情景树说明升级、降级与证伪条件",
+        envelope,
+    )
+    assert intent.answer_owner == "theme-research"
+    assert intent.time_horizon == "3_to_6_months"
+    assert intent.required_outputs == envelope.required_outputs
+
+
+def test_entity_anchor_still_precedes_compositional_theme_intent() -> None:
+    envelope = understand_query(
+        "研究英维克未来3到6个月的中期赔率，"
+        "用历史类似窗口和情景树说明证伪条件",
+        anchor=EntityAnchor(
+            entity="英维克",
+            ticker="002837.SZ",
+            concepts=("液冷",),
+        ),
+    )
+
+    assert envelope.subject_kind == "company"
+    assert envelope.subject == "英维克"
+    assert envelope.question_type == "stock_deep_dive"
+    assert envelope.research_mode == "deep_dive"
+    assert envelope.time_horizon == "3_to_6_months"
+    assert envelope.operators == (
+        "history_analog",
+        "scenario_tree",
+        "counterevidence",
     )
 
 

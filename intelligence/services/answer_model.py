@@ -11,6 +11,7 @@ from pathlib import Path
 
 from intelligence.services.research_contract import (
     EvidenceAtom,
+    StageArtifact,
     StructuredClaim,
 )
 
@@ -339,6 +340,8 @@ class AnswerSpec:
     prompt_constraints: tuple[str, ...] = ()
     presentation_kind: str = "theme_research"
     presentation_title: str = ""
+    research_artifacts: tuple[StageArtifact, ...] = ()
+    research_evidence_atoms: tuple[EvidenceAtom, ...] = ()
     quality: AnswerQualityReport = field(default_factory=AnswerQualityReport)
 
     def to_dict(self) -> dict[str, object]:
@@ -356,6 +359,12 @@ class AnswerSpec:
             "prompt_constraints": list(self.prompt_constraints),
             "presentation_kind": self.presentation_kind,
             "presentation_title": self.presentation_title,
+            "research_artifacts": [
+                artifact.to_dict() for artifact in self.research_artifacts
+            ],
+            "research_evidence_atoms": [
+                atom.to_dict() for atom in self.research_evidence_atoms
+            ],
             "quality": self.quality.to_dict(),
         }
 
@@ -393,6 +402,10 @@ class AnswerSpec:
                 + (f" — {source.detail}" if source.detail else "")
                 for source in self.sources
             )
+        artifact_lines = _research_artifact_prompt_lines(self.research_artifacts)
+        if artifact_lines:
+            lines.append("### 必需研究输出")
+            lines.extend(artifact_lines)
         registry_block = structured_claim_registry_block(self)
         if registry_block:
             lines.append("### 结构化 claim registry（正文必须绑定）")
@@ -639,9 +652,204 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
     return AnswerQualityReport(tuple(issues))
 
 
+def _research_artifact_prompt_lines(
+    artifacts: tuple[StageArtifact, ...],
+) -> list[str]:
+    lines: list[str] = []
+    for artifact in artifacts:
+        if not artifact.required_output:
+            continue
+        lines.append(
+            f"- {artifact.stage}: status={artifact.status}; "
+            f"evidence_atom_ids={','.join(artifact.evidence_atom_ids) or '无'}; "
+            f"payload={json.dumps(artifact.payload, ensure_ascii=False, sort_keys=True)}"
+        )
+    if lines:
+        lines.append(
+            "- 上述 required output 即使数据不足也必须保留对应标题并披露缺口；"
+            "禁止补写无来源数字概率。"
+        )
+    return lines
+
+
+def _render_research_artifacts(answer_spec: AnswerSpec) -> list[str]:
+    required = {
+        artifact.stage: artifact
+        for artifact in answer_spec.research_artifacts
+        if artifact.required_output
+    }
+    if not required:
+        return []
+    source_ids = {source.evidence_id for source in answer_spec.sources}
+    has_l3 = any(
+        source_id.startswith(("L3", "W", "R"))
+        for source_id in source_ids
+    )
+    lines: list[str] = []
+
+    midterm = required.get("market_lifecycle")
+    if midterm is not None:
+        lines.append("## 3–6 个月中期赔率的证据")
+        trends = midterm.payload.get("trends")
+        if isinstance(trends, list) and trends:
+            for index, trend in enumerate(trends[:4]):
+                if not isinstance(trend, dict):
+                    continue
+                atom_ids = midterm.evidence_atom_ids[index : index + 1]
+                lines.append(
+                    "- "
+                    + "；".join(
+                        (
+                            str(
+                                trend.get("theme")
+                                or answer_spec.research_spec.theme
+                            ),
+                            f"覆盖 {trend.get('days', '—')} 个交易日",
+                            f"双红 {trend.get('double_red_days', '—')} 天",
+                            f"成交额 {trend.get('amount_trend', '—')}",
+                            f"拥挤度分位 {trend.get('crowding_pct', '—')}",
+                        )
+                    )
+                    + _artifact_claim_marker(
+                        f"midterm-{index}",
+                        atom_ids,
+                        "fact",
+                    )
+                )
+        else:
+            lines.append(
+                "当前缺少可用的多日趋势或拥挤度数据，"
+                "不能用当日强度替代 3–6 个月判断。"
+            )
+
+    analogs = required.get("historical_analogs")
+    if analogs is not None:
+        lines.extend(("", "## 历史类似窗口"))
+        themes = analogs.payload.get("themes")
+        rendered = 0
+        if isinstance(themes, list):
+            for theme in themes:
+                if not isinstance(theme, dict):
+                    continue
+                analog_rows = theme.get("analogs")
+                if not isinstance(analog_rows, list):
+                    continue
+                for analog in analog_rows[:3]:
+                    if not isinstance(analog, dict):
+                        continue
+                    lines.append(
+                        f"- {theme.get('theme', answer_spec.research_spec.theme)}："
+                        f"{analog.get('start_date', '—')} 至 "
+                        f"{analog.get('end_date', '—')}，"
+                        f"形态距离 {analog.get('distance', '—')}；"
+                        "后续只作为历史事实，不外推为概率。"
+                        + _artifact_claim_marker(
+                            f"analog-{rendered}",
+                            analogs.evidence_atom_ids[
+                                rendered : rendered + 1
+                            ],
+                            "fact",
+                        )
+                    )
+                    rendered += 1
+        if rendered == 0:
+            lines.append(
+                "当前历史样本不足或未找到可比窗口；该区块保留为数据缺口，"
+                "不由模型凭印象补写案例。"
+            )
+
+    scenario = required.get("scenario_tree")
+    if scenario is not None:
+        lines.extend(("", "## 情景树"))
+        branches = scenario.payload.get("branches")
+        if isinstance(branches, list) and branches:
+            for branch in branches:
+                if not isinstance(branch, dict):
+                    continue
+                triggers = branch.get("triggers")
+                trigger_text = (
+                    "；".join(
+                        _soften_without_l3(str(trigger), has_l3)
+                        for trigger in triggers
+                    )
+                    if isinstance(triggers, list)
+                    else "等待可观察信号"
+                )
+                conclusion = _soften_without_l3(
+                    str(branch.get("conclusion") or ""),
+                    has_l3,
+                )
+                lines.append(
+                    f"- **{branch.get('label', '条件分支')}**"
+                    f"（可能性：{branch.get('likelihood', '待验证')}）："
+                    f"{trigger_text} → {conclusion}"
+                )
+        else:
+            lines.append(
+                "情景变量不足，暂不判断分支概率；"
+                "需要先补齐可观察、可证伪的触发条件。"
+            )
+        lines.append("- 不提供无来源数字概率；分支只随新证据升级或降级。")
+
+    counter = required.get("counterevidence")
+    if counter is not None:
+        lines.extend(("", "## 升级、降级与证伪条件"))
+        upgrade = counter.payload.get("upgrade_conditions")
+        downgrade = counter.payload.get(
+            "downgrade_and_falsification_conditions"
+        )
+        if isinstance(upgrade, list) and upgrade:
+            lines.append("**升级条件：**")
+            lines.extend(
+                f"- {_soften_without_l3(str(item.get('text') or ''), has_l3)}"
+                for item in upgrade[:3]
+                if isinstance(item, dict)
+            )
+        else:
+            lines.append(
+                "**升级条件：** 补齐公告、订单、经营兑现或连续盘面验证后再上调。"
+            )
+        if isinstance(downgrade, list) and downgrade:
+            lines.append("**降级/证伪条件：**")
+            lines.extend(
+                f"- {_soften_without_l3(str(item.get('text') or ''), has_l3)}"
+                for item in downgrade[:4]
+                if isinstance(item, dict)
+            )
+        else:
+            lines.append(
+                "**降级/证伪条件：** 关键事实长期缺席或公开信息否定当前映射。"
+            )
+    return lines
+
+
+def _soften_without_l3(text: str, has_l3: bool) -> str:
+    if has_l3:
+        return humanize(text)
+    softened = text.replace("必然", "可能").replace("确定", "待验证")
+    return humanize(softened)
+
+
+def _artifact_claim_marker(
+    claim_id: str,
+    atom_ids: tuple[str, ...],
+    claim_type: str,
+) -> str:
+    if not atom_ids:
+        return ""
+    return (
+        f" <!-- claim_id={claim_id}; "
+        f"evidence_atom_ids={','.join(atom_ids)}; "
+        f"claim_type={claim_type} -->"
+    )
+
+
 def render_answer_spec(answer_spec: AnswerSpec) -> str:
     if answer_spec.presentation_kind == "base_finance":
-        return _render_base_finance_answer_spec(answer_spec)
+        return _apply_certainty_gate(
+            _render_base_finance_answer_spec(answer_spec),
+            answer_spec,
+        )
 
     lines: list[str] = []
     notices = _dedupe(answer_spec.system_notices)
@@ -685,6 +893,9 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
             "本轮没有形成可回查的盘面或公司级事实，因此只能保留题材框架，"
             "不能据此判断资金共识或公司受益关系。"
         )
+    artifact_lines = _render_research_artifacts(answer_spec)
+    if artifact_lines:
+        lines.extend(("", *artifact_lines))
     lines.extend(["", "## 公司证据"])
     if answer_spec.company_table:
         core_count = sum(
@@ -777,7 +988,25 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
         lines.extend(["", "<details><summary>展开来源和数据说明</summary>", ""])
         lines.extend(detail_lines)
         lines.extend(["", "</details>"])
-    return "\n".join(lines).rstrip() + "\n"
+    return _apply_certainty_gate(
+        "\n".join(lines).rstrip() + "\n",
+        answer_spec,
+    )
+
+
+def _apply_certainty_gate(text: str, answer_spec: AnswerSpec) -> str:
+    if any(
+        evidence_id.startswith("L3")
+        for claim in _all_answer_claims(answer_spec)
+        for evidence_id in claim.evidence_ids
+    ):
+        return text
+    return (
+        text.replace("确定性", "证据可验证程度")
+        .replace("必然", "可能")
+        .replace("肯定", "可能")
+        .replace("确定", "待验证")
+    )
 
 
 def _render_base_finance_answer_spec(answer_spec: AnswerSpec) -> str:
@@ -948,8 +1177,13 @@ def evidence_atoms_from_answer_spec(
     answer_spec: AnswerSpec,
 ) -> tuple[EvidenceAtom, ...]:
     sources = {source.evidence_id: source for source in answer_spec.sources}
-    atoms: list[EvidenceAtom] = []
-    seen: set[str] = set()
+    research_atoms = (
+        answer_spec.research_evidence_atoms
+        if isinstance(answer_spec, AnswerSpec)
+        else ()
+    )
+    atoms: list[EvidenceAtom] = list(research_atoms)
+    seen: set[str] = {atom.atom_id for atom in atoms}
     for claim in _all_answer_claims(answer_spec):
         for evidence_id in claim.evidence_ids:
             atom_id = _evidence_atom_id(claim.claim_id, evidence_id)
