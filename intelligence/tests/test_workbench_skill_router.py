@@ -318,6 +318,57 @@ def test_llm_can_select_registered_skill_without_trigger_match() -> None:
     assert result.selections[0].selection_source == "llm"
 
 
+def test_adaptive_reroute_excludes_failed_skill_and_passes_feedback() -> None:
+    registry = {
+        "stock": definition("stock", "个股"),
+        "financial": definition("financial", "财报"),
+    }
+    captured: dict[str, object] = {}
+
+    def complete(messages: list[dict[str, str]]):
+        captured["payload"] = json.loads(messages[-1]["content"])
+        return (
+            json.dumps(
+                {
+                    "skill_ids": ["financial"],
+                    "reasons": {"financial": "改用财报证据路径"},
+                },
+                ensure_ascii=False,
+            ),
+            object(),
+            "",
+        )
+
+    result = route_skills(
+        "某公司怎么看",
+        "ask",
+        "auto",
+        (),
+        registry=registry,
+        llm_complete=complete,
+        excluded_skill_ids=("stock",),
+        execution_feedback=(
+            {
+                "skill_id": "stock",
+                "status": "failed",
+                "failure_reason": "上游不可用",
+            },
+        ),
+    )
+
+    assert [item.skill_id for item in result.selections] == ["financial"]
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert all(item["skill_id"] != "stock" for item in payload["candidates"])
+    assert payload["prior_tool_attempts"] == [
+        {
+            "skill_id": "stock",
+            "status": "failed",
+            "failure_reason": "上游不可用",
+        }
+    ]
+
+
 def test_no_semantic_selection_enters_base_finance_chain() -> None:
     result = route_skills(
         "无关问题",

@@ -35,6 +35,16 @@ def test_vague_request_clarifies_instead_of_defaulting_to_research() -> None:
     assert decision.needs_retrieval is False
 
 
+def test_vague_opinion_request_clarifies_when_controller_is_unavailable() -> None:
+    decision = decide_turn("你怎么看", llm_complete=_no_llm)
+
+    assert decision.lane == "clarify"
+    assert decision.clarification_questions
+    assert decision.needs_retrieval is False
+    assert decision.needs_memory is False
+    assert decision.needs_template is False
+
+
 def test_static_concept_uses_knowledge_lane_without_retrieval() -> None:
     decision = decide_turn("卫星互联网是什么", llm_complete=_no_llm)
 

@@ -967,78 +967,101 @@ describe("Chat-first conversation components", () => {
     expect(screen.getByText("这是模板回答。")).toBeVisible();
   });
 
-  it("warns when a completed answer has no verifiable evidence", () => {
-    render(
-      <MessageBubble
-        message={{
-          ...assistantMessage,
-          content: "这是一个仍需核验的判断。",
-          degrades: [],
-        }}
-        skills={productSkills}
-        live={null}
-        bundle={{
-          ...bundle,
-          context: {
-            ...bundle.context,
-            evidence: [],
-          },
-        }}
-        canRegenerate={false}
-        onRegenerate={vi.fn()}
-        onOpenArtifact={vi.fn()}
-        onFollowup={vi.fn()}
-      />,
-    );
+  it.each(["ask", "research", "workflow"])(
+    "warns when a completed %s answer has no verifiable evidence",
+    (taskType) => {
+      render(
+        <MessageBubble
+          message={{
+            ...assistantMessage,
+            content: "这是一个仍需核验的判断。",
+            degrades: [],
+          }}
+          skills={productSkills}
+          live={null}
+          bundle={{
+            ...bundle,
+            context: {
+              ...bundle.context,
+              evidence: [],
+            },
+            structuredReport: {
+              schema_version: 1,
+              report_id: `run_${taskType}`,
+              title: "公司研究",
+              task_type: taskType,
+              status: "completed",
+              as_of: null,
+              llm: { used: false, provider: null, model: null },
+              modules: [],
+              warnings: [],
+            },
+          }}
+          canRegenerate={false}
+          onRegenerate={vi.fn()}
+          onOpenArtifact={vi.fn()}
+          onFollowup={vi.fn()}
+        />,
+      );
 
-    expect(
-      screen.getByText(
-        "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
-      ),
-    ).toBeVisible();
-  });
+      expect(
+        screen.getByText(
+          "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
+        ),
+      ).toBeVisible();
+    },
+  );
 
-  it("does not show the company evidence warning for meta answers", () => {
-    render(
-      <MessageBubble
-        message={{
-          ...assistantMessage,
-          content: "我是 Foresight 本地金融研究工作台。",
-          degrades: [],
-        }}
-        skills={productSkills}
-        live={null}
-        bundle={{
-          ...bundle,
-          context: {
-            ...bundle.context,
-            evidence: [],
-          },
-          structuredReport: {
-            schema_version: 1,
-            report_id: "run_meta",
-            title: "你好，你是什么模型",
-            task_type: "meta",
-            status: "completed",
-            as_of: null,
-            llm: { used: false, provider: null, model: null },
-            modules: [],
-            warnings: [],
-          },
-        }}
-        canRegenerate={false}
-        onRegenerate={vi.fn()}
-        onOpenArtifact={vi.fn()}
-        onFollowup={vi.fn()}
-      />,
-    );
+  it.each([
+    ["chat", "chat"],
+    ["meta", "meta"],
+    ["clarify", "clarify"],
+    ["static knowledge", "knowledge"],
+    ["fresh knowledge", "knowledge"],
+  ])(
+    "does not show the company evidence warning for %s answers",
+    (_label, taskType) => {
+      render(
+        <MessageBubble
+          message={{
+            ...assistantMessage,
+            content: "这是不需要公司级证据提示的回答。",
+            degrades: [],
+          }}
+          skills={productSkills}
+          live={null}
+          bundle={{
+            ...bundle,
+            context: {
+              ...bundle.context,
+              evidence: [],
+            },
+            structuredReport: {
+              schema_version: 1,
+              report_id: `run_${taskType}`,
+              title: "普通对话",
+              task_type: taskType,
+              status: "completed",
+              as_of: null,
+              llm: { used: false, provider: null, model: null },
+              modules: [],
+              warnings: [],
+            },
+          }}
+          canRegenerate={false}
+          onRegenerate={vi.fn()}
+          onOpenArtifact={vi.fn()}
+          onFollowup={vi.fn()}
+        />,
+      );
 
-    expect(
-      screen.queryByText(
-        "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
-      ),
-    ).toBeNull();
-  });
+      expect(
+        screen.queryByText(
+          "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
+        ),
+      ).toBeNull();
+    },
+  );
 
   it("replaces loading with a persistent cancelled message", () => {
     render(

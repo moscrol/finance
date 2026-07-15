@@ -97,25 +97,56 @@ class Deadline:
         return remaining
 
 
-def detect_provider(model_override: str | None = None) -> LLMProvider | None:
-    """Resolve an LLM provider from environment variables, or ``None``."""
+def detect_providers(model_override: str | None = None) -> tuple[LLMProvider, ...]:
+    """Resolve configured providers in deterministic fallback order."""
     configured = _PROVIDER_OVERRIDE.get()
     if configured is not None:
         if model_override:
-            return replace(configured, model=model_override)
-        return configured
+            return (replace(configured, model=model_override),)
+        return (configured,)
     generic = os.environ.get("LLM_API_KEY")
     if generic:
         base = os.environ.get("LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1"
         model = model_override or os.environ.get("LLM_MODEL") or "gpt-4o-mini"
-        return LLMProvider(name="custom", api_key=generic, base_url=base, model=model)
+        return (LLMProvider(name="custom", api_key=generic, base_url=base, model=model),)
+    providers: list[LLMProvider] = []
+    seen: set[tuple[str, str, str]] = set()
     for name, env_key, base, default_model in _PROVIDERS:
         key = os.environ.get(env_key)
         if key:
             base_url = os.environ.get("LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or base
             model = model_override or os.environ.get("LLM_MODEL") or default_model
-            return LLMProvider(name=name, api_key=key, base_url=base_url, model=model)
-    return None
+            identity = (key, base_url, model)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            providers.append(
+                LLMProvider(
+                    name=name,
+                    api_key=key,
+                    base_url=base_url,
+                    model=model,
+                )
+            )
+    return tuple(providers)
+
+
+def detect_provider(model_override: str | None = None) -> LLMProvider | None:
+    """Resolve the preferred LLM provider from environment variables."""
+    return next(iter(detect_providers(model_override)), None)
+
+
+def _provider_failure_reason(
+    failures: list[tuple[LLMProvider, str]],
+) -> tuple[LLMProvider, str]:
+    provider, last_reason = failures[-1]
+    if len(failures) == 1:
+        return provider, last_reason
+    summary = "；".join(
+        f"{failed_provider.name}:{reason.removeprefix('LLM 调用 ')}"
+        for failed_provider, reason in failures
+    )
+    return provider, f"所有已配置 LLM provider 均失败（{summary}）"
 
 
 @contextmanager
@@ -231,20 +262,29 @@ def complete(
     network error) ``content`` is ``None`` and ``reason`` explains why so callers
     can degrade gracefully — same contract as :func:`refine_or_reason`.
     """
-    provider = detect_provider(model_override)
-    if provider is None:
+    providers = detect_providers(model_override)
+    if not providers:
         return None, None, (
             "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 "
             "LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用"
         )
-    try:
-        content = _post_chat(provider, messages, timeout, temperature)
-    except urllib.error.HTTPError as exc:  # pragma: no cover - network
-        return None, provider, f"LLM 调用 HTTP {exc.code}"
-    except Exception as exc:  # pragma: no cover - network
-        return None, provider, f"LLM 调用失败（{type(exc).__name__}）"
-    return content, provider, ""
+    deadline = Deadline.from_timeout(timeout)
+    failures: list[tuple[LLMProvider, str]] = []
+    for provider in providers:
+        try:
+            remaining = max(1, round(deadline.require_remaining(0.001)))
+            content = _post_chat(provider, messages, remaining, temperature)
+        except urllib.error.HTTPError as exc:  # pragma: no cover - network
+            failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
+        except Exception as exc:  # pragma: no cover - network
+            failures.append((provider, f"LLM 调用失败（{type(exc).__name__}）"))
+        else:
+            return content, provider, ""
+        if deadline.remaining() <= 0:
+            break
+    provider, reason = _provider_failure_reason(failures)
+    return None, provider, reason
 
 
 def _post_chat_message(
@@ -296,20 +336,36 @@ def chat_with_tools(
     ``message["tool_calls"]`` to decide whether to dispatch tools or treat
     ``message["content"]`` as the final answer. On any failure ``message`` is
     ``None`` and ``reason`` explains why so the caller degrades gracefully."""
-    provider = detect_provider(model_override)
-    if provider is None:
+    providers = detect_providers(model_override)
+    if not providers:
         return None, None, (
             "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 "
             "LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用"
         )
-    try:
-        msg = _post_chat_message(provider, messages, timeout, temperature, tools=tools, tool_choice=tool_choice)
-    except urllib.error.HTTPError as exc:  # pragma: no cover - network
-        return None, provider, f"LLM 调用 HTTP {exc.code}"
-    except Exception as exc:  # pragma: no cover - network
-        return None, provider, f"LLM 调用失败（{type(exc).__name__}）"
-    return msg, provider, ""
+    deadline = Deadline.from_timeout(timeout)
+    failures: list[tuple[LLMProvider, str]] = []
+    for provider in providers:
+        try:
+            remaining = max(1, round(deadline.require_remaining(0.001)))
+            msg = _post_chat_message(
+                provider,
+                messages,
+                remaining,
+                temperature,
+                tools=tools,
+                tool_choice=tool_choice,
+            )
+        except urllib.error.HTTPError as exc:  # pragma: no cover - network
+            failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
+        except Exception as exc:  # pragma: no cover - network
+            failures.append((provider, f"LLM 调用失败（{type(exc).__name__}）"))
+        else:
+            return msg, provider, ""
+        if deadline.remaining() <= 0:
+            break
+    provider, reason = _provider_failure_reason(failures)
+    return None, provider, reason
 
 
 def _extract_json(text: str) -> dict | None:

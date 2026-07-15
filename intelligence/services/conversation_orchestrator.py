@@ -553,8 +553,7 @@ class TurnOrchestrator:
                 skill_mode=skill_mode,
                 selected_skill_ids=selected_skill_ids,
             )
-            if decision.lane in {"chat", "meta", "knowledge", "clarify"}:
-                report["task_type"] = decision.lane
+            report["task_type"] = decision.lane
             legacy_lane = (
                 "knowledge"
                 if routing_envelope.question_type == "concept_definition"
@@ -585,6 +584,113 @@ class TurnOrchestrator:
                     context=context.to_prompt_block(),
                     model_override=self.llm_model,
                 )
+                lane_citations: list[dict[str, object]] = []
+                lane_warnings: list[str] = []
+                lane_as_of: str | None = None
+                retrieval_attempted = False
+                if decision.lane == "knowledge" and lane_answer.fallback_reason:
+                    retrieval_attempted = True
+                    fallback_started = time.monotonic()
+                    try:
+                        result = self.answer_query(
+                            AskOptions(
+                                query=contextual_query,
+                                user=self.run_store.user_id,
+                                compose=False,
+                                synthesize=False,
+                                market_db_path=(
+                                    self.repo_root
+                                    / "db"
+                                    / "market_feature_store.duckdb"
+                                ),
+                                conversation_context=context.to_prompt_block(),
+                                include_memory_block=decision.needs_memory,
+                                include_recall_block=decision.needs_memory,
+                                question_type_override=QUESTION_CONCEPT_DEFINITION,
+                            )
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        warning = "一般知识检索暂时不可用"
+                        lane_warnings.append(warning)
+                        self.run_store.add_degrade(run_id, warning)
+                        lane_answer = LaneAnswer(
+                            answer=(
+                                "当前自然语言生成暂时不可用，本轮也未取得足够可靠的资料；"
+                                "请稍后重试，或提供可核验来源。"
+                            ),
+                            fallback_reason=lane_answer.fallback_reason,
+                        )
+                        self._trace(
+                            run_id,
+                            assistant_message_id,
+                            conversation_id,
+                            "knowledge_fallback",
+                            "knowledge_fallback_retrieval",
+                            {
+                                "status": "failed",
+                                "failure_reason": type(exc).__name__,
+                                "elapsed_ms": self._elapsed_ms(fallback_started),
+                            },
+                        )
+                    else:
+                        if not result.citations:
+                            warning = "一般知识检索未取得可核验资料"
+                            if warning not in result.warnings:
+                                lane_warnings.append(warning)
+                                self.run_store.add_degrade(run_id, warning)
+                        lane_answer = LaneAnswer(
+                            answer=render_knowledge_fallback(result),
+                            fallback_reason=lane_answer.fallback_reason,
+                        )
+                        lane_as_of = result.trade_date
+                        lane_warnings.extend(result.warnings)
+                        lane_citations.extend(
+                            {
+                                "tag": citation.tag,
+                                "source": citation.source,
+                                "detail": citation.detail,
+                            }
+                            for citation in result.citations
+                        )
+                        for index, module in enumerate(
+                            ask_result_modules(result),
+                            start=1,
+                        ):
+                            self._emit_module(
+                                run_id,
+                                assistant_message_id,
+                                conversation_id,
+                                report,
+                                module,
+                                f"knowledge:fallback:module:{index}",
+                            )
+                        self._record_retrieval(
+                            run_id,
+                            assistant_message_id,
+                            conversation_id,
+                            result,
+                            elapsed_ms=self._elapsed_ms(fallback_started),
+                        )
+                        self.run_store.update_provenance(
+                            run_id,
+                            source_date=result.trade_date,
+                        )
+                        self._trace(
+                            run_id,
+                            assistant_message_id,
+                            conversation_id,
+                            "knowledge_fallback",
+                            "knowledge_fallback_retrieval",
+                            {
+                                "status": (
+                                    "completed"
+                                    if result.citations
+                                    else "degraded"
+                                ),
+                                "citation_count": len(result.citations),
+                                "elapsed_ms": self._elapsed_ms(fallback_started),
+                            },
+                        )
                 self._trace(
                     run_id,
                     assistant_message_id,
@@ -593,7 +699,7 @@ class TurnOrchestrator:
                     "lane_direct_answer",
                     {
                         "lane": decision.lane,
-                        "retrieval_attempted": False,
+                        "retrieval_attempted": retrieval_attempted,
                         "provider": lane_answer.provider,
                         "fallback_reason": lane_answer.fallback_reason,
                     },
@@ -606,6 +712,9 @@ class TurnOrchestrator:
                     report=report,
                     answer=lane_answer,
                     selected_skill_ids=manual_selected,
+                    citations=lane_citations,
+                    warnings=lane_warnings,
+                    as_of=lane_as_of,
                 )
             route_started = time.monotonic()
             if decision.lane == "knowledge":
@@ -651,7 +760,11 @@ class TurnOrchestrator:
 
             research_budget = ResearchExecutionBudget(self.research_policy)
             seen_skill_ids: set[str] = set()
-            for selection in route.selections:
+            pending_selections = list(route.selections)
+            execution_feedback: list[dict[str, str]] = []
+            fallback_route_round = 0
+            while pending_selections:
+                selection = pending_selections.pop(0)
                 self._check_cancelled()
                 skill_id = selection.skill_id
                 if skill_id in seen_skill_ids:
@@ -772,6 +885,17 @@ class TurnOrchestrator:
                         },
                         conversation_id,
                     )
+                    execution_feedback.append(
+                        {
+                            "skill_id": skill_id,
+                            "status": (
+                                "timeout"
+                                if isinstance(exc, FuturesTimeoutError)
+                                else "failed"
+                            ),
+                            "failure_reason": warning,
+                        }
+                    )
                 else:
                     research_budget.record(
                         skill_id,
@@ -809,9 +933,67 @@ class TurnOrchestrator:
                         },
                         conversation_id,
                     )
+                    if output.warnings and not output.modules and not output.citations:
+                        execution_feedback.append(
+                            {
+                                "skill_id": skill_id,
+                                "status": "degraded",
+                                "failure_reason": "；".join(output.warnings),
+                            }
+                        )
                 finally:
                     skill_pool.shutdown(wait=False, cancel_futures=True)
                 self._check_cancelled()
+                if (
+                    not pending_selections
+                    and execution_feedback
+                    and skill_mode != "manual"
+                    and research_budget.can_start()
+                ):
+                    fallback_route_round += 1
+                    fallback_route_started = time.monotonic()
+                    fallback_route = self.route_skills(
+                        contextual_query,
+                        "ask",
+                        skill_mode,
+                        selected_skill_ids,
+                        registry=self.skill_registry.definitions,
+                        query_envelope=routing_envelope,
+                        excluded_skill_ids=tuple(seen_skill_ids),
+                        execution_feedback=tuple(execution_feedback),
+                    )
+                    replacements = [
+                        item
+                        for item in fallback_route.selections
+                        if item.skill_id not in seen_skill_ids
+                    ]
+                    self._trace(
+                        run_id,
+                        assistant_message_id,
+                        conversation_id,
+                        f"route_after_tool_failure_{fallback_route_round}",
+                        "route_skills_after_tool_failure",
+                        {
+                            "failed": list(execution_feedback),
+                            "selected": [
+                                {
+                                    "skill_id": item.skill_id,
+                                    "source": item.selection_source,
+                                    "reason": item.reason,
+                                }
+                                for item in replacements
+                            ],
+                            "elapsed_ms": self._elapsed_ms(
+                                fallback_route_started
+                            ),
+                        },
+                    )
+                    execution_feedback.clear()
+                    if replacements:
+                        for item in replacements:
+                            if item.skill_id not in selected:
+                                selected.append(item.skill_id)
+                        pending_selections.extend(replacements)
             budget_trace = research_budget.to_trace()
             self._trace(
                 run_id,
@@ -1250,6 +1432,9 @@ class TurnOrchestrator:
         report: dict,
         answer: LaneAnswer,
         selected_skill_ids: Sequence[str],
+        citations: Sequence[dict[str, object]] = (),
+        warnings: Sequence[str] = (),
+        as_of: str | None = None,
     ) -> TurnResult:
         answer_text = sanitize_conversation_answer(answer.answer)
         self._emit(
@@ -1262,8 +1447,8 @@ class TurnOrchestrator:
         )
         complete_report(
             report,
-            as_of=None,
-            warnings=[],
+            as_of=as_of,
+            warnings=list(warnings),
             llm_provider=answer.provider,
             llm_model=answer.model,
         )
@@ -1291,8 +1476,8 @@ class TurnOrchestrator:
             status="completed",
             selected_skill_ids=selected_skill_ids,
             invoked_skill_ids=(),
-            citations=(),
-            degrades=(),
+            citations=_sanitize_citation_list(list(citations)),
+            degrades=tuple(warnings),
         )
         self._emit(
             run_id,

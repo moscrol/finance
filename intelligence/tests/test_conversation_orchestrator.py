@@ -9,7 +9,8 @@ import pytest
 from intelligence import userspace
 from intelligence.services import llm_refine
 from intelligence.services import perspective_lab
-from intelligence.services.ask import AskOptions, AskResult
+from intelligence.services.ask import AskOptions, AskResult, Citation
+from intelligence.services.answer_orchestrator import QUESTION_CONCEPT_DEFINITION
 from intelligence.services.lane_generation import LaneAnswer
 from intelligence.services.conversation_orchestrator import (
     ConversationContext,
@@ -286,6 +287,123 @@ def test_static_knowledge_lane_uses_neutral_generator_without_retrieval(
     assert captured["decision"].lane == "knowledge"
     assert "当前视角" not in result.content
     assert "非投资建议" not in result.content
+
+
+def test_static_knowledge_uses_local_retrieval_when_generation_is_unavailable(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "卫星互联网是什么",
+    )
+    captured: list[AskOptions] = []
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return AskResult(
+            query=options.query,
+            trade_date=None,
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+            citations=[
+                Citation(
+                    "E1",
+                    "百科来源",
+                    "https://example.com/satellite-internet",
+                )
+            ],
+            sections={
+                "结论": ["已取得可核验来源。"],
+                "证据链": ["卫星互联网通过通信卫星提供网络连接。[E1]"],
+                "分歧反证": [],
+            },
+        )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "knowledge fallback must not enter the skill router"
+        ),
+        skill_registry=SkillRegistry(),
+        lane_answer_fn=lambda *_args, **_kwargs: LaneAnswer(
+            "生成不可用",
+            fallback_reason="未配置 LLM key",
+        ),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="卫星互联网是什么",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert "可核验资料摘要" in result.content
+    assert "卫星互联网通过通信卫星提供网络连接" in result.content
+    assert captured[0].question_type_override == QUESTION_CONCEPT_DEFINITION
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.citations[0]["source"] == "百科来源"
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    assert report["task_type"] == "knowledge"
+
+
+def test_static_knowledge_fails_closed_when_generation_and_retrieval_fail(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "卫星互联网是什么",
+    )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("private diagnostic")
+        ),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "knowledge fallback must not enter the skill router"
+        ),
+        skill_registry=SkillRegistry(),
+        lane_answer_fn=lambda *_args, **_kwargs: LaneAnswer(
+            "生成不可用",
+            fallback_reason="未配置 LLM key",
+        ),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="卫星互联网是什么",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert "未取得足够可靠的资料" in result.content
+    assert "private diagnostic" not in result.content
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.degrades == ["一般知识检索暂时不可用"]
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    assert report["task_type"] == "knowledge"
+    assert report["warnings"] == ["一般知识检索暂时不可用"]
 
 
 def test_knowledge_follow_up_uses_bounded_conversation_context_without_retrieval(
@@ -1125,6 +1243,83 @@ def test_skill_failure_degrades_only_its_module_and_ask_still_completes(tmp_path
     assert any("broken" in warning for warning in assistant.degrades)
     assert "must-not-leak" not in json.dumps(asdict(assistant), ensure_ascii=False)
     assert skill_result["payload"]["status"] == "degraded"
+
+
+def test_auto_mode_reroutes_after_skill_failure_within_budget(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "继续检索",
+    )
+    registry = SkillRegistry()
+    for skill_id, executor in (
+        ("broken", _FailingSkill()),
+        ("fixture", _SuccessfulSkill()),
+    ):
+        registry.register(
+            definition=SkillDefinition(
+                skill_id=skill_id,
+                name=skill_id,
+                description="fixture",
+                version="1.0.0",
+                triggers=(),
+                input_schema={"type": "object"},
+                permissions=("local_read",),
+                timeout_seconds=1,
+            ),
+            executor=executor,
+        )
+    route_calls: list[dict[str, object]] = []
+
+    def adaptive_route(*args: object, **kwargs: object) -> SkillRouteResult:
+        del args
+        route_calls.append(kwargs)
+        if kwargs.get("excluded_skill_ids"):
+            return SkillRouteResult(
+                selections=(
+                    SkillSelection("fixture", "llm", "失败后切换证据路径"),
+                ),
+                fallback_to_ask=False,
+            )
+        return SkillRouteResult(
+            selections=(SkillSelection("broken", "llm", "首选路径"),),
+            fallback_to_ask=False,
+        )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=adaptive_route,
+        skill_registry=registry,
+        turn_controller_fn=_research_controller,
+        research_policy=ResearchExecutionPolicy(
+            max_skill_calls=2,
+            max_elapsed_seconds=60,
+        ),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="继续检索",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.invoked_skill_ids == ("broken", "fixture")
+    assert route_calls[1]["excluded_skill_ids"] == ("broken",)
+    feedback = route_calls[1]["execution_feedback"]
+    assert feedback[0]["skill_id"] == "broken"
+    assert feedback[0]["status"] == "failed"
+    assert any(
+        step["name"] == "route_skills_after_tool_failure"
+        for step in run_store.load_trace(run_id)
+    )
 
 
 def test_cooperative_cancellation_preserves_completed_skill_events(tmp_path) -> None:

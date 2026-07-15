@@ -100,6 +100,8 @@ def route_skills(
     registry: Mapping[str, SkillDefinition] | None = None,
     llm_complete: LLMComplete | None = None,
     query_envelope: QueryEnvelope | None = None,
+    excluded_skill_ids: Sequence[str] = (),
+    execution_feedback: Sequence[Mapping[str, str]] = (),
 ) -> SkillRouteResult:
     active_registry = SKILL_REGISTRY if registry is None else registry
     complete = llm_refine.complete if llm_complete is None else llm_complete
@@ -111,6 +113,7 @@ def route_skills(
         raise ValueError("Unknown skill id")
     if len(manual_ids) > 3:
         raise ValueError("manual skill selection supports at most 3 distinct ids")
+    excluded = set(excluded_skill_ids)
 
     manual = [SkillSelection(skill_id, "manual", "用户手动选择") for skill_id in manual_ids]
     if skill_mode == "manual":
@@ -136,6 +139,11 @@ def route_skills(
         }
     else:
         automatic_registry = active_registry
+    automatic_registry = {
+        skill_id: definition
+        for skill_id, definition in automatic_registry.items()
+        if skill_id not in excluded
+    }
     rules = _rule_candidates(query, task_type, automatic_registry)
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
     available_slots = 3 if skill_mode == "auto" else 3 - len(manual)
@@ -169,6 +177,16 @@ def route_skills(
                         "task_type": task_type,
                         "max_skill_count": available_slots,
                         "candidates": candidates,
+                        "prior_tool_attempts": [
+                            {
+                                "skill_id": str(item.get("skill_id") or ""),
+                                "status": str(item.get("status") or ""),
+                                "failure_reason": redact(
+                                    str(item.get("failure_reason") or "")
+                                ),
+                            }
+                            for item in execution_feedback
+                        ],
                     },
                     ensure_ascii=False,
                 ),

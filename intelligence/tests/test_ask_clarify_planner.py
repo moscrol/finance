@@ -21,7 +21,14 @@ class ClarifyGateTest(unittest.TestCase):
             self.assertTrue(d.needs_clarification, q)
 
     def test_vague_plus_filler_needs_clarification(self):
-        for q in ("帮我随便看看吧", "麻烦分析一下呢", "帮我看看今天", "看一下最近怎么样"):
+        for q in (
+            "帮我随便看看吧",
+            "麻烦分析一下呢",
+            "帮我看看今天",
+            "看一下最近怎么样",
+            "你怎么看",
+            "您怎么看",
+        ):
             d = ask_clarify.clarify_for_query(q)
             self.assertTrue(d.needs_clarification, q)
 
@@ -33,6 +40,8 @@ class ClarifyGateTest(unittest.TestCase):
             "英维克 财报",
             "帮我看看 300316",
             "人形机器人 之前的判断验证得怎么样",
+            "你怎么看量子计算",
+            "您怎么看卫星互联网",
         ):
             d = ask_clarify.clarify_for_query(q)
             self.assertFalse(d.needs_clarification, q)

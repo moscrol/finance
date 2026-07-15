@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -9,6 +10,17 @@ from intelligence.services.ask import AskResult
 from intelligence.services.turn_controller import TurnDecision
 
 LLMComplete = Callable[[list[dict[str, str]]], tuple[str | None, object | None, str]]
+_THANKS_PATTERN = re.compile(
+    r"^[\s，。！？,.!?]*(谢谢|感谢|多谢|thanks?)[\s，。！？,.!?]*$",
+    re.IGNORECASE,
+)
+_GOODBYE_PATTERN = re.compile(
+    r"^[\s，。！？,.!?]*(再见|拜拜|回头见|bye)[\s，。！？,.!?]*$",
+    re.IGNORECASE,
+)
+_STATUS_PATTERN = re.compile(
+    r"^[\s，。！？,.!?]*(你好吗|你怎么样|在吗|还在吗)[\s，。！？,.!?]*$"
+)
 
 
 @dataclass(frozen=True)
@@ -22,6 +34,12 @@ class LaneAnswer:
 def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
     if decision.lane == "chat" and decision.reason == "明确寒暄":
         return "你好，我是 Foresight。你可以直接聊天，也可以让我做需要证据的金融研究。"
+    if decision.lane == "chat" and _THANKS_PATTERN.fullmatch(query):
+        return "不客气。你可以继续聊，也可以直接告诉我想了解或核验什么。"
+    if decision.lane == "chat" and _GOODBYE_PATTERN.fullmatch(query):
+        return "再见，需要时随时继续。"
+    if decision.lane == "chat" and _STATUS_PATTERN.fullmatch(query):
+        return "我在，可以继续聊。"
     if decision.lane == "meta":
         return (
             "我是 Foresight 本地金融研究工作台的对话入口，"
@@ -107,9 +125,9 @@ def generate_lane_answer(
             model=getattr(provider, "model", None),
         )
     fallback = (
-        "当前自然语言生成暂时不可用，无法在不检索的情况下可靠回答这个问题。"
+        "当前自然语言生成暂时不可用；我会尝试从可核验资料中提取一个中性回答。"
         if decision.lane == "knowledge"
-        else "当前自然语言生成暂时不可用，请稍后重试或把问题说得更具体一些。"
+        else "当前自然语言生成暂时不可用，暂时不能可靠生成这段对话；请稍后重试。"
     )
     return LaneAnswer(fallback, fallback_reason=reason)
 
@@ -133,8 +151,18 @@ def knowledge_evidence(result: AskResult) -> str:
 
 
 def render_knowledge_fallback(result: AskResult) -> str:
+    evidence: list[str] = []
+    for item in result.sections.get("证据链", []):
+        text = str(item).strip()
+        if text and text not in evidence:
+            evidence.append(text)
+    if evidence:
+        return (
+            "自然语言生成暂时不可用，先提供本轮取得的可核验资料摘要：\n\n"
+            + "\n\n".join(evidence)
+        )
     lines: list[str] = []
-    for key in ("结论", "证据链", "分歧反证"):
+    for key in ("结论", "分歧反证"):
         for item in result.sections.get(key, []):
             text = str(item).strip()
             if text and text not in lines:
