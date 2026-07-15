@@ -28,6 +28,7 @@ from intelligence.services.ask import (
 )
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.answer_orchestrator import (
+    QUESTION_CONCEPT_DEFINITION,
     QUESTION_MARKET_REVIEW,
     plan_answer_question,
 )
@@ -37,9 +38,20 @@ from intelligence.services.conversation_store import (
     Message,
 )
 from intelligence.services.llm_refine import LLMStreamCancelled
+from intelligence.services.lane_generation import (
+    LaneAnswer,
+    generate_lane_answer,
+    knowledge_evidence,
+    render_knowledge_fallback,
+)
 from intelligence.services import perspective_lab
 from intelligence.services.query_understanding import understand_query
+from intelligence.services.research_policy import (
+    ResearchExecutionBudget,
+    ResearchExecutionPolicy,
+)
 from intelligence.services.run_store import RunStore, redact
+from intelligence.services.turn_controller import TurnDecision, decide_turn
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -59,18 +71,6 @@ RECENT_MESSAGE_LIMIT = 6
 SUMMARY_CHAR_LIMIT = 2400
 _FOLLOW_UP_REFERENCE_PATTERN = re.compile(
     r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
-)
-_META_MODEL_PATTERN = re.compile(
-    r"(你是谁|你是什么模型|什么模型|你的模型|model)",
-    re.IGNORECASE,
-)
-_GREETING_ONLY_PATTERN = re.compile(
-    r"^[\s，。！？,.!?]*(你好|您好|嗨|hello|hi|早上好|下午好|晚上好)"
-    r"[\s，。！？,.!?]*$",
-    re.IGNORECASE,
-)
-_FINANCE_QUERY_PATTERN = re.compile(
-    r"(股票|公司|个股|题材|板块|估值|财报|市场|指数|行情|涨跌|收盘|复盘)"
 )
 _INTERNAL_CITATION_PATTERN = re.compile(
     r"\[(?:D|P|L|G|R|S|W)\d+\]"
@@ -461,23 +461,6 @@ def contextualize_follow_up_query(
     return f"{previous_user}\n追问：{cleaned}"
 
 
-def _meta_answer(query: str) -> str | None:
-    cleaned = query.strip()
-    if _GREETING_ONLY_PATTERN.fullmatch(cleaned):
-        return "你好，我是 Foresight 本地金融研究工作台。你可以直接问金融研究问题。"
-    if (
-        len(cleaned) <= 48
-        and _META_MODEL_PATTERN.search(cleaned)
-        and not _FINANCE_QUERY_PATTERN.search(cleaned)
-    ):
-        return (
-            "我是 Foresight 本地金融研究工作台的对话入口，"
-            "由工作台当前配置的大模型提供生成能力。"
-            "具体底层模型以运行配置为准；这类元问题不会触发金融检索。"
-        )
-    return None
-
-
 class TurnOrchestrator:
     def __init__(
         self,
@@ -489,6 +472,9 @@ class TurnOrchestrator:
         route_skills_fn: Callable[..., SkillRouteResult] | None = None,
         skill_registry: SkillRegistry | None = None,
         llm_model: str | None = None,
+        turn_controller_fn: Callable[..., TurnDecision] | None = None,
+        lane_answer_fn: Callable[..., LaneAnswer] | None = None,
+        research_policy: ResearchExecutionPolicy | None = None,
         is_cancelled: Callable[[], bool] | None = None,
         cancellation_reason: Callable[[], str | None] | None = None,
         event_id_prefix: str = "",
@@ -500,6 +486,9 @@ class TurnOrchestrator:
         self.route_skills = route_skills_fn or route_skills
         self.skill_registry = skill_registry or builtin_skill_registry()
         self.llm_model = llm_model
+        self.turn_controller = turn_controller_fn or decide_turn
+        self.generate_lane_answer = lane_answer_fn or generate_lane_answer
+        self.research_policy = research_policy or ResearchExecutionPolicy()
         self.is_cancelled = is_cancelled or (lambda: False)
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
@@ -516,11 +505,10 @@ class TurnOrchestrator:
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
     ) -> TurnResult:
-        meta_answer = _meta_answer(query)
         report = new_structured_report(
             run_id=run_id,
             question=query,
-            task_type="meta" if meta_answer is not None else "ask",
+            task_type="conversation",
         )
         selected: list[str] = []
         manual_selected = list(dict.fromkeys(selected_skill_ids))
@@ -529,6 +517,7 @@ class TurnOrchestrator:
         citations: list[dict[str, object]] = []
         text_chunks: list[str] = []
         skill_outputs: list[SkillOutput] = []
+        answer_model_name = self.llm_model
         self._emit(
             run_id,
             assistant_message_id,
@@ -555,96 +544,84 @@ class TurnOrchestrator:
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
             )
-            if meta_answer is not None:
-                answer_text = sanitize_conversation_answer(meta_answer)
+            contextual_query = contextualize_follow_up_query(query, context)
+            routing_envelope = understand_query(contextual_query)
+            controller_started = time.monotonic()
+            decision = self.turn_controller(
+                contextual_query,
+                context=context.to_prompt_block(),
+                skill_mode=skill_mode,
+                selected_skill_ids=selected_skill_ids,
+            )
+            report["task_type"] = decision.lane
+            legacy_lane = (
+                "knowledge"
+                if routing_envelope.question_type == "concept_definition"
+                else "research"
+            )
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "controller",
+                "turn_controller",
+                {
+                    "decision": decision.to_dict(),
+                    "legacy_query_envelope": routing_envelope.to_dict(),
+                    "legacy_lane": legacy_lane,
+                    "decision_diverged_from_legacy": decision.lane != legacy_lane,
+                    "router_allowed": decision.lane in {"research", "workflow"},
+                    "elapsed_ms": self._elapsed_ms(controller_started),
+                },
+            )
+            self._check_cancelled()
+            if decision.lane in {"chat", "meta", "clarify"} or (
+                decision.lane == "knowledge" and not decision.needs_retrieval
+            ):
+                lane_answer = self.generate_lane_answer(
+                    query,
+                    decision,
+                    context=context.to_prompt_block(),
+                    model_override=self.llm_model,
+                )
                 self._trace(
                     run_id,
                     assistant_message_id,
                     conversation_id,
-                    "route",
-                    "meta_short_circuit",
+                    "generate",
+                    "lane_direct_answer",
                     {
-                        "lane": "meta",
-                        "selected": [],
+                        "lane": decision.lane,
                         "retrieval_attempted": False,
+                        "provider": lane_answer.provider,
+                        "fallback_reason": lane_answer.fallback_reason,
                     },
                 )
-                self._emit(
-                    run_id,
-                    assistant_message_id,
-                    "text:000001",
-                    "text.delta",
-                    {"delta": answer_text},
-                    conversation_id,
-                )
-                complete_report(
-                    report,
-                    as_of=None,
-                    warnings=[],
-                    llm_provider=None,
-                    llm_model=None,
-                )
-                public_report = _redact_object(report)
-                if isinstance(public_report, dict):
-                    report = public_report
-                self.run_store.add_artifact(
-                    run_id,
-                    "answer.md",
-                    redact(answer_text),
-                    renderer="markdown",
-                    title=redact(f"对话回答：{query[:24]}"),
-                )
-                self.run_store.add_artifact(
-                    run_id,
-                    "report.json",
-                    json.dumps(report, ensure_ascii=False, indent=2),
-                    renderer="structured_report",
-                    title="结构化对话报告",
-                )
-                assistant = self.conversation_store.revise_message(
-                    conversation_id,
-                    assistant_message_id,
-                    content=answer_text,
-                    status="completed",
+                return self._complete_lane_turn(
+                    conversation_id=conversation_id,
+                    run_id=run_id,
+                    assistant_message_id=assistant_message_id,
+                    query=query,
+                    report=report,
+                    answer=lane_answer,
                     selected_skill_ids=manual_selected,
-                    invoked_skill_ids=(),
-                    citations=(),
-                    degrades=(),
                 )
-                self._emit(
-                    run_id,
-                    assistant_message_id,
-                    "report:complete",
-                    "report.complete",
-                    {"report": report},
-                    conversation_id,
-                )
-                self._emit(
-                    run_id,
-                    assistant_message_id,
-                    "message:complete",
-                    "message.complete",
-                    {"message": asdict(assistant)},
-                    conversation_id,
-                )
-                self.run_store.finish_run(run_id, rs.STATUS_COMPLETED)
-                return TurnResult(
-                    status=rs.STATUS_COMPLETED,
-                    content=assistant.content,
-                    selected_skill_ids=(),
-                    invoked_skill_ids=(),
-                )
-            contextual_query = contextualize_follow_up_query(query, context)
-            routing_envelope = understand_query(contextual_query)
             route_started = time.monotonic()
-            route = self.route_skills(
-                contextual_query,
-                "ask",
-                skill_mode,
-                selected_skill_ids,
-                registry=self.skill_registry.definitions,
-                query_envelope=routing_envelope,
-            )
+            if decision.lane == "knowledge":
+                route = SkillRouteResult(
+                    (),
+                    fallback_to_ask=True,
+                    base_finance_fallback=False,
+                )
+            else:
+                route = self.route_skills(
+                    contextual_query,
+                    "ask",
+                    skill_mode,
+                    selected_skill_ids,
+                    registry=self.skill_registry.definitions,
+                    query_envelope=routing_envelope,
+                )
             selected = [selection.skill_id for selection in route.selections]
             self._trace(
                 run_id,
@@ -663,15 +640,46 @@ class TurnOrchestrator:
                     ],
                     "fallback_to_ask": route.fallback_to_ask,
                     "base_finance_fallback": route.base_finance_fallback,
+                    "router_skipped": decision.lane == "knowledge",
+                    "controller_lane": decision.lane,
                     "query_envelope": routing_envelope.to_dict(),
                     "elapsed_ms": self._elapsed_ms(route_started),
                 },
             )
             self._check_cancelled()
 
+            research_budget = ResearchExecutionBudget(self.research_policy)
+            seen_skill_ids: set[str] = set()
             for selection in route.selections:
                 self._check_cancelled()
                 skill_id = selection.skill_id
+                if skill_id in seen_skill_ids:
+                    warning = f"Skill {skill_id} 因重复选择而跳过"
+                    warnings.append(warning)
+                    self.run_store.add_degrade(run_id, warning)
+                    research_budget.record(
+                        skill_id,
+                        input_summary=contextual_query,
+                        provider="skill_registry",
+                        status="skipped_duplicate",
+                        elapsed_ms=0,
+                        failure_reason=warning,
+                    )
+                    continue
+                if not research_budget.can_start():
+                    warning = f"Skill {skill_id} 因研究调用预算耗尽而跳过"
+                    warnings.append(warning)
+                    self.run_store.add_degrade(run_id, warning)
+                    research_budget.record(
+                        skill_id,
+                        input_summary=contextual_query,
+                        provider="skill_registry",
+                        status="skipped_budget",
+                        elapsed_ms=0,
+                        failure_reason=warning,
+                    )
+                    continue
+                seen_skill_ids.add(skill_id)
                 invoked.append(skill_id)
                 self._emit(
                     run_id,
@@ -706,15 +714,33 @@ class TurnOrchestrator:
                         ),
                     )
                     output = future.result(
-                        timeout=self.skill_registry.definitions[
-                            skill_id
-                        ].timeout_seconds
+                        timeout=max(
+                            0.001,
+                            min(
+                                self.skill_registry.definitions[
+                                    skill_id
+                                ].timeout_seconds,
+                                research_budget.remaining_seconds,
+                            ),
+                        )
                     )
                 except Exception as exc:  # noqa: BLE001
                     warning = (
                         f"Skill {skill_id} 执行超时"
                         if isinstance(exc, FuturesTimeoutError)
                         else f"Skill {skill_id} 执行失败（{type(exc).__name__}）"
+                    )
+                    research_budget.record(
+                        skill_id,
+                        input_summary=contextual_query,
+                        provider="skill_registry",
+                        status=(
+                            "timeout"
+                            if isinstance(exc, FuturesTimeoutError)
+                            else "failed"
+                        ),
+                        elapsed_ms=self._elapsed_ms(skill_started),
+                        failure_reason=warning,
                     )
                     warnings.append(warning)
                     self.run_store.add_degrade(run_id, warning)
@@ -746,6 +772,14 @@ class TurnOrchestrator:
                         conversation_id,
                     )
                 else:
+                    research_budget.record(
+                        skill_id,
+                        input_summary=contextual_query,
+                        provider="skill_registry",
+                        status="degraded" if output.warnings else "completed",
+                        elapsed_ms=self._elapsed_ms(skill_started),
+                        failure_reason="；".join(output.warnings),
+                    )
                     skill_outputs.append(output)
                     warnings.extend(output.warnings)
                     citations.extend(output.citations)
@@ -777,6 +811,14 @@ class TurnOrchestrator:
                 finally:
                     skill_pool.shutdown(wait=False, cancel_futures=True)
                 self._check_cancelled()
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "budget",
+                "research_execution_budget",
+                research_budget.to_trace(),
+            )
 
             def capture_safe_text(text: str) -> None:
                 self._check_cancelled()
@@ -834,8 +876,13 @@ class TurnOrchestrator:
                 / "market_feature_store.duckdb",
                 conversation_context=context.to_prompt_block(),
                 supplemental_evidence=self._skill_evidence(skill_outputs),
-                include_memory_block=True,
-                include_recall_block=True,
+                include_memory_block=decision.needs_memory,
+                include_recall_block=decision.needs_memory,
+                question_type_override=(
+                    QUESTION_CONCEPT_DEFINITION
+                    if decision.lane == "knowledge"
+                    else None
+                ),
                 perspective_mode=perspective_mode,
                 perspective_ids=tuple(selected_perspective_ids),
                 stream_text_delta=capture_safe_text,
@@ -862,7 +909,11 @@ class TurnOrchestrator:
                 )
             else:
                 result = self.answer_query(ask_options)
-                prepared = prepare_existing_answer(ask_options, result)
+                prepared = (
+                    PreparedAnswer(options=ask_options, result=result)
+                    if decision.lane == "knowledge"
+                    else prepare_existing_answer(ask_options, result)
+                )
             self._check_cancelled()
             is_market_review = (
                 owner_output is None
@@ -911,6 +962,36 @@ class TurnOrchestrator:
                     conversation_id,
                 )
 
+            if decision.lane == "knowledge":
+                lane_answer = self.generate_lane_answer(
+                    query,
+                    decision,
+                    context=context.to_prompt_block(),
+                    evidence=knowledge_evidence(result),
+                    model_override=self.llm_model,
+                )
+                result.synthesis = (
+                    render_knowledge_fallback(result)
+                    if lane_answer.fallback_reason
+                    else lane_answer.answer
+                )
+                result.llm_provider = lane_answer.provider
+                result.llm_fallback_reason = lane_answer.fallback_reason
+                result.prepared_synthesis_messages = []
+                answer_model_name = lane_answer.model or self.llm_model
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "generate",
+                    "knowledge_lane_answer",
+                    {
+                        "retrieval_attempted": True,
+                        "provider": lane_answer.provider,
+                        "fallback_reason": lane_answer.fallback_reason,
+                    },
+                )
+
             draft_text = render_conversation_answer(result)
             if (
                 result.synthesis is None
@@ -922,10 +1003,14 @@ class TurnOrchestrator:
                     modules=daily_review_output.modules,
                     warnings=daily_review_output.warnings,
                 )
-            perspective_header = perspective_lab.runtime_answer_header(
-                userspace.user_space(self.run_store.user_id),
-                mode=perspective_mode,
-                perspective_ids=tuple(selected_perspective_ids),
+            perspective_header = (
+                perspective_lab.runtime_answer_header(
+                    userspace.user_space(self.run_store.user_id),
+                    mode=perspective_mode,
+                    perspective_ids=tuple(selected_perspective_ids),
+                )
+                if decision.lane in {"research", "workflow"}
+                else ""
             )
             draft_text = sanitize_conversation_answer(
                 "\n\n".join(
@@ -934,7 +1019,10 @@ class TurnOrchestrator:
                     if block
                 )
             )
-            has_answer_snapshot = result.answer_spec is not None
+            has_answer_snapshot = (
+                result.answer_spec is not None
+                and decision.lane in {"research", "workflow"}
+            )
             if has_answer_snapshot:
                 emit_text_delta(draft_text)
                 self._emit(
@@ -954,7 +1042,8 @@ class TurnOrchestrator:
                 emit_text_delta(draft_text)
 
             if (
-                result.synthesis is None
+                decision.lane in {"research", "workflow"}
+                and result.synthesis is None
                 and result.prepared_synthesis_messages
             ):
                 synthesize_prepared_answer(
@@ -997,7 +1086,11 @@ class TurnOrchestrator:
                 )
             fallback_notice = (
                 perspective_lab.runtime_fallback_notice(perspective_mode)
-                if result.synthesis is None and owner_output is None
+                if (
+                    decision.lane in {"research", "workflow"}
+                    and result.synthesis is None
+                    and owner_output is None
+                )
                 else ""
             )
             answer_prefix = "\n\n".join(
@@ -1008,7 +1101,11 @@ class TurnOrchestrator:
                     block for block in (answer_prefix, answer_text) if block
                 )
             )
-            if result.synthesis is None and owner_output is None:
+            if (
+                decision.lane in {"research", "workflow"}
+                and result.synthesis is None
+                and owner_output is None
+            ):
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
                 self.run_store.add_degrade(run_id, fallback)
@@ -1039,7 +1136,7 @@ class TurnOrchestrator:
                 as_of=result.trade_date,
                 warnings=warnings,
                 llm_provider=result.llm_provider,
-                llm_model=self.llm_model if result.llm_provider else None,
+                llm_model=answer_model_name if result.llm_provider else None,
             )
             public_report = _redact_object(report)
             if isinstance(public_report, dict):
@@ -1133,6 +1230,84 @@ class TurnOrchestrator:
                 text_chunks,
                 exc,
             )
+
+    def _complete_lane_turn(
+        self,
+        *,
+        conversation_id: str,
+        run_id: str,
+        assistant_message_id: str,
+        query: str,
+        report: dict,
+        answer: LaneAnswer,
+        selected_skill_ids: Sequence[str],
+    ) -> TurnResult:
+        answer_text = sanitize_conversation_answer(answer.answer)
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "text:000001",
+            "text.delta",
+            {"delta": answer_text},
+            conversation_id,
+        )
+        complete_report(
+            report,
+            as_of=None,
+            warnings=[],
+            llm_provider=answer.provider,
+            llm_model=answer.model,
+        )
+        public_report = _redact_object(report)
+        if isinstance(public_report, dict):
+            report = public_report
+        self.run_store.add_artifact(
+            run_id,
+            "answer.md",
+            redact(answer_text),
+            renderer="markdown",
+            title=redact(f"对话回答：{query[:24]}"),
+        )
+        self.run_store.add_artifact(
+            run_id,
+            "report.json",
+            json.dumps(report, ensure_ascii=False, indent=2),
+            renderer="structured_report",
+            title="结构化对话报告",
+        )
+        assistant = self.conversation_store.revise_message(
+            conversation_id,
+            assistant_message_id,
+            content=answer_text,
+            status="completed",
+            selected_skill_ids=selected_skill_ids,
+            invoked_skill_ids=(),
+            citations=(),
+            degrades=(),
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "report:complete",
+            "report.complete",
+            {"report": report},
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "message:complete",
+            "message.complete",
+            {"message": asdict(assistant)},
+            conversation_id,
+        )
+        self.run_store.finish_run(run_id, rs.STATUS_COMPLETED)
+        return TurnResult(
+            status=rs.STATUS_COMPLETED,
+            content=assistant.content,
+            selected_skill_ids=(),
+            invoked_skill_ids=(),
+        )
 
     def _emit(
         self,

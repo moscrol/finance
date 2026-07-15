@@ -882,6 +882,13 @@ def _answer_concept_definition(
     result.closed_loop_retrieval = loop
     result.wiki_rag_telemetry = loop.telemetry
     evidence_lines: list[str] = []
+    needs_fresh_web = bool(
+        re.search(
+            r"(今天|今日|昨天|昨日|隔夜|最近|近期|最新|刚刚|本周|本月|"
+            r"消息|新闻|进展|动态|现状)",
+            options.query,
+        )
+    )
     if loop.conclusion:
         result.found_wiki = True
         result.found_graph = True
@@ -905,14 +912,6 @@ def _answer_concept_definition(
                 )
             )
             evidence_lines.append(f"{hit.title}：{hit.excerpt} [{tag}]")
-        result.provider_traces.append(
-            ProviderTrace(
-                provider=web_research.PROVIDER_BING_WEB,
-                capability="general_web_search",
-                status="not_attempted",
-                detail="local knowledge satisfied relevance gate",
-            )
-        )
     else:
         result.provider_traces.append(
             ProviderTrace(
@@ -922,6 +921,7 @@ def _answer_concept_definition(
                 detail="; ".join(loop.warnings) or "no relevant local evidence",
             )
         )
+    if not loop.conclusion or needs_fresh_web:
         web_result = web_research.fetch_web_search(options.query)
         result.provider_traces.append(web_result.trace)
         for index, item in enumerate(web_result.items[:4], start=1):
@@ -932,6 +932,15 @@ def _answer_concept_definition(
             evidence_lines.append(
                 f"{item.title}：{item.snippet or '搜索结果未提供摘要'} [{tag}]"
             )
+    else:
+        result.provider_traces.append(
+            ProviderTrace(
+                provider=web_research.PROVIDER_BING_WEB,
+                capability="general_web_search",
+                status="not_attempted",
+                detail="local knowledge satisfied relevance gate",
+            )
+        )
     gap_lines: list[str] = []
     if not evidence_lines:
         gap_lines.append(
