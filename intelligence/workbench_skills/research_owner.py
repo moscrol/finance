@@ -360,7 +360,7 @@ class ResearchOwnerSkill:
             triggers=(),
             next_actions=(
                 "补齐公司级 L3 证据后再升级公司判断。",
-                "下一验证窗口复核 D6、D8 与情景触发条件。",
+                "下一验证窗口复核中期趋势、历史类比与情景触发条件。",
             ),
             sources=sources,
             system_notices=(

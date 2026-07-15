@@ -456,6 +456,7 @@ def sanitize_conversation_answer(text: str) -> str:
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"(?<=[\u4e00-\u9fff]) (?=[\u4e00-\u9fff])", "", cleaned)
     cleaned = re.sub(r" +([，。；：、])", r"\1", cleaned)
+    cleaned = re.sub(r"([，。；：、（(]) +(?=[\u4e00-\u9fff])", r"\1", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     deduped_lines: list[str] = []
     for line in cleaned.splitlines():
