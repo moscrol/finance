@@ -333,6 +333,194 @@ def test_theme_vertical_slice_uses_distinct_typed_stage_artifacts(
     assert "无来源数字概率" in rendered
 
 
+@pytest.mark.parametrize(
+    ("config", "evidence_id", "expected_types", "headings"),
+    [
+        (
+            STOCK_DEEP_DIVE,
+            "R1",
+            {
+                "company_master": "CompanyMasterArtifact",
+                "company_evidence": "CompanyEvidenceArtifact",
+                "financial_transmission": "FinancialTransmissionArtifact",
+                "market_choice": "MarketChoiceArtifact",
+                "counterevidence": "CounterEvidenceArtifact",
+            },
+            ("## 公司本体", "## 公司级证据块", "## 财务传导", "## 市场选择", "## 反证与证伪"),
+        ),
+        (
+            FINANCIAL_ANALYSIS,
+            "D7",
+            {
+                "report_period": "ReportPeriodArtifact",
+                "financial_metrics": "FinancialMetricsArtifact",
+                "segment_disclosure": "SegmentDisclosureArtifact",
+                "prior_period_comparison": "PriorPeriodComparisonArtifact",
+            },
+            ("## 报告期间", "## 财务指标", "## 分部披露", "## 前期比较"),
+        ),
+        (
+            NEWS_IMPACT,
+            "W1",
+            {
+                "original_disclosure": "OriginalDisclosureArtifact",
+                "event_facts": "EventFactsArtifact",
+                "impact_transmission": "ImpactTransmissionArtifact",
+                "substitutes_and_harmed_directions": "ImpactDirectionsArtifact",
+            },
+            ("## 原始披露", "## 事件事实", "## 影响传导", "## 受益、替代与受损方向"),
+        ),
+    ],
+)
+def test_phase3_owners_use_distinct_typed_stage_artifacts(
+    tmp_path: Path,
+    config: ResearchOwnerConfig,
+    evidence_id: str,
+    expected_types: dict[str, str],
+    headings: tuple[str, ...],
+) -> None:
+    calls = 0
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        nonlocal calls
+        calls += 1
+        return _result(
+            options.query,
+            config.question_type,
+            evidence_id=evidence_id,
+            fact_text="公司公告披露营收增长，市场相对强度改善",
+        )
+
+    query = {
+        "stock-deep-dive": "请个股深挖英维克",
+        "financial-analysis": "分析贵州茅台财报和毛利率",
+        "news-impact": "英维克最新液冷公告有什么影响",
+    }[config.skill_id]
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        config,
+        answer_query_fn=fake_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert calls == 1
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    assert set(artifacts) == set(expected_types)
+    assert {
+        stage: item["artifact_type"] for stage, item in artifacts.items()
+    } == expected_types
+    assert len({item["producer"] for item in artifacts.values()}) == len(
+        artifacts
+    )
+    assert len({item["input_hash"] for item in artifacts.values()}) == len(
+        artifacts
+    )
+    assert all(item["timeout_seconds"] > 0 for item in artifacts.values())
+    assert all(item["on_failure"] for item in artifacts.values())
+    assert all(
+        item["payload"].get("source_mode") != "shared_owner_bundle"
+        for item in artifacts.values()
+    )
+
+    assert output.answer_contract is not None
+    rendered = answer_model.render_answer_spec(
+        output.answer_contract.answer_spec
+    )
+    assert all(heading in rendered for heading in headings)
+
+
+@pytest.mark.parametrize(
+    ("config", "query", "headings"),
+    [
+        (
+            STOCK_DEEP_DIVE,
+            "请个股深挖英维克",
+            ("## 公司本体", "## 公司级证据块", "## 财务传导", "## 市场选择", "## 反证与证伪"),
+        ),
+        (
+            FINANCIAL_ANALYSIS,
+            "分析贵州茅台财报和毛利率",
+            ("## 报告期间", "## 财务指标", "## 分部披露", "## 前期比较"),
+        ),
+        (
+            NEWS_IMPACT,
+            "英维克最新液冷公告有什么影响",
+            ("## 原始披露", "## 事件事实", "## 影响传导", "## 受益、替代与受损方向"),
+        ),
+    ],
+)
+def test_phase3_owner_blocks_survive_retrieval_failure(
+    tmp_path: Path,
+    config: ResearchOwnerConfig,
+    query: str,
+    headings: tuple[str, ...],
+) -> None:
+    def unavailable_answer_query(_options: AskOptions) -> AskResult:
+        raise RuntimeError("retrieval unavailable")
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        config,
+        answer_query_fn=unavailable_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert output.answer_contract is not None
+    assert output.modules == []
+    assert output.citations == []
+    assert output.stage_artifacts[0]["status"] == "failed"
+    assert all(
+        item["status"] != "completed" for item in output.stage_artifacts
+    )
+    rendered = answer_model.render_answer_spec(
+        output.answer_contract.answer_spec
+    )
+    assert all(heading in rendered for heading in headings)
+
+
+@pytest.mark.parametrize(
+    ("config", "evidence_id"),
+    [
+        (STOCK_DEEP_DIVE, "R1"),
+        (FINANCIAL_ANALYSIS, "D7"),
+        (NEWS_IMPACT, "W1"),
+    ],
+)
+def test_phase3_owners_soften_hard_certainty_without_l3(
+    tmp_path: Path,
+    config: ResearchOwnerConfig,
+    evidence_id: str,
+) -> None:
+    query = {
+        "stock-deep-dive": "请个股深挖英维克",
+        "financial-analysis": "分析贵州茅台财报和毛利率",
+        "news-impact": "英维克最新液冷公告有什么影响",
+    }[config.skill_id]
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        return _result(
+            options.query,
+            config.question_type,
+            evidence_id=evidence_id,
+            fact_text="该方向未来必然确定上涨",
+            evidence_tier="盘面",
+        )
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        config,
+        answer_query_fn=fake_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert output.answer_contract is not None
+    rendered = answer_model.render_answer_spec(
+        output.answer_contract.answer_spec
+    )
+    assert "必然" not in rendered
+    assert "确定" not in rendered
+
+
 def test_theme_fallback_keeps_required_blocks_and_softens_certainty_without_l3(
     tmp_path: Path,
 ) -> None:

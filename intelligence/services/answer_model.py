@@ -672,6 +672,185 @@ def _research_artifact_prompt_lines(
     return lines
 
 
+_OWNER_STAGE_HEADINGS = {
+    "company_master": "公司本体",
+    "company_evidence": "公司级证据块",
+    "financial_transmission": "财务传导",
+    "market_choice": "市场选择",
+    "counterevidence": "反证与证伪",
+    "report_period": "报告期间",
+    "financial_metrics": "财务指标",
+    "segment_disclosure": "分部披露",
+    "prior_period_comparison": "前期比较",
+    "original_disclosure": "原始披露",
+    "event_facts": "事件事实",
+    "impact_transmission": "影响传导",
+    "substitutes_and_harmed_directions": "受益、替代与受损方向",
+}
+
+
+def _render_owner_stage_artifacts(answer_spec: AnswerSpec) -> list[str]:
+    artifacts = [
+        artifact
+        for artifact in answer_spec.research_artifacts
+        if artifact.required_output and artifact.stage in _OWNER_STAGE_HEADINGS
+    ]
+    if not artifacts:
+        return []
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    lines: list[str] = []
+    for artifact in artifacts:
+        lines.extend(("", f"## {_OWNER_STAGE_HEADINGS[artifact.stage]}"))
+        payload = artifact.payload
+        rendered = False
+
+        if artifact.stage == "company_master":
+            company = str(payload.get("company") or "").strip()
+            ticker = str(payload.get("ticker") or "").strip()
+            if company:
+                lines.append(
+                    f"- 主体：{company}"
+                    + (f"（{ticker}）" if ticker else "")
+                    + f"；数据截止：{payload.get('as_of') or '待核验'}。"
+                )
+                rendered = True
+        elif artifact.stage == "report_period":
+            periods = payload.get("report_periods")
+            source_dates = payload.get("source_dates")
+            period_rows = (
+                [str(item) for item in periods if str(item).strip()]
+                if isinstance(periods, list)
+                else []
+            )
+            date_rows = (
+                [str(item) for item in source_dates if str(item).strip()]
+                if isinstance(source_dates, list)
+                else []
+            )
+            if period_rows or date_rows or payload.get("as_of"):
+                lines.append(
+                    "- 报告期："
+                    + ("、".join(period_rows) if period_rows else "待核验")
+                    + "；来源日期："
+                    + ("、".join(date_rows) if date_rows else "待核验")
+                    + f"；数据截止：{payload.get('as_of') or '待核验'}。"
+                )
+                rendered = True
+        elif artifact.stage == "original_disclosure":
+            sources = payload.get("sources")
+            if isinstance(sources, list):
+                for index, source in enumerate(sources[:4]):
+                    if not isinstance(source, dict):
+                        continue
+                    evidence_id = str(source.get("evidence_id") or "")
+                    atom_ids = tuple(
+                        atom.atom_id
+                        for atom in atoms
+                        if atom.source_id == evidence_id
+                    )
+                    lines.append(
+                        f"- {source.get('source') or '来源待核验'}"
+                        + (
+                            f"：{source.get('detail')}"
+                            if source.get("detail")
+                            else ""
+                        )
+                        + _artifact_claim_marker(
+                            f"{artifact.stage}-{index}",
+                            atom_ids,
+                            "fact",
+                        )
+                    )
+                    rendered = True
+
+        for key in (
+            "claims",
+            "metrics",
+            "segments",
+            "comparisons",
+            "facts",
+            "directions",
+        ):
+            rows = payload.get(key)
+            if not isinstance(rows, list):
+                continue
+            for index, row in enumerate(rows[:4]):
+                if not isinstance(row, dict):
+                    continue
+                text = str(row.get("text") or "").strip()
+                if not text:
+                    continue
+                evidence_ids = {
+                    str(item)
+                    for item in row.get("evidence_ids", ())
+                    if str(item).strip()
+                }
+                atom_ids = tuple(
+                    atom.atom_id
+                    for atom in atoms
+                    if atom.source_id in evidence_ids
+                )
+                has_l3 = any(
+                    atom.atom_id in atom_ids
+                    and (
+                        atom.source_id.startswith("L3")
+                        or atom.evidence_tier in {"L3", "公告", "官方"}
+                    )
+                    for atom in atoms
+                )
+                claim_type = (
+                    "fact"
+                    if row.get("status") == ClaimStatus.VERIFIED.value
+                    else "hypothesis"
+                )
+                lines.append(
+                    f"- {_soften_without_l3(text, has_l3)}"
+                    + _artifact_claim_marker(
+                        f"{artifact.stage}-{index}",
+                        atom_ids,
+                        claim_type,
+                    )
+                )
+                rendered = True
+            break
+
+        event_brief = payload.get("event_brief")
+        if isinstance(event_brief, dict):
+            steps = event_brief.get("steps")
+            if isinstance(steps, list):
+                for step in steps[:4]:
+                    if not isinstance(step, dict):
+                        continue
+                    points = step.get("points")
+                    gaps = step.get("gaps")
+                    details = [
+                        str(item)
+                        for item in (
+                            points if isinstance(points, list) else []
+                        )
+                        if str(item).strip()
+                    ]
+                    if not details:
+                        details = [
+                            f"缺数：{item}"
+                            for item in (
+                                gaps if isinstance(gaps, list) else []
+                            )
+                            if str(item).strip()
+                        ]
+                    if details:
+                        lines.append(
+                            f"- {step.get('name') or '传导步骤'}："
+                            + "；".join(details[:2])
+                        )
+                        rendered = True
+
+        if not rendered:
+            reason = artifact.degrade_reason or "该阶段暂无可回查数据"
+            lines.append(f"- 缺数：{humanize(reason)}。")
+    return lines
+
+
 def _render_research_artifacts(answer_spec: AnswerSpec) -> list[str]:
     required = {
         artifact.stage: artifact
@@ -685,7 +864,7 @@ def _render_research_artifacts(answer_spec: AnswerSpec) -> list[str]:
         source_id.startswith(("L3", "W", "R"))
         for source_id in source_ids
     )
-    lines: list[str] = []
+    lines = _render_owner_stage_artifacts(answer_spec)
 
     midterm = required.get("market_lifecycle")
     if midterm is not None:
@@ -1063,6 +1242,9 @@ def _render_base_finance_answer_spec(answer_spec: AnswerSpec) -> str:
         lines.extend(
             f"- {humanize(claim.text)}" for claim in facts[1:6]
         )
+    artifact_lines = _render_owner_stage_artifacts(answer_spec)
+    if artifact_lines:
+        lines.extend(artifact_lines)
     if len(risks) > 1:
         lines.extend(("", "## 风险与缺口"))
         lines.extend(f"- {_present_claim(claim)}" for claim in risks[1:5])

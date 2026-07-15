@@ -62,24 +62,24 @@ class ResearchOwnerSkill:
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
         options = AskOptions(
-                query=context.query,
-                user=context.user_id,
-                compose=True,
-                synthesize=False,
-                compose_self_review=False,
-                compose_revise_on_warn=False,
-                use_modules=self.config.use_modules,
-                wiki_rag_timeout=self.config.wiki_rag_timeout,
-                module_timeout=self.config.module_timeout,
-                market_db_path=(
-                    context.repo_root / "db" / "market_feature_store.duckdb"
-                ),
-                conversation_context=context.conversation_context,
-                include_memory_block=True,
-                include_recall_block=True,
-                question_type_override=self.config.question_type,
-                deadline=context.deadline,
-            )
+            query=context.query,
+            user=context.user_id,
+            compose=True,
+            synthesize=False,
+            compose_self_review=False,
+            compose_revise_on_warn=False,
+            use_modules=self.config.use_modules,
+            wiki_rag_timeout=self.config.wiki_rag_timeout,
+            module_timeout=self.config.module_timeout,
+            market_db_path=(
+                context.repo_root / "db" / "market_feature_store.duckdb"
+            ),
+            conversation_context=context.conversation_context,
+            include_memory_block=True,
+            include_recall_block=True,
+            question_type_override=self.config.question_type,
+            deadline=context.deadline,
+        )
         stages = OWNER_WORKFLOW_SPECS[self.config.skill_id].retrieval_stages
         envelope = understand_query(context.query)
         dag = execute_owner_dag(
@@ -88,11 +88,7 @@ class ResearchOwnerSkill:
             retrieve=lambda: self._answer_query(options),
             cache=context.retrieval_cache,
             deadline=context.deadline,
-            stage_adapters=(
-                self._theme_stage_adapters(context, options, envelope)
-                if self.skill_id == "theme-research"
-                else None
-            ),
+            stage_adapters=self._stage_adapters(context, options, envelope),
         )
         result = dag.result
         stage_artifacts = [asdict(artifact) for artifact in dag.artifacts]
@@ -153,23 +149,21 @@ class ResearchOwnerSkill:
         matched_theme: str | None = None,
     ) -> SkillAnswerContract | None:
         spec = result.answer_spec if result is not None else None
+        used_fallback = False
         if (
             spec is None
-            and self.skill_id == "theme-research"
-            and self._preserves_required_theme_outputs(stage_artifacts)
+            and self._preserves_required_owner_outputs(stage_artifacts)
         ):
-            spec = self._theme_fallback_answer_spec(
+            spec = self._owner_fallback_answer_spec(
                 query=query,
                 matched_theme=matched_theme,
                 stage_artifacts=stage_artifacts,
             )
+            used_fallback = True
         if spec is None:
             return None
         has_traceable_fact = self._has_traceable_verified_fact(spec)
-        preserves_required_theme_outputs = self._preserves_required_theme_outputs(
-            stage_artifacts
-        )
-        if not has_traceable_fact and not preserves_required_theme_outputs:
+        if not has_traceable_fact and not used_fallback:
             return None
         owned_spec = replace(
             spec,
@@ -202,7 +196,7 @@ class ResearchOwnerSkill:
             question_type=self.config.question_type,
         )
 
-    def _theme_fallback_answer_spec(
+    def _owner_fallback_answer_spec(
         self,
         *,
         query: str,
@@ -233,10 +227,10 @@ class ResearchOwnerSkill:
         )
         summary = (
             answer_model.make_claim(
-                claim_id="theme-fallback:summary",
+                claim_id=f"{self.skill_id}:fallback:summary",
                 text=(
-                    "公司映射或回答模型未在阶段时限内完成；"
-                    "仅展示已完成的市场事实、历史类比和条件情景。"
+                    "专项检索或回答模型未在阶段时限内完成；"
+                    "仅展示已完成的结构化阶段，并明确保留缺失区块。"
                 ),
                 claim_type="research_scope",
                 theme=research_spec.theme,
@@ -283,7 +277,7 @@ class ResearchOwnerSkill:
             ),
             sources=sources,
             system_notices=(
-                "能力守恒降级：检索或回答模型失败不删除必需研究区块。",
+                "能力守恒降级：阶段失败不删除其他已完成区块或必需标题。",
             ),
             prompt_constraints=self.config.output_contract,
             presentation_kind=self.config.presentation_kind,
@@ -294,19 +288,667 @@ class ResearchOwnerSkill:
             ),
         )
 
-    def _preserves_required_theme_outputs(
+    def _preserves_required_owner_outputs(
         self,
         stage_artifacts: tuple[StageArtifact, ...],
     ) -> bool:
-        return self.skill_id == "theme-research" and any(
-            artifact.required_output
-            and artifact.stage
-            in {
+        owner_stages = set(
+            OWNER_WORKFLOW_SPECS[self.config.skill_id].retrieval_stages
+        )
+        if self.skill_id == "theme-research":
+            owner_stages &= {
                 "historical_analogs",
                 "scenario_tree",
                 "counterevidence",
             }
+        return any(
+            artifact.required_output and artifact.stage in owner_stages
             for artifact in stage_artifacts
+        )
+
+    def _stage_adapters(
+        self,
+        context: SkillExecutionContext,
+        options: AskOptions,
+        envelope: QueryEnvelope,
+    ) -> dict[str, StageAdapter]:
+        if self.skill_id == "theme-research":
+            return self._theme_stage_adapters(context, options, envelope)
+        if self.skill_id == "stock-deep-dive":
+            return self._stock_stage_adapters(context, options, envelope)
+        if self.skill_id == "financial-analysis":
+            return self._financial_stage_adapters(context, options, envelope)
+        return self._news_stage_adapters(context, options, envelope)
+
+    def _stage_adapter(
+        self,
+        context: SkillExecutionContext,
+        envelope: QueryEnvelope,
+        stage: str,
+        *,
+        producer: str,
+        artifact_type: str,
+        timeout_seconds: float,
+        on_failure: str,
+        execute: Callable[
+            [AskResult | None, tuple[StageArtifact, ...]],
+            StageExecution,
+        ],
+    ) -> StageAdapter:
+        return StageAdapter(
+            producer=producer,
+            input_hash=self._stage_input_hash(context, envelope, stage),
+            artifact_type=artifact_type,
+            required_output=True,
+            timeout_seconds=timeout_seconds,
+            on_failure=on_failure,
+            execute=execute,
+        )
+
+    def _stock_stage_adapters(
+        self,
+        context: SkillExecutionContext,
+        options: AskOptions,
+        envelope: QueryEnvelope,
+    ) -> dict[str, StageAdapter]:
+        def company_master(
+            _result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            result = self._answer_query(options)
+            anchor = result.anchored_entity
+            company = anchor.entity if anchor is not None else ""
+            ticker = anchor.ticker if anchor is not None else ""
+            if not company and result.answer_spec is not None:
+                first_company = next(
+                    iter(result.answer_spec.company_table),
+                    None,
+                )
+                if first_company is not None:
+                    company = first_company.company
+                    ticker = first_company.ticker
+            if not company:
+                company = envelope.subject or result.matched_theme or ""
+            available = bool(company)
+            spec = result.answer_spec
+            return StageExecution(
+                status="completed" if available else "partial",
+                payload={
+                    "company": company,
+                    "ticker": ticker,
+                    "matched_by": (
+                        anchor.matched_by if anchor is not None else "query"
+                    ),
+                    "concepts": (
+                        list(anchor.concepts) if anchor is not None else []
+                    ),
+                    "as_of": result.trade_date,
+                    "available": available,
+                },
+                evidence_atom_ids=self._claim_atom_ids(
+                    spec,
+                    self._company_claims(spec),
+                ),
+                result=result,
+                degrade_reason=None if available else "未能锚定公司主体",
+            )
+
+        def company_evidence(
+            result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            spec = result.answer_spec if result is not None else None
+            claims = self._company_claims(spec)
+            return self._claim_stage_execution(
+                result,
+                spec,
+                claims,
+                payload_key="claims",
+                degrade_reason="未形成公司级可追溯证据",
+            )
+
+        def financial_transmission(
+            result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            spec = result.answer_spec if result is not None else None
+            claims = self._matching_claims(
+                spec,
+                ("收入", "营收", "利润", "毛利", "成本", "订单", "产能", "兑现"),
+            )
+            payload = {
+                "claims": [claim.to_dict() for claim in claims],
+                "valuation_gaps": (
+                    result.valuation_note.to_dict()
+                    if result is not None and result.valuation_note is not None
+                    else {}
+                ),
+                "evidence_gaps": (
+                    result.gap_radar.to_dict()
+                    if result is not None and result.gap_radar is not None
+                    else {}
+                ),
+            }
+            return self._claim_stage_execution(
+                result,
+                spec,
+                claims,
+                payload=payload,
+                degrade_reason="未形成可验证的财务传导链",
+            )
+
+        def market_choice(
+            result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            spec = result.answer_spec if result is not None else None
+            claims = self._matching_claims(
+                spec,
+                ("盘面", "涨停", "新高", "成交", "相对强度", "生命周期", "同链", "替代"),
+            )
+            payload = {
+                "claims": [claim.to_dict() for claim in claims],
+                "market_state": (
+                    result.market_state.to_dict()
+                    if result is not None and result.market_state is not None
+                    else {}
+                ),
+                "theme_lifecycle": (
+                    result.theme_lifecycle.to_dict()
+                    if result is not None
+                    and result.theme_lifecycle is not None
+                    else {}
+                ),
+            }
+            return self._claim_stage_execution(
+                result,
+                spec,
+                claims,
+                payload=payload,
+                degrade_reason="未形成市场选择或同链比较证据",
+            )
+
+        def counterevidence(
+            result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            spec = result.answer_spec if result is not None else None
+            claims = (
+                (*spec.counter_evidence, *spec.gaps, *spec.triggers)
+                if spec is not None
+                else ()
+            )
+            payload = {
+                "claims": [claim.to_dict() for claim in claims],
+                "plan": (
+                    result.counterevidence.to_dict()
+                    if result is not None
+                    and result.counterevidence is not None
+                    else {}
+                ),
+            }
+            return self._claim_stage_execution(
+                result,
+                spec,
+                claims,
+                payload=payload,
+                degrade_reason="未形成反证、降级与证伪条件",
+            )
+
+        return {
+            "company_master": self._stage_adapter(
+                context,
+                envelope,
+                "company_master",
+                producer="answer_query.company_master",
+                artifact_type="CompanyMasterArtifact",
+                timeout_seconds=self.config.wiki_rag_timeout,
+                on_failure="continue_with_unresolved_company",
+                execute=company_master,
+            ),
+            "company_evidence": self._stage_adapter(
+                context,
+                envelope,
+                "company_evidence",
+                producer="answer_spec.company_evidence",
+                artifact_type="CompanyEvidenceArtifact",
+                timeout_seconds=2,
+                on_failure="continue_without_company_promotion",
+                execute=company_evidence,
+            ),
+            "financial_transmission": self._stage_adapter(
+                context,
+                envelope,
+                "financial_transmission",
+                producer="answer_spec.financial_transmission",
+                artifact_type="FinancialTransmissionArtifact",
+                timeout_seconds=2,
+                on_failure="render_financial_transmission_gap",
+                execute=financial_transmission,
+            ),
+            "market_choice": self._stage_adapter(
+                context,
+                envelope,
+                "market_choice",
+                producer="market_structure.choice",
+                artifact_type="MarketChoiceArtifact",
+                timeout_seconds=2,
+                on_failure="render_market_choice_gap",
+                execute=market_choice,
+            ),
+            "counterevidence": self._stage_adapter(
+                context,
+                envelope,
+                "counterevidence",
+                producer="research_brief.counterevidence",
+                artifact_type="CounterEvidenceArtifact",
+                timeout_seconds=2,
+                on_failure="render_falsification_placeholder",
+                execute=counterevidence,
+            ),
+        }
+
+    def _financial_stage_adapters(
+        self,
+        context: SkillExecutionContext,
+        options: AskOptions,
+        envelope: QueryEnvelope,
+    ) -> dict[str, StageAdapter]:
+        def report_period(
+            _result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            result = self._answer_query(options)
+            spec = result.answer_spec
+            source_dates = (
+                sorted(
+                    {
+                        source.source_date
+                        for source in spec.sources
+                        if source.source_date
+                    },
+                    reverse=True,
+                )
+                if spec is not None
+                else []
+            )
+            periods = (
+                sorted(
+                    {
+                        claim.freshness
+                        for claim in self._all_claims(spec)
+                        if claim.freshness
+                    },
+                    reverse=True,
+                )
+                if spec is not None
+                else []
+            )
+            available = bool(periods or source_dates or result.trade_date)
+            return StageExecution(
+                status="completed" if available else "partial",
+                payload={
+                    "subject": envelope.subject or result.matched_theme,
+                    "report_periods": periods,
+                    "source_dates": source_dates,
+                    "as_of": result.trade_date,
+                    "available": available,
+                },
+                evidence_atom_ids=tuple(
+                    atom.atom_id
+                    for atom in (
+                        answer_model.evidence_atoms_from_answer_spec(spec)
+                        if spec is not None
+                        else ()
+                    )
+                ),
+                result=result,
+                degrade_reason=None if available else "未识别报告期间",
+            )
+
+        def financial_metrics(
+            result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            spec = result.answer_spec if result is not None else None
+            claims = self._matching_claims(
+                spec,
+                ("营收", "营业收入", "净利润", "归母", "毛利率", "净利率", "现金流"),
+            )
+            return self._claim_stage_execution(
+                result,
+                spec,
+                claims,
+                payload_key="metrics",
+                degrade_reason="未形成带来源的财务指标",
+            )
+
+        def segment_disclosure(
+            result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            spec = result.answer_spec if result is not None else None
+            claims = self._matching_claims(
+                spec,
+                ("分部", "主营", "业务", "产品", "收入结构", "收入占比", "客户"),
+            )
+            return self._claim_stage_execution(
+                result,
+                spec,
+                claims,
+                payload_key="segments",
+                degrade_reason="未形成分部或业务披露",
+            )
+
+        def prior_period_comparison(
+            result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            spec = result.answer_spec if result is not None else None
+            claims = self._matching_claims(
+                spec,
+                ("同比", "环比", "上期", "去年", "增长", "下降", "改善", "恶化", "变化"),
+            )
+            return self._claim_stage_execution(
+                result,
+                spec,
+                claims,
+                payload_key="comparisons",
+                degrade_reason="未形成可回查的前期比较",
+            )
+
+        return {
+            "report_period": self._stage_adapter(
+                context,
+                envelope,
+                "report_period",
+                producer="answer_query.report_period",
+                artifact_type="ReportPeriodArtifact",
+                timeout_seconds=self.config.wiki_rag_timeout,
+                on_failure="continue_with_period_gap",
+                execute=report_period,
+            ),
+            "financial_metrics": self._stage_adapter(
+                context,
+                envelope,
+                "financial_metrics",
+                producer="answer_spec.financial_metrics",
+                artifact_type="FinancialMetricsArtifact",
+                timeout_seconds=2,
+                on_failure="render_financial_metrics_gap",
+                execute=financial_metrics,
+            ),
+            "segment_disclosure": self._stage_adapter(
+                context,
+                envelope,
+                "segment_disclosure",
+                producer="answer_spec.segment_disclosure",
+                artifact_type="SegmentDisclosureArtifact",
+                timeout_seconds=2,
+                on_failure="render_segment_disclosure_gap",
+                execute=segment_disclosure,
+            ),
+            "prior_period_comparison": self._stage_adapter(
+                context,
+                envelope,
+                "prior_period_comparison",
+                producer="answer_spec.prior_period_comparison",
+                artifact_type="PriorPeriodComparisonArtifact",
+                timeout_seconds=2,
+                on_failure="render_prior_period_comparison_gap",
+                execute=prior_period_comparison,
+            ),
+        }
+
+    def _news_stage_adapters(
+        self,
+        context: SkillExecutionContext,
+        options: AskOptions,
+        envelope: QueryEnvelope,
+    ) -> dict[str, StageAdapter]:
+        def original_disclosure(
+            _result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            result = self._answer_query(options)
+            spec = result.answer_spec
+            sources = (
+                [
+                    source.to_dict()
+                    for source in spec.sources
+                    if source.evidence_id.startswith(("L3", "R", "W"))
+                ]
+                if spec is not None
+                else []
+            )
+            available = any(
+                term in f"{source['source']} {source['detail']}"
+                for source in sources
+                for term in ("公告", "披露", "政策", "通知", "文件", "原文")
+            )
+            source_ids = {
+                str(source["evidence_id"])
+                for source in sources
+                if source.get("evidence_id")
+            }
+            return StageExecution(
+                status="completed" if available else "partial",
+                payload={
+                    "event": envelope.subject or context.query,
+                    "sources": sources,
+                    "available": available,
+                },
+                evidence_atom_ids=tuple(
+                    atom.atom_id
+                    for atom in (
+                        answer_model.evidence_atoms_from_answer_spec(spec)
+                        if spec is not None
+                        else ()
+                    )
+                    if atom.source_id in source_ids
+                ),
+                result=result,
+                degrade_reason=None if available else "未命中原始披露或政策原文",
+            )
+
+        def event_facts(
+            result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            spec = result.answer_spec if result is not None else None
+            claims = spec.verified_facts if spec is not None else ()
+            return self._claim_stage_execution(
+                result,
+                spec,
+                claims,
+                payload_key="facts",
+                degrade_reason="未形成可核验的事件事实",
+            )
+
+        def impact_transmission(
+            result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            spec = result.answer_spec if result is not None else None
+            claims = self._matching_claims(
+                spec,
+                ("产业链", "传导", "收入", "利润", "成本", "价格", "产能", "弹性"),
+            )
+            payload = {
+                "claims": [claim.to_dict() for claim in claims],
+                "event_brief": (
+                    result.event_brief.to_dict()
+                    if result is not None and result.event_brief is not None
+                    else {}
+                ),
+            }
+            return self._claim_stage_execution(
+                result,
+                spec,
+                claims,
+                payload=payload,
+                available=bool(
+                    claims
+                    or (
+                        result is not None
+                        and result.event_brief is not None
+                    )
+                ),
+                degrade_reason="未形成事件到财务科目的影响传导",
+            )
+
+        def substitutes_and_harmed_directions(
+            result: AskResult | None,
+            _artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            spec = result.answer_spec if result is not None else None
+            claims = self._matching_claims(
+                spec,
+                ("替代", "受损", "竞争", "一阶", "二阶", "错杀", "误分类", "反证"),
+                include_risks=True,
+            )
+            return self._claim_stage_execution(
+                result,
+                spec,
+                claims,
+                payload_key="directions",
+                degrade_reason="未形成受益、替代与受损方向",
+            )
+
+        return {
+            "original_disclosure": self._stage_adapter(
+                context,
+                envelope,
+                "original_disclosure",
+                producer="answer_query.original_disclosure",
+                artifact_type="OriginalDisclosureArtifact",
+                timeout_seconds=self.config.wiki_rag_timeout,
+                on_failure="continue_as_unverified_event",
+                execute=original_disclosure,
+            ),
+            "event_facts": self._stage_adapter(
+                context,
+                envelope,
+                "event_facts",
+                producer="answer_spec.event_facts",
+                artifact_type="EventFactsArtifact",
+                timeout_seconds=2,
+                on_failure="render_event_fact_gap",
+                execute=event_facts,
+            ),
+            "impact_transmission": self._stage_adapter(
+                context,
+                envelope,
+                "impact_transmission",
+                producer="event_transmission.impact",
+                artifact_type="ImpactTransmissionArtifact",
+                timeout_seconds=2,
+                on_failure="render_impact_transmission_gap",
+                execute=impact_transmission,
+            ),
+            "substitutes_and_harmed_directions": self._stage_adapter(
+                context,
+                envelope,
+                "substitutes_and_harmed_directions",
+                producer="event_transmission.directions",
+                artifact_type="ImpactDirectionsArtifact",
+                timeout_seconds=2,
+                on_failure="render_direction_gap",
+                execute=substitutes_and_harmed_directions,
+            ),
+        }
+
+    @staticmethod
+    def _all_claims(
+        spec: answer_model.AnswerSpec | None,
+    ) -> tuple[answer_model.Claim, ...]:
+        if spec is None:
+            return ()
+        return (
+            *spec.summary,
+            *spec.verified_facts,
+            *spec.counter_evidence,
+            *spec.gaps,
+            *spec.triggers,
+        )
+
+    @classmethod
+    def _matching_claims(
+        cls,
+        spec: answer_model.AnswerSpec | None,
+        terms: tuple[str, ...],
+        *,
+        include_risks: bool = False,
+    ) -> tuple[answer_model.Claim, ...]:
+        if spec is None:
+            return ()
+        candidates = (
+            cls._all_claims(spec)
+            if include_risks
+            else (*spec.summary, *spec.verified_facts, *spec.triggers)
+        )
+        return tuple(
+            dict.fromkeys(
+                claim
+                for claim in candidates
+                if any(term in claim.text for term in terms)
+            )
+        )
+
+    @staticmethod
+    def _company_claims(
+        spec: answer_model.AnswerSpec | None,
+    ) -> tuple[answer_model.Claim, ...]:
+        if spec is None:
+            return ()
+        company_claims = tuple(
+            claim
+            for company in spec.company_table
+            for claim in company.claims
+        )
+        return tuple(
+            dict.fromkeys(company_claims or spec.verified_facts)
+        )
+
+    @staticmethod
+    def _claim_atom_ids(
+        spec: answer_model.AnswerSpec | None,
+        claims: tuple[answer_model.Claim, ...],
+    ) -> tuple[str, ...]:
+        if spec is None or not claims:
+            return ()
+        claim_ids = {claim.claim_id for claim in claims}
+        return tuple(
+            atom.atom_id
+            for atom in answer_model.evidence_atoms_from_answer_spec(spec)
+            if atom.provenance.get("claim_id") in claim_ids
+        )
+
+    @classmethod
+    def _claim_stage_execution(
+        cls,
+        result: AskResult | None,
+        spec: answer_model.AnswerSpec | None,
+        claims: tuple[answer_model.Claim, ...],
+        *,
+        payload_key: str = "claims",
+        payload: dict[str, object] | None = None,
+        available: bool | None = None,
+        degrade_reason: str,
+    ) -> StageExecution:
+        is_available = bool(claims) if available is None else available
+        stage_payload = (
+            payload
+            if payload is not None
+            else {payload_key: [claim.to_dict() for claim in claims]}
+        )
+        stage_payload["available"] = is_available
+        return StageExecution(
+            status="completed" if is_available else "partial",
+            payload=stage_payload,
+            evidence_atom_ids=cls._claim_atom_ids(spec, claims),
+            result=result,
+            degrade_reason=None if is_available else degrade_reason,
         )
 
     def _theme_stage_adapters(
