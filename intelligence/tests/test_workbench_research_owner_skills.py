@@ -370,6 +370,41 @@ def test_theme_fallback_keeps_required_blocks_and_softens_certainty_without_l3(
     assert "40%" not in rendered
 
 
+def test_theme_required_blocks_survive_company_mapping_failure(
+    tmp_path: Path,
+) -> None:
+    query = (
+        "研究信创未来3到6个月的中期赔率，"
+        "用历史类似窗口和情景树说明升级、降级与证伪条件"
+    )
+
+    def unavailable_answer_query(_options: AskOptions) -> AskResult:
+        raise RuntimeError("RAG unavailable")
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        THEME_RESEARCH,
+        answer_query_fn=unavailable_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert output.answer_contract is not None
+    assert output.modules == []
+    assert output.citations == []
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    assert artifacts["company_mapping"]["status"] == "failed"
+
+    spec = output.answer_contract.answer_spec
+    rendered = answer_model.render_answer_spec(spec)
+    assert "## 3–6 个月中期赔率的证据" in rendered
+    assert "## 历史类似窗口" in rendered
+    assert "## 情景树" in rendered
+    assert "## 升级、降级与证伪条件" in rendered
+    assert "当前历史样本不足或未找到可比窗口" in rendered
+    assert "必然" not in rendered
+    assert "确定" not in rendered
+
+
 def test_theme_market_artifacts_bind_facts_to_evidence_atoms(
     tmp_path: Path,
 ) -> None:

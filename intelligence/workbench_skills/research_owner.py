@@ -96,12 +96,19 @@ class ResearchOwnerSkill:
         )
         result = dag.result
         stage_artifacts = [asdict(artifact) for artifact in dag.artifacts]
+        contract = self._answer_contract(
+            result,
+            dag.artifacts,
+            query=context.query,
+            matched_theme=envelope.subject,
+        )
         if result is None:
             warnings = list(dag.warnings)
             raw_result_ref = self._store_partial_artifact(
                 context,
                 warnings=warnings,
                 stage_artifacts=stage_artifacts,
+                contract=contract,
             )
             return SkillOutput(
                 skill_id=self.skill_id,
@@ -110,12 +117,12 @@ class ResearchOwnerSkill:
                 warnings=warnings,
                 as_of=None,
                 raw_result_ref=raw_result_ref,
+                answer_contract=contract,
                 stage_artifacts=stage_artifacts,
             )
         retrieved_modules = self._modules(result)
         retrieved_citations = self._citations(result)
         warnings = list(dict.fromkeys((*result.warnings, *dag.warnings)))
-        contract = self._answer_contract(result, dag.artifacts)
         if contract is None:
             warnings.append("专项检索未形成可追溯事实，已回退基础金融回答。")
         raw_result_ref = self._store_artifact(
@@ -139,25 +146,28 @@ class ResearchOwnerSkill:
 
     def _answer_contract(
         self,
-        result: AskResult,
+        result: AskResult | None,
         stage_artifacts: tuple[StageArtifact, ...] = (),
+        *,
+        query: str = "",
+        matched_theme: str | None = None,
     ) -> SkillAnswerContract | None:
-        spec = result.answer_spec
+        spec = result.answer_spec if result is not None else None
+        if (
+            spec is None
+            and self.skill_id == "theme-research"
+            and self._preserves_required_theme_outputs(stage_artifacts)
+        ):
+            spec = self._theme_fallback_answer_spec(
+                query=query,
+                matched_theme=matched_theme,
+                stage_artifacts=stage_artifacts,
+            )
         if spec is None:
             return None
         has_traceable_fact = self._has_traceable_verified_fact(spec)
-        preserves_required_theme_outputs = (
-            self.skill_id == "theme-research"
-            and any(
-                artifact.required_output
-                and artifact.stage
-                in {
-                    "historical_analogs",
-                    "scenario_tree",
-                    "counterevidence",
-                }
-                for artifact in stage_artifacts
-            )
+        preserves_required_theme_outputs = self._preserves_required_theme_outputs(
+            stage_artifacts
         )
         if not has_traceable_fact and not preserves_required_theme_outputs:
             return None
@@ -190,6 +200,113 @@ class ResearchOwnerSkill:
             output_contract=self.config.output_contract,
             answer_spec=owned_spec,
             question_type=self.config.question_type,
+        )
+
+    def _theme_fallback_answer_spec(
+        self,
+        *,
+        query: str,
+        matched_theme: str | None,
+        stage_artifacts: tuple[StageArtifact, ...],
+    ) -> answer_model.AnswerSpec:
+        research_spec = answer_model.resolve_theme_research_spec(
+            query,
+            matched_theme,
+        )
+        gap_artifacts = tuple(
+            artifact
+            for artifact in stage_artifacts
+            if artifact.required_output and artifact.status != "completed"
+        )
+        gaps = tuple(
+            answer_model.make_claim(
+                claim_id=f"theme-fallback:gap:{index}",
+                text=(
+                    artifact.degrade_reason
+                    or f"{artifact.stage} 未形成完整输出"
+                ),
+                claim_type="research_gap",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.MISSING,
+            )
+            for index, artifact in enumerate(gap_artifacts, start=1)
+        )
+        summary = (
+            answer_model.make_claim(
+                claim_id="theme-fallback:summary",
+                text=(
+                    "公司映射或回答模型未在阶段时限内完成；"
+                    "仅展示已完成的市场事实、历史类比和条件情景。"
+                ),
+                claim_type="research_scope",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.MISSING,
+            ),
+        )
+        sources = tuple(
+            answer_model.EvidenceRef(
+                evidence_id=evidence_id,
+                source=source,
+                detail=detail,
+                tier="L4",
+            )
+            for stage, evidence_id, source, detail in (
+                (
+                    "market_lifecycle",
+                    "D6",
+                    "market_midterm.D6",
+                    "本地 DuckDB 多日题材趋势",
+                ),
+                (
+                    "historical_analogs",
+                    "D8",
+                    "market_analogs.D8",
+                    "本地 DuckDB 历史类似窗口",
+                ),
+            )
+            if any(
+                artifact.stage == stage and artifact.evidence_atom_ids
+                for artifact in stage_artifacts
+            )
+        )
+        return answer_model.AnswerSpec(
+            research_spec=research_spec,
+            summary=summary,
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=gaps,
+            triggers=(),
+            next_actions=(
+                "补齐公司级 L3 证据后再升级公司判断。",
+                "下一验证窗口复核 D6、D8 与情景触发条件。",
+            ),
+            sources=sources,
+            system_notices=(
+                "能力守恒降级：检索或回答模型失败不删除必需研究区块。",
+            ),
+            prompt_constraints=self.config.output_contract,
+            presentation_kind=self.config.presentation_kind,
+            presentation_title=self.config.title,
+            research_artifacts=stage_artifacts,
+            research_evidence_atoms=self._artifact_evidence_atoms(
+                stage_artifacts
+            ),
+        )
+
+    def _preserves_required_theme_outputs(
+        self,
+        stage_artifacts: tuple[StageArtifact, ...],
+    ) -> bool:
+        return self.skill_id == "theme-research" and any(
+            artifact.required_output
+            and artifact.stage
+            in {
+                "historical_analogs",
+                "scenario_tree",
+                "counterevidence",
+            }
+            for artifact in stage_artifacts
         )
 
     def _theme_stage_adapters(
@@ -741,19 +858,24 @@ class ResearchOwnerSkill:
         *,
         warnings: list[str],
         stage_artifacts: list[JsonObject],
+        contract: SkillAnswerContract | None = None,
     ) -> str:
         payload: JsonObject = {
             "skill_id": self.skill_id,
             "question_type": self.config.question_type,
             "query": context.query,
             "as_of": None,
-            "owned": False,
+            "owned": contract is not None,
             "retrieval_plan": list(self.config.retrieval_plan),
             "output_contract": list(self.config.output_contract),
             "citations": [],
             "warnings": warnings,
             "stage_artifacts": stage_artifacts,
-            "answer_spec": None,
+            "answer_spec": (
+                contract.answer_spec.to_prompt_block()
+                if contract is not None
+                else None
+            ),
         }
         artifact = context.run_store.add_artifact(
             context.run_id,
