@@ -60,6 +60,18 @@ SUMMARY_CHAR_LIMIT = 2400
 _FOLLOW_UP_REFERENCE_PATTERN = re.compile(
     r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
 )
+_META_MODEL_PATTERN = re.compile(
+    r"(你是谁|你是什么模型|什么模型|你的模型|model)",
+    re.IGNORECASE,
+)
+_GREETING_ONLY_PATTERN = re.compile(
+    r"^[\s，。！？,.!?]*(你好|您好|嗨|hello|hi|早上好|下午好|晚上好)"
+    r"[\s，。！？,.!?]*$",
+    re.IGNORECASE,
+)
+_FINANCE_QUERY_PATTERN = re.compile(
+    r"(股票|公司|个股|题材|板块|估值|财报|市场|指数|行情|涨跌|收盘|复盘)"
+)
 _INTERNAL_CITATION_PATTERN = re.compile(
     r"\[(?:D|P|L|G|R|S|W)\d+\]"
 )
@@ -449,6 +461,23 @@ def contextualize_follow_up_query(
     return f"{previous_user}\n追问：{cleaned}"
 
 
+def _meta_answer(query: str) -> str | None:
+    cleaned = query.strip()
+    if _GREETING_ONLY_PATTERN.fullmatch(cleaned):
+        return "你好，我是 Foresight 本地金融研究工作台。你可以直接问金融研究问题。"
+    if (
+        len(cleaned) <= 48
+        and _META_MODEL_PATTERN.search(cleaned)
+        and not _FINANCE_QUERY_PATTERN.search(cleaned)
+    ):
+        return (
+            "我是 Foresight 本地金融研究工作台的对话入口，"
+            "由工作台当前配置的大模型提供生成能力。"
+            "具体底层模型以运行配置为准；这类元问题不会触发金融检索。"
+        )
+    return None
+
+
 class TurnOrchestrator:
     def __init__(
         self,
@@ -487,10 +516,11 @@ class TurnOrchestrator:
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
     ) -> TurnResult:
+        meta_answer = _meta_answer(query)
         report = new_structured_report(
             run_id=run_id,
             question=query,
-            task_type="ask",
+            task_type="meta" if meta_answer is not None else "ask",
         )
         selected: list[str] = []
         manual_selected = list(dict.fromkeys(selected_skill_ids))
@@ -525,6 +555,85 @@ class TurnOrchestrator:
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
             )
+            if meta_answer is not None:
+                answer_text = sanitize_conversation_answer(meta_answer)
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "route",
+                    "meta_short_circuit",
+                    {
+                        "lane": "meta",
+                        "selected": [],
+                        "retrieval_attempted": False,
+                    },
+                )
+                self._emit(
+                    run_id,
+                    assistant_message_id,
+                    "text:000001",
+                    "text.delta",
+                    {"delta": answer_text},
+                    conversation_id,
+                )
+                complete_report(
+                    report,
+                    as_of=None,
+                    warnings=[],
+                    llm_provider=None,
+                    llm_model=None,
+                )
+                public_report = _redact_object(report)
+                if isinstance(public_report, dict):
+                    report = public_report
+                self.run_store.add_artifact(
+                    run_id,
+                    "answer.md",
+                    redact(answer_text),
+                    renderer="markdown",
+                    title=redact(f"对话回答：{query[:24]}"),
+                )
+                self.run_store.add_artifact(
+                    run_id,
+                    "report.json",
+                    json.dumps(report, ensure_ascii=False, indent=2),
+                    renderer="structured_report",
+                    title="结构化对话报告",
+                )
+                assistant = self.conversation_store.revise_message(
+                    conversation_id,
+                    assistant_message_id,
+                    content=answer_text,
+                    status="completed",
+                    selected_skill_ids=manual_selected,
+                    invoked_skill_ids=(),
+                    citations=(),
+                    degrades=(),
+                )
+                self._emit(
+                    run_id,
+                    assistant_message_id,
+                    "report:complete",
+                    "report.complete",
+                    {"report": report},
+                    conversation_id,
+                )
+                self._emit(
+                    run_id,
+                    assistant_message_id,
+                    "message:complete",
+                    "message.complete",
+                    {"message": asdict(assistant)},
+                    conversation_id,
+                )
+                self.run_store.finish_run(run_id, rs.STATUS_COMPLETED)
+                return TurnResult(
+                    status=rs.STATUS_COMPLETED,
+                    content=assistant.content,
+                    selected_skill_ids=(),
+                    invoked_skill_ids=(),
+                )
             contextual_query = contextualize_follow_up_query(query, context)
             routing_envelope = understand_query(contextual_query)
             route_started = time.monotonic()
@@ -1148,6 +1257,9 @@ class TurnOrchestrator:
                     if result.closed_loop_retrieval is not None
                     else None
                 ),
+                "provider_traces": [
+                    trace.to_dict() for trace in result.provider_traces
+                ],
             },
             retrieval={
                 "citations": citation_records,

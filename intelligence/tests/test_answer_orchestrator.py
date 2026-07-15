@@ -10,6 +10,8 @@ from intelligence.services import llm_refine
 from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
+    QUESTION_CONCEPT_DEFINITION,
+    QUESTION_EXTERNAL_MARKET,
     QUESTION_GENERAL,
     QUESTION_FINANCIAL_ANALYSIS,
     QUESTION_MARKET_FORECAST,
@@ -97,6 +99,32 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result.llm_stream_telemetry["chunk_count"], 2)
         self.assertNotIn("越界公司", str(result.llm_stream_telemetry))
         self.assertNotIn("999亿元", str(result.llm_stream_telemetry))
+
+    def test_external_market_plan_uses_quote_providers_only(self) -> None:
+        plan = plan_answer_question("昨天美股的涨跌情况")
+
+        self.assertEqual(plan.question_type, QUESTION_EXTERNAL_MARKET)
+        assert plan.base_finance_mode is not None
+        self.assertFalse(plan.base_finance_mode.require_market)
+        self.assertIn("fupanhui", "\n".join(plan.retrieval_plan))
+        self.assertIn("finance chart", "\n".join(plan.retrieval_plan))
+        self.assertTrue(
+            any("Bing News" in gate for gate in plan.quality_gates)
+        )
+
+    def test_concept_definition_plan_uses_controlled_web_fallback(self) -> None:
+        plan = plan_answer_question("卫星互联网是什么")
+
+        self.assertEqual(plan.question_type, QUESTION_CONCEPT_DEFINITION)
+        assert plan.base_finance_mode is not None
+        self.assertFalse(plan.base_finance_mode.require_market)
+        self.assertIn("Bing Web Search", "\n".join(plan.retrieval_plan))
+        self.assertTrue(
+            any(
+                "本地知识" in gate and "Web" in gate
+                for gate in plan.quality_gates
+            )
+        )
 
     def test_valid_model_stream_publishes_one_complete_answer(self) -> None:
         public_deltas: list[str] = []
@@ -517,7 +545,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     WikiHit(
                         page_id="counter",
                         file_path="wiki/counter.md",
-                        title="需求下滑风险",
+                        title="测试对象需求下滑风险",
                         score=0.1,
                         excerpt="需求可能不及预期，仍待核验",
                         best_chunk_id="counter",
@@ -553,10 +581,11 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         rendered = render_conversation_answer(result)
         self.assertNotIn("弱相关首页", rendered)
-        self.assertIn("需求下滑风险", rendered)
+        self.assertIn("测试对象需求下滑风险", rendered)
         assert result.closed_loop_retrieval is not None
-        self.assertEqual(len(result.closed_loop_retrieval.clues), 2)
+        self.assertEqual(len(result.closed_loop_retrieval.clues), 1)
         self.assertEqual(len(result.closed_loop_retrieval.counter_clues), 1)
+        self.assertEqual(len(result.closed_loop_retrieval.discarded), 1)
 
     def test_prompt_block_exposes_plan_without_requiring_template_output(self) -> None:
         plan = plan_answer_question("深挖顺络电子")

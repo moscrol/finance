@@ -38,6 +38,7 @@ from intelligence.services import (
     closed_loop_retrieval,
     entity_anchor,
     experience_cards,
+    external_market,
     forecast_preflight,
     kb_rag,
     l3_evidence,
@@ -52,12 +53,15 @@ from intelligence.services import (
     research_brief,
     scenario_tree,
     user_memory,
+    web_research,
 )
 from intelligence.services.answer_quality import (
     AnswerQualityContext,
     build_quality_context,
 )
 from intelligence.services.answer_orchestrator import (
+    QUESTION_CONCEPT_DEFINITION,
+    QUESTION_EXTERNAL_MARKET,
     QUESTION_FINANCIAL_ANALYSIS,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
@@ -68,6 +72,7 @@ from intelligence.services.answer_orchestrator import (
     QuestionPlan,
     plan_answer_question,
 )
+from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_estimate, valuation_gap
 from intelligence.services.trading_calendar import (
     next_trading_day,
@@ -293,6 +298,7 @@ class AskResult:
     sections: dict[str, list[str]] = field(default_factory=dict)
     citations: list[Citation] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    provider_traces: list[ProviderTrace] = field(default_factory=list)
     found_market: bool = False
     found_graph: bool = False
     found_wiki: bool = False
@@ -748,6 +754,238 @@ def _answer_market_review(
     return result
 
 
+def _answer_external_market(
+    options: AskOptions,
+    question_plan: QuestionPlan,
+) -> AskResult:
+    external = external_market.resolve_external_market(options.query)
+    result = AskResult(
+        query=options.query,
+        trade_date=external.source_trade_date,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        market_data_source=external.selected_provider or "external_market_unavailable",
+        data_notice=(
+            f"海外行情目标交易日 {external.target_trade_date}；"
+            f"实际 source_trade_date={external.source_trade_date or '未取得'}。"
+        ),
+        question_plan=question_plan,
+        found_market=bool(external.quotes),
+    )
+    result.provider_traces.extend(external.provider_traces)
+    citation_by_source: dict[str, str] = {}
+    evidence_lines: list[str] = []
+    for quote in external.quotes:
+        tag = citation_by_source.get(quote.source)
+        if tag is None:
+            tag = f"X{len(citation_by_source) + 1}"
+            citation_by_source[quote.source] = tag
+            result.citations.append(
+                Citation(
+                    tag,
+                    quote.source,
+                    (
+                        f"精确行情；source_trade_date={quote.trade_date}；"
+                        "与新闻标题分开记录"
+                    ),
+                )
+            )
+        sign = "+" if quote.pct_chg >= 0 else ""
+        evidence_lines.append(
+            f"{quote.name}：收盘 {quote.close:,.2f}，"
+            f"涨跌幅 {sign}{quote.pct_chg:.2f}%"
+            f"（{quote.trade_date}） [{tag}]"
+        )
+    gap_lines: list[str] = []
+    if external.gap:
+        gap_lines.append(external.gap)
+    result.sections = {
+        "结论": [
+            (
+                f"{external.source_trade_date} 美股主要指数收盘数据如下。"
+                if external.quotes
+                else "本轮未取得可核验的美股收盘行情。"
+            )
+        ],
+        "证据链": evidence_lines,
+        "分歧反证": gap_lines,
+        "后续验证点": [
+            "需要盘中或当晚最新行情时，按完成交易时段重新拉取 finance quote。"
+        ],
+        "交易含义": [
+            "本轮只回答海外指数本身，不用 A 股题材或本地 Wiki 代替外盘行情。"
+        ],
+        "数据源状态": [
+            (
+                f"{trace.provider}｜{trace.capability}｜{trace.status}"
+                f"｜source_trade_date={trace.source_trade_date or '未记录'}"
+                f"｜result_count={trace.result_count}"
+                + (f"｜{trace.detail}" if trace.detail else "")
+            )
+            for trace in external.provider_traces
+        ],
+        "引用来源": [
+            f"[{citation.tag}] {citation.source}：{citation.detail}"
+            for citation in result.citations
+        ],
+    }
+    result.warnings.extend(gap_lines)
+    result.answer_spec = _build_base_answer_spec_from_sections(
+        result,
+        theme="海外市场",
+        evidence_blocks=tuple(evidence_lines),
+        direct_lines=tuple(result.sections["结论"]),
+        risk_lines=tuple(
+            gap_lines
+            or ["行情仅反映已完成交易日收盘，不代表盘中或下一交易日走势。"]
+        ),
+        action_lines=tuple(result.sections["后续验证点"]),
+    )
+    return result
+
+
+def _answer_concept_definition(
+    options: AskOptions,
+    question_plan: QuestionPlan,
+) -> AskResult:
+    resolved_kb_wiki = (
+        Path(options.kb_wiki).expanduser()
+        if options.kb_wiki
+        else default_paths().knowledge_wiki
+    )
+    result = AskResult(
+        query=options.query,
+        trade_date=None,
+        matched_theme=question_plan.query_envelope.subject,
+        candidate_tier=None,
+        priority_score=None,
+        market_data_source="not_applicable",
+        data_notice="本轮为概念定义与技术背景查询，不使用 A 股盘面材料补答。",
+        question_plan=question_plan,
+    )
+    loop = closed_loop_retrieval.retrieve_closed_loop(
+        options.query,
+        anchor=None,
+        retrieve=lambda retrieval_query: kb_rag.retrieve(
+            retrieval_query,
+            resolved_kb_wiki,
+            k=options.wiki_rag_k,
+            mode=options.wiki_rag_mode,
+            timeout=options.wiki_rag_timeout,
+            excerpt_chars=options.wiki_rag_excerpt,
+            budget_query=options.query,
+            index_dir=options.wiki_rag_index_dir,
+            require_fresh=True,
+        ),
+    )
+    result.closed_loop_retrieval = loop
+    result.wiki_rag_telemetry = loop.telemetry
+    evidence_lines: list[str] = []
+    if loop.conclusion:
+        result.found_wiki = True
+        result.found_graph = True
+        result.provider_traces.append(
+            ProviderTrace(
+                provider="local_wiki",
+                capability="concept_definition",
+                status="success",
+                detail="closed-loop relevance gate passed",
+                result_count=len(loop.conclusion),
+            )
+        )
+        for index, bucketed in enumerate(loop.conclusion[:4], start=1):
+            hit = bucketed.hit
+            tag = f"W{index}"
+            result.citations.append(
+                Citation(
+                    tag,
+                    f"knowledge-base · {hit.file_path}",
+                    f"{hit.title}｜chunk={hit.best_chunk_id}",
+                )
+            )
+            evidence_lines.append(f"{hit.title}：{hit.excerpt} [{tag}]")
+        result.provider_traces.append(
+            ProviderTrace(
+                provider=web_research.PROVIDER_BING_WEB,
+                capability="general_web_search",
+                status="not_attempted",
+                detail="local knowledge satisfied relevance gate",
+            )
+        )
+    else:
+        result.provider_traces.append(
+            ProviderTrace(
+                provider="local_wiki",
+                capability="concept_definition",
+                status="empty",
+                detail="; ".join(loop.warnings) or "no relevant local evidence",
+            )
+        )
+        web_result = web_research.fetch_web_search(options.query)
+        result.provider_traces.append(web_result.trace)
+        for index, item in enumerate(web_result.items[:4], start=1):
+            tag = f"E{index}"
+            result.citations.append(
+                Citation(tag, item.title, item.url)
+            )
+            evidence_lines.append(
+                f"{item.title}：{item.snippet or '搜索结果未提供摘要'} [{tag}]"
+            )
+    gap_lines: list[str] = []
+    if not evidence_lines:
+        gap_lines.append(
+            "本地知识库未命中，外部 Web Search 也未返回可用来源；"
+            "未使用无关 A 股资料替代。"
+        )
+    result.sections = {
+        "结论": [
+            (
+                f"已为“{question_plan.query_envelope.subject or options.query}”"
+                "取得可核验的定义/背景来源。"
+                if evidence_lines
+                else "当前来源不足，暂不能给出可靠定义。"
+            )
+        ],
+        "证据链": evidence_lines,
+        "分歧反证": gap_lines,
+        "后续验证点": [
+            "如需投资映射，可在定义确认后另行查询产业链和 A 股暴露。"
+        ],
+        "交易含义": [
+            "概念定义与市场交易判断分开处理，本轮不自动扩展公司名单。"
+        ],
+        "数据源状态": [
+            (
+                f"{trace.provider}｜{trace.capability}｜{trace.status}"
+                f"｜source_trade_date={trace.source_trade_date or '未记录'}"
+                f"｜result_count={trace.result_count}"
+                + (f"｜{trace.detail}" if trace.detail else "")
+            )
+            for trace in result.provider_traces
+        ],
+        "引用来源": [
+            f"[{citation.tag}] {citation.source}：{citation.detail}"
+            for citation in result.citations
+        ],
+    }
+    if not evidence_lines:
+        result.warnings.extend(loop.warnings)
+        result.warnings.extend(gap_lines)
+    result.answer_spec = _build_base_answer_spec_from_sections(
+        result,
+        theme=question_plan.query_envelope.subject or "概念定义",
+        evidence_blocks=tuple(evidence_lines),
+        direct_lines=tuple(result.sections["结论"]),
+        risk_lines=tuple(
+            gap_lines
+            or ["当前仅完成定义与背景核验，尚未验证产业链或投资映射。"]
+        ),
+        action_lines=tuple(result.sections["后续验证点"]),
+    )
+    return result
+
+
 def answer_query(options: AskOptions) -> AskResult:
     if options.clarify:
         clarify_decision = ask_clarify.clarify_for_query(options.query)
@@ -762,6 +1000,14 @@ def answer_query(options: AskOptions) -> AskResult:
             result.clarify = clarify_decision
             result.warnings.append(f"澄清追问：{clarify_decision.reason}，本次未检索")
             return result
+    preliminary_plan = plan_answer_question(
+        options.query,
+        question_type_override=options.question_type_override,
+    )
+    if preliminary_plan.question_type == QUESTION_EXTERNAL_MARKET:
+        return _answer_external_market(options, preliminary_plan)
+    if preliminary_plan.question_type == QUESTION_CONCEPT_DEFINITION:
+        return _answer_concept_definition(options, preliminary_plan)
     resolved_kb_wiki = Path(options.kb_wiki).expanduser() if options.kb_wiki else default_paths().knowledge_wiki
     knowledge = KnowledgeAdapter(wiki_root=resolved_kb_wiki)
     loaded = load_theme_candidates(options.exports_dir, options.date)
@@ -1246,7 +1492,12 @@ def answer_query(options: AskOptions) -> AskResult:
     module_follow_ups: list[tuple[str, str]] = []
     module_summ: list[str] = []
     if options.use_modules:
-        routed = route_modules(options.query, list(options.modules) if options.modules else None)
+        routed = route_modules(
+            options.query,
+            list(options.modules) if options.modules else None,
+            question_type=question_plan.question_type,
+            subject_kind=question_plan.query_envelope.subject_kind,
+        )
         result.routed_modules = list(routed)
         for name in routed:
             mr = run_module(name, graph_query, resolved_kb_wiki, options.module_timeout)
@@ -1717,8 +1968,9 @@ def answer_query(options: AskOptions) -> AskResult:
         ):
             def _build_w7():
                 news_keyword = market_news.resolve_news_keyword(options.query, theme, anchored_name)
-                block = market_news.news_block_for_keyword(news_keyword)
-                return block, Citation(
+                news_result = market_news.news_block_result_for_keyword(news_keyword)
+                result.provider_traces.extend(news_result.traces)
+                return news_result.block, Citation(
                     "W7",
                     "web 事件检索数据块（东财资讯 + web-access 全网检索）",
                     f"「{news_keyword}」近 {market_news.DEFAULT_WITHIN_DAYS} 天资讯日期/来源/标题/链接（只列不编，消息面存在性证据）",
@@ -1998,6 +2250,15 @@ def answer_query(options: AskOptions) -> AskResult:
         "检索可观测": telemetry.summary_lines() + research_brief.summarize_d_blocks(result.d_block_stats),
         "输出质检": result.review_gate.summary_lines(),
         "交易含义": implication_lines,
+        "数据源状态": [
+            (
+                f"{trace.provider}｜{trace.capability}｜{trace.status}"
+                f"｜source_trade_date={trace.source_trade_date or '未记录'}"
+                f"｜result_count={trace.result_count}"
+                + (f"｜{trace.detail}" if trace.detail else "")
+            )
+            for trace in result.provider_traces
+        ],
         "引用来源": [f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations],
     }
     result.citations = citations

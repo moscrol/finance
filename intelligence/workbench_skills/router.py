@@ -120,16 +120,22 @@ def route_skills(
             base_finance_fallback=not manual,
         )
 
-    automatic_registry = (
-        {
+    if query_envelope is not None and query_envelope.question_type in {
+        "external_market",
+        "concept_definition",
+    }:
+        automatic_registry: Mapping[str, SkillDefinition] = {}
+    elif (
+        query_envelope is not None
+        and query_envelope.subject_kind == "market_pattern"
+    ):
+        automatic_registry = {
             skill_id: definition
             for skill_id, definition in active_registry.items()
             if skill_id != "theme-research"
         }
-        if query_envelope is not None
-        and query_envelope.subject_kind == "market_pattern"
-        else active_registry
-    )
+    else:
+        automatic_registry = active_registry
     rules = _rule_candidates(query, task_type, automatic_registry)
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
     available_slots = 3 if skill_mode == "auto" else 3 - len(manual)

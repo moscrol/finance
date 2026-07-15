@@ -998,6 +998,48 @@ describe("Chat-first conversation components", () => {
     ).toBeVisible();
   });
 
+  it("does not show the company evidence warning for meta answers", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "我是 Foresight 本地金融研究工作台。",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={null}
+        bundle={{
+          ...bundle,
+          context: {
+            ...bundle.context,
+            evidence: [],
+          },
+          structuredReport: {
+            schema_version: 1,
+            report_id: "run_meta",
+            title: "你好，你是什么模型",
+            task_type: "meta",
+            status: "completed",
+            as_of: null,
+            llm: { used: false, provider: null, model: null },
+            modules: [],
+            warnings: [],
+          },
+        }}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByText(
+        "本轮未形成可验证的公司级来源；公司判断均按待验证展示。",
+      ),
+    ).toBeNull();
+  });
+
   it("replaces loading with a persistent cancelled message", () => {
     render(
       <MessageBubble

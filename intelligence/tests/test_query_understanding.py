@@ -57,6 +57,34 @@ def test_empty_or_unknown_query_never_becomes_a_theme() -> None:
     assert understand_query("帮我看看这个").subject is None
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        "昨天美股的涨跌情况",
+        "昨日道指、纳指、标普涨跌",
+    ),
+)
+def test_external_market_queries_have_dedicated_intent(query: str) -> None:
+    envelope = understand_query(query)
+
+    assert envelope.question_type == "external_market"
+    assert envelope.subject_kind == "external_market"
+    assert envelope.subject == "美国股市"
+    assert envelope.matched_by == "market_anchor"
+    assert envelope.confidence == 0.98
+
+
+def test_definition_query_is_not_confused_with_model_meta_question() -> None:
+    definition = understand_query("卫星互联网是什么")
+    meta = understand_query("你好，你是什么模型")
+
+    assert definition.question_type == "concept_definition"
+    assert definition.subject == "卫星互联网"
+    assert definition.matched_by == "definition"
+    assert meta.question_type == "general_finance_qa"
+    assert meta.subject is None
+
+
 def test_ticker_timeframe_and_serialization_contract() -> None:
     for ticker in ("002837", "600000.SH", "002837.SZ", "430047.BJ"):
         envelope = understand_query(f"分析 2026-07-13 的 {ticker}")

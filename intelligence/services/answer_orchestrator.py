@@ -20,6 +20,8 @@ QUESTION_FINANCIAL_ANALYSIS = "financial_analysis"
 QUESTION_ANSWER_REVIEW = "answer_review"
 QUESTION_METHODOLOGY = "methodology_discussion"
 QUESTION_GENERAL = "general_finance_qa"
+QUESTION_EXTERNAL_MARKET = "external_market"
+QUESTION_CONCEPT_DEFINITION = "concept_definition"
 
 QUESTION_TYPES = frozenset(
     {
@@ -33,6 +35,8 @@ QUESTION_TYPES = frozenset(
         QUESTION_ANSWER_REVIEW,
         QUESTION_METHODOLOGY,
         QUESTION_GENERAL,
+        QUESTION_EXTERNAL_MARKET,
+        QUESTION_CONCEPT_DEFINITION,
     }
 )
 
@@ -199,6 +203,14 @@ def plan_answer_question(
         raise ValueError("unknown question type override")
     if question_type_override is not None:
         question_type, confidence = question_type_override, 1.0
+    elif query_envelope.question_type in {
+        QUESTION_EXTERNAL_MARKET,
+        QUESTION_CONCEPT_DEFINITION,
+    }:
+        question_type, confidence = (
+            query_envelope.question_type,
+            query_envelope.confidence,
+        )
     elif query_envelope.subject_kind == "market_pattern":
         question_type, confidence = QUESTION_GENERAL, query_envelope.confidence
     elif query_envelope.subject_kind == "company":
@@ -270,6 +282,18 @@ def _base_finance_mode(
     question_type: str,
     depth: str,
 ) -> BaseFinanceMode:
+    if question_type in {
+        QUESTION_EXTERNAL_MARKET,
+        QUESTION_CONCEPT_DEFINITION,
+    }:
+        return BaseFinanceMode(
+            require_market=False,
+            require_memory=False,
+            require_news=False,
+            require_graph=False,
+            require_financials=False,
+            quick_answer=depth == DEPTH_QUICK,
+        )
     has_specific_target = (
         question_type
         in {
@@ -402,6 +426,11 @@ def _classify_depth(raw_query: str, q: str, question_type: str) -> str:
         QUESTION_FINANCIAL_ANALYSIS,
     }:
         return DEPTH_DEEP
+    if question_type in {
+        QUESTION_EXTERNAL_MARKET,
+        QUESTION_CONCEPT_DEFINITION,
+    }:
+        return DEPTH_STANDARD
     if question_type in {QUESTION_THEME_ANALYSIS, QUESTION_MARKET_REVIEW, QUESTION_MARKET_FORECAST}:
         return DEPTH_STANDARD
     return DEPTH_STANDARD
@@ -413,6 +442,19 @@ def _required_lenses(question_type: str, depth: str) -> list[str]:
         "反证视角：主动说明如果判断错，最可能错在哪里",
         "条件化结论：不要给单点结论，要写清升级、降级和证伪条件",
     ]
+    if question_type == QUESTION_EXTERNAL_MARKET:
+        return [
+            "行情口径：指数名称、收盘点位、涨跌幅和 source_trade_date 必须来自结构化行情或 finance quote",
+            "双源校验：优先结构化 global-market，滞后、缺失或缺少指数时再用 finance quote",
+            "来源隔离：新闻标题只能补方向与事件，不得替代精确点位或涨跌幅",
+            "失败可见：provider 失败时明确写数据缺口，不用本地 A 股资料代答",
+        ]
+    if question_type == QUESTION_CONCEPT_DEFINITION:
+        return [
+            "先解释定义、核心技术原理和产业链位置",
+            "本地知识库未命中时受控升级到通用 Web Search",
+            "Web 摘要只作为外部来源线索，保留来源链接和证据边界",
+        ]
     if question_type == QUESTION_STOCK_DEEP_DIVE:
         return [
             "公司本体：主营、收入结构、产业链位置、客户/竞争格局",
@@ -500,6 +542,17 @@ def _required_lenses(question_type: str, depth: str) -> list[str]:
 
 
 def _retrieval_plan(question_type: str, depth: str, q: str) -> list[str]:
+    if question_type == QUESTION_EXTERNAL_MARKET:
+        return [
+            "fupanhui /reviews/global-market：结构化海外指数底座与 source_trade_date",
+            "finance chart quote：结构化底座滞后、缺失或缺少指数时补精确收盘",
+            "Bing News：仅在需要方向性事件补充时使用，不作为精确行情",
+        ]
+    if question_type == QUESTION_CONCEPT_DEFINITION:
+        return [
+            "本地 Wiki/RAG：先查已有定义和产业链资料",
+            "Bing Web Search via Web Access：本地未命中时补外部定义与技术背景",
+        ]
     common = ["experience_cards：召回历史纠偏和优秀样板", "answer_quality：加载通用多视角质检"]
     if question_type == QUESTION_STOCK_DEEP_DIVE:
         plan = [
@@ -585,6 +638,21 @@ def _quality_gates(question_type: str, depth: str) -> list[str]:
         "必须主动写反证和证伪条件",
         "缺数据时要说明缺口，不能用常识或印象补齐",
     ]
+    if question_type == QUESTION_EXTERNAL_MARKET:
+        gates.extend(
+            [
+                "不得把 Bing News 标题或新闻描述换算成精确涨跌幅",
+                "必须展示 source_trade_date 和 provider 状态",
+                "外部 provider 失败时不得用无关 A 股证据替代",
+            ]
+        )
+    if question_type == QUESTION_CONCEPT_DEFINITION:
+        gates.extend(
+            [
+                "本地知识命中与 Web 外部来源必须分开标注",
+                "没有可靠来源时保留未知，不把 A 股题材标签当技术定义",
+            ]
+        )
     if question_type in {QUESTION_STOCK_DEEP_DIVE, QUESTION_THEME_ANALYSIS}:
         gates.extend(
             [
@@ -654,6 +722,19 @@ def _quality_gates(question_type: str, depth: str) -> list[str]:
 
 
 def _output_contract(question_type: str, depth: str) -> list[str]:
+    if question_type == QUESTION_EXTERNAL_MARKET:
+        return [
+            "先给 source_trade_date，再逐项列指数收盘点位与涨跌幅",
+            "明确标注结构化行情或 finance quote 来源",
+            "如有新闻补充，单列为方向性材料且不与行情数字混写",
+            "取数失败时直接给 provider 缺口，不延伸无关 A 股题材",
+        ]
+    if question_type == QUESTION_CONCEPT_DEFINITION:
+        return [
+            "用简洁语言回答是什么、如何工作、位于产业链哪里",
+            "列出本地知识或 Web 来源，区分事实与推导",
+            "不自动扩展无关公司名单或 A 股盘面判断",
+        ]
     if question_type == QUESTION_STOCK_DEEP_DIVE:
         return [
             "开头先给定位和核心矛盾",
@@ -715,6 +796,16 @@ def _missing_data_policy(question_type: str) -> list[str]:
         "本地没有命中时，先声明缺口，再决定是否需要 web/API 补查",
         "外部实时查询只补最新事实，不替代知识库/金融库的结构化底座",
     ]
+    if question_type == QUESTION_EXTERNAL_MARKET:
+        base.extend(
+            [
+                "结构化 global-market 缺失、日期滞后或缺少指数时必须尝试 finance quote",
+                "finance quote 仍失败时明确列出 provider 状态与缺口",
+                "新闻搜索结果不能替代收盘点位和涨跌幅",
+            ]
+        )
+    if question_type == QUESTION_CONCEPT_DEFINITION:
+        base.append("本地 Wiki/RAG 未命中时才升级到通用 Web Search")
     if question_type == QUESTION_STOCK_DEEP_DIVE:
         base.append("缺公司收入结构/客户证据时，不得把题材标签当作基本面结论")
         base.append("缺 L3 硬证据时，应先通过 L3 evidence tools 补查公告/互动易；查不到则显式降权，而不是补脑")
