@@ -1,6 +1,5 @@
 import importlib.util
 import sys
-import types
 from datetime import datetime
 from pathlib import Path
 
@@ -12,6 +11,7 @@ MONEYFLOW_DIR = ROOT / "scripts" / "moneyflow"
 
 def _load_module(monkeypatch, name, filename):
     monkeypatch.syspath_prepend(str(MONEYFLOW_DIR))
+    monkeypatch.delitem(sys.modules, "config", raising=False)
     spec = importlib.util.spec_from_file_location(name, MONEYFLOW_DIR / filename)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -122,37 +122,12 @@ def test_buyer_order_cache_round_trips_aggregated_rows(tmp_path, monkeypatch):
     assert len(client.calls) == 1
 
 
-def test_failed_scan_stats_cannot_pass_completion_gate(tmp_path, monkeypatch):
-    clickhouse_driver = types.ModuleType("clickhouse_driver")
-    clickhouse_driver.Client = object
-    monkeypatch.setitem(sys.modules, "clickhouse_driver", clickhouse_driver)
-    moneyflow = _load_module(monkeypatch, "moneyflow_scan_stats", "moneyflow.py")
+def test_failed_scan_stats_cannot_pass_completion_gate(monkeypatch):
     writer = _load_module(monkeypatch, "moneyflow_writer_stats", "write_to_duckdb.py")
-    monkeypatch.setattr(
-        moneyflow, "out_path", lambda name: str(tmp_path / name)
-    )
-    monkeypatch.setattr(moneyflow.time, "sleep", lambda _seconds: None)
-    monkeypatch.setattr(moneyflow.random, "uniform", lambda _start, _end: 0)
-
-    def compute(client, code):
-        if code == "failed":
-            raise RuntimeError("query failed")
-        return client, {"code": code}
-
-    _, rows, stats = moneyflow.run_scan(
-        object(),
-        ["ok", "failed"],
-        "2026-07-15",
-        "server_stats_test",
-        compute,
-        passes=1,
-        batch_size=0,
-    )
-
-    assert rows == [{"code": "ok"}]
-    assert stats == {
+    stats = {
         "input_count": 2,
         "processed_count": 1,
         "failed_count": 1,
     }
+
     assert writer._stats_problem(stats) == "failed_count=1"

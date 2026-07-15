@@ -12,9 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
-from config import out_path
-
 CACHE_VERSION = 1
+OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
 
 
 class QueryClient(Protocol):
@@ -228,7 +227,7 @@ class L2QueryService:
         self.threshold = threshold_wan * 1e4
         self.client_factory = client_factory
         self.cache = cache or SharedQueryCache(
-            out_path(f"l2_query_cache_{date}.json")
+            OUTPUT_DIR / f"l2_query_cache_{date}.json"
         )
         self.retries = retries
 

@@ -66,4 +66,4 @@ ORDER BY f.score DESC;
 - 榜单查询使用 ClickHouse 服务端聚合，raw tick 仅供单股画图
 - 共享聚合缓存：`outputs/l2_query_cache_<date>.json`
 - 全市场聚合仅用于取名单（涨停名单 / 成交额前100），且按代码前缀分批 + 重试 + 本地缓存
-- 服务器繁忙时 `fetch_trades_retry` 自动退避重连
+- 服务器繁忙时查询会自动退避重连
