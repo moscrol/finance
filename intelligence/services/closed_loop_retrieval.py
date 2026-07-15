@@ -84,21 +84,25 @@ def retrieve_closed_loop(
     retrieve: Retrieve,
 ) -> ClosedLoopRetrievalResult:
     result = ClosedLoopRetrievalResult()
+    query_terms = _relevance_terms(query, anchor, ())
     narrow_hits = _run_aperture(
         "narrow",
         _narrow_queries(query, anchor),
         retrieve,
         result,
     )
+    relevant_narrow_hits = tuple(
+        hit for hit in narrow_hits if _hit_overlaps_terms(hit, query_terms)
+    )
     broad_hits = _run_aperture(
         "broad",
-        _broad_queries(query, anchor, narrow_hits),
+        _broad_queries(query, anchor, relevant_narrow_hits),
         retrieve,
         result,
     )
     counter_hits = _run_aperture(
         "counter",
-        _counter_queries(query, anchor, narrow_hits),
+        _counter_queries(query, anchor, relevant_narrow_hits),
         retrieve,
         result,
     )
@@ -109,8 +113,12 @@ def retrieve_closed_loop(
             *(("counter", hit) for hit in counter_hits),
         ),
         result,
-        relevance_terms=_relevance_terms(query, anchor, ()),
-        broad_relevance_terms=_relevance_terms(query, anchor, narrow_hits),
+        relevance_terms=query_terms,
+        broad_relevance_terms=_relevance_terms(
+            query,
+            anchor,
+            relevant_narrow_hits,
+        ),
     )
     for aperture in ("narrow", "broad", "counter"):
         attempts = [item for item in result.attempts if item.aperture == aperture]
@@ -217,13 +225,24 @@ def _relevance_terms(
     if anchor is not None:
         terms.extend((anchor.entity, anchor.ticker, *anchor.concepts))
     terms.extend(_extract_terms(narrow_hits))
-    return tuple(
-        dict.fromkeys(
-            term.strip().casefold()
-            for term in terms
-            if len(term.strip()) >= 2 and term.strip() not in _GENERIC_TERMS
-        )
-    )
+    expanded: list[str] = []
+    for raw_term in terms:
+        term = raw_term.strip().casefold()
+        if len(term) < 2 or term in _GENERIC_TERMS:
+            continue
+        expanded.append(term)
+        if len(term) > 2 and re.fullmatch(r"[\u4e00-\u9fff]+", term):
+            expanded.extend(
+                term[index : index + 2]
+                for index in range(len(term) - 1)
+                if term[index : index + 2] not in _GENERIC_TERMS
+            )
+    return tuple(dict.fromkeys(expanded))
+
+
+def _hit_overlaps_terms(hit: WikiHit, terms: Sequence[str]) -> bool:
+    searchable = f"{hit.title} {hit.excerpt}".casefold()
+    return bool(terms) and any(term in searchable for term in terms)
 
 
 def _bucket_hits(
@@ -244,27 +263,17 @@ def _bucket_hits(
             continue
         seen.add(key)
         item = BucketedHit(typed_aperture, hit)
-        if typed_aperture == "counter" and hit.score > 0:
-            result.counter_clues.append(item)
-            result.clues.append(item)
-            continue
-        hardness = hit.fact_hardness.casefold()
-        layer = hit.evidence_layer.casefold()
-        hard_source = hardness in {"hard", "verified", "canonical"} or layer in {
-            "l3",
-            "l4",
-            "canonical",
-        }
-        searchable = f"{hit.title} {hit.excerpt}".casefold()
         aperture_terms = (
             broad_relevance_terms
             if typed_aperture == "broad"
             else relevance_terms
         )
-        direct_overlap = any(term in searchable for term in aperture_terms)
-        if hit.score > 0 and (hard_source or direct_overlap):
-            result.conclusion.append(item)
-        elif hit.score > 0:
-            result.clues.append(item)
-        else:
+        direct_overlap = _hit_overlaps_terms(hit, aperture_terms)
+        if hit.score <= 0 or not direct_overlap:
             result.discarded.append(item)
+            continue
+        if typed_aperture == "counter":
+            result.counter_clues.append(item)
+            result.clues.append(item)
+        elif direct_overlap:
+            result.conclusion.append(item)

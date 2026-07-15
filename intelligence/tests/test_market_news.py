@@ -18,6 +18,7 @@ from intelligence.services.market_news import (
     fetch_web_access_news,
     merge_news_items,
     news_block_for_keyword,
+    news_block_result_for_keyword,
     parse_news_intent,
     resolve_news_keyword,
 )
@@ -146,6 +147,47 @@ class NewsBlockForKeywordTests(unittest.TestCase):
         self.assertIn("PQC executive order", block)
         self.assertIn("[web]", block)
         self.assertIn("东财 1 + web 1", block)
+
+    def test_pqc_news_path_records_both_provider_statuses(self) -> None:
+        result = news_block_result_for_keyword(
+            "PQC",
+            fetcher=lambda *args: [
+                NewsItem(
+                    "2026-07-08",
+                    "证券时报",
+                    "PQC标准进展",
+                    "http://x/a",
+                )
+            ],
+            web_fetcher=lambda *args: [
+                NewsItem(
+                    "2026-07-07",
+                    "Reuters",
+                    "PQC news",
+                    "http://x/b",
+                    provider=PROVIDER_WEB,
+                )
+            ],
+        )
+
+        self.assertIn("PQC标准进展", result.block)
+        self.assertEqual(
+            [trace.status for trace in result.traces],
+            ["success", "success"],
+        )
+
+    def test_provider_failure_is_not_silently_reported_as_empty(self) -> None:
+        result = news_block_result_for_keyword(
+            "PQC",
+            fetcher=lambda *args: (_ for _ in ()).throw(TimeoutError()),
+            web_fetcher=lambda *args: (_ for _ in ()).throw(OSError()),
+        )
+
+        self.assertEqual(
+            [trace.status for trace in result.traces],
+            ["request_error", "request_error"],
+        )
+        self.assertIn("缺消息面", result.block)
 
     def test_web_disabled_by_env(self) -> None:
         def fake_em(kw: str, page_size: int, within_days: int) -> list[NewsItem]:

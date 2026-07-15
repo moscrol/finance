@@ -43,9 +43,9 @@ def test_closed_loop_uses_entity_code_broad_terms_and_counter_queries() -> None:
         if len(queries) == 1:
             return _response(query, [_hit("液冷服务器", 0.72)])
         if "上下游" in query:
-            return _response(query, [_hit("温控设备", 0.62)])
+            return _response(query, [_hit("液冷温控设备", 0.62)])
         if "风险" in query:
-            return _response(query, [_hit("需求不及预期", 0.12)])
+            return _response(query, [_hit("液冷需求不及预期", 0.12)])
         return _response(query, [])
 
     result = retrieve_closed_loop(
@@ -63,9 +63,11 @@ def test_closed_loop_uses_entity_code_broad_terms_and_counter_queries() -> None:
     assert any("风险 证伪 不及预期" in query for query in queries)
     assert [item.hit.title for item in result.conclusion] == [
         "液冷服务器",
-        "温控设备",
+        "液冷温控设备",
     ]
-    assert [item.hit.title for item in result.counter_clues] == ["需求不及预期"]
+    assert [item.hit.title for item in result.counter_clues] == [
+        "液冷需求不及预期"
+    ]
 
 
 def test_weak_ranked_hit_never_enters_conclusion_bucket() -> None:
@@ -81,7 +83,34 @@ def test_weak_ranked_hit_never_enters_conclusion_bucket() -> None:
     result = retrieve_closed_loop("短问题", anchor=None, retrieve=retrieve)
 
     assert result.conclusion == []
-    assert any(item.hit.title == "弱相关首页" for item in result.clues)
+    assert result.clues == []
+    assert any(item.hit.title == "弱相关首页" for item in result.discarded)
+
+
+def test_irrelevant_hard_source_cannot_bypass_query_relevance() -> None:
+    calls = 0
+
+    def retrieve(query: str) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [_hit("A股消费公司公告", 0.9, hardness="hard")],
+            )
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "昨天美股的涨跌情况",
+        anchor=None,
+        retrieve=retrieve,
+    )
+
+    assert result.conclusion == []
+    assert result.counter_clues == []
+    assert [item.hit.title for item in result.discarded] == [
+        "A股消费公司公告"
+    ]
 
 
 def test_empty_aperture_stops_after_three_rewrites_and_reports_gap() -> None:

@@ -10,7 +10,13 @@ from typing import Literal
 from intelligence.services.entity_anchor import EntityAnchor
 
 
-SubjectKind = Literal["company", "theme", "market_pattern", "unknown"]
+SubjectKind = Literal[
+    "company",
+    "theme",
+    "market_pattern",
+    "external_market",
+    "unknown",
+]
 MatchedBy = Literal[
     "ticker",
     "entity",
@@ -18,6 +24,8 @@ MatchedBy = Literal[
     "alias",
     "quoted",
     "explicit",
+    "definition",
+    "market_anchor",
     "generic",
 ]
 
@@ -76,6 +84,42 @@ _MARKET_PATTERN_TERMS = (
     "健康分歧",
     "行情高潮",
 )
+_EXTERNAL_MARKET_TERMS = (
+    "美股",
+    "美国股市",
+    "道指",
+    "道琼斯",
+    "纳指",
+    "纳斯达克",
+    "标普500",
+    "标普",
+    "费半",
+    "费城半导体",
+    "soxx",
+    "qqq",
+    "海外指数",
+)
+_EXTERNAL_QUOTE_TERMS = (
+    "昨天",
+    "昨日",
+    "隔夜",
+    "收盘",
+    "涨跌",
+    "点位",
+    "行情",
+    "走势",
+    "表现",
+)
+_RELATIVE_TIMEFRAMES = ("昨天", "昨日", "隔夜", "今天", "今日", "最新")
+_DEFINITION_PREFIX_RE = re.compile(
+    r"^(?:请|帮我|介绍一下|解释一下|分析一下|研究一下)*什么是"
+    r"([\u4e00-\u9fffA-Za-z0-9+.-]{2,24})"
+)
+_DEFINITION_SUFFIX_RE = re.compile(
+    r"^(?:请|帮我|介绍一下|解释一下|分析一下|研究一下)*"
+    r"([\u4e00-\u9fffA-Za-z0-9+.-]{2,24}?)"
+    r"(?:是什么|的?技术原理|如何工作|的?产业链位置)"
+)
 
 
 @dataclass(frozen=True)
@@ -119,11 +163,36 @@ def _theme_aliases() -> tuple[str, ...]:
 
 
 def _decision_goal(query: str) -> str:
+    if _is_external_market_query(query):
+        return "核对海外指数收盘点位与涨跌幅"
+    if _definition_subject(query):
+        return "解释定义、技术背景与产业链位置"
     if "健康分歧" in query or "行情高潮" in query:
         return "区分健康分歧与行情高潮"
     if "背离" in query:
         return "解释市场背离"
     return "形成条件化判断"
+
+
+def _is_external_market_query(query: str) -> bool:
+    folded = str(query or "").casefold()
+    return any(term in folded for term in _EXTERNAL_MARKET_TERMS) and any(
+        term in folded for term in _EXTERNAL_QUOTE_TERMS
+    )
+
+
+def _definition_subject(query: str) -> str | None:
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    if not text or re.search(r"(?:你|模型|model)", text, re.IGNORECASE):
+        return None
+    for pattern in (_DEFINITION_PREFIX_RE, _DEFINITION_SUFFIX_RE):
+        match = pattern.search(text)
+        if match is not None:
+            subject = match.group(1).strip()
+            if subject.endswith(("题材", "板块", "方向", "产业链")):
+                return None
+            return subject
+    return None
 
 
 def _normalize_explicit_tail(tail: str, timeframe: str | None) -> str:
@@ -175,7 +244,34 @@ def understand_query(
 ) -> QueryEnvelope:
     text = str(query or "").strip()
     timeframe_match = _DATE_RE.search(text)
-    timeframe = timeframe_match.group(0) if timeframe_match else None
+    timeframe = (
+        timeframe_match.group(0)
+        if timeframe_match
+        else next((term for term in _RELATIVE_TIMEFRAMES if term in text), None)
+    )
+
+    if _is_external_market_query(text):
+        return QueryEnvelope(
+            "external_market",
+            "external_market",
+            "美国股市",
+            _decision_goal(text),
+            timeframe,
+            "market_anchor",
+            0.98,
+        )
+
+    definition_subject = _definition_subject(text)
+    if definition_subject is not None:
+        return QueryEnvelope(
+            "concept_definition",
+            "theme",
+            definition_subject,
+            _decision_goal(text),
+            timeframe,
+            "definition",
+            0.9,
+        )
 
     if anchor is not None:
         return QueryEnvelope(

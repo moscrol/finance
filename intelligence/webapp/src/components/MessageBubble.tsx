@@ -72,6 +72,8 @@ export function MessageBubble({
     bundle?.context.evidence.some(
       (item) => item.classification === "bound_evidence",
     ) ?? true;
+  const isMetaRun =
+    (live?.report ?? bundle?.structuredReport)?.task_type === "meta";
   const noEvidenceNotice =
     "本轮未形成可验证的公司级来源；公司判断均按待验证展示。";
 
@@ -107,11 +109,13 @@ export function MessageBubble({
             自然语言综合暂时不可用
           </span>
         )}
-        {!hasBoundEvidence && !content.includes(noEvidenceNotice) && (
+        {!isMetaRun &&
+          !hasBoundEvidence &&
+          !content.includes(noEvidenceNotice) && (
           <div className="message-evidence-warning" role="status">
             {noEvidenceNotice}
           </div>
-        )}
+          )}
         {content ? (
           <MarkdownView source={content} />
         ) : terminalNotice ? null : (

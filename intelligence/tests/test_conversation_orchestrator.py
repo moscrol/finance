@@ -94,6 +94,60 @@ def _prepare_turn(
     return run.run_id, assistant.message_id
 
 
+def test_model_meta_question_skips_financial_routing_and_retrieval(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "你好，你是什么模型"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("meta answer must not route or retrieve")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    assert result.selected_skill_ids == ()
+    assert result.invoked_skill_ids == ()
+    assert "不会触发金融检索" in result.content
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    assert report["task_type"] == "meta"
+    assert report["as_of"] is None
+    assert report["modules"] == []
+    route_step = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "meta_short_circuit"
+    )
+    assert json.loads(route_step["output_summary"])["retrieval_attempted"] is False
+
+
 def test_three_turns_retrieve_fresh_and_include_bounded_context(tmp_path) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
