@@ -133,14 +133,10 @@ def route_skills(
         else None
     )
     if skill_mode == "manual":
-        combined_manual = [
-            *([owner_selection] if owner_selection is not None else []),
-            *manual,
-        ]
         return SkillRouteResult(
-            tuple(_unique_selections(combined_manual)),
+            tuple(_unique_selections(manual)),
             fallback_to_ask=False,
-            base_finance_fallback=not combined_manual,
+            base_finance_fallback=not manual,
         )
 
     if query_envelope is not None and query_envelope.question_type in {

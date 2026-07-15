@@ -201,6 +201,26 @@ def test_controller_owner_excludes_other_research_owners() -> None:
     assert result.selections[0].reason == "Controller 指定唯一答案 owner"
 
 
+def test_manual_mode_executes_only_explicit_user_selections() -> None:
+    registry = {
+        "stock-deep-dive": definition("stock-deep-dive", "深挖"),
+        "daily-agent": definition("daily-agent", "今日研究"),
+    }
+
+    result = route_skills(
+        "第二轮请看今天研究什么",
+        "ask",
+        "manual",
+        ["daily-agent"],
+        registry=registry,
+        query_envelope=understand_query("第二轮请看今天研究什么"),
+        answer_owner="stock-deep-dive",
+    )
+
+    assert [item.skill_id for item in result.selections] == ["daily-agent"]
+    assert result.selections[0].selection_source == "manual"
+
+
 def test_hybrid_preserves_manual_then_supplements_and_caps_total_at_three() -> None:
     registry = {name: definition(name, "命中") for name in ("a", "b", "c", "d")}
     result = route_skills(
