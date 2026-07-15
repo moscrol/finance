@@ -801,7 +801,7 @@ def test_research_budget_skips_excess_skill_and_records_trace(tmp_path) -> None:
         for step in run_store.load_trace(run_id)
         if step["name"] == "research_execution_budget"
     )
-    budget = json.loads(budget_step["output_summary"])
+    budget = budget_step["retrieval"]["research_budget"]
     assert budget["call_count"] == 1
     assert budget["attempts"][1]["status"] == "skipped_budget"
     assert budget["attempts"][1]["provider"] == "skill_registry"

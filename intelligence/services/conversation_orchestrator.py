@@ -508,7 +508,7 @@ class TurnOrchestrator:
         report = new_structured_report(
             run_id=run_id,
             question=query,
-            task_type="conversation",
+            task_type="ask",
         )
         selected: list[str] = []
         manual_selected = list(dict.fromkeys(selected_skill_ids))
@@ -553,7 +553,8 @@ class TurnOrchestrator:
                 skill_mode=skill_mode,
                 selected_skill_ids=selected_skill_ids,
             )
-            report["task_type"] = decision.lane
+            if decision.lane in {"chat", "meta", "knowledge", "clarify"}:
+                report["task_type"] = decision.lane
             legacy_lane = (
                 "knowledge"
                 if routing_envelope.question_type == "concept_definition"
@@ -811,13 +812,21 @@ class TurnOrchestrator:
                 finally:
                     skill_pool.shutdown(wait=False, cancel_futures=True)
                 self._check_cancelled()
+            budget_trace = research_budget.to_trace()
             self._trace(
                 run_id,
                 assistant_message_id,
                 conversation_id,
                 "budget",
                 "research_execution_budget",
-                research_budget.to_trace(),
+                {
+                    "summary": (
+                        f"研究工具调用 {budget_trace['call_count']} 次，"
+                        f"记录 {budget_trace['attempt_count']} 次尝试"
+                    ),
+                    "elapsed_ms": budget_trace["elapsed_ms"],
+                },
+                retrieval={"research_budget": budget_trace},
             )
 
             def capture_safe_text(text: str) -> None:
