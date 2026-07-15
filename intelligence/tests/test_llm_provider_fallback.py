@@ -4,6 +4,12 @@ from intelligence.services import llm_refine
 
 
 def _clear_provider_env(monkeypatch) -> None:
+    for env_key in (
+        "FORESIGHT_BUILTIN_LLM_API_KEY",
+        "FORESIGHT_BUILTIN_LLM_BASE_URL",
+        "FORESIGHT_BUILTIN_LLM_MODEL",
+    ):
+        monkeypatch.delenv(env_key, raising=False)
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     for _name, env_key, _base, _model in llm_refine._PROVIDERS:
         monkeypatch.delenv(env_key, raising=False)
@@ -46,6 +52,28 @@ def test_provider_specific_keys_use_deterministic_order(monkeypatch) -> None:
     providers = llm_refine.detect_providers()
 
     assert [provider.name for provider in providers] == ["deepseek", "moonshot"]
+
+
+def test_managed_builtin_provider_precedes_provider_specific_keys(monkeypatch) -> None:
+    _clear_provider_env(monkeypatch)
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "test-managed-value")
+    monkeypatch.setenv(
+        "FORESIGHT_BUILTIN_LLM_BASE_URL",
+        "https://managed.example/v1",
+    )
+    monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_MODEL", "managed-model")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-value")
+
+    providers = llm_refine.detect_providers()
+
+    assert [provider.name for provider in providers] == ["zhipu", "deepseek"]
+    assert providers[0].api_key == "test-managed-value"
+    assert providers[0].base_url == "https://managed.example/v1"
+    assert providers[0].model == "managed-model"
+
+    overridden = llm_refine.detect_providers("requested-model")
+
+    assert overridden[0].model == "requested-model"
 
 
 def _providers() -> tuple[llm_refine.LLMProvider, ...]:

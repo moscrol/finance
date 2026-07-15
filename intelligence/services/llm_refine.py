@@ -112,6 +112,26 @@ def detect_providers(model_override: str | None = None) -> tuple[LLMProvider, ..
         return (LLMProvider(name="custom", api_key=generic, base_url=base, model=model),)
     providers: list[LLMProvider] = []
     seen: set[tuple[str, str, str]] = set()
+    managed_key = os.environ.get("FORESIGHT_BUILTIN_LLM_API_KEY")
+    if managed_key:
+        managed_base_url = (
+            os.environ.get("FORESIGHT_BUILTIN_LLM_BASE_URL")
+            or "https://open.bigmodel.cn/api/coding/paas/v4"
+        )
+        managed_model = (
+            model_override
+            or os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL")
+            or "glm-5.2"
+        )
+        providers.append(
+            LLMProvider(
+                name="zhipu",
+                api_key=managed_key,
+                base_url=managed_base_url,
+                model=managed_model,
+            )
+        )
+        seen.add((managed_key, managed_base_url, managed_model))
     for name, env_key, base, default_model in _PROVIDERS:
         key = os.environ.get(env_key)
         if key:
