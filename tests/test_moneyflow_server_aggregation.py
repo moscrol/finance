@@ -1,5 +1,6 @@
 import importlib.util
 import sys
+import types
 from datetime import datetime
 from pathlib import Path
 
@@ -122,6 +123,9 @@ def test_buyer_order_cache_round_trips_aggregated_rows(tmp_path, monkeypatch):
 
 
 def test_failed_scan_stats_cannot_pass_completion_gate(tmp_path, monkeypatch):
+    clickhouse_driver = types.ModuleType("clickhouse_driver")
+    clickhouse_driver.Client = object
+    monkeypatch.setitem(sys.modules, "clickhouse_driver", clickhouse_driver)
     moneyflow = _load_module(monkeypatch, "moneyflow_scan_stats", "moneyflow.py")
     writer = _load_module(monkeypatch, "moneyflow_writer_stats", "write_to_duckdb.py")
     monkeypatch.setattr(
