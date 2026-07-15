@@ -52,6 +52,7 @@ from intelligence.services.research_policy import (
     ResearchExecutionPolicy,
 )
 from intelligence.services.research_contract import (
+    OWNER_WORKFLOW_SPECS,
     ResearchDeadline,
     ResearchPlan,
     TurnIntent,
@@ -889,6 +890,19 @@ class TurnOrchestrator:
                     continue
                 seen_skill_ids.add(skill_id)
                 invoked.append(skill_id)
+                if skill_id == turn_intent.answer_owner:
+                    workflow_spec = OWNER_WORKFLOW_SPECS[skill_id]
+                    self._emit(
+                        run_id,
+                        assistant_message_id,
+                        f"workflow:{skill_id}:loaded",
+                        "workflow.loaded",
+                        {
+                            **workflow_spec.to_dict(),
+                            "status": "loaded",
+                        },
+                        conversation_id,
+                    )
                 self._emit(
                     run_id,
                     assistant_message_id,

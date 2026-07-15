@@ -13,6 +13,7 @@ AnswerOwner: TypeAlias = Literal[
     "news-impact",
     "theme-research",
 ]
+OwnerExecutionMode: TypeAlias = Literal["inline", "subtask"]
 ClaimType: TypeAlias = Literal["fact", "inference", "expectation"]
 StageStatus: TypeAlias = Literal[
     "pending",
@@ -64,6 +65,76 @@ OWNER_RETRIEVAL_STAGES: dict[AnswerOwner, tuple[str, ...]] = {
         "company_mapping",
         "market_lifecycle",
         "counterevidence",
+    ),
+}
+
+
+@dataclass(frozen=True)
+class OwnerWorkflowSpec:
+    owner: AnswerOwner
+    label: str
+    execution_mode: OwnerExecutionMode
+    preset: str
+    required_skill_ids: tuple[str, ...]
+    retrieval_stages: tuple[str, ...]
+    output_schema: str
+    presentation_kind: str
+    max_wall_time_seconds: int
+
+    def __post_init__(self) -> None:
+        if self.execution_mode not in {"inline", "subtask"}:
+            raise ValueError("unsupported owner execution mode")
+        if self.max_wall_time_seconds <= 0:
+            raise ValueError("owner workflow wall time must be positive")
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+OWNER_WORKFLOW_SPECS: dict[AnswerOwner, OwnerWorkflowSpec] = {
+    "stock-deep-dive": OwnerWorkflowSpec(
+        owner="stock-deep-dive",
+        label="个股深挖",
+        execution_mode="inline",
+        preset="finance-researcher",
+        required_skill_ids=("finance-mode", "stock-deep-dive"),
+        retrieval_stages=OWNER_RETRIEVAL_STAGES["stock-deep-dive"],
+        output_schema="AnswerSpec",
+        presentation_kind="theme_research",
+        max_wall_time_seconds=240,
+    ),
+    "financial-analysis": OwnerWorkflowSpec(
+        owner="financial-analysis",
+        label="财务分析",
+        execution_mode="inline",
+        preset="finance-financial-analyst",
+        required_skill_ids=("finance-mode", "financial-analysis"),
+        retrieval_stages=OWNER_RETRIEVAL_STAGES["financial-analysis"],
+        output_schema="AnswerSpec",
+        presentation_kind="base_finance",
+        max_wall_time_seconds=240,
+    ),
+    "news-impact": OwnerWorkflowSpec(
+        owner="news-impact",
+        label="消息与公告冲击",
+        execution_mode="inline",
+        preset="finance-event-analyst",
+        required_skill_ids=("finance-mode", "news-impact"),
+        retrieval_stages=OWNER_RETRIEVAL_STAGES["news-impact"],
+        output_schema="AnswerSpec",
+        presentation_kind="theme_research",
+        max_wall_time_seconds=240,
+    ),
+    "theme-research": OwnerWorkflowSpec(
+        owner="theme-research",
+        label="题材研究",
+        execution_mode="inline",
+        preset="finance-theme-researcher",
+        required_skill_ids=("finance-mode", "theme-research"),
+        retrieval_stages=OWNER_RETRIEVAL_STAGES["theme-research"],
+        output_schema="AnswerSpec",
+        presentation_kind="theme_research",
+        max_wall_time_seconds=240,
     ),
 }
 
@@ -157,7 +228,7 @@ class ResearchPlan:
     @classmethod
     def from_intent(cls, intent: TurnIntent) -> ResearchPlan:
         stages = (
-            OWNER_RETRIEVAL_STAGES[intent.answer_owner]
+            OWNER_WORKFLOW_SPECS[intent.answer_owner].retrieval_stages
             if intent.answer_owner is not None
             else ()
         )

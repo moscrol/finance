@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass, replace
 from intelligence.api.structured_reports import ask_result_modules
 from intelligence.services import answer_model
 from intelligence.services.ask import AskOptions, AskResult, answer_query
-from intelligence.services.research_contract import OWNER_RETRIEVAL_STAGES
+from intelligence.services.research_contract import OWNER_WORKFLOW_SPECS
 from intelligence.workbench_skills.contracts import (
     JsonObject,
     SkillAnswerContract,
@@ -67,7 +67,7 @@ class ResearchOwnerSkill:
                 question_type_override=self.config.question_type,
                 deadline=context.deadline,
             )
-        stages = OWNER_RETRIEVAL_STAGES[self.config.skill_id]
+        stages = OWNER_WORKFLOW_SPECS[self.config.skill_id].retrieval_stages
         dag = execute_owner_dag(
             cache_key=f"{self.skill_id}:{context.query}",
             stages=stages,
