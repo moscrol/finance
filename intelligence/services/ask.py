@@ -1105,7 +1105,11 @@ def answer_query(options: AskOptions) -> AskResult:
         or options.query
     )
     # 命中实体后，图谱/向量检索用「实体名+概念暴露」定锚，替代问题原文；未命中保持原文。
-    graph_query = anchor.graph_query if anchor is not None else options.query
+    graph_query = (
+        anchor.graph_query
+        if anchor is not None
+        else question_plan.query_envelope.subject or options.query
+    )
 
     citations: list[Citation] = []
     structured_claims: list[answer_model.Claim] = []
@@ -1206,7 +1210,25 @@ def answer_query(options: AskOptions) -> AskResult:
         )
 
     company_lines: list[str] = []
-    exposures = knowledge.get_exposure_matches(graph_query, limit=options.top_companies)
+    focus_entities = (
+        question_plan.research_spec.focus_entities
+        if question_plan.research_spec is not None
+        else ()
+    )
+    exposure_limit = max(options.top_companies, len(focus_entities) * 4)
+    exposures = knowledge.get_exposure_matches(graph_query, limit=exposure_limit)
+    if exposures.get("found") and focus_entities:
+        focus_order = {
+            company: index for index, company in enumerate(focus_entities)
+        }
+        exposure_items = list(exposures["items"])
+        exposure_items.sort(
+            key=lambda row: (
+                0 if str(row.get("company") or "") in focus_order else 1,
+                focus_order.get(str(row.get("company") or ""), len(focus_order)),
+            )
+        )
+        exposures["items"] = exposure_items[: options.top_companies]
     tiers: dict[str, list[str]] = {"core": [], "peripheral": [], "other": []}
     company_evidence_concepts: dict[str, str] = {}
     if exposures.get("found"):
@@ -1367,7 +1389,7 @@ def answer_query(options: AskOptions) -> AskResult:
     }
     if options.use_wiki_rag:
         loop = closed_loop_retrieval.retrieve_closed_loop(
-            options.query,
+            graph_query,
             anchor=anchor,
             retrieve=lambda retrieval_query: kb_rag.retrieve(
                 retrieval_query,
@@ -1376,7 +1398,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 mode=options.wiki_rag_mode,
                 timeout=options.wiki_rag_timeout,
                 excerpt_chars=options.wiki_rag_excerpt,
-                budget_query=options.query,
+                budget_query=graph_query,
                 index_dir=options.wiki_rag_index_dir,
                 require_fresh=True,
             ),
@@ -2854,6 +2876,7 @@ def _build_base_answer_spec_from_sections(
             counter_evidence_requirements=(),
             trigger_conditions=(),
             verification_actions=tuple(actions),
+            focus_entities=(),
             requested_sections=(
                 "direct_assessment",
                 "strongest_evidence",

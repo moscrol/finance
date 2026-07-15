@@ -34,7 +34,12 @@ class ThemeResearchSpecTests(unittest.TestCase):
             "稳定币支付": "stablecoin_payment",
             "人形机器人": "robotics",
             "AI 算力": "compute_infrastructure",
-            "英维克液冷": "compute_infrastructure",
+            "英维克液冷": "data_center_liquid_cooling",
+            "ArF 光刻胶": "photoresist",
+            "可回收火箭": "commercial_space",
+            "AI 服务器 PCB": "ai_server_pcb",
+            "固态电解质": "solid_state_battery",
+            "AI 眼镜": "ai_glasses",
             "低空经济": "low_altitude_economy",
         }
         for query, pack_id in cases.items():

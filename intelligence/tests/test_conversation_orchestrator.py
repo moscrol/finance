@@ -688,6 +688,13 @@ def test_contextualizes_pronoun_follow_up_with_previous_user_turn(tmp_path) -> N
     assert contextualize_follow_up_query("今天市场怎么样？", context) == (
         "今天市场怎么样？"
     )
+    assert contextualize_follow_up_query(
+        "把核心矛盾压成一句话，再列最强反证和翻转条件。",
+        context,
+    ) == (
+        "请个股深挖英维克的液冷业务\n"
+        "追问：把核心矛盾压成一句话，再列最强反证和翻转条件。"
+    )
 
 
 def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None:

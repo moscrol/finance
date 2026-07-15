@@ -250,6 +250,7 @@ class ThemeResearchSpec:
     counter_evidence_requirements: tuple[str, ...]
     trigger_conditions: tuple[str, ...]
     verification_actions: tuple[str, ...]
+    focus_entities: tuple[str, ...]
     requested_sections: tuple[str, ...]
 
     def to_dict(self) -> dict[str, object]:
@@ -264,6 +265,7 @@ class ThemeResearchSpec:
             "counter_evidence_requirements": list(self.counter_evidence_requirements),
             "trigger_conditions": list(self.trigger_conditions),
             "verification_actions": list(self.verification_actions),
+            "focus_entities": list(self.focus_entities),
             "requested_sections": list(self.requested_sections),
         }
 
@@ -279,6 +281,11 @@ class ThemeResearchSpec:
             f"- 触发条件：{'；'.join(self.trigger_conditions)}",
             f"- 核验动作：{'；'.join(self.verification_actions)}",
         ]
+        if self.focus_entities:
+            lines.append(
+                f"- 优先核验公司：{'、'.join(self.focus_entities)}"
+                "（仅作为检索种子，不代表核心结论）"
+            )
         if self.as_of:
             lines.insert(2, f"- 日期口径：{self.as_of}")
         return "\n".join(lines)
@@ -415,6 +422,7 @@ def resolve_theme_research_spec(
         counter_evidence_requirements=_strings(selected.get("counter_evidence")),
         trigger_conditions=_strings(selected.get("triggers")),
         verification_actions=_strings(selected.get("verification_actions")),
+        focus_entities=_strings(selected.get("focus_entities")),
         requested_sections=(
             "definition",
             "industry_chain",

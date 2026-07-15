@@ -90,6 +90,28 @@ def test_company_valuation_uses_research_lane() -> None:
     assert "financials" in decision.capabilities
 
 
+def test_company_upside_with_freshness_uses_research_lane() -> None:
+    decision = decide_turn(
+        "瑞华泰还有上涨空间吗？请按本地知识库和最新盘面判断。",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+
+
+def test_explicit_product_workflows_do_not_depend_on_llm_classification() -> None:
+    for query in (
+        "今天研究什么？按优先级列证据缺口、研究动作和可证伪点。",
+        "美股AI回撤榜",
+    ):
+        decision = decide_turn(query, llm_complete=_no_llm)
+        assert decision.lane == "workflow"
+        assert decision.needs_retrieval is True
+        assert decision.needs_template is True
+
+
 def test_manual_skill_selection_forces_workflow_lane() -> None:
     decision = decide_turn(
         "按这个流程做",

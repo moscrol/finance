@@ -130,6 +130,29 @@ def test_empty_aperture_stops_after_three_rewrites_and_reports_gap() -> None:
     assert len(result.warnings) == 3
 
 
+def test_timeout_stops_rewrites_for_the_same_aperture() -> None:
+    calls: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        calls.append(query)
+        return WikiRagResult(
+            ok=False,
+            hits=[],
+            telemetry=RetrievalTelemetry(status="timeout", hit_count=0),
+            command=query,
+            warning="retrieval timeout",
+        )
+
+    result = retrieve_closed_loop("液冷", anchor=None, retrieve=retrieve)
+
+    assert len(calls) == 3
+    assert [attempt.aperture for attempt in result.attempts] == [
+        "narrow",
+        "broad",
+        "counter",
+    ]
+
+
 def test_hard_evidence_can_enter_conclusion_at_lower_score() -> None:
     calls = 0
 
