@@ -23,8 +23,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from moneyflow import (make_client, fetch_trades_retry, analyze, stock_info,
-                       run_scan, duck_top_turnover_codes)
+from moneyflow import make_client, stock_info, run_scan, duck_top_turnover_codes
+from server_aggregation import L2QueryService
 from config import out_path
 from write_to_duckdb import write_capital_flow
 
@@ -100,22 +100,22 @@ def main():
 
     codes = top_turnover_stocks(client, date)
     print(f"{date} 成交额前{len(codes)}股票，开始逐只计算大单资金流...")
+    queries = L2QueryService(date, big_thr, make_client)
 
     def compute(client, code):
-        client, df = fetch_trades_retry(client, code, date)
-        if df.empty:
+        client, summary = queries.capital_flow(client, code)
+        if summary is None:
             return client, None
-        big = analyze(df, big_thr)
-        if big.empty:
-            return client, None
-        active = big["active_net"].iloc[-1] / 1e4
-        total = big["total_net"].iloc[-1] / 1e4
-        chg = (df["price"].iloc[-1] / df["price"].iloc[0] - 1) * 100
+        active = summary.active_net_wan
+        total = summary.total_net_wan
         print(f"{code} 主买:{active:.0f}万 总买:{total:.0f}万")
         return client, {"code": code, "主买净额(万)": round(active),
-                        "总买净额(万)": round(total), "当日涨幅%": round(chg, 2)}
+                        "总买净额(万)": round(total),
+                        "当日涨幅%": round(summary.change_pct, 2)}
 
-    client, results, stats = run_scan(client, codes, date, "top100", compute)
+    client, results, stats = run_scan(
+        client, codes, date, "top100_server_v1", compute
+    )
 
     res = pd.DataFrame(results)
     if res.empty:
