@@ -1428,7 +1428,7 @@ class TurnOrchestrator:
                     assistant_message_id,
                     conversation_id,
                     "validate",
-                    "evidence_atom_registry",
+                    "evidence_atom_validation",
                     {
                         "status": "completed",
                         "evidence_atom_count": len(atom_ids),
