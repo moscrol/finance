@@ -1051,11 +1051,6 @@ def answer_query(options: AskOptions) -> AskResult:
         question_type_override=options.question_type_override,
     )
     result.question_plan = question_plan
-    claim_theme = (
-        question_plan.research_spec.theme
-        if question_plan.research_spec is not None
-        else result.matched_theme or options.query
-    )
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
     if question_plan.question_type == QUESTION_MARKET_REVIEW:
         return _answer_market_review(options, result)
@@ -1085,6 +1080,13 @@ def answer_query(options: AskOptions) -> AskResult:
     result.anchored_entity = anchor
     if anchor is not None:
         result.warnings.extend(f"entity-anchor：{w}" for w in anchor.warnings)
+        question_plan = plan_answer_question(
+            options.query,
+            result.matched_theme,
+            question_type_override=options.question_type_override,
+            anchor=anchor,
+        )
+        result.question_plan = question_plan
         if question_plan.base_finance_mode is not None:
             question_plan = replace(
                 question_plan,
@@ -1095,6 +1097,13 @@ def answer_query(options: AskOptions) -> AskResult:
                 ),
             )
             result.question_plan = question_plan
+    claim_theme = (
+        question_plan.research_spec.theme
+        if question_plan.research_spec is not None
+        else question_plan.query_envelope.subject
+        or result.matched_theme
+        or options.query
+    )
     # 命中实体后，图谱/向量检索用「实体名+概念暴露」定锚，替代问题原文；未命中保持原文。
     graph_query = anchor.graph_query if anchor is not None else options.query
 
@@ -1592,7 +1601,10 @@ def answer_query(options: AskOptions) -> AskResult:
     theme = (
         question_plan.research_spec.theme
         if question_plan.research_spec is not None
-        else _quoted_topic(options.query) or result.matched_theme or options.query
+        else _quoted_topic(options.query)
+        or question_plan.query_envelope.subject
+        or result.matched_theme
+        or options.query
     )
     triggers = "、".join((candidate or {}).get("trigger_types", []) or []) or "无盘面触发"
     concept_count = ks.get("concept_count", len(concepts.get("items", [])))
@@ -2125,7 +2137,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 question_plan.research_spec
                 or answer_model.resolve_theme_research_spec(
                     options.query,
-                    result.matched_theme,
+                    question_plan.query_envelope.subject or result.matched_theme,
                 )
             ),
             conclusion_lines=conclusion,
@@ -2169,7 +2181,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 question_plan.research_spec
                 or answer_model.resolve_theme_research_spec(
                     options.query,
-                    result.matched_theme,
+                    question_plan.query_envelope.subject or result.matched_theme,
                 )
             ),
             conclusion_lines=conclusion,
@@ -2363,21 +2375,63 @@ def _build_answer_spec_for_result(
         label = rendered.split("：", 1)[0].strip()
         if label and label not in signal_labels:
             signal_labels.append(label)
-    summary: list[answer_model.Claim] = [
-        answer_model.make_claim(
-            claim_id="summary:definition",
-            text=(
-                f"{research_spec.theme}的研究范围是："
-                f"{research_spec.definition.rstrip('。')}。"
-            ),
-            claim_type="summary",
-            theme=research_spec.theme,
-            status=answer_model.ClaimStatus.INFERRED,
-            evidence_tier="research_ontology",
-            evidence_ids=("ONTOLOGY",),
+    question_type = (
+        result.question_plan.question_type
+        if result.question_plan is not None
+        else ""
+    )
+    is_theme_research = question_type in {
+        QUESTION_THEME_ANALYSIS,
+        QUESTION_NEWS_IMPACT,
+        QUESTION_STOCK_DEEP_DIVE,
+    }
+    if is_theme_research:
+        summary: list[answer_model.Claim] = [
+            answer_model.make_claim(
+                claim_id="summary:definition",
+                text=(
+                    f"{research_spec.theme}的研究范围是："
+                    f"{research_spec.definition.rstrip('。')}。"
+                ),
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.INFERRED,
+                evidence_tier="research_ontology",
+                evidence_ids=("ONTOLOGY",),
+            )
+        ]
+    elif question_type == QUESTION_VALUATION:
+        subject = (
+            result.question_plan.query_envelope.subject
+            if result.question_plan is not None
+            else None
         )
-    ]
-    if signal_labels:
+        summary = [
+            answer_model.make_claim(
+                claim_id="summary:valuation-gap",
+                text=(
+                    f"{subject or result.query}本轮尚未取得足够的当前估值、财务和"
+                    "可比公司数据，不能可靠判断估值高低。"
+                ),
+                claim_type="summary",
+                theme=subject or research_spec.theme,
+                status=answer_model.ClaimStatus.MISSING,
+            )
+        ]
+    else:
+        summary = [
+            answer_model.make_claim(
+                claim_id=f"summary:base:{index}",
+                text=line,
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.INFERRED,
+                evidence_tier="base_finance",
+            )
+            for index, line in enumerate(dict.fromkeys(conclusion_lines[:3]), start=1)
+            if line
+        ]
+    if is_theme_research and signal_labels:
         market_evidence_ids = tuple(
             dict.fromkeys(
                 evidence_id
@@ -2400,7 +2454,7 @@ def _build_answer_spec_for_result(
                 evidence_ids=market_evidence_ids,
             )
         )
-    else:
+    elif is_theme_research:
         summary.append(
             answer_model.make_claim(
                 claim_id="summary:market-gap",
@@ -2417,7 +2471,7 @@ def _build_answer_spec_for_result(
         for claim in claims
         if claim.company and claim.status == answer_model.ClaimStatus.VERIFIED
     ]
-    if verified_company_claims:
+    if is_theme_research and verified_company_claims:
         verified_companies = list(
             dict.fromkeys(
                 claim.company for claim in verified_company_claims if claim.company
@@ -2444,7 +2498,7 @@ def _build_answer_spec_for_result(
                 ),
             )
         )
-    else:
+    elif is_theme_research:
         summary.append(
             answer_model.make_claim(
                 claim_id="summary:company-gap",
@@ -2529,14 +2583,15 @@ def _build_answer_spec_for_result(
         )
         for citation in citations
     ]
-    sources.append(
-        answer_model.EvidenceRef(
-            evidence_id="ONTOLOGY",
-            source=f"题材研究配置 · {research_spec.theme}",
-            detail="仅用于定义、产业链和核验协议，不作为公司级事实。",
-            tier="research_ontology",
+    if is_theme_research:
+        sources.append(
+            answer_model.EvidenceRef(
+                evidence_id="ONTOLOGY",
+                source=f"题材研究配置 · {research_spec.theme}",
+                detail="仅用于定义、产业链和核验协议，不作为公司级事实。",
+                tier="research_ontology",
+            )
         )
-    )
     for index, item in enumerate(result.l3_evidence.items, start=1):
         sources.append(
             answer_model.EvidenceRef(
@@ -2563,6 +2618,7 @@ def _build_answer_spec_for_result(
             QUESTION_NEWS_IMPACT,
             QUESTION_STOCK_DEEP_DIVE,
             QUESTION_FINANCIAL_ANALYSIS,
+            QUESTION_VALUATION,
         }
     )
     has_verified_company_claim = any(
@@ -2577,7 +2633,7 @@ def _build_answer_spec_for_result(
         for term in ("失败", "不可用", "timeout", "degraded")
     ):
         notices.append("部分资料源本轮不可用，未用于结论。")
-    actions = list(research_spec.verification_actions)
+    actions = list(research_spec.verification_actions) if is_theme_research else []
     actions.extend(
         line for line in conclusion_lines if line.startswith("观点有效期")
     )

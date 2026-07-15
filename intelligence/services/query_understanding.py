@@ -120,6 +120,11 @@ _DEFINITION_SUFFIX_RE = re.compile(
     r"([\u4e00-\u9fffA-Za-z0-9+.-]{2,24}?)"
     r"(?:是什么|的?技术原理|如何工作|的?产业链位置)"
 )
+_VALUATION_SUBJECT_RE = re.compile(
+    r"^(?:请|帮我|麻烦)?(?:给我)?(?:拍估值[：:]?)?"
+    r"([\u4e00-\u9fffA-Za-z][\u4e00-\u9fffA-Za-z0-9·.&+-]{1,15}?)"
+    r"(?:现在)?(?:估值怎么看|贵不贵|值多少钱|合理估值|估值分位)$"
+)
 
 
 @dataclass(frozen=True)
@@ -193,6 +198,22 @@ def _definition_subject(query: str) -> str | None:
                 return None
             return subject
     return None
+
+
+def _valuation_subject(query: str) -> str | None:
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    match = _VALUATION_SUBJECT_RE.search(text)
+    if match is None:
+        return None
+    subject = match.group(1).strip()
+    if (
+        not subject
+        or subject.startswith(("某公司", "某个", "某一", "这个", "那个", "该"))
+        or subject.endswith(("题材", "板块", "行业", "产业", "赛道", "方向", "产业链"))
+        or any(subject.casefold() == alias.casefold() for alias in _theme_aliases())
+    ):
+        return None
+    return subject
 
 
 def _normalize_explicit_tail(tail: str, timeframe: str | None) -> str:
@@ -294,6 +315,18 @@ def understand_query(
             timeframe,
             "ticker",
             0.82,
+        )
+
+    valuation_subject = _valuation_subject(text)
+    if valuation_subject is not None:
+        return QueryEnvelope(
+            "valuation_estimate",
+            "company",
+            valuation_subject,
+            _decision_goal(text),
+            timeframe,
+            "explicit",
+            0.84,
         )
 
     normalized_theme = str(matched_theme or "").strip()

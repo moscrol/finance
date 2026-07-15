@@ -447,11 +447,31 @@ class AnswerOrchestratorTests(unittest.TestCase):
         plan = plan_answer_question("帮我拍估值：寒武纪现在贵不贵")
 
         self.assertEqual(plan.question_type, QUESTION_VALUATION)
+        self.assertEqual(plan.query_envelope.subject_kind, "company")
+        self.assertEqual(plan.query_envelope.subject, "寒武纪")
         self.assertEqual(plan.depth, "deep")
         joined_lenses = "\n".join(plan.required_lenses)
         self.assertIn("可比公司估值带", joined_lenses)
         self.assertIn("隐含增长率反推", joined_lenses)
         self.assertIn("禁止输出单点目标价", "\n".join(plan.quality_gates))
+
+    def test_valuation_fallback_keeps_company_and_evidence_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query="贵州茅台估值怎么看",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        self.assertIn("贵州茅台", rendered)
+        self.assertNotIn("未命名题材", rendered)
+        self.assertIn("不能可靠判断估值高低", rendered)
+        self.assertIn("本轮未形成可验证的公司级来源", rendered)
 
     def test_deep_dive_trigger_beats_valuation_keyword(self) -> None:
         plan = plan_answer_question("深挖汇成股份，顺便看下估值分位")
