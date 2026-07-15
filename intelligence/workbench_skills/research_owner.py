@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 
 from intelligence.api.structured_reports import ask_result_modules
 from intelligence.services import answer_model
 from intelligence.services.ask import AskOptions, AskResult, answer_query
+from intelligence.services.research_contract import OWNER_RETRIEVAL_STAGES
 from intelligence.workbench_skills.contracts import (
     JsonObject,
     SkillAnswerContract,
@@ -14,6 +15,7 @@ from intelligence.workbench_skills.contracts import (
     SkillOutput,
     redact_json,
 )
+from intelligence.workbench_skills.owner_dag import execute_owner_dag
 
 AnswerQuery = Callable[[AskOptions], AskResult]
 
@@ -29,6 +31,9 @@ class ResearchOwnerConfig:
     output_contract: tuple[str, ...]
     presentation_kind: str
     evidence_prefixes: tuple[str, ...]
+    wiki_rag_timeout: int = 20
+    module_timeout: int = 20
+    use_modules: bool = True
 
 
 class ResearchOwnerSkill:
@@ -43,14 +48,16 @@ class ResearchOwnerSkill:
         self._answer_query = answer_query_fn
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
-        result = self._answer_query(
-            AskOptions(
+        options = AskOptions(
                 query=context.query,
                 user=context.user_id,
                 compose=True,
                 synthesize=False,
                 compose_self_review=False,
                 compose_revise_on_warn=False,
+                use_modules=self.config.use_modules,
+                wiki_rag_timeout=self.config.wiki_rag_timeout,
+                module_timeout=self.config.module_timeout,
                 market_db_path=(
                     context.repo_root / "db" / "market_feature_store.duckdb"
                 ),
@@ -58,11 +65,37 @@ class ResearchOwnerSkill:
                 include_memory_block=True,
                 include_recall_block=True,
                 question_type_override=self.config.question_type,
+                deadline=context.deadline,
             )
+        stages = OWNER_RETRIEVAL_STAGES[self.config.skill_id]
+        dag = execute_owner_dag(
+            cache_key=f"{self.skill_id}:{context.query}",
+            stages=stages,
+            retrieve=lambda: self._answer_query(options),
+            cache=context.retrieval_cache,
+            deadline=context.deadline,
         )
+        result = dag.result
+        stage_artifacts = [asdict(artifact) for artifact in dag.artifacts]
+        if result is None:
+            warnings = list(dag.warnings)
+            raw_result_ref = self._store_partial_artifact(
+                context,
+                warnings=warnings,
+                stage_artifacts=stage_artifacts,
+            )
+            return SkillOutput(
+                skill_id=self.skill_id,
+                modules=[],
+                citations=[],
+                warnings=warnings,
+                as_of=None,
+                raw_result_ref=raw_result_ref,
+                stage_artifacts=stage_artifacts,
+            )
         retrieved_modules = self._modules(result)
         retrieved_citations = self._citations(result)
-        warnings = list(result.warnings)
+        warnings = list(dict.fromkeys((*result.warnings, *dag.warnings)))
         contract = self._answer_contract(result)
         if contract is None:
             warnings.append("专项检索未形成可追溯事实，已回退基础金融回答。")
@@ -72,6 +105,7 @@ class ResearchOwnerSkill:
             citations=retrieved_citations,
             warnings=warnings,
             owned=contract is not None,
+            stage_artifacts=stage_artifacts,
         )
         return SkillOutput(
             skill_id=self.skill_id,
@@ -81,6 +115,7 @@ class ResearchOwnerSkill:
             as_of=result.trade_date,
             raw_result_ref=raw_result_ref,
             answer_contract=contract,
+            stage_artifacts=stage_artifacts,
         )
 
     def _answer_contract(
@@ -157,6 +192,7 @@ class ResearchOwnerSkill:
         citations: list[JsonObject],
         warnings: list[str],
         owned: bool,
+        stage_artifacts: list[JsonObject],
     ) -> str:
         payload: JsonObject = {
             "skill_id": self.skill_id,
@@ -168,6 +204,7 @@ class ResearchOwnerSkill:
             "output_contract": list(self.config.output_contract),
             "citations": citations,
             "warnings": warnings,
+            "stage_artifacts": stage_artifacts,
             "answer_spec": (
                 result.answer_spec.to_prompt_block()
                 if result.answer_spec is not None
@@ -181,6 +218,35 @@ class ResearchOwnerSkill:
             json.dumps(safe_payload, ensure_ascii=False, indent=2) + "\n",
             renderer="json",
             title=f"{self.config.title} Skill 原始结果",
+        )
+        return artifact.path
+
+    def _store_partial_artifact(
+        self,
+        context: SkillExecutionContext,
+        *,
+        warnings: list[str],
+        stage_artifacts: list[JsonObject],
+    ) -> str:
+        payload: JsonObject = {
+            "skill_id": self.skill_id,
+            "question_type": self.config.question_type,
+            "query": context.query,
+            "as_of": None,
+            "owned": False,
+            "retrieval_plan": list(self.config.retrieval_plan),
+            "output_contract": list(self.config.output_contract),
+            "citations": [],
+            "warnings": warnings,
+            "stage_artifacts": stage_artifacts,
+            "answer_spec": None,
+        }
+        artifact = context.run_store.add_artifact(
+            context.run_id,
+            f"{self.skill_id}-skill-result.json",
+            json.dumps(redact_json(payload), ensure_ascii=False, indent=2) + "\n",
+            renderer="json",
+            title=f"{self.config.title} Skill 部分结果",
         )
         return artifact.path
 

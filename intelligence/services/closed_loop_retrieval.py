@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Literal, TypeAlias
@@ -12,6 +13,7 @@ RetrievalAperture: TypeAlias = Literal["narrow", "broad", "counter"]
 Retrieve: TypeAlias = Callable[[str], WikiRagResult]
 
 MAX_EMPTY_ATTEMPTS = 3
+MAX_TOTAL_SECONDS = 90.0
 _TERM_RE = re.compile(r"[\u4e00-\u9fff]{2,8}|[A-Za-z][A-Za-z0-9.+-]{2,20}")
 _QUESTION_WORDS_RE = re.compile(
     r"最近|怎么样|怎么看|是什么|为什么|为何|分析|输出|请|一下|能否|是否"
@@ -84,12 +86,14 @@ def retrieve_closed_loop(
     retrieve: Retrieve,
 ) -> ClosedLoopRetrievalResult:
     result = ClosedLoopRetrievalResult()
+    deadline = time.monotonic() + MAX_TOTAL_SECONDS
     query_terms = _relevance_terms(query, anchor, ())
     narrow_hits = _run_aperture(
         "narrow",
         _narrow_queries(query, anchor),
         retrieve,
         result,
+        deadline,
     )
     relevant_narrow_hits = tuple(
         hit for hit in narrow_hits if _hit_overlaps_terms(hit, query_terms)
@@ -99,12 +103,14 @@ def retrieve_closed_loop(
         _broad_queries(query, anchor, relevant_narrow_hits),
         retrieve,
         result,
+        deadline,
     )
     counter_hits = _run_aperture(
         "counter",
         _counter_queries(query, anchor, relevant_narrow_hits),
         retrieve,
         result,
+        deadline,
     )
     _bucket_hits(
         (
@@ -134,10 +140,13 @@ def _run_aperture(
     queries: Sequence[str],
     retrieve: Retrieve,
     result: ClosedLoopRetrievalResult,
+    deadline: float,
 ) -> list[WikiHit]:
     for candidate in list(dict.fromkeys(q.strip() for q in queries if q.strip()))[
         :MAX_EMPTY_ATTEMPTS
     ]:
+        if time.monotonic() >= deadline:
+            break
         response = retrieve(candidate)
         if result.telemetry is None or response.hits:
             result.telemetry = response.telemetry
@@ -154,6 +163,8 @@ def _run_aperture(
                 result.warnings.append(response.warning)
         if response.ok and response.hits:
             return response.hits
+        if response.telemetry.status == "timeout":
+            break
     return []
 
 

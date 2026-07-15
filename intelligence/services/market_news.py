@@ -575,6 +575,7 @@ def news_block_result_for_keyword(
     within_days: int = DEFAULT_WITHIN_DAYS,
     fetcher: Callable[..., list[NewsItem]] | None = None,
     web_fetcher: Callable[..., list[NewsItem]] | None = None,
+    timeout: float = 20.0,
 ) -> NewsBlockResult:
     kw = (keyword or "").strip()
     if not kw:
@@ -602,6 +603,7 @@ def news_block_result_for_keyword(
             kw,
             page_size,
             within_days,
+            timeout=min(timeout, 8.0),
         )
         items = list(eastmoney_result.items)
         traces = [eastmoney_result.trace]
@@ -636,6 +638,7 @@ def news_block_result_for_keyword(
                 web_kw,
                 page_size,
                 within_days,
+                timeout=timeout,
             )
             web_items = list(web_result.items)
             traces.append(web_result.trace)

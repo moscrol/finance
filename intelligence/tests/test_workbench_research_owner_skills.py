@@ -8,6 +8,10 @@ import pytest
 from intelligence.services import answer_model
 from intelligence.services.answer_orchestrator import plan_answer_question
 from intelligence.services.ask import AskOptions, AskResult, Citation
+from intelligence.services.research_contract import (
+    OWNER_RETRIEVAL_STAGES,
+    ResearchDeadline,
+)
 from intelligence.services.run_store import RunStore
 from intelligence.workbench_skills.contracts import SkillExecutionContext
 from intelligence.workbench_skills.research_owner import (
@@ -104,6 +108,7 @@ def _context(
         repo_root=tmp_path,
         run_store=store,
         conversation_context="用户上一轮强调只看公告级证据。",
+        deadline=ResearchDeadline.from_timeout(10),
     )
 
 
@@ -147,7 +152,11 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
     assert captured[0].synthesize is False
     assert captured[0].include_memory_block is True
     assert captured[0].include_recall_block is True
+    assert captured[0].wiki_rag_timeout == config.wiki_rag_timeout
+    assert captured[0].module_timeout == config.module_timeout
+    assert captured[0].use_modules is config.use_modules
     assert captured[0].conversation_context == "用户上一轮强调只看公告级证据。"
+    assert captured[0].deadline is not None
     assert output.answer_contract is not None
     assert output.answer_contract.retrieval_plan == config.retrieval_plan
     assert output.answer_contract.output_contract == config.output_contract
@@ -165,6 +174,9 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
         for constraint in config.output_contract
     )
     assert output.raw_result_ref == f"{config.skill_id}-skill-result.json"
+    assert [item["stage"] for item in output.stage_artifacts] == list(
+        OWNER_RETRIEVAL_STAGES[config.skill_id]
+    )
     artifact = json.loads(
         (store.run_dir(run.run_id) / output.raw_result_ref).read_text(
             encoding="utf-8"
@@ -172,6 +184,34 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
     )
     assert artifact["owned"] is True
     assert artifact["retrieval_plan"] == list(config.retrieval_plan)
+    assert [item["stage"] for item in artifact["stage_artifacts"]] == list(
+        OWNER_RETRIEVAL_STAGES[config.skill_id]
+    )
+
+
+def test_owner_dag_reuses_single_turn_retrieval_cache(tmp_path: Path) -> None:
+    calls = 0
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        nonlocal calls
+        calls += 1
+        return _result(options.query, STOCK_DEEP_DIVE.question_type)
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run("分析液冷", "ask")
+    context = _context(tmp_path, store, run.run_id, "分析液冷")
+    skill = ResearchOwnerSkill(
+        STOCK_DEEP_DIVE,
+        answer_query_fn=fake_answer_query,
+    )
+
+    first = skill.execute(context)
+    second = skill.execute(context)
+
+    assert calls == 1
+    assert [item["stage"] for item in first.stage_artifacts] == [
+        item["stage"] for item in second.stage_artifacts
+    ]
 
 
 def test_research_owner_falls_back_without_current_traceable_evidence(
@@ -232,7 +272,7 @@ def test_stock_owner_does_not_treat_market_only_evidence_as_company_fact(
         ("分析贵州茅台财报和毛利率", "financial-analysis"),
     ],
 )
-def test_p2_research_skills_route_from_registry_rules(
+def test_p2_research_owner_is_injected_by_controller_contract(
     query: str,
     skill_id: str,
 ) -> None:
@@ -242,6 +282,7 @@ def test_p2_research_skills_route_from_registry_rules(
         "auto",
         [],
         registry=SKILL_REGISTRY,
+        answer_owner=skill_id,
     )
 
     assert skill_id in {

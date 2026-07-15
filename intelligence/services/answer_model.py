@@ -4,20 +4,19 @@ from __future__ import annotations
 
 import json
 import re
+from hashlib import sha256
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 
+from intelligence.services.research_contract import (
+    EvidenceAtom,
+    StructuredClaim,
+)
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "theme_research_specs.json"
 _CITATION_RE = re.compile(r"\[([A-Z]\d+)\]")
 _DATE_RE = re.compile(r"\b20\d{2}[-/.年]\d{1,2}(?:[-/.月]\d{1,2}日?)?\b")
-_NUMBER_WITH_UNIT_RE = re.compile(
-    r"(?<![A-Za-z])\d+(?:\.\d+)?\s*(?:%|亿|万|家|只|日|天|年|月|元|倍|个)"
-)
-_COMPANY_RE = re.compile(
-    r"[\u4e00-\u9fff]{2,10}(?:股份|科技|集团|电子|材料|信息|软件|智能|银行|证券)"
-)
 _ENGINEERING_TERMS = (
     "graph_only",
     "exposure_only",
@@ -44,6 +43,11 @@ _ENGINEERING_TERMS = (
     "evidence_count",
     "registry",
     "internal",
+)
+_STRUCTURED_CLAIM_MARKER_RE = re.compile(
+    r"<!--\s*claim_id=(?P<claim_id>[^;]+);\s*"
+    r"evidence_atom_ids=(?P<atom_ids>[^;]*);\s*"
+    r"claim_type=(?P<claim_type>fact|inference|expectation)\s*-->"
 )
 _PRESENTER_REPLACEMENTS = (
     ("仅有 graph_only 关联", "仅有概念关联，尚无公司级证据"),
@@ -250,6 +254,7 @@ class ThemeResearchSpec:
     counter_evidence_requirements: tuple[str, ...]
     trigger_conditions: tuple[str, ...]
     verification_actions: tuple[str, ...]
+    focus_entities: tuple[str, ...]
     requested_sections: tuple[str, ...]
 
     def to_dict(self) -> dict[str, object]:
@@ -264,6 +269,7 @@ class ThemeResearchSpec:
             "counter_evidence_requirements": list(self.counter_evidence_requirements),
             "trigger_conditions": list(self.trigger_conditions),
             "verification_actions": list(self.verification_actions),
+            "focus_entities": list(self.focus_entities),
             "requested_sections": list(self.requested_sections),
         }
 
@@ -279,6 +285,11 @@ class ThemeResearchSpec:
             f"- 触发条件：{'；'.join(self.trigger_conditions)}",
             f"- 核验动作：{'；'.join(self.verification_actions)}",
         ]
+        if self.focus_entities:
+            lines.append(
+                f"- 优先核验公司：{'、'.join(self.focus_entities)}"
+                "（仅作为检索种子，不代表核心结论）"
+            )
         if self.as_of:
             lines.insert(2, f"- 日期口径：{self.as_of}")
         return "\n".join(lines)
@@ -382,6 +393,14 @@ class AnswerSpec:
                 + (f" — {source.detail}" if source.detail else "")
                 for source in self.sources
             )
+        registry_block = structured_claim_registry_block(self)
+        if registry_block:
+            lines.append("### 结构化 claim registry（正文必须绑定）")
+            lines.append(registry_block)
+            lines.append(
+                "正文只能逐字复制上方完整 registry 行并按需添加标题；"
+                "不要改写 marker 或自行组合 EvidenceAtom ID。"
+            )
         return "\n".join(lines)
 
 
@@ -415,6 +434,7 @@ def resolve_theme_research_spec(
         counter_evidence_requirements=_strings(selected.get("counter_evidence")),
         trigger_conditions=_strings(selected.get("triggers")),
         verification_actions=_strings(selected.get("verification_actions")),
+        focus_entities=_strings(selected.get("focus_entities")),
         requested_sections=(
             "definition",
             "industry_chain",
@@ -837,19 +857,22 @@ def _render_base_finance_answer_spec(answer_spec: AnswerSpec) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
-    allowed = render_answer_spec(answer_spec) + "\n" + answer_spec.to_prompt_block()
-    allowed_number_text = allowed
-    for year, month, day in re.findall(
-        r"\b(20\d{2})-(\d{2})-(\d{2})\b",
-        allowed,
+def repair_llm_answer(
+    answer: str,
+    answer_spec: AnswerSpec,
+    *,
+    min_chars: int = 80,
+) -> str | None:
+    del min_chars
+    if not any(
+        issue.severity == "error"
+        for issue in validate_llm_answer(answer, answer_spec)
     ):
-        month_number = int(month)
-        day_number = int(day)
-        allowed_number_text += (
-            f"\n{year}年{month_number}月{day_number}日"
-            f"\n{month_number}月{day_number}日"
-        )
+        return answer
+    return None
+
+
+def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
     leaked = [term for term in _ENGINEERING_TERMS if term in answer]
     if leaked:
@@ -860,46 +883,225 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
                 f"LLM 输出内部术语：{'、'.join(leaked)}",
             )
         )
-    new_numbers = sorted(
-        {
-            token
-            for token in (*_NUMBER_WITH_UNIT_RE.findall(answer), *_DATE_RE.findall(answer))
-            if token not in allowed_number_text
-        }
-    )
-    if new_numbers:
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    atom_registry = {atom.atom_id: atom for atom in atoms}
+    claim_registry = {
+        claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
+    }
+    structured_claims, unbound_lines = parse_structured_claims(answer)
+    if unbound_lines:
         issues.append(
             QualityIssue(
-                "llm_added_number",
+                "llm_missing_claim_binding",
                 "error",
-                f"LLM 增加 AnswerSpec 中不存在的数字：{'、'.join(new_numbers[:5])}",
+                "LLM 正文存在未绑定 claim-ID/EvidenceAtom 的内容。",
             )
         )
-    allowed_companies = {company.company for company in answer_spec.company_table}
-    new_companies = sorted(
-        {
-            company
-            for company in _COMPANY_RE.findall(answer)
-            if company not in allowed_companies and company not in allowed
-        }
-    )
-    if new_companies:
-        issues.append(
-            QualityIssue(
-                "llm_added_company",
-                "error",
-                f"LLM 增加 AnswerSpec 中不存在的公司：{'、'.join(new_companies[:5])}",
+    for claim in structured_claims:
+        source_claim = claim_registry.get(claim.claim_id)
+        if source_claim is None:
+            issues.append(
+                QualityIssue(
+                    "llm_invalid_claim_id",
+                    "error",
+                    f"LLM 使用无效 claim ID：{claim.claim_id}",
+                )
             )
+            continue
+        allowed_atom_ids = set(_atom_ids_for_claim(source_claim, atoms))
+        invalid_atom_ids = tuple(
+            atom_id
+            for atom_id in claim.evidence_atom_ids
+            if atom_id not in atom_registry or atom_id not in allowed_atom_ids
         )
-    if "已证实" in answer and not answer_spec.verified_facts:
-        issues.append(
-            QualityIssue(
-                "llm_promoted_candidate",
-                "error",
-                "LLM 在没有 verified_facts 时使用了“已证实”。",
+        if invalid_atom_ids:
+            issues.append(
+                QualityIssue(
+                    "llm_invalid_evidence_atom_id",
+                    "error",
+                    "LLM 使用无效 EvidenceAtom ID："
+                    + "、".join(invalid_atom_ids),
+                )
             )
-        )
+        expected_type = _structured_claim_type(source_claim)
+        if claim.claim_type != expected_type:
+            issues.append(
+                QualityIssue(
+                    "llm_claim_type_mismatch",
+                    "error",
+                    f"{claim.claim_id} 应为 {expected_type}，"
+                    f"实际为 {claim.claim_type}",
+                )
+            )
+        if claim.claim_type == "fact" and not claim.evidence_atom_ids:
+            issues.append(
+                QualityIssue(
+                    "llm_fact_without_evidence_atom",
+                    "error",
+                    f"事实 claim {claim.claim_id} 未绑定 EvidenceAtom。",
+                )
+            )
     return tuple(issues)
+
+
+def evidence_atoms_from_answer_spec(
+    answer_spec: AnswerSpec,
+) -> tuple[EvidenceAtom, ...]:
+    sources = {source.evidence_id: source for source in answer_spec.sources}
+    atoms: list[EvidenceAtom] = []
+    seen: set[str] = set()
+    for claim in _all_answer_claims(answer_spec):
+        for evidence_id in claim.evidence_ids:
+            atom_id = _evidence_atom_id(claim.claim_id, evidence_id)
+            if atom_id in seen:
+                continue
+            seen.add(atom_id)
+            source = sources.get(evidence_id)
+            atoms.append(
+                EvidenceAtom(
+                    atom_id=atom_id,
+                    claim_text=claim.text,
+                    entity_id=claim.company,
+                    metric=None,
+                    value=None,
+                    unit=None,
+                    period=claim.freshness,
+                    evidence_tier=claim.evidence_tier,
+                    source_id=evidence_id,
+                    source_date=source.source_date if source is not None else None,
+                    provenance={
+                        "claim_id": claim.claim_id,
+                        "source": source.source if source is not None else "",
+                        "detail": source.detail if source is not None else "",
+                    },
+                )
+            )
+    return tuple(atoms)
+
+
+def structured_claim_registry_block(answer_spec: AnswerSpec) -> str:
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    lines: list[str] = []
+    for claim in _all_answer_claims(answer_spec):
+        claim_type = _structured_claim_type(claim)
+        atom_ids = _atom_ids_for_claim(claim, atoms)
+        if claim_type == "fact" and not atom_ids:
+            continue
+        lines.append(
+            f"- {claim.text} "
+            f"<!-- claim_id={claim.claim_id}; "
+            f"evidence_atom_ids={','.join(atom_ids)}; "
+            f"claim_type={claim_type} -->"
+        )
+    return "\n".join(lines)
+
+
+def parse_structured_claims(
+    answer: str,
+) -> tuple[tuple[StructuredClaim, ...], tuple[str, ...]]:
+    claims: list[StructuredClaim] = []
+    unbound_lines: list[str] = []
+    for raw_line in answer.splitlines():
+        line = raw_line.strip()
+        if not line or _is_nonclaim_line(line):
+            continue
+        marker = _STRUCTURED_CLAIM_MARKER_RE.search(line)
+        if marker is None:
+            unbound_lines.append(line)
+            continue
+        claim_text = _STRUCTURED_CLAIM_MARKER_RE.sub("", line).strip()
+        atom_ids = tuple(
+            item.strip()
+            for item in re.split(r"[,，、\s]+", marker.group("atom_ids"))
+            if item.strip() and item.strip() != "无"
+        )
+        claims.append(
+            StructuredClaim(
+                claim_id=marker.group("claim_id").strip(),
+                claim=claim_text,
+                evidence_atom_ids=atom_ids,
+                claim_type=marker.group("claim_type"),
+            )
+        )
+    return tuple(claims), tuple(unbound_lines)
+
+
+def present_llm_answer(answer: str, answer_spec: AnswerSpec) -> str:
+    claim_registry = {
+        claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
+    }
+    rendered_lines: list[str] = []
+    for raw_line in answer.splitlines():
+        marker = _STRUCTURED_CLAIM_MARKER_RE.search(raw_line)
+        if marker is None:
+            rendered_lines.append(raw_line)
+            continue
+        source_claim = claim_registry.get(marker.group("claim_id").strip())
+        if source_claim is None:
+            continue
+        stripped = raw_line.lstrip()
+        prefix = ""
+        if stripped.startswith("- "):
+            prefix = "- "
+        else:
+            numbered = re.match(r"(\d+[.)]\s+)", stripped)
+            if numbered is not None:
+                prefix = numbered.group(1)
+        rendered_lines.append(f"{prefix}{humanize(source_claim.text)}")
+    return "\n".join(rendered_lines).strip()
+
+
+def _all_answer_claims(answer_spec: AnswerSpec) -> tuple[Claim, ...]:
+    return tuple(
+        dict.fromkeys(
+            (
+                *answer_spec.summary,
+                *answer_spec.verified_facts,
+                *answer_spec.counter_evidence,
+                *answer_spec.gaps,
+                *answer_spec.triggers,
+                *(
+                    claim
+                    for company in answer_spec.company_table
+                    for claim in company.claims
+                ),
+            )
+        )
+    )
+
+
+def _evidence_atom_id(claim_id: str, evidence_id: str) -> str:
+    digest = sha256(f"{claim_id}:{evidence_id}".encode()).hexdigest()[:12]
+    return f"atom-{digest}"
+
+
+def _atom_ids_for_claim(
+    claim: Claim,
+    atoms: tuple[EvidenceAtom, ...],
+) -> tuple[str, ...]:
+    return tuple(
+        atom.atom_id
+        for atom in atoms
+        if atom.provenance.get("claim_id") == claim.claim_id
+    )
+
+
+def _structured_claim_type(claim: Claim) -> str:
+    if claim.status == ClaimStatus.VERIFIED:
+        return "fact"
+    if claim.status == ClaimStatus.INFERRED:
+        return "inference"
+    return "expectation"
+
+
+def _is_nonclaim_line(line: str) -> bool:
+    return bool(
+        line.startswith("#")
+        or line.startswith("<details")
+        or line.startswith("</details")
+        or line.startswith("<summary")
+        or line == "（非投资建议）"
+    )
 
 
 def humanize(text: str) -> str:

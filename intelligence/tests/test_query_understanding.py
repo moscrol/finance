@@ -52,6 +52,60 @@ def test_known_alias_and_entity_are_explicit_subjects() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("query", "question_type", "subject"),
+    (
+        ("瑞华泰还有上涨空间吗？", "stock_deep_dive", "瑞华泰"),
+        (
+            "请个股深挖英维克的液冷业务，收入和利润都要覆盖",
+            "stock_deep_dive",
+            "英维克",
+        ),
+        ("分析英维克最新财报", "financial_analysis", "英维克"),
+        ("英维克最新液冷公告有什么影响", "news_impact", "英维克"),
+    ),
+)
+def test_explicit_company_cues_precede_theme_aliases(
+    query: str,
+    question_type: str,
+    subject: str,
+) -> None:
+    envelope = understand_query(query)
+
+    assert envelope.question_type == question_type
+    assert envelope.subject_kind == "company"
+    assert envelope.subject == subject
+    assert envelope.matched_by == "explicit"
+
+
+@pytest.mark.parametrize(
+    ("query", "subject"),
+    (
+        ("贵州茅台估值怎么看", "贵州茅台"),
+        ("帮我拍估值：寒武纪现在贵不贵", "寒武纪"),
+    ),
+)
+def test_valuation_query_preserves_company_subject(
+    query: str,
+    subject: str,
+) -> None:
+    envelope = understand_query(query)
+
+    assert envelope.question_type == "valuation_estimate"
+    assert envelope.subject_kind == "company"
+    assert envelope.subject == subject
+    assert envelope.matched_by == "explicit"
+
+
+def test_generic_or_theme_valuation_query_does_not_invent_company() -> None:
+    generic = understand_query("某公司估值怎么看")
+    theme = understand_query("液冷估值怎么看")
+
+    assert generic.subject_kind == "unknown"
+    assert generic.subject is None
+    assert (theme.subject_kind, theme.subject) == ("theme", "液冷")
+
+
 def test_empty_or_unknown_query_never_becomes_a_theme() -> None:
     assert understand_query("").subject is None
     assert understand_query("帮我看看这个").subject is None

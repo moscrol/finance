@@ -290,12 +290,14 @@ def resolve_external_market(
     *,
     structured_fetcher: StructuredFetcher | None = None,
     now: datetime | None = None,
+    timeout: float = 60,
 ) -> ExternalMarketResult:
     target = target_trade_date(query, now=now)
     structured = fetch_fupanhui_global_market(
         query,
         fetcher=structured_fetcher,
         today=target + timedelta(days=1),
+        timeout=timeout,
     )
     traces: list[ProviderTrace] = []
     wanted = requested_symbols(query)
@@ -330,6 +332,7 @@ def resolve_external_market(
                 if source_date_mismatch or not structured.quotes
                 else missing_codes
             ),
+            timeout=timeout,
         )
         if need_finance
         else _ProviderQuotes(

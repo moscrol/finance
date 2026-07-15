@@ -76,6 +76,7 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "as_of",
         "raw_result_ref",
         "answer_contract",
+        "stage_artifacts",
     ]
     store = RunStore(root=tmp_path / "runs")
     context = SkillExecutionContext(
@@ -173,6 +174,51 @@ def test_auto_mode_ignores_manual_selection_and_uses_stable_rules_without_llm() 
     assert all("匹配" in item.reason for item in result.selections)
     assert result.fallback_to_ask is False
     assert result.base_finance_fallback is False
+
+
+def test_controller_owner_excludes_other_research_owners() -> None:
+    registry = {
+        "news-impact": definition("news-impact", "影响"),
+        "stock-deep-dive": definition("stock-deep-dive", "深挖"),
+    }
+    envelope = understand_query("请个股深挖英维克的液冷业务")
+
+    result = route_skills(
+        "请个股深挖英维克的液冷业务和客户影响",
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        llm_complete=llm_response(
+            '{"skill_ids":["news-impact"],'
+            '"reasons":{"news-impact":"影响分析"}}'
+        ),
+        query_envelope=envelope,
+        answer_owner="stock-deep-dive",
+    )
+
+    assert [item.skill_id for item in result.selections] == ["stock-deep-dive"]
+    assert result.selections[0].reason == "Controller 指定唯一答案 owner"
+
+
+def test_manual_mode_executes_only_explicit_user_selections() -> None:
+    registry = {
+        "stock-deep-dive": definition("stock-deep-dive", "深挖"),
+        "daily-agent": definition("daily-agent", "今日研究"),
+    }
+
+    result = route_skills(
+        "第二轮请看今天研究什么",
+        "ask",
+        "manual",
+        ["daily-agent"],
+        registry=registry,
+        query_envelope=understand_query("第二轮请看今天研究什么"),
+        answer_owner="stock-deep-dive",
+    )
+
+    assert [item.skill_id for item in result.selections] == ["daily-agent"]
+    assert result.selections[0].selection_source == "manual"
 
 
 def test_hybrid_preserves_manual_then_supplements_and_caps_total_at_three() -> None:
@@ -316,6 +362,57 @@ def test_llm_can_select_registered_skill_without_trigger_match() -> None:
     )
     assert [item.skill_id for item in result.selections] == ["semantic"]
     assert result.selections[0].selection_source == "llm"
+
+
+def test_adaptive_reroute_excludes_failed_skill_and_passes_feedback() -> None:
+    registry = {
+        "stock": definition("stock", "个股"),
+        "financial": definition("financial", "财报"),
+    }
+    captured: dict[str, object] = {}
+
+    def complete(messages: list[dict[str, str]]):
+        captured["payload"] = json.loads(messages[-1]["content"])
+        return (
+            json.dumps(
+                {
+                    "skill_ids": ["financial"],
+                    "reasons": {"financial": "改用财报证据路径"},
+                },
+                ensure_ascii=False,
+            ),
+            object(),
+            "",
+        )
+
+    result = route_skills(
+        "某公司怎么看",
+        "ask",
+        "auto",
+        (),
+        registry=registry,
+        llm_complete=complete,
+        excluded_skill_ids=("stock",),
+        execution_feedback=(
+            {
+                "skill_id": "stock",
+                "status": "failed",
+                "failure_reason": "上游不可用",
+            },
+        ),
+    )
+
+    assert [item.skill_id for item in result.selections] == ["financial"]
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert all(item["skill_id"] != "stock" for item in payload["candidates"])
+    assert payload["prior_tool_attempts"] == [
+        {
+            "skill_id": "stock",
+            "status": "failed",
+            "failure_reason": "上游不可用",
+        }
+    ]
 
 
 def test_no_semantic_selection_enters_base_finance_chain() -> None:

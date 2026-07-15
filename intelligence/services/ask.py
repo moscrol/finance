@@ -73,6 +73,7 @@ from intelligence.services.answer_orchestrator import (
     plan_answer_question,
 )
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import ResearchDeadline
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_estimate, valuation_gap
 from intelligence.services.trading_calendar import (
     next_trading_day,
@@ -269,6 +270,11 @@ class AskOptions:
     )
     stream_cancel_check: Callable[[], bool] | None = field(
         default=None, repr=False, compare=False
+    )
+    deadline: ResearchDeadline | None = field(
+        default=None,
+        repr=False,
+        compare=False,
     )
 
 
@@ -758,7 +764,14 @@ def _answer_external_market(
     options: AskOptions,
     question_plan: QuestionPlan,
 ) -> AskResult:
-    external = external_market.resolve_external_market(options.query)
+    external = (
+        external_market.resolve_external_market(
+            options.query,
+            timeout=_stage_timeout(options, 60),
+        )
+        if options.deadline is not None
+        else external_market.resolve_external_market(options.query)
+    )
     result = AskResult(
         query=options.query,
         trade_date=external.source_trade_date,
@@ -872,7 +885,7 @@ def _answer_concept_definition(
             resolved_kb_wiki,
             k=options.wiki_rag_k,
             mode=options.wiki_rag_mode,
-            timeout=options.wiki_rag_timeout,
+            timeout=_stage_timeout(options, options.wiki_rag_timeout),
             excerpt_chars=options.wiki_rag_excerpt,
             budget_query=options.query,
             index_dir=options.wiki_rag_index_dir,
@@ -882,6 +895,13 @@ def _answer_concept_definition(
     result.closed_loop_retrieval = loop
     result.wiki_rag_telemetry = loop.telemetry
     evidence_lines: list[str] = []
+    needs_fresh_web = bool(
+        re.search(
+            r"(今天|今日|昨天|昨日|隔夜|最近|近期|最新|刚刚|本周|本月|"
+            r"消息|新闻|进展|动态|现状)",
+            options.query,
+        )
+    )
     if loop.conclusion:
         result.found_wiki = True
         result.found_graph = True
@@ -905,14 +925,6 @@ def _answer_concept_definition(
                 )
             )
             evidence_lines.append(f"{hit.title}：{hit.excerpt} [{tag}]")
-        result.provider_traces.append(
-            ProviderTrace(
-                provider=web_research.PROVIDER_BING_WEB,
-                capability="general_web_search",
-                status="not_attempted",
-                detail="local knowledge satisfied relevance gate",
-            )
-        )
     else:
         result.provider_traces.append(
             ProviderTrace(
@@ -922,6 +934,7 @@ def _answer_concept_definition(
                 detail="; ".join(loop.warnings) or "no relevant local evidence",
             )
         )
+    if not loop.conclusion or needs_fresh_web:
         web_result = web_research.fetch_web_search(options.query)
         result.provider_traces.append(web_result.trace)
         for index, item in enumerate(web_result.items[:4], start=1):
@@ -932,6 +945,15 @@ def _answer_concept_definition(
             evidence_lines.append(
                 f"{item.title}：{item.snippet or '搜索结果未提供摘要'} [{tag}]"
             )
+    else:
+        result.provider_traces.append(
+            ProviderTrace(
+                provider=web_research.PROVIDER_BING_WEB,
+                capability="general_web_search",
+                status="not_attempted",
+                detail="local knowledge satisfied relevance gate",
+            )
+        )
     gap_lines: list[str] = []
     if not evidence_lines:
         gap_lines.append(
@@ -987,6 +1009,8 @@ def _answer_concept_definition(
 
 
 def answer_query(options: AskOptions) -> AskResult:
+    if options.deadline is not None and options.deadline.expired:
+        return _deadline_partial_result(options.query)
     if options.clarify:
         clarify_decision = ask_clarify.clarify_for_query(options.query)
         if clarify_decision.needs_clarification:
@@ -1042,11 +1066,6 @@ def answer_query(options: AskOptions) -> AskResult:
         question_type_override=options.question_type_override,
     )
     result.question_plan = question_plan
-    claim_theme = (
-        question_plan.research_spec.theme
-        if question_plan.research_spec is not None
-        else result.matched_theme or options.query
-    )
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
     if question_plan.question_type == QUESTION_MARKET_REVIEW:
         return _answer_market_review(options, result)
@@ -1076,6 +1095,13 @@ def answer_query(options: AskOptions) -> AskResult:
     result.anchored_entity = anchor
     if anchor is not None:
         result.warnings.extend(f"entity-anchor：{w}" for w in anchor.warnings)
+        question_plan = plan_answer_question(
+            options.query,
+            result.matched_theme,
+            question_type_override=options.question_type_override,
+            anchor=anchor,
+        )
+        result.question_plan = question_plan
         if question_plan.base_finance_mode is not None:
             question_plan = replace(
                 question_plan,
@@ -1086,8 +1112,19 @@ def answer_query(options: AskOptions) -> AskResult:
                 ),
             )
             result.question_plan = question_plan
+    claim_theme = (
+        question_plan.research_spec.theme
+        if question_plan.research_spec is not None
+        else question_plan.query_envelope.subject
+        or result.matched_theme
+        or options.query
+    )
     # 命中实体后，图谱/向量检索用「实体名+概念暴露」定锚，替代问题原文；未命中保持原文。
-    graph_query = anchor.graph_query if anchor is not None else options.query
+    graph_query = (
+        anchor.graph_query
+        if anchor is not None
+        else question_plan.query_envelope.subject or options.query
+    )
 
     citations: list[Citation] = []
     structured_claims: list[answer_model.Claim] = []
@@ -1188,7 +1225,25 @@ def answer_query(options: AskOptions) -> AskResult:
         )
 
     company_lines: list[str] = []
-    exposures = knowledge.get_exposure_matches(graph_query, limit=options.top_companies)
+    focus_entities = (
+        question_plan.research_spec.focus_entities
+        if question_plan.research_spec is not None
+        else ()
+    )
+    exposure_limit = max(options.top_companies, len(focus_entities) * 4)
+    exposures = knowledge.get_exposure_matches(graph_query, limit=exposure_limit)
+    if exposures.get("found") and focus_entities:
+        focus_order = {
+            company: index for index, company in enumerate(focus_entities)
+        }
+        exposure_items = list(exposures["items"])
+        exposure_items.sort(
+            key=lambda row: (
+                0 if str(row.get("company") or "") in focus_order else 1,
+                focus_order.get(str(row.get("company") or ""), len(focus_order)),
+            )
+        )
+        exposures["items"] = exposure_items[: options.top_companies]
     tiers: dict[str, list[str]] = {"core": [], "peripheral": [], "other": []}
     company_evidence_concepts: dict[str, str] = {}
     if exposures.get("found"):
@@ -1349,16 +1404,16 @@ def answer_query(options: AskOptions) -> AskResult:
     }
     if options.use_wiki_rag:
         loop = closed_loop_retrieval.retrieve_closed_loop(
-            options.query,
+            graph_query,
             anchor=anchor,
             retrieve=lambda retrieval_query: kb_rag.retrieve(
                 retrieval_query,
                 resolved_kb_wiki,
                 k=options.wiki_rag_k,
                 mode=options.wiki_rag_mode,
-                timeout=options.wiki_rag_timeout,
+                timeout=_stage_timeout(options, options.wiki_rag_timeout),
                 excerpt_chars=options.wiki_rag_excerpt,
-                budget_query=options.query,
+                budget_query=graph_query,
                 index_dir=options.wiki_rag_index_dir,
                 require_fresh=True,
             ),
@@ -1500,7 +1555,12 @@ def answer_query(options: AskOptions) -> AskResult:
         )
         result.routed_modules = list(routed)
         for name in routed:
-            mr = run_module(name, graph_query, resolved_kb_wiki, options.module_timeout)
+            mr = run_module(
+                name,
+                graph_query,
+                resolved_kb_wiki,
+                _stage_timeout(options, options.module_timeout),
+            )
             module_block.append(f"{SUBHEAD}模块·{MODULE_LABELS.get(name, name)}")
             if mr.ok and mr.highlights:
                 result.found_graph = True
@@ -1583,7 +1643,10 @@ def answer_query(options: AskOptions) -> AskResult:
     theme = (
         question_plan.research_spec.theme
         if question_plan.research_spec is not None
-        else _quoted_topic(options.query) or result.matched_theme or options.query
+        else _quoted_topic(options.query)
+        or question_plan.query_envelope.subject
+        or result.matched_theme
+        or options.query
     )
     triggers = "、".join((candidate or {}).get("trigger_types", []) or []) or "无盘面触发"
     concept_count = ks.get("concept_count", len(concepts.get("items", [])))
@@ -1712,7 +1775,7 @@ def answer_query(options: AskOptions) -> AskResult:
             local_evidence_text,
             config=l3_evidence.L3LookupConfig.from_env(
                 enabled=True,
-                timeout=options.l3_lookup_timeout,
+                timeout=_stage_timeout(options, options.l3_lookup_timeout),
                 limit=options.l3_lookup_limit,
             ),
         )
@@ -1816,7 +1879,8 @@ def answer_query(options: AskOptions) -> AskResult:
         )
         refined, reason = llm_refine.refine_or_reason(
             options.query, theme, evidence_text,
-            model_override=options.llm_model, timeout=options.llm_timeout,
+            model_override=options.llm_model,
+            timeout=_stage_timeout(options, options.llm_timeout),
         )
         if refined is not None:
             result.llm_refined = True
@@ -1951,7 +2015,11 @@ def answer_query(options: AskOptions) -> AskResult:
             )
         ):
             def _build_d7():
-                block = _financials_block_for_llm(options.query, options.market_db_path)
+                block = _financials_block_for_llm(
+                    options.query,
+                    options.market_db_path,
+                    timeout=_stage_timeout(options, 8),
+                )
                 return block, Citation(
                     "D7",
                     "东财 F10 逐季财报数据块",
@@ -1968,7 +2036,10 @@ def answer_query(options: AskOptions) -> AskResult:
         ):
             def _build_w7():
                 news_keyword = market_news.resolve_news_keyword(options.query, theme, anchored_name)
-                news_result = market_news.news_block_result_for_keyword(news_keyword)
+                news_result = market_news.news_block_result_for_keyword(
+                    news_keyword,
+                    timeout=_stage_timeout(options, 20),
+                )
                 result.provider_traces.extend(news_result.traces)
                 return news_result.block, Citation(
                     "W7",
@@ -2057,7 +2128,11 @@ def answer_query(options: AskOptions) -> AskResult:
 
             block_tasks.append(ask_planner.BlockTask("D5", "估值数据块", _build_d5))
 
-        outcomes = ask_planner.run_block_tasks(block_tasks, parallel=options.parallel_blocks)
+        outcomes = ask_planner.run_block_tasks(
+            block_tasks,
+            parallel=options.parallel_blocks,
+            deadline=options.deadline,
+        )
         for outcome in outcomes:
             structured_claims.extend(
                 _claims_from_data_block(
@@ -2116,7 +2191,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 question_plan.research_spec
                 or answer_model.resolve_theme_research_spec(
                     options.query,
-                    result.matched_theme,
+                    question_plan.query_envelope.subject or result.matched_theme,
                 )
             ),
             conclusion_lines=conclusion,
@@ -2160,7 +2235,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 question_plan.research_spec
                 or answer_model.resolve_theme_research_spec(
                     options.query,
-                    result.matched_theme,
+                    question_plan.query_envelope.subject or result.matched_theme,
                 )
             ),
             conclusion_lines=conclusion,
@@ -2212,15 +2287,12 @@ def answer_query(options: AskOptions) -> AskResult:
         revised, rev_reason = llm_refine.synthesize_messages(
             result.synthesis_messages + [revision_user],
             model_override=options.llm_model,
-            timeout=options.llm_timeout,
+            timeout=_stage_timeout(options, options.llm_timeout),
+            deadline=_llm_deadline(options),
             temperature=0.2,
         )
         if revised is not None:
-            proposed_revision = (
-                f"{result.data_notice}\n\n{revised.answer}"
-                if result.data_notice
-                else revised.answer
-            )
+            proposed_revision = revised.answer
             revision_issues = answer_model.validate_llm_answer(
                 proposed_revision,
                 result.answer_spec,
@@ -2232,7 +2304,15 @@ def answer_query(options: AskOptions) -> AskResult:
                     if issue.severity == "error"
                 )
             else:
-                result.synthesis = proposed_revision
+                presented_revision = answer_model.present_llm_answer(
+                    proposed_revision,
+                    result.answer_spec,
+                )
+                result.synthesis = (
+                    f"{result.data_notice}\n\n{presented_revision}"
+                    if result.data_notice
+                    else presented_revision
+                )
                 result.synthesis_messages = result.synthesis_messages + [
                     revision_user,
                     {"role": "assistant", "content": result.synthesis},
@@ -2263,6 +2343,39 @@ def answer_query(options: AskOptions) -> AskResult:
     }
     result.citations = citations
     return result
+
+
+def _deadline_partial_result(query: str) -> AskResult:
+    warning = "统一研究截止时间已到，未启动新的检索阶段"
+    return AskResult(
+        query=query,
+        trade_date=None,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        warnings=[warning],
+        sections={
+            "结论": ["本轮研究时间预算已耗尽，仅保留截止前完成的结构化产物。"],
+            "证据链": [],
+            "分歧反证": ["未完成阶段不得推断为不存在证据。"],
+            "后续验证点": ["增加研究预算后，从未完成阶段继续。"],
+            "交易含义": ["证据不足，不给出新增交易判断。"],
+            "数据源状态": [warning],
+            "引用来源": [],
+        },
+    )
+
+
+def _stage_timeout(options: AskOptions, configured_limit: float) -> float:
+    if options.deadline is None:
+        return max(0.001, float(configured_limit))
+    return max(0.001, options.deadline.stage_timeout(configured_limit))
+
+
+def _llm_deadline(options: AskOptions) -> llm_refine.Deadline:
+    if options.deadline is not None:
+        return llm_refine.Deadline(options.deadline.expires_at)
+    return llm_refine.Deadline.from_timeout(options.llm_timeout)
 
 
 def _claims_from_data_block(
@@ -2354,21 +2467,63 @@ def _build_answer_spec_for_result(
         label = rendered.split("：", 1)[0].strip()
         if label and label not in signal_labels:
             signal_labels.append(label)
-    summary: list[answer_model.Claim] = [
-        answer_model.make_claim(
-            claim_id="summary:definition",
-            text=(
-                f"{research_spec.theme}的研究范围是："
-                f"{research_spec.definition.rstrip('。')}。"
-            ),
-            claim_type="summary",
-            theme=research_spec.theme,
-            status=answer_model.ClaimStatus.INFERRED,
-            evidence_tier="research_ontology",
-            evidence_ids=("ONTOLOGY",),
+    question_type = (
+        result.question_plan.question_type
+        if result.question_plan is not None
+        else ""
+    )
+    is_theme_research = question_type in {
+        QUESTION_THEME_ANALYSIS,
+        QUESTION_NEWS_IMPACT,
+        QUESTION_STOCK_DEEP_DIVE,
+    }
+    if is_theme_research:
+        summary: list[answer_model.Claim] = [
+            answer_model.make_claim(
+                claim_id="summary:definition",
+                text=(
+                    f"{research_spec.theme}的研究范围是："
+                    f"{research_spec.definition.rstrip('。')}。"
+                ),
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.INFERRED,
+                evidence_tier="research_ontology",
+                evidence_ids=("ONTOLOGY",),
+            )
+        ]
+    elif question_type == QUESTION_VALUATION:
+        subject = (
+            result.question_plan.query_envelope.subject
+            if result.question_plan is not None
+            else None
         )
-    ]
-    if signal_labels:
+        summary = [
+            answer_model.make_claim(
+                claim_id="summary:valuation-gap",
+                text=(
+                    f"{subject or result.query}本轮尚未取得足够的当前估值、财务和"
+                    "可比公司数据，不能可靠判断估值高低。"
+                ),
+                claim_type="summary",
+                theme=subject or research_spec.theme,
+                status=answer_model.ClaimStatus.MISSING,
+            )
+        ]
+    else:
+        summary = [
+            answer_model.make_claim(
+                claim_id=f"summary:base:{index}",
+                text=line,
+                claim_type="summary",
+                theme=research_spec.theme,
+                status=answer_model.ClaimStatus.INFERRED,
+                evidence_tier="base_finance",
+            )
+            for index, line in enumerate(dict.fromkeys(conclusion_lines[:3]), start=1)
+            if line
+        ]
+    if is_theme_research and signal_labels:
         market_evidence_ids = tuple(
             dict.fromkeys(
                 evidence_id
@@ -2391,7 +2546,7 @@ def _build_answer_spec_for_result(
                 evidence_ids=market_evidence_ids,
             )
         )
-    else:
+    elif is_theme_research:
         summary.append(
             answer_model.make_claim(
                 claim_id="summary:market-gap",
@@ -2408,7 +2563,7 @@ def _build_answer_spec_for_result(
         for claim in claims
         if claim.company and claim.status == answer_model.ClaimStatus.VERIFIED
     ]
-    if verified_company_claims:
+    if is_theme_research and verified_company_claims:
         verified_companies = list(
             dict.fromkeys(
                 claim.company for claim in verified_company_claims if claim.company
@@ -2435,7 +2590,7 @@ def _build_answer_spec_for_result(
                 ),
             )
         )
-    else:
+    elif is_theme_research:
         summary.append(
             answer_model.make_claim(
                 claim_id="summary:company-gap",
@@ -2520,14 +2675,15 @@ def _build_answer_spec_for_result(
         )
         for citation in citations
     ]
-    sources.append(
-        answer_model.EvidenceRef(
-            evidence_id="ONTOLOGY",
-            source=f"题材研究配置 · {research_spec.theme}",
-            detail="仅用于定义、产业链和核验协议，不作为公司级事实。",
-            tier="research_ontology",
+    if is_theme_research:
+        sources.append(
+            answer_model.EvidenceRef(
+                evidence_id="ONTOLOGY",
+                source=f"题材研究配置 · {research_spec.theme}",
+                detail="仅用于定义、产业链和核验协议，不作为公司级事实。",
+                tier="research_ontology",
+            )
         )
-    )
     for index, item in enumerate(result.l3_evidence.items, start=1):
         sources.append(
             answer_model.EvidenceRef(
@@ -2554,6 +2710,7 @@ def _build_answer_spec_for_result(
             QUESTION_NEWS_IMPACT,
             QUESTION_STOCK_DEEP_DIVE,
             QUESTION_FINANCIAL_ANALYSIS,
+            QUESTION_VALUATION,
         }
     )
     has_verified_company_claim = any(
@@ -2568,7 +2725,7 @@ def _build_answer_spec_for_result(
         for term in ("失败", "不可用", "timeout", "degraded")
     ):
         notices.append("部分资料源本轮不可用，未用于结论。")
-    actions = list(research_spec.verification_actions)
+    actions = list(research_spec.verification_actions) if is_theme_research else []
     actions.extend(
         line for line in conclusion_lines if line.startswith("观点有效期")
     )
@@ -2789,6 +2946,7 @@ def _build_base_answer_spec_from_sections(
             counter_evidence_requirements=(),
             trigger_conditions=(),
             verification_actions=tuple(actions),
+            focus_entities=(),
             requested_sections=(
                 "direct_assessment",
                 "strongest_evidence",
@@ -2926,7 +3084,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     if result.answer_spec is None or not messages:
         return result
     started = time.monotonic()
-    deadline = llm_refine.Deadline.from_timeout(options.llm_timeout)
+    deadline = _llm_deadline(options)
     chunks: list[str] = []
     provider_connect_ms: int | None = None
     first_token_ms: int | None = None
@@ -2991,7 +3149,14 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
                 if composed is not None
                 else provider.model if provider is not None else options.llm_model
             ),
-            "deadline_ms": options.llm_timeout * 1000,
+            "deadline_ms": round(
+                (
+                    options.deadline.remaining()
+                    if options.deadline is not None
+                    else options.llm_timeout
+                )
+                * 1000
+            ),
             "remaining_budget_ms": remaining_ms,
             "provider_connect_ms": provider_connect_ms,
             "first_token_ms": first_token_ms,
@@ -3011,14 +3176,14 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         composed, reason = llm_refine.synthesize_messages(
             messages,
             model_override=options.llm_model,
-            timeout=options.llm_timeout,
+            timeout=_stage_timeout(options, options.llm_timeout),
             deadline=deadline,
         )
     elif options.compose_self_review:
         composed, reason = llm_refine.synthesize_messages_with_review(
             messages,
             model_override=options.llm_model,
-            timeout=options.llm_timeout,
+            timeout=_stage_timeout(options, options.llm_timeout),
             deadline=deadline,
         )
     else:
@@ -3029,7 +3194,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             on_finish_reason=capture_finish_reason,
             is_cancelled=options.stream_cancel_check,
             model_override=options.llm_model,
-            timeout=options.llm_timeout,
+            timeout=_stage_timeout(options, options.llm_timeout),
             deadline=deadline,
         )
     stream_elapsed_ms = max(0, round((time.monotonic() - started) * 1000))
@@ -3059,11 +3224,8 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         composed=composed,
         fallback_reason=result.llm_fallback_reason,
     )
-    proposed_synthesis = (
-        f"{result.data_notice}\n\n{composed.answer}"
-        if result.data_notice and not result.prepared_synthesis_is_market_review
-        else composed.answer
-    )
+    proposed_synthesis = composed.answer
+    accepted_composition = composed
     quality_gate_started = time.monotonic()
     blocking_issues = [
         issue
@@ -3073,6 +3235,52 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         )
         if issue.severity == "error"
     ]
+    if blocking_issues and deadline.remaining() > 0:
+        correction_started = time.monotonic()
+        correction, correction_reason = llm_refine.synthesize_messages(
+            [
+                *messages,
+                {
+                    "role": "user",
+                    "content": llm_refine.claim_binding_revision_user_content(
+                        [issue.message for issue in blocking_issues],
+                        answer_model.structured_claim_registry_block(
+                            result.answer_spec
+                        ),
+                    ),
+                },
+            ],
+            model_override=options.llm_model,
+            timeout=_stage_timeout(options, options.llm_timeout),
+            deadline=deadline,
+            temperature=0.0,
+        )
+        result.llm_stream_telemetry["claim_binding_revision_ms"] = round(
+            (time.monotonic() - correction_started) * 1000
+        )
+        result.llm_stream_telemetry["claim_binding_revision_reason"] = (
+            correction_reason or None
+        )
+        if correction is not None:
+            corrected_synthesis = correction.answer
+            corrected_issues = answer_model.validate_llm_answer(
+                corrected_synthesis,
+                result.answer_spec,
+            )
+            corrected_blocking = [
+                issue
+                for issue in corrected_issues
+                if issue.severity == "error"
+            ]
+            if not corrected_blocking:
+                proposed_synthesis = corrected_synthesis
+                accepted_composition = correction
+                blocking_issues = []
+            else:
+                blocking_issues = corrected_blocking
+    structured_claims, unbound_claim_lines = (
+        answer_model.parse_structured_claims(proposed_synthesis)
+    )
     quality_gate_ms = max(
         0,
         round((time.monotonic() - quality_gate_started) * 1000),
@@ -3085,6 +3293,12 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     result.llm_stream_telemetry["elapsed_ms"] = result.llm_stream_telemetry[
         "total_synthesis_ms"
     ]
+    result.llm_stream_telemetry["structured_claim_count"] = len(
+        structured_claims
+    )
+    result.llm_stream_telemetry["unbound_claim_line_count"] = len(
+        unbound_claim_lines
+    )
     if blocking_issues:
         result.warnings.extend(
             f"LLM 输出被 AnswerSpec 门禁拒绝：{issue.message}"
@@ -3093,8 +3307,16 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         result.llm_fallback_reason = "quality_gate_rejected"
         result.llm_stream_telemetry["fallback_reason"] = result.llm_fallback_reason
         return result
-    result.synthesis = proposed_synthesis
-    result.llm_provider = composed.provider
+    presented_synthesis = answer_model.present_llm_answer(
+        proposed_synthesis,
+        result.answer_spec,
+    )
+    result.synthesis = (
+        f"{result.data_notice}\n\n{presented_synthesis}"
+        if result.data_notice and not result.prepared_synthesis_is_market_review
+        else presented_synthesis
+    )
+    result.llm_provider = accepted_composition.provider
     result.synthesis_messages = [
         *messages,
         {"role": "assistant", "content": result.synthesis},
@@ -4347,6 +4569,7 @@ def _financials_block_for_llm(
     query: str,
     market_db_path: str | Path | None,
     fetcher: Any = None,
+    timeout: float = 8.0,
 ) -> str:
     """Build the D7 quarterly-financials block for a single target stock.
 
@@ -4376,7 +4599,12 @@ def _financials_block_for_llm(
         if not code_match:
             return ""
         target_code = code_match.group(0)
-    return market_financials.financials_block_for_target(target_code, target_name, fetcher=fetcher)
+    return market_financials.financials_block_for_target(
+        target_code,
+        target_name,
+        fetcher=fetcher,
+        timeout=timeout,
+    )
 
 
 def _format_alternative_queue_lines(con: Any, latest_date: Any, stock_code: str, sector_names: list[str]) -> list[str]:
