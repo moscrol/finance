@@ -12,6 +12,7 @@
 用法（也可被 scan_*.py 直接 import 调用）：
     python3 write_to_duckdb.py <csv路径> <limitup|top100|quant> <日期>
 """
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -22,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from market_feature_store.db import connect, init_db  # noqa: E402
 from config import to_ts_code  # noqa: E402
 
-SOURCE = "clickhouse:share(level2逐笔)"
+SOURCE = "clickhouse:share(level2服务端聚合)"
 STEPS = ("limitup", "top100", "quant")
 
 
@@ -61,8 +62,30 @@ def begin_l2_run(date):
         con.close()
 
 
+def _format_message(message, stats):
+    parts = []
+    if message:
+        parts.append(str(message))
+    shared = (stats or {}).get("shared_cache")
+    if isinstance(shared, dict):
+        parts.append(
+            "shared_cache "
+            f"hits={shared.get('hits', 0)} misses={shared.get('misses', 0)} "
+            f"queries={shared.get('queries', 0)} writes={shared.get('writes', 0)} "
+            f"entries={shared.get('entries', 0)} "
+            f"path={shared.get('path', '')}"
+        )
+    if (stats or {}).get("nonempty_count") is not None:
+        parts.append(
+            f"nonempty={(stats or {}).get('nonempty_count')} "
+            f"empty={(stats or {}).get('empty_count', 0)}"
+        )
+    return " | ".join(parts) if parts else None
+
+
 def _mark_status(con, date, step, status, row_count, stats, message):
     stats = stats or {}
+    message = _format_message(message, stats)
     con.execute(
         """
         INSERT INTO ops_pipeline_run_daily
@@ -100,6 +123,17 @@ def _stats_problem(stats):
         return f"failed_count={fail}"
     if proc != inp:
         return f"processed_count={proc} != input_count={inp}"
+    return None
+
+
+def _zero_result_problem(scan_type, row_count, stats):
+    if os.environ.get("L2_ALLOW_ALL_EMPTY", "").strip() in {"1", "true", "yes"}:
+        return None
+    if scan_type not in {"limitup", "top100"}:
+        return None
+    inp = (stats or {}).get("input_count") or 0
+    if row_count == 0 and inp > 0:
+        return f"zero rows for {scan_type} with input_count={inp}; refuse complete"
     return None
 
 
@@ -164,6 +198,15 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None, st
              float(r["当日涨幅%"]), float(big_thr), i + 1,
              prev_limitup_date, SOURCE, now)
             for i, r in df.iterrows()]
+    zero_problem = _zero_result_problem(scan_type, len(rows), stats)
+    if zero_problem:
+        con = connect()
+        try:
+            init_db(con)
+            _mark_status(con, date, scan_type, "failed", 0, stats, zero_problem)
+        finally:
+            con.close()
+        raise RuntimeError(f"l2-moneyflow/{scan_type} {date} 拒绝 complete: {zero_problem}")
     con = connect()
     try:
         init_db(con)

@@ -4,8 +4,12 @@
 # 周末直接跳过；非交易日由质检闸门拦截。preflight 失败（CDP proxy/登录态）会在日志里给出修复提示。
 set -uo pipefail
 
-WORKSPACE="/Users/a77/finance-workspace-private"
+CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
+DATA_ROOT="${FINANCE_DATA_ROOT:-/Users/a77/finance-workspace-private}"
+WORKSPACE="$CODE_ROOT"
 export FINANCE_WS="$WORKSPACE"
+export MARKET_FEATURE_STORE_DB="${MARKET_FEATURE_STORE_DB:-$DATA_ROOT/db/market_feature_store.duckdb}"
+export MONEYFLOW_OUTPUT_DIR="${MONEYFLOW_OUTPUT_DIR:-$DATA_ROOT/scripts/moneyflow/outputs}"
 export FORESIGHT_USER="linxiaoqi5111"
 export FORESIGHT_USERS_DIR="/Users/a77/agent-memory/.foresight"
 export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
@@ -13,8 +17,23 @@ export SUBCONSCIOUS_VAULT="/Users/a77/agent-memory"
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/node/bin:/usr/local/bin:$PATH"
 
 D="${1:-$(date +%F)}"
-LOG_DIR="$WORKSPACE/logs"
-mkdir -p "$LOG_DIR"
+LOG_DIR="$DATA_ROOT/logs"
+LOCK_PARENT="${FINANCE_LOCK_DIR:-$DATA_ROOT/state/locks}"
+LOCK_DIR="$LOCK_PARENT/daily-full-review.lock"
+mkdir -p "$LOG_DIR" "$LOCK_PARENT"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  old_pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+  if [ -n "$old_pid" ] && ! kill -0 "$old_pid" 2>/dev/null; then
+    echo "[$(date '+%F %T')] 清理 stale lock pid=$old_pid"
+    rm -rf "$LOCK_DIR"
+    mkdir "$LOCK_DIR" || exit 75
+  else
+    echo "[$(date '+%F %T')] 已有全量复盘/L2 进程在运行，跳过本次 date=$D pid=${old_pid:-unknown}"
+    exit 75
+  fi
+fi
+echo "$$" > "$LOCK_DIR/pid"
+trap 'rm -rf "$LOCK_DIR"' EXIT INT TERM
 
 dow=$(date +%u)
 if [ "$dow" -gt 5 ]; then
@@ -23,7 +42,8 @@ if [ "$dow" -gt 5 ]; then
 fi
 
 cd "$WORKSPACE" || exit 1
-echo "[$(date '+%F %T')] === 全量复盘开始 date=$D ==="
+REV=$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+echo "[$(date '+%F %T')] === 全量复盘开始 date=$D code=$WORKSPACE rev=$REV data=$DATA_ROOT db=$MARKET_FEATURE_STORE_DB moneyflow_out=$MONEYFLOW_OUTPUT_DIR ==="
 
 # 失败告警：Mac 系统通知（零配置必达本机）+ 飞书（可选，凭证/权限就绪才发）；告警自身失败不影响退出码
 notify() {
@@ -32,20 +52,7 @@ notify() {
 }
 
 run_moneyflow() {
-  local moneyflow_dir="$WORKSPACE/scripts/moneyflow"
-  [ -f "$HOME/.secrets/clickhouse.env" ] && source "$HOME/.secrets/clickhouse.env"
-  if [ ! -d "$moneyflow_dir" ] || [ -z "${CH_PASSWORD:-}" ]; then
-    echo "[$(date '+%F %T')] 资金流段跳过（scripts/moneyflow 未合并或缺 CH_PASSWORD）"
-    return 2
-  fi
-  (
-    cd "$moneyflow_dir" \
-      && python3 write_to_duckdb.py --begin "$D" \
-      && python3 scan_limitup.py "$D" \
-      && python3 scan_top100.py "$D" \
-      && python3 scan_quant.py "$D" \
-      && python3 "$WORKSPACE/scripts/render_moneyflow_html.py"
-  )
+  L2_LOCK_HELD=1 "$WORKSPACE/scripts/moneyflow/run_l2_pipeline.sh" "$D"
 }
 
 python3 skills/daily-full-review/scripts/run_review_sync.py --date "$D"
@@ -116,4 +123,4 @@ if [ $all_rc -ne 0 ]; then
   exit $all_rc
 fi
 
-echo "[$(date '+%F %T')] === 全量复盘完成 date=$D ==="
+echo "[$(date '+%F %T')] === 全量复盘完成 date=$D code=$WORKSPACE rev=$REV ==="

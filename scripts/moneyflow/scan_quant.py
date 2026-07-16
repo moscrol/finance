@@ -20,7 +20,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from moneyflow import make_client, detect_quant_orders, stock_info, run_scan
+from moneyflow import (
+    current_git_revision,
+    detect_quant_orders,
+    make_client,
+    run_scan,
+    stock_info,
+)
 from server_aggregation import L2QueryService
 from scan_top100 import top_turnover_stocks
 from config import out_path
@@ -38,6 +44,7 @@ def main():
     big_thr = float(sys.argv[2]) if len(sys.argv) > 2 else 50.0
     quant_thr = float(sys.argv[3]) if len(sys.argv) > 3 else 200.0
     client = make_client()
+    print(f"L2 code revision: {current_git_revision()}", flush=True)
 
     codes = top_turnover_stocks(client, date)
     print(f"{date} 成交额前{len(codes)}股票，开始逐只识别规律量化买单...")
@@ -75,6 +82,8 @@ def main():
     client, results, stats = run_scan(
         client, codes, date, "quant_server_v1", compute
     )
+    stats["shared_cache"] = queries.cache_stats()
+    print(f"共享聚合缓存: {stats['shared_cache']}", flush=True)
 
     res = pd.DataFrame(results)
     if res.empty:

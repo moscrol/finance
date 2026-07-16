@@ -12,8 +12,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
+from config import OUTPUT_DIR
+
 CACHE_VERSION = 1
-OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
 
 
 class QueryClient(Protocol):
@@ -120,6 +121,9 @@ class SharedQueryCache:
     def __init__(self, path: str | Path):
         self.path = Path(path)
         self._entries = self._load()
+        self.hits = 0
+        self.misses = 0
+        self.writes = 0
 
     def _load(self) -> dict[str, object]:
         if not self.path.exists():
@@ -156,30 +160,34 @@ class SharedQueryCache:
     ) -> tuple[bool, CapitalFlowSummary | None]:
         key = self._key("capital", date, code, threshold_wan)
         if key not in self._entries:
+            self.misses += 1
             return False, None
         value = self._entries[key]
-        if value is None:
-            return True, None
         if not isinstance(value, dict):
+            self.misses += 1
             return False, None
         try:
-            return True, CapitalFlowSummary(
+            summary = CapitalFlowSummary(
                 active_net_wan=float(value["active_net_wan"]),
                 total_net_wan=float(value["total_net_wan"]),
                 change_pct=float(value["change_pct"]),
             )
         except (KeyError, TypeError, ValueError):
+            self.misses += 1
             return False, None
+        self.hits += 1
+        return True, summary
 
     def put_capital_flow(
         self,
         date: str,
         code: str,
         threshold_wan: float,
-        summary: CapitalFlowSummary | None,
+        summary: CapitalFlowSummary,
     ) -> None:
         key = self._key("capital", date, code, threshold_wan)
-        self._entries[key] = None if summary is None else asdict(summary)
+        self._entries[key] = asdict(summary)
+        self.writes += 1
         self._save()
 
     def get_buyer_orders(
@@ -187,18 +195,23 @@ class SharedQueryCache:
     ) -> tuple[bool, list[tuple[str, float]]]:
         key = self._key("buyer-orders", date, code, threshold_wan)
         if key not in self._entries:
+            self.misses += 1
             return False, []
         value = self._entries[key]
         if not isinstance(value, list):
+            self.misses += 1
             return False, []
         rows: list[tuple[str, float]] = []
         try:
             for row in value:
                 if not isinstance(row, dict):
+                    self.misses += 1
                     return False, []
                 rows.append((str(row["t"]), float(row["amount"])))
         except (KeyError, TypeError, ValueError):
+            self.misses += 1
             return False, []
+        self.hits += 1
         return True, rows
 
     def put_buyer_orders(
@@ -210,7 +223,17 @@ class SharedQueryCache:
     ) -> None:
         key = self._key("buyer-orders", date, code, threshold_wan)
         self._entries[key] = [{"t": timestamp, "amount": amount} for timestamp, amount in rows]
+        self.writes += 1
         self._save()
+
+    def stats(self) -> dict[str, int | str]:
+        return {
+            "path": str(self.path),
+            "entries": len(self._entries),
+            "hits": self.hits,
+            "misses": self.misses,
+            "writes": self.writes,
+        }
 
 
 class L2QueryService:
@@ -230,6 +253,10 @@ class L2QueryService:
             OUTPUT_DIR / f"l2_query_cache_{date}.json"
         )
         self.retries = retries
+        self.query_executions = 0
+
+    def cache_stats(self) -> dict[str, int | str]:
+        return {**self.cache.stats(), "queries": self.query_executions}
 
     def _execute(
         self,
@@ -239,6 +266,7 @@ class L2QueryService:
     ) -> tuple[QueryClient, list[tuple[object, ...]]]:
         for attempt in range(self.retries):
             try:
+                self.query_executions += 1
                 return client, client.execute(query, params)
             except Exception:
                 if attempt == self.retries - 1:
@@ -282,9 +310,10 @@ class L2QueryService:
                     total_net_wan=float(total_net) / 1e4,
                     change_pct=(float(last_price) / float(first_price) - 1) * 100,
                 )
-        self.cache.put_capital_flow(
-            self.date, code, self.threshold_wan, summary
-        )
+        if summary is not None:
+            self.cache.put_capital_flow(
+                self.date, code, self.threshold_wan, summary
+            )
         return client, summary
 
     def buyer_orders(

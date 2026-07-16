@@ -18,6 +18,7 @@ BuyNo > SellNo => 主动买入；SellNo > BuyNo => 主动卖出。
 import json
 import os
 import random
+import subprocess
 import sys
 import time
 import urllib.request
@@ -33,6 +34,18 @@ plt.rcParams["font.sans-serif"] = ["WenQuanYi Zen Hei"]
 plt.rcParams["axes.unicode_minus"] = False
 
 from config import HOST, PORT, USER, PASSWORD, out_path  # noqa: E402
+
+
+def current_git_revision() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short=12", "HEAD"],
+            cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        return "unknown"
 
 
 def make_client():
@@ -131,20 +144,35 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
     供写库时落入 ops_pipeline_run_daily 审计。"""
     cache_file = out_path(f"scan_cache_{tag}_{date}.json")
     done = {}
-    if os.path.exists(cache_file):
+    if os.environ.get("L2_FORCE_RESCAN", "").strip() in {"1", "true", "yes"}:
+        print(f"L2_FORCE_RESCAN=1，忽略断点缓存 {cache_file}", flush=True)
+    elif os.path.exists(cache_file):
         try:
             with open(cache_file) as f:
-                done = json.load(f)
-            print(f"断点缓存 {cache_file}: 已完成 {len(done)} 只")
+                raw = json.load(f)
+            done = {k: v for k, v in (raw or {}).items() if v}
+            skipped_null = len(raw or {}) - len(done)
+            print(
+                f"断点缓存 {cache_file}: 有效 {len(done)} 只"
+                + (f"（忽略 null {skipped_null}）" if skipped_null else ""),
+                flush=True,
+            )
         except Exception:
             done = {}
 
     def save():
-        with open(cache_file, "w") as f:
+        temporary = f"{cache_file}.tmp"
+        with open(temporary, "w") as f:
             json.dump(done, f, ensure_ascii=False)
+        os.replace(temporary, cache_file)
 
     throttle = AdaptiveThrottle()
     pending = [c for c in codes if c not in done]
+    empty_ok = set()
+    print(
+        f"扫描 {tag} {date}: input={len(codes)} cache_hits={len(done)} pending={len(pending)}",
+        flush=True,
+    )
     for rnd in range(1, passes + 1):
         if not pending:
             break
@@ -155,14 +183,18 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
         for i, code in enumerate(pending, 1):
             try:
                 client, row = compute(client, code)
-                done[code] = row
+                if row:
+                    done[code] = row
+                    empty_ok.discard(code)
+                else:
+                    empty_ok.add(code)
                 throttle.ok()
-                if i % 10 == 0:
-                    save()
             except Exception as e:
                 print(f"[{i}/{len(pending)}] {code} 失败: {e}")
                 failed.append(code)
                 throttle.fail()
+            if i % 5 == 0 or i == len(pending):
+                save()
             throttle.wait()
             if batch_size and i % batch_size == 0 and i < len(pending):
                 save()
@@ -177,11 +209,27 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
         pending = failed
     if pending:
         print(f"!! 兜底后仍失败 {len(pending)} 只: {','.join(pending[:20])}")
+    nonempty = sum(1 for v in done.values() if v)
+    processed = sum(1 for c in codes if c in done or c in empty_ok)
     stats = {
         "input_count": len(codes),
-        "processed_count": sum(1 for c in codes if c in done),
+        "processed_count": processed,
         "failed_count": len(pending),
+        "nonempty_count": nonempty,
+        "empty_count": len(empty_ok),
+        "scan_cache_hits": len([c for c in codes if c in done]),
     }
+    print(f"扫描统计 {tag} {date}: {stats}", flush=True)
+    if (
+        len(codes) >= 20
+        and not pending
+        and nonempty == 0
+        and os.environ.get("L2_ALLOW_ALL_EMPTY", "").strip() not in {"1", "true", "yes"}
+    ):
+        raise RuntimeError(
+            f"scan {tag} {date}: 处理 {len(codes)} 只全部空结果（empty={len(empty_ok)}）。"
+            "疑似 ClickHouse 空响应/数据未到；若确认当日确无数据可设 L2_ALLOW_ALL_EMPTY=1。"
+        )
     return client, [r for c, r in done.items() if r], stats
 
 
