@@ -82,6 +82,44 @@ def test_timeout_terminates_worker_and_next_query_restarts(tmp_path: Path) -> No
     assert recovered.model_load_count == 1
 
 
+def test_prewarm_marks_worker_ready_and_reuses_model(tmp_path: Path) -> None:
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        first = worker.prewarm(["query", "warmup", "--json"], timeout=2)
+        warm_status = worker.status()
+        second = worker.query(["query", "actual", "--json"], timeout=2)
+    finally:
+        worker.close()
+
+    assert first.returncode == 0
+    assert first.model_load_count == second.model_load_count == 1
+    assert warm_status["state"] == "ready"
+    assert warm_status["active"] is True
+    assert warm_status["last_error_type"] is None
+    assert isinstance(warm_status["prewarm_latency_ms"], int)
+
+
+def test_prewarm_timeout_is_failed_and_stops_process(tmp_path: Path) -> None:
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        with pytest.raises(TimeoutError):
+            worker.prewarm(["query", "slow", "--json"], timeout=0.02)
+        payload = worker.status()
+    finally:
+        worker.close()
+
+    assert payload["state"] == "failed"
+    assert payload["active"] is False
+    assert payload["last_error_type"] == "TimeoutError"
+    assert isinstance(payload["prewarm_latency_ms"], int)
+
+
 def test_kb_rag_uses_enabled_worker_without_cli(tmp_path: Path) -> None:
     wiki = tmp_path / "wiki"
     page = wiki / "concepts" / "液冷.md"
@@ -131,5 +169,6 @@ def test_worker_status_reports_lazy_lifecycle(monkeypatch) -> None:
     payload = rag_worker.status()
 
     assert payload["enabled"] is True
-    assert payload["lifecycle"] == "lazy"
+    assert payload["lifecycle"] == "startup_prewarm"
+    assert payload["state"] in {"cold", "ready", "failed", "warming"}
     assert isinstance(payload["active"], int)
