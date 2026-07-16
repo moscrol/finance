@@ -580,6 +580,22 @@ def cmd_verdict(args: argparse.Namespace) -> int:
         print(f"WARN: 当日台账 {draft['date']}.md 不存在，回检表未渲染", file=sys.stderr)
     else:
         print(f"OK    rendered: {md_path}")
+    try:
+        from intelligence.services.forecast_learning import sync_reflections
+
+        learning_dir = (
+            REPO / "docs" / "learning" / "forecast-lessons"
+            if ledger_dir.resolve() == LEDGER_DIR.resolve()
+            else ledger_dir.parent / "forecast-lessons"
+        )
+        sync_reflections(
+            ledger_dir,
+            learning_dir,
+            dates=[str(draft["date"])],
+            use_llm=False,
+        )
+    except Exception as exc:
+        print(f"WARN: 反思候选同步失败（{type(exc).__name__}）", file=sys.stderr)
     return 0
 
 
