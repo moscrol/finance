@@ -850,6 +850,10 @@ def _mean(values: list[float]) -> float | None:
 def _hypothesis_category(hypothesis_id: str) -> str:
     if hypothesis_id.startswith("target:"):
         return "target"
+    if hypothesis_id.startswith("direction:"):
+        return "direction"
+    if hypothesis_id.startswith("market:"):
+        return "market"
     if hypothesis_id in ALLOWED_HYPOTHESIS_CATEGORIES:
         return hypothesis_id
     return "unknown"

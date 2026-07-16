@@ -172,6 +172,27 @@ const workbenchOverview: WorkbenchOverview = {
   },
   signal_date: "2026-07-01",
   winrate: [],
+  forecast_performance: {
+    sample_goal: 25,
+    total_judged: 6,
+    decision_eligible: false,
+    rows: [
+      {
+        key: "codex/duckdb",
+        agent: "codex",
+        source: "duckdb",
+        sample_count: 6,
+        hits: 2,
+        misses: 3,
+        partial: 1,
+        unverifiable: 0,
+        hit_rate: 0.3333,
+        weighted_rate: 0.4167,
+        sample_goal: 25,
+        decision_eligible: false,
+      },
+    ],
+  },
   sellside_flow: { priority: [], confirmation: [], caution: [] },
   sellside_date: null,
   moneyflow: {
@@ -1517,6 +1538,9 @@ describe("Workbench navigation reliability", () => {
         name: "机构胜率、资金流与假设回检",
       }),
     ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Agent 方向命中率" })).toBeVisible();
+    expect(screen.getByText("6/25")).toBeVisible();
+    expect(screen.getByText("样本积累中")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "问答" }));
     expect(screen.getByLabelText("输入研究问题")).toBeVisible();
   });

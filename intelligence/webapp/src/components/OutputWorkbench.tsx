@@ -432,6 +432,48 @@ function ValidationPanel({ overview }: { overview: WorkbenchOverview }) {
       </section>
       <section className="output-card winrate-card">
         <header>
+          <Gauge aria-hidden="true" size={17} />
+          <div>
+            <span className="output-eyebrow">双盲 verdict 后验</span>
+            <h2>Agent 方向命中率</h2>
+          </div>
+        </header>
+        <p>
+          partial 按半分展示校准率；每个 Agent / 数据流满
+          {overview.forecast_performance.sample_goal} 个方向样本后，才允许比较题式表现。
+        </p>
+        <div className="output-table-scroll">
+          <table className="output-table">
+            <thead>
+              <tr>
+                <th>Agent / 流</th>
+                <th>样本进度</th>
+                <th>hit / miss / partial</th>
+                <th>严格命中率</th>
+                <th>半分校准率</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {overview.forecast_performance.rows.map((row) => (
+                <tr key={row.key}>
+                  <th>{row.agent} / {row.source}</th>
+                  <td>{row.sample_count}/{row.sample_goal}</td>
+                  <td>{row.hits} / {row.misses} / {row.partial}</td>
+                  <td>{formatPercent(row.hit_rate === null ? null : row.hit_rate * 100)}</td>
+                  <td>{formatPercent(row.weighted_rate === null ? null : row.weighted_rate * 100)}</td>
+                  <td>{row.decision_eligible ? "可分题式统计" : "样本积累中"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!overview.forecast_performance.rows.length && (
+            <p className="empty-output">暂无可归类的方向 verdict。</p>
+          )}
+        </div>
+      </section>
+      <section className="output-card winrate-card">
+        <header>
           <TrendingUp aria-hidden="true" size={17} />
           <div>
             <span className="output-eyebrow">卖方观点后验</span>

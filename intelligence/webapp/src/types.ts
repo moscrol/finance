@@ -408,6 +408,25 @@ export interface WorkbenchOverview {
   };
   signal_date: string | null;
   winrate: WinrateRow[];
+  forecast_performance: {
+    sample_goal: number;
+    total_judged: number;
+    decision_eligible: boolean;
+    rows: Array<{
+      key: string;
+      agent: string;
+      source: string;
+      sample_count: number;
+      hits: number;
+      misses: number;
+      partial: number;
+      unverifiable: number;
+      hit_rate: number | null;
+      weighted_rate: number | null;
+      sample_goal: number;
+      decision_eligible: boolean;
+    }>;
+  };
   sellside_flow: {
     priority: SellsideFlowItem[];
     confirmation: SellsideFlowItem[];
