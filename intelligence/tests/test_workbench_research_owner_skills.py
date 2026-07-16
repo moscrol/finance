@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import time
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -11,6 +13,7 @@ from intelligence.services.ask import AskOptions, AskResult, Citation
 from intelligence.services.research_contract import (
     OWNER_RETRIEVAL_STAGES,
     ResearchDeadline,
+    StageArtifact,
 )
 from intelligence.services.run_store import RunStore
 from intelligence.workbench_skills.contracts import SkillExecutionContext
@@ -22,6 +25,11 @@ from intelligence.workbench_skills.research_owner import (
     ResearchOwnerConfig,
     ResearchOwnerSkill,
 )
+from intelligence.workbench_skills.owner_dag import (
+    StageAdapter,
+    StageExecution,
+    execute_owner_dag,
+)
 from intelligence.workbench_skills.registry import SKILL_REGISTRY
 from intelligence.workbench_skills.router import route_skills
 
@@ -30,15 +38,18 @@ def _answer_spec(
     query: str,
     *,
     evidence_id: str = "W1",
+    matched_theme: str = "液冷",
+    fact_text: str = "目标公司已披露液冷相关业务进展",
+    evidence_tier: str = "公告",
 ) -> answer_model.AnswerSpec:
-    research_spec = answer_model.resolve_theme_research_spec(query, "液冷")
+    research_spec = answer_model.resolve_theme_research_spec(query, matched_theme)
     fact = answer_model.make_claim(
         claim_id="fact-1",
-        text="目标公司已披露液冷相关业务进展",
+        text=fact_text,
         claim_type="company_fact",
         theme=research_spec.theme,
         status=answer_model.ClaimStatus.VERIFIED,
-        evidence_tier="公告",
+        evidence_tier=evidence_tier,
         evidence_ids=(evidence_id,),
     )
     spec = answer_model.AnswerSpec(
@@ -68,11 +79,14 @@ def _result(
     question_type: str,
     *,
     evidence_id: str = "W1",
+    matched_theme: str = "液冷",
+    fact_text: str = "目标公司已披露液冷相关业务进展",
+    evidence_tier: str = "公告",
 ) -> AskResult:
     result = AskResult(
         query=query,
         trade_date="2026-07-10",
-        matched_theme="液冷",
+        matched_theme=matched_theme,
         candidate_tier=None,
         priority_score=None,
         found_graph=True,
@@ -82,7 +96,13 @@ def _result(
         "液冷",
         question_type_override=question_type,
     )
-    result.answer_spec = _answer_spec(query, evidence_id=evidence_id)
+    result.answer_spec = _answer_spec(
+        query,
+        evidence_id=evidence_id,
+        matched_theme=matched_theme,
+        fact_text=fact_text,
+        evidence_tier=evidence_tier,
+    )
     result.citations = [
         Citation(
             tag=evidence_id,
@@ -110,6 +130,40 @@ def _context(
         conversation_context="用户上一轮强调只看公告级证据。",
         deadline=ResearchDeadline.from_timeout(10),
     )
+
+
+def _write_theme_market_db(repo_root: Path) -> None:
+    duckdb = pytest.importorskip("duckdb")
+    db_path = repo_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect(str(db_path))
+    con.execute(
+        "create table fact_sector_daily "
+        "(trade_date date, sector_name varchar, pct_chg double, "
+        "diff_ratio double, amount double)"
+    )
+    start = date(2025, 1, 1)
+    for index in range(200):
+        hot = 40 <= index < 60 or 180 <= index < 200
+        con.execute(
+            "insert into fact_sector_daily values (?, '信创', ?, ?, ?)",
+            [
+                (start + timedelta(days=index)).isoformat(),
+                2.5 if hot else -0.5,
+                15.0 if hot else 2.0,
+                900.0 if hot else 300.0,
+            ],
+        )
+    con.execute(
+        "create table fact_theme_limit_heat_daily "
+        "(trade_date date, sector_name varchar, limit_up_count int, rank int)"
+    )
+    con.execute(
+        "insert into fact_theme_limit_heat_daily values "
+        "(?, '信创', 8, 3)",
+        [(start + timedelta(days=199)).isoformat()],
+    )
+    con.close()
 
 
 @pytest.mark.parametrize(
@@ -214,6 +268,250 @@ def test_owner_dag_reuses_single_turn_retrieval_cache(tmp_path: Path) -> None:
     ]
 
 
+def test_theme_vertical_slice_uses_distinct_typed_stage_artifacts(
+    tmp_path: Path,
+) -> None:
+    query = (
+        "研究信创未来3到6个月的中期赔率，"
+        "用历史类似窗口和情景树说明升级、降级与证伪条件"
+    )
+    calls = 0
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        nonlocal calls
+        calls += 1
+        return _result(
+            options.query,
+            THEME_RESEARCH.question_type,
+            evidence_id="S1",
+            matched_theme="信创",
+            fact_text="信创板块已形成可回查的盘面事实",
+            evidence_tier="盘面",
+        )
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        THEME_RESEARCH,
+        answer_query_fn=fake_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert calls == 1
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    assert set(artifacts) == set(OWNER_RETRIEVAL_STAGES["theme-research"])
+    assert all(item["producer"] for item in artifacts.values())
+    assert all(item["input_hash"] for item in artifacts.values())
+    assert all(item["timeout_seconds"] > 0 for item in artifacts.values())
+    assert all(item["on_failure"] for item in artifacts.values())
+    assert len({item["producer"] for item in artifacts.values()}) == len(artifacts)
+    assert all(
+        item["payload"].get("source_mode") != "shared_owner_bundle"
+        for item in artifacts.values()
+    )
+    assert artifacts["market_lifecycle"]["artifact_type"] == "MidtermTrendArtifact"
+    assert (
+        artifacts["historical_analogs"]["artifact_type"]
+        == "HistoricalAnalogArtifact"
+    )
+    assert artifacts["scenario_tree"]["artifact_type"] == "ScenarioTreeArtifact"
+    assert (
+        artifacts["counterevidence"]["artifact_type"]
+        == "CounterEvidenceArtifact"
+    )
+    assert artifacts["historical_analogs"]["required_output"] is True
+    assert artifacts["scenario_tree"]["required_output"] is True
+    assert artifacts["counterevidence"]["required_output"] is True
+
+    assert output.answer_contract is not None
+    rendered = answer_model.render_answer_spec(
+        output.answer_contract.answer_spec
+    )
+    assert "## 3–6 个月中期赔率的证据" in rendered
+    assert "## 历史类似窗口" in rendered
+    assert "## 情景树" in rendered
+    assert "## 升级、降级与证伪条件" in rendered
+    assert "无来源数字概率" in rendered
+
+
+def test_theme_fallback_keeps_required_blocks_and_softens_certainty_without_l3(
+    tmp_path: Path,
+) -> None:
+    query = (
+        "研究信创未来3到6个月的中期赔率，"
+        "用历史类似窗口和情景树说明升级、降级与证伪条件"
+    )
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        return _result(
+            options.query,
+            THEME_RESEARCH.question_type,
+            evidence_id="S1",
+            matched_theme="信创",
+            fact_text="信创未来必然确定上涨",
+            evidence_tier="盘面",
+        )
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        THEME_RESEARCH,
+        answer_query_fn=fake_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert output.answer_contract is not None
+    rendered = answer_model.render_answer_spec(
+        output.answer_contract.answer_spec
+    )
+    assert "## 历史类似窗口" in rendered
+    assert "## 情景树" in rendered
+    assert "## 升级、降级与证伪条件" in rendered
+    assert "必然" not in rendered
+    assert "确定" not in rendered
+    assert "40%" not in rendered
+
+
+def test_theme_required_blocks_survive_company_mapping_failure(
+    tmp_path: Path,
+) -> None:
+    query = (
+        "研究信创未来3到6个月的中期赔率，"
+        "用历史类似窗口和情景树说明升级、降级与证伪条件"
+    )
+    _write_theme_market_db(tmp_path)
+
+    def unavailable_answer_query(_options: AskOptions) -> AskResult:
+        raise RuntimeError("RAG unavailable")
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        THEME_RESEARCH,
+        answer_query_fn=unavailable_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert output.answer_contract is not None
+    assert output.modules == []
+    assert output.citations == []
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    assert artifacts["company_mapping"]["status"] == "failed"
+    assert artifacts["market_lifecycle"]["status"] == "completed"
+    assert artifacts["historical_analogs"]["status"] == "completed"
+    assert artifacts["scenario_tree"]["status"] == "completed"
+    assert artifacts["counterevidence"]["status"] == "completed"
+
+    spec = output.answer_contract.answer_spec
+    known_atom_ids = {
+        atom.atom_id
+        for atom in answer_model.evidence_atoms_from_answer_spec(spec)
+    }
+    assert known_atom_ids
+    assert set(artifacts["scenario_tree"]["evidence_atom_ids"]) <= known_atom_ids
+    assert set(artifacts["counterevidence"]["evidence_atom_ids"]) <= known_atom_ids
+    rendered = answer_model.render_answer_spec(spec)
+    assert "## 3–6 个月中期赔率的证据" in rendered
+    assert "## 历史类似窗口" in rendered
+    assert "## 情景树" in rendered
+    assert "## 升级、降级与证伪条件" in rendered
+    assert "claim_id=analog-" in rendered
+    assert "必然" not in rendered
+    assert "确定" not in rendered
+
+
+def test_theme_market_artifacts_bind_facts_to_evidence_atoms(
+    tmp_path: Path,
+) -> None:
+    query = (
+        "研究信创未来3到6个月的中期赔率，"
+        "用历史类似窗口和情景树说明升级、降级与证伪条件"
+    )
+    _write_theme_market_db(tmp_path)
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        return _result(
+            options.query,
+            THEME_RESEARCH.question_type,
+            evidence_id="S1",
+            matched_theme="信创",
+            fact_text="信创板块已形成可回查的盘面事实",
+            evidence_tier="盘面",
+        )
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        THEME_RESEARCH,
+        answer_query_fn=fake_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    assert artifacts["market_lifecycle"]["status"] == "completed"
+    assert artifacts["historical_analogs"]["status"] == "completed"
+    assert artifacts["market_lifecycle"]["evidence_atom_ids"]
+    assert artifacts["historical_analogs"]["evidence_atom_ids"]
+    assert output.answer_contract is not None
+    spec = output.answer_contract.answer_spec
+    known_atom_ids = {
+        atom.atom_id
+        for atom in answer_model.evidence_atoms_from_answer_spec(spec)
+    }
+    stage_atom_ids = {
+        atom_id
+        for stage in ("market_lifecycle", "historical_analogs")
+        for atom_id in artifacts[stage]["evidence_atom_ids"]
+    }
+    assert stage_atom_ids <= known_atom_ids
+
+    rendered = answer_model.render_answer_spec(spec)
+    structured_claims, _unbound = answer_model.parse_structured_claims(rendered)
+    stage_fact_claims = [
+        claim
+        for claim in structured_claims
+        if claim.claim_id.startswith(("midterm-", "analog-"))
+    ]
+    assert stage_fact_claims
+    assert all(claim.evidence_atom_ids for claim in stage_fact_claims)
+    assert all(
+        set(claim.evidence_atom_ids) <= known_atom_ids
+        for claim in stage_fact_claims
+    )
+
+
+def test_stage_adapter_timeout_is_independently_observable() -> None:
+    def slow_stage(
+        _result: AskResult | None,
+        _artifacts: tuple[StageArtifact, ...],
+    ) -> StageExecution:
+        time.sleep(0.05)
+        return StageExecution(status="completed", payload={"available": True})
+
+    dag = execute_owner_dag(
+        cache_key="theme:test",
+        stages=("historical_analogs",),
+        retrieve=lambda: _result("test", THEME_RESEARCH.question_type),
+        cache={},
+        deadline=ResearchDeadline.from_timeout(1),
+        stage_adapters={
+            "historical_analogs": StageAdapter(
+                producer="market_analogs.D8",
+                input_hash="input-hash",
+                artifact_type="HistoricalAnalogArtifact",
+                required_output=True,
+                timeout_seconds=0.01,
+                on_failure="render_historical_analog_gap",
+                execute=slow_stage,
+            )
+        },
+    )
+
+    assert dag.result is None
+    assert dag.artifacts[0].status == "timeout"
+    assert dag.artifacts[0].producer == "market_analogs.D8"
+    assert dag.artifacts[0].input_hash == "input-hash"
+    assert dag.artifacts[0].timeout_seconds == 0.01
+    assert dag.artifacts[0].on_failure == "render_historical_analog_gap"
+    assert dag.artifacts[0].degrade_reason is not None
+
+
 def test_research_owner_falls_back_without_current_traceable_evidence(
     tmp_path: Path,
 ) -> None:
@@ -241,6 +539,31 @@ def test_research_owner_falls_back_without_current_traceable_evidence(
         )
     )
     assert artifact["owned"] is False
+
+
+def test_plain_theme_query_still_falls_back_without_traceable_evidence(
+    tmp_path: Path,
+) -> None:
+    query = "研究液冷题材产业链"
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        return _result(
+            options.query,
+            THEME_RESEARCH.question_type,
+            evidence_id="ONTOLOGY",
+        )
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        THEME_RESEARCH,
+        answer_query_fn=fake_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert output.answer_contract is None
+    assert output.modules == []
+    assert output.citations == []
+    assert output.warnings[-1] == "专项检索未形成可追溯事实，已回退基础金融回答。"
 
 
 def test_stock_owner_does_not_treat_market_only_evidence_as_company_fact(

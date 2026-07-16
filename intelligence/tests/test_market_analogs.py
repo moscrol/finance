@@ -10,6 +10,7 @@ from intelligence.services.market_analogs import (
     analog_block_for_llm,
     current_pattern_features,
     find_analog_windows,
+    load_historical_analog_artifact,
     load_playbooks,
     match_playbooks,
     parse_analog_intent,
@@ -106,6 +107,24 @@ class AnalogBlockTests(unittest.TestCase):
             self.assertIn("后续5日", block)
             self.assertIn("不是概率预测", block)
 
+    def test_typed_artifact_serializes_historical_windows(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+            artifact = load_historical_analog_artifact(
+                "研究信创的历史类似窗口",
+                "信创",
+                db,
+            )
+        self.assertTrue(artifact.available)
+        self.assertIsNone(artifact.degrade_reason)
+        self.assertEqual(artifact.evidence_id, "D8")
+        self.assertEqual(artifact.themes[0]["theme"], "信创")
+        self.assertIsInstance(
+            artifact.themes[0]["current_signature"],
+            dict,
+        )
+
     def test_short_history_declares_gap(self) -> None:
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"
@@ -118,6 +137,13 @@ class AnalogBlockTests(unittest.TestCase):
             analog_block_for_llm("历史上类似怎么走", "信创", "/nonexistent/x.duckdb"),
             "",
         )
+        artifact = load_historical_analog_artifact(
+            "历史上类似怎么走",
+            "信创",
+            "/nonexistent/x.duckdb",
+        )
+        self.assertFalse(artifact.available)
+        self.assertIsNotNone(artifact.degrade_reason)
 
 
 def _drawdown_history(n: int = 80) -> list[tuple]:

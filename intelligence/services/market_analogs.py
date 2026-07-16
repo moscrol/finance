@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +74,29 @@ class Signature:
     double_red_days: int
     amount_ratio: float | None
     avg_pct: float | None
+
+
+@dataclass(frozen=True)
+class HistoricalAnalogArtifact:
+    window: int
+    themes: tuple[dict[str, Any], ...]
+    missing_themes: tuple[str, ...]
+    evidence_id: str = "D8"
+    degrade_reason: str | None = None
+
+    @property
+    def available(self) -> bool:
+        return any(theme.get("analogs") for theme in self.themes)
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "evidence_id": self.evidence_id,
+            "window": self.window,
+            "available": self.available,
+            "themes": list(self.themes),
+            "missing_themes": list(self.missing_themes),
+            "degrade_reason": self.degrade_reason,
+        }
 
 
 def _signature(rows: list[tuple]) -> Signature:
@@ -154,6 +177,99 @@ def find_analog_windows(
         if len(picked) >= top_k:
             break
     return current, picked
+
+
+def load_historical_analog_artifact(
+    query: str,
+    anchored_theme: str | None,
+    market_db_path: str | Path | None,
+    window: int = DEFAULT_WINDOW,
+) -> HistoricalAnalogArtifact:
+    db_path = (
+        Path(market_db_path).expanduser()
+        if market_db_path
+        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    )
+    if not db_path.exists():
+        return HistoricalAnalogArtifact(
+            window,
+            (),
+            (),
+            degrade_reason="D8 历史类比库不存在",
+        )
+    try:
+        import duckdb  # type: ignore
+    except Exception:
+        return HistoricalAnalogArtifact(
+            window,
+            (),
+            (),
+            degrade_reason="D8 历史类比依赖不可用",
+        )
+    try:
+        con = duckdb.connect(str(db_path), read_only=True)
+    except Exception:
+        return HistoricalAnalogArtifact(
+            window,
+            (),
+            (),
+            degrade_reason="D8 历史类比库不可读",
+        )
+    try:
+        from intelligence.services.market_midterm import resolve_query_themes
+
+        themes = resolve_query_themes(con, query, anchored_theme, limit=2)
+        artifacts: list[dict[str, Any]] = []
+        missing: list[str] = []
+        for theme in themes:
+            rows = con.execute(
+                """
+                select trade_date, pct_chg, diff_ratio, amount
+                from fact_sector_daily
+                where sector_name = ?
+                order by trade_date asc
+                """,
+                [theme],
+            ).fetchall()
+            current, analogs = find_analog_windows(rows, window=window)
+            if current is None or not analogs:
+                missing.append(theme)
+                continue
+            normalized_analogs: list[dict[str, Any]] = []
+            for analog in analogs:
+                normalized = dict(analog)
+                signature = normalized.get("signature")
+                if isinstance(signature, Signature):
+                    normalized["signature"] = asdict(signature)
+                normalized_analogs.append(normalized)
+            artifacts.append(
+                {
+                    "theme": theme,
+                    "current_signature": asdict(current),
+                    "analogs": normalized_analogs,
+                }
+            )
+        reason = None
+        if not artifacts:
+            reason = "D8 未找到足够历史数据的类似窗口"
+        return HistoricalAnalogArtifact(
+            window,
+            tuple(artifacts),
+            tuple(missing),
+            degrade_reason=reason,
+        )
+    except Exception:
+        return HistoricalAnalogArtifact(
+            window,
+            (),
+            (),
+            degrade_reason="D8 历史类比查询失败",
+        )
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
 
 
 def load_playbooks(path: Path | None = None, include_drafts: bool = False) -> list[dict[str, Any]]:

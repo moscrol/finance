@@ -1290,6 +1290,70 @@ describe("Chat-first conversation components", () => {
     expect(screen.getByText(label)).toBeVisible();
   });
 
+  it("loads and displays the selected owner workflow", () => {
+    const initial = createLiveMessageState({
+      conversationId: "conv_recent",
+      messageId: "msg_assistant",
+      runId: "run_demo",
+    });
+    const loaded = applyChatStreamEvent(initial, {
+      schema_version: 1,
+      event_id: "workflow-loaded",
+      event_type: "workflow.loaded",
+      run_id: "run_demo",
+      conversation_id: "conv_recent",
+      message_id: "msg_assistant",
+      seq: 1,
+      created_at: "2026-07-15T09:00:00+08:00",
+      payload: {
+        owner: "theme-research",
+        label: "题材研究",
+        execution_mode: "inline",
+        preset: "theme-research",
+        required_skill_ids: ["theme-research"],
+        retrieval_stages: [
+          "definition",
+          "chain_stages",
+          "company_mapping",
+          "market_lifecycle",
+          "counterevidence",
+        ],
+        output_schema: "theme_research.v1",
+        presentation_kind: "research_answer",
+        max_wall_time_seconds: 90,
+        status: "loaded",
+      },
+    });
+
+    render(
+      <MessageBubble
+        message={assistantMessage}
+        skills={productSkills}
+        live={loaded}
+        bundle={null}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(loaded.workflow).toMatchObject({
+      owner: "theme-research",
+      label: "题材研究",
+      retrievalStages: [
+        "definition",
+        "chain_stages",
+        "company_mapping",
+        "market_lifecycle",
+        "counterevidence",
+      ],
+    });
+    expect(
+      screen.getByText("工作流已加载 · 题材研究 · 5 个阶段"),
+    ).toBeVisible();
+  });
+
   it("tracks skill results and ends loading on complete or cancel", () => {
     const initial = createLiveMessageState({
       conversationId: "conv_recent",

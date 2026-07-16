@@ -24,6 +24,23 @@ from intelligence.services.self_use_maturity import (  # noqa: E402
 )
 
 
+def _write_rag_fixture(tmp_path, knowledge_wiki) -> None:
+    (tmp_path / ".rag_index").mkdir()
+    script = tmp_path / "scripts" / "rag_index.py"
+    script.parent.mkdir()
+    script.write_text(
+        """
+import sys
+
+if sys.argv[1:] == ["query", "--help"]:
+    print("--json --k K --mode MODE --evidence-chars N")
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    assert knowledge_wiki.is_dir()
+
+
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     users_root = tmp_path / "users"
@@ -31,6 +48,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
     market_snapshot = tmp_path / "market_snapshot"
     market_snapshot.mkdir()
@@ -799,6 +817,7 @@ def test_readiness_fails_when_market_snapshot_is_missing(
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
     monkeypatch.setenv(
         "MARKET_SNAPSHOT_DIR",
@@ -815,6 +834,33 @@ def test_readiness_fails_when_market_snapshot_is_missing(
     assert payload["status"] == "not_ready"
     assert payload["critical"]["market_snapshot"] is False
     assert payload["missing_critical"] == ["market_snapshot"]
+
+
+def test_readiness_fails_when_rag_query_protocol_is_incompatible(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        app_module.kb_rag,
+        "probe_rag_cli",
+        lambda _wiki: app_module.kb_rag.RagCliProbe(
+            available=True,
+            query_protocol_compatible=False,
+            supported_options=("--k", "--mode"),
+            missing_required_options=("--json",),
+            warning="RAG CLI 缺少必要 query 参数",
+        ),
+    )
+
+    response = client.get("/api/readiness")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["status"] == "not_ready"
+    assert payload["checks"]["vector_index"] is True
+    assert payload["checks"]["rag_query_protocol"] is False
+    assert payload["missing_critical"] == ["rag_query_protocol"]
+    assert payload["rag"]["missing_required_options"] == ["--json"]
 
 
 def test_cancel_run_is_terminal_even_when_worker_finishes_later(
@@ -1119,6 +1165,56 @@ def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestC
 
     current = client.get(f"/api/runs/{run_id}/report").json()
     assert current["modules"] == [module]
+
+
+def test_sse_replays_workflow_loaded_and_hides_internal_events(
+    client: TestClient,
+) -> None:
+    run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    _wait_terminal(client, run_id)
+    store = RunStore()
+    workflow = {
+        "owner": "theme-research",
+        "label": "题材研究",
+        "execution_mode": "inline",
+        "preset": "theme-research",
+        "required_skill_ids": ["theme-research"],
+        "retrieval_stages": [
+            "definition",
+            "chain_stages",
+            "company_mapping",
+            "market_lifecycle",
+            "counterevidence",
+        ],
+        "output_schema": "theme_research.v1",
+        "presentation_kind": "research_answer",
+        "max_wall_time_seconds": 90,
+        "status": "loaded",
+    }
+    loaded = store.append_stream_event(
+        run_id,
+        event_id="workflow:theme-research:loaded",
+        event_type="workflow.loaded",
+        payload=workflow,
+    )
+    store.append_stream_event(
+        run_id,
+        event_id="recovery:test",
+        event_type="run_recovered",
+        payload={"reason": "test"},
+    )
+
+    full = client.get(f"/api/runs/{run_id}/events").text
+    assert "event: workflow.loaded" in full
+    assert "event: run_recovered" not in full
+    assert '"owner": "theme-research"' in full
+
+    resumed = client.get(
+        f"/api/runs/{run_id}/events",
+        params={"after": loaded["seq"] - 1},
+    ).text
+    assert "event: workflow.loaded" in resumed
+    assert "event: run_recovered" not in resumed
 
 
 def test_sse_canonical_cursor_and_terminal_replay(client: TestClient) -> None:

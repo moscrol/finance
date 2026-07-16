@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Literal
 
 from intelligence.services.entity_anchor import EntityAnchor
+from intelligence.services.market_analogs import parse_analog_intent
+from intelligence.services.market_midterm import parse_midterm_intent
+from intelligence.services.scenario_tree import parse_scenario_intent
 
 
 SubjectKind = Literal[
@@ -27,6 +30,30 @@ MatchedBy = Literal[
     "definition",
     "market_anchor",
     "generic",
+]
+ResearchMode = Literal[
+    "deep_dive",
+    "financial",
+    "news_impact",
+    "theme_research",
+    "forecast",
+    "definition",
+    "general",
+]
+TimeHorizon = Literal[
+    "intraday",
+    "short",
+    "medium",
+    "long",
+    "3_to_6_months",
+    "unspecified",
+]
+ResearchOperator = Literal[
+    "history_analog",
+    "scenario_tree",
+    "counterevidence",
+    "money_flow",
+    "comparison",
 ]
 
 THEME_CONFIG_PATH = (
@@ -161,6 +188,26 @@ _FINANCIAL_ANALYSIS_RE = re.compile(
     r"(财报|定期报告|业绩|营收|收入|利润|归母|毛利率|净利率)"
 )
 _NEWS_IMPACT_RE = re.compile(r"(公告|消息|新闻|原文|影响)")
+_MONTH_HORIZON_RE = re.compile(
+    r"(?:未来|接下来)?\s*(\d{1,2})\s*(?:[-~—到至]\s*(\d{1,2})\s*)?个?月"
+)
+_COMPOSITIONAL_SUBJECT_CUE_RE = re.compile(r"(?:研究|分析|深挖|评估)")
+_COMPOSITIONAL_SUBJECT_BOUNDARIES = (
+    "未来",
+    "接下来",
+    "中期赔率",
+    "中长期赔率",
+    "历史类似",
+    "历史类比",
+    "历史相似",
+    "情景树",
+    "升级",
+    "降级",
+    "证伪",
+)
+_COUNTEREVIDENCE_RE = re.compile(r"(反证|证伪|降级条件|证伪条件|升级、降级)")
+_MONEY_FLOW_RE = re.compile(r"(资金流|主买|净流入|大单)")
+_COMPARISON_RE = re.compile(r"(比较|对比|相比|赔率排序)")
 
 
 @dataclass(frozen=True)
@@ -172,9 +219,16 @@ class QueryEnvelope:
     timeframe: str | None
     matched_by: MatchedBy
     confidence: float
+    research_mode: ResearchMode = "general"
+    time_horizon: TimeHorizon = "unspecified"
+    operators: tuple[ResearchOperator, ...] = ()
+    required_outputs: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        payload = asdict(self)
+        payload["operators"] = list(self.operators)
+        payload["required_outputs"] = list(self.required_outputs)
+        return payload
 
 
 @lru_cache(maxsize=1)
@@ -298,6 +352,115 @@ def _company_question_type(query: str) -> str:
     return "stock_deep_dive"
 
 
+def _time_horizon(query: str) -> TimeHorizon:
+    text = re.sub(r"\s+", "", str(query or ""))
+    month_window = _MONTH_HORIZON_RE.search(text)
+    if month_window is not None:
+        start = int(month_window.group(1))
+        end = int(month_window.group(2) or start)
+        if start == 3 and end == 6:
+            return "3_to_6_months"
+        if end <= 1:
+            return "short"
+        if end <= 6:
+            return "medium"
+        return "long"
+    if any(term in text for term in ("盘中", "日内", "今天", "今日")):
+        return "intraday"
+    if any(term in text for term in ("短期", "短线", "未来几周")):
+        return "short"
+    if any(term in text for term in ("中期", "中线", "季度维度")):
+        return "medium"
+    if any(term in text for term in ("长期", "长线", "未来几年")):
+        return "long"
+    return "unspecified"
+
+
+def _research_operators(query: str) -> tuple[ResearchOperator, ...]:
+    operators: list[ResearchOperator] = []
+    if parse_analog_intent(query):
+        operators.append("history_analog")
+    if parse_scenario_intent(query):
+        operators.append("scenario_tree")
+    if _COUNTEREVIDENCE_RE.search(query):
+        operators.append("counterevidence")
+    if _MONEY_FLOW_RE.search(query):
+        operators.append("money_flow")
+    if _COMPARISON_RE.search(query):
+        operators.append("comparison")
+    return tuple(operators)
+
+
+def _required_outputs(
+    operators: tuple[ResearchOperator, ...],
+) -> tuple[str, ...]:
+    output_by_operator = {
+        "history_analog": "historical_analogs",
+        "scenario_tree": "scenario_tree",
+        "counterevidence": "falsification_conditions",
+        "money_flow": "money_flow",
+        "comparison": "comparison",
+    }
+    return tuple(output_by_operator[operator] for operator in operators)
+
+
+def _research_mode(
+    question_type: str,
+    subject_kind: SubjectKind,
+    *,
+    operators: tuple[ResearchOperator, ...],
+) -> ResearchMode:
+    if question_type == "concept_definition":
+        return "definition"
+    if question_type == "financial_analysis":
+        return "financial"
+    if question_type == "news_impact":
+        return "news_impact"
+    if question_type in {"stock_deep_dive", "valuation_estimate"}:
+        return "deep_dive"
+    if subject_kind == "theme":
+        return "theme_research"
+    if "scenario_tree" in operators:
+        return "forecast"
+    return "general"
+
+
+def _compositional_theme_subject(
+    query: str,
+    *,
+    operators: tuple[ResearchOperator, ...],
+) -> str | None:
+    if (
+        parse_midterm_intent(query) is None
+        or len(operators) < 2
+        or "scenario_tree" not in operators
+    ):
+        return None
+    cue = _COMPOSITIONAL_SUBJECT_CUE_RE.search(query)
+    if cue is None:
+        return None
+    tail = query[cue.end() :].strip()
+    boundaries = [
+        index
+        for term in _COMPOSITIONAL_SUBJECT_BOUNDARIES
+        if (index := tail.find(term)) > 0
+    ]
+    month_window = _MONTH_HORIZON_RE.search(tail)
+    if month_window is not None and month_window.start() > 0:
+        boundaries.append(month_window.start())
+    if not boundaries:
+        return None
+    subject = re.sub(r"\s+", "", tail[: min(boundaries)]).strip("，,：:")
+    if (
+        len(subject) < 2
+        or len(subject) > 24
+        or subject in _GENERIC_EXPLICIT_SUBJECTS
+        or subject.startswith(_GENERIC_EXPLICIT_PREFIXES)
+    ):
+        return None
+    return subject
+
+
 def _normalize_explicit_tail(tail: str, timeframe: str | None) -> str:
     prefixes = ["我想了解", "什么是", "一下子", "一下", "A股"]
     if timeframe:
@@ -346,6 +509,37 @@ def understand_query(
     anchor: EntityAnchor | None = None,
 ) -> QueryEnvelope:
     text = str(query or "").strip()
+    operators = _research_operators(text)
+    time_horizon = _time_horizon(text)
+    required_outputs = _required_outputs(operators)
+
+    def envelope(
+        question_type: str,
+        subject_kind: SubjectKind,
+        subject: str | None,
+        decision_goal: str,
+        timeframe: str | None,
+        matched_by: MatchedBy,
+        confidence: float,
+    ) -> QueryEnvelope:
+        return QueryEnvelope(
+            question_type,
+            subject_kind,
+            subject,
+            decision_goal,
+            timeframe,
+            matched_by,
+            confidence,
+            research_mode=_research_mode(
+                question_type,
+                subject_kind,
+                operators=operators,
+            ),
+            time_horizon=time_horizon,
+            operators=operators,
+            required_outputs=required_outputs,
+        )
+
     timeframe_match = _DATE_RE.search(text)
     timeframe = (
         timeframe_match.group(0)
@@ -354,7 +548,7 @@ def understand_query(
     )
 
     if _is_external_market_query(text):
-        return QueryEnvelope(
+        return envelope(
             "external_market",
             "external_market",
             "美国股市",
@@ -366,7 +560,7 @@ def understand_query(
 
     definition_subject = _definition_subject(text)
     if definition_subject is not None:
-        return QueryEnvelope(
+        return envelope(
             "concept_definition",
             "theme",
             definition_subject,
@@ -377,7 +571,7 @@ def understand_query(
         )
 
     if anchor is not None:
-        return QueryEnvelope(
+        return envelope(
             "stock_deep_dive",
             "company",
             anchor.entity,
@@ -389,7 +583,7 @@ def understand_query(
 
     ticker = _TICKER_RE.search(text)
     if ticker:
-        return QueryEnvelope(
+        return envelope(
             "stock_deep_dive",
             "company",
             ticker.group(0),
@@ -401,7 +595,7 @@ def understand_query(
 
     valuation_subject = _valuation_subject(text)
     if valuation_subject is not None:
-        return QueryEnvelope(
+        return envelope(
             "valuation_estimate",
             "company",
             valuation_subject,
@@ -411,9 +605,24 @@ def understand_query(
             0.84,
         )
 
+    compositional_theme = _compositional_theme_subject(
+        text,
+        operators=operators,
+    )
+    if compositional_theme is not None:
+        return envelope(
+            "theme_analysis",
+            "theme",
+            compositional_theme,
+            _decision_goal(text),
+            timeframe,
+            "explicit",
+            0.88,
+        )
+
     explicit_company = _explicit_company_subject(text)
     if explicit_company is not None:
-        return QueryEnvelope(
+        return envelope(
             _company_question_type(text),
             "company",
             explicit_company,
@@ -425,7 +634,7 @@ def understand_query(
 
     normalized_theme = str(matched_theme or "").strip()
     if normalized_theme:
-        return QueryEnvelope(
+        return envelope(
             "theme_analysis",
             "theme",
             normalized_theme,
@@ -438,7 +647,7 @@ def understand_query(
     folded_text = text.casefold()
     for alias in _theme_aliases():
         if alias.casefold() in folded_text:
-            return QueryEnvelope(
+            return envelope(
                 "theme_analysis",
                 "theme",
                 alias,
@@ -450,7 +659,7 @@ def understand_query(
 
     quoted = _QUOTED_RE.search(text)
     if quoted:
-        return QueryEnvelope(
+        return envelope(
             "theme_analysis",
             "theme",
             quoted.group(1).strip(),
@@ -462,7 +671,7 @@ def understand_query(
 
     explicit = _explicit_theme(text, timeframe)
     if explicit:
-        return QueryEnvelope(
+        return envelope(
             "theme_analysis",
             "theme",
             explicit,
@@ -473,7 +682,7 @@ def understand_query(
         )
 
     if sum(term in text for term in _MARKET_PATTERN_TERMS) >= 2:
-        return QueryEnvelope(
+        return envelope(
             "general_finance_qa",
             "market_pattern",
             None,
@@ -483,7 +692,7 @@ def understand_query(
             0.9,
         )
 
-    return QueryEnvelope(
+    return envelope(
         "general_finance_qa",
         "unknown",
         None,

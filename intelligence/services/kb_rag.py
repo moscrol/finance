@@ -37,8 +37,16 @@ DEFAULT_EXCERPT_CHARS = 200
 DEFAULT_LLM_EVIDENCE_CHARS = 1200
 DEFAULT_LLM_EVIDENCE_TOTAL_CHARS = 4800
 EVIDENCE_BUDGET_EXHAUSTED = "（本条仅保留引用定位）"
+REQUIRED_QUERY_OPTIONS = ("--json", "--k", "--mode")
+OPTIONAL_QUERY_OPTIONS = (
+    "--evidence-chars",
+    "--evidence-layer",
+    "--fact-hardness",
+    "--source-type",
+)
 
 CITATION_PREFIX = "W"
+_LEGACY_QUERY_OPTIONS: dict[str, frozenset[str]] = {}
 
 # ---- 两种命名查询模式：结构版（默认）/ 全文版 -----------------------------
 # 模式只切「索引目录 + 检索方式」，不改其余行为。默认 structured 与历史逐字节一致。
@@ -193,6 +201,8 @@ class RetrievalTelemetry:
     display_excerpt_chars: int = 0
     llm_evidence_chars: int = 0
     llm_evidence_total_chars: int = 0
+    query_protocol: str = "current"
+    unsupported_options: tuple[str, ...] = ()
 
     def summary_line(self) -> str:
         """一行可观测摘要，供回答 / 日志展示。"""
@@ -242,6 +252,26 @@ class WikiRagResult:
     telemetry: RetrievalTelemetry = field(default_factory=RetrievalTelemetry)
 
 
+@dataclass(frozen=True)
+class RagCliProbe:
+    available: bool
+    query_protocol_compatible: bool
+    supported_options: tuple[str, ...] = ()
+    missing_required_options: tuple[str, ...] = ()
+    missing_optional_options: tuple[str, ...] = ()
+    warning: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "available": self.available,
+            "query_protocol_compatible": self.query_protocol_compatible,
+            "supported_options": list(self.supported_options),
+            "missing_required_options": list(self.missing_required_options),
+            "missing_optional_options": list(self.missing_optional_options),
+            "warning": self.warning,
+        }
+
+
 def kb_root(kb_wiki: str | Path) -> Path:
     """KB repo root = parent of the wiki root (mirrors theme_modules._kb_root)."""
     return Path(kb_wiki).expanduser().resolve().parent
@@ -264,6 +294,89 @@ def _resolve_rag_python(root: Path) -> str:
         if candidate.exists():
             return str(candidate)
     return sys.executable
+
+
+def probe_rag_cli(
+    kb_wiki: str | Path | None,
+    *,
+    timeout: int = 5,
+) -> RagCliProbe:
+    if not kb_wiki:
+        return RagCliProbe(
+            available=False,
+            query_protocol_compatible=False,
+            warning="未配置知识库 wiki 路径",
+        )
+    root = kb_root(kb_wiki)
+    script = root / RAG_SCRIPT_REL
+    if not script.is_file():
+        return RagCliProbe(
+            available=False,
+            query_protocol_compatible=False,
+            warning="RAG CLI 脚本不存在",
+        )
+    try:
+        proc = subprocess.run(
+            [_resolve_rag_python(root), str(script), "query", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(root),
+        )
+    except subprocess.TimeoutExpired:
+        return RagCliProbe(
+            available=False,
+            query_protocol_compatible=False,
+            warning="RAG CLI 能力探测超时",
+        )
+    except Exception:
+        return RagCliProbe(
+            available=False,
+            query_protocol_compatible=False,
+            warning="RAG CLI 能力探测失败",
+        )
+    if proc.returncode != 0:
+        return RagCliProbe(
+            available=False,
+            query_protocol_compatible=False,
+            warning=f"RAG CLI 能力探测退出码 {proc.returncode}",
+        )
+    help_text = f"{proc.stdout}\n{proc.stderr}"
+    known_options = (*REQUIRED_QUERY_OPTIONS, *OPTIONAL_QUERY_OPTIONS)
+    supported = tuple(option for option in known_options if option in help_text)
+    missing_required = tuple(
+        option for option in REQUIRED_QUERY_OPTIONS if option not in supported
+    )
+    missing_optional = tuple(
+        option for option in OPTIONAL_QUERY_OPTIONS if option not in supported
+    )
+    warning = ""
+    if missing_required:
+        warning = "RAG CLI 缺少必要 query 参数"
+    elif missing_optional:
+        warning = "RAG CLI 使用 legacy query 协议"
+    return RagCliProbe(
+        available=True,
+        query_protocol_compatible=not missing_required,
+        supported_options=supported,
+        missing_required_options=missing_required,
+        missing_optional_options=missing_optional,
+        warning=warning,
+    )
+
+
+def _without_option(cmd: list[str], option: str) -> list[str]:
+    updated = list(cmd)
+    if option not in updated:
+        return updated
+    index = updated.index(option)
+    del updated[index : index + 2]
+    return updated
+
+
+def _unsupported_option(stderr: str, option: str) -> bool:
+    compact = re.sub(r"\s+", " ", stderr or "").strip()
+    return "unrecognized arguments:" in compact and option in compact
 
 
 def _compact_text(value: object, max_chars: int | None = None) -> str:
@@ -444,6 +557,7 @@ def retrieve(
         max(int(llm_evidence_chars), int(llm_evidence_chars * 1.25)),
         2000,
     )
+    legacy_options = _LEGACY_QUERY_OPTIONS.get(str(script), frozenset())
     cmd = [
         rag_python,
         str(script),
@@ -453,10 +567,10 @@ def retrieve(
         str(k),
         "--mode",
         str(mode),
-        "--evidence-chars",
-        str(generation_evidence_chars),
-        "--json",
     ]
+    if "--evidence-chars" not in legacy_options:
+        cmd.extend(["--evidence-chars", str(generation_evidence_chars)])
+    cmd.append("--json")
     filters = []
     if evidence_layer:
         cmd.extend(["--evidence-layer", evidence_layer])
@@ -474,14 +588,27 @@ def retrieve(
     if source_type:
         tel.filters["source_type"] = source_type
     filter_note = f" filters={','.join(filters)}" if filters else ""
+    evidence_chars_note = (
+        f" --evidence-chars {generation_evidence_chars}"
+        if "--evidence-chars" in cmd
+        else ""
+    )
     res.command = (
         f"rag_index.py query <q> --k {k} --mode {mode}"
-        f" --evidence-chars {generation_evidence_chars}{filter_note} --json"
+        f"{evidence_chars_note}{filter_note} --json"
     )
     res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（匹配 chunk 证据）"
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
-    fallback_warning = ""
+    fallback_warnings: list[str] = []
+    if legacy_options:
+        tel.query_protocol = "legacy"
+        tel.unsupported_options = tuple(sorted(legacy_options))
+        tel.fallback_reason = "legacy_cli_missing_evidence_chars"
+        tel.degraded = True
+        fallback_warnings.append(
+            "wiki-rag CLI 不支持 --evidence-chars，已使用 legacy query 协议"
+        )
     _t0 = time.monotonic()
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(root), env=env)
@@ -496,6 +623,55 @@ def retrieve(
         tel.status = "error"
         tel.warning = res.warning
         return res
+
+    if (
+        proc.returncode != 0
+        and "--evidence-chars" in cmd
+        and _unsupported_option(proc.stderr, "--evidence-chars")
+    ):
+        remaining = float(timeout) - (time.monotonic() - _t0)
+        if remaining < 1:
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            res.warning = (
+                "wiki-rag CLI 不支持 --evidence-chars，剩余预算不足，"
+                "未执行 legacy query 回退"
+            )
+            tel.status = "error"
+            tel.warning = res.warning
+            return res
+        cmd = _without_option(cmd, "--evidence-chars")
+        _LEGACY_QUERY_OPTIONS[str(script)] = frozenset({"--evidence-chars"})
+        tel.query_protocol = "legacy"
+        tel.unsupported_options = ("--evidence-chars",)
+        tel.fallback_reason = "legacy_cli_missing_evidence_chars"
+        tel.degraded = True
+        res.command = (
+            f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
+        )
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=remaining,
+                cwd=str(root),
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            res.warning = "wiki-rag legacy query 回退超时"
+            tel.status = "timeout"
+            tel.warning = res.warning
+            return res
+        except Exception:  # pragma: no cover - defensive
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            res.warning = "wiki-rag legacy query 回退调用失败"
+            tel.status = "error"
+            tel.warning = res.warning
+            return res
+        fallback_warnings.append(
+            "wiki-rag CLI 不支持 --evidence-chars，已使用 legacy query 协议"
+        )
 
     if (
         proc.returncode != 0
@@ -519,7 +695,8 @@ def retrieve(
         tel.degraded = True
         res.command = (
             f"rag_index.py query <q> --k {k} --mode bm25"
-            f" --evidence-chars {generation_evidence_chars}{filter_note} --json"
+            f"{evidence_chars_note if '--evidence-chars' in fallback_cmd else ''}"
+            f"{filter_note} --json"
         )
         res.citation_source = (
             f"knowledge-base · rag_index.py query --mode bm25{filter_note}"
@@ -546,18 +723,20 @@ def retrieve(
             tel.status = "error"
             tel.warning = res.warning
             return res
-        fallback_warning = "wiki-rag dense 依赖不可用，已回退 BM25"
+        fallback_warnings.append("wiki-rag dense 依赖不可用，已回退 BM25")
 
     tel.latency_ms = int((time.monotonic() - _t0) * 1000)
     if proc.returncode != 0:
-        if tel.fallback_reason:
+        if tel.fallback_reason == "dense_dependency_missing":
             res.warning = f"wiki-rag dense 依赖不可用，BM25 回退退出码 {proc.returncode}"
+        elif tel.query_protocol == "legacy":
+            res.warning = f"wiki-rag legacy query 回退退出码 {proc.returncode}"
         else:
             res.warning = f"wiki-rag 检索失败（退出码 {proc.returncode}）"
         tel.status = "error"
         tel.warning = res.warning
         return res
-    warnings = [warning for warning in (res.warning, fallback_warning) if warning]
+    warnings = [warning for warning in (res.warning, *fallback_warnings) if warning]
     stderr_warning = re.sub(r"\s+", " ", (proc.stderr or "")).strip()
     if stderr_warning:
         warnings.append("wiki-rag 检索器返回告警")

@@ -3172,6 +3172,16 @@ p {
   margin-bottom: 10px;
 }
 
+.workflow-loaded-status {
+  width: fit-content;
+  margin-bottom: 10px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  color: var(--blue);
+  background: var(--blue-soft);
+  font-size: 10px;
+}
+
 .skill-invocation,
 .template-answer-label,
 .skill-chip {

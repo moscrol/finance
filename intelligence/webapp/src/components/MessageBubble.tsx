@@ -106,6 +106,12 @@ export function MessageBubble({
           invokedSkillIds={invokedSkillIds}
           statuses={statuses}
         />
+        {live?.workflow && (
+          <div className="workflow-loaded-status" role="status">
+            工作流已加载 · {live.workflow.label} ·{" "}
+            {live.workflow.retrievalStages.length} 个阶段
+          </div>
+        )}
         {(live?.answerPhase ?? null) === null &&
           message.degrades.includes("llm_unavailable_template_answer") && (
           <span className="template-answer-label">
