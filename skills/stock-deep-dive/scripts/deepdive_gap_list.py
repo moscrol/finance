@@ -32,7 +32,25 @@ def _frontmatter(text: str) -> dict[str, str]:
     return fields
 
 
-def _scan(dir_path: Path, require_listed: bool) -> list[dict[str, str]]:
+def _hierarchy(graph_path: Path) -> tuple[set[str], set[str]]:
+    parents: set[str] = set()
+    children: set[str] = set()
+    if graph_path.exists():
+        graph = json.loads(graph_path.read_text(encoding="utf-8"))
+        hier = ("is_subconcept_of", "子领域", "细分", "belongs_to", "题材雷达子方向", "子方向", "子工艺")
+        for rel in graph.get("relations", []):
+            rel_type = str(rel.get("type") or "")
+            if rel_type in hier or rel_type.startswith("上位"):
+                children.add(str(rel.get("from") or ""))
+                parents.add(str(rel.get("to") or ""))
+    return parents, children
+
+
+def _scan(
+    dir_path: Path,
+    require_listed: bool,
+    main_filter: tuple[set[str], set[str]] | None = None,
+) -> list[dict[str, str]]:
     rows = []
     for page in sorted(dir_path.glob("*.md")):
         text = page.read_text(encoding="utf-8", errors="replace")
@@ -41,6 +59,13 @@ def _scan(dir_path: Path, require_listed: bool) -> list[dict[str, str]]:
             continue
         if DD_RE.search(text):
             continue
+        if main_filter is not None:
+            parents, children = main_filter
+            name = page.stem
+            n_tickers = len(re.findall(r"\d{6}", fm.get("tickers", "")))
+            is_main = name in parents or (name not in children and n_tickers >= 3)
+            if not is_main:
+                continue
         rows.append(
             {
                 "name": page.stem,
@@ -58,13 +83,22 @@ def main() -> int:
     ap.add_argument("--wiki", default="/Users/a77/knowledge-base-private/wiki")
     ap.add_argument("--out-dir", default="/tmp/deepdive_gaps")
     ap.add_argument("--state", default=None, help="增量模式状态文件；不传则每次全量")
+    ap.add_argument(
+        "--concept-scope",
+        choices=["main", "all"],
+        default="main",
+        help="main=只列主概念（concept_graph 层级边里的父节点，或非子节点且 tickers>=3）；all=全部",
+    )
     args = ap.parse_args()
 
     wiki = Path(args.wiki)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    concepts = _scan(wiki / "concepts", require_listed=False)
+    main_filter = None
+    if args.concept_scope == "main":
+        main_filter = _hierarchy(wiki / "relations" / "concept_graph.json")
+    concepts = _scan(wiki / "concepts", require_listed=False, main_filter=main_filter)
     stocks = _scan(wiki / "entities", require_listed=True)
 
     prev: dict[str, list[str]] = {"concepts": [], "stocks": []}
