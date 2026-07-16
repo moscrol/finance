@@ -34,18 +34,31 @@ worker 对旧版 KB CLI 补齐 content hash、section、evidence text/chunk ids�
 和 freshness，避免性能升级后丢证据血缘。`RAG_WORKER_ENABLED` 默认关闭，必须在 canonical
 部署时显式开启，便于独立回滚。
 
-## AkShare data producer
+## Governed market snapshot provider chain
 
-- AkShare 使用独立固定版本 venv，不进入 `.venv-workbench`。
-- 数据优先级：既有非 AkShare complete > AkShare；partial 不覆盖 complete。
+- provider 顺序：目标日 DuckDB → 目标日 AkShare → 最近完整 DuckDB。
+- DuckDB 使用 Workbench Python 只读查询；AkShare 使用独立固定版本 venv，两者通过
+  临时 JSON snapshot 交接。
+- 数据优先级：既有非本链 complete > 目标日完整事实 > 最近完整事实；partial 永不发布。
 - macOS `requests` 会读取 `scutil` 系统代理，runner 通过 `NO_PROXY=*` 才实现真实直连。
 - spot 顺序为 Eastmoney 快路径 → Sina 70 页慢路径 → partial。
 - complete/partial/failed 退出码分别为 `0/3/1`；readiness 不把 partial 当 ready。
 - LaunchAgent 模板为工作日 16:15，但本分支只提供模板和 runbook，没有安装或启动。
 
-真实网络烟测写入 `/tmp`：Eastmoney spot 直接断连后，Sina 在约 2 分 42 秒完成
-5,528 只股票；同步结果 `quality=complete`，生成 26 个主题和 42 只强势股，snapshot
-contract 返回 `PASS`。
+真实验收保留了正负两类证据：
+
+- 第一次 AkShare-only smoke 中 Eastmoney/Sina 都被远端断开，26 秒返回
+  `quality=partial`；这促使架构从单外部源升级为 provider chain。
+- chain smoke 写入 `/tmp`：目标日 DuckDB 缺失；Eastmoney 断连后，Sina 在 133.8 秒
+  完成目标日全市场行情，最终 `provider=akshare_exact`、26 个主题、42 只强势股，
+  contract 为 `PASS + ready=true`。
+- 故意传入不存在的 AkShare Python 后，真实 canonical DuckDB 在 24ms 内生成
+  2026-07-15 complete snapshot：5524 条个股事实通过门禁，输出 4 个主线题材、80 只
+  强势股，`provider=duckdb_latest`、`freshness=historical`，contract 同样
+  `PASS + ready=true`；requested/served date 分别为 2026-07-16/2026-07-15。
+
+因此公开端点恢复时能补最新日；端点失败时不会让 Workbench 整体失去可用行情，也不会
+把历史日伪装成当天。
 
 ## 自动化验证
 

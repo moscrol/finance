@@ -29,7 +29,7 @@ new_runtime="/Users/a77/.finance-runtime/finance-workspace-$target_short"
 
 test "$old_runtime" = "/Users/a77/.finance-runtime/finance-workspace-bb9754f248bf"
 git -C /Users/a77/finance-workspace-private merge-base --is-ancestor \
-  9687d74bc1d30d48a5db28858265cd622a063031 "$target_sha"
+  b616412 "$target_sha"
 ```
 
 最后一条保证本轮 P0/P0.5/P1/P2 的验收提交已经进入目标 `main`，不能只看分支名。
@@ -58,7 +58,8 @@ test "$(git -C "$new_runtime" rev-parse HEAD)" = "$target_sha"
   `quality=partial`，只有局部涨跌停数据，不能迁入 canonical 数据根；
 - 不以某次历史 smoke 成功代替当前文件检查，也不把 partial 包装成 complete。
 
-新 runtime 建立后先装独立 AkShare venv，再直接写 canonical 数据根并执行 contract：
+新 runtime 建立后先装独立 AkShare venv，再由 provider chain 写 canonical 数据根并
+执行 contract：
 
 ```bash
 FINANCE_WORKSPACE_CODE_ROOT="$new_runtime" \
@@ -67,23 +68,27 @@ FINANCE_WORKSPACE_CODE_ROOT="$new_runtime" \
 FINANCE_WORKSPACE_CODE_ROOT="$new_runtime" \
 FINANCE_WS=/Users/a77/finance-workspace-private \
 AKSHARE_PROXY_MODE=direct \
-  "$new_runtime/scripts/run_akshare_snapshot.sh" --date 2026-07-16
+  "$new_runtime/scripts/run_market_snapshot.sh" --date 2026-07-16
 
 snapshot_check="$(
   cd "$new_runtime" && PYTHONPATH="$new_runtime" python3 \
     -m scripts.check_market_snapshot_contract \
-    --root /Users/a77/finance-workspace-private/market_snapshot \
-    --date 2026-07-16
+    --root /Users/a77/finance-workspace-private/market_snapshot
 )"
 printf '%s\n' "$snapshot_check" | python3 -m json.tool
 printf '%s\n' "$snapshot_check" | jq -e \
-  '.status == "PASS" and .ready == true and .date == "2026-07-16"'
+  '.status == "PASS" and .ready == true and
+   .summary.quality == "complete" and
+   (.summary.provider == "akshare_exact" or
+    .summary.provider == "duckdb_exact" or
+    .summary.provider == "duckdb_latest")'
 ```
 
-同步器会先走 Eastmoney 快路径，失败后用 Sina 分页兜底，通常需要 2–3 分钟。若
-进程返回 `3` 或 contract 不是 `PASS + ready=true`，停止发布并保留当前 canonical
-文件；不要继续切 8792。已有非 AkShare complete 快照时，同步器会保留优先级更高
-的数据而不覆盖。
+目标日 DuckDB 未落地时，同步器会走 Eastmoney 快路径，失败后用 Sina 分页兜底，
+通常需要 2–3 分钟。若 AkShare partial/failed，编排器不会发布它，而会尝试最近完整
+DuckDB 日。最终进程非零或 contract 不是 `PASS + ready=true` 时停止发布，不继续切
+8792。若 provider 是 `duckdb_latest`，必须在验收记录中保留 requested/served 日期，
+不得把 historical 说成当天行情。
 
 ## 4. 切换服务
 
