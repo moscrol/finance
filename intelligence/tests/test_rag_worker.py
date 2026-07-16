@@ -15,10 +15,19 @@ from intelligence.services import rag_worker
 def _write_fake_rag(root: Path) -> None:
     script = root / "scripts" / "rag_index.py"
     script.parent.mkdir(parents=True)
+    (script.parent / "rag_freshness.py").write_text(
+        'IMPORT_CONTEXT = "knowledge-base-scripts"\n',
+        encoding="utf-8",
+    )
     script.write_text(
         """
 import json
 import time
+
+try:
+    from scripts.rag_freshness import IMPORT_CONTEXT
+except ImportError:
+    from rag_freshness import IMPORT_CONTEXT
 
 def _load_retriever(model, need_dense, reranker_name=None):
     return object()
@@ -29,7 +38,7 @@ def main(argv=None):
     _load_retriever("hash", True, None)
     if query == "slow":
         time.sleep(0.2)
-    print(json.dumps([{"query": query}], ensure_ascii=False))
+    print(json.dumps([{"query": query, "import_context": IMPORT_CONTEXT}], ensure_ascii=False))
     return 0
 """.strip()
         + "\n",
@@ -53,6 +62,7 @@ def test_worker_reuses_loaded_retriever(tmp_path: Path) -> None:
     assert first.model_load_count == 1
     assert second.model_load_count == 1
     assert '"query": "second"' in second.stdout
+    assert '"import_context": "knowledge-base-scripts"' in second.stdout
 
 
 def test_timeout_terminates_worker_and_next_query_restarts(tmp_path: Path) -> None:
