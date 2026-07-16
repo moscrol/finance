@@ -54,6 +54,9 @@ ResearchOperator = Literal[
     "counterevidence",
     "money_flow",
     "comparison",
+    "relation",
+    "company_mapping",
+    "market_change",
 ]
 
 THEME_CONFIG_PATH = (
@@ -208,6 +211,9 @@ _COMPOSITIONAL_SUBJECT_BOUNDARIES = (
 _COUNTEREVIDENCE_RE = re.compile(r"(反证|证伪|降级条件|证伪条件|升级、降级)")
 _MONEY_FLOW_RE = re.compile(r"(资金流|主买|净流入|大单)")
 _COMPARISON_RE = re.compile(r"(比较|对比|相比|赔率排序)")
+_RELATION_RE = re.compile(r"(上游|下游|供应|客户|产业链位置|处于.{0,8}环节|关系)")
+_COMPANY_MAPPING_RE = re.compile(r"(有哪些公司|哪些公司|受益公司|公司映射|核心公司)")
+_MARKET_CHANGE_RE = re.compile(r"(边际变化|最近变化|近期变化|预期差变化)")
 
 
 @dataclass(frozen=True)
@@ -388,6 +394,12 @@ def _research_operators(query: str) -> tuple[ResearchOperator, ...]:
         operators.append("money_flow")
     if _COMPARISON_RE.search(query):
         operators.append("comparison")
+    if _RELATION_RE.search(query):
+        operators.append("relation")
+    if _COMPANY_MAPPING_RE.search(query):
+        operators.append("company_mapping")
+    if _MARKET_CHANGE_RE.search(query):
+        operators.append("market_change")
     return tuple(operators)
 
 
@@ -400,6 +412,9 @@ def _required_outputs(
         "counterevidence": "falsification_conditions",
         "money_flow": "money_flow",
         "comparison": "comparison",
+        "relation": "relation_map",
+        "company_mapping": "company_mapping",
+        "market_change": "market_change",
     }
     return tuple(output_by_operator[operator] for operator in operators)
 

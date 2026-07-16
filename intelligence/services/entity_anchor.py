@@ -32,7 +32,7 @@ from intelligence.adapters.knowledge import KnowledgeAdapter
 MAX_ANCHOR_CONCEPTS = 4
 MIN_NAME_LEN = 2
 
-_CODE_RE = re.compile(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", re.I)
+_CODE_RE = re.compile(r"(?<!\d)(\d{6})(?:\.(SH|SZ|BJ))?(?!\d)", re.I)
 
 
 @dataclass(frozen=True)
@@ -130,6 +130,22 @@ def _clear_entity_lexicon_cache() -> None:
     """测试辅助：生产代码通过文件指纹自动刷新，无需主动清理。"""
     with _LEXICON_LOCK:
         _LEXICON_CACHE.clear()
+
+
+def entity_concept_names(knowledge: KnowledgeAdapter) -> tuple[str, ...]:
+    """返回实体暴露里登记过的概念名，供确定性主题词典复用。"""
+    return tuple(
+        sorted(
+            {
+                concept
+                for record in _cached_entity_records(knowledge)
+                for concept in record.concepts
+                if len(concept.strip()) >= MIN_NAME_LEN
+            },
+            key=len,
+            reverse=True,
+        )
+    )
 
 
 def resolve_entity_anchor(query: str, knowledge: KnowledgeAdapter) -> EntityAnchor | None:
