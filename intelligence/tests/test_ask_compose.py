@@ -121,6 +121,18 @@ class SynthesizeTests(unittest.TestCase):
         self.assertIn("历史经验卡片", msgs[1]["content"])
         self.assertIn("回答板块空间问题", msgs[1]["content"])
 
+    def test_synthesis_prompt_requires_bounded_claim_selection(self) -> None:
+        msgs = llm_refine.build_synthesis_messages(
+            "中际旭创怎么看",
+            "光模块",
+            "## AnswerSpec registry\n- 53 条候选 claim",
+        )
+
+        self.assertIn("只选择 6-10 条", msgs[0]["content"])
+        self.assertIn("正文绝对不得超过 12 行", msgs[0]["content"])
+        self.assertIn("禁止遍历 registry", msgs[0]["content"])
+        self.assertIn("正文硬上限 12 个带 marker 的行", msgs[1]["content"])
+
     def test_synthesis_prompt_includes_exemplar_guidance(self) -> None:
         msgs = llm_refine.build_synthesis_messages(
             "深挖汇成股份",

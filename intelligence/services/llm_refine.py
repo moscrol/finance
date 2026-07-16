@@ -494,6 +494,9 @@ _SYNTHESIS_SYSTEM_PROMPT = (
     "公司、数字、日期、比例或金额，一律不得写入正文，宁可改成定性表达。"
     "每个正文段落或列表项必须单行输出，并在行末追加 AnswerSpec 给出的结构化 claim marker；"
     "claim_id、EvidenceAtom ID 和 claim_type 必须逐字使用 registry 中的合法值。"
+    "只选择 6-10 条最能直接回答用户问题的 claim；除 Markdown 标题外，正文绝对不得超过 12 行，"
+    "每行只绑定一个 claim marker。禁止遍历 registry、逐条覆盖全部 claim 或按模块罗列素材；"
+    "未被选中的 claim 留在证据层即可，不代表遗漏。"
     "事实行至少绑定一个 EvidenceAtom；推断和预期必须分别标为 inference、expectation。"
     "不得输出 registry 外的 claim，不得省略 marker；marker 是机器门禁，最终展示层会移除。"
     "除 Markdown 标题外，禁止输出任何没有 marker 的导语、过渡句、解释、来源说明或免责声明；"
@@ -565,7 +568,8 @@ def _build_synthesis_prompt(
         f"以下是已检索到的多源证据（你的回答只能据此展开）：\n"
         f"{evidence_text}{legend}{quality_block}{experience_block}{exemplar_block}\n\n"
         "请据此有机融合成一段分析师口吻的回答。默认控制在 1200–1800 个中文字符；"
-        "最多 8 个短段落；不得重复来源说明、风险和验证步骤。"
+        "只选 6-10 条最关键 claim，正文硬上限 12 个带 marker 的行；不得遍历 registry 或模块，"
+        "不得重复来源说明、风险和验证步骤。"
     )
 
 
