@@ -42,6 +42,12 @@ _STRUCTURAL_STAGES = frozenset(
     }
 )
 
+# BGE-m3 is prewarmed at API startup, but the first real owner query still has to
+# populate query-specific retrieval caches.  Production replay measured that path
+# at about 28 seconds, so keep a bounded margin below the 120-second research
+# deadline instead of treating a healthy first query as a 20-second timeout.
+_OWNER_INITIAL_STAGE_TIMEOUT_SECONDS = 40
+
 
 @dataclass(frozen=True)
 class ResearchOwnerConfig:
@@ -52,7 +58,7 @@ class ResearchOwnerConfig:
     output_contract: tuple[str, ...]
     presentation_kind: str
     evidence_prefixes: tuple[str, ...]
-    wiki_rag_timeout: int = 20
+    wiki_rag_timeout: int = _OWNER_INITIAL_STAGE_TIMEOUT_SECONDS
     module_timeout: int = 20
     use_modules: bool = True
 
