@@ -192,6 +192,46 @@ def test_financial_context_dependent_followups_inherit_research_gate(
     )
 
 
+@pytest.mark.parametrize(
+    ("query", "operator"),
+    (
+        ("这个逻辑呢", None),
+        ("这个方向怎么看", None),
+        ("这条链有哪些公司", "company_mapping"),
+        ("边际变化呢", "market_change"),
+    ),
+)
+def test_new_contextual_references_inherit_governed_owner(
+    query: str,
+    operator: str | None,
+) -> None:
+    previous = TurnIntent(
+        primary_subject="中际旭创",
+        secondary_topics=("光模块",),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+        evidence_atom_ids=("atom-1",),
+    )
+
+    decision = decide_turn(
+        query,
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.subject == "中际旭创"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner == "stock-deep-dive"
+    assert decision.turn_intent.inherited_from_turn == "msg-previous"
+    assert decision.turn_intent.evidence_atom_ids == ("atom-1",)
+    if operator is not None:
+        assert operator in decision.turn_intent.operators
+
+
 def test_non_owner_skill_followup_cannot_fall_back_to_general_chat() -> None:
     previous = TurnIntent(
         primary_subject="今日复盘",

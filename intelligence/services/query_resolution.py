@@ -31,7 +31,7 @@ ReferenceKind = Literal[
     "continuation",
 ]
 
-_CHAIN_REFERENCE_RE = re.compile(r"(?:这|那|该|上述|前述)?(?:条)?(?:产业)?链")
+_CHAIN_REFERENCE_RE = re.compile(r"(?:这|那|该|上述|前述)(?:条)?(?:产业)?链")
 _LOGIC_REFERENCE_RE = re.compile(r"(?:这|那|该|上述|前述)(?:个)?逻辑")
 _DIRECTION_REFERENCE_RE = re.compile(r"(?:这|那|该|上述|前述)(?:个)?方向")
 _MARKET_CHANGE_REFERENCE_RE = re.compile(
