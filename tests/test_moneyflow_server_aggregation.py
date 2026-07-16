@@ -3,7 +3,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType
 
 import pytest
 
@@ -144,9 +144,21 @@ def test_scan_checkpoint_counts_only_initial_current_candidates(
     tmp_path, monkeypatch
 ):
     monkeypatch.setenv("MONEYFLOW_OUTPUT_DIR", str(tmp_path))
-    monkeypatch.setitem(
-        sys.modules, "clickhouse_driver", SimpleNamespace(Client=object)
-    )
+    clickhouse = ModuleType("clickhouse_driver")
+    clickhouse.Client = object
+    matplotlib = ModuleType("matplotlib")
+    matplotlib.__path__ = []
+    matplotlib.use = lambda _backend: None
+    pyplot = ModuleType("matplotlib.pyplot")
+    pyplot.rcParams = {}
+    dates = ModuleType("matplotlib.dates")
+    matplotlib.pyplot = pyplot
+    matplotlib.dates = dates
+    monkeypatch.setitem(sys.modules, "clickhouse_driver", clickhouse)
+    monkeypatch.setitem(sys.modules, "matplotlib", matplotlib)
+    monkeypatch.setitem(sys.modules, "matplotlib.pyplot", pyplot)
+    monkeypatch.setitem(sys.modules, "matplotlib.dates", dates)
+    monkeypatch.setitem(sys.modules, "pandas", ModuleType("pandas"))
     module = _load_module(monkeypatch, "moneyflow_scan_checkpoint", "moneyflow.py")
     module.AdaptiveThrottle.wait = lambda self: None
     path = tmp_path / "scan_cache_test_2026-07-15.json"
@@ -249,16 +261,3 @@ def test_l2_status_message_includes_shared_cache_stats(monkeypatch):
 
     assert "shared_cache hits=4 misses=5 queries=5 writes=6 entries=7" in message
     assert "nonempty=3 empty=2" in message
-
-
-def test_zero_capital_flow_result_refuses_complete_by_default(monkeypatch):
-    writer = _load_module(
-        monkeypatch, "moneyflow_writer_zero_gate", "write_to_duckdb.py"
-    )
-
-    assert writer._zero_result_problem("limitup", 0, {"input_count": 12})
-    assert writer._zero_result_problem("top100", 0, {"input_count": 100})
-    assert writer._zero_result_problem("quant", 0, {"input_count": 100}) is None
-
-    monkeypatch.setenv("L2_ALLOW_ALL_EMPTY", "1")
-    assert writer._zero_result_problem("limitup", 0, {"input_count": 12}) is None

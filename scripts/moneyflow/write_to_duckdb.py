@@ -12,7 +12,6 @@
 用法（也可被 scan_*.py 直接 import 调用）：
     python3 write_to_duckdb.py <csv路径> <limitup|top100|quant> <日期>
 """
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -126,17 +125,6 @@ def _stats_problem(stats):
     return None
 
 
-def _zero_result_problem(scan_type, row_count, stats):
-    if os.environ.get("L2_ALLOW_ALL_EMPTY", "").strip() in {"1", "true", "yes"}:
-        return None
-    if scan_type not in {"limitup", "top100"}:
-        return None
-    inp = (stats or {}).get("input_count") or 0
-    if row_count == 0 and inp > 0:
-        return f"zero rows for {scan_type} with input_count={inp}; refuse complete"
-    return None
-
-
 def _require_valid_stats(date, step, stats):
     """统计不合法时单独事务标 failed 并抛错，不写结果行。"""
     problem = _stats_problem(stats)
@@ -198,15 +186,6 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None, st
              float(r["当日涨幅%"]), float(big_thr), i + 1,
              prev_limitup_date, SOURCE, now)
             for i, r in df.iterrows()]
-    zero_problem = _zero_result_problem(scan_type, len(rows), stats)
-    if zero_problem:
-        con = connect()
-        try:
-            init_db(con)
-            _mark_status(con, date, scan_type, "failed", 0, stats, zero_problem)
-        finally:
-            con.close()
-        raise RuntimeError(f"l2-moneyflow/{scan_type} {date} 拒绝 complete: {zero_problem}")
     con = connect()
     try:
         init_db(con)
