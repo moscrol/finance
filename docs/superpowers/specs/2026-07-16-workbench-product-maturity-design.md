@@ -317,6 +317,9 @@ reviewed_by / reviewed_at
 
 - 可终止执行边界、取消 telemetry、snapshot quality contract/readiness。
 - 交付：故障注入报告，证明 timeout 后没有后台工作；partial 不再误报 ready。
+- 当前进度：结构化 stage 收束与 snapshot readiness 已完成本地验收；任意 Python
+  函数的进程级硬终止不在本批伪实现，外部检索的硬边界随 Phase C worker 落地。
+  验证记录见 `docs/verification/workbench-runtime-readiness-p05-2026-07-16.md`。
 
 ### Phase C：P1 Retrieval and Data Producer
 
