@@ -8,7 +8,10 @@ from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
 from intelligence.services.query_resolution import QueryResolver
-from intelligence.services.query_understanding import QueryEnvelope
+from intelligence.services.query_understanding import (
+    QueryEnvelope,
+    is_dated_market_review,
+)
 from intelligence.services.research_contract import (
     TurnIntent,
     build_turn_intent,
@@ -177,6 +180,15 @@ def _deterministic_decision(
                 "你想看 A 股、美股，还是全球市场？",
                 "要看收盘表现、盘中行情，还是市场结构与主线？",
             ),
+        )
+    if is_dated_market_review(cleaned, envelope):
+        return _decision(
+            "workflow",
+            envelope=envelope,
+            needs_memory=True,
+            confidence=0.98,
+            reason="明确请求指定日期的 A 股行情复盘",
+            capabilities=("memory", "market_quote", "graph"),
         )
     if _WORKFLOW_PATTERN.search(cleaned):
         return _decision(

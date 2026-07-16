@@ -68,6 +68,16 @@ _DATE_RE = re.compile(
     r"|[-/.]\d{1,2}(?:[-/.]\d{1,2}日?)?"
     r")(?!\d)"
 )
+_DATED_MARKET_REVIEW_RE = re.compile(
+    r"(?:20\d{2}(?:年\d{1,2}月\d{1,2}日?|"
+    r"[-/.]\d{1,2}[-/.]\d{1,2}))"
+    r".{0,24}(?:行情|盘面|市场).{0,12}(?:总结|复盘|回顾|梳理)"
+    r"|(?:总结|复盘|回顾|梳理).{0,24}"
+    r"(?:20\d{2}(?:年\d{1,2}月\d{1,2}日?|"
+    r"[-/.]\d{1,2}[-/.]\d{1,2}))"
+    r".{0,12}(?:行情|盘面|市场)",
+    re.IGNORECASE,
+)
 _QUOTED_RE = re.compile(r"[“《\"]([^”》\"]{2,40})[”》\"]")
 _TICKER_RE = re.compile(
     r"(?<![A-Za-z0-9])\d{6}(?:\.(?:SH|SZ|BJ))?(?![A-Za-z0-9])",
@@ -235,6 +245,14 @@ class QueryEnvelope:
         payload["operators"] = list(self.operators)
         payload["required_outputs"] = list(self.required_outputs)
         return payload
+
+
+def is_dated_market_review(query: str, envelope: QueryEnvelope) -> bool:
+    return (
+        envelope.question_type != "external_market"
+        and envelope.timeframe is not None
+        and _DATED_MARKET_REVIEW_RE.search(query) is not None
+    )
 
 
 @lru_cache(maxsize=1)

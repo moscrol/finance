@@ -26,6 +26,7 @@ from intelligence.services.ask import (
     prepare_existing_answer,
     render_conversation_answer,
     synthesize_prepared_answer,
+    synthesize_shadow_grounded_answer,
 )
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.answer_orchestrator import (
@@ -1592,6 +1593,38 @@ class TurnOrchestrator:
             elif not text_chunks or text_chunks[-1] != answer_text:
                 emit_text_delta(answer_text)
 
+            if (
+                prepared.options.shadow_grounded_composer
+                and result.answer_spec is not None
+            ):
+                try:
+                    synthesize_shadow_grounded_answer(
+                        PreparedAnswer(
+                            options=prepared.options,
+                            result=result,
+                        )
+                    )
+                except Exception as exc:
+                    result.grounded_composer_shadow = (
+                        answer_model.GroundedComposerShadow(
+                            status="internal_error",
+                            failure_reason=type(exc).__name__,
+                        )
+                    )
+                shadow = result.grounded_composer_shadow
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "shadow_synthesize",
+                    "grounded_composer_shadow",
+                    (
+                        shadow.to_dict()
+                        if shadow is not None
+                        else {"status": "not_run"}
+                    ),
+                )
+
             complete_report(
                 report,
                 as_of=result.trade_date,
@@ -1637,6 +1670,57 @@ class TurnOrchestrator:
                     renderer="json",
                     title="猜你想问",
                 )
+            if result.grounded_composer_shadow is not None:
+                shadow_payload = (
+                    result.grounded_composer_shadow.to_dict()
+                )
+                if (
+                    result.grounded_composer_shadow.decision_brief
+                    is not None
+                ):
+                    shadow_brief = (
+                        result.grounded_composer_shadow.decision_brief
+                    )
+                    decision_brief_payload = shadow_brief.to_dict()
+                    self.run_store.add_artifact(
+                        run_id,
+                        "decision_brief.json",
+                        redact(
+                            json.dumps(
+                                decision_brief_payload,
+                                ensure_ascii=False,
+                                indent=2,
+                            )
+                        ),
+                        renderer="json",
+                        title="影子论证计划",
+                    )
+                self.run_store.add_artifact(
+                    run_id,
+                    "grounded_composer_shadow.json",
+                    redact(
+                        json.dumps(
+                            shadow_payload,
+                            ensure_ascii=False,
+                            indent=2,
+                        )
+                    ),
+                    renderer="json",
+                    title="Grounded Composer 影子实验",
+                )
+                if (
+                    result.grounded_composer_shadow.presented_answer
+                    is not None
+                ):
+                    self.run_store.add_artifact(
+                        run_id,
+                        "grounded_composer_shadow.md",
+                        redact(
+                            result.grounded_composer_shadow.presented_answer
+                        ),
+                        renderer="markdown",
+                        title="Grounded Composer 影子答案",
+                    )
             self.run_store.add_artifact(
                 run_id,
                 "report.json",

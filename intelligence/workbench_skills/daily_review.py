@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from datetime import date
 from typing import cast
 
 from intelligence.api.structured_reports import daily_projection_modules
@@ -18,9 +20,13 @@ class DailyReviewSkill:
     skill_id = "daily-review"
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
+        requested_date = _requested_date(context.query)
         try:
             date_text, projected_modules, projected_warnings = (
-                daily_projection_modules(context.repo_root)
+                daily_projection_modules(
+                    context.repo_root,
+                    requested_date=requested_date,
+                )
             )
         except (OSError, UnicodeError, ValueError):
             return SkillOutput(
@@ -88,9 +94,33 @@ class DailyReviewSkill:
                 citations=citations,
                 warnings=warnings,
                 as_of=date_text,
-                retrieval_plan=("读取最新 canonical 正式日报",),
+                retrieval_plan=(
+                    (
+                        f"读取 {requested_date} 的 canonical 正式日报"
+                        if requested_date
+                        else "读取最新 canonical 正式日报"
+                    ),
+                ),
                 output_contract=(
                     "直接给出市场状态、最强数据、主要风险和下一交易日验证点",
                 ),
             ),
         )
+
+
+def _requested_date(query: str) -> str | None:
+    match = re.search(
+        r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})"
+        r"(?:(?:月|[-/.])(\d{1,2})日?)?(?!\d)",
+        query,
+    )
+    if match is None or match.group(3) is None:
+        return None
+    try:
+        return date(
+            int(match.group(1)),
+            int(match.group(2)),
+            int(match.group(3)),
+        ).isoformat()
+    except ValueError:
+        return None

@@ -217,12 +217,26 @@ def upsert_report_module(
 
 def daily_projection_modules(
     repo_root: Path,
+    requested_date: str | None = None,
 ) -> tuple[str | None, list[dict[str, Any]], list[str]]:
     exports = repo_root / "market_feature_store" / "exports"
-    candidates = sorted(exports.glob("*-daily-review.md"), reverse=True)
-    if not candidates:
+    if requested_date:
+        if re.fullmatch(r"20\d{2}-\d{2}-\d{2}", requested_date) is None:
+            return None, [], ["指定的复盘日期格式无效。"]
+        source_path = exports / f"{requested_date}-daily-review.md"
+        if not source_path.exists():
+            return (
+                None,
+                [],
+                [f"未找到 {requested_date} 的本地复盘报告；日报基础模块缺失。"],
+            )
+    else:
+        candidates = sorted(exports.glob("*-daily-review.md"), reverse=True)
+        if not candidates:
+            return None, [], ["未找到本地复盘报告；日报基础模块缺失。"]
+        source_path = candidates[0]
+    if not source_path.is_file():
         return None, [], ["未找到本地复盘报告；日报基础模块缺失。"]
-    source_path = candidates[0]
     date_text = source_path.name.removesuffix("-daily-review.md")
     projection = project_daily_review_markdown(
         source_path.read_text(encoding="utf-8"),
