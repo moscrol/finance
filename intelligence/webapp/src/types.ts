@@ -54,6 +54,8 @@ export interface TraceStep {
 export interface Followup {
   type: string;
   question: string;
+  label?: string;
+  full_prompt?: string;
   rationale?: string;
   source?: string;
 }

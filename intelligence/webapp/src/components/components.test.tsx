@@ -258,6 +258,8 @@ const bundle: RunBundle = {
     {
       type: "evidence",
       question: "哪些证据最容易证伪？",
+      label: "查看最强反证",
+      full_prompt: "请列出哪些证据最容易证伪，并给出核验来源？",
       rationale: "检查反证",
     },
   ],
@@ -437,8 +439,10 @@ describe("Workbench components", () => {
 
     await user.click(screen.getByText("运行详情"));
     expect(screen.getByText(/本轮存在限制/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /哪些证据最容易证伪/ }));
-    expect(onFollowup).toHaveBeenCalledWith("哪些证据最容易证伪？");
+    await user.click(screen.getByRole("button", { name: "查看最强反证" }));
+    expect(onFollowup).toHaveBeenCalledWith(
+      "请列出哪些证据最容易证伪，并给出核验来源？",
+    );
   });
 
   it("translates internal failures and stages into user-facing language", () => {
