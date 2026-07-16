@@ -68,6 +68,15 @@ class OutputReviewTests(unittest.TestCase):
         gate = _gate(WEAK_CHAIN, conclusion_lines=["按预期交易档对待，待 L3 确认"])
         self.assertEqual(gate.checks[5].status, PASS)
 
+    def test_bounded_certainty_context_does_not_trigger_overclaim(self) -> None:
+        gate = _gate(
+            WEAK_CHAIN,
+            conclusion_lines=[
+                "结论由确定性结构化规则生成；持续性仍不确定，无法确定直接受益。"
+            ],
+        )
+        self.assertEqual(gate.checks[5].status, PASS)
+
     def test_final_answer_is_checked_instead_of_template_conclusion(self) -> None:
         gate = _gate(
             WEAK_CHAIN,

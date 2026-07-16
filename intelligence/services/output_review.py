@@ -131,12 +131,25 @@ def _check_verifiable(follow_ups: list[str] | None) -> ReviewCheck:
 
 
 _HARD_CLAIM_TERMS = ("确定", "必然", "已证实", "板上钉钉", "毫无疑问")
+_BOUNDED_CERTAINTY_TERMS = (
+    "无法确定",
+    "尚未确定",
+    "不能确定",
+    "难以确定",
+    "不确定",
+    "未确定",
+    "待确定",
+    "确定性",
+)
 
 
 def _check_overclaim(audit: EvidenceAudit | None, conclusion_lines: list[str] | None) -> ReviewCheck:
     name = CHECK_ORDER[5]
     text = "\n".join(str(x or "") for x in (conclusion_lines or []))
-    hard_words = [t for t in _HARD_CLAIM_TERMS if t in text]
+    claim_text = text
+    for term in _BOUNDED_CERTAINTY_TERMS:
+        claim_text = claim_text.replace(term, "")
+    hard_words = [t for t in _HARD_CLAIM_TERMS if t in claim_text]
     no_l3 = audit is not None and not audit.has_l3
     if no_l3 and hard_words:
         return ReviewCheck(name, WARN, f"无 L3 硬证据却出现确定性措辞：{'、'.join(hard_words)}")

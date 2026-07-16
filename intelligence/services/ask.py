@@ -1682,7 +1682,7 @@ def answer_query(options: AskOptions) -> AskResult:
         + f"：{stance}。",
         f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
         route_line,
-        "结论与交易含义为确定性结构化结果；证据不足处已标为待验证。",
+        "结论与交易含义由结构化规则生成；证据不足处已标为待验证。",
         _conclusion_ttl_line(result.trade_date),
     ]
     conclusion = [*framing.get("conclusion", []), *conclusion]

@@ -279,6 +279,40 @@ Expected: all tests PASS.
 
 Commit: `feat: gate Workbench startup on warm RAG worker`
 
+### Task 4.5: 修复弱证据硬写的限定语境误报
+
+**Files:**
+- Modify: `intelligence/services/output_review.py:133-145`
+- Modify: `intelligence/services/ask.py:1675-1690`
+- Test: `intelligence/tests/test_output_review.py`
+
+- [ ] **Step 1: 增加“确定性/不确定/无法确定”不误报测试，同时保留真硬写测试**
+
+```python
+def test_bounded_certainty_context_does_not_trigger_overclaim():
+    gate = _gate(
+        WEAK_CHAIN,
+        conclusion_lines=["结构化规则生成；持续性仍不确定，无法确定直接受益"],
+    )
+    assert gate.checks[5].status == PASS
+```
+
+- [ ] **Step 2: 先验证测试失败，再清洗限定语境后匹配硬词**
+
+Run: `pytest -q intelligence/tests/test_output_review.py`
+Expected before fix: bounded certainty test FAIL，现有“确定受益”测试仍 PASS。
+
+- [ ] **Step 3: 去掉用户输出中的内部工程术语**
+
+把“结论与交易含义为确定性结构化结果”改成“结论与交易含义由结构化规则生成”。
+
+- [ ] **Step 4: 运行 output review、ask compose 和 owner tests**
+
+Run: `pytest -q intelligence/tests/test_output_review.py intelligence/tests/test_ask_compose.py intelligence/tests/test_workbench_research_owner_skills.py`
+Expected: all tests PASS，真硬写仍被拦截。
+
+Commit: `fix: avoid bounded certainty overclaim false positives`
+
 ### Task 5: 真实模型、CI 与部署验收
 
 **Files:**
