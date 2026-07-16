@@ -1709,7 +1709,9 @@ class TurnOrchestrator:
                     title="Grounded Composer 影子实验",
                 )
                 if (
-                    result.grounded_composer_shadow.presented_answer
+                    result.grounded_composer_shadow.status
+                    in {"accepted", "repaired"}
+                    and result.grounded_composer_shadow.presented_answer
                     is not None
                 ):
                     self.run_store.add_artifact(

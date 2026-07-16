@@ -376,3 +376,66 @@ def test_theme_alias_config_rejects_malformed_collection_types(
             assert query_understanding._theme_aliases() == ()
     finally:
         query_understanding._theme_aliases.cache_clear()
+
+
+def test_market_review_requested_date_resolves_full_dates() -> None:
+    from datetime import date
+
+    assert query_understanding.market_review_requested_date(
+        "总结一下 2026-07-16 的行情",
+        today=date(2026, 7, 16),
+    ) == "2026-07-16"
+    assert query_understanding.market_review_requested_date(
+        "复盘 2026年7月16日 的A股市场",
+        today=date(2026, 7, 16),
+    ) == "2026-07-16"
+    assert query_understanding.market_review_requested_date(
+        "总结 2026-02-30 的行情",
+        today=date(2026, 7, 16),
+    ) is None
+
+
+def test_market_review_requested_date_normalizes_yearless_dates() -> None:
+    from datetime import date
+
+    assert query_understanding.market_review_requested_date(
+        "总结一下7.16的行情",
+        today=date(2026, 7, 16),
+    ) == "2026-07-16"
+    assert query_understanding.market_review_requested_date(
+        "复盘7月16日的盘面",
+        today=date(2026, 7, 16),
+    ) == "2026-07-16"
+    assert query_understanding.market_review_requested_date(
+        "总结一下12.24的行情",
+        today=date(2026, 7, 16),
+    ) == "2025-12-24"
+    assert query_understanding.market_review_requested_date(
+        "总结一下最近3.5个月的行情",
+        today=date(2026, 7, 16),
+    ) is None
+    assert query_understanding.market_review_requested_date(
+        "总结一下涨幅7.16%的板块",
+        today=date(2026, 7, 16),
+    ) is None
+    assert query_understanding.market_review_requested_date(
+        "总结一下13.40的行情",
+        today=date(2026, 7, 16),
+    ) is None
+
+
+def test_yearless_dated_market_review_is_recognized() -> None:
+    envelope = understand_query("总结一下7.16的行情")
+
+    assert query_understanding.is_dated_market_review(
+        "总结一下7.16的行情",
+        envelope,
+    )
+    assert query_understanding.is_dated_market_review(
+        "复盘7月16日的A股行情",
+        understand_query("复盘7月16日的A股行情"),
+    )
+    assert not query_understanding.is_dated_market_review(
+        "总结一下7.16的美股行情",
+        understand_query("总结一下7.16的美股行情"),
+    )

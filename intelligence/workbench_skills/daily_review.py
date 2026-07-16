@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-import re
-from datetime import date
 from typing import cast
 
 from intelligence.api.structured_reports import daily_projection_modules
+from intelligence.services.query_understanding import (
+    market_review_requested_date,
+)
 from intelligence.workbench_skills.contracts import (
     JsonObject,
     JsonValue,
@@ -20,7 +21,7 @@ class DailyReviewSkill:
     skill_id = "daily-review"
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
-        requested_date = _requested_date(context.query)
+        requested_date = market_review_requested_date(context.query)
         try:
             date_text, projected_modules, projected_warnings = (
                 daily_projection_modules(
@@ -107,20 +108,3 @@ class DailyReviewSkill:
             ),
         )
 
-
-def _requested_date(query: str) -> str | None:
-    match = re.search(
-        r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})"
-        r"(?:(?:月|[-/.])(\d{1,2})日?)?(?!\d)",
-        query,
-    )
-    if match is None or match.group(3) is None:
-        return None
-    try:
-        return date(
-            int(match.group(1)),
-            int(match.group(2)),
-            int(match.group(3)),
-        ).isoformat()
-    except ValueError:
-        return None

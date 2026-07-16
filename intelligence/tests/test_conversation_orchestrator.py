@@ -876,6 +876,96 @@ def test_shadow_composer_writes_separate_artifacts_without_changing_answer(
     ) == "影子答案"
 
 
+def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "总结行情",
+    )
+    contract = build_module_answer_contract(
+        skill_id="fixture",
+        title="可核验回答",
+        modules=[
+            {
+                "module_id": "direct_assessment",
+                "title": "直接定性",
+                "summary": "生产答案保持不变。",
+                "items": [],
+            }
+        ],
+        citations=[
+            {
+                "source": "fixture.json",
+                "title": "正式资料",
+                "evidence_layer": "canonical",
+                "as_of": "2026-07-16",
+            }
+        ],
+        warnings=[],
+        as_of="2026-07-16",
+        retrieval_plan=("读取正式资料",),
+        output_contract=("输出可核验结论",),
+    )
+    assert contract is not None
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        result = _ask_result(options.query)
+        result.answer_spec = contract.answer_spec
+        return result
+
+    def shadow_spy(prepared) -> AskResult:
+        prepared.result.grounded_composer_shadow = (
+            answer_model.GroundedComposerShadow(
+                status="judge_unavailable",
+                raw_answer="影子原文",
+                presented_answer="不应落盘的影子答案",
+                provider="fixture",
+                model="fixture-model",
+                failure_reason="timeout",
+                elapsed_ms=1,
+            )
+        )
+        return prepared.result
+
+    monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
+    monkeypatch.setattr(
+        "intelligence.services.conversation_orchestrator."
+        "synthesize_shadow_grounded_answer",
+        shadow_spy,
+    )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="总结行情",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    run_dir = run_store.run_dir(run_id)
+    assert "生产答案保持不变" in result.content
+    assert (run_dir / "grounded_composer_shadow.json").is_file()
+    assert not (run_dir / "grounded_composer_shadow.md").exists()
+
+
 def test_market_question_automatically_selects_daily_review() -> None:
     registry = builtin_skill_registry()
 

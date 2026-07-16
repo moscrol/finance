@@ -3498,11 +3498,6 @@ def synthesize_shadow_grounded_answer(
                 repaired_answer=(
                     candidate_answer if repaired else None
                 ),
-                presented_answer=(
-                    answer_model.present_grounded_composer_answer(
-                        candidate_answer
-                    )
-                ),
                 deterministic_issues=deterministic_issues,
                 provider=composed.provider,
                 model=composed.model,

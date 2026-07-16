@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -68,15 +69,24 @@ _DATE_RE = re.compile(
     r"|[-/.]\d{1,2}(?:[-/.]\d{1,2}日?)?"
     r")(?!\d)"
 )
+_REVIEW_DATE_RE = (
+    r"(?:20\d{2}(?:年\d{1,2}月\d{1,2}日?|"
+    r"[-/.]\d{1,2}[-/.]\d{1,2})"
+    r"|\d{1,2}(?:月\d{1,2}日?|[./]\d{1,2}(?![\d%个万亿千倍])))"
+)
 _DATED_MARKET_REVIEW_RE = re.compile(
-    r"(?:20\d{2}(?:年\d{1,2}月\d{1,2}日?|"
-    r"[-/.]\d{1,2}[-/.]\d{1,2}))"
-    r".{0,24}(?:行情|盘面|市场).{0,12}(?:总结|复盘|回顾|梳理)"
+    _REVIEW_DATE_RE
+    + r".{0,24}(?:行情|盘面|市场).{0,12}(?:总结|复盘|回顾|梳理)"
     r"|(?:总结|复盘|回顾|梳理).{0,24}"
-    r"(?:20\d{2}(?:年\d{1,2}月\d{1,2}日?|"
-    r"[-/.]\d{1,2}[-/.]\d{1,2}))"
-    r".{0,12}(?:行情|盘面|市场)",
+    + _REVIEW_DATE_RE
+    + r".{0,12}(?:行情|盘面|市场)",
     re.IGNORECASE,
+)
+_FULL_DATE_RE = re.compile(
+    r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})(?:月|[-/.])(\d{1,2})日?(?!\d)"
+)
+_YEARLESS_DATE_RE = re.compile(
+    r"(?<!\d)(\d{1,2})(?:月|[./])(\d{1,2})日?(?![\d%个万亿千倍])"
 )
 _QUOTED_RE = re.compile(r"[“《\"]([^”》\"]{2,40})[”》\"]")
 _TICKER_RE = re.compile(
@@ -250,9 +260,45 @@ class QueryEnvelope:
 def is_dated_market_review(query: str, envelope: QueryEnvelope) -> bool:
     return (
         envelope.question_type != "external_market"
-        and envelope.timeframe is not None
         and _DATED_MARKET_REVIEW_RE.search(query) is not None
+        and market_review_requested_date(query) is not None
     )
+
+
+def market_review_requested_date(
+    query: str,
+    *,
+    today: date | None = None,
+) -> str | None:
+    """确定性解析问题中的复盘日期，返回 ISO 日期。
+
+    无年份写法（7.16 / 7月16日）映射为不晚于今天的最近一个同月同日，
+    不交给 LLM 猜年份；无法构成合法日期时返回 None。
+    """
+    match = _FULL_DATE_RE.search(query)
+    if match is not None:
+        try:
+            return date(
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            ).isoformat()
+        except ValueError:
+            return None
+    match = _YEARLESS_DATE_RE.search(query)
+    if match is None:
+        return None
+    month = int(match.group(1))
+    day = int(match.group(2))
+    anchor = today or date.today()
+    for year in (anchor.year, anchor.year - 1):
+        try:
+            candidate = date(year, month, day)
+        except ValueError:
+            continue
+        if candidate <= anchor:
+            return candidate.isoformat()
+    return None
 
 
 @lru_cache(maxsize=1)
