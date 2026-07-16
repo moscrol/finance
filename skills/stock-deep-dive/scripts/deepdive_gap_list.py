@@ -5,7 +5,8 @@
 - 页面正文/frontmatter 出现 DeepDive/Deep Dive/深挖；
 - wiki/sources 里存在标题含该页面名、且命中深挖类命名的源文件
   （DeepDive/深挖/IMA canonical/研究报告/深度研究/信息池/题材地图）；
-- 个股：entity 页含 IMA 逻辑卡标记（「IMA 最新逻辑跟踪」/「最新逻辑卡」/「IMA stock logic」）。
+- 个股：entity 页含 IMA 逻辑卡标记（「IMA 最新逻辑跟踪」/「最新逻辑卡」/「IMA stock logic」）；
+- 同义词：页面本名或任一别名（aliases.json + frontmatter aliases）命中即算。
 
 增量模式：--state <json>。首跑写入全量清单快照；之后再跑只输出上次快照后
 新增的缺口（新建页面 or 从「已有」变回「缺口」不会发生，只看新增页面），
@@ -27,6 +28,15 @@ DD_SOURCE_RE = re.compile(
 
 def _covered_by_sources(sources_dir: Path) -> list[str]:
     return [p.stem for p in sources_dir.glob("*.md") if DD_SOURCE_RE.search(p.stem)]
+
+
+def _alias_map(aliases_path: Path) -> dict[str, set[str]]:
+    canon_to_aliases: dict[str, set[str]] = {}
+    if aliases_path.exists():
+        data = json.loads(aliases_path.read_text(encoding="utf-8"))
+        for alias, canonical in (data.get("aliases") or {}).items():
+            canon_to_aliases.setdefault(str(canonical), set()).add(str(alias))
+    return canon_to_aliases
 
 
 FM_FIELD = re.compile(r"^([a-z_]+):\s*(.*)$")
@@ -63,6 +73,7 @@ def _scan(
     require_listed: bool,
     main_filter: tuple[set[str], set[str]] | None = None,
     dd_source_titles: list[str] | None = None,
+    alias_map: dict[str, set[str]] | None = None,
 ) -> list[dict[str, str]]:
     rows = []
     for page in sorted(dir_path.glob("*.md")):
@@ -74,7 +85,13 @@ def _scan(
             continue
         if require_listed and IMA_STOCK_RE.search(text):
             continue
-        if dd_source_titles and any(page.stem in title for title in dd_source_titles):
+        names = {page.stem}
+        if alias_map:
+            names |= alias_map.get(page.stem, set())
+        fm_aliases = fm.get("aliases", "")
+        names |= {a.strip().strip(chr(34)).strip(chr(39)) for a in fm_aliases.strip("[]").split(",") if a.strip()}
+        names = {n for n in names if len(n) >= 2}
+        if dd_source_titles and any(n in title for title in dd_source_titles for n in names):
             continue
         if main_filter is not None:
             parents, children = main_filter
@@ -116,13 +133,20 @@ def main() -> int:
     if args.concept_scope == "main":
         main_filter = _hierarchy(wiki / "relations" / "concept_graph.json")
     dd_source_titles = _covered_by_sources(wiki / "sources")
+    alias_map = _alias_map(wiki / "relations" / "aliases.json")
     concepts = _scan(
         wiki / "concepts",
         require_listed=False,
         main_filter=main_filter,
         dd_source_titles=dd_source_titles,
+        alias_map=alias_map,
     )
-    stocks = _scan(wiki / "entities", require_listed=True, dd_source_titles=dd_source_titles)
+    stocks = _scan(
+        wiki / "entities",
+        require_listed=True,
+        dd_source_titles=dd_source_titles,
+        alias_map=alias_map,
+    )
 
     prev: dict[str, list[str]] = {"concepts": [], "stocks": []}
     if args.state and Path(args.state).exists():
