@@ -1935,7 +1935,7 @@ def test_synthesis_stream_payload_bounds_thinking_and_tokens(monkeypatch) -> Non
     assert reason == ""
     assert result is not None
     assert captured["payload"]["thinking"] == {"type": "disabled"}
-    assert captured["payload"]["max_tokens"] == 2200
+    assert captured["payload"]["max_tokens"] == 3000
 
 
 def test_synthesis_stream_length_finish_reason_fails_closed(monkeypatch) -> None:

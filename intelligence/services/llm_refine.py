@@ -32,7 +32,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 
 DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
-DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "2200"))
+# The provider budget includes structured claim markers that are removed before
+# display.  A visible 1,200-1,800 character answer can therefore exceed 2,200
+# model tokens even though the user-facing response is still concise.
+DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "3000"))
 DEFAULT_SYNTHESIS_MAX_CHARS = int(os.environ.get("LLM_SYNTHESIS_MAX_CHARS", "16000"))
 _ALLOWED_FINISH_REASONS = {"stop", "length", "content_filter", "tool_calls", "function_call"}
 
