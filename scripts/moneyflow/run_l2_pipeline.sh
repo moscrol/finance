@@ -20,7 +20,7 @@ if [ "${L2_LOCK_HELD:-0}" != "1" ]; then
   mkdir -p "$lock_parent"
   if ! mkdir "$lock_dir" 2>/dev/null; then
     old_pid="$(cat "$lock_dir/pid" 2>/dev/null || true)"
-    if [ -n "$old_pid" ] && ! kill -0 "$old_pid" 2>/dev/null; then
+    if [ -z "$old_pid" ] || ! kill -0 "$old_pid" 2>/dev/null; then
       rm -rf "$lock_dir"
       mkdir "$lock_dir" || exit 75
     else

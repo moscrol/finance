@@ -25,7 +25,7 @@ LOCK_DIR="$LOCK_PARENT/daily-full-review.lock"
 mkdir -p "$LOG_DIR" "$LOCK_PARENT"
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   old_pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
-  if [ -n "$old_pid" ] && ! kill -0 "$old_pid" 2>/dev/null; then
+  if [ -z "$old_pid" ] || ! kill -0 "$old_pid" 2>/dev/null; then
     echo "[$(date '+%F %T')] 清理 stale lock pid=$old_pid"
     rm -rf "$LOCK_DIR"
     mkdir "$LOCK_DIR" || exit 75
