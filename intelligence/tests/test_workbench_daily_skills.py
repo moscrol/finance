@@ -5,6 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from intelligence.services.query_understanding import (
+    market_review_requested_date,
+)
 from intelligence.services.run_store import RunStore
 from intelligence.workbench_skills.contracts import SkillExecutionContext
 from intelligence.workbench_skills.daily_agent import DailyAgentSkill
@@ -12,9 +15,14 @@ from intelligence.workbench_skills.daily_review import DailyReviewSkill
 from intelligence.workbench_skills.registry import SKILL_EXECUTORS, SKILL_REGISTRY
 
 
-def _context(tmp_path: Path, store: RunStore, run_id: str) -> SkillExecutionContext:
+def _context(
+    tmp_path: Path,
+    store: RunStore,
+    run_id: str,
+    query: str = "今天市场怎么样？",
+) -> SkillExecutionContext:
     return SkillExecutionContext(
-        query="今天市场怎么样？",
+        query=query,
         task_type="daily",
         user_id="demo",
         run_id=run_id,
@@ -155,6 +163,65 @@ def test_daily_review_skill_preserves_canonical_values_and_artifact(tmp_path: Pa
     )
     assert artifact["as_of"] == "2026-07-10"
     assert artifact["modules"] == output.modules
+
+
+def test_daily_review_skill_reads_the_date_requested_by_user(tmp_path: Path) -> None:
+    _write_daily_review(tmp_path, "2026-07-15")
+    requested = _write_daily_review(tmp_path, "2026-07-16")
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run("总结一下 2026年7月16日 的行情", "daily")
+
+    output = DailyReviewSkill().execute(
+        _context(
+            tmp_path,
+            store,
+            run.run_id,
+            query="总结一下 2026年7月16日 的行情",
+        )
+    )
+
+    assert output.as_of == "2026-07-16"
+    assert output.citations[0]["source"] == requested.relative_to(tmp_path).as_posix()
+    assert output.answer_contract is not None
+    assert output.answer_contract.retrieval_plan == (
+        "读取 2026-07-16 的 canonical 正式日报",
+    )
+
+
+def test_daily_review_skill_normalizes_yearless_requested_date(tmp_path: Path) -> None:
+    query = "总结一下7.16的行情"
+    requested_iso = market_review_requested_date(query)
+    assert requested_iso is not None
+    _write_daily_review(tmp_path, requested_iso)
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "daily")
+
+    output = DailyReviewSkill().execute(
+        _context(tmp_path, store, run.run_id, query=query)
+    )
+
+    assert output.as_of == requested_iso
+    assert output.answer_contract is not None
+    assert output.answer_contract.retrieval_plan == (
+        f"读取 {requested_iso} 的 canonical 正式日报",
+    )
+
+
+def test_daily_review_skill_fails_closed_when_yearless_date_report_missing(
+    tmp_path: Path,
+) -> None:
+    _write_daily_review(tmp_path, "2020-01-02")
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    query = "总结一下7.16的行情"
+    run = store.create_run(query, "daily")
+
+    output = DailyReviewSkill().execute(
+        _context(tmp_path, store, run.run_id, query=query)
+    )
+
+    assert output.as_of is None
+    assert output.citations == []
+    assert any("未找到" in warning for warning in output.warnings)
 
 
 def test_daily_agent_skill_projects_summary_actions_evidence_and_provenance(

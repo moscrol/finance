@@ -193,6 +193,20 @@ class AskOptions:
     # compose: 让 LLM 把多源证据有机融合成一段连贯回答（自由形态，带内联引用）；
     # 默认关，关时行为与旧版逐字节一致。开时若无 key/调用失败则降级回六段模板。
     compose: bool = False
+    # 影子实验：生产 Presenter 保持不变，旁路生成 DecisionBrief + Grounded Composer，
+    # 结果只写运行产物，不进入用户可见答案。默认关闭。
+    shadow_grounded_composer: bool = field(
+        default_factory=lambda: os.environ.get(
+            "WORKBENCH_SHADOW_GROUNDED_COMPOSER",
+            "0",
+        )
+        == "1"
+    )
+    shadow_grounded_timeout: int = field(
+        default_factory=lambda: int(
+            os.environ.get("WORKBENCH_SHADOW_GROUNDED_TIMEOUT", "90")
+        )
+    )
     # 允许只运行 compose 取数和 AnswerSpec 裁决，不额外调用 LLM 生成自由文本。
     synthesize: bool = True
     llm_model: str | None = None
@@ -332,6 +346,9 @@ class AskResult:
     )
     llm_fallback_reason: str | None = None
     llm_stream_telemetry: dict[str, object] = field(default_factory=dict)
+    grounded_composer_shadow: (
+        answer_model.GroundedComposerShadow | None
+    ) = None
     # 问答编排层：先解析问题类型/深度/视角/证据计划，再进入 compose。
     question_plan: QuestionPlan | None = None
     # 澄清追问：问题明确模糊时的结构化追问；非 None 表示本次未检索、等用户补充。
@@ -3338,6 +3355,226 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         options.stream_text_delta(result.synthesis)
     if reason:
         result.warnings.append(reason)
+    return result
+
+
+def synthesize_shadow_grounded_answer(
+    prepared: PreparedAnswer,
+) -> AskResult:
+    options = prepared.options
+    result = prepared.result
+    if (
+        not options.shadow_grounded_composer
+        or result.answer_spec is None
+    ):
+        return result
+    started = time.monotonic()
+    deadline = llm_refine.Deadline.from_timeout(
+        options.shadow_grounded_timeout
+    )
+    registry_block = answer_model.grounded_claim_registry_block(
+        result.answer_spec
+    )
+    brief_result, brief_reason = llm_refine.synthesize_messages(
+        llm_refine.build_decision_brief_messages(
+            options.query,
+            registry_block,
+        ),
+        model_override=options.llm_model,
+        timeout=options.shadow_grounded_timeout,
+        deadline=deadline,
+        temperature=0.0,
+        max_tokens=1200,
+        max_chars=8000,
+    )
+    if brief_result is None:
+        result.grounded_composer_shadow = (
+            answer_model.GroundedComposerShadow(
+                status="brief_unavailable",
+                failure_reason=brief_reason,
+                elapsed_ms=round((time.monotonic() - started) * 1000),
+            )
+        )
+        return result
+    decision_brief, brief_issues = answer_model.parse_decision_brief(
+        brief_result.answer,
+        result.answer_spec,
+    )
+    if decision_brief is None:
+        result.grounded_composer_shadow = (
+            answer_model.GroundedComposerShadow(
+                status="brief_rejected",
+                deterministic_issues=brief_issues,
+                provider=brief_result.provider,
+                model=brief_result.model,
+                failure_reason="decision_brief_quality_gate_rejected",
+                elapsed_ms=round((time.monotonic() - started) * 1000),
+            )
+        )
+        return result
+    composed, compose_reason = llm_refine.synthesize_messages(
+        llm_refine.build_grounded_composer_messages(
+            options.query,
+            decision_brief.to_prompt_block(),
+            registry_block,
+        ),
+        model_override=options.llm_model,
+        timeout=max(1, int(deadline.remaining())),
+        deadline=deadline,
+        temperature=0.2,
+        max_tokens=2400,
+        max_chars=16000,
+    )
+    if composed is None:
+        result.grounded_composer_shadow = (
+            answer_model.GroundedComposerShadow(
+                status="composer_unavailable",
+                decision_brief=decision_brief,
+                provider=brief_result.provider,
+                model=brief_result.model,
+                failure_reason=compose_reason,
+                elapsed_ms=round((time.monotonic() - started) * 1000),
+            )
+        )
+        return result
+    raw_answer = composed.answer
+    deterministic_issues = (
+        answer_model.validate_grounded_composer_answer(
+            raw_answer,
+            result.answer_spec,
+        )
+    )
+    candidate_answer = raw_answer
+    repaired = False
+    if any(
+        issue.severity == "error" for issue in deterministic_issues
+    ):
+        deterministic_repair = (
+            answer_model.repair_grounded_composer_answer(
+                raw_answer,
+                result.answer_spec,
+            )
+        )
+        if deterministic_repair is None:
+            result.grounded_composer_shadow = (
+                answer_model.GroundedComposerShadow(
+                    status="deterministic_gate_rejected",
+                    decision_brief=decision_brief,
+                    raw_answer=raw_answer,
+                    deterministic_issues=deterministic_issues,
+                    provider=composed.provider,
+                    model=composed.model,
+                    failure_reason="deterministic_repair_failed",
+                    elapsed_ms=round(
+                        (time.monotonic() - started) * 1000
+                    ),
+                )
+            )
+            return result
+        candidate_answer = deterministic_repair
+        repaired = True
+    sentences, _unbound = answer_model.parse_grounded_sentences(
+        candidate_answer
+    )
+    judged, judge_reason = llm_refine.synthesize_messages(
+        llm_refine.build_grounding_judge_messages(
+            options.query,
+            candidate_answer,
+            registry_block,
+        ),
+        model_override=options.llm_model,
+        timeout=max(1, int(deadline.remaining())),
+        deadline=deadline,
+        temperature=0.0,
+        max_tokens=1200,
+        max_chars=8000,
+    )
+    if judged is None:
+        result.grounded_composer_shadow = (
+            answer_model.GroundedComposerShadow(
+                status="judge_unavailable",
+                decision_brief=decision_brief,
+                raw_answer=raw_answer,
+                repaired_answer=(
+                    candidate_answer if repaired else None
+                ),
+                deterministic_issues=deterministic_issues,
+                provider=composed.provider,
+                model=composed.model,
+                failure_reason=judge_reason,
+                elapsed_ms=round((time.monotonic() - started) * 1000),
+            )
+        )
+        return result
+    judge_report = answer_model.parse_grounding_judge_report(
+        judged.answer,
+        sentence_count=len(sentences),
+    )
+    if judge_report is None:
+        result.grounded_composer_shadow = (
+            answer_model.GroundedComposerShadow(
+                status="judge_rejected",
+                decision_brief=decision_brief,
+                raw_answer=raw_answer,
+                repaired_answer=(
+                    candidate_answer if repaired else None
+                ),
+                deterministic_issues=deterministic_issues,
+                provider=composed.provider,
+                model=composed.model,
+                failure_reason="judge_output_invalid",
+                elapsed_ms=round((time.monotonic() - started) * 1000),
+            )
+        )
+        return result
+    if not judge_report.passed:
+        semantic_repair = answer_model.repair_grounded_composer_answer(
+            candidate_answer,
+            result.answer_spec,
+            rejected_sentence_indexes=(
+                judge_report.rejected_sentence_indexes
+            ),
+        )
+        if semantic_repair is None:
+            result.grounded_composer_shadow = (
+                answer_model.GroundedComposerShadow(
+                    status="semantic_gate_rejected",
+                    decision_brief=decision_brief,
+                    raw_answer=raw_answer,
+                    repaired_answer=(
+                        candidate_answer if repaired else None
+                    ),
+                    deterministic_issues=deterministic_issues,
+                    judge_report=judge_report,
+                    provider=composed.provider,
+                    model=composed.model,
+                    failure_reason="semantic_repair_failed",
+                    elapsed_ms=round(
+                        (time.monotonic() - started) * 1000
+                    ),
+                )
+            )
+            return result
+        candidate_answer = semantic_repair
+        repaired = True
+    result.grounded_composer_shadow = (
+        answer_model.GroundedComposerShadow(
+            status="repaired" if repaired else "accepted",
+            decision_brief=decision_brief,
+            raw_answer=raw_answer,
+            repaired_answer=candidate_answer if repaired else None,
+            presented_answer=(
+                answer_model.present_grounded_composer_answer(
+                    candidate_answer
+                )
+            ),
+            deterministic_issues=deterministic_issues,
+            judge_report=judge_report,
+            provider=composed.provider,
+            model=composed.model,
+            elapsed_ms=round((time.monotonic() - started) * 1000),
+        )
+    )
     return result
 
 

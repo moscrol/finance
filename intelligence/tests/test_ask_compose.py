@@ -24,7 +24,16 @@ from intelligence.services.ask import (
     render_answer,
     render_conversation_answer,
 )
-from intelligence.services.llm_refine import LLMProvider, SynthesisResult, build_synthesis_messages, synthesize, synthesize_messages_with_review
+from intelligence.services.llm_refine import (
+    LLMProvider,
+    SynthesisResult,
+    build_decision_brief_messages,
+    build_grounded_composer_messages,
+    build_grounding_judge_messages,
+    build_synthesis_messages,
+    synthesize,
+    synthesize_messages_with_review,
+)
 
 
 def _provider() -> LLMProvider:
@@ -32,6 +41,26 @@ def _provider() -> LLMProvider:
 
 
 class SynthesizeTests(unittest.TestCase):
+    def test_shadow_prompts_separate_planning_composing_and_judging(self) -> None:
+        registry = '{"claim_id":"c1","text":"事实"}'
+
+        brief = build_decision_brief_messages("问题", registry)
+        composer = build_grounded_composer_messages(
+            "问题",
+            '{"supports":["c1"]}',
+            registry,
+        )
+        judge = build_grounding_judge_messages(
+            "问题",
+            "- 自然语言 <!-- claim_ids=c1; evidence_atom_ids=a1; "
+            "claim_type=fact -->",
+            registry,
+        )
+
+        self.assertIn("论证计划", brief[0]["content"])
+        self.assertIn("最终措辞", composer[0]["content"])
+        self.assertIn("事实蕴含", judge[0]["content"])
+
     def test_llm_prompt_uses_long_wiki_evidence_without_changing_display_chain(self) -> None:
         display = "A公司：展示短摘录 [W1]"
         llm = "A公司：命中块 a::1: 较完整证据；相邻块 a::0: 条件与风险 [W1]"

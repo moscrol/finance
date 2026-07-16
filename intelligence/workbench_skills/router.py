@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import llm_refine
-from intelligence.services.query_understanding import QueryEnvelope
+from intelligence.services.query_understanding import (
+    QueryEnvelope,
+    is_dated_market_review,
+)
 from intelligence.services.research_contract import (
     AnswerOwner,
     RESEARCH_OWNER_IDS,
@@ -177,6 +180,13 @@ def route_skills(
         if skill_id not in excluded and skill_id not in RESEARCH_OWNER_IDS
     }
     rules = _rule_candidates(query, task_type, automatic_registry)
+    if (
+        "daily-review" in automatic_registry
+        and query_envelope is not None
+        and is_dated_market_review(query, query_envelope)
+        and all(skill_id != "daily-review" for skill_id, _reason in rules)
+    ):
+        rules.insert(0, ("daily-review", "规则识别指定日期行情复盘"))
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
     reserved_ids = {
         selection.skill_id

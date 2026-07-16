@@ -99,6 +99,57 @@ def test_external_market_uses_research_lane_and_quote_capability() -> None:
     assert "market_quote" in decision.capabilities
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        "总结一下 2026-07-16 的行情",
+        "复盘 2026年7月16日 A股市场",
+        "2026/7/16 的盘面回顾",
+    ),
+)
+def test_dated_a_share_market_summary_uses_workflow_lane(query: str) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "workflow"
+    assert decision.timeframe is not None
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "总结一下7.16的行情",
+        "复盘7月16日的A股市场",
+    ),
+)
+def test_yearless_dated_market_summary_uses_workflow_lane(query: str) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "workflow"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+
+
+def test_dated_external_market_summary_does_not_use_a_share_workflow() -> None:
+    decision = decide_turn(
+        "总结一下 2026-07-16 的美股行情",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "external_market"
+
+
+def test_month_only_market_summary_does_not_claim_daily_report() -> None:
+    decision = decide_turn(
+        "总结一下 2026年7月 的 A股行情",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane != "workflow"
+
+
 def test_broad_market_question_clarifies_scope() -> None:
     decision = decide_turn("今天市场怎么样", llm_complete=_no_llm)
 

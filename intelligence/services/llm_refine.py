@@ -604,6 +604,95 @@ def build_synthesis_messages(
     ]
 
 
+_DECISION_BRIEF_SYSTEM_PROMPT = (
+    "你是投研总编辑，只负责形成论证计划，不写最终正文。"
+    "只能使用用户提供的 claim registry，所有数组字段只能填写 registry 中存在的 claim_id。"
+    "direct_answer 和 core_tension 可以自然表达，但不得加入 registry 外的公司、数字、日期或事实。"
+    "严格输出单个 JSON 对象，不要 Markdown："
+    '{"direct_answer":"", "core_tension":"", "supports":[], '
+    '"counterevidence":[], "unknowns":[], "upgrade_conditions":[], '
+    '"downgrade_conditions":[]}。'
+)
+
+_GROUNDED_COMPOSER_SYSTEM_PROMPT = (
+    "你是 A 股研究回答的 Grounded Composer。请围绕 DecisionBrief 回答用户原问题，"
+    "拥有最终措辞、段落论证和自然衔接权，但只能使用 claim registry 中的事实和边界。"
+    "每个正文段落或列表项必须单独一行，并在行末追加："
+    "<!-- claim_ids=id1,id2; evidence_atom_ids=atom1,atom2; "
+    "claim_type=fact|candidate|inference|expectation|gap -->。"
+    "claim_ids 可绑定一条或多条；EvidenceAtom 只能使用这些 claim 自带的合法 ID。"
+    "事实句必须绑定 EvidenceAtom；推断、候选和预期不得写成确定事实。"
+    "标题和末尾「（非投资建议）」可不带 marker，其余正文都必须带 marker。"
+    "不得增加证据外公司、数字、日期、催化或跨题材信息。"
+    "输出 5—10 个正文段落，先直接回答，再解释核心矛盾、反证、缺口和观察条件。"
+)
+
+_GROUNDING_JUDGE_SYSTEM_PROMPT = (
+    "你是低温事实蕴含审稿器。逐句判断 Grounded Composer 的自然语言是否真的能由"
+    "该句绑定的 claim 和 EvidenceAtom 推出。重点检查：偷换主体、因果跳跃、"
+    "把候选升级为事实、跨题材污染，以及虽未新增数字但语义越界。"
+    "不要评价文风，不要重写答案。严格输出单个 JSON："
+    '{"passed":true, "rejected_sentence_indexes":[], "issues":[]}。'
+    "sentence index 只按带 marker 的正文句从 1 开始计数；有任何语义越界时 passed=false，"
+    "列出对应句号和简短原因。"
+)
+
+
+def build_decision_brief_messages(
+    query: str,
+    registry_block: str,
+) -> list[dict]:
+    return [
+        {"role": "system", "content": _DECISION_BRIEF_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"用户问题：{query}\n\n"
+                "claim registry（每行一个 JSON）：\n"
+                f"{registry_block}"
+            ),
+        },
+    ]
+
+
+def build_grounded_composer_messages(
+    query: str,
+    decision_brief: str,
+    registry_block: str,
+) -> list[dict]:
+    return [
+        {"role": "system", "content": _GROUNDED_COMPOSER_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"用户问题：{query}\n\n"
+                f"DecisionBrief：\n{decision_brief}\n\n"
+                "claim registry（每行一个 JSON）：\n"
+                f"{registry_block}"
+            ),
+        },
+    ]
+
+
+def build_grounding_judge_messages(
+    query: str,
+    grounded_answer: str,
+    registry_block: str,
+) -> list[dict]:
+    return [
+        {"role": "system", "content": _GROUNDING_JUDGE_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"用户问题：{query}\n\n"
+                f"待审答案：\n{grounded_answer}\n\n"
+                "claim registry（每行一个 JSON）：\n"
+                f"{registry_block}"
+            ),
+        },
+    ]
+
+
 # 追问时附在用户问题前的薄约束：复用首轮已给证据、不引入新事实、不暴露内部编号。
 _FOLLOWUP_NUDGE = (
     "（追问，请仅基于本次对话前面已经给出的多源证据回答：不要引入证据里没有的新公司/"
