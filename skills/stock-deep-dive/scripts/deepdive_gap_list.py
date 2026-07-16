@@ -4,7 +4,8 @@
 判定「已有 DeepDive」（任一命中即算已做）：
 - 页面正文/frontmatter 出现 DeepDive/Deep Dive/深挖；
 - wiki/sources 里存在标题含该页面名、且命中深挖类命名的源文件
-  （DeepDive/深挖/IMA canonical/研究报告/深度研究/信息池/题材地图）。
+  （DeepDive/深挖/IMA canonical/研究报告/深度研究/信息池/题材地图）；
+- 个股：entity 页含 IMA 逻辑卡标记（「IMA 最新逻辑跟踪」/「最新逻辑卡」/「IMA stock logic」）。
 
 增量模式：--state <json>。首跑写入全量清单快照；之后再跑只输出上次快照后
 新增的缺口（新建页面 or 从「已有」变回「缺口」不会发生，只看新增页面），
@@ -18,6 +19,7 @@ import re
 from pathlib import Path
 
 DD_RE = re.compile(r"deep[\s_-]?dive|深挖", re.IGNORECASE)
+IMA_STOCK_RE = re.compile(r"IMA 最新逻辑跟踪|最新逻辑卡|IMA stock logic")
 DD_SOURCE_RE = re.compile(
     r"deep[\s_-]?dive|深挖|IMA canonical|研究报告|深度研究|信息池|题材地图", re.IGNORECASE
 )
@@ -69,6 +71,8 @@ def _scan(
         if require_listed and "上市公司" not in fm.get("entity_type", ""):
             continue
         if DD_RE.search(text):
+            continue
+        if require_listed and IMA_STOCK_RE.search(text):
             continue
         if dd_source_titles and any(page.stem in title for title in dd_source_titles):
             continue
