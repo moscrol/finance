@@ -911,6 +911,13 @@ def test_stage_adapter_timeout_is_independently_observable() -> None:
     assert mutations == ["finished"]
 
 
+def test_owner_initial_stage_timeout_covers_first_business_query_margin() -> None:
+    assert STOCK_DEEP_DIVE.wiki_rag_timeout == 40
+    assert THEME_RESEARCH.wiki_rag_timeout == 40
+    assert NEWS_IMPACT.wiki_rag_timeout == 40
+    assert FINANCIAL_ANALYSIS.wiki_rag_timeout == 40
+
+
 def test_research_owner_falls_back_without_current_traceable_evidence(
     tmp_path: Path,
 ) -> None:
