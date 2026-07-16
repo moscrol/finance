@@ -163,6 +163,67 @@ def test_kb_rag_uses_enabled_worker_without_cli(tmp_path: Path) -> None:
     cli.assert_not_called()
 
 
+def test_kb_rag_prewarm_uses_production_runtime_without_business_cache(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    script = tmp_path / kb_rag.RAG_SCRIPT_REL
+    script.parent.mkdir(exist_ok=True)
+    script.write_text("# fixture\n", encoding="utf-8")
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    monkeypatch.setenv("KB_RAG_PYTHON", sys.executable)
+    monkeypatch.setenv("RAG_INDEX_DIR", str(index))
+    kb_rag.clear_result_cache()
+    before = len(kb_rag._RESULT_CACHE)
+    response = WorkerResponse(
+        returncode=0,
+        stdout="[]",
+        stderr="",
+        model_load_count=1,
+    )
+
+    with mock.patch.object(
+        kb_rag.rag_worker,
+        "prewarm",
+        return_value=response,
+    ) as worker_call:
+        kb_rag.prewarm(wiki, timeout=90)
+
+    assert worker_call.call_args.kwargs == {
+        "python": sys.executable,
+        "kb_root": tmp_path,
+        "index_dir": index,
+        "argv": [
+            "query",
+            "Workbench RAG 预热",
+            "--k",
+            "1",
+            "--mode",
+            "hybrid",
+            "--json",
+        ],
+        "timeout": 90,
+    }
+    assert len(kb_rag._RESULT_CACHE) == before
+
+
+def test_kb_rag_prewarm_is_noop_when_worker_disabled(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("RAG_WORKER_ENABLED", raising=False)
+
+    with mock.patch.object(kb_rag.rag_worker, "prewarm") as worker_call:
+        payload = kb_rag.prewarm(tmp_path / "wiki", timeout=90)
+
+    worker_call.assert_not_called()
+    assert payload["state"] == "disabled"
+
+
 def test_worker_status_reports_lazy_lifecycle(monkeypatch) -> None:
     monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
 
