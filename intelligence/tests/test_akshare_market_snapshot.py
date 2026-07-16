@@ -150,3 +150,32 @@ def test_partial_fetch_does_not_downgrade_existing_complete_daily(
     assert result.quality == "partial"
     assert result.preserved_existing_snapshot is True
     assert daily.read_bytes() == before
+
+
+def test_partial_snapshot_is_marked_degraded_not_fresh(tmp_path: Path) -> None:
+    module = _module(
+        spot=ConnectionError("spot disconnected"),
+        limit_up=[
+            {
+                "名称": "测试股份",
+                "代码": "000001",
+                "所属行业": "液冷",
+                "涨跌幅": 10.0,
+                "成交额": 50_000_000,
+            }
+        ],
+        limit_down=[],
+    )
+
+    result = sync_akshare_market_snapshot(
+        tmp_path,
+        trade_date="2026-07-16",
+        akshare_module=module,
+        now=datetime(2026, 7, 16, 15, 30, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert result.quality == "partial"
+    daily = json.loads((tmp_path / "latest.json").read_text(encoding="utf-8"))
+    meta = json.loads((tmp_path / "meta.json").read_text(encoding="utf-8"))
+    assert daily["freshness"] == "degraded"
+    assert meta["freshness"] == "degraded"

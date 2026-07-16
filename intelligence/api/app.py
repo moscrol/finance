@@ -51,6 +51,9 @@ from intelligence.services.conversation_store import (
 )
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
+from intelligence.services.market_snapshot_contract import (
+    validate_market_snapshot_root,
+)
 from intelligence.services.run_store import RunStore
 from intelligence.services.self_use_maturity import (
     SelfUseApprovalStore,
@@ -1058,6 +1061,9 @@ def create_app(
     def health_ready(user: str | None = None) -> JSONResponse:
         store = store_for(user)
         rag_probe = kb_rag.probe_rag_cli(runtime_paths.knowledge_wiki)
+        snapshot_contract = validate_market_snapshot_root(
+            runtime_paths.market_snapshot_dir
+        )
         run_root_ready = False
         try:
             store.root.mkdir(parents=True, exist_ok=True)
@@ -1068,6 +1074,7 @@ def create_app(
             **dependency_checks(),
             "rag_query_protocol": rag_probe.query_protocol_compatible,
             "run_store_writable": run_root_ready,
+            "market_snapshot_contract": bool(snapshot_contract["ready"]),
         }
         critical = {
             "repo_root": checks["repo_root"],
@@ -1076,7 +1083,7 @@ def create_app(
             "relations": checks["relations"],
             "vector_index": checks["vector_index"],
             "rag_query_protocol": checks["rag_query_protocol"],
-            "market_snapshot": checks["market_snapshot"],
+            "market_snapshot": checks["market_snapshot_contract"],
         }
         ready = all(critical.values())
         payload = {
@@ -1088,6 +1095,14 @@ def create_app(
                 name for name, available in critical.items() if not available
             ],
             "rag": rag_probe.to_dict(),
+            "market_snapshot": {
+                "status": snapshot_contract["status"],
+                "ready": snapshot_contract["ready"],
+                "date": snapshot_contract["date"],
+                "summary": snapshot_contract["summary"],
+                "errors": snapshot_contract["errors"],
+                "warnings": snapshot_contract["warnings"],
+            },
             "workers": {
                 "active": supervisor.active_count(),
                 "capacity": supervisor.max_workers,

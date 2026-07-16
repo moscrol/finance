@@ -93,7 +93,13 @@ def sync_akshare_market_snapshot(
         limit_down_rows,
         errors,
         quality,
-        "fresh" if date_text == captured.date().isoformat() else "historical",
+        (
+            "degraded"
+            if quality == "partial"
+            else "fresh"
+            if date_text == captured.date().isoformat()
+            else "historical"
+        ),
     )
     daily_path = base / f"{date_text}.json"
     existing = _read_json(daily_path)
@@ -126,7 +132,9 @@ def sync_akshare_market_snapshot(
             "source": "AkShare",
             "source_data_date": date_text,
             "freshness": (
-                "fresh"
+                "degraded"
+                if quality == "partial"
+                else "fresh"
                 if date_text == captured.date().isoformat()
                 else "historical"
             ),

@@ -41,6 +41,42 @@ if sys.argv[1:] == ["query", "--help"]:
     assert knowledge_wiki.is_dir()
 
 
+def _write_market_snapshot_fixture(root, *, quality="complete", freshness="fresh"):
+    date = "2026-07-16"
+    doc = {
+        "schema_version": "1.1-test",
+        "trade_date": date,
+        "quality": quality,
+        "freshness": freshness,
+        "market": {
+            "stage": "震荡",
+            "total_amount": 10000,
+            "amount_ratio": None,
+            "advancers": 2500,
+            "decliners": 2400,
+            "limit_up": 50,
+            "limit_down": 5,
+            "capacity_top3": [],
+        },
+        "themes": [],
+        "strong_stocks": [],
+    }
+    (root / f"{date}.json").write_text(json.dumps(doc), encoding="utf-8")
+    (root / "latest.json").write_text(json.dumps(doc), encoding="utf-8")
+    (root / "meta.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "1.1-test",
+                "latest_trade_date": date,
+                "updated_at": "2026-07-16T16:00:00+08:00",
+                "quality": quality,
+                "freshness": freshness,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     users_root = tmp_path / "users"
@@ -52,6 +88,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
     market_snapshot = tmp_path / "market_snapshot"
     market_snapshot.mkdir()
+    _write_market_snapshot_fixture(market_snapshot)
     monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
 
     daily_dir = repo_root / "复盘" / "daily" / "2026-07-09"
@@ -807,6 +844,7 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["checks"]["repo_root"] is True
     assert payload["checks"]["run_store_writable"] is True
     assert payload["critical"]["market_snapshot"] is True
+    assert payload["market_snapshot"]["ready"] is True
     assert payload["missing_critical"] == []
     assert payload["workers"]["capacity"] == 2
 
@@ -834,6 +872,35 @@ def test_readiness_fails_when_market_snapshot_is_missing(
     assert payload["status"] == "not_ready"
     assert payload["critical"]["market_snapshot"] is False
     assert payload["missing_critical"] == ["market_snapshot"]
+
+
+def test_readiness_fails_when_market_snapshot_is_partial(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    snapshot = tmp_path / "market_snapshot"
+    snapshot.mkdir()
+    _write_market_snapshot_fixture(
+        snapshot,
+        quality="partial",
+        freshness="degraded",
+    )
+    monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(snapshot))
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    probe = TestClient(app_module.create_app(repo_root=repo_root))
+
+    response = probe.get("/api/readiness")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["critical"]["market_snapshot"] is False
+    assert payload["market_snapshot"]["status"] == "WARN"
+    assert payload["market_snapshot"]["summary"]["quality"] == "partial"
 
 
 def test_readiness_fails_when_rag_query_protocol_is_incompatible(
