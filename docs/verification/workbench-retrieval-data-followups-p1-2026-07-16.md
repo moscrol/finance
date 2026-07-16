@@ -63,12 +63,23 @@ worker 对旧版 KB CLI 补齐 content hash、section、evidence text/chunk ids�
 ## 自动化验证
 
 ```text
-P1 focused Python: 85 passed
+P1 provider-focused Python: 91 passed
+Full Python (clean user env): 1831 passed, 1 skipped, 8 existing warnings
 Frontend components: 51 passed
 AkShare + contract focused: 14 passed
 plist lint: OK
 git diff --check: PASS
+Frontend lint/typecheck/build: PASS
+Frontend unit: 56 passed
+Playwright E2E: 15 passed (desktop/tablet/mobile)
 ```
 
-全仓 Python、前端全套和三尺寸 E2E 放在 P2 完成后统一再跑，避免为每个独立切片重复
-承担全量验证成本。
+桌面会话设置了真实 `FORESIGHT_USER` 时，首次全量 Python/Playwright 会错误读取真实用户
+状态；Python 通过显式 clean env 验证，Playwright server 则固定
+`FORESIGHT_USER=default` 后在宿主变量仍存在时 15/15 通过。该修复避免本地与 CI 使用不同
+用户身份。
+
+Registry 在 worktree 单仓布局四项通过，但只能扫描到 0 个 Skill；在 canonical 多仓布局
+能扫描 49 个 Skill，其中 parseability/backfill/views 通过，`check` 因 knowledge-base
+当前新增 20 个 Skill 尚未回灌 finance registry 而失败。这是本分支之外的跨仓登记漂移，
+没有用单仓空扫描掩盖，也未混入本次行情 provider 改动。
