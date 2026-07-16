@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.a77.finance-akshare-snapshot</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/a77/finance-workspace-runtime/scripts/run_akshare_snapshot.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FINANCE_WORKSPACE_CODE_ROOT</key>
+    <string>/Users/a77/finance-workspace-runtime</string>
+    <key>FINANCE_WS</key>
+    <string>/Users/a77/finance-workspace-private</string>
+    <key>MARKET_SNAPSHOT_DIR</key>
+    <string>/Users/a77/finance-workspace-private/market_snapshot</string>
+    <key>AKSHARE_VENV</key>
+    <string>/Users/a77/.local/share/finance-workbench/akshare-venv</string>
+    <key>AKSHARE_PROXY_MODE</key>
+    <string>direct</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>15</integer></dict>
+    <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>15</integer></dict>
+    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>15</integer></dict>
+    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>15</integer></dict>
+    <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>16</integer><key>Minute</key><integer>15</integer></dict>
+  </array>
+  <key>StandardOutPath</key>
+  <string>/Users/a77/.local/share/finance-workbench/akshare-snapshot.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/a77/.local/share/finance-workbench/akshare-snapshot.err.log</string>
+</dict>
+</plist>

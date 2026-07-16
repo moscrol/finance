@@ -29,6 +29,7 @@ def _module(
     spot: list[dict[str, object]] | Exception,
     limit_up: list[dict[str, object]] | Exception,
     limit_down: list[dict[str, object]] | Exception,
+    spot_fallback: list[dict[str, object]] | Exception | None = None,
 ) -> ModuleType:
     module = ModuleType("fake_akshare")
 
@@ -38,6 +39,9 @@ def _module(
         return FakeFrame(value)
 
     module.stock_zh_a_spot_em = lambda: frame_or_raise(spot)
+    module.stock_zh_a_spot = lambda: frame_or_raise(
+        spot if spot_fallback is None else spot_fallback
+    )
     module.stock_zt_pool_em = lambda **_kwargs: frame_or_raise(limit_up)
     module.stock_zt_pool_dtgc_em = lambda **_kwargs: frame_or_raise(limit_down)
     return module
@@ -179,3 +183,56 @@ def test_partial_snapshot_is_marked_degraded_not_fresh(tmp_path: Path) -> None:
     meta = json.loads((tmp_path / "meta.json").read_text(encoding="utf-8"))
     assert daily["freshness"] == "degraded"
     assert meta["freshness"] == "degraded"
+
+
+def test_sina_spot_fallback_restores_complete_quality(tmp_path: Path) -> None:
+    module = _module(
+        spot=ConnectionError("eastmoney disconnected"),
+        spot_fallback=[
+            {"代码": "sh600001", "涨跌幅": 1.5, "成交额": 100_000_000},
+            {"代码": "sz000001", "涨跌幅": -0.5, "成交额": 50_000_000},
+        ],
+        limit_up=[],
+        limit_down=[],
+    )
+
+    result = sync_akshare_market_snapshot(
+        tmp_path,
+        trade_date="2026-07-16",
+        akshare_module=module,
+        now=datetime(2026, 7, 16, 15, 30, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert result.ok is True
+    assert result.quality == "complete"
+    assert "stock_zh_a_spot_em" in result.errors[0]
+    daily = json.loads((tmp_path / "latest.json").read_text(encoding="utf-8"))
+    assert daily["market"]["advancers"] == 1
+    assert daily["market"]["decliners"] == 1
+
+
+def test_akshare_never_overwrites_higher_priority_complete_snapshot(
+    tmp_path: Path,
+) -> None:
+    canonical = {
+        "trade_date": "2026-07-16",
+        "quality": "complete",
+        "source": "daily-full",
+    }
+    daily = tmp_path / "2026-07-16.json"
+    daily.write_text(json.dumps(canonical), encoding="utf-8")
+    before = daily.read_bytes()
+    module = ModuleType("must_not_be_called")
+
+    result = sync_akshare_market_snapshot(
+        tmp_path,
+        trade_date="2026-07-16",
+        akshare_module=module,
+        now=datetime(2026, 7, 16, 15, 30, tzinfo=ZoneInfo("Asia/Shanghai")),
+    )
+
+    assert result.preserved_existing_snapshot is True
+    assert result.quality == "complete"
+    assert daily.read_bytes() == before
+    assert "daily-full" in result.errors[0]
+    assert "未请求" in result.errors[0]

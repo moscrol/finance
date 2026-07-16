@@ -68,7 +68,7 @@ market_snapshot/
 检查命令：
 
 ```bash
-python3 scripts/check_market_snapshot_contract.py --root market_snapshot --date 2026-06-11 --pretty
+python3 -m scripts.check_market_snapshot_contract --root market_snapshot --date 2026-06-11 --pretty
 ```
 
 返回 `PASS` 表示文件和关键字段齐；`WARN` 表示可读但有字段缺失或日期不一致；`FAIL` 表示缺每日文件、日期缺失或核心结构不可用。
