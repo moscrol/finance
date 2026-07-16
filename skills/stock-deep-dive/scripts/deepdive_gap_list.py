@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """列出知识库里还没做 DeepDive 的 concept 和个股（entity_type=上市公司）。
 
-判定「已有 DeepDive」：
-- concept：frontmatter sources/log 或正文引用了 *DeepDive*/*Deep Dive*/*深挖* 源。
-- 个股：entity 页出现 DeepDive/深挖 引用。
+判定「已有 DeepDive」（任一命中即算已做）：
+- 页面正文/frontmatter 出现 DeepDive/Deep Dive/深挖；
+- wiki/sources 里存在标题含该页面名、且命中深挖类命名的源文件
+  （DeepDive/深挖/IMA canonical/研究报告/深度研究/信息池/题材地图）。
 
 增量模式：--state <json>。首跑写入全量清单快照；之后再跑只输出上次快照后
 新增的缺口（新建页面 or 从「已有」变回「缺口」不会发生，只看新增页面），
@@ -17,6 +18,15 @@ import re
 from pathlib import Path
 
 DD_RE = re.compile(r"deep[\s_-]?dive|深挖", re.IGNORECASE)
+DD_SOURCE_RE = re.compile(
+    r"deep[\s_-]?dive|深挖|IMA canonical|研究报告|深度研究|信息池|题材地图", re.IGNORECASE
+)
+
+
+def _covered_by_sources(sources_dir: Path) -> list[str]:
+    return [p.stem for p in sources_dir.glob("*.md") if DD_SOURCE_RE.search(p.stem)]
+
+
 FM_FIELD = re.compile(r"^([a-z_]+):\s*(.*)$")
 
 
@@ -50,6 +60,7 @@ def _scan(
     dir_path: Path,
     require_listed: bool,
     main_filter: tuple[set[str], set[str]] | None = None,
+    dd_source_titles: list[str] | None = None,
 ) -> list[dict[str, str]]:
     rows = []
     for page in sorted(dir_path.glob("*.md")):
@@ -58,6 +69,8 @@ def _scan(
         if require_listed and "上市公司" not in fm.get("entity_type", ""):
             continue
         if DD_RE.search(text):
+            continue
+        if dd_source_titles and any(page.stem in title for title in dd_source_titles):
             continue
         if main_filter is not None:
             parents, children = main_filter
@@ -98,8 +111,14 @@ def main() -> int:
     main_filter = None
     if args.concept_scope == "main":
         main_filter = _hierarchy(wiki / "relations" / "concept_graph.json")
-    concepts = _scan(wiki / "concepts", require_listed=False, main_filter=main_filter)
-    stocks = _scan(wiki / "entities", require_listed=True)
+    dd_source_titles = _covered_by_sources(wiki / "sources")
+    concepts = _scan(
+        wiki / "concepts",
+        require_listed=False,
+        main_filter=main_filter,
+        dd_source_titles=dd_source_titles,
+    )
+    stocks = _scan(wiki / "entities", require_listed=True, dd_source_titles=dd_source_titles)
 
     prev: dict[str, list[str]] = {"concepts": [], "stocks": []}
     if args.state and Path(args.state).exists():
