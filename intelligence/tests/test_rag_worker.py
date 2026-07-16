@@ -9,6 +9,7 @@ import pytest
 
 from intelligence.services import kb_rag
 from intelligence.services.rag_worker import PersistentRagWorker, WorkerResponse
+from intelligence.services import rag_worker
 
 
 def _write_fake_rag(root: Path) -> None:
@@ -112,3 +113,13 @@ def test_kb_rag_uses_enabled_worker_without_cli(tmp_path: Path) -> None:
     assert result.ok is True
     assert result.telemetry.query_protocol == "persistent_worker"
     cli.assert_not_called()
+
+
+def test_worker_status_reports_lazy_lifecycle(monkeypatch) -> None:
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+
+    payload = rag_worker.status()
+
+    assert payload["enabled"] is True
+    assert payload["lifecycle"] == "lazy"
+    assert isinstance(payload["active"], int)

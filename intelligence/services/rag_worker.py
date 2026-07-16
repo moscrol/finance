@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import selectors
 import subprocess
 import threading
@@ -26,6 +27,7 @@ class PersistentRagWorker:
         self.index_dir = index_dir
         self._process: subprocess.Popen[str] | None = None
         self._lock = threading.Lock()
+        self.model_load_count = 0
 
     def query(self, argv: list[str], timeout: float) -> WorkerResponse:
         with self._lock:
@@ -54,12 +56,14 @@ class PersistentRagWorker:
             if payload.get("id") != request_id:
                 self._stop_process()
                 raise RuntimeError("rag worker response id mismatch")
-            return WorkerResponse(
+            response = WorkerResponse(
                 returncode=int(payload.get("returncode") or 0),
                 stdout=str(payload.get("stdout") or ""),
                 stderr=str(payload.get("stderr") or ""),
                 model_load_count=int(payload.get("model_load_count") or 0),
             )
+            self.model_load_count = response.model_load_count
+            return response
 
     def healthy(self) -> bool:
         return self._process is not None and self._process.poll() is None
@@ -129,3 +133,21 @@ def close_all() -> None:
         _WORKERS.clear()
     for worker in workers:
         worker.close()
+
+
+def status() -> dict[str, object]:
+    enabled = os.environ.get("RAG_WORKER_ENABLED", "0").strip().lower() not in {
+        "0",
+        "false",
+        "off",
+        "no",
+    }
+    with _WORKERS_LOCK:
+        workers = list(_WORKERS.values())
+    return {
+        "enabled": enabled,
+        "active": sum(1 for worker in workers if worker.healthy()),
+        "configured_workers": len(workers),
+        "model_load_count": sum(worker.model_load_count for worker in workers),
+        "lifecycle": "lazy",
+    }

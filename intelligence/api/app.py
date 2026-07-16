@@ -1107,6 +1107,7 @@ def create_app(
                 "active": supervisor.active_count(),
                 "capacity": supervisor.max_workers,
                 "timeout_sec": supervisor.timeout_sec,
+                "rag": kb_rag.rag_worker.status(),
             },
             "recovered_runs": len(recovered_runs),
         }
