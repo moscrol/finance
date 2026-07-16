@@ -118,7 +118,10 @@ def _scan(
     return rows
 
 
-# 语义判定：缺口概念 -> 已做深挖的同族概念（近义/子集/行业伞概念，视为已覆盖）
+# 粒度对齐 agent-daily / theme-radar 的 canonical_concept（盘面题材级）：
+# 盘面题材级概念保留为缺口；真近义/子集判定已覆盖（SEMANTIC_COVERED）；
+# 更宽的行业伞概念单独剔除（UMBRELLA_EXCLUDED）。
+# 语义判定：缺口概念 -> 已做深挖的同族概念（仅限真近义/子集，视为已覆盖）
 SEMANTIC_COVERED: dict[str, str] = {
     "利基存储": "存储芯片 / HBM与国产存储",
     "AI存储": "存储芯片 / HBM与国产存储",
@@ -135,14 +138,8 @@ SEMANTIC_COVERED: dict[str, str] = {
     "AI终端": "AI端侧 / AI手机",
     "AI BOX（车载算力终端）": "车载终端",
     "金刚石散热": "钻石散热",
-    "六氟化钨": "特种气体 / 氟化工",
     "TGV（玻璃通孔技术）": "玻璃基板",
-    "战略金属": "小金属 / 钨钼小金属 / 稀土",
-    "化工新材料": "化工 / 硅基新材料",
-    "光通信": "光模块 / CPO / 光纤 / 硅光模块",
     "被动元件": "被动器件",
-    "消费电子": "AI手机 / 折叠屏 / AI眼镜",
-    "卫星互联网": "卫星产业 / 商业航天",
     "PCB油墨": "PCB / PCB钻孔耗材",
     "PCB微钻": "PCB钻针 / PCB钻孔耗材",
     "光伏钨丝": "光伏 / 光伏新技术",
@@ -150,25 +147,32 @@ SEMANTIC_COVERED: dict[str, str] = {
     "焦煤": "煤炭",
     "煤化工上游": "煤化工",
     "XR空间计算": "AR眼镜 / 空间智能",
+    "新能源电池材料": "锂电材料 / 电解液 / 前驱体",
+    "油服设备": "油田服务 / 油气装备",
+    "数据中心网络": "交换机 / 数据中心",
+    "数据中心交换机": "交换机 / 交换芯片",
+    "机器人零部件": "机器人减速器 / 关节电机 / 行星滚柱丝杠",
+    "5G_6G通信": "6G / 6G产业",
+    "激光设备": "激光 / 激光器 / 超快激光",
+    "高阶MLCC": "MLCC / MLCC粉体",
+    "智能终端": "AI端侧 / AI手机",
+}
+
+# 行业伞概念：宽于 agent-daily/theme-radar 的盘面题材粒度，不单独列为缺口；
+# 同族盘面题材已有深挖。
+UMBRELLA_EXCLUDED: dict[str, str] = {
+    "战略金属": "小金属 / 钨钼小金属 / 稀土",
+    "化工新材料": "化工 / 硅基新材料",
     "先进制造": "高端装备与自主可控制造 / 增材制造",
     "高端制造": "高端装备与自主可控制造",
     "智能制造": "工业智能制造",
     "高端装备制造": "高端装备与自主可控制造",
     "工业互联网": "工业智能制造 / 工业控制",
-    "新能源电池材料": "锂电材料 / 电解液 / 前驱体",
     "智能传感器": "力学传感器 / 温度传感器 / 气体传感器 等",
-    "智能电网": "电网自动化 / 新型电力系统",
-    "汽车电子": "汽车传感器 / 汽车零部件 / 智能驾驶",
-    "油服设备": "油田服务 / 油气装备",
     "海洋工程": "海上油气 / 深海",
-    "锂资源": "锂电材料 / 氢氧化锂 / 硫酸锂",
     "传统能源": "煤炭 / 油气 / 火电",
     "周期资源": "煤炭 / 有色金属 / 铁矿石",
     "资源品": "煤炭 / 有色金属 / 铁矿石",
-    "数据中心网络": "交换机 / 数据中心",
-    "数据中心交换机": "交换机 / 交换芯片",
-    "机器人零部件": "机器人减速器 / 关节电机 / 行星滚柱丝杠",
-    "5G_6G通信": "6G / 6G产业",
     "公用事业": "水电 / 火电 / 电力运营商",
     "农业": "农业科技 / 种业 / 粮食安全",
     "医药": "创新药 / 医药出海",
@@ -178,22 +182,17 @@ SEMANTIC_COVERED: dict[str, str] = {
     "建材": "节能建材 / 装饰材料 / 耐火材料",
     "数字经济": "数据要素",
     "显示技术": "OLED / MiniLED / LED显示",
-    "智能终端": "AI端侧 / AI手机",
     "水泥": "水泥出海",
     "消费": "新消费 / 情绪消费 / 服务消费",
-    "激光设备": "激光 / 激光器 / 超快激光",
     "环保": "环保服务 / 固废 / 垃圾焚烧",
-    "电子化学品": "湿电子化学品",
     "能源转型": "新能源 / 绿色电力 / 储能",
     "贵金属": "黄金 / 白银 / 贵金属回收",
     "电力设备": "新型电力系统 / 特高压 / 数据中心电力设备",
     "养殖": "养殖复苏 / 猪周期",
     "航空航天": "商业航天 / 军机 / 航空发动机",
-    "高阶MLCC": "MLCC / MLCC粉体",
     "食品饮料": "白酒 / 食品 / 预制菜",
     "品牌出海": "白电品牌出海 / 黑电品牌出海 / 清洁电器品牌出海",
     "新材料": "硅基新材料 / 电子信息材料 等各材料专题",
-    "通信设备": "光模块 / 交换机 / 基站天线 / 服务器",
 }
 
 
@@ -249,7 +248,12 @@ def main() -> int:
         covered_names=covered_concepts,
     )
     sem_excluded = [r for r in concepts if r["name"] in SEMANTIC_COVERED]
-    concepts = [r for r in concepts if r["name"] not in SEMANTIC_COVERED]
+    umb_excluded = [r for r in concepts if r["name"] in UMBRELLA_EXCLUDED]
+    concepts = [
+        r
+        for r in concepts
+        if r["name"] not in SEMANTIC_COVERED and r["name"] not in UMBRELLA_EXCLUDED
+    ]
     for row in concepts:
         row["overlap"] = _overlap_hints(row["name"], covered_concepts)
     stocks = _scan(
@@ -286,17 +290,29 @@ def main() -> int:
                 base += f"{r.get('overlap', '-')} | "
             base += f"{r['tickers'] or '-'} | {r['updated'] or '-'} | {r['revision'] or '-'} |"
             lines.append(base)
-        if label == "concepts" and sem_excluded:
-            lines += [
-                "",
-                f"## 语义判定已覆盖（同族近义/子集/伞概念，已剔除 {len(sem_excluded)} 条）",
-                "",
-                "| 名称 | 判定覆盖于（已做深挖） |",
-                "|---|---|",
-            ]
-            lines += [
-                f"| {r['name']} | {SEMANTIC_COVERED[r['name']]} |" for r in sem_excluded
-            ]
+        if label == "concepts":
+            if sem_excluded:
+                lines += [
+                    "",
+                    f"## 近义/子集判定已覆盖（已剔除 {len(sem_excluded)} 条）",
+                    "",
+                    "| 名称 | 判定覆盖于（已做深挖） |",
+                    "|---|---|",
+                ]
+                lines += [
+                    f"| {r['name']} | {SEMANTIC_COVERED[r['name']]} |" for r in sem_excluded
+                ]
+            if umb_excluded:
+                lines += [
+                    "",
+                    f"## 行业伞概念，宽于盘面题材粒度（已剔除 {len(umb_excluded)} 条）",
+                    "",
+                    "| 名称 | 同族已做题材 |",
+                    "|---|---|",
+                ]
+                lines += [
+                    f"| {r['name']} | {UMBRELLA_EXCLUDED[r['name']]} |" for r in umb_excluded
+                ]
         out.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"{label}: {mode} {len(emit)} 条 -> {out}")
 
