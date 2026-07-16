@@ -146,6 +146,22 @@ _SIGNAL_INTERPRETATIONS = (
     ),
 )
 
+_HARD_EVIDENCE_TIERS = frozenset(
+    {
+        "l3",
+        "l3_official",
+        "公告",
+        "官方",
+        "公司公告",
+        "年报",
+        "半年报",
+        "季报",
+        "定期报告",
+        "互动易",
+        "交易所",
+    }
+)
+
 
 class ClaimStatus(str, Enum):
     VERIFIED = "verified"
@@ -496,7 +512,10 @@ def build_company_assessments(
     assessments: list[CompanyAssessment] = []
     for candidate in candidates:
         company_claims = tuple(claim for claim in claims if claim.company == candidate.company)
-        verified = any(claim.status == ClaimStatus.VERIFIED for claim in company_claims)
+        verified = any(
+            claim_has_hard_company_evidence(claim)
+            for claim in company_claims
+        )
         if candidate.requested_tier == CompanyTier.PERIPHERAL:
             tier = CompanyTier.PERIPHERAL
         elif candidate.requested_tier == CompanyTier.CORE and verified:
@@ -522,8 +541,153 @@ def build_company_assessments(
     return tuple(assessments)
 
 
+def is_hard_evidence_tier(
+    evidence_tier: str,
+    evidence_ids: tuple[str, ...] = (),
+) -> bool:
+    tier = evidence_tier.strip().lower()
+    return bool(
+        evidence_ids
+        and (
+            tier in _HARD_EVIDENCE_TIERS
+            or tier.startswith("l3")
+            or any(
+                evidence_id.upper().startswith("L3")
+                for evidence_id in evidence_ids
+            )
+        )
+    )
+
+
+def claim_has_hard_evidence(claim: Claim) -> bool:
+    return bool(
+        claim.status == ClaimStatus.VERIFIED
+        and is_hard_evidence_tier(
+            claim.evidence_tier,
+            claim.evidence_ids,
+        )
+    )
+
+
+def claim_has_hard_company_evidence(claim: Claim) -> bool:
+    return bool(
+        claim.company
+        and claim.status == ClaimStatus.VERIFIED
+        and claim_has_hard_evidence(claim)
+    )
+
+
+def claim_has_resolved_hard_company_evidence(
+    claim: Claim,
+    sources: tuple[EvidenceRef, ...],
+) -> bool:
+    source_by_id = {
+        source.evidence_id: source
+        for source in sources
+    }
+    return bool(
+        claim_has_hard_company_evidence(claim)
+        and any(
+            evidence_id in source_by_id
+            and is_hard_evidence_tier(
+                source_by_id[evidence_id].tier,
+                (evidence_id,),
+            )
+            for evidence_id in claim.evidence_ids
+        )
+    )
+
+
+def _soften_certainty_text(text: str) -> str:
+    uncertain = "\x00UNCERTAIN\x00"
+    return (
+        str(text or "")
+        .replace("不确定", uncertain)
+        .replace("确定性", "证据可验证程度")
+        .replace("必然", "可能")
+        .replace("肯定", "可能")
+        .replace("已证实", "已有证据支持")
+        .replace("确定", "待验证")
+        .replace(uncertain, "不确定")
+    )
+
+
 def finalize_answer_spec(answer_spec: AnswerSpec) -> AnswerSpec:
-    return replace(answer_spec, quality=evaluate_answer_spec(answer_spec))
+    governed = apply_claim_evidence_policy(answer_spec)
+    return replace(governed, quality=evaluate_answer_spec(governed))
+
+
+def apply_claim_evidence_policy(answer_spec: AnswerSpec) -> AnswerSpec:
+    softened = False
+
+    def govern(claim: Claim) -> Claim:
+        nonlocal softened
+        if claim_has_hard_evidence(claim):
+            return claim
+        text = _soften_certainty_text(claim.text)
+        if text == claim.text:
+            return claim
+        softened = True
+        return replace(claim, text=text)
+
+    summary = tuple(govern(claim) for claim in answer_spec.summary)
+    verified_facts = tuple(
+        govern(claim) for claim in answer_spec.verified_facts
+    )
+    companies: list[CompanyAssessment] = []
+    for company in answer_spec.company_table:
+        governed_claims = tuple(govern(claim) for claim in company.claims)
+        tier = company.tier
+        gaps = company.evidence_gaps
+        if tier == CompanyTier.CORE and not any(
+            claim_has_resolved_hard_company_evidence(
+                claim,
+                answer_spec.sources,
+            )
+            for claim in governed_claims
+        ):
+            tier = CompanyTier.CANDIDATE
+            gaps = tuple(
+                dict.fromkeys(
+                    (
+                        *gaps,
+                        "公司级证据未解析到官方来源，暂不列为核心",
+                    )
+                )
+            )
+        companies.append(
+            replace(
+                company,
+                tier=tier,
+                claims=governed_claims,
+                evidence_gaps=gaps,
+            )
+        )
+    counter_evidence = tuple(
+        govern(claim) for claim in answer_spec.counter_evidence
+    )
+    gaps = tuple(govern(claim) for claim in answer_spec.gaps)
+    triggers = tuple(govern(claim) for claim in answer_spec.triggers)
+    notices = answer_spec.system_notices
+    if softened:
+        notices = tuple(
+            dict.fromkeys(
+                (
+                    *notices,
+                    "弱证据硬措辞已按证据门槛降级为条件化表述。",
+                )
+            )
+        )
+    return replace(
+        answer_spec,
+        summary=summary,
+        verified_facts=verified_facts,
+        company_table=tuple(companies),
+        counter_evidence=counter_evidence,
+        gaps=gaps,
+        triggers=triggers,
+        system_notices=notices,
+    )
 
 
 def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> AnswerQualityReport:
@@ -556,7 +720,11 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
         )
     for company in answer_spec.company_table:
         if company.tier == CompanyTier.CORE and not any(
-            claim.status == ClaimStatus.VERIFIED for claim in company.claims
+            claim_has_resolved_hard_company_evidence(
+                claim,
+                answer_spec.sources,
+            )
+            for claim in company.claims
         ):
             issues.append(
                 QualityIssue(
@@ -565,13 +733,19 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
                     f"{company.company} 被列为核心，但没有公司级已核验证据。",
                 )
             )
-    all_claims = (
-        *answer_spec.summary,
-        *answer_spec.verified_facts,
-        *answer_spec.counter_evidence,
-        *answer_spec.gaps,
-        *answer_spec.triggers,
-    )
+    all_claims = _all_answer_claims(answer_spec)
+    if any(
+        _soften_certainty_text(claim.text) != claim.text
+        and not claim_has_hard_evidence(claim)
+        for claim in all_claims
+    ):
+        issues.append(
+            QualityIssue(
+                "weak_evidence_hard_certainty",
+                "error",
+                "弱证据主张包含硬确定性措辞。",
+            )
+        )
     if any(claim.theme != answer_spec.research_spec.theme for claim in all_claims):
         issues.append(
             QualityIssue(
@@ -672,6 +846,185 @@ def _research_artifact_prompt_lines(
     return lines
 
 
+_OWNER_STAGE_HEADINGS = {
+    "company_master": "公司本体",
+    "company_evidence": "公司级证据块",
+    "financial_transmission": "财务传导",
+    "market_choice": "市场选择",
+    "counterevidence": "反证与证伪",
+    "report_period": "报告期间",
+    "financial_metrics": "财务指标",
+    "segment_disclosure": "分部披露",
+    "prior_period_comparison": "前期比较",
+    "original_disclosure": "原始披露",
+    "event_facts": "事件事实",
+    "impact_transmission": "影响传导",
+    "substitutes_and_harmed_directions": "受益、替代与受损方向",
+}
+
+
+def _render_owner_stage_artifacts(answer_spec: AnswerSpec) -> list[str]:
+    artifacts = [
+        artifact
+        for artifact in answer_spec.research_artifacts
+        if artifact.required_output and artifact.stage in _OWNER_STAGE_HEADINGS
+    ]
+    if not artifacts:
+        return []
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    lines: list[str] = []
+    for artifact in artifacts:
+        lines.extend(("", f"## {_OWNER_STAGE_HEADINGS[artifact.stage]}"))
+        payload = artifact.payload
+        rendered = False
+
+        if artifact.stage == "company_master":
+            company = str(payload.get("company") or "").strip()
+            ticker = str(payload.get("ticker") or "").strip()
+            if company:
+                lines.append(
+                    f"- 主体：{company}"
+                    + (f"（{ticker}）" if ticker else "")
+                    + f"；数据截止：{payload.get('as_of') or '待核验'}。"
+                )
+                rendered = True
+        elif artifact.stage == "report_period":
+            periods = payload.get("report_periods")
+            source_dates = payload.get("source_dates")
+            period_rows = (
+                [str(item) for item in periods if str(item).strip()]
+                if isinstance(periods, list)
+                else []
+            )
+            date_rows = (
+                [str(item) for item in source_dates if str(item).strip()]
+                if isinstance(source_dates, list)
+                else []
+            )
+            if period_rows or date_rows or payload.get("as_of"):
+                lines.append(
+                    "- 报告期："
+                    + ("、".join(period_rows) if period_rows else "待核验")
+                    + "；来源日期："
+                    + ("、".join(date_rows) if date_rows else "待核验")
+                    + f"；数据截止：{payload.get('as_of') or '待核验'}。"
+                )
+                rendered = True
+        elif artifact.stage == "original_disclosure":
+            sources = payload.get("sources")
+            if isinstance(sources, list):
+                for index, source in enumerate(sources[:4]):
+                    if not isinstance(source, dict):
+                        continue
+                    evidence_id = str(source.get("evidence_id") or "")
+                    atom_ids = tuple(
+                        atom.atom_id
+                        for atom in atoms
+                        if atom.source_id == evidence_id
+                    )
+                    lines.append(
+                        f"- {source.get('source') or '来源待核验'}"
+                        + (
+                            f"：{source.get('detail')}"
+                            if source.get("detail")
+                            else ""
+                        )
+                        + _artifact_claim_marker(
+                            f"{artifact.stage}-{index}",
+                            atom_ids,
+                            "fact",
+                        )
+                    )
+                    rendered = True
+
+        for key in (
+            "claims",
+            "metrics",
+            "segments",
+            "comparisons",
+            "facts",
+            "directions",
+        ):
+            rows = payload.get(key)
+            if not isinstance(rows, list):
+                continue
+            for index, row in enumerate(rows[:4]):
+                if not isinstance(row, dict):
+                    continue
+                text = str(row.get("text") or "").strip()
+                if not text:
+                    continue
+                evidence_ids = {
+                    str(item)
+                    for item in row.get("evidence_ids", ())
+                    if str(item).strip()
+                }
+                atom_ids = tuple(
+                    atom.atom_id
+                    for atom in atoms
+                    if atom.source_id in evidence_ids
+                )
+                has_l3 = any(
+                    atom.atom_id in atom_ids
+                    and (
+                        atom.source_id.startswith("L3")
+                        or atom.evidence_tier in {"L3", "公告", "官方"}
+                    )
+                    for atom in atoms
+                )
+                claim_type = (
+                    "fact"
+                    if row.get("status") == ClaimStatus.VERIFIED.value
+                    else "hypothesis"
+                )
+                lines.append(
+                    f"- {_soften_without_l3(text, has_l3)}"
+                    + _artifact_claim_marker(
+                        f"{artifact.stage}-{index}",
+                        atom_ids,
+                        claim_type,
+                    )
+                )
+                rendered = True
+            break
+
+        event_brief = payload.get("event_brief")
+        if isinstance(event_brief, dict):
+            steps = event_brief.get("steps")
+            if isinstance(steps, list):
+                for step in steps[:4]:
+                    if not isinstance(step, dict):
+                        continue
+                    points = step.get("points")
+                    gaps = step.get("gaps")
+                    details = [
+                        str(item)
+                        for item in (
+                            points if isinstance(points, list) else []
+                        )
+                        if str(item).strip()
+                    ]
+                    if not details:
+                        details = [
+                            f"缺数：{item}"
+                            for item in (
+                                gaps if isinstance(gaps, list) else []
+                            )
+                            if str(item).strip()
+                        ]
+                    if details:
+                        lines.append(
+                            f"- {step.get('name') or '传导步骤'}："
+                            + "；".join(details[:2])
+                        )
+                        rendered = True
+
+        if not rendered:
+            reason = artifact.degrade_reason or "该阶段暂无可回查数据"
+            lines.append(f"- 缺数：{humanize(reason)}。")
+    return lines
+
+
 def _render_research_artifacts(answer_spec: AnswerSpec) -> list[str]:
     required = {
         artifact.stage: artifact
@@ -685,7 +1038,7 @@ def _render_research_artifacts(answer_spec: AnswerSpec) -> list[str]:
         source_id.startswith(("L3", "W", "R"))
         for source_id in source_ids
     )
-    lines: list[str] = []
+    lines = _render_owner_stage_artifacts(answer_spec)
 
     midterm = required.get("market_lifecycle")
     if midterm is not None:
@@ -845,6 +1198,7 @@ def _artifact_claim_marker(
 
 
 def render_answer_spec(answer_spec: AnswerSpec) -> str:
+    answer_spec = apply_claim_evidence_policy(answer_spec)
     if answer_spec.presentation_kind == "base_finance":
         return _apply_certainty_gate(
             _render_base_finance_answer_spec(answer_spec),
@@ -898,12 +1252,19 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
         lines.extend(("", *artifact_lines))
     lines.extend(["", "## 公司证据"])
     if answer_spec.company_table:
-        core_count = sum(
-            company.tier == CompanyTier.CORE for company in answer_spec.company_table
+        core_companies = tuple(
+            company
+            for company in answer_spec.company_table
+            if company.tier == CompanyTier.CORE
         )
-        if core_count:
+        candidate_companies = tuple(
+            company
+            for company in answer_spec.company_table
+            if company.tier != CompanyTier.CORE
+        )
+        if core_companies:
             lines.append(
-                f"本轮有 {core_count} 家公司达到核心分层，"
+                f"本轮有 {len(core_companies)} 家公司达到核心分层，"
                 "其余公司仍需按公开披露逐项核对。"
             )
         else:
@@ -911,26 +1272,33 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
                 "以下公司只是一份待核验清单，不等于核心受益者。"
                 "只有公告、年报、官网产品资料或客户订单，才能把公司与题材直接绑定。"
             )
-        lines.append("")
-        lines.extend(
-            [
-                "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
-                "| --- | --- | --- | --- | --- |",
-            ]
-        )
-        for company in answer_spec.company_table:
-            lines.append(
-                "| "
-                + " | ".join(
-                    (
-                        company.company + (f"（{company.ticker}）" if company.ticker else ""),
-                        humanize(company.chain_stage),
-                        _company_directness_label(company.directness),
-                        _company_tier_label(company.tier),
-                        _company_evidence_label(company),
-                    )
-                )
-                + " |"
+        if core_companies:
+            lines.extend(
+                [
+                    "",
+                    "### 核心公司",
+                    "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
+                    "| --- | --- | --- | --- | --- |",
+                ]
+            )
+            lines.extend(
+                _company_table_row(company, answer_spec.sources)
+                for company in core_companies
+            )
+        if candidate_companies:
+            lines.extend(
+                [
+                    "",
+                    "### 候选与外围公司",
+                    "以下条目只用于后续核验，不与核心公司混排。",
+                    "",
+                    "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
+                    "| --- | --- | --- | --- | --- |",
+                ]
+            )
+            lines.extend(
+                _company_table_row(company, answer_spec.sources)
+                for company in candidate_companies
             )
     else:
         lines.append(
@@ -995,18 +1363,8 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
 
 
 def _apply_certainty_gate(text: str, answer_spec: AnswerSpec) -> str:
-    if any(
-        evidence_id.startswith("L3")
-        for claim in _all_answer_claims(answer_spec)
-        for evidence_id in claim.evidence_ids
-    ):
-        return text
-    return (
-        text.replace("确定性", "证据可验证程度")
-        .replace("必然", "可能")
-        .replace("肯定", "可能")
-        .replace("确定", "待验证")
-    )
+    del answer_spec
+    return text
 
 
 def _render_base_finance_answer_spec(answer_spec: AnswerSpec) -> str:
@@ -1063,6 +1421,9 @@ def _render_base_finance_answer_spec(answer_spec: AnswerSpec) -> str:
         lines.extend(
             f"- {humanize(claim.text)}" for claim in facts[1:6]
         )
+    artifact_lines = _render_owner_stage_artifacts(answer_spec)
+    if artifact_lines:
+        lines.extend(artifact_lines)
     if len(risks) > 1:
         lines.extend(("", "## 风险与缺口"))
         lines.extend(f"- {_present_claim(claim)}" for claim in risks[1:5])
@@ -1508,12 +1869,38 @@ def _company_directness_label(directness: str) -> str:
     }.get(str(directness).strip().lower(), humanize(directness))
 
 
-def _company_evidence_label(company: CompanyAssessment) -> str:
-    if any(claim.status == ClaimStatus.VERIFIED for claim in company.claims):
+def _company_evidence_label(
+    company: CompanyAssessment,
+    sources: tuple[EvidenceRef, ...],
+) -> str:
+    if any(
+        claim_has_resolved_hard_company_evidence(claim, sources)
+        for claim in company.claims
+    ):
         return "已绑定公司级硬证据"
     if company.claims:
         return "候选资料，需公告或年报确认"
     return "仅有概念关联，未发现公司级证据"
+
+
+def _company_table_row(
+    company: CompanyAssessment,
+    sources: tuple[EvidenceRef, ...],
+) -> str:
+    return (
+        "| "
+        + " | ".join(
+            (
+                company.company
+                + (f"（{company.ticker}）" if company.ticker else ""),
+                humanize(company.chain_stage),
+                _company_directness_label(company.directness),
+                _company_tier_label(company.tier),
+                _company_evidence_label(company, sources),
+            )
+        )
+        + " |"
+    )
 
 
 def _dedupe(items: tuple[str, ...] | list[str]) -> list[str]:

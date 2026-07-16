@@ -150,6 +150,78 @@ class ClaimAdjudicationTests(unittest.TestCase):
 
         self.assertEqual(assessment.tier, CompanyTier.CANDIDATE)
 
+    def test_market_only_verified_claim_cannot_upgrade_core_tier(self) -> None:
+        candidate = CompanyCandidate(
+            company="示例科技",
+            requested_tier=CompanyTier.CORE,
+        )
+        market_claim = make_claim(
+            claim_id="market-only-company",
+            text="示例科技当日涨幅居前。",
+            claim_type="company_evidence",
+            theme=self.spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="market_data",
+            company="示例科技",
+            evidence_ids=("D7",),
+        )
+
+        assessment = build_company_assessments([candidate], [market_claim])[0]
+
+        self.assertEqual(assessment.tier, CompanyTier.CANDIDATE)
+        self.assertIn("需公告、年报", assessment.evidence_gaps[0])
+
+    def test_unresolved_official_claim_is_downgraded_before_rendering(self) -> None:
+        candidate = CompanyCandidate(
+            company="示例科技",
+            requested_tier=CompanyTier.CORE,
+        )
+        official_claim = make_claim(
+            claim_id="unresolved-company",
+            text="示例科技公告披露机器人订单。",
+            claim_type="company_evidence",
+            theme=self.spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L3",
+            company="示例科技",
+            evidence_ids=("R1",),
+        )
+        answer = AnswerSpec(
+            research_spec=self.spec,
+            summary=(official_claim,),
+            verified_facts=(official_claim,),
+            company_table=build_company_assessments(
+                [candidate],
+                [official_claim],
+            ),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="unresolved-gap",
+                    text="来源尚未解析到官方证据层。",
+                    claim_type="evidence_gap",
+                    theme=self.spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=("重新核对公告来源。",),
+            sources=(
+                EvidenceRef("R1", "盘面快照", tier="market_data"),
+            ),
+            system_notices=(),
+        )
+
+        governed = finalize_answer_spec(answer)
+        rendered = render_answer_spec(governed)
+
+        self.assertEqual(
+            governed.company_table[0].tier,
+            CompanyTier.CANDIDATE,
+        )
+        self.assertNotIn("### 核心公司", rendered)
+        self.assertIn("候选资料，需公告或年报确认", rendered)
+
     def test_quality_gate_rejects_candidate_as_verified_fact(self) -> None:
         candidate_fact = make_claim(
             claim_id="candidate-fact",
@@ -361,7 +433,7 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             gaps=(),
             triggers=(),
             next_actions=("核对收入贡献。",),
-            sources=(EvidenceRef("R1", "公司公告"),),
+            sources=(EvidenceRef("R1", "公司公告", tier="L3"),),
             system_notices=(),
         )
 
@@ -372,6 +444,132 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertNotIn("| related |", rendered)
         self.assertIn("已有公司级材料仍需持续复核业务贡献和兑现节奏", rendered)
         self.assertNotIn("公司级证据出现前", rendered)
+
+    def test_presenter_separates_core_and_candidate_companies(self) -> None:
+        spec = resolve_theme_research_spec("分析液冷产业链")
+        verified = make_claim(
+            claim_id="core-company",
+            text="核心公司公告披露液冷订单。",
+            claim_type="company_evidence",
+            theme=spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L3",
+            company="核心公司",
+            evidence_ids=("L3-1",),
+        )
+        candidate = make_claim(
+            claim_id="candidate-company",
+            text="候选公司存在液冷概念映射。",
+            claim_type="company_evidence",
+            theme=spec.theme,
+            status=ClaimStatus.CANDIDATE,
+            evidence_tier="concept_graph",
+            company="候选公司",
+            evidence_ids=("G1",),
+        )
+        answer = AnswerSpec(
+            research_spec=spec,
+            summary=(verified,),
+            verified_facts=(verified,),
+            company_table=build_company_assessments(
+                [
+                    CompanyCandidate(
+                        company="核心公司",
+                        requested_tier=CompanyTier.CORE,
+                    ),
+                    CompanyCandidate(
+                        company="候选公司",
+                        requested_tier=CompanyTier.CORE,
+                    ),
+                ],
+                [verified, candidate],
+            ),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="company-gap",
+                    text="候选公司缺少公告确认。",
+                    claim_type="evidence_gap",
+                    theme=spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=("核对候选公司公告。",),
+            sources=(
+                EvidenceRef("L3-1", "公司公告", tier="L3"),
+                EvidenceRef("G1", "概念图谱", tier="concept_graph"),
+            ),
+            system_notices=(),
+        )
+
+        rendered = render_answer_spec(finalize_answer_spec(answer))
+
+        self.assertIn("### 核心公司", rendered)
+        self.assertIn("### 候选与外围公司", rendered)
+        self.assertLess(
+            rendered.index("| 核心公司 |"),
+            rendered.index("| 候选公司 |"),
+        )
+
+    def test_certainty_policy_is_claim_scoped_and_preserves_uncertainty(self) -> None:
+        spec = resolve_theme_research_spec("分析液冷产业链")
+        official = make_claim(
+            claim_id="official",
+            text="公司公告已确认液冷订单。",
+            claim_type="company_evidence",
+            theme=spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L3",
+            company="示例科技",
+            evidence_ids=("L3-1",),
+        )
+        weak = make_claim(
+            claim_id="weak",
+            text="板块未来必然上涨，但持续性仍不确定。",
+            claim_type="market_signal",
+            theme=spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="market_data",
+            evidence_ids=("D7",),
+        )
+        answer = AnswerSpec(
+            research_spec=spec,
+            summary=(weak,),
+            verified_facts=(official, weak),
+            company_table=build_company_assessments(
+                [
+                    CompanyCandidate(
+                        company="示例科技",
+                        requested_tier=CompanyTier.CORE,
+                    )
+                ],
+                [official],
+            ),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="gap",
+                    text="持续性仍不确定。",
+                    claim_type="evidence_gap",
+                    theme=spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=("继续核验成交持续性。",),
+            sources=(
+                EvidenceRef("L3-1", "公司公告", tier="L3"),
+                EvidenceRef("D7", "市场数据", tier="market_data"),
+            ),
+            system_notices=(),
+        )
+
+        rendered = render_answer_spec(finalize_answer_spec(answer))
+
+        self.assertIn("公司公告已确认液冷订单", rendered)
+        self.assertNotIn("未来必然上涨", rendered)
+        self.assertIn("持续性仍不确定", rendered)
 
     def test_presenter_formats_values_and_deduplicates_user_visible_sources(self) -> None:
         spec = resolve_theme_research_spec("分析人形机器人产业链")

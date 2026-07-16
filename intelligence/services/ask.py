@@ -2667,11 +2667,21 @@ def _build_answer_spec_for_result(
                 ),
             )
         )
+    evidence_tiers: dict[str, str] = {}
+    for claim in claims:
+        for evidence_id in claim.evidence_ids:
+            current = evidence_tiers.get(evidence_id, "")
+            if not current or answer_model.is_hard_evidence_tier(
+                claim.evidence_tier,
+                (evidence_id,),
+            ):
+                evidence_tiers[evidence_id] = claim.evidence_tier
     sources = [
         answer_model.EvidenceRef(
             evidence_id=citation.tag,
             source=citation.source,
             detail=citation.detail,
+            tier=evidence_tiers.get(citation.tag, ""),
         )
         for citation in citations
     ]

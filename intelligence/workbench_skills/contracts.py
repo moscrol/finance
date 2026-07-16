@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol, TypeAlias
+from typing import Literal, Protocol, TypeAlias
 
 from intelligence.services import answer_model
 from intelligence.services.research_contract import ResearchDeadline
@@ -11,6 +11,12 @@ from intelligence.services.run_store import RunStore, redact
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
+SkillResultStatus: TypeAlias = Literal[
+    "completed",
+    "partial",
+    "degraded",
+    "failed",
+]
 
 
 def redact_json(value: JsonValue) -> JsonValue:
@@ -45,6 +51,7 @@ class SkillOutput:
     raw_result_ref: str | None
     answer_contract: SkillAnswerContract | None = None
     stage_artifacts: list[JsonObject] = field(default_factory=list)
+    status: SkillResultStatus | None = None
 
 
 @dataclass(frozen=True)

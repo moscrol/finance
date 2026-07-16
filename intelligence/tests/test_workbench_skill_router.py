@@ -74,10 +74,11 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "citations",
         "warnings",
         "as_of",
-        "raw_result_ref",
-        "answer_contract",
-        "stage_artifacts",
-    ]
+            "raw_result_ref",
+            "answer_contract",
+            "stage_artifacts",
+            "status",
+        ]
     store = RunStore(root=tmp_path / "runs")
     context = SkillExecutionContext(
         query="今日复盘",

@@ -190,6 +190,24 @@ _HUMAN_READABLE_REPLACEMENTS = (
         "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边",
         "时效边界：以上证据仅按来源日期标注，使用前需复核是否仍然有效。",
     ),
+    ("substitutes_and_harmed_directions", "替代与受损方向"),
+    ("prior_period_comparison", "前期比较"),
+    ("financial_transmission", "财务传导"),
+    ("original_disclosure", "原文披露"),
+    ("segment_disclosure", "分部披露"),
+    ("impact_transmission", "影响传导"),
+    ("financial_metrics", "财务指标"),
+    ("historical_analogs", "历史类比"),
+    ("market_lifecycle", "中期趋势"),
+    ("company_mapping", "公司映射"),
+    ("company_evidence", "公司证据"),
+    ("company_master", "公司本体"),
+    ("counterevidence", "反证核验"),
+    ("scenario_tree", "情景树"),
+    ("market_choice", "市场选择"),
+    ("report_period", "报告期锚定"),
+    ("event_facts", "事件事实"),
+    ("chain_stages", "产业链拆解"),
     ("rerank", "检索重排"),
     ("RAG 遥测", "检索诊断"),
     ("RAG", "知识库检索"),
@@ -456,6 +474,8 @@ def sanitize_conversation_answer(text: str) -> str:
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"(?<=[\u4e00-\u9fff]) (?=[\u4e00-\u9fff])", "", cleaned)
     cleaned = re.sub(r" +([，。；：、])", r"\1", cleaned)
+    cleaned = re.sub(r"([，。；：、（(]) +(?=[\u4e00-\u9fff])", r"\1", cleaned)
+    cleaned = re.sub(r"(?m)^ +(?=[\u4e00-\u9fff])", "", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     deduped_lines: list[str] = []
     for line in cleaned.splitlines():
@@ -1015,11 +1035,14 @@ class TurnOrchestrator:
                         }
                     )
                 else:
+                    execution_status = output.status or (
+                        "degraded" if output.warnings else "completed"
+                    )
                     research_budget.record(
                         skill_id,
                         input_summary=contextual_query,
                         provider="skill_registry",
-                        status="degraded" if output.warnings else "completed",
+                        status=execution_status,
                         elapsed_ms=self._elapsed_ms(skill_started),
                         failure_reason="；".join(output.warnings),
                     )
@@ -1047,7 +1070,7 @@ class TurnOrchestrator:
                         "skill.result",
                         {
                             "skill_id": skill_id,
-                            "status": "degraded" if output.warnings else "completed",
+                            "status": execution_status,
                             "output": asdict(output),
                             "elapsed_ms": self._elapsed_ms(skill_started),
                             "task_may_continue": False,

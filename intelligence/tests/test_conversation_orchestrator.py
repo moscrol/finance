@@ -2133,3 +2133,22 @@ def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(tmp_pat
         pending.message_id,
         pending.message_id,
     ]
+
+
+def test_sanitize_humanizes_stage_ids_and_internal_codes() -> None:
+    assert (
+        sanitize_conversation_answer("- 还缺：company_mapping 超过阶段时限 20 秒")
+        == "- 还缺：公司映射超过阶段时限 20 秒"
+    )
+    assert (
+        sanitize_conversation_answer("- 还缺：D6 中期趋势库不存在")
+        == "- 还缺：中期趋势库不存在"
+    )
+    assert (
+        sanitize_conversation_answer("- 还缺：D8 历史类比库不存在")
+        == "- 还缺：历史类比库不存在"
+    )
+    assert (
+        sanitize_conversation_answer("D6 中期趋势库不存在")
+        == "中期趋势库不存在"
+    )

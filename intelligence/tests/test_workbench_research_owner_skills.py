@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -16,7 +17,10 @@ from intelligence.services.research_contract import (
     StageArtifact,
 )
 from intelligence.services.run_store import RunStore
-from intelligence.workbench_skills.contracts import SkillExecutionContext
+from intelligence.workbench_skills.contracts import (
+    SkillAnswerContract,
+    SkillExecutionContext,
+)
 from intelligence.workbench_skills.research_owner import (
     FINANCIAL_ANALYSIS,
     NEWS_IMPACT,
@@ -111,6 +115,159 @@ def _result(
         )
     ]
     return result
+
+
+def _quality_contract(
+    query: str,
+    *,
+    quality_error: bool = False,
+) -> SkillAnswerContract:
+    spec = _answer_spec(query)
+    summary = answer_model.make_claim(
+        claim_id="quality-summary",
+        text="财务指标已形成可回查的报告期结论。",
+        claim_type="summary",
+        theme=spec.research_spec.theme,
+        status=answer_model.ClaimStatus.VERIFIED,
+        evidence_tier="公告",
+        evidence_ids=("W1",),
+    )
+    gap = answer_model.make_claim(
+        claim_id="quality-gap",
+        text="仍需核对下一期经营数据。",
+        claim_type="evidence_gap",
+        theme=spec.research_spec.theme,
+        status=answer_model.ClaimStatus.MISSING,
+    )
+    governed = answer_model.finalize_answer_spec(
+        replace(spec, summary=(summary,), gaps=(gap,))
+    )
+    if quality_error:
+        governed = replace(
+            governed,
+            quality=answer_model.AnswerQualityReport(
+                issues=(
+                    answer_model.QualityIssue(
+                        code="forced_quality_error",
+                        severity="error",
+                        message="测试质量错误",
+                    ),
+                )
+            ),
+        )
+    return SkillAnswerContract(
+        retrieval_plan=FINANCIAL_ANALYSIS.retrieval_plan,
+        output_contract=FINANCIAL_ANALYSIS.output_contract,
+        answer_spec=governed,
+        question_type=FINANCIAL_ANALYSIS.question_type,
+    )
+
+
+def _required_stage(
+    stage: str,
+    *,
+    status: str = "completed",
+    evidence_atom_ids: tuple[str, ...] = ("atom-1",),
+    payload: dict[str, object] | None = None,
+) -> StageArtifact:
+    return StageArtifact(
+        stage=stage,
+        status=status,
+        elapsed_ms=1,
+        producer=f"test.{stage}",
+        artifact_type=f"{stage}.artifact",
+        required_output=True,
+        evidence_atom_ids=evidence_atom_ids,
+        payload=payload or {"available": True},
+    )
+
+
+def test_owner_result_status_adjudicates_all_four_states() -> None:
+    owner = ResearchOwnerSkill(FINANCIAL_ANALYSIS)
+    stages = tuple(
+        _required_stage(stage)
+        for stage in OWNER_RETRIEVAL_STAGES["financial-analysis"]
+    )
+    contract = _quality_contract("分析贵州茅台财报")
+
+    assert owner._owner_result_status(contract, stages, []) == "completed"
+
+    partial_stages = (
+        replace(stages[0], status="timeout"),
+        *stages[1:],
+    )
+    assert (
+        owner._owner_result_status(contract, partial_stages, [])
+        == "partial"
+    )
+
+    degraded_stages = (
+        replace(stages[0], evidence_atom_ids=()),
+        *stages[1:],
+    )
+    assert (
+        owner._owner_result_status(contract, degraded_stages, [])
+        == "degraded"
+    )
+    assert (
+        owner._owner_result_status(
+            _quality_contract(
+                "分析贵州茅台财报",
+                quality_error=True,
+            ),
+            stages,
+            [],
+        )
+        == "degraded"
+    )
+
+    failed_stages = tuple(
+        replace(stage, status="failed", evidence_atom_ids=())
+        for stage in stages
+    )
+    assert (
+        owner._owner_result_status(None, failed_stages, [])
+        == "failed"
+    )
+    assert (
+        owner._owner_result_status(contract, failed_stages, [])
+        == "failed"
+    )
+
+
+def test_company_evidence_stage_requires_company_bound_hard_source() -> None:
+    owner = ResearchOwnerSkill(STOCK_DEEP_DIVE)
+    market_only = _required_stage(
+        "company_evidence",
+        payload={
+            "available": True,
+            "claims": [
+                {
+                    "company": "示例科技",
+                    "status": "verified",
+                    "evidence_tier": "market_data",
+                    "evidence_ids": ["D7"],
+                }
+            ],
+        },
+    )
+    official = replace(
+        market_only,
+        payload={
+            "available": True,
+            "claims": [
+                {
+                    "company": "示例科技",
+                    "status": "verified",
+                    "evidence_tier": "L3",
+                    "evidence_ids": ["L3-1"],
+                }
+            ],
+        },
+    )
+
+    assert not owner._stage_meets_evidence_threshold(market_only)
+    assert owner._stage_meets_evidence_threshold(official)
 
 
 def _context(
@@ -333,6 +490,195 @@ def test_theme_vertical_slice_uses_distinct_typed_stage_artifacts(
     assert "无来源数字概率" in rendered
 
 
+@pytest.mark.parametrize(
+    ("config", "evidence_id", "expected_types", "headings"),
+    [
+        (
+            STOCK_DEEP_DIVE,
+            "R1",
+            {
+                "company_master": "CompanyMasterArtifact",
+                "company_evidence": "CompanyEvidenceArtifact",
+                "financial_transmission": "FinancialTransmissionArtifact",
+                "market_choice": "MarketChoiceArtifact",
+                "counterevidence": "CounterEvidenceArtifact",
+            },
+            ("## 公司本体", "## 公司级证据块", "## 财务传导", "## 市场选择", "## 反证与证伪"),
+        ),
+        (
+            FINANCIAL_ANALYSIS,
+            "D7",
+            {
+                "report_period": "ReportPeriodArtifact",
+                "financial_metrics": "FinancialMetricsArtifact",
+                "segment_disclosure": "SegmentDisclosureArtifact",
+                "prior_period_comparison": "PriorPeriodComparisonArtifact",
+            },
+            ("## 报告期间", "## 财务指标", "## 分部披露", "## 前期比较"),
+        ),
+        (
+            NEWS_IMPACT,
+            "W1",
+            {
+                "original_disclosure": "OriginalDisclosureArtifact",
+                "event_facts": "EventFactsArtifact",
+                "impact_transmission": "ImpactTransmissionArtifact",
+                "substitutes_and_harmed_directions": "ImpactDirectionsArtifact",
+            },
+            ("## 原始披露", "## 事件事实", "## 影响传导", "## 受益、替代与受损方向"),
+        ),
+    ],
+)
+def test_phase3_owners_use_distinct_typed_stage_artifacts(
+    tmp_path: Path,
+    config: ResearchOwnerConfig,
+    evidence_id: str,
+    expected_types: dict[str, str],
+    headings: tuple[str, ...],
+) -> None:
+    calls = 0
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        nonlocal calls
+        calls += 1
+        return _result(
+            options.query,
+            config.question_type,
+            evidence_id=evidence_id,
+            fact_text="公司公告披露营收增长，市场相对强度改善",
+        )
+
+    query = {
+        "stock-deep-dive": "请个股深挖英维克",
+        "financial-analysis": "分析贵州茅台财报和毛利率",
+        "news-impact": "英维克最新液冷公告有什么影响",
+    }[config.skill_id]
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        config,
+        answer_query_fn=fake_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert calls == 1
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    assert set(artifacts) == set(expected_types)
+    assert {
+        stage: item["artifact_type"] for stage, item in artifacts.items()
+    } == expected_types
+    assert len({item["producer"] for item in artifacts.values()}) == len(
+        artifacts
+    )
+    assert len({item["input_hash"] for item in artifacts.values()}) == len(
+        artifacts
+    )
+    assert all(item["timeout_seconds"] > 0 for item in artifacts.values())
+    assert all(item["on_failure"] for item in artifacts.values())
+    assert all(
+        item["payload"].get("source_mode") != "shared_owner_bundle"
+        for item in artifacts.values()
+    )
+
+    assert output.answer_contract is not None
+    rendered = answer_model.render_answer_spec(
+        output.answer_contract.answer_spec
+    )
+    assert all(heading in rendered for heading in headings)
+
+
+@pytest.mark.parametrize(
+    ("config", "query", "headings"),
+    [
+        (
+            STOCK_DEEP_DIVE,
+            "请个股深挖英维克",
+            ("## 公司本体", "## 公司级证据块", "## 财务传导", "## 市场选择", "## 反证与证伪"),
+        ),
+        (
+            FINANCIAL_ANALYSIS,
+            "分析贵州茅台财报和毛利率",
+            ("## 报告期间", "## 财务指标", "## 分部披露", "## 前期比较"),
+        ),
+        (
+            NEWS_IMPACT,
+            "英维克最新液冷公告有什么影响",
+            ("## 原始披露", "## 事件事实", "## 影响传导", "## 受益、替代与受损方向"),
+        ),
+    ],
+)
+def test_phase3_owner_blocks_survive_retrieval_failure(
+    tmp_path: Path,
+    config: ResearchOwnerConfig,
+    query: str,
+    headings: tuple[str, ...],
+) -> None:
+    def unavailable_answer_query(_options: AskOptions) -> AskResult:
+        raise RuntimeError("retrieval unavailable")
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        config,
+        answer_query_fn=unavailable_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert output.answer_contract is not None
+    assert output.modules == []
+    assert output.citations == []
+    assert output.status == "partial"
+    assert output.stage_artifacts[0]["status"] == "failed"
+    assert all(
+        item["status"] != "completed" for item in output.stage_artifacts
+    )
+    rendered = answer_model.render_answer_spec(
+        output.answer_contract.answer_spec
+    )
+    assert all(heading in rendered for heading in headings)
+
+
+@pytest.mark.parametrize(
+    ("config", "evidence_id"),
+    [
+        (STOCK_DEEP_DIVE, "R1"),
+        (FINANCIAL_ANALYSIS, "D7"),
+        (NEWS_IMPACT, "W1"),
+    ],
+)
+def test_phase3_owners_soften_hard_certainty_without_l3(
+    tmp_path: Path,
+    config: ResearchOwnerConfig,
+    evidence_id: str,
+) -> None:
+    query = {
+        "stock-deep-dive": "请个股深挖英维克",
+        "financial-analysis": "分析贵州茅台财报和毛利率",
+        "news-impact": "英维克最新液冷公告有什么影响",
+    }[config.skill_id]
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        return _result(
+            options.query,
+            config.question_type,
+            evidence_id=evidence_id,
+            fact_text="该方向未来必然确定上涨",
+            evidence_tier="盘面",
+        )
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        config,
+        answer_query_fn=fake_answer_query,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert output.answer_contract is not None
+    rendered = answer_model.render_answer_spec(
+        output.answer_contract.answer_spec
+    )
+    assert "必然" not in rendered
+    assert "确定" not in rendered
+
+
 def test_theme_fallback_keeps_required_blocks_and_softens_certainty_without_l3(
     tmp_path: Path,
 ) -> None:
@@ -392,6 +738,7 @@ def test_theme_required_blocks_survive_company_mapping_failure(
     assert output.answer_contract is not None
     assert output.modules == []
     assert output.citations == []
+    assert output.status == "partial"
     artifacts = {item["stage"]: item for item in output.stage_artifacts}
     assert artifacts["company_mapping"]["status"] == "failed"
     assert artifacts["market_lifecycle"]["status"] == "completed"
