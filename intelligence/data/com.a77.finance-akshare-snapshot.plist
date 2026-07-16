@@ -6,7 +6,7 @@
   <string>com.a77.finance-akshare-snapshot</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/a77/finance-workspace-runtime/scripts/run_akshare_snapshot.sh</string>
+    <string>/Users/a77/finance-workspace-runtime/scripts/run_market_snapshot.sh</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
@@ -18,6 +18,10 @@
     <string>/Users/a77/finance-workspace-private/market_snapshot</string>
     <key>AKSHARE_VENV</key>
     <string>/Users/a77/.local/share/finance-workbench/akshare-venv</string>
+    <key>WORKBENCH_PYTHON</key>
+    <string>/Users/a77/finance-workspace-private/.venv-workbench/bin/python</string>
+    <key>MARKET_DB_PATH</key>
+    <string>/Users/a77/finance-workspace-private/db/market_feature_store.duckdb</string>
     <key>AKSHARE_PROXY_MODE</key>
     <string>direct</string>
     <key>PATH</key>
