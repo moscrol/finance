@@ -587,7 +587,7 @@ def understand_query(
 
     if anchor is not None:
         return envelope(
-            "stock_deep_dive",
+            _company_question_type(text),
             "company",
             anchor.entity,
             _decision_goal(text),

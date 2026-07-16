@@ -7,7 +7,8 @@ from dataclasses import asdict, dataclass, replace
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
-from intelligence.services.query_understanding import QueryEnvelope, understand_query
+from intelligence.services.query_resolution import QueryResolver
+from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.research_contract import (
     TurnIntent,
     build_turn_intent,
@@ -137,11 +138,11 @@ def _decision(
 def _deterministic_decision(
     query: str,
     *,
+    envelope: QueryEnvelope,
     skill_mode: str,
     selected_skill_ids: Sequence[str],
 ) -> TurnDecision | None:
     cleaned = query.strip()
-    envelope = understand_query(cleaned)
     clarification = ask_clarify.clarify_for_query(cleaned)
     if clarification.needs_clarification:
         return _decision(
@@ -354,8 +355,7 @@ def _apply_policy(decision: TurnDecision) -> TurnDecision:
     return replace(decision, needs_retrieval=True, needs_template=True)
 
 
-def _safe_fallback(query: str) -> TurnDecision:
-    envelope = understand_query(query)
+def _safe_fallback(query: str, envelope: QueryEnvelope) -> TurnDecision:
     if _KNOWLEDGE_QUESTION_PATTERN.search(query):
         return _decision(
             "knowledge",
@@ -382,17 +382,29 @@ def decide_turn(
     llm_complete: LLMComplete | None = None,
     previous_intent: TurnIntent | None = None,
     previous_turn_id: str | None = None,
+    resolver: QueryResolver | None = None,
 ) -> TurnDecision:
-    envelope = understand_query(query)
+    resolution = (resolver or QueryResolver()).resolve(query)
+    envelope = resolution.envelope
+    if resolution.context_dependent and previous_intent is None:
+        return _decision(
+            "clarify",
+            envelope=envelope,
+            confidence=1.0,
+            reason="追问包含指代或省略，但当前对话没有可继承的研究主体",
+            clarification_questions=("你指的是哪家公司、题材或上一条研究逻辑？",),
+        )
     intent = build_turn_intent(
         query,
         envelope,
         previous_intent=previous_intent,
         previous_turn_id=previous_turn_id,
+        resolution=resolution,
     )
     effective_query = contextualize_intent_query(query, intent)
     deterministic = _deterministic_decision(
         effective_query,
+        envelope=envelope,
         skill_mode=skill_mode,
         selected_skill_ids=selected_skill_ids,
     )
@@ -406,9 +418,13 @@ def decide_turn(
     except Exception:
         content = None
     if content is None:
-        return _attach_turn_intent(_safe_fallback(effective_query), intent)
+        return _attach_turn_intent(_safe_fallback(effective_query, envelope), intent)
     parsed = _parse_llm_decision(content)
-    decision = parsed if parsed is not None else _safe_fallback(effective_query)
+    decision = (
+        parsed
+        if parsed is not None
+        else _safe_fallback(effective_query, envelope)
+    )
     return _attach_turn_intent(decision, intent)
 
 
@@ -434,9 +450,13 @@ def _attach_turn_intent(
             reason="结构化追问继承既有研究任务",
             clarification_questions=(),
         )
+    capabilities = decision.capabilities
+    if {"relation", "company_mapping"}.intersection(intent.operators):
+        capabilities = tuple(dict.fromkeys((*capabilities, "graph")))
     return replace(
         decision,
         question_type=intent.question_type,
         subject=intent.primary_subject,
+        capabilities=capabilities,
         turn_intent=intent,
     )

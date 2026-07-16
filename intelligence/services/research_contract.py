@@ -463,10 +463,8 @@ def is_contextual_follow_up(
     if previous_intent is None:
         return False
     cleaned = query.strip()
-    if (
-        resolution.context_dependent
-        if resolution is not None
-        else is_follow_up(cleaned)
+    if is_follow_up(cleaned) or (
+        resolution is not None and resolution.context_dependent
     ):
         return True
     if (

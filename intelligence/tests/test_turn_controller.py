@@ -5,11 +5,33 @@ import json
 import pytest
 
 from intelligence.services.research_contract import TurnIntent
+from intelligence.services.query_resolution import QueryResolution
+from intelligence.services.query_understanding import understand_query
 from intelligence.services.turn_controller import decide_turn
 
 
 def _no_llm(_messages: list[dict[str, str]]):
     return None, None, "fixture unavailable"
+
+
+class _CountingResolver:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def resolve(self, query: str) -> QueryResolution:
+        self.calls += 1
+        return QueryResolution(
+            envelope=understand_query(query),
+            anchor=None,
+        )
+
+
+def test_controller_resolves_each_turn_once() -> None:
+    resolver = _CountingResolver()
+
+    decide_turn("卫星互联网是什么", llm_complete=_no_llm, resolver=resolver)
+
+    assert resolver.calls == 1
 
 
 def test_greeting_is_chat_without_tools_or_memory() -> None:
