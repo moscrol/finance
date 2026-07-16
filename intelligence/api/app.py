@@ -1113,7 +1113,15 @@ def create_app(
             "market_snapshot": {
                 "status": snapshot_contract["status"],
                 "ready": snapshot_contract["ready"],
-                "date": snapshot_contract["date"],
+                "date": snapshot_contract["summary"].get(
+                    "served_trade_date"
+                )
+                or snapshot_contract["date"],
+                "requested_date": snapshot_contract["summary"].get(
+                    "requested_trade_date"
+                ),
+                "provider": snapshot_contract["summary"].get("provider"),
+                "source": snapshot_contract["summary"].get("source"),
                 "summary": snapshot_contract["summary"],
                 "errors": snapshot_contract["errors"],
                 "warnings": snapshot_contract["warnings"],

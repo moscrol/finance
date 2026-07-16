@@ -15,6 +15,11 @@ def write_snapshot(root: Path, date: str = "2026-06-11") -> None:
         "generated_at": "2026-06-11T18:00:00+08:00",
         "quality": "complete",
         "freshness": "historical",
+        "source": "duckdb:market_feature_store",
+        "provider": "duckdb_latest",
+        "requested_trade_date": "2026-06-12",
+        "served_trade_date": date,
+        "source_updated_at": "2026-06-11T17:59:00+08:00",
         "market": {
             "stage": "主升",
             "total_amount": 12345.6,
@@ -48,7 +53,7 @@ def write_snapshot(root: Path, date: str = "2026-06-11") -> None:
     (root / f"{date}.json").write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
     (root / "latest.json").write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
     (root / "meta.json").write_text(
-        json.dumps({"schema_version": "1.0", "latest_trade_date": date, "updated_at": "2026-06-11T18:01:00+08:00", "quality": "complete", "freshness": "historical"}, ensure_ascii=False),
+        json.dumps({"schema_version": "1.0", "latest_trade_date": date, "requested_trade_date": "2026-06-12", "served_trade_date": date, "updated_at": "2026-06-11T18:01:00+08:00", "source": "duckdb:market_feature_store", "provider": "duckdb_latest", "source_updated_at": "2026-06-11T17:59:00+08:00", "quality": "complete", "freshness": "historical"}, ensure_ascii=False),
         encoding="utf-8",
     )
 
@@ -66,6 +71,19 @@ class MarketSnapshotContractTest(unittest.TestCase):
             self.assertEqual(result["date"], "2026-06-11")
             self.assertEqual(result["summary"]["theme_count"], 1)
             self.assertEqual(result["summary"]["strong_stock_count"], 1)
+            self.assertEqual(result["summary"]["provider"], "duckdb_latest")
+            self.assertEqual(
+                result["summary"]["source"],
+                "duckdb:market_feature_store",
+            )
+            self.assertEqual(
+                result["summary"]["requested_trade_date"],
+                "2026-06-12",
+            )
+            self.assertEqual(
+                result["summary"]["served_trade_date"],
+                "2026-06-11",
+            )
 
     def test_missing_daily_file_fails(self):
         with tempfile.TemporaryDirectory() as tmp:

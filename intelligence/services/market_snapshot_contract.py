@@ -63,6 +63,16 @@ def validate_market_snapshot_root(root: str | Path, date: str | None = None) -> 
         "strong_stock_count": len(daily.get("strong_stocks") or []) if isinstance(daily.get("strong_stocks"), list) else 0,
         "market_stage": (daily.get("market") or {}).get("stage") if isinstance(daily.get("market"), dict) else None,
         "latest_trade_date": meta.get("latest_trade_date"),
+        "requested_trade_date": daily.get("requested_trade_date")
+        or meta.get("requested_trade_date")
+        or target_date,
+        "served_trade_date": daily.get("served_trade_date")
+        or meta.get("served_trade_date")
+        or target_date,
+        "provider": daily.get("provider") or meta.get("provider"),
+        "source": daily.get("source") or meta.get("source"),
+        "source_updated_at": daily.get("source_updated_at")
+        or meta.get("source_updated_at"),
         "quality": quality,
         "freshness": freshness,
     }

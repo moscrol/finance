@@ -49,6 +49,10 @@ def _write_market_snapshot_fixture(root, *, quality="complete", freshness="fresh
         "trade_date": date,
         "quality": quality,
         "freshness": freshness,
+        "source": "duckdb:market_feature_store",
+        "provider": "duckdb_latest",
+        "requested_trade_date": "2026-07-17",
+        "served_trade_date": date,
         "market": {
             "stage": "震荡",
             "total_amount": 10000,
@@ -70,6 +74,10 @@ def _write_market_snapshot_fixture(root, *, quality="complete", freshness="fresh
                 "schema_version": "1.1-test",
                 "latest_trade_date": date,
                 "updated_at": "2026-07-16T16:00:00+08:00",
+                "source": "duckdb:market_feature_store",
+                "provider": "duckdb_latest",
+                "requested_trade_date": "2026-07-17",
+                "served_trade_date": date,
                 "quality": quality,
                 "freshness": freshness,
             }
@@ -846,6 +854,9 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["checks"]["run_store_writable"] is True
     assert payload["critical"]["market_snapshot"] is True
     assert payload["market_snapshot"]["ready"] is True
+    assert payload["market_snapshot"]["provider"] == "duckdb_latest"
+    assert payload["market_snapshot"]["date"] == "2026-07-16"
+    assert payload["market_snapshot"]["requested_date"] == "2026-07-17"
     assert payload["missing_critical"] == []
     assert payload["workers"]["capacity"] == 2
 
