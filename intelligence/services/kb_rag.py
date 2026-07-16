@@ -379,6 +379,41 @@ def _resolve_rag_python(root: Path) -> str:
     return sys.executable
 
 
+def prewarm(
+    kb_wiki: str | Path | None,
+    *,
+    timeout: float = 90,
+) -> dict[str, object]:
+    """Load the production hybrid retriever before serving user requests."""
+    if not rag_worker.enabled():
+        return rag_worker.status()
+    if not kb_wiki:
+        raise ValueError("knowledge wiki is required for RAG prewarm")
+    root = kb_root(kb_wiki)
+    script = root / RAG_SCRIPT_REL
+    index_dir = _resolve_index_dir(root)
+    if not script.is_file():
+        raise FileNotFoundError(script)
+    if not index_dir.is_dir():
+        raise FileNotFoundError(index_dir)
+    rag_worker.prewarm(
+        python=_resolve_rag_python(root),
+        kb_root=root,
+        index_dir=index_dir,
+        argv=[
+            "query",
+            "Workbench RAG 预热",
+            "--k",
+            "1",
+            "--mode",
+            DEFAULT_RAG_MODE,
+            "--json",
+        ],
+        timeout=timeout,
+    )
+    return rag_worker.status()
+
+
 def probe_rag_cli(
     kb_wiki: str | Path | None,
     *,

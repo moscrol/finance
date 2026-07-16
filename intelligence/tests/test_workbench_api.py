@@ -861,6 +861,102 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["workers"]["capacity"] == 2
 
 
+def test_lifespan_prewarms_enabled_rag_before_ready(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    snapshot = tmp_path / "market_snapshot"
+    snapshot.mkdir()
+    _write_market_snapshot_fixture(snapshot)
+    monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(snapshot))
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    calls: list[tuple[Path, float]] = []
+    monkeypatch.setattr(
+        app_module.kb_rag,
+        "prewarm",
+        lambda wiki, *, timeout: calls.append((wiki, timeout)),
+    )
+    monkeypatch.setattr(
+        app_module.kb_rag.rag_worker,
+        "status",
+        lambda: {
+            "enabled": True,
+            "state": "ready",
+            "active": 1,
+            "configured_workers": 1,
+            "model_load_count": 1,
+            "prewarm_latency_ms": 42000,
+            "last_error_type": None,
+            "lifecycle": "startup_prewarm",
+        },
+    )
+    monkeypatch.setattr(app_module.kb_rag.rag_worker, "close_all", lambda: None)
+
+    with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+        response = probe.get("/api/health/ready")
+
+    assert calls == [(knowledge_wiki, 90.0)]
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["critical"]["rag_worker"] is True
+    assert payload["workers"]["rag"]["state"] == "ready"
+
+
+def test_rag_prewarm_failure_keeps_readiness_closed(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    snapshot = tmp_path / "market_snapshot"
+    snapshot.mkdir()
+    _write_market_snapshot_fixture(snapshot)
+    monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(snapshot))
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+
+    def fail_prewarm(_wiki, *, timeout):
+        assert timeout == 90.0
+        raise TimeoutError("fixture timeout")
+
+    monkeypatch.setattr(app_module.kb_rag, "prewarm", fail_prewarm)
+    monkeypatch.setattr(
+        app_module.kb_rag.rag_worker,
+        "status",
+        lambda: {
+            "enabled": True,
+            "state": "failed",
+            "active": 0,
+            "configured_workers": 1,
+            "model_load_count": 0,
+            "prewarm_latency_ms": 90000,
+            "last_error_type": "TimeoutError",
+            "lifecycle": "startup_prewarm",
+        },
+    )
+    monkeypatch.setattr(app_module.kb_rag.rag_worker, "close_all", lambda: None)
+
+    with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+        response = probe.get("/api/health/ready")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["critical"]["rag_worker"] is False
+    assert "rag_worker" in payload["missing_critical"]
+    assert payload["workers"]["rag"]["last_error_type"] == "TimeoutError"
+
+
 def test_readiness_fails_when_market_snapshot_is_missing(
     tmp_path, monkeypatch
 ) -> None:

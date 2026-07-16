@@ -21,8 +21,14 @@ def main() -> int:
     parser.add_argument("--index-dir", required=True)
     args = parser.parse_args()
     root = Path(args.kb_root).resolve()
+    script_dir = root / "scripts"
+    for import_root in (root, script_dir):
+        resolved = str(import_root)
+        if resolved not in sys.path:
+            sys.path.insert(0, resolved)
+    os.chdir(root)
     os.environ["RAG_INDEX_DIR"] = str(Path(args.index_dir).resolve())
-    module = _load_module(root / "scripts" / "rag_index.py")
+    module = _load_module(script_dir / "rag_index.py")
     original_loader = module._load_retriever
     load_count = 0
     state = {"retriever": None, "chunks": {}, "revision": "", "freshness": "unknown"}
