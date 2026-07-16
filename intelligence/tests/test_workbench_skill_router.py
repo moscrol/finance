@@ -154,6 +154,43 @@ def test_manual_mode_deduplicates_and_selects_only_manual_without_llm() -> None:
     assert result.base_finance_fallback is False
 
 
+def test_auto_and_hybrid_inherit_only_registered_skill_ids() -> None:
+    registry = {
+        "daily-review": definition("daily-review"),
+        "other": definition("other"),
+    }
+    for mode in ("auto", "hybrid"):
+        result = route_skills(
+            "下周验证清单",
+            "ask",
+            mode,
+            [],
+            registry=registry,
+            inherited_skill_ids=("missing", "daily-review"),
+            llm_complete=lambda _messages: (None, None, "no key"),
+        )
+        assert result.selections[0].skill_id == "daily-review"
+        assert result.selections[0].reason == "继承上一轮研究工具上下文"
+
+
+def test_manual_mode_ignores_inherited_skill_context() -> None:
+    registry = {
+        "daily-review": definition("daily-review"),
+        "manual": definition("manual"),
+    }
+
+    result = route_skills(
+        "按手动流程做",
+        "ask",
+        "manual",
+        ["manual"],
+        registry=registry,
+        inherited_skill_ids=("daily-review",),
+    )
+
+    assert [item.skill_id for item in result.selections] == ["manual"]
+
+
 def test_auto_mode_ignores_manual_selection_and_uses_stable_rules_without_llm() -> None:
     registry = {
         "z": definition("z", "复盘"),

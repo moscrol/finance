@@ -149,6 +149,74 @@ def test_follow_up_inherits_subject_owner_and_evidence_set() -> None:
     assert decision.turn_intent.evidence_atom_ids == ("atom-1", "atom-2")
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        "毛利率下滑的原因是什么",
+        "它和海光信息比，哪个弹性更大",
+        "一阶受益和二阶受益分别是谁",
+        "历史类似情况后来怎么演绎",
+        "真实订单证据在哪里",
+        "下周验证清单",
+    ),
+)
+def test_financial_context_dependent_followups_inherit_research_gate(
+    query: str,
+) -> None:
+    previous = TurnIntent(
+        primary_subject="立讯精密",
+        secondary_topics=("AI 服务器",),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+        evidence_atom_ids=("atom-1",),
+        skill_ids=("stock-deep-dive",),
+        stage_artifact_ids=("owner:company_master:hash",),
+    )
+
+    decision = decide_turn(
+        query,
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.subject == "立讯精密"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.inherited_from_turn == "msg-previous"
+    assert decision.turn_intent.skill_ids == ("stock-deep-dive",)
+    assert decision.turn_intent.stage_artifact_ids == (
+        "owner:company_master:hash",
+    )
+
+
+def test_non_owner_skill_followup_cannot_fall_back_to_general_chat() -> None:
+    previous = TurnIntent(
+        primary_subject="今日复盘",
+        secondary_topics=(),
+        question_type="general",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        skill_ids=("daily-review",),
+    )
+
+    decision = decide_turn(
+        "下周验证清单",
+        previous_intent=previous,
+        previous_turn_id="msg-daily",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane in {"research", "workflow"}
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.skill_ids == ("daily-review",)
+
+
 def test_explicit_follow_up_task_switch_keeps_subject_and_changes_owner() -> None:
     previous = TurnIntent(
         primary_subject="英维克",

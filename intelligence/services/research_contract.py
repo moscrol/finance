@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, cast
 
 from intelligence.services.query_understanding import QueryEnvelope
 
@@ -148,6 +148,17 @@ _FOLLOW_UP_CONTINUATION_PATTERN = re.compile(
     r"和[^，。！？?!]{2,24}(?:比|比较))"
 )
 _COMPARISON_PATTERN = re.compile(r"(?:比较|对比|相比|和.+比|与.+比)")
+_CONTEXT_DEPENDENT_RESEARCH_PATTERN = re.compile(
+    r"(?:原因|为什么|证伪|反证|弹性|赔率|空间|受益|一阶|二阶|"
+    r"历史类似|历史类比|真实订单|订单|验证清单|验证路径|下周|"
+    r"催化|风险|毛利率|净利率|收入|利润|现金流|兑现|替代标的|"
+    r"哪个更|分别是谁|怎么看|如何验证)"
+)
+_CONTEXT_DEPENDENT_RESEARCH_PREFIX_PATTERN = re.compile(
+    r"^(?:毛利率|净利率|收入|营收|利润|现金流|原因|为什么|"
+    r"历史类似|历史类比|真实订单|订单|验证清单|验证路径|"
+    r"下周|一阶|二阶|哪些反证|哪些风险)"
+)
 _EXPLICIT_SWITCH_PATTERN = re.compile(
     r"(?:改看|换成|切换到|另外看|再分析|重新分析|转向)"
 )
@@ -172,6 +183,8 @@ class TurnIntent:
     comparison_entities: tuple[str, ...]
     inherited_from_turn: str | None
     evidence_atom_ids: tuple[str, ...] = ()
+    skill_ids: tuple[str, ...] = ()
+    stage_artifact_ids: tuple[str, ...] = ()
     time_horizon: str = "unspecified"
     operators: tuple[str, ...] = ()
     required_outputs: tuple[str, ...] = ()
@@ -191,6 +204,8 @@ class TurnIntent:
             secondary_topics = value.get("secondary_topics", ())
             comparison_entities = value.get("comparison_entities", ())
             evidence_atom_ids = value.get("evidence_atom_ids", ())
+            skill_ids = value.get("skill_ids", ())
+            stage_artifact_ids = value.get("stage_artifact_ids", ())
             time_horizon = value.get("time_horizon", "unspecified")
             operators = value.get("operators", ())
             required_outputs = value.get("required_outputs", ())
@@ -210,6 +225,8 @@ class TurnIntent:
             secondary_topics,
             comparison_entities,
             evidence_atom_ids,
+            skill_ids,
+            stage_artifact_ids,
             operators,
             required_outputs,
         ):
@@ -225,6 +242,8 @@ class TurnIntent:
             comparison_entities=tuple(comparison_entities),
             inherited_from_turn=inherited_from_turn,
             evidence_atom_ids=tuple(evidence_atom_ids),
+            skill_ids=tuple(skill_ids),
+            stage_artifact_ids=tuple(stage_artifact_ids),
             time_horizon=time_horizon,
             operators=tuple(operators),
             required_outputs=tuple(required_outputs),
@@ -240,6 +259,8 @@ class ResearchPlan:
     comparison_entities: tuple[str, ...] = ()
     inherited_from_turn: str | None = None
     evidence_atom_ids: tuple[str, ...] = ()
+    skill_ids: tuple[str, ...] = ()
+    stage_artifact_ids: tuple[str, ...] = ()
     time_horizon: str = "unspecified"
     operators: tuple[str, ...] = ()
     required_outputs: tuple[str, ...] = ()
@@ -262,6 +283,8 @@ class ResearchPlan:
             comparison_entities=intent.comparison_entities,
             inherited_from_turn=intent.inherited_from_turn,
             evidence_atom_ids=intent.evidence_atom_ids,
+            skill_ids=intent.skill_ids,
+            stage_artifact_ids=intent.stage_artifact_ids,
             time_horizon=intent.time_horizon,
             operators=intent.operators,
             required_outputs=intent.required_outputs,
@@ -304,6 +327,51 @@ class EvidenceAtom:
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, value: object) -> EvidenceAtom | None:
+        if not isinstance(value, dict):
+            return None
+        try:
+            return cls(
+                atom_id=str(value["atom_id"]),
+                claim_text=str(value["claim_text"]),
+                entity_id=(
+                    str(value["entity_id"])
+                    if value.get("entity_id") is not None
+                    else None
+                ),
+                metric=(
+                    str(value["metric"])
+                    if value.get("metric") is not None
+                    else None
+                ),
+                value=value.get("value"),
+                unit=(
+                    str(value["unit"])
+                    if value.get("unit") is not None
+                    else None
+                ),
+                period=(
+                    str(value["period"])
+                    if value.get("period") is not None
+                    else None
+                ),
+                evidence_tier=str(value["evidence_tier"]),
+                source_id=str(value["source_id"]),
+                source_date=(
+                    str(value["source_date"])
+                    if value.get("source_date") is not None
+                    else None
+                ),
+                provenance=(
+                    dict(value["provenance"])
+                    if isinstance(value.get("provenance"), dict)
+                    else {}
+                ),
+            )
+        except KeyError:
+            return None
+
 
 @dataclass(frozen=True)
 class StructuredClaim:
@@ -334,6 +402,51 @@ class StageArtifact:
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, value: object) -> StageArtifact | None:
+        if not isinstance(value, dict):
+            return None
+        try:
+            status = str(value["status"])
+            if status not in {
+                "pending",
+                "completed",
+                "partial",
+                "timeout",
+                "failed",
+                "skipped",
+            }:
+                return None
+            evidence_atom_ids = value.get("evidence_atom_ids", ())
+            if not isinstance(evidence_atom_ids, (list, tuple)):
+                return None
+            return cls(
+                stage=str(value["stage"]),
+                status=cast(StageStatus, status),
+                elapsed_ms=int(value.get("elapsed_ms") or 0),
+                producer=str(value.get("producer") or ""),
+                input_hash=str(value.get("input_hash") or ""),
+                artifact_type=str(value.get("artifact_type") or ""),
+                required_output=bool(value.get("required_output")),
+                timeout_seconds=float(value.get("timeout_seconds") or 0.0),
+                on_failure=str(value.get("on_failure") or ""),
+                evidence_atom_ids=tuple(
+                    str(item) for item in evidence_atom_ids if str(item)
+                ),
+                payload=(
+                    dict(value["payload"])
+                    if isinstance(value.get("payload"), dict)
+                    else {}
+                ),
+                degrade_reason=(
+                    str(value["degrade_reason"])
+                    if value.get("degrade_reason") is not None
+                    else None
+                ),
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+
 
 def is_follow_up(query: str) -> bool:
     cleaned = query.strip()
@@ -341,6 +454,30 @@ def is_follow_up(query: str) -> bool:
         _FOLLOW_UP_REFERENCE_PATTERN.search(cleaned)
         or _FOLLOW_UP_CONTINUATION_PATTERN.search(cleaned)
         or _COMPARISON_PATTERN.search(cleaned)
+    )
+
+
+def is_contextual_follow_up(
+    query: str,
+    envelope: QueryEnvelope,
+    previous_intent: TurnIntent | None,
+) -> bool:
+    if previous_intent is None:
+        return False
+    cleaned = query.strip()
+    if is_follow_up(cleaned):
+        return True
+    if (
+        not cleaned
+        or len(cleaned) > 80
+        or _EXPLICIT_SWITCH_PATTERN.search(cleaned)
+        or not _CONTEXT_DEPENDENT_RESEARCH_PATTERN.search(cleaned)
+    ):
+        return False
+    return (
+        envelope.subject is None
+        or envelope.subject == previous_intent.primary_subject
+        or bool(_CONTEXT_DEPENDENT_RESEARCH_PREFIX_PATTERN.search(cleaned))
     )
 
 
@@ -356,7 +493,7 @@ def build_turn_intent(
     previous_turn_id: str | None = None,
 ) -> TurnIntent:
     cleaned = query.strip()
-    follow_up = previous_intent is not None and is_follow_up(cleaned)
+    follow_up = is_contextual_follow_up(cleaned, envelope, previous_intent)
     explicit_task_type = _explicit_task_type(cleaned)
     explicit_task_switch = (
         explicit_task_type is not None
@@ -393,6 +530,8 @@ def build_turn_intent(
             comparison_entities=previous_intent.comparison_entities,
             inherited_from_turn=previous_turn_id,
             evidence_atom_ids=previous_intent.evidence_atom_ids,
+            skill_ids=previous_intent.skill_ids,
+            stage_artifact_ids=previous_intent.stage_artifact_ids,
             time_horizon=envelope.time_horizon,
             operators=envelope.operators,
             required_outputs=envelope.required_outputs,
@@ -414,6 +553,8 @@ def build_turn_intent(
             ),
             inherited_from_turn=previous_turn_id,
             evidence_atom_ids=previous_intent.evidence_atom_ids,
+            skill_ids=previous_intent.skill_ids,
+            stage_artifact_ids=previous_intent.stage_artifact_ids,
             time_horizon=(
                 envelope.time_horizon
                 if envelope.time_horizon != "unspecified"

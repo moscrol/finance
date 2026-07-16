@@ -78,6 +78,9 @@ class ResearchOwnerSkill:
             compose_revise_on_warn=False,
             use_modules=self.config.use_modules,
             wiki_rag_timeout=self.config.wiki_rag_timeout,
+            wiki_rag_cache_scope=(
+                f"{context.user_id}:{context.conversation_id or context.run_id}"
+            ),
             module_timeout=self.config.module_timeout,
             market_db_path=(
                 context.repo_root / "db" / "market_feature_store.duckdb"
@@ -105,6 +108,7 @@ class ResearchOwnerSkill:
             dag.artifacts,
             query=context.query,
             matched_theme=envelope.subject,
+            inherited_answer_spec=context.inherited_answer_spec,
         )
         if result is None:
             warnings = list(dag.warnings)
@@ -234,6 +238,7 @@ class ResearchOwnerSkill:
         *,
         query: str = "",
         matched_theme: str | None = None,
+        inherited_answer_spec: JsonObject | None = None,
     ) -> SkillAnswerContract | None:
         spec = result.answer_spec if result is not None else None
         used_fallback = False
@@ -250,7 +255,20 @@ class ResearchOwnerSkill:
         if spec is None:
             return None
         has_traceable_fact = self._has_traceable_verified_fact(spec)
-        if not has_traceable_fact and not used_fallback:
+        inherited_atoms = (
+            inherited_answer_spec.get("research_evidence_atoms", [])
+            if inherited_answer_spec
+            else []
+        )
+        has_inherited_evidence = bool(
+            isinstance(inherited_atoms, list)
+            and any(EvidenceAtom.from_dict(value) is not None for value in inherited_atoms)
+        )
+        if (
+            not has_traceable_fact
+            and not has_inherited_evidence
+            and not used_fallback
+        ):
             return None
         owned_spec = replace(
             spec,
@@ -275,6 +293,10 @@ class ResearchOwnerSkill:
                 }.values()
             ),
         )
+        owned_spec = self._merge_inherited_answer_spec(
+            owned_spec,
+            inherited_answer_spec,
+        )
         owned_spec = answer_model.finalize_answer_spec(owned_spec)
         return SkillAnswerContract(
             retrieval_plan=self.config.retrieval_plan,
@@ -282,6 +304,203 @@ class ResearchOwnerSkill:
             answer_spec=owned_spec,
             question_type=self.config.question_type,
         )
+
+    @classmethod
+    def _merge_inherited_answer_spec(
+        cls,
+        current: answer_model.AnswerSpec,
+        inherited: JsonObject | None,
+    ) -> answer_model.AnswerSpec:
+        if not inherited:
+            return current
+
+        def claims(key: str) -> tuple[answer_model.Claim, ...]:
+            values = inherited.get(key)
+            if not isinstance(values, list):
+                return ()
+            return tuple(
+                claim
+                for value in values
+                if (claim := cls._claim_from_dict(value)) is not None
+            )
+
+        def merge_claims(
+            existing: tuple[answer_model.Claim, ...],
+            extra: tuple[answer_model.Claim, ...],
+        ) -> tuple[answer_model.Claim, ...]:
+            return tuple(
+                {
+                    claim.claim_id: claim
+                    for claim in (*extra, *existing)
+                }.values()
+            )
+
+        sources = tuple(
+            source
+            for value in inherited.get("sources", [])
+            if (source := cls._evidence_ref_from_dict(value)) is not None
+        ) if isinstance(inherited.get("sources"), list) else ()
+        companies = tuple(
+            company
+            for value in inherited.get("company_table", [])
+            if (company := cls._company_from_dict(value)) is not None
+        ) if isinstance(inherited.get("company_table"), list) else ()
+        artifacts = tuple(
+            artifact
+            for value in inherited.get("research_artifacts", [])
+            if (artifact := StageArtifact.from_dict(value)) is not None
+        ) if isinstance(inherited.get("research_artifacts"), list) else ()
+        atoms = tuple(
+            atom
+            for value in inherited.get("research_evidence_atoms", [])
+            if (atom := EvidenceAtom.from_dict(value)) is not None
+        ) if isinstance(inherited.get("research_evidence_atoms"), list) else ()
+        actions = inherited.get("next_actions")
+        inherited_actions = (
+            tuple(str(item) for item in actions if str(item).strip())
+            if isinstance(actions, list)
+            else ()
+        )
+        return replace(
+            current,
+            summary=merge_claims(current.summary, claims("summary")),
+            verified_facts=merge_claims(
+                current.verified_facts,
+                claims("verified_facts"),
+            ),
+            company_table=tuple(
+                {
+                    (company.company, company.ticker): company
+                    for company in (*companies, *current.company_table)
+                }.values()
+            ),
+            counter_evidence=merge_claims(
+                current.counter_evidence,
+                claims("counter_evidence"),
+            ),
+            gaps=merge_claims(current.gaps, claims("gaps")),
+            triggers=merge_claims(current.triggers, claims("triggers")),
+            next_actions=tuple(
+                dict.fromkeys((*current.next_actions, *inherited_actions))
+            ),
+            sources=tuple(
+                {
+                    source.evidence_id: source
+                    for source in (*sources, *current.sources)
+                }.values()
+            ),
+            research_artifacts=tuple(
+                {
+                    (
+                        artifact.stage,
+                        artifact.producer,
+                        artifact.input_hash,
+                    ): artifact
+                    for artifact in (*artifacts, *current.research_artifacts)
+                }.values()
+            ),
+            research_evidence_atoms=tuple(
+                {
+                    atom.atom_id: atom
+                    for atom in (*atoms, *current.research_evidence_atoms)
+                }.values()
+            ),
+        )
+
+    @staticmethod
+    def _claim_from_dict(value: object) -> answer_model.Claim | None:
+        if not isinstance(value, dict):
+            return None
+        try:
+            status = answer_model.ClaimStatus(str(value.get("status") or "candidate"))
+            evidence_ids = value.get("evidence_ids", [])
+            counter_evidence = value.get("counter_evidence", [])
+            if not isinstance(evidence_ids, list) or not isinstance(
+                counter_evidence,
+                list,
+            ):
+                return None
+            confidence = value.get("confidence")
+            return answer_model.Claim(
+                claim_id=str(value["claim_id"]),
+                text=str(value["text"]),
+                claim_type=str(value["claim_type"]),
+                theme=str(value.get("theme") or ""),
+                evidence_ids=tuple(str(item) for item in evidence_ids),
+                evidence_tier=str(value.get("evidence_tier") or ""),
+                freshness=(
+                    str(value["freshness"])
+                    if value.get("freshness") is not None
+                    else None
+                ),
+                confidence=(
+                    float(confidence)
+                    if isinstance(confidence, (int, float))
+                    else None
+                ),
+                counter_evidence=tuple(
+                    str(item) for item in counter_evidence
+                ),
+                status=status,
+                company=(
+                    str(value["company"])
+                    if value.get("company") is not None
+                    else None
+                ),
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _evidence_ref_from_dict(
+        value: object,
+    ) -> answer_model.EvidenceRef | None:
+        if not isinstance(value, dict):
+            return None
+        try:
+            return answer_model.EvidenceRef(
+                evidence_id=str(value["evidence_id"]),
+                source=str(value["source"]),
+                detail=str(value.get("detail") or ""),
+                tier=str(value.get("tier") or ""),
+                source_date=(
+                    str(value["source_date"])
+                    if value.get("source_date") is not None
+                    else None
+                ),
+                freshness=str(value.get("freshness") or "unknown"),
+            )
+        except KeyError:
+            return None
+
+    @classmethod
+    def _company_from_dict(
+        cls,
+        value: object,
+    ) -> answer_model.CompanyAssessment | None:
+        if not isinstance(value, dict):
+            return None
+        raw_claims = value.get("claims", [])
+        raw_gaps = value.get("evidence_gaps", [])
+        if not isinstance(raw_claims, list) or not isinstance(raw_gaps, list):
+            return None
+        try:
+            tier = answer_model.CompanyTier(str(value.get("tier") or "candidate"))
+            return answer_model.CompanyAssessment(
+                company=str(value["company"]),
+                ticker=str(value.get("ticker") or ""),
+                chain_stage=str(value.get("chain_stage") or "待确认"),
+                directness=str(value.get("directness") or "待确认"),
+                tier=tier,
+                claims=tuple(
+                    claim
+                    for item in raw_claims
+                    if (claim := cls._claim_from_dict(item)) is not None
+                ),
+                evidence_gaps=tuple(str(item) for item in raw_gaps),
+            )
+        except (KeyError, ValueError):
+            return None
 
     def _owner_fallback_answer_spec(
         self,

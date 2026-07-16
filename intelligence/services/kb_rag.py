@@ -24,8 +24,11 @@ import re
 import subprocess
 import sys
 import time
+from collections import OrderedDict
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
+from threading import Lock
 
 # rag_index.py lives at <KB repo root>/scripts/rag_index.py; the KB repo root is
 # the parent of the wiki root (KnowledgeAdapter.resolved_wiki_root.parent).
@@ -47,6 +50,15 @@ OPTIONAL_QUERY_OPTIONS = (
 
 CITATION_PREFIX = "W"
 _LEGACY_QUERY_OPTIONS: dict[str, frozenset[str]] = {}
+_DENSE_UNAVAILABLE_UNTIL: dict[str, float] = {}
+_RESULT_CACHE: OrderedDict[tuple[object, ...], tuple[float, WikiRagResult]] = (
+    OrderedDict()
+)
+_RESULT_CACHE_LOCK = Lock()
+_RESULT_CACHE_MAX_ENTRIES = 128
+_RESULT_CACHE_TTL_SECONDS = 300.0
+_RESULT_CACHE_EMPTY_TTL_SECONDS = 30.0
+_DENSE_FAILURE_TTL_SECONDS = 600.0
 
 # ---- 两种命名查询模式：结构版（默认）/ 全文版 -----------------------------
 # 模式只切「索引目录 + 检索方式」，不改其余行为。默认 structured 与历史逐字节一致。
@@ -203,6 +215,9 @@ class RetrievalTelemetry:
     llm_evidence_total_chars: int = 0
     query_protocol: str = "current"
     unsupported_options: tuple[str, ...] = ()
+    cache_hit: bool = False
+    cache_age_ms: int | None = None
+    index_fingerprint: str = ""
 
     def summary_line(self) -> str:
         """一行可观测摘要，供回答 / 日志展示。"""
@@ -227,6 +242,8 @@ class RetrievalTelemetry:
             )
         if self.latency_ms is not None:
             parts.append(f"耗时={self.latency_ms}ms")
+        if self.cache_hit:
+            parts.append(f"缓存命中={self.cache_age_ms or 0}ms")
         if self.degraded:
             parts.append("⚠检索降级")
         if self.index_freshness:
@@ -282,6 +299,70 @@ def _resolve_index_dir(root: Path) -> Path:
     if env:
         return Path(env).expanduser()
     return root / ".rag_index"
+
+
+def _index_fingerprint(index_dir: Path) -> str:
+    parts: list[str] = []
+    for name in ("meta.json", "chunks.jsonl", "bm25.pkl.gz", "dense.npy"):
+        path = index_dir / name
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        parts.append(f"{name}:{stat.st_size}:{stat.st_mtime_ns}")
+    return "|".join(parts) or f"{index_dir}:missing"
+
+
+def _cache_get(
+    key: tuple[object, ...],
+    *,
+    require_fresh: bool,
+) -> WikiRagResult | None:
+    now = time.monotonic()
+    with _RESULT_CACHE_LOCK:
+        cached = _RESULT_CACHE.get(key)
+        if cached is None:
+            return None
+        stored_at, result = cached
+        ttl = (
+            _RESULT_CACHE_TTL_SECONDS
+            if result.ok
+            else _RESULT_CACHE_EMPTY_TTL_SECONDS
+        )
+        if now - stored_at > ttl:
+            _RESULT_CACHE.pop(key, None)
+            return None
+        if require_fresh and any(
+            hit.index_freshness != "fresh" for hit in result.hits
+        ):
+            _RESULT_CACHE.pop(key, None)
+            return None
+        _RESULT_CACHE.move_to_end(key)
+        cloned = deepcopy(result)
+    cloned.telemetry.cache_hit = True
+    cloned.telemetry.cache_age_ms = int((now - stored_at) * 1000)
+    cloned.telemetry.latency_ms = 0
+    return cloned
+
+
+def _cache_put(
+    key: tuple[object, ...],
+    result: WikiRagResult,
+) -> WikiRagResult:
+    if result.telemetry.status not in {"ok", "empty"}:
+        return result
+    with _RESULT_CACHE_LOCK:
+        _RESULT_CACHE[key] = (time.monotonic(), deepcopy(result))
+        _RESULT_CACHE.move_to_end(key)
+        while len(_RESULT_CACHE) > _RESULT_CACHE_MAX_ENTRIES:
+            _RESULT_CACHE.popitem(last=False)
+    return result
+
+
+def clear_result_cache() -> None:
+    with _RESULT_CACHE_LOCK:
+        _RESULT_CACHE.clear()
+    _DENSE_UNAVAILABLE_UNTIL.clear()
 
 
 def _resolve_rag_python(root: Path) -> str:
@@ -474,6 +555,7 @@ def retrieve(
     source_type: str | None = None,
     index_dir: str | Path | None = None,
     require_fresh: bool = True,
+    cache_scope: str | None = None,
 ) -> WikiRagResult:
     """Run the KB hybrid retriever for ``query`` and return candidate wiki pages.
 
@@ -529,6 +611,7 @@ def retrieve(
     res.index_dir = str(chosen)
     tel.index_dir = str(chosen)
     tel.index_kind = _index_kind(chosen)
+    tel.index_fingerprint = _index_fingerprint(chosen)
     if llm_evidence_chars is None or llm_evidence_total_chars is None:
         dynamic_chars, dynamic_total = evidence_budget_for_query(
             budget_query or query,
@@ -557,7 +640,42 @@ def retrieve(
         max(int(llm_evidence_chars), int(llm_evidence_chars * 1.25)),
         2000,
     )
+    cache_key = (
+        cache_scope,
+        str(root),
+        str(script),
+        str(chosen),
+        tel.index_fingerprint,
+        query,
+        int(k),
+        requested_mode,
+        int(excerpt_chars),
+        int(llm_evidence_chars),
+        int(llm_evidence_total_chars),
+        budget_query or "",
+        evidence_layer or "",
+        fact_hardness or "",
+        source_type or "",
+        bool(require_fresh),
+    )
+    if cache_scope:
+        cached = _cache_get(cache_key, require_fresh=require_fresh)
+        if cached is not None:
+            return cached
     legacy_options = _LEGACY_QUERY_OPTIONS.get(str(script), frozenset())
+    effective_mode = requested_mode
+    dense_disabled_until = _DENSE_UNAVAILABLE_UNTIL.get(str(script), 0.0)
+    if (
+        requested_mode in _DENSE_MODES
+        and dense_disabled_until
+        and dense_disabled_until > time.monotonic()
+    ):
+        effective_mode = "bm25"
+        tel.mode = "bm25"
+        tel.effective_mode = "bm25"
+        tel.recall_desc = _MODE_RECALL_DESC["bm25"]
+        tel.fallback_reason = "dense_dependency_cached_unavailable"
+        tel.degraded = True
     cmd = [
         rag_python,
         str(script),
@@ -566,7 +684,7 @@ def retrieve(
         "--k",
         str(k),
         "--mode",
-        str(mode),
+        effective_mode,
     ]
     if "--evidence-chars" not in legacy_options:
         cmd.extend(["--evidence-chars", str(generation_evidence_chars)])
@@ -594,10 +712,13 @@ def retrieve(
         else ""
     )
     res.command = (
-        f"rag_index.py query <q> --k {k} --mode {mode}"
+        f"rag_index.py query <q> --k {k} --mode {effective_mode}"
         f"{evidence_chars_note}{filter_note} --json"
     )
-    res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（匹配 chunk 证据）"
+    res.citation_source = (
+        "knowledge-base · rag_index.py query "
+        f"--mode {effective_mode}{filter_note}（匹配 chunk 证据）"
+    )
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
     fallback_warnings: list[str] = []
@@ -678,6 +799,9 @@ def retrieve(
         and requested_mode in _DENSE_MODES
         and _dense_dependency_failure(proc.stderr)
     ):
+        _DENSE_UNAVAILABLE_UNTIL[str(script)] = (
+            _t0 + _DENSE_FAILURE_TTL_SECONDS
+        )
         tel.fallback_reason = "dense_dependency_missing"
         remaining = float(timeout) - (time.monotonic() - _t0)
         if remaining < 1:
@@ -844,4 +968,4 @@ def retrieve(
         res.warning = "；".join(filter(None, [res.warning, "wiki-rag 无可用 chunk 命中"]))
         tel.status = "empty"
         tel.warning = res.warning
-    return res
+    return _cache_put(cache_key, res) if cache_scope else res

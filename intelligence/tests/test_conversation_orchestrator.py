@@ -849,6 +849,7 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
         "assistant",
         "上一轮回答",
         run_id="run-previous",
+        invoked_skill_ids=["stock-deep-dive"],
         turn_intent=previous_intent.to_dict(),
     )
     run_id, assistant_message_id = _prepare_turn(
@@ -868,6 +869,7 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
         registry: dict[str, SkillDefinition],
         query_envelope: QueryEnvelope,
         answer_owner: str,
+        inherited_skill_ids: tuple[str, ...],
     ) -> SkillRouteResult:
         routed.update(
             query=routed_query,
@@ -877,6 +879,7 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
             registry=registry,
             query_envelope=query_envelope,
             answer_owner=answer_owner,
+            inherited_skill_ids=inherited_skill_ids,
         )
         return SkillRouteResult(
             (),
@@ -913,6 +916,7 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
     )
 
     assert routed["answer_owner"] == "stock-deep-dive"
+    assert routed["inherited_skill_ids"] == ("stock-deep-dive",)
     assert str(routed["query"]).startswith("主体：英维克")
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.turn_intent is not None
@@ -920,6 +924,7 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
     assert assistant.turn_intent["answer_owner"] == "stock-deep-dive"
     assert assistant.turn_intent["inherited_from_turn"] == previous_assistant.message_id
     assert assistant.turn_intent["evidence_atom_ids"] == ["atom-1"]
+    assert assistant.turn_intent["skill_ids"] == ["stock-deep-dive"]
     assert assistant.research_plan is not None
     assert assistant.research_plan["answer_owner"] == "stock-deep-dive"
 
@@ -1210,6 +1215,9 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     assert "**最强证据：**" in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert "llm_unavailable_template_answer" not in assistant.degrades
+    assert 3 <= len(assistant.followups) <= 4
+    assert (run_store.run_dir(run_id) / "answer_spec.json").is_file()
+    assert (run_store.run_dir(run_id) / "followups.json").is_file()
     retrieval = next(
         step["retrieval"]
         for step in run_store.load_trace(run_id)

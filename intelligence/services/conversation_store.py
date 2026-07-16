@@ -81,6 +81,7 @@ class Message:
     invoked_skill_ids: list[str] = field(default_factory=list)
     citations: list[dict[str, object]] = field(default_factory=list)
     degrades: list[str] = field(default_factory=list)
+    followups: list[dict[str, object]] = field(default_factory=list)
     turn_intent: dict[str, object] | None = None
     research_plan: dict[str, object] | None = None
 
@@ -153,6 +154,7 @@ class ConversationStore:
         invoked_skill_ids: list[str] | None = None,
         citations: list[dict[str, object]] | None = None,
         degrades: list[str] | None = None,
+        followups: list[dict[str, object]] | None = None,
         turn_intent: dict[str, object] | None = None,
         research_plan: dict[str, object] | None = None,
     ) -> Message:
@@ -174,6 +176,7 @@ class ConversationStore:
             invoked_skill_ids=[redact(item) for item in (invoked_skill_ids or [])],
             citations=[_redact_mapping(item) for item in (citations or [])],
             degrades=[redact(item) for item in (degrades or [])],
+            followups=[_redact_mapping(item) for item in (followups or [])],
             turn_intent=(
                 _redact_mapping(turn_intent) if turn_intent is not None else None
             ),
@@ -195,6 +198,7 @@ class ConversationStore:
         invoked_skill_ids: list[str] | None = None,
         citations: list[dict[str, object]] | None = None,
         degrades: list[str] | None = None,
+        followups: list[dict[str, object]] | None = None,
         turn_intent: dict[str, object] | None = None,
         research_plan: dict[str, object] | None = None,
     ) -> Message:
@@ -242,6 +246,12 @@ class ConversationStore:
                 redact(item)
                 for item in (
                     degrades if degrades is not None else original.degrades
+                )
+            ],
+            followups=[
+                _redact_mapping(item)
+                for item in (
+                    followups if followups is not None else original.followups
                 )
             ],
             turn_intent=(

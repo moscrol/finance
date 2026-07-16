@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest import mock
 
-from intelligence.services import followups
+from intelligence.services import answer_model, followups
 
 
 class TemplateFallbackTests(unittest.TestCase):
@@ -48,6 +48,47 @@ class LLMPathTests(unittest.TestCase):
         doc = json.loads(result.to_json())
         self.assertEqual(len(doc["followups"]), 5)
         self.assertIn("type_label", doc["followups"][0])
+
+
+class AnswerSpecFollowupTests(unittest.TestCase):
+    def test_suggestions_only_use_gaps_actions_and_validation_boundaries(self) -> None:
+        gap = answer_model.make_claim(
+            claim_id="gap-1",
+            text="缺少公司公告对真实订单的确认",
+            claim_type="gap",
+            theme="液冷",
+            status=answer_model.ClaimStatus.MISSING,
+        )
+        trigger = answer_model.make_claim(
+            claim_id="trigger-1",
+            text="若毛利率连续两个季度下滑则判断降级",
+            claim_type="trigger",
+            theme="液冷",
+            status=answer_model.ClaimStatus.INFERRED,
+        )
+        spec = answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_theme_research_spec("液冷", "液冷"),
+            summary=(),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(gap,),
+            triggers=(trigger,),
+            next_actions=("核对下一期定期报告的分部收入",),
+            sources=(),
+            system_notices=(),
+        )
+
+        result = followups.generate_answer_spec_followups(
+            spec,
+            subject="英维克",
+        )
+
+        self.assertEqual(len(result.followups), 4)
+        self.assertFalse(result.llm_used)
+        self.assertTrue(any(item.source == "gap:gap-1" for item in result.followups))
+        self.assertTrue(any(item.source == "next_action" for item in result.followups))
+        self.assertTrue(all("海光信息" not in item.question for item in result.followups))
 
 
 if __name__ == "__main__":
