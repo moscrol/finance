@@ -5,6 +5,10 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import Literal, TypeAlias, cast
 
+from intelligence.services.query_resolution import (
+    QueryResolution,
+    classify_reference,
+)
 from intelligence.services.query_understanding import QueryEnvelope
 
 AnswerOwner: TypeAlias = Literal[
@@ -140,13 +144,6 @@ OWNER_WORKFLOW_SPECS: dict[AnswerOwner, OwnerWorkflowSpec] = {
     ),
 }
 
-_FOLLOW_UP_REFERENCE_PATTERN = re.compile(
-    r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
-)
-_FOLLOW_UP_CONTINUATION_PATTERN = re.compile(
-    r"^(?:把|再|继续|接着|然后|只按|横向|分别|哪些逻辑|"
-    r"和[^，。！？?!]{2,24}(?:比|比较))"
-)
 _COMPARISON_PATTERN = re.compile(r"(?:比较|对比|相比|和.+比|与.+比)")
 _CONTEXT_DEPENDENT_RESEARCH_PATTERN = re.compile(
     r"(?:原因|为什么|证伪|反证|弹性|赔率|空间|受益|一阶|二阶|"
@@ -451,8 +448,7 @@ class StageArtifact:
 def is_follow_up(query: str) -> bool:
     cleaned = query.strip()
     return bool(
-        _FOLLOW_UP_REFERENCE_PATTERN.search(cleaned)
-        or _FOLLOW_UP_CONTINUATION_PATTERN.search(cleaned)
+        classify_reference(cleaned) != "none"
         or _COMPARISON_PATTERN.search(cleaned)
     )
 
@@ -461,11 +457,15 @@ def is_contextual_follow_up(
     query: str,
     envelope: QueryEnvelope,
     previous_intent: TurnIntent | None,
+    *,
+    resolution: QueryResolution | None = None,
 ) -> bool:
     if previous_intent is None:
         return False
     cleaned = query.strip()
-    if is_follow_up(cleaned):
+    if is_follow_up(cleaned) or (
+        resolution is not None and resolution.context_dependent
+    ):
         return True
     if (
         not cleaned
@@ -491,9 +491,15 @@ def build_turn_intent(
     *,
     previous_intent: TurnIntent | None = None,
     previous_turn_id: str | None = None,
+    resolution: QueryResolution | None = None,
 ) -> TurnIntent:
     cleaned = query.strip()
-    follow_up = is_contextual_follow_up(cleaned, envelope, previous_intent)
+    follow_up = is_contextual_follow_up(
+        cleaned,
+        envelope,
+        previous_intent,
+        resolution=resolution,
+    )
     explicit_task_type = _explicit_task_type(cleaned)
     explicit_task_switch = (
         explicit_task_type is not None

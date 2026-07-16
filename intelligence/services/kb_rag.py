@@ -30,6 +30,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock
 
+from intelligence.services import rag_worker
+
 # rag_index.py lives at <KB repo root>/scripts/rag_index.py; the KB repo root is
 # the parent of the wiki root (KnowledgeAdapter.resolved_wiki_root.parent).
 RAG_SCRIPT_REL = Path("scripts") / "rag_index.py"
@@ -731,8 +733,58 @@ def retrieve(
             "wiki-rag CLI 不支持 --evidence-chars，已使用 legacy query 协议"
         )
     _t0 = time.monotonic()
+    worker_enabled = os.environ.get("RAG_WORKER_ENABLED", "0").strip().lower() not in {
+        "0",
+        "false",
+        "off",
+        "no",
+    }
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(root), env=env)
+        if worker_enabled and not filters:
+            proc = rag_worker.query(
+                python=rag_python,
+                kb_root=root,
+                index_dir=chosen,
+                argv=cmd[2:],
+                timeout=float(timeout),
+            )
+            tel.query_protocol = "persistent_worker"
+        else:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=str(root),
+                env=env,
+            )
+    except (RuntimeError, OSError, json.JSONDecodeError) as exc:
+        fallback_warnings.append(
+            f"wiki-rag 常驻 worker 不可用（{type(exc).__name__}），已回退 CLI"
+        )
+        tel.degraded = True
+        tel.fallback_reason = "persistent_worker_unavailable"
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=max(0.001, float(timeout) - (time.monotonic() - _t0)),
+                cwd=str(root),
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            res.warning = "wiki-rag worker 降级 CLI 后仍超时"
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            tel.status = "timeout"
+            tel.warning = res.warning
+            return res
+    except TimeoutError:
+        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，进程已终止"
+        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+        tel.status = "timeout"
+        tel.warning = res.warning
+        return res
     except subprocess.TimeoutExpired:
         res.warning = f"wiki-rag 超时(>{timeout}s)，已跳过"
         tel.latency_ms = int((time.monotonic() - _t0) * 1000)
@@ -770,15 +822,25 @@ def retrieve(
             f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
         )
         try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=remaining,
-                cwd=str(root),
-                env=env,
-            )
-        except subprocess.TimeoutExpired:
+            if worker_enabled and not filters:
+                proc = rag_worker.query(
+                    python=rag_python,
+                    kb_root=root,
+                    index_dir=chosen,
+                    argv=cmd[2:],
+                    timeout=remaining,
+                )
+                tel.query_protocol = "persistent_worker_legacy"
+            else:
+                proc = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=remaining,
+                    cwd=str(root),
+                    env=env,
+                )
+        except (subprocess.TimeoutExpired, TimeoutError):
             tel.latency_ms = int((time.monotonic() - _t0) * 1000)
             res.warning = "wiki-rag legacy query 回退超时"
             tel.status = "timeout"

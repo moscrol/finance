@@ -14,6 +14,8 @@ class TemplateFallbackTests(unittest.TestCase):
         for f in result.followups:
             self.assertIn("液冷", f.question)
             self.assertEqual(f.type_label, followups.TYPE_LABELS[f.type])
+            self.assertLessEqual(len(f.label), 20)
+            self.assertEqual(f.full_prompt, f.question)
 
     def test_no_theme_falls_back_to_question_prefix(self) -> None:
         result = followups.generate_followups("英维克现在贵不贵", use_llm=False)
@@ -30,7 +32,7 @@ class TemplateFallbackTests(unittest.TestCase):
 class LLMPathTests(unittest.TestCase):
     def test_llm_json_parsed_and_typed(self) -> None:
         payload = json.dumps({"followups": [
-            {"question": "英维克最新液冷订单金额多少？", "type": "evidence", "rationale": "锚定公告"},
+            {"label": "核对液冷订单", "full_prompt": "请核对英维克最新液冷订单金额和公告来源？", "type": "evidence", "rationale": "锚定公告"},
             {"question": "如果液冷渗透率不及预期，先看什么？", "type": "counter"},
             {"question": "类型非法的会被丢弃", "type": "nope"},
         ]})
@@ -42,12 +44,23 @@ class LLMPathTests(unittest.TestCase):
         self.assertEqual(result.llm_provider, "fake")
         self.assertEqual(len(result.followups), 2)
         self.assertEqual(result.followups[0].type_label, "证据加深")
+        self.assertEqual(result.followups[0].label, "核对液冷订单")
+        self.assertEqual(
+            result.followups[0].full_prompt,
+            "请核对英维克最新液冷订单金额和公告来源？",
+        )
+        self.assertEqual(
+            result.followups[1].full_prompt,
+            "如果液冷渗透率不及预期，先看什么？",
+        )
 
     def test_to_json_roundtrip(self) -> None:
         result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=False)
         doc = json.loads(result.to_json())
         self.assertEqual(len(doc["followups"]), 5)
         self.assertIn("type_label", doc["followups"][0])
+        self.assertIn("label", doc["followups"][0])
+        self.assertIn("full_prompt", doc["followups"][0])
 
 
 class AnswerSpecFollowupTests(unittest.TestCase):

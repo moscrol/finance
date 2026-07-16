@@ -75,16 +75,10 @@ from intelligence.workbench_skills.router import (
     SkillRouteResult,
     route_skills,
 )
+from intelligence.services.query_resolution import is_contextual_reference
 
 RECENT_MESSAGE_LIMIT = 6
 SUMMARY_CHAR_LIMIT = 2400
-_FOLLOW_UP_REFERENCE_PATTERN = re.compile(
-    r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
-)
-_FOLLOW_UP_CONTINUATION_PATTERN = re.compile(
-    r"^(?:把|再|继续|接着|然后|只按|横向|分别|哪些逻辑|"
-    r"和[^，。！？?!]{2,24}(?:比|比较))"
-)
 _INTERNAL_CITATION_PATTERN = re.compile(
     r"\[(?:D|P|L|G|R|S|W)\d+\]"
 )
@@ -512,10 +506,7 @@ def contextualize_follow_up_query(
     context: ConversationContext,
 ) -> str:
     cleaned = query.strip()
-    if not (
-        _FOLLOW_UP_REFERENCE_PATTERN.search(cleaned)
-        or _FOLLOW_UP_CONTINUATION_PATTERN.search(cleaned)
-    ):
+    if not is_contextual_reference(cleaned):
         return cleaned
     previous_user = next(
         (

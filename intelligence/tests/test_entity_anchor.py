@@ -6,7 +6,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
-from intelligence.services.entity_anchor import resolve_entity_anchor
+from intelligence.services.entity_anchor import (
+    _clear_entity_lexicon_cache,
+    resolve_entity_anchor,
+)
 
 
 def _write_relations(wiki_root: Path) -> None:
@@ -39,12 +42,14 @@ def _write_relations(wiki_root: Path) -> None:
 
 class EntityAnchorTests(unittest.TestCase):
     def setUp(self) -> None:
+        _clear_entity_lexicon_cache()
         self._tmp = TemporaryDirectory()
         self.wiki_root = Path(self._tmp.name)
         _write_relations(self.wiki_root)
         self.knowledge = KnowledgeAdapter(wiki_root=self.wiki_root)
 
     def tearDown(self) -> None:
+        _clear_entity_lexicon_cache()
         self._tmp.cleanup()
 
     def test_anchors_valuation_question_to_entity_concepts(self) -> None:
@@ -83,6 +88,61 @@ class EntityAnchorTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             knowledge = KnowledgeAdapter(wiki_root=Path(tmp))
             self.assertIsNone(resolve_entity_anchor("深信服估值", knowledge))
+
+    def test_relation_is_loaded_once_while_fingerprint_is_unchanged(self) -> None:
+        calls = 0
+        original = KnowledgeAdapter.load_relation
+
+        def counted(adapter: KnowledgeAdapter, name: str):
+            nonlocal calls
+            calls += 1
+            return original(adapter, name)
+
+        KnowledgeAdapter.load_relation = counted
+        try:
+            self.assertIsNotNone(resolve_entity_anchor("中际旭创怎么看", self.knowledge))
+            self.assertIsNotNone(resolve_entity_anchor("中际旭创估值", self.knowledge))
+        finally:
+            KnowledgeAdapter.load_relation = original
+        self.assertEqual(calls, 1)
+
+    def test_relation_change_refreshes_cached_lexicon(self) -> None:
+        self.assertIsNone(resolve_entity_anchor("新增公司怎么看", self.knowledge))
+        relation_path = self.knowledge.relation_path("entity_exposures")
+        relation = json.loads(relation_path.read_text(encoding="utf-8"))
+        relation["entities"]["新增公司"] = {
+            "codes": ["688888.SH"],
+            "concepts": {"新增题材": {}},
+        }
+        relation_path.write_text(
+            json.dumps(relation, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        anchor = resolve_entity_anchor("新增公司怎么看", self.knowledge)
+
+        assert anchor is not None
+        self.assertEqual(anchor.entity, "新增公司")
+
+    def test_different_wiki_roots_do_not_share_cache(self) -> None:
+        with TemporaryDirectory() as tmp:
+            other_root = Path(tmp)
+            _write_relations(other_root)
+            path = other_root / "relations" / "entity_exposures.json"
+            relation = json.loads(path.read_text(encoding="utf-8"))
+            relation["entities"] = {
+                "另一家公司": {
+                    "codes": ["688889.SH"],
+                    "concepts": {"另一个题材": {}},
+                }
+            }
+            path.write_text(json.dumps(relation, ensure_ascii=False), encoding="utf-8")
+            other = KnowledgeAdapter(wiki_root=other_root)
+
+            self.assertIsNone(resolve_entity_anchor("中际旭创怎么看", other))
+            anchor = resolve_entity_anchor("另一家公司怎么看", other)
+            assert anchor is not None
+            self.assertEqual(anchor.entity, "另一家公司")
 
 
 if __name__ == "__main__":

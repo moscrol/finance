@@ -44,6 +44,12 @@ from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
+from intelligence.services.forecast_learning import (
+    approve_reflection,
+    learning_feedback_projection,
+    reject_reflection,
+    set_rule_status,
+)
 from intelligence.services.conversation_orchestrator import TurnOrchestrator
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
@@ -51,6 +57,9 @@ from intelligence.services.conversation_store import (
 )
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
+from intelligence.services.market_snapshot_contract import (
+    validate_market_snapshot_root,
+)
 from intelligence.services.run_store import RunStore
 from intelligence.services.self_use_maturity import (
     SelfUseApprovalStore,
@@ -333,6 +342,14 @@ class ConfigureLLMRequest(BaseModel):
         pattern=r"^[A-Za-z0-9._:/-]+$",
     )
     user: str | None = None
+
+
+class ApproveReflectionRequest(BaseModel):
+    hypothesis_ids: list[str] = Field(default_factory=list, max_length=50)
+
+
+class RuleStatusRequest(BaseModel):
+    status: Literal["approved", "rejected"]
 
 
 def _run_conversation_turn(
@@ -923,6 +940,7 @@ def create_app(
             supervisor.shutdown()
 
     app = FastAPI(title="Market Intelligence Workbench API", lifespan=lifespan)
+    app.state.repo_root = root
     registries: dict[str, ArtifactRegistry] = {}
     recovered_runs: list[str] = []
     conversation_locks: dict[tuple[str, str], Lock] = {}
@@ -1058,6 +1076,9 @@ def create_app(
     def health_ready(user: str | None = None) -> JSONResponse:
         store = store_for(user)
         rag_probe = kb_rag.probe_rag_cli(runtime_paths.knowledge_wiki)
+        snapshot_contract = validate_market_snapshot_root(
+            runtime_paths.market_snapshot_dir
+        )
         run_root_ready = False
         try:
             store.root.mkdir(parents=True, exist_ok=True)
@@ -1068,6 +1089,7 @@ def create_app(
             **dependency_checks(),
             "rag_query_protocol": rag_probe.query_protocol_compatible,
             "run_store_writable": run_root_ready,
+            "market_snapshot_contract": bool(snapshot_contract["ready"]),
         }
         critical = {
             "repo_root": checks["repo_root"],
@@ -1076,7 +1098,7 @@ def create_app(
             "relations": checks["relations"],
             "vector_index": checks["vector_index"],
             "rag_query_protocol": checks["rag_query_protocol"],
-            "market_snapshot": checks["market_snapshot"],
+            "market_snapshot": checks["market_snapshot_contract"],
         }
         ready = all(critical.values())
         payload = {
@@ -1088,10 +1110,27 @@ def create_app(
                 name for name, available in critical.items() if not available
             ],
             "rag": rag_probe.to_dict(),
+            "market_snapshot": {
+                "status": snapshot_contract["status"],
+                "ready": snapshot_contract["ready"],
+                "date": snapshot_contract["summary"].get(
+                    "served_trade_date"
+                )
+                or snapshot_contract["date"],
+                "requested_date": snapshot_contract["summary"].get(
+                    "requested_trade_date"
+                ),
+                "provider": snapshot_contract["summary"].get("provider"),
+                "source": snapshot_contract["summary"].get("source"),
+                "summary": snapshot_contract["summary"],
+                "errors": snapshot_contract["errors"],
+                "warnings": snapshot_contract["warnings"],
+            },
             "workers": {
                 "active": supervisor.active_count(),
                 "capacity": supervisor.max_workers,
                 "timeout_sec": supervisor.timeout_sec,
+                "rag": kb_rag.rag_worker.status(),
             },
             "recovered_runs": len(recovered_runs),
         }
@@ -1644,6 +1683,63 @@ def create_app(
     @app.get("/api/workbench/overview")
     def workbench_overview() -> dict[str, object]:
         return build_workbench_overview(root, runtime_paths.knowledge_wiki)
+
+    learning_root = root / "docs" / "learning" / "forecast-lessons"
+
+    @app.get("/api/workbench/learning-feedback")
+    def workbench_learning_feedback() -> dict[str, object]:
+        return learning_feedback_projection(learning_root)
+
+    @app.post("/api/workbench/learning-feedback/reflections/{filename}/approve")
+    def approve_learning_reflection(
+        filename: str,
+        req: ApproveReflectionRequest,
+    ) -> dict[str, object]:
+        if Path(filename).name != filename or not filename.endswith(".json"):
+            raise HTTPException(400, "invalid reflection filename")
+        reflection = learning_root / "reflections" / filename
+        if not reflection.is_file():
+            raise HTTPException(404, "reflection not found")
+        try:
+            approve_reflection(
+                reflection,
+                learning_root / "lessons.jsonl",
+                hypothesis_ids=req.hypothesis_ids,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return learning_feedback_projection(learning_root)
+
+    @app.post("/api/workbench/learning-feedback/reflections/{filename}/reject")
+    def reject_learning_reflection(
+        filename: str,
+        req: ApproveReflectionRequest,
+    ) -> dict[str, object]:
+        if Path(filename).name != filename or not filename.endswith(".json"):
+            raise HTTPException(400, "invalid reflection filename")
+        reflection = learning_root / "reflections" / filename
+        if not reflection.is_file():
+            raise HTTPException(404, "reflection not found")
+        try:
+            reject_reflection(reflection, hypothesis_ids=req.hypothesis_ids)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return learning_feedback_projection(learning_root)
+
+    @app.post("/api/workbench/learning-feedback/rules/{candidate_id}/status")
+    def update_learning_rule(
+        candidate_id: str,
+        req: RuleStatusRequest,
+    ) -> dict[str, object]:
+        try:
+            set_rule_status(
+                learning_root / "rule_candidates.jsonl",
+                candidate_id,
+                req.status,
+            )
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return learning_feedback_projection(learning_root)
 
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.is_dir():

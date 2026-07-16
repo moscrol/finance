@@ -42,6 +42,7 @@ import { SkillPicker } from "./SkillPicker";
 import { StructuredReportView } from "./StructuredReportView";
 
 const apiMocks = vi.hoisted(() => ({
+  approveForecastReflection: vi.fn(),
   archiveConversation: vi.fn(),
   cancelRun: vi.fn(),
   configureLLM: vi.fn(),
@@ -66,7 +67,9 @@ const apiMocks = vi.hoisted(() => ({
   listArtifacts: vi.fn(),
   listConversations: vi.fn(),
   renameConversation: vi.fn(),
+  rejectForecastReflection: vi.fn(),
   selectBuiltInLLM: vi.fn(),
+  setForecastRuleStatus: vi.fn(),
 }));
 
 vi.mock("../api", () => ({
@@ -172,6 +175,56 @@ const workbenchOverview: WorkbenchOverview = {
   },
   signal_date: "2026-07-01",
   winrate: [],
+  forecast_performance: {
+    sample_goal: 25,
+    total_judged: 6,
+    decision_eligible: false,
+    rows: [
+      {
+        key: "codex/duckdb",
+        agent: "codex",
+        source: "duckdb",
+        sample_count: 6,
+        hits: 2,
+        misses: 3,
+        partial: 1,
+        unverifiable: 0,
+        hit_rate: 0.3333,
+        weighted_rate: 0.4167,
+        sample_goal: 25,
+        decision_eligible: false,
+      },
+    ],
+  },
+  learning_feedback: {
+    pending_reflections: [
+      {
+        reflection_file: "2026-07-01.reflection.codex.duckdb.json",
+        date: "2026-07-01",
+        agent: "codex",
+        source: "duckdb",
+        hypothesis_id: "direction:semi",
+        category: "direction",
+        failure_mode: "A5 场景错位",
+        lesson: "轮动期先看方向相对强度。",
+        rule: "方向排序前先横比。",
+        status: "pending_review",
+        approvable: true,
+      },
+    ],
+    pending_rules: [
+      {
+        id: "rule-1",
+        date: "2026-07-01",
+        issue: "忽略横向比较",
+        correction: "先横比",
+        rule: "方向排序至少比较三个候选。",
+        status: "pending",
+      },
+    ],
+    approved_lesson_count: 2,
+    approved_rule_count: 1,
+  },
   sellside_flow: { priority: [], confirmation: [], caution: [] },
   sellside_date: null,
   moneyflow: {
@@ -258,6 +311,8 @@ const bundle: RunBundle = {
     {
       type: "evidence",
       question: "哪些证据最容易证伪？",
+      label: "查看最强反证",
+      full_prompt: "请列出哪些证据最容易证伪，并给出核验来源？",
       rationale: "检查反证",
     },
   ],
@@ -437,8 +492,10 @@ describe("Workbench components", () => {
 
     await user.click(screen.getByText("运行详情"));
     expect(screen.getByText(/本轮存在限制/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /哪些证据最容易证伪/ }));
-    expect(onFollowup).toHaveBeenCalledWith("哪些证据最容易证伪？");
+    await user.click(screen.getByRole("button", { name: "查看最强反证" }));
+    expect(onFollowup).toHaveBeenCalledWith(
+      "请列出哪些证据最容易证伪，并给出核验来源？",
+    );
   });
 
   it("translates internal failures and stages into user-facing language", () => {
@@ -1462,6 +1519,20 @@ describe("Workbench navigation reliability", () => {
     });
     apiMocks.getBootstrap.mockResolvedValue(bootstrap);
     apiMocks.getWorkbenchOverview.mockResolvedValue(workbenchOverview);
+    apiMocks.approveForecastReflection.mockResolvedValue({
+      ...workbenchOverview.learning_feedback,
+      pending_reflections: [],
+      approved_lesson_count: 3,
+    });
+    apiMocks.setForecastRuleStatus.mockResolvedValue({
+      ...workbenchOverview.learning_feedback,
+      pending_rules: [],
+      approved_rule_count: 2,
+    });
+    apiMocks.rejectForecastReflection.mockResolvedValue({
+      ...workbenchOverview.learning_feedback,
+      pending_reflections: [],
+    });
     apiMocks.listConversations.mockResolvedValue([]);
     apiMocks.getConversationMessages.mockResolvedValue([]);
     apiMocks.getSkills.mockResolvedValue(productSkills);
@@ -1513,6 +1584,15 @@ describe("Workbench navigation reliability", () => {
         name: "机构胜率、资金流与假设回检",
       }),
     ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Agent 方向命中率" })).toBeVisible();
+    expect(screen.getByText("6/25")).toBeVisible();
+    expect(screen.getByText("样本积累中")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "待确认的 Lesson 与硬规则" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "批准 Lesson" }));
+    expect(apiMocks.approveForecastReflection).toHaveBeenCalledWith(
+      "2026-07-01.reflection.codex.duckdb.json",
+      ["direction:semi"],
+    );
     await user.click(screen.getByRole("button", { name: "问答" }));
     expect(screen.getByLabelText("输入研究问题")).toBeVisible();
   });

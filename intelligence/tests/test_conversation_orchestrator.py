@@ -698,6 +698,32 @@ def test_contextualizes_pronoun_follow_up_with_previous_user_turn(tmp_path) -> N
         "追问：把核心矛盾压成一句话，再列最强反证和翻转条件。"
     )
 
+    for query in (
+        "这个逻辑呢",
+        "这个方向怎么看",
+        "这条链有哪些公司",
+        "边际变化呢",
+    ):
+        assert contextualize_follow_up_query(query, context) == (
+            "请个股深挖英维克的液冷业务\n"
+            f"追问：{query}"
+        )
+
+
+def test_complete_chain_question_is_not_contextualized(tmp_path) -> None:
+    store = ConversationStore("alice", root=tmp_path)
+    conversation = store.create_conversation()
+    previous = store.append_message(
+        conversation.conversation_id,
+        "user",
+        "请个股深挖英维克的液冷业务",
+        run_id="run-first",
+    )
+    context = ConversationContext(summary="", recent_messages=(previous,))
+    query = "光模块产业链上游有哪些公司"
+
+    assert contextualize_follow_up_query(query, context) == query
+
 
 def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None:
     no_llm = sanitize_user_visible_artifact_text(

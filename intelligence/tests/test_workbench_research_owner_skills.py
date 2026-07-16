@@ -863,13 +863,17 @@ def test_theme_market_artifacts_bind_facts_to_evidence_atoms(
 
 
 def test_stage_adapter_timeout_is_independently_observable() -> None:
+    mutations: list[str] = []
+
     def slow_stage(
         _result: AskResult | None,
         _artifacts: tuple[StageArtifact, ...],
     ) -> StageExecution:
         time.sleep(0.05)
+        mutations.append("finished")
         return StageExecution(status="completed", payload={"available": True})
 
+    started = time.monotonic()
     dag = execute_owner_dag(
         cache_key="theme:test",
         stages=("historical_analogs",),
@@ -888,6 +892,7 @@ def test_stage_adapter_timeout_is_independently_observable() -> None:
             )
         },
     )
+    returned_after = time.monotonic() - started
 
     assert dag.result is None
     assert dag.artifacts[0].status == "timeout"
@@ -896,6 +901,14 @@ def test_stage_adapter_timeout_is_independently_observable() -> None:
     assert dag.artifacts[0].timeout_seconds == 0.01
     assert dag.artifacts[0].on_failure == "render_historical_analog_gap"
     assert dag.artifacts[0].degrade_reason is not None
+    assert dag.artifacts[0].payload == {
+        "termination_mode": "joined",
+        "background_work_remaining": False,
+    }
+    assert returned_after >= 0.05
+    assert mutations == ["finished"]
+    time.sleep(0.03)
+    assert mutations == ["finished"]
 
 
 def test_research_owner_falls_back_without_current_traceable_evidence(

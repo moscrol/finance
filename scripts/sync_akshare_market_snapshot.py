@@ -38,7 +38,9 @@ def main() -> int:
         )
         return 2
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
-    return 0 if result.ok else 1
+    if not result.ok:
+        return 1
+    return 0 if result.quality == "complete" else 3
 
 
 if __name__ == "__main__":

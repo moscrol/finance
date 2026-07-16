@@ -9,6 +9,7 @@ from pathlib import Path
 import duckdb
 
 from intelligence.services.market_moneyflow import load_moneyflow_snapshot
+from intelligence.services.forecast_learning import learning_feedback_projection
 
 
 _FRESHNESS_TABLES = (
@@ -27,6 +28,7 @@ _QUEUE_LABELS = {
 }
 _KNOWLEDGE_STAGES = ("暗流", "观察", "萌芽", "第一轮", "催化共振", "一致认同")
 _MARKET_STAGES = ("未确认", "首次响应", "扩散", "主升", "分歧 / 兑现")
+_FORECAST_SAMPLE_GOAL = 25
 
 
 def _date_text(value: object) -> str | None:
@@ -563,6 +565,67 @@ def _load_sellside(
     return rows[:12], flow, latest_date
 
 
+def _load_forecast_performance(repo_root: Path) -> dict[str, object]:
+    """把双盲 verdict 聚合投影成 Workbench 可展示的方向命中率。
+
+    verdict/answer 文件仍是唯一事实源；这里不落新台账。聚合逻辑复用 CLI，避免
+    Workbench 与 `dual_blind_forecast.py aggregate` 出现两套命中口径。
+    """
+    ledger = repo_root / "docs" / "learning" / "forecast-review-ledger"
+    empty = {
+        "sample_goal": _FORECAST_SAMPLE_GOAL,
+        "total_judged": 0,
+        "decision_eligible": False,
+        "rows": [],
+    }
+    if not ledger.is_dir():
+        return empty
+    try:
+        from scripts.dual_blind_forecast import aggregate
+
+        report = aggregate(ledger)
+    except Exception:
+        return empty
+    rows: list[dict[str, object]] = []
+    for key, stat in sorted((report.get("agents") or {}).items()):
+        if not isinstance(stat, dict):
+            continue
+        bucket = (stat.get("verdicts_by_category") or {}).get("direction") or {}
+        hits = int(bucket.get("hit") or 0)
+        misses = int(bucket.get("miss") or 0)
+        partial = int(bucket.get("partial") or 0)
+        unverifiable = int(bucket.get("unverifiable") or 0)
+        judged = hits + misses + partial
+        if not judged and not unverifiable:
+            continue
+        rows.append(
+            {
+                "key": key,
+                "agent": str(stat.get("agent") or key.split("/", 1)[0]),
+                "source": str(stat.get("source") or "unknown"),
+                "sample_count": judged,
+                "hits": hits,
+                "misses": misses,
+                "partial": partial,
+                "unverifiable": unverifiable,
+                "hit_rate": round(hits / judged, 4) if judged else None,
+                "weighted_rate": (
+                    round((hits + partial * 0.5) / judged, 4) if judged else None
+                ),
+                "sample_goal": _FORECAST_SAMPLE_GOAL,
+                "decision_eligible": judged >= _FORECAST_SAMPLE_GOAL,
+            }
+        )
+    total = sum(int(row["sample_count"]) for row in rows)
+    return {
+        "sample_goal": _FORECAST_SAMPLE_GOAL,
+        "total_judged": total,
+        "decision_eligible": bool(rows)
+        and all(bool(row["decision_eligible"]) for row in rows),
+        "rows": rows,
+    }
+
+
 def _load_market(
     con: duckdb.DuckDBPyConnection,
     target_date: str | None,
@@ -778,6 +841,10 @@ def build_workbench_overview(
     agent_path, agent_payload = _latest_daily_agent(root, None)
     agent_date = str(agent_payload.get("date") or "") or None
     winrate, sellside_flow, sellside_date = _load_sellside(wiki)
+    forecast_performance = _load_forecast_performance(root)
+    learning_feedback = learning_feedback_projection(
+        root / "docs" / "learning" / "forecast-lessons"
+    )
     moneyflow = load_moneyflow_snapshot(db_path)
     missing_response = {
         "as_of_date": None,
@@ -796,6 +863,8 @@ def build_workbench_overview(
         "signals": _load_signals(agent_payload, agent_date),
         "signal_date": agent_date,
         "winrate": winrate,
+        "forecast_performance": forecast_performance,
+        "learning_feedback": learning_feedback,
         "sellside_flow": sellside_flow,
         "sellside_date": sellside_date,
         "moneyflow": moneyflow.to_dict(),
@@ -918,6 +987,8 @@ def build_workbench_overview(
             "signals": _load_signals(agent_payload, agent_date),
             "signal_date": agent_date,
             "winrate": winrate,
+            "forecast_performance": forecast_performance,
+            "learning_feedback": learning_feedback,
             "sellside_flow": sellside_flow,
             "sellside_date": sellside_date,
             "moneyflow": moneyflow.to_dict(),

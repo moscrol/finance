@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 
 from intelligence.services import answer_model
@@ -93,42 +92,29 @@ def execute_owner_dag(
             if isinstance(cached_execution, StageExecution):
                 execution = cached_execution
             else:
-                try:
-                    configured_timeout = max(0.0, adapter.timeout_seconds)
-                    stage_timeout = (
-                        deadline.stage_timeout(configured_timeout)
-                        if deadline is not None
-                        else configured_timeout
-                    )
-                    executor = ThreadPoolExecutor(max_workers=1)
-                    future = executor.submit(
-                        adapter.execute,
-                        result,
-                        tuple(artifacts),
-                    )
-                    execution = future.result(timeout=stage_timeout)
-                except FuturesTimeoutError:
-                    future.cancel()
-                    warning = (
-                        f"{stage} 超过阶段时限 "
-                        f"{adapter.timeout_seconds:g} 秒"
-                    )
+                configured_timeout = max(0.0, adapter.timeout_seconds)
+                stage_timeout = (
+                    deadline.stage_timeout(configured_timeout)
+                    if deadline is not None
+                    else configured_timeout
+                )
+                if stage_timeout <= 0:
+                    warning = f"{stage} 执行前已耗尽阶段时限"
                     warnings.append(warning)
                     artifacts.append(
-                        StageArtifact(
-                            stage=stage,
-                            status="timeout",
-                            elapsed_ms=_elapsed_ms(started),
-                            producer=adapter.producer,
-                            input_hash=adapter.input_hash,
-                            artifact_type=adapter.artifact_type,
-                            required_output=adapter.required_output,
-                            timeout_seconds=adapter.timeout_seconds,
-                            on_failure=adapter.on_failure,
-                            degrade_reason=warning,
+                        _timeout_artifact(
+                            stage,
+                            adapter,
+                            started,
+                            warning,
                         )
                     )
                     continue
+                try:
+                    execution = adapter.execute(
+                        result,
+                        tuple(artifacts),
+                    )
                 except Exception as exc:  # noqa: BLE001
                     warning = f"{stage} 执行失败（{type(exc).__name__}）"
                     warnings.append(warning)
@@ -147,8 +133,21 @@ def execute_owner_dag(
                         )
                     )
                     continue
-                finally:
-                    executor.shutdown(wait=False, cancel_futures=True)
+                if (time.monotonic() - started) > stage_timeout:
+                    warning = (
+                        f"{stage} 超过阶段时限 "
+                        f"{stage_timeout:g} 秒；已等待执行边界完整收束"
+                    )
+                    warnings.append(warning)
+                    artifacts.append(
+                        _timeout_artifact(
+                            stage,
+                            adapter,
+                            started,
+                            warning,
+                        )
+                    )
+                    continue
                 cache[adapter_cache_key] = execution
             if execution.result is not None:
                 result = execution.result
@@ -261,3 +260,27 @@ def _stage_payload(
 
 def _elapsed_ms(started: float) -> int:
     return max(0, round((time.monotonic() - started) * 1000))
+
+
+def _timeout_artifact(
+    stage: str,
+    adapter: StageAdapter,
+    started: float,
+    warning: str,
+) -> StageArtifact:
+    return StageArtifact(
+        stage=stage,
+        status="timeout",
+        elapsed_ms=_elapsed_ms(started),
+        producer=adapter.producer,
+        input_hash=adapter.input_hash,
+        artifact_type=adapter.artifact_type,
+        required_output=adapter.required_output,
+        timeout_seconds=adapter.timeout_seconds,
+        on_failure=adapter.on_failure,
+        payload={
+            "termination_mode": "joined",
+            "background_work_remaining": False,
+        },
+        degrade_reason=warning,
+    )

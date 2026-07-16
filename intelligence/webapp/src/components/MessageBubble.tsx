@@ -154,11 +154,11 @@ export function MessageBubble({
             <div className="message-followups">
               {message.followups?.map((followup) => (
                 <button
-                  key={`${followup.type}:${followup.question}`}
+                  key={`${followup.type}:${followup.full_prompt || followup.question}`}
                   type="button"
-                  onClick={() => onFollowup(followup.question)}
+                  onClick={() => onFollowup(followup.full_prompt || followup.question)}
                 >
-                  {followup.question}
+                  {followup.label || followup.question}
                 </button>
               ))}
             </div>

@@ -37,10 +37,17 @@ class Followup:
     rationale: str = ""
     type_label: str = ""
     source: str = ""
+    label: str = ""
+    full_prompt: str = ""
 
     def __post_init__(self) -> None:
         if not self.type_label:
             self.type_label = TYPE_LABELS.get(self.type, self.type)
+        if not self.full_prompt:
+            self.full_prompt = self.question
+        if not self.question:
+            self.question = self.full_prompt
+        self.label = _compact_label(self.label or self.full_prompt)
 
 
 @dataclass
@@ -85,7 +92,9 @@ def _llm_followups(question: str, theme: str | None, answer_excerpt: str,
         "你是 A 股主题研究助手。基于用户问题与刚生成的研究回答，生成后续追问。"
         "每条必须具体、可执行、可证伪，且只能属于以下类型之一："
         "evidence(证据加深)/counter(反证验证)/alternative(替代标的)/recheck(盘面回检)/migration(题材迁移)。"
-        '只输出 JSON：{"followups":[{"question":"...","type":"evidence","rationale":"..."}]}'
+        "每条同时给 label（按钮文案，最多20字）和 full_prompt（完整用户口吻问题）。"
+        '只输出 JSON：{"followups":[{"label":"...","full_prompt":"...",'
+        '"type":"evidence","rationale":"..."}]}'
     )
     user = (
         f"用户问题：{question}\n匹配题材：{theme or '—'}\n\n回答摘录：\n{answer_excerpt[:2000]}\n\n"
@@ -106,10 +115,19 @@ def _llm_followups(question: str, theme: str | None, answer_excerpt: str,
     for item in raw:
         if not isinstance(item, dict):
             continue
-        q = str(item.get("question") or "").strip()
+        q = str(item.get("full_prompt") or item.get("question") or "").strip()
+        label = str(item.get("label") or "").strip()
         t = str(item.get("type") or "").strip()
         if q and t in FOLLOWUP_TYPES:
-            out.append(Followup(q, t, str(item.get("rationale") or "").strip()))
+            out.append(
+                Followup(
+                    q,
+                    t,
+                    str(item.get("rationale") or "").strip(),
+                    label=label,
+                    full_prompt=q,
+                )
+            )
     return out[:n], provider_name, "" if out else "LLM 未给出任何有效追问"
 
 
@@ -230,3 +248,9 @@ def generate_answer_spec_followups(
 
 def _sentence(value: str) -> str:
     return str(value or "").strip().rstrip("。！？?!；;")
+
+
+def _compact_label(value: str) -> str:
+    cleaned = re.sub(r"\s+", "", str(value or "").strip())
+    cleaned = cleaned.rstrip("。！？?!；;")
+    return cleaned[:20] or "继续研究"

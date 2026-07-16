@@ -5,11 +5,33 @@ import json
 import pytest
 
 from intelligence.services.research_contract import TurnIntent
+from intelligence.services.query_resolution import QueryResolution
+from intelligence.services.query_understanding import understand_query
 from intelligence.services.turn_controller import decide_turn
 
 
 def _no_llm(_messages: list[dict[str, str]]):
     return None, None, "fixture unavailable"
+
+
+class _CountingResolver:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def resolve(self, query: str) -> QueryResolution:
+        self.calls += 1
+        return QueryResolution(
+            envelope=understand_query(query),
+            anchor=None,
+        )
+
+
+def test_controller_resolves_each_turn_once() -> None:
+    resolver = _CountingResolver()
+
+    decide_turn("卫星互联网是什么", llm_complete=_no_llm, resolver=resolver)
+
+    assert resolver.calls == 1
 
 
 def test_greeting_is_chat_without_tools_or_memory() -> None:
@@ -190,6 +212,46 @@ def test_financial_context_dependent_followups_inherit_research_gate(
     assert decision.turn_intent.stage_artifact_ids == (
         "owner:company_master:hash",
     )
+
+
+@pytest.mark.parametrize(
+    ("query", "operator"),
+    (
+        ("这个逻辑呢", None),
+        ("这个方向怎么看", None),
+        ("这条链有哪些公司", "company_mapping"),
+        ("边际变化呢", "market_change"),
+    ),
+)
+def test_new_contextual_references_inherit_governed_owner(
+    query: str,
+    operator: str | None,
+) -> None:
+    previous = TurnIntent(
+        primary_subject="中际旭创",
+        secondary_topics=("光模块",),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+        evidence_atom_ids=("atom-1",),
+    )
+
+    decision = decide_turn(
+        query,
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.subject == "中际旭创"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner == "stock-deep-dive"
+    assert decision.turn_intent.inherited_from_turn == "msg-previous"
+    assert decision.turn_intent.evidence_atom_ids == ("atom-1",)
+    if operator is not None:
+        assert operator in decision.turn_intent.operators
 
 
 def test_non_owner_skill_followup_cannot_fall_back_to_general_chat() -> None:

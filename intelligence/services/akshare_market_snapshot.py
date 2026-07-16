@@ -54,9 +54,32 @@ def sync_akshare_market_snapshot(
         raise ValueError("trade_date 必须为 YYYY-MM-DD")
     base = Path(root).expanduser()
     base.mkdir(parents=True, exist_ok=True)
+    captured_at = captured.isoformat()
+    daily_path = base / f"{date_text}.json"
+    existing = _read_json(daily_path)
+    if (
+        existing is not None
+        and str(existing.get("quality") or "") == "complete"
+        and str(existing.get("source") or "") not in {"", "AkShare"}
+    ):
+        result = SnapshotSyncResult(
+            ok=True,
+            quality="complete",
+            trade_date=date_text,
+            captured_at=captured_at,
+            written_files=(),
+            errors=(
+                f"已存在更高优先级 complete 快照（{existing.get('source')}），AkShare 未请求、未覆盖",
+            ),
+            preserved_existing_snapshot=True,
+        )
+        _write_status(base, result)
+        return result
     ak = akshare_module or import_module("akshare")
     errors: list[str] = []
     spot_rows = _fetch_rows(ak, "stock_zh_a_spot_em", errors)
+    if not spot_rows:
+        spot_rows = _fetch_rows(ak, "stock_zh_a_spot", errors)
     limit_up_rows = _fetch_rows(
         ak,
         "stock_zt_pool_em",
@@ -69,7 +92,6 @@ def sync_akshare_market_snapshot(
         errors,
         date=date_text.replace("-", ""),
     )
-    captured_at = captured.isoformat()
     usable = bool(spot_rows or limit_up_rows or limit_down_rows)
     if not usable:
         result = SnapshotSyncResult(
@@ -93,10 +115,14 @@ def sync_akshare_market_snapshot(
         limit_down_rows,
         errors,
         quality,
-        "fresh" if date_text == captured.date().isoformat() else "historical",
+        (
+            "degraded"
+            if quality == "partial"
+            else "fresh"
+            if date_text == captured.date().isoformat()
+            else "historical"
+        ),
     )
-    daily_path = base / f"{date_text}.json"
-    existing = _read_json(daily_path)
     if (
         quality == "partial"
         and existing is not None
@@ -126,7 +152,9 @@ def sync_akshare_market_snapshot(
             "source": "AkShare",
             "source_data_date": date_text,
             "freshness": (
-                "fresh"
+                "degraded"
+                if quality == "partial"
+                else "fresh"
                 if date_text == captured.date().isoformat()
                 else "historical"
             ),
