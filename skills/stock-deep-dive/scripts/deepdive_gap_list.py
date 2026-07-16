@@ -8,6 +8,9 @@
 - 个股：entity 页含 IMA 逻辑卡标记（「IMA 最新逻辑跟踪」/「最新逻辑卡」/「IMA stock logic」）；
 - 同义词：页面本名或任一别名（aliases.json + frontmatter aliases）命中即算。
 
+概念清单额外输出「疑似重叠」列：与已做概念名称有 >=2 字重合的，列出供人工跳过，
+不自动剔除（语义近义无法程序确认）。
+
 增量模式：--state <json>。首跑写入全量清单快照；之后再跑只输出上次快照后
 新增的缺口（新建页面 or 从「已有」变回「缺口」不会发生，只看新增页面），
 并把快照滚动更新。
@@ -74,6 +77,7 @@ def _scan(
     main_filter: tuple[set[str], set[str]] | None = None,
     dd_source_titles: list[str] | None = None,
     alias_map: dict[str, set[str]] | None = None,
+    covered_names: set[str] | None = None,
 ) -> list[dict[str, str]]:
     rows = []
     for page in sorted(dir_path.glob("*.md")):
@@ -81,9 +85,9 @@ def _scan(
         fm = _frontmatter(text)
         if require_listed and "上市公司" not in fm.get("entity_type", ""):
             continue
-        if DD_RE.search(text):
-            continue
-        if require_listed and IMA_STOCK_RE.search(text):
+        if DD_RE.search(text) or (require_listed and IMA_STOCK_RE.search(text)):
+            if covered_names is not None:
+                covered_names.add(page.stem)
             continue
         names = {page.stem}
         if alias_map:
@@ -92,6 +96,8 @@ def _scan(
         names |= {a.strip().strip(chr(34)).strip(chr(39)) for a in fm_aliases.strip("[]").split(",") if a.strip()}
         names = {n for n in names if len(n) >= 2}
         if dd_source_titles and any(n in title for title in dd_source_titles for n in names):
+            if covered_names is not None:
+                covered_names.add(page.stem)
             continue
         if main_filter is not None:
             parents, children = main_filter
@@ -110,6 +116,26 @@ def _scan(
         )
     rows.sort(key=lambda r: (r["updated"], r["revision"]), reverse=True)
     return rows
+
+
+def _lcs_len(a: str, b: str) -> int:
+    best = 0
+    for i in range(len(a)):
+        for j in range(i + best + 1, len(a) + 1):
+            if a[i:j] in b:
+                best = j - i
+            else:
+                break
+    return best
+
+
+def _overlap_hints(name: str, covered: set[str], min_len: int = 2, top: int = 3) -> str:
+    hits = sorted(
+        ((c, _lcs_len(name, c)) for c in covered),
+        key=lambda x: -x[1],
+    )
+    hits = [c for c, l in hits if l >= min_len][:top]
+    return " / ".join(hits) if hits else "-"
 
 
 def main() -> int:
@@ -134,13 +160,17 @@ def main() -> int:
         main_filter = _hierarchy(wiki / "relations" / "concept_graph.json")
     dd_source_titles = _covered_by_sources(wiki / "sources")
     alias_map = _alias_map(wiki / "relations" / "aliases.json")
+    covered_concepts: set[str] = set()
     concepts = _scan(
         wiki / "concepts",
         require_listed=False,
         main_filter=main_filter,
         dd_source_titles=dd_source_titles,
         alias_map=alias_map,
+        covered_names=covered_concepts,
     )
+    for row in concepts:
+        row["overlap"] = _overlap_hints(row["name"], covered_concepts)
     stocks = _scan(
         wiki / "entities",
         require_listed=True,
@@ -157,16 +187,24 @@ def main() -> int:
         emit = [r for r in rows if r["name"] not in seen] if seen else rows
         mode = "增量" if seen else "全量"
         out = out_dir / f"deepdive-gap-{label}.md"
+        has_overlap = label == "concepts"
+        header = "| 名称 | tickers | updated | revision |"
+        sep = "|---|---|---|---|"
+        if has_overlap:
+            header = "| 名称 | 疑似重叠(已做) | tickers | updated | revision |"
+            sep = "|---|---|---|---|---|"
         lines = [
             f"# 待补 DeepDive：{label}（{mode}，共 {len(emit)} 条 / 缺口总数 {len(rows)}）",
             "",
-            "| 名称 | tickers | updated | revision |",
-            "|---|---|---|---|",
+            header,
+            sep,
         ]
-        lines += [
-            f"| {r['name']} | {r['tickers'] or '-'} | {r['updated'] or '-'} | {r['revision'] or '-'} |"
-            for r in emit
-        ]
+        for r in emit:
+            base = f"| {r['name']} | "
+            if has_overlap:
+                base += f"{r.get('overlap', '-')} | "
+            base += f"{r['tickers'] or '-'} | {r['updated'] or '-'} | {r['revision'] or '-'} |"
+            lines.append(base)
         out.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"{label}: {mode} {len(emit)} 条 -> {out}")
 
