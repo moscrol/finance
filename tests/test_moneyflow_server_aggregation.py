@@ -3,6 +3,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -137,6 +138,50 @@ def test_legacy_null_capital_cache_is_treated_as_miss(tmp_path, monkeypatch):
     assert service.cache_stats()["misses"] == 1
     assert service.cache_stats()["queries"] == 1
     assert service.cache_stats()["writes"] == 1
+
+
+def test_scan_checkpoint_counts_only_initial_current_candidates(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MONEYFLOW_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.setitem(
+        sys.modules, "clickhouse_driver", SimpleNamespace(Client=object)
+    )
+    module = _load_module(monkeypatch, "moneyflow_scan_checkpoint", "moneyflow.py")
+    module.AdaptiveThrottle.wait = lambda self: None
+    path = tmp_path / "scan_cache_test_2026-07-15.json"
+    path.write_text(
+        json.dumps(
+            {
+                "000001": {"code": "000001"},
+                "600000": {"code": "600000"},
+                "300001": None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def compute(client, code):
+        return client, {"code": code}
+
+    _, rows, stats = module.run_scan(
+        FakeClient([]),
+        ["000001", "000002"],
+        "2026-07-15",
+        "test",
+        compute,
+        passes=1,
+        batch_size=0,
+        batch_rest=0,
+    )
+
+    assert stats["scan_cache_hits"] == 1
+    assert stats["nonempty_count"] == 2
+    assert {row["code"] for row in rows} == {"000001", "000002"}
+    assert set(json.loads(path.read_text(encoding="utf-8"))) == {
+        "000001",
+        "000002",
+    }
 
 
 def test_buyer_order_cache_round_trips_aggregated_rows(tmp_path, monkeypatch):

@@ -142,6 +142,8 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
     已完成结果缓存到 outputs/scan_cache_<tag>_<date>.json，中断重跑不重复打库。
     返回 (client, rows, stats)；stats 含 input_count/processed_count/failed_count，
     供写库时落入 ops_pipeline_run_daily 审计。"""
+    codes = list(codes)
+    code_set = set(codes)
     cache_file = out_path(f"scan_cache_{tag}_{date}.json")
     done = {}
     if os.environ.get("L2_FORCE_RESCAN", "").strip() in {"1", "true", "yes"}:
@@ -150,11 +152,11 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
         try:
             with open(cache_file) as f:
                 raw = json.load(f)
-            done = {k: v for k, v in (raw or {}).items() if v}
-            skipped_null = len(raw or {}) - len(done)
+            done = {k: v for k, v in (raw or {}).items() if v and k in code_set}
+            skipped = len(raw or {}) - len(done)
             print(
                 f"断点缓存 {cache_file}: 有效 {len(done)} 只"
-                + (f"（忽略 null {skipped_null}）" if skipped_null else ""),
+                + (f"（忽略 null/过期 {skipped}）" if skipped else ""),
                 flush=True,
             )
         except Exception:
@@ -168,6 +170,7 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
 
     throttle = AdaptiveThrottle()
     pending = [c for c in codes if c not in done]
+    scan_cache_hits = len(done)
     empty_ok = set()
     print(
         f"扫描 {tag} {date}: input={len(codes)} cache_hits={len(done)} pending={len(pending)}",
@@ -217,7 +220,7 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
         "failed_count": len(pending),
         "nonempty_count": nonempty,
         "empty_count": len(empty_ok),
-        "scan_cache_hits": len([c for c in codes if c in done]),
+        "scan_cache_hits": scan_cache_hits,
     }
     print(f"扫描统计 {tag} {date}: {stats}", flush=True)
     if (
