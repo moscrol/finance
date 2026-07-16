@@ -6,8 +6,10 @@ set -uo pipefail
 
 CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
 DATA_ROOT="${FINANCE_DATA_ROOT:-/Users/a77/finance-workspace-private}"
-WORKSPACE="$CODE_ROOT"
-export FINANCE_WS="$WORKSPACE"
+WORKSPACE="$DATA_ROOT"
+export FINANCE_CODE_ROOT="$CODE_ROOT"
+export FINANCE_DATA_ROOT="$DATA_ROOT"
+export FINANCE_WS="$DATA_ROOT"
 export MARKET_FEATURE_STORE_DB="${MARKET_FEATURE_STORE_DB:-$DATA_ROOT/db/market_feature_store.duckdb}"
 export MONEYFLOW_OUTPUT_DIR="${MONEYFLOW_OUTPUT_DIR:-$DATA_ROOT/scripts/moneyflow/outputs}"
 export FORESIGHT_USER="linxiaoqi5111"
@@ -42,8 +44,9 @@ if [ "$dow" -gt 5 ]; then
 fi
 
 cd "$WORKSPACE" || exit 1
-REV=$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
-echo "[$(date '+%F %T')] === 全量复盘开始 date=$D code=$WORKSPACE rev=$REV data=$DATA_ROOT db=$MARKET_FEATURE_STORE_DB moneyflow_out=$MONEYFLOW_OUTPUT_DIR ==="
+REV=$(git -C "$CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+WORKSPACE_REV=$(git -C "$WORKSPACE" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+echo "[$(date '+%F %T')] === 全量复盘开始 date=$D l2_code=$CODE_ROOT l2_rev=$REV workspace=$WORKSPACE workspace_rev=$WORKSPACE_REV db=$MARKET_FEATURE_STORE_DB moneyflow_out=$MONEYFLOW_OUTPUT_DIR ==="
 
 # 失败告警：Mac 系统通知（零配置必达本机）+ 飞书（可选，凭证/权限就绪才发）；告警自身失败不影响退出码
 notify() {
@@ -52,7 +55,7 @@ notify() {
 }
 
 run_moneyflow() {
-  L2_LOCK_HELD=1 "$WORKSPACE/scripts/moneyflow/run_l2_pipeline.sh" "$D"
+  L2_LOCK_HELD=1 "$CODE_ROOT/scripts/moneyflow/run_l2_pipeline.sh" "$D"
 }
 
 python3 skills/daily-full-review/scripts/run_review_sync.py --date "$D"
@@ -63,7 +66,7 @@ run_moneyflow
 moneyflow_rc=$?
 if [ $moneyflow_rc -ne 0 ]; then
   echo "[$(date '+%F %T')] 资金流段失败 rc=${moneyflow_rc}"
-  python3 scripts/moneyflow/write_to_duckdb.py --fail "$D" "nightly moneyflow rc=${moneyflow_rc}" \
+  python3 "$CODE_ROOT/scripts/moneyflow/write_to_duckdb.py" --fail "$D" "nightly moneyflow rc=${moneyflow_rc}" \
     || echo "[$(date '+%F %T')] L2 失败状态回写未成功"
   notify "❌ 全量复盘 $D 资金流段失败 rc=${moneyflow_rc}；日志 logs/daily-full-review.out.log"
 fi
@@ -123,4 +126,4 @@ if [ $all_rc -ne 0 ]; then
   exit $all_rc
 fi
 
-echo "[$(date '+%F %T')] === 全量复盘完成 date=$D code=$WORKSPACE rev=$REV ==="
+echo "[$(date '+%F %T')] === 全量复盘完成 date=$D l2_code=$CODE_ROOT l2_rev=$REV workspace=$WORKSPACE workspace_rev=$WORKSPACE_REV ==="
