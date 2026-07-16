@@ -2148,3 +2148,7 @@ def test_sanitize_humanizes_stage_ids_and_internal_codes() -> None:
         sanitize_conversation_answer("- 还缺：D8 历史类比库不存在")
         == "- 还缺：历史类比库不存在"
     )
+    assert (
+        sanitize_conversation_answer("D6 中期趋势库不存在")
+        == "中期趋势库不存在"
+    )
