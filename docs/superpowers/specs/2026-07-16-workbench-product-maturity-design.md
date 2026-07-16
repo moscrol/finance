@@ -1,7 +1,7 @@
 # Workbench Product Maturity Design
 
 - 日期：2026-07-16
-- 状态：待用户书面复核
+- 状态：设计已确认；Phase A（P0 Routing）代码完成，待 PR 复核与最终 canonical 灰度
 - 基线：`main@07edd75`（PR #235 → #238 → #240 → #243）
 - 产品目标：把本地 Workbench 建成架构清晰、路由正确、证据可信、响应可控、可持续学习的成熟金融研究 Agent
 
@@ -309,6 +309,9 @@ reviewed_by / reviewed_at
 
 - 单一 resolver、实体/题材 lexicon、追问省略句、relation operator、黄金路由集。
 - 交付：独立 PR、路由矩阵、真实 Conversation 三轮回放。
+- 当前进度：代码与本地验收已完成，验证记录见
+  `docs/verification/workbench-routing-p0-2026-07-16.md`；尚未合并 `main`，
+  尚未部署 canonical 8792。
 
 ### Phase B：P0.5 Runtime and Readiness
 
