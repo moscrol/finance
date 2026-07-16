@@ -1016,7 +1016,7 @@ export default function App() {
                 surface.kind as "today" | "themes" | "signals" | "validation"
               }
               refreshing={overviewRefreshing}
-              onRefresh={() => void refreshOverview()}
+              onRefresh={refreshOverview}
             />
           )}
 

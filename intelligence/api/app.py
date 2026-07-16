@@ -44,6 +44,12 @@ from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
+from intelligence.services.forecast_learning import (
+    approve_reflection,
+    learning_feedback_projection,
+    reject_reflection,
+    set_rule_status,
+)
 from intelligence.services.conversation_orchestrator import TurnOrchestrator
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
@@ -336,6 +342,14 @@ class ConfigureLLMRequest(BaseModel):
         pattern=r"^[A-Za-z0-9._:/-]+$",
     )
     user: str | None = None
+
+
+class ApproveReflectionRequest(BaseModel):
+    hypothesis_ids: list[str] = Field(default_factory=list, max_length=50)
+
+
+class RuleStatusRequest(BaseModel):
+    status: Literal["approved", "rejected"]
 
 
 def _run_conversation_turn(
@@ -926,6 +940,7 @@ def create_app(
             supervisor.shutdown()
 
     app = FastAPI(title="Market Intelligence Workbench API", lifespan=lifespan)
+    app.state.repo_root = root
     registries: dict[str, ArtifactRegistry] = {}
     recovered_runs: list[str] = []
     conversation_locks: dict[tuple[str, str], Lock] = {}
@@ -1660,6 +1675,63 @@ def create_app(
     @app.get("/api/workbench/overview")
     def workbench_overview() -> dict[str, object]:
         return build_workbench_overview(root, runtime_paths.knowledge_wiki)
+
+    learning_root = root / "docs" / "learning" / "forecast-lessons"
+
+    @app.get("/api/workbench/learning-feedback")
+    def workbench_learning_feedback() -> dict[str, object]:
+        return learning_feedback_projection(learning_root)
+
+    @app.post("/api/workbench/learning-feedback/reflections/{filename}/approve")
+    def approve_learning_reflection(
+        filename: str,
+        req: ApproveReflectionRequest,
+    ) -> dict[str, object]:
+        if Path(filename).name != filename or not filename.endswith(".json"):
+            raise HTTPException(400, "invalid reflection filename")
+        reflection = learning_root / "reflections" / filename
+        if not reflection.is_file():
+            raise HTTPException(404, "reflection not found")
+        try:
+            approve_reflection(
+                reflection,
+                learning_root / "lessons.jsonl",
+                hypothesis_ids=req.hypothesis_ids,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return learning_feedback_projection(learning_root)
+
+    @app.post("/api/workbench/learning-feedback/reflections/{filename}/reject")
+    def reject_learning_reflection(
+        filename: str,
+        req: ApproveReflectionRequest,
+    ) -> dict[str, object]:
+        if Path(filename).name != filename or not filename.endswith(".json"):
+            raise HTTPException(400, "invalid reflection filename")
+        reflection = learning_root / "reflections" / filename
+        if not reflection.is_file():
+            raise HTTPException(404, "reflection not found")
+        try:
+            reject_reflection(reflection, hypothesis_ids=req.hypothesis_ids)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return learning_feedback_projection(learning_root)
+
+    @app.post("/api/workbench/learning-feedback/rules/{candidate_id}/status")
+    def update_learning_rule(
+        candidate_id: str,
+        req: RuleStatusRequest,
+    ) -> dict[str, object]:
+        try:
+            set_rule_status(
+                learning_root / "rule_candidates.jsonl",
+                candidate_id,
+                req.status,
+            )
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return learning_feedback_projection(learning_root)
 
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.is_dir():

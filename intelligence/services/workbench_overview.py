@@ -9,6 +9,7 @@ from pathlib import Path
 import duckdb
 
 from intelligence.services.market_moneyflow import load_moneyflow_snapshot
+from intelligence.services.forecast_learning import learning_feedback_projection
 
 
 _FRESHNESS_TABLES = (
@@ -841,6 +842,9 @@ def build_workbench_overview(
     agent_date = str(agent_payload.get("date") or "") or None
     winrate, sellside_flow, sellside_date = _load_sellside(wiki)
     forecast_performance = _load_forecast_performance(root)
+    learning_feedback = learning_feedback_projection(
+        root / "docs" / "learning" / "forecast-lessons"
+    )
     moneyflow = load_moneyflow_snapshot(db_path)
     missing_response = {
         "as_of_date": None,
@@ -860,6 +864,7 @@ def build_workbench_overview(
         "signal_date": agent_date,
         "winrate": winrate,
         "forecast_performance": forecast_performance,
+        "learning_feedback": learning_feedback,
         "sellside_flow": sellside_flow,
         "sellside_date": sellside_date,
         "moneyflow": moneyflow.to_dict(),
@@ -983,6 +988,7 @@ def build_workbench_overview(
             "signal_date": agent_date,
             "winrate": winrate,
             "forecast_performance": forecast_performance,
+            "learning_feedback": learning_feedback,
             "sellside_flow": sellside_flow,
             "sellside_date": sellside_date,
             "moneyflow": moneyflow.to_dict(),

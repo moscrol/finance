@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from intelligence.services.forecast_learning import (  # noqa: E402
     approve_reflection,
+    reject_reflection,
     render_learning_prompt,
     set_rule_status,
     sync_reflections,
@@ -43,6 +44,9 @@ def main(argv: list[str] | None = None) -> int:
     approve = sub.add_parser("approve-reflection")
     approve.add_argument("reflection")
     approve.add_argument("--id", action="append", default=[])
+    reject = sub.add_parser("reject-reflection")
+    reject.add_argument("reflection")
+    reject.add_argument("--id", action="append", required=True)
 
     approve_rule = sub.add_parser("approve-rule")
     approve_rule.add_argument("id")
@@ -68,6 +72,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "approve-reflection":
         result = approve_reflection(args.reflection, lessons, hypothesis_ids=args.id)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "reject-reflection":
+        result = reject_reflection(args.reflection, hypothesis_ids=args.id)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.command in {"approve-rule", "reject-rule"}:

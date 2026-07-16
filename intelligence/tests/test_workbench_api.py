@@ -3,6 +3,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -1620,6 +1621,82 @@ def test_workbench_overview_is_fail_closed_without_market_database(
     assert response.status_code == 200
     assert response.json()["market"]["stage"] == "数据缺失"
     assert response.json()["data_status"][0]["status"] == "missing"
+
+
+def test_learning_feedback_can_be_reviewed_without_editing_verdict(
+    client: TestClient,
+) -> None:
+    root = Path(client.app.state.repo_root)
+    learning = root / "docs" / "learning" / "forecast-lessons"
+    reflection = learning / "reflections" / "2026-07-01.reflection.codex.duckdb.json"
+    reflection.parent.mkdir(parents=True)
+    reflection.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "date": "2026-07-01",
+                "agent": "codex",
+                "source": "duckdb",
+                "status": "pending_review",
+                "source_fingerprint": "fixture",
+                "reflections": [
+                    {
+                        "id": "direction:semi",
+                        "category": "direction",
+                        "failure_mode": "A5 场景错位",
+                        "reusable_lesson": "轮动期先看相对强度。",
+                        "proposed_rule": "方向排序前先横比。",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    rules = learning / "rule_candidates.jsonl"
+    rules.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "id": "rule-fixture",
+                "status": "pending",
+                "date": "2026-07-01",
+                "rule": "每次方向排序至少横比三个候选。",
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    pending = client.get("/api/workbench/learning-feedback")
+    assert pending.status_code == 200
+    assert len(pending.json()["pending_reflections"]) == 1
+    assert len(pending.json()["pending_rules"]) == 1
+    assert client.post(
+        f"/api/workbench/learning-feedback/reflections/{reflection.name}/reject",
+        json={"hypothesis_ids": []},
+    ).status_code == 400
+
+    approved = client.post(
+        f"/api/workbench/learning-feedback/reflections/{reflection.name}/approve",
+        json={"hypothesis_ids": ["direction:semi"]},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["pending_reflections"] == []
+    assert approved.json()["approved_lesson_count"] == 1
+
+    rule_approved = client.post(
+        "/api/workbench/learning-feedback/rules/rule-fixture/status",
+        json={"status": "approved"},
+    )
+    assert rule_approved.status_code == 200
+    assert rule_approved.json()["pending_rules"] == []
+    assert rule_approved.json()["approved_rule_count"] == 1
+    assert client.post(
+        "/api/workbench/learning-feedback/reflections/not-json.txt/approve",
+        json={"hypothesis_ids": []},
+    ).status_code == 400
 
 
 def test_bootstrap_returns_self_use_maturity_projection(client: TestClient) -> None:

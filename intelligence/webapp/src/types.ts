@@ -392,6 +392,32 @@ export interface MoneyflowTrend {
   divergence: string | null;
 }
 
+export interface LearningFeedback {
+  pending_reflections: Array<{
+    reflection_file: string;
+    date: string;
+    agent: string;
+    source: string;
+    hypothesis_id: string;
+    category: string | null;
+    failure_mode: string | null;
+    lesson: string;
+    rule: string;
+    status: string;
+    approvable: boolean;
+  }>;
+  pending_rules: Array<{
+    id: string;
+    date: string;
+    issue: string;
+    correction: string;
+    rule: string;
+    status: string;
+  }>;
+  approved_lesson_count: number;
+  approved_rule_count: number;
+}
+
 export interface WorkbenchOverview {
   as_of_date: string | null;
   market: MarketOverview;
@@ -427,6 +453,7 @@ export interface WorkbenchOverview {
       decision_eligible: boolean;
     }>;
   };
+  learning_feedback: LearningFeedback;
   sellside_flow: {
     priority: SellsideFlowItem[];
     confirmation: SellsideFlowItem[];

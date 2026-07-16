@@ -24,6 +24,8 @@ python3 -m scripts.forecast_learning_loop sync-reflections
 python3 -m scripts.forecast_learning_loop sync-annotations
 python3 -m scripts.forecast_learning_loop approve-reflection \
   docs/learning/forecast-lessons/reflections/<file>.json --id <hypothesis-id>
+python3 -m scripts.forecast_learning_loop reject-reflection \
+  docs/learning/forecast-lessons/reflections/<file>.json --id <hypothesis-id>
 python3 -m scripts.forecast_learning_loop approve-rule <rule-id>
 python3 -m scripts.forecast_learning_loop reject-rule <rule-id>
 python3 -m scripts.forecast_learning_loop prompt --limit 5

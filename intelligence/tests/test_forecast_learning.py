@@ -8,7 +8,9 @@ import pytest
 
 from intelligence.services.forecast_learning import (
     approve_reflection,
+    learning_feedback_projection,
     render_learning_prompt,
+    reject_reflection,
     set_rule_status,
     sync_reflections,
     sync_rule_candidates,
@@ -171,6 +173,20 @@ def test_empty_reflection_cannot_be_approved(tmp_path: Path) -> None:
         approve_reflection(reflection, learning / "lessons.jsonl")
 
 
+def test_rejected_reflection_disappears_from_review_queue(tmp_path: Path) -> None:
+    ledger, learning = _ledger(tmp_path)
+    sync_reflections(ledger, learning, use_llm=False)
+    reflection = next((learning / "reflections").glob("*.json"))
+
+    assert reject_reflection(
+        reflection, hypothesis_ids=["direction:semi"]
+    ) == {"rejected": 1, "skipped": 0}
+    assert reject_reflection(
+        reflection, hypothesis_ids=["direction:semi"]
+    ) == {"rejected": 0, "skipped": 1}
+    assert learning_feedback_projection(learning)["pending_reflections"] == []
+
+
 def test_annotation_rules_are_pending_until_human_approval(tmp_path: Path) -> None:
     ledger = tmp_path / "forecast-review-ledger"
     ledger.mkdir()
@@ -211,3 +227,28 @@ def test_annotation_rules_are_pending_until_human_approval(tmp_path: Path) -> No
     assert "方向排序前必须比较至少三个候选" in render_learning_prompt(
         tmp_path / "none", rules
     )
+
+
+def test_learning_feedback_projection_hides_already_approved_items(
+    tmp_path: Path,
+) -> None:
+    ledger, learning = _ledger(tmp_path)
+
+    def fake_complete(*_args, **_kwargs):
+        return (
+            '{"reflections":[{"id":"direction:semi",'
+            '"failure_mode":"A5 场景错位",'
+            '"reusable_lesson":"先识别轮动。","proposed_rule":"先判场景。"}]}',
+            SimpleNamespace(name="mock", model="mock-1"),
+            "",
+        )
+
+    sync_reflections(ledger, learning, llm_complete=fake_complete)
+    before = learning_feedback_projection(learning)
+    reflection = next((learning / "reflections").glob("*.json"))
+    assert before["pending_reflections"][0]["approvable"] is True
+
+    approve_reflection(reflection, learning / "lessons.jsonl")
+    after = learning_feedback_projection(learning)
+    assert after["pending_reflections"] == []
+    assert after["approved_lesson_count"] == 1

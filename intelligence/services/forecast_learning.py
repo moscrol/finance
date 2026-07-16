@@ -398,6 +398,7 @@ def approve_reflection(
             "date": payload.get("date"),
             "agent": payload.get("agent"),
             "source": payload.get("source"),
+            "source_fingerprint": payload.get("source_fingerprint"),
             "hypothesis_id": hypothesis_id,
             "category": row.get("category"),
             "failure_mode": row.get("failure_mode"),
@@ -411,6 +412,41 @@ def approve_reflection(
         else:
             skipped += 1
     return {"approved": approved, "skipped": skipped}
+
+
+def reject_reflection(
+    reflection_path: str | Path,
+    *,
+    hypothesis_ids: Iterable[str],
+) -> dict[str, int]:
+    path = Path(reflection_path)
+    payload = _read_json(path)
+    if payload is None:
+        raise ValueError("reflection JSON 不可读")
+    selected = set(hypothesis_ids)
+    if not selected:
+        raise ValueError("驳回 reflection 必须指定 hypothesis id")
+    rejected = skipped = 0
+    rows = []
+    for row in payload.get("reflections") or []:
+        if not isinstance(row, dict):
+            continue
+        updated = dict(row)
+        if str(row.get("id") or "") in selected:
+            if row.get("review_status") == "rejected":
+                skipped += 1
+            else:
+                updated["review_status"] = "rejected"
+                updated["reviewed_at"] = _now()
+                rejected += 1
+        rows.append(updated)
+    if rejected:
+        payload["reflections"] = rows
+        payload["updated_at"] = _now()
+        _atomic_json(path, payload)
+    if not rejected and not skipped:
+        raise ValueError("指定的 hypothesis id 不在 reflection 中")
+    return {"rejected": rejected, "skipped": skipped}
 
 
 def _annotation_tail(text: str) -> str:
@@ -533,3 +569,81 @@ def render_learning_prompt(
         lines.append(f"- 硬规则 {row.get('date')}：{row.get('rule')}")
     lines.append("只应用与今天题式相关的项；若当前证据冲突，说明冲突而不是机械套用。")
     return "\n".join(lines)
+
+
+def learning_feedback_projection(learning_dir: str | Path) -> dict[str, Any]:
+    root = Path(learning_dir)
+    lessons = [
+        row
+        for row in _read_jsonl(root / "lessons.jsonl")
+        if row.get("status") == "approved"
+    ]
+    approved_keys = {
+        (
+            str(row.get("date") or ""),
+            str(row.get("agent") or ""),
+            str(row.get("source") or ""),
+            str(row.get("hypothesis_id") or ""),
+            str(row.get("source_fingerprint") or ""),
+        )
+        for row in lessons
+    }
+    pending_reflections: list[dict[str, Any]] = []
+    for path in sorted((root / "reflections").glob("*.json"), reverse=True):
+        payload = _read_json(path)
+        if payload is None:
+            continue
+        for row in payload.get("reflections") or []:
+            if not isinstance(row, dict):
+                continue
+            if row.get("review_status") == "rejected":
+                continue
+            key = (
+                str(payload.get("date") or ""),
+                str(payload.get("agent") or ""),
+                str(payload.get("source") or ""),
+                str(row.get("id") or ""),
+                str(payload.get("source_fingerprint") or ""),
+            )
+            if key in approved_keys:
+                continue
+            lesson = str(row.get("reusable_lesson") or "").strip()
+            pending_reflections.append(
+                {
+                    "reflection_file": path.name,
+                    "date": key[0],
+                    "agent": key[1],
+                    "source": key[2],
+                    "hypothesis_id": key[3],
+                    "category": row.get("category"),
+                    "failure_mode": row.get("failure_mode"),
+                    "lesson": lesson,
+                    "rule": str(row.get("proposed_rule") or "").strip(),
+                    "status": payload.get("status"),
+                    "approvable": bool(lesson),
+                }
+            )
+    latest_rules: dict[str, dict[str, Any]] = {}
+    for row in _read_jsonl(root / "rule_candidates.jsonl"):
+        if row.get("id"):
+            latest_rules[str(row["id"])] = row
+    pending_rules = [
+        {
+            "id": row.get("id"),
+            "date": row.get("date"),
+            "issue": row.get("issue"),
+            "correction": row.get("correction"),
+            "rule": row.get("rule"),
+            "status": row.get("status"),
+        }
+        for row in latest_rules.values()
+        if row.get("status") == "pending"
+    ]
+    return {
+        "pending_reflections": pending_reflections,
+        "pending_rules": pending_rules,
+        "approved_lesson_count": len(lessons),
+        "approved_rule_count": sum(
+            row.get("status") == "approved" for row in latest_rules.values()
+        ),
+    }
