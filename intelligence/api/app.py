@@ -78,6 +78,14 @@ REPO_ROOT = Path(
 
 _SSE_POLL_SECONDS = 0.5
 _SSE_MAX_SECONDS = 15 * 60
+
+
+def _positive_float_env(name: str, default: float) -> float:
+    try:
+        value = float(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
 _WORKER_COUNT = 2
 _RESTART_REASON = "workbench_restarted_before_completion"
 
@@ -933,9 +941,21 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        if kb_rag.rag_worker.enabled():
+            try:
+                kb_rag.prewarm(
+                    runtime_paths.knowledge_wiki,
+                    timeout=_positive_float_env(
+                        "RAG_WORKER_PREWARM_TIMEOUT",
+                        90.0,
+                    ),
+                )
+            except Exception as exc:  # noqa: BLE001 - fail closed at readiness
+                kb_rag.rag_worker.record_startup_failure(exc)
         try:
             yield
         finally:
+            kb_rag.rag_worker.close_all()
             llm_settings.clear_all()
             supervisor.shutdown()
 
@@ -1076,6 +1096,7 @@ def create_app(
     def health_ready(user: str | None = None) -> JSONResponse:
         store = store_for(user)
         rag_probe = kb_rag.probe_rag_cli(runtime_paths.knowledge_wiki)
+        worker_status = kb_rag.rag_worker.status()
         snapshot_contract = validate_market_snapshot_root(
             runtime_paths.market_snapshot_dir
         )
@@ -1088,6 +1109,13 @@ def create_app(
         checks = {
             **dependency_checks(),
             "rag_query_protocol": rag_probe.query_protocol_compatible,
+            "rag_worker": (
+                not worker_status["enabled"]
+                or (
+                    worker_status["state"] == "ready"
+                    and int(worker_status["active"]) >= 1
+                )
+            ),
             "run_store_writable": run_root_ready,
             "market_snapshot_contract": bool(snapshot_contract["ready"]),
         }
@@ -1098,6 +1126,7 @@ def create_app(
             "relations": checks["relations"],
             "vector_index": checks["vector_index"],
             "rag_query_protocol": checks["rag_query_protocol"],
+            "rag_worker": checks["rag_worker"],
             "market_snapshot": checks["market_snapshot_contract"],
         }
         ready = all(critical.values())
@@ -1130,7 +1159,7 @@ def create_app(
                 "active": supervisor.active_count(),
                 "capacity": supervisor.max_workers,
                 "timeout_sec": supervisor.timeout_sec,
-                "rag": kb_rag.rag_worker.status(),
+                "rag": worker_status,
             },
             "recovered_runs": len(recovered_runs),
         }

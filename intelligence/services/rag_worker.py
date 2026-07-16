@@ -159,6 +159,7 @@ class PersistentRagWorker:
 
 _WORKERS: dict[tuple[str, str, str], PersistentRagWorker] = {}
 _WORKERS_LOCK = threading.Lock()
+_STARTUP_FAILURE_TYPE: str | None = None
 
 
 def enabled() -> bool:
@@ -203,13 +204,28 @@ def prewarm(
     argv: list[str],
     timeout: float,
 ) -> WorkerResponse:
-    return _worker_for(python, kb_root, index_dir).prewarm(argv, timeout)
+    global _STARTUP_FAILURE_TYPE
+    with _WORKERS_LOCK:
+        _STARTUP_FAILURE_TYPE = None
+    try:
+        return _worker_for(python, kb_root, index_dir).prewarm(argv, timeout)
+    except Exception as exc:
+        record_startup_failure(exc)
+        raise
+
+
+def record_startup_failure(exc: Exception) -> None:
+    global _STARTUP_FAILURE_TYPE
+    with _WORKERS_LOCK:
+        _STARTUP_FAILURE_TYPE = type(exc).__name__
 
 
 def close_all() -> None:
+    global _STARTUP_FAILURE_TYPE
     with _WORKERS_LOCK:
         workers = list(_WORKERS.values())
         _WORKERS.clear()
+        _STARTUP_FAILURE_TYPE = None
     for worker in workers:
         worker.close()
 
@@ -218,12 +234,15 @@ def status() -> dict[str, object]:
     is_enabled = enabled()
     with _WORKERS_LOCK:
         workers = list(_WORKERS.values())
+        startup_failure_type = _STARTUP_FAILURE_TYPE
     worker_states = [worker.status() for worker in workers]
     if not is_enabled:
         state = "disabled"
     elif any(item["state"] == "warming" for item in worker_states):
         state = "warming"
-    elif any(item["state"] == "failed" for item in worker_states):
+    elif startup_failure_type or any(
+        item["state"] == "failed" for item in worker_states
+    ):
         state = "failed"
     elif worker_states and all(
         item["state"] == "ready" and item["active"]
@@ -238,7 +257,7 @@ def status() -> dict[str, object]:
             for item in worker_states
             if item["last_error_type"]
         ),
-        None,
+        startup_failure_type,
     )
     prewarm_latency_ms = max(
         (

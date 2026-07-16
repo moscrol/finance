@@ -224,6 +224,22 @@ def test_kb_rag_prewarm_is_noop_when_worker_disabled(
     assert payload["state"] == "disabled"
 
 
+def test_startup_failure_status_exposes_only_error_type(monkeypatch) -> None:
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    rag_worker.close_all()
+    try:
+        rag_worker.record_startup_failure(
+            RuntimeError("sensitive query and local path must stay private")
+        )
+        payload = rag_worker.status()
+    finally:
+        rag_worker.close_all()
+
+    assert payload["state"] == "failed"
+    assert payload["last_error_type"] == "RuntimeError"
+    assert "sensitive" not in json.dumps(payload)
+
+
 def test_worker_status_reports_lazy_lifecycle(monkeypatch) -> None:
     monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
 
