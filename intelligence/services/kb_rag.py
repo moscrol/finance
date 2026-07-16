@@ -822,15 +822,25 @@ def retrieve(
             f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
         )
         try:
-            proc = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=remaining,
-                cwd=str(root),
-                env=env,
-            )
-        except subprocess.TimeoutExpired:
+            if worker_enabled and not filters:
+                proc = rag_worker.query(
+                    python=rag_python,
+                    kb_root=root,
+                    index_dir=chosen,
+                    argv=cmd[2:],
+                    timeout=remaining,
+                )
+                tel.query_protocol = "persistent_worker_legacy"
+            else:
+                proc = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=remaining,
+                    cwd=str(root),
+                    env=env,
+                )
+        except (subprocess.TimeoutExpired, TimeoutError):
             tel.latency_ms = int((time.monotonic() - _t0) * 1000)
             res.warning = "wiki-rag legacy query 回退超时"
             tel.status = "timeout"
