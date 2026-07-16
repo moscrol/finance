@@ -148,6 +148,22 @@ export function MessageBubble({
             onFollowup={onFollowup}
           />
         )}
+        {!bundle && (message.followups?.length ?? 0) > 0 && (
+          <section aria-label="继续研究">
+            <h3>继续研究</h3>
+            <div className="message-followups">
+              {message.followups?.map((followup) => (
+                <button
+                  key={`${followup.type}:${followup.question}`}
+                  type="button"
+                  onClick={() => onFollowup(followup.question)}
+                >
+                  {followup.question}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
         {canRegenerate && message.status !== "pending" && (
           <button
             className="message-action"

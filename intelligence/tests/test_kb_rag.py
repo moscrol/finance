@@ -602,5 +602,122 @@ class KbRagCliProbeTests(unittest.TestCase):
             self.assertIn("必要", probe.warning)
 
 
+class KbRagResultCacheTests(unittest.TestCase):
+    def setUp(self) -> None:
+        kb_rag.clear_result_cache()
+
+    def tearDown(self) -> None:
+        kb_rag.clear_result_cache()
+
+    def test_same_session_reuses_bound_result_but_other_session_does_not(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            wiki = root / "wiki"
+            page = wiki / "page.md"
+            script = root / kb_rag.RAG_SCRIPT_REL
+            index_dir = root / ".rag_index"
+            wiki.mkdir()
+            script.parent.mkdir()
+            index_dir.mkdir()
+            page.write_text("证据", encoding="utf-8")
+            script.write_text("# script", encoding="utf-8")
+            (index_dir / "meta.json").write_text(
+                '{"revision":"one"}',
+                encoding="utf-8",
+            )
+            payload = [
+                {
+                    "page_id": "page",
+                    "file_path": "wiki/page.md",
+                    "title": "Page",
+                    "score": 1.0,
+                    "best_chunk_id": "page::0",
+                    "content_hash": "hash",
+                    "evidence_text": "已绑定证据",
+                    "index_source_revision": "revision-one",
+                    "index_freshness": "fresh",
+                }
+            ]
+            proc = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(payload, ensure_ascii=False),
+                stderr="",
+            )
+            with mock.patch("subprocess.run", return_value=proc) as run:
+                first = kb_rag.retrieve(
+                    "同一查询",
+                    wiki,
+                    cache_scope="user:conv-1",
+                )
+                second = kb_rag.retrieve(
+                    "同一查询",
+                    wiki,
+                    cache_scope="user:conv-1",
+                )
+                third = kb_rag.retrieve(
+                    "同一查询",
+                    wiki,
+                    cache_scope="user:conv-2",
+                )
+
+            self.assertTrue(first.ok)
+            self.assertTrue(second.telemetry.cache_hit)
+            self.assertEqual(second.telemetry.latency_ms, 0)
+            self.assertFalse(third.telemetry.cache_hit)
+            self.assertEqual(run.call_count, 2)
+
+    def test_index_fingerprint_change_invalidates_session_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            wiki = root / "wiki"
+            script = root / kb_rag.RAG_SCRIPT_REL
+            index_dir = root / ".rag_index"
+            wiki.mkdir()
+            script.parent.mkdir()
+            index_dir.mkdir()
+            (wiki / "page.md").write_text("证据", encoding="utf-8")
+            script.write_text("# script", encoding="utf-8")
+            meta = index_dir / "meta.json"
+            meta.write_text('{"revision":"one"}', encoding="utf-8")
+            payload = [
+                {
+                    "page_id": "page",
+                    "file_path": "wiki/page.md",
+                    "title": "Page",
+                    "score": 1.0,
+                    "best_chunk_id": "page::0",
+                    "content_hash": "hash",
+                    "evidence_text": "已绑定证据",
+                    "index_source_revision": "revision-one",
+                    "index_freshness": "fresh",
+                }
+            ]
+            proc = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(payload, ensure_ascii=False),
+                stderr="",
+            )
+            with mock.patch("subprocess.run", return_value=proc) as run:
+                kb_rag.retrieve(
+                    "同一查询",
+                    wiki,
+                    cache_scope="user:conv",
+                )
+                meta.write_text(
+                    '{"revision":"two","changed":true}',
+                    encoding="utf-8",
+                )
+                refreshed = kb_rag.retrieve(
+                    "同一查询",
+                    wiki,
+                    cache_scope="user:conv",
+                )
+
+            self.assertFalse(refreshed.telemetry.cache_hit)
+            self.assertEqual(run.call_count, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

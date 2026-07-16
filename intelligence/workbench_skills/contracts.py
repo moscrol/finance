@@ -226,6 +226,9 @@ class SkillExecutionContext:
     conversation_context: str = ""
     turn_intent: JsonObject | None = None
     research_plan: JsonObject | None = None
+    inherited_answer_spec: JsonObject | None = None
+    inherited_stage_artifacts: tuple[JsonObject, ...] = ()
+    inherited_evidence_atoms: tuple[JsonObject, ...] = ()
     deadline: ResearchDeadline | None = None
     retrieval_cache: dict[str, object] = field(default_factory=dict)
 

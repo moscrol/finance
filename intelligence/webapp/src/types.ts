@@ -55,6 +55,7 @@ export interface Followup {
   type: string;
   question: string;
   rationale?: string;
+  source?: string;
 }
 
 export interface EvidenceItem {
@@ -466,6 +467,7 @@ export interface ChatMessage {
   invoked_skill_ids: string[];
   citations: Array<Record<string, unknown>>;
   degrades: string[];
+  followups?: Followup[];
 }
 
 export type SkillMode = "manual" | "auto" | "hybrid";

@@ -15,7 +15,7 @@ from intelligence.api.structured_reports import (
     render_daily_review_answer,
     upsert_report_module,
 )
-from intelligence.services import answer_model
+from intelligence.services import answer_model, followups as followups_svc
 from intelligence.services import run_store as rs
 from intelligence.services.ask import (
     AskOptions,
@@ -533,11 +533,18 @@ def contextualize_follow_up_query(
 def previous_turn_intent(
     context: ConversationContext,
 ) -> tuple[TurnIntent | None, str | None]:
+    message = previous_turn_message(context)
+    if message is not None:
+        return TurnIntent.from_dict(message.turn_intent), message.message_id
+    return None, None
+
+
+def previous_turn_message(context: ConversationContext) -> Message | None:
     for message in reversed(context.recent_messages):
         intent = TurnIntent.from_dict(message.turn_intent)
         if intent is not None:
-            return intent, message.message_id
-    return None, None
+            return message
+    return None
 
 
 class TurnOrchestrator:
@@ -627,7 +634,27 @@ class TurnOrchestrator:
                 conversation_id, context.summary
             )
             raw_envelope = understand_query(query)
-            inherited_intent, inherited_turn_id = previous_turn_intent(context)
+            inherited_message = previous_turn_message(context)
+            inherited_intent = (
+                TurnIntent.from_dict(inherited_message.turn_intent)
+                if inherited_message is not None
+                else None
+            )
+            inherited_turn_id = (
+                inherited_message.message_id
+                if inherited_message is not None
+                else None
+            )
+            if (
+                inherited_intent is not None
+                and inherited_message is not None
+                and not inherited_intent.skill_ids
+                and inherited_message.invoked_skill_ids
+            ):
+                inherited_intent = replace(
+                    inherited_intent,
+                    skill_ids=tuple(inherited_message.invoked_skill_ids),
+                )
             controller_started = time.monotonic()
             decision = self.turn_controller(
                 query,
@@ -651,6 +678,22 @@ class TurnOrchestrator:
                 turn_intent=turn_intent,
             )
             contextual_query = contextualize_intent_query(query, turn_intent)
+            inherited_answer_spec = (
+                self._load_answer_spec(inherited_message.run_id)
+                if (
+                    inherited_message is not None
+                    and turn_intent.inherited_from_turn is not None
+                )
+                else None
+            )
+            inherited_stage_artifacts = self._json_object_tuple(
+                inherited_answer_spec,
+                "research_artifacts",
+            )
+            inherited_evidence_atoms = self._json_object_tuple(
+                inherited_answer_spec,
+                "research_evidence_atoms",
+            )
             routing_envelope = understand_query(contextual_query)
             report["task_type"] = decision.lane
             legacy_lane = (
@@ -832,6 +875,8 @@ class TurnOrchestrator:
                 }
                 if turn_intent.answer_owner is not None:
                     route_kwargs["answer_owner"] = turn_intent.answer_owner
+                if turn_intent.inherited_from_turn is not None:
+                    route_kwargs["inherited_skill_ids"] = turn_intent.skill_ids
                 route = self.route_skills(
                     contextual_query,
                     "ask",
@@ -840,6 +885,17 @@ class TurnOrchestrator:
                     **route_kwargs,
                 )
             selected = [selection.skill_id for selection in route.selections]
+            turn_intent = replace(
+                turn_intent,
+                skill_ids=(
+                    tuple(selected)
+                    if skill_mode == "manual"
+                    else tuple(
+                        dict.fromkeys((*turn_intent.skill_ids, *selected))
+                    )
+                ),
+            )
+            research_plan = ResearchPlan.from_intent(turn_intent)
             self._trace(
                 run_id,
                 assistant_message_id,
@@ -955,6 +1011,9 @@ class TurnOrchestrator:
                             conversation_context=context.to_prompt_block(),
                             turn_intent=turn_intent.to_dict(),
                             research_plan=research_plan.to_dict(),
+                            inherited_answer_spec=inherited_answer_spec,
+                            inherited_stage_artifacts=inherited_stage_artifacts,
+                            inherited_evidence_atoms=inherited_evidence_atoms,
                             deadline=research_deadline,
                             retrieval_cache=retrieval_cache,
                         ),
@@ -1448,6 +1507,20 @@ class TurnOrchestrator:
                     block for block in (answer_prefix, answer_text) if block
                 )
             )
+            turn_intent = replace(
+                turn_intent,
+                skill_ids=(
+                    tuple(dict.fromkeys((*invoked, *selected)))
+                    if skill_mode == "manual"
+                    else tuple(
+                        dict.fromkeys(
+                            (*turn_intent.skill_ids, *invoked, *selected)
+                        )
+                    )
+                ),
+            )
+            research_plan = ResearchPlan.from_intent(turn_intent)
+            followup_payload: list[dict[str, object]] = []
             if result.answer_spec is not None:
                 atom_ids = tuple(
                     atom.atom_id
@@ -1455,11 +1528,32 @@ class TurnOrchestrator:
                         result.answer_spec
                     )
                 )
+                stage_artifact_ids = tuple(
+                    ":".join(
+                        part
+                        for part in (
+                            artifact.producer,
+                            artifact.stage,
+                            artifact.input_hash,
+                        )
+                        if part
+                    )
+                    for artifact in result.answer_spec.research_artifacts
+                )
                 turn_intent = replace(
                     turn_intent,
                     evidence_atom_ids=atom_ids,
+                    stage_artifact_ids=stage_artifact_ids,
                 )
                 research_plan = ResearchPlan.from_intent(turn_intent)
+                followup_result = followups_svc.generate_answer_spec_followups(
+                    result.answer_spec,
+                    subject=turn_intent.primary_subject,
+                )
+                followup_payload = [
+                    asdict(followup)
+                    for followup in followup_result.followups
+                ]
                 self._trace(
                     run_id,
                     assistant_message_id,
@@ -1470,6 +1564,7 @@ class TurnOrchestrator:
                         "status": "completed",
                         "evidence_atom_count": len(atom_ids),
                         "evidence_atom_ids": list(atom_ids),
+                        "stage_artifact_ids": list(stage_artifact_ids),
                         "quality_gate": (
                             result.llm_fallback_reason
                             or "structured_claim_ids_validated"
@@ -1523,6 +1618,34 @@ class TurnOrchestrator:
                 renderer="markdown",
                 title=redact(f"对话回答：{query[:24]}"),
             )
+            if result.answer_spec is not None:
+                self.run_store.add_artifact(
+                    run_id,
+                    "answer_spec.json",
+                    json.dumps(
+                        result.answer_spec.to_dict(),
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    renderer="json",
+                    title="回答事实边界",
+                )
+                self.run_store.add_artifact(
+                    run_id,
+                    "followups.json",
+                    json.dumps(
+                        {
+                            "followups": followup_payload,
+                            "llm_used": False,
+                            "llm_provider": None,
+                            "warnings": [],
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    renderer="json",
+                    title="猜你想问",
+                )
             self.run_store.add_artifact(
                 run_id,
                 "report.json",
@@ -1540,6 +1663,7 @@ class TurnOrchestrator:
                 invoked_skill_ids=invoked,
                 citations=citations,
                 degrades=warnings,
+                followups=followup_payload,
                 turn_intent=turn_intent.to_dict(),
                 research_plan=research_plan.to_dict(),
             )
@@ -2002,6 +2126,30 @@ class TurnOrchestrator:
             selected_skill_ids=tuple(selected),
             invoked_skill_ids=tuple(invoked),
         )
+
+    def _load_answer_spec(self, run_id: str | None) -> dict[str, object] | None:
+        if not run_id:
+            return None
+        path = self.run_store.run_dir(run_id) / "answer_spec.json"
+        if not path.is_file():
+            return None
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        return value if isinstance(value, dict) else None
+
+    @staticmethod
+    def _json_object_tuple(
+        value: dict[str, object] | None,
+        key: str,
+    ) -> tuple[dict[str, object], ...]:
+        if value is None:
+            return ()
+        items = value.get(key)
+        if not isinstance(items, list):
+            return ()
+        return tuple(dict(item) for item in items if isinstance(item, dict))
 
     @staticmethod
     def _skill_evidence(outputs: Sequence[SkillOutput]) -> str:

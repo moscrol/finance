@@ -186,6 +186,7 @@ class AskOptions:
     wiki_rag_mode: str = "hybrid"
     wiki_rag_timeout: int = 90
     wiki_rag_excerpt: int = 200
+    wiki_rag_cache_scope: str | None = None
     # 全文版：W 源索引目录覆盖（指向 .rag_index_full）。None=默认 .rag_index，行为逐字节不变。
     wiki_rag_index_dir: str | Path | None = None
     use_llm: bool = False
@@ -890,6 +891,7 @@ def _answer_concept_definition(
             budget_query=options.query,
             index_dir=options.wiki_rag_index_dir,
             require_fresh=True,
+            cache_scope=options.wiki_rag_cache_scope,
         ),
     )
     result.closed_loop_retrieval = loop
@@ -1416,6 +1418,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 budget_query=graph_query,
                 index_dir=options.wiki_rag_index_dir,
                 require_fresh=True,
+                cache_scope=options.wiki_rag_cache_scope,
             ),
         )
         _, wiki_evidence_total_chars = kb_rag.evidence_budget_for_query(

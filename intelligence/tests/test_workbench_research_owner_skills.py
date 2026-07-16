@@ -270,6 +270,45 @@ def test_company_evidence_stage_requires_company_bound_hard_source() -> None:
     assert owner._stage_meets_evidence_threshold(official)
 
 
+def test_followup_merges_validated_previous_answer_spec_without_opening_gate() -> None:
+    owner = ResearchOwnerSkill(STOCK_DEEP_DIVE)
+    current = _answer_spec(
+        "英维克液冷业务",
+        evidence_id="W2",
+        fact_text="当前轮补充了毛利率资料",
+    )
+    previous = _answer_spec(
+        "英维克液冷业务",
+        evidence_id="W1",
+        fact_text="上一轮已经核验客户公告",
+    )
+    previous = replace(
+        previous,
+        verified_facts=(
+            replace(previous.verified_facts[0], claim_id="previous-fact"),
+        ),
+        summary=(
+            replace(previous.summary[0], claim_id="previous-fact"),
+        ),
+    )
+
+    merged = owner._merge_inherited_answer_spec(
+        current,
+        previous.to_dict(),
+    )
+
+    assert {claim.claim_id for claim in merged.verified_facts} == {
+        "fact-1",
+        "previous-fact",
+    }
+    assert {source.evidence_id for source in merged.sources} == {"W1", "W2"}
+    issues = answer_model.validate_llm_answer(
+        "海光信息弹性一定更大。",
+        merged,
+    )
+    assert any(issue.code == "llm_missing_claim_binding" for issue in issues)
+
+
 def _context(
     tmp_path: Path,
     store: RunStore,

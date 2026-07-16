@@ -15,9 +15,10 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, field
 
-from intelligence.services import llm_refine
+from intelligence.services import answer_model, llm_refine
 
 FOLLOWUP_TYPES = ["evidence", "counter", "alternative", "recheck", "migration"]
 TYPE_LABELS = {
@@ -35,6 +36,7 @@ class Followup:
     type: str
     rationale: str = ""
     type_label: str = ""
+    source: str = ""
 
     def __post_init__(self) -> None:
         if not self.type_label:
@@ -135,3 +137,96 @@ def generate_followups(
         result.warnings.append(f"{warn}（已降级为模板追问）")
     result.followups = _template_followups(question, matched_theme)[:n]
     return result
+
+
+def generate_answer_spec_followups(
+    answer_spec: answer_model.AnswerSpec,
+    *,
+    subject: str | None = None,
+    n: int = 4,
+) -> FollowupResult:
+    """只从 AnswerSpec 的缺口、触发条件和验证动作生成可执行追问。"""
+    limit = min(4, max(3, int(n)))
+    anchor = (
+        subject
+        or answer_spec.research_spec.theme
+        or answer_spec.presentation_title
+        or "当前研究主题"
+    )
+    candidates: list[Followup] = []
+    for gap in answer_spec.gaps:
+        text = _sentence(gap.text)
+        if text:
+            candidates.append(
+                Followup(
+                    f"{anchor}的这个证据缺口应如何补齐并绑定可核验来源：{text}？",
+                    "evidence",
+                    "来自本轮 AnswerSpec 的 evidence gap",
+                    source=f"gap:{gap.claim_id}",
+                )
+            )
+    for action in answer_spec.next_actions:
+        text = _sentence(action)
+        if text:
+            candidates.append(
+                Followup(
+                    f"下一步如何执行并核验：{text}？",
+                    "recheck",
+                    "来自本轮 AnswerSpec 的验证路径",
+                    source="next_action",
+                )
+            )
+    for trigger in answer_spec.triggers:
+        text = _sentence(trigger.text)
+        if text:
+            candidates.append(
+                Followup(
+                    f"哪些数据能验证或证伪这个条件：{text}？",
+                    "counter",
+                    "来自本轮 AnswerSpec 的触发或降级条件",
+                    source=f"trigger:{trigger.claim_id}",
+                )
+            )
+
+    conservative = (
+        Followup(
+            f"{anchor}当前哪些关键结论仍缺公司级可核验来源？",
+            "evidence",
+            "保守补充：继续检查本轮证据边界",
+            source="answer_spec_boundary",
+        ),
+        Followup(
+            f"{anchor}下一验证窗口应优先核对哪些触发条件？",
+            "recheck",
+            "保守补充：落实本轮验证路径",
+            source="answer_spec_boundary",
+        ),
+        Followup(
+            f"出现哪些反证时，应下调对{anchor}的当前判断？",
+            "counter",
+            "保守补充：明确可证伪条件",
+            source="answer_spec_boundary",
+        ),
+        Followup(
+            f"{anchor}已有证据中，哪些需要更新到更近的数据日期？",
+            "evidence",
+            "保守补充：复核证据新鲜度",
+            source="answer_spec_boundary",
+        ),
+    )
+    candidates.extend(conservative)
+    deduped: list[Followup] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        normalized = re.sub(r"\s+", "", candidate.question)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(candidate)
+        if len(deduped) == limit:
+            break
+    return FollowupResult(followups=deduped)
+
+
+def _sentence(value: str) -> str:
+    return str(value or "").strip().rstrip("。！？?!；;")
