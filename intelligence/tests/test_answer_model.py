@@ -1073,6 +1073,44 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             result.grounded_composer_shadow.presented_answer or "",
         )
 
+    def test_shadow_pipeline_marks_ineligible_evidence_without_llm(
+        self,
+    ) -> None:
+        spec = replace(self._answer(), verified_facts=())
+        result = AskResult(
+            query="估值贵不贵",
+            trade_date="2026-07-16",
+            matched_theme="市场",
+            candidate_tier=None,
+            priority_score=None,
+            answer_spec=spec,
+            synthesis="生产答案保持不变",
+        )
+        prepared = PreparedAnswer(
+            options=AskOptions(
+                query="估值贵不贵",
+                shadow_grounded_composer=True,
+            ),
+            result=result,
+        )
+        with mock.patch.object(
+            llm_refine,
+            "synthesize_messages",
+        ) as synthesize:
+            synthesize_shadow_grounded_answer(prepared)
+
+        synthesize.assert_not_called()
+        shadow = result.grounded_composer_shadow
+        self.assertIsNotNone(shadow)
+        assert shadow is not None
+        self.assertEqual(shadow.status, "ineligible_evidence")
+        self.assertEqual(
+            shadow.failure_reason,
+            "no_valid_support_claims",
+        )
+        self.assertIsNone(shadow.presented_answer)
+        self.assertEqual(result.synthesis, "生产答案保持不变")
+
     def test_llm_gate_rejects_invalid_claim_id(self) -> None:
         spec = self._answer()
         answer = (
