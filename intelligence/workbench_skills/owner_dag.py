@@ -133,22 +133,38 @@ def execute_owner_dag(
                         )
                     )
                     continue
+                cache[adapter_cache_key] = execution
                 if (time.monotonic() - started) > stage_timeout:
                     warning = (
                         f"{stage} 超过阶段时限 "
-                        f"{stage_timeout:g} 秒；已等待执行边界完整收束"
+                        f"{stage_timeout:g} 秒；结果已完整收束并保留"
                     )
                     warnings.append(warning)
+                    if execution.result is not None:
+                        result = execution.result
+                    if execution.degrade_reason:
+                        warnings.append(execution.degrade_reason)
                     artifacts.append(
-                        _timeout_artifact(
-                            stage,
-                            adapter,
-                            started,
-                            warning,
+                        StageArtifact(
+                            stage=stage,
+                            status="timeout",
+                            elapsed_ms=_elapsed_ms(started),
+                            producer=adapter.producer,
+                            input_hash=adapter.input_hash,
+                            artifact_type=adapter.artifact_type,
+                            required_output=adapter.required_output,
+                            timeout_seconds=adapter.timeout_seconds,
+                            on_failure=adapter.on_failure,
+                            evidence_atom_ids=execution.evidence_atom_ids,
+                            payload={
+                                **execution.payload,
+                                "termination_mode": "joined_overrun",
+                                "background_work_remaining": False,
+                            },
+                            degrade_reason=warning,
                         )
                     )
                     continue
-                cache[adapter_cache_key] = execution
             if execution.result is not None:
                 result = execution.result
             if execution.degrade_reason:

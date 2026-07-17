@@ -3358,6 +3358,18 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     return result
 
 
+def _shadow_support_claims(
+    answer_spec: answer_model.AnswerSpec,
+) -> tuple[answer_model.Claim, ...]:
+    return tuple(
+        claim
+        for claim in (*answer_spec.summary, *answer_spec.verified_facts)
+        if claim.claim_id
+        and claim.evidence_ids
+        and claim.status is not answer_model.ClaimStatus.MISSING
+    )
+
+
 def synthesize_shadow_grounded_answer(
     prepared: PreparedAnswer,
 ) -> AskResult:
@@ -3369,6 +3381,15 @@ def synthesize_shadow_grounded_answer(
     ):
         return result
     started = time.monotonic()
+    if not _shadow_support_claims(result.answer_spec):
+        result.grounded_composer_shadow = (
+            answer_model.GroundedComposerShadow(
+                status="ineligible_evidence",
+                failure_reason="no_valid_support_claims",
+                elapsed_ms=round((time.monotonic() - started) * 1000),
+            )
+        )
+        return result
     deadline = llm_refine.Deadline.from_timeout(
         options.shadow_grounded_timeout
     )

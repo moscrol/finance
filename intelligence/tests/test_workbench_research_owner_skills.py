@@ -902,13 +902,59 @@ def test_stage_adapter_timeout_is_independently_observable() -> None:
     assert dag.artifacts[0].on_failure == "render_historical_analog_gap"
     assert dag.artifacts[0].degrade_reason is not None
     assert dag.artifacts[0].payload == {
-        "termination_mode": "joined",
+        "available": True,
+        "termination_mode": "joined_overrun",
         "background_work_remaining": False,
     }
     assert returned_after >= 0.05
     assert mutations == ["finished"]
     time.sleep(0.03)
     assert mutations == ["finished"]
+
+
+def test_stage_adapter_overrun_keeps_typed_result_and_caches() -> None:
+    completed_result = _result("test", STOCK_DEEP_DIVE.question_type)
+
+    def slow_company_master(
+        _result_arg: AskResult | None,
+        _artifacts: tuple[StageArtifact, ...],
+    ) -> StageExecution:
+        time.sleep(0.05)
+        return StageExecution(
+            status="completed",
+            payload={"available": True, "company": "目标公司"},
+            evidence_atom_ids=("atom-1",),
+            result=completed_result,
+        )
+
+    cache: dict[str, object] = {}
+    adapter = StageAdapter(
+        producer="answer_query.company_master",
+        input_hash="input-hash",
+        artifact_type="CompanyMasterArtifact",
+        required_output=True,
+        timeout_seconds=0.01,
+        on_failure="continue_with_unresolved_company",
+        execute=slow_company_master,
+    )
+    dag = execute_owner_dag(
+        cache_key="stock:test",
+        stages=("company_master",),
+        retrieve=lambda: _result("test", STOCK_DEEP_DIVE.question_type),
+        cache=cache,
+        deadline=ResearchDeadline.from_timeout(1),
+        stage_adapters={"company_master": adapter},
+    )
+
+    assert dag.result is completed_result
+    artifact = dag.artifacts[0]
+    assert artifact.status == "timeout"
+    assert artifact.evidence_atom_ids == ("atom-1",)
+    assert artifact.payload["company"] == "目标公司"
+    assert artifact.payload["termination_mode"] == "joined_overrun"
+    cached = cache["stage:answer_query.company_master:input-hash"]
+    assert isinstance(cached, StageExecution)
+    assert cached.result is completed_result
 
 
 def test_owner_initial_stage_timeout_covers_first_business_query_margin() -> None:
