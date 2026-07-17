@@ -3418,7 +3418,8 @@ def promote_daily_agent_grounded_answer(
         PreparedAnswer(
             options=replace(options, shadow_grounded_composer=True),
             result=result,
-        )
+        ),
+        repair_drop_invalid=True,
     )
     shadow = result.grounded_composer_shadow
     if (
@@ -3461,6 +3462,8 @@ def _shadow_support_claims(
 
 def synthesize_shadow_grounded_answer(
     prepared: PreparedAnswer,
+    *,
+    repair_drop_invalid: bool = False,
 ) -> AskResult:
     options = prepared.options
     result = prepared.result
@@ -3563,6 +3566,7 @@ def synthesize_shadow_grounded_answer(
             answer_model.repair_grounded_composer_answer(
                 raw_answer,
                 result.answer_spec,
+                drop_invalid=repair_drop_invalid,
             )
         )
         if deterministic_repair is None:
@@ -3644,6 +3648,7 @@ def synthesize_shadow_grounded_answer(
             rejected_sentence_indexes=(
                 judge_report.rejected_sentence_indexes
             ),
+            drop_invalid=repair_drop_invalid,
         )
         if semantic_repair is None:
             result.grounded_composer_shadow = (

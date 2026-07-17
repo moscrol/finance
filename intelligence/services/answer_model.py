@@ -1868,14 +1868,46 @@ def parse_decision_brief(
         if claim_id not in allowed_claim_ids
     )
     if invalid_ids:
-        issues.append(
-            QualityIssue(
-                "decision_brief_invalid_claim_id",
-                "error",
-                "DecisionBrief 使用无效 claim ID："
-                + "、".join(invalid_ids),
-            )
+        filtered_supports = tuple(
+            claim_id
+            for claim_id in brief.supports
+            if claim_id in allowed_claim_ids
         )
+        if filtered_supports:
+            brief = DecisionBrief(
+                direct_answer=brief.direct_answer,
+                core_tension=brief.core_tension,
+                supports=filtered_supports,
+                counterevidence=tuple(
+                    claim_id
+                    for claim_id in brief.counterevidence
+                    if claim_id in allowed_claim_ids
+                ),
+                unknowns=tuple(
+                    claim_id
+                    for claim_id in brief.unknowns
+                    if claim_id in allowed_claim_ids
+                ),
+                upgrade_conditions=tuple(
+                    claim_id
+                    for claim_id in brief.upgrade_conditions
+                    if claim_id in allowed_claim_ids
+                ),
+                downgrade_conditions=tuple(
+                    claim_id
+                    for claim_id in brief.downgrade_conditions
+                    if claim_id in allowed_claim_ids
+                ),
+            )
+        else:
+            issues.append(
+                QualityIssue(
+                    "decision_brief_invalid_claim_id",
+                    "error",
+                    "DecisionBrief 使用无效 claim ID："
+                    + "、".join(invalid_ids),
+                )
+            )
     if issues:
         return None, tuple(issues)
     return brief, ()
@@ -2167,6 +2199,7 @@ def repair_grounded_composer_answer(
     answer_spec: AnswerSpec,
     *,
     rejected_sentence_indexes: tuple[int, ...] = (),
+    drop_invalid: bool = False,
 ) -> str | None:
     atoms = evidence_atoms_from_answer_spec(answer_spec)
     claim_registry = {
@@ -2219,6 +2252,8 @@ def repair_grounded_composer_answer(
         if not line_issues and sentence_index not in rejected:
             repaired_lines.append(raw_line)
             continue
+        if drop_invalid:
+            continue
         atom_ids = _atom_ids_for_claim(source_claim, atoms)
         claim_type = _grounded_claim_type(source_claim)
         if claim_type == "fact" and not atom_ids:
@@ -2233,6 +2268,8 @@ def repair_grounded_composer_answer(
             f"claim_type={claim_type} -->"
         )
     repaired = "\n".join(repaired_lines).strip()
+    if drop_invalid and not _GROUNDED_CLAIM_MARKER_RE.search(repaired):
+        return None
     if any(
         issue.severity == "error"
         for issue in validate_grounded_composer_answer(

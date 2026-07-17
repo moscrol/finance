@@ -401,6 +401,75 @@ class TestGroundedPresenterPromotion:
         assert "凭空多出的一句" not in repaired
         assert "氢能源" in repaired
 
+    def test_brief_filters_hallucinated_ids_keeps_valid_supports(self) -> None:
+        spec = _contract().answer_spec
+        theme_claim_id = "daily-agent:theme:old_logic_wakeup:氢能源"
+        brief, issues = answer_model.parse_decision_brief(
+            json.dumps(
+                {
+                    "direct_answer": "旧逻辑重新活跃。",
+                    "core_tension": "热度与证据不匹配。",
+                    "supports": [theme_claim_id, "daily-agent:不存在:gap:9"],
+                    "unknowns": ["daily-agent:也不存在"],
+                },
+                ensure_ascii=False,
+            ),
+            spec,
+        )
+        assert issues == ()
+        assert brief is not None
+        assert brief.supports == (theme_claim_id,)
+        assert brief.unknowns == ()
+
+    def test_repair_drop_invalid_keeps_llm_wording_no_template_backfill(
+        self,
+    ) -> None:
+        spec = _contract().answer_spec
+        theme_claim_id = "daily-agent:theme:old_logic_wakeup:氢能源"
+        atoms = answer_model.evidence_atoms_from_answer_spec(spec)
+        atom_id = next(
+            atom.atom_id
+            for atom in atoms
+            if atom.provenance.get("claim_id") == theme_claim_id
+        )
+        good = (
+            "氢能源旧逻辑被资金重新唤醒，热度先于证据。"
+            f"<!-- claim_ids={theme_claim_id}; "
+            f"evidence_atom_ids={atom_id}; claim_type=fact -->"
+        )
+        bad = (
+            "凭空断言涨停 99 只创历史纪录。"
+            f"<!-- claim_ids={theme_claim_id}; "
+            f"evidence_atom_ids={atom_id}; claim_type=fact -->"
+        )
+        repaired = answer_model.repair_grounded_composer_answer(
+            f"{good}\n{bad}",
+            spec,
+            drop_invalid=True,
+        )
+        assert repaired is not None
+        assert "热度先于证据" in repaired
+        assert "99 只" not in repaired
+        registry_texts = [claim.text for claim in spec.verified_facts]
+        assert not any(text in repaired for text in registry_texts)
+
+    def test_repair_drop_invalid_fails_when_nothing_survives(self) -> None:
+        spec = _contract().answer_spec
+        theme_claim_id = "daily-agent:theme:old_logic_wakeup:氢能源"
+        bad = (
+            "凭空断言涨停 99 只。"
+            f"<!-- claim_ids={theme_claim_id}; "
+            "evidence_atom_ids=无; claim_type=fact -->"
+        )
+        assert (
+            answer_model.repair_grounded_composer_answer(
+                bad,
+                spec,
+                drop_invalid=True,
+            )
+            is None
+        )
+
     def test_non_daily_agent_spec_is_untouched(self) -> None:
         result = _result_with_spec()
         spec = result.answer_spec
