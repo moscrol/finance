@@ -1790,6 +1790,16 @@ def parse_decision_brief(
     allowed_claim_ids = {
         claim.claim_id for claim in _all_answer_claims(answer_spec)
     }
+    atom_owner = {
+        atom.atom_id: str(atom.provenance.get("claim_id", ""))
+        for atom in evidence_atoms_from_answer_spec(answer_spec)
+    }
+
+    def canonical_claim_id(raw_id: str) -> str:
+        if raw_id in allowed_claim_ids:
+            return raw_id
+        owner = atom_owner.get(raw_id, "")
+        return owner if owner in allowed_claim_ids else raw_id
 
     def text_value(key: str) -> str:
         value = payload.get(key)
@@ -1801,7 +1811,7 @@ def parse_decision_brief(
             return ()
         return tuple(
             dict.fromkeys(
-                str(item).strip()
+                canonical_claim_id(str(item).strip())
                 for item in value
                 if str(item).strip()
             )
@@ -2172,7 +2182,7 @@ def repair_grounded_composer_answer(
             continue
         marker = _GROUNDED_CLAIM_MARKER_RE.search(raw_line)
         if marker is None:
-            return None
+            continue
         sentence_index += 1
         claim_ids = tuple(
             item.strip()
@@ -2188,7 +2198,20 @@ def repair_grounded_composer_answer(
             None,
         )
         if source_claim is None:
-            return None
+            atom_owner = {
+                atom.atom_id: str(atom.provenance.get("claim_id", ""))
+                for atom in atoms
+            }
+            source_claim = next(
+                (
+                    claim_registry[atom_owner[claim_id]]
+                    for claim_id in claim_ids
+                    if atom_owner.get(claim_id, "") in claim_registry
+                ),
+                None,
+            )
+        if source_claim is None:
+            continue
         line_issues = validate_grounded_composer_answer(
             raw_line,
             answer_spec,

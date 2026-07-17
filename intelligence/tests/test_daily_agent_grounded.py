@@ -357,6 +357,50 @@ class TestGroundedPresenterPromotion:
         )
         assert not ask.promote_daily_agent_grounded_answer(options, result)
 
+    def test_brief_accepts_atom_ids_normalized_to_owner_claim(self) -> None:
+        spec = _contract().answer_spec
+        theme_claim_id = "daily-agent:theme:old_logic_wakeup:氢能源"
+        atoms = answer_model.evidence_atoms_from_answer_spec(spec)
+        atom_id = next(
+            atom.atom_id
+            for atom in atoms
+            if atom.provenance.get("claim_id") == theme_claim_id
+        )
+        brief, issues = answer_model.parse_decision_brief(
+            json.dumps(
+                {
+                    "direct_answer": "旧逻辑重新活跃。",
+                    "core_tension": "热度与证据不匹配。",
+                    "supports": [atom_id],
+                },
+                ensure_ascii=False,
+            ),
+            spec,
+        )
+        assert issues == ()
+        assert brief is not None
+        assert brief.supports == (theme_claim_id,)
+
+    def test_repair_drops_unbound_lines_instead_of_failing(self) -> None:
+        spec = _contract().answer_spec
+        theme_claim_id = "daily-agent:theme:old_logic_wakeup:氢能源"
+        atoms = answer_model.evidence_atoms_from_answer_spec(spec)
+        atom_ids = [
+            atom.atom_id
+            for atom in atoms
+            if atom.provenance.get("claim_id") == theme_claim_id
+        ]
+        answer = (
+            "凭空多出的一句没有任何绑定。\n"
+            "氢能源旧逻辑被资金重新唤醒。"
+            f"<!-- claim_ids={theme_claim_id}; "
+            f"evidence_atom_ids={atom_ids[0]}; claim_type=fact -->"
+        )
+        repaired = answer_model.repair_grounded_composer_answer(answer, spec)
+        assert repaired is not None
+        assert "凭空多出的一句" not in repaired
+        assert "氢能源" in repaired
+
     def test_non_daily_agent_spec_is_untouched(self) -> None:
         result = _result_with_spec()
         spec = result.answer_spec
