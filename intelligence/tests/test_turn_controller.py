@@ -148,6 +148,30 @@ def test_market_watch_query_uses_workflow_lane(query: str) -> None:
     assert "market_quote" in decision.capabilities
 
 
+@pytest.mark.parametrize(
+    ("query", "question_type"),
+    (
+        ("最近固态电池有什么新进展", "theme_analysis"),
+        ("英伟达GPU发布对光模块板块的影响", "news_impact"),
+    ),
+)
+def test_owner_question_types_use_research_lane(
+    query: str, question_type: str
+) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "research"
+    assert decision.question_type == question_type
+    assert decision.needs_retrieval is True
+
+
+def test_unverified_subject_guess_does_not_force_research_lane() -> None:
+    decision = decide_turn("PQC最新消息", llm_complete=_no_llm)
+
+    assert decision.lane == "knowledge"
+    assert decision.needs_retrieval is True
+
+
 def test_dated_external_market_summary_does_not_use_a_share_workflow() -> None:
     decision = decide_turn(
         "总结一下 2026-07-16 的美股行情",
