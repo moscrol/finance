@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence import userspace
-from intelligence.adapters.knowledge import KnowledgeAdapter
+from intelligence.adapters.knowledge import KnowledgeAdapter, evidence_status
 from intelligence.paths import default_paths
 from intelligence.services import (
     answer_model,
@@ -1368,12 +1368,18 @@ def answer_query(options: AskOptions) -> AskResult:
             seen_evidence.add(key)
             result.found_graph = True
             stale = _evidence_is_stale(item, options.stale_days)
+            status = evidence_status(item)
+            superseded = status == "superseded"
             tag = cite(
                 "R",
                 "knowledge-base · wiki/relations/evidence_index.json",
                 f"target={item.get('target')} source={item.get('source')}",
             )
-            mark = " ⚠️过期" if stale else ""
+            mark = ""
+            if superseded:
+                mark = " ⚠️已被新证据取代"
+            elif stale:
+                mark = " ⚠️过期"
             line = (
                 f"{item.get('target')}：{str(item.get('evidence'))[:80]}"
                 f"（{item.get('source')}, {item.get('source_date') or '无日期'}, "
@@ -1390,16 +1396,30 @@ def answer_query(options: AskOptions) -> AskResult:
                     theme=claim_theme,
                     status=(
                         answer_model.ClaimStatus.VERIFIED
-                        if layer_name == "L3" and not stale
+                        if layer_name == "L3" and not stale and not superseded
                         else answer_model.ClaimStatus.CANDIDATE
                     ),
                     evidence_tier=layer_name,
                     company=target_name if target_name in company_evidence_concepts else None,
                     confidence=_confidence_score(item.get("confidence")),
-                    freshness="stale" if stale else "current",
+                    freshness=(
+                        "superseded"
+                        if superseded
+                        else "stale"
+                        if stale
+                        else "current"
+                    ),
                 )
             )
-            if stale:
+            if superseded:
+                replacement = str(
+                    item.get("superseded_by") or item.get("status_note") or ""
+                ).strip()
+                suffix = f"，新证据：{replacement}" if replacement else ""
+                stale_notes.append(
+                    f"{item.get('target')} 该条证据已被取代{suffix}，只能作历史参照，不能当作当前事实 {tag}"
+                )
+            elif stale:
                 stale_notes.append(
                     f"{item.get('target')} 证据 {item.get('source_date')} 已超 {options.stale_days} 天，需复核是否被新数据证伪 {tag}"
                 )
