@@ -3402,6 +3402,39 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     return result
 
 
+def _strip_empty_grounded_sections(text: str) -> str:
+    lines = text.splitlines()
+    kept: list[str] = []
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("#"):
+            has_body = False
+            for later in lines[index + 1 :]:
+                if later.lstrip().startswith("#"):
+                    break
+                if later.strip():
+                    has_body = True
+                    break
+            if not has_body:
+                continue
+        kept.append(line)
+    collapsed: list[str] = []
+    for line in kept:
+        if not line.strip() and collapsed and not collapsed[-1].strip():
+            continue
+        collapsed.append(line)
+    return "\n".join(collapsed).strip()
+
+
+def _grounded_body_line_count(text: str) -> int:
+    return sum(
+        1
+        for line in text.splitlines()
+        if line.strip()
+        and not line.lstrip().startswith("#")
+        and "非投资建议" not in line
+    )
+
+
 def promote_daily_agent_grounded_answer(
     options: AskOptions,
     result: AskResult,
@@ -3416,27 +3449,43 @@ def promote_daily_agent_grounded_answer(
         return False
     synthesize_shadow_grounded_answer(
         PreparedAnswer(
-            options=replace(options, shadow_grounded_composer=True),
+            options=replace(
+                options,
+                shadow_grounded_composer=True,
+                shadow_grounded_timeout=max(
+                    options.shadow_grounded_timeout, 240
+                ),
+            ),
             result=result,
         ),
         repair_drop_invalid=True,
     )
     shadow = result.grounded_composer_shadow
+    presented = (
+        _strip_empty_grounded_sections(shadow.presented_answer)
+        if shadow is not None and shadow.presented_answer
+        else ""
+    )
     if (
         shadow is None
         or shadow.status not in {"accepted", "repaired"}
-        or not shadow.presented_answer
+        or _grounded_body_line_count(presented) < 2
     ):
         if shadow is not None:
+            reason = shadow.failure_reason or (
+                "insufficient_grounded_body"
+                if shadow.status in {"accepted", "repaired"}
+                else shadow.status
+            )
             result.warnings.append(
                 "研究雷达自然语言合成未通过门禁或不可用"
-                f"（{shadow.failure_reason or shadow.status}），已降级回结构化合成。"
+                f"（{reason}），已降级回结构化合成。"
             )
         return False
     result.synthesis = (
-        f"{result.data_notice}\n\n{shadow.presented_answer}"
+        f"{result.data_notice}\n\n{presented}"
         if result.data_notice
-        else shadow.presented_answer
+        else presented
     )
     result.llm_provider = shadow.provider
     result.synthesis_messages = [

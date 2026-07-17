@@ -282,6 +282,10 @@ class TestGroundedPresenterPromotion:
             f"<!-- claim_ids={theme_claim_id}; "
             f"evidence_atom_ids={','.join(atom_ids[:2])}; "
             "claim_type=fact -->\n"
+            "在公告或订单落地之前，把它当作待验证的旧逻辑更稳妥。"
+            f"<!-- claim_ids={theme_claim_id}; "
+            f"evidence_atom_ids={atom_ids[0]}; "
+            "claim_type=fact -->\n"
             "（非投资建议）"
         )
         judge = json.dumps(
@@ -469,6 +473,15 @@ class TestGroundedPresenterPromotion:
             )
             is None
         )
+
+    def test_strip_empty_sections_and_min_body_guard(self) -> None:
+        stripped = ask._strip_empty_grounded_sections(
+            "# 标题\n\n## 空段落\n\n\n## 有内容\n正文一句。\n（非投资建议）"
+        )
+        assert "空段落" not in stripped
+        assert "有内容" in stripped
+        assert "\n\n\n" not in stripped
+        assert ask._grounded_body_line_count(stripped) == 1
 
     def test_non_daily_agent_spec_is_untouched(self) -> None:
         result = _result_with_spec()
