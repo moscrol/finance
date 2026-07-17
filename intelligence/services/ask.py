@@ -208,6 +208,16 @@ class AskOptions:
             os.environ.get("WORKBENCH_SHADOW_GROUNDED_TIMEOUT", "90")
         )
     )
+    # Daily Agent 正式 Presenter：daily_agent_grounded 契约走 Grounded Composer，
+    # 通过确定性门禁 + 语义蕴含审后保留 LLM 最终措辞；
+    # 门禁未通过或 LLM 不可用时降级回结构化 claim 合成路径。
+    daily_agent_grounded_presenter: bool = field(
+        default_factory=lambda: os.environ.get(
+            "WORKBENCH_DAILY_AGENT_GROUNDED_PRESENTER",
+            "1",
+        )
+        == "1"
+    )
     # 允许只运行 compose 取数和 AnswerSpec 裁决，不额外调用 LLM 生成自由文本。
     synthesize: bool = True
     llm_model: str | None = None
@@ -3145,6 +3155,8 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     messages = result.prepared_synthesis_messages
     if result.answer_spec is None or not messages:
         return result
+    if promote_daily_agent_grounded_answer(options, result):
+        return result
     started = time.monotonic()
     deadline = _llm_deadline(options)
     chunks: list[str] = []
@@ -3390,6 +3402,102 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     return result
 
 
+def _strip_empty_grounded_sections(text: str) -> str:
+    lines = text.splitlines()
+    kept: list[str] = []
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("#"):
+            has_body = False
+            for later in lines[index + 1 :]:
+                if later.lstrip().startswith("#"):
+                    break
+                if later.strip():
+                    has_body = True
+                    break
+            if not has_body:
+                continue
+        kept.append(line)
+    collapsed: list[str] = []
+    for line in kept:
+        if not line.strip() and collapsed and not collapsed[-1].strip():
+            continue
+        collapsed.append(line)
+    return "\n".join(collapsed).strip()
+
+
+def _grounded_body_line_count(text: str) -> int:
+    return sum(
+        1
+        for line in text.splitlines()
+        if line.strip()
+        and not line.lstrip().startswith("#")
+        and "非投资建议" not in line
+    )
+
+
+def promote_daily_agent_grounded_answer(
+    options: AskOptions,
+    result: AskResult,
+) -> bool:
+    spec = result.answer_spec
+    if (
+        spec is None
+        or spec.presentation_kind
+        != answer_model.DAILY_AGENT_PRESENTATION_KIND
+        or not options.daily_agent_grounded_presenter
+    ):
+        return False
+    synthesize_shadow_grounded_answer(
+        PreparedAnswer(
+            options=replace(
+                options,
+                shadow_grounded_composer=True,
+                shadow_grounded_timeout=max(
+                    options.shadow_grounded_timeout, 240
+                ),
+            ),
+            result=result,
+        ),
+        repair_drop_invalid=True,
+        token_budget_scale=3,
+    )
+    shadow = result.grounded_composer_shadow
+    presented = (
+        _strip_empty_grounded_sections(shadow.presented_answer)
+        if shadow is not None and shadow.presented_answer
+        else ""
+    )
+    if (
+        shadow is None
+        or shadow.status not in {"accepted", "repaired"}
+        or _grounded_body_line_count(presented) < 2
+    ):
+        if shadow is not None:
+            reason = shadow.failure_reason or (
+                "insufficient_grounded_body"
+                if shadow.status in {"accepted", "repaired"}
+                else shadow.status
+            )
+            result.warnings.append(
+                "研究雷达自然语言合成未通过门禁或不可用"
+                f"（{reason}），已降级回结构化合成。"
+            )
+        return False
+    result.synthesis = (
+        f"{result.data_notice}\n\n{presented}"
+        if result.data_notice
+        else presented
+    )
+    result.llm_provider = shadow.provider
+    result.synthesis_messages = [
+        *(result.prepared_synthesis_messages or []),
+        {"role": "assistant", "content": result.synthesis},
+    ]
+    if options.stream_text_delta is not None:
+        options.stream_text_delta(result.synthesis)
+    return True
+
+
 def _shadow_support_claims(
     answer_spec: answer_model.AnswerSpec,
 ) -> tuple[answer_model.Claim, ...]:
@@ -3404,6 +3512,9 @@ def _shadow_support_claims(
 
 def synthesize_shadow_grounded_answer(
     prepared: PreparedAnswer,
+    *,
+    repair_drop_invalid: bool = False,
+    token_budget_scale: int = 1,
 ) -> AskResult:
     options = prepared.options
     result = prepared.result
@@ -3437,8 +3548,8 @@ def synthesize_shadow_grounded_answer(
         timeout=options.shadow_grounded_timeout,
         deadline=deadline,
         temperature=0.0,
-        max_tokens=1200,
-        max_chars=8000,
+        max_tokens=1200 * token_budget_scale,
+        max_chars=8000 * token_budget_scale,
     )
     if brief_result is None:
         result.grounded_composer_shadow = (
@@ -3475,8 +3586,8 @@ def synthesize_shadow_grounded_answer(
         timeout=max(1, int(deadline.remaining())),
         deadline=deadline,
         temperature=0.2,
-        max_tokens=2400,
-        max_chars=16000,
+        max_tokens=2400 * token_budget_scale,
+        max_chars=16000 * token_budget_scale,
     )
     if composed is None:
         result.grounded_composer_shadow = (
@@ -3506,6 +3617,7 @@ def synthesize_shadow_grounded_answer(
             answer_model.repair_grounded_composer_answer(
                 raw_answer,
                 result.answer_spec,
+                drop_invalid=repair_drop_invalid,
             )
         )
         if deterministic_repair is None:
@@ -3539,8 +3651,8 @@ def synthesize_shadow_grounded_answer(
         timeout=max(1, int(deadline.remaining())),
         deadline=deadline,
         temperature=0.0,
-        max_tokens=1200,
-        max_chars=8000,
+        max_tokens=1200 * token_budget_scale,
+        max_chars=8000 * token_budget_scale,
     )
     if judged is None:
         result.grounded_composer_shadow = (
@@ -3573,6 +3685,7 @@ def synthesize_shadow_grounded_answer(
                     candidate_answer if repaired else None
                 ),
                 deterministic_issues=deterministic_issues,
+                judge_raw=judged.answer,
                 provider=composed.provider,
                 model=composed.model,
                 failure_reason="judge_output_invalid",
@@ -3587,6 +3700,7 @@ def synthesize_shadow_grounded_answer(
             rejected_sentence_indexes=(
                 judge_report.rejected_sentence_indexes
             ),
+            drop_invalid=repair_drop_invalid,
         )
         if semantic_repair is None:
             result.grounded_composer_shadow = (
