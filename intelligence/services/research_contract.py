@@ -60,6 +60,7 @@ OWNER_RETRIEVAL_STAGES: dict[AnswerOwner, tuple[str, ...]] = {
     "news-impact": (
         "original_disclosure",
         "event_facts",
+        "external_news",
         "impact_transmission",
         "substitutes_and_harmed_directions",
     ),

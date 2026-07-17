@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import datetime
 import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 
 from intelligence.api.structured_reports import ask_result_modules
-from intelligence.services import answer_model
+from intelligence.services import answer_model, web_research
 from intelligence.services.ask import AskOptions, AskResult, answer_query
 from intelligence.services.market_analogs import load_historical_analog_artifact
 from intelligence.services.market_midterm import load_midterm_trend_artifact
@@ -32,6 +33,10 @@ from intelligence.workbench_skills.owner_dag import (
 )
 
 AnswerQuery = Callable[[AskOptions], AskResult]
+WebSearch = Callable[..., web_research.WebSearchResult]
+
+_EXTERNAL_NEWS_TIMEOUT_SECONDS = 15.0
+_EXTERNAL_NEWS_LOCAL_STAGES = frozenset({"original_disclosure", "event_facts"})
 
 _PRIOR_ONLY_EVIDENCE = frozenset({"M", "ONTOLOGY", "V"})
 _STRUCTURAL_STAGES = frozenset(
@@ -69,10 +74,12 @@ class ResearchOwnerSkill:
         config: ResearchOwnerConfig,
         *,
         answer_query_fn: AnswerQuery = answer_query,
+        web_search_fn: WebSearch = web_research.fetch_web_search,
     ) -> None:
         self.config = config
         self.skill_id = config.skill_id
         self._answer_query = answer_query_fn
+        self._web_search = web_search_fn
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
         options = AskOptions(
@@ -642,6 +649,7 @@ class ResearchOwnerSkill:
         artifact_type: str,
         timeout_seconds: float,
         on_failure: str,
+        required_output: bool = True,
         execute: Callable[
             [AskResult | None, tuple[StageArtifact, ...]],
             StageExecution,
@@ -651,7 +659,7 @@ class ResearchOwnerSkill:
             producer=producer,
             input_hash=self._stage_input_hash(context, envelope, stage),
             artifact_type=artifact_type,
-            required_output=True,
+            required_output=required_output,
             timeout_seconds=timeout_seconds,
             on_failure=on_failure,
             execute=execute,
@@ -1077,6 +1085,62 @@ class ResearchOwnerSkill:
                 degrade_reason="未形成可核验的事件事实",
             )
 
+        def external_news(
+            _result: AskResult | None,
+            artifacts: tuple[StageArtifact, ...],
+        ) -> StageExecution:
+            local_available = any(
+                artifact.stage in _EXTERNAL_NEWS_LOCAL_STAGES
+                and artifact.payload.get("available") is True
+                for artifact in artifacts
+            )
+            if local_available and not web_research.needs_fresh_web(context.query):
+                return StageExecution(
+                    status="skipped",
+                    payload={
+                        "available": False,
+                        "items": [],
+                        "reason": "本地披露与事件事实已命中，未触发外部检索",
+                    },
+                )
+            search = self._web_search(
+                context.query,
+                timeout=_EXTERNAL_NEWS_TIMEOUT_SECONDS,
+            )
+            fetched_at = datetime.date.today().isoformat()
+            rows = [
+                {
+                    "title": item.title,
+                    "url": item.url,
+                    "snippet": item.snippet,
+                    "fetched_at": fetched_at,
+                }
+                for item in search.items[:4]
+            ]
+            input_hash = self._stage_input_hash(
+                context,
+                envelope,
+                "external_news",
+            )
+            available = bool(rows)
+            return StageExecution(
+                status="completed" if available else "partial",
+                payload={
+                    "available": available,
+                    "items": rows,
+                    "provider_trace": search.trace.to_dict(),
+                },
+                evidence_atom_ids=tuple(
+                    self._stage_atom_id("external_news", input_hash, index)
+                    for index in range(len(rows))
+                ),
+                degrade_reason=(
+                    None
+                    if available
+                    else f"外部资讯检索未返回可用来源（{search.trace.status}）"
+                ),
+            )
+
         def impact_transmission(
             result: AskResult | None,
             _artifacts: tuple[StageArtifact, ...],
@@ -1147,6 +1211,17 @@ class ResearchOwnerSkill:
                 timeout_seconds=2,
                 on_failure="render_event_fact_gap",
                 execute=event_facts,
+            ),
+            "external_news": self._stage_adapter(
+                context,
+                envelope,
+                "external_news",
+                producer="web_research.external_news",
+                artifact_type="ExternalNewsArtifact",
+                timeout_seconds=_EXTERNAL_NEWS_TIMEOUT_SECONDS,
+                on_failure="continue_without_external_news",
+                required_output=False,
+                execute=external_news,
             ),
             "impact_transmission": self._stage_adapter(
                 context,
@@ -1832,6 +1907,44 @@ class ResearchOwnerSkill:
                             provenance={
                                 "producer": artifact.producer,
                                 "input_hash": artifact.input_hash,
+                                "row": row,
+                            },
+                        )
+                    )
+            elif artifact.stage == "external_news":
+                rows = artifact.payload.get("items")
+                if not isinstance(rows, list):
+                    continue
+                for index, row in enumerate(rows):
+                    if not isinstance(row, dict):
+                        continue
+                    title = str(row.get("title") or "").strip()
+                    if not title:
+                        continue
+                    snippet = str(row.get("snippet") or "").strip()
+                    fetched_at = str(row.get("fetched_at") or "") or None
+                    atoms.append(
+                        EvidenceAtom(
+                            atom_id=self._stage_atom_id(
+                                artifact.stage,
+                                artifact.input_hash,
+                                index,
+                            ),
+                            claim_text=(
+                                f"{title}：{snippet or '搜索结果未提供摘要'}"
+                            ),
+                            entity_id=None,
+                            metric="external_web_snapshot",
+                            value=None,
+                            unit=None,
+                            period=fetched_at,
+                            evidence_tier="L1",
+                            source_id=f"E{index + 1}",
+                            source_date=fetched_at,
+                            provenance={
+                                "producer": artifact.producer,
+                                "input_hash": artifact.input_hash,
+                                "url": str(row.get("url") or ""),
                                 "row": row,
                             },
                         )

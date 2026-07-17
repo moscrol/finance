@@ -971,6 +971,7 @@ _OWNER_STAGE_HEADINGS = {
     "prior_period_comparison": "前期比较",
     "original_disclosure": "原始披露",
     "event_facts": "事件事实",
+    "external_news": "外部资讯快照",
     "impact_transmission": "影响传导",
     "substitutes_and_harmed_directions": "受益、替代与受损方向",
 }
@@ -980,7 +981,14 @@ def _render_owner_stage_artifacts(answer_spec: AnswerSpec) -> list[str]:
     artifacts = [
         artifact
         for artifact in answer_spec.research_artifacts
-        if artifact.required_output and artifact.stage in _OWNER_STAGE_HEADINGS
+        if artifact.stage in _OWNER_STAGE_HEADINGS
+        and (
+            artifact.required_output
+            or (
+                artifact.stage == "external_news"
+                and artifact.payload.get("items")
+            )
+        )
     ]
     if not artifacts:
         return []
@@ -1046,6 +1054,34 @@ def _render_owner_stage_artifacts(answer_spec: AnswerSpec) -> list[str]:
                             f"{artifact.stage}-{index}",
                             atom_ids,
                             "fact",
+                        )
+                    )
+                    rendered = True
+        elif artifact.stage == "external_news":
+            rows = payload.get("items")
+            if isinstance(rows, list):
+                for index, row in enumerate(rows[:4]):
+                    if not isinstance(row, dict):
+                        continue
+                    title = str(row.get("title") or "").strip()
+                    if not title:
+                        continue
+                    snippet = str(row.get("snippet") or "").strip()
+                    atom_ids = tuple(
+                        atom.atom_id
+                        for atom in atoms
+                        if atom.source_id == f"E{index + 1}"
+                        and atom.metric == "external_web_snapshot"
+                    )
+                    lines.append(
+                        f"- {title}：{snippet or '搜索结果未提供摘要'}"
+                        f"（{row.get('url') or '链接缺失'}；"
+                        f"抓取于 {row.get('fetched_at') or '未知时间'}，"
+                        "外部快照 L1，仅作背景线索）"
+                        + _artifact_claim_marker(
+                            f"{artifact.stage}-{index}",
+                            atom_ids,
+                            "hypothesis",
                         )
                     )
                     rendered = True
