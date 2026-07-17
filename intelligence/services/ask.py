@@ -218,6 +218,16 @@ class AskOptions:
         )
         == "1"
     )
+    # 通用 Grounded Presenter：非 market_review 的 compose 回答也走 Grounded Composer
+    # 链路（DecisionBrief → 自然语言成文 → 确定性门禁 → 逐句语义审 → 逐句修复），
+    # LLM 保留最终措辞；任一阶段不可用或门禁未过时降回结构化 claim 合成路径。
+    grounded_presenter: bool = field(
+        default_factory=lambda: os.environ.get(
+            "WORKBENCH_GROUNDED_PRESENTER",
+            "1",
+        )
+        == "1"
+    )
     # 允许只运行 compose 取数和 AnswerSpec 裁决，不额外调用 LLM 生成自由文本。
     synthesize: bool = True
     llm_model: str | None = None
@@ -3155,7 +3165,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     messages = result.prepared_synthesis_messages
     if result.answer_spec is None or not messages:
         return result
-    if promote_daily_agent_grounded_answer(options, result):
+    if promote_grounded_answer(options, result):
         return result
     started = time.monotonic()
     deadline = _llm_deadline(options)
@@ -3435,16 +3445,30 @@ def _grounded_body_line_count(text: str) -> int:
     )
 
 
-def promote_daily_agent_grounded_answer(
+def promote_grounded_answer(
     options: AskOptions,
     result: AskResult,
 ) -> bool:
+    """用 Grounded Composer 链路生成自然语言回答并接管 result.synthesis。
+
+    daily-agent 契约受 ``daily_agent_grounded_presenter`` 控制（行为不变）；
+    其余 compose 回答受 ``grounded_presenter`` 控制（market_review 除外，
+    它有自己的面向普通投资者的合成契约）。失败时返回 False，由调用方
+    降回结构化 claim 合成路径。
+    """
     spec = result.answer_spec
-    if (
-        spec is None
-        or spec.presentation_kind
-        != answer_model.DAILY_AGENT_PRESENTATION_KIND
-        or not options.daily_agent_grounded_presenter
+    if spec is None:
+        return False
+    is_daily_agent = (
+        spec.presentation_kind
+        == answer_model.DAILY_AGENT_PRESENTATION_KIND
+    )
+    if is_daily_agent:
+        if not options.daily_agent_grounded_presenter:
+            return False
+    elif (
+        not options.grounded_presenter
+        or result.prepared_synthesis_is_market_review
     ):
         return False
     synthesize_shadow_grounded_answer(
@@ -3478,8 +3502,9 @@ def promote_daily_agent_grounded_answer(
                 if shadow.status in {"accepted", "repaired"}
                 else shadow.status
             )
+            label = "研究雷达" if is_daily_agent else "Grounded Presenter"
             result.warnings.append(
-                "研究雷达自然语言合成未通过门禁或不可用"
+                f"{label}自然语言合成未通过门禁或不可用"
                 f"（{reason}），已降级回结构化合成。"
             )
         return False
@@ -3496,6 +3521,10 @@ def promote_daily_agent_grounded_answer(
     if options.stream_text_delta is not None:
         options.stream_text_delta(result.synthesis)
     return True
+
+
+# 向后兼容别名：daily-agent 路径早于通用 Grounded Presenter 存在。
+promote_daily_agent_grounded_answer = promote_grounded_answer
 
 
 def _shadow_support_claims(
