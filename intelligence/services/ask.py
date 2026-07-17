@@ -208,6 +208,16 @@ class AskOptions:
             os.environ.get("WORKBENCH_SHADOW_GROUNDED_TIMEOUT", "90")
         )
     )
+    # Daily Agent 正式 Presenter：daily_agent_grounded 契约走 Grounded Composer，
+    # 通过确定性门禁 + 语义蕴含审后保留 LLM 最终措辞；
+    # 门禁未通过或 LLM 不可用时降级回结构化 claim 合成路径。
+    daily_agent_grounded_presenter: bool = field(
+        default_factory=lambda: os.environ.get(
+            "WORKBENCH_DAILY_AGENT_GROUNDED_PRESENTER",
+            "1",
+        )
+        == "1"
+    )
     # 允许只运行 compose 取数和 AnswerSpec 裁决，不额外调用 LLM 生成自由文本。
     synthesize: bool = True
     llm_model: str | None = None
@@ -3145,6 +3155,8 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     messages = result.prepared_synthesis_messages
     if result.answer_spec is None or not messages:
         return result
+    if promote_daily_agent_grounded_answer(options, result):
+        return result
     started = time.monotonic()
     deadline = _llm_deadline(options)
     chunks: list[str] = []
@@ -3388,6 +3400,51 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     if reason:
         result.warnings.append(reason)
     return result
+
+
+def promote_daily_agent_grounded_answer(
+    options: AskOptions,
+    result: AskResult,
+) -> bool:
+    spec = result.answer_spec
+    if (
+        spec is None
+        or spec.presentation_kind
+        != answer_model.DAILY_AGENT_PRESENTATION_KIND
+        or not options.daily_agent_grounded_presenter
+    ):
+        return False
+    synthesize_shadow_grounded_answer(
+        PreparedAnswer(
+            options=replace(options, shadow_grounded_composer=True),
+            result=result,
+        )
+    )
+    shadow = result.grounded_composer_shadow
+    if (
+        shadow is None
+        or shadow.status not in {"accepted", "repaired"}
+        or not shadow.presented_answer
+    ):
+        if shadow is not None:
+            result.warnings.append(
+                "研究雷达自然语言合成未通过门禁或不可用"
+                f"（{shadow.failure_reason or shadow.status}），已降级回结构化合成。"
+            )
+        return False
+    result.synthesis = (
+        f"{result.data_notice}\n\n{shadow.presented_answer}"
+        if result.data_notice
+        else shadow.presented_answer
+    )
+    result.llm_provider = shadow.provider
+    result.synthesis_messages = [
+        *(result.prepared_synthesis_messages or []),
+        {"role": "assistant", "content": result.synthesis},
+    ]
+    if options.stream_text_delta is not None:
+        options.stream_text_delta(result.synthesis)
+    return True
 
 
 def _shadow_support_claims(

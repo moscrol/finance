@@ -186,6 +186,10 @@ _HARD_EVIDENCE_TIERS = frozenset(
 )
 
 
+# Daily Agent 专用契约：Grounded Composer 担任正式 Presenter，保留 LLM 最终措辞。
+DAILY_AGENT_PRESENTATION_KIND = "daily_agent_grounded"
+
+
 class ClaimStatus(str, Enum):
     VERIFIED = "verified"
     CANDIDATE = "candidate"
@@ -1348,7 +1352,10 @@ def _artifact_claim_marker(
 
 def render_answer_spec(answer_spec: AnswerSpec) -> str:
     answer_spec = apply_claim_evidence_policy(answer_spec)
-    if answer_spec.presentation_kind == "base_finance":
+    if answer_spec.presentation_kind in {
+        "base_finance",
+        DAILY_AGENT_PRESENTATION_KIND,
+    }:
         return _apply_certainty_gate(
             _render_base_finance_answer_spec(answer_spec),
             answer_spec,
