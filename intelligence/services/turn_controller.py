@@ -78,7 +78,9 @@ _BROAD_MARKET_PATTERN = re.compile(
     r"^(?:请|帮我)?(?:看一下|看看|分析一下)?"
     r"(?:今天|今日|现在|最近)?(?:的)?市场(?:怎么样|如何|什么情况|表现如何)[？?。！!\s]*$"
 )
-_VERIFIED_SUBJECT_MATCHES = frozenset({"ticker", "entity", "alias", "quoted"})
+_VERIFIED_SUBJECT_MATCHES = frozenset(
+    {"ticker", "entity", "candidate", "alias", "quoted"}
+)
 _KNOWLEDGE_QUESTION_PATTERN = re.compile(
     r"(是什么|什么是|为什么|原理|如何工作|怎么理解|什么意思|区别|"
     r"介绍一下|解释一下)"
