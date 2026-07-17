@@ -11,9 +11,11 @@ from intelligence.services.query_resolution import QueryResolver
 from intelligence.services.query_understanding import (
     QueryEnvelope,
     is_dated_market_review,
+    is_market_watch_query,
 )
 from intelligence.services.research_contract import (
     TurnIntent,
+    answer_owner_for_question_type,
     build_turn_intent,
     contextualize_intent_query,
 )
@@ -75,6 +77,9 @@ _MEMORY_PATTERN = re.compile(
 _BROAD_MARKET_PATTERN = re.compile(
     r"^(?:请|帮我)?(?:看一下|看看|分析一下)?"
     r"(?:今天|今日|现在|最近)?(?:的)?市场(?:怎么样|如何|什么情况|表现如何)[？?。！!\s]*$"
+)
+_VERIFIED_SUBJECT_MATCHES = frozenset(
+    {"ticker", "entity", "candidate", "alias", "quoted"}
 )
 _KNOWLEDGE_QUESTION_PATTERN = re.compile(
     r"(是什么|什么是|为什么|原理|如何工作|怎么理解|什么意思|区别|"
@@ -190,6 +195,15 @@ def _deterministic_decision(
             reason="明确请求指定日期的 A 股行情复盘",
             capabilities=("memory", "market_quote", "graph"),
         )
+    if is_market_watch_query(cleaned):
+        return _decision(
+            "workflow",
+            envelope=envelope,
+            needs_memory=True,
+            confidence=0.95,
+            reason="明确请求当日盘面关注点",
+            capabilities=("memory", "market_quote", "graph"),
+        )
     if _WORKFLOW_PATTERN.search(cleaned):
         return _decision(
             "workflow",
@@ -216,6 +230,22 @@ def _deterministic_decision(
             confidence=envelope.confidence,
             reason="稳定概念解释不需要默认进入金融研究",
             capabilities=("memory",) if _MEMORY_PATTERN.search(cleaned) else (),
+        )
+    owner = answer_owner_for_question_type(envelope.question_type)
+    if owner is not None and (
+        envelope.matched_by in _VERIFIED_SUBJECT_MATCHES
+        or (
+            envelope.question_type == "news_impact"
+            and envelope.subject_kind == "theme"
+        )
+    ):
+        return _decision(
+            "research",
+            envelope=envelope,
+            needs_memory=bool(_MEMORY_PATTERN.search(cleaned)),
+            confidence=max(0.75, envelope.confidence),
+            reason=f"确定性识别到研究 owner 问题类型（{owner}）",
+            capabilities=("memory", "market_quote", "graph", "financials"),
         )
     if _FRESHNESS_PATTERN.search(cleaned):
         lane: TurnLane = "research" if _FINANCE_PATTERN.search(cleaned) else "knowledge"

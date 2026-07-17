@@ -76,8 +76,8 @@ _REVIEW_DATE_RE = (
 )
 _DATED_MARKET_REVIEW_RE = re.compile(
     _REVIEW_DATE_RE
-    + r".{0,24}(?:行情|盘面|市场).{0,12}(?:总结|复盘|回顾|梳理)"
-    r"|(?:总结|复盘|回顾|梳理).{0,24}"
+    + r".{0,24}(?:行情|盘面|市场).{0,12}(?:总结|复盘|回顾|梳理|分析)"
+    r"|(?:总结|复盘|回顾|梳理|分析).{0,24}"
     + _REVIEW_DATE_RE
     + r".{0,12}(?:行情|盘面|市场)",
     re.IGNORECASE,
@@ -414,7 +414,7 @@ def _explicit_company_subject(query: str) -> str | None:
         if (
             subject in _GENERIC_COMPANY_SUBJECTS
             or subject.startswith(
-                ("某公司", "某个", "某一", "这个", "那个", "该", "截至", "为什么")
+                ("某公司", "某个", "某一", "这个", "那个", "该", "截至", "为什么", "一下", "一些")
             )
             or any(
                 generic in subject
@@ -429,7 +429,7 @@ def _explicit_company_subject(query: str) -> str | None:
                     "成交",
                 )
             )
-            or re.search(r"\d{4}年|\d{1,2}月|\d{1,2}日", subject)
+            or re.search(r"\d{4}年|\d{1,2}月|\d{1,2}日|\d{1,2}[./-]\d{1,2}", subject)
             or subject.endswith(
                 ("题材", "板块", "行业", "产业", "赛道", "方向", "产业链")
             )

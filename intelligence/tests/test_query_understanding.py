@@ -478,3 +478,22 @@ def test_yearless_dated_market_review_is_recognized() -> None:
         "总结一下7.16的美股行情",
         understand_query("总结一下7.16的美股行情"),
     )
+
+
+def test_dated_market_analysis_phrasings_are_recognized() -> None:
+    for query in (
+        "7.16的行情你分析一下",
+        "分析一下7.16的行情",
+        "帮我分析下7月16日行情",
+    ):
+        assert query_understanding.is_dated_market_review(
+            query,
+            understand_query(query),
+        ), query
+
+
+def test_function_words_are_not_company_subjects() -> None:
+    envelope = understand_query("7.16的行情你分析一下")
+
+    assert envelope.subject != "一下"
+    assert envelope.question_type != "stock_deep_dive"
