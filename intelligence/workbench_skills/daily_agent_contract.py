@@ -37,6 +37,35 @@ _QUEUE_LABELS = {
 
 _MARKET_METRIC_KEYS = ("涨停数", "新高数", "触发信号数", "强势股数")
 
+# 内部研究流水线术语 → 用户可读的市场语言。
+# 顺序敏感：长 token 在前，避免「L2 基线」被拆成「L2」+「基线」两次替换。
+_JARGON_REWRITES: tuple[tuple[str, str], ...] = (
+    ("L2_baseline", "公司基本面基础资料"),
+    ("L3_official", "公告、调研等官方硬证据"),
+    ("L2 基线", "公司基本面基础资料"),
+    ("L3 官方验证", "公告、调研等官方硬证据"),
+    ("L2基线", "公司基本面基础资料"),
+    ("L3官方验证", "公告、调研等官方硬证据"),
+    ("L2", "公司基本面基础资料"),
+    ("L3", "公告、调研等官方硬证据"),
+    ("IMA", "题材深度研究"),
+)
+
+_STATUS_REWRITES = {
+    "盘面触发待解释": "盘面已异动，但还没找到对应的消息面解释",
+    "旧逻辑待验证": "旧逻辑被重新炒作，但尚未被新证据确认",
+}
+
+
+def _plain(text: str) -> str:
+    for token, replacement in _JARGON_REWRITES:
+        text = text.replace(token, replacement)
+    return text
+
+
+def _plain_status(text: str) -> str:
+    return _STATUS_REWRITES.get(text, _plain(text))
+
 
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
@@ -183,7 +212,7 @@ def _candidate_atoms(
         atoms.append(
             atom(
                 "evidence_status",
-                f"{theme} 证据状态为「{status}」",
+                f"{theme} 证据现状：{_plain_status(status)}",
                 metric="evidence_status",
                 value=status,
             )
@@ -194,7 +223,7 @@ def _candidate_atoms(
         atoms.append(
             atom(
                 f"gap:{index}",
-                f"{theme} 缺失证据层：{layer}",
+                f"{theme} 目前还缺：{_plain(layer)}",
                 metric="evidence_gap",
                 value=layer,
             )
@@ -204,7 +233,7 @@ def _candidate_atoms(
         atoms.append(
             atom(
                 "action",
-                f"{theme} 建议动作：{action}",
+                f"{theme} 下一步：{_plain(action)}",
                 metric="action_code",
                 value=action,
             )
@@ -242,16 +271,13 @@ def _candidate_proposition(
     strength = _text(validation.get("盘面验证强度"))
     if strength:
         parts.append(f"盘面验证强度={strength}")
-    priority = _number(candidate.get("priority_score"))
-    if priority is not None:
-        parts.append(f"优先级={priority}")
     for key in ("涨停数", "新高数"):
         value = _number(market.get(key))
         if value is not None:
             parts.append(f"{key}={value}")
     status = _text(judgment.get("证据状态")) or _text(lifecycle.get("证据状态"))
     if status:
-        parts.append(f"证据状态={status}")
+        parts.append(f"证据现状={_plain_status(status)}")
     stocks = _strings(candidate.get("strong_stocks"), limit=3)
     if stocks:
         parts.append(f"强势股={'、'.join(stocks)}")
@@ -338,7 +364,7 @@ def build_daily_agent_answer_contract(
                 gap_claims.append(
                     answer_model.make_claim(
                         claim_id=f"{claim_id}:gap:{index}",
-                        text=f"{theme} 缺失证据层：{layer}",
+                        text=f"{theme} 目前还缺：{_plain(layer)}",
                         claim_type="daily_agent_gap",
                         theme=theme,
                         status=answer_model.ClaimStatus.MISSING,
@@ -351,7 +377,7 @@ def build_daily_agent_answer_contract(
                 trigger_claims.append(
                     answer_model.make_claim(
                         claim_id=f"{claim_id}:action",
-                        text=f"{theme} 下一步核验动作：{action}",
+                        text=f"{theme} 下一步核验动作：{_plain(action)}",
                         claim_type="daily_agent_action",
                         theme=theme,
                         status=answer_model.ClaimStatus.INFERRED,
@@ -404,7 +430,7 @@ def build_daily_agent_answer_contract(
             target = _text(entry.get("目标"))
             action = _text(entry.get("建议动作"))
             if target and action:
-                actions.append(f"{label}｜{target}：{action}")
+                actions.append(f"{label}｜{target}：{_plain(action)}")
             elif target:
                 actions.append(f"{label}｜{target}")
     if not actions:
