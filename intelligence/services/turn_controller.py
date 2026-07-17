@@ -11,6 +11,7 @@ from intelligence.services.query_resolution import QueryResolver
 from intelligence.services.query_understanding import (
     QueryEnvelope,
     is_dated_market_review,
+    is_market_watch_query,
 )
 from intelligence.services.research_contract import (
     TurnIntent,
@@ -188,6 +189,15 @@ def _deterministic_decision(
             needs_memory=True,
             confidence=0.98,
             reason="明确请求指定日期的 A 股行情复盘",
+            capabilities=("memory", "market_quote", "graph"),
+        )
+    if is_market_watch_query(cleaned):
+        return _decision(
+            "workflow",
+            envelope=envelope,
+            needs_memory=True,
+            confidence=0.95,
+            reason="明确请求当日盘面关注点",
             capabilities=("memory", "market_quote", "graph"),
         )
     if _WORKFLOW_PATTERN.search(cleaned):

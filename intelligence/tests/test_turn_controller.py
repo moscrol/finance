@@ -131,6 +131,23 @@ def test_yearless_dated_market_summary_uses_workflow_lane(query: str) -> None:
     assert decision.needs_template is True
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        "今天有什么值得关注的",
+        "今日盘面有哪些看点",
+        "今天的大盘怎么样",
+    ),
+)
+def test_market_watch_query_uses_workflow_lane(query: str) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "workflow"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert "market_quote" in decision.capabilities
+
+
 def test_dated_external_market_summary_does_not_use_a_share_workflow() -> None:
     decision = decide_turn(
         "总结一下 2026-07-16 的美股行情",
