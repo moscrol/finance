@@ -984,6 +984,50 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             (first.claim_id, second.claim_id),
         )
 
+    def test_grounded_sentence_marker_on_next_line_still_binds(self) -> None:
+        spec = self._answer()
+        first = spec.summary[0]
+        answer = (
+            "产业定义与盘面信号共同构成当前判断。\n"
+            f"<!-- claim_ids={first.claim_id}; "
+            "evidence_atom_ids=无; claim_type=inference -->"
+        )
+
+        sentences, unbound = parse_grounded_sentences(answer)
+
+        self.assertEqual(unbound, ())
+        self.assertEqual(len(sentences), 1)
+        self.assertEqual(sentences[0].claim_ids, (first.claim_id,))
+        self.assertEqual(
+            sentences[0].text,
+            "产业定义与盘面信号共同构成当前判断。",
+        )
+
+    def test_grounded_repair_keeps_text_when_marker_on_next_line(self) -> None:
+        spec = self._answer()
+        first = spec.summary[0]
+        answer = (
+            "## 标题\n\n"
+            "产业定义与盘面信号共同构成当前判断。\n"
+            f"<!-- claim_ids={first.claim_id}; "
+            "evidence_atom_ids=无; claim_type=inference -->\n\n"
+            "这一句绑定了无效证据。\n"
+            "<!-- claim_ids=unknown-claim; "
+            "evidence_atom_ids=无; claim_type=inference -->"
+        )
+
+        repaired = repair_grounded_composer_answer(
+            answer,
+            spec,
+            drop_invalid=True,
+        )
+
+        self.assertIsNotNone(repaired)
+        assert repaired is not None
+        presented = present_grounded_composer_answer(repaired)
+        self.assertIn("产业定义与盘面信号共同构成当前判断。", presented)
+        self.assertNotIn("这一句绑定了无效证据。", presented)
+
     def test_grounding_judge_report_rejects_invalid_sentence_index(
         self,
     ) -> None:
