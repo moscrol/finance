@@ -1362,25 +1362,19 @@ def answer_query(options: AskOptions) -> AskResult:
         result.warnings.extend(f"wiki-rag：{warning}" for warning in loop.warnings)
 
     # --- E: 外部 Web 检索（仅 general lane，且本地盘面/图谱/证据/wiki 全空时触发）---
-    web_fallback_lines: list[str] = []
-    web_fallback_attempted = False
-    if (
-        question_plan.question_type == QUESTION_GENERAL
-        and not market_lines
-        and not graph_concept_lines
-        and not company_lines
-        and not evidence_lines
-        and not wiki_lines
-        and not wiki_counter_lines
-    ):
-        web_fallback_attempted = True
-        web_result = web_research.fetch_web_search(options.query)
-        result.provider_traces.append(web_result.trace)
-        for item in web_result.items[:4]:
-            tag = cite("E", item.title, item.url)
-            web_fallback_lines.append(
-                f"{item.title}：{item.snippet or '搜索结果未提供摘要'}（外部快照，仅作背景线索） {tag}"
-            )
+    web_fallback_lines, web_fallback_attempted = (
+        evidence_providers.collect_web_fallback(
+            evidence_ctx,
+            local_lines_empty=(
+                not market_lines
+                and not graph_concept_lines
+                and not company_lines
+                and not evidence_lines
+                and not wiki_lines
+                and not wiki_counter_lines
+            ),
+        )
+    )
 
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
     module_block: list[str] = []

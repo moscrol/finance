@@ -13,7 +13,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
 from intelligence.adapters.knowledge import evidence_status
-from intelligence.services import answer_model, research_brief
+from intelligence.services import answer_model, research_brief, web_research
+from intelligence.services.answer_orchestrator import QUESTION_GENERAL
 
 if TYPE_CHECKING:
     from intelligence.adapters.knowledge import KnowledgeAdapter
@@ -82,6 +83,29 @@ class GraphEvidence:
 class EvidenceIndexBundle:
     lines: list[str] = field(default_factory=list)
     stale_notes: list[str] = field(default_factory=list)
+
+
+def collect_web_fallback(
+    ctx: EvidenceContext,
+    *,
+    local_lines_empty: bool,
+) -> tuple[list[str], bool]:
+    """E：外部 Web 检索兜底（仅 general lane 且本地证据全空时触发）。"""
+    web_fallback_lines: list[str] = []
+    web_fallback_attempted = False
+    if (
+        ctx.question_plan.question_type == QUESTION_GENERAL
+        and local_lines_empty
+    ):
+        web_fallback_attempted = True
+        web_result = web_research.fetch_web_search(ctx.options.query)
+        ctx.result.provider_traces.append(web_result.trace)
+        for item in web_result.items[:4]:
+            tag = ctx.cite("E", item.title, item.url)
+            web_fallback_lines.append(
+                f"{item.title}：{item.snippet or '搜索结果未提供摘要'}（外部快照，仅作背景线索） {tag}"
+            )
+    return web_fallback_lines, web_fallback_attempted
 
 
 def collect_market_snapshot(ctx: EvidenceContext) -> list[str]:
