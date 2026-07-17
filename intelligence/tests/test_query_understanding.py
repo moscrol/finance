@@ -378,6 +378,45 @@ def test_theme_alias_config_rejects_malformed_collection_types(
         query_understanding._theme_aliases.cache_clear()
 
 
+def test_news_event_impact_routes_to_news_impact_owner_chain() -> None:
+    envelope = understand_query("英伟达新一代GPU发布对光模块板块的影响是什么")
+
+    assert envelope.question_type == "news_impact"
+    assert envelope.subject == "光模块"
+    assert envelope.subject_kind == "theme"
+    assert envelope.research_mode == "news_impact"
+
+
+def test_news_event_impact_variants_and_negatives() -> None:
+    tariff = understand_query("美国加征关税对A股的影响")
+    assert tariff.question_type == "news_impact"
+    assert tariff.subject == "A股"
+
+    definition = understand_query("光模块是什么")
+    assert definition.question_type == "concept_definition"
+
+    anchored = understand_query(
+        "英伟达发布新GPU对中际旭创的影响",
+        anchor=EntityAnchor(
+            entity="中际旭创",
+            ticker="300308.SZ",
+            matched_by="name",
+            concepts=(),
+        ),
+    )
+    assert anchored.question_type == "news_impact"
+    assert anchored.subject_kind == "company"
+    assert anchored.subject == "中际旭创"
+
+
+def test_market_watch_query_is_deterministically_recognized() -> None:
+    assert query_understanding.is_market_watch_query("今天有什么值得关注的")
+    assert query_understanding.is_market_watch_query("今日盘面有哪些看点")
+    assert query_understanding.is_market_watch_query("今天市场怎么样")
+    assert not query_understanding.is_market_watch_query("光模块怎么看")
+    assert not query_understanding.is_market_watch_query("明天有什么值得关注的")
+
+
 def test_market_review_requested_date_resolves_full_dates() -> None:
     from datetime import date
 

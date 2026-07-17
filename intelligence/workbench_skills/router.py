@@ -9,6 +9,7 @@ from intelligence.services import llm_refine
 from intelligence.services.query_understanding import (
     QueryEnvelope,
     is_dated_market_review,
+    is_market_watch_query,
 )
 from intelligence.services.research_contract import (
     AnswerOwner,
@@ -187,6 +188,12 @@ def route_skills(
         and all(skill_id != "daily-review" for skill_id, _reason in rules)
     ):
         rules.insert(0, ("daily-review", "规则识别指定日期行情复盘"))
+    elif (
+        "daily-review" in automatic_registry
+        and is_market_watch_query(query)
+        and all(skill_id != "daily-review" for skill_id, _reason in rules)
+    ):
+        rules.insert(0, ("daily-review", "规则识别当日盘面关注提问"))
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
     reserved_ids = {
         selection.skill_id

@@ -211,6 +211,17 @@ _FINANCIAL_ANALYSIS_RE = re.compile(
     r"(财报|定期报告|业绩|营收|收入|利润|归母|毛利率|净利率)"
 )
 _NEWS_IMPACT_RE = re.compile(r"(公告|消息|新闻|原文|影响)")
+_NEWS_IMPACT_TARGET_RE = re.compile(
+    r"(?:发布|公告|消息|新闻|事件|政策|关税|制裁|降息|加息|中标|签约|落地)"
+    r"[^。？！]*?"
+    r"对([^。？！，,对]{1,24}?)(?:板块|行业|个股|公司|产业链)?的?"
+    r"(?:影响|冲击|利好|利空)"
+)
+_MARKET_WATCH_RE = re.compile(
+    r"(?:今天|今日)[^。？！]{0,10}?(?:有什么|有哪些|哪些)?[^。？！]{0,6}?"
+    r"(?:值得关注|看点|主线|机会)"
+    r"|(?:今天|今日)(?:的)?(?:市场|行情|盘面|大盘)(?:怎么样|如何|表现如何)"
+)
 _MONTH_HORIZON_RE = re.compile(
     r"(?:未来|接下来)?\s*(\d{1,2})\s*(?:[-~—到至]\s*(\d{1,2})\s*)?个?月"
 )
@@ -358,6 +369,23 @@ def _definition_subject(query: str) -> str | None:
                 return None
             return subject
     return None
+
+
+def _news_impact_target(query: str) -> str | None:
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    match = _NEWS_IMPACT_TARGET_RE.search(text)
+    if match is None:
+        return None
+    subject = match.group(1).strip()
+    if not subject or subject.startswith(("这个", "那个", "该", "某")):
+        return None
+    return subject
+
+
+def is_market_watch_query(query: str) -> bool:
+    """确定性识别「今天有什么值得关注的 / 今日行情怎么样」类当日盘面提问。"""
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    return _MARKET_WATCH_RE.search(text) is not None
 
 
 def _valuation_subject(query: str) -> str | None:
@@ -636,6 +664,19 @@ def understand_query(
             "market_anchor",
             0.98,
         )
+
+    if anchor is None:
+        news_target = _news_impact_target(text)
+        if news_target is not None:
+            return envelope(
+                "news_impact",
+                "theme",
+                news_target,
+                _decision_goal(text),
+                timeframe,
+                "explicit",
+                0.9,
+            )
 
     definition_subject = _definition_subject(text)
     if definition_subject is not None:
