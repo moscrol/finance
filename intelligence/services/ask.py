@@ -63,6 +63,7 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_EXTERNAL_MARKET,
     QUESTION_FINANCIAL_ANALYSIS,
+    QUESTION_GENERAL,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
     QUESTION_NEWS_IMPACT,
@@ -1562,6 +1563,27 @@ def answer_query(options: AskOptions) -> AskResult:
                 wiki_llm_line_pairs.append((line, llm_line))
         result.warnings.extend(f"wiki-rag：{warning}" for warning in loop.warnings)
 
+    # --- E: 外部 Web 检索（仅 general lane，且本地盘面/图谱/证据/wiki 全空时触发）---
+    web_fallback_lines: list[str] = []
+    web_fallback_attempted = False
+    if (
+        question_plan.question_type == QUESTION_GENERAL
+        and not market_lines
+        and not graph_concept_lines
+        and not company_lines
+        and not evidence_lines
+        and not wiki_lines
+        and not wiki_counter_lines
+    ):
+        web_fallback_attempted = True
+        web_result = web_research.fetch_web_search(options.query)
+        result.provider_traces.append(web_result.trace)
+        for item in web_result.items[:4]:
+            tag = cite("E", item.title, item.url)
+            web_fallback_lines.append(
+                f"{item.title}：{item.snippet or '搜索结果未提供摘要'}（外部快照，仅作背景线索） {tag}"
+            )
+
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
     module_block: list[str] = []
     module_follow_ups: list[tuple[str, str]] = []
@@ -1646,6 +1668,11 @@ def answer_query(options: AskOptions) -> AskResult:
     gap_lines.extend(framing.get("gaps", []))
     gap_lines.extend(stale_notes)
     gap_lines.extend(wiki_counter_lines)
+    if web_fallback_attempted and not web_fallback_lines:
+        gap_lines.append(
+            "本地盘面/图谱/知识库均未命中，外部 Web Search 也未返回可用来源；"
+            "未用无关资料替代。"
+        )
     gap_lines.append(
         "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
         "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边"
@@ -1743,6 +1770,11 @@ def answer_query(options: AskOptions) -> AskResult:
         + [f"{SUBHEAD}图谱·公司分层"] + (company_lines or ["（图谱未命中公司暴露）"])
         + [f"{SUBHEAD}证据"] + (evidence_lines or ["（evidence_index 未命中）"])
         + [f"{SUBHEAD}图谱·语义召回(wiki 向量)"] + wiki_section
+        + (
+            [f"{SUBHEAD}外部 Web 兜底(低层级背景线索)"] + web_fallback_lines
+            if web_fallback_lines
+            else []
+        )
         + module_block
     )
     if framing:
