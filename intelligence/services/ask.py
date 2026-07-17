@@ -581,18 +581,6 @@ def _evidence_is_stale(item: dict[str, Any], stale_days: int) -> bool:
 _company_exposure_tier = evidence_providers._company_exposure_tier
 
 
-# 旧结论核验门：这些 wiki 目录里的页面本质是“某个时点的判断”而非可直接引用的事实，
-# W 召回命中时打〔历史基线〕标签，合成层按先验处理（当下盘面核验 + 四态对照）。
-_PRIOR_CONCLUSION_DIRS = ("synthesis/", "briefings/")
-
-
-def _is_prior_conclusion_page(file_path: str) -> bool:
-    p = str(file_path).replace("\\", "/").lstrip("/")
-    if p.startswith("wiki/"):
-        p = p[len("wiki/"):]
-    return p.startswith(_PRIOR_CONCLUSION_DIRS)
-
-
 # 结论 TTL：跟踪类判断默认 30 天复查，过期引用须先经当下盘面复核。
 CONCLUSION_TTL_DAYS = 30
 
@@ -1194,6 +1182,7 @@ def answer_query(options: AskOptions) -> AskResult:
         company_candidates=company_candidates,
         is_stale=lambda item: _evidence_is_stale(item, options.stale_days),
         confidence_score=_confidence_score,
+        stage_timeout=lambda limit: _stage_timeout(options, limit),
     )
 
     # --- S / G / R: 盘面快照 / 图谱分层 / 证据索引（evidence_providers 插件层）---
@@ -1211,155 +1200,14 @@ def answer_query(options: AskOptions) -> AskResult:
     evidence_lines = evidence_index_bundle.lines
     stale_notes = evidence_index_bundle.stale_notes
 
-    # --- W: 知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，打通复盘↔知识库闭环）---
-    wiki_lines: list[str] = []
-    wiki_counter_lines: list[str] = []
-    wiki_llm_line_pairs: list[tuple[str, str]] = []
-    wiki_stats: dict[str, Any] = {
-        "attempted": bool(options.use_wiki_rag),
-        "mode": options.wiki_rag_mode,
-        "index": "full" if options.wiki_rag_index_dir else "structured",
-    }
-    if options.use_wiki_rag:
-        loop = closed_loop_retrieval.retrieve_closed_loop(
-            graph_query,
-            anchor=anchor,
-            retrieve=lambda retrieval_query: kb_rag.retrieve(
-                retrieval_query,
-                resolved_kb_wiki,
-                k=options.wiki_rag_k,
-                mode=options.wiki_rag_mode,
-                timeout=_stage_timeout(options, options.wiki_rag_timeout),
-                excerpt_chars=options.wiki_rag_excerpt,
-                budget_query=graph_query,
-                index_dir=options.wiki_rag_index_dir,
-                require_fresh=True,
-                cache_scope=options.wiki_rag_cache_scope,
-            ),
-        )
-        _, wiki_evidence_total_chars = kb_rag.evidence_budget_for_query(
-            options.query,
-            mode=options.wiki_rag_mode,
-            index_kind=loop.telemetry.index_kind if loop.telemetry else "",
-        )
-        conclusion_hits = [item.hit for item in loop.conclusion]
-        counter_hits = [item.hit for item in loop.counter_clues]
-        if counter_hits:
-            conclusion_budget = int(wiki_evidence_total_chars * 0.75)
-            kb_rag.apply_total_llm_budget(conclusion_hits, conclusion_budget)
-            kb_rag.apply_total_llm_budget(
-                counter_hits,
-                wiki_evidence_total_chars - conclusion_budget,
-            )
-        else:
-            kb_rag.apply_total_llm_budget(
-                conclusion_hits,
-                wiki_evidence_total_chars,
-            )
-        result.closed_loop_retrieval = loop
-        wiki_stats.update(
-            {
-                "ok": bool(loop.conclusion),
-                "hits": len(loop.conclusion),
-                "clues": len(loop.clues),
-                "discarded": len(loop.discarded),
-                "counter_clues": len(loop.counter_clues),
-                "scores": [item.hit.score for item in loop.conclusion],
-                "neighbor_hits": sum(
-                    1 for item in loop.conclusion if item.hit.via_neighbor
-                ),
-                "pages": [item.hit.file_path for item in loop.conclusion],
-                "warning": "；".join(loop.warnings),
-                "attempts": loop.inspector_dict()["attempts"],
-            }
-        )
-        result.wiki_rag_telemetry = loop.telemetry
-        if loop.conclusion:
-            result.found_wiki = True
-            result.found_graph = True
-            for bucketed in loop.conclusion:
-                h = bucketed.hit
-                nb = "·邻居扩展" if h.via_neighbor else ""
-                section_ref = f"｜section={h.section}" if h.section else ""
-                tag = cite(
-                    "W",
-                    f"knowledge-base · {h.file_path}",
-                    (
-                        f"closed-loop:{bucketed.aperture}｜{h.title}"
-                        f"｜chunk={h.best_chunk_id}{section_ref}"
-                        f"｜evidence_chunks={','.join(h.evidence_chunk_ids or (h.best_chunk_id,))}"
-                        f"｜hash={h.content_hash[:12]}｜index={h.index_source_revision[:12]}"
-                        f"｜freshness={h.index_freshness}"
-                    ),
-                    chunk_id=h.best_chunk_id,
-                    content_hash=h.content_hash,
-                    index_source_revision=h.index_source_revision,
-                    index_freshness=h.index_freshness,
-                )
-                # 旧结论核验门：synthesis/briefings 页是历史判断而非当前事实，打〔历史基线〕
-                # 标签供合成层按 prior 处理（引用前须用当下盘面核验，给四态对照）。
-                baseline = (
-                    "〔历史基线·仅作先验，须以当下盘面核验〕"
-                    if _is_prior_conclusion_page(h.file_path)
-                    else ""
-                )
-                line = (
-                    f"{baseline}{h.title}（相关度 {round(h.score, 4)}{nb}）：{h.excerpt} {tag}"
-                )
-                llm_body = h.llm_evidence or h.excerpt
-                llm_line = (
-                    f"{baseline}{h.title}（相关度 {round(h.score, 4)}{nb}）：{llm_body} {tag}"
-                )
-                wiki_lines.append(line)
-                wiki_llm_line_pairs.append((line, llm_line))
-                matched_company = next(
-                    (
-                        company
-                        for company in company_evidence_concepts
-                        if company in line
-                    ),
-                    None,
-                )
-                structured_claims.append(
-                    answer_model.make_claim(
-                        claim_id=f"wiki:{tag.strip('[]')}",
-                        text=line,
-                        claim_type="company_evidence" if matched_company else "theme_evidence",
-                        theme=claim_theme,
-                        status=answer_model.ClaimStatus.CANDIDATE,
-                        evidence_tier="wiki_candidate",
-                        company=matched_company,
-                        confidence=h.score,
-                        freshness=h.index_freshness,
-                    )
-                )
-        if loop.counter_clues:
-            result.found_wiki = True
-            for bucketed in loop.counter_clues:
-                h = bucketed.hit
-                section_ref = f"｜section={h.section}" if h.section else ""
-                tag = cite(
-                    "W",
-                    f"knowledge-base · {h.file_path}",
-                    (
-                        f"closed-loop:counter｜{h.title}"
-                        f"｜chunk={h.best_chunk_id}{section_ref}"
-                        f"｜evidence_chunks={','.join(h.evidence_chunk_ids or (h.best_chunk_id,))}"
-                        f"｜hash={h.content_hash[:12]}｜index={h.index_source_revision[:12]}"
-                        f"｜freshness={h.index_freshness}"
-                    ),
-                    chunk_id=h.best_chunk_id,
-                    content_hash=h.content_hash,
-                    index_source_revision=h.index_source_revision,
-                    index_freshness=h.index_freshness,
-                )
-                line = f"反方线索（待进一步核验）：{h.title}：{h.excerpt} {tag}"
-                llm_line = (
-                    f"反方线索（待进一步核验）：{h.title}：{h.llm_evidence or h.excerpt} {tag}"
-                )
-                wiki_counter_lines.append(line)
-                wiki_llm_line_pairs.append((line, llm_line))
-        result.warnings.extend(f"wiki-rag：{warning}" for warning in loop.warnings)
+    # --- W: 知识库 hybrid 向量召回（evidence_providers 插件层）---
+    wiki_bundle = evidence_providers.collect_wiki_rag(
+        evidence_ctx, company_evidence_concepts
+    )
+    wiki_lines = wiki_bundle.lines
+    wiki_counter_lines = wiki_bundle.counter_lines
+    wiki_llm_line_pairs = wiki_bundle.llm_line_pairs
+    wiki_stats = wiki_bundle.stats
 
     # --- E: 外部 Web 检索（仅 general lane，且本地盘面/图谱/证据/wiki 全空时触发）---
     web_fallback_lines, web_fallback_attempted = (
@@ -1609,57 +1457,15 @@ def answer_query(options: AskOptions) -> AskResult:
             )
         )
     if options.use_l3_lookup:
-        local_evidence_text = _evidence_text_for_llm(
-            _evidence_chain_with_llm_wiki(evidence_chain, wiki_llm_line_pairs),
-            gap_lines,
-        )
-        l3_bundle = l3_evidence.lookup_l3_evidence(
-            options.query,
-            question_plan,
-            local_evidence_text,
-            config=l3_evidence.L3LookupConfig.from_env(
-                enabled=True,
-                timeout=_stage_timeout(options, options.l3_lookup_timeout),
-                limit=options.l3_lookup_limit,
+        l3_lines = evidence_providers.collect_l3_official(
+            evidence_ctx,
+            company_evidence_concepts=company_evidence_concepts,
+            local_evidence_text=_evidence_text_for_llm(
+                _evidence_chain_with_llm_wiki(evidence_chain, wiki_llm_line_pairs),
+                gap_lines,
             ),
         )
-        result.l3_evidence = l3_bundle
-        result.warnings.extend(f"l3-evidence：{w}" for w in l3_bundle.warnings)
-        l3_lines = l3_bundle.to_prompt_block().splitlines()
         evidence_chain.extend([f"{SUBHEAD}L3 官方证据工具补查", *l3_lines])
-        for index, item in enumerate(l3_bundle.items, start=1):
-            company = next(
-                (
-                    name
-                    for name in company_evidence_concepts
-                    if name in f"{item.title} {item.summary}"
-                ),
-                anchor.entity if anchor is not None else None,
-            )
-            if company is None and question_plan.question_type == QUESTION_STOCK_DEEP_DIVE:
-                company = _company_name_from_official_title(item.title)
-            if company and not any(
-                candidate.company == company for candidate in company_candidates
-            ):
-                company_candidates.append(
-                    answer_model.CompanyCandidate(
-                        company=company,
-                        directness="研究对象",
-                        requested_tier=answer_model.CompanyTier.CANDIDATE,
-                    )
-                )
-            structured_claims.append(
-                answer_model.make_claim(
-                    claim_id=f"official:L{index}",
-                    text=f"{item.title}：{item.summary}",
-                    claim_type="company_evidence" if company else "theme_evidence",
-                    theme=claim_theme,
-                    status=answer_model.ClaimStatus.VERIFIED,
-                    evidence_tier="L3",
-                    company=company,
-                    evidence_ids=(f"L{index}",),
-                )
-            )
 
     # --- P0 技能链：证据分层审计 → 检索遥测 → 反证计划 →（深挖时）研究简报 ---
     audit = research_brief.audit_evidence_chain(evidence_chain, gap_lines)
@@ -2268,15 +2074,7 @@ def _claims_from_data_block(
     return claims
 
 
-def _company_name_from_official_title(title: str) -> str | None:
-    candidate = re.split(
-        r"(?:公告|问询函|回复|互动易|投资者关系|调研纪要)",
-        str(title or "").strip(),
-        maxsplit=1,
-    )[0].strip(" ：:（）()")
-    if re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9]{2,20}", candidate):
-        return candidate
-    return None
+_company_name_from_official_title = evidence_providers._company_name_from_official_title
 
 
 def _build_answer_spec_for_result(

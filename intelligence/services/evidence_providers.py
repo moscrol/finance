@@ -4,23 +4,45 @@
 证据行 + 结构化 claim（写入 ``ctx.structured_claims``）。行为与拆分前逐字一致，
 由黄金快照测试（``test_golden_answers.py``）保护。
 
-当前覆盖：S（盘面快照）、G（图谱概念/公司分层）、R（evidence_index + 候选携带证据）。
-后续阶段将纳入 W/E/L 与 D 数据块，并引入 provider registry。
+当前覆盖：S（盘面快照）、G（图谱概念/公司分层）、R（evidence_index + 候选携带证据）、
+W（知识库 hybrid 闭环召回）、E（外部 Web 兜底）、L（L3 官方证据补查）。
+后续阶段将纳入 D 数据块，并引入 provider registry。
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
 from intelligence.adapters.knowledge import evidence_status
-from intelligence.services import answer_model, research_brief, web_research
-from intelligence.services.answer_orchestrator import QUESTION_GENERAL
+from intelligence.services import (
+    answer_model,
+    closed_loop_retrieval,
+    kb_rag,
+    l3_evidence,
+    research_brief,
+    web_research,
+)
+from intelligence.services.answer_orchestrator import (
+    QUESTION_GENERAL,
+    QUESTION_STOCK_DEEP_DIVE,
+)
 
 if TYPE_CHECKING:
     from intelligence.adapters.knowledge import KnowledgeAdapter
     from intelligence.services.answer_orchestrator import QuestionPlan
     from intelligence.services.ask import AskOptions, AskResult
     from intelligence.services.entity_anchor import EntityAnchor
+
+
+# 旧结论核验门：这些 wiki 目录里的页面本质是“某个时点的判断”而非可直接引用的事实，
+# W 召回命中时打〔历史基线〕标签，合成层按先验处理（当下盘面核验 + 四态对照）。
+_PRIOR_CONCLUSION_DIRS = ("synthesis/", "briefings/")
+
+
+def _is_prior_conclusion_page(file_path: str) -> bool:
+    p = str(file_path).replace("\\", "/").lstrip("/")
+    return p.startswith(_PRIOR_CONCLUSION_DIRS)
 
 
 def _company_exposure_tier(row: dict[str, Any]) -> str:
@@ -65,6 +87,15 @@ class EvidenceContext:
     company_candidates: list[answer_model.CompanyCandidate]
     is_stale: Callable[[dict[str, Any]], bool]
     confidence_score: Callable[[Any], float | None]
+    stage_timeout: Callable[[float], float]
+
+
+@dataclass
+class WikiEvidence:
+    lines: list[str] = field(default_factory=list)
+    counter_lines: list[str] = field(default_factory=list)
+    llm_line_pairs: list[tuple[str, str]] = field(default_factory=list)
+    stats: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -83,6 +114,79 @@ class GraphEvidence:
 class EvidenceIndexBundle:
     lines: list[str] = field(default_factory=list)
     stale_notes: list[str] = field(default_factory=list)
+
+
+def _company_name_from_official_title(title: str) -> str | None:
+    candidate = re.split(
+        r"(?:公告|问询函|回复|互动易|投资者关系|调研纪要)",
+        str(title or "").strip(),
+        maxsplit=1,
+    )[0].strip(" ：:（）()")
+    if re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9]{2,20}", candidate):
+        return candidate
+    return None
+
+
+def collect_l3_official(
+    ctx: EvidenceContext,
+    *,
+    company_evidence_concepts: dict[str, str],
+    local_evidence_text: str,
+) -> list[str]:
+    """L：runtime L3 官方证据补查（公告/互动易），产出追加进 evidence_chain 的行。"""
+    options = ctx.options
+    anchor = ctx.anchor
+    question_plan = ctx.question_plan
+    chain_lines: list[str] = []
+    if not options.use_l3_lookup:
+        return chain_lines
+    l3_bundle = l3_evidence.lookup_l3_evidence(
+        options.query,
+        question_plan,
+        local_evidence_text,
+        config=l3_evidence.L3LookupConfig.from_env(
+            enabled=True,
+            timeout=ctx.stage_timeout(options.l3_lookup_timeout),
+            limit=options.l3_lookup_limit,
+        ),
+    )
+    ctx.result.l3_evidence = l3_bundle
+    ctx.result.warnings.extend(f"l3-evidence：{w}" for w in l3_bundle.warnings)
+    chain_lines.extend(l3_bundle.to_prompt_block().splitlines())
+    for index, item in enumerate(l3_bundle.items, start=1):
+        company = next(
+            (
+                name
+                for name in company_evidence_concepts
+                if name in f"{item.title} {item.summary}"
+            ),
+            anchor.entity if anchor is not None else None,
+        )
+        if company is None and question_plan.question_type == QUESTION_STOCK_DEEP_DIVE:
+            company = _company_name_from_official_title(item.title)
+        if company and not any(
+            candidate.company == company for candidate in ctx.company_candidates
+        ):
+            ctx.company_candidates.append(
+                answer_model.CompanyCandidate(
+                    company=company,
+                    directness="研究对象",
+                    requested_tier=answer_model.CompanyTier.CANDIDATE,
+                )
+            )
+        ctx.structured_claims.append(
+            answer_model.make_claim(
+                claim_id=f"official:L{index}",
+                text=f"{item.title}：{item.summary}",
+                claim_type="company_evidence" if company else "theme_evidence",
+                theme=ctx.claim_theme,
+                status=answer_model.ClaimStatus.VERIFIED,
+                evidence_tier="L3",
+                company=company,
+                evidence_ids=(f"L{index}",),
+            )
+        )
+    return chain_lines
 
 
 def collect_web_fallback(
@@ -384,4 +488,158 @@ def collect_evidence_index(
                 company=target_name if target_name in company_evidence_concepts else None,
             )
         )
+    return bundle
+
+
+def collect_wiki_rag(
+    ctx: EvidenceContext,
+    company_evidence_concepts: dict[str, str],
+) -> WikiEvidence:
+    """W：知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，含反方线索桶）。"""
+    bundle = WikiEvidence()
+    bundle.stats = {
+        "attempted": bool(ctx.options.use_wiki_rag),
+        "mode": ctx.options.wiki_rag_mode,
+        "index": "full" if ctx.options.wiki_rag_index_dir else "structured",
+    }
+    if ctx.options.use_wiki_rag:
+        loop = closed_loop_retrieval.retrieve_closed_loop(
+            ctx.graph_query,
+            anchor=ctx.anchor,
+            retrieve=lambda retrieval_query: kb_rag.retrieve(
+                retrieval_query,
+                ctx.knowledge.resolved_wiki_root,
+                k=ctx.options.wiki_rag_k,
+                mode=ctx.options.wiki_rag_mode,
+                timeout=ctx.stage_timeout(ctx.options.wiki_rag_timeout),
+                excerpt_chars=ctx.options.wiki_rag_excerpt,
+                budget_query=ctx.graph_query,
+                index_dir=ctx.options.wiki_rag_index_dir,
+                require_fresh=True,
+                cache_scope=ctx.options.wiki_rag_cache_scope,
+            ),
+        )
+        _, wiki_evidence_total_chars = kb_rag.evidence_budget_for_query(
+            ctx.options.query,
+            mode=ctx.options.wiki_rag_mode,
+            index_kind=loop.telemetry.index_kind if loop.telemetry else "",
+        )
+        conclusion_hits = [item.hit for item in loop.conclusion]
+        counter_hits = [item.hit for item in loop.counter_clues]
+        if counter_hits:
+            conclusion_budget = int(wiki_evidence_total_chars * 0.75)
+            kb_rag.apply_total_llm_budget(conclusion_hits, conclusion_budget)
+            kb_rag.apply_total_llm_budget(
+                counter_hits,
+                wiki_evidence_total_chars - conclusion_budget,
+            )
+        else:
+            kb_rag.apply_total_llm_budget(
+                conclusion_hits,
+                wiki_evidence_total_chars,
+            )
+        ctx.result.closed_loop_retrieval = loop
+        bundle.stats.update(
+            {
+                "ok": bool(loop.conclusion),
+                "hits": len(loop.conclusion),
+                "clues": len(loop.clues),
+                "discarded": len(loop.discarded),
+                "counter_clues": len(loop.counter_clues),
+                "scores": [item.hit.score for item in loop.conclusion],
+                "neighbor_hits": sum(
+                    1 for item in loop.conclusion if item.hit.via_neighbor
+                ),
+                "pages": [item.hit.file_path for item in loop.conclusion],
+                "warning": "；".join(loop.warnings),
+                "attempts": loop.inspector_dict()["attempts"],
+            }
+        )
+        ctx.result.wiki_rag_telemetry = loop.telemetry
+        if loop.conclusion:
+            ctx.result.found_wiki = True
+            ctx.result.found_graph = True
+            for bucketed in loop.conclusion:
+                h = bucketed.hit
+                nb = "·邻居扩展" if h.via_neighbor else ""
+                section_ref = f"｜section={h.section}" if h.section else ""
+                tag = ctx.cite(
+                    "W",
+                    f"knowledge-base · {h.file_path}",
+                    (
+                        f"closed-loop:{bucketed.aperture}｜{h.title}"
+                        f"｜chunk={h.best_chunk_id}{section_ref}"
+                        f"｜evidence_chunks={','.join(h.evidence_chunk_ids or (h.best_chunk_id,))}"
+                        f"｜hash={h.content_hash[:12]}｜index={h.index_source_revision[:12]}"
+                        f"｜freshness={h.index_freshness}"
+                    ),
+                    chunk_id=h.best_chunk_id,
+                    content_hash=h.content_hash,
+                    index_source_revision=h.index_source_revision,
+                    index_freshness=h.index_freshness,
+                )
+                # 旧结论核验门：synthesis/briefings 页是历史判断而非当前事实，打〔历史基线〕
+                # 标签供合成层按 prior 处理（引用前须用当下盘面核验，给四态对照）。
+                baseline = (
+                    "〔历史基线·仅作先验，须以当下盘面核验〕"
+                    if _is_prior_conclusion_page(h.file_path)
+                    else ""
+                )
+                line = (
+                    f"{baseline}{h.title}（相关度 {round(h.score, 4)}{nb}）：{h.excerpt} {tag}"
+                )
+                llm_body = h.llm_evidence or h.excerpt
+                llm_line = (
+                    f"{baseline}{h.title}（相关度 {round(h.score, 4)}{nb}）：{llm_body} {tag}"
+                )
+                bundle.lines.append(line)
+                bundle.llm_line_pairs.append((line, llm_line))
+                matched_company = next(
+                    (
+                        company
+                        for company in company_evidence_concepts
+                        if company in line
+                    ),
+                    None,
+                )
+                ctx.structured_claims.append(
+                    answer_model.make_claim(
+                        claim_id=f"wiki:{tag.strip('[]')}",
+                        text=line,
+                        claim_type="company_evidence" if matched_company else "theme_evidence",
+                        theme=ctx.claim_theme,
+                        status=answer_model.ClaimStatus.CANDIDATE,
+                        evidence_tier="wiki_candidate",
+                        company=matched_company,
+                        confidence=h.score,
+                        freshness=h.index_freshness,
+                    )
+                )
+        if loop.counter_clues:
+            ctx.result.found_wiki = True
+            for bucketed in loop.counter_clues:
+                h = bucketed.hit
+                section_ref = f"｜section={h.section}" if h.section else ""
+                tag = ctx.cite(
+                    "W",
+                    f"knowledge-base · {h.file_path}",
+                    (
+                        f"closed-loop:counter｜{h.title}"
+                        f"｜chunk={h.best_chunk_id}{section_ref}"
+                        f"｜evidence_chunks={','.join(h.evidence_chunk_ids or (h.best_chunk_id,))}"
+                        f"｜hash={h.content_hash[:12]}｜index={h.index_source_revision[:12]}"
+                        f"｜freshness={h.index_freshness}"
+                    ),
+                    chunk_id=h.best_chunk_id,
+                    content_hash=h.content_hash,
+                    index_source_revision=h.index_source_revision,
+                    index_freshness=h.index_freshness,
+                )
+                line = f"反方线索（待进一步核验）：{h.title}：{h.excerpt} {tag}"
+                llm_line = (
+                    f"反方线索（待进一步核验）：{h.title}：{h.llm_evidence or h.excerpt} {tag}"
+                )
+                bundle.counter_lines.append(line)
+                bundle.llm_line_pairs.append((line, llm_line))
+        ctx.result.warnings.extend(f"wiki-rag：{warning}" for warning in loop.warnings)
     return bundle
