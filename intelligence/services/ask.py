@@ -32,6 +32,7 @@ from intelligence.adapters.knowledge import KnowledgeAdapter, evidence_status
 from intelligence.paths import default_paths
 from intelligence.services import (
     answer_model,
+    evidence_providers,
     ask_clarify,
     ask_planner,
     checkpoint_recall,
@@ -577,27 +578,7 @@ def _evidence_is_stale(item: dict[str, Any], stale_days: int) -> bool:
     return (date_cls.today() - ev_date).days > stale_days
 
 
-def _company_exposure_tier(row: dict[str, Any]) -> str:
-    strength = str(row.get("strength") or "").lower()
-    confidence = str(row.get("confidence") or "").lower()
-    evidence_layer = str(row.get("evidence_layer") or "").lower()
-    direct_company_evidence = (
-        evidence_layer in {"l3", "l2_l3", "l3_l4", "official"}
-        and "candidate" not in evidence_layer
-    )
-    if (
-        strength in {"core", "strong"}
-        and confidence == "high"
-        and direct_company_evidence
-    ):
-        return "core"
-    if (
-        strength in {"peripheral", "weak"}
-        or evidence_layer in {"graph_only", "exposure_only"}
-        or confidence == "low"
-    ):
-        return "peripheral"
-    return "other"
+_company_exposure_tier = evidence_providers._company_exposure_tier
 
 
 # 旧结论核验门：这些 wiki 目录里的页面本质是“某个时点的判断”而非可直接引用的事实，
@@ -1197,261 +1178,38 @@ def answer_query(options: AskOptions) -> AskResult:
 
     export_name = Path(loaded.get("path", "")).name
 
-    # --- S: 盘面 from theme-candidates snapshot ---
-    market_lines: list[str] = []
-    if candidate:
-        for sd in (candidate.get("score_detail") or [])[:5]:
-            sig = sd.get("signal")
-            sc = sd.get("score")
-            reason = sd.get("reason", "")
-            tag = cite("S", f"{export_name} · score_detail.{sig}", str(sd.get("source", "")))
-            line = f"信号 {sig}（{sc}）：{reason} {tag}"
-            market_lines.append(line)
-            structured_claims.append(
-                answer_model.make_claim(
-                    claim_id=f"market:{tag.strip('[]')}",
-                    text=line,
-                    claim_type="market_signal",
-                    theme=claim_theme,
-                    status=answer_model.ClaimStatus.VERIFIED,
-                    evidence_tier="L4",
-                )
-            )
-        ctx = doc.get("market_context") or {}
-        if ctx:
-            caps = "、".join(
-                f"{s.get('name')}（占比 {s.get('ratio')}%）"
-                for s in (ctx.get("capacity_sectors") or [])[:3]
-            )
-            tag = cite("S", f"{export_name} · market_context")
-            line = (
-                f"市场环境：{ctx.get('market_stage')}，成交 {ctx.get('total_amount')} 亿，"
-                f"涨停 {ctx.get('limit_up')} / 跌停 {ctx.get('limit_down')}，容量前三 {caps} {tag}"
-            )
-            market_lines.append(line)
-            structured_claims.append(
-                answer_model.make_claim(
-                    claim_id=f"market:{tag.strip('[]')}",
-                    text=line,
-                    claim_type="market_context",
-                    theme=claim_theme,
-                    status=answer_model.ClaimStatus.VERIFIED,
-                    evidence_tier="L4",
-                )
-            )
-
-    # --- G: graph (concepts + company tiers) from KB relations ---
-    graph_concept_lines: list[str] = []
-    if anchor is not None:
-        result.found_graph = True
-        tag = cite("G", "knowledge-base · wiki/relations/entity_exposures.json", f"实体解析 matched_by={anchor.matched_by}")
-        graph_concept_lines.append(f"{anchor.summary()} {tag}")
-    concepts = knowledge.get_concept_matches(graph_query, limit=options.top_concepts)
-    if concepts.get("found"):
-        result.found_graph = True
-        names = "、".join(f"{i['concept']}({i['score']})" for i in concepts["items"])
-        tag = cite("G", "knowledge-base · wiki/relations/concept_graph.json")
-        line = f"命中概念：{names} {tag}"
-        graph_concept_lines.append(line)
-        structured_claims.append(
-            answer_model.make_claim(
-                claim_id=f"concept:{tag.strip('[]')}",
-                text=line,
-                claim_type="theme_mapping",
-                theme=claim_theme,
-                status=answer_model.ClaimStatus.CANDIDATE,
-                evidence_tier="concept_graph",
-            )
-        )
-
-    company_lines: list[str] = []
-    focus_entities = (
-        question_plan.research_spec.focus_entities
-        if question_plan.research_spec is not None
-        else ()
+    evidence_ctx = evidence_providers.EvidenceContext(
+        options=options,
+        result=result,
+        knowledge=knowledge,
+        question_plan=question_plan,
+        anchor=anchor,
+        candidate=candidate,
+        doc=doc,
+        export_name=export_name,
+        claim_theme=claim_theme,
+        graph_query=graph_query,
+        cite=cite,
+        structured_claims=structured_claims,
+        company_candidates=company_candidates,
+        is_stale=lambda item: _evidence_is_stale(item, options.stale_days),
+        confidence_score=_confidence_score,
     )
-    exposure_limit = max(options.top_companies, len(focus_entities) * 4)
-    exposures = knowledge.get_exposure_matches(graph_query, limit=exposure_limit)
-    if exposures.get("found") and focus_entities:
-        focus_order = {
-            company: index for index, company in enumerate(focus_entities)
-        }
-        exposure_items = list(exposures["items"])
-        exposure_items.sort(
-            key=lambda row: (
-                0 if str(row.get("company") or "") in focus_order else 1,
-                focus_order.get(str(row.get("company") or ""), len(focus_order)),
-            )
-        )
-        exposures["items"] = exposure_items[: options.top_companies]
-    tiers: dict[str, list[str]] = {"core": [], "peripheral": [], "other": []}
-    company_evidence_concepts: dict[str, str] = {}
-    if exposures.get("found"):
-        result.found_graph = True
-        for row in exposures["items"]:
-            conf = str(row.get("confidence") or "").lower()
-            layer = str(row.get("evidence_layer") or "")
-            company = str(row.get("company") or "").strip()
-            concept = str(row.get("concept") or "").strip()
-            if company and concept:
-                company_evidence_concepts[company] = concept
-            exposure_tier = _company_exposure_tier(row)
-            label = f"{company}({row.get('ticker')}|{row.get('role') or '—'}|{conf or '?'}/{layer or '?'})"
-            tiers[exposure_tier].append(label)
-            requested_tier = {
-                "core": answer_model.CompanyTier.CORE,
-                "peripheral": answer_model.CompanyTier.PERIPHERAL,
-            }.get(exposure_tier, answer_model.CompanyTier.CANDIDATE)
-            company_candidates.append(
-                answer_model.CompanyCandidate(
-                    company=company,
-                    ticker=str(row.get("ticker") or ""),
-                    chain_stage=str(row.get("chain_stage") or row.get("role") or "待确认"),
-                    directness=str(row.get("strength") or "待确认"),
-                    requested_tier=requested_tier,
-                    evidence_layer=layer,
-                )
-            )
-        tag = cite("G", "knowledge-base · wiki/relations/entity_exposures.json")
-        for candidate_company in company_candidates:
-            is_direct = candidate_company.requested_tier == answer_model.CompanyTier.CORE
-            structured_claims.append(
-                answer_model.make_claim(
-                    claim_id=f"company:{candidate_company.company}:{tag.strip('[]')}",
-                    text=(
-                        f"{candidate_company.company}与"
-                        f"{company_evidence_concepts.get(candidate_company.company, '该题材')}"
-                        "存在公司级映射。"
-                    ),
-                    claim_type="company_mapping",
-                    theme=claim_theme,
-                    status=(
-                        answer_model.ClaimStatus.VERIFIED
-                        if is_direct
-                        else answer_model.ClaimStatus.CANDIDATE
-                    ),
-                    evidence_tier=candidate_company.evidence_layer,
-                    company=candidate_company.company,
-                    evidence_ids=(tag.strip("[]"),),
-                )
-            )
-        if tiers["core"]:
-            company_lines.append(f"核心层：{'、'.join(tiers['core'])} {tag}")
-        if tiers["other"]:
-            company_lines.append(f"中间层：{'、'.join(tiers['other'])} {tag}")
-        if tiers["peripheral"]:
-            company_lines.append(f"外围/弱关联层：{'、'.join(tiers['peripheral'])} {tag}")
 
-    # --- R: evidence from KB evidence_index (+ candidate snapshot) + staleness ---
-    evidence_lines: list[str] = []
-    stale_notes: list[str] = []
-    seen_evidence: set[str] = set()
-    targets: list[str] = []
-    if anchor is not None:
-        targets.append(anchor.entity)
-    if result.matched_theme:
-        targets.append(result.matched_theme)
-    targets.append(options.query)
-    targets.extend(company_evidence_concepts)
-    for target in dict.fromkeys(t for t in targets if t):
-        ev = knowledge.get_evidence(
-            target,
-            concept=company_evidence_concepts.get(target),
-            limit=options.max_evidence,
-        )
-        if not ev.get("found"):
-            continue
-        for item in ev["items"]:
-            key = f"{item.get('target')}|{item.get('source')}|{item.get('evidence')}"
-            if key in seen_evidence:
-                continue
-            seen_evidence.add(key)
-            result.found_graph = True
-            stale = _evidence_is_stale(item, options.stale_days)
-            status = evidence_status(item)
-            superseded = status == "superseded"
-            tag = cite(
-                "R",
-                "knowledge-base · wiki/relations/evidence_index.json",
-                f"target={item.get('target')} source={item.get('source')}",
-            )
-            mark = ""
-            if superseded:
-                mark = " ⚠️已被新证据取代"
-            elif stale:
-                mark = " ⚠️过期"
-            line = (
-                f"{item.get('target')}：{str(item.get('evidence'))[:80]}"
-                f"（{item.get('source')}, {item.get('source_date') or '无日期'}, "
-                f"质量 {item.get('confidence') or '?'}{mark}） {tag}"
-            )
-            evidence_lines.append(line)
-            layer_name = research_brief.classify_evidence_line(line, "R")
-            target_name = str(item.get("target") or "").strip()
-            structured_claims.append(
-                answer_model.make_claim(
-                    claim_id=f"evidence:{tag.strip('[]')}",
-                    text=line,
-                    claim_type="company_evidence" if target_name in company_evidence_concepts else "theme_evidence",
-                    theme=claim_theme,
-                    status=(
-                        answer_model.ClaimStatus.VERIFIED
-                        if layer_name == "L3" and not stale and not superseded
-                        else answer_model.ClaimStatus.CANDIDATE
-                    ),
-                    evidence_tier=layer_name,
-                    company=target_name if target_name in company_evidence_concepts else None,
-                    confidence=_confidence_score(item.get("confidence")),
-                    freshness=(
-                        "superseded"
-                        if superseded
-                        else "stale"
-                        if stale
-                        else "current"
-                    ),
-                )
-            )
-            if superseded:
-                replacement = str(
-                    item.get("superseded_by") or item.get("status_note") or ""
-                ).strip()
-                suffix = f"，新证据：{replacement}" if replacement else ""
-                stale_notes.append(
-                    f"{item.get('target')} 该条证据已被取代{suffix}，只能作历史参照，不能当作当前事实 {tag}"
-                )
-            elif stale:
-                stale_notes.append(
-                    f"{item.get('target')} 证据 {item.get('source_date')} 已超 {options.stale_days} 天，需复核是否被新数据证伪 {tag}"
-                )
-            if len(evidence_lines) >= options.max_evidence:
-                break
-        if len(evidence_lines) >= options.max_evidence:
-            break
-
-    # candidate-embedded knowledge_evidence as cross-check
-    for ke in (candidate or {}).get("knowledge_evidence", []) or []:
-        src = ke.get("source")
-        key = f"{ke.get('target')}|{src}"
-        if not src or key in seen_evidence:
-            continue
-        seen_evidence.add(key)
-        tag = cite("R", f"{export_name} · knowledge_evidence")
-        line = (
-            f"{ke.get('target')}：{src}（质量 {ke.get('quality') or '?'}，盘面候选携带） {tag}"
-        )
-        evidence_lines.append(line)
-        target_name = str(ke.get("target") or "").strip()
-        structured_claims.append(
-            answer_model.make_claim(
-                claim_id=f"candidate-evidence:{tag.strip('[]')}",
-                text=line,
-                claim_type="company_evidence" if target_name in company_evidence_concepts else "theme_evidence",
-                theme=claim_theme,
-                status=answer_model.ClaimStatus.CANDIDATE,
-                evidence_tier="candidate_snapshot",
-                company=target_name if target_name in company_evidence_concepts else None,
-            )
-        )
+    # --- S / G / R: 盘面快照 / 图谱分层 / 证据索引（evidence_providers 插件层）---
+    market_lines = evidence_providers.collect_market_snapshot(evidence_ctx)
+    graph_bundle = evidence_providers.collect_graph(evidence_ctx)
+    graph_concept_lines = graph_bundle.concept_lines
+    concepts = graph_bundle.concepts_result
+    exposures = graph_bundle.exposures_result
+    company_lines = graph_bundle.company_lines
+    company_evidence_concepts = graph_bundle.company_evidence_concepts
+    tiers = graph_bundle.tiers
+    evidence_index_bundle = evidence_providers.collect_evidence_index(
+        evidence_ctx, company_evidence_concepts
+    )
+    evidence_lines = evidence_index_bundle.lines
+    stale_notes = evidence_index_bundle.stale_notes
 
     # --- W: 知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，打通复盘↔知识库闭环）---
     wiki_lines: list[str] = []
@@ -1604,25 +1362,19 @@ def answer_query(options: AskOptions) -> AskResult:
         result.warnings.extend(f"wiki-rag：{warning}" for warning in loop.warnings)
 
     # --- E: 外部 Web 检索（仅 general lane，且本地盘面/图谱/证据/wiki 全空时触发）---
-    web_fallback_lines: list[str] = []
-    web_fallback_attempted = False
-    if (
-        question_plan.question_type == QUESTION_GENERAL
-        and not market_lines
-        and not graph_concept_lines
-        and not company_lines
-        and not evidence_lines
-        and not wiki_lines
-        and not wiki_counter_lines
-    ):
-        web_fallback_attempted = True
-        web_result = web_research.fetch_web_search(options.query)
-        result.provider_traces.append(web_result.trace)
-        for item in web_result.items[:4]:
-            tag = cite("E", item.title, item.url)
-            web_fallback_lines.append(
-                f"{item.title}：{item.snippet or '搜索结果未提供摘要'}（外部快照，仅作背景线索） {tag}"
-            )
+    web_fallback_lines, web_fallback_attempted = (
+        evidence_providers.collect_web_fallback(
+            evidence_ctx,
+            local_lines_empty=(
+                not market_lines
+                and not graph_concept_lines
+                and not company_lines
+                and not evidence_lines
+                and not wiki_lines
+                and not wiki_counter_lines
+            ),
+        )
+    )
 
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
     module_block: list[str] = []
