@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from collections.abc import Callable, Sequence
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import (
+    Future,
+    ThreadPoolExecutor,
+    TimeoutError as FuturesTimeoutError,
+)
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
@@ -80,6 +85,17 @@ from intelligence.services.query_resolution import is_contextual_reference
 
 RECENT_MESSAGE_LIMIT = 6
 SUMMARY_CHAR_LIMIT = 2400
+_SKILL_POOL_WORKERS = 3
+
+
+def _parallel_skills_enabled() -> bool:
+    return os.environ.get("WORKBENCH_PARALLEL_SKILLS", "1").strip().lower() not in {
+        "0",
+        "false",
+        "off",
+    }
+
+
 _INTERNAL_CITATION_PATTERN = re.compile(
     r"\[(?:D|P|L|G|R|S|W)\d+\]"
 )
@@ -923,7 +939,58 @@ class TurnOrchestrator:
             execution_feedback: list[dict[str, str]] = []
             fallback_route_round = 0
             owner_timed_out = False
+            parallel_skills = _parallel_skills_enabled()
+            # 池容量 = 并行度上限 + 超时残留线程的余量；串行模式下并行度
+            # 仍由“消费时才提交”控制为 1，超时未结束的 skill 不阻塞后续。
+            skill_pool = ThreadPoolExecutor(
+                max_workers=_SKILL_POOL_WORKERS * 2,
+                thread_name_prefix="workbench-skill",
+            )
+            prestarted: dict[str, tuple[Future[SkillOutput], float]] = {}
+
+            def submit_skill(skill_id: str) -> tuple[Future[SkillOutput], float]:
+                future = skill_pool.submit(
+                    self.skill_registry.executors[skill_id].execute,
+                    SkillExecutionContext(
+                        query=contextual_query,
+                        task_type="ask",
+                        user_id=self.run_store.user_id,
+                        run_id=run_id,
+                        conversation_id=conversation_id,
+                        repo_root=self.repo_root,
+                        run_store=self.run_store,
+                        conversation_context=context.to_prompt_block(),
+                        turn_intent=turn_intent.to_dict(),
+                        research_plan=research_plan.to_dict(),
+                        inherited_answer_spec=inherited_answer_spec,
+                        inherited_stage_artifacts=inherited_stage_artifacts,
+                        inherited_evidence_atoms=inherited_evidence_atoms,
+                        deadline=research_deadline,
+                        retrieval_cache=retrieval_cache,
+                    ),
+                )
+                return future, time.monotonic()
+
+            def prestart_pending(selections: list) -> None:
+                # 并行模式：把本轮已路由、未重复且预算内的 skill 提前提交，
+                # 结果仍按路由顺序消费，保证输出确定性。
+                if not parallel_skills:
+                    return
+                for item in selections:
+                    candidate = item.skill_id
+                    if candidate in seen_skill_ids or candidate in prestarted:
+                        continue
+                    if (
+                        research_budget.call_count + len(prestarted)
+                        >= self.research_policy.max_skill_calls
+                    ):
+                        break
+                    if research_budget.remaining_seconds <= 0:
+                        break
+                    prestarted[candidate] = submit_skill(candidate)
+
             while pending_selections:
+                prestart_pending(pending_selections)
                 selection = pending_selections.pop(0)
                 self._check_cancelled()
                 skill_id = selection.skill_id
@@ -983,42 +1050,24 @@ class TurnOrchestrator:
                     },
                     conversation_id,
                 )
-                skill_pool = ThreadPoolExecutor(
-                    max_workers=1,
-                    thread_name_prefix=f"workbench-{skill_id}",
-                )
                 future = None
                 skill_started = time.monotonic()
                 try:
-                    future = skill_pool.submit(
-                        self.skill_registry.executors[skill_id].execute,
-                        SkillExecutionContext(
-                            query=contextual_query,
-                            task_type="ask",
-                            user_id=self.run_store.user_id,
-                            run_id=run_id,
-                            conversation_id=conversation_id,
-                            repo_root=self.repo_root,
-                            run_store=self.run_store,
-                            conversation_context=context.to_prompt_block(),
-                            turn_intent=turn_intent.to_dict(),
-                            research_plan=research_plan.to_dict(),
-                            inherited_answer_spec=inherited_answer_spec,
-                            inherited_stage_artifacts=inherited_stage_artifacts,
-                            inherited_evidence_atoms=inherited_evidence_atoms,
-                            deadline=research_deadline,
-                            retrieval_cache=retrieval_cache,
-                        ),
+                    launched = prestarted.pop(skill_id, None)
+                    if launched is None:
+                        launched = submit_skill(skill_id)
+                    future, skill_started = launched
+                    allowed_seconds = min(
+                        self.skill_registry.definitions[
+                            skill_id
+                        ].timeout_seconds,
+                        research_budget.remaining_seconds,
                     )
                     output = future.result(
                         timeout=max(
                             0.001,
-                            min(
-                                self.skill_registry.definitions[
-                                    skill_id
-                                ].timeout_seconds,
-                                research_budget.remaining_seconds,
-                            ),
+                            allowed_seconds
+                            - (time.monotonic() - skill_started),
                         )
                     )
                 except Exception as exc:  # noqa: BLE001
@@ -1136,8 +1185,6 @@ class TurnOrchestrator:
                                 "failure_reason": "；".join(output.warnings),
                             }
                         )
-                finally:
-                    skill_pool.shutdown(wait=False, cancel_futures=True)
                 self._check_cancelled()
                 if (
                     not pending_selections
@@ -1197,6 +1244,7 @@ class TurnOrchestrator:
                             if item.skill_id not in selected:
                                 selected.append(item.skill_id)
                         pending_selections.extend(replacements)
+            skill_pool.shutdown(wait=False, cancel_futures=True)
             budget_trace = research_budget.to_trace()
             self._trace(
                 run_id,
@@ -1269,6 +1317,9 @@ class TurnOrchestrator:
                 / "db"
                 / "market_feature_store.duckdb",
                 conversation_context=context.to_prompt_block(),
+                wiki_rag_cache_scope=(
+                    f"{self.run_store.user_id}:{conversation_id or run_id}"
+                ),
                 supplemental_evidence=self._skill_evidence(skill_outputs),
                 include_memory_block=decision.needs_memory,
                 include_recall_block=decision.needs_memory,
