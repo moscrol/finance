@@ -1915,12 +1915,39 @@ def parse_decision_brief(
     return brief, ()
 
 
+def _merge_orphan_grounded_markers(answer: str) -> str:
+    """把单独成行的 claim marker 归并到前一行正文。
+
+    composer 模型有时把 ``<!-- claim_ids=... -->`` 写在句子的下一行而非行内，
+    逐行解析会把正文判为未绑定、marker 判为空句，导致修复后只剩标题。
+    """
+    merged: list[str] = []
+    for raw_line in answer.splitlines():
+        line = raw_line.strip()
+        marker = _GROUNDED_CLAIM_MARKER_RE.search(line)
+        if (
+            marker is not None
+            and not _GROUNDED_CLAIM_MARKER_RE.sub("", line).strip()
+            and merged
+        ):
+            prev = merged[-1].rstrip()
+            if (
+                prev
+                and not _is_nonclaim_line(prev.strip())
+                and _GROUNDED_CLAIM_MARKER_RE.search(prev) is None
+            ):
+                merged[-1] = f"{prev} {marker.group(0)}"
+                continue
+        merged.append(raw_line)
+    return "\n".join(merged)
+
+
 def parse_grounded_sentences(
     answer: str,
 ) -> tuple[tuple[GroundedSentence, ...], tuple[str, ...]]:
     sentences: list[GroundedSentence] = []
     unbound_lines: list[str] = []
-    for raw_line in answer.splitlines():
+    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             continue
@@ -2192,7 +2219,7 @@ def validate_grounded_composer_answer(
 def present_grounded_composer_answer(answer: str) -> str:
     return "\n".join(
         _GROUNDED_CLAIM_MARKER_RE.sub("", line).rstrip()
-        for line in answer.splitlines()
+        for line in _merge_orphan_grounded_markers(answer).splitlines()
     ).strip()
 
 
@@ -2210,7 +2237,7 @@ def repair_grounded_composer_answer(
     rejected = set(rejected_sentence_indexes)
     repaired_lines: list[str] = []
     sentence_index = 0
-    for raw_line in answer.splitlines():
+    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             repaired_lines.append(raw_line)
