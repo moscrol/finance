@@ -418,6 +418,7 @@ class GroundedComposerShadow:
     presented_answer: str | None = None
     deterministic_issues: tuple[QualityIssue, ...] = ()
     judge_report: GroundingJudgeReport | None = None
+    judge_raw: str | None = None
     provider: str | None = None
     model: str | None = None
     failure_reason: str | None = None
@@ -442,6 +443,7 @@ class GroundedComposerShadow:
                 if self.judge_report is not None
                 else None
             ),
+            "judge_raw": self.judge_raw,
             "provider": self.provider,
             "model": self.model,
             "failure_reason": self.failure_reason,

@@ -3685,6 +3685,7 @@ def synthesize_shadow_grounded_answer(
                     candidate_answer if repaired else None
                 ),
                 deterministic_issues=deterministic_issues,
+                judge_raw=judged.answer,
                 provider=composed.provider,
                 model=composed.model,
                 failure_reason="judge_output_invalid",
