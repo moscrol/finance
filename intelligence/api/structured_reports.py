@@ -255,13 +255,20 @@ def daily_projection_modules(
         }
         for metric in projection.get("metrics", [])
     ]
+    overview_summary = "；".join(
+        str(_humanize_daily_text(line)).rstrip("。")
+        for line in projection.get("plain_summary", [])
+        if str(line).strip()
+    )
     modules: list[dict[str, Any]] = [
         {
             "module_id": "daily_overview",
             "title": "今日核心",
             "kind": "summary",
             "status": "degraded" if warnings else "complete",
-            "summary": "基于本地复盘报告数据。",
+            "summary": (overview_summary + "。")
+            if overview_summary
+            else "基于本地复盘报告数据。",
             "content": None,
             "metrics": metrics,
             "items": [

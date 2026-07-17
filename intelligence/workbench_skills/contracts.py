@@ -97,7 +97,7 @@ def build_module_answer_contract(
             evidence_tier=sources[0].tier if sources else "skill_output",
             evidence_ids=evidence_ids,
         )
-        for index, line in enumerate(facts[:6], start=1)
+        for index, line in enumerate(facts[:16], start=1)
     )
     summary = (
         answer_model.make_claim(
