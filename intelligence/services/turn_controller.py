@@ -13,6 +13,11 @@ from intelligence.services.query_understanding import (
     is_dated_market_review,
     is_market_watch_query,
 )
+from intelligence.services.route_table import (
+    RouteRow,
+    render_route_table_prompt,
+    route_by_id,
+)
 from intelligence.services.research_contract import (
     TurnIntent,
     answer_owner_for_question_type,
@@ -32,7 +37,6 @@ LLMComplete: TypeAlias = Callable[
     [list[dict[str, str]]], tuple[str | None, object | None, str]
 ]
 
-_LANES = frozenset({"chat", "meta", "knowledge", "research", "workflow", "clarify"})
 _CAPABILITIES = frozenset(
     {
         "memory",
@@ -295,17 +299,13 @@ def _controller_messages(query: str, context: str) -> list[dict[str, str]]:
         {
             "role": "system",
             "content": (
-                "你是对话 Turn Controller，只分类，不回答用户问题，也不调用工具。"
-                "判断 lane：chat=普通对话；meta=系统/模型元问题；"
-                "knowledge=概念或一般知识；research=需要金融数据、来源或时效核验；"
-                "workflow=明确执行固定工作流；clarify=信息不足需追问。"
-                "Router 只能在 research/workflow 后运行。不要因为工作台是金融产品，"
-                "就把普通问题默认判为 research。低置信度应选择 clarify。"
+                "你是对话 Turn Controller，只做意图识别，不回答用户问题，也不调用工具。"
+                "下面是唯一合法的路由表，你必须从中选择最匹配的一行：\n"
+                + render_route_table_prompt()
+                + "\n规则：不要因为工作台是金融产品就把普通问题往研究类路由；"
+                "拿不准时选 clarify；不得发明表外的 route_id。"
                 "严格输出一个 JSON 对象，键必须且只能是："
-                "lane,needs_retrieval,needs_memory,needs_template,question_type,"
-                "subject,timeframe,confidence,reason,capabilities。"
-                "capabilities 只能从 memory,market_quote,market_news,web_search,"
-                "web_fetch,graph,filings,financials 中选择。"
+                "route_id,subject,timeframe,confidence,reason。"
             ),
         },
         {
@@ -339,32 +339,13 @@ def _parse_llm_decision(
         value = json.loads(text)
     except (json.JSONDecodeError, TypeError):
         return None
-    expected = {
-        "lane",
-        "needs_retrieval",
-        "needs_memory",
-        "needs_template",
-        "question_type",
-        "subject",
-        "timeframe",
-        "confidence",
-        "reason",
-        "capabilities",
-    }
+    expected = {"route_id", "subject", "timeframe", "confidence", "reason"}
     if not isinstance(value, dict) or set(value) != expected:
         return None
-    lane = value["lane"]
-    capabilities = value["capabilities"]
-    if lane not in _LANES or not isinstance(capabilities, list):
+    if not isinstance(value["route_id"], str):
         return None
-    if any(
-        not isinstance(item, str) or item not in _CAPABILITIES for item in capabilities
-    ):
-        return None
-    if not all(
-        isinstance(value[key], bool)
-        for key in ("needs_retrieval", "needs_memory", "needs_template")
-    ):
+    row = route_by_id(value["route_id"])
+    if row is None:
         return None
     if isinstance(value["confidence"], bool) or not isinstance(
         value["confidence"], (int, float)
@@ -372,22 +353,41 @@ def _parse_llm_decision(
         return None
     if not isinstance(value["reason"], str) or not value["reason"].strip():
         return None
-    for key in ("question_type", "subject", "timeframe"):
+    for key in ("subject", "timeframe"):
         if value[key] is not None and not isinstance(value[key], str):
             return None
-    decision = TurnDecision(
-        lane=cast(TurnLane, lane),
-        needs_retrieval=value["needs_retrieval"],
-        needs_memory=value["needs_memory"],
-        needs_template=value["needs_template"],
-        question_type=value["question_type"],
+    decision = _decision_from_route_row(
+        row,
+        query=query,
         subject=value["subject"],
         timeframe=value["timeframe"],
         confidence=max(0.0, min(1.0, float(value["confidence"]))),
         reason=value["reason"].strip(),
-        capabilities=tuple(dict.fromkeys(capabilities)),
     )
     return _apply_policy(decision, query=query, envelope=envelope)
+
+
+def _decision_from_route_row(
+    row: RouteRow,
+    *,
+    query: str,
+    subject: str | None,
+    timeframe: str | None,
+    confidence: float,
+    reason: str,
+) -> TurnDecision:
+    return TurnDecision(
+        lane=cast(TurnLane, row.lane),
+        needs_retrieval=row.needs_retrieval,
+        needs_memory=bool(_MEMORY_PATTERN.search(query)),
+        needs_template=row.needs_template,
+        question_type=row.question_type,
+        subject=subject,
+        timeframe=timeframe,
+        confidence=confidence,
+        reason=f"路由表命中 {row.route_id}：{reason}",
+        capabilities=row.capabilities,
+    )
 
 
 def _apply_policy(
