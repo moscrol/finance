@@ -128,3 +128,121 @@ def test_definition_provider_failure_preserves_explicit_gap(monkeypatch) -> None
     assert result.citations == []
     assert result.sections["证据链"] == []
     assert "未使用无关 A 股资料替代" in result.sections["分歧反证"][0]
+
+
+def _empty_web_result(status: str = "empty") -> web_research.WebSearchResult:
+    return web_research.WebSearchResult(
+        items=(),
+        trace=ProviderTrace(
+            provider=web_research.PROVIDER_BING_WEB,
+            capability="general_web_search",
+            status=status,
+        ),
+    )
+
+
+def test_general_lane_falls_back_to_web_when_local_empty(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ask.closed_loop_retrieval,
+        "retrieve_closed_loop",
+        lambda *args, **kwargs: ClosedLoopRetrievalResult(),
+    )
+    calls: list[str] = []
+
+    def fake_web_search(query: str) -> web_research.WebSearchResult:
+        calls.append(query)
+        return web_research.WebSearchResult(
+            items=(
+                web_research.WebSearchItem(
+                    title="资金面观察",
+                    url="https://example.com/liquidity",
+                    snippet="银行间资金利率变化的背景解读。",
+                ),
+            ),
+            trace=ProviderTrace(
+                provider=web_research.PROVIDER_BING_WEB,
+                capability="general_web_search",
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    monkeypatch.setattr(ask.web_research, "fetch_web_search", fake_web_search)
+
+    result = ask.answer_query(
+        ask.AskOptions(
+            query="银行间资金面紧张对市场意味着哪些变化",
+            compose=False,
+            synthesize=False,
+            use_modules=False,
+        )
+    )
+
+    assert result.question_plan is not None
+    assert result.question_plan.question_type == "general_finance_qa"
+    assert calls == ["银行间资金面紧张对市场意味着哪些变化"]
+    web_citations = [c for c in result.citations if c.tag.startswith("E")]
+    assert [c.detail for c in web_citations] == ["https://example.com/liquidity"]
+    chain = "\n".join(result.sections["证据链"])
+    assert "外部 Web 兜底" in chain
+    assert "资金面观察" in chain
+    assert "仅作背景线索" in chain
+    assert any(
+        trace.provider == web_research.PROVIDER_BING_WEB
+        and trace.status == "success"
+        for trace in result.provider_traces
+    )
+
+
+def test_general_lane_web_failure_reports_gap_fail_closed(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ask.closed_loop_retrieval,
+        "retrieve_closed_loop",
+        lambda *args, **kwargs: ClosedLoopRetrievalResult(),
+    )
+    monkeypatch.setattr(
+        ask.web_research,
+        "fetch_web_search",
+        lambda query: _empty_web_result("proxy_unavailable"),
+    )
+
+    result = ask.answer_query(
+        ask.AskOptions(
+            query="银行间资金面紧张对市场意味着哪些变化",
+            compose=False,
+            synthesize=False,
+            use_modules=False,
+        )
+    )
+
+    assert all(not citation.tag.startswith("E") for citation in result.citations)
+    chain = "\n".join(result.sections["证据链"])
+    assert "外部 Web 兜底" not in chain
+    assert any(
+        "外部 Web Search 也未返回可用来源" in line
+        for line in result.sections["分歧反证"]
+    )
+
+
+def test_general_lane_skips_web_when_local_evidence_exists(monkeypatch) -> None:
+    def unexpected_web_search(query: str) -> web_research.WebSearchResult:
+        raise AssertionError("本地命中时不应触发外部 Web 检索")
+
+    monkeypatch.setattr(
+        ask.web_research,
+        "fetch_web_search",
+        unexpected_web_search,
+    )
+
+    result = ask.answer_query(
+        ask.AskOptions(
+            query="研究液冷题材产业链",
+            compose=False,
+            synthesize=False,
+            use_modules=False,
+            use_wiki_rag=False,
+        )
+    )
+
+    assert result.question_plan is not None
+    assert result.question_plan.question_type != "general_finance_qa"
