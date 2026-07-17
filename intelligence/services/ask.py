@@ -3459,6 +3459,7 @@ def promote_daily_agent_grounded_answer(
             result=result,
         ),
         repair_drop_invalid=True,
+        token_budget_scale=3,
     )
     shadow = result.grounded_composer_shadow
     presented = (
@@ -3513,6 +3514,7 @@ def synthesize_shadow_grounded_answer(
     prepared: PreparedAnswer,
     *,
     repair_drop_invalid: bool = False,
+    token_budget_scale: int = 1,
 ) -> AskResult:
     options = prepared.options
     result = prepared.result
@@ -3546,8 +3548,8 @@ def synthesize_shadow_grounded_answer(
         timeout=options.shadow_grounded_timeout,
         deadline=deadline,
         temperature=0.0,
-        max_tokens=1200,
-        max_chars=8000,
+        max_tokens=1200 * token_budget_scale,
+        max_chars=8000 * token_budget_scale,
     )
     if brief_result is None:
         result.grounded_composer_shadow = (
@@ -3584,8 +3586,8 @@ def synthesize_shadow_grounded_answer(
         timeout=max(1, int(deadline.remaining())),
         deadline=deadline,
         temperature=0.2,
-        max_tokens=2400,
-        max_chars=16000,
+        max_tokens=2400 * token_budget_scale,
+        max_chars=16000 * token_budget_scale,
     )
     if composed is None:
         result.grounded_composer_shadow = (
@@ -3649,8 +3651,8 @@ def synthesize_shadow_grounded_answer(
         timeout=max(1, int(deadline.remaining())),
         deadline=deadline,
         temperature=0.0,
-        max_tokens=1200,
-        max_chars=8000,
+        max_tokens=1200 * token_budget_scale,
+        max_chars=8000 * token_budget_scale,
     )
     if judged is None:
         result.grounded_composer_shadow = (
