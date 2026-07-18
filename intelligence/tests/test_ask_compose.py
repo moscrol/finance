@@ -418,7 +418,7 @@ class RenderComposeTests(unittest.TestCase):
             con.close()
 
             with mock.patch(
-                "intelligence.services.ask.next_trading_day",
+                "intelligence.services.ask_blocks.next_trading_day",
                 return_value="2026-07-13",
             ):
                 result = answer_query(
