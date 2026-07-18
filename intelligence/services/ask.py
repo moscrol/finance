@@ -1596,190 +1596,257 @@ def answer_query(options: AskOptions) -> AskResult:
             evidence_text = f"{evidence_text}\n\n{result.valuation_note.to_prompt_block()}"
         if result.forecast_preflight is not None and not is_market_review:
             evidence_text = f"{evidence_text}\n\n{forecast_preflight.render_preflight_prompt(result.forecast_preflight)}"
-        # --- planner-worker 并行取数：规则门控先定「要哪些块」，命中的块作为互相独立的
-        # 子任务并行取数（ask_planner），取回后仍按固定顺序汇总——evidence_text/引用编号
-        # 与串行版逐字节一致，并行只是快。D3 依赖前面块的 evidence_text，单独串行收尾。---
+        # --- planner-worker 并行取数：数据块统一为 DataBlockProvider（applies=规则门控、
+        # collect=取数），run_providers 对命中的块并行取数、按注册顺序汇总——evidence_text/
+        # 引用编号与串行版逐字节一致，并行只是快。D3 依赖前面块的 evidence_text，单独串行收尾。---
         anchored_name = result.anchored_entity.entity if result.anchored_entity is not None else None
-        block_tasks: list[ask_planner.BlockTask] = []
+        providers: list[ask_planner.DataBlockProvider] = []
 
-        if options.include_timeseries_block:
-            ts_intent = market_timeseries.parse_timeseries_intent(options.query)
-            if ts_intent is not None:
-                def _build_d0(intent=ts_intent):
-                    block = market_timeseries.timeseries_block_for_llm(intent, options.market_db_path)
-                    metric_labels = "/".join(spec.label for spec in intent.metrics)
-                    return block, Citation(
-                        "D0",
-                        "本地 DuckDB 盘面时序直查数据块",
-                        f"白名单指标逐日直查（{metric_labels}，过去 {intent.window} 个交易日）",
-                    )
+        d0_intents: list[market_timeseries.TimeseriesIntent] = []
 
-                block_tasks.append(ask_planner.BlockTask("D0", "盘面时序直查", _build_d0))
-        if options.include_midterm_block:
-            midterm_intent = market_midterm.parse_midterm_intent(options.query)
-            if midterm_intent is not None:
-                def _build_d6(intent=midterm_intent):
-                    block = market_midterm.midterm_trend_block_for_llm(
-                        options.query, theme, options.market_db_path, intent.window,
-                    )
-                    return block, Citation(
-                        "D6",
-                        "本地 DuckDB 多日/中期趋势数据块",
-                        f"题材近 {intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
-                    )
+        def _d0_applies() -> bool:
+            if not options.include_timeseries_block:
+                return False
+            intent = market_timeseries.parse_timeseries_intent(options.query)
+            if intent is None:
+                return False
+            d0_intents.append(intent)
+            return True
 
-                block_tasks.append(ask_planner.BlockTask("D6", "多日中期趋势", _build_d6))
-        if options.include_moneyflow_block and (
-            options.force_moneyflow_block
-            or market_moneyflow.parse_moneyflow_intent(options.query)
-        ):
-            def _build_d9():
-                block = market_moneyflow.moneyflow_block_for_llm(
-                    options.query,
-                    anchored_name,
-                    options.market_db_path,
-                    as_of_date=options.date,
-                )
-                return block, Citation(
-                    "D9",
-                    "本地 DuckDB L2 大单资金流数据块",
-                    "个股近日主买/总买净额+量化单特征 + 最新扫描日大单净流入榜（自有大单口径，非全市场）",
-                )
-
-            block_tasks.append(ask_planner.BlockTask("D9", "L2 大单资金流", _build_d9))
-        if options.include_analog_block and market_analogs.parse_analog_intent(options.query):
-            def _build_d8():
-                block = market_analogs.analog_block_for_llm(options.query, theme, options.market_db_path)
-                return block, Citation(
-                    "D8",
-                    "本地 DuckDB 历史类比检索数据块",
-                    f"题材自身历史上与当前 {market_analogs.DEFAULT_WINDOW} 日形态最相似窗口及后续 5/10/20 日实际走法（小样本历史事实，非概率预测）",
-                )
-
-            block_tasks.append(ask_planner.BlockTask("D8", "历史类比检索", _build_d8))
-        if options.include_financials_block and (
-            market_financials.parse_financials_intent(options.query)
-            or (
-                question_plan.base_finance_mode is not None
-                and question_plan.base_finance_mode.require_financials
+        def _build_d0():
+            intent = d0_intents[0]
+            block = market_timeseries.timeseries_block_for_llm(intent, options.market_db_path)
+            metric_labels = "/".join(spec.label for spec in intent.metrics)
+            return block, Citation(
+                "D0",
+                "本地 DuckDB 盘面时序直查数据块",
+                f"白名单指标逐日直查（{metric_labels}，过去 {intent.window} 个交易日）",
             )
-        ):
-            def _build_d7():
-                block = _financials_block_for_llm(
-                    options.query,
-                    options.market_db_path,
-                    timeout=_stage_timeout(options, 8),
-                )
-                return block, Citation(
-                    "D7",
-                    "东财 F10 逐季财报数据块",
-                    "目标近 N 期累计营收/归母净利/毛利率/净利率（+同比），业绩兑现节奏视角",
-                )
 
-            block_tasks.append(ask_planner.BlockTask("D7", "逐季财报", _build_d7))
-        if options.include_news_block and (
-            market_news.parse_news_intent(options.query)
-            or (
-                question_plan.base_finance_mode is not None
-                and question_plan.base_finance_mode.require_news
+        providers.append(ask_planner.DataBlockProvider("D0", "盘面时序直查", _d0_applies, _build_d0))
+
+        d6_intents: list[market_midterm.MidtermIntent] = []
+
+        def _d6_applies() -> bool:
+            if not options.include_midterm_block:
+                return False
+            intent = market_midterm.parse_midterm_intent(options.query)
+            if intent is None:
+                return False
+            d6_intents.append(intent)
+            return True
+
+        def _build_d6():
+            intent = d6_intents[0]
+            block = market_midterm.midterm_trend_block_for_llm(
+                options.query, theme, options.market_db_path, intent.window,
             )
-        ):
-            def _build_w7():
-                news_keyword = market_news.resolve_news_keyword(options.query, theme, anchored_name)
-                news_result = market_news.news_block_result_for_keyword(
-                    news_keyword,
-                    timeout=_stage_timeout(options, 20),
-                )
-                result.provider_traces.extend(news_result.traces)
-                return news_result.block, Citation(
-                    "W7",
-                    "web 事件检索数据块（东财资讯 + web-access 全网检索）",
-                    f"「{news_keyword}」近 {market_news.DEFAULT_WITHIN_DAYS} 天资讯日期/来源/标题/链接（只列不编，消息面存在性证据）",
-                )
+            return block, Citation(
+                "D6",
+                "本地 DuckDB 多日/中期趋势数据块",
+                f"题材近 {intent.window} 日双红天数/成交额趋势/拥挤度分位（中期赔率视角）",
+            )
 
-            block_tasks.append(ask_planner.BlockTask("W7", "web 事件检索", _build_w7))
-        if options.include_memory_block:
-            def _build_m():
-                block = user_memory.memory_block_for_query(
-                    options.query, theme, anchored_name, user=options.user,
-                )
-                return block, Citation(
-                    "M",
-                    "用户记忆检索块",
-                    "相关性召回的用户既有核心判断/纠偏原则/回检胜率（非市场事实，承接往前推）",
-                )
+        providers.append(ask_planner.DataBlockProvider("D6", "多日中期趋势", _d6_applies, _build_d6))
 
-            block_tasks.append(ask_planner.BlockTask("M", "用户记忆检索", _build_m))
-        if options.include_recall_block:
-            def _build_v():
-                block = checkpoint_recall.recall_block_for_query(
-                    options.query, theme, anchored_name,
-                    user=options.user,
-                    data_asof=_market_data_asof(options.market_db_path),
-                )
-                return block, Citation(
-                    "V",
-                    "回检块（历史可证伪判断×裁决）",
-                    "系统对该题材/个股登记过的可证伪判断及最新裁决 hit/miss/partial/unverifiable，"
-                    "附数据新鲜度自检（裁决快照非新预测，未终态不作数）",
-                )
+        def _d9_applies() -> bool:
+            return options.include_moneyflow_block and bool(
+                options.force_moneyflow_block
+                or market_moneyflow.parse_moneyflow_intent(options.query)
+            )
 
-            block_tasks.append(ask_planner.BlockTask("V", "回检块", _build_v))
-        if options.include_market_value_block and not is_market_review:
-            def _build_d1():
-                block = _market_value_block_for_llm(options.query, theme, options.market_db_path)
-                return block, Citation(
-                    "D1",
-                    "本地 DuckDB 市场价值数据块",
-                    "CAR/峰后回撤/半衰期代理/同题材强势替代队列",
-                )
+        def _build_d9():
+            block = market_moneyflow.moneyflow_block_for_llm(
+                options.query,
+                anchored_name,
+                options.market_db_path,
+                as_of_date=options.date,
+            )
+            return block, Citation(
+                "D9",
+                "本地 DuckDB L2 大单资金流数据块",
+                "个股近日主买/总买净额+量化单特征 + 最新扫描日大单净流入榜（自有大单口径，非全市场）",
+            )
 
-            block_tasks.append(ask_planner.BlockTask("D1", "市场价值与替代队列", _build_d1))
-        if options.include_mainline_context_block:
-            def _build_d4():
-                block = (
-                    _market_review_mainline_context_block_for_llm(
-                        options.query,
-                        theme,
-                        options.market_db_path,
-                    )
-                    if is_market_review
-                    else _mainline_context_block_for_llm(
-                        options.query,
-                        theme,
-                        options.market_db_path,
-                    )
-                )
-                return block, Citation(
-                    "D4",
-                    "本地 DuckDB 主线题材结构数据块",
-                    "同日主线结构；若快照滞后则仅提供数据边界",
-                )
+        providers.append(ask_planner.DataBlockProvider("D9", "L2 大单资金流", _d9_applies, _build_d9))
 
-            block_tasks.append(ask_planner.BlockTask("D4", "主线题材结构", _build_d4))
-        if options.include_customer_hardness_block and not is_market_review:
-            def _build_d2():
-                block = _customer_evidence_hardness_block_for_llm(evidence_chain, gap_lines)
-                return block, Citation(
-                    "D2",
-                    "本地证据链客户硬度数据块",
-                    "客户/订单/量产/送样/验证证据按硬度分层",
+        def _d8_applies() -> bool:
+            return options.include_analog_block and bool(
+                market_analogs.parse_analog_intent(options.query)
+            )
+
+        def _build_d8():
+            block = market_analogs.analog_block_for_llm(options.query, theme, options.market_db_path)
+            return block, Citation(
+                "D8",
+                "本地 DuckDB 历史类比检索数据块",
+                f"题材自身历史上与当前 {market_analogs.DEFAULT_WINDOW} 日形态最相似窗口及后续 5/10/20 日实际走法（小样本历史事实，非概率预测）",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D8", "历史类比检索", _d8_applies, _build_d8))
+
+        def _d7_applies() -> bool:
+            return options.include_financials_block and bool(
+                market_financials.parse_financials_intent(options.query)
+                or (
+                    question_plan.base_finance_mode is not None
+                    and question_plan.base_finance_mode.require_financials
                 )
+            )
 
-            block_tasks.append(ask_planner.BlockTask("D2", "客户证据硬度", _build_d2))
-        if options.include_valuation_block and question_plan.question_type == QUESTION_VALUATION:
-            def _build_d5():
-                block = _valuation_block_for_llm(options.query, result.matched_theme, options.market_db_path)
-                return block, Citation(
-                    "D5",
-                    "东财快照估值数据块",
-                    "目标 PE/PB/市值 + 同题材可比估值带与横截面分位",
+        def _build_d7():
+            block = _financials_block_for_llm(
+                options.query,
+                options.market_db_path,
+                timeout=_stage_timeout(options, 8),
+            )
+            return block, Citation(
+                "D7",
+                "东财 F10 逐季财报数据块",
+                "目标近 N 期累计营收/归母净利/毛利率/净利率（+同比），业绩兑现节奏视角",
+            )
+
+        providers.append(ask_planner.DataBlockProvider("D7", "逐季财报", _d7_applies, _build_d7))
+
+        def _w7_applies() -> bool:
+            return options.include_news_block and bool(
+                market_news.parse_news_intent(options.query)
+                or (
+                    question_plan.base_finance_mode is not None
+                    and question_plan.base_finance_mode.require_news
                 )
+            )
 
-            block_tasks.append(ask_planner.BlockTask("D5", "估值数据块", _build_d5))
+        def _build_w7():
+            news_keyword = market_news.resolve_news_keyword(options.query, theme, anchored_name)
+            news_result = market_news.news_block_result_for_keyword(
+                news_keyword,
+                timeout=_stage_timeout(options, 20),
+            )
+            result.provider_traces.extend(news_result.traces)
+            return news_result.block, Citation(
+                "W7",
+                "web 事件检索数据块（东财资讯 + web-access 全网检索）",
+                f"「{news_keyword}」近 {market_news.DEFAULT_WITHIN_DAYS} 天资讯日期/来源/标题/链接（只列不编，消息面存在性证据）",
+            )
 
-        outcomes = ask_planner.run_block_tasks(
-            block_tasks,
+        providers.append(ask_planner.DataBlockProvider("W7", "web 事件检索", _w7_applies, _build_w7))
+
+        def _build_m():
+            block = user_memory.memory_block_for_query(
+                options.query, theme, anchored_name, user=options.user,
+            )
+            return block, Citation(
+                "M",
+                "用户记忆检索块",
+                "相关性召回的用户既有核心判断/纠偏原则/回检胜率（非市场事实，承接往前推）",
+            )
+
+        providers.append(
+            ask_planner.DataBlockProvider(
+                "M", "用户记忆检索", lambda: options.include_memory_block, _build_m,
+            )
+        )
+
+        def _build_v():
+            block = checkpoint_recall.recall_block_for_query(
+                options.query, theme, anchored_name,
+                user=options.user,
+                data_asof=_market_data_asof(options.market_db_path),
+            )
+            return block, Citation(
+                "V",
+                "回检块（历史可证伪判断×裁决）",
+                "系统对该题材/个股登记过的可证伪判断及最新裁决 hit/miss/partial/unverifiable，"
+                "附数据新鲜度自检（裁决快照非新预测，未终态不作数）",
+            )
+
+        providers.append(
+            ask_planner.DataBlockProvider(
+                "V", "回检块", lambda: options.include_recall_block, _build_v,
+            )
+        )
+
+        def _build_d1():
+            block = _market_value_block_for_llm(options.query, theme, options.market_db_path)
+            return block, Citation(
+                "D1",
+                "本地 DuckDB 市场价值数据块",
+                "CAR/峰后回撤/半衰期代理/同题材强势替代队列",
+            )
+
+        providers.append(
+            ask_planner.DataBlockProvider(
+                "D1",
+                "市场价值与替代队列",
+                lambda: options.include_market_value_block and not is_market_review,
+                _build_d1,
+            )
+        )
+
+        def _build_d4():
+            block = (
+                _market_review_mainline_context_block_for_llm(
+                    options.query,
+                    theme,
+                    options.market_db_path,
+                )
+                if is_market_review
+                else _mainline_context_block_for_llm(
+                    options.query,
+                    theme,
+                    options.market_db_path,
+                )
+            )
+            return block, Citation(
+                "D4",
+                "本地 DuckDB 主线题材结构数据块",
+                "同日主线结构；若快照滞后则仅提供数据边界",
+            )
+
+        providers.append(
+            ask_planner.DataBlockProvider(
+                "D4", "主线题材结构", lambda: options.include_mainline_context_block, _build_d4,
+            )
+        )
+
+        def _build_d2():
+            block = _customer_evidence_hardness_block_for_llm(evidence_chain, gap_lines)
+            return block, Citation(
+                "D2",
+                "本地证据链客户硬度数据块",
+                "客户/订单/量产/送样/验证证据按硬度分层",
+            )
+
+        providers.append(
+            ask_planner.DataBlockProvider(
+                "D2",
+                "客户证据硬度",
+                lambda: options.include_customer_hardness_block and not is_market_review,
+                _build_d2,
+            )
+        )
+
+        def _build_d5():
+            block = _valuation_block_for_llm(options.query, result.matched_theme, options.market_db_path)
+            return block, Citation(
+                "D5",
+                "东财快照估值数据块",
+                "目标 PE/PB/市值 + 同题材可比估值带与横截面分位",
+            )
+
+        providers.append(
+            ask_planner.DataBlockProvider(
+                "D5",
+                "估值数据块",
+                lambda: options.include_valuation_block
+                and question_plan.question_type == QUESTION_VALUATION,
+                _build_d5,
+            )
+        )
+
+        outcomes = ask_planner.run_providers(
+            providers,
             parallel=options.parallel_blocks,
             deadline=options.deadline,
         )
