@@ -35,6 +35,7 @@ from intelligence.services import (
     evidence_providers,
     ask_clarify,
     ask_planner,
+    evidence_registry,
     checkpoint_recall,
     closed_loop_retrieval,
     entity_anchor,
@@ -279,6 +280,10 @@ class AskOptions:
     # （hit/miss/partial/unverifiable），附数据新鲜度自检（台账/盘面截至日，过期显式声明）；
     # 台账缺失或无相关记录时不追加块，行为逐字节不变。
     include_recall_block: bool = True
+    # 数据块 provider 白名单（evidence_registry）：None（默认）走上面各 include_*_block
+    # 旧开关，完全兼容；给定集合时只允许名单内的块参与门控（意图门控仍生效，
+    # enabled 是“允许”不是“强制取数”）。
+    enabled_providers: tuple[str, ...] | None = None
     # 澄清追问前置门（clarify-then-act）：问题明确模糊（空问题/纯空泛词面）时不硬答，
     # 返回结构化澄清问题（对象/口径/日期），跳过整次检索；带实质内容的问题行为逐字节不变。
     clarify: bool = True
@@ -672,7 +677,7 @@ def _answer_market_review(
         return result
 
     prior_parts: list[str] = []
-    if options.include_memory_block:
+    if evidence_registry.provider_enabled(options, "M"):
         memory_block = user_memory.memory_block_for_query(
             options.query,
             user=options.user,
@@ -701,7 +706,7 @@ def _answer_market_review(
                 "## 历史经验卡片（回答方法，不是市场事实）\n"
                 f"{card_guidance}"
             )
-    if options.include_recall_block:
+    if evidence_registry.provider_enabled(options, "V"):
         recall_block = checkpoint_recall.recall_block_for_query(
             options.query,
             user=options.user,
@@ -1605,7 +1610,7 @@ def answer_query(options: AskOptions) -> AskResult:
         d0_intents: list[market_timeseries.TimeseriesIntent] = []
 
         def _d0_applies() -> bool:
-            if not options.include_timeseries_block:
+            if not evidence_registry.provider_enabled(options, "D0"):
                 return False
             intent = market_timeseries.parse_timeseries_intent(options.query)
             if intent is None:
@@ -1628,7 +1633,7 @@ def answer_query(options: AskOptions) -> AskResult:
         d6_intents: list[market_midterm.MidtermIntent] = []
 
         def _d6_applies() -> bool:
-            if not options.include_midterm_block:
+            if not evidence_registry.provider_enabled(options, "D6"):
                 return False
             intent = market_midterm.parse_midterm_intent(options.query)
             if intent is None:
@@ -1650,7 +1655,7 @@ def answer_query(options: AskOptions) -> AskResult:
         providers.append(ask_planner.DataBlockProvider("D6", "多日中期趋势", _d6_applies, _build_d6))
 
         def _d9_applies() -> bool:
-            return options.include_moneyflow_block and bool(
+            return evidence_registry.provider_enabled(options, "D9") and bool(
                 options.force_moneyflow_block
                 or market_moneyflow.parse_moneyflow_intent(options.query)
             )
@@ -1671,7 +1676,7 @@ def answer_query(options: AskOptions) -> AskResult:
         providers.append(ask_planner.DataBlockProvider("D9", "L2 大单资金流", _d9_applies, _build_d9))
 
         def _d8_applies() -> bool:
-            return options.include_analog_block and bool(
+            return evidence_registry.provider_enabled(options, "D8") and bool(
                 market_analogs.parse_analog_intent(options.query)
             )
 
@@ -1686,7 +1691,7 @@ def answer_query(options: AskOptions) -> AskResult:
         providers.append(ask_planner.DataBlockProvider("D8", "历史类比检索", _d8_applies, _build_d8))
 
         def _d7_applies() -> bool:
-            return options.include_financials_block and bool(
+            return evidence_registry.provider_enabled(options, "D7") and bool(
                 market_financials.parse_financials_intent(options.query)
                 or (
                     question_plan.base_finance_mode is not None
@@ -1709,7 +1714,7 @@ def answer_query(options: AskOptions) -> AskResult:
         providers.append(ask_planner.DataBlockProvider("D7", "逐季财报", _d7_applies, _build_d7))
 
         def _w7_applies() -> bool:
-            return options.include_news_block and bool(
+            return evidence_registry.provider_enabled(options, "W7") and bool(
                 market_news.parse_news_intent(options.query)
                 or (
                     question_plan.base_finance_mode is not None
@@ -1744,7 +1749,7 @@ def answer_query(options: AskOptions) -> AskResult:
 
         providers.append(
             ask_planner.DataBlockProvider(
-                "M", "用户记忆检索", lambda: options.include_memory_block, _build_m,
+                "M", "用户记忆检索", lambda: evidence_registry.provider_enabled(options, "M"), _build_m,
             )
         )
 
@@ -1763,7 +1768,7 @@ def answer_query(options: AskOptions) -> AskResult:
 
         providers.append(
             ask_planner.DataBlockProvider(
-                "V", "回检块", lambda: options.include_recall_block, _build_v,
+                "V", "回检块", lambda: evidence_registry.provider_enabled(options, "V"), _build_v,
             )
         )
 
@@ -1779,7 +1784,7 @@ def answer_query(options: AskOptions) -> AskResult:
             ask_planner.DataBlockProvider(
                 "D1",
                 "市场价值与替代队列",
-                lambda: options.include_market_value_block and not is_market_review,
+                lambda: evidence_registry.provider_enabled(options, "D1") and not is_market_review,
                 _build_d1,
             )
         )
@@ -1806,7 +1811,7 @@ def answer_query(options: AskOptions) -> AskResult:
 
         providers.append(
             ask_planner.DataBlockProvider(
-                "D4", "主线题材结构", lambda: options.include_mainline_context_block, _build_d4,
+                "D4", "主线题材结构", lambda: evidence_registry.provider_enabled(options, "D4"), _build_d4,
             )
         )
 
@@ -1822,7 +1827,7 @@ def answer_query(options: AskOptions) -> AskResult:
             ask_planner.DataBlockProvider(
                 "D2",
                 "客户证据硬度",
-                lambda: options.include_customer_hardness_block and not is_market_review,
+                lambda: evidence_registry.provider_enabled(options, "D2") and not is_market_review,
                 _build_d2,
             )
         )
@@ -1839,7 +1844,7 @@ def answer_query(options: AskOptions) -> AskResult:
             ask_planner.DataBlockProvider(
                 "D5",
                 "估值数据块",
-                lambda: options.include_valuation_block
+                lambda: evidence_registry.provider_enabled(options, "D5")
                 and question_plan.question_type == QUESTION_VALUATION,
                 _build_d5,
             )
@@ -1866,7 +1871,7 @@ def answer_query(options: AskOptions) -> AskResult:
                 continue
             evidence_text = _append_block_outcome(result, outcome, evidence_text, citations)
         # D3 依赖此前累积的 evidence_text（文本兜底路径），必须在其他块汇总后串行生成。
-        if options.include_second_derivative_block and not is_market_review:
+        if evidence_registry.provider_enabled(options, "D3") and not is_market_review:
             second_derivative_block = _second_derivative_queue_block_for_llm(
                 options.query,
                 theme,
@@ -2742,7 +2747,7 @@ def _prepare_answer_spec_synthesis(
         query=options.query,
     )
     experience_guidance = ""
-    if options.include_memory_block:
+    if evidence_registry.provider_enabled(options, "M"):
         cards, card_warn = experience_cards.load_cards(
             us.experience_cards_path,
             window=options.experience_cards_window,
