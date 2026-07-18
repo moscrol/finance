@@ -2092,7 +2092,8 @@ def add_perspective_parser(subparsers: argparse._SubParsersAction) -> None:
     p_init.add_argument("--id", required=True, help="角色 id（字母数字 . _ -，如 blogger_x）")
     p_init.add_argument("--name", default="", help="人读名称（如 某博主；缺省用 id 或内置名）")
     p_init.add_argument(
-        "--type", default="blogger", choices=["blogger", "trend_trader", "value_investor", "user_framework"],
+        "--type", default="blogger",
+        choices=["blogger", "trend_trader", "value_investor", "user_framework", "kol_fengyuan"],
         help="角色类型（默认 blogger）",
     )
     p_init.set_defaults(func=cmd_perspective_init)
