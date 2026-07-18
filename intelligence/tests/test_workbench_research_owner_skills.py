@@ -1239,3 +1239,46 @@ def test_p2_research_owner_is_injected_by_controller_contract(
         selection.skill_id for selection in routed.selections
     }
     assert routed.base_finance_fallback is False
+
+
+def test_owner_output_carries_internal_retrieval_traces(
+    tmp_path: Path,
+) -> None:
+    """P1-A（手术版）：owner 内部检索 trace 必须穿透 SkillOutput 边界。"""
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        result = _result(
+            options.query,
+            STOCK_DEEP_DIVE.question_type,
+            evidence_id="R1",
+        )
+        result.provider_traces.append(
+            ProviderTrace(
+                provider="local_wiki",
+                capability="theme_recall",
+                status="success",
+                detail="closed-loop relevance gate passed",
+                result_count=3,
+            )
+        )
+        return result
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run("分析液冷", "ask")
+    skill = ResearchOwnerSkill(
+        STOCK_DEEP_DIVE,
+        answer_query_fn=fake_answer_query,
+        web_search_fn=_empty_web_search,
+    )
+
+    output = skill.execute(_context(tmp_path, store, run.run_id, "分析液冷"))
+
+    providers = [trace["provider"] for trace in output.provider_traces]
+    assert "local_wiki" in providers
+    wiki_trace = next(
+        trace
+        for trace in output.provider_traces
+        if trace["provider"] == "local_wiki"
+    )
+    assert wiki_trace["status"] == "success"
+    assert wiki_trace["result_count"] == 3

@@ -78,6 +78,7 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
             "answer_contract",
             "stage_artifacts",
             "status",
+            "provider_traces",
         ]
     store = RunStore(root=tmp_path / "runs")
     context = SkillExecutionContext(

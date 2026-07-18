@@ -491,6 +491,54 @@ class DataBlockClaimStatusTests(unittest.TestCase):
         )
 
 
+class OwnerTraceRehydrationTests(unittest.TestCase):
+    """P1-A（手术版）：owner 输出重建 AskResult 时不再丢内部检索 trace。"""
+
+    def test_owner_traces_survive_result_rebuild(self) -> None:
+        from intelligence.services.conversation_orchestrator import (
+            _skill_owner_result,
+        )
+        from intelligence.workbench_skills.contracts import (
+            SkillAnswerContract,
+            SkillOutput,
+        )
+
+        spec = _spec()
+        output = SkillOutput(
+            skill_id="stock-deep-dive",
+            modules=[],
+            citations=[{"title": "公司公告", "source": "巨潮"}],
+            warnings=[],
+            as_of="2026-07-17",
+            raw_result_ref=None,
+            answer_contract=SkillAnswerContract(
+                retrieval_plan=("S", "G"),
+                output_contract=("结论",),
+                answer_spec=spec,
+            ),
+            provider_traces=[
+                {
+                    "provider": "local_wiki",
+                    "capability": "theme_recall",
+                    "status": "success",
+                    "detail": "closed-loop gate passed",
+                    "source_trade_date": None,
+                    "result_count": 2,
+                    "unknown_field": "按白名单过滤",
+                },
+                {"bad": "shape"},
+                "not-a-dict",
+            ],
+        )
+
+        result = _skill_owner_result("分析液冷", output)
+
+        self.assertEqual(len(result.provider_traces), 1)
+        trace = result.provider_traces[0]
+        self.assertEqual(trace.provider, "local_wiki")
+        self.assertEqual(trace.result_count, 2)
+
+
 class AgentEvidenceTraceSmokeTests(unittest.TestCase):
     """agent 证据行→claim 的最小烟囱：确保 AgentEvidence/ProviderTrace 形态未破坏。"""
 

@@ -34,6 +34,7 @@ from intelligence.services.ask import (
     synthesize_shadow_grounded_answer,
 )
 from intelligence.services.answer_stream import AnswerSnapshot
+from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_MARKET_REVIEW,
@@ -308,6 +309,44 @@ class TurnResult:
     invoked_skill_ids: tuple[str, ...]
 
 
+_PROVIDER_TRACE_FIELDS = frozenset(
+    (
+        "provider",
+        "capability",
+        "status",
+        "detail",
+        "source_trade_date",
+        "result_count",
+    )
+)
+
+
+def _rehydrate_provider_traces(
+    payloads: Sequence[dict[str, object]],
+) -> list[ProviderTrace]:
+    """把 SkillOutput.provider_traces（JSON dict）还原成 ProviderTrace。
+
+    P1-A（手术版）：owner 输出重建 AskResult 时不再丢内部检索 trace，
+    _record_retrieval 记到的不再是"干净但失真"的结果。字段按白名单过滤，
+    坏形态条目跳过不炸主链。"""
+    traces: list[ProviderTrace] = []
+    for payload in payloads:
+        if not isinstance(payload, dict):
+            continue
+        kwargs = {
+            key: value
+            for key, value in payload.items()
+            if key in _PROVIDER_TRACE_FIELDS
+        }
+        if not kwargs.get("provider") or not kwargs.get("capability"):
+            continue
+        try:
+            traces.append(ProviderTrace(**kwargs))
+        except TypeError:
+            continue
+    return traces
+
+
 def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
     contract = output.answer_contract
     if contract is None:
@@ -324,7 +363,7 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         )
         for index, citation in enumerate(output.citations, start=1)
     ]
-    return AskResult(
+    result = AskResult(
         query=query,
         trade_date=output.as_of,
         matched_theme=None,
@@ -338,6 +377,10 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         citations=citations,
         answer_spec=contract.answer_spec,
     )
+    result.provider_traces.extend(
+        _rehydrate_provider_traces(output.provider_traces)
+    )
+    return result
 
 
 def _deadline_partial_result(query: str, warnings: Sequence[str]) -> AskResult:

@@ -177,7 +177,42 @@ class ResearchOwnerSkill:
             answer_contract=contract,
             stage_artifacts=stage_artifacts,
             status=status,
+            provider_traces=self._retrieval_traces(result),
         )
+
+    def _retrieval_traces(self, result: AskResult) -> list[dict]:
+        """把 owner 内部检索可观测序列化成 JSON trace 列表（穿透 skill 边界）。
+
+        闭环检索与 wiki 遥测没有独立通道，折叠为合成 ProviderTrace 并入同一
+        列表，_record_retrieval 的 trace payload 会原样带出。"""
+        traces = [trace.to_dict() for trace in result.provider_traces]
+        if result.wiki_rag_telemetry is not None:
+            telemetry = result.wiki_rag_telemetry
+            traces.append(
+                {
+                    "provider": "wiki_rag",
+                    "capability": "owner_retrieval_telemetry",
+                    "status": telemetry.status,
+                    "detail": telemetry.summary_line(),
+                    "source_trade_date": None,
+                    "result_count": telemetry.hit_count,
+                }
+            )
+        if result.closed_loop_retrieval is not None:
+            inspector = result.closed_loop_retrieval.inspector_dict()
+            traces.append(
+                {
+                    "provider": "closed_loop_retrieval",
+                    "capability": "owner_retrieval_telemetry",
+                    "status": "success",
+                    "detail": json.dumps(inspector, ensure_ascii=False)[:800],
+                    "source_trade_date": None,
+                    "result_count": int(
+                        inspector.get("buckets", {}).get("conclusion", 0)
+                    ),
+                }
+            )
+        return traces
 
     def _owner_result_status(
         self,
