@@ -404,6 +404,49 @@ class MarketReviewProseContractTests(unittest.TestCase):
         self.assertIn("放量上涨", result.synthesis)
         self.assertNotEqual(result.llm_fallback_reason, "quality_gate_rejected")
 
+    def test_market_review_prose_still_blocked_on_engineering_leak(self) -> None:
+        """豁免只针对 marker 绑定：散文里出现内部术语仍必须退稿。"""
+        result = AskResult(
+            query="复盘今天的A股",
+            trade_date="2026-07-17",
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+        )
+        result.answer_spec = _build_base_answer_spec_from_sections(
+            result,
+            theme="市场复盘",
+            evidence_blocks=("今日市场总览：放量上涨。",),
+            direct_lines=("市场放量上涨。",),
+        )
+        result.prepared_synthesis_messages = [
+            {"role": "system", "content": "market review"},
+            {"role": "user", "content": "复盘"},
+        ]
+        result.prepared_synthesis_is_market_review = True
+        leaking_prose = (
+            "今天市场放量上涨，DuckDB 显示主线集中在算力方向。（非投资建议）"
+        )
+        composed = llm_refine.SynthesisResult(
+            answer=leaking_prose,
+            provider="test",
+            model="test-model",
+            finish_reason="stop",
+        )
+        options = AskOptions(query="复盘今天的A股", synthesize=False)
+
+        with mock.patch.object(
+            llm_refine,
+            "synthesize_messages",
+            return_value=(composed, ""),
+        ):
+            synthesize_prepared_answer(
+                PreparedAnswer(options=options, result=result)
+            )
+
+        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertIsNone(result.synthesis)
+
 
 class DataBlockClaimStatusTests(unittest.TestCase):
     """VERIFIED 不能靠关键词缺席铸造：W7/M/V/D8 默认降档。"""

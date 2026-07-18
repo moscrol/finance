@@ -1021,7 +1021,13 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         blocking_issues = [
             issue for issue in gate_issues if issue.severity == "error"
         ]
-    if blocking_issues and deadline.remaining() > 0:
+    # claim-binding 修订轮只适用于 registry 契约：散文契约（市场复盘）没有
+    # registry 可复制，泄漏即直接退稿，不浪费一次错误契约的修订调用。
+    if (
+        blocking_issues
+        and deadline.remaining() > 0
+        and not result.prepared_synthesis_is_market_review
+    ):
         correction_started = time.monotonic()
         correction, correction_reason = llm_refine.synthesize_messages(
             [
