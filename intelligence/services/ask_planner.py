@@ -38,6 +38,21 @@ class BlockTask:
 
 
 @dataclass
+class DataBlockProvider:
+    """数据块证据源 provider（D/W7/M/V 块的统一接口）。
+
+    ``applies()`` 是现有的规则门控（意图词面/问题类型命中才取数），
+    ``collect()`` 返回 (块文本, 引用)。与 evidence_providers 里的 S/G/R/W/E/L
+    provider 同构：门控与取数分离，新增数据块不再改主流程。
+    """
+
+    name: str
+    label: str
+    applies: Callable[[], bool]
+    collect: Callable[[], tuple[str, Any]]
+
+
+@dataclass
 class BlockOutcome:
     tag: str
     label: str
@@ -74,6 +89,30 @@ def _run_one(
             error=f"{type(exc).__name__}: {exc}",
             elapsed_ms=int((time.monotonic() - started) * 1000),
         )
+
+
+def run_providers(
+    providers: list[DataBlockProvider],
+    max_workers: int = DEFAULT_MAX_WORKERS,
+    parallel: bool = True,
+    deadline: ResearchDeadline | None = None,
+) -> list[BlockOutcome]:
+    """对 ``applies()==True`` 的 provider 并行 collect，按注册顺序返回结果。
+
+    门控串行求值（便宜且确定性），取数并行；汇总顺序 = 注册顺序，
+    保证 evidence_text/引用编号与串行版逐字节一致。
+    """
+    tasks = [
+        BlockTask(provider.name, provider.label, provider.collect)
+        for provider in providers
+        if provider.applies()
+    ]
+    return run_block_tasks(
+        tasks,
+        max_workers=max_workers,
+        parallel=parallel,
+        deadline=deadline,
+    )
 
 
 def run_block_tasks(
