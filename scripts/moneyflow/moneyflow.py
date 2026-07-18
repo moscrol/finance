@@ -15,30 +15,284 @@ BuyNo > SellNo => 主动买入；SellNo > BuyNo => 主动卖出。
     python3 moneyflow.py <股票代码> <日期> [阈值万元]
     python3 moneyflow.py 300775 2026-07-03 50
 """
+import ipaddress
 import json
 import os
 import random
+import socket
+import subprocess
 import sys
 import time
 import urllib.request
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import pandas as pd
-from clickhouse_driver import Client
-
-plt.rcParams["font.sans-serif"] = ["WenQuanYi Zen Hei"]
-plt.rcParams["axes.unicode_minus"] = False
-
 from config import HOST, PORT, USER, PASSWORD, out_path  # noqa: E402
 
 
-def make_client():
-    return Client(host=HOST, port=PORT, user=USER, password=PASSWORD,
-                  connect_timeout=20, send_receive_timeout=300,
-                  settings={"max_execution_time": 120})
+def _setup_matplotlib():
+    """绘图依赖惰性加载，便于 preflight/单测在无 matplotlib 环境下 import。"""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.dates as mdates
+    import matplotlib.pyplot as plt
+
+    plt.rcParams["font.sans-serif"] = ["WenQuanYi Zen Hei"]
+    plt.rcParams["axes.unicode_minus"] = False
+    return plt, mdates
+
+
+def _ch_client_cls():
+    from clickhouse_driver import Client
+
+    return Client
+
+# Shadowrocket / Clash Fake-IP 等常用网段；命中则判定 DNS 被代理劫持
+_FAKE_IP_NETWORKS = (
+    ipaddress.ip_network("198.18.0.0/15"),
+)
+_PUBLIC_DNS = tuple(
+    s.strip()
+    for s in os.environ.get("CH_PUBLIC_DNS", "223.5.5.5,8.8.8.8,1.1.1.1").split(",")
+    if s.strip()
+)
+
+
+def _is_fake_ip(ip: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any(addr in net for net in _FAKE_IP_NETWORKS)
+
+
+def _system_resolve(host: str) -> list[str]:
+    ips: list[str] = []
+    try:
+        for family, _t, _p, _c, sockaddr in socket.getaddrinfo(
+            host, None, type=socket.SOCK_STREAM
+        ):
+            if family == socket.AF_INET:
+                ip = sockaddr[0]
+                if ip not in ips:
+                    ips.append(ip)
+    except socket.gaierror:
+        pass
+    return ips
+
+
+def _dig_resolve(host: str, dns: str) -> list[str]:
+    """用 dig @public-dns 绕过本机 Fake-IP 解析。"""
+    try:
+        out = subprocess.run(
+            ["dig", f"@{dns}", "+short", "+time=2", "+tries=1", host, "A"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return []
+    ips = []
+    for line in (out.stdout or "").splitlines():
+        line = line.strip()
+        if not line or line.endswith("."):
+            continue
+        try:
+            ipaddress.ip_address(line)
+        except ValueError:
+            continue
+        if line not in ips:
+            ips.append(line)
+    return ips
+
+
+def resolve_clickhouse_host(host: str | None = None) -> tuple[str, str, list[str]]:
+    """解析 ClickHouse 可达 endpoint。
+
+    返回 (connect_host, note, all_candidates)。
+    - 若系统解析落在 Fake-IP 段，自动用公共 DNS 回退；
+    - 可用 CH_HOST_FALLBACK 强制指定 IP（逗号分隔）。
+    """
+    host = host or HOST
+    # 已是字面 IP
+    try:
+        ipaddress.ip_address(host)
+        if _is_fake_ip(host):
+            raise RuntimeError(
+                f"CH_HOST={host} 落在 Fake-IP 段（198.18.0.0/15）。"
+                "请关闭代理对该库的劫持，或设置真实 IP 到 CH_HOST / CH_HOST_FALLBACK。"
+            )
+        return host, "literal-ip", [host]
+    except ValueError:
+        pass
+
+    candidates: list[str] = []
+    note_parts: list[str] = []
+
+    sys_ips = _system_resolve(host)
+    if sys_ips:
+        note_parts.append(f"system={','.join(sys_ips)}")
+        for ip in sys_ips:
+            if not _is_fake_ip(ip) and ip not in candidates:
+                candidates.append(ip)
+
+    fake_only = bool(sys_ips) and all(_is_fake_ip(ip) for ip in sys_ips)
+    if fake_only or not candidates:
+        if fake_only:
+            print(
+                f"WARN CH_HOST={host} 系统解析为 Fake-IP {sys_ips} "
+                f"（常见于 Shadowrocket），改用公共 DNS 回退",
+                flush=True,
+            )
+        for dns in _PUBLIC_DNS:
+            dig_ips = _dig_resolve(host, dns)
+            if dig_ips:
+                note_parts.append(f"dig@{dns}={','.join(dig_ips)}")
+                for ip in dig_ips:
+                    if not _is_fake_ip(ip) and ip not in candidates:
+                        candidates.append(ip)
+                if candidates:
+                    break
+
+    fallback = os.environ.get("CH_HOST_FALLBACK", "").strip()
+    if fallback:
+        for ip in fallback.split(","):
+            ip = ip.strip()
+            if not ip:
+                continue
+            try:
+                ipaddress.ip_address(ip)
+            except ValueError:
+                continue
+            if _is_fake_ip(ip):
+                continue
+            if ip not in candidates:
+                candidates.append(ip)
+        note_parts.append(f"fallback={fallback}")
+
+    if not candidates:
+        raise RuntimeError(
+            f"无法解析可用的 ClickHouse 地址 host={host} "
+            f"({'；'.join(note_parts) or '无解析结果'})。"
+            "请将 base32.cn 设为代理 DIRECT / 绕过 Fake-IP，"
+            "或设置 CH_HOST_FALLBACK=真实IP。"
+        )
+
+    connect_host = candidates[0]
+    note = "; ".join(note_parts) or "ok"
+    return connect_host, note, candidates
+
+
+def preflight_clickhouse(probe_code: str = "300308") -> dict:
+    """开跑前自检：解析、连库、抽 1 只样例 count。失败抛 RuntimeError。"""
+    connect_host, note, candidates = resolve_clickhouse_host(HOST)
+    last_err: Exception | None = None
+    Client = _ch_client_cls()
+    for host in candidates:
+        try:
+            client = Client(
+                host=host,
+                port=PORT,
+                user=USER,
+                password=PASSWORD,
+                connect_timeout=15,
+                send_receive_timeout=60,
+                settings={"max_execution_time": 30},
+            )
+            client.execute("SELECT 1")
+            # 轻量探测：不取全表，只 count 一只活跃股近 3 日是否有数据
+            n = client.execute(
+                """
+                SELECT count() FROM share.trans
+                WHERE SecurityID = %(c)s
+                  AND TradeDate >= addDays(today(), -5)
+                """,
+                {"c": probe_code},
+            )[0][0]
+            info = {
+                "host": host,
+                "configured": HOST,
+                "note": note,
+                "probe_code": probe_code,
+                "probe_rows_5d": int(n),
+            }
+            print(
+                f"CH preflight OK host={host} (configured={HOST}) "
+                f"probe {probe_code} 5d_rows={n} [{note}]",
+                flush=True,
+            )
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+            return info
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            print(f"WARN CH preflight 失败 host={host}: {e}", flush=True)
+            continue
+    raise RuntimeError(
+        f"ClickHouse preflight 全部候选失败 configured={HOST} "
+        f"candidates={candidates} last_error={last_err}"
+    )
+
+
+_MAKE_CLIENT_PROBED = False
+
+
+def make_client(*, skip_probe: bool = False):
+    """创建 ClickHouse 客户端：自动绕过 Fake-IP，连上后 SELECT 1 校验。
+
+    进程内首次连接会额外 probe 样例表（可用 CH_SKIP_PREFLIGHT=1 关闭）。
+    """
+    global _MAKE_CLIENT_PROBED
+    connect_host, note, candidates = resolve_clickhouse_host(HOST)
+    last_err: Exception | None = None
+    do_probe = (
+        not skip_probe
+        and not _MAKE_CLIENT_PROBED
+        and os.environ.get("CH_SKIP_PREFLIGHT", "").strip() not in {"1", "true", "yes"}
+    )
+    Client = _ch_client_cls()
+    for host in candidates:
+        try:
+            client = Client(
+                host=host,
+                port=PORT,
+                user=USER,
+                password=PASSWORD,
+                connect_timeout=20,
+                send_receive_timeout=300,
+                settings={"max_execution_time": 120},
+            )
+            client.execute("SELECT 1")
+            if do_probe:
+                n = client.execute(
+                    """
+                    SELECT count() FROM share.trans
+                    WHERE SecurityID = '300308'
+                      AND TradeDate >= addDays(today(), -5)
+                    """
+                )[0][0]
+                print(
+                    f"CH preflight OK host={host} (configured={HOST}) "
+                    f"probe 300308 5d_rows={n} [{note}]",
+                    flush=True,
+                )
+                _MAKE_CLIENT_PROBED = True
+            elif host != HOST:
+                print(
+                    f"CH connect via {host} (configured={HOST}) [{note}]",
+                    flush=True,
+                )
+            return client
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            print(f"WARN CH connect 失败 host={host}: {e}", flush=True)
+            continue
+    raise RuntimeError(
+        f"ClickHouse 连接失败 configured={HOST} candidates={candidates} "
+        f"last_error={last_err}"
+    )
 
 
 def duck_limitup_codes(prev_date):
@@ -127,6 +381,7 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
 
     compute(client, code) -> (client, row|None)；row 为 None 表示该股无结果。
     已完成结果缓存到 outputs/scan_cache_<tag>_<date>.json，中断重跑不重复打库。
+    **null 结果不视为已完成**（避免 VPN/空响应写出的全 None 缓存卡死重跑）。
     返回 (client, rows, stats)；stats 含 input_count/processed_count/failed_count，
     供写库时落入 ops_pipeline_run_daily 审计。"""
     cache_file = out_path(f"scan_cache_{tag}_{date}.json")
@@ -134,8 +389,15 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
     if os.path.exists(cache_file):
         try:
             with open(cache_file) as f:
-                done = json.load(f)
-            print(f"断点缓存 {cache_file}: 已完成 {len(done)} 只")
+                raw = json.load(f)
+            # 只保留有效结果；null 条目下次重扫
+            done = {k: v for k, v in (raw or {}).items() if v}
+            skipped_null = len(raw or {}) - len(done)
+            print(
+                f"断点缓存 {cache_file}: 有效 {len(done)} 只"
+                + (f"（忽略 null {skipped_null}）" if skipped_null else ""),
+                flush=True,
+            )
         except Exception:
             done = {}
 
@@ -145,6 +407,8 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
 
     throttle = AdaptiveThrottle()
     pending = [c for c in codes if c not in done]
+    # 成功拉到数据但无大单的代码（本轮）；最终计入 processed，但不落 cache
+    empty_ok: set[str] = set()
     for rnd in range(1, passes + 1):
         if not pending:
             break
@@ -152,17 +416,25 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
             print(f"== 第{rnd}轮兜底重试: {len(pending)} 只 ==")
             time.sleep(min(120.0, 20.0 * rnd))
         failed = []
+        empty_retry = []
         for i, code in enumerate(pending, 1):
             try:
                 client, row = compute(client, code)
-                done[code] = row
+                if row:
+                    done[code] = row
+                    empty_ok.discard(code)
+                else:
+                    # 空结果视为“已处理无命中”，不重扫（量化榜大量空是正常的；
+                    # 真连接故障会走 except → failed 多轮兜底）
+                    empty_ok.add(code)
                 throttle.ok()
-                if i % 10 == 0:
-                    save()
             except Exception as e:
                 print(f"[{i}/{len(pending)}] {code} 失败: {e}")
                 failed.append(code)
                 throttle.fail()
+            # 更勤落盘，避免长任务中途 SIGTERM 丢有效进度
+            if i % 5 == 0 or i == len(pending):
+                save()
             throttle.wait()
             if batch_size and i % batch_size == 0 and i < len(pending):
                 save()
@@ -174,19 +446,38 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
                     pass
                 client = make_client()
         save()
-        pending = failed
+        pending = failed  # 仅异常失败进入下一轮
     if pending:
         print(f"!! 兜底后仍失败 {len(pending)} 只: {','.join(pending[:20])}")
+    nonempty = sum(1 for v in done.values() if v)
+    processed = sum(1 for c in codes if c in done or c in empty_ok)
     stats = {
         "input_count": len(codes),
-        "processed_count": sum(1 for c in codes if c in done),
+        "processed_count": processed,
         "failed_count": len(pending),
+        "nonempty_count": nonempty,
+        "empty_count": len(empty_ok),
     }
+    # 大批量名单却几乎全空：高概率是链路/数据源异常，而非真的无大单
+    if (
+        len(codes) >= 20
+        and not pending
+        and nonempty == 0
+        and os.environ.get("L2_ALLOW_ALL_EMPTY", "").strip() not in {"1", "true", "yes"}
+    ):
+        raise RuntimeError(
+            f"scan {tag} {date}: 处理 {len(codes)} 只全部空结果"
+            f"（empty={len(empty_ok)}）。"
+            "疑似 ClickHouse 空响应 / VPN 劫持 / 数据未到。"
+            "修复网络后重跑；若确认当日确无数据可设 L2_ALLOW_ALL_EMPTY=1。"
+        )
     return client, [r for c, r in done.items() if r], stats
 
 
 def fetch_trades(client, code, date):
     """拉取单只股票单日逐笔成交。返回 DataFrame[time, price, volume, buy_no, sell_no]"""
+    import pandas as pd
+
     if code.startswith("6"):  # 上海
         sql = """
         SELECT TickTime AS t, toFloat64(Price) AS price, Volume AS volume,
@@ -301,6 +592,7 @@ def detect_quant_orders(buys, tol=0.01, min_count=10, min_amount=0.0, top_n=5):
 
 
 def plot(big, code, date, threshold_wan, out_path, name=""):
+    plt, mdates = _setup_matplotlib()
     fig, (ax0, ax1) = plt.subplots(
         2, 1, figsize=(14, 9), sharex=True,
         gridspec_kw={"height_ratios": [1, 2.6]})

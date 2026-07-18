@@ -54,6 +54,7 @@ def validate_market_snapshot_root(root: str | Path, date: str | None = None) -> 
 
     _validate_daily_doc(daily, target_date, errors, warnings)
     _validate_meta(meta, target_date, warnings)
+    quality, freshness = _validate_quality(daily, meta, errors, warnings)
     if latest and str(latest.get("trade_date") or "") != target_date:
         warnings.append(f"latest.json trade_date mismatch: {latest.get('trade_date')} != {target_date}")
 
@@ -62,6 +63,18 @@ def validate_market_snapshot_root(root: str | Path, date: str | None = None) -> 
         "strong_stock_count": len(daily.get("strong_stocks") or []) if isinstance(daily.get("strong_stocks"), list) else 0,
         "market_stage": (daily.get("market") or {}).get("stage") if isinstance(daily.get("market"), dict) else None,
         "latest_trade_date": meta.get("latest_trade_date"),
+        "requested_trade_date": daily.get("requested_trade_date")
+        or meta.get("requested_trade_date")
+        or target_date,
+        "served_trade_date": daily.get("served_trade_date")
+        or meta.get("served_trade_date")
+        or target_date,
+        "provider": daily.get("provider") or meta.get("provider"),
+        "source": daily.get("source") or meta.get("source"),
+        "source_updated_at": daily.get("source_updated_at")
+        or meta.get("source_updated_at"),
+        "quality": quality,
+        "freshness": freshness,
     }
     status = "FAIL" if errors else "WARN" if warnings else "PASS"
     return _result(status, base, target_date, files, errors, warnings, summary, meta)
@@ -121,6 +134,29 @@ def _validate_meta(meta: dict[str, Any], target_date: str, warnings: list[str]) 
         warnings.append("missing meta.updated_at")
 
 
+def _validate_quality(
+    daily: dict[str, Any],
+    meta: dict[str, Any],
+    errors: list[str],
+    warnings: list[str],
+) -> tuple[str, str]:
+    quality = str(daily.get("quality") or meta.get("quality") or "").strip()
+    freshness = str(
+        daily.get("freshness") or meta.get("freshness") or ""
+    ).strip()
+    if not quality:
+        warnings.append("missing snapshot quality")
+    elif quality == "failed":
+        errors.append("snapshot quality is failed")
+    elif quality != "complete":
+        warnings.append(f"snapshot quality is not decision-ready: {quality}")
+    if not freshness:
+        warnings.append("missing snapshot freshness")
+    elif freshness not in {"fresh", "historical"}:
+        warnings.append(f"snapshot freshness is not decision-ready: {freshness}")
+    return quality or "unknown", freshness or "unknown"
+
+
 def _read_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
@@ -141,8 +177,16 @@ def _result(
     summary: dict[str, Any],
     meta: dict[str, Any],
 ) -> dict[str, Any]:
+    quality = str(summary.get("quality") or "unknown")
+    freshness = str(summary.get("freshness") or "unknown")
+    ready = (
+        status == "PASS"
+        and quality == "complete"
+        and freshness in {"fresh", "historical"}
+    )
     return {
         "status": status,
+        "ready": ready,
         "root": str(root),
         "date": date,
         "files": files,

@@ -31,6 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from intelligence.services import retrieval_cache
+
 from market_feature_store.signals import is_double_red
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -67,6 +69,29 @@ _GAP_THEME_ALIASES: dict[str, tuple[str, ...]] = {
 @dataclass(frozen=True)
 class MidtermIntent:
     window: int
+
+
+@dataclass(frozen=True)
+class MidtermTrendArtifact:
+    window: int
+    trends: tuple[dict[str, Any], ...]
+    missing_themes: tuple[str, ...]
+    evidence_id: str = "D6"
+    degrade_reason: str | None = None
+
+    @property
+    def available(self) -> bool:
+        return bool(self.trends)
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "evidence_id": self.evidence_id,
+            "window": self.window,
+            "available": self.available,
+            "trends": list(self.trends),
+            "missing_themes": list(self.missing_themes),
+            "degrade_reason": self.degrade_reason,
+        }
 
 
 def parse_midterm_intent(query: str) -> MidtermIntent | None:
@@ -221,6 +246,80 @@ def _fmt(value: Any, digits: int = 2, suffix: str = "") -> str:
         return str(value)
 
 
+def load_midterm_trend_artifact(
+    query: str,
+    anchored_theme: str | None,
+    market_db_path: str | Path | None,
+    window: int = DEFAULT_WINDOW,
+) -> MidtermTrendArtifact:
+    db_path = (
+        Path(market_db_path).expanduser()
+        if market_db_path
+        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    )
+    if not db_path.exists():
+        return MidtermTrendArtifact(
+            window,
+            (),
+            (),
+            degrade_reason="D6 中期趋势库不存在",
+        )
+    try:
+        import duckdb  # type: ignore
+    except Exception:
+        return MidtermTrendArtifact(
+            window,
+            (),
+            (),
+            degrade_reason="D6 中期趋势依赖不可用",
+        )
+    try:
+        con = retrieval_cache.connect_readonly(db_path)
+    except Exception:
+        return MidtermTrendArtifact(
+            window,
+            (),
+            (),
+            degrade_reason="D6 中期趋势库不可读",
+        )
+    try:
+        themes = resolve_query_themes(con, query, anchored_theme)
+        trends: list[dict[str, Any]] = []
+        missing: list[str] = []
+        for theme in themes:
+            trend = _fetch_theme_trend(con, theme, window)
+            if trend is None:
+                missing.append(theme)
+            else:
+                trends.append(trend)
+        missing.extend(
+            theme
+            for theme in detect_gap_themes(query, themes)
+            if theme not in missing
+        )
+        reason = None
+        if not trends:
+            reason = "D6 未找到可用的题材中期趋势数据"
+        return MidtermTrendArtifact(
+            window,
+            tuple(trends),
+            tuple(missing),
+            degrade_reason=reason,
+        )
+    except Exception:
+        return MidtermTrendArtifact(
+            window,
+            (),
+            (),
+            degrade_reason="D6 中期趋势查询失败",
+        )
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+
 def midterm_trend_block_for_llm(
     query: str,
     anchored_theme: str | None,
@@ -228,31 +327,17 @@ def midterm_trend_block_for_llm(
     window: int = DEFAULT_WINDOW,
 ) -> str:
     """把多日趋势 + 拥挤度分位渲染成带 [D6] 引用编号的确定性数据块（空串=未取到）。"""
-    db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
-    if not db_path.exists():
+    artifact = load_midterm_trend_artifact(
+        query,
+        anchored_theme,
+        market_db_path,
+        window,
+    )
+    if not artifact.available:
         return ""
+    trends = list(artifact.trends)
+    missing = list(artifact.missing_themes)
     try:
-        import duckdb  # type: ignore
-    except Exception:
-        return ""
-    try:
-        con = duckdb.connect(str(db_path), read_only=True)
-    except Exception:
-        return ""
-    try:
-        themes = resolve_query_themes(con, query, anchored_theme)
-        trends: list[dict[str, Any]] = []
-        missing: list[str] = []
-        for theme in themes:
-            t = _fetch_theme_trend(con, theme, window)
-            if t is None:
-                missing.append(theme)
-            else:
-                trends.append(t)
-        # query 点名但板块表无独立行的题材（如数据安全）显式列为缺口，不静默剔除。
-        missing.extend(g for g in detect_gap_themes(query, themes) if g not in missing)
-        if not trends:
-            return ""
         lines = ["## 多日/中期趋势数据块 [D6]"]
         lines.append(
             f"- 查询口径：近 {window} 个交易日（{trends[0]['first_date']} ~ {trends[0]['last_date']}），"
@@ -294,8 +379,3 @@ def midterm_trend_block_for_llm(
         return "\n".join(lines)
     except Exception:
         return ""
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass

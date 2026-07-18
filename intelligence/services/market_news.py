@@ -24,6 +24,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
+from intelligence.services.provider_observability import ProviderTrace
+
 FETCH_ENV_FLAG = "FINANCE_NEWS_FETCH"
 WEB_FETCH_ENV_FLAG = "FINANCE_NEWS_WEB_FETCH"
 PROXY_URL_ENV = "WEB_ACCESS_PROXY_URL"
@@ -74,6 +76,18 @@ class NewsItem:
     title: str
     url: str
     provider: str = PROVIDER_EASTMONEY  # 取数通道：东财 / web（web-access 全网检索）
+
+
+@dataclass(frozen=True)
+class NewsFetchResult:
+    items: tuple[NewsItem, ...]
+    trace: ProviderTrace
+
+
+@dataclass(frozen=True)
+class NewsBlockResult:
+    block: str
+    traces: tuple[ProviderTrace, ...]
 
 
 def fetch_enabled() -> bool:
@@ -158,16 +172,24 @@ def _within_days(date_str: str, within_days: int) -> bool:
     return dt >= datetime.now() - timedelta(days=within_days)
 
 
-def fetch_eastmoney_news(
+def fetch_eastmoney_news_result(
     keyword: str,
     page_size: int = DEFAULT_PAGE_SIZE,
     within_days: int = DEFAULT_WITHIN_DAYS,
     timeout: float = 8.0,
-) -> list[NewsItem]:
-    """Best-effort 东财全文资讯搜索（按时间排序）；网络/字段异常时返回空列表。"""
+) -> NewsFetchResult:
+    """东财全文资讯搜索，并保留 provider 失败原因。"""
     kw = str(keyword or "").strip()
     if not kw:
-        return []
+        return NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider=PROVIDER_EASTMONEY,
+                capability="directional_news",
+                status="empty",
+                detail="empty keyword",
+            ),
+        )
     param = {
         "uid": "",
         "keyword": kw,
@@ -195,13 +217,29 @@ def fetch_eastmoney_news(
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode("utf-8")
-    except Exception:
-        return []
+    except Exception as exc:  # noqa: BLE001
+        return NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider=PROVIDER_EASTMONEY,
+                capability="directional_news",
+                status="request_error",
+                detail=type(exc).__name__,
+            ),
+        )
     try:
         body = raw[raw.find("(") + 1 : raw.rfind(")")]
         articles = ((json.loads(body).get("result")) or {}).get("cmsArticleWebOld") or []
-    except Exception:
-        return []
+    except Exception:  # noqa: BLE001
+        return NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider=PROVIDER_EASTMONEY,
+                capability="directional_news",
+                status="parse_error",
+                detail="Eastmoney response parse failed",
+            ),
+        )
     out: list[NewsItem] = []
     for a in articles:
         date_str = str(a.get("date") or "").strip()
@@ -224,7 +262,32 @@ def fetch_eastmoney_news(
         )
         if len(out) >= int(page_size):
             break
-    return out
+    return NewsFetchResult(
+        tuple(out),
+        ProviderTrace(
+            provider=PROVIDER_EASTMONEY,
+            capability="directional_news",
+            status="success" if out else "empty",
+            detail="Eastmoney title search",
+            result_count=len(out),
+        ),
+    )
+
+
+def fetch_eastmoney_news(
+    keyword: str,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    within_days: int = DEFAULT_WITHIN_DAYS,
+    timeout: float = 8.0,
+) -> list[NewsItem]:
+    return list(
+        fetch_eastmoney_news_result(
+            keyword,
+            page_size,
+            within_days,
+            timeout,
+        ).items
+    )
 
 
 _REL_TIME_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -288,13 +351,13 @@ def _proxy_request(
         return resp.read().decode("utf-8", "replace")
 
 
-def fetch_web_access_news(
+def fetch_web_access_news_result(
     keyword: str,
     page_size: int = DEFAULT_PAGE_SIZE,
     within_days: int = DEFAULT_WITHIN_DAYS,
     timeout: float = 20.0,
     proxy_url: str | None = None,
-) -> list[NewsItem]:
+) -> NewsFetchResult:
     """#2b 第二 provider：经 web-access CDP proxy（真实 Chrome）搜 Bing News 全网/海外源。
 
     Best-effort：proxy 不可达/页面结构变化/任何异常都返回空列表，不影响东财主通道。
@@ -303,18 +366,45 @@ def fetch_web_access_news(
     """
     kw = str(keyword or "").strip()
     if not kw:
-        return []
+        return NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider=PROVIDER_WEB,
+                capability="directional_news",
+                status="empty",
+                detail="empty keyword",
+            ),
+        )
     proxy = (proxy_url or os.environ.get(PROXY_URL_ENV) or _DEFAULT_PROXY_URL).strip()
     target_id = ""
     try:
         _proxy_request(proxy, "/health", timeout=2.0)
+    except Exception:  # noqa: BLE001
+        return NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider=PROVIDER_WEB,
+                capability="directional_news",
+                status="proxy_unavailable",
+                detail="CDP proxy health check failed",
+            ),
+        )
+    try:
         search_url = f"{_BING_NEWS_URL}?q={urllib.parse.quote(kw)}"
         created = json.loads(
             _proxy_request(proxy, f"/new?url={urllib.parse.quote(search_url, safe='')}", timeout=timeout)
         )
         target_id = str(created.get("targetId") or "").strip()
         if not target_id:
-            return []
+            return NewsFetchResult(
+                (),
+                ProviderTrace(
+                    provider=PROVIDER_WEB,
+                    capability="directional_news",
+                    status="request_error",
+                    detail="missing target id",
+                ),
+            )
         # 新闻卡片是页面 load 之后异步渲染的，轮询直到出现或超时
         rows: list[Any] = []
         for _ in range(5):
@@ -325,8 +415,26 @@ def fetch_web_access_news(
             if rows:
                 break
             time.sleep(1.5)
-    except Exception:
-        return []
+    except json.JSONDecodeError:
+        return NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider=PROVIDER_WEB,
+                capability="directional_news",
+                status="parse_error",
+                detail="proxy response was not JSON",
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001
+        return NewsFetchResult(
+            (),
+            ProviderTrace(
+                provider=PROVIDER_WEB,
+                capability="directional_news",
+                status="request_error",
+                detail=type(exc).__name__,
+            ),
+        )
     finally:
         if target_id:
             try:
@@ -353,7 +461,34 @@ def fetch_web_access_news(
         )
         if len(out) >= int(page_size):
             break
-    return out
+    return NewsFetchResult(
+        tuple(out),
+        ProviderTrace(
+            provider=PROVIDER_WEB,
+            capability="directional_news",
+            status="success" if out else "empty",
+            detail="Bing News results via CDP proxy",
+            result_count=len(out),
+        ),
+    )
+
+
+def fetch_web_access_news(
+    keyword: str,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    within_days: int = DEFAULT_WITHIN_DAYS,
+    timeout: float = 20.0,
+    proxy_url: str | None = None,
+) -> list[NewsItem]:
+    return list(
+        fetch_web_access_news_result(
+            keyword,
+            page_size,
+            within_days,
+            timeout,
+            proxy_url,
+        ).items
+    )
 
 
 def merge_news_items(
@@ -425,16 +560,122 @@ def news_block_for_keyword(
     web_fetcher: Callable[..., list[NewsItem]] | None = None,
 ) -> str:
     """给定关键词，双 provider 取数合并后渲染 W7 块；关键词为空返回空串（不追加块）。"""
+    return news_block_result_for_keyword(
+        keyword,
+        page_size,
+        within_days,
+        fetcher,
+        web_fetcher,
+    ).block
+
+
+def news_block_result_for_keyword(
+    keyword: str | None,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    within_days: int = DEFAULT_WITHIN_DAYS,
+    fetcher: Callable[..., list[NewsItem]] | None = None,
+    web_fetcher: Callable[..., list[NewsItem]] | None = None,
+    timeout: float = 20.0,
+) -> NewsBlockResult:
     kw = (keyword or "").strip()
     if not kw:
-        return ""
+        return NewsBlockResult("", ())
     if not fetch_enabled():
-        return build_news_block(kw, [], within_days, fetch_disabled=True)
-    fetch = fetcher or fetch_eastmoney_news
-    items = fetch(kw, page_size, within_days)
+        return NewsBlockResult(
+            build_news_block(kw, [], within_days, fetch_disabled=True),
+            (
+                ProviderTrace(
+                    provider=PROVIDER_EASTMONEY,
+                    capability="directional_news",
+                    status="disabled",
+                    detail=f"{FETCH_ENV_FLAG}=0",
+                ),
+                ProviderTrace(
+                    provider=PROVIDER_WEB,
+                    capability="directional_news",
+                    status="disabled",
+                    detail=f"{FETCH_ENV_FLAG}=0",
+                ),
+            ),
+        )
+    if fetcher is None:
+        eastmoney_result = fetch_eastmoney_news_result(
+            kw,
+            page_size,
+            within_days,
+            timeout=min(timeout, 8.0),
+        )
+        items = list(eastmoney_result.items)
+        traces = [eastmoney_result.trace]
+    else:
+        try:
+            items = fetcher(kw, page_size, within_days)
+        except Exception as exc:  # noqa: BLE001
+            items = []
+            traces = [
+                ProviderTrace(
+                    provider=PROVIDER_EASTMONEY,
+                    capability="directional_news",
+                    status="request_error",
+                    detail=type(exc).__name__,
+                )
+            ]
+        else:
+            traces = [
+                ProviderTrace(
+                    provider=PROVIDER_EASTMONEY,
+                    capability="directional_news",
+                    status="success" if items else "empty",
+                    detail="injected Eastmoney fetcher",
+                    result_count=len(items),
+                )
+            ]
     web_kw: str | None = None
     if web_fetch_enabled():
-        web_fetch = web_fetcher or fetch_web_access_news
         web_kw = english_alias(kw) or kw
-        items = merge_news_items(items, web_fetch(web_kw, page_size, within_days))
-    return build_news_block(kw, items, within_days, web_keyword=web_kw)
+        if web_fetcher is None:
+            web_result = fetch_web_access_news_result(
+                web_kw,
+                page_size,
+                within_days,
+                timeout=timeout,
+            )
+            web_items = list(web_result.items)
+            traces.append(web_result.trace)
+        else:
+            try:
+                web_items = web_fetcher(web_kw, page_size, within_days)
+            except Exception as exc:  # noqa: BLE001
+                web_items = []
+                traces.append(
+                    ProviderTrace(
+                        provider=PROVIDER_WEB,
+                        capability="directional_news",
+                        status="request_error",
+                        detail=type(exc).__name__,
+                    )
+                )
+            else:
+                traces.append(
+                    ProviderTrace(
+                        provider=PROVIDER_WEB,
+                        capability="directional_news",
+                        status="success" if web_items else "empty",
+                        detail="injected web news fetcher",
+                        result_count=len(web_items),
+                    )
+                )
+        items = merge_news_items(items, web_items)
+    else:
+        traces.append(
+            ProviderTrace(
+                provider=PROVIDER_WEB,
+                capability="directional_news",
+                status="disabled",
+                detail=f"{WEB_FETCH_ENV_FLAG}=0",
+            )
+        )
+    return NewsBlockResult(
+        build_news_block(kw, items, within_days, web_keyword=web_kw),
+        tuple(traces),
+    )

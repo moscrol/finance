@@ -22,20 +22,21 @@ ANSWER_PHASES = {
     "validated_synthesis",
     "verified_fallback",
 }
+EVENT_REGISTRY_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "intelligence"
+    / "contracts"
+    / "stream_events.json"
+)
+EVENT_REGISTRY = json.loads(EVENT_REGISTRY_PATH.read_text(encoding="utf-8"))
+EVENT_DEFINITIONS = {
+    definition["event_type"]: definition
+    for definition in EVENT_REGISTRY["events"]
+}
 PUBLIC_EVENT_TYPES = {
-    "message.start",
-    "trace.step",
-    "skill.start",
-    "skill.result",
-    "report.start",
-    "report.module",
-    "citation.ready",
-    "text.delta",
-    "answer.snapshot",
-    "report.complete",
-    "report.error",
-    "message.complete",
-    "message.error",
+    event_type
+    for event_type, definition in EVENT_DEFINITIONS.items()
+    if definition["public"]
 }
 SAFE_LABEL = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -376,23 +377,27 @@ def _stream_until_terminal(
                     or canonical_type != event_name
                 ):
                     raise SmokeProtocolError("sse_public_event")
+                event_payload = payload.get("payload")
+                required_fields = EVENT_DEFINITIONS[canonical_type][
+                    "payload_schema"
+                ].get("required", [])
+                if (
+                    not isinstance(event_payload, dict)
+                    or any(
+                        field not in event_payload
+                        for field in required_fields
+                    )
+                ):
+                    raise SmokeProtocolError("sse_payload_schema")
                 if canonical_type in {"message.complete", "message.error"}:
                     terminal_event_count += 1
                 if canonical_type == "text.delta":
-                    event_payload = payload.get("payload")
-                    delta = (
-                        event_payload.get("delta")
-                        if isinstance(event_payload, dict)
-                        else None
-                    )
+                    delta = event_payload.get("delta")
                     if not isinstance(delta, str):
                         raise SmokeProtocolError("text_delta")
                     if delta.strip():
                         text_delta_count += 1
                 if canonical_type == "answer.snapshot":
-                    event_payload = payload.get("payload")
-                    if not isinstance(event_payload, dict):
-                        raise SmokeProtocolError("answer_snapshot")
                     revision = event_payload.get("revision")
                     phase = event_payload.get("phase")
                     text = event_payload.get("text")

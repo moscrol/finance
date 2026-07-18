@@ -21,7 +21,14 @@ class ClarifyGateTest(unittest.TestCase):
             self.assertTrue(d.needs_clarification, q)
 
     def test_vague_plus_filler_needs_clarification(self):
-        for q in ("帮我随便看看吧", "麻烦分析一下呢", "帮我看看今天", "看一下最近怎么样"):
+        for q in (
+            "帮我随便看看吧",
+            "麻烦分析一下呢",
+            "帮我看看今天",
+            "看一下最近怎么样",
+            "你怎么看",
+            "您怎么看",
+        ):
             d = ask_clarify.clarify_for_query(q)
             self.assertTrue(d.needs_clarification, q)
 
@@ -33,6 +40,8 @@ class ClarifyGateTest(unittest.TestCase):
             "英维克 财报",
             "帮我看看 300316",
             "人形机器人 之前的判断验证得怎么样",
+            "你怎么看量子计算",
+            "您怎么看卫星互联网",
         ):
             d = ask_clarify.clarify_for_query(q)
             self.assertFalse(d.needs_clarification, q)
@@ -89,6 +98,39 @@ class BlockPlannerTest(unittest.TestCase):
         tasks = [ask_planner.BlockTask(t, t, lambda t=t: (f"b-{t}", None)) for t in ("X", "Y")]
         par = ask_planner.run_block_tasks(tasks, parallel=True)
         ser = ask_planner.run_block_tasks(tasks, parallel=False)
+        self.assertEqual([(o.tag, o.block) for o in par], [(o.tag, o.block) for o in ser])
+
+
+class DataBlockProviderTest(unittest.TestCase):
+    def test_run_providers_filters_by_applies_and_keeps_order(self):
+        def make(name, enabled):
+            return ask_planner.DataBlockProvider(
+                name, name, lambda: enabled, lambda: (f"block-{name}", f"cite-{name}"),
+            )
+
+        providers = [make("D0", True), make("D9", False), make("D5", True)]
+        outcomes = ask_planner.run_providers(providers, parallel=True)
+        self.assertEqual([o.tag for o in outcomes], ["D0", "D5"])
+        self.assertEqual([o.block for o in outcomes], ["block-D0", "block-D5"])
+
+    def test_run_providers_does_not_collect_when_not_applies(self):
+        collected = []
+
+        def collect():
+            collected.append(1)
+            return "x", None
+
+        providers = [ask_planner.DataBlockProvider("D8", "D8", lambda: False, collect)]
+        self.assertEqual(ask_planner.run_providers(providers), [])
+        self.assertEqual(collected, [])
+
+    def test_run_providers_serial_matches_parallel(self):
+        providers = [
+            ask_planner.DataBlockProvider(t, t, lambda: True, lambda t=t: (f"b-{t}", None))
+            for t in ("X", "Y")
+        ]
+        par = ask_planner.run_providers(providers, parallel=True)
+        ser = ask_planner.run_providers(providers, parallel=False)
         self.assertEqual([(o.tag, o.block) for o in par], [(o.tag, o.block) for o in ser])
 
 

@@ -20,8 +20,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from moneyflow import (make_client, fetch_trades_retry, analyze,
-                       detect_quant_orders, stock_info, run_scan)
+from moneyflow import make_client, detect_quant_orders, stock_info, run_scan
+from server_aggregation import L2QueryService
 from scan_top100 import top_turnover_stocks
 from config import out_path
 from write_to_duckdb import write_quant_orders
@@ -41,16 +41,17 @@ def main():
 
     codes = top_turnover_stocks(client, date)
     print(f"{date} 成交额前{len(codes)}股票，开始逐只识别规律量化买单...")
+    queries = L2QueryService(date, big_thr, make_client)
 
     def compute(client, code):
-        client, df = fetch_trades_retry(client, code, date)
-        if df.empty:
+        client, summary = queries.capital_flow(client, code)
+        if summary is None:
             return client, None
-        big = analyze(df, big_thr)
-        if big.empty:
+        client, order_rows = queries.buyer_orders(client, code)
+        if not order_rows:
             return client, None
-        buys = (big[big["buyer_big"]].groupby("buy_no")
-                .agg(t=("t", "last"), amount=("amount", "sum")).reset_index())
+        buys = pd.DataFrame(order_rows, columns=["t", "amount"])
+        buys["t"] = pd.to_datetime(buys["t"])
         infos, _ = detect_quant_orders(
             buys, min_amount=quant_thr * 1e4, top_n=100)
         if not infos:
@@ -68,10 +69,12 @@ def main():
             "簇数": len(infos), "笔数": quant_count,
             "最大簇": f"{biggest['lo']:.0f}-{biggest['hi']:.0f}万x{biggest['count']}笔"
                       f"={biggest['total']:.0f}万",
-            "当日涨幅%": round((df["price"].iloc[-1] / df["price"].iloc[0] - 1) * 100, 2),
+            "当日涨幅%": round(summary.change_pct, 2),
         }
 
-    client, results, stats = run_scan(client, codes, date, "quant", compute)
+    client, results, stats = run_scan(
+        client, codes, date, "quant_server_v1", compute
+    )
 
     res = pd.DataFrame(results)
     if res.empty:

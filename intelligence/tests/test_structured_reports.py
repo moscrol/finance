@@ -55,6 +55,56 @@ def test_daily_projection_becomes_bounded_stream_modules(tmp_path) -> None:
     assert "<script>" not in rendered
 
 
+def test_daily_projection_can_select_requested_historical_date(tmp_path) -> None:
+    exports = tmp_path / "market_feature_store" / "exports"
+    exports.mkdir(parents=True)
+    for report_date, index_value in (
+        ("2026-07-15", "上证上涨 0.3%"),
+        ("2026-07-16", "上证下跌 0.8%"),
+    ):
+        (exports / f"{report_date}-daily-review.md").write_text(
+            f"""# {report_date} 每日市场复盘
+
+## 核心看板
+| 维度 | 结论 |
+|---|---|
+| 指数表现 | {index_value} |
+""",
+            encoding="utf-8",
+        )
+
+    report_date, modules, warnings = daily_projection_modules(
+        tmp_path,
+        requested_date="2026-07-15",
+    )
+
+    assert report_date == "2026-07-15"
+    assert warnings == []
+    assert modules[0]["metrics"][0]["value"] == "上证上涨 0.3%"
+
+
+def test_daily_projection_does_not_replace_missing_date_with_latest(
+    tmp_path,
+) -> None:
+    exports = tmp_path / "market_feature_store" / "exports"
+    exports.mkdir(parents=True)
+    (exports / "2026-07-16-daily-review.md").write_text(
+        "# 2026-07-16 每日市场复盘",
+        encoding="utf-8",
+    )
+
+    report_date, modules, warnings = daily_projection_modules(
+        tmp_path,
+        requested_date="2026-07-15",
+    )
+
+    assert report_date is None
+    assert modules == []
+    assert warnings == [
+        "未找到 2026-07-15 的本地复盘报告；日报基础模块缺失。"
+    ]
+
+
 def test_daily_review_fallback_is_plain_chinese_and_keeps_key_numbers(
     tmp_path,
 ) -> None:

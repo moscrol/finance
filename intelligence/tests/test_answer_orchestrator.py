@@ -10,6 +10,8 @@ from intelligence.services import llm_refine
 from intelligence.services.answer_orchestrator import (
     DEPTH_DEEP,
     DEPTH_STANDARD,
+    QUESTION_CONCEPT_DEFINITION,
+    QUESTION_EXTERNAL_MARKET,
     QUESTION_GENERAL,
     QUESTION_FINANCIAL_ANALYSIS,
     QUESTION_MARKET_FORECAST,
@@ -56,7 +58,15 @@ class AnswerOrchestratorTests(unittest.TestCase):
             candidate_tier=None,
             priority_score=None,
         )
-        result.answer_spec = mock.Mock()
+        result.answer_spec = mock.Mock(
+            sources=(),
+            summary=(),
+            verified_facts=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            company_table=(),
+        )
         result.prepared_synthesis_messages = [
             {"role": "system", "content": "system"},
             {"role": "user", "content": "evidence"},
@@ -88,6 +98,11 @@ class AnswerOrchestratorTests(unittest.TestCase):
                 "intelligence.services.ask.answer_model.validate_llm_answer",
                 return_value=(issue,),
             ),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                return_value=(None, "mocked correction unavailable"),
+            ),
         ):
             result = synthesize_prepared_answer(prepared)
 
@@ -97,6 +112,128 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result.llm_stream_telemetry["chunk_count"], 2)
         self.assertNotIn("越界公司", str(result.llm_stream_telemetry))
         self.assertNotIn("999亿元", str(result.llm_stream_telemetry))
+
+    def test_quality_issues_fail_closed_without_sentence_deletion(self) -> None:
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+        issue = mock.Mock(
+            code="llm_added_number",
+            severity="error",
+            message="越界数字",
+        )
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages, kwargs
+            on_delta("安全结论。越界数字 999亿元。")
+            return SynthesisResult(
+                answer="安全结论。越界数字 999亿元。",
+                provider="fixture",
+                model="fixture-model",
+            ), ""
+
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages_stream",
+                side_effect=fake_stream,
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=(issue,),
+            ),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                return_value=(None, "mocked correction unavailable"),
+            ),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertIsNone(result.synthesis)
+        self.assertEqual(public_deltas, [])
+        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertTrue(
+            any("门禁拒绝" in warning for warning in result.warnings)
+        )
+
+    def test_claim_binding_revision_can_recover_with_valid_ids(self) -> None:
+        public_deltas: list[str] = []
+        prepared = self._prepared_answer(public_deltas=public_deltas)
+        issue = mock.Mock(
+            code="llm_missing_claim_binding",
+            severity="error",
+            message="缺少 claim 绑定",
+        )
+
+        def fake_stream(messages, *, on_delta, **kwargs):
+            del messages, kwargs
+            on_delta("未绑定初稿")
+            return SynthesisResult(
+                answer="未绑定初稿",
+                provider="fixture",
+                model="fixture-model",
+            ), ""
+
+        correction = SynthesisResult(
+            answer=(
+                "- 布局提示"
+                "<!-- claim_id=claim-1; "
+                "evidence_atom_ids=atom-1; claim_type=fact -->"
+            ),
+            provider="fixture",
+            model="fixture-model",
+        )
+        with (
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages_stream",
+                side_effect=fake_stream,
+            ),
+            mock.patch.object(
+                llm_refine,
+                "synthesize_messages",
+                return_value=(correction, ""),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                side_effect=((issue,), ()),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                return_value="安全结论。",
+            ),
+        ):
+            result = synthesize_prepared_answer(prepared)
+
+        self.assertEqual(result.synthesis, "安全结论。")
+        self.assertEqual(public_deltas, ["安全结论。"])
+        self.assertIsNone(result.llm_fallback_reason)
+
+    def test_external_market_plan_uses_quote_providers_only(self) -> None:
+        plan = plan_answer_question("昨天美股的涨跌情况")
+
+        self.assertEqual(plan.question_type, QUESTION_EXTERNAL_MARKET)
+        assert plan.base_finance_mode is not None
+        self.assertFalse(plan.base_finance_mode.require_market)
+        self.assertIn("fupanhui", "\n".join(plan.retrieval_plan))
+        self.assertIn("finance chart", "\n".join(plan.retrieval_plan))
+        self.assertTrue(
+            any("Bing News" in gate for gate in plan.quality_gates)
+        )
+
+    def test_concept_definition_plan_uses_controlled_web_fallback(self) -> None:
+        plan = plan_answer_question("卫星互联网是什么")
+
+        self.assertEqual(plan.question_type, QUESTION_CONCEPT_DEFINITION)
+        assert plan.base_finance_mode is not None
+        self.assertFalse(plan.base_finance_mode.require_market)
+        self.assertIn("Bing Web Search", "\n".join(plan.retrieval_plan))
+        self.assertTrue(
+            any(
+                "本地知识" in gate and "Web" in gate
+                for gate in plan.quality_gates
+            )
+        )
 
     def test_valid_model_stream_publishes_one_complete_answer(self) -> None:
         public_deltas: list[str] = []
@@ -121,6 +258,10 @@ class AnswerOrchestratorTests(unittest.TestCase):
             mock.patch(
                 "intelligence.services.ask.answer_model.validate_llm_answer",
                 return_value=(),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                return_value="自然语言精修版",
             ),
         ):
             result = synthesize_prepared_answer(prepared)
@@ -213,6 +354,21 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(result.llm_fallback_reason, "timeout")
         self.assertEqual(result.llm_stream_telemetry["provider"], "zhipu")
         self.assertEqual(result.llm_stream_telemetry["model"], "glm-5.2")
+
+    def test_empty_query_and_entity_anchor_are_preserved_in_query_envelope(
+        self,
+    ) -> None:
+        empty = plan_answer_question("")
+        anchored = plan_answer_question(
+            "英维克怎么看",
+            anchor=EntityAnchor(entity="英维克", ticker="002837.SZ"),
+        )
+
+        self.assertEqual(empty.query_envelope.subject_kind, "unknown")
+        self.assertIsNone(empty.query_envelope.subject)
+        self.assertEqual(anchored.query_envelope.subject_kind, "company")
+        self.assertEqual(anchored.query_envelope.subject, "英维克")
+        self.assertEqual(anchored.question_type, QUESTION_STOCK_DEEP_DIVE)
 
     def test_base_finance_mode_keeps_retrieval_floor_for_quick_answers(self) -> None:
         plan = plan_answer_question("600519 快答：最近消息、产业链和财务估值怎么看")
@@ -391,6 +547,8 @@ class AnswerOrchestratorTests(unittest.TestCase):
     def test_deep_dive_trigger_beats_industry_chain_keyword(self) -> None:
         plan = plan_answer_question("深挖英维克，它在液冷产业链的位置")
 
+        self.assertEqual(plan.query_envelope.subject_kind, "theme")
+        self.assertEqual(plan.query_envelope.subject, "液冷")
         self.assertEqual(plan.question_type, QUESTION_STOCK_DEEP_DIVE)
 
     def test_forecast_prior_short_query_routes_to_market_forecast(self) -> None:
@@ -402,11 +560,31 @@ class AnswerOrchestratorTests(unittest.TestCase):
         plan = plan_answer_question("帮我拍估值：寒武纪现在贵不贵")
 
         self.assertEqual(plan.question_type, QUESTION_VALUATION)
+        self.assertEqual(plan.query_envelope.subject_kind, "company")
+        self.assertEqual(plan.query_envelope.subject, "寒武纪")
         self.assertEqual(plan.depth, "deep")
         joined_lenses = "\n".join(plan.required_lenses)
         self.assertIn("可比公司估值带", joined_lenses)
         self.assertIn("隐含增长率反推", joined_lenses)
         self.assertIn("禁止输出单点目标价", "\n".join(plan.quality_gates))
+
+    def test_valuation_fallback_keeps_company_and_evidence_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = answer_query(
+                AskOptions(
+                    query="贵州茅台估值怎么看",
+                    exports_dir=tmp,
+                    kb_wiki=Path(tmp),
+                    use_modules=False,
+                    use_wiki_rag=False,
+                )
+            )
+
+        rendered = render_conversation_answer(result)
+        self.assertIn("贵州茅台", rendered)
+        self.assertNotIn("未命名题材", rendered)
+        self.assertIn("不能可靠判断估值高低", rendered)
+        self.assertIn("本轮未形成可验证的公司级来源", rendered)
 
     def test_deep_dive_trigger_beats_valuation_keyword(self) -> None:
         plan = plan_answer_question("深挖汇成股份，顺便看下估值分位")
@@ -453,6 +631,24 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertEqual(plan.question_type, QUESTION_GENERAL)
         self.assertLess(plan.confidence, 0.6)
 
+    def test_generic_theme_lifecycle_question_stays_a_subjectless_market_pattern(
+        self,
+    ) -> None:
+        plan = plan_answer_question(
+            "如果一个A股题材连续上涨，但板块成交占比开始下降，我应该怎么判断"
+            "它是健康分歧还是行情高潮？"
+        )
+
+        self.assertEqual(plan.query_envelope.subject_kind, "market_pattern")
+        self.assertIsNone(plan.query_envelope.subject)
+        self.assertEqual(plan.question_type, QUESTION_GENERAL)
+        self.assertEqual(plan.confidence, plan.query_envelope.confidence)
+        self.assertIsNone(plan.research_spec)
+        self.assertEqual(
+            plan.to_dict()["query_envelope"],
+            plan.query_envelope.to_dict(),
+        )
+
     def test_explicit_stock_wording_still_routes_to_deep_dive(self) -> None:
         plan = plan_answer_question("这只股怎么看")
 
@@ -482,7 +678,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     WikiHit(
                         page_id="counter",
                         file_path="wiki/counter.md",
-                        title="需求下滑风险",
+                        title="测试对象需求下滑风险",
                         score=0.1,
                         excerpt="需求可能不及预期，仍待核验",
                         best_chunk_id="counter",
@@ -518,10 +714,11 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         rendered = render_conversation_answer(result)
         self.assertNotIn("弱相关首页", rendered)
-        self.assertIn("需求下滑风险", rendered)
+        self.assertIn("测试对象需求下滑风险", rendered)
         assert result.closed_loop_retrieval is not None
-        self.assertEqual(len(result.closed_loop_retrieval.clues), 2)
+        self.assertEqual(len(result.closed_loop_retrieval.clues), 1)
         self.assertEqual(len(result.closed_loop_retrieval.counter_clues), 1)
+        self.assertEqual(len(result.closed_loop_retrieval.discarded), 1)
 
     def test_prompt_block_exposes_plan_without_requiring_template_output(self) -> None:
         plan = plan_answer_question("深挖顺络电子")
@@ -580,9 +777,20 @@ class AnswerOrchestratorTests(unittest.TestCase):
                 "",
             )
 
-        with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages",
-            side_effect=fake_synthesize,
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch(
+                "intelligence.services.ask.llm_refine.synthesize_messages",
+                side_effect=fake_synthesize,
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.validate_llm_answer",
+                return_value=(),
+            ),
+            mock.patch(
+                "intelligence.services.ask.answer_model.present_llm_answer",
+                return_value="7月10日指数弱、个股强，成交放大。",
+            ),
         ):
             wiki = Path(tmp) / "wiki"
             (wiki / "relations").mkdir(parents=True)

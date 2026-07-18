@@ -22,7 +22,9 @@ c) 向量检索加权——治标不治本，通用词仍会稀释。精确匹�
 from __future__ import annotations
 
 import re
+import threading
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
@@ -30,7 +32,7 @@ from intelligence.adapters.knowledge import KnowledgeAdapter
 MAX_ANCHOR_CONCEPTS = 4
 MIN_NAME_LEN = 2
 
-_CODE_RE = re.compile(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", re.I)
+_CODE_RE = re.compile(r"(?<!\d)(\d{6})(?:\.(SH|SZ|BJ))?(?!\d)", re.I)
 
 
 @dataclass(frozen=True)
@@ -52,20 +54,30 @@ class EntityAnchor:
         return f"实体锚定：命中 {self.entity}{code}，图谱检索以其概念暴露定锚 → {concepts}"
 
 
-@dataclass
+@dataclass(frozen=True)
 class _EntityRecord:
     name: str
-    codes: list[str] = field(default_factory=list)
-    concepts: list[str] = field(default_factory=list)
+    codes: tuple[str, ...] = field(default_factory=tuple)
+    concepts: tuple[str, ...] = field(default_factory=tuple)
 
 
-def _load_entity_records(knowledge: KnowledgeAdapter) -> list[_EntityRecord]:
+@dataclass(frozen=True)
+class _EntityLexiconCacheEntry:
+    fingerprint: tuple[int, int]
+    records: tuple[_EntityRecord, ...]
+
+
+_LEXICON_CACHE: dict[str, _EntityLexiconCacheEntry] = {}
+_LEXICON_LOCK = threading.RLock()
+
+
+def _load_entity_records(knowledge: KnowledgeAdapter) -> tuple[_EntityRecord, ...]:
     relation = knowledge.load_relation("entity_exposures")
     if not relation["found"]:
-        return []
+        return ()
     entities = relation["data"].get("entities", {})
     if not isinstance(entities, dict):
-        return []
+        return ()
     records: list[_EntityRecord] = []
     for name, row in entities.items():
         if not isinstance(name, str) or not isinstance(row, dict):
@@ -81,11 +93,59 @@ def _load_entity_records(knowledge: KnowledgeAdapter) -> list[_EntityRecord]:
         records.append(
             _EntityRecord(
                 name=name.strip(),
-                codes=[str(c) for c in codes] if isinstance(codes, list) else [],
-                concepts=concept_names,
+                codes=tuple(str(c) for c in codes) if isinstance(codes, list) else (),
+                concepts=tuple(concept_names),
             )
         )
-    return records
+    return tuple(records)
+
+
+def _relation_fingerprint(path: Path) -> tuple[int, int] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return stat.st_mtime_ns, stat.st_size
+
+
+def _cached_entity_records(knowledge: KnowledgeAdapter) -> tuple[_EntityRecord, ...]:
+    path = knowledge.relation_path("entity_exposures").resolve()
+    fingerprint = _relation_fingerprint(path)
+    if fingerprint is None:
+        return ()
+    cache_key = str(path)
+    with _LEXICON_LOCK:
+        cached = _LEXICON_CACHE.get(cache_key)
+        if cached is not None and cached.fingerprint == fingerprint:
+            return cached.records
+        records = _load_entity_records(knowledge)
+        _LEXICON_CACHE[cache_key] = _EntityLexiconCacheEntry(
+            fingerprint=fingerprint,
+            records=records,
+        )
+        return records
+
+
+def _clear_entity_lexicon_cache() -> None:
+    """测试辅助：生产代码通过文件指纹自动刷新，无需主动清理。"""
+    with _LEXICON_LOCK:
+        _LEXICON_CACHE.clear()
+
+
+def entity_concept_names(knowledge: KnowledgeAdapter) -> tuple[str, ...]:
+    """返回实体暴露里登记过的概念名，供确定性主题词典复用。"""
+    return tuple(
+        sorted(
+            {
+                concept
+                for record in _cached_entity_records(knowledge)
+                for concept in record.concepts
+                if len(concept.strip()) >= MIN_NAME_LEN
+            },
+            key=len,
+            reverse=True,
+        )
+    )
 
 
 def resolve_entity_anchor(query: str, knowledge: KnowledgeAdapter) -> EntityAnchor | None:
@@ -93,7 +153,7 @@ def resolve_entity_anchor(query: str, knowledge: KnowledgeAdapter) -> EntityAnch
     text = str(query or "")
     if not text.strip():
         return None
-    records = _load_entity_records(knowledge)
+    records = _cached_entity_records(knowledge)
     if not records:
         return None
 

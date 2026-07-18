@@ -256,13 +256,18 @@ def financials_block_for_target(
     periods: int = DEFAULT_PERIODS,
     fetcher: Callable[..., list[QuarterFinancials]] | None = None,
     fallback_fetcher: Callable[..., list[QuarterFinancials]] | None = None,
+    timeout: float = 8.0,
 ) -> str:
     """给定目标股，取数并渲染 D7 块；主源（东财 F10）失败时 fallback 到 AKShare，
     块头标注实际数据源；两源都失败才写缺口。"""
     if not fetch_enabled():
         return build_financials_block(name or ts_code, ts_code, [], fetch_disabled=True)
     fetch = fetcher or fetch_quarterly_financials
-    rows = fetch(ts_code, name, periods)
+    rows = (
+        fetch(ts_code, name, periods, timeout)
+        if fetcher is None
+        else fetch(ts_code, name, periods)
+    )
     source = "东财 F10"
     if not rows:
         fallback = fallback_fetcher or fetch_quarterly_financials_akshare
