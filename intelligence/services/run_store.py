@@ -36,6 +36,7 @@ from threading import Lock
 from typing import Any
 
 from intelligence import userspace
+from intelligence.services.workbench_db import DB_FILENAME, WorkbenchDB
 from intelligence.api.stream_events import (
     STREAM_SCHEMA_VERSION,
     StreamEnvelope,
@@ -147,7 +148,13 @@ class RunStore:
     def __init__(self, user_id: str | None = None, root: Path | None = None) -> None:
         us = userspace.user_space(user_id)
         self.user_id = us.user_id
-        self.root = root if root is not None else us.root / "runs"
+        if root is not None:
+            self.root = root
+            db_path = Path(root) / DB_FILENAME
+        else:
+            self.root = us.root / "runs"
+            db_path = us.root / DB_FILENAME
+        self.db = WorkbenchDB(db_path)
         self._state_lock = threading.RLock()
 
     # ---------- 写路径 ----------
@@ -246,7 +253,11 @@ class RunStore:
         with _stream_lock(path):
             if path.exists() and path.stat().st_size and not path.read_bytes().endswith(b"\n"):
                 raise ValueError("refuse append: nonempty stream file lacks final newline")
-            existing = self.load_stream_events(run_id)
+            if self.db.count_run_events(run_id) == 0:
+                legacy = self._load_stream_events_from_file(run_id)
+                if legacy:
+                    self.db.insert_run_events(run_id, legacy)
+            existing = self.db.get_run_events(run_id)
             for event in existing:
                 if event["event_id"] != safe_id:
                     continue
@@ -267,6 +278,7 @@ class RunStore:
                 payload=safe_payload,
             )
             event = asdict(envelope)
+            self.db.insert_run_event(run_id, event["seq"], safe_id, event)
             with path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(event, ensure_ascii=False) + "\n")
                 fh.flush()
@@ -409,7 +421,10 @@ class RunStore:
         return self.run_dir(run_id) / "stream.jsonl"
 
     def load_run(self, run_id: str) -> Run:
-        payload = json.loads(self.run_path(run_id).read_text(encoding="utf-8"))
+        self.run_dir(run_id)  # 校验 run_id 合法性（防路径穿越）
+        payload = self.db.get_run(run_id)
+        if payload is None:
+            payload = json.loads(self.run_path(run_id).read_text(encoding="utf-8"))
         return Run(**payload)
 
     def load_trace(self, run_id: str) -> list[dict[str, Any]]:
@@ -426,6 +441,12 @@ class RunStore:
     def load_stream_events(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
         if isinstance(after, bool) or not isinstance(after, int) or after < 0:
             raise ValueError("stream cursor must be nonnegative")
+        if self.db.count_run_events(run_id):
+            return self.db.get_run_events(run_id, after)
+        return self._load_stream_events_from_file(run_id, after)
+
+    def _load_stream_events_from_file(self, run_id: str, after: int = 0) -> list[dict[str, Any]]:
+        """旧 JSONL 读路径（SQLite 无该 run 事件时的回退 + 懒回填数据源）。"""
         path = self.stream_path(run_id)
         if not path.exists():
             return []
@@ -514,12 +535,15 @@ class RunStore:
         return events
 
     def list_runs(self) -> list[Run]:
-        if not self.root.exists():
-            return []
-        runs = []
-        for run_file in sorted(self.root.glob("run_*/run.json")):
-            runs.append(Run(**json.loads(run_file.read_text(encoding="utf-8"))))
-        return runs
+        merged: dict[str, Run] = {}
+        if self.root.exists():
+            for run_file in sorted(self.root.glob("run_*/run.json")):
+                run = Run(**json.loads(run_file.read_text(encoding="utf-8")))
+                merged[run.run_id] = run
+        for payload in self.db.list_runs():
+            run = Run(**payload)
+            merged[run.run_id] = run
+        return [merged[run_id] for run_id in sorted(merged)]
 
     # ---------- 内部 ----------
 
@@ -528,3 +552,4 @@ class RunStore:
         tmp = path.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(asdict(run), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         tmp.replace(path)  # 原子替换，避免读到写了一半的 run.json
+        self.db.upsert_run(asdict(run))

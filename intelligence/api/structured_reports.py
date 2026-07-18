@@ -217,12 +217,26 @@ def upsert_report_module(
 
 def daily_projection_modules(
     repo_root: Path,
+    requested_date: str | None = None,
 ) -> tuple[str | None, list[dict[str, Any]], list[str]]:
     exports = repo_root / "market_feature_store" / "exports"
-    candidates = sorted(exports.glob("*-daily-review.md"), reverse=True)
-    if not candidates:
+    if requested_date:
+        if re.fullmatch(r"20\d{2}-\d{2}-\d{2}", requested_date) is None:
+            return None, [], ["指定的复盘日期格式无效。"]
+        source_path = exports / f"{requested_date}-daily-review.md"
+        if not source_path.exists():
+            return (
+                None,
+                [],
+                [f"未找到 {requested_date} 的本地复盘报告；日报基础模块缺失。"],
+            )
+    else:
+        candidates = sorted(exports.glob("*-daily-review.md"), reverse=True)
+        if not candidates:
+            return None, [], ["未找到本地复盘报告；日报基础模块缺失。"]
+        source_path = candidates[0]
+    if not source_path.is_file():
         return None, [], ["未找到本地复盘报告；日报基础模块缺失。"]
-    source_path = candidates[0]
     date_text = source_path.name.removesuffix("-daily-review.md")
     projection = project_daily_review_markdown(
         source_path.read_text(encoding="utf-8"),
@@ -241,13 +255,20 @@ def daily_projection_modules(
         }
         for metric in projection.get("metrics", [])
     ]
+    overview_summary = "；".join(
+        str(_humanize_daily_text(line)).rstrip("。")
+        for line in projection.get("plain_summary", [])
+        if str(line).strip()
+    )
     modules: list[dict[str, Any]] = [
         {
             "module_id": "daily_overview",
             "title": "今日核心",
             "kind": "summary",
             "status": "degraded" if warnings else "complete",
-            "summary": "基于本地复盘报告数据。",
+            "summary": (overview_summary + "。")
+            if overview_summary
+            else "基于本地复盘报告数据。",
             "content": None,
             "metrics": metrics,
             "items": [
@@ -436,13 +457,20 @@ def daily_agent_projection_modules(
     warnings = list(provenance.get("warnings", []))
     date_text = projection.get("date")
     source = provenance.get("canonical_path")
+    agent_summary = "；".join(
+        str(line).rstrip("。")
+        for line in projection.get("plain_summary", [])
+        if str(line).strip()
+    )
     modules: list[dict[str, Any]] = [
         {
             "module_id": "daily_agent_overview",
             "title": str(projection.get("title") or "日常研究雷达"),
             "kind": "summary",
             "status": "degraded" if warnings else "complete",
-            "summary": "基于 canonical Daily Agent JSON 的确定性投影。",
+            "summary": (agent_summary + "。")
+            if agent_summary
+            else "基于 canonical Daily Agent JSON 的确定性投影。",
             "content": None,
             "metrics": list(projection.get("metrics", [])),
             "items": [

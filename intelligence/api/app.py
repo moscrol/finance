@@ -37,18 +37,32 @@ from intelligence.api.structured_reports import (
     new_structured_report,
     upsert_report_module,
 )
+from intelligence.api.stream_events import PUBLIC_EVENT_TYPES
 from intelligence.services import followups as followups_svc
+from intelligence.services import kb_rag
 from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import run_store as rs
-from intelligence.services.conversation_orchestrator import TurnOrchestrator
+from intelligence.services.forecast_learning import (
+    approve_reflection,
+    learning_feedback_projection,
+    reject_reflection,
+    set_rule_status,
+)
+from intelligence.services.conversation_orchestrator import (
+    TurnOrchestrator,
+    sanitize_user_visible_artifact_text,
+)
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
 )
 from intelligence.services.llm_refine import LLMProvider
 from intelligence.services.llm_settings import SessionLLMSettings
+from intelligence.services.market_snapshot_contract import (
+    validate_market_snapshot_root,
+)
 from intelligence.services.run_store import RunStore
 from intelligence.services.self_use_maturity import (
     SelfUseApprovalStore,
@@ -67,8 +81,176 @@ REPO_ROOT = Path(
 
 _SSE_POLL_SECONDS = 0.5
 _SSE_MAX_SECONDS = 15 * 60
+
+
+def _positive_float_env(name: str, default: float) -> float:
+    try:
+        value = float(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
 _WORKER_COUNT = 2
 _RESTART_REASON = "workbench_restarted_before_completion"
+_STABLE_MACHINE_FALLBACK_REASONS = frozenset(
+    {
+        "provider_timeout",
+        "provider_unavailable",
+        "quality_gate_rejected",
+        "budget_exhausted",
+    }
+)
+_PUBLIC_METADATA_STRING_FIELDS = frozenset(
+    {
+        "schema_version",
+        "event_id",
+        "event_type",
+        "run_id",
+        "conversation_id",
+        "message_id",
+        "step_id",
+        "skill_id",
+        "module_id",
+        "artifact_id",
+        "report_id",
+        "status",
+        "role",
+        "task_type",
+        "skill_mode",
+        "perspective_mode",
+        "phase",
+        "answer_phase",
+        "selection_source",
+        "kind",
+        "renderer",
+        "tag",
+    }
+)
+_PUBLIC_METADATA_STRING_LIST_FIELDS = frozenset(
+    {
+        "selected_skill_ids",
+        "invoked_skill_ids",
+        "selected_perspective_ids",
+    }
+)
+
+
+def _public_degrades(values: list[str]) -> list[str]:
+    return list(
+        dict.fromkeys(
+            sanitize_user_visible_artifact_text(value)
+            for value in values
+            if isinstance(value, str) and value.strip()
+        )
+    )
+
+
+def _public_run_payload(run: rs.Run) -> dict[str, object]:
+    payload = asdict(run)
+    payload["degrades"] = _public_degrades(run.degrades)
+    if run.error:
+        payload["error"] = sanitize_user_visible_artifact_text(run.error)
+    return payload
+
+
+def _is_public_machine_enum(path: tuple[str, ...], value: str) -> bool:
+    return (
+        len(path) >= 3
+        and path[-3:] == ("report", "llm", "fallback_reason")
+        and value in _STABLE_MACHINE_FALLBACK_REASONS
+    )
+
+
+def _is_public_metadata_string(path: tuple[str, ...]) -> bool:
+    return bool(path) and (
+        path[-1] in _PUBLIC_METADATA_STRING_FIELDS
+        or (
+            len(path) >= 2
+            and path[-2] in _PUBLIC_METADATA_STRING_LIST_FIELDS
+        )
+    )
+
+
+def _public_value(
+    value: object,
+    *,
+    path: tuple[str, ...] = (),
+    preserve_text_paths: frozenset[tuple[str, ...]] = frozenset(),
+) -> object:
+    if isinstance(value, str):
+        if (
+            _is_public_machine_enum(path, value)
+            or _is_public_metadata_string(path)
+            or any(
+                len(path) >= len(suffix) and path[-len(suffix) :] == suffix
+                for suffix in preserve_text_paths
+            )
+        ):
+            return value
+        stripped = value.strip()
+        if stripped.startswith(("{", "[")):
+            try:
+                decoded = json.loads(stripped)
+            except json.JSONDecodeError:
+                pass
+            else:
+                if isinstance(decoded, (dict, list)):
+                    return json.dumps(
+                        _public_value(
+                            decoded,
+                            path=path,
+                            preserve_text_paths=preserve_text_paths,
+                        ),
+                        ensure_ascii=False,
+                    )
+        return sanitize_user_visible_artifact_text(value)
+    if isinstance(value, list):
+        return [
+            _public_value(
+                item,
+                path=(*path, str(index)),
+                preserve_text_paths=preserve_text_paths,
+            )
+            for index, item in enumerate(value)
+        ]
+    if isinstance(value, dict):
+        return {
+            str(key): _public_value(
+                item,
+                path=(*path, str(key)),
+                preserve_text_paths=preserve_text_paths,
+            )
+            for key, item in value.items()
+        }
+    return value
+
+
+def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
+    projected = _public_value(step)
+    return projected if isinstance(projected, dict) else {}
+
+
+def _public_stream_event(event: dict[str, object]) -> dict[str, object]:
+    event_type = event.get("event_type")
+    preserve_paths: set[tuple[str, ...]] = {
+        ("payload", "message", "content")
+    }
+    if event_type == "answer.snapshot":
+        preserve_paths.add(("payload", "text"))
+    elif event_type == "text.delta":
+        preserve_paths.add(("payload", "delta"))
+    projected = _public_value(
+        event,
+        preserve_text_paths=frozenset(preserve_paths),
+    )
+    return projected if isinstance(projected, dict) else {}
+
+
+def _public_message_payload(message: object) -> dict[str, object]:
+    projected = _public_value(
+        asdict(message),
+        preserve_text_paths=frozenset({("content",)}),
+    )
+    return projected if isinstance(projected, dict) else {}
 
 
 class CancellationSignal:
@@ -331,6 +513,14 @@ class ConfigureLLMRequest(BaseModel):
         pattern=r"^[A-Za-z0-9._:/-]+$",
     )
     user: str | None = None
+
+
+class ApproveReflectionRequest(BaseModel):
+    hypothesis_ids: list[str] = Field(default_factory=list, max_length=50)
+
+
+class RuleStatusRequest(BaseModel):
+    status: Literal["approved", "rejected"]
 
 
 def _run_conversation_turn(
@@ -914,13 +1104,26 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        if kb_rag.rag_worker.enabled():
+            try:
+                kb_rag.prewarm(
+                    runtime_paths.knowledge_wiki,
+                    timeout=_positive_float_env(
+                        "RAG_WORKER_PREWARM_TIMEOUT",
+                        90.0,
+                    ),
+                )
+            except Exception as exc:  # noqa: BLE001 - fail closed at readiness
+                kb_rag.rag_worker.record_startup_failure(exc)
         try:
             yield
         finally:
+            kb_rag.rag_worker.close_all()
             llm_settings.clear_all()
             supervisor.shutdown()
 
     app = FastAPI(title="Market Intelligence Workbench API", lifespan=lifespan)
+    app.state.repo_root = root
     registries: dict[str, ArtifactRegistry] = {}
     recovered_runs: list[str] = []
     conversation_locks: dict[tuple[str, str], Lock] = {}
@@ -1055,6 +1258,11 @@ def create_app(
     @app.get("/api/health/ready")
     def health_ready(user: str | None = None) -> JSONResponse:
         store = store_for(user)
+        rag_probe = kb_rag.probe_rag_cli(runtime_paths.knowledge_wiki)
+        worker_status = kb_rag.rag_worker.status()
+        snapshot_contract = validate_market_snapshot_root(
+            runtime_paths.market_snapshot_dir
+        )
         run_root_ready = False
         try:
             store.root.mkdir(parents=True, exist_ok=True)
@@ -1063,14 +1271,26 @@ def create_app(
             pass
         checks = {
             **dependency_checks(),
+            "rag_query_protocol": rag_probe.query_protocol_compatible,
+            "rag_worker": (
+                not worker_status["enabled"]
+                or (
+                    worker_status["state"] == "ready"
+                    and int(worker_status["active"]) >= 1
+                )
+            ),
             "run_store_writable": run_root_ready,
+            "market_snapshot_contract": bool(snapshot_contract["ready"]),
         }
         critical = {
             "repo_root": checks["repo_root"],
             "run_store_writable": checks["run_store_writable"],
             "knowledge_wiki": checks["knowledge_wiki"],
             "relations": checks["relations"],
-            "market_snapshot": checks["market_snapshot"],
+            "vector_index": checks["vector_index"],
+            "rag_query_protocol": checks["rag_query_protocol"],
+            "rag_worker": checks["rag_worker"],
+            "market_snapshot": checks["market_snapshot_contract"],
         }
         ready = all(critical.values())
         payload = {
@@ -1081,10 +1301,28 @@ def create_app(
             "missing_critical": [
                 name for name, available in critical.items() if not available
             ],
+            "rag": rag_probe.to_dict(),
+            "market_snapshot": {
+                "status": snapshot_contract["status"],
+                "ready": snapshot_contract["ready"],
+                "date": snapshot_contract["summary"].get(
+                    "served_trade_date"
+                )
+                or snapshot_contract["date"],
+                "requested_date": snapshot_contract["summary"].get(
+                    "requested_trade_date"
+                ),
+                "provider": snapshot_contract["summary"].get("provider"),
+                "source": snapshot_contract["summary"].get("source"),
+                "summary": snapshot_contract["summary"],
+                "errors": snapshot_contract["errors"],
+                "warnings": snapshot_contract["warnings"],
+            },
             "workers": {
                 "active": supervisor.active_count(),
                 "capacity": supervisor.max_workers,
                 "timeout_sec": supervisor.timeout_sec,
+                "rag": worker_status,
             },
             "recovered_runs": len(recovered_runs),
         }
@@ -1161,7 +1399,7 @@ def create_app(
     def list_messages(conversation_id: str, user: str | None = None) -> list[dict[str, object]]:
         conversation_or_404(user, conversation_id)
         return [
-            asdict(item)
+            _public_message_payload(item)
             for item in conversation_store_for(user).load_messages(conversation_id)
         ]
 
@@ -1299,12 +1537,15 @@ def create_app(
 
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
-        return [asdict(run) for run in reversed(store_for(user).list_runs())]
+        return [
+            _public_run_payload(run)
+            for run in reversed(store_for(user).list_runs())
+        ]
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str, user: str | None = None) -> dict[str, object]:
         try:
-            return asdict(store_for(user).load_run(run_id))
+            return _public_run_payload(store_for(user).load_run(run_id))
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
@@ -1314,7 +1555,7 @@ def create_app(
         try:
             if not store.run_path(run_id).exists():
                 raise HTTPException(404, f"run 不存在：{run_id}")
-            return store.load_trace(run_id)
+            return [_public_trace_step(step) for step in store.load_trace(run_id)]
         except ValueError as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
@@ -1370,9 +1611,16 @@ def create_app(
             while True:
                 report_events = store.load_stream_events(run_id, after=current_cursor)
                 for event in report_events:
-                    data = json.dumps(event, ensure_ascii=False)
-                    yield f"id: {event['event_id']}\nevent: {event['event_type']}\ndata: {data}\n\n"
                     current_cursor = event["seq"]
+                    if event["event_type"] not in PUBLIC_EVENT_TYPES:
+                        continue
+                    public_event = _public_stream_event(event)
+                    data = json.dumps(public_event, ensure_ascii=False)
+                    yield (
+                        f"id: {public_event['event_id']}\n"
+                        f"event: {public_event['event_type']}\n"
+                        f"data: {data}\n\n"
+                    )
                 run = store.load_run(run_id)
                 if run.status in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
                     terminal_message_missing = run.session_id and not any(
@@ -1390,7 +1638,10 @@ def create_app(
                     ):
                         time.sleep(_SSE_POLL_SECONDS)
                         continue
-                    yield f"event: run\ndata: {json.dumps(asdict(run), ensure_ascii=False)}\n\n"
+                    yield (
+                        "event: run\n"
+                        f"data: {json.dumps(_public_run_payload(run), ensure_ascii=False)}\n\n"
+                    )
                     return
                 if time.monotonic() > deadline:
                     yield "event: timeout\ndata: {}\n\n"
@@ -1621,7 +1872,7 @@ def create_app(
         return {
             "user": store.user_id,
             "workflows": workflows,
-            "recent_runs": [asdict(run) for run in runs],
+            "recent_runs": [_public_run_payload(run) for run in runs],
             "latest_artifacts": [artifact.public_dict() for artifact in artifacts[:10]],
             "latest_daily_artifact": latest_daily.public_dict() if latest_daily else None,
             "pending_review_count": _pending_review_count(root),
@@ -1635,6 +1886,63 @@ def create_app(
     @app.get("/api/workbench/overview")
     def workbench_overview() -> dict[str, object]:
         return build_workbench_overview(root, runtime_paths.knowledge_wiki)
+
+    learning_root = root / "docs" / "learning" / "forecast-lessons"
+
+    @app.get("/api/workbench/learning-feedback")
+    def workbench_learning_feedback() -> dict[str, object]:
+        return learning_feedback_projection(learning_root)
+
+    @app.post("/api/workbench/learning-feedback/reflections/{filename}/approve")
+    def approve_learning_reflection(
+        filename: str,
+        req: ApproveReflectionRequest,
+    ) -> dict[str, object]:
+        if Path(filename).name != filename or not filename.endswith(".json"):
+            raise HTTPException(400, "invalid reflection filename")
+        reflection = learning_root / "reflections" / filename
+        if not reflection.is_file():
+            raise HTTPException(404, "reflection not found")
+        try:
+            approve_reflection(
+                reflection,
+                learning_root / "lessons.jsonl",
+                hypothesis_ids=req.hypothesis_ids,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return learning_feedback_projection(learning_root)
+
+    @app.post("/api/workbench/learning-feedback/reflections/{filename}/reject")
+    def reject_learning_reflection(
+        filename: str,
+        req: ApproveReflectionRequest,
+    ) -> dict[str, object]:
+        if Path(filename).name != filename or not filename.endswith(".json"):
+            raise HTTPException(400, "invalid reflection filename")
+        reflection = learning_root / "reflections" / filename
+        if not reflection.is_file():
+            raise HTTPException(404, "reflection not found")
+        try:
+            reject_reflection(reflection, hypothesis_ids=req.hypothesis_ids)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return learning_feedback_projection(learning_root)
+
+    @app.post("/api/workbench/learning-feedback/rules/{candidate_id}/status")
+    def update_learning_rule(
+        candidate_id: str,
+        req: RuleStatusRequest,
+    ) -> dict[str, object]:
+        try:
+            set_rule_status(
+                learning_root / "rule_candidates.jsonl",
+                candidate_id,
+                req.status,
+            )
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return learning_feedback_projection(learning_root)
 
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.is_dir():

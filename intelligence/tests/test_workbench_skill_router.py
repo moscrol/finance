@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import json
 from dataclasses import fields
 from pathlib import Path
 
 import pytest
 
+from intelligence.services.query_understanding import understand_query
 from intelligence.services.run_store import RunStore
 from intelligence.workbench_skills.contracts import (
     SkillDefinition,
     SkillExecutionContext,
     SkillOutput,
-    build_module_answer_contract,
 )
 from intelligence.workbench_skills.registry import (
     SKILL_EXECUTORS,
@@ -73,9 +74,11 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "citations",
         "warnings",
         "as_of",
-        "raw_result_ref",
-        "answer_contract",
-    ]
+            "raw_result_ref",
+            "answer_contract",
+            "stage_artifacts",
+            "status",
+        ]
     store = RunStore(root=tmp_path / "runs")
     context = SkillExecutionContext(
         query="今日复盘",
@@ -151,6 +154,43 @@ def test_manual_mode_deduplicates_and_selects_only_manual_without_llm() -> None:
     assert result.base_finance_fallback is False
 
 
+def test_auto_and_hybrid_inherit_only_registered_skill_ids() -> None:
+    registry = {
+        "daily-review": definition("daily-review"),
+        "other": definition("other"),
+    }
+    for mode in ("auto", "hybrid"):
+        result = route_skills(
+            "下周验证清单",
+            "ask",
+            mode,
+            [],
+            registry=registry,
+            inherited_skill_ids=("missing", "daily-review"),
+            llm_complete=lambda _messages: (None, None, "no key"),
+        )
+        assert result.selections[0].skill_id == "daily-review"
+        assert result.selections[0].reason == "继承上一轮研究工具上下文"
+
+
+def test_manual_mode_ignores_inherited_skill_context() -> None:
+    registry = {
+        "daily-review": definition("daily-review"),
+        "manual": definition("manual"),
+    }
+
+    result = route_skills(
+        "按手动流程做",
+        "ask",
+        "manual",
+        ["manual"],
+        registry=registry,
+        inherited_skill_ids=("daily-review",),
+    )
+
+    assert [item.skill_id for item in result.selections] == ["manual"]
+
+
 def test_auto_mode_ignores_manual_selection_and_uses_stable_rules_without_llm() -> None:
     registry = {
         "z": definition("z", "复盘"),
@@ -172,6 +212,95 @@ def test_auto_mode_ignores_manual_selection_and_uses_stable_rules_without_llm() 
     assert all("匹配" in item.reason for item in result.selections)
     assert result.fallback_to_ask is False
     assert result.base_finance_fallback is False
+
+
+def test_dated_market_summary_routes_to_daily_review_without_llm_guessing() -> None:
+    registry = {
+        "daily-review": definition("daily-review", "复盘"),
+        "theme-research": definition("theme-research", "研究"),
+    }
+    query = "总结一下 2026-07-16 的行情"
+
+    result = route_skills(
+        query,
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        query_envelope=understand_query(query),
+        llm_complete=lambda _messages: (None, None, "no key"),
+    )
+
+    assert result.selections[0].skill_id == "daily-review"
+    assert result.selections[0].selection_source == "rule"
+    assert "指定日期" in result.selections[0].reason
+
+
+def test_market_watch_question_routes_to_daily_review_without_llm() -> None:
+    registry = {
+        "daily-review": definition("daily-review", "复盘"),
+        "theme-research": definition("theme-research", "研究"),
+    }
+    query = "今天有什么值得关注的"
+
+    result = route_skills(
+        query,
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        query_envelope=understand_query(query),
+        llm_complete=lambda _messages: (None, None, "no key"),
+    )
+
+    assert result.selections[0].skill_id == "daily-review"
+    assert result.selections[0].selection_source == "rule"
+    assert "当日盘面" in result.selections[0].reason
+
+
+def test_controller_owner_excludes_other_research_owners() -> None:
+    registry = {
+        "news-impact": definition("news-impact", "影响"),
+        "stock-deep-dive": definition("stock-deep-dive", "深挖"),
+    }
+    envelope = understand_query("请个股深挖英维克的液冷业务")
+
+    result = route_skills(
+        "请个股深挖英维克的液冷业务和客户影响",
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        llm_complete=llm_response(
+            '{"skill_ids":["news-impact"],'
+            '"reasons":{"news-impact":"影响分析"}}'
+        ),
+        query_envelope=envelope,
+        answer_owner="stock-deep-dive",
+    )
+
+    assert [item.skill_id for item in result.selections] == ["stock-deep-dive"]
+    assert result.selections[0].reason == "Controller 指定唯一答案 owner"
+
+
+def test_manual_mode_executes_only_explicit_user_selections() -> None:
+    registry = {
+        "stock-deep-dive": definition("stock-deep-dive", "深挖"),
+        "daily-agent": definition("daily-agent", "今日研究"),
+    }
+
+    result = route_skills(
+        "第二轮请看今天研究什么",
+        "ask",
+        "manual",
+        ["daily-agent"],
+        registry=registry,
+        query_envelope=understand_query("第二轮请看今天研究什么"),
+        answer_owner="stock-deep-dive",
+    )
+
+    assert [item.skill_id for item in result.selections] == ["daily-agent"]
+    assert result.selections[0].selection_source == "manual"
 
 
 def test_hybrid_preserves_manual_then_supplements_and_caps_total_at_three() -> None:
@@ -317,6 +446,57 @@ def test_llm_can_select_registered_skill_without_trigger_match() -> None:
     assert result.selections[0].selection_source == "llm"
 
 
+def test_adaptive_reroute_excludes_failed_skill_and_passes_feedback() -> None:
+    registry = {
+        "stock": definition("stock", "个股"),
+        "financial": definition("financial", "财报"),
+    }
+    captured: dict[str, object] = {}
+
+    def complete(messages: list[dict[str, str]]):
+        captured["payload"] = json.loads(messages[-1]["content"])
+        return (
+            json.dumps(
+                {
+                    "skill_ids": ["financial"],
+                    "reasons": {"financial": "改用财报证据路径"},
+                },
+                ensure_ascii=False,
+            ),
+            object(),
+            "",
+        )
+
+    result = route_skills(
+        "某公司怎么看",
+        "ask",
+        "auto",
+        (),
+        registry=registry,
+        llm_complete=complete,
+        excluded_skill_ids=("stock",),
+        execution_feedback=(
+            {
+                "skill_id": "stock",
+                "status": "failed",
+                "failure_reason": "上游不可用",
+            },
+        ),
+    )
+
+    assert [item.skill_id for item in result.selections] == ["financial"]
+    payload = captured["payload"]
+    assert isinstance(payload, dict)
+    assert all(item["skill_id"] != "stock" for item in payload["candidates"])
+    assert payload["prior_tool_attempts"] == [
+        {
+            "skill_id": "stock",
+            "status": "failed",
+            "failure_reason": "上游不可用",
+        }
+    ]
+
+
 def test_no_semantic_selection_enters_base_finance_chain() -> None:
     result = route_skills(
         "无关问题",
@@ -329,3 +509,62 @@ def test_no_semantic_selection_enters_base_finance_chain() -> None:
     assert result.selections == ()
     assert result.fallback_to_ask is False
     assert result.base_finance_fallback is True
+
+
+def test_auto_market_pattern_excludes_theme_research_from_rules_and_llm() -> None:
+    query = (
+        "如果一个A股题材连续上涨，但板块成交占比开始下降，我应该怎么判断"
+        "它是健康分歧还是行情高潮？"
+    )
+    envelope = understand_query(query)
+    captured_candidates: list[str] = []
+
+    def select_forbidden_theme(messages: list[dict[str, str]]):
+        payload = json.loads(messages[1]["content"])
+        captured_candidates.extend(
+            candidate["skill_id"] for candidate in payload["candidates"]
+        )
+        return (
+            '{"skill_ids":["theme-research"],'
+            '"reasons":{"theme-research":"规则和语义都像题材研究"}}',
+            object(),
+            "",
+        )
+
+    result = route_skills(
+        query,
+        "ask",
+        "auto",
+        [],
+        registry={
+            "theme-research": definition("theme-research", "连续上涨"),
+            "daily-review": definition("daily-review", "今日复盘"),
+        },
+        llm_complete=select_forbidden_theme,
+        query_envelope=envelope,
+    )
+
+    assert captured_candidates == ["daily-review"]
+    assert result.selections == ()
+    assert result.base_finance_fallback is True
+
+
+def test_manual_market_pattern_preserves_user_selected_theme_research() -> None:
+    query = "指数上涨但涨停家数减少，是否背离？"
+    envelope = understand_query(query)
+
+    result = route_skills(
+        query,
+        "ask",
+        "manual",
+        ["theme-research"],
+        registry={"theme-research": definition("theme-research", "指数上涨")},
+        llm_complete=lambda _: pytest.fail("manual mode must not call LLM"),
+        query_envelope=envelope,
+    )
+
+    assert [selection.skill_id for selection in result.selections] == [
+        "theme-research"
+    ]
+    assert result.selections[0].selection_source == "manual"
+    assert result.base_finance_fallback is False

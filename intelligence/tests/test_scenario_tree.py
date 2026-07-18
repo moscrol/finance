@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from intelligence.services.scenario_tree import (
+    build_scenario_tree_artifact,
     build_scenario_guidance,
     parse_scenario_intent,
     scenario_guidance_for_query,
@@ -39,6 +40,49 @@ class GuidanceContentTests(unittest.TestCase):
     def test_for_query_returns_guidance_when_routed(self) -> None:
         g = scenario_guidance_for_query("推演正极扭亏路径", None)
         self.assertIn("情景树/推演表达契约", g)
+
+    def test_typed_tree_uses_conditional_branches_without_numeric_probability(
+        self,
+    ) -> None:
+        artifact = build_scenario_tree_artifact(
+            theme="信创",
+            horizon="3_to_6_months",
+            verified_facts=(
+                {
+                    "text": "板块成交与涨幅同步转强",
+                    "evidence_ids": ["D6"],
+                    "status": "verified",
+                },
+            ),
+            triggers=(
+                {
+                    "text": "公告与订单证据继续补强",
+                    "evidence_ids": ["L3-1"],
+                },
+            ),
+            counterevidence=(
+                {
+                    "text": "公司经营兑现弱于题材叙事",
+                    "evidence_ids": ["R1"],
+                },
+            ),
+            gaps=(),
+        )
+
+        self.assertTrue(artifact.available)
+        self.assertIsNone(artifact.degrade_reason)
+        self.assertEqual(
+            [branch.branch_id for branch in artifact.branches],
+            ["upgrade", "base", "downgrade"],
+        )
+        payload = artifact.to_payload()
+        self.assertFalse(payload["numeric_probabilities_allowed"])
+        self.assertTrue(
+            all(
+                branch["likelihood"] == "待验证"
+                for branch in payload["branches"]
+            )
+        )
 
 
 if __name__ == "__main__":

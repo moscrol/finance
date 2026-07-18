@@ -1,0 +1,113 @@
+[
+  {
+    "id": "stock_entity_opinion",
+    "query": "中际旭创怎么看",
+    "expected": {
+      "lane": "research",
+      "question_type": "stock_deep_dive",
+      "subject": "中际旭创",
+      "owner": "stock-deep-dive"
+    }
+  },
+  {
+    "id": "theme_opinion",
+    "query": "光模块怎么看",
+    "expected": {
+      "lane": "research",
+      "question_type": "theme_analysis",
+      "subject": "光模块",
+      "owner": "theme-research"
+    }
+  },
+  {
+    "id": "logic_followup",
+    "query": "这个逻辑呢",
+    "previous": {
+      "subject": "中际旭创",
+      "question_type": "stock_deep_dive",
+      "owner": "stock-deep-dive"
+    },
+    "expected": {
+      "lane": "research",
+      "subject": "中际旭创",
+      "owner": "stock-deep-dive",
+      "inherited": true
+    }
+  },
+  {
+    "id": "direction_followup",
+    "query": "这个方向怎么看",
+    "previous": {
+      "subject": "光模块",
+      "question_type": "theme_analysis",
+      "owner": "theme-research"
+    },
+    "expected": {
+      "lane": "research",
+      "subject": "光模块",
+      "owner": "theme-research",
+      "inherited": true
+    }
+  },
+  {
+    "id": "chain_followup",
+    "query": "这条链有哪些公司",
+    "previous": {
+      "subject": "光模块",
+      "question_type": "theme_analysis",
+      "owner": "theme-research"
+    },
+    "expected": {
+      "lane": "research",
+      "subject": "光模块",
+      "owner": "theme-research",
+      "inherited": true,
+      "operators": ["company_mapping"],
+      "capabilities": ["graph"]
+    }
+  },
+  {
+    "id": "marginal_change_followup",
+    "query": "边际变化呢",
+    "previous": {
+      "subject": "中际旭创",
+      "question_type": "stock_deep_dive",
+      "owner": "stock-deep-dive"
+    },
+    "expected": {
+      "lane": "research",
+      "subject": "中际旭创",
+      "owner": "stock-deep-dive",
+      "inherited": true,
+      "operators": ["market_change"]
+    }
+  },
+  {
+    "id": "relation_question",
+    "query": "光模块上游有哪些公司",
+    "expected": {
+      "lane": "research",
+      "question_type": "theme_analysis",
+      "subject": "光模块",
+      "owner": "theme-research",
+      "operators": ["relation", "company_mapping"],
+      "capabilities": ["graph"]
+    }
+  },
+  {
+    "id": "reference_without_context",
+    "query": "这个逻辑呢",
+    "expected": {
+      "lane": "clarify",
+      "owner": null
+    }
+  },
+  {
+    "id": "vague_opinion_without_context",
+    "query": "你怎么看",
+    "expected": {
+      "lane": "clarify",
+      "owner": null
+    }
+  }
+]

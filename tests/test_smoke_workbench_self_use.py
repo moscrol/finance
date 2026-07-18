@@ -90,6 +90,23 @@ class SmokeHandler(BaseHTTPRequestHandler):
                     ),
                     ("timeout", {}),
                 ]
+                if type(self).mode == "public_event_leak":
+                    events[1] = (
+                        "citation.ready",
+                        {
+                            "event_type": "citation.ready",
+                            "seq": 2,
+                            "payload": {
+                                "citation": {
+                                    "title": (
+                                        'Traceback File '
+                                        '"/Users/alice/private/rag_index.py", line 9'
+                                    ),
+                                    "warnings": ["provider_timeout"],
+                                }
+                            },
+                        },
+                    )
                 if type(self).mode == "missing_draft":
                     events = events[1:]
                 if type(self).mode == "replay":
@@ -182,7 +199,12 @@ class SmokeHandler(BaseHTTPRequestHandler):
                 "status": "completed",
                 "modules": [{"module_id": "daily_overview"}],
                 "warnings": [],
-                "llm": {"used": False, "provider": None, "model": None},
+                "llm": {
+                    "used": False,
+                    "provider": None,
+                    "model": None,
+                    "fallback_reason": "provider_timeout",
+                },
             }
             if type(self).mode == "protocol":
                 report.pop("llm")
@@ -207,6 +229,19 @@ class SmokeHandler(BaseHTTPRequestHandler):
             self._json(report)
             return
         if parsed.path == "/api/runs/run-1/trace":
+            if type(self).mode == "trace_leak":
+                self._json(
+                    [
+                        {
+                            "name": "ask_retrieve_compose",
+                            "output_summary": (
+                                'Traceback File '
+                                '"/Users/alice/private/rag_index.py", line 9'
+                            ),
+                        }
+                    ]
+                )
+                return
             self._json(
                 [
                     {
@@ -223,6 +258,24 @@ class SmokeHandler(BaseHTTPRequestHandler):
                     }
                 ]
             )
+            return
+        if parsed.path == "/api/conversations/conversation-1/messages":
+            messages = (
+                [
+                    {
+                        "role": "assistant",
+                        "content": "可核验回答",
+                        "degrades": [
+                            'Traceback File '
+                            '"/Users/alice/private/rag_index.py", line 9',
+                            "provider_timeout",
+                        ],
+                    }
+                ]
+                if type(self).mode == "message_leak"
+                else []
+            )
+            self._json(messages)
             return
         self._json({"detail": "not found"}, status=404)
 
@@ -325,6 +378,7 @@ def test_completed_smoke_replays_sse_and_writes_redacted_summary(
         "fallback_reason": "dense_dependency_missing",
     }
     assert summary["secret_scan"]["hit_count"] == 0
+    assert summary["public_scan"]["hit_count"] == 0
     assert "今天市场怎么样" not in raw_summary
     assert "private citation" not in raw_summary
     assert "example.invalid" not in raw_summary
@@ -361,6 +415,24 @@ def test_secret_scan_hit_returns_two_without_echoing_secret(tmp_path: Path) -> N
         }
     ]
     assert "ghp_abcdefghijklmnopqrstuvwxyz" not in raw_summary
+
+
+@pytest.mark.parametrize(
+    "mode",
+    ["public_event_leak", "message_leak", "trace_leak"],
+)
+def test_public_scan_covers_canonical_events_messages_and_trace(
+    tmp_path: Path,
+    mode: str,
+) -> None:
+    exit_code, summary, raw_summary = run_cli(tmp_path, mode)
+
+    assert exit_code == 2
+    assert summary["terminal_outcome"] == "public_scan_failed"
+    assert summary["public_scan"]["hit_count"] > 0
+    assert "Traceback" not in raw_summary
+    assert "/Users/alice" not in raw_summary
+    assert "provider_timeout" not in raw_summary
 
 
 def test_completed_smoke_requires_model_metadata(tmp_path: Path) -> None:

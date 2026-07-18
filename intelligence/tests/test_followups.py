@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest import mock
 
-from intelligence.services import followups
+from intelligence.services import answer_model, followups
 
 
 class TemplateFallbackTests(unittest.TestCase):
@@ -14,6 +14,8 @@ class TemplateFallbackTests(unittest.TestCase):
         for f in result.followups:
             self.assertIn("液冷", f.question)
             self.assertEqual(f.type_label, followups.TYPE_LABELS[f.type])
+            self.assertLessEqual(len(f.label), 20)
+            self.assertEqual(f.full_prompt, f.question)
 
     def test_no_theme_falls_back_to_question_prefix(self) -> None:
         result = followups.generate_followups("英维克现在贵不贵", use_llm=False)
@@ -30,7 +32,7 @@ class TemplateFallbackTests(unittest.TestCase):
 class LLMPathTests(unittest.TestCase):
     def test_llm_json_parsed_and_typed(self) -> None:
         payload = json.dumps({"followups": [
-            {"question": "英维克最新液冷订单金额多少？", "type": "evidence", "rationale": "锚定公告"},
+            {"label": "核对液冷订单", "full_prompt": "请核对英维克最新液冷订单金额和公告来源？", "type": "evidence", "rationale": "锚定公告"},
             {"question": "如果液冷渗透率不及预期，先看什么？", "type": "counter"},
             {"question": "类型非法的会被丢弃", "type": "nope"},
         ]})
@@ -42,12 +44,64 @@ class LLMPathTests(unittest.TestCase):
         self.assertEqual(result.llm_provider, "fake")
         self.assertEqual(len(result.followups), 2)
         self.assertEqual(result.followups[0].type_label, "证据加深")
+        self.assertEqual(result.followups[0].label, "核对液冷订单")
+        self.assertEqual(
+            result.followups[0].full_prompt,
+            "请核对英维克最新液冷订单金额和公告来源？",
+        )
+        self.assertEqual(
+            result.followups[1].full_prompt,
+            "如果液冷渗透率不及预期，先看什么？",
+        )
 
     def test_to_json_roundtrip(self) -> None:
         result = followups.generate_followups("液冷", matched_theme="液冷", use_llm=False)
         doc = json.loads(result.to_json())
         self.assertEqual(len(doc["followups"]), 5)
         self.assertIn("type_label", doc["followups"][0])
+        self.assertIn("label", doc["followups"][0])
+        self.assertIn("full_prompt", doc["followups"][0])
+
+
+class AnswerSpecFollowupTests(unittest.TestCase):
+    def test_suggestions_only_use_gaps_actions_and_validation_boundaries(self) -> None:
+        gap = answer_model.make_claim(
+            claim_id="gap-1",
+            text="缺少公司公告对真实订单的确认",
+            claim_type="gap",
+            theme="液冷",
+            status=answer_model.ClaimStatus.MISSING,
+        )
+        trigger = answer_model.make_claim(
+            claim_id="trigger-1",
+            text="若毛利率连续两个季度下滑则判断降级",
+            claim_type="trigger",
+            theme="液冷",
+            status=answer_model.ClaimStatus.INFERRED,
+        )
+        spec = answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_theme_research_spec("液冷", "液冷"),
+            summary=(),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(gap,),
+            triggers=(trigger,),
+            next_actions=("核对下一期定期报告的分部收入",),
+            sources=(),
+            system_notices=(),
+        )
+
+        result = followups.generate_answer_spec_followups(
+            spec,
+            subject="英维克",
+        )
+
+        self.assertEqual(len(result.followups), 4)
+        self.assertFalse(result.llm_used)
+        self.assertTrue(any(item.source == "gap:gap-1" for item in result.followups))
+        self.assertTrue(any(item.source == "next_action" for item in result.followups))
+        self.assertTrue(all("海光信息" not in item.question for item in result.followups))
 
 
 if __name__ == "__main__":

@@ -19,9 +19,12 @@
 from __future__ import annotations
 
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
+from contextvars import copy_context
 from dataclasses import dataclass
 from typing import Any, Callable
+
+from intelligence.services.research_contract import ResearchDeadline
 
 DEFAULT_MAX_WORKERS = 6
 
@@ -36,6 +39,21 @@ class BlockTask:
 
 
 @dataclass
+class DataBlockProvider:
+    """数据块证据源 provider（D/W7/M/V 块的统一接口）。
+
+    ``applies()`` 是现有的规则门控（意图词面/问题类型命中才取数），
+    ``collect()`` 返回 (块文本, 引用)。与 evidence_providers 里的 S/G/R/W/E/L
+    provider 同构：门控与取数分离，新增数据块不再改主流程。
+    """
+
+    name: str
+    label: str
+    applies: Callable[[], bool]
+    collect: Callable[[], tuple[str, Any]]
+
+
+@dataclass
 class BlockOutcome:
     tag: str
     label: str
@@ -45,8 +63,17 @@ class BlockOutcome:
     elapsed_ms: int = 0
 
 
-def _run_one(task: BlockTask) -> BlockOutcome:
+def _run_one(
+    task: BlockTask,
+    deadline: ResearchDeadline | None = None,
+) -> BlockOutcome:
     started = time.monotonic()
+    if deadline is not None and deadline.expired:
+        return BlockOutcome(
+            tag=task.tag,
+            label=task.label,
+            error="ResearchDeadlineExceeded",
+        )
     try:
         block, citation = task.build()
         return BlockOutcome(
@@ -65,15 +92,70 @@ def _run_one(task: BlockTask) -> BlockOutcome:
         )
 
 
+def run_providers(
+    providers: list[DataBlockProvider],
+    max_workers: int = DEFAULT_MAX_WORKERS,
+    parallel: bool = True,
+    deadline: ResearchDeadline | None = None,
+) -> list[BlockOutcome]:
+    """对 ``applies()==True`` 的 provider 并行 collect，按注册顺序返回结果。
+
+    门控串行求值（便宜且确定性），取数并行；汇总顺序 = 注册顺序，
+    保证 evidence_text/引用编号与串行版逐字节一致。
+    """
+    tasks = [
+        BlockTask(provider.name, provider.label, provider.collect)
+        for provider in providers
+        if provider.applies()
+    ]
+    return run_block_tasks(
+        tasks,
+        max_workers=max_workers,
+        parallel=parallel,
+        deadline=deadline,
+    )
+
+
 def run_block_tasks(
     tasks: list[BlockTask],
     max_workers: int = DEFAULT_MAX_WORKERS,
     parallel: bool = True,
+    deadline: ResearchDeadline | None = None,
 ) -> list[BlockOutcome]:
     """并行执行子任务，**按输入顺序**返回结果（保证汇总顺序确定）。"""
     if not tasks:
         return []
     if not parallel or len(tasks) == 1:
-        return [_run_one(task) for task in tasks]
-    with ThreadPoolExecutor(max_workers=min(max_workers, len(tasks))) as pool:
-        return list(pool.map(_run_one, tasks))
+        return [_run_one(task, deadline) for task in tasks]
+    pool = ThreadPoolExecutor(max_workers=min(max_workers, len(tasks)))
+    # copy_context：把主线程的 contextvars（如 per-run DuckDB 连接池）带进工作线程。
+    futures = {
+        pool.submit(copy_context().run, _run_one, task, deadline): index
+        for index, task in enumerate(tasks)
+        if deadline is None or not deadline.expired
+    }
+    timeout = None if deadline is None else deadline.remaining()
+    done, pending = wait(futures, timeout=timeout)
+    outcomes: dict[int, BlockOutcome] = {
+        futures[future]: future.result() for future in done
+    }
+    for future in pending:
+        future.cancel()
+        index = futures[future]
+        task = tasks[index]
+        outcomes[index] = BlockOutcome(
+            tag=task.tag,
+            label=task.label,
+            error="ResearchDeadlineExceeded",
+        )
+    for index, task in enumerate(tasks):
+        outcomes.setdefault(
+            index,
+            BlockOutcome(
+                tag=task.tag,
+                label=task.label,
+                error="ResearchDeadlineExceeded",
+            ),
+        )
+    pool.shutdown(wait=False, cancel_futures=True)
+    return [outcomes[index] for index in range(len(tasks))]

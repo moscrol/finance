@@ -43,9 +43,9 @@ def test_closed_loop_uses_entity_code_broad_terms_and_counter_queries() -> None:
         if len(queries) == 1:
             return _response(query, [_hit("液冷服务器", 0.72)])
         if "上下游" in query:
-            return _response(query, [_hit("温控设备", 0.62)])
+            return _response(query, [_hit("液冷温控设备", 0.62)])
         if "风险" in query:
-            return _response(query, [_hit("需求不及预期", 0.12)])
+            return _response(query, [_hit("液冷需求不及预期", 0.12)])
         return _response(query, [])
 
     result = retrieve_closed_loop(
@@ -63,9 +63,11 @@ def test_closed_loop_uses_entity_code_broad_terms_and_counter_queries() -> None:
     assert any("风险 证伪 不及预期" in query for query in queries)
     assert [item.hit.title for item in result.conclusion] == [
         "液冷服务器",
-        "温控设备",
+        "液冷温控设备",
     ]
-    assert [item.hit.title for item in result.counter_clues] == ["需求不及预期"]
+    assert [item.hit.title for item in result.counter_clues] == [
+        "液冷需求不及预期"
+    ]
 
 
 def test_weak_ranked_hit_never_enters_conclusion_bucket() -> None:
@@ -81,7 +83,34 @@ def test_weak_ranked_hit_never_enters_conclusion_bucket() -> None:
     result = retrieve_closed_loop("短问题", anchor=None, retrieve=retrieve)
 
     assert result.conclusion == []
-    assert any(item.hit.title == "弱相关首页" for item in result.clues)
+    assert result.clues == []
+    assert any(item.hit.title == "弱相关首页" for item in result.discarded)
+
+
+def test_irrelevant_hard_source_cannot_bypass_query_relevance() -> None:
+    calls = 0
+
+    def retrieve(query: str) -> WikiRagResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _response(
+                query,
+                [_hit("A股消费公司公告", 0.9, hardness="hard")],
+            )
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "昨天美股的涨跌情况",
+        anchor=None,
+        retrieve=retrieve,
+    )
+
+    assert result.conclusion == []
+    assert result.counter_clues == []
+    assert [item.hit.title for item in result.discarded] == [
+        "A股消费公司公告"
+    ]
 
 
 def test_empty_aperture_stops_after_three_rewrites_and_reports_gap() -> None:
@@ -99,6 +128,29 @@ def test_empty_aperture_stops_after_three_rewrites_and_reports_gap() -> None:
         ) == 3
     assert len(calls) == 9
     assert len(result.warnings) == 3
+
+
+def test_timeout_stops_rewrites_for_the_same_aperture() -> None:
+    calls: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        calls.append(query)
+        return WikiRagResult(
+            ok=False,
+            hits=[],
+            telemetry=RetrievalTelemetry(status="timeout", hit_count=0),
+            command=query,
+            warning="retrieval timeout",
+        )
+
+    result = retrieve_closed_loop("液冷", anchor=None, retrieve=retrieve)
+
+    assert len(calls) == 3
+    assert [attempt.aperture for attempt in result.attempts] == [
+        "narrow",
+        "broad",
+        "counter",
+    ]
 
 
 def test_hard_evidence_can_enter_conclusion_at_lower_score() -> None:
@@ -133,3 +185,40 @@ def test_relevant_hit_is_scale_independent_for_rrf_scores() -> None:
     )
 
     assert [item.hit.title for item in result.conclusion] == ["液冷需求"]
+
+
+def test_index_style_query_does_not_anchor_substring_entities() -> None:
+    queries: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        queries.append(query)
+        if len(queries) <= 3:
+            return _response(
+                query,
+                [
+                    WikiHit(
+                        page_id="中科创达",
+                        file_path="wiki/entities/中科创达.md",
+                        title="中科创达（300496）",
+                        score=0.8,
+                        excerpt="中科创达 智能座舱 AIOS 中间件 芯片",
+                        best_chunk_id="中科创达::0",
+                    )
+                ],
+            )
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "科创50的支撑点位在哪",
+        anchor=None,
+        retrieve=retrieve,
+    )
+
+    assert result.conclusion == []
+    assert result.clues == []
+    assert all(
+        "中科创达" not in attempt.query for attempt in result.attempts
+    )
+    assert any(
+        item.hit.title.startswith("中科创达") for item in result.discarded
+    )

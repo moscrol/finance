@@ -24,8 +24,13 @@ import re
 import subprocess
 import sys
 import time
+from collections import OrderedDict
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
+from threading import Lock
+
+from intelligence.services import rag_worker
 
 # rag_index.py lives at <KB repo root>/scripts/rag_index.py; the KB repo root is
 # the parent of the wiki root (KnowledgeAdapter.resolved_wiki_root.parent).
@@ -37,8 +42,25 @@ DEFAULT_EXCERPT_CHARS = 200
 DEFAULT_LLM_EVIDENCE_CHARS = 1200
 DEFAULT_LLM_EVIDENCE_TOTAL_CHARS = 4800
 EVIDENCE_BUDGET_EXHAUSTED = "（本条仅保留引用定位）"
+REQUIRED_QUERY_OPTIONS = ("--json", "--k", "--mode")
+OPTIONAL_QUERY_OPTIONS = (
+    "--evidence-chars",
+    "--evidence-layer",
+    "--fact-hardness",
+    "--source-type",
+)
 
 CITATION_PREFIX = "W"
+_LEGACY_QUERY_OPTIONS: dict[str, frozenset[str]] = {}
+_DENSE_UNAVAILABLE_UNTIL: dict[str, float] = {}
+_RESULT_CACHE: OrderedDict[tuple[object, ...], tuple[float, WikiRagResult]] = (
+    OrderedDict()
+)
+_RESULT_CACHE_LOCK = Lock()
+_RESULT_CACHE_MAX_ENTRIES = 128
+_RESULT_CACHE_TTL_SECONDS = 300.0
+_RESULT_CACHE_EMPTY_TTL_SECONDS = 30.0
+_DENSE_FAILURE_TTL_SECONDS = 600.0
 
 # ---- 两种命名查询模式：结构版（默认）/ 全文版 -----------------------------
 # 模式只切「索引目录 + 检索方式」，不改其余行为。默认 structured 与历史逐字节一致。
@@ -193,6 +215,11 @@ class RetrievalTelemetry:
     display_excerpt_chars: int = 0
     llm_evidence_chars: int = 0
     llm_evidence_total_chars: int = 0
+    query_protocol: str = "current"
+    unsupported_options: tuple[str, ...] = ()
+    cache_hit: bool = False
+    cache_age_ms: int | None = None
+    index_fingerprint: str = ""
 
     def summary_line(self) -> str:
         """一行可观测摘要，供回答 / 日志展示。"""
@@ -217,6 +244,8 @@ class RetrievalTelemetry:
             )
         if self.latency_ms is not None:
             parts.append(f"耗时={self.latency_ms}ms")
+        if self.cache_hit:
+            parts.append(f"缓存命中={self.cache_age_ms or 0}ms")
         if self.degraded:
             parts.append("⚠检索降级")
         if self.index_freshness:
@@ -242,6 +271,26 @@ class WikiRagResult:
     telemetry: RetrievalTelemetry = field(default_factory=RetrievalTelemetry)
 
 
+@dataclass(frozen=True)
+class RagCliProbe:
+    available: bool
+    query_protocol_compatible: bool
+    supported_options: tuple[str, ...] = ()
+    missing_required_options: tuple[str, ...] = ()
+    missing_optional_options: tuple[str, ...] = ()
+    warning: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "available": self.available,
+            "query_protocol_compatible": self.query_protocol_compatible,
+            "supported_options": list(self.supported_options),
+            "missing_required_options": list(self.missing_required_options),
+            "missing_optional_options": list(self.missing_optional_options),
+            "warning": self.warning,
+        }
+
+
 def kb_root(kb_wiki: str | Path) -> Path:
     """KB repo root = parent of the wiki root (mirrors theme_modules._kb_root)."""
     return Path(kb_wiki).expanduser().resolve().parent
@@ -254,6 +303,70 @@ def _resolve_index_dir(root: Path) -> Path:
     return root / ".rag_index"
 
 
+def _index_fingerprint(index_dir: Path) -> str:
+    parts: list[str] = []
+    for name in ("meta.json", "chunks.jsonl", "bm25.pkl.gz", "dense.npy"):
+        path = index_dir / name
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        parts.append(f"{name}:{stat.st_size}:{stat.st_mtime_ns}")
+    return "|".join(parts) or f"{index_dir}:missing"
+
+
+def _cache_get(
+    key: tuple[object, ...],
+    *,
+    require_fresh: bool,
+) -> WikiRagResult | None:
+    now = time.monotonic()
+    with _RESULT_CACHE_LOCK:
+        cached = _RESULT_CACHE.get(key)
+        if cached is None:
+            return None
+        stored_at, result = cached
+        ttl = (
+            _RESULT_CACHE_TTL_SECONDS
+            if result.ok
+            else _RESULT_CACHE_EMPTY_TTL_SECONDS
+        )
+        if now - stored_at > ttl:
+            _RESULT_CACHE.pop(key, None)
+            return None
+        if require_fresh and any(
+            hit.index_freshness != "fresh" for hit in result.hits
+        ):
+            _RESULT_CACHE.pop(key, None)
+            return None
+        _RESULT_CACHE.move_to_end(key)
+        cloned = deepcopy(result)
+    cloned.telemetry.cache_hit = True
+    cloned.telemetry.cache_age_ms = int((now - stored_at) * 1000)
+    cloned.telemetry.latency_ms = 0
+    return cloned
+
+
+def _cache_put(
+    key: tuple[object, ...],
+    result: WikiRagResult,
+) -> WikiRagResult:
+    if result.telemetry.status not in {"ok", "empty"}:
+        return result
+    with _RESULT_CACHE_LOCK:
+        _RESULT_CACHE[key] = (time.monotonic(), deepcopy(result))
+        _RESULT_CACHE.move_to_end(key)
+        while len(_RESULT_CACHE) > _RESULT_CACHE_MAX_ENTRIES:
+            _RESULT_CACHE.popitem(last=False)
+    return result
+
+
+def clear_result_cache() -> None:
+    with _RESULT_CACHE_LOCK:
+        _RESULT_CACHE.clear()
+    _DENSE_UNAVAILABLE_UNTIL.clear()
+
+
 def _resolve_rag_python(root: Path) -> str:
     """Prefer the KB repo's RAG venv, while allowing explicit overrides."""
     env = os.environ.get("KB_RAG_PYTHON") or os.environ.get("RAG_PYTHON")
@@ -264,6 +377,124 @@ def _resolve_rag_python(root: Path) -> str:
         if candidate.exists():
             return str(candidate)
     return sys.executable
+
+
+def prewarm(
+    kb_wiki: str | Path | None,
+    *,
+    timeout: float = 90,
+) -> dict[str, object]:
+    """Load the production hybrid retriever before serving user requests."""
+    if not rag_worker.enabled():
+        return rag_worker.status()
+    if not kb_wiki:
+        raise ValueError("knowledge wiki is required for RAG prewarm")
+    root = kb_root(kb_wiki)
+    script = root / RAG_SCRIPT_REL
+    index_dir = _resolve_index_dir(root)
+    if not script.is_file():
+        raise FileNotFoundError(script)
+    if not index_dir.is_dir():
+        raise FileNotFoundError(index_dir)
+    rag_worker.prewarm(
+        python=_resolve_rag_python(root),
+        kb_root=root,
+        index_dir=index_dir,
+        argv=[
+            "query",
+            "Workbench RAG 预热",
+            "--k",
+            "1",
+            "--mode",
+            DEFAULT_RAG_MODE,
+            "--json",
+        ],
+        timeout=timeout,
+    )
+    return rag_worker.status()
+
+
+def probe_rag_cli(
+    kb_wiki: str | Path | None,
+    *,
+    timeout: int = 5,
+) -> RagCliProbe:
+    if not kb_wiki:
+        return RagCliProbe(
+            available=False,
+            query_protocol_compatible=False,
+            warning="未配置知识库 wiki 路径",
+        )
+    root = kb_root(kb_wiki)
+    script = root / RAG_SCRIPT_REL
+    if not script.is_file():
+        return RagCliProbe(
+            available=False,
+            query_protocol_compatible=False,
+            warning="RAG CLI 脚本不存在",
+        )
+    try:
+        proc = subprocess.run(
+            [_resolve_rag_python(root), str(script), "query", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(root),
+        )
+    except subprocess.TimeoutExpired:
+        return RagCliProbe(
+            available=False,
+            query_protocol_compatible=False,
+            warning="RAG CLI 能力探测超时",
+        )
+    except Exception:
+        return RagCliProbe(
+            available=False,
+            query_protocol_compatible=False,
+            warning="RAG CLI 能力探测失败",
+        )
+    if proc.returncode != 0:
+        return RagCliProbe(
+            available=False,
+            query_protocol_compatible=False,
+            warning=f"RAG CLI 能力探测退出码 {proc.returncode}",
+        )
+    help_text = f"{proc.stdout}\n{proc.stderr}"
+    known_options = (*REQUIRED_QUERY_OPTIONS, *OPTIONAL_QUERY_OPTIONS)
+    supported = tuple(option for option in known_options if option in help_text)
+    missing_required = tuple(
+        option for option in REQUIRED_QUERY_OPTIONS if option not in supported
+    )
+    missing_optional = tuple(
+        option for option in OPTIONAL_QUERY_OPTIONS if option not in supported
+    )
+    warning = ""
+    if missing_required:
+        warning = "RAG CLI 缺少必要 query 参数"
+    elif missing_optional:
+        warning = "RAG CLI 使用 legacy query 协议"
+    return RagCliProbe(
+        available=True,
+        query_protocol_compatible=not missing_required,
+        supported_options=supported,
+        missing_required_options=missing_required,
+        missing_optional_options=missing_optional,
+        warning=warning,
+    )
+
+
+def _without_option(cmd: list[str], option: str) -> list[str]:
+    updated = list(cmd)
+    if option not in updated:
+        return updated
+    index = updated.index(option)
+    del updated[index : index + 2]
+    return updated
+
+
+def _unsupported_option(stderr: str, option: str) -> bool:
+    compact = re.sub(r"\s+", " ", stderr or "").strip()
+    return "unrecognized arguments:" in compact and option in compact
 
 
 def _compact_text(value: object, max_chars: int | None = None) -> str:
@@ -361,6 +592,7 @@ def retrieve(
     source_type: str | None = None,
     index_dir: str | Path | None = None,
     require_fresh: bool = True,
+    cache_scope: str | None = None,
 ) -> WikiRagResult:
     """Run the KB hybrid retriever for ``query`` and return candidate wiki pages.
 
@@ -416,6 +648,7 @@ def retrieve(
     res.index_dir = str(chosen)
     tel.index_dir = str(chosen)
     tel.index_kind = _index_kind(chosen)
+    tel.index_fingerprint = _index_fingerprint(chosen)
     if llm_evidence_chars is None or llm_evidence_total_chars is None:
         dynamic_chars, dynamic_total = evidence_budget_for_query(
             budget_query or query,
@@ -444,6 +677,42 @@ def retrieve(
         max(int(llm_evidence_chars), int(llm_evidence_chars * 1.25)),
         2000,
     )
+    cache_key = (
+        cache_scope,
+        str(root),
+        str(script),
+        str(chosen),
+        tel.index_fingerprint,
+        query,
+        int(k),
+        requested_mode,
+        int(excerpt_chars),
+        int(llm_evidence_chars),
+        int(llm_evidence_total_chars),
+        budget_query or "",
+        evidence_layer or "",
+        fact_hardness or "",
+        source_type or "",
+        bool(require_fresh),
+    )
+    if cache_scope:
+        cached = _cache_get(cache_key, require_fresh=require_fresh)
+        if cached is not None:
+            return cached
+    legacy_options = _LEGACY_QUERY_OPTIONS.get(str(script), frozenset())
+    effective_mode = requested_mode
+    dense_disabled_until = _DENSE_UNAVAILABLE_UNTIL.get(str(script), 0.0)
+    if (
+        requested_mode in _DENSE_MODES
+        and dense_disabled_until
+        and dense_disabled_until > time.monotonic()
+    ):
+        effective_mode = "bm25"
+        tel.mode = "bm25"
+        tel.effective_mode = "bm25"
+        tel.recall_desc = _MODE_RECALL_DESC["bm25"]
+        tel.fallback_reason = "dense_dependency_cached_unavailable"
+        tel.degraded = True
     cmd = [
         rag_python,
         str(script),
@@ -452,11 +721,11 @@ def retrieve(
         "--k",
         str(k),
         "--mode",
-        str(mode),
-        "--evidence-chars",
-        str(generation_evidence_chars),
-        "--json",
+        effective_mode,
     ]
+    if "--evidence-chars" not in legacy_options:
+        cmd.extend(["--evidence-chars", str(generation_evidence_chars)])
+    cmd.append("--json")
     filters = []
     if evidence_layer:
         cmd.extend(["--evidence-layer", evidence_layer])
@@ -474,17 +743,83 @@ def retrieve(
     if source_type:
         tel.filters["source_type"] = source_type
     filter_note = f" filters={','.join(filters)}" if filters else ""
-    res.command = (
-        f"rag_index.py query <q> --k {k} --mode {mode}"
-        f" --evidence-chars {generation_evidence_chars}{filter_note} --json"
+    evidence_chars_note = (
+        f" --evidence-chars {generation_evidence_chars}"
+        if "--evidence-chars" in cmd
+        else ""
     )
-    res.citation_source = f"knowledge-base · rag_index.py query --mode {mode}{filter_note}（匹配 chunk 证据）"
+    res.command = (
+        f"rag_index.py query <q> --k {k} --mode {effective_mode}"
+        f"{evidence_chars_note}{filter_note} --json"
+    )
+    res.citation_source = (
+        "knowledge-base · rag_index.py query "
+        f"--mode {effective_mode}{filter_note}（匹配 chunk 证据）"
+    )
     env = dict(os.environ)
     env["RAG_INDEX_DIR"] = str(chosen)
-    fallback_warning = ""
+    fallback_warnings: list[str] = []
+    if legacy_options:
+        tel.query_protocol = "legacy"
+        tel.unsupported_options = tuple(sorted(legacy_options))
+        tel.fallback_reason = "legacy_cli_missing_evidence_chars"
+        tel.degraded = True
+        fallback_warnings.append(
+            "wiki-rag CLI 不支持 --evidence-chars，已使用 legacy query 协议"
+        )
     _t0 = time.monotonic()
+    worker_enabled = os.environ.get("RAG_WORKER_ENABLED", "0").strip().lower() not in {
+        "0",
+        "false",
+        "off",
+        "no",
+    }
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(root), env=env)
+        if worker_enabled and not filters:
+            proc = rag_worker.query(
+                python=rag_python,
+                kb_root=root,
+                index_dir=chosen,
+                argv=cmd[2:],
+                timeout=float(timeout),
+            )
+            tel.query_protocol = "persistent_worker"
+        else:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=str(root),
+                env=env,
+            )
+    except (RuntimeError, OSError, json.JSONDecodeError) as exc:
+        fallback_warnings.append(
+            f"wiki-rag 常驻 worker 不可用（{type(exc).__name__}），已回退 CLI"
+        )
+        tel.degraded = True
+        tel.fallback_reason = "persistent_worker_unavailable"
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=max(0.001, float(timeout) - (time.monotonic() - _t0)),
+                cwd=str(root),
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            res.warning = "wiki-rag worker 降级 CLI 后仍超时"
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            tel.status = "timeout"
+            tel.warning = res.warning
+            return res
+    except TimeoutError:
+        res.warning = f"wiki-rag 常驻 worker 超时(>{timeout}s)，进程已终止"
+        tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+        tel.status = "timeout"
+        tel.warning = res.warning
+        return res
     except subprocess.TimeoutExpired:
         res.warning = f"wiki-rag 超时(>{timeout}s)，已跳过"
         tel.latency_ms = int((time.monotonic() - _t0) * 1000)
@@ -499,9 +834,71 @@ def retrieve(
 
     if (
         proc.returncode != 0
+        and "--evidence-chars" in cmd
+        and _unsupported_option(proc.stderr, "--evidence-chars")
+    ):
+        remaining = float(timeout) - (time.monotonic() - _t0)
+        if remaining < 1:
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            res.warning = (
+                "wiki-rag CLI 不支持 --evidence-chars，剩余预算不足，"
+                "未执行 legacy query 回退"
+            )
+            tel.status = "error"
+            tel.warning = res.warning
+            return res
+        cmd = _without_option(cmd, "--evidence-chars")
+        _LEGACY_QUERY_OPTIONS[str(script)] = frozenset({"--evidence-chars"})
+        tel.query_protocol = "legacy"
+        tel.unsupported_options = ("--evidence-chars",)
+        tel.fallback_reason = "legacy_cli_missing_evidence_chars"
+        tel.degraded = True
+        res.command = (
+            f"rag_index.py query <q> --k {k} --mode {mode}{filter_note} --json"
+        )
+        try:
+            if worker_enabled and not filters:
+                proc = rag_worker.query(
+                    python=rag_python,
+                    kb_root=root,
+                    index_dir=chosen,
+                    argv=cmd[2:],
+                    timeout=remaining,
+                )
+                tel.query_protocol = "persistent_worker_legacy"
+            else:
+                proc = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=remaining,
+                    cwd=str(root),
+                    env=env,
+                )
+        except (subprocess.TimeoutExpired, TimeoutError):
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            res.warning = "wiki-rag legacy query 回退超时"
+            tel.status = "timeout"
+            tel.warning = res.warning
+            return res
+        except Exception:  # pragma: no cover - defensive
+            tel.latency_ms = int((time.monotonic() - _t0) * 1000)
+            res.warning = "wiki-rag legacy query 回退调用失败"
+            tel.status = "error"
+            tel.warning = res.warning
+            return res
+        fallback_warnings.append(
+            "wiki-rag CLI 不支持 --evidence-chars，已使用 legacy query 协议"
+        )
+
+    if (
+        proc.returncode != 0
         and requested_mode in _DENSE_MODES
         and _dense_dependency_failure(proc.stderr)
     ):
+        _DENSE_UNAVAILABLE_UNTIL[str(script)] = (
+            _t0 + _DENSE_FAILURE_TTL_SECONDS
+        )
         tel.fallback_reason = "dense_dependency_missing"
         remaining = float(timeout) - (time.monotonic() - _t0)
         if remaining < 1:
@@ -519,7 +916,8 @@ def retrieve(
         tel.degraded = True
         res.command = (
             f"rag_index.py query <q> --k {k} --mode bm25"
-            f" --evidence-chars {generation_evidence_chars}{filter_note} --json"
+            f"{evidence_chars_note if '--evidence-chars' in fallback_cmd else ''}"
+            f"{filter_note} --json"
         )
         res.citation_source = (
             f"knowledge-base · rag_index.py query --mode bm25{filter_note}"
@@ -546,18 +944,20 @@ def retrieve(
             tel.status = "error"
             tel.warning = res.warning
             return res
-        fallback_warning = "wiki-rag dense 依赖不可用，已回退 BM25"
+        fallback_warnings.append("wiki-rag dense 依赖不可用，已回退 BM25")
 
     tel.latency_ms = int((time.monotonic() - _t0) * 1000)
     if proc.returncode != 0:
-        if tel.fallback_reason:
+        if tel.fallback_reason == "dense_dependency_missing":
             res.warning = f"wiki-rag dense 依赖不可用，BM25 回退退出码 {proc.returncode}"
+        elif tel.query_protocol == "legacy":
+            res.warning = f"wiki-rag legacy query 回退退出码 {proc.returncode}"
         else:
             res.warning = f"wiki-rag 检索失败（退出码 {proc.returncode}）"
         tel.status = "error"
         tel.warning = res.warning
         return res
-    warnings = [warning for warning in (res.warning, fallback_warning) if warning]
+    warnings = [warning for warning in (res.warning, *fallback_warnings) if warning]
     stderr_warning = re.sub(r"\s+", " ", (proc.stderr or "")).strip()
     if stderr_warning:
         warnings.append("wiki-rag 检索器返回告警")
@@ -665,4 +1065,4 @@ def retrieve(
         res.warning = "；".join(filter(None, [res.warning, "wiki-rag 无可用 chunk 命中"]))
         tel.status = "empty"
         tel.warning = res.warning
-    return res
+    return _cache_put(cache_key, res) if cache_scope else res

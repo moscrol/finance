@@ -329,9 +329,12 @@ def project_daily_agent(
         ),
     ]
     if candidate_items:
-        plain_summary.append(
-            f"优先关注 {candidate_items[0].title}，结论仍需结合证据层级验证。"
-        )
+        top = candidate_items[0]
+        top_summary = top.summary.rstrip("。")
+        plain_summary.append(f"当日优先级最高的是{top.title}：{top_summary}。")
+        if len(candidate_items) > 1:
+            others = "、".join(item.title for item in candidate_items[1:4])
+            plain_summary.append(f"其后依次为{others}，结论需结合证据层级验证。")
 
     missing_layers = sorted(
         {

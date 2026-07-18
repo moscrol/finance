@@ -56,6 +56,14 @@ else
 fi
 MSHA=$(/usr/bin/python3 -c "import json;print(json.load(open('$LEDGER/$D.manifest.json'))['manifest_sha'])")
 
+# §8 批注只生成 pending 规则候选；答卷仅注入人工 approved 的 lessons/rules。
+mkdir -p logs
+/usr/bin/python3 -m scripts.forecast_learning_loop sync-reflections \
+  >> "logs/dual-blind.$D.learning.log" 2>&1 || true
+/usr/bin/python3 -m scripts.forecast_learning_loop sync-annotations \
+  >> "logs/dual-blind.$D.learning.log" 2>&1 || true
+LEARNING_CONTEXT=$(/usr/bin/python3 -m scripts.forecast_learning_loop prompt --limit 5)
+
 prompt_for() {
   local agent="$1"
   cat <<EOF
@@ -67,6 +75,8 @@ prompt_for() {
 3. 落盘后跑 /usr/bin/python3 scripts/dual_blind_forecast.py validate $LEDGER/$D.answer.$agent.json，必须 OK，不 OK 就修到 OK。
 4. 双盲纪律：禁止读取或参考另一位考生的答卷（$LEDGER/$D.answer.*.json 中非你名下的文件），禁止做对比、批注、裁决。
 5. 除答卷 JSON 外不要改动仓库任何文件，不要 git commit。
+
+$LEARNING_CONTEXT
 EOF
 }
 
@@ -101,7 +111,6 @@ run_agent() {
   return $rc
 }
 
-mkdir -p logs
 run_agent codex
 run_agent claude
 

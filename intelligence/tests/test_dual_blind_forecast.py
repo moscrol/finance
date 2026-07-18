@@ -87,6 +87,20 @@ def _answer_v11(date: str, agent: str, manifest_sha: str) -> dict:
 
 
 class DualBlindForecastTests(unittest.TestCase):
+    def test_namespaced_hypotheses_keep_their_category(self) -> None:
+        self.assertEqual(
+            dual_blind_forecast._hypothesis_category("direction:medicine"),
+            "direction",
+        )
+        self.assertEqual(
+            dual_blind_forecast._hypothesis_category("market:path"),
+            "market",
+        )
+        self.assertEqual(
+            dual_blind_forecast._hypothesis_category("target:300308.SZ"),
+            "target",
+        )
+
     def test_calibration_metrics_expose_ranking_and_probability_error(self) -> None:
         metrics = dual_blind_forecast._calibration_metrics(
             [(0.9, 1), (0.8, 1), (0.2, 0), (0.1, 0)]

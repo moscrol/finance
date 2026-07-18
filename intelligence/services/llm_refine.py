@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -31,7 +32,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 
 DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
-DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "2200"))
+# The provider budget includes structured claim markers that are removed before
+# display.  A visible 1,200-1,800 character answer can therefore exceed 2,200
+# model tokens even though the user-facing response is still concise.
+DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "3000"))
 DEFAULT_SYNTHESIS_MAX_CHARS = int(os.environ.get("LLM_SYNTHESIS_MAX_CHARS", "16000"))
 _ALLOWED_FINISH_REASONS = {"stop", "length", "content_filter", "tool_calls", "function_call"}
 
@@ -97,25 +101,76 @@ class Deadline:
         return remaining
 
 
-def detect_provider(model_override: str | None = None) -> LLMProvider | None:
-    """Resolve an LLM provider from environment variables, or ``None``."""
+def detect_providers(model_override: str | None = None) -> tuple[LLMProvider, ...]:
+    """Resolve configured providers in deterministic fallback order."""
     configured = _PROVIDER_OVERRIDE.get()
     if configured is not None:
         if model_override:
-            return replace(configured, model=model_override)
-        return configured
+            return (replace(configured, model=model_override),)
+        return (configured,)
     generic = os.environ.get("LLM_API_KEY")
     if generic:
         base = os.environ.get("LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1"
         model = model_override or os.environ.get("LLM_MODEL") or "gpt-4o-mini"
-        return LLMProvider(name="custom", api_key=generic, base_url=base, model=model)
+        return (LLMProvider(name="custom", api_key=generic, base_url=base, model=model),)
+    providers: list[LLMProvider] = []
+    seen: set[tuple[str, str, str]] = set()
+    managed_key = os.environ.get("FORESIGHT_BUILTIN_LLM_API_KEY")
+    if managed_key:
+        managed_base_url = (
+            os.environ.get("FORESIGHT_BUILTIN_LLM_BASE_URL")
+            or "https://open.bigmodel.cn/api/coding/paas/v4"
+        )
+        managed_model = (
+            model_override
+            or os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL")
+            or "glm-5.2"
+        )
+        providers.append(
+            LLMProvider(
+                name="zhipu",
+                api_key=managed_key,
+                base_url=managed_base_url,
+                model=managed_model,
+            )
+        )
+        seen.add((managed_key, managed_base_url, managed_model))
     for name, env_key, base, default_model in _PROVIDERS:
         key = os.environ.get(env_key)
         if key:
             base_url = os.environ.get("LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or base
             model = model_override or os.environ.get("LLM_MODEL") or default_model
-            return LLMProvider(name=name, api_key=key, base_url=base_url, model=model)
-    return None
+            identity = (key, base_url, model)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            providers.append(
+                LLMProvider(
+                    name=name,
+                    api_key=key,
+                    base_url=base_url,
+                    model=model,
+                )
+            )
+    return tuple(providers)
+
+
+def detect_provider(model_override: str | None = None) -> LLMProvider | None:
+    """Resolve the preferred LLM provider from environment variables."""
+    return next(iter(detect_providers(model_override)), None)
+
+
+def _provider_failure_reason(
+    failures: list[tuple[LLMProvider, str]],
+) -> tuple[LLMProvider, str]:
+    provider, last_reason = failures[-1]
+    if len(failures) == 1:
+        return provider, last_reason
+    summary = "；".join(
+        f"{failed_provider.name}:{reason.removeprefix('LLM 调用 ')}"
+        for failed_provider, reason in failures
+    )
+    return provider, f"所有已配置 LLM provider 均失败（{summary}）"
 
 
 @contextmanager
@@ -231,20 +286,29 @@ def complete(
     network error) ``content`` is ``None`` and ``reason`` explains why so callers
     can degrade gracefully — same contract as :func:`refine_or_reason`.
     """
-    provider = detect_provider(model_override)
-    if provider is None:
+    providers = detect_providers(model_override)
+    if not providers:
         return None, None, (
             "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 "
             "LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用"
         )
-    try:
-        content = _post_chat(provider, messages, timeout, temperature)
-    except urllib.error.HTTPError as exc:  # pragma: no cover - network
-        return None, provider, f"LLM 调用 HTTP {exc.code}"
-    except Exception as exc:  # pragma: no cover - network
-        return None, provider, f"LLM 调用失败（{type(exc).__name__}）"
-    return content, provider, ""
+    deadline = Deadline.from_timeout(timeout)
+    failures: list[tuple[LLMProvider, str]] = []
+    for provider in providers:
+        try:
+            remaining = max(1, round(deadline.require_remaining(0.001)))
+            content = _post_chat(provider, messages, remaining, temperature)
+        except urllib.error.HTTPError as exc:  # pragma: no cover - network
+            failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
+        except Exception as exc:  # pragma: no cover - network
+            failures.append((provider, f"LLM 调用失败（{type(exc).__name__}）"))
+        else:
+            return content, provider, ""
+        if deadline.remaining() <= 0:
+            break
+    provider, reason = _provider_failure_reason(failures)
+    return None, provider, reason
 
 
 def _post_chat_message(
@@ -296,20 +360,36 @@ def chat_with_tools(
     ``message["tool_calls"]`` to decide whether to dispatch tools or treat
     ``message["content"]`` as the final answer. On any failure ``message`` is
     ``None`` and ``reason`` explains why so the caller degrades gracefully."""
-    provider = detect_provider(model_override)
-    if provider is None:
+    providers = detect_providers(model_override)
+    if not providers:
         return None, None, (
             "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 "
             "LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用"
         )
-    try:
-        msg = _post_chat_message(provider, messages, timeout, temperature, tools=tools, tool_choice=tool_choice)
-    except urllib.error.HTTPError as exc:  # pragma: no cover - network
-        return None, provider, f"LLM 调用 HTTP {exc.code}"
-    except Exception as exc:  # pragma: no cover - network
-        return None, provider, f"LLM 调用失败（{type(exc).__name__}）"
-    return msg, provider, ""
+    deadline = Deadline.from_timeout(timeout)
+    failures: list[tuple[LLMProvider, str]] = []
+    for provider in providers:
+        try:
+            remaining = max(1, round(deadline.require_remaining(0.001)))
+            msg = _post_chat_message(
+                provider,
+                messages,
+                remaining,
+                temperature,
+                tools=tools,
+                tool_choice=tool_choice,
+            )
+        except urllib.error.HTTPError as exc:  # pragma: no cover - network
+            failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
+        except Exception as exc:  # pragma: no cover - network
+            failures.append((provider, f"LLM 调用失败（{type(exc).__name__}）"))
+        else:
+            return msg, provider, ""
+        if deadline.remaining() <= 0:
+            break
+    provider, reason = _provider_failure_reason(failures)
+    return None, provider, reason
 
 
 def _extract_json(text: str) -> dict | None:
@@ -412,7 +492,17 @@ _SYNTHESIS_SYSTEM_PROMPT = (
     "公司、数字或催化。先服从证据中的「问答编排计划」和「输出契约」。"
     "AnswerSpec 是最终事实白名单；证据中若出现未被 AnswerSpec 输出契约或允许项覆盖的"
     "公司、数字、日期、比例或金额，一律不得写入正文，宁可改成定性表达。"
-    "不得用“如/例如/包括”等举例句式带出新增公司或数字。"
+    "每个正文段落或列表项必须单行输出，并在行末追加 AnswerSpec 给出的结构化 claim marker；"
+    "claim_id、EvidenceAtom ID 和 claim_type 必须逐字使用 registry 中的合法值。"
+    "只选择 6-10 条最能直接回答用户问题的 claim；除 Markdown 标题外，正文绝对不得超过 12 行，"
+    "每行只绑定一个 claim marker。禁止遍历 registry、逐条覆盖全部 claim 或按模块罗列素材；"
+    "未被选中的 claim 留在证据层即可，不代表遗漏。"
+    "事实行至少绑定一个 EvidenceAtom；推断和预期必须分别标为 inference、expectation。"
+    "不得输出 registry 外的 claim，不得省略 marker；marker 是机器门禁，最终展示层会移除。"
+    "除 Markdown 标题外，禁止输出任何没有 marker 的导语、过渡句、解释、来源说明或免责声明；"
+    "需要衔接时只能新增标题，正文必须逐行复用 registry 中的 claim。"
+    "marker 前的文字只用于段落布局，最终展示层会按 claim_id 渲染 registry 中的原始 claim，"
+    "因此不要试图在该文字中补充 registry 外事实。"
     "L1 固定结论配方：数据截止日、直接定性、最强证据、主要风险、条件边界、下一步验证；"
     "L2 弹性段型由问题决定，结构和篇幅由问题复杂度决定，不得为了显得完整而套用深度研究模板。"
     "个股/题材深挖先在内部写出核心矛盾句；所有视角都必须服务这个核心矛盾，"
@@ -478,7 +568,8 @@ def _build_synthesis_prompt(
         f"以下是已检索到的多源证据（你的回答只能据此展开）：\n"
         f"{evidence_text}{legend}{quality_block}{experience_block}{exemplar_block}\n\n"
         "请据此有机融合成一段分析师口吻的回答。默认控制在 1200–1800 个中文字符；"
-        "最多 8 个短段落；不得重复来源说明、风险和验证步骤。"
+        "只选 6-10 条最关键 claim，正文硬上限 12 个带 marker 的行；不得遍历 registry 或模块，"
+        "不得重复来源说明、风险和验证步骤。"
     )
 
 
@@ -508,6 +599,98 @@ def build_synthesis_messages(
                 quality_context,
                 experience_guidance,
                 exemplar_guidance,
+            ),
+        },
+    ]
+
+
+_DECISION_BRIEF_SYSTEM_PROMPT = (
+    "你是投研总编辑，只负责形成论证计划，不写最终正文。"
+    "只能使用用户提供的 claim registry，所有数组字段只能填写 registry 中存在的 claim_id。"
+    "direct_answer 和 core_tension 可以自然表达，但不得加入 registry 外的公司、数字、日期或事实。"
+    "严格输出单个 JSON 对象，不要 Markdown："
+    '{"direct_answer":"", "core_tension":"", "supports":[], '
+    '"counterevidence":[], "unknowns":[], "upgrade_conditions":[], '
+    '"downgrade_conditions":[]}。'
+)
+
+_GROUNDED_COMPOSER_SYSTEM_PROMPT = (
+    "你是 A 股研究回答的 Grounded Composer。请围绕 DecisionBrief 回答用户原问题，"
+    "拥有最终措辞、段落论证和自然衔接权，但只能使用 claim registry 中的事实和边界。"
+    "每个正文段落或列表项必须单独一行，并在行末追加："
+    "<!-- claim_ids=id1,id2; evidence_atom_ids=atom1,atom2; "
+    "claim_type=fact|candidate|inference|expectation|gap -->。"
+    "claim_ids 可绑定一条或多条；EvidenceAtom 只能使用这些 claim 自带的合法 ID。"
+    "事实句必须绑定 EvidenceAtom；推断、候选和预期不得写成确定事实。"
+    "标题和末尾「（非投资建议）」可不带 marker，其余正文都必须带 marker。"
+    "不得增加证据外公司、数字、日期、催化或跨题材信息。"
+    "读者是投资研究用户而不是系统维护者：用市场语言表达，"
+    "不要出现内部流水线术语、字段名、评分原始数值（如优先级分数）或工程编号；"
+    "证据里的内部指标（优先级、证据状态等）只用其方向和含义，不复述原始分值。"
+    "输出 5—10 个正文段落，先直接回答，再解释核心矛盾、反证、缺口和观察条件。"
+)
+
+_GROUNDING_JUDGE_SYSTEM_PROMPT = (
+    "你是低温事实蕴含审稿器。逐句判断 Grounded Composer 的自然语言是否真的能由"
+    "该句绑定的 claim 和 EvidenceAtom 推出。重点检查：偷换主体、因果跳跃、"
+    "把候选升级为事实、跨题材污染，以及虽未新增数字但语义越界。"
+    "不要评价文风，不要重写答案。严格输出单个 JSON："
+    '{"passed":true, "rejected_sentence_indexes":[], "issues":[]}。'
+    "sentence index 只按带 marker 的正文句从 1 开始计数；有任何语义越界时 passed=false，"
+    "列出对应句号和简短原因。"
+)
+
+
+def build_decision_brief_messages(
+    query: str,
+    registry_block: str,
+) -> list[dict]:
+    return [
+        {"role": "system", "content": _DECISION_BRIEF_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"用户问题：{query}\n\n"
+                "claim registry（每行一个 JSON）：\n"
+                f"{registry_block}"
+            ),
+        },
+    ]
+
+
+def build_grounded_composer_messages(
+    query: str,
+    decision_brief: str,
+    registry_block: str,
+) -> list[dict]:
+    return [
+        {"role": "system", "content": _GROUNDED_COMPOSER_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"用户问题：{query}\n\n"
+                f"DecisionBrief：\n{decision_brief}\n\n"
+                "claim registry（每行一个 JSON）：\n"
+                f"{registry_block}"
+            ),
+        },
+    ]
+
+
+def build_grounding_judge_messages(
+    query: str,
+    grounded_answer: str,
+    registry_block: str,
+) -> list[dict]:
+    return [
+        {"role": "system", "content": _GROUNDING_JUDGE_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"用户问题：{query}\n\n"
+                f"待审答案：\n{grounded_answer}\n\n"
+                "claim registry（每行一个 JSON）：\n"
+                f"{registry_block}"
             ),
         },
     ]
@@ -637,34 +820,50 @@ def _post_chat_stream(
     output_chars = 0
     finish_reason: str | None = None
     with urllib.request.urlopen(request, timeout=timeout) as response:
+        deadline_timer = threading.Timer(
+            max(0.001, deadline.remaining()),
+            response.close,
+        )
+        deadline_timer.daemon = True
+        deadline_timer.start()
         if on_connected is not None:
             on_connected()
-        for raw_line in response:
+        try:
+            for raw_line in response:
+                if deadline.remaining() <= 0:
+                    raise LLMDeadlineExceeded()
+                if is_cancelled is not None and is_cancelled():
+                    raise LLMStreamCancelled()
+                line = raw_line.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    if finish_reason is None and chunks:
+                        finish_reason = "stop"
+                    break
+                try:
+                    event = json.loads(data)
+                    choice = event["choices"][0]
+                    finish_reason = (
+                        _stable_finish_reason(choice.get("finish_reason"))
+                        or finish_reason
+                    )
+                    delta = choice["delta"].get("content")
+                except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+                    continue
+                if isinstance(delta, str) and delta:
+                    output_chars += len(delta)
+                    if output_chars > max_chars:
+                        raise LLMOutputTooLong()
+                    on_delta(delta)
+                    chunks.append(delta)
+        except (OSError, ValueError) as exc:
             if deadline.remaining() <= 0:
-                raise LLMDeadlineExceeded()
-            if is_cancelled is not None and is_cancelled():
-                raise LLMStreamCancelled()
-            line = raw_line.decode("utf-8", "replace").strip()
-            if not line.startswith("data:"):
-                continue
-            data = line[5:].strip()
-            if data == "[DONE]":
-                if finish_reason is None and chunks:
-                    finish_reason = "stop"
-                break
-            try:
-                event = json.loads(data)
-                choice = event["choices"][0]
-                finish_reason = _stable_finish_reason(choice.get("finish_reason")) or finish_reason
-                delta = choice["delta"].get("content")
-            except (json.JSONDecodeError, KeyError, IndexError, TypeError):
-                continue
-            if isinstance(delta, str) and delta:
-                output_chars += len(delta)
-                if output_chars > max_chars:
-                    raise LLMOutputTooLong()
-                on_delta(delta)
-                chunks.append(delta)
+                raise LLMDeadlineExceeded() from exc
+            raise
+        finally:
+            deadline_timer.cancel()
     if not chunks:
         raise LLMStreamingUnsupported()
     return "".join(chunks), finish_reason
@@ -748,6 +947,8 @@ def synthesize_messages_stream(
             fallback.fallback_reason = "stream_unsupported"
         return fallback, reason
     except Exception as exc:  # pragma: no cover - network
+        if shared_deadline.remaining() <= 0:
+            return None, "LLM 流式合成超过共享截止时间，已降级为模板"
         return None, f"LLM 流式合成失败（{type(exc).__name__}），已降级为模板"
     if not content.strip():
         return None, "LLM 流式合成返回空内容，已降级为模板"
@@ -852,6 +1053,25 @@ def synthesize_messages_with_review(
     if not revised:
         return draft, "LLM 二次自审返回空内容，保留初稿并标记降级"
     return SynthesisResult(answer=revised, provider=provider.name, model=provider.model), ""
+
+
+def claim_binding_revision_user_content(
+    error_notes: list[str],
+    registry_block: str,
+) -> str:
+    joined = "\n".join(f"- {note}" for note in error_notes)
+    return (
+        "上一版未通过结构化事实门禁。不要补充、删除或改写 AnswerSpec registry；"
+        "只允许重新组织 registry 中已有 claim。\n"
+        "请输出一份完整修订稿，并严格满足：\n"
+        "1. 标题可不带 marker。\n"
+        "2. 正文只能从下方 registry 逐字复制 5—10 条完整行；"
+        "禁止改写、拆分或合并 marker 与 EvidenceAtom ID。\n"
+        "3. 禁止输出任何没有 marker 的解释、过渡句、数据说明或引用。\n"
+        f"门禁错误：\n{joined}\n"
+        "可复制 registry：\n"
+        f"{registry_block}"
+    )
 
 
 def synthesize(

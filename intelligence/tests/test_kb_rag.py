@@ -378,6 +378,53 @@ class KbRagTelemetryTests(unittest.TestCase):
             self.assertTrue(res.telemetry.degraded)
             self.assertIn("已回退 BM25", res.warning)
 
+    def test_legacy_cli_retries_without_evidence_chars(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = self._setup_repo(td)
+            (root / ".rag_index").mkdir()
+            unsupported = mock.Mock(
+                returncode=2,
+                stdout="",
+                stderr="error: unrecognized arguments: --evidence-chars 1500",
+            )
+            success = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(self._freshness_payload("fresh"), ensure_ascii=False),
+                stderr="",
+            )
+
+            with mock.patch.dict(
+                "os.environ",
+                {"KB_RAG_PYTHON": "/tmp/rag-python"},
+                clear=True,
+            ):
+                with mock.patch(
+                    "subprocess.run",
+                    side_effect=[unsupported, success],
+                ) as run:
+                    res = kb_rag.retrieve(
+                        "光刻机",
+                        root / "wiki",
+                        mode="hybrid",
+                        timeout=5,
+                    )
+
+            self.assertTrue(res.ok)
+            self.assertEqual(run.call_count, 2)
+            self.assertIn("--evidence-chars", run.call_args_list[0].args[0])
+            self.assertNotIn("--evidence-chars", run.call_args_list[1].args[0])
+            self.assertEqual(res.telemetry.query_protocol, "legacy")
+            self.assertEqual(
+                res.telemetry.unsupported_options,
+                ("--evidence-chars",),
+            )
+            self.assertEqual(
+                res.telemetry.fallback_reason,
+                "legacy_cli_missing_evidence_chars",
+            )
+            self.assertTrue(res.telemetry.degraded)
+            self.assertIn("legacy query 协议", res.warning)
+
     def test_bm25_fallback_still_rejects_stale_hits(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = self._setup_repo(td)
@@ -506,6 +553,170 @@ class KbRagPythonResolutionTests(unittest.TestCase):
 
             with mock.patch.dict("os.environ", {}, clear=True):
                 self.assertEqual(kb_rag._resolve_rag_python(root), str(py))
+
+
+class KbRagCliProbeTests(unittest.TestCase):
+    def test_accepts_legacy_cli_when_required_options_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            wiki = root / "wiki"
+            script = root / kb_rag.RAG_SCRIPT_REL
+            wiki.mkdir()
+            script.parent.mkdir()
+            script.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            proc = mock.Mock(
+                returncode=0,
+                stdout="usage: query --k K --mode MODE --json",
+                stderr="",
+            )
+
+            with mock.patch("subprocess.run", return_value=proc):
+                probe = kb_rag.probe_rag_cli(wiki)
+
+            self.assertTrue(probe.available)
+            self.assertTrue(probe.query_protocol_compatible)
+            self.assertEqual(probe.missing_required_options, ())
+            self.assertIn("--evidence-chars", probe.missing_optional_options)
+            self.assertIn("legacy", probe.warning)
+
+    def test_rejects_cli_missing_required_query_options(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            wiki = root / "wiki"
+            script = root / kb_rag.RAG_SCRIPT_REL
+            wiki.mkdir()
+            script.parent.mkdir()
+            script.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+            proc = mock.Mock(
+                returncode=0,
+                stdout="usage: query --k K --mode MODE",
+                stderr="",
+            )
+
+            with mock.patch("subprocess.run", return_value=proc):
+                probe = kb_rag.probe_rag_cli(wiki)
+
+            self.assertTrue(probe.available)
+            self.assertFalse(probe.query_protocol_compatible)
+            self.assertEqual(probe.missing_required_options, ("--json",))
+            self.assertIn("必要", probe.warning)
+
+
+class KbRagResultCacheTests(unittest.TestCase):
+    def setUp(self) -> None:
+        kb_rag.clear_result_cache()
+
+    def tearDown(self) -> None:
+        kb_rag.clear_result_cache()
+
+    def test_same_session_reuses_bound_result_but_other_session_does_not(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            wiki = root / "wiki"
+            page = wiki / "page.md"
+            script = root / kb_rag.RAG_SCRIPT_REL
+            index_dir = root / ".rag_index"
+            wiki.mkdir()
+            script.parent.mkdir()
+            index_dir.mkdir()
+            page.write_text("证据", encoding="utf-8")
+            script.write_text("# script", encoding="utf-8")
+            (index_dir / "meta.json").write_text(
+                '{"revision":"one"}',
+                encoding="utf-8",
+            )
+            payload = [
+                {
+                    "page_id": "page",
+                    "file_path": "wiki/page.md",
+                    "title": "Page",
+                    "score": 1.0,
+                    "best_chunk_id": "page::0",
+                    "content_hash": "hash",
+                    "evidence_text": "已绑定证据",
+                    "index_source_revision": "revision-one",
+                    "index_freshness": "fresh",
+                }
+            ]
+            proc = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(payload, ensure_ascii=False),
+                stderr="",
+            )
+            with mock.patch("subprocess.run", return_value=proc) as run:
+                first = kb_rag.retrieve(
+                    "同一查询",
+                    wiki,
+                    cache_scope="user:conv-1",
+                )
+                second = kb_rag.retrieve(
+                    "同一查询",
+                    wiki,
+                    cache_scope="user:conv-1",
+                )
+                third = kb_rag.retrieve(
+                    "同一查询",
+                    wiki,
+                    cache_scope="user:conv-2",
+                )
+
+            self.assertTrue(first.ok)
+            self.assertTrue(second.telemetry.cache_hit)
+            self.assertEqual(second.telemetry.latency_ms, 0)
+            self.assertFalse(third.telemetry.cache_hit)
+            self.assertEqual(run.call_count, 2)
+
+    def test_index_fingerprint_change_invalidates_session_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            wiki = root / "wiki"
+            script = root / kb_rag.RAG_SCRIPT_REL
+            index_dir = root / ".rag_index"
+            wiki.mkdir()
+            script.parent.mkdir()
+            index_dir.mkdir()
+            (wiki / "page.md").write_text("证据", encoding="utf-8")
+            script.write_text("# script", encoding="utf-8")
+            meta = index_dir / "meta.json"
+            meta.write_text('{"revision":"one"}', encoding="utf-8")
+            payload = [
+                {
+                    "page_id": "page",
+                    "file_path": "wiki/page.md",
+                    "title": "Page",
+                    "score": 1.0,
+                    "best_chunk_id": "page::0",
+                    "content_hash": "hash",
+                    "evidence_text": "已绑定证据",
+                    "index_source_revision": "revision-one",
+                    "index_freshness": "fresh",
+                }
+            ]
+            proc = mock.Mock(
+                returncode=0,
+                stdout=json.dumps(payload, ensure_ascii=False),
+                stderr="",
+            )
+            with mock.patch("subprocess.run", return_value=proc) as run:
+                kb_rag.retrieve(
+                    "同一查询",
+                    wiki,
+                    cache_scope="user:conv",
+                )
+                meta.write_text(
+                    '{"revision":"two","changed":true}',
+                    encoding="utf-8",
+                )
+                refreshed = kb_rag.retrieve(
+                    "同一查询",
+                    wiki,
+                    cache_scope="user:conv",
+                )
+
+            self.assertFalse(refreshed.telemetry.cache_hit)
+            self.assertEqual(run.call_count, 2)
 
 
 if __name__ == "__main__":

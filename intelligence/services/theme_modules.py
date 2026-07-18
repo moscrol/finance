@@ -115,18 +115,28 @@ def _order(modules: list[str]) -> list[str]:
     return out
 
 
-def route_modules(query: str, explicit: list[str] | None = None) -> list[str]:
+def route_modules(
+    query: str,
+    explicit: list[str] | None = None,
+    *,
+    question_type: str | None = None,
+    subject_kind: str | None = None,
+) -> list[str]:
     """Map a query to the set of theme-radar backends to fan out to.
 
     - explicit ``--modules`` → filtered to known modules, canonical order.
     - 产业维 (brief/front-map/deep-dive) collapses to the single deepest mode
       whose intent fired (deep-dive > front-map > brief).
     - replay / scan / migrate each fire on their own intent keywords.
-    - A bare theme word with no intent keyword fans out to brief + replay so a
-      query like 「液冷服务器」 still gets the 产业维 + 时间维 views at once.
+    - 只有结构化意图确认是题材/新词时，裸主题词才默认走 brief + replay。
     """
     if explicit is not None:
         return _order([m for m in explicit if m in ALL_MODULES])
+    if (
+        question_type == "external_market"
+        or subject_kind == "external_market"
+    ):
+        return []
     q = str(query or "")
     routed: list[str] = []
     if any(t in q for t in DEEP_DIVE_TRIGGERS):
@@ -141,7 +151,10 @@ def route_modules(query: str, explicit: list[str] | None = None) -> list[str]:
         routed.append(MODULE_SCAN)
     if any(t in q for t in MIGRATE_TRIGGERS):
         routed.append(MODULE_MIGRATE)
-    if not routed:
+    if not routed and (
+        question_type in {"theme_analysis", "concept_definition"}
+        or subject_kind == "theme"
+    ):
         routed = [MODULE_BRIEF, MODULE_REPLAY]
     return _order(routed)
 

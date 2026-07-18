@@ -17,6 +17,7 @@ from uuid import uuid4
 
 from intelligence import userspace
 from intelligence.services.run_store import redact
+from intelligence.services.workbench_db import DB_FILENAME, WorkbenchDB
 
 _SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
@@ -81,6 +82,9 @@ class Message:
     invoked_skill_ids: list[str] = field(default_factory=list)
     citations: list[dict[str, object]] = field(default_factory=list)
     degrades: list[str] = field(default_factory=list)
+    followups: list[dict[str, object]] = field(default_factory=list)
+    turn_intent: dict[str, object] | None = None
+    research_plan: dict[str, object] | None = None
 
 
 class ConversationStore:
@@ -91,9 +95,13 @@ class ConversationStore:
         if redact(self.user_id) != self.user_id:
             raise ValueError("非法 user_id：不得包含会被脱敏的敏感信息")
         if root is None:
-            self.root = userspace.user_space(self.user_id).root / "conversations"
+            us_root = userspace.user_space(self.user_id).root
+            self.root = us_root / "conversations"
+            db_path = us_root / DB_FILENAME
         else:
             self.root = Path(root)
+            db_path = self.root / DB_FILENAME
+        self.db = WorkbenchDB(db_path)
 
     def create_conversation(self, title: str = "新对话") -> Conversation:
         now = _now_iso()
@@ -111,20 +119,26 @@ class ConversationStore:
         return conversation
 
     def list_conversations(self) -> list[Conversation]:
-        if not self.root.exists():
-            return []
+        conversation_ids = set(self.db.list_conversation_ids())
+        if self.root.exists():
+            conversation_ids.update(
+                path.name
+                for path in self.root.iterdir()
+                if path.is_dir() and (path / "conversation.json").is_file()
+            )
         conversations = [
-            self.load_conversation(path.name)
-            for path in self.root.iterdir()
-            if path.is_dir() and (path / "conversation.json").is_file()
+            self.load_conversation(conversation_id)
+            for conversation_id in conversation_ids
         ]
         return sorted(conversations, key=lambda item: item.updated_at, reverse=True)
 
     def load_conversation(self, conversation_id: str) -> Conversation:
         requested_id = _validate_component(conversation_id, "conversation_id")
-        path = self._conversation_dir(requested_id) / "conversation.json"
-        with path.open(encoding="utf-8") as handle:
-            data = json.load(handle)
+        data = self.db.get_conversation(requested_id)
+        if data is None:
+            path = self._conversation_dir(requested_id) / "conversation.json"
+            with path.open(encoding="utf-8") as handle:
+                data = json.load(handle)
         conversation = Conversation(**data)
         if conversation.conversation_id != requested_id:
             raise ConversationDataIntegrityError(
@@ -151,6 +165,9 @@ class ConversationStore:
         invoked_skill_ids: list[str] | None = None,
         citations: list[dict[str, object]] | None = None,
         degrades: list[str] | None = None,
+        followups: list[dict[str, object]] | None = None,
+        turn_intent: dict[str, object] | None = None,
+        research_plan: dict[str, object] | None = None,
     ) -> Message:
         conversation = self.load_conversation(conversation_id)
         message = Message(
@@ -170,6 +187,13 @@ class ConversationStore:
             invoked_skill_ids=[redact(item) for item in (invoked_skill_ids or [])],
             citations=[_redact_mapping(item) for item in (citations or [])],
             degrades=[redact(item) for item in (degrades or [])],
+            followups=[_redact_mapping(item) for item in (followups or [])],
+            turn_intent=(
+                _redact_mapping(turn_intent) if turn_intent is not None else None
+            ),
+            research_plan=(
+                _redact_mapping(research_plan) if research_plan is not None else None
+            ),
         )
         self._append_message_record(message)
         return message
@@ -185,6 +209,9 @@ class ConversationStore:
         invoked_skill_ids: list[str] | None = None,
         citations: list[dict[str, object]] | None = None,
         degrades: list[str] | None = None,
+        followups: list[dict[str, object]] | None = None,
+        turn_intent: dict[str, object] | None = None,
+        research_plan: dict[str, object] | None = None,
     ) -> Message:
         messages = self.load_messages(conversation_id)
         original = next(
@@ -232,6 +259,22 @@ class ConversationStore:
                     degrades if degrades is not None else original.degrades
                 )
             ],
+            followups=[
+                _redact_mapping(item)
+                for item in (
+                    followups if followups is not None else original.followups
+                )
+            ],
+            turn_intent=(
+                _redact_mapping(turn_intent)
+                if turn_intent is not None
+                else original.turn_intent
+            ),
+            research_plan=(
+                _redact_mapping(research_plan)
+                if research_plan is not None
+                else original.research_plan
+            ),
         )
         self._append_message_record(revision)
         return revision
@@ -245,6 +288,11 @@ class ConversationStore:
                     raise ConversationDataIntegrityError(
                         "messages.jsonl 末尾缺少换行，拒绝追加以避免记录粘连"
                     )
+        if self.db.count_messages(message.conversation_id) == 0:
+            legacy = self._load_messages_from_file(message.conversation_id)
+            if legacy:
+                self.db.append_messages([asdict(item) for item in legacy])
+        self.db.append_message(asdict(message))
         with messages_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(asdict(message), ensure_ascii=False) + "\n")
             handle.flush()
@@ -255,12 +303,19 @@ class ConversationStore:
 
     def load_messages(self, conversation_id: str) -> list[Message]:
         self.load_conversation(conversation_id)
+        if self.db.count_messages(conversation_id):
+            return _dedup_revisions(
+                Message(**payload) for payload in self.db.get_messages(conversation_id)
+            )
+        return self._load_messages_from_file(conversation_id)
+
+    def _load_messages_from_file(self, conversation_id: str) -> list[Message]:
+        """旧 JSONL 读路径（SQLite 无该会话消息时的回退 + 懒回填数据源）。"""
         path = self._messages_path(conversation_id)
         if not path.exists():
             return []
         lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-        messages: list[Message] = []
-        positions: dict[str, int] = {}
+        records: list[Message] = []
         for line_number, line in enumerate(lines, start=1):
             if not line.strip():
                 continue
@@ -273,13 +328,8 @@ class ConversationStore:
                 raise ConversationDataIntegrityError(
                     f"messages.jsonl 第 {line_number} 行数据损坏"
                 ) from error
-            position = positions.get(message.message_id)
-            if position is None:
-                positions[message.message_id] = len(messages)
-                messages.append(message)
-            else:
-                messages[position] = message
-        return messages
+            records.append(message)
+        return _dedup_revisions(records)
 
     def update_summary_text(
         self, conversation_id: str, summary: str
@@ -333,6 +383,21 @@ class ConversationStore:
             os.replace(temporary, directory / "conversation.json")
         finally:
             temporary.unlink(missing_ok=True)
+        self.db.upsert_conversation(asdict(conversation))
+
+
+def _dedup_revisions(records) -> list[Message]:
+    """同 message_id 的后续记录是修订：保留首次出现的位置，内容取最后一条。"""
+    messages: list[Message] = []
+    positions: dict[str, int] = {}
+    for message in records:
+        position = positions.get(message.message_id)
+        if position is None:
+            positions[message.message_id] = len(messages)
+            messages.append(message)
+        else:
+            messages[position] = message
+    return messages
 
 
 def _redact_mapping(value: object) -> dict[str, object]:

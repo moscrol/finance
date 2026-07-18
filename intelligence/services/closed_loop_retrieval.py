@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Literal, TypeAlias
@@ -12,7 +13,14 @@ RetrievalAperture: TypeAlias = Literal["narrow", "broad", "counter"]
 Retrieve: TypeAlias = Callable[[str], WikiRagResult]
 
 MAX_EMPTY_ATTEMPTS = 3
-_TERM_RE = re.compile(r"[\u4e00-\u9fff]{2,8}|[A-Za-z][A-Za-z0-9.+-]{2,20}")
+MAX_TOTAL_SECONDS = 90.0
+# 中文+数字混合词（科创50/沪深300/中证1000）优先整词捕获，避免被拆出
+# 「科创」这类子串后误锚到无关实体（如 中科创达）。
+_TERM_RE = re.compile(
+    r"[\u4e00-\u9fff]{2,8}\d{1,6}[A-Za-z]{0,4}"
+    r"|[\u4e00-\u9fff]{2,8}"
+    r"|[A-Za-z][A-Za-z0-9.+-]{2,20}"
+)
 _QUESTION_WORDS_RE = re.compile(
     r"最近|怎么样|怎么看|是什么|为什么|为何|分析|输出|请|一下|能否|是否"
 )
@@ -84,23 +92,31 @@ def retrieve_closed_loop(
     retrieve: Retrieve,
 ) -> ClosedLoopRetrievalResult:
     result = ClosedLoopRetrievalResult()
+    deadline = time.monotonic() + MAX_TOTAL_SECONDS
+    query_terms = _relevance_terms(query, anchor, ())
     narrow_hits = _run_aperture(
         "narrow",
         _narrow_queries(query, anchor),
         retrieve,
         result,
+        deadline,
+    )
+    relevant_narrow_hits = tuple(
+        hit for hit in narrow_hits if _hit_overlaps_terms(hit, query_terms)
     )
     broad_hits = _run_aperture(
         "broad",
-        _broad_queries(query, anchor, narrow_hits),
+        _broad_queries(query, anchor, relevant_narrow_hits),
         retrieve,
         result,
+        deadline,
     )
     counter_hits = _run_aperture(
         "counter",
-        _counter_queries(query, anchor, narrow_hits),
+        _counter_queries(query, anchor, relevant_narrow_hits),
         retrieve,
         result,
+        deadline,
     )
     _bucket_hits(
         (
@@ -109,8 +125,12 @@ def retrieve_closed_loop(
             *(("counter", hit) for hit in counter_hits),
         ),
         result,
-        relevance_terms=_relevance_terms(query, anchor, ()),
-        broad_relevance_terms=_relevance_terms(query, anchor, narrow_hits),
+        relevance_terms=query_terms,
+        broad_relevance_terms=_relevance_terms(
+            query,
+            anchor,
+            relevant_narrow_hits,
+        ),
     )
     for aperture in ("narrow", "broad", "counter"):
         attempts = [item for item in result.attempts if item.aperture == aperture]
@@ -126,10 +146,13 @@ def _run_aperture(
     queries: Sequence[str],
     retrieve: Retrieve,
     result: ClosedLoopRetrievalResult,
+    deadline: float,
 ) -> list[WikiHit]:
     for candidate in list(dict.fromkeys(q.strip() for q in queries if q.strip()))[
         :MAX_EMPTY_ATTEMPTS
     ]:
+        if time.monotonic() >= deadline:
+            break
         response = retrieve(candidate)
         if result.telemetry is None or response.hits:
             result.telemetry = response.telemetry
@@ -146,6 +169,8 @@ def _run_aperture(
                 result.warnings.append(response.warning)
         if response.ok and response.hits:
             return response.hits
+        if response.telemetry.status == "timeout":
+            break
     return []
 
 
@@ -217,13 +242,24 @@ def _relevance_terms(
     if anchor is not None:
         terms.extend((anchor.entity, anchor.ticker, *anchor.concepts))
     terms.extend(_extract_terms(narrow_hits))
-    return tuple(
-        dict.fromkeys(
-            term.strip().casefold()
-            for term in terms
-            if len(term.strip()) >= 2 and term.strip() not in _GENERIC_TERMS
-        )
-    )
+    expanded: list[str] = []
+    for raw_term in terms:
+        term = raw_term.strip().casefold()
+        if len(term) < 2 or term in _GENERIC_TERMS:
+            continue
+        expanded.append(term)
+        if len(term) > 2 and re.fullmatch(r"[\u4e00-\u9fff]+", term):
+            expanded.extend(
+                term[index : index + 2]
+                for index in range(len(term) - 1)
+                if term[index : index + 2] not in _GENERIC_TERMS
+            )
+    return tuple(dict.fromkeys(expanded))
+
+
+def _hit_overlaps_terms(hit: WikiHit, terms: Sequence[str]) -> bool:
+    searchable = f"{hit.title} {hit.excerpt}".casefold()
+    return bool(terms) and any(term in searchable for term in terms)
 
 
 def _bucket_hits(
@@ -244,27 +280,17 @@ def _bucket_hits(
             continue
         seen.add(key)
         item = BucketedHit(typed_aperture, hit)
-        if typed_aperture == "counter" and hit.score > 0:
-            result.counter_clues.append(item)
-            result.clues.append(item)
-            continue
-        hardness = hit.fact_hardness.casefold()
-        layer = hit.evidence_layer.casefold()
-        hard_source = hardness in {"hard", "verified", "canonical"} or layer in {
-            "l3",
-            "l4",
-            "canonical",
-        }
-        searchable = f"{hit.title} {hit.excerpt}".casefold()
         aperture_terms = (
             broad_relevance_terms
             if typed_aperture == "broad"
             else relevance_terms
         )
-        direct_overlap = any(term in searchable for term in aperture_terms)
-        if hit.score > 0 and (hard_source or direct_overlap):
-            result.conclusion.append(item)
-        elif hit.score > 0:
-            result.clues.append(item)
-        else:
+        direct_overlap = _hit_overlaps_terms(hit, aperture_terms)
+        if hit.score <= 0 or not direct_overlap:
             result.discarded.append(item)
+            continue
+        if typed_aperture == "counter":
+            result.counter_clues.append(item)
+            result.clues.append(item)
+        elif direct_overlap:
+            result.conclusion.append(item)

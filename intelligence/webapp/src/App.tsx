@@ -58,6 +58,7 @@ import {
   parseStreamEnvelopeJson,
   StreamEventDeduper,
 } from "./streamEvents";
+import { chatEventTypes } from "./streamEventRegistry";
 import { deduplicateTrace } from "./trace";
 import type {
   ArtifactDescriptor,
@@ -78,22 +79,6 @@ import type {
   WorkbenchOverview,
   WorkbenchSection,
 } from "./types";
-
-const chatEventTypes = [
-  "message.start",
-  "trace.step",
-  "skill.start",
-  "skill.result",
-  "report.start",
-  "report.module",
-  "citation.ready",
-  "text.delta",
-  "answer.snapshot",
-  "report.complete",
-  "report.error",
-  "message.complete",
-  "message.error",
-];
 
 interface StreamIdentity {
   conversationId: string;
@@ -1031,7 +1016,7 @@ export default function App() {
                 surface.kind as "today" | "themes" | "signals" | "validation"
               }
               refreshing={overviewRefreshing}
-              onRefresh={() => void refreshOverview()}
+              onRefresh={refreshOverview}
             />
           )}
 

@@ -20,12 +20,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dual_blind_forecast import (  # noqa: E402
     DB_PATH,
@@ -453,9 +456,31 @@ def main(argv: list[str] | None = None) -> int:
         print(f"OK    written: {out_path}（机判命中率 {summary}）")
         if render_verdict_md(body, ledger_dir=ledger_dir) is None:
             print(f"WARN: 当日台账 {date}.md 不存在，回检表未渲染", file=sys.stderr)
+        try:
+            from intelligence.services.forecast_learning import sync_reflections
+
+            learning_dir = (
+                REPO / "docs" / "learning" / "forecast-lessons"
+                if ledger_dir.resolve() == LEDGER_DIR.resolve()
+                else ledger_dir.parent / "forecast-lessons"
+            )
+            reflection_result = sync_reflections(
+                ledger_dir,
+                learning_dir,
+                dates=[date],
+                use_llm=os.environ.get("FORECAST_REFLECTION_LLM", "1") != "0",
+            )
+            print(
+                "OK    reflection sync: "
+                + json.dumps(reflection_result, ensure_ascii=False)
+            )
+        except Exception as exc:
+            print(
+                f"WARN {date}: 反思候选同步失败（{type(exc).__name__}）",
+                file=sys.stderr,
+            )
     return 1 if failed else 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

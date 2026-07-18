@@ -72,6 +72,11 @@ export function MessageBubble({
     bundle?.context.evidence.some(
       (item) => item.classification === "bound_evidence",
     ) ?? true;
+  const taskType = (live?.report ?? bundle?.structuredReport)?.task_type;
+  const requiresCompanyEvidence =
+    taskType === "ask" ||
+    taskType === "research" ||
+    taskType === "workflow";
   const noEvidenceNotice =
     "本轮未形成可验证的公司级来源；公司判断均按待验证展示。";
 
@@ -101,13 +106,21 @@ export function MessageBubble({
           invokedSkillIds={invokedSkillIds}
           statuses={statuses}
         />
+        {live?.workflow && (
+          <div className="workflow-loaded-status" role="status">
+            工作流已加载 · {live.workflow.label} ·{" "}
+            {live.workflow.retrievalStages.length} 个阶段
+          </div>
+        )}
         {(live?.answerPhase ?? null) === null &&
           message.degrades.includes("llm_unavailable_template_answer") && (
           <span className="template-answer-label">
             自然语言综合暂时不可用
           </span>
         )}
-        {!hasBoundEvidence && !content.includes(noEvidenceNotice) && (
+        {requiresCompanyEvidence &&
+          !hasBoundEvidence &&
+          !content.includes(noEvidenceNotice) && (
           <div className="message-evidence-warning" role="status">
             {noEvidenceNotice}
           </div>
@@ -134,6 +147,22 @@ export function MessageBubble({
             onOpenArtifact={onOpenArtifact}
             onFollowup={onFollowup}
           />
+        )}
+        {!bundle && (message.followups?.length ?? 0) > 0 && (
+          <section aria-label="继续研究">
+            <h3>继续研究</h3>
+            <div className="message-followups">
+              {message.followups?.map((followup) => (
+                <button
+                  key={`${followup.type}:${followup.full_prompt || followup.question}`}
+                  type="button"
+                  onClick={() => onFollowup(followup.full_prompt || followup.question)}
+                >
+                  {followup.label || followup.question}
+                </button>
+              ))}
+            </div>
+          </section>
         )}
         {canRegenerate && message.status !== "pending" && (
           <button
