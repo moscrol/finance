@@ -10,6 +10,7 @@ from intelligence.services.query_resolution import (
     classify_reference,
 )
 from intelligence.services.query_understanding import QueryEnvelope
+from intelligence.services.route_table import owner_skills_from_route_table
 
 AnswerOwner: TypeAlias = Literal[
     "stock-deep-dive",
@@ -37,11 +38,9 @@ RESEARCH_OWNER_IDS = frozenset(
     }
 )
 QUESTION_OWNER_SKILLS: dict[str, AnswerOwner] = {
-    "stock_deep_dive": "stock-deep-dive",
-    "valuation_estimate": "stock-deep-dive",
-    "theme_analysis": "theme-research",
-    "news_impact": "news-impact",
-    "financial_analysis": "financial-analysis",
+    question_type: cast(AnswerOwner, owner)
+    for question_type, owner in owner_skills_from_route_table().items()
+    if owner in RESEARCH_OWNER_IDS
 }
 OWNER_RETRIEVAL_STAGES: dict[AnswerOwner, tuple[str, ...]] = {
     "stock-deep-dive": (

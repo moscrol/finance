@@ -14,7 +14,13 @@ Retrieve: TypeAlias = Callable[[str], WikiRagResult]
 
 MAX_EMPTY_ATTEMPTS = 3
 MAX_TOTAL_SECONDS = 90.0
-_TERM_RE = re.compile(r"[\u4e00-\u9fff]{2,8}|[A-Za-z][A-Za-z0-9.+-]{2,20}")
+# 中文+数字混合词（科创50/沪深300/中证1000）优先整词捕获，避免被拆出
+# 「科创」这类子串后误锚到无关实体（如 中科创达）。
+_TERM_RE = re.compile(
+    r"[\u4e00-\u9fff]{2,8}\d{1,6}[A-Za-z]{0,4}"
+    r"|[\u4e00-\u9fff]{2,8}"
+    r"|[A-Za-z][A-Za-z0-9.+-]{2,20}"
+)
 _QUESTION_WORDS_RE = re.compile(
     r"最近|怎么样|怎么看|是什么|为什么|为何|分析|输出|请|一下|能否|是否"
 )

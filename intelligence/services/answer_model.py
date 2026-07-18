@@ -1620,6 +1620,11 @@ def repair_llm_answer(
     return None
 
 
+# 派生 EvidenceAtom 的 period 字段承载来源 claim 的 freshness 三态；
+# 真实报告期（如 "2026H1"）不会与这两个哨兵值撞名。
+_STALE_EVIDENCE_PERIODS = frozenset({"superseded", "invalidated"})
+
+
 def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
     leaked = [term for term in _ENGINEERING_TERMS if term in answer]
@@ -1689,6 +1694,23 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
                     f"事实 claim {claim.claim_id} 未绑定 EvidenceAtom。",
                 )
             )
+        if claim.claim_type == "fact" and claim.evidence_atom_ids:
+            bound_atoms = [
+                atom_registry[atom_id]
+                for atom_id in claim.evidence_atom_ids
+                if atom_id in atom_registry
+            ]
+            if bound_atoms and all(
+                atom.period in _STALE_EVIDENCE_PERIODS for atom in bound_atoms
+            ):
+                issues.append(
+                    QualityIssue(
+                        "llm_fact_only_superseded_evidence",
+                        "error",
+                        f"事实 claim {claim.claim_id} 只绑定了已被取代/已证伪的证据原子，"
+                        "不能作为当前事实陈述。",
+                    )
+                )
     return tuple(issues)
 
 
@@ -1915,12 +1937,39 @@ def parse_decision_brief(
     return brief, ()
 
 
+def _merge_orphan_grounded_markers(answer: str) -> str:
+    """把单独成行的 claim marker 归并到前一行正文。
+
+    composer 模型有时把 ``<!-- claim_ids=... -->`` 写在句子的下一行而非行内，
+    逐行解析会把正文判为未绑定、marker 判为空句，导致修复后只剩标题。
+    """
+    merged: list[str] = []
+    for raw_line in answer.splitlines():
+        line = raw_line.strip()
+        marker = _GROUNDED_CLAIM_MARKER_RE.search(line)
+        if (
+            marker is not None
+            and not _GROUNDED_CLAIM_MARKER_RE.sub("", line).strip()
+            and merged
+        ):
+            prev = merged[-1].rstrip()
+            if (
+                prev
+                and not _is_nonclaim_line(prev.strip())
+                and _GROUNDED_CLAIM_MARKER_RE.search(prev) is None
+            ):
+                merged[-1] = f"{prev} {marker.group(0)}"
+                continue
+        merged.append(raw_line)
+    return "\n".join(merged)
+
+
 def parse_grounded_sentences(
     answer: str,
 ) -> tuple[tuple[GroundedSentence, ...], tuple[str, ...]]:
     sentences: list[GroundedSentence] = []
     unbound_lines: list[str] = []
-    for raw_line in answer.splitlines():
+    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             continue
@@ -2192,7 +2241,7 @@ def validate_grounded_composer_answer(
 def present_grounded_composer_answer(answer: str) -> str:
     return "\n".join(
         _GROUNDED_CLAIM_MARKER_RE.sub("", line).rstrip()
-        for line in answer.splitlines()
+        for line in _merge_orphan_grounded_markers(answer).splitlines()
     ).strip()
 
 
@@ -2210,7 +2259,7 @@ def repair_grounded_composer_answer(
     rejected = set(rejected_sentence_indexes)
     repaired_lines: list[str] = []
     sentence_index = 0
-    for raw_line in answer.splitlines():
+    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             repaired_lines.append(raw_line)
