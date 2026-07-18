@@ -6,6 +6,73 @@ import type {
 } from "../types";
 import { MarkdownView } from "./MarkdownView";
 
+const SAFE_LLM_PROVIDERS = new Set([
+  "zhipu",
+  "glm",
+  "openai",
+  "deepseek",
+  "moonshot",
+  "kimi",
+  "dashscope",
+  "qwen",
+  "tongyi",
+  "fixture",
+]);
+const SAFE_MODEL_LABEL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
+const CREDENTIAL_FAMILY_CASE_INSENSITIVE =
+  /^(?:gh[a-z]_|github_pat_|xox[a-z]-|(?:sk|rk)[-_]|hf_|glpat-|xapp-|bearer)/i;
+const CREDENTIAL_FAMILY_CASE_SENSITIVE = /^(?:AKIA|ASIA|AIza|ya29\.)/;
+const SUPPORTED_MODEL_FAMILY =
+  /^(?:(?:glm|gpt|chatgpt|deepseek|kimi|moonshot|qwen|qwq|tongyi|claude)-[A-Za-z0-9][A-Za-z0-9._-]*|o[134](?:$|[-.][A-Za-z0-9][A-Za-z0-9._-]*)|fixture[A-Za-z0-9._-]*)$/i;
+const JWT_SHAPE =
+  /^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$/;
+const UNSAFE_MODEL_LABEL =
+  /(?:\.\.|error|exception|prompt|authorization|api[_-]?key|secret|header|traceback|credential)/i;
+const PRIVATE_PATH_COMPONENT =
+  /(?:^|\/)(?:users|home|private|var|tmp|etc)(?:\/|$)/i;
+
+function safeProviderLabel(value: string | null): string | null {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  return SAFE_LLM_PROVIDERS.has(normalized) ? normalized : null;
+}
+
+function looksLikeHighEntropyToken(value: string): boolean {
+  const compact = value.replace(/[-_]/g, "");
+  if (compact.length < 48 || !/^[A-Za-z0-9]+$/.test(compact)) return false;
+  const characterClasses = [/[a-z]/, /[A-Z]/, /[0-9]/].filter((pattern) =>
+    pattern.test(compact),
+  ).length;
+  return characterClasses === 3 && new Set(compact).size >= 16;
+}
+
+function safeModelLabel(value: string | null): string | null {
+  if (
+    !value ||
+    !SAFE_MODEL_LABEL.test(value) ||
+    CREDENTIAL_FAMILY_CASE_INSENSITIVE.test(value) ||
+    CREDENTIAL_FAMILY_CASE_SENSITIVE.test(value) ||
+    JWT_SHAPE.test(value) ||
+    looksLikeHighEntropyToken(value) ||
+    UNSAFE_MODEL_LABEL.test(value) ||
+    PRIVATE_PATH_COMPONENT.test(value) ||
+    /^[A-Za-z]:\//.test(value) ||
+    value.includes("://")
+  ) {
+    return null;
+  }
+  return SUPPORTED_MODEL_FAMILY.test(value) ? value : null;
+}
+
+function llmStatusLabel(report: StructuredReport): string {
+  if (!report.llm.used) return "模型等待中或已降级";
+  const provider = safeProviderLabel(report.llm.provider);
+  const model = safeModelLabel(report.llm.model);
+  if (provider && model) return `已使用 ${provider} · ${model}`;
+  if (provider) return `已使用 ${provider} · 模型信息已隐藏`;
+  return "已使用模型 · 服务信息已隐藏";
+}
+
 function displayValue(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "number") {
@@ -126,9 +193,7 @@ function ReportModule({ module }: { module: StructuredReportModule }) {
 }
 
 export function StructuredReportView({ report }: { report: StructuredReport }) {
-  const llmLabel = report.llm.used
-    ? `${report.llm.provider || "LLM"}${report.llm.model ? ` · ${report.llm.model}` : ""}`
-    : "LLM 等待中或已降级";
+  const llmLabel = llmStatusLabel(report);
   return (
     <div className="structured-report" aria-live="polite">
       <header className="structured-report-status">
