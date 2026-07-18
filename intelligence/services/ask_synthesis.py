@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 
+import os
+import random
 import re
 import time
 from dataclasses import replace
@@ -47,6 +49,37 @@ from intelligence.services.ask_types import (
 EXEMPLAR_DIR = REPO_ROOT / "skills" / "stock-deep-dive" / "exemplars"
 EXEMPLAR_MAX_FILES = 3
 EXEMPLAR_MAX_CHARS = 6000
+# 主观分析段落的合成温度（0.5~0.7 放开文风）；claim 绑定修订轮仍固定 0.0。
+def _subjective_temperature() -> float:
+    raw = os.environ.get("ASK_SUBJECTIVE_TEMPERATURE", "0.6")
+    try:
+        value = float(raw)
+    except ValueError:
+        return 0.6
+    return min(max(value, 0.0), 1.0)
+
+
+def _section_titles(text: str) -> list[str]:
+    return [
+        line.strip().lstrip("#").strip()
+        for line in text.splitlines()
+        if line.lstrip().startswith("#")
+    ]
+
+
+def _section_bodies(text: str) -> dict[str, str]:
+    bodies: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in text.splitlines():
+        if line.lstrip().startswith("#"):
+            current = line.strip().lstrip("#").strip()
+            bodies.setdefault(current, [])
+            continue
+        if current is not None:
+            bodies[current].append(line)
+    return {title: "\n".join(lines).strip() for title, lines in bodies.items()}
+
+
 _EXEMPLAR_PREFIX_BY_TYPE = {
     QUESTION_STOCK_DEEP_DIVE: "deep-dive-",
     QUESTION_MARKET_FORECAST: "forecast-",
@@ -54,13 +87,21 @@ _EXEMPLAR_PREFIX_BY_TYPE = {
 }
 
 
-def _exemplar_guidance_for(question_type: str, exemplar_dir: Path = EXEMPLAR_DIR) -> str:
+def _exemplar_guidance_for(
+    question_type: str,
+    exemplar_dir: Path = EXEMPLAR_DIR,
+    rng: random.Random | None = None,
+) -> str:
     prefix = _EXEMPLAR_PREFIX_BY_TYPE.get(question_type)
     if prefix is None or not exemplar_dir.is_dir():
         return ""
+    candidates = sorted(exemplar_dir.glob(f"{prefix}*.md"))
+    # 文风放开：同类型多篇结构不同的范文随机选一，避免每次都用同一套行文结构。
+    if len(candidates) > 1:
+        candidates = [(rng or random).choice(candidates)]
     parts: list[str] = []
     budget = EXEMPLAR_MAX_CHARS
-    for path in sorted(exemplar_dir.glob(f"{prefix}*.md"))[:EXEMPLAR_MAX_FILES]:
+    for path in candidates[:EXEMPLAR_MAX_FILES]:
         try:
             text = path.read_text(encoding="utf-8").strip()
         except OSError:
@@ -873,11 +914,13 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             "fallback_reason": fallback_reason,
         }
 
+    synthesis_temperature = _subjective_temperature()
     if result.prepared_synthesis_is_market_review:
         composed, reason = llm_refine.synthesize_messages(
             messages,
             model_override=options.llm_model,
             timeout=_stage_timeout(options, options.llm_timeout),
+            temperature=synthesis_temperature,
             deadline=deadline,
         )
     elif options.compose_self_review:
@@ -885,6 +928,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             messages,
             model_override=options.llm_model,
             timeout=_stage_timeout(options, options.llm_timeout),
+            temperature=synthesis_temperature,
             deadline=deadline,
         )
     else:
@@ -896,6 +940,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             is_cancelled=options.stream_cancel_check,
             model_override=options.llm_model,
             timeout=_stage_timeout(options, options.llm_timeout),
+            temperature=synthesis_temperature,
             deadline=deadline,
         )
     stream_elapsed_ms = max(0, round((time.monotonic() - started) * 1000))
@@ -926,6 +971,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         fallback_reason=result.llm_fallback_reason,
     )
     proposed_synthesis = composed.answer
+    initial_synthesis = composed.answer
     accepted_composition = composed
     quality_gate_started = time.monotonic()
     blocking_issues = [
@@ -1011,6 +1057,27 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     presented_synthesis = answer_model.present_llm_answer(
         proposed_synthesis,
         result.answer_spec,
+    )
+    # sections 遥测：降级/修订从“静默”变“可观测”。kept/dropped 对比合成稿与
+    # 展示稿的小节集合；revised 统计修订轮改动过正文的小节数。
+    proposed_titles = _section_titles(proposed_synthesis)
+    presented_titles = set(_section_titles(presented_synthesis))
+    initial_bodies = _section_bodies(initial_synthesis)
+    final_bodies = _section_bodies(proposed_synthesis)
+    result.llm_stream_telemetry["sections_kept"] = sum(
+        1 for title in proposed_titles if title in presented_titles
+    )
+    result.llm_stream_telemetry["sections_dropped"] = sum(
+        1 for title in proposed_titles if title not in presented_titles
+    )
+    result.llm_stream_telemetry["sections_revised"] = (
+        sum(
+            1
+            for title, body in final_bodies.items()
+            if initial_bodies.get(title) != body
+        )
+        if proposed_synthesis is not initial_synthesis
+        else 0
     )
     result.synthesis = (
         f"{result.data_notice}\n\n{presented_synthesis}"

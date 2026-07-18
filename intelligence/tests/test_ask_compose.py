@@ -871,3 +871,61 @@ class EvidenceDataBlockTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StyleLooseningTests(unittest.TestCase):
+    def test_exemplar_guidance_samples_one_of_many(self) -> None:
+        import random as random_mod
+
+        from intelligence.services.ask_synthesis import _exemplar_guidance_for
+        from intelligence.services.answer_orchestrator import QUESTION_STOCK_DEEP_DIVE
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "deep-dive-a.md").write_text("样板A", encoding="utf-8")
+            (root / "deep-dive-b.md").write_text("样板B", encoding="utf-8")
+            guidance = _exemplar_guidance_for(
+                QUESTION_STOCK_DEEP_DIVE,
+                exemplar_dir=root,
+                rng=random_mod.Random(0),
+            )
+        # 多篇范文只随机选一，避免固定拼接同一套结构
+        self.assertEqual(guidance.count("### 样板："), 1)
+        self.assertTrue("样板A" in guidance or "样板B" in guidance)
+        self.assertFalse("样板A" in guidance and "样板B" in guidance)
+
+    def test_subjective_temperature_default_and_clamp(self) -> None:
+        from unittest import mock
+
+        from intelligence.services.ask_synthesis import _subjective_temperature
+
+        with mock.patch.dict("os.environ", {}, clear=False):
+            import os as os_mod
+
+            os_mod.environ.pop("ASK_SUBJECTIVE_TEMPERATURE", None)
+            self.assertEqual(_subjective_temperature(), 0.6)
+        with mock.patch.dict(
+            "os.environ", {"ASK_SUBJECTIVE_TEMPERATURE": "0.5"}
+        ):
+            self.assertEqual(_subjective_temperature(), 0.5)
+        with mock.patch.dict(
+            "os.environ", {"ASK_SUBJECTIVE_TEMPERATURE": "9"}
+        ):
+            self.assertEqual(_subjective_temperature(), 1.0)
+        with mock.patch.dict(
+            "os.environ", {"ASK_SUBJECTIVE_TEMPERATURE": "bogus"}
+        ):
+            self.assertEqual(_subjective_temperature(), 0.6)
+
+    def test_section_title_and_body_helpers(self) -> None:
+        from intelligence.services.ask_synthesis import (
+            _section_bodies,
+            _section_titles,
+        )
+
+        text = "# 结论\n正文一\n\n## 证据链\n正文二\n# 空节\n"
+        self.assertEqual(_section_titles(text), ["结论", "证据链", "空节"])
+        bodies = _section_bodies(text)
+        self.assertEqual(bodies["结论"], "正文一")
+        self.assertEqual(bodies["证据链"], "正文二")
+        self.assertEqual(bodies["空节"], "")
