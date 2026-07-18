@@ -1620,6 +1620,11 @@ def repair_llm_answer(
     return None
 
 
+# 派生 EvidenceAtom 的 period 字段承载来源 claim 的 freshness 三态；
+# 真实报告期（如 "2026H1"）不会与这两个哨兵值撞名。
+_STALE_EVIDENCE_PERIODS = frozenset({"superseded", "invalidated"})
+
+
 def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
     leaked = [term for term in _ENGINEERING_TERMS if term in answer]
@@ -1689,6 +1694,23 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
                     f"事实 claim {claim.claim_id} 未绑定 EvidenceAtom。",
                 )
             )
+        if claim.claim_type == "fact" and claim.evidence_atom_ids:
+            bound_atoms = [
+                atom_registry[atom_id]
+                for atom_id in claim.evidence_atom_ids
+                if atom_id in atom_registry
+            ]
+            if bound_atoms and all(
+                atom.period in _STALE_EVIDENCE_PERIODS for atom in bound_atoms
+            ):
+                issues.append(
+                    QualityIssue(
+                        "llm_fact_only_superseded_evidence",
+                        "error",
+                        f"事实 claim {claim.claim_id} 只绑定了已被取代/已证伪的证据原子，"
+                        "不能作为当前事实陈述。",
+                    )
+                )
     return tuple(issues)
 
 
