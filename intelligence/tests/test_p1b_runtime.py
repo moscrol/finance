@@ -147,6 +147,56 @@ class LLMCallLedgerTests(unittest.TestCase):
             ["synthesis"],
         )
 
+    def test_hard_budget_rejects_over_limit_calls(self) -> None:
+        """硬预算：尝试数达上限后新调用被拒发（不发 HTTP），graceful 降级。"""
+        with llm_refine.provider_override(self._provider()):
+            with mock.patch.object(
+                llm_refine.urllib.request,
+                "urlopen",
+                return_value=_fake_urlopen_response(_CHAT_PAYLOAD),
+            ) as urlopen:
+                with llm_refine.call_ledger_scope(max_calls=1) as ledger:
+                    first, _p1, r1 = llm_refine.complete(
+                        [{"role": "user", "content": "a"}]
+                    )
+                    second, _p2, r2 = llm_refine.complete(
+                        [{"role": "user", "content": "b"}]
+                    )
+                    composed, r3 = llm_refine.synthesize_messages(
+                        [{"role": "user", "content": "c"}]
+                    )
+
+        self.assertEqual(first, "ok")
+        self.assertEqual(r1, "")
+        self.assertIsNone(second)
+        self.assertIn("预算耗尽", r2)
+        self.assertIsNone(composed)
+        self.assertIn("预算耗尽", r3)
+        self.assertEqual(urlopen.call_count, 1)
+        summary = ledger.summary()
+        self.assertEqual(summary["call_count"], 1)
+        self.assertEqual(summary["rejected_count"], 2)
+        self.assertEqual(summary["max_calls"], 1)
+
+    def test_no_limit_never_rejects(self) -> None:
+        with llm_refine.provider_override(self._provider()):
+            with mock.patch.object(
+                llm_refine.urllib.request,
+                "urlopen",
+                side_effect=lambda *a, **k: _fake_urlopen_response(
+                    _CHAT_PAYLOAD
+                ),
+            ):
+                with llm_refine.call_ledger_scope() as ledger:
+                    for _ in range(3):
+                        content, _p, _r = llm_refine.complete(
+                            [{"role": "user", "content": "x"}]
+                        )
+                        self.assertEqual(content, "ok")
+
+        self.assertEqual(ledger.summary()["rejected_count"], 0)
+        self.assertEqual(len(ledger.records), 3)
+
 
 class QueryLedgerTests(unittest.TestCase):
     """turn 级查询台账：同 provider+query 每 turn 最多真实执行一次。"""

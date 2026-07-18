@@ -670,7 +670,12 @@ class TurnOrchestrator:
         # 合成/修订/影子链的每次 provider 尝试记入同一本账（skill 线程经
         # copy_context 传播）；同 provider+query 的检索每 turn 只真实执行一次。
         # 两本账结束前以 trace 落盘——预算不再只统计 skill 次数。
-        with llm_refine.call_ledger_scope(), query_ledger.query_ledger_scope():
+        with (
+            llm_refine.call_ledger_scope(
+                max_calls=self.research_policy.max_llm_calls
+            ),
+            query_ledger.query_ledger_scope(),
+        ):
             return self._run_turn_ledgered(
                 conversation_id=conversation_id,
                 run_id=run_id,

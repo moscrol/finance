@@ -202,6 +202,23 @@ class LLMCallRecord:
 @dataclass
 class LLMCallLedger:
     records: list[LLMCallRecord] = field(default_factory=list)
+    # 硬预算（P1-B 消费闭环）：非 None 时，尝试数达到上限后新调用被拒发
+    # （入口直接返回降级 reason，不发 HTTP）。防失控为主，默认上限宽松。
+    max_calls: int | None = None
+    rejected_count: int = 0
+
+    def over_budget(self) -> bool:
+        return (
+            self.max_calls is not None
+            and len(self.records) >= self.max_calls
+        )
+
+    def reject(self) -> str:
+        self.rejected_count += 1
+        return (
+            f"LLM 调用预算耗尽（本轮上限 {self.max_calls} 次尝试），"
+            "已拒发新调用并降级"
+        )
 
     def summary(self) -> dict[str, object]:
         by_caller: dict[str, int] = {}
@@ -215,6 +232,8 @@ class LLMCallLedger:
             "total_elapsed_ms": sum(
                 record.elapsed_ms for record in self.records
             ),
+            "max_calls": self.max_calls,
+            "rejected_count": self.rejected_count,
             "by_caller": by_caller,
             "records": [
                 {
@@ -236,18 +255,30 @@ _CALL_LEDGER: ContextVar[LLMCallLedger | None] = ContextVar(
 
 
 @contextmanager
-def call_ledger_scope() -> Iterator[LLMCallLedger]:
-    """开启 turn 级 LLM 调用台账；已有活动台账时复用（不重置嵌套作用域）。"""
+def call_ledger_scope(
+    max_calls: int | None = None,
+) -> Iterator[LLMCallLedger]:
+    """开启 turn 级 LLM 调用台账；已有活动台账时复用（不重置嵌套作用域）。
+
+    ``max_calls`` 只在新建台账时生效；嵌套复用时以外层限额为准。"""
     existing = _CALL_LEDGER.get()
     if existing is not None:
         yield existing
         return
-    ledger = LLMCallLedger()
+    ledger = LLMCallLedger(max_calls=max_calls)
     token = _CALL_LEDGER.set(ledger)
     try:
         yield ledger
     finally:
         _CALL_LEDGER.reset(token)
+
+
+def _budget_rejection() -> str | None:
+    """入口预算检查：超额时返回拒发 reason，未超额/无台账返回 None。"""
+    ledger = _CALL_LEDGER.get()
+    if ledger is not None and ledger.over_budget():
+        return ledger.reject()
+    return None
 
 
 def current_call_ledger() -> LLMCallLedger | None:
@@ -391,6 +422,9 @@ def complete(
     network error) ``content`` is ``None`` and ``reason`` explains why so callers
     can degrade gracefully — same contract as :func:`refine_or_reason`.
     """
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, None, rejection
     providers = detect_providers(model_override)
     if not providers:
         return None, None, (
@@ -471,6 +505,9 @@ def chat_with_tools(
     ``message["tool_calls"]`` to decide whether to dispatch tools or treat
     ``message["content"]`` as the final answer. On any failure ``message`` is
     ``None`` and ``reason`` explains why so the caller degrades gracefully."""
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, None, rejection
     providers = detect_providers(model_override)
     if not providers:
         return None, None, (
@@ -844,6 +881,9 @@ def synthesize_messages(
     Shared by single-turn :func:`synthesize` and the multi-turn driver. Returns
     ``(result, reason)``; on any failure ``result`` is ``None`` and ``reason``
     explains why so the caller degrades gracefully."""
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, rejection
     provider = detect_provider(model_override)
     if provider is None:
         return None, (
@@ -1033,6 +1073,9 @@ def synthesize_messages_stream(
     max_tokens: int = DEFAULT_SYNTHESIS_MAX_TOKENS,
     max_chars: int = DEFAULT_SYNTHESIS_MAX_CHARS,
 ) -> tuple[SynthesisResult | None, str]:
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, rejection
     provider = detect_provider(model_override)
     if provider is None:
         return None, (
