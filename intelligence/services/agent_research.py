@@ -38,7 +38,32 @@ DEFAULT_MAX_STEPS = 4
 DEFAULT_LLM_TIMEOUT = 15
 DEFAULT_TOTAL_SECONDS = 60.0
 _MAX_OBSERVATION_CHARS = 900
-_TOOL_NAMES = ("kb_search", "web_search", "news_search", "finish")
+# 工具描述注册表：system prompt 按「实际注册的工具」动态生成——宣传清单与
+# 注册表不再可能漂移（此前静态 prompt 宣传未注册工具会触发"非法工具"中断）。
+_TOOL_DESCRIPTIONS = {
+    "kb_search": (
+        "- kb_search：检索本地知识库（公司逻辑卡/题材/研究笔记），"
+        "args: {\"query\": 检索式}"
+    ),
+    "web_search": (
+        "- web_search：全网网页搜索（时效性事实/指数点位/宏观数据），"
+        "args: {\"query\": 检索式}"
+    ),
+    "news_search": (
+        "- news_search：财经资讯检索（近段时间新闻事件），"
+        "args: {\"query\": 关键词}"
+    ),
+    "graph_lookup": (
+        "- graph_lookup：查询本地知识图谱——概念命中与公司暴露分层"
+        "（core/peripheral，附证据层级），发现新实体/新题材后先用它定位映射，"
+        "args: {\"query\": 题材或公司名}"
+    ),
+    "evidence_lookup": (
+        "- evidence_lookup：查询证据索引——公司/题材已登记的公告、研报证据"
+        "条目（含日期与质量），args: {\"query\": 公司或题材名}"
+    ),
+}
+_TOOL_NAMES = (*_TOOL_DESCRIPTIONS, "finish")
 
 
 def loop_mode() -> str:
@@ -189,23 +214,113 @@ def build_default_tools(
     }
 
 
+def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
+    """基于 KnowledgeAdapter 构建图谱/证据索引工具（P1-B agent 覆盖面扩展）。
+
+    此前 agent 只有 kb/web/news 三个最弱工具，碰不到知识图谱与证据索引——
+    发现新实体后无法定位公司映射、无法核对已登记证据。两个工具都是纯本地
+    JSON 查询（快、零外呼），与固定管线 G/R provider 消费同一数据源。
+    ``knowledge`` 为 KnowledgeAdapter（鸭子类型：get_concept_matches /
+    get_exposure_matches / get_evidence）。"""
+
+    def _graph_lookup(query: str) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+        concepts = knowledge.get_concept_matches(query, limit=5)
+        exposures = knowledge.get_exposure_matches(query, limit=8)
+        evidence: list[AgentEvidence] = []
+        for item in (concepts.get("items") or [])[:5]:
+            evidence.append(
+                AgentEvidence(
+                    tool="graph_lookup",
+                    title=f"概念 {item.get('concept')}",
+                    detail=f"匹配分 {item.get('score')}",
+                    source="knowledge-base · wiki/relations/concept_graph.json",
+                )
+            )
+        for row in (exposures.get("items") or [])[:8]:
+            company = str(row.get("company") or "").strip()
+            if not company:
+                continue
+            evidence.append(
+                AgentEvidence(
+                    tool="graph_lookup",
+                    title=company,
+                    detail=(
+                        f"{row.get('concept')}｜{row.get('strength') or '?'}"
+                        f"/{row.get('evidence_layer') or '?'}"
+                    ),
+                    source="knowledge-base · wiki/relations/entity_exposures.json",
+                )
+            )
+        observation = (
+            "；".join(f"{item.title}（{item.detail}）" for item in evidence)
+            or "图谱无命中（概念与公司暴露均为空）"
+        )
+        trace = ProviderTrace(
+            provider="agent:graph_lookup",
+            capability="agent_loop",
+            status="success" if evidence else "empty",
+            detail=query[:120],
+            result_count=len(evidence),
+        )
+        return evidence, observation, trace
+
+    def _evidence_lookup(query: str) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+        bundle = knowledge.get_evidence(query, limit=6)
+        evidence = [
+            AgentEvidence(
+                tool="evidence_lookup",
+                title=str(item.get("target") or query),
+                detail=(
+                    f"{str(item.get('evidence'))[:120]}"
+                    f"（{item.get('source')}，{item.get('source_date') or '无日期'}，"
+                    f"质量 {item.get('confidence') or '?'}）"
+                ),
+                source="knowledge-base · wiki/relations/evidence_index.json",
+            )
+            for item in (bundle.get("items") or [])[:6]
+            if isinstance(item, dict)
+        ]
+        observation = (
+            "；".join(f"{item.title}：{item.detail}" for item in evidence)
+            or "证据索引无命中"
+        )
+        trace = ProviderTrace(
+            provider="agent:evidence_lookup",
+            capability="agent_loop",
+            status="success" if evidence else "empty",
+            detail=query[:120],
+            result_count=len(evidence),
+        )
+        return evidence, observation, trace
+
+    return {
+        "graph_lookup": _graph_lookup,
+        "evidence_lookup": _evidence_lookup,
+    }
+
+
 CompleteFn = Callable[..., tuple[str | None, object, str]]
 
-_SYSTEM_PROMPT = (
-    "你是金融研究检索 agent。根据用户问题和已收集的证据，决定下一步动作。\n"
-    "可用工具：\n"
-    "- kb_search：检索本地知识库（公司逻辑卡/题材/研究笔记），args: {\"query\": 检索式}\n"
-    "- web_search：全网网页搜索（时效性事实/指数点位/宏观数据），args: {\"query\": 检索式}\n"
-    "- news_search：财经资讯检索（近段时间新闻事件），args: {\"query\": 关键词}\n"
-    "- finish：证据足够或确认无法补齐时结束，"
-    "args: {\"sufficient\": true/false, \"gaps\": [\"仍缺什么\"]}\n"
-    "原则：\n"
-    "1. 检索结果与问题无关时要改写检索式或换工具，不要把无关结果当证据；\n"
-    "2. 同一检索式不要重复；证据足够就尽早 finish；\n"
-    "3. 拿不到的数据在 finish 的 gaps 里如实写明，不要编造。\n"
-    "只输出 JSON（无 markdown 代码栏）："
-    '{"tool": "工具名", "args": {...}, "reason": "一句话理由"}'
-)
+def _system_prompt(tools: dict[str, ToolRunner]) -> str:
+    """按实际注册的工具动态生成 system prompt（宣传=注册，不会漂移）。"""
+    tool_lines = [
+        _TOOL_DESCRIPTIONS[name]
+        for name in _TOOL_DESCRIPTIONS
+        if name in tools
+    ]
+    return (
+        "你是金融研究检索 agent。根据用户问题和已收集的证据，决定下一步动作。\n"
+        "可用工具：\n"
+        + "\n".join(tool_lines)
+        + "\n- finish：证据足够或确认无法补齐时结束，"
+        "args: {\"sufficient\": true/false, \"gaps\": [\"仍缺什么\"]}\n"
+        "原则：\n"
+        "1. 检索结果与问题无关时要改写检索式或换工具，不要把无关结果当证据；\n"
+        "2. 同一检索式不要重复；证据足够就尽早 finish；\n"
+        "3. 拿不到的数据在 finish 的 gaps 里如实写明，不要编造。\n"
+        "只输出 JSON（无 markdown 代码栏）："
+        '{"tool": "工具名", "args": {...}, "reason": "一句话理由"}'
+    )
 
 
 def _parse_action(content: str) -> dict[str, object] | None:
@@ -261,6 +376,7 @@ def run_agent_loop(
         for tool, attempted in attempted_queries
         if attempted.strip()
     }
+    system_prompt = _system_prompt(tools)
 
     for _ in range(budget + 1):  # +1 给 finish 留一次决策机会
         if time.monotonic() >= deadline:
@@ -275,7 +391,7 @@ def run_agent_loop(
         )
         content, _provider, reason = complete(
             [
-                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
             timeout=llm_timeout,

@@ -1015,20 +1015,25 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
         agent_loop_result = agent_research.run_agent_loop(
             options.query,
-            tools=agent_research.build_default_tools(
-                lambda agent_query: kb_rag.retrieve(
-                    agent_query,
-                    resolved_kb_wiki,
-                    k=options.wiki_rag_k,
-                    mode=options.wiki_rag_mode,
-                    timeout=_stage_timeout(options, options.wiki_rag_timeout),
-                    excerpt_chars=options.wiki_rag_excerpt,
-                    budget_query=options.query,
-                    index_dir=options.wiki_rag_index_dir,
-                    require_fresh=True,
-                    cache_scope=options.wiki_rag_cache_scope,
+            tools={
+                **agent_research.build_default_tools(
+                    lambda agent_query: kb_rag.retrieve(
+                        agent_query,
+                        resolved_kb_wiki,
+                        k=options.wiki_rag_k,
+                        mode=options.wiki_rag_mode,
+                        timeout=_stage_timeout(options, options.wiki_rag_timeout),
+                        excerpt_chars=options.wiki_rag_excerpt,
+                        budget_query=options.query,
+                        index_dir=options.wiki_rag_index_dir,
+                        require_fresh=True,
+                        cache_scope=options.wiki_rag_cache_scope,
+                    ),
                 ),
-            ),
+                # P1-B 工具面扩展：agent 可查知识图谱与证据索引（纯本地），
+                # 发现新实体后能自主定位公司映射、核对已登记证据。
+                **agent_research.build_graph_tools(knowledge),
+            },
             existing_evidence_summary="\n".join(
                 [
                     f"盘面 {len(market_lines)} 条／图谱概念 {len(graph_concept_lines)} 条／"

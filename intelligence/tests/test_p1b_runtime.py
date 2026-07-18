@@ -12,7 +12,12 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
-from intelligence.services import llm_refine, query_ledger, web_research
+from intelligence.services import (
+    agent_research,
+    llm_refine,
+    query_ledger,
+    web_research,
+)
 
 
 def _fake_urlopen_response(payload: dict) -> mock.MagicMock:
@@ -237,6 +242,115 @@ class QueryLedgerTests(unittest.TestCase):
         self.assertIs(first, sentinel)
         self.assertIs(second, sentinel)
         self.assertEqual(fetch.call_count, 1)
+
+
+class _FakeKnowledge:
+    """KnowledgeAdapter 鸭子类型桩：graph/evidence 工具消费的三个方法。"""
+
+    def get_concept_matches(self, query: str, limit: int = 5) -> dict:
+        return {
+            "found": True,
+            "items": [{"concept": "液冷服务器", "score": 20}],
+        }
+
+    def get_exposure_matches(self, query: str, limit: int = 8) -> dict:
+        return {
+            "found": True,
+            "items": [
+                {
+                    "company": "川环科技",
+                    "concept": "液冷服务器",
+                    "strength": "related",
+                    "evidence_layer": "L1_L3_candidate",
+                },
+                {"company": "", "concept": "液冷服务器"},
+            ],
+        }
+
+    def get_evidence(self, target: str, concept=None, limit: int = 6) -> dict:
+        return {
+            "found": True,
+            "items": [
+                {
+                    "target": "川环科技",
+                    "evidence": "券商研报提及其为液冷管路潜在供应商",
+                    "source": "券商研报",
+                    "source_date": "2026-05-20",
+                    "confidence": "medium",
+                }
+            ],
+        }
+
+
+class AgentGraphToolsTests(unittest.TestCase):
+    """P1-B agent 工具面扩展：graph_lookup / evidence_lookup + 动态 prompt。"""
+
+    def test_graph_lookup_returns_concepts_and_exposures(self) -> None:
+        tools = agent_research.build_graph_tools(_FakeKnowledge())
+
+        evidence, observation, trace = tools["graph_lookup"]("液冷")
+
+        self.assertEqual(trace.provider, "agent:graph_lookup")
+        self.assertEqual(trace.status, "success")
+        titles = [item.title for item in evidence]
+        self.assertIn("概念 液冷服务器", titles)
+        self.assertIn("川环科技", titles)
+        self.assertNotIn("", titles)
+        self.assertIn("川环科技", observation)
+
+    def test_evidence_lookup_formats_index_entries(self) -> None:
+        tools = agent_research.build_graph_tools(_FakeKnowledge())
+
+        evidence, observation, trace = tools["evidence_lookup"]("川环科技")
+
+        self.assertEqual(trace.provider, "agent:evidence_lookup")
+        self.assertEqual(len(evidence), 1)
+        self.assertIn("券商研报", evidence[0].detail)
+        self.assertIn("2026-05-20", evidence[0].detail)
+        self.assertIn("evidence_index.json", evidence[0].source)
+        self.assertIn("川环科技", observation)
+
+    def test_system_prompt_lists_only_registered_tools(self) -> None:
+        """宣传=注册：未接入 graph 工具时 prompt 不得宣传（否则触发非法工具中断）。"""
+        base_tools = {"kb_search": lambda q: ([], "", None)}
+        prompt = agent_research._system_prompt(base_tools)
+        self.assertIn("kb_search", prompt)
+        self.assertNotIn("graph_lookup", prompt)
+
+        full_tools = {
+            **base_tools,
+            **agent_research.build_graph_tools(_FakeKnowledge()),
+        }
+        full_prompt = agent_research._system_prompt(full_tools)
+        self.assertIn("graph_lookup", full_prompt)
+        self.assertIn("evidence_lookup", full_prompt)
+        self.assertIn("finish", full_prompt)
+
+    def test_loop_can_drive_graph_lookup(self) -> None:
+        responses = iter(
+            (
+                '{"tool": "graph_lookup", "args": {"query": "液冷"}, '
+                '"reason": "定位公司映射"}',
+                '{"tool": "finish", "args": {"sufficient": true, "gaps": []}, '
+                '"reason": "图谱已给出映射"}',
+            )
+        )
+
+        def fake_complete(messages, **kwargs):
+            return next(responses), None, ""
+
+        result = agent_research.run_agent_loop(
+            "液冷还有哪些公司",
+            tools=agent_research.build_graph_tools(_FakeKnowledge()),
+            complete_fn=fake_complete,
+        )
+
+        self.assertEqual(result.steps[0].tool, "graph_lookup")
+        self.assertGreater(result.steps[0].hit_count, 0)
+        self.assertTrue(
+            any(item.tool == "graph_lookup" for item in result.evidence)
+        )
+        self.assertTrue(result.sufficient)
 
 
 if __name__ == "__main__":
