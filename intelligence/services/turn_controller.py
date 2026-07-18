@@ -273,6 +273,23 @@ def _deterministic_decision(
     return None
 
 
+_MARKET_FLOOR_PATTERN = re.compile(r"(大盘|A股|美股|港股|股市|盘面)")
+
+
+def _needs_retrieval_floor(query: str, envelope: QueryEnvelope) -> bool:
+    """检索硬触发下限：命中已验证标的、时效词或金融信号时，不得零检索作答。"""
+    if (
+        envelope.subject_kind != "unknown"
+        and envelope.matched_by in _VERIFIED_SUBJECT_MATCHES
+    ):
+        return True
+    return bool(
+        _FRESHNESS_PATTERN.search(query)
+        or _FINANCE_PATTERN.search(query)
+        or _MARKET_FLOOR_PATTERN.search(query)
+    )
+
+
 def _controller_messages(query: str, context: str) -> list[dict[str, str]]:
     return [
         {
@@ -304,7 +321,12 @@ def _controller_messages(query: str, context: str) -> list[dict[str, str]]:
     ]
 
 
-def _parse_llm_decision(content: str) -> TurnDecision | None:
+def _parse_llm_decision(
+    content: str,
+    *,
+    query: str,
+    envelope: QueryEnvelope,
+) -> TurnDecision | None:
     text = content.strip()
     fence = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.DOTALL)
     if fence is not None:
@@ -365,10 +387,15 @@ def _parse_llm_decision(content: str) -> TurnDecision | None:
         reason=value["reason"].strip(),
         capabilities=tuple(dict.fromkeys(capabilities)),
     )
-    return _apply_policy(decision)
+    return _apply_policy(decision, query=query, envelope=envelope)
 
 
-def _apply_policy(decision: TurnDecision) -> TurnDecision:
+def _apply_policy(
+    decision: TurnDecision,
+    *,
+    query: str,
+    envelope: QueryEnvelope,
+) -> TurnDecision:
     if decision.confidence < 0.6:
         return TurnDecision(
             lane="clarify",
@@ -383,6 +410,14 @@ def _apply_policy(decision: TurnDecision) -> TurnDecision:
             clarification_questions=(
                 "你希望我解释概念、检索最新信息，还是做金融研究？",
             ),
+        )
+    if decision.lane == "chat" and _needs_retrieval_floor(query, envelope):
+        return replace(
+            decision,
+            lane="knowledge",
+            needs_retrieval=True,
+            needs_template=False,
+            reason="检索硬触发下限：命中标的/时效信号，不得零检索作答",
         )
     if decision.lane in {"chat", "meta", "clarify"}:
         return replace(
@@ -402,9 +437,17 @@ def _safe_fallback(query: str, envelope: QueryEnvelope) -> TurnDecision:
         return _decision(
             "knowledge",
             envelope=envelope,
-            needs_retrieval=False,
+            needs_retrieval=_needs_retrieval_floor(query, envelope),
             confidence=0.55,
             reason="Controller 不可用；按一般知识问题安全降级",
+        )
+    if _needs_retrieval_floor(query, envelope):
+        return _decision(
+            "knowledge",
+            envelope=envelope,
+            needs_retrieval=True,
+            confidence=0.55,
+            reason="Controller 不可用；命中标的/时效信号，降级为带检索的知识回答",
         )
     return _decision(
         "chat",
@@ -461,7 +504,11 @@ def decide_turn(
         content = None
     if content is None:
         return _attach_turn_intent(_safe_fallback(effective_query, envelope), intent)
-    parsed = _parse_llm_decision(content)
+    parsed = _parse_llm_decision(
+        content,
+        query=effective_query,
+        envelope=envelope,
+    )
     decision = (
         parsed
         if parsed is not None
