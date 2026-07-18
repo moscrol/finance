@@ -180,6 +180,10 @@ class AskOptions:
     clarify: bool = True
     # Workbench 专项 Skill answer-owner 可固定问题类型，避免再次依赖脆弱词面分类。
     question_type_override: str | None = None
+    # Turn Controller 判定的能力需求（web_search/market_news 等）：W7 web 事件检索块
+    # 据此在词面意图未命中时仍然生成，承接未被任何 skill 路由命中的长尾问题；
+    # 空元组时 W7 门控行为不变。
+    controller_capabilities: tuple[str, ...] = ()
     # 子任务并行：把命中的独立取数块（D0/D6/D9/D8/D7/W7/M/V/D1/D4/D2/D5）扔进线程池并行取，
     # 仍按固定顺序汇总，evidence_text/引用编号与串行逐字节一致；关掉退回串行（调试用）。
     parallel_blocks: bool = True

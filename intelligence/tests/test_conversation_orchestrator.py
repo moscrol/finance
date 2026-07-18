@@ -2516,3 +2516,59 @@ def test_sanitize_humanizes_stage_ids_and_internal_codes() -> None:
         sanitize_conversation_answer("D6 中期趋势库不存在")
         == "中期趋势库不存在"
     )
+
+
+def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "科创50的支撑点位在哪"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    captured: list[AskOptions] = []
+
+    def capture_options(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    def quote_controller(controller_query: str, **kwargs: object) -> TurnDecision:
+        del kwargs
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=False,
+            needs_template=True,
+            confidence=0.85,
+            reason=f"fixture research: {controller_query}",
+            capabilities=("market_quote", "graph"),
+        )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=capture_options,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (), fallback_to_ask=False, base_finance_fallback=True
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=quote_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert len(captured) == 1
+    assert captured[0].controller_capabilities == (
+        "market_quote",
+        "graph",
+        "web_search",
+    )

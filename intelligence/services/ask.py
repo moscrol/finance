@@ -1503,11 +1503,19 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         providers.append(ask_planner.DataBlockProvider("D7", "逐季财报", _d7_applies, _build_d7))
 
         def _w7_applies() -> bool:
-            return evidence_registry.provider_enabled(options, "W7") and bool(
-                market_news.parse_news_intent(options.query)
-                or (
-                    question_plan.base_finance_mode is not None
-                    and question_plan.base_finance_mode.require_news
+            if not evidence_registry.provider_enabled(options, "W7"):
+                return False
+            if market_news.parse_news_intent(options.query) or (
+                question_plan.base_finance_mode is not None
+                and question_plan.base_finance_mode.require_news
+            ):
+                return True
+            return bool(
+                {"web_search", "market_news"}.intersection(
+                    options.controller_capabilities
+                )
+                and market_news.resolve_news_keyword(
+                    options.query, theme, anchored_name
                 )
             )
 
