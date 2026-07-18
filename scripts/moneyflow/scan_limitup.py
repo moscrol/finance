@@ -19,7 +19,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from moneyflow import make_client, stock_info, run_scan, duck_limitup_codes
+from moneyflow import (
+    current_git_revision,
+    duck_limitup_codes,
+    make_client,
+    run_scan,
+    stock_info,
+)
 from server_aggregation import L2QueryService
 from config import out_path
 from write_to_duckdb import write_capital_flow
@@ -83,6 +89,7 @@ def main():
     prev = sys.argv[2] if len(sys.argv) > 2 else prev_trading_date(client, date)
     net_thr = float(sys.argv[3]) if len(sys.argv) > 3 else 2000.0
     big_thr = float(sys.argv[4]) if len(sys.argv) > 4 else 50.0
+    print(f"L2 code revision: {current_git_revision()}", flush=True)
 
     try:
         codes = duck_limitup_codes(prev)
@@ -108,6 +115,8 @@ def main():
     client, results, stats = run_scan(
         client, codes, date, "limitup_server_v1", compute
     )
+    stats["shared_cache"] = queries.cache_stats()
+    print(f"共享聚合缓存: {stats['shared_cache']}", flush=True)
 
     res = pd.DataFrame(results)
     if res.empty:

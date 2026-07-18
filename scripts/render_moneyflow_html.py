@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -23,7 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from market_feature_store.db import connect  # noqa: E402
 
-OUT_PATH = ROOT / "复盘" / "moneyflow" / "index.html"
+_DATA_ROOT = Path(os.environ.get("FINANCE_DATA_ROOT", ROOT)).expanduser()
+OUT_PATH = _DATA_ROOT / "复盘" / "moneyflow" / "index.html"
 
 FLOW_COLS = [
     ("rank", "名次"), ("stock_code", "代码"), ("stock_name", "名称"),

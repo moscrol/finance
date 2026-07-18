@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from market_feature_store.db import connect, init_db  # noqa: E402
 from config import to_ts_code  # noqa: E402
 
-SOURCE = "clickhouse:share(level2逐笔)"
+SOURCE = "clickhouse:share(level2服务端聚合)"
 STEPS = ("limitup", "top100", "quant")
 
 
@@ -62,8 +62,30 @@ def begin_l2_run(date):
         con.close()
 
 
+def _format_message(message, stats):
+    parts = []
+    if message:
+        parts.append(str(message))
+    shared = (stats or {}).get("shared_cache")
+    if isinstance(shared, dict):
+        parts.append(
+            "shared_cache "
+            f"hits={shared.get('hits', 0)} misses={shared.get('misses', 0)} "
+            f"queries={shared.get('queries', 0)} writes={shared.get('writes', 0)} "
+            f"entries={shared.get('entries', 0)} "
+            f"path={shared.get('path', '')}"
+        )
+    if (stats or {}).get("nonempty_count") is not None:
+        parts.append(
+            f"nonempty={(stats or {}).get('nonempty_count')} "
+            f"empty={(stats or {}).get('empty_count', 0)}"
+        )
+    return " | ".join(parts) if parts else None
+
+
 def _mark_status(con, date, step, status, row_count, stats, message):
     stats = stats or {}
+    message = _format_message(message, stats)
     con.execute(
         """
         INSERT INTO ops_pipeline_run_daily

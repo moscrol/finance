@@ -23,7 +23,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from moneyflow import make_client, stock_info, run_scan, duck_top_turnover_codes
+from moneyflow import (
+    current_git_revision,
+    duck_top_turnover_codes,
+    make_client,
+    run_scan,
+    stock_info,
+)
 from server_aggregation import L2QueryService
 from config import out_path
 from write_to_duckdb import write_capital_flow
@@ -97,6 +103,7 @@ def main():
     date = sys.argv[1]
     big_thr = float(sys.argv[2]) if len(sys.argv) > 2 else 50.0
     client = make_client()
+    print(f"L2 code revision: {current_git_revision()}", flush=True)
 
     codes = top_turnover_stocks(client, date)
     print(f"{date} 成交额前{len(codes)}股票，开始逐只计算大单资金流...")
@@ -116,6 +123,8 @@ def main():
     client, results, stats = run_scan(
         client, codes, date, "top100_server_v1", compute
     )
+    stats["shared_cache"] = queries.cache_stats()
+    print(f"共享聚合缓存: {stats['shared_cache']}", flush=True)
 
     res = pd.DataFrame(results)
     if res.empty:

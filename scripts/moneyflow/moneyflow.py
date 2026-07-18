@@ -28,6 +28,18 @@ import urllib.request
 from config import HOST, PORT, USER, PASSWORD, out_path  # noqa: E402
 
 
+def current_git_revision() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short=12", "HEAD"],
+            cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        return "unknown"
+
+
 def _setup_matplotlib():
     """绘图依赖惰性加载，便于 preflight/单测在无 matplotlib 环境下 import。"""
     import matplotlib
@@ -384,31 +396,42 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
     **null 结果不视为已完成**（避免 VPN/空响应写出的全 None 缓存卡死重跑）。
     返回 (client, rows, stats)；stats 含 input_count/processed_count/failed_count，
     供写库时落入 ops_pipeline_run_daily 审计。"""
+    codes = list(codes)
+    code_set = set(codes)
     cache_file = out_path(f"scan_cache_{tag}_{date}.json")
     done = {}
-    if os.path.exists(cache_file):
+    if os.environ.get("L2_FORCE_RESCAN", "").strip() in {"1", "true", "yes"}:
+        print(f"L2_FORCE_RESCAN=1，忽略断点缓存 {cache_file}", flush=True)
+    elif os.path.exists(cache_file):
         try:
             with open(cache_file) as f:
                 raw = json.load(f)
-            # 只保留有效结果；null 条目下次重扫
-            done = {k: v for k, v in (raw or {}).items() if v}
-            skipped_null = len(raw or {}) - len(done)
+            # 只保留有效结果；null/过期条目下次重扫
+            done = {k: v for k, v in (raw or {}).items() if v and k in code_set}
+            skipped = len(raw or {}) - len(done)
             print(
                 f"断点缓存 {cache_file}: 有效 {len(done)} 只"
-                + (f"（忽略 null {skipped_null}）" if skipped_null else ""),
+                + (f"（忽略 null/过期 {skipped}）" if skipped else ""),
                 flush=True,
             )
         except Exception:
             done = {}
 
     def save():
-        with open(cache_file, "w") as f:
+        temporary = f"{cache_file}.tmp"
+        with open(temporary, "w") as f:
             json.dump(done, f, ensure_ascii=False)
+        os.replace(temporary, cache_file)
 
     throttle = AdaptiveThrottle()
     pending = [c for c in codes if c not in done]
+    scan_cache_hits = len(done)
     # 成功拉到数据但无大单的代码（本轮）；最终计入 processed，但不落 cache
     empty_ok: set[str] = set()
+    print(
+        f"扫描 {tag} {date}: input={len(codes)} cache_hits={len(done)} pending={len(pending)}",
+        flush=True,
+    )
     for rnd in range(1, passes + 1):
         if not pending:
             break
@@ -457,7 +480,9 @@ def run_scan(client, codes, date, tag, compute, passes=3, batch_size=20, batch_r
         "failed_count": len(pending),
         "nonempty_count": nonempty,
         "empty_count": len(empty_ok),
+        "scan_cache_hits": scan_cache_hits,
     }
+    print(f"扫描统计 {tag} {date}: {stats}", flush=True)
     # 大批量名单却几乎全空：高概率是链路/数据源异常，而非真的无大单
     if (
         len(codes) >= 20
