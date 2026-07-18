@@ -350,6 +350,35 @@ def _rehydrate_provider_traces(
     return traces
 
 
+_OWNER_RAW_RESULT_CACHE_PREFIX = "owner_raw_result:"
+
+
+def _resolve_owner_result(
+    query: str,
+    output: SkillOutput,
+    retrieval_cache: dict[str, object],
+) -> AskResult:
+    """优先消费 owner 放入 turn 缓存的完整 AskResult（P1-B：去有损重建）。
+
+    raw 结果保留 owner 内部的真实 trade_date/warnings/provider_traces/
+    检索遥测/原生 citations（含 chunk/hash 溯源）；answer_spec 以 owner
+    契约为准——若契约 spec 与 raw spec 不是同一对象（继承合并等场景），
+    清除 owner 预备的合成消息，下游按契约 spec 重建（防旧 registry 的
+    claim_id 失配触发门禁拒稿）。缓存未命中时回退有损重建路径。"""
+    contract = output.answer_contract
+    if contract is None:
+        raise ValueError("skill owner output requires an answer contract")
+    raw = retrieval_cache.get(
+        f"{_OWNER_RAW_RESULT_CACHE_PREFIX}{output.skill_id}"
+    )
+    if not isinstance(raw, AskResult):
+        return _skill_owner_result(query, output)
+    if raw.answer_spec is not contract.answer_spec:
+        raw.prepared_synthesis_messages = None
+    raw.answer_spec = contract.answer_spec
+    return raw
+
+
 def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
     contract = output.answer_contract
     if contract is None:
@@ -1446,7 +1475,9 @@ class TurnOrchestrator:
                 deadline=research_deadline,
             )
             if owner_output is not None:
-                result = _skill_owner_result(query, owner_output)
+                result = _resolve_owner_result(
+                    query, owner_output, retrieval_cache
+                )
                 prepared = prepare_existing_answer(ask_options, result)
                 self._trace(
                     run_id,
@@ -1630,8 +1661,15 @@ class TurnOrchestrator:
                 },
             )
 
-            warnings.extend(result.warnings)
-            for warning in result.warnings:
+            # owner raw 结果的 warnings 在 skill 阶段已并入过（output.warnings），
+            # 只追加新增项，避免 degrades 重复落账。
+            fresh_result_warnings = [
+                warning
+                for warning in result.warnings
+                if warning not in warnings
+            ]
+            warnings.extend(fresh_result_warnings)
+            for warning in fresh_result_warnings:
                 self.run_store.add_degrade(run_id, warning)
             answer_text = render_conversation_answer(result)
             if (

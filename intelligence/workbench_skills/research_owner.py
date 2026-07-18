@@ -167,6 +167,11 @@ class ResearchOwnerSkill:
             stage_artifacts=stage_artifacts,
             status=status,
         )
+        # P1-B：完整 ResearchResult 通道——raw AskResult 以对象引用放入 turn 级
+        # retrieval_cache（进程内传递、不经序列化），orchestrator 侧优先消费它，
+        # 替代 _skill_owner_result 的有损重建（真实 trade_date/warnings/
+        # provider_traces/telemetry/原生 citations 全保留）。
+        context.retrieval_cache[f"owner_raw_result:{self.skill_id}"] = result
         return SkillOutput(
             skill_id=self.skill_id,
             modules=retrieved_modules if contract is not None else [],

@@ -403,5 +403,142 @@ class AgentGraphToolsTests(unittest.TestCase):
         self.assertTrue(result.sufficient)
 
 
+class OwnerRawResultChannelTests(unittest.TestCase):
+    """P1-B：owner 完整 ResearchResult 通道（替代有损重建）。"""
+
+    def _contract_and_output(self, spec):
+        from intelligence.workbench_skills.contracts import (
+            SkillAnswerContract,
+            SkillOutput,
+        )
+
+        contract = SkillAnswerContract(
+            retrieval_plan=("S",),
+            output_contract=("结论",),
+            answer_spec=spec,
+        )
+        output = SkillOutput(
+            skill_id="stock-deep-dive",
+            modules=[],
+            citations=[{"title": "公司公告", "source": "巨潮"}],
+            warnings=["skill 级警告"],
+            as_of="2026-07-17",
+            raw_result_ref=None,
+            answer_contract=contract,
+        )
+        return contract, output
+
+    def _spec(self):
+        from intelligence.services.answer_model import (
+            AnswerSpec,
+            ClaimStatus,
+            EvidenceRef,
+            finalize_answer_spec,
+            make_claim,
+            resolve_theme_research_spec,
+        )
+
+        research = resolve_theme_research_spec("分析人形机器人产业链")
+        fact = make_claim(
+            claim_id="fact-1",
+            text="盘面显示涨幅2.61%。",
+            claim_type="market_signal",
+            theme=research.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L4",
+            evidence_ids=("S1",),
+        )
+        return finalize_answer_spec(
+            AnswerSpec(
+                research_spec=research,
+                summary=(fact,),
+                verified_facts=(fact,),
+                company_table=(),
+                counter_evidence=(),
+                gaps=(),
+                triggers=(),
+                next_actions=("T+1 复核",),
+                sources=(
+                    EvidenceRef(evidence_id="S1", source="盘面快照", tier="L4"),
+                ),
+                system_notices=(),
+            )
+        )
+
+    def _raw_result(self, spec):
+        from intelligence.services.ask import AskResult, Citation
+        from intelligence.services.provider_observability import ProviderTrace
+
+        raw = AskResult(
+            query="分析液冷",
+            trade_date="2026-07-17",
+            matched_theme="液冷",
+            candidate_tier=None,
+            priority_score=None,
+            found_market=True,
+        )
+        raw.answer_spec = spec
+        raw.warnings = ["raw 级警告"]
+        raw.citations = [Citation("W1", "knowledge-base · a.md", "chunk=c1")]
+        raw.provider_traces.append(
+            ProviderTrace(
+                provider="local_wiki",
+                capability="theme_recall",
+                status="success",
+                result_count=3,
+            )
+        )
+        raw.prepared_synthesis_messages = [{"role": "user", "content": "旧"}]
+        return raw
+
+    def test_raw_result_is_consumed_with_contract_spec(self) -> None:
+        from intelligence.services.conversation_orchestrator import (
+            _resolve_owner_result,
+        )
+
+        spec = self._spec()
+        contract_spec = self._spec()  # 不同对象（模拟继承合并后的契约 spec）
+        raw = self._raw_result(spec)
+        contract, output = self._contract_and_output(contract_spec)
+        cache: dict[str, object] = {"owner_raw_result:stock-deep-dive": raw}
+
+        resolved = _resolve_owner_result("分析液冷", output, cache)
+
+        self.assertIs(resolved, raw)
+        self.assertIs(resolved.answer_spec, contract.answer_spec)
+        self.assertEqual(resolved.trade_date, "2026-07-17")
+        self.assertEqual(resolved.citations[0].tag, "W1")
+        self.assertEqual(resolved.provider_traces[0].provider, "local_wiki")
+        # spec 被契约替换 → owner 预备的旧合成消息必须清除（防 claim_id 失配）
+        self.assertIsNone(resolved.prepared_synthesis_messages)
+
+    def test_same_spec_keeps_prepared_messages(self) -> None:
+        from intelligence.services.conversation_orchestrator import (
+            _resolve_owner_result,
+        )
+
+        spec = self._spec()
+        raw = self._raw_result(spec)
+        _contract, output = self._contract_and_output(spec)  # 同一对象
+        cache: dict[str, object] = {"owner_raw_result:stock-deep-dive": raw}
+
+        resolved = _resolve_owner_result("分析液冷", output, cache)
+
+        self.assertIsNotNone(resolved.prepared_synthesis_messages)
+
+    def test_cache_miss_falls_back_to_rebuild(self) -> None:
+        from intelligence.services.conversation_orchestrator import (
+            _resolve_owner_result,
+        )
+
+        spec = self._spec()
+        _contract, output = self._contract_and_output(spec)
+
+        resolved = _resolve_owner_result("分析液冷", output, {})
+
+        self.assertEqual(resolved.trade_date, "2026-07-17")
+        self.assertEqual(resolved.citations[0].tag, "K1")
+
+
 if __name__ == "__main__":
     unittest.main()

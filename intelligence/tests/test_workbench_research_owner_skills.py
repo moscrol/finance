@@ -1282,3 +1282,26 @@ def test_owner_output_carries_internal_retrieval_traces(
     )
     assert wiki_trace["status"] == "success"
     assert wiki_trace["result_count"] == 3
+
+
+def test_owner_publishes_raw_result_to_turn_cache(tmp_path: Path) -> None:
+    """P1-B：owner 把完整 AskResult 放入 turn 缓存供 orchestrator 直接消费。"""
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        return _result(options.query, STOCK_DEEP_DIVE.question_type, evidence_id="R1")
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run("分析液冷", "ask")
+    skill = ResearchOwnerSkill(
+        STOCK_DEEP_DIVE,
+        answer_query_fn=fake_answer_query,
+        web_search_fn=_empty_web_search,
+    )
+    context = _context(tmp_path, store, run.run_id, "分析液冷")
+
+    skill.execute(context)
+
+    raw = context.retrieval_cache.get("owner_raw_result:stock-deep-dive")
+    assert isinstance(raw, AskResult)
+    assert raw.trade_date == "2026-07-10"
+    assert raw.citations and raw.citations[0].tag == "R1"
