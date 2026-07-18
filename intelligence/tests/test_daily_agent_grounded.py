@@ -170,9 +170,22 @@ class TestDailyAgentContract:
             claim for claim in spec.verified_facts if claim.theme == "氢能源"
         ]
         assert theme_claims
-        assert "优先级=194.57" in theme_claims[0].text
         assert "涨停数=3" in theme_claims[0].text
         assert "生命周期=旧逻辑唤醒" in theme_claims[0].text
+
+    def test_claims_and_atoms_use_user_facing_language(self) -> None:
+        spec = _contract().answer_spec
+        texts = _all_claim_texts(spec) + [
+            atom.claim_text for atom in spec.research_evidence_atoms
+        ]
+        gap_texts = [text for text in texts if "目前还缺" in text]
+        assert gap_texts
+        assert all("L3" not in text for text in gap_texts)
+        assert any("官方硬证据" in text for text in gap_texts)
+        theme_claims = [
+            claim for claim in spec.verified_facts if claim.theme == "氢能源"
+        ]
+        assert "优先级=" not in theme_claims[0].text
 
     def test_cross_theme_claims_are_distinct(self) -> None:
         spec = _contract().answer_spec
