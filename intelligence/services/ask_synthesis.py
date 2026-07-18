@@ -116,6 +116,18 @@ def _exemplar_guidance_for(
     return "\n\n".join(parts)
 
 
+# 数据块 claim 默认状态覆盖（P0 修复）：VERIFIED 不能靠"没出现坏词"铸造。
+# W7 资讯只是"标题存在"的存在性证据，标题内容未证实；M/V 是用户先验与历史裁决
+# 快照，不是当期市场事实；D8 历史类比是推演。其余 DuckDB/东财确定性取数块保持
+# VERIFIED（数据本身可回查）。
+_DATA_BLOCK_STATUS_OVERRIDES = {
+    "W7": answer_model.ClaimStatus.CANDIDATE,
+    "M": answer_model.ClaimStatus.CANDIDATE,
+    "V": answer_model.ClaimStatus.CANDIDATE,
+    "D8": answer_model.ClaimStatus.INFERRED,
+}
+
+
 def _claims_from_data_block(
     block: str,
     tag: str,
@@ -147,7 +159,9 @@ def _claims_from_data_block(
         ):
             status = answer_model.ClaimStatus.INFERRED
         else:
-            status = answer_model.ClaimStatus.VERIFIED
+            status = _DATA_BLOCK_STATUS_OVERRIDES.get(
+                tag, answer_model.ClaimStatus.VERIFIED
+            )
         claims.append(
             answer_model.make_claim(
                 claim_id=f"data:{tag}:{index}",
@@ -476,6 +490,19 @@ def _build_answer_spec_for_result(
         and "市场结构推演路径" not in line
         and not re.match(r"^\[[^\]]+\]", line)
     )
+    # 候选证据通道：agent 补检索 / Web 兜底 / 模块召回 / wiki 语义召回等 CANDIDATE
+    # claim 中，未随公司表进入 registry 的部分。上限 24 条防 prompt 膨胀。
+    company_claim_ids = {
+        claim.claim_id
+        for assessment in company_table
+        for claim in assessment.claims
+    }
+    candidate_facts = tuple(
+        claim
+        for claim in claims
+        if claim.status == answer_model.ClaimStatus.CANDIDATE
+        and claim.claim_id not in company_claim_ids
+    )[:24]
     spec = answer_model.AnswerSpec(
         research_spec=research_spec,
         summary=tuple(summary),
@@ -486,6 +513,7 @@ def _build_answer_spec_for_result(
         counter_evidence=counter_evidence,
         gaps=gaps,
         triggers=tuple(triggers),
+        candidate_facts=candidate_facts,
         next_actions=tuple(dict.fromkeys(actions)),
         sources=tuple(dict.fromkeys(sources)),
         system_notices=tuple(dict.fromkeys(notices)),
@@ -974,14 +1002,25 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     initial_synthesis = composed.answer
     accepted_composition = composed
     quality_gate_started = time.monotonic()
-    blocking_issues = [
-        issue
-        for issue in answer_model.validate_llm_answer(
-            proposed_synthesis,
-            result.answer_spec,
-        )
-        if issue.severity == "error"
-    ]
+    gate_issues = answer_model.validate_llm_answer(
+        proposed_synthesis,
+        result.answer_spec,
+    )
+    if result.prepared_synthesis_is_market_review:
+        # 市场复盘走"面向普通投资者的散文"契约（_MARKET_REVIEW_SYSTEM_PROMPT），
+        # 不承担 claim-marker 绑定；此前对它套 marker 门禁会导致散文必然全行
+        # unbound → 修订轮又要求逐字复制 registry（两份契约互相矛盾）→ 恒定
+        # 退回模板。散文路径只保留内部术语泄漏这一硬检查。
+        blocking_issues = [
+            issue
+            for issue in gate_issues
+            if issue.severity == "error"
+            and issue.code == "llm_engineering_term_leak"
+        ]
+    else:
+        blocking_issues = [
+            issue for issue in gate_issues if issue.severity == "error"
+        ]
     if blocking_issues and deadline.remaining() > 0:
         correction_started = time.monotonic()
         correction, correction_reason = llm_refine.synthesize_messages(
@@ -1223,6 +1262,21 @@ def _shadow_support_claims(
     )
 
 
+def _shadow_deadline(options: AskOptions) -> llm_refine.Deadline:
+    """影子链截止时间 = min(自身超时, turn 根 Deadline)。
+
+    P0 修复：此前 promote 路径把 shadow timeout 抬到 ≥240s 并新建 Deadline，
+    完全无视 turn 级 ResearchDeadline——子流程可以突破根截止时间。规则收敛为
+    child = min(parent, now + stage_slice)，任何子阶段不得晚于根。
+    """
+    deadline = llm_refine.Deadline.from_timeout(options.shadow_grounded_timeout)
+    if options.deadline is not None:
+        deadline = llm_refine.Deadline(
+            min(deadline.expires_at, options.deadline.expires_at)
+        )
+    return deadline
+
+
 def synthesize_shadow_grounded_answer(
     prepared: PreparedAnswer,
     *,
@@ -1246,9 +1300,7 @@ def synthesize_shadow_grounded_answer(
             )
         )
         return result
-    deadline = llm_refine.Deadline.from_timeout(
-        options.shadow_grounded_timeout
-    )
+    deadline = _shadow_deadline(options)
     registry_block = answer_model.grounded_claim_registry_block(
         result.answer_spec
     )
@@ -1445,7 +1497,8 @@ def synthesize_shadow_grounded_answer(
             repaired_answer=candidate_answer if repaired else None,
             presented_answer=(
                 answer_model.present_grounded_composer_answer(
-                    candidate_answer
+                    candidate_answer,
+                    result.answer_spec,
                 )
             ),
             deterministic_issues=deterministic_issues,

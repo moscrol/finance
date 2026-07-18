@@ -212,8 +212,21 @@ def collect_web_fallback(
         ctx.result.provider_traces.append(web_result.trace)
         for item in web_result.items[:4]:
             tag = ctx.cite("E", item.title, item.url)
-            web_fallback_lines.append(
+            line = (
                 f"{item.title}：{item.snippet or '搜索结果未提供摘要'}（外部快照，仅作背景线索） {tag}"
+            )
+            web_fallback_lines.append(line)
+            # P0 修复：兜底证据同步铸 CANDIDATE claim 进 registry——否则它只在
+            # 证据链展示层出现，合成层在白名单契约下无法合法引用（死证据）。
+            ctx.structured_claims.append(
+                answer_model.make_claim(
+                    claim_id=f"web:{tag.strip('[]')}",
+                    text=line,
+                    claim_type="theme_evidence",
+                    theme=ctx.claim_theme,
+                    status=answer_model.ClaimStatus.CANDIDATE,
+                    evidence_tier="external_web_snapshot",
+                )
             )
     return web_fallback_lines, web_fallback_attempted
 
@@ -566,6 +579,10 @@ def collect_wiki_rag(
         loop = closed_loop_retrieval.retrieve_closed_loop(
             ctx.graph_query,
             anchor=ctx.anchor,
+            # 闭环总预算钳制在 turn 根 Deadline 内（stage_timeout 取 min）。
+            total_seconds=ctx.stage_timeout(
+                closed_loop_retrieval.MAX_TOTAL_SECONDS
+            ),
             retrieve=lambda retrieval_query: kb_rag.retrieve(
                 retrieval_query,
                 ctx.knowledge.resolved_wiki_root,

@@ -643,6 +643,9 @@ def _answer_concept_definition(
     loop = closed_loop_retrieval.retrieve_closed_loop(
         options.query,
         anchor=None,
+        total_seconds=_stage_timeout(
+            options, closed_loop_retrieval.MAX_TOTAL_SECONDS
+        ),
         retrieve=lambda retrieval_query: kb_rag.retrieve(
             retrieval_query,
             resolved_kb_wiki,
@@ -989,6 +992,24 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     agent_loop_lines: list[str] = []
     agent_loop_result: agent_research.AgentLoopResult | None = None
     if agent_research.should_run(options.controller_capabilities):
+        # 跨管线查询账本（QueryLedger 种子版）：把固定管线已执行过的检索
+        # （closed-loop 各光圈查询、Web 兜底）交给 agent 去重并写进观察摘要，
+        # 避免 agent 重发主链刚试过的查询浪费步数预算。
+        pipeline_attempted: list[tuple[str, str]] = []
+        if result.closed_loop_retrieval is not None:
+            pipeline_attempted.extend(
+                ("kb_search", attempt.query)
+                for attempt in result.closed_loop_retrieval.attempts
+            )
+        if web_fallback_attempted:
+            pipeline_attempted.append(("web_search", options.query))
+        attempted_summary = (
+            "；".join(
+                f"{tool}(\"{attempted}\")"
+                for tool, attempted in pipeline_attempted[:12]
+            )
+            or "（无）"
+        )
         agent_loop_result = agent_research.run_agent_loop(
             options.query,
             tools=agent_research.build_default_tools(
@@ -1011,9 +1032,11 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                     f"公司暴露 {len(company_lines)} 条／证据索引 {len(evidence_lines)} 条／"
                     f"知识库召回 {len(wiki_lines)} 条",
                     *wiki_lines[:3],
+                    f"主链已执行过的检索（重复会被拦截，请改写或换角度）：{attempted_summary}",
                 ]
             ),
             total_seconds=_stage_timeout(options, 60),
+            attempted_queries=tuple(pipeline_attempted),
         )
         result.provider_traces.extend(agent_loop_result.traces)
         result.provider_traces.append(
@@ -1029,7 +1052,21 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
         for item in agent_loop_result.evidence[:8]:
             tag = cite("A", f"agent 补检索 · {item.tool}", item.source)
-            agent_loop_lines.append(f"{item.title}：{item.detail} {tag}")
+            line = f"{item.title}：{item.detail} {tag}"
+            agent_loop_lines.append(line)
+            # P0 修复：agent 补检索证据同步铸 CANDIDATE claim。此前只进
+            # evidence_chain 展示层、不进 registry——合成层在 AnswerSpec 白名单
+            # 契约下无法合法引用，长尾 agent 花了预算却产出"死证据"。
+            structured_claims.append(
+                answer_model.make_claim(
+                    claim_id=f"agent:{tag.strip('[]')}",
+                    text=line,
+                    claim_type="theme_evidence",
+                    theme=claim_theme,
+                    status=answer_model.ClaimStatus.CANDIDATE,
+                    evidence_tier="agent_retrieval",
+                )
+            )
 
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
     module_block: list[str] = []
@@ -1056,6 +1093,17 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                 tag = cite("G", mr.citation_source, f"{mr.command}" + (f" | {mr.citation_detail}" if mr.citation_detail else ""))
                 for hl in mr.highlights:
                     module_block.append(f"{hl} {tag}")
+                    # 模块召回同样进 candidate 通道，合成层可按待验证口吻引用。
+                    structured_claims.append(
+                        answer_model.make_claim(
+                            claim_id=f"module:{name}:{len(structured_claims)}",
+                            text=f"{hl} {tag}",
+                            claim_type="theme_evidence",
+                            theme=claim_theme,
+                            status=answer_model.ClaimStatus.CANDIDATE,
+                            evidence_tier="module_recall",
+                        )
+                    )
                 module_follow_ups.extend((name, f) for f in mr.follow_ups)
                 if options.detail and mr.full_report:
                     result.detail_reports.append((MODULE_LABELS.get(name, name), mr.full_report))

@@ -416,10 +416,13 @@ def sanitize_user_visible_artifact_text(text: str) -> str:
     )
     if re.search(r"未配置 LLM key", cleaned, re.IGNORECASE):
         return "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
+    # P0 修复：命中内部诊断特征时只声明"已隐藏"，不得改写成"检索不可用"——
+    # 此前一条成功检索的说明只要含 BM25/chunk/.py 等词就会被整体替换成
+    # 与事实相反的降级声明（把真话洗成假话）。降级与否只能由降级路径自己写。
     if re.search(r"HF_TOKEN|Hugging\s*Face", cleaned, re.IGNORECASE):
-        return "外部语义检索当前不可用或受限，未使用其结果。"
+        return "（内部检索诊断信息已隐藏。）"
     if _INTERNAL_RETRIEVAL_DIAGNOSTIC_PATTERN.search(cleaned):
-        return "外部语义检索当前不可用或受限，未使用其结果。"
+        return "（内部检索诊断信息已隐藏。）"
     if _LOCAL_PATH_PATTERN.search(cleaned):
         return "本地研究数据（路径已隐藏）。"
     if _INTERNAL_ERROR_PATTERN.search(cleaned):
@@ -439,7 +442,7 @@ def sanitize_conversation_answer(text: str) -> str:
         r"\bchunk(?:_id)?=|\bhash=|\bindex=|\bk=\d+|"
         r"耗时=\d+ms|状态=empty|[DMVW]\s*源|命中来源分布|"
         r"检索质量裁定|公告等硬证据覆盖|--mode\b|\b\w+\.py\b).*$",
-        "外部语义检索当前不可用或受限，未使用其结果。",
+        "（内部检索诊断信息已隐藏。）",
         cleaned,
         flags=re.IGNORECASE,
     )

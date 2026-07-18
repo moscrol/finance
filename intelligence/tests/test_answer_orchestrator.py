@@ -65,6 +65,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
             counter_evidence=(),
             gaps=(),
             triggers=(),
+            candidate_facts=(),
             company_table=(),
         )
         result.prepared_synthesis_messages = [

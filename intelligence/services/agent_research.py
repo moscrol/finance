@@ -21,7 +21,7 @@ import json
 import os
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from intelligence.services import llm_refine, market_news, web_research
@@ -244,13 +244,23 @@ def run_agent_loop(
     total_seconds: float = DEFAULT_TOTAL_SECONDS,
     llm_timeout: int = DEFAULT_LLM_TIMEOUT,
     complete_fn: CompleteFn | None = None,
+    attempted_queries: Sequence[tuple[str, str]] = (),
 ) -> AgentLoopResult:
-    """跑一轮 agent 检索循环；任何失败都返回已收集的部分结果（可降级）。"""
+    """跑一轮 agent 检索循环；任何失败都返回已收集的部分结果（可降级）。
+
+    ``attempted_queries`` 为主链固定管线已执行过的 ``(tool, query)``（如
+    closed-loop 的各光圈查询、Web 兜底），用于跨管线去重——agent 重发这些
+    查询会被当场拦截并提示改写，避免同一 turn 内重复检索同一语料。
+    """
     result = AgentLoopResult()
     complete = complete_fn or llm_refine.complete
     budget = steps_budget if steps_budget is not None else max_steps()
     deadline = time.monotonic() + max(1.0, total_seconds)
-    seen_queries: set[tuple[str, str]] = set()
+    seen_queries: set[tuple[str, str]] = {
+        (tool, re.sub(r"\s+", "", attempted))
+        for tool, attempted in attempted_queries
+        if attempted.strip()
+    }
 
     for _ in range(budget + 1):  # +1 给 finish 留一次决策机会
         if time.monotonic() >= deadline:

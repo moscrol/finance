@@ -14,6 +14,7 @@ from intelligence.services.query_understanding import (
     is_market_watch_query,
 )
 from intelligence.services.route_table import (
+    ROUTE_TABLE,
     RouteRow,
     render_route_table_prompt,
     route_by_id,
@@ -147,6 +148,22 @@ def _decision(
     )
 
 
+def _route_capabilities(
+    question_type: str | None,
+    fallback: Sequence[str],
+) -> tuple[str, ...]:
+    """能力集单一事实源（P0 修复）：确定性分支按 question_type 反查路由表行。
+
+    此前规则分支手工复制能力清单，与 route_table 漂移——同一意图因"规则命中
+    还是 LLM 命中"获得不同工具权限（如 news_impact 表内要求 market_news+
+    web_search，规则分支却统一给 market_quote+financials）。"""
+    if question_type:
+        for row in ROUTE_TABLE:
+            if row.question_type == question_type:
+                return row.capabilities
+    return tuple(fallback)
+
+
 def _deterministic_decision(
     query: str,
     *,
@@ -223,7 +240,10 @@ def _deterministic_decision(
             envelope=envelope,
             confidence=envelope.confidence,
             reason="明确海外市场行情请求",
-            capabilities=("market_quote", "market_news", "web_search"),
+            capabilities=_route_capabilities(
+                "external_market",
+                ("market_quote", "market_news", "web_search"),
+            ),
         )
     if envelope.question_type == "concept_definition":
         return _decision(
@@ -249,7 +269,10 @@ def _deterministic_decision(
             needs_memory=bool(_MEMORY_PATTERN.search(cleaned)),
             confidence=max(0.75, envelope.confidence),
             reason=f"确定性识别到研究 owner 问题类型（{owner}）",
-            capabilities=("memory", "market_quote", "graph", "financials"),
+            capabilities=_route_capabilities(
+                envelope.question_type,
+                ("memory", "market_quote", "graph", "financials"),
+            ),
         )
     if _FRESHNESS_PATTERN.search(cleaned):
         lane: TurnLane = "research" if _FINANCE_PATTERN.search(cleaned) else "knowledge"
@@ -272,7 +295,10 @@ def _deterministic_decision(
             needs_memory=bool(_MEMORY_PATTERN.search(cleaned)),
             confidence=max(0.75, envelope.confidence),
             reason="明确金融研究对象或决策目标",
-            capabilities=("memory", "market_quote", "graph", "financials"),
+            capabilities=_route_capabilities(
+                envelope.question_type,
+                ("memory", "market_quote", "graph", "financials"),
+            ),
         )
     return None
 

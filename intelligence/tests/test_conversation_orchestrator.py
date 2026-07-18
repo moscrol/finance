@@ -766,8 +766,9 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
     assert "deterministic_projection" not in internal
     assert "/Users/" not in local_path
     assert "module.py" not in local_path
-    assert retrieval_progress == "外部语义检索当前不可用或受限，未使用其结果。"
-    assert internal_module == "外部语义检索当前不可用或受限，未使用其结果。"
+    # P0 修复后：诊断类文本只声明"已隐藏"，不得断言"检索不可用"（洗词不改事实）。
+    assert retrieval_progress == "（内部检索诊断信息已隐藏。）"
+    assert internal_module == "（内部检索诊断信息已隐藏。）"
     assert evidence_detail == "对象=天阳科技；来源=天阳科技_最新逻辑跟踪，质量中等"
     assert module_id == "资料覆盖情况"
     assert no_llm_code == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
