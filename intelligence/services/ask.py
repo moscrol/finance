@@ -16,6 +16,7 @@ a ``[S#]/[G#]/[R#]/[W#]`` citation back to its source.
 
 from __future__ import annotations
 
+import copy
 import glob
 import json
 import re
@@ -41,6 +42,7 @@ from intelligence.services import (
     forecast_preflight,
     kb_rag,
     l3_evidence,  # noqa: F401  (测试经 ask.l3_evidence 打桩)
+    retrieval_cache,
     llm_refine,
     market_analogs,
     market_financials,
@@ -186,10 +188,22 @@ def load_theme_candidates(exports_dir: str | Path | None, date: str | None) -> d
         if not matches:
             return {"found": False, "path": str(base), "warnings": ["no theme-candidates export found"], "doc": {}}
         path = Path(matches[-1])
+    # 盘面快照缓存：as_of=当日、revision=文件 mtime（导出重写即失效）。
+    cache = retrieval_cache.shared_cache()
+    try:
+        revision = str(path.stat().st_mtime_ns)
+    except OSError:
+        revision = ""
+    as_of = date_cls.today().isoformat()
+    cached = cache.get("theme_candidates", str(path), as_of, revision)
+    if cached is not None:
+        # deepcopy：缓存值只读，防调用方原地改动污染后续 run。
+        return {"found": True, "path": str(path), "warnings": [], "doc": copy.deepcopy(cached)}
     try:
         doc = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:  # pragma: no cover - defensive
         return {"found": False, "path": str(path), "warnings": [str(exc)], "doc": {}}
+    cache.put("theme_candidates", str(path), doc, as_of, revision)
     return {"found": True, "path": str(path), "warnings": [], "doc": doc}
 
 
@@ -758,6 +772,12 @@ def _answer_concept_definition(
 
 
 def answer_query(options: AskOptions) -> AskResult:
+    # per-run DuckDB 只读连接复用：各 D 块/盘面查询借用同一连接的 cursor。
+    with retrieval_cache.duckdb_run_pool():
+        return _answer_query_impl(options)
+
+
+def _answer_query_impl(options: AskOptions) -> AskResult:
     if options.deadline is not None and options.deadline.expired:
         return _deadline_partial_result(options.query)
     if options.clarify:

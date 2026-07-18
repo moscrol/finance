@@ -8,6 +8,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
+from intelligence.services import retrieval_cache
 from intelligence.services import (
     answer_model,
     ask_planner,
@@ -152,7 +153,7 @@ def _mainline_context_block_for_llm(
     except Exception:
         return ""
     try:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
     except Exception:
         return ""
     try:
@@ -276,7 +277,7 @@ def _market_review_mainline_context_block_for_llm(
     try:
         import duckdb  # type: ignore
 
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
         try:
             table_names = {
                 str(row[0])
@@ -418,7 +419,7 @@ def _second_derivative_queue_block_for_llm(
         return _second_derivative_queue_from_text_only(theme, evidence_text)
 
     try:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
     except Exception:
         return _second_derivative_queue_from_text_only(theme, evidence_text)
 
@@ -579,7 +580,7 @@ def _daily_market_overview_block_for_llm(
     try:
         import duckdb
 
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
     except Exception:
         return ""
 
@@ -747,7 +748,7 @@ def _market_data_asof(market_db_path: str | Path | None) -> str | None:
     try:
         import duckdb  # type: ignore
 
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
         try:
             row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
         finally:
@@ -844,7 +845,7 @@ def _populate_market_index_comparison(
         try:
             import duckdb  # type: ignore
 
-            con = duckdb.connect(str(db_path), read_only=True)
+            con = retrieval_cache.connect_readonly(db_path)
             try:
                 row = con.execute(
                     """
@@ -962,7 +963,7 @@ def _market_value_block_for_llm(
         return ""
 
     try:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
     except Exception:
         return ""
     try:
@@ -1166,7 +1167,7 @@ def _valuation_block_for_llm(
         try:
             import duckdb  # type: ignore
 
-            con = duckdb.connect(str(db_path), read_only=True)
+            con = retrieval_cache.connect_readonly(db_path)
             try:
                 stock = _resolve_stock_for_market_block(con, query)
                 if stock:
@@ -1230,7 +1231,7 @@ def _financials_block_for_llm(
         try:
             import duckdb  # type: ignore
 
-            con = duckdb.connect(str(db_path), read_only=True)
+            con = retrieval_cache.connect_readonly(db_path)
             try:
                 stock = _resolve_stock_for_market_block(con, query)
                 if stock:

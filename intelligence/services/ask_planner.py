@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
+from contextvars import copy_context
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -127,8 +128,9 @@ def run_block_tasks(
     if not parallel or len(tasks) == 1:
         return [_run_one(task, deadline) for task in tasks]
     pool = ThreadPoolExecutor(max_workers=min(max_workers, len(tasks)))
+    # copy_context：把主线程的 contextvars（如 per-run DuckDB 连接池）带进工作线程。
     futures = {
-        pool.submit(_run_one, task, deadline): index
+        pool.submit(copy_context().run, _run_one, task, deadline): index
         for index, task in enumerate(tasks)
         if deadline is None or not deadline.expired
     }
