@@ -311,7 +311,7 @@ def _render_command(
     wanted_sources: set[str] | None = None,
 ) -> list[str]:
     company = stock.get("stock_name") or query
-    sources = ",".join(s for s in ("cninfo", "sse_einteract") if not wanted_sources or s in wanted_sources)
+    sources = ",".join(s for s in ("cninfo", "sse_einteract", "irm_szse") if not wanted_sources or s in wanted_sources)
     values = {
         "query": query,
         "query_sh": shlex.quote(query),
