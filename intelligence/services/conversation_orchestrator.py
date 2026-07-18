@@ -47,6 +47,7 @@ from intelligence.services.conversation_store import (
     Message,
 )
 from intelligence.services import llm_refine
+from intelligence.services import query_ledger
 from intelligence.services.llm_refine import LLMStreamCancelled
 from intelligence.services.lane_generation import (
     LaneAnswer,
@@ -665,10 +666,11 @@ class TurnOrchestrator:
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
     ) -> TurnResult:
-        # P1-B：turn 级 LLM 调用台账。controller/judge/agent/合成/修订/影子链
-        # 的每次 provider 尝试都记入同一本账（skill 线程经 copy_context 传播），
-        # 结束前以 trace 落盘——预算不再只统计 skill 次数。
-        with llm_refine.call_ledger_scope():
+        # P1-B：turn 级 LLM 调用台账 + 检索查询台账。controller/judge/agent/
+        # 合成/修订/影子链的每次 provider 尝试记入同一本账（skill 线程经
+        # copy_context 传播）；同 provider+query 的检索每 turn 只真实执行一次。
+        # 两本账结束前以 trace 落盘——预算不再只统计 skill 次数。
+        with llm_refine.call_ledger_scope(), query_ledger.query_ledger_scope():
             return self._run_turn_ledgered(
                 conversation_id=conversation_id,
                 run_id=run_id,
@@ -1797,6 +1799,24 @@ class TurnOrchestrator:
                         ),
                         "by_caller": ledger_summary["by_caller"],
                         "records": ledger_summary["records"],
+                    },
+                )
+            turn_query_ledger = query_ledger.current_query_ledger()
+            if turn_query_ledger is not None and turn_query_ledger.entries:
+                query_summary = turn_query_ledger.summary()
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "query_budget",
+                    "query_ledger",
+                    {
+                        "summary": (
+                            f"本轮外部检索真实执行 {query_summary['executed_count']} 次，"
+                            f"账本去重 {query_summary['deduped_count']} 次"
+                        ),
+                        "by_provider": query_summary["by_provider"],
+                        "records": query_summary["records"],
                     },
                 )
             complete_report(

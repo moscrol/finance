@@ -43,6 +43,7 @@ from intelligence.services import (
     forecast_preflight,
     kb_rag,
     l3_evidence,  # noqa: F401  (测试经 ask.l3_evidence 打桩)
+    query_ledger,
     retrieval_cache,
     llm_refine,
     market_analogs,
@@ -777,7 +778,9 @@ def _answer_concept_definition(
 
 def answer_query(options: AskOptions) -> AskResult:
     # per-run DuckDB 只读连接复用：各 D 块/盘面查询借用同一连接的 cursor。
-    with retrieval_cache.duckdb_run_pool():
+    # query_ledger：turn 内同 provider+query 检索只真实执行一次（orchestrator
+    # 已开账本时嵌套复用；CLI 单跑时在本层兜底开启）。
+    with retrieval_cache.duckdb_run_pool(), query_ledger.query_ledger_scope():
         return _answer_query_impl(options)
 
 

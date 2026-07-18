@@ -12,7 +12,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
-from intelligence.services import llm_refine
+from intelligence.services import llm_refine, query_ledger, web_research
 
 
 def _fake_urlopen_response(payload: dict) -> mock.MagicMock:
@@ -141,6 +141,102 @@ class LLMCallLedgerTests(unittest.TestCase):
             [record.caller for record in ledger.records],
             ["synthesis"],
         )
+
+
+class QueryLedgerTests(unittest.TestCase):
+    """turn 级查询台账：同 provider+query 每 turn 最多真实执行一次。"""
+
+    def test_same_key_executes_once_and_reuses(self) -> None:
+        calls: list[str] = []
+
+        def fetch() -> str:
+            calls.append("hit")
+            return "result"
+
+        with query_ledger.query_ledger_scope() as ledger:
+            first = query_ledger.executed("web_search", "AI 算力", fetch)
+            second = query_ledger.executed("web_search", "AI 算力", fetch)
+
+        self.assertEqual(first, "result")
+        self.assertIs(first, second)
+        self.assertEqual(calls, ["hit"])
+        summary = ledger.summary()
+        self.assertEqual(summary["executed_count"], 1)
+        self.assertEqual(summary["deduped_count"], 1)
+
+    def test_query_normalization_merges_whitespace_and_case(self) -> None:
+        calls: list[str] = []
+
+        with query_ledger.query_ledger_scope():
+            query_ledger.executed(
+                "web_search", "  AI   算力 GPU ", lambda: calls.append("a")
+            )
+            query_ledger.executed(
+                "web_search", "ai 算力 gpu", lambda: calls.append("b")
+            )
+
+        self.assertEqual(calls, ["a"])
+
+    def test_different_as_of_not_deduped(self) -> None:
+        calls: list[str] = []
+
+        with query_ledger.query_ledger_scope():
+            query_ledger.executed(
+                "news_search", "液冷", lambda: calls.append("a"), as_of="days=7"
+            )
+            query_ledger.executed(
+                "news_search", "液冷", lambda: calls.append("b"), as_of="days=30"
+            )
+
+        self.assertEqual(calls, ["a", "b"])
+
+    def test_no_scope_is_passthrough(self) -> None:
+        calls: list[str] = []
+        query_ledger.executed("web_search", "q", lambda: calls.append("a"))
+        query_ledger.executed("web_search", "q", lambda: calls.append("b"))
+        self.assertEqual(calls, ["a", "b"])
+        self.assertIsNone(query_ledger.current_query_ledger())
+
+    def test_concurrent_same_key_single_execution(self) -> None:
+        calls: list[str] = []
+
+        def fetch() -> str:
+            calls.append("hit")
+            return "r"
+
+        with query_ledger.query_ledger_scope():
+            pool = ThreadPoolExecutor(max_workers=4)
+            futures = [
+                pool.submit(
+                    contextvars.copy_context().run,
+                    query_ledger.executed,
+                    "web_search",
+                    "并发查询",
+                    fetch,
+                )
+                for _ in range(6)
+            ]
+            results = [future.result() for future in futures]
+            pool.shutdown()
+
+        self.assertEqual(calls, ["hit"])
+        self.assertTrue(all(item == "r" for item in results))
+
+    def test_web_search_tool_layer_dedupes_in_scope(self) -> None:
+        sentinel = web_research.WebSearchResult((), mock.Mock())
+
+        with mock.patch.object(
+            web_research,
+            "_fetch_web_search_uncached",
+            return_value=sentinel,
+        ) as fetch:
+            with query_ledger.query_ledger_scope():
+                first = web_research.fetch_web_search("宁德时代 新闻")
+                second = web_research.fetch_web_search("宁德时代  新闻")
+
+        self.assertIs(first, sentinel)
+        self.assertIs(second, sentinel)
+        self.assertEqual(fetch.call_count, 1)
 
 
 if __name__ == "__main__":
