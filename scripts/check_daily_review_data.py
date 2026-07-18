@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -9,6 +10,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from market_feature_store.db import connect
+
+
+def _l2_allow_all_empty() -> bool:
+    return os.environ.get("L2_ALLOW_ALL_EMPTY", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
 TABLES = [
     "fact_market_daily",
@@ -322,12 +331,44 @@ def check_l2(date: str) -> list[str]:
                 missing.append(
                     f"L2 步骤 {step} 状态表 row_count={row_count} 与结果表实际 {actual} 行不一致"
                 )
+            # capital 榜：有扫描候选却 0 行 → 视为链路异常（VPN/空响应），不得 COMPLETE
+            if (
+                not _l2_allow_all_empty()
+                and step in {"limitup", "top100"}
+                and status == "complete"
+                and (row_count or 0) == 0
+                and (input_count or 0) > 0
+            ):
+                missing.append(
+                    f"L2 步骤 {step} complete 但 row_count=0（input={input_count}）；"
+                    "疑似 CH 空响应/VPN，拒绝通过"
+                )
         for table in L2_TABLES:
             max_date, count = con.execute(
                 f"SELECT MAX(trade_date), COUNT(*) FILTER (WHERE trade_date = ?) FROM {table}",
                 [date],
             ).fetchone()
             print(f"{table}: rows={count} max={max_date}")
+        # 汇总：两个 capital 榜合计为 0 也拦（即便单步漏检）
+        if not _l2_allow_all_empty():
+            capital_n, = con.execute(
+                "SELECT COUNT(*) FROM feature_l2_capital_flow_daily WHERE trade_date = ?",
+                [date],
+            ).fetchone()
+            if capital_n == 0:
+                capital_ran = con.execute(
+                    """
+                    SELECT COUNT(*) FROM ops_pipeline_run_daily
+                    WHERE trade_date = ? AND pipeline = 'l2-moneyflow'
+                      AND step IN ('limitup', 'top100') AND status = 'complete'
+                    """,
+                    [date],
+                ).fetchone()[0]
+                if capital_ran:
+                    missing.append(
+                        f"feature_l2_capital_flow_daily {date} 合计 0 行但 capital 步骤已 complete；"
+                        "拒绝通过（L2_ALLOW_ALL_EMPTY=1 可放行）"
+                    )
         return missing
     finally:
         con.close()
