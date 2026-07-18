@@ -18,6 +18,7 @@ from intelligence.adapters.knowledge import evidence_status
 from intelligence.services import (
     answer_model,
     closed_loop_retrieval,
+    evidence_judge,
     kb_rag,
     l3_evidence,
     research_brief,
@@ -496,11 +497,65 @@ def collect_evidence_index(
     return bundle
 
 
+def _apply_semantic_judge(
+    ctx: EvidenceContext,
+    loop: closed_loop_retrieval.ClosedLoopRetrievalResult,
+) -> None:
+    """LLM 语义闸门：把词面重叠但语义无关的结论/反方召回移入 discarded。
+
+    fail-open：judge 关闭或失败时不动任何桶（与原行为逐字一致）。
+    """
+    buckets = [*loop.conclusion, *loop.counter_clues]
+    if not buckets or not evidence_judge.should_judge():
+        return
+    verdict = evidence_judge.judge_relevance(
+        ctx.options.query,
+        [(item.hit.title, item.hit.excerpt) for item in buckets],
+    )
+    if verdict is None:
+        return
+    keep_indexes, reason = verdict
+    dropped = [
+        item for index, item in enumerate(buckets) if index not in keep_indexes
+    ]
+    if not dropped:
+        return
+    dropped_keys = {
+        (item.aperture, item.hit.file_path, item.hit.best_chunk_id)
+        for item in dropped
+    }
+
+    def _kept(
+        items: list[closed_loop_retrieval.BucketedHit],
+    ) -> list[closed_loop_retrieval.BucketedHit]:
+        return [
+            item
+            for item in items
+            if (item.aperture, item.hit.file_path, item.hit.best_chunk_id)
+            not in dropped_keys
+        ]
+
+    loop.conclusion[:] = _kept(loop.conclusion)
+    loop.counter_clues[:] = _kept(loop.counter_clues)
+    loop.clues[:] = _kept(loop.clues)
+    loop.discarded.extend(dropped)
+    titles = "、".join(dict.fromkeys(item.hit.title for item in dropped))
+    loop.warnings.append(
+        f"语义闸门丢弃 {len(dropped)} 条词面重叠但语义无关的召回（{titles}）"
+        + (f"：{reason}" if reason else "")
+    )
+
+
 def collect_wiki_rag(
     ctx: EvidenceContext,
     company_evidence_concepts: dict[str, str],
 ) -> WikiEvidence:
-    """W：知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，含反方线索桶）。"""
+    """W：知识库 hybrid 向量召回（语义选页 → 读候选页正文作证据，含反方线索桶）。
+
+    召回先过 closed-loop 词面闸门，再过 :mod:`evidence_judge` 语义闸门——词面
+    重叠但语义无关的命中（问指数「支撑位」召回某公司「基本面支撑」）移入
+    discarded 桶，不进结论/反方线索。
+    """
     bundle = WikiEvidence()
     bundle.stats = {
         "attempted": bool(ctx.options.use_wiki_rag),
@@ -524,6 +579,7 @@ def collect_wiki_rag(
                 cache_scope=ctx.options.wiki_rag_cache_scope,
             ),
         )
+        _apply_semantic_judge(ctx, loop)
         _, wiki_evidence_total_chars = kb_rag.evidence_budget_for_query(
             ctx.options.query,
             mode=ctx.options.wiki_rag_mode,
