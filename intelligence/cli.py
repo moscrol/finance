@@ -1015,6 +1015,23 @@ def add_record_correction_parser(subparsers: argparse._SubParsersAction) -> None
     parser.set_defaults(func=cmd_record_correction)
 
 
+def add_migrate_workbench_store_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "migrate-workbench-store",
+        help="存量 run/conversation JSON → workbench.sqlite3 一次性回填（幂等，可重复跑）",
+    )
+    parser.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    parser.set_defaults(func=cmd_migrate_workbench_store)
+
+
+def cmd_migrate_workbench_store(args: argparse.Namespace) -> int:
+    from intelligence.services.workbench_migrate import migrate_user
+
+    counts = migrate_user(args.user)
+    print(json.dumps(counts, ensure_ascii=False))
+    return 0
+
+
 def add_refresh_profile_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "refresh-profile",
@@ -2741,6 +2758,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)
     add_refresh_profile_parser(subparsers)
+    add_migrate_workbench_store_parser(subparsers)
     add_adapter_smoke_parser(subparsers)
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)
