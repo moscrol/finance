@@ -22,6 +22,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from intelligence.services import retrieval_cache
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_WINDOW = 10
@@ -154,7 +156,7 @@ def load_moneyflow_snapshot(
     except Exception:
         return missing
     try:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
     except Exception:
         return missing
     try:
@@ -283,7 +285,7 @@ def moneyflow_block_for_llm(
     except Exception:
         return ""
     try:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
     except Exception:
         return ""
     try:

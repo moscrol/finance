@@ -31,6 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from intelligence.services import retrieval_cache
+
 from market_feature_store.signals import is_double_red
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -272,7 +274,7 @@ def load_midterm_trend_artifact(
             degrade_reason="D6 中期趋势依赖不可用",
         )
     try:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
     except Exception:
         return MidtermTrendArtifact(
             window,
