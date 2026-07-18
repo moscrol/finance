@@ -54,6 +54,31 @@ SECRET_PATTERNS = (
         ),
     ),
 )
+SAFE_LLM_FALLBACK_REASONS = frozenset(
+    {
+        "provider_timeout",
+        "provider_unavailable",
+        "quality_gate_rejected",
+        "budget_exhausted",
+    }
+)
+PUBLIC_LEAK_PATTERNS = (
+    ("traceback", re.compile(r"\bTraceback\b", re.IGNORECASE)),
+    (
+        "local_path",
+        re.compile(
+            r"(?:/Users/|/private/var/|/home/|[A-Za-z]:[/\\]).+?(?:\s|[\"'])"
+        ),
+    ),
+    (
+        "technical_code",
+        re.compile(
+            r"provider_timeout|untrusted\s+index\s+freshness|"
+            r"narrow\s+retrieval\s+empty",
+            re.IGNORECASE,
+        ),
+    ),
+)
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 LOOPBACK_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -88,6 +113,52 @@ class SecretScanner:
                     else "field"
                 )
                 self.scan(item, f"{source}.{component}")
+
+
+class PublicLeakScanner:
+    def __init__(self) -> None:
+        self.scanned_string_count = 0
+        self.hits: list[dict[str, str]] = []
+
+    def scan(
+        self,
+        value: object,
+        source: str,
+        *,
+        _path: tuple[str, ...] = (),
+    ) -> None:
+        if isinstance(value, str):
+            self.scanned_string_count += 1
+            if (
+                len(_path) >= 3
+                and _path[-3:] == ("report", "llm", "fallback_reason")
+                and value in SAFE_LLM_FALLBACK_REASONS
+            ):
+                return
+            for marker, pattern in PUBLIC_LEAK_PATTERNS:
+                if pattern.search(value):
+                    self.hits.append({"source": source, "marker": marker})
+            return
+        if isinstance(value, list):
+            for index, item in enumerate(value):
+                self.scan(
+                    item,
+                    f"{source}[{index}]",
+                    _path=(*_path, str(index)),
+                )
+            return
+        if isinstance(value, dict):
+            for key, item in value.items():
+                component = (
+                    key
+                    if isinstance(key, str) and SAFE_SOURCE_COMPONENT.fullmatch(key)
+                    else "field"
+                )
+                self.scan(
+                    item,
+                    f"{source}.{component}",
+                    _path=(*_path, str(key)),
+                )
 
 
 def _validated_base_url(value: str) -> str:
@@ -218,6 +289,7 @@ def _stream_until_terminal(
     run_id: str,
     timeout: float,
     scanner: SecretScanner,
+    public_scanner: PublicLeakScanner,
 ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     deadline = time.monotonic() + timeout
     cursor = 0
@@ -255,6 +327,7 @@ def _stream_until_terminal(
                 event_count += 1
                 payload = _json_object(raw_data, "sse_payload")
                 scanner.scan(payload, f"sse.{event_name}")
+                public_scanner.scan(payload, f"sse.{event_name}")
 
                 if event_name == "timeout":
                     continue
@@ -458,6 +531,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
     started = time.monotonic()
     deadline = started + args.timeout
     scanner = SecretScanner()
+    public_scanner = PublicLeakScanner()
     readiness = {"page": False, "skills": False}
     summary: dict[str, object] = {
         "schema_version": 1,
@@ -531,6 +605,7 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             run_id=run_id,
             timeout=remaining("sse_timeout"),
             scanner=scanner,
+            public_scanner=public_scanner,
         )
         run_status = terminal_run["status"]
         degrades = terminal_run.get("degrades", [])
@@ -559,9 +634,26 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
             timeout=remaining("run_trace"),
             stage="run_trace",
         )
+        messages = _request_json(
+            "GET",
+            _url(
+                args.base_url,
+                f"/api/conversations/{urllib.parse.quote(conversation_id, safe='')}/messages",
+                {"user": args.user},
+            ),
+            timeout=remaining("conversation_messages"),
+            stage="conversation_messages",
+        )
+        if not isinstance(messages, list):
+            raise SmokeProtocolError("conversation_messages")
         scanner.scan(terminal_run, "terminal_run")
         scanner.scan(report, "report")
         scanner.scan(trace, "trace")
+        scanner.scan(messages, "messages")
+        public_scanner.scan(terminal_run, "terminal_run")
+        public_scanner.scan(report, "report", _path=("report",))
+        public_scanner.scan(trace, "trace")
+        public_scanner.scan(messages, "messages")
 
         report_present = isinstance(report, dict)
         if run_status == "completed" and not report_present:
@@ -622,9 +714,17 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         "hit_count": len(scanner.hits),
         "hits": scanner.hits,
     }
+    summary["public_scan"] = {
+        "scanned_string_count": public_scanner.scanned_string_count,
+        "hit_count": len(public_scanner.hits),
+        "hits": public_scanner.hits,
+    }
     summary["elapsed_seconds"] = round(time.monotonic() - started, 3)
     if scanner.hits:
         summary["terminal_outcome"] = "secret_scan_failed"
+        exit_code = 2
+    elif public_scanner.hits:
+        summary["terminal_outcome"] = "public_scan_failed"
         exit_code = 2
     return exit_code, summary
 

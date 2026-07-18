@@ -50,7 +50,10 @@ from intelligence.services.forecast_learning import (
     reject_reflection,
     set_rule_status,
 )
-from intelligence.services.conversation_orchestrator import TurnOrchestrator
+from intelligence.services.conversation_orchestrator import (
+    TurnOrchestrator,
+    sanitize_user_visible_artifact_text,
+)
 from intelligence.services.conversation_store import (
     ConversationDataIntegrityError,
     ConversationStore,
@@ -88,6 +91,166 @@ def _positive_float_env(name: str, default: float) -> float:
     return value if value > 0 else default
 _WORKER_COUNT = 2
 _RESTART_REASON = "workbench_restarted_before_completion"
+_STABLE_MACHINE_FALLBACK_REASONS = frozenset(
+    {
+        "provider_timeout",
+        "provider_unavailable",
+        "quality_gate_rejected",
+        "budget_exhausted",
+    }
+)
+_PUBLIC_METADATA_STRING_FIELDS = frozenset(
+    {
+        "schema_version",
+        "event_id",
+        "event_type",
+        "run_id",
+        "conversation_id",
+        "message_id",
+        "step_id",
+        "skill_id",
+        "module_id",
+        "artifact_id",
+        "report_id",
+        "status",
+        "role",
+        "task_type",
+        "skill_mode",
+        "perspective_mode",
+        "phase",
+        "answer_phase",
+        "selection_source",
+        "kind",
+        "renderer",
+        "tag",
+    }
+)
+_PUBLIC_METADATA_STRING_LIST_FIELDS = frozenset(
+    {
+        "selected_skill_ids",
+        "invoked_skill_ids",
+        "selected_perspective_ids",
+    }
+)
+
+
+def _public_degrades(values: list[str]) -> list[str]:
+    return list(
+        dict.fromkeys(
+            sanitize_user_visible_artifact_text(value)
+            for value in values
+            if isinstance(value, str) and value.strip()
+        )
+    )
+
+
+def _public_run_payload(run: rs.Run) -> dict[str, object]:
+    payload = asdict(run)
+    payload["degrades"] = _public_degrades(run.degrades)
+    if run.error:
+        payload["error"] = sanitize_user_visible_artifact_text(run.error)
+    return payload
+
+
+def _is_public_machine_enum(path: tuple[str, ...], value: str) -> bool:
+    return (
+        len(path) >= 3
+        and path[-3:] == ("report", "llm", "fallback_reason")
+        and value in _STABLE_MACHINE_FALLBACK_REASONS
+    )
+
+
+def _is_public_metadata_string(path: tuple[str, ...]) -> bool:
+    return bool(path) and (
+        path[-1] in _PUBLIC_METADATA_STRING_FIELDS
+        or (
+            len(path) >= 2
+            and path[-2] in _PUBLIC_METADATA_STRING_LIST_FIELDS
+        )
+    )
+
+
+def _public_value(
+    value: object,
+    *,
+    path: tuple[str, ...] = (),
+    preserve_text_paths: frozenset[tuple[str, ...]] = frozenset(),
+) -> object:
+    if isinstance(value, str):
+        if (
+            _is_public_machine_enum(path, value)
+            or _is_public_metadata_string(path)
+            or any(
+                len(path) >= len(suffix) and path[-len(suffix) :] == suffix
+                for suffix in preserve_text_paths
+            )
+        ):
+            return value
+        stripped = value.strip()
+        if stripped.startswith(("{", "[")):
+            try:
+                decoded = json.loads(stripped)
+            except json.JSONDecodeError:
+                pass
+            else:
+                if isinstance(decoded, (dict, list)):
+                    return json.dumps(
+                        _public_value(
+                            decoded,
+                            path=path,
+                            preserve_text_paths=preserve_text_paths,
+                        ),
+                        ensure_ascii=False,
+                    )
+        return sanitize_user_visible_artifact_text(value)
+    if isinstance(value, list):
+        return [
+            _public_value(
+                item,
+                path=(*path, str(index)),
+                preserve_text_paths=preserve_text_paths,
+            )
+            for index, item in enumerate(value)
+        ]
+    if isinstance(value, dict):
+        return {
+            str(key): _public_value(
+                item,
+                path=(*path, str(key)),
+                preserve_text_paths=preserve_text_paths,
+            )
+            for key, item in value.items()
+        }
+    return value
+
+
+def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
+    projected = _public_value(step)
+    return projected if isinstance(projected, dict) else {}
+
+
+def _public_stream_event(event: dict[str, object]) -> dict[str, object]:
+    event_type = event.get("event_type")
+    preserve_paths: set[tuple[str, ...]] = {
+        ("payload", "message", "content")
+    }
+    if event_type == "answer.snapshot":
+        preserve_paths.add(("payload", "text"))
+    elif event_type == "text.delta":
+        preserve_paths.add(("payload", "delta"))
+    projected = _public_value(
+        event,
+        preserve_text_paths=frozenset(preserve_paths),
+    )
+    return projected if isinstance(projected, dict) else {}
+
+
+def _public_message_payload(message: object) -> dict[str, object]:
+    projected = _public_value(
+        asdict(message),
+        preserve_text_paths=frozenset({("content",)}),
+    )
+    return projected if isinstance(projected, dict) else {}
 
 
 class CancellationSignal:
@@ -1236,7 +1399,7 @@ def create_app(
     def list_messages(conversation_id: str, user: str | None = None) -> list[dict[str, object]]:
         conversation_or_404(user, conversation_id)
         return [
-            asdict(item)
+            _public_message_payload(item)
             for item in conversation_store_for(user).load_messages(conversation_id)
         ]
 
@@ -1374,12 +1537,15 @@ def create_app(
 
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
-        return [asdict(run) for run in reversed(store_for(user).list_runs())]
+        return [
+            _public_run_payload(run)
+            for run in reversed(store_for(user).list_runs())
+        ]
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str, user: str | None = None) -> dict[str, object]:
         try:
-            return asdict(store_for(user).load_run(run_id))
+            return _public_run_payload(store_for(user).load_run(run_id))
         except (FileNotFoundError, ValueError) as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
@@ -1389,7 +1555,7 @@ def create_app(
         try:
             if not store.run_path(run_id).exists():
                 raise HTTPException(404, f"run 不存在：{run_id}")
-            return store.load_trace(run_id)
+            return [_public_trace_step(step) for step in store.load_trace(run_id)]
         except ValueError as exc:
             raise HTTPException(404, f"run 不存在：{run_id}") from exc
 
@@ -1448,8 +1614,13 @@ def create_app(
                     current_cursor = event["seq"]
                     if event["event_type"] not in PUBLIC_EVENT_TYPES:
                         continue
-                    data = json.dumps(event, ensure_ascii=False)
-                    yield f"id: {event['event_id']}\nevent: {event['event_type']}\ndata: {data}\n\n"
+                    public_event = _public_stream_event(event)
+                    data = json.dumps(public_event, ensure_ascii=False)
+                    yield (
+                        f"id: {public_event['event_id']}\n"
+                        f"event: {public_event['event_type']}\n"
+                        f"data: {data}\n\n"
+                    )
                 run = store.load_run(run_id)
                 if run.status in (rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED):
                     terminal_message_missing = run.session_id and not any(
@@ -1467,7 +1638,10 @@ def create_app(
                     ):
                         time.sleep(_SSE_POLL_SECONDS)
                         continue
-                    yield f"event: run\ndata: {json.dumps(asdict(run), ensure_ascii=False)}\n\n"
+                    yield (
+                        "event: run\n"
+                        f"data: {json.dumps(_public_run_payload(run), ensure_ascii=False)}\n\n"
+                    )
                     return
                 if time.monotonic() > deadline:
                     yield "event: timeout\ndata: {}\n\n"
@@ -1698,7 +1872,7 @@ def create_app(
         return {
             "user": store.user_id,
             "workflows": workflows,
-            "recent_runs": [asdict(run) for run in runs],
+            "recent_runs": [_public_run_payload(run) for run in runs],
             "latest_artifacts": [artifact.public_dict() for artifact in artifacts[:10]],
             "latest_daily_artifact": latest_daily.public_dict() if latest_daily else None,
             "pending_review_count": _pending_review_count(root),
