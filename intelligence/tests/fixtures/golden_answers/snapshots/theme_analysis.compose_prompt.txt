@@ -25,6 +25,9 @@
 - [missing] 川环科技 证据 2026-05-20 已超 45 天，需复核是否被新数据证伪｜证据=R2｜层级=未评级
 - [missing] 反方线索（待进一步核验）：液冷服务器：部分数据中心仍以风冷为主，液冷改造节奏可能低于预期。｜证据=W2｜层级=未评级
 - [missing] 题材生命周期：高位分歧——高位分歧期：市场犹豫核心、抛弃外围；此时新逻辑（远期故事）最容易兑现｜证据=无｜层级=未评级
+### 候选证据（检索可回查，但未达硬证据门槛，不得写成已确认事实）
+- [candidate] 命中概念：液冷服务器(20)｜证据=G1｜层级=concept_graph
+- [candidate] 液冷服务器（相关度 0.92）：液冷渗透率随机柜功率密度提升而上行，冷板方案先行。｜证据=W1｜层级=wiki_candidate
 ### 触发条件与核验动作
 - [verified] 涨幅与边际成交同步转强：板块连续两日放量上涨｜证据=S1｜层级=L4
 - [verified] new_high_mapping：板块内 6 只个股创一年新高｜证据=S2｜层级=L4
@@ -132,6 +135,8 @@
 - 客户验证转订单 <!-- claim_id=trigger:5; evidence_atom_ids=atom-899f38eb6377; claim_type=inference -->
 - 机柜或 CDU 交付放量 <!-- claim_id=trigger:6; evidence_atom_ids=atom-67deb63b3a39; claim_type=inference -->
 - 液冷收入和利润开始兑现 <!-- claim_id=trigger:7; evidence_atom_ids=atom-8c6757ac532e; claim_type=inference -->
+- 命中概念：液冷服务器(20) <!-- claim_id=concept:G1; evidence_atom_ids=atom-c434b1dc8702; claim_type=expectation -->
+- 液冷服务器（相关度 0.92）：液冷渗透率随机柜功率密度提升而上行，冷板方案先行。 <!-- claim_id=wiki:W1; evidence_atom_ids=atom-2b7999527125; claim_type=expectation -->
 - 川环科技与液冷服务器存在公司级映射。 <!-- claim_id=company:川环科技:G2; evidence_atom_ids=atom-2c6d4ce4dd94; claim_type=expectation -->
 - 川环科技：券商研报提及其为液冷管路潜在供应商（券商研报, 2026-05-20, 质量 ? ⚠️过期） <!-- claim_id=evidence:R2; evidence_atom_ids=atom-c16e496f6004; claim_type=expectation -->
 正文只能逐字复制上方完整 registry 行并按需添加标题；不要改写 marker 或自行组合 EvidenceAtom ID。
