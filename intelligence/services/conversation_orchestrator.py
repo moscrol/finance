@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import json
 import os
 import re
@@ -45,6 +46,7 @@ from intelligence.services.conversation_store import (
     ConversationStore,
     Message,
 )
+from intelligence.services import llm_refine
 from intelligence.services.llm_refine import LLMStreamCancelled
 from intelligence.services.lane_generation import (
     LaneAnswer,
@@ -663,6 +665,33 @@ class TurnOrchestrator:
         perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
         selected_perspective_ids: Sequence[str] = (),
     ) -> TurnResult:
+        # P1-B：turn 级 LLM 调用台账。controller/judge/agent/合成/修订/影子链
+        # 的每次 provider 尝试都记入同一本账（skill 线程经 copy_context 传播），
+        # 结束前以 trace 落盘——预算不再只统计 skill 次数。
+        with llm_refine.call_ledger_scope():
+            return self._run_turn_ledgered(
+                conversation_id=conversation_id,
+                run_id=run_id,
+                assistant_message_id=assistant_message_id,
+                query=query,
+                skill_mode=skill_mode,
+                selected_skill_ids=selected_skill_ids,
+                perspective_mode=perspective_mode,
+                selected_perspective_ids=selected_perspective_ids,
+            )
+
+    def _run_turn_ledgered(
+        self,
+        *,
+        conversation_id: str,
+        run_id: str,
+        assistant_message_id: str,
+        query: str,
+        skill_mode: SkillMode,
+        selected_skill_ids: Sequence[str],
+        perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
+        selected_perspective_ids: Sequence[str] = (),
+    ) -> TurnResult:
         report = new_structured_report(
             run_id=run_id,
             question=query,
@@ -1013,7 +1042,11 @@ class TurnOrchestrator:
             prestarted: dict[str, tuple[Future[SkillOutput], float]] = {}
 
             def submit_skill(skill_id: str) -> tuple[Future[SkillOutput], float]:
+                # copy_context：让 skill 线程共享本 turn 的 LLM 调用台账等
+                # ContextVar（每次 submit 独立拷贝，台账对象引用共享）。
+                run_context = contextvars.copy_context()
                 future = skill_pool.submit(
+                    run_context.run,
                     self.skill_registry.executors[skill_id].execute,
                     SkillExecutionContext(
                         query=contextual_query,
@@ -1747,6 +1780,25 @@ class TurnOrchestrator:
                     ),
                 )
 
+            llm_ledger = llm_refine.current_call_ledger()
+            if llm_ledger is not None and llm_ledger.records:
+                ledger_summary = llm_ledger.summary()
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "llm_budget",
+                    "llm_call_ledger",
+                    {
+                        "summary": (
+                            f"本轮 LLM 调用 {ledger_summary['call_count']} 次"
+                            f"（失败 {ledger_summary['failure_count']} 次，"
+                            f"合计 {ledger_summary['total_elapsed_ms']}ms）"
+                        ),
+                        "by_caller": ledger_summary["by_caller"],
+                        "records": ledger_summary["records"],
+                    },
+                )
             complete_report(
                 report,
                 as_of=result.trade_date,

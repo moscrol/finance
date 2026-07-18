@@ -182,6 +182,98 @@ def provider_override(provider: LLMProvider) -> Iterator[None]:
         _PROVIDER_OVERRIDE.reset(token)
 
 
+# --- LLM 调用台账（P1-B 预算记账）------------------------------------------
+# 背景：turn 级预算此前只统计 skill 次数，一个 research turn 实际可触发十余次
+# LLM 调用（controller/judge/agent loop/planner/合成/修订/影子链）却没有任何
+# 一本账在管。此处在 _post_chat* 底层入口按「provider 尝试」粒度记账（fallback
+# 轮换的每次 HTTP 尝试都算一次），turn 级用 ContextVar 聚合——跨线程记账由
+# 调用方用 contextvars.copy_context() 传播（台账对象共享，list.append 原子）。
+
+
+@dataclass(frozen=True)
+class LLMCallRecord:
+    caller: str  # chat | chat_tools | synthesis | synthesis_stream
+    provider: str
+    model: str
+    status: str  # success | failed
+    elapsed_ms: int
+
+
+@dataclass
+class LLMCallLedger:
+    records: list[LLMCallRecord] = field(default_factory=list)
+
+    def summary(self) -> dict[str, object]:
+        by_caller: dict[str, int] = {}
+        for record in self.records:
+            by_caller[record.caller] = by_caller.get(record.caller, 0) + 1
+        return {
+            "call_count": len(self.records),
+            "failure_count": sum(
+                1 for record in self.records if record.status != "success"
+            ),
+            "total_elapsed_ms": sum(
+                record.elapsed_ms for record in self.records
+            ),
+            "by_caller": by_caller,
+            "records": [
+                {
+                    "caller": record.caller,
+                    "provider": record.provider,
+                    "model": record.model,
+                    "status": record.status,
+                    "elapsed_ms": record.elapsed_ms,
+                }
+                for record in self.records
+            ],
+        }
+
+
+_CALL_LEDGER: ContextVar[LLMCallLedger | None] = ContextVar(
+    "llm_call_ledger",
+    default=None,
+)
+
+
+@contextmanager
+def call_ledger_scope() -> Iterator[LLMCallLedger]:
+    """开启 turn 级 LLM 调用台账；已有活动台账时复用（不重置嵌套作用域）。"""
+    existing = _CALL_LEDGER.get()
+    if existing is not None:
+        yield existing
+        return
+    ledger = LLMCallLedger()
+    token = _CALL_LEDGER.set(ledger)
+    try:
+        yield ledger
+    finally:
+        _CALL_LEDGER.reset(token)
+
+
+def current_call_ledger() -> LLMCallLedger | None:
+    return _CALL_LEDGER.get()
+
+
+def _record_llm_call(
+    caller: str,
+    provider: LLMProvider,
+    status: str,
+    started: float,
+) -> None:
+    ledger = _CALL_LEDGER.get()
+    if ledger is None:
+        return
+    ledger.records.append(
+        LLMCallRecord(
+            caller=caller,
+            provider=provider.name,
+            model=provider.model,
+            status=status,
+            elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
+        )
+    )
+
+
 def synthesis_thinking_disabled() -> bool:
     configured = os.environ.get("LLM_SYNTHESIS_THINKING")
     if configured is None:
@@ -234,8 +326,14 @@ def _post_chat(provider: LLMProvider, messages: list[dict], timeout: int, temper
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
+    started = time.monotonic()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        _record_llm_call("chat", provider, "failed", started)
+        raise
+    _record_llm_call("chat", provider, "success", started)
     return body["choices"][0]["message"]["content"]
 
 
@@ -265,12 +363,19 @@ def _post_chat_synthesis(
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=timeout) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
+    started = time.monotonic()
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        _record_llm_call("synthesis", provider, "failed", started)
+        raise
     choice = body["choices"][0]
     content = choice["message"]["content"]
     if len(content) > max_chars:
+        _record_llm_call("synthesis", provider, "failed", started)
         raise LLMOutputTooLong()
+    _record_llm_call("synthesis", provider, "success", started)
     return content, _stable_finish_reason(choice.get("finish_reason"))
 
 
@@ -341,8 +446,14 @@ def _post_chat_message(
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
+    started = time.monotonic()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        _record_llm_call("chat_tools", provider, "failed", started)
+        raise
+    _record_llm_call("chat_tools", provider, "success", started)
     return body["choices"][0]["message"]
 
 
@@ -791,6 +902,39 @@ def synthesize_messages(
 
 
 def _post_chat_stream(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: int,
+    temperature: float,
+    on_delta: Callable[[str], None],
+    on_connected: Callable[[], None] | None,
+    is_cancelled: Callable[[], bool] | None,
+    deadline: Deadline,
+    max_tokens: int,
+    max_chars: int,
+) -> tuple[str, str | None]:
+    started = time.monotonic()
+    try:
+        result = _post_chat_stream_raw(
+            provider,
+            messages,
+            timeout,
+            temperature,
+            on_delta,
+            on_connected,
+            is_cancelled,
+            deadline,
+            max_tokens,
+            max_chars,
+        )
+    except Exception:
+        _record_llm_call("synthesis_stream", provider, "failed", started)
+        raise
+    _record_llm_call("synthesis_stream", provider, "success", started)
+    return result
+
+
+def _post_chat_stream_raw(
     provider: LLMProvider,
     messages: list[dict],
     timeout: int,
