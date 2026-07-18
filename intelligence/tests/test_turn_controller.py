@@ -176,16 +176,11 @@ def _llm_chat_no_retrieval(_messages: list[dict[str, str]]):
     return (
         json.dumps(
             {
-                "lane": "chat",
-                "needs_retrieval": False,
-                "needs_memory": False,
-                "needs_template": False,
-                "question_type": None,
+                "route_id": "chat",
                 "subject": None,
                 "timeframe": None,
                 "confidence": 0.9,
                 "reason": "闲聊",
-                "capabilities": [],
             }
         ),
         None,
@@ -555,16 +550,11 @@ def test_manual_skill_selection_forces_workflow_lane() -> None:
 def test_llm_decision_is_schema_validated_and_policy_constrained() -> None:
     content = json.dumps(
         {
-            "lane": "chat",
-            "needs_retrieval": True,
-            "needs_memory": True,
-            "needs_template": True,
-            "question_type": None,
+            "route_id": "chat",
             "subject": None,
             "timeframe": None,
             "confidence": 0.91,
             "reason": "普通交流",
-            "capabilities": ["web_search", "memory"],
         },
         ensure_ascii=False,
     )
@@ -580,11 +570,55 @@ def test_llm_decision_is_schema_validated_and_policy_constrained() -> None:
     assert decision.capabilities == ()
 
 
+def test_llm_decision_rejects_route_id_outside_table() -> None:
+    content = json.dumps(
+        {
+            "route_id": "made_up_route",
+            "subject": None,
+            "timeframe": None,
+            "confidence": 0.95,
+            "reason": "臆造路由",
+        },
+        ensure_ascii=False,
+    )
+    decision = decide_turn(
+        "你觉得这个解释清楚吗",
+        llm_complete=lambda _messages: (content, object(), ""),
+    )
+
+    assert "Controller 不可用" in decision.reason or decision.lane in {
+        "chat",
+        "knowledge",
+    }
+    assert decision.lane != "made_up_route"
+
+
+def test_llm_route_row_derives_owner_lane_and_capabilities() -> None:
+    content = json.dumps(
+        {
+            "route_id": "stock_deep_dive",
+            "subject": "中际旭创",
+            "timeframe": None,
+            "confidence": 0.88,
+            "reason": "个股深度研究",
+        },
+        ensure_ascii=False,
+    )
+    decision = decide_turn(
+        "英伟达值得入手吗",
+        llm_complete=lambda _messages: (content, object(), ""),
+    )
+
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert "market_quote" in decision.capabilities
+
+
 def test_llm_decision_accepts_json_code_fence() -> None:
     content = """```json
-{"lane":"knowledge","needs_retrieval":false,"needs_memory":false,
-"needs_template":false,"question_type":"general_knowledge","subject":"测试",
-"timeframe":null,"confidence":0.9,"reason":"概念问题","capabilities":[]}
+{"route_id":"concept_definition","subject":"测试",
+"timeframe":null,"confidence":0.9,"reason":"概念问题"}
 ```"""
     decision = decide_turn(
         "请解释这个概念",
@@ -598,16 +632,11 @@ def test_llm_decision_accepts_json_code_fence() -> None:
 def test_low_confidence_llm_decision_abstains_to_clarify() -> None:
     content = json.dumps(
         {
-            "lane": "research",
-            "needs_retrieval": True,
-            "needs_memory": False,
-            "needs_template": True,
-            "question_type": None,
+            "route_id": "stock_deep_dive",
             "subject": None,
             "timeframe": None,
             "confidence": 0.42,
             "reason": "不确定",
-            "capabilities": ["web_search"],
         },
         ensure_ascii=False,
     )
