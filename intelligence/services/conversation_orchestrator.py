@@ -1328,6 +1328,13 @@ class TurnOrchestrator:
                     if decision.lane == "knowledge"
                     else turn_intent.question_type
                 ),
+                controller_capabilities=(
+                    tuple(
+                        dict.fromkeys((*decision.capabilities, "web_search"))
+                    )
+                    if route.base_finance_fallback
+                    else decision.capabilities
+                ),
                 perspective_mode=perspective_mode,
                 perspective_ids=tuple(selected_perspective_ids),
                 stream_text_delta=capture_safe_text,

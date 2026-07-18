@@ -29,6 +29,7 @@ from intelligence import userspace
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
 from intelligence.services import (
+    agent_research,
     answer_model,
     evidence_providers,
     ask_clarify,
@@ -984,6 +985,52 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
     )
 
+    # --- A: agent 检索循环（L3）：LLM 自主决定补检索（ASK_AGENT_LOOP 灰度）---
+    agent_loop_lines: list[str] = []
+    agent_loop_result: agent_research.AgentLoopResult | None = None
+    if agent_research.should_run(options.controller_capabilities):
+        agent_loop_result = agent_research.run_agent_loop(
+            options.query,
+            tools=agent_research.build_default_tools(
+                lambda agent_query: kb_rag.retrieve(
+                    agent_query,
+                    resolved_kb_wiki,
+                    k=options.wiki_rag_k,
+                    mode=options.wiki_rag_mode,
+                    timeout=_stage_timeout(options, options.wiki_rag_timeout),
+                    excerpt_chars=options.wiki_rag_excerpt,
+                    budget_query=options.query,
+                    index_dir=options.wiki_rag_index_dir,
+                    require_fresh=True,
+                    cache_scope=options.wiki_rag_cache_scope,
+                ),
+            ),
+            existing_evidence_summary="\n".join(
+                [
+                    f"盘面 {len(market_lines)} 条／图谱概念 {len(graph_concept_lines)} 条／"
+                    f"公司暴露 {len(company_lines)} 条／证据索引 {len(evidence_lines)} 条／"
+                    f"知识库召回 {len(wiki_lines)} 条",
+                    *wiki_lines[:3],
+                ]
+            ),
+            total_seconds=_stage_timeout(options, 60),
+        )
+        result.provider_traces.extend(agent_loop_result.traces)
+        result.provider_traces.append(
+            ProviderTrace(
+                provider="agent_loop",
+                capability="agent_research",
+                status="success" if agent_loop_result.evidence else "empty",
+                detail=json.dumps(
+                    agent_loop_result.to_dict(), ensure_ascii=False
+                )[:800],
+                result_count=len(agent_loop_result.evidence),
+            )
+        )
+        for item in agent_loop_result.evidence[:8]:
+            tag = cite("A", f"agent 补检索 · {item.tool}", item.source)
+            agent_loop_lines.append(f"{item.title}：{item.detail} {tag}")
+
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
     module_block: list[str] = []
     module_follow_ups: list[tuple[str, str]] = []
@@ -1068,6 +1115,12 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     gap_lines.extend(framing.get("gaps", []))
     gap_lines.extend(stale_notes)
     gap_lines.extend(wiki_counter_lines)
+    if agent_loop_result is not None:
+        gap_lines.extend(
+            f"agent 检索后仍缺：{gap}" for gap in agent_loop_result.gaps
+        )
+        if agent_loop_result.sufficient is False and not agent_loop_result.gaps:
+            gap_lines.append("agent 检索判定证据不足，未能补齐关键数据")
     if web_fallback_attempted and not web_fallback_lines:
         gap_lines.append(
             "本地盘面/图谱/知识库均未命中，外部 Web Search 也未返回可用来源；"
@@ -1173,6 +1226,11 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         + (
             [f"{SUBHEAD}外部 Web 兜底(低层级背景线索)"] + web_fallback_lines
             if web_fallback_lines
+            else []
+        )
+        + (
+            [f"{SUBHEAD}Agent 补检索(LLM 自主检索，来源可回查)"] + agent_loop_lines
+            if agent_loop_lines
             else []
         )
         + module_block
@@ -1503,11 +1561,19 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         providers.append(ask_planner.DataBlockProvider("D7", "逐季财报", _d7_applies, _build_d7))
 
         def _w7_applies() -> bool:
-            return evidence_registry.provider_enabled(options, "W7") and bool(
-                market_news.parse_news_intent(options.query)
-                or (
-                    question_plan.base_finance_mode is not None
-                    and question_plan.base_finance_mode.require_news
+            if not evidence_registry.provider_enabled(options, "W7"):
+                return False
+            if market_news.parse_news_intent(options.query) or (
+                question_plan.base_finance_mode is not None
+                and question_plan.base_finance_mode.require_news
+            ):
+                return True
+            return bool(
+                {"web_search", "market_news"}.intersection(
+                    options.controller_capabilities
+                )
+                and market_news.resolve_news_keyword(
+                    options.query, theme, anchored_name
                 )
             )
 
