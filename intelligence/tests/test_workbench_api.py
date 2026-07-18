@@ -2,7 +2,7 @@ import json
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -399,6 +399,79 @@ def test_conversation_lifecycle_and_messages_persist(client: TestClient) -> None
     )
     assert archived.status_code == 200
     assert archived.json()["status"] == "archived"
+
+
+def test_public_run_and_message_payloads_sanitize_diagnostics_without_mutating_store(
+    client: TestClient,
+) -> None:
+    conversation = client.post(
+        "/api/conversations",
+        json={"title": "公开消息安全", "user": "alice"},
+    ).json()
+    conversation_store = ConversationStore("alice")
+    unsafe_path = 'Traceback File "/Users/alice/private/rag_index.py", line 9'
+    stored_message = conversation_store.append_message(
+        conversation["conversation_id"],
+        "assistant",
+        "可核验回答正文保持不变",
+        status="completed",
+        citations=[
+            {
+                "title": "公告",
+                "system_notices": [unsafe_path, "provider_timeout"],
+            }
+        ],
+        degrades=[
+            unsafe_path,
+            "provider_timeout",
+            "untrusted index freshness: missing",
+            "narrow retrieval empty after 1 attempts",
+        ],
+    )
+    run_store = RunStore("alice")
+    run = run_store.create_run("公开运行安全", "ask")
+    run_store.add_degrade(run.run_id, unsafe_path)
+    run_store.add_degrade(run.run_id, "provider_timeout")
+    run_store.finish_run(
+        run.run_id,
+        rs.STATUS_FAILED,
+        error=unsafe_path,
+    )
+
+    raw_message = conversation_store.load_messages(
+        conversation["conversation_id"]
+    )[0]
+    raw_run = run_store.load_run(run.run_id)
+    assert raw_message.message_id == stored_message.message_id
+    assert "Traceback" in json.dumps(asdict(raw_message), ensure_ascii=False)
+    assert "Traceback" in json.dumps(asdict(raw_run), ensure_ascii=False)
+
+    messages = client.get(
+        f"/api/conversations/{conversation['conversation_id']}/messages",
+        params={"user": "alice"},
+    )
+    run_response = client.get(
+        f"/api/runs/{run.run_id}",
+        params={"user": "alice"},
+    )
+    runs_response = client.get("/api/runs", params={"user": "alice"})
+    public_body = "\n".join(
+        [messages.text, run_response.text, runs_response.text]
+    )
+
+    assert messages.status_code == 200
+    assert run_response.status_code == 200
+    assert runs_response.status_code == 200
+    assert "可核验回答正文保持不变" in public_body
+    assert "Traceback" not in public_body
+    assert "/Users/alice" not in public_body
+    assert "rag_index.py" not in public_body
+    assert "provider_timeout" not in public_body
+    assert "untrusted index freshness" not in public_body
+    assert "narrow retrieval empty" not in public_body
+    assert "模型精修超时" in public_body
+    assert "知识库索引时效无法确认" in public_body
+    assert "未检索到可核验的公司专项资料" in public_body
 
 
 def test_perspective_selection_is_validated_listed_and_persisted(
@@ -1286,6 +1359,107 @@ def test_sse_does_not_expose_trace_rows_as_public_events(client: TestClient) -> 
             if "event: run" in line:
                 break
     assert events == ["run"]
+
+
+def test_trace_and_all_sse_payloads_use_path_aware_public_projection(
+    client: TestClient,
+) -> None:
+    store = RunStore()
+    run = store.create_run("canonical event safety", "ask")
+    unsafe_path = 'Traceback File "/Users/alice/private/rag_index.py", line 9'
+    warnings = [
+        "provider_timeout",
+        "untrusted index freshness: missing",
+        "narrow retrieval empty after 1 attempts",
+    ]
+    store.append_step(
+        run.run_id,
+        step_id="unsafe-step",
+        name="unsafe diagnostic",
+        status="completed",
+        input_summary="safe input",
+        output_summary=json.dumps(
+            {"diagnostic": unsafe_path, "warnings": warnings},
+            ensure_ascii=False,
+        ),
+    )
+    store.append_stream_event(
+        run.run_id,
+        event_id="skill:result",
+        event_type="skill.result",
+        payload={
+            "skill_id": "news-impact",
+            "output": {
+                "diagnostic": unsafe_path,
+                "warnings": warnings,
+            },
+        },
+    )
+    store.append_stream_event(
+        run.run_id,
+        event_id="answer:snapshot:1",
+        event_type="answer.snapshot",
+        payload={
+            "revision": 1,
+            "phase": "verified_draft",
+            "text": "可核验草稿：英维克",
+            "final": False,
+        },
+    )
+    store.append_stream_event(
+        run.run_id,
+        event_id="message:complete",
+        event_type="message.complete",
+        payload={
+            "message": {
+                "status": "completed",
+                "content": "可核验终态正文",
+                "degrades": warnings,
+                "system_notices": [unsafe_path],
+            }
+        },
+    )
+    store.append_stream_event(
+        run.run_id,
+        event_id="report:complete",
+        event_type="report.complete",
+        payload={
+            "report": {
+                "status": "completed",
+                "llm": {
+                    "attempted": True,
+                    "used": False,
+                    "fallback_reason": "provider_timeout",
+                },
+            }
+        },
+    )
+    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+
+    raw_trace = json.dumps(store.load_trace(run.run_id), ensure_ascii=False)
+    raw_events = json.dumps(
+        store.load_stream_events(run.run_id),
+        ensure_ascii=False,
+    )
+    assert "Traceback" in raw_trace
+    assert "Traceback" in raw_events
+    assert "/Users/alice" in raw_trace
+    assert "/Users/alice" in raw_events
+
+    trace_body = client.get(f"/api/runs/{run.run_id}/trace").text
+    event_body = client.get(f"/api/runs/{run.run_id}/events").text
+    public_body = f"{trace_body}\n{event_body}"
+
+    assert "Traceback" not in public_body
+    assert "/Users/alice" not in public_body
+    assert "rag_index.py" not in public_body
+    assert "untrusted index freshness" not in public_body
+    assert "narrow retrieval empty" not in public_body
+    assert "可核验草稿：英维克" in public_body
+    assert "可核验终态正文" in public_body
+    assert "news-impact" in public_body
+    assert "模型精修超时" in public_body
+    assert '"fallback_reason": "provider_timeout"' in event_body
 
 
 def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestClient) -> None:
