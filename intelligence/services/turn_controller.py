@@ -7,9 +7,20 @@ from dataclasses import asdict, dataclass, replace
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
-from intelligence.services.query_understanding import QueryEnvelope, understand_query
+from intelligence.services.query_resolution import QueryResolver
+from intelligence.services.query_understanding import (
+    QueryEnvelope,
+    is_dated_market_review,
+    is_market_watch_query,
+)
+from intelligence.services.route_table import (
+    RouteRow,
+    render_route_table_prompt,
+    route_by_id,
+)
 from intelligence.services.research_contract import (
     TurnIntent,
+    answer_owner_for_question_type,
     build_turn_intent,
     contextualize_intent_query,
 )
@@ -26,7 +37,6 @@ LLMComplete: TypeAlias = Callable[
     [list[dict[str, str]]], tuple[str | None, object | None, str]
 ]
 
-_LANES = frozenset({"chat", "meta", "knowledge", "research", "workflow", "clarify"})
 _CAPABILITIES = frozenset(
     {
         "memory",
@@ -71,6 +81,9 @@ _MEMORY_PATTERN = re.compile(
 _BROAD_MARKET_PATTERN = re.compile(
     r"^(?:请|帮我)?(?:看一下|看看|分析一下)?"
     r"(?:今天|今日|现在|最近)?(?:的)?市场(?:怎么样|如何|什么情况|表现如何)[？?。！!\s]*$"
+)
+_VERIFIED_SUBJECT_MATCHES = frozenset(
+    {"ticker", "entity", "candidate", "alias", "quoted"}
 )
 _KNOWLEDGE_QUESTION_PATTERN = re.compile(
     r"(是什么|什么是|为什么|原理|如何工作|怎么理解|什么意思|区别|"
@@ -137,11 +150,11 @@ def _decision(
 def _deterministic_decision(
     query: str,
     *,
+    envelope: QueryEnvelope,
     skill_mode: str,
     selected_skill_ids: Sequence[str],
 ) -> TurnDecision | None:
     cleaned = query.strip()
-    envelope = understand_query(cleaned)
     clarification = ask_clarify.clarify_for_query(cleaned)
     if clarification.needs_clarification:
         return _decision(
@@ -177,6 +190,24 @@ def _deterministic_decision(
                 "要看收盘表现、盘中行情，还是市场结构与主线？",
             ),
         )
+    if is_dated_market_review(cleaned, envelope):
+        return _decision(
+            "workflow",
+            envelope=envelope,
+            needs_memory=True,
+            confidence=0.98,
+            reason="明确请求指定日期的 A 股行情复盘",
+            capabilities=("memory", "market_quote", "graph"),
+        )
+    if is_market_watch_query(cleaned):
+        return _decision(
+            "workflow",
+            envelope=envelope,
+            needs_memory=True,
+            confidence=0.95,
+            reason="明确请求当日盘面关注点",
+            capabilities=("memory", "market_quote", "graph"),
+        )
     if _WORKFLOW_PATTERN.search(cleaned):
         return _decision(
             "workflow",
@@ -204,6 +235,22 @@ def _deterministic_decision(
             reason="稳定概念解释不需要默认进入金融研究",
             capabilities=("memory",) if _MEMORY_PATTERN.search(cleaned) else (),
         )
+    owner = answer_owner_for_question_type(envelope.question_type)
+    if owner is not None and (
+        envelope.matched_by in _VERIFIED_SUBJECT_MATCHES
+        or (
+            envelope.question_type == "news_impact"
+            and envelope.subject_kind == "theme"
+        )
+    ):
+        return _decision(
+            "research",
+            envelope=envelope,
+            needs_memory=bool(_MEMORY_PATTERN.search(cleaned)),
+            confidence=max(0.75, envelope.confidence),
+            reason=f"确定性识别到研究 owner 问题类型（{owner}）",
+            capabilities=("memory", "market_quote", "graph", "financials"),
+        )
     if _FRESHNESS_PATTERN.search(cleaned):
         lane: TurnLane = "research" if _FINANCE_PATTERN.search(cleaned) else "knowledge"
         return _decision(
@@ -230,22 +277,35 @@ def _deterministic_decision(
     return None
 
 
+_MARKET_FLOOR_PATTERN = re.compile(r"(大盘|A股|美股|港股|股市|盘面)")
+
+
+def _needs_retrieval_floor(query: str, envelope: QueryEnvelope) -> bool:
+    """检索硬触发下限：命中已验证标的、时效词或金融信号时，不得零检索作答。"""
+    if (
+        envelope.subject_kind != "unknown"
+        and envelope.matched_by in _VERIFIED_SUBJECT_MATCHES
+    ):
+        return True
+    return bool(
+        _FRESHNESS_PATTERN.search(query)
+        or _FINANCE_PATTERN.search(query)
+        or _MARKET_FLOOR_PATTERN.search(query)
+    )
+
+
 def _controller_messages(query: str, context: str) -> list[dict[str, str]]:
     return [
         {
             "role": "system",
             "content": (
-                "你是对话 Turn Controller，只分类，不回答用户问题，也不调用工具。"
-                "判断 lane：chat=普通对话；meta=系统/模型元问题；"
-                "knowledge=概念或一般知识；research=需要金融数据、来源或时效核验；"
-                "workflow=明确执行固定工作流；clarify=信息不足需追问。"
-                "Router 只能在 research/workflow 后运行。不要因为工作台是金融产品，"
-                "就把普通问题默认判为 research。低置信度应选择 clarify。"
+                "你是对话 Turn Controller，只做意图识别，不回答用户问题，也不调用工具。"
+                "下面是唯一合法的路由表，你必须从中选择最匹配的一行：\n"
+                + render_route_table_prompt()
+                + "\n规则：不要因为工作台是金融产品就把普通问题往研究类路由；"
+                "拿不准时选 clarify；不得发明表外的 route_id。"
                 "严格输出一个 JSON 对象，键必须且只能是："
-                "lane,needs_retrieval,needs_memory,needs_template,question_type,"
-                "subject,timeframe,confidence,reason,capabilities。"
-                "capabilities 只能从 memory,market_quote,market_news,web_search,"
-                "web_fetch,graph,filings,financials 中选择。"
+                "route_id,subject,timeframe,confidence,reason。"
             ),
         },
         {
@@ -261,7 +321,12 @@ def _controller_messages(query: str, context: str) -> list[dict[str, str]]:
     ]
 
 
-def _parse_llm_decision(content: str) -> TurnDecision | None:
+def _parse_llm_decision(
+    content: str,
+    *,
+    query: str,
+    envelope: QueryEnvelope,
+) -> TurnDecision | None:
     text = content.strip()
     fence = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.DOTALL)
     if fence is not None:
@@ -274,32 +339,13 @@ def _parse_llm_decision(content: str) -> TurnDecision | None:
         value = json.loads(text)
     except (json.JSONDecodeError, TypeError):
         return None
-    expected = {
-        "lane",
-        "needs_retrieval",
-        "needs_memory",
-        "needs_template",
-        "question_type",
-        "subject",
-        "timeframe",
-        "confidence",
-        "reason",
-        "capabilities",
-    }
+    expected = {"route_id", "subject", "timeframe", "confidence", "reason"}
     if not isinstance(value, dict) or set(value) != expected:
         return None
-    lane = value["lane"]
-    capabilities = value["capabilities"]
-    if lane not in _LANES or not isinstance(capabilities, list):
+    if not isinstance(value["route_id"], str):
         return None
-    if any(
-        not isinstance(item, str) or item not in _CAPABILITIES for item in capabilities
-    ):
-        return None
-    if not all(
-        isinstance(value[key], bool)
-        for key in ("needs_retrieval", "needs_memory", "needs_template")
-    ):
+    row = route_by_id(value["route_id"])
+    if row is None:
         return None
     if isinstance(value["confidence"], bool) or not isinstance(
         value["confidence"], (int, float)
@@ -307,25 +353,49 @@ def _parse_llm_decision(content: str) -> TurnDecision | None:
         return None
     if not isinstance(value["reason"], str) or not value["reason"].strip():
         return None
-    for key in ("question_type", "subject", "timeframe"):
+    for key in ("subject", "timeframe"):
         if value[key] is not None and not isinstance(value[key], str):
             return None
-    decision = TurnDecision(
-        lane=cast(TurnLane, lane),
-        needs_retrieval=value["needs_retrieval"],
-        needs_memory=value["needs_memory"],
-        needs_template=value["needs_template"],
-        question_type=value["question_type"],
+    decision = _decision_from_route_row(
+        row,
+        query=query,
         subject=value["subject"],
         timeframe=value["timeframe"],
         confidence=max(0.0, min(1.0, float(value["confidence"]))),
         reason=value["reason"].strip(),
-        capabilities=tuple(dict.fromkeys(capabilities)),
     )
-    return _apply_policy(decision)
+    return _apply_policy(decision, query=query, envelope=envelope)
 
 
-def _apply_policy(decision: TurnDecision) -> TurnDecision:
+def _decision_from_route_row(
+    row: RouteRow,
+    *,
+    query: str,
+    subject: str | None,
+    timeframe: str | None,
+    confidence: float,
+    reason: str,
+) -> TurnDecision:
+    return TurnDecision(
+        lane=cast(TurnLane, row.lane),
+        needs_retrieval=row.needs_retrieval,
+        needs_memory=bool(_MEMORY_PATTERN.search(query)),
+        needs_template=row.needs_template,
+        question_type=row.question_type,
+        subject=subject,
+        timeframe=timeframe,
+        confidence=confidence,
+        reason=f"路由表命中 {row.route_id}：{reason}",
+        capabilities=row.capabilities,
+    )
+
+
+def _apply_policy(
+    decision: TurnDecision,
+    *,
+    query: str,
+    envelope: QueryEnvelope,
+) -> TurnDecision:
     if decision.confidence < 0.6:
         return TurnDecision(
             lane="clarify",
@@ -341,6 +411,14 @@ def _apply_policy(decision: TurnDecision) -> TurnDecision:
                 "你希望我解释概念、检索最新信息，还是做金融研究？",
             ),
         )
+    if decision.lane == "chat" and _needs_retrieval_floor(query, envelope):
+        return replace(
+            decision,
+            lane="knowledge",
+            needs_retrieval=True,
+            needs_template=False,
+            reason="检索硬触发下限：命中标的/时效信号，不得零检索作答",
+        )
     if decision.lane in {"chat", "meta", "clarify"}:
         return replace(
             decision,
@@ -354,15 +432,22 @@ def _apply_policy(decision: TurnDecision) -> TurnDecision:
     return replace(decision, needs_retrieval=True, needs_template=True)
 
 
-def _safe_fallback(query: str) -> TurnDecision:
-    envelope = understand_query(query)
+def _safe_fallback(query: str, envelope: QueryEnvelope) -> TurnDecision:
     if _KNOWLEDGE_QUESTION_PATTERN.search(query):
         return _decision(
             "knowledge",
             envelope=envelope,
-            needs_retrieval=False,
+            needs_retrieval=_needs_retrieval_floor(query, envelope),
             confidence=0.55,
             reason="Controller 不可用；按一般知识问题安全降级",
+        )
+    if _needs_retrieval_floor(query, envelope):
+        return _decision(
+            "knowledge",
+            envelope=envelope,
+            needs_retrieval=True,
+            confidence=0.55,
+            reason="Controller 不可用；命中标的/时效信号，降级为带检索的知识回答",
         )
     return _decision(
         "chat",
@@ -382,17 +467,29 @@ def decide_turn(
     llm_complete: LLMComplete | None = None,
     previous_intent: TurnIntent | None = None,
     previous_turn_id: str | None = None,
+    resolver: QueryResolver | None = None,
 ) -> TurnDecision:
-    envelope = understand_query(query)
+    resolution = (resolver or QueryResolver()).resolve(query)
+    envelope = resolution.envelope
+    if resolution.context_dependent and previous_intent is None:
+        return _decision(
+            "clarify",
+            envelope=envelope,
+            confidence=1.0,
+            reason="追问包含指代或省略，但当前对话没有可继承的研究主体",
+            clarification_questions=("你指的是哪家公司、题材或上一条研究逻辑？",),
+        )
     intent = build_turn_intent(
         query,
         envelope,
         previous_intent=previous_intent,
         previous_turn_id=previous_turn_id,
+        resolution=resolution,
     )
     effective_query = contextualize_intent_query(query, intent)
     deterministic = _deterministic_decision(
         effective_query,
+        envelope=envelope,
         skill_mode=skill_mode,
         selected_skill_ids=selected_skill_ids,
     )
@@ -406,9 +503,17 @@ def decide_turn(
     except Exception:
         content = None
     if content is None:
-        return _attach_turn_intent(_safe_fallback(effective_query), intent)
-    parsed = _parse_llm_decision(content)
-    decision = parsed if parsed is not None else _safe_fallback(effective_query)
+        return _attach_turn_intent(_safe_fallback(effective_query, envelope), intent)
+    parsed = _parse_llm_decision(
+        content,
+        query=effective_query,
+        envelope=envelope,
+    )
+    decision = (
+        parsed
+        if parsed is not None
+        else _safe_fallback(effective_query, envelope)
+    )
     return _attach_turn_intent(decision, intent)
 
 
@@ -434,9 +539,13 @@ def _attach_turn_intent(
             reason="结构化追问继承既有研究任务",
             clarification_questions=(),
         )
+    capabilities = decision.capabilities
+    if {"relation", "company_mapping"}.intersection(intent.operators):
+        capabilities = tuple(dict.fromkeys((*capabilities, "graph")))
     return replace(
         decision,
         question_type=intent.question_type,
         subject=intent.primary_subject,
+        capabilities=capabilities,
         turn_intent=intent,
     )

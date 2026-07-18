@@ -32,7 +32,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 
 DEFAULT_LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "60"))
-DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "2200"))
+# The provider budget includes structured claim markers that are removed before
+# display.  A visible 1,200-1,800 character answer can therefore exceed 2,200
+# model tokens even though the user-facing response is still concise.
+DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "3000"))
 DEFAULT_SYNTHESIS_MAX_CHARS = int(os.environ.get("LLM_SYNTHESIS_MAX_CHARS", "16000"))
 _ALLOWED_FINISH_REASONS = {"stop", "length", "content_filter", "tool_calls", "function_call"}
 
@@ -491,6 +494,9 @@ _SYNTHESIS_SYSTEM_PROMPT = (
     "公司、数字、日期、比例或金额，一律不得写入正文，宁可改成定性表达。"
     "每个正文段落或列表项必须单行输出，并在行末追加 AnswerSpec 给出的结构化 claim marker；"
     "claim_id、EvidenceAtom ID 和 claim_type 必须逐字使用 registry 中的合法值。"
+    "只选择 6-10 条最能直接回答用户问题的 claim；除 Markdown 标题外，正文绝对不得超过 12 行，"
+    "每行只绑定一个 claim marker。禁止遍历 registry、逐条覆盖全部 claim 或按模块罗列素材；"
+    "未被选中的 claim 留在证据层即可，不代表遗漏。"
     "事实行至少绑定一个 EvidenceAtom；推断和预期必须分别标为 inference、expectation。"
     "不得输出 registry 外的 claim，不得省略 marker；marker 是机器门禁，最终展示层会移除。"
     "除 Markdown 标题外，禁止输出任何没有 marker 的导语、过渡句、解释、来源说明或免责声明；"
@@ -562,7 +568,8 @@ def _build_synthesis_prompt(
         f"以下是已检索到的多源证据（你的回答只能据此展开）：\n"
         f"{evidence_text}{legend}{quality_block}{experience_block}{exemplar_block}\n\n"
         "请据此有机融合成一段分析师口吻的回答。默认控制在 1200–1800 个中文字符；"
-        "最多 8 个短段落；不得重复来源说明、风险和验证步骤。"
+        "只选 6-10 条最关键 claim，正文硬上限 12 个带 marker 的行；不得遍历 registry 或模块，"
+        "不得重复来源说明、风险和验证步骤。"
     )
 
 
@@ -592,6 +599,98 @@ def build_synthesis_messages(
                 quality_context,
                 experience_guidance,
                 exemplar_guidance,
+            ),
+        },
+    ]
+
+
+_DECISION_BRIEF_SYSTEM_PROMPT = (
+    "你是投研总编辑，只负责形成论证计划，不写最终正文。"
+    "只能使用用户提供的 claim registry，所有数组字段只能填写 registry 中存在的 claim_id。"
+    "direct_answer 和 core_tension 可以自然表达，但不得加入 registry 外的公司、数字、日期或事实。"
+    "严格输出单个 JSON 对象，不要 Markdown："
+    '{"direct_answer":"", "core_tension":"", "supports":[], '
+    '"counterevidence":[], "unknowns":[], "upgrade_conditions":[], '
+    '"downgrade_conditions":[]}。'
+)
+
+_GROUNDED_COMPOSER_SYSTEM_PROMPT = (
+    "你是 A 股研究回答的 Grounded Composer。请围绕 DecisionBrief 回答用户原问题，"
+    "拥有最终措辞、段落论证和自然衔接权，但只能使用 claim registry 中的事实和边界。"
+    "每个正文段落或列表项必须单独一行，并在行末追加："
+    "<!-- claim_ids=id1,id2; evidence_atom_ids=atom1,atom2; "
+    "claim_type=fact|candidate|inference|expectation|gap -->。"
+    "claim_ids 可绑定一条或多条；EvidenceAtom 只能使用这些 claim 自带的合法 ID。"
+    "事实句必须绑定 EvidenceAtom；推断、候选和预期不得写成确定事实。"
+    "标题和末尾「（非投资建议）」可不带 marker，其余正文都必须带 marker。"
+    "不得增加证据外公司、数字、日期、催化或跨题材信息。"
+    "读者是投资研究用户而不是系统维护者：用市场语言表达，"
+    "不要出现内部流水线术语、字段名、评分原始数值（如优先级分数）或工程编号；"
+    "证据里的内部指标（优先级、证据状态等）只用其方向和含义，不复述原始分值。"
+    "输出 5—10 个正文段落，先直接回答，再解释核心矛盾、反证、缺口和观察条件。"
+)
+
+_GROUNDING_JUDGE_SYSTEM_PROMPT = (
+    "你是低温事实蕴含审稿器。逐句判断 Grounded Composer 的自然语言是否真的能由"
+    "该句绑定的 claim 和 EvidenceAtom 推出。重点检查：偷换主体、因果跳跃、"
+    "把候选升级为事实、跨题材污染，以及虽未新增数字但语义越界。"
+    "不要评价文风，不要重写答案。严格输出单个 JSON："
+    '{"passed":true, "rejected_sentence_indexes":[], "issues":[]}。'
+    "sentence index 只按带 marker 的正文句从 1 开始计数；有任何语义越界时 passed=false，"
+    "列出对应句号和简短原因。"
+)
+
+
+def build_decision_brief_messages(
+    query: str,
+    registry_block: str,
+) -> list[dict]:
+    return [
+        {"role": "system", "content": _DECISION_BRIEF_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"用户问题：{query}\n\n"
+                "claim registry（每行一个 JSON）：\n"
+                f"{registry_block}"
+            ),
+        },
+    ]
+
+
+def build_grounded_composer_messages(
+    query: str,
+    decision_brief: str,
+    registry_block: str,
+) -> list[dict]:
+    return [
+        {"role": "system", "content": _GROUNDED_COMPOSER_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"用户问题：{query}\n\n"
+                f"DecisionBrief：\n{decision_brief}\n\n"
+                "claim registry（每行一个 JSON）：\n"
+                f"{registry_block}"
+            ),
+        },
+    ]
+
+
+def build_grounding_judge_messages(
+    query: str,
+    grounded_answer: str,
+    registry_block: str,
+) -> list[dict]:
+    return [
+        {"role": "system", "content": _GROUNDING_JUDGE_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"用户问题：{query}\n\n"
+                f"待审答案：\n{grounded_answer}\n\n"
+                "claim registry（每行一个 JSON）：\n"
+                f"{registry_block}"
             ),
         },
     ]

@@ -17,6 +17,8 @@
 from __future__ import annotations
 
 import re
+from dataclasses import asdict, dataclass
+from typing import Any
 
 _SCENARIO_TERMS = (
     "推演",
@@ -32,6 +34,114 @@ _SCENARIO_TERMS = (
     "可能性",
     "预测",
 )
+
+
+@dataclass(frozen=True)
+class ScenarioBranch:
+    branch_id: str
+    label: str
+    likelihood: str
+    triggers: tuple[str, ...]
+    conclusion: str
+    evidence_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ScenarioTreeArtifact:
+    theme: str
+    horizon: str
+    variables: tuple[dict[str, Any], ...]
+    branches: tuple[ScenarioBranch, ...]
+    degrade_reason: str | None = None
+
+    @property
+    def available(self) -> bool:
+        return bool(self.branches)
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "theme": self.theme,
+            "horizon": self.horizon,
+            "available": self.available,
+            "variables": list(self.variables),
+            "branches": [asdict(branch) for branch in self.branches],
+            "degrade_reason": self.degrade_reason,
+            "numeric_probabilities_allowed": False,
+        }
+
+
+def build_scenario_tree_artifact(
+    *,
+    theme: str,
+    horizon: str,
+    verified_facts: tuple[dict[str, Any], ...],
+    triggers: tuple[dict[str, Any], ...],
+    counterevidence: tuple[dict[str, Any], ...],
+    gaps: tuple[dict[str, Any], ...],
+) -> ScenarioTreeArtifact:
+    variables = tuple(
+        {
+            "name": str(claim.get("text") or ""),
+            "evidence_ids": list(claim.get("evidence_ids") or ()),
+            "status": str(claim.get("status") or ""),
+        }
+        for claim in verified_facts[:4]
+        if claim.get("text")
+    )
+    evidence_ids = tuple(
+        dict.fromkeys(
+            evidence_id
+            for variable in variables
+            for evidence_id in variable["evidence_ids"]
+            if isinstance(evidence_id, str)
+        )
+    )
+    upgrade_triggers = tuple(
+        str(claim.get("text"))
+        for claim in triggers[:3]
+        if claim.get("text")
+    )
+    downgrade_triggers = tuple(
+        str(claim.get("text"))
+        for claim in (*counterevidence, *gaps)[:3]
+        if claim.get("text")
+    )
+    branches = (
+        ScenarioBranch(
+            "upgrade",
+            "升级情景",
+            "待验证",
+            upgrade_triggers
+            or ("出现可回查的公司级公告、订单或经营兑现证据",),
+            "只有触发条件被可追溯证据确认后，才上调题材判断。",
+            evidence_ids,
+        ),
+        ScenarioBranch(
+            "base",
+            "基准情景",
+            "待验证",
+            ("现有证据层级与盘面趋势没有发生实质变化",),
+            "维持当前分层，不把题材级线索升级为公司级事实。",
+            evidence_ids,
+        ),
+        ScenarioBranch(
+            "downgrade",
+            "降级/证伪情景",
+            "待验证",
+            downgrade_triggers
+            or ("关键事实长期缺席，或后续公开信息否定当前映射",),
+            "触发任一可证伪条件时降级，不以叙事强度替代证据。",
+            evidence_ids,
+        ),
+    )
+    reason = None if variables else "情景树缺少已核验变量，分支仅保留证据门槛"
+    return ScenarioTreeArtifact(
+        theme=theme,
+        horizon=horizon,
+        variables=variables,
+        branches=branches,
+        degrade_reason=reason,
+    )
 
 
 def parse_scenario_intent(query: str, question_type: str | None = None) -> bool:

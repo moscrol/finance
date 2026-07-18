@@ -43,7 +43,13 @@ PROFILE_SCHEMA_VERSION = 1
 DEBATE_SCHEMA_VERSION = 1
 MANIFEST_SCHEMA_VERSION = 1
 
-PERSPECTIVE_TYPES = ("blogger", "trend_trader", "value_investor", "user_framework")
+PERSPECTIVE_TYPES = (
+    "blogger",
+    "trend_trader",
+    "value_investor",
+    "user_framework",
+    "kol_fengyuan",
+)
 MIN_ARTICLES_FOR_CONFIDENT_PROFILE = 3
 PERSPECTIVE_MODE_NEUTRAL = "neutral"
 PERSPECTIVE_MODE_SINGLE = "single"
@@ -113,6 +119,44 @@ _BUILTIN_PROFILES: dict[str, dict[str, Any]] = {
         "reasoning_patterns": [{"name": "条件化结论", "rule": "所有判断必须条件化：满足什么信号才成立，出现什么信号即放弃"}],
         "anti_patterns": ["把角色观点当事实", "无验证窗口的模糊判断"],
         "falsification_style": ["每个判断给出 T+1/T+3 可观察指标与 miss 条件"],
+    },
+    "kol_fengyuan": {
+        "display_name": "风远框架视角",
+        "type": "kol_fengyuan",
+        "market_lenses": [
+            {"name": "双锚模型", "description": "方向锚（板块方向股）与高度锚（连板高标）同时恶化+最后一龙冲高回落=全板块逆转信号", "weight": 0.2},
+            {"name": "出清形态判别", "description": "区分A型出清（恐慌放量+V回，1-3天）与B型出清（买盘枯竭缩量阴跌，周期更长），两种形态的买点条件完全不同", "weight": 0.2},
+            {"name": "五维排序", "description": "确定性×弹性×兑现时间×拥挤度×是否已定价，按市场场景（恐慌反弹/主升/高位拥挤）动态调权重，命中一票否决项直接出局", "weight": 0.25},
+            {"name": "三级信号体系", "description": "领先指标（CapEx/交期/利用率）→确认指标（现货价/涨幅收敛）→滞后指标（合约价转负/库存），按层级而非单点判断周期位置", "weight": 0.2},
+            {"name": "供给侧通胀框架", "description": "全球寡头格局+零新增产能+扩产周期长+需求爆发=供给弹性≈0环节的涨价确定性排序", "weight": 0.15},
+        ],
+        "opportunity_preferences": [
+            "出清完成信号确认后的核心错杀修复（不接飞刀、等条件全部满足）",
+            "供给弹性≈0且涨价已由头部厂商验证的上游材料环节",
+            "增量资金回流第二阶段被主动选择的方向（不追第一波超跌反弹）",
+        ],
+        "risk_triggers": [
+            "利多不涨+连板高标同时出现（板块抱团踩踏前兆，优先减仓）",
+            "竞价第一屏任一锚恶化（高贝塔持仓先减1/3，举证责任翻转为证明该留）",
+            "纯叙事票无业绩锚且估值锚定极远期（一票否决）",
+            "ETF无差别赎回砸盘期接飞刀",
+        ],
+        "evidence_hierarchy": ["盘面资金选择", "涨价/订单/产能硬事实", "第三方数据交叉验证", "卖方观点", "叙事传闻"],
+        "reasoning_patterns": [
+            {"name": "先定周期位置再谈标的", "rule": "先用三级信号体系判断板块处于周期哪一段，再讨论个股；不脱离出清/退潮阶段谈买点"},
+            {"name": "条件化买点", "rule": "买点必须是多条件同时满足（如缩量止跌+日内V反+同板块龙头开板+指数同步止跌），列出当前满足几条"},
+            {"name": "资金结构归因", "rule": "暴跌先区分基本面恶化还是多类资金共振卖出（减仓/止损/割肉/ETF赎回），归因不同则应对不同"},
+        ],
+        "anti_patterns": [
+            "把单次观察写成定律（框架需持续升级，如放量V回=出清完成已被B型出清证伪）",
+            "抱最强股穿越退潮期的侥幸心态",
+            "用滞后指标做领先判断",
+        ],
+        "falsification_style": [
+            "每个框架给出显式失效条件与升级记录（如原三条件失效则升级为四条件并注明原因）",
+            "判断给出验证窗口与反向证据清单：出现哪些信号即降级或放弃",
+            "对自己持仓观点做反顺从检查，不因有仓位就调低风险权重",
+        ],
     },
 }
 

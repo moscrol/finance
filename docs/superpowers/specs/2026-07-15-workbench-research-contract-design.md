@@ -126,3 +126,58 @@ stages time out.
 The same pattern applies to other agent/RAG systems: one orchestration
 authority, one absolute budget, typed partial results, and evidence identities
 that survive retrieval through presentation.
+
+## Narrative synthesis shadow migration
+
+The production presenter must not switch directly from registry rendering to
+free-form model text. The missing boundary is tested first as an opt-in shadow
+pipeline:
+
+```text
+AnswerSpec + EvidenceAtom
+        ↓
+DecisionBrief
+        ↓
+Grounded Composer
+        ↓
+deterministic entity/number/date/type gate
+        ↓
+low-temperature entailment judge
+        ↓
+sentence-level repair
+        ↓
+shadow artifacts only
+```
+
+`DecisionBrief` owns the argument plan (`direct_answer`, `core_tension`,
+supports, counterevidence, unknowns, and upgrade/downgrade conditions) while
+the composer owns the final wording. Composer sentences may bind multiple
+claim IDs, but factual sentences still require known EvidenceAtom IDs.
+
+Enable the experiment with:
+
+```bash
+WORKBENCH_SHADOW_GROUNDED_COMPOSER=1
+```
+
+The user-visible production answer remains unchanged. Each enabled run writes
+`grounded_composer_shadow.json` and, when validation reaches a presentable
+result, `grounded_composer_shadow.md`. Promotion requires fixture-level factual
+parity plus human improvement on directness, coherence, and analyst-like
+writing; only then may the production presenter retain composer wording.
+
+The initial comparison set covers:
+
+- `总结一下 2026-07-16 的行情`
+- `中际旭创怎么看`
+- `这个逻辑的边际变化呢`
+- `光模块怎么看`
+- one financial-report question
+- one news-impact question
+- one valuation question
+- one company-relationship question
+
+For each run, compare the production answer and shadow artifact on a 1–5 scale
+for directness, coherence, analyst-like writing, and factual fidelity. Any
+unknown company/number/date, certainty promotion, or judge rejection is a hard
+failure regardless of style score.

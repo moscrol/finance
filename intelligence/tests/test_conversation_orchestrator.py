@@ -8,7 +8,7 @@ from threading import Event
 import pytest
 
 from intelligence import userspace
-from intelligence.services import llm_refine
+from intelligence.services import answer_model, llm_refine
 from intelligence.services import perspective_lab
 from intelligence.services.ask import AskOptions, AskResult, Citation
 from intelligence.services.answer_orchestrator import QUESTION_CONCEPT_DEFINITION
@@ -698,6 +698,32 @@ def test_contextualizes_pronoun_follow_up_with_previous_user_turn(tmp_path) -> N
         "追问：把核心矛盾压成一句话，再列最强反证和翻转条件。"
     )
 
+    for query in (
+        "这个逻辑呢",
+        "这个方向怎么看",
+        "这条链有哪些公司",
+        "边际变化呢",
+    ):
+        assert contextualize_follow_up_query(query, context) == (
+            "请个股深挖英维克的液冷业务\n"
+            f"追问：{query}"
+        )
+
+
+def test_complete_chain_question_is_not_contextualized(tmp_path) -> None:
+    store = ConversationStore("alice", root=tmp_path)
+    conversation = store.create_conversation()
+    previous = store.append_message(
+        conversation.conversation_id,
+        "user",
+        "请个股深挖英维克的液冷业务",
+        run_id="run-first",
+    )
+    context = ConversationContext(summary="", recent_messages=(previous,))
+    query = "光模块产业链上游有哪些公司"
+
+    assert contextualize_follow_up_query(query, context) == query
+
 
 def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None:
     no_llm = sanitize_user_visible_artifact_text(
@@ -750,6 +776,194 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
         "本地市场数据 + 历史盘面快照；本地盘面数据；"
         "成交容量居前=是；来源=知识库候选资料"
     )
+
+
+def test_shadow_composer_writes_separate_artifacts_without_changing_answer(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "总结行情",
+    )
+    contract = build_module_answer_contract(
+        skill_id="fixture",
+        title="可核验回答",
+        modules=[
+            {
+                "module_id": "direct_assessment",
+                "title": "直接定性",
+                "summary": "生产答案保持不变。",
+                "items": [],
+            }
+        ],
+        citations=[
+            {
+                "source": "fixture.json",
+                "title": "正式资料",
+                "evidence_layer": "canonical",
+                "as_of": "2026-07-16",
+            }
+        ],
+        warnings=[],
+        as_of="2026-07-16",
+        retrieval_plan=("读取正式资料",),
+        output_contract=("输出可核验结论",),
+    )
+    assert contract is not None
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        result = _ask_result(options.query)
+        result.answer_spec = contract.answer_spec
+        return result
+
+    def shadow_spy(prepared) -> AskResult:
+        prepared.result.grounded_composer_shadow = (
+            answer_model.GroundedComposerShadow(
+                status="accepted",
+                decision_brief=answer_model.DecisionBrief(
+                    direct_answer="影子直接回答",
+                    core_tension="影子核心矛盾",
+                    supports=("fixture:direct_assessment",),
+                ),
+                raw_answer="影子原文",
+                presented_answer="影子答案",
+                provider="fixture",
+                model="fixture-model",
+                elapsed_ms=1,
+            )
+        )
+        return prepared.result
+
+    monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
+    monkeypatch.setattr(
+        "intelligence.services.conversation_orchestrator."
+        "synthesize_shadow_grounded_answer",
+        shadow_spy,
+    )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="总结行情",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    run_dir = run_store.run_dir(run_id)
+    assert "生产答案保持不变" in result.content
+    assert "影子答案" not in result.content
+    assert (run_dir / "decision_brief.json").is_file()
+    assert (run_dir / "grounded_composer_shadow.json").is_file()
+    assert (run_dir / "grounded_composer_shadow.md").read_text(
+        encoding="utf-8"
+    ) == "影子答案"
+
+
+def test_shadow_composer_non_presentable_status_keeps_diagnostics_only(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    conversation_store = ConversationStore(
+        "alice",
+        root=tmp_path / "conversations",
+    )
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "总结行情",
+    )
+    contract = build_module_answer_contract(
+        skill_id="fixture",
+        title="可核验回答",
+        modules=[
+            {
+                "module_id": "direct_assessment",
+                "title": "直接定性",
+                "summary": "生产答案保持不变。",
+                "items": [],
+            }
+        ],
+        citations=[
+            {
+                "source": "fixture.json",
+                "title": "正式资料",
+                "evidence_layer": "canonical",
+                "as_of": "2026-07-16",
+            }
+        ],
+        warnings=[],
+        as_of="2026-07-16",
+        retrieval_plan=("读取正式资料",),
+        output_contract=("输出可核验结论",),
+    )
+    assert contract is not None
+
+    def answer_spy(options: AskOptions) -> AskResult:
+        result = _ask_result(options.query)
+        result.answer_spec = contract.answer_spec
+        return result
+
+    def shadow_spy(prepared) -> AskResult:
+        prepared.result.grounded_composer_shadow = (
+            answer_model.GroundedComposerShadow(
+                status="judge_unavailable",
+                raw_answer="影子原文",
+                presented_answer="不应落盘的影子答案",
+                provider="fixture",
+                model="fixture-model",
+                failure_reason="timeout",
+                elapsed_ms=1,
+            )
+        )
+        return prepared.result
+
+    monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
+    monkeypatch.setattr(
+        "intelligence.services.conversation_orchestrator."
+        "synthesize_shadow_grounded_answer",
+        shadow_spy,
+    )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_spy,
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="总结行情",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    run_dir = run_store.run_dir(run_id)
+    assert "生产答案保持不变" in result.content
+    assert (run_dir / "grounded_composer_shadow.json").is_file()
+    assert not (run_dir / "grounded_composer_shadow.md").exists()
 
 
 def test_market_question_automatically_selects_daily_review() -> None:
@@ -849,6 +1063,7 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
         "assistant",
         "上一轮回答",
         run_id="run-previous",
+        invoked_skill_ids=["stock-deep-dive"],
         turn_intent=previous_intent.to_dict(),
     )
     run_id, assistant_message_id = _prepare_turn(
@@ -868,6 +1083,7 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
         registry: dict[str, SkillDefinition],
         query_envelope: QueryEnvelope,
         answer_owner: str,
+        inherited_skill_ids: tuple[str, ...],
     ) -> SkillRouteResult:
         routed.update(
             query=routed_query,
@@ -877,6 +1093,7 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
             registry=registry,
             query_envelope=query_envelope,
             answer_owner=answer_owner,
+            inherited_skill_ids=inherited_skill_ids,
         )
         return SkillRouteResult(
             (),
@@ -913,6 +1130,7 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
     )
 
     assert routed["answer_owner"] == "stock-deep-dive"
+    assert routed["inherited_skill_ids"] == ("stock-deep-dive",)
     assert str(routed["query"]).startswith("主体：英维克")
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.turn_intent is not None
@@ -920,6 +1138,7 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
     assert assistant.turn_intent["answer_owner"] == "stock-deep-dive"
     assert assistant.turn_intent["inherited_from_turn"] == previous_assistant.message_id
     assert assistant.turn_intent["evidence_atom_ids"] == ["atom-1"]
+    assert assistant.turn_intent["skill_ids"] == ["stock-deep-dive"]
     assert assistant.research_plan is not None
     assert assistant.research_plan["answer_owner"] == "stock-deep-dive"
 
@@ -1032,6 +1251,148 @@ def test_research_budget_skips_excess_skill_and_records_trace(tmp_path) -> None:
     assert budget["attempts"][1]["status"] == "skipped_budget"
     assert budget["attempts"][1]["provider"] == "skill_registry"
     assert "执行专项研究" in budget["attempts"][1]["input_summary"]
+
+
+class _OverlapSkill:
+    def __init__(
+        self,
+        skill_id: str,
+        my_started: Event,
+        peer_started: Event,
+        spans: dict[str, tuple[float, float]],
+    ) -> None:
+        self.skill_id = skill_id
+        self._my_started = my_started
+        self._peer_started = peer_started
+        self._spans = spans
+
+    def execute(self, context: SkillExecutionContext) -> SkillOutput:
+        started = time.monotonic()
+        self._my_started.set()
+        overlapped = self._peer_started.wait(timeout=2.0)
+        self._spans[self.skill_id] = (started, time.monotonic())
+        return SkillOutput(
+            skill_id=self.skill_id,
+            modules=[],
+            citations=[],
+            warnings=[] if overlapped else [f"{self.skill_id} 未观察到并行执行"],
+            as_of="2026-07-11",
+            raw_result_ref=None,
+        )
+
+
+def _run_overlap_turn(tmp_path) -> tuple[object, dict[str, tuple[float, float]]]:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "执行专项研究",
+        selected_skill_ids=["overlap-a", "overlap-b"],
+    )
+    first_started = Event()
+    second_started = Event()
+    spans: dict[str, tuple[float, float]] = {}
+    registry = SkillRegistry()
+    for skill_id, executor in (
+        ("overlap-a", _OverlapSkill("overlap-a", first_started, second_started, spans)),
+        ("overlap-b", _OverlapSkill("overlap-b", second_started, first_started, spans)),
+    ):
+        registry.register(
+            SkillDefinition(
+                skill_id=skill_id,
+                name=skill_id,
+                description="fixture",
+                version="1.0.0",
+                triggers=("研究",),
+                input_schema={"type": "object"},
+                permissions=("local_read",),
+                timeout_seconds=10,
+            ),
+            executor,
+        )
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        skill_registry=registry,
+        turn_controller_fn=_research_controller,
+        research_policy=ResearchExecutionPolicy(
+            max_skill_calls=3,
+            max_elapsed_seconds=60,
+        ),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="执行专项研究",
+        skill_mode="manual",
+        selected_skill_ids=["overlap-a", "overlap-b"],
+    )
+    return result, spans
+
+
+def test_routed_skills_execute_in_parallel_with_ordered_outputs(tmp_path) -> None:
+    result, spans = _run_overlap_turn(tmp_path)
+
+    # 两个 skill 必须真正并行（互相等到对方启动），且结果按路由顺序消费。
+    assert result.invoked_skill_ids == ("overlap-a", "overlap-b")
+    a_start, a_end = spans["overlap-a"]
+    b_start, b_end = spans["overlap-b"]
+    assert a_start < b_end and b_start < a_end
+
+
+def test_parallel_skills_flag_off_falls_back_to_serial(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("WORKBENCH_PARALLEL_SKILLS", "0")
+    result, spans = _run_overlap_turn(tmp_path)
+
+    assert result.invoked_skill_ids == ("overlap-a", "overlap-b")
+    a_start, a_end = spans["overlap-a"]
+    b_start, _ = spans["overlap-b"]
+    assert b_start >= a_end
+
+
+def test_compose_ask_options_share_wiki_rag_cache_scope(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "执行专项研究",
+    )
+    captured: list[AskOptions] = []
+
+    def capture_ask(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=capture_ask,
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="执行专项研究",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert captured
+    assert captured[0].wiki_rag_cache_scope == (
+        f"alice:{conversation.conversation_id}"
+    )
 
 
 def test_current_skill_output_is_injected_as_current_turn_evidence(tmp_path) -> None:
@@ -1210,6 +1571,9 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
     assert "**最强证据：**" in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert "llm_unavailable_template_answer" not in assistant.degrades
+    assert 3 <= len(assistant.followups) <= 4
+    assert (run_store.run_dir(run_id) / "answer_spec.json").is_file()
+    assert (run_store.run_dir(run_id) / "followups.json").is_file()
     retrieval = next(
         step["retrieval"]
         for step in run_store.load_trace(run_id)
@@ -1901,7 +2265,7 @@ def test_synthesis_stream_payload_bounds_thinking_and_tokens(monkeypatch) -> Non
     assert reason == ""
     assert result is not None
     assert captured["payload"]["thinking"] == {"type": "disabled"}
-    assert captured["payload"]["max_tokens"] == 2200
+    assert captured["payload"]["max_tokens"] == 3000
 
 
 def test_synthesis_stream_length_finish_reason_fails_closed(monkeypatch) -> None:
@@ -2133,3 +2497,78 @@ def test_message_revision_keeps_jsonl_append_only_but_loads_latest_state(tmp_pat
         pending.message_id,
         pending.message_id,
     ]
+
+
+def test_sanitize_humanizes_stage_ids_and_internal_codes() -> None:
+    assert (
+        sanitize_conversation_answer("- 还缺：company_mapping 超过阶段时限 20 秒")
+        == "- 还缺：公司映射超过阶段时限 20 秒"
+    )
+    assert (
+        sanitize_conversation_answer("- 还缺：D6 中期趋势库不存在")
+        == "- 还缺：中期趋势库不存在"
+    )
+    assert (
+        sanitize_conversation_answer("- 还缺：D8 历史类比库不存在")
+        == "- 还缺：历史类比库不存在"
+    )
+    assert (
+        sanitize_conversation_answer("D6 中期趋势库不存在")
+        == "中期趋势库不存在"
+    )
+
+
+def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "科创50的支撑点位在哪"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    captured: list[AskOptions] = []
+
+    def capture_options(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    def quote_controller(controller_query: str, **kwargs: object) -> TurnDecision:
+        del kwargs
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=False,
+            needs_template=True,
+            confidence=0.85,
+            reason=f"fixture research: {controller_query}",
+            capabilities=("market_quote", "graph"),
+        )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=capture_options,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (), fallback_to_ask=False, base_finance_fallback=True
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=quote_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert len(captured) == 1
+    assert captured[0].controller_capabilities == (
+        "market_quote",
+        "graph",
+        "web_search",
+    )

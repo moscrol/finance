@@ -49,7 +49,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `rm -rf ${shellQuote(usersRoot)} && mkdir -p ${shellQuote(usersRoot)} && cd ${shellQuote(repoRoot)} && WORKBENCH_REPO_ROOT=${shellQuote(fixtureRoot)} WORKBENCH_TEST_RUN_DELAY_MS=500 FINANCE_WS=${shellQuote(fixtureRoot)} KB_VAULT=${shellQuote(resolve(fixtureRoot, "wiki"))} FORESIGHT_USERS_DIR=${shellQuote(usersRoot)} ${emptyLlmKeys} ${shellQuote(python)} -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port ${shellQuote(serverPort)}`,
+    command: `rm -rf ${shellQuote(usersRoot)} && mkdir -p ${shellQuote(usersRoot)} && cd ${shellQuote(repoRoot)} && WORKBENCH_REPO_ROOT=${shellQuote(fixtureRoot)} WORKBENCH_TEST_RUN_DELAY_MS=500 FINANCE_WS=${shellQuote(fixtureRoot)} KB_VAULT=${shellQuote(resolve(fixtureRoot, "wiki"))} FORESIGHT_USER=default FORESIGHT_USERS_DIR=${shellQuote(usersRoot)} ${emptyLlmKeys} ${shellQuote(python)} -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port ${shellQuote(serverPort)}`,
     url: serverURL,
     reuseExistingServer: false,
     timeout: 120000,

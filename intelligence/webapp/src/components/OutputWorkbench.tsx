@@ -10,7 +10,12 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
+import {
+  approveForecastReflection,
+  rejectForecastReflection,
+  setForecastRuleStatus,
+} from "../api";
 import type {
   DataFreshnessStatus,
   MarketOverview,
@@ -408,13 +413,55 @@ function SignalPanel({ overview }: { overview: WorkbenchOverview }) {
   );
 }
 
-function ValidationPanel({ overview }: { overview: WorkbenchOverview }) {
+function ValidationPanel({
+  overview,
+  onRefresh,
+}: {
+  overview: WorkbenchOverview;
+  onRefresh: () => void | Promise<void>;
+}) {
+  const [feedbackAction, setFeedbackAction] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const limitup = overview.moneyflow.leaders.filter((row) =>
     row.scan_type.toLowerCase().includes("limit"),
   );
   const top100 = overview.moneyflow.leaders.filter(
     (row) => !row.scan_type.toLowerCase().includes("limit"),
   );
+  const approveReflection = async (
+    filename: string,
+    hypothesisId: string,
+    status: "approved" | "rejected" = "approved",
+  ) => {
+    const action = `reflection:${filename}:${hypothesisId}:${status}`;
+    setFeedbackAction(action);
+    setFeedbackError(null);
+    try {
+      if (status === "approved") {
+        await approveForecastReflection(filename, [hypothesisId]);
+      } else {
+        await rejectForecastReflection(filename, [hypothesisId]);
+      }
+      await onRefresh();
+    } catch (caught) {
+      setFeedbackError(caught instanceof Error ? caught.message : "批准 lesson 失败");
+    } finally {
+      setFeedbackAction(null);
+    }
+  };
+  const reviewRule = async (id: string, status: "approved" | "rejected") => {
+    const action = `rule:${id}:${status}`;
+    setFeedbackAction(action);
+    setFeedbackError(null);
+    try {
+      await setForecastRuleStatus(id, status);
+      await onRefresh();
+    } catch (caught) {
+      setFeedbackError(caught instanceof Error ? caught.message : "更新规则失败");
+    } finally {
+      setFeedbackAction(null);
+    }
+  };
   return (
     <div className="output-panel-stack">
       <section className="output-section-heading">
@@ -429,6 +476,121 @@ function ValidationPanel({ overview }: { overview: WorkbenchOverview }) {
           <ShieldCheck aria-hidden="true" size={15} />
           {overview.validation.hypothesis_status}
         </span>
+      </section>
+      <section className="output-card winrate-card">
+        <header>
+          <Gauge aria-hidden="true" size={17} />
+          <div>
+            <span className="output-eyebrow">双盲 verdict 后验</span>
+            <h2>Agent 方向命中率</h2>
+          </div>
+        </header>
+        <p>
+          partial 按半分展示校准率；每个 Agent / 数据流满
+          {overview.forecast_performance.sample_goal} 个方向样本后，才允许比较题式表现。
+        </p>
+        <div className="output-table-scroll">
+          <table className="output-table">
+            <thead>
+              <tr>
+                <th>Agent / 流</th>
+                <th>样本进度</th>
+                <th>hit / miss / partial</th>
+                <th>严格命中率</th>
+                <th>半分校准率</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {overview.forecast_performance.rows.map((row) => (
+                <tr key={row.key}>
+                  <th>{row.agent} / {row.source}</th>
+                  <td>{row.sample_count}/{row.sample_goal}</td>
+                  <td>{row.hits} / {row.misses} / {row.partial}</td>
+                  <td>{formatPercent(row.hit_rate === null ? null : row.hit_rate * 100)}</td>
+                  <td>{formatPercent(row.weighted_rate === null ? null : row.weighted_rate * 100)}</td>
+                  <td>{row.decision_eligible ? "可分题式统计" : "样本积累中"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!overview.forecast_performance.rows.length && (
+            <p className="empty-output">暂无可归类的方向 verdict。</p>
+          )}
+        </div>
+      </section>
+      <section className="output-card learning-feedback-card">
+        <header>
+          <ShieldCheck aria-hidden="true" size={17} />
+          <div>
+            <span className="output-eyebrow">人工审批门</span>
+            <h2>待确认的 Lesson 与硬规则</h2>
+          </div>
+        </header>
+        <p>
+          已批准 {overview.learning_feedback.approved_lesson_count} 条 lesson、
+          {overview.learning_feedback.approved_rule_count} 条规则；pending 不会进入答卷 prompt。
+        </p>
+        {feedbackError && <p className="moneyflow-warning">{feedbackError}</p>}
+        <div className="sellside-flow-grid">
+          <div>
+            <strong>错因反思候选</strong>
+            {overview.learning_feedback.pending_reflections.slice(0, 6).map((item) => {
+              const approveAction = `reflection:${item.reflection_file}:${item.hypothesis_id}:approved`;
+              return (
+                <article key={approveAction}>
+                  <span>{item.agent} · {item.hypothesis_id}</span>
+                  <small>{item.date} · {item.failure_mode || item.status}</small>
+                  <p>{item.lesson || "等待模型补齐可复用 lesson"}</p>
+                  <button
+                    type="button"
+                    disabled={!item.approvable || feedbackAction !== null}
+                    onClick={() => void approveReflection(item.reflection_file, item.hypothesis_id)}
+                  >
+                    {feedbackAction === approveAction ? "批准中…" : "批准 Lesson"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={feedbackAction !== null}
+                    onClick={() => void approveReflection(
+                      item.reflection_file,
+                      item.hypothesis_id,
+                      "rejected",
+                    )}
+                  >驳回反思</button>
+                </article>
+              );
+            })}
+            {!overview.learning_feedback.pending_reflections.length && (
+              <p className="empty-output">暂无待确认反思。</p>
+            )}
+          </div>
+          <div>
+            <strong>§8 硬规则候选</strong>
+            {overview.learning_feedback.pending_rules.slice(0, 6).map((item) => (
+              <article key={item.id}>
+                <span>{item.date}</span>
+                <small>{item.issue || "来自用户批注"}</small>
+                <p>{item.rule}</p>
+                <div>
+                  <button
+                    type="button"
+                    disabled={feedbackAction !== null}
+                    onClick={() => void reviewRule(item.id, "approved")}
+                  >批准规则</button>
+                  <button
+                    type="button"
+                    disabled={feedbackAction !== null}
+                    onClick={() => void reviewRule(item.id, "rejected")}
+                  >驳回</button>
+                </div>
+              </article>
+            ))}
+            {!overview.learning_feedback.pending_rules.length && (
+              <p className="empty-output">暂无待确认规则。</p>
+            )}
+          </div>
+        </div>
       </section>
       <section className="output-card winrate-card">
         <header>
@@ -588,7 +750,9 @@ export function OutputWorkbench({
         {section === "today" && <TodayPanel market={overview.market} />}
         {section === "themes" && <ThemePanel overview={overview} />}
         {section === "signals" && <SignalPanel overview={overview} />}
-        {section === "validation" && <ValidationPanel overview={overview} />}
+        {section === "validation" && (
+          <ValidationPanel overview={overview} onRefresh={onRefresh} />
+        )}
       </div>
     </main>
   );

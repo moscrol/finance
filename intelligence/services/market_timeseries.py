@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from intelligence.services import retrieval_cache
+
 from market_feature_store.signals import DOUBLE_RED_SQL
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -137,7 +139,7 @@ def fetch_timeseries(
     except Exception:
         return {"found": False, "dates": [], "values": {}, "warnings": ["duckdb 库不可用"]}
     try:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
     except Exception as exc:
         return {"found": False, "dates": [], "values": {}, "warnings": [f"DuckDB 连接失败：{exc}"]}
     try:

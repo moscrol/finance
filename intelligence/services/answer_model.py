@@ -11,12 +11,30 @@ from pathlib import Path
 
 from intelligence.services.research_contract import (
     EvidenceAtom,
+    StageArtifact,
     StructuredClaim,
 )
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "theme_research_specs.json"
 _CITATION_RE = re.compile(r"\[([A-Z]\d+)\]")
 _DATE_RE = re.compile(r"\b20\d{2}[-/.年]\d{1,2}(?:[-/.月]\d{1,2}日?)?\b")
+_NUMBER_RE = re.compile(
+    r"(?<![A-Za-z0-9])[-+]?\d+(?:\.\d+)?(?![A-Za-z0-9])"
+)
+_NUMBER_WITH_UNIT_RE = re.compile(
+    r"(?<![A-Za-z])[-+]?\d+(?:\.\d+)?\s*"
+    r"(?:%|pct|bp|亿元|亿|万|家|只|日|天|周|年|月|元|倍|个|点)"
+)
+_COMPANY_RE = re.compile(
+    r"[\u4e00-\u9fff]{2,10}(?:股份|集团|银行|证券)"
+)
+_CERTAINTY_PROMOTION_TERMS = (
+    "已证实",
+    "已确认",
+    "确定无疑",
+    "必然",
+    "已经兑现",
+)
 _ENGINEERING_TERMS = (
     "graph_only",
     "exposure_only",
@@ -48,6 +66,12 @@ _STRUCTURED_CLAIM_MARKER_RE = re.compile(
     r"<!--\s*claim_id=(?P<claim_id>[^;]+);\s*"
     r"evidence_atom_ids=(?P<atom_ids>[^;]*);\s*"
     r"claim_type=(?P<claim_type>fact|inference|expectation)\s*-->"
+)
+_GROUNDED_CLAIM_MARKER_RE = re.compile(
+    r"<!--\s*claim_ids=(?P<claim_ids>[^;>]+);\s*"
+    r"evidence_atom_ids=(?P<atom_ids>[^;>]*);\s*"
+    r"claim_type=(?P<claim_type>fact|candidate|inference|expectation|gap)"
+    r"\s*-->"
 )
 _PRESENTER_REPLACEMENTS = (
     ("仅有 graph_only 关联", "仅有概念关联，尚无公司级证据"),
@@ -144,6 +168,26 @@ _SIGNAL_INTERPRETATIONS = (
         "它只是本轮判断所处的整体市场背景，不代表题材已经获得公司级验证",
     ),
 )
+
+_HARD_EVIDENCE_TIERS = frozenset(
+    {
+        "l3",
+        "l3_official",
+        "公告",
+        "官方",
+        "公司公告",
+        "年报",
+        "半年报",
+        "季报",
+        "定期报告",
+        "互动易",
+        "交易所",
+    }
+)
+
+
+# Daily Agent 专用契约：Grounded Composer 担任正式 Presenter，保留 LLM 最终措辞。
+DAILY_AGENT_PRESENTATION_KIND = "daily_agent_grounded"
 
 
 class ClaimStatus(str, Enum):
@@ -325,6 +369,98 @@ class AnswerQualityReport:
 
 
 @dataclass(frozen=True)
+class DecisionBrief:
+    direct_answer: str
+    core_tension: str
+    supports: tuple[str, ...]
+    counterevidence: tuple[str, ...] = ()
+    unknowns: tuple[str, ...] = ()
+    upgrade_conditions: tuple[str, ...] = ()
+    downgrade_conditions: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "direct_answer": self.direct_answer,
+            "core_tension": self.core_tension,
+            "supports": list(self.supports),
+            "counterevidence": list(self.counterevidence),
+            "unknowns": list(self.unknowns),
+            "upgrade_conditions": list(self.upgrade_conditions),
+            "downgrade_conditions": list(self.downgrade_conditions),
+        }
+
+    def to_prompt_block(self) -> str:
+        return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
+
+
+@dataclass(frozen=True)
+class GroundingJudgeReport:
+    passed: bool
+    rejected_sentence_indexes: tuple[int, ...] = ()
+    issues: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "passed": self.passed,
+            "rejected_sentence_indexes": list(
+                self.rejected_sentence_indexes
+            ),
+            "issues": list(self.issues),
+        }
+
+
+@dataclass(frozen=True)
+class GroundedComposerShadow:
+    status: str
+    decision_brief: DecisionBrief | None = None
+    raw_answer: str | None = None
+    repaired_answer: str | None = None
+    presented_answer: str | None = None
+    deterministic_issues: tuple[QualityIssue, ...] = ()
+    judge_report: GroundingJudgeReport | None = None
+    judge_raw: str | None = None
+    provider: str | None = None
+    model: str | None = None
+    failure_reason: str | None = None
+    elapsed_ms: int | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "status": self.status,
+            "decision_brief": (
+                self.decision_brief.to_dict()
+                if self.decision_brief is not None
+                else None
+            ),
+            "raw_answer": self.raw_answer,
+            "repaired_answer": self.repaired_answer,
+            "presented_answer": self.presented_answer,
+            "deterministic_issues": [
+                issue.to_dict() for issue in self.deterministic_issues
+            ],
+            "judge_report": (
+                self.judge_report.to_dict()
+                if self.judge_report is not None
+                else None
+            ),
+            "judge_raw": self.judge_raw,
+            "provider": self.provider,
+            "model": self.model,
+            "failure_reason": self.failure_reason,
+            "elapsed_ms": self.elapsed_ms,
+        }
+
+
+@dataclass(frozen=True)
+class GroundedSentence:
+    sentence_index: int
+    text: str
+    claim_ids: tuple[str, ...]
+    evidence_atom_ids: tuple[str, ...]
+    claim_type: str
+
+
+@dataclass(frozen=True)
 class AnswerSpec:
     research_spec: ThemeResearchSpec
     summary: tuple[Claim, ...]
@@ -339,6 +475,8 @@ class AnswerSpec:
     prompt_constraints: tuple[str, ...] = ()
     presentation_kind: str = "theme_research"
     presentation_title: str = ""
+    research_artifacts: tuple[StageArtifact, ...] = ()
+    research_evidence_atoms: tuple[EvidenceAtom, ...] = ()
     quality: AnswerQualityReport = field(default_factory=AnswerQualityReport)
 
     def to_dict(self) -> dict[str, object]:
@@ -356,6 +494,12 @@ class AnswerSpec:
             "prompt_constraints": list(self.prompt_constraints),
             "presentation_kind": self.presentation_kind,
             "presentation_title": self.presentation_title,
+            "research_artifacts": [
+                artifact.to_dict() for artifact in self.research_artifacts
+            ],
+            "research_evidence_atoms": [
+                atom.to_dict() for atom in self.research_evidence_atoms
+            ],
             "quality": self.quality.to_dict(),
         }
 
@@ -393,6 +537,10 @@ class AnswerSpec:
                 + (f" — {source.detail}" if source.detail else "")
                 for source in self.sources
             )
+        artifact_lines = _research_artifact_prompt_lines(self.research_artifacts)
+        if artifact_lines:
+            lines.append("### 必需研究输出")
+            lines.extend(artifact_lines)
         registry_block = structured_claim_registry_block(self)
         if registry_block:
             lines.append("### 结构化 claim registry（正文必须绑定）")
@@ -483,7 +631,10 @@ def build_company_assessments(
     assessments: list[CompanyAssessment] = []
     for candidate in candidates:
         company_claims = tuple(claim for claim in claims if claim.company == candidate.company)
-        verified = any(claim.status == ClaimStatus.VERIFIED for claim in company_claims)
+        verified = any(
+            claim_has_hard_company_evidence(claim)
+            for claim in company_claims
+        )
         if candidate.requested_tier == CompanyTier.PERIPHERAL:
             tier = CompanyTier.PERIPHERAL
         elif candidate.requested_tier == CompanyTier.CORE and verified:
@@ -509,8 +660,153 @@ def build_company_assessments(
     return tuple(assessments)
 
 
+def is_hard_evidence_tier(
+    evidence_tier: str,
+    evidence_ids: tuple[str, ...] = (),
+) -> bool:
+    tier = evidence_tier.strip().lower()
+    return bool(
+        evidence_ids
+        and (
+            tier in _HARD_EVIDENCE_TIERS
+            or tier.startswith("l3")
+            or any(
+                evidence_id.upper().startswith("L3")
+                for evidence_id in evidence_ids
+            )
+        )
+    )
+
+
+def claim_has_hard_evidence(claim: Claim) -> bool:
+    return bool(
+        claim.status == ClaimStatus.VERIFIED
+        and is_hard_evidence_tier(
+            claim.evidence_tier,
+            claim.evidence_ids,
+        )
+    )
+
+
+def claim_has_hard_company_evidence(claim: Claim) -> bool:
+    return bool(
+        claim.company
+        and claim.status == ClaimStatus.VERIFIED
+        and claim_has_hard_evidence(claim)
+    )
+
+
+def claim_has_resolved_hard_company_evidence(
+    claim: Claim,
+    sources: tuple[EvidenceRef, ...],
+) -> bool:
+    source_by_id = {
+        source.evidence_id: source
+        for source in sources
+    }
+    return bool(
+        claim_has_hard_company_evidence(claim)
+        and any(
+            evidence_id in source_by_id
+            and is_hard_evidence_tier(
+                source_by_id[evidence_id].tier,
+                (evidence_id,),
+            )
+            for evidence_id in claim.evidence_ids
+        )
+    )
+
+
+def _soften_certainty_text(text: str) -> str:
+    uncertain = "\x00UNCERTAIN\x00"
+    return (
+        str(text or "")
+        .replace("不确定", uncertain)
+        .replace("确定性", "证据可验证程度")
+        .replace("必然", "可能")
+        .replace("肯定", "可能")
+        .replace("已证实", "已有证据支持")
+        .replace("确定", "待验证")
+        .replace(uncertain, "不确定")
+    )
+
+
 def finalize_answer_spec(answer_spec: AnswerSpec) -> AnswerSpec:
-    return replace(answer_spec, quality=evaluate_answer_spec(answer_spec))
+    governed = apply_claim_evidence_policy(answer_spec)
+    return replace(governed, quality=evaluate_answer_spec(governed))
+
+
+def apply_claim_evidence_policy(answer_spec: AnswerSpec) -> AnswerSpec:
+    softened = False
+
+    def govern(claim: Claim) -> Claim:
+        nonlocal softened
+        if claim_has_hard_evidence(claim):
+            return claim
+        text = _soften_certainty_text(claim.text)
+        if text == claim.text:
+            return claim
+        softened = True
+        return replace(claim, text=text)
+
+    summary = tuple(govern(claim) for claim in answer_spec.summary)
+    verified_facts = tuple(
+        govern(claim) for claim in answer_spec.verified_facts
+    )
+    companies: list[CompanyAssessment] = []
+    for company in answer_spec.company_table:
+        governed_claims = tuple(govern(claim) for claim in company.claims)
+        tier = company.tier
+        gaps = company.evidence_gaps
+        if tier == CompanyTier.CORE and not any(
+            claim_has_resolved_hard_company_evidence(
+                claim,
+                answer_spec.sources,
+            )
+            for claim in governed_claims
+        ):
+            tier = CompanyTier.CANDIDATE
+            gaps = tuple(
+                dict.fromkeys(
+                    (
+                        *gaps,
+                        "公司级证据未解析到官方来源，暂不列为核心",
+                    )
+                )
+            )
+        companies.append(
+            replace(
+                company,
+                tier=tier,
+                claims=governed_claims,
+                evidence_gaps=gaps,
+            )
+        )
+    counter_evidence = tuple(
+        govern(claim) for claim in answer_spec.counter_evidence
+    )
+    gaps = tuple(govern(claim) for claim in answer_spec.gaps)
+    triggers = tuple(govern(claim) for claim in answer_spec.triggers)
+    notices = answer_spec.system_notices
+    if softened:
+        notices = tuple(
+            dict.fromkeys(
+                (
+                    *notices,
+                    "弱证据硬措辞已按证据门槛降级为条件化表述。",
+                )
+            )
+        )
+    return replace(
+        answer_spec,
+        summary=summary,
+        verified_facts=verified_facts,
+        company_table=tuple(companies),
+        counter_evidence=counter_evidence,
+        gaps=gaps,
+        triggers=triggers,
+        system_notices=notices,
+    )
 
 
 def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> AnswerQualityReport:
@@ -543,7 +839,11 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
         )
     for company in answer_spec.company_table:
         if company.tier == CompanyTier.CORE and not any(
-            claim.status == ClaimStatus.VERIFIED for claim in company.claims
+            claim_has_resolved_hard_company_evidence(
+                claim,
+                answer_spec.sources,
+            )
+            for claim in company.claims
         ):
             issues.append(
                 QualityIssue(
@@ -552,13 +852,19 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
                     f"{company.company} 被列为核心，但没有公司级已核验证据。",
                 )
             )
-    all_claims = (
-        *answer_spec.summary,
-        *answer_spec.verified_facts,
-        *answer_spec.counter_evidence,
-        *answer_spec.gaps,
-        *answer_spec.triggers,
-    )
+    all_claims = _all_answer_claims(answer_spec)
+    if any(
+        _soften_certainty_text(claim.text) != claim.text
+        and not claim_has_hard_evidence(claim)
+        for claim in all_claims
+    ):
+        issues.append(
+            QualityIssue(
+                "weak_evidence_hard_certainty",
+                "error",
+                "弱证据主张包含硬确定性措辞。",
+            )
+        )
     if any(claim.theme != answer_spec.research_spec.theme for claim in all_claims):
         issues.append(
             QualityIssue(
@@ -639,9 +945,423 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
     return AnswerQualityReport(tuple(issues))
 
 
+def _research_artifact_prompt_lines(
+    artifacts: tuple[StageArtifact, ...],
+) -> list[str]:
+    lines: list[str] = []
+    for artifact in artifacts:
+        if not artifact.required_output:
+            continue
+        lines.append(
+            f"- {artifact.stage}: status={artifact.status}; "
+            f"evidence_atom_ids={','.join(artifact.evidence_atom_ids) or '无'}; "
+            f"payload={json.dumps(artifact.payload, ensure_ascii=False, sort_keys=True)}"
+        )
+    if lines:
+        lines.append(
+            "- 上述 required output 即使数据不足也必须保留对应标题并披露缺口；"
+            "禁止补写无来源数字概率。"
+        )
+    return lines
+
+
+_OWNER_STAGE_HEADINGS = {
+    "company_master": "公司本体",
+    "company_evidence": "公司级证据块",
+    "financial_transmission": "财务传导",
+    "market_choice": "市场选择",
+    "counterevidence": "反证与证伪",
+    "report_period": "报告期间",
+    "financial_metrics": "财务指标",
+    "segment_disclosure": "分部披露",
+    "prior_period_comparison": "前期比较",
+    "original_disclosure": "原始披露",
+    "event_facts": "事件事实",
+    "external_news": "外部资讯快照",
+    "impact_transmission": "影响传导",
+    "substitutes_and_harmed_directions": "受益、替代与受损方向",
+}
+
+
+def _render_owner_stage_artifacts(answer_spec: AnswerSpec) -> list[str]:
+    artifacts = [
+        artifact
+        for artifact in answer_spec.research_artifacts
+        if artifact.stage in _OWNER_STAGE_HEADINGS
+        and (
+            artifact.required_output
+            or (
+                artifact.stage == "external_news"
+                and artifact.payload.get("items")
+            )
+        )
+    ]
+    if not artifacts:
+        return []
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    lines: list[str] = []
+    for artifact in artifacts:
+        lines.extend(("", f"## {_OWNER_STAGE_HEADINGS[artifact.stage]}"))
+        payload = artifact.payload
+        rendered = False
+
+        if artifact.stage == "company_master":
+            company = str(payload.get("company") or "").strip()
+            ticker = str(payload.get("ticker") or "").strip()
+            if company:
+                lines.append(
+                    f"- 主体：{company}"
+                    + (f"（{ticker}）" if ticker else "")
+                    + f"；数据截止：{payload.get('as_of') or '待核验'}。"
+                )
+                rendered = True
+        elif artifact.stage == "report_period":
+            periods = payload.get("report_periods")
+            source_dates = payload.get("source_dates")
+            period_rows = (
+                [str(item) for item in periods if str(item).strip()]
+                if isinstance(periods, list)
+                else []
+            )
+            date_rows = (
+                [str(item) for item in source_dates if str(item).strip()]
+                if isinstance(source_dates, list)
+                else []
+            )
+            if period_rows or date_rows or payload.get("as_of"):
+                lines.append(
+                    "- 报告期："
+                    + ("、".join(period_rows) if period_rows else "待核验")
+                    + "；来源日期："
+                    + ("、".join(date_rows) if date_rows else "待核验")
+                    + f"；数据截止：{payload.get('as_of') or '待核验'}。"
+                )
+                rendered = True
+        elif artifact.stage == "original_disclosure":
+            sources = payload.get("sources")
+            if isinstance(sources, list):
+                for index, source in enumerate(sources[:4]):
+                    if not isinstance(source, dict):
+                        continue
+                    evidence_id = str(source.get("evidence_id") or "")
+                    atom_ids = tuple(
+                        atom.atom_id
+                        for atom in atoms
+                        if atom.source_id == evidence_id
+                    )
+                    lines.append(
+                        f"- {source.get('source') or '来源待核验'}"
+                        + (
+                            f"：{source.get('detail')}"
+                            if source.get("detail")
+                            else ""
+                        )
+                        + _artifact_claim_marker(
+                            f"{artifact.stage}-{index}",
+                            atom_ids,
+                            "fact",
+                        )
+                    )
+                    rendered = True
+        elif artifact.stage == "external_news":
+            rows = payload.get("items")
+            if isinstance(rows, list):
+                for index, row in enumerate(rows[:4]):
+                    if not isinstance(row, dict):
+                        continue
+                    title = str(row.get("title") or "").strip()
+                    if not title:
+                        continue
+                    snippet = str(row.get("snippet") or "").strip()
+                    atom_ids = tuple(
+                        atom.atom_id
+                        for atom in atoms
+                        if atom.source_id == f"E{index + 1}"
+                        and atom.metric == "external_web_snapshot"
+                    )
+                    lines.append(
+                        f"- {title}：{snippet or '搜索结果未提供摘要'}"
+                        f"（{row.get('url') or '链接缺失'}；"
+                        f"抓取于 {row.get('fetched_at') or '未知时间'}，"
+                        "外部快照 L1，仅作背景线索）"
+                        + _artifact_claim_marker(
+                            f"{artifact.stage}-{index}",
+                            atom_ids,
+                            "hypothesis",
+                        )
+                    )
+                    rendered = True
+
+        for key in (
+            "claims",
+            "metrics",
+            "segments",
+            "comparisons",
+            "facts",
+            "directions",
+        ):
+            rows = payload.get(key)
+            if not isinstance(rows, list):
+                continue
+            for index, row in enumerate(rows[:4]):
+                if not isinstance(row, dict):
+                    continue
+                text = str(row.get("text") or "").strip()
+                if not text:
+                    continue
+                evidence_ids = {
+                    str(item)
+                    for item in row.get("evidence_ids", ())
+                    if str(item).strip()
+                }
+                atom_ids = tuple(
+                    atom.atom_id
+                    for atom in atoms
+                    if atom.source_id in evidence_ids
+                )
+                has_l3 = any(
+                    atom.atom_id in atom_ids
+                    and (
+                        atom.source_id.startswith("L3")
+                        or atom.evidence_tier in {"L3", "公告", "官方"}
+                    )
+                    for atom in atoms
+                )
+                claim_type = (
+                    "fact"
+                    if row.get("status") == ClaimStatus.VERIFIED.value
+                    else "hypothesis"
+                )
+                lines.append(
+                    f"- {_soften_without_l3(text, has_l3)}"
+                    + _artifact_claim_marker(
+                        f"{artifact.stage}-{index}",
+                        atom_ids,
+                        claim_type,
+                    )
+                )
+                rendered = True
+            break
+
+        event_brief = payload.get("event_brief")
+        if isinstance(event_brief, dict):
+            steps = event_brief.get("steps")
+            if isinstance(steps, list):
+                for step in steps[:4]:
+                    if not isinstance(step, dict):
+                        continue
+                    points = step.get("points")
+                    gaps = step.get("gaps")
+                    details = [
+                        str(item)
+                        for item in (
+                            points if isinstance(points, list) else []
+                        )
+                        if str(item).strip()
+                    ]
+                    if not details:
+                        details = [
+                            f"缺数：{item}"
+                            for item in (
+                                gaps if isinstance(gaps, list) else []
+                            )
+                            if str(item).strip()
+                        ]
+                    if details:
+                        lines.append(
+                            f"- {step.get('name') or '传导步骤'}："
+                            + "；".join(details[:2])
+                        )
+                        rendered = True
+
+        if not rendered:
+            reason = artifact.degrade_reason or "该阶段暂无可回查数据"
+            lines.append(f"- 缺数：{humanize(reason)}。")
+    return lines
+
+
+def _render_research_artifacts(answer_spec: AnswerSpec) -> list[str]:
+    required = {
+        artifact.stage: artifact
+        for artifact in answer_spec.research_artifacts
+        if artifact.required_output
+    }
+    if not required:
+        return []
+    source_ids = {source.evidence_id for source in answer_spec.sources}
+    has_l3 = any(
+        source_id.startswith(("L3", "W", "R"))
+        for source_id in source_ids
+    )
+    lines = _render_owner_stage_artifacts(answer_spec)
+
+    midterm = required.get("market_lifecycle")
+    if midterm is not None:
+        lines.append("## 3–6 个月中期赔率的证据")
+        trends = midterm.payload.get("trends")
+        if isinstance(trends, list) and trends:
+            for index, trend in enumerate(trends[:4]):
+                if not isinstance(trend, dict):
+                    continue
+                atom_ids = midterm.evidence_atom_ids[index : index + 1]
+                lines.append(
+                    "- "
+                    + "；".join(
+                        (
+                            str(
+                                trend.get("theme")
+                                or answer_spec.research_spec.theme
+                            ),
+                            f"覆盖 {trend.get('days', '—')} 个交易日",
+                            f"双红 {trend.get('double_red_days', '—')} 天",
+                            f"成交额 {trend.get('amount_trend', '—')}",
+                            f"拥挤度分位 {trend.get('crowding_pct', '—')}",
+                        )
+                    )
+                    + _artifact_claim_marker(
+                        f"midterm-{index}",
+                        atom_ids,
+                        "fact",
+                    )
+                )
+        else:
+            lines.append(
+                "当前缺少可用的多日趋势或拥挤度数据，"
+                "不能用当日强度替代 3–6 个月判断。"
+            )
+
+    analogs = required.get("historical_analogs")
+    if analogs is not None:
+        lines.extend(("", "## 历史类似窗口"))
+        themes = analogs.payload.get("themes")
+        rendered = 0
+        if isinstance(themes, list):
+            for theme in themes:
+                if not isinstance(theme, dict):
+                    continue
+                analog_rows = theme.get("analogs")
+                if not isinstance(analog_rows, list):
+                    continue
+                for analog in analog_rows[:3]:
+                    if not isinstance(analog, dict):
+                        continue
+                    lines.append(
+                        f"- {theme.get('theme', answer_spec.research_spec.theme)}："
+                        f"{analog.get('start_date', '—')} 至 "
+                        f"{analog.get('end_date', '—')}，"
+                        f"形态距离 {analog.get('distance', '—')}；"
+                        "后续只作为历史事实，不外推为概率。"
+                        + _artifact_claim_marker(
+                            f"analog-{rendered}",
+                            analogs.evidence_atom_ids[
+                                rendered : rendered + 1
+                            ],
+                            "fact",
+                        )
+                    )
+                    rendered += 1
+        if rendered == 0:
+            lines.append(
+                "当前历史样本不足或未找到可比窗口；该区块保留为数据缺口，"
+                "不由模型凭印象补写案例。"
+            )
+
+    scenario = required.get("scenario_tree")
+    if scenario is not None:
+        lines.extend(("", "## 情景树"))
+        branches = scenario.payload.get("branches")
+        if isinstance(branches, list) and branches:
+            for branch in branches:
+                if not isinstance(branch, dict):
+                    continue
+                triggers = branch.get("triggers")
+                trigger_text = (
+                    "；".join(
+                        _soften_without_l3(str(trigger), has_l3)
+                        for trigger in triggers
+                    )
+                    if isinstance(triggers, list)
+                    else "等待可观察信号"
+                )
+                conclusion = _soften_without_l3(
+                    str(branch.get("conclusion") or ""),
+                    has_l3,
+                )
+                lines.append(
+                    f"- **{branch.get('label', '条件分支')}**"
+                    f"（可能性：{branch.get('likelihood', '待验证')}）："
+                    f"{trigger_text} → {conclusion}"
+                )
+        else:
+            lines.append(
+                "情景变量不足，暂不判断分支概率；"
+                "需要先补齐可观察、可证伪的触发条件。"
+            )
+        lines.append("- 不提供无来源数字概率；分支只随新证据升级或降级。")
+
+    counter = required.get("counterevidence")
+    if counter is not None:
+        lines.extend(("", "## 升级、降级与证伪条件"))
+        upgrade = counter.payload.get("upgrade_conditions")
+        downgrade = counter.payload.get(
+            "downgrade_and_falsification_conditions"
+        )
+        if isinstance(upgrade, list) and upgrade:
+            lines.append("**升级条件：**")
+            lines.extend(
+                f"- {_soften_without_l3(str(item.get('text') or ''), has_l3)}"
+                for item in upgrade[:3]
+                if isinstance(item, dict)
+            )
+        else:
+            lines.append(
+                "**升级条件：** 补齐公告、订单、经营兑现或连续盘面验证后再上调。"
+            )
+        if isinstance(downgrade, list) and downgrade:
+            lines.append("**降级/证伪条件：**")
+            lines.extend(
+                f"- {_soften_without_l3(str(item.get('text') or ''), has_l3)}"
+                for item in downgrade[:4]
+                if isinstance(item, dict)
+            )
+        else:
+            lines.append(
+                "**降级/证伪条件：** 关键事实长期缺席或公开信息否定当前映射。"
+            )
+    return lines
+
+
+def _soften_without_l3(text: str, has_l3: bool) -> str:
+    if has_l3:
+        return humanize(text)
+    softened = text.replace("必然", "可能").replace("确定", "待验证")
+    return humanize(softened)
+
+
+def _artifact_claim_marker(
+    claim_id: str,
+    atom_ids: tuple[str, ...],
+    claim_type: str,
+) -> str:
+    if not atom_ids:
+        return ""
+    return (
+        f" <!-- claim_id={claim_id}; "
+        f"evidence_atom_ids={','.join(atom_ids)}; "
+        f"claim_type={claim_type} -->"
+    )
+
+
 def render_answer_spec(answer_spec: AnswerSpec) -> str:
-    if answer_spec.presentation_kind == "base_finance":
-        return _render_base_finance_answer_spec(answer_spec)
+    answer_spec = apply_claim_evidence_policy(answer_spec)
+    if answer_spec.presentation_kind in {
+        "base_finance",
+        DAILY_AGENT_PRESENTATION_KIND,
+    }:
+        return _apply_certainty_gate(
+            _render_base_finance_answer_spec(answer_spec),
+            answer_spec,
+        )
 
     lines: list[str] = []
     notices = _dedupe(answer_spec.system_notices)
@@ -685,14 +1405,24 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
             "本轮没有形成可回查的盘面或公司级事实，因此只能保留题材框架，"
             "不能据此判断资金共识或公司受益关系。"
         )
+    artifact_lines = _render_research_artifacts(answer_spec)
+    if artifact_lines:
+        lines.extend(("", *artifact_lines))
     lines.extend(["", "## 公司证据"])
     if answer_spec.company_table:
-        core_count = sum(
-            company.tier == CompanyTier.CORE for company in answer_spec.company_table
+        core_companies = tuple(
+            company
+            for company in answer_spec.company_table
+            if company.tier == CompanyTier.CORE
         )
-        if core_count:
+        candidate_companies = tuple(
+            company
+            for company in answer_spec.company_table
+            if company.tier != CompanyTier.CORE
+        )
+        if core_companies:
             lines.append(
-                f"本轮有 {core_count} 家公司达到核心分层，"
+                f"本轮有 {len(core_companies)} 家公司达到核心分层，"
                 "其余公司仍需按公开披露逐项核对。"
             )
         else:
@@ -700,26 +1430,33 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
                 "以下公司只是一份待核验清单，不等于核心受益者。"
                 "只有公告、年报、官网产品资料或客户订单，才能把公司与题材直接绑定。"
             )
-        lines.append("")
-        lines.extend(
-            [
-                "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
-                "| --- | --- | --- | --- | --- |",
-            ]
-        )
-        for company in answer_spec.company_table:
-            lines.append(
-                "| "
-                + " | ".join(
-                    (
-                        company.company + (f"（{company.ticker}）" if company.ticker else ""),
-                        humanize(company.chain_stage),
-                        _company_directness_label(company.directness),
-                        _company_tier_label(company.tier),
-                        _company_evidence_label(company),
-                    )
-                )
-                + " |"
+        if core_companies:
+            lines.extend(
+                [
+                    "",
+                    "### 核心公司",
+                    "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
+                    "| --- | --- | --- | --- | --- |",
+                ]
+            )
+            lines.extend(
+                _company_table_row(company, answer_spec.sources)
+                for company in core_companies
+            )
+        if candidate_companies:
+            lines.extend(
+                [
+                    "",
+                    "### 候选与外围公司",
+                    "以下条目只用于后续核验，不与核心公司混排。",
+                    "",
+                    "| 公司 | 产业链位置 | 直接性 | 分层 | 证据状态 |",
+                    "| --- | --- | --- | --- | --- |",
+                ]
+            )
+            lines.extend(
+                _company_table_row(company, answer_spec.sources)
+                for company in candidate_companies
             )
     else:
         lines.append(
@@ -777,7 +1514,15 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
         lines.extend(["", "<details><summary>展开来源和数据说明</summary>", ""])
         lines.extend(detail_lines)
         lines.extend(["", "</details>"])
-    return "\n".join(lines).rstrip() + "\n"
+    return _apply_certainty_gate(
+        "\n".join(lines).rstrip() + "\n",
+        answer_spec,
+    )
+
+
+def _apply_certainty_gate(text: str, answer_spec: AnswerSpec) -> str:
+    del answer_spec
+    return text
 
 
 def _render_base_finance_answer_spec(answer_spec: AnswerSpec) -> str:
@@ -834,6 +1579,9 @@ def _render_base_finance_answer_spec(answer_spec: AnswerSpec) -> str:
         lines.extend(
             f"- {humanize(claim.text)}" for claim in facts[1:6]
         )
+    artifact_lines = _render_owner_stage_artifacts(answer_spec)
+    if artifact_lines:
+        lines.extend(artifact_lines)
     if len(risks) > 1:
         lines.extend(("", "## 风险与缺口"))
         lines.extend(f"- {_present_claim(claim)}" for claim in risks[1:5])
@@ -870,6 +1618,11 @@ def repair_llm_answer(
     ):
         return answer
     return None
+
+
+# 派生 EvidenceAtom 的 period 字段承载来源 claim 的 freshness 三态；
+# 真实报告期（如 "2026H1"）不会与这两个哨兵值撞名。
+_STALE_EVIDENCE_PERIODS = frozenset({"superseded", "invalidated"})
 
 
 def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
@@ -941,6 +1694,23 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
                     f"事实 claim {claim.claim_id} 未绑定 EvidenceAtom。",
                 )
             )
+        if claim.claim_type == "fact" and claim.evidence_atom_ids:
+            bound_atoms = [
+                atom_registry[atom_id]
+                for atom_id in claim.evidence_atom_ids
+                if atom_id in atom_registry
+            ]
+            if bound_atoms and all(
+                atom.period in _STALE_EVIDENCE_PERIODS for atom in bound_atoms
+            ):
+                issues.append(
+                    QualityIssue(
+                        "llm_fact_only_superseded_evidence",
+                        "error",
+                        f"事实 claim {claim.claim_id} 只绑定了已被取代/已证伪的证据原子，"
+                        "不能作为当前事实陈述。",
+                    )
+                )
     return tuple(issues)
 
 
@@ -948,8 +1718,13 @@ def evidence_atoms_from_answer_spec(
     answer_spec: AnswerSpec,
 ) -> tuple[EvidenceAtom, ...]:
     sources = {source.evidence_id: source for source in answer_spec.sources}
-    atoms: list[EvidenceAtom] = []
-    seen: set[str] = set()
+    research_atoms = (
+        answer_spec.research_evidence_atoms
+        if isinstance(answer_spec, AnswerSpec)
+        else ()
+    )
+    atoms: list[EvidenceAtom] = list(research_atoms)
+    seen: set[str] = {atom.atom_id for atom in atoms}
     for claim in _all_answer_claims(answer_spec):
         for evidence_id in claim.evidence_ids:
             atom_id = _evidence_atom_id(claim.claim_id, evidence_id)
@@ -996,6 +1771,605 @@ def structured_claim_registry_block(answer_spec: AnswerSpec) -> str:
     return "\n".join(lines)
 
 
+def grounded_claim_registry_block(answer_spec: AnswerSpec) -> str:
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    lines: list[str] = []
+    for claim in _all_answer_claims(answer_spec):
+        claim_atoms = tuple(
+            atom
+            for atom in atoms
+            if atom.provenance.get("claim_id") == claim.claim_id
+        )
+        lines.append(
+            json.dumps(
+                {
+                    "claim_id": claim.claim_id,
+                    "claim_type": _grounded_claim_type(claim),
+                    "text": claim.text,
+                    "theme": claim.theme,
+                    "company": claim.company,
+                    "evidence_atoms": [
+                        atom.to_dict() for atom in claim_atoms
+                    ],
+                },
+                ensure_ascii=False,
+            )
+        )
+    return "\n".join(lines)
+
+
+def parse_decision_brief(
+    answer: str,
+    answer_spec: AnswerSpec,
+) -> tuple[DecisionBrief | None, tuple[QualityIssue, ...]]:
+    payload = _extract_json_object(answer)
+    if payload is None:
+        return None, (
+            QualityIssue(
+                "decision_brief_invalid_json",
+                "error",
+                "DecisionBrief 不是合法 JSON 对象。",
+            ),
+        )
+    allowed_claim_ids = {
+        claim.claim_id for claim in _all_answer_claims(answer_spec)
+    }
+    atom_owner = {
+        atom.atom_id: str(atom.provenance.get("claim_id", ""))
+        for atom in evidence_atoms_from_answer_spec(answer_spec)
+    }
+
+    def canonical_claim_id(raw_id: str) -> str:
+        if raw_id in allowed_claim_ids:
+            return raw_id
+        owner = atom_owner.get(raw_id, "")
+        return owner if owner in allowed_claim_ids else raw_id
+
+    def text_value(key: str) -> str:
+        value = payload.get(key)
+        return value.strip() if isinstance(value, str) else ""
+
+    def id_list(key: str) -> tuple[str, ...]:
+        value = payload.get(key)
+        if not isinstance(value, list):
+            return ()
+        return tuple(
+            dict.fromkeys(
+                canonical_claim_id(str(item).strip())
+                for item in value
+                if str(item).strip()
+            )
+        )
+
+    brief = DecisionBrief(
+        direct_answer=text_value("direct_answer"),
+        core_tension=text_value("core_tension"),
+        supports=id_list("supports"),
+        counterevidence=id_list("counterevidence"),
+        unknowns=id_list("unknowns"),
+        upgrade_conditions=id_list("upgrade_conditions"),
+        downgrade_conditions=id_list("downgrade_conditions"),
+    )
+    issues: list[QualityIssue] = []
+    if not brief.direct_answer:
+        issues.append(
+            QualityIssue(
+                "decision_brief_missing_direct_answer",
+                "error",
+                "DecisionBrief 缺少 direct_answer。",
+            )
+        )
+    if not brief.core_tension:
+        issues.append(
+            QualityIssue(
+                "decision_brief_missing_core_tension",
+                "error",
+                "DecisionBrief 缺少 core_tension。",
+            )
+        )
+    if not brief.supports:
+        issues.append(
+            QualityIssue(
+                "decision_brief_missing_supports",
+                "error",
+                "DecisionBrief 缺少支持判断的 claim。",
+            )
+        )
+    referenced_ids = tuple(
+        dict.fromkeys(
+            (
+                *brief.supports,
+                *brief.counterevidence,
+                *brief.unknowns,
+                *brief.upgrade_conditions,
+                *brief.downgrade_conditions,
+            )
+        )
+    )
+    invalid_ids = tuple(
+        claim_id
+        for claim_id in referenced_ids
+        if claim_id not in allowed_claim_ids
+    )
+    if invalid_ids:
+        filtered_supports = tuple(
+            claim_id
+            for claim_id in brief.supports
+            if claim_id in allowed_claim_ids
+        )
+        if filtered_supports:
+            brief = DecisionBrief(
+                direct_answer=brief.direct_answer,
+                core_tension=brief.core_tension,
+                supports=filtered_supports,
+                counterevidence=tuple(
+                    claim_id
+                    for claim_id in brief.counterevidence
+                    if claim_id in allowed_claim_ids
+                ),
+                unknowns=tuple(
+                    claim_id
+                    for claim_id in brief.unknowns
+                    if claim_id in allowed_claim_ids
+                ),
+                upgrade_conditions=tuple(
+                    claim_id
+                    for claim_id in brief.upgrade_conditions
+                    if claim_id in allowed_claim_ids
+                ),
+                downgrade_conditions=tuple(
+                    claim_id
+                    for claim_id in brief.downgrade_conditions
+                    if claim_id in allowed_claim_ids
+                ),
+            )
+        else:
+            issues.append(
+                QualityIssue(
+                    "decision_brief_invalid_claim_id",
+                    "error",
+                    "DecisionBrief 使用无效 claim ID："
+                    + "、".join(invalid_ids),
+                )
+            )
+    if issues:
+        return None, tuple(issues)
+    return brief, ()
+
+
+def _merge_orphan_grounded_markers(answer: str) -> str:
+    """把单独成行的 claim marker 归并到前一行正文。
+
+    composer 模型有时把 ``<!-- claim_ids=... -->`` 写在句子的下一行而非行内，
+    逐行解析会把正文判为未绑定、marker 判为空句，导致修复后只剩标题。
+    """
+    merged: list[str] = []
+    for raw_line in answer.splitlines():
+        line = raw_line.strip()
+        marker = _GROUNDED_CLAIM_MARKER_RE.search(line)
+        if (
+            marker is not None
+            and not _GROUNDED_CLAIM_MARKER_RE.sub("", line).strip()
+            and merged
+        ):
+            prev = merged[-1].rstrip()
+            if (
+                prev
+                and not _is_nonclaim_line(prev.strip())
+                and _GROUNDED_CLAIM_MARKER_RE.search(prev) is None
+            ):
+                merged[-1] = f"{prev} {marker.group(0)}"
+                continue
+        merged.append(raw_line)
+    return "\n".join(merged)
+
+
+def parse_grounded_sentences(
+    answer: str,
+) -> tuple[tuple[GroundedSentence, ...], tuple[str, ...]]:
+    sentences: list[GroundedSentence] = []
+    unbound_lines: list[str] = []
+    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
+        line = raw_line.strip()
+        if not line or _is_nonclaim_line(line):
+            continue
+        marker = _GROUNDED_CLAIM_MARKER_RE.search(line)
+        if marker is None:
+            unbound_lines.append(line)
+            continue
+        claim_ids = tuple(
+            item.strip()
+            for item in re.split(r"[,，、\s]+", marker.group("claim_ids"))
+            if item.strip()
+        )
+        atom_ids = tuple(
+            item.strip()
+            for item in re.split(r"[,，、\s]+", marker.group("atom_ids"))
+            if item.strip() and item.strip() != "无"
+        )
+        _prefix, text = _line_prefix_and_text(
+            _GROUNDED_CLAIM_MARKER_RE.sub("", line)
+        )
+        sentences.append(
+            GroundedSentence(
+                sentence_index=len(sentences) + 1,
+                text=text,
+                claim_ids=claim_ids,
+                evidence_atom_ids=atom_ids,
+                claim_type=marker.group("claim_type").lower(),
+            )
+        )
+    return tuple(sentences), tuple(unbound_lines)
+
+
+def validate_grounded_composer_answer(
+    answer: str,
+    answer_spec: AnswerSpec,
+) -> tuple[QualityIssue, ...]:
+    issues: list[QualityIssue] = []
+    leaked = [term for term in _ENGINEERING_TERMS if term in answer]
+    if leaked:
+        issues.append(
+            QualityIssue(
+                "grounded_composer_engineering_term_leak",
+                "error",
+                f"影子答案输出内部术语：{'、'.join(leaked)}",
+            )
+        )
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    atom_registry = {atom.atom_id: atom for atom in atoms}
+    claim_registry = {
+        claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
+    }
+    known_entities = {
+        value
+        for value in (
+            *(
+                claim.company
+                for claim in claim_registry.values()
+                if claim.company
+            ),
+            *(atom.entity_id for atom in atoms if atom.entity_id),
+        )
+        if value
+    }
+    known_themes = {
+        claim.theme for claim in claim_registry.values() if claim.theme
+    }
+    sentences, unbound_lines = parse_grounded_sentences(answer)
+    if unbound_lines:
+        issues.append(
+            QualityIssue(
+                "grounded_composer_missing_binding",
+                "error",
+                "影子答案存在未绑定 claim/EvidenceAtom 的正文。",
+            )
+        )
+    if not sentences:
+        issues.append(
+            QualityIssue(
+                "grounded_composer_empty",
+                "error",
+                "影子答案没有可验证正文。",
+            )
+        )
+    for sentence in sentences:
+        source_claims = tuple(
+            claim_registry[claim_id]
+            for claim_id in sentence.claim_ids
+            if claim_id in claim_registry
+        )
+        invalid_claim_ids = tuple(
+            claim_id
+            for claim_id in sentence.claim_ids
+            if claim_id not in claim_registry
+        )
+        if not sentence.claim_ids or invalid_claim_ids:
+            issues.append(
+                QualityIssue(
+                    "grounded_composer_invalid_claim_id",
+                    "error",
+                    f"第 {sentence.sentence_index} 句使用无效 claim ID："
+                    + "、".join(invalid_claim_ids or ("空",)),
+                )
+            )
+            continue
+        allowed_atom_ids = {
+            atom_id
+            for claim in source_claims
+            for atom_id in _atom_ids_for_claim(claim, atoms)
+        }
+        invalid_atom_ids = tuple(
+            atom_id
+            for atom_id in sentence.evidence_atom_ids
+            if atom_id not in atom_registry or atom_id not in allowed_atom_ids
+        )
+        if invalid_atom_ids:
+            issues.append(
+                QualityIssue(
+                    "grounded_composer_invalid_evidence_atom_id",
+                    "error",
+                    f"第 {sentence.sentence_index} 句使用无效 EvidenceAtom ID："
+                    + "、".join(invalid_atom_ids),
+                )
+            )
+        if sentence.claim_type == "fact":
+            if not sentence.evidence_atom_ids:
+                issues.append(
+                    QualityIssue(
+                        "grounded_composer_fact_without_evidence",
+                        "error",
+                        f"第 {sentence.sentence_index} 句事实未绑定 EvidenceAtom。",
+                    )
+                )
+            if any(
+                _grounded_claim_type(claim) != "fact"
+                for claim in source_claims
+            ):
+                issues.append(
+                    QualityIssue(
+                        "grounded_composer_promoted_to_fact",
+                        "error",
+                        f"第 {sentence.sentence_index} 句把非事实 claim 升级为事实。",
+                    )
+                )
+        source_types = {
+            _grounded_claim_type(claim) for claim in source_claims
+        }
+        if (
+            sentence.claim_type in {"candidate", "gap"}
+            and sentence.claim_type not in source_types
+        ):
+            issues.append(
+                QualityIssue(
+                    "grounded_composer_claim_type_mismatch",
+                    "error",
+                    f"第 {sentence.sentence_index} 句的 claim_type 与证据边界不符。",
+                )
+            )
+        bound_atoms = tuple(
+            atom_registry[atom_id]
+            for atom_id in sentence.evidence_atom_ids
+            if atom_id in atom_registry and atom_id in allowed_atom_ids
+        )
+        allowed_text = "\n".join(
+            _claim_validation_text(claim, bound_atoms)
+            for claim in source_claims
+        )
+        normalized_allowed_text = re.sub(
+            r"\s+",
+            "",
+            _expanded_date_text(allowed_text),
+        )
+        allowed_numbers = {
+            _normalize_number_token(token)
+            for token in _NUMBER_RE.findall(normalized_allowed_text)
+        }
+        new_dates = sorted(
+            {
+                token
+                for token in _DATE_RE.findall(sentence.text)
+                if re.sub(r"\s+", "", token) not in normalized_allowed_text
+            }
+        )
+        if new_dates:
+            issues.append(
+                QualityIssue(
+                    "grounded_composer_added_date",
+                    "error",
+                    f"第 {sentence.sentence_index} 句增加证据外日期："
+                    + "、".join(new_dates[:5]),
+                )
+            )
+        new_numbers = sorted(
+            {
+                token
+                for token in (
+                    *_NUMBER_WITH_UNIT_RE.findall(sentence.text),
+                    *_DATE_RE.findall(sentence.text),
+                )
+                if re.sub(r"\s+", "", token) not in normalized_allowed_text
+            }
+            | {
+                token
+                for token in _NUMBER_RE.findall(sentence.text)
+                if _normalize_number_token(token) not in allowed_numbers
+            }
+        )
+        if new_numbers:
+            issues.append(
+                QualityIssue(
+                    "grounded_composer_added_number",
+                    "error",
+                    f"第 {sentence.sentence_index} 句增加证据外数字："
+                    + "、".join(new_numbers[:5]),
+                )
+            )
+        new_companies = sorted(
+            {
+                company
+                for company in _COMPANY_RE.findall(sentence.text)
+                if company not in allowed_text
+            }
+        )
+        if new_companies:
+            issues.append(
+                QualityIssue(
+                    "grounded_composer_added_company",
+                    "error",
+                    f"第 {sentence.sentence_index} 句增加证据外公司："
+                    + "、".join(new_companies[:5]),
+                )
+            )
+        cross_entities = sorted(
+            entity
+            for entity in known_entities
+            if entity in sentence.text and entity not in allowed_text
+        )
+        cross_themes = sorted(
+            theme
+            for theme in known_themes
+            if theme in sentence.text and theme not in allowed_text
+        )
+        if cross_entities or cross_themes:
+            issues.append(
+                QualityIssue(
+                    "grounded_composer_cross_subject",
+                    "error",
+                    f"第 {sentence.sentence_index} 句混入未绑定主体："
+                    + "、".join((*cross_entities, *cross_themes)[:5]),
+                )
+            )
+        if sentence.claim_type != "fact":
+            promoted = tuple(
+                term
+                for term in _CERTAINTY_PROMOTION_TERMS
+                if term in sentence.text
+            )
+            if promoted:
+                issues.append(
+                    QualityIssue(
+                        "grounded_composer_promoted_certainty",
+                        "error",
+                        f"第 {sentence.sentence_index} 句越界提升确定性："
+                        + "、".join(promoted),
+                    )
+                )
+    return tuple(issues)
+
+
+def present_grounded_composer_answer(answer: str) -> str:
+    return "\n".join(
+        _GROUNDED_CLAIM_MARKER_RE.sub("", line).rstrip()
+        for line in _merge_orphan_grounded_markers(answer).splitlines()
+    ).strip()
+
+
+def repair_grounded_composer_answer(
+    answer: str,
+    answer_spec: AnswerSpec,
+    *,
+    rejected_sentence_indexes: tuple[int, ...] = (),
+    drop_invalid: bool = False,
+) -> str | None:
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    claim_registry = {
+        claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
+    }
+    rejected = set(rejected_sentence_indexes)
+    repaired_lines: list[str] = []
+    sentence_index = 0
+    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
+        line = raw_line.strip()
+        if not line or _is_nonclaim_line(line):
+            repaired_lines.append(raw_line)
+            continue
+        marker = _GROUNDED_CLAIM_MARKER_RE.search(raw_line)
+        if marker is None:
+            continue
+        sentence_index += 1
+        claim_ids = tuple(
+            item.strip()
+            for item in re.split(r"[,，、\s]+", marker.group("claim_ids"))
+            if item.strip()
+        )
+        source_claim = next(
+            (
+                claim_registry[claim_id]
+                for claim_id in claim_ids
+                if claim_id in claim_registry
+            ),
+            None,
+        )
+        if source_claim is None:
+            atom_owner = {
+                atom.atom_id: str(atom.provenance.get("claim_id", ""))
+                for atom in atoms
+            }
+            source_claim = next(
+                (
+                    claim_registry[atom_owner[claim_id]]
+                    for claim_id in claim_ids
+                    if atom_owner.get(claim_id, "") in claim_registry
+                ),
+                None,
+            )
+        if source_claim is None:
+            continue
+        line_issues = validate_grounded_composer_answer(
+            raw_line,
+            answer_spec,
+        )
+        if not line_issues and sentence_index not in rejected:
+            repaired_lines.append(raw_line)
+            continue
+        if drop_invalid:
+            continue
+        atom_ids = _atom_ids_for_claim(source_claim, atoms)
+        claim_type = _grounded_claim_type(source_claim)
+        if claim_type == "fact" and not atom_ids:
+            return None
+        prefix, _text = _line_prefix_and_text(
+            _GROUNDED_CLAIM_MARKER_RE.sub("", raw_line)
+        )
+        repaired_lines.append(
+            f"{prefix}{humanize(source_claim.text)} "
+            f"<!-- claim_ids={source_claim.claim_id}; "
+            f"evidence_atom_ids={','.join(atom_ids)}; "
+            f"claim_type={claim_type} -->"
+        )
+    repaired = "\n".join(repaired_lines).strip()
+    if drop_invalid and not _GROUNDED_CLAIM_MARKER_RE.search(repaired):
+        return None
+    if any(
+        issue.severity == "error"
+        for issue in validate_grounded_composer_answer(
+            repaired,
+            answer_spec,
+        )
+    ):
+        return None
+    return repaired
+
+
+def parse_grounding_judge_report(
+    answer: str,
+    *,
+    sentence_count: int,
+) -> GroundingJudgeReport | None:
+    payload = _extract_json_object(answer)
+    if payload is None:
+        return None
+    rejected_raw = payload.get("rejected_sentence_indexes")
+    if not isinstance(rejected_raw, list):
+        return None
+    rejected: list[int] = []
+    for value in rejected_raw:
+        if not isinstance(value, int) or value < 1 or value > sentence_count:
+            return None
+        rejected.append(value)
+    issues_raw = payload.get("issues")
+    issues = (
+        tuple(
+            str(item).strip()
+            for item in issues_raw
+            if str(item).strip()
+        )
+        if isinstance(issues_raw, list)
+        else ()
+    )
+    passed = payload.get("passed")
+    if not isinstance(passed, bool):
+        return None
+    if passed == bool(rejected):
+        return None
+    return GroundingJudgeReport(
+        passed=passed,
+        rejected_sentence_indexes=tuple(dict.fromkeys(rejected)),
+        issues=issues,
+    )
+
+
 def parse_structured_claims(
     answer: str,
 ) -> tuple[tuple[StructuredClaim, ...], tuple[str, ...]]:
@@ -1039,8 +2413,8 @@ def present_llm_answer(answer: str, answer_spec: AnswerSpec) -> str:
         source_claim = claim_registry.get(marker.group("claim_id").strip())
         if source_claim is None:
             continue
-        stripped = raw_line.lstrip()
         prefix = ""
+        stripped = raw_line.strip()
         if stripped.startswith("- "):
             prefix = "- "
         else:
@@ -1094,6 +2468,18 @@ def _structured_claim_type(claim: Claim) -> str:
     return "expectation"
 
 
+def _grounded_claim_type(claim: Claim) -> str:
+    if claim.status == ClaimStatus.VERIFIED:
+        return "fact"
+    if claim.status == ClaimStatus.INFERRED:
+        return "inference"
+    if claim.status == ClaimStatus.MISSING:
+        return "gap"
+    if claim.status in {ClaimStatus.CANDIDATE, ClaimStatus.CONFLICT}:
+        return "candidate"
+    return "expectation"
+
+
 def _is_nonclaim_line(line: str) -> bool:
     return bool(
         line.startswith("#")
@@ -1102,6 +2488,97 @@ def _is_nonclaim_line(line: str) -> bool:
         or line.startswith("<summary")
         or line == "（非投资建议）"
     )
+
+
+def _line_prefix_and_text(line: str) -> tuple[str, str]:
+    stripped = line.strip()
+    if stripped.startswith("- "):
+        return "- ", stripped[2:].strip()
+    numbered = re.match(r"(\d+[.)]\s+)(.*)", stripped)
+    if numbered is not None:
+        return numbered.group(1), numbered.group(2).strip()
+    return "", stripped
+
+
+def _claim_validation_text(
+    claim: Claim,
+    atoms: tuple[EvidenceAtom, ...],
+) -> str:
+    values = [
+        claim.text,
+        claim.theme,
+        claim.company or "",
+        claim.freshness or "",
+        *claim.counter_evidence,
+    ]
+    for atom in atoms:
+        values.extend(
+            (
+                atom.claim_text,
+                atom.entity_id or "",
+                atom.metric or "",
+                str(atom.value) if atom.value is not None else "",
+                atom.unit or "",
+                atom.period or "",
+                atom.source_date or "",
+                " ".join(
+                    str(value)
+                    for key, value in atom.provenance.items()
+                    if key != "claim_id"
+                ),
+            )
+        )
+    return "\n".join(value for value in values if value)
+
+
+def _extract_json_object(text: str) -> dict[str, object] | None:
+    stripped = text.strip()
+    fence = re.search(
+        r"```(?:json)?\s*(\{.*\})\s*```",
+        stripped,
+        re.DOTALL,
+    )
+    if fence is not None:
+        stripped = fence.group(1)
+    else:
+        braces = re.search(r"\{.*\}", stripped, re.DOTALL)
+        if braces is not None:
+            stripped = braces.group(0)
+    try:
+        payload = json.loads(stripped)
+    except (TypeError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _normalize_number_token(token: str) -> str:
+    normalized = token.strip()
+    sign = ""
+    if normalized.startswith(("+", "-")):
+        sign, normalized = normalized[0], normalized[1:]
+    integer, dot, fraction = normalized.partition(".")
+    integer = integer.lstrip("0") or "0"
+    fraction = fraction.rstrip("0")
+    if sign == "+":
+        sign = ""
+    if integer == "0" and not fraction:
+        sign = ""
+    return f"{sign}{integer}{dot if fraction else ''}{fraction}"
+
+
+def _expanded_date_text(text: str) -> str:
+    expanded = text
+    for year, month, day in re.findall(
+        r"\b(20\d{2})-(\d{2})-(\d{2})\b",
+        text,
+    ):
+        month_number = int(month)
+        day_number = int(day)
+        expanded += (
+            f"\n{year}年{month_number}月{day_number}日"
+            f"\n{month_number}月{day_number}日"
+        )
+    return expanded
 
 
 def humanize(text: str) -> str:
@@ -1274,12 +2751,38 @@ def _company_directness_label(directness: str) -> str:
     }.get(str(directness).strip().lower(), humanize(directness))
 
 
-def _company_evidence_label(company: CompanyAssessment) -> str:
-    if any(claim.status == ClaimStatus.VERIFIED for claim in company.claims):
+def _company_evidence_label(
+    company: CompanyAssessment,
+    sources: tuple[EvidenceRef, ...],
+) -> str:
+    if any(
+        claim_has_resolved_hard_company_evidence(claim, sources)
+        for claim in company.claims
+    ):
         return "已绑定公司级硬证据"
     if company.claims:
         return "候选资料，需公告或年报确认"
     return "仅有概念关联，未发现公司级证据"
+
+
+def _company_table_row(
+    company: CompanyAssessment,
+    sources: tuple[EvidenceRef, ...],
+) -> str:
+    return (
+        "| "
+        + " | ".join(
+            (
+                company.company
+                + (f"（{company.ticker}）" if company.ticker else ""),
+                humanize(company.chain_stage),
+                _company_directness_label(company.directness),
+                _company_tier_label(company.tier),
+                _company_evidence_label(company, sources),
+            )
+        )
+        + " |"
+    )
 
 
 def _dedupe(items: tuple[str, ...] | list[str]) -> list[str]:

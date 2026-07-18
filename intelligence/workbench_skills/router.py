@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import llm_refine
-from intelligence.services.query_understanding import QueryEnvelope
+from intelligence.services.query_understanding import (
+    QueryEnvelope,
+    is_dated_market_review,
+    is_market_watch_query,
+)
 from intelligence.services.research_contract import (
     AnswerOwner,
     RESEARCH_OWNER_IDS,
@@ -103,6 +107,7 @@ def route_skills(
     llm_complete: LLMComplete | None = None,
     query_envelope: QueryEnvelope | None = None,
     answer_owner: AnswerOwner | None = None,
+    inherited_skill_ids: Sequence[str] = (),
     excluded_skill_ids: Sequence[str] = (),
     execution_feedback: Sequence[Mapping[str, str]] = (),
 ) -> SkillRouteResult:
@@ -117,6 +122,17 @@ def route_skills(
     if len(manual_ids) > 3:
         raise ValueError("manual skill selection supports at most 3 distinct ids")
     excluded = set(excluded_skill_ids)
+    inherited_ids = [
+        skill_id
+        for skill_id in _dedupe(inherited_skill_ids)
+        if skill_id in active_registry
+        and skill_id not in excluded
+        and (
+            answer_owner is None
+            or skill_id not in RESEARCH_OWNER_IDS
+            or skill_id == answer_owner
+        )
+    ]
 
     manual = [
         SkillSelection(skill_id, "manual", "用户手动选择")
@@ -138,6 +154,10 @@ def route_skills(
             fallback_to_ask=False,
             base_finance_fallback=not manual,
         )
+    inherited = [
+        SkillSelection(skill_id, "rule", "继承上一轮研究工具上下文")
+        for skill_id in inherited_ids
+    ]
 
     if query_envelope is not None and query_envelope.question_type in {
         "external_market",
@@ -161,8 +181,29 @@ def route_skills(
         if skill_id not in excluded and skill_id not in RESEARCH_OWNER_IDS
     }
     rules = _rule_candidates(query, task_type, automatic_registry)
+    if (
+        "daily-review" in automatic_registry
+        and query_envelope is not None
+        and is_dated_market_review(query, query_envelope)
+        and all(skill_id != "daily-review" for skill_id, _reason in rules)
+    ):
+        rules.insert(0, ("daily-review", "规则识别指定日期行情复盘"))
+    elif (
+        "daily-review" in automatic_registry
+        and is_market_watch_query(query)
+        and all(skill_id != "daily-review" for skill_id, _reason in rules)
+    ):
+        rules.insert(0, ("daily-review", "规则识别当日盘面关注提问"))
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
-    available_slots = 3 if skill_mode == "auto" else 3 - len(manual)
+    reserved_ids = {
+        selection.skill_id
+        for selection in (
+            *([owner_selection] if owner_selection is not None else []),
+            *([] if skill_mode == "auto" else manual),
+            *inherited,
+        )
+    }
+    available_slots = max(0, 3 - len(reserved_ids))
     if automatic_registry and available_slots > 0:
         rule_ids = {skill_id for skill_id, _ in rules}
         candidates = [
@@ -221,6 +262,7 @@ def route_skills(
     combined = [
         *([owner_selection] if owner_selection is not None else []),
         *manual_prefix,
+        *inherited,
         *automatic,
     ]
     selected: list[SkillSelection] = []

@@ -3,6 +3,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -24,6 +25,67 @@ from intelligence.services.self_use_maturity import (  # noqa: E402
 )
 
 
+def _write_rag_fixture(tmp_path, knowledge_wiki) -> None:
+    (tmp_path / ".rag_index").mkdir()
+    script = tmp_path / "scripts" / "rag_index.py"
+    script.parent.mkdir()
+    script.write_text(
+        """
+import sys
+
+if sys.argv[1:] == ["query", "--help"]:
+    print("--json --k K --mode MODE --evidence-chars N")
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    assert knowledge_wiki.is_dir()
+
+
+def _write_market_snapshot_fixture(root, *, quality="complete", freshness="fresh"):
+    date = "2026-07-16"
+    doc = {
+        "schema_version": "1.1-test",
+        "trade_date": date,
+        "quality": quality,
+        "freshness": freshness,
+        "source": "duckdb:market_feature_store",
+        "provider": "duckdb_latest",
+        "requested_trade_date": "2026-07-17",
+        "served_trade_date": date,
+        "market": {
+            "stage": "震荡",
+            "total_amount": 10000,
+            "amount_ratio": None,
+            "advancers": 2500,
+            "decliners": 2400,
+            "limit_up": 50,
+            "limit_down": 5,
+            "capacity_top3": [],
+        },
+        "themes": [],
+        "strong_stocks": [],
+    }
+    (root / f"{date}.json").write_text(json.dumps(doc), encoding="utf-8")
+    (root / "latest.json").write_text(json.dumps(doc), encoding="utf-8")
+    (root / "meta.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "1.1-test",
+                "latest_trade_date": date,
+                "updated_at": "2026-07-16T16:00:00+08:00",
+                "source": "duckdb:market_feature_store",
+                "provider": "duckdb_latest",
+                "requested_trade_date": "2026-07-17",
+                "served_trade_date": date,
+                "quality": quality,
+                "freshness": freshness,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     users_root = tmp_path / "users"
@@ -31,9 +93,11 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
     market_snapshot = tmp_path / "market_snapshot"
     market_snapshot.mkdir()
+    _write_market_snapshot_fixture(market_snapshot)
     monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(market_snapshot))
 
     daily_dir = repo_root / "复盘" / "daily" / "2026-07-09"
@@ -789,8 +853,108 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["checks"]["repo_root"] is True
     assert payload["checks"]["run_store_writable"] is True
     assert payload["critical"]["market_snapshot"] is True
+    assert payload["market_snapshot"]["ready"] is True
+    assert payload["market_snapshot"]["provider"] == "duckdb_latest"
+    assert payload["market_snapshot"]["date"] == "2026-07-16"
+    assert payload["market_snapshot"]["requested_date"] == "2026-07-17"
     assert payload["missing_critical"] == []
     assert payload["workers"]["capacity"] == 2
+
+
+def test_lifespan_prewarms_enabled_rag_before_ready(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    snapshot = tmp_path / "market_snapshot"
+    snapshot.mkdir()
+    _write_market_snapshot_fixture(snapshot)
+    monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(snapshot))
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    calls: list[tuple[Path, float]] = []
+    monkeypatch.setattr(
+        app_module.kb_rag,
+        "prewarm",
+        lambda wiki, *, timeout: calls.append((wiki, timeout)),
+    )
+    monkeypatch.setattr(
+        app_module.kb_rag.rag_worker,
+        "status",
+        lambda: {
+            "enabled": True,
+            "state": "ready",
+            "active": 1,
+            "configured_workers": 1,
+            "model_load_count": 1,
+            "prewarm_latency_ms": 42000,
+            "last_error_type": None,
+            "lifecycle": "startup_prewarm",
+        },
+    )
+    monkeypatch.setattr(app_module.kb_rag.rag_worker, "close_all", lambda: None)
+
+    with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+        response = probe.get("/api/health/ready")
+
+    assert calls == [(knowledge_wiki, 90.0)]
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["critical"]["rag_worker"] is True
+    assert payload["workers"]["rag"]["state"] == "ready"
+
+
+def test_rag_prewarm_failure_keeps_readiness_closed(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    snapshot = tmp_path / "market_snapshot"
+    snapshot.mkdir()
+    _write_market_snapshot_fixture(snapshot)
+    monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(snapshot))
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+
+    def fail_prewarm(_wiki, *, timeout):
+        assert timeout == 90.0
+        raise TimeoutError("fixture timeout")
+
+    monkeypatch.setattr(app_module.kb_rag, "prewarm", fail_prewarm)
+    monkeypatch.setattr(
+        app_module.kb_rag.rag_worker,
+        "status",
+        lambda: {
+            "enabled": True,
+            "state": "failed",
+            "active": 0,
+            "configured_workers": 1,
+            "model_load_count": 0,
+            "prewarm_latency_ms": 90000,
+            "last_error_type": "TimeoutError",
+            "lifecycle": "startup_prewarm",
+        },
+    )
+    monkeypatch.setattr(app_module.kb_rag.rag_worker, "close_all", lambda: None)
+
+    with TestClient(app_module.create_app(repo_root=repo_root)) as probe:
+        response = probe.get("/api/health/ready")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["critical"]["rag_worker"] is False
+    assert "rag_worker" in payload["missing_critical"]
+    assert payload["workers"]["rag"]["last_error_type"] == "TimeoutError"
 
 
 def test_readiness_fails_when_market_snapshot_is_missing(
@@ -799,6 +963,7 @@ def test_readiness_fails_when_market_snapshot_is_missing(
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
     monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
     monkeypatch.setenv(
         "MARKET_SNAPSHOT_DIR",
@@ -815,6 +980,62 @@ def test_readiness_fails_when_market_snapshot_is_missing(
     assert payload["status"] == "not_ready"
     assert payload["critical"]["market_snapshot"] is False
     assert payload["missing_critical"] == ["market_snapshot"]
+
+
+def test_readiness_fails_when_market_snapshot_is_partial(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    knowledge_wiki = tmp_path / "wiki"
+    (knowledge_wiki / "relations").mkdir(parents=True)
+    _write_rag_fixture(tmp_path, knowledge_wiki)
+    monkeypatch.setenv("KB_VAULT", str(knowledge_wiki))
+    snapshot = tmp_path / "market_snapshot"
+    snapshot.mkdir()
+    _write_market_snapshot_fixture(
+        snapshot,
+        quality="partial",
+        freshness="degraded",
+    )
+    monkeypatch.setenv("MARKET_SNAPSHOT_DIR", str(snapshot))
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    probe = TestClient(app_module.create_app(repo_root=repo_root))
+
+    response = probe.get("/api/readiness")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["critical"]["market_snapshot"] is False
+    assert payload["market_snapshot"]["status"] == "WARN"
+    assert payload["market_snapshot"]["summary"]["quality"] == "partial"
+
+
+def test_readiness_fails_when_rag_query_protocol_is_incompatible(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        app_module.kb_rag,
+        "probe_rag_cli",
+        lambda _wiki: app_module.kb_rag.RagCliProbe(
+            available=True,
+            query_protocol_compatible=False,
+            supported_options=("--k", "--mode"),
+            missing_required_options=("--json",),
+            warning="RAG CLI 缺少必要 query 参数",
+        ),
+    )
+
+    response = client.get("/api/readiness")
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["status"] == "not_ready"
+    assert payload["checks"]["vector_index"] is True
+    assert payload["checks"]["rag_query_protocol"] is False
+    assert payload["missing_critical"] == ["rag_query_protocol"]
+    assert payload["rag"]["missing_required_options"] == ["--json"]
 
 
 def test_cancel_run_is_terminal_even_when_worker_finishes_later(
@@ -1119,6 +1340,56 @@ def test_sse_replays_structured_report_modules_and_report_endpoint(client: TestC
 
     current = client.get(f"/api/runs/{run_id}/report").json()
     assert current["modules"] == [module]
+
+
+def test_sse_replays_workflow_loaded_and_hides_internal_events(
+    client: TestClient,
+) -> None:
+    run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    _wait_terminal(client, run_id)
+    store = RunStore()
+    workflow = {
+        "owner": "theme-research",
+        "label": "题材研究",
+        "execution_mode": "inline",
+        "preset": "theme-research",
+        "required_skill_ids": ["theme-research"],
+        "retrieval_stages": [
+            "definition",
+            "chain_stages",
+            "company_mapping",
+            "market_lifecycle",
+            "counterevidence",
+        ],
+        "output_schema": "theme_research.v1",
+        "presentation_kind": "research_answer",
+        "max_wall_time_seconds": 90,
+        "status": "loaded",
+    }
+    loaded = store.append_stream_event(
+        run_id,
+        event_id="workflow:theme-research:loaded",
+        event_type="workflow.loaded",
+        payload=workflow,
+    )
+    store.append_stream_event(
+        run_id,
+        event_id="recovery:test",
+        event_type="run_recovered",
+        payload={"reason": "test"},
+    )
+
+    full = client.get(f"/api/runs/{run_id}/events").text
+    assert "event: workflow.loaded" in full
+    assert "event: run_recovered" not in full
+    assert '"owner": "theme-research"' in full
+
+    resumed = client.get(
+        f"/api/runs/{run_id}/events",
+        params={"after": loaded["seq"] - 1},
+    ).text
+    assert "event: workflow.loaded" in resumed
+    assert "event: run_recovered" not in resumed
 
 
 def test_sse_canonical_cursor_and_terminal_replay(client: TestClient) -> None:
@@ -1457,6 +1728,82 @@ def test_workbench_overview_is_fail_closed_without_market_database(
     assert response.status_code == 200
     assert response.json()["market"]["stage"] == "数据缺失"
     assert response.json()["data_status"][0]["status"] == "missing"
+
+
+def test_learning_feedback_can_be_reviewed_without_editing_verdict(
+    client: TestClient,
+) -> None:
+    root = Path(client.app.state.repo_root)
+    learning = root / "docs" / "learning" / "forecast-lessons"
+    reflection = learning / "reflections" / "2026-07-01.reflection.codex.duckdb.json"
+    reflection.parent.mkdir(parents=True)
+    reflection.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "date": "2026-07-01",
+                "agent": "codex",
+                "source": "duckdb",
+                "status": "pending_review",
+                "source_fingerprint": "fixture",
+                "reflections": [
+                    {
+                        "id": "direction:semi",
+                        "category": "direction",
+                        "failure_mode": "A5 场景错位",
+                        "reusable_lesson": "轮动期先看相对强度。",
+                        "proposed_rule": "方向排序前先横比。",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    rules = learning / "rule_candidates.jsonl"
+    rules.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "id": "rule-fixture",
+                "status": "pending",
+                "date": "2026-07-01",
+                "rule": "每次方向排序至少横比三个候选。",
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    pending = client.get("/api/workbench/learning-feedback")
+    assert pending.status_code == 200
+    assert len(pending.json()["pending_reflections"]) == 1
+    assert len(pending.json()["pending_rules"]) == 1
+    assert client.post(
+        f"/api/workbench/learning-feedback/reflections/{reflection.name}/reject",
+        json={"hypothesis_ids": []},
+    ).status_code == 400
+
+    approved = client.post(
+        f"/api/workbench/learning-feedback/reflections/{reflection.name}/approve",
+        json={"hypothesis_ids": ["direction:semi"]},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["pending_reflections"] == []
+    assert approved.json()["approved_lesson_count"] == 1
+
+    rule_approved = client.post(
+        "/api/workbench/learning-feedback/rules/rule-fixture/status",
+        json={"status": "approved"},
+    )
+    assert rule_approved.status_code == 200
+    assert rule_approved.json()["pending_rules"] == []
+    assert rule_approved.json()["approved_rule_count"] == 1
+    assert client.post(
+        "/api/workbench/learning-feedback/reflections/not-json.txt/approve",
+        json={"hypothesis_ids": []},
+    ).status_code == 400
 
 
 def test_bootstrap_returns_self_use_maturity_projection(client: TestClient) -> None:

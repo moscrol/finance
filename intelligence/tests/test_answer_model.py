@@ -4,7 +4,9 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
+from intelligence.services import llm_refine
 from intelligence.services.answer_model import (
     AnswerSpec,
     ClaimStatus,
@@ -16,18 +18,28 @@ from intelligence.services.answer_model import (
     finalize_answer_spec,
     humanize,
     make_claim,
-    repair_llm_answer,
     evidence_atoms_from_answer_spec,
+    grounded_claim_registry_block,
+    parse_decision_brief,
+    parse_grounded_sentences,
+    parse_grounding_judge_report,
+    present_grounded_composer_answer,
     present_llm_answer,
+    repair_grounded_composer_answer,
+    repair_llm_answer,
     render_answer_spec,
     resolve_theme_research_spec,
+    validate_grounded_composer_answer,
     validate_llm_answer,
 )
 from intelligence.services.ask import (
     AskOptions,
+    AskResult,
+    PreparedAnswer,
     answer_query,
     match_candidate,
     render_conversation_answer,
+    synthesize_shadow_grounded_answer,
 )
 
 
@@ -149,6 +161,78 @@ class ClaimAdjudicationTests(unittest.TestCase):
         assessment = build_company_assessments([candidate], [verified_claim])[0]
 
         self.assertEqual(assessment.tier, CompanyTier.CANDIDATE)
+
+    def test_market_only_verified_claim_cannot_upgrade_core_tier(self) -> None:
+        candidate = CompanyCandidate(
+            company="示例科技",
+            requested_tier=CompanyTier.CORE,
+        )
+        market_claim = make_claim(
+            claim_id="market-only-company",
+            text="示例科技当日涨幅居前。",
+            claim_type="company_evidence",
+            theme=self.spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="market_data",
+            company="示例科技",
+            evidence_ids=("D7",),
+        )
+
+        assessment = build_company_assessments([candidate], [market_claim])[0]
+
+        self.assertEqual(assessment.tier, CompanyTier.CANDIDATE)
+        self.assertIn("需公告、年报", assessment.evidence_gaps[0])
+
+    def test_unresolved_official_claim_is_downgraded_before_rendering(self) -> None:
+        candidate = CompanyCandidate(
+            company="示例科技",
+            requested_tier=CompanyTier.CORE,
+        )
+        official_claim = make_claim(
+            claim_id="unresolved-company",
+            text="示例科技公告披露机器人订单。",
+            claim_type="company_evidence",
+            theme=self.spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L3",
+            company="示例科技",
+            evidence_ids=("R1",),
+        )
+        answer = AnswerSpec(
+            research_spec=self.spec,
+            summary=(official_claim,),
+            verified_facts=(official_claim,),
+            company_table=build_company_assessments(
+                [candidate],
+                [official_claim],
+            ),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="unresolved-gap",
+                    text="来源尚未解析到官方证据层。",
+                    claim_type="evidence_gap",
+                    theme=self.spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=("重新核对公告来源。",),
+            sources=(
+                EvidenceRef("R1", "盘面快照", tier="market_data"),
+            ),
+            system_notices=(),
+        )
+
+        governed = finalize_answer_spec(answer)
+        rendered = render_answer_spec(governed)
+
+        self.assertEqual(
+            governed.company_table[0].tier,
+            CompanyTier.CANDIDATE,
+        )
+        self.assertNotIn("### 核心公司", rendered)
+        self.assertIn("候选资料，需公告或年报确认", rendered)
 
     def test_quality_gate_rejects_candidate_as_verified_fact(self) -> None:
         candidate_fact = make_claim(
@@ -361,7 +445,7 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             gaps=(),
             triggers=(),
             next_actions=("核对收入贡献。",),
-            sources=(EvidenceRef("R1", "公司公告"),),
+            sources=(EvidenceRef("R1", "公司公告", tier="L3"),),
             system_notices=(),
         )
 
@@ -372,6 +456,132 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertNotIn("| related |", rendered)
         self.assertIn("已有公司级材料仍需持续复核业务贡献和兑现节奏", rendered)
         self.assertNotIn("公司级证据出现前", rendered)
+
+    def test_presenter_separates_core_and_candidate_companies(self) -> None:
+        spec = resolve_theme_research_spec("分析液冷产业链")
+        verified = make_claim(
+            claim_id="core-company",
+            text="核心公司公告披露液冷订单。",
+            claim_type="company_evidence",
+            theme=spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L3",
+            company="核心公司",
+            evidence_ids=("L3-1",),
+        )
+        candidate = make_claim(
+            claim_id="candidate-company",
+            text="候选公司存在液冷概念映射。",
+            claim_type="company_evidence",
+            theme=spec.theme,
+            status=ClaimStatus.CANDIDATE,
+            evidence_tier="concept_graph",
+            company="候选公司",
+            evidence_ids=("G1",),
+        )
+        answer = AnswerSpec(
+            research_spec=spec,
+            summary=(verified,),
+            verified_facts=(verified,),
+            company_table=build_company_assessments(
+                [
+                    CompanyCandidate(
+                        company="核心公司",
+                        requested_tier=CompanyTier.CORE,
+                    ),
+                    CompanyCandidate(
+                        company="候选公司",
+                        requested_tier=CompanyTier.CORE,
+                    ),
+                ],
+                [verified, candidate],
+            ),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="company-gap",
+                    text="候选公司缺少公告确认。",
+                    claim_type="evidence_gap",
+                    theme=spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=("核对候选公司公告。",),
+            sources=(
+                EvidenceRef("L3-1", "公司公告", tier="L3"),
+                EvidenceRef("G1", "概念图谱", tier="concept_graph"),
+            ),
+            system_notices=(),
+        )
+
+        rendered = render_answer_spec(finalize_answer_spec(answer))
+
+        self.assertIn("### 核心公司", rendered)
+        self.assertIn("### 候选与外围公司", rendered)
+        self.assertLess(
+            rendered.index("| 核心公司 |"),
+            rendered.index("| 候选公司 |"),
+        )
+
+    def test_certainty_policy_is_claim_scoped_and_preserves_uncertainty(self) -> None:
+        spec = resolve_theme_research_spec("分析液冷产业链")
+        official = make_claim(
+            claim_id="official",
+            text="公司公告已确认液冷订单。",
+            claim_type="company_evidence",
+            theme=spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="L3",
+            company="示例科技",
+            evidence_ids=("L3-1",),
+        )
+        weak = make_claim(
+            claim_id="weak",
+            text="板块未来必然上涨，但持续性仍不确定。",
+            claim_type="market_signal",
+            theme=spec.theme,
+            status=ClaimStatus.VERIFIED,
+            evidence_tier="market_data",
+            evidence_ids=("D7",),
+        )
+        answer = AnswerSpec(
+            research_spec=spec,
+            summary=(weak,),
+            verified_facts=(official, weak),
+            company_table=build_company_assessments(
+                [
+                    CompanyCandidate(
+                        company="示例科技",
+                        requested_tier=CompanyTier.CORE,
+                    )
+                ],
+                [official],
+            ),
+            counter_evidence=(),
+            gaps=(
+                make_claim(
+                    claim_id="gap",
+                    text="持续性仍不确定。",
+                    claim_type="evidence_gap",
+                    theme=spec.theme,
+                    status=ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=("继续核验成交持续性。",),
+            sources=(
+                EvidenceRef("L3-1", "公司公告", tier="L3"),
+                EvidenceRef("D7", "市场数据", tier="market_data"),
+            ),
+            system_notices=(),
+        )
+
+        rendered = render_answer_spec(finalize_answer_spec(answer))
+
+        self.assertIn("公司公告已确认液冷订单", rendered)
+        self.assertNotIn("未来必然上涨", rendered)
+        self.assertIn("持续性仍不确定", rendered)
 
     def test_presenter_formats_values_and_deduplicates_user_visible_sources(self) -> None:
         spec = resolve_theme_research_spec("分析人形机器人产业链")
@@ -524,6 +734,426 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertIn(claim.text, rendered)
         self.assertNotIn("模型不能借此注入", rendered)
         self.assertNotIn("claim_id=", rendered)
+
+    def test_grounded_composer_rejects_number_outside_bound_evidence(
+        self,
+    ) -> None:
+        spec = self._answer()
+        claim = spec.verified_facts[0]
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.provenance["claim_id"] == claim.claim_id
+        )
+        answer = (
+            "- 板块热度评分达到 999。"
+            f"<!-- claim_ids={claim.claim_id}; "
+            f"evidence_atom_ids={atom.atom_id}; claim_type=fact -->"
+        )
+
+        codes = {
+            issue.code
+            for issue in validate_grounded_composer_answer(answer, spec)
+        }
+
+        self.assertIn("grounded_composer_added_number", codes)
+
+    def test_grounded_composer_rejects_company_outside_bound_evidence(
+        self,
+    ) -> None:
+        spec = self._answer()
+        claim = spec.verified_facts[0]
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.provenance["claim_id"] == claim.claim_id
+        )
+        answer = (
+            "- 新增股份是本轮核心公司。"
+            f"<!-- claim_ids={claim.claim_id}; "
+            f"evidence_atom_ids={atom.atom_id}; claim_type=fact -->"
+        )
+
+        codes = {
+            issue.code
+            for issue in validate_grounded_composer_answer(answer, spec)
+        }
+
+        self.assertIn("grounded_composer_added_company", codes)
+
+    def test_grounded_composer_rejects_unbound_known_entity(self) -> None:
+        spec = self._answer()
+        claim = spec.verified_facts[0]
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.provenance["claim_id"] == claim.claim_id
+        )
+        answer = (
+            "- 示例科技已经成为板块核心。"
+            f"<!-- claim_ids={claim.claim_id}; "
+            f"evidence_atom_ids={atom.atom_id}; claim_type=fact -->"
+        )
+
+        codes = {
+            issue.code
+            for issue in validate_grounded_composer_answer(answer, spec)
+        }
+
+        self.assertIn("grounded_composer_cross_subject", codes)
+
+    def test_grounded_composer_rejects_date_outside_bound_evidence(
+        self,
+    ) -> None:
+        spec = self._answer()
+        claim = spec.verified_facts[0]
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.provenance["claim_id"] == claim.claim_id
+        )
+        answer = (
+            "- 该信号在 2027-01-01 已经确认。"
+            f"<!-- claim_ids={claim.claim_id}; "
+            f"evidence_atom_ids={atom.atom_id}; claim_type=fact -->"
+        )
+
+        codes = {
+            issue.code
+            for issue in validate_grounded_composer_answer(answer, spec)
+        }
+
+        self.assertIn("grounded_composer_added_date", codes)
+
+    def test_grounded_composer_rejects_candidate_certainty_promotion(
+        self,
+    ) -> None:
+        spec = self._answer()
+        claim = next(
+            claim
+            for company in spec.company_table
+            for claim in company.claims
+            if claim.status == ClaimStatus.CANDIDATE
+        )
+        answer = (
+            "- 已确认示例科技是核心受益公司。"
+            f"<!-- claim_ids={claim.claim_id}; "
+            "evidence_atom_ids=无; claim_type=candidate -->"
+        )
+
+        codes = {
+            issue.code
+            for issue in validate_grounded_composer_answer(answer, spec)
+        }
+
+        self.assertIn("grounded_composer_promoted_certainty", codes)
+
+    def test_shadow_sentence_repair_keeps_valid_prose_and_replaces_only_bad_line(
+        self,
+    ) -> None:
+        spec = self._answer()
+        claim = spec.verified_facts[0]
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.provenance["claim_id"] == claim.claim_id
+        )
+        marker = (
+            f"<!-- claim_ids={claim.claim_id}; "
+            f"evidence_atom_ids={atom.atom_id}; claim_type=fact -->"
+        )
+        answer = "\n".join(
+            (
+                f"- 量价同步改善，说明关注度不只是缩量推动。{marker}",
+                f"- 板块涨幅达到 99%。{marker}",
+            )
+        )
+
+        repaired = repair_grounded_composer_answer(answer, spec)
+
+        self.assertIsNotNone(repaired)
+        assert repaired is not None
+        self.assertIn("量价同步改善，说明关注度不只是缩量推动", repaired)
+        self.assertNotIn("99%", repaired)
+        self.assertIn("涨幅2.61%", repaired)
+        presented = present_grounded_composer_answer(repaired)
+        self.assertNotIn("claim_ids=", presented)
+
+    def test_shadow_semantic_judge_repair_replaces_only_rejected_sentence(
+        self,
+    ) -> None:
+        spec = self._answer()
+        claim = spec.verified_facts[0]
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.provenance["claim_id"] == claim.claim_id
+        )
+        marker = (
+            f"<!-- claim_ids={claim.claim_id}; "
+            f"evidence_atom_ids={atom.atom_id}; claim_type=fact -->"
+        )
+        answer = "\n".join(
+            (
+                f"- 量价同步改善，关注度得到成交支持。{marker}",
+                f"- 盘面改善改变了短期判断。{marker}",
+            )
+        )
+
+        repaired = repair_grounded_composer_answer(
+            answer,
+            spec,
+            rejected_sentence_indexes=(2,),
+        )
+
+        self.assertIsNotNone(repaired)
+        assert repaired is not None
+        self.assertIn("量价同步改善，关注度得到成交支持", repaired)
+        self.assertNotIn("盘面改善改变了短期判断", repaired)
+        self.assertIn(claim.text, repaired)
+
+    def test_decision_brief_requires_registry_claim_ids(self) -> None:
+        spec = self._answer()
+        claim_id = spec.verified_facts[0].claim_id
+
+        brief, issues = parse_decision_brief(
+            (
+                '{"direct_answer":"短期强度改善",'
+                '"core_tension":"盘面增强但硬证据仍不足",'
+                f'"supports":["{claim_id}"],'
+                '"counterevidence":[],"unknowns":[],'
+                '"upgrade_conditions":[],"downgrade_conditions":[]}'
+            ),
+            spec,
+        )
+
+        self.assertEqual(issues, ())
+        self.assertIsNotNone(brief)
+        assert brief is not None
+        self.assertEqual(brief.supports, (claim_id,))
+
+    def test_decision_brief_rejects_unknown_claim_id(self) -> None:
+        brief, issues = parse_decision_brief(
+            (
+                '{"direct_answer":"短期强度改善",'
+                '"core_tension":"盘面增强但硬证据仍不足",'
+                '"supports":["unknown-claim"],'
+                '"counterevidence":[],"unknowns":[],'
+                '"upgrade_conditions":[],"downgrade_conditions":[]}'
+            ),
+            self._answer(),
+        )
+
+        self.assertIsNone(brief)
+        self.assertIn(
+            "decision_brief_invalid_claim_id",
+            {issue.code for issue in issues},
+        )
+
+    def test_grounded_registry_includes_structured_evidence_atoms(self) -> None:
+        spec = self._answer()
+
+        registry = grounded_claim_registry_block(spec)
+
+        self.assertIn('"evidence_atoms":', registry)
+        self.assertIn('"metric":', registry)
+        self.assertIn('"value":', registry)
+        self.assertIn('"source_id":', registry)
+
+    def test_grounded_sentence_can_bind_multiple_claims(self) -> None:
+        spec = self._answer()
+        first = spec.summary[0]
+        second = spec.verified_facts[0]
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.provenance["claim_id"] == second.claim_id
+        )
+        sentences, unbound = parse_grounded_sentences(
+            (
+                "- 产业定义与盘面信号共同构成当前判断。"
+                f"<!-- claim_ids={first.claim_id},{second.claim_id}; "
+                f"evidence_atom_ids={atom.atom_id}; "
+                "claim_type=inference -->"
+            )
+        )
+
+        self.assertEqual(unbound, ())
+        self.assertEqual(
+            sentences[0].claim_ids,
+            (first.claim_id, second.claim_id),
+        )
+
+    def test_grounded_sentence_marker_on_next_line_still_binds(self) -> None:
+        spec = self._answer()
+        first = spec.summary[0]
+        answer = (
+            "产业定义与盘面信号共同构成当前判断。\n"
+            f"<!-- claim_ids={first.claim_id}; "
+            "evidence_atom_ids=无; claim_type=inference -->"
+        )
+
+        sentences, unbound = parse_grounded_sentences(answer)
+
+        self.assertEqual(unbound, ())
+        self.assertEqual(len(sentences), 1)
+        self.assertEqual(sentences[0].claim_ids, (first.claim_id,))
+        self.assertEqual(
+            sentences[0].text,
+            "产业定义与盘面信号共同构成当前判断。",
+        )
+
+    def test_grounded_repair_keeps_text_when_marker_on_next_line(self) -> None:
+        spec = self._answer()
+        first = spec.summary[0]
+        answer = (
+            "## 标题\n\n"
+            "产业定义与盘面信号共同构成当前判断。\n"
+            f"<!-- claim_ids={first.claim_id}; "
+            "evidence_atom_ids=无; claim_type=inference -->\n\n"
+            "这一句绑定了无效证据。\n"
+            "<!-- claim_ids=unknown-claim; "
+            "evidence_atom_ids=无; claim_type=inference -->"
+        )
+
+        repaired = repair_grounded_composer_answer(
+            answer,
+            spec,
+            drop_invalid=True,
+        )
+
+        self.assertIsNotNone(repaired)
+        assert repaired is not None
+        presented = present_grounded_composer_answer(repaired)
+        self.assertIn("产业定义与盘面信号共同构成当前判断。", presented)
+        self.assertNotIn("这一句绑定了无效证据。", presented)
+
+    def test_grounding_judge_report_rejects_invalid_sentence_index(
+        self,
+    ) -> None:
+        report = parse_grounding_judge_report(
+            (
+                '{"passed":false,'
+                '"rejected_sentence_indexes":[3],'
+                '"issues":["语义越界"]}'
+            ),
+            sentence_count=2,
+        )
+
+        self.assertIsNone(report)
+
+    def test_shadow_pipeline_keeps_production_answer_untouched(self) -> None:
+        spec = self._answer()
+        claim = spec.verified_facts[0]
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.provenance["claim_id"] == claim.claim_id
+        )
+        brief_json = (
+            '{"direct_answer":"短期强度改善",'
+            '"core_tension":"盘面增强但硬证据仍不足",'
+            f'"supports":["{claim.claim_id}"],'
+            '"counterevidence":[],"unknowns":[],'
+            '"upgrade_conditions":[],"downgrade_conditions":[]}'
+        )
+        composer_answer = (
+            "- 量价同步改善，说明关注度不只是缩量推动。"
+            f"<!-- claim_ids={claim.claim_id}; "
+            f"evidence_atom_ids={atom.atom_id}; claim_type=fact -->"
+        )
+        judge_json = (
+            '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}'
+        )
+        result = AskResult(
+            query="总结行情",
+            trade_date="2026-07-16",
+            matched_theme="市场",
+            candidate_tier=None,
+            priority_score=None,
+            answer_spec=spec,
+            synthesis="生产答案保持不变",
+        )
+        prepared = PreparedAnswer(
+            options=AskOptions(
+                query="总结行情",
+                shadow_grounded_composer=True,
+            ),
+            result=result,
+        )
+        responses = (
+            llm_refine.SynthesisResult(
+                brief_json,
+                "fixture",
+                "fixture-model",
+            ),
+            llm_refine.SynthesisResult(
+                composer_answer,
+                "fixture",
+                "fixture-model",
+            ),
+            llm_refine.SynthesisResult(
+                judge_json,
+                "fixture",
+                "fixture-model",
+            ),
+        )
+        with mock.patch.object(
+            llm_refine,
+            "synthesize_messages",
+            side_effect=((response, "") for response in responses),
+        ):
+            synthesize_shadow_grounded_answer(prepared)
+
+        self.assertEqual(result.synthesis, "生产答案保持不变")
+        self.assertIsNotNone(result.grounded_composer_shadow)
+        assert result.grounded_composer_shadow is not None
+        self.assertEqual(
+            result.grounded_composer_shadow.status,
+            "accepted",
+        )
+        self.assertIn(
+            "量价同步改善",
+            result.grounded_composer_shadow.presented_answer or "",
+        )
+
+    def test_shadow_pipeline_marks_ineligible_evidence_without_llm(
+        self,
+    ) -> None:
+        spec = replace(self._answer(), verified_facts=())
+        result = AskResult(
+            query="估值贵不贵",
+            trade_date="2026-07-16",
+            matched_theme="市场",
+            candidate_tier=None,
+            priority_score=None,
+            answer_spec=spec,
+            synthesis="生产答案保持不变",
+        )
+        prepared = PreparedAnswer(
+            options=AskOptions(
+                query="估值贵不贵",
+                shadow_grounded_composer=True,
+            ),
+            result=result,
+        )
+        with mock.patch.object(
+            llm_refine,
+            "synthesize_messages",
+        ) as synthesize:
+            synthesize_shadow_grounded_answer(prepared)
+
+        synthesize.assert_not_called()
+        shadow = result.grounded_composer_shadow
+        self.assertIsNotNone(shadow)
+        assert shadow is not None
+        self.assertEqual(shadow.status, "ineligible_evidence")
+        self.assertEqual(
+            shadow.failure_reason,
+            "no_valid_support_claims",
+        )
+        self.assertIsNone(shadow.presented_answer)
+        self.assertEqual(result.synthesis, "生产答案保持不变")
 
     def test_llm_gate_rejects_invalid_claim_id(self) -> None:
         spec = self._answer()

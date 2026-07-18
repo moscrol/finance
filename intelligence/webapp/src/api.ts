@@ -9,6 +9,7 @@ import type {
   DailyReportProjection,
   Followup,
   LLMConfig,
+  LearningFeedback,
   PerspectiveDescription,
   ProductSkillDescription,
   Run,
@@ -39,6 +40,48 @@ export function getBootstrap(user?: string): Promise<Bootstrap> {
 
 export function getWorkbenchOverview(): Promise<WorkbenchOverview> {
   return request<WorkbenchOverview>("/api/workbench/overview");
+}
+
+export function approveForecastReflection(
+  filename: string,
+  hypothesisIds: string[],
+): Promise<LearningFeedback> {
+  return request<LearningFeedback>(
+    `/api/workbench/learning-feedback/reflections/${encodeURIComponent(filename)}/approve`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hypothesis_ids: hypothesisIds }),
+    },
+  );
+}
+
+export function rejectForecastReflection(
+  filename: string,
+  hypothesisIds: string[],
+): Promise<LearningFeedback> {
+  return request<LearningFeedback>(
+    `/api/workbench/learning-feedback/reflections/${encodeURIComponent(filename)}/reject`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hypothesis_ids: hypothesisIds }),
+    },
+  );
+}
+
+export function setForecastRuleStatus(
+  candidateId: string,
+  status: "approved" | "rejected",
+): Promise<LearningFeedback> {
+  return request<LearningFeedback>(
+    `/api/workbench/learning-feedback/rules/${encodeURIComponent(candidateId)}/status`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    },
+  );
 }
 
 export function getRun(runId: string, user?: string): Promise<Run> {

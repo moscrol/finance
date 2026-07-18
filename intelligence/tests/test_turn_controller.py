@@ -5,11 +5,33 @@ import json
 import pytest
 
 from intelligence.services.research_contract import TurnIntent
+from intelligence.services.query_resolution import QueryResolution
+from intelligence.services.query_understanding import understand_query
 from intelligence.services.turn_controller import decide_turn
 
 
 def _no_llm(_messages: list[dict[str, str]]):
     return None, None, "fixture unavailable"
+
+
+class _CountingResolver:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def resolve(self, query: str) -> QueryResolution:
+        self.calls += 1
+        return QueryResolution(
+            envelope=understand_query(query),
+            anchor=None,
+        )
+
+
+def test_controller_resolves_each_turn_once() -> None:
+    resolver = _CountingResolver()
+
+    decide_turn("卫星互联网是什么", llm_complete=_no_llm, resolver=resolver)
+
+    assert resolver.calls == 1
 
 
 def test_greeting_is_chat_without_tools_or_memory() -> None:
@@ -75,6 +97,141 @@ def test_external_market_uses_research_lane_and_quote_capability() -> None:
     assert decision.needs_retrieval is True
     assert decision.needs_template is True
     assert "market_quote" in decision.capabilities
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "总结一下 2026-07-16 的行情",
+        "复盘 2026年7月16日 A股市场",
+        "2026/7/16 的盘面回顾",
+    ),
+)
+def test_dated_a_share_market_summary_uses_workflow_lane(query: str) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "workflow"
+    assert decision.timeframe is not None
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "总结一下7.16的行情",
+        "复盘7月16日的A股市场",
+    ),
+)
+def test_yearless_dated_market_summary_uses_workflow_lane(query: str) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "workflow"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "今天有什么值得关注的",
+        "今日盘面有哪些看点",
+        "今天的大盘怎么样",
+    ),
+)
+def test_market_watch_query_uses_workflow_lane(query: str) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "workflow"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert "market_quote" in decision.capabilities
+
+
+@pytest.mark.parametrize(
+    ("query", "question_type"),
+    (
+        ("最近固态电池有什么新进展", "theme_analysis"),
+        ("英伟达GPU发布对光模块板块的影响", "news_impact"),
+    ),
+)
+def test_owner_question_types_use_research_lane(
+    query: str, question_type: str
+) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "research"
+    assert decision.question_type == question_type
+    assert decision.needs_retrieval is True
+
+
+def test_unverified_subject_guess_does_not_force_research_lane() -> None:
+    decision = decide_turn("PQC最新消息", llm_complete=_no_llm)
+
+    assert decision.lane == "knowledge"
+    assert decision.needs_retrieval is True
+
+
+def _llm_chat_no_retrieval(_messages: list[dict[str, str]]):
+    return (
+        json.dumps(
+            {
+                "route_id": "chat",
+                "subject": None,
+                "timeframe": None,
+                "confidence": 0.9,
+                "reason": "闲聊",
+            }
+        ),
+        None,
+        "ok",
+    )
+
+
+def test_retrieval_floor_upgrades_chat_lane_with_market_signal() -> None:
+    decision = decide_turn(
+        "跟我随便聊聊大盘呗",
+        llm_complete=_llm_chat_no_retrieval,
+    )
+
+    assert decision.lane == "knowledge"
+    assert decision.needs_retrieval is True
+
+
+def test_retrieval_floor_keeps_plain_chat_without_signals() -> None:
+    decision = decide_turn(
+        "给我讲个笑话",
+        llm_complete=_llm_chat_no_retrieval,
+    )
+
+    assert decision.lane == "chat"
+    assert decision.needs_retrieval is False
+
+
+def test_safe_fallback_retrieves_when_market_signal_present() -> None:
+    decision = decide_turn("聊聊今天大盘的情况呗", llm_complete=_no_llm)
+
+    assert decision.lane in {"knowledge", "workflow"}
+    assert decision.needs_retrieval is True
+
+
+def test_dated_external_market_summary_does_not_use_a_share_workflow() -> None:
+    decision = decide_turn(
+        "总结一下 2026-07-16 的美股行情",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "external_market"
+
+
+def test_month_only_market_summary_does_not_claim_daily_report() -> None:
+    decision = decide_turn(
+        "总结一下 2026年7月 的 A股行情",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane != "workflow"
 
 
 def test_broad_market_question_clarifies_scope() -> None:
@@ -147,6 +304,114 @@ def test_follow_up_inherits_subject_owner_and_evidence_set() -> None:
     assert decision.turn_intent.answer_owner == "stock-deep-dive"
     assert decision.turn_intent.inherited_from_turn == "msg-previous"
     assert decision.turn_intent.evidence_atom_ids == ("atom-1", "atom-2")
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "毛利率下滑的原因是什么",
+        "它和海光信息比，哪个弹性更大",
+        "一阶受益和二阶受益分别是谁",
+        "历史类似情况后来怎么演绎",
+        "真实订单证据在哪里",
+        "下周验证清单",
+    ),
+)
+def test_financial_context_dependent_followups_inherit_research_gate(
+    query: str,
+) -> None:
+    previous = TurnIntent(
+        primary_subject="立讯精密",
+        secondary_topics=("AI 服务器",),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+        evidence_atom_ids=("atom-1",),
+        skill_ids=("stock-deep-dive",),
+        stage_artifact_ids=("owner:company_master:hash",),
+    )
+
+    decision = decide_turn(
+        query,
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.subject == "立讯精密"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.inherited_from_turn == "msg-previous"
+    assert decision.turn_intent.skill_ids == ("stock-deep-dive",)
+    assert decision.turn_intent.stage_artifact_ids == (
+        "owner:company_master:hash",
+    )
+
+
+@pytest.mark.parametrize(
+    ("query", "operator"),
+    (
+        ("这个逻辑呢", None),
+        ("这个方向怎么看", None),
+        ("这条链有哪些公司", "company_mapping"),
+        ("边际变化呢", "market_change"),
+    ),
+)
+def test_new_contextual_references_inherit_governed_owner(
+    query: str,
+    operator: str | None,
+) -> None:
+    previous = TurnIntent(
+        primary_subject="中际旭创",
+        secondary_topics=("光模块",),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+        evidence_atom_ids=("atom-1",),
+    )
+
+    decision = decide_turn(
+        query,
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.subject == "中际旭创"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner == "stock-deep-dive"
+    assert decision.turn_intent.inherited_from_turn == "msg-previous"
+    assert decision.turn_intent.evidence_atom_ids == ("atom-1",)
+    if operator is not None:
+        assert operator in decision.turn_intent.operators
+
+
+def test_non_owner_skill_followup_cannot_fall_back_to_general_chat() -> None:
+    previous = TurnIntent(
+        primary_subject="今日复盘",
+        secondary_topics=(),
+        question_type="general",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        skill_ids=("daily-review",),
+    )
+
+    decision = decide_turn(
+        "下周验证清单",
+        previous_intent=previous,
+        previous_turn_id="msg-daily",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane in {"research", "workflow"}
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.skill_ids == ("daily-review",)
 
 
 def test_explicit_follow_up_task_switch_keeps_subject_and_changes_owner() -> None:
@@ -285,16 +550,11 @@ def test_manual_skill_selection_forces_workflow_lane() -> None:
 def test_llm_decision_is_schema_validated_and_policy_constrained() -> None:
     content = json.dumps(
         {
-            "lane": "chat",
-            "needs_retrieval": True,
-            "needs_memory": True,
-            "needs_template": True,
-            "question_type": None,
+            "route_id": "chat",
             "subject": None,
             "timeframe": None,
             "confidence": 0.91,
             "reason": "普通交流",
-            "capabilities": ["web_search", "memory"],
         },
         ensure_ascii=False,
     )
@@ -310,11 +570,55 @@ def test_llm_decision_is_schema_validated_and_policy_constrained() -> None:
     assert decision.capabilities == ()
 
 
+def test_llm_decision_rejects_route_id_outside_table() -> None:
+    content = json.dumps(
+        {
+            "route_id": "made_up_route",
+            "subject": None,
+            "timeframe": None,
+            "confidence": 0.95,
+            "reason": "臆造路由",
+        },
+        ensure_ascii=False,
+    )
+    decision = decide_turn(
+        "你觉得这个解释清楚吗",
+        llm_complete=lambda _messages: (content, object(), ""),
+    )
+
+    assert "Controller 不可用" in decision.reason or decision.lane in {
+        "chat",
+        "knowledge",
+    }
+    assert decision.lane != "made_up_route"
+
+
+def test_llm_route_row_derives_owner_lane_and_capabilities() -> None:
+    content = json.dumps(
+        {
+            "route_id": "stock_deep_dive",
+            "subject": "中际旭创",
+            "timeframe": None,
+            "confidence": 0.88,
+            "reason": "个股深度研究",
+        },
+        ensure_ascii=False,
+    )
+    decision = decide_turn(
+        "英伟达值得入手吗",
+        llm_complete=lambda _messages: (content, object(), ""),
+    )
+
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert "market_quote" in decision.capabilities
+
+
 def test_llm_decision_accepts_json_code_fence() -> None:
     content = """```json
-{"lane":"knowledge","needs_retrieval":false,"needs_memory":false,
-"needs_template":false,"question_type":"general_knowledge","subject":"测试",
-"timeframe":null,"confidence":0.9,"reason":"概念问题","capabilities":[]}
+{"route_id":"concept_definition","subject":"测试",
+"timeframe":null,"confidence":0.9,"reason":"概念问题"}
 ```"""
     decision = decide_turn(
         "请解释这个概念",
@@ -328,16 +632,11 @@ def test_llm_decision_accepts_json_code_fence() -> None:
 def test_low_confidence_llm_decision_abstains_to_clarify() -> None:
     content = json.dumps(
         {
-            "lane": "research",
-            "needs_retrieval": True,
-            "needs_memory": False,
-            "needs_template": True,
-            "question_type": None,
+            "route_id": "stock_deep_dive",
             "subject": None,
             "timeframe": None,
             "confidence": 0.42,
             "reason": "不确定",
-            "capabilities": ["web_search"],
         },
         ensure_ascii=False,
     )

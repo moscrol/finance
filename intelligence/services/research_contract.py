@@ -3,9 +3,14 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, cast
 
+from intelligence.services.query_resolution import (
+    QueryResolution,
+    classify_reference,
+)
 from intelligence.services.query_understanding import QueryEnvelope
+from intelligence.services.route_table import owner_skills_from_route_table
 
 AnswerOwner: TypeAlias = Literal[
     "stock-deep-dive",
@@ -13,6 +18,7 @@ AnswerOwner: TypeAlias = Literal[
     "news-impact",
     "theme-research",
 ]
+OwnerExecutionMode: TypeAlias = Literal["inline", "subtask"]
 ClaimType: TypeAlias = Literal["fact", "inference", "expectation"]
 StageStatus: TypeAlias = Literal[
     "pending",
@@ -32,11 +38,9 @@ RESEARCH_OWNER_IDS = frozenset(
     }
 )
 QUESTION_OWNER_SKILLS: dict[str, AnswerOwner] = {
-    "stock_deep_dive": "stock-deep-dive",
-    "valuation_estimate": "stock-deep-dive",
-    "theme_analysis": "theme-research",
-    "news_impact": "news-impact",
-    "financial_analysis": "financial-analysis",
+    question_type: cast(AnswerOwner, owner)
+    for question_type, owner in owner_skills_from_route_table().items()
+    if owner in RESEARCH_OWNER_IDS
 }
 OWNER_RETRIEVAL_STAGES: dict[AnswerOwner, tuple[str, ...]] = {
     "stock-deep-dive": (
@@ -55,6 +59,7 @@ OWNER_RETRIEVAL_STAGES: dict[AnswerOwner, tuple[str, ...]] = {
     "news-impact": (
         "original_disclosure",
         "event_facts",
+        "external_news",
         "impact_transmission",
         "substitutes_and_harmed_directions",
     ),
@@ -63,18 +68,94 @@ OWNER_RETRIEVAL_STAGES: dict[AnswerOwner, tuple[str, ...]] = {
         "chain_stages",
         "company_mapping",
         "market_lifecycle",
+        "historical_analogs",
+        "scenario_tree",
         "counterevidence",
     ),
 }
 
-_FOLLOW_UP_REFERENCE_PATTERN = re.compile(
-    r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
-)
-_FOLLOW_UP_CONTINUATION_PATTERN = re.compile(
-    r"^(?:把|再|继续|接着|然后|只按|横向|分别|哪些逻辑|"
-    r"和[^，。！？?!]{2,24}(?:比|比较))"
-)
+
+@dataclass(frozen=True)
+class OwnerWorkflowSpec:
+    owner: AnswerOwner
+    label: str
+    execution_mode: OwnerExecutionMode
+    preset: str
+    required_skill_ids: tuple[str, ...]
+    retrieval_stages: tuple[str, ...]
+    output_schema: str
+    presentation_kind: str
+    max_wall_time_seconds: int
+
+    def __post_init__(self) -> None:
+        if self.execution_mode not in {"inline", "subtask"}:
+            raise ValueError("unsupported owner execution mode")
+        if self.max_wall_time_seconds <= 0:
+            raise ValueError("owner workflow wall time must be positive")
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+OWNER_WORKFLOW_SPECS: dict[AnswerOwner, OwnerWorkflowSpec] = {
+    "stock-deep-dive": OwnerWorkflowSpec(
+        owner="stock-deep-dive",
+        label="个股深挖",
+        execution_mode="inline",
+        preset="finance-researcher",
+        required_skill_ids=("finance-mode", "stock-deep-dive"),
+        retrieval_stages=OWNER_RETRIEVAL_STAGES["stock-deep-dive"],
+        output_schema="AnswerSpec",
+        presentation_kind="theme_research",
+        max_wall_time_seconds=240,
+    ),
+    "financial-analysis": OwnerWorkflowSpec(
+        owner="financial-analysis",
+        label="财务分析",
+        execution_mode="inline",
+        preset="finance-financial-analyst",
+        required_skill_ids=("finance-mode", "financial-analysis"),
+        retrieval_stages=OWNER_RETRIEVAL_STAGES["financial-analysis"],
+        output_schema="AnswerSpec",
+        presentation_kind="base_finance",
+        max_wall_time_seconds=240,
+    ),
+    "news-impact": OwnerWorkflowSpec(
+        owner="news-impact",
+        label="消息与公告冲击",
+        execution_mode="inline",
+        preset="finance-event-analyst",
+        required_skill_ids=("finance-mode", "news-impact"),
+        retrieval_stages=OWNER_RETRIEVAL_STAGES["news-impact"],
+        output_schema="AnswerSpec",
+        presentation_kind="theme_research",
+        max_wall_time_seconds=240,
+    ),
+    "theme-research": OwnerWorkflowSpec(
+        owner="theme-research",
+        label="题材研究",
+        execution_mode="inline",
+        preset="finance-theme-researcher",
+        required_skill_ids=("finance-mode", "theme-research"),
+        retrieval_stages=OWNER_RETRIEVAL_STAGES["theme-research"],
+        output_schema="AnswerSpec",
+        presentation_kind="theme_research",
+        max_wall_time_seconds=240,
+    ),
+}
+
 _COMPARISON_PATTERN = re.compile(r"(?:比较|对比|相比|和.+比|与.+比)")
+_CONTEXT_DEPENDENT_RESEARCH_PATTERN = re.compile(
+    r"(?:原因|为什么|证伪|反证|弹性|赔率|空间|受益|一阶|二阶|"
+    r"历史类似|历史类比|真实订单|订单|验证清单|验证路径|下周|"
+    r"催化|风险|毛利率|净利率|收入|利润|现金流|兑现|替代标的|"
+    r"哪个更|分别是谁|怎么看|如何验证)"
+)
+_CONTEXT_DEPENDENT_RESEARCH_PREFIX_PATTERN = re.compile(
+    r"^(?:毛利率|净利率|收入|营收|利润|现金流|原因|为什么|"
+    r"历史类似|历史类比|真实订单|订单|验证清单|验证路径|"
+    r"下周|一阶|二阶|哪些反证|哪些风险)"
+)
 _EXPLICIT_SWITCH_PATTERN = re.compile(
     r"(?:改看|换成|切换到|另外看|再分析|重新分析|转向)"
 )
@@ -99,6 +180,11 @@ class TurnIntent:
     comparison_entities: tuple[str, ...]
     inherited_from_turn: str | None
     evidence_atom_ids: tuple[str, ...] = ()
+    skill_ids: tuple[str, ...] = ()
+    stage_artifact_ids: tuple[str, ...] = ()
+    time_horizon: str = "unspecified"
+    operators: tuple[str, ...] = ()
+    required_outputs: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -115,6 +201,11 @@ class TurnIntent:
             secondary_topics = value.get("secondary_topics", ())
             comparison_entities = value.get("comparison_entities", ())
             evidence_atom_ids = value.get("evidence_atom_ids", ())
+            skill_ids = value.get("skill_ids", ())
+            stage_artifact_ids = value.get("stage_artifact_ids", ())
+            time_horizon = value.get("time_horizon", "unspecified")
+            operators = value.get("operators", ())
+            required_outputs = value.get("required_outputs", ())
         except KeyError:
             return None
         if primary_subject is not None and not isinstance(primary_subject, str):
@@ -125,7 +216,17 @@ class TurnIntent:
             return None
         if inherited_from_turn is not None and not isinstance(inherited_from_turn, str):
             return None
-        for items in (secondary_topics, comparison_entities, evidence_atom_ids):
+        if not isinstance(time_horizon, str):
+            return None
+        for items in (
+            secondary_topics,
+            comparison_entities,
+            evidence_atom_ids,
+            skill_ids,
+            stage_artifact_ids,
+            operators,
+            required_outputs,
+        ):
             if not isinstance(items, (list, tuple)) or any(
                 not isinstance(item, str) for item in items
             ):
@@ -138,6 +239,11 @@ class TurnIntent:
             comparison_entities=tuple(comparison_entities),
             inherited_from_turn=inherited_from_turn,
             evidence_atom_ids=tuple(evidence_atom_ids),
+            skill_ids=tuple(skill_ids),
+            stage_artifact_ids=tuple(stage_artifact_ids),
+            time_horizon=time_horizon,
+            operators=tuple(operators),
+            required_outputs=tuple(required_outputs),
         )
 
 
@@ -150,6 +256,11 @@ class ResearchPlan:
     comparison_entities: tuple[str, ...] = ()
     inherited_from_turn: str | None = None
     evidence_atom_ids: tuple[str, ...] = ()
+    skill_ids: tuple[str, ...] = ()
+    stage_artifact_ids: tuple[str, ...] = ()
+    time_horizon: str = "unspecified"
+    operators: tuple[str, ...] = ()
+    required_outputs: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -157,7 +268,7 @@ class ResearchPlan:
     @classmethod
     def from_intent(cls, intent: TurnIntent) -> ResearchPlan:
         stages = (
-            OWNER_RETRIEVAL_STAGES[intent.answer_owner]
+            OWNER_WORKFLOW_SPECS[intent.answer_owner].retrieval_stages
             if intent.answer_owner is not None
             else ()
         )
@@ -169,6 +280,11 @@ class ResearchPlan:
             comparison_entities=intent.comparison_entities,
             inherited_from_turn=intent.inherited_from_turn,
             evidence_atom_ids=intent.evidence_atom_ids,
+            skill_ids=intent.skill_ids,
+            stage_artifact_ids=intent.stage_artifact_ids,
+            time_horizon=intent.time_horizon,
+            operators=intent.operators,
+            required_outputs=intent.required_outputs,
         )
 
 
@@ -208,6 +324,51 @@ class EvidenceAtom:
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, value: object) -> EvidenceAtom | None:
+        if not isinstance(value, dict):
+            return None
+        try:
+            return cls(
+                atom_id=str(value["atom_id"]),
+                claim_text=str(value["claim_text"]),
+                entity_id=(
+                    str(value["entity_id"])
+                    if value.get("entity_id") is not None
+                    else None
+                ),
+                metric=(
+                    str(value["metric"])
+                    if value.get("metric") is not None
+                    else None
+                ),
+                value=value.get("value"),
+                unit=(
+                    str(value["unit"])
+                    if value.get("unit") is not None
+                    else None
+                ),
+                period=(
+                    str(value["period"])
+                    if value.get("period") is not None
+                    else None
+                ),
+                evidence_tier=str(value["evidence_tier"]),
+                source_id=str(value["source_id"]),
+                source_date=(
+                    str(value["source_date"])
+                    if value.get("source_date") is not None
+                    else None
+                ),
+                provenance=(
+                    dict(value["provenance"])
+                    if isinstance(value.get("provenance"), dict)
+                    else {}
+                ),
+            )
+        except KeyError:
+            return None
+
 
 @dataclass(frozen=True)
 class StructuredClaim:
@@ -225,6 +386,12 @@ class StageArtifact:
     stage: str
     status: StageStatus
     elapsed_ms: int
+    producer: str = ""
+    input_hash: str = ""
+    artifact_type: str = ""
+    required_output: bool = False
+    timeout_seconds: float = 0.0
+    on_failure: str = ""
     evidence_atom_ids: tuple[str, ...] = ()
     payload: dict[str, object] = field(default_factory=dict)
     degrade_reason: str | None = None
@@ -232,13 +399,85 @@ class StageArtifact:
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, value: object) -> StageArtifact | None:
+        if not isinstance(value, dict):
+            return None
+        try:
+            status = str(value["status"])
+            if status not in {
+                "pending",
+                "completed",
+                "partial",
+                "timeout",
+                "failed",
+                "skipped",
+            }:
+                return None
+            evidence_atom_ids = value.get("evidence_atom_ids", ())
+            if not isinstance(evidence_atom_ids, (list, tuple)):
+                return None
+            return cls(
+                stage=str(value["stage"]),
+                status=cast(StageStatus, status),
+                elapsed_ms=int(value.get("elapsed_ms") or 0),
+                producer=str(value.get("producer") or ""),
+                input_hash=str(value.get("input_hash") or ""),
+                artifact_type=str(value.get("artifact_type") or ""),
+                required_output=bool(value.get("required_output")),
+                timeout_seconds=float(value.get("timeout_seconds") or 0.0),
+                on_failure=str(value.get("on_failure") or ""),
+                evidence_atom_ids=tuple(
+                    str(item) for item in evidence_atom_ids if str(item)
+                ),
+                payload=(
+                    dict(value["payload"])
+                    if isinstance(value.get("payload"), dict)
+                    else {}
+                ),
+                degrade_reason=(
+                    str(value["degrade_reason"])
+                    if value.get("degrade_reason") is not None
+                    else None
+                ),
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+
 
 def is_follow_up(query: str) -> bool:
     cleaned = query.strip()
     return bool(
-        _FOLLOW_UP_REFERENCE_PATTERN.search(cleaned)
-        or _FOLLOW_UP_CONTINUATION_PATTERN.search(cleaned)
+        classify_reference(cleaned) != "none"
         or _COMPARISON_PATTERN.search(cleaned)
+    )
+
+
+def is_contextual_follow_up(
+    query: str,
+    envelope: QueryEnvelope,
+    previous_intent: TurnIntent | None,
+    *,
+    resolution: QueryResolution | None = None,
+) -> bool:
+    if previous_intent is None:
+        return False
+    cleaned = query.strip()
+    if is_follow_up(cleaned) or (
+        resolution is not None and resolution.context_dependent
+    ):
+        return True
+    if (
+        not cleaned
+        or len(cleaned) > 80
+        or _EXPLICIT_SWITCH_PATTERN.search(cleaned)
+        or not _CONTEXT_DEPENDENT_RESEARCH_PATTERN.search(cleaned)
+    ):
+        return False
+    return (
+        envelope.subject is None
+        or envelope.subject == previous_intent.primary_subject
+        or bool(_CONTEXT_DEPENDENT_RESEARCH_PREFIX_PATTERN.search(cleaned))
     )
 
 
@@ -252,9 +491,15 @@ def build_turn_intent(
     *,
     previous_intent: TurnIntent | None = None,
     previous_turn_id: str | None = None,
+    resolution: QueryResolution | None = None,
 ) -> TurnIntent:
     cleaned = query.strip()
-    follow_up = previous_intent is not None and is_follow_up(cleaned)
+    follow_up = is_contextual_follow_up(
+        cleaned,
+        envelope,
+        previous_intent,
+        resolution=resolution,
+    )
     explicit_task_type = _explicit_task_type(cleaned)
     explicit_task_switch = (
         explicit_task_type is not None
@@ -291,6 +536,11 @@ def build_turn_intent(
             comparison_entities=previous_intent.comparison_entities,
             inherited_from_turn=previous_turn_id,
             evidence_atom_ids=previous_intent.evidence_atom_ids,
+            skill_ids=previous_intent.skill_ids,
+            stage_artifact_ids=previous_intent.stage_artifact_ids,
+            time_horizon=envelope.time_horizon,
+            operators=envelope.operators,
+            required_outputs=envelope.required_outputs,
         )
 
     inherit = follow_up and not explicit_task_switch and not explicit_subject_switch
@@ -309,6 +559,21 @@ def build_turn_intent(
             ),
             inherited_from_turn=previous_turn_id,
             evidence_atom_ids=previous_intent.evidence_atom_ids,
+            skill_ids=previous_intent.skill_ids,
+            stage_artifact_ids=previous_intent.stage_artifact_ids,
+            time_horizon=(
+                envelope.time_horizon
+                if envelope.time_horizon != "unspecified"
+                else previous_intent.time_horizon
+            ),
+            operators=_merge_topics(
+                previous_intent.operators,
+                envelope.operators,
+            ),
+            required_outputs=_merge_topics(
+                previous_intent.required_outputs,
+                envelope.required_outputs,
+            ),
         )
 
     question_type = envelope.question_type
@@ -319,6 +584,9 @@ def build_turn_intent(
         answer_owner=answer_owner_for_question_type(question_type),
         comparison_entities=comparison_entities,
         inherited_from_turn=None,
+        time_horizon=envelope.time_horizon,
+        operators=envelope.operators,
+        required_outputs=envelope.required_outputs,
     )
 
 

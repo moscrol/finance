@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 
 from intelligence.services.market_midterm import (
     DEFAULT_WINDOW,
+    load_midterm_trend_artifact,
     midterm_trend_block_for_llm,
     parse_midterm_intent,
     resolve_query_themes,
@@ -91,6 +92,20 @@ class MidtermBlockTests(unittest.TestCase):
         self.assertIn("4→13", block)
         self.assertIn("当日强度 ≠ 中期赔率", block)
 
+    def test_typed_artifact_exposes_data_and_degrade_state(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+            artifact = load_midterm_trend_artifact(
+                "研究信创未来3到6个月的中期赔率",
+                "信创",
+                db,
+            )
+        self.assertTrue(artifact.available)
+        self.assertIsNone(artifact.degrade_reason)
+        self.assertEqual(artifact.evidence_id, "D6")
+        self.assertEqual(artifact.trends[0]["theme"], "信创")
+
     def test_missing_theme_declares_gap(self) -> None:
         with TemporaryDirectory() as tmp:
             db = Path(tmp) / "t.duckdb"
@@ -107,6 +122,13 @@ class MidtermBlockTests(unittest.TestCase):
             midterm_trend_block_for_llm("信创中期赔率", "信创", "/nonexistent/x.duckdb"),
             "",
         )
+        artifact = load_midterm_trend_artifact(
+            "信创中期赔率",
+            "信创",
+            "/nonexistent/x.duckdb",
+        )
+        self.assertFalse(artifact.available)
+        self.assertIsNotNone(artifact.degrade_reason)
 
 
 if __name__ == "__main__":

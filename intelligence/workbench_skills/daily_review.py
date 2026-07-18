@@ -4,6 +4,9 @@ import json
 from typing import cast
 
 from intelligence.api.structured_reports import daily_projection_modules
+from intelligence.services.query_understanding import (
+    market_review_requested_date,
+)
 from intelligence.workbench_skills.contracts import (
     JsonObject,
     JsonValue,
@@ -18,9 +21,13 @@ class DailyReviewSkill:
     skill_id = "daily-review"
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
+        requested_date = market_review_requested_date(context.query)
         try:
             date_text, projected_modules, projected_warnings = (
-                daily_projection_modules(context.repo_root)
+                daily_projection_modules(
+                    context.repo_root,
+                    requested_date=requested_date,
+                )
             )
         except (OSError, UnicodeError, ValueError):
             return SkillOutput(
@@ -88,9 +95,16 @@ class DailyReviewSkill:
                 citations=citations,
                 warnings=warnings,
                 as_of=date_text,
-                retrieval_plan=("读取最新 canonical 正式日报",),
+                retrieval_plan=(
+                    (
+                        f"读取 {requested_date} 的 canonical 正式日报"
+                        if requested_date
+                        else "读取最新 canonical 正式日报"
+                    ),
+                ),
                 output_contract=(
                     "直接给出市场状态、最强数据、主要风险和下一交易日验证点",
                 ),
             ),
         )
+

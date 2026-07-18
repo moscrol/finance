@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from collections.abc import Callable, Sequence
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import (
+    Future,
+    ThreadPoolExecutor,
+    TimeoutError as FuturesTimeoutError,
+)
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
@@ -15,7 +20,7 @@ from intelligence.api.structured_reports import (
     render_daily_review_answer,
     upsert_report_module,
 )
-from intelligence.services import answer_model
+from intelligence.services import answer_model, followups as followups_svc
 from intelligence.services import run_store as rs
 from intelligence.services.ask import (
     AskOptions,
@@ -26,6 +31,7 @@ from intelligence.services.ask import (
     prepare_existing_answer,
     render_conversation_answer,
     synthesize_prepared_answer,
+    synthesize_shadow_grounded_answer,
 )
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.answer_orchestrator import (
@@ -52,6 +58,7 @@ from intelligence.services.research_policy import (
     ResearchExecutionPolicy,
 )
 from intelligence.services.research_contract import (
+    OWNER_WORKFLOW_SPECS,
     ResearchDeadline,
     ResearchPlan,
     TurnIntent,
@@ -74,16 +81,21 @@ from intelligence.workbench_skills.router import (
     SkillRouteResult,
     route_skills,
 )
+from intelligence.services.query_resolution import is_contextual_reference
 
 RECENT_MESSAGE_LIMIT = 6
 SUMMARY_CHAR_LIMIT = 2400
-_FOLLOW_UP_REFERENCE_PATTERN = re.compile(
-    r"(?:^|[，。！？?!；;\s])(?:那|它|其|该公司|这个公司|上述|前述|前面)"
-)
-_FOLLOW_UP_CONTINUATION_PATTERN = re.compile(
-    r"^(?:把|再|继续|接着|然后|只按|横向|分别|哪些逻辑|"
-    r"和[^，。！？?!]{2,24}(?:比|比较))"
-)
+_SKILL_POOL_WORKERS = 3
+
+
+def _parallel_skills_enabled() -> bool:
+    return os.environ.get("WORKBENCH_PARALLEL_SKILLS", "1").strip().lower() not in {
+        "0",
+        "false",
+        "off",
+    }
+
+
 _INTERNAL_CITATION_PATTERN = re.compile(
     r"\[(?:D|P|L|G|R|S|W)\d+\]"
 )
@@ -189,6 +201,24 @@ _HUMAN_READABLE_REPLACEMENTS = (
         "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边",
         "时效边界：以上证据仅按来源日期标注，使用前需复核是否仍然有效。",
     ),
+    ("substitutes_and_harmed_directions", "替代与受损方向"),
+    ("prior_period_comparison", "前期比较"),
+    ("financial_transmission", "财务传导"),
+    ("original_disclosure", "原文披露"),
+    ("segment_disclosure", "分部披露"),
+    ("impact_transmission", "影响传导"),
+    ("financial_metrics", "财务指标"),
+    ("historical_analogs", "历史类比"),
+    ("market_lifecycle", "中期趋势"),
+    ("company_mapping", "公司映射"),
+    ("company_evidence", "公司证据"),
+    ("company_master", "公司本体"),
+    ("counterevidence", "反证核验"),
+    ("scenario_tree", "情景树"),
+    ("market_choice", "市场选择"),
+    ("report_period", "报告期锚定"),
+    ("event_facts", "事件事实"),
+    ("chain_stages", "产业链拆解"),
     ("rerank", "检索重排"),
     ("RAG 遥测", "检索诊断"),
     ("RAG", "知识库检索"),
@@ -455,6 +485,8 @@ def sanitize_conversation_answer(text: str) -> str:
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"(?<=[\u4e00-\u9fff]) (?=[\u4e00-\u9fff])", "", cleaned)
     cleaned = re.sub(r" +([，。；：、])", r"\1", cleaned)
+    cleaned = re.sub(r"([，。；：、（(]) +(?=[\u4e00-\u9fff])", r"\1", cleaned)
+    cleaned = re.sub(r"(?m)^ +(?=[\u4e00-\u9fff])", "", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     deduped_lines: list[str] = []
     for line in cleaned.splitlines():
@@ -491,10 +523,7 @@ def contextualize_follow_up_query(
     context: ConversationContext,
 ) -> str:
     cleaned = query.strip()
-    if not (
-        _FOLLOW_UP_REFERENCE_PATTERN.search(cleaned)
-        or _FOLLOW_UP_CONTINUATION_PATTERN.search(cleaned)
-    ):
+    if not is_contextual_reference(cleaned):
         return cleaned
     previous_user = next(
         (
@@ -512,11 +541,18 @@ def contextualize_follow_up_query(
 def previous_turn_intent(
     context: ConversationContext,
 ) -> tuple[TurnIntent | None, str | None]:
+    message = previous_turn_message(context)
+    if message is not None:
+        return TurnIntent.from_dict(message.turn_intent), message.message_id
+    return None, None
+
+
+def previous_turn_message(context: ConversationContext) -> Message | None:
     for message in reversed(context.recent_messages):
         intent = TurnIntent.from_dict(message.turn_intent)
         if intent is not None:
-            return intent, message.message_id
-    return None, None
+            return message
+    return None
 
 
 class TurnOrchestrator:
@@ -606,7 +642,27 @@ class TurnOrchestrator:
                 conversation_id, context.summary
             )
             raw_envelope = understand_query(query)
-            inherited_intent, inherited_turn_id = previous_turn_intent(context)
+            inherited_message = previous_turn_message(context)
+            inherited_intent = (
+                TurnIntent.from_dict(inherited_message.turn_intent)
+                if inherited_message is not None
+                else None
+            )
+            inherited_turn_id = (
+                inherited_message.message_id
+                if inherited_message is not None
+                else None
+            )
+            if (
+                inherited_intent is not None
+                and inherited_message is not None
+                and not inherited_intent.skill_ids
+                and inherited_message.invoked_skill_ids
+            ):
+                inherited_intent = replace(
+                    inherited_intent,
+                    skill_ids=tuple(inherited_message.invoked_skill_ids),
+                )
             controller_started = time.monotonic()
             decision = self.turn_controller(
                 query,
@@ -630,6 +686,22 @@ class TurnOrchestrator:
                 turn_intent=turn_intent,
             )
             contextual_query = contextualize_intent_query(query, turn_intent)
+            inherited_answer_spec = (
+                self._load_answer_spec(inherited_message.run_id)
+                if (
+                    inherited_message is not None
+                    and turn_intent.inherited_from_turn is not None
+                )
+                else None
+            )
+            inherited_stage_artifacts = self._json_object_tuple(
+                inherited_answer_spec,
+                "research_artifacts",
+            )
+            inherited_evidence_atoms = self._json_object_tuple(
+                inherited_answer_spec,
+                "research_evidence_atoms",
+            )
             routing_envelope = understand_query(contextual_query)
             report["task_type"] = decision.lane
             legacy_lane = (
@@ -811,6 +883,8 @@ class TurnOrchestrator:
                 }
                 if turn_intent.answer_owner is not None:
                     route_kwargs["answer_owner"] = turn_intent.answer_owner
+                if turn_intent.inherited_from_turn is not None:
+                    route_kwargs["inherited_skill_ids"] = turn_intent.skill_ids
                 route = self.route_skills(
                     contextual_query,
                     "ask",
@@ -819,6 +893,17 @@ class TurnOrchestrator:
                     **route_kwargs,
                 )
             selected = [selection.skill_id for selection in route.selections]
+            turn_intent = replace(
+                turn_intent,
+                skill_ids=(
+                    tuple(selected)
+                    if skill_mode == "manual"
+                    else tuple(
+                        dict.fromkeys((*turn_intent.skill_ids, *selected))
+                    )
+                ),
+            )
+            research_plan = ResearchPlan.from_intent(turn_intent)
             self._trace(
                 run_id,
                 assistant_message_id,
@@ -854,7 +939,58 @@ class TurnOrchestrator:
             execution_feedback: list[dict[str, str]] = []
             fallback_route_round = 0
             owner_timed_out = False
+            parallel_skills = _parallel_skills_enabled()
+            # 池容量 = 并行度上限 + 超时残留线程的余量；串行模式下并行度
+            # 仍由“消费时才提交”控制为 1，超时未结束的 skill 不阻塞后续。
+            skill_pool = ThreadPoolExecutor(
+                max_workers=_SKILL_POOL_WORKERS * 2,
+                thread_name_prefix="workbench-skill",
+            )
+            prestarted: dict[str, tuple[Future[SkillOutput], float]] = {}
+
+            def submit_skill(skill_id: str) -> tuple[Future[SkillOutput], float]:
+                future = skill_pool.submit(
+                    self.skill_registry.executors[skill_id].execute,
+                    SkillExecutionContext(
+                        query=contextual_query,
+                        task_type="ask",
+                        user_id=self.run_store.user_id,
+                        run_id=run_id,
+                        conversation_id=conversation_id,
+                        repo_root=self.repo_root,
+                        run_store=self.run_store,
+                        conversation_context=context.to_prompt_block(),
+                        turn_intent=turn_intent.to_dict(),
+                        research_plan=research_plan.to_dict(),
+                        inherited_answer_spec=inherited_answer_spec,
+                        inherited_stage_artifacts=inherited_stage_artifacts,
+                        inherited_evidence_atoms=inherited_evidence_atoms,
+                        deadline=research_deadline,
+                        retrieval_cache=retrieval_cache,
+                    ),
+                )
+                return future, time.monotonic()
+
+            def prestart_pending(selections: list) -> None:
+                # 并行模式：把本轮已路由、未重复且预算内的 skill 提前提交，
+                # 结果仍按路由顺序消费，保证输出确定性。
+                if not parallel_skills:
+                    return
+                for item in selections:
+                    candidate = item.skill_id
+                    if candidate in seen_skill_ids or candidate in prestarted:
+                        continue
+                    if (
+                        research_budget.call_count + len(prestarted)
+                        >= self.research_policy.max_skill_calls
+                    ):
+                        break
+                    if research_budget.remaining_seconds <= 0:
+                        break
+                    prestarted[candidate] = submit_skill(candidate)
+
             while pending_selections:
+                prestart_pending(pending_selections)
                 selection = pending_selections.pop(0)
                 self._check_cancelled()
                 skill_id = selection.skill_id
@@ -889,6 +1025,19 @@ class TurnOrchestrator:
                     continue
                 seen_skill_ids.add(skill_id)
                 invoked.append(skill_id)
+                if skill_id == turn_intent.answer_owner:
+                    workflow_spec = OWNER_WORKFLOW_SPECS[skill_id]
+                    self._emit(
+                        run_id,
+                        assistant_message_id,
+                        f"workflow:{skill_id}:loaded",
+                        "workflow.loaded",
+                        {
+                            **workflow_spec.to_dict(),
+                            "status": "loaded",
+                        },
+                        conversation_id,
+                    )
                 self._emit(
                     run_id,
                     assistant_message_id,
@@ -901,39 +1050,24 @@ class TurnOrchestrator:
                     },
                     conversation_id,
                 )
-                skill_pool = ThreadPoolExecutor(
-                    max_workers=1,
-                    thread_name_prefix=f"workbench-{skill_id}",
-                )
                 future = None
                 skill_started = time.monotonic()
                 try:
-                    future = skill_pool.submit(
-                        self.skill_registry.executors[skill_id].execute,
-                        SkillExecutionContext(
-                            query=contextual_query,
-                            task_type="ask",
-                            user_id=self.run_store.user_id,
-                            run_id=run_id,
-                            conversation_id=conversation_id,
-                            repo_root=self.repo_root,
-                            run_store=self.run_store,
-                            conversation_context=context.to_prompt_block(),
-                            turn_intent=turn_intent.to_dict(),
-                            research_plan=research_plan.to_dict(),
-                            deadline=research_deadline,
-                            retrieval_cache=retrieval_cache,
-                        ),
+                    launched = prestarted.pop(skill_id, None)
+                    if launched is None:
+                        launched = submit_skill(skill_id)
+                    future, skill_started = launched
+                    allowed_seconds = min(
+                        self.skill_registry.definitions[
+                            skill_id
+                        ].timeout_seconds,
+                        research_budget.remaining_seconds,
                     )
                     output = future.result(
                         timeout=max(
                             0.001,
-                            min(
-                                self.skill_registry.definitions[
-                                    skill_id
-                                ].timeout_seconds,
-                                research_budget.remaining_seconds,
-                            ),
+                            allowed_seconds
+                            - (time.monotonic() - skill_started),
                         )
                     )
                 except Exception as exc:  # noqa: BLE001
@@ -1001,11 +1135,14 @@ class TurnOrchestrator:
                         }
                     )
                 else:
+                    execution_status = output.status or (
+                        "degraded" if output.warnings else "completed"
+                    )
                     research_budget.record(
                         skill_id,
                         input_summary=contextual_query,
                         provider="skill_registry",
-                        status="degraded" if output.warnings else "completed",
+                        status=execution_status,
                         elapsed_ms=self._elapsed_ms(skill_started),
                         failure_reason="；".join(output.warnings),
                     )
@@ -1033,7 +1170,7 @@ class TurnOrchestrator:
                         "skill.result",
                         {
                             "skill_id": skill_id,
-                            "status": "degraded" if output.warnings else "completed",
+                            "status": execution_status,
                             "output": asdict(output),
                             "elapsed_ms": self._elapsed_ms(skill_started),
                             "task_may_continue": False,
@@ -1048,8 +1185,6 @@ class TurnOrchestrator:
                                 "failure_reason": "；".join(output.warnings),
                             }
                         )
-                finally:
-                    skill_pool.shutdown(wait=False, cancel_futures=True)
                 self._check_cancelled()
                 if (
                     not pending_selections
@@ -1109,6 +1244,7 @@ class TurnOrchestrator:
                             if item.skill_id not in selected:
                                 selected.append(item.skill_id)
                         pending_selections.extend(replacements)
+            skill_pool.shutdown(wait=False, cancel_futures=True)
             budget_trace = research_budget.to_trace()
             self._trace(
                 run_id,
@@ -1181,6 +1317,9 @@ class TurnOrchestrator:
                 / "db"
                 / "market_feature_store.duckdb",
                 conversation_context=context.to_prompt_block(),
+                wiki_rag_cache_scope=(
+                    f"{self.run_store.user_id}:{conversation_id or run_id}"
+                ),
                 supplemental_evidence=self._skill_evidence(skill_outputs),
                 include_memory_block=decision.needs_memory,
                 include_recall_block=decision.needs_memory,
@@ -1188,6 +1327,13 @@ class TurnOrchestrator:
                     QUESTION_CONCEPT_DEFINITION
                     if decision.lane == "knowledge"
                     else turn_intent.question_type
+                ),
+                controller_capabilities=(
+                    tuple(
+                        dict.fromkeys((*decision.capabilities, "web_search"))
+                    )
+                    if route.base_finance_fallback
+                    else decision.capabilities
                 ),
                 perspective_mode=perspective_mode,
                 perspective_ids=tuple(selected_perspective_ids),
@@ -1411,6 +1557,20 @@ class TurnOrchestrator:
                     block for block in (answer_prefix, answer_text) if block
                 )
             )
+            turn_intent = replace(
+                turn_intent,
+                skill_ids=(
+                    tuple(dict.fromkeys((*invoked, *selected)))
+                    if skill_mode == "manual"
+                    else tuple(
+                        dict.fromkeys(
+                            (*turn_intent.skill_ids, *invoked, *selected)
+                        )
+                    )
+                ),
+            )
+            research_plan = ResearchPlan.from_intent(turn_intent)
+            followup_payload: list[dict[str, object]] = []
             if result.answer_spec is not None:
                 atom_ids = tuple(
                     atom.atom_id
@@ -1418,11 +1578,32 @@ class TurnOrchestrator:
                         result.answer_spec
                     )
                 )
+                stage_artifact_ids = tuple(
+                    ":".join(
+                        part
+                        for part in (
+                            artifact.producer,
+                            artifact.stage,
+                            artifact.input_hash,
+                        )
+                        if part
+                    )
+                    for artifact in result.answer_spec.research_artifacts
+                )
                 turn_intent = replace(
                     turn_intent,
                     evidence_atom_ids=atom_ids,
+                    stage_artifact_ids=stage_artifact_ids,
                 )
                 research_plan = ResearchPlan.from_intent(turn_intent)
+                followup_result = followups_svc.generate_answer_spec_followups(
+                    result.answer_spec,
+                    subject=turn_intent.primary_subject,
+                )
+                followup_payload = [
+                    asdict(followup)
+                    for followup in followup_result.followups
+                ]
                 self._trace(
                     run_id,
                     assistant_message_id,
@@ -1433,6 +1614,7 @@ class TurnOrchestrator:
                         "status": "completed",
                         "evidence_atom_count": len(atom_ids),
                         "evidence_atom_ids": list(atom_ids),
+                        "stage_artifact_ids": list(stage_artifact_ids),
                         "quality_gate": (
                             result.llm_fallback_reason
                             or "structured_claim_ids_validated"
@@ -1469,6 +1651,38 @@ class TurnOrchestrator:
             elif not text_chunks or text_chunks[-1] != answer_text:
                 emit_text_delta(answer_text)
 
+            if (
+                prepared.options.shadow_grounded_composer
+                and result.answer_spec is not None
+            ):
+                try:
+                    synthesize_shadow_grounded_answer(
+                        PreparedAnswer(
+                            options=prepared.options,
+                            result=result,
+                        )
+                    )
+                except Exception as exc:
+                    result.grounded_composer_shadow = (
+                        answer_model.GroundedComposerShadow(
+                            status="internal_error",
+                            failure_reason=type(exc).__name__,
+                        )
+                    )
+                shadow = result.grounded_composer_shadow
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "shadow_synthesize",
+                    "grounded_composer_shadow",
+                    (
+                        shadow.to_dict()
+                        if shadow is not None
+                        else {"status": "not_run"}
+                    ),
+                )
+
             complete_report(
                 report,
                 as_of=result.trade_date,
@@ -1486,6 +1700,87 @@ class TurnOrchestrator:
                 renderer="markdown",
                 title=redact(f"对话回答：{query[:24]}"),
             )
+            if result.answer_spec is not None:
+                self.run_store.add_artifact(
+                    run_id,
+                    "answer_spec.json",
+                    json.dumps(
+                        result.answer_spec.to_dict(),
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    renderer="json",
+                    title="回答事实边界",
+                )
+                self.run_store.add_artifact(
+                    run_id,
+                    "followups.json",
+                    json.dumps(
+                        {
+                            "followups": followup_payload,
+                            "llm_used": False,
+                            "llm_provider": None,
+                            "warnings": [],
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    renderer="json",
+                    title="猜你想问",
+                )
+            if result.grounded_composer_shadow is not None:
+                shadow_payload = (
+                    result.grounded_composer_shadow.to_dict()
+                )
+                if (
+                    result.grounded_composer_shadow.decision_brief
+                    is not None
+                ):
+                    shadow_brief = (
+                        result.grounded_composer_shadow.decision_brief
+                    )
+                    decision_brief_payload = shadow_brief.to_dict()
+                    self.run_store.add_artifact(
+                        run_id,
+                        "decision_brief.json",
+                        redact(
+                            json.dumps(
+                                decision_brief_payload,
+                                ensure_ascii=False,
+                                indent=2,
+                            )
+                        ),
+                        renderer="json",
+                        title="影子论证计划",
+                    )
+                self.run_store.add_artifact(
+                    run_id,
+                    "grounded_composer_shadow.json",
+                    redact(
+                        json.dumps(
+                            shadow_payload,
+                            ensure_ascii=False,
+                            indent=2,
+                        )
+                    ),
+                    renderer="json",
+                    title="Grounded Composer 影子实验",
+                )
+                if (
+                    result.grounded_composer_shadow.status
+                    in {"accepted", "repaired"}
+                    and result.grounded_composer_shadow.presented_answer
+                    is not None
+                ):
+                    self.run_store.add_artifact(
+                        run_id,
+                        "grounded_composer_shadow.md",
+                        redact(
+                            result.grounded_composer_shadow.presented_answer
+                        ),
+                        renderer="markdown",
+                        title="Grounded Composer 影子答案",
+                    )
             self.run_store.add_artifact(
                 run_id,
                 "report.json",
@@ -1503,6 +1798,7 @@ class TurnOrchestrator:
                 invoked_skill_ids=invoked,
                 citations=citations,
                 degrades=warnings,
+                followups=followup_payload,
                 turn_intent=turn_intent.to_dict(),
                 research_plan=research_plan.to_dict(),
             )
@@ -1965,6 +2261,30 @@ class TurnOrchestrator:
             selected_skill_ids=tuple(selected),
             invoked_skill_ids=tuple(invoked),
         )
+
+    def _load_answer_spec(self, run_id: str | None) -> dict[str, object] | None:
+        if not run_id:
+            return None
+        path = self.run_store.run_dir(run_id) / "answer_spec.json"
+        if not path.is_file():
+            return None
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        return value if isinstance(value, dict) else None
+
+    @staticmethod
+    def _json_object_tuple(
+        value: dict[str, object] | None,
+        key: str,
+    ) -> tuple[dict[str, object], ...]:
+        if value is None:
+            return ()
+        items = value.get(key)
+        if not isinstance(items, list):
+            return ()
+        return tuple(dict(item) for item in items if isinstance(item, dict))
 
     @staticmethod
     def _skill_evidence(outputs: Sequence[SkillOutput]) -> str:

@@ -2,15 +2,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol, TypeAlias
+from typing import Literal, Protocol, TypeAlias
 
 from intelligence.services import answer_model
+from intelligence.services import retrieval_cache as retrieval_cache_service
 from intelligence.services.research_contract import ResearchDeadline
 from intelligence.services.run_store import RunStore, redact
 
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
+SkillResultStatus: TypeAlias = Literal[
+    "completed",
+    "partial",
+    "degraded",
+    "failed",
+]
 
 
 def redact_json(value: JsonValue) -> JsonValue:
@@ -45,6 +52,7 @@ class SkillOutput:
     raw_result_ref: str | None
     answer_contract: SkillAnswerContract | None = None
     stage_artifacts: list[JsonObject] = field(default_factory=list)
+    status: SkillResultStatus | None = None
 
 
 @dataclass(frozen=True)
@@ -90,7 +98,7 @@ def build_module_answer_contract(
             evidence_tier=sources[0].tier if sources else "skill_output",
             evidence_ids=evidence_ids,
         )
-        for index, line in enumerate(facts[:6], start=1)
+        for index, line in enumerate(facts[:16], start=1)
     )
     summary = (
         answer_model.make_claim(
@@ -219,8 +227,15 @@ class SkillExecutionContext:
     conversation_context: str = ""
     turn_intent: JsonObject | None = None
     research_plan: JsonObject | None = None
+    inherited_answer_spec: JsonObject | None = None
+    inherited_stage_artifacts: tuple[JsonObject, ...] = ()
+    inherited_evidence_atoms: tuple[JsonObject, ...] = ()
     deadline: ResearchDeadline | None = None
     retrieval_cache: dict[str, object] = field(default_factory=dict)
+    # 统一 TTL 检索缓存（跨 run 共享；盘面按日、wiki 按索引 revision 隔离）。
+    shared_retrieval_cache: retrieval_cache_service.RetrievalCache = field(
+        default_factory=retrieval_cache_service.shared_cache
+    )
 
 
 class SkillExecutor(Protocol):

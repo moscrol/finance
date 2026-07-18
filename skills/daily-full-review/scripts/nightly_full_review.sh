@@ -38,6 +38,17 @@ run_moneyflow() {
     echo "[$(date '+%F %T')] 资金流段跳过（scripts/moneyflow 未合并或缺 CH_PASSWORD）"
     return 2
   fi
+  # 开跑前 CH 预检：Fake-IP / 连不上立刻失败，避免扫 200+ 只全写空结果
+  if ! (
+    cd "$moneyflow_dir" && python3 -c "
+from moneyflow import preflight_clickhouse
+preflight_clickhouse()
+"
+  ); then
+    echo "[$(date '+%F %T')] 资金流段 preflight 失败（CH Fake-IP/不可达）。" \
+      "请把 base32.cn 设为代理 DIRECT 或设置 CH_HOST_FALLBACK=真实IP"
+    return 3
+  fi
   (
     cd "$moneyflow_dir" \
       && python3 write_to_duckdb.py --begin "$D" \

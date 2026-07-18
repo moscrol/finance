@@ -1,0 +1,10 @@
+[S1] 2026-07-08-theme-candidates.json · score_detail.double_red — fact_sector_daily
+[S2] 2026-07-08-theme-candidates.json · score_detail.new_high_mapping — fact_stock_high_daily
+[S3] 2026-07-08-theme-candidates.json · score_detail.limit_up_heat — fact_theme_limit_heat_daily
+[S4] 2026-07-08-theme-candidates.json · market_context — 
+[G1] knowledge-base · wiki/relations/concept_graph.json — 
+[G2] knowledge-base · wiki/relations/entity_exposures.json — 
+[R1] knowledge-base · wiki/relations/evidence_index.json — target=英维克 source=公司公告
+[R2] knowledge-base · wiki/relations/evidence_index.json — target=川环科技 source=券商研报
+[W1] knowledge-base · wiki/concepts/液冷服务器.md — closed-loop:narrow｜液冷服务器｜chunk=chunk-1｜evidence_chunks=chunk-1｜hash=｜index=｜freshness=
+[W2] knowledge-base · wiki/concepts/液冷服务器.md — closed-loop:counter｜液冷服务器｜chunk=chunk-9｜evidence_chunks=chunk-9｜hash=｜index=｜freshness=

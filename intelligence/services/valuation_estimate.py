@@ -17,9 +17,12 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 FETCH_ENV_FLAG = "FINANCE_VALUATION_FETCH"
-_PUSH2_URL = (
+# push2 主站偶发 502；delay 域名更稳。多端点兜底。
+_PUSH2_URLS = (
+    "https://push2delay.eastmoney.com/api/qt/stock/get"
+    "?secid={secid}&fields=f57,f58,f116,f117,f162,f163,f164,f167",
     "https://push2.eastmoney.com/api/qt/stock/get"
-    "?secid={secid}&fields=f57,f58,f116,f164,f167"
+    "?secid={secid}&fields=f57,f58,f116,f117,f162,f163,f164,f167",
 )
 
 
@@ -53,32 +56,50 @@ def _secid(ts_code: str) -> str:
     return f"{market}.{raw}"
 
 
+def _scale_num(value: Any, scale: float) -> float | None:
+    if not isinstance(value, (int, float)):
+        return None
+    # 东财偶发直接给已缩放小数；过大才按原始单位缩放
+    num = float(value)
+    if scale > 1 and abs(num) < scale:
+        return round(num, 2)
+    return round(num / scale, 2)
+
+
 def fetch_eastmoney_snapshot(
     ts_code: str, name: str = "", timeout: float = 6.0
 ) -> ValuationSnapshot | None:
     """Best-effort 东财 push2 快照；网络/字段异常时返回 None，由上层写缺口."""
-    try:
-        req = urllib.request.Request(
-            _PUSH2_URL.format(secid=_secid(ts_code)),
-            headers={"User-Agent": "Mozilla/5.0"},
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read().decode("utf-8")).get("data") or {}
-    except Exception:
+    data: dict[str, Any] = {}
+    for template in _PUSH2_URLS:
+        try:
+            req = urllib.request.Request(
+                template.format(secid=_secid(ts_code)),
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            data = payload.get("data") or {}
+            if data:
+                break
+        except Exception:
+            continue
+    if not data:
         return None
 
-    def _num(key: str, scale: float) -> float | None:
-        v = data.get(key)
-        if not isinstance(v, (int, float)):
-            return None
-        return round(float(v) / scale, 2)
-
+    # PE: f164=TTM 优先，其次 f163/f162；PB: f167
+    pe = _scale_num(data.get("f164"), 100.0)
+    if pe is None:
+        pe = _scale_num(data.get("f163"), 100.0)
+    if pe is None:
+        pe = _scale_num(data.get("f162"), 100.0)
     snap = ValuationSnapshot(
         ts_code=ts_code,
         name=str(data.get("f58") or name or ts_code),
-        total_mv_yi=_num("f116", 1e8),
-        pe_ttm=_num("f164", 100.0),
-        pb=_num("f167", 100.0),
+        total_mv_yi=_scale_num(data.get("f116"), 1e8),
+        pe_ttm=pe,
+        pb=_scale_num(data.get("f167"), 100.0),
+        source="东财快照",
     )
     if snap.total_mv_yi is None and snap.pe_ttm is None and snap.pb is None:
         return None
@@ -113,18 +134,19 @@ def build_valuation_block(
     fetch_disabled: bool = False,
 ) -> str:
     """生成 D5 估值数据块（注入 compose）；缺数时仍返回带显式缺口的块."""
-    lines = ["## 估值数据块 [D5]（东财快照，硬数据；只给区间不给目标价）"]
+    lines = ["## 估值数据块 [D5]（估值快照硬数据；只给区间不给目标价）"]
     if fetch_disabled:
         lines.append(f"- ⚠估值取数已被 {FETCH_ENV_FLAG}=0 关闭：估值现状/可比带全部为缺口，需说明数据不可得。")
         return "\n".join(lines)
     if target is None:
-        lines.append("- ⚠缺目标估值快照：东财接口未取到目标公司 PE/PB/市值，估值现状按缺口处理。")
+        lines.append("- ⚠缺目标估值快照：未取到目标公司 PE/PB/市值，估值现状按缺口处理。")
         return "\n".join(lines)
     mv = f"{target.total_mv_yi} 亿" if target.total_mv_yi is not None else "缺"
     pe = target.pe_ttm if target.pe_ttm is not None else "缺（可能亏损或未取到）"
     pb = target.pb if target.pb is not None else "缺"
+    src = target.source or "估值快照"
     lines.append(
-        f"- 目标估值现状：{target.name}（{target.ts_code}）总市值 {mv}，PE(TTM) {pe}，PB {pb}。"
+        f"- 目标估值现状：{target.name}（{target.ts_code}）总市值 {mv}，PE(TTM) {pe}，PB {pb}（来源：{src}）。"
     )
     if peers:
         pe_band = peer_band([p.pe_ttm for p in peers])
@@ -135,8 +157,15 @@ def build_valuation_block(
         )
         lines.append(f"- 可比公司快照（同题材成交前排，共 {len(peers)} 家）：{peer_desc}。")
         if pe_band:
-            pct = percentile_rank([p.pe_ttm for p in peers], target.pe_ttm)
-            pos = f"，目标横截面分位约 {pct}%" if pct is not None else "（目标 PE 缺，无法定位分位）"
+            if target.pe_ttm is not None and target.pe_ttm <= 0:
+                pos = "（目标 PE 为负/亏损，不宜用 PE 横截面分位，优先看 PB/PS 与市值）"
+            else:
+                pct = percentile_rank([p.pe_ttm for p in peers], target.pe_ttm)
+                pos = (
+                    f"，目标横截面分位约 {pct}%"
+                    if pct is not None
+                    else "（目标 PE 缺，无法定位分位）"
+                )
             lines.append(f"- 可比 PE(TTM) 估值带：{pe_band[0]} ~ {pe_band[2]}，中位 {pe_band[1]}{pos}。")
         if pb_band:
             lines.append(f"- 可比 PB 估值带：{pb_band[0]} ~ {pb_band[2]}，中位 {pb_band[1]}。")

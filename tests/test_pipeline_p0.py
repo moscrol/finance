@@ -397,15 +397,52 @@ def test_l2_gate_rejects_empty_results_without_stats(tmp_path, monkeypatch):
     assert any("limitup 状态为 failed" in item for item in missing)
 
 
-def test_l2_gate_accepts_audited_zero_results(tmp_path, monkeypatch):
+def _sample_capital_df(n=1):
+    """最小非空 capital 榜，避免 0 行被新闸门拒绝。"""
+    rows = []
+    for i in range(n):
+        code = f"{i + 1:06d}"
+        rows.append(
+            {
+                "code": code,
+                "name": f"测试{i}",
+                "主买净额(万)": 100.0 + i,
+                "总买净额(万)": 80.0 + i,
+                "流通市值(亿)": 50.0,
+                "综合得分": 1.0,
+                "当日涨幅%": 1.5,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def test_l2_gate_rejects_zero_capital_results(tmp_path, monkeypatch):
+    """有候选却 0 行 capital 结果：写库拒绝 complete，闸门报 failed。"""
     db_path = tmp_path / "l2-empty.duckdb"
     _database(db_path).close()
     writer = _load_l2_writer(monkeypatch, db_path)
     empty = pd.DataFrame()
 
     writer.begin_l2_run(TRADE_DATE)
-    writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50, stats=_stats(20))
-    writer.write_capital_flow(TRADE_DATE, "top100", empty, 50, stats=_stats(120))
+    with pytest.raises(RuntimeError, match="zero rows for limitup"):
+        writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50, stats=_stats(20))
+
+    _gate_db(monkeypatch, db_path)
+    missing = check_daily_review_data.check_l2(TRADE_DATE)
+    assert any("limitup 状态为 failed" in item for item in missing)
+
+
+def test_l2_gate_accepts_nonempty_capital_and_empty_quant(tmp_path, monkeypatch):
+    """capital 有数据、quant 可为 0 行（当日无量化簇）。"""
+    db_path = tmp_path / "l2-ok.duckdb"
+    _database(db_path).close()
+    writer = _load_l2_writer(monkeypatch, db_path)
+    capital = _sample_capital_df(3)
+    empty = pd.DataFrame()
+
+    writer.begin_l2_run(TRADE_DATE)
+    writer.write_capital_flow(TRADE_DATE, "limitup", capital, 50, stats=_stats(20))
+    writer.write_capital_flow(TRADE_DATE, "top100", capital, 50, stats=_stats(120))
     writer.write_quant_orders(TRADE_DATE, empty, 50, 200, stats=_stats(150))
 
     _gate_db(monkeypatch, db_path)
@@ -433,11 +470,12 @@ def test_l2_gate_rejects_top100_with_insufficient_inputs(tmp_path, monkeypatch):
     db_path = tmp_path / "l2-top50.duckdb"
     _database(db_path).close()
     writer = _load_l2_writer(monkeypatch, db_path)
+    capital = _sample_capital_df(2)
     empty = pd.DataFrame()
 
     writer.begin_l2_run(TRADE_DATE)
-    writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50, stats=_stats(20))
-    writer.write_capital_flow(TRADE_DATE, "top100", empty, 50, stats=_stats(50))
+    writer.write_capital_flow(TRADE_DATE, "limitup", capital, 50, stats=_stats(20))
+    writer.write_capital_flow(TRADE_DATE, "top100", capital, 50, stats=_stats(50))
     writer.write_quant_orders(TRADE_DATE, empty, 50, 200, stats=_stats(150))
 
     _gate_db(monkeypatch, db_path)
@@ -449,11 +487,12 @@ def test_l2_gate_rejects_row_count_mismatch(tmp_path, monkeypatch):
     db_path = tmp_path / "l2-mismatch.duckdb"
     _database(db_path).close()
     writer = _load_l2_writer(monkeypatch, db_path)
+    capital = _sample_capital_df(2)
     empty = pd.DataFrame()
 
     writer.begin_l2_run(TRADE_DATE)
-    writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50, stats=_stats(20))
-    writer.write_capital_flow(TRADE_DATE, "top100", empty, 50, stats=_stats(120))
+    writer.write_capital_flow(TRADE_DATE, "limitup", capital, 50, stats=_stats(20))
+    writer.write_capital_flow(TRADE_DATE, "top100", capital, 50, stats=_stats(120))
     writer.write_quant_orders(TRADE_DATE, empty, 50, 200, stats=_stats(150))
     con = duckdb.connect(str(db_path))
     try:
@@ -467,17 +506,17 @@ def test_l2_gate_rejects_row_count_mismatch(tmp_path, monkeypatch):
 
     _gate_db(monkeypatch, db_path)
     missing = check_daily_review_data.check_l2(TRADE_DATE)
-    assert any("top100 状态表 row_count=5 与结果表实际 0 行不一致" in item for item in missing)
+    assert any("top100 状态表 row_count=5 与结果表实际 2 行不一致" in item for item in missing)
 
 
 def test_mark_failed_covers_running_steps_only(tmp_path, monkeypatch):
     db_path = tmp_path / "l2-markfail.duckdb"
     _database(db_path).close()
     writer = _load_l2_writer(monkeypatch, db_path)
-    empty = pd.DataFrame()
+    capital = _sample_capital_df(1)
 
     writer.begin_l2_run(TRADE_DATE)
-    writer.write_capital_flow(TRADE_DATE, "limitup", empty, 50, stats=_stats(20))
+    writer.write_capital_flow(TRADE_DATE, "limitup", capital, 50, stats=_stats(20))
     writer.mark_failed(TRADE_DATE, "nightly moneyflow rc=1")
 
     con = duckdb.connect(str(db_path), read_only=True)

@@ -160,10 +160,10 @@ export function RunView({
               {followups.map((followup) => (
                 <button
                   type="button"
-                  key={`${followup.type}:${followup.question}`}
-                  onClick={() => onFollowup(followup.question)}
+                  key={`${followup.type}:${followup.full_prompt || followup.question}`}
+                  onClick={() => onFollowup(followup.full_prompt || followup.question)}
                 >
-                  {followup.question}
+                  {followup.label || followup.question}
                 </button>
               ))}
             </div>

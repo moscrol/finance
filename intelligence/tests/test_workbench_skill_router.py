@@ -74,10 +74,11 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "citations",
         "warnings",
         "as_of",
-        "raw_result_ref",
-        "answer_contract",
-        "stage_artifacts",
-    ]
+            "raw_result_ref",
+            "answer_contract",
+            "stage_artifacts",
+            "status",
+        ]
     store = RunStore(root=tmp_path / "runs")
     context = SkillExecutionContext(
         query="今日复盘",
@@ -153,6 +154,43 @@ def test_manual_mode_deduplicates_and_selects_only_manual_without_llm() -> None:
     assert result.base_finance_fallback is False
 
 
+def test_auto_and_hybrid_inherit_only_registered_skill_ids() -> None:
+    registry = {
+        "daily-review": definition("daily-review"),
+        "other": definition("other"),
+    }
+    for mode in ("auto", "hybrid"):
+        result = route_skills(
+            "下周验证清单",
+            "ask",
+            mode,
+            [],
+            registry=registry,
+            inherited_skill_ids=("missing", "daily-review"),
+            llm_complete=lambda _messages: (None, None, "no key"),
+        )
+        assert result.selections[0].skill_id == "daily-review"
+        assert result.selections[0].reason == "继承上一轮研究工具上下文"
+
+
+def test_manual_mode_ignores_inherited_skill_context() -> None:
+    registry = {
+        "daily-review": definition("daily-review"),
+        "manual": definition("manual"),
+    }
+
+    result = route_skills(
+        "按手动流程做",
+        "ask",
+        "manual",
+        ["manual"],
+        registry=registry,
+        inherited_skill_ids=("daily-review",),
+    )
+
+    assert [item.skill_id for item in result.selections] == ["manual"]
+
+
 def test_auto_mode_ignores_manual_selection_and_uses_stable_rules_without_llm() -> None:
     registry = {
         "z": definition("z", "复盘"),
@@ -174,6 +212,50 @@ def test_auto_mode_ignores_manual_selection_and_uses_stable_rules_without_llm() 
     assert all("匹配" in item.reason for item in result.selections)
     assert result.fallback_to_ask is False
     assert result.base_finance_fallback is False
+
+
+def test_dated_market_summary_routes_to_daily_review_without_llm_guessing() -> None:
+    registry = {
+        "daily-review": definition("daily-review", "复盘"),
+        "theme-research": definition("theme-research", "研究"),
+    }
+    query = "总结一下 2026-07-16 的行情"
+
+    result = route_skills(
+        query,
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        query_envelope=understand_query(query),
+        llm_complete=lambda _messages: (None, None, "no key"),
+    )
+
+    assert result.selections[0].skill_id == "daily-review"
+    assert result.selections[0].selection_source == "rule"
+    assert "指定日期" in result.selections[0].reason
+
+
+def test_market_watch_question_routes_to_daily_review_without_llm() -> None:
+    registry = {
+        "daily-review": definition("daily-review", "复盘"),
+        "theme-research": definition("theme-research", "研究"),
+    }
+    query = "今天有什么值得关注的"
+
+    result = route_skills(
+        query,
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        query_envelope=understand_query(query),
+        llm_complete=lambda _messages: (None, None, "no key"),
+    )
+
+    assert result.selections[0].skill_id == "daily-review"
+    assert result.selections[0].selection_source == "rule"
+    assert "当日盘面" in result.selections[0].reason
 
 
 def test_controller_owner_excludes_other_research_owners() -> None:
