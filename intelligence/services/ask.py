@@ -53,6 +53,7 @@ from intelligence.services import (
     market_timeseries,
     perspective_lab,
     research_brief,
+    retrieval_planner,
     scenario_tree,
     user_memory,
     web_research,
@@ -1604,6 +1605,40 @@ def answer_query(options: AskOptions) -> AskResult:
         # --- planner-worker 并行取数：数据块统一为 DataBlockProvider（applies=规则门控、
         # collect=取数），run_providers 对命中的块并行取数、按注册顺序汇总——evidence_text/
         # 引用编号与串行版逐字节一致，并行只是快。D3 依赖前面块的 evidence_text，单独串行收尾。---
+        # LLM 检索 planner 灰度（ASK_PLANNER_MODE=rules|shadow|llm）：shadow 只记 trace，
+        # llm 把鞈制后的计划写进 enabled_providers；失败/未配置完全回退规则门控。
+        planner_plan: retrieval_planner.RetrievalPlan | None = None
+        _planner_mode = retrieval_planner.planner_mode()
+        if (
+            _planner_mode != retrieval_planner.MODE_RULES
+            and options.enabled_providers is None
+        ):
+            planner_plan = retrieval_planner.plan_retrieval(
+                options.query, question_plan.question_type,
+            )
+            plan_applied = (
+                _planner_mode == retrieval_planner.MODE_LLM
+                and planner_plan.source == retrieval_planner.MODE_LLM
+            )
+            result.provider_traces.append(
+                ProviderTrace(
+                    provider="retrieval_planner",
+                    capability=f"mode={_planner_mode} applied={plan_applied}",
+                    status=(
+                        "success"
+                        if planner_plan.source == retrieval_planner.MODE_LLM
+                        else "fallback_failed"
+                    ),
+                    detail=json.dumps(planner_plan.to_dict(), ensure_ascii=False),
+                    result_count=len(planner_plan.providers),
+                )
+            )
+            if plan_applied:
+                options = replace(
+                    options, enabled_providers=planner_plan.providers,
+                )
+            else:
+                planner_plan = None  # shadow 或回退：计划不生效
         anchored_name = result.anchored_entity.entity if result.anchored_entity is not None else None
         providers: list[ask_planner.DataBlockProvider] = []
 
@@ -1723,7 +1758,11 @@ def answer_query(options: AskOptions) -> AskResult:
             )
 
         def _build_w7():
-            news_keyword = market_news.resolve_news_keyword(options.query, theme, anchored_name)
+            news_keyword = (
+                planner_plan.queries["W7"]
+                if planner_plan is not None and planner_plan.queries.get("W7")
+                else market_news.resolve_news_keyword(options.query, theme, anchored_name)
+            )
             news_result = market_news.news_block_result_for_keyword(
                 news_keyword,
                 timeout=_stage_timeout(options, 20),
