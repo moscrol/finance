@@ -185,3 +185,40 @@ def test_relevant_hit_is_scale_independent_for_rrf_scores() -> None:
     )
 
     assert [item.hit.title for item in result.conclusion] == ["液冷需求"]
+
+
+def test_index_style_query_does_not_anchor_substring_entities() -> None:
+    queries: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        queries.append(query)
+        if len(queries) <= 3:
+            return _response(
+                query,
+                [
+                    WikiHit(
+                        page_id="中科创达",
+                        file_path="wiki/entities/中科创达.md",
+                        title="中科创达（300496）",
+                        score=0.8,
+                        excerpt="中科创达 智能座舱 AIOS 中间件 芯片",
+                        best_chunk_id="中科创达::0",
+                    )
+                ],
+            )
+        return _response(query, [])
+
+    result = retrieve_closed_loop(
+        "科创50的支撑点位在哪",
+        anchor=None,
+        retrieve=retrieve,
+    )
+
+    assert result.conclusion == []
+    assert result.clues == []
+    assert all(
+        "中科创达" not in attempt.query for attempt in result.attempts
+    )
+    assert any(
+        item.hit.title.startswith("中科创达") for item in result.discarded
+    )

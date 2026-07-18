@@ -24,6 +24,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from intelligence.services import retrieval_cache
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # 跨题材历史剧本库（人工审核卡）：同题材量化匹配只能覆盖库内历史，
@@ -207,7 +209,7 @@ def load_historical_analog_artifact(
             degrade_reason="D8 历史类比依赖不可用",
         )
     try:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
     except Exception:
         return HistoricalAnalogArtifact(
             window,
@@ -437,7 +439,7 @@ def analog_block_for_llm(
     except Exception:
         return ""
     try:
-        con = duckdb.connect(str(db_path), read_only=True)
+        con = retrieval_cache.connect_readonly(db_path)
     except Exception:
         return ""
     try:

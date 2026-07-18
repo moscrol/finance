@@ -1253,6 +1253,148 @@ def test_research_budget_skips_excess_skill_and_records_trace(tmp_path) -> None:
     assert "执行专项研究" in budget["attempts"][1]["input_summary"]
 
 
+class _OverlapSkill:
+    def __init__(
+        self,
+        skill_id: str,
+        my_started: Event,
+        peer_started: Event,
+        spans: dict[str, tuple[float, float]],
+    ) -> None:
+        self.skill_id = skill_id
+        self._my_started = my_started
+        self._peer_started = peer_started
+        self._spans = spans
+
+    def execute(self, context: SkillExecutionContext) -> SkillOutput:
+        started = time.monotonic()
+        self._my_started.set()
+        overlapped = self._peer_started.wait(timeout=2.0)
+        self._spans[self.skill_id] = (started, time.monotonic())
+        return SkillOutput(
+            skill_id=self.skill_id,
+            modules=[],
+            citations=[],
+            warnings=[] if overlapped else [f"{self.skill_id} 未观察到并行执行"],
+            as_of="2026-07-11",
+            raw_result_ref=None,
+        )
+
+
+def _run_overlap_turn(tmp_path) -> tuple[object, dict[str, tuple[float, float]]]:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "执行专项研究",
+        selected_skill_ids=["overlap-a", "overlap-b"],
+    )
+    first_started = Event()
+    second_started = Event()
+    spans: dict[str, tuple[float, float]] = {}
+    registry = SkillRegistry()
+    for skill_id, executor in (
+        ("overlap-a", _OverlapSkill("overlap-a", first_started, second_started, spans)),
+        ("overlap-b", _OverlapSkill("overlap-b", second_started, first_started, spans)),
+    ):
+        registry.register(
+            SkillDefinition(
+                skill_id=skill_id,
+                name=skill_id,
+                description="fixture",
+                version="1.0.0",
+                triggers=("研究",),
+                input_schema={"type": "object"},
+                permissions=("local_read",),
+                timeout_seconds=10,
+            ),
+            executor,
+        )
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        skill_registry=registry,
+        turn_controller_fn=_research_controller,
+        research_policy=ResearchExecutionPolicy(
+            max_skill_calls=3,
+            max_elapsed_seconds=60,
+        ),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="执行专项研究",
+        skill_mode="manual",
+        selected_skill_ids=["overlap-a", "overlap-b"],
+    )
+    return result, spans
+
+
+def test_routed_skills_execute_in_parallel_with_ordered_outputs(tmp_path) -> None:
+    result, spans = _run_overlap_turn(tmp_path)
+
+    # 两个 skill 必须真正并行（互相等到对方启动），且结果按路由顺序消费。
+    assert result.invoked_skill_ids == ("overlap-a", "overlap-b")
+    a_start, a_end = spans["overlap-a"]
+    b_start, b_end = spans["overlap-b"]
+    assert a_start < b_end and b_start < a_end
+
+
+def test_parallel_skills_flag_off_falls_back_to_serial(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("WORKBENCH_PARALLEL_SKILLS", "0")
+    result, spans = _run_overlap_turn(tmp_path)
+
+    assert result.invoked_skill_ids == ("overlap-a", "overlap-b")
+    a_start, a_end = spans["overlap-a"]
+    b_start, _ = spans["overlap-b"]
+    assert b_start >= a_end
+
+
+def test_compose_ask_options_share_wiki_rag_cache_scope(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        "执行专项研究",
+    )
+    captured: list[AskOptions] = []
+
+    def capture_ask(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=capture_ask,
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query="执行专项研究",
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert captured
+    assert captured[0].wiki_rag_cache_scope == (
+        f"alice:{conversation.conversation_id}"
+    )
+
+
 def test_current_skill_output_is_injected_as_current_turn_evidence(tmp_path) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
@@ -2373,4 +2515,60 @@ def test_sanitize_humanizes_stage_ids_and_internal_codes() -> None:
     assert (
         sanitize_conversation_answer("D6 中期趋势库不存在")
         == "中期趋势库不存在"
+    )
+
+
+def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "科创50的支撑点位在哪"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    captured: list[AskOptions] = []
+
+    def capture_options(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    def quote_controller(controller_query: str, **kwargs: object) -> TurnDecision:
+        del kwargs
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=False,
+            needs_template=True,
+            confidence=0.85,
+            reason=f"fixture research: {controller_query}",
+            capabilities=("market_quote", "graph"),
+        )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=capture_options,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (), fallback_to_ask=False, base_finance_fallback=True
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=quote_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert len(captured) == 1
+    assert captured[0].controller_capabilities == (
+        "market_quote",
+        "graph",
+        "web_search",
     )

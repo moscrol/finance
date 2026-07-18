@@ -1,0 +1,46 @@
+{
+  "trade_date": "2026-07-08",
+  "market_context": {
+    "market_stage": "分歧日",
+    "total_amount": 18234,
+    "limit_up": 58,
+    "limit_down": 7,
+    "capacity_sectors": [
+      {"name": "算力硬件", "ratio": 8.4},
+      {"name": "液冷服务器", "ratio": 5.1},
+      {"name": "存储芯片", "ratio": 4.7}
+    ]
+  },
+  "candidates": [
+    {
+      "canonical_concept": "液冷服务器",
+      "market_theme": "液冷",
+      "candidate_tier": "deep",
+      "priority_score": 86.5,
+      "sw_l1": "计算机",
+      "score_detail": [
+        {
+          "signal": "double_red",
+          "score": 30,
+          "reason": "板块连续两日放量上涨",
+          "source": "fact_sector_daily"
+        },
+        {
+          "signal": "new_high_mapping",
+          "score": 25,
+          "reason": "板块内 6 只个股创一年新高",
+          "source": "fact_stock_high_daily"
+        },
+        {
+          "signal": "limit_up_heat",
+          "score": 18,
+          "reason": "题材涨停 5 家、市占率 8.6%",
+          "source": "fact_theme_limit_heat_daily"
+        }
+      ],
+      "matched_concepts": [
+        {"concept": "液冷服务器", "score": 10}
+      ]
+    }
+  ]
+}

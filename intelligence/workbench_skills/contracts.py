@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Literal, Protocol, TypeAlias
 
 from intelligence.services import answer_model
+from intelligence.services import retrieval_cache as retrieval_cache_service
 from intelligence.services.research_contract import ResearchDeadline
 from intelligence.services.run_store import RunStore, redact
 
@@ -231,6 +232,10 @@ class SkillExecutionContext:
     inherited_evidence_atoms: tuple[JsonObject, ...] = ()
     deadline: ResearchDeadline | None = None
     retrieval_cache: dict[str, object] = field(default_factory=dict)
+    # 统一 TTL 检索缓存（跨 run 共享；盘面按日、wiki 按索引 revision 隔离）。
+    shared_retrieval_cache: retrieval_cache_service.RetrievalCache = field(
+        default_factory=retrieval_cache_service.shared_cache
+    )
 
 
 class SkillExecutor(Protocol):

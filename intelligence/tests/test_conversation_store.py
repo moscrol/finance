@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from typing import get_type_hints
 from unittest.mock import patch
 
@@ -235,6 +236,7 @@ def test_invalid_middle_record_raises_integrity_error_with_line_number(tmp_path)
     path = tmp_path / conversation.conversation_id / "messages.jsonl"
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     path.write_text(lines[0] + "not-json\n" + lines[1], encoding="utf-8")
+    _clear_sqlite(store, "messages")  # 验证旧 JSONL 回退读路径的损坏检测
 
     with pytest.raises(ConversationDataIntegrityError, match="第 2 行"):
         store.load_messages(conversation.conversation_id)
@@ -254,9 +256,15 @@ def test_load_conversation_rejects_metadata_identity_mismatch(
     data = json.loads(path.read_text(encoding="utf-8"))
     data[field] = bad_value
     path.write_text(json.dumps(data), encoding="utf-8")
+    _clear_sqlite(store, "conversations")  # 验证旧 JSON 回退读路径的完整性检查
 
     with pytest.raises(ConversationDataIntegrityError, match=field):
         store.load_conversation(conversation.conversation_id)
+
+
+def _clear_sqlite(store: ConversationStore, table: str) -> None:
+    with sqlite3.connect(store.db.path) as conn:
+        conn.execute(f"DELETE FROM {table}")
 
 
 def test_archived_conversations_are_listed_and_readable(tmp_path):
