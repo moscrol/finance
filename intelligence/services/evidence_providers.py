@@ -22,7 +22,6 @@ from intelligence.services import (
     kb_rag,
     l3_evidence,
     research_brief,
-    retrieval_cache,
     web_research,
 )
 from intelligence.services.answer_orchestrator import (
@@ -90,10 +89,6 @@ class EvidenceContext:
     is_stale: Callable[[dict[str, Any]], bool]
     confidence_score: Callable[[Any], float | None]
     stage_timeout: Callable[[float], float]
-    # 统一检索缓存（TTL，key=(source, query, as_of[, revision])）；provider 可选复用。
-    cache: retrieval_cache.RetrievalCache = field(
-        default_factory=retrieval_cache.shared_cache
-    )
 
 
 @dataclass

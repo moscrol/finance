@@ -204,7 +204,16 @@ def route_skills(
         )
     }
     available_slots = max(0, 3 - len(reserved_ids))
-    if automatic_registry and available_slots > 0:
+    # owner 快车道（P1）：Controller 已指定 answer_owner 时跳过 LLM 软选择——
+    # happy path 下 owner 产出 answer_contract 后剩余 selections 会被清空
+    # （辅助 skill 根本不执行），owner 失败另有 route_skills_after_tool_failure
+    # 重路由兜底；此处的 LLM 调用是纯浪费的延迟。头部意图保持确定性路由，
+    # LLM 软选择只服务无 owner 的长尾。规则候选仍保留（失败兜底时有用）。
+    if (
+        automatic_registry
+        and available_slots > 0
+        and answer_owner is None
+    ):
         rule_ids = {skill_id for skill_id, _ in rules}
         candidates = [
             {
