@@ -255,13 +255,20 @@ def daily_projection_modules(
         }
         for metric in projection.get("metrics", [])
     ]
+    overview_summary = "；".join(
+        str(_humanize_daily_text(line)).rstrip("。")
+        for line in projection.get("plain_summary", [])
+        if str(line).strip()
+    )
     modules: list[dict[str, Any]] = [
         {
             "module_id": "daily_overview",
             "title": "今日核心",
             "kind": "summary",
             "status": "degraded" if warnings else "complete",
-            "summary": "基于本地复盘报告数据。",
+            "summary": (overview_summary + "。")
+            if overview_summary
+            else "基于本地复盘报告数据。",
             "content": None,
             "metrics": metrics,
             "items": [
@@ -450,13 +457,20 @@ def daily_agent_projection_modules(
     warnings = list(provenance.get("warnings", []))
     date_text = projection.get("date")
     source = provenance.get("canonical_path")
+    agent_summary = "；".join(
+        str(line).rstrip("。")
+        for line in projection.get("plain_summary", [])
+        if str(line).strip()
+    )
     modules: list[dict[str, Any]] = [
         {
             "module_id": "daily_agent_overview",
             "title": str(projection.get("title") or "日常研究雷达"),
             "kind": "summary",
             "status": "degraded" if warnings else "complete",
-            "summary": "基于 canonical Daily Agent JSON 的确定性投影。",
+            "summary": (agent_summary + "。")
+            if agent_summary
+            else "基于 canonical Daily Agent JSON 的确定性投影。",
             "content": None,
             "metrics": list(projection.get("metrics", [])),
             "items": [

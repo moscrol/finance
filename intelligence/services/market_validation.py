@@ -153,18 +153,39 @@ def _strength(metrics: dict[str, Any]) -> str:
     return VALIDATION_NONE
 
 
+def _momentum(changes: dict[str, Any], has_previous: bool) -> str:
+    if not has_previous:
+        return ""
+    delta = float(changes.get("priority变化") or 0)
+    limit_delta = int(changes.get("涨停变化") or 0)
+    high_delta = int(changes.get("新高变化") or 0)
+    if delta <= -30:
+        detail = []
+        if limit_delta < 0:
+            detail.append(f"涨停减 {abs(limit_delta)} 只")
+        if high_delta < 0:
+            detail.append(f"新高减 {abs(high_delta)} 只")
+        suffix = f"（{'、'.join(detail)}）" if detail else ""
+        return f"但优先级较前一日回落 {abs(delta):g}{suffix}，边际动能在衰减"
+    if delta >= 30:
+        return f"且优先级较前一日抬升 {delta:g}，边际动能在增强"
+    return "优先级较前一日大体持平"
+
+
 def _conclusion(strength: str, metrics: dict[str, Any], changes: dict[str, Any], has_previous: bool) -> str:
     prefix = "" if has_previous else "当前首次进入观察窗口，"
+    momentum = _momentum(changes, has_previous)
+    momentum_text = f"；{momentum}" if momentum else ""
     if strength == VALIDATION_STRONG:
         return (
-            f"{prefix}多信号共振，盘面正在给出较强 L4 验证；"
-            f"涨停 {metrics.get('涨停数', 0)} 只，新高 {metrics.get('新高数', 0)} 只，"
-            f"priority 变化 {changes.get('priority变化', 0):g}。"
+            f"{prefix}多信号共振，盘面给出较强 L4 验证（涨停 {metrics.get('涨停数', 0)} 只，"
+            f"新高 {metrics.get('新高数', 0)} 只）{momentum_text}。"
         )
     if strength == VALIDATION_MEDIUM:
         return (
-            f"{prefix}有盘面信号，但扩散强度或持续性还需要继续观察；"
-            f"触发 {metrics.get('触发信号数', 0)} 类，强势股 {metrics.get('强势股数', 0)} 只。"
+            f"{prefix}有盘面信号，但扩散强度或持续性还需要继续观察（触发"
+            f" {metrics.get('触发信号数', 0)} 类，强势股 {metrics.get('强势股数', 0)} 只）"
+            f"{momentum_text}。"
         )
     if strength == VALIDATION_WEAK:
         return f"{prefix}有零星盘面信号，但扩散不足，暂不能证明逻辑被系统性重定价。"
