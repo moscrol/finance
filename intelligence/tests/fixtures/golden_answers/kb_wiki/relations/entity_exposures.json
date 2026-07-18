@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "英维克": {
+      "codes": ["002837.SZ"],
+      "concepts": {
+        "液冷服务器": {
+          "role": "精密温控整机与液冷全链条方案",
+          "strength": "core",
+          "confidence": "high",
+          "evidence_layer": "l3",
+          "source": "公司公告"
+        }
+      }
+    },
+    "川环科技": {
+      "codes": ["300547.SZ"],
+      "concepts": {
+        "液冷服务器": {
+          "role": "液冷管路（弱相关，待验证）",
+          "strength": "peripheral",
+          "confidence": "low",
+          "evidence_layer": "graph_only",
+          "source": "券商研报"
+        }
+      }
+    }
+  }
+}

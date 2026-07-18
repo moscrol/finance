@@ -15,6 +15,7 @@ RELATION_FILES = {
     "concept_graph": "concept_graph.json",
     "entity_exposures": "entity_exposures.json",
     "evidence_index": "evidence_index.json",
+    "invalidation_links": "invalidation_links.json",
     "pattern_library": "pattern_library.json",
     "report_contexts": "report_contexts.json",
     "theme_signals": "theme_signals.json",
@@ -46,6 +47,28 @@ _GENERIC_SEARCH_TERMS = {
     "受益",
     "弱关联",
 }
+
+
+_EVIDENCE_STATUSES = {"active", "superseded", "invalidated"}
+
+
+def evidence_status(item: dict[str, Any]) -> str:
+    """证据条目的生命周期状态；缺失或非法值一律视为 active。"""
+    status = str(item.get("status") or "").strip().lower()
+    return status if status in _EVIDENCE_STATUSES else "active"
+
+
+def _evidence_key(item: dict[str, Any]) -> str:
+    """证据条目的稳定复合键，与知识库仓 invalidation_overlay.evidence_key 同构。"""
+    return "|".join(
+        (
+            str(item.get("target") or ""),
+            str(item.get("concept") or ""),
+            str(item.get("source_date") or ""),
+            str(item.get("source") or ""),
+            str(item.get("evidence") or "")[:80],
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -135,7 +158,21 @@ class KnowledgeAdapter:
             "errors": [],
         }
 
-    def get_evidence(self, target: str, concept: str | None = None, limit: int = 20) -> dict[str, Any]:
+    def get_evidence(
+        self,
+        target: str,
+        concept: str | None = None,
+        limit: int = 20,
+        include_invalidated: bool = False,
+    ) -> dict[str, Any]:
+        """按 target/concept 检索证据条目（Temporal Facts 读策略）。
+
+        条目可选 ``status`` 字段：``active``（默认）/ ``superseded``（已被新证据
+        取代，保留但排序降后）/ ``invalidated``（已被证伪，默认不返回）。
+
+        另叠加知识库仓的证伪回链派生层 ``relations/invalidation_links.json``：
+        hard 链→视为 invalidated；soft 链→视为 superseded（保留但降后并附回链说明）。
+        """
         relation = self.load_relation("evidence_index")
         if not relation["found"]:
             return {
@@ -157,11 +194,31 @@ class KnowledgeAdapter:
                 "warnings": ["evidence_index.items is not a list"],
                 "errors": [],
             }
-        target_items = [
-            item
-            for item in items
-            if isinstance(item, dict) and item.get("target") == target
-        ]
+        overlay_idx = self._invalidation_overlay_index()
+        target_items = []
+        for item in items:
+            if not isinstance(item, dict) or item.get("target") != target:
+                continue
+            status = evidence_status(item)
+            if status == "active" and overlay_idx:
+                link = overlay_idx.get(_evidence_key(item))
+                if link is not None:
+                    status = (
+                        "invalidated"
+                        if link.get("strength") == "hard"
+                        else "superseded"
+                    )
+                    item = {
+                        **item,
+                        "status": status,
+                        "status_note": link.get("note") or "",
+                    }
+            if status == "invalidated" and not include_invalidated:
+                continue
+            target_items.append(item)
+        target_items.sort(
+            key=lambda item: evidence_status(item) == "superseded"
+        )
         if concept:
             exact_items = [
                 item
@@ -290,6 +347,36 @@ class KnowledgeAdapter:
             "warnings": [] if items else ["entity exposures not found"],
             "errors": [],
         }
+
+    def _invalidation_overlay_index(self) -> dict[str, dict[str, Any]]:
+        """把证伪回链 overlay 摆平成 {evidence_key: {strength, note}}；hard 优先。"""
+        relation = self.load_relation("invalidation_links")
+        if not relation["found"]:
+            return {}
+        idx: dict[str, dict[str, Any]] = {}
+        for link in relation["data"].get("links", []) or []:
+            if not isinstance(link, dict):
+                continue
+            strength = str(link.get("strength") or "")
+            negation = link.get("negation") or {}
+            hits = "/".join(negation.get("hits") or [])
+            kind = "证伪" if strength == "hard" else "待定性"
+            note = (
+                f"回链：{negation.get('source_date') or '?'} "
+                f"{hits}（{kind}·待人工复核）"
+            )
+            for prior in link.get("invalidates") or []:
+                if not isinstance(prior, dict):
+                    continue
+                key = prior.get("key")
+                if not key:
+                    continue
+                current = idx.get(key)
+                if current is None or (
+                    current.get("strength") != "hard" and strength == "hard"
+                ):
+                    idx[key] = {"strength": strength, "note": note}
+        return idx
 
     @staticmethod
     def _evidence_matches_concept(item: dict[str, Any], concept: str) -> bool:

@@ -186,6 +186,10 @@ _HARD_EVIDENCE_TIERS = frozenset(
 )
 
 
+# Daily Agent 专用契约：Grounded Composer 担任正式 Presenter，保留 LLM 最终措辞。
+DAILY_AGENT_PRESENTATION_KIND = "daily_agent_grounded"
+
+
 class ClaimStatus(str, Enum):
     VERIFIED = "verified"
     CANDIDATE = "candidate"
@@ -414,6 +418,7 @@ class GroundedComposerShadow:
     presented_answer: str | None = None
     deterministic_issues: tuple[QualityIssue, ...] = ()
     judge_report: GroundingJudgeReport | None = None
+    judge_raw: str | None = None
     provider: str | None = None
     model: str | None = None
     failure_reason: str | None = None
@@ -438,6 +443,7 @@ class GroundedComposerShadow:
                 if self.judge_report is not None
                 else None
             ),
+            "judge_raw": self.judge_raw,
             "provider": self.provider,
             "model": self.model,
             "failure_reason": self.failure_reason,
@@ -1348,7 +1354,10 @@ def _artifact_claim_marker(
 
 def render_answer_spec(answer_spec: AnswerSpec) -> str:
     answer_spec = apply_claim_evidence_policy(answer_spec)
-    if answer_spec.presentation_kind == "base_finance":
+    if answer_spec.presentation_kind in {
+        "base_finance",
+        DAILY_AGENT_PRESENTATION_KIND,
+    }:
         return _apply_certainty_gate(
             _render_base_finance_answer_spec(answer_spec),
             answer_spec,
@@ -1611,6 +1620,11 @@ def repair_llm_answer(
     return None
 
 
+# 派生 EvidenceAtom 的 period 字段承载来源 claim 的 freshness 三态；
+# 真实报告期（如 "2026H1"）不会与这两个哨兵值撞名。
+_STALE_EVIDENCE_PERIODS = frozenset({"superseded", "invalidated"})
+
+
 def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
     leaked = [term for term in _ENGINEERING_TERMS if term in answer]
@@ -1680,6 +1694,23 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
                     f"事实 claim {claim.claim_id} 未绑定 EvidenceAtom。",
                 )
             )
+        if claim.claim_type == "fact" and claim.evidence_atom_ids:
+            bound_atoms = [
+                atom_registry[atom_id]
+                for atom_id in claim.evidence_atom_ids
+                if atom_id in atom_registry
+            ]
+            if bound_atoms and all(
+                atom.period in _STALE_EVIDENCE_PERIODS for atom in bound_atoms
+            ):
+                issues.append(
+                    QualityIssue(
+                        "llm_fact_only_superseded_evidence",
+                        "error",
+                        f"事实 claim {claim.claim_id} 只绑定了已被取代/已证伪的证据原子，"
+                        "不能作为当前事实陈述。",
+                    )
+                )
     return tuple(issues)
 
 
@@ -1783,6 +1814,16 @@ def parse_decision_brief(
     allowed_claim_ids = {
         claim.claim_id for claim in _all_answer_claims(answer_spec)
     }
+    atom_owner = {
+        atom.atom_id: str(atom.provenance.get("claim_id", ""))
+        for atom in evidence_atoms_from_answer_spec(answer_spec)
+    }
+
+    def canonical_claim_id(raw_id: str) -> str:
+        if raw_id in allowed_claim_ids:
+            return raw_id
+        owner = atom_owner.get(raw_id, "")
+        return owner if owner in allowed_claim_ids else raw_id
 
     def text_value(key: str) -> str:
         value = payload.get(key)
@@ -1794,7 +1835,7 @@ def parse_decision_brief(
             return ()
         return tuple(
             dict.fromkeys(
-                str(item).strip()
+                canonical_claim_id(str(item).strip())
                 for item in value
                 if str(item).strip()
             )
@@ -1851,17 +1892,76 @@ def parse_decision_brief(
         if claim_id not in allowed_claim_ids
     )
     if invalid_ids:
-        issues.append(
-            QualityIssue(
-                "decision_brief_invalid_claim_id",
-                "error",
-                "DecisionBrief 使用无效 claim ID："
-                + "、".join(invalid_ids),
-            )
+        filtered_supports = tuple(
+            claim_id
+            for claim_id in brief.supports
+            if claim_id in allowed_claim_ids
         )
+        if filtered_supports:
+            brief = DecisionBrief(
+                direct_answer=brief.direct_answer,
+                core_tension=brief.core_tension,
+                supports=filtered_supports,
+                counterevidence=tuple(
+                    claim_id
+                    for claim_id in brief.counterevidence
+                    if claim_id in allowed_claim_ids
+                ),
+                unknowns=tuple(
+                    claim_id
+                    for claim_id in brief.unknowns
+                    if claim_id in allowed_claim_ids
+                ),
+                upgrade_conditions=tuple(
+                    claim_id
+                    for claim_id in brief.upgrade_conditions
+                    if claim_id in allowed_claim_ids
+                ),
+                downgrade_conditions=tuple(
+                    claim_id
+                    for claim_id in brief.downgrade_conditions
+                    if claim_id in allowed_claim_ids
+                ),
+            )
+        else:
+            issues.append(
+                QualityIssue(
+                    "decision_brief_invalid_claim_id",
+                    "error",
+                    "DecisionBrief 使用无效 claim ID："
+                    + "、".join(invalid_ids),
+                )
+            )
     if issues:
         return None, tuple(issues)
     return brief, ()
+
+
+def _merge_orphan_grounded_markers(answer: str) -> str:
+    """把单独成行的 claim marker 归并到前一行正文。
+
+    composer 模型有时把 ``<!-- claim_ids=... -->`` 写在句子的下一行而非行内，
+    逐行解析会把正文判为未绑定、marker 判为空句，导致修复后只剩标题。
+    """
+    merged: list[str] = []
+    for raw_line in answer.splitlines():
+        line = raw_line.strip()
+        marker = _GROUNDED_CLAIM_MARKER_RE.search(line)
+        if (
+            marker is not None
+            and not _GROUNDED_CLAIM_MARKER_RE.sub("", line).strip()
+            and merged
+        ):
+            prev = merged[-1].rstrip()
+            if (
+                prev
+                and not _is_nonclaim_line(prev.strip())
+                and _GROUNDED_CLAIM_MARKER_RE.search(prev) is None
+            ):
+                merged[-1] = f"{prev} {marker.group(0)}"
+                continue
+        merged.append(raw_line)
+    return "\n".join(merged)
 
 
 def parse_grounded_sentences(
@@ -1869,7 +1969,7 @@ def parse_grounded_sentences(
 ) -> tuple[tuple[GroundedSentence, ...], tuple[str, ...]]:
     sentences: list[GroundedSentence] = []
     unbound_lines: list[str] = []
-    for raw_line in answer.splitlines():
+    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             continue
@@ -2141,7 +2241,7 @@ def validate_grounded_composer_answer(
 def present_grounded_composer_answer(answer: str) -> str:
     return "\n".join(
         _GROUNDED_CLAIM_MARKER_RE.sub("", line).rstrip()
-        for line in answer.splitlines()
+        for line in _merge_orphan_grounded_markers(answer).splitlines()
     ).strip()
 
 
@@ -2150,6 +2250,7 @@ def repair_grounded_composer_answer(
     answer_spec: AnswerSpec,
     *,
     rejected_sentence_indexes: tuple[int, ...] = (),
+    drop_invalid: bool = False,
 ) -> str | None:
     atoms = evidence_atoms_from_answer_spec(answer_spec)
     claim_registry = {
@@ -2158,14 +2259,14 @@ def repair_grounded_composer_answer(
     rejected = set(rejected_sentence_indexes)
     repaired_lines: list[str] = []
     sentence_index = 0
-    for raw_line in answer.splitlines():
+    for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             repaired_lines.append(raw_line)
             continue
         marker = _GROUNDED_CLAIM_MARKER_RE.search(raw_line)
         if marker is None:
-            return None
+            continue
         sentence_index += 1
         claim_ids = tuple(
             item.strip()
@@ -2181,13 +2282,28 @@ def repair_grounded_composer_answer(
             None,
         )
         if source_claim is None:
-            return None
+            atom_owner = {
+                atom.atom_id: str(atom.provenance.get("claim_id", ""))
+                for atom in atoms
+            }
+            source_claim = next(
+                (
+                    claim_registry[atom_owner[claim_id]]
+                    for claim_id in claim_ids
+                    if atom_owner.get(claim_id, "") in claim_registry
+                ),
+                None,
+            )
+        if source_claim is None:
+            continue
         line_issues = validate_grounded_composer_answer(
             raw_line,
             answer_spec,
         )
         if not line_issues and sentence_index not in rejected:
             repaired_lines.append(raw_line)
+            continue
+        if drop_invalid:
             continue
         atom_ids = _atom_ids_for_claim(source_claim, atoms)
         claim_type = _grounded_claim_type(source_claim)
@@ -2203,6 +2319,8 @@ def repair_grounded_composer_answer(
             f"claim_type={claim_type} -->"
         )
     repaired = "\n".join(repaired_lines).strip()
+    if drop_invalid and not _GROUNDED_CLAIM_MARKER_RE.search(repaired):
+        return None
     if any(
         issue.severity == "error"
         for issue in validate_grounded_composer_answer(

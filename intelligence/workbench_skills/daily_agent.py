@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from pathlib import Path
 from typing import cast
 
 from intelligence.api.daily_reports import project_daily_agent
@@ -13,6 +15,32 @@ from intelligence.workbench_skills.contracts import (
     build_module_answer_contract,
     redact_json,
 )
+from intelligence.workbench_skills.daily_agent_contract import (
+    build_daily_agent_answer_contract,
+)
+
+_EXPORT_DATE_RE = re.compile(r"^(20\d{2}-\d{2}-\d{2})-")
+
+
+def latest_export_date(exports: Path) -> str | None:
+    dates = [
+        match.group(1)
+        for path in exports.glob("20*")
+        if (match := _EXPORT_DATE_RE.match(path.name)) is not None
+    ]
+    return max(dates) if dates else None
+
+
+def staleness_warning(exports: Path, as_of: str | None) -> str | None:
+    if not as_of:
+        return None
+    latest = latest_export_date(exports)
+    if latest is None or as_of >= latest:
+        return None
+    return (
+        f"研究雷达产物日期 {as_of} 落后于最新导出快照 {latest}，"
+        "结论可能滞后，建议重建 daily-agent 产物。"
+    )
 
 
 class DailyAgentSkill:
@@ -60,6 +88,9 @@ class DailyAgentSkill:
         ]
         as_of_value = projection.get("date")
         as_of = as_of_value if isinstance(as_of_value, str) else None
+        stale = staleness_warning(exports, as_of)
+        if stale is not None and stale not in warnings:
+            warnings.append(stale)
         citations: list[JsonObject] = [
             {
                 "source": source,
@@ -95,7 +126,17 @@ class DailyAgentSkill:
             warnings=warnings,
             as_of=as_of,
             raw_result_ref=artifact.path,
-            answer_contract=build_module_answer_contract(
+            answer_contract=build_daily_agent_answer_contract(
+                payload,
+                source=source,
+                as_of=as_of,
+                warnings=warnings,
+                retrieval_plan=("读取最新 canonical Daily Agent 研究队列",),
+                output_contract=(
+                    "先裁决研究优先级，再给证据缺口和可执行核验动作",
+                ),
+            )
+            or build_module_answer_contract(
                 skill_id=self.skill_id,
                 title="研究雷达",
                 modules=modules,

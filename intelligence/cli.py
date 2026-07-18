@@ -1015,6 +1015,23 @@ def add_record_correction_parser(subparsers: argparse._SubParsersAction) -> None
     parser.set_defaults(func=cmd_record_correction)
 
 
+def add_migrate_workbench_store_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "migrate-workbench-store",
+        help="存量 run/conversation JSON → workbench.sqlite3 一次性回填（幂等，可重复跑）",
+    )
+    parser.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    parser.set_defaults(func=cmd_migrate_workbench_store)
+
+
+def cmd_migrate_workbench_store(args: argparse.Namespace) -> int:
+    from intelligence.services.workbench_migrate import migrate_user
+
+    counts = migrate_user(args.user)
+    print(json.dumps(counts, ensure_ascii=False))
+    return 0
+
+
 def add_refresh_profile_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "refresh-profile",
@@ -1951,6 +1968,8 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_score.add_argument("--score", type=float, default=None, help="覆盖分数（默认按 verdict 映射 hit=1/partial=0.5/miss=0）")
     p_score.add_argument("--reason", default=None, help="判定理由（可选）")
     p_score.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    p_score.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
+    p_score.add_argument("--kb-wiki", default=None, help="知识库 wiki 根（miss 裁决写回证伪回链 overlay；默认 env/auto）")
     p_score.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_score.set_defaults(func=cmd_checkpoint_score)
 
@@ -2343,7 +2362,7 @@ def cmd_checkpoint_recheck(args: argparse.Namespace) -> int:
             "applied": False,
         }
         if args.apply:
-            checkpoints.record_verdict(
+            _, verdict_record = checkpoints.record_verdict(
                 vpath,
                 id=str(c.get("id")),
                 verdict=outcome.verdict,
@@ -2354,6 +2373,7 @@ def cmd_checkpoint_recheck(args: argparse.Namespace) -> int:
                 auto=True,
             )
             entry["applied"] = True
+            entry["writeback"] = _checkpoint_miss_writeback(c, verdict_record, args.kb_wiki)
         results.append(entry)
 
     # 人类层回检日志：落盘时同步写一份可读 markdown 到 Obsidian vault，让夜间 recheck 不黑盒。
@@ -2388,12 +2408,31 @@ def cmd_checkpoint_recheck(args: argparse.Namespace) -> int:
     return 0
 
 
+def _checkpoint_miss_writeback(
+    checkpoint: dict[str, object] | None,
+    verdict_record: dict[str, object],
+    kb_wiki: str | None,
+) -> dict[str, object] | None:
+    """miss 裁决落盘后把关联证据写回知识库证伪回链 overlay；失败只告警不阻断。"""
+    if checkpoint is None or str(verdict_record.get("verdict") or "") != "miss":
+        return None
+    from intelligence.services import checkpoint_writeback
+
+    try:
+        return checkpoint_writeback.writeback_miss_verdict(
+            checkpoint, verdict_record, wiki_root=kb_wiki
+        )
+    except Exception as exc:  # noqa: BLE001 - 写回是增强不是闸门
+        print(f"[checkpoint] 证伪回链写回失败（不影响回检落盘）：{exc}", file=sys.stderr)
+        return {"written": 0, "matched": 0, "skipped_reason": f"写回异常：{exc}"}
+
+
 def cmd_checkpoint_score(args: argparse.Namespace) -> int:
     import json as _json
 
     from intelligence.services import checkpoints
 
-    _, vpath = _checkpoint_paths(args)
+    cpath, vpath = _checkpoint_paths(args)
     _, record = checkpoints.record_verdict(
         vpath,
         id=args.id,
@@ -2403,10 +2442,18 @@ def cmd_checkpoint_score(args: argparse.Namespace) -> int:
         reason=args.reason or "",
         auto=False,
     )
+    cks, _ = checkpoints.load_checkpoints(cpath)
+    checkpoint = next((c for c in cks if str(c.get("id")) == args.id), None)
+    writeback = _checkpoint_miss_writeback(checkpoint, record, getattr(args, "kb_wiki", None))
     if args.json:
-        print(_json.dumps({"path": str(vpath), "verdict": record}, ensure_ascii=False, indent=2))
+        print(_json.dumps(
+            {"path": str(vpath), "verdict": record, "writeback": writeback},
+            ensure_ascii=False, indent=2,
+        ))
     else:
         print(f"已人工打分 {record['id']}｜{record['verdict']}（分数 {record['score']}）")
+        if writeback and writeback.get("written"):
+            print(f"已将 {writeback['written']} 条关联证据写回证伪回链 overlay（invalidated）")
     return 0
 
 
@@ -2742,6 +2789,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_record_interaction_parser(subparsers)
     add_record_correction_parser(subparsers)
     add_refresh_profile_parser(subparsers)
+    add_migrate_workbench_store_parser(subparsers)
     add_adapter_smoke_parser(subparsers)
     add_daily_parser(subparsers)
     add_theme_parser(subparsers)

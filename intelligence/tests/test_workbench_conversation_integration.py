@@ -99,6 +99,10 @@ def test_real_conversation_round_trip_persists_skills_sse_and_three_turns(
     monkeypatch.setenv("KB_VAULT", str(repo_root / "wiki"))
     for key_name in _LLM_KEY_NAMES:
         monkeypatch.delenv(key_name, raising=False)
+    # 集成测试保持无外网：长尾兜底车道会按 controller 能力需求触发 W7 web 检索，
+    # 真实网络取数会超出 _wait_terminal 的秒级预算。
+    monkeypatch.setenv("FINANCE_NEWS_FETCH", "0")
+    monkeypatch.setenv("FINANCE_WEB_SEARCH", "0")
 
     app = create_app(repo_root=repo_root)
     with TestClient(app) as client:

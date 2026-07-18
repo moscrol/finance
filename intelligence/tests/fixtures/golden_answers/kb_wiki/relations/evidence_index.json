@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "target": "英维克",
+      "concept": "液冷服务器",
+      "evidence": "中标某互联网大厂液冷集采项目，金额约 3.2 亿元",
+      "source": "公司公告",
+      "source_date": "2026-07-01",
+      "layer": "L3"
+    },
+    {
+      "target": "川环科技",
+      "concept": "液冷服务器",
+      "evidence": "券商研报提及其为液冷管路潜在供应商",
+      "source": "券商研报",
+      "source_date": "2026-05-20",
+      "layer": "L1"
+    }
+  ]
+}
