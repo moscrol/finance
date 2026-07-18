@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -67,6 +68,25 @@ _DATE_RE = re.compile(
     r"年(?:\d{1,2}(?:月(?:\d{1,2}日?)?)?)?"
     r"|[-/.]\d{1,2}(?:[-/.]\d{1,2}日?)?"
     r")(?!\d)"
+)
+_REVIEW_DATE_RE = (
+    r"(?:20\d{2}(?:年\d{1,2}月\d{1,2}日?|"
+    r"[-/.]\d{1,2}[-/.]\d{1,2})"
+    r"|\d{1,2}(?:月\d{1,2}日?|[./]\d{1,2}(?![\d%个万亿千倍])))"
+)
+_DATED_MARKET_REVIEW_RE = re.compile(
+    _REVIEW_DATE_RE
+    + r".{0,24}(?:行情|盘面|市场).{0,12}(?:总结|复盘|回顾|梳理|分析)"
+    r"|(?:总结|复盘|回顾|梳理|分析).{0,24}"
+    + _REVIEW_DATE_RE
+    + r".{0,12}(?:行情|盘面|市场)",
+    re.IGNORECASE,
+)
+_FULL_DATE_RE = re.compile(
+    r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})(?:月|[-/.])(\d{1,2})日?(?!\d)"
+)
+_YEARLESS_DATE_RE = re.compile(
+    r"(?<!\d)(\d{1,2})(?:月|[./])(\d{1,2})日?(?![\d%个万亿千倍])"
 )
 _QUOTED_RE = re.compile(r"[“《\"]([^”》\"]{2,40})[”》\"]")
 _TICKER_RE = re.compile(
@@ -191,6 +211,17 @@ _FINANCIAL_ANALYSIS_RE = re.compile(
     r"(财报|定期报告|业绩|营收|收入|利润|归母|毛利率|净利率)"
 )
 _NEWS_IMPACT_RE = re.compile(r"(公告|消息|新闻|原文|影响)")
+_NEWS_IMPACT_TARGET_RE = re.compile(
+    r"(?:发布|公告|消息|新闻|事件|政策|关税|制裁|降息|加息|中标|签约|落地)"
+    r"[^。？！]*?"
+    r"对([^。？！，,对]{1,24}?)(?:板块|行业|个股|公司|产业链)?的?"
+    r"(?:影响|冲击|利好|利空)"
+)
+_MARKET_WATCH_RE = re.compile(
+    r"(?:今天|今日)[^。？！]{0,10}?(?:有什么|有哪些|哪些)?[^。？！]{0,6}?"
+    r"(?:值得关注|看点|主线|机会)"
+    r"|(?:今天|今日)(?:的)?(?:市场|行情|盘面|大盘)(?:怎么样|如何|表现如何)"
+)
 _MONTH_HORIZON_RE = re.compile(
     r"(?:未来|接下来)?\s*(\d{1,2})\s*(?:[-~—到至]\s*(\d{1,2})\s*)?个?月"
 )
@@ -235,6 +266,50 @@ class QueryEnvelope:
         payload["operators"] = list(self.operators)
         payload["required_outputs"] = list(self.required_outputs)
         return payload
+
+
+def is_dated_market_review(query: str, envelope: QueryEnvelope) -> bool:
+    return (
+        envelope.question_type != "external_market"
+        and _DATED_MARKET_REVIEW_RE.search(query) is not None
+        and market_review_requested_date(query) is not None
+    )
+
+
+def market_review_requested_date(
+    query: str,
+    *,
+    today: date | None = None,
+) -> str | None:
+    """确定性解析问题中的复盘日期，返回 ISO 日期。
+
+    无年份写法（7.16 / 7月16日）映射为不晚于今天的最近一个同月同日，
+    不交给 LLM 猜年份；无法构成合法日期时返回 None。
+    """
+    match = _FULL_DATE_RE.search(query)
+    if match is not None:
+        try:
+            return date(
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
+            ).isoformat()
+        except ValueError:
+            return None
+    match = _YEARLESS_DATE_RE.search(query)
+    if match is None:
+        return None
+    month = int(match.group(1))
+    day = int(match.group(2))
+    anchor = today or date.today()
+    for year in (anchor.year, anchor.year - 1):
+        try:
+            candidate = date(year, month, day)
+        except ValueError:
+            continue
+        if candidate <= anchor:
+            return candidate.isoformat()
+    return None
 
 
 @lru_cache(maxsize=1)
@@ -296,6 +371,23 @@ def _definition_subject(query: str) -> str | None:
     return None
 
 
+def _news_impact_target(query: str) -> str | None:
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    match = _NEWS_IMPACT_TARGET_RE.search(text)
+    if match is None:
+        return None
+    subject = match.group(1).strip()
+    if not subject or subject.startswith(("这个", "那个", "该", "某")):
+        return None
+    return subject
+
+
+def is_market_watch_query(query: str) -> bool:
+    """确定性识别「今天有什么值得关注的 / 今日行情怎么样」类当日盘面提问。"""
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    return _MARKET_WATCH_RE.search(text) is not None
+
+
 def _valuation_subject(query: str) -> str | None:
     text = re.sub(r"\s+", "", str(query or "").strip())
     match = _VALUATION_SUBJECT_RE.search(text)
@@ -322,7 +414,7 @@ def _explicit_company_subject(query: str) -> str | None:
         if (
             subject in _GENERIC_COMPANY_SUBJECTS
             or subject.startswith(
-                ("某公司", "某个", "某一", "这个", "那个", "该", "截至", "为什么")
+                ("某公司", "某个", "某一", "这个", "那个", "该", "截至", "为什么", "一下", "一些")
             )
             or any(
                 generic in subject
@@ -337,7 +429,7 @@ def _explicit_company_subject(query: str) -> str | None:
                     "成交",
                 )
             )
-            or re.search(r"\d{4}年|\d{1,2}月|\d{1,2}日", subject)
+            or re.search(r"\d{4}年|\d{1,2}月|\d{1,2}日|\d{1,2}[./-]\d{1,2}", subject)
             or subject.endswith(
                 ("题材", "板块", "行业", "产业", "赛道", "方向", "产业链")
             )
@@ -572,6 +664,19 @@ def understand_query(
             "market_anchor",
             0.98,
         )
+
+    if anchor is None:
+        news_target = _news_impact_target(text)
+        if news_target is not None:
+            return envelope(
+                "news_impact",
+                "theme",
+                news_target,
+                _decision_goal(text),
+                timeframe,
+                "explicit",
+                0.9,
+            )
 
     definition_subject = _definition_subject(text)
     if definition_subject is not None:

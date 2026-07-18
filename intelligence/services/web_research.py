@@ -19,6 +19,15 @@ _DEFINITION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_FRESHNESS_PATTERN = re.compile(
+    r"(?:今天|今日|昨天|昨日|隔夜|最近|近期|最新|刚刚|本周|本月|"
+    r"消息|新闻|进展|动态|现状|公告|发布)"
+)
+
+
+def needs_fresh_web(query: str) -> bool:
+    return bool(_FRESHNESS_PATTERN.search(str(query or "")))
+
 
 @dataclass(frozen=True)
 class WebSearchItem:

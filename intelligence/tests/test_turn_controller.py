@@ -99,6 +99,141 @@ def test_external_market_uses_research_lane_and_quote_capability() -> None:
     assert "market_quote" in decision.capabilities
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        "总结一下 2026-07-16 的行情",
+        "复盘 2026年7月16日 A股市场",
+        "2026/7/16 的盘面回顾",
+    ),
+)
+def test_dated_a_share_market_summary_uses_workflow_lane(query: str) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "workflow"
+    assert decision.timeframe is not None
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "总结一下7.16的行情",
+        "复盘7月16日的A股市场",
+    ),
+)
+def test_yearless_dated_market_summary_uses_workflow_lane(query: str) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "workflow"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+
+
+@pytest.mark.parametrize(
+    "query",
+    (
+        "今天有什么值得关注的",
+        "今日盘面有哪些看点",
+        "今天的大盘怎么样",
+    ),
+)
+def test_market_watch_query_uses_workflow_lane(query: str) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "workflow"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert "market_quote" in decision.capabilities
+
+
+@pytest.mark.parametrize(
+    ("query", "question_type"),
+    (
+        ("最近固态电池有什么新进展", "theme_analysis"),
+        ("英伟达GPU发布对光模块板块的影响", "news_impact"),
+    ),
+)
+def test_owner_question_types_use_research_lane(
+    query: str, question_type: str
+) -> None:
+    decision = decide_turn(query, llm_complete=_no_llm)
+
+    assert decision.lane == "research"
+    assert decision.question_type == question_type
+    assert decision.needs_retrieval is True
+
+
+def test_unverified_subject_guess_does_not_force_research_lane() -> None:
+    decision = decide_turn("PQC最新消息", llm_complete=_no_llm)
+
+    assert decision.lane == "knowledge"
+    assert decision.needs_retrieval is True
+
+
+def _llm_chat_no_retrieval(_messages: list[dict[str, str]]):
+    return (
+        json.dumps(
+            {
+                "route_id": "chat",
+                "subject": None,
+                "timeframe": None,
+                "confidence": 0.9,
+                "reason": "闲聊",
+            }
+        ),
+        None,
+        "ok",
+    )
+
+
+def test_retrieval_floor_upgrades_chat_lane_with_market_signal() -> None:
+    decision = decide_turn(
+        "跟我随便聊聊大盘呗",
+        llm_complete=_llm_chat_no_retrieval,
+    )
+
+    assert decision.lane == "knowledge"
+    assert decision.needs_retrieval is True
+
+
+def test_retrieval_floor_keeps_plain_chat_without_signals() -> None:
+    decision = decide_turn(
+        "给我讲个笑话",
+        llm_complete=_llm_chat_no_retrieval,
+    )
+
+    assert decision.lane == "chat"
+    assert decision.needs_retrieval is False
+
+
+def test_safe_fallback_retrieves_when_market_signal_present() -> None:
+    decision = decide_turn("聊聊今天大盘的情况呗", llm_complete=_no_llm)
+
+    assert decision.lane in {"knowledge", "workflow"}
+    assert decision.needs_retrieval is True
+
+
+def test_dated_external_market_summary_does_not_use_a_share_workflow() -> None:
+    decision = decide_turn(
+        "总结一下 2026-07-16 的美股行情",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "external_market"
+
+
+def test_month_only_market_summary_does_not_claim_daily_report() -> None:
+    decision = decide_turn(
+        "总结一下 2026年7月 的 A股行情",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane != "workflow"
+
+
 def test_broad_market_question_clarifies_scope() -> None:
     decision = decide_turn("今天市场怎么样", llm_complete=_no_llm)
 
@@ -415,16 +550,11 @@ def test_manual_skill_selection_forces_workflow_lane() -> None:
 def test_llm_decision_is_schema_validated_and_policy_constrained() -> None:
     content = json.dumps(
         {
-            "lane": "chat",
-            "needs_retrieval": True,
-            "needs_memory": True,
-            "needs_template": True,
-            "question_type": None,
+            "route_id": "chat",
             "subject": None,
             "timeframe": None,
             "confidence": 0.91,
             "reason": "普通交流",
-            "capabilities": ["web_search", "memory"],
         },
         ensure_ascii=False,
     )
@@ -440,11 +570,55 @@ def test_llm_decision_is_schema_validated_and_policy_constrained() -> None:
     assert decision.capabilities == ()
 
 
+def test_llm_decision_rejects_route_id_outside_table() -> None:
+    content = json.dumps(
+        {
+            "route_id": "made_up_route",
+            "subject": None,
+            "timeframe": None,
+            "confidence": 0.95,
+            "reason": "臆造路由",
+        },
+        ensure_ascii=False,
+    )
+    decision = decide_turn(
+        "你觉得这个解释清楚吗",
+        llm_complete=lambda _messages: (content, object(), ""),
+    )
+
+    assert "Controller 不可用" in decision.reason or decision.lane in {
+        "chat",
+        "knowledge",
+    }
+    assert decision.lane != "made_up_route"
+
+
+def test_llm_route_row_derives_owner_lane_and_capabilities() -> None:
+    content = json.dumps(
+        {
+            "route_id": "stock_deep_dive",
+            "subject": "中际旭创",
+            "timeframe": None,
+            "confidence": 0.88,
+            "reason": "个股深度研究",
+        },
+        ensure_ascii=False,
+    )
+    decision = decide_turn(
+        "英伟达值得入手吗",
+        llm_complete=lambda _messages: (content, object(), ""),
+    )
+
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert "market_quote" in decision.capabilities
+
+
 def test_llm_decision_accepts_json_code_fence() -> None:
     content = """```json
-{"lane":"knowledge","needs_retrieval":false,"needs_memory":false,
-"needs_template":false,"question_type":"general_knowledge","subject":"测试",
-"timeframe":null,"confidence":0.9,"reason":"概念问题","capabilities":[]}
+{"route_id":"concept_definition","subject":"测试",
+"timeframe":null,"confidence":0.9,"reason":"概念问题"}
 ```"""
     decision = decide_turn(
         "请解释这个概念",
@@ -458,16 +632,11 @@ def test_llm_decision_accepts_json_code_fence() -> None:
 def test_low_confidence_llm_decision_abstains_to_clarify() -> None:
     content = json.dumps(
         {
-            "lane": "research",
-            "needs_retrieval": True,
-            "needs_memory": False,
-            "needs_template": True,
-            "question_type": None,
+            "route_id": "stock_deep_dive",
             "subject": None,
             "timeframe": None,
             "confidence": 0.42,
             "reason": "不确定",
-            "capabilities": ["web_search"],
         },
         ensure_ascii=False,
     )

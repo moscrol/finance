@@ -8,8 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from intelligence.services import answer_model
+from intelligence.services import answer_model, web_research
 from intelligence.services.answer_orchestrator import plan_answer_question
+from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.ask import AskOptions, AskResult, Citation
 from intelligence.services.research_contract import (
     OWNER_RETRIEVAL_STAGES,
@@ -115,6 +116,31 @@ def _result(
         )
     ]
     return result
+
+
+def _web_result(
+    items: tuple[tuple[str, str, str], ...] = (),
+) -> web_research.WebSearchResult:
+    return web_research.WebSearchResult(
+        tuple(
+            web_research.WebSearchItem(title=title, url=url, snippet=snippet)
+            for title, url, snippet in items
+        ),
+        ProviderTrace(
+            provider=web_research.PROVIDER_BING_WEB,
+            capability="general_web_search",
+            status="success" if items else "empty",
+            detail="test",
+            result_count=len(items),
+        ),
+    )
+
+
+def _empty_web_search(
+    _query: str,
+    **_kwargs: object,
+) -> web_research.WebSearchResult:
+    return _web_result()
 
 
 def _quality_contract(
@@ -561,10 +587,17 @@ def test_theme_vertical_slice_uses_distinct_typed_stage_artifacts(
             {
                 "original_disclosure": "OriginalDisclosureArtifact",
                 "event_facts": "EventFactsArtifact",
+                "external_news": "ExternalNewsArtifact",
                 "impact_transmission": "ImpactTransmissionArtifact",
                 "substitutes_and_harmed_directions": "ImpactDirectionsArtifact",
             },
-            ("## 原始披露", "## 事件事实", "## 影响传导", "## 受益、替代与受损方向"),
+            (
+                "## 原始披露",
+                "## 事件事实",
+                "## 外部资讯快照",
+                "## 影响传导",
+                "## 受益、替代与受损方向",
+            ),
         ),
     ],
 )
@@ -597,6 +630,9 @@ def test_phase3_owners_use_distinct_typed_stage_artifacts(
     output = ResearchOwnerSkill(
         config,
         answer_query_fn=fake_answer_query,
+        web_search_fn=lambda _query, **_kwargs: _web_result(
+            (("外部资讯标题", "https://example.com/news", "外部资讯摘要"),)
+        ),
     ).execute(_context(tmp_path, store, run.run_id, query))
 
     assert calls == 1
@@ -659,6 +695,7 @@ def test_phase3_owner_blocks_survive_retrieval_failure(
     output = ResearchOwnerSkill(
         config,
         answer_query_fn=unavailable_answer_query,
+        web_search_fn=_empty_web_search,
     ).execute(_context(tmp_path, store, run.run_id, query))
 
     assert output.answer_contract is not None
@@ -708,6 +745,7 @@ def test_phase3_owners_soften_hard_certainty_without_l3(
     output = ResearchOwnerSkill(
         config,
         answer_query_fn=fake_answer_query,
+        web_search_fn=_empty_web_search,
     ).execute(_context(tmp_path, store, run.run_id, query))
 
     assert output.answer_contract is not None
@@ -716,6 +754,143 @@ def test_phase3_owners_soften_hard_certainty_without_l3(
     )
     assert "必然" not in rendered
     assert "确定" not in rendered
+
+
+def test_news_impact_external_news_supplies_l1_snapshots(
+    tmp_path: Path,
+) -> None:
+    query = "英伟达发布新GPU的消息对光模块板块有什么影响"
+    web_calls: list[str] = []
+
+    def fake_web_search(
+        search_query: str,
+        **_kwargs: object,
+    ) -> web_research.WebSearchResult:
+        web_calls.append(search_query)
+        return _web_result(
+            (
+                (
+                    "英伟达新GPU发布",
+                    "https://example.com/nvda-gpu",
+                    "新一代GPU带动光模块需求",
+                ),
+                (
+                    "光模块厂商回应",
+                    "https://example.com/optics",
+                    "",
+                ),
+            )
+        )
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        NEWS_IMPACT,
+        answer_query_fn=lambda options: _result(
+            options.query,
+            NEWS_IMPACT.question_type,
+        ),
+        web_search_fn=fake_web_search,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    assert web_calls == [query]
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    external = artifacts["external_news"]
+    assert external["status"] == "completed"
+    assert external["required_output"] is False
+    assert external["payload"]["available"] is True
+    assert len(external["payload"]["items"]) == 2
+    assert len(external["evidence_atom_ids"]) == 2
+
+    assert output.answer_contract is not None
+    spec = output.answer_contract.answer_spec
+    web_atoms = [
+        atom
+        for atom in spec.research_evidence_atoms
+        if atom.metric == "external_web_snapshot"
+    ]
+    assert [atom.source_id for atom in web_atoms] == ["E1", "E2"]
+    assert all(atom.evidence_tier == "L1" for atom in web_atoms)
+    assert {atom.atom_id for atom in web_atoms} == set(
+        external["evidence_atom_ids"]
+    )
+    # 外部快照不得升级为可追溯的 VERIFIED 事实来源
+    assert all(
+        not evidence_id.startswith("E")
+        for claim in spec.verified_facts
+        for evidence_id in claim.evidence_ids
+    )
+    rendered = answer_model.render_answer_spec(spec)
+    assert "## 外部资讯快照" in rendered
+    assert "英伟达新GPU发布" in rendered
+    assert "搜索结果未提供摘要" in rendered
+    assert "仅作背景线索" in rendered
+
+
+def test_news_impact_external_news_skipped_when_local_hits(
+    tmp_path: Path,
+) -> None:
+    query = "分析这则披露冲击"
+    web_calls: list[str] = []
+
+    def fake_web_search(
+        search_query: str,
+        **_kwargs: object,
+    ) -> web_research.WebSearchResult:
+        web_calls.append(search_query)
+        return _web_result()
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        NEWS_IMPACT,
+        answer_query_fn=lambda options: _result(
+            options.query,
+            NEWS_IMPACT.question_type,
+        ),
+        web_search_fn=fake_web_search,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    external = artifacts["external_news"]
+    assert web_calls == []
+    assert external["status"] == "skipped"
+    assert external["payload"]["items"] == []
+    assert output.answer_contract is not None
+    rendered = answer_model.render_answer_spec(
+        output.answer_contract.answer_spec
+    )
+    assert "## 外部资讯快照" not in rendered
+
+
+def test_news_impact_external_news_failure_does_not_block_owner(
+    tmp_path: Path,
+) -> None:
+    query = "英伟达发布新GPU的消息对光模块板块有什么影响"
+
+    def broken_web_search(
+        _search_query: str,
+        **_kwargs: object,
+    ) -> web_research.WebSearchResult:
+        raise RuntimeError("proxy down")
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        NEWS_IMPACT,
+        answer_query_fn=lambda options: _result(
+            options.query,
+            NEWS_IMPACT.question_type,
+        ),
+        web_search_fn=broken_web_search,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    assert artifacts["external_news"]["status"] == "failed"
+    assert artifacts["original_disclosure"]["status"] == "completed"
+    assert artifacts["event_facts"]["status"] == "completed"
+    assert output.answer_contract is not None
+    assert output.status != "failed"
 
 
 def test_theme_fallback_keeps_required_blocks_and_softens_certainty_without_l3(
@@ -902,13 +1077,59 @@ def test_stage_adapter_timeout_is_independently_observable() -> None:
     assert dag.artifacts[0].on_failure == "render_historical_analog_gap"
     assert dag.artifacts[0].degrade_reason is not None
     assert dag.artifacts[0].payload == {
-        "termination_mode": "joined",
+        "available": True,
+        "termination_mode": "joined_overrun",
         "background_work_remaining": False,
     }
     assert returned_after >= 0.05
     assert mutations == ["finished"]
     time.sleep(0.03)
     assert mutations == ["finished"]
+
+
+def test_stage_adapter_overrun_keeps_typed_result_and_caches() -> None:
+    completed_result = _result("test", STOCK_DEEP_DIVE.question_type)
+
+    def slow_company_master(
+        _result_arg: AskResult | None,
+        _artifacts: tuple[StageArtifact, ...],
+    ) -> StageExecution:
+        time.sleep(0.05)
+        return StageExecution(
+            status="completed",
+            payload={"available": True, "company": "目标公司"},
+            evidence_atom_ids=("atom-1",),
+            result=completed_result,
+        )
+
+    cache: dict[str, object] = {}
+    adapter = StageAdapter(
+        producer="answer_query.company_master",
+        input_hash="input-hash",
+        artifact_type="CompanyMasterArtifact",
+        required_output=True,
+        timeout_seconds=0.01,
+        on_failure="continue_with_unresolved_company",
+        execute=slow_company_master,
+    )
+    dag = execute_owner_dag(
+        cache_key="stock:test",
+        stages=("company_master",),
+        retrieve=lambda: _result("test", STOCK_DEEP_DIVE.question_type),
+        cache=cache,
+        deadline=ResearchDeadline.from_timeout(1),
+        stage_adapters={"company_master": adapter},
+    )
+
+    assert dag.result is completed_result
+    artifact = dag.artifacts[0]
+    assert artifact.status == "timeout"
+    assert artifact.evidence_atom_ids == ("atom-1",)
+    assert artifact.payload["company"] == "目标公司"
+    assert artifact.payload["termination_mode"] == "joined_overrun"
+    cached = cache["stage:answer_query.company_master:input-hash"]
+    assert isinstance(cached, StageExecution)
+    assert cached.result is completed_result
 
 
 def test_owner_initial_stage_timeout_covers_first_business_query_margin() -> None:

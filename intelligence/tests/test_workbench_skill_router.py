@@ -214,6 +214,50 @@ def test_auto_mode_ignores_manual_selection_and_uses_stable_rules_without_llm() 
     assert result.base_finance_fallback is False
 
 
+def test_dated_market_summary_routes_to_daily_review_without_llm_guessing() -> None:
+    registry = {
+        "daily-review": definition("daily-review", "复盘"),
+        "theme-research": definition("theme-research", "研究"),
+    }
+    query = "总结一下 2026-07-16 的行情"
+
+    result = route_skills(
+        query,
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        query_envelope=understand_query(query),
+        llm_complete=lambda _messages: (None, None, "no key"),
+    )
+
+    assert result.selections[0].skill_id == "daily-review"
+    assert result.selections[0].selection_source == "rule"
+    assert "指定日期" in result.selections[0].reason
+
+
+def test_market_watch_question_routes_to_daily_review_without_llm() -> None:
+    registry = {
+        "daily-review": definition("daily-review", "复盘"),
+        "theme-research": definition("theme-research", "研究"),
+    }
+    query = "今天有什么值得关注的"
+
+    result = route_skills(
+        query,
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        query_envelope=understand_query(query),
+        llm_complete=lambda _messages: (None, None, "no key"),
+    )
+
+    assert result.selections[0].skill_id == "daily-review"
+    assert result.selections[0].selection_source == "rule"
+    assert "当日盘面" in result.selections[0].reason
+
+
 def test_controller_owner_excludes_other_research_owners() -> None:
     registry = {
         "news-impact": definition("news-impact", "影响"),

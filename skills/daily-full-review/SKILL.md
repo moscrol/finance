@@ -247,8 +247,43 @@ python3 skills/daily-full-review/scripts/export_increment.py --date YYYY-MM-DD
 | 9 | Agent 每日简报 | `python3 -m intelligence.cli agent-daily --date D` | **不在 evolve 中，必须单独跑** |
 | 10 | 策略工作台 | `python3 scripts/render_review_workbench.py` | 聚合所有 daily + matrix |
 | 11 | 驾驶台 cockpit | `python3 scripts/render_cockpit.py --kb-briefings-dir <KB>/dashboard/briefings` | **必须传正确路径** |
+| 12 | L3 补录（例行池+agent缺口） | `python3 skills/daily-full-review/scripts/l3_daily_backfill.py --date D --apply` | **在 agent-daily 之后**；详见下方「L3 补录」节 |
 
 > **KB 路径**：`/Users/lbq/Desktop/c c/知识库`，KB_WIKI = `知识库/wiki`
+
+## L3 补录（全量复盘后必做，两项）
+
+时点：全量同步 + 生成段 + evolve + **agent-daily 之后**（依赖 <D>-daily-agent.json）。
+统一入口（例行池 + agent-daily 缺口一次跑完）：
+
+```bash
+export FINANCE_L3_LOOKUP_ENABLED=1
+export FINANCE_L3_PYTHON=/Users/a77/.venv-disclosure/bin/python
+export FINANCE_L3_PYTHONPATH=/Users/a77/finhot/finhot
+export FINANCE_L3_CWD=/Users/a77/finhot/finhot
+# 先 dry-run 看写入计划，确认后加 --apply 真正进审核队列
+python3 skills/daily-full-review/scripts/l3_daily_backfill.py --date D --apply
+```
+
+两项任务（脚本已合一）：
+
+1. **每日巨潮/互动易例行扫描**：候选池 = `复盘/matrices/strategy1-priority-stock-matrix.md`
+   全部代码；每只按交易所路由源：沪市 `cninfo,sse_einteract`、深市 `cninfo,irm_szse`、
+   北交所仅 `cninfo`。默认近 3 天增量窗口。
+2. **agent-daily L3 缺口自动补**：从 `market_feature_store/exports/<D>-daily-agent.json`
+   的 `research_queue.today_find_official_evidence` / `today_do_ima` 及证据裁判
+   「重点验证/能力栈候选」目标中提取股票代码，并入本轮查询（纯题材名无代码的跳过）。
+
+硬性闸门（不可越过）：
+
+- apply **永远不带 `--reviewed`**：所有产出 `review_required=true`，只进审核队列。
+- 只写 `wiki/sources/*` + `wiki/entities/*`，**不碰 relations/evidence_index、不提升图谱、不改实体事实**。
+- 同一公司同日多源**必须一次调用逗号多源**（如 `--source cninfo,irm_szse`）生成单一 payload；
+  分两次 apply 会因同日 source note 同名而互相覆盖（2026-07-16 教训）。
+- `--source irm_szse` 需要 l3_evidence.py 源白名单包含 irm_szse（PR #241 修复；
+  否则会被静默回退成 cninfo，把公告当互动易）。
+- 长批量经隧道跑必须 spawn.py/nohup 守护化 + 轮询 summary.tsv（沪市 sse_einteract 单只可达分钟级）。
+- 提交只包含本轮 `wiki/sources` / `wiki/entities` 改动，排除 access_log / .audit。
 
 ## 生成段与矩阵段（同步全绿后）
 

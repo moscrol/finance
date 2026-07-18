@@ -101,6 +101,39 @@ class BlockPlannerTest(unittest.TestCase):
         self.assertEqual([(o.tag, o.block) for o in par], [(o.tag, o.block) for o in ser])
 
 
+class DataBlockProviderTest(unittest.TestCase):
+    def test_run_providers_filters_by_applies_and_keeps_order(self):
+        def make(name, enabled):
+            return ask_planner.DataBlockProvider(
+                name, name, lambda: enabled, lambda: (f"block-{name}", f"cite-{name}"),
+            )
+
+        providers = [make("D0", True), make("D9", False), make("D5", True)]
+        outcomes = ask_planner.run_providers(providers, parallel=True)
+        self.assertEqual([o.tag for o in outcomes], ["D0", "D5"])
+        self.assertEqual([o.block for o in outcomes], ["block-D0", "block-D5"])
+
+    def test_run_providers_does_not_collect_when_not_applies(self):
+        collected = []
+
+        def collect():
+            collected.append(1)
+            return "x", None
+
+        providers = [ask_planner.DataBlockProvider("D8", "D8", lambda: False, collect)]
+        self.assertEqual(ask_planner.run_providers(providers), [])
+        self.assertEqual(collected, [])
+
+    def test_run_providers_serial_matches_parallel(self):
+        providers = [
+            ask_planner.DataBlockProvider(t, t, lambda: True, lambda t=t: (f"b-{t}", None))
+            for t in ("X", "Y")
+        ]
+        par = ask_planner.run_providers(providers, parallel=True)
+        ser = ask_planner.run_providers(providers, parallel=False)
+        self.assertEqual([(o.tag, o.block) for o in par], [(o.tag, o.block) for o in ser])
+
+
 class AskIntegrationTest(unittest.TestCase):
     def test_answer_query_short_circuits_on_vague_query(self):
         from intelligence.services.ask import AskOptions, answer_query, render_answer

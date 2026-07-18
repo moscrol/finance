@@ -376,3 +376,124 @@ def test_theme_alias_config_rejects_malformed_collection_types(
             assert query_understanding._theme_aliases() == ()
     finally:
         query_understanding._theme_aliases.cache_clear()
+
+
+def test_news_event_impact_routes_to_news_impact_owner_chain() -> None:
+    envelope = understand_query("英伟达新一代GPU发布对光模块板块的影响是什么")
+
+    assert envelope.question_type == "news_impact"
+    assert envelope.subject == "光模块"
+    assert envelope.subject_kind == "theme"
+    assert envelope.research_mode == "news_impact"
+
+
+def test_news_event_impact_variants_and_negatives() -> None:
+    tariff = understand_query("美国加征关税对A股的影响")
+    assert tariff.question_type == "news_impact"
+    assert tariff.subject == "A股"
+
+    definition = understand_query("光模块是什么")
+    assert definition.question_type == "concept_definition"
+
+    anchored = understand_query(
+        "英伟达发布新GPU对中际旭创的影响",
+        anchor=EntityAnchor(
+            entity="中际旭创",
+            ticker="300308.SZ",
+            matched_by="name",
+            concepts=(),
+        ),
+    )
+    assert anchored.question_type == "news_impact"
+    assert anchored.subject_kind == "company"
+    assert anchored.subject == "中际旭创"
+
+
+def test_market_watch_query_is_deterministically_recognized() -> None:
+    assert query_understanding.is_market_watch_query("今天有什么值得关注的")
+    assert query_understanding.is_market_watch_query("今日盘面有哪些看点")
+    assert query_understanding.is_market_watch_query("今天市场怎么样")
+    assert not query_understanding.is_market_watch_query("光模块怎么看")
+    assert not query_understanding.is_market_watch_query("明天有什么值得关注的")
+
+
+def test_market_review_requested_date_resolves_full_dates() -> None:
+    from datetime import date
+
+    assert query_understanding.market_review_requested_date(
+        "总结一下 2026-07-16 的行情",
+        today=date(2026, 7, 16),
+    ) == "2026-07-16"
+    assert query_understanding.market_review_requested_date(
+        "复盘 2026年7月16日 的A股市场",
+        today=date(2026, 7, 16),
+    ) == "2026-07-16"
+    assert query_understanding.market_review_requested_date(
+        "总结 2026-02-30 的行情",
+        today=date(2026, 7, 16),
+    ) is None
+
+
+def test_market_review_requested_date_normalizes_yearless_dates() -> None:
+    from datetime import date
+
+    assert query_understanding.market_review_requested_date(
+        "总结一下7.16的行情",
+        today=date(2026, 7, 16),
+    ) == "2026-07-16"
+    assert query_understanding.market_review_requested_date(
+        "复盘7月16日的盘面",
+        today=date(2026, 7, 16),
+    ) == "2026-07-16"
+    assert query_understanding.market_review_requested_date(
+        "总结一下12.24的行情",
+        today=date(2026, 7, 16),
+    ) == "2025-12-24"
+    assert query_understanding.market_review_requested_date(
+        "总结一下最近3.5个月的行情",
+        today=date(2026, 7, 16),
+    ) is None
+    assert query_understanding.market_review_requested_date(
+        "总结一下涨幅7.16%的板块",
+        today=date(2026, 7, 16),
+    ) is None
+    assert query_understanding.market_review_requested_date(
+        "总结一下13.40的行情",
+        today=date(2026, 7, 16),
+    ) is None
+
+
+def test_yearless_dated_market_review_is_recognized() -> None:
+    envelope = understand_query("总结一下7.16的行情")
+
+    assert query_understanding.is_dated_market_review(
+        "总结一下7.16的行情",
+        envelope,
+    )
+    assert query_understanding.is_dated_market_review(
+        "复盘7月16日的A股行情",
+        understand_query("复盘7月16日的A股行情"),
+    )
+    assert not query_understanding.is_dated_market_review(
+        "总结一下7.16的美股行情",
+        understand_query("总结一下7.16的美股行情"),
+    )
+
+
+def test_dated_market_analysis_phrasings_are_recognized() -> None:
+    for query in (
+        "7.16的行情你分析一下",
+        "分析一下7.16的行情",
+        "帮我分析下7月16日行情",
+    ):
+        assert query_understanding.is_dated_market_review(
+            query,
+            understand_query(query),
+        ), query
+
+
+def test_function_words_are_not_company_subjects() -> None:
+    envelope = understand_query("7.16的行情你分析一下")
+
+    assert envelope.subject != "一下"
+    assert envelope.question_type != "stock_deep_dive"

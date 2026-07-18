@@ -24,7 +24,16 @@ from intelligence.services.ask import (
     render_answer,
     render_conversation_answer,
 )
-from intelligence.services.llm_refine import LLMProvider, SynthesisResult, build_synthesis_messages, synthesize, synthesize_messages_with_review
+from intelligence.services.llm_refine import (
+    LLMProvider,
+    SynthesisResult,
+    build_decision_brief_messages,
+    build_grounded_composer_messages,
+    build_grounding_judge_messages,
+    build_synthesis_messages,
+    synthesize,
+    synthesize_messages_with_review,
+)
 
 
 def _provider() -> LLMProvider:
@@ -32,6 +41,26 @@ def _provider() -> LLMProvider:
 
 
 class SynthesizeTests(unittest.TestCase):
+    def test_shadow_prompts_separate_planning_composing_and_judging(self) -> None:
+        registry = '{"claim_id":"c1","text":"事实"}'
+
+        brief = build_decision_brief_messages("问题", registry)
+        composer = build_grounded_composer_messages(
+            "问题",
+            '{"supports":["c1"]}',
+            registry,
+        )
+        judge = build_grounding_judge_messages(
+            "问题",
+            "- 自然语言 <!-- claim_ids=c1; evidence_atom_ids=a1; "
+            "claim_type=fact -->",
+            registry,
+        )
+
+        self.assertIn("论证计划", brief[0]["content"])
+        self.assertIn("最终措辞", composer[0]["content"])
+        self.assertIn("事实蕴含", judge[0]["content"])
+
     def test_llm_prompt_uses_long_wiki_evidence_without_changing_display_chain(self) -> None:
         display = "A公司：展示短摘录 [W1]"
         llm = "A公司：命中块 a::1: 较完整证据；相邻块 a::0: 条件与风险 [W1]"
@@ -120,6 +149,18 @@ class SynthesizeTests(unittest.TestCase):
 
         self.assertIn("历史经验卡片", msgs[1]["content"])
         self.assertIn("回答板块空间问题", msgs[1]["content"])
+
+    def test_synthesis_prompt_requires_bounded_claim_selection(self) -> None:
+        msgs = llm_refine.build_synthesis_messages(
+            "中际旭创怎么看",
+            "光模块",
+            "## AnswerSpec registry\n- 53 条候选 claim",
+        )
+
+        self.assertIn("只选择 6-10 条", msgs[0]["content"])
+        self.assertIn("正文绝对不得超过 12 行", msgs[0]["content"])
+        self.assertIn("禁止遍历 registry", msgs[0]["content"])
+        self.assertIn("正文硬上限 12 个带 marker 的行", msgs[1]["content"])
 
     def test_synthesis_prompt_includes_exemplar_guidance(self) -> None:
         msgs = llm_refine.build_synthesis_messages(
@@ -377,7 +418,7 @@ class RenderComposeTests(unittest.TestCase):
             con.close()
 
             with mock.patch(
-                "intelligence.services.ask.next_trading_day",
+                "intelligence.services.ask_blocks.next_trading_day",
                 return_value="2026-07-13",
             ):
                 result = answer_query(
@@ -830,3 +871,61 @@ class EvidenceDataBlockTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StyleLooseningTests(unittest.TestCase):
+    def test_exemplar_guidance_samples_one_of_many(self) -> None:
+        import random as random_mod
+
+        from intelligence.services.ask_synthesis import _exemplar_guidance_for
+        from intelligence.services.answer_orchestrator import QUESTION_STOCK_DEEP_DIVE
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "deep-dive-a.md").write_text("样板A", encoding="utf-8")
+            (root / "deep-dive-b.md").write_text("样板B", encoding="utf-8")
+            guidance = _exemplar_guidance_for(
+                QUESTION_STOCK_DEEP_DIVE,
+                exemplar_dir=root,
+                rng=random_mod.Random(0),
+            )
+        # 多篇范文只随机选一，避免固定拼接同一套结构
+        self.assertEqual(guidance.count("### 样板："), 1)
+        self.assertTrue("样板A" in guidance or "样板B" in guidance)
+        self.assertFalse("样板A" in guidance and "样板B" in guidance)
+
+    def test_subjective_temperature_default_and_clamp(self) -> None:
+        from unittest import mock
+
+        from intelligence.services.ask_synthesis import _subjective_temperature
+
+        with mock.patch.dict("os.environ", {}, clear=False):
+            import os as os_mod
+
+            os_mod.environ.pop("ASK_SUBJECTIVE_TEMPERATURE", None)
+            self.assertEqual(_subjective_temperature(), 0.6)
+        with mock.patch.dict(
+            "os.environ", {"ASK_SUBJECTIVE_TEMPERATURE": "0.5"}
+        ):
+            self.assertEqual(_subjective_temperature(), 0.5)
+        with mock.patch.dict(
+            "os.environ", {"ASK_SUBJECTIVE_TEMPERATURE": "9"}
+        ):
+            self.assertEqual(_subjective_temperature(), 1.0)
+        with mock.patch.dict(
+            "os.environ", {"ASK_SUBJECTIVE_TEMPERATURE": "bogus"}
+        ):
+            self.assertEqual(_subjective_temperature(), 0.6)
+
+    def test_section_title_and_body_helpers(self) -> None:
+        from intelligence.services.ask_synthesis import (
+            _section_bodies,
+            _section_titles,
+        )
+
+        text = "# 结论\n正文一\n\n## 证据链\n正文二\n# 空节\n"
+        self.assertEqual(_section_titles(text), ["结论", "证据链", "空节"])
+        bodies = _section_bodies(text)
+        self.assertEqual(bodies["结论"], "正文一")
+        self.assertEqual(bodies["证据链"], "正文二")
+        self.assertEqual(bodies["空节"], "")
