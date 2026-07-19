@@ -1464,7 +1464,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             or "复盘前置查漏状态未记录。"
         )
         conclusion = [
-            f"{theme}后续判断：{stance}（数据截至 {result.trade_date or '未记录'}）。",
+            f"{theme}后续判断：不预设唯一走势，只做条件化情景推演"
+            f"（数据截至 {result.trade_date or '未记录'}）。",
             "基准情景：若主线成交与赚钱效应企稳，观察结构性修复；"
             "若量价继续走弱，则维持防守并等待新一轮确认。",
             "上行情景：主线放量后能缩量承接、强势方向扩散，修复持续性提高。",
@@ -1611,7 +1612,30 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         wiki_stats=wiki_stats,
         l3_lookup_items=len(result.l3_evidence.items),
     )
-    counter_plan = research_brief.build_counterevidence_plan(audit, stage=quality_context.stage)
+    counter_plan = (
+        research_brief.CounterEvidencePlan(
+            rebuttals=[
+                "量价修复可能失败：若放量下跌延续，单日反弹不能视为阶段企稳。",
+                "主线扩散可能不足：若强势方向仍是少数高位股独撑，"
+                "结构性修复难以升级为全市场改善。",
+                "前置查漏尚未通过：缺口未补齐前只保留草稿级情景。",
+            ],
+            downgrade_triggers=[
+                "主线成交继续收缩且涨停家数、晋级率不同步修复 → 下调修复情景。",
+                "放量后无法缩量承接、后排持续走弱 → 维持防守情景。",
+            ],
+            verification_schedule={
+                "T+1": ["核对主线成交、涨跌家数、涨停家数与晋级率是否同步改善。"],
+                "T+3": ["核对强势方向是否从龙头扩散到中位与低位，而非单点反抽。"],
+                "T+5": ["重跑 forecast-preflight；缺口未关闭则不升级正式判断。"],
+            },
+        )
+        if is_market_forecast
+        else research_brief.build_counterevidence_plan(
+            audit,
+            stage=quality_context.stage,
+        )
+    )
     # --- P1 技能链：市场结构状态机（公共依赖）→（题材问题时）生命周期诊断 ---
     market_state = market_structure.classify_market_structure(
         market_lines, list((candidate or {}).get("trigger_types", []) or [])
