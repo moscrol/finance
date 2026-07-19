@@ -1710,7 +1710,6 @@ def test_daily_run_uses_one_pass_llm_and_template_followups(tmp_path, monkeypatc
     app_module._run_ask(store, run.run_id, request)
 
     options = captured["options"]
-    assert options.compose_self_review is False
     assert options.compose_revise_on_warn is False
     assert options.force_moneyflow_block is True
     assert captured["followups_use_llm"] is False

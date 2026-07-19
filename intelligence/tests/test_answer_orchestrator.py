@@ -48,7 +48,6 @@ class AnswerOrchestratorTests(unittest.TestCase):
         options = AskOptions(
             query="测试问题",
             compose=True,
-            compose_self_review=False,
             stream_text_delta=public_deltas.append,
         )
         result = AskResult(
@@ -738,7 +737,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
             return None, "mocked"
 
         with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            "intelligence.services.ask.llm_refine.synthesize_messages_stream",
             side_effect=fake_synthesize,
         ):
             wiki = Path(tmp) / "wiki"
@@ -967,7 +966,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
             return None, "mocked"
 
         with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            "intelligence.services.ask.llm_refine.synthesize_messages_stream",
             side_effect=fake_synthesize,
         ):
             base = Path(tmp)
@@ -1004,7 +1003,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
             return None, "mocked"
 
         with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            "intelligence.services.ask.llm_refine.synthesize_messages_stream",
             side_effect=fake_synthesize,
         ):
             base = Path(tmp)
@@ -1066,7 +1065,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         duckdb = __import__("duckdb")
         with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            "intelligence.services.ask.llm_refine.synthesize_messages_stream",
             side_effect=fake_synthesize,
         ):
             base = Path(tmp)

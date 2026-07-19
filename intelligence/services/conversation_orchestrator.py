@@ -1444,7 +1444,6 @@ class TurnOrchestrator:
                 user=self.run_store.user_id,
                 compose=True,
                 synthesize=False,
-                compose_self_review=False,
                 compose_revise_on_warn=False,
                 market_db_path=self.repo_root
                 / "db"

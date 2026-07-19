@@ -32,7 +32,6 @@ from intelligence.services.llm_refine import (
     build_grounding_judge_messages,
     build_synthesis_messages,
     synthesize,
-    synthesize_messages_with_review,
 )
 
 
@@ -93,51 +92,6 @@ class SynthesizeTests(unittest.TestCase):
         user_msg = posted.call_args.args[1][1]["content"]
         self.assertIn("液冷", user_msg)
         self.assertIn("[S1] 盘面快照", user_msg)
-
-    def test_synthesize_messages_with_review_returns_revised_answer(self) -> None:
-        msgs = build_synthesis_messages("深挖澜起科技", "存储芯片", "## 证据链\n- 澜起科技 [S1]")
-        with (
-            mock.patch.object(llm_refine, "detect_provider", return_value=_provider()),
-            mock.patch.object(
-                llm_refine,
-                "_post_chat_synthesis",
-                return_value=("初稿：澜起是存储芯片龙头[S1]。（非投资建议）", "stop"),
-            ),
-            mock.patch.object(
-                llm_refine,
-                "_post_chat",
-                return_value="修订稿：澜起要同时看生命周期、相对强度和二阶导[S1]。（非投资建议）",
-            ) as posted,
-        ):
-            out, reason = synthesize_messages_with_review(msgs)
-
-        self.assertEqual(reason, "")
-        self.assertIsNotNone(out)
-        assert out is not None
-        self.assertIn("修订稿", out.answer)
-        self.assertEqual(posted.call_count, 1)
-        review_user_msg = posted.call_args.args[1][-1]["content"]
-        self.assertIn("用户影子审稿人", review_user_msg)
-        self.assertIn("是否模板化", review_user_msg)
-
-    def test_synthesize_messages_with_review_marks_review_failure(self) -> None:
-        msgs = build_synthesis_messages("深挖澜起科技", "存储芯片", "## 证据链\n- 澜起科技 [S1]")
-        with (
-            mock.patch.object(llm_refine, "detect_provider", return_value=_provider()),
-            mock.patch.object(
-                llm_refine,
-                "_post_chat_synthesis",
-                return_value=("初稿：澜起是存储芯片龙头[S1]。（非投资建议）", "stop"),
-            ),
-            mock.patch.object(llm_refine, "_post_chat", side_effect=TimeoutError("review timeout")),
-        ):
-            out, reason = synthesize_messages_with_review(msgs)
-
-        self.assertIsNotNone(out)
-        assert out is not None
-        self.assertIn("初稿", out.answer)
-        self.assertIn("二次自审失败", reason)
-        self.assertIn("保留初稿", reason)
 
     def test_synthesis_prompt_includes_experience_guidance(self) -> None:
         msgs = llm_refine.build_synthesis_messages(

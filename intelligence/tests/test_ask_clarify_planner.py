@@ -170,7 +170,6 @@ class AskIntegrationTest(unittest.TestCase):
             use_modules=False,
             use_wiki_rag=False,
             compose=True,  # 无 LLM key 时降级模板，但取数块照跑
-            compose_self_review=False,
         )
         par = answer_query(AskOptions(**base, parallel_blocks=True))
         ser = answer_query(AskOptions(**base, parallel_blocks=False))

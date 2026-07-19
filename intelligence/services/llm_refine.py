@@ -1160,19 +1160,6 @@ def synthesize_messages_stream(
     )
 
 
-_SELF_REVIEW_REVISION_PROMPT = (
-    "请把上一条回答当作初稿，先在内部扮演严格的用户影子审稿人做二次反驳，然后重写最终稿。"
-    "反驳重点：是否模板化、是否孤立看个股、是否漏掉大盘/情绪/板块/个股相对强度、证据是否够硬、"
-    "生命周期四问是否完整、是否说明市场正在奖励谁/抛弃谁/犹豫谁、是否给出二阶导和更优表达、"
-    "是否有升级/降级/证伪条件且写成了组合门槛（≥2 条信号同现或主信号+确认信号；单信号触发要改写）、"
-    "对〔历史基线〕/上期判断是否给出了四态对照（支持/削弱/无变化/信息不足）。"
-    "还要检查全文有没有先抓住核心矛盾；每个视角是否都服务这条矛盾，而不是按清单填空；"
-    "每段是否回答了“这个事实改变了什么判断”。"
-    "如果证据不足或数据块没有给出某项指标，必须明确写缺口，不能编造。"
-    "只输出修订后的最终回答正文，不要输出审稿过程、评分、JSON 或提示词。结尾仍以「（非投资建议）」收尾。"
-)
-
-
 # 质检闸门 WARN 回灌修订（修订版在前契约）：把 output_review 的 WARN 意见送回同一段
 # 对话做一轮定向修订，用户拿到的是可直接引用的修订版全文，审查意见退居附录。
 _GATE_REVISION_PROMPT = (
@@ -1186,66 +1173,6 @@ def gate_revision_user_content(warn_notes: list[str]) -> str:
     """Build the user turn that feeds output-review WARN notes back for revision."""
     notes = "\n".join(f"- {n}" for n in warn_notes)
     return _GATE_REVISION_PROMPT.format(notes=notes)
-
-
-def synthesize_messages_with_review(
-    messages: list[dict],
-    model_override: str | None = None,
-    timeout: int = DEFAULT_LLM_TIMEOUT,
-    temperature: float = 0.3,
-    review_temperature: float = 0.2,
-    *,
-    deadline: Deadline | None = None,
-    max_tokens: int = DEFAULT_SYNTHESIS_MAX_TOKENS,
-    max_chars: int = DEFAULT_SYNTHESIS_MAX_CHARS,
-) -> tuple[SynthesisResult | None, str]:
-    """Run draft -> shadow-user critique/rewrite for compose answers.
-
-    The first call creates the grounded draft. The second call receives the same
-    evidence, the draft, and a reviewer prompt, then returns only the revised
-    final answer. If the review pass fails, keep the draft rather than dropping
-    back to the deterministic template.
-    """
-    shared_deadline = deadline or Deadline.from_timeout(timeout)
-    draft, reason = synthesize_messages(
-        messages,
-        model_override=model_override,
-        timeout=timeout,
-        temperature=temperature,
-        deadline=shared_deadline,
-        max_tokens=max_tokens,
-        max_chars=max_chars,
-    )
-    if draft is None:
-        return None, reason
-
-    provider = detect_provider(model_override)
-    if provider is None:
-        return draft, ""
-    review_messages = [
-        *messages,
-        {"role": "assistant", "content": draft.answer},
-        {"role": "user", "content": _SELF_REVIEW_REVISION_PROMPT},
-    ]
-    if shared_deadline.remaining() < 1:
-        draft.fallback_reason = "review_timeout"
-        return draft, "LLM 二次自审因共享截止时间不足而跳过，保留初稿并标记降级"
-    try:
-        content = _post_chat(
-            provider,
-            review_messages,
-            shared_deadline.require_remaining(1),
-            review_temperature,
-        )
-    except LLMDeadlineExceeded:
-        draft.fallback_reason = "review_timeout"
-        return draft, "LLM 二次自审超过共享截止时间，保留初稿并标记降级"
-    except Exception as exc:
-        return draft, f"LLM 二次自审失败（{type(exc).__name__}），保留初稿并标记降级"
-    revised = (content or "").strip()
-    if not revised:
-        return draft, "LLM 二次自审返回空内容，保留初稿并标记降级"
-    return SynthesisResult(answer=revised, provider=provider.name, model=provider.model), ""
 
 
 def claim_binding_revision_user_content(

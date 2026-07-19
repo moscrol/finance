@@ -135,7 +135,6 @@ class AskOptions:
     detail: bool = False
     user: str | None = None
     experience_cards_window: int = 12
-    compose_self_review: bool = True
     include_market_value_block: bool = True
     include_customer_hardness_block: bool = True
     include_second_derivative_block: bool = True

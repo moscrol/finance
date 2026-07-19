@@ -707,7 +707,6 @@ def _run_ask(
                 date=report_date,
                 user=req.user,
                 compose=req.compose,
-                compose_self_review=req.task_type != "daily",
                 compose_revise_on_warn=req.task_type != "daily",
                 market_db_path=repo_root / "db" / "market_feature_store.duckdb",
                 force_moneyflow_block=req.task_type == "daily",

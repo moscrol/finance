@@ -951,14 +951,6 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             temperature=synthesis_temperature,
             deadline=deadline,
         )
-    elif options.compose_self_review:
-        composed, reason = llm_refine.synthesize_messages_with_review(
-            messages,
-            model_override=options.llm_model,
-            timeout=_stage_timeout(options, options.llm_timeout),
-            temperature=synthesis_temperature,
-            deadline=deadline,
-        )
     else:
         composed, reason = llm_refine.synthesize_messages_stream(
             messages,

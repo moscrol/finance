@@ -87,7 +87,6 @@ class ResearchOwnerSkill:
             user=context.user_id,
             compose=True,
             synthesize=False,
-            compose_self_review=False,
             compose_revise_on_warn=False,
             use_modules=self.config.use_modules,
             wiki_rag_timeout=self.config.wiki_rag_timeout,
