@@ -360,9 +360,9 @@ class DeadlineClampTests(unittest.TestCase):
 
 
 class MarketReviewProseContractTests(unittest.TestCase):
-    """市场复盘散文不再被 claim-marker 门禁整答退稿。"""
+    """市场复盘也必须服从 AnswerSpec 事实边界。"""
 
-    def test_market_review_prose_survives_gate(self) -> None:
+    def test_market_review_prose_with_unsupported_fact_is_rejected(self) -> None:
         result = AskResult(
             query="复盘今天的A股",
             trade_date="2026-07-17",
@@ -388,7 +388,11 @@ class MarketReviewProseContractTests(unittest.TestCase):
             model="test-model",
             finish_reason="stop",
         )
-        options = AskOptions(query="复盘今天的A股", synthesize=False)
+        options = AskOptions(
+            query="复盘今天的A股",
+            synthesize=False,
+            grounded_presenter=False,
+        )
 
         with mock.patch.object(
             llm_refine,
@@ -399,10 +403,15 @@ class MarketReviewProseContractTests(unittest.TestCase):
                 PreparedAnswer(options=options, result=result)
             )
 
-        self.assertIsNotNone(result.synthesis)
-        assert result.synthesis is not None
-        self.assertIn("放量上涨", result.synthesis)
-        self.assertNotEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertIsNone(result.synthesis)
+        self.assertEqual(result.llm_fallback_reason, "quality_gate_rejected")
+        self.assertTrue(
+            any(
+                "llm_missing_claim_binding" in warning
+                or "未绑定" in warning
+                for warning in result.warnings
+            )
+        )
 
     def test_market_review_prose_still_blocked_on_engineering_leak(self) -> None:
         """豁免只针对 marker 绑定：散文里出现内部术语仍必须退稿。"""
@@ -433,7 +442,11 @@ class MarketReviewProseContractTests(unittest.TestCase):
             model="test-model",
             finish_reason="stop",
         )
-        options = AskOptions(query="复盘今天的A股", synthesize=False)
+        options = AskOptions(
+            query="复盘今天的A股",
+            synthesize=False,
+            grounded_presenter=False,
+        )
 
         with mock.patch.object(
             llm_refine,

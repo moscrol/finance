@@ -116,7 +116,7 @@ class AskOptions:
         )
         == "1"
     )
-    # 通用 Grounded Presenter：非 market_review 的 compose 回答也走 Grounded Composer
+    # 通用 Grounded Presenter：compose 回答（包括 market_review）走 Grounded Composer
     # 链路（DecisionBrief → 自然语言成文 → 确定性门禁 → 逐句语义审 → 逐句修复），
     # LLM 保留最终措辞；任一阶段不可用或门禁未过时降回结构化 claim 合成路径。
     grounded_presenter: bool = field(
@@ -341,5 +341,4 @@ def _llm_deadline(options: AskOptions) -> llm_refine.Deadline:
     if options.deadline is not None:
         return llm_refine.Deadline(options.deadline.expires_at)
     return llm_refine.Deadline.from_timeout(options.llm_timeout)
-
 

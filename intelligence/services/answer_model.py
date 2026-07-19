@@ -1932,6 +1932,12 @@ def evidence_atoms_from_answer_spec(
                         "claim_id": claim.claim_id,
                         "source": source.source if source is not None else "",
                         "detail": source.detail if source is not None else "",
+                        "content_hash": (
+                            source.content_hash if source is not None else ""
+                        ),
+                        "source_revision": (
+                            source.source_revision if source is not None else ""
+                        ),
                     },
                 )
             )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 from intelligence.services import agent_research
 from intelligence.services.agent_research import (
@@ -9,6 +10,7 @@ from intelligence.services.agent_research import (
     should_run,
 )
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import ResearchDeadline
 
 
 def _tool(name: str, hits: int = 1):
@@ -138,6 +140,62 @@ def test_step_budget_is_hard_limit() -> None:
 
     assert len([step for step in result.steps if step.tool != "finish"]) == 2
     assert result.stop_reason == "预算耗尽：步数"
+
+
+def test_zero_total_budget_has_no_llm_or_tool_side_effect() -> None:
+    llm_calls: list[float] = []
+    tool_calls: list[str] = []
+
+    def complete(messages, timeout=0, temperature=0.0):
+        del messages, temperature
+        llm_calls.append(timeout)
+        return (
+            '{"tool":"kb_search","args":{"query":"不应执行"},"reason":"x"}',
+            None,
+            "",
+        )
+
+    def tool(query: str):
+        tool_calls.append(query)
+        return _tool("kb_search")(query)
+
+    result = run_agent_loop(
+        "问题",
+        tools={"kb_search": tool},
+        total_seconds=0,
+        complete_fn=complete,
+    )
+
+    assert llm_calls == []
+    assert tool_calls == []
+    assert result.stop_reason == "预算耗尽：总时长"
+
+
+def test_root_deadline_clamps_llm_timeout() -> None:
+    observed: list[float] = []
+    deadline = ResearchDeadline(time.monotonic() + 0.5)
+
+    def complete(messages, timeout=0, temperature=0.0):
+        del messages, temperature
+        observed.append(timeout)
+        return (
+            '{"tool":"finish","args":{"sufficient":false,"gaps":[]},"reason":"x"}',
+            None,
+            "",
+        )
+
+    result = run_agent_loop(
+        "问题",
+        tools={"kb_search": _tool("kb_search")},
+        total_seconds=60,
+        llm_timeout=15,
+        deadline=deadline,
+        complete_fn=complete,
+    )
+
+    assert result.stop_reason == "agent finish"
+    assert len(observed) == 1
+    assert 0 < observed[0] <= 0.5
 
 
 def test_tool_exception_degrades_to_failed_trace() -> None:

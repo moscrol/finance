@@ -316,6 +316,20 @@ def test_followup_merges_validated_previous_answer_spec_without_opening_gate() -
         summary=(
             replace(previous.summary[0], claim_id="previous-fact"),
         ),
+        candidate_facts=(
+            replace(
+                previous.verified_facts[0],
+                claim_id="previous-candidate",
+                status=answer_model.ClaimStatus.CANDIDATE,
+            ),
+        ),
+        sources=(
+            replace(
+                previous.sources[0],
+                content_hash="sha256:previous",
+                source_revision="rag-rev-7",
+            ),
+        ),
     )
 
     merged = owner._merge_inherited_answer_spec(
@@ -328,6 +342,14 @@ def test_followup_merges_validated_previous_answer_spec_without_opening_gate() -
         "previous-fact",
     }
     assert {source.evidence_id for source in merged.sources} == {"W1", "W2"}
+    assert {claim.claim_id for claim in merged.candidate_facts} == {
+        "previous-candidate"
+    }
+    inherited_source = next(
+        source for source in merged.sources if source.evidence_id == "W1"
+    )
+    assert inherited_source.content_hash == "sha256:previous"
+    assert inherited_source.source_revision == "rag-rev-7"
     issues = answer_model.validate_llm_answer(
         "海光信息弹性一定更大。",
         merged,

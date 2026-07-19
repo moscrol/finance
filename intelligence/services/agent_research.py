@@ -17,6 +17,7 @@
 """
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import re
@@ -26,6 +27,7 @@ from dataclasses import dataclass, field
 
 from intelligence.services import llm_refine, market_news, web_research
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import ResearchDeadline
 
 ENV_MODE = "ASK_AGENT_LOOP"
 ENV_MAX_STEPS = "ASK_AGENT_MAX_STEPS"
@@ -110,7 +112,8 @@ class AgentEvidence:
     tool: str
     title: str
     detail: str  # excerpt / snippet / 日期+媒体
-    source: str  # kb file_path 或 url
+    source: str  # 用户可见来源标签或公开 URL
+    internal_locator: str = ""  # 仅控制面追踪，不得进入 Citation/AnswerSpec
 
 
 @dataclass(frozen=True)
@@ -152,24 +155,45 @@ class AgentLoopResult:
         }
 
 
-# 工具执行器契约：query -> (evidence 列表, 观察文本, trace)。
-ToolRunner = Callable[[str], tuple[list[AgentEvidence], str, ProviderTrace]]
+@dataclass(frozen=True)
+class AgentToolContext:
+    """Cooperative absolute deadline passed to agent tools."""
+
+    deadline: ResearchDeadline
+
+    def remaining(self) -> float:
+        return self.deadline.remaining()
+
+    def timeout(self, configured_limit: float) -> float:
+        timeout = self.deadline.stage_timeout(configured_limit)
+        if timeout <= 0.001:
+            raise TimeoutError("agent tool deadline expired")
+        return timeout
+
+
+# 工具执行器契约：query (+ 可选 context) -> (evidence 列表, 观察文本, trace)。
+# 单参数 runner 继续兼容测试和外部扩展；内置 runner 都接收 context。
+ToolRunner = Callable[..., tuple[list[AgentEvidence], str, ProviderTrace]]
 
 
 def build_default_tools(
-    kb_retrieve: Callable[[str], object],
+    kb_retrieve: Callable[[str, float], object],
 ) -> dict[str, ToolRunner]:
     """默认工具集：kb_search 由调用方注入（复用主链 kb_rag 配置），web/news 用现成 provider。"""
 
-    def _kb_search(query: str) -> tuple[list[AgentEvidence], str, ProviderTrace]:
-        rag = kb_retrieve(query)
+    def _kb_search(
+        query: str,
+        context: AgentToolContext,
+    ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+        rag = kb_retrieve(query, context.timeout(DEFAULT_TOTAL_SECONDS))
         hits = list(getattr(rag, "hits", ()) or ())[:5]
         evidence = [
             AgentEvidence(
                 tool="kb_search",
                 title=hit.title,
                 detail=(hit.excerpt or "")[:160],
-                source=hit.file_path,
+                source="本地知识库",
+                internal_locator=hit.file_path,
             )
             for hit in hits
         ]
@@ -186,8 +210,14 @@ def build_default_tools(
         )
         return evidence, observation, trace
 
-    def _web_search(query: str) -> tuple[list[AgentEvidence], str, ProviderTrace]:
-        web = web_research.fetch_web_search(query)
+    def _web_search(
+        query: str,
+        context: AgentToolContext,
+    ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+        web = web_research.fetch_web_search(
+            query,
+            timeout=context.timeout(20.0),
+        )
         evidence = [
             AgentEvidence(
                 tool="web_search",
@@ -203,8 +233,14 @@ def build_default_tools(
         )
         return evidence, observation, web.trace
 
-    def _news_search(query: str) -> tuple[list[AgentEvidence], str, ProviderTrace]:
-        news = market_news.fetch_eastmoney_news_result(query)
+    def _news_search(
+        query: str,
+        context: AgentToolContext,
+    ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+        news = market_news.fetch_eastmoney_news_result(
+            query,
+            timeout=context.timeout(8.0),
+        )
         evidence = [
             AgentEvidence(
                 tool="news_search",
@@ -236,7 +272,11 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
     ``knowledge`` 为 KnowledgeAdapter（鸭子类型：get_concept_matches /
     get_exposure_matches / get_evidence）。"""
 
-    def _graph_lookup(query: str) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+    def _graph_lookup(
+        query: str,
+        context: AgentToolContext | None = None,
+    ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+        del context
         concepts = knowledge.get_concept_matches(query, limit=5)
         exposures = knowledge.get_exposure_matches(query, limit=8)
         evidence: list[AgentEvidence] = []
@@ -246,7 +286,8 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
                     tool="graph_lookup",
                     title=f"概念 {item.get('concept')}",
                     detail=f"匹配分 {item.get('score')}",
-                    source="knowledge-base · wiki/relations/concept_graph.json",
+                    source="本地知识图谱",
+                    internal_locator="wiki/relations/concept_graph.json",
                 )
             )
         for row in (exposures.get("items") or [])[:8]:
@@ -261,7 +302,8 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
                         f"{row.get('concept')}｜{row.get('strength') or '?'}"
                         f"/{row.get('evidence_layer') or '?'}"
                     ),
-                    source="knowledge-base · wiki/relations/entity_exposures.json",
+                    source="本地知识图谱",
+                    internal_locator="wiki/relations/entity_exposures.json",
                 )
             )
         observation = (
@@ -277,7 +319,11 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
         )
         return evidence, observation, trace
 
-    def _evidence_lookup(query: str) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+    def _evidence_lookup(
+        query: str,
+        context: AgentToolContext | None = None,
+    ) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+        del context
         bundle = knowledge.get_evidence(query, limit=6)
         evidence = [
             AgentEvidence(
@@ -288,7 +334,8 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
                     f"（{item.get('source')}，{item.get('source_date') or '无日期'}，"
                     f"质量 {item.get('confidence') or '?'}）"
                 ),
-                source="knowledge-base · wiki/relations/evidence_index.json",
+                source="本地证据索引",
+                internal_locator="wiki/relations/evidence_index.json",
             )
             for item in (bundle.get("items") or [])[:6]
             if isinstance(item, dict)
@@ -382,6 +429,41 @@ def _parse_action(content: str) -> dict[str, object] | None:
     return data if isinstance(data, dict) else None
 
 
+def _tool_accepts_context(runner: ToolRunner) -> bool:
+    try:
+        signature = inspect.signature(runner)
+    except (TypeError, ValueError):
+        return False
+    positional = [
+        parameter
+        for parameter in signature.parameters.values()
+        if parameter.kind
+        in {
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        }
+    ]
+    return (
+        len(positional) >= 2
+        or any(
+            parameter.kind is inspect.Parameter.VAR_POSITIONAL
+            for parameter in signature.parameters.values()
+        )
+    )
+
+
+def _run_tool(
+    runner: ToolRunner,
+    query: str,
+    context: AgentToolContext,
+) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+    if context.deadline.expired:
+        raise TimeoutError("agent tool deadline expired")
+    if _tool_accepts_context(runner):
+        return runner(query, context)
+    return runner(query)
+
+
 def _transcript_block(steps: list[AgentStep]) -> str:
     if not steps:
         return "（尚未执行任何检索）"
@@ -401,6 +483,7 @@ def run_agent_loop(
     steps_budget: int | None = None,
     total_seconds: float = DEFAULT_TOTAL_SECONDS,
     llm_timeout: int = DEFAULT_LLM_TIMEOUT,
+    deadline: ResearchDeadline | None = None,
     complete_fn: CompleteFn | None = None,
     attempted_queries: Sequence[tuple[str, str]] = (),
 ) -> AgentLoopResult:
@@ -413,7 +496,12 @@ def run_agent_loop(
     result = AgentLoopResult()
     complete = complete_fn or llm_refine.complete
     budget = steps_budget if steps_budget is not None else max_steps()
-    deadline = time.monotonic() + max(1.0, total_seconds)
+    stage_deadline = ResearchDeadline.from_timeout(total_seconds)
+    if deadline is not None:
+        stage_deadline = ResearchDeadline(
+            min(stage_deadline.expires_at, deadline.expires_at)
+        )
+    tool_context = AgentToolContext(stage_deadline)
     seen_queries: set[tuple[str, str]] = {
         (tool, re.sub(r"\s+", "", attempted))
         for tool, attempted in attempted_queries
@@ -422,7 +510,8 @@ def run_agent_loop(
     system_prompt = _system_prompt(tools)
 
     for _ in range(budget + 1):  # +1 给 finish 留一次决策机会
-        if time.monotonic() >= deadline:
+        remaining = stage_deadline.remaining()
+        if remaining <= 0.001:
             result.stop_reason = "预算耗尽：总时长"
             break
         executed_steps = sum(1 for step in result.steps if step.tool != "finish")
@@ -437,7 +526,7 @@ def run_agent_loop(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            timeout=llm_timeout,
+            timeout=min(float(llm_timeout), remaining),
             temperature=0.0,
         )
         if content is None:
@@ -497,9 +586,16 @@ def run_agent_loop(
             continue
         seen_queries.add(dedupe_key)
 
+        if stage_deadline.remaining() <= 0.001:
+            result.stop_reason = "预算耗尽：总时长"
+            break
         started = time.monotonic()
         try:
-            evidence, observation, trace = tools[tool](tool_query)
+            evidence, observation, trace = _run_tool(
+                tools[tool],
+                tool_query,
+                tool_context,
+            )
         except Exception as exc:  # noqa: BLE001 —— 单工具失败不炸整轮循环
             evidence, observation = [], f"工具执行失败：{exc}"
             trace = ProviderTrace(

@@ -807,6 +807,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
@@ -860,6 +861,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
@@ -932,6 +934,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 

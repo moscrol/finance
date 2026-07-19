@@ -8,6 +8,8 @@ from __future__ import annotations
 import contextvars
 import io
 import json
+import threading
+import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
@@ -178,6 +180,73 @@ class LLMCallLedgerTests(unittest.TestCase):
         self.assertEqual(summary["rejected_count"], 2)
         self.assertEqual(summary["max_calls"], 1)
 
+    def test_provider_fallback_reserves_each_http_attempt(self) -> None:
+        """预算为 1 时，第一个 provider 失败后不得再请求第二个 provider。"""
+        first = self._provider()
+        second = llm_refine.LLMProvider(
+            name="second",
+            api_key="k2",
+            base_url="https://second.invalid/v1",
+            model="second-model",
+        )
+        with mock.patch.object(
+            llm_refine,
+            "detect_providers",
+            return_value=[first, second],
+        ):
+            with mock.patch.object(
+                llm_refine.urllib.request,
+                "urlopen",
+                side_effect=OSError("boom"),
+            ) as urlopen:
+                with llm_refine.call_ledger_scope(max_calls=1) as ledger:
+                    content, _provider, reason = llm_refine.complete(
+                        [{"role": "user", "content": "hi"}]
+                    )
+
+        self.assertIsNone(content)
+        self.assertIn("预算耗尽", reason)
+        self.assertEqual(urlopen.call_count, 1)
+        self.assertEqual(len(ledger.records), 1)
+        self.assertEqual(ledger.rejected_count, 1)
+
+    def test_atomic_reservation_rejects_concurrent_second_attempt(self) -> None:
+        ledger = llm_refine.LLMCallLedger(max_calls=1)
+        barrier = threading.Barrier(3)
+        decisions: list[bool] = []
+
+        def reserve() -> None:
+            barrier.wait()
+            decisions.append(ledger.try_reserve())
+
+        threads = [threading.Thread(target=reserve) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        barrier.wait()
+        for thread in threads:
+            thread.join()
+
+        self.assertEqual(sorted(decisions), [False, True])
+        self.assertEqual(ledger.rejected_count, 1)
+
+    def test_synthesis_retry_does_not_sleep_after_budget_is_spent(self) -> None:
+        with llm_refine.provider_override(self._provider()):
+            with mock.patch.object(
+                llm_refine.urllib.request,
+                "urlopen",
+                side_effect=OSError("boom"),
+            ) as urlopen:
+                with mock.patch.object(llm_refine.time, "sleep") as sleep:
+                    with llm_refine.call_ledger_scope(max_calls=1):
+                        composed, reason = llm_refine.synthesize_messages(
+                            [{"role": "user", "content": "hi"}]
+                        )
+
+        self.assertIsNone(composed)
+        self.assertIn("预算耗尽", reason)
+        self.assertEqual(urlopen.call_count, 1)
+        sleep.assert_not_called()
+
     def test_no_limit_never_rejects(self) -> None:
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
@@ -277,6 +346,47 @@ class QueryLedgerTests(unittest.TestCase):
         self.assertEqual(calls, ["hit"])
         self.assertTrue(all(item == "r" for item in results))
 
+    def test_different_keys_fetch_concurrently(self) -> None:
+        first_started = threading.Event()
+        release_first = threading.Event()
+        second_started = threading.Event()
+
+        def first_fetch() -> str:
+            first_started.set()
+            release_first.wait(timeout=2)
+            return "a"
+
+        def second_fetch() -> str:
+            second_started.set()
+            return "b"
+
+        with query_ledger.query_ledger_scope():
+            pool = ThreadPoolExecutor(max_workers=2)
+            first_context = contextvars.copy_context()
+            second_context = contextvars.copy_context()
+            first = pool.submit(
+                first_context.run,
+                query_ledger.executed,
+                "web_search",
+                "query-a",
+                first_fetch,
+            )
+            self.assertTrue(first_started.wait(timeout=1))
+            second = pool.submit(
+                second_context.run,
+                query_ledger.executed,
+                "web_search",
+                "query-b",
+                second_fetch,
+            )
+            concurrent = second_started.wait(timeout=0.3)
+            release_first.set()
+            self.assertEqual(first.result(timeout=2), "a")
+            self.assertEqual(second.result(timeout=2), "b")
+            pool.shutdown()
+
+        self.assertTrue(concurrent)
+
     def test_web_search_tool_layer_dedupes_in_scope(self) -> None:
         sentinel = web_research.WebSearchResult((), mock.Mock())
 
@@ -292,6 +402,83 @@ class QueryLedgerTests(unittest.TestCase):
         self.assertIs(first, sentinel)
         self.assertIs(second, sentinel)
         self.assertEqual(fetch.call_count, 1)
+
+    def test_web_search_different_limits_do_not_share_result(self) -> None:
+        first = web_research.WebSearchResult((), mock.Mock())
+        second = web_research.WebSearchResult((), mock.Mock())
+
+        with mock.patch.object(
+            web_research,
+            "_fetch_web_search_uncached",
+            side_effect=[first, second],
+        ) as fetch:
+            with query_ledger.query_ledger_scope():
+                got_first = web_research.fetch_web_search("宁德时代", limit=5)
+                got_second = web_research.fetch_web_search("宁德时代", limit=10)
+
+        self.assertIs(got_first, first)
+        self.assertIs(got_second, second)
+        self.assertEqual(fetch.call_count, 2)
+
+    def test_web_search_query_ledger_does_not_expose_proxy_credentials(self) -> None:
+        sentinel = web_research.WebSearchResult((), mock.Mock())
+        proxy = "http://user:super-secret@proxy.example:8080"
+
+        with mock.patch.object(
+            web_research,
+            "_fetch_web_search_uncached",
+            return_value=sentinel,
+        ):
+            with query_ledger.query_ledger_scope() as ledger:
+                web_research.fetch_web_search("宁德时代", proxy_url=proxy)
+
+        summary = json.dumps(ledger.summary(), ensure_ascii=False)
+        self.assertNotIn("super-secret", summary)
+        self.assertNotIn("user:", summary)
+
+    def test_same_key_failure_is_shared_but_not_cached(self) -> None:
+        calls: list[str] = []
+        fetch_started = threading.Event()
+        release_fetch = threading.Event()
+
+        def fail() -> str:
+            calls.append("fail")
+            fetch_started.set()
+            release_fetch.wait(timeout=2)
+            raise RuntimeError("boom")
+
+        with query_ledger.query_ledger_scope():
+            pool = ThreadPoolExecutor(max_workers=2)
+            contexts = [contextvars.copy_context() for _ in range(2)]
+            first = pool.submit(
+                contexts[0].run,
+                query_ledger.executed,
+                "web_search",
+                "same-failure",
+                fail,
+            )
+            self.assertTrue(fetch_started.wait(timeout=1))
+            second = pool.submit(
+                contexts[1].run,
+                query_ledger.executed,
+                "web_search",
+                "same-failure",
+                fail,
+            )
+            time.sleep(0.05)
+            release_fetch.set()
+            for future in (first, second):
+                with self.assertRaisesRegex(RuntimeError, "boom"):
+                    future.result(timeout=2)
+            with self.assertRaisesRegex(RuntimeError, "boom"):
+                query_ledger.executed(
+                    "web_search",
+                    "same-failure",
+                    fail,
+                )
+            pool.shutdown()
+
+        self.assertEqual(calls, ["fail", "fail"])
 
 
 class _FakeKnowledge:
@@ -357,7 +544,8 @@ class AgentGraphToolsTests(unittest.TestCase):
         self.assertEqual(len(evidence), 1)
         self.assertIn("券商研报", evidence[0].detail)
         self.assertIn("2026-05-20", evidence[0].detail)
-        self.assertIn("evidence_index.json", evidence[0].source)
+        self.assertEqual(evidence[0].source, "本地证据索引")
+        self.assertIn("evidence_index.json", evidence[0].internal_locator)
         self.assertIn("川环科技", observation)
 
     def test_system_prompt_lists_only_registered_tools(self) -> None:

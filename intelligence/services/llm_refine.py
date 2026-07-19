@@ -83,6 +83,10 @@ class LLMOutputTooLong(RuntimeError):
     pass
 
 
+class LLMCallBudgetExceeded(RuntimeError):
+    """Raised before an HTTP attempt when the turn-level call budget is spent."""
+
+
 @dataclass(frozen=True)
 class Deadline:
     expires_at: float
@@ -233,34 +237,72 @@ class LLMCallLedger:
     # （入口直接返回降级 reason，不发 HTTP）。防失控为主，默认上限宽松。
     max_calls: int | None = None
     rejected_count: int = 0
+    _reservation_count: int = 0
+    _lock: threading.Lock = field(
+        default_factory=threading.Lock,
+        repr=False,
+        compare=False,
+    )
 
     def over_budget(self) -> bool:
-        return (
-            self.max_calls is not None
-            and len(self.records) >= self.max_calls
-        )
+        with self._lock:
+            return (
+                self.max_calls is not None
+                and self._reservation_count >= self.max_calls
+            )
 
-    def reject(self) -> str:
-        self.rejected_count += 1
+    def try_reserve(self) -> bool:
+        """Atomically reserve one real provider attempt.
+
+        Completed records are too late to enforce a concurrent limit: two
+        callers can both observe the same record count before either finishes.
+        Reservations are cumulative for the turn, so fallback/retry calls each
+        consume one slot and in-flight calls count immediately.
+        """
+        with self._lock:
+            if (
+                self.max_calls is not None
+                and self._reservation_count >= self.max_calls
+            ):
+                self.rejected_count += 1
+                return False
+            self._reservation_count += 1
+            return True
+
+    def rejection_reason(self) -> str:
         return (
             f"LLM 调用预算耗尽（本轮上限 {self.max_calls} 次尝试），"
             "已拒发新调用并降级"
         )
 
+    def reject(self) -> str:
+        with self._lock:
+            self.rejected_count += 1
+        return self.rejection_reason()
+
+    def record(self, record: LLMCallRecord) -> None:
+        with self._lock:
+            self.records.append(record)
+
     def summary(self) -> dict[str, object]:
+        with self._lock:
+            records = list(self.records)
+            reservation_count = self._reservation_count
+            rejected_count = self.rejected_count
         by_caller: dict[str, int] = {}
-        for record in self.records:
+        for record in records:
             by_caller[record.caller] = by_caller.get(record.caller, 0) + 1
         return {
-            "call_count": len(self.records),
+            "call_count": len(records),
+            "reserved_count": reservation_count,
             "failure_count": sum(
-                1 for record in self.records if record.status != "success"
+                1 for record in records if record.status != "success"
             ),
             "total_elapsed_ms": sum(
-                record.elapsed_ms for record in self.records
+                record.elapsed_ms for record in records
             ),
             "max_calls": self.max_calls,
-            "rejected_count": self.rejected_count,
+            "rejected_count": rejected_count,
             "by_caller": by_caller,
             "records": [
                 {
@@ -270,7 +312,7 @@ class LLMCallLedger:
                     "status": record.status,
                     "elapsed_ms": record.elapsed_ms,
                 }
-                for record in self.records
+                for record in records
             ],
         }
 
@@ -308,6 +350,18 @@ def _budget_rejection() -> str | None:
     return None
 
 
+def _reserve_llm_call() -> None:
+    """Reserve one attempt at the actual HTTP boundary.
+
+    Public-entry checks remain a cheap fast path, but this reservation is the
+    authoritative guard because provider fallback, retries and concurrent
+    callers can all pass an earlier check.
+    """
+    ledger = _CALL_LEDGER.get()
+    if ledger is not None and not ledger.try_reserve():
+        raise LLMCallBudgetExceeded(ledger.rejection_reason())
+
+
 def current_call_ledger() -> LLMCallLedger | None:
     return _CALL_LEDGER.get()
 
@@ -321,7 +375,7 @@ def _record_llm_call(
     ledger = _CALL_LEDGER.get()
     if ledger is None:
         return
-    ledger.records.append(
+    ledger.record(
         LLMCallRecord(
             caller=caller,
             provider=provider.name,
@@ -369,7 +423,13 @@ def _build_user_prompt(query: str, theme: str, evidence_text: str) -> str:
     )
 
 
-def _post_chat(provider: LLMProvider, messages: list[dict], timeout: int, temperature: float = 0.2) -> str:
+def _post_chat(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+    temperature: float = 0.2,
+) -> str:
+    _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {"model": provider.model, "messages": messages, "temperature": temperature}
     if os.environ.get("LLM_THINKING") == "disabled":
@@ -398,11 +458,12 @@ def _post_chat(provider: LLMProvider, messages: list[dict], timeout: int, temper
 def _post_chat_synthesis(
     provider: LLMProvider,
     messages: list[dict],
-    timeout: int,
+    timeout: float,
     temperature: float,
     max_tokens: int,
     max_chars: int,
 ) -> tuple[str, str | None]:
+    _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {
         "model": provider.model,
@@ -440,7 +501,7 @@ def _post_chat_synthesis(
 def complete(
     messages: list[dict],
     model_override: str | None = None,
-    timeout: int = DEFAULT_LLM_TIMEOUT,
+    timeout: float = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.2,
 ) -> tuple[str | None, "LLMProvider | None", str]:
     """Generic OpenAI-compatible chat call shared across services.
@@ -463,8 +524,10 @@ def complete(
     failures: list[tuple[LLMProvider, str]] = []
     for provider in providers:
         try:
-            remaining = max(1, round(deadline.require_remaining(0.001)))
+            remaining = deadline.require_remaining(0.001)
             content = _post_chat(provider, messages, remaining, temperature)
+        except LLMCallBudgetExceeded as exc:
+            return None, None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
             failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
         except Exception as exc:  # pragma: no cover - network
@@ -480,7 +543,7 @@ def complete(
 def _post_chat_message(
     provider: LLMProvider,
     messages: list[dict],
-    timeout: int,
+    timeout: float,
     temperature: float = 0.2,
     tools: list[dict] | None = None,
     tool_choice: str | dict | None = None,
@@ -489,6 +552,7 @@ def _post_chat_message(
 
     The message may contain ``tool_calls`` (OpenAI-compatible function calling)
     in addition to / instead of ``content`` — needed to drive an agent loop."""
+    _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
     if os.environ.get("LLM_THINKING") == "disabled":
@@ -522,7 +586,7 @@ def chat_with_tools(
     messages: list[dict],
     tools: list[dict],
     model_override: str | None = None,
-    timeout: int = DEFAULT_LLM_TIMEOUT,
+    timeout: float = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.2,
     tool_choice: str | dict | None = "auto",
 ) -> tuple[dict | None, "LLMProvider | None", str]:
@@ -546,7 +610,7 @@ def chat_with_tools(
     failures: list[tuple[LLMProvider, str]] = []
     for provider in providers:
         try:
-            remaining = max(1, round(deadline.require_remaining(0.001)))
+            remaining = deadline.require_remaining(0.001)
             msg = _post_chat_message(
                 provider,
                 messages,
@@ -555,6 +619,8 @@ def chat_with_tools(
                 tools=tools,
                 tool_choice=tool_choice,
             )
+        except LLMCallBudgetExceeded as exc:
+            return None, None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
             failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
         except Exception as exc:  # pragma: no cover - network
@@ -636,6 +702,8 @@ def refine_or_reason(
     ]
     try:
         content = _post_chat(provider, messages, timeout)
+    except LLMCallBudgetExceeded as exc:
+        return None, f"{exc}"
     except urllib.error.HTTPError as exc:  # pragma: no cover - network
         return None, f"LLM 调用 HTTP {exc.code}，已降级为模板"
     except Exception as exc:  # pragma: no cover - network
@@ -935,6 +1003,8 @@ def synthesize_messages(
                 max_chars,
             )
             break
+        except LLMCallBudgetExceeded as exc:
+            return None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
             return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
         except LLMDeadlineExceeded:
@@ -944,6 +1014,9 @@ def synthesize_messages(
         except Exception as exc:  # pragma: no cover - network
             last_exc = exc
             if attempt == 0:
+                rejection = _budget_rejection()
+                if rejection is not None:
+                    return None, rejection
                 remaining = shared_deadline.remaining()
                 if remaining < 1:
                     return None, "LLM 合成超过共享截止时间，已降级为模板"
@@ -980,6 +1053,7 @@ def _post_chat_stream(
     max_tokens: int,
     max_chars: int,
 ) -> tuple[str, str | None]:
+    _reserve_llm_call()
     started = time.monotonic()
     try:
         result = _post_chat_stream_raw(
@@ -1128,6 +1202,8 @@ def synthesize_messages_stream(
             on_finish_reason(finish_reason)
     except LLMStreamCancelled:
         raise
+    except LLMCallBudgetExceeded as exc:
+        return None, str(exc)
     except LLMDeadlineExceeded:
         return None, "LLM 流式合成超过共享截止时间，已降级为模板"
     except LLMOutputTooLong:

@@ -861,6 +861,15 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         return result
     if promote_grounded_answer(options, result):
         return result
+    if (
+        result.prepared_synthesis_is_market_review
+        and options.grounded_presenter
+        and result.grounded_composer_shadow is not None
+    ):
+        # 市场复盘的可信自然语言出口只有 Grounded Composer。它不可用或未过
+        # 门禁时保留结构化 AnswerSpec 供上层确定性渲染，不再启动无 claim/
+        # EvidenceAtom 绑定的旧散文合成，否则等于在安全链失败后绕回软出口。
+        return result
     started = time.monotonic()
     deadline = _llm_deadline(options)
     chunks: list[str] = []
@@ -1006,21 +1015,9 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         proposed_synthesis,
         result.answer_spec,
     )
-    if result.prepared_synthesis_is_market_review:
-        # 市场复盘走"面向普通投资者的散文"契约（_MARKET_REVIEW_SYSTEM_PROMPT），
-        # 不承担 claim-marker 绑定；此前对它套 marker 门禁会导致散文必然全行
-        # unbound → 修订轮又要求逐字复制 registry（两份契约互相矛盾）→ 恒定
-        # 退回模板。散文路径只保留内部术语泄漏这一硬检查。
-        blocking_issues = [
-            issue
-            for issue in gate_issues
-            if issue.severity == "error"
-            and issue.code == "llm_engineering_term_leak"
-        ]
-    else:
-        blocking_issues = [
-            issue for issue in gate_issues if issue.severity == "error"
-        ]
+    blocking_issues = [
+        issue for issue in gate_issues if issue.severity == "error"
+    ]
     # claim-binding 修订轮只适用于 registry 契约：散文契约（市场复盘）没有
     # registry 可复制，泄漏即直接退稿，不浪费一次错误契约的修订调用。
     if (
@@ -1181,9 +1178,8 @@ def promote_grounded_answer(
     """用 Grounded Composer 链路生成自然语言回答并接管 result.synthesis。
 
     daily-agent 契约受 ``daily_agent_grounded_presenter`` 控制（行为不变）；
-    其余 compose 回答受 ``grounded_presenter`` 控制（market_review 除外，
-    它有自己的面向普通投资者的合成契约）。失败时返回 False，由调用方
-    降回结构化 claim 合成路径。
+    其余 compose 回答（包括 market_review）受 ``grounded_presenter`` 控制。
+    失败时返回 False，由调用方降回结构化 claim 合成路径。
     """
     spec = result.answer_spec
     if spec is None:
@@ -1195,19 +1191,13 @@ def promote_grounded_answer(
     if is_daily_agent:
         if not options.daily_agent_grounded_presenter:
             return False
-    elif (
-        not options.grounded_presenter
-        or result.prepared_synthesis_is_market_review
-    ):
+    elif not options.grounded_presenter:
         return False
     synthesize_shadow_grounded_answer(
         PreparedAnswer(
             options=replace(
                 options,
                 shadow_grounded_composer=True,
-                shadow_grounded_timeout=max(
-                    options.shadow_grounded_timeout, 240
-                ),
             ),
             result=result,
         ),
@@ -1549,5 +1539,3 @@ def _stable_llm_fallback_reason(reason: str) -> str:
     if "空内容" in normalized:
         return "empty_response"
     return "provider_unavailable"
-
-

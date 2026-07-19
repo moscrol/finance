@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from intelligence.services import answer_model, ask, llm_refine
+from intelligence.services import answer_model, ask, ask_synthesis, llm_refine
 from intelligence.services.answer_model import (
     AnswerSpec,
     ClaimStatus,
@@ -149,19 +149,38 @@ class TestGeneralGroundedPresenter:
         assert result.synthesis is None
         assert not result.warnings
 
-    def test_market_review_skips_grounded_presenter(self, monkeypatch) -> None:
+    def test_market_review_uses_grounded_presenter(self, monkeypatch) -> None:
         result = _result_with_spec()
         result.prepared_synthesis_is_market_review = True
 
-        def must_not_call(messages, **kwargs):
-            raise AssertionError("market_review 不应走 grounded 链路")
+        def accepted(prepared, **kwargs):
+            del kwargs
+            prepared.result.grounded_composer_shadow = (
+                answer_model.GroundedComposerShadow(
+                    status="accepted",
+                    presented_answer=(
+                        "## 结论\n"
+                        "市场证据只支持谨慎判断。\n"
+                        "下一交易日继续核验量价结构。"
+                    ),
+                    provider="judge",
+                    model="judge-model",
+                )
+            )
+            return prepared.result
 
-        monkeypatch.setattr(llm_refine, "synthesize_messages", must_not_call)
+        monkeypatch.setattr(
+            ask_synthesis,
+            "synthesize_shadow_grounded_answer",
+            accepted,
+        )
         options = ask.AskOptions(
             query=result.query,
             grounded_presenter=True,
         )
-        assert not ask.promote_grounded_answer(options, result)
+        assert ask.promote_grounded_answer(options, result)
+        assert result.synthesis is not None
+        assert "谨慎判断" in result.synthesis
 
     def test_falls_back_with_warning_when_llm_unavailable(
         self, monkeypatch

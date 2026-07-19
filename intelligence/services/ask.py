@@ -1023,7 +1023,10 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             ]
         )
 
-        def _agent_l3_lookup(agent_query: str):
+        def _agent_l3_lookup(
+            agent_query: str,
+            context: agent_research.AgentToolContext,
+        ):
             # 官方证据补查：与主链 L 源同一底层（公告/互动易），agent 可对
             # 自己发现的新实体主动补 L3 硬证据。
             bundle = l3_evidence.lookup_l3_evidence(
@@ -1032,7 +1035,10 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                 existing_summary,
                 config=l3_evidence.L3LookupConfig.from_env(
                     enabled=True,
-                    timeout=_stage_timeout(options, options.l3_lookup_timeout),
+                    timeout=min(
+                        _stage_timeout(options, options.l3_lookup_timeout),
+                        context.timeout(options.l3_lookup_timeout),
+                    ),
                     limit=options.l3_lookup_limit,
                 ),
             )
@@ -1063,7 +1069,12 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
             return l3_items, observation, trace
 
-        def _agent_market_data(agent_query: str):
+        def _agent_market_data(
+            agent_query: str,
+            context: agent_research.AgentToolContext,
+        ):
+            if context.deadline.expired:
+                raise TimeoutError("agent tool deadline expired")
             # 本地盘面确定性取数：按意图路由 D0 时序 → D6 中期趋势 → 市场总览。
             block = ""
             source_label = ""
@@ -1102,12 +1113,15 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
         agent_tools: dict[str, agent_research.ToolRunner] = {
             **agent_research.build_default_tools(
-                lambda agent_query: kb_rag.retrieve(
+                lambda agent_query, timeout: kb_rag.retrieve(
                     agent_query,
                     resolved_kb_wiki,
                     k=options.wiki_rag_k,
                     mode=options.wiki_rag_mode,
-                    timeout=_stage_timeout(options, options.wiki_rag_timeout),
+                    timeout=min(
+                        _stage_timeout(options, options.wiki_rag_timeout),
+                        timeout,
+                    ),
                     excerpt_chars=options.wiki_rag_excerpt,
                     budget_query=options.query,
                     index_dir=options.wiki_rag_index_dir,
@@ -1128,6 +1142,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             tools=agent_tools,
             existing_evidence_summary=existing_summary,
             total_seconds=_stage_timeout(options, 60),
+            deadline=options.deadline,
             attempted_queries=tuple(pipeline_attempted),
         )
         result.provider_traces.extend(agent_loop_result.traces)
@@ -2120,6 +2135,5 @@ def prepare_existing_answer(
         options=replace(options, synthesize=False),
         result=result,
     )
-
 
 

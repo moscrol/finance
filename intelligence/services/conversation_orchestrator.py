@@ -459,12 +459,29 @@ def _sanitize_citation_list(
     citations: list[dict[str, object]],
 ) -> list[dict[str, object]]:
     sanitized: list[dict[str, object]] = []
+    seen: set[tuple[str, tuple[str, ...]]] = set()
     for citation in citations:
         item = dict(citation)
         for key in ("source", "detail", "label", "title"):
             value = item.get(key)
             if isinstance(value, str):
                 item[key] = sanitize_user_visible_artifact_text(value)
+        identity_values = tuple(
+            sorted(
+                {
+                    str(item.get(key) or "").strip().casefold()
+                    for key in ("source", "detail", "label", "title", "url")
+                    if str(item.get(key) or "").strip()
+                }
+            )
+        )
+        identity = (
+            str(item.get("tag") or "").strip().casefold(),
+            identity_values,
+        )
+        if identity in seen:
+            continue
+        seen.add(identity)
         sanitized.append(item)
     return sanitized
 

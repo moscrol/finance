@@ -432,6 +432,10 @@ class ResearchOwnerSkill:
             ),
             gaps=merge_claims(current.gaps, claims("gaps")),
             triggers=merge_claims(current.triggers, claims("triggers")),
+            candidate_facts=merge_claims(
+                current.candidate_facts,
+                claims("candidate_facts"),
+            ),
             next_actions=tuple(
                 dict.fromkeys((*current.next_actions, *inherited_actions))
             ),
@@ -521,6 +525,8 @@ class ResearchOwnerSkill:
                     else None
                 ),
                 freshness=str(value.get("freshness") or "unknown"),
+                content_hash=str(value.get("content_hash") or ""),
+                source_revision=str(value.get("source_revision") or ""),
             )
         except KeyError:
             return None

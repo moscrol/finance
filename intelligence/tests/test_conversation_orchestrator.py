@@ -19,6 +19,7 @@ from intelligence.services.conversation_orchestrator import (
     TurnOrchestrator,
     build_conversation_context,
     contextualize_follow_up_query,
+    _sanitize_citation_list,
     sanitize_conversation_answer,
     sanitize_user_visible_artifact_text,
 )
@@ -74,6 +75,25 @@ def _research_controller(query: str, **kwargs: object) -> TurnDecision:
         confidence=1.0,
         reason=f"fixture research: {query}",
     )
+
+
+def test_citation_projection_dedupes_owner_and_raw_shapes() -> None:
+    citations = _sanitize_citation_list(
+        [
+            {
+                "tag": "S1",
+                "title": "公司公告",
+                "source": "公告详情",
+            },
+            {
+                "tag": "S1",
+                "source": "公司公告",
+                "detail": "公告详情",
+            },
+        ]
+    )
+
+    assert len(citations) == 1
 
 
 def _prepare_turn(

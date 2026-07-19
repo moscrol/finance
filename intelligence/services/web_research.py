@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import re
@@ -86,6 +87,14 @@ def fetch_web_search(
             limit=limit,
             timeout=timeout,
             proxy_url=proxy_url,
+        ),
+        variant=(
+            f"limit={limit};proxy="
+            + (
+                hashlib.sha256(proxy_url.encode("utf-8")).hexdigest()[:12]
+                if proxy_url
+                else "default"
+            )
         ),
     )
 
