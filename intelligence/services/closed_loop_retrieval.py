@@ -14,6 +14,8 @@ Retrieve: TypeAlias = Callable[[str], WikiRagResult]
 
 MAX_EMPTY_ATTEMPTS = 3
 MAX_TOTAL_SECONDS = 90.0
+MIN_ATTEMPT_RESERVE_SECONDS = 1.0
+ATTEMPT_COST_SAFETY_MULTIPLIER = 1.25
 # 中文+数字混合词（科创50/沪深300/中证1000）优先整词捕获，避免被拆出
 # 「科创」这类子串后误锚到无关实体（如 中科创达）。
 _TERM_RE = re.compile(
@@ -85,6 +87,29 @@ class ClosedLoopRetrievalResult:
         }
 
 
+@dataclass
+class _AttemptBudget:
+    deadline: float
+    observed_seconds: float | None = None
+
+    def can_start(self) -> bool:
+        remaining = max(0.0, self.deadline - time.monotonic())
+        required = MIN_ATTEMPT_RESERVE_SECONDS
+        if self.observed_seconds is not None:
+            required = max(
+                required,
+                self.observed_seconds * ATTEMPT_COST_SAFETY_MULTIPLIER,
+            )
+        return remaining >= required
+
+    def observe(self, elapsed_seconds: float) -> None:
+        elapsed = max(0.0, elapsed_seconds)
+        if self.observed_seconds is None:
+            self.observed_seconds = elapsed
+        else:
+            self.observed_seconds = max(self.observed_seconds, elapsed)
+
+
 def retrieve_closed_loop(
     query: str,
     *,
@@ -100,14 +125,16 @@ def retrieve_closed_loop(
         if total_seconds is not None
         else MAX_TOTAL_SECONDS
     )
-    deadline = time.monotonic() + budget
+    if budget <= 0:
+        return result
+    attempt_budget = _AttemptBudget(deadline=time.monotonic() + budget)
     query_terms = _relevance_terms(query, anchor, ())
     narrow_hits = _run_aperture(
         "narrow",
         _narrow_queries(query, anchor),
         retrieve,
         result,
-        deadline,
+        attempt_budget,
     )
     relevant_narrow_hits = tuple(
         hit for hit in narrow_hits if _hit_overlaps_terms(hit, query_terms)
@@ -117,14 +144,14 @@ def retrieve_closed_loop(
         _broad_queries(query, anchor, relevant_narrow_hits),
         retrieve,
         result,
-        deadline,
+        attempt_budget,
     )
     counter_hits = _run_aperture(
         "counter",
         _counter_queries(query, anchor, relevant_narrow_hits),
         retrieve,
         result,
-        deadline,
+        attempt_budget,
     )
     _bucket_hits(
         (
@@ -142,7 +169,11 @@ def retrieve_closed_loop(
     )
     for aperture in ("narrow", "broad", "counter"):
         attempts = [item for item in result.attempts if item.aperture == aperture]
-        if attempts and all(item.hit_count == 0 for item in attempts):
+        if (
+            attempts
+            and any(item.status != "budget_exhausted" for item in attempts)
+            and all(item.hit_count == 0 for item in attempts)
+        ):
             result.warnings.append(
                 f"{aperture} retrieval empty after {len(attempts)} attempts"
             )
@@ -154,14 +185,30 @@ def _run_aperture(
     queries: Sequence[str],
     retrieve: Retrieve,
     result: ClosedLoopRetrievalResult,
-    deadline: float,
+    budget: _AttemptBudget,
 ) -> list[WikiHit]:
     for candidate in list(dict.fromkeys(q.strip() for q in queries if q.strip()))[
         :MAX_EMPTY_ATTEMPTS
     ]:
-        if time.monotonic() >= deadline:
+        if not budget.can_start():
+            result.attempts.append(
+                RetrievalAttempt(
+                    aperture=aperture,
+                    query=candidate,
+                    status="budget_exhausted",
+                    hit_count=0,
+                )
+            )
+            warning = (
+                f"{aperture} retrieval skipped: "
+                "remaining budget below observed query cost"
+            )
+            if warning not in result.warnings:
+                result.warnings.append(warning)
             break
+        started = time.monotonic()
         response = retrieve(candidate)
+        budget.observe(time.monotonic() - started)
         if result.telemetry is None or response.hits:
             result.telemetry = response.telemetry
         result.attempts.append(
