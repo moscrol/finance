@@ -217,6 +217,12 @@ _NEWS_IMPACT_TARGET_RE = re.compile(
     r"对([^。？！，,对]{1,24}?)(?:板块|行业|个股|公司|产业链)?的?"
     r"(?:影响|冲击|利好|利空)"
 )
+_RELATED_NEWS_TOPIC_RE = re.compile(
+    r"^(?:请|帮我|麻烦)?(?:分析|研究|看看)?(?:一下)?"
+    r"(?:近期|最近|最新|今日|今天)?"
+    r"([\u4e00-\u9fffA-Za-z0-9+._-]{2,24}?)"
+    r"相关(?:公告|消息|新闻|事件)"
+)
 _MARKET_WATCH_RE = re.compile(
     r"(?:今天|今日)[^。？！]{0,10}?(?:有什么|有哪些|哪些)?[^。？！]{0,6}?"
     r"(?:值得关注|看点|主线|机会)"
@@ -380,7 +386,9 @@ def _definition_subject(query: str) -> str | None:
 
 def _news_impact_target(query: str) -> str | None:
     text = re.sub(r"\s+", "", str(query or "").strip())
-    match = _NEWS_IMPACT_TARGET_RE.search(text)
+    match = _RELATED_NEWS_TOPIC_RE.search(text)
+    if match is None:
+        match = _NEWS_IMPACT_TARGET_RE.search(text)
     if match is None:
         return None
     subject = match.group(1).strip()

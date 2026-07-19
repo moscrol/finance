@@ -397,6 +397,17 @@ def test_news_event_impact_routes_to_news_impact_owner_chain() -> None:
     assert envelope.research_mode == "news_impact"
 
 
+def test_related_news_topic_precedes_impact_object() -> None:
+    envelope = understand_query(
+        "请分析近期光模块相关消息对产业链和核心公司的影响，"
+        "区分已证实事实、推断、受益与受损方向，并给反证。"
+    )
+
+    assert envelope.question_type == "news_impact"
+    assert envelope.subject == "光模块"
+    assert envelope.subject_kind == "theme"
+
+
 def test_news_event_impact_variants_and_negatives() -> None:
     tariff = understand_query("美国加征关税对A股的影响")
     assert tariff.question_type == "news_impact"
