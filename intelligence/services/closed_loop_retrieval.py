@@ -64,6 +64,7 @@ class ClosedLoopRetrievalResult:
     counter_clues: list[BucketedHit] = field(default_factory=list)
     attempts: list[RetrievalAttempt] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    diagnostics: list[str] = field(default_factory=list)
     telemetry: RetrievalTelemetry | None = None
 
     def inspector_dict(self) -> dict[str, object]:
@@ -84,6 +85,7 @@ class ClosedLoopRetrievalResult:
                 "counter_clue": len(self.counter_clues),
             },
             "warnings": list(self.warnings),
+            "diagnostics": list(self.diagnostics),
         }
 
 
