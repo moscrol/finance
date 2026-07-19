@@ -166,6 +166,45 @@ class L3EvidenceLookupTests(unittest.TestCase):
         self.assertFalse(bundle.items)
         self.assertIn("没有解析到可用证据", "\n".join(bundle.warnings))
 
+    def test_leading_warning_does_not_hide_or_contaminate_json_evidence(
+        self,
+    ) -> None:
+        plan = plan_answer_question("天赐材料合作协议公告有什么影响")
+        completed = subprocess.CompletedProcess(
+            args=["mock"],
+            returncode=0,
+            stdout=(
+                "[warn] 源 sse_einteract 失败：No module named 'akshare'\n"
+                "[\n"
+                '  {"company_name":"天赐材料","source":"cninfo",'
+                '"title":"关于采购合作协议的进展公告",'
+                '"summary":"关于采购合作协议的进展公告",'
+                '"url":"https://www.cninfo.com.cn/example"}\n'
+                "]"
+            ),
+            stderr="",
+        )
+
+        with mock.patch(
+            "intelligence.services.l3_evidence.subprocess.run",
+            return_value=completed,
+        ):
+            bundle = lookup_l3_evidence(
+                "天赐材料合作协议公告有什么影响",
+                plan,
+                local_evidence_text="仍需核对公告原文。",
+                config=L3LookupConfig(
+                    enabled=True,
+                    cache_ttl_seconds=0,
+                ),
+                company_hint="天赐材料",
+            )
+
+        self.assertEqual(len(bundle.items), 1)
+        self.assertEqual(bundle.items[0].source_type, "cninfo")
+        self.assertEqual(bundle.items[0].title, "关于采购合作协议的进展公告")
+        self.assertNotIn("[warn]", bundle.items[0].summary)
+
     def test_default_company_command_can_use_env_python_override(self) -> None:
         plan = plan_answer_question("深挖瑞华泰，查公告和互动易")
         completed = subprocess.CompletedProcess(args=["mock"], returncode=0, stdout="ok", stderr="")

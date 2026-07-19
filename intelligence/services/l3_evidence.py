@@ -356,9 +356,8 @@ def _parse_lookup_output(source_type: str, stdout: str) -> list[L3EvidenceItem]:
 
 
 def _try_parse_json_items(source_type: str, text: str) -> list[L3EvidenceItem]:
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
+    data = _decode_json_payload(text)
+    if data is None:
         return []
     rows: list[Any]
     if isinstance(data, list):
@@ -396,6 +395,31 @@ def _try_parse_json_items(source_type: str, text: str) -> list[L3EvidenceItem]:
             )
         )
     return out
+
+
+def _decode_json_payload(text: str) -> Any | None:
+    """Decode a JSON payload even when a CLI wrote diagnostics before it.
+
+    Some disclosure sources print ``[warn] ...`` to stdout and then emit their
+    machine-readable JSON array.  The warning must remain control-plane
+    diagnostics; it must never be promoted through the plaintext fallback as an
+    L3 evidence item.
+    """
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"(?m)^[ \t]*([\[{])", str(text or "")):
+        start = match.start(1)
+        try:
+            payload, _end = decoder.raw_decode(text[start:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, (list, dict)):
+            return payload
+    return None
 
 
 def _is_non_evidence_cli_line(line: str) -> bool:
