@@ -6,6 +6,9 @@
 `is_market_watch_query()` 确定性识别为当日盘面问题，但 `QueryResolver`
 同时把输出要求中的“信号”命中为知识库题材别名“信号系统”。
 
+生产验收还证明“请做今日市场复盘……验证信号”存在同一问题，因此本契约覆盖
+“今日关注”和“今日全市场复盘”两类同 owner 的头部问法；明确题材复盘不在此列。
+
 当前 `decide_turn()` 先从未规范化的 `QueryEnvelope` 构造 `TurnIntent`，
 随后虽然确定性分支把 lane 设为 `workflow`，`_attach_turn_intent()` 又用
 错误的 `TurnIntent` 覆盖 `question_type`、`subject` 和 `answer_owner`。
@@ -43,7 +46,8 @@
 
 新增 Controller 内部规范化函数：
 
-1. 只对 `is_market_watch_query(query)` 为真的请求生效。
+1. 只对 `is_market_watch_query(query)` 为真的请求生效；该规则包含“今日全市场
+   复盘”，但排除“今日光模块复盘”等明确题材主体。
 2. 从 `route_by_id("market_watch")` 读取 canonical `question_type`。
 3. 生成新的 `QueryResolution`：
    - `question_type="market_watch"`
@@ -59,7 +63,8 @@
 
 ## 验收
 
-- 扩展问法的 Controller 结果只能是 `market_watch`，无 subject、无 owner。
+- 今日关注/今日全市场复盘的 Controller 结果只能是 `market_watch`，无
+  subject、无 owner。
 - “今天光模块有什么值得关注”不命中全市场 watch 规则。
 - skill router 对扩展问法只选择 `daily-review`，即使 LLM 尝试选择其他能力。
 - 相关测试、全量 hermetic 测试、生产端到端均通过。
