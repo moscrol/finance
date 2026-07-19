@@ -2595,6 +2595,69 @@ def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
     )
 
 
+def test_market_forecast_head_route_does_not_enable_long_tail_agent(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    captured: list[AskOptions] = []
+
+    def capture_options(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    def forecast_controller(
+        controller_query: str,
+        **kwargs: object,
+    ) -> TurnDecision:
+        del kwargs
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=True,
+            needs_template=True,
+            question_type="market_forecast",
+            confidence=0.92,
+            reason=f"fixture forecast: {controller_query}",
+            capabilities=("memory", "market_quote", "graph"),
+        )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=capture_options,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (), fallback_to_ask=False, base_finance_fallback=True
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=forecast_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert len(captured) == 1
+    assert captured[0].question_type_override == "market_forecast"
+    assert captured[0].controller_capabilities == (
+        "memory",
+        "market_quote",
+        "graph",
+    )
+
+
 def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
     tmp_path,
 ) -> None:

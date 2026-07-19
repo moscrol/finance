@@ -1349,17 +1349,20 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
     # --- gaps / contradictions ---
     gap_lines: list[str] = []
+    is_market_forecast = (
+        question_plan.question_type == QUESTION_MARKET_FORECAST
+    )
     ks = (candidate or {}).get("knowledge_status") or {}
     gaps = ks.get("backfill_gaps") or []
-    if gaps:
+    if gaps and not is_market_forecast:
         gap_lines.append(f"盘面候选标记缺口：{'、'.join(map(str, gaps))}（图谱覆盖不足，证据待补）")
-    if not result.found_graph:
+    if not result.found_graph and not is_market_forecast:
         gap_lines.append("知识图谱未命中该词：可能是新词/别名未登记，建议先 concept-ingest 或 disclosure-archive 补证")
-    if tiers["peripheral"]:
+    if tiers["peripheral"] and not is_market_forecast:
         gap_lines.append(
             f"{len(tiers['peripheral'])} 家公司为 graph_only/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据"
         )
-    if tiers["other"]:
+    if tiers["other"] and not is_market_forecast:
         gap_lines.append(
             f"{len(tiers['other'])} 家公司仅有间接或候选证据，未达到公司级硬证据门槛，不得升级为核心受益。"
         )
@@ -1377,6 +1380,18 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             "本地盘面/图谱/知识库均未命中，外部 Web Search 也未返回可用来源；"
             "未用无关资料替代。"
         )
+    if (
+        is_market_forecast
+        and result.forecast_preflight is not None
+        and not result.forecast_preflight.get("can_generate_formal")
+    ):
+        gap_lines.append(
+            "后市推演前置查漏："
+            + str(
+                result.forecast_preflight.get("human_summary")
+                or "研究缺口尚未补齐。"
+            )
+        )
     gap_lines.append(
         "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
         "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边"
@@ -1392,14 +1407,23 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
     # ---------- assemble fixed six sections ----------
     theme = (
-        question_plan.research_spec.theme
-        if question_plan.research_spec is not None
-        else _quoted_topic(options.query)
-        or question_plan.query_envelope.subject
-        or result.matched_theme
-        or options.query
+        "A股市场"
+        if is_market_forecast
+        else (
+            question_plan.research_spec.theme
+            if question_plan.research_spec is not None
+            else _quoted_topic(options.query)
+            or question_plan.query_envelope.subject
+            or result.matched_theme
+            or options.query
+        )
     )
-    triggers = "、".join((candidate or {}).get("trigger_types", []) or []) or "无盘面触发"
+    triggers = (
+        "以本地市场总览与主线结构为准"
+        if is_market_forecast
+        else "、".join((candidate or {}).get("trigger_types", []) or [])
+        or "无盘面触发"
+    )
     concept_count = ks.get("concept_count", len(concepts.get("items", [])))
     exposure_count = ks.get("exposure_count", len(exposures.get("items", [])))
 
@@ -1411,38 +1435,76 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         stance_bits.append("新高成簇，方向被确认")
     if {"limit_advance_cluster", "limit_heat"} & trig:
         stance_bits.append("涨停热度集中")
-    if gaps or not result.found_graph:
+    if (gaps or not result.found_graph) and not is_market_forecast:
         stance_bits.append("但基本面证据不足，偏盘面驱动")
-    stance = "；".join(stance_bits) if stance_bits else "盘面信号有限"
+    stance = (
+        "只做条件化情景推演，不把单一路径写成确定结论"
+        if is_market_forecast
+        else "；".join(stance_bits)
+        if stance_bits
+        else "盘面信号有限"
+    )
 
     route_line = (
-        "模块路由："
-        + ("、".join(result.routed_modules) if result.routed_modules else "未启用")
-        + ("｜" + "；".join(module_summ) if module_summ else "")
-    )
-    conclusion = [
-        f"主题「{theme}」"
-        + (
-            f"（{result.candidate_tier or '候选'}，盘面评分 {result.priority_score}，所属 {(candidate or {}).get('sw_l1', '?')}）"
-            if candidate
-            else "（当日盘面候选未命中，以下仅基于知识图谱）"
+        "研究路径：本地市场总览 → 主线结构 → 情景分支 → 盘后验证"
+        if is_market_forecast
+        else (
+            "模块路由："
+            + (
+                "、".join(result.routed_modules)
+                if result.routed_modules
+                else "未启用"
+            )
+            + ("｜" + "；".join(module_summ) if module_summ else "")
         )
-        + f"：{stance}。",
-        f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
-        route_line,
-        "结论与交易含义由结构化规则生成；证据不足处已标为待验证。",
-        _conclusion_ttl_line(result.trade_date),
-    ]
+    )
+    if is_market_forecast:
+        preflight_summary = str(
+            (result.forecast_preflight or {}).get("human_summary")
+            or "复盘前置查漏状态未记录。"
+        )
+        conclusion = [
+            f"{theme}后续判断：{stance}（数据截至 {result.trade_date or '未记录'}）。",
+            "基准情景：若主线成交与赚钱效应企稳，观察结构性修复；"
+            "若量价继续走弱，则维持防守并等待新一轮确认。",
+            "上行情景：主线放量后能缩量承接、强势方向扩散，修复持续性提高。",
+            "下行情景：放量下跌延续、主线继续收缩，弱势阶段延长。",
+            f"前置查漏：{preflight_summary}",
+            route_line,
+            _conclusion_ttl_line(result.trade_date),
+        ]
+    else:
+        conclusion = [
+            f"主题「{theme}」"
+            + (
+                f"（{result.candidate_tier or '候选'}，盘面评分 {result.priority_score}，所属 {(candidate or {}).get('sw_l1', '?')}）"
+                if candidate
+                else "（当日盘面候选未命中，以下仅基于知识图谱）"
+            )
+            + f"：{stance}。",
+            f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
+            route_line,
+            "结论与交易含义由结构化规则生成；证据不足处已标为待验证。",
+            _conclusion_ttl_line(result.trade_date),
+        ]
     conclusion = [*framing.get("conclusion", []), *conclusion]
 
-    follow_ups: list[str] = []
-    if "double_red" in trig:
+    follow_ups: list[str] = (
+        [
+            "验证主线成交能否止跌并出现缩量承接，而不是仅看单日反弹。",
+            "验证涨停家数、晋级率与上涨家数能否同步修复。",
+            "若前置查漏仍未通过，只保留草稿级情景，不升级为正式方向判断。",
+        ]
+        if is_market_forecast
+        else []
+    )
+    if "double_red" in trig and not is_market_forecast:
         follow_ups.append("跟踪边际量能否连续 ≥2 日维持（双红是否衰减）")
-    if {"new_high_cluster", "new_high_direction"} & trig:
+    if {"new_high_cluster", "new_high_direction"} & trig and not is_market_forecast:
         follow_ups.append("观察高位股能否带动补涨扩散，还是仅龙头孤军")
-    if {"limit_heat", "limit_advance_cluster"} & trig:
+    if {"limit_heat", "limit_advance_cluster"} & trig and not is_market_forecast:
         follow_ups.append("看连板高度与晋级率，确认资金接力意愿")
-    if gaps or tiers["peripheral"]:
+    if (gaps or tiers["peripheral"]) and not is_market_forecast:
         follow_ups.append("对 graph_only / 缺口公司补研报与官方披露（disclosure-archive → apply）")
     follow_ups.extend(f"市场结构推演路径跟踪：{item}" for item in quality_context.methodology_checks if "缺口" in item)
     for mod_name, item in module_follow_ups:
@@ -1452,7 +1514,12 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         follow_ups.append("补充盘面与基本面证据后再评估")
 
     tier = (result.candidate_tier or "").lower()
-    if "deep" in tier:
+    if is_market_forecast:
+        implication = (
+            "执行上只响应验证信号：承接与扩散确认后再提高风险暴露；"
+            "量价继续恶化则保持防守。"
+        )
+    elif "deep" in tier:
         implication = "盘面属核心候选：若起涨龙头已高位，重点在低位补涨与上游；缺口公司仅作观察。"
     elif "watch" in tier:
         implication = "盘面属观察候选：等量价进一步确认或证据补齐再参与。"
@@ -1627,6 +1694,10 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         ]
     if options.compose:
         is_market_review = question_plan.question_type == QUESTION_MARKET_REVIEW
+        is_market_overview = question_plan.question_type in {
+            QUESTION_MARKET_REVIEW,
+            QUESTION_MARKET_FORECAST,
+        }
         prompt_source_chain = _evidence_chain_with_llm_wiki(
             evidence_chain,
             wiki_llm_line_pairs,
@@ -1894,7 +1965,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             ask_planner.DataBlockProvider(
                 "D1",
                 "市场价值与替代队列",
-                lambda: evidence_registry.provider_enabled(options, "D1") and not is_market_review,
+                lambda: evidence_registry.provider_enabled(options, "D1")
+                and not is_market_overview,
                 _build_d1,
             )
         )
@@ -1906,7 +1978,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                     theme,
                     options.market_db_path,
                 )
-                if is_market_review
+                if is_market_overview
                 else _mainline_context_block_for_llm(
                     options.query,
                     theme,
@@ -1937,7 +2009,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             ask_planner.DataBlockProvider(
                 "D2",
                 "客户证据硬度",
-                lambda: evidence_registry.provider_enabled(options, "D2") and not is_market_review,
+                lambda: evidence_registry.provider_enabled(options, "D2")
+                and not is_market_overview,
                 _build_d2,
             )
         )
@@ -1991,7 +2064,10 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                 continue
             evidence_text = _append_block_outcome(result, outcome, evidence_text, citations)
         # D3 依赖此前累积的 evidence_text（文本兜底路径），必须在其他块汇总后串行生成。
-        if evidence_registry.provider_enabled(options, "D3") and not is_market_review:
+        if (
+            evidence_registry.provider_enabled(options, "D3")
+            and not is_market_overview
+        ):
             second_derivative_block = _second_derivative_queue_block_for_llm(
                 options.query,
                 theme,

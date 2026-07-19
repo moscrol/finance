@@ -589,6 +589,13 @@ class AnswerOrchestratorTests(unittest.TestCase):
             QUESTION_MARKET_FORECAST,
         )
         self.assertIsNone(result.wiki_rag_telemetry)
+        conclusion = "\n".join(result.sections["结论"])
+        self.assertIn("A股市场后续判断", conclusion)
+        self.assertIn("基准情景", conclusion)
+        self.assertIn("上行情景", conclusion)
+        self.assertIn("下行情景", conclusion)
+        self.assertNotIn(f"主题「{query}」", conclusion)
+        self.assertNotIn("基本面证据不足", conclusion)
 
     def test_valuation_triggers_route_to_valuation_plan(self) -> None:
         plan = plan_answer_question("帮我拍估值：寒武纪现在贵不贵")

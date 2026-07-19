@@ -39,6 +39,7 @@ from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
+    QUESTION_GENERAL,
     QUESTION_MARKET_REVIEW,
     plan_answer_question,
 )
@@ -1482,7 +1483,10 @@ class TurnOrchestrator:
                     tuple(
                         dict.fromkeys((*decision.capabilities, "web_search"))
                     )
-                    if route.base_finance_fallback
+                    if (
+                        route.base_finance_fallback
+                        and turn_intent.question_type == QUESTION_GENERAL
+                    )
                     else decision.capabilities
                 ),
                 perspective_mode=perspective_mode,
