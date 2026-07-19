@@ -175,21 +175,21 @@ Expected: 无 whitespace error，不包含既存未跟踪行情文件。
 - Test: `intelligence/tests/test_conversation_orchestrator.py`
 - Test: `intelligence/tests/test_p1b_runtime.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 orchestrator 测试中注入一个超过 `ResearchExecutionPolicy.max_elapsed_seconds`
 的 `answer_query_fn`，断言 turn 在 deadline 后返回 partial、trace 含
 `ask_root_timeout`，并断言超时后触发的迟到 progress 不再追加 trace。再直接调用
 `answer_query` 的轻量分支，断言 progress callback 收到成对的阶段事件。
 
-- [ ] **Step 2: 验证测试先失败**
+- [x] **Step 2: 验证测试先失败**
 
 Run:
 `.venv-workbench/bin/python -m pytest -q intelligence/tests/test_conversation_orchestrator.py -k 'ask_watchdog or ask_progress'`
 
 Expected: 旧实现同步等待阻塞函数，且 `AskOptions` 不支持 progress callback。
 
-- [ ] **Step 3: 实现控制面 progress 契约**
+- [x] **Step 3: 实现控制面 progress 契约**
 
 在 `AskOptions` 增加：
 
@@ -203,24 +203,42 @@ progress_callback: Callable[
 在 `ask.py` 增加容错 `_emit_progress()` 和阶段 context manager；只发送阶段名、状态、
 耗时及计数，不发送证据正文或内部 locator。
 
-- [ ] **Step 4: 实现 orchestrator 根看门狗**
+- [x] **Step 4: 实现 orchestrator 根看门狗**
 
 用 `contextvars.copy_context()` 把当前 LLM/Query ledger 传入单工作线程，以根 deadline
 剩余时间等待 Future。超时后设置 progress gate、`cancel()` Future、记录
 `ask_root_timeout` 并返回 `_deadline_partial_result()`；executor 使用
 `shutdown(wait=False, cancel_futures=True)`，不得在退出 context 时反向等待。
 
-- [ ] **Step 5: 运行定向与回归测试**
+- [x] **Step 5: 运行定向与回归测试**
 
 Run:
 `.venv-workbench/bin/python -m pytest -q intelligence/tests/test_conversation_orchestrator.py intelligence/tests/test_p1b_runtime.py`
 
 Expected: 全部通过。
 
-- [ ] **Step 6: 本地事故重放**
+- [x] **Step 6: 本地事故重放**
 
 停掉旧 8795，以当前 commit 干净启动临时端口；提交事故原问题：
 `我希望你基于目前的市场数据，展望一下后面市场会怎么演绎`。
 
 Expected: 120 秒内返回完整答案或明确 partial/gap；trace 能显示最后运行的 Ask 阶段；
 readiness 的行情缺口必须如实报告，不得把 process health 当成 ready。
+
+## Task 7 Verification Result
+
+- 根因定位：事故原问题被误分到 `general_finance_qa`，随后通用 closed-loop
+  `wiki_rag` 占满根预算；语义 judge 也没有继承同一个绝对 deadline。
+- 修复：新增 `market_forecast` 受约束路由；Ask 各阶段发控制面 progress；
+  orchestrator 根 watchdog 有限时间返回；wiki 闭环每次子查询共享 stage deadline；
+  evidence judge 继承绝对 deadline；头部预测不再自动追加长尾 `web_search` agent 能力。
+- 表达收敛：无主题市场预测使用 A 股市场情景树和市场级反证，不再显示题材名、
+  公司基本面、公告/L3 等错误模板；D2/D3 公司研究块不进入该车道。
+- 定向回归：核心路由/预算/grounding 相关 `239 passed`；Ask/RAG 专项
+  `107 passed`。另有 2 个既有 `ask_external_fallback` 分类失败，与修改前基线一致。
+- 全量回归抽查：中断前 `1637 passed / 13 failed`；13 个失败与修改前记录一致，
+  来自既有外部 fallback 分类以及 userspace/subconscious 宿主目录基线。随后单独运行
+  当时的慢集成文件，`2 passed`。
+- 真实运行：8795 readiness=`ready`，市场数据截至 `2026-07-17`；事故原问题
+  `run_20260719_233025_107642` 在约 1.5 秒完成，controller=`market_forecast`，
+  无 agent loop、无 closed-loop RAG，输出基准/上行/下行情景和明确前置缺口。
