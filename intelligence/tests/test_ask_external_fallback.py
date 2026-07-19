@@ -141,11 +141,19 @@ def _empty_web_result(status: str = "empty") -> web_research.WebSearchResult:
     )
 
 
-def test_general_lane_falls_back_to_web_when_local_empty(monkeypatch) -> None:
+def test_general_lane_falls_back_to_web_when_local_empty(
+    monkeypatch,
+    tmp_path,
+) -> None:
     monkeypatch.setattr(
         ask.closed_loop_retrieval,
         "retrieve_closed_loop",
         lambda *args, **kwargs: ClosedLoopRetrievalResult(),
+    )
+    monkeypatch.setattr(
+        ask.evidence_providers,
+        "collect_graph",
+        lambda _context: ask.evidence_providers.GraphEvidence(),
     )
     calls: list[str] = []
 
@@ -175,6 +183,7 @@ def test_general_lane_falls_back_to_web_when_local_empty(monkeypatch) -> None:
             compose=False,
             synthesize=False,
             use_modules=False,
+            exports_dir=tmp_path,
         )
     )
 
@@ -194,11 +203,19 @@ def test_general_lane_falls_back_to_web_when_local_empty(monkeypatch) -> None:
     )
 
 
-def test_general_lane_web_failure_reports_gap_fail_closed(monkeypatch) -> None:
+def test_general_lane_web_failure_reports_gap_fail_closed(
+    monkeypatch,
+    tmp_path,
+) -> None:
     monkeypatch.setattr(
         ask.closed_loop_retrieval,
         "retrieve_closed_loop",
         lambda *args, **kwargs: ClosedLoopRetrievalResult(),
+    )
+    monkeypatch.setattr(
+        ask.evidence_providers,
+        "collect_graph",
+        lambda _context: ask.evidence_providers.GraphEvidence(),
     )
     monkeypatch.setattr(
         ask.web_research,
@@ -212,6 +229,7 @@ def test_general_lane_web_failure_reports_gap_fail_closed(monkeypatch) -> None:
             compose=False,
             synthesize=False,
             use_modules=False,
+            exports_dir=tmp_path,
         )
     )
 
