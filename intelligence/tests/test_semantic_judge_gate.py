@@ -60,7 +60,12 @@ def test_semantic_judge_moves_irrelevant_hits_to_discarded(monkeypatch) -> None:
     assert loop.counter_clues == []
     assert loop.clues == []
     assert {item.hit.title for item in loop.discarded} == {"兰花科创", "世昌股份"}
-    assert any("语义闸门丢弃 2 条" in warning for warning in loop.warnings)
+    assert loop.warnings == []
+    assert any(
+        "语义闸门丢弃 2 条" in diagnostic
+        for diagnostic in loop.diagnostics
+    )
+    assert loop.inspector_dict()["diagnostics"] == loop.diagnostics
 
 
 def test_semantic_judge_fails_open(monkeypatch) -> None:

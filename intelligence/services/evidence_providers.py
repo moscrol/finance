@@ -567,7 +567,7 @@ def _apply_semantic_judge(
     loop.clues[:] = _kept(loop.clues)
     loop.discarded.extend(dropped)
     titles = "、".join(dict.fromkeys(item.hit.title for item in dropped))
-    loop.warnings.append(
+    loop.diagnostics.append(
         f"语义闸门丢弃 {len(dropped)} 条词面重叠但语义无关的召回（{titles}）"
         + (f"：{reason}" if reason else "")
     )
@@ -664,6 +664,7 @@ def collect_wiki_rag(
                 ),
                 "pages": [item.hit.file_path for item in loop.conclusion],
                 "warning": "；".join(loop.warnings),
+                "diagnostics": list(loop.diagnostics),
                 "attempts": loop.inspector_dict()["attempts"],
             }
         )
