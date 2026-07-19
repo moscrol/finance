@@ -453,6 +453,7 @@ def test_research_owner_skills_define_retrieval_and_answer_contracts(
     assert captured[0].wiki_rag_timeout == config.wiki_rag_timeout
     assert captured[0].module_timeout == config.module_timeout
     assert captured[0].use_modules is config.use_modules
+    assert captured[0].use_l3_lookup is config.use_l3_lookup
     assert captured[0].conversation_context == "用户上一轮强调只看公告级证据。"
     assert captured[0].deadline is not None
     assert output.answer_contract is not None
@@ -913,6 +914,104 @@ def test_news_impact_external_news_failure_does_not_block_owner(
     assert artifacts["event_facts"]["status"] == "completed"
     assert output.answer_contract is not None
     assert output.status != "failed"
+
+
+def test_news_impact_accepts_l3_tier_when_runtime_tag_is_l1(
+    tmp_path: Path,
+) -> None:
+    query = "分析这则披露冲击"
+    captured: list[AskOptions] = []
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _result(
+            options.query,
+            NEWS_IMPACT.question_type,
+            evidence_id="L1",
+            evidence_tier="L3",
+            fact_text="公司公告披露新产线已投产",
+        )
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        NEWS_IMPACT,
+        answer_query_fn=fake_answer_query,
+        web_search_fn=_empty_web_search,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    assert captured[0].use_l3_lookup is True
+    assert artifacts["original_disclosure"]["status"] == "completed"
+    assert artifacts["event_facts"]["status"] == "completed"
+    assert artifacts["event_facts"]["payload"]["facts"][0]["evidence_ids"] == [
+        "L1"
+    ]
+    assert output.answer_contract is not None
+
+
+def test_news_impact_market_fact_does_not_masquerade_as_event_fact(
+    tmp_path: Path,
+) -> None:
+    query = "英维克最新液冷公告有什么影响"
+
+    def market_result(options: AskOptions) -> AskResult:
+        result = _result(
+            options.query,
+            NEWS_IMPACT.question_type,
+            evidence_id="D1",
+            evidence_tier="market_data",
+            fact_text="英维克今日上涨 3%",
+        )
+        assert result.answer_spec is not None
+        result.answer_spec = replace(
+            result.answer_spec,
+            sources=(
+                replace(
+                    result.answer_spec.sources[0],
+                    tier="market_data",
+                ),
+            ),
+        )
+        return result
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        NEWS_IMPACT,
+        answer_query_fn=market_result,
+        web_search_fn=_empty_web_search,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    assert artifacts["original_disclosure"]["status"] == "partial"
+    assert artifacts["event_facts"]["status"] == "partial"
+    assert artifacts["event_facts"]["payload"]["facts"] == []
+    assert output.answer_contract is None
+
+
+def test_news_impact_rejects_unrelated_official_disclosure(
+    tmp_path: Path,
+) -> None:
+    query = "天赐材料3.5万吨产能投产有什么影响"
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(query, "ask")
+    output = ResearchOwnerSkill(
+        NEWS_IMPACT,
+        answer_query_fn=lambda options: _result(
+            options.query,
+            NEWS_IMPACT.question_type,
+            evidence_id="L1",
+            evidence_tier="L3",
+            fact_text="公司披露半年业绩预告",
+        ),
+        web_search_fn=_empty_web_search,
+    ).execute(_context(tmp_path, store, run.run_id, query))
+
+    artifacts = {item["stage"]: item for item in output.stage_artifacts}
+    assert artifacts["original_disclosure"]["status"] == "partial"
+    assert artifacts["event_facts"]["status"] == "partial"
+    assert output.answer_contract is None
 
 
 def test_theme_fallback_keeps_required_blocks_and_softens_certainty_without_l3(

@@ -37,6 +37,15 @@ WebSearch = Callable[..., web_research.WebSearchResult]
 
 _EXTERNAL_NEWS_TIMEOUT_SECONDS = 15.0
 _EXTERNAL_NEWS_LOCAL_STAGES = frozenset({"original_disclosure", "event_facts"})
+_DISCLOSURE_EVENT_TERM_GROUPS = (
+    frozenset({"业绩预告", "年度报告", "半年度报告", "季度报告"}),
+    frozenset({"投资者关系", "调研"}),
+    frozenset({"问询函", "风险提示", "澄清", "异动"}),
+    frozenset({"回购", "减持", "增持"}),
+    frozenset({"中标", "订单", "合同", "合作协议"}),
+    frozenset({"客户", "认证"}),
+    frozenset({"产能", "扩产", "投产", "量产"}),
+)
 
 _PRIOR_ONLY_EVIDENCE = frozenset({"M", "ONTOLOGY", "V"})
 _STRUCTURAL_STAGES = frozenset(
@@ -66,6 +75,7 @@ class ResearchOwnerConfig:
     wiki_rag_timeout: int = _OWNER_INITIAL_STAGE_TIMEOUT_SECONDS
     module_timeout: int = 20
     use_modules: bool = True
+    use_l3_lookup: bool = False
 
 
 class ResearchOwnerSkill:
@@ -101,6 +111,7 @@ class ResearchOwnerSkill:
             include_memory_block=True,
             include_recall_block=True,
             question_type_override=self.config.question_type,
+            use_l3_lookup=self.config.use_l3_lookup,
             deadline=context.deadline,
         )
         stages = OWNER_WORKFLOW_SPECS[self.config.skill_id].retrieval_stages
@@ -306,7 +317,10 @@ class ResearchOwnerSkill:
             used_fallback = True
         if spec is None:
             return None
-        has_traceable_fact = self._has_traceable_verified_fact(spec)
+        has_traceable_fact = self._has_traceable_verified_fact(
+            spec,
+            query=query,
+        )
         inherited_atoms = (
             inherited_answer_spec.get("research_evidence_atoms", [])
             if inherited_answer_spec
@@ -1077,20 +1091,13 @@ class ResearchOwnerSkill:
         ) -> StageExecution:
             result = self._answer_query(options)
             spec = result.answer_spec
-            sources = (
-                [
-                    source.to_dict()
-                    for source in spec.sources
-                    if source.evidence_id.startswith(("L3", "R", "W"))
-                ]
+            official_sources = (
+                self._official_event_sources(spec, context.query)
                 if spec is not None
-                else []
+                else ()
             )
-            available = any(
-                term in f"{source['source']} {source['detail']}"
-                for source in sources
-                for term in ("公告", "披露", "政策", "通知", "文件", "原文")
-            )
+            sources = [source.to_dict() for source in official_sources]
+            available = bool(official_sources)
             source_ids = {
                 str(source["evidence_id"])
                 for source in sources
@@ -1121,7 +1128,26 @@ class ResearchOwnerSkill:
             _artifacts: tuple[StageArtifact, ...],
         ) -> StageExecution:
             spec = result.answer_spec if result is not None else None
-            claims = spec.verified_facts if spec is not None else ()
+            official_source_ids = {
+                source.evidence_id
+                for source in (
+                    self._official_event_sources(spec, context.query)
+                    if spec is not None
+                    else ()
+                )
+            }
+            claims = (
+                tuple(
+                    claim
+                    for claim in spec.verified_facts
+                    if any(
+                        evidence_id in official_source_ids
+                        for evidence_id in claim.evidence_ids
+                    )
+                )
+                if spec is not None
+                else ()
+            )
             return self._claim_stage_execution(
                 result,
                 spec,
@@ -2042,20 +2068,79 @@ class ResearchOwnerSkill:
                         )
         return tuple(atoms)
 
+    @staticmethod
+    def _source_matches_event_query(
+        source: answer_model.EvidenceRef,
+        query: str,
+    ) -> bool:
+        query_text = str(query or "")
+        requested_groups = tuple(
+            group
+            for group in _DISCLOSURE_EVENT_TERM_GROUPS
+            if any(term in query_text for term in group)
+        )
+        if not requested_groups:
+            return True
+        source_text = f"{source.source} {source.detail}"
+        return all(
+            any(term in source_text for term in group)
+            for group in requested_groups
+        )
+
+    @classmethod
+    def _official_event_sources(
+        cls,
+        spec: answer_model.AnswerSpec,
+        query: str,
+    ) -> tuple[answer_model.EvidenceRef, ...]:
+        return tuple(
+            source
+            for source in spec.sources
+            if answer_model.is_hard_evidence_tier(
+                source.tier,
+                (source.evidence_id,),
+            )
+            and cls._source_matches_event_query(source, query)
+        )
+
     def _has_traceable_verified_fact(
         self,
         spec: answer_model.AnswerSpec,
+        *,
+        query: str = "",
     ) -> bool:
-        source_ids = {
-            source.evidence_id
+        if self.skill_id == NEWS_IMPACT.skill_id:
+            source_ids = {
+                source.evidence_id
+                for source in self._official_event_sources(spec, query)
+            }
+            return any(
+                claim.status == answer_model.ClaimStatus.VERIFIED
+                and any(
+                    evidence_id in source_ids
+                    for evidence_id in claim.evidence_ids
+                )
+                for claim in spec.verified_facts
+            )
+        source_by_id = {
+            source.evidence_id: source
             for source in spec.sources
             if source.evidence_id not in _PRIOR_ONLY_EVIDENCE
         }
         return any(
             claim.status == answer_model.ClaimStatus.VERIFIED
             and any(
-                evidence_id in source_ids
-                and evidence_id.startswith(self.config.evidence_prefixes)
+                evidence_id in source_by_id
+                and (
+                    evidence_id.startswith(self.config.evidence_prefixes)
+                    or (
+                        evidence_id.startswith("L")
+                        and answer_model.is_hard_evidence_tier(
+                            source_by_id[evidence_id].tier,
+                            (evidence_id,),
+                        )
+                    )
+                )
                 for evidence_id in claim.evidence_ids
             )
             for claim in spec.verified_facts
@@ -2220,6 +2305,7 @@ NEWS_IMPACT = ResearchOwnerConfig(
     ),
     presentation_kind="theme_research",
     evidence_prefixes=("R", "W", "L3"),
+    use_l3_lookup=True,
 )
 
 FINANCIAL_ANALYSIS = ResearchOwnerConfig(
