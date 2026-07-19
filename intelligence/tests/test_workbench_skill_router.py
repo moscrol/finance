@@ -259,6 +259,29 @@ def test_market_watch_question_routes_to_daily_review_without_llm() -> None:
     assert "当日盘面" in result.selections[0].reason
 
 
+def test_expanded_market_watch_is_a_single_deterministic_daily_route() -> None:
+    registry = {
+        "daily-review": definition("daily-review", "复盘"),
+        "theme-research": definition("theme-research", "研究"),
+    }
+    query = "今天有什么值得关注的？请给出主线、观察清单、验证信号和风险。"
+
+    result = route_skills(
+        query,
+        "ask",
+        "auto",
+        [],
+        registry=registry,
+        query_envelope=understand_query(query),
+        llm_complete=lambda _messages: pytest.fail(
+            "market-watch head route must not invoke semantic skill selection"
+        ),
+    )
+
+    assert [item.skill_id for item in result.selections] == ["daily-review"]
+    assert result.selections[0].selection_source == "rule"
+
+
 def test_controller_owner_excludes_other_research_owners() -> None:
     registry = {
         "news-impact": definition("news-impact", "影响"),

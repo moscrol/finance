@@ -6,7 +6,7 @@ import pytest
 
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.query_resolution import QueryResolution
-from intelligence.services.query_understanding import understand_query
+from intelligence.services.query_understanding import QueryEnvelope, understand_query
 from intelligence.services.turn_controller import decide_turn
 
 
@@ -146,6 +146,43 @@ def test_market_watch_query_uses_workflow_lane(query: str) -> None:
     assert decision.needs_retrieval is True
     assert decision.needs_template is True
     assert "market_quote" in decision.capabilities
+
+
+def test_market_watch_head_route_canonicalizes_spurious_theme_resolution() -> None:
+    query = "今天有什么值得关注的？请给出主线、观察清单、验证信号和风险。"
+
+    class SpuriousThemeResolver:
+        def resolve(self, _query: str) -> QueryResolution:
+            return QueryResolution(
+                envelope=QueryEnvelope(
+                    question_type="theme_analysis",
+                    subject_kind="theme",
+                    subject="信号系统",
+                    decision_goal="形成条件化判断",
+                    timeframe="今天",
+                    matched_by="candidate",
+                    confidence=0.98,
+                    research_mode="theme_research",
+                    time_horizon="intraday",
+                ),
+                anchor=None,
+            )
+
+    decision = decide_turn(
+        query,
+        resolver=SpuriousThemeResolver(),
+        llm_complete=lambda _messages: pytest.fail(
+            "market-watch head route must not invoke the LLM controller"
+        ),
+    )
+
+    assert decision.lane == "workflow"
+    assert decision.question_type == "market_watch"
+    assert decision.subject is None
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.question_type == "market_watch"
+    assert decision.turn_intent.primary_subject is None
+    assert decision.turn_intent.answer_owner is None
 
 
 @pytest.mark.parametrize(

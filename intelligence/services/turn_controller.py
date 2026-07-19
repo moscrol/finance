@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass, replace
 from typing import Literal, TypeAlias, cast
 
 from intelligence.services import ask_clarify, llm_refine
-from intelligence.services.query_resolution import QueryResolver
+from intelligence.services.query_resolution import QueryResolution, QueryResolver
 from intelligence.services.query_understanding import (
     QueryEnvelope,
     is_dated_market_review,
@@ -162,6 +162,35 @@ def _route_capabilities(
             if row.question_type == question_type:
                 return row.capabilities
     return tuple(fallback)
+
+
+def _canonicalize_head_resolution(
+    query: str,
+    resolution: QueryResolution,
+) -> QueryResolution:
+    """让确定性头部意图在构造 TurnIntent 前成为完整控制契约。
+
+    知识库主题解析是宽召回：用户要求里的“验证信号”也可能命中“信号系统”
+    之类的题材别名。market-watch 已由可回归规则确定后，不能只锁 lane 而让
+    软解析继续提供 subject / answer_owner，否则会同时启动 daily 与 theme
+    两条工作流。
+    """
+    if not is_market_watch_query(query):
+        return resolution
+    row = route_by_id("market_watch")
+    if row is None or row.question_type is None:
+        return resolution
+    envelope = replace(
+        resolution.envelope,
+        question_type=row.question_type,
+        subject_kind="market_pattern",
+        subject=None,
+        decision_goal="总结当日盘面主线、观察清单与验证信号",
+        matched_by="market_anchor",
+        confidence=max(0.98, resolution.envelope.confidence),
+        research_mode="general",
+    )
+    return replace(resolution, envelope=envelope)
 
 
 def _deterministic_decision(
@@ -495,7 +524,10 @@ def decide_turn(
     previous_turn_id: str | None = None,
     resolver: QueryResolver | None = None,
 ) -> TurnDecision:
-    resolution = (resolver or QueryResolver()).resolve(query)
+    resolution = _canonicalize_head_resolution(
+        query,
+        (resolver or QueryResolver()).resolve(query),
+    )
     envelope = resolution.envelope
     if resolution.context_dependent and previous_intent is None:
         return _decision(

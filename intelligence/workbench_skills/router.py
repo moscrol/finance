@@ -195,6 +195,10 @@ def route_skills(
     ):
         rules.insert(0, ("daily-review", "规则识别当日盘面关注提问"))
     automatic = [SkillSelection(skill_id, "rule", reason) for skill_id, reason in rules]
+    deterministic_head_route = is_market_watch_query(query) or (
+        query_envelope is not None
+        and is_dated_market_review(query, query_envelope)
+    )
     reserved_ids = {
         selection.skill_id
         for selection in (
@@ -213,6 +217,7 @@ def route_skills(
         automatic_registry
         and available_slots > 0
         and answer_owner is None
+        and not deterministic_head_route
     ):
         rule_ids = {skill_id for skill_id, _ in rules}
         candidates = [
