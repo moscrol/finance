@@ -402,6 +402,53 @@ class AgentGraphToolsTests(unittest.TestCase):
         )
         self.assertTrue(result.sufficient)
 
+    def test_l3_and_market_tools_are_registered_names(self) -> None:
+        """l3_lookup/market_data 进白名单与描述表：注册后动态 prompt 自动宣传。"""
+        self.assertIn("l3_lookup", agent_research._TOOL_NAMES)
+        self.assertIn("market_data", agent_research._TOOL_NAMES)
+
+        def stub_tool(query: str):
+            return [], "无", None
+
+        prompt = agent_research._system_prompt(
+            {"l3_lookup": stub_tool, "market_data": stub_tool}
+        )
+        self.assertIn("l3_lookup", prompt)
+        self.assertIn("market_data", prompt)
+        self.assertNotIn("kb_search：", prompt)
+
+    def test_block_lines_to_evidence_skips_headings(self) -> None:
+        block = (
+            "## 市场总览\n"
+            "- 上证指数收于3764点，跌3.05%\n"
+            "- 全市场成交额26547亿\n"
+            "\n"
+            "# 另一个标题\n"
+            "涨停33家，跌停193家\n"
+        )
+
+        evidence, observation = agent_research.block_lines_to_evidence(
+            "market_data", block, "本地 DuckDB · 市场总览"
+        )
+
+        self.assertEqual(len(evidence), 3)
+        self.assertTrue(
+            all(item.tool == "market_data" for item in evidence)
+        )
+        self.assertTrue(
+            all(item.source == "本地 DuckDB · 市场总览" for item in evidence)
+        )
+        self.assertNotIn("市场总览\n", observation)
+        self.assertIn("上证指数", observation)
+        self.assertIn("涨停33家", observation)
+
+    def test_block_lines_to_evidence_empty_block(self) -> None:
+        evidence, observation = agent_research.block_lines_to_evidence(
+            "market_data", "", "本地 DuckDB"
+        )
+        self.assertEqual(evidence, [])
+        self.assertEqual(observation, "")
+
 
 class OwnerRawResultChannelTests(unittest.TestCase):
     """P1-B：owner 完整 ResearchResult 通道（替代有损重建）。"""

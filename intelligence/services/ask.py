@@ -1013,36 +1013,120 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
             or "（无）"
         )
+        existing_summary = "\n".join(
+            [
+                f"盘面 {len(market_lines)} 条／图谱概念 {len(graph_concept_lines)} 条／"
+                f"公司暴露 {len(company_lines)} 条／证据索引 {len(evidence_lines)} 条／"
+                f"知识库召回 {len(wiki_lines)} 条",
+                *wiki_lines[:3],
+                f"主链已执行过的检索（重复会被拦截，请改写或换角度）：{attempted_summary}",
+            ]
+        )
+
+        def _agent_l3_lookup(agent_query: str):
+            # 官方证据补查：与主链 L 源同一底层（公告/互动易），agent 可对
+            # 自己发现的新实体主动补 L3 硬证据。
+            bundle = l3_evidence.lookup_l3_evidence(
+                agent_query,
+                question_plan,
+                existing_summary,
+                config=l3_evidence.L3LookupConfig.from_env(
+                    enabled=True,
+                    timeout=_stage_timeout(options, options.l3_lookup_timeout),
+                    limit=options.l3_lookup_limit,
+                ),
+            )
+            l3_items = [
+                agent_research.AgentEvidence(
+                    tool="l3_lookup",
+                    title=item.title,
+                    detail=item.summary[:200],
+                    source=item.citation or item.source_type,
+                )
+                for item in bundle.items[:6]
+            ]
+            observation = (
+                "；".join(f"{item.title}：{item.detail[:80]}" for item in l3_items)
+                or "官方证据无命中"
+                + (
+                    f"（缺口：{'、'.join(gap.reason for gap in bundle.gaps[:3])}）"
+                    if bundle.gaps
+                    else ""
+                )
+            )
+            trace = ProviderTrace(
+                provider="agent:l3_lookup",
+                capability="agent_loop",
+                status="success" if l3_items else "empty",
+                detail=agent_query[:120],
+                result_count=len(l3_items),
+            )
+            return l3_items, observation, trace
+
+        def _agent_market_data(agent_query: str):
+            # 本地盘面确定性取数：按意图路由 D0 时序 → D6 中期趋势 → 市场总览。
+            block = ""
+            source_label = ""
+            ts_intent = market_timeseries.parse_timeseries_intent(agent_query)
+            if ts_intent is not None:
+                block = market_timeseries.timeseries_block_for_llm(
+                    ts_intent, options.market_db_path
+                )
+                source_label = "本地 DuckDB · 盘面时序直查"
+            if not block:
+                mid_intent = market_midterm.parse_midterm_intent(agent_query)
+                if mid_intent is not None:
+                    block = market_midterm.midterm_trend_block_for_llm(
+                        agent_query,
+                        result.matched_theme or agent_query,
+                        options.market_db_path,
+                        mid_intent.window,
+                    )
+                    source_label = "本地 DuckDB · 多日中期趋势"
+            if not block:
+                block = _daily_market_overview_block_for_llm(
+                    options.market_db_path
+                )
+                source_label = "本地 DuckDB · 市场总览"
+            market_evidence, observation = agent_research.block_lines_to_evidence(
+                "market_data", block, source_label
+            )
+            trace = ProviderTrace(
+                provider="agent:market_data",
+                capability="agent_loop",
+                status="success" if market_evidence else "empty",
+                detail=agent_query[:120],
+                result_count=len(market_evidence),
+            )
+            return market_evidence, observation or "本地盘面数据无匹配", trace
+
+        agent_tools: dict[str, agent_research.ToolRunner] = {
+            **agent_research.build_default_tools(
+                lambda agent_query: kb_rag.retrieve(
+                    agent_query,
+                    resolved_kb_wiki,
+                    k=options.wiki_rag_k,
+                    mode=options.wiki_rag_mode,
+                    timeout=_stage_timeout(options, options.wiki_rag_timeout),
+                    excerpt_chars=options.wiki_rag_excerpt,
+                    budget_query=options.query,
+                    index_dir=options.wiki_rag_index_dir,
+                    require_fresh=True,
+                    cache_scope=options.wiki_rag_cache_scope,
+                ),
+            ),
+            # P1-B 工具面扩展：agent 可查知识图谱与证据索引（纯本地），
+            # 发现新实体后能自主定位公司映射、核对已登记证据。
+            **agent_research.build_graph_tools(knowledge),
+        }
+        if options.use_l3_lookup:
+            agent_tools["l3_lookup"] = _agent_l3_lookup
+        if options.market_db_path is not None:
+            agent_tools["market_data"] = _agent_market_data
         agent_loop_result = agent_research.run_agent_loop(
             options.query,
-            tools={
-                **agent_research.build_default_tools(
-                    lambda agent_query: kb_rag.retrieve(
-                        agent_query,
-                        resolved_kb_wiki,
-                        k=options.wiki_rag_k,
-                        mode=options.wiki_rag_mode,
-                        timeout=_stage_timeout(options, options.wiki_rag_timeout),
-                        excerpt_chars=options.wiki_rag_excerpt,
-                        budget_query=options.query,
-                        index_dir=options.wiki_rag_index_dir,
-                        require_fresh=True,
-                        cache_scope=options.wiki_rag_cache_scope,
-                    ),
-                ),
-                # P1-B 工具面扩展：agent 可查知识图谱与证据索引（纯本地），
-                # 发现新实体后能自主定位公司映射、核对已登记证据。
-                **agent_research.build_graph_tools(knowledge),
-            },
-            existing_evidence_summary="\n".join(
-                [
-                    f"盘面 {len(market_lines)} 条／图谱概念 {len(graph_concept_lines)} 条／"
-                    f"公司暴露 {len(company_lines)} 条／证据索引 {len(evidence_lines)} 条／"
-                    f"知识库召回 {len(wiki_lines)} 条",
-                    *wiki_lines[:3],
-                    f"主链已执行过的检索（重复会被拦截，请改写或换角度）：{attempted_summary}",
-                ]
-            ),
+            tools=agent_tools,
+            existing_evidence_summary=existing_summary,
             total_seconds=_stage_timeout(options, 60),
             attempted_queries=tuple(pipeline_attempted),
         )

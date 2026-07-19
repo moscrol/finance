@@ -62,6 +62,15 @@ _TOOL_DESCRIPTIONS = {
         "- evidence_lookup：查询证据索引——公司/题材已登记的公告、研报证据"
         "条目（含日期与质量），args: {\"query\": 公司或题材名}"
     ),
+    "l3_lookup": (
+        "- l3_lookup：官方证据补查——运行时抓取公告/互动易等公司级硬证据"
+        "（L3 层，比证据索引新），args: {\"query\": 公司名或题材}"
+    ),
+    "market_data": (
+        "- market_data：本地盘面数据——按问题自动路由到时序直查/中期趋势/"
+        "市场总览（DuckDB 确定性取数），args: {\"query\": 自然语言数据问题，"
+        "如'XX题材近20日成交额趋势'}"
+    ),
 }
 _TOOL_NAMES = (*_TOOL_DESCRIPTIONS, "finish")
 
@@ -297,6 +306,36 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
         "graph_lookup": _graph_lookup,
         "evidence_lookup": _evidence_lookup,
     }
+
+
+def block_lines_to_evidence(
+    tool: str,
+    block: str,
+    source: str,
+    *,
+    limit: int = 6,
+) -> tuple[list[AgentEvidence], str]:
+    """把确定性数据块文本（D 块/总览）转成 agent 证据行 + 观察摘要。
+
+    跳过标题/空行，正文行截断为 title/detail；供 market_data 等包装
+    确定性取数函数的工具复用。"""
+    lines = [
+        stripped
+        for raw in str(block or "").splitlines()
+        if (stripped := raw.strip().lstrip("-").strip())
+        and not stripped.startswith("#")
+    ]
+    evidence = [
+        AgentEvidence(
+            tool=tool,
+            title=line[:48],
+            detail=line[:200],
+            source=source,
+        )
+        for line in lines[:limit]
+    ]
+    observation = "；".join(lines[:limit])
+    return evidence, observation
 
 
 CompleteFn = Callable[..., tuple[str | None, object, str]]
