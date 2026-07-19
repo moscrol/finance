@@ -6,4 +6,7 @@
 - [x] 让规范化字段从 `route_table.py` 的 canonical row 派生。
 - [x] 运行 Controller、query-understanding、skill-router 相关测试（145 passed）。
 - [x] 运行全量 hermetic 测试（2099 passed，1 skipped）。
-- [ ] 合并 main、部署不可变 runtime，重跑市场观察与市场复盘端到端。
+- [x] 首轮合并 main 并部署；市场观察生产 E2E 通过（0 degrade）。
+- [x] 生产 E2E 发现“今日市场复盘”仍可被输出词“验证信号”污染，补充同源回归。
+- [x] 重跑相关测试（147 passed）与全量测试（2101 passed，1 skipped）。
+- [ ] 二次合并部署并完成市场复盘端到端。

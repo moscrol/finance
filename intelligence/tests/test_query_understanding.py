@@ -434,10 +434,14 @@ def test_market_watch_query_is_deterministically_recognized() -> None:
     assert query_understanding.is_market_watch_query("今天有什么值得关注的")
     assert query_understanding.is_market_watch_query("今日盘面有哪些看点")
     assert query_understanding.is_market_watch_query("今天市场怎么样")
+    assert query_understanding.is_market_watch_query(
+        "请做今日市场复盘：市场阶段、主线、赚钱效应和风险"
+    )
     assert not query_understanding.is_market_watch_query("光模块怎么看")
     assert not query_understanding.is_market_watch_query(
         "今天光模块有什么值得关注的"
     )
+    assert not query_understanding.is_market_watch_query("今日光模块复盘")
     assert not query_understanding.is_market_watch_query("明天有什么值得关注的")
 
 

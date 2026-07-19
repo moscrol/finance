@@ -185,6 +185,41 @@ def test_market_watch_head_route_canonicalizes_spurious_theme_resolution() -> No
     assert decision.turn_intent.answer_owner is None
 
 
+def test_daily_review_head_route_canonicalizes_spurious_theme_resolution() -> None:
+    query = "请做今日市场复盘：市场阶段、主线、赚钱效应、风险和验证信号。"
+
+    class SpuriousThemeResolver:
+        def resolve(self, _query: str) -> QueryResolution:
+            return QueryResolution(
+                envelope=QueryEnvelope(
+                    question_type="theme_analysis",
+                    subject_kind="theme",
+                    subject="信号系统",
+                    decision_goal="形成条件化判断",
+                    timeframe="今日",
+                    matched_by="candidate",
+                    confidence=0.98,
+                    research_mode="theme_research",
+                    time_horizon="intraday",
+                ),
+                anchor=None,
+            )
+
+    decision = decide_turn(
+        query,
+        resolver=SpuriousThemeResolver(),
+        llm_complete=lambda _messages: pytest.fail(
+            "daily-review head route must not invoke the LLM controller"
+        ),
+    )
+
+    assert decision.lane == "workflow"
+    assert decision.question_type == "market_watch"
+    assert decision.subject is None
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner is None
+
+
 @pytest.mark.parametrize(
     ("query", "question_type"),
     (

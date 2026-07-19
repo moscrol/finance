@@ -259,12 +259,20 @@ def test_market_watch_question_routes_to_daily_review_without_llm() -> None:
     assert "当日盘面" in result.selections[0].reason
 
 
-def test_expanded_market_watch_is_a_single_deterministic_daily_route() -> None:
+@pytest.mark.parametrize(
+    "query",
+    (
+        "今天有什么值得关注的？请给出主线、观察清单、验证信号和风险。",
+        "请做今日市场复盘：市场阶段、主线、赚钱效应、风险和验证信号。",
+    ),
+)
+def test_expanded_market_watch_is_a_single_deterministic_daily_route(
+    query: str,
+) -> None:
     registry = {
         "daily-review": definition("daily-review", "复盘"),
         "theme-research": definition("theme-research", "研究"),
     }
-    query = "今天有什么值得关注的？请给出主线、观察清单、验证信号和风险。"
 
     result = route_skills(
         query,
