@@ -87,7 +87,6 @@ class ResearchOwnerSkill:
             user=context.user_id,
             compose=True,
             synthesize=False,
-            compose_self_review=False,
             compose_revise_on_warn=False,
             use_modules=self.config.use_modules,
             wiki_rag_timeout=self.config.wiki_rag_timeout,
@@ -167,6 +166,11 @@ class ResearchOwnerSkill:
             stage_artifacts=stage_artifacts,
             status=status,
         )
+        # P1-B：完整 ResearchResult 通道——raw AskResult 以对象引用放入 turn 级
+        # retrieval_cache（进程内传递、不经序列化），orchestrator 侧优先消费它，
+        # 替代 _skill_owner_result 的有损重建（真实 trade_date/warnings/
+        # provider_traces/telemetry/原生 citations 全保留）。
+        context.retrieval_cache[f"owner_raw_result:{self.skill_id}"] = result
         return SkillOutput(
             skill_id=self.skill_id,
             modules=retrieved_modules if contract is not None else [],
@@ -177,7 +181,42 @@ class ResearchOwnerSkill:
             answer_contract=contract,
             stage_artifacts=stage_artifacts,
             status=status,
+            provider_traces=self._retrieval_traces(result),
         )
+
+    def _retrieval_traces(self, result: AskResult) -> list[dict]:
+        """把 owner 内部检索可观测序列化成 JSON trace 列表（穿透 skill 边界）。
+
+        闭环检索与 wiki 遥测没有独立通道，折叠为合成 ProviderTrace 并入同一
+        列表，_record_retrieval 的 trace payload 会原样带出。"""
+        traces = [trace.to_dict() for trace in result.provider_traces]
+        if result.wiki_rag_telemetry is not None:
+            telemetry = result.wiki_rag_telemetry
+            traces.append(
+                {
+                    "provider": "wiki_rag",
+                    "capability": "owner_retrieval_telemetry",
+                    "status": telemetry.status,
+                    "detail": telemetry.summary_line(),
+                    "source_trade_date": None,
+                    "result_count": telemetry.hit_count,
+                }
+            )
+        if result.closed_loop_retrieval is not None:
+            inspector = result.closed_loop_retrieval.inspector_dict()
+            traces.append(
+                {
+                    "provider": "closed_loop_retrieval",
+                    "capability": "owner_retrieval_telemetry",
+                    "status": "success",
+                    "detail": json.dumps(inspector, ensure_ascii=False)[:800],
+                    "source_trade_date": None,
+                    "result_count": int(
+                        inspector.get("buckets", {}).get("conclusion", 0)
+                    ),
+                }
+            )
+        return traces
 
     def _owner_result_status(
         self,
@@ -393,6 +432,10 @@ class ResearchOwnerSkill:
             ),
             gaps=merge_claims(current.gaps, claims("gaps")),
             triggers=merge_claims(current.triggers, claims("triggers")),
+            candidate_facts=merge_claims(
+                current.candidate_facts,
+                claims("candidate_facts"),
+            ),
             next_actions=tuple(
                 dict.fromkeys((*current.next_actions, *inherited_actions))
             ),
@@ -482,6 +525,8 @@ class ResearchOwnerSkill:
                     else None
                 ),
                 freshness=str(value.get("freshness") or "unknown"),
+                content_hash=str(value.get("content_hash") or ""),
+                source_revision=str(value.get("source_revision") or ""),
             )
         except KeyError:
             return None

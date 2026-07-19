@@ -116,6 +116,18 @@ def _exemplar_guidance_for(
     return "\n\n".join(parts)
 
 
+# 数据块 claim 默认状态覆盖（P0 修复）：VERIFIED 不能靠"没出现坏词"铸造。
+# W7 资讯只是"标题存在"的存在性证据，标题内容未证实；M/V 是用户先验与历史裁决
+# 快照，不是当期市场事实；D8 历史类比是推演。其余 DuckDB/东财确定性取数块保持
+# VERIFIED（数据本身可回查）。
+_DATA_BLOCK_STATUS_OVERRIDES = {
+    "W7": answer_model.ClaimStatus.CANDIDATE,
+    "M": answer_model.ClaimStatus.CANDIDATE,
+    "V": answer_model.ClaimStatus.CANDIDATE,
+    "D8": answer_model.ClaimStatus.INFERRED,
+}
+
+
 def _claims_from_data_block(
     block: str,
     tag: str,
@@ -147,7 +159,9 @@ def _claims_from_data_block(
         ):
             status = answer_model.ClaimStatus.INFERRED
         else:
-            status = answer_model.ClaimStatus.VERIFIED
+            status = _DATA_BLOCK_STATUS_OVERRIDES.get(
+                tag, answer_model.ClaimStatus.VERIFIED
+            )
         claims.append(
             answer_model.make_claim(
                 claim_id=f"data:{tag}:{index}",
@@ -412,6 +426,11 @@ def _build_answer_spec_for_result(
             source=citation.source,
             detail=citation.detail,
             tier=evidence_tiers.get(citation.tag, ""),
+            # 来源溯源传播（P2）：Citation 携带的索引新鲜度/内容 hash/来源
+            # 版本此前在转 EvidenceRef 时丢失（Codex 点名的具体断点）。
+            freshness=citation.index_freshness or "unknown",
+            content_hash=citation.content_hash,
+            source_revision=citation.index_source_revision,
         )
         for citation in citations
     ]
@@ -476,6 +495,19 @@ def _build_answer_spec_for_result(
         and "市场结构推演路径" not in line
         and not re.match(r"^\[[^\]]+\]", line)
     )
+    # 候选证据通道：agent 补检索 / Web 兜底 / 模块召回 / wiki 语义召回等 CANDIDATE
+    # claim 中，未随公司表进入 registry 的部分。上限 24 条防 prompt 膨胀。
+    company_claim_ids = {
+        claim.claim_id
+        for assessment in company_table
+        for claim in assessment.claims
+    }
+    candidate_facts = tuple(
+        claim
+        for claim in claims
+        if claim.status == answer_model.ClaimStatus.CANDIDATE
+        and claim.claim_id not in company_claim_ids
+    )[:24]
     spec = answer_model.AnswerSpec(
         research_spec=research_spec,
         summary=tuple(summary),
@@ -486,6 +518,7 @@ def _build_answer_spec_for_result(
         counter_evidence=counter_evidence,
         gaps=gaps,
         triggers=tuple(triggers),
+        candidate_facts=candidate_facts,
         next_actions=tuple(dict.fromkeys(actions)),
         sources=tuple(dict.fromkeys(sources)),
         system_notices=tuple(dict.fromkeys(notices)),
@@ -579,6 +612,9 @@ def _build_base_answer_spec_from_sections(
             evidence_id=citation.tag,
             source=citation.source,
             detail=citation.detail,
+            freshness=citation.index_freshness or "unknown",
+            content_hash=citation.content_hash,
+            source_revision=citation.index_source_revision,
         )
         for citation in citations
     ]
@@ -825,6 +861,15 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         return result
     if promote_grounded_answer(options, result):
         return result
+    if (
+        result.prepared_synthesis_is_market_review
+        and options.grounded_presenter
+        and result.grounded_composer_shadow is not None
+    ):
+        # 市场复盘的可信自然语言出口只有 Grounded Composer。它不可用或未过
+        # 门禁时保留结构化 AnswerSpec 供上层确定性渲染，不再启动无 claim/
+        # EvidenceAtom 绑定的旧散文合成，否则等于在安全链失败后绕回软出口。
+        return result
     started = time.monotonic()
     deadline = _llm_deadline(options)
     chunks: list[str] = []
@@ -923,14 +968,6 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             temperature=synthesis_temperature,
             deadline=deadline,
         )
-    elif options.compose_self_review:
-        composed, reason = llm_refine.synthesize_messages_with_review(
-            messages,
-            model_override=options.llm_model,
-            timeout=_stage_timeout(options, options.llm_timeout),
-            temperature=synthesis_temperature,
-            deadline=deadline,
-        )
     else:
         composed, reason = llm_refine.synthesize_messages_stream(
             messages,
@@ -974,15 +1011,20 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     initial_synthesis = composed.answer
     accepted_composition = composed
     quality_gate_started = time.monotonic()
+    gate_issues = answer_model.validate_llm_answer(
+        proposed_synthesis,
+        result.answer_spec,
+    )
     blocking_issues = [
-        issue
-        for issue in answer_model.validate_llm_answer(
-            proposed_synthesis,
-            result.answer_spec,
-        )
-        if issue.severity == "error"
+        issue for issue in gate_issues if issue.severity == "error"
     ]
-    if blocking_issues and deadline.remaining() > 0:
+    # claim-binding 修订轮只适用于 registry 契约：散文契约（市场复盘）没有
+    # registry 可复制，泄漏即直接退稿，不浪费一次错误契约的修订调用。
+    if (
+        blocking_issues
+        and deadline.remaining() > 0
+        and not result.prepared_synthesis_is_market_review
+    ):
         correction_started = time.monotonic()
         correction, correction_reason = llm_refine.synthesize_messages(
             [
@@ -1136,9 +1178,8 @@ def promote_grounded_answer(
     """用 Grounded Composer 链路生成自然语言回答并接管 result.synthesis。
 
     daily-agent 契约受 ``daily_agent_grounded_presenter`` 控制（行为不变）；
-    其余 compose 回答受 ``grounded_presenter`` 控制（market_review 除外，
-    它有自己的面向普通投资者的合成契约）。失败时返回 False，由调用方
-    降回结构化 claim 合成路径。
+    其余 compose 回答（包括 market_review）受 ``grounded_presenter`` 控制。
+    失败时返回 False，由调用方降回结构化 claim 合成路径。
     """
     spec = result.answer_spec
     if spec is None:
@@ -1150,19 +1191,13 @@ def promote_grounded_answer(
     if is_daily_agent:
         if not options.daily_agent_grounded_presenter:
             return False
-    elif (
-        not options.grounded_presenter
-        or result.prepared_synthesis_is_market_review
-    ):
+    elif not options.grounded_presenter:
         return False
     synthesize_shadow_grounded_answer(
         PreparedAnswer(
             options=replace(
                 options,
                 shadow_grounded_composer=True,
-                shadow_grounded_timeout=max(
-                    options.shadow_grounded_timeout, 240
-                ),
             ),
             result=result,
         ),
@@ -1223,6 +1258,21 @@ def _shadow_support_claims(
     )
 
 
+def _shadow_deadline(options: AskOptions) -> llm_refine.Deadline:
+    """影子链截止时间 = min(自身超时, turn 根 Deadline)。
+
+    P0 修复：此前 promote 路径把 shadow timeout 抬到 ≥240s 并新建 Deadline，
+    完全无视 turn 级 ResearchDeadline——子流程可以突破根截止时间。规则收敛为
+    child = min(parent, now + stage_slice)，任何子阶段不得晚于根。
+    """
+    deadline = llm_refine.Deadline.from_timeout(options.shadow_grounded_timeout)
+    if options.deadline is not None:
+        deadline = llm_refine.Deadline(
+            min(deadline.expires_at, options.deadline.expires_at)
+        )
+    return deadline
+
+
 def synthesize_shadow_grounded_answer(
     prepared: PreparedAnswer,
     *,
@@ -1246,9 +1296,7 @@ def synthesize_shadow_grounded_answer(
             )
         )
         return result
-    deadline = llm_refine.Deadline.from_timeout(
-        options.shadow_grounded_timeout
-    )
+    deadline = _shadow_deadline(options)
     registry_block = answer_model.grounded_claim_registry_block(
         result.answer_spec
     )
@@ -1354,19 +1402,34 @@ def synthesize_shadow_grounded_answer(
     sentences, _unbound = answer_model.parse_grounded_sentences(
         candidate_answer
     )
-    judged, judge_reason = llm_refine.synthesize_messages(
-        llm_refine.build_grounding_judge_messages(
-            options.query,
-            candidate_answer,
-            registry_block,
-        ),
-        model_override=options.llm_model,
-        timeout=max(1, int(deadline.remaining())),
-        deadline=deadline,
-        temperature=0.0,
-        max_tokens=1200 * token_budget_scale,
-        max_chars=8000 * token_budget_scale,
+    # 语义审独立性：配置 LLM_JUDGE_* 时 judge 走独立 provider，
+    # 降低与 composer 同模型的相关性失败；未配置回落主 provider。
+    judge_override = llm_refine.judge_provider()
+    judge_messages = llm_refine.build_grounding_judge_messages(
+        options.query,
+        candidate_answer,
+        registry_block,
     )
+    if judge_override is not None:
+        with llm_refine.provider_override(judge_override):
+            judged, judge_reason = llm_refine.synthesize_messages(
+                judge_messages,
+                timeout=max(1, int(deadline.remaining())),
+                deadline=deadline,
+                temperature=0.0,
+                max_tokens=1200 * token_budget_scale,
+                max_chars=8000 * token_budget_scale,
+            )
+    else:
+        judged, judge_reason = llm_refine.synthesize_messages(
+            judge_messages,
+            model_override=options.llm_model,
+            timeout=max(1, int(deadline.remaining())),
+            deadline=deadline,
+            temperature=0.0,
+            max_tokens=1200 * token_budget_scale,
+            max_chars=8000 * token_budget_scale,
+        )
     if judged is None:
         result.grounded_composer_shadow = (
             answer_model.GroundedComposerShadow(
@@ -1445,7 +1508,8 @@ def synthesize_shadow_grounded_answer(
             repaired_answer=candidate_answer if repaired else None,
             presented_answer=(
                 answer_model.present_grounded_composer_answer(
-                    candidate_answer
+                    candidate_answer,
+                    result.answer_spec,
                 )
             ),
             deterministic_issues=deterministic_issues,
@@ -1475,5 +1539,3 @@ def _stable_llm_fallback_reason(reason: str) -> str:
     if "空内容" in normalized:
         return "empty_response"
     return "provider_unavailable"
-
-

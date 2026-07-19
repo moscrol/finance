@@ -49,6 +49,11 @@ DEFAULT_EXPORTS_DIR = DATA_REPO_ROOT / "market_feature_store" / "exports"
 
 SUBHEAD = "\x00SUB\x00"
 SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检索可观测", "输出质检", "交易含义", "引用来源"]
+# 控制面 section（P2 公共投影分离）：检索遥测/质检明细/provider 状态属于
+# ResearchInspector 面——CLI render_answer 全量渲染（自查用），但不进入
+# 用户报告模块与会话答案。数据本体仍在 provider_traces / retrieval_telemetry /
+# review_gate 上，经 _record_retrieval trace 落盘，可观测性不丢。
+CONTROL_PLANE_SECTIONS = frozenset({"数据源状态", "检索可观测", "输出质检"})
 NO_EVIDENCE_NOTICE = "本轮没有形成可用于结论的可验证来源；以下内容仅作待验证线索。"
 
 
@@ -111,7 +116,7 @@ class AskOptions:
         )
         == "1"
     )
-    # 通用 Grounded Presenter：非 market_review 的 compose 回答也走 Grounded Composer
+    # 通用 Grounded Presenter：compose 回答（包括 market_review）走 Grounded Composer
     # 链路（DecisionBrief → 自然语言成文 → 确定性门禁 → 逐句语义审 → 逐句修复），
     # LLM 保留最终措辞；任一阶段不可用或门禁未过时降回结构化 claim 合成路径。
     grounded_presenter: bool = field(
@@ -135,7 +140,6 @@ class AskOptions:
     detail: bool = False
     user: str | None = None
     experience_cards_window: int = 12
-    compose_self_review: bool = True
     include_market_value_block: bool = True
     include_customer_hardness_block: bool = True
     include_second_derivative_block: bool = True
@@ -208,6 +212,12 @@ class AskOptions:
     stream_cancel_check: Callable[[], bool] | None = field(
         default=None, repr=False, compare=False
     )
+    # 控制面阶段进度：供 Workbench trace/看门狗定位同步 Ask 卡点。
+    # 只传阶段名、状态和计数/耗时，不得传证据正文或内部 locator。
+    progress_callback: Callable[
+        [str, str, dict[str, object]],
+        None,
+    ] | None = field(default=None, repr=False, compare=False)
     deadline: ResearchDeadline | None = field(
         default=None,
         repr=False,
@@ -337,5 +347,3 @@ def _llm_deadline(options: AskOptions) -> llm_refine.Deadline:
     if options.deadline is not None:
         return llm_refine.Deadline(options.deadline.expires_at)
     return llm_refine.Deadline.from_timeout(options.llm_timeout)
-
-

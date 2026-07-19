@@ -242,6 +242,18 @@ def test_broad_market_question_clarifies_scope() -> None:
     assert decision.needs_retrieval is False
 
 
+def test_explicit_market_outlook_routes_to_forecast_without_clarifying() -> None:
+    decision = decide_turn(
+        "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "market_forecast"
+    assert "market_quote" in decision.capabilities
+    assert decision.clarification_questions == ()
+
+
 def test_company_valuation_uses_research_lane() -> None:
     decision = decide_turn("某公司估值怎么看", llm_complete=_no_llm)
 

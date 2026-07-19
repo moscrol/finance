@@ -20,6 +20,9 @@ import copy
 import glob
 import json
 import re
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date as date_cls, timedelta
 from pathlib import Path
@@ -43,6 +46,7 @@ from intelligence.services import (
     forecast_preflight,
     kb_rag,
     l3_evidence,  # noqa: F401  (测试经 ask.l3_evidence 打桩)
+    query_ledger,
     retrieval_cache,
     llm_refine,
     market_analogs,
@@ -148,6 +152,52 @@ from intelligence.services.ask_render import (  # noqa: F401
     render_answer,
     render_conversation_answer,
 )
+
+
+def _emit_progress(
+    options: AskOptions,
+    stage: str,
+    status: str,
+    detail: dict[str, object] | None = None,
+) -> None:
+    """Best-effort 控制面进度；可观测性故障不得改变研究结果。"""
+
+    callback = options.progress_callback
+    if callback is None:
+        return
+    try:
+        callback(stage, status, dict(detail or {}))
+    except Exception:  # noqa: BLE001 - telemetry sink 必须 fail-open
+        return
+
+
+@contextmanager
+def _progress_stage(
+    options: AskOptions,
+    stage: str,
+    **initial_detail: object,
+) -> Iterator[dict[str, object]]:
+    """为同步 Ask 子阶段发 started/completed/failed 控制面事件。"""
+
+    started = time.monotonic()
+    detail = dict(initial_detail)
+    _emit_progress(options, stage, "started", detail)
+    try:
+        yield detail
+    except BaseException as exc:
+        detail["elapsed_ms"] = max(
+            0,
+            round((time.monotonic() - started) * 1000),
+        )
+        detail["error_type"] = type(exc).__name__
+        _emit_progress(options, stage, "failed", detail)
+        raise
+    else:
+        detail["elapsed_ms"] = max(
+            0,
+            round((time.monotonic() - started) * 1000),
+        )
+        _emit_progress(options, stage, "completed", detail)
 
 
 # Human-readable labels + 结论 summary prefixes for each routed recall backend.
@@ -643,6 +693,9 @@ def _answer_concept_definition(
     loop = closed_loop_retrieval.retrieve_closed_loop(
         options.query,
         anchor=None,
+        total_seconds=_stage_timeout(
+            options, closed_loop_retrieval.MAX_TOTAL_SECONDS
+        ),
         retrieve=lambda retrieval_query: kb_rag.retrieve(
             retrieval_query,
             resolved_kb_wiki,
@@ -774,8 +827,11 @@ def _answer_concept_definition(
 
 def answer_query(options: AskOptions) -> AskResult:
     # per-run DuckDB 只读连接复用：各 D 块/盘面查询借用同一连接的 cursor。
-    with retrieval_cache.duckdb_run_pool():
-        return _answer_query_impl(options)
+    # query_ledger：turn 内同 provider+query 检索只真实执行一次（orchestrator
+    # 已开账本时嵌套复用；CLI 单跑时在本层兜底开启）。
+    with _progress_stage(options, "ask_root"):
+        with retrieval_cache.duckdb_run_pool(), query_ledger.query_ledger_scope():
+            return _answer_query_impl(options)
 
 
 def _answer_query_impl(options: AskOptions) -> AskResult:
@@ -794,27 +850,39 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             result.clarify = clarify_decision
             result.warnings.append(f"澄清追问：{clarify_decision.reason}，本次未检索")
             return result
-    preliminary_plan = plan_answer_question(
-        options.query,
-        question_type_override=options.question_type_override,
-    )
-    if preliminary_plan.question_type == QUESTION_EXTERNAL_MARKET:
-        return _answer_external_market(options, preliminary_plan)
-    if preliminary_plan.question_type == QUESTION_CONCEPT_DEFINITION:
-        return _answer_concept_definition(options, preliminary_plan)
-    resolved_kb_wiki = Path(options.kb_wiki).expanduser() if options.kb_wiki else default_paths().knowledge_wiki
-    knowledge = KnowledgeAdapter(wiki_root=resolved_kb_wiki)
-    loaded = load_theme_candidates(options.exports_dir, options.date)
-    doc = loaded["doc"] if loaded["found"] else {}
-    candidate = match_candidate(options.query, doc) if doc else None
-    snapshot_date = str(doc.get("trade_date") or "").strip() or None
-    trade_date, market_data_source, data_notice, data_warnings = (
-        _resolve_market_data_context(
-            snapshot_date,
-            options.market_db_path,
-            requested_date=options.date,
+    with _progress_stage(options, "planning") as stage:
+        preliminary_plan = plan_answer_question(
+            options.query,
+            question_type_override=options.question_type_override,
         )
-    )
+        stage["question_type"] = preliminary_plan.question_type
+    if preliminary_plan.question_type == QUESTION_EXTERNAL_MARKET:
+        with _progress_stage(options, "external_market"):
+            return _answer_external_market(options, preliminary_plan)
+    if preliminary_plan.question_type == QUESTION_CONCEPT_DEFINITION:
+        with _progress_stage(options, "concept_definition"):
+            return _answer_concept_definition(options, preliminary_plan)
+    with _progress_stage(options, "market_context") as stage:
+        resolved_kb_wiki = (
+            Path(options.kb_wiki).expanduser()
+            if options.kb_wiki
+            else default_paths().knowledge_wiki
+        )
+        knowledge = KnowledgeAdapter(wiki_root=resolved_kb_wiki)
+        loaded = load_theme_candidates(options.exports_dir, options.date)
+        doc = loaded["doc"] if loaded["found"] else {}
+        candidate = match_candidate(options.query, doc) if doc else None
+        snapshot_date = str(doc.get("trade_date") or "").strip() or None
+        trade_date, market_data_source, data_notice, data_warnings = (
+            _resolve_market_data_context(
+                snapshot_date,
+                options.market_db_path,
+                requested_date=options.date,
+            )
+        )
+        stage["snapshot_found"] = bool(loaded["found"])
+        stage["candidate_found"] = candidate is not None
+        stage["trade_date_available"] = trade_date is not None
 
     result = AskResult(
         query=options.query,
@@ -838,7 +906,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     result.question_plan = question_plan
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
     if question_plan.question_type == QUESTION_MARKET_REVIEW:
-        return _answer_market_review(options, result)
+        with _progress_stage(options, "market_review"):
+            return _answer_market_review(options, result)
     if _is_market_index_comparison_query(options.query):
         _populate_market_index_comparison(
             result,
@@ -861,7 +930,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
     anchor: entity_anchor.EntityAnchor | None = None
     if options.use_entity_anchor:
-        anchor = entity_anchor.resolve_entity_anchor(options.query, knowledge)
+        with _progress_stage(options, "entity_anchor") as stage:
+            anchor = entity_anchor.resolve_entity_anchor(options.query, knowledge)
+            stage["matched"] = anchor is not None
     result.anchored_entity = anchor
     if anchor is not None:
         result.warnings.extend(f"entity-anchor：{w}" for w in anchor.warnings)
@@ -927,8 +998,16 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
     export_name = Path(loaded.get("path", "")).name
 
+    # 全市场后市推演先消费 S/D 系列当前盘面与 D8 历史类比；无明确主题时，
+    # 通用 wiki 语义召回既慢又容易把“市场”锚到无关公司。本车道确定性关闭 W，
+    # 不影响题材/个股研究的 Hybrid RAG。
+    evidence_options = (
+        replace(options, use_wiki_rag=False)
+        if question_plan.question_type == QUESTION_MARKET_FORECAST
+        else options
+    )
     evidence_ctx = evidence_providers.EvidenceContext(
-        options=options,
+        options=evidence_options,
         result=result,
         knowledge=knowledge,
         question_plan=question_plan,
@@ -947,57 +1026,187 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     )
 
     # --- S / G / R: 盘面快照 / 图谱分层 / 证据索引（evidence_providers 插件层）---
-    market_lines = evidence_providers.collect_market_snapshot(evidence_ctx)
-    graph_bundle = evidence_providers.collect_graph(evidence_ctx)
+    with _progress_stage(options, "market_snapshot") as stage:
+        market_lines = evidence_providers.collect_market_snapshot(evidence_ctx)
+        stage["result_count"] = len(market_lines)
+    with _progress_stage(options, "graph") as stage:
+        graph_bundle = evidence_providers.collect_graph(evidence_ctx)
+        stage["concept_count"] = len(graph_bundle.concept_lines)
+        stage["company_count"] = len(graph_bundle.company_lines)
     graph_concept_lines = graph_bundle.concept_lines
     concepts = graph_bundle.concepts_result
     exposures = graph_bundle.exposures_result
     company_lines = graph_bundle.company_lines
     company_evidence_concepts = graph_bundle.company_evidence_concepts
     tiers = graph_bundle.tiers
-    evidence_index_bundle = evidence_providers.collect_evidence_index(
-        evidence_ctx, company_evidence_concepts
-    )
+    with _progress_stage(options, "evidence_index") as stage:
+        evidence_index_bundle = evidence_providers.collect_evidence_index(
+            evidence_ctx, company_evidence_concepts
+        )
+        stage["result_count"] = len(evidence_index_bundle.lines)
     evidence_lines = evidence_index_bundle.lines
     stale_notes = evidence_index_bundle.stale_notes
 
     # --- W: 知识库 hybrid 向量召回（evidence_providers 插件层）---
-    wiki_bundle = evidence_providers.collect_wiki_rag(
-        evidence_ctx, company_evidence_concepts
-    )
+    with _progress_stage(options, "wiki_rag") as stage:
+        wiki_bundle = evidence_providers.collect_wiki_rag(
+            evidence_ctx, company_evidence_concepts
+        )
+        stage["result_count"] = len(wiki_bundle.lines)
     wiki_lines = wiki_bundle.lines
     wiki_counter_lines = wiki_bundle.counter_lines
     wiki_llm_line_pairs = wiki_bundle.llm_line_pairs
     wiki_stats = wiki_bundle.stats
 
     # --- E: 外部 Web 检索（仅 general lane，且本地盘面/图谱/证据/wiki 全空时触发）---
-    web_fallback_lines, web_fallback_attempted = (
-        evidence_providers.collect_web_fallback(
-            evidence_ctx,
-            local_lines_empty=(
-                not market_lines
-                and not graph_concept_lines
-                and not company_lines
-                and not evidence_lines
-                and not wiki_lines
-                and not wiki_counter_lines
-            ),
+    with _progress_stage(options, "web_fallback") as stage:
+        web_fallback_lines, web_fallback_attempted = (
+            evidence_providers.collect_web_fallback(
+                evidence_ctx,
+                local_lines_empty=(
+                    not market_lines
+                    and not graph_concept_lines
+                    and not company_lines
+                    and not evidence_lines
+                    and not wiki_lines
+                    and not wiki_counter_lines
+                ),
+            )
         )
-    )
+        stage["attempted"] = web_fallback_attempted
+        stage["result_count"] = len(web_fallback_lines)
 
     # --- A: agent 检索循环（L3）：LLM 自主决定补检索（ASK_AGENT_LOOP 灰度）---
     agent_loop_lines: list[str] = []
     agent_loop_result: agent_research.AgentLoopResult | None = None
     if agent_research.should_run(options.controller_capabilities):
-        agent_loop_result = agent_research.run_agent_loop(
-            options.query,
-            tools=agent_research.build_default_tools(
-                lambda agent_query: kb_rag.retrieve(
+        # 跨管线查询账本（QueryLedger 种子版）：把固定管线已执行过的检索
+        # （closed-loop 各光圈查询、Web 兜底）交给 agent 去重并写进观察摘要，
+        # 避免 agent 重发主链刚试过的查询浪费步数预算。
+        pipeline_attempted: list[tuple[str, str]] = []
+        if result.closed_loop_retrieval is not None:
+            pipeline_attempted.extend(
+                ("kb_search", attempt.query)
+                for attempt in result.closed_loop_retrieval.attempts
+            )
+        if web_fallback_attempted:
+            pipeline_attempted.append(("web_search", options.query))
+        attempted_summary = (
+            "；".join(
+                f"{tool}(\"{attempted}\")"
+                for tool, attempted in pipeline_attempted[:12]
+            )
+            or "（无）"
+        )
+        existing_summary = "\n".join(
+            [
+                f"盘面 {len(market_lines)} 条／图谱概念 {len(graph_concept_lines)} 条／"
+                f"公司暴露 {len(company_lines)} 条／证据索引 {len(evidence_lines)} 条／"
+                f"知识库召回 {len(wiki_lines)} 条",
+                *wiki_lines[:3],
+                f"主链已执行过的检索（重复会被拦截，请改写或换角度）：{attempted_summary}",
+            ]
+        )
+
+        def _agent_l3_lookup(
+            agent_query: str,
+            context: agent_research.AgentToolContext,
+        ):
+            # 官方证据补查：与主链 L 源同一底层（公告/互动易），agent 可对
+            # 自己发现的新实体主动补 L3 硬证据。
+            bundle = l3_evidence.lookup_l3_evidence(
+                agent_query,
+                question_plan,
+                existing_summary,
+                config=l3_evidence.L3LookupConfig.from_env(
+                    enabled=True,
+                    timeout=min(
+                        _stage_timeout(options, options.l3_lookup_timeout),
+                        context.timeout(options.l3_lookup_timeout),
+                    ),
+                    limit=options.l3_lookup_limit,
+                ),
+            )
+            l3_items = [
+                agent_research.AgentEvidence(
+                    tool="l3_lookup",
+                    title=item.title,
+                    detail=item.summary[:200],
+                    source=item.citation or item.source_type,
+                )
+                for item in bundle.items[:6]
+            ]
+            observation = (
+                "；".join(f"{item.title}：{item.detail[:80]}" for item in l3_items)
+                or "官方证据无命中"
+                + (
+                    f"（缺口：{'、'.join(gap.reason for gap in bundle.gaps[:3])}）"
+                    if bundle.gaps
+                    else ""
+                )
+            )
+            trace = ProviderTrace(
+                provider="agent:l3_lookup",
+                capability="agent_loop",
+                status="success" if l3_items else "empty",
+                detail=agent_query[:120],
+                result_count=len(l3_items),
+            )
+            return l3_items, observation, trace
+
+        def _agent_market_data(
+            agent_query: str,
+            context: agent_research.AgentToolContext,
+        ):
+            if context.deadline.expired:
+                raise TimeoutError("agent tool deadline expired")
+            # 本地盘面确定性取数：按意图路由 D0 时序 → D6 中期趋势 → 市场总览。
+            block = ""
+            source_label = ""
+            ts_intent = market_timeseries.parse_timeseries_intent(agent_query)
+            if ts_intent is not None:
+                block = market_timeseries.timeseries_block_for_llm(
+                    ts_intent, options.market_db_path
+                )
+                source_label = "本地 DuckDB · 盘面时序直查"
+            if not block:
+                mid_intent = market_midterm.parse_midterm_intent(agent_query)
+                if mid_intent is not None:
+                    block = market_midterm.midterm_trend_block_for_llm(
+                        agent_query,
+                        result.matched_theme or agent_query,
+                        options.market_db_path,
+                        mid_intent.window,
+                    )
+                    source_label = "本地 DuckDB · 多日中期趋势"
+            if not block:
+                block = _daily_market_overview_block_for_llm(
+                    options.market_db_path
+                )
+                source_label = "本地 DuckDB · 市场总览"
+            market_evidence, observation = agent_research.block_lines_to_evidence(
+                "market_data", block, source_label
+            )
+            trace = ProviderTrace(
+                provider="agent:market_data",
+                capability="agent_loop",
+                status="success" if market_evidence else "empty",
+                detail=agent_query[:120],
+                result_count=len(market_evidence),
+            )
+            return market_evidence, observation or "本地盘面数据无匹配", trace
+
+        agent_tools: dict[str, agent_research.ToolRunner] = {
+            **agent_research.build_default_tools(
+                lambda agent_query, timeout: kb_rag.retrieve(
                     agent_query,
                     resolved_kb_wiki,
                     k=options.wiki_rag_k,
                     mode=options.wiki_rag_mode,
-                    timeout=_stage_timeout(options, options.wiki_rag_timeout),
+                    timeout=min(
+                        _stage_timeout(options, options.wiki_rag_timeout),
+                        timeout,
+                    ),
                     excerpt_chars=options.wiki_rag_excerpt,
                     budget_query=options.query,
                     index_dir=options.wiki_rag_index_dir,
@@ -1005,16 +1214,30 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                     cache_scope=options.wiki_rag_cache_scope,
                 ),
             ),
-            existing_evidence_summary="\n".join(
-                [
-                    f"盘面 {len(market_lines)} 条／图谱概念 {len(graph_concept_lines)} 条／"
-                    f"公司暴露 {len(company_lines)} 条／证据索引 {len(evidence_lines)} 条／"
-                    f"知识库召回 {len(wiki_lines)} 条",
-                    *wiki_lines[:3],
-                ]
-            ),
-            total_seconds=_stage_timeout(options, 60),
-        )
+            # P1-B 工具面扩展：agent 可查知识图谱与证据索引（纯本地），
+            # 发现新实体后能自主定位公司映射、核对已登记证据。
+            **agent_research.build_graph_tools(knowledge),
+        }
+        if options.use_l3_lookup:
+            agent_tools["l3_lookup"] = _agent_l3_lookup
+        if options.market_db_path is not None:
+            agent_tools["market_data"] = _agent_market_data
+        with _progress_stage(
+            options,
+            "agent_loop",
+            tool_count=len(agent_tools),
+        ) as stage:
+            agent_loop_result = agent_research.run_agent_loop(
+                options.query,
+                tools=agent_tools,
+                existing_evidence_summary=existing_summary,
+                total_seconds=_stage_timeout(options, 60),
+                deadline=options.deadline,
+                attempted_queries=tuple(pipeline_attempted),
+            )
+            stage["step_count"] = len(agent_loop_result.steps)
+            stage["evidence_count"] = len(agent_loop_result.evidence)
+            stage["gap_count"] = len(agent_loop_result.gaps)
         result.provider_traces.extend(agent_loop_result.traces)
         result.provider_traces.append(
             ProviderTrace(
@@ -1029,7 +1252,21 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
         for item in agent_loop_result.evidence[:8]:
             tag = cite("A", f"agent 补检索 · {item.tool}", item.source)
-            agent_loop_lines.append(f"{item.title}：{item.detail} {tag}")
+            line = f"{item.title}：{item.detail} {tag}"
+            agent_loop_lines.append(line)
+            # P0 修复：agent 补检索证据同步铸 CANDIDATE claim。此前只进
+            # evidence_chain 展示层、不进 registry——合成层在 AnswerSpec 白名单
+            # 契约下无法合法引用，长尾 agent 花了预算却产出"死证据"。
+            structured_claims.append(
+                answer_model.make_claim(
+                    claim_id=f"agent:{tag.strip('[]')}",
+                    text=line,
+                    claim_type="theme_evidence",
+                    theme=claim_theme,
+                    status=answer_model.ClaimStatus.CANDIDATE,
+                    evidence_tier="agent_retrieval",
+                )
+            )
 
     # --- 模块 fan-out: route query to theme-radar 模式 as recall backends ---
     module_block: list[str] = []
@@ -1044,18 +1281,32 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
         result.routed_modules = list(routed)
         for name in routed:
-            mr = run_module(
-                name,
-                graph_query,
-                resolved_kb_wiki,
-                _stage_timeout(options, options.module_timeout),
-            )
+            with _progress_stage(options, "module", module=name) as stage:
+                mr = run_module(
+                    name,
+                    graph_query,
+                    resolved_kb_wiki,
+                    _stage_timeout(options, options.module_timeout),
+                )
+                stage["ok"] = mr.ok
+                stage["highlight_count"] = len(mr.highlights)
             module_block.append(f"{SUBHEAD}模块·{MODULE_LABELS.get(name, name)}")
             if mr.ok and mr.highlights:
                 result.found_graph = True
                 tag = cite("G", mr.citation_source, f"{mr.command}" + (f" | {mr.citation_detail}" if mr.citation_detail else ""))
                 for hl in mr.highlights:
                     module_block.append(f"{hl} {tag}")
+                    # 模块召回同样进 candidate 通道，合成层可按待验证口吻引用。
+                    structured_claims.append(
+                        answer_model.make_claim(
+                            claim_id=f"module:{name}:{len(structured_claims)}",
+                            text=f"{hl} {tag}",
+                            claim_type="theme_evidence",
+                            theme=claim_theme,
+                            status=answer_model.ClaimStatus.CANDIDATE,
+                            evidence_tier="module_recall",
+                        )
+                    )
                 module_follow_ups.extend((name, f) for f in mr.follow_ups)
                 if options.detail and mr.full_report:
                     result.detail_reports.append((MODULE_LABELS.get(name, name), mr.full_report))
@@ -1098,17 +1349,20 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
     # --- gaps / contradictions ---
     gap_lines: list[str] = []
+    is_market_forecast = (
+        question_plan.question_type == QUESTION_MARKET_FORECAST
+    )
     ks = (candidate or {}).get("knowledge_status") or {}
     gaps = ks.get("backfill_gaps") or []
-    if gaps:
+    if gaps and not is_market_forecast:
         gap_lines.append(f"盘面候选标记缺口：{'、'.join(map(str, gaps))}（图谱覆盖不足，证据待补）")
-    if not result.found_graph:
+    if not result.found_graph and not is_market_forecast:
         gap_lines.append("知识图谱未命中该词：可能是新词/别名未登记，建议先 concept-ingest 或 disclosure-archive 补证")
-    if tiers["peripheral"]:
+    if tiers["peripheral"] and not is_market_forecast:
         gap_lines.append(
             f"{len(tiers['peripheral'])} 家公司为 graph_only/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据"
         )
-    if tiers["other"]:
+    if tiers["other"] and not is_market_forecast:
         gap_lines.append(
             f"{len(tiers['other'])} 家公司仅有间接或候选证据，未达到公司级硬证据门槛，不得升级为核心受益。"
         )
@@ -1126,6 +1380,18 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             "本地盘面/图谱/知识库均未命中，外部 Web Search 也未返回可用来源；"
             "未用无关资料替代。"
         )
+    if (
+        is_market_forecast
+        and result.forecast_preflight is not None
+        and not result.forecast_preflight.get("can_generate_formal")
+    ):
+        gap_lines.append(
+            "后市推演前置查漏："
+            + str(
+                result.forecast_preflight.get("human_summary")
+                or "研究缺口尚未补齐。"
+            )
+        )
     gap_lines.append(
         "Temporal Facts 层尚未接入：以上证据仅按 source_date 标注新鲜度；"
         "正式版应把会过期/被证伪的事实建成带 status(active/superseded/invalidated) 的时序边"
@@ -1141,14 +1407,23 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
     # ---------- assemble fixed six sections ----------
     theme = (
-        question_plan.research_spec.theme
-        if question_plan.research_spec is not None
-        else _quoted_topic(options.query)
-        or question_plan.query_envelope.subject
-        or result.matched_theme
-        or options.query
+        "A股市场"
+        if is_market_forecast
+        else (
+            question_plan.research_spec.theme
+            if question_plan.research_spec is not None
+            else _quoted_topic(options.query)
+            or question_plan.query_envelope.subject
+            or result.matched_theme
+            or options.query
+        )
     )
-    triggers = "、".join((candidate or {}).get("trigger_types", []) or []) or "无盘面触发"
+    triggers = (
+        "以本地市场总览与主线结构为准"
+        if is_market_forecast
+        else "、".join((candidate or {}).get("trigger_types", []) or [])
+        or "无盘面触发"
+    )
     concept_count = ks.get("concept_count", len(concepts.get("items", [])))
     exposure_count = ks.get("exposure_count", len(exposures.get("items", [])))
 
@@ -1160,38 +1435,77 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         stance_bits.append("新高成簇，方向被确认")
     if {"limit_advance_cluster", "limit_heat"} & trig:
         stance_bits.append("涨停热度集中")
-    if gaps or not result.found_graph:
+    if (gaps or not result.found_graph) and not is_market_forecast:
         stance_bits.append("但基本面证据不足，偏盘面驱动")
-    stance = "；".join(stance_bits) if stance_bits else "盘面信号有限"
+    stance = (
+        "只做条件化情景推演，不把单一路径写成确定结论"
+        if is_market_forecast
+        else "；".join(stance_bits)
+        if stance_bits
+        else "盘面信号有限"
+    )
 
     route_line = (
-        "模块路由："
-        + ("、".join(result.routed_modules) if result.routed_modules else "未启用")
-        + ("｜" + "；".join(module_summ) if module_summ else "")
-    )
-    conclusion = [
-        f"主题「{theme}」"
-        + (
-            f"（{result.candidate_tier or '候选'}，盘面评分 {result.priority_score}，所属 {(candidate or {}).get('sw_l1', '?')}）"
-            if candidate
-            else "（当日盘面候选未命中，以下仅基于知识图谱）"
+        "研究路径：本地市场总览 → 主线结构 → 情景分支 → 盘后验证"
+        if is_market_forecast
+        else (
+            "模块路由："
+            + (
+                "、".join(result.routed_modules)
+                if result.routed_modules
+                else "未启用"
+            )
+            + ("｜" + "；".join(module_summ) if module_summ else "")
         )
-        + f"：{stance}。",
-        f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
-        route_line,
-        "结论与交易含义由结构化规则生成；证据不足处已标为待验证。",
-        _conclusion_ttl_line(result.trade_date),
-    ]
+    )
+    if is_market_forecast:
+        preflight_summary = str(
+            (result.forecast_preflight or {}).get("human_summary")
+            or "复盘前置查漏状态未记录。"
+        )
+        conclusion = [
+            f"{theme}后续判断：不预设唯一走势，只做条件化情景推演"
+            f"（数据截至 {result.trade_date or '未记录'}）。",
+            "基准情景：若主线成交与赚钱效应企稳，观察结构性修复；"
+            "若量价继续走弱，则维持防守并等待新一轮确认。",
+            "上行情景：主线放量后能缩量承接、强势方向扩散，修复持续性提高。",
+            "下行情景：放量下跌延续、主线继续收缩，弱势阶段延长。",
+            f"前置查漏：{preflight_summary}",
+            route_line,
+            _conclusion_ttl_line(result.trade_date),
+        ]
+    else:
+        conclusion = [
+            f"主题「{theme}」"
+            + (
+                f"（{result.candidate_tier or '候选'}，盘面评分 {result.priority_score}，所属 {(candidate or {}).get('sw_l1', '?')}）"
+                if candidate
+                else "（当日盘面候选未命中，以下仅基于知识图谱）"
+            )
+            + f"：{stance}。",
+            f"图谱命中 {concept_count} 概念 / {exposure_count} 公司暴露，证据 {len(evidence_lines)} 条；盘面触发：{triggers}。",
+            route_line,
+            "结论与交易含义由结构化规则生成；证据不足处已标为待验证。",
+            _conclusion_ttl_line(result.trade_date),
+        ]
     conclusion = [*framing.get("conclusion", []), *conclusion]
 
-    follow_ups: list[str] = []
-    if "double_red" in trig:
+    follow_ups: list[str] = (
+        [
+            "验证主线成交能否止跌并出现缩量承接，而不是仅看单日反弹。",
+            "验证涨停家数、晋级率与上涨家数能否同步修复。",
+            "若前置查漏仍未通过，只保留草稿级情景，不升级为正式方向判断。",
+        ]
+        if is_market_forecast
+        else []
+    )
+    if "double_red" in trig and not is_market_forecast:
         follow_ups.append("跟踪边际量能否连续 ≥2 日维持（双红是否衰减）")
-    if {"new_high_cluster", "new_high_direction"} & trig:
+    if {"new_high_cluster", "new_high_direction"} & trig and not is_market_forecast:
         follow_ups.append("观察高位股能否带动补涨扩散，还是仅龙头孤军")
-    if {"limit_heat", "limit_advance_cluster"} & trig:
+    if {"limit_heat", "limit_advance_cluster"} & trig and not is_market_forecast:
         follow_ups.append("看连板高度与晋级率，确认资金接力意愿")
-    if gaps or tiers["peripheral"]:
+    if (gaps or tiers["peripheral"]) and not is_market_forecast:
         follow_ups.append("对 graph_only / 缺口公司补研报与官方披露（disclosure-archive → apply）")
     follow_ups.extend(f"市场结构推演路径跟踪：{item}" for item in quality_context.methodology_checks if "缺口" in item)
     for mod_name, item in module_follow_ups:
@@ -1201,7 +1515,12 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         follow_ups.append("补充盘面与基本面证据后再评估")
 
     tier = (result.candidate_tier or "").lower()
-    if "deep" in tier:
+    if is_market_forecast:
+        implication = (
+            "执行上只响应验证信号：承接与扩散确认后再提高风险暴露；"
+            "量价继续恶化则保持防守。"
+        )
+    elif "deep" in tier:
         implication = "盘面属核心候选：若起涨龙头已高位，重点在低位补涨与上游；缺口公司仅作观察。"
     elif "watch" in tier:
         implication = "盘面属观察候选：等量价进一步确认或证据补齐再参与。"
@@ -1293,7 +1612,30 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         wiki_stats=wiki_stats,
         l3_lookup_items=len(result.l3_evidence.items),
     )
-    counter_plan = research_brief.build_counterevidence_plan(audit, stage=quality_context.stage)
+    counter_plan = (
+        research_brief.CounterEvidencePlan(
+            rebuttals=[
+                "量价修复可能失败：若放量下跌延续，单日反弹不能视为阶段企稳。",
+                "主线扩散可能不足：若强势方向仍是少数高位股独撑，"
+                "结构性修复难以升级为全市场改善。",
+                "前置查漏尚未通过：缺口未补齐前只保留草稿级情景。",
+            ],
+            downgrade_triggers=[
+                "主线成交继续收缩且涨停家数、晋级率不同步修复 → 下调修复情景。",
+                "放量后无法缩量承接、后排持续走弱 → 维持防守情景。",
+            ],
+            verification_schedule={
+                "T+1": ["核对主线成交、涨跌家数、涨停家数与晋级率是否同步改善。"],
+                "T+3": ["核对强势方向是否从龙头扩散到中位与低位，而非单点反抽。"],
+                "T+5": ["重跑 forecast-preflight；缺口未关闭则不升级正式判断。"],
+            },
+        )
+        if is_market_forecast
+        else research_brief.build_counterevidence_plan(
+            audit,
+            stage=quality_context.stage,
+        )
+    )
     # --- P1 技能链：市场结构状态机（公共依赖）→（题材问题时）生命周期诊断 ---
     market_state = market_structure.classify_market_structure(
         market_lines, list((candidate or {}).get("trigger_types", []) or [])
@@ -1376,6 +1718,10 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         ]
     if options.compose:
         is_market_review = question_plan.question_type == QUESTION_MARKET_REVIEW
+        is_market_overview = question_plan.question_type in {
+            QUESTION_MARKET_REVIEW,
+            QUESTION_MARKET_FORECAST,
+        }
         prompt_source_chain = _evidence_chain_with_llm_wiki(
             evidence_chain,
             wiki_llm_line_pairs,
@@ -1643,7 +1989,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             ask_planner.DataBlockProvider(
                 "D1",
                 "市场价值与替代队列",
-                lambda: evidence_registry.provider_enabled(options, "D1") and not is_market_review,
+                lambda: evidence_registry.provider_enabled(options, "D1")
+                and not is_market_overview,
                 _build_d1,
             )
         )
@@ -1655,7 +2002,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                     theme,
                     options.market_db_path,
                 )
-                if is_market_review
+                if is_market_overview
                 else _mainline_context_block_for_llm(
                     options.query,
                     theme,
@@ -1686,7 +2033,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             ask_planner.DataBlockProvider(
                 "D2",
                 "客户证据硬度",
-                lambda: evidence_registry.provider_enabled(options, "D2") and not is_market_review,
+                lambda: evidence_registry.provider_enabled(options, "D2")
+                and not is_market_overview,
                 _build_d2,
             )
         )
@@ -1709,11 +2057,21 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
         )
 
-        outcomes = ask_planner.run_providers(
-            providers,
+        with _progress_stage(
+            options,
+            "data_blocks",
+            provider_count=len(providers),
             parallel=options.parallel_blocks,
-            deadline=options.deadline,
-        )
+        ) as stage:
+            outcomes = ask_planner.run_providers(
+                providers,
+                parallel=options.parallel_blocks,
+                deadline=options.deadline,
+            )
+            stage["outcome_count"] = len(outcomes)
+            stage["nonempty_count"] = sum(
+                bool(outcome.block) for outcome in outcomes
+            )
         for outcome in outcomes:
             structured_claims.extend(
                 _claims_from_data_block(
@@ -1730,7 +2088,10 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                 continue
             evidence_text = _append_block_outcome(result, outcome, evidence_text, citations)
         # D3 依赖此前累积的 evidence_text（文本兜底路径），必须在其他块汇总后串行生成。
-        if evidence_registry.provider_enabled(options, "D3") and not is_market_review:
+        if (
+            evidence_registry.provider_enabled(options, "D3")
+            and not is_market_overview
+        ):
             second_derivative_block = _second_derivative_queue_block_for_llm(
                 options.query,
                 theme,
@@ -1802,12 +2163,13 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
         result.prepared_synthesis_is_market_review = is_market_review
         if options.synthesize:
-            synthesize_prepared_answer(
-                PreparedAnswer(
-                    options=options,
-                    result=result,
+            with _progress_stage(options, "synthesis"):
+                synthesize_prepared_answer(
+                    PreparedAnswer(
+                        options=options,
+                        result=result,
+                    )
                 )
-            )
 
     if result.answer_spec is None:
         result.answer_spec = _build_answer_spec_for_result(
@@ -1840,15 +2202,17 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         for issue in result.answer_spec.quality.issues
     )
 
-    result.review_gate = output_review.review_output(
-        trade_date=result.trade_date,
-        audit=audit,
-        counter_plan=counter_plan,
-        gap_lines=gap_lines,
-        follow_ups=follow_ups,
-        conclusion_lines=conclusion,
-        final_answer=result.synthesis,
-    )
+    with _progress_stage(options, "output_review") as stage:
+        result.review_gate = output_review.review_output(
+            trade_date=result.trade_date,
+            audit=audit,
+            counter_plan=counter_plan,
+            gap_lines=gap_lines,
+            follow_ups=follow_ups,
+            conclusion_lines=conclusion,
+            final_answer=result.synthesis,
+        )
+        stage["warn_count"] = result.review_gate.warn_count
     result.warnings.extend(
         f"输出质检：{c.name}——{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
     )
@@ -1980,6 +2344,3 @@ def prepare_existing_answer(
         options=replace(options, synthesize=False),
         result=result,
     )
-
-
-

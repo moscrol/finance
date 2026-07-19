@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import json
 import os
 import re
@@ -12,6 +13,7 @@ from concurrent.futures import (
 )
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
+from threading import Event, Lock, Thread
 
 from intelligence.api.structured_reports import (
     ask_result_modules,
@@ -34,8 +36,10 @@ from intelligence.services.ask import (
     synthesize_shadow_grounded_answer,
 )
 from intelligence.services.answer_stream import AnswerSnapshot
+from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
+    QUESTION_GENERAL,
     QUESTION_MARKET_REVIEW,
     plan_answer_question,
 )
@@ -44,6 +48,8 @@ from intelligence.services.conversation_store import (
     ConversationStore,
     Message,
 )
+from intelligence.services import llm_refine
+from intelligence.services import query_ledger
 from intelligence.services.llm_refine import LLMStreamCancelled
 from intelligence.services.lane_generation import (
     LaneAnswer,
@@ -308,6 +314,73 @@ class TurnResult:
     invoked_skill_ids: tuple[str, ...]
 
 
+_PROVIDER_TRACE_FIELDS = frozenset(
+    (
+        "provider",
+        "capability",
+        "status",
+        "detail",
+        "source_trade_date",
+        "result_count",
+    )
+)
+
+
+def _rehydrate_provider_traces(
+    payloads: Sequence[dict[str, object]],
+) -> list[ProviderTrace]:
+    """把 SkillOutput.provider_traces（JSON dict）还原成 ProviderTrace。
+
+    P1-A（手术版）：owner 输出重建 AskResult 时不再丢内部检索 trace，
+    _record_retrieval 记到的不再是"干净但失真"的结果。字段按白名单过滤，
+    坏形态条目跳过不炸主链。"""
+    traces: list[ProviderTrace] = []
+    for payload in payloads:
+        if not isinstance(payload, dict):
+            continue
+        kwargs = {
+            key: value
+            for key, value in payload.items()
+            if key in _PROVIDER_TRACE_FIELDS
+        }
+        if not kwargs.get("provider") or not kwargs.get("capability"):
+            continue
+        try:
+            traces.append(ProviderTrace(**kwargs))
+        except TypeError:
+            continue
+    return traces
+
+
+_OWNER_RAW_RESULT_CACHE_PREFIX = "owner_raw_result:"
+
+
+def _resolve_owner_result(
+    query: str,
+    output: SkillOutput,
+    retrieval_cache: dict[str, object],
+) -> AskResult:
+    """优先消费 owner 放入 turn 缓存的完整 AskResult（P1-B：去有损重建）。
+
+    raw 结果保留 owner 内部的真实 trade_date/warnings/provider_traces/
+    检索遥测/原生 citations（含 chunk/hash 溯源）；answer_spec 以 owner
+    契约为准——若契约 spec 与 raw spec 不是同一对象（继承合并等场景），
+    清除 owner 预备的合成消息，下游按契约 spec 重建（防旧 registry 的
+    claim_id 失配触发门禁拒稿）。缓存未命中时回退有损重建路径。"""
+    contract = output.answer_contract
+    if contract is None:
+        raise ValueError("skill owner output requires an answer contract")
+    raw = retrieval_cache.get(
+        f"{_OWNER_RAW_RESULT_CACHE_PREFIX}{output.skill_id}"
+    )
+    if not isinstance(raw, AskResult):
+        return _skill_owner_result(query, output)
+    if raw.answer_spec is not contract.answer_spec:
+        raw.prepared_synthesis_messages = None
+    raw.answer_spec = contract.answer_spec
+    return raw
+
+
 def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
     contract = output.answer_contract
     if contract is None:
@@ -324,7 +397,7 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         )
         for index, citation in enumerate(output.citations, start=1)
     ]
-    return AskResult(
+    result = AskResult(
         query=query,
         trade_date=output.as_of,
         matched_theme=None,
@@ -338,6 +411,10 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         citations=citations,
         answer_spec=contract.answer_spec,
     )
+    result.provider_traces.extend(
+        _rehydrate_provider_traces(output.provider_traces)
+    )
+    return result
 
 
 def _deadline_partial_result(query: str, warnings: Sequence[str]) -> AskResult:
@@ -384,12 +461,29 @@ def _sanitize_citation_list(
     citations: list[dict[str, object]],
 ) -> list[dict[str, object]]:
     sanitized: list[dict[str, object]] = []
+    seen: set[tuple[str, tuple[str, ...]]] = set()
     for citation in citations:
         item = dict(citation)
         for key in ("source", "detail", "label", "title"):
             value = item.get(key)
             if isinstance(value, str):
                 item[key] = sanitize_user_visible_artifact_text(value)
+        identity_values = tuple(
+            sorted(
+                {
+                    str(item.get(key) or "").strip().casefold()
+                    for key in ("source", "detail", "label", "title", "url")
+                    if str(item.get(key) or "").strip()
+                }
+            )
+        )
+        identity = (
+            str(item.get("tag") or "").strip().casefold(),
+            identity_values,
+        )
+        if identity in seen:
+            continue
+        seen.add(identity)
         sanitized.append(item)
     return sanitized
 
@@ -416,10 +510,13 @@ def sanitize_user_visible_artifact_text(text: str) -> str:
     )
     if re.search(r"未配置 LLM key", cleaned, re.IGNORECASE):
         return "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
+    # P0 修复：命中内部诊断特征时只声明"已隐藏"，不得改写成"检索不可用"——
+    # 此前一条成功检索的说明只要含 BM25/chunk/.py 等词就会被整体替换成
+    # 与事实相反的降级声明（把真话洗成假话）。降级与否只能由降级路径自己写。
     if re.search(r"HF_TOKEN|Hugging\s*Face", cleaned, re.IGNORECASE):
-        return "外部语义检索当前不可用或受限，未使用其结果。"
+        return "（内部检索诊断信息已隐藏。）"
     if _INTERNAL_RETRIEVAL_DIAGNOSTIC_PATTERN.search(cleaned):
-        return "外部语义检索当前不可用或受限，未使用其结果。"
+        return "（内部检索诊断信息已隐藏。）"
     if _LOCAL_PATH_PATTERN.search(cleaned):
         return "本地研究数据（路径已隐藏）。"
     if _INTERNAL_ERROR_PATTERN.search(cleaned):
@@ -439,7 +536,7 @@ def sanitize_conversation_answer(text: str) -> str:
         r"\bchunk(?:_id)?=|\bhash=|\bindex=|\bk=\d+|"
         r"耗时=\d+ms|状态=empty|[DMVW]\s*源|命中来源分布|"
         r"检索质量裁定|公告等硬证据覆盖|--mode\b|\b\w+\.py\b).*$",
-        "外部语义检索当前不可用或受限，未使用其结果。",
+        "（内部检索诊断信息已隐藏。）",
         cleaned,
         flags=re.IGNORECASE,
     )
@@ -606,6 +703,39 @@ class TurnOrchestrator:
         self.event_id_prefix = event_id_prefix
 
     def run_turn(
+        self,
+        *,
+        conversation_id: str,
+        run_id: str,
+        assistant_message_id: str,
+        query: str,
+        skill_mode: SkillMode,
+        selected_skill_ids: Sequence[str],
+        perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL,
+        selected_perspective_ids: Sequence[str] = (),
+    ) -> TurnResult:
+        # P1-B：turn 级 LLM 调用台账 + 检索查询台账。controller/judge/agent/
+        # 合成/修订/影子链的每次 provider 尝试记入同一本账（skill 线程经
+        # copy_context 传播）；同 provider+query 的检索每 turn 只真实执行一次。
+        # 两本账结束前以 trace 落盘——预算不再只统计 skill 次数。
+        with (
+            llm_refine.call_ledger_scope(
+                max_calls=self.research_policy.max_llm_calls
+            ),
+            query_ledger.query_ledger_scope(),
+        ):
+            return self._run_turn_ledgered(
+                conversation_id=conversation_id,
+                run_id=run_id,
+                assistant_message_id=assistant_message_id,
+                query=query,
+                skill_mode=skill_mode,
+                selected_skill_ids=selected_skill_ids,
+                perspective_mode=perspective_mode,
+                selected_perspective_ids=selected_perspective_ids,
+            )
+
+    def _run_turn_ledgered(
         self,
         *,
         conversation_id: str,
@@ -967,7 +1097,11 @@ class TurnOrchestrator:
             prestarted: dict[str, tuple[Future[SkillOutput], float]] = {}
 
             def submit_skill(skill_id: str) -> tuple[Future[SkillOutput], float]:
+                # copy_context：让 skill 线程共享本 turn 的 LLM 调用台账等
+                # ContextVar（每次 submit 独立拷贝，台账对象引用共享）。
+                run_context = contextvars.copy_context()
                 future = skill_pool.submit(
+                    run_context.run,
                     self.skill_registry.executors[skill_id].execute,
                     SkillExecutionContext(
                         query=contextual_query,
@@ -1329,7 +1463,6 @@ class TurnOrchestrator:
                 user=self.run_store.user_id,
                 compose=True,
                 synthesize=False,
-                compose_self_review=False,
                 compose_revise_on_warn=False,
                 market_db_path=self.repo_root
                 / "db"
@@ -1350,7 +1483,10 @@ class TurnOrchestrator:
                     tuple(
                         dict.fromkeys((*decision.capabilities, "web_search"))
                     )
-                    if route.base_finance_fallback
+                    if (
+                        route.base_finance_fallback
+                        and turn_intent.question_type == QUESTION_GENERAL
+                    )
                     else decision.capabilities
                 ),
                 perspective_mode=perspective_mode,
@@ -1360,7 +1496,9 @@ class TurnOrchestrator:
                 deadline=research_deadline,
             )
             if owner_output is not None:
-                result = _skill_owner_result(query, owner_output)
+                result = _resolve_owner_result(
+                    query, owner_output, retrieval_cache
+                )
                 prepared = prepare_existing_answer(ask_options, result)
                 self._trace(
                     run_id,
@@ -1382,7 +1520,13 @@ class TurnOrchestrator:
                 result = _deadline_partial_result(contextual_query, warnings)
                 prepared = prepare_existing_answer(ask_options, result)
             else:
-                result = self.answer_query(ask_options)
+                result = self._run_answer_query_with_watchdog(
+                    ask_options,
+                    run_id=run_id,
+                    message_id=assistant_message_id,
+                    conversation_id=conversation_id,
+                    warnings=warnings,
+                )
                 prepared = (
                     PreparedAnswer(options=ask_options, result=result)
                     if decision.lane == "knowledge"
@@ -1544,8 +1688,15 @@ class TurnOrchestrator:
                 },
             )
 
-            warnings.extend(result.warnings)
-            for warning in result.warnings:
+            # owner raw 结果的 warnings 在 skill 阶段已并入过（output.warnings），
+            # 只追加新增项，避免 degrades 重复落账。
+            fresh_result_warnings = [
+                warning
+                for warning in result.warnings
+                if warning not in warnings
+            ]
+            warnings.extend(fresh_result_warnings)
+            for warning in fresh_result_warnings:
                 self.run_store.add_degrade(run_id, warning)
             answer_text = render_conversation_answer(result)
             if (
@@ -1701,6 +1852,43 @@ class TurnOrchestrator:
                     ),
                 )
 
+            llm_ledger = llm_refine.current_call_ledger()
+            if llm_ledger is not None and llm_ledger.records:
+                ledger_summary = llm_ledger.summary()
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "llm_budget",
+                    "llm_call_ledger",
+                    {
+                        "summary": (
+                            f"本轮 LLM 调用 {ledger_summary['call_count']} 次"
+                            f"（失败 {ledger_summary['failure_count']} 次，"
+                            f"合计 {ledger_summary['total_elapsed_ms']}ms）"
+                        ),
+                        "by_caller": ledger_summary["by_caller"],
+                        "records": ledger_summary["records"],
+                    },
+                )
+            turn_query_ledger = query_ledger.current_query_ledger()
+            if turn_query_ledger is not None and turn_query_ledger.entries:
+                query_summary = turn_query_ledger.summary()
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "query_budget",
+                    "query_ledger",
+                    {
+                        "summary": (
+                            f"本轮外部检索真实执行 {query_summary['executed_count']} 次，"
+                            f"账本去重 {query_summary['deduped_count']} 次"
+                        ),
+                        "by_provider": query_summary["by_provider"],
+                        "records": query_summary["records"],
+                    },
+                )
             complete_report(
                 report,
                 as_of=result.trade_date,
@@ -2010,6 +2198,166 @@ class TurnOrchestrator:
             conversation_id,
         )
 
+    def _run_answer_query_with_watchdog(
+        self,
+        options: AskOptions,
+        *,
+        run_id: str,
+        message_id: str,
+        conversation_id: str,
+        warnings: list[str],
+    ) -> AskResult:
+        """运行通用 Ask，并以 turn 根 deadline 作为最终返回上限。
+
+        各 provider 仍负责使用自己的 I/O timeout；本看门狗只保证用户请求
+        不被一个遗漏 cooperative deadline 的同步调用无限阻塞。
+        """
+
+        progress_open = Event()
+        progress_open.set()
+        progress_lock = Lock()
+        progress_sequence = 0
+
+        def record_progress(
+            stage: str,
+            stage_status: str,
+            detail: dict[str, object],
+        ) -> None:
+            nonlocal progress_sequence
+            if not progress_open.is_set():
+                return
+            with progress_lock:
+                if not progress_open.is_set():
+                    return
+                progress_sequence += 1
+                sequence = progress_sequence
+            safe_stage = re.sub(r"[^a-zA-Z0-9_]+", "_", stage).strip("_")
+            safe_stage = safe_stage[:48] or "unknown"
+            trace_status = {
+                "started": "running",
+                "completed": "completed",
+                "failed": "failed",
+            }.get(stage_status, "completed")
+            self._trace(
+                run_id,
+                message_id,
+                conversation_id,
+                f"ask:{sequence:03d}:{safe_stage}:{stage_status}",
+                f"ask_stage_{safe_stage}",
+                {
+                    "stage": safe_stage,
+                    "stage_status": stage_status,
+                    **detail,
+                },
+                status=trace_status,
+            )
+
+        original_text_delta = options.stream_text_delta
+        original_cancel_check = options.stream_cancel_check
+
+        def guarded_text_delta(delta: str) -> None:
+            if progress_open.is_set() and original_text_delta is not None:
+                original_text_delta(delta)
+
+        def guarded_cancel_check() -> bool:
+            return (
+                not progress_open.is_set()
+                or (
+                    original_cancel_check is not None
+                    and original_cancel_check()
+                )
+            )
+
+        guarded_options = replace(
+            options,
+            progress_callback=record_progress,
+            stream_text_delta=guarded_text_delta,
+            stream_cancel_check=guarded_cancel_check,
+        )
+        deadline = guarded_options.deadline
+        if deadline is None:
+            deadline = ResearchDeadline.from_timeout(
+                self.research_policy.max_elapsed_seconds
+            )
+            guarded_options = replace(guarded_options, deadline=deadline)
+
+        future: Future[AskResult] | None = None
+        try:
+            if deadline.expired:
+                timeout_warning = (
+                    "通用研究主链达到统一截止时间，已返回结构化缺口。"
+                )
+                if timeout_warning not in warnings:
+                    warnings.append(timeout_warning)
+                    self.run_store.add_degrade(run_id, timeout_warning)
+                self._trace(
+                    run_id,
+                    message_id,
+                    conversation_id,
+                    "ask:root:timeout",
+                    "ask_root_timeout",
+                    {"remaining_ms": 0, "worker_started": False},
+                    status="failed",
+                )
+                return _deadline_partial_result(options.query, warnings)
+
+            run_context = contextvars.copy_context()
+            future = Future()
+
+            def run_answer_query() -> None:
+                assert future is not None
+                if not future.set_running_or_notify_cancel():
+                    return
+                try:
+                    answer_result = run_context.run(
+                        self.answer_query,
+                        guarded_options,
+                    )
+                except BaseException as exc:
+                    future.set_exception(exc)
+                else:
+                    future.set_result(answer_result)
+
+            worker = Thread(
+                target=run_answer_query,
+                name="workbench-ask-watchdog",
+                daemon=True,
+            )
+            worker.start()
+            while True:
+                self._check_cancelled()
+                remaining = deadline.remaining()
+                if remaining <= 0:
+                    timeout_warning = (
+                        "通用研究主链达到统一截止时间，已返回结构化缺口。"
+                    )
+                    if timeout_warning not in warnings:
+                        warnings.append(timeout_warning)
+                        self.run_store.add_degrade(run_id, timeout_warning)
+                    self._trace(
+                        run_id,
+                        message_id,
+                        conversation_id,
+                        "ask:root:timeout",
+                        "ask_root_timeout",
+                        {
+                            "remaining_ms": 0,
+                            "worker_started": True,
+                            "task_may_continue": not future.done(),
+                        },
+                        status="failed",
+                    )
+                    return _deadline_partial_result(options.query, warnings)
+                try:
+                    return future.result(timeout=min(0.05, remaining))
+                except FuturesTimeoutError:
+                    if future.done():
+                        return future.result()
+        finally:
+            progress_open.clear()
+            if future is not None and not future.done():
+                future.cancel()
+
     def _trace(
         self,
         run_id: str,
@@ -2020,12 +2368,13 @@ class TurnOrchestrator:
         output: dict[str, object],
         *,
         retrieval: dict[str, object] | None = None,
+        status: str = "completed",
     ) -> None:
         step = self.run_store.append_step(
             run_id,
             step_id=step_id,
             name=name,
-            status="completed",
+            status=status,
             output_summary=json.dumps(output, ensure_ascii=False),
             retrieval=retrieval,
         )

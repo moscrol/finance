@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import re
@@ -9,6 +10,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
+from intelligence.services import query_ledger
 from intelligence.services.provider_observability import ProviderTrace
 
 PROVIDER_BING_WEB = "bing_web"
@@ -66,6 +68,38 @@ def _direct_result_url(url: str) -> str:
 
 
 def fetch_web_search(
+    query: str,
+    *,
+    limit: int = 5,
+    timeout: float = 20.0,
+    proxy_url: str | None = None,
+) -> WebSearchResult:
+    """全网搜索入口（经 turn 级 QueryLedger 去重）。
+
+    同一 turn 内 E 兜底 / agent web_search / 其他层重复发起的同 query 搜索
+    只真实执行一次，其余复用 memoized 结果；无活动账本（CLI 单调用）时
+    行为不变。"""
+    return query_ledger.executed(
+        "web_search",
+        query,
+        lambda: _fetch_web_search_uncached(
+            query,
+            limit=limit,
+            timeout=timeout,
+            proxy_url=proxy_url,
+        ),
+        variant=(
+            f"limit={limit};proxy="
+            + (
+                hashlib.sha256(proxy_url.encode("utf-8")).hexdigest()[:12]
+                if proxy_url
+                else "default"
+            )
+        ),
+    )
+
+
+def _fetch_web_search_uncached(
     query: str,
     *,
     limit: int = 5,

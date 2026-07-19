@@ -24,6 +24,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
+from intelligence.services import query_ledger
 from intelligence.services.provider_observability import ProviderTrace
 
 FETCH_ENV_FLAG = "FINANCE_NEWS_FETCH"
@@ -178,7 +179,30 @@ def fetch_eastmoney_news_result(
     within_days: int = DEFAULT_WITHIN_DAYS,
     timeout: float = 8.0,
 ) -> NewsFetchResult:
-    """东财全文资讯搜索，并保留 provider 失败原因。"""
+    """东财全文资讯搜索（经 turn 级 QueryLedger 去重），保留 provider 失败原因。
+
+    同 turn 内 agent news_search 与 W7 事件块对同一关键词的重复抓取只真实
+    执行一次；无活动账本时行为不变。within_days/page_size 入 key 的 as_of
+    维度，避免不同窗口参数误共享结果。"""
+    return query_ledger.executed(
+        "news_search",
+        keyword,
+        lambda: _fetch_eastmoney_news_uncached(
+            keyword,
+            page_size=page_size,
+            within_days=within_days,
+            timeout=timeout,
+        ),
+        as_of=f"days={within_days};size={page_size}",
+    )
+
+
+def _fetch_eastmoney_news_uncached(
+    keyword: str,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    within_days: int = DEFAULT_WITHIN_DAYS,
+    timeout: float = 8.0,
+) -> NewsFetchResult:
     kw = str(keyword or "").strip()
     if not kw:
         return NewsFetchResult(

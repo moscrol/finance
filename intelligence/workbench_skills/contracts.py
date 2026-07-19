@@ -53,6 +53,11 @@ class SkillOutput:
     answer_contract: SkillAnswerContract | None = None
     stage_artifacts: list[JsonObject] = field(default_factory=list)
     status: SkillResultStatus | None = None
+    # P1-A（手术版）：owner 内部检索的 ProviderTrace（to_dict 形态）。此前
+    # _skill_owner_result 有损重建 AskResult 时丢弃全部内部 trace，
+    # _record_retrieval 看到的是"干净但失真"的结果；此字段让 trace 穿透
+    # skill 边界，闭环/wiki 遥测以合成 trace 形式并入同一通道。
+    provider_traces: list[JsonObject] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

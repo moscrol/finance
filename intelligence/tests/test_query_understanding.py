@@ -224,6 +224,16 @@ def test_market_pattern_requires_two_terms_and_explains_divergence() -> None:
     assert two_terms.decision_goal == "解释市场背离"
 
 
+def test_market_outlook_is_not_generic_unknown() -> None:
+    envelope = understand_query(
+        "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+    )
+
+    assert envelope.question_type == "market_forecast"
+    assert envelope.matched_by == "market_anchor"
+    assert envelope.confidence >= 0.9
+
+
 def test_ticker_and_date_match_next_to_chinese_text() -> None:
     bare_ticker = understand_query("分析002837怎么看")
     suffixed_ticker = understand_query("600000.SH怎么看")

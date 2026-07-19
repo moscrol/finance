@@ -48,7 +48,6 @@ class AnswerOrchestratorTests(unittest.TestCase):
         options = AskOptions(
             query="测试问题",
             compose=True,
-            compose_self_review=False,
             stream_text_delta=public_deltas.append,
         )
         result = AskResult(
@@ -65,6 +64,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
             counter_evidence=(),
             gaps=(),
             triggers=(),
+            candidate_facts=(),
             company_table=(),
         )
         result.prepared_synthesis_messages = [
@@ -556,6 +556,53 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         self.assertEqual(plan.question_type, QUESTION_MARKET_FORECAST)
 
+    def test_market_outlook_wording_routes_to_market_forecast(self) -> None:
+        plan = plan_answer_question(
+            "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+        )
+
+        self.assertEqual(plan.question_type, QUESTION_MARKET_FORECAST)
+
+    def test_subjectless_market_forecast_skips_generic_wiki_rag(self) -> None:
+        query = "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch(
+                "intelligence.services.kb_rag.retrieve",
+                side_effect=AssertionError("市场预测不应启动通用 wiki RAG"),
+            ):
+                result = answer_query(
+                    AskOptions(
+                        query=query,
+                        exports_dir=tmp,
+                        kb_wiki=Path(tmp),
+                        question_type_override=QUESTION_MARKET_FORECAST,
+                        use_modules=False,
+                        parallel_blocks=False,
+                        compose=False,
+                        synthesize=False,
+                    )
+                )
+
+        assert result.question_plan is not None
+        self.assertEqual(
+            result.question_plan.question_type,
+            QUESTION_MARKET_FORECAST,
+        )
+        self.assertIsNone(result.wiki_rag_telemetry)
+        conclusion = "\n".join(result.sections["结论"])
+        self.assertIn("A股市场后续判断", conclusion)
+        self.assertIn("基准情景", conclusion)
+        self.assertIn("上行情景", conclusion)
+        self.assertIn("下行情景", conclusion)
+        self.assertNotIn(f"主题「{query}」", conclusion)
+        self.assertNotIn("基本面证据不足", conclusion)
+        assert result.counterevidence is not None
+        counterevidence = "\n".join(result.counterevidence.rebuttals)
+        self.assertIn("量价修复可能失败", counterevidence)
+        self.assertIn("主线扩散可能不足", counterevidence)
+        self.assertNotIn("公司本体", counterevidence)
+        self.assertNotIn("公告/互动易", counterevidence)
+
     def test_valuation_triggers_route_to_valuation_plan(self) -> None:
         plan = plan_answer_question("帮我拍估值：寒武纪现在贵不贵")
 
@@ -737,7 +784,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
             return None, "mocked"
 
         with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            "intelligence.services.ask.llm_refine.synthesize_messages_stream",
             side_effect=fake_synthesize,
         ):
             wiki = Path(tmp) / "wiki"
@@ -807,6 +854,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
@@ -860,6 +908,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
@@ -932,6 +981,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
@@ -966,7 +1016,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
             return None, "mocked"
 
         with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            "intelligence.services.ask.llm_refine.synthesize_messages_stream",
             side_effect=fake_synthesize,
         ):
             base = Path(tmp)
@@ -1003,7 +1053,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
             return None, "mocked"
 
         with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            "intelligence.services.ask.llm_refine.synthesize_messages_stream",
             side_effect=fake_synthesize,
         ):
             base = Path(tmp)
@@ -1065,7 +1115,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         duckdb = __import__("duckdb")
         with tempfile.TemporaryDirectory() as tmp, mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            "intelligence.services.ask.llm_refine.synthesize_messages_stream",
             side_effect=fake_synthesize,
         ):
             base = Path(tmp)

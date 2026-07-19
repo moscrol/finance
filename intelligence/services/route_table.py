@@ -112,6 +112,17 @@ ROUTE_TABLE: tuple[RouteRow, ...] = (
         capabilities=("memory", "market_quote", "graph"),
     ),
     RouteRow(
+        route_id="market_forecast",
+        description="基于当前A股市场数据做后市展望、条件化推演与验证路径",
+        examples=("基于目前市场数据，后面市场会怎么演绎", "展望一下A股后市"),
+        lane="research",
+        question_type="market_forecast",
+        answer_owner=None,
+        needs_retrieval=True,
+        needs_template=True,
+        capabilities=("memory", "market_quote", "graph"),
+    ),
+    RouteRow(
         route_id="external_market",
         description="海外或外部市场（美股、港股、汇率、大宗）的行情与走势",
         examples=("昨天美股的涨跌情况", "港股今天怎么样"),

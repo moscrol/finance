@@ -8,6 +8,7 @@ from intelligence.services.closed_loop_retrieval import (
     ClosedLoopRetrievalResult,
 )
 from intelligence.services.kb_rag import WikiHit
+from intelligence.services.research_contract import ResearchDeadline
 
 
 @dataclass
@@ -91,3 +92,26 @@ def test_semantic_judge_disabled_is_noop(monkeypatch) -> None:
 
     assert len(loop.conclusion) == 2
     assert loop.discarded == []
+
+
+def test_semantic_judge_inherits_wiki_stage_deadline(monkeypatch) -> None:
+    loop = _loop()
+    deadline = ResearchDeadline.from_timeout(1)
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(evidence_judge, "should_judge", lambda: True)
+
+    def judge(query, candidates, **kwargs):
+        del query, candidates
+        captured.update(kwargs)
+        return ({0, 1, 2}, "")
+
+    monkeypatch.setattr(evidence_judge, "judge_relevance", judge)
+
+    evidence_providers._apply_semantic_judge(
+        _Ctx(_Options("科创50的支撑点位在哪")),
+        loop,
+        deadline=deadline,
+    )
+
+    assert 0 < captured["timeout"] <= 1
+    assert captured["deadline"].expires_at == deadline.expires_at

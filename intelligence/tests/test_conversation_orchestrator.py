@@ -19,6 +19,7 @@ from intelligence.services.conversation_orchestrator import (
     TurnOrchestrator,
     build_conversation_context,
     contextualize_follow_up_query,
+    _sanitize_citation_list,
     sanitize_conversation_answer,
     sanitize_user_visible_artifact_text,
 )
@@ -74,6 +75,25 @@ def _research_controller(query: str, **kwargs: object) -> TurnDecision:
         confidence=1.0,
         reason=f"fixture research: {query}",
     )
+
+
+def test_citation_projection_dedupes_owner_and_raw_shapes() -> None:
+    citations = _sanitize_citation_list(
+        [
+            {
+                "tag": "S1",
+                "title": "公司公告",
+                "source": "公告详情",
+            },
+            {
+                "tag": "S1",
+                "source": "公司公告",
+                "detail": "公告详情",
+            },
+        ]
+    )
+
+    assert len(citations) == 1
 
 
 def _prepare_turn(
@@ -766,8 +786,9 @@ def test_artifact_sanitizer_hides_credentials_paths_and_internal_terms() -> None
     assert "deterministic_projection" not in internal
     assert "/Users/" not in local_path
     assert "module.py" not in local_path
-    assert retrieval_progress == "外部语义检索当前不可用或受限，未使用其结果。"
-    assert internal_module == "外部语义检索当前不可用或受限，未使用其结果。"
+    # P0 修复后：诊断类文本只声明"已隐藏"，不得断言"检索不可用"（洗词不改事实）。
+    assert retrieval_progress == "（内部检索诊断信息已隐藏。）"
+    assert internal_module == "（内部检索诊断信息已隐藏。）"
     assert evidence_detail == "对象=天阳科技；来源=天阳科技_最新逻辑跟踪，质量中等"
     assert module_id == "资料覆盖情况"
     assert no_llm_code == "自然语言综合暂时不可用；已保留可核验数据与结构化产物。"
@@ -2572,3 +2593,146 @@ def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
         "graph",
         "web_search",
     )
+
+
+def test_market_forecast_head_route_does_not_enable_long_tail_agent(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    captured: list[AskOptions] = []
+
+    def capture_options(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    def forecast_controller(
+        controller_query: str,
+        **kwargs: object,
+    ) -> TurnDecision:
+        del kwargs
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=True,
+            needs_template=True,
+            question_type="market_forecast",
+            confidence=0.92,
+            reason=f"fixture forecast: {controller_query}",
+            capabilities=("memory", "market_quote", "graph"),
+        )
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=capture_options,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (), fallback_to_ask=False, base_finance_fallback=True
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=forecast_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert len(captured) == 1
+    assert captured[0].question_type_override == "market_forecast"
+    assert captured[0].controller_capabilities == (
+        "memory",
+        "market_quote",
+        "graph",
+    )
+
+
+def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    release_worker = Event()
+    worker_started = Event()
+    late_progress_sent = Event()
+
+    def blocking_answer(options: AskOptions) -> AskResult:
+        assert llm_refine.current_call_ledger() is not None
+        assert options.progress_callback is not None
+        assert options.stream_cancel_check is not None
+        assert options.stream_text_delta is not None
+        assert not options.stream_cancel_check()
+        options.progress_callback("agent_loop", "started", {"tool_count": 7})
+        worker_started.set()
+        release_worker.wait(timeout=2)
+        assert options.stream_cancel_check()
+        options.stream_text_delta("不应写入的迟到片段")
+        options.progress_callback("agent_loop", "completed", {"tool_count": 7})
+        late_progress_sent.set()
+        return _ask_result(options.query)
+
+    started = time.monotonic()
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=blocking_answer,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (), fallback_to_ask=False, base_finance_fallback=True
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+        research_policy=ResearchExecutionPolicy(
+            max_skill_calls=3,
+            max_elapsed_seconds=0.2,
+        ),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+    elapsed = time.monotonic() - started
+
+    assert worker_started.is_set()
+    assert elapsed < 0.8
+    assert result.status == "completed"
+    assert "截止时间" in result.content
+    trace_before_release = run_store.load_trace(run_id)
+    assert any(
+        step["name"] == "ask_stage_agent_loop"
+        and step["status"] == "running"
+        for step in trace_before_release
+    )
+    assert any(
+        step["name"] == "ask_root_timeout"
+        for step in trace_before_release
+    )
+
+    release_worker.set()
+    assert late_progress_sent.wait(timeout=1)
+    assert run_store.load_trace(run_id) == trace_before_release
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.content == result.content
+    assert "迟到片段" not in assistant.content

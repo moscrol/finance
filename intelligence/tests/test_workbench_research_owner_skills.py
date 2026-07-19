@@ -316,6 +316,20 @@ def test_followup_merges_validated_previous_answer_spec_without_opening_gate() -
         summary=(
             replace(previous.summary[0], claim_id="previous-fact"),
         ),
+        candidate_facts=(
+            replace(
+                previous.verified_facts[0],
+                claim_id="previous-candidate",
+                status=answer_model.ClaimStatus.CANDIDATE,
+            ),
+        ),
+        sources=(
+            replace(
+                previous.sources[0],
+                content_hash="sha256:previous",
+                source_revision="rag-rev-7",
+            ),
+        ),
     )
 
     merged = owner._merge_inherited_answer_spec(
@@ -328,6 +342,14 @@ def test_followup_merges_validated_previous_answer_spec_without_opening_gate() -
         "previous-fact",
     }
     assert {source.evidence_id for source in merged.sources} == {"W1", "W2"}
+    assert {claim.claim_id for claim in merged.candidate_facts} == {
+        "previous-candidate"
+    }
+    inherited_source = next(
+        source for source in merged.sources if source.evidence_id == "W1"
+    )
+    assert inherited_source.content_hash == "sha256:previous"
+    assert inherited_source.source_revision == "rag-rev-7"
     issues = answer_model.validate_llm_answer(
         "海光信息弹性一定更大。",
         merged,
@@ -1239,3 +1261,69 @@ def test_p2_research_owner_is_injected_by_controller_contract(
         selection.skill_id for selection in routed.selections
     }
     assert routed.base_finance_fallback is False
+
+
+def test_owner_output_carries_internal_retrieval_traces(
+    tmp_path: Path,
+) -> None:
+    """P1-A（手术版）：owner 内部检索 trace 必须穿透 SkillOutput 边界。"""
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        result = _result(
+            options.query,
+            STOCK_DEEP_DIVE.question_type,
+            evidence_id="R1",
+        )
+        result.provider_traces.append(
+            ProviderTrace(
+                provider="local_wiki",
+                capability="theme_recall",
+                status="success",
+                detail="closed-loop relevance gate passed",
+                result_count=3,
+            )
+        )
+        return result
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run("分析液冷", "ask")
+    skill = ResearchOwnerSkill(
+        STOCK_DEEP_DIVE,
+        answer_query_fn=fake_answer_query,
+        web_search_fn=_empty_web_search,
+    )
+
+    output = skill.execute(_context(tmp_path, store, run.run_id, "分析液冷"))
+
+    providers = [trace["provider"] for trace in output.provider_traces]
+    assert "local_wiki" in providers
+    wiki_trace = next(
+        trace
+        for trace in output.provider_traces
+        if trace["provider"] == "local_wiki"
+    )
+    assert wiki_trace["status"] == "success"
+    assert wiki_trace["result_count"] == 3
+
+
+def test_owner_publishes_raw_result_to_turn_cache(tmp_path: Path) -> None:
+    """P1-B：owner 把完整 AskResult 放入 turn 缓存供 orchestrator 直接消费。"""
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        return _result(options.query, STOCK_DEEP_DIVE.question_type, evidence_id="R1")
+
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run("分析液冷", "ask")
+    skill = ResearchOwnerSkill(
+        STOCK_DEEP_DIVE,
+        answer_query_fn=fake_answer_query,
+        web_search_fn=_empty_web_search,
+    )
+    context = _context(tmp_path, store, run.run_id, "分析液冷")
+
+    skill.execute(context)
+
+    raw = context.retrieval_cache.get("owner_raw_result:stock-deep-dive")
+    assert isinstance(raw, AskResult)
+    assert raw.trade_date == "2026-07-10"
+    assert raw.citations and raw.citations[0].tag == "R1"

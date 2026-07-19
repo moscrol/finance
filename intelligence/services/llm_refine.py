@@ -83,6 +83,10 @@ class LLMOutputTooLong(RuntimeError):
     pass
 
 
+class LLMCallBudgetExceeded(RuntimeError):
+    """Raised before an HTTP attempt when the turn-level call budget is spent."""
+
+
 @dataclass(frozen=True)
 class Deadline:
     expires_at: float
@@ -160,6 +164,33 @@ def detect_provider(model_override: str | None = None) -> LLMProvider | None:
     return next(iter(detect_providers(model_override)), None)
 
 
+def judge_provider() -> LLMProvider | None:
+    """语义审（grounding judge / evidence judge）的独立 provider 解析。
+
+    背景（双审查 ③）：composer 与 judge 走同一 provider 存在相关性失败——
+    同一模型的系统性偏差会同时骗过创作与审稿。配置以下 env 后语义审走
+    独立模型；未配置返回 None，调用方回落主 provider（行为不变）：
+    - ``LLM_JUDGE_API_KEY``（+ ``LLM_JUDGE_BASE_URL`` + ``LLM_JUDGE_MODEL``）：
+      完全独立的 judge 端点；
+    - 仅 ``LLM_JUDGE_MODEL``：同 key/端点、不同模型（次优但仍降低相关性）。
+    """
+    key = os.environ.get("LLM_JUDGE_API_KEY")
+    base = os.environ.get("LLM_JUDGE_BASE_URL")
+    model = os.environ.get("LLM_JUDGE_MODEL")
+    if key:
+        return LLMProvider(
+            name="judge",
+            api_key=key,
+            base_url=base or "https://api.openai.com/v1",
+            model=model or "gpt-4o-mini",
+        )
+    if model:
+        main = detect_provider(None)
+        if main is not None and main.model != model:
+            return replace(main, name=f"{main.name}-judge", model=model)
+    return None
+
+
 def _provider_failure_reason(
     failures: list[tuple[LLMProvider, str]],
 ) -> tuple[LLMProvider, str]:
@@ -180,6 +211,179 @@ def provider_override(provider: LLMProvider) -> Iterator[None]:
         yield
     finally:
         _PROVIDER_OVERRIDE.reset(token)
+
+
+# --- LLM 调用台账（P1-B 预算记账）------------------------------------------
+# 背景：turn 级预算此前只统计 skill 次数，一个 research turn 实际可触发十余次
+# LLM 调用（controller/judge/agent loop/planner/合成/修订/影子链）却没有任何
+# 一本账在管。此处在 _post_chat* 底层入口按「provider 尝试」粒度记账（fallback
+# 轮换的每次 HTTP 尝试都算一次），turn 级用 ContextVar 聚合——跨线程记账由
+# 调用方用 contextvars.copy_context() 传播（台账对象共享，list.append 原子）。
+
+
+@dataclass(frozen=True)
+class LLMCallRecord:
+    caller: str  # chat | chat_tools | synthesis | synthesis_stream
+    provider: str
+    model: str
+    status: str  # success | failed
+    elapsed_ms: int
+
+
+@dataclass
+class LLMCallLedger:
+    records: list[LLMCallRecord] = field(default_factory=list)
+    # 硬预算（P1-B 消费闭环）：非 None 时，尝试数达到上限后新调用被拒发
+    # （入口直接返回降级 reason，不发 HTTP）。防失控为主，默认上限宽松。
+    max_calls: int | None = None
+    rejected_count: int = 0
+    _reservation_count: int = 0
+    _lock: threading.Lock = field(
+        default_factory=threading.Lock,
+        repr=False,
+        compare=False,
+    )
+
+    def over_budget(self) -> bool:
+        with self._lock:
+            return (
+                self.max_calls is not None
+                and self._reservation_count >= self.max_calls
+            )
+
+    def try_reserve(self) -> bool:
+        """Atomically reserve one real provider attempt.
+
+        Completed records are too late to enforce a concurrent limit: two
+        callers can both observe the same record count before either finishes.
+        Reservations are cumulative for the turn, so fallback/retry calls each
+        consume one slot and in-flight calls count immediately.
+        """
+        with self._lock:
+            if (
+                self.max_calls is not None
+                and self._reservation_count >= self.max_calls
+            ):
+                self.rejected_count += 1
+                return False
+            self._reservation_count += 1
+            return True
+
+    def rejection_reason(self) -> str:
+        return (
+            f"LLM 调用预算耗尽（本轮上限 {self.max_calls} 次尝试），"
+            "已拒发新调用并降级"
+        )
+
+    def reject(self) -> str:
+        with self._lock:
+            self.rejected_count += 1
+        return self.rejection_reason()
+
+    def record(self, record: LLMCallRecord) -> None:
+        with self._lock:
+            self.records.append(record)
+
+    def summary(self) -> dict[str, object]:
+        with self._lock:
+            records = list(self.records)
+            reservation_count = self._reservation_count
+            rejected_count = self.rejected_count
+        by_caller: dict[str, int] = {}
+        for record in records:
+            by_caller[record.caller] = by_caller.get(record.caller, 0) + 1
+        return {
+            "call_count": len(records),
+            "reserved_count": reservation_count,
+            "failure_count": sum(
+                1 for record in records if record.status != "success"
+            ),
+            "total_elapsed_ms": sum(
+                record.elapsed_ms for record in records
+            ),
+            "max_calls": self.max_calls,
+            "rejected_count": rejected_count,
+            "by_caller": by_caller,
+            "records": [
+                {
+                    "caller": record.caller,
+                    "provider": record.provider,
+                    "model": record.model,
+                    "status": record.status,
+                    "elapsed_ms": record.elapsed_ms,
+                }
+                for record in records
+            ],
+        }
+
+
+_CALL_LEDGER: ContextVar[LLMCallLedger | None] = ContextVar(
+    "llm_call_ledger",
+    default=None,
+)
+
+
+@contextmanager
+def call_ledger_scope(
+    max_calls: int | None = None,
+) -> Iterator[LLMCallLedger]:
+    """开启 turn 级 LLM 调用台账；已有活动台账时复用（不重置嵌套作用域）。
+
+    ``max_calls`` 只在新建台账时生效；嵌套复用时以外层限额为准。"""
+    existing = _CALL_LEDGER.get()
+    if existing is not None:
+        yield existing
+        return
+    ledger = LLMCallLedger(max_calls=max_calls)
+    token = _CALL_LEDGER.set(ledger)
+    try:
+        yield ledger
+    finally:
+        _CALL_LEDGER.reset(token)
+
+
+def _budget_rejection() -> str | None:
+    """入口预算检查：超额时返回拒发 reason，未超额/无台账返回 None。"""
+    ledger = _CALL_LEDGER.get()
+    if ledger is not None and ledger.over_budget():
+        return ledger.reject()
+    return None
+
+
+def _reserve_llm_call() -> None:
+    """Reserve one attempt at the actual HTTP boundary.
+
+    Public-entry checks remain a cheap fast path, but this reservation is the
+    authoritative guard because provider fallback, retries and concurrent
+    callers can all pass an earlier check.
+    """
+    ledger = _CALL_LEDGER.get()
+    if ledger is not None and not ledger.try_reserve():
+        raise LLMCallBudgetExceeded(ledger.rejection_reason())
+
+
+def current_call_ledger() -> LLMCallLedger | None:
+    return _CALL_LEDGER.get()
+
+
+def _record_llm_call(
+    caller: str,
+    provider: LLMProvider,
+    status: str,
+    started: float,
+) -> None:
+    ledger = _CALL_LEDGER.get()
+    if ledger is None:
+        return
+    ledger.record(
+        LLMCallRecord(
+            caller=caller,
+            provider=provider.name,
+            model=provider.model,
+            status=status,
+            elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
+        )
+    )
 
 
 def synthesis_thinking_disabled() -> bool:
@@ -219,7 +423,13 @@ def _build_user_prompt(query: str, theme: str, evidence_text: str) -> str:
     )
 
 
-def _post_chat(provider: LLMProvider, messages: list[dict], timeout: int, temperature: float = 0.2) -> str:
+def _post_chat(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+    temperature: float = 0.2,
+) -> str:
+    _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {"model": provider.model, "messages": messages, "temperature": temperature}
     if os.environ.get("LLM_THINKING") == "disabled":
@@ -234,19 +444,26 @@ def _post_chat(provider: LLMProvider, messages: list[dict], timeout: int, temper
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
+    started = time.monotonic()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        _record_llm_call("chat", provider, "failed", started)
+        raise
+    _record_llm_call("chat", provider, "success", started)
     return body["choices"][0]["message"]["content"]
 
 
 def _post_chat_synthesis(
     provider: LLMProvider,
     messages: list[dict],
-    timeout: int,
+    timeout: float,
     temperature: float,
     max_tokens: int,
     max_chars: int,
 ) -> tuple[str, str | None]:
+    _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = {
         "model": provider.model,
@@ -265,19 +482,26 @@ def _post_chat_synthesis(
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=timeout) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
+    started = time.monotonic()
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        _record_llm_call("synthesis", provider, "failed", started)
+        raise
     choice = body["choices"][0]
     content = choice["message"]["content"]
     if len(content) > max_chars:
+        _record_llm_call("synthesis", provider, "failed", started)
         raise LLMOutputTooLong()
+    _record_llm_call("synthesis", provider, "success", started)
     return content, _stable_finish_reason(choice.get("finish_reason"))
 
 
 def complete(
     messages: list[dict],
     model_override: str | None = None,
-    timeout: int = DEFAULT_LLM_TIMEOUT,
+    timeout: float = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.2,
 ) -> tuple[str | None, "LLMProvider | None", str]:
     """Generic OpenAI-compatible chat call shared across services.
@@ -286,6 +510,9 @@ def complete(
     network error) ``content`` is ``None`` and ``reason`` explains why so callers
     can degrade gracefully — same contract as :func:`refine_or_reason`.
     """
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, None, rejection
     providers = detect_providers(model_override)
     if not providers:
         return None, None, (
@@ -297,8 +524,10 @@ def complete(
     failures: list[tuple[LLMProvider, str]] = []
     for provider in providers:
         try:
-            remaining = max(1, round(deadline.require_remaining(0.001)))
+            remaining = deadline.require_remaining(0.001)
             content = _post_chat(provider, messages, remaining, temperature)
+        except LLMCallBudgetExceeded as exc:
+            return None, None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
             failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
         except Exception as exc:  # pragma: no cover - network
@@ -314,7 +543,7 @@ def complete(
 def _post_chat_message(
     provider: LLMProvider,
     messages: list[dict],
-    timeout: int,
+    timeout: float,
     temperature: float = 0.2,
     tools: list[dict] | None = None,
     tool_choice: str | dict | None = None,
@@ -323,6 +552,7 @@ def _post_chat_message(
 
     The message may contain ``tool_calls`` (OpenAI-compatible function calling)
     in addition to / instead of ``content`` — needed to drive an agent loop."""
+    _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
     if os.environ.get("LLM_THINKING") == "disabled":
@@ -341,8 +571,14 @@ def _post_chat_message(
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
+    started = time.monotonic()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        _record_llm_call("chat_tools", provider, "failed", started)
+        raise
+    _record_llm_call("chat_tools", provider, "success", started)
     return body["choices"][0]["message"]
 
 
@@ -350,7 +586,7 @@ def chat_with_tools(
     messages: list[dict],
     tools: list[dict],
     model_override: str | None = None,
-    timeout: int = DEFAULT_LLM_TIMEOUT,
+    timeout: float = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.2,
     tool_choice: str | dict | None = "auto",
 ) -> tuple[dict | None, "LLMProvider | None", str]:
@@ -360,6 +596,9 @@ def chat_with_tools(
     ``message["tool_calls"]`` to decide whether to dispatch tools or treat
     ``message["content"]`` as the final answer. On any failure ``message`` is
     ``None`` and ``reason`` explains why so the caller degrades gracefully."""
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, None, rejection
     providers = detect_providers(model_override)
     if not providers:
         return None, None, (
@@ -371,7 +610,7 @@ def chat_with_tools(
     failures: list[tuple[LLMProvider, str]] = []
     for provider in providers:
         try:
-            remaining = max(1, round(deadline.require_remaining(0.001)))
+            remaining = deadline.require_remaining(0.001)
             msg = _post_chat_message(
                 provider,
                 messages,
@@ -380,6 +619,8 @@ def chat_with_tools(
                 tools=tools,
                 tool_choice=tool_choice,
             )
+        except LLMCallBudgetExceeded as exc:
+            return None, None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
             failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
         except Exception as exc:  # pragma: no cover - network
@@ -461,6 +702,8 @@ def refine_or_reason(
     ]
     try:
         content = _post_chat(provider, messages, timeout)
+    except LLMCallBudgetExceeded as exc:
+        return None, f"{exc}"
     except urllib.error.HTTPError as exc:  # pragma: no cover - network
         return None, f"LLM 调用 HTTP {exc.code}，已降级为模板"
     except Exception as exc:  # pragma: no cover - network
@@ -501,6 +744,9 @@ _SYNTHESIS_SYSTEM_PROMPT = (
     "不得输出 registry 外的 claim，不得省略 marker；marker 是机器门禁，最终展示层会移除。"
     "除 Markdown 标题外，禁止输出任何没有 marker 的导语、过渡句、解释、来源说明或免责声明；"
     "需要衔接时只能新增标题，正文必须逐行复用 registry 中的 claim。"
+    "标题只能使用固定小节名（结论/核心矛盾/证据/支撑依据/反证与缺口/风险/条件边界/"
+    "下一步验证/交易含义等）或研究主体名称本身；严禁在标题中写入其他事实、判断、数字或公司，"
+    "白名单外的标题会被系统整行剔除。"
     "marker 前的文字只用于段落布局，最终展示层会按 claim_id 渲染 registry 中的原始 claim，"
     "因此不要试图在该文字中补充 registry 外事实。"
     "L1 固定结论配方：数据截止日、直接定性、最强证据、主要风险、条件边界、下一步验证；"
@@ -623,6 +869,9 @@ _GROUNDED_COMPOSER_SYSTEM_PROMPT = (
     "claim_ids 可绑定一条或多条；EvidenceAtom 只能使用这些 claim 自带的合法 ID。"
     "事实句必须绑定 EvidenceAtom；推断、候选和预期不得写成确定事实。"
     "标题和末尾「（非投资建议）」可不带 marker，其余正文都必须带 marker。"
+    "标题只能使用固定小节名（结论/核心矛盾/证据/反证与缺口/风险/条件边界/下一步验证/"
+    "交易含义等）或研究主体名称本身；严禁在标题中写入其他事实、判断、数字或公司，"
+    "白名单外的标题会被系统整行剔除。"
     "不得增加证据外公司、数字、日期、催化或跨题材信息。"
     "读者是投资研究用户而不是系统维护者：用市场语言表达，"
     "不要出现内部流水线术语、字段名、评分原始数值（如优先级分数）或工程编号；"
@@ -727,6 +976,9 @@ def synthesize_messages(
     Shared by single-turn :func:`synthesize` and the multi-turn driver. Returns
     ``(result, reason)``; on any failure ``result`` is ``None`` and ``reason``
     explains why so the caller degrades gracefully."""
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, rejection
     provider = detect_provider(model_override)
     if provider is None:
         return None, (
@@ -751,6 +1003,8 @@ def synthesize_messages(
                 max_chars,
             )
             break
+        except LLMCallBudgetExceeded as exc:
+            return None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
             return None, f"LLM 合成 HTTP {exc.code}，已降级为模板"
         except LLMDeadlineExceeded:
@@ -760,6 +1014,9 @@ def synthesize_messages(
         except Exception as exc:  # pragma: no cover - network
             last_exc = exc
             if attempt == 0:
+                rejection = _budget_rejection()
+                if rejection is not None:
+                    return None, rejection
                 remaining = shared_deadline.remaining()
                 if remaining < 1:
                     return None, "LLM 合成超过共享截止时间，已降级为模板"
@@ -785,6 +1042,40 @@ def synthesize_messages(
 
 
 def _post_chat_stream(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: int,
+    temperature: float,
+    on_delta: Callable[[str], None],
+    on_connected: Callable[[], None] | None,
+    is_cancelled: Callable[[], bool] | None,
+    deadline: Deadline,
+    max_tokens: int,
+    max_chars: int,
+) -> tuple[str, str | None]:
+    _reserve_llm_call()
+    started = time.monotonic()
+    try:
+        result = _post_chat_stream_raw(
+            provider,
+            messages,
+            timeout,
+            temperature,
+            on_delta,
+            on_connected,
+            is_cancelled,
+            deadline,
+            max_tokens,
+            max_chars,
+        )
+    except Exception:
+        _record_llm_call("synthesis_stream", provider, "failed", started)
+        raise
+    _record_llm_call("synthesis_stream", provider, "success", started)
+    return result
+
+
+def _post_chat_stream_raw(
     provider: LLMProvider,
     messages: list[dict],
     timeout: int,
@@ -883,6 +1174,9 @@ def synthesize_messages_stream(
     max_tokens: int = DEFAULT_SYNTHESIS_MAX_TOKENS,
     max_chars: int = DEFAULT_SYNTHESIS_MAX_CHARS,
 ) -> tuple[SynthesisResult | None, str]:
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, rejection
     provider = detect_provider(model_override)
     if provider is None:
         return None, (
@@ -908,6 +1202,8 @@ def synthesize_messages_stream(
             on_finish_reason(finish_reason)
     except LLMStreamCancelled:
         raise
+    except LLMCallBudgetExceeded as exc:
+        return None, str(exc)
     except LLMDeadlineExceeded:
         return None, "LLM 流式合成超过共享截止时间，已降级为模板"
     except LLMOutputTooLong:
@@ -967,19 +1263,6 @@ def synthesize_messages_stream(
     )
 
 
-_SELF_REVIEW_REVISION_PROMPT = (
-    "请把上一条回答当作初稿，先在内部扮演严格的用户影子审稿人做二次反驳，然后重写最终稿。"
-    "反驳重点：是否模板化、是否孤立看个股、是否漏掉大盘/情绪/板块/个股相对强度、证据是否够硬、"
-    "生命周期四问是否完整、是否说明市场正在奖励谁/抛弃谁/犹豫谁、是否给出二阶导和更优表达、"
-    "是否有升级/降级/证伪条件且写成了组合门槛（≥2 条信号同现或主信号+确认信号；单信号触发要改写）、"
-    "对〔历史基线〕/上期判断是否给出了四态对照（支持/削弱/无变化/信息不足）。"
-    "还要检查全文有没有先抓住核心矛盾；每个视角是否都服务这条矛盾，而不是按清单填空；"
-    "每段是否回答了“这个事实改变了什么判断”。"
-    "如果证据不足或数据块没有给出某项指标，必须明确写缺口，不能编造。"
-    "只输出修订后的最终回答正文，不要输出审稿过程、评分、JSON 或提示词。结尾仍以「（非投资建议）」收尾。"
-)
-
-
 # 质检闸门 WARN 回灌修订（修订版在前契约）：把 output_review 的 WARN 意见送回同一段
 # 对话做一轮定向修订，用户拿到的是可直接引用的修订版全文，审查意见退居附录。
 _GATE_REVISION_PROMPT = (
@@ -993,66 +1276,6 @@ def gate_revision_user_content(warn_notes: list[str]) -> str:
     """Build the user turn that feeds output-review WARN notes back for revision."""
     notes = "\n".join(f"- {n}" for n in warn_notes)
     return _GATE_REVISION_PROMPT.format(notes=notes)
-
-
-def synthesize_messages_with_review(
-    messages: list[dict],
-    model_override: str | None = None,
-    timeout: int = DEFAULT_LLM_TIMEOUT,
-    temperature: float = 0.3,
-    review_temperature: float = 0.2,
-    *,
-    deadline: Deadline | None = None,
-    max_tokens: int = DEFAULT_SYNTHESIS_MAX_TOKENS,
-    max_chars: int = DEFAULT_SYNTHESIS_MAX_CHARS,
-) -> tuple[SynthesisResult | None, str]:
-    """Run draft -> shadow-user critique/rewrite for compose answers.
-
-    The first call creates the grounded draft. The second call receives the same
-    evidence, the draft, and a reviewer prompt, then returns only the revised
-    final answer. If the review pass fails, keep the draft rather than dropping
-    back to the deterministic template.
-    """
-    shared_deadline = deadline or Deadline.from_timeout(timeout)
-    draft, reason = synthesize_messages(
-        messages,
-        model_override=model_override,
-        timeout=timeout,
-        temperature=temperature,
-        deadline=shared_deadline,
-        max_tokens=max_tokens,
-        max_chars=max_chars,
-    )
-    if draft is None:
-        return None, reason
-
-    provider = detect_provider(model_override)
-    if provider is None:
-        return draft, ""
-    review_messages = [
-        *messages,
-        {"role": "assistant", "content": draft.answer},
-        {"role": "user", "content": _SELF_REVIEW_REVISION_PROMPT},
-    ]
-    if shared_deadline.remaining() < 1:
-        draft.fallback_reason = "review_timeout"
-        return draft, "LLM 二次自审因共享截止时间不足而跳过，保留初稿并标记降级"
-    try:
-        content = _post_chat(
-            provider,
-            review_messages,
-            shared_deadline.require_remaining(1),
-            review_temperature,
-        )
-    except LLMDeadlineExceeded:
-        draft.fallback_reason = "review_timeout"
-        return draft, "LLM 二次自审超过共享截止时间，保留初稿并标记降级"
-    except Exception as exc:
-        return draft, f"LLM 二次自审失败（{type(exc).__name__}），保留初稿并标记降级"
-    revised = (content or "").strip()
-    if not revised:
-        return draft, "LLM 二次自审返回空内容，保留初稿并标记降级"
-    return SynthesisResult(answer=revised, provider=provider.name, model=provider.model), ""
 
 
 def claim_binding_revision_user_content(

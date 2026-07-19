@@ -78,6 +78,7 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
             "answer_contract",
             "stage_artifacts",
             "status",
+            "provider_traces",
         ]
     store = RunStore(root=tmp_path / "runs")
     context = SkillExecutionContext(
@@ -568,3 +569,44 @@ def test_manual_market_pattern_preserves_user_selected_theme_research() -> None:
     ]
     assert result.selections[0].selection_source == "manual"
     assert result.base_finance_fallback is False
+
+
+def test_owner_fast_path_skips_llm_selection() -> None:
+    """Controller 已指定 owner 时不再调 LLM 软选择（happy path 辅助 skill 不执行）。"""
+    llm_calls: list[list[dict]] = []
+
+    def spy_complete(messages, **kwargs):
+        llm_calls.append(messages)
+        return '{"skill_ids":[],"reasons":{}}', None, ""
+
+    routed = route_skills(
+        "深度分析中际旭创",
+        "ask",
+        "auto",
+        [],
+        llm_complete=spy_complete,
+        answer_owner="stock-deep-dive",
+    )
+
+    assert llm_calls == []
+    assert routed.selections
+    assert routed.selections[0].skill_id == "stock-deep-dive"
+
+
+def test_no_owner_still_uses_llm_selection() -> None:
+    """无 owner 的长尾仍走 LLM 软选择（行为不回退）。"""
+    llm_calls: list[list[dict]] = []
+
+    def spy_complete(messages, **kwargs):
+        llm_calls.append(messages)
+        return '{"skill_ids":[],"reasons":{}}', None, ""
+
+    route_skills(
+        "美联储9月降息概率怎么看",
+        "ask",
+        "auto",
+        [],
+        llm_complete=spy_complete,
+    )
+
+    assert len(llm_calls) == 1

@@ -267,7 +267,7 @@ class AskL3IntegrationTests(unittest.TestCase):
             "intelligence.services.ask.l3_evidence.lookup_l3_evidence",
             return_value=fake_bundle,
         ), mock.patch(
-            "intelligence.services.ask.llm_refine.synthesize_messages_with_review",
+            "intelligence.services.ask.llm_refine.synthesize_messages_stream",
             side_effect=fake_synthesize,
         ):
             wiki = Path(tmp) / "wiki"

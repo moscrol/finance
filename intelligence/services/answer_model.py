@@ -212,6 +212,10 @@ class EvidenceRef:
     tier: str = ""
     source_date: str | None = None
     freshness: str = "unknown"
+    # 来源跨度级溯源（P2）：内容 hash 与索引来源版本，由 Citation 传播——
+    # 同一 evidence_id 在不同索引版本下可被区分，为后续冲突消解提供锚点。
+    content_hash: str = ""
+    source_revision: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -221,6 +225,8 @@ class EvidenceRef:
             "tier": self.tier,
             "source_date": self.source_date,
             "freshness": self.freshness,
+            "content_hash": self.content_hash,
+            "source_revision": self.source_revision,
         }
 
 
@@ -472,6 +478,11 @@ class AnswerSpec:
     next_actions: tuple[str, ...]
     sources: tuple[EvidenceRef, ...]
     system_notices: tuple[str, ...]
+    # 候选证据通道（P0 修复）：agent 补检索 / Web 兜底 / 模块召回 / W7 资讯等
+    # 「检索到但未达硬证据门槛」的 claim。此前这些证据只进 evidence_chain 展示层、
+    # 不进 registry，合成层在白名单契约下无法合法引用——长尾检索花了预算却是死证据。
+    # 进入本通道的 claim 保持 CANDIDATE 状态，composer 只能以待验证口吻使用。
+    candidate_facts: tuple[Claim, ...] = ()
     prompt_constraints: tuple[str, ...] = ()
     presentation_kind: str = "theme_research"
     presentation_title: str = ""
@@ -488,6 +499,7 @@ class AnswerSpec:
             "counter_evidence": [claim.to_dict() for claim in self.counter_evidence],
             "gaps": [claim.to_dict() for claim in self.gaps],
             "triggers": [claim.to_dict() for claim in self.triggers],
+            "candidate_facts": [claim.to_dict() for claim in self.candidate_facts],
             "next_actions": list(self.next_actions),
             "sources": [source.to_dict() for source in self.sources],
             "system_notices": list(self.system_notices),
@@ -524,6 +536,9 @@ class AnswerSpec:
             )
         lines.append("### 反证与缺口")
         lines.extend(_prompt_claim(claim) for claim in (*self.counter_evidence, *self.gaps))
+        if self.candidate_facts:
+            lines.append("### 候选证据（检索可回查，但未达硬证据门槛，不得写成已确认事实）")
+            lines.extend(_prompt_claim(claim) for claim in self.candidate_facts)
         lines.append("### 触发条件与核验动作")
         lines.extend(_prompt_claim(claim) for claim in self.triggers)
         lines.extend(f"- {action}" for action in self.next_actions)
@@ -787,6 +802,9 @@ def apply_claim_evidence_policy(answer_spec: AnswerSpec) -> AnswerSpec:
     )
     gaps = tuple(govern(claim) for claim in answer_spec.gaps)
     triggers = tuple(govern(claim) for claim in answer_spec.triggers)
+    candidate_facts = tuple(
+        govern(claim) for claim in answer_spec.candidate_facts
+    )
     notices = answer_spec.system_notices
     if softened:
         notices = tuple(
@@ -805,6 +823,7 @@ def apply_claim_evidence_policy(answer_spec: AnswerSpec) -> AnswerSpec:
         counter_evidence=counter_evidence,
         gaps=gaps,
         triggers=triggers,
+        candidate_facts=candidate_facts,
         system_notices=notices,
     )
 
@@ -981,6 +1000,162 @@ _OWNER_STAGE_HEADINGS = {
     "impact_transmission": "影响传导",
     "substitutes_and_harmed_directions": "受益、替代与受损方向",
 }
+
+# 标题白名单：LLM 输出的 Markdown 标题 / <summary> 只能使用固定小节名或研究主体名。
+# 背景（P0 修复）：_is_nonclaim_line 把标题排除在 claim 校验外、present 层又原样保留，
+# 意味着「## 招商银行今年利润已翻倍」可以携带无证据事实直达用户。此处收口：
+# 标题不是自由文本，超出白名单 ∪ 主体名的标题按未验证内容处理（校验报 issue、
+# repair 剔除、present 兜底剔除）。
+_ALLOWED_HEADING_TEXTS = frozenset(
+    {
+        "结论",
+        "直接回答",
+        "核心判断",
+        "核心矛盾",
+        "题材怎么理解",
+        "为什么这样判断",
+        "证据",
+        "关键证据",
+        "证据链",
+        "支撑依据",
+        "公司证据",
+        "核心公司",
+        "候选与外围公司",
+        "候选证据",
+        "反证",
+        "反证与缺口",
+        "风险",
+        "主要风险",
+        "风险与缺口",
+        "缺口",
+        "证据缺口",
+        "证据边界",
+        "条件边界",
+        "观察条件",
+        "触发条件",
+        "升级条件",
+        "降级条件",
+        "升级、降级与证伪条件",
+        "下一步验证",
+        "下一步如何验证",
+        "验证路径",
+        "后续验证点",
+        "交易含义",
+        "数据说明",
+        "数据边界",
+        "来源",
+        "来源与证据边界",
+        "盘面判断",
+        "盘面信号",
+        "公司判断",
+        "情景树",
+        "历史类似窗口",
+        "3–6 个月中期赔率的证据",
+        "综合判断",
+        "总结",
+        "小结",
+        "研究结论",
+        "展开来源和数据说明",
+        "展开来源和数据边界",
+        *_OWNER_STAGE_HEADINGS.values(),
+    }
+)
+_HEADING_SEGMENT_SPLIT_RE = re.compile(r"[：:·｜|]+")
+_SUMMARY_TAG_RE = re.compile(r"<summary[^>]*>(.*?)</summary>", re.DOTALL)
+
+
+def _normalize_heading_text(text: str) -> str:
+    return re.sub(r"\s+", "", str(text or "")).strip("：:。！!？?")
+
+
+_ALLOWED_HEADING_NORMALIZED = frozenset(
+    _normalize_heading_text(text) for text in _ALLOWED_HEADING_TEXTS
+)
+
+
+def _heading_line_text(line: str) -> str | None:
+    """返回该行的标题文本；非标题/非 summary 行返回 None。"""
+    stripped = line.strip()
+    if stripped.startswith("#"):
+        return stripped.lstrip("#").strip()
+    summary = _SUMMARY_TAG_RE.search(stripped)
+    if summary is not None:
+        return summary.group(1).strip()
+    return None
+
+
+def _allowed_heading_subjects(answer_spec: AnswerSpec) -> frozenset[str]:
+    subjects: set[str] = {
+        answer_spec.research_spec.theme,
+        answer_spec.presentation_title,
+    }
+    for claim in _all_answer_claims(answer_spec):
+        if claim.company:
+            subjects.add(claim.company)
+        if claim.theme:
+            subjects.add(claim.theme)
+    for company in answer_spec.company_table:
+        subjects.add(company.company)
+    return frozenset(
+        _normalize_heading_text(subject) for subject in subjects if subject
+    )
+
+
+def _is_disallowed_heading(
+    heading_text: str,
+    subjects: frozenset[str],
+) -> bool:
+    normalized = _normalize_heading_text(heading_text)
+    if not normalized:
+        return False
+    segments = [
+        segment
+        for segment in _HEADING_SEGMENT_SPLIT_RE.split(normalized)
+        if segment
+    ]
+    return any(
+        segment not in _ALLOWED_HEADING_NORMALIZED and segment not in subjects
+        for segment in segments
+    )
+
+
+def _heading_gate_issues(
+    answer: str,
+    answer_spec: AnswerSpec,
+    *,
+    code: str,
+    severity: str,
+) -> tuple[QualityIssue, ...]:
+    subjects = _allowed_heading_subjects(answer_spec)
+    issues: list[QualityIssue] = []
+    for line in answer.splitlines():
+        heading = _heading_line_text(line)
+        if heading is None:
+            continue
+        if _is_disallowed_heading(heading, subjects):
+            issues.append(
+                QualityIssue(
+                    code,
+                    severity,
+                    f"标题携带白名单外内容（不受 claim 校验，已按未验证处理）：{heading[:48]}",
+                )
+            )
+    return tuple(issues)
+
+
+def _drop_disallowed_headings(answer: str, answer_spec: AnswerSpec | None) -> str:
+    subjects = (
+        _allowed_heading_subjects(answer_spec)
+        if answer_spec is not None
+        else frozenset()
+    )
+    kept: list[str] = []
+    for line in answer.splitlines():
+        heading = _heading_line_text(line)
+        if heading is not None and _is_disallowed_heading(heading, subjects):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
 
 
 def _render_owner_stage_artifacts(answer_spec: AnswerSpec) -> list[str]:
@@ -1636,6 +1811,15 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
                 f"LLM 输出内部术语：{'、'.join(leaked)}",
             )
         )
+    # 标题走私检查：warning 级（不触发整答退稿），展示层会兜底剔除违规标题。
+    issues.extend(
+        _heading_gate_issues(
+            answer,
+            answer_spec,
+            code="llm_unverified_heading",
+            severity="warning",
+        )
+    )
     atoms = evidence_atoms_from_answer_spec(answer_spec)
     atom_registry = {atom.atom_id: atom for atom in atoms}
     claim_registry = {
@@ -1748,6 +1932,12 @@ def evidence_atoms_from_answer_spec(
                         "claim_id": claim.claim_id,
                         "source": source.source if source is not None else "",
                         "detail": source.detail if source is not None else "",
+                        "content_hash": (
+                            source.content_hash if source is not None else ""
+                        ),
+                        "source_revision": (
+                            source.source_revision if source is not None else ""
+                        ),
                     },
                 )
             )
@@ -2016,6 +2206,15 @@ def validate_grounded_composer_answer(
                 f"影子答案输出内部术语：{'、'.join(leaked)}",
             )
         )
+    # 标题走私检查：error 级——repair 会确定性剔除违规标题，不需要额外 LLM 轮次。
+    issues.extend(
+        _heading_gate_issues(
+            answer,
+            answer_spec,
+            code="grounded_composer_unverified_heading",
+            severity="error",
+        )
+    )
     atoms = evidence_atoms_from_answer_spec(answer_spec)
     atom_registry = {atom.atom_id: atom for atom in atoms}
     claim_registry = {
@@ -2238,10 +2437,18 @@ def validate_grounded_composer_answer(
     return tuple(issues)
 
 
-def present_grounded_composer_answer(answer: str) -> str:
+def present_grounded_composer_answer(
+    answer: str,
+    answer_spec: AnswerSpec | None = None,
+) -> str:
+    # 展示边界兜底：违规标题在此确定性剔除（validate/repair 之外的最后一道）。
+    cleaned = _drop_disallowed_headings(
+        _merge_orphan_grounded_markers(answer),
+        answer_spec,
+    )
     return "\n".join(
         _GROUNDED_CLAIM_MARKER_RE.sub("", line).rstrip()
-        for line in _merge_orphan_grounded_markers(answer).splitlines()
+        for line in cleaned.splitlines()
     ).strip()
 
 
@@ -2257,11 +2464,17 @@ def repair_grounded_composer_answer(
         claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
     }
     rejected = set(rejected_sentence_indexes)
+    heading_subjects = _allowed_heading_subjects(answer_spec)
     repaired_lines: list[str] = []
     sentence_index = 0
     for raw_line in _merge_orphan_grounded_markers(answer).splitlines():
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
+            heading = _heading_line_text(line)
+            if heading is not None and _is_disallowed_heading(
+                heading, heading_subjects
+            ):
+                continue
             repaired_lines.append(raw_line)
             continue
         marker = _GROUNDED_CLAIM_MARKER_RE.search(raw_line)
@@ -2404,6 +2617,10 @@ def present_llm_answer(answer: str, answer_spec: AnswerSpec) -> str:
     claim_registry = {
         claim.claim_id: claim for claim in _all_answer_claims(answer_spec)
     }
+    # claim 契约答案（含 marker）里的标题不是自由文本：违规标题在展示边界剔除。
+    # 无 marker 的纯散文契约（如市场复盘）不在此约束内，由各自的合成契约治理。
+    if _STRUCTURED_CLAIM_MARKER_RE.search(answer):
+        answer = _drop_disallowed_headings(answer, answer_spec)
     rendered_lines: list[str] = []
     for raw_line in answer.splitlines():
         marker = _STRUCTURED_CLAIM_MARKER_RE.search(raw_line)
@@ -2434,6 +2651,7 @@ def _all_answer_claims(answer_spec: AnswerSpec) -> tuple[Claim, ...]:
                 *answer_spec.counter_evidence,
                 *answer_spec.gaps,
                 *answer_spec.triggers,
+                *answer_spec.candidate_facts,
                 *(
                     claim
                     for company in answer_spec.company_table

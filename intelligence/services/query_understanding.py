@@ -222,6 +222,13 @@ _MARKET_WATCH_RE = re.compile(
     r"(?:值得关注|看点|主线|机会)"
     r"|(?:今天|今日)(?:的)?(?:市场|行情|盘面|大盘)(?:怎么样|如何|表现如何)"
 )
+_MARKET_FORECAST_RE = re.compile(
+    r"(?:展望|研判|预测)[^。？！]{0,16}(?:后市|市场|行情|大盘)"
+    r"|(?:后市|后面市场|接下来市场|未来市场)[^。？！]{0,16}"
+    r"(?:怎么|如何|演绎|走势|走)"
+    r"|(?:市场|行情|大盘)[^。？！]{0,12}(?:后面|接下来|未来)"
+    r"[^。？！]{0,8}(?:演绎|走势|怎么走|如何走)"
+)
 _MONTH_HORIZON_RE = re.compile(
     r"(?:未来|接下来)?\s*(\d{1,2})\s*(?:[-~—到至]\s*(\d{1,2})\s*)?个?月"
 )
@@ -386,6 +393,13 @@ def is_market_watch_query(query: str) -> bool:
     """确定性识别「今天有什么值得关注的 / 今日行情怎么样」类当日盘面提问。"""
     text = re.sub(r"\s+", "", str(query or "").strip())
     return _MARKET_WATCH_RE.search(text) is not None
+
+
+def is_market_forecast_query(query: str) -> bool:
+    """识别明确的全市场后市展望；不把泛泛“市场怎么样”误当预测。"""
+
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    return _MARKET_FORECAST_RE.search(text) is not None
 
 
 def _valuation_subject(query: str) -> str | None:
@@ -750,6 +764,17 @@ def understand_query(
             timeframe,
             "explicit",
             0.86,
+        )
+
+    if is_market_forecast_query(text):
+        return envelope(
+            "market_forecast",
+            "unknown",
+            None,
+            "基于当前市场数据形成条件化后市推演",
+            timeframe,
+            "market_anchor",
+            0.92,
         )
 
     normalized_theme = str(matched_theme or "").strip()

@@ -90,9 +90,17 @@ def retrieve_closed_loop(
     *,
     anchor: EntityAnchor | None,
     retrieve: Retrieve,
+    total_seconds: float | None = None,
 ) -> ClosedLoopRetrievalResult:
+    """闭环检索。``total_seconds`` 由调用方传入 turn 级预算切片；
+    与本模块自身的 MAX_TOTAL_SECONDS 取 min——闭环不得突破 turn 根截止时间。"""
     result = ClosedLoopRetrievalResult()
-    deadline = time.monotonic() + MAX_TOTAL_SECONDS
+    budget = (
+        min(MAX_TOTAL_SECONDS, max(0.0, float(total_seconds)))
+        if total_seconds is not None
+        else MAX_TOTAL_SECONDS
+    )
+    deadline = time.monotonic() + budget
     query_terms = _relevance_terms(query, anchor, ())
     narrow_hits = _run_aperture(
         "narrow",

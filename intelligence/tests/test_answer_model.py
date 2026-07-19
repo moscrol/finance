@@ -735,6 +735,24 @@ class PresenterAndLLMGateTests(unittest.TestCase):
         self.assertNotIn("模型不能借此注入", rendered)
         self.assertNotIn("claim_id=", rendered)
 
+    def test_evidence_ref_provenance_survives_atom_derivation(self) -> None:
+        spec = self._answer()
+        source = replace(
+            spec.sources[0],
+            content_hash="sha256:abc",
+            source_revision="index-rev-3",
+        )
+        spec = replace(spec, sources=(source, *spec.sources[1:]))
+
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.source_id == source.evidence_id
+        )
+
+        self.assertEqual(atom.provenance["content_hash"], "sha256:abc")
+        self.assertEqual(atom.provenance["source_revision"], "index-rev-3")
+
     def test_grounded_composer_rejects_number_outside_bound_evidence(
         self,
     ) -> None:

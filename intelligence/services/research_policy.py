@@ -11,6 +11,10 @@ class ResearchExecutionPolicy:
     max_skill_calls: int = 3
     max_elapsed_seconds: float = 120.0
     max_retries_per_skill: int = 0
+    # turn 级 LLM 调用硬上限（按 provider 尝试计）：controller/judge/agent/
+    # 合成/修订/影子链共用一本账，超额后新调用被拒发并降级。默认宽松，
+    # 定位是失控保险丝而不是常态限流。
+    max_llm_calls: int = 40
 
 
 @dataclass(frozen=True)
