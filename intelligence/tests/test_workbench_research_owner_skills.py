@@ -296,6 +296,13 @@ def test_company_evidence_stage_requires_company_bound_hard_source() -> None:
     assert owner._stage_meets_evidence_threshold(official)
 
 
+def test_company_evidence_owner_enables_its_required_l3_source() -> None:
+    assert STOCK_DEEP_DIVE.use_l3_lookup is True
+    assert NEWS_IMPACT.use_l3_lookup is True
+    assert THEME_RESEARCH.use_l3_lookup is False
+    assert FINANCIAL_ANALYSIS.use_l3_lookup is False
+
+
 def test_followup_merges_validated_previous_answer_spec_without_opening_gate() -> None:
     owner = ResearchOwnerSkill(STOCK_DEEP_DIVE)
     current = _answer_spec(

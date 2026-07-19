@@ -2260,6 +2260,7 @@ STOCK_DEEP_DIVE = ResearchOwnerConfig(
     ),
     presentation_kind="theme_research",
     evidence_prefixes=("G", "R", "W", "D7", "L3"),
+    use_l3_lookup=True,
 )
 
 THEME_RESEARCH = ResearchOwnerConfig(
