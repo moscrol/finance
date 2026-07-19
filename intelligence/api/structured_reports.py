@@ -14,6 +14,7 @@ from typing import Any
 
 from intelligence.api.daily_reports import project_daily_review_markdown
 from intelligence.services.ask import AskResult, SUBHEAD
+from intelligence.services.ask_types import CONTROL_PLANE_SECTIONS
 from intelligence.services.market_moneyflow import MoneyflowSnapshot
 
 REPORT_SCHEMA_VERSION = 1
@@ -689,10 +690,18 @@ def ask_result_modules(result: AskResult) -> list[dict[str, Any]]:
         "交易含义": "implications",
         "引用来源": "sources",
     }
-    for index, (title, lines) in enumerate(result.sections.items(), start=1):
+    # 公共投影分离（P2）：控制面 section（数据源状态/检索可观测/输出质检）
+    # 不再成为用户报告模块——此前全量投影后靠正则洗词补救（默认泄漏）。
+    # 数据本体保留在 provider_traces/retrieval_telemetry/review_gate，
+    # 经 trace 落盘；质检降级信号仍通过 answer_degraded 反映在结论模块状态。
+    public_sections = [
+        (title, lines)
+        for title, lines in result.sections.items()
+        if title not in CONTROL_PLANE_SECTIONS
+    ]
+    for index, (title, lines) in enumerate(public_sections, start=1):
         section_degraded = (
-            (title == "输出质检" and review_degraded)
-            or (title in {"证据链", "检索可观测", "引用来源"} and rag_degraded)
+            (title in {"证据链", "引用来源"} and rag_degraded)
             or (title in {"结论", "交易含义"} and answer_degraded)
         )
         items = []

@@ -49,6 +49,11 @@ DEFAULT_EXPORTS_DIR = DATA_REPO_ROOT / "market_feature_store" / "exports"
 
 SUBHEAD = "\x00SUB\x00"
 SECTION_ORDER = ["结论", "证据链", "分歧反证", "后续验证点", "检索可观测", "输出质检", "交易含义", "引用来源"]
+# 控制面 section（P2 公共投影分离）：检索遥测/质检明细/provider 状态属于
+# ResearchInspector 面——CLI render_answer 全量渲染（自查用），但不进入
+# 用户报告模块与会话答案。数据本体仍在 provider_traces / retrieval_telemetry /
+# review_gate 上，经 _record_retrieval trace 落盘，可观测性不丢。
+CONTROL_PLANE_SECTIONS = frozenset({"数据源状态", "检索可观测", "输出质检"})
 NO_EVIDENCE_NOTICE = "本轮没有形成可用于结论的可验证来源；以下内容仅作待验证线索。"
 
 

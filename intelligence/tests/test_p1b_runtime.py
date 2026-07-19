@@ -587,5 +587,47 @@ class OwnerRawResultChannelTests(unittest.TestCase):
         self.assertEqual(resolved.citations[0].tag, "K1")
 
 
+class PublicProjectionTests(unittest.TestCase):
+    """P2 公共投影分离：控制面 section 不进用户报告模块。"""
+
+    def test_control_plane_sections_excluded_from_modules(self) -> None:
+        from intelligence.api.structured_reports import ask_result_modules
+        from intelligence.services.ask import AskResult
+
+        result = AskResult(
+            query="测试",
+            trade_date="2026-07-17",
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+        )
+        result.sections = {
+            "结论": ["主题以盘面驱动为主。"],
+            "证据链": ["证据 A"],
+            "检索可观测": ["检索方式=hybrid k=8"],
+            "输出质检": ["✓ 本地数据新鲜度"],
+            "交易含义": ["观察为主。"],
+            "数据源状态": ["local_wiki｜success"],
+            "引用来源": ["[S1] 盘面快照"],
+        }
+
+        modules = ask_result_modules(result)
+        titles = [module["title"] for module in modules]
+
+        self.assertNotIn("检索可观测", titles)
+        self.assertNotIn("输出质检", titles)
+        self.assertNotIn("数据源状态", titles)
+        self.assertIn("结论", titles)
+        self.assertIn("证据链", titles)
+        # 过滤后重编号连续（module_id 不跳号）
+        section_ids = [
+            module["module_id"]
+            for module in modules
+            if module["module_id"].startswith("research_")
+        ]
+        indexes = [int(mid.split("_")[1]) for mid in section_ids]
+        self.assertEqual(indexes, list(range(1, len(indexes) + 1)))
+
+
 if __name__ == "__main__":
     unittest.main()
