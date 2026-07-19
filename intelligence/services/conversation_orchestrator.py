@@ -13,6 +13,7 @@ from concurrent.futures import (
 )
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
+from threading import Event, Lock, Thread
 
 from intelligence.api.structured_reports import (
     ask_result_modules,
@@ -1515,7 +1516,13 @@ class TurnOrchestrator:
                 result = _deadline_partial_result(contextual_query, warnings)
                 prepared = prepare_existing_answer(ask_options, result)
             else:
-                result = self.answer_query(ask_options)
+                result = self._run_answer_query_with_watchdog(
+                    ask_options,
+                    run_id=run_id,
+                    message_id=assistant_message_id,
+                    conversation_id=conversation_id,
+                    warnings=warnings,
+                )
                 prepared = (
                     PreparedAnswer(options=ask_options, result=result)
                     if decision.lane == "knowledge"
@@ -2187,6 +2194,166 @@ class TurnOrchestrator:
             conversation_id,
         )
 
+    def _run_answer_query_with_watchdog(
+        self,
+        options: AskOptions,
+        *,
+        run_id: str,
+        message_id: str,
+        conversation_id: str,
+        warnings: list[str],
+    ) -> AskResult:
+        """运行通用 Ask，并以 turn 根 deadline 作为最终返回上限。
+
+        各 provider 仍负责使用自己的 I/O timeout；本看门狗只保证用户请求
+        不被一个遗漏 cooperative deadline 的同步调用无限阻塞。
+        """
+
+        progress_open = Event()
+        progress_open.set()
+        progress_lock = Lock()
+        progress_sequence = 0
+
+        def record_progress(
+            stage: str,
+            stage_status: str,
+            detail: dict[str, object],
+        ) -> None:
+            nonlocal progress_sequence
+            if not progress_open.is_set():
+                return
+            with progress_lock:
+                if not progress_open.is_set():
+                    return
+                progress_sequence += 1
+                sequence = progress_sequence
+            safe_stage = re.sub(r"[^a-zA-Z0-9_]+", "_", stage).strip("_")
+            safe_stage = safe_stage[:48] or "unknown"
+            trace_status = {
+                "started": "running",
+                "completed": "completed",
+                "failed": "failed",
+            }.get(stage_status, "completed")
+            self._trace(
+                run_id,
+                message_id,
+                conversation_id,
+                f"ask:{sequence:03d}:{safe_stage}:{stage_status}",
+                f"ask_stage_{safe_stage}",
+                {
+                    "stage": safe_stage,
+                    "stage_status": stage_status,
+                    **detail,
+                },
+                status=trace_status,
+            )
+
+        original_text_delta = options.stream_text_delta
+        original_cancel_check = options.stream_cancel_check
+
+        def guarded_text_delta(delta: str) -> None:
+            if progress_open.is_set() and original_text_delta is not None:
+                original_text_delta(delta)
+
+        def guarded_cancel_check() -> bool:
+            return (
+                not progress_open.is_set()
+                or (
+                    original_cancel_check is not None
+                    and original_cancel_check()
+                )
+            )
+
+        guarded_options = replace(
+            options,
+            progress_callback=record_progress,
+            stream_text_delta=guarded_text_delta,
+            stream_cancel_check=guarded_cancel_check,
+        )
+        deadline = guarded_options.deadline
+        if deadline is None:
+            deadline = ResearchDeadline.from_timeout(
+                self.research_policy.max_elapsed_seconds
+            )
+            guarded_options = replace(guarded_options, deadline=deadline)
+
+        future: Future[AskResult] | None = None
+        try:
+            if deadline.expired:
+                timeout_warning = (
+                    "通用研究主链达到统一截止时间，已返回结构化缺口。"
+                )
+                if timeout_warning not in warnings:
+                    warnings.append(timeout_warning)
+                    self.run_store.add_degrade(run_id, timeout_warning)
+                self._trace(
+                    run_id,
+                    message_id,
+                    conversation_id,
+                    "ask:root:timeout",
+                    "ask_root_timeout",
+                    {"remaining_ms": 0, "worker_started": False},
+                    status="failed",
+                )
+                return _deadline_partial_result(options.query, warnings)
+
+            run_context = contextvars.copy_context()
+            future = Future()
+
+            def run_answer_query() -> None:
+                assert future is not None
+                if not future.set_running_or_notify_cancel():
+                    return
+                try:
+                    answer_result = run_context.run(
+                        self.answer_query,
+                        guarded_options,
+                    )
+                except BaseException as exc:
+                    future.set_exception(exc)
+                else:
+                    future.set_result(answer_result)
+
+            worker = Thread(
+                target=run_answer_query,
+                name="workbench-ask-watchdog",
+                daemon=True,
+            )
+            worker.start()
+            while True:
+                self._check_cancelled()
+                remaining = deadline.remaining()
+                if remaining <= 0:
+                    timeout_warning = (
+                        "通用研究主链达到统一截止时间，已返回结构化缺口。"
+                    )
+                    if timeout_warning not in warnings:
+                        warnings.append(timeout_warning)
+                        self.run_store.add_degrade(run_id, timeout_warning)
+                    self._trace(
+                        run_id,
+                        message_id,
+                        conversation_id,
+                        "ask:root:timeout",
+                        "ask_root_timeout",
+                        {
+                            "remaining_ms": 0,
+                            "worker_started": True,
+                            "task_may_continue": not future.done(),
+                        },
+                        status="failed",
+                    )
+                    return _deadline_partial_result(options.query, warnings)
+                try:
+                    return future.result(timeout=min(0.05, remaining))
+                except FuturesTimeoutError:
+                    if future.done():
+                        return future.result()
+        finally:
+            progress_open.clear()
+            if future is not None and not future.done():
+                future.cancel()
+
     def _trace(
         self,
         run_id: str,
@@ -2197,12 +2364,13 @@ class TurnOrchestrator:
         output: dict[str, object],
         *,
         retrieval: dict[str, object] | None = None,
+        status: str = "completed",
     ) -> None:
         step = self.run_store.append_step(
             run_id,
             step_id=step_id,
             name=name,
-            status="completed",
+            status=status,
             output_summary=json.dumps(output, ensure_ascii=False),
             retrieval=retrieval,
         )

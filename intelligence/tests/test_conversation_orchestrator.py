@@ -2593,3 +2593,83 @@ def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
         "graph",
         "web_search",
     )
+
+
+def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    release_worker = Event()
+    worker_started = Event()
+    late_progress_sent = Event()
+
+    def blocking_answer(options: AskOptions) -> AskResult:
+        assert llm_refine.current_call_ledger() is not None
+        assert options.progress_callback is not None
+        assert options.stream_cancel_check is not None
+        assert options.stream_text_delta is not None
+        assert not options.stream_cancel_check()
+        options.progress_callback("agent_loop", "started", {"tool_count": 7})
+        worker_started.set()
+        release_worker.wait(timeout=2)
+        assert options.stream_cancel_check()
+        options.stream_text_delta("不应写入的迟到片段")
+        options.progress_callback("agent_loop", "completed", {"tool_count": 7})
+        late_progress_sent.set()
+        return _ask_result(options.query)
+
+    started = time.monotonic()
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=blocking_answer,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (), fallback_to_ask=False, base_finance_fallback=True
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=_research_controller,
+        research_policy=ResearchExecutionPolicy(
+            max_skill_calls=3,
+            max_elapsed_seconds=0.2,
+        ),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+    elapsed = time.monotonic() - started
+
+    assert worker_started.is_set()
+    assert elapsed < 0.8
+    assert result.status == "completed"
+    assert "截止时间" in result.content
+    trace_before_release = run_store.load_trace(run_id)
+    assert any(
+        step["name"] == "ask_stage_agent_loop"
+        and step["status"] == "running"
+        for step in trace_before_release
+    )
+    assert any(
+        step["name"] == "ask_root_timeout"
+        for step in trace_before_release
+    )
+
+    release_worker.set()
+    assert late_progress_sent.wait(timeout=1)
+    assert run_store.load_trace(run_id) == trace_before_release
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.content == result.content
+    assert "迟到片段" not in assistant.content

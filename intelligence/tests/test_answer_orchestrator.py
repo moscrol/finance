@@ -556,6 +556,40 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         self.assertEqual(plan.question_type, QUESTION_MARKET_FORECAST)
 
+    def test_market_outlook_wording_routes_to_market_forecast(self) -> None:
+        plan = plan_answer_question(
+            "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+        )
+
+        self.assertEqual(plan.question_type, QUESTION_MARKET_FORECAST)
+
+    def test_subjectless_market_forecast_skips_generic_wiki_rag(self) -> None:
+        query = "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch(
+                "intelligence.services.kb_rag.retrieve",
+                side_effect=AssertionError("市场预测不应启动通用 wiki RAG"),
+            ):
+                result = answer_query(
+                    AskOptions(
+                        query=query,
+                        exports_dir=tmp,
+                        kb_wiki=Path(tmp),
+                        question_type_override=QUESTION_MARKET_FORECAST,
+                        use_modules=False,
+                        parallel_blocks=False,
+                        compose=False,
+                        synthesize=False,
+                    )
+                )
+
+        assert result.question_plan is not None
+        self.assertEqual(
+            result.question_plan.question_type,
+            QUESTION_MARKET_FORECAST,
+        )
+        self.assertIsNone(result.wiki_rag_telemetry)
+
     def test_valuation_triggers_route_to_valuation_plan(self) -> None:
         plan = plan_answer_question("帮我拍估值：寒武纪现在贵不贵")
 

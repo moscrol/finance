@@ -351,6 +351,14 @@ def _classify_question_type(raw_query: str, q: str) -> tuple[str, float]:
         return QUESTION_STOCK_DEEP_DIVE, 0.9
     if _has_any(q, ("复盘先验", "先验复盘", "行情前瞻", "明日研判", "次日研判", "前瞻研判")):
         return QUESTION_MARKET_FORECAST, 0.9
+    if (
+        _has_any(q, ("展望", "研判", "预测"))
+        and _has_any(q, ("后市", "市场", "行情", "大盘"))
+    ) or (
+        _has_any(q, ("后市", "后面市场", "接下来市场", "未来市场"))
+        and _has_any(q, ("怎么", "如何", "演绎", "走势"))
+    ):
+        return QUESTION_MARKET_FORECAST, 0.9
     if _has_any(
         q,
         (

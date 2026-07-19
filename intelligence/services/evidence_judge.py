@@ -59,7 +59,8 @@ def judge_relevance(
     query: str,
     candidates: Sequence[tuple[str, str]],
     *,
-    timeout: int = DEFAULT_TIMEOUT,
+    timeout: float = DEFAULT_TIMEOUT,
+    deadline: llm_refine.Deadline | None = None,
     complete_fn=None,
 ) -> tuple[set[int], str] | None:
     """按语义相关性裁定候选，返回 ``(保留下标集合, 理由)``。
@@ -81,20 +82,24 @@ def judge_relevance(
             "content": f"用户问题：{query}\n\n候选召回：\n{numbered}",
         },
     ]
+    complete_kwargs = {
+        "timeout": timeout,
+        "temperature": 0.0,
+    }
+    if deadline is not None:
+        complete_kwargs["deadline"] = deadline
     # 语义闸门独立性：配置 LLM_JUDGE_* 时走独立 provider（与合成模型解耦）。
     judge_override = llm_refine.judge_provider()
     if judge_override is not None and complete_fn is None:
         with llm_refine.provider_override(judge_override):
             content, _provider, _reason = complete(
                 messages,
-                timeout=timeout,
-                temperature=0.0,
+                **complete_kwargs,
             )
     else:
         content, _provider, _reason = complete(
             messages,
-            timeout=timeout,
-            temperature=0.0,
+            **complete_kwargs,
         )
     if not content:
         return None

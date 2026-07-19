@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from intelligence.services import evidence_judge
+from intelligence.services import evidence_judge, llm_refine
 
 
 def _complete_returning(content: str | None):
@@ -71,3 +71,25 @@ def test_judge_mode_env(monkeypatch) -> None:
     assert evidence_judge.should_judge()
     monkeypatch.setenv(evidence_judge.ENV_MODE, "无效值")
     assert evidence_judge.judge_mode() == evidence_judge.MODE_AUTO
+
+
+def test_judge_forwards_shared_absolute_deadline() -> None:
+    captured: dict[str, object] = {}
+    deadline = llm_refine.Deadline.from_timeout(1)
+
+    def complete(messages, **kwargs):
+        del messages
+        captured.update(kwargs)
+        return '{"keep": [0], "reason": ""}', None, ""
+
+    verdict = evidence_judge.judge_relevance(
+        "后市怎么演绎",
+        [("市场结构", "指数与量能变化")],
+        timeout=0.5,
+        deadline=deadline,
+        complete_fn=complete,
+    )
+
+    assert verdict is not None
+    assert captured["deadline"] is deadline
+    assert captured["timeout"] == 0.5

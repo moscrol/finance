@@ -212,6 +212,12 @@ class AskOptions:
     stream_cancel_check: Callable[[], bool] | None = field(
         default=None, repr=False, compare=False
     )
+    # 控制面阶段进度：供 Workbench trace/看门狗定位同步 Ask 卡点。
+    # 只传阶段名、状态和计数/耗时，不得传证据正文或内部 locator。
+    progress_callback: Callable[
+        [str, str, dict[str, object]],
+        None,
+    ] | None = field(default=None, repr=False, compare=False)
     deadline: ResearchDeadline | None = field(
         default=None,
         repr=False,
@@ -341,4 +347,3 @@ def _llm_deadline(options: AskOptions) -> llm_refine.Deadline:
     if options.deadline is not None:
         return llm_refine.Deadline(options.deadline.expires_at)
     return llm_refine.Deadline.from_timeout(options.llm_timeout)
-

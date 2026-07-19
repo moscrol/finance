@@ -21,6 +21,7 @@ from intelligence.services import (
     evidence_judge,
     kb_rag,
     l3_evidence,
+    llm_refine,
     research_brief,
     web_research,
 )
@@ -28,6 +29,7 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_GENERAL,
     QUESTION_STOCK_DEEP_DIVE,
 )
+from intelligence.services.research_contract import ResearchDeadline
 
 if TYPE_CHECKING:
     from intelligence.adapters.knowledge import KnowledgeAdapter
@@ -508,17 +510,34 @@ def collect_evidence_index(
 def _apply_semantic_judge(
     ctx: EvidenceContext,
     loop: closed_loop_retrieval.ClosedLoopRetrievalResult,
+    *,
+    deadline: ResearchDeadline | None = None,
 ) -> None:
     """LLM 语义闸门：把词面重叠但语义无关的结论/反方召回移入 discarded。
 
     fail-open：judge 关闭或失败时不动任何桶（与原行为逐字一致）。
     """
     buckets = [*loop.conclusion, *loop.counter_clues]
-    if not buckets or not evidence_judge.should_judge():
+    if (
+        not buckets
+        or not evidence_judge.should_judge()
+        or (deadline is not None and deadline.expired)
+    ):
         return
+    timeout = (
+        deadline.stage_timeout(evidence_judge.DEFAULT_TIMEOUT)
+        if deadline is not None
+        else evidence_judge.DEFAULT_TIMEOUT
+    )
     verdict = evidence_judge.judge_relevance(
         ctx.options.query,
         [(item.hit.title, item.hit.excerpt) for item in buckets],
+        timeout=max(0.001, timeout),
+        deadline=(
+            llm_refine.Deadline(deadline.expires_at)
+            if deadline is not None
+            else None
+        ),
     )
     if verdict is None:
         return
@@ -571,27 +590,47 @@ def collect_wiki_rag(
         "index": "full" if ctx.options.wiki_rag_index_dir else "structured",
     }
     if ctx.options.use_wiki_rag:
-        loop = closed_loop_retrieval.retrieve_closed_loop(
-            ctx.graph_query,
-            anchor=ctx.anchor,
-            # 闭环总预算钳制在 turn 根 Deadline 内（stage_timeout 取 min）。
-            total_seconds=ctx.stage_timeout(
-                closed_loop_retrieval.MAX_TOTAL_SECONDS
-            ),
-            retrieve=lambda retrieval_query: kb_rag.retrieve(
+        wiki_stage_deadline = ResearchDeadline.from_timeout(
+            ctx.stage_timeout(
+                min(
+                    closed_loop_retrieval.MAX_TOTAL_SECONDS,
+                    ctx.options.wiki_rag_timeout,
+                )
+            )
+        )
+
+        def retrieve_with_stage_deadline(retrieval_query: str):
+            return kb_rag.retrieve(
                 retrieval_query,
                 ctx.knowledge.resolved_wiki_root,
                 k=ctx.options.wiki_rag_k,
                 mode=ctx.options.wiki_rag_mode,
-                timeout=ctx.stage_timeout(ctx.options.wiki_rag_timeout),
+                timeout=max(
+                    0.001,
+                    wiki_stage_deadline.stage_timeout(
+                        ctx.options.wiki_rag_timeout
+                    ),
+                ),
                 excerpt_chars=ctx.options.wiki_rag_excerpt,
                 budget_query=ctx.graph_query,
                 index_dir=ctx.options.wiki_rag_index_dir,
                 require_fresh=True,
                 cache_scope=ctx.options.wiki_rag_cache_scope,
-            ),
+            )
+
+        loop = closed_loop_retrieval.retrieve_closed_loop(
+            ctx.graph_query,
+            anchor=ctx.anchor,
+            # 闭环的每次子查询共享同一个 stage deadline；不能在阶段只剩 2 秒时
+            # 再拿 turn 根剩余时间启动一个 90 秒子进程。
+            total_seconds=wiki_stage_deadline.remaining(),
+            retrieve=retrieve_with_stage_deadline,
         )
-        _apply_semantic_judge(ctx, loop)
+        _apply_semantic_judge(
+            ctx,
+            loop,
+            deadline=wiki_stage_deadline,
+        )
         _, wiki_evidence_total_chars = kb_rag.evidence_budget_for_query(
             ctx.options.query,
             mode=ctx.options.wiki_rag_mode,

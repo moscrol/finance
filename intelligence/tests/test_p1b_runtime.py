@@ -16,10 +16,12 @@ from unittest import mock
 
 from intelligence.services import (
     agent_research,
+    ask,
     llm_refine,
     query_ledger,
     web_research,
 )
+from intelligence.services.ask import AskOptions
 
 
 def _fake_urlopen_response(payload: dict) -> mock.MagicMock:
@@ -35,6 +37,46 @@ _CHAT_PAYLOAD = {
         {"message": {"content": "ok"}, "finish_reason": "stop"},
     ]
 }
+
+
+class AskProgressTests(unittest.TestCase):
+    """Ask 阶段进度只走控制面，且回调故障不能打断研究。"""
+
+    def test_progress_stage_emits_started_and_completed(self) -> None:
+        events: list[tuple[str, str, dict[str, object]]] = []
+        options = AskOptions(
+            query="测试阶段进度",
+            progress_callback=lambda stage, status, detail: events.append(
+                (stage, status, detail)
+            ),
+        )
+
+        with ask._progress_stage(options, "wiki_rag"):
+            pass
+
+        self.assertEqual(
+            [(stage, status) for stage, status, _detail in events],
+            [("wiki_rag", "started"), ("wiki_rag", "completed")],
+        )
+        self.assertGreaterEqual(events[-1][2]["elapsed_ms"], 0)
+
+    def test_progress_callback_failure_does_not_break_stage(self) -> None:
+        def broken_callback(
+            _stage: str,
+            _status: str,
+            _detail: dict[str, object],
+        ) -> None:
+            raise RuntimeError("observability sink unavailable")
+
+        options = AskOptions(
+            query="测试回调降级",
+            progress_callback=broken_callback,
+        )
+
+        with ask._progress_stage(options, "planning"):
+            observed = "research continues"
+
+        self.assertEqual(observed, "research continues")
 
 
 class LLMCallLedgerTests(unittest.TestCase):

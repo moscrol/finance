@@ -20,6 +20,9 @@ import copy
 import glob
 import json
 import re
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date as date_cls, timedelta
 from pathlib import Path
@@ -149,6 +152,52 @@ from intelligence.services.ask_render import (  # noqa: F401
     render_answer,
     render_conversation_answer,
 )
+
+
+def _emit_progress(
+    options: AskOptions,
+    stage: str,
+    status: str,
+    detail: dict[str, object] | None = None,
+) -> None:
+    """Best-effort 控制面进度；可观测性故障不得改变研究结果。"""
+
+    callback = options.progress_callback
+    if callback is None:
+        return
+    try:
+        callback(stage, status, dict(detail or {}))
+    except Exception:  # noqa: BLE001 - telemetry sink 必须 fail-open
+        return
+
+
+@contextmanager
+def _progress_stage(
+    options: AskOptions,
+    stage: str,
+    **initial_detail: object,
+) -> Iterator[dict[str, object]]:
+    """为同步 Ask 子阶段发 started/completed/failed 控制面事件。"""
+
+    started = time.monotonic()
+    detail = dict(initial_detail)
+    _emit_progress(options, stage, "started", detail)
+    try:
+        yield detail
+    except BaseException as exc:
+        detail["elapsed_ms"] = max(
+            0,
+            round((time.monotonic() - started) * 1000),
+        )
+        detail["error_type"] = type(exc).__name__
+        _emit_progress(options, stage, "failed", detail)
+        raise
+    else:
+        detail["elapsed_ms"] = max(
+            0,
+            round((time.monotonic() - started) * 1000),
+        )
+        _emit_progress(options, stage, "completed", detail)
 
 
 # Human-readable labels + 结论 summary prefixes for each routed recall backend.
@@ -780,8 +829,9 @@ def answer_query(options: AskOptions) -> AskResult:
     # per-run DuckDB 只读连接复用：各 D 块/盘面查询借用同一连接的 cursor。
     # query_ledger：turn 内同 provider+query 检索只真实执行一次（orchestrator
     # 已开账本时嵌套复用；CLI 单跑时在本层兜底开启）。
-    with retrieval_cache.duckdb_run_pool(), query_ledger.query_ledger_scope():
-        return _answer_query_impl(options)
+    with _progress_stage(options, "ask_root"):
+        with retrieval_cache.duckdb_run_pool(), query_ledger.query_ledger_scope():
+            return _answer_query_impl(options)
 
 
 def _answer_query_impl(options: AskOptions) -> AskResult:
@@ -800,27 +850,39 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             result.clarify = clarify_decision
             result.warnings.append(f"澄清追问：{clarify_decision.reason}，本次未检索")
             return result
-    preliminary_plan = plan_answer_question(
-        options.query,
-        question_type_override=options.question_type_override,
-    )
-    if preliminary_plan.question_type == QUESTION_EXTERNAL_MARKET:
-        return _answer_external_market(options, preliminary_plan)
-    if preliminary_plan.question_type == QUESTION_CONCEPT_DEFINITION:
-        return _answer_concept_definition(options, preliminary_plan)
-    resolved_kb_wiki = Path(options.kb_wiki).expanduser() if options.kb_wiki else default_paths().knowledge_wiki
-    knowledge = KnowledgeAdapter(wiki_root=resolved_kb_wiki)
-    loaded = load_theme_candidates(options.exports_dir, options.date)
-    doc = loaded["doc"] if loaded["found"] else {}
-    candidate = match_candidate(options.query, doc) if doc else None
-    snapshot_date = str(doc.get("trade_date") or "").strip() or None
-    trade_date, market_data_source, data_notice, data_warnings = (
-        _resolve_market_data_context(
-            snapshot_date,
-            options.market_db_path,
-            requested_date=options.date,
+    with _progress_stage(options, "planning") as stage:
+        preliminary_plan = plan_answer_question(
+            options.query,
+            question_type_override=options.question_type_override,
         )
-    )
+        stage["question_type"] = preliminary_plan.question_type
+    if preliminary_plan.question_type == QUESTION_EXTERNAL_MARKET:
+        with _progress_stage(options, "external_market"):
+            return _answer_external_market(options, preliminary_plan)
+    if preliminary_plan.question_type == QUESTION_CONCEPT_DEFINITION:
+        with _progress_stage(options, "concept_definition"):
+            return _answer_concept_definition(options, preliminary_plan)
+    with _progress_stage(options, "market_context") as stage:
+        resolved_kb_wiki = (
+            Path(options.kb_wiki).expanduser()
+            if options.kb_wiki
+            else default_paths().knowledge_wiki
+        )
+        knowledge = KnowledgeAdapter(wiki_root=resolved_kb_wiki)
+        loaded = load_theme_candidates(options.exports_dir, options.date)
+        doc = loaded["doc"] if loaded["found"] else {}
+        candidate = match_candidate(options.query, doc) if doc else None
+        snapshot_date = str(doc.get("trade_date") or "").strip() or None
+        trade_date, market_data_source, data_notice, data_warnings = (
+            _resolve_market_data_context(
+                snapshot_date,
+                options.market_db_path,
+                requested_date=options.date,
+            )
+        )
+        stage["snapshot_found"] = bool(loaded["found"])
+        stage["candidate_found"] = candidate is not None
+        stage["trade_date_available"] = trade_date is not None
 
     result = AskResult(
         query=options.query,
@@ -844,7 +906,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     result.question_plan = question_plan
     result.warnings.extend(f"answer-orchestrator：{w}" for w in question_plan.warnings)
     if question_plan.question_type == QUESTION_MARKET_REVIEW:
-        return _answer_market_review(options, result)
+        with _progress_stage(options, "market_review"):
+            return _answer_market_review(options, result)
     if _is_market_index_comparison_query(options.query):
         _populate_market_index_comparison(
             result,
@@ -867,7 +930,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
     anchor: entity_anchor.EntityAnchor | None = None
     if options.use_entity_anchor:
-        anchor = entity_anchor.resolve_entity_anchor(options.query, knowledge)
+        with _progress_stage(options, "entity_anchor") as stage:
+            anchor = entity_anchor.resolve_entity_anchor(options.query, knowledge)
+            stage["matched"] = anchor is not None
     result.anchored_entity = anchor
     if anchor is not None:
         result.warnings.extend(f"entity-anchor：{w}" for w in anchor.warnings)
@@ -933,8 +998,16 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
 
     export_name = Path(loaded.get("path", "")).name
 
+    # 全市场后市推演先消费 S/D 系列当前盘面与 D8 历史类比；无明确主题时，
+    # 通用 wiki 语义召回既慢又容易把“市场”锚到无关公司。本车道确定性关闭 W，
+    # 不影响题材/个股研究的 Hybrid RAG。
+    evidence_options = (
+        replace(options, use_wiki_rag=False)
+        if question_plan.question_type == QUESTION_MARKET_FORECAST
+        else options
+    )
     evidence_ctx = evidence_providers.EvidenceContext(
-        options=options,
+        options=evidence_options,
         result=result,
         knowledge=knowledge,
         question_plan=question_plan,
@@ -953,43 +1026,55 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     )
 
     # --- S / G / R: 盘面快照 / 图谱分层 / 证据索引（evidence_providers 插件层）---
-    market_lines = evidence_providers.collect_market_snapshot(evidence_ctx)
-    graph_bundle = evidence_providers.collect_graph(evidence_ctx)
+    with _progress_stage(options, "market_snapshot") as stage:
+        market_lines = evidence_providers.collect_market_snapshot(evidence_ctx)
+        stage["result_count"] = len(market_lines)
+    with _progress_stage(options, "graph") as stage:
+        graph_bundle = evidence_providers.collect_graph(evidence_ctx)
+        stage["concept_count"] = len(graph_bundle.concept_lines)
+        stage["company_count"] = len(graph_bundle.company_lines)
     graph_concept_lines = graph_bundle.concept_lines
     concepts = graph_bundle.concepts_result
     exposures = graph_bundle.exposures_result
     company_lines = graph_bundle.company_lines
     company_evidence_concepts = graph_bundle.company_evidence_concepts
     tiers = graph_bundle.tiers
-    evidence_index_bundle = evidence_providers.collect_evidence_index(
-        evidence_ctx, company_evidence_concepts
-    )
+    with _progress_stage(options, "evidence_index") as stage:
+        evidence_index_bundle = evidence_providers.collect_evidence_index(
+            evidence_ctx, company_evidence_concepts
+        )
+        stage["result_count"] = len(evidence_index_bundle.lines)
     evidence_lines = evidence_index_bundle.lines
     stale_notes = evidence_index_bundle.stale_notes
 
     # --- W: 知识库 hybrid 向量召回（evidence_providers 插件层）---
-    wiki_bundle = evidence_providers.collect_wiki_rag(
-        evidence_ctx, company_evidence_concepts
-    )
+    with _progress_stage(options, "wiki_rag") as stage:
+        wiki_bundle = evidence_providers.collect_wiki_rag(
+            evidence_ctx, company_evidence_concepts
+        )
+        stage["result_count"] = len(wiki_bundle.lines)
     wiki_lines = wiki_bundle.lines
     wiki_counter_lines = wiki_bundle.counter_lines
     wiki_llm_line_pairs = wiki_bundle.llm_line_pairs
     wiki_stats = wiki_bundle.stats
 
     # --- E: 外部 Web 检索（仅 general lane，且本地盘面/图谱/证据/wiki 全空时触发）---
-    web_fallback_lines, web_fallback_attempted = (
-        evidence_providers.collect_web_fallback(
-            evidence_ctx,
-            local_lines_empty=(
-                not market_lines
-                and not graph_concept_lines
-                and not company_lines
-                and not evidence_lines
-                and not wiki_lines
-                and not wiki_counter_lines
-            ),
+    with _progress_stage(options, "web_fallback") as stage:
+        web_fallback_lines, web_fallback_attempted = (
+            evidence_providers.collect_web_fallback(
+                evidence_ctx,
+                local_lines_empty=(
+                    not market_lines
+                    and not graph_concept_lines
+                    and not company_lines
+                    and not evidence_lines
+                    and not wiki_lines
+                    and not wiki_counter_lines
+                ),
+            )
         )
-    )
+        stage["attempted"] = web_fallback_attempted
+        stage["result_count"] = len(web_fallback_lines)
 
     # --- A: agent 检索循环（L3）：LLM 自主决定补检索（ASK_AGENT_LOOP 灰度）---
     agent_loop_lines: list[str] = []
@@ -1137,14 +1222,22 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             agent_tools["l3_lookup"] = _agent_l3_lookup
         if options.market_db_path is not None:
             agent_tools["market_data"] = _agent_market_data
-        agent_loop_result = agent_research.run_agent_loop(
-            options.query,
-            tools=agent_tools,
-            existing_evidence_summary=existing_summary,
-            total_seconds=_stage_timeout(options, 60),
-            deadline=options.deadline,
-            attempted_queries=tuple(pipeline_attempted),
-        )
+        with _progress_stage(
+            options,
+            "agent_loop",
+            tool_count=len(agent_tools),
+        ) as stage:
+            agent_loop_result = agent_research.run_agent_loop(
+                options.query,
+                tools=agent_tools,
+                existing_evidence_summary=existing_summary,
+                total_seconds=_stage_timeout(options, 60),
+                deadline=options.deadline,
+                attempted_queries=tuple(pipeline_attempted),
+            )
+            stage["step_count"] = len(agent_loop_result.steps)
+            stage["evidence_count"] = len(agent_loop_result.evidence)
+            stage["gap_count"] = len(agent_loop_result.gaps)
         result.provider_traces.extend(agent_loop_result.traces)
         result.provider_traces.append(
             ProviderTrace(
@@ -1188,12 +1281,15 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
         result.routed_modules = list(routed)
         for name in routed:
-            mr = run_module(
-                name,
-                graph_query,
-                resolved_kb_wiki,
-                _stage_timeout(options, options.module_timeout),
-            )
+            with _progress_stage(options, "module", module=name) as stage:
+                mr = run_module(
+                    name,
+                    graph_query,
+                    resolved_kb_wiki,
+                    _stage_timeout(options, options.module_timeout),
+                )
+                stage["ok"] = mr.ok
+                stage["highlight_count"] = len(mr.highlights)
             module_block.append(f"{SUBHEAD}模块·{MODULE_LABELS.get(name, name)}")
             if mr.ok and mr.highlights:
                 result.found_graph = True
@@ -1864,11 +1960,21 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
         )
 
-        outcomes = ask_planner.run_providers(
-            providers,
+        with _progress_stage(
+            options,
+            "data_blocks",
+            provider_count=len(providers),
             parallel=options.parallel_blocks,
-            deadline=options.deadline,
-        )
+        ) as stage:
+            outcomes = ask_planner.run_providers(
+                providers,
+                parallel=options.parallel_blocks,
+                deadline=options.deadline,
+            )
+            stage["outcome_count"] = len(outcomes)
+            stage["nonempty_count"] = sum(
+                bool(outcome.block) for outcome in outcomes
+            )
         for outcome in outcomes:
             structured_claims.extend(
                 _claims_from_data_block(
@@ -1957,12 +2063,13 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
         result.prepared_synthesis_is_market_review = is_market_review
         if options.synthesize:
-            synthesize_prepared_answer(
-                PreparedAnswer(
-                    options=options,
-                    result=result,
+            with _progress_stage(options, "synthesis"):
+                synthesize_prepared_answer(
+                    PreparedAnswer(
+                        options=options,
+                        result=result,
+                    )
                 )
-            )
 
     if result.answer_spec is None:
         result.answer_spec = _build_answer_spec_for_result(
@@ -1995,15 +2102,17 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         for issue in result.answer_spec.quality.issues
     )
 
-    result.review_gate = output_review.review_output(
-        trade_date=result.trade_date,
-        audit=audit,
-        counter_plan=counter_plan,
-        gap_lines=gap_lines,
-        follow_ups=follow_ups,
-        conclusion_lines=conclusion,
-        final_answer=result.synthesis,
-    )
+    with _progress_stage(options, "output_review") as stage:
+        result.review_gate = output_review.review_output(
+            trade_date=result.trade_date,
+            audit=audit,
+            counter_plan=counter_plan,
+            gap_lines=gap_lines,
+            follow_ups=follow_ups,
+            conclusion_lines=conclusion,
+            final_answer=result.synthesis,
+        )
+        stage["warn_count"] = result.review_gate.warn_count
     result.warnings.extend(
         f"输出质检：{c.name}——{c.note}" for c in result.review_gate.checks if c.status == output_review.WARN
     )
@@ -2135,5 +2244,3 @@ def prepare_existing_answer(
         options=replace(options, synthesize=False),
         result=result,
     )
-
-
