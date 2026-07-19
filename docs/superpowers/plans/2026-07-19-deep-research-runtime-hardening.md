@@ -165,3 +165,62 @@ Expected: 无 whitespace error，不包含既存未跟踪行情文件。
 - 相关回归：278 passed。
 - 全量：2066 passed、13 failed、1 skipped；13 个失败与修改前相同，来自本地数据分类及 userspace/vault 宿主环境。
 - `ruff check`、`py_compile`、`git diff --check` 全部通过。
+
+### Task 7: Ask stage progress and root watchdog
+
+**Files:**
+- Modify: `intelligence/services/ask_types.py`
+- Modify: `intelligence/services/ask.py`
+- Modify: `intelligence/services/conversation_orchestrator.py`
+- Test: `intelligence/tests/test_conversation_orchestrator.py`
+- Test: `intelligence/tests/test_p1b_runtime.py`
+
+- [ ] **Step 1: 写失败测试**
+
+在 orchestrator 测试中注入一个超过 `ResearchExecutionPolicy.max_elapsed_seconds`
+的 `answer_query_fn`，断言 turn 在 deadline 后返回 partial、trace 含
+`ask_root_timeout`，并断言超时后触发的迟到 progress 不再追加 trace。再直接调用
+`answer_query` 的轻量分支，断言 progress callback 收到成对的阶段事件。
+
+- [ ] **Step 2: 验证测试先失败**
+
+Run:
+`.venv-workbench/bin/python -m pytest -q intelligence/tests/test_conversation_orchestrator.py -k 'ask_watchdog or ask_progress'`
+
+Expected: 旧实现同步等待阻塞函数，且 `AskOptions` 不支持 progress callback。
+
+- [ ] **Step 3: 实现控制面 progress 契约**
+
+在 `AskOptions` 增加：
+
+```python
+progress_callback: Callable[
+    [str, str, dict[str, object]],
+    None,
+] | None = field(default=None, repr=False, compare=False)
+```
+
+在 `ask.py` 增加容错 `_emit_progress()` 和阶段 context manager；只发送阶段名、状态、
+耗时及计数，不发送证据正文或内部 locator。
+
+- [ ] **Step 4: 实现 orchestrator 根看门狗**
+
+用 `contextvars.copy_context()` 把当前 LLM/Query ledger 传入单工作线程，以根 deadline
+剩余时间等待 Future。超时后设置 progress gate、`cancel()` Future、记录
+`ask_root_timeout` 并返回 `_deadline_partial_result()`；executor 使用
+`shutdown(wait=False, cancel_futures=True)`，不得在退出 context 时反向等待。
+
+- [ ] **Step 5: 运行定向与回归测试**
+
+Run:
+`.venv-workbench/bin/python -m pytest -q intelligence/tests/test_conversation_orchestrator.py intelligence/tests/test_p1b_runtime.py`
+
+Expected: 全部通过。
+
+- [ ] **Step 6: 本地事故重放**
+
+停掉旧 8795，以当前 commit 干净启动临时端口；提交事故原问题：
+`我希望你基于目前的市场数据，展望一下后面市场会怎么演绎`。
+
+Expected: 120 秒内返回完整答案或明确 partial/gap；trace 能显示最后运行的 Ask 阶段；
+readiness 的行情缺口必须如实报告，不得把 process health 当成 ready。

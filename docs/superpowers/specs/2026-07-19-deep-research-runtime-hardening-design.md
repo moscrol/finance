@@ -60,3 +60,43 @@ Conversation citations 在公开投影前按稳定语义键去重，避免 owner
 - 同 key 并发只 fetch 一次，不同 key 能真实并行。
 - 公开引用不包含 `wiki/relations/*.json`，重复 citation 被去重。
 
+## 事故补充：Ask 阶段可观测与根看门狗
+
+### 背景
+
+`run_20260719_144424_334478` 在 controller、route、budget 均完成后进入
+`answer_query()`，此后约 50 分钟没有新 trace，最终由用户取消。现有
+`ResearchDeadline` 是协作式 deadline：子调用只有主动读取剩余时间才会停止。
+因此，一个遗漏 deadline 的同步阻塞既不会留下阶段边界，也会阻塞整个 turn。
+
+### 设计
+
+1. `AskOptions` 增加只属于控制面的 `progress_callback`。`ask.py` 在规划、
+   市场上下文、固定证据 provider、wiki、Web、agent loop、模块、数据块、
+   AnswerSpec/输出审查等阶段发出 `started/completed/failed` 事件。回调异常不得
+   影响研究结果，且事件不得进入用户可见 section。
+2. `TurnOrchestrator` 把回调投影为 `ask_stage_*` trace。每个事件使用唯一 step id，
+   避免 append-only trace 中覆盖或混淆同名阶段。
+3. 无 owner 的通用 `answer_query()` 在继承当前 `ContextVar` 的单工作线程中执行；
+   orchestrator 最多等待根 deadline 的剩余时间。到期后立即返回 grounded partial/gap，
+   关闭后续 progress 写入并取消尚未启动的 Future。
+4. 看门狗只负责用户侧止损，不能安全杀死已进入 Python/C 扩展的线程；各 provider
+   仍必须使用同一根 deadline 和自身 I/O timeout 正常退出。这样避免把“能返回”
+   误当成“底层阻塞已消失”。
+
+### 取舍
+
+- 只重启重放：改动最少，但再次卡死仍没有内部定位证据。
+- 阶段 trace + 根看门狗（采用）：接口改动小，能同时定位和保证有限时间返回。
+- 把 Ask 改成进程级状态机：可强制终止，但序列化成本、DuckDB/缓存上下文迁移和
+  checkpoint 设计明显超出本次事故范围。
+
+### 补充验收
+
+- 注入阻塞 `answer_query` 时，turn 在根 deadline 后以 completed partial 返回，
+  trace 明确记录 `ask_root_timeout`，不得等待阻塞函数结束。
+- 注入 Ask progress 时，trace 能看到阶段 `started/completed`；看门狗关闭后迟到事件
+  不得继续写入已完成 run。
+- 正常 `answer_query` 的 ContextVar 预算/查询账本语义不变。
+- 使用事故原问题重放时，120 秒内必须得到完整回答或明确 partial/gap，且 trace 至少
+  能定位到最后一个已启动的 Ask 阶段。
