@@ -70,6 +70,11 @@ def judge_relevance(
     """
     if not candidates:
         return None
+    effective_timeout = max(0.0, float(timeout))
+    if deadline is not None:
+        effective_timeout = min(effective_timeout, deadline.remaining())
+    if effective_timeout <= 0:
+        return None
     complete = complete_fn or llm_refine.complete
     numbered = "\n".join(
         f"{index}. {title}：{excerpt[:_EXCERPT_CHARS]}"
@@ -83,11 +88,9 @@ def judge_relevance(
         },
     ]
     complete_kwargs = {
-        "timeout": timeout,
+        "timeout": effective_timeout,
         "temperature": 0.0,
     }
-    if deadline is not None:
-        complete_kwargs["deadline"] = deadline
     # 语义闸门独立性：配置 LLM_JUDGE_* 时走独立 provider（与合成模型解耦）。
     judge_override = llm_refine.judge_provider()
     if judge_override is not None and complete_fn is None:
