@@ -74,17 +74,28 @@ def judge_relevance(
         f"{index}. {title}：{excerpt[:_EXCERPT_CHARS]}"
         for index, (title, excerpt) in enumerate(candidates[:MAX_CANDIDATES])
     )
-    content, _provider, _reason = complete(
-        [
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": f"用户问题：{query}\n\n候选召回：\n{numbered}",
-            },
-        ],
-        timeout=timeout,
-        temperature=0.0,
-    )
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": f"用户问题：{query}\n\n候选召回：\n{numbered}",
+        },
+    ]
+    # 语义闸门独立性：配置 LLM_JUDGE_* 时走独立 provider（与合成模型解耦）。
+    judge_override = llm_refine.judge_provider()
+    if judge_override is not None and complete_fn is None:
+        with llm_refine.provider_override(judge_override):
+            content, _provider, _reason = complete(
+                messages,
+                timeout=timeout,
+                temperature=0.0,
+            )
+    else:
+        content, _provider, _reason = complete(
+            messages,
+            timeout=timeout,
+            temperature=0.0,
+        )
     if not content:
         return None
     match = re.search(r"\{.*\}", content, re.DOTALL)

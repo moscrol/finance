@@ -160,6 +160,33 @@ def detect_provider(model_override: str | None = None) -> LLMProvider | None:
     return next(iter(detect_providers(model_override)), None)
 
 
+def judge_provider() -> LLMProvider | None:
+    """语义审（grounding judge / evidence judge）的独立 provider 解析。
+
+    背景（双审查 ③）：composer 与 judge 走同一 provider 存在相关性失败——
+    同一模型的系统性偏差会同时骗过创作与审稿。配置以下 env 后语义审走
+    独立模型；未配置返回 None，调用方回落主 provider（行为不变）：
+    - ``LLM_JUDGE_API_KEY``（+ ``LLM_JUDGE_BASE_URL`` + ``LLM_JUDGE_MODEL``）：
+      完全独立的 judge 端点；
+    - 仅 ``LLM_JUDGE_MODEL``：同 key/端点、不同模型（次优但仍降低相关性）。
+    """
+    key = os.environ.get("LLM_JUDGE_API_KEY")
+    base = os.environ.get("LLM_JUDGE_BASE_URL")
+    model = os.environ.get("LLM_JUDGE_MODEL")
+    if key:
+        return LLMProvider(
+            name="judge",
+            api_key=key,
+            base_url=base or "https://api.openai.com/v1",
+            model=model or "gpt-4o-mini",
+        )
+    if model:
+        main = detect_provider(None)
+        if main is not None and main.model != model:
+            return replace(main, name=f"{main.name}-judge", model=model)
+    return None
+
+
 def _provider_failure_reason(
     failures: list[tuple[LLMProvider, str]],
 ) -> tuple[LLMProvider, str]:

@@ -10,9 +10,9 @@
 - LLM 未配置/超时/输出不合法 → 已收集证据照常返回，主链行为可降级不中断。
 
 灰度开关 ``ASK_AGENT_LOOP``：
-- ``off``（默认）：不启用，行为逐字节不变；
-- ``auto``：仅当 controller 能力需求含 web_search/market_news（route 未命中
-  任何 skill 的长尾兜底车道）时启用；
+- ``auto``（默认，2026-07-19 转正）：仅当 controller 能力需求含
+  web_search/market_news（route 未命中任何 skill 的长尾兜底车道）时启用；
+- ``off``：不启用；
 - ``on``：所有 compose 问题启用。
 """
 from __future__ import annotations
@@ -76,8 +76,12 @@ _TOOL_NAMES = (*_TOOL_DESCRIPTIONS, "finish")
 
 
 def loop_mode() -> str:
-    mode = str(os.environ.get(ENV_MODE) or MODE_OFF).strip().lower()
-    return mode if mode in _VALID_MODES else MODE_OFF
+    # 默认 auto（2026-07-19 转正）：仅 controller 能力含 web_search/market_news
+    # 的长尾兜底车道启用 agent 补检索；头部 owner 意图不受影响。该 flag 此前
+    # 默认 off 等待的安全基建（LLM 硬预算、QueryLedger 去重、Deadline 钳制、
+    # candidate_facts 证据通道）已全部就位。ASK_AGENT_LOOP=off 可整体关闭。
+    mode = str(os.environ.get(ENV_MODE) or MODE_AUTO).strip().lower()
+    return mode if mode in _VALID_MODES else MODE_AUTO
 
 
 def max_steps() -> int:

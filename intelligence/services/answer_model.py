@@ -212,6 +212,10 @@ class EvidenceRef:
     tier: str = ""
     source_date: str | None = None
     freshness: str = "unknown"
+    # 来源跨度级溯源（P2）：内容 hash 与索引来源版本，由 Citation 传播——
+    # 同一 evidence_id 在不同索引版本下可被区分，为后续冲突消解提供锚点。
+    content_hash: str = ""
+    source_revision: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -221,6 +225,8 @@ class EvidenceRef:
             "tier": self.tier,
             "source_date": self.source_date,
             "freshness": self.freshness,
+            "content_hash": self.content_hash,
+            "source_revision": self.source_revision,
         }
 
 

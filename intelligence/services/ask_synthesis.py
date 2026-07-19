@@ -426,6 +426,11 @@ def _build_answer_spec_for_result(
             source=citation.source,
             detail=citation.detail,
             tier=evidence_tiers.get(citation.tag, ""),
+            # 来源溯源传播（P2）：Citation 携带的索引新鲜度/内容 hash/来源
+            # 版本此前在转 EvidenceRef 时丢失（Codex 点名的具体断点）。
+            freshness=citation.index_freshness or "unknown",
+            content_hash=citation.content_hash,
+            source_revision=citation.index_source_revision,
         )
         for citation in citations
     ]
@@ -607,6 +612,9 @@ def _build_base_answer_spec_from_sections(
             evidence_id=citation.tag,
             source=citation.source,
             detail=citation.detail,
+            freshness=citation.index_freshness or "unknown",
+            content_hash=citation.content_hash,
+            source_revision=citation.index_source_revision,
         )
         for citation in citations
     ]
@@ -1404,19 +1412,34 @@ def synthesize_shadow_grounded_answer(
     sentences, _unbound = answer_model.parse_grounded_sentences(
         candidate_answer
     )
-    judged, judge_reason = llm_refine.synthesize_messages(
-        llm_refine.build_grounding_judge_messages(
-            options.query,
-            candidate_answer,
-            registry_block,
-        ),
-        model_override=options.llm_model,
-        timeout=max(1, int(deadline.remaining())),
-        deadline=deadline,
-        temperature=0.0,
-        max_tokens=1200 * token_budget_scale,
-        max_chars=8000 * token_budget_scale,
+    # 语义审独立性：配置 LLM_JUDGE_* 时 judge 走独立 provider，
+    # 降低与 composer 同模型的相关性失败；未配置回落主 provider。
+    judge_override = llm_refine.judge_provider()
+    judge_messages = llm_refine.build_grounding_judge_messages(
+        options.query,
+        candidate_answer,
+        registry_block,
     )
+    if judge_override is not None:
+        with llm_refine.provider_override(judge_override):
+            judged, judge_reason = llm_refine.synthesize_messages(
+                judge_messages,
+                timeout=max(1, int(deadline.remaining())),
+                deadline=deadline,
+                temperature=0.0,
+                max_tokens=1200 * token_budget_scale,
+                max_chars=8000 * token_budget_scale,
+            )
+    else:
+        judged, judge_reason = llm_refine.synthesize_messages(
+            judge_messages,
+            model_override=options.llm_model,
+            timeout=max(1, int(deadline.remaining())),
+            deadline=deadline,
+            temperature=0.0,
+            max_tokens=1200 * token_budget_scale,
+            max_chars=8000 * token_budget_scale,
+        )
     if judged is None:
         result.grounded_composer_shadow = (
             answer_model.GroundedComposerShadow(
