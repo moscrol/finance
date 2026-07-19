@@ -105,6 +105,67 @@ class L3EvidenceLookupTests(unittest.TestCase):
         self.assertTrue(bundle.items)
         self.assertTrue(any("sse_einteract" in item.summary for item in bundle.items))
 
+    def test_company_hint_overrides_subject_reparsed_from_full_sentence(self) -> None:
+        plan = plan_answer_question(
+            "天赐材料与楚能新能源签订采购合作协议的公告有什么影响"
+        )
+        completed = subprocess.CompletedProcess(
+            args=["mock"],
+            returncode=0,
+            stdout=(
+                "2026-06-02T00:00  cninfo  天赐材料(002709)  "
+                "[P0] 关于采购合作协议的进展公告"
+            ),
+            stderr="",
+        )
+
+        with mock.patch(
+            "intelligence.services.l3_evidence.subprocess.run",
+            return_value=completed,
+        ) as run:
+            bundle = lookup_l3_evidence(
+                "天赐材料与楚能新能源签订采购合作协议的公告有什么影响",
+                plan,
+                local_evidence_text="仍需核对公告原文。",
+                config=L3LookupConfig(
+                    enabled=True,
+                    cache_ttl_seconds=0,
+                ),
+                company_hint="天赐材料",
+            )
+
+        called = run.call_args.args[0]
+        company_index = called.index("company") + 1
+        self.assertEqual(called[company_index], "天赐材料")
+        self.assertTrue(bundle.items)
+
+    def test_warning_only_output_is_not_promoted_to_l3_evidence(self) -> None:
+        plan = plan_answer_question("某公司公告有什么影响")
+        completed = subprocess.CompletedProcess(
+            args=["mock"],
+            returncode=0,
+            stdout="[warn] 无法解析公司：某公司与另一公司",
+            stderr="",
+        )
+
+        with mock.patch(
+            "intelligence.services.l3_evidence.subprocess.run",
+            return_value=completed,
+        ):
+            bundle = lookup_l3_evidence(
+                "某公司公告有什么影响",
+                plan,
+                local_evidence_text="仍需核对公告原文。",
+                config=L3LookupConfig(
+                    enabled=True,
+                    cache_ttl_seconds=0,
+                ),
+                company_hint="某公司",
+            )
+
+        self.assertFalse(bundle.items)
+        self.assertIn("没有解析到可用证据", "\n".join(bundle.warnings))
+
     def test_default_company_command_can_use_env_python_override(self) -> None:
         plan = plan_answer_question("深挖瑞华泰，查公告和互动易")
         completed = subprocess.CompletedProcess(args=["mock"], returncode=0, stdout="ok", stderr="")

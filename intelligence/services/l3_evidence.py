@@ -138,6 +138,7 @@ def lookup_l3_evidence(
     local_evidence_text: str,
     *,
     config: L3LookupConfig | None = None,
+    company_hint: str | None = None,
 ) -> L3EvidenceBundle:
     cfg = config or L3LookupConfig.from_env()
     bundle = L3EvidenceBundle(query=query)
@@ -155,6 +156,8 @@ def lookup_l3_evidence(
         return bundle
 
     stock = _extract_stock_hint(query)
+    if company_hint:
+        stock["stock_name"] = str(company_hint).strip()
     wanted = _wanted_sources(gaps)
     if cfg.company_cmd:
         _run_source("company", cfg.company_cmd, query, stock, cfg, bundle, wanted_sources=wanted)
@@ -345,6 +348,8 @@ def _parse_lookup_output(source_type: str, stdout: str) -> list[L3EvidenceItem]:
     parsed_lines = _parse_plaintext_lookup_lines(source_type, lines)
     if parsed_lines:
         return parsed_lines
+    if all(_is_non_evidence_cli_line(line) for line in lines):
+        return []
     title = lines[0]
     summary = "；".join(lines[:4])
     return [L3EvidenceItem(source_type=source_type, title=title, summary=summary, citation="runtime cli")]
@@ -366,6 +371,14 @@ def _try_parse_json_items(source_type: str, text: str) -> list[L3EvidenceItem]:
     for row in rows:
         if not isinstance(row, dict):
             continue
+        actual_source = str(
+            row.get("source_type")
+            or row.get("provider")
+            or row.get("source")
+            or source_type
+        )
+        if actual_source.startswith(("http://", "https://")):
+            actual_source = source_type
         title = str(row.get("title") or row.get("name") or row.get("question") or source_type)
         body = str(row.get("summary") or row.get("content") or row.get("answer") or row.get("text") or "")
         if not body:
@@ -375,7 +388,7 @@ def _try_parse_json_items(source_type: str, text: str) -> list[L3EvidenceItem]:
         prefix = f"{date} " if date else ""
         out.append(
             L3EvidenceItem(
-                source_type=source_type,
+                source_type=actual_source,
                 title=_squash(title, 120),
                 summary=_squash(prefix + body, 260),
                 citation=str(url),
@@ -383,6 +396,16 @@ def _try_parse_json_items(source_type: str, text: str) -> list[L3EvidenceItem]:
             )
         )
     return out
+
+
+def _is_non_evidence_cli_line(line: str) -> bool:
+    text = str(line or "").strip().lower()
+    return bool(
+        not text
+        or text.startswith(("[warn]", "[warning]", "[error]", "warning:", "error:"))
+        or text in {"(无结果)", "无结果", "(no results)", "no results"}
+        or "无法解析公司" in text
+    )
 
 
 def _parse_plaintext_lookup_lines(source_type: str, lines: list[str]) -> list[L3EvidenceItem]:

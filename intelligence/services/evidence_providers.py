@@ -152,6 +152,7 @@ def collect_l3_official(
             timeout=ctx.stage_timeout(options.l3_lookup_timeout),
             limit=options.l3_lookup_limit,
         ),
+        company_hint=anchor.entity if anchor is not None else None,
     )
     ctx.result.l3_evidence = l3_bundle
     ctx.result.warnings.extend(f"l3-evidence：{w}" for w in l3_bundle.warnings)
