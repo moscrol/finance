@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from intelligence.services import closed_loop_retrieval
 from intelligence.services.closed_loop_retrieval import retrieve_closed_loop
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.kb_rag import RetrievalTelemetry, WikiHit, WikiRagResult
@@ -150,6 +151,41 @@ def test_timeout_stops_rewrites_for_the_same_aperture() -> None:
         "narrow",
         "broad",
         "counter",
+    ]
+
+
+def test_observed_query_cost_skips_apertures_that_cannot_fit_budget(
+    monkeypatch,
+) -> None:
+    clock = iter((0.0, 0.0, 0.0, 6.0, 6.0, 6.0))
+    monkeypatch.setattr(
+        closed_loop_retrieval.time,
+        "monotonic",
+        lambda: next(clock),
+    )
+    calls: list[str] = []
+
+    def retrieve(query: str) -> WikiRagResult:
+        calls.append(query)
+        return _response(query, [_hit("液冷服务器", 0.72)])
+
+    result = retrieve_closed_loop(
+        "液冷",
+        anchor=None,
+        retrieve=retrieve,
+        total_seconds=10.0,
+    )
+
+    assert len(calls) == 1
+    assert [(attempt.aperture, attempt.status) for attempt in result.attempts] == [
+        ("narrow", "ok"),
+        ("broad", "budget_exhausted"),
+        ("counter", "budget_exhausted"),
+    ]
+    assert [item.hit.title for item in result.conclusion] == ["液冷服务器"]
+    assert result.warnings == [
+        "broad retrieval skipped: remaining budget below observed query cost",
+        "counter retrieval skipped: remaining budget below observed query cost",
     ]
 
 
