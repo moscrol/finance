@@ -121,7 +121,8 @@ PUBLIC_LEAK_PATTERNS = (
     (
         "local_path",
         re.compile(
-            r"(?:/Users/|/private/var/|/home/|[A-Za-z]:[/\\]).+?(?:\s|[\"'])"
+            r"(?:/Users/|/private/var/|/home/|"
+            r"(?<![A-Za-z0-9])[A-Za-z]:[/\\]).+?(?:\s|[\"'])"
         ),
     ),
     (
