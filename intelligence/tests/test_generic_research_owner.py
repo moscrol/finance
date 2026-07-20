@@ -168,7 +168,7 @@ def test_owner_completes_required_outputs_after_grounded_tool_observation() -> N
     actions = iter(
         [
             '{"tool":"web_search","args":{"query":"某公司最新公告"},"reason":"先查当前事实"}',
-            '{"tool":"finish","args":{"sufficient":true,"gaps":[]},"reason":"必要输出已覆盖"}',
+                '{"tool":"finish","args":{"sufficient":true,"assessment":"当前判断有最新公告支持","gaps":[]},"reason":"必要输出已覆盖"}',
         ]
     )
 

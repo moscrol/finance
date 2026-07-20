@@ -16,12 +16,16 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
+from intelligence.services.research_state import ResearchState, state_from_contract
 
 
 @dataclass(frozen=True)
 class CompletionReport:
     status: str
     outputs: tuple[OutputStatus, ...]
+    factual_grounding: str = "unknown"
+    causal_adequacy: str = "unknown"
+    task_coverage: str = "unknown"
 
     @property
     def missing_required(self) -> tuple[OutputStatus, ...]:
@@ -30,6 +34,9 @@ class CompletionReport:
     def to_dict(self) -> dict[str, object]:
         return {
             "status": self.status,
+            "factual_grounding": self.factual_grounding,
+            "causal_adequacy": self.causal_adequacy,
+            "task_coverage": self.task_coverage,
             "outputs": [
                 {
                     "output_id": item.output_id,
@@ -109,6 +116,11 @@ def evaluate_completion(
     contract: ResearchTaskContract,
     loop: agent_research.AgentLoopResult,
 ) -> CompletionReport:
+    state = loop.research_state
+    if state is not None:
+        completion = state.evaluate_completion()
+    else:
+        completion = None
     evidence = tuple(loop.evidence)
     ids = _evidence_ids(evidence)
     outputs: list[OutputStatus] = []
@@ -130,13 +142,21 @@ def evaluate_completion(
         for required, status in zip(contract.required_outputs, outputs)
         if required.required
     ]
-    if all(status.status == "fulfilled" for status in required_statuses):
+    if completion is not None:
+        result_status = completion.status
+    elif all(status.status == "fulfilled" for status in required_statuses):
         result_status = "completed"
     elif any(status.status == "missing" for status in required_statuses):
         result_status = "partial"
     else:
         result_status = "gap"
-    return CompletionReport(result_status, tuple(outputs))
+    return CompletionReport(
+        result_status,
+        tuple(outputs),
+        factual_grounding=completion.factual_grounding if completion else "unknown",
+        causal_adequacy=completion.causal_adequacy if completion else "unknown",
+        task_coverage=completion.task_coverage if completion else "unknown",
+    )
 
 
 def run_generic_research(
@@ -196,6 +216,11 @@ def run_generic_research(
         },
         ensure_ascii=False,
     )
+    state = state_from_contract(contract)
+    for index, item in enumerate(preloaded_evidence, start=1):
+        state.add_evidence(
+            item.to_observation(f"agent:preloaded:{index}:{item.tool}")
+        )
     loop = agent_research.run_agent_loop(
         contract.question,
         tools=tools,
@@ -207,6 +232,7 @@ def run_generic_research(
         deadline=context.deadline,
         complete_fn=complete_fn,
         task_instructions=instructions,
+        research_state=state,
     )
     if preloaded_evidence:
         loop.evidence = [*preloaded_evidence, *loop.evidence]

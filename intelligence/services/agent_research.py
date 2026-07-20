@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from intelligence.services import llm_refine, market_news, web_research
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.research_state import EvidenceObservation, ResearchState
 
 ENV_MODE = "ASK_AGENT_LOOP"
 ENV_MAX_STEPS = "ASK_AGENT_MAX_STEPS"
@@ -114,6 +115,27 @@ class AgentEvidence:
     detail: str  # excerpt / snippet / 日期+媒体
     source: str  # 用户可见来源标签或公开 URL
     internal_locator: str = ""  # 仅控制面追踪，不得进入 Citation/AnswerSpec
+    source_date: str | None = None
+    evidence_tier: str = ""
+    supports: tuple[str, ...] = ()
+    contradicts: tuple[str, ...] = ()
+    independent_key: str = ""
+    freshness: str = "unknown"
+
+    def to_observation(self, evidence_id: str) -> EvidenceObservation:
+        return EvidenceObservation(
+            evidence_id=evidence_id,
+            tool=self.tool,
+            title=self.title,
+            detail=self.detail,
+            source=self.source,
+            source_date=self.source_date,
+            evidence_tier=self.evidence_tier,
+            supports=self.supports,
+            contradicts=self.contradicts,
+            independent_key=self.independent_key,
+            freshness=self.freshness,
+        )
 
 
 @dataclass(frozen=True)
@@ -145,6 +167,8 @@ class AgentLoopResult:
     assessment: str = ""
     gaps: tuple[str, ...] = ()
     stop_reason: str = ""
+    research_state: ResearchState | None = None
+    state_revision: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -154,6 +178,12 @@ class AgentLoopResult:
             "assessment": self.assessment,
             "gaps": list(self.gaps),
             "stop_reason": self.stop_reason,
+            "research_state": (
+                self.research_state.to_dict()
+                if self.research_state is not None
+                else None
+            ),
+            "state_revision": self.state_revision,
         }
 
 
@@ -466,7 +496,21 @@ def _run_tool(
     return runner(query)
 
 
-def _transcript_block(steps: list[AgentStep]) -> str:
+def _research_state_block(
+    state: ResearchState | None,
+    steps: list[AgentStep],
+) -> str:
+    if state is not None:
+        recent_steps = "\n".join(
+            f"步骤{index} {step.tool}(\"{step.query}\")：{step.observation[:240]}"
+            for index, step in enumerate(
+                steps[-2:], start=max(1, len(steps) - 1)
+            )
+        )
+        return (
+            f"{state.summary_for_agent()}\n"
+            f"最近工具步骤：{recent_steps or '（无）'}"
+        )
     if not steps:
         return "（尚未执行任何检索）"
     lines: list[str] = []
@@ -489,6 +533,7 @@ def run_agent_loop(
     complete_fn: CompleteFn | None = None,
     attempted_queries: Sequence[tuple[str, str]] = (),
     task_instructions: str = "",
+    research_state: ResearchState | None = None,
 ) -> AgentLoopResult:
     """跑一轮 agent 检索循环；任何失败都返回已收集的部分结果（可降级）。
 
@@ -496,7 +541,7 @@ def run_agent_loop(
     closed-loop 的各光圈查询、Web 兜底），用于跨管线去重——agent 重发这些
     查询会被当场拦截并提示改写，避免同一 turn 内重复检索同一语料。
     """
-    result = AgentLoopResult()
+    result = AgentLoopResult(research_state=research_state)
     complete = complete_fn or llm_refine.complete
     budget = steps_budget if steps_budget is not None else max_steps()
     stage_deadline = ResearchDeadline.from_timeout(total_seconds)
@@ -532,7 +577,8 @@ def run_agent_loop(
             f"用户问题：{query}\n\n"
             f"任务契约与完成要求：\n{task_instructions or '（未提供）'}\n\n"
             f"主链已有证据摘要：\n{existing_evidence_summary or '（无）'}\n\n"
-            f"已执行步骤与观察：\n{_transcript_block(result.steps)}\n\n"
+            f"研究状态与最近观察：\n"
+            f"{_research_state_block(result.research_state, result.steps)}\n\n"
             f"剩余检索步数预算：{budget - executed_steps}"
         )
         content, _provider, reason = complete(
@@ -577,6 +623,16 @@ def run_agent_loop(
                 )
             )
             result.stop_reason = "agent finish"
+            if result.research_state is not None:
+                result.research_state.set_assessment(result.assessment)
+                for gap_index, gap in enumerate(result.gaps, start=1):
+                    result.research_state.add_gap(
+                        f"agent_gap_{gap_index}",
+                        gap,
+                        blocks=tuple(result.research_state.required_outputs),
+                    )
+                result.research_state.set_stop_reason(result.stop_reason)
+                result.state_revision = result.research_state.revision
             break
 
         if tool not in tools or tool not in _TOOL_NAMES:
@@ -607,6 +663,7 @@ def run_agent_loop(
         if available_stage_seconds() <= 0.001:
             result.stop_reason = "预算耗尽：总时长"
             break
+        state_revision_before = result.research_state.revision if result.research_state is not None else 0
         started = time.monotonic()
         try:
             evidence, observation, trace = _run_tool(
@@ -625,6 +682,15 @@ def run_agent_loop(
         elapsed_ms = int((time.monotonic() - started) * 1000)
         result.traces.append(trace)
         result.evidence.extend(evidence)
+        if result.research_state is not None:
+            evidence_start = len(result.evidence) - len(evidence) + 1
+            for offset, item in enumerate(evidence):
+                result.research_state.add_evidence(
+                    item.to_observation(
+                        f"agent:{evidence_start + offset}:{item.tool}"
+                    )
+                )
+            result.state_revision = result.research_state.revision
         result.steps.append(
             AgentStep(
                 tool=tool,
@@ -635,12 +701,16 @@ def run_agent_loop(
                 elapsed_ms=elapsed_ms,
             )
         )
-        if evidence:
+        state_changed = result.research_state is not None and result.state_revision > state_revision_before
+        if evidence and (result.research_state is None or state_changed):
             no_information_steps = 0
         else:
             no_information_steps += 1
         if no_information_steps >= 2:
             result.stop_reason = "no_information_gain"
+            if result.research_state is not None:
+                result.research_state.set_stop_reason(result.stop_reason)
+                result.state_revision = result.research_state.revision
             break
     else:
         result.stop_reason = "预算耗尽：步数"
