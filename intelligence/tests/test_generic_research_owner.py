@@ -774,6 +774,27 @@ def test_long_tail_fixture_keeps_head_and_owner_routes_out_of_generic_owner() ->
             ] == case["required_outputs"]
 
 
+def test_relation_list_questions_use_relation_contract_not_l3_fact_check() -> None:
+    for query in ("浪潮信息的合作方有哪些？", "浪潮信息的供应商有哪些？"):
+        decision = decide_turn(
+            query,
+            llm_complete=lambda _messages: (None, None, "offline"),
+        )
+        contract = conversation_orchestrator._build_generic_research_contract(
+            query,
+            task_id="relation-list",
+            turn_intent=decision.turn_intent,
+        )
+        assert contract.presentation_profile == "relation"
+        assert [item.output_id for item in contract.required_outputs] == [
+            "direct_assessment",
+            "relation_map",
+            "supporting_evidence",
+        ]
+        assert "graph_lookup" in contract.allowed_capabilities
+        assert "l3_lookup" not in contract.allowed_capabilities
+
+
 def test_generic_tier_deadline_is_clamped_once_and_keeps_reserve() -> None:
     root = ResearchDeadline.from_timeout(120.0, synthesis_reserve=20.0)
     contract = _contract()

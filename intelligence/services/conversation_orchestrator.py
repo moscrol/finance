@@ -151,7 +151,13 @@ def _build_generic_research_contract(
     # “甲和乙是否合作/供货”仍走 L3 hard-fact 核验；“甲的客户有哪些/客户的
     # 竞争对手是谁”是关系地图任务，不能被普通个股事实契约吞掉。
     is_relation_fact_check = is_relation_query and bool(
-        re.search(r"(?:是否|有无|有没有|合作|供货|订单|合同|认证|定点)", normalized)
+        re.search(
+            r"(?:是否|有无|有没有|能否|是否已经).{0,12}"
+            r"(?:合作|供货|供应|订单|合同|认证|定点|客户关系)"
+            r"|(?:合作|供货|供应|订单|合同|认证|定点|客户关系).{0,8}"
+            r"(?:是否|有无|有没有|能否)",
+            normalized,
+        )
     )
     is_relation_map = is_relation_query and not is_relation_fact_check
     is_methodology = bool(
