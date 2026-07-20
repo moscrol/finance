@@ -14,6 +14,7 @@ from intelligence.services.ask import AskOptions, AskResult, Citation
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_FACT_CHECK,
+    QUESTION_MARKET_CAUSE,
     QUESTION_METHODOLOGY,
 )
 from intelligence.services.lane_generation import LaneAnswer
@@ -427,6 +428,30 @@ def test_market_cause_removes_generic_investment_disclaimer() -> None:
     )
 
     assert answer == "主要原因是风险偏好收缩。"
+
+
+def test_market_cause_contract_requires_time_aligned_external_evidence() -> None:
+    contract = _build_generic_research_contract(
+        "这一周行情下跌的主要原因是什么",
+        task_id="fixture-cause",
+        turn_intent=TurnIntent(
+            primary_subject=None,
+            secondary_topics=(),
+            question_type=QUESTION_MARKET_CAUSE,
+            answer_owner=None,
+            comparison_entities=(),
+            inherited_from_turn=None,
+            operators=("cause_attribution",),
+        ),
+    )
+
+    external = next(
+        item
+        for item in contract.required_outputs
+        if item.output_id == "external_cause_evidence"
+    )
+    assert external.required is True
+    assert external.evidence_types == ("web_search", "news_search")
 
 
 def test_customer_fact_check_contract_requires_and_allows_l3_lookup() -> None:

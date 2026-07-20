@@ -170,7 +170,7 @@ def _build_generic_research_contract(
                 "external_cause_evidence",
                 "与该周时间窗口对齐的宏观、政策、外盘或资金事件证据",
                 ("web_search", "news_search"),
-                False,
+                True,
             ),
             RequiredOutput(
                 "supporting_evidence",
