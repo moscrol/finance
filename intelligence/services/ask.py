@@ -1642,6 +1642,15 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 "合作、供货、订单或认证的可回查材料；缺少证据不等于合作不存在。"
             )
         ]
+    elif contract.presentation_profile == "forecast" and forecast_fallback_text and evidence_ids:
+        # 预测题的条件化情景已经由结构化盘面 presenter 生成并绑定 G*；
+        # agent loop 可能仍因没有“直接预测证据”而返回 required-output gap。
+        # 不能把这个控制面缺口原样抛到展示面，否则正文一边给出两种情景，
+        # 一边又声称两种情景都缺失。保留真实边界，但改写成非阻断说明：
+        # 没有独立方向预测，故不报概率，只给触发/失效条件。
+        gap_texts = [
+            "未取得可直接预测下一交易日方向的独立证据；以上仅为条件化情景，不给出概率。"
+        ]
     if not gap_texts and owner_result.completion.status != "completed":
         gap_texts.append("必需输出尚未全部满足；需要更多可核验证据。")
     gaps = tuple(
