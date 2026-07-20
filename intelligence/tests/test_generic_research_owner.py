@@ -84,6 +84,70 @@ def test_fact_check_counterparty_and_official_relation_filter() -> None:
     assert ask._official_relation_item_matches(unrelated, "英伟达") is False
 
 
+def test_customer_fact_check_stops_after_mandatory_l3_gap(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """官方硬证据为空后不得再用普通网页“补”确认关系。"""
+
+    contract = ResearchTaskContract(
+        task_id="run-customer-gap",
+        question="中际旭创和英伟达是否已确认合作？",
+        subject="中际旭创",
+        subject_kind="company",
+        question_type="fact_check",
+        required_outputs=(
+            RequiredOutput(
+                "direct_assessment",
+                "针对用户问题的直接判断",
+                ("kb_search", "web_search", "l3_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "customer_validation",
+                "公告、合同、订单或双方官方披露",
+                ("l3_lookup",),
+                True,
+            ),
+        ),
+        allowed_capabilities=("kb_search", "web_search", "l3_lookup"),
+        research_tier="quick",
+        presentation_profile="fact_check",
+    )
+    monkeypatch.setattr(
+        ask.l3_evidence,
+        "lookup_l3_evidence",
+        lambda *args, **kwargs: ask.l3_evidence.L3EvidenceBundle(
+            query=contract.question
+        ),
+    )
+
+    def unexpected_soft_loop(*args, **kwargs):
+        raise AssertionError("mandatory L3 gap must stop before soft agent loop")
+
+    monkeypatch.setattr(
+        ask.generic_research_owner,
+        "run_generic_research",
+        unexpected_soft_loop,
+    )
+    result = ask._answer_generic_owner(
+        ask.AskOptions(
+            query=contract.question,
+            kb_wiki=tmp_path / "wiki",
+            research_task_contract=contract,
+            use_llm=False,
+            compose=False,
+        )
+    )
+
+    assert result.answer_spec is not None
+    assert result.answer_spec.presentation_kind == "evidence_gap"
+    assert result.provider_traces[0].provider == "agent:l3_lookup"
+    assert result.provider_traces[0].status == "empty"
+    assert len(result.answer_spec.gaps) == 1
+    assert "缺少证据不等于合作不存在" in result.answer_spec.gaps[0].text
+
+
 def _context(contract: ResearchTaskContract) -> ResearchRunContext:
     return ResearchRunContext(
         contract=contract,

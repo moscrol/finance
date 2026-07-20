@@ -1176,6 +1176,10 @@ _ALLOWED_HEADING_TEXTS = frozenset(
 )
 _HEADING_SEGMENT_SPLIT_RE = re.compile(r"[：:·｜|]+")
 _SUMMARY_TAG_RE = re.compile(r"<summary[^>]*>(.*?)</summary>", re.DOTALL)
+_FACT_LIKE_HEADING_RE = re.compile(
+    r"(?:\d|%|％|亿元|万元|同比|环比|涨|跌|增长|下降|翻倍|已确认|已签|"
+    r"供应商|客户|订单|合同|中标|认证|量产|独家|市占率|收入|利润)"
+)
 
 
 def _normalize_heading_text(text: str) -> str:
@@ -1233,12 +1237,27 @@ def _is_disallowed_heading(
     )
 
 
+def _heading_requires_fact_binding(heading_text: str) -> bool:
+    """Only fact-like headings stay hard-gated; narrative headings are advisory.
+
+    Headings are not claim-bound, so a title such as “利润已翻倍” must still be
+    rejected.  A structural title such as “为什么检索会跑偏” carries no factual
+    assertion and should not force every answer back into a global whitelist.
+    """
+
+    text = _normalize_heading_text(heading_text)
+    if re.search(r"(?:为什么|怎么|如何|机制|原因|影响|路径|方法|证据|边界|问题)$", text):
+        return False
+    return bool(_FACT_LIKE_HEADING_RE.search(text))
+
+
 def _heading_gate_issues(
     answer: str,
     answer_spec: AnswerSpec,
     *,
     code: str,
     severity: str,
+    fact_severity: str | None = None,
 ) -> tuple[QualityIssue, ...]:
     subjects = _allowed_heading_subjects(answer_spec)
     issues: list[QualityIssue] = []
@@ -1247,23 +1266,23 @@ def _heading_gate_issues(
         if heading is None:
             continue
         if _is_disallowed_heading(heading, subjects):
+            fact_like = _heading_requires_fact_binding(heading)
             issues.append(
                 QualityIssue(
                     code,
-                    severity,
-                    f"标题携带白名单外内容（不受 claim 校验，已按未验证处理）：{heading[:48]}",
+                    (fact_severity or severity) if fact_like else severity,
+                    (
+                        "标题包含未绑定的事实性内容"
+                        if fact_like
+                        else "标题不在建议标题集合中"
+                    )
+                    + f"：{heading[:48]}",
                 )
             )
     return tuple(issues)
 
 
 def _drop_disallowed_headings(answer: str, answer_spec: AnswerSpec | None) -> str:
-    if answer_spec is not None and answer_spec.presentation_profile in {
-        "methodology",
-        "review",
-        "general",
-    }:
-        return answer
     subjects = (
         _allowed_heading_subjects(answer_spec)
         if answer_spec is not None
@@ -1272,7 +1291,11 @@ def _drop_disallowed_headings(answer: str, answer_spec: AnswerSpec | None) -> st
     kept: list[str] = []
     for line in answer.splitlines():
         heading = _heading_line_text(line)
-        if heading is not None and _is_disallowed_heading(heading, subjects):
+        if (
+            heading is not None
+            and _is_disallowed_heading(heading, subjects)
+            and _heading_requires_fact_binding(heading)
+        ):
             continue
         kept.append(line)
     return "\n".join(kept)
@@ -2171,6 +2194,7 @@ def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIs
             answer_spec,
             code="llm_unverified_heading",
             severity="warning",
+            fact_severity="warning",
         )
     )
     atoms = evidence_atoms_from_answer_spec(answer_spec)
@@ -2314,31 +2338,90 @@ def structured_claim_registry_block(answer_spec: AnswerSpec) -> str:
     return "\n".join(lines)
 
 
-def grounded_claim_registry_block(answer_spec: AnswerSpec) -> str:
+def _grounded_registry_priority(
+    claim: Claim,
+    answer_spec: AnswerSpec,
+    query: str,
+) -> float:
+    """Rank the model-facing claim window without mutating the audit record."""
+
+    if claim in answer_spec.summary:
+        score = 100.0
+    elif claim in answer_spec.verified_facts:
+        score = 90.0
+    elif claim in answer_spec.counter_evidence:
+        score = 82.0
+    elif claim in answer_spec.gaps:
+        score = 80.0
+    elif claim in answer_spec.triggers:
+        score = 72.0
+    elif claim.status == ClaimStatus.VERIFIED:
+        score = 68.0
+    else:
+        score = 50.0
+    tier = str(claim.evidence_tier or "").lower()
+    if tier.startswith(("l3", "official", "公告")):
+        score += 24.0
+    elif tier.startswith(("l4", "structured", "market")):
+        score += 18.0
+    elif tier.startswith("l2"):
+        score += 12.0
+    normalized_claim = _normalize(claim.text)
+    for token in re.findall(
+        r"[A-Za-z][A-Za-z0-9_.-]{1,}|[\u4e00-\u9fff]{2,6}",
+        str(query or ""),
+    ):
+        if _normalize(token) in normalized_claim:
+            score += min(8.0, len(token) * 0.8)
+    return score
+
+
+def grounded_claim_registry_block(
+    answer_spec: AnswerSpec,
+    *,
+    query: str = "",
+    max_chars: int | None = None,
+) -> str:
     atoms = evidence_atoms_from_answer_spec(answer_spec)
-    lines: list[str] = []
-    for claim in _all_answer_claims(answer_spec):
+    rows: list[tuple[float, int, str]] = []
+    for index, claim in enumerate(_all_answer_claims(answer_spec)):
         claim_atoms = tuple(
             atom
             for atom in atoms
             if atom.provenance.get("claim_id") == claim.claim_id
         )
-        lines.append(
-            json.dumps(
-                {
-                    "claim_id": claim.claim_id,
-                    "claim_type": _grounded_claim_type(claim),
-                    "text": claim.text,
-                    "theme": claim.theme,
-                    "company": claim.company,
-                    "evidence_atoms": [
-                        atom.to_dict() for atom in claim_atoms
-                    ],
-                },
-                ensure_ascii=False,
+        line = json.dumps(
+            {
+                "claim_id": claim.claim_id,
+                "claim_type": _grounded_claim_type(claim),
+                "text": claim.text,
+                "theme": claim.theme,
+                "company": claim.company,
+                "evidence_atoms": [atom.to_dict() for atom in claim_atoms],
+            },
+            ensure_ascii=False,
+        )
+        rows.append(
+            (
+                _grounded_registry_priority(claim, answer_spec, query),
+                index,
+                line,
             )
         )
-    return "\n".join(lines)
+    if max_chars is None or max_chars <= 0:
+        return "\n".join(line for _score, _index, line in rows)
+    # P4/P6: rank first, then enforce one global prompt budget.  Skipped rows
+    # remain in AnswerSpec/EvidenceAtom audit storage and provider traces.
+    rows.sort(key=lambda row: (-row[0], row[1]))
+    selected: list[str] = []
+    used_chars = 0
+    for _score, _index, line in rows:
+        cost = len(line) + (1 if selected else 0)
+        if used_chars + cost > max_chars:
+            continue
+        selected.append(line)
+        used_chars += cost
+    return "\n".join(selected)
 
 
 def parse_decision_brief(
@@ -2576,19 +2659,15 @@ def validate_grounded_composer_answer(
                 f"影子答案输出内部术语：{'、'.join(leaked)}",
             )
         )
-    heading_severity = (
-        "warning"
-        if answer_spec.presentation_profile
-        in {"methodology", "review", "general", "causal"}
-        else "error"
-    )
-    # 标题只作为金融正文的事实边界；方法论/质检题允许自然小节。
+    # 白名单现在是写作建议：非事实性自定义标题只告警、不退稿；标题内若夹带
+    # 数字、业绩、订单、客户确认等未绑定事实，仍按 error 硬拦。
     issues.extend(
         _heading_gate_issues(
             answer,
             answer_spec,
             code="grounded_composer_unverified_heading",
-            severity=heading_severity,
+            severity="warning",
+            fact_severity="error",
         )
     )
     atoms = evidence_atoms_from_answer_spec(answer_spec)
@@ -2855,8 +2934,10 @@ def repair_grounded_composer_answer(
         line = raw_line.strip()
         if not line or _is_nonclaim_line(line):
             heading = _heading_line_text(line)
-            if heading is not None and _is_disallowed_heading(
-                heading, heading_subjects
+            if (
+                heading is not None
+                and _is_disallowed_heading(heading, heading_subjects)
+                and _heading_requires_fact_binding(heading)
             ):
                 continue
             repaired_lines.append(raw_line)

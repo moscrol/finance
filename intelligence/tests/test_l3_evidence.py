@@ -11,6 +11,7 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_FACT_CHECK,
     QUESTION_MARKET_FORECAST,
     QUESTION_STOCK_DEEP_DIVE,
+    QUESTION_VALUATION,
     plan_answer_question,
 )
 from intelligence.services.ask import AskOptions, answer_query
@@ -75,6 +76,24 @@ class L3EvidenceDetectionTests(unittest.TestCase):
         self.assertFalse(bundle.gaps)
         self.assertFalse(bundle.items)
         self.assertIn("本问题类型不需要", "\n".join(bundle.warnings))
+
+    def test_valuation_plan_can_reach_runtime_official_lookup(self) -> None:
+        plan = plan_answer_question(
+            "某公司估值怎么看",
+            question_type_override=QUESTION_VALUATION,
+        )
+
+        bundle = lookup_l3_evidence(
+            "某公司估值怎么看",
+            plan,
+            local_evidence_text="最新财务口径缺失，仍需核对定期报告。",
+            config=L3LookupConfig(enabled=False),
+            company_hint="某公司",
+        )
+
+        self.assertTrue(bundle.gaps)
+        self.assertEqual(bundle.gaps[0].kind, "valuation_official_gap")
+        self.assertIn("未启用", "\n".join(bundle.warnings))
 
 
 class L3EvidenceLookupTests(unittest.TestCase):

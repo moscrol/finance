@@ -1257,28 +1257,64 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             preloaded_trace_items.append(observation.trace)
             preloaded_observations.append(observation.observation)
             disabled_tool_names.append("l3_lookup")
-        except Exception:
+        except Exception as exc:
             # 工具故障也由完成门禁表现为“尚不能确认”，不允许改用弱来源补硬结论。
-            pass
+            # 失败 trace 必须留在控制面，否则用户只看到 gap，运维侧却无法区分
+            # “官方源无结果”和“官方源不可用”。
+            preloaded_trace_items.append(
+                ProviderTrace(
+                    provider="agent:l3_lookup",
+                    capability="agent_loop",
+                    status="error",
+                    detail=f"{type(exc).__name__}: {str(exc)[:160]}",
+                    result_count=0,
+                    parent_id=contract.task_id,
+                    step_id=f"{contract.task_id}:owner:prefetch:l3",
+                )
+            )
     preloaded_evidence = tuple(preloaded_items)
     preloaded_traces = tuple(preloaded_trace_items)
     preloaded_observation = "\n".join(
         item for item in preloaded_observations if item
     )
     disabled_tools = tuple(dict.fromkeys(disabled_tool_names))
-    owner_result = generic_research_owner.run_generic_research(
-        contract,
-        context=context,
-        registry=registry,
-        run_id=contract.task_id,
-        existing_evidence_summary=(
-            f"任务档位={policy.tier}；可用工具={','.join(registry.names())}"
-        ),
-        preloaded_evidence=preloaded_evidence,
-        preloaded_traces=preloaded_traces,
-        preloaded_observation=preloaded_observation,
-        disabled_tools=disabled_tools,
-    )
+    if mandatory_l3 and not any(
+        item.tool == "l3_lookup" for item in preloaded_evidence
+    ):
+        # “是否已确认合作”是 hard-fact 核验。唯一能满足契约的官方证据工具
+        # 已经返回空或报错后，继续检索自媒体/普通网页只会增加延迟和污染候选池，
+        # 不可能把 required L3 从 missing 变成 fulfilled，因此在此确定性停止。
+        loop = agent_research.AgentLoopResult(
+            evidence=list(preloaded_evidence),
+            traces=list(preloaded_traces),
+            sufficient=False,
+            gaps=("官方合作关系硬证据未命中",),
+            stop_reason="mandatory_l3_gap",
+        )
+        owner_result = generic_research_owner.GenericResearchResult(
+            run_id=contract.task_id,
+            contract=contract,
+            loop=loop,
+            completion=generic_research_owner.evaluate_completion(
+                contract,
+                loop,
+            ),
+            evidence=preloaded_evidence,
+        )
+    else:
+        owner_result = generic_research_owner.run_generic_research(
+            contract,
+            context=context,
+            registry=registry,
+            run_id=contract.task_id,
+            existing_evidence_summary=(
+                f"任务档位={policy.tier}；可用工具={','.join(registry.names())}"
+            ),
+            preloaded_evidence=preloaded_evidence,
+            preloaded_traces=preloaded_traces,
+            preloaded_observation=preloaded_observation,
+            disabled_tools=disabled_tools,
+        )
     is_customer_fact_check = bool(
         contract.question_type == QUESTION_FACT_CHECK
         and any(
@@ -1504,8 +1540,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             (
                 "本轮已补查官方公告/互动证据，但未发现同时指向双方且明确表述"
                 "合作、供货、订单或认证的可回查材料；缺少证据不等于合作不存在。"
-            ),
-            *gap_texts,
+            )
         ]
     if not gap_texts and owner_result.completion.status != "completed":
         gap_texts.append("必需输出尚未全部满足；需要更多可核验证据。")

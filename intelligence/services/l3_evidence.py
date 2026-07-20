@@ -14,8 +14,10 @@ from typing import Any, ClassVar
 
 from intelligence.services.answer_orchestrator import (
     QUESTION_FACT_CHECK,
+    QUESTION_FINANCIAL_ANALYSIS,
     QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
+    QUESTION_VALUATION,
     QuestionPlan,
 )
 
@@ -216,6 +218,7 @@ def detect_l3_gaps(query: str, plan: QuestionPlan, local_evidence_text: str) -> 
     weak_or_missing_terms = (
         "未命中",
         "缺口",
+        "缺失",
         "不足",
         "待验证",
         "证据不足",
@@ -231,6 +234,19 @@ def detect_l3_gaps(query: str, plan: QuestionPlan, local_evidence_text: str) -> 
                 priority="P0",
                 reason="客户/订单/量产/产能等硬证据不足，必须用公告、问询函或互动易约束事实边界。",
                 source_types=("cninfo", "sse_einteract"),
+            )
+        )
+    if (
+        plan.question_type == QUESTION_VALUATION
+        and any(t in text for t in weak_or_missing_terms)
+        and not any(gap.kind == "hard_evidence_gap" for gap in gaps)
+    ):
+        gaps.append(
+            L3EvidenceGap(
+                kind="valuation_official_gap",
+                priority="P1",
+                reason="估值所需的最新财务口径存在缺口，应补查定期报告或交易所公告。",
+                source_types=("cninfo",),
             )
         )
     if any(t in text for t in ("公告", "问询函", "风险提示", "澄清", "异动")):
@@ -466,6 +482,8 @@ def _should_consider_l3_lookup(plan: QuestionPlan) -> bool:
         QUESTION_STOCK_DEEP_DIVE,
         QUESTION_NEWS_IMPACT,
         QUESTION_FACT_CHECK,
+        QUESTION_VALUATION,
+        QUESTION_FINANCIAL_ANALYSIS,
     }
 
 

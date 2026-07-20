@@ -1319,7 +1319,9 @@ def synthesize_shadow_grounded_answer(
         return result
     deadline = _shadow_deadline(options)
     registry_block = answer_model.grounded_claim_registry_block(
-        result.answer_spec
+        result.answer_spec,
+        query=options.query,
+        max_chars=12_000,
     )
     brief_result, brief_reason = llm_refine.synthesize_messages(
         llm_refine.build_decision_brief_messages(

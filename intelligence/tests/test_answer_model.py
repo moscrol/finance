@@ -96,6 +96,10 @@ class ThemeResearchSpecTests(unittest.TestCase):
         )
         self.assertEqual(heading.severity, "warning")
         self.assertFalse(any(issue.severity == "error" for issue in issues))
+        self.assertIn(
+            "## 本周下跌的盘面机制",
+            present_grounded_composer_answer(answer, spec),
+        )
 
     def test_number_formatting_does_not_reject_grounded_percentage(self) -> None:
         claim = make_claim(
@@ -517,6 +521,23 @@ class PresenterAndLLMGateTests(unittest.TestCase):
             system_notices=(),
         )
         return finalize_answer_spec(answer)
+
+    def test_grounded_registry_window_is_hard_bounded_and_hardness_ranked(self) -> None:
+        answer = self._answer()
+        full = grounded_claim_registry_block(answer)
+        market_line = next(
+            line for line in full.splitlines() if '"claim_id": "market-1"' in line
+        )
+
+        window = grounded_claim_registry_block(
+            answer,
+            query="稳定币支付盘面证据",
+            max_chars=len(market_line),
+        )
+
+        self.assertLessEqual(len(window), len(market_line))
+        self.assertIn('"claim_id": "market-1"', window)
+        self.assertNotIn('"claim_id": "company-1"', window)
 
     def test_presenter_uses_information_pyramid_and_hides_internal_terms(self) -> None:
         rendered = render_answer_spec(self._answer())

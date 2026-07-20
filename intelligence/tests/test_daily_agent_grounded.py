@@ -346,6 +346,42 @@ class TestGroundedPresenterPromotion:
         assert shadow is not None
         assert shadow.status == "accepted"
 
+    def test_general_compose_uses_grounded_presenter_before_legacy_stream(
+        self, monkeypatch
+    ) -> None:
+        result = _result_with_spec()
+        assert result.answer_spec is not None
+        result.answer_spec = replace(
+            result.answer_spec,
+            presentation_kind="generic_research",
+            presentation_profile="general",
+        )
+        monkeypatch.setattr(
+            llm_refine,
+            "synthesize_messages",
+            self._fake_llm(result.answer_spec),
+        )
+
+        def legacy_stream_must_not_run(*args, **kwargs):
+            raise AssertionError("legacy marker synthesis must be fallback-only")
+
+        monkeypatch.setattr(
+            llm_refine,
+            "synthesize_messages_stream",
+            legacy_stream_must_not_run,
+        )
+        options = ask.AskOptions(
+            query=result.query,
+            grounded_presenter=True,
+        )
+
+        ask.synthesize_prepared_answer(
+            ask.PreparedAnswer(options=options, result=result)
+        )
+
+        assert result.synthesis is not None
+        assert "更像旧逻辑重新被资金唤醒" in result.synthesis
+
     def test_falls_back_when_composer_unavailable(self, monkeypatch) -> None:
         result = _result_with_spec()
 
