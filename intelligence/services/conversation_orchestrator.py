@@ -2075,6 +2075,7 @@ class TurnOrchestrator:
             if (
                 prepared.options.shadow_grounded_composer
                 and result.answer_spec is not None
+                and result.answer_spec.presentation_kind != "market_technical"
             ):
                 try:
                     synthesize_shadow_grounded_answer(

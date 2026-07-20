@@ -258,6 +258,38 @@ def test_market_technical_gap_uses_short_answer_presentation(monkeypatch) -> Non
     assert "未通过的质检项" not in rendered
 
 
+def test_market_technical_success_skips_all_llm_synthesis(monkeypatch) -> None:
+    levels = market_technical.TechnicalLevels(
+        subject="科创50",
+        symbol="sh000688",
+        as_of="2026-07-20",
+        close=1718.69,
+        ma={"MA5": 1842.99},
+        supports=(
+            market_technical.SupportLevel(
+                zone_low=1662.65,
+                zone_high=1669.99,
+                basis=("摆动低点 1669.99",),
+            ),
+        ),
+        resistances=(),
+        invalidation="若收盘跌破 1662.65，当前支撑判断失效。",
+    )
+    monkeypatch.setattr(
+        market_technical,
+        "resolve_market_technical",
+        lambda *args, **kwargs: levels,
+    )
+    options = ask.AskOptions(query=QUERY)
+    result = ask._answer_market_technical(options, plan_answer_question(QUERY))
+
+    prepared = ask.prepare_existing_answer(options, result)
+
+    assert prepared.result.answer_spec is not None
+    assert prepared.result.answer_spec.presentation_kind == "market_technical"
+    assert prepared.result.prepared_synthesis_messages == []
+
+
 # ---------- AnswerSpec fail-closed 出口 ----------
 
 

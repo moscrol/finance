@@ -3012,6 +3012,17 @@ def prepare_existing_answer(
             options=replace(options, synthesize=False),
             result=result,
         )
+    # 技术位是结构化行情的确定性计算，AnswerSpec 已经是最终展示数据。
+    # 再让 LLM 改写不仅增加 30s 级延迟，还可能改动点位、符号或失效条件。
+    if (
+        result.answer_spec is not None
+        and result.answer_spec.presentation_kind == "market_technical"
+    ):
+        result.prepared_synthesis_messages = []
+        return PreparedAnswer(
+            options=replace(options, synthesize=False),
+            result=result,
+        )
     if result.answer_spec is not None and result.prepared_synthesis_messages is None:
         citation_legend = "\n".join(
             f"[{citation.tag}] {citation.source}"
