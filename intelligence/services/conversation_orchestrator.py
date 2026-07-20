@@ -98,6 +98,19 @@ SUMMARY_CHAR_LIMIT = 2400
 _SKILL_POOL_WORKERS = 3
 
 
+def _sanitize_market_cause_answer_text(text: str, query: str) -> str:
+    """原因归因题不夹带用户未询问的交易策略段。"""
+    if not re.search(
+        r"(?:本周|这一周|这周|近一周|过去一周).{0,20}(?:行情|大盘|市场).{0,20}"
+        r"(?:下跌|走弱).{0,20}(?:原因|为什么|驱动|归因)",
+        query,
+    ):
+        return text
+    forbidden = ("操作层面", "仓位", "买入", "卖出", "防御和观察", "宜以防御", "博弈单边反转")
+    lines = [line for line in text.splitlines() if not any(term in line for term in forbidden)]
+    return "\n".join(lines).strip()
+
+
 def _build_generic_research_contract(
     query: str,
     *,
@@ -1814,6 +1827,7 @@ class TurnOrchestrator:
                     if block
                 )
             )
+            draft_text = _sanitize_market_cause_answer_text(draft_text, query)
             has_answer_snapshot = (
                 result.answer_spec is not None
                 and decision.lane in {"research", "workflow"}
@@ -1904,6 +1918,7 @@ class TurnOrchestrator:
                     block for block in (answer_prefix, answer_text) if block
                 )
             )
+            answer_text = _sanitize_market_cause_answer_text(answer_text, query)
             turn_intent = replace(
                 turn_intent,
                 skill_ids=(
