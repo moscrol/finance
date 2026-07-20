@@ -194,7 +194,7 @@ def _build_generic_research_contract(
                 True,
             ),
         )
-    elif is_market_forecast or is_event_forecast:
+    elif is_market_forecast:
         # 预测不是一句“涨/跌”。显式登记两种情景和失效条件，避免只拿到
         # 一个方向的证据就被 soft planner 误判为完成。
         required_outputs = (
@@ -226,6 +226,54 @@ def _build_generic_research_contract(
                 "supporting_evidence",
                 "至少一条可回查的当前盘面或外部来源",
                 ("market_data", "web_search", "news_search"),
+                True,
+            ),
+        )
+    elif is_event_forecast:
+        # 事件题不是盘面涨跌题：必须先核对事件本身，再说明传导方向、谁会
+        # 受益/受损，以及在哪个窗口用什么新事实验证或证伪，不能套用反弹/下跌
+        # 的市场情景模板。
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "针对事件可能性或影响窗口的直接判断，并明确条件边界",
+                ("web_search", "news_search", "kb_search", "graph_lookup", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "event_facts",
+                "事件已知事实、尚未发生的条件与对应时间窗口",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "event_transmission",
+                "事件到行业、公司或资产的传导链，并说明受益/受损方向与边界",
+                ("kb_search", "graph_lookup", "evidence_lookup", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "verification_window",
+                "验证当前推演所需的新事实、指标或披露，以及观察窗口",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "falsification_window",
+                "会证伪当前传导或方向判断的反向事实，以及观察窗口",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条支持事件事实或传导链的可回查来源",
+                ("web_search", "news_search", "kb_search", "graph_lookup", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "counter_evidence",
+                "至少一条反证、相反传导方向或明确的证据边界",
+                ("web_search", "news_search", "kb_search", "graph_lookup", "evidence_lookup"),
                 True,
             ),
         )

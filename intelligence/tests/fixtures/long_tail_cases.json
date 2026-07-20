@@ -29,7 +29,7 @@
     "expected_question_type": "event_forecast",
     "expected_owner": null,
     "expected_generic_owner": true,
-    "required_outputs": ["direct_assessment", "rebound_case", "decline_case", "invalidation", "supporting_evidence"]
+    "required_outputs": ["direct_assessment", "event_facts", "event_transmission", "verification_window", "falsification_window", "supporting_evidence", "counter_evidence"]
   },
   {
     "id": "unowned_comparison",

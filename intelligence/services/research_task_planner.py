@@ -98,7 +98,7 @@ def _rule_plan(question: str, contract: object | None = None, *, reason: str = "
     question_type = str(getattr(contract, "question_type", "") or "")
     subject = str(getattr(contract, "subject", "") or "")
     prefix = f"围绕{subject}，" if subject else ""
-    if question_type in {"market_forecast", "event_forecast"}:
+    if question_type == "market_forecast":
         return TaskPlan(
             subquestions=(
                 f"{prefix}当前事实和时间窗口是什么？",
@@ -113,6 +113,22 @@ def _rule_plan(question: str, contract: object | None = None, *, reason: str = "
             ),
             source="rules",
             reason=reason or "forecast_rule_fallback",
+        )
+    if question_type == "event_forecast":
+        return TaskPlan(
+            subquestions=(
+                f"{prefix}事件已经确认的事实、待发生条件和时间窗口是什么？",
+                "事件会通过哪些环节传导，哪些行业、公司或资产可能受益或受损？",
+                "哪些新增事实、指标或披露会在什么窗口验证当前传导判断？",
+                "哪些反向事实会在什么窗口证伪当前传导或方向判断？",
+            ),
+            hypotheses=(
+                "事件事实：事件发生条件与时间窗口是否得到可回查证据支持？",
+                "传导方向：受益/受损判断是否存在清晰传导链和边界？",
+                "验证与证伪：后续窗口内哪些事实会确认或推翻当前推演？",
+            ),
+            source="rules",
+            reason=reason or "event_forecast_rule_fallback",
         )
     if str(getattr(contract, "presentation_profile", "") or "") == "relation":
         return TaskPlan(

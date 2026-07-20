@@ -25,7 +25,7 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
-from intelligence.services.research_state import ResearchState
+from intelligence.services.research_state import ResearchGap, ResearchState
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
@@ -84,6 +84,233 @@ def test_market_forecast_contract_requires_two_scenarios_and_invalidation() -> N
         "supporting_evidence",
     ]
     assert contract.allowed_capabilities == ("market_data", "web_search", "news_search")
+
+
+def test_event_forecast_contract_requires_event_specific_outputs() -> None:
+    intent = conversation_orchestrator.TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="event_forecast",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    contract = conversation_orchestrator._build_generic_research_contract(
+        "如果美联储下次降息，A股哪些方向可能受益，哪些证据会证伪？",
+        task_id="event-contract",
+        turn_intent=intent,
+    )
+
+    assert [item.output_id for item in contract.required_outputs] == [
+        "direct_assessment",
+        "event_facts",
+        "event_transmission",
+        "verification_window",
+        "falsification_window",
+        "supporting_evidence",
+        "counter_evidence",
+    ]
+    assert {item.output_id for item in contract.required_outputs}.isdisjoint(
+        {"rebound_case", "decline_case", "invalidation"}
+    )
+    assert contract.allowed_capabilities == (
+        "web_search",
+        "news_search",
+        "kb_search",
+        "graph_lookup",
+        "evidence_lookup",
+    )
+
+
+def test_event_forecast_rule_plan_uses_event_semantics() -> None:
+    contract = type(
+        "EventContract",
+        (),
+        {"question_type": "event_forecast", "subject": "美联储降息"},
+    )()
+    plan = generic_research_owner.research_task_planner.plan_task(
+        "如果美联储下次降息，A股哪些方向可能受益？",
+        contract=contract,
+        complete_fn=lambda *_args, **_kwargs: ("not-json", "test", ""),
+    )
+
+    assert plan.source == "rules"
+    assert plan.reason == "planner_invalid_json"
+    assert any("传导" in item for item in plan.subquestions)
+    assert "验证" in "\n".join(plan.subquestions)
+    assert "证伪" in "\n".join(plan.subquestions)
+    assert all("反弹" not in item and "走弱" not in item for item in plan.hypotheses)
+
+
+def test_market_prefetch_failure_is_traced_disabled_and_reported_to_owner(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    intent = conversation_orchestrator.TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="market_forecast",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    contract = conversation_orchestrator._build_generic_research_contract(
+        "明天是反弹还是继续下跌？",
+        task_id="market-prefetch-failure",
+        turn_intent=intent,
+    )
+
+    class FailingMarketRegistry:
+        def names(self):
+            return ("market_data", "web_search", "news_search")
+
+        def execute(self, name, *_args, **_kwargs):
+            assert name == "market_data"
+            raise RuntimeError("duckdb unavailable")
+
+    captured: dict[str, object] = {}
+
+    def fake_run(passed_contract, **kwargs):
+        captured.update(kwargs)
+        state = ResearchState.from_contract(passed_contract)
+        for gap in kwargs["preloaded_gaps"]:
+            state.add_gap(
+                gap.gap_id,
+                gap.description,
+                blocks=gap.blocks,
+                suggested_capabilities=gap.suggested_capabilities,
+            )
+        loop = agent_research.AgentLoopResult(
+            traces=list(kwargs["preloaded_traces"]),
+            gaps=tuple(gap.description for gap in kwargs["preloaded_gaps"]),
+            research_state=state,
+        )
+        return generic_research_owner.GenericResearchResult(
+            run_id=passed_contract.task_id,
+            contract=passed_contract,
+            loop=loop,
+            completion=generic_research_owner.evaluate_completion(passed_contract, loop),
+            evidence=(),
+            task_plan=kwargs["task_plan"],
+        )
+
+    monkeypatch.setattr(
+        ask.research_tool_registry,
+        "default_registry",
+        lambda _tools: FailingMarketRegistry(),
+    )
+    monkeypatch.setattr(ask.generic_research_owner, "run_generic_research", fake_run)
+
+    result = ask._answer_generic_owner(
+        ask.AskOptions(
+            query=contract.question,
+            kb_wiki=tmp_path / "wiki",
+            research_task_contract=contract,
+            use_llm=False,
+            compose=False,
+        )
+    )
+
+    trace = captured["preloaded_traces"][0]
+    assert trace.provider == "agent:market_data"
+    assert trace.status == "request_error"
+    assert trace.parent_id == contract.task_id
+    assert trace.step_id == f"{contract.task_id}:owner:prefetch"
+    assert captured["disabled_tools"] == ("market_data",)
+    assert "结构化行情预取失败" in captured["preloaded_observation"]
+    gap = captured["preloaded_gaps"][0]
+    assert gap.gap_id == "market_data_prefetch"
+    assert result.completion_report is not None
+    assert result.completion_report["status"] == "partial"
+    assert result.answer_spec is not None
+    assert "结构化行情预取失败" in result.answer_spec.gaps[0].text
+
+
+def test_preloaded_market_gap_keeps_completion_partial_without_repeating_tool() -> None:
+    calls: list[str] = []
+
+    def web_runner(query: str, _context: agent_research.AgentToolContext):
+        calls.append(query)
+        return [
+            agent_research.AgentEvidence(
+                tool="web_search",
+                title="事件背景",
+                detail="公开来源给出事件背景。",
+                source="https://example.test/event",
+            )
+        ], "网页证据已取得", ProviderTrace(
+            provider="test:web",
+            capability="web_search",
+            status="success",
+            result_count=1,
+        )
+
+    def market_runner(*_args, **_kwargs):
+        raise AssertionError("failed prefetch tool must not be repeated in the agent loop")
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec("market_data", "market_data", "行情", "local", "current", market_runner),
+            ToolSpec("web_search", "web_search", "网页", "external", "current", web_runner),
+        )
+    )
+    contract = ResearchTaskContract(
+        task_id="preloaded-market-gap",
+        question="市场方向怎么看",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        question_type="market_forecast",
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("web_search",), True),
+            RequiredOutput("supporting_evidence", "可回查来源", ("web_search",), True),
+        ),
+        allowed_capabilities=("market_data", "web_search"),
+        research_tier="quick",
+    )
+    actions = iter(
+        [
+            '{"tool":"web_search","args":{"query":"市场事件"},"reason":"改查可用网页来源"}',
+            '{"tool":"finish","args":{"sufficient":true,"assessment":"仅形成部分判断","gaps":[]},"reason":"保留真值缺口"}',
+        ]
+    )
+
+    def complete(messages, **_kwargs):
+        assert "market_data" not in messages[0]["content"]
+        return next(actions), "test", ""
+
+    result = generic_research_owner.run_generic_research(
+        contract,
+        context=_context(contract),
+        registry=registry,
+        run_id=contract.task_id,
+        complete_fn=complete,
+        preloaded_traces=(
+            ProviderTrace(
+                provider="agent:market_data",
+                capability="agent_loop",
+                status="request_error",
+                parent_id=contract.task_id,
+                step_id=f"{contract.task_id}:owner:prefetch",
+            ),
+        ),
+        preloaded_gaps=(
+            ResearchGap(
+                "market_data_prefetch",
+                "结构化行情预取失败。",
+                blocks=("direct_assessment", "supporting_evidence"),
+                suggested_capabilities=("market_data",),
+            ),
+        ),
+        preloaded_observation="结构化行情预取失败；继续使用网页来源。",
+        disabled_tools=("market_data",),
+    )
+
+    assert calls == ["市场事件"]
+    assert result.completion.status == "partial"
+    assert result.traces[0].status == "request_error"
+    assert "结构化行情预取失败。" in result.gaps
+    assert result.loop.research_state is not None
+    assert result.loop.research_state.gaps[0].gap_id == "market_data_prefetch"
 
 
 def test_forecast_state_initializes_scenario_hypotheses() -> None:

@@ -23,7 +23,7 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
-from intelligence.services.research_state import ResearchState, state_from_contract
+from intelligence.services.research_state import ResearchGap, ResearchState, state_from_contract
 
 
 @dataclass(frozen=True)
@@ -71,8 +71,15 @@ class GenericResearchResult:
 
     @property
     def gaps(self) -> tuple[str, ...]:
-        return tuple(self.loop.gaps) + tuple(
-            item.gap for item in self.completion.outputs if item.gap
+        state_gaps = (
+            tuple(item.description for item in self.loop.research_state.gaps)
+            if self.loop.research_state is not None
+            else ()
+        )
+        return tuple(
+            dict.fromkeys(
+                (*self.loop.gaps, *state_gaps, *(item.gap for item in self.completion.outputs if item.gap))
+            )
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -242,6 +249,7 @@ def run_generic_research(
     existing_evidence_summary: str = "",
     preloaded_evidence: tuple[agent_research.AgentEvidence, ...] = (),
     preloaded_traces: tuple[ProviderTrace, ...] = (),
+    preloaded_gaps: tuple[ResearchGap, ...] = (),
     preloaded_observation: str = "",
     disabled_tools: tuple[str, ...] = (),
     task_plan: research_task_planner.TaskPlan | None = None,
@@ -294,6 +302,13 @@ def run_generic_research(
         ensure_ascii=False,
     )
     state = state_from_contract(contract)
+    for gap in preloaded_gaps:
+        state.add_gap(
+            gap.gap_id,
+            gap.description,
+            blocks=gap.blocks,
+            suggested_capabilities=gap.suggested_capabilities,
+        )
     for index, item in enumerate(preloaded_evidence, start=1):
         state.add_evidence(
             item.to_observation(f"agent:preloaded:{index}:{item.tool}")

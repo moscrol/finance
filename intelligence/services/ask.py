@@ -83,6 +83,7 @@ from intelligence.services.answer_orchestrator import (
     plan_answer_question,
 )
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_state import ResearchGap
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, theme_lifecycle, valuation_gap
 from intelligence.services.trading_calendar import (
     next_trading_day,
@@ -1263,6 +1264,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     registry = research_tool_registry.default_registry(tools)
     preloaded_items: list[agent_research.AgentEvidence] = []
     preloaded_trace_items: list[ProviderTrace] = []
+    preloaded_gaps: list[ResearchGap] = []
     preloaded_observations: list[str] = []
     disabled_tool_names: list[str] = []
     if contract.question_type in {"market_cause", QUESTION_MARKET_FORECAST} and "market_data" in registry.names():
@@ -1284,9 +1286,35 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             preloaded_observations.append(observation.observation)
             # 已预取的工具不再交给 agent 二次选择，避免同一 turn 重复查盘。
             disabled_tool_names.append("market_data")
-        except Exception:
-            # 真值底座失败时仍让 agent 尝试新闻/web，并在完成门禁报告缺口。
-            pass
+        except Exception as exc:
+            # 真值底座失败与“正常无结果”不同：必须留下控制面 trace、给 agent
+            # 可见的 observation 和 completion gap；同时仍禁用工具，避免 agent
+            # loop 在同一 turn 对同一真值源重复调用。
+            step_id = f"{contract.task_id}:owner:prefetch"
+            detail = f"{type(exc).__name__}: {str(exc)[:160]}"
+            preloaded_trace_items.append(
+                ProviderTrace(
+                    provider="agent:market_data",
+                    capability="agent_loop",
+                    status="request_error",
+                    detail=detail,
+                    result_count=0,
+                    parent_id=contract.task_id,
+                    step_id=step_id,
+                )
+            )
+            preloaded_observations.append(
+                f"结构化行情预取失败（{detail}）；本轮不能把网页或新闻替代为市场真值。"
+            )
+            preloaded_gaps.append(
+                ResearchGap(
+                    "market_data_prefetch",
+                    "结构化行情预取失败；当前结论只能基于其他白名单来源，不能补足市场真值。",
+                    blocks=tuple(item.output_id for item in contract.required_outputs),
+                    suggested_capabilities=("market_data",),
+                )
+            )
+            disabled_tool_names.append("market_data")
     if contract.presentation_profile == "relation" and "graph_lookup" in registry.names():
         # 关系题的第一步是确定性查显式图谱边。它不把公司/概念共现升级成
         # 关系结论；同时从 agent 可选工具中移除，避免固定预取与循环重复查询。
@@ -1383,6 +1411,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             ),
             preloaded_evidence=preloaded_evidence,
             preloaded_traces=preloaded_traces,
+            preloaded_gaps=tuple(preloaded_gaps),
             preloaded_observation=preloaded_observation,
             disabled_tools=disabled_tools,
             task_plan=task_plan,
