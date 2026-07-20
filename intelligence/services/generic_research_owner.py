@@ -129,6 +129,31 @@ def _causal_external_match(
     )
 
 
+_EVENT_HYPOTHESIS_OUTPUTS = frozenset(
+    {
+        "event_facts",
+        "event_transmission",
+        "verification_window",
+        "falsification_window",
+        "counter_evidence",
+    }
+)
+
+
+def _explicit_gap_for_output(
+    required: RequiredOutput,
+    loop: agent_research.AgentLoopResult,
+) -> str:
+    """Return a deliberately bound gap instead of treating it as evidence."""
+
+    if loop.research_state is None:
+        return ""
+    for gap in loop.research_state.gaps:
+        if required.output_id in gap.blocks:
+            return gap.description
+    return ""
+
+
 def _matches_output(
     required: RequiredOutput,
     evidence: tuple[agent_research.AgentEvidence, ...],
@@ -154,6 +179,27 @@ def _matches_output(
             item
             for item in evidence
             if _causal_external_match(item, evidence)
+        )
+    if normalized in _EVENT_HYPOTHESIS_OUTPUTS:
+        if normalized == "counter_evidence":
+            # 反证必须真的反驳某个事件命题；两条无关材料不能拼成反证。
+            event_hypotheses = {
+                hypothesis.hypothesis_id
+                for hypothesis in (loop.research_state.hypotheses if loop.research_state else ())
+                if hypothesis.hypothesis_id in _EVENT_HYPOTHESIS_OUTPUTS
+            }
+            return tuple(
+                item
+                for item in evidence
+                if event_hypotheses.intersection(item.contradicts)
+            )
+        # 事件事实、传导、验证/证伪窗口均须显式绑定到自己的 output
+        # hypothesis。窗口类 output 由此可接受 support 或 contradict 的
+        # 明确证据关系，而非仅因工具类型相同就完成。
+        return tuple(
+            item
+            for item in evidence
+            if normalized in item.supports or normalized in item.contradicts
         )
     if normalized in {"counterpoint", "risk", "counter_evidence"}:
         return evidence[:2] if len(evidence) >= 2 else ()
@@ -192,6 +238,13 @@ def evaluate_completion(
                 if item in matches
             )
             outputs.append(OutputStatus(required.output_id, "fulfilled", match_ids))
+            continue
+        explicit_gap = _explicit_gap_for_output(required, loop)
+        # 只有事件反证允许用显式缺口交付：这是“尚无反向证据”的可审计
+        # 结论。其余 required output 维持原有 missing 语义，避免把循环末尾
+        # 的通用 gap 误当成已满足的事实/传导/比较输出。
+        if required.output_id.casefold() == "counter_evidence" and explicit_gap:
+            outputs.append(OutputStatus(required.output_id, "gap", (), explicit_gap))
             continue
         gap = "；".join(loop.gaps) or f"仍缺少：{required.description}"
         outputs.append(

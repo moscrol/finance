@@ -116,6 +116,13 @@ class ResearchState:
             "counterpoint": "counterpoint",
             "cause_attribution": "causal",
             "causal_explanation": "causal",
+            # 事件预测与盘面情景不同，但同样需要把每个可审计输出登记为
+            # hypothesis，避免任意一条工具命中就让 finish=true 提前放行。
+            "event_facts": "scenario",
+            "event_transmission": "causal",
+            "verification_window": "scenario",
+            "falsification_window": "falsifier",
+            "counter_evidence": "counterpoint",
         }
         for item in getattr(contract, "required_outputs", ()):
             output_id = str(getattr(item, "output_id", ""))

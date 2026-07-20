@@ -372,6 +372,169 @@ def test_finish_true_is_delayed_until_forecast_hypotheses_are_covered() -> None:
     assert "完成请求被延迟" in result.steps[0].observation
 
 
+def test_finish_true_is_delayed_until_event_hypotheses_are_covered() -> None:
+    intent = conversation_orchestrator.TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="event_forecast",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    contract = conversation_orchestrator._build_generic_research_contract(
+        "如果美联储下次降息，A股哪些方向可能受益？",
+        task_id="event-finish",
+        turn_intent=intent,
+    )
+    actions = iter(
+        [
+            '{"tool":"finish","args":{"sufficient":true,"assessment":"偏利好","gaps":[]},"reason":"过早结束"}',
+            '{"tool":"finish","args":{"sufficient":false,"assessment":"事件事实与传导仍待核验","gaps":["缺少事件传导和反证的可回查证据"]},"reason":"如实报告缺口"}',
+        ]
+    )
+
+    def complete(_messages, **_kwargs):
+        return next(actions), "test", ""
+
+    result = agent_research.run_agent_loop(
+        contract.question,
+        tools={},
+        steps_budget=2,
+        complete_fn=complete,
+        research_state=ResearchState.from_contract(contract),
+    )
+
+    assert result.stop_reason == "agent finish"
+    assert result.sufficient is False
+    assert "完成请求被延迟" in result.steps[0].observation
+
+
+def test_event_outputs_require_bound_evidence_and_counterevidence_requires_contradiction() -> None:
+    contract = ResearchTaskContract(
+        task_id="event-binding",
+        question="如果政策落地，哪些方向受益？",
+        subject="政策事件",
+        subject_kind="event",
+        question_type="event_forecast",
+        required_outputs=(
+            RequiredOutput("event_facts", "事件事实", ("web_search",), True),
+            RequiredOutput("event_transmission", "传导链", ("web_search",), True),
+            RequiredOutput("verification_window", "验证窗口", ("web_search",), True),
+            RequiredOutput("falsification_window", "证伪窗口", ("web_search",), True),
+            RequiredOutput("counter_evidence", "反证", ("web_search",), True),
+        ),
+        allowed_capabilities=("web_search",),
+    )
+    unbound_evidence = [
+        agent_research.AgentEvidence(
+            tool="web_search",
+            title="事件新闻",
+            detail="事件相关材料",
+            source="https://example.test/event",
+        ),
+        agent_research.AgentEvidence(
+            tool="web_search",
+            title="行业材料",
+            detail="行业相关材料",
+            source="https://example.test/industry",
+            supports=("counter_evidence",),
+        ),
+    ]
+    state = ResearchState.from_contract(contract)
+    for index, item in enumerate(unbound_evidence, start=1):
+        state.add_evidence(item.to_observation(f"unbound:{index}"))
+    state.set_assessment("存在事件材料，但尚未绑定到事件命题。")
+    unbound_report = generic_research_owner.evaluate_completion(
+        contract,
+        agent_research.AgentLoopResult(
+            evidence=unbound_evidence,
+            sufficient=True,
+            assessment=state.assessment,
+            research_state=state,
+        ),
+    )
+    assert {
+        item.output_id: item.status for item in unbound_report.outputs
+    } == {
+        "event_facts": "missing",
+        "event_transmission": "missing",
+        "verification_window": "missing",
+        "falsification_window": "missing",
+        "counter_evidence": "missing",
+    }
+    state.add_gap(
+        "counterevidence_unavailable",
+        "尚未找到可回查的反向传导证据。",
+        blocks=("counter_evidence",),
+    )
+    gap_report = generic_research_owner.evaluate_completion(
+        contract,
+        agent_research.AgentLoopResult(
+            evidence=unbound_evidence,
+            sufficient=False,
+            assessment=state.assessment,
+            research_state=state,
+        ),
+    )
+    assert next(
+        item for item in gap_report.outputs if item.output_id == "counter_evidence"
+    ).status == "gap"
+
+    bound_evidence = [
+        agent_research.AgentEvidence(
+            tool="web_search",
+            title="事件事实",
+            detail="政策已公布具体时间表",
+            source="https://example.test/fact",
+            supports=("event_facts",),
+        ),
+        agent_research.AgentEvidence(
+            tool="web_search",
+            title="传导链",
+            detail="政策通过融资成本影响行业需求",
+            source="https://example.test/transmission",
+            supports=("event_transmission",),
+        ),
+        agent_research.AgentEvidence(
+            tool="web_search",
+            title="验证窗口",
+            detail="下次数据披露验证需求变化",
+            source="https://example.test/verify",
+            supports=("verification_window",),
+        ),
+        agent_research.AgentEvidence(
+            tool="web_search",
+            title="证伪窗口",
+            detail="若需求数据走弱则推翻当前传导",
+            source="https://example.test/falsify",
+            contradicts=("falsification_window",),
+        ),
+        agent_research.AgentEvidence(
+            tool="web_search",
+            title="反向证据",
+            detail="需求并未随政策改善",
+            source="https://example.test/counter",
+            contradicts=("counter_evidence",),
+        ),
+    ]
+    state = ResearchState.from_contract(contract)
+    for index, item in enumerate(bound_evidence, start=1):
+        state.add_evidence(item.to_observation(f"bound:{index}"))
+    state.set_assessment("政策可能改善需求，但应持续验证。")
+    bound_report = generic_research_owner.evaluate_completion(
+        contract,
+        agent_research.AgentLoopResult(
+            evidence=bound_evidence,
+            sufficient=True,
+            assessment=state.assessment,
+            research_state=state,
+        ),
+    )
+
+    assert bound_report.status == "completed"
+    assert all(item.status == "fulfilled" for item in bound_report.outputs)
+
+
 def test_fact_check_counterparty_and_official_relation_filter() -> None:
     assert (
         ask._fact_check_counterparty(

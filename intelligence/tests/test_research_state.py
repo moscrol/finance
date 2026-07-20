@@ -115,6 +115,37 @@ def test_noncausal_grounded_assessment_can_complete() -> None:
     assert report.status == "completed"
 
 
+def test_event_forecast_state_tracks_each_event_output_as_a_hypothesis() -> None:
+    contract = ResearchTaskContract(
+        task_id="event-state-test",
+        question="如果政策落地，哪些方向受益，如何验证或证伪？",
+        subject="政策事件",
+        subject_kind="event",
+        question_type="event_forecast",
+        required_outputs=(
+            RequiredOutput("event_facts", "事件事实", ("web_search",), True),
+            RequiredOutput("event_transmission", "传导链", ("web_search",), True),
+            RequiredOutput("verification_window", "验证窗口", ("web_search",), True),
+            RequiredOutput("falsification_window", "证伪窗口", ("web_search",), True),
+            RequiredOutput("counter_evidence", "反证", ("web_search",), True),
+        ),
+        allowed_capabilities=("web_search",),
+    )
+
+    hypotheses = {
+        item.hypothesis_id: item.kind
+        for item in ResearchState.from_contract(contract).hypotheses
+    }
+
+    assert hypotheses == {
+        "event_facts": "scenario",
+        "event_transmission": "causal",
+        "verification_window": "scenario",
+        "falsification_window": "falsifier",
+        "counter_evidence": "counterpoint",
+    }
+
+
 def test_state_summary_preserves_cognitive_relationships() -> None:
     block = _market_mechanism_state().summary_for_agent()
     assert "候选假设" in block
