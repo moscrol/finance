@@ -1082,6 +1082,27 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     if contract.question_type == "market_cause" and options.market_db_path is not None:
         tools["market_data"] = _generic_market_data
     registry = research_tool_registry.default_registry(tools)
+    preloaded_evidence: tuple[agent_research.AgentEvidence, ...] = ()
+    preloaded_traces: tuple[ProviderTrace, ...] = ()
+    preloaded_observation = ""
+    disabled_tools: tuple[str, ...] = ()
+    if contract.question_type == "market_cause" and "market_data" in registry.names():
+        # 周内盘面是真值底座，不能由 agent 的工具选择顺序决定是否取得。
+        try:
+            observation = registry.execute(
+                "market_data",
+                "本周市场下跌的周内盘面窗口",
+                context=context,
+                step_id=f"{contract.task_id}:owner:prefetch",
+            )
+            preloaded_evidence = observation.evidence
+            preloaded_traces = (observation.trace,)
+            preloaded_observation = observation.observation
+            # 已预取的工具不再交给 agent 二次选择，避免同一 turn 重复查盘。
+            disabled_tools = ("market_data",)
+        except Exception:
+            # 真值底座失败时仍让 agent 尝试新闻/web，并在完成门禁报告缺口。
+            pass
     owner_result = generic_research_owner.run_generic_research(
         contract,
         context=context,
@@ -1090,6 +1111,10 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         existing_evidence_summary=(
             f"任务档位={policy.tier}；可用工具={','.join(registry.names())}"
         ),
+        preloaded_evidence=preloaded_evidence,
+        preloaded_traces=preloaded_traces,
+        preloaded_observation=preloaded_observation,
+        disabled_tools=disabled_tools,
     )
     fallback_assessment_used = False
     visible_evidence = list(owner_result.evidence)

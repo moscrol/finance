@@ -147,6 +147,10 @@ def run_generic_research(
     run_id: str,
     complete_fn: agent_research.CompleteFn | None = None,
     existing_evidence_summary: str = "",
+    preloaded_evidence: tuple[agent_research.AgentEvidence, ...] = (),
+    preloaded_traces: tuple[ProviderTrace, ...] = (),
+    preloaded_observation: str = "",
+    disabled_tools: tuple[str, ...] = (),
 ) -> GenericResearchResult:
     """在契约、白名单和共享 deadline 内运行一个长尾研究闭环。"""
 
@@ -172,6 +176,7 @@ def run_generic_research(
     tools = {
         name: wrapped_runner(name)
         for name in registry.names()
+        if name not in set(disabled_tools)
         if not context.contract.allowed_capabilities
         or registry.resolve(name).capability in context.contract.allowed_capabilities
     }
@@ -194,13 +199,19 @@ def run_generic_research(
     loop = agent_research.run_agent_loop(
         contract.question,
         tools=tools,
-        existing_evidence_summary=existing_evidence_summary,
+        existing_evidence_summary=(
+            f"{existing_evidence_summary}\n{preloaded_observation}".strip()
+        ),
         steps_budget=context.policy.max_steps,
         total_seconds=context.policy.total_seconds,
         deadline=context.deadline,
         complete_fn=complete_fn,
         task_instructions=instructions,
     )
+    if preloaded_evidence:
+        loop.evidence = [*preloaded_evidence, *loop.evidence]
+    if preloaded_traces:
+        loop.traces = [*preloaded_traces, *loop.traces]
     evidence = tuple(loop.evidence)
     return GenericResearchResult(
         run_id=run_id,
