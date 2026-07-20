@@ -976,6 +976,74 @@ def test_incomplete_generic_answer_projects_typed_gaps_to_business_validation(
     assert "研究 Agent" not in rendered
 
 
+def test_incomplete_generic_answer_drops_control_plane_gap_text(
+    monkeypatch,
+) -> None:
+    """Agent 生成的内部 completion 诊断不得进入展示面。"""
+
+    monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    monkeypatch.setattr(
+        agent_research.llm_refine,
+        "complete",
+        lambda _messages, **_kwargs: (
+            '{"tool":"finish","args":{"sufficient":false,'
+            '"gaps":["required_outputs 与 task_coverage 均未满足，请查 ProviderTrace"]},'
+            '"reason":"如实结束"}',
+            "test",
+            "",
+        ),
+    )
+
+    result = ask.answer_query(
+        ask.AskOptions(
+            query="某公司最近怎么看",
+            clarify=False,
+            synthesize=False,
+            research_task_contract=_contract(),
+        )
+    )
+
+    assert result.answer_spec is not None
+    rendered = answer_model.render_answer_spec(result.answer_spec)
+    for internal in ("required_outputs", "task_coverage", "ProviderTrace", "trace"):
+        assert internal not in rendered
+    assert "直接判断" in rendered
+    assert "尚缺少可回查依据" in rendered
+
+
+def test_business_contract_gap_is_not_over_sanitized(monkeypatch) -> None:
+    """业务语义的 contract 不是控制面字段，应保留供用户核验。"""
+
+    monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    monkeypatch.setattr(
+        agent_research.llm_refine,
+        "complete",
+        lambda _messages, **_kwargs: (
+            '{"tool":"finish","args":{"sufficient":false,'
+            '"gaps":["客户 contract 金额尚未公开披露"]},'
+            '"reason":"如实结束"}',
+            "test",
+            "",
+        ),
+    )
+
+    result = ask.answer_query(
+        ask.AskOptions(
+            query="某公司最近怎么看",
+            clarify=False,
+            synthesize=False,
+            research_task_contract=_contract(),
+        )
+    )
+
+    assert result.answer_spec is not None
+    assert "contract 金额尚未公开披露" in answer_model.render_answer_spec(
+        result.answer_spec
+    )
+
+
 def test_partial_causal_result_with_grounded_facts_can_enter_presenter() -> None:
     claim = answer_model.make_claim(
         claim_id="cause:mechanism",

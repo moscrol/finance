@@ -195,8 +195,43 @@ class TestGeneralGroundedPresenter:
             query=result.query,
             grounded_presenter=True,
         )
-        assert not ask.promote_grounded_answer(options, result)
+        assert ask.promote_grounded_answer(options, result)
+        assert result.grounded_fallback_used
+        assert result.synthesis is not None
+        assert "核心判断" in result.synthesis
         assert any(
-            "Grounded Presenter" in warning and "已降级回结构化合成" in warning
+            "Grounded Presenter" in warning and "已降级为可核验短答" in warning
             for warning in result.warnings
         )
+
+    def test_grounded_failure_never_enters_legacy_stream(
+        self, monkeypatch
+    ) -> None:
+        result = _result_with_spec()
+
+        monkeypatch.setattr(
+            llm_refine,
+            "synthesize_messages",
+            lambda _messages, **_kwargs: (None, "no_api_key"),
+        )
+
+        def legacy_stream_must_not_run(*_args, **_kwargs):
+            raise AssertionError("grounded failure 不得绕回旧 marker 合成")
+
+        monkeypatch.setattr(
+            llm_refine,
+            "synthesize_messages_stream",
+            legacy_stream_must_not_run,
+        )
+        options = ask.AskOptions(
+            query=result.query,
+            grounded_presenter=True,
+        )
+
+        ask.synthesize_prepared_answer(
+            ask.PreparedAnswer(options=options, result=result)
+        )
+
+        assert result.grounded_fallback_used
+        assert result.synthesis is not None
+        assert "盘面关注度升温" in result.synthesis

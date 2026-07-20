@@ -179,6 +179,51 @@ class ThemeResearchSpecTests(unittest.TestCase):
         self.assertNotIn("候选来源", rendered)
         self.assertNotIn("[G1]", rendered)
 
+    def test_decision_brief_fallback_never_promotes_candidate_to_support(self) -> None:
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile("某题材怎么看", "某题材", "general"),
+            summary=(
+                make_claim(
+                    claim_id="summary",
+                    text="当前只能保留观察。",
+                    claim_type="summary",
+                    theme="某题材",
+                    status=ClaimStatus.INFERRED,
+                ),
+            ),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(),
+            system_notices=(),
+            candidate_facts=(
+                make_claim(
+                    claim_id="candidate",
+                    text="未核验的客户传闻。",
+                    claim_type="candidate",
+                    theme="某题材",
+                    status=ClaimStatus.CANDIDATE,
+                    evidence_ids=("C1",),
+                ),
+            ),
+            presentation_kind="generic_research",
+        )
+        rendered = render_decision_brief_fallback(
+            DecisionBrief(
+                direct_answer="当前只能保留观察。",
+                core_tension="",
+                supports=("candidate",),
+                unknowns=(),
+            ),
+            spec,
+            verified_only=True,
+        )
+        self.assertNotIn("未核验的客户传闻", rendered)
+        self.assertNotIn("主要依据", rendered)
+
     def test_domain_packs_share_one_protocol(self) -> None:
         cases = {
             "稳定币支付": "stablecoin_payment",

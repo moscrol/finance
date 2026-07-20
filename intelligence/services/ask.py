@@ -1705,16 +1705,40 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         )
         if output.status != "fulfilled"
     )
-    typed_gap_texts = [
-        (
+    # Agent 的 finish.gaps 属于不可信输入：它可能把 contract/
+    # completion/trace 等控制面术语原样放进用户正文。展示面只接受
+    # 业务化的“缺什么证据”；命中内部诊断词时丢弃 detail，保留
+    # RequiredOutput.description 这个由程序定义的稳定业务标签。
+    control_plane_gap = re.compile(
+        r"(?ix)(?:"
+        r"required_outputs?|task_coverage|factual_grounding|causal_adequacy|"
+        r"completion_report|research_?state|provider_?trace|"
+        r"parent_?id|step_?id|run_?id|tool_?budget|trace|token_?budget|"
+        r"allowed_capabilities|research_tier|presentation_profile"
+        r")"
+    )
+
+    def business_gap_detail(raw: object) -> str:
+        detail = " ".join(str(raw or "").split()).strip()
+        if not detail or control_plane_gap.search(detail):
+            return ""
+        return detail[:180]
+
+    typed_gap_texts = []
+    for required, output in incomplete_outputs:
+        prefix = (
             f"待验证情景“{required.description}”尚缺少可回查依据"
             if required.output_id in hypothesis_output_ids
             else f"“{required.description}”尚缺少可回查依据"
         )
-        + (f"：{output.gap}" if output.gap else "。")
-        for required, output in incomplete_outputs
+        detail = business_gap_detail(output.gap)
+        typed_gap_texts.append(f"{prefix}：{detail}" if detail else f"{prefix}。")
+    raw_business_gaps = [
+        detail
+        for detail in (business_gap_detail(item) for item in owner_result.gaps)
+        if detail
     ]
-    gap_texts = typed_gap_texts or list(owner_result.gaps)
+    gap_texts = typed_gap_texts or raw_business_gaps
     if is_customer_fact_check and not has_relevant_l3:
         gap_texts = [
             (

@@ -1181,7 +1181,8 @@ def promote_grounded_answer(
 
     daily-agent 契约受 ``daily_agent_grounded_presenter`` 控制（行为不变）；
     其余 compose 回答（包括 market_review）受 ``grounded_presenter`` 控制。
-    失败时返回 False，由调用方降回结构化 claim 合成路径。
+    开关启用后，门禁失败时使用确定性 verified brief 短答，
+    不再绕回旧 LLM marker/Daily 模板出口。
     """
     spec = result.answer_spec
     if spec is None:
@@ -1226,28 +1227,36 @@ def promote_grounded_answer(
             label = "研究雷达" if is_daily_agent else "Grounded Presenter"
             result.warnings.append(
                 f"{label}自然语言合成未通过门禁或不可用"
-                f"（{reason}），已降级回结构化合成。"
+                f"（{reason}），已降级为可核验短答。"
             )
-        if result.answer_spec.presentation_kind == "generic_research":
+        # 这里返回 True 是关键：阻止 synthesize_prepared_answer
+        # 继续落入旧 marker 合成路径。长尾/daily 使用只展示
+        # verified facts 的短答；专项 owner 保留自己的确定性
+        # AnswerSpec renderer，避免在合成故障时丢掉其业务契约。
+        if result.answer_spec.presentation_kind in {
+            "generic_research",
+            answer_model.DAILY_AGENT_PRESENTATION_KIND,
+        }:
             fallback = answer_model.render_decision_brief_fallback(
                 shadow.decision_brief if shadow is not None else None,
                 result.answer_spec,
+                verified_only=True,
             )
-            result.synthesis = (
-                f"{result.data_notice}\n\n{fallback}"
-                if result.data_notice
-                else fallback
-            )
-            result.synthesis_messages = [
-                *(result.prepared_synthesis_messages or []),
-                {"role": "assistant", "content": result.synthesis},
-            ]
-            result.grounded_fallback_used = True
-            return True
-        # Specialist owners keep their established deterministic renderer as
-        # the explicit fallback.  They do not enter the generic long-tail
-        # candidate/template path.
-        return False
+        else:
+            fallback = answer_model.render_answer_spec(result.answer_spec)
+        result.synthesis = (
+            f"{result.data_notice}\n\n{fallback}"
+            if result.data_notice
+            else fallback
+        )
+        result.synthesis_messages = [
+            *(result.prepared_synthesis_messages or []),
+            {"role": "assistant", "content": result.synthesis},
+        ]
+        result.grounded_fallback_used = True
+        if options.stream_text_delta is not None:
+            options.stream_text_delta(result.synthesis)
+        return True
     result.synthesis = (
         f"{result.data_notice}\n\n{presented}"
         if result.data_notice

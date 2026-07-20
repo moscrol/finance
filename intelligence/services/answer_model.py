@@ -1721,6 +1721,8 @@ def _fallback_claim_text(text: str) -> str:
 def render_decision_brief_fallback(
     brief: DecisionBrief | None,
     answer_spec: AnswerSpec | None = None,
+    *,
+    verified_only: bool = False,
 ) -> str:
     """Render the best verified short answer when natural synthesis fails.
 
@@ -1728,21 +1730,38 @@ def render_decision_brief_fallback(
     dump, claim markers or internal run state.  It is a smaller and safer exit
     than the retired marker composer, not another LLM fallback.
     """
-    claims = {
-        claim.claim_id: _fallback_claim_text(claim.text)
-        for claim in (
-            (*answer_spec.summary, *answer_spec.verified_facts, *answer_spec.candidate_facts)
+    # Grounded 门禁失败时，调用方传 verified_only=True：
+    # “主要依据”只展示已验证且已绑定 EvidenceAtom 的事实。
+    # 普通 generic deterministic renderer 仍可显式展示待验证线索，
+    # 避免把“可见候选”和“门禁失败”两个契约混在一起。
+    support_pool = (
+        answer_spec.verified_facts
+        if answer_spec is not None and verified_only
+        else (
+            (*answer_spec.verified_facts, *answer_spec.candidate_facts)
             if answer_spec is not None
             else ()
         )
-        if claim.claim_id and _fallback_claim_text(claim.text)
+    )
+    support_claims = {
+        claim.claim_id: _fallback_claim_text(claim.text)
+        for claim in support_pool
+        if claim.claim_id
+        and (
+            not verified_only
+            or (claim.status == ClaimStatus.VERIFIED and claim.evidence_ids)
+        )
+        and _fallback_claim_text(claim.text)
     }
 
-    def resolve(items: tuple[str, ...]) -> list[str]:
+    def resolve(
+        items: tuple[str, ...],
+        registry: dict[str, str],
+    ) -> list[str]:
         return [
-            claims[item]
+            registry[item]
             for item in items
-            if item in claims and claims[item]
+            if item in registry and registry[item]
         ]
 
     lines: list[str] = []
@@ -1762,17 +1781,26 @@ def render_decision_brief_fallback(
             else ["## 当前判断", f"{direct}"]
         )
 
-    supports = resolve(brief.supports if brief else ())
+    supports = resolve(brief.supports if brief else (), support_claims)
     if not supports and answer_spec is not None:
         supports = [
             _fallback_claim_text(claim.text)
-            for claim in (*answer_spec.verified_facts, *answer_spec.candidate_facts[:3])
-            if _fallback_claim_text(claim.text)
+            for claim in support_pool
+            if (
+                not verified_only
+                or (claim.status == ClaimStatus.VERIFIED and claim.evidence_ids)
+            )
+            and _fallback_claim_text(claim.text)
         ][:3]
     if supports:
         lines.extend(["", "## 主要依据", *[f"- {item}" for item in dict.fromkeys(supports)]])
 
-    unknowns = resolve(brief.unknowns if brief else ())
+    unknown_claims = {
+        claim.claim_id: _fallback_claim_text(claim.text)
+        for claim in (answer_spec.gaps if answer_spec is not None else ())
+        if claim.claim_id and _fallback_claim_text(claim.text)
+    }
+    unknowns = resolve(brief.unknowns if brief else (), unknown_claims)
     if not unknowns and answer_spec is not None:
         unknowns = [
             _fallback_claim_text(claim.text)

@@ -393,9 +393,10 @@ class TestGroundedPresenterPromotion:
             query=result.query,
             daily_agent_grounded_presenter=True,
         )
-        assert not ask.promote_daily_agent_grounded_answer(options, result)
-        assert result.synthesis is None
-        assert any("已降级回结构化合成" in warning for warning in result.warnings)
+        assert ask.promote_daily_agent_grounded_answer(options, result)
+        assert result.grounded_fallback_used
+        assert result.synthesis is not None
+        assert any("已降级为可核验短答" in warning for warning in result.warnings)
 
     def test_flag_off_keeps_legacy_path(self, monkeypatch) -> None:
         result = _result_with_spec()
@@ -542,5 +543,6 @@ class TestGroundedPresenterPromotion:
         options = ask.AskOptions(
             query=result.query,
             daily_agent_grounded_presenter=True,
+            grounded_presenter=False,
         )
         assert not ask.promote_daily_agent_grounded_answer(options, result)
