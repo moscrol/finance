@@ -97,6 +97,48 @@ class ThemeResearchSpecTests(unittest.TestCase):
         self.assertEqual(heading.severity, "warning")
         self.assertFalse(any(issue.severity == "error" for issue in issues))
 
+    def test_number_formatting_does_not_reject_grounded_percentage(self) -> None:
+        claim = make_claim(
+            claim_id="metric-1",
+            text="区间变化 -3.82 %。",
+            claim_type="supporting_fact",
+            theme="A股市场",
+            status=ClaimStatus.VERIFIED,
+            evidence_ids=("G1",),
+        )
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile(
+                "本周为什么下跌", profile="causal"
+            ),
+            summary=(),
+            verified_facts=(claim,),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(EvidenceRef("G1", "本地行情"),),
+            system_notices=(),
+            presentation_profile="causal",
+        )
+        atom = next(
+            atom
+            for atom in evidence_atoms_from_answer_spec(spec)
+            if atom.source_id == "G1"
+        )
+        answer = (
+            "区间下跌 3.82%。"
+            f"<!-- claim_ids=metric-1; evidence_atom_ids={atom.atom_id}; "
+            "claim_type=fact -->"
+        )
+        self.assertNotIn(
+            "grounded_composer_added_number",
+            {
+                issue.code
+                for issue in validate_grounded_composer_answer(answer, spec)
+            },
+        )
+
     def test_decision_brief_fallback_is_not_generic_template(self) -> None:
         spec = AnswerSpec(
             research_spec=resolve_answer_profile("行情原因", profile="causal"),

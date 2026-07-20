@@ -2720,6 +2720,10 @@ def validate_grounded_composer_answer(
             _normalize_number_token(token)
             for token in _NUMBER_RE.findall(normalized_allowed_text)
         }
+        negative_magnitude = any(
+            term in sentence.text
+            for term in ("下跌", "下降", "回落", "萎缩", "收缩", "减少")
+        )
         new_dates = sorted(
             {
                 token
@@ -2738,17 +2742,21 @@ def validate_grounded_composer_answer(
             )
         new_numbers = sorted(
             {
-                token
-                for token in (
-                    *_NUMBER_WITH_UNIT_RE.findall(sentence.text),
-                    *_DATE_RE.findall(sentence.text),
-                )
+                token for token in _DATE_RE.findall(sentence.text)
                 if re.sub(r"\s+", "", token) not in normalized_allowed_text
             }
             | {
                 token
                 for token in _NUMBER_RE.findall(sentence.text)
-                if _normalize_number_token(token) not in allowed_numbers
+                if (
+                    _normalize_number_token(token) not in allowed_numbers
+                    and not (
+                        negative_magnitude
+                        and not _normalize_number_token(token).startswith("-")
+                        and f"-{_normalize_number_token(token)}"
+                        in allowed_numbers
+                    )
+                )
             }
         )
         if new_numbers:
