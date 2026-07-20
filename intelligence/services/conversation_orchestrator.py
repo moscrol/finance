@@ -1374,6 +1374,15 @@ class TurnOrchestrator:
                     as_of=lane_as_of,
                 )
             route_started = time.monotonic()
+            relation_guard_requested = bool(
+                "relation" in turn_intent.operators
+                and turn_intent.inherited_from_turn is None
+                and re.search(
+                    r"(?:上游|下游|产业链位置|处于.{0,8}环节|"
+                    r"客户.{0,8}(?:竞争对手|替代)|竞争对手|供应商|合作方)",
+                    contextual_query,
+                )
+            )
             generic_owner_requested = (
                 decision.lane == "research"
                 and turn_intent.question_type
@@ -1385,17 +1394,9 @@ class TurnOrchestrator:
                     controller_question_type_supplied
                     or turn_intent.question_type != QUESTION_GENERAL
                 )
-                and turn_intent.answer_owner is None
+                and (turn_intent.answer_owner is None or relation_guard_requested)
                 and skill_mode in {"auto", "hybrid"}
                 and not selected_skill_ids
-            )
-            relation_guard_requested = bool(
-                "relation" in turn_intent.operators
-                and turn_intent.inherited_from_turn is None
-                and re.search(
-                    r"(?:上游|下游|产业链位置|处于.{0,8}环节)",
-                    contextual_query,
-                )
             )
             router_skipped = bool(
                 decision.lane == "knowledge"
