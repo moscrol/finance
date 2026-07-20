@@ -67,6 +67,9 @@ def test_contract_fields_are_exact_and_context_supports_task5(tmp_path: Path) ->
         "input_schema",
         "permissions",
         "timeout_seconds",
+        "role",
+        "accepted_question_types",
+        "can_own_answer",
     ]
     assert [field.name for field in fields(SkillOutput)] == [
         "skill_id",

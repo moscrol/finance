@@ -1055,7 +1055,7 @@ class TurnOrchestrator:
                 previous_intent=inherited_intent,
                 previous_turn_id=inherited_turn_id,
             )
-            controller_supplied_intent = decision.turn_intent is not None
+            controller_question_type_supplied = decision.question_type is not None
             turn_intent = decision.turn_intent or build_turn_intent(
                 query,
                 raw_envelope,
@@ -1283,7 +1283,13 @@ class TurnOrchestrator:
                 decision.lane == "research"
                 and turn_intent.question_type
                 not in {QUESTION_MARKET_TECHNICAL, QUESTION_EXTERNAL_MARKET}
-                and controller_supplied_intent
+                # 真实 controller 总会附带 TurnIntent；若某个旧的测试/第三方
+                # controller 只返回无 question_type 的裸 TurnDecision，保留
+                # 旧 route 行为，避免把兼容层误判为“ownerless research”。
+                and (
+                    controller_question_type_supplied
+                    or turn_intent.question_type != QUESTION_GENERAL
+                )
                 and turn_intent.answer_owner is None
                 and skill_mode in {"auto", "hybrid"}
                 and not selected_skill_ids
@@ -1593,9 +1599,30 @@ class TurnOrchestrator:
                     skill_outputs.append(output)
                     warnings.extend(output.warnings)
                     citations.extend(output.citations)
-                    if output.answer_contract is not None:
+                    output_can_own_turn = _skill_output_compatible_with_turn(
+                        output,
+                        definition=self.skill_registry.definitions.get(skill_id),
+                        lane=decision.lane,
+                        question_type=turn_intent.question_type,
+                        explicit_manual=skill_mode == "manual",
+                    )
+                    if output.answer_contract is not None and output_can_own_turn:
                         pending_selections.clear()
                         execution_feedback.clear()
+                    elif output.answer_contract is not None:
+                        # An answer contract is not automatically a turn owner.
+                        # Keep the route continuation alive so a mismatched
+                        # workflow/profile cannot suppress the generic owner or
+                        # a later compatible skill.
+                        execution_feedback.append(
+                            {
+                                "skill_id": skill_id,
+                                "status": "rejected",
+                                "failure_reason": (
+                                    "skill contract 与当前 turn question_type 不兼容"
+                                ),
+                            }
+                        )
                     for warning in output.warnings:
                         self.run_store.add_degrade(run_id, warning)
                     for index, module in enumerate(output.modules, start=1):
