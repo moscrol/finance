@@ -32,6 +32,8 @@ def test_answer_snapshot_payload() -> None:
         (2, "validated_synthesis", "answer", False),
         (2, "verified_fallback", "answer", False),
         (2, "verified_fallback", "answer", 1),
+        (2, "decision_brief_fallback", "answer", False),
+        (2, "evidence_gap_fallback", "answer", False),
     ],
 )
 def test_answer_snapshot_rejects_invalid_payloads(

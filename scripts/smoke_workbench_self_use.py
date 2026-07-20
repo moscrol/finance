@@ -21,6 +21,8 @@ ANSWER_PHASES = {
     "verified_draft",
     "validated_synthesis",
     "verified_fallback",
+    "decision_brief_fallback",
+    "evidence_gap_fallback",
 }
 EVENT_REGISTRY_PATH = (
     Path(__file__).resolve().parents[1]

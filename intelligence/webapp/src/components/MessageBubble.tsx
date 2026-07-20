@@ -58,6 +58,10 @@ export function MessageBubble({
         ? "自然语言精修完成"
         : live?.answerPhase === "verified_fallback"
           ? "已保留可核验版本"
+          : live?.answerPhase === "decision_brief_fallback"
+            ? "已保留决策摘要"
+            : live?.answerPhase === "evidence_gap_fallback"
+              ? "证据不足，已如实说明"
           : null;
   const assistantStatus =
     answerStatus ??

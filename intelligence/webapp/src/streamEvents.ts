@@ -98,6 +98,8 @@ const answerPhases = new Set<AnswerPhase>([
   "verified_draft",
   "validated_synthesis",
   "verified_fallback",
+  "decision_brief_fallback",
+  "evidence_gap_fallback",
 ]);
 
 const isAnswerPhase = (value: unknown): value is AnswerPhase =>

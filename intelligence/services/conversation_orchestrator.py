@@ -2102,8 +2102,12 @@ class TurnOrchestrator:
                                 "evidence_gap_fallback"
                                 if (
                                     result.answer_spec is not None
-                                    and answer_model.quality_requires_fail_closed(
-                                        result.answer_spec
+                                    and (
+                                        result.answer_spec.presentation_kind
+                                        == "evidence_gap"
+                                        or answer_model.quality_requires_fail_closed(
+                                            result.answer_spec
+                                        )
                                     )
                                 )
                                 else "verified_fallback"

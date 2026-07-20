@@ -1409,6 +1409,8 @@ describe("Chat-first conversation components", () => {
     ["verified_draft", false, "可核验草稿 · 模型精修中"],
     ["validated_synthesis", true, "自然语言精修完成"],
     ["verified_fallback", true, "已保留可核验版本"],
+    ["decision_brief_fallback", true, "已保留决策摘要"],
+    ["evidence_gap_fallback", true, "证据不足，已如实说明"],
   ] as const)("shows the %s answer phase", (phase, final, label) => {
     render(
       <MessageBubble

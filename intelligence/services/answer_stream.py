@@ -7,6 +7,8 @@ AnswerPhase = Literal[
     "verified_draft",
     "validated_synthesis",
     "verified_fallback",
+    "decision_brief_fallback",
+    "evidence_gap_fallback",
 ]
 
 ANSWER_PHASES = frozenset(
@@ -14,6 +16,8 @@ ANSWER_PHASES = frozenset(
         "verified_draft",
         "validated_synthesis",
         "verified_fallback",
+        "decision_brief_fallback",
+        "evidence_gap_fallback",
     }
 )
 

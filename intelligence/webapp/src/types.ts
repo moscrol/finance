@@ -611,7 +611,9 @@ export interface LiveWorkflow {
 export type AnswerPhase =
   | "verified_draft"
   | "validated_synthesis"
-  | "verified_fallback";
+  | "verified_fallback"
+  | "decision_brief_fallback"
+  | "evidence_gap_fallback";
 
 export interface LiveMessageState {
   conversationId: string;
