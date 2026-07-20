@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "id": "weekly-market-cause",
+      "question": "这一周行情下跌的主要原因你认为是什么",
+      "answer": "本周下跌更像是风险偏好收缩与高位筹码松动共振，而不是单一行业利空。[E1]\n成交放大且跌停扩散支持去风险判断；外部触发因素仍缺少可核验证据。",
+      "direct_targets": ["风险偏好收缩", "高位筹码松动"],
+      "requirements": [{"id": "cause_attribution", "satisfy_any": ["风险偏好", "原因"], "gap_any": ["外部触发因素仍缺少"]}],
+      "claims": [{"factual": true, "evidence_ids": ["E1"]}],
+      "evidence_ids": ["E1"]
+    },
+    {
+      "id": "rag-methodology",
+      "question": "RAG 检索为什么会让回答模板化，应该怎么改",
+      "answer": "RAG 本身不会必然导致模板化，问题通常是把展示格式写进检索与合成 prompt。改法是让 BM25/向量检索负责覆盖，让出口 verifier 负责事实约束，LLM 保留组织语言的自由。",
+      "direct_targets": ["RAG 本身不会必然导致模板化"],
+      "requirements": [{"id": "mechanism", "satisfy_any": ["展示格式写进", "prompt"]}, {"id": "remedy", "satisfy_any": ["出口 verifier", "组织语言"]}],
+      "claims": [{"factual": false, "evidence_ids": []}]
+    },
+    {
+      "id": "unsupported-relation",
+      "question": "液冷和 PCB 谁在产业链上游",
+      "answer": "现有证据无法确认液冷与 PCB 之间存在可核验的直接上下游关系；两者都可能服务于算力基础设施，但不能仅凭共现拼接产业链。",
+      "direct_targets": ["无法确认"],
+      "requirements": [{"id": "relation", "satisfy_any": ["上游", "下游"], "gap_any": ["无法确认"]}]
+    },
+    {
+      "id": "missing-l3-customer",
+      "question": "某公司和某客户是否已确认合作",
+      "answer": "尚不能确认合作。当前缺少公告、合同或客户认证这类 L3 证据，因此只应保留为待核线索。",
+      "direct_targets": ["尚不能确认合作"],
+      "requirements": [{"id": "customer_validation", "satisfy_any": ["已确认合作"], "gap_any": ["缺少公告", "尚不能确认"]}]
+    },
+    {
+      "id": "stock-long-tail",
+      "question": "这家公司利润增长但现金流变差，核心矛盾是什么",
+      "answer": "核心矛盾是利润质量：增长若主要来自应收和存货扩张，兑现成现金的能力就在下降。[E2]\n还要核对经营现金流、应收周转和存货周转的连续变化。",
+      "direct_targets": ["核心矛盾是利润质量"],
+      "requirements": [{"id": "core_tension", "satisfy_any": ["利润质量"]}, {"id": "next_checks", "satisfy_any": ["经营现金流", "应收周转"]}],
+      "claims": [{"factual": true, "evidence_ids": ["E2"]}],
+      "evidence_ids": ["E2"]
+    },
+    {
+      "id": "composer-timeout",
+      "question": "本周下跌的主要原因是什么",
+      "answer": "直接判断：风险偏好收缩是当前最可能的主导机制。\n核心矛盾：内部量价数据支持去风险，但外部事件证据不足。",
+      "direct_targets": ["风险偏好收缩"],
+      "requirements": [{"id": "cause_attribution", "satisfy_any": ["风险偏好收缩"]}, {"id": "uncertainty", "satisfy_any": ["外部事件证据不足"]}],
+      "decision_brief": {"direct_answer": "风险偏好收缩是当前最可能的主导机制", "core_tension": "内部量价数据支持去风险，但外部事件证据不足"},
+      "claims": [{"factual": true, "evidence_ids": ["E3"]}],
+      "evidence_ids": ["E3"]
+    }
+  ]
+}
