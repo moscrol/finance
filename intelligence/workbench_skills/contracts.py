@@ -45,14 +45,11 @@ class SkillDefinition:
     input_schema: JsonObject
     permissions: tuple[str, ...]
     timeout_seconds: int
-    # Legacy custom skills default to terminal_owner for backwards
-    # compatibility. Built-in daily/workflow skills declare workflow
-    # explicitly; research profiles declare their accepted question types.
-    role: SkillRole = "terminal_owner"
+    # New and third-party skills are evidence contributors by default.  They
+    # must opt in explicitly before their output can terminate a turn.
+    role: SkillRole = "workflow"
     accepted_question_types: tuple[str, ...] = ()
-    # Keep legacy custom skills answer-capable unless they opt out explicitly;
-    # automatic research turns still require a matching question_type.
-    can_own_answer: bool = True
+    can_own_answer: bool = False
 
 
 @dataclass

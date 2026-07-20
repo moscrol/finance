@@ -2,7 +2,7 @@ import io
 import json
 import time
 import urllib.error
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from threading import Event
 
 import pytest
@@ -109,6 +109,7 @@ def test_research_owner_contract_honors_declared_question_types() -> None:
         timeout_seconds=30,
         role="workflow",
         accepted_question_types=("daily_review",),
+        can_own_answer=True,
     )
     assert not _skill_output_compatible_with_turn(
         output,
@@ -122,6 +123,115 @@ def test_research_owner_contract_honors_declared_question_types() -> None:
         lane="workflow",
         question_type="daily_review",
     )
+
+
+def test_old_daily_agent_contract_cannot_own_market_forecast(tmp_path) -> None:
+    """Manual execution keeps the forecast turn, but cannot bypass ownership."""
+    from dataclasses import replace
+
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "请判断明天市场会反弹还是继续下跌"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    captured: list[AskOptions] = []
+
+    class LegacyDailyAgent:
+        skill_id = "daily-agent"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            del context
+            modules = [{"type": "summary", "summary": "日报研究队列"}]
+            citations = [{"source": "daily.json", "title": "日报"}]
+            contract = build_module_answer_contract(
+                skill_id=self.skill_id,
+                title="日报",
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of=None,
+                retrieval_plan=("读取日报",),
+                output_contract=("输出研究队列",),
+            )
+            assert contract is not None
+            return SkillOutput(
+                skill_id=self.skill_id,
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of=None,
+                raw_result_ref=None,
+                answer_contract=replace(contract, question_type="daily_review"),
+            )
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="daily-agent",
+            name="Daily Agent",
+            description="legacy daily contract fixture",
+            version="1",
+            triggers=("今天研究什么",),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+            role="workflow",
+            can_own_answer=True,
+        ),
+        LegacyDailyAgent(),
+    )
+
+    def forecast_controller(_query: str, **_kwargs: object) -> TurnDecision:
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=False,
+            needs_template=True,
+            question_type="market_forecast",
+            confidence=1.0,
+            reason="fixture forecast",
+        )
+
+    def capture_answer(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query)
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=capture_answer,
+        skill_registry=registry,
+        turn_controller_fn=forecast_controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="manual",
+        selected_skill_ids=["daily-agent"],
+    )
+
+    assert result.status == "completed"
+    assert captured[0].question_type_override == "market_forecast"
+    rejected = next(
+        step
+        for step in run_store.load_trace(run_id)
+        if step["name"] == "owner_contract_rejected"
+    )
+    assert json.loads(rejected["output_summary"])["rejected"] == [
+        {
+            "skill_id": "daily-agent",
+            "expected_question_type": "market_forecast",
+            "actual_question_type": "daily_review",
+            "reason": "skill contract 与 controller turn contract 不兼容",
+        }
+    ]
 
 
 def test_citation_projection_dedupes_owner_and_raw_shapes() -> None:
@@ -1646,6 +1756,8 @@ def test_current_skill_output_is_injected_as_current_turn_evidence(tmp_path) -> 
             input_schema={"type": "object"},
             permissions=("local_read",),
             timeout_seconds=1,
+            role="terminal_owner",
+            can_own_answer=True,
         ),
         _SuccessfulSkill(),
     )
@@ -1727,16 +1839,19 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
                 warnings=[],
                 as_of="2026-07-11",
                 raw_result_ref=None,
-                answer_contract=build_module_answer_contract(
-                    skill_id=self.skill_id,
-                    title="专项研究",
-                    modules=modules,
-                    citations=citations,
-                    warnings=[],
-                    as_of="2026-07-11",
-                    retrieval_plan=("读取专项正式资料",),
-                    output_contract=("输出五元素裁决",),
-                ),
+                    answer_contract=replace(
+                        build_module_answer_contract(
+                            skill_id=self.skill_id,
+                            title="专项研究",
+                            modules=modules,
+                            citations=citations,
+                            warnings=[],
+                            as_of="2026-07-11",
+                            retrieval_plan=("读取专项正式资料",),
+                            output_contract=("输出五元素裁决",),
+                        ),
+                        question_type="general_finance_qa",
+                    ),
             )
 
     class UnusedSkill:
@@ -1757,6 +1872,8 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
             input_schema={"type": "object"},
             permissions=("local_read",),
             timeout_seconds=1,
+            role="terminal_owner",
+            can_own_answer=True,
         ),
         OwnerSkill(),
     )

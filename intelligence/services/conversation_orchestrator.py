@@ -768,21 +768,19 @@ def _skill_output_compatible_with_turn(
     contract = output.answer_contract
     if contract is None:
         return False
-    can_own_answer = bool(getattr(definition, "can_own_answer", True))
-    if explicit_manual:
-        # Manual skill selection is an explicit user contract. Keep the legacy
-        # path available even for pre-typed skills whose contract question_type
-        # is still None; automatic routing remains fail-closed below.
-        return can_own_answer
+    # A manual selection may request execution, but must never turn an
+    # untyped/unknown contributor into the answer owner.
+    del explicit_manual
+    can_own_answer = bool(getattr(definition, "can_own_answer", False))
     if not can_own_answer:
         return False
-    role = str(getattr(definition, "role", "terminal_owner"))
+    role = str(getattr(definition, "role", "workflow"))
     if lane == "workflow":
         return role in {"workflow", "terminal_owner"}
     if lane != "research":
         return False
     if question_type is None:
-        return True
+        return role == "terminal_owner"
     contract_type = contract.question_type
     accepted_question_types = tuple(
         str(item)

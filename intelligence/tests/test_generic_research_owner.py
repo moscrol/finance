@@ -730,6 +730,7 @@ def test_orchestrator_ownerless_turn_skips_skill_router_and_template(
         if step["name"] == "route_skills"
     )
     route_output = json.loads(route_step["output_summary"])
+    assert route_output["router_skipped"] is True
     assert route_output["generic_owner_requested"] is True
     assert route_output["selected"] == []
 
