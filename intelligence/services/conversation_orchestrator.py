@@ -67,6 +67,8 @@ from intelligence.services.research_contract import (
     OWNER_WORKFLOW_SPECS,
     ResearchDeadline,
     ResearchPlan,
+    RequiredOutput,
+    ResearchTaskContract,
     TurnIntent,
     build_turn_intent,
     contextualize_intent_query,
@@ -92,6 +94,61 @@ from intelligence.services.query_resolution import is_contextual_reference
 RECENT_MESSAGE_LIMIT = 6
 SUMMARY_CHAR_LIMIT = 2400
 _SKILL_POOL_WORKERS = 3
+
+
+def _build_generic_research_contract(
+    query: str,
+    *,
+    task_id: str,
+    turn_intent: TurnIntent,
+) -> ResearchTaskContract:
+    """为未命中专项 Owner 的问题生成保守、可审计的任务契约。"""
+
+    normalized = query.replace(" ", "")
+    tier = (
+        "deep"
+        if any(term in normalized for term in ("深挖", "深入", "系统研究"))
+        else "quick"
+        if any(term in normalized for term in ("简单说", "快答", "一句话"))
+        else "standard"
+    )
+    return ResearchTaskContract(
+        task_id=task_id,
+        question=query,
+        subject=turn_intent.primary_subject,
+        subject_kind=None,
+        question_type=turn_intent.question_type,
+        required_outputs=(
+            RequiredOutput(
+                "direct_assessment",
+                "针对用户问题的直接判断",
+                ("kb_search", "web_search", "news_search", "graph_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条可回查来源",
+                ("kb_search", "web_search", "news_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "counterpoint",
+                "反方或证据边界",
+                ("kb_search", "web_search", "news_search"),
+                False,
+            ),
+        ),
+        allowed_capabilities=(
+            "kb_search",
+            "web_search",
+            "news_search",
+            "graph_lookup",
+            "evidence_lookup",
+        ),
+        research_tier=tier,
+        presentation_profile="general",
+        freshness="current",
+    )
 
 
 def _parallel_skills_enabled() -> bool:
@@ -822,6 +879,7 @@ class TurnOrchestrator:
                 previous_intent=inherited_intent,
                 previous_turn_id=inherited_turn_id,
             )
+            controller_supplied_intent = decision.turn_intent is not None
             turn_intent = decision.turn_intent or build_turn_intent(
                 query,
                 raw_envelope,
@@ -1033,11 +1091,24 @@ class TurnOrchestrator:
                     as_of=lane_as_of,
                 )
             route_started = time.monotonic()
-            if decision.lane == "knowledge" or (
-                turn_intent.question_type == "market_technical"
+            generic_owner_requested = (
+                decision.lane == "research"
+                and decision.question_type == QUESTION_GENERAL
+                and turn_intent.question_type == QUESTION_GENERAL
+                and controller_supplied_intent
+                and turn_intent.answer_owner is None
+                and skill_mode == "auto"
+                and not selected_skill_ids
+            )
+            if (
+                decision.lane == "knowledge"
+                or turn_intent.question_type == "market_technical"
+                or generic_owner_requested
             ):
                 # market_technical：controller 已确定性定型，走 ask 内的
                 # 结构化行情技术位管线，跳过语义 skill router 的额外 LLM。
+                # ownerless general：由 GenericResearchOwner 先接管，固定
+                # provider 只作为它的工具，不再预跑整条 Ask 管线。
                 route = SkillRouteResult(
                     (),
                     fallback_to_ask=True,
@@ -1089,6 +1160,7 @@ class TurnOrchestrator:
                     "fallback_to_ask": route.fallback_to_ask,
                     "base_finance_fallback": route.base_finance_fallback,
                     "router_skipped": decision.lane == "knowledge",
+                    "generic_owner_requested": generic_owner_requested,
                     "controller_lane": decision.lane,
                     "query_envelope": routing_envelope.to_dict(),
                     "elapsed_ms": self._elapsed_ms(route_started),
@@ -1498,6 +1570,15 @@ class TurnOrchestrator:
                     if decision.lane == "knowledge"
                     else turn_intent.question_type
                 ),
+                research_task_contract=(
+                    _build_generic_research_contract(
+                        contextual_query,
+                        task_id=run_id,
+                        turn_intent=turn_intent,
+                    )
+                    if generic_owner_requested
+                    else None
+                ),
                 controller_capabilities=(
                     tuple(
                         dict.fromkeys((*decision.capabilities, "web_search"))
@@ -1812,6 +1893,7 @@ class TurnOrchestrator:
             if (
                 decision.lane in {"research", "workflow"}
                 and decision.needs_template is True
+                and not generic_owner_requested
                 and result.synthesis is None
                 and owner_output is None
             ):

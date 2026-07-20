@@ -324,6 +324,136 @@ class ResearchDeadline:
 
 
 @dataclass(frozen=True)
+class ResearchPolicy:
+    """Generic owner 的确定性档位，不允许由 LLM 提高上限。"""
+
+    tier: str
+    max_steps: int
+    total_seconds: float
+    synthesis_reserve: float
+
+    @classmethod
+    def for_tier(cls, tier: str) -> "ResearchPolicy":
+        policies = {
+            "quick": cls("quick", 3, 30.0, 20.0),
+            "standard": cls("standard", 6, 90.0, 20.0),
+            "deep": cls("deep", 12, 240.0, 48.0),
+        }
+        return policies.get(tier, policies["standard"])
+
+
+@dataclass(frozen=True)
+class RequiredOutput:
+    output_id: str
+    description: str
+    evidence_types: tuple[str, ...] = ()
+    required: bool = True
+
+
+@dataclass(frozen=True)
+class OutputStatus:
+    output_id: str
+    status: Literal["fulfilled", "gap", "missing"]
+    evidence_ids: tuple[str, ...] = ()
+    gap: str = ""
+
+
+class ResearchContractError(ValueError):
+    """任务契约不满足 schema 或能力白名单。"""
+
+
+@dataclass(frozen=True)
+class ResearchTaskContract:
+    task_id: str
+    question: str
+    subject: str | None
+    subject_kind: str | None
+    question_type: str
+    required_outputs: tuple[RequiredOutput, ...]
+    allowed_capabilities: tuple[str, ...]
+    research_tier: str = "standard"
+    presentation_profile: str = "general"
+    freshness: str = "current"
+    contract_version: str = "1"
+
+    def __post_init__(self) -> None:
+        if not self.task_id.strip() or not self.question.strip():
+            raise ResearchContractError("task_id/question 不能为空")
+        if self.research_tier not in {"quick", "standard", "deep"}:
+            raise ResearchContractError(f"未知研究档位：{self.research_tier}")
+        if any(not item.output_id.strip() for item in self.required_outputs):
+            raise ResearchContractError("required output id 不能为空")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "task_id": self.task_id,
+            "question": self.question,
+            "subject": self.subject,
+            "subject_kind": self.subject_kind,
+            "question_type": self.question_type,
+            "required_outputs": [asdict(item) for item in self.required_outputs],
+            "allowed_capabilities": list(self.allowed_capabilities),
+            "research_tier": self.research_tier,
+            "presentation_profile": self.presentation_profile,
+            "freshness": self.freshness,
+            "contract_version": self.contract_version,
+        }
+
+    @classmethod
+    def from_dict(cls, value: object) -> "ResearchTaskContract":
+        if not isinstance(value, dict):
+            raise ResearchContractError("任务契约必须是 object")
+        raw_outputs = value.get("required_outputs")
+        if not isinstance(raw_outputs, (list, tuple)):
+            raise ResearchContractError("required_outputs 必须是 list")
+        outputs: list[RequiredOutput] = []
+        for raw in raw_outputs:
+            if not isinstance(raw, dict):
+                raise ResearchContractError("required output 必须是 object")
+            evidence_types = raw.get("evidence_types", ())
+            if not isinstance(evidence_types, (list, tuple)):
+                raise ResearchContractError("evidence_types 必须是 list")
+            outputs.append(
+                RequiredOutput(
+                    output_id=str(raw.get("output_id") or ""),
+                    description=str(raw.get("description") or ""),
+                    evidence_types=tuple(str(item) for item in evidence_types),
+                    required=bool(raw.get("required", True)),
+                )
+            )
+        capabilities = value.get("allowed_capabilities", ())
+        if not isinstance(capabilities, (list, tuple)):
+            raise ResearchContractError("allowed_capabilities 必须是 list")
+        return cls(
+            task_id=str(value.get("task_id") or ""),
+            question=str(value.get("question") or ""),
+            subject=(
+                str(value["subject"]) if value.get("subject") is not None else None
+            ),
+            subject_kind=(
+                str(value["subject_kind"])
+                if value.get("subject_kind") is not None
+                else None
+            ),
+            question_type=str(value.get("question_type") or "general_finance_qa"),
+            required_outputs=tuple(outputs),
+            allowed_capabilities=tuple(str(item) for item in capabilities),
+            research_tier=str(value.get("research_tier") or "standard"),
+            presentation_profile=str(value.get("presentation_profile") or "general"),
+            freshness=str(value.get("freshness") or "current"),
+            contract_version=str(value.get("contract_version") or "1"),
+        )
+
+
+@dataclass(frozen=True)
+class ResearchRunContext:
+    contract: ResearchTaskContract
+    deadline: ResearchDeadline
+    policy: ResearchPolicy
+    trace_parent_id: str
+
+
+@dataclass(frozen=True)
 class EvidenceAtom:
     atom_id: str
     claim_text: str

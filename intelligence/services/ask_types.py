@@ -24,7 +24,10 @@ from intelligence.services.answer_orchestrator import (
     QuestionPlan,
 )
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.research_contract import (
+    ResearchDeadline,
+    ResearchTaskContract,
+)
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, valuation_gap
 
 
@@ -184,6 +187,12 @@ class AskOptions:
     clarify: bool = True
     # Workbench 专项 Skill answer-owner 可固定问题类型，避免再次依赖脆弱词面分类。
     question_type_override: str | None = None
+    # GenericResearchOwner 长尾契约；非 None 时跳过通用固定 provider 前置链。
+    research_task_contract: ResearchTaskContract | None = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
     # Turn Controller 判定的能力需求（web_search/market_news 等）：W7 web 事件检索块
     # 据此在词面意图未命中时仍然生成，承接未被任何 skill 路由命中的长尾问题；
     # 空元组时 W7 门控行为不变。

@@ -58,6 +58,9 @@ from intelligence.services import (
     market_timeseries,
     research_brief,
     retrieval_planner,
+    generic_research_owner,
+    research_tool_registry,
+    research_contract,
     user_memory,
     web_research,
 )
@@ -990,9 +993,190 @@ def answer_query(options: AskOptions) -> AskResult:
             return _answer_query_impl(options)
 
 
+def _answer_generic_owner(options: AskOptions) -> AskResult:
+    """Ownerless 长尾入口：先运行 Agent 研究闭环，再构造候选证据 AnswerSpec。"""
+
+    contract = options.research_task_contract
+    assert contract is not None
+    resolved_kb_wiki = (
+        Path(options.kb_wiki).expanduser()
+        if options.kb_wiki
+        else default_paths().knowledge_wiki
+    )
+    knowledge = KnowledgeAdapter(wiki_root=resolved_kb_wiki)
+    policy = research_contract.ResearchPolicy.for_tier(contract.research_tier)
+    deadline = options.deadline or research_contract.ResearchDeadline.from_timeout(
+        policy.total_seconds,
+        synthesis_reserve=policy.synthesis_reserve,
+    )
+    context = research_contract.ResearchRunContext(
+        contract=contract,
+        deadline=deadline,
+        policy=policy,
+        trace_parent_id=contract.task_id,
+    )
+
+    def retrieve_kb(agent_query: str, timeout: float):
+        return kb_rag.retrieve(
+            agent_query,
+            resolved_kb_wiki,
+            k=options.wiki_rag_k,
+            mode=options.wiki_rag_mode,
+            timeout=min(timeout, options.wiki_rag_timeout),
+            excerpt_chars=options.wiki_rag_excerpt,
+            budget_query=options.query,
+            index_dir=options.wiki_rag_index_dir,
+            require_fresh=True,
+            cache_scope=options.wiki_rag_cache_scope,
+        )
+
+    tools = {
+        **agent_research.build_default_tools(retrieve_kb),
+        **agent_research.build_graph_tools(knowledge),
+    }
+    registry = research_tool_registry.default_registry(tools)
+    owner_result = generic_research_owner.run_generic_research(
+        contract,
+        context=context,
+        registry=registry,
+        run_id=contract.task_id,
+        existing_evidence_summary=(
+            f"任务档位={policy.tier}；可用工具={','.join(registry.names())}"
+        ),
+    )
+
+    result = AskResult(
+        query=options.query,
+        trade_date=None,
+        matched_theme=contract.subject,
+        candidate_tier=None,
+        priority_score=None,
+        market_data_source="generic_research_owner",
+    )
+    result.question_plan = plan_answer_question(
+        options.query,
+        question_type_override=contract.question_type,
+    )
+    result.data_notice = (
+        f"通用研究 Agent 已按 {policy.tier} 档运行；"
+        f"本轮状态={owner_result.completion.status}。"
+    )
+    result.provider_traces.extend(owner_result.traces)
+    result.provider_traces.append(
+        ProviderTrace(
+            provider="generic_research_owner",
+            capability="generic_research",
+            status="success" if owner_result.evidence else "empty",
+            detail=json.dumps(owner_result.to_dict(), ensure_ascii=False)[:1000],
+            result_count=len(owner_result.evidence),
+            parent_id=owner_result.run_id,
+            step_id=f"{owner_result.run_id}:owner",
+        )
+    )
+
+    evidence_ids: list[str] = []
+    candidate_claims: list[answer_model.Claim] = []
+    evidence_lines: list[str] = []
+    for index, item in enumerate(owner_result.evidence[:12], start=1):
+        tag = f"G{index}"
+        evidence_ids.append(tag)
+        result.citations.append(
+            Citation(
+                tag,
+                item.source,
+                item.detail,
+            )
+        )
+        evidence_lines.append(f"{item.title}：{item.detail} [{tag}]")
+        candidate_claims.append(
+            answer_model.make_claim(
+                claim_id=f"generic:candidate:{index}",
+                text=f"{item.title}：{item.detail}",
+                claim_type="supporting_fact",
+                theme=contract.subject or options.query,
+                status=answer_model.ClaimStatus.CANDIDATE,
+                evidence_tier="agent_candidate",
+                evidence_ids=(tag,),
+            )
+        )
+
+    summary_text = (
+        "研究循环已收集候选来源，下面只展示可回查线索；"
+        "未经证据门禁确认的内容不会升级为事实。"
+        if owner_result.evidence
+        else "本轮没有收集到可回查来源，不能形成可靠定性。"
+    )
+    summary = answer_model.make_claim(
+        claim_id="generic:summary",
+        text=summary_text,
+        claim_type="summary",
+        theme=contract.subject or options.query,
+        status=(
+            answer_model.ClaimStatus.INFERRED
+            if evidence_ids
+            else answer_model.ClaimStatus.MISSING
+        ),
+        evidence_ids=tuple(evidence_ids),
+    )
+    gap_texts = list(owner_result.gaps)
+    if not gap_texts and owner_result.completion.status != "completed":
+        gap_texts.append("必需输出尚未全部满足；需要更多可核验证据。")
+    gaps = tuple(
+        answer_model.make_claim(
+            claim_id=f"generic:gap:{index}",
+            text=text,
+            claim_type="evidence_gap",
+            theme=contract.subject or options.query,
+            status=answer_model.ClaimStatus.MISSING,
+        )
+        for index, text in enumerate(dict.fromkeys(gap_texts), start=1)
+    )
+    sources = tuple(
+        answer_model.EvidenceRef(
+            evidence_id=citation.tag,
+            source=citation.source,
+            detail=citation.detail,
+            tier="agent_candidate",
+        )
+        for citation in result.citations
+    )
+    result.sections = {
+        "结论": [summary_text],
+        "证据链": evidence_lines,
+        "分歧反证": gap_texts,
+        "后续验证点": ["将候选来源逐条通过证据语义闸门后再升级结论。"],
+        "数据源状态": [],
+        "引用来源": [f"[{item.tag}] {item.source}" for item in result.citations],
+    }
+    result.answer_spec = answer_model.finalize_answer_spec(
+        answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_theme_research_spec(
+                contract.subject or options.query,
+                None,
+            ),
+            summary=(summary,),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=gaps,
+            triggers=(),
+            candidate_facts=tuple(candidate_claims),
+            next_actions=("将候选来源逐条通过证据语义闸门后再升级结论。",),
+            sources=sources,
+            system_notices=(result.data_notice,),
+            presentation_kind="generic_research",
+            presentation_title=contract.subject or "通用研究",
+        )
+    )
+    return result
+
+
 def _answer_query_impl(options: AskOptions) -> AskResult:
     if options.deadline is not None and options.deadline.expired:
         return _deadline_partial_result(options.query)
+    if options.research_task_contract is not None:
+        with _progress_stage(options, "generic_research_owner"):
+            return _answer_generic_owner(options)
     if options.clarify:
         clarify_decision = ask_clarify.clarify_for_query(options.query)
         if clarify_decision.needs_clarification:

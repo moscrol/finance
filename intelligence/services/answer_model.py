@@ -1607,6 +1607,46 @@ def _render_market_technical_answer(answer_spec: AnswerSpec) -> str:
     return "\n".join(lines)
 
 
+def _render_generic_research_answer(answer_spec: AnswerSpec) -> str:
+    """长尾 Owner 的动态投影：候选线索与 gap 分开，不填充公司模板。"""
+
+    lines: list[str] = []
+    notices = _dedupe(answer_spec.system_notices)
+    if notices:
+        lines.extend([humanize(notices[0]), ""])
+    lines.extend(
+        [
+            f"# {humanize(answer_spec.presentation_title or '通用研究')}",
+            "",
+            "## 当前判断",
+        ]
+    )
+    lines.extend(
+        f"- {_present_summary_claim(claim)}" for claim in answer_spec.summary[:3]
+    )
+    candidates = _dedupe_claims(answer_spec.candidate_facts)
+    if candidates:
+        lines.extend(["", "## 候选来源（待核验）"])
+        lines.extend(f"- {humanize(claim.text)}" for claim in candidates[:10])
+    gaps = _dedupe_claims((*answer_spec.counter_evidence, *answer_spec.gaps))
+    if gaps:
+        lines.extend(["", "## 证据缺口"])
+        lines.extend(f"- {_present_claim(claim)}" for claim in gaps[:6])
+    if answer_spec.next_actions:
+        lines.extend(["", "## 下一步"])
+        lines.extend(
+            f"- {humanize(action)}" for action in answer_spec.next_actions[:4]
+        )
+    if answer_spec.sources:
+        lines.extend(["", "<details><summary>展开来源</summary>", ""])
+        lines.extend(
+            f"- [{source.evidence_id}] {humanize(source.source)}：{humanize(source.detail)}"
+            for source in answer_spec.sources
+        )
+        lines.extend(["", "</details>"])
+    return "\n".join(lines)
+
+
 def quality_requires_fail_closed(answer_spec: AnswerSpec) -> bool:
     """判断质检结果是否要求 fail-closed 出口。
 
@@ -1626,11 +1666,21 @@ def quality_requires_fail_closed(answer_spec: AnswerSpec) -> bool:
         if issue.severity == "error"
     }
     if "theme_contamination" in error_codes:
-        return True
+        if answer_spec.presentation_kind == "generic_research":
+            # Generic Owner 的候选来源可能跨主题；专属 renderer 只显示“待核验”
+            # 线索，不把候选事实当 verified claim，因此不应被 Base Finance 的
+            # 单主题规则误判为可出站研究结论。
+            error_codes.discard("theme_contamination")
+        else:
+            return True
     if "unbound_summary_claim" in error_codes and not any(
         claim.status == ClaimStatus.VERIFIED and claim.evidence_ids
         for claim in answer_spec.verified_facts
     ):
+        if answer_spec.presentation_kind == "generic_research" and any(
+            claim.evidence_ids for claim in answer_spec.summary
+        ):
+            return False
         return True
     return False
 
@@ -1643,6 +1693,10 @@ def render_answer_spec(answer_spec: AnswerSpec) -> str:
         if quality_requires_fail_closed(answer_spec):
             return _render_evidence_gap_answer(answer_spec)
         return _render_market_technical_answer(answer_spec)
+    if answer_spec.presentation_kind == "generic_research":
+        if quality_requires_fail_closed(answer_spec):
+            return _render_evidence_gap_answer(answer_spec)
+        return _render_generic_research_answer(answer_spec)
     # P0 fail-closed：质检判定题材污染 / 纯模板（无任何已核验证据支撑）的
     # AnswerSpec 不得按原样渲染成研究结论——此前这里直接放行，导致题材
     # 污染模板以 verified_fallback 姿态返回给用户。

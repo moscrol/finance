@@ -486,6 +486,7 @@ def run_agent_loop(
     deadline: ResearchDeadline | None = None,
     complete_fn: CompleteFn | None = None,
     attempted_queries: Sequence[tuple[str, str]] = (),
+    task_instructions: str = "",
 ) -> AgentLoopResult:
     """跑一轮 agent 检索循环；任何失败都返回已收集的部分结果（可降级）。
 
@@ -508,6 +509,7 @@ def run_agent_loop(
         if attempted.strip()
     }
     system_prompt = _system_prompt(tools)
+    no_information_steps = 0
 
     for _ in range(budget + 1):  # +1 给 finish 留一次决策机会
         remaining = stage_deadline.remaining()
@@ -517,6 +519,7 @@ def run_agent_loop(
         executed_steps = sum(1 for step in result.steps if step.tool != "finish")
         user_prompt = (
             f"用户问题：{query}\n\n"
+            f"任务契约与完成要求：\n{task_instructions or '（未提供）'}\n\n"
             f"主链已有证据摘要：\n{existing_evidence_summary or '（无）'}\n\n"
             f"已执行步骤与观察：\n{_transcript_block(result.steps)}\n\n"
             f"剩余检索步数预算：{budget - executed_steps}"
@@ -617,6 +620,13 @@ def run_agent_loop(
                 elapsed_ms=elapsed_ms,
             )
         )
+        if evidence:
+            no_information_steps = 0
+        else:
+            no_information_steps += 1
+        if no_information_steps >= 2:
+            result.stop_reason = "no_information_gain"
+            break
     else:
         result.stop_reason = "预算耗尽：步数"
     return result
