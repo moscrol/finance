@@ -61,6 +61,29 @@ def _contract(*, required_direct: bool = True) -> ResearchTaskContract:
     )
 
 
+def test_fact_check_counterparty_and_official_relation_filter() -> None:
+    assert (
+        ask._fact_check_counterparty(
+            "中际旭创和英伟达是否已确认合作？",
+            "中际旭创",
+        )
+        == "英伟达"
+    )
+    matched = ask.l3_evidence.L3EvidenceItem(
+        source_type="cninfo",
+        title="关于与 NVIDIA 签署合作协议的公告",
+        summary="双方确认供应合作。",
+    )
+    unrelated = ask.l3_evidence.L3EvidenceItem(
+        source_type="cninfo",
+        title="董事会决议公告",
+        summary="审议现金管理事项。",
+    )
+
+    assert ask._official_relation_item_matches(matched, "英伟达") is True
+    assert ask._official_relation_item_matches(unrelated, "英伟达") is False
+
+
 def _context(contract: ResearchTaskContract) -> ResearchRunContext:
     return ResearchRunContext(
         contract=contract,

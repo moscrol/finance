@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 from intelligence.services.answer_orchestrator import (
+    QUESTION_FACT_CHECK,
     QUESTION_MARKET_FORECAST,
     QUESTION_STOCK_DEEP_DIVE,
     plan_answer_question,
@@ -23,6 +24,25 @@ from intelligence.services.l3_evidence import (
 
 
 class L3EvidenceDetectionTests(unittest.TestCase):
+    def test_customer_fact_check_requires_runtime_l3_lookup(self) -> None:
+        query = "中际旭创和英伟达是否已确认合作？"
+        plan = plan_answer_question(
+            query,
+            question_type_override=QUESTION_FACT_CHECK,
+        )
+
+        bundle = lookup_l3_evidence(
+            query,
+            plan,
+            local_evidence_text="客户/合作证据缺口，尚待公告或合同确认。",
+            config=L3LookupConfig(enabled=False),
+            company_hint="中际旭创",
+        )
+
+        self.assertEqual(plan.question_type, QUESTION_FACT_CHECK)
+        self.assertTrue(bundle.gaps)
+        self.assertIn("未启用", "\n".join(bundle.warnings))
+
     def test_stock_deep_dive_detects_p0_l3_gap_when_hard_evidence_missing(self) -> None:
         plan = plan_answer_question("深挖瑞华泰，重点看客户和订单")
 

@@ -70,6 +70,7 @@ from intelligence.services.answer_quality import (
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_EXTERNAL_MARKET,
+    QUESTION_FACT_CHECK,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
     QUESTION_MARKET_TECHNICAL,
@@ -1055,6 +1056,46 @@ def _relation_gap_answer_spec(
     )
 
 
+def _fact_check_counterparty(query: str, subject: str | None) -> str | None:
+    """从“甲与乙是否合作”中抽取 subject 之外的合作方。"""
+
+    text = re.sub(r"\s+", "", str(query or ""))
+    match = re.search(
+        r"([\u4e00-\u9fffA-Za-z0-9.]{2,24})(?:和|与|跟|及)"
+        r"([\u4e00-\u9fffA-Za-z0-9.]{2,24}?)"
+        r"(?:是否|有无|有没有|已经|已确认|确认|合作|供货|供应)",
+        text,
+    )
+    if match is None:
+        return None
+    candidates = (match.group(1), match.group(2))
+    normalized_subject = re.sub(r"\s+", "", str(subject or ""))
+    return next(
+        (
+            item
+            for item in candidates
+            if item and item != normalized_subject
+        ),
+        None,
+    )
+
+
+def _official_relation_item_matches(
+    item: l3_evidence.L3EvidenceItem,
+    counterparty: str,
+) -> bool:
+    """L3 结果必须同时命中合作方和关系动词，避免无关公告充数。"""
+
+    aliases = {counterparty.casefold()}
+    if counterparty == "英伟达":
+        aliases.update({"nvidia", "nvda"})
+    text = f"{item.title} {item.summary} {item.raw}".casefold()
+    relation_terms = ("合作", "供货", "供应", "客户", "订单", "合同", "认证", "定点")
+    return any(alias in text for alias in aliases) and any(
+        term in text for term in relation_terms
+    )
+
+
 def _answer_generic_owner(options: AskOptions) -> AskResult:
     """Ownerless 长尾入口：先运行 Agent 研究闭环，再构造候选证据 AnswerSpec。"""
 
@@ -1137,6 +1178,10 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             ),
             company_hint=contract.subject,
         )
+        counterparty = _fact_check_counterparty(
+            options.query,
+            contract.subject,
+        )
         evidence = [
             agent_research.AgentEvidence(
                 tool="l3_lookup",
@@ -1152,6 +1197,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 independent_key=f"{item.source_type}:{item.title}",
             )
             for item in bundle.items[:6]
+            if not counterparty
+            or _official_relation_item_matches(item, counterparty)
         ]
         trace = ProviderTrace(
             provider="agent:l3_lookup",
@@ -1171,10 +1218,10 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     if contract.question_type == "market_cause" and options.market_db_path is not None:
         tools["market_data"] = _generic_market_data
     registry = research_tool_registry.default_registry(tools)
-    preloaded_evidence: tuple[agent_research.AgentEvidence, ...] = ()
-    preloaded_traces: tuple[ProviderTrace, ...] = ()
-    preloaded_observation = ""
-    disabled_tools: tuple[str, ...] = ()
+    preloaded_items: list[agent_research.AgentEvidence] = []
+    preloaded_trace_items: list[ProviderTrace] = []
+    preloaded_observations: list[str] = []
+    disabled_tool_names: list[str] = []
     if contract.question_type == "market_cause" and "market_data" in registry.names():
         # 周内盘面是真值底座，不能由 agent 的工具选择顺序决定是否取得。
         try:
@@ -1184,14 +1231,41 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 context=context,
                 step_id=f"{contract.task_id}:owner:prefetch",
             )
-            preloaded_evidence = observation.evidence
-            preloaded_traces = (observation.trace,)
-            preloaded_observation = observation.observation
+            preloaded_items.extend(observation.evidence)
+            preloaded_trace_items.append(observation.trace)
+            preloaded_observations.append(observation.observation)
             # 已预取的工具不再交给 agent 二次选择，避免同一 turn 重复查盘。
-            disabled_tools = ("market_data",)
+            disabled_tool_names.append("market_data")
         except Exception:
             # 真值底座失败时仍让 agent 尝试新闻/web，并在完成门禁报告缺口。
             pass
+    mandatory_l3 = any(
+        output.required and output.evidence_types == ("l3_lookup",)
+        for output in contract.required_outputs
+    )
+    if mandatory_l3 and "l3_lookup" in registry.names():
+        # “是否已确认合作”属于 hard-fact 核验。官方证据工具是契约要求，
+        # 不能把是否调用完全交给 soft planner，否则模型可能直接 finish。
+        try:
+            observation = registry.execute(
+                "l3_lookup",
+                contract.question,
+                context=context,
+                step_id=f"{contract.task_id}:owner:prefetch:l3",
+            )
+            preloaded_items.extend(observation.evidence)
+            preloaded_trace_items.append(observation.trace)
+            preloaded_observations.append(observation.observation)
+            disabled_tool_names.append("l3_lookup")
+        except Exception:
+            # 工具故障也由完成门禁表现为“尚不能确认”，不允许改用弱来源补硬结论。
+            pass
+    preloaded_evidence = tuple(preloaded_items)
+    preloaded_traces = tuple(preloaded_trace_items)
+    preloaded_observation = "\n".join(
+        item for item in preloaded_observations if item
+    )
+    disabled_tools = tuple(dict.fromkeys(disabled_tool_names))
     owner_result = generic_research_owner.run_generic_research(
         contract,
         context=context,
@@ -1204,6 +1278,20 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         preloaded_traces=preloaded_traces,
         preloaded_observation=preloaded_observation,
         disabled_tools=disabled_tools,
+    )
+    is_customer_fact_check = bool(
+        contract.question_type == QUESTION_FACT_CHECK
+        and any(
+            item.output_id == "customer_validation"
+            for item in contract.required_outputs
+        )
+    )
+    counterparty = _fact_check_counterparty(options.query, contract.subject)
+    has_relevant_l3 = any(
+        item.tool == "l3_lookup" for item in owner_result.evidence
+    )
+    l3_attempted = any(
+        trace.provider == "agent:l3_lookup" for trace in owner_result.traces
     )
     fallback_assessment_used = False
     visible_evidence = select_agent_evidence(
@@ -1271,6 +1359,11 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         item.tool == "market_data" for item in visible_evidence
     )
     result.data_notice = (
+        "本轮已执行官方公告/互动证据补查，但未取得能确认该合作关系的硬证据。"
+        if is_customer_fact_check and not has_relevant_l3 and l3_attempted
+        else "本轮官方证据补查未成功完成，不能确认该合作关系。"
+        if is_customer_fact_check and not has_relevant_l3
+        else
         ""
         if contract.question_type == "market_cause" and has_structured_truth
         else "本轮已收集到可回查来源，但仍需逐条核验后才能升级为事实。"
@@ -1368,7 +1461,18 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             )
         )
 
+    relationship_label = (
+        f"{contract.subject}与{counterparty}"
+        if contract.subject and counterparty
+        else contract.subject or "双方"
+    )
+    fact_check_gap_summary = (
+        f"尚不能确认{relationship_label}已建立可核验的直接合作关系。"
+    )
     summary_text = (
+        fact_check_gap_summary
+        if is_customer_fact_check and not has_relevant_l3
+        else
         assessment_text
         if owner_result.loop.assessment.strip() and evidence_ids
         else "研究循环已收集候选来源，下面只展示可回查线索；未经证据门禁确认的内容不会升级为事实。"
@@ -1381,13 +1485,28 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         claim_type="summary",
         theme=contract.subject or options.query,
         status=(
+            answer_model.ClaimStatus.MISSING
+            if is_customer_fact_check and not has_relevant_l3
+            else
             answer_model.ClaimStatus.INFERRED
             if evidence_ids
             else answer_model.ClaimStatus.MISSING
         ),
-        evidence_ids=tuple(evidence_ids),
+        evidence_ids=(
+            ()
+            if is_customer_fact_check and not has_relevant_l3
+            else tuple(evidence_ids)
+        ),
     )
     gap_texts = list(owner_result.gaps)
+    if is_customer_fact_check and not has_relevant_l3:
+        gap_texts = [
+            (
+                "本轮已补查官方公告/互动证据，但未发现同时指向双方且明确表述"
+                "合作、供货、订单或认证的可回查材料；缺少证据不等于合作不存在。"
+            ),
+            *gap_texts,
+        ]
     if not gap_texts and owner_result.completion.status != "completed":
         gap_texts.append("必需输出尚未全部满足；需要更多可核验证据。")
     gaps = tuple(
@@ -1414,11 +1533,16 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         )
         for citation in result.citations
     )
+    next_action = (
+        "后续仅在公司公告、合同/订单、客户认证或双方官方披露出现时升级判断。"
+        if is_customer_fact_check and not has_relevant_l3
+        else "将候选来源逐条通过证据语义闸门后再升级结论。"
+    )
     result.sections = {
         "结论": [summary_text],
         "证据链": evidence_lines,
         "分歧反证": gap_texts,
-        "后续验证点": ["将候选来源逐条通过证据语义闸门后再升级结论。"],
+        "后续验证点": [next_action],
         "数据源状态": [],
         "引用来源": [f"[{item.tag}] {item.source}" for item in result.citations],
     }
@@ -1436,11 +1560,19 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             gaps=gaps,
             triggers=(),
             candidate_facts=tuple(candidate_claims),
-            next_actions=("将候选来源逐条通过证据语义闸门后再升级结论。",),
+            next_actions=(next_action,),
             sources=sources,
             system_notices=((result.data_notice,) if result.data_notice else ()),
-            presentation_kind="generic_research",
-            presentation_title=contract.subject or "通用研究",
+            presentation_kind=(
+                "evidence_gap"
+                if is_customer_fact_check and not has_relevant_l3
+                else "generic_research"
+            ),
+            presentation_title=(
+                "合作关系核验"
+                if is_customer_fact_check
+                else contract.subject or "通用研究"
+            ),
             presentation_profile=contract.presentation_profile,
         )
     )

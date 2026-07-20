@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from intelligence.services.answer_orchestrator import (
+    QUESTION_FACT_CHECK,
     QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
     QuestionPlan,
@@ -461,7 +462,11 @@ def _first_url(text: str) -> str:
 
 
 def _should_consider_l3_lookup(plan: QuestionPlan) -> bool:
-    return plan.question_type in {QUESTION_STOCK_DEEP_DIVE, QUESTION_NEWS_IMPACT}
+    return plan.question_type in {
+        QUESTION_STOCK_DEEP_DIVE,
+        QUESTION_NEWS_IMPACT,
+        QUESTION_FACT_CHECK,
+    }
 
 
 def _wanted_sources(gaps: list[L3EvidenceGap]) -> set[str]:
