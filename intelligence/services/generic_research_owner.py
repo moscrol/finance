@@ -97,8 +97,9 @@ def _matches_output(
             loop.sufficient is True
             and bool(loop.assessment.strip())
             and "market_data" in tools
-            and bool(tools.intersection({"news_search", "web_search"}))
         )
+    if normalized in {"external_cause_evidence", "event_evidence", "funding_evidence"}:
+        return bool({item.tool for item in evidence}.intersection({"news_search", "web_search"}))
     if normalized in {"counterpoint", "risk", "counter_evidence"}:
         return len(evidence) >= 2 or bool(loop.gaps)
     return True

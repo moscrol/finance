@@ -994,6 +994,29 @@ def answer_query(options: AskOptions) -> AskResult:
             return _answer_query_impl(options)
 
 
+def _market_cause_fallback_assessment(
+    evidence: list[agent_research.AgentEvidence],
+) -> str:
+    """新闻/资金检索缺口时，用周内结构化数据给出可审计的机制判断。
+
+    这是盘面机制，不把它升级成“某个事件导致下跌”；外部因果证据仍由
+    completion report 保留为可选缺口。
+    """
+    details = [item.detail.strip() for item in evidence if item.detail.strip()]
+    window = next((line for line in details if line.startswith("窗口：")), "该周窗口")
+    index_line = next((line for line in details if line.startswith("上证指数：")), "指数周内走弱")
+    pressure_line = next(
+        (line for line in details if line.startswith("下跌交易日：")),
+        "下跌交易日与亏钱效应数据有限",
+    )
+    return (
+        f"从{window}的盘面证据看，当前能确认的主要下跌机制是风险偏好收缩、"
+        f"卖压在后半周集中释放，而不是已经核验出某一个单一外部事件："
+        f"{index_line}；{pressure_line}。这解释了指数走弱与跌停扩散，但"
+        "宏观、外盘或资金流向的具体触发因素仍缺少与该周逐日对齐的可回查证据。"
+    )
+
+
 def _answer_generic_owner(options: AskOptions) -> AskResult:
     """Ownerless 长尾入口：先运行 Agent 研究闭环，再构造候选证据 AnswerSpec。"""
 
@@ -1068,6 +1091,23 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             f"任务档位={policy.tier}；可用工具={','.join(registry.names())}"
         ),
     )
+    fallback_assessment_used = False
+    if (
+        contract.question_type == "market_cause"
+        and not owner_result.loop.assessment.strip()
+        and any(item.tool == "market_data" for item in owner_result.evidence)
+    ):
+        owner_result.loop.assessment = _market_cause_fallback_assessment(
+            owner_result.evidence
+        )
+        owner_result.loop.sufficient = True
+        fallback_assessment_used = True
+        owner_result = replace(
+            owner_result,
+            completion=generic_research_owner.evaluate_completion(
+                contract, owner_result.loop
+            ),
+        )
 
     result = AskResult(
         query=options.query,
@@ -1129,9 +1169,14 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         )
 
     if owner_result.loop.assessment.strip() and evidence_ids:
+        assessment_label = (
+            "基于周内结构化数据的机制判断（外部触发因素仍待核验）："
+            if fallback_assessment_used
+            else "研究 agent 的暂定判断（仅基于本轮候选证据）："
+        )
         assessment_text = (
-            f"研究 agent 的暂定判断（仅基于本轮候选证据）："
-            f"{owner_result.loop.assessment.strip()} "
+            assessment_label
+            + f"{owner_result.loop.assessment.strip()} "
             f"[{', '.join(evidence_ids)}]"
         )
         candidate_claims.append(

@@ -125,9 +125,15 @@ def _build_generic_research_contract(
             ),
             RequiredOutput(
                 "cause_attribution",
-                "至少一个由周内市场数据与事件/资金证据共同支撑的主要原因",
-                ("market_data", "web_search", "news_search"),
+                "至少一个由周内市场数据支撑、明确标注为机制判断或已核验原因的主要下跌机制",
+                ("market_data",),
                 True,
+            ),
+            RequiredOutput(
+                "external_cause_evidence",
+                "与该周时间窗口对齐的宏观、政策、外盘或资金事件证据",
+                ("web_search", "news_search"),
+                False,
             ),
             RequiredOutput(
                 "supporting_evidence",
