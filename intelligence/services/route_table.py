@@ -79,6 +79,17 @@ ROUTE_TABLE: tuple[RouteRow, ...] = (
         capabilities=(),
     ),
     RouteRow(
+        route_id="methodology_discussion",
+        description="Agent、RAG、编排、检索或验证机制的方法论与工程取舍",
+        examples=("RAG 怎么做", "编排层为什么会导致模板化"),
+        lane="knowledge",
+        question_type="methodology_discussion",
+        answer_owner=None,
+        needs_retrieval=False,
+        needs_template=False,
+        capabilities=(),
+    ),
+    RouteRow(
         route_id="fresh_knowledge",
         description="含时效词的一般知识问题（主体不是可验证的金融标的）",
         examples=("PQC最新消息", "量子计算最近有什么新闻"),

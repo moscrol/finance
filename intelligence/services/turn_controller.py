@@ -308,6 +308,17 @@ def _deterministic_decision(
             reason="稳定概念解释不需要默认进入金融研究",
             capabilities=("memory",) if _MEMORY_PATTERN.search(cleaned) else (),
         )
+    if envelope.question_type == "methodology_discussion":
+        return _decision(
+            "knowledge",
+            envelope=envelope,
+            needs_retrieval=False,
+            needs_memory=bool(_MEMORY_PATTERN.search(cleaned)),
+            needs_template=False,
+            confidence=envelope.confidence,
+            reason="系统/Agent 方法论问题使用模型原生推理，不进入金融 RAG",
+            capabilities=("memory",) if _MEMORY_PATTERN.search(cleaned) else (),
+        )
     owner = answer_owner_for_question_type(envelope.question_type)
     if owner is not None and (
         envelope.matched_by in _VERIFIED_SUBJECT_MATCHES

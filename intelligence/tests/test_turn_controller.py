@@ -103,6 +103,23 @@ def test_static_concept_uses_knowledge_lane_without_retrieval() -> None:
     assert decision.needs_template is False
 
 
+def test_methodology_uses_model_native_lane_without_controller_llm_or_rag() -> None:
+    def forbidden_llm(_messages: list[dict[str, str]]):
+        raise AssertionError("deterministic methodology route must not call controller LLM")
+
+    decision = decide_turn(
+        "编排层为什么会导致模板化？",
+        llm_complete=forbidden_llm,
+    )
+
+    assert decision.lane == "knowledge"
+    assert decision.question_type == "methodology_discussion"
+    assert decision.needs_retrieval is False
+    assert decision.needs_memory is False
+    assert decision.needs_template is False
+    assert decision.capabilities == ()
+
+
 def test_fresh_general_knowledge_requests_retrieval_without_finance_template() -> None:
     decision = decide_turn("PQC最新消息", llm_complete=_no_llm)
 

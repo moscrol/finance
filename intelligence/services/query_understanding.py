@@ -41,6 +41,7 @@ ResearchMode = Literal[
     "forecast",
     "definition",
     "market_cause",
+    "methodology",
     "general",
 ]
 TimeHorizon = Literal[
@@ -270,6 +271,24 @@ _RELATION_RE = re.compile(r"(上游|下游|供应|客户|产业链位置|处于.
 _COMPANY_MAPPING_RE = re.compile(r"(有哪些公司|哪些公司|受益公司|公司映射|核心公司)")
 _MARKET_CHANGE_RE = re.compile(r"(边际变化|最近变化|近期变化|预期差变化)")
 
+# 认识论分流：这些问题要回答的是系统/方法本身，而不是某个金融标的的
+# 当前事实。若把它们送进金融 RAG，检索器会因为词面命中“模板化/编排”等词
+# 返回无关研报，最终用有证据但不相关的材料替代模型原生推理。
+_METHODOLOGY_SUBJECT_RE = re.compile(
+    r"(?:"
+    r"(?:agent|rag|bm25|rerank|prompt|verifier|workflow)"
+    r"|编排层|路由层|检索层|合成层|验证器|系统架构|工作台架构|"
+    r"模型能力|工具调用|向量检索|混合检索|模板化回答|模板化|"
+    r"深度研究(?:agent|代理)|研究代理"
+    r")",
+    re.IGNORECASE,
+)
+_METHODOLOGY_GOAL_RE = re.compile(
+    r"(?:为什么|怎么(?:做|实现)?|如何(?:做|实现)?|原理|架构|设计|实现|"
+    r"优化|权衡|取舍|导致|机制|区别|比较|路径)",
+    re.IGNORECASE,
+)
+
 # 确定性技术位头部意图：指数别名 → 标准指数代码。
 # 名称按长度降序匹配，避免「科创50」被「科创」类题材别名截胡。
 INDEX_ALIASES: tuple[tuple[str, str, str], ...] = (
@@ -321,6 +340,17 @@ def is_market_technical_query(query: str) -> bool:
     return (
         match_index_subject(text) is not None
         or _TICKER_RE.search(text) is not None
+    )
+
+
+def is_methodology_query(query: str) -> bool:
+    """识别系统/Agent 方法论问题，避免被金融知识检索的词面命中劫持。"""
+
+    text = re.sub(r"\s+", "", str(query or ""))
+    return bool(
+        text
+        and _METHODOLOGY_SUBJECT_RE.search(text)
+        and _METHODOLOGY_GOAL_RE.search(text)
     )
 
 
@@ -624,6 +654,8 @@ def _research_mode(
         return "news_impact"
     if question_type == "market_cause":
         return "market_cause"
+    if question_type == "methodology_discussion":
+        return "methodology"
     if question_type in {"stock_deep_dive", "valuation_estimate"}:
         return "deep_dive"
     if subject_kind == "theme":
@@ -763,6 +795,17 @@ def understand_query(
             "解释指定时间窗口内市场涨跌的主要原因并形成可回查因果链",
             timeframe,
             "market_anchor",
+            0.96,
+        )
+
+    if is_methodology_query(text):
+        return envelope(
+            "methodology_discussion",
+            "unknown",
+            None,
+            "解释系统/Agent 方法、机制与工程取舍，不把无关金融资料当作答案",
+            timeframe,
+            "explicit",
             0.96,
         )
 

@@ -206,6 +206,29 @@ def test_definition_query_is_not_confused_with_model_meta_question() -> None:
     assert meta.subject is None
 
 
+@pytest.mark.parametrize(
+    "query",
+    (
+        "编排层为什么会导致模板化？",
+        "RAG 怎么做才能兼顾召回率和准确率？",
+        "Agent 工具调用与 verifier 应该如何分层？",
+    ),
+)
+def test_methodology_question_is_not_mapped_to_financial_retrieval(query: str) -> None:
+    envelope = understand_query(query)
+
+    assert envelope.question_type == "methodology_discussion"
+    assert envelope.subject_kind == "unknown"
+    assert envelope.subject is None
+    assert envelope.research_mode == "methodology"
+
+
+def test_financial_cause_is_not_overmatched_as_methodology() -> None:
+    envelope = understand_query("这一周市场下跌为什么")
+
+    assert envelope.question_type == "market_cause"
+
+
 def test_ticker_timeframe_and_serialization_contract() -> None:
     for ticker in ("002837", "600000.SH", "002837.SZ", "430047.BJ"):
         envelope = understand_query(f"分析 2026-07-13 的 {ticker}")

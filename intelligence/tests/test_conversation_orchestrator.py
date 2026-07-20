@@ -11,7 +11,10 @@ from intelligence import userspace
 from intelligence.services import answer_model, llm_refine
 from intelligence.services import perspective_lab
 from intelligence.services.ask import AskOptions, AskResult, Citation
-from intelligence.services.answer_orchestrator import QUESTION_CONCEPT_DEFINITION
+from intelligence.services.answer_orchestrator import (
+    QUESTION_CONCEPT_DEFINITION,
+    QUESTION_METHODOLOGY,
+)
 from intelligence.services.lane_generation import LaneAnswer
 from intelligence.services.conversation_orchestrator import (
     ConversationContext,
@@ -309,6 +312,67 @@ def test_static_knowledge_lane_uses_neutral_generator_without_retrieval(
     assert captured["decision"].lane == "knowledge"
     assert "当前视角" not in result.content
     assert "非投资建议" not in result.content
+
+
+def test_methodology_lane_never_falls_back_to_financial_rag(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "编排层为什么会导致模板化？"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda *_args, **_kwargs: pytest.fail(
+            "methodology failure must not be replaced by financial RAG"
+        ),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "methodology lane must not route to a skill"
+        ),
+        skill_registry=SkillRegistry(),
+        lane_answer_fn=lambda *_args, **_kwargs: LaneAnswer(
+            "当前自然语言生成暂时不可用，无法可靠生成方法论分析；请稍后重试。",
+            fallback_reason="fixture timeout",
+        ),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert "金融" not in result.content
+    assert "方法论分析" in result.content
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert assistant.degrades == ["方法论回答生成暂时不可用"]
+    controller = next(
+        step for step in run_store.load_trace(run_id) if step["name"] == "turn_controller"
+    )
+    decision = json.loads(controller["output_summary"])["decision"]
+    assert decision["question_type"] == QUESTION_METHODOLOGY
+    assert decision["needs_retrieval"] is False
+    generation = next(
+        step for step in run_store.load_trace(run_id) if step["name"] == "lane_direct_answer"
+    )
+    assert json.loads(generation["output_summary"])["retrieval_attempted"] is False
+    snapshots = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    assert [event["payload"]["phase"] for event in snapshots] == [
+        "verified_draft",
+        "verified_fallback",
+    ]
 
 
 def test_static_knowledge_uses_local_retrieval_when_generation_is_unavailable(

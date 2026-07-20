@@ -58,8 +58,16 @@ def deterministic_lane_answer(query: str, decision: TurnDecision) -> str | None:
     return None
 
 
-def _system_prompt(lane: str, grounded: bool) -> str:
-    if lane == "knowledge":
+def _system_prompt(decision: TurnDecision, grounded: bool) -> str:
+    if decision.lane == "knowledge":
+        if decision.question_type == "methodology_discussion":
+            return (
+                "你是资深 Agent 系统架构师。这是方法论或工程机制问题，可以基于"
+                "通用原理做因果分析，不需要为了显得有依据而检索金融 Wiki。"
+                "先直接回答核心机制，再说明边界、替代方案与验证方法。"
+                "不要套金融研究模板，不要虚构当前代码实现；若用户问到本地实现而"
+                "上下文没有代码证据，要把通用原理与待核验的实现事实分开。"
+            )
         grounding = (
             "涉及当前事实时只能使用用户消息中的已检索材料；材料不足就明确说明。"
             if grounded
@@ -88,7 +96,7 @@ def generate_lane_answer(
     context: str = "",
     evidence: str = "",
     model_override: str | None = None,
-    timeout: int = 45,
+    timeout: int = llm_refine.DEFAULT_LLM_TIMEOUT,
     llm_complete: LLMComplete | None = None,
 ) -> LaneAnswer:
     deterministic = deterministic_lane_answer(query, decision)
@@ -97,7 +105,7 @@ def generate_lane_answer(
     messages = [
         {
             "role": "system",
-            "content": _system_prompt(decision.lane, bool(evidence)),
+            "content": _system_prompt(decision, bool(evidence)),
         },
         {
             "role": "user",
@@ -127,11 +135,12 @@ def generate_lane_answer(
             provider=getattr(provider, "name", None),
             model=getattr(provider, "model", None),
         )
-    fallback = (
-        "当前自然语言生成暂时不可用；我会尝试从可核验资料中提取一个中性回答。"
-        if decision.lane == "knowledge"
-        else "当前自然语言生成暂时不可用，暂时不能可靠生成这段对话；请稍后重试。"
-    )
+    if decision.question_type == "methodology_discussion":
+        fallback = "当前自然语言生成暂时不可用，无法可靠生成方法论分析；请稍后重试。"
+    elif decision.lane == "knowledge":
+        fallback = "当前自然语言生成暂时不可用；我会尝试从可核验资料中提取一个中性回答。"
+    else:
+        fallback = "当前自然语言生成暂时不可用，暂时不能可靠生成这段对话；请稍后重试。"
     return LaneAnswer(fallback, fallback_reason=reason)
 
 

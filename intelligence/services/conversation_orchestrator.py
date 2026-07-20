@@ -40,6 +40,7 @@ from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_GENERAL,
+    QUESTION_METHODOLOGY,
     QUESTION_MARKET_REVIEW,
     QUESTION_MARKET_CAUSE,
     plan_answer_question,
@@ -1068,7 +1069,11 @@ class TurnOrchestrator:
                 lane_warnings: list[str] = []
                 lane_as_of: str | None = None
                 retrieval_attempted = False
-                if decision.lane == "knowledge" and lane_answer.fallback_reason:
+                if (
+                    decision.lane == "knowledge"
+                    and lane_answer.fallback_reason
+                    and decision.question_type != QUESTION_METHODOLOGY
+                ):
                     retrieval_attempted = True
                     fallback_started = time.monotonic()
                     try:
@@ -1172,6 +1177,13 @@ class TurnOrchestrator:
                                 "elapsed_ms": self._elapsed_ms(fallback_started),
                             },
                         )
+                if (
+                    decision.question_type == QUESTION_METHODOLOGY
+                    and lane_answer.fallback_reason
+                ):
+                    warning = "方法论回答生成暂时不可用"
+                    lane_warnings.append(warning)
+                    self.run_store.add_degrade(run_id, warning)
                 self._trace(
                     run_id,
                     assistant_message_id,
@@ -2330,9 +2342,39 @@ class TurnOrchestrator:
         self._emit(
             run_id,
             assistant_message_id,
+            "answer:snapshot:1",
+            "answer.snapshot",
+            AnswerSnapshot(
+                revision=1,
+                phase="verified_draft",
+                text=answer_text,
+                final=False,
+            ).payload(),
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
             "text:000001",
             "text.delta",
             {"delta": answer_text},
+            conversation_id,
+        )
+        self._emit(
+            run_id,
+            assistant_message_id,
+            "answer:snapshot:2",
+            "answer.snapshot",
+            AnswerSnapshot(
+                revision=2,
+                phase=(
+                    "validated_synthesis"
+                    if answer.provider is not None
+                    else "verified_fallback"
+                ),
+                text=answer_text,
+                final=True,
+            ).payload(),
             conversation_id,
         )
         complete_report(
