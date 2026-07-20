@@ -1,0 +1,34 @@
+[
+  {
+    "id": "unowned_current_company",
+    "query": "某公司最近怎么看",
+    "expected_question_type": "general_finance_qa",
+    "expected_owner": null,
+    "expected_generic_owner": true,
+    "required_outputs": ["direct_assessment", "supporting_evidence", "counterpoint"]
+  },
+  {
+    "id": "unowned_market_structure",
+    "query": "指数涨跌与成交量怎么看",
+    "expected_question_type": "general_finance_qa",
+    "expected_owner": null,
+    "expected_generic_owner": true,
+    "required_outputs": ["direct_assessment", "supporting_evidence", "counterpoint"]
+  },
+  {
+    "id": "head_market_technical",
+    "query": "科创50的支撑点位在哪",
+    "expected_question_type": "market_technical",
+    "expected_owner": null,
+    "expected_generic_owner": false,
+    "required_outputs": []
+  },
+  {
+    "id": "owned_theme_research",
+    "query": "AI算力产业链最近怎么看",
+    "expected_question_type": "theme_analysis",
+    "expected_owner": "theme-research",
+    "expected_generic_owner": false,
+    "required_outputs": []
+  }
+]

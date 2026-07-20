@@ -318,6 +318,11 @@ class AskResult:
     review_gate: output_review.OutputReviewGate | None = None
     # 裁决层唯一输出：表达层和 LLM 只能消费该结构，不能直接拼接检索字符串。
     answer_spec: answer_model.AnswerSpec | None = None
+    # GenericResearchOwner 的确定性任务完成报告；仅控制面使用，不进入正文。
+    completion_report: dict[str, object] | None = field(
+        default=None,
+        repr=False,
+    )
     # D1-D4 DuckDB 数据块的 per-block 可观测字段。
     d_block_stats: list[research_brief.DBlockStat] = field(default_factory=list)
     # (label, 完整报告全文) per routed module, only when --detail is set

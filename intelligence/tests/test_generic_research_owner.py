@@ -2,9 +2,21 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
-from intelligence.services import agent_research, answer_model, ask, generic_research_owner
+from intelligence.services import (
+    agent_research,
+    answer_model,
+    ask,
+    generic_research_owner,
+    query_ledger,
+)
+from intelligence.services import conversation_orchestrator
+from intelligence.services.conversation_orchestrator import TurnOrchestrator
+from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     RequiredOutput,
@@ -18,6 +30,8 @@ from intelligence.services.research_tool_registry import (
     ToolSpec,
     UnknownResearchTool,
 )
+from intelligence.services.run_store import RunStore
+from intelligence.services.turn_controller import decide_turn
 
 
 def _contract(*, required_direct: bool = True) -> ResearchTaskContract:
@@ -91,9 +105,63 @@ def test_research_task_contract_round_trips_required_outputs() -> None:
     assert ResearchTaskContract.from_dict(contract.to_dict()) == contract
 
 
+def test_provider_trace_parent_step_fields_are_backward_compatible() -> None:
+    trace = ProviderTrace(
+        provider="web",
+        capability="web_search",
+        status="success",
+        parent_id="run-1",
+        step_id="run-1:owner:1",
+    )
+    assert ProviderTrace.from_dict(trace.to_dict()).step_id == "run-1:owner:1"
+    assert ProviderTrace.from_dict(
+        {"provider": "web", "capability": "web_search", "status": "empty"}
+    ).parent_id is None
+
+
 def test_registry_rejects_unregistered_tool() -> None:
     with pytest.raises(UnknownResearchTool):
         _registry().resolve("shell_exec")
+
+
+def test_registry_single_flight_dedupes_same_query_in_owner_context() -> None:
+    calls = []
+
+    def runner(query: str, _context: agent_research.AgentToolContext):
+        calls.append(query)
+        return [], "空", ProviderTrace(
+            provider="test:web",
+            capability="web_search",
+            status="empty",
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="web_search",
+                capability="web_search",
+                description="测试网页工具",
+                cost="external",
+                freshness="current",
+                runner=runner,
+            ),
+        )
+    )
+    contract = _contract()
+    with query_ledger.query_ledger_scope():
+        registry.execute(
+            "web_search",
+            "同一查询",
+            context=_context(contract),
+            step_id="run-test:1",
+        )
+        registry.execute(
+            "web_search",
+            " 同一查询 ",
+            context=_context(contract),
+            step_id="run-test:2",
+        )
+    assert calls == ["同一查询"]
 
 
 def test_owner_completes_required_outputs_after_grounded_tool_observation() -> None:
@@ -236,3 +304,171 @@ def test_ask_owner_path_skips_fixed_answer_template(monkeypatch) -> None:
     assert "题材怎么理解" not in rendered
     assert "公司证据" not in rendered
     assert "候选来源" in rendered
+    assert "研究 Agent" not in rendered
+    assert "本轮状态=" not in rendered
+
+
+def test_incomplete_owner_result_cannot_enter_synthesis(monkeypatch) -> None:
+    actions = iter(
+        ['{"tool":"finish","args":{"sufficient":true,"gaps":[]},"reason":"过早结束"}']
+    )
+    monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    monkeypatch.setattr(
+        agent_research.llm_refine,
+        "complete",
+        lambda _messages, **_kwargs: (next(actions), "test", ""),
+    )
+    options = ask.AskOptions(
+        query="某公司最近怎么看",
+        clarify=False,
+        synthesize=True,
+        research_task_contract=_contract(),
+    )
+    result = ask.answer_query(options)
+    assert result.completion_report is not None
+    assert result.completion_report["status"] == "partial"
+    prepared = ask.prepare_existing_answer(options, result)
+    assert prepared.result.prepared_synthesis_messages is None
+
+
+def test_orchestrator_ownerless_turn_skips_skill_router_and_template(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "某公司最近怎么看"
+    run = run_store.create_run(
+        query,
+        "ask",
+        session_id=conversation.conversation_id,
+    )
+    conversation_store.append_message(
+        conversation.conversation_id,
+        "user",
+        query,
+        run_id=run.run_id,
+    )
+    assistant = conversation_store.append_message(
+        conversation.conversation_id,
+        "assistant",
+        "",
+        status="pending",
+        run_id=run.run_id,
+    )
+    conversation_store.update_summary(
+        conversation.conversation_id,
+        conversation.summary,
+        last_run_id=run.run_id,
+    )
+    captured = []
+
+    def controller(query: str, **kwargs):
+        allowed = {
+            key: kwargs[key]
+            for key in (
+                "context",
+                "skill_mode",
+                "selected_skill_ids",
+                "previous_intent",
+                "previous_turn_id",
+            )
+            if key in kwargs
+        }
+        return decide_turn(
+            query,
+            llm_complete=lambda _messages: (None, None, "offline"),
+            **allowed,
+        )
+
+    def answer(options):
+        captured.append(options)
+        return ask.AskResult(
+            query=options.query,
+            trade_date=None,
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+            sections={"结论": ["仅测试输出"], "证据链": [], "引用来源": []},
+            completion_report={"status": "partial", "outputs": []},
+        )
+
+    def forbidden_router(*_args, **_kwargs):
+        raise AssertionError("ownerless long-tail must not enter skill router")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer,
+        route_skills_fn=forbidden_router,
+        turn_controller_fn=controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run.run_id,
+        assistant_message_id=assistant.message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    assert len(captured) == 1
+    assert captured[0].research_task_contract is not None
+    assert "自然语言综合暂时不可用" not in result.content
+    route_step = next(
+        step
+        for step in run_store.load_trace(run.run_id)
+        if step["name"] == "route_skills"
+    )
+    route_output = json.loads(route_step["output_summary"])
+    assert route_output["generic_owner_requested"] is True
+    assert route_output["selected"] == []
+
+
+def test_long_tail_fixture_keeps_head_and_owner_routes_out_of_generic_owner() -> None:
+    fixture = Path(__file__).parent / "fixtures" / "long_tail_cases.json"
+    cases = json.loads(fixture.read_text(encoding="utf-8"))
+    for case in cases:
+        decision = decide_turn(
+            case["query"],
+            llm_complete=lambda _messages: (None, None, "offline"),
+        )
+        intent = decision.turn_intent
+        generic = bool(
+            decision.lane == "research"
+            and decision.question_type == "general_finance_qa"
+            and intent is not None
+            and intent.question_type == "general_finance_qa"
+            and intent.answer_owner is None
+        )
+        assert decision.question_type == case["expected_question_type"]
+        assert (
+            None if intent is None else intent.answer_owner
+        ) == case["expected_owner"]
+        assert generic is case["expected_generic_owner"]
+        if generic:
+            contract = conversation_orchestrator._build_generic_research_contract(
+                case["query"],
+                task_id=f"fixture:{case['id']}",
+                turn_intent=intent,
+            )
+            assert [
+                output.output_id for output in contract.required_outputs
+            ] == case["required_outputs"]
+
+
+def test_generic_tier_deadline_is_clamped_once_and_keeps_reserve() -> None:
+    root = ResearchDeadline.from_timeout(120.0, synthesis_reserve=20.0)
+    contract = _contract()
+    contract = ResearchTaskContract(
+        **{
+            **contract.to_dict(),
+            "research_tier": "quick",
+            "required_outputs": tuple(contract.required_outputs),
+            "allowed_capabilities": tuple(contract.allowed_capabilities),
+        }
+    )
+    deadline = conversation_orchestrator._generic_research_deadline(root, contract)
+    assert deadline.synthesis_reserve == 20.0
+    assert deadline.expires_at <= root.expires_at
+    assert deadline.stage_timeout(999.0) <= 10.1

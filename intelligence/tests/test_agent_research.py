@@ -198,6 +198,35 @@ def test_root_deadline_clamps_llm_timeout() -> None:
     assert 0 < observed[0] <= 0.5
 
 
+def test_agent_loop_preserves_synthesis_reserve_for_root_deadline() -> None:
+    observed: dict[str, float] = {}
+    deadline = ResearchDeadline(
+        time.monotonic() + 1.0,
+        synthesis_reserve=0.8,
+    )
+
+    def complete(messages, timeout=0, temperature=0.0):
+        del messages, temperature
+        observed["llm_timeout"] = timeout
+        return (
+            '{"tool":"finish","args":{"sufficient":false,"gaps":[]},"reason":"x"}',
+            None,
+            "",
+        )
+
+    result = run_agent_loop(
+        "问题",
+        tools={"kb_search": _tool("kb_search")},
+        total_seconds=60,
+        llm_timeout=15,
+        deadline=deadline,
+        complete_fn=complete,
+    )
+
+    assert result.stop_reason == "agent finish"
+    assert 0 < observed["llm_timeout"] <= 0.25
+
+
 def test_tool_exception_degrades_to_failed_trace() -> None:
     def broken(query: str):
         raise RuntimeError("boom")

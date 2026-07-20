@@ -1058,9 +1058,13 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         question_type_override=contract.question_type,
     )
     result.data_notice = (
-        f"通用研究 Agent 已按 {policy.tier} 档运行；"
-        f"本轮状态={owner_result.completion.status}。"
+        "本轮已收集到可回查来源，但仍需逐条核验后才能升级为事实。"
+        if owner_result.evidence
+        else "本轮没有收集到可回查来源，暂不形成可靠定性。"
     )
+    # 完成报告属于控制面：编排层据此决定是否允许进入 grounded synthesis，
+    # 但不把内部的 missing/gap 诊断直接暴露给用户正文。
+    result.completion_report = owner_result.completion.to_dict()
     result.provider_traces.extend(owner_result.traces)
     result.provider_traces.append(
         ProviderTrace(
@@ -2670,6 +2674,17 @@ def prepare_existing_answer(
     options: AskOptions,
     result: AskResult,
 ) -> PreparedAnswer:
+    # GenericResearchOwner 必须先通过契约完成门禁，再允许 LLM 做表达层合成。
+    # 未完成时保留结构化候选/缺口，由专用 renderer 输出，不再生成可被误读成
+    # 已完成研究的 synthesis prompt。
+    if (
+        result.completion_report is not None
+        and result.completion_report.get("status") != "completed"
+    ):
+        return PreparedAnswer(
+            options=replace(options, synthesize=False),
+            result=result,
+        )
     if result.answer_spec is not None and result.prepared_synthesis_messages is None:
         citation_legend = "\n".join(
             f"[{citation.tag}] {citation.source}"

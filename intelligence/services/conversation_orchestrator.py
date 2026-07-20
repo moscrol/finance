@@ -66,6 +66,7 @@ from intelligence.services.research_policy import (
 from intelligence.services.research_contract import (
     OWNER_WORKFLOW_SPECS,
     ResearchDeadline,
+    ResearchPolicy,
     ResearchPlan,
     RequiredOutput,
     ResearchTaskContract,
@@ -148,6 +149,25 @@ def _build_generic_research_contract(
         research_tier=tier,
         presentation_profile="general",
         freshness="current",
+    )
+
+
+def _generic_research_deadline(
+    root_deadline: ResearchDeadline,
+    contract: ResearchTaskContract,
+) -> ResearchDeadline:
+    """把 Owner 档位预算钳制到 turn 根 deadline，避免预算重复计算。"""
+    policy = ResearchPolicy.for_tier(contract.research_tier)
+    policy_deadline = ResearchDeadline.from_timeout(
+        policy.total_seconds,
+        synthesis_reserve=policy.synthesis_reserve,
+    )
+    return ResearchDeadline(
+        min(root_deadline.expires_at, policy_deadline.expires_at),
+        synthesis_reserve=max(
+            root_deadline.synthesis_reserve,
+            policy.synthesis_reserve,
+        ),
     )
 
 
@@ -379,6 +399,8 @@ _PROVIDER_TRACE_FIELDS = frozenset(
         "detail",
         "source_trade_date",
         "result_count",
+        "parent_id",
+        "step_id",
     )
 )
 
@@ -1100,10 +1122,13 @@ class TurnOrchestrator:
                 and skill_mode == "auto"
                 and not selected_skill_ids
             )
-            if (
+            router_skipped = bool(
                 decision.lane == "knowledge"
                 or turn_intent.question_type == "market_technical"
                 or generic_owner_requested
+            )
+            if (
+                router_skipped
             ):
                 # market_technical：controller 已确定性定型，走 ask 内的
                 # 结构化行情技术位管线，跳过语义 skill router 的额外 LLM。
@@ -1159,7 +1184,7 @@ class TurnOrchestrator:
                     ],
                     "fallback_to_ask": route.fallback_to_ask,
                     "base_finance_fallback": route.base_finance_fallback,
-                    "router_skipped": decision.lane == "knowledge",
+                    "router_skipped": router_skipped,
                     "generic_owner_requested": generic_owner_requested,
                     "controller_lane": decision.lane,
                     "query_envelope": routing_envelope.to_dict(),
@@ -1543,6 +1568,20 @@ class TurnOrchestrator:
                 plan_answer_question(contextual_query).question_type
                 == QUESTION_MARKET_REVIEW
             )
+            generic_contract = (
+                _build_generic_research_contract(
+                    contextual_query,
+                    task_id=run_id,
+                    turn_intent=turn_intent,
+                )
+                if generic_owner_requested
+                else None
+            )
+            generic_deadline = (
+                _generic_research_deadline(research_deadline, generic_contract)
+                if generic_contract is not None
+                else research_deadline
+            )
             ask_options = AskOptions(
                 query=contextual_query,
                 date=(
@@ -1570,15 +1609,7 @@ class TurnOrchestrator:
                     if decision.lane == "knowledge"
                     else turn_intent.question_type
                 ),
-                research_task_contract=(
-                    _build_generic_research_contract(
-                        contextual_query,
-                        task_id=run_id,
-                        turn_intent=turn_intent,
-                    )
-                    if generic_owner_requested
-                    else None
-                ),
+                research_task_contract=generic_contract,
                 controller_capabilities=(
                     tuple(
                         dict.fromkeys((*decision.capabilities, "web_search"))
@@ -1593,7 +1624,7 @@ class TurnOrchestrator:
                 perspective_ids=tuple(selected_perspective_ids),
                 stream_text_delta=capture_safe_text,
                 stream_cancel_check=self.is_cancelled,
-                deadline=research_deadline,
+                deadline=generic_deadline,
             )
             if owner_output is not None:
                 result = _resolve_owner_result(
@@ -1815,6 +1846,7 @@ class TurnOrchestrator:
                     decision.lane in {"research", "workflow"}
                     and result.synthesis is None
                     and owner_output is None
+                    and not generic_owner_requested
                 )
                 else ""
             )
@@ -2551,6 +2583,9 @@ class TurnOrchestrator:
                     if result.closed_loop_retrieval is not None
                     else None
                 ),
+                # GenericResearchOwner 的完成度是控制面审计字段；展示层只
+                # 消费 AnswerSpec，不把内部 missing/gap 诊断拼进正文。
+                "completion_report": result.completion_report,
                 "provider_traces": [
                     trace.to_dict() for trace in result.provider_traces
                 ],

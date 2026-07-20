@@ -153,15 +153,27 @@ def render_conversation_answer(result: AskResult) -> str:
     if rendered_sections or result.market_summary:
         if lines:
             lines.append("")
-        lines.append(
-            "自然语言综合暂时不可用；以上为确定性检索结果，"
-            "缺失项未作猜测。完整来源和结构化产物保留在“运行详情”中。"
-        )
+        if result.completion_report is not None:
+            status = result.completion_report.get("status")
+            lines.append(
+                "通用研究循环已完成；以上为结构化研究结果。"
+                if status == "completed"
+                else "通用研究循环尚未完成；以上仅为待核验线索，缺失项未作猜测。"
+            )
+        else:
+            lines.append(
+                "自然语言综合暂时不可用；以上为确定性检索结果，"
+                "缺失项未作猜测。完整来源和结构化产物保留在“运行详情”中。"
+            )
     else:
         if lines:
             lines.append("")
         lines.append(
-            "本轮检索已完成，但没有形成可展示的确定性结果。"
-            "自然语言综合暂时不可用，请在“运行详情”中核对数据缺口后重试。"
+            "本轮通用研究没有形成可展示的来源；请补充可核验线索后重试。"
+            if result.completion_report is not None
+            else (
+                "本轮检索已完成，但没有形成可展示的确定性结果。"
+                "自然语言综合暂时不可用，请在“运行详情”中核对数据缺口后重试。"
+            )
         )
     return "\n".join(lines).rstrip() + "\n"

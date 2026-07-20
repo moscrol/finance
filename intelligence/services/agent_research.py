@@ -500,7 +500,11 @@ def run_agent_loop(
     stage_deadline = ResearchDeadline.from_timeout(total_seconds)
     if deadline is not None:
         stage_deadline = ResearchDeadline(
-            min(stage_deadline.expires_at, deadline.expires_at)
+            min(stage_deadline.expires_at, deadline.expires_at),
+            # 保留主链为 grounded synthesis 预留的尾部预算；此前这里
+            # 重建 deadline 时丢掉 synthesis_reserve，agent loop 可能把
+            # 合成保留段提前耗尽，造成“检索成功但出口超时”。
+            synthesis_reserve=deadline.synthesis_reserve,
         )
     tool_context = AgentToolContext(stage_deadline)
     seen_queries: set[tuple[str, str]] = {
@@ -511,8 +515,13 @@ def run_agent_loop(
     system_prompt = _system_prompt(tools)
     no_information_steps = 0
 
-    for _ in range(budget + 1):  # +1 给 finish 留一次决策机会
+    def available_stage_seconds() -> float:
+        """检索阶段可消费的预算，不侵占 synthesis reserve。"""
         remaining = stage_deadline.remaining()
+        return stage_deadline.stage_timeout(remaining)
+
+    for _ in range(budget + 1):  # +1 给 finish 留一次决策机会
+        remaining = available_stage_seconds()
         if remaining <= 0.001:
             result.stop_reason = "预算耗尽：总时长"
             break
@@ -589,7 +598,7 @@ def run_agent_loop(
             continue
         seen_queries.add(dedupe_key)
 
-        if stage_deadline.remaining() <= 0.001:
+        if available_stage_seconds() <= 0.001:
             result.stop_reason = "预算耗尽：总时长"
             break
         started = time.monotonic()
