@@ -22,6 +22,7 @@ QUESTION_METHODOLOGY = "methodology_discussion"
 QUESTION_GENERAL = "general_finance_qa"
 QUESTION_EXTERNAL_MARKET = "external_market"
 QUESTION_CONCEPT_DEFINITION = "concept_definition"
+QUESTION_MARKET_TECHNICAL = "market_technical"
 
 QUESTION_TYPES = frozenset(
     {
@@ -37,6 +38,7 @@ QUESTION_TYPES = frozenset(
         QUESTION_GENERAL,
         QUESTION_EXTERNAL_MARKET,
         QUESTION_CONCEPT_DEFINITION,
+        QUESTION_MARKET_TECHNICAL,
     }
 )
 
@@ -206,6 +208,7 @@ def plan_answer_question(
     elif query_envelope.question_type in {
         QUESTION_EXTERNAL_MARKET,
         QUESTION_CONCEPT_DEFINITION,
+        QUESTION_MARKET_TECHNICAL,
     }:
         question_type, confidence = (
             query_envelope.question_type,
@@ -285,9 +288,10 @@ def _base_finance_mode(
     if question_type in {
         QUESTION_EXTERNAL_MARKET,
         QUESTION_CONCEPT_DEFINITION,
+        QUESTION_MARKET_TECHNICAL,
     }:
         return BaseFinanceMode(
-            require_market=False,
+            require_market=question_type == QUESTION_MARKET_TECHNICAL,
             require_memory=False,
             require_news=False,
             require_graph=False,
@@ -457,6 +461,13 @@ def _required_lenses(question_type: str, depth: str) -> list[str]:
             "来源隔离：新闻标题只能补方向与事件，不得替代精确点位或涨跌幅",
             "失败可见：provider 失败时明确写数据缺口，不用本地 A 股资料代答",
         ]
+    if question_type == QUESTION_MARKET_TECHNICAL:
+        return [
+            "行情口径：支撑/压力必须来自结构化 OHLCV 日线的确定性计算（均线、摆动低点、区间低点、缺口）",
+            "计算透明：每个支撑区标注计算依据与数据截止日",
+            "失效条件：给出跌破哪个价位判断失效",
+            "来源隔离：不用 Wiki/题材结构/公司公告代替行情计算；取不到行情只报数据缺口",
+        ]
     if question_type == QUESTION_CONCEPT_DEFINITION:
         return [
             "先解释定义、核心技术原理和产业链位置",
@@ -550,6 +561,12 @@ def _required_lenses(question_type: str, depth: str) -> list[str]:
 
 
 def _retrieval_plan(question_type: str, depth: str, q: str) -> list[str]:
+    if question_type == QUESTION_MARKET_TECHNICAL:
+        return [
+            "结构化指数/个股日线 OHLCV：唯一必需数据源，成功即停",
+            "确定性技术位计算器：MA5/10/20/60、摆动低点、20/60日低点、跳空缺口",
+            "跳过 Wiki RAG、知识图谱、agent web loop：该题型不需要文本证据",
+        ]
     if question_type == QUESTION_EXTERNAL_MARKET:
         return [
             "fupanhui /reviews/global-market：结构化海外指数底座与 source_trade_date",
@@ -646,6 +663,14 @@ def _quality_gates(question_type: str, depth: str) -> list[str]:
         "必须主动写反证和证伪条件",
         "缺数据时要说明缺口，不能用常识或印象补齐",
     ]
+    if question_type == QUESTION_MARKET_TECHNICAL:
+        gates.extend(
+            [
+                "支撑/压力数字必须来自确定性计算，不得由 LLM 生成或改写",
+                "必须标注数据截止日与每个支撑区的计算依据",
+                "取不到 OHLCV 时只报数据缺口短答，禁止用题材结构、公司公告、知识图谱模板代答",
+            ]
+        )
     if question_type == QUESTION_EXTERNAL_MARKET:
         gates.extend(
             [
@@ -730,6 +755,12 @@ def _quality_gates(question_type: str, depth: str) -> list[str]:
 
 
 def _output_contract(question_type: str, depth: str) -> list[str]:
+    if question_type == QUESTION_MARKET_TECHNICAL:
+        return [
+            "先给当前收盘价与数据截止日，再列支撑区（数字区间 + 计算依据）",
+            "给出压力区与失效条件（跌破哪个价位需要重新计算）",
+            "取数失败时直接给数据缺口短答，不延伸任何题材或个股判断",
+        ]
     if question_type == QUESTION_EXTERNAL_MARKET:
         return [
             "先给 source_trade_date，再逐项列指数收盘点位与涨跌幅",
@@ -804,6 +835,8 @@ def _missing_data_policy(question_type: str) -> list[str]:
         "本地没有命中时，先声明缺口，再决定是否需要 web/API 补查",
         "外部实时查询只补最新事实，不替代知识库/金融库的结构化底座",
     ]
+    if question_type == QUESTION_MARKET_TECHNICAL:
+        base.append("OHLCV 取数失败时只报明确数据缺口，禁止用全市场题材结构或图谱代答")
     if question_type == QUESTION_EXTERNAL_MARKET:
         base.extend(
             [

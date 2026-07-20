@@ -123,6 +123,17 @@ ROUTE_TABLE: tuple[RouteRow, ...] = (
         capabilities=("memory", "market_quote", "graph"),
     ),
     RouteRow(
+        route_id="market_technical",
+        description="指数或个股的技术位问题：支撑位、压力位、均线位置、突破/跌破点位，用结构化行情确定性计算，不做题材研究",
+        examples=("科创50的支撑点位在哪", "沪深300压力位在哪里", "上证指数回踩到哪有支撑"),
+        lane="research",
+        question_type="market_technical",
+        answer_owner=None,
+        needs_retrieval=True,
+        needs_template=False,
+        capabilities=("market_quote",),
+    ),
+    RouteRow(
         route_id="external_market",
         description="海外或外部市场（美股、港股、汇率、大宗）的行情与走势",
         examples=("昨天美股的涨跌情况", "港股今天怎么样"),

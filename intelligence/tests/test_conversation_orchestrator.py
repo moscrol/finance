@@ -2543,7 +2543,10 @@ def test_base_finance_fallback_grants_web_search_capability(tmp_path) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
-    query = "科创50的支撑点位在哪"
+    # 注：不能用技术位类问题（如“科创50的支撑点位在哪”）——该题型已被
+    # market_technical 确定性接管、跳过语义 skill router，触发不了本测试
+    # 要验证的 base_finance_fallback 能力授予路径。
+    query = "白酒板块最近怎么看"
     run_id, assistant_message_id = _prepare_turn(
         conversation_store,
         run_store,

@@ -1527,8 +1527,87 @@ def _artifact_claim_marker(
     )
 
 
+def _render_evidence_gap_answer(answer_spec: AnswerSpec) -> str:
+    """P0 fail-closed 出口：质检 error 未通过时的证据缺口短答。
+
+    不渲染原 AnswerSpec（其结论/公司表/题材主张已被判定不可信），
+    只输出：用户问题主题、明确的缺口声明、缺什么数据、下一步。
+    禁止携带其他题材结构、公司公告、图谱统计等模板内容。
+    """
+    theme = humanize(answer_spec.presentation_title or answer_spec.research_spec.theme)
+    lines = [f"# {theme}", ""]
+    missing_claims = [
+        humanize(claim.text)
+        for claim in answer_spec.summary
+        if claim.status == ClaimStatus.MISSING and claim.text.strip()
+    ]
+    if missing_claims:
+        lines.extend(f"{text}" for text in missing_claims[:2])
+    else:
+        lines.append(
+            "本轮检索与核验未能形成可靠、可回查的研究结论，"
+            "为避免输出未经证据绑定的判断，本次不给出定性结论。"
+        )
+    gap_texts = [
+        humanize(gap.text) for gap in answer_spec.gaps if gap.text.strip()
+    ]
+    if gap_texts:
+        lines.extend(["", "**缺少的数据/证据：**"])
+        lines.extend(f"- {text}" for text in gap_texts[:5])
+    error_messages = _dedupe(
+        tuple(
+            issue.message
+            for issue in answer_spec.quality.issues
+            if issue.severity == "error"
+        )
+    )
+    if error_messages:
+        lines.extend(["", "**未通过的质检项：**"])
+        lines.extend(f"- {humanize(message)}" for message in error_messages[:4])
+    lines.extend(
+        [
+            "",
+            "请补充数据源或稍后重试；数据补齐后本问题可以重新计算/研究。",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def quality_requires_fail_closed(answer_spec: AnswerSpec) -> bool:
+    """判断质检结果是否要求 fail-closed 出口。
+
+    两类硬失败不得按原样渲染：
+    1. theme_contamination —— 回答绑定到了别的题材（真实事故：问科创50支撑位
+       返回半导体/AI 算力题材模板）；
+    2. 结论未绑定证据且全卷没有任何带证据的已核验事实 —— 即回答没有覆盖
+       用户问题的 verified claim，属于纯模板。
+    仅有 INFERRED 总结但携带已核验事实的正常答案不受影响。
+    """
+    if answer_spec.presentation_kind == DAILY_AGENT_PRESENTATION_KIND:
+        # 研究雷达是多题材容器，跨题材主张是设计使然，不算污染。
+        return False
+    error_codes = {
+        issue.code
+        for issue in answer_spec.quality.issues
+        if issue.severity == "error"
+    }
+    if "theme_contamination" in error_codes:
+        return True
+    if "unbound_summary_claim" in error_codes and not any(
+        claim.status == ClaimStatus.VERIFIED and claim.evidence_ids
+        for claim in answer_spec.verified_facts
+    ):
+        return True
+    return False
+
+
 def render_answer_spec(answer_spec: AnswerSpec) -> str:
     answer_spec = apply_claim_evidence_policy(answer_spec)
+    # P0 fail-closed：质检判定题材污染 / 纯模板（无任何已核验证据支撑）的
+    # AnswerSpec 不得按原样渲染成研究结论——此前这里直接放行，导致题材
+    # 污染模板以 verified_fallback 姿态返回给用户。
+    if quality_requires_fail_closed(answer_spec):
+        return _render_evidence_gap_answer(answer_spec)
     if answer_spec.presentation_kind in {
         "base_finance",
         DAILY_AGENT_PRESENTATION_KIND,

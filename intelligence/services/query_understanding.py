@@ -17,6 +17,7 @@ from intelligence.services.scenario_tree import parse_scenario_intent
 SubjectKind = Literal[
     "company",
     "theme",
+    "index",
     "market_pattern",
     "external_market",
     "unknown",
@@ -259,6 +260,59 @@ _COMPARISON_RE = re.compile(r"(比较|对比|相比|赔率排序)")
 _RELATION_RE = re.compile(r"(上游|下游|供应|客户|产业链位置|处于.{0,8}环节|关系)")
 _COMPANY_MAPPING_RE = re.compile(r"(有哪些公司|哪些公司|受益公司|公司映射|核心公司)")
 _MARKET_CHANGE_RE = re.compile(r"(边际变化|最近变化|近期变化|预期差变化)")
+
+# 确定性技术位头部意图：指数别名 → 标准指数代码。
+# 名称按长度降序匹配，避免「科创50」被「科创」类题材别名截胡。
+INDEX_ALIASES: tuple[tuple[str, str, str], ...] = (
+    ("科创50", "000688.SH", "科创50"),
+    ("科创五十", "000688.SH", "科创50"),
+    ("科创板50", "000688.SH", "科创50"),
+    ("科创100", "000698.SH", "科创100"),
+    ("上证50", "000016.SH", "上证50"),
+    ("上证指数", "000001.SH", "上证指数"),
+    ("上证综指", "000001.SH", "上证指数"),
+    ("沪深300", "000300.SH", "沪深300"),
+    ("中证500", "000905.SH", "中证500"),
+    ("中证1000", "000852.SH", "中证1000"),
+    ("中证2000", "932000.CSI", "中证2000"),
+    ("深证成指", "399001.SZ", "深证成指"),
+    ("创业板指", "399006.SZ", "创业板指"),
+    ("创业板指数", "399006.SZ", "创业板指"),
+    ("北证50", "899050.BJ", "北证50"),
+    ("万得微盘", "8841431.WI", "万得微盘股"),
+    ("微盘股指数", "8841431.WI", "万得微盘股"),
+)
+_TECHNICAL_LEVEL_RE = re.compile(
+    r"支撑(?:位|点位|区|区域|在哪|位置)"
+    r"|(?:压力|阻力)(?:位|点位|区|区域|在哪|位置)"
+    r"|(?:突破|跌破)(?:位|点位|价位)"
+    r"|均线(?:支撑|压力|位置|在哪)"
+    r"|(?:回踩|回调)(?:到哪|支撑)"
+    r"|技术(?:位|点位|支撑|压力)"
+    r"|颈线|缺口(?:回补|支撑)"
+)
+
+
+def match_index_subject(query: str) -> tuple[str, str] | None:
+    """在问题中匹配指数别名，返回 (标准名, 指数代码)；未命中返回 None。"""
+    text = re.sub(r"\s+", "", str(query or ""))
+    for alias, ts_code, canonical in sorted(
+        INDEX_ALIASES, key=lambda item: len(item[0]), reverse=True
+    ):
+        if alias in text:
+            return canonical, ts_code
+    return None
+
+
+def is_market_technical_query(query: str) -> bool:
+    """确定性识别「指数/股票 + 支撑位/压力位/均线/突破位」类技术位问题。"""
+    text = re.sub(r"\s+", "", str(query or ""))
+    if _TECHNICAL_LEVEL_RE.search(text) is None:
+        return False
+    return (
+        match_index_subject(text) is not None
+        or _TICKER_RE.search(text) is not None
+    )
 
 
 @dataclass(frozen=True)
@@ -676,6 +730,31 @@ def understand_query(
         if timeframe_match
         else next((term for term in _RELATIVE_TIMEFRAMES if term in text), None)
     )
+
+    if is_market_technical_query(text):
+        index_hit = match_index_subject(text)
+        ticker_hit = _TICKER_RE.search(text)
+        if index_hit is not None:
+            subject_name, _index_code = index_hit
+            return envelope(
+                "market_technical",
+                "index",
+                subject_name,
+                "基于结构化行情确定性计算支撑/压力技术位",
+                timeframe,
+                "market_anchor",
+                0.97,
+            )
+        if ticker_hit is not None:
+            return envelope(
+                "market_technical",
+                "company",
+                ticker_hit.group(0),
+                "基于结构化行情确定性计算支撑/压力技术位",
+                timeframe,
+                "ticker",
+                0.95,
+            )
 
     if _is_external_market_query(text):
         return envelope(

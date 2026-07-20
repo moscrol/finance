@@ -40,6 +40,7 @@ from intelligence.services.ask_types import (
     Citation,
     PreparedAnswer,
     _stage_timeout,
+    _synthesis_timeout,
     _llm_deadline,
 )
 
@@ -964,7 +965,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
         composed, reason = llm_refine.synthesize_messages(
             messages,
             model_override=options.llm_model,
-            timeout=_stage_timeout(options, options.llm_timeout),
+            timeout=_synthesis_timeout(options, options.llm_timeout),
             temperature=synthesis_temperature,
             deadline=deadline,
         )
@@ -976,7 +977,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
             on_finish_reason=capture_finish_reason,
             is_cancelled=options.stream_cancel_check,
             model_override=options.llm_model,
-            timeout=_stage_timeout(options, options.llm_timeout),
+            timeout=_synthesis_timeout(options, options.llm_timeout),
             temperature=synthesis_temperature,
             deadline=deadline,
         )
@@ -1040,7 +1041,7 @@ def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
                 },
             ],
             model_override=options.llm_model,
-            timeout=_stage_timeout(options, options.llm_timeout),
+            timeout=_synthesis_timeout(options, options.llm_timeout),
             deadline=deadline,
             temperature=0.0,
         )

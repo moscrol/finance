@@ -263,6 +263,18 @@ def _deterministic_decision(
             reason="明确请求固定研究工作流",
             capabilities=("memory", "market_quote", "graph"),
         )
+    if envelope.question_type == "market_technical":
+        return _decision(
+            "research",
+            envelope=envelope,
+            needs_template=False,
+            confidence=envelope.confidence,
+            reason="确定性识别指数/个股技术位问题（支撑/压力/均线/突破位）",
+            capabilities=_route_capabilities(
+                "market_technical",
+                ("market_quote",),
+            ),
+        )
     if envelope.question_type == "external_market":
         return _decision(
             "research",
@@ -600,6 +612,23 @@ def _attach_turn_intent(
     capabilities = decision.capabilities
     if {"relation", "company_mapping"}.intersection(intent.operators):
         capabilities = tuple(dict.fromkeys((*capabilities, "graph")))
+    # 单一事实源（P0 修复）：controller 的裁决（确定性头部或路由表命中）
+    # 优先于软解析 intent。此前这里无条件用 intent.question_type /
+    # intent.primary_subject 覆盖 decision，导致 controller 选中的路由
+    # （如 market_technical / market_forecast）被旧 understand_query 的
+    # general_finance_qa 反向覆盖。现改为：decision 已给出 question_type
+    # 时，把 intent 同步到 decision，保证下游 ResearchPlan / trace 一致。
+    if (
+        decision.question_type is not None
+        and intent.inherited_from_turn is None
+        and decision.question_type != intent.question_type
+    ):
+        intent = replace(
+            intent,
+            question_type=decision.question_type,
+            answer_owner=answer_owner_for_question_type(decision.question_type),
+            primary_subject=decision.subject or intent.primary_subject,
+        )
     return replace(
         decision,
         question_type=intent.question_type,

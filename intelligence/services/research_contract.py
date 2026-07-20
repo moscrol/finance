@@ -291,15 +291,31 @@ class ResearchPlan:
 @dataclass(frozen=True)
 class ResearchDeadline:
     expires_at: float
+    # P0：为最终合成保留的硬预算（秒）。前置检索阶段的 stage_timeout 不得
+    # 消费这段时间，避免检索耗尽预算后合成剩 0ms 只能降级为模板。
+    synthesis_reserve: float = 0.0
 
     @classmethod
-    def from_timeout(cls, timeout: float) -> ResearchDeadline:
-        return cls(time.monotonic() + max(0.0, float(timeout)))
+    def from_timeout(
+        cls,
+        timeout: float,
+        *,
+        synthesis_reserve: float = 0.0,
+    ) -> ResearchDeadline:
+        return cls(
+            time.monotonic() + max(0.0, float(timeout)),
+            synthesis_reserve=max(0.0, float(synthesis_reserve)),
+        )
 
     def remaining(self) -> float:
         return max(0.0, self.expires_at - time.monotonic())
 
     def stage_timeout(self, configured_limit: float) -> float:
+        available = max(0.0, self.remaining() - self.synthesis_reserve)
+        return max(0.0, min(float(configured_limit), available))
+
+    def synthesis_timeout(self, configured_limit: float) -> float:
+        """合成阶段可用全部剩余时间（含保留段）。"""
         return max(0.0, min(float(configured_limit), self.remaining()))
 
     @property

@@ -343,6 +343,13 @@ def _stage_timeout(options: AskOptions, configured_limit: float) -> float:
     return max(0.001, options.deadline.stage_timeout(configured_limit))
 
 
+def _synthesis_timeout(options: AskOptions, configured_limit: float) -> float:
+    """合成阶段专用：可动用合成保留预算（见 ResearchDeadline.synthesis_reserve）。"""
+    if options.deadline is None:
+        return max(0.001, float(configured_limit))
+    return max(0.001, options.deadline.synthesis_timeout(configured_limit))
+
+
 def _llm_deadline(options: AskOptions) -> llm_refine.Deadline:
     if options.deadline is not None:
         return llm_refine.Deadline(options.deadline.expires_at)

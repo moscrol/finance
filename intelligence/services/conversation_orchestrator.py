@@ -761,7 +761,9 @@ class TurnOrchestrator:
         skill_outputs: list[SkillOutput] = []
         answer_model_name = self.llm_model
         research_deadline = ResearchDeadline.from_timeout(
-            self.research_policy.max_elapsed_seconds
+            self.research_policy.max_elapsed_seconds,
+            # P0：为最终合成硬保留 20 秒，前置检索不得消费（见 ResearchDeadline）。
+            synthesis_reserve=20.0,
         )
         self._emit(
             run_id,
@@ -827,12 +829,17 @@ class TurnOrchestrator:
                 previous_turn_id=inherited_turn_id,
             )
             research_plan = ResearchPlan.from_intent(turn_intent)
-            decision = replace(
-                decision,
-                question_type=turn_intent.question_type,
-                subject=turn_intent.primary_subject,
-                turn_intent=turn_intent,
-            )
+            # 单一事实源：controller 返回的 decision 已与 turn_intent 对齐
+            # （见 turn_controller._attach_turn_intent）。仅当 controller 未
+            # 附带 intent（异常降级路径）时才用本地重建的 intent 回填，
+            # 不再无条件用 intent 覆盖 controller 的路由裁决。
+            if decision.turn_intent is None:
+                decision = replace(
+                    decision,
+                    question_type=turn_intent.question_type,
+                    subject=turn_intent.primary_subject,
+                    turn_intent=turn_intent,
+                )
             contextual_query = contextualize_intent_query(query, turn_intent)
             inherited_answer_spec = (
                 self._load_answer_spec(inherited_message.run_id)
@@ -851,6 +858,17 @@ class TurnOrchestrator:
                 "research_evidence_atoms",
             )
             routing_envelope = understand_query(contextual_query)
+            # controller 裁决优先：路由 envelope 只提供辅助特征（operators
+            # 等），question_type / subject 不得与 decision 分叉形成第二事实源。
+            if (
+                decision.question_type is not None
+                and routing_envelope.question_type != decision.question_type
+            ):
+                routing_envelope = replace(
+                    routing_envelope,
+                    question_type=decision.question_type,
+                    subject=decision.subject or routing_envelope.subject,
+                )
             report["task_type"] = decision.lane
             legacy_lane = (
                 "knowledge"
@@ -1018,7 +1036,11 @@ class TurnOrchestrator:
                     as_of=lane_as_of,
                 )
             route_started = time.monotonic()
-            if decision.lane == "knowledge":
+            if decision.lane == "knowledge" or (
+                turn_intent.question_type == "market_technical"
+            ):
+                # market_technical：controller 已确定性定型，走 ask 内的
+                # 结构化行情技术位管线，跳过语义 skill router 的额外 LLM。
                 route = SkillRouteResult(
                     (),
                     fallback_to_ask=True,
@@ -1810,7 +1832,18 @@ class TurnOrchestrator:
                         phase=(
                             "validated_synthesis"
                             if result.synthesis is not None
-                            else "verified_fallback"
+                            else (
+                                # 质检未过的模板降级不得伪装成 verified：
+                                # 此时 render 层已 fail-closed 为证据缺口短答。
+                                "evidence_gap_fallback"
+                                if (
+                                    result.answer_spec is not None
+                                    and answer_model.quality_requires_fail_closed(
+                                        result.answer_spec
+                                    )
+                                )
+                                else "verified_fallback"
+                            )
                         ),
                         text=answer_text,
                         final=True,

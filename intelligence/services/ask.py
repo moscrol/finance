@@ -54,6 +54,7 @@ from intelligence.services import (
     market_midterm,
     market_moneyflow,
     market_news,
+    market_technical,
     market_timeseries,
     research_brief,
     retrieval_planner,
@@ -68,6 +69,7 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_EXTERNAL_MARKET,
     QUESTION_MARKET_FORECAST,
     QUESTION_MARKET_REVIEW,
+    QUESTION_MARKET_TECHNICAL,
     QUESTION_NEWS_IMPACT,
     QUESTION_STOCK_DEEP_DIVE,
     QUESTION_THEME_ANALYSIS,
@@ -109,6 +111,7 @@ from intelligence.services.ask_types import (  # noqa: F401  (re-export 兼容�
     _llm_deadline,
     _normalize,
     _stage_timeout,
+    _synthesis_timeout,
 )
 from intelligence.services.ask_blocks import (  # noqa: F401
     _append_block_outcome,
@@ -671,6 +674,147 @@ def _answer_external_market(
     return result
 
 
+def _answer_market_technical(
+    options: AskOptions,
+    question_plan: QuestionPlan,
+) -> AskResult:
+    """指数/个股技术位：结构化 OHLCV 确定性计算，成功即停，失败 fail-closed。"""
+    outcome = market_technical.resolve_market_technical(
+        options.query,
+        timeout=_stage_timeout(options, 15),
+    )
+    subject = outcome.subject
+    result = AskResult(
+        query=options.query,
+        trade_date=None,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        market_data_source="tencent_kline",
+        question_plan=question_plan,
+    )
+    if isinstance(outcome, market_technical.TechnicalGap):
+        gap_text = market_technical.gap_answer_text(outcome)
+        result.market_data_source = "market_technical_unavailable"
+        result.data_notice = gap_text
+        result.found_market = False
+        result.warnings.append(f"market-technical：{outcome.reason}")
+        result.provider_traces.append(
+            ProviderTrace(
+                provider="tencent_kline",
+                capability="market_technical",
+                status="failed",
+                detail=outcome.reason,
+            )
+        )
+        result.sections = {
+            "结论": [gap_text],
+            "证据链": [],
+            "分歧反证": [],
+            "后续验证点": ["数据源恢复后重新计算技术位。"],
+            "数据源状态": [f"tencent_kline｜market_technical｜failed｜{outcome.reason}"],
+        }
+        result.answer_spec = _build_base_answer_spec_from_sections(
+            result,
+            theme=f"{subject}技术位",
+            direct_lines=(gap_text,),
+            risk_lines=("本轮未取得行情数据，任何点位判断都不可靠。",),
+        )
+        return result
+
+    levels = outcome
+    result.trade_date = levels.as_of
+    result.found_market = True
+    result.data_notice = (
+        f"{levels.subject} 日线截止 {levels.as_of}，来源腾讯行情 K 线接口"
+        f"（{levels.symbol}），支撑/压力为确定性计算结果。"
+    )
+    tag = "T1"
+    result.citations.append(
+        Citation(
+            tag,
+            f"tencent_kline · {levels.symbol}",
+            f"日线 OHLCV；数据截止日={levels.as_of}；确定性技术位计算",
+        )
+    )
+    result.provider_traces.append(
+        ProviderTrace(
+            provider="tencent_kline",
+            capability="market_technical",
+            status="success",
+            source_trade_date=levels.as_of,
+            result_count=len(levels.supports) + len(levels.resistances),
+        )
+    )
+    evidence_lines = [
+        f"{levels.subject} 收盘 {levels.close:.2f}（{levels.as_of}） [{tag}]"
+    ]
+    ma_text = "、".join(
+        f"{name}={value:.2f}" for name, value in levels.ma.items() if value is not None
+    )
+    if ma_text:
+        evidence_lines.append(f"均线：{ma_text} [{tag}]")
+    support_lines = []
+    for index, level in enumerate(levels.supports, start=1):
+        zone = (
+            f"{level.zone_low:.2f}"
+            if abs(level.zone_high - level.zone_low) < 1e-9
+            else f"{level.zone_low:.2f}~{level.zone_high:.2f}"
+        )
+        support_lines.append(
+            f"支撑{index}：{zone}（依据：{'；'.join(level.basis)}） [{tag}]"
+        )
+    resistance_lines = []
+    for index, level in enumerate(levels.resistances, start=1):
+        zone = (
+            f"{level.zone_low:.2f}"
+            if abs(level.zone_high - level.zone_low) < 1e-9
+            else f"{level.zone_low:.2f}~{level.zone_high:.2f}"
+        )
+        resistance_lines.append(
+            f"压力{index}：{zone}（依据：{'；'.join(level.basis)}） [{tag}]"
+        )
+    conclusion = (
+        f"{levels.subject}（{levels.symbol}）截至 {levels.as_of} 收盘 "
+        f"{levels.close:.2f}。下方支撑区（由近到远）："
+        + ("；".join(
+            f"{lv.zone_low:.2f}" + (
+                f"~{lv.zone_high:.2f}" if abs(lv.zone_high - lv.zone_low) > 1e-9 else ""
+            )
+            for lv in levels.supports
+        ) or "当前价下方无可靠支撑候选")
+        + "。"
+    )
+    result.sections = {
+        "结论": [conclusion],
+        "证据链": [*evidence_lines, *support_lines, *resistance_lines],
+        "分歧反证": [levels.invalidation],
+        "后续验证点": [
+            "回踩首个支撑区时观察是否缩量企稳；放量跌破则按失效条件重新计算。"
+        ],
+        "交易含义": [
+            "技术位只回答位置问题，不构成买卖指令；结合量能与市场阶段使用。"
+        ],
+        "数据源状态": [
+            f"tencent_kline｜market_technical｜success｜数据截止日={levels.as_of}"
+        ],
+        "引用来源": [
+            f"[{citation.tag}] {citation.source}：{citation.detail}"
+            for citation in result.citations
+        ],
+    }
+    result.warnings.extend(levels.warnings)
+    result.answer_spec = _build_base_answer_spec_from_sections(
+        result,
+        theme=f"{levels.subject}技术位",
+        evidence_blocks=tuple(evidence_lines + support_lines + resistance_lines),
+        direct_lines=(conclusion,),
+        risk_lines=(levels.invalidation,),
+        action_lines=tuple(result.sections["后续验证点"]),
+    )
+    return result
+
+
 def _answer_concept_definition(
     options: AskOptions,
     question_plan: QuestionPlan,
@@ -859,6 +1003,9 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     if preliminary_plan.question_type == QUESTION_EXTERNAL_MARKET:
         with _progress_stage(options, "external_market"):
             return _answer_external_market(options, preliminary_plan)
+    if preliminary_plan.question_type == QUESTION_MARKET_TECHNICAL:
+        with _progress_stage(options, "market_technical"):
+            return _answer_market_technical(options, preliminary_plan)
     if preliminary_plan.question_type == QUESTION_CONCEPT_DEFINITION:
         with _progress_stage(options, "concept_definition"):
             return _answer_concept_definition(options, preliminary_plan)
@@ -2232,7 +2379,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         revised, rev_reason = llm_refine.synthesize_messages(
             result.synthesis_messages + [revision_user],
             model_override=options.llm_model,
-            timeout=_stage_timeout(options, options.llm_timeout),
+            timeout=_synthesis_timeout(options, options.llm_timeout),
             deadline=_llm_deadline(options),
             temperature=0.2,
         )
