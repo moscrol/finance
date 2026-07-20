@@ -44,6 +44,8 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_METHODOLOGY,
     QUESTION_MARKET_REVIEW,
     QUESTION_MARKET_CAUSE,
+    QUESTION_EXTERNAL_MARKET,
+    QUESTION_MARKET_TECHNICAL,
     plan_answer_question,
 )
 from intelligence.services.conversation_store import (
@@ -609,6 +611,43 @@ def _skill_owner_result(query: str, output: SkillOutput) -> AskResult:
         _rehydrate_provider_traces(output.provider_traces)
     )
     return result
+
+
+def _skill_output_compatible_with_turn(
+    output: SkillOutput,
+    *,
+    definition: object | None,
+    lane: str,
+    question_type: str | None,
+    explicit_manual: bool = False,
+) -> bool:
+    """Prevent an unrelated skill contract from replacing the turn contract.
+
+    A skill may contribute evidence/modules, but only a declared workflow or a
+    terminal owner whose question type matches the controller may terminate a
+    research turn.  ``question_type is None`` is kept as a legacy escape hatch
+    for custom test/third-party skills that predate typed contracts.
+    """
+    contract = output.answer_contract
+    if contract is None:
+        return False
+    can_own_answer = bool(getattr(definition, "can_own_answer", True))
+    if explicit_manual:
+        # Manual skill selection is an explicit user contract. Keep the legacy
+        # path available even for pre-typed skills whose contract question_type
+        # is still None; automatic routing remains fail-closed below.
+        return can_own_answer
+    if not can_own_answer:
+        return False
+    role = str(getattr(definition, "role", "terminal_owner"))
+    if lane == "workflow":
+        return role in {"workflow", "terminal_owner"}
+    if lane != "research":
+        return False
+    if question_type is None:
+        return True
+    contract_type = contract.question_type
+    return role == "terminal_owner" and contract_type == question_type
 
 
 def _deadline_partial_result(query: str, warnings: Sequence[str]) -> AskResult:
@@ -1242,10 +1281,8 @@ class TurnOrchestrator:
             route_started = time.monotonic()
             generic_owner_requested = (
                 decision.lane == "research"
-                and decision.question_type
-                in {QUESTION_GENERAL, QUESTION_MARKET_CAUSE, QUESTION_FACT_CHECK}
                 and turn_intent.question_type
-                in {QUESTION_GENERAL, QUESTION_MARKET_CAUSE, QUESTION_FACT_CHECK}
+                not in {QUESTION_MARKET_TECHNICAL, QUESTION_EXTERNAL_MARKET}
                 and controller_supplied_intent
                 and turn_intent.answer_owner is None
                 and skill_mode in {"auto", "hybrid"}
@@ -1687,14 +1724,52 @@ class TurnOrchestrator:
                 )
 
             compose_started = time.monotonic()
+            rejected_owner_outputs: list[dict[str, object]] = []
             owner_output = next(
                 (
                     output
                     for output in skill_outputs
                     if output.answer_contract is not None
+                    and _skill_output_compatible_with_turn(
+                        output,
+                        definition=self.skill_registry.definitions.get(output.skill_id),
+                        lane=decision.lane,
+                        question_type=turn_intent.question_type,
+                        explicit_manual=skill_mode == "manual",
+                    )
                 ),
                 None,
             )
+            for output in skill_outputs:
+                if output.answer_contract is None:
+                    continue
+                if owner_output is output:
+                    continue
+                if _skill_output_compatible_with_turn(
+                    output,
+                    definition=self.skill_registry.definitions.get(output.skill_id),
+                    lane=decision.lane,
+                    question_type=turn_intent.question_type,
+                    explicit_manual=skill_mode == "manual",
+                ):
+                    continue
+                rejected_owner_outputs.append(
+                    {
+                        "skill_id": output.skill_id,
+                        "expected_question_type": turn_intent.question_type,
+                        "actual_question_type": output.answer_contract.question_type,
+                        "reason": "skill contract 与 controller turn contract 不兼容",
+                    }
+                )
+            if rejected_owner_outputs:
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "compose_owner_contract_guard",
+                    "owner_contract_rejected",
+                    {"rejected": rejected_owner_outputs},
+                )
             daily_review_output = next(
                 (
                     output

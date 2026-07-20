@@ -105,6 +105,8 @@ def _register_builtin_skills() -> None:
             input_schema={"type": "object", "additionalProperties": False},
             permissions=("local_read",),
             timeout_seconds=30,
+            role="workflow",
+            can_own_answer=True,
         ),
         DailyReviewSkill(),
     )
@@ -118,6 +120,8 @@ def _register_builtin_skills() -> None:
             input_schema={"type": "object", "additionalProperties": False},
             permissions=("local_read",),
             timeout_seconds=30,
+            role="workflow",
+            can_own_answer=True,
         ),
         DailyAgentSkill(),
     )
@@ -138,6 +142,8 @@ def _register_builtin_skills() -> None:
             input_schema={"type": "object", "additionalProperties": False},
             permissions=("local_read", "network_read"),
             timeout_seconds=30,
+            role="workflow",
+            can_own_answer=True,
         ),
         UsAiDrawdownSkill(),
     )
@@ -211,6 +217,9 @@ def _register_builtin_skills() -> None:
                 input_schema={"type": "object", "additionalProperties": False},
                 permissions=("local_read",),
                 timeout_seconds=240,
+                role="terminal_owner",
+                accepted_question_types=(config.question_type,),
+                can_own_answer=True,
             ),
             ResearchOwnerSkill(config),
         )
