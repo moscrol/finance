@@ -1685,7 +1685,36 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             else tuple(evidence_ids)
         ),
     )
-    gap_texts = list(owner_result.gaps)
+    # CompletionReport 是控制面对象；展示层只投影其业务含义。逐项 required
+    # output 的标签能让“尚未完成”变成用户可理解的未知项，也避免把同一条
+    # loop gap 为每个 output 重复渲染。情景/反证类 output 同时就是
+    # ResearchState 的 hypothesis coverage，因此在这里统一呈现为待验证判断。
+    hypothesis_output_ids = {
+        item.hypothesis_id
+        for item in (
+            owner_result.loop.research_state.hypotheses
+            if owner_result.loop.research_state is not None
+            else ()
+        )
+    }
+    incomplete_outputs = tuple(
+        (required, output)
+        for required, output in zip(
+            contract.required_outputs,
+            owner_result.completion.outputs,
+        )
+        if output.status != "fulfilled"
+    )
+    typed_gap_texts = [
+        (
+            f"待验证情景“{required.description}”尚缺少可回查依据"
+            if required.output_id in hypothesis_output_ids
+            else f"“{required.description}”尚缺少可回查依据"
+        )
+        + (f"：{output.gap}" if output.gap else "。")
+        for required, output in incomplete_outputs
+    ]
+    gap_texts = typed_gap_texts or list(owner_result.gaps)
     if is_customer_fact_check and not has_relevant_l3:
         gap_texts = [
             (
@@ -1703,7 +1732,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             "未取得可直接预测下一交易日方向的独立证据；以上仅为条件化情景，不给出概率。"
         ]
     if not gap_texts and owner_result.completion.status != "completed":
-        gap_texts.append("必需输出尚未全部满足；需要更多可核验证据。")
+        gap_texts.append("当前判断尚缺少可核验证据。")
     gaps = tuple(
         answer_model.make_claim(
             claim_id=f"generic:gap:{index}",
@@ -1731,6 +1760,15 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     next_action = (
         "后续仅在公司公告、合同/订单、客户认证或双方官方披露出现时升级判断。"
         if is_customer_fact_check and not has_relevant_l3
+        else (
+            "下一验证窗口：关注下一次与"
+            + "、".join(
+                f"“{required.description}”"
+                for required, _output in incomplete_outputs[:3]
+            )
+            + "直接相关的官方披露、定期报告或结构化数据更新；新材料出现后重新核验当前判断。"
+        )
+        if incomplete_outputs
         else "下一步验证：补充与问题直接相关的官方披露或数据，并检查是否改变当前判断。"
     )
     result.sections = {

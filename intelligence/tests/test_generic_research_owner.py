@@ -936,6 +936,46 @@ def test_incomplete_owner_result_cannot_enter_synthesis(monkeypatch) -> None:
     assert prepared.result.prepared_synthesis_messages is None
 
 
+def test_incomplete_generic_answer_projects_typed_gaps_to_business_validation(
+    monkeypatch,
+) -> None:
+    """Completion 控制面必须翻译成用户可执行的验证，而非泄漏内部状态。"""
+
+    monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    monkeypatch.setattr(
+        agent_research.llm_refine,
+        "complete",
+        lambda _messages, **_kwargs: (
+            '{"tool":"finish","args":{"sufficient":false,"gaps":["暂无可回查材料"]},'
+            '"reason":"如实结束"}',
+            "test",
+            "",
+        ),
+    )
+
+    result = ask.answer_query(
+        ask.AskOptions(
+            query="某公司最近怎么看",
+            clarify=False,
+            synthesize=False,
+            research_task_contract=_contract(),
+        )
+    )
+
+    assert result.answer_spec is not None
+    gap_text = "\n".join(item.text for item in result.answer_spec.gaps)
+    assert "直接判断" in gap_text
+    assert "可回查来源" in gap_text
+    assert len({item.text for item in result.answer_spec.gaps}) == len(result.answer_spec.gaps)
+    assert result.answer_spec.next_actions
+    assert result.answer_spec.next_actions[0].startswith("下一验证窗口：")
+    rendered = answer_model.render_answer_spec(result.answer_spec)
+    assert "required_outputs" not in rendered
+    assert "task_coverage" not in rendered
+    assert "研究 Agent" not in rendered
+
+
 def test_partial_causal_result_with_grounded_facts_can_enter_presenter() -> None:
     claim = answer_model.make_claim(
         claim_id="cause:mechanism",
