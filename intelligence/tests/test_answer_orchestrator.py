@@ -425,6 +425,20 @@ class AnswerOrchestratorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown question type"):
             plan_answer_question("贵州茅台", question_type_override="unknown")
 
+    def test_generic_event_and_comparison_overrides_are_valid_plans(self) -> None:
+        for question_type, query in (
+            ("event_forecast", "如果政策落地，哪些方向受益？"),
+            ("comparison", "液冷和风冷的差异是什么？"),
+        ):
+            plan = plan_answer_question(
+                query,
+                question_type_override=question_type,
+            )
+            self.assertEqual(plan.question_type, question_type)
+            self.assertEqual(plan.depth, DEPTH_STANDARD)
+            self.assertTrue(plan.required_lenses)
+            self.assertTrue(plan.output_contract)
+
     def test_entity_anchor_turns_on_market_and_memory_floor(self) -> None:
         with (
             tempfile.TemporaryDirectory() as tmp,
@@ -1097,6 +1111,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 

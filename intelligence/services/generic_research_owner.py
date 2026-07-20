@@ -211,6 +211,12 @@ def _matches_output(
             for item in evidence
             if normalized in item.supports or normalized in item.contradicts
         )
+    if normalized == "premise_check":
+        return tuple(
+            item
+            for item in evidence
+            if normalized in item.supports or normalized in item.contradicts
+        )
     if required.evidence_types:
         allowed = set(required.evidence_types)
         return tuple(item for item in evidence if item.tool in allowed)

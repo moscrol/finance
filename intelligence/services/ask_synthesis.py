@@ -1185,7 +1185,7 @@ def promote_grounded_answer(
     不再绕回旧 LLM marker/Daily 模板出口。
     """
     spec = result.answer_spec
-    if spec is None:
+    if spec is None or not isinstance(spec, answer_model.AnswerSpec):
         return False
     is_daily_agent = (
         spec.presentation_kind

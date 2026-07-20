@@ -535,6 +535,67 @@ def test_event_outputs_require_bound_evidence_and_counterevidence_requires_contr
     assert all(item.status == "fulfilled" for item in bound_report.outputs)
 
 
+def test_premise_check_requires_explicitly_bound_evidence() -> None:
+    contract = ResearchTaskContract(
+        task_id="premise-binding",
+        question="某厂商已停止所有供货，影响多大？",
+        subject="某厂商",
+        subject_kind="event",
+        question_type="fact_check",
+        required_outputs=(
+            RequiredOutput(
+                "premise_check",
+                "确认、修正或否定问题前提",
+                ("web_search",),
+                True,
+            ),
+        ),
+        allowed_capabilities=("web_search",),
+    )
+    unrelated = agent_research.AgentEvidence(
+        tool="web_search",
+        title="无关市场新闻",
+        detail="这条材料没有核对供货前提。",
+        source="https://example.test/unrelated",
+    )
+    unbound_state = ResearchState.from_contract(contract)
+    unbound_state.add_evidence(unrelated.to_observation("premise:unbound"))
+    unbound_state.set_assessment("现有网页不足以核对前提。")
+    unbound = generic_research_owner.evaluate_completion(
+        contract,
+        agent_research.AgentLoopResult(
+            evidence=[unrelated],
+            sufficient=True,
+            assessment=unbound_state.assessment,
+            research_state=unbound_state,
+        ),
+    )
+    assert unbound.outputs[0].status == "missing"
+    assert unbound.status == "partial"
+
+    corrected = agent_research.AgentEvidence(
+        tool="web_search",
+        title="官方供货范围说明",
+        detail="官方材料明确修正了‘停止所有供货’的前提。",
+        source="https://example.test/official",
+        contradicts=("premise_check",),
+    )
+    bound_state = ResearchState.from_contract(contract)
+    bound_state.add_evidence(corrected.to_observation("premise:bound"))
+    bound_state.set_assessment("原前提过度扩大，需要修正。")
+    bound = generic_research_owner.evaluate_completion(
+        contract,
+        agent_research.AgentLoopResult(
+            evidence=[corrected],
+            sufficient=True,
+            assessment=bound_state.assessment,
+            research_state=bound_state,
+        ),
+    )
+    assert bound.outputs[0].status == "fulfilled"
+    assert bound.status == "completed"
+
+
 def test_fact_check_counterparty_and_official_relation_filter() -> None:
     assert (
         ask._fact_check_counterparty(
@@ -1278,10 +1339,40 @@ def test_orchestrator_ownerless_turn_skips_skill_router_and_template(
 def test_long_tail_fixture_keeps_head_and_owner_routes_out_of_generic_owner() -> None:
     fixture = Path(__file__).parent / "fixtures" / "long_tail_cases.json"
     cases = json.loads(fixture.read_text(encoding="utf-8"))
+    required_categories = {
+        "t_plus_one_scenario",
+        "open_event",
+        "unfamiliar_theme",
+        "two_hop_relation",
+        "wrong_premise",
+        "missing_key_number",
+        "multi_object_comparison",
+        "continuous_follow_up",
+        "explicit_daily_workflow",
+    }
+    assert required_categories.issubset({case["id"] for case in cases})
+    tier_rank = {"quick": 0, "standard": 1, "deep": 2}
+
     for case in cases:
+        assert isinstance(case["required_evidence_types"], list)
+        assert case["required_evidence_types"]
+        assert isinstance(case["forbidden_templates"], list)
+        assert case["forbidden_templates"]
+        assert case["max_tier"] in {None, "quick", "standard", "deep"}
+        previous_intent = None
+        previous_turn_id = None
+        if case.get("previous_query"):
+            previous = decide_turn(
+                case["previous_query"],
+                llm_complete=lambda _messages: (None, None, "offline"),
+            )
+            previous_intent = previous.turn_intent
+            previous_turn_id = "fixture:previous"
         decision = decide_turn(
             case["query"],
             llm_complete=lambda _messages: (None, None, "offline"),
+            previous_intent=previous_intent,
+            previous_turn_id=previous_turn_id,
         )
         intent = decision.turn_intent
         generic = bool(
@@ -1299,6 +1390,7 @@ def test_long_tail_fixture_keeps_head_and_owner_routes_out_of_generic_owner() ->
                 )
             )
         )
+        assert decision.lane == case["expected_lane"]
         assert decision.question_type == case["expected_question_type"]
         assert (
             None if intent is None else intent.answer_owner
@@ -1313,6 +1405,92 @@ def test_long_tail_fixture_keeps_head_and_owner_routes_out_of_generic_owner() ->
             assert [
                 output.output_id for output in contract.required_outputs
             ] == case["required_outputs"]
+            assert set(case["required_evidence_types"]).issubset(
+                contract.allowed_capabilities
+            )
+            assert case["max_tier"] is not None
+            assert tier_rank[contract.research_tier] <= tier_rank[case["max_tier"]]
+        else:
+            assert set(case["required_evidence_types"]).issubset(
+                decision.capabilities
+            )
+
+
+def test_generic_fixture_forbidden_templates_on_real_owner_output(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """禁止模板必须对真实 GenericResearchOwner 输出断言，不手工指定 kind。"""
+
+    from types import SimpleNamespace
+
+    fixture = Path(__file__).parent / "fixtures" / "long_tail_cases.json"
+    cases = json.loads(fixture.read_text(encoding="utf-8"))
+    monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    monkeypatch.setattr(ask.llm_refine, "detect_provider", lambda _model=None: None)
+    monkeypatch.setattr(
+        ask.l3_evidence,
+        "lookup_l3_evidence",
+        lambda *_args, **_kwargs: SimpleNamespace(items=()),
+    )
+    monkeypatch.setattr(
+        agent_research.llm_refine,
+        "complete",
+        lambda _messages, **_kwargs: (
+            '{"tool":"finish","args":{"sufficient":false,'
+            '"assessment":"","gaps":["尚无与问题直接相关的可回查证据"]},'
+            '"reason":"如实报缺口"}',
+            "fixture",
+            "",
+        ),
+    )
+
+    for case in cases:
+        if not case["expected_generic_owner"]:
+            continue
+        previous_intent = None
+        previous_turn_id = None
+        if case.get("previous_query"):
+            previous = decide_turn(
+                case["previous_query"],
+                llm_complete=lambda _messages: (None, None, "offline"),
+            )
+            previous_intent = previous.turn_intent
+            previous_turn_id = "fixture:previous"
+        decision = decide_turn(
+            case["query"],
+            previous_intent=previous_intent,
+            previous_turn_id=previous_turn_id,
+            llm_complete=lambda _messages: (None, None, "offline"),
+        )
+        assert decision.turn_intent is not None
+        contract = conversation_orchestrator._build_generic_research_contract(
+            case["query"],
+            task_id=f"forbidden:{case['id']}",
+            turn_intent=decision.turn_intent,
+        )
+        result = ask.answer_query(
+            ask.AskOptions(
+                query=case["query"],
+                clarify=False,
+                synthesize=False,
+                kb_wiki=tmp_path / "wiki",
+                market_db_path=tmp_path / "missing.duckdb",
+                research_task_contract=contract,
+            )
+        )
+        assert result.answer_spec is not None
+        assert result.answer_spec.presentation_kind in {
+            "generic_research",
+            "evidence_gap",
+        }
+        rendered = answer_model.render_answer_spec(result.answer_spec)
+        for forbidden in case["forbidden_templates"]:
+            assert forbidden not in rendered, (
+                f"{case['id']} 真实 owner 输出命中禁止模板 "
+                f"{forbidden!r}: {rendered}"
+            )
 
 
 def test_relation_list_questions_use_relation_contract_not_l3_fact_check() -> None:
@@ -1351,3 +1529,20 @@ def test_generic_tier_deadline_is_clamped_once_and_keeps_reserve() -> None:
     assert deadline.synthesis_reserve == 20.0
     assert deadline.expires_at <= root.expires_at
     assert deadline.stage_timeout(999.0) <= 10.1
+
+
+def test_comparison_follow_up_inherits_ownerless_research_lane() -> None:
+    first = decide_turn(
+        "液冷和风冷的竞争优势分别是什么？",
+        llm_complete=lambda _messages: (None, None, "offline"),
+    )
+    follow_up = decide_turn(
+        "那各自最关键的反证是什么？",
+        previous_intent=first.turn_intent,
+        previous_turn_id="comparison:first",
+        llm_complete=lambda _messages: (None, None, "offline"),
+    )
+    assert follow_up.lane == "research"
+    assert follow_up.question_type == "comparison"
+    assert follow_up.turn_intent is not None
+    assert follow_up.turn_intent.inherited_from_turn == "comparison:first"

@@ -123,6 +123,9 @@ class ResearchState:
             "verification_window": "scenario",
             "falsification_window": "falsifier",
             "counter_evidence": "counterpoint",
+            # 错误前提必须被专属证据支持、反驳或显式报 gap；
+            # 不能因为“查到了任意网页”就宣告前提核验完成。
+            "premise_check": "fact_check",
         }
         for item in getattr(contract, "required_outputs", ()):
             output_id = str(getattr(item, "output_id", ""))
@@ -134,7 +137,7 @@ class ResearchState:
                 getattr(item, "required", True)
             )
             kind = hypothesis_kinds.get(output_id)
-            if kind:
+            if kind and state.required_output_required[output_id]:
                 state.add_hypothesis(output_id, description, kind=kind)
         state.budget = {
             "max_steps": int(getattr(getattr(contract, "policy", None), "max_steps", 0) or 0),

@@ -8,7 +8,8 @@ from threading import Event
 import pytest
 
 from intelligence import userspace
-from intelligence.services import answer_model, llm_refine
+from intelligence.services import agent_research, answer_model, llm_refine
+from intelligence.services import conversation_orchestrator as orchestrator_service
 from intelligence.services import perspective_lab
 from intelligence.services.ask import AskOptions, AskResult, Citation
 from intelligence.services.answer_orchestrator import (
@@ -35,6 +36,7 @@ from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.research_policy import ResearchExecutionPolicy
+from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.run_store import RunStore
 from intelligence.services.turn_controller import TurnDecision, decide_turn
 from intelligence.workbench_skills.contracts import (
@@ -295,6 +297,366 @@ def _prepare_turn(
         last_run_id=run.run_id,
     )
     return run.run_id, assistant.message_id
+
+
+def test_long_tail_e2e_trace_keeps_route_budget_completion_and_grounding(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """长尾验收不只看正文，还要证明同一 run 的控制链没断。"""
+
+    monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "一个没有现成 skill 的陌生题材怎么判断？"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+
+    def controller(value: str, **kwargs: object) -> TurnDecision:
+        allowed = {
+            key: kwargs[key]
+            for key in (
+                "context",
+                "skill_mode",
+                "selected_skill_ids",
+                "previous_intent",
+                "previous_turn_id",
+            )
+            if key in kwargs
+        }
+        return decide_turn(
+            value,
+            llm_complete=lambda _messages: (None, None, "offline"),
+            **allowed,
+        )
+
+    def answer(options: AskOptions) -> AskResult:
+        assert options.research_task_contract is not None
+        assert options.research_task_contract.task_id == run_id
+        verified = answer_model.make_claim(
+            claim_id="fixture:verified",
+            text="已确认的起点是先核对需求变化与产业链传导。",
+            claim_type="fact",
+            theme="陌生题材",
+            status=answer_model.ClaimStatus.VERIFIED,
+            evidence_ids=("G1",),
+        )
+        summary = answer_model.make_claim(
+            claim_id="fixture:summary",
+            text="当前应把它当作待验证假设，不是现成结论。",
+            claim_type="summary",
+            theme="陌生题材",
+            status=answer_model.ClaimStatus.INFERRED,
+            evidence_ids=("G1",),
+        )
+        gap = answer_model.make_claim(
+            claim_id="fixture:gap",
+            text="还缺少公司端订单或收入兑现证据。",
+            claim_type="evidence_gap",
+            theme="陌生题材",
+            status=answer_model.ClaimStatus.MISSING,
+        )
+        spec = answer_model.finalize_answer_spec(
+            answer_model.AnswerSpec(
+                research_spec=answer_model.resolve_answer_profile(
+                    query,
+                    "陌生题材",
+                    "general",
+                ),
+                summary=(summary,),
+                verified_facts=(verified,),
+                company_table=(),
+                counter_evidence=(),
+                gaps=(gap,),
+                triggers=(),
+                next_actions=("下一验证窗口核对官方公告与订单披露。",),
+                sources=(answer_model.EvidenceRef("G1", "fixture", "可回查来源"),),
+                system_notices=(),
+                presentation_kind="generic_research",
+            )
+        )
+        return AskResult(
+            query=options.query,
+            trade_date="2026-07-21",
+            matched_theme=None,
+            candidate_tier=None,
+            priority_score=None,
+            citations=[Citation("G1", "fixture", "可回查来源")],
+            answer_spec=spec,
+            completion_report={
+                "status": "partial",
+                "outputs": [
+                    {"output_id": "direct_assessment", "status": "fulfilled"},
+                    {"output_id": "supporting_evidence", "status": "fulfilled"},
+                    {"output_id": "counterpoint", "status": "gap"},
+                ],
+            },
+            provider_traces=[
+                ProviderTrace(
+                    provider="fixture-provider",
+                    capability="web_search",
+                    status="success",
+                    result_count=1,
+                    parent_id=run_id,
+                    step_id="agent:1",
+                )
+            ],
+        )
+
+    def shadow(prepared, **_kwargs):
+        prepared.result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
+            status="accepted",
+            presented_answer="已完成可核验短答。\n下一步核对公告。",
+        )
+        return prepared.result
+
+    def forbidden_router(*_args, **_kwargs):
+        raise AssertionError("ownerless long-tail must not enter skill router")
+
+    monkeypatch.setattr(
+        orchestrator_service,
+        "synthesize_shadow_grounded_answer",
+        shadow,
+    )
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer,
+        route_skills_fn=forbidden_router,
+        turn_controller_fn=controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    assert result.selected_skill_ids == ()
+    assert result.invoked_skill_ids == ()
+    assert "待验证假设" in result.content
+    assert "主要依据" in result.content
+    assert "还缺少" in result.content
+    assert "下一验证" in result.content
+    assert "研究雷达" not in result.content
+    assert "每日市场复盘" not in result.content
+
+    trace = run_store.load_trace(run_id)
+    by_name = {step["name"]: step for step in trace}
+    route_output = json.loads(by_name["route_skills"]["output_summary"])
+    assert route_output["generic_owner_requested"] is True
+    assert route_output["selected"] == []
+    assert "research_budget" in by_name["research_execution_budget"]["retrieval"]
+    retrieval_output = json.loads(by_name["ask_retrieve_compose"]["output_summary"])
+    assert retrieval_output["completion_report"]["status"] == "partial"
+    provider_traces = retrieval_output["provider_traces"]
+    assert provider_traces
+    assert {item["parent_id"] for item in provider_traces} == {run_id}
+    assert all(item["step_id"] for item in provider_traces)
+    grounding_output = json.loads(
+        by_name["grounded_composer_shadow"]["output_summary"]
+    )
+    assert grounding_output["status"] == "accepted"
+
+
+def test_long_tail_real_owner_chain_reaches_completion_and_grounded_fallback(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """不替换 answer_query/owner/presenter，只隔离外部网络和 LLM。"""
+
+    for key in (
+        "DEEPSEEK_API_KEY",
+        "MOONSHOT_API_KEY",
+        "KIMI_API_KEY",
+        "DASHSCOPE_API_KEY",
+        "QWEN_API_KEY",
+        "ZHIPU_API_KEY",
+        "GLM_API_KEY",
+        "OPENAI_API_KEY",
+        "LLM_API_KEY",
+        "LLM_JUDGE_API_KEY",
+        "FORESIGHT_BUILTIN_LLM_API_KEY",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
+    monkeypatch.setenv("FINANCE_NEWS_FETCH", "0")
+    monkeypatch.setenv("FINANCE_WEB_SEARCH", "0")
+    monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    monkeypatch.setattr(
+        agent_research.llm_refine,
+        "complete",
+        lambda _messages, **_kwargs: (
+            '{"tool":"finish","args":{"sufficient":false,'
+            '"assessment":"","gaps":["尚无可回查材料"]},'
+            '"reason":"如实报缺口"}',
+            "fixture",
+            "",
+        ),
+    )
+
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "一个没有现成 skill 的陌生题材怎么判断？"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+
+    def forbidden_router(*_args, **_kwargs):
+        raise AssertionError("ownerless long-tail must not enter skill router")
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        route_skills_fn=forbidden_router,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    assert result.selected_skill_ids == ()
+    assert result.invoked_skill_ids == ()
+    assert "当前判断" in result.content
+    assert "证据边界" in result.content
+    assert "下一验证" in result.content
+    assert "研究雷达" not in result.content
+    trace = {step["name"]: step for step in run_store.load_trace(run_id)}
+    route_output = json.loads(trace["route_skills"]["output_summary"])
+    assert route_output["generic_owner_requested"] is True
+    assert route_output["selected"] == []
+    retrieval = json.loads(trace["ask_retrieve_compose"]["output_summary"])
+    assert retrieval["completion_report"]["status"] == "partial"
+    grounding = json.loads(trace["grounded_composer_shadow"]["output_summary"])
+    assert grounding["status"] in {"brief_unavailable", "ineligible_evidence"}
+
+
+def test_long_tail_real_owner_success_chain_keeps_template_isolation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """成功链走真实 owner/completion/presenter，只用可回放的假 provider。"""
+
+    monkeypatch.setenv("WORKBENCH_SHADOW_GROUNDED_COMPOSER", "1")
+    monkeypatch.setattr(agent_research.llm_refine, "detect_provider", lambda _model=None: None)
+
+    def web_runner(query: str, _context):
+        return (
+            [
+                agent_research.AgentEvidence(
+                    tool="web_search",
+                    title="官方行业资料",
+                    detail=f"资料直接回应检索问题：{query}",
+                    source="https://example.test/official",
+                    source_date="2026-07-21",
+                    evidence_tier="public_web",
+                )
+            ],
+            "命中 1 条官方资料",
+            ProviderTrace(
+                provider="fixture:web",
+                capability="web_search",
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    monkeypatch.setattr(
+        agent_research,
+        "build_default_tools",
+        lambda _retrieve: {"web_search": web_runner},
+    )
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    actions = iter(
+        (
+            '{"tool":"web_search","args":{"query":"陌生题材 需求与产业链"},'
+            '"reason":"先核对业务事实"}',
+            '{"tool":"finish","args":{"sufficient":true,'
+            '"assessment":"应先验证需求变化能否传导到公司收入，再判断题材强度。",'
+            '"gaps":[]},"reason":"必需输出已覆盖"}',
+        )
+    )
+    monkeypatch.setattr(
+        agent_research.llm_refine,
+        "complete",
+        lambda _messages, **_kwargs: (next(actions), "fixture", ""),
+    )
+
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "一个没有现成 skill 的陌生题材怎么判断？"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+
+    def controller(value: str, **kwargs: object) -> TurnDecision:
+        allowed = {
+            key: kwargs[key]
+            for key in (
+                "context",
+                "skill_mode",
+                "selected_skill_ids",
+                "previous_intent",
+                "previous_turn_id",
+            )
+            if key in kwargs
+        }
+        return decide_turn(
+            value,
+            llm_complete=lambda _messages: (None, None, "offline"),
+            **allowed,
+        )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "ownerless long-tail must not enter skill router"
+        ),
+        turn_controller_fn=controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    assert "需求变化" in result.content
+    assert "本轮已找到相关来源" in result.content
+    assert "下一验证" in result.content
+    assert "研究雷达" not in result.content
+    assert "每日市场复盘" not in result.content
+    trace = {step["name"]: step for step in run_store.load_trace(run_id)}
+    retrieval = json.loads(trace["ask_retrieve_compose"]["output_summary"])
+    assert retrieval["completion_report"]["status"] == "completed"
+    assert retrieval["provider_traces"][0]["parent_id"] == run_id
+    assert retrieval["provider_traces"][0]["step_id"]
 
 
 def test_model_meta_question_skips_financial_routing_and_retrieval(
@@ -622,18 +984,26 @@ def test_customer_fact_check_contract_requires_and_allows_l3_lookup() -> None:
         operators=("relation",),
     )
 
-    contract = _build_generic_research_contract(
+    for query in (
         "中际旭创和英伟达是否已确认合作？",
-        task_id="fixture",
-        turn_intent=intent,
-    )
+        "中际旭创是英伟达供应商吗？",
+        "中际旭创是不是英伟达的供应商？",
+        "中际旭创和英伟达合作吗？",
+    ):
+        contract = _build_generic_research_contract(
+            query,
+            task_id="fixture",
+            turn_intent=intent,
+        )
 
-    assert "l3_lookup" in contract.allowed_capabilities
-    customer = next(
-        item for item in contract.required_outputs if item.output_id == "customer_validation"
-    )
-    assert customer.required is True
-    assert customer.evidence_types == ("l3_lookup",)
+        assert "l3_lookup" in contract.allowed_capabilities
+        customer = next(
+            item
+            for item in contract.required_outputs
+            if item.output_id == "customer_validation"
+        )
+        assert customer.required is True
+        assert customer.evidence_types == ("l3_lookup",)
 
 
 def test_static_knowledge_uses_local_retrieval_when_generation_is_unavailable(

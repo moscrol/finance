@@ -286,6 +286,20 @@ ROUTE_TABLE: tuple[RouteRow, ...] = (
         capabilities=("memory", "graph", "web_search"),
     ),
     RouteRow(
+        route_id="comparison",
+        description="同一问题中对两个或多个对象按统一维度比较",
+        examples=(
+            "液冷和风冷的优势分别是什么",
+            "这三家公司的竞争优势如何比较",
+        ),
+        lane="research",
+        question_type="comparison",
+        answer_owner=None,
+        needs_retrieval=True,
+        needs_template=True,
+        capabilities=("memory", "graph", "web_search"),
+    ),
+    RouteRow(
         route_id="fact_check",
         description="核验某个说法、数据或逻辑链条是否站得住脚，需给出来源与证据评级",
         examples=(

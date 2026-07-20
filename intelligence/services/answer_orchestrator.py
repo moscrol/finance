@@ -25,6 +25,8 @@ QUESTION_EXTERNAL_MARKET = "external_market"
 QUESTION_CONCEPT_DEFINITION = "concept_definition"
 QUESTION_MARKET_TECHNICAL = "market_technical"
 QUESTION_MARKET_CAUSE = "market_cause"
+QUESTION_EVENT_FORECAST = "event_forecast"
+QUESTION_COMPARISON = "comparison"
 
 QUESTION_TYPES = frozenset(
     {
@@ -43,6 +45,8 @@ QUESTION_TYPES = frozenset(
         QUESTION_CONCEPT_DEFINITION,
         QUESTION_MARKET_TECHNICAL,
         QUESTION_MARKET_CAUSE,
+        QUESTION_EVENT_FORECAST,
+        QUESTION_COMPARISON,
     }
 )
 

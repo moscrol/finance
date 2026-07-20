@@ -66,9 +66,27 @@ _FINANCE_PATTERN = re.compile(
 )
 _WORKFLOW_PATTERN = re.compile(
     r"(今日复盘|每日复盘|生成报告|生成日报|执行工作流|运行工作流|"
-    r"导出报告|按模板输出|跑一遍|研究雷达|研究队列|今天研究什么|"
-    r"daily[_ ]?agent|美股\s*AI\s*回撤|美股回撤榜|AI\s*阵营回撤|"
+    r"导出报告|按模板输出|跑一遍|"
+    r"美股\s*AI\s*回撤|美股回撤榜|AI\s*阵营回撤|"
     r"最大回撤排序)",
+    re.IGNORECASE,
+)
+_DAILY_RESEARCH_WORKFLOW_PATTERN = re.compile(
+    r"^\s*(?:(?:第[一二三四五六七八九十0-9]+轮)\s*)?"
+    r"(?:(?:请|帮我|给我|麻烦)?\s*"
+    r"(?:看|看看|看一下|请看|打开|运行|执行)?\s*)?"
+    r"(?:研究雷达|研究队列|今天研究什么|daily[-_ ]?agent)"
+    r"(?P<suffix>[\s\S]*)$",
+    re.IGNORECASE,
+)
+_DAILY_RESEARCH_OUTPUT_REQUEST_PATTERN = re.compile(
+    r"^(?:请|按|列|输出|给(?:我|出)?|展示|生成|整理|汇总|包括|包含|"
+    r"并|同时|重点|需要|要求|覆盖|先|再|从|把|用|以|分|附|说明|标注)",
+    re.IGNORECASE,
+)
+_DAILY_RESEARCH_EXPLANATION_PATTERN = re.compile(
+    r"(?:和|与).{0,24}(?:区别|差异|不同)|有什么区别|是什么意思|"
+    r"是(?:什么|否)|为什么|为何|怎么定义|如何定义",
     re.IGNORECASE,
 )
 _FRESHNESS_PATTERN = re.compile(
@@ -164,6 +182,29 @@ def _route_capabilities(
     return tuple(fallback)
 
 
+def _is_daily_research_workflow_query(query: str) -> bool:
+    """识别显式 Daily 命令，同时排除仅提及命令名称的解释/比较问题。
+
+    Daily 是产品工作流入口，允许用户在命令后追加“按优先级列……”等输出
+    参数；但“今天研究什么和普通研究有什么区别”只是知识问题，不应夺走
+    GenericResearchOwner。命令锚点与后缀语义分开判断，比宽泛 substring 或
+    过窄 fullmatch 都更稳定。
+    """
+
+    match = _DAILY_RESEARCH_WORKFLOW_PATTERN.fullmatch(query)
+    if match is None:
+        return False
+    suffix = (match.group("suffix") or "").strip()
+    if not suffix:
+        return True
+    if _DAILY_RESEARCH_EXPLANATION_PATTERN.search(suffix):
+        return False
+    tail = suffix.lstrip("\t \r\n，,：:；;。.!！?？、").strip()
+    if not tail:
+        return True
+    return bool(_DAILY_RESEARCH_OUTPUT_REQUEST_PATTERN.match(tail))
+
+
 def _canonicalize_head_resolution(
     query: str,
     resolution: QueryResolution,
@@ -175,7 +216,8 @@ def _canonicalize_head_resolution(
     软解析继续提供 subject / answer_owner，否则会同时启动 daily 与 theme
     两条工作流。
     """
-    if not is_market_watch_query(query):
+    is_daily_research_workflow = _is_daily_research_workflow_query(query)
+    if not is_market_watch_query(query) and not is_daily_research_workflow:
         return resolution
     row = route_by_id("market_watch")
     if row is None or row.question_type is None:
@@ -186,7 +228,11 @@ def _canonicalize_head_resolution(
         subject_kind="market_pattern",
         subject=None,
         decision_goal="总结当日盘面主线、观察清单与验证信号",
-        matched_by="market_anchor",
+        matched_by=(
+            "daily_workflow_anchor"
+            if is_daily_research_workflow
+            else "market_anchor"
+        ),
         confidence=max(0.98, resolution.envelope.confidence),
         research_mode="general",
     )
@@ -252,6 +298,15 @@ def _deterministic_decision(
             needs_memory=True,
             confidence=0.95,
             reason="明确请求当日盘面关注点",
+            capabilities=("memory", "market_quote", "graph"),
+        )
+    if _is_daily_research_workflow_query(cleaned):
+        return _decision(
+            "workflow",
+            envelope=envelope,
+            needs_memory=True,
+            confidence=0.98,
+            reason="明确请求 Daily Agent 研究工作流",
             capabilities=("memory", "market_quote", "graph"),
         )
     if _WORKFLOW_PATTERN.search(cleaned):
@@ -630,9 +685,17 @@ def _attach_turn_intent(
     decision: TurnDecision,
     intent: TurnIntent,
 ) -> TurnDecision:
+    inherited_research_intent = (
+        intent.answer_owner is not None
+        or intent.question_type == "general_finance_qa"
+        or any(
+            row.question_type == intent.question_type and row.lane == "research"
+            for row in ROUTE_TABLE
+        )
+    )
     if (
         intent.inherited_from_turn is not None
-        and intent.answer_owner is not None
+        and inherited_research_intent
         and decision.lane in {
         "chat",
         "clarify",

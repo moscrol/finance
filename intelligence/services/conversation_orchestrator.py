@@ -145,6 +145,7 @@ def _build_generic_research_contract(
     is_market_forecast = turn_intent.question_type == QUESTION_MARKET_FORECAST
     is_event_forecast = turn_intent.question_type == "event_forecast"
     is_comparison = turn_intent.question_type == "comparison"
+    is_fact_check = turn_intent.question_type == "fact_check"
     is_relation_query = bool(
         {"relation", "company_mapping"}.intersection(turn_intent.operators)
     )
@@ -152,14 +153,26 @@ def _build_generic_research_contract(
     # 竞争对手是谁”是关系地图任务，不能被普通个股事实契约吞掉。
     is_relation_fact_check = is_relation_query and bool(
         re.search(
-            r"(?:是否|有无|有没有|能否|是否已经).{0,12}"
-            r"(?:合作|供货|供应|订单|合同|认证|定点|客户关系)"
-            r"|(?:合作|供货|供应|订单|合同|认证|定点|客户关系).{0,8}"
-            r"(?:是否|有无|有没有|能否)",
+            r"(?:是否|有无|有没有|能否|是不是|是否已经).{0,16}"
+            r"(?:合作|供货|供应(?:商)?|订单|合同|认证|定点|客户关系)"
+            r"|(?:合作|供货|供应(?:商)?|订单|合同|认证|定点|客户关系).{0,8}"
+            r"(?:是否|有无|有没有|能否|吗|么|是不是)",
             normalized,
         )
     )
-    is_relation_map = is_relation_query and not is_relation_fact_check
+    is_relation_map = (
+        is_relation_query
+        and not is_relation_fact_check
+        and bool(
+            re.search(
+                r"(?:哪些|有谁|是谁|名单|竞争对手|合作方|供应商|客户)",
+                normalized,
+            )
+        )
+    )
+    is_general_fact_check = (
+        is_fact_check and not is_relation_fact_check and not is_relation_map
+    )
     is_methodology = bool(
         re.search(
             r"(?:怎么做|如何做|为什么会|原理|架构|编排|RAG|BM25|Agent|模板化|质检)",
@@ -173,7 +186,28 @@ def _build_generic_research_contract(
             query,
         )
     )
-    if is_relation_map:
+    if is_general_fact_check:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "先核对用户问题中的前提，再给出对后续影响的直接判断",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "premise_check",
+                "用当前可回查来源确认、修正或否定问题前提",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条能直接核对前提的时效来源",
+                ("web_search", "news_search", "kb_search", "evidence_lookup"),
+                True,
+            ),
+        )
+    elif is_relation_map:
         required_outputs = (
             RequiredOutput(
                 "direct_assessment",
@@ -370,7 +404,14 @@ def _build_generic_research_contract(
                 else ()
             ),
         )
-    if is_relation_map:
+    if is_general_fact_check:
+        capabilities = (
+            "web_search",
+            "news_search",
+            "kb_search",
+            "evidence_lookup",
+        )
+    elif is_relation_map:
         capabilities = (
             "graph_lookup",
             "evidence_lookup",
@@ -2007,7 +2048,8 @@ class TurnOrchestrator:
                 None,
             )
             market_review_requested = (
-                plan_answer_question(contextual_query).question_type
+                turn_intent.question_type in {"market_watch", "dated_market_review"}
+                or plan_answer_question(contextual_query).question_type
                 == QUESTION_MARKET_REVIEW
             )
             generic_contract = (
@@ -2049,6 +2091,9 @@ class TurnOrchestrator:
                 question_type_override=(
                     QUESTION_CONCEPT_DEFINITION
                     if decision.lane == "knowledge"
+                    else QUESTION_MARKET_REVIEW
+                    if turn_intent.question_type
+                    in {"market_watch", "dated_market_review"}
                     else turn_intent.question_type
                 ),
                 research_task_contract=generic_contract,

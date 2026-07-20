@@ -140,6 +140,9 @@ def test_today_research_keeps_daily_agent_workflow_available() -> None:
         llm_complete=lambda _messages: (None, None, "offline"),
     )
     assert decision.lane == "workflow"
+    assert decision.question_type == "market_watch"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner is None
 
     routed = route_skills(
         "今天研究什么",
@@ -151,6 +154,26 @@ def test_today_research_keeps_daily_agent_workflow_available() -> None:
         query_envelope=understand_query("今天研究什么"),
     )
     assert [item.skill_id for item in routed.selections] == ["daily-agent"]
+
+
+def test_daily_agent_skill_id_is_a_deterministic_workflow_alias() -> None:
+    decision = decide_turn(
+        "daily-agent",
+        llm_complete=lambda _messages: (None, None, "offline"),
+    )
+    assert decision.lane == "workflow"
+    assert decision.question_type == "market_watch"
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.answer_owner is None
+
+
+def test_daily_workflow_phrase_inside_comparison_is_not_forced_to_workflow() -> None:
+    decision = decide_turn(
+        "今天研究什么和普通题材研究有什么区别？",
+        llm_complete=lambda _messages: (None, None, "offline"),
+    )
+    assert decision.lane != "workflow"
+    assert decision.question_type != "market_watch"
 
 
 def test_global_registries_are_independent_dicts() -> None:

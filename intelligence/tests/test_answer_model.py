@@ -179,6 +179,24 @@ class ThemeResearchSpecTests(unittest.TestCase):
         self.assertNotIn("候选来源", rendered)
         self.assertNotIn("[G1]", rendered)
 
+    def test_decision_brief_fallback_keeps_business_next_action(self) -> None:
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile("某题材怎么看", "某题材", "general"),
+            summary=(),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=("下一验证窗口核对公司公告。",),
+            sources=(),
+            system_notices=(),
+            presentation_kind="generic_research",
+        )
+        rendered = render_decision_brief_fallback(None, spec)
+        self.assertIn("下一验证", rendered)
+        self.assertIn("核对公司公告", rendered)
+
     def test_decision_brief_fallback_never_promotes_candidate_to_support(self) -> None:
         spec = AnswerSpec(
             research_spec=resolve_answer_profile("某题材怎么看", "某题材", "general"),

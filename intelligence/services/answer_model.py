@@ -1809,6 +1809,15 @@ def render_decision_brief_fallback(
         ]
     if unknowns:
         lines.extend(["", "## 证据边界", *[f"- {item}" for item in dict.fromkeys(unknowns)]])
+    next_actions = [
+        humanize(action).strip()
+        for action in (answer_spec.next_actions[:3] if answer_spec is not None else ())
+        if humanize(action).strip()
+    ]
+    if next_actions:
+        lines.extend(
+            ["", "## 下一验证", *[f"- {item}" for item in dict.fromkeys(next_actions)]]
+        )
     return "\n".join(lines).strip() or "当前没有足够可回查证据形成可靠定性。"
 
 
