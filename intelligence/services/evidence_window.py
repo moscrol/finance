@@ -87,7 +87,12 @@ def _freshness_score(source_date: str | None, text: str) -> float:
     return 2.5 if age <= 14 else 1.2 if age <= 45 else 0.0
 
 
-def is_time_aligned_evidence(item: object, *, max_age_days: int = 14) -> bool:
+def is_time_aligned_evidence(
+    item: object,
+    *,
+    max_age_days: int = 14,
+    reference_date: date | None = None,
+) -> bool:
     """Whether an external item is current enough for a current-window claim."""
     tool = str(getattr(item, "tool", ""))
     if tool == "market_data":
@@ -99,7 +104,7 @@ def is_time_aligned_evidence(item: object, *, max_age_days: int = 14) -> bool:
         parsed = date.fromisoformat(str(source_date)[:10].replace("/", "-"))
     except ValueError:
         return False
-    age = (date.today() - parsed).days
+    age = ((reference_date or date.today()) - parsed).days
     return 0 <= age <= max_age_days
 
 

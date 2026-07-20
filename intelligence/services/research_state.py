@@ -8,7 +8,9 @@ their own lossy view of the turn.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 
@@ -204,9 +206,42 @@ class ResearchState:
             # trigger.
             from intelligence.services.evidence_window import is_time_aligned_evidence
 
+            evidence_dates = []
+            for item in self.evidence.values():
+                if not item.source_date:
+                    continue
+                try:
+                    evidence_dates.append(
+                        date.fromisoformat(
+                            str(item.source_date)[:10].replace("/", "-")
+                        )
+                    )
+                except ValueError:
+                    continue
+            reference_date = max(evidence_dates, default=None)
+
+            question_terms = tuple(
+                token
+                for token in re.findall(
+                    r"[\u4e00-\u9fff]{2,6}|[A-Za-z0-9_.-]{3,}",
+                    self.question,
+                )
+                if token not in {"主要原因", "为什么", "这一周", "市场", "行情"}
+            )
             external_evidence = any(
                 item.tool in {"news_search", "web_search"}
-                and is_time_aligned_evidence(item)
+                and is_time_aligned_evidence(item, reference_date=reference_date)
+                and (
+                    not question_terms
+                    or any(
+                        token in f"{item.title} {item.detail}"
+                        for token in question_terms
+                    )
+                    or any(
+                        term in f"{item.title} {item.detail}"
+                        for term in ("指数", "股市", "资金", "政策", "美股", "市场")
+                    )
+                )
                 for item in self.evidence.values()
             )
             causal = (

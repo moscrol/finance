@@ -70,6 +70,32 @@ def test_causal_question_is_partial_when_external_trigger_is_missing() -> None:
     assert report.status == "partial"
 
 
+def test_causal_completion_ignores_dated_but_unrelated_news() -> None:
+    state = ResearchState.from_contract(_contract(causal=True))
+    state.add_evidence(
+        EvidenceObservation(
+            "m1",
+            "market_data",
+            "本周指数",
+            "指数放量下跌",
+            "market",
+            source_date="2026-07-17",
+        )
+    )
+    state.add_evidence(
+        EvidenceObservation(
+            "n1",
+            "news_search",
+            "某公司发布新品",
+            "新产品进入内测",
+            "news",
+            source_date="2026-07-17",
+        )
+    )
+    state.set_assessment("风险偏好收缩是主要机制。")
+    assert state.evaluate_completion().causal_adequacy == "partial"
+
+
 def test_noncausal_grounded_assessment_can_complete() -> None:
     state = ResearchState.from_contract(_contract())
     state.add_evidence(

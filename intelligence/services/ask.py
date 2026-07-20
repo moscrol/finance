@@ -1022,6 +1022,36 @@ def _market_cause_fallback_assessment(
     )
 
 
+def _relation_gap_answer_spec(
+    answer_spec: answer_model.AnswerSpec,
+    gap_text: str,
+) -> answer_model.AnswerSpec:
+    """Fail closed when a relation question has no explicit graph edge."""
+    theme = answer_spec.research_spec.theme
+    gap = answer_model.make_claim(
+        claim_id="relation:edge-gap",
+        text=gap_text,
+        claim_type="evidence_gap",
+        theme=theme,
+        status=answer_model.ClaimStatus.MISSING,
+    )
+    return answer_model.finalize_answer_spec(
+        replace(
+            answer_spec,
+            summary=(gap,),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(gap,),
+            triggers=(),
+            candidate_facts=(),
+            next_actions=("补齐图谱关系边或官方供应链证据后再判断上下游方向。",),
+            presentation_kind="evidence_gap",
+            presentation_title="关系证据缺口",
+        )
+    )
+
+
 def _answer_generic_owner(options: AskOptions) -> AskResult:
     """Ownerless 长尾入口：先运行 Agent 研究闭环，再构造候选证据 AnswerSpec。"""
 
@@ -1595,6 +1625,19 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         and not relation_edge_supported(options.query, (exposures.get("items") or []))
         else ""
     )
+    if relation_query:
+        result.provider_traces.append(
+            ProviderTrace(
+                provider="relation_graph_guard",
+                capability="graph_relation",
+                status="empty" if relation_edge_gap else "success",
+                detail=(
+                    relation_edge_gap
+                    or "explicit graph role/chain-stage edge matched"
+                ),
+                result_count=(0 if relation_edge_gap else 1),
+            )
+        )
     company_evidence_concepts = graph_bundle.company_evidence_concepts
     tiers = graph_bundle.tiers
     with _progress_stage(options, "evidence_index") as stage:
@@ -2730,6 +2773,11 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             follow_ups=follow_ups,
             citations=citations,
         )
+        if relation_edge_gap:
+            result.answer_spec = _relation_gap_answer_spec(
+                result.answer_spec,
+                relation_edge_gap,
+            )
         result.prepared_synthesis_messages = _prepare_answer_spec_synthesis(
             options=options,
             result=result,
@@ -2775,6 +2823,11 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             follow_ups=follow_ups,
             citations=citations,
         )
+        if relation_edge_gap:
+            result.answer_spec = _relation_gap_answer_spec(
+                result.answer_spec,
+                relation_edge_gap,
+            )
     result.warnings.extend(
         f"AnswerSpec 质检：{issue.message}"
         for issue in result.answer_spec.quality.issues

@@ -54,7 +54,11 @@ class AnswerQualityContext:
         }
         if "market_review" in normalized or normalized == "daily_review":
             return self
-        if "method" in normalized or normalized in {"answer_review", "general"}:
+        if "method" in normalized or normalized in {
+            "answer_review",
+            "general",
+            "general_finance_qa",
+        }:
             return AnswerQualityContext(**common)
         if "stock" in normalized or "financial" in normalized:
             common.update(
