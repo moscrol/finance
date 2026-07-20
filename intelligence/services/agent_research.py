@@ -418,15 +418,25 @@ def block_lines_to_evidence(
         if (stripped := raw.strip().lstrip("-").strip())
         and not stripped.startswith("#")
     ]
-    evidence = [
-        AgentEvidence(
-            tool=tool,
-            title=line[:48],
-            detail=line[:200],
-            source=source,
+    evidence: list[AgentEvidence] = []
+    for line in lines[:limit]:
+        date_match = re.search(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", line)
+        evidence.append(
+            AgentEvidence(
+                tool=tool,
+                title=line[:48],
+                detail=line[:200],
+                source=source,
+                source_date=(
+                    date_match.group(0).replace("/", "-")
+                    if date_match is not None
+                    else None
+                ),
+                evidence_tier=(
+                    "L4_structured" if tool == "market_data" else ""
+                ),
+            )
         )
-        for line in lines[:limit]
-    ]
     observation = "；".join(lines[:limit])
     return evidence, observation
 

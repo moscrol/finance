@@ -61,6 +61,42 @@ class ThemeResearchSpecTests(unittest.TestCase):
         self.assertEqual(spec.pack_id, "generic_methodology")
         self.assertIn("tradeoffs", spec.requested_sections)
 
+    def test_causal_headings_are_advisory_not_whole_answer_rejection(self) -> None:
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile("本周为什么下跌", profile="causal"),
+            summary=(
+                make_claim(
+                    claim_id="cause-1",
+                    text="风险偏好收缩是主要盘面机制。",
+                    claim_type="summary",
+                    theme="A股市场",
+                    status=ClaimStatus.INFERRED,
+                ),
+            ),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(),
+            system_notices=(),
+            presentation_profile="causal",
+        )
+        answer = (
+            "## 本周下跌的盘面机制\n"
+            "风险偏好收缩是主要盘面机制。"
+            "<!-- claim_ids=cause-1; evidence_atom_ids=; claim_type=inference -->"
+        )
+        issues = validate_grounded_composer_answer(answer, spec)
+        heading = next(
+            issue
+            for issue in issues
+            if issue.code == "grounded_composer_unverified_heading"
+        )
+        self.assertEqual(heading.severity, "warning")
+        self.assertFalse(any(issue.severity == "error" for issue in issues))
+
     def test_decision_brief_fallback_is_not_generic_template(self) -> None:
         spec = AnswerSpec(
             research_spec=resolve_answer_profile("行情原因", profile="causal"),

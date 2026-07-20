@@ -2578,7 +2578,8 @@ def validate_grounded_composer_answer(
         )
     heading_severity = (
         "warning"
-        if answer_spec.presentation_profile in {"methodology", "review", "general"}
+        if answer_spec.presentation_profile
+        in {"methodology", "review", "general", "causal"}
         else "error"
     )
     # 标题只作为金融正文的事实边界；方法论/质检题允许自然小节。

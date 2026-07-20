@@ -456,6 +456,16 @@ def test_evidence_display_text_deduplicates_title_prefix() -> None:
     assert agent_research.evidence_display_text(item) == item.detail
 
 
+def test_market_block_lines_are_dated_structured_evidence() -> None:
+    evidence, _ = agent_research.block_lines_to_evidence(
+        "market_data",
+        "2026-07-17：指数 -3.05%；跌停 193 家。",
+        "本地 DuckDB",
+    )
+    assert evidence[0].source_date == "2026-07-17"
+    assert evidence[0].evidence_tier == "L4_structured"
+
+
 @pytest.mark.parametrize("skill_mode", ["auto", "hybrid"])
 def test_orchestrator_ownerless_turn_skips_skill_router_and_template(
     tmp_path,

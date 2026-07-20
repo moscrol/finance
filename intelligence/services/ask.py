@@ -1015,6 +1015,8 @@ def _market_cause_fallback_assessment(
         (line for line in details if line.startswith("下跌交易日：")),
         "下跌交易日与亏钱效应数据有限",
     )
+    index_line = index_line.rstrip("。；; ")
+    pressure_line = pressure_line.rstrip("。；; ")
     return (
         f"从{window}的盘面证据看，本周下跌更符合风险偏好收缩、卖压集中释放的"
         f"市场机制，而不是已经核验出某一个单一外部事件。{index_line}；"
@@ -1251,15 +1253,27 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
 
     result = AskResult(
         query=options.query,
-        trade_date=None,
+        trade_date=max(
+            (
+                item.source_date
+                for item in visible_evidence
+                if item.source_date
+            ),
+            default=None,
+        ),
         matched_theme=contract.subject,
         candidate_tier=None,
         priority_score=None,
         market_data_source="generic_research_owner",
     )
     result.question_plan = generic_question_plan
+    has_structured_truth = any(
+        item.tool == "market_data" for item in visible_evidence
+    )
     result.data_notice = (
-        "本轮已收集到可回查来源，但仍需逐条核验后才能升级为事实。"
+        ""
+        if contract.question_type == "market_cause" and has_structured_truth
+        else "本轮已收集到可回查来源，但仍需逐条核验后才能升级为事实。"
         if owner_result.evidence
         else "本轮没有收集到可回查来源，暂不形成可靠定性。"
     )
@@ -1281,9 +1295,12 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
 
     evidence_ids: list[str] = []
     candidate_claims: list[answer_model.Claim] = []
+    verified_claims: list[answer_model.Claim] = []
     evidence_lines: list[str] = []
+    evidence_by_tag: dict[str, agent_research.AgentEvidence] = {}
     for index, item in enumerate(visible_evidence[:12], start=1):
         tag = f"G{index}"
+        evidence_by_tag[tag] = item
         evidence_ids.append(tag)
         result.citations.append(
             Citation(
@@ -1294,16 +1311,30 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         )
         evidence_text = agent_research.evidence_display_text(item)
         evidence_lines.append(f"{evidence_text} [{tag}]")
-        candidate_claims.append(
-            answer_model.make_claim(
-                claim_id=f"generic:candidate:{index}",
-                text=evidence_text,
-                claim_type="supporting_fact",
-                theme=contract.subject or options.query,
-                status=answer_model.ClaimStatus.CANDIDATE,
-                evidence_tier="agent_candidate",
-                evidence_ids=(tag,),
-            )
+        is_structured_truth = item.tool == "market_data"
+        claim = answer_model.make_claim(
+            claim_id=(
+                f"generic:verified:{index}"
+                if is_structured_truth
+                else f"generic:candidate:{index}"
+            ),
+            text=evidence_text,
+            claim_type="supporting_fact",
+            theme=contract.subject or options.query,
+            status=(
+                answer_model.ClaimStatus.VERIFIED
+                if is_structured_truth
+                else answer_model.ClaimStatus.CANDIDATE
+            ),
+            evidence_tier=(
+                item.evidence_tier or "L4_structured"
+                if is_structured_truth
+                else item.evidence_tier or "agent_candidate"
+            ),
+            evidence_ids=(tag,),
+        )
+        (verified_claims if is_structured_truth else candidate_claims).append(
+            claim
         )
 
     if owner_result.loop.assessment.strip() and evidence_ids:
@@ -1327,7 +1358,11 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                     else "summary"
                 ),
                 theme=contract.subject or options.query,
-                status=answer_model.ClaimStatus.CANDIDATE,
+                status=(
+                    answer_model.ClaimStatus.INFERRED
+                    if has_structured_truth
+                    else answer_model.ClaimStatus.CANDIDATE
+                ),
                 evidence_tier="agent_assessment",
                 evidence_ids=tuple(evidence_ids),
             )
@@ -1370,7 +1405,12 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             evidence_id=citation.tag,
             source=citation.source,
             detail=citation.detail,
-            tier="agent_candidate",
+            tier=(
+                "L4_structured"
+                if evidence_by_tag[citation.tag].tool == "market_data"
+                else "agent_candidate"
+            ),
+            source_date=evidence_by_tag[citation.tag].source_date,
         )
         for citation in result.citations
     )
@@ -1390,7 +1430,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 contract.presentation_profile,
             ),
             summary=(summary,),
-            verified_facts=(),
+            verified_facts=tuple(verified_claims),
             company_table=(),
             counter_evidence=(),
             gaps=gaps,
@@ -1398,7 +1438,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             candidate_facts=tuple(candidate_claims),
             next_actions=("将候选来源逐条通过证据语义闸门后再升级结论。",),
             sources=sources,
-            system_notices=(result.data_notice,),
+            system_notices=((result.data_notice,) if result.data_notice else ()),
             presentation_kind="generic_research",
             presentation_title=contract.subject or "通用研究",
             presentation_profile=contract.presentation_profile,
