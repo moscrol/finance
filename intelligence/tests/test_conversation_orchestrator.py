@@ -23,6 +23,7 @@ from intelligence.services.conversation_orchestrator import (
     SUMMARY_CHAR_LIMIT,
     TurnOrchestrator,
     _build_generic_research_contract,
+    _skill_output_compatible_with_turn,
     _sanitize_market_cause_answer_text,
     build_conversation_context,
     contextualize_follow_up_query,
@@ -81,6 +82,45 @@ def _research_controller(query: str, **kwargs: object) -> TurnDecision:
         needs_template=True,
         confidence=1.0,
         reason=f"fixture research: {query}",
+    )
+
+
+def test_research_owner_contract_honors_declared_question_types() -> None:
+    """A skill may expose a contract, but only for its declared research type."""
+    from types import SimpleNamespace
+
+    output = SkillOutput(
+        skill_id="daily-agent",
+        modules=[],
+        citations=[],
+        warnings=[],
+        as_of=None,
+        raw_result_ref=None,
+        answer_contract=SimpleNamespace(question_type="daily_review"),
+    )
+    definition = SkillDefinition(
+        skill_id="daily-agent",
+        name="Daily Agent",
+        description="workflow fixture",
+        version="1",
+        triggers=(),
+        input_schema={"type": "object"},
+        permissions=("local_read",),
+        timeout_seconds=30,
+        role="workflow",
+        accepted_question_types=("daily_review",),
+    )
+    assert not _skill_output_compatible_with_turn(
+        output,
+        definition=definition,
+        lane="research",
+        question_type="market_forecast",
+    )
+    assert _skill_output_compatible_with_turn(
+        output,
+        definition=definition,
+        lane="workflow",
+        question_type="daily_review",
     )
 
 

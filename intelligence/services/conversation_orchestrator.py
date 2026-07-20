@@ -647,6 +647,12 @@ def _skill_output_compatible_with_turn(
     if question_type is None:
         return True
     contract_type = contract.question_type
+    accepted_question_types = tuple(
+        str(item)
+        for item in (getattr(definition, "accepted_question_types", ()) or ())
+    )
+    if accepted_question_types and question_type not in accepted_question_types:
+        return False
     return role == "terminal_owner" and contract_type == question_type
 
 
