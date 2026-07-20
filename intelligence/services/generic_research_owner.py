@@ -200,20 +200,35 @@ def evaluate_completion(
         for required, status in zip(contract.required_outputs, outputs)
         if required.required
     ]
+    required_outputs_fulfilled = all(
+        status.status == "fulfilled" for status in required_statuses
+    )
     if completion is not None:
-        result_status = completion.status
+        # ResearchState 负责认知状态（假设、支持/反驳和 gap）；这里再把
+        # 契约的逐项 output 匹配作为最终保险，防止新增的非 hypothesis
+        # required output 被状态层遗漏后误报 completed。
+        result_status = (
+            completion.status
+            if completion.status != "completed" or required_outputs_fulfilled
+            else "partial"
+        )
     elif all(status.status == "fulfilled" for status in required_statuses):
         result_status = "completed"
     elif any(status.status == "missing" for status in required_statuses):
         result_status = "partial"
     else:
         result_status = "gap"
+    task_coverage = "unknown"
+    if completion is not None:
+        task_coverage = (
+            completion.task_coverage if required_outputs_fulfilled else "partial"
+        )
     return CompletionReport(
         result_status,
         tuple(outputs),
         factual_grounding=completion.factual_grounding if completion else "unknown",
         causal_adequacy=completion.causal_adequacy if completion else "unknown",
-        task_coverage=completion.task_coverage if completion else "unknown",
+        task_coverage=task_coverage,
     )
 
 

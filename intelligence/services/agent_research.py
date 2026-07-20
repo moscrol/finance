@@ -697,15 +697,16 @@ def run_agent_loop(
                     ):
                         missing.append(output_id)
                 missing_outputs = tuple(missing)
+            missing_requirements = tuple(dict.fromkeys((*uncovered, *missing_outputs)))
             # 只允许一次“完成请求被延迟”重新规划；若模型仍重复 finish，
-            # 以 partial 结束并把未覆盖情景作为 gap，避免循环耗尽预算。
-            if requested_sufficient and (uncovered or missing_outputs) and finish_rejections == 0:
+            # 以 partial 结束并把未覆盖情景或 output 作为 gap，避免循环耗尽预算。
+            if requested_sufficient and missing_requirements and finish_rejections == 0:
                 finish_rejections += 1
                 result.sufficient = False
-                missing_text = "、".join((*uncovered, *missing_outputs))
+                missing_text = "、".join(missing_requirements)
                 result.gaps = tuple(
                     dict.fromkeys(
-                        (*result.gaps, f"尚未覆盖必需情景：{missing_text}")
+                        (*result.gaps, f"尚未覆盖必需项：{missing_text}")
                     )
                 )
                 result.steps.append(
@@ -722,7 +723,19 @@ def run_agent_loop(
                     )
                 )
                 continue
-            result.sufficient = requested_sufficient and not uncovered
+            # 第二次 finish 也不能因“没有 hypothesis”而绕过普通 required
+            # output（例如必须的结构化行情、比较依据）。明确保留 gap，供
+            # ResearchState 和 completion report 一致判为 partial。
+            if requested_sufficient and missing_requirements:
+                result.gaps = tuple(
+                    dict.fromkeys(
+                        (
+                            *result.gaps,
+                            f"尚未满足必需输出：{'、'.join(missing_requirements)}",
+                        )
+                    )
+                )
+            result.sufficient = requested_sufficient and not missing_requirements
             result.steps.append(
                 AgentStep(
                     tool="finish",

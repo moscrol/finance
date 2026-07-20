@@ -380,6 +380,48 @@ def test_finish_true_cannot_hide_missing_required_output() -> None:
     assert any(item.status == "missing" for item in result.completion.outputs)
 
 
+def test_second_finish_true_cannot_complete_when_nonhypothesis_output_is_missing() -> None:
+    """一次重规划后仍缺必需 output 时，不能绕过完成门禁。"""
+
+    contract = ResearchTaskContract(
+        task_id="missing-output-after-retry",
+        question="某公司最近怎么看",
+        subject="某公司",
+        subject_kind="company",
+        question_type="general_finance_qa",
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("web_search",), True),
+            RequiredOutput("market_basis", "结构化行情依据", ("market_data",), True),
+        ),
+        allowed_capabilities=("web_search",),
+        research_tier="quick",
+    )
+    actions = iter(
+        [
+            '{"tool":"web_search","args":{"query":"某公司公告"},"reason":"先查来源"}',
+            '{"tool":"finish","args":{"sufficient":true,"assessment":"已有公告线索","gaps":[]},"reason":"首次过早结束"}',
+            '{"tool":"finish","args":{"sufficient":true,"assessment":"已有公告线索","gaps":[]},"reason":"再次过早结束"}',
+        ]
+    )
+
+    def complete(_messages, **_kwargs):
+        return next(actions), "test", ""
+
+    result = generic_research_owner.run_generic_research(
+        contract,
+        context=_context(contract),
+        registry=_registry(),
+        run_id=contract.task_id,
+        complete_fn=complete,
+    )
+
+    assert result.loop.sufficient is False
+    assert result.completion.status == "partial"
+    missing = next(item for item in result.completion.outputs if item.output_id == "market_basis")
+    assert missing.status == "missing"
+    assert any("market_basis" in gap for gap in result.loop.gaps)
+
+
 def test_contract_rejects_unknown_tier() -> None:
     payload = _contract().to_dict()
     payload["research_tier"] = "unbounded"
