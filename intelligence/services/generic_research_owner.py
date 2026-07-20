@@ -11,7 +11,11 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Callable
 
-from intelligence.services import agent_research, research_tool_registry
+from intelligence.services import (
+    agent_research,
+    research_task_planner,
+    research_tool_registry,
+)
 from intelligence.services.evidence_window import is_time_aligned_evidence
 from intelligence.services.research_contract import (
     OutputStatus,
@@ -59,6 +63,7 @@ class GenericResearchResult:
     loop: agent_research.AgentLoopResult
     completion: CompletionReport
     evidence: tuple[agent_research.AgentEvidence, ...]
+    task_plan: research_task_planner.TaskPlan | None = None
 
     @property
     def traces(self):
@@ -76,6 +81,7 @@ class GenericResearchResult:
             "contract": self.contract.to_dict(),
             "loop": self.loop.to_dict(),
             "completion": self.completion.to_dict(),
+            "task_plan": self.task_plan.to_dict() if self.task_plan else None,
             "gaps": list(self.gaps),
         }
 
@@ -223,6 +229,7 @@ def run_generic_research(
     preloaded_traces: tuple[ProviderTrace, ...] = (),
     preloaded_observation: str = "",
     disabled_tools: tuple[str, ...] = (),
+    task_plan: research_task_planner.TaskPlan | None = None,
 ) -> GenericResearchResult:
     """在契约、白名单和共享 deadline 内运行一个长尾研究闭环。"""
 
@@ -265,6 +272,9 @@ def run_generic_research(
             ],
             "allowed_tools": list(tools),
             "presentation_profile": contract.presentation_profile,
+            # 任务规划只是检索顺序参考；工具白名单、预算和 required outputs
+            # 仍由上面的 contract/loop 硬约束决定。
+            "task_plan": task_plan.to_dict() if task_plan else None,
         },
         ensure_ascii=False,
     )
@@ -297,4 +307,5 @@ def run_generic_research(
         loop=loop,
         completion=evaluate_completion(contract, loop),
         evidence=evidence,
+        task_plan=task_plan,
     )

@@ -59,6 +59,7 @@ from intelligence.services import (
     research_brief,
     retrieval_planner,
     generic_research_owner,
+    research_task_planner,
     research_tool_registry,
     research_contract,
     user_memory,
@@ -1122,6 +1123,25 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         policy=policy,
         trace_parent_id=contract.task_id,
     )
+    # 只做一次极短的任务拆解。它影响 agent 的检索顺序说明，不改变契约的
+    # 工具白名单、required outputs、档位或预算；调用时间也受同一 turn deadline
+    # 钳制，避免 planner 变成隐藏的第二条研究循环。
+    planner_timeout = max(
+        1,
+        min(
+            research_task_planner.DEFAULT_TIMEOUT,
+            int(context.deadline.stage_timeout(research_task_planner.DEFAULT_TIMEOUT)),
+        ),
+    )
+    task_plan = research_task_planner.plan_task(
+        contract.question,
+        contract=contract,
+        timeout=planner_timeout,
+        # 无配置 provider 时直接走规则计划，不触碰测试/主循环注入的
+        # completion callback；配置 provider 后才增加这一次受 deadline 钳制的
+        # 短规划调用。
+        enabled=llm_refine.detect_provider(options.llm_model) is not None,
+    )
 
     def retrieve_kb(agent_query: str, timeout: float):
         return kb_rag.retrieve(
@@ -1328,6 +1348,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 loop,
             ),
             evidence=preloaded_evidence,
+            task_plan=task_plan,
         )
     else:
         owner_result = generic_research_owner.run_generic_research(
@@ -1342,6 +1363,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             preloaded_traces=preloaded_traces,
             preloaded_observation=preloaded_observation,
             disabled_tools=disabled_tools,
+            task_plan=task_plan,
         )
     is_customer_fact_check = bool(
         contract.question_type == QUESTION_FACT_CHECK
@@ -1430,7 +1452,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         else
         ""
         if contract.question_type == "market_cause" and has_structured_truth
-        else "本轮已收集到可回查来源，但仍需逐条核验后才能升级为事实。"
+        else "本轮已找到相关来源，但证据强度仍不足以独立确认结论。"
         if owner_result.evidence
         else "本轮没有收集到可回查来源，暂不形成可靠定性。"
     )
@@ -1498,7 +1520,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         assessment_label = (
             "基于周内结构化数据的机制判断（外部触发因素仍待核验）："
             if fallback_assessment_used
-            else "研究 agent 的暂定判断（仅基于本轮候选证据）："
+            else "基于本轮已收集证据的判断："
         )
         assessment_text = (
             assessment_label
@@ -1539,7 +1561,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         else
         assessment_text
         if owner_result.loop.assessment.strip() and evidence_ids
-        else "研究循环已收集候选来源，下面只展示可回查线索；未经证据门禁确认的内容不会升级为事实。"
+        else "已找到相关来源，但目前只能作为线索，不能据此下确定结论。"
         if owner_result.evidence
         else "本轮没有收集到可回查来源，不能形成可靠定性。"
     )
@@ -1599,7 +1621,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     next_action = (
         "后续仅在公司公告、合同/订单、客户认证或双方官方披露出现时升级判断。"
         if is_customer_fact_check and not has_relevant_l3
-        else "将候选来源逐条通过证据语义闸门后再升级结论。"
+        else "下一步验证：补充与问题直接相关的官方披露或数据，并检查是否改变当前判断。"
     )
     result.sections = {
         "结论": [summary_text],
