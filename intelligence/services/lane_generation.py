@@ -122,12 +122,33 @@ def generate_lane_answer(
         },
     ]
     if llm_complete is None:
+        attempt_timeout = (
+            min(90, timeout)
+            if decision.question_type == "methodology_discussion"
+            and timeout >= 120
+            else timeout
+        )
         content, provider, reason = llm_refine.complete(
             messages,
             model_override=model_override,
-            timeout=timeout,
+            timeout=attempt_timeout,
             temperature=0.2,
         )
+        if (
+            not (content or "").strip()
+            and decision.question_type == "methodology_discussion"
+            and timeout >= 120
+            and re.search(r"timeout|超时", str(reason or ""), re.IGNORECASE)
+        ):
+            # Provider 偶发卡住时，把原本 180s 的单次赌注拆成 90s + 90s。
+            # 总 wall-time 预算不增加；方法论题仍不回退金融 RAG。
+            content, provider, retry_reason = llm_refine.complete(
+                messages,
+                model_override=model_override,
+                timeout=max(1, timeout - attempt_timeout),
+                temperature=0.2,
+            )
+            reason = retry_reason or reason
     else:
         content, provider, reason = llm_complete(messages)
     answer = (content or "").strip()

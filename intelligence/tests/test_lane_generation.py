@@ -49,3 +49,31 @@ def test_lane_generation_uses_runtime_llm_timeout_by_default() -> None:
     default = inspect.signature(generate_lane_answer).parameters["timeout"].default
 
     assert default == llm_refine.DEFAULT_LLM_TIMEOUT
+
+
+def test_methodology_timeout_retries_once_within_same_wall_budget(
+    monkeypatch,
+) -> None:
+    calls: list[int] = []
+
+    def complete(messages, **kwargs):
+        calls.append(kwargs["timeout"])
+        if len(calls) == 1:
+            return None, None, "LLM 调用失败（TimeoutError）"
+        return (
+            "约束应放在出口 verifier，而不是把展示 prompt 写成模板。",
+            SimpleNamespace(name="fixture", model="fixture-model"),
+            "",
+        )
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+
+    answer = generate_lane_answer(
+        "编排层为什么会导致模板化？",
+        _methodology_decision(),
+        timeout=180,
+    )
+
+    assert calls == [90, 90]
+    assert answer.provider == "fixture"
+    assert "出口 verifier" in answer.answer
