@@ -808,11 +808,18 @@ def _build_synthesis_prompt(
         if exemplar_guidance
         else ""
     )
+    cause_nudge = ""
+    if re.search(r"(?:本周|这一周|这周|近一周|过去一周).{0,20}(?:行情|大盘|市场).{0,20}(?:下跌|走弱).{0,20}(?:原因|为什么|驱动|归因)", query):
+        cause_nudge = (
+            "\n\n## 原因归因题约束\n"
+            "先用一句话直接回答‘本周下跌的主要机制/原因是什么’，再区分已由周内盘面证据确认的机制与仍缺外部触发证据；"
+            "不得用最后一个交易日快照代替周窗口，不得把旧文章候选原因写成已核验事实，也不要追加用户未询问的交易策略、仓位或防御建议。"
+        )
     return (
         f"用户问题：{query}\n"
         f"命中主题：{theme}\n\n"
         f"以下是已检索到的多源证据（你的回答只能据此展开）：\n"
-        f"{evidence_text}{legend}{quality_block}{experience_block}{exemplar_block}\n\n"
+        f"{evidence_text}{legend}{quality_block}{experience_block}{exemplar_block}{cause_nudge}\n\n"
         "请据此有机融合成一段分析师口吻的回答。默认控制在 1200–1800 个中文字符；"
         "只选 6-10 条最关键 claim，正文硬上限 12 个带 marker 的行；不得遍历 registry 或模块，"
         "不得重复来源说明、风险和验证步骤。"

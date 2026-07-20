@@ -692,6 +692,7 @@ def _quality_gates(question_type: str, depth: str) -> list[str]:
                 "必须回答指定周窗口，不得只复述最后一个交易日",
                 "每个主要原因都要绑定可回查证据；盘面现象不能自动冒充外部因果",
                 "没有足够事件/资金证据时，必须把原因写成候选并报告缺口",
+                "用户未询问交易策略时，不追加买卖、仓位或防御建议",
             ]
         )
     if question_type == QUESTION_EXTERNAL_MARKET:
@@ -789,6 +790,7 @@ def _output_contract(question_type: str, depth: str) -> list[str]:
             "先给周窗口和市场结果，再列 1-3 个有证据支持的主要原因",
             "每个原因说明：证据是什么、如何传导到指数/成交/行业、置信度和反证",
             "区分已核验原因、盘面推断与仍缺的事件/资金证据",
+            "结尾只写因果验证缺口，不输出用户未要求的交易策略或仓位建议",
         ]
     if question_type == QUESTION_EXTERNAL_MARKET:
         return [
