@@ -122,6 +122,7 @@ from intelligence.services.ask_blocks import (  # noqa: F401
     _customer_evidence_hardness_block_for_llm,
     _d_block_stat,
     _daily_market_overview_block_for_llm,
+    _market_cause_window_block_for_llm,
     _evidence_chain_with_llm_wiki,
     _evidence_text_for_llm,
     _financials_block_for_llm,
@@ -1030,10 +1031,33 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             cache_scope=options.wiki_rag_cache_scope,
         )
 
+    def _generic_market_data(
+        agent_query: str,
+        context: agent_research.AgentToolContext,
+    ):
+        """通用 Owner 的结构化行情工具：原因问题固定给周窗口，不给单日快照。"""
+        del agent_query
+        if context.deadline.expired:
+            raise TimeoutError("agent market data deadline expired")
+        block = _market_cause_window_block_for_llm(options.market_db_path)
+        evidence, observation = agent_research.block_lines_to_evidence(
+            "market_data", block, "本地 DuckDB · 周内市场归因窗口"
+        )
+        trace = ProviderTrace(
+            provider="agent:market_data",
+            capability="agent_loop",
+            status="success" if evidence else "empty",
+            detail="weekly_market_cause_window",
+            result_count=len(evidence),
+        )
+        return evidence, observation or "本地周内市场数据无匹配", trace
+
     tools = {
         **agent_research.build_default_tools(retrieve_kb),
         **agent_research.build_graph_tools(knowledge),
     }
+    if contract.question_type == "market_cause" and options.market_db_path is not None:
+        tools["market_data"] = _generic_market_data
     registry = research_tool_registry.default_registry(tools)
     owner_result = generic_research_owner.run_generic_research(
         contract,
@@ -1104,9 +1128,32 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             )
         )
 
+    if owner_result.loop.assessment.strip() and evidence_ids:
+        assessment_text = (
+            f"研究 agent 的暂定判断（仅基于本轮候选证据）："
+            f"{owner_result.loop.assessment.strip()} "
+            f"[{', '.join(evidence_ids)}]"
+        )
+        candidate_claims.append(
+            answer_model.make_claim(
+                claim_id="generic:assessment",
+                text=assessment_text,
+                claim_type=(
+                    "cause_attribution"
+                    if contract.question_type == "market_cause"
+                    else "summary"
+                ),
+                theme=contract.subject or options.query,
+                status=answer_model.ClaimStatus.CANDIDATE,
+                evidence_tier="agent_assessment",
+                evidence_ids=tuple(evidence_ids),
+            )
+        )
+
     summary_text = (
-        "研究循环已收集候选来源，下面只展示可回查线索；"
-        "未经证据门禁确认的内容不会升级为事实。"
+        assessment_text
+        if owner_result.loop.assessment.strip() and evidence_ids
+        else "研究循环已收集候选来源，下面只展示可回查线索；未经证据门禁确认的内容不会升级为事实。"
         if owner_result.evidence
         else "本轮没有收集到可回查来源，不能形成可靠定性。"
     )

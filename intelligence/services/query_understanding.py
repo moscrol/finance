@@ -40,6 +40,7 @@ ResearchMode = Literal[
     "theme_research",
     "forecast",
     "definition",
+    "market_cause",
     "general",
 ]
 TimeHorizon = Literal[
@@ -59,6 +60,7 @@ ResearchOperator = Literal[
     "relation",
     "company_mapping",
     "market_change",
+    "cause_attribution",
 ]
 
 THEME_CONFIG_PATH = (
@@ -161,7 +163,7 @@ _EXTERNAL_QUOTE_TERMS = (
     "走势",
     "表现",
 )
-_RELATIVE_TIMEFRAMES = ("昨天", "昨日", "隔夜", "今天", "今日", "最新")
+_RELATIVE_TIMEFRAMES = ("昨天", "昨日", "隔夜", "今天", "今日", "最新", "本周", "这一周", "这周", "近一周", "过去一周", "一周内")
 _DEFINITION_PREFIX_RE = re.compile(
     r"^(?:请|帮我|介绍一下|解释一下|分析一下|研究一下)*什么是"
     r"([\u4e00-\u9fffA-Za-z0-9+.-]{2,24})"
@@ -236,6 +238,13 @@ _MARKET_FORECAST_RE = re.compile(
     r"(?:怎么|如何|演绎|走势|走)"
     r"|(?:市场|行情|大盘)[^。？！]{0,12}(?:后面|接下来|未来)"
     r"[^。？！]{0,8}(?:演绎|走势|怎么走|如何走)"
+)
+_MARKET_CAUSE_RE = re.compile(
+    r"(?:(?:本周|这一周|这周|近一周|过去一周|一周内).{0,20}"
+    r"(?:行情|大盘|市场|指数).{0,16}(?:下跌|上涨|回撤|走弱|走强).{0,16}"
+    r"(?:主要原因|原因|为什么|驱动|归因))"
+    r"|(?:(?:行情|大盘|市场|指数).{0,12}(?:下跌|上涨|回撤|走弱|走强).{0,12}"
+    r"(?:主要原因|原因|为什么|驱动|归因))"
 )
 _MONTH_HORIZON_RE = re.compile(
     r"(?:未来|接下来)?\s*(\d{1,2})\s*(?:[-~—到至]\s*(\d{1,2})\s*)?个?月"
@@ -407,6 +416,8 @@ def _theme_aliases() -> tuple[str, ...]:
 
 
 def _decision_goal(query: str) -> str:
+    if is_market_cause_query(query):
+        return "解释指定时间窗口内市场涨跌的主要原因并形成可回查因果链"
     if _is_external_market_query(query):
         return "核对海外指数收盘点位与涨跌幅"
     if _definition_subject(query):
@@ -463,6 +474,12 @@ def is_market_forecast_query(query: str) -> bool:
 
     text = re.sub(r"\s+", "", str(query or "").strip())
     return _MARKET_FORECAST_RE.search(text) is not None
+
+
+def is_market_cause_query(query: str) -> bool:
+    """确定性识别「市场涨跌 + 时间窗口 + 原因/驱动」归因问题。"""
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    return bool(text and _MARKET_CAUSE_RE.search(text))
 
 
 def _valuation_subject(query: str) -> str | None:
@@ -544,6 +561,8 @@ def _time_horizon(query: str) -> TimeHorizon:
         return "intraday"
     if any(term in text for term in ("短期", "短线", "未来几周")):
         return "short"
+    if any(term in text for term in ("本周", "这一周", "这周", "近一周", "过去一周", "一周内")):
+        return "short"
     if any(term in text for term in ("中期", "中线", "季度维度")):
         return "medium"
     if any(term in text for term in ("长期", "长线", "未来几年")):
@@ -569,6 +588,8 @@ def _research_operators(query: str) -> tuple[ResearchOperator, ...]:
         operators.append("company_mapping")
     if _MARKET_CHANGE_RE.search(query):
         operators.append("market_change")
+    if is_market_cause_query(query):
+        operators.append("cause_attribution")
     return tuple(operators)
 
 
@@ -584,6 +605,7 @@ def _required_outputs(
         "relation": "relation_map",
         "company_mapping": "company_mapping",
         "market_change": "market_change",
+        "cause_attribution": "cause_attribution",
     }
     return tuple(output_by_operator[operator] for operator in operators)
 
@@ -600,6 +622,8 @@ def _research_mode(
         return "financial"
     if question_type == "news_impact":
         return "news_impact"
+    if question_type == "market_cause":
+        return "market_cause"
     if question_type in {"stock_deep_dive", "valuation_estimate"}:
         return "deep_dive"
     if subject_kind == "theme":
@@ -730,6 +754,17 @@ def understand_query(
         if timeframe_match
         else next((term for term in _RELATIVE_TIMEFRAMES if term in text), None)
     )
+
+    if is_market_cause_query(text):
+        return envelope(
+            "market_cause",
+            "market_pattern",
+            None,
+            "解释指定时间窗口内市场涨跌的主要原因并形成可回查因果链",
+            timeframe,
+            "market_anchor",
+            0.96,
+        )
 
     if is_market_technical_query(text):
         index_hit = match_index_subject(text)

@@ -24,6 +24,18 @@ def test_generic_market_pattern_has_no_invented_subject() -> None:
     assert envelope.decision_goal == "区分健康分歧与行情高潮"
 
 
+def test_weekly_market_cause_has_window_and_causal_output() -> None:
+    envelope = understand_query("这一周行情下跌的主要原因你认为是什么")
+
+    assert envelope.question_type == "market_cause"
+    assert envelope.subject_kind == "market_pattern"
+    assert envelope.subject is None
+    assert envelope.timeframe == "这一周"
+    assert envelope.time_horizon == "short"
+    assert envelope.operators == ("cause_attribution",)
+    assert envelope.required_outputs == ("cause_attribution",)
+
+
 def test_known_alias_and_entity_are_explicit_subjects() -> None:
     theme = understand_query("液冷题材连续上涨但成交占比下降，怎么看？")
     new_theme = understand_query("请研究空芯光纤题材的产业链")

@@ -23,6 +23,7 @@ QUESTION_GENERAL = "general_finance_qa"
 QUESTION_EXTERNAL_MARKET = "external_market"
 QUESTION_CONCEPT_DEFINITION = "concept_definition"
 QUESTION_MARKET_TECHNICAL = "market_technical"
+QUESTION_MARKET_CAUSE = "market_cause"
 
 QUESTION_TYPES = frozenset(
     {
@@ -39,6 +40,7 @@ QUESTION_TYPES = frozenset(
         QUESTION_EXTERNAL_MARKET,
         QUESTION_CONCEPT_DEFINITION,
         QUESTION_MARKET_TECHNICAL,
+        QUESTION_MARKET_CAUSE,
     }
 )
 
@@ -468,6 +470,13 @@ def _required_lenses(question_type: str, depth: str) -> list[str]:
             "失效条件：给出跌破哪个价位判断失效",
             "来源隔离：不用 Wiki/题材结构/公司公告代替行情计算；取不到行情只报数据缺口",
         ]
+    if question_type == QUESTION_MARKET_CAUSE:
+        return [
+            "时间窗口：先确认本周/近一周的起止交易日，不能把最后一个交易日当成整周",
+            "盘面变化：指数、成交额、涨跌家数、涨停/跌停和行业扩散的周内变化",
+            "因果链：把可核验的宏观/事件/资金证据与盘面变化逐条对应，区分事实与推断",
+            "反证视角：说明哪些原因仍只是候选、什么数据会推翻当前归因",
+        ]
     if question_type == QUESTION_CONCEPT_DEFINITION:
         return [
             "先解释定义、核心技术原理和产业链位置",
@@ -566,6 +575,12 @@ def _retrieval_plan(question_type: str, depth: str, q: str) -> list[str]:
             "结构化指数/个股日线 OHLCV：唯一必需数据源，成功即停",
             "确定性技术位计算器：MA5/10/20/60、摆动低点、20/60日低点、跳空缺口",
             "跳过 Wiki RAG、知识图谱、agent web loop：该题型不需要文本证据",
+        ]
+    if question_type == QUESTION_MARKET_CAUSE:
+        return [
+            "DuckDB 周内市场窗口：指数、成交额、涨跌结构和行业集中度逐日变化",
+            "财经新闻/网页：只检索与该周市场波动时间对齐的宏观、政策、外盘和资金事件",
+            "因果核验：至少一条周内盘面证据 + 一条事件/资金证据；不足时明确报缺口",
         ]
     if question_type == QUESTION_EXTERNAL_MARKET:
         return [
@@ -671,6 +686,14 @@ def _quality_gates(question_type: str, depth: str) -> list[str]:
                 "取不到 OHLCV 时只报数据缺口短答，禁止用题材结构、公司公告、知识图谱模板代答",
             ]
         )
+    if question_type == QUESTION_MARKET_CAUSE:
+        gates.extend(
+            [
+                "必须回答指定周窗口，不得只复述最后一个交易日",
+                "每个主要原因都要绑定可回查证据；盘面现象不能自动冒充外部因果",
+                "没有足够事件/资金证据时，必须把原因写成候选并报告缺口",
+            ]
+        )
     if question_type == QUESTION_EXTERNAL_MARKET:
         gates.extend(
             [
@@ -761,6 +784,12 @@ def _output_contract(question_type: str, depth: str) -> list[str]:
             "给出压力区与失效条件（跌破哪个价位需要重新计算）",
             "取数失败时直接给数据缺口短答，不延伸任何题材或个股判断",
         ]
+    if question_type == QUESTION_MARKET_CAUSE:
+        return [
+            "先给周窗口和市场结果，再列 1-3 个有证据支持的主要原因",
+            "每个原因说明：证据是什么、如何传导到指数/成交/行业、置信度和反证",
+            "区分已核验原因、盘面推断与仍缺的事件/资金证据",
+        ]
     if question_type == QUESTION_EXTERNAL_MARKET:
         return [
             "先给 source_trade_date，再逐项列指数收盘点位与涨跌幅",
@@ -837,6 +866,13 @@ def _missing_data_policy(question_type: str) -> list[str]:
     ]
     if question_type == QUESTION_MARKET_TECHNICAL:
         base.append("OHLCV 取数失败时只报明确数据缺口，禁止用全市场题材结构或图谱代答")
+    if question_type == QUESTION_MARKET_CAUSE:
+        base.extend(
+            [
+                "周内市场数据不足时不得降级为单日复盘模板",
+                "缺事件/资金证据时只能输出盘面事实与候选解释，并明确因果缺口",
+            ]
+        )
     if question_type == QUESTION_EXTERNAL_MARKET:
         base.extend(
             [

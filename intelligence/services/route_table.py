@@ -123,6 +123,17 @@ ROUTE_TABLE: tuple[RouteRow, ...] = (
         capabilities=("memory", "market_quote", "graph"),
     ),
     RouteRow(
+        route_id="market_cause",
+        description="解释指定时间窗口内市场涨跌的主要原因，必须合并周内盘面变化与事件/资金证据；不能用单日复盘快照代答",
+        examples=("这一周行情下跌的主要原因是什么", "近一周大盘为什么走弱"),
+        lane="research",
+        question_type="market_cause",
+        answer_owner=None,
+        needs_retrieval=True,
+        needs_template=False,
+        capabilities=("market_quote", "market_news", "web_search"),
+    ),
+    RouteRow(
         route_id="market_technical",
         description="指数或个股的技术位问题：支撑位、压力位、均线位置、突破/跌破点位，用结构化行情确定性计算，不做题材研究",
         examples=("科创50的支撑点位在哪", "沪深300压力位在哪里", "上证指数回踩到哪有支撑"),

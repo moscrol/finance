@@ -185,6 +185,7 @@ class TurnIntent:
     time_horizon: str = "unspecified"
     operators: tuple[str, ...] = ()
     required_outputs: tuple[str, ...] = ()
+    timeframe: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -206,6 +207,7 @@ class TurnIntent:
             time_horizon = value.get("time_horizon", "unspecified")
             operators = value.get("operators", ())
             required_outputs = value.get("required_outputs", ())
+            timeframe = value.get("timeframe")
         except KeyError:
             return None
         if primary_subject is not None and not isinstance(primary_subject, str):
@@ -217,6 +219,8 @@ class TurnIntent:
         if inherited_from_turn is not None and not isinstance(inherited_from_turn, str):
             return None
         if not isinstance(time_horizon, str):
+            return None
+        if timeframe is not None and not isinstance(timeframe, str):
             return None
         for items in (
             secondary_topics,
@@ -244,6 +248,7 @@ class TurnIntent:
             time_horizon=time_horizon,
             operators=tuple(operators),
             required_outputs=tuple(required_outputs),
+            timeframe=timeframe,
         )
 
 
@@ -261,6 +266,7 @@ class ResearchPlan:
     time_horizon: str = "unspecified"
     operators: tuple[str, ...] = ()
     required_outputs: tuple[str, ...] = ()
+    timeframe: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -285,6 +291,7 @@ class ResearchPlan:
             time_horizon=intent.time_horizon,
             operators=intent.operators,
             required_outputs=intent.required_outputs,
+            timeframe=intent.timeframe,
         )
 
 
@@ -374,6 +381,7 @@ class ResearchTaskContract:
     research_tier: str = "standard"
     presentation_profile: str = "general"
     freshness: str = "current"
+    timeframe: str | None = None
     contract_version: str = "1"
 
     def __post_init__(self) -> None:
@@ -396,6 +404,7 @@ class ResearchTaskContract:
             "research_tier": self.research_tier,
             "presentation_profile": self.presentation_profile,
             "freshness": self.freshness,
+            "timeframe": self.timeframe,
             "contract_version": self.contract_version,
         }
 
@@ -441,6 +450,9 @@ class ResearchTaskContract:
             research_tier=str(value.get("research_tier") or "standard"),
             presentation_profile=str(value.get("presentation_profile") or "general"),
             freshness=str(value.get("freshness") or "current"),
+            timeframe=(
+                str(value["timeframe"]) if value.get("timeframe") is not None else None
+            ),
             contract_version=str(value.get("contract_version") or "1"),
         )
 
@@ -685,6 +697,7 @@ def build_turn_intent(
             skill_ids=previous_intent.skill_ids,
             stage_artifact_ids=previous_intent.stage_artifact_ids,
             time_horizon=envelope.time_horizon,
+            timeframe=envelope.timeframe,
             operators=envelope.operators,
             required_outputs=envelope.required_outputs,
         )
@@ -712,6 +725,11 @@ def build_turn_intent(
                 if envelope.time_horizon != "unspecified"
                 else previous_intent.time_horizon
             ),
+            timeframe=(
+                envelope.timeframe
+                if envelope.timeframe is not None
+                else previous_intent.timeframe
+            ),
             operators=_merge_topics(
                 previous_intent.operators,
                 envelope.operators,
@@ -731,6 +749,7 @@ def build_turn_intent(
         comparison_entities=comparison_entities,
         inherited_from_turn=None,
         time_horizon=envelope.time_horizon,
+        timeframe=envelope.timeframe,
         operators=envelope.operators,
         required_outputs=envelope.required_outputs,
     )

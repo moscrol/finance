@@ -275,6 +275,18 @@ def _deterministic_decision(
                 ("market_quote",),
             ),
         )
+    if envelope.question_type == "market_cause":
+        return _decision(
+            "research",
+            envelope=envelope,
+            needs_template=False,
+            confidence=envelope.confidence,
+            reason="确定性识别市场时间窗口与涨跌原因归因问题，交给通用研究 Owner 闭环",
+            capabilities=_route_capabilities(
+                "market_cause",
+                ("market_quote", "market_news", "web_search"),
+            ),
+        )
     if envelope.question_type == "external_market":
         return _decision(
             "research",

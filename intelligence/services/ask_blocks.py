@@ -740,6 +740,92 @@ def _daily_market_overview_block_for_llm(
         con.close()
 
 
+def _market_cause_window_block_for_llm(
+    market_db_path: str | Path | None,
+    *,
+    window: int = 5,
+) -> str:
+    """固定口径输出最近 N 个交易日的市场变化，供原因归因工具使用。
+
+    这里只描述可核验的周内变化，不把盘面现象自动解释成外部因果；因果证据
+    由 market_data 与 news/web 工具共同提供，避免单日复盘块冒充周度归因。
+    """
+    db_path = (
+        Path(market_db_path).expanduser()
+        if market_db_path
+        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    )
+    if not db_path.exists():
+        return ""
+    try:
+        import duckdb
+
+        con = retrieval_cache.connect_readonly(db_path)
+    except Exception:
+        return ""
+    try:
+        rows = con.execute(
+            """
+            select trade_date, market_stage, stage_day, total_amount,
+                   advancers, limit_up, limit_down, sh_index_close,
+                   sh_index_pct_chg, industry_1, industry_1_ratio,
+                   industry_2, industry_2_ratio, industry_3, industry_3_ratio
+            from fact_market_daily
+            order by trade_date desc
+            limit ?
+            """,
+            [max(2, min(int(window), 10))],
+        ).fetchall()
+        if not rows:
+            return ""
+        rows = list(reversed(rows))
+        dates = [str(row[0]) for row in rows]
+        first_close = rows[0][7]
+        last_close = rows[-1][7]
+        cumulative_pct = None
+        try:
+            cumulative_pct = (float(last_close) / float(first_close) - 1) * 100
+        except (TypeError, ValueError, ZeroDivisionError):
+            pass
+        down_days = sum(
+            1 for row in rows if row[8] is not None and float(row[8]) < 0
+        )
+        first_amount, last_amount = rows[0][3], rows[-1][3]
+        amount_change = None
+        try:
+            amount_change = (float(last_amount) / float(first_amount) - 1) * 100
+        except (TypeError, ValueError, ZeroDivisionError):
+            pass
+        lines = [
+            "## 最近交易日市场原因归因窗口 [MCAUSE]",
+            f"- 窗口：{dates[0]} ~ {dates[-1]}，共 {len(rows)} 个交易日；该块只描述周内变化，不等同于外部因果。",
+            f"- 上证指数：{first_close if first_close is not None else '—'} → {last_close if last_close is not None else '—'} 点；区间变化 {cumulative_pct:.2f}% 。" if cumulative_pct is not None else "- 上证指数区间变化：缺数据。",
+            f"- 下跌交易日：{down_days}/{len(rows)}；成交额 {first_amount if first_amount is not None else '—'} → {last_amount if last_amount is not None else '—'} 亿元；区间变化 {amount_change:.2f}% 。" if amount_change is not None else "- 成交额区间变化：缺数据。",
+        ]
+        for row in rows:
+            industries = "、".join(
+                f"{row[i] or '—'}({row[i + 1] if row[i + 1] is not None else '—'}%)"
+                for i in (9, 11, 13)
+                if row[i]
+            )
+            lines.append(
+                f"- {row[0]}：指数 {row[8] if row[8] is not None else '—'}%；"
+                f"成交 {row[3] if row[3] is not None else '—'} 亿；"
+                f"上涨 {row[4] if row[4] is not None else '—'} 家；"
+                f"涨停/跌停 {row[5] if row[5] is not None else '—'}/{row[6] if row[6] is not None else '—'}；"
+                f"领先行业 {industries or '—'}。"
+            )
+        lines.append("- 因果使用要求：只能把与上述时间窗口对齐的新闻、宏观、外盘或资金证据作为原因；没有对齐证据时保留为候选解释并报告缺口。")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+
 def _market_data_asof(market_db_path: str | Path | None) -> str | None:
     """盘面库 fact_market_daily 最新交易日（回检块新鲜度自检用）；库/duckdb 不可用返回 None。"""
     db_path = Path(market_db_path).expanduser() if market_db_path else REPO_ROOT / "db" / "market_feature_store.duckdb"
@@ -1287,4 +1373,3 @@ def _format_alternative_queue_lines(con: Any, latest_date: Any, stock_code: str,
 
 def _pct(value: float) -> float:
     return round(value * 100, 2)
-

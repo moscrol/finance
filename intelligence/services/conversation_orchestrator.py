@@ -41,6 +41,7 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_GENERAL,
     QUESTION_MARKET_REVIEW,
+    QUESTION_MARKET_CAUSE,
     plan_answer_question,
 )
 from intelligence.services.conversation_store import (
@@ -113,13 +114,30 @@ def _build_generic_research_contract(
         if any(term in normalized for term in ("简单说", "快答", "一句话"))
         else "standard"
     )
-    return ResearchTaskContract(
-        task_id=task_id,
-        question=query,
-        subject=turn_intent.primary_subject,
-        subject_kind=None,
-        question_type=turn_intent.question_type,
-        required_outputs=(
+    is_market_cause = turn_intent.question_type == QUESTION_MARKET_CAUSE
+    required_outputs = (
+        (
+            RequiredOutput(
+                "direct_assessment",
+                "针对用户问题的直接判断，必须明确回答指定周窗口",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "cause_attribution",
+                "至少一个由周内市场数据与事件/资金证据共同支撑的主要原因",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条可回查来源",
+                ("market_data", "web_search", "news_search", "evidence_lookup"),
+                True,
+            ),
+        )
+        if is_market_cause
+        else (
             RequiredOutput(
                 "direct_assessment",
                 "针对用户问题的直接判断",
@@ -132,23 +150,45 @@ def _build_generic_research_contract(
                 ("kb_search", "web_search", "news_search", "evidence_lookup"),
                 True,
             ),
-            RequiredOutput(
-                "counterpoint",
-                "反方或证据边界",
-                ("kb_search", "web_search", "news_search"),
-                False,
-            ),
-        ),
-        allowed_capabilities=(
+        )
+    )
+    capabilities = (
+        (
+            "market_data",
+            "web_search",
+            "news_search",
+            "kb_search",
+            "evidence_lookup",
+        )
+        if is_market_cause
+        else (
             "kb_search",
             "web_search",
             "news_search",
             "graph_lookup",
             "evidence_lookup",
+        )
+    )
+    return ResearchTaskContract(
+        task_id=task_id,
+        question=query,
+        subject=turn_intent.primary_subject,
+        subject_kind="market_pattern" if is_market_cause else None,
+        question_type=turn_intent.question_type,
+        required_outputs=(
+            *required_outputs,
+            RequiredOutput(
+                "counterpoint",
+                "反方或证据边界",
+                ("kb_search", "web_search", "news_search", "market_data"),
+                False,
+            ),
         ),
+        allowed_capabilities=capabilities,
         research_tier=tier,
         presentation_profile="general",
         freshness="current",
+        timeframe=turn_intent.timeframe,
     )
 
 
@@ -1115,11 +1155,11 @@ class TurnOrchestrator:
             route_started = time.monotonic()
             generic_owner_requested = (
                 decision.lane == "research"
-                and decision.question_type == QUESTION_GENERAL
-                and turn_intent.question_type == QUESTION_GENERAL
+                and decision.question_type in {QUESTION_GENERAL, QUESTION_MARKET_CAUSE}
+                and turn_intent.question_type in {QUESTION_GENERAL, QUESTION_MARKET_CAUSE}
                 and controller_supplied_intent
                 and turn_intent.answer_owner is None
-                and skill_mode == "auto"
+                and skill_mode in {"auto", "hybrid"}
                 and not selected_skill_ids
             )
             router_skipped = bool(

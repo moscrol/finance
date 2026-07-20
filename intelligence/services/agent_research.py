@@ -142,6 +142,7 @@ class AgentLoopResult:
     evidence: list[AgentEvidence] = field(default_factory=list)
     traces: list[ProviderTrace] = field(default_factory=list)
     sufficient: bool | None = None
+    assessment: str = ""
     gaps: tuple[str, ...] = ()
     stop_reason: str = ""
 
@@ -150,6 +151,7 @@ class AgentLoopResult:
             "steps": [step.to_dict() for step in self.steps],
             "evidence_count": len(self.evidence),
             "sufficient": self.sufficient,
+            "assessment": self.assessment,
             "gaps": list(self.gaps),
             "stop_reason": self.stop_reason,
         }
@@ -403,7 +405,7 @@ def _system_prompt(tools: dict[str, ToolRunner]) -> str:
         "可用工具：\n"
         + "\n".join(tool_lines)
         + "\n- finish：证据足够或确认无法补齐时结束，"
-        "args: {\"sufficient\": true/false, \"gaps\": [\"仍缺什么\"]}\n"
+        "args: {\"sufficient\": true/false, \"assessment\": \"一句话直接判断（只基于已有证据）\", \"gaps\": [\"仍缺什么\"]}\n"
         "原则：\n"
         "1. 检索结果与问题无关时要改写检索式或换工具，不要把无关结果当证据；\n"
         "2. 同一检索式不要重复；证据足够就尽早 finish；\n"
@@ -554,6 +556,7 @@ def run_agent_loop(
 
         if tool == "finish":
             result.sufficient = bool(args.get("sufficient"))
+            result.assessment = str(args.get("assessment") or "").strip()[:600]
             raw_gaps = args.get("gaps")
             result.gaps = tuple(
                 str(gap).strip()
@@ -565,7 +568,10 @@ def run_agent_loop(
                     tool="finish",
                     query="",
                     reason=action_reason,
-                    observation=f"sufficient={result.sufficient} gaps={list(result.gaps)}",
+                    observation=(
+                        f"sufficient={result.sufficient} assessment={result.assessment} "
+                        f"gaps={list(result.gaps)}"
+                    ),
                     hit_count=0,
                     elapsed_ms=0,
                 )

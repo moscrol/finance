@@ -122,6 +122,24 @@ def test_external_market_uses_research_lane_and_quote_capability() -> None:
     assert "market_quote" in decision.capabilities
 
 
+def test_weekly_market_cause_is_deterministic_and_skips_controller_llm() -> None:
+    decision = decide_turn(
+        "这一周行情下跌的主要原因你认为是什么",
+        skill_mode="hybrid",
+        llm_complete=lambda _messages: pytest.fail(
+            "weekly market cause must use deterministic head routing"
+        ),
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "market_cause"
+    assert decision.timeframe == "这一周"
+    assert decision.needs_template is False
+    assert {"market_quote", "market_news", "web_search"}.issubset(
+        decision.capabilities
+    )
+
+
 @pytest.mark.parametrize(
     "query",
     (

@@ -56,7 +56,11 @@ def test_loop_executes_tools_then_finishes_with_gaps() -> None:
                 {"tool": "web_search", "args": {"query": "科创50 当前点位"}},
                 {
                     "tool": "finish",
-                    "args": {"sufficient": False, "gaps": ["缺指数日K行情"]},
+                    "args": {
+                        "sufficient": False,
+                        "assessment": "周内行情证据不足，不能定性",
+                        "gaps": ["缺指数日K行情"],
+                    },
                 },
             ]
         ),
@@ -65,6 +69,7 @@ def test_loop_executes_tools_then_finishes_with_gaps() -> None:
     assert [step.tool for step in result.steps] == ["web_search", "finish"]
     assert len(result.evidence) == 1
     assert result.sufficient is False
+    assert result.assessment == "周内行情证据不足，不能定性"
     assert result.gaps == ("缺指数日K行情",)
     assert result.stop_reason == "agent finish"
     assert result.traces[0].provider == "agent:web_search"

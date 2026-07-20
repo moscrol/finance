@@ -88,7 +88,17 @@ def _matches_output(
         return False
     normalized = output_id.casefold()
     if normalized in {"direct_assessment", "answer", "conclusion"}:
+        # 历史通用契约的 finish 仍向后兼容；原因归因题另由
+        # cause_attribution 强制要求带文字的判断，避免一次升级破坏旧长尾。
         return loop.sufficient is True
+    if normalized in {"cause_attribution", "causal_explanation"}:
+        tools = {item.tool for item in evidence}
+        return (
+            loop.sufficient is True
+            and bool(loop.assessment.strip())
+            and "market_data" in tools
+            and bool(tools.intersection({"news_search", "web_search"}))
+        )
     if normalized in {"counterpoint", "risk", "counter_evidence"}:
         return len(evidence) >= 2 or bool(loop.gaps)
     return True

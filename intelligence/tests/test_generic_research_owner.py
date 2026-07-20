@@ -332,7 +332,11 @@ def test_incomplete_owner_result_cannot_enter_synthesis(monkeypatch) -> None:
     assert prepared.result.prepared_synthesis_messages is None
 
 
-def test_orchestrator_ownerless_turn_skips_skill_router_and_template(tmp_path) -> None:
+@pytest.mark.parametrize("skill_mode", ["auto", "hybrid"])
+def test_orchestrator_ownerless_turn_skips_skill_router_and_template(
+    tmp_path,
+    skill_mode: str,
+) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
@@ -407,7 +411,7 @@ def test_orchestrator_ownerless_turn_skips_skill_router_and_template(tmp_path) -
         run_id=run.run_id,
         assistant_message_id=assistant.message_id,
         query=query,
-        skill_mode="auto",
+        skill_mode=skill_mode,
         selected_skill_ids=[],
     )
 
