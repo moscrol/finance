@@ -1516,6 +1516,52 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             claim
         )
 
+    forecast_fallback_text = ""
+    if contract.presentation_profile == "forecast" and has_structured_truth:
+        # 预测题不能因外部新闻为空而退化成“什么都不能判断”。结构化盘面
+        # 足以支持条件化情景（不支持概率/确定性方向）；把每个情景绑定到
+        # 同一批 market_data claim，仍由 grounded verifier 审核证据编号。
+        market_pairs = [
+            (tag, agent_research.evidence_display_text(item))
+            for tag, item in evidence_by_tag.items()
+            if item.tool == "market_data"
+        ]
+        market_ids = tuple(tag for tag, _text in market_pairs)
+        market_text = "；".join(text for _tag, text in market_pairs[:6])
+        rebound = (
+            "反弹情景（条件化）：若下一交易日跌停家数收缩、上涨家数和成交同步改善，"
+            "可视为下跌后的技术性修复；当前盘面仅提供修复观察基础，不能据此给出概率。"
+        )
+        decline = (
+            "继续下跌情景（条件化）：若下跌阶段延续且跌停扩散、上涨家数重新收缩，"
+            "说明卖压尚未出清，弱势延续的解释更占优。"
+        )
+        invalidation = (
+            "失效条件：开盘后涨跌停结构、成交和指数方向与上述触发条件相反时，"
+            "本轮情景判断失效，需要用新一轮盘面重算。"
+        )
+        forecast_fallback_text = (
+            "基准判断：当前不押注单一方向。"
+            f"{rebound}{decline}{invalidation}"
+            f"当前盘面依据：{market_text}"
+        )
+        for claim_id, text in (
+            ("generic:rebound_case", rebound),
+            ("generic:decline_case", decline),
+            ("generic:invalidation", invalidation),
+        ):
+            candidate_claims.append(
+                answer_model.make_claim(
+                    claim_id=claim_id,
+                    text=text,
+                    claim_type="expectation",
+                    theme=contract.subject or options.query,
+                    status=answer_model.ClaimStatus.INFERRED,
+                    evidence_tier="L4_structured",
+                    evidence_ids=market_ids,
+                )
+            )
+
     if owner_result.loop.assessment.strip() and evidence_ids:
         assessment_label = (
             "基于周内结构化数据的机制判断（外部触发因素仍待核验）："
@@ -1546,6 +1592,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 evidence_ids=tuple(evidence_ids),
             )
         )
+    elif forecast_fallback_text and evidence_ids:
+        assessment_text = f"{forecast_fallback_text} [{', '.join(evidence_ids)}]"
 
     relationship_label = (
         f"{contract.subject}与{counterparty}"
@@ -1561,6 +1609,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         else
         assessment_text
         if owner_result.loop.assessment.strip() and evidence_ids
+        else forecast_fallback_text
+        if forecast_fallback_text and evidence_ids
         else "已找到相关来源，但目前只能作为线索，不能据此下确定结论。"
         if owner_result.evidence
         else "本轮没有收集到可回查来源，不能形成可靠定性。"
