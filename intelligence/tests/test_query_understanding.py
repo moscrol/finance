@@ -281,6 +281,13 @@ def test_market_outlook_is_not_generic_unknown() -> None:
     assert envelope.confidence >= 0.9
 
 
+def test_next_day_rebound_or_decline_is_market_forecast() -> None:
+    envelope = understand_query("明天你觉得是反弹还是继续下跌，分别给出理由")
+
+    assert envelope.question_type == "market_forecast"
+    assert envelope.matched_by == "market_anchor"
+
+
 def test_ticker_and_date_match_next_to_chinese_text() -> None:
     bare_ticker = understand_query("分析002837怎么看")
     suffixed_ticker = understand_query("600000.SH怎么看")

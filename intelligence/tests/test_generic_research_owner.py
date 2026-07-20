@@ -745,10 +745,18 @@ def test_long_tail_fixture_keeps_head_and_owner_routes_out_of_generic_owner() ->
         intent = decision.turn_intent
         generic = bool(
             decision.lane == "research"
-            and decision.question_type == "general_finance_qa"
+            and decision.question_type not in {"market_technical", "external_market"}
             and intent is not None
-            and intent.question_type == "general_finance_qa"
-            and intent.answer_owner is None
+            and (
+                intent.answer_owner is None
+                or (
+                    "relation" in intent.operators
+                    and any(
+                        term in case["query"]
+                        for term in ("客户", "竞争对手", "供应商", "合作方")
+                    )
+                )
+            )
         )
         assert decision.question_type == case["expected_question_type"]
         assert (

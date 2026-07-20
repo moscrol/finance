@@ -239,6 +239,15 @@ _MARKET_FORECAST_RE = re.compile(
     r"(?:怎么|如何|演绎|走势|走)"
     r"|(?:市场|行情|大盘)[^。？！]{0,12}(?:后面|接下来|未来)"
     r"[^。？！]{0,8}(?:演绎|走势|怎么走|如何走)"
+    r"|(?:明天|明日|次日|下个交易日)[^。？！]{0,20}"
+    r"(?:反弹|上涨|下跌|走弱|走势|怎么走|如何走)"
+)
+_EVENT_FORECAST_RE = re.compile(
+    r"(?:如果|若|假设)[^。？！]{0,48}"
+    r"(?:会不会|能否|是否|可能|受益|影响|推动|证伪|落地)"
+    r"|(?:下次|未来|后续)[^。？！]{0,12}"
+    r"(?:降息|加息|政策|发布|推出|落地)[^。？！]{0,20}"
+    r"(?:影响|受益|推动|证伪|可能)"
 )
 _MARKET_CAUSE_RE = re.compile(
     r"(?:(?:本周|这一周|这周|近一周|过去一周|一周内).{0,20}"
@@ -266,7 +275,12 @@ _COMPOSITIONAL_SUBJECT_BOUNDARIES = (
 )
 _COUNTEREVIDENCE_RE = re.compile(r"(反证|证伪|降级条件|证伪条件|升级、降级)")
 _MONEY_FLOW_RE = re.compile(r"(资金流|主买|净流入|大单)")
-_COMPARISON_RE = re.compile(r"(比较|对比|相比|赔率排序)")
+_COMPARISON_RE = re.compile(
+    r"(比较|对比|相比|赔率排序)"
+    r"|[\u4e00-\u9fffA-Za-z0-9+.-]{2,12}(?:和|与)"
+    r"[\u4e00-\u9fffA-Za-z0-9+.-]{2,12}.{0,16}"
+    r"(?:分别|差异|区别|竞争优势|优劣)"
+)
 _RELATION_RE = re.compile(
     r"(上游|下游|供应|客户|合作|产业链位置|处于.{0,8}环节|关系)"
 )
@@ -514,6 +528,12 @@ def is_market_forecast_query(query: str) -> bool:
 
     text = re.sub(r"\s+", "", str(query or "").strip())
     return _MARKET_FORECAST_RE.search(text) is not None
+
+
+def is_event_forecast_query(query: str) -> bool:
+    """识别尚未发生事件的条件化推演，交给通用研究 owner。"""
+    text = re.sub(r"\s+", "", str(query or "").strip())
+    return _EVENT_FORECAST_RE.search(text) is not None
 
 
 def is_market_cause_query(query: str) -> bool:
@@ -870,6 +890,19 @@ def understand_query(
                 0.9,
             )
 
+    if "comparison" in operators and not any(
+        term in text for term in ("什么是", "定义")
+    ):
+        return envelope(
+            "comparison",
+            "unknown",
+            None,
+            "比较对象、关键差异与证据边界",
+            timeframe,
+            "explicit",
+            0.82,
+        )
+
     definition_subject = _definition_subject(text)
     if definition_subject is not None:
         return envelope(
@@ -954,6 +987,18 @@ def understand_query(
             "market_anchor",
             0.92,
         )
+
+    if is_event_forecast_query(text):
+        return envelope(
+            "event_forecast",
+            "unknown",
+            None,
+            "围绕未发生事件形成条件化影响推演与证伪路径",
+            timeframe,
+            "explicit",
+            0.88,
+        )
+
 
     normalized_theme = str(matched_theme or "").strip()
     if normalized_theme:

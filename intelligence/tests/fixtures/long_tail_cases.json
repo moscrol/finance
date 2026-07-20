@@ -16,6 +16,46 @@
     "required_outputs": ["direct_assessment", "supporting_evidence", "counterpoint"]
   },
   {
+    "id": "unowned_market_forecast",
+    "query": "明天你觉得是反弹还是继续下跌，分别给出理由",
+    "expected_question_type": "market_forecast",
+    "expected_owner": null,
+    "expected_generic_owner": true,
+    "required_outputs": ["direct_assessment", "rebound_case", "decline_case", "invalidation", "supporting_evidence"]
+  },
+  {
+    "id": "unowned_event_forecast",
+    "query": "如果美联储下次降息，A股哪些方向可能受益，哪些证据会证伪？",
+    "expected_question_type": "event_forecast",
+    "expected_owner": null,
+    "expected_generic_owner": true,
+    "required_outputs": ["direct_assessment", "rebound_case", "decline_case", "invalidation", "supporting_evidence"]
+  },
+  {
+    "id": "unowned_comparison",
+    "query": "液冷和风冷在数据中心里的竞争优势分别是什么？",
+    "expected_question_type": "comparison",
+    "expected_owner": null,
+    "expected_generic_owner": true,
+    "required_outputs": ["direct_assessment", "comparison_basis", "key_difference", "supporting_evidence"]
+  },
+  {
+    "id": "unowned_relation",
+    "query": "浪潮信息的客户的竞争对手有哪些？",
+    "expected_question_type": "stock_deep_dive",
+    "expected_owner": "stock-deep-dive",
+    "expected_generic_owner": true,
+    "required_outputs": ["direct_assessment", "supporting_evidence", "customer_validation", "counterpoint"]
+  },
+  {
+    "id": "unowned_missing_number",
+    "query": "一个没有现成skill的陌生题材怎么判断？",
+    "expected_question_type": "general_finance_qa",
+    "expected_owner": null,
+    "expected_generic_owner": true,
+    "required_outputs": ["direct_assessment", "supporting_evidence", "counterpoint"]
+  },
+  {
     "id": "head_market_technical",
     "query": "科创50的支撑点位在哪",
     "expected_question_type": "market_technical",

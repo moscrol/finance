@@ -287,6 +287,22 @@ def _deterministic_decision(
                 ("market_quote", "market_news", "web_search"),
             ),
         )
+    if envelope.question_type in {"market_forecast", "event_forecast", "comparison"}:
+        # 这些是研究问题而不是知识解释；即使没有明确主体，也必须进入
+        # GenericResearchOwner，不能因“未知对象”落到 chat/knowledge fallback。
+        return _decision(
+            "research",
+            envelope=envelope,
+            needs_retrieval=True,
+            needs_memory=bool(_MEMORY_PATTERN.search(cleaned)),
+            needs_template=True,
+            confidence=envelope.confidence,
+            reason="确定性识别到无专项 owner 的情景/比较研究问题，交给通用研究闭环",
+            capabilities=_route_capabilities(
+                envelope.question_type,
+                ("memory", "market_quote", "market_news", "web_search", "graph"),
+            ),
+        )
     if envelope.question_type == "external_market":
         return _decision(
             "research",
