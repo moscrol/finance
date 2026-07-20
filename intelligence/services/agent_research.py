@@ -23,7 +23,7 @@ import os
 import re
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from intelligence.services import llm_refine, market_news, web_research
 from intelligence.services.provider_observability import ProviderTrace
@@ -146,6 +146,8 @@ class AgentStep:
     observation: str
     hit_count: int
     elapsed_ms: int
+    hypothesis_ids: tuple[str, ...] = ()
+    stance: str = "context"
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -155,6 +157,8 @@ class AgentStep:
             "observation": self.observation[:200],
             "hit_count": self.hit_count,
             "elapsed_ms": self.elapsed_ms,
+            "hypothesis_ids": list(self.hypothesis_ids),
+            "stance": self.stance,
         }
 
 
@@ -470,11 +474,13 @@ def _system_prompt(tools: dict[str, ToolRunner]) -> str:
         "可用工具：\n"
         + "\n".join(tool_lines)
         + "\n- finish：证据足够或确认无法补齐时结束，"
-        "args: {\"sufficient\": true/false, \"assessment\": \"一句话直接判断（只基于已有证据）\", \"gaps\": [\"仍缺什么\"]}\n"
+        "args: {\"sufficient\": true/false, \"assessment\": \"覆盖任务要求的简洁分析草稿（只基于已有证据）\", \"gaps\": [\"仍缺什么\"]}\n"
         "原则：\n"
         "1. 检索结果与问题无关时要改写检索式或换工具，不要把无关结果当证据；\n"
         "2. 同一检索式不要重复；证据足够就尽早 finish；\n"
-        "3. 拿不到的数据在 finish 的 gaps 里如实写明，不要编造。\n"
+        "3. 工具 args 可选 hypothesis_ids（当前任务中的假设 id）和 stance（support/contradict/context），"
+        "将本次结果绑定到对应情景；未知 id 会被忽略。\n"
+        "4. 拿不到的数据在 finish 的 gaps 里如实写明，不要编造。\n"
         "只输出 JSON（无 markdown 代码栏）："
         '{"tool": "工具名", "args": {...}, "reason": "一句话理由"}'
     )
@@ -596,6 +602,7 @@ def run_agent_loop(
     }
     system_prompt = _system_prompt(tools)
     no_information_steps = 0
+    finish_rejections = 0
 
     def available_stage_seconds() -> float:
         """检索阶段可消费的预算，不侵占 synthesis reserve。"""
@@ -616,14 +623,22 @@ def run_agent_loop(
             f"{_research_state_block(result.research_state, result.steps)}\n\n"
             f"剩余检索步数预算：{budget - executed_steps}"
         )
-        content, _provider, reason = complete(
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            timeout=min(float(llm_timeout), remaining),
-            temperature=0.0,
-        )
+        try:
+            content, _provider, reason = complete(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                timeout=min(float(llm_timeout), remaining),
+                temperature=0.0,
+            )
+        except Exception as exc:  # noqa: BLE001 - provider failure is a gap
+            # A rejected finish may require one replanning turn. If the
+            # provider then fails/exhausts its scripted response, preserve the
+            # collected evidence as partial instead of leaking an exception out
+            # of the research owner.
+            result.stop_reason = f"LLM 调用失败：{type(exc).__name__}"
+            break
         if content is None:
             result.stop_reason = f"LLM 不可用：{reason}"
             break
@@ -636,14 +651,78 @@ def run_agent_loop(
         action_reason = str(action.get("reason") or "").strip()
 
         if tool == "finish":
-            result.sufficient = bool(args.get("sufficient"))
-            result.assessment = str(args.get("assessment") or "").strip()[:600]
+            requested_sufficient = bool(args.get("sufficient"))
+            result.assessment = str(args.get("assessment") or "").strip()[:1600]
             raw_gaps = args.get("gaps")
             result.gaps = tuple(
                 str(gap).strip()
                 for gap in (raw_gaps if isinstance(raw_gaps, list) else [])
                 if str(gap).strip()
             )
+            uncovered = ()
+            missing_outputs: tuple[str, ...] = ()
+            if requested_sufficient and result.research_state is not None:
+                uncovered = tuple(
+                    hypothesis.hypothesis_id
+                    for hypothesis in result.research_state.hypotheses
+                    if not (
+                        hypothesis.supporting_evidence
+                        or hypothesis.contradicting_evidence
+                        or any(
+                            hypothesis.hypothesis_id in gap.blocks
+                            for gap in result.research_state.gaps
+                        )
+                    )
+                )
+                missing: list[str] = []
+                for output_id in result.research_state.required_outputs:
+                    if not result.research_state.required_output_required.get(
+                        output_id, True
+                    ):
+                        continue
+                    if output_id in uncovered:
+                        continue
+                    if output_id in {"direct_assessment", "answer", "conclusion"}:
+                        if not result.assessment:
+                            missing.append(output_id)
+                        continue
+                    allowed_tools = set(
+                        result.research_state.required_output_evidence_types.get(
+                            output_id, ()
+                        )
+                    )
+                    if not any(
+                        not allowed_tools or item.tool in allowed_tools
+                        for item in result.research_state.evidence.values()
+                    ):
+                        missing.append(output_id)
+                missing_outputs = tuple(missing)
+            # 只允许一次“完成请求被延迟”重新规划；若模型仍重复 finish，
+            # 以 partial 结束并把未覆盖情景作为 gap，避免循环耗尽预算。
+            if requested_sufficient and (uncovered or missing_outputs) and finish_rejections == 0:
+                finish_rejections += 1
+                result.sufficient = False
+                missing_text = "、".join((*uncovered, *missing_outputs))
+                result.gaps = tuple(
+                    dict.fromkeys(
+                        (*result.gaps, f"尚未覆盖必需情景：{missing_text}")
+                    )
+                )
+                result.steps.append(
+                    AgentStep(
+                        tool="finish",
+                        query="",
+                        reason=action_reason,
+                        observation=(
+                            "完成请求被延迟：仍缺少假设覆盖；请继续检索或明确 gap。"
+                            f" 未覆盖={missing_text}"
+                        ),
+                        hit_count=0,
+                        elapsed_ms=0,
+                    )
+                )
+                continue
+            result.sufficient = requested_sufficient and not uncovered
             result.steps.append(
                 AgentStep(
                     tool="finish",
@@ -699,6 +778,24 @@ def run_agent_loop(
             result.stop_reason = "预算耗尽：总时长"
             break
         state_revision_before = result.research_state.revision if result.research_state is not None else 0
+        raw_hypothesis_ids = args.get("hypothesis_ids", ())
+        if isinstance(raw_hypothesis_ids, str):
+            raw_hypothesis_ids = (raw_hypothesis_ids,)
+        hypothesis_ids = tuple(
+            dict.fromkeys(
+                str(item).strip()
+                for item in (raw_hypothesis_ids if isinstance(raw_hypothesis_ids, (list, tuple)) else ())
+                if str(item).strip()
+                and result.research_state is not None
+                and any(
+                    hypothesis.hypothesis_id == str(item).strip()
+                    for hypothesis in result.research_state.hypotheses
+                )
+            )
+        )
+        stance = str(args.get("stance") or "context").strip().lower()
+        if stance not in {"support", "contradict", "context"}:
+            stance = "context"
         started = time.monotonic()
         try:
             evidence, observation, trace = _run_tool(
@@ -716,6 +813,15 @@ def run_agent_loop(
             )
         elapsed_ms = int((time.monotonic() - started) * 1000)
         result.traces.append(trace)
+        if hypothesis_ids and stance in {"support", "contradict"}:
+            evidence = [
+                replace(
+                    item,
+                    supports=hypothesis_ids if stance == "support" else (),
+                    contradicts=hypothesis_ids if stance == "contradict" else (),
+                )
+                for item in evidence
+            ]
         result.evidence.extend(evidence)
         if result.research_state is not None:
             evidence_start = len(result.evidence) - len(evidence) + 1
@@ -734,6 +840,8 @@ def run_agent_loop(
                 observation=observation[:_MAX_OBSERVATION_CHARS],
                 hit_count=len(evidence),
                 elapsed_ms=elapsed_ms,
+                hypothesis_ids=hypothesis_ids,
+                stance=stance,
             )
         )
         state_changed = result.research_state is not None and result.state_revision > state_revision_before

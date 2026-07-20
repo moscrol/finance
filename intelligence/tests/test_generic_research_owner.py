@@ -61,6 +61,90 @@ def _contract(*, required_direct: bool = True) -> ResearchTaskContract:
     )
 
 
+def test_market_forecast_contract_requires_two_scenarios_and_invalidation() -> None:
+    intent = conversation_orchestrator.TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="market_forecast",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    contract = conversation_orchestrator._build_generic_research_contract(
+        "明天是反弹还是继续下跌，分别给出理由",
+        task_id="forecast-contract",
+        turn_intent=intent,
+    )
+    assert contract.subject == "A股市场"
+    assert [item.output_id for item in contract.required_outputs] == [
+        "direct_assessment",
+        "rebound_case",
+        "decline_case",
+        "invalidation",
+        "supporting_evidence",
+    ]
+    assert contract.allowed_capabilities == ("market_data", "web_search", "news_search")
+
+
+def test_forecast_state_initializes_scenario_hypotheses() -> None:
+    intent = conversation_orchestrator.TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="market_forecast",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    state = ResearchState.from_contract(
+        conversation_orchestrator._build_generic_research_contract(
+            "明天是反弹还是继续下跌",
+            task_id="forecast-state",
+            turn_intent=intent,
+        )
+    )
+    assert {item.hypothesis_id for item in state.hypotheses} == {
+        "rebound_case",
+        "decline_case",
+        "invalidation",
+    }
+
+
+def test_finish_true_is_delayed_until_forecast_hypotheses_are_covered() -> None:
+    intent = conversation_orchestrator.TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="market_forecast",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    contract = conversation_orchestrator._build_generic_research_contract(
+        "明天是反弹还是继续下跌",
+        task_id="forecast-finish",
+        turn_intent=intent,
+    )
+    actions = iter(
+        [
+            '{"tool":"finish","args":{"sufficient":true,"assessment":"暂偏弱","gaps":[]},"reason":"过早结束"}',
+            '{"tool":"finish","args":{"sufficient":false,"assessment":"两种情景证据不足","gaps":["缺少反弹与下跌情景的独立验证"]},"reason":"如实报告缺口"}',
+        ]
+    )
+
+    def complete(_messages, **_kwargs):
+        return next(actions), "test", ""
+
+    result = agent_research.run_agent_loop(
+        contract.question,
+        tools={},
+        steps_budget=2,
+        complete_fn=complete,
+        research_state=ResearchState.from_contract(contract),
+    )
+    assert result.stop_reason == "agent finish"
+    assert result.sufficient is False
+    assert "完成请求被延迟" in result.steps[0].observation
+
+
 def test_fact_check_counterparty_and_official_relation_filter() -> None:
     assert (
         ask._fact_check_counterparty(

@@ -144,6 +144,14 @@ def _matches_output(
         )
     if normalized in {"counterpoint", "risk", "counter_evidence"}:
         return evidence[:2] if len(evidence) >= 2 else ()
+    if normalized in {"rebound_case", "decline_case", "invalidation"}:
+        # 情景输出只接受 agent 明确绑定到对应 hypothesis 的证据；不能用
+        # 同一条最新行情同时冒充反弹、下跌和失效条件。
+        return tuple(
+            item
+            for item in evidence
+            if normalized in item.supports or normalized in item.contradicts
+        )
     if required.evidence_types:
         allowed = set(required.evidence_types)
         return tuple(item for item in evidence if item.tool in allowed)

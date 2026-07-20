@@ -81,6 +81,8 @@ class ResearchState:
         self.question_type = question_type
         self.timeframe = timeframe
         self.required_outputs = tuple(required_outputs)
+        self.required_output_evidence_types: dict[str, tuple[str, ...]] = {}
+        self.required_output_required: dict[str, bool] = {}
         self.presentation_profile = presentation_profile
         self.hypotheses: list[HypothesisState] = []
         self.evidence: dict[str, EvidenceObservation] = {}
@@ -104,11 +106,28 @@ class ResearchState:
             required_outputs=outputs,
             presentation_profile=str(getattr(contract, "presentation_profile", "general")),
         )
+        # 情景输出本身就是最小可审计假设集合。这样 planner/agent 不必再
+        # 各自维护一份“反弹/下跌/失效”清单，证据关系统一回写到本状态。
+        hypothesis_kinds = {
+            "rebound_case": "scenario",
+            "decline_case": "scenario",
+            "invalidation": "falsifier",
+            "counterpoint": "counterpoint",
+            "cause_attribution": "causal",
+            "causal_explanation": "causal",
+        }
         for item in getattr(contract, "required_outputs", ()):
             output_id = str(getattr(item, "output_id", ""))
             description = str(getattr(item, "description", ""))
-            if output_id in {"cause_attribution", "causal_explanation"}:
-                state.add_hypothesis(output_id, description, kind="causal")
+            state.required_output_evidence_types[output_id] = tuple(
+                str(value) for value in getattr(item, "evidence_types", ())
+            )
+            state.required_output_required[output_id] = bool(
+                getattr(item, "required", True)
+            )
+            kind = hypothesis_kinds.get(output_id)
+            if kind:
+                state.add_hypothesis(output_id, description, kind=kind)
         state.budget = {
             "max_steps": int(getattr(getattr(contract, "policy", None), "max_steps", 0) or 0),
         }
@@ -172,7 +191,7 @@ class ResearchState:
     def set_assessment(self, assessment: str) -> None:
         normalized = assessment.strip()
         if normalized and normalized != self.assessment:
-            self.assessment = normalized[:1200]
+            self.assessment = normalized[:1600]
             self.revision += 1
 
     def set_stop_reason(self, reason: str) -> None:
@@ -193,6 +212,15 @@ class ResearchState:
             output
             for gap in self.gaps
             for output in gap.blocks
+        }
+        uncovered_hypotheses = {
+            hypothesis.hypothesis_id
+            for hypothesis in self.hypotheses
+            if not (
+                hypothesis.supporting_evidence
+                or hypothesis.contradicting_evidence
+                or hypothesis.hypothesis_id in blocking_gaps
+            )
         }
         has_assessment = bool(self.assessment.strip())
         factual = "fulfilled" if evidence_ok else "missing"
@@ -257,9 +285,15 @@ class ResearchState:
             causal = "fulfilled"
         coverage = (
             "missing"
-            if not has_assessment and self.required_outputs
+            if (not has_assessment and self.required_outputs)
+            or (
+                bool(self.hypotheses)
+                and uncovered_hypotheses == {
+                    hypothesis.hypothesis_id for hypothesis in self.hypotheses
+                }
+            )
             else "partial"
-            if blocking_gaps
+            if blocking_gaps or uncovered_hypotheses
             else "fulfilled"
         )
         status = "completed" if factual == causal == coverage == "fulfilled" else "partial"
@@ -297,6 +331,10 @@ class ResearchState:
             "question_type": self.question_type,
             "timeframe": self.timeframe,
             "required_outputs": list(self.required_outputs),
+            "required_output_evidence_types": {
+                key: list(value)
+                for key, value in self.required_output_evidence_types.items()
+            },
             "presentation_profile": self.presentation_profile,
             "hypotheses": [
                 {

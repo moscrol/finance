@@ -1141,22 +1141,43 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         agent_query: str,
         context: agent_research.AgentToolContext,
     ):
-        """通用 Owner 的结构化行情工具：原因问题固定给周窗口，不给单日快照。"""
-        del agent_query
+        """通用 Owner 的结构化行情工具。
+
+        预测题固定预取“最新总览 + 多日窗口”，原因题仍使用归因窗口；两者
+        都只输出可核验盘面事实，不把日报模板或方向判断伪装成证据。
+        """
         if context.deadline.expired:
             raise TimeoutError("agent market data deadline expired")
-        block = _market_cause_window_block_for_llm(options.market_db_path)
+        if contract.question_type == QUESTION_MARKET_FORECAST:
+            overview = _daily_market_overview_block_for_llm(options.market_db_path)
+            window = _market_cause_window_block_for_llm(options.market_db_path)
+            block = "\n".join(
+                part
+                for part in (
+                    "## 预测所需结构化盘面证据 [MFORECAST]",
+                    overview,
+                    window,
+                    "- 使用边界：以上仅为盘面事实；反弹/下跌情景必须另行绑定证据，不能由数据块自动推出。",
+                )
+                if part
+            )
+            detail = "market_forecast_overview_and_window"
+            source = "本地 DuckDB · 预测盘面窗口"
+        else:
+            block = _market_cause_window_block_for_llm(options.market_db_path)
+            detail = "weekly_market_cause_window"
+            source = "本地 DuckDB · 周内市场归因窗口"
         evidence, observation = agent_research.block_lines_to_evidence(
-            "market_data", block, "本地 DuckDB · 周内市场归因窗口"
+            "market_data", block, source
         )
         trace = ProviderTrace(
             provider="agent:market_data",
             capability="agent_loop",
             status="success" if evidence else "empty",
-            detail="weekly_market_cause_window",
+            detail=detail,
             result_count=len(evidence),
         )
-        return evidence, observation or "本地周内市场数据无匹配", trace
+        return evidence, observation or "本地结构化市场数据无匹配", trace
 
     tools = {
         **agent_research.build_default_tools(retrieve_kb),
@@ -1215,19 +1236,26 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
 
     if "l3_lookup" in contract.allowed_capabilities:
         tools["l3_lookup"] = _generic_l3_lookup
-    if contract.question_type == "market_cause" and options.market_db_path is not None:
+    if contract.question_type == QUESTION_MARKET_FORECAST or (
+        contract.question_type == "market_cause" and options.market_db_path is not None
+    ):
         tools["market_data"] = _generic_market_data
     registry = research_tool_registry.default_registry(tools)
     preloaded_items: list[agent_research.AgentEvidence] = []
     preloaded_trace_items: list[ProviderTrace] = []
     preloaded_observations: list[str] = []
     disabled_tool_names: list[str] = []
-    if contract.question_type == "market_cause" and "market_data" in registry.names():
-        # 周内盘面是真值底座，不能由 agent 的工具选择顺序决定是否取得。
+    if contract.question_type in {"market_cause", QUESTION_MARKET_FORECAST} and "market_data" in registry.names():
+        # 盘面是真值底座，不能由 agent 的工具选择顺序决定是否取得；预取后
+        # 从可选工具中移除，避免固定管线与 agent loop 重复查盘。
         try:
             observation = registry.execute(
                 "market_data",
-                "本周市场下跌的周内盘面窗口",
+                (
+                    "预测问题的最新市场总览与最近交易日窗口"
+                    if contract.question_type == QUESTION_MARKET_FORECAST
+                    else "本周市场下跌的周内盘面窗口"
+                ),
                 context=context,
                 step_id=f"{contract.task_id}:owner:prefetch",
             )

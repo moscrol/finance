@@ -44,6 +44,7 @@ from intelligence.services.answer_orchestrator import (
     QUESTION_METHODOLOGY,
     QUESTION_MARKET_REVIEW,
     QUESTION_MARKET_CAUSE,
+    QUESTION_MARKET_FORECAST,
     QUESTION_EXTERNAL_MARKET,
     QUESTION_MARKET_TECHNICAL,
     plan_answer_question,
@@ -141,6 +142,9 @@ def _build_generic_research_contract(
         else "standard"
     )
     is_market_cause = turn_intent.question_type == QUESTION_MARKET_CAUSE
+    is_market_forecast = turn_intent.question_type == QUESTION_MARKET_FORECAST
+    is_event_forecast = turn_intent.question_type == "event_forecast"
+    is_comparison = turn_intent.question_type == "comparison"
     is_methodology = bool(
         re.search(
             r"(?:怎么做|如何做|为什么会|原理|架构|编排|RAG|BM25|Agent|模板化|质检)",
@@ -154,8 +158,70 @@ def _build_generic_research_contract(
             query,
         )
     )
-    required_outputs = (
-        (
+    if is_market_forecast or is_event_forecast:
+        # 预测不是一句“涨/跌”。显式登记两种情景和失效条件，避免只拿到
+        # 一个方向的证据就被 soft planner 误判为完成。
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "针对预测窗口的直接判断，并明确当前基准情景",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "rebound_case",
+                "反弹情景：触发条件、支持证据与观察窗口",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "decline_case",
+                "继续下跌情景：触发条件、支持证据与观察窗口",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "invalidation",
+                "使当前判断失效的反证或关键监测指标",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条可回查的当前盘面或外部来源",
+                ("market_data", "web_search", "news_search"),
+                True,
+            ),
+        )
+    elif is_comparison:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "直接给出比较结论和比较维度",
+                ("kb_search", "web_search", "news_search", "graph_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "comparison_basis",
+                "至少两个可回查的比较事实或指标",
+                ("kb_search", "web_search", "news_search", "evidence_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "key_difference",
+                "指出决定差异的关键变量及其边界",
+                ("kb_search", "web_search", "news_search", "graph_lookup"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条可回查来源",
+                ("kb_search", "web_search", "news_search", "evidence_lookup"),
+                True,
+            ),
+        )
+    elif is_market_cause:
+        required_outputs = (
             RequiredOutput(
                 "direct_assessment",
                 "针对用户问题的直接判断，必须明确回答指定周窗口",
@@ -181,8 +247,8 @@ def _build_generic_research_contract(
                 True,
             ),
         )
-        if is_market_cause
-        else (
+    else:
+        required_outputs = (
             RequiredOutput(
                 "direct_assessment",
                 "针对用户问题的直接判断",
@@ -220,9 +286,18 @@ def _build_generic_research_contract(
                 else ()
             ),
         )
-    )
-    capabilities = (
-        (
+    if is_market_forecast:
+        capabilities = ("market_data", "web_search", "news_search")
+    elif is_event_forecast:
+        capabilities = (
+            "web_search", "news_search", "kb_search", "graph_lookup", "evidence_lookup"
+        )
+    elif is_comparison:
+        capabilities = (
+            "kb_search", "web_search", "news_search", "graph_lookup", "evidence_lookup"
+        )
+    elif is_market_cause:
+        capabilities = (
             "market_data",
             "web_search",
             "news_search",
@@ -230,8 +305,8 @@ def _build_generic_research_contract(
             "evidence_lookup",
             *(("l3_lookup",) if needs_l3 else ()),
         )
-        if is_market_cause
-        else (
+    else:
+        capabilities = (
             "kb_search",
             "web_search",
             "news_search",
@@ -239,26 +314,40 @@ def _build_generic_research_contract(
             "evidence_lookup",
             *(("l3_lookup",) if needs_l3 else ()),
         )
-    )
+    subject = turn_intent.primary_subject
+    if (is_market_forecast or is_event_forecast) and not subject:
+        subject = "A股市场"
     return ResearchTaskContract(
         task_id=task_id,
         question=query,
-        subject=turn_intent.primary_subject,
-        subject_kind="market_pattern" if is_market_cause else None,
+        subject=subject,
+        subject_kind=(
+            "market_pattern"
+            if is_market_cause or is_market_forecast
+            else "event"
+            if is_event_forecast
+            else None
+        ),
         question_type=turn_intent.question_type,
         required_outputs=(
             *required_outputs,
-            RequiredOutput(
-                "counterpoint",
-                "反方或证据边界",
-                ("kb_search", "web_search", "news_search", "market_data"),
-                False,
-            ),
+            *(() if (is_market_forecast or is_event_forecast or is_comparison) else (
+                RequiredOutput(
+                    "counterpoint",
+                    "反方或证据边界",
+                    ("kb_search", "web_search", "news_search", "market_data"),
+                    False,
+                ),
+            )),
         ),
         allowed_capabilities=capabilities,
         research_tier=tier,
         presentation_profile=(
-            "causal"
+            "forecast"
+            if is_market_forecast or is_event_forecast
+            else "comparison"
+            if is_comparison
+            else "causal"
             if is_market_cause
             else "methodology"
             if is_methodology

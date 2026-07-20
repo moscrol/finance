@@ -11,6 +11,8 @@ from intelligence.services.agent_research import (
 )
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.research_contract import RequiredOutput, ResearchTaskContract
+from intelligence.services.research_state import ResearchState
 
 
 def _tool(name: str, hits: int = 1):
@@ -73,6 +75,44 @@ def test_loop_executes_tools_then_finishes_with_gaps() -> None:
     assert result.gaps == ("缺指数日K行情",)
     assert result.stop_reason == "agent finish"
     assert result.traces[0].provider == "agent:web_search"
+
+
+def test_tool_action_binds_evidence_to_known_hypothesis() -> None:
+    contract = ResearchTaskContract(
+        task_id="hypothesis-binding",
+        question="明天是反弹还是继续下跌",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        question_type="market_forecast",
+        required_outputs=(
+            RequiredOutput("rebound_case", "反弹情景", ("web_search",), True),
+        ),
+        allowed_capabilities=("web_search",),
+        research_tier="quick",
+    )
+    state = ResearchState.from_contract(contract)
+    # RequiredOutput 也作为状态假设的来源，模拟通用 contract 的真实路径。
+    state.add_hypothesis("rebound_case", "反弹情景")
+    result = run_agent_loop(
+        contract.question,
+        tools={"web_search": _tool("web_search")},
+        steps_budget=1,
+        research_state=state,
+        complete_fn=_scripted_complete(
+            [
+                {
+                    "tool": "web_search",
+                    "args": {
+                        "query": "明天反弹触发条件",
+                        "hypothesis_ids": ["rebound_case", "unknown"],
+                        "stance": "support",
+                    },
+                }
+            ]
+        ),
+    )
+    assert result.evidence[0].supports == ("rebound_case",)
+    assert result.steps[0].hypothesis_ids == ("rebound_case",)
 
 
 def test_duplicate_query_is_intercepted_without_execution() -> None:
