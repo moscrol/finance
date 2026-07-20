@@ -25,6 +25,7 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
+from intelligence.services.research_state import ResearchState
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
@@ -330,6 +331,129 @@ def test_incomplete_owner_result_cannot_enter_synthesis(monkeypatch) -> None:
     assert result.completion_report["status"] == "partial"
     prepared = ask.prepare_existing_answer(options, result)
     assert prepared.result.prepared_synthesis_messages is None
+
+
+def test_partial_causal_result_with_grounded_facts_can_enter_presenter() -> None:
+    claim = answer_model.make_claim(
+        claim_id="cause:mechanism",
+        text="周内四个交易日下跌，风险偏好收缩是可验证的盘面机制。",
+        claim_type="cause_attribution",
+        theme="A股市场",
+        status=answer_model.ClaimStatus.INFERRED,
+        evidence_ids=("G1",),
+    )
+    spec = answer_model.finalize_answer_spec(
+        answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_answer_profile(
+                "本周为什么下跌", None, "causal"
+            ),
+            summary=(claim,),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(
+                answer_model.make_claim(
+                    claim_id="cause:external-gap",
+                    text="外部触发因素仍缺少时间对齐证据。",
+                    claim_type="evidence_gap",
+                    theme="A股市场",
+                    status=answer_model.ClaimStatus.MISSING,
+                ),
+            ),
+            triggers=(),
+            next_actions=(),
+            sources=(answer_model.EvidenceRef("G1", "本地周行情", "周窗口"),),
+            system_notices=(),
+            presentation_kind="generic_research",
+            presentation_profile="causal",
+        )
+    )
+    result = ask.AskResult(
+        query="本周为什么下跌",
+        trade_date=None,
+        matched_theme=None,
+        candidate_tier=None,
+        priority_score=None,
+        answer_spec=spec,
+        completion_report={
+            "status": "partial",
+            "factual_grounding": "fulfilled",
+            "causal_adequacy": "partial",
+            "task_coverage": "partial",
+            "outputs": [],
+        },
+        citations=[ask.Citation("G1", "本地周行情", "周窗口")],
+    )
+    prepared = ask.prepare_existing_answer(
+        ask.AskOptions(query=result.query, compose=True, synthesize=False),
+        result,
+    )
+    assert prepared.result.prepared_synthesis_messages
+
+
+def test_unrelated_dated_news_does_not_fulfil_external_cause_output() -> None:
+    contract = ResearchTaskContract(
+        task_id="cause-test",
+        question="本周 A 股为什么下跌",
+        subject=None,
+        subject_kind="market_pattern",
+        question_type="market_cause",
+        required_outputs=(
+            RequiredOutput(
+                "external_cause_evidence",
+                "时间对齐的外部原因",
+                ("web_search", "news_search"),
+                False,
+            ),
+        ),
+        allowed_capabilities=("market_data", "web_search"),
+    )
+    state = ResearchState.from_contract(contract)
+    evidence = [
+        agent_research.AgentEvidence(
+            tool="market_data",
+            title="本周指数",
+            detail="本周指数下跌",
+            source="local",
+            source_date="2026-07-17",
+        ),
+        agent_research.AgentEvidence(
+            tool="web_search",
+            title="某公司发布新品",
+            detail="某公司新品进入内测",
+            source="web",
+            source_date="2026-07-17",
+        ),
+    ]
+    for index, item in enumerate(evidence, start=1):
+        state.add_evidence(item.to_observation(f"e{index}"))
+    state.set_assessment("风险偏好收缩是盘面机制。")
+    loop = agent_research.AgentLoopResult(
+        steps=[],
+        evidence=evidence,
+        traces=[],
+        sufficient=True,
+        assessment="风险偏好收缩是盘面机制。",
+        research_state=state,
+    )
+    report = generic_research_owner.evaluate_completion(contract, loop)
+    output = next(
+        item
+        for item in report.outputs
+        if item.output_id == "external_cause_evidence"
+    )
+    assert output.status == "gap"
+    assert not output.evidence_ids
+
+
+def test_evidence_display_text_deduplicates_title_prefix() -> None:
+    item = agent_research.AgentEvidence(
+        tool="market_data",
+        title="2026-07-17：指数 -3.05%",
+        detail="2026-07-17：指数 -3.05%；跌停 193 家。",
+        source="local",
+    )
+    assert agent_research.evidence_display_text(item) == item.detail
 
 
 @pytest.mark.parametrize("skill_mode", ["auto", "hybrid"])

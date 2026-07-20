@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import date
 from typing import Callable
 
 from intelligence.services import agent_research, research_tool_registry
+from intelligence.services.evidence_window import is_time_aligned_evidence
 from intelligence.services.research_contract import (
     OutputStatus,
+    RequiredOutput,
     ResearchRunContext,
     ResearchTaskContract,
 )
@@ -77,39 +80,74 @@ class GenericResearchResult:
         }
 
 
-def _evidence_ids(
+def _evidence_pairs(
     evidence: tuple[agent_research.AgentEvidence, ...],
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, agent_research.AgentEvidence], ...]:
     return tuple(
-        f"agent:{index}:{item.tool}"
+        (f"agent:{index}:{item.tool}", item)
         for index, item in enumerate(evidence, start=1)
     )
 
 
+def _causal_external_match(
+    item: agent_research.AgentEvidence,
+    evidence: tuple[agent_research.AgentEvidence, ...],
+) -> bool:
+    if item.tool not in {"news_search", "web_search"}:
+        return False
+    reference_dates: list[date] = []
+    for value in evidence:
+        if not value.source_date:
+            continue
+        try:
+            reference_dates.append(
+                date.fromisoformat(str(value.source_date)[:10].replace("/", "-"))
+            )
+        except ValueError:
+            continue
+    reference_date = reference_dates[-1] if reference_dates else None
+    if not is_time_aligned_evidence(item, reference_date=reference_date):
+        return False
+    text = f"{item.title} {item.detail}"
+    # 市场原因题不能把同日但无关的公司新闻当成外部触发证据。
+    return any(
+        term in text
+        for term in ("指数", "股市", "资金", "政策", "美股", "市场", "A股", "外盘")
+    )
+
+
 def _matches_output(
-    output_id: str,
+    required: RequiredOutput,
     evidence: tuple[agent_research.AgentEvidence, ...],
     loop: agent_research.AgentLoopResult,
-) -> bool:
+) -> tuple[agent_research.AgentEvidence, ...]:
     if not evidence:
-        return False
-    normalized = output_id.casefold()
+        return ()
+    normalized = required.output_id.casefold()
     if normalized in {"direct_assessment", "answer", "conclusion"}:
         # 历史通用契约的 finish 仍向后兼容；原因归因题另由
         # cause_attribution 强制要求带文字的判断，避免一次升级破坏旧长尾。
-        return loop.sufficient is True
+        return evidence if loop.sufficient is True and loop.assessment.strip() else ()
     if normalized in {"cause_attribution", "causal_explanation"}:
-        tools = {item.tool for item in evidence}
-        return (
-            loop.sufficient is True
-            and bool(loop.assessment.strip())
-            and "market_data" in tools
+        if loop.sufficient is not True or not loop.assessment.strip():
+            return ()
+        return tuple(item for item in evidence if item.tool == "market_data")
+    if normalized in {
+        "external_cause_evidence",
+        "event_evidence",
+        "funding_evidence",
+    }:
+        return tuple(
+            item
+            for item in evidence
+            if _causal_external_match(item, evidence)
         )
-    if normalized in {"external_cause_evidence", "event_evidence", "funding_evidence"}:
-        return bool({item.tool for item in evidence}.intersection({"news_search", "web_search"}))
     if normalized in {"counterpoint", "risk", "counter_evidence"}:
-        return len(evidence) >= 2 or bool(loop.gaps)
-    return True
+        return evidence[:2] if len(evidence) >= 2 else ()
+    if required.evidence_types:
+        allowed = set(required.evidence_types)
+        return tuple(item for item in evidence if item.tool in allowed)
+    return evidence
 
 
 def evaluate_completion(
@@ -122,11 +160,17 @@ def evaluate_completion(
     else:
         completion = None
     evidence = tuple(loop.evidence)
-    ids = _evidence_ids(evidence)
+    evidence_pairs = _evidence_pairs(evidence)
     outputs: list[OutputStatus] = []
     for required in contract.required_outputs:
-        if _matches_output(required.output_id, evidence, loop):
-            outputs.append(OutputStatus(required.output_id, "fulfilled", ids))
+        matches = _matches_output(required, evidence, loop)
+        if matches:
+            match_ids = tuple(
+                evidence_id
+                for evidence_id, item in evidence_pairs
+                if item in matches
+            )
+            outputs.append(OutputStatus(required.output_id, "fulfilled", match_ids))
             continue
         gap = "；".join(loop.gaps) or f"仍缺少：{required.description}"
         outputs.append(

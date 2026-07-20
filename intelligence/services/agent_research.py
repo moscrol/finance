@@ -431,6 +431,21 @@ def block_lines_to_evidence(
     return evidence, observation
 
 
+def evidence_display_text(item: AgentEvidence) -> str:
+    """Render one evidence item without repeating a title copied from its detail."""
+    title = item.title.strip()
+    detail = item.detail.strip()
+    if not title:
+        return detail
+    if not detail:
+        return title
+    normalized_title = re.sub(r"\s+", "", title).rstrip("：:；;。. ")
+    normalized_detail = re.sub(r"\s+", "", detail)
+    if normalized_detail.startswith(normalized_title):
+        return detail
+    return f"{title}：{detail}"
+
+
 CompleteFn = Callable[..., tuple[str | None, object, str]]
 
 def _system_prompt(tools: dict[str, ToolRunner]) -> str:

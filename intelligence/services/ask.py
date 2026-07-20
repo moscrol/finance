@@ -1009,15 +1009,16 @@ def _market_cause_fallback_assessment(
     """
     details = [item.detail.strip() for item in evidence if item.detail.strip()]
     window = next((line for line in details if line.startswith("窗口：")), "该周窗口")
+    window = window.split("；", 1)[0]
     index_line = next((line for line in details if line.startswith("上证指数：")), "指数周内走弱")
     pressure_line = next(
         (line for line in details if line.startswith("下跌交易日：")),
         "下跌交易日与亏钱效应数据有限",
     )
     return (
-        f"从{window}的盘面证据看，当前能确认的主要下跌机制是风险偏好收缩、"
-        f"卖压在后半周集中释放，而不是已经核验出某一个单一外部事件："
-        f"{index_line}；{pressure_line}。这解释了指数走弱与跌停扩散，但"
+        f"从{window}的盘面证据看，本周下跌更符合风险偏好收缩、卖压集中释放的"
+        f"市场机制，而不是已经核验出某一个单一外部事件。{index_line}；"
+        f"{pressure_line}。这能解释指数走弱与亏钱效应扩散，但"
         "宏观、外盘或资金流向的具体触发因素仍缺少与该周逐日对齐的可回查证据。"
     )
 
@@ -1291,11 +1292,12 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 item.detail,
             )
         )
-        evidence_lines.append(f"{item.title}：{item.detail} [{tag}]")
+        evidence_text = agent_research.evidence_display_text(item)
+        evidence_lines.append(f"{evidence_text} [{tag}]")
         candidate_claims.append(
             answer_model.make_claim(
                 claim_id=f"generic:candidate:{index}",
-                text=f"{item.title}：{item.detail}",
+                text=evidence_text,
                 claim_type="supporting_fact",
                 theme=contract.subject or options.query,
                 status=answer_model.ClaimStatus.CANDIDATE,
@@ -2964,6 +2966,7 @@ def prepare_existing_answer(
     if (
         result.completion_report is not None
         and result.completion_report.get("status") != "completed"
+        and result.completion_report.get("factual_grounding") != "fulfilled"
     ):
         return PreparedAnswer(
             options=replace(options, synthesize=False),
