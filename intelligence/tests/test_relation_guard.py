@@ -44,5 +44,9 @@ def test_relation_question_without_edge_fails_closed_and_traces_graph_guard(tmp_
     )
     assert result.answer_spec is not None
     assert result.answer_spec.presentation_kind == "evidence_gap"
+    assert not any(
+        warning.startswith("题材候选快照截至")
+        for warning in result.warnings
+    )
     prepared = prepare_existing_answer(AskOptions(query=result.query), result)
     assert prepared.result.prepared_synthesis_messages == []

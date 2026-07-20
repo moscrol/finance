@@ -1857,6 +1857,13 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     if relation_edge_gap:
         # 缺显式关系边时答案已经确定为 gap。继续跑 Wiki、Web 和 LLM 既不能
         # 把“共现”升级为关系，反而会浪费预算并制造大量无意义降级。
+        # 同理，未参与结论的题材候选快照日期差不应被记为本轮 degrade；
+        # 完整数据日期仍留在市场上下文 trace，不污染关系题的终态。
+        result.warnings = [
+            warning
+            for warning in result.warnings
+            if not warning.startswith("题材候选快照截至")
+        ]
         result.data_notice = relation_edge_gap
         result.sections = {
             "结论": [relation_edge_gap],
