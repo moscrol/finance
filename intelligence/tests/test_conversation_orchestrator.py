@@ -360,6 +360,9 @@ def test_methodology_lane_never_falls_back_to_financial_rag(tmp_path) -> None:
     decision = json.loads(controller["output_summary"])["decision"]
     assert decision["question_type"] == QUESTION_METHODOLOGY
     assert decision["needs_retrieval"] is False
+    assert json.loads(controller["output_summary"])[
+        "decision_diverged_from_legacy"
+    ] is False
     generation = next(
         step for step in run_store.load_trace(run_id) if step["name"] == "lane_direct_answer"
     )

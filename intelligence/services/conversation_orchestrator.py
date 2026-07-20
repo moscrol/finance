@@ -1035,7 +1035,8 @@ class TurnOrchestrator:
             report["task_type"] = decision.lane
             legacy_lane = (
                 "knowledge"
-                if routing_envelope.question_type == "concept_definition"
+                if routing_envelope.question_type
+                in {QUESTION_CONCEPT_DEFINITION, QUESTION_METHODOLOGY}
                 else "research"
             )
             self._trace(
