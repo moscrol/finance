@@ -762,14 +762,17 @@ def _skill_output_compatible_with_turn(
 
     A skill may contribute evidence/modules, but only a declared workflow or a
     terminal owner whose question type matches the controller may terminate a
-    research turn.  ``question_type is None`` is kept as a legacy escape hatch
-    for custom test/third-party skills that predate typed contracts.
+    research turn.  A missing question type is accepted only for an explicitly
+    declared terminal owner on a legacy untyped turn; default metadata remains
+    fail-closed.  ``explicit_manual`` is retained for call-site compatibility,
+    but manual selection never weakens this owner contract gate.
     """
     contract = output.answer_contract
     if contract is None:
         return False
     # A manual selection may request execution, but must never turn an
-    # untyped/unknown contributor into the answer owner.
+    # untyped/unknown contributor into the answer owner.  Keep this argument in
+    # the signature for callers that pass it while intentionally ignoring it.
     del explicit_manual
     can_own_answer = bool(getattr(definition, "can_own_answer", False))
     if not can_own_answer:
@@ -1931,6 +1934,14 @@ class TurnOrchestrator:
                     }
                 )
             if rejected_owner_outputs:
+                for rejection in rejected_owner_outputs:
+                    warning = (
+                        f"Skill {rejection['skill_id']} 已降级为证据贡献者；"
+                        "需显式声明 owner 元数据后才能接管答案"
+                    )
+                    if warning not in warnings:
+                        warnings.append(warning)
+                        self.run_store.add_degrade(run_id, warning)
                 self._trace(
                     run_id,
                     assistant_message_id,

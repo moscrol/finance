@@ -219,6 +219,13 @@ def test_old_daily_agent_contract_cannot_own_market_forecast(tmp_path) -> None:
 
     assert result.status == "completed"
     assert captured[0].question_type_override == "market_forecast"
+    warning = (
+        "Skill daily-agent 已降级为证据贡献者；"
+        "需显式声明 owner 元数据后才能接管答案"
+    )
+    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+    assert warning in assistant.degrades
+    assert warning in run_store.load_run(run_id).degrades
     rejected = next(
         step
         for step in run_store.load_trace(run_id)
