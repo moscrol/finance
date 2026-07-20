@@ -19,6 +19,7 @@ QUESTION_VALUATION = "valuation_estimate"
 QUESTION_FINANCIAL_ANALYSIS = "financial_analysis"
 QUESTION_ANSWER_REVIEW = "answer_review"
 QUESTION_METHODOLOGY = "methodology_discussion"
+QUESTION_FACT_CHECK = "fact_check"
 QUESTION_GENERAL = "general_finance_qa"
 QUESTION_EXTERNAL_MARKET = "external_market"
 QUESTION_CONCEPT_DEFINITION = "concept_definition"
@@ -36,6 +37,7 @@ QUESTION_TYPES = frozenset(
         QUESTION_FINANCIAL_ANALYSIS,
         QUESTION_ANSWER_REVIEW,
         QUESTION_METHODOLOGY,
+        QUESTION_FACT_CHECK,
         QUESTION_GENERAL,
         QUESTION_EXTERNAL_MARKET,
         QUESTION_CONCEPT_DEFINITION,

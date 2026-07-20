@@ -267,7 +267,15 @@ _COMPOSITIONAL_SUBJECT_BOUNDARIES = (
 _COUNTEREVIDENCE_RE = re.compile(r"(反证|证伪|降级条件|证伪条件|升级、降级)")
 _MONEY_FLOW_RE = re.compile(r"(资金流|主买|净流入|大单)")
 _COMPARISON_RE = re.compile(r"(比较|对比|相比|赔率排序)")
-_RELATION_RE = re.compile(r"(上游|下游|供应|客户|产业链位置|处于.{0,8}环节|关系)")
+_RELATION_RE = re.compile(
+    r"(上游|下游|供应|客户|合作|产业链位置|处于.{0,8}环节|关系)"
+)
+_COMPANY_CONFIRMATION_RE = re.compile(
+    r"(?:是否|有无|有没有|已经|已)?(?:确认|官宣|披露)?"
+    r"(?:合作|供货|供应|客户关系|订单|合同|认证|定点)"
+    r"|(?:合作|供货|供应|客户关系|订单|合同|认证|定点)"
+    r".{0,10}(?:是否|真假|属实|确认|官宣|披露)",
+)
 _COMPANY_MAPPING_RE = re.compile(r"(有哪些公司|哪些公司|受益公司|公司映射|核心公司)")
 _MARKET_CHANGE_RE = re.compile(r"(边际变化|最近变化|近期变化|预期差变化)")
 
@@ -452,6 +460,8 @@ def _decision_goal(query: str) -> str:
         return "核对海外指数收盘点位与涨跌幅"
     if _definition_subject(query):
         return "解释定义、技术背景与产业链位置"
+    if _COMPANY_CONFIRMATION_RE.search(query):
+        return "核验公司与客户/合作方关系是否有公告、合同、认证等官方证据"
     if "健康分歧" in query or "行情高潮" in query:
         return "区分健康分歧与行情高潮"
     if "背离" in query:
@@ -565,6 +575,8 @@ def _explicit_company_subject(query: str) -> str | None:
 
 
 def _company_question_type(query: str) -> str:
+    if _COMPANY_CONFIRMATION_RE.search(query):
+        return "fact_check"
     if re.search(r"(个股深挖|个股研究|深挖|深度分析个股)", query):
         return "stock_deep_dive"
     if _FINANCIAL_ANALYSIS_RE.search(query):

@@ -39,6 +39,7 @@ from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
+    QUESTION_FACT_CHECK,
     QUESTION_GENERAL,
     QUESTION_METHODOLOGY,
     QUESTION_MARKET_REVIEW,
@@ -107,7 +108,16 @@ def _sanitize_market_cause_answer_text(text: str, query: str) -> str:
         query,
     ):
         return text
-    forbidden = ("操作层面", "仓位", "买入", "卖出", "防御和观察", "宜以防御", "博弈单边反转")
+    forbidden = (
+        "操作层面",
+        "仓位",
+        "买入",
+        "卖出",
+        "防御和观察",
+        "宜以防御",
+        "博弈单边反转",
+        "非投资建议",
+    )
     lines = [line for line in text.splitlines() if not any(term in line for term in forbidden)]
     return "\n".join(lines).strip()
 
@@ -186,8 +196,26 @@ def _build_generic_research_contract(
             RequiredOutput(
                 "supporting_evidence",
                 "至少一条可回查来源",
-                ("kb_search", "web_search", "news_search", "evidence_lookup"),
+                (
+                    "kb_search",
+                    "web_search",
+                    "news_search",
+                    "evidence_lookup",
+                    *(("l3_lookup",) if needs_l3 else ()),
+                ),
                 True,
+            ),
+            *(
+                (
+                    RequiredOutput(
+                        "customer_validation",
+                        "核验是否存在公告、合同、订单、客户认证或官方互动等 L3 证据；缺失时必须明确说尚不能确认",
+                        ("l3_lookup",),
+                        True,
+                    ),
+                )
+                if needs_l3
+                else ()
             ),
         )
     )
@@ -207,6 +235,7 @@ def _build_generic_research_contract(
             "news_search",
             "graph_lookup",
             "evidence_lookup",
+            *(("l3_lookup",) if needs_l3 else ()),
         )
     )
     return ResearchTaskContract(
@@ -1213,16 +1242,27 @@ class TurnOrchestrator:
             route_started = time.monotonic()
             generic_owner_requested = (
                 decision.lane == "research"
-                and decision.question_type in {QUESTION_GENERAL, QUESTION_MARKET_CAUSE}
-                and turn_intent.question_type in {QUESTION_GENERAL, QUESTION_MARKET_CAUSE}
+                and decision.question_type
+                in {QUESTION_GENERAL, QUESTION_MARKET_CAUSE, QUESTION_FACT_CHECK}
+                and turn_intent.question_type
+                in {QUESTION_GENERAL, QUESTION_MARKET_CAUSE, QUESTION_FACT_CHECK}
                 and controller_supplied_intent
                 and turn_intent.answer_owner is None
                 and skill_mode in {"auto", "hybrid"}
                 and not selected_skill_ids
             )
+            relation_guard_requested = bool(
+                "relation" in turn_intent.operators
+                and turn_intent.inherited_from_turn is None
+                and re.search(
+                    r"(?:上游|下游|产业链位置|处于.{0,8}环节)",
+                    contextual_query,
+                )
+            )
             router_skipped = bool(
                 decision.lane == "knowledge"
                 or turn_intent.question_type == "market_technical"
+                or relation_guard_requested
                 or generic_owner_requested
             )
             if (
@@ -1284,6 +1324,7 @@ class TurnOrchestrator:
                     "base_finance_fallback": route.base_finance_fallback,
                     "router_skipped": router_skipped,
                     "generic_owner_requested": generic_owner_requested,
+                    "relation_guard_requested": relation_guard_requested,
                     "controller_lane": decision.lane,
                     "query_envelope": routing_envelope.to_dict(),
                     "elapsed_ms": self._elapsed_ms(route_started),
@@ -2028,6 +2069,10 @@ class TurnOrchestrator:
                 and not generic_owner_requested
                 and result.synthesis is None
                 and owner_output is None
+                and (
+                    result.answer_spec is None
+                    or result.answer_spec.presentation_kind != "evidence_gap"
+                )
             ):
                 fallback = "llm_unavailable_template_answer"
                 warnings.append(fallback)
@@ -2075,7 +2120,8 @@ class TurnOrchestrator:
             if (
                 prepared.options.shadow_grounded_composer
                 and result.answer_spec is not None
-                and result.answer_spec.presentation_kind != "market_technical"
+                and result.answer_spec.presentation_kind
+                not in {"market_technical", "evidence_gap"}
             ):
                 try:
                     synthesize_shadow_grounded_answer(

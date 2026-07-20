@@ -13,6 +13,7 @@ from intelligence.services import perspective_lab
 from intelligence.services.ask import AskOptions, AskResult, Citation
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
+    QUESTION_FACT_CHECK,
     QUESTION_METHODOLOGY,
 )
 from intelligence.services.lane_generation import LaneAnswer
@@ -20,6 +21,8 @@ from intelligence.services.conversation_orchestrator import (
     ConversationContext,
     SUMMARY_CHAR_LIMIT,
     TurnOrchestrator,
+    _build_generic_research_contract,
+    _sanitize_market_cause_answer_text,
     build_conversation_context,
     contextualize_follow_up_query,
     _sanitize_citation_list,
@@ -376,6 +379,79 @@ def test_methodology_lane_never_falls_back_to_financial_rag(tmp_path) -> None:
         "verified_draft",
         "verified_fallback",
     ]
+
+
+def test_relation_question_skips_theme_skill_router(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "液冷和PCB谁在产业链上游？"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda options: _ask_result(options.query),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "relation guard must run before theme skill routing"
+        ),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    route = next(
+        step for step in run_store.load_trace(run_id) if step["name"] == "route_skills"
+    )
+    route_output = json.loads(route["output_summary"])
+    assert route_output["router_skipped"] is True
+    assert route_output["relation_guard_requested"] is True
+
+
+def test_market_cause_removes_generic_investment_disclaimer() -> None:
+    answer = _sanitize_market_cause_answer_text(
+        "主要原因是风险偏好收缩。\n\n（非投资建议）",
+        "这一周行情下跌的主要原因是什么",
+    )
+
+    assert answer == "主要原因是风险偏好收缩。"
+
+
+def test_customer_fact_check_contract_requires_and_allows_l3_lookup() -> None:
+    intent = TurnIntent(
+        primary_subject="中际旭创",
+        secondary_topics=("英伟达",),
+        question_type=QUESTION_FACT_CHECK,
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        operators=("relation",),
+    )
+
+    contract = _build_generic_research_contract(
+        "中际旭创和英伟达是否已确认合作？",
+        task_id="fixture",
+        turn_intent=intent,
+    )
+
+    assert "l3_lookup" in contract.allowed_capabilities
+    customer = next(
+        item for item in contract.required_outputs if item.output_id == "customer_validation"
+    )
+    assert customer.required is True
+    assert customer.evidence_types == ("l3_lookup",)
 
 
 def test_static_knowledge_uses_local_retrieval_when_generation_is_unavailable(

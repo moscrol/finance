@@ -1,5 +1,10 @@
 from intelligence.services.relation_guard import relation_edge_supported, relation_gap_text
-from intelligence.services.ask import AskOptions, answer_query, render_conversation_answer
+from intelligence.services.ask import (
+    AskOptions,
+    answer_query,
+    prepare_existing_answer,
+    render_conversation_answer,
+)
 
 
 def test_cooccurrence_without_direction_is_not_a_relation_edge() -> None:
@@ -37,3 +42,7 @@ def test_relation_question_without_edge_fails_closed_and_traces_graph_guard(tmp_
         trace.provider == "relation_graph_guard" and trace.status == "empty"
         for trace in result.provider_traces
     )
+    assert result.answer_spec is not None
+    assert result.answer_spec.presentation_kind == "evidence_gap"
+    prepared = prepare_existing_answer(AskOptions(query=result.query), result)
+    assert prepared.result.prepared_synthesis_messages == []

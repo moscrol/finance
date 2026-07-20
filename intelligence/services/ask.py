@@ -1661,13 +1661,20 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             question_plan.query_envelope.operators
         )
     )
+    directional_relation_query = bool(
+        relation_query
+        and re.search(
+            r"(?:上游|下游|产业链位置|处于.{0,8}环节)",
+            options.query,
+        )
+    )
     relation_edge_gap = (
         relation_gap_text(options.query)
-        if relation_query
+        if directional_relation_query
         and not relation_edge_supported(options.query, (exposures.get("items") or []))
         else ""
     )
-    if relation_query:
+    if directional_relation_query:
         result.provider_traces.append(
             ProviderTrace(
                 provider="relation_graph_guard",
@@ -1680,6 +1687,27 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                 result_count=(0 if relation_edge_gap else 1),
             )
         )
+    if relation_edge_gap:
+        # 缺显式关系边时答案已经确定为 gap。继续跑 Wiki、Web 和 LLM 既不能
+        # 把“共现”升级为关系，反而会浪费预算并制造大量无意义降级。
+        result.data_notice = relation_edge_gap
+        result.sections = {
+            "结论": [relation_edge_gap],
+            "证据链": [],
+            "分歧反证": ["概念或公司在同一材料中出现，不等于存在上下游关系。"],
+            "后续验证点": ["补齐图谱关系边或官方供应链证据后再判断方向。"],
+            "数据源状态": ["relation_graph_guard｜graph_relation｜empty"],
+            "引用来源": [],
+        }
+        result.answer_spec = _build_base_answer_spec_from_sections(
+            result,
+            theme=claim_theme,
+            direct_lines=(relation_edge_gap,),
+            risk_lines=("共现只能作为待核线索，不能证明上下游方向。",),
+            action_lines=("补齐图谱关系边或官方供应链证据后再判断方向。",),
+            presentation_kind="evidence_gap",
+        )
+        return result
     company_evidence_concepts = graph_bundle.company_evidence_concepts
     tiers = graph_bundle.tiers
     with _progress_stage(options, "evidence_index") as stage:
@@ -3016,7 +3044,8 @@ def prepare_existing_answer(
     # 再让 LLM 改写不仅增加 30s 级延迟，还可能改动点位、符号或失效条件。
     if (
         result.answer_spec is not None
-        and result.answer_spec.presentation_kind == "market_technical"
+        and result.answer_spec.presentation_kind
+        in {"market_technical", "evidence_gap"}
     ):
         result.prepared_synthesis_messages = []
         return PreparedAnswer(

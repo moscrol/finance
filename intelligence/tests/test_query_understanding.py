@@ -229,6 +229,18 @@ def test_financial_cause_is_not_overmatched_as_methodology() -> None:
     assert envelope.question_type == "market_cause"
 
 
+def test_company_customer_confirmation_is_fact_check() -> None:
+    envelope = understand_query(
+        "中际旭创和英伟达是否已确认合作？",
+        anchor=EntityAnchor(entity="中际旭创", matched_by="name"),
+    )
+
+    assert envelope.question_type == "fact_check"
+    assert envelope.subject == "中际旭创"
+    assert envelope.operators == ("relation",)
+    assert "官方证据" in envelope.decision_goal
+
+
 def test_ticker_timeframe_and_serialization_contract() -> None:
     for ticker in ("002837", "600000.SH", "002837.SZ", "430047.BJ"):
         envelope = understand_query(f"分析 2026-07-13 的 {ticker}")
