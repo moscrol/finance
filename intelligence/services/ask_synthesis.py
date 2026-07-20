@@ -604,6 +604,7 @@ def _build_base_answer_spec_from_sections(
     direct_lines: tuple[str, ...] = (),
     risk_lines: tuple[str, ...] = (),
     action_lines: tuple[str, ...] = (),
+    presentation_kind: str = "base_finance",
 ) -> answer_model.AnswerSpec:
     citations = [
         citation for citation in result.citations if citation.tag not in {"M", "V"}
@@ -755,7 +756,7 @@ def _build_base_answer_spec_from_sections(
             )
             if item
         ),
-        presentation_kind="base_finance",
+        presentation_kind=presentation_kind,
         presentation_title=theme,
     )
     return answer_model.finalize_answer_spec(spec)

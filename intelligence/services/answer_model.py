@@ -1554,22 +1554,56 @@ def _render_evidence_gap_answer(answer_spec: AnswerSpec) -> str:
     if gap_texts:
         lines.extend(["", "**缺少的数据/证据：**"])
         lines.extend(f"- {text}" for text in gap_texts[:5])
-    error_messages = _dedupe(
-        tuple(
-            issue.message
-            for issue in answer_spec.quality.issues
-            if issue.severity == "error"
-        )
-    )
-    if error_messages:
-        lines.extend(["", "**未通过的质检项：**"])
-        lines.extend(f"- {humanize(message)}" for message in error_messages[:4])
     lines.extend(
         [
             "",
             "请补充数据源或稍后重试；数据补齐后本问题可以重新计算/研究。",
         ]
     )
+    return "\n".join(lines)
+
+
+def _render_market_technical_answer(answer_spec: AnswerSpec) -> str:
+    """技术位专属投影：不注入产业链/公司研究模板。"""
+
+    lines: list[str] = []
+    notices = _dedupe(answer_spec.system_notices)
+    if notices:
+        lines.extend([humanize(notices[0]), ""])
+    title = humanize(
+        answer_spec.presentation_title or answer_spec.research_spec.theme
+    )
+    lines.extend([f"# {title}", "", "## 技术位判断"])
+    for claim in answer_spec.summary[:3]:
+        lines.append(f"- {_present_summary_claim(claim)}")
+
+    facts = _dedupe_claims(answer_spec.verified_facts)
+    if facts:
+        lines.extend(["", "## 计算依据"])
+        lines.extend(f"- {_present_supporting_fact(claim)}" for claim in facts[:10])
+
+    boundaries = _dedupe_claims(
+        (*answer_spec.counter_evidence, *answer_spec.gaps, *answer_spec.triggers)
+    )
+    if boundaries:
+        lines.extend(["", "## 失效条件与缺口"])
+        lines.extend(f"- {_present_claim(claim)}" for claim in boundaries[:6])
+
+    actions = _dedupe(answer_spec.next_actions)
+    if actions:
+        lines.extend(["", "## 后续验证"])
+        lines.extend(f"- {humanize(action)}" for action in actions[:4])
+
+    visible_sources = tuple(
+        source for source in answer_spec.sources if source.evidence_id != "BASE"
+    )
+    if visible_sources:
+        lines.extend(["", "<details><summary>展开来源</summary>", ""])
+        lines.append("\n".join(
+            f"- [{source.evidence_id}] {humanize(source.source)}：{humanize(source.detail)}"
+            for source in visible_sources
+        ))
+        lines.extend(["", "</details>"])
     return "\n".join(lines)
 
 
@@ -1603,6 +1637,12 @@ def quality_requires_fail_closed(answer_spec: AnswerSpec) -> bool:
 
 def render_answer_spec(answer_spec: AnswerSpec) -> str:
     answer_spec = apply_claim_evidence_policy(answer_spec)
+    if answer_spec.presentation_kind == "evidence_gap":
+        return _render_evidence_gap_answer(answer_spec)
+    if answer_spec.presentation_kind == "market_technical":
+        if quality_requires_fail_closed(answer_spec):
+            return _render_evidence_gap_answer(answer_spec)
+        return _render_market_technical_answer(answer_spec)
     # P0 fail-closed：质检判定题材污染 / 纯模板（无任何已核验证据支撑）的
     # AnswerSpec 不得按原样渲染成研究结论——此前这里直接放行，导致题材
     # 污染模板以 verified_fallback 姿态返回给用户。

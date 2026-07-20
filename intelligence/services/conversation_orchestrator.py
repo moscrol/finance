@@ -860,10 +860,7 @@ class TurnOrchestrator:
             routing_envelope = understand_query(contextual_query)
             # controller 裁决优先：路由 envelope 只提供辅助特征（operators
             # 等），question_type / subject 不得与 decision 分叉形成第二事实源。
-            if (
-                decision.question_type is not None
-                and routing_envelope.question_type != decision.question_type
-            ):
+            if decision.question_type is not None:
                 routing_envelope = replace(
                     routing_envelope,
                     question_type=decision.question_type,
@@ -1814,6 +1811,7 @@ class TurnOrchestrator:
                 )
             if (
                 decision.lane in {"research", "workflow"}
+                and decision.needs_template is True
                 and result.synthesis is None
                 and owner_output is None
             ):

@@ -719,22 +719,31 @@ def _answer_market_technical(
             theme=f"{subject}技术位",
             direct_lines=(gap_text,),
             risk_lines=("本轮未取得行情数据，任何点位判断都不可靠。",),
+            presentation_kind="evidence_gap",
         )
         return result
 
     levels = outcome
     result.trade_date = levels.as_of
     result.found_market = True
+    live_notice = ""
+    if levels.live_quote is not None:
+        live_notice = (
+            f"当前盘中参考价 {levels.live_quote.price:.2f}"
+            f"（{levels.live_quote.as_of}，未用于已确认技术位计算）。"
+        )
     result.data_notice = (
-        f"{levels.subject} 日线截止 {levels.as_of}，来源腾讯行情 K 线接口"
-        f"（{levels.symbol}），支撑/压力为确定性计算结果。"
+        f"{levels.subject} 技术位计算基于截至 {levels.as_of} 的已完成日线，"
+        f"来源腾讯行情 K 线接口（{levels.symbol}）；"
+        f"{live_notice}支撑/压力为确定性计算结果。"
     )
     tag = "T1"
+    fields = "OHLCV" if levels.volume_available else "OHLC"
     result.citations.append(
         Citation(
             tag,
             f"tencent_kline · {levels.symbol}",
-            f"日线 OHLCV；数据截止日={levels.as_of}；确定性技术位计算",
+            f"日线 {fields}；数据截止日={levels.as_of}；确定性技术位计算",
         )
     )
     result.provider_traces.append(
@@ -746,9 +755,10 @@ def _answer_market_technical(
             result_count=len(levels.supports) + len(levels.resistances),
         )
     )
-    evidence_lines = [
-        f"{levels.subject} 收盘 {levels.close:.2f}（{levels.as_of}） [{tag}]"
-    ]
+    close_line = f"{levels.subject} 已完成日线收盘 {levels.close:.2f}（{levels.as_of}） [{tag}]"
+    if levels.live_quote is not None:
+        close_line += f"；盘中参考价 {levels.live_quote.price:.2f}（未入计算）"
+    evidence_lines = [close_line]
     ma_text = "、".join(
         f"{name}={value:.2f}" for name, value in levels.ma.items() if value is not None
     )
@@ -785,12 +795,13 @@ def _answer_market_technical(
         ) or "当前价下方无可靠支撑候选")
         + "。"
     )
+    volume_line = levels.volume_confirmation or "成交量确认：最近完整日量能不足以形成独立判断。"
     result.sections = {
         "结论": [conclusion],
         "证据链": [*evidence_lines, *support_lines, *resistance_lines],
         "分歧反证": [levels.invalidation],
         "后续验证点": [
-            "回踩首个支撑区时观察是否缩量企稳；放量跌破则按失效条件重新计算。"
+            f"回踩首个支撑区时复核量能；{volume_line}"
         ],
         "交易含义": [
             "技术位只回答位置问题，不构成买卖指令；结合量能与市场阶段使用。"
@@ -811,6 +822,7 @@ def _answer_market_technical(
         direct_lines=(conclusion,),
         risk_lines=(levels.invalidation,),
         action_lines=tuple(result.sections["后续验证点"]),
+        presentation_kind="market_technical",
     )
     return result
 

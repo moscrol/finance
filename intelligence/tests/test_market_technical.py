@@ -9,9 +9,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+import json
 import pytest
 
-from intelligence.services import answer_model, market_technical
+from intelligence.services import answer_model, ask, market_technical
 from intelligence.services.answer_orchestrator import plan_answer_question
 from intelligence.services.query_understanding import (
     is_market_technical_query,
@@ -115,6 +117,38 @@ def test_compute_technical_levels_supports_below_close() -> None:
     assert "跌破" in levels.invalidation
 
 
+def test_intraday_last_bar_is_excluded_from_technical_calculation(monkeypatch) -> None:
+    bars = _synthetic_bars()
+    bars[-1] = market_technical.DailyBar(
+        date="2026-07-20",
+        open=1764.59,
+        close=1712.12,
+        high=1776.07,
+        low=1675.41,
+        volume=9509913,
+    )
+    completed, live = market_technical.split_completed_bars(
+        bars,
+        quote_timestamp=datetime.fromisoformat("2026-07-20T12:05:00+08:00"),
+        now=datetime.fromisoformat("2026-07-20T12:45:00+08:00"),
+    )
+    assert completed[-1].date == bars[-2].date
+    assert live is bars[-1]
+
+
+def test_beijing_920_code_is_not_misclassified_as_shanghai() -> None:
+    instrument = market_technical.resolve_market_instrument("920022支撑位在哪")
+    assert instrument is not None
+    assert instrument.exchange == "BJ"
+    assert instrument.provider_symbol == "bj920022"
+
+
+def test_unsupported_index_returns_typed_gap() -> None:
+    outcome = market_technical.resolve_market_technical("中证2000支撑位在哪")
+    assert isinstance(outcome, market_technical.TechnicalGap)
+    assert "provider_unsupported" in outcome.reason
+
+
 def test_resolve_market_technical_success_with_stub_opener() -> None:
     import io
     import json as _json
@@ -143,6 +177,53 @@ def test_resolve_market_technical_success_with_stub_opener() -> None:
     assert outcome.supports
 
 
+def test_resolve_market_technical_exposes_live_quote_separately(monkeypatch) -> None:
+    bars = _synthetic_bars()
+    bars[-1] = market_technical.DailyBar(
+        date="2026-07-20",
+        open=1764.59,
+        close=1712.12,
+        high=1776.07,
+        low=1675.41,
+        volume=9509913,
+    )
+    rows = [
+        [bar.date, bar.open, bar.close, bar.high, bar.low, 1000]
+        for bar in bars
+    ]
+    quote = [""] * 31
+    quote[4] = "1712.12"
+    quote[30] = "20260720124500"
+    payload = json.dumps(
+        {"data": {"sh000688": {"day": rows, "qt": {"sh000688": quote}}}}
+    ).encode("utf-8")
+
+    class _Resp:
+        def __enter__(self):
+            import io
+
+            self._body = io.BytesIO(payload)
+            return self._body
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setattr(
+        market_technical,
+        "now_shanghai",
+        lambda: datetime.fromisoformat("2026-07-20T12:45:00+08:00"),
+    )
+    outcome = market_technical.resolve_market_technical(
+        QUERY,
+        opener=lambda url, timeout: _Resp(),
+    )
+    assert isinstance(outcome, market_technical.TechnicalLevels)
+    assert outcome.as_of == bars[-2].date
+    assert outcome.live_quote is not None
+    assert outcome.live_quote.price == pytest.approx(1712.12)
+    assert outcome.volume_available is True
+
+
 def test_resolve_market_technical_gap_is_fail_closed() -> None:
     def _broken(url, timeout):  # noqa: ANN001
         raise OSError("network down")
@@ -155,6 +236,26 @@ def test_resolve_market_technical_gap_is_fail_closed() -> None:
     # 禁止无关模板
     for banned in ("主线题材", "公司公告", "客户验证", "知识图谱"):
         assert banned not in text
+
+
+def test_market_technical_gap_uses_short_answer_presentation(monkeypatch) -> None:
+    monkeypatch.setattr(
+        market_technical,
+        "resolve_market_technical",
+        lambda *args, **kwargs: market_technical.TechnicalGap(
+            subject="科创50", symbol="sh000688", reason="provider_unsupported"
+        ),
+    )
+    result = ask._answer_market_technical(
+        ask.AskOptions(query=QUERY),
+        plan_answer_question(QUERY),
+    )
+    assert result.answer_spec is not None
+    assert result.answer_spec.presentation_kind == "evidence_gap"
+    rendered = answer_model.render_answer_spec(result.answer_spec)
+    assert "无法可靠计算支撑位" in rendered
+    assert "客户验证" not in rendered
+    assert "未通过的质检项" not in rendered
 
 
 # ---------- AnswerSpec fail-closed 出口 ----------
@@ -200,6 +301,7 @@ def test_failed_quality_spec_renders_evidence_gap_not_research_answer() -> None:
     # 不得渲染原研究模板段落
     for banned in ("核心判断", "题材怎么理解", "公司证据"):
         assert banned not in rendered
+    assert "未通过的质检项" not in rendered
 
 
 def test_passed_quality_spec_still_renders_normally() -> None:

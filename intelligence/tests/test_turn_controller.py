@@ -7,7 +7,7 @@ import pytest
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.query_resolution import QueryResolution
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
-from intelligence.services.turn_controller import decide_turn
+from intelligence.services.turn_controller import TurnDecision, _attach_turn_intent, decide_turn
 
 
 def _no_llm(_messages: list[dict[str, str]]):
@@ -32,6 +32,29 @@ def test_controller_resolves_each_turn_once() -> None:
     decide_turn("卫星互联网是什么", llm_complete=_no_llm, resolver=resolver)
 
     assert resolver.calls == 1
+
+
+def test_controller_subject_wins_when_question_type_is_unchanged() -> None:
+    decision = TurnDecision(
+        lane="research",
+        needs_retrieval=True,
+        needs_memory=False,
+        needs_template=True,
+        question_type="general_finance_qa",
+        subject="科创50",
+    )
+    old_intent = TurnIntent(
+        primary_subject="半导体",
+        secondary_topics=(),
+        question_type="general_finance_qa",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    merged = _attach_turn_intent(decision, old_intent)
+    assert merged.subject == "科创50"
+    assert merged.turn_intent is not None
+    assert merged.turn_intent.primary_subject == "科创50"
 
 
 def test_greeting_is_chat_without_tools_or_memory() -> None:

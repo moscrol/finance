@@ -618,11 +618,7 @@ def _attach_turn_intent(
     # （如 market_technical / market_forecast）被旧 understand_query 的
     # general_finance_qa 反向覆盖。现改为：decision 已给出 question_type
     # 时，把 intent 同步到 decision，保证下游 ResearchPlan / trace 一致。
-    if (
-        decision.question_type is not None
-        and intent.inherited_from_turn is None
-        and decision.question_type != intent.question_type
-    ):
+    if decision.question_type is not None and intent.inherited_from_turn is None:
         intent = replace(
             intent,
             question_type=decision.question_type,
