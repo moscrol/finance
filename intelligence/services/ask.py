@@ -3308,7 +3308,13 @@ def prepare_existing_answer(
     if (
         result.completion_report is not None
         and result.completion_report.get("status") != "completed"
-        and result.completion_report.get("factual_grounding") != "fulfilled"
+        and (
+            result.completion_report.get("factual_grounding") != "fulfilled"
+            or (
+                result.answer_spec is not None
+                and result.answer_spec.presentation_profile == "forecast"
+            )
+        )
     ):
         return PreparedAnswer(
             options=replace(options, synthesize=False),
