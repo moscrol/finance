@@ -1287,6 +1287,28 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         except Exception:
             # 真值底座失败时仍让 agent 尝试新闻/web，并在完成门禁报告缺口。
             pass
+    if contract.presentation_profile == "relation" and "graph_lookup" in registry.names():
+        # 关系题的第一步是确定性查显式图谱边。它不把公司/概念共现升级成
+        # 关系结论；同时从 agent 可选工具中移除，避免固定预取与循环重复查询。
+        try:
+            relation_query = "；".join(
+                item
+                for item in (contract.subject or "", contract.question)
+                if item
+            )
+            observation = registry.execute(
+                "graph_lookup",
+                relation_query,
+                context=context,
+                step_id=f"{contract.task_id}:owner:prefetch:relation",
+            )
+            preloaded_items.extend(observation.evidence)
+            preloaded_trace_items.append(observation.trace)
+            preloaded_observations.append(observation.observation)
+            disabled_tool_names.append("graph_lookup")
+        except Exception:
+            # 图谱不可用时仍允许 evidence/web/news 补查，完成门禁会保留缺边。
+            pass
     mandatory_l3 = any(
         output.required and output.evidence_types == ("l3_lookup",)
         for output in contract.required_outputs

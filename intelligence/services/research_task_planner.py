@@ -114,6 +114,20 @@ def _rule_plan(question: str, contract: object | None = None, *, reason: str = "
             source="rules",
             reason=reason or "forecast_rule_fallback",
         )
+    if str(getattr(contract, "presentation_profile", "") or "") == "relation":
+        return TaskPlan(
+            subquestions=(
+                f"{prefix}问题中的主体、关系方向和关系层级是什么？",
+                "先查本地图谱是否存在与问题方向一致的显式关系边。",
+                "再用证据索引或公开来源核对候选关系，区分已核验、候选和缺边。",
+            ),
+            hypotheses=(
+                "关系地图：当前证据是否支持问题所问的关系边？",
+                "缺边反证：命中的公司资料是否只是共现，不能推出关系？",
+            ),
+            source="rules",
+            reason=reason or "relation_rule_fallback",
+        )
     if question_type == "comparison" or re.search(r"比较|对比|相比", q):
         return TaskPlan(
             subquestions=(

@@ -145,6 +145,15 @@ def _build_generic_research_contract(
     is_market_forecast = turn_intent.question_type == QUESTION_MARKET_FORECAST
     is_event_forecast = turn_intent.question_type == "event_forecast"
     is_comparison = turn_intent.question_type == "comparison"
+    is_relation_query = bool(
+        {"relation", "company_mapping"}.intersection(turn_intent.operators)
+    )
+    # “甲和乙是否合作/供货”仍走 L3 hard-fact 核验；“甲的客户有哪些/客户的
+    # 竞争对手是谁”是关系地图任务，不能被普通个股事实契约吞掉。
+    is_relation_fact_check = is_relation_query and bool(
+        re.search(r"(?:是否|有无|有没有|合作|供货|订单|合同|认证|定点)", normalized)
+    )
+    is_relation_map = is_relation_query and not is_relation_fact_check
     is_methodology = bool(
         re.search(
             r"(?:怎么做|如何做|为什么会|原理|架构|编排|RAG|BM25|Agent|模板化|质检)",
@@ -158,7 +167,28 @@ def _build_generic_research_contract(
             query,
         )
     )
-    if is_market_forecast or is_event_forecast:
+    if is_relation_map:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "直接回答关系问题，并区分已核验关系、候选关系和未找到关系边",
+                ("graph_lookup", "evidence_lookup", "kb_search", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "relation_map",
+                "给出与问题方向一致的关系边、关系角色或明确的缺边结论",
+                ("graph_lookup", "evidence_lookup", "kb_search", "web_search", "news_search"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "至少一条可回查的关系来源或明确的缺口证据",
+                ("graph_lookup", "evidence_lookup", "kb_search", "web_search", "news_search"),
+                True,
+            ),
+        )
+    elif is_market_forecast or is_event_forecast:
         # 预测不是一句“涨/跌”。显式登记两种情景和失效条件，避免只拿到
         # 一个方向的证据就被 soft planner 误判为完成。
         required_outputs = (
@@ -286,7 +316,15 @@ def _build_generic_research_contract(
                 else ()
             ),
         )
-    if is_market_forecast:
+    if is_relation_map:
+        capabilities = (
+            "graph_lookup",
+            "evidence_lookup",
+            "kb_search",
+            "web_search",
+            "news_search",
+        )
+    elif is_market_forecast:
         capabilities = ("market_data", "web_search", "news_search")
     elif is_event_forecast:
         capabilities = (
@@ -326,12 +364,14 @@ def _build_generic_research_contract(
             if is_market_cause or is_market_forecast
             else "event"
             if is_event_forecast
+            else "company_relation"
+            if is_relation_map
             else None
         ),
         question_type=turn_intent.question_type,
         required_outputs=(
             *required_outputs,
-            *(() if (is_market_forecast or is_event_forecast or is_comparison) else (
+            *(() if (is_market_forecast or is_event_forecast or is_comparison or is_relation_map) else (
                 RequiredOutput(
                     "counterpoint",
                     "反方或证据边界",
@@ -347,6 +387,8 @@ def _build_generic_research_contract(
             if is_market_forecast or is_event_forecast
             else "comparison"
             if is_comparison
+            else "relation"
+            if is_relation_map
             else "causal"
             if is_market_cause
             else "methodology"

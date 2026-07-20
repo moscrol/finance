@@ -112,6 +112,7 @@ class ResearchState:
             "rebound_case": "scenario",
             "decline_case": "scenario",
             "invalidation": "falsifier",
+            "relation_map": "relation",
             "counterpoint": "counterpoint",
             "cause_attribution": "causal",
             "causal_explanation": "causal",

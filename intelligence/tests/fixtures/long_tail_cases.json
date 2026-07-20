@@ -45,7 +45,7 @@
     "expected_question_type": "stock_deep_dive",
     "expected_owner": "stock-deep-dive",
     "expected_generic_owner": true,
-    "required_outputs": ["direct_assessment", "supporting_evidence", "customer_validation", "counterpoint"]
+    "required_outputs": ["direct_assessment", "relation_map", "supporting_evidence"]
   },
   {
     "id": "unowned_missing_number",
