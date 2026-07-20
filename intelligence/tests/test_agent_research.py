@@ -141,6 +141,32 @@ def test_duplicate_query_is_intercepted_without_execution() -> None:
     assert "重复查询已拦截" in result.steps[1].observation
 
 
+def test_two_empty_tool_results_record_no_information_gain_gap() -> None:
+    state = ResearchState(
+        question="问题",
+        subject=None,
+        question_type="general_finance_qa",
+    )
+    result = run_agent_loop(
+        "问题",
+        tools={"kb_search": _tool("kb_search", hits=0)},
+        steps_budget=3,
+        research_state=state,
+        complete_fn=_scripted_complete(
+            [
+                {"tool": "kb_search", "args": {"query": "第一次查询"}},
+                {"tool": "kb_search", "args": {"query": "第二次查询"}},
+            ]
+        ),
+    )
+
+    expected_gap = "连续两次检索未获得新增信息，无法继续补全证据。"
+    assert result.stop_reason == "no_information_gain"
+    assert result.gaps == (expected_gap,)
+    assert [gap.description for gap in state.gaps] == [expected_gap]
+    assert len(result.steps) == len(result.traces) == 2
+
+
 def test_llm_unavailable_returns_partial_result() -> None:
     result = run_agent_loop(
         "问题",

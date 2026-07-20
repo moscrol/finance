@@ -39,6 +39,7 @@ _VALID_MODES = (MODE_OFF, MODE_AUTO, MODE_ON)
 
 DEFAULT_MAX_STEPS = 4
 DEFAULT_LLM_TIMEOUT = 15
+NO_INFORMATION_GAIN_GAP = "连续两次检索未获得新增信息，无法继续补全证据。"
 DEFAULT_TOTAL_SECONDS = 60.0
 _MAX_OBSERVATION_CHARS = 900
 # 工具描述注册表：system prompt 按「实际注册的工具」动态生成——宣传清单与
@@ -864,7 +865,13 @@ def run_agent_loop(
             no_information_steps += 1
         if no_information_steps >= 2:
             result.stop_reason = "no_information_gain"
+            result.gaps = tuple(dict.fromkeys((*result.gaps, NO_INFORMATION_GAIN_GAP)))
             if result.research_state is not None:
+                result.research_state.add_gap(
+                    "no_information_gain",
+                    NO_INFORMATION_GAIN_GAP,
+                    blocks=tuple(result.research_state.required_outputs),
+                )
                 result.research_state.set_stop_reason(result.stop_reason)
                 result.state_revision = result.research_state.revision
             break
