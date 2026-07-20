@@ -1092,13 +1092,19 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         ),
     )
     fallback_assessment_used = False
+    visible_evidence = list(owner_result.evidence)
+    if contract.question_type == "market_cause":
+        # 原因题正文只消费结构化周内盘面；Web/资讯仅作控制面候选，避免
+        # 旧文章的“去杠杆/外围冲击”被误提升为本周已核验因果。
+        visible_evidence = [
+            item for item in owner_result.evidence if item.tool == "market_data"
+        ]
     if (
         contract.question_type == "market_cause"
-        and not owner_result.loop.assessment.strip()
-        and any(item.tool == "market_data" for item in owner_result.evidence)
+        and visible_evidence
     ):
         owner_result.loop.assessment = _market_cause_fallback_assessment(
-            owner_result.evidence
+            visible_evidence
         )
         owner_result.loop.sufficient = True
         fallback_assessment_used = True
@@ -1145,7 +1151,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     evidence_ids: list[str] = []
     candidate_claims: list[answer_model.Claim] = []
     evidence_lines: list[str] = []
-    for index, item in enumerate(owner_result.evidence[:12], start=1):
+    for index, item in enumerate(visible_evidence[:12], start=1):
         tag = f"G{index}"
         evidence_ids.append(tag)
         result.citations.append(
