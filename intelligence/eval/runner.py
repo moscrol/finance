@@ -28,6 +28,7 @@ from intelligence.eval.agent_eval import (
     parse_wiki_step,
     score_case,
 )
+from intelligence.eval.presentation_diversity import audit_presentation_diversity
 
 
 @dataclass
@@ -146,7 +147,19 @@ def run_eval(
         case_scores.append(score_case(turns, spec))
         record_cases.append({"id": spec.id, "turns": [t.to_dict() for t in turns]})
     scorecard = build_scorecard(case_scores, aggregate_gate)
-    run_record = {"aggregate_gate": aggregate_gate, "cases": record_cases}
+    diversity_answers = [
+        (record["id"], str(record["turns"][0].get("answer") or ""))
+        for record in record_cases
+        if record["turns"]
+    ]
+    run_record = {
+        "aggregate_gate": aggregate_gate,
+        "cases": record_cases,
+        # Advisory only: reliability remains governed by claim/evidence gates.
+        "presentation_diversity": audit_presentation_diversity(
+            diversity_answers
+        ).to_dict(),
+    }
     return scorecard, run_record
 
 

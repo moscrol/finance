@@ -143,7 +143,54 @@ class QuestionPlan:
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
-    def to_prompt_block(self) -> str:
+    def to_prompt_block(self, *, compact: bool = False) -> str:
+        if compact:
+            deep = self.depth == DEPTH_DEEP
+            lens_limit = 5 if deep else 3
+            source_limit = 5 if deep else 3
+            gate_limit = 3
+            output_limit = 4 if deep else 3
+            lines = [
+                "## 本轮任务边界",
+                f"- 类型：{self.question_type}；深度：{self.depth}",
+                "- 必要视角："
+                + "；".join(self.required_lenses[:lens_limit]),
+                "- 优先证据："
+                + "；".join(self.retrieval_plan[:source_limit]),
+                "- 完成条件："
+                + "；".join(self.output_contract[:output_limit]),
+                "- 事实门："
+                + "；".join(self.quality_gates[:gate_limit]),
+            ]
+            if self.missing_data_policy:
+                lines.append(
+                    "- 缺数据：" + "；".join(self.missing_data_policy[:2])
+                )
+            if self.warnings:
+                lines.append("- 边界提醒：" + "；".join(self.warnings[:2]))
+            # Methodology/review/general questions should not inherit the
+            # five-part finance-answer skeleton.  Their reliability comes from
+            # the same fact verifier, not from forcing risk/trigger headings.
+            if self.base_finance_mode is not None and self.question_type not in {
+                QUESTION_METHODOLOGY,
+                QUESTION_ANSWER_REVIEW,
+                QUESTION_GENERAL,
+            }:
+                required = [
+                    label
+                    for enabled, label in (
+                        (self.base_finance_mode.require_market, "行情"),
+                        (self.base_finance_mode.require_memory, "历史记忆"),
+                        (self.base_finance_mode.require_news, "近期新闻"),
+                        (self.base_finance_mode.require_graph, "产业链/关系"),
+                        (self.base_finance_mode.require_financials, "财务与估值"),
+                    )
+                    if enabled
+                ]
+                lines.append(
+                    "- 金融检索底线：" + ("、".join(required) or "通用金融证据")
+                )
+            return "\n".join(line for line in lines if not line.endswith("："))
         lines = [
             "## 问答编排计划（回答前的结构化任务理解，不要机械复述）",
             f"- 问题类型：{self.question_type}",

@@ -12,6 +12,7 @@ from intelligence.services.answer_model import (
     ClaimStatus,
     CompanyCandidate,
     CompanyTier,
+    DecisionBrief,
     EvidenceRef,
     build_company_assessments,
     evaluate_answer_spec,
@@ -28,6 +29,8 @@ from intelligence.services.answer_model import (
     repair_grounded_composer_answer,
     repair_llm_answer,
     render_answer_spec,
+    render_decision_brief_fallback,
+    resolve_answer_profile,
     resolve_theme_research_spec,
     validate_grounded_composer_answer,
     validate_llm_answer,
@@ -44,6 +47,56 @@ from intelligence.services.ask import (
 
 
 class ThemeResearchSpecTests(unittest.TestCase):
+    def test_causal_profile_does_not_use_theme_chain_schema(self) -> None:
+        spec = resolve_answer_profile(
+            "这一周行情下跌的主要原因是什么",
+            profile="causal",
+        )
+        self.assertEqual(spec.pack_id, "generic_causal")
+        self.assertNotIn("industry_chain", spec.requested_sections)
+        self.assertNotIn("company_mapping", spec.requested_sections)
+
+    def test_methodology_profile_allows_technical_subject_matter(self) -> None:
+        spec = resolve_answer_profile("RAG 怎么做", profile="methodology")
+        self.assertEqual(spec.pack_id, "generic_methodology")
+        self.assertIn("tradeoffs", spec.requested_sections)
+
+    def test_decision_brief_fallback_is_not_generic_template(self) -> None:
+        spec = AnswerSpec(
+            research_spec=resolve_answer_profile("行情原因", profile="causal"),
+            summary=(
+                make_claim(
+                    claim_id="c1",
+                    text="风险偏好收缩是当前主要机制。[G1]",
+                    claim_type="summary",
+                    theme="行情原因",
+                    status=ClaimStatus.INFERRED,
+                    evidence_ids=("G1",),
+                ),
+            ),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(),
+            system_notices=(),
+            presentation_kind="generic_research",
+            presentation_profile="causal",
+        )
+        brief = DecisionBrief(
+            direct_answer="风险偏好收缩是当前主要机制。",
+            core_tension="外部触发仍缺证据。",
+            supports=("c1",),
+            unknowns=(),
+        )
+        rendered = render_decision_brief_fallback(brief, spec)
+        self.assertIn("风险偏好收缩", rendered)
+        self.assertNotIn("通用研究", rendered)
+        self.assertNotIn("候选来源", rendered)
+        self.assertNotIn("[G1]", rendered)
+
     def test_domain_packs_share_one_protocol(self) -> None:
         cases = {
             "稳定币支付": "stablecoin_payment",

@@ -26,18 +26,35 @@ from intelligence.services.ask_types import (
     Citation,
     _normalize,
 )
+from intelligence.services.evidence_window import select_text_window
 
 
-def _evidence_text_for_llm(evidence_chain: list[str], gap_lines: list[str]) -> str:
-    """Flatten the retrieved 证据链 + 分歧反证 into plain text for the LLM prompt."""
+def _evidence_text_for_llm(
+    evidence_chain: list[str],
+    gap_lines: list[str],
+    *,
+    query: str = "",
+    max_chars: int = 9000,
+) -> str:
+    """Flatten a ranked, globally bounded evidence window for the LLM prompt.
+
+    Provider traces keep the full chain; only the model-facing window is
+    bounded so a long weak source cannot push hard evidence out of context.
+    """
     out: list[str] = ["## 证据链"]
-    for item in evidence_chain:
-        if item.startswith(SUBHEAD):
-            out.append(f"### {item[len(SUBHEAD):]}")
-        else:
-            out.append(f"- {item}")
+    selected = select_text_window(query, evidence_chain, max_chars=max_chars)
+    for item in selected:
+        out.append(f"- {item}")
     out.append("## 分歧反证")
-    out.extend(f"- {g}" for g in gap_lines)
+    remaining = max(0, max_chars - len("\n".join(out)))
+    for gap in gap_lines:
+        if remaining <= 0:
+            break
+        text = str(gap or "").strip()
+        if not text:
+            continue
+        out.append(f"- {text[: min(360, remaining)]}")
+        remaining -= len(text) + 3
     return "\n".join(out)
 
 

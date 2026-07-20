@@ -486,6 +486,7 @@ class AnswerSpec:
     prompt_constraints: tuple[str, ...] = ()
     presentation_kind: str = "theme_research"
     presentation_title: str = ""
+    presentation_profile: str = "theme"
     research_artifacts: tuple[StageArtifact, ...] = ()
     research_evidence_atoms: tuple[EvidenceAtom, ...] = ()
     quality: AnswerQualityReport = field(default_factory=AnswerQualityReport)
@@ -506,6 +507,7 @@ class AnswerSpec:
             "prompt_constraints": list(self.prompt_constraints),
             "presentation_kind": self.presentation_kind,
             "presentation_title": self.presentation_title,
+            "presentation_profile": self.presentation_profile,
             "research_artifacts": [
                 artifact.to_dict() for artifact in self.research_artifacts
             ],
@@ -516,6 +518,39 @@ class AnswerSpec:
         }
 
     def to_prompt_block(self) -> str:
+        if self.presentation_profile in {"causal", "methodology", "review", "general"}:
+            lines = [
+                "## AnswerSpec（本轮事实边界，禁止增加未列出的事实、公司和数字）",
+                "### 直接回答任务",
+            ]
+            lines.extend(_prompt_claim(claim) for claim in self.summary)
+            if self.verified_facts or self.candidate_facts:
+                lines.append("### 可回查依据")
+                lines.extend(
+                    _prompt_claim(claim)
+                    for claim in (*self.verified_facts, *self.candidate_facts)
+                )
+            if self.counter_evidence or self.gaps:
+                lines.append("### 证据边界")
+                lines.extend(
+                    _prompt_claim(claim)
+                    for claim in (*self.counter_evidence, *self.gaps)
+                )
+            if self.next_actions:
+                lines.append("### 下一步验证")
+                lines.extend(f"- {action}" for action in self.next_actions)
+            if self.sources:
+                lines.append("### 来源索引")
+                lines.extend(
+                    f"- {source.source} [{source.evidence_id}]"
+                    + (f" — {source.detail}" if source.detail else "")
+                    for source in self.sources
+                )
+            registry_block = structured_claim_registry_block(self)
+            if registry_block:
+                lines.append("### 结构化 claim registry（正文必须绑定）")
+                lines.append(registry_block)
+            return "\n".join(lines)
         lines = [
             "## AnswerSpec（唯一事实边界，禁止增加未列出的事实、公司和数字）",
             "### 三行结论",
@@ -561,8 +596,8 @@ class AnswerSpec:
             lines.append("### 结构化 claim registry（正文必须绑定）")
             lines.append(registry_block)
             lines.append(
-                "正文只能逐字复制上方完整 registry 行并按需添加标题；"
-                "不要改写 marker 或自行组合 EvidenceAtom ID。"
+                "marker 只供机器核验；保留自然措辞，事实句绑定合法 EvidenceAtom，"
+                "无法绑定的句子直接删除或改成明确的证据缺口。"
             )
         return "\n".join(lines)
 
@@ -607,6 +642,66 @@ def resolve_theme_research_spec(
             "triggers",
             "verification_actions",
         ),
+    )
+
+
+def resolve_answer_profile(
+    query: str,
+    matched_theme: str | None = None,
+    profile: str = "theme",
+) -> ThemeResearchSpec:
+    """Return the smallest research contract for a presentation profile.
+
+    Generic causal/methodology questions must not inherit the theme pack's
+    industry-chain/company schema merely because they have no dedicated skill.
+    The existing theme resolver remains the authoritative path for actual
+    theme/company research.
+    """
+    normalized = str(profile or "theme").strip().lower()
+    if normalized in {"theme", "company", "financial"}:
+        return resolve_theme_research_spec(query, matched_theme)
+    title = matched_theme or query.strip()[:80] or "通用研究"
+    section_map = {
+        "causal": (
+            "direct_answer",
+            "mechanism",
+            "external_trigger",
+            "evidence_boundary",
+            "validation",
+        ),
+        "methodology": (
+            "direct_answer",
+            "principle",
+            "tradeoffs",
+            "example",
+            "next_step",
+        ),
+        "review": (
+            "direct_answer",
+            "strengths",
+            "gaps",
+            "next_step",
+        ),
+        "general": (
+            "direct_answer",
+            "supporting_evidence",
+            "gaps",
+            "validation",
+        ),
+    }
+    return ThemeResearchSpec(
+        theme=title,
+        pack_id=f"generic_{normalized or 'general'}",
+        definition="",
+        chain_stages=(),
+        company_scope="",
+        as_of=None,
+        evidence_requirements=(),
+        counter_evidence_requirements=(),
+        trigger_conditions=(),
+        verification_actions=(),
+        focus_entities=(),
+        requested_sections=section_map.get(normalized, section_map["general"]),
     )
 
 
@@ -923,7 +1018,26 @@ def evaluate_answer_spec(answer_spec: AnswerSpec, max_chars: int = 8000) -> Answ
             *(humanize(action) for action in answer_spec.next_actions),
         ]
     )
-    leaked = [term for term in _ENGINEERING_TERMS if term in visible_text]
+    allowed_profiles = {"methodology", "review", "general", "causal"}
+    leaked = [
+        term
+        for term in _ENGINEERING_TERMS
+        if term in visible_text
+        and not (
+            answer_spec.presentation_profile in allowed_profiles
+            and term
+            in {
+                "RAG",
+                "retrieval",
+                "rerank",
+                "DuckDB",
+                "baseline",
+                "Provider",
+                "internal",
+                "registry",
+            }
+        )
+    ]
     if leaked:
         issues.append(
             QualityIssue(
@@ -1144,6 +1258,12 @@ def _heading_gate_issues(
 
 
 def _drop_disallowed_headings(answer: str, answer_spec: AnswerSpec | None) -> str:
+    if answer_spec is not None and answer_spec.presentation_profile in {
+        "methodology",
+        "review",
+        "general",
+    }:
+        return answer
     subjects = (
         _allowed_heading_subjects(answer_spec)
         if answer_spec is not None
@@ -1563,6 +1683,84 @@ def _render_evidence_gap_answer(answer_spec: AnswerSpec) -> str:
     return "\n".join(lines)
 
 
+def _fallback_claim_text(text: str) -> str:
+    """Clean a candidate claim for the last-resort human answer."""
+    value = humanize(str(text or "")).strip()
+    value = re.sub(r"\s*\[[A-Za-z0-9_,: -]+\]\s*$", "", value).strip()
+    value = re.sub(r"\s*\[(?:\s*[,，]\s*)+\]\s*$", "", value).strip()
+    if "：" in value:
+        prefix, suffix = value.split("：", 1)
+        if suffix.startswith(prefix):
+            value = suffix
+    return value
+
+
+def render_decision_brief_fallback(
+    brief: DecisionBrief | None,
+    answer_spec: AnswerSpec | None = None,
+) -> str:
+    """Render the best verified short answer when natural synthesis fails.
+
+    This renderer intentionally has no generic-theme headings, candidate-source
+    dump, claim markers or internal run state.  It is a smaller and safer exit
+    than the retired marker composer, not another LLM fallback.
+    """
+    claims = {
+        claim.claim_id: _fallback_claim_text(claim.text)
+        for claim in (
+            (*answer_spec.summary, *answer_spec.verified_facts, *answer_spec.candidate_facts)
+            if answer_spec is not None
+            else ()
+        )
+        if claim.claim_id and _fallback_claim_text(claim.text)
+    }
+
+    def resolve(items: tuple[str, ...]) -> list[str]:
+        return [
+            claims[item]
+            for item in items
+            if item in claims and claims[item]
+        ]
+
+    lines: list[str] = []
+    if (
+        answer_spec is not None
+        and answer_spec.presentation_kind != "generic_research"
+        and answer_spec.presentation_title
+    ):
+        lines.append(f"# {humanize(answer_spec.presentation_title)}")
+    direct = _fallback_claim_text(brief.direct_answer) if brief else ""
+    if not direct and answer_spec is not None and answer_spec.summary:
+        direct = _fallback_claim_text(answer_spec.summary[0].text)
+    if direct:
+        lines.extend(
+            ["", "## 当前判断", f"{direct}"]
+            if lines
+            else ["## 当前判断", f"{direct}"]
+        )
+
+    supports = resolve(brief.supports if brief else ())
+    if not supports and answer_spec is not None:
+        supports = [
+            _fallback_claim_text(claim.text)
+            for claim in (*answer_spec.verified_facts, *answer_spec.candidate_facts[:3])
+            if _fallback_claim_text(claim.text)
+        ][:3]
+    if supports:
+        lines.extend(["", "## 主要依据", *[f"- {item}" for item in dict.fromkeys(supports)]])
+
+    unknowns = resolve(brief.unknowns if brief else ())
+    if not unknowns and answer_spec is not None:
+        unknowns = [
+            _fallback_claim_text(claim.text)
+            for claim in answer_spec.gaps[:3]
+            if _fallback_claim_text(claim.text)
+        ]
+    if unknowns:
+        lines.extend(["", "## 证据边界", *[f"- {item}" for item in dict.fromkeys(unknowns)]])
+    return "\n".join(lines).strip() or "当前没有足够可回查证据形成可靠定性。"
+
+
 def _render_market_technical_answer(answer_spec: AnswerSpec) -> str:
     """技术位专属投影：不注入产业链/公司研究模板。"""
 
@@ -1608,43 +1806,8 @@ def _render_market_technical_answer(answer_spec: AnswerSpec) -> str:
 
 
 def _render_generic_research_answer(answer_spec: AnswerSpec) -> str:
-    """长尾 Owner 的动态投影：候选线索与 gap 分开，不填充公司模板。"""
-
-    lines: list[str] = []
-    notices = _dedupe(answer_spec.system_notices)
-    if notices:
-        lines.extend([humanize(notices[0]), ""])
-    lines.extend(
-        [
-            f"# {humanize(answer_spec.presentation_title or '通用研究')}",
-            "",
-            "## 当前判断",
-        ]
-    )
-    lines.extend(
-        f"- {_present_summary_claim(claim)}" for claim in answer_spec.summary[:3]
-    )
-    candidates = _dedupe_claims(answer_spec.candidate_facts)
-    if candidates:
-        lines.extend(["", "## 候选来源（待核验）"])
-        lines.extend(f"- {humanize(claim.text)}" for claim in candidates[:10])
-    gaps = _dedupe_claims((*answer_spec.counter_evidence, *answer_spec.gaps))
-    if gaps:
-        lines.extend(["", "## 证据缺口"])
-        lines.extend(f"- {_present_claim(claim)}" for claim in gaps[:6])
-    if answer_spec.next_actions:
-        lines.extend(["", "## 下一步"])
-        lines.extend(
-            f"- {humanize(action)}" for action in answer_spec.next_actions[:4]
-        )
-    if answer_spec.sources:
-        lines.extend(["", "<details><summary>展开来源</summary>", ""])
-        lines.extend(
-            f"- [{source.evidence_id}] {humanize(source.source)}：{humanize(source.detail)}"
-            for source in answer_spec.sources
-        )
-        lines.extend(["", "</details>"])
-    return "\n".join(lines)
+    """长尾 Owner 的最小动态投影，不把候选证据渲染成固定研究模板。"""
+    return render_decision_brief_fallback(None, answer_spec)
 
 
 def quality_requires_fail_closed(answer_spec: AnswerSpec) -> bool:
@@ -1975,7 +2138,24 @@ _STALE_EVIDENCE_PERIODS = frozenset({"superseded", "invalidated"})
 
 def validate_llm_answer(answer: str, answer_spec: AnswerSpec) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
-    leaked = [term for term in _ENGINEERING_TERMS if term in answer]
+    allowed_methodology_terms = {
+        "RAG",
+        "retrieval",
+        "rerank",
+        "DuckDB",
+        "baseline",
+        "Provider",
+        "internal",
+    }
+    leaked = [
+        term
+        for term in _ENGINEERING_TERMS
+        if term in answer
+        and not (
+            answer_spec.presentation_profile in {"methodology", "review", "general", "causal"}
+            and term in allowed_methodology_terms
+        )
+    ]
     if leaked:
         issues.append(
             QualityIssue(
@@ -2370,7 +2550,24 @@ def validate_grounded_composer_answer(
     answer_spec: AnswerSpec,
 ) -> tuple[QualityIssue, ...]:
     issues: list[QualityIssue] = []
-    leaked = [term for term in _ENGINEERING_TERMS if term in answer]
+    allowed_methodology_terms = {
+        "RAG",
+        "retrieval",
+        "rerank",
+        "DuckDB",
+        "baseline",
+        "Provider",
+        "internal",
+    }
+    leaked = [
+        term
+        for term in _ENGINEERING_TERMS
+        if term in answer
+        and not (
+            answer_spec.presentation_profile in {"methodology", "review"}
+            and term in allowed_methodology_terms
+        )
+    ]
     if leaked:
         issues.append(
             QualityIssue(
@@ -2379,13 +2576,18 @@ def validate_grounded_composer_answer(
                 f"影子答案输出内部术语：{'、'.join(leaked)}",
             )
         )
-    # 标题走私检查：error 级——repair 会确定性剔除违规标题，不需要额外 LLM 轮次。
+    heading_severity = (
+        "warning"
+        if answer_spec.presentation_profile in {"methodology", "review", "general"}
+        else "error"
+    )
+    # 标题只作为金融正文的事实边界；方法论/质检题允许自然小节。
     issues.extend(
         _heading_gate_issues(
             answer,
             answer_spec,
             code="grounded_composer_unverified_heading",
-            severity="error",
+            severity=heading_severity,
         )
     )
     atoms = evidence_atoms_from_answer_spec(answer_spec)

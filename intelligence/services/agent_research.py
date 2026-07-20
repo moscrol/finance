@@ -256,6 +256,13 @@ def build_default_tools(
                 title=item.title,
                 detail=(item.snippet or "")[:160],
                 source=item.url,
+                source_date=(
+                    match.group(0).replace("/", "-")
+                    if (match := re.search(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", f"{item.title} {item.snippet}"))
+                    else None
+                ),
+                evidence_tier="public_web",
+                independent_key=item.url,
             )
             for item in web.items[:5]
         ]
@@ -279,6 +286,9 @@ def build_default_tools(
                 title=item.title,
                 detail=f"{item.date} {item.source}",
                 source=item.url,
+                source_date=item.date[:10] or None,
+                evidence_tier="news",
+                independent_key=item.url,
             )
             for item in news.items[:6]
         ]

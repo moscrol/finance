@@ -526,7 +526,7 @@ def _build_answer_spec_for_result(
         prompt_constraints=tuple(
             item
             for item in (
-                result.question_plan.to_prompt_block()
+                result.question_plan.to_prompt_block(compact=True)
                 if result.question_plan is not None
                 else "",
                 (
@@ -748,7 +748,7 @@ def _build_base_answer_spec_from_sections(
             item
             for item in (
                 (
-                    result.question_plan.to_prompt_block()
+                    result.question_plan.to_prompt_block(compact=True)
                     if result.question_plan is not None
                     else ""
                 ),
@@ -1228,6 +1228,25 @@ def promote_grounded_answer(
                 f"{label}自然语言合成未通过门禁或不可用"
                 f"（{reason}），已降级回结构化合成。"
             )
+        if result.answer_spec.presentation_kind == "generic_research":
+            fallback = answer_model.render_decision_brief_fallback(
+                shadow.decision_brief if shadow is not None else None,
+                result.answer_spec,
+            )
+            result.synthesis = (
+                f"{result.data_notice}\n\n{fallback}"
+                if result.data_notice
+                else fallback
+            )
+            result.synthesis_messages = [
+                *(result.prepared_synthesis_messages or []),
+                {"role": "assistant", "content": result.synthesis},
+            ]
+            result.grounded_fallback_used = True
+            return True
+        # Specialist owners keep their established deterministic renderer as
+        # the explicit fallback.  They do not enter the generic long-tail
+        # candidate/template path.
         return False
     result.synthesis = (
         f"{result.data_notice}\n\n{presented}"

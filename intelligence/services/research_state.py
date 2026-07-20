@@ -9,7 +9,7 @@ their own lossy view of the turn.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -102,6 +102,11 @@ class ResearchState:
             required_outputs=outputs,
             presentation_profile=str(getattr(contract, "presentation_profile", "general")),
         )
+        for item in getattr(contract, "required_outputs", ()):
+            output_id = str(getattr(item, "output_id", ""))
+            description = str(getattr(item, "description", ""))
+            if output_id in {"cause_attribution", "causal_explanation"}:
+                state.add_hypothesis(output_id, description, kind="causal")
         state.budget = {
             "max_steps": int(getattr(getattr(contract, "policy", None), "max_steps", 0) or 0),
         }
@@ -191,15 +196,26 @@ class ResearchState:
         factual = "fulfilled" if evidence_ok else "missing"
         if has_causal_question:
             mechanism_evidence = any(
-                item.supports
-                or item.tool in {"market_data", "news_search", "web_search"}
+                item.tool == "market_data" or item.supports
+                for item in self.evidence.values()
+            )
+            # Current-window causal claims need dated external evidence.  An
+            # undated web snippet remains a lead, not proof of this week's
+            # trigger.
+            from intelligence.services.evidence_window import is_time_aligned_evidence
+
+            external_evidence = any(
+                item.tool in {"news_search", "web_search"}
+                and is_time_aligned_evidence(item)
                 for item in self.evidence.values()
             )
             causal = (
                 "partial"
                 if "cause_attribution" in blocking_gaps or "causal_explanation" in blocking_gaps
                 else "fulfilled"
-                if has_assessment and mechanism_evidence
+                if has_assessment and mechanism_evidence and external_evidence
+                else "partial"
+                if mechanism_evidence
                 else "missing"
             )
         else:

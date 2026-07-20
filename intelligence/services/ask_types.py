@@ -203,7 +203,9 @@ class AskOptions:
     # 实体锚定：图谱语义检索前先做确定性实体解析（股票名/代码→entity_exposures 精确匹配），
     # 命中后用实体自身概念暴露定锚；未命中行为逐字节不变。
     use_entity_anchor: bool = True
-    # L3 runtime evidence tools: official announcements / exchange interaction.
+    # L3 runtime official evidence. True is an explicit override; False still
+    # permits gap-driven lookup for deep valuation/company work and explicit
+    # customer/order/production questions.
     use_l3_lookup: bool = False
     l3_lookup_timeout: int = 480
     l3_lookup_limit: int = 5
@@ -290,6 +292,7 @@ class AskResult:
     grounded_composer_shadow: (
         answer_model.GroundedComposerShadow | None
     ) = None
+    grounded_fallback_used: bool = False
     # 问答编排层：先解析问题类型/深度/视角/证据计划，再进入 compose。
     question_plan: QuestionPlan | None = None
     # 澄清追问：问题明确模糊时的结构化追问；非 None 表示本次未检索、等用户补充。

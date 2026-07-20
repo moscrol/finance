@@ -128,6 +128,19 @@ def _build_generic_research_contract(
         else "standard"
     )
     is_market_cause = turn_intent.question_type == QUESTION_MARKET_CAUSE
+    is_methodology = bool(
+        re.search(
+            r"(?:怎么做|如何做|为什么会|原理|架构|编排|RAG|BM25|Agent|模板化|质检)",
+            query,
+            re.IGNORECASE,
+        )
+    )
+    needs_l3 = bool(
+        re.search(
+            r"(?:客户|合作|订单|合同|中标|认证|定点|送样|导入|量产|供货|出货|收入占比|供应商)",
+            query,
+        )
+    )
     required_outputs = (
         (
             RequiredOutput(
@@ -160,7 +173,13 @@ def _build_generic_research_contract(
             RequiredOutput(
                 "direct_assessment",
                 "针对用户问题的直接判断",
-                ("kb_search", "web_search", "news_search", "graph_lookup"),
+                (
+                    "kb_search",
+                    "web_search",
+                    "news_search",
+                    "graph_lookup",
+                    *(("l3_lookup",) if needs_l3 else ()),
+                ),
                 True,
             ),
             RequiredOutput(
@@ -178,6 +197,7 @@ def _build_generic_research_contract(
             "news_search",
             "kb_search",
             "evidence_lookup",
+            *(("l3_lookup",) if needs_l3 else ()),
         )
         if is_market_cause
         else (
@@ -205,7 +225,13 @@ def _build_generic_research_contract(
         ),
         allowed_capabilities=capabilities,
         research_tier=tier,
-        presentation_profile="general",
+        presentation_profile=(
+            "causal"
+            if is_market_cause
+            else "methodology"
+            if is_methodology
+            else "general"
+        ),
         freshness="current",
         timeframe=turn_intent.timeframe,
     )
@@ -2003,7 +2029,14 @@ class TurnOrchestrator:
                     AnswerSnapshot(
                         revision=2,
                         phase=(
-                            "validated_synthesis"
+                            (
+                                "decision_brief_fallback"
+                                if result.answer_spec is not None
+                                and result.answer_spec.presentation_kind == "generic_research"
+                                else "verified_fallback"
+                            )
+                            if result.grounded_fallback_used
+                            else "validated_synthesis"
                             if result.synthesis is not None
                             else (
                                 # 质检未过的模板降级不得伪装成 verified：

@@ -381,6 +381,7 @@ class AskL3IntegrationTests(unittest.TestCase):
                     use_wiki_rag=False,
                     compose=True,
                     use_l3_lookup=True,
+                    grounded_presenter=False,
                 )
             )
 

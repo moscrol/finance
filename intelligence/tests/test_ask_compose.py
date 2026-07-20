@@ -111,10 +111,10 @@ class SynthesizeTests(unittest.TestCase):
             "## AnswerSpec registry\n- 53 条候选 claim",
         )
 
-        self.assertIn("只选择 6-10 条", msgs[0]["content"])
-        self.assertIn("正文绝对不得超过 12 行", msgs[0]["content"])
-        self.assertIn("禁止遍历 registry", msgs[0]["content"])
-        self.assertIn("正文硬上限 12 个带 marker 的行", msgs[1]["content"])
+        self.assertIn("只消费给定 AnswerSpec 和证据", msgs[0]["content"])
+        self.assertIn("不强制六段、固定标题或正文行数", msgs[0]["content"])
+        self.assertIn("不要为了完整而逐条罗列 registry", msgs[1]["content"])
+        self.assertNotIn("正文硬上限 12", msgs[1]["content"])
 
     def test_synthesis_prompt_includes_exemplar_guidance(self) -> None:
         msgs = llm_refine.build_synthesis_messages(
@@ -140,9 +140,9 @@ class SynthesizeTests(unittest.TestCase):
         user = msgs[1]["content"]
 
         self.assertIn("不得在正文显示任何内部引用编号", system)
-        self.assertIn("严禁输出原始 JSON", system)
-        self.assertIn("L1/L2/L3/L4 必须分别转译", system)
-        self.assertIn("graph_only、replay、Daily Review", system)
+        self.assertIn("原始 JSON", system)
+        self.assertIn("L1/L2/L3/L4", system)
+        self.assertIn("转译成用户能理解的证据硬度", system)
         self.assertIn("最终回答不得显示编号", user)
 
     def test_exemplar_guidance_loader_routes_by_question_type(self) -> None:
@@ -173,29 +173,11 @@ class SynthesizeTests(unittest.TestCase):
 
         system = msgs[0]["content"]
 
-        self.assertIn("daily-agent", system)
-        self.assertIn("生命周期", system)
-        self.assertIn("市场/板块/个股三层资金传导", system)
-        self.assertIn("全量盘面数据的正反推导", system)
-        self.assertIn("强板块弱个股", system)
-        self.assertIn("市场正在奖励谁、抛弃谁、犹豫谁", system)
-        self.assertIn("二阶导", system)
-        self.assertIn("领先核心、同步确认、后排补涨", system)
-        self.assertIn("输出前必须在内部做一次质检和反驳", system)
-        self.assertIn("是否模板化", system)
-        self.assertIn("是否孤立看个股", system)
-        self.assertIn("证据是否够硬", system)
-        self.assertIn("更优表达", system)
-        self.assertIn("主线题材结构数据", system)
-        self.assertIn("主线连续性", system)
-        self.assertIn("缩量强修复/存量抱团", system)
-        self.assertIn("先在内部写出核心矛盾句", system)
-        self.assertIn("所有视角都必须服务这个核心矛盾", system)
-        self.assertIn("禁止按公司本体、盘面、二阶导、反证逐项填空", system)
-        self.assertIn("每一段都要回答这个事实改变了什么判断", system)
-        self.assertIn("不要附加质检过程或审稿过程", system)
-        self.assertIn("只能使用证据中“交易日历约束”给出的日期", system)
-        self.assertIn("严禁自然日加一天或猜日期", system)
+        self.assertIn("claim marker 只用于机器核验", system)
+        self.assertIn("当前证据优先", system)
+        self.assertIn("不得在正文显示任何内部引用编号", system)
+        self.assertNotIn("正文硬上限 12", system)
+        self.assertNotIn("只选择 6-10 条", system)
 
     def test_synthesis_system_prompt_obeys_question_specific_contract(self) -> None:
         msgs = llm_refine.build_synthesis_messages(
@@ -207,8 +189,8 @@ class SynthesizeTests(unittest.TestCase):
         system = msgs[0]["content"]
 
         self.assertIn("先服从证据中的「问答编排计划」", system)
-        self.assertIn("结构和篇幅由问题复杂度决定", system)
-        self.assertIn("不得为了显得完整而套用深度研究模板", system)
+        self.assertIn("结构、篇幅和小节由问题复杂度与证据形态决定", system)
+        self.assertIn("不强制六段、固定标题或正文行数", system)
 
     def test_degrades_on_empty_content(self) -> None:
         with mock.patch.object(llm_refine, "detect_provider", return_value=_provider()), mock.patch.object(

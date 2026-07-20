@@ -56,7 +56,8 @@ def _market_mechanism_state() -> ResearchState:
 
 def test_state_tracks_hypothesis_support_and_gap() -> None:
     state = _market_mechanism_state()
-    assert state.hypotheses[0].supporting_evidence == ["e1"]
+    hypothesis = next(item for item in state.hypotheses if item.hypothesis_id == "h1")
+    assert hypothesis.supporting_evidence == ["e1"]
     assert state.gaps[0].gap_id == "external_trigger"
     assert state.revision >= 4
 

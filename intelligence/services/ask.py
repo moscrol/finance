@@ -138,6 +138,11 @@ from intelligence.services.ask_blocks import (  # noqa: F401
     _theme_research_framing,
     _valuation_block_for_llm,
 )
+from intelligence.services.evidence_window import (
+    is_time_aligned_evidence,
+    select_agent_evidence,
+)
+from intelligence.services.relation_guard import relation_edge_supported, relation_gap_text
 from intelligence.services.ask_synthesis import (  # noqa: F401
     EXEMPLAR_DIR,
     _EXEMPLAR_PREFIX_BY_TYPE,
@@ -547,7 +552,7 @@ def _answer_market_review(
         ),
     )
     plan_block = (
-        result.question_plan.to_prompt_block()
+        result.question_plan.to_prompt_block(compact=True)
         if result.question_plan is not None
         else ""
     )
@@ -1022,6 +1027,10 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
 
     contract = options.research_task_contract
     assert contract is not None
+    generic_question_plan = plan_answer_question(
+        options.query,
+        question_type_override=contract.question_type,
+    )
     resolved_kb_wiki = (
         Path(options.kb_wiki).expanduser()
         if options.kb_wiki
@@ -1079,6 +1088,53 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         **agent_research.build_default_tools(retrieve_kb),
         **agent_research.build_graph_tools(knowledge),
     }
+
+    def _generic_l3_lookup(
+        agent_query: str,
+        context: agent_research.AgentToolContext,
+    ):
+        bundle = l3_evidence.lookup_l3_evidence(
+            agent_query,
+            generic_question_plan,
+            "通用研究循环识别到客户/订单/量产等公司级硬证据缺口。",
+            config=l3_evidence.L3LookupConfig.from_env(
+                enabled=True,
+                timeout=context.timeout(options.l3_lookup_timeout),
+                limit=options.l3_lookup_limit,
+            ),
+            company_hint=contract.subject,
+        )
+        evidence = [
+            agent_research.AgentEvidence(
+                tool="l3_lookup",
+                title=item.title,
+                detail=item.summary[:240],
+                source=item.citation or item.source_type,
+                source_date=(
+                    match.group(0).replace("/", "-")
+                    if (match := re.search(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", f"{item.title} {item.summary}"))
+                    else None
+                ),
+                evidence_tier="L3_official",
+                independent_key=f"{item.source_type}:{item.title}",
+            )
+            for item in bundle.items[:6]
+        ]
+        trace = ProviderTrace(
+            provider="agent:l3_lookup",
+            capability="agent_loop",
+            status="success" if evidence else "empty",
+            detail=agent_query[:120],
+            result_count=len(evidence),
+        )
+        observation = (
+            "；".join(f"{item.title}：{item.detail[:100]}" for item in evidence)
+            or "官方证据无命中"
+        )
+        return evidence, observation, trace
+
+    if "l3_lookup" in contract.allowed_capabilities:
+        tools["l3_lookup"] = _generic_l3_lookup
     if contract.question_type == "market_cause" and options.market_db_path is not None:
         tools["market_data"] = _generic_market_data
     registry = research_tool_registry.default_registry(tools)
@@ -1117,12 +1173,19 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         disabled_tools=disabled_tools,
     )
     fallback_assessment_used = False
-    visible_evidence = list(owner_result.evidence)
+    visible_evidence = select_agent_evidence(
+        options.query,
+        owner_result.evidence,
+        max_chars=6000,
+        max_items=12,
+    )
     if contract.question_type == "market_cause":
-        # 原因题正文只消费结构化周内盘面；Web/资讯仅作控制面候选，避免
-        # 旧文章的“去杠杆/外围冲击”被误提升为本周已核验因果。
+        # 原因题只把结构化周内盘面和时间对齐的外部证据送入正文。
+        # 未标日期的 web 摘要仍保留在 trace，不能冒充本周触发因素。
         visible_evidence = [
-            item for item in owner_result.evidence if item.tool == "market_data"
+            item
+            for item in visible_evidence
+            if item.tool == "market_data" or is_time_aligned_evidence(item)
         ]
     if (
         contract.question_type == "market_cause"
@@ -1132,6 +1195,21 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             visible_evidence
         )
         owner_result.loop.sufficient = True
+        if owner_result.loop.research_state is not None:
+            owner_result.loop.research_state.set_assessment(
+                owner_result.loop.assessment
+            )
+            if not any(
+                item.tool in {"web_search", "news_search"}
+                and is_time_aligned_evidence(item)
+                for item in owner_result.evidence
+            ):
+                owner_result.loop.research_state.add_gap(
+                    "external_trigger",
+                    "宏观、外盘或资金事件仍未取得与该周窗口对齐的证据",
+                    blocks=("cause_attribution",),
+                    suggested_capabilities=("web_search", "news_search"),
+                )
         fallback_assessment_used = True
         owner_result = replace(
             owner_result,
@@ -1148,10 +1226,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         priority_score=None,
         market_data_source="generic_research_owner",
     )
-    result.question_plan = plan_answer_question(
-        options.query,
-        question_type_override=contract.question_type,
-    )
+    result.question_plan = generic_question_plan
     result.data_notice = (
         "本轮已收集到可回查来源，但仍需逐条核验后才能升级为事实。"
         if owner_result.evidence
@@ -1277,9 +1352,10 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     }
     result.answer_spec = answer_model.finalize_answer_spec(
         answer_model.AnswerSpec(
-            research_spec=answer_model.resolve_theme_research_spec(
-                contract.subject or options.query,
-                None,
+            research_spec=answer_model.resolve_answer_profile(
+                options.query,
+                contract.subject,
+                contract.presentation_profile,
             ),
             summary=(summary,),
             verified_facts=(),
@@ -1293,6 +1369,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             system_notices=(result.data_notice,),
             presentation_kind="generic_research",
             presentation_title=contract.subject or "通用研究",
+            presentation_profile=contract.presentation_profile,
         )
     )
     return result
@@ -1507,6 +1584,17 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     concepts = graph_bundle.concepts_result
     exposures = graph_bundle.exposures_result
     company_lines = graph_bundle.company_lines
+    relation_query = bool(
+        {"relation", "company_mapping"}.intersection(
+            question_plan.query_envelope.operators
+        )
+    )
+    relation_edge_gap = (
+        relation_gap_text(options.query)
+        if relation_query
+        and not relation_edge_supported(options.query, (exposures.get("items") or []))
+        else ""
+    )
     company_evidence_concepts = graph_bundle.company_evidence_concepts
     tiers = graph_bundle.tiers
     with _progress_stage(options, "evidence_index") as stage:
@@ -1688,7 +1776,11 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             # 发现新实体后能自主定位公司映射、核对已登记证据。
             **agent_research.build_graph_tools(knowledge),
         }
-        if options.use_l3_lookup:
+        if evidence_providers.should_request_l3_lookup(
+            options=options,
+            question_plan=question_plan,
+            local_evidence_text=existing_summary,
+        ):
             agent_tools["l3_lookup"] = _agent_l3_lookup
         if options.market_db_path is not None:
             agent_tools["market_data"] = _agent_market_data
@@ -1828,6 +1920,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         gap_lines.append(f"盘面候选标记缺口：{'、'.join(map(str, gaps))}（图谱覆盖不足，证据待补）")
     if not result.found_graph and not is_market_forecast:
         gap_lines.append("知识图谱未命中该词：可能是新词/别名未登记，建议先 concept-ingest 或 disclosure-archive 补证")
+    if relation_edge_gap and not is_market_forecast:
+        gap_lines.append(relation_edge_gap)
     if tiers["peripheral"] and not is_market_forecast:
         gap_lines.append(
             f"{len(tiers['peripheral'])} 家公司为 graph_only/低置信暴露，属预期差待证伪区，不宜直接作为基本面依据"
@@ -1870,6 +1964,11 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         evidence_lines=evidence_lines + graph_concept_lines + company_lines + wiki_lines + module_block,
         market_lines=market_lines,
         gap_lines=gap_lines,
+    ).compact_for(
+        question_plan.question_type,
+        "deep"
+        if any(term in options.query for term in ("深挖", "深入", "系统研究"))
+        else "standard",
     )
     gap_lines.insert(0, f"阶段判断：{quality_context.stage}（证据层：{', '.join(quality_context.layers) or '未识别'}）")
     gap_lines.extend(f"市场结构推演路径：{item}" for item in quality_context.methodology_checks)
@@ -2063,16 +2162,23 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
                 requested_tier=answer_model.CompanyTier.CANDIDATE,
             )
         )
-    if options.use_l3_lookup:
+    local_evidence_for_l3 = _evidence_text_for_llm(
+        _evidence_chain_with_llm_wiki(evidence_chain, wiki_llm_line_pairs),
+        gap_lines,
+        query=options.query,
+    )
+    if evidence_providers.should_request_l3_lookup(
+        options=options,
+        question_plan=question_plan,
+        local_evidence_text=local_evidence_for_l3,
+    ):
         l3_lines = evidence_providers.collect_l3_official(
             evidence_ctx,
             company_evidence_concepts=company_evidence_concepts,
-            local_evidence_text=_evidence_text_for_llm(
-                _evidence_chain_with_llm_wiki(evidence_chain, wiki_llm_line_pairs),
-                gap_lines,
-            ),
+            local_evidence_text=local_evidence_for_l3,
         )
-        evidence_chain.extend([f"{SUBHEAD}L3 官方证据工具补查", *l3_lines])
+        if l3_lines:
+            evidence_chain.extend([f"{SUBHEAD}L3 官方证据工具补查", *l3_lines])
 
     # --- P0 技能链：证据分层审计 → 检索遥测 → 反证计划 →（深挖时）研究简报 ---
     audit = research_brief.audit_evidence_chain(evidence_chain, gap_lines)
@@ -2156,6 +2262,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         evidence_text = _evidence_text_for_llm(
             _evidence_chain_with_llm_wiki(evidence_chain, wiki_llm_line_pairs),
             gap_lines,
+            query=options.query,
         )
         refined, reason = llm_refine.refine_or_reason(
             options.query, theme, evidence_text,
@@ -2204,13 +2311,14 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         evidence_text = _evidence_text_for_llm(
             compose_evidence_chain,
             [] if is_market_review else gap_lines,
+            query=options.query,
         )
         if result.data_notice:
             evidence_text = (
                 f"## 本轮数据说明\n{result.data_notice}\n\n{evidence_text}"
             )
         if result.question_plan is not None:
-            evidence_text = f"{result.question_plan.to_prompt_block()}\n\n{evidence_text}"
+            evidence_text = f"{result.question_plan.to_prompt_block(compact=True)}\n\n{evidence_text}"
         if not is_market_review:
             evidence_text = (
                 f"{evidence_text}\n\n{audit.to_prompt_block()}"

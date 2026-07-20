@@ -41,6 +41,35 @@ if TYPE_CHECKING:
 # 旧结论核验门：这些 wiki 目录里的页面本质是“某个时点的判断”而非可直接引用的事实，
 # W 召回命中时打〔历史基线〕标签，合成层按先验处理（当下盘面核验 + 四态对照）。
 _PRIOR_CONCLUSION_DIRS = ("synthesis/", "briefings/")
+_L3_GAP_TERMS = (
+    "客户",
+    "合作",
+    "订单",
+    "合同",
+    "中标",
+    "认证",
+    "定点",
+    "送样",
+    "导入",
+    "量产",
+    "供货",
+    "出货",
+    "收入占比",
+    "供应商",
+)
+_L3_OWNER_TYPES = {
+    "stock_deep_dive",
+    "valuation_estimate",
+    "financial_analysis",
+    "news_impact",
+}
+_L3_HARD_SOURCE_TERMS = (
+    "L3 官方证据",
+    "公司公告",
+    "交易所公告",
+    "互动易",
+    "定期报告",
+)
 
 
 def _is_prior_conclusion_page(file_path: str) -> bool:
@@ -130,6 +159,44 @@ def _company_name_from_official_title(title: str) -> str | None:
     return None
 
 
+def should_request_l3_lookup(
+    *,
+    options: "AskOptions",
+    question_plan: "QuestionPlan",
+    local_evidence_text: str = "",
+) -> bool:
+    """Enable official-evidence lookup only when the answer has an L3-shaped gap.
+
+    The explicit option remains an override.  Otherwise deep company/event
+    questions and queries asking about customers/orders/production trigger the
+    lookup when the local window does not already contain an official source.
+    This closes the previous mismatch where the plan promised L3 retrieval but
+    runtime silently kept the tool disabled.
+    """
+    if options.use_l3_lookup:
+        return True
+    query = str(options.query or "")
+    question_type = str(question_plan.question_type or "")
+    asks_hard_fact = any(term in query for term in _L3_GAP_TERMS)
+    specific_target = bool(
+        re.search(r"(?:股份|集团|科技|电子|能源|公司|个股|股票|\d{6})", query)
+    )
+    deep_owner = (
+        question_type in _L3_OWNER_TYPES
+        and (
+            question_type == "valuation_estimate"
+            or (
+                getattr(question_plan, "depth", "standard") == "deep"
+                and specific_target
+            )
+        )
+    )
+    if not (asks_hard_fact or deep_owner):
+        return False
+    local = str(local_evidence_text or "")
+    return not any(term in local for term in _L3_HARD_SOURCE_TERMS)
+
+
 def collect_l3_official(
     ctx: EvidenceContext,
     *,
@@ -141,7 +208,11 @@ def collect_l3_official(
     anchor = ctx.anchor
     question_plan = ctx.question_plan
     chain_lines: list[str] = []
-    if not options.use_l3_lookup:
+    if not should_request_l3_lookup(
+        options=options,
+        question_plan=question_plan,
+        local_evidence_text=local_evidence_text,
+    ):
         return chain_lines
     l3_bundle = l3_evidence.lookup_l3_evidence(
         options.query,

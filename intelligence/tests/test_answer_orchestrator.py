@@ -797,14 +797,15 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
         self.assertIsNotNone(result.question_plan)
         assert result.question_plan is not None
         self.assertEqual(result.question_plan.question_type, QUESTION_STOCK_DEEP_DIVE)
-        self.assertIn("问答编排计划", captured["prompt"])
-        self.assertIn("问题类型：stock_deep_dive", captured["prompt"])
+        self.assertIn("本轮任务边界", captured["prompt"])
+        self.assertIn("类型：stock_deep_dive", captured["prompt"])
         self.assertIn("公司本体", captured["prompt"])
 
     def test_market_review_compose_uses_daily_evidence_without_topic_graph(
@@ -988,7 +989,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
         self.assertIsNotNone(result.question_plan)
         assert result.question_plan is not None
         self.assertEqual(result.question_plan.question_type, QUESTION_MARKET_REVIEW)
-        self.assertIn("问题类型：market_review", captured["prompt"])
+        self.assertIn("类型：market_review", captured["prompt"])
         self.assertNotIn("图谱·公司分层", captured["prompt"])
         self.assertNotIn("客户证据硬度数据块", captured["prompt"])
         self.assertNotIn("二阶导研究队列数据块", captured["prompt"])
@@ -1039,6 +1040,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
@@ -1169,6 +1171,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
                     use_modules=False,
                     use_wiki_rag=False,
                     compose=True,
+                    grounded_presenter=False,
                 )
             )
 
