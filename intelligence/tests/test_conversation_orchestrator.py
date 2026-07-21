@@ -127,6 +127,35 @@ def test_research_owner_contract_honors_declared_question_types() -> None:
     )
 
 
+def test_current_market_mainline_contract_requires_market_and_d4():
+    intent = TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="general_finance_qa",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    contract = _build_generic_research_contract(
+        "你觉得目前市场的主线是什么，给我你的判断依据",
+        task_id="current-mainline-contract",
+        turn_intent=intent,
+    )
+    assert contract.presentation_profile == "mainline_current"
+    assert contract.evidence_plan.mandatory_provider_names == (
+        "MARKET_DAILY",
+        "D4",
+    )
+    assert contract.allowed_capabilities[:2] == (
+        "market_data",
+        "mainline_context",
+    )
+    assert [item.output_id for item in contract.required_outputs[:2]] == [
+        "direct_assessment",
+        "supporting_evidence",
+    ]
+
+
 def test_old_daily_agent_contract_cannot_own_market_forecast(tmp_path) -> None:
     """Manual execution keeps the forecast turn, but cannot bypass ownership."""
     from dataclasses import replace

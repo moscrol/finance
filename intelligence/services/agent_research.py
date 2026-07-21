@@ -75,6 +75,10 @@ _TOOL_DESCRIPTIONS = {
         "市场总览（DuckDB 确定性取数），args: {\"query\": 自然语言数据问题，"
         "如'XX题材近20日成交额趋势'}"
     ),
+    "mainline_context": (
+        "- mainline_context：本地同日主线结构（题材/板块及数据时效边界），"
+        "args: {\"query\": 当前主线或盘面问题}"
+    ),
 }
 _TOOL_NAMES = (*_TOOL_DESCRIPTIONS, "finish")
 
@@ -576,6 +580,7 @@ def run_agent_loop(
     attempted_queries: Sequence[tuple[str, str]] = (),
     task_instructions: str = "",
     research_state: ResearchState | None = None,
+    context_block: str = "",
 ) -> AgentLoopResult:
     """跑一轮 agent 检索循环；任何失败都返回已收集的部分结果（可降级）。
 
@@ -618,6 +623,7 @@ def run_agent_loop(
         executed_steps = sum(1 for step in result.steps if step.tool != "finish")
         user_prompt = (
             f"用户问题：{query}\n\n"
+            f"当前时间与数据上下文：\n{context_block or '（未提供）'}\n\n"
             f"任务契约与完成要求：\n{task_instructions or '（未提供）'}\n\n"
             f"主链已有证据摘要：\n{existing_evidence_summary or '（无）'}\n\n"
             f"研究状态与最近观察：\n"

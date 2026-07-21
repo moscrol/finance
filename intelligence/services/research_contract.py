@@ -11,6 +11,7 @@ from intelligence.services.query_resolution import (
 )
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
+from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 
 AnswerOwner: TypeAlias = Literal[
     "stock-deep-dive",
@@ -382,6 +383,7 @@ class ResearchTaskContract:
     presentation_profile: str = "general"
     freshness: str = "current"
     timeframe: str | None = None
+    evidence_plan: EvidencePlan = field(default_factory=EvidencePlan)
     contract_version: str = "1"
 
     def __post_init__(self) -> None:
@@ -405,6 +407,7 @@ class ResearchTaskContract:
             "presentation_profile": self.presentation_profile,
             "freshness": self.freshness,
             "timeframe": self.timeframe,
+            "evidence_plan": self.evidence_plan.to_dict(),
             "contract_version": self.contract_version,
         }
 
@@ -433,6 +436,31 @@ class ResearchTaskContract:
         capabilities = value.get("allowed_capabilities", ())
         if not isinstance(capabilities, (list, tuple)):
             raise ResearchContractError("allowed_capabilities 必须是 list")
+        raw_plan = value.get("evidence_plan")
+        if raw_plan is None:
+            evidence_plan = EvidencePlan()
+        elif isinstance(raw_plan, dict):
+            raw_requirements = raw_plan.get("requirements", ())
+            if not isinstance(raw_requirements, (list, tuple)):
+                raise ResearchContractError("evidence_plan.requirements 必须是 list")
+            requirements = tuple(
+                EvidenceRequirement(
+                    provider_name=str(item.get("provider_name") or ""),
+                    capability=str(item.get("capability") or ""),
+                    mandatory=bool(item.get("mandatory", False)),
+                    freshness=str(item.get("freshness") or "current"),
+                    reason=str(item.get("reason") or ""),
+                )
+                for item in raw_requirements
+                if isinstance(item, dict)
+            )
+            evidence_plan = EvidencePlan(
+                profile=str(raw_plan.get("profile") or "general"),
+                requirements=requirements,
+                freshness=str(raw_plan.get("freshness") or "current"),
+            )
+        else:
+            raise ResearchContractError("evidence_plan 必须是 object")
         return cls(
             task_id=str(value.get("task_id") or ""),
             question=str(value.get("question") or ""),
@@ -453,6 +481,7 @@ class ResearchTaskContract:
             timeframe=(
                 str(value["timeframe"]) if value.get("timeframe") is not None else None
             ),
+            evidence_plan=evidence_plan,
             contract_version=str(value.get("contract_version") or "1"),
         )
 
@@ -463,6 +492,10 @@ class ResearchRunContext:
     deadline: ResearchDeadline
     policy: ResearchPolicy
     trace_parent_id: str
+    # Prompt context only: never treated as evidence. Appending defaults keeps
+    # positional construction in older integrations backwards compatible.
+    today: str | None = None
+    latest_data_date: str | None = None
 
 
 @dataclass(frozen=True)

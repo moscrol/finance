@@ -132,6 +132,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
         "evidence_lookup": ("evidence_lookup", "本地证据索引", "stable"),
         "l3_lookup": ("l3_lookup", "官方公告与互动证据", "current"),
         "market_data": ("market_data", "结构化行情与市场时序", "current"),
+        "mainline_context": ("mainline_context", "同日主线与板块结构", "current"),
     }
     specs = tuple(
         ToolSpec(

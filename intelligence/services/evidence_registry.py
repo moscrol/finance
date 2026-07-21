@@ -38,6 +38,8 @@ REGISTRY: tuple[ProviderSpec, ...] = (
     ProviderSpec("D7", "逐季财报", "东财 F10 逐季营收/归母净利/毛利率/净利率（+同比）", "include_financials_block"),
     ProviderSpec("W7", "web 事件检索", "东财资讯 + web 全网近 N 天新闻（只列不编，消息面存在性证据）", "include_news_block"),
     ProviderSpec("M", "用户记忆检索", "相关性召回的用户既有核心判断/纠偏原则/回检胜率", "include_memory_block"),
+    # 与 M（用户记忆）严格区分：MARKET_DAILY 是同日结构化市场总览。
+    ProviderSpec("MARKET_DAILY", "最新市场总览", "fact_market_daily 同日结构化盘面事实", ""),
     ProviderSpec("V", "回检块", "该题材/个股登记过的可证伪判断及最新裁决", "include_recall_block"),
     ProviderSpec("D1", "市场价值与替代队列", "CAR/峰后回撤/半衰期代理/同题材强势替代队列", "include_market_value_block"),
     ProviderSpec("D4", "主线题材结构", "同日主线结构；快照滞后时仅提供数据边界", "include_mainline_context_block"),
@@ -62,6 +64,8 @@ def provider_enabled(options: "AskOptions", name: str) -> bool:
 
 def getattr_legacy(options: "AskOptions", legacy_option: str) -> bool:
     """读取旧 include_*_block 开关；字段名由 REGISTRY 静态声明（非动态猜测）。"""
+    if not legacy_option:
+        return True
     value: bool = {
         "include_timeseries_block": options.include_timeseries_block,
         "include_midterm_block": options.include_midterm_block,

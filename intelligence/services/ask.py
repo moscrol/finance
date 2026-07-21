@@ -1123,6 +1123,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         deadline=deadline,
         policy=policy,
         trace_parent_id=contract.task_id,
+        today=date_cls.today().isoformat(),
+        latest_data_date=_market_data_asof(options.market_db_path),
     )
     # 只做一次极短的任务拆解。它影响 agent 的检索顺序说明，不改变契约的
     # 工具白名单、required outputs、档位或预算；调用时间也受同一 turn deadline
@@ -1169,7 +1171,19 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         """
         if context.deadline.expired:
             raise TimeoutError("agent market data deadline expired")
-        if contract.question_type == QUESTION_MARKET_FORECAST:
+        if contract.presentation_profile == "mainline_current":
+            block = "\n".join(
+                part
+                for part in (
+                    "## 当前市场总览结构化证据 [MARKET_DAILY]",
+                    _daily_market_overview_block_for_llm(options.market_db_path),
+                    "- 使用边界：这是同一最新交易日的盘面事实，不等于题材主线判断。",
+                )
+                if part
+            )
+            detail = "mainline_current_market_overview"
+            source = "本地 DuckDB · MARKET_DAILY 同日市场总览"
+        elif contract.question_type == QUESTION_MARKET_FORECAST:
             overview = _daily_market_overview_block_for_llm(options.market_db_path)
             window = _market_cause_window_block_for_llm(options.market_db_path)
             block = "\n".join(
@@ -1199,6 +1213,33 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             result_count=len(evidence),
         )
         return evidence, observation or "本地结构化市场数据无匹配", trace
+
+    def _generic_mainline_context(
+        agent_query: str,
+        context: agent_research.AgentToolContext,
+    ):
+        """通用 Owner 的 D4 主线结构工具，保留同日/滞后边界。"""
+
+        if context.deadline.expired:
+            raise TimeoutError("agent mainline context deadline expired")
+        block = _market_review_mainline_context_block_for_llm(
+            options.query,
+            contract.subject,
+            options.market_db_path,
+        )
+        evidence, observation = agent_research.block_lines_to_evidence(
+            "mainline_context",
+            block,
+            "本地 DuckDB · D4 同日主线结构",
+        )
+        trace = ProviderTrace(
+            provider="agent:mainline_context",
+            capability="agent_loop",
+            status="success" if evidence else "empty",
+            detail="mainline_current_context",
+            result_count=len(evidence),
+        )
+        return evidence, observation or "本地主线结构无匹配", trace
 
     tools = {
         **agent_research.build_default_tools(retrieve_kb),
@@ -1257,17 +1298,88 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
 
     if "l3_lookup" in contract.allowed_capabilities:
         tools["l3_lookup"] = _generic_l3_lookup
-    if contract.question_type == QUESTION_MARKET_FORECAST or (
+    if contract.presentation_profile == "mainline_current" or contract.question_type == QUESTION_MARKET_FORECAST or (
         contract.question_type == "market_cause" and options.market_db_path is not None
     ):
         tools["market_data"] = _generic_market_data
+    if contract.presentation_profile == "mainline_current":
+        tools["mainline_context"] = _generic_mainline_context
     registry = research_tool_registry.default_registry(tools)
     preloaded_items: list[agent_research.AgentEvidence] = []
     preloaded_trace_items: list[ProviderTrace] = []
     preloaded_gaps: list[ResearchGap] = []
     preloaded_observations: list[str] = []
     disabled_tool_names: list[str] = []
-    if contract.question_type in {"market_cause", QUESTION_MARKET_FORECAST} and "market_data" in registry.names():
+    if contract.presentation_profile == "mainline_current" and {
+        "market_data",
+        "mainline_context",
+    }.issubset(registry.names()):
+        # 当前主线是两个不同事实能力的组合：同日盘面总览（MARKET_DAILY）
+        # 和题材/板块结构（D4）。两者都确定性预取，LLM 只负责综合与补
+        # 反证；任何一个失败都留下 gap，不能被网页搜索替代。
+        for tool_name, query, gap_id, description, source_capability in (
+            (
+                "market_data",
+                "当前市场最新总览",
+                "market_data_prefetch",
+                "MARKET_DAILY 同日市场总览预取失败；当前盘面真值缺口不能由网页替代。",
+                "market_data",
+            ),
+            (
+                "mainline_context",
+                "当前市场主线与板块结构",
+                "mainline_context_prefetch",
+                "D4 同日主线结构预取失败；当前主线不能由旧日报或网页替代。",
+                "mainline_context",
+            ),
+        ):
+            step_id = f"{contract.task_id}:owner:prefetch:{tool_name}"
+            try:
+                observation = registry.execute(
+                    tool_name,
+                    query,
+                    context=context,
+                    step_id=step_id,
+                )
+                preloaded_items.extend(observation.evidence)
+                preloaded_trace_items.append(observation.trace)
+                preloaded_observations.append(observation.observation)
+                disabled_tool_names.append(tool_name)
+                if not observation.evidence:
+                    preloaded_gaps.append(
+                        ResearchGap(
+                            gap_id,
+                            description,
+                            blocks=tuple(item.output_id for item in contract.required_outputs),
+                            suggested_capabilities=(source_capability,),
+                        )
+                    )
+            except Exception as exc:
+                detail = f"{type(exc).__name__}: {str(exc)[:160]}"
+                preloaded_trace_items.append(
+                    ProviderTrace(
+                        provider=f"agent:{tool_name}",
+                        capability="agent_loop",
+                        status="request_error",
+                        detail=detail,
+                        result_count=0,
+                        parent_id=contract.task_id,
+                        step_id=step_id,
+                    )
+                )
+                preloaded_observations.append(
+                    f"{tool_name} 预取失败（{detail}）；不能用弱来源替代该必需能力。"
+                )
+                preloaded_gaps.append(
+                    ResearchGap(
+                        gap_id,
+                        description,
+                        blocks=tuple(item.output_id for item in contract.required_outputs),
+                        suggested_capabilities=(source_capability,),
+                    )
+                )
+                disabled_tool_names.append(tool_name)
+    elif contract.question_type in {"market_cause", QUESTION_MARKET_FORECAST} and "market_data" in registry.names():
         # 盘面是真值底座，不能由 agent 的工具选择顺序决定是否取得；预取后
         # 从可选工具中移除，避免固定管线与 agent loop 重复查盘。
         try:

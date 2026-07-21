@@ -159,6 +159,7 @@ def _explicit_gap_for_output(
 
 
 def _matches_output(
+    contract: ResearchTaskContract,
     required: RequiredOutput,
     evidence: tuple[agent_research.AgentEvidence, ...],
     loop: agent_research.AgentLoopResult,
@@ -169,7 +170,21 @@ def _matches_output(
     if normalized in {"direct_assessment", "answer", "conclusion"}:
         # 历史通用契约的 finish 仍向后兼容；原因归因题另由
         # cause_attribution 强制要求带文字的判断，避免一次升级破坏旧长尾。
-        return evidence if loop.sufficient is True and loop.assessment.strip() else ()
+        if loop.sufficient is not True or not loop.assessment.strip():
+            return ()
+        if not required.evidence_types:
+            return evidence
+        allowed = set(required.evidence_types)
+        matches = tuple(item for item in evidence if item.tool in allowed)
+        mandatory_capabilities = {
+            requirement.capability
+            for requirement in contract.evidence_plan.requirements
+            if requirement.mandatory
+        }
+        if mandatory_capabilities and mandatory_capabilities.issubset(allowed):
+            if not mandatory_capabilities.issubset({item.tool for item in evidence}):
+                return ()
+        return matches
     if normalized in {"cause_attribution", "causal_explanation"}:
         if loop.sufficient is not True or not loop.assessment.strip():
             return ()
@@ -223,7 +238,20 @@ def _matches_output(
         )
     if required.evidence_types:
         allowed = set(required.evidence_types)
-        return tuple(item for item in evidence if item.tool in allowed)
+        matches = tuple(item for item in evidence if item.tool in allowed)
+        # EvidencePlan 的 mandatory capability 是“组合事实”约束：例如当前
+        # 主线必须同时有 MARKET_DAILY 和 D4。不能让一条 market_data 证据
+        # 同时冒充两个来源，亦不能因 web 证据存在就绕过缺失的本地能力。
+        mandatory_capabilities = {
+            requirement.capability
+            for requirement in contract.evidence_plan.requirements
+            if requirement.mandatory
+        }
+        if mandatory_capabilities and mandatory_capabilities.issubset(allowed):
+            present = {item.tool for item in evidence}
+            if not mandatory_capabilities.issubset(present):
+                return ()
+        return matches
     return evidence
 
 
@@ -240,7 +268,7 @@ def evaluate_completion(
     evidence_pairs = _evidence_pairs(evidence)
     outputs: list[OutputStatus] = []
     for required in contract.required_outputs:
-        matches = _matches_output(required, evidence, loop)
+        matches = _matches_output(contract, required, evidence, loop)
         if matches:
             match_ids = tuple(
                 evidence_id
@@ -387,6 +415,7 @@ def run_generic_research(
             ],
             "allowed_tools": list(tools),
             "presentation_profile": contract.presentation_profile,
+            "evidence_plan": contract.evidence_plan.to_dict(),
             # 任务规划只是检索顺序参考；工具白名单、预算和 required outputs
             # 仍由上面的 contract/loop 硬约束决定。
             "task_plan": task_plan.to_dict() if task_plan else None,
@@ -417,6 +446,11 @@ def run_generic_research(
         complete_fn=complete_fn,
         task_instructions=instructions,
         research_state=state,
+        context_block=(
+            f"today={context.today or 'unknown'}；"
+            f"latest_data_date={context.latest_data_date or 'unknown'}；"
+            "today 不是市场数据日期，市场事实必须服从 latest_data_date 和证据自身日期。"
+        ),
     )
     if preloaded_evidence:
         loop.evidence = [*preloaded_evidence, *loop.evidence]

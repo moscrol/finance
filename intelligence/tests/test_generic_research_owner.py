@@ -226,6 +226,72 @@ def test_market_prefetch_failure_is_traced_disabled_and_reported_to_owner(
     assert "结构化行情预取失败" in result.answer_spec.gaps[0].text
 
 
+def test_current_mainline_prefetches_market_daily_and_d4_once(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """当前主线必须拿到两个事实能力，且固定预取后不再交给 loop 重查。"""
+
+    intent = conversation_orchestrator.TurnIntent(
+        primary_subject=None,
+        secondary_topics=(),
+        question_type="general_finance_qa",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    contract = conversation_orchestrator._build_generic_research_contract(
+        "你觉得目前市场的主线是什么，给我你的判断依据",
+        task_id="mainline-prefetch",
+        turn_intent=intent,
+    )
+    assert contract.presentation_profile == "mainline_current"
+    monkeypatch.setattr(
+        ask,
+        "_daily_market_overview_block_for_llm",
+        lambda _path: "## 总览\n- 截至 2026-07-20，上证涨跌幅 -1.2%",
+    )
+    monkeypatch.setattr(
+        ask,
+        "_market_review_mainline_context_block_for_llm",
+        lambda *_args: "## 主线\n- 算力：涨停 8，强度高",
+    )
+    monkeypatch.setattr(ask, "_market_data_asof", lambda _path: "2026-07-20")
+    monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    monkeypatch.setattr(ask.llm_refine, "detect_provider", lambda _model=None: None)
+
+    def complete(messages, **_kwargs):
+        prompt = messages[1]["content"]
+        assert "mainline_context" in prompt
+        assert "market_data" in prompt
+        return (
+            '{"tool":"finish","args":{"sufficient":true,'
+            '"assessment":"当前主线偏向算力，盘面与主线结构均已核验。",'
+            '"gaps":[]},"reason":"两项必需事实已取得"}',
+            "fixture",
+            "",
+        )
+
+    monkeypatch.setattr(agent_research.llm_refine, "complete", complete)
+    result = ask._answer_generic_owner(
+        ask.AskOptions(
+            query=contract.question,
+            kb_wiki=tmp_path / "wiki",
+            market_db_path=tmp_path / "missing.duckdb",
+            research_task_contract=contract,
+            use_llm=False,
+            compose=False,
+        )
+    )
+    assert result.business_status == "complete", repr(result.completion_report)
+    assert result.completion_report["business_status"] == "complete"
+    assert {item.provider for item in result.provider_traces} >= {
+        "agent:market_data",
+        "agent:mainline_context",
+    }
+
+
 def test_preloaded_market_gap_keeps_completion_partial_without_repeating_tool() -> None:
     calls: list[str] = []
 

@@ -65,6 +65,7 @@ from intelligence.services.lane_generation import (
 )
 from intelligence.services import perspective_lab
 from intelligence.services.query_understanding import understand_query
+from intelligence.services.evidence_capabilities import resolve_evidence_plan
 from intelligence.services.research_policy import (
     ResearchExecutionBudget,
     ResearchExecutionPolicy,
@@ -180,13 +181,34 @@ def _build_generic_research_contract(
             re.IGNORECASE,
         )
     )
+    evidence_plan = resolve_evidence_plan(
+        query,
+        question_type=turn_intent.question_type,
+        freshness="current",
+    )
+    is_current_mainline = evidence_plan.profile == "mainline_current" and not is_methodology
     needs_l3 = bool(
         re.search(
             r"(?:客户|合作|订单|合同|中标|认证|定点|送样|导入|量产|供货|出货|收入占比|供应商)",
             query,
         )
     )
-    if is_general_fact_check:
+    if is_current_mainline:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "直接回答当前市场主线，并区分增量启动、持续主线和分歧修复",
+                ("market_data", "mainline_context"),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "列出同日市场总览与主线结构依据",
+                ("market_data", "mainline_context"),
+                True,
+            ),
+        )
+    elif is_general_fact_check:
         required_outputs = (
             RequiredOutput(
                 "direct_assessment",
@@ -404,7 +426,14 @@ def _build_generic_research_contract(
                 else ()
             ),
         )
-    if is_general_fact_check:
+    if is_current_mainline:
+        capabilities = (
+            "market_data",
+            "mainline_context",
+            "web_search",
+            "news_search",
+        )
+    elif is_general_fact_check:
         capabilities = (
             "web_search",
             "news_search",
@@ -456,7 +485,7 @@ def _build_generic_research_contract(
         subject=subject,
         subject_kind=(
             "market_pattern"
-            if is_market_cause or is_market_forecast
+            if is_current_mainline or is_market_cause or is_market_forecast
             else "event"
             if is_event_forecast
             else "company_relation"
@@ -478,7 +507,9 @@ def _build_generic_research_contract(
         allowed_capabilities=capabilities,
         research_tier=tier,
         presentation_profile=(
-            "forecast"
+            "mainline_current"
+            if is_current_mainline
+            else "forecast"
             if is_market_forecast or is_event_forecast
             else "comparison"
             if is_comparison
@@ -492,6 +523,7 @@ def _build_generic_research_contract(
         ),
         freshness="current",
         timeframe=turn_intent.timeframe,
+        evidence_plan=evidence_plan,
     )
 
 
