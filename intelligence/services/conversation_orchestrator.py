@@ -2546,6 +2546,7 @@ class TurnOrchestrator:
                 warnings=warnings,
                 llm_provider=result.llm_provider,
                 llm_model=answer_model_name if result.llm_provider else None,
+                business_status=result.business_status,
             )
             public_report = _redact_object(report)
             if isinstance(public_report, dict):

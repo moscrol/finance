@@ -747,8 +747,14 @@ def complete_report(
     warnings: list[str],
     llm_provider: str | None,
     llm_model: str | None,
+    business_status: str = "complete",
 ) -> dict[str, Any]:
-    report["status"] = "completed"
+    # status 是用户报告的业务状态；transport_status 保留“请求已结束”的
+    # 旧语义，避免把 partial/gap 伪装成 completed。
+    normalized_status = business_status if business_status in {"complete", "partial", "gap", "blocked"} else "complete"
+    report["status"] = "completed" if normalized_status == "complete" else normalized_status
+    report["transport_status"] = "completed"
+    report["business_status"] = normalized_status
     report["as_of"] = as_of
     report["warnings"] = list(dict.fromkeys(warnings))
     report["llm"] = {

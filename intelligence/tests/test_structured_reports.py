@@ -235,6 +235,25 @@ def test_llm_and_deterministic_sections_share_one_report_contract() -> None:
     assert "html" not in json.dumps(report, ensure_ascii=False).lower()
 
 
+def test_partial_business_report_separates_transport_status() -> None:
+    report = new_structured_report(
+        run_id="run_partial",
+        question="目前市场主线是什么",
+        task_type="ask",
+    )
+    complete_report(
+        report,
+        as_of="2026-07-20",
+        warnings=["direct assessment missing"],
+        llm_provider=None,
+        llm_model=None,
+        business_status="partial",
+    )
+    assert report["status"] == "partial"
+    assert report["business_status"] == "partial"
+    assert report["transport_status"] == "completed"
+
+
 def test_ask_warnings_mark_user_facing_modules_degraded() -> None:
     result = AskResult(
         query="今日复盘",

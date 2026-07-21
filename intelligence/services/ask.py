@@ -1510,6 +1510,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     # 完成报告属于控制面：编排层据此决定是否允许进入 grounded synthesis，
     # 但不把内部的 missing/gap 诊断直接暴露给用户正文。
     result.completion_report = owner_result.completion.to_dict()
+    result.business_status = owner_result.completion.business_status
     result.provider_traces.extend(owner_result.traces)
     result.provider_traces.append(
         ProviderTrace(
@@ -3429,15 +3430,11 @@ def prepare_existing_answer(
     # 已完成研究的 synthesis prompt。
     if (
         result.completion_report is not None
-        and result.completion_report.get("status") != "completed"
-        and (
-            result.completion_report.get("factual_grounding") != "fulfilled"
-            or (
-                result.answer_spec is not None
-                and result.answer_spec.presentation_profile == "forecast"
-            )
-        )
+        and result.completion_report.get("business_status", "partial") != "complete"
     ):
+        # partial/gap 只允许 deterministic AnswerSpec/gap renderer 出站。
+        # factual_grounding fulfilled 不能绕过任务完成度；否则会出现
+        # “有候选来源但没有直接判断”仍启动 synthesis 的伪完成路径。
         return PreparedAnswer(
             options=replace(options, synthesize=False),
             result=result,

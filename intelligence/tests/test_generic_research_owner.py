@@ -995,6 +995,27 @@ def test_incomplete_owner_result_cannot_enter_synthesis(monkeypatch) -> None:
     assert result.completion_report["status"] == "partial"
     prepared = ask.prepare_existing_answer(options, result)
     assert prepared.result.prepared_synthesis_messages is None
+    assert result.completion_report["business_status"] in {"partial", "gap"}
+
+
+def test_completion_report_requires_bound_direct_assessment_for_business_complete() -> None:
+    contract = _contract()
+    evidence = agent_research.AgentEvidence(
+        tool="web_search",
+        title="当前公告",
+        detail="与问题相关的可回查公告。",
+        source="https://example.test/current",
+    )
+    loop = agent_research.AgentLoopResult(
+        evidence=[evidence],
+        sufficient=True,
+        assessment="",
+        research_state=ResearchState.from_contract(contract),
+    )
+    report = generic_research_owner.evaluate_completion(contract, loop)
+    assert report.status == "partial"
+    assert report.business_status in {"partial", "gap"}
+    assert next(item for item in report.outputs if item.output_id == "direct_assessment").status == "missing"
 
 
 def test_incomplete_generic_answer_projects_typed_gaps_to_business_validation(
@@ -1105,7 +1126,7 @@ def test_business_contract_gap_is_not_over_sanitized(monkeypatch) -> None:
     )
 
 
-def test_partial_causal_result_with_grounded_facts_can_enter_presenter() -> None:
+def test_partial_causal_result_with_grounded_facts_cannot_enter_presenter() -> None:
     claim = answer_model.make_claim(
         claim_id="cause:mechanism",
         text="周内四个交易日下跌，风险偏好收缩是可验证的盘面机制。",
@@ -1160,7 +1181,8 @@ def test_partial_causal_result_with_grounded_facts_can_enter_presenter() -> None
         ask.AskOptions(query=result.query, compose=True, synthesize=False),
         result,
     )
-    assert prepared.result.prepared_synthesis_messages
+    assert prepared.result.prepared_synthesis_messages is None
+    assert prepared.options.synthesize is False
 
 
 def test_unrelated_dated_news_does_not_fulfil_external_cause_output() -> None:

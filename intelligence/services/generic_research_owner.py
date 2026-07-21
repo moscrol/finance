@@ -33,6 +33,9 @@ class CompletionReport:
     factual_grounding: str = "unknown"
     causal_adequacy: str = "unknown"
     task_coverage: str = "unknown"
+    # 业务完成度与 transport/run status 分离。status 保留旧字段兼容已有
+    # trace；business_status 是展示和 synthesis gate 的唯一业务判断。
+    business_status: str = "partial"
 
     @property
     def missing_required(self) -> tuple[OutputStatus, ...]:
@@ -41,6 +44,7 @@ class CompletionReport:
     def to_dict(self) -> dict[str, object]:
         return {
             "status": self.status,
+            "business_status": self.business_status,
             "factual_grounding": self.factual_grounding,
             "causal_adequacy": self.causal_adequacy,
             "task_coverage": self.task_coverage,
@@ -289,12 +293,41 @@ def evaluate_completion(
         task_coverage = (
             completion.task_coverage if required_outputs_fulfilled else "partial"
         )
+    direct_status = next(
+        (item for item in outputs if item.output_id.casefold() in {"direct_assessment", "answer", "conclusion"}),
+        None,
+    )
+    direct_required = direct_status is not None
+    direct_bound = bool(
+        not direct_required
+        or (
+            direct_status is not None
+            and direct_status.status == "fulfilled"
+            and direct_status.evidence_ids
+        )
+    )
+    # 业务 complete 必须同时具备：契约 required outputs 全部 fulfilled、
+    # 直接判断非空且绑定证据、事实 grounding 通过。不能让 factual_grounding
+    # 单独掩盖 direct_assessment 缺口。
+    business_status = (
+        "complete"
+        if (
+            result_status == "completed"
+            and required_outputs_fulfilled
+            and direct_bound
+            and (completion is None or completion.factual_grounding == "fulfilled")
+        )
+        else "partial"
+        if any(status.status == "missing" for status in required_statuses)
+        else "gap"
+    )
     return CompletionReport(
         result_status,
         tuple(outputs),
         factual_grounding=completion.factual_grounding if completion else "unknown",
         causal_adequacy=completion.causal_adequacy if completion else "unknown",
         task_coverage=task_coverage,
+        business_status=business_status,
     )
 
 

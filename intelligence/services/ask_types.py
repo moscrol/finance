@@ -326,6 +326,8 @@ class AskResult:
         default=None,
         repr=False,
     )
+    # Generic Owner 的业务完成度投影；与 run/HTTP transport status 分离。
+    business_status: str = "unknown"
     # D1-D4 DuckDB 数据块的 per-block 可观测字段。
     d_block_stats: list[research_brief.DBlockStat] = field(default_factory=list)
     # (label, 完整报告全文) per routed module, only when --detail is set
