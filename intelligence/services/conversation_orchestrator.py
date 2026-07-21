@@ -2434,6 +2434,15 @@ class TurnOrchestrator:
                     result.fulfillment_report,
                 )
                 if fulfillment.status != "complete":
+                    # 只标 status 不够：result.synthesis 会优先于 AnswerSpec
+                    # 渲染，仍可能把答非所问草稿发给用户。切到现有
+                    # evidence-gap renderer，保留缺口而不是重写成另一份模板。
+                    result.synthesis = None
+                    result.answer_spec = task_fulfillment.fail_closed_answer_spec(
+                        result.answer_spec,
+                        fulfillment,
+                    )
+                    answer_text = render_conversation_answer(result)
                     warning = "最终回答未完成任务契约，已按部分完成标记。"
                     if warning not in warnings:
                         warnings.append(warning)

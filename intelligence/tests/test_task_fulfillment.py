@@ -6,7 +6,9 @@ from intelligence.services.answer_model import (
 from intelligence.services.research_contract import RequiredOutput
 from intelligence.services.task_fulfillment import (
     evaluate_task_fulfillment,
+    fail_closed_answer_spec,
 )
+from intelligence.services import answer_model
 
 
 def _claim(
@@ -145,3 +147,39 @@ def test_no_required_outputs_keeps_deterministic_head_unaffected():
     )
 
     assert verdict.status == "complete"
+
+
+def test_fail_closed_projection_removes_candidate_answer() -> None:
+    spec = answer_model.finalize_answer_spec(
+        answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_answer_profile(
+                "目前市场的主线是什么",
+                profile="general",
+            ),
+            summary=(
+                _claim("generic:summary", "本轮只展示候选来源。", evidence_ids=()),
+            ),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(),
+            system_notices=(),
+            presentation_kind="generic_research",
+        )
+    )
+    verdict = evaluate_task_fulfillment(
+        question="目前市场的主线是什么",
+        required_outputs=(RequiredOutput("direct_assessment", "当前主线判断", ("market_data",)),),
+        answer_text="本轮只展示候选来源。",
+        claims=spec.summary,
+        sources=(),
+    )
+
+    projected = fail_closed_answer_spec(spec, verdict)
+
+    assert projected.presentation_kind == "evidence_gap"
+    assert projected.candidate_facts == ()
+    assert projected.summary[0].status == answer_model.ClaimStatus.MISSING

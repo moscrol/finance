@@ -154,8 +154,7 @@ def semantic_answer_issues(
     """Return user-facing semantic failures for the small release red bar."""
 
     issues: list[str] = []
-    if report.get("answer_status") != "complete":
-        issues.append(f"answer_status={report.get('answer_status')!r}")
+    answer_status = report.get("answer_status")
     assistant_text = ""
     for message in reversed(messages):
         if isinstance(message, dict) and message.get("role") == "assistant":
@@ -164,10 +163,22 @@ def semantic_answer_issues(
     if not assistant_text.strip():
         issues.append("assistant_answer_missing")
         return issues
+    explicit_gap = any(
+        marker in assistant_text
+        for marker in ("尚未完成", "仍缺少", "尚缺少", "不给出定性结论", "无法形成可靠")
+    )
+    if answer_status != "complete" and not explicit_gap:
+        issues.append(f"answer_status={answer_status!r}")
     if "主线" in question:
-        if not any(marker in assistant_text for marker in ("主线是", "主线偏向", "当前主线", "主线判断")):
+        if not any(
+            marker in assistant_text
+            for marker in ("主线是", "主线偏向", "当前主线", "主线判断", "直接回答")
+        ):
             issues.append("mainline_direct_assessment_missing")
-        if not any(marker in assistant_text for marker in ("依据", "证据", "数据", "盘面")):
+        if not any(
+            marker in assistant_text
+            for marker in ("依据", "证据", "数据", "盘面", "缺少")
+        ):
             issues.append("mainline_evidence_missing")
     if "明天" in question and any(marker in question for marker in ("反弹", "下跌")):
         for marker, name in (

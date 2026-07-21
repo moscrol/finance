@@ -507,10 +507,9 @@ def test_long_tail_e2e_trace_keeps_route_budget_completion_and_grounding(
     assert result.status == "completed"
     assert result.selected_skill_ids == ()
     assert result.invoked_skill_ids == ()
-    assert "待验证假设" in result.content
-    assert "主要依据" in result.content
-    assert "还缺少" in result.content
-    assert "下一验证" in result.content
+    assert "证据缺口" in result.content
+    assert "本轮尚未完成问题所需的直接回答" in result.content
+    assert "请补充数据源或稍后重试" in result.content
     assert "研究雷达" not in result.content
     assert "每日市场复盘" not in result.content
 
@@ -526,10 +525,7 @@ def test_long_tail_e2e_trace_keeps_route_budget_completion_and_grounding(
     assert provider_traces
     assert {item["parent_id"] for item in provider_traces} == {run_id}
     assert all(item["step_id"] for item in provider_traces)
-    grounding_output = json.loads(
-        by_name["grounded_composer_shadow"]["output_summary"]
-    )
-    assert grounding_output["status"] == "accepted"
+    assert "grounded_composer_shadow" not in by_name
 
 
 def test_long_tail_real_owner_chain_reaches_completion_and_grounded_fallback(
@@ -1115,6 +1111,8 @@ def test_final_task_gate_marks_candidate_list_partial_even_when_research_complet
         if item["output_id"] == "direct_assessment"
     )
     assert direct["status"] == "missing"
+    assert "本轮尚未完成问题所需的直接回答" in result.content
+    assert "候选来源" not in result.content
 
 
 def test_market_cause_removes_generic_investment_disclaimer() -> None:

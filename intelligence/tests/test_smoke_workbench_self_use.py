@@ -47,3 +47,29 @@ def test_semantic_smoke_accepts_forecast_required_outputs() -> None:
     )
 
     assert issues == []
+
+
+def test_semantic_smoke_accepts_question_bound_partial_gap() -> None:
+    issues = semantic_answer_issues(
+        "你觉得目前市场的主线是什么，给我你的判断依据",
+        {"answer_status": "partial"},
+        [
+            {
+                "role": "assistant",
+                "content": "本轮尚未完成问题所需的直接回答：仍缺少同日主线结构依据，暂不下结论。",
+            }
+        ],
+    )
+
+    assert issues == []
+
+
+def test_semantic_smoke_rejects_generic_partial_source_list() -> None:
+    issues = semantic_answer_issues(
+        "你觉得目前市场的主线是什么，给我你的判断依据",
+        {"answer_status": "partial"},
+        [{"role": "assistant", "content": "已找到相关来源，但证据强度不足。"}],
+    )
+
+    assert "answer_status='partial'" in issues
+    assert "mainline_direct_assessment_missing" in issues

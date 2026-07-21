@@ -10,10 +10,15 @@ first deterministic gate.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable, Literal, Mapping
 
-from intelligence.services.answer_model import AnswerSpec, Claim, EvidenceRef
+from intelligence.services.answer_model import (
+    AnswerSpec,
+    Claim,
+    ClaimStatus,
+    EvidenceRef,
+)
 from intelligence.services.research_contract import RequiredOutput
 
 
@@ -371,4 +376,45 @@ def evaluate_answer_spec_fulfillment(
         answer_text=answer_text,
         claims=claims,
         sources=answer_spec.sources,
+    )
+
+
+def fail_closed_answer_spec(
+    answer_spec: AnswerSpec,
+    verdict: FulfillmentVerdict,
+) -> AnswerSpec:
+    """Project an incomplete answer into the existing evidence-gap renderer.
+
+    The gate must change the public projection, not only attach a red status to
+    a still-misleading draft.  This keeps the control-plane verdict and the
+    displayed text consistent while preserving the original AnswerSpec in the
+    trace before projection.
+    """
+
+    missing = tuple(
+        item.gap or f"仍缺少：{item.output_id}"
+        for item in verdict.items
+        if item.status != "fulfilled"
+    )
+    detail = "；".join(dict.fromkeys(missing)) or "本轮回答未覆盖用户问题的全部必需部分。"
+    gap = Claim(
+        claim_id="task_fulfillment:gap",
+        text=f"本轮尚未完成问题所需的直接回答：{detail}",
+        claim_type="evidence_gap",
+        theme=answer_spec.research_spec.theme,
+        status=ClaimStatus.MISSING,
+    )
+    return replace(
+        answer_spec,
+        summary=(gap,),
+        verified_facts=(),
+        company_table=(),
+        counter_evidence=(),
+        triggers=(),
+        candidate_facts=(),
+        gaps=(gap,),
+        next_actions=("补齐上述问题相关的数据或证据后重新核验。",),
+        sources=(),
+        presentation_kind="evidence_gap",
+        presentation_title=answer_spec.presentation_title or "证据缺口",
     )

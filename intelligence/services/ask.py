@@ -2054,6 +2054,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         )
 
     forecast_fallback_text = ""
+    assessment_text = ""
     if contract.presentation_profile == "forecast" and has_structured_truth:
         # 预测题不能因外部新闻为空而退化成“什么都不能判断”。结构化盘面
         # 足以支持条件化情景（不支持概率/确定性方向）；把每个情景绑定到
@@ -2147,17 +2148,25 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         text=summary_text,
         claim_type="summary",
         theme=contract.subject or options.query,
+        # A source list is not a direct assessment.  Do not attach the market
+        # evidence IDs to the generic “已找到相关来源” sentence, otherwise the
+        # final task gate can mistake a gap notice for a completed conclusion.
         status=(
             answer_model.ClaimStatus.MISSING
-            if is_customer_fact_check and not has_relevant_l3
-            else
-            answer_model.ClaimStatus.INFERRED
-            if evidence_ids
-            else answer_model.ClaimStatus.MISSING
+            if (
+                is_customer_fact_check
+                and not has_relevant_l3
+            )
+            or not (assessment_text or forecast_fallback_text)
+            else answer_model.ClaimStatus.INFERRED
         ),
         evidence_ids=(
             ()
-            if is_customer_fact_check and not has_relevant_l3
+            if (
+                is_customer_fact_check
+                and not has_relevant_l3
+            )
+            or not (assessment_text or forecast_fallback_text)
             else tuple(evidence_ids)
         ),
     )
