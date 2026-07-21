@@ -332,6 +332,13 @@ class AskResult:
     )
     # Generic Owner 的业务完成度投影；与 run/HTTP transport status 分离。
     business_status: str = "unknown"
+    # 最终用户可见正文的任务完成度；只在 Grounded Composer/repair 结束后
+    # 计算，不复用检索阶段的 business_status。
+    answer_status: str = "unknown"
+    fulfillment_report: dict[str, object] | None = field(
+        default=None,
+        repr=False,
+    )
     # D1-D4 DuckDB 数据块的 per-block 可观测字段。
     d_block_stats: list[research_brief.DBlockStat] = field(default_factory=list)
     # (label, 完整报告全文) per routed module, only when --detail is set

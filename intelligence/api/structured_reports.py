@@ -772,12 +772,26 @@ def complete_report(
     llm_provider: str | None,
     llm_model: str | None,
     business_status: str = "complete",
+    answer_status: str | None = None,
 ) -> dict[str, Any]:
     # status 是用户报告的业务状态；transport_status 保留“请求已结束”的
     # 旧语义，避免把 partial/gap 伪装成 completed。
-    normalized_status = business_status if business_status in {"complete", "partial", "gap", "blocked"} else "complete"
+    allowed_statuses = {"complete", "partial", "gap", "blocked", "missing"}
+    research_status = business_status if business_status in allowed_statuses else "complete"
+    normalized_answer_status = (
+        answer_status if answer_status in allowed_statuses else research_status
+    )
+    status_rank = {"complete": 0, "partial": 1, "gap": 2, "missing": 2, "blocked": 3}
+    normalized_status = max(
+        (research_status, normalized_answer_status),
+        key=lambda value: status_rank[value],
+    )
     report["status"] = "completed" if normalized_status == "complete" else normalized_status
     report["transport_status"] = "completed"
+    report["research_status"] = research_status
+    report["answer_status"] = normalized_answer_status
+    # Legacy field retained for old clients; it now reflects the worst business
+    # outcome instead of silently hiding an incomplete final answer.
     report["business_status"] = normalized_status
     report["as_of"] = as_of
     report["warnings"] = list(dict.fromkeys(warnings))

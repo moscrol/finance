@@ -15,6 +15,7 @@ from intelligence.services.ask import AskOptions, AskResult, Citation
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_FACT_CHECK,
+    QUESTION_GENERAL,
     QUESTION_MARKET_CAUSE,
     QUESTION_METHODOLOGY,
 )
@@ -1002,6 +1003,118 @@ def test_relation_question_skips_theme_skill_router(tmp_path) -> None:
     route_output = json.loads(route["output_summary"])
     assert route_output["router_skipped"] is True
     assert route_output["relation_guard_requested"] is True
+
+
+def test_final_task_gate_marks_candidate_list_partial_even_when_research_complete(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "目前市场的主线是什么"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+
+    def controller(_query: str, **_kwargs: object) -> TurnDecision:
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=False,
+            needs_template=True,
+            question_type=QUESTION_GENERAL,
+            confidence=1.0,
+            capabilities=("web_search",),
+        )
+
+    def answer_with_candidate_list(options: AskOptions) -> AskResult:
+        assert options.research_task_contract is not None
+        result = _ask_result(query, synthesis="本轮只展示候选来源，仍缺少针对用户问题的直接判断。")
+        result.business_status = "complete"
+        result.completion_report = {"business_status": "complete"}
+        result.citations = [Citation("G1", "2025 市场回顾", "全年回顾性线索")]
+        result.answer_spec = answer_model.finalize_answer_spec(
+            answer_model.AnswerSpec(
+                research_spec=answer_model.resolve_answer_profile(
+                    query,
+                    profile="general",
+                ),
+                summary=(
+                    answer_model.make_claim(
+                        claim_id="generic:summary",
+                        text="本轮只展示候选来源，仍缺少针对用户问题的直接判断。",
+                        claim_type="summary",
+                        theme="市场",
+                        status=answer_model.ClaimStatus.MISSING,
+                    ),
+                ),
+                verified_facts=(),
+                company_table=(),
+                counter_evidence=(),
+                gaps=(),
+                triggers=(),
+                next_actions=(),
+                sources=(
+                    answer_model.EvidenceRef(
+                        evidence_id="G1",
+                        source="2025 市场回顾",
+                        detail="全年回顾性线索",
+                        source_date="2025-12-31",
+                    ),
+                ),
+                system_notices=(),
+                presentation_kind="generic_research",
+                presentation_profile="general",
+            )
+        )
+        return result
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_with_candidate_list,
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "generic owner should skip the skill answer router"
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    snapshots = [
+        event
+        for event in run_store.load_stream_events(run_id)
+        if event["event_type"] == "answer.snapshot"
+    ]
+    report_artifact = next(
+        artifact
+        for artifact in run_store.load_run(run_id).artifacts
+        if artifact["path"] == "report.json"
+    )
+    report = json.loads(
+        (run_store.run_dir(run_id) / report_artifact["path"]).read_text(encoding="utf-8")
+    )
+
+    assert result.status == "completed"  # transport remains compatible
+    assert snapshots[-1]["payload"]["phase"] == "evidence_gap_fallback"
+    assert report["transport_status"] == "completed"
+    assert report["research_status"] == "complete"
+    assert report["answer_status"] == "partial"
+    assert report["status"] == "partial"
+    direct = next(
+        item
+        for item in report["task_fulfillment"]["items"]
+        if item["output_id"] == "direct_assessment"
+    )
+    assert direct["status"] == "missing"
 
 
 def test_market_cause_removes_generic_investment_disclaimer() -> None:

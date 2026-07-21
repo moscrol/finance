@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass
 from typing import Iterable, Literal, Mapping
 
-from intelligence.services.answer_model import Claim, EvidenceRef
+from intelligence.services.answer_model import AnswerSpec, Claim, EvidenceRef
 from intelligence.services.research_contract import RequiredOutput
 
 
@@ -130,7 +130,17 @@ def _tokens(text: str) -> set[str]:
 
 
 def _normalise(text: str) -> str:
-    return re.sub(r"\s+", "", str(text or "")).strip("：:，,。；; ")
+    without_citations = re.sub(r"\[[A-Z]\d+\]", "", str(text or ""))
+    return re.sub(r"\s+", "", without_citations).strip("：:，,。；; ")
+
+
+def _claim_text_present(claim: Claim, answer_text: str) -> bool:
+    claim_text = _normalise(claim.text)
+    answer = _normalise(answer_text)
+    if claim_text and claim_text in answer:
+        return True
+    overlap = _tokens(claim.text).intersection(_tokens(answer_text))
+    return len(overlap) >= 2
 
 
 def _claim_candidates(
@@ -270,7 +280,7 @@ def evaluate_task_fulfillment(
                 for evidence_id in claim.evidence_ids
                 if evidence_id in source_map
             )
-            claim_in_answer = _normalise(claim.text) in _normalise(answer_text)
+            claim_in_answer = _claim_text_present(claim, answer_text)
             if output_id == "supporting_evidence" and not claim_in_answer:
                 claim_in_answer = bool(
                     _tokens(claim.text).intersection(_tokens(answer_text))
@@ -327,3 +337,38 @@ def evaluate_task_fulfillment(
     if any(item.status == "partial" for item in required_items):
         return FulfillmentVerdict("partial", tuple(items), "存在问题相关但尚未完成的输出")
     return FulfillmentVerdict("missing", tuple(items), "至少一个必需输出未出现在最终正文")
+
+
+def evaluate_answer_spec_fulfillment(
+    *,
+    question: str,
+    required_outputs: tuple[RequiredOutput, ...],
+    answer_text: str,
+    answer_spec: AnswerSpec,
+) -> FulfillmentVerdict:
+    """Adapter from the existing AnswerSpec registry to the deep gate seam."""
+
+    claims = tuple(
+        dict.fromkeys(
+            (
+                *answer_spec.summary,
+                *answer_spec.verified_facts,
+                *answer_spec.counter_evidence,
+                *answer_spec.gaps,
+                *answer_spec.triggers,
+                *answer_spec.candidate_facts,
+                *(
+                    claim
+                    for company in answer_spec.company_table
+                    for claim in company.claims
+                ),
+            )
+        )
+    )
+    return evaluate_task_fulfillment(
+        question=question,
+        required_outputs=required_outputs,
+        answer_text=answer_text,
+        claims=claims,
+        sources=answer_spec.sources,
+    )

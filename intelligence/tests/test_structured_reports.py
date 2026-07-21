@@ -276,6 +276,30 @@ def test_partial_business_report_separates_transport_status() -> None:
     assert report["transport_status"] == "completed"
 
 
+def test_incomplete_final_answer_cannot_hide_behind_complete_research() -> None:
+    report = new_structured_report(
+        run_id="run_answer_missing",
+        question="目前市场的主线是什么",
+        task_type="research",
+    )
+
+    complete_report(
+        report,
+        as_of="2026-07-21",
+        warnings=[],
+        llm_provider="test",
+        llm_model="test",
+        business_status="complete",
+        answer_status="missing",
+    )
+
+    assert report["transport_status"] == "completed"
+    assert report["research_status"] == "complete"
+    assert report["answer_status"] == "missing"
+    assert report["business_status"] == "missing"
+    assert report["status"] == "missing"
+
+
 def test_ask_warnings_mark_user_facing_modules_degraded() -> None:
     result = AskResult(
         query="今日复盘",

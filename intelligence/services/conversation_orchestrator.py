@@ -23,6 +23,7 @@ from intelligence.api.structured_reports import (
     upsert_report_module,
 )
 from intelligence.services import answer_model, followups as followups_svc
+from intelligence.services import task_fulfillment
 from intelligence.services import run_store as rs
 from intelligence.services.ask import (
     AskOptions,
@@ -2430,6 +2431,37 @@ class TurnOrchestrator:
                 )
             )
             answer_text = _sanitize_market_cause_answer_text(answer_text, query)
+            if generic_contract is not None and result.answer_spec is not None:
+                fulfillment = task_fulfillment.evaluate_answer_spec_fulfillment(
+                    question=contextual_query,
+                    required_outputs=generic_contract.required_outputs,
+                    answer_text=answer_text,
+                    answer_spec=result.answer_spec,
+                )
+                result.answer_status = fulfillment.status
+                result.fulfillment_report = fulfillment.to_dict()
+                report["task_fulfillment"] = result.fulfillment_report
+                self._trace(
+                    run_id,
+                    assistant_message_id,
+                    conversation_id,
+                    "task_fulfillment",
+                    "task_fulfillment",
+                    result.fulfillment_report,
+                )
+                if fulfillment.status != "complete":
+                    warning = "最终回答未完成任务契约，已按部分完成标记。"
+                    if warning not in warnings:
+                        warnings.append(warning)
+                        self.run_store.add_degrade(run_id, warning)
+            elif result.answer_status == "unknown":
+                # Deterministic heads and explicit skill owners keep their
+                # existing verifier outcome until they expose a TurnContract.
+                result.answer_status = (
+                    result.business_status
+                    if result.business_status in {"complete", "partial", "gap", "missing"}
+                    else "complete"
+                )
             turn_intent = replace(
                 turn_intent,
                 skill_ids=(
@@ -2518,6 +2550,9 @@ class TurnOrchestrator:
                     AnswerSnapshot(
                         revision=2,
                         phase=(
+                            "evidence_gap_fallback"
+                            if result.answer_status != "complete"
+                            else
                             (
                                 "decision_brief_fallback"
                                 if result.answer_spec is not None
@@ -2630,6 +2665,7 @@ class TurnOrchestrator:
                 llm_provider=result.llm_provider,
                 llm_model=answer_model_name if result.llm_provider else None,
                 business_status=result.business_status,
+                answer_status=result.answer_status,
             )
             public_report = _redact_object(report)
             if isinstance(public_report, dict):
