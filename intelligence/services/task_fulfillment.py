@@ -175,6 +175,10 @@ def _claim_candidates(
             for claim in claims
             if claim.evidence_ids
             and claim.claim_type in {"supporting_fact", "fact", "summary"}
+            and not any(
+                marker in claim.text
+                for marker in ("使用边界", "不等于题材主线", "证据边界")
+            )
         )
     return ()
 

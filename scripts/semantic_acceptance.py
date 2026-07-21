@@ -111,6 +111,7 @@ def run_acceptance(
                 output=question_summary_path,
             )
         )
+        _atomic_write_json(question_summary_path, question_summary)
         runs.append(
             {
                 "question": question,
