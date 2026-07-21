@@ -6,7 +6,7 @@ from intelligence.services.ask import AskOptions
 
 def test_registry_covers_all_data_blocks_in_order():
     assert evidence_registry.PROVIDER_NAMES == (
-        "D0", "D6", "D9", "D8", "D7", "W7", "M", "V",
+        "D0", "D6", "D9", "D8", "D7", "W7", "M", "MARKET_DAILY", "V",
         "D1", "D4", "D2", "D5", "D3",
     )
     legacy = {spec.legacy_option for spec in evidence_registry.REGISTRY}
