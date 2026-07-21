@@ -77,6 +77,105 @@ def test_loop_executes_tools_then_finishes_with_gaps() -> None:
     assert result.traces[0].provider == "agent:web_search"
 
 
+def test_gap_finish_must_try_relevant_available_capability_once() -> None:
+    """Agent 不能在相关白名单工具尚未尝试时直接把可补缺口交给用户。"""
+
+    contract = ResearchTaskContract(
+        task_id="gap-before-attempt",
+        question="本周市场下跌的外部触发是什么",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        question_type="market_cause",
+        required_outputs=(
+            RequiredOutput(
+                "external_cause_evidence",
+                "时间对齐的外部触发",
+                ("web_search", "news_search"),
+                True,
+            ),
+        ),
+        allowed_capabilities=("web_search", "news_search"),
+        research_tier="quick",
+    )
+    calls: list[str] = []
+
+    def web_tool(query: str):
+        calls.append(query)
+        return _tool("web_search")(query)
+
+    result = run_agent_loop(
+        contract.question,
+        tools={"web_search": web_tool, "news_search": _tool("news_search", hits=0)},
+        steps_budget=2,
+        research_state=ResearchState.from_contract(contract),
+        complete_fn=_scripted_complete(
+            [
+                {
+                    "tool": "finish",
+                    "args": {
+                        "sufficient": False,
+                        "assessment": "外部触发仍待核验",
+                        "gaps": ["缺外部证据"],
+                    },
+                },
+                {
+                    "tool": "web_search",
+                    "args": {"query": "本周 A 股下跌 外部触发"},
+                },
+                {
+                    "tool": "finish",
+                    "args": {
+                        "sufficient": True,
+                        "assessment": "已取得时间窗口内的外部线索",
+                        "gaps": [],
+                    },
+                },
+            ]
+        ),
+    )
+
+    assert calls == ["本周 A 股下跌 外部触发"]
+    assert [step.tool for step in result.steps] == ["finish", "web_search", "finish"]
+    assert "白名单能力尚未尝试" in result.steps[0].observation
+    assert result.sufficient is True
+
+
+def test_gap_finish_is_accepted_after_relevant_tool_returned_empty() -> None:
+    """空结果也算已尝试；stop gate 不做隐藏重试管线。"""
+
+    contract = ResearchTaskContract(
+        task_id="gap-after-empty",
+        question="未知事件",
+        subject=None,
+        subject_kind=None,
+        question_type="general_finance_qa",
+        required_outputs=(
+            RequiredOutput("supporting_evidence", "可回查来源", ("web_search",), True),
+        ),
+        allowed_capabilities=("web_search",),
+        research_tier="quick",
+    )
+    result = run_agent_loop(
+        contract.question,
+        tools={"web_search": _tool("web_search", hits=0)},
+        steps_budget=2,
+        research_state=ResearchState.from_contract(contract),
+        complete_fn=_scripted_complete(
+            [
+                {"tool": "web_search", "args": {"query": "未知事件"}},
+                {
+                    "tool": "finish",
+                    "args": {"sufficient": False, "assessment": "", "gaps": ["无结果"]},
+                },
+            ]
+        ),
+    )
+
+    assert [step.tool for step in result.steps] == ["web_search", "finish"]
+    assert result.sufficient is False
+    assert result.stop_reason == "agent finish"
+
+
 def test_structured_evidence_gets_stable_content_hash() -> None:
     evidence, _ = agent_research.block_lines_to_evidence(
         "market_data",

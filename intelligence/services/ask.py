@@ -186,6 +186,14 @@ def _emit_progress(
         return
 
 
+def _unique_citation_sources(citations: list[Citation]) -> list[str]:
+    """Project public sources once; detailed tagged citations stay in ``citations``."""
+
+    return list(
+        dict.fromkeys(citation.source for citation in citations if citation.source)
+    )
+
+
 @contextmanager
 def _progress_stage(
     options: AskOptions,
@@ -1058,6 +1066,175 @@ def _mainline_current_fallback_assessment(
     )
 
 
+def _current_market_fact_fallback_assessment(
+    evidence: list[agent_research.AgentEvidence],
+) -> str:
+    """Project one definition and its current measured fact without LLM prose."""
+
+    details = [
+        item.detail.strip()
+        for item in evidence
+        if item.tool == "mainline_context" and item.detail.strip()
+    ]
+    selected = [
+        line
+        for prefix in ("双红定义：", "双红数据截至：", "当前双红板块：")
+        if (line := next((value for value in details if value.startswith(prefix)), ""))
+    ]
+    if selected:
+        return "；".join(line.rstrip("。； ") for line in selected) + "。"
+    return "；".join(details[:3]) or "当前市场指标数据未取得。"
+
+
+def _market_forecast_fallback_assessment(
+    evidence: list[agent_research.AgentEvidence],
+) -> tuple[str, str, str, str]:
+    """Use current structured breadth/volume facts to form bounded scenarios.
+
+    The function makes a low-confidence *inference*, not a price prediction.  It
+    exists so a provider timeout cannot turn a well-specified two-scenario task
+    into an evasive “no view” template after the market truth was already read.
+    """
+
+    details = [
+        agent_research.evidence_display_text(item)
+        for item in evidence
+        if item.tool == "market_data" and item.detail.strip()
+    ]
+    joined = "；".join(details)
+
+    def number(pattern: str) -> float | None:
+        match = re.search(pattern, joined)
+        if match is None:
+            return None
+        try:
+            return float(match.group(1))
+        except (TypeError, ValueError):
+            return None
+
+    index_change = number(r"上证指数[^；。]*当日\s*([+-]?[\d.]+)%")
+    amount_change = number(r"全市场成交额[^；。]*较前一日\s*([+-]?[\d.]+)%")
+    limit_up = number(r"涨停\s*([\d.]+)\s*家")
+    limit_down = number(r"跌停\s*([\d.]+)\s*家")
+    down_stage = "下跌阶段" in joined
+
+    if (
+        down_stage
+        and limit_down is not None
+        and limit_up is not None
+        and limit_down > max(30.0, limit_up * 1.5)
+    ):
+        base = (
+            "基准判断（低置信度）：我更偏向弱势延续或冲高回落，而不是形成有广度的强反弹。"
+            f"当前仍处下跌阶段，跌停 {limit_down:.0f} 家明显多于涨停 {limit_up:.0f} 家；"
+            + (
+                f"即使指数当日上涨 {index_change:.2f}%，也更像指数修复与个股卖压并存。"
+                if index_change is not None and index_change > 0
+                else "个股端卖压尚未显示已经充分收缩。"
+            )
+        )
+    elif (
+        index_change is not None
+        and index_change > 0
+        and amount_change is not None
+        and amount_change > 0
+    ):
+        base = (
+            "基准判断（低置信度）：我略偏向技术性反弹延续，但只按修复看待。"
+            f"指数当日上涨 {index_change:.2f}%，成交较前一日增加 {amount_change:.2f}%，"
+            "说明承接有所恢复；是否升级为趋势反转仍取决于市场广度。"
+        )
+    else:
+        base = (
+            "基准判断（低置信度）：更可能维持弱势震荡，暂不把单日波动解释成趋势反转。"
+            "当前结构同时包含修复线索和未出清卖压。"
+        )
+    rebound = (
+        "反弹情景：若下一交易日跌停家数明显收缩、上涨家数扩大，且成交没有在指数上行时萎缩，"
+        "则技术性修复更可信；若只有权重拉指数、个股广度不改善，只算弱反抽。"
+    )
+    decline = (
+        "继续下跌情景：若跌停继续扩散、上涨家数重新收缩，或放量但指数和主线同步走弱，"
+        "说明卖压尚未出清，弱势延续的解释更占优。"
+    )
+    invalidation = (
+        "失效条件：开盘后涨跌停结构、成交和指数方向与上述触发条件相反时，"
+        "本轮基准判断失效，必须用下一交易日的新盘面重算。"
+    )
+    return "".join((base, rebound, decline, invalidation)), rebound, decline, invalidation
+
+
+def _ensure_forecast_scenarios_visible(result: AskResult) -> None:
+    """Keep the user-facing answer complete when LLM prose drops required claims.
+
+    AnswerSpec already contains the three deterministic, evidence-bound scenario
+    claims.  A grounded composer may validly paraphrase them, but it must not
+    silently omit an entire branch of a two-scenario question.  Append only the
+    missing deterministic block; do not regenerate or overwrite the model's
+    useful prose.
+    """
+
+    if (
+        result.question_plan is None
+        or result.question_plan.question_type != QUESTION_MARKET_FORECAST
+        or not result.synthesis
+        or result.answer_spec is None
+    ):
+        return
+    if all(term in result.synthesis for term in ("反弹", "继续下跌", "失效条件")):
+        return
+    claims = {
+        claim.claim_id: claim
+        for claim in result.answer_spec.candidate_facts
+        if claim.claim_id
+        in {"generic:rebound_case", "generic:decline_case", "generic:invalidation"}
+    }
+    ordered_ids = (
+        "generic:rebound_case",
+        "generic:decline_case",
+        "generic:invalidation",
+    )
+    lines: list[str] = []
+    for claim_id in ordered_ids:
+        claim = claims.get(claim_id)
+        if claim is None or not claim.text.strip():
+            continue
+        refs = f" [{', '.join(claim.evidence_ids)}]" if claim.evidence_ids else ""
+        lines.append(f"{claim.text.strip()}{refs}")
+    if lines:
+        result.synthesis = (
+            result.synthesis.rstrip()
+            + "\n\n## 基准判断与条件情景\n"
+            + "\n".join(lines)
+        )
+
+
+def _filter_current_window_evidence(
+    selected: list[agent_research.AgentEvidence],
+    *,
+    all_evidence: list[agent_research.AgentEvidence],
+) -> list[agent_research.AgentEvidence]:
+    """Keep structured truth and date-aligned external material for current claims."""
+
+    market_dates: list[date_cls] = []
+    for item in all_evidence:
+        if item.tool != "market_data" or not item.source_date:
+            continue
+        try:
+            market_dates.append(
+                date_cls.fromisoformat(str(item.source_date)[:10].replace("/", "-"))
+            )
+        except ValueError:
+            continue
+    reference_date = max(market_dates, default=None)
+    return [
+        item
+        for item in selected
+        if item.tool in {"market_data", "mainline_context"}
+        or is_time_aligned_evidence(item, reference_date=reference_date)
+    ]
+
+
 def _relation_gap_answer_spec(
     answer_spec: answer_model.AnswerSpec,
     gap_text: str,
@@ -1233,8 +1410,30 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             detail = "weekly_market_cause_window"
             source = "本地 DuckDB · 周内市场归因窗口"
         evidence, observation = agent_research.block_lines_to_evidence(
-            "market_data", block, source
+            "market_data",
+            block,
+            source,
+            limit=(18 if contract.question_type == QUESTION_MARKET_FORECAST else 12),
+            detail_chars=700,
         )
+        if contract.question_type == QUESTION_MARKET_FORECAST:
+            # 预取行情必须直接进入同一个 ResearchState 的情景关系图。
+            # 旧实现只存“context”，导致状态层认为反弹/下跌/失效三项全未
+            # 覆盖，agent 被迫再搜与次日窗口无关的年度展望网页。
+            tagged: list[agent_research.AgentEvidence] = []
+            for item in evidence:
+                text = item.detail
+                supports: list[str] = []
+                if any(term in text for term in ("上证指数", "全市场成交额", "强势股状态")):
+                    supports.append("rebound_case")
+                if any(term in text for term in ("下跌阶段", "涨跌结构", "跌停")):
+                    supports.append("decline_case")
+                if any(term in text for term in ("上证指数", "全市场成交额", "涨跌结构")):
+                    supports.append("invalidation")
+                tagged.append(
+                    replace(item, supports=tuple(dict.fromkeys(supports)))
+                )
+            evidence = tagged
         trace = ProviderTrace(
             provider="agent:market_data",
             capability="agent_loop",
@@ -1257,10 +1456,17 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             contract.subject,
             options.market_db_path,
         )
+        if "双红" in options.query:
+            double_red_block = market_timeseries.latest_double_red_snapshot_block_for_llm(
+                options.market_db_path
+            )
+            block = "\n".join(part for part in (double_red_block, block) if part)
         evidence, observation = agent_research.block_lines_to_evidence(
             "mainline_context",
             block,
             "本地 DuckDB · D4 同日主线结构",
+            limit=10,
+            detail_chars=1000,
         )
         trace = ProviderTrace(
             provider="agent:mainline_context",
@@ -1332,7 +1538,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         contract.question_type == "market_cause" and options.market_db_path is not None
     ):
         tools["market_data"] = _generic_market_data
-    if contract.presentation_profile == "mainline_current":
+    if contract.presentation_profile in {"mainline_current", "market_fact_current"}:
         tools["mainline_context"] = _generic_mainline_context
     registry = research_tool_registry.default_registry(tools)
     preloaded_items: list[agent_research.AgentEvidence] = []
@@ -1409,6 +1615,56 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                     )
                 )
                 disabled_tool_names.append(tool_name)
+    elif (
+        contract.presentation_profile == "market_fact_current"
+        and "mainline_context" in registry.names()
+    ):
+        step_id = f"{contract.task_id}:owner:prefetch:mainline_context"
+        try:
+            observation = registry.execute(
+                "mainline_context",
+                contract.question,
+                context=context,
+                step_id=step_id,
+            )
+            preloaded_items.extend(observation.evidence)
+            preloaded_trace_items.append(observation.trace)
+            preloaded_observations.append(observation.observation)
+            disabled_tool_names.append("mainline_context")
+            if not observation.evidence:
+                preloaded_gaps.append(
+                    ResearchGap(
+                        "current_market_fact_prefetch",
+                        "当前市场指标数据未取得；不能用模型常识补写当前名单。",
+                        blocks=tuple(item.output_id for item in contract.required_outputs),
+                        suggested_capabilities=("mainline_context",),
+                    )
+                )
+        except Exception as exc:
+            detail = f"{type(exc).__name__}: {str(exc)[:160]}"
+            preloaded_trace_items.append(
+                ProviderTrace(
+                    provider="agent:mainline_context",
+                    capability="agent_loop",
+                    status="request_error",
+                    detail=detail,
+                    result_count=0,
+                    parent_id=contract.task_id,
+                    step_id=step_id,
+                )
+            )
+            preloaded_observations.append(
+                f"当前市场指标预取失败（{detail}）；不能用模型常识替代。"
+            )
+            preloaded_gaps.append(
+                ResearchGap(
+                    "current_market_fact_prefetch",
+                    "当前市场指标数据预取失败。",
+                    blocks=tuple(item.output_id for item in contract.required_outputs),
+                    suggested_capabilities=("mainline_context",),
+                )
+            )
+            disabled_tool_names.append("mainline_context")
     elif contract.question_type in {"market_cause", QUESTION_MARKET_FORECAST} and "market_data" in registry.names():
         # 盘面是真值底座，不能由 agent 的工具选择顺序决定是否取得；预取后
         # 从可选工具中移除，避免固定管线与 agent loop 重复查盘。
@@ -1576,17 +1832,17 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     visible_evidence = select_agent_evidence(
         options.query,
         owner_result.evidence,
-        max_chars=6000,
-        max_items=12,
+        max_chars=(10000 if contract.presentation_profile in {"mainline_current", "market_fact_current", "forecast"} else 6000),
+        max_items=(18 if contract.presentation_profile in {"mainline_current", "market_fact_current", "forecast"} else 12),
     )
-    if contract.question_type == "market_cause":
+    if contract.question_type in {"market_cause", QUESTION_MARKET_FORECAST}:
         # 原因题只把结构化周内盘面和时间对齐的外部证据送入正文。
-        # 未标日期的 web 摘要仍保留在 trace，不能冒充本周触发因素。
-        visible_evidence = [
-            item
-            for item in visible_evidence
-            if item.tool == "market_data" or is_time_aligned_evidence(item)
-        ]
+        # 预测题同理：旧年度展望可以留在 trace 供调试，但不能进入“明日”
+        # 的 EvidenceAtom、引用抽屉或 Grounded Presenter。
+        visible_evidence = _filter_current_window_evidence(
+            list(visible_evidence),
+            all_evidence=list(owner_result.evidence),
+        )
     if (
         contract.question_type == "market_cause"
         and visible_evidence
@@ -1632,7 +1888,64 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         )
         owner_result.loop.sufficient = True
         if owner_result.loop.research_state is not None:
+            owner_result.loop.research_state.set_assessment(
+                owner_result.loop.assessment
+            )
+        owner_result = replace(
+            owner_result,
+            completion=generic_research_owner.evaluate_completion(
+                contract, owner_result.loop
+            ),
+        )
+
+    if (
+        contract.presentation_profile == "market_fact_current"
+        and not owner_result.loop.assessment.strip()
+        and any(item.tool == "mainline_context" for item in owner_result.evidence)
+    ):
+        owner_result.loop.assessment = _current_market_fact_fallback_assessment(
+            list(owner_result.evidence)
+        )
+        owner_result.loop.sufficient = True
+        if owner_result.loop.research_state is not None:
             owner_result.loop.research_state.set_assessment(owner_result.loop.assessment)
+        owner_result = replace(
+            owner_result,
+            completion=generic_research_owner.evaluate_completion(
+                contract, owner_result.loop
+            ),
+        )
+
+    if (
+        contract.question_type == QUESTION_MARKET_FORECAST
+        and any(item.tool == "market_data" for item in owner_result.evidence)
+        and (
+            not owner_result.loop.assessment.strip()
+            or owner_result.loop.sufficient is not True
+        )
+    ):
+        # “无法给出概率”不等于“无法完成任务”。有当前盘面真值时，给出低
+        # 置信度基准判断 + 双情景 + 失效条件，仍让最终 claim verifier 审核。
+        assessment, _rebound, _decline, _invalidation = (
+            _market_forecast_fallback_assessment(list(owner_result.evidence))
+        )
+        owner_result.loop.assessment = assessment
+        owner_result.loop.sufficient = True
+        if owner_result.loop.research_state is not None:
+            owner_result.loop.research_state.set_assessment(assessment)
+            market_state_ids = tuple(
+                evidence_id
+                for evidence_id, observation in owner_result.loop.research_state.evidence.items()
+                if observation.tool == "market_data"
+            )
+            # These are conditional monitoring scenarios, not directional facts:
+            # bind each one to the current breadth/volume observations so the
+            # completion gate sees all required branches as grounded.
+            for hypothesis_id in ("rebound_case", "decline_case", "invalidation"):
+                owner_result.loop.research_state.bind_hypothesis_evidence(
+                    hypothesis_id,
+                    market_state_ids,
+                )
         owner_result = replace(
             owner_result,
             completion=generic_research_owner.evaluate_completion(
@@ -1667,7 +1980,13 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         if is_customer_fact_check and not has_relevant_l3
         else
         ""
-        if contract.question_type == "market_cause" and has_structured_truth
+        if (
+            has_structured_truth
+            and (
+                owner_result.completion.business_status == "complete"
+                or contract.question_type == "market_cause"
+            )
+        )
         else "本轮已找到相关来源，但证据强度仍不足以独立确认结论。"
         if owner_result.evidence
         else "本轮没有收集到可回查来源，暂不形成可靠定性。"
@@ -1745,23 +2064,13 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             if item.tool == "market_data"
         ]
         market_ids = tuple(tag for tag, _text in market_pairs)
-        market_text = "；".join(text for _tag, text in market_pairs[:6])
-        rebound = (
-            "反弹情景（条件化）：若下一交易日跌停家数收缩、上涨家数和成交同步改善，"
-            "可视为下跌后的技术性修复；当前盘面仅提供修复观察基础，不能据此给出概率。"
-        )
-        decline = (
-            "继续下跌情景（条件化）：若下跌阶段延续且跌停扩散、上涨家数重新收缩，"
-            "说明卖压尚未出清，弱势延续的解释更占优。"
-        )
-        invalidation = (
-            "失效条件：开盘后涨跌停结构、成交和指数方向与上述触发条件相反时，"
-            "本轮情景判断失效，需要用新一轮盘面重算。"
-        )
-        forecast_fallback_text = (
-            "基准判断：当前不押注单一方向。"
-            f"{rebound}{decline}{invalidation}"
-            f"当前盘面依据：{market_text}"
+        (
+            forecast_fallback_text,
+            rebound,
+            decline,
+            invalidation,
+        ) = _market_forecast_fallback_assessment(
+            [item for item in evidence_by_tag.values() if item.tool == "market_data"]
         )
         for claim_id, text in (
             ("generic:rebound_case", rebound),
@@ -1968,7 +2277,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         "分歧反证": gap_texts,
         "后续验证点": [next_action],
         "数据源状态": [],
-        "引用来源": [f"[{item.tag}] {item.source}" for item in result.citations],
+        "引用来源": _unique_citation_sources(result.citations),
     }
     result.answer_spec = answer_model.finalize_answer_spec(
         answer_model.AnswerSpec(
@@ -3475,6 +3784,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         f"AnswerSpec 质检：{issue.message}"
         for issue in result.answer_spec.quality.issues
     )
+    _ensure_forecast_scenarios_visible(result)
 
     with _progress_stage(options, "output_review") as stage:
         result.review_gate = output_review.review_output(
@@ -3558,7 +3868,7 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
             for trace in result.provider_traces
         ],
-        "引用来源": [f"[{c.tag}] {c.source}" + (f" — {c.detail}" if c.detail else "") for c in citations],
+        "引用来源": _unique_citation_sources(citations),
     }
     result.citations = citations
     return result

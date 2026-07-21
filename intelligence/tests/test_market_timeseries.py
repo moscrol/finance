@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 
 from intelligence.services.market_timeseries import (
     DEFAULT_WINDOW,
+    latest_double_red_snapshot_block_for_llm,
     parse_timeseries_intent,
     timeseries_block_for_llm,
 )
@@ -107,6 +108,17 @@ class TimeseriesBlockTests(unittest.TestCase):
         intent = parse_timeseries_intent("过去 5 日涨停家数逐日变化")
         assert intent is not None
         self.assertEqual(timeseries_block_for_llm(intent, "/nonexistent/x.duckdb"), "")
+
+    def test_latest_double_red_snapshot_binds_definition_and_current_list(self) -> None:
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+            block = latest_double_red_snapshot_block_for_llm(db)
+        self.assertIn("双红定义：题材涨幅为正、边际量大于 10", block)
+        self.assertIn("双红数据截至：2026-07-08", block)
+        self.assertIn("A（涨幅 2.00%", block)
+        self.assertIn("B（涨幅 1.00%", block)
+        self.assertNotIn("2026-07-06", block)
 
 
 if __name__ == "__main__":

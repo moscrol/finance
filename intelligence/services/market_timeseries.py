@@ -20,7 +20,7 @@ from typing import Any
 
 from intelligence.services import retrieval_cache
 
-from market_feature_store.signals import DOUBLE_RED_SQL
+from market_feature_store.signals import DOUBLE_RED_DESCRIPTION, DOUBLE_RED_SQL
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -261,3 +261,68 @@ def timeseries_block_for_llm(
         "缺口日只能声明缺数，禁止外推、改写或用其他来源补齐。"
     )
     return "\n".join(lines)
+
+
+def latest_double_red_snapshot_block_for_llm(
+    market_db_path: str | Path | None,
+    *,
+    limit: int = 20,
+) -> str:
+    """Return the latest strict double-red sector list plus its metric definition.
+
+    This is a point-in-time metric query, not a new answer route.  It reuses the
+    same semantic-layer formula as the daily report so a mixed question such as
+    “what is double red, and which sectors are double red now?” can bind both the
+    definition and the current fact to one deterministic evidence product.
+    """
+
+    db_path = (
+        Path(market_db_path).expanduser()
+        if market_db_path
+        else REPO_ROOT / "db" / "market_feature_store.duckdb"
+    )
+    if not db_path.exists():
+        return ""
+    try:
+        con = retrieval_cache.connect_readonly(db_path)
+    except Exception:
+        return ""
+    try:
+        row = con.execute("select max(trade_date) from fact_sector_daily").fetchone()
+        trade_date = str(row[0]) if row and row[0] is not None else ""
+        if not trade_date:
+            return ""
+        rows = con.execute(
+            f"""
+            select sector_name, pct_chg, diff_ratio, amount
+            from fact_sector_daily
+            where trade_date = ? and {DOUBLE_RED_SQL}
+            order by amount desc, sector_name
+            limit ?
+            """,
+            [trade_date, max(1, min(int(limit), 50))],
+        ).fetchall()
+        lines = [
+            "## 当前双红板块快照 [D4]",
+            f"- 双红定义：{DOUBLE_RED_DESCRIPTION}",
+            f"- 双红数据截至：{trade_date}；口径为 fact_sector_daily 严格条件，非模型判断。",
+        ]
+        if rows:
+            lines.append(
+                "- 当前双红板块："
+                + "；".join(
+                    f"{name}（涨幅 {float(pct):.2f}%，边际量 {float(diff):.2f}%，成交额 {float(amount):.2f} 亿元）"
+                    for name, pct, diff, amount in rows
+                )
+                + "。"
+            )
+        else:
+            lines.append("- 当前双红板块：按严格口径未检出；这表示结果为 0，不等同数据缺失。")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass

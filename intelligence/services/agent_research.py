@@ -421,6 +421,7 @@ def block_lines_to_evidence(
     source: str,
     *,
     limit: int = 6,
+    detail_chars: int = 200,
 ) -> tuple[list[AgentEvidence], str]:
     """把确定性数据块文本（D 块/总览）转成 agent 证据行 + 观察摘要。
 
@@ -434,15 +435,22 @@ def block_lines_to_evidence(
     ]
     evidence: list[AgentEvidence] = []
     for line in lines[:limit]:
-        date_match = re.search(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", line)
+        # 一行可能同时包含窗口起止日。旧实现只取第一个日期，导致
+        # ``2026-07-14 ~ 2026-07-20`` 被投影成 as_of=07-14，进而让
+        # freshness、报告页和外部证据对齐都用错基准日。
+        date_matches = re.findall(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", line)
+        normalized_dates = tuple(value.replace("/", "-") for value in date_matches)
         item = AgentEvidence(
             tool=tool,
             title=line[:48],
-            detail=line[:200],
+            # 结构化数据块已经由白名单 SQL/确定性 renderer 约束，不是
+            # 任意网页正文。调用方可提高保真窗口，避免主线列表在证据层
+            # 先被 200 字截断后，再要求模型从残片做排序。
+            detail=line[: max(80, min(int(detail_chars), 1200))],
             source=source,
             source_date=(
-                date_match.group(0).replace("/", "-")
-                if date_match is not None
+                max(normalized_dates)
+                if normalized_dates
                 else None
             ),
             evidence_tier=(
@@ -622,6 +630,62 @@ def run_agent_loop(
     system_prompt = _system_prompt(tools)
     no_information_steps = 0
     finish_rejections = 0
+    premature_gap_rejections = 0
+
+    def untried_required_tools(assessment: str) -> tuple[str, ...]:
+        """Return useful tools that have not been attempted for a required output.
+
+        ``finish(sufficient=false)`` is a legitimate terminal action only after
+        the relevant capability has actually been tried.  Without this gate an
+        agent can observe one preloaded market block, immediately report an
+        external-evidence gap, and leave web/news tools unused.  The gate is
+        deliberately bounded to one re-plan turn; empty/error attempts still
+        count, so it cannot create an unbounded retry loop.
+        """
+
+        state = result.research_state
+        if state is None:
+            return ()
+        attempted = {
+            item.tool for item in state.evidence.values()
+        } | {
+            step.tool for step in result.steps if step.tool in tools
+        }
+        candidates: list[str] = []
+        hypotheses = {
+            item.hypothesis_id: item for item in state.hypotheses
+        }
+        blocking = {
+            output_id
+            for gap in state.gaps
+            for output_id in gap.blocks
+        }
+        for output_id in state.required_outputs:
+            if not state.required_output_required.get(output_id, True):
+                continue
+            if output_id in {"direct_assessment", "answer", "conclusion"}:
+                if assessment.strip():
+                    continue
+            else:
+                hypothesis = hypotheses.get(output_id)
+                if hypothesis is not None and (
+                    hypothesis.supporting_evidence
+                    or hypothesis.contradicting_evidence
+                    or output_id in blocking
+                ):
+                    continue
+                allowed = set(
+                    state.required_output_evidence_types.get(output_id, ())
+                )
+                if hypothesis is None and any(
+                    not allowed or item.tool in allowed
+                    for item in state.evidence.values()
+                ):
+                    continue
+            for name in state.required_output_evidence_types.get(output_id, ()):
+                if name in tools and name not in attempted and name not in candidates:
+                    candidates.append(name)
+        return tuple(candidates)
 
     def available_stage_seconds() -> float:
         """检索阶段可消费的预算，不侵占 synthesis reserve。"""
@@ -679,6 +743,31 @@ def run_agent_loop(
                 for gap in (raw_gaps if isinstance(raw_gaps, list) else [])
                 if str(gap).strip()
             )
+            # “证据不足”不能替代一次本可执行的检索。允许代码把第一次
+            # 过早 gap 退回给模型重新规划；第二次仍选择结束则尊重模型，
+            # 保留 partial，避免把 soft planner 变成隐藏固定管线。
+            untried = untried_required_tools(result.assessment)
+            if (
+                not requested_sufficient
+                and untried
+                and premature_gap_rejections == 0
+            ):
+                premature_gap_rejections += 1
+                result.steps.append(
+                    AgentStep(
+                        tool="finish",
+                        query="",
+                        reason=action_reason,
+                        observation=(
+                            "结束请求被延迟：相关白名单能力尚未尝试。"
+                            f" 请优先尝试 {', '.join(untried)}；"
+                            "若工具为空或报错，再如实报告不可补缺口。"
+                        ),
+                        hit_count=0,
+                        elapsed_ms=0,
+                    )
+                )
+                continue
             uncovered = ()
             missing_outputs: tuple[str, ...] = ()
             if requested_sufficient and result.research_state is not None:

@@ -586,6 +586,15 @@ def moneyflow_module(snapshot: MoneyflowSnapshot) -> dict[str, Any]:
 
 
 def ask_result_modules(result: AskResult) -> list[dict[str, Any]]:
+    def public_text(value: object) -> str:
+        # Lazy import avoids the structured-report ↔ conversation orchestrator
+        # import cycle while keeping one canonical public sanitizer.
+        from intelligence.services.conversation_orchestrator import (
+            sanitize_user_visible_artifact_text,
+        )
+
+        return sanitize_user_visible_artifact_text(str(value))
+
     modules: list[dict[str, Any]] = []
     review_degraded = result.review_gate is not None and result.review_gate.warn_count > 0
     rag_degraded = (
@@ -700,13 +709,28 @@ def ask_result_modules(result: AskResult) -> list[dict[str, Any]]:
         if title not in CONTROL_PLANE_SECTIONS
     ]
     for index, (title, lines) in enumerate(public_sections, start=1):
+        if title == "引用来源":
+            # The audit citation drawer owns evidence tags and per-claim detail.
+            # The report source module is a public projection, so show each
+            # underlying source once without leaking internal marker syntax.
+            lines = list(
+                dict.fromkeys(
+                    re.sub(
+                        r"^\[(?:D|P|L|G|R|S|W)\d+\]\s*",
+                        "",
+                        str(line),
+                    ).split(" — ", 1)[0]
+                    for line in lines
+                    if str(line).strip()
+                )
+            )
         section_degraded = (
             (title in {"证据链", "引用来源"} and rag_degraded)
             or (title in {"结论", "交易含义"} and answer_degraded)
         )
         items = []
         for line in lines:
-            text = str(line)
+            text = public_text(line)
             if text.startswith(SUBHEAD):
                 items.append(
                     {

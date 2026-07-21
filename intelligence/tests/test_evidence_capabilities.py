@@ -48,3 +48,22 @@ def test_methodology_query_does_not_inherit_market_capabilities():
     )
     assert plan.profile == "general"
     assert plan.requirements == ()
+
+
+def test_definition_plus_current_market_fact_gets_structured_evidence_plan():
+    plan = resolve_evidence_plan(
+        "什么是双红，现在哪些板块双红",
+        question_type="concept_definition",
+    )
+    assert plan.profile == "current_market_fact"
+    assert plan.mandatory_provider_names == ("D4",)
+    assert plan.mandatory_capabilities == ("mainline_context",)
+
+
+def test_pure_definition_does_not_get_current_market_data():
+    plan = resolve_evidence_plan(
+        "什么是双红",
+        question_type="concept_definition",
+    )
+    assert plan.profile == "general"
+    assert plan.requirements == ()

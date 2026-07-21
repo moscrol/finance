@@ -206,6 +206,38 @@ class ResearchState:
             self.assessment = normalized[:1600]
             self.revision += 1
 
+    def bind_hypothesis_evidence(
+        self,
+        hypothesis_id: str,
+        evidence_ids: tuple[str, ...] | list[str],
+        *,
+        contradicts: bool = False,
+    ) -> None:
+        """Bind a deterministic conditional claim to the evidence it observes.
+
+        This is used by deterministic fallback presenters (for example, a
+        forecast's rebound/decline triggers).  It records that the conditional
+        scenario is grounded in a measured signal; it does not assert that the
+        scenario has happened or will happen.
+        """
+
+        hypothesis = self._hypothesis(hypothesis_id)
+        if hypothesis is None:
+            return
+        target = (
+            hypothesis.contradicting_evidence
+            if contradicts
+            else hypothesis.supporting_evidence
+        )
+        changed = False
+        for evidence_id in evidence_ids:
+            value = str(evidence_id).strip()
+            if value and value not in target:
+                target.append(value)
+                changed = True
+        if changed:
+            self.revision += 1
+
     def set_stop_reason(self, reason: str) -> None:
         if reason.strip():
             self.stop_reason = reason.strip()

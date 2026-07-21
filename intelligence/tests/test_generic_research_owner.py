@@ -25,7 +25,11 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
-from intelligence.services.research_state import ResearchGap, ResearchState
+from intelligence.services.research_state import (
+    EvidenceObservation,
+    ResearchGap,
+    ResearchState,
+)
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
     ToolSpec,
@@ -290,6 +294,65 @@ def test_current_mainline_prefetches_market_daily_and_d4_once(
         "agent:market_data",
         "agent:mainline_context",
     }
+
+
+def test_mixed_double_red_question_combines_definition_and_current_fact(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    contract = conversation_orchestrator._build_generic_research_contract(
+        "什么是双红，现在哪些板块双红",
+        task_id="mixed-double-red-owner",
+        turn_intent=conversation_orchestrator.TurnIntent(
+            primary_subject="双红",
+            secondary_topics=(),
+            question_type="concept_definition",
+            answer_owner=None,
+            comparison_entities=(),
+            inherited_from_turn=None,
+        ),
+    )
+    monkeypatch.setattr(
+        ask.market_timeseries,
+        "latest_double_red_snapshot_block_for_llm",
+        lambda _path: (
+            "## 当前双红板块快照 [D4]\n"
+            "- 双红定义：题材涨幅为正、边际量大于 10 且成交额大于 500 亿。\n"
+            "- 双红数据截至：2026-07-20；严格口径。\n"
+            "- 当前双红板块：电力（涨幅 4.80%，边际量 28.12%，成交额 777.83 亿元）。"
+        ),
+    )
+    monkeypatch.setattr(
+        ask,
+        "_market_review_mainline_context_block_for_llm",
+        lambda *_args: "",
+    )
+    monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    monkeypatch.setattr(ask.llm_refine, "detect_provider", lambda _model=None: None)
+    monkeypatch.setattr(
+        agent_research.llm_refine,
+        "complete",
+        lambda *_args, **_kwargs: (None, None, "fixture unavailable"),
+    )
+
+    result = ask._answer_generic_owner(
+        ask.AskOptions(
+            query=contract.question,
+            kb_wiki=tmp_path / "wiki",
+            market_db_path=tmp_path / "missing.duckdb",
+            research_task_contract=contract,
+            use_llm=False,
+            compose=False,
+        )
+    )
+
+    assert result.business_status == "complete"
+    assert result.trade_date == "2026-07-20"
+    rendered = answer_model.render_answer_spec(result.answer_spec)
+    assert "题材涨幅为正" in rendered
+    assert "当前双红板块：电力" in rendered
+    assert all(item.source != "模型常识" for item in result.citations)
 
 
 def test_preloaded_market_gap_keeps_completion_partial_without_repeating_tool() -> None:
@@ -1324,6 +1387,193 @@ def test_market_block_lines_are_dated_structured_evidence() -> None:
     )
     assert evidence[0].source_date == "2026-07-17"
     assert evidence[0].evidence_tier == "L4_structured"
+
+
+def test_market_window_evidence_uses_latest_date_on_same_line() -> None:
+    evidence, _ = agent_research.block_lines_to_evidence(
+        "market_data",
+        "窗口：2026-07-14 ~ 2026-07-20，共 5 个交易日。",
+        "本地 DuckDB",
+    )
+    assert evidence[0].source_date == "2026-07-20"
+
+
+def test_structured_block_can_preserve_long_mainline_fact() -> None:
+    long_line = "电力核心板块：" + "增量启动依据" * 80
+    evidence, _ = agent_research.block_lines_to_evidence(
+        "mainline_context",
+        long_line,
+        "本地 DuckDB",
+        limit=10,
+        detail_chars=1000,
+    )
+    assert len(evidence[0].detail) > 200
+    assert evidence[0].detail.startswith("电力核心板块")
+
+
+def test_forecast_fallback_makes_low_confidence_base_call() -> None:
+    evidence = [
+        agent_research.AgentEvidence(
+            tool="market_data",
+            title="阶段",
+            detail="市场阶段：下跌阶段（第 6 天）；量能状态：正常量能。",
+            source="local",
+            source_date="2026-07-20",
+        ),
+        agent_research.AgentEvidence(
+            tool="market_data",
+            title="指数",
+            detail="上证指数：3796.281 点，当日 0.85%。",
+            source="local",
+            source_date="2026-07-20",
+        ),
+        agent_research.AgentEvidence(
+            tool="market_data",
+            title="广度",
+            detail="涨跌结构：上涨 1740 家；涨停 53 家；跌停 212 家。",
+            source="local",
+            source_date="2026-07-20",
+        ),
+    ]
+    assessment, rebound, decline, invalidation = (
+        ask._market_forecast_fallback_assessment(evidence)
+    )
+    assert "更偏向弱势延续或冲高回落" in assessment
+    assert "反弹情景" in rebound
+    assert "继续下跌情景" in decline
+    assert "失效条件" in invalidation
+    assert "不押注单一方向" not in assessment
+
+
+def test_forecast_fallback_binds_all_conditional_scenarios_to_market_truth() -> None:
+    state = ResearchState.from_contract(
+        conversation_orchestrator._build_generic_research_contract(
+            "明天是反弹还是继续下跌",
+            task_id="forecast-bind",
+            turn_intent=conversation_orchestrator.TurnIntent(
+                primary_subject=None,
+                secondary_topics=(),
+                question_type="market_forecast",
+                answer_owner=None,
+                comparison_entities=(),
+                inherited_from_turn=None,
+            ),
+        )
+    )
+    state.add_evidence(
+        EvidenceObservation(
+            evidence_id="m1",
+            tool="market_data",
+            title="广度",
+            detail="涨跌停结构",
+            source="local",
+        )
+    )
+
+    for hypothesis_id in ("rebound_case", "decline_case", "invalidation"):
+        state.bind_hypothesis_evidence(hypothesis_id, ("m1",))
+
+    hypotheses = {
+        item["hypothesis_id"]: item
+        for item in state.to_dict()["hypotheses"]
+    }
+    assert all(
+        hypotheses[hypothesis_id]["supporting_evidence"] == ["m1"]
+        for hypothesis_id in ("rebound_case", "decline_case", "invalidation")
+    )
+
+
+def test_forecast_visible_answer_restores_dropped_required_scenarios() -> None:
+    result = ask.AskResult(
+        query="明天是反弹还是继续下跌，分别给出理由",
+        trade_date="2026-07-20",
+        matched_theme="A股市场",
+        candidate_tier=None,
+        priority_score=None,
+        synthesis="当前盘面显示指数收涨，但个股分化明显。",
+        question_plan=type(
+            "Plan",
+            (),
+            {"question_type": "market_forecast"},
+        )(),
+        answer_spec=answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_answer_profile(
+                "明天是反弹还是继续下跌，分别给出理由",
+                "A股市场",
+                "forecast",
+            ),
+                candidate_facts=(
+                answer_model.make_claim(
+                    claim_id="generic:rebound_case",
+                    text="反弹情景：若跌停收缩则修复更可信。",
+                    claim_type="expectation",
+                    theme="A股市场",
+                    status=answer_model.ClaimStatus.INFERRED,
+                    evidence_ids=("G1",),
+                ),
+                answer_model.make_claim(
+                    claim_id="generic:decline_case",
+                    text="继续下跌情景：若跌停扩散则弱势延续。",
+                    claim_type="expectation",
+                    theme="A股市场",
+                    status=answer_model.ClaimStatus.INFERRED,
+                    evidence_ids=("G1",),
+                ),
+                answer_model.make_claim(
+                    claim_id="generic:invalidation",
+                    text="失效条件：新盘面与上述触发条件相反。",
+                    claim_type="expectation",
+                    theme="A股市场",
+                    status=answer_model.ClaimStatus.INFERRED,
+                        evidence_ids=("G1",),
+                    ),
+                ),
+                summary=(),
+                verified_facts=(),
+                company_table=(),
+                counter_evidence=(),
+                gaps=(),
+                triggers=(),
+                next_actions=(),
+                sources=(),
+                system_notices=(),
+            ),
+        )
+
+    ask._ensure_forecast_scenarios_visible(result)
+
+    assert "反弹情景" in result.synthesis
+    assert "继续下跌情景" in result.synthesis
+    assert "失效条件" in result.synthesis
+
+
+def test_current_window_filter_keeps_market_truth_and_drops_old_outlook() -> None:
+    market = agent_research.AgentEvidence(
+        tool="market_data",
+        title="最新盘面",
+        detail="市场数据截至 2026-07-20",
+        source="local",
+        source_date="2026-07-20",
+    )
+    current = agent_research.AgentEvidence(
+        tool="news_search",
+        title="7月20日市场消息",
+        detail="当日市场消息",
+        source="https://example.test/current",
+        source_date="2026-07-20",
+    )
+    stale = agent_research.AgentEvidence(
+        tool="web_search",
+        title="2026 年度展望",
+        detail="全年策略",
+        source="https://example.test/stale",
+        source_date="2026-03-04",
+    )
+    filtered = ask._filter_current_window_evidence(
+        [stale, current, market],
+        all_evidence=[stale, current, market],
+    )
+    assert filtered == [current, market]
 
 
 @pytest.mark.parametrize("skill_mode", ["auto", "hybrid"])

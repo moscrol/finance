@@ -13,6 +13,7 @@ from intelligence.services.query_understanding import (
     is_dated_market_review,
     is_market_watch_query,
 )
+from intelligence.services.evidence_capabilities import is_current_market_query
 from intelligence.services.route_table import (
     ROUTE_TABLE,
     RouteRow,
@@ -379,6 +380,17 @@ def _deterministic_decision(
             ),
         )
     if envelope.question_type == "concept_definition":
+        if is_current_market_query(cleaned):
+            return _decision(
+                "research",
+                envelope=envelope,
+                needs_retrieval=True,
+                needs_memory=bool(_MEMORY_PATTERN.search(cleaned)),
+                needs_template=True,
+                confidence=envelope.confidence,
+                reason="概念解释同时包含当前市场事实，交给通用研究闭环合并定义与数据",
+                capabilities=("market_quote", "graph", "web_search"),
+            )
         return _decision(
             "knowledge",
             envelope=envelope,

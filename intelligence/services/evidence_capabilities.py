@@ -68,8 +68,25 @@ def resolve_evidence_plan(
     question_type: str,
     freshness: str = "current",
 ) -> EvidencePlan:
-    # 方法论/概念解释里的“市场、主线、当前”等词是讨论对象，不是要求
-    # 当前盘面事实；先在能力层排除，避免控制面把金融数据能力泄漏进知识题。
+    # “概念解释 + 当前事实”是复合任务，不能被单一 concept_definition
+    # 标签吞掉后半句。这里增加证据需求而不增加 route-table 题型：定义和
+    # 当日事实仍由同一个 Generic Owner/ResearchState 合成。
+    if question_type == "concept_definition" and is_current_market_query(query):
+        return EvidencePlan(
+            "current_market_fact",
+            (
+                EvidenceRequirement(
+                    "D4",
+                    "mainline_context",
+                    True,
+                    "current",
+                    "当前市场指标定义与同日板块事实",
+                ),
+            ),
+            "current",
+        )
+    # 纯方法论/纯概念解释里的“市场、主线、当前”等词是讨论对象，不是要求
+    # 当前盘面事实；能力层排除避免金融数据泄漏进知识题。
     if question_type in {"methodology_discussion", "answer_review", "concept_definition"}:
         return EvidencePlan("general", (), freshness)
     if question_type == "market_forecast":

@@ -103,6 +103,20 @@ def test_static_concept_uses_knowledge_lane_without_retrieval() -> None:
     assert decision.needs_template is False
 
 
+def test_definition_plus_current_market_fact_uses_research_without_controller_llm() -> None:
+    decision = decide_turn(
+        "什么是双红，现在哪些板块双红",
+        llm_complete=lambda _messages: pytest.fail(
+            "mixed definition/current fact must use deterministic policy"
+        ),
+    )
+    assert decision.lane == "research"
+    assert decision.question_type == "concept_definition"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert "market_quote" in decision.capabilities
+
+
 def test_methodology_uses_model_native_lane_without_controller_llm_or_rag() -> None:
     def forbidden_llm(_messages: list[dict[str, str]]):
         raise AssertionError("deterministic methodology route must not call controller LLM")

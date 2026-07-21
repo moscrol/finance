@@ -87,6 +87,22 @@ def _research_controller(query: str, **kwargs: object) -> TurnDecision:
     )
 
 
+def test_public_sanitizer_removes_marker_shells_and_unstable_heading_ordinals() -> None:
+    answer = (
+        "## 三、判断依据\n"
+        "来源 [[G1], [G2], [G3]]；有效区间 [10, 20]。[G4, G5, G6]"
+    )
+
+    cleaned = sanitize_conversation_answer(answer)
+
+    assert "## 判断依据" in cleaned
+    assert "[, ,]" not in cleaned
+    assert "[G1" not in cleaned
+    assert "[10, 20]" in cleaned
+    assert "L4_market_signal" not in sanitize_conversation_answer("L4_market_signal")
+    assert "L4_structured" not in sanitize_conversation_answer("L4_structured")
+
+
 def test_research_owner_contract_honors_declared_question_types() -> None:
     """A skill may expose a contract, but only for its declared research type."""
     from types import SimpleNamespace
@@ -154,6 +170,25 @@ def test_current_market_mainline_contract_requires_market_and_d4():
         "direct_assessment",
         "supporting_evidence",
     ]
+
+
+def test_mixed_definition_current_fact_contract_requires_typed_market_evidence():
+    contract = _build_generic_research_contract(
+        "什么是双红，现在哪些板块双红",
+        task_id="mixed-double-red",
+        turn_intent=TurnIntent(
+            primary_subject="双红",
+            secondary_topics=(),
+            question_type=QUESTION_CONCEPT_DEFINITION,
+            answer_owner=None,
+            comparison_entities=(),
+            inherited_from_turn=None,
+        ),
+    )
+    assert contract.presentation_profile == "market_fact_current"
+    assert contract.evidence_plan.mandatory_provider_names == ("D4",)
+    assert contract.allowed_capabilities[0] == "mainline_context"
+    assert contract.required_outputs[0].evidence_types == ("mainline_context",)
 
 
 def test_old_daily_agent_contract_cannot_own_market_forecast(tmp_path) -> None:

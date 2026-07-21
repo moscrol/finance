@@ -187,6 +187,7 @@ def _build_generic_research_contract(
         freshness="current",
     )
     is_current_mainline = evidence_plan.profile == "mainline_current" and not is_methodology
+    is_current_market_fact = evidence_plan.profile == "current_market_fact"
     needs_l3 = bool(
         re.search(
             r"(?:客户|合作|订单|合同|中标|认证|定点|送样|导入|量产|供货|出货|收入占比|供应商)",
@@ -205,6 +206,21 @@ def _build_generic_research_contract(
                 "supporting_evidence",
                 "列出同日市场总览与主线结构依据",
                 ("market_data", "mainline_context"),
+                True,
+            ),
+        )
+    elif is_current_market_fact:
+        required_outputs = (
+            RequiredOutput(
+                "direct_assessment",
+                "先解释问题中的指标定义，再直接回答当前市场事实",
+                ("mainline_context",),
+                True,
+            ),
+            RequiredOutput(
+                "supporting_evidence",
+                "给出定义来源和同日结构化事实依据",
+                ("mainline_context",),
                 True,
             ),
         )
@@ -433,6 +449,8 @@ def _build_generic_research_contract(
             "web_search",
             "news_search",
         )
+    elif is_current_market_fact:
+        capabilities = ("mainline_context", "market_data", "kb_search")
     elif is_general_fact_check:
         capabilities = (
             "web_search",
@@ -485,7 +503,7 @@ def _build_generic_research_contract(
         subject=subject,
         subject_kind=(
             "market_pattern"
-            if is_current_mainline or is_market_cause or is_market_forecast
+            if is_current_mainline or is_current_market_fact or is_market_cause or is_market_forecast
             else "event"
             if is_event_forecast
             else "company_relation"
@@ -509,6 +527,8 @@ def _build_generic_research_contract(
         presentation_profile=(
             "mainline_current"
             if is_current_mainline
+            else "market_fact_current"
+            if is_current_market_fact
             else "forecast"
             if is_market_forecast or is_event_forecast
             else "comparison"
@@ -1040,7 +1060,35 @@ def sanitize_conversation_answer(text: str) -> str:
     )
     cleaned = _INTERNAL_FIELD_PATTERN.sub("", cleaned)
     cleaned = _EVIDENCE_LAYER_SUMMARY_PATTERN.sub("", cleaned)
+    cleaned = re.sub(
+        r"(?<![A-Za-z0-9_])L([1-4])_(structured|market_signal|market_context|candidate)\b",
+        lambda match: (
+            "结构化数据"
+            if match.group(2).lower() == "structured"
+            else "候选资料"
+            if match.group(2).lower() == "candidate"
+            else _EVIDENCE_LAYER_REPLACEMENTS[match.group(1)]
+        ),
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\[\s*(?:[DPLGRSW]\d+\s*(?:[,，、]\s*)?)+\]",
+        "",
+        cleaned,
+    )
     cleaned = _INTERNAL_CITATION_PATTERN.sub("", cleaned)
+    # Removing each internal marker separately used to leave punctuation shells
+    # such as ``[, ,]`` in the public report.  Strip only bracket groups that no
+    # longer contain semantic text; ordinary financial brackets are preserved.
+    cleaned = re.sub(r"\[\s*(?:[,，]\s*)*\]", "", cleaned)
+    # Section ordinals belong to the presentation layer, not to the grounded
+    # content.  A rejected sentence can otherwise turn 一/二/三 into 一/三/五.
+    cleaned = re.sub(
+        r"(?m)^(#{1,3}\s+)[一二三四五六七八九十]+、\s*",
+        r"\1",
+        cleaned,
+    )
     cleaned = re.sub(
         r"\bMarketAdapter\.get_[A-Za-z0-9_]+\b",
         "本地盘面数据",
