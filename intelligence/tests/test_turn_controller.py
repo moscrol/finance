@@ -364,12 +364,12 @@ def test_month_only_market_summary_does_not_claim_daily_report() -> None:
     assert decision.lane != "workflow"
 
 
-def test_broad_market_question_clarifies_scope() -> None:
+def test_broad_daily_market_question_defaults_to_a_share_workflow() -> None:
     decision = decide_turn("今天市场怎么样", llm_complete=_no_llm)
 
-    assert decision.lane == "clarify"
-    assert "A 股" in decision.clarification_questions[0]
-    assert decision.needs_retrieval is False
+    assert decision.lane == "workflow"
+    assert decision.question_type == "market_watch"
+    assert decision.needs_retrieval is True
 
 
 def test_explicit_market_outlook_routes_to_forecast_without_clarifying() -> None:

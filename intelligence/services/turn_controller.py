@@ -273,6 +273,15 @@ def _deterministic_decision(
     ):
         return _decision("meta", confidence=0.99, reason="明确系统或模型元问题")
     if _BROAD_MARKET_PATTERN.fullmatch(cleaned):
+        if is_market_watch_query(cleaned):
+            return _decision(
+                "workflow",
+                envelope=envelope,
+                needs_memory=True,
+                confidence=0.95,
+                reason="金融工作台默认将当日市场概览解释为 A 股盘面关注点",
+                capabilities=("memory", "market_quote", "graph"),
+            )
         return _decision(
             "clarify",
             confidence=0.95,
