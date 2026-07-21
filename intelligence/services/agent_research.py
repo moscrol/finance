@@ -442,7 +442,7 @@ def block_lines_to_evidence(
                     else None
                 ),
                 evidence_tier=(
-                    "L4_structured" if tool == "market_data" else ""
+                    "L4_structured" if tool in {"market_data", "mainline_context"} else ""
                 ),
             )
         )

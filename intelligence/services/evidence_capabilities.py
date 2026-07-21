@@ -68,6 +68,10 @@ def resolve_evidence_plan(
     question_type: str,
     freshness: str = "current",
 ) -> EvidencePlan:
+    # 方法论/概念解释里的“市场、主线、当前”等词是讨论对象，不是要求
+    # 当前盘面事实；先在能力层排除，避免控制面把金融数据能力泄漏进知识题。
+    if question_type in {"methodology_discussion", "answer_review", "concept_definition"}:
+        return EvidencePlan("general", (), freshness)
     if question_type == "market_forecast":
         return EvidencePlan(
             "market_forecast",

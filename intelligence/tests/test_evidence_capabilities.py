@@ -39,3 +39,12 @@ def test_market_forecast_has_current_market_requirement():
     )
     assert plan.profile == "market_forecast"
     assert plan.mandatory_provider_names == ("MARKET_DAILY",)
+
+
+def test_methodology_query_does_not_inherit_market_capabilities():
+    plan = resolve_evidence_plan(
+        "市场主线判断的 agent 架构怎么实现？",
+        question_type="methodology_discussion",
+    )
+    assert plan.profile == "general"
+    assert plan.requirements == ()

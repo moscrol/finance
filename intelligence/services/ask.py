@@ -1028,6 +1028,36 @@ def _market_cause_fallback_assessment(
     )
 
 
+def _mainline_current_fallback_assessment(
+    evidence: list[agent_research.AgentEvidence],
+) -> str:
+    """在表达模型不可用时，从同日两项结构化事实生成最小直接回答。
+
+    这不是替模型做开放式推理，而是把 D4 已明确给出的主线/边界和
+    MARKET_DAILY 的盘面状态拼成可回查的判断，避免长尾问题退化成“已找到
+    来源但不能判断”。任何无法确认的部分仍保持未知。
+    """
+
+    market_lines = [
+        item.detail.strip()
+        for item in evidence
+        if item.tool == "market_data" and item.detail.strip()
+    ]
+    mainline_lines = [
+        item.detail.strip()
+        for item in evidence
+        if item.tool == "mainline_context" and item.detail.strip()
+    ]
+    market_text = "；".join(market_lines[:2]) or "同日市场总览已取得"
+    mainline_text = "；".join(mainline_lines[:3]) or "同日主线结构已取得"
+    return (
+        f"当前市场主线应以同日主线结构为准：{mainline_text}。"
+        f"同日盘面总览显示：{market_text}。"
+        "这能确认盘面正在交易的方向和强弱，但仅凭结构化盘面不能确认产业基本面或持续性；"
+        "后续需用新的同日数据和公司/行业硬证据复核是否从短线异动演变为持续主线。"
+    )
+
+
 def _relation_gap_answer_spec(
     answer_spec: answer_model.AnswerSpec,
     gap_text: str,
@@ -1588,6 +1618,27 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             ),
         )
 
+    if (
+        contract.presentation_profile == "mainline_current"
+        and not owner_result.loop.assessment.strip()
+        and any(item.tool == "market_data" for item in owner_result.evidence)
+        and any(item.tool == "mainline_context" for item in owner_result.evidence)
+    ):
+        # 两项必需结构化能力均已成功时，LLM 只负责措辞；模型不可用不应
+        # 把“有真值但没自然语言”误报成没有答案。
+        owner_result.loop.assessment = _mainline_current_fallback_assessment(
+            list(owner_result.evidence)
+        )
+        owner_result.loop.sufficient = True
+        if owner_result.loop.research_state is not None:
+            owner_result.loop.research_state.set_assessment(owner_result.loop.assessment)
+        owner_result = replace(
+            owner_result,
+            completion=generic_research_owner.evaluate_completion(
+                contract, owner_result.loop
+            ),
+        )
+
     result = AskResult(
         query=options.query,
         trade_date=max(
@@ -1605,7 +1656,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     )
     result.question_plan = generic_question_plan
     has_structured_truth = any(
-        item.tool == "market_data" for item in visible_evidence
+        item.tool in {"market_data", "mainline_context"}
+        for item in visible_evidence
     )
     result.data_notice = (
         "本轮已执行官方公告/互动证据补查，但未取得能确认该合作关系的硬证据。"
@@ -1654,7 +1706,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         )
         evidence_text = agent_research.evidence_display_text(item)
         evidence_lines.append(f"{evidence_text} [{tag}]")
-        is_structured_truth = item.tool == "market_data"
+        is_structured_truth = item.tool in {"market_data", "mainline_context"}
         claim = answer_model.make_claim(
             claim_id=(
                 f"generic:verified:{index}"
@@ -1887,7 +1939,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             detail=citation.detail,
             tier=(
                 "L4_structured"
-                if evidence_by_tag[citation.tag].tool == "market_data"
+                if evidence_by_tag[citation.tag].tool in {"market_data", "mainline_context"}
                 else "agent_candidate"
             ),
             source_date=evidence_by_tag[citation.tag].source_date,
