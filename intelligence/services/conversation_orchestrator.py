@@ -2031,22 +2031,6 @@ class TurnOrchestrator:
                                 selected.append(item.skill_id)
                         pending_selections.extend(replacements)
             skill_pool.shutdown(wait=False, cancel_futures=True)
-            budget_trace = research_budget.to_trace()
-            self._trace(
-                run_id,
-                assistant_message_id,
-                conversation_id,
-                "budget",
-                "research_execution_budget",
-                {
-                    "summary": (
-                        f"研究工具调用 {budget_trace['call_count']} 次，"
-                        f"记录 {budget_trace['attempt_count']} 次尝试"
-                    ),
-                    "elapsed_ms": budget_trace["elapsed_ms"],
-                },
-                retrieval={"research_budget": budget_trace},
-            )
 
             def capture_safe_text(text: str) -> None:
                 self._check_cancelled()
@@ -2658,6 +2642,42 @@ class TurnOrchestrator:
                         "records": query_summary["records"],
                     },
                 )
+            # 研究预算必须在 owner/agent loop 完成后发布。旧位置位于
+            # GenericResearchOwner 之前，长尾问题会看到“研究工具 0 次”，
+            # 而 query/LLM 台账已经真实消耗，造成预算重复计算和 trace 断裂。
+            # 保留旧的 research_budget 字段，同时把同一 turn 的 LLM/查询计数
+            # 放入同一控制面事件，展示层不读取这些内部明细。
+            budget_trace = research_budget.to_trace()
+            shared_ledger: dict[str, object] = {}
+            if llm_ledger is not None and llm_ledger.records:
+                shared_ledger["llm"] = {
+                    "call_count": ledger_summary["call_count"],
+                    "failure_count": ledger_summary["failure_count"],
+                }
+            if turn_query_ledger is not None and turn_query_ledger.entries:
+                shared_ledger["queries"] = {
+                    "executed_count": query_summary["executed_count"],
+                    "deduped_count": query_summary["deduped_count"],
+                }
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                "budget",
+                "research_execution_budget",
+                {
+                    "summary": (
+                        f"研究工具调用 {budget_trace['call_count']} 次，"
+                        f"记录 {budget_trace['attempt_count']} 次尝试"
+                    ),
+                    "elapsed_ms": budget_trace["elapsed_ms"],
+                    "shared_ledger": shared_ledger,
+                },
+                retrieval={
+                    "research_budget": budget_trace,
+                    "shared_ledger": shared_ledger,
+                },
+            )
             complete_report(
                 report,
                 as_of=result.trade_date,

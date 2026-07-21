@@ -146,6 +146,46 @@ class SmokeProtocolError(RuntimeError):
         self.stage = stage
 
 
+def semantic_answer_issues(
+    question: str,
+    report: dict[str, object],
+    messages: list[object],
+) -> list[str]:
+    """Return user-facing semantic failures for the small release red bar."""
+
+    issues: list[str] = []
+    if report.get("answer_status") != "complete":
+        issues.append(f"answer_status={report.get('answer_status')!r}")
+    assistant_text = ""
+    for message in reversed(messages):
+        if isinstance(message, dict) and message.get("role") == "assistant":
+            assistant_text = str(message.get("content") or "")
+            break
+    if not assistant_text.strip():
+        issues.append("assistant_answer_missing")
+        return issues
+    if "主线" in question:
+        if not any(marker in assistant_text for marker in ("主线是", "主线偏向", "当前主线", "主线判断")):
+            issues.append("mainline_direct_assessment_missing")
+        if not any(marker in assistant_text for marker in ("依据", "证据", "数据", "盘面")):
+            issues.append("mainline_evidence_missing")
+    if "明天" in question and any(marker in question for marker in ("反弹", "下跌")):
+        for marker, name in (
+            ("基准", "forecast_baseline_missing"),
+            ("反弹", "forecast_rebound_missing"),
+            ("下跌", "forecast_decline_missing"),
+            ("失效", "forecast_invalidation_missing"),
+        ):
+            if marker not in assistant_text:
+                issues.append(name)
+    if "科创50" in question or "支撑点位" in question:
+        if "支撑" not in assistant_text:
+            issues.append("technical_support_missing")
+        if "失效" not in assistant_text:
+            issues.append("technical_invalidation_missing")
+    return issues
+
+
 class SecretScanner:
     def __init__(self) -> None:
         self.scanned_string_count = 0
@@ -768,6 +808,17 @@ def run_smoke(args: argparse.Namespace) -> tuple[int, dict[str, object]]:
         if llm_payload and not isinstance(llm_used, bool):
             raise SmokeProtocolError("model_metadata")
 
+        semantic_issues = (
+            semantic_answer_issues(args.question, report_payload, messages)
+            if getattr(args, "semantic", False)
+            else []
+        )
+        if semantic_issues:
+            summary["semantic"] = {"passed": False, "issues": semantic_issues}
+            raise SmokeProtocolError("semantic_answer")
+        if getattr(args, "semantic", False):
+            summary["semantic"] = {"passed": True, "issues": []}
+
         outcome = (
             "degraded" if run_status == "completed" and degrades else str(run_status)
         )
@@ -835,6 +886,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--user", required=True)
     parser.add_argument("--question", required=True)
     parser.add_argument("--timeout", type=float, default=180.0)
+    parser.add_argument(
+        "--semantic",
+        action="store_true",
+        help="将最终正文 required outputs 纳入退出码（默认仅协议 smoke）",
+    )
     parser.add_argument("--output", required=True)
     return parser
 

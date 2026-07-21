@@ -64,6 +64,7 @@ from intelligence.services.market_snapshot_contract import (
     validate_market_snapshot_root,
 )
 from intelligence.services.run_store import RunStore
+from intelligence.services.runtime_provenance import build_runtime_provenance
 from intelligence.services.self_use_maturity import (
     SelfUseApprovalStore,
     SelfUseLedger,
@@ -1097,6 +1098,7 @@ def create_app(
     self_use_require_consecutive_trading_days: bool = False,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
+    runtime_provenance = build_runtime_provenance(root)
     runtime_paths = default_paths()
     supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
     llm_settings = SessionLLMSettings()
@@ -1251,6 +1253,7 @@ def create_app(
             "status": "healthy",
             "timestamp": rs._now_iso(),
             "dependencies": checks,
+            "runtime": runtime_provenance,
         }
 
     @app.get("/api/readiness")
