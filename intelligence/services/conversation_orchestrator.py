@@ -83,6 +83,7 @@ from intelligence.services.research_contract import (
     contextualize_intent_query,
 )
 from intelligence.services.run_store import RunStore, redact
+from intelligence.paths import default_paths
 from intelligence.services.turn_controller import TurnDecision, decide_turn
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
@@ -1249,6 +1250,24 @@ class TurnOrchestrator:
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
 
+    def _market_db_path(self) -> Path:
+        """Resolve the data root separately from the runtime code checkout.
+
+        Workbench deployments intentionally run code from a clean detached
+        runtime while sharing the private DuckDB through ``FINANCE_WS``.  Use a
+        fixture-local DB when one exists (tests), otherwise use the configured
+        data root.  Never silently turn a missing DB into a successful
+        boundary-only evidence block.
+        """
+
+        local_path = self.repo_root / "db" / "market_feature_store.duckdb"
+        if local_path.is_file():
+            return local_path
+        configured_path = (
+            default_paths().finance_root / "db" / "market_feature_store.duckdb"
+        )
+        return configured_path if configured_path.is_file() else local_path
+
     def run_turn(
         self,
         *,
@@ -1467,9 +1486,7 @@ class TurnOrchestrator:
                                 compose=False,
                                 synthesize=False,
                                 market_db_path=(
-                                    self.repo_root
-                                    / "db"
-                                    / "market_feature_store.duckdb"
+                                    self._market_db_path()
                                 ),
                                 conversation_context=context.to_prompt_block(),
                                 include_memory_block=decision.needs_memory,
@@ -2144,9 +2161,7 @@ class TurnOrchestrator:
                 compose=True,
                 synthesize=False,
                 compose_revise_on_warn=False,
-                market_db_path=self.repo_root
-                / "db"
-                / "market_feature_store.duckdb",
+                market_db_path=self._market_db_path(),
                 conversation_context=context.to_prompt_block(),
                 wiki_rag_cache_scope=(
                     f"{self.run_store.user_id}:{conversation_id or run_id}"

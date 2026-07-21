@@ -76,6 +76,25 @@ def _ask_result(
     )
 
 
+def test_market_db_path_uses_data_root_when_runtime_checkout_has_no_db(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    data_root = tmp_path / "data"
+    db_path = data_root / "db" / "market_feature_store.duckdb"
+    db_path.parent.mkdir(parents=True)
+    db_path.touch()
+    monkeypatch.setenv("FINANCE_WS", str(data_root))
+
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path / "runtime",
+        conversation_store=ConversationStore("alice", root=tmp_path / "conversations"),
+        run_store=RunStore("alice", root=tmp_path / "runs"),
+    )
+
+    assert orchestrator._market_db_path() == db_path
+
+
 def _research_controller(query: str, **kwargs: object) -> TurnDecision:
     del kwargs
     return TurnDecision(
