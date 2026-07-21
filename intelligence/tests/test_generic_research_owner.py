@@ -296,6 +296,59 @@ def test_current_mainline_prefetches_market_daily_and_d4_once(
     }
 
 
+def test_current_mainline_boundary_only_cannot_complete_mainline_answer(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    contract = conversation_orchestrator._build_generic_research_contract(
+        "你觉得目前市场的主线是什么，给我你的判断依据",
+        task_id="mainline-boundary-only",
+        turn_intent=conversation_orchestrator.TurnIntent(
+            primary_subject=None,
+            secondary_topics=(),
+            question_type="general_finance_qa",
+            answer_owner=None,
+            comparison_entities=(),
+            inherited_from_turn=None,
+        ),
+    )
+    monkeypatch.setattr(
+        ask,
+        "_daily_market_overview_block_for_llm",
+        lambda _path: "## 总览\n- 市场数据截至 2026-07-21",
+    )
+    monkeypatch.setattr(
+        ask,
+        "_market_review_mainline_context_block_for_llm",
+        lambda *_args: (
+            "## 市场复盘主线数据边界\n"
+            "- 当前交易日的题材级主线未知，禁止把旧题材名称写成当日事实。"
+        ),
+    )
+    monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
+    monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
+    monkeypatch.setattr(ask.llm_refine, "detect_provider", lambda _model=None: None)
+    monkeypatch.setattr(
+        agent_research.llm_refine,
+        "complete",
+        lambda *_args, **_kwargs: (None, None, "fixture unavailable"),
+    )
+
+    result = ask._answer_generic_owner(
+        ask.AskOptions(
+            query=contract.question,
+            kb_wiki=tmp_path / "wiki",
+            market_db_path=tmp_path / "missing.duckdb",
+            research_task_contract=contract,
+            use_llm=False,
+            compose=False,
+        )
+    )
+
+    assert result.business_status != "complete"
+    assert result.completion_report["outputs"][0]["status"] != "fulfilled"
+
+
 def test_mixed_double_red_question_combines_definition_and_current_fact(
     tmp_path,
     monkeypatch,

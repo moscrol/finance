@@ -1461,6 +1461,22 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 options.market_db_path
             )
             block = "\n".join(part for part in (double_red_block, block) if part)
+        # A freshness/boundary block is useful for the gap explanation but is
+        # not a mainline fact.  Returning it as ``mainline_context`` evidence
+        # would make the fallback presenter promote “主线未知” to a completed
+        # assessment merely because one source emitted a warning line.
+        if not block or "当前交易日的题材级主线未知" in block:
+            return (
+                [],
+                block or "同日主线结构无可用数据",
+                ProviderTrace(
+                    provider="agent:mainline_context",
+                    capability="agent_loop",
+                    status="empty",
+                    detail="mainline_current_context_gap",
+                    result_count=0,
+                ),
+            )
         evidence, observation = agent_research.block_lines_to_evidence(
             "mainline_context",
             block,
