@@ -93,6 +93,15 @@ class ResearchToolRegistry:
                 query,
                 agent_research.AgentToolContext(context.deadline),
             )
+            evidence = [
+                item
+                if item.content_hash
+                else replace(
+                    item,
+                    content_hash=agent_research.evidence_content_hash(item),
+                )
+                for item in evidence
+            ]
             trace = replace(
                 trace,
                 parent_id=context.trace_parent_id,

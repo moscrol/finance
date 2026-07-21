@@ -387,12 +387,44 @@ class ResearchTaskContract:
     contract_version: str = "1"
 
     def __post_init__(self) -> None:
+        # Backwards compatibility for callers that expand ``to_dict()`` into
+        # the constructor (older tests/integrations predate EvidencePlan).
+        if isinstance(self.evidence_plan, dict):
+            raw_requirements = self.evidence_plan.get("requirements", ())
+            requirements = tuple(
+                EvidenceRequirement(
+                    provider_name=str(item.get("provider_name") or ""),
+                    capability=str(item.get("capability") or ""),
+                    mandatory=bool(item.get("mandatory", False)),
+                    freshness=str(item.get("freshness") or "current"),
+                    reason=str(item.get("reason") or ""),
+                )
+                for item in raw_requirements
+                if isinstance(item, dict)
+            )
+            object.__setattr__(
+                self,
+                "evidence_plan",
+                EvidencePlan(
+                    profile=str(self.evidence_plan.get("profile") or "general"),
+                    requirements=requirements,
+                    freshness=str(self.evidence_plan.get("freshness") or "current"),
+                ),
+            )
         if not self.task_id.strip() or not self.question.strip():
             raise ResearchContractError("task_id/question 不能为空")
         if self.research_tier not in {"quick", "standard", "deep"}:
             raise ResearchContractError(f"未知研究档位：{self.research_tier}")
         if any(not item.output_id.strip() for item in self.required_outputs):
             raise ResearchContractError("required output id 不能为空")
+        for requirement in self.evidence_plan.requirements:
+            if not requirement.provider_name.strip() or not requirement.capability.strip():
+                raise ResearchContractError("evidence plan requirement 必须声明 provider/capability")
+        mandatory = set(self.evidence_plan.mandatory_capabilities)
+        if not mandatory.issubset(set(self.allowed_capabilities)):
+            raise ResearchContractError(
+                "evidence plan 的 mandatory capability 未被 allowed_capabilities 授权"
+            )
 
     def to_dict(self) -> dict[str, object]:
         return {

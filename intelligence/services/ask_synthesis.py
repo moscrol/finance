@@ -1303,6 +1303,19 @@ def _shadow_deadline(options: AskOptions) -> llm_refine.Deadline:
     return deadline
 
 
+def _shadow_phase_timeout(
+    deadline: llm_refine.Deadline,
+    configured: int,
+    share: float,
+) -> int:
+    """给 brief/composer/judge 分配同一根 deadline 的有限时间片。"""
+
+    remaining = max(0.0, deadline.remaining())
+    if remaining <= 0:
+        return 1
+    return max(1, min(int(configured), int(max(1.0, remaining * share))))
+
+
 def synthesize_shadow_grounded_answer(
     prepared: PreparedAnswer,
     *,
@@ -1327,6 +1340,9 @@ def synthesize_shadow_grounded_answer(
         )
         return result
     deadline = _shadow_deadline(options)
+    brief_timeout = _shadow_phase_timeout(
+        deadline, options.shadow_grounded_timeout, 0.25
+    )
     registry_block = answer_model.grounded_claim_registry_block(
         result.answer_spec,
         query=options.query,
@@ -1338,7 +1354,7 @@ def synthesize_shadow_grounded_answer(
             registry_block,
         ),
         model_override=options.llm_model,
-        timeout=options.shadow_grounded_timeout,
+        timeout=brief_timeout,
         deadline=deadline,
         temperature=0.0,
         max_tokens=1200 * token_budget_scale,
@@ -1376,7 +1392,9 @@ def synthesize_shadow_grounded_answer(
             registry_block,
         ),
         model_override=options.llm_model,
-        timeout=max(1, int(deadline.remaining())),
+        timeout=_shadow_phase_timeout(
+            deadline, options.shadow_grounded_timeout, 0.5
+        ),
         deadline=deadline,
         temperature=0.2,
         max_tokens=2400 * token_budget_scale,
@@ -1446,7 +1464,9 @@ def synthesize_shadow_grounded_answer(
         with llm_refine.provider_override(judge_override):
             judged, judge_reason = llm_refine.synthesize_messages(
                 judge_messages,
-                timeout=max(1, int(deadline.remaining())),
+                timeout=_shadow_phase_timeout(
+                    deadline, options.shadow_grounded_timeout, 0.35
+                ),
                 deadline=deadline,
                 temperature=0.0,
                 max_tokens=1200 * token_budget_scale,
@@ -1456,7 +1476,9 @@ def synthesize_shadow_grounded_answer(
         judged, judge_reason = llm_refine.synthesize_messages(
             judge_messages,
             model_override=options.llm_model,
-            timeout=max(1, int(deadline.remaining())),
+            timeout=_shadow_phase_timeout(
+                deadline, options.shadow_grounded_timeout, 0.35
+            ),
             deadline=deadline,
             temperature=0.0,
             max_tokens=1200 * token_budget_scale,

@@ -27,6 +27,7 @@ class EvidenceObservation:
     contradicts: tuple[str, ...] = ()
     independent_key: str = ""
     freshness: str = "unknown"
+    content_hash: str = ""
 
 
 @dataclass

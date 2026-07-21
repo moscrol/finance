@@ -1002,6 +1002,28 @@ def test_market_cause_contract_requires_time_aligned_external_evidence() -> None
     assert external.evidence_types == ("web_search", "news_search")
 
 
+def test_non_owner_skill_modules_enter_candidate_claim_channel() -> None:
+    output = SkillOutput(
+        skill_id="theme-radar",
+        modules=[
+            {
+                "title": "需求变化",
+                "summary": "下游订单出现边际改善",
+                "content": "仍需公司公告核验",
+            }
+        ],
+        citations=[{"title": "公开公告", "source": "https://example.test/a"}],
+        warnings=[],
+        as_of="2026-07-20",
+        raw_result_ref=None,
+    )
+    claims, citations = TurnOrchestrator._skill_claim_bundle((output,))
+    assert len(claims) == 1
+    assert claims[0].status == answer_model.ClaimStatus.CANDIDATE
+    assert claims[0].evidence_ids == ("SK1",)
+    assert citations[0].tag == "SK1"
+
+
 def test_customer_fact_check_contract_requires_and_allows_l3_lookup() -> None:
     intent = TurnIntent(
         primary_subject="中际旭创",

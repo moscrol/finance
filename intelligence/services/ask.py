@@ -1590,6 +1590,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     if (
         contract.question_type == "market_cause"
         and visible_evidence
+        and not owner_result.loop.assessment.strip()
     ):
         owner_result.loop.assessment = _market_cause_fallback_assessment(
             visible_evidence
@@ -1702,6 +1703,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 tag,
                 item.source,
                 item.detail,
+                content_hash=item.content_hash,
             )
         )
         evidence_text = agent_research.evidence_display_text(item)
@@ -2141,7 +2143,12 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
     )
 
     citations: list[Citation] = []
-    structured_claims: list[answer_model.Claim] = []
+    citations.extend(
+        item
+        for item in options.supplemental_citations
+        if isinstance(item, Citation)
+    )
+    structured_claims: list[answer_model.Claim] = list(options.supplemental_claims)
     company_candidates: list[answer_model.CompanyCandidate] = []
 
     def cite(
@@ -2487,7 +2494,12 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
         )
         for item in agent_loop_result.evidence[:8]:
-            tag = cite("A", f"agent 补检索 · {item.tool}", item.source)
+            tag = cite(
+                "A",
+                f"agent 补检索 · {item.tool}",
+                item.source,
+                content_hash=item.content_hash,
+            )
             line = f"{item.title}：{item.detail} {tag}"
             agent_loop_lines.append(line)
             # P0 修复：agent 补检索证据同步铸 CANDIDATE claim。此前只进

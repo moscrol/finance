@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import inspect
+import hashlib
 import json
 import os
 import re
@@ -126,6 +127,9 @@ class AgentEvidence:
     contradicts: tuple[str, ...] = ()
     independent_key: str = ""
     freshness: str = "unknown"
+    # 内容主键贯通 ToolObservation → Citation → EvidenceAtom；空值仅表示
+    # 旧 runner 未提供可稳定哈希的正文。
+    content_hash: str = ""
 
     def to_observation(self, evidence_id: str) -> EvidenceObservation:
         return EvidenceObservation(
@@ -140,6 +144,7 @@ class AgentEvidence:
             contradicts=self.contradicts,
             independent_key=self.independent_key,
             freshness=self.freshness,
+            content_hash=self.content_hash,
         )
 
 
@@ -430,24 +435,32 @@ def block_lines_to_evidence(
     evidence: list[AgentEvidence] = []
     for line in lines[:limit]:
         date_match = re.search(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", line)
-        evidence.append(
-            AgentEvidence(
-                tool=tool,
-                title=line[:48],
-                detail=line[:200],
-                source=source,
-                source_date=(
-                    date_match.group(0).replace("/", "-")
-                    if date_match is not None
-                    else None
-                ),
-                evidence_tier=(
-                    "L4_structured" if tool in {"market_data", "mainline_context"} else ""
-                ),
-            )
+        item = AgentEvidence(
+            tool=tool,
+            title=line[:48],
+            detail=line[:200],
+            source=source,
+            source_date=(
+                date_match.group(0).replace("/", "-")
+                if date_match is not None
+                else None
+            ),
+            evidence_tier=(
+                "L4_structured" if tool in {"market_data", "mainline_context"} else ""
+            ),
         )
+        evidence.append(replace(item, content_hash=evidence_content_hash(item)))
     observation = "；".join(lines[:limit])
     return evidence, observation
+
+
+def evidence_content_hash(item: AgentEvidence) -> str:
+    """Return the stable evidence identity shared by all presentation layers."""
+
+    payload = "|".join(
+        (item.tool, item.title.strip(), item.detail.strip(), item.source.strip())
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
 def evidence_display_text(item: AgentEvidence) -> str:
@@ -823,6 +836,12 @@ def run_agent_loop(
                 tool_query,
                 tool_context,
             )
+            evidence = [
+                item
+                if item.content_hash
+                else replace(item, content_hash=evidence_content_hash(item))
+                for item in evidence
+            ]
         except Exception as exc:  # noqa: BLE001 —— 单工具失败不炸整轮循环
             evidence, observation = [], f"工具执行失败：{exc}"
             trace = ProviderTrace(

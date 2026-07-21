@@ -215,6 +215,10 @@ class AskOptions:
     compose_revise_on_warn: bool = True
     conversation_context: str = ""
     supplemental_evidence: str = ""
+    # 非 owner skill 的结构化事实不能只以 prompt 文本穿过合成层；由编排器
+    # 铸成候选 claim + Citation 后，沿 AnswerSpec 同一证据通道传播。
+    supplemental_claims: tuple[answer_model.Claim, ...] = ()
+    supplemental_citations: tuple[Any, ...] = ()
     perspective_mode: str = perspective_lab.PERSPECTIVE_MODE_NEUTRAL
     perspective_ids: tuple[str, ...] = ()
     stream_text_delta: Callable[[str], None] | None = field(

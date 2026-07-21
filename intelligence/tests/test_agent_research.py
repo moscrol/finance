@@ -77,6 +77,16 @@ def test_loop_executes_tools_then_finishes_with_gaps() -> None:
     assert result.traces[0].provider == "agent:web_search"
 
 
+def test_structured_evidence_gets_stable_content_hash() -> None:
+    evidence, _ = agent_research.block_lines_to_evidence(
+        "market_data",
+        "2026-07-20：上证指数 -1.2%",
+        "本地 DuckDB",
+    )
+    assert evidence[0].content_hash
+    assert evidence[0].content_hash == agent_research.evidence_content_hash(evidence[0])
+
+
 def test_tool_action_binds_evidence_to_known_hypothesis() -> None:
     contract = ResearchTaskContract(
         task_id="hypothesis-binding",

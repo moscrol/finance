@@ -2098,6 +2098,7 @@ class TurnOrchestrator:
                 if generic_contract is not None
                 else research_deadline
             )
+            skill_claims, skill_citations = self._skill_claim_bundle(skill_outputs)
             ask_options = AskOptions(
                 query=contextual_query,
                 date=(
@@ -2118,6 +2119,8 @@ class TurnOrchestrator:
                     f"{self.run_store.user_id}:{conversation_id or run_id}"
                 ),
                 supplemental_evidence=self._skill_evidence(skill_outputs),
+                supplemental_claims=skill_claims,
+                supplemental_citations=skill_citations,
                 include_memory_block=decision.needs_memory,
                 include_recall_block=decision.needs_memory,
                 question_type_override=(
@@ -3420,6 +3423,61 @@ class TurnOrchestrator:
                     "- 数据质量提示：" + "；".join(output.warnings[:3])
                 )
         return "\n".join(lines)
+
+    @staticmethod
+    def _skill_claim_bundle(
+        outputs: Sequence[SkillOutput],
+    ) -> tuple[tuple[answer_model.Claim, ...], tuple[Citation, ...]]:
+        """把非 owner skill 的结构化模块接入统一 claim/citation 通道。
+
+        ``supplemental_evidence`` 仍保留给模型做上下文阅读；这里额外铸造
+        候选 claim，确保 Grounded Presenter 的 registry 能合法引用这些事实，
+        而不是出现“skill 查到了、合成层却看不见”的半死证据。
+        """
+
+        claims: list[answer_model.Claim] = []
+        citations: list[Citation] = []
+        for output in outputs:
+            if not output.modules or not output.citations:
+                continue
+            tags: list[str] = []
+            for citation in output.citations[:8]:
+                if not isinstance(citation, dict):
+                    continue
+                tag = f"SK{len(citations) + 1}"
+                source = str(
+                    citation.get("title")
+                    or citation.get("source")
+                    or output.skill_id
+                )
+                detail = str(citation.get("source") or "")
+                citations.append(Citation(tag, source, detail))
+                tags.append(tag)
+            if not tags:
+                continue
+            for module_index, module in enumerate(output.modules, start=1):
+                if not isinstance(module, dict):
+                    continue
+                bits: list[str] = []
+                for key in ("title", "summary", "content"):
+                    value = module.get(key)
+                    if isinstance(value, str) and value.strip():
+                        bits.append(value.strip())
+                if not bits:
+                    continue
+                text = "：".join(bits[:2])[:600]
+                claims.append(
+                    answer_model.make_claim(
+                        claim_id=f"skill:{output.skill_id}:{module_index}",
+                        text=text,
+                        claim_type="theme_evidence",
+                        theme=output.skill_id,
+                        status=answer_model.ClaimStatus.CANDIDATE,
+                        evidence_tier="skill_candidate",
+                        evidence_ids=tuple(tags),
+                    )
+                )
+        return tuple(claims), tuple(citations)
 
     @staticmethod
     def _skill_warning_module(skill_id: str, warning: str) -> dict[str, object]:
