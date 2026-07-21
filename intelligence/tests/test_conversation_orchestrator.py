@@ -526,8 +526,8 @@ def test_long_tail_e2e_trace_keeps_route_budget_completion_and_grounding(
     assert result.status == "completed"
     assert result.selected_skill_ids == ()
     assert result.invoked_skill_ids == ()
-    assert "证据缺口" in result.content
     assert "本轮尚未完成问题所需的直接回答" in result.content
+    assert "缺少的数据/证据" in result.content
     assert "请补充数据源或稍后重试" in result.content
     assert "研究雷达" not in result.content
     assert "每日市场复盘" not in result.content
@@ -615,9 +615,9 @@ def test_long_tail_real_owner_chain_reaches_completion_and_grounded_fallback(
     assert result.status == "completed"
     assert result.selected_skill_ids == ()
     assert result.invoked_skill_ids == ()
-    assert "当前判断" in result.content
-    assert "证据边界" in result.content
-    assert "下一验证" in result.content
+    assert "本轮尚未完成问题所需的直接回答" in result.content
+    assert "缺少的数据/证据" in result.content
+    assert "请补充数据源或稍后重试" in result.content
     assert "研究雷达" not in result.content
     trace = {step["name"]: step for step in run_store.load_trace(run_id)}
     route_output = json.loads(trace["route_skills"]["output_summary"])
@@ -625,8 +625,7 @@ def test_long_tail_real_owner_chain_reaches_completion_and_grounded_fallback(
     assert route_output["selected"] == []
     retrieval = json.loads(trace["ask_retrieve_compose"]["output_summary"])
     assert retrieval["completion_report"]["status"] == "partial"
-    grounding = json.loads(trace["grounded_composer_shadow"]["output_summary"])
-    assert grounding["status"] in {"brief_unavailable", "ineligible_evidence"}
+    assert "grounded_composer_shadow" not in trace
 
 
 def test_long_tail_real_owner_success_chain_keeps_template_isolation(
