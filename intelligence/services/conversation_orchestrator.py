@@ -582,6 +582,34 @@ def _build_generic_research_contract(
     )
 
 
+_TASK_FRAME_OUTPUT_DESCRIPTIONS: dict[str, str] = {
+    "current_baseline": "当前基准状态与起点",
+    "duration_assessment": "持续时间或观察窗口判断",
+    "continuation_conditions": "继续成立或延续的条件",
+    "invalidation_conditions": "使当前判断失效的条件",
+    "scenario_paths": "条件化情景与演绎路径",
+    "chain_mapping": "产业链层级、角色与关键环节",
+    "financial_assessment": "公司财务表现的直接判断",
+    "metric_evidence": "支撑财务判断的指标证据",
+}
+
+
+def _task_frame_required_output(
+    output_id: str,
+    *,
+    evidence_types: tuple[str, ...] = (),
+) -> RequiredOutput:
+    return RequiredOutput(
+        output_id=output_id,
+        description=_TASK_FRAME_OUTPUT_DESCRIPTIONS.get(
+            output_id,
+            f"TaskFrame 要求的输出：{output_id}",
+        ),
+        evidence_types=evidence_types,
+        required=True,
+    )
+
+
 def _merge_frame_outputs(
     existing: tuple[RequiredOutput, ...],
     frame: TaskFrame,
@@ -600,11 +628,9 @@ def _merge_frame_outputs(
     }
     evidence_types = tuple(capabilities) or ("evidence_boundary",)
     additions = tuple(
-        RequiredOutput(
-            output_id=output_id,
-            description=f"TaskFrame 要求的输出：{output_id}",
+        _task_frame_required_output(
+            output_id,
             evidence_types=evidence_types,
-            required=True,
         )
         for output_id in frame.required_outputs
         if output_id not in known
@@ -629,17 +655,12 @@ def _specialized_owner_required_outputs(
     contract = output.answer_contract
     if not contract.required_outputs:
         return ()
-    output_ids = (
-        contract.required_outputs
-        if contract.task_frame_hash == frame.task_frame_hash
-        else frame.required_outputs
-    )
+    # A matching hash proves which frame the owner saw; it does not grant the
+    # owner permission to enlarge or narrow that frame's completion gate.
+    # Legacy contracts without a canonical frame can still use their own IDs.
+    output_ids = frame.required_outputs or contract.required_outputs
     return tuple(
-        RequiredOutput(
-            output_id=output_id,
-            description=f"TaskFrame 要求的输出：{output_id}",
-            required=True,
-        )
+        _task_frame_required_output(output_id)
         for output_id in dict.fromkeys(output_ids)
     )
 

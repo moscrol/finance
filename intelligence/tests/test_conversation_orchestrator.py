@@ -2733,7 +2733,10 @@ def test_specialized_owner_uses_same_task_frame_fulfillment_gate(tmp_path) -> No
                     contract,
                     question_type="stock_deep_dive",
                     task_frame_hash=frame.task_frame_hash,
-                    required_outputs=frame.required_outputs,
+                    required_outputs=(
+                        *frame.required_outputs,
+                        "llm_invented_output",
+                    ),
                 ),
             )
 
@@ -2808,7 +2811,10 @@ def test_specialized_owner_uses_same_task_frame_fulfillment_gate(tmp_path) -> No
 
     assert route["task_frame_hash"] == frame.task_frame_hash
     assert owner_contract["task_frame_hash"] == frame.task_frame_hash
-    assert owner_contract["required_outputs"] == list(frame.required_outputs)
+    assert owner_contract["required_outputs"] == [
+        *frame.required_outputs,
+        "llm_invented_output",
+    ]
     assert verifier["task_frame_hash"] == frame.task_frame_hash
     assert report["task_frame_hash"] == frame.task_frame_hash
     assert report["answer_status"] != "complete"
@@ -2818,6 +2824,9 @@ def test_specialized_owner_uses_same_task_frame_fulfillment_gate(tmp_path) -> No
         if item["output_id"] == "customer_validation"
     )
     assert customer["status"] != "fulfilled"
+    assert "llm_invented_output" not in {
+        item["output_id"] for item in report["task_fulfillment"]["items"]
+    }
     assert "本轮尚未完成问题所需的直接回答" in result.content
 
 

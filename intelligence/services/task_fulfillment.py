@@ -116,6 +116,27 @@ _MARKERS: dict[str, tuple[str, ...]] = {
     "decline_case": ("继续下跌", "下跌情景", "走弱"),
     "invalidation": ("失效条件", "失效", "证伪"),
     "counterpoint": ("反证", "风险", "相反", "但", "除非"),
+    # Canonical TaskFrame slots.  These stay semantic (what the answer must
+    # contain) instead of being collapsed into a loosely related legacy slot.
+    "current_baseline": ("当前基准", "基准判断", "当前状态"),
+    "duration_assessment": (
+        "持续时间",
+        "持续多久",
+        "持续性",
+        "延续时间",
+        "观察窗口",
+    ),
+    "continuation_conditions": (
+        "延续条件",
+        "继续条件",
+        "成立条件",
+        "触发条件",
+    ),
+    "invalidation_conditions": ("失效条件", "失效", "证伪"),
+    "scenario_paths": ("情景路径", "情景", "路径"),
+    "chain_mapping": ("产业链", "上游", "中游", "下游", "链条"),
+    "financial_assessment": ("财务判断", "收入", "利润", "盈利", "现金流"),
+    "metric_evidence": ("财务指标", "指标", "同比", "毛利率", "净利率"),
 }
 
 
@@ -309,7 +330,12 @@ def evaluate_task_fulfillment(
             ):
                 bound.append((claim, evidence_ids))
 
-        if bound and (marker or output_id in {"supporting_evidence", "direct_assessment"}):
+        marker_required = bool(_MARKERS.get(output_id))
+        if bound and (
+            marker
+            or not marker_required
+            or output_id in {"supporting_evidence", "direct_assessment"}
+        ):
             items.append(
                 FulfillmentItem(
                     required.output_id,

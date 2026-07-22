@@ -156,7 +156,12 @@ def build_task_frame(
     question_type = str(envelope.question_type or "general_finance_qa")
     market_scope, market_is_default = _market_scope(question)
     timeframe, timeframe_assumption = _timeframe(envelope.timeframe)
-    subject = _safe_subject(envelope.subject, question)
+    subject = _safe_subject(
+        envelope.subject,
+        question,
+        resolver_confirmed=envelope.matched_by
+        in {"ticker", "entity", "candidate", "alias"},
+    )
     subject_kind = str(envelope.subject_kind or "unknown")
     unbound_rebound_reference = bool(
         subject is None
@@ -218,9 +223,11 @@ def build_task_frame(
 
 
 def align_task_frame(frame: TaskFrame, content: str | None) -> TaskFrame:
-    """Merge only the four LLM-owned semantic supplements.
+    """Merge only the three LLM-owned semantic supplements.
 
     Subject, market, time, evidence policy and confidence remain code-owned.
+    Required outputs are also code/owner-contract owned: an alignment model may
+    improve the goal or surface assumptions, but cannot enlarge the task gate.
     Malformed/unavailable output therefore leaves the rules-only frame usable.
     """
 
@@ -230,12 +237,10 @@ def align_task_frame(frame: TaskFrame, content: str | None) -> TaskFrame:
     if value is None:
         return frame
     goal = value.get("user_goal")
-    outputs = value.get("required_outputs")
     assumptions = value.get("assumptions")
     ambiguities = value.get("ambiguities")
     if goal is not None and not isinstance(goal, str):
         goal = None
-    valid_outputs = _string_tuple(outputs)
     valid_assumptions = _string_tuple(assumptions)
     valid_ambiguities = _string_tuple(ambiguities)
     merged_ambiguities = _merge_strings(frame.ambiguities, valid_ambiguities)
@@ -243,7 +248,6 @@ def align_task_frame(frame: TaskFrame, content: str | None) -> TaskFrame:
     return replace(
         frame,
         user_goal=(goal.strip() if isinstance(goal, str) and goal.strip() else frame.user_goal),
-        required_outputs=_merge_strings(frame.required_outputs, valid_outputs),
         assumptions=_merge_strings(frame.assumptions, valid_assumptions),
         ambiguities=merged_ambiguities,
         clarification_question=clarification,
@@ -328,8 +332,8 @@ def _alignment_messages(frame: TaskFrame) -> list[dict[str, str]]:
             "role": "system",
             "content": (
                 "你只补全任务语义，不回答问题。规则已锁定主体、市场、日期、"
-                "任务类型和证据政策；不得修改这些字段。严格输出 JSON，键只能是"
-                " user_goal,required_outputs,assumptions,ambiguities。"
+                "任务类型、required_outputs 和证据政策；不得修改这些字段。"
+                "严格输出 JSON，键只能是 user_goal,assumptions,ambiguities。"
                 "只有会改变主体、工具或结论的歧义才写入 ambiguities。"
             ),
         },
@@ -418,13 +422,18 @@ def _timeframe(raw_timeframe: str | None) -> tuple[str | None, str | None]:
     return raw, None
 
 
-def _safe_subject(subject: object, raw_question: str) -> str | None:
+def _safe_subject(
+    subject: object,
+    raw_question: str,
+    *,
+    resolver_confirmed: bool = False,
+) -> str | None:
     if not isinstance(subject, str):
         return None
     cleaned = subject.strip(" \t\r\n，,。！？!?：:")
     if (
         not cleaned
-        or cleaned == raw_question.strip()
+        or (cleaned == raw_question.strip() and not resolver_confirmed)
         or len(cleaned) > 32
         or (len(cleaned) > 12 and _QUESTION_LIKE_RE.search(cleaned))
     ):

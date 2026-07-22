@@ -508,8 +508,8 @@ def _controller_messages(
                 "拿不准时选 clarify；不得发明表外的 route_id。"
                 "TaskFrame 已锁定主体、市场、时间和任务类型，lane 不得覆盖这些语义。"
                 "严格输出一个 JSON 对象，键必须且只能是：route_id,confidence,reason,"
-                "user_goal,required_outputs,assumptions,ambiguities。后四项只能补充"
-                "TaskFrame，不得返回或修改主体、市场、时间、证据政策。"
+                "user_goal,assumptions,ambiguities。后三项只能补充 TaskFrame；"
+                "不得返回或修改主体、市场、时间、required_outputs、证据政策。"
             ),
         },
         {
@@ -859,7 +859,19 @@ def decide_turn(
             task_frame=task_frame,
         )
     if resolution.context_dependent and previous_intent is None:
-        return replace(
+        intent = replace(
+            build_turn_intent(
+                query,
+                envelope,
+                previous_intent=None,
+                previous_turn_id=previous_turn_id,
+                resolution=resolution,
+                task_frame=task_frame,
+            ),
+            pending_task_frame=task_frame.to_dict(),
+            clarification_rounds=1,
+        )
+        return _attach_turn_intent(
             _decision(
                 "clarify",
                 envelope=envelope,
@@ -869,6 +881,7 @@ def decide_turn(
                     "你指的是哪家公司、题材或上一条研究逻辑？",
                 ),
             ),
+            intent,
             task_frame=task_frame,
         )
     intent = build_turn_intent(

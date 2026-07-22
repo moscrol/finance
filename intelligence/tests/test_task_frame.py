@@ -54,10 +54,30 @@ def test_llm_alignment_can_only_supplement_code_owned_semantics() -> None:
     )
 
     assert frame.user_goal == "判断本轮反弹大致还能延续多久"
-    assert "volume_confirmation" in frame.required_outputs
+    assert "volume_confirmation" not in frame.required_outputs
     assert "观察窗口未明确，先按未来五个交易日评估" in frame.ambiguities
     assert frame.clarification_question is None
     assert frame.subject == "A股市场"
     assert frame.market_scope == "A股"
     assert frame.timeframe == "最近交易日"
     assert frame.evidence_policy == "current_market_scenarios"
+
+
+def test_llm_alignment_cannot_append_unowned_required_output() -> None:
+    question = "固态电池产业链怎么分"
+    envelope = understand_query(question)
+    content = """{
+      "user_goal": "梳理固态电池产业链",
+      "required_outputs": ["llm_invented_output"],
+      "assumptions": [],
+      "ambiguities": []
+    }"""
+
+    frame = build_task_frame(
+        question,
+        envelope,
+        llm_complete=lambda _messages: (content, object(), ""),
+    )
+
+    assert "chain_mapping" in frame.required_outputs
+    assert "llm_invented_output" not in frame.required_outputs

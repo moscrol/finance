@@ -1,17 +1,45 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
+from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.services.research_contract import TurnIntent
-from intelligence.services.query_resolution import QueryResolution
+from intelligence.services.query_resolution import QueryResolution, QueryResolver
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
 from intelligence.services.turn_controller import TurnDecision, _attach_turn_intent, decide_turn
 
 
 def _no_llm(_messages: list[dict[str, str]]):
     return None, None, "fixture unavailable"
+
+
+def _semantic_resolver(tmp_path) -> QueryResolver:
+    relations = tmp_path / "relations"
+    relations.mkdir()
+    (relations / "entity_exposures.json").write_text(
+        json.dumps(
+            {
+                "entities": {
+                    "英维克": {"codes": ["002837.SZ"], "concepts": {}},
+                    "中际旭创": {"codes": ["300308.SZ"], "concepts": {}},
+                    "宁德时代": {
+                        "codes": ["300750.SZ"],
+                        "concepts": {"固态电池": {}},
+                    },
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (relations / "aliases.json").write_text(
+        json.dumps({"aliases": {}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return QueryResolver(KnowledgeAdapter(wiki_root=tmp_path))
 
 
 class _CountingResolver:
@@ -32,6 +60,58 @@ def test_controller_resolves_each_turn_once() -> None:
     decide_turn("卫星互联网是什么", llm_complete=_no_llm, resolver=resolver)
 
     assert resolver.calls == 1
+
+
+@pytest.mark.parametrize(
+    ("query", "subject_kind"),
+    (
+        ("英维克", "company"),
+        ("固态电池", "theme"),
+        ("中际旭创", "company"),
+    ),
+)
+def test_controller_preserves_resolver_confirmed_bare_subject(
+    tmp_path,
+    query: str,
+    subject_kind: str,
+) -> None:
+    decision = decide_turn(
+        query,
+        resolver=_semantic_resolver(tmp_path),
+        llm_complete=_no_llm,
+    )
+
+    assert decision.task_frame is not None
+    assert decision.task_frame.raw_question == query
+    assert decision.task_frame.subject == query
+    assert decision.task_frame.subject_kind == subject_kind
+    assert decision.subject == query
+
+
+def test_controller_rejects_unverified_whole_question_as_subject() -> None:
+    query = "帮我判断产业趋势是否成立"
+
+    class WholeQuestionResolver:
+        def resolve(self, _query: str) -> QueryResolution:
+            return QueryResolution(
+                envelope=replace(
+                    understand_query(query),
+                    subject=query,
+                    subject_kind="theme",
+                    matched_by="explicit",
+                ),
+                anchor=None,
+            )
+
+    decision = decide_turn(
+        query,
+        resolver=WholeQuestionResolver(),  # type: ignore[arg-type]
+        llm_complete=_no_llm,
+    )
+
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject is None
+    assert decision.subject is None
 
 
 def test_controller_subject_wins_when_question_type_is_unchanged() -> None:
@@ -498,6 +578,59 @@ def test_clarification_answer_resumes_pending_rebound_task_frame() -> None:
     assert resumed.turn_intent.clarification_rounds == 1
 
 
+def test_legacy_context_dependent_clarification_resumes_same_forecast_frame() -> None:
+    question = "这个反弹还能持续多久"
+    historical = replace(
+        understand_query("昨天的反弹能持续多久"),
+        subject="A股市场",
+        subject_kind="market_pattern",
+    )
+
+    class HistoricalContextResolver:
+        def resolve(self, _query: str) -> QueryResolution:
+            return QueryResolution(
+                envelope=historical,
+                anchor=None,
+                reference_kind="continuation",
+                context_dependent=True,
+            )
+
+    first = decide_turn(
+        question,
+        resolver=HistoricalContextResolver(),  # type: ignore[arg-type]
+        llm_complete=lambda _messages: pytest.fail(
+            "legacy context-dependent clarification must not call the LLM"
+        ),
+    )
+
+    assert first.lane == "clarify"
+    assert first.task_frame is not None
+    assert first.task_frame.raw_question == question
+    assert first.task_frame.question_type == "market_forecast"
+    assert first.turn_intent is not None
+    assert first.turn_intent.pending_task_frame == first.task_frame.to_dict()
+    assert first.turn_intent.clarification_rounds == 1
+
+    resumed = decide_turn(
+        "科创50",
+        previous_intent=first.turn_intent,
+        previous_turn_id="msg-legacy-clarification",
+        llm_complete=lambda _messages: pytest.fail(
+            "clarification answer must resume the stored forecast"
+        ),
+    )
+
+    assert resumed.lane == "research"
+    assert resumed.question_type == "market_forecast"
+    assert resumed.subject == "科创50"
+    assert resumed.task_frame is not None
+    assert resumed.task_frame.raw_question == question
+    assert resumed.task_frame.user_goal == first.task_frame.user_goal
+    assert resumed.task_frame.required_outputs == first.task_frame.required_outputs
+    assert resumed.turn_intent is not None
+    assert resumed.turn_intent.pending_task_frame is None
+
+
 def test_rebound_reference_inherits_subject_without_rewriting_raw_question() -> None:
     previous = TurnIntent(
         primary_subject="科创50",
@@ -887,7 +1020,7 @@ def test_controller_llm_supplements_task_frame_without_replacing_semantics() -> 
     assert decision.task_frame.market_scope == "A股"
     assert decision.task_frame.subject != "帮我判断产业趋势"
     assert decision.task_frame.user_goal == "判断产业趋势是否会改变市场持续性"
-    assert "trend_signal" in decision.task_frame.required_outputs
+    assert "trend_signal" not in decision.task_frame.required_outputs
     assert "先按未来五个交易日观察" in decision.task_frame.assumptions
 
 

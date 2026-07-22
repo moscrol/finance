@@ -5,6 +5,7 @@ from intelligence.services.answer_model import (
 )
 from intelligence.services.research_contract import RequiredOutput
 from intelligence.services.task_fulfillment import (
+    evaluate_answer_spec_fulfillment,
     evaluate_task_fulfillment,
     fail_closed_answer_spec,
 )
@@ -147,6 +148,83 @@ def test_no_required_outputs_keeps_deterministic_head_unaffected():
     )
 
     assert verdict.status == "complete"
+
+
+def test_canonical_chain_mapping_requires_public_grounded_answer() -> None:
+    chain_claim = _claim(
+        "generic:chain_mapping",
+        "产业链映射：上游是电池材料，中游是电芯制造，下游是整车。",
+    )
+    spec = answer_model.finalize_answer_spec(
+        answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_answer_profile(
+                "固态电池产业链怎么分",
+                profile="general",
+            ),
+            summary=(chain_claim,),
+            verified_facts=(),
+            company_table=(),
+            counter_evidence=(),
+            gaps=(),
+            triggers=(),
+            next_actions=(),
+            sources=(
+                _source(
+                    "固态电池上游电池材料、中游电芯制造、下游整车的产业链资料"
+                ),
+            ),
+            system_notices=(),
+            presentation_kind="generic_research",
+        )
+    )
+    required = (
+        RequiredOutput(
+            "chain_mapping",
+            "产业链层级与关键环节",
+            ("graph_lookup", "kb_search"),
+        ),
+    )
+
+    answered = evaluate_answer_spec_fulfillment(
+        question="固态电池产业链怎么分",
+        required_outputs=required,
+        answer_text=chain_claim.text,
+        answer_spec=spec,
+    )
+    omitted = evaluate_answer_spec_fulfillment(
+        question="固态电池产业链怎么分",
+        required_outputs=required,
+        answer_text="当前只说明题材热度。",
+        answer_spec=spec,
+    )
+
+    assert answered.status == "complete"
+    assert answered.items[0].status == "fulfilled"
+    assert omitted.status == "missing"
+    assert omitted.items[0].status == "missing"
+
+
+def test_new_contract_output_can_fulfill_via_exact_grounded_claim() -> None:
+    claim = _claim(
+        "generic:novel_metric_breakdown",
+        "新增指标拆解：液冷业务收入同比增长 30%。",
+    )
+    verdict = evaluate_task_fulfillment(
+        question="拆解液冷业务指标",
+        required_outputs=(
+            RequiredOutput(
+                "novel_metric_breakdown",
+                "新增指标拆解",
+                ("financials",),
+            ),
+        ),
+        answer_text=claim.text,
+        claims=(claim,),
+        sources=(_source("液冷业务收入同比增长 30%"),),
+    )
+
+    assert verdict.status == "complete"
+    assert verdict.items[0].status == "fulfilled"
 
 
 def test_fail_closed_projection_removes_candidate_answer() -> None:
