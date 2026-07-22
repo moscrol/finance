@@ -579,3 +579,33 @@ def test_function_words_are_not_company_subjects() -> None:
 
     assert envelope.subject != "一下"
     assert envelope.question_type != "stock_deep_dive"
+
+
+def test_index_rebound_space_is_a_structured_technical_question() -> None:
+    envelope = understand_query("科创50你认为反弹空间有多少")
+
+    assert envelope.question_type == "market_technical"
+    assert envelope.subject_kind == "index"
+    assert envelope.subject == "科创50"
+
+
+def test_anchored_company_reasonable_valuation_keeps_valuation_semantics() -> None:
+    envelope = understand_query(
+        "瑞华泰的合理估值",
+        anchor=EntityAnchor(
+            entity="瑞华泰",
+            ticker="688323.SH",
+            matched_by="name",
+        ),
+    )
+
+    assert envelope.question_type == "valuation_estimate"
+    assert envelope.subject_kind == "company"
+    assert envelope.subject == "瑞华泰"
+
+
+def test_current_market_mainline_is_not_a_static_definition() -> None:
+    envelope = understand_query("目前市场的主线是什么")
+
+    assert envelope.question_type == "market_watch"
+    assert envelope.subject_kind == "market_pattern"

@@ -13,6 +13,24 @@ from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 
 
+_DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str]] = {
+    "kb_search": ("kb_search", "本地知识库检索", "stable"),
+    "web_search": ("web_search", "全网网页检索", "current"),
+    "news_search": ("news_search", "财经新闻检索", "current"),
+    "graph_lookup": ("graph_lookup", "知识图谱实体与关系", "stable"),
+    "evidence_lookup": ("evidence_lookup", "本地证据索引", "stable"),
+    "l3_lookup": ("l3_lookup", "官方公告与互动证据", "current"),
+    "market_data": ("market_data", "结构化行情与市场时序", "current"),
+    "mainline_context": ("mainline_context", "同日主线与板块结构", "current"),
+}
+DEFAULT_RESEARCH_CAPABILITIES = tuple(
+    dict.fromkeys(
+        capability
+        for capability, _description, _freshness in _DEFAULT_TOOL_METADATA.values()
+    )
+)
+
+
 class UnknownResearchTool(ValueError):
     """LLM 选择了未注册工具。"""
 
@@ -153,16 +171,6 @@ class ResearchToolRegistry:
 
 
 def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToolRegistry:
-    descriptions: dict[str, tuple[str, str, str]] = {
-        "kb_search": ("kb_search", "本地知识库检索", "stable"),
-        "web_search": ("web_search", "全网网页检索", "current"),
-        "news_search": ("news_search", "财经新闻检索", "current"),
-        "graph_lookup": ("graph_lookup", "知识图谱实体与关系", "stable"),
-        "evidence_lookup": ("evidence_lookup", "本地证据索引", "stable"),
-        "l3_lookup": ("l3_lookup", "官方公告与互动证据", "current"),
-        "market_data": ("market_data", "结构化行情与市场时序", "current"),
-        "mainline_context": ("mainline_context", "同日主线与板块结构", "current"),
-    }
     specs = tuple(
         ToolSpec(
             name=name,
@@ -172,7 +180,7 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
             freshness=freshness,
             runner=tools[name],
         )
-        for name, (capability, description, freshness) in descriptions.items()
+        for name, (capability, description, freshness) in _DEFAULT_TOOL_METADATA.items()
         if name in tools
     )
     return ResearchToolRegistry(specs)

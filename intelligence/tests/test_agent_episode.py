@@ -415,3 +415,34 @@ def test_multiple_tool_calls_cannot_bypass_total_step_budget() -> None:
     assert outcome.usage.tool_calls == 2
     assert outcome.usage.invalid_actions == 1
     assert "tool_budget_exhausted" in model.calls[1]["messages"][-1]["content"]
+
+
+def test_model_can_finalize_inside_the_reserved_synthesis_window() -> None:
+    frame = _frame()
+    base_context = _context(frame, max_steps=1)
+    context = ResearchRunContext(
+        contract=base_context.contract,
+        deadline=ResearchDeadline.from_timeout(5.0, synthesis_reserve=5.0),
+        policy=base_context.policy,
+        trace_parent_id=base_context.trace_parent_id,
+    )
+    model = ScriptedModel(
+        [
+            _finish_turn(
+                status="partial",
+                draft="当前证据不足，先报告缺口。",
+                hashes=(),
+                gap="仍缺市场数据",
+            )
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=ResearchToolRegistry(()),
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "model_finish"
+    assert outcome.usage.llm_calls == 1

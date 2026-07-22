@@ -233,6 +233,8 @@ _MARKET_WATCH_RE = re.compile(
     r"(?:有什么|有哪些|哪些)?(?:值得关注|看点|主线|机会)"
     r"|(?:今天|今日)(?:的)?(?:市场|行情|盘面|大盘)(?:怎么样|如何|表现如何)"
     r"|(?:今天|今日)(?:的)?(?:A股|市场|行情|盘面|大盘)?复盘"
+    r"|(?:目前|当前|现在)(?:的)?(?:A股|市场|行情|盘面|大盘)(?:的)?"
+    r"(?:主线|结构|看点|机会)(?:是什么|有哪些|怎么样|如何)?"
 )
 _MARKET_FORECAST_RE = re.compile(
     r"(?:展望|研判|预测)[^。？！]{0,16}(?:后市|市场|行情|大盘)"
@@ -343,6 +345,7 @@ _TECHNICAL_LEVEL_RE = re.compile(
     r"|(?:回踩|回调)(?:到哪|支撑)"
     r"|技术(?:位|点位|支撑|压力)"
     r"|颈线|缺口(?:回补|支撑)"
+    r"|(?:反弹|上涨)(?:空间|高度)(?:有多(?:少|大))?"
 )
 
 
@@ -651,6 +654,8 @@ def _explicit_company_subject(query: str) -> str | None:
 def _company_question_type(query: str) -> str:
     if _COMPANY_CONFIRMATION_RE.search(query):
         return "fact_check"
+    if re.search(r"(?:估值|值多少钱|贵不贵|合理价值|目标价)", query):
+        return "valuation_estimate"
     if re.search(r"(个股深挖|个股研究|深挖|深度分析个股)", query):
         return "stock_deep_dive"
     if _FINANCIAL_ANALYSIS_RE.search(query):
@@ -931,6 +936,17 @@ def understand_query(
             "external_market",
             "美国股市",
             _decision_goal(text),
+            timeframe,
+            "market_anchor",
+            0.98,
+        )
+
+    if is_market_watch_query(text):
+        return envelope(
+            "market_watch",
+            "market_pattern",
+            None,
+            "总结当前盘面主线、观察清单与验证信号",
             timeframe,
             "market_anchor",
             0.98,

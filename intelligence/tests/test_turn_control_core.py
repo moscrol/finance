@@ -262,6 +262,29 @@ def test_validated_route_projection_does_not_collapse_task_frame(
 
 
 @pytest.mark.parametrize(
+    ("query", "question_type", "required_output"),
+    (
+        ("科创50你认为反弹空间有多少", "market_technical", "technical_levels"),
+        ("瑞华泰的合理估值", "valuation_estimate", "valuation_assessment"),
+        ("目前市场的主线是什么", "market_watch", "direct_assessment"),
+    ),
+)
+def test_acceptance_questions_keep_their_semantics_without_controller_llm(
+    query: str,
+    question_type: str,
+    required_output: str,
+) -> None:
+    result = TurnControlCore().control(
+        query,
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    assert result.terminal_kind == "research"
+    assert result.task_frame.question_type == question_type
+    assert required_output in result.task_frame.required_outputs
+
+
+@pytest.mark.parametrize(
     ("query", "question_type", "required_output", "coarse_output"),
     (
         ("300750是哪家公司", "quick_fact", "fact_value", "direct_assessment"),

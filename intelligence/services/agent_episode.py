@@ -105,7 +105,12 @@ class ContinuousAgentEpisode:
         }
 
         for _round in range(1, context.policy.max_steps + 1):
-            timeout = context.deadline.stage_timeout(self._llm_timeout)
+            # The model owns both planning and final composition in one
+            # continuous episode. Retrieval tools must respect the synthesis
+            # reserve, while model turns must still be able to use it; using
+            # stage_timeout here would recreate the legacy "0ms synthesis"
+            # failure once retrieval consumed the non-reserved slice.
+            timeout = context.deadline.synthesis_timeout(self._llm_timeout)
             if timeout <= 0.001:
                 return self._stopped_outcome(
                     task_frame=task_frame,
