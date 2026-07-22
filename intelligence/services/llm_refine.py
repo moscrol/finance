@@ -547,6 +547,7 @@ def _post_chat_message(
     temperature: float = 0.2,
     tools: list[dict] | None = None,
     tool_choice: str | dict | None = None,
+    disable_thinking: bool | None = None,
 ) -> dict:
     """Like :func:`_post_chat` but returns the full assistant *message* dict.
 
@@ -555,7 +556,10 @@ def _post_chat_message(
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
-    if os.environ.get("LLM_THINKING") == "disabled":
+    if disable_thinking is True or (
+        disable_thinking is None
+        and os.environ.get("LLM_THINKING") == "disabled"
+    ):
         payload["thinking"] = {"type": "disabled"}
     if tools:
         payload["tools"] = tools
@@ -589,6 +593,7 @@ def chat_with_tools(
     timeout: float = DEFAULT_LLM_TIMEOUT,
     temperature: float = 0.2,
     tool_choice: str | dict | None = "auto",
+    disable_thinking: bool | None = None,
 ) -> tuple[dict | None, "LLMProvider | None", str]:
     """One OpenAI-compatible chat round-trip *with tools available*.
 
@@ -618,6 +623,7 @@ def chat_with_tools(
                 temperature,
                 tools=tools,
                 tool_choice=tool_choice,
+                disable_thinking=disable_thinking,
             )
         except LLMCallBudgetExceeded as exc:
             return None, None, str(exc)

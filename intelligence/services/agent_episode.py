@@ -104,13 +104,44 @@ class ContinuousAgentEpisode:
             for item in definitions
         }
 
-        for _round in range(1, context.policy.max_steps + 1):
-            # The model owns both planning and final composition in one
-            # continuous episode. Retrieval tools must respect the synthesis
-            # reserve, while model turns must still be able to use it; using
-            # stage_timeout here would recreate the legacy "0ms synthesis"
-            # failure once retrieval consumed the non-reserved slice.
-            timeout = context.deadline.synthesis_timeout(self._llm_timeout)
+        finalization_started = False
+        for _round in range(1, context.policy.max_steps + 2):
+            planning_timeout = context.deadline.stage_timeout(self._llm_timeout)
+            should_finalize = (
+                finalization_started
+                or tool_calls >= context.policy.max_steps
+                or planning_timeout <= 0.001
+                or _round > context.policy.max_steps
+            )
+            if should_finalize and not finalization_started:
+                finalization_started = True
+                if tool_calls >= context.policy.max_steps:
+                    finalization_reason = "tool_budget_exhausted"
+                elif planning_timeout <= 0.001:
+                    finalization_reason = "retrieval_deadline_closed"
+                else:
+                    finalization_reason = "model_round_budget_exhausted"
+                ledger.add(
+                    "finalization",
+                    {"reason": finalization_reason},
+                )
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "研究阶段已关闭，不得再调用工具。请保留最初任务和全部"
+                            "原始观察，立即基于已有 evidence_hashes 输出 FINAL_JSON；"
+                            "证据不足的 required output 必须标 partial 并写明 gap。"
+                            f"关闭原因：{finalization_reason}"
+                        ),
+                    }
+                )
+
+            timeout = (
+                context.deadline.synthesis_timeout(self._llm_timeout)
+                if finalization_started
+                else planning_timeout
+            )
             if timeout <= 0.001:
                 return self._stopped_outcome(
                     task_frame=task_frame,
@@ -130,7 +161,7 @@ class ContinuousAgentEpisode:
             try:
                 turn = self._model.complete(
                     messages=list(messages),
-                    tools=definitions,
+                    tools=[] if finalization_started else definitions,
                     timeout=timeout,
                 )
             except Exception as exc:
@@ -169,6 +200,25 @@ class ContinuousAgentEpisode:
 
             messages.append(self._assistant_message(turn))
             if turn.tool_calls:
+                if finalization_started:
+                    invalid_actions += len(turn.tool_calls)
+                    ledger.add(
+                        "invalid_action",
+                        {"reason": "tool_call_during_finalization"},
+                    )
+                    return self._stopped_outcome(
+                        task_frame=task_frame,
+                        status="partial",
+                        stop_reason="invalid_model_finish",
+                        gap="最终合成阶段仍尝试调用工具",
+                        ledger=ledger,
+                        evidence=evidence,
+                        traces=traces,
+                        gaps=gaps,
+                        llm_calls=llm_calls,
+                        tool_calls=tool_calls,
+                        invalid_actions=invalid_actions,
+                    )
                 for call in turn.tool_calls:
                     ledger.add("tool_request", call.to_dict())
                     query = call.arguments.get("query")
@@ -289,7 +339,11 @@ class ContinuousAgentEpisode:
                 invalid_actions += 1
                 reason = str(exc)
                 ledger.add("invalid_action", {"reason": reason})
-                if finish_failures == 1 and _round < context.policy.max_steps:
+                if (
+                    finish_failures == 1
+                    and not finalization_started
+                    and _round < context.policy.max_steps
+                ):
                     messages.append(
                         {
                             "role": "user",
@@ -368,6 +422,9 @@ class ContinuousAgentEpisode:
             '{"status":"completed|partial","draft":"自然语言回答",'
             '"gaps":["..."],"bindings":[{"output_id":"...",'
             '"evidence_hashes":["..."],"gap":""}]}。'
+            "binding.gap 只在该 required output 无法回答时填写；"
+            "若 output 已由 evidence_hashes 支持并完成，binding.gap 必须为空，"
+            "限制条件写入顶层 gaps 或 draft。"
             "completed 必须覆盖所有 required outputs；partial 必须明确缺口。\n"
             f"任务哈希：{task_frame.task_frame_hash}\n"
             f"可用工具：\n{registry.prompt_block(context.contract.allowed_capabilities)}"
@@ -588,8 +645,44 @@ def _parse_json_object(content: str) -> dict[str, object] | None:
     try:
         value = json.loads(text)
     except json.JSONDecodeError:
-        return None
+        value = _recover_finish_with_raw_draft(text)
     return value if isinstance(value, dict) else None
+
+
+def _recover_finish_with_raw_draft(text: str) -> dict[str, object] | None:
+    """Recover only the fixed finish envelope when GLM leaves draft raw.
+
+    The prose field may contain literal newlines or quotes.  The structural
+    tail remains strict JSON and is still validated by ``_parse_finish``.
+    """
+
+    prefix = re.match(
+        r'^\{\s*"status"\s*:\s*"(completed|partial)"\s*,\s*'
+        r'"draft"\s*:\s*"',
+        text,
+    )
+    if prefix is None:
+        return None
+    separators = list(
+        re.finditer(r'"\s*,\s*(?="gaps"\s*:)', text)
+    )
+    if not separators:
+        return None
+    separator = separators[-1]
+    if separator.start() < prefix.end():
+        return None
+    try:
+        tail = json.loads("{" + text[separator.end() :])
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(tail, dict) or set(tail) != {"gaps", "bindings"}:
+        return None
+    return {
+        "status": prefix.group(1),
+        "draft": text[prefix.end() : separator.start()],
+        "gaps": tail["gaps"],
+        "bindings": tail["bindings"],
+    }
 
 
 __all__ = ["ContinuousAgentEpisode", "DEFAULT_LLM_TIMEOUT"]

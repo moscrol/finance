@@ -195,6 +195,30 @@ def test_second_model_turn_keeps_first_action_and_raw_tool_observation() -> None
     )
 
 
+def test_model_contract_separates_output_gaps_from_answer_caveats() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _finish_turn(
+                status="partial",
+                draft="当前证据不足，先说明边界。",
+                hashes=(),
+                gap="仍缺市场数据",
+            )
+        ]
+    )
+
+    ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    system_prompt = model.calls[0]["messages"][0]["content"]
+    assert "binding.gap 只在该 required output 无法回答时填写" in system_prompt
+    assert "限制条件写入顶层 gaps 或 draft" in system_prompt
+
+
 def test_unknown_tool_error_returns_to_same_episode_without_runner_call() -> None:
     calls: list[str] = []
 
@@ -344,13 +368,39 @@ def test_second_invalid_finish_returns_partial_without_template_fallback() -> No
     assert "模型未能返回可验证的结构化终止结果" in outcome.gaps
 
 
-def test_step_exhaustion_preserves_collected_evidence_and_reports_gap() -> None:
+def test_finish_tolerates_unescaped_newlines_and_quotes_only_inside_draft() -> None:
+    frame = _frame()
+    malformed = ModelTurn(
+        '{"status":"partial","draft":"第一行\n含"未转义引号"的第二行",'
+        '"gaps":["仍缺市场数据"],"bindings":['
+        '{"output_id":"direct_assessment","evidence_hashes":[],'
+        '"gap":"仍缺市场数据"}]}',
+        (),
+        "scripted",
+        "",
+    )
+    model = ScriptedModel([malformed])
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "model_finish"
+    assert outcome.draft == '第一行\n含"未转义引号"的第二行'
+    assert outcome.bindings[0].gap == "仍缺市场数据"
+
+
+def test_tool_step_exhaustion_preserves_an_extra_finalization_turn() -> None:
     frame = _frame()
     model = ScriptedModel(
         [
             _tool_turn("A股 行情 1", call_id="call-1"),
             _tool_turn("A股 行情 2", call_id="call-2"),
             _tool_turn("A股 行情 3", call_id="call-3"),
+            _finish_turn(),
         ]
     )
 
@@ -360,12 +410,12 @@ def test_step_exhaustion_preserves_collected_evidence_and_reports_gap() -> None:
         registry=_market_registry(_successful_runner),
     )
 
-    assert outcome.status == "partial"
-    assert outcome.stop_reason == "step_exhausted"
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "model_finish"
     assert outcome.evidence
-    assert outcome.usage.llm_calls == 3
+    assert outcome.usage.llm_calls == 4
     assert outcome.usage.tool_calls == 3
-    assert "研究预算已耗尽，仍有必需输出未覆盖" in outcome.gaps
+    assert model.calls[-1]["tools"] == []
 
 
 def test_model_unavailable_before_evidence_fails_honestly() -> None:
@@ -440,9 +490,35 @@ def test_model_can_finalize_inside_the_reserved_synthesis_window() -> None:
     outcome = ContinuousAgentEpisode(model).run(
         task_frame=frame,
         context=context,
-        registry=ResearchToolRegistry(()),
+        registry=_market_registry(_successful_runner),
     )
 
     assert outcome.status == "partial"
     assert outcome.stop_reason == "model_finish"
     assert outcome.usage.llm_calls == 1
+    assert model.calls[0]["tools"] == []
+
+
+def test_planning_turn_cannot_spend_the_reserved_finalization_budget() -> None:
+    frame = _frame()
+    base_context = _context(frame, max_steps=1)
+    context = ResearchRunContext(
+        contract=base_context.contract,
+        deadline=ResearchDeadline.from_timeout(5.0, synthesis_reserve=4.0),
+        policy=ResearchPolicy("quick", 1, 5.0, 4.0),
+        trace_parent_id=base_context.trace_parent_id,
+    )
+    model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert len(model.calls) == 2
+    assert 0.0 < model.calls[0]["timeout"] <= 1.0
+    assert model.calls[0]["tools"]
+    assert model.calls[1]["timeout"] > 3.0
+    assert model.calls[1]["tools"] == []

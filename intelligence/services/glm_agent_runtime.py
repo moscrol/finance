@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 import json
+import time
 
 from intelligence.services import llm_refine
 from intelligence.services.agent_episode import ContinuousAgentEpisode
@@ -18,6 +19,13 @@ from intelligence.services.task_frame import TaskFrame
 
 
 ChatWithTools = Callable[..., tuple[dict | None, object | None, str]]
+_TRANSIENT_PROVIDER_ERRORS = ("TimeoutError", "RemoteDisconnected")
+DEFAULT_GLM_LLM_TIMEOUT = 60.0
+_GLM_SYNTHESIS_RESERVE = {
+    "quick": 20.0,
+    "standard": 60.0,
+    "deep": 60.0,
+}
 
 
 class GLMModelClient:
@@ -39,14 +47,34 @@ class GLMModelClient:
         tools: list[dict[str, object]],
         timeout: float,
     ) -> ModelTurn:
-        message, provider, reason = self._complete(
-            messages=messages,
-            tools=tools,
-            model_override=self._model,
-            timeout=timeout,
-            temperature=0.0,
-            tool_choice="auto",
-        )
+        configured_timeout = max(0.0, float(timeout))
+        expires_at = time.monotonic() + configured_timeout
+        message: dict | None = None
+        provider: object | None = None
+        reason = "model deadline exhausted"
+        for attempt in range(2):
+            remaining = (
+                configured_timeout
+                if attempt == 0
+                else max(0.0, expires_at - time.monotonic())
+            )
+            if remaining <= 0.001:
+                break
+            message, provider, reason = self._complete(
+                messages=messages,
+                tools=tools,
+                model_override=self._model,
+                timeout=remaining,
+                temperature=0.0,
+                tool_choice="auto",
+                disable_thinking=True,
+            )
+            if (
+                message is not None
+                or attempt == 1
+                or not _is_transient_provider_error(reason)
+            ):
+                break
         provider_name = _provider_name(provider)
         if message is None:
             return ModelTurn(
@@ -87,12 +115,20 @@ class GLMAgentRuntime:
         model: str | None = None,
         *,
         complete_fn: ChatWithTools | None = None,
-        llm_timeout: float = 20.0,
+        llm_timeout: float = DEFAULT_GLM_LLM_TIMEOUT,
     ) -> None:
         client = GLMModelClient(model, complete_fn=complete_fn)
         self._episode = ContinuousAgentEpisode(
             client,
             llm_timeout=llm_timeout,
+        )
+
+    @staticmethod
+    def synthesis_reserve_for_tier(tier: str) -> float:
+        normalized = str(tier or "").strip().lower()
+        return _GLM_SYNTHESIS_RESERVE.get(
+            normalized,
+            _GLM_SYNTHESIS_RESERVE["standard"],
         )
 
     def run(
@@ -116,6 +152,12 @@ def _provider_name(provider: object | None) -> str:
         return provider.strip()
     name = getattr(provider, "name", "")
     return name.strip() if isinstance(name, str) else ""
+
+
+def _is_transient_provider_error(reason: object) -> bool:
+    return isinstance(reason, str) and any(
+        marker in reason for marker in _TRANSIENT_PROVIDER_ERRORS
+    )
 
 
 def _parse_tool_call(

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from intelligence.services.glm_agent_runtime import (
     GLMAgentRuntime,
     GLMModelClient,
@@ -70,6 +72,7 @@ def test_glm_client_converts_openai_tool_call_without_provider_leak() -> None:
         "timeout": 9.5,
         "temperature": 0.0,
         "tool_choice": "auto",
+        "disable_thinking": True,
     }
 
 
@@ -105,6 +108,63 @@ def test_glm_client_returns_stable_error_for_unavailable_provider() -> None:
     assert turn.tool_calls == ()
     assert turn.provider_name == ""
     assert turn.error == "provider unavailable"
+
+
+@pytest.mark.parametrize(
+    "transient_reason",
+    (
+        "LLM 调用失败（TimeoutError）",
+        "LLM 调用失败（RemoteDisconnected）",
+    ),
+)
+def test_glm_client_retries_one_transient_error_within_the_same_turn(
+    transient_reason: str,
+) -> None:
+    provider = LLMProvider(
+        name="glm",
+        api_key="secret",
+        base_url="https://example.invalid/v1",
+        model="glm-5.2",
+    )
+    calls: list[dict[str, object]] = []
+
+    def complete_fn(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            return None, provider, transient_reason
+        return {"content": "done", "tool_calls": []}, provider, ""
+
+    messages = [{"role": "user", "content": "目前市场主线是什么"}]
+    tools = [{"type": "function", "function": {"name": "market_data"}}]
+    turn = GLMModelClient("glm-5.2", complete_fn=complete_fn).complete(
+        messages=messages,
+        tools=tools,
+        timeout=5.0,
+    )
+
+    assert turn.content == "done"
+    assert turn.error == ""
+    assert len(calls) == 2
+    assert calls[0]["messages"] == calls[1]["messages"] == messages
+    assert calls[0]["tools"] == calls[1]["tools"] == tools
+    assert 0.0 < calls[1]["timeout"] <= calls[0]["timeout"] <= 5.0
+
+
+def test_glm_client_does_not_retry_a_non_transient_provider_error() -> None:
+    calls: list[dict[str, object]] = []
+
+    def complete_fn(**kwargs):
+        calls.append(kwargs)
+        return None, None, "LLM 调用 HTTP 400"
+
+    turn = GLMModelClient(complete_fn=complete_fn).complete(
+        messages=[],
+        tools=[],
+        timeout=5.0,
+    )
+
+    assert turn.error == "LLM 调用 HTTP 400"
+    assert len(calls) == 1
 
 
 def test_glm_client_rejects_malformed_tool_arguments_at_adapter_seam() -> None:
@@ -203,3 +263,7 @@ def test_glm_runtime_runs_episode_through_provider_neutral_adapter() -> None:
     assert outcome.draft == "当前缺少行情证据，不能给出确定判断。"
     assert outcome.gaps == ("缺少行情证据",)
     assert outcome.usage.llm_calls == 1
+
+
+def test_glm_runtime_standard_profile_reserves_a_slow_final_turn() -> None:
+    assert GLMAgentRuntime.synthesis_reserve_for_tier("standard") == 60.0

@@ -82,6 +82,7 @@ def build_episode_context(
     capabilities: tuple[str, ...] | None = None,
     tier: str = "standard",
     timeout: float | None = None,
+    synthesis_reserve: float | None = None,
     trace_parent_id: str | None = None,
     today: str | None = None,
     latest_data_date: str | None = None,
@@ -102,11 +103,25 @@ def build_episode_context(
             authorized.append(capability)
     capability_tuple = tuple(authorized)
 
-    policy = ResearchPolicy.for_tier(tier)
-    effective_timeout = policy.total_seconds
+    base_policy = ResearchPolicy.for_tier(tier)
+    effective_timeout = base_policy.total_seconds
     if timeout is not None:
-        effective_timeout = min(policy.total_seconds, max(0.0, float(timeout)))
-    reserve = min(policy.synthesis_reserve, effective_timeout)
+        effective_timeout = min(
+            base_policy.total_seconds,
+            max(0.0, float(timeout)),
+        )
+    requested_reserve = (
+        base_policy.synthesis_reserve
+        if synthesis_reserve is None
+        else max(0.0, float(synthesis_reserve))
+    )
+    reserve = min(requested_reserve, effective_timeout)
+    policy = ResearchPolicy(
+        base_policy.tier,
+        base_policy.max_steps,
+        base_policy.total_seconds,
+        reserve,
+    )
 
     contract = ResearchTaskContract(
         task_id=task_id,

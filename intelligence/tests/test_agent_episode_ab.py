@@ -120,9 +120,12 @@ def test_live_runner_records_bare_current_and_verified_episode(
         encoding="utf-8",
     )
     output = tmp_path / "live.json"
+    execution_order: list[str] = []
+    real_build_context = episode_ab.build_episode_context
 
     class FakeRuntime:
         def run(self, *, task_frame, context, registry):
+            execution_order.append("episode")
             del registry
             evidence = AgentEvidence(
                 tool="market_data",
@@ -158,17 +161,26 @@ def test_live_runner_records_bare_current_and_verified_episode(
                 usage=AgentUsage(llm_calls=2, tool_calls=1),
             )
 
-    monkeypatch.setattr(
-        episode_ab,
-        "_run_bare_arm",
-        lambda *_args, **_kwargs: {
+    def fake_bare(*_args, **_kwargs):
+        execution_order.append("bare")
+        return {
             "answer": "裸模型答案",
             "provider": "fake",
             "reason": "",
             "latency": 0.01,
             "llm_calls": 1,
             "tool_calls": 0,
-        },
+        }
+
+    def build_fresh_context(*args, **kwargs):
+        execution_order.append("context")
+        return real_build_context(*args, **kwargs)
+
+    monkeypatch.setattr(episode_ab, "_run_bare_arm", fake_bare)
+    monkeypatch.setattr(
+        episode_ab,
+        "build_episode_context",
+        build_fresh_context,
     )
     monkeypatch.setattr(
         episode_ab,
@@ -207,6 +219,7 @@ def test_live_runner_records_bare_current_and_verified_episode(
         "invalid_actions": 0,
     }
     assert len(case["episode"]["outcome"]["events"]) == 2
+    assert execution_order == ["bare", "context", "episode"]
 
 
 def test_deterministic_fast_path_is_not_sent_to_episode(

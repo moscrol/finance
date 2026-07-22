@@ -231,31 +231,44 @@ def main(argv: list[str] | None = None) -> int:
                 else None
             ),
         )
-        context = (
-            build_episode_context(
+
+        def fresh_context():
+            if not control.contract_required:
+                return None
+            return build_episode_context(
                 control.task_frame,
                 task_id=f"ab:{case.case_id}",
                 capabilities=control.capabilities,
                 tier=args.tier,
                 timeout=case.timeout,
+                synthesis_reserve=(
+                    GLMAgentRuntime.synthesis_reserve_for_tier(args.tier)
+                ),
                 today=case.as_of,
                 latest_data_date=(None if args.dry_run else latest_market_date()),
             )
-            if control.contract_required
-            else None
-        )
+
+        if args.dry_run:
+            context = fresh_context()
+            record = _base_case_payload(case, control, context)
+            if case.case_id in current_answers:
+                record["current"] = {
+                    "answer": current_answers[case.case_id],
+                    "source": str(args.current_results),
+                }
+            record["execution_status"] = "planned"
+            records.append(record)
+            continue
+
+        bare = _run_bare_arm(case)
+        context = fresh_context()
         record = _base_case_payload(case, control, context)
         if case.case_id in current_answers:
             record["current"] = {
                 "answer": current_answers[case.case_id],
                 "source": str(args.current_results),
             }
-        if args.dry_run:
-            record["execution_status"] = "planned"
-            records.append(record)
-            continue
-
-        record["bare"] = _run_bare_arm(case)
+        record["bare"] = bare
         if control.terminal_kind == "clarification":
             record["episode"] = {
                 "execution_kind": "clarification",

@@ -104,3 +104,21 @@ def test_episode_timeout_override_cannot_inflate_policy_budget() -> None:
     )
 
     assert context.deadline.remaining() <= context.policy.total_seconds
+
+
+def test_episode_context_can_reallocate_but_not_inflate_synthesis_reserve() -> None:
+    control = TurnControlCore().control("目前市场的主线是什么")
+    context = build_episode_context(
+        control.task_frame,
+        task_id="episode-test",
+        capabilities=control.capabilities,
+        tier="standard",
+        timeout=90.0,
+        synthesis_reserve=45.0,
+    )
+
+    assert context.policy.total_seconds == 90.0
+    assert context.policy.synthesis_reserve == 45.0
+    assert context.deadline.synthesis_reserve == 45.0
+    assert context.deadline.remaining() <= 90.0
+    assert context.deadline.stage_timeout(90.0) <= 45.0

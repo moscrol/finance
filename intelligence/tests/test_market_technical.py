@@ -13,7 +13,7 @@ from datetime import datetime
 import json
 import pytest
 
-from intelligence.services import answer_model, ask, market_technical
+from intelligence.services import answer_model, ask, episode_tools, market_technical
 from intelligence.services.answer_orchestrator import plan_answer_question
 from intelligence.services.query_understanding import (
     is_market_technical_query,
@@ -288,6 +288,40 @@ def test_market_technical_success_skips_all_llm_synthesis(monkeypatch) -> None:
     assert prepared.result.answer_spec is not None
     assert prepared.result.answer_spec.presentation_kind == "market_technical"
     assert prepared.result.prepared_synthesis_messages == []
+
+
+def test_fast_path_renders_single_resistance_as_one_percentage(
+    monkeypatch,
+) -> None:
+    levels = market_technical.TechnicalLevels(
+        subject="科创50",
+        symbol="sh000688",
+        as_of="2026-07-22",
+        close=100.0,
+        ma={"MA5": 103.0},
+        supports=(),
+        resistances=(
+            market_technical.SupportLevel(
+                zone_low=103.0,
+                zone_high=103.0,
+                basis=("MA5=103.0",),
+            ),
+        ),
+        invalidation="若收盘跌破 95.00，当前判断失效。",
+    )
+    monkeypatch.setattr(
+        market_technical,
+        "resolve_market_technical",
+        lambda *args, **kwargs: levels,
+    )
+
+    result = episode_tools.run_deterministic_fast_path(
+        decide_turn("科创50你认为反弹空间有多少").task_frame,
+        timeout=10.0,
+    )
+
+    assert "103.00（距收盘约 3.0%）" in result["answer"]
+    assert "3.0%~3.0%" not in result["answer"]
 
 
 # ---------- AnswerSpec fail-closed 出口 ----------
