@@ -491,6 +491,13 @@ class ContinuousAgentEpisode:
             >= MIN_FINALIZATION_RECOVERY_SECONDS
         )
 
+    @staticmethod
+    def _provider_attempts_from_exception(exc: Exception) -> int:
+        value = getattr(exc, "provider_attempts", 0)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return 0
+        return value
+
     def _recover_finalization(
         self,
         *,
@@ -518,7 +525,7 @@ class ContinuousAgentEpisode:
                 failure_reason=failure_reason,
             )
         except Exception as exc:
-            llm_calls += 1
+            llm_calls += self._provider_attempts_from_exception(exc)
             reason = f"finalization_recovery_exception:{type(exc).__name__}"
             ledger.add("model_error", {"reason": reason})
             return self._failed_recovery_outcome(
@@ -537,6 +544,21 @@ class ContinuousAgentEpisode:
             "model_turn",
             {"phase": "finalization_recovery", **turn.to_dict()},
         )
+        if (
+            context.deadline.synthesis_timeout(self._llm_timeout)
+            < MIN_FINALIZATION_RECOVERY_SECONDS
+        ):
+            reason = "finalization_recovery_deadline_exhausted"
+            return self._failed_recovery_outcome(
+                task_frame=task_frame,
+                ledger=ledger,
+                accumulator=accumulator,
+                reason=reason,
+                public_gap="终局恢复超出截止时间，无法生成可验证回答",
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
         if turn.error:
             ledger.add("model_error", {"reason": turn.error})
             return self._failed_recovery_outcome(

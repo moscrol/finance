@@ -17,6 +17,18 @@ from intelligence.services.task_frame import TaskFrame
 
 DEFAULT_FINALIZER_TIMEOUT = 20.0
 MIN_FINALIZATION_RECOVERY_SECONDS = 1.0
+_FAILURE_REASON_CODES = frozenset(
+    {
+        "deadline_exhausted",
+        "finalization_recovery_exception",
+        "invalid_model_finish",
+        "model_exception",
+        "provider_error",
+        "semantic_rejection",
+        "tool_call_during_finalization",
+        "unknown_failure",
+    }
+)
 
 _RECOVERY_SYSTEM_PROMPT = (
     "你是金融研究 Agent 的终局恢复器。研究与工具阶段已经永久关闭，不得请求或"
@@ -40,6 +52,37 @@ _REPAIR_SYSTEM_PROMPT = (
     "证据不能覆盖 required output 时必须返回 partial 并填写 gap；不要输出代码围栏、"
     "解释、工具调用或 JSON 之外的文本。"
 )
+
+
+def _stable_failure_reason(value: object) -> str:
+    """Keep provider/parser details out of the compact recovery prompt."""
+
+    text = str(value or "")
+    cleaned = "".join(
+        char if ord(char) >= 32 and ord(char) != 127 else " " for char in text
+    ).strip()
+    cleaned = " ".join(cleaned.split())[:240]
+    if cleaned in _FAILURE_REASON_CODES:
+        return cleaned
+    if cleaned.startswith("model_exception"):
+        return "model_exception"
+    if cleaned.startswith("finalization_recovery_exception"):
+        return "finalization_recovery_exception"
+    if cleaned.startswith("tool_call_during_finalization"):
+        return "tool_call_during_finalization"
+    if "deadline" in cleaned or "timeout" in cleaned:
+        return "deadline_exhausted"
+    if (
+        "invalid" in cleaned
+        or cleaned.startswith("finish")
+        or "evidence hash" in cleaned
+    ):
+        return "invalid_model_finish"
+    if "provider" in cleaned or "transport" in cleaned:
+        return "provider_error"
+    if "semantic" in cleaned or "judge" in cleaned:
+        return "semantic_rejection"
+    return "unknown_failure"
 
 
 class EpisodeFinalizer:
@@ -172,7 +215,7 @@ class EpisodeFinalizer:
             "gaps": list(gaps),
             "today": context.today,
             "latest_data_date": context.latest_data_date,
-            "failure_reason": str(failure_reason or "").strip(),
+            "failure_reason": _stable_failure_reason(failure_reason),
         }
 
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 from copy import deepcopy
 import json
 
+import pytest
+
 from intelligence.services.episode_finalizer import EpisodeFinalizer
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import ModelTurn
@@ -206,3 +208,38 @@ def test_recovery_uses_only_remaining_synthesis_time() -> None:
     )
 
     assert 0.0 < model.calls[0]["timeout"] <= 0.05
+
+
+@pytest.mark.parametrize(
+    "raw_reason, expected_reason",
+    [
+        ("provider unavailable\nRAW_PROVIDER_SENTINEL " + "x" * 500, "provider_error"),
+        (
+            "finish must be one JSON object\x00RAW_PARSER_SENTINEL",
+            "invalid_model_finish",
+        ),
+    ],
+)
+def test_failure_reason_is_stable_and_does_not_leak_raw_exception(
+    raw_reason: str,
+    expected_reason: str,
+) -> None:
+    model = RecordingModel(ModelTurn("{}", (), "recording", ""))
+    frame = _frame()
+
+    EpisodeFinalizer(model).recover(
+        task_frame=frame,
+        context=_context(frame),
+        evidence=(_evidence(),),
+        gaps=(),
+        failure_reason=raw_reason,
+    )
+
+    payload = json.loads(model.calls[0]["messages"][1]["content"])
+    reason = payload["failure_reason"]
+    assert reason == expected_reason
+    assert len(reason) <= 240
+    assert "RAW_PROVIDER_SENTINEL" not in json.dumps(model.calls[0]["messages"])
+    assert "RAW_PARSER_SENTINEL" not in json.dumps(model.calls[0]["messages"])
+    assert "\n" not in reason
+    assert "\x00" not in reason

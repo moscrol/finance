@@ -201,6 +201,34 @@ class _ScriptedDeadline:
         return self._synthesis <= 0.0
 
 
+class _LateRecoveryDeadline:
+    """Keep recovery eligible, then close the deadline before parsing its turn."""
+
+    def __init__(self) -> None:
+        self._synthesis_calls = 0
+        self.synthesis_reserve = 0.0
+
+    def stage_timeout(self, configured_limit: float) -> float:
+        return min(configured_limit, 30.0)
+
+    def synthesis_timeout(self, configured_limit: float) -> float:
+        self._synthesis_calls += 1
+        remaining = 30.0 if self._synthesis_calls < 3 else 0.0
+        return min(configured_limit, remaining)
+
+    def remaining(self) -> float:
+        return 30.0 if self._synthesis_calls < 3 else 0.0
+
+    @property
+    def expired(self) -> bool:
+        return self.remaining() <= 0.0
+
+
+class _RaisingFinalizer:
+    def recover(self, **_kwargs):
+        raise RuntimeError("recovery transport unavailable")
+
+
 def test_second_model_turn_keeps_first_action_and_raw_tool_observation() -> None:
     frame = _frame()
     model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
@@ -727,15 +755,16 @@ def test_model_unavailable_before_evidence_fails_honestly() -> None:
 
 
 @pytest.mark.parametrize(
-    "failure",
+    "failure,expected_llm_calls",
     [
-        RuntimeError("transport unavailable"),
-        ModelTurn("", (), "glm", "provider unavailable"),
+        (RuntimeError("transport unavailable"), 3),
+        (ModelTurn("", (), "glm", "provider unavailable"), 3),
     ],
     ids=("exception", "provider_error"),
 )
 def test_model_failure_after_evidence_gets_exactly_one_compact_recovery(
     failure: Exception | ModelTurn,
+    expected_llm_calls: int,
 ) -> None:
     frame = _frame()
     model = ScriptedModel(
@@ -756,7 +785,7 @@ def test_model_failure_after_evidence_gets_exactly_one_compact_recovery(
     assert outcome.stop_reason == "finalization_recovered"
     assert len(model.calls) == 3
     assert model.calls[-1]["tools"] == []
-    assert outcome.usage.llm_calls == 3
+    assert outcome.usage.llm_calls == expected_llm_calls
     assert [event.kind for event in outcome.events].count(
         "finalization_recovery_started"
     ) == 1
@@ -911,6 +940,103 @@ def test_compact_recovery_is_not_called_with_less_than_one_second_left() -> None
     assert len(model.calls) == 2
     assert not any(
         event.kind == "finalization_recovery_started" for event in outcome.events
+    )
+
+
+def test_late_recovery_turn_is_rejected_after_deadline_closes() -> None:
+    frame = _frame()
+    base_context = _context(frame)
+    context = ResearchRunContext(
+        contract=base_context.contract,
+        deadline=_LateRecoveryDeadline(),  # type: ignore[arg-type]
+        policy=base_context.policy,
+        trace_parent_id=base_context.trace_parent_id,
+        today=base_context.today,
+        latest_data_date=base_context.latest_data_date,
+    )
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            ModelTurn("", (), "glm", "provider unavailable"),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "finalization_recovery_failed"
+    assert outcome.draft == ""
+    assert len(model.calls) == 3
+    recovery_outcome = next(
+        event
+        for event in outcome.events
+        if event.kind == "finalization_recovery_outcome"
+    )
+    assert recovery_outcome.payload == {
+        "task_frame_hash": frame.task_frame_hash,
+        "status": "failed",
+        "reason": "finalization_recovery_deadline_exhausted",
+    }
+
+
+def test_recovery_usage_counts_returned_provider_attempts() -> None:
+    frame = _frame()
+    finish = _finish_turn()
+    recovery = ModelTurn(
+        finish.content,
+        finish.tool_calls,
+        finish.provider_name,
+        finish.error,
+        provider_attempts=3,
+    )
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            ModelTurn("", (), "glm", "provider unavailable"),
+            recovery,
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.usage.llm_calls == 5
+
+
+def test_recovery_exception_without_attempt_metadata_adds_zero_llm_calls() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            ModelTurn("", (), "glm", "provider unavailable"),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(
+        model,
+        finalizer=_RaisingFinalizer(),  # type: ignore[arg-type]
+    ).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "finalization_recovery_failed"
+    assert outcome.usage.llm_calls == 2
+    assert any(
+        event.kind == "finalization_recovery_outcome"
+        and event.payload["status"] == "failed"
+        for event in outcome.events
     )
 
 
