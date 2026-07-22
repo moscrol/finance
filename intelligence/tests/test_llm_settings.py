@@ -83,3 +83,35 @@ def test_managed_glm_uses_coding_plan_endpoint_by_default() -> None:
     assert provider.base_url == "https://open.bigmodel.cn/api/coding/paas/v4"
     assert provider.model == "glm-5.2"
     assert provider.api_key == "coding-plan-secret"
+
+
+def test_byok_runtime_provider_chain_contains_only_user_provider() -> None:
+    settings = SessionLLMSettings()
+    byok = settings.configure_byok(
+        "alice",
+        provider_id="openai",
+        api_key="user-secret",
+    )
+
+    with patch.dict(
+        "os.environ",
+        {"FORESIGHT_BUILTIN_LLM_API_KEY": "managed-secret"},
+        clear=True,
+    ):
+        assert settings.runtime_providers_for("alice") == (byok,)
+
+
+def test_builtin_runtime_provider_chain_preserves_detected_order() -> None:
+    settings = SessionLLMSettings()
+
+    with patch.dict(
+        "os.environ",
+        {
+            "ZHIPU_API_KEY": "glm-secret",
+            "OPENAI_API_KEY": "openai-secret",
+        },
+        clear=True,
+    ):
+        providers = settings.runtime_providers_for("alice")
+
+    assert tuple(provider.name for provider in providers) == ("zhipu", "openai")

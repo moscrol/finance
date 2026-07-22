@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from intelligence.services import llm_refine
 from intelligence.services.glm_agent_runtime import (
     GLMAgentRuntime,
     GLMModelClient,
@@ -18,6 +19,106 @@ from intelligence.services.research_contract import (
 )
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame
+
+
+def _provider(name: str) -> LLMProvider:
+    return LLMProvider(
+        name=name,
+        api_key=f"{name}-secret",
+        base_url=f"https://{name}.example.invalid/v1",
+        model=f"{name}-model",
+    )
+
+
+def _provider_script(**responses):
+    calls: list[str] = []
+
+    def complete_fn(**kwargs):
+        provider = llm_refine.detect_provider()
+        name = provider.name if provider is not None else ""
+        calls.append(name)
+        message, reason = responses[name]
+        return message, provider, reason
+
+    complete_fn.calls = calls
+    return complete_fn
+
+
+def test_runtime_falls_through_transient_primary_failure_and_counts_attempts() -> None:
+    client = GLMModelClient(
+        providers=(_provider("glm"), _provider("openai")),
+        complete_fn=_provider_script(
+            glm=(None, "TimeoutError"),
+            openai=({"content": "ok", "tool_calls": []}, ""),
+        ),
+    )
+
+    turn = client.complete(
+        messages=[{"role": "user", "content": "q"}],
+        tools=[],
+        timeout=5,
+    )
+
+    assert turn.provider_name == "openai"
+    assert turn.provider_attempts == 2
+    assert turn.content == "ok"
+
+
+def test_runtime_does_not_retry_same_provider_after_auth_failure() -> None:
+    complete_fn = _provider_script(
+        glm=(None, "LLM 调用 HTTP 401"),
+        openai=({"content": "ok", "tool_calls": []}, ""),
+    )
+    client = GLMModelClient(
+        providers=(_provider("glm"), _provider("openai")),
+        complete_fn=complete_fn,
+    )
+
+    turn = client.complete(messages=[], tools=[], timeout=5)
+
+    assert turn.provider_name == "openai"
+    assert turn.provider_attempts == 2
+    assert complete_fn.calls == ["glm", "openai"]
+
+
+def test_runtime_forwards_one_turn_settings_to_each_provider() -> None:
+    providers = (_provider("glm"), _provider("openai"))
+    messages = [{"role": "user", "content": "q"}]
+    tools = [{"type": "function", "function": {"name": "lookup"}}]
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    def complete_fn(**kwargs):
+        provider = llm_refine.detect_provider()
+        assert provider is not None
+        calls.append((provider.name, kwargs))
+        if provider.name == "glm":
+            return None, provider, "TimeoutError"
+        return {"content": "ok", "tool_calls": []}, provider, ""
+
+    turn = GLMModelClient(
+        model="shared-model",
+        providers=providers,
+        complete_fn=complete_fn,
+    ).complete(messages=messages, tools=tools, timeout=5)
+
+    assert turn.content == "ok"
+    assert turn.provider_attempts == 2
+    assert [provider for provider, _ in calls] == ["glm", "openai"]
+    first = calls[0][1]
+    second = calls[1][1]
+    assert first["messages"] is second["messages"] is messages
+    assert first["tools"] is second["tools"] is tools
+    for key in ("model_override", "temperature", "tool_choice", "disable_thinking"):
+        assert first[key] == second[key]
+    assert first["model_override"] == "shared-model"
+    assert first["temperature"] == 0.0
+    assert first["tool_choice"] == "auto"
+    assert first["disable_thinking"] is True
+    assert 0.0 < second["timeout"] <= first["timeout"] <= 5
+    assert [entry["status"] for entry in turn._provider_trace] == [
+        "failed",
+        "success",
+    ]
 
 
 def test_glm_client_converts_openai_tool_call_without_provider_leak() -> None:

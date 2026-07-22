@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from threading import Lock
 
+from intelligence.services import llm_refine
 from intelligence.services.llm_refine import LLMProvider, detect_provider
 
 
@@ -103,6 +104,21 @@ class SessionLLMSettings:
 
     def provider_for(self, user_id: str) -> LLMProvider | None:
         return self.byok_provider(user_id) or self.built_in_provider()
+
+    def runtime_providers_for(self, user_id: str) -> tuple[LLMProvider, ...]:
+        """Return the provider chain owned by the current session.
+
+        A session-scoped BYOK (bring your own key) provider is intentionally a
+        singleton chain: adding a server-managed provider would silently mix
+        credentials and violate the user's explicit provider choice.  Built-in
+        mode delegates to ``llm_refine.detect_providers`` so its deterministic
+        environment order remains the single source of truth.
+        """
+
+        byok = self.byok_provider(user_id)
+        if byok is not None:
+            return (byok,)
+        return llm_refine.detect_providers()
 
     def describe(self, user_id: str) -> dict[str, object]:
         byok = self.byok_provider(user_id)

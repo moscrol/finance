@@ -40,16 +40,36 @@ _BALANCED_SYNTHESIS_RESERVE = 60.0
 
 
 class GLMModelClient:
-    """Translate one OpenAI-compatible response into a stable model turn."""
+    """Translate provider-neutral responses into a stable model turn.
+
+    ``GLMModelClient`` is retained as the compatibility name used by the
+    existing episode runtime.  The adapter itself is provider-neutral: when
+    callers inject ``providers`` it owns one explicit, ordered chain and
+    scopes each call with :func:`llm_refine.provider_override`.  The legacy
+    no-provider path remains available for older callers that already provide
+    their own adapter function.
+    """
 
     def __init__(
         self,
         model: str | None = None,
         *,
+        providers: tuple[llm_refine.LLMProvider, ...] | None = None,
         complete_fn: ChatWithTools | None = None,
     ) -> None:
         self._model = model
+        if providers is not None:
+            self._providers = tuple(providers)
+        elif complete_fn is None:
+            # Runtime callers that use the real adapter get the detected chain
+            # by default.  An injected callback remains on the legacy path so
+            # existing test/compatibility seams keep their historical retry.
+            detected = tuple(llm_refine.detect_providers(model))
+            self._providers = detected or None
+        else:
+            self._providers = None
         self._complete = complete_fn or llm_refine.chat_with_tools
+        self._provider_trace: tuple[dict[str, object], ...] = ()
 
     def complete(
         self,
@@ -58,12 +78,34 @@ class GLMModelClient:
         tools: list[dict[str, object]],
         timeout: float,
     ) -> ModelTurn:
+        if self._providers is not None:
+            return self._complete_provider_chain(
+                messages=messages,
+                tools=tools,
+                timeout=timeout,
+            )
+        return self._complete_legacy(
+            messages=messages,
+            tools=tools,
+            timeout=timeout,
+        )
+
+    def _complete_legacy(
+        self,
+        *,
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        timeout: float,
+    ) -> ModelTurn:
+        """Preserve pre-chain behavior for compatibility callers."""
+
         configured_timeout = max(0.0, float(timeout))
         expires_at = time.monotonic() + configured_timeout
         message: dict | None = None
         provider: object | None = None
         reason = "model deadline exhausted"
         attempts = 0
+        trace: list[dict[str, object]] = []
         for attempt in range(2):
             remaining = (
                 configured_timeout
@@ -82,73 +124,150 @@ class GLMModelClient:
                 tool_choice="auto",
                 disable_thinking=True,
             )
+            trace.append(
+                _provider_trace_entry(
+                    provider,
+                    status="success" if message is not None else "failed",
+                    reason=str(reason or ""),
+                )
+            )
             if (
                 message is not None
                 or attempt == 1
                 or not _is_transient_provider_error(reason)
             ):
                 break
+        self._provider_trace = tuple(trace)
         provider_name = _provider_name(provider)
         if message is None:
-            return ModelTurn(
-                "",
-                (),
-                provider_name,
-                str(reason or "model_unavailable"),
-                provider_attempts=max(1, attempts),
-            )
-        if not isinstance(message, dict):
-            return ModelTurn(
-                "",
-                (),
-                provider_name,
-                "invalid_model_message",
-                provider_attempts=max(1, attempts),
-            )
-
-        raw_content = message.get("content")
-        if raw_content is None:
-            content = ""
-        elif isinstance(raw_content, str):
-            content = raw_content
-        else:
-            return ModelTurn(
-                "",
-                (),
-                provider_name,
-                "invalid_model_content",
-                provider_attempts=max(1, attempts),
-            )
-
-        raw_calls = message.get("tool_calls") or []
-        if not isinstance(raw_calls, list):
-            return ModelTurn(
-                content,
-                (),
-                provider_name,
-                "invalid_tool_calls",
-                provider_attempts=max(1, attempts),
-            )
-        calls: list[ModelToolCall] = []
-        for raw_call in raw_calls:
-            parsed, error = _parse_tool_call(raw_call)
-            if error:
-                return ModelTurn(
-                    content,
+            return self._with_provider_trace(
+                ModelTurn(
+                    "",
                     (),
                     provider_name,
-                    error,
+                    str(reason or "model_unavailable"),
                     provider_attempts=max(1, attempts),
                 )
-            if parsed is not None:
-                calls.append(parsed)
-        return ModelTurn(
-            content,
-            tuple(calls),
+            )
+        turn, _error = _turn_from_message(
+            message,
             provider_name,
-            "",
-            provider_attempts=max(1, attempts),
+            attempts,
+            reject_empty=False,
         )
+        return self._with_provider_trace(turn)
+
+    def _complete_provider_chain(
+        self,
+        *,
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        timeout: float,
+    ) -> ModelTurn:
+        """Run one adapter attempt per injected provider in deterministic order."""
+
+        configured_timeout = max(0.0, float(timeout))
+        expires_at = time.monotonic() + configured_timeout
+        attempts = 0
+        trace: list[dict[str, object]] = []
+        last_provider: object | None = None
+        last_reason = "model deadline exhausted"
+
+        for provider in self._providers or ():
+            remaining = max(0.0, expires_at - time.monotonic())
+            if remaining <= 0.001:
+                break
+            message: dict | None
+            returned_provider: object | None
+            reason: object
+            try:
+                # The override is intentionally scoped to this one adapter
+                # call. ``chat_with_tools`` remains the sole HTTP/fallback
+                # implementation and keeps its existing accounting behavior.
+                with llm_refine.provider_override(provider):
+                    message, returned_provider, reason = self._complete(
+                        messages=messages,
+                        tools=tools,
+                        model_override=self._model,
+                        timeout=remaining,
+                        temperature=0.0,
+                        tool_choice="auto",
+                        disable_thinking=True,
+                    )
+            except llm_refine.LLMCallBudgetExceeded as exc:
+                last_reason = str(exc)
+                break
+            except Exception as exc:  # pragma: no cover - defensive seam
+                message, returned_provider, reason = (
+                    None,
+                    provider,
+                    f"LLM 调用失败（{type(exc).__name__}）",
+                )
+
+            effective_provider = returned_provider or provider
+            provider_name = _provider_name(effective_provider) or _provider_name(provider)
+            reason_text = str(reason or "")
+            if message is None and _is_call_budget_rejection(reason_text):
+                # ``chat_with_tools`` rejected this invocation before its HTTP
+                # boundary, so it is not a physical provider attempt.
+                last_reason = reason_text
+                break
+            attempts += 1
+            last_provider = provider
+            if message is None:
+                trace.append(
+                    _provider_trace_entry(
+                        effective_provider,
+                        status="failed",
+                        reason=reason_text or "model_unavailable",
+                    )
+                )
+                last_reason = reason_text or "model_unavailable"
+                continue
+
+            turn, parse_error = _turn_from_message(
+                message,
+                provider_name,
+                attempts,
+            )
+            if parse_error:
+                trace.append(
+                    _provider_trace_entry(
+                        effective_provider,
+                        status="failed",
+                        reason=parse_error,
+                    )
+                )
+                last_reason = parse_error
+                continue
+
+            trace.append(
+                _provider_trace_entry(
+                    effective_provider,
+                    status="success",
+                    reason="",
+                )
+            )
+            self._provider_trace = tuple(trace)
+            return self._with_provider_trace(turn)
+
+        self._provider_trace = tuple(trace)
+        return self._with_provider_trace(
+            ModelTurn(
+                "",
+                (),
+                _provider_name(last_provider),
+                last_reason,
+                provider_attempts=max(1, attempts),
+            )
+        )
+
+    def _with_provider_trace(self, turn: ModelTurn) -> ModelTurn:
+        # ``ModelTurn`` is a frozen public value object. Keep adapter details
+        # private and out of ``to_dict()`` while making them available to the
+        # runtime/episode diagnostics when needed.
+        object.__setattr__(turn, "_provider_trace", self._provider_trace)
+        return turn
 
 
 class GLMAgentRuntime:
@@ -158,10 +277,15 @@ class GLMAgentRuntime:
         self,
         model: str | None = None,
         *,
+        providers: tuple[llm_refine.LLMProvider, ...] | None = None,
         complete_fn: ChatWithTools | None = None,
         llm_timeout: float = DEFAULT_GLM_LLM_TIMEOUT,
     ) -> None:
-        client = GLMModelClient(model, complete_fn=complete_fn)
+        client = GLMModelClient(
+            model,
+            providers=providers,
+            complete_fn=complete_fn,
+        )
         self._episode = ContinuousAgentEpisode(
             client,
             llm_timeout=llm_timeout,
@@ -205,6 +329,111 @@ class GLMAgentRuntime:
         )
 
 
+def _provider_trace_entry(
+    provider: object | None,
+    *,
+    status: str,
+    reason: str,
+) -> dict[str, object]:
+    """Build a private, secret-free adapter-attempt record."""
+
+    return {
+        "provider": _provider_name(provider),
+        "status": status,
+        "reason": reason,
+    }
+
+
+def _turn_from_message(
+    message: object,
+    provider_name: str,
+    attempts: int,
+    *,
+    reject_empty: bool = True,
+) -> tuple[ModelTurn, str]:
+    """Validate and convert an adapter envelope without leaking raw payloads."""
+
+    attempts = max(1, attempts)
+    if not isinstance(message, dict):
+        return (
+            ModelTurn(
+                "",
+                (),
+                provider_name,
+                "invalid_model_message",
+                provider_attempts=attempts,
+            ),
+            "invalid_model_message",
+        )
+
+    raw_content = message.get("content")
+    if raw_content is None:
+        content = ""
+    elif isinstance(raw_content, str):
+        content = raw_content
+    else:
+        return (
+            ModelTurn(
+                "",
+                (),
+                provider_name,
+                "invalid_model_content",
+                provider_attempts=attempts,
+            ),
+            "invalid_model_content",
+        )
+
+    raw_calls = message.get("tool_calls") or []
+    if not isinstance(raw_calls, list):
+        return (
+            ModelTurn(
+                content,
+                (),
+                provider_name,
+                "invalid_tool_calls",
+                provider_attempts=attempts,
+            ),
+            "invalid_tool_calls",
+        )
+    calls: list[ModelToolCall] = []
+    for raw_call in raw_calls:
+        parsed, error = _parse_tool_call(raw_call)
+        if error:
+            return (
+                ModelTurn(
+                    content,
+                    (),
+                    provider_name,
+                    error,
+                    provider_attempts=attempts,
+                ),
+                error,
+            )
+        if parsed is not None:
+            calls.append(parsed)
+    if reject_empty and not calls and not content.strip():
+        return (
+            ModelTurn(
+                "",
+                (),
+                provider_name,
+                "empty_model_response",
+                provider_attempts=attempts,
+            ),
+            "empty_model_response",
+        )
+    return (
+        ModelTurn(
+            content,
+            tuple(calls),
+            provider_name,
+            "",
+            provider_attempts=attempts,
+        ),
+        "",
+    )
+
+
 def _provider_name(provider: object | None) -> str:
     if provider is None:
         return ""
@@ -218,6 +447,10 @@ def _is_transient_provider_error(reason: object) -> bool:
     return isinstance(reason, str) and any(
         marker in reason for marker in _TRANSIENT_PROVIDER_ERRORS
     )
+
+
+def _is_call_budget_rejection(reason: object) -> bool:
+    return isinstance(reason, str) and "LLM 调用预算耗尽" in reason
 
 
 def _parse_tool_call(
