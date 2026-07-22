@@ -11,7 +11,7 @@ import json
 import threading
 import time
 import unittest
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from unittest import mock
 
 from intelligence.services import (
@@ -411,6 +411,63 @@ class QueryLedgerTests(unittest.TestCase):
 
         self.assertEqual(calls, ["fetch"])
         self.assertEqual(ledger.summary()["executed_count"], 0)
+
+    def test_closed_owner_guard_keeps_cache_for_unguarded_waiter(self) -> None:
+        fetch_started = threading.Event()
+        waiter_waiting = threading.Event()
+        release_fetch = threading.Event()
+        calls: list[str] = []
+
+        class NotifyingFuture(Future):
+            def result(self, timeout=None):
+                waiter_waiting.set()
+                return super().result(timeout=timeout)
+
+        def fetch() -> str:
+            calls.append("fetch")
+            fetch_started.set()
+            release_fetch.wait(timeout=2)
+            return "shared-result"
+
+        owner_guard = query_ledger.QueryPublishGuard()
+        with (
+            mock.patch.object(query_ledger, "Future", NotifyingFuture),
+            query_ledger.query_ledger_scope() as ledger,
+        ):
+            contexts = [contextvars.copy_context() for _ in range(2)]
+            pool = ThreadPoolExecutor(max_workers=2)
+
+            def guarded_owner() -> str:
+                with query_ledger.query_publish_guard_scope(owner_guard):
+                    return query_ledger.executed("web_search", "same", fetch)
+
+            owner = pool.submit(contexts[0].run, guarded_owner)
+            self.assertTrue(fetch_started.wait(timeout=1))
+            waiter = pool.submit(
+                contexts[1].run,
+                query_ledger.executed,
+                "web_search",
+                "same",
+                fetch,
+            )
+            self.assertTrue(waiter_waiting.wait(timeout=1))
+            owner_guard.close()
+            release_fetch.set()
+
+            self.assertEqual(owner.result(timeout=2), "shared-result")
+            self.assertEqual(waiter.result(timeout=2), "shared-result")
+            reused = query_ledger.executed(
+                "web_search",
+                "same",
+                lambda: calls.append("unexpected") or "unexpected",
+            )
+            pool.shutdown()
+
+        self.assertEqual(reused, "shared-result")
+        self.assertEqual(calls, ["fetch"])
+        summary = ledger.summary()
+        self.assertEqual(summary["executed_count"], 1)
+        self.assertEqual(summary["deduped_count"], 2)
 
     def test_publish_guard_without_active_ledger_is_passthrough(self) -> None:
         guard = query_ledger.QueryPublishGuard()

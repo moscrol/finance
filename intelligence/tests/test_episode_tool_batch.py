@@ -807,3 +807,112 @@ def test_call_unfinished_in_wait_snapshot_stays_timeout_after_late_completion(
     assert result.items[0].status == "timeout"
     assert result.items[0].error == "tool_timeout"
     assert result.items[0].observation is None
+
+
+def test_timed_out_batches_share_one_bounded_executor() -> None:
+    release_runners = Event()
+    global_pool_full = Event()
+    counts_lock = Lock()
+    started_count = 0
+    active_count = 0
+    max_active = 0
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        nonlocal active_count, max_active, started_count
+        with counts_lock:
+            started_count += 1
+            active_count += 1
+            max_active = max(max_active, active_count)
+            if active_count == 2:
+                global_pool_full.set()
+        try:
+            release_runners.wait(timeout=2.0)
+            return _evidence_result("market_data", query)
+        finally:
+            with counts_lock:
+                active_count -= 1
+
+    shared_executor = ThreadPoolExecutor(max_workers=2)
+    batch_executor = ToolBatchExecutor(executor=shared_executor)
+    registry = _registry(market_data=runner)
+    batches = ThreadPoolExecutor(max_workers=2)
+    try:
+        futures = [
+            batches.submit(
+                batch_executor.new_session().execute,
+                (
+                    ModelToolCall(
+                        f"batch-{batch_index}-first",
+                        "market_data",
+                        {"query": f"query-{batch_index}-first"},
+                    ),
+                    ModelToolCall(
+                        f"batch-{batch_index}-second",
+                        "market_data",
+                        {"query": f"query-{batch_index}-second"},
+                    ),
+                ),
+                registry=registry,
+                context=_context(timeout=0.2),
+                remaining_slots=2,
+            )
+            for batch_index in range(2)
+        ]
+        assert global_pool_full.wait(timeout=1.0)
+        results = [future.result(timeout=1.0) for future in futures]
+    finally:
+        release_runners.set()
+        batches.shutdown(wait=True, cancel_futures=True)
+        shared_executor.shutdown(wait=True, cancel_futures=True)
+
+    assert [item.status for result in results for item in result.items] == [
+        "timeout",
+        "timeout",
+        "timeout",
+        "timeout",
+    ]
+    assert started_count == 2
+    assert max_active == 2
+
+
+def test_one_batch_submits_at_most_four_calls() -> None:
+    ran: list[str] = []
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        ran.append(query)
+        return _evidence_result("market_data", query)
+
+    result = (
+        ToolBatchExecutor()
+        .new_session()
+        .execute(
+            tuple(
+                ModelToolCall(
+                    f"call-{index}",
+                    "market_data",
+                    {"query": f"query-{index}"},
+                )
+                for index in range(5)
+            ),
+            registry=_registry(market_data=runner),
+            context=_context(),
+            remaining_slots=5,
+        )
+    )
+
+    assert [item.status for item in result.items] == [
+        "success",
+        "success",
+        "success",
+        "success",
+        "rejected",
+    ]
+    assert result.items[4].error == "tool_budget_exhausted"
+    assert result.executed_count == 4
+    assert set(ran) == {"query-0", "query-1", "query-2", "query-3"}

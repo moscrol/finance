@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from concurrent.futures import Future, ThreadPoolExecutor, wait
+from concurrent.futures import Executor, Future, ThreadPoolExecutor, wait
 from contextvars import copy_context
 from dataclasses import dataclass
 from functools import partial
@@ -22,6 +22,12 @@ from intelligence.services.research_tool_registry import (
 
 
 ToolCallStatus = Literal["success", "empty", "rejected", "timeout", "error"]
+MAX_BATCH_TOOL_CALLS = 4
+MAX_GLOBAL_TOOL_WORKERS = 8
+_SHARED_TOOL_EXECUTOR = ThreadPoolExecutor(
+    max_workers=MAX_GLOBAL_TOOL_WORKERS,
+    thread_name_prefix="episode-tool",
+)
 
 
 @dataclass(frozen=True)
@@ -63,10 +69,11 @@ def _run_with_publish_guard(
 class EpisodeToolBatchSession:
     """Own episode query state and execute independent tool calls concurrently."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, executor: Executor | None = None) -> None:
         self._seen_queries: set[tuple[str, str]] = set()
         self._lock = Lock()
         self._next_call_sequence = 1
+        self._executor = executor if executor is not None else _SHARED_TOOL_EXECUTOR
 
     def execute(
         self,
@@ -221,7 +228,7 @@ class EpisodeToolBatchSession:
         context: ResearchRunContext,
         remaining_slots: int,
     ) -> tuple[_Candidate, ...]:
-        budget = max(0, int(remaining_slots))
+        budget = min(MAX_BATCH_TOOL_CALLS, max(0, int(remaining_slots)))
         priority = tool_priority(
             context.contract.question_type,
             context.contract.evidence_plan.mandatory_capabilities,
@@ -240,8 +247,8 @@ class EpisodeToolBatchSession:
 
         return tuple(sorted(candidates, key=rank)[:budget])
 
-    @staticmethod
     def _dispatch(
+        self,
         selected: tuple[_Candidate, ...],
         *,
         items: list[ToolCallResult | None],
@@ -250,10 +257,6 @@ class EpisodeToolBatchSession:
         step_ids: dict[int, str],
         timeout: float,
     ) -> None:
-        executor = ThreadPoolExecutor(
-            max_workers=min(4, len(selected)),
-            thread_name_prefix="episode-tool",
-        )
         publish_guard = query_ledger.QueryPublishGuard()
         future_candidates: dict[Future[ToolObservation], _Candidate] = {}
         try:
@@ -271,7 +274,7 @@ class EpisodeToolBatchSession:
                     publish_guard,
                     operation,
                 )
-                future = executor.submit(worker_context.run, guarded_operation)
+                future = self._executor.submit(worker_context.run, guarded_operation)
                 future_candidates[future] = candidate
 
             completed, unfinished = wait(
@@ -313,15 +316,16 @@ class EpisodeToolBatchSession:
                 )
         finally:
             publish_guard.close()
-            executor.shutdown(wait=False, cancel_futures=True)
 
 
 class ToolBatchExecutor:
     """Stateless factory for episode-scoped tool batch sessions."""
 
-    @staticmethod
-    def new_session() -> EpisodeToolBatchSession:
-        return EpisodeToolBatchSession()
+    def __init__(self, *, executor: Executor | None = None) -> None:
+        self._executor = executor if executor is not None else _SHARED_TOOL_EXECUTOR
+
+    def new_session(self) -> EpisodeToolBatchSession:
+        return EpisodeToolBatchSession(executor=self._executor)
 
     def execute(
         self,
@@ -331,7 +335,11 @@ class ToolBatchExecutor:
         context: ResearchRunContext,
         remaining_slots: int,
     ) -> ToolBatchResult:
-        """Execute one isolated batch for callers not yet managing a session."""
+        """Execute one batch in a fresh ephemeral session.
+
+        Multi-batch Episodes must create one session with :meth:`new_session`
+        and reuse that session explicitly.
+        """
 
         return self.new_session().execute(
             calls,

@@ -47,17 +47,29 @@ class QueryPublishGuard:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._open = True
+        self._deactivators: list[Callable[[], None]] = []
 
     def close(self) -> None:
         with self._lock:
+            if not self._open:
+                return
             self._open = False
+            deactivators = tuple(self._deactivators)
+            self._deactivators.clear()
+            for deactivate in deactivators:
+                deactivate()
 
     @contextmanager
     def publication_scope(self) -> Iterator[bool]:
-        """Hold the close/publication boundary while the ledger mutates."""
+        """Hold the guard registration boundary while the ledger mutates."""
 
         with self._lock:
             yield self._open
+
+    def _add_deactivator_locked(self, deactivate: Callable[[], None]) -> None:
+        """Register while ``publication_scope`` holds the guard lock."""
+
+        self._deactivators.append(deactivate)
 
 
 _PUBLISH_GUARD: ContextVar[QueryPublishGuard | None] = ContextVar(
@@ -101,10 +113,21 @@ class QueryRecord:
 
 
 @dataclass
+class _QuerySubscription:
+    active: bool
+
+
+@dataclass
+class _InflightQuery:
+    future: Future[Any]
+    subscriptions: list[_QuerySubscription] = field(default_factory=list)
+
+
+@dataclass
 class QueryLedger:
     entries: dict[QueryKey, QueryRecord] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
-    _inflight: dict[QueryKey, Future[Any]] = field(default_factory=dict)
+    _inflight: dict[QueryKey, _InflightQuery] = field(default_factory=dict)
 
     def executed(
         self,
@@ -137,20 +160,27 @@ class QueryLedger:
                     if is_open:
                         record.reuse_count += 1
                     return record.result
-                future = self._inflight.get(key)
-                is_owner = future is None
-                if future is None:
-                    future = Future()
-                    self._inflight[key] = future
+                inflight = self._inflight.get(key)
+                is_owner = inflight is None
+                if inflight is None:
+                    inflight = _InflightQuery(Future())
+                    self._inflight[key] = inflight
+                subscription = _QuerySubscription(active=is_open)
+                inflight.subscriptions.append(subscription)
+                if guard is not None and is_open:
+                    guard._add_deactivator_locked(
+                        lambda subscription=subscription: self._deactivate_subscription(
+                            subscription
+                        )
+                    )
 
         if not is_owner:
-            result = future.result()
-            with _publication_scope(guard) as is_open:
-                if is_open:
-                    with self._lock:
-                        record = self.entries.get(key)
-                        if record is not None:
-                            record.reuse_count += 1
+            result = inflight.future.result()
+            with self._lock:
+                if subscription.active:
+                    record = self.entries.get(key)
+                    if record is not None:
+                        record.reuse_count += 1
             return result
 
         started = time.monotonic()
@@ -159,11 +189,11 @@ class QueryLedger:
         except BaseException as exc:
             with self._lock:
                 try:
-                    if self._inflight.get(key) is future:
+                    if self._inflight.get(key) is inflight:
                         self._inflight.pop(key)
                 finally:
-                    if not future.done():
-                        future.set_exception(exc)
+                    if not inflight.future.done():
+                        inflight.future.set_exception(exc)
             raise
 
         record = QueryRecord(
@@ -175,18 +205,21 @@ class QueryLedger:
             result=result,
             elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
         )
-        with _publication_scope(guard) as is_open:
-            with self._lock:
-                try:
-                    owns_inflight = self._inflight.get(key) is future
-                    if owns_inflight:
-                        self._inflight.pop(key)
-                        if is_open:
-                            self.entries[key] = record
-                finally:
-                    if not future.done():
-                        future.set_result(result)
+        with self._lock:
+            try:
+                owns_inflight = self._inflight.get(key) is inflight
+                if owns_inflight:
+                    self._inflight.pop(key)
+                    if any(item.active for item in inflight.subscriptions):
+                        self.entries[key] = record
+            finally:
+                if not inflight.future.done():
+                    inflight.future.set_result(result)
         return result
+
+    def _deactivate_subscription(self, subscription: _QuerySubscription) -> None:
+        with self._lock:
+            subscription.active = False
 
     def summary(self) -> dict[str, object]:
         with self._lock:
