@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+import duckdb
 
 pytest.importorskip("fastapi")
 
@@ -86,11 +87,45 @@ def _write_market_snapshot_fixture(root, *, quality="complete", freshness="fresh
     )
 
 
+def _write_overview_market_db(path: Path, *, trade_date: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect(str(path))
+    con.execute(
+        """
+        CREATE TABLE fact_market_daily (
+            trade_date DATE,
+            market_stage TEXT,
+            advancers INTEGER,
+            limit_up INTEGER,
+            limit_down INTEGER,
+            total_amount DOUBLE,
+            amount_vs_yesterday_pct DOUBLE,
+            amount_ma20 DOUBLE,
+            top3_industry_ratio DOUBLE,
+            concentration_state TEXT,
+            strength_marginal_pct DOUBLE,
+            strength_status TEXT
+        )
+        """
+    )
+    con.execute(
+        """
+        INSERT INTO fact_market_daily VALUES (
+            CAST(? AS DATE), '轮动', 2800, 52, 6, 18000,
+            3.2, 17500, 35.0, '中等集中', 1.8, '正常'
+        )
+        """,
+        [trade_date],
+    )
+    con.close()
+
+
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     users_root = tmp_path / "users"
     repo_root = tmp_path / "repo"
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(users_root))
+    monkeypatch.setenv("FINANCE_WS", str(repo_root))
     knowledge_wiki = tmp_path / "wiki"
     (knowledge_wiki / "relations").mkdir(parents=True)
     _write_rag_fixture(tmp_path, knowledge_wiki)
@@ -1901,6 +1936,51 @@ def test_workbench_overview_is_fail_closed_without_market_database(
     assert response.status_code == 200
     assert response.json()["market"]["stage"] == "数据缺失"
     assert response.json()["data_status"][0]["status"] == "missing"
+
+
+def test_workbench_overview_uses_configured_finance_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    code_root = tmp_path / "runtime-code"
+    finance_root = tmp_path / "private-finance-data"
+    wiki = tmp_path / "wiki"
+    stale_exports = code_root / "market_feature_store" / "exports"
+    current_exports = finance_root / "market_feature_store" / "exports"
+    stale_exports.mkdir(parents=True)
+    current_exports.mkdir(parents=True)
+    wiki.mkdir()
+    (stale_exports / "2026-07-01-daily-agent.json").write_text(
+        json.dumps({"date": "2026-07-01"}),
+        encoding="utf-8",
+    )
+    (current_exports / "2026-07-20-daily-agent.json").write_text(
+        json.dumps({"date": "2026-07-20"}),
+        encoding="utf-8",
+    )
+    _write_overview_market_db(
+        finance_root / "db" / "market_feature_store.duckdb",
+        trade_date="2026-07-21",
+    )
+    monkeypatch.setenv("FINANCE_WS", str(finance_root))
+    monkeypatch.setenv("KB_VAULT", str(wiki))
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+
+    with TestClient(app_module.create_app(repo_root=code_root)) as probe:
+        overview = probe.get("/api/workbench/overview").json()
+        health = probe.get("/api/health").json()
+
+    assert overview["as_of_date"] == "2026-07-21"
+    assert overview["signal_date"] == "2026-07-20"
+    database = next(
+        item for item in overview["data_status"] if item["key"] == "market"
+    )
+    assert database["status"] == "complete"
+    assert overview["agent_artifact"] == (
+        "market_feature_store/exports/2026-07-20-daily-agent.json"
+    )
+    assert health["runtime"]["code_root"] == str(code_root.resolve())
+    assert health["runtime"]["finance_root"] == str(finance_root.resolve())
 
 
 def test_learning_feedback_can_be_reviewed_without_editing_verdict(

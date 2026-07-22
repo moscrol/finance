@@ -1100,6 +1100,7 @@ def create_app(
     root = (repo_root or REPO_ROOT).resolve()
     runtime_provenance = build_runtime_provenance(root)
     runtime_paths = default_paths()
+    runtime_provenance["finance_root"] = str(runtime_paths.finance_root.resolve())
     supervisor = RunSupervisor(timeout_sec=run_timeout_sec)
     llm_settings = SessionLLMSettings()
 
@@ -1125,6 +1126,7 @@ def create_app(
 
     app = FastAPI(title="Market Intelligence Workbench API", lifespan=lifespan)
     app.state.repo_root = root
+    app.state.finance_root = runtime_paths.finance_root.resolve()
     registries: dict[str, ArtifactRegistry] = {}
     recovered_runs: list[str] = []
     conversation_locks: dict[tuple[str, str], Lock] = {}
@@ -1887,7 +1889,10 @@ def create_app(
 
     @app.get("/api/workbench/overview")
     def workbench_overview() -> dict[str, object]:
-        return build_workbench_overview(root, runtime_paths.knowledge_wiki)
+        return build_workbench_overview(
+            runtime_paths.finance_root,
+            runtime_paths.knowledge_wiki,
+        )
 
     learning_root = root / "docs" / "learning" / "forecast-lessons"
 

@@ -832,10 +832,10 @@ def _load_moneyflow_trends(
 
 
 def build_workbench_overview(
-    repo_root: str | Path,
+    finance_root: str | Path,
     knowledge_wiki: str | Path,
 ) -> dict[str, object]:
-    root = Path(repo_root)
+    root = Path(finance_root)
     wiki = Path(knowledge_wiki)
     db_path = root / "db" / "market_feature_store.duckdb"
     agent_path, agent_payload = _latest_daily_agent(root, None)
