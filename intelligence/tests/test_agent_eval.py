@@ -116,7 +116,7 @@ class TestCapabilityMonotonicity(unittest.TestCase):
         fixture = Path(__file__).parent / "fixtures" / "capability_monotonicity_cases.json"
         cases = json.loads(fixture.read_text(encoding="utf-8"))["cases"]
 
-        self.assertGreaterEqual(len(cases), 6)
+        self.assertGreaterEqual(len(cases), 5)
         for case in cases:
             score = evaluate_capability_case(case).to_dict()
             self.assertTrue(

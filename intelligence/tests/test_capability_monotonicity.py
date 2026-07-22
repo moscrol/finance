@@ -166,11 +166,13 @@ def test_case_and_run_metrics_reject_non_finite_numbers(non_finite: float) -> No
         )
 
 
-def test_default_fixture_fixes_inputs_for_three_required_questions() -> None:
+def test_default_fixture_fixes_inputs_for_five_acceptance_questions() -> None:
     assert [case.question for case in DEFAULT_CAPABILITY_CASES] == [
         "昨天的反弹能持续多久",
+        "科创50你认为反弹空间有多少",
+        "瑞华泰的合理估值",
+        "这一周行情下跌的主要原因是什么",
         "目前市场的主线是什么",
-        "一个没有现成 skill 的陌生题材怎么判断",
     ]
     for case in DEFAULT_CAPABILITY_CASES:
         assert isinstance(case, CapabilityCase)

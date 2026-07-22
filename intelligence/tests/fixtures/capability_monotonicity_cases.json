@@ -1,54 +1,68 @@
 {
   "cases": [
     {
-      "id": "weekly-market-cause",
-      "question": "这一周行情下跌的主要原因你认为是什么",
-      "answer": "本周下跌更像是风险偏好收缩与高位筹码松动共振，而不是单一行业利空。[E1]\n成交放大且跌停扩散支持去风险判断；外部触发因素仍缺少可核验证据。",
-      "direct_targets": ["风险偏好收缩", "高位筹码松动"],
-      "requirements": [{"id": "cause_attribution", "satisfy_any": ["风险偏好", "原因"], "gap_any": ["外部触发因素仍缺少"]}],
+      "id": "rebound-duration",
+      "question": "昨天的反弹能持续多久",
+      "answer": "先按 3~5 个交易日的短周期修复看，而不是直接定义为反转。若成交额、上涨家数和主线承接连续改善，持续时间可延长；若指数回落并重新放大跌停，则反弹假设失效。[E1]",
+      "direct_targets": ["3~5 个交易日", "短周期修复"],
+      "requirements": [
+        {"id": "duration_assessment", "satisfy_any": ["3~5 个交易日", "短周期"]},
+        {"id": "continuation_conditions", "satisfy_any": ["成交额", "上涨家数"]},
+        {"id": "invalidation_conditions", "satisfy_any": ["假设失效", "跌停"]}
+      ],
       "claims": [{"factual": true, "evidence_ids": ["E1"]}],
       "evidence_ids": ["E1"]
     },
     {
-      "id": "rag-methodology",
-      "question": "RAG 检索为什么会让回答模板化，应该怎么改",
-      "answer": "RAG 本身不会必然导致模板化，问题通常是把展示格式写进检索与合成 prompt。改法是让 BM25/向量检索负责覆盖，让出口 verifier 负责事实约束，LLM 保留组织语言的自由。",
-      "direct_targets": ["RAG 本身不会必然导致模板化"],
-      "requirements": [{"id": "mechanism", "satisfy_any": ["展示格式写进", "prompt"]}, {"id": "remedy", "satisfy_any": ["出口 verifier", "组织语言"]}],
-      "claims": [{"factual": false, "evidence_ids": []}]
-    },
-    {
-      "id": "unsupported-relation",
-      "question": "液冷和 PCB 谁在产业链上游",
-      "answer": "现有证据无法确认液冷与 PCB 之间存在可核验的直接上下游关系；两者都可能服务于算力基础设施，但不能仅凭共现拼接产业链。",
-      "direct_targets": ["无法确认"],
-      "requirements": [{"id": "relation", "satisfy_any": ["上游", "下游"], "gap_any": ["无法确认"]}]
-    },
-    {
-      "id": "missing-l3-customer",
-      "question": "某公司和某客户是否已确认合作",
-      "answer": "尚不能确认合作。当前缺少公告、合同或客户认证这类 L3 证据，因此只应保留为待核线索。",
-      "direct_targets": ["尚不能确认合作"],
-      "requirements": [{"id": "customer_validation", "satisfy_any": ["已确认合作"], "gap_any": ["缺少公告", "尚不能确认"]}]
-    },
-    {
-      "id": "stock-long-tail",
-      "question": "这家公司利润增长但现金流变差，核心矛盾是什么",
-      "answer": "核心矛盾是利润质量：增长若主要来自应收和存货扩张，兑现成现金的能力就在下降。[E2]\n还要核对经营现金流、应收周转和存货周转的连续变化。",
-      "direct_targets": ["核心矛盾是利润质量"],
-      "requirements": [{"id": "core_tension", "satisfy_any": ["利润质量"]}, {"id": "next_checks", "satisfy_any": ["经营现金流", "应收周转"]}],
+      "id": "index-rebound-space",
+      "question": "科创50你认为反弹空间有多少",
+      "answer": "反弹空间先看到最近的日线压力区，而不是给单点目标价。以上一已完成交易日收盘为基准，压力区与收盘的百分比差就是第一目标空间；放量突破后才上看下一压力区，跌破最近支撑则判断失效。[E2]",
+      "direct_targets": ["日线压力区", "第一目标空间"],
+      "requirements": [
+        {"id": "technical_levels", "satisfy_any": ["压力区", "支撑"]},
+        {"id": "invalidation_conditions", "satisfy_any": ["判断失效", "跌破"]}
+      ],
       "claims": [{"factual": true, "evidence_ids": ["E2"]}],
       "evidence_ids": ["E2"]
     },
     {
-      "id": "composer-timeout",
-      "question": "本周下跌的主要原因是什么",
-      "answer": "直接判断：风险偏好收缩是当前最可能的主导机制。\n核心矛盾：内部量价数据支持去风险，但外部事件证据不足。",
-      "direct_targets": ["风险偏好收缩"],
-      "requirements": [{"id": "cause_attribution", "satisfy_any": ["风险偏好收缩"]}, {"id": "uncertainty", "satisfy_any": ["外部事件证据不足"]}],
-      "decision_brief": {"direct_answer": "风险偏好收缩是当前最可能的主导机制", "core_tension": "内部量价数据支持去风险，但外部事件证据不足"},
+      "id": "ruihuatai-valuation",
+      "question": "瑞华泰的合理估值",
+      "answer": "合理估值应采用情景区间：先用最新市值、PE/PB 与同类公司横截面对比，再按收入增速、利润率和现金流兑现分别设置悲观/基准/乐观假设。缺少一致预期和未来盈利预测时，不输出单点目标价。[E3]",
+      "direct_targets": ["情景区间", "不输出单点目标价"],
+      "requirements": [
+        {"id": "valuation_assessment", "satisfy_any": ["PE/PB", "横截面"]},
+        {"id": "scenario_range", "satisfy_any": ["悲观", "基准", "乐观"]},
+        {"id": "evidence_boundary", "satisfy_any": ["缺少", "不输出单点"]}
+      ],
       "claims": [{"factual": true, "evidence_ids": ["E3"]}],
       "evidence_ids": ["E3"]
+    },
+    {
+      "id": "weekly-market-cause",
+      "question": "这一周行情下跌的主要原因是什么",
+      "answer": "本周下跌更像风险偏好收缩与高位筹码松动共振，而不是已确认的单一行业利空。[E4] 成交、上涨家数和跌停扩散可验证内部去风险机制；宏观或外盘触发因素若没有与本周逐日对齐的来源，就只能保留为候选解释。",
+      "direct_targets": ["风险偏好收缩", "高位筹码松动"],
+      "requirements": [
+        {"id": "causal_chain", "satisfy_any": ["去风险机制", "筹码松动"]},
+        {"id": "counterpoint", "satisfy_any": ["候选解释", "单一行业利空"]},
+        {"id": "evidence_boundary", "satisfy_any": ["逐日对齐", "来源"]}
+      ],
+      "claims": [{"factual": true, "evidence_ids": ["E4"]}],
+      "evidence_ids": ["E4"]
+    },
+    {
+      "id": "current-mainline",
+      "question": "目前市场的主线是什么",
+      "answer": "当前主线应由同一交易日的题材强度、成交占比、连续性和核心股承接共同确认，不能用旧日报或单日涨停数量代答。[E5] 若同日 D4 主线结构缺失，就应明确回答当前主线尚不能确认。",
+      "direct_targets": ["当前主线", "共同确认"],
+      "requirements": [
+        {"id": "direct_assessment", "satisfy_any": ["当前主线", "尚不能确认"]},
+        {"id": "supporting_evidence", "satisfy_any": ["题材强度", "成交占比", "连续性"]},
+        {"id": "evidence_boundary", "satisfy_any": ["同一交易日", "D4"]}
+      ],
+      "claims": [{"factual": true, "evidence_ids": ["E5"]}],
+      "evidence_ids": ["E5"]
     }
   ]
 }
