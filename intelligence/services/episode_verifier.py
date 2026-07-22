@@ -28,6 +28,11 @@ class VerifiedEpisodeOutcome:
     completion: CompletionReport
     verified_status: VerifiedStatus
     issues: tuple[str, ...] = ()
+    # Keep the immutable contract alongside the structural result.  The
+    # semantic gate needs the exact required-output identities when a repair
+    # is parsed and re-verified; reconstructing a weaker contract from prose
+    # would make that second verification unsound.
+    contract: ResearchTaskContract | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -74,6 +79,17 @@ def verify_episode_outcome(
 
     statuses: list[OutputStatus] = []
     bound_tools: set[str] = set()
+    # A single hash is not a universal proof for every required output.  It
+    # may be reused only when the evidence itself explicitly declares the
+    # output identities it supports.  ``supports`` also carries hypothesis
+    # IDs in older runners, therefore only exact required-output IDs count.
+    hash_output_ids: dict[str, list[str]] = {}
+    for required in contract.required_outputs:
+        binding = bindings.get(required.output_id)
+        if binding is None or binding.gap:
+            continue
+        for content_hash in binding.evidence_hashes:
+            hash_output_ids.setdefault(content_hash, []).append(required.output_id)
     for required in contract.required_outputs:
         binding = bindings.get(required.output_id)
         if binding is None:
@@ -126,14 +142,28 @@ def verify_episode_outcome(
         evidence_items = tuple(
             evidence_by_hash[content_hash]
             for content_hash in binding.evidence_hashes
-            if content_hash in evidence_by_hash
-            and content_hash not in duplicate_hashes
+            if content_hash in evidence_by_hash and content_hash not in duplicate_hashes
         )
         wrong_types = tuple(
             item.tool
             for item in evidence_items
             if required.evidence_types and item.tool not in required.evidence_types
         )
+        reused_without_explicit_support: tuple[str, ...] = ()
+        for content_hash in binding.evidence_hashes:
+            output_ids = hash_output_ids.get(content_hash, [])
+            if len(output_ids) <= 1:
+                continue
+            item = evidence_by_hash.get(content_hash)
+            if item is None:
+                continue
+            if required.output_id not in item.supports:
+                reused_without_explicit_support += (content_hash,)
+        if reused_without_explicit_support:
+            issues.append(
+                "evidence reused without explicit output support for "
+                f"{required.output_id}: " + ",".join(reused_without_explicit_support)
+            )
         if wrong_types:
             issues.append(
                 f"unsupported evidence type for {required.output_id}: "
@@ -145,6 +175,7 @@ def verify_episode_outcome(
             and not unknown_hashes
             and not collided_hashes
             and not wrong_types
+            and not reused_without_explicit_support
             and len(evidence_items) == len(binding.evidence_hashes)
         )
         if valid:
@@ -174,8 +205,7 @@ def verify_episode_outcome(
     )
     if mandatory_missing:
         issues.append(
-            "missing mandatory capability evidence: "
-            + ",".join(mandatory_missing)
+            "missing mandatory capability evidence: " + ",".join(mandatory_missing)
         )
 
     required_statuses = tuple(
@@ -203,22 +233,17 @@ def verify_episode_outcome(
     completion = CompletionReport(
         status="completed" if verified_status == "completed" else "partial",
         outputs=tuple(statuses),
-        factual_grounding=(
-            "fulfilled" if all_required_fulfilled else "partial"
-        ),
+        factual_grounding=("fulfilled" if all_required_fulfilled else "partial"),
         causal_adequacy="unknown",
-        task_coverage=(
-            "fulfilled" if all_required_fulfilled else "partial"
-        ),
-        business_status=(
-            "complete" if verified_status == "completed" else "partial"
-        ),
+        task_coverage=("fulfilled" if all_required_fulfilled else "partial"),
+        business_status=("complete" if verified_status == "completed" else "partial"),
     )
     return VerifiedEpisodeOutcome(
         outcome=outcome,
         completion=completion,
         verified_status=verified_status,
         issues=tuple(dict.fromkeys(issues)),
+        contract=contract,
     )
 
 

@@ -10,7 +10,10 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
 )
 from intelligence.services.episode_verifier import verify_episode_outcome
-from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
+from intelligence.services.evidence_capabilities import (
+    EvidencePlan,
+    EvidenceRequirement,
+)
 from intelligence.services.research_contract import RequiredOutput, ResearchTaskContract
 
 
@@ -86,7 +89,14 @@ def _outcome(
 
 
 def test_valid_evidence_bindings_complete_the_episode() -> None:
-    market = _evidence("market_data", "market-1")
+    market = AgentEvidence(
+        tool="market_data",
+        title="market_data evidence",
+        detail="可核验事实",
+        source="test-source",
+        content_hash="market-1",
+        supports=("direct_assessment", "evidence_boundary"),
+    )
     outcome = _outcome(
         evidence=(market,),
         bindings=(
@@ -101,6 +111,26 @@ def test_valid_evidence_bindings_complete_the_episode() -> None:
     assert verified.completion.business_status == "complete"
     assert {item.status for item in verified.completion.outputs} == {"fulfilled"}
     assert verified.issues == ()
+
+
+def test_one_hash_cannot_satisfy_multiple_outputs_without_explicit_support() -> None:
+    market = _evidence("market_data", "market-1")
+    outcome = _outcome(
+        evidence=(market,),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("market-1",)),
+            OutputEvidenceBinding("evidence_boundary", ("market-1",)),
+        ),
+    )
+
+    verified = verify_episode_outcome(_contract(), outcome)
+
+    assert verified.verified_status == "partial"
+    assert all(item.status == "missing" for item in verified.completion.outputs)
+    assert any(
+        "evidence reused without explicit output support" in issue
+        for issue in verified.issues
+    )
 
 
 def test_missing_required_output_downgrades_completed_outcome() -> None:
