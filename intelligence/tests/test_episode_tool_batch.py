@@ -809,6 +809,61 @@ def test_call_unfinished_in_wait_snapshot_stays_timeout_after_late_completion(
     assert result.items[0].observation is None
 
 
+def test_wait_snapshot_timeout_cannot_publish_after_batch_cutoff(monkeypatch) -> None:
+    now = [100.0]
+    runner_started = Event()
+    release_runner = Event()
+
+    def monotonic() -> float:
+        return now[0]
+
+    def fetch(
+        query: str,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        runner_started.set()
+        release_runner.wait(timeout=1.0)
+        return _evidence_result("market_data", query)
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        return query_ledger.executed(
+            "market_data",
+            query,
+            lambda: fetch(query),
+        )
+
+    def wait_past_cutoff(futures, *, timeout):
+        del timeout
+        future_set = set(futures)
+        assert runner_started.wait(timeout=1.0)
+        now[0] = 102.0
+        release_runner.set()
+        for future in future_set:
+            future.result(timeout=1.0)
+        return set(), future_set
+
+    monkeypatch.setattr(episode_tool_batch, "monotonic", monotonic, raising=False)
+    monkeypatch.setattr(episode_tool_batch, "wait", wait_past_cutoff)
+
+    with query_ledger.query_ledger_scope() as ledger:
+        result = (
+            ToolBatchExecutor()
+            .new_session()
+            .execute(
+                (ModelToolCall("late", "market_data", {"query": "market"}),),
+                registry=_registry(market_data=runner),
+                context=_context(timeout=1.0),
+                remaining_slots=1,
+            )
+        )
+
+    assert result.items[0].status == "timeout"
+    assert result.items[0].error == "tool_timeout"
+    assert ledger.summary()["executed_count"] == 0
+
+
 def test_timed_out_batches_share_one_bounded_executor() -> None:
     release_runners = Event()
     global_pool_full = Event()

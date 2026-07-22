@@ -8,6 +8,7 @@ from contextvars import copy_context
 from dataclasses import dataclass
 from functools import partial
 from threading import Lock
+from time import monotonic
 from typing import Literal, cast
 
 from intelligence.services import query_ledger
@@ -257,7 +258,11 @@ class EpisodeToolBatchSession:
         step_ids: dict[int, str],
         timeout: float,
     ) -> None:
-        publish_guard = query_ledger.QueryPublishGuard()
+        publish_cutoff = monotonic() + timeout
+        publish_guard = query_ledger.QueryPublishGuard(
+            publish_cutoff=publish_cutoff,
+            monotonic=monotonic,
+        )
         future_candidates: dict[Future[ToolObservation], _Candidate] = {}
         try:
             for candidate in selected:
@@ -279,7 +284,7 @@ class EpisodeToolBatchSession:
 
             completed, unfinished = wait(
                 tuple(future_candidates),
-                timeout=timeout,
+                timeout=max(0.0, publish_cutoff - monotonic()),
             )
             publish_guard.close()
             for future in unfinished:

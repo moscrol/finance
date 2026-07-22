@@ -37,17 +37,42 @@ def normalize_query(query: str) -> str:
 QueryKey = tuple[str, str, str, str, str]
 
 
+@dataclass
+class _QuerySubscription:
+    active: bool
+    publish_cutoff: float | None = None
+    monotonic: Callable[[], float] | None = None
+
+    def is_active(self) -> bool:
+        if not self.active:
+            return False
+        if self.publish_cutoff is None:
+            return True
+        if self.monotonic is None:
+            raise RuntimeError("guarded subscription requires a monotonic clock")
+        return self.monotonic() <= self.publish_cutoff
+
+
 class QueryPublishGuard:
     """Atomically suppress this scope's late publication without killing threads.
 
     The guard does not own or cancel an unrelated scope that already owns the
     same ledger key; it only governs work that entered ``query_publish_guard_scope``.
+    An optional monotonic cutoff makes publication eligibility independent of
+    when the scheduling thread eventually gets to call :meth:`close`.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        publish_cutoff: float | None = None,
+        monotonic: Callable[[], float] | None = None,
+    ) -> None:
         self._lock = threading.Lock()
         self._open = True
         self._deactivators: list[Callable[[], None]] = []
+        self._publish_cutoff = publish_cutoff
+        self._monotonic = monotonic if monotonic is not None else time.monotonic
 
     def close(self) -> None:
         with self._lock:
@@ -70,6 +95,15 @@ class QueryPublishGuard:
         """Register while ``publication_scope`` holds the guard lock."""
 
         self._deactivators.append(deactivate)
+
+    def _new_subscription_locked(self) -> _QuerySubscription:
+        """Capture this guard's close state and immutable deadline metadata."""
+
+        return _QuerySubscription(
+            active=self._open,
+            publish_cutoff=self._publish_cutoff,
+            monotonic=self._monotonic,
+        )
 
 
 _PUBLISH_GUARD: ContextVar[QueryPublishGuard | None] = ContextVar(
@@ -113,11 +147,6 @@ class QueryRecord:
 
 
 @dataclass
-class _QuerySubscription:
-    active: bool
-
-
-@dataclass
 class _InflightQuery:
     future: Future[Any]
     subscriptions: list[_QuerySubscription] = field(default_factory=list)
@@ -153,11 +182,16 @@ class QueryLedger:
             variant,
         )
         guard = _PUBLISH_GUARD.get()
-        with _publication_scope(guard) as is_open:
+        with _publication_scope(guard):
             with self._lock:
+                subscription = (
+                    guard._new_subscription_locked()
+                    if guard is not None
+                    else _QuerySubscription(active=True)
+                )
                 record = self.entries.get(key)
                 if record is not None:
-                    if is_open:
+                    if subscription.is_active():
                         record.reuse_count += 1
                     return record.result
                 inflight = self._inflight.get(key)
@@ -165,9 +199,8 @@ class QueryLedger:
                 if inflight is None:
                     inflight = _InflightQuery(Future())
                     self._inflight[key] = inflight
-                subscription = _QuerySubscription(active=is_open)
                 inflight.subscriptions.append(subscription)
-                if guard is not None and is_open:
+                if guard is not None and subscription.active:
                     guard._add_deactivator_locked(
                         lambda subscription=subscription: self._deactivate_subscription(
                             subscription
@@ -177,7 +210,7 @@ class QueryLedger:
         if not is_owner:
             result = inflight.future.result()
             with self._lock:
-                if subscription.active:
+                if subscription.is_active():
                     record = self.entries.get(key)
                     if record is not None:
                         record.reuse_count += 1
@@ -210,7 +243,7 @@ class QueryLedger:
                 owns_inflight = self._inflight.get(key) is inflight
                 if owns_inflight:
                     self._inflight.pop(key)
-                    if any(item.active for item in inflight.subscriptions):
+                    if any(item.is_active() for item in inflight.subscriptions):
                         self.entries[key] = record
             finally:
                 if not inflight.future.done():
