@@ -90,6 +90,13 @@ def verify_episode_outcome(
             continue
         for content_hash in binding.evidence_hashes:
             hash_output_ids.setdefault(content_hash, []).append(required.output_id)
+    invalid_reused_hashes: set[str] = set()
+    for content_hash, output_ids in hash_output_ids.items():
+        if len(output_ids) <= 1:
+            continue
+        item = evidence_by_hash.get(content_hash)
+        if item is None or not set(output_ids).issubset(set(item.supports)):
+            invalid_reused_hashes.add(content_hash)
     for required in contract.required_outputs:
         binding = bindings.get(required.output_id)
         if binding is None:
@@ -149,16 +156,11 @@ def verify_episode_outcome(
             for item in evidence_items
             if required.evidence_types and item.tool not in required.evidence_types
         )
-        reused_without_explicit_support: tuple[str, ...] = ()
-        for content_hash in binding.evidence_hashes:
-            output_ids = hash_output_ids.get(content_hash, [])
-            if len(output_ids) <= 1:
-                continue
-            item = evidence_by_hash.get(content_hash)
-            if item is None:
-                continue
-            if required.output_id not in item.supports:
-                reused_without_explicit_support += (content_hash,)
+        reused_without_explicit_support = tuple(
+            content_hash
+            for content_hash in binding.evidence_hashes
+            if content_hash in invalid_reused_hashes
+        )
         if reused_without_explicit_support:
             issues.append(
                 "evidence reused without explicit output support for "

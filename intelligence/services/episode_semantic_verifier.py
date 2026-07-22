@@ -52,14 +52,10 @@ JudgeStatus = Literal["passed", "repaired", "rejected", "unavailable"]
 JudgeFn = Callable[..., object]
 
 _SENTENCE_RE = re.compile(r"(?<=[。！？!?；;])|\n+")
-_JSON_CONTROL_RE = re.compile(
-    r"(?:content[_ ]?hash|evidence[_ ]?hash|internal[_ ]?locator|"
-    r"provider(?:[_ ]?name)?|system prompt|tool[_ ]?calls?|raw[_ ]?[a-z_]+)",
-    re.IGNORECASE,
-)
-_CONTROL_WORD_RE = re.compile(
-    r"(?:证据哈希|内容哈希|内部定位|系统提示|工具调用|provider|"
-    r"RAW_[A-Z0-9_]+)",
+_CONTROL_FIELD_RE = re.compile(
+    r"(?:\b(?:content[_ ]?hash|evidence[_ ]?hash|hash|internal[_ ]?locator|"
+    r"provider(?:[_ ]?name)?|system[_ ]?prompt|tool(?:[_ ]?calls?)?)\b\s*[:=]?|"
+    r"\braw[_ ][a-z0-9_]+\b|证据哈希|内容哈希|内部定位|系统提示|工具调用)",
     re.IGNORECASE,
 )
 
@@ -186,6 +182,7 @@ class SemanticEpisodeVerifier:
                 structural,
                 judge_status="passed",
                 judge_issues=first.report.issues,
+                correlated_judge=first.correlated,
             )
 
         rejected_sentences = tuple(
@@ -213,7 +210,7 @@ class SemanticEpisodeVerifier:
             return SemanticEpisodeOutcome(
                 verified=structural,
                 status="partial",
-                public_answer=self._gap_answer(frame, structural, issues),
+                public_answer=self._gap_answer(frame, structural),
                 judge_status="rejected",
                 issues=issues,
                 correlated_judge=first.correlated,
@@ -233,7 +230,7 @@ class SemanticEpisodeVerifier:
             return SemanticEpisodeOutcome(
                 verified=repaired_verified,
                 status="partial",
-                public_answer=self._gap_answer(frame, repaired_verified, issues),
+                public_answer=self._gap_answer(frame, repaired_verified),
                 judge_status="rejected",
                 issues=issues,
                 correlated_judge=first.correlated,
@@ -275,7 +272,7 @@ class SemanticEpisodeVerifier:
         return SemanticEpisodeOutcome(
             verified=repaired_verified,
             status="partial",
-            public_answer=self._gap_answer(frame, repaired_verified, issues),
+            public_answer=self._gap_answer(frame, repaired_verified),
             judge_status=("unavailable" if second.report is None else "rejected"),
             issues=issues,
             correlated_judge=correlated,
@@ -428,32 +425,69 @@ class SemanticEpisodeVerifier:
         value: object,
         sentence_count: int,
     ) -> answer_model.GroundingJudgeReport | None:
-        if isinstance(value, answer_model.GroundingJudgeReport):
-            if value.passed and value.rejected_sentence_indexes:
+        try:
+            if isinstance(value, answer_model.GroundingJudgeReport):
+                if not isinstance(value.passed, bool):
+                    return None
+                rejected = value.rejected_sentence_indexes
+                issues = value.issues
+                if not isinstance(rejected, tuple) or any(
+                    isinstance(index, bool) or not isinstance(index, int)
+                    for index in rejected
+                ):
+                    return None
+                if not isinstance(issues, tuple) or any(
+                    not isinstance(issue, str) for issue in issues
+                ):
+                    return None
+                if value.passed == bool(rejected):
+                    return None
+                if any(index < 1 or index > sentence_count for index in rejected):
+                    return None
+                return value
+            if isinstance(value, ModelTurn):
+                if value.error or value.tool_calls:
+                    return None
+                value = value.content
+            elif isinstance(value, tuple) and value:
+                # Provider seams may return ``(content, provider, reason)``.
+                value = value[0]
+            if isinstance(value, Mapping):
+                payload = dict(value)
+            elif isinstance(value, str):
+                # Whole-string JSON only.  The shared helper intentionally
+                # accepts fences/free text for legacy callers, so this gate
+                # first applies the stricter public-completion envelope.
+                payload = json.loads(value.strip())
+            else:
                 return None
-            if any(
-                index < 1 or index > sentence_count
-                for index in value.rejected_sentence_indexes
+            if not isinstance(payload, dict) or set(payload) != {
+                "passed",
+                "rejected_sentence_indexes",
+                "issues",
+            }:
+                return None
+            passed = payload["passed"]
+            rejected_raw = payload["rejected_sentence_indexes"]
+            issues_raw = payload["issues"]
+            if not isinstance(passed, bool):
+                return None
+            if not isinstance(rejected_raw, list) or any(
+                isinstance(index, bool) or not isinstance(index, int)
+                for index in rejected_raw
             ):
                 return None
-            return value
-        if isinstance(value, ModelTurn):
-            if value.error or value.tool_calls:
+            if not isinstance(issues_raw, list) or any(
+                not isinstance(issue, str) for issue in issues_raw
+            ):
                 return None
-            value = value.content
-        elif isinstance(value, Mapping):
-            value = json.dumps(dict(value), ensure_ascii=False)
-        elif isinstance(value, tuple) and value:
-            # A few provider seams return ``(content, provider, reason)``;
-            # only the first envelope is semantically relevant.  It still
-            # goes through the strict parser below.
-            value = value[0]
-        if not isinstance(value, str):
+            canonical = json.dumps(payload, ensure_ascii=False)
+            return answer_model.parse_grounding_judge_report(
+                canonical,
+                sentence_count=sentence_count,
+            )
+        except Exception:
             return None
-        return answer_model.parse_grounding_judge_report(
-            value,
-            sentence_count=sentence_count,
-        )
 
     def _repair(
         self,
@@ -489,6 +523,11 @@ class SemanticEpisodeVerifier:
             return None
         if isinstance(turn, AgentOutcome):
             repaired_outcome = turn
+            if (
+                repaired_outcome.evidence != structural.outcome.evidence
+                or repaired_outcome.traces != structural.outcome.traces
+            ):
+                return None
         elif isinstance(turn, ModelTurn):
             if turn.error or turn.tool_calls:
                 return None
@@ -586,17 +625,16 @@ class SemanticEpisodeVerifier:
     def _gap_answer(
         frame: TaskFrame,
         verified: VerifiedEpisodeOutcome,
-        extra_issues: tuple[str, ...] = (),
     ) -> str:
         gaps: list[str] = []
         for status in verified.completion.outputs:
             if status.status != "fulfilled" and status.gap:
                 gaps.append(status.gap)
         gaps.extend(verified.outcome.gaps)
-        gaps.extend(extra_issues)
+        private_tokens = _private_tokens(verified.outcome.evidence)
         clean: list[str] = []
         for value in gaps:
-            text = _safe_gap_text(value)
+            text = _safe_gap_text(value, private_tokens)
             if text and text not in clean:
                 clean.append(text)
         question = frame.raw_question.strip() or "当前问题"
@@ -689,17 +727,22 @@ def _call_repair(finalizer: object, **kwargs: object) -> object:
     if method is None or not callable(method):
         raise TypeError("finalizer does not expose repair")
     try:
-        return method(**kwargs)
-    except TypeError:
-        # A narrow fake from a unit test may omit context/deadline fields.  Do
-        # not broaden the repair payload; pass only names it explicitly accepts.
         signature = inspect.signature(method)
+    except (TypeError, ValueError):
+        accepted = kwargs
+    else:
+        accepts_all = any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD
+            for parameter in signature.parameters.values()
+        )
         accepted = {
             name: value
             for name, value in kwargs.items()
-            if name in signature.parameters
+            if accepts_all or name in signature.parameters
         }
-        return method(**accepted)
+    # Invocation happens exactly once.  A TypeError raised inside the model is
+    # a real failed repair, not a signal to invoke it with a second signature.
+    return method(**accepted)
 
 
 def _parse_finish(
@@ -724,17 +767,13 @@ def _sanitize_public_answer(
     draft: str,
     evidence: tuple[AgentEvidence, ...],
 ) -> str:
-    hashes = {item.content_hash for item in evidence if item.content_hash}
-    tools = {item.tool for item in evidence if item.tool}
-    providers = {"zhipu", "glm", "openai", "deepseek", "moonshot", "qwen", "dashscope"}
+    private_tokens = _private_tokens(evidence)
     kept: list[str] = []
     for raw in str(draft or "").splitlines():
         line = raw.strip()
         if not line:
             continue
-        if _JSON_CONTROL_RE.search(line) or _CONTROL_WORD_RE.search(line):
-            continue
-        if any(token and token in line for token in (*hashes, *tools, *providers)):
+        if _contains_private_token(line, private_tokens):
             continue
         if line.startswith("{") and line.endswith("}"):
             continue
@@ -750,9 +789,7 @@ def _public_citations(outcome: AgentOutcome) -> str:
         for binding in outcome.bindings
         for content_hash in binding.evidence_hashes
     }
-    hashes = {item.content_hash for item in outcome.evidence if item.content_hash}
-    tools = {item.tool for item in outcome.evidence if item.tool}
-    providers = {"zhipu", "glm", "openai", "deepseek", "moonshot", "qwen", "dashscope"}
+    private_tokens = _private_tokens(outcome.evidence)
     lines: list[str] = []
     for item in outcome.evidence:
         if item.content_hash not in bound_hashes:
@@ -761,9 +798,7 @@ def _public_citations(outcome: AgentOutcome) -> str:
         source = " ".join(item.source.split())
         date = " ".join(str(item.source_date or "").split())
         if any(
-            _JSON_CONTROL_RE.search(value)
-            or _CONTROL_WORD_RE.search(value)
-            or any(token and token in value for token in (*hashes, *tools, *providers))
+            _contains_private_token(value, private_tokens)
             for value in (title, source, date)
             if value
         ):
@@ -778,10 +813,41 @@ def _public_citations(outcome: AgentOutcome) -> str:
     return "\n".join(dict.fromkeys(lines))
 
 
-def _safe_gap_text(value: object) -> str:
+def _private_tokens(evidence: tuple[AgentEvidence, ...]) -> frozenset[str]:
+    providers = (
+        "zhipu",
+        "glm",
+        "openai",
+        "deepseek",
+        "moonshot",
+        "qwen",
+        "dashscope",
+    )
+    return frozenset(
+        token.casefold()
+        for token in (
+            *providers,
+            *(item.tool for item in evidence),
+            *(item.content_hash for item in evidence),
+        )
+        if token
+    )
+
+
+def _contains_private_token(value: object, private_tokens: frozenset[str]) -> bool:
+    text = str(value or "")
+    if not text:
+        return False
+    if _CONTROL_FIELD_RE.search(text):
+        return True
+    folded = text.casefold()
+    return any(token in folded for token in private_tokens)
+
+
+def _safe_gap_text(value: object, private_tokens: frozenset[str]) -> str:
     text = " ".join(str(value or "").split())
-    if not text or _JSON_CONTROL_RE.search(text) or _CONTROL_WORD_RE.search(text):
-        return "相关证据未完成语义核验"
+    if not text or _contains_private_token(text, private_tokens):
+        return ""
     return text[:180]
 
 

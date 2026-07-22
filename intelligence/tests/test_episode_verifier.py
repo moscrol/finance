@@ -133,6 +133,29 @@ def test_one_hash_cannot_satisfy_multiple_outputs_without_explicit_support() -> 
     )
 
 
+def test_partial_output_support_invalidates_shared_hash_atomically() -> None:
+    market = AgentEvidence(
+        tool="market_data",
+        title="market_data evidence",
+        detail="可核验事实",
+        source="test-source",
+        content_hash="market-1",
+        supports=("direct_assessment",),
+    )
+    outcome = _outcome(
+        evidence=(market,),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", ("market-1",)),
+            OutputEvidenceBinding("evidence_boundary", ("market-1",)),
+        ),
+    )
+
+    verified = verify_episode_outcome(_contract(), outcome)
+
+    assert verified.verified_status == "partial"
+    assert all(item.status == "missing" for item in verified.completion.outputs)
+
+
 def test_missing_required_output_downgrades_completed_outcome() -> None:
     market = _evidence("market_data", "market-1")
     outcome = _outcome(

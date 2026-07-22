@@ -224,6 +224,9 @@ def test_live_runner_records_bare_current_and_verified_episode(
                 detail="最近交易日市场结构",
                 source="test-market",
                 content_hash="market-1",
+                supports=tuple(
+                    item.output_id for item in context.contract.required_outputs
+                ),
             )
             return AgentOutcome(
                 task_frame_hash=task_frame.task_frame_hash,
