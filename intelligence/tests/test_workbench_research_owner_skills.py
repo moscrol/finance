@@ -18,6 +18,7 @@ from intelligence.services.research_contract import (
     StageArtifact,
 )
 from intelligence.services.run_store import RunStore
+from intelligence.services.task_frame import TaskFrame
 from intelligence.workbench_skills.contracts import (
     SkillAnswerContract,
     SkillExecutionContext,
@@ -381,6 +382,74 @@ def _context(
         conversation_context="用户上一轮强调只看公告级证据。",
         deadline=ResearchDeadline.from_timeout(10),
     )
+
+
+def test_owner_projects_followup_semantics_from_canonical_task_frame(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = TaskFrame(
+        raw_question="那它的客户和订单呢",
+        user_goal="继续核验英维克的客户与订单证据",
+        subject="英维克",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe=None,
+        required_outputs=("customer_validation", "supporting_evidence"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_multi_layer_evidence",
+        confidence=0.95,
+    )
+    contextual_query = "主体：英维克\n追问：那它的客户和订单呢"
+    captured: list[AskOptions] = []
+
+    def fake_answer_query(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _result(
+            options.query,
+            "stock_deep_dive",
+            evidence_id="L3",
+            matched_theme="英维克",
+            fact_text="英维克公告披露客户与订单进展",
+        )
+
+    monkeypatch.setattr(
+        "intelligence.workbench_skills.research_owner.understand_query",
+        lambda _query: pytest.fail(
+            "canonical owner path must not reinterpret contextual_query"
+        ),
+    )
+    store = RunStore(user_id="demo", root=tmp_path / "runs")
+    run = store.create_run(contextual_query, "ask")
+    context = replace(
+        _context(tmp_path, store, run.run_id, contextual_query),
+        task_frame=frame,
+        turn_intent={
+            "primary_subject": "英维克",
+            "question_type": "stock_deep_dive",
+        },
+    )
+
+    output = ResearchOwnerSkill(
+        STOCK_DEEP_DIVE,
+        answer_query_fn=fake_answer_query,
+        web_search_fn=_empty_web_search,
+    ).execute(context)
+
+    assert captured
+    assert all(item.question_type_override == "stock_deep_dive" for item in captured)
+    company_master = next(
+        item for item in output.stage_artifacts if item["stage"] == "company_master"
+    )
+    assert company_master["payload"]["company"] == "英维克"
+    assert output.answer_contract is not None
+    assert output.answer_contract.question_type == "stock_deep_dive"
+    assert output.answer_contract.task_frame_hash == frame.task_frame_hash
+    assert output.answer_contract.required_outputs == frame.required_outputs
+    assert "customer_validation" in output.answer_contract.output_contract
+    assert "supporting_evidence" in output.answer_contract.answer_spec.prompt_constraints
 
 
 def _write_theme_market_db(repo_root: Path) -> None:

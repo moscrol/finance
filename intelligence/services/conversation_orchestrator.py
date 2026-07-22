@@ -613,6 +613,37 @@ def _merge_frame_outputs(
     return (*existing, *additions)
 
 
+def _specialized_owner_required_outputs(
+    output: SkillOutput | None,
+    frame: TaskFrame,
+) -> tuple[RequiredOutput, ...]:
+    """Project a canonical owner contract into the shared verifier schema.
+
+    Empty fields mean a legacy/third-party contract and retain the old behavior.
+    A hash mismatch fails closed to the orchestrator's immutable TaskFrame rather
+    than allowing a stale owner contract to narrow the user's requested outputs.
+    """
+
+    if output is None or output.answer_contract is None:
+        return ()
+    contract = output.answer_contract
+    if not contract.required_outputs:
+        return ()
+    output_ids = (
+        contract.required_outputs
+        if contract.task_frame_hash == frame.task_frame_hash
+        else frame.required_outputs
+    )
+    return tuple(
+        RequiredOutput(
+            output_id=output_id,
+            description=f"TaskFrame 要求的输出：{output_id}",
+            required=True,
+        )
+        for output_id in dict.fromkeys(output_ids)
+    )
+
+
 def _generic_research_deadline(
     root_deadline: ResearchDeadline,
     contract: ResearchTaskContract,
@@ -1712,6 +1743,8 @@ class TurnOrchestrator:
                     report=report,
                     answer=lane_answer,
                     selected_skill_ids=manual_selected,
+                    turn_intent=turn_intent,
+                    research_plan=research_plan,
                     citations=lane_citations,
                     warnings=lane_warnings,
                     as_of=lane_as_of,
@@ -1850,6 +1883,7 @@ class TurnOrchestrator:
                         repo_root=self.repo_root,
                         run_store=self.run_store,
                         conversation_context=context.to_prompt_block(),
+                        task_frame=task_frame,
                         turn_intent=turn_intent.to_dict(),
                         research_plan=research_plan.to_dict(),
                         inherited_answer_spec=inherited_answer_spec,
@@ -2320,6 +2354,12 @@ class TurnOrchestrator:
                         "output_contract": list(
                             owner_output.answer_contract.output_contract
                         ),
+                        "required_outputs": list(
+                            owner_output.answer_contract.required_outputs
+                        ),
+                        "task_frame_hash": (
+                            owner_output.answer_contract.task_frame_hash
+                        ),
                     },
                 )
             elif owner_timed_out:
@@ -2535,10 +2575,18 @@ class TurnOrchestrator:
                 )
             )
             answer_text = _sanitize_market_cause_answer_text(answer_text, query)
-            if generic_contract is not None and result.answer_spec is not None:
+            fulfillment_outputs = (
+                generic_contract.required_outputs
+                if generic_contract is not None
+                else _specialized_owner_required_outputs(
+                    owner_output,
+                    task_frame,
+                )
+            )
+            if fulfillment_outputs and result.answer_spec is not None:
                 fulfillment = task_fulfillment.evaluate_answer_spec_fulfillment(
                     question=task_frame.raw_question,
-                    required_outputs=generic_contract.required_outputs,
+                    required_outputs=fulfillment_outputs,
                     answer_text=answer_text,
                     answer_spec=result.answer_spec,
                 )
@@ -3006,6 +3054,8 @@ class TurnOrchestrator:
         report: dict,
         answer: LaneAnswer,
         selected_skill_ids: Sequence[str],
+        turn_intent: TurnIntent,
+        research_plan: ResearchPlan,
         citations: Sequence[dict[str, object]] = (),
         warnings: Sequence[str] = (),
         as_of: str | None = None,
@@ -3082,6 +3132,8 @@ class TurnOrchestrator:
             invoked_skill_ids=(),
             citations=_sanitize_citation_list(list(citations)),
             degrades=tuple(warnings),
+            turn_intent=turn_intent.to_dict(),
+            research_plan=research_plan.to_dict(),
         )
         self._emit(
             run_id,

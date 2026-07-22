@@ -39,6 +39,7 @@ from intelligence.services.research_contract import TurnIntent
 from intelligence.services.research_policy import ResearchExecutionPolicy
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.run_store import RunStore
+from intelligence.services.task_frame import TaskFrame
 from intelligence.services.turn_controller import TurnDecision, decide_turn
 from intelligence.workbench_skills.contracts import (
     SkillDefinition,
@@ -907,6 +908,96 @@ def test_unbound_rebound_clarifies_before_route_or_retrieval(tmp_path) -> None:
     assert report["task_type"] == "clarify"
     assert report["task_frame"]["raw_question"] == query
     assert report["task_frame"]["clarification_question"] is not None
+
+
+def test_rebound_clarification_resumes_original_forecast_on_second_turn(
+    tmp_path,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    captured: list[AskOptions] = []
+
+    def controller(query: str, **kwargs: object) -> TurnDecision:
+        return decide_turn(
+            query,
+            **kwargs,
+            llm_complete=lambda _messages: (None, None, "fixture unavailable"),
+        )
+
+    def answer(options: AskOptions) -> AskResult:
+        captured.append(options)
+        return _ask_result(options.query, synthesis="按A股市场继续判断反弹持续性。")
+
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer,
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "resumed deterministic forecast must skip skill routing"
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=controller,
+    )
+
+    first_query = "这个反弹还能持续多久"
+    first_run, first_message = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        first_query,
+    )
+    first = orchestrator.run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=first_run,
+        assistant_message_id=first_message,
+        query=first_query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert first.status == "completed"
+    first_assistant = conversation_store.load_messages(
+        conversation.conversation_id
+    )[-1]
+    assert first_assistant.turn_intent is not None
+    assert first_assistant.turn_intent["pending_task_frame"]["raw_question"] == (
+        first_query
+    )
+
+    second_query = "A股"
+    second_run, second_message = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        second_query,
+    )
+    second = orchestrator.run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=second_run,
+        assistant_message_id=second_message,
+        query=second_query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert second.status == "completed"
+    assert len(captured) == 1
+    assert captured[0].question_type_override == "market_forecast"
+    assert captured[0].research_task_contract is not None
+    assert captured[0].research_task_contract.question == first_query
+    second_assistant = conversation_store.load_messages(
+        conversation.conversation_id
+    )[-1]
+    assert second_assistant.turn_intent is not None
+    assert second_assistant.turn_intent["question_type"] == "market_forecast"
+    assert second_assistant.turn_intent["primary_subject"] == "A股市场"
+    assert second_assistant.turn_intent["pending_task_frame"] is None
+    second_report = json.loads(
+        (run_store.run_dir(second_run) / "report.json").read_text(encoding="utf-8")
+    )
+    assert second_report["task_frame"]["raw_question"] == first_query
 
 
 def test_static_knowledge_lane_uses_neutral_generator_without_retrieval(
@@ -2571,6 +2662,163 @@ def test_skill_answer_owner_bypasses_generic_ask_and_renders_its_contract(
         "verified_fallback",
     ]
     assert snapshots[-1]["payload"]["text"] == result.content
+
+
+def test_specialized_owner_uses_same_task_frame_fulfillment_gate(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "那它的客户和订单呢"
+    frame = TaskFrame(
+        raw_question=query,
+        user_goal="继续核验英维克的客户与订单证据",
+        subject="英维克",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe=None,
+        required_outputs=("customer_validation", "supporting_evidence"),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_multi_layer_evidence",
+        confidence=0.98,
+    )
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+        selected_skill_ids=["stock-deep-dive"],
+    )
+
+    class SpecializedOwner:
+        skill_id = "stock-deep-dive"
+
+        def execute(self, context: SkillExecutionContext) -> SkillOutput:
+            assert context.task_frame == frame
+            modules = [
+                {
+                    "module_id": "industry_lead",
+                    "title": "行业线索",
+                    "summary": "目前只发现行业需求线索，未取得英维克客户或订单公告。",
+                }
+            ]
+            citations = [
+                {
+                    "source": "industry-note.md",
+                    "title": "行业资料",
+                    "evidence_layer": "L1",
+                    "as_of": "2026-07-22",
+                }
+            ]
+            contract = build_module_answer_contract(
+                skill_id=self.skill_id,
+                title="英维克专项研究",
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of="2026-07-22",
+                retrieval_plan=("检索公司公告与订单证据",),
+                output_contract=frame.required_outputs,
+            )
+            assert contract is not None
+            return SkillOutput(
+                skill_id=self.skill_id,
+                modules=modules,
+                citations=citations,
+                warnings=[],
+                as_of="2026-07-22",
+                raw_result_ref=None,
+                answer_contract=replace(
+                    contract,
+                    question_type="stock_deep_dive",
+                    task_frame_hash=frame.task_frame_hash,
+                    required_outputs=frame.required_outputs,
+                ),
+            )
+
+    registry = SkillRegistry()
+    registry.register(
+        SkillDefinition(
+            skill_id="stock-deep-dive",
+            name="个股深挖",
+            description="specialized owner fixture",
+            version="1.0.0",
+            triggers=("客户", "订单"),
+            input_schema={"type": "object"},
+            permissions=("local_read",),
+            timeout_seconds=1,
+            role="terminal_owner",
+            accepted_question_types=("stock_deep_dive",),
+            can_own_answer=True,
+        ),
+        SpecializedOwner(),
+    )
+
+    def controller(_query: str, **_kwargs: object) -> TurnDecision:
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=True,
+            needs_template=True,
+            question_type="stock_deep_dive",
+            subject="英维克",
+            confidence=1.0,
+            reason="fixture specialized owner",
+            task_frame=frame,
+        )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda _options: pytest.fail(
+            "specialized owner must bypass generic Ask"
+        ),
+        skill_registry=registry,
+        turn_controller_fn=controller,
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="manual",
+        selected_skill_ids=["stock-deep-dive"],
+    )
+
+    trace = run_store.load_trace(run_id)
+    route = json.loads(
+        next(step for step in trace if step["name"] == "route_skills")[
+            "output_summary"
+        ]
+    )
+    owner_contract = json.loads(
+        next(step for step in trace if step["name"] == "skill_answer_owner")[
+            "output_summary"
+        ]
+    )
+    verifier = json.loads(
+        next(step for step in trace if step["name"] == "task_fulfillment")[
+            "output_summary"
+        ]
+    )
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+
+    assert route["task_frame_hash"] == frame.task_frame_hash
+    assert owner_contract["task_frame_hash"] == frame.task_frame_hash
+    assert owner_contract["required_outputs"] == list(frame.required_outputs)
+    assert verifier["task_frame_hash"] == frame.task_frame_hash
+    assert report["task_frame_hash"] == frame.task_frame_hash
+    assert report["answer_status"] != "complete"
+    customer = next(
+        item
+        for item in report["task_fulfillment"]["items"]
+        if item["output_id"] == "customer_validation"
+    )
+    assert customer["status"] != "fulfilled"
+    assert "本轮尚未完成问题所需的直接回答" in result.content
 
 
 def test_cancellation_after_draft_keeps_last_safe_snapshot(tmp_path, monkeypatch) -> None:

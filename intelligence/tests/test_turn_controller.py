@@ -462,6 +462,42 @@ def test_unbound_rebound_reference_clarifies_once_without_llm() -> None:
     )
 
 
+def test_clarification_answer_resumes_pending_rebound_task_frame() -> None:
+    question = "这个反弹还能持续多久"
+    first = decide_turn(
+        question,
+        llm_complete=lambda _messages: pytest.fail(
+            "blocking rule ambiguity must not call the controller LLM"
+        ),
+    )
+
+    assert first.turn_intent is not None
+    assert first.turn_intent.pending_task_frame is not None
+    assert first.turn_intent.pending_task_frame["raw_question"] == question
+    assert first.turn_intent.clarification_rounds == 1
+
+    resumed = decide_turn(
+        "这个反弹指A股",
+        previous_intent=first.turn_intent,
+        previous_turn_id="msg-clarification",
+        llm_complete=lambda _messages: pytest.fail(
+            "clarification answer must resume the deterministic forecast"
+        ),
+    )
+
+    assert resumed.lane == "research"
+    assert resumed.question_type == "market_forecast"
+    assert resumed.subject == "A股市场"
+    assert resumed.clarification_questions == ()
+    assert resumed.task_frame is not None
+    assert resumed.task_frame.raw_question == question
+    assert resumed.task_frame.user_goal == first.task_frame.user_goal
+    assert resumed.task_frame.required_outputs == first.task_frame.required_outputs
+    assert resumed.turn_intent is not None
+    assert resumed.turn_intent.pending_task_frame is None
+    assert resumed.turn_intent.clarification_rounds == 1
+
+
 def test_rebound_reference_inherits_subject_without_rewriting_raw_question() -> None:
     previous = TurnIntent(
         primary_subject="科创50",
@@ -845,13 +881,41 @@ def test_controller_llm_supplements_task_frame_without_replacing_semantics() -> 
 
     assert len(calls) == 1
     assert '"task_frame"' in calls[0][1]["content"]
-    assert decision.lane == "chat"
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
     assert decision.task_frame is not None
     assert decision.task_frame.market_scope == "A股"
     assert decision.task_frame.subject != "帮我判断产业趋势"
     assert decision.task_frame.user_goal == "判断产业趋势是否会改变市场持续性"
     assert "trend_signal" in decision.task_frame.required_outputs
     assert "先按未来五个交易日观察" in decision.task_frame.assumptions
+
+
+def test_llm_chat_route_cannot_disable_task_frame_retrieval() -> None:
+    content = json.dumps(
+        {
+            "route_id": "chat",
+            "confidence": 0.91,
+            "reason": "错误地按普通交流处理",
+            "user_goal": "判断产业趋势",
+            "required_outputs": ["supporting_evidence"],
+            "assumptions": [],
+            "ambiguities": [],
+        },
+        ensure_ascii=False,
+    )
+
+    decision = decide_turn(
+        "帮我判断这个产业趋势是否成立",
+        llm_complete=lambda _messages: (content, object(), ""),
+    )
+
+    assert decision.task_frame is not None
+    assert decision.task_frame.evidence_policy == "general_finance_evidence"
+    assert decision.lane == "research"
+    assert decision.needs_retrieval is True
+    assert decision.needs_template is True
+    assert "web_search" in decision.capabilities
 
 
 def test_llm_decision_rejects_route_id_outside_table() -> None:

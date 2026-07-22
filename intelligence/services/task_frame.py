@@ -274,6 +274,54 @@ def rebase_task_frame(
     )
 
 
+def resolve_task_frame_clarification(
+    frame: TaskFrame,
+    answer: str,
+) -> TaskFrame:
+    """Merge one clarification answer into the pending frame, then continue.
+
+    The online budget is one blocking round.  Even an unrecognised answer
+    therefore resolves to the safest product default instead of starting a
+    second interview loop.
+    """
+
+    cleaned = re.sub(r"\s+", "", str(answer or ""))
+    if any(term in cleaned for term in ("美股", "美国股市", "纳指", "标普")):
+        market_scope = "美股"
+        subject = "美国股市"
+    elif any(term in cleaned for term in ("港股", "恒生")):
+        market_scope = "港股"
+        subject = "港股市场"
+    elif any(term in cleaned for term in ("A股", "a股", "大盘", "市场")):
+        market_scope = "A股"
+        subject = "A股市场"
+    else:
+        candidate = re.sub(
+            r"^(?:这个|那个|这次|那次)?(?:反弹|修复)?(?:指的是|指的|指|是)?",
+            "",
+            str(answer or "").strip(),
+        )
+        subject = _safe_subject(candidate, frame.raw_question)
+        market_scope = frame.market_scope
+        if subject is None:
+            subject = "A股市场"
+            market_scope = "A股"
+    assumption = (
+        f"用户在唯一一次澄清中确认主体为{subject}"
+        if cleaned
+        else f"澄清预算已用尽，按安全默认主体{subject}继续"
+    )
+    return replace(
+        frame,
+        subject=subject,
+        subject_kind="market_pattern",
+        market_scope=market_scope,
+        assumptions=_merge_strings(frame.assumptions, (assumption,)),
+        ambiguities=(),
+        clarification_question=None,
+    )
+
+
 def _alignment_messages(frame: TaskFrame) -> list[dict[str, str]]:
     return [
         {
@@ -389,7 +437,24 @@ def _is_financial_task(question_type: str, question: str) -> bool:
         "concept_definition",
         "methodology_discussion",
         "general_knowledge",
-    } or bool(re.search(r"(?:市场|行情|大盘|股票|个股|题材|板块|公司|指数|反弹)", question))
+        "general_finance_qa",
+    } or bool(
+        re.search(
+            r"(?:市场|行情|大盘|股票|个股|题材|板块|公司|指数|反弹|"
+            r"产业|趋势|财务|估值|订单|客户|收入|利润)",
+            question,
+        )
+    )
+
+
+def task_frame_requires_retrieval(frame: TaskFrame) -> bool:
+    """Return whether an execution route may safely omit evidence retrieval."""
+
+    if frame.evidence_policy in {"stable_knowledge", "model_reasoning"}:
+        return False
+    if frame.evidence_policy == "general_finance_evidence":
+        return _is_financial_task(frame.question_type, frame.raw_question)
+    return True
 
 
 def _user_goal(question_type: str, question: str, fallback: str) -> str:

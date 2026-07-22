@@ -10,6 +10,7 @@ from intelligence.services import ask_clarify, llm_refine
 from intelligence.services.query_resolution import QueryResolution, QueryResolver
 from intelligence.services.query_understanding import (
     QueryEnvelope,
+    envelope_from_task_frame,
     is_dated_market_review,
     is_market_watch_query,
     project_task_frame,
@@ -33,6 +34,8 @@ from intelligence.services.task_frame import (
     align_task_frame,
     build_task_frame,
     rebase_task_frame,
+    resolve_task_frame_clarification,
+    task_frame_requires_retrieval,
 )
 
 TurnLane: TypeAlias = Literal[
@@ -694,6 +697,72 @@ def _safe_fallback(query: str, envelope: QueryEnvelope) -> TurnDecision:
     )
 
 
+def _enforce_task_frame_route(
+    decision: TurnDecision,
+    task_frame: TaskFrame,
+) -> TurnDecision:
+    """Prevent a soft route from removing evidence required by the frame."""
+
+    if not task_frame_requires_retrieval(task_frame):
+        return decision
+    capability_floor: dict[str, tuple[str, ...]] = {
+        "general_finance_evidence": ("memory", "web_search"),
+        "current_public_knowledge": ("web_search",),
+        "current_a_share_market": ("market_quote", "market_news"),
+        "dated_a_share_market": ("market_quote", "market_news"),
+        "current_market_scenarios": (
+            "market_quote",
+            "market_news",
+            "web_search",
+        ),
+        "time_aligned_market_causal": (
+            "market_quote",
+            "market_news",
+            "web_search",
+        ),
+        "structured_market_technical": ("market_quote",),
+        "current_external_market": ("market_quote", "web_search"),
+        "company_multi_layer_evidence": ("memory", "graph", "web_search"),
+        "company_valuation_evidence": ("financials", "market_quote"),
+        "theme_multi_layer_evidence": ("memory", "graph", "market_news"),
+        "event_and_official_evidence": ("market_news", "filings", "web_search"),
+        "company_financial_evidence": ("financials", "filings"),
+        "comparable_multi_source_evidence": ("memory", "graph", "web_search"),
+        "event_scenario_evidence": ("market_news", "web_search"),
+        "claim_verification_evidence": ("filings", "web_search"),
+    }
+    lane = decision.lane
+    if lane in {"chat", "meta", "clarify"} or not decision.needs_retrieval:
+        lane = (
+            "knowledge"
+            if task_frame.evidence_policy == "current_public_knowledge"
+            else "research"
+        )
+    return replace(
+        decision,
+        lane=lane,
+        needs_retrieval=True,
+        needs_memory=decision.needs_memory or "memory" in capability_floor.get(
+            task_frame.evidence_policy,
+            (),
+        ),
+        needs_template=(
+            decision.needs_template or lane in {"research", "workflow"}
+        ),
+        capabilities=tuple(
+            dict.fromkeys(
+                (
+                    *decision.capabilities,
+                    *capability_floor.get(task_frame.evidence_policy, ()),
+                )
+            )
+        ),
+        reason=(
+            f"{decision.reason}；TaskFrame 证据政策禁止零检索执行"
+        ),
+    )
+
+
 def decide_turn(
     query: str,
     *,
@@ -705,6 +774,42 @@ def decide_turn(
     previous_turn_id: str | None = None,
     resolver: QueryResolver | None = None,
 ) -> TurnDecision:
+    pending_frame = (
+        TaskFrame.from_dict(previous_intent.pending_task_frame)
+        if previous_intent is not None
+        else None
+    )
+    if (
+        pending_frame is not None
+        and previous_intent is not None
+        and previous_intent.clarification_rounds >= 1
+    ):
+        task_frame = resolve_task_frame_clarification(pending_frame, query)
+        envelope = envelope_from_task_frame(
+            task_frame,
+            operators=previous_intent.operators,
+            time_horizon=previous_intent.time_horizon,  # type: ignore[arg-type]
+        )
+        intent = replace(
+            previous_intent,
+            primary_subject=task_frame.subject,
+            question_type=task_frame.question_type,
+            answer_owner=answer_owner_for_question_type(task_frame.question_type),
+            inherited_from_turn=previous_turn_id,
+            timeframe=task_frame.timeframe,
+            required_outputs=task_frame.required_outputs,
+            task_frame_hash=task_frame.task_frame_hash,
+            pending_task_frame=None,
+        )
+        deterministic = _deterministic_decision(
+            task_frame.raw_question,
+            envelope=envelope,
+            skill_mode=skill_mode,
+            selected_skill_ids=selected_skill_ids,
+        )
+        decision = deterministic or _safe_fallback(task_frame.raw_question, envelope)
+        return _attach_turn_intent(decision, intent, task_frame=task_frame)
+
     resolution = _canonicalize_head_resolution(
         query,
         (resolver or QueryResolver()).resolve(query),
@@ -730,7 +835,19 @@ def decide_turn(
     envelope = project_task_frame(task_frame, resolution.envelope)
     resolution = replace(resolution, envelope=envelope)
     if task_frame.clarification_question is not None:
-        return replace(
+        intent = replace(
+            build_turn_intent(
+                query,
+                envelope,
+                previous_intent=previous_intent,
+                previous_turn_id=previous_turn_id,
+                resolution=resolution,
+                task_frame=task_frame,
+            ),
+            pending_task_frame=task_frame.to_dict(),
+            clarification_rounds=1,
+        )
+        return _attach_turn_intent(
             _decision(
                 "clarify",
                 envelope=envelope,
@@ -738,6 +855,7 @@ def decide_turn(
                 reason="TaskFrame 存在会改变主体、工具或结论的歧义，追问一次",
                 clarification_questions=(task_frame.clarification_question,),
             ),
+            intent,
             task_frame=task_frame,
         )
     if resolution.context_dependent and previous_intent is None:
@@ -810,7 +928,10 @@ def decide_turn(
         content = None
     if content is None:
         return _attach_turn_intent(
-            _safe_fallback(effective_query, envelope),
+            _enforce_task_frame_route(
+                _safe_fallback(effective_query, envelope),
+                task_frame,
+            ),
             intent,
             task_frame=task_frame,
         )
@@ -823,6 +944,11 @@ def decide_turn(
         task_frame_hash=task_frame.task_frame_hash,
     )
     if task_frame.clarification_question is not None:
+        intent = replace(
+            intent,
+            pending_task_frame=task_frame.to_dict(),
+            clarification_rounds=max(1, intent.clarification_rounds),
+        )
         return _attach_turn_intent(
             _decision(
                 "clarify",
@@ -844,6 +970,7 @@ def decide_turn(
         if parsed is not None
         else _safe_fallback(effective_query, envelope)
     )
+    decision = _enforce_task_frame_route(decision, task_frame)
     return _attach_turn_intent(decision, intent, task_frame=task_frame)
 
 
@@ -874,6 +1001,10 @@ def _attach_turn_intent(
     if (
         intent.inherited_from_turn is not None
         and inherited_research_intent
+        and (
+            task_frame is None
+            or task_frame.clarification_question is None
+        )
         and decision.lane in {
             "chat",
             "clarify",

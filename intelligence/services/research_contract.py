@@ -190,6 +190,8 @@ class TurnIntent:
     required_outputs: tuple[str, ...] = ()
     timeframe: str | None = None
     task_frame_hash: str = ""
+    pending_task_frame: dict[str, object] | None = None
+    clarification_rounds: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -213,6 +215,8 @@ class TurnIntent:
             required_outputs = value.get("required_outputs", ())
             timeframe = value.get("timeframe")
             task_frame_hash = value.get("task_frame_hash", "")
+            pending_task_frame = value.get("pending_task_frame")
+            clarification_rounds = value.get("clarification_rounds", 0)
         except KeyError:
             return None
         if primary_subject is not None and not isinstance(primary_subject, str):
@@ -228,6 +232,17 @@ class TurnIntent:
         if timeframe is not None and not isinstance(timeframe, str):
             return None
         if not isinstance(task_frame_hash, str):
+            return None
+        if pending_task_frame is not None and not isinstance(
+            pending_task_frame,
+            dict,
+        ):
+            return None
+        if (
+            isinstance(clarification_rounds, bool)
+            or not isinstance(clarification_rounds, int)
+            or clarification_rounds < 0
+        ):
             return None
         for items in (
             secondary_topics,
@@ -257,6 +272,8 @@ class TurnIntent:
             required_outputs=tuple(required_outputs),
             timeframe=timeframe,
             task_frame_hash=task_frame_hash,
+            pending_task_frame=pending_task_frame,
+            clarification_rounds=clarification_rounds,
         )
 
 

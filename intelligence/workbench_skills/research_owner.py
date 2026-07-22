@@ -11,13 +11,18 @@ from intelligence.services import answer_model, web_research
 from intelligence.services.ask import AskOptions, AskResult, answer_query
 from intelligence.services.market_analogs import load_historical_analog_artifact
 from intelligence.services.market_midterm import load_midterm_trend_artifact
-from intelligence.services.query_understanding import QueryEnvelope, understand_query
+from intelligence.services.query_understanding import (
+    QueryEnvelope,
+    envelope_from_task_frame,
+    understand_query,
+)
 from intelligence.services.research_contract import (
     EvidenceAtom,
     OWNER_WORKFLOW_SPECS,
     StageArtifact,
 )
 from intelligence.services.scenario_tree import build_scenario_tree_artifact
+from intelligence.services.task_frame import TaskFrame
 from intelligence.workbench_skills.contracts import (
     JsonObject,
     SkillAnswerContract,
@@ -92,6 +97,11 @@ class ResearchOwnerSkill:
         self._web_search = web_search_fn
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
+        envelope = (
+            envelope_from_task_frame(context.task_frame)
+            if context.task_frame is not None
+            else understand_query(context.query)
+        )
         options = AskOptions(
             query=context.query,
             user=context.user_id,
@@ -110,12 +120,15 @@ class ResearchOwnerSkill:
             conversation_context=context.conversation_context,
             include_memory_block=True,
             include_recall_block=True,
-            question_type_override=self.config.question_type,
+            question_type_override=(
+                envelope.question_type
+                if context.task_frame is not None
+                else self.config.question_type
+            ),
             use_l3_lookup=self.config.use_l3_lookup,
             deadline=context.deadline,
         )
         stages = OWNER_WORKFLOW_SPECS[self.config.skill_id].retrieval_stages
-        envelope = understand_query(context.query)
         dag = execute_owner_dag(
             cache_key=f"{self.skill_id}:{context.query}",
             stages=stages,
@@ -132,6 +145,7 @@ class ResearchOwnerSkill:
             query=context.query,
             matched_theme=envelope.subject,
             inherited_answer_spec=context.inherited_answer_spec,
+            task_frame=context.task_frame,
         )
         if result is None:
             warnings = list(dag.warnings)
@@ -302,7 +316,14 @@ class ResearchOwnerSkill:
         query: str = "",
         matched_theme: str | None = None,
         inherited_answer_spec: JsonObject | None = None,
+        task_frame: TaskFrame | None = None,
     ) -> SkillAnswerContract | None:
+        required_outputs = (
+            task_frame.required_outputs if task_frame is not None else ()
+        )
+        output_contract = tuple(
+            dict.fromkeys((*self.config.output_contract, *required_outputs))
+        )
         spec = result.answer_spec if result is not None else None
         used_fallback = False
         if (
@@ -313,6 +334,7 @@ class ResearchOwnerSkill:
                 query=query,
                 matched_theme=matched_theme,
                 stage_artifacts=stage_artifacts,
+                output_contract=output_contract,
             )
             used_fallback = True
         if spec is None:
@@ -342,7 +364,7 @@ class ResearchOwnerSkill:
                 dict.fromkeys(
                     (
                         *spec.prompt_constraints,
-                        *self.config.output_contract,
+                        *output_contract,
                     )
                 )
             ),
@@ -366,9 +388,13 @@ class ResearchOwnerSkill:
         owned_spec = answer_model.finalize_answer_spec(owned_spec)
         return SkillAnswerContract(
             retrieval_plan=self.config.retrieval_plan,
-            output_contract=self.config.output_contract,
+            output_contract=output_contract,
             answer_spec=owned_spec,
             question_type=self.config.question_type,
+            task_frame_hash=(
+                task_frame.task_frame_hash if task_frame is not None else ""
+            ),
+            required_outputs=required_outputs,
         )
 
     @classmethod
@@ -580,6 +606,7 @@ class ResearchOwnerSkill:
         query: str,
         matched_theme: str | None,
         stage_artifacts: tuple[StageArtifact, ...],
+        output_contract: tuple[str, ...] | None = None,
     ) -> answer_model.AnswerSpec:
         research_spec = answer_model.resolve_theme_research_spec(
             query,
@@ -657,7 +684,7 @@ class ResearchOwnerSkill:
             system_notices=(
                 "能力守恒降级：阶段失败不删除其他已完成区块或必需标题。",
             ),
-            prompt_constraints=self.config.output_contract,
+            prompt_constraints=output_contract or self.config.output_contract,
             presentation_kind=self.config.presentation_kind,
             presentation_title=self.config.title,
             research_artifacts=stage_artifacts,

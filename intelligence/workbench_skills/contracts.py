@@ -8,6 +8,7 @@ from intelligence.services import answer_model
 from intelligence.services import retrieval_cache as retrieval_cache_service
 from intelligence.services.research_contract import ResearchDeadline
 from intelligence.services.run_store import RunStore, redact
+from intelligence.services.task_frame import TaskFrame
 
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
@@ -76,6 +77,10 @@ class SkillAnswerContract:
     output_contract: tuple[str, ...]
     answer_spec: answer_model.AnswerSpec
     question_type: str | None = None
+    # Canonical turn semantics are optional for legacy/third-party skills.
+    # Built-in research owners populate both fields from SkillExecutionContext.
+    task_frame_hash: str = ""
+    required_outputs: tuple[str, ...] = ()
 
 
 def build_module_answer_contract(
@@ -240,6 +245,7 @@ class SkillExecutionContext:
     repo_root: Path
     run_store: RunStore
     conversation_context: str = ""
+    task_frame: TaskFrame | None = None
     turn_intent: JsonObject | None = None
     research_plan: JsonObject | None = None
     inherited_answer_spec: JsonObject | None = None
