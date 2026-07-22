@@ -3,7 +3,8 @@
 ## 范围与版本
 
 - 实现分支：`fix/task-fulfillment-seam`
-- 当前提交：`b1531247ec53f878cb4a40e6df008bbdf99fe5b6`
+- Task Fulfillment 代码提交：`b1531247ec53f878cb4a40e6df008bbdf99fe5b6`
+- Overview 双根修复提交：`5c9adfe515427a9cbc16e6713c628ca54892e64f`
 - 候选基线：`fix/unified-evidence-capabilities`（`db86e860`）
 - `main` 与 canonical `8792` 未修改、未合并、未切换。
 - 实现说明：[`2026-07-22-task-fulfillment-seam-design.md`](../superpowers/specs/2026-07-22-task-fulfillment-seam-design.md)
@@ -55,10 +56,43 @@
 - 新增 [`intelligence/services/runtime_provenance.py`](../../intelligence/services/runtime_provenance.py)：health 输出代码 revision、dirty、路径和依赖指纹，防止“验的是一个版本、跑的是另一个版本”。
 - 新增 [`scripts/semantic_acceptance.py`](../../scripts/semantic_acceptance.py)：验收最终用户消息和 `answer_status`，而不是只看 API 200 或 run completed。
 
+## Overview 双根故障修复补充
+
+用户在隔离 8795 首页观察到“数据缺失，全部是 7 月 1 日”。直接 API 复现为：
+
+```text
+as_of_date=None
+signal_date=2026-07-01
+database=missing
+agent_artifact=<code worktree>/market_feature_store/exports/2026-07-01-daily-agent.json
+```
+
+根因不是私有数据过期：DuckDB 多数核心表最新为 `2026-07-21`，正式 Daily Agent 最新为 `2026-07-20`。问题是 `/api/workbench/overview` 将代码 `repo_root` 同时用于查找 DB 和 exports；clean worktree 没有私有 DB，只残留 7 月 1 日测试/版本化产物。对话 Orchestrator 的双根修复没有覆盖这一条首页链路。
+
+修复后，应用 composition root 将 `default_paths().finance_root` 显式注入 Overview，服务参数也改名为 `finance_root`；health 同时公开 `code_root` 和 `finance_root`。公共 API 回归使用两个不同目录，确保旧 worktree 产物不能覆盖私有数据根。
+
+隔离 runtime 原始复现已转绿：
+
+```text
+as_of_date=2026-07-21
+signal_date=2026-07-20
+market_stage=反弹阶段
+agent_artifact=market_feature_store/exports/2026-07-20-daily-agent.json
+missing_database=false
+code_root=/Users/a77/.codex/worktrees/finance-task-fulfillment
+finance_root=/Users/a77/finance-workspace-private
+source_dirty=false
+```
+
+验证结果：
+
+- Overview/API/runtime provenance 聚焦回归：`76 passed`
+- intelligence 全量：`1934 passed, 11 failed`；11 个仍为既有 `subconscious/userspace` 本机路径/环境失败，本轮无新增失败
+- 当前 revision 再跑三问：`semantic acceptance outcome: passed`
+
 ## 已知边界与后续优先级
 
 1. 本轮 task gate 是确定性契约检查，不是完整的 LLM/NLI 因果蕴含判定；后者应作为证据语义审判层的增强，不应替代现有 fail-closed。
 2. 当前隔离环境没有配置自然语言 LLM provider，因此 forecast/mainline 的“精修表达”降级是预期现象；真实 provider smoke 仍需在目标 runtime 的凭据与版本条件下单独验收。
 3. mainline 数据新鲜度不足时，正确行为是报告 gap；要得到主线判断，先补齐同日主题/行业/强势股证据并重跑验收。
 4. 合并与 8792 cutover 尚未授权；下一步应先 review 本分支，再在干净 detached runtime 运行同一 acceptance，最后才考虑原子切换。
-
