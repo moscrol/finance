@@ -399,11 +399,7 @@ class ContinuousAgentEpisode:
                 invalid_actions += 1
                 reason = str(exc)
                 ledger.add("invalid_action", {"reason": reason})
-                if (
-                    finish_failures == 1
-                    and not finalization_started
-                    and _round < context.policy.max_steps
-                ):
+                if finish_failures == 1 and not finalization_started:
                     messages.append(
                         {
                             "role": "user",

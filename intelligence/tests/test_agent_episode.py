@@ -801,6 +801,38 @@ def test_invalid_finish_after_normal_repair_recovers_only_once() -> None:
     ) == 1
 
 
+def test_last_planning_round_invalid_gets_repair_before_compact_recovery() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情 1", call_id="research-call-1"),
+            _tool_turn("A股 最新行情 2", call_id="research-call-2"),
+            ModelTurn("not json", (), "scripted", ""),
+            ModelTurn("still not json", (), "scripted", ""),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=3),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "finalization_recovered"
+    assert len(model.calls) == 5
+    repair_call = model.calls[3]
+    assert any(
+        message["role"] == "user" and "上一条终止输出无效" in message["content"]
+        for message in repair_call["messages"]
+    )
+    assert model.calls[4]["tools"] == []
+    assert [event.kind for event in outcome.events].count(
+        "finalization_recovery_started"
+    ) == 1
+
+
 def test_first_invalid_finish_after_tools_close_uses_compact_recovery() -> None:
     frame = _frame()
     model = ScriptedModel(
