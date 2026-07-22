@@ -4,6 +4,8 @@ from copy import deepcopy
 import json
 from threading import Event, Lock
 
+import pytest
+
 from intelligence.services.agent_episode import ContinuousAgentEpisode
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import (
@@ -27,7 +29,7 @@ from intelligence.services.task_frame import TaskFrame
 
 
 class ScriptedModel:
-    def __init__(self, turns: list[ModelTurn]) -> None:
+    def __init__(self, turns: list[ModelTurn | Exception]) -> None:
         self._turns = iter(turns)
         self.calls: list[dict[str, object]] = []
 
@@ -39,7 +41,10 @@ class ScriptedModel:
                 "timeout": timeout,
             }
         )
-        return next(self._turns)
+        effect = next(self._turns)
+        if isinstance(effect, Exception):
+            raise effect
+        return effect
 
 
 def _frame(required_outputs: tuple[str, ...] = ("direct_assessment",)) -> TaskFrame:
@@ -172,6 +177,28 @@ def _finish_turn(
         "scripted",
         "",
     )
+
+
+class _ScriptedDeadline:
+    """Deterministic time boundary for recovery cutoff behavior."""
+
+    def __init__(self, stage_timeouts: tuple[float, ...], synthesis: float) -> None:
+        self._stage_timeouts = iter(stage_timeouts)
+        self._synthesis = synthesis
+        self.synthesis_reserve = 0.0
+
+    def stage_timeout(self, configured_limit: float) -> float:
+        return min(configured_limit, next(self._stage_timeouts, self._synthesis))
+
+    def synthesis_timeout(self, configured_limit: float) -> float:
+        return min(configured_limit, self._synthesis)
+
+    def remaining(self) -> float:
+        return self._synthesis
+
+    @property
+    def expired(self) -> bool:
+        return self._synthesis <= 0.0
 
 
 def test_second_model_turn_keeps_first_action_and_raw_tool_observation() -> None:
@@ -693,6 +720,205 @@ def test_model_unavailable_before_evidence_fails_honestly() -> None:
     assert outcome.stop_reason == "model_unavailable"
     assert outcome.draft == ""
     assert "provider unavailable" in outcome.gaps
+    assert len(model.calls) == 1
+    assert not any(
+        event.kind == "finalization_recovery_started" for event in outcome.events
+    )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        RuntimeError("transport unavailable"),
+        ModelTurn("", (), "glm", "provider unavailable"),
+    ],
+    ids=("exception", "provider_error"),
+)
+def test_model_failure_after_evidence_gets_exactly_one_compact_recovery(
+    failure: Exception | ModelTurn,
+) -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            failure,
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "finalization_recovered"
+    assert len(model.calls) == 3
+    assert model.calls[-1]["tools"] == []
+    assert outcome.usage.llm_calls == 3
+    assert [event.kind for event in outcome.events].count(
+        "finalization_recovery_started"
+    ) == 1
+    recovery_turns = [
+        event
+        for event in outcome.events
+        if event.kind == "model_turn"
+        and event.payload.get("phase") == "finalization_recovery"
+    ]
+    assert len(recovery_turns) == 1
+    recovery_outcomes = [
+        event
+        for event in outcome.events
+        if event.kind == "finalization_recovery_outcome"
+    ]
+    assert len(recovery_outcomes) == 1
+    assert recovery_outcomes[0].payload["status"] == "recovered"
+
+
+def test_invalid_finish_after_normal_repair_recovers_only_once() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            ModelTurn("not json", (), "scripted", ""),
+            ModelTurn("still not json", (), "scripted", ""),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "finalization_recovered"
+    assert len(model.calls) == 4
+    assert [event.kind for event in outcome.events].count(
+        "finalization_recovery_started"
+    ) == 1
+
+
+def test_first_invalid_finish_after_tools_close_uses_compact_recovery() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            ModelTurn("not json", (), "scripted", ""),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "finalization_recovered"
+    assert len(model.calls) == 3
+    assert model.calls[1]["tools"] == []
+    assert model.calls[2]["tools"] == []
+
+
+def test_tool_call_after_finalization_closed_uses_compact_recovery() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情", call_id="research-call"),
+            _tool_turn("不应执行", call_id="closed-call"),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame, max_steps=1),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.stop_reason == "finalization_recovered"
+    assert outcome.usage.tool_calls == 1
+    assert outcome.usage.invalid_actions == 1
+    assert len(model.calls) == 3
+    assert model.calls[1]["tools"] == []
+    assert model.calls[2]["tools"] == []
+
+
+def test_compact_recovery_is_not_called_with_less_than_one_second_left() -> None:
+    frame = _frame()
+    base_context = _context(frame)
+    context = ResearchRunContext(
+        contract=base_context.contract,
+        deadline=_ScriptedDeadline((20.0, 20.0, 0.5), 0.5),  # type: ignore[arg-type]
+        policy=base_context.policy,
+        trace_parent_id=base_context.trace_parent_id,
+        today=base_context.today,
+        latest_data_date=base_context.latest_data_date,
+    )
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            ModelTurn("", (), "glm", "provider unavailable"),
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "model_unavailable"
+    assert len(model.calls) == 2
+    assert not any(
+        event.kind == "finalization_recovery_started" for event in outcome.events
+    )
+
+
+def test_recovered_unknown_evidence_hash_is_rejected_without_recursive_retry() -> None:
+    frame = _frame()
+    invalid_recovery = _finish_turn(hashes=("invented-hash",))
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            ModelTurn("not json", (), "scripted", ""),
+            ModelTurn("still not json", (), "scripted", ""),
+            invalid_recovery,
+            _finish_turn(),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "partial"
+    assert outcome.stop_reason == "finalization_recovery_failed"
+    assert outcome.draft == ""
+    assert len(model.calls) == 4
+    assert [event.kind for event in outcome.events].count(
+        "finalization_recovery_started"
+    ) == 1
+    assert any(
+        event.kind == "invalid_action"
+        and "unknown evidence hash" in str(event.payload.get("reason"))
+        for event in outcome.events
+    )
+    recovery_outcome = next(
+        event
+        for event in outcome.events
+        if event.kind == "finalization_recovery_outcome"
+    )
+    assert recovery_outcome.payload["status"] == "failed"
 
 
 def test_episode_usage_counts_adapter_provider_attempts() -> None:

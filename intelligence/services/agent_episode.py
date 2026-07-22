@@ -19,6 +19,10 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
     public_agent_evidence,
 )
+from intelligence.services.episode_finalizer import (
+    MIN_FINALIZATION_RECOVERY_SECONDS,
+    EpisodeFinalizer,
+)
 from intelligence.services.episode_tool_batch import ToolBatchExecutor, ToolBatchResult
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
@@ -171,11 +175,17 @@ class ContinuousAgentEpisode:
         *,
         llm_timeout: float = DEFAULT_LLM_TIMEOUT,
         tool_executor: ToolBatchExecutor | None = None,
+        finalizer: EpisodeFinalizer | None = None,
     ) -> None:
         self._model = model
         self._llm_timeout = max(0.1, float(llm_timeout))
         self._tool_executor = (
             tool_executor if tool_executor is not None else ToolBatchExecutor()
+        )
+        self._finalizer = (
+            finalizer
+            if finalizer is not None
+            else EpisodeFinalizer(model, llm_timeout=self._llm_timeout)
         )
 
     def run(
@@ -272,6 +282,20 @@ class ContinuousAgentEpisode:
                 llm_calls += 1
                 reason = f"model_exception:{type(exc).__name__}"
                 ledger.add("model_error", {"reason": reason})
+                if self._can_recover_finalization(
+                    context=context,
+                    evidence=accumulator.evidence,
+                ):
+                    return self._recover_finalization(
+                        task_frame=task_frame,
+                        context=context,
+                        ledger=ledger,
+                        accumulator=accumulator,
+                        failure_reason=reason,
+                        llm_calls=llm_calls,
+                        tool_calls=tool_calls,
+                        invalid_actions=invalid_actions,
+                    )
                 return self._stopped_outcome(
                     task_frame=task_frame,
                     status="partial" if accumulator.evidence else "failed",
@@ -290,6 +314,20 @@ class ContinuousAgentEpisode:
             ledger.add("model_turn", turn.to_dict())
             if turn.error:
                 ledger.add("model_error", {"reason": turn.error})
+                if self._can_recover_finalization(
+                    context=context,
+                    evidence=accumulator.evidence,
+                ):
+                    return self._recover_finalization(
+                        task_frame=task_frame,
+                        context=context,
+                        ledger=ledger,
+                        accumulator=accumulator,
+                        failure_reason=turn.error,
+                        llm_calls=llm_calls,
+                        tool_calls=tool_calls,
+                        invalid_actions=invalid_actions,
+                    )
                 return self._stopped_outcome(
                     task_frame=task_frame,
                     status="partial" if accumulator.evidence else "failed",
@@ -308,10 +346,25 @@ class ContinuousAgentEpisode:
             if turn.tool_calls:
                 if finalization_started:
                     invalid_actions += len(turn.tool_calls)
+                    reason = "tool_call_during_finalization"
                     ledger.add(
                         "invalid_action",
-                        {"reason": "tool_call_during_finalization"},
+                        {"reason": reason},
                     )
+                    if self._can_recover_finalization(
+                        context=context,
+                        evidence=accumulator.evidence,
+                    ):
+                        return self._recover_finalization(
+                            task_frame=task_frame,
+                            context=context,
+                            ledger=ledger,
+                            accumulator=accumulator,
+                            failure_reason=reason,
+                            llm_calls=llm_calls,
+                            tool_calls=tool_calls,
+                            invalid_actions=invalid_actions,
+                        )
                     return self._stopped_outcome(
                         task_frame=task_frame,
                         status="partial",
@@ -362,6 +415,20 @@ class ContinuousAgentEpisode:
                         }
                     )
                     continue
+                if self._can_recover_finalization(
+                    context=context,
+                    evidence=accumulator.evidence,
+                ):
+                    return self._recover_finalization(
+                        task_frame=task_frame,
+                        context=context,
+                        ledger=ledger,
+                        accumulator=accumulator,
+                        failure_reason=reason,
+                        llm_calls=llm_calls,
+                        tool_calls=tool_calls,
+                        invalid_actions=invalid_actions,
+                    )
                 return self._stopped_outcome(
                     task_frame=task_frame,
                     status="partial",
@@ -408,6 +475,173 @@ class ContinuousAgentEpisode:
             status="partial",
             stop_reason="step_exhausted",
             gap="研究预算已耗尽，仍有必需输出未覆盖",
+            ledger=ledger,
+            evidence=accumulator.evidence,
+            traces=accumulator.traces,
+            gaps=accumulator.gaps,
+            llm_calls=llm_calls,
+            tool_calls=tool_calls,
+            invalid_actions=invalid_actions,
+        )
+
+    def _can_recover_finalization(
+        self,
+        *,
+        context: ResearchRunContext,
+        evidence: list[AgentEvidence],
+    ) -> bool:
+        return bool(evidence) and (
+            context.deadline.synthesis_timeout(self._llm_timeout)
+            >= MIN_FINALIZATION_RECOVERY_SECONDS
+        )
+
+    def _recover_finalization(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        ledger: _EpisodeLedger,
+        accumulator: _EpisodeToolAccumulator,
+        failure_reason: str,
+        llm_calls: int,
+        tool_calls: int,
+        invalid_actions: int,
+    ) -> AgentOutcome:
+        """Attempt exactly one compact recovery and always return a terminal outcome."""
+
+        ledger.add(
+            "finalization_recovery_started",
+            {"failure_reason": failure_reason},
+        )
+        try:
+            turn = self._finalizer.recover(
+                task_frame=task_frame,
+                context=context,
+                evidence=tuple(accumulator.evidence),
+                gaps=tuple(accumulator.gaps),
+                failure_reason=failure_reason,
+            )
+        except Exception as exc:
+            llm_calls += 1
+            reason = f"finalization_recovery_exception:{type(exc).__name__}"
+            ledger.add("model_error", {"reason": reason})
+            return self._failed_recovery_outcome(
+                task_frame=task_frame,
+                ledger=ledger,
+                accumulator=accumulator,
+                reason=reason,
+                public_gap="终局恢复失败，无法生成可验证回答",
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
+
+        llm_calls += turn.provider_attempts
+        ledger.add(
+            "model_turn",
+            {"phase": "finalization_recovery", **turn.to_dict()},
+        )
+        if turn.error:
+            ledger.add("model_error", {"reason": turn.error})
+            return self._failed_recovery_outcome(
+                task_frame=task_frame,
+                ledger=ledger,
+                accumulator=accumulator,
+                reason=turn.error,
+                public_gap="终局恢复失败，无法生成可验证回答",
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
+
+        if turn.tool_calls:
+            invalid_actions += len(turn.tool_calls)
+            reason = "tool_call_during_finalization_recovery"
+            ledger.add("invalid_action", {"reason": reason})
+            return self._failed_recovery_outcome(
+                task_frame=task_frame,
+                ledger=ledger,
+                accumulator=accumulator,
+                reason=reason,
+                public_gap="终局恢复仍尝试调用工具，无法生成可验证回答",
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
+
+        try:
+            status, draft, final_gaps, bindings = self._parse_finish(
+                turn.content,
+                context=context,
+                evidence_hashes=accumulator.evidence_hashes,
+            )
+        except ValueError as exc:
+            invalid_actions += 1
+            reason = str(exc)
+            ledger.add("invalid_action", {"reason": reason})
+            return self._failed_recovery_outcome(
+                task_frame=task_frame,
+                ledger=ledger,
+                accumulator=accumulator,
+                reason=reason,
+                public_gap="终局恢复未能返回可验证的结构化结果",
+                llm_calls=llm_calls,
+                tool_calls=tool_calls,
+                invalid_actions=invalid_actions,
+            )
+
+        self._extend_unique(accumulator.gaps, final_gaps)
+        self._extend_unique(
+            accumulator.gaps,
+            tuple(item.gap for item in bindings),
+        )
+        ledger.add(
+            "finalization_recovery_outcome",
+            {"status": "recovered", "answer_status": status},
+        )
+        ledger.add(
+            "finish",
+            {
+                "status": status,
+                "stop_reason": "finalization_recovered",
+                "bindings": [item.to_dict() for item in bindings],
+                "gaps": list(final_gaps),
+            },
+        )
+        return AgentOutcome(
+            task_frame_hash=task_frame.task_frame_hash,
+            status=status,
+            draft=draft,
+            evidence=tuple(accumulator.evidence),
+            traces=tuple(accumulator.traces),
+            gaps=tuple(accumulator.gaps),
+            stop_reason="finalization_recovered",
+            events=tuple(ledger.events),
+            bindings=bindings,
+            usage=AgentUsage(llm_calls, tool_calls, invalid_actions),
+        )
+
+    @staticmethod
+    def _failed_recovery_outcome(
+        *,
+        task_frame: TaskFrame,
+        ledger: _EpisodeLedger,
+        accumulator: _EpisodeToolAccumulator,
+        reason: str,
+        public_gap: str,
+        llm_calls: int,
+        tool_calls: int,
+        invalid_actions: int,
+    ) -> AgentOutcome:
+        ledger.add(
+            "finalization_recovery_outcome",
+            {"status": "failed", "reason": reason},
+        )
+        return ContinuousAgentEpisode._stopped_outcome(
+            task_frame=task_frame,
+            status="partial",
+            stop_reason="finalization_recovery_failed",
+            gap=public_gap,
             ledger=ledger,
             evidence=accumulator.evidence,
             traces=accumulator.traces,
