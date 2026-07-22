@@ -274,13 +274,11 @@ class EpisodeToolBatchSession:
                 future = executor.submit(worker_context.run, guarded_operation)
                 future_candidates[future] = candidate
 
-            wait(
+            completed, unfinished = wait(
                 tuple(future_candidates),
                 timeout=timeout,
             )
             publish_guard.close()
-            completed = {future for future in future_candidates if future.done()}
-            unfinished = set(future_candidates) - completed
             for future in unfinished:
                 future.cancel()
                 candidate = future_candidates[future]

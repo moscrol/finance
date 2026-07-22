@@ -6,7 +6,7 @@ from contextvars import ContextVar
 from threading import Barrier, Event, Lock
 import time
 
-from intelligence.services import agent_research, query_ledger
+from intelligence.services import agent_research, episode_tool_batch, query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
 from intelligence.services.episode_tool_batch import ToolBatchExecutor
 from intelligence.services.evidence_capabilities import (
@@ -764,3 +764,46 @@ def test_exception_timeout_and_empty_result_keep_original_call_order() -> None:
     assert completion_order[:2] == ["market_data", "web_search"]
     assert timeout_finished.wait(1.0)
     assert completion_order == ["market_data", "web_search", "kb_search"]
+
+
+def test_call_unfinished_in_wait_snapshot_stays_timeout_after_late_completion(
+    monkeypatch,
+) -> None:
+    runner_started = Event()
+    release_runner = Event()
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        runner_started.set()
+        release_runner.wait(timeout=1.0)
+        return _evidence_result("market_data", query)
+
+    def wait_at_deadline(futures, *, timeout):
+        del timeout
+        future_set = set(futures)
+        assert runner_started.wait(timeout=1.0)
+        deadline_done: set = set()
+        deadline_not_done = set(future_set)
+        release_runner.set()
+        for future in future_set:
+            future.result(timeout=1.0)
+        return deadline_done, deadline_not_done
+
+    monkeypatch.setattr(episode_tool_batch, "wait", wait_at_deadline)
+
+    result = (
+        ToolBatchExecutor()
+        .new_session()
+        .execute(
+            (ModelToolCall("late", "market_data", {"query": "market"}),),
+            registry=_registry(market_data=runner),
+            context=_context(timeout=1.0),
+            remaining_slots=1,
+        )
+    )
+
+    assert result.items[0].status == "timeout"
+    assert result.items[0].error == "tool_timeout"
+    assert result.items[0].observation is None
