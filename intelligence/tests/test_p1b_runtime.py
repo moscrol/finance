@@ -162,8 +162,7 @@ class LLMCallLedgerTests(unittest.TestCase):
         with llm_refine.call_ledger_scope() as ledger:
             pool = ThreadPoolExecutor(max_workers=2)
             futures = [
-                pool.submit(contextvars.copy_context().run, worker)
-                for _ in range(3)
+                pool.submit(contextvars.copy_context().run, worker) for _ in range(3)
             ]
             for future in futures:
                 future.result()
@@ -294,9 +293,7 @@ class LLMCallLedgerTests(unittest.TestCase):
             with mock.patch.object(
                 llm_refine.urllib.request,
                 "urlopen",
-                side_effect=lambda *a, **k: _fake_urlopen_response(
-                    _CHAT_PAYLOAD
-                ),
+                side_effect=lambda *a, **k: _fake_urlopen_response(_CHAT_PAYLOAD),
             ):
                 with llm_refine.call_ledger_scope() as ledger:
                     for _ in range(3):
@@ -329,6 +326,106 @@ class QueryLedgerTests(unittest.TestCase):
         summary = ledger.summary()
         self.assertEqual(summary["executed_count"], 1)
         self.assertEqual(summary["deduped_count"], 1)
+
+    def test_closed_publish_guard_discards_late_result_and_allows_retry(self) -> None:
+        fetch_started = threading.Event()
+        release_fetch = threading.Event()
+        calls: list[str] = []
+
+        def late_fetch() -> str:
+            calls.append("late")
+            fetch_started.set()
+            release_fetch.wait(timeout=2)
+            return "late-result"
+
+        guard = query_ledger.QueryPublishGuard()
+        with query_ledger.query_ledger_scope() as ledger:
+            worker_context = contextvars.copy_context()
+            pool = ThreadPoolExecutor(max_workers=1)
+
+            def execute_guarded() -> str:
+                with query_ledger.query_publish_guard_scope(guard):
+                    return query_ledger.executed(
+                        "web_search",
+                        "late query",
+                        late_fetch,
+                    )
+
+            future = pool.submit(worker_context.run, execute_guarded)
+            self.assertTrue(fetch_started.wait(timeout=1))
+            guard.close()
+            release_fetch.set()
+            self.assertEqual(future.result(timeout=2), "late-result")
+            self.assertEqual(ledger.summary()["executed_count"], 0)
+
+            retried = query_ledger.executed(
+                "web_search",
+                "late query",
+                lambda: calls.append("retry") or "retry-result",
+            )
+            pool.shutdown()
+
+        self.assertEqual(retried, "retry-result")
+        self.assertEqual(calls, ["late", "retry"])
+        self.assertEqual(ledger.summary()["executed_count"], 1)
+
+    def test_closed_publish_guard_releases_same_key_waiters_without_cache(
+        self,
+    ) -> None:
+        fetch_started = threading.Event()
+        waiter_entered = threading.Event()
+        release_fetch = threading.Event()
+        calls: list[str] = []
+
+        def fetch() -> str:
+            calls.append("fetch")
+            fetch_started.set()
+            release_fetch.wait(timeout=2)
+            return "shared-result"
+
+        guard = query_ledger.QueryPublishGuard()
+        with query_ledger.query_ledger_scope() as ledger:
+            contexts = [contextvars.copy_context() for _ in range(2)]
+            pool = ThreadPoolExecutor(max_workers=2)
+
+            def execute_guarded(*, waiter: bool = False) -> str:
+                if waiter:
+                    waiter_entered.set()
+                with query_ledger.query_publish_guard_scope(guard):
+                    return query_ledger.executed("web_search", "same", fetch)
+
+            owner = pool.submit(contexts[0].run, execute_guarded)
+            self.assertTrue(fetch_started.wait(timeout=1))
+            waiter = pool.submit(
+                contexts[1].run,
+                execute_guarded,
+                waiter=True,
+            )
+            self.assertTrue(waiter_entered.wait(timeout=1))
+            guard.close()
+            release_fetch.set()
+
+            self.assertEqual(owner.result(timeout=2), "shared-result")
+            self.assertEqual(waiter.result(timeout=2), "shared-result")
+            pool.shutdown()
+
+        self.assertEqual(calls, ["fetch"])
+        self.assertEqual(ledger.summary()["executed_count"], 0)
+
+    def test_publish_guard_without_active_ledger_is_passthrough(self) -> None:
+        guard = query_ledger.QueryPublishGuard()
+        guard.close()
+        calls: list[str] = []
+
+        with query_ledger.query_publish_guard_scope(guard):
+            result = query_ledger.executed(
+                "web_search",
+                "no ledger",
+                lambda: calls.append("fetch") or "result",
+            )
+
+        self.assertEqual(result, "result")
+        self.assertEqual(calls, ["fetch"])
 
     def test_query_normalization_merges_whitespace_and_case(self) -> None:
         calls: list[str] = []
@@ -627,9 +724,7 @@ class AgentGraphToolsTests(unittest.TestCase):
 
         self.assertEqual(result.steps[0].tool, "graph_lookup")
         self.assertGreater(result.steps[0].hit_count, 0)
-        self.assertTrue(
-            any(item.tool == "graph_lookup" for item in result.evidence)
-        )
+        self.assertTrue(any(item.tool == "graph_lookup" for item in result.evidence))
         self.assertTrue(result.sufficient)
 
     def test_l3_and_market_tools_are_registered_names(self) -> None:
@@ -662,9 +757,7 @@ class AgentGraphToolsTests(unittest.TestCase):
         )
 
         self.assertEqual(len(evidence), 3)
-        self.assertTrue(
-            all(item.tool == "market_data" for item in evidence)
-        )
+        self.assertTrue(all(item.tool == "market_data" for item in evidence))
         self.assertTrue(
             all(item.source == "本地 DuckDB · 市场总览" for item in evidence)
         )
@@ -735,9 +828,7 @@ class OwnerRawResultChannelTests(unittest.TestCase):
                 gaps=(),
                 triggers=(),
                 next_actions=("T+1 复核",),
-                sources=(
-                    EvidenceRef(evidence_id="S1", source="盘面快照", tier="L4"),
-                ),
+                sources=(EvidenceRef(evidence_id="S1", source="盘面快照", tier="L4"),),
                 system_notices=(),
             )
         )

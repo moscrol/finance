@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 from threading import Barrier, Event, Lock
 import time
@@ -246,8 +247,8 @@ def test_duplicate_and_unauthorized_calls_never_reach_runners() -> None:
         kb_search=counting_runner("kb_search"),
         market_data=counting_runner("market_data"),
     )
-    executor = ToolBatchExecutor()
-    seed = executor.execute(
+    session = ToolBatchExecutor().new_session()
+    seed = session.execute(
         (ModelToolCall("seed", "market_data", {"query": "Seed"}),),
         registry=registry,
         context=_context(),
@@ -256,7 +257,7 @@ def test_duplicate_and_unauthorized_calls_never_reach_runners() -> None:
     assert seed.items[0].status == "success"
     runner_calls["market_data"] = 0
 
-    result = executor.execute(
+    result = session.execute(
         (
             ModelToolCall("unknown", "shell", {"query": "do not run"}),
             ModelToolCall("unauthorized", "web_search", {"query": "do not run"}),
@@ -289,6 +290,343 @@ def test_duplicate_and_unauthorized_calls_never_reach_runners() -> None:
     assert runner_calls == {"web_search": 0, "kb_search": 1, "market_data": 0}
     assert result.executed_count == 1
     assert result.normalized_queries == (("kb_search", "same kb"),)
+
+
+def test_same_session_dedupes_across_batches() -> None:
+    runner_calls = 0
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        nonlocal runner_calls
+        runner_calls += 1
+        return _evidence_result("market_data", query)
+
+    session = ToolBatchExecutor().new_session()
+    first = session.execute(
+        (ModelToolCall("first", "market_data", {"query": " Same query "}),),
+        registry=_registry(market_data=runner),
+        context=_context(),
+        remaining_slots=1,
+    )
+    second = session.execute(
+        (ModelToolCall("second", "market_data", {"query": "same QUERY"}),),
+        registry=_registry(market_data=runner),
+        context=_context(),
+        remaining_slots=1,
+    )
+
+    assert first.items[0].status == "success"
+    assert second.items[0].status == "rejected"
+    assert second.items[0].error == "duplicate_query"
+    assert runner_calls == 1
+
+
+def test_same_session_serializes_concurrent_duplicate_admission() -> None:
+    runner_started = Event()
+    release_runner = Event()
+    runner_calls = 0
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        nonlocal runner_calls
+        runner_calls += 1
+        runner_started.set()
+        release_runner.wait(timeout=2.0)
+        return _evidence_result("market_data", query)
+
+    registry = _registry(market_data=runner)
+    context = _context(timeout=2.0)
+    session = ToolBatchExecutor().new_session()
+    pool = ThreadPoolExecutor(max_workers=2)
+    first = pool.submit(
+        session.execute,
+        (ModelToolCall("first", "market_data", {"query": "same"}),),
+        registry=registry,
+        context=context,
+        remaining_slots=1,
+    )
+    assert runner_started.wait(timeout=1.0)
+    second = pool.submit(
+        session.execute,
+        (ModelToolCall("second", "market_data", {"query": " SAME "}),),
+        registry=registry,
+        context=context,
+        remaining_slots=1,
+    )
+    release_runner.set()
+    results = [first.result(timeout=2), second.result(timeout=2)]
+    pool.shutdown()
+
+    assert [result.items[0].status for result in results] == [
+        "success",
+        "rejected",
+    ]
+    assert results[1].items[0].error == "duplicate_query"
+    assert runner_calls == 1
+
+
+def test_new_sessions_isolate_episode_seen_queries() -> None:
+    runner_calls = 0
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        nonlocal runner_calls
+        runner_calls += 1
+        return _evidence_result("market_data", query)
+
+    executor = ToolBatchExecutor()
+    results = [
+        executor.new_session().execute(
+            (ModelToolCall(f"call-{index}", "market_data", {"query": "same"}),),
+            registry=_registry(market_data=runner),
+            context=_context(),
+            remaining_slots=1,
+        )
+        for index in range(2)
+    ]
+
+    assert [result.items[0].status for result in results] == ["success", "success"]
+    assert runner_calls == 2
+
+
+def test_factory_execute_uses_a_fresh_ephemeral_session_per_call() -> None:
+    runner_calls = 0
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        nonlocal runner_calls
+        runner_calls += 1
+        return _evidence_result("market_data", query)
+
+    executor = ToolBatchExecutor()
+    results = [
+        executor.execute(
+            (ModelToolCall(f"call-{index}", "market_data", {"query": "same"}),),
+            registry=_registry(market_data=runner),
+            context=_context(),
+            remaining_slots=1,
+        )
+        for index in range(2)
+    ]
+
+    assert [result.items[0].status for result in results] == ["success", "success"]
+    assert runner_calls == 2
+
+
+def test_step_ids_are_monotonic_across_batches_in_original_model_order() -> None:
+    session = ToolBatchExecutor().new_session()
+    first = session.execute(
+        (
+            ModelToolCall("web-first", "web_search", {"query": "web"}),
+            ModelToolCall("market-second", "market_data", {"query": "market"}),
+        ),
+        registry=_registry(),
+        context=_context(),
+        remaining_slots=2,
+    )
+    second = session.execute(
+        (ModelToolCall("kb-third", "kb_search", {"query": "kb"}),),
+        registry=_registry(),
+        context=_context(),
+        remaining_slots=1,
+    )
+
+    assert [item.observation.trace.step_id for item in first.items] == [
+        "tool-batch-test:episode:tool:1",
+        "tool-batch-test:episode:tool:2",
+    ]
+    assert second.items[0].observation is not None
+    assert second.items[0].observation.trace.step_id == (
+        "tool-batch-test:episode:tool:3"
+    )
+
+
+def test_strict_arguments_and_duplicate_call_ids_are_rejected_before_dispatch() -> None:
+    runner_calls = {"web_search": 0, "kb_search": 0, "market_data": 0}
+
+    def runner(tool: str) -> Runner:
+        def run(
+            query: str,
+            _context: agent_research.AgentToolContext,
+        ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+            runner_calls[tool] += 1
+            return _evidence_result(tool, query)
+
+        return run
+
+    result = (
+        ToolBatchExecutor()
+        .new_session()
+        .execute(
+            (
+                ModelToolCall(
+                    "extra",
+                    "web_search",
+                    {"query": "web", "limit": 5},
+                ),
+                ModelToolCall("missing", "web_search", {}),
+                ModelToolCall("dup", "kb_search", {"query": "kb"}),
+                ModelToolCall("dup", "market_data", {"query": "market"}),
+                ModelToolCall("bad-query", "market_data", {"query": 7}),
+            ),
+            registry=_registry(
+                web_search=runner("web_search"),
+                kb_search=runner("kb_search"),
+                market_data=runner("market_data"),
+            ),
+            context=_context(),
+            remaining_slots=5,
+        )
+    )
+
+    assert [item.status for item in result.items] == [
+        "rejected",
+        "rejected",
+        "success",
+        "rejected",
+        "rejected",
+    ]
+    assert [item.error for item in result.items] == [
+        "invalid_arguments",
+        "invalid_arguments",
+        "",
+        "duplicate_call_id",
+        "invalid_query",
+    ]
+    assert runner_calls == {"web_search": 0, "kb_search": 1, "market_data": 0}
+
+
+def test_runner_timeout_error_maps_to_timeout_status() -> None:
+    def runner(
+        _query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        raise TimeoutError("provider deadline")
+
+    result = (
+        ToolBatchExecutor()
+        .new_session()
+        .execute(
+            (ModelToolCall("timeout", "market_data", {"query": "market"}),),
+            registry=_registry(market_data=runner),
+            context=_context(),
+            remaining_slots=1,
+        )
+    )
+
+    assert result.items[0].status == "timeout"
+    assert result.items[0].error == "tool_timeout"
+    assert result.items[0].observation is None
+    assert result.executed_count == 1
+
+
+def test_expired_deadline_does_not_submit_or_consume_query_and_step_id() -> None:
+    runner_calls = 0
+    release_runner = Event()
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        nonlocal runner_calls
+        runner_calls += 1
+        release_runner.wait(timeout=1.0)
+        return _evidence_result("market_data", query)
+
+    session = ToolBatchExecutor().new_session()
+    try:
+        expired = session.execute(
+            (ModelToolCall("expired", "market_data", {"query": "same"}),),
+            registry=_registry(market_data=runner),
+            context=_context(timeout=0.0),
+            remaining_slots=1,
+        )
+    finally:
+        release_runner.set()
+    retried = session.execute(
+        (ModelToolCall("retry", "market_data", {"query": "same"}),),
+        registry=_registry(market_data=runner),
+        context=_context(timeout=1.0),
+        remaining_slots=1,
+    )
+
+    assert expired.items[0].status == "timeout"
+    assert expired.executed_count == 0
+    assert expired.normalized_queries == ()
+    assert retried.items[0].status == "success"
+    assert retried.items[0].observation is not None
+    assert retried.items[0].observation.trace.step_id == (
+        "tool-batch-test:episode:tool:1"
+    )
+    assert runner_calls == 1
+
+
+def test_timed_out_runner_cannot_publish_late_query_ledger_result() -> None:
+    release_runner = Event()
+    registry_finished = Event()
+    runner_calls = 0
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        nonlocal runner_calls
+        runner_calls += 1
+        release_runner.wait(timeout=2.0)
+        return _evidence_result("market_data", query)
+
+    class NotifyingRegistry(ResearchToolRegistry):
+        def execute(self, *args, **kwargs):
+            try:
+                return super().execute(*args, **kwargs)
+            finally:
+                registry_finished.set()
+
+    base_registry = _registry(market_data=runner)
+    registry = NotifyingRegistry(base_registry.authorized_specs())
+
+    with query_ledger.query_ledger_scope() as ledger:
+        try:
+            timed_out = (
+                ToolBatchExecutor()
+                .new_session()
+                .execute(
+                    (ModelToolCall("slow", "market_data", {"query": "same"}),),
+                    registry=registry,
+                    context=_context(timeout=0.1),
+                    remaining_slots=1,
+                )
+            )
+        finally:
+            release_runner.set()
+
+        assert timed_out.items[0].status == "timeout"
+        assert registry_finished.wait(timeout=1.0)
+        assert ledger.summary()["executed_count"] == 0
+
+        retried = (
+            ToolBatchExecutor()
+            .new_session()
+            .execute(
+                (ModelToolCall("retry", "market_data", {"query": "same"}),),
+                registry=registry,
+                context=_context(timeout=1.0),
+                remaining_slots=1,
+            )
+        )
+
+        assert retried.items[0].status == "success"
+        assert ledger.summary()["executed_count"] == 1
+
+    assert runner_calls == 2
 
 
 def test_calls_beyond_budget_are_rejected_after_mandatory_priority_selection() -> None:
@@ -333,14 +671,10 @@ def test_calls_beyond_budget_are_rejected_after_mandatory_priority_selection() -
         "success",
     ]
     assert result.items[0].observation is not None
-    assert (
-        result.items[0].observation.trace.step_id == "tool-batch-test:episode:batch:1"
-    )
+    assert result.items[0].observation.trace.step_id == "tool-batch-test:episode:tool:1"
     assert result.items[1].error == "tool_budget_exhausted"
     assert result.items[2].observation is not None
-    assert (
-        result.items[2].observation.trace.step_id == "tool-batch-test:episode:batch:3"
-    )
+    assert result.items[2].observation.trace.step_id == "tool-batch-test:episode:tool:2"
     assert result.executed_count == 2
     assert result.normalized_queries == (
         ("web_search", "public valuation"),

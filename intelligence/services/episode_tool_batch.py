@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 from contextvars import copy_context
 from dataclasses import dataclass
 from functools import partial
+from threading import Lock
 from typing import Literal, cast
 
 from intelligence.services import query_ledger
@@ -50,13 +52,39 @@ class _Candidate:
         return (self.call.name, self.normalized_query)
 
 
-class ToolBatchExecutor:
+def _run_with_publish_guard(
+    guard: query_ledger.QueryPublishGuard,
+    operation: Callable[[], ToolObservation],
+) -> ToolObservation:
+    with query_ledger.query_publish_guard_scope(guard):
+        return operation()
+
+
+class EpisodeToolBatchSession:
     """Own episode query state and execute independent tool calls concurrently."""
 
     def __init__(self) -> None:
         self._seen_queries: set[tuple[str, str]] = set()
+        self._lock = Lock()
+        self._next_call_sequence = 1
 
     def execute(
+        self,
+        calls: tuple[ModelToolCall, ...],
+        *,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+        remaining_slots: int,
+    ) -> ToolBatchResult:
+        with self._lock:
+            return self._execute_locked(
+                calls,
+                registry=registry,
+                context=context,
+                remaining_slots=remaining_slots,
+            )
+
+    def _execute_locked(
         self,
         calls: tuple[ModelToolCall, ...],
         *,
@@ -73,9 +101,18 @@ class ToolBatchExecutor:
 
         candidates: list[_Candidate] = []
         batch_queries: set[tuple[str, str]] = set()
+        batch_call_ids: set[str] = set()
         for index, call in enumerate(ordered_calls):
+            if call.call_id in batch_call_ids:
+                items[index] = ToolCallResult(
+                    call,
+                    "rejected",
+                    error="duplicate_call_id",
+                )
+                continue
+            batch_call_ids.add(call.call_id)
+
             spec = authorized_specs.get(call.name)
-            query = call.arguments.get("query")
             if spec is None:
                 items[index] = ToolCallResult(
                     call,
@@ -83,6 +120,14 @@ class ToolBatchExecutor:
                     error="unknown_or_unauthorized_tool",
                 )
                 continue
+            if set(call.arguments) != {"query"}:
+                items[index] = ToolCallResult(
+                    call,
+                    "rejected",
+                    error="invalid_arguments",
+                )
+                continue
+            query = call.arguments["query"]
             if not isinstance(query, str) or not query.strip():
                 items[index] = ToolCallResult(
                     call,
@@ -118,6 +163,22 @@ class ToolBatchExecutor:
                 )
 
         selected_in_model_order = tuple(sorted(selected, key=lambda item: item.index))
+        timeout = context.deadline.stage_timeout(30.0)
+        if selected and timeout <= 0.0:
+            for candidate in selected:
+                items[candidate.index] = ToolCallResult(
+                    candidate.call,
+                    "timeout",
+                    error="tool_timeout",
+                )
+            return self._result(items, executed_count=0, normalized_queries=())
+
+        step_ids: dict[int, str] = {}
+        for candidate in selected_in_model_order:
+            step_ids[candidate.index] = (
+                f"{context.trace_parent_id}:episode:tool:{self._next_call_sequence}"
+            )
+            self._next_call_sequence += 1
         self._seen_queries.update(candidate.key for candidate in selected)
         normalized_queries = tuple(
             candidate.key for candidate in selected_in_model_order
@@ -128,13 +189,28 @@ class ToolBatchExecutor:
                 items=items,
                 registry=registry,
                 context=context,
+                step_ids=step_ids,
+                timeout=timeout,
             )
 
+        return self._result(
+            items,
+            executed_count=len(selected),
+            normalized_queries=normalized_queries,
+        )
+
+    @staticmethod
+    def _result(
+        items: list[ToolCallResult | None],
+        *,
+        executed_count: int,
+        normalized_queries: tuple[tuple[str, str], ...],
+    ) -> ToolBatchResult:
         if any(item is None for item in items):
             raise RuntimeError("tool batch did not produce one result per call")
         return ToolBatchResult(
             items=tuple(cast(ToolCallResult, item) for item in items),
-            executed_count=len(selected),
+            executed_count=executed_count,
             normalized_queries=normalized_queries,
         )
 
@@ -171,33 +247,40 @@ class ToolBatchExecutor:
         items: list[ToolCallResult | None],
         registry: ResearchToolRegistry,
         context: ResearchRunContext,
+        step_ids: dict[int, str],
+        timeout: float,
     ) -> None:
-        timeout = context.deadline.stage_timeout(30.0)
         executor = ThreadPoolExecutor(
             max_workers=min(4, len(selected)),
             thread_name_prefix="episode-tool",
         )
+        publish_guard = query_ledger.QueryPublishGuard()
         future_candidates: dict[Future[ToolObservation], _Candidate] = {}
         try:
             for candidate in selected:
-                step_id = (
-                    f"{context.trace_parent_id}:episode:batch:{candidate.index + 1}"
-                )
                 operation = partial(
                     registry.execute,
                     candidate.call.name,
                     candidate.query,
                     context=context,
-                    step_id=step_id,
+                    step_id=step_ids[candidate.index],
                 )
                 worker_context = copy_context()
-                future = executor.submit(worker_context.run, operation)
+                guarded_operation = partial(
+                    _run_with_publish_guard,
+                    publish_guard,
+                    operation,
+                )
+                future = executor.submit(worker_context.run, guarded_operation)
                 future_candidates[future] = candidate
 
-            completed, unfinished = wait(
+            wait(
                 tuple(future_candidates),
                 timeout=timeout,
             )
+            publish_guard.close()
+            completed = {future for future in future_candidates if future.done()}
+            unfinished = set(future_candidates) - completed
             for future in unfinished:
                 future.cancel()
                 candidate = future_candidates[future]
@@ -210,6 +293,13 @@ class ToolBatchExecutor:
                 candidate = future_candidates[future]
                 try:
                     observation = future.result()
+                except TimeoutError:
+                    items[candidate.index] = ToolCallResult(
+                        candidate.call,
+                        "timeout",
+                        error="tool_timeout",
+                    )
+                    continue
                 except Exception as exc:
                     detail = f"{type(exc).__name__}: {str(exc)[:160]}"
                     items[candidate.index] = ToolCallResult(
@@ -224,10 +314,37 @@ class ToolBatchExecutor:
                     observation=observation,
                 )
         finally:
+            publish_guard.close()
             executor.shutdown(wait=False, cancel_futures=True)
 
 
+class ToolBatchExecutor:
+    """Stateless factory for episode-scoped tool batch sessions."""
+
+    @staticmethod
+    def new_session() -> EpisodeToolBatchSession:
+        return EpisodeToolBatchSession()
+
+    def execute(
+        self,
+        calls: tuple[ModelToolCall, ...],
+        *,
+        registry: ResearchToolRegistry,
+        context: ResearchRunContext,
+        remaining_slots: int,
+    ) -> ToolBatchResult:
+        """Execute one isolated batch for callers not yet managing a session."""
+
+        return self.new_session().execute(
+            calls,
+            registry=registry,
+            context=context,
+            remaining_slots=remaining_slots,
+        )
+
+
 __all__ = [
+    "EpisodeToolBatchSession",
     "ToolBatchExecutor",
     "ToolBatchResult",
     "ToolCallResult",

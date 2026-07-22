@@ -37,6 +37,46 @@ def normalize_query(query: str) -> str:
 QueryKey = tuple[str, str, str, str, str]
 
 
+class QueryPublishGuard:
+    """Atomically suppress this scope's late publication without killing threads.
+
+    The guard does not own or cancel an unrelated scope that already owns the
+    same ledger key; it only governs work that entered ``query_publish_guard_scope``.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._open = True
+
+    def close(self) -> None:
+        with self._lock:
+            self._open = False
+
+    @contextmanager
+    def publication_scope(self) -> Iterator[bool]:
+        """Hold the close/publication boundary while the ledger mutates."""
+
+        with self._lock:
+            yield self._open
+
+
+_PUBLISH_GUARD: ContextVar[QueryPublishGuard | None] = ContextVar(
+    "query_publish_guard",
+    default=None,
+)
+
+
+@contextmanager
+def _publication_scope(
+    guard: QueryPublishGuard | None,
+) -> Iterator[bool]:
+    if guard is None:
+        yield True
+        return
+    with guard.publication_scope() as is_open:
+        yield is_open
+
+
 @dataclass
 class QueryRecord:
     provider: str
@@ -89,23 +129,28 @@ class QueryLedger:
             corpus_revision,
             variant,
         )
-        with self._lock:
-            record = self.entries.get(key)
-            if record is not None:
-                record.reuse_count += 1
-                return record.result
-            future = self._inflight.get(key)
-            is_owner = future is None
-            if future is None:
-                future = Future()
-                self._inflight[key] = future
-
-        if not is_owner:
-            result = future.result()
+        guard = _PUBLISH_GUARD.get()
+        with _publication_scope(guard) as is_open:
             with self._lock:
                 record = self.entries.get(key)
                 if record is not None:
-                    record.reuse_count += 1
+                    if is_open:
+                        record.reuse_count += 1
+                    return record.result
+                future = self._inflight.get(key)
+                is_owner = future is None
+                if future is None:
+                    future = Future()
+                    self._inflight[key] = future
+
+        if not is_owner:
+            result = future.result()
+            with _publication_scope(guard) as is_open:
+                if is_open:
+                    with self._lock:
+                        record = self.entries.get(key)
+                        if record is not None:
+                            record.reuse_count += 1
             return result
 
         started = time.monotonic()
@@ -113,8 +158,12 @@ class QueryLedger:
             result = fetch()
         except BaseException as exc:
             with self._lock:
-                self._inflight.pop(key, None)
-                future.set_exception(exc)
+                try:
+                    if self._inflight.get(key) is future:
+                        self._inflight.pop(key)
+                finally:
+                    if not future.done():
+                        future.set_exception(exc)
             raise
 
         record = QueryRecord(
@@ -126,10 +175,17 @@ class QueryLedger:
             result=result,
             elapsed_ms=max(0, round((time.monotonic() - started) * 1000)),
         )
-        with self._lock:
-            self.entries[key] = record
-            self._inflight.pop(key, None)
-            future.set_result(result)
+        with _publication_scope(guard) as is_open:
+            with self._lock:
+                try:
+                    owns_inflight = self._inflight.get(key) is future
+                    if owns_inflight:
+                        self._inflight.pop(key)
+                        if is_open:
+                            self.entries[key] = record
+                finally:
+                    if not future.done():
+                        future.set_result(result)
         return result
 
     def summary(self) -> dict[str, object]:
@@ -155,6 +211,17 @@ _LEDGER: ContextVar[QueryLedger | None] = ContextVar(
     "turn_query_ledger",
     default=None,
 )
+
+
+@contextmanager
+def query_publish_guard_scope(guard: QueryPublishGuard) -> Iterator[None]:
+    """Prevent guarded work that finishes after close from publishing cache."""
+
+    token = _PUBLISH_GUARD.set(guard)
+    try:
+        yield
+    finally:
+        _PUBLISH_GUARD.reset(token)
 
 
 @contextmanager
