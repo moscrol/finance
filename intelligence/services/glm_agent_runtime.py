@@ -19,7 +19,11 @@ from intelligence.services.task_frame import TaskFrame
 
 
 ChatWithTools = Callable[..., tuple[dict | None, object | None, str]]
-_TRANSIENT_PROVIDER_ERRORS = ("TimeoutError", "RemoteDisconnected")
+_TRANSIENT_PROVIDER_ERRORS = (
+    "TimeoutError",
+    "RemoteDisconnected",
+    "URLError",
+)
 DEFAULT_GLM_LLM_TIMEOUT = 75.0
 _GLM_SYNTHESIS_RESERVE = {
     "quick": 20.0,
@@ -59,6 +63,7 @@ class GLMModelClient:
         message: dict | None = None
         provider: object | None = None
         reason = "model deadline exhausted"
+        attempts = 0
         for attempt in range(2):
             remaining = (
                 configured_timeout
@@ -67,6 +72,7 @@ class GLMModelClient:
             )
             if remaining <= 0.001:
                 break
+            attempts += 1
             message, provider, reason = self._complete(
                 messages=messages,
                 tools=tools,
@@ -89,9 +95,16 @@ class GLMModelClient:
                 (),
                 provider_name,
                 str(reason or "model_unavailable"),
+                provider_attempts=max(1, attempts),
             )
         if not isinstance(message, dict):
-            return ModelTurn("", (), provider_name, "invalid_model_message")
+            return ModelTurn(
+                "",
+                (),
+                provider_name,
+                "invalid_model_message",
+                provider_attempts=max(1, attempts),
+            )
 
         raw_content = message.get("content")
         if raw_content is None:
@@ -99,19 +112,43 @@ class GLMModelClient:
         elif isinstance(raw_content, str):
             content = raw_content
         else:
-            return ModelTurn("", (), provider_name, "invalid_model_content")
+            return ModelTurn(
+                "",
+                (),
+                provider_name,
+                "invalid_model_content",
+                provider_attempts=max(1, attempts),
+            )
 
         raw_calls = message.get("tool_calls") or []
         if not isinstance(raw_calls, list):
-            return ModelTurn(content, (), provider_name, "invalid_tool_calls")
+            return ModelTurn(
+                content,
+                (),
+                provider_name,
+                "invalid_tool_calls",
+                provider_attempts=max(1, attempts),
+            )
         calls: list[ModelToolCall] = []
         for raw_call in raw_calls:
             parsed, error = _parse_tool_call(raw_call)
             if error:
-                return ModelTurn(content, (), provider_name, error)
+                return ModelTurn(
+                    content,
+                    (),
+                    provider_name,
+                    error,
+                    provider_attempts=max(1, attempts),
+                )
             if parsed is not None:
                 calls.append(parsed)
-        return ModelTurn(content, tuple(calls), provider_name, "")
+        return ModelTurn(
+            content,
+            tuple(calls),
+            provider_name,
+            "",
+            provider_attempts=max(1, attempts),
+        )
 
 
 class GLMAgentRuntime:

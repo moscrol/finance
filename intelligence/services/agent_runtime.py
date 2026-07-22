@@ -114,6 +114,7 @@ class ModelTurn:
     tool_calls: tuple[ModelToolCall, ...]
     provider_name: str = ""
     error: str = ""
+    provider_attempts: int = 1
 
     def __post_init__(self) -> None:
         if not isinstance(self.content, str):
@@ -122,6 +123,12 @@ class ModelTurn:
             raise ValueError("provider_name must be a stable string")
         if not isinstance(self.error, str):
             raise ValueError("model error must be a string")
+        if (
+            isinstance(self.provider_attempts, bool)
+            or not isinstance(self.provider_attempts, int)
+            or self.provider_attempts < 1
+        ):
+            raise ValueError("provider_attempts must be a positive integer")
         calls = tuple(self.tool_calls)
         if any(not isinstance(call, ModelToolCall) for call in calls):
             raise ValueError("tool_calls must contain ModelToolCall values")
@@ -135,6 +142,7 @@ class ModelTurn:
             "tool_calls": [call.to_dict() for call in self.tool_calls],
             "provider_name": self.provider_name,
             "error": self.error,
+            "provider_attempts": self.provider_attempts,
         }
 
 

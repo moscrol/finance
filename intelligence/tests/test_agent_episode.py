@@ -436,6 +436,34 @@ def test_model_unavailable_before_evidence_fails_honestly() -> None:
     assert "provider unavailable" in outcome.gaps
 
 
+def test_episode_usage_counts_adapter_provider_attempts() -> None:
+    frame = _frame()
+    finish = _finish_turn(
+        status="partial",
+        hashes=(),
+        gap="缺少可绑定的行情证据",
+    )
+    model = ScriptedModel(
+        [
+            ModelTurn(
+                finish.content,
+                finish.tool_calls,
+                finish.provider_name,
+                finish.error,
+                provider_attempts=2,
+            )
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.usage.llm_calls == 2
+
+
 def test_multiple_tool_calls_cannot_bypass_total_step_budget() -> None:
     calls: list[str] = []
 

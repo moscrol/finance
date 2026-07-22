@@ -158,7 +158,6 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
-            llm_calls += 1
             try:
                 turn = self._model.complete(
                     messages=list(messages),
@@ -166,6 +165,7 @@ class ContinuousAgentEpisode:
                     timeout=timeout,
                 )
             except Exception as exc:
+                llm_calls += 1
                 reason = f"model_exception:{type(exc).__name__}"
                 ledger.add("model_error", {"reason": reason})
                 return self._stopped_outcome(
@@ -182,6 +182,7 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                 )
 
+            llm_calls += turn.provider_attempts
             ledger.add("model_turn", turn.to_dict())
             if turn.error:
                 ledger.add("model_error", {"reason": turn.error})

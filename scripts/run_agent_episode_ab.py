@@ -138,8 +138,8 @@ def _provider_name(provider: object | None) -> str:
 
 def _run_bare_arm(case: ABQuestion) -> dict[str, object]:
     started = time.monotonic()
-    content, provider, reason = llm_refine.complete(
-        [
+    message, provider, reason = llm_refine.chat_with_tools(
+        messages=[
             {
                 "role": "system",
                 "content": (
@@ -150,10 +150,15 @@ def _run_bare_arm(case: ABQuestion) -> dict[str, object]:
             *case.conversation_context,
             {"role": "user", "content": case.question},
         ],
+        tools=[],
         model_override=case.model,
         timeout=case.timeout,
         temperature=0.0,
+        tool_choice="none",
+        disable_thinking=True,
     )
+    raw_content = message.get("content") if isinstance(message, dict) else None
+    content = raw_content if isinstance(raw_content, str) else None
     return {
         "answer": content or "",
         "provider": _provider_name(provider),

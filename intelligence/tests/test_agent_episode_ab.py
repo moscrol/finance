@@ -30,6 +30,43 @@ def _write_questions(tmp_path, questions: list[tuple[str, str]]):
     return path
 
 
+def test_bare_arm_uses_the_same_disabled_thinking_profile_as_episode(
+    monkeypatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_chat_with_tools(**kwargs):
+        captured.update(kwargs)
+        return {"content": "裸模型判断", "tool_calls": []}, "glm", ""
+
+    monkeypatch.setattr(
+        episode_ab.llm_refine,
+        "chat_with_tools",
+        fake_chat_with_tools,
+    )
+    monkeypatch.setattr(
+        episode_ab.llm_refine,
+        "complete",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("bare arm must use the same chat profile as episode")
+        ),
+    )
+    case = episode_ab.ABQuestion(
+        case_id="bare-profile",
+        question="目前市场怎么看",
+        model="glm-5.2",
+        timeout=30.0,
+        as_of="2026-07-22",
+    )
+
+    result = episode_ab._run_bare_arm(case)
+
+    assert result["answer"] == "裸模型判断"
+    assert captured["tools"] == []
+    assert captured["disable_thinking"] is True
+    assert captured["tool_choice"] == "none"
+
+
 def test_dry_run_builds_contracts_without_model_or_tool_execution(
     tmp_path,
     monkeypatch,

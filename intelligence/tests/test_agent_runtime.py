@@ -107,7 +107,14 @@ def test_model_turn_is_provider_neutral_and_json_safe() -> None:
 
     payload = turn.to_dict()
 
-    assert set(payload) == {"content", "tool_calls", "provider_name", "error"}
+    assert set(payload) == {
+        "content",
+        "tool_calls",
+        "provider_name",
+        "error",
+        "provider_attempts",
+    }
+    assert payload["provider_attempts"] == 1
     assert payload["provider_name"] == "glm"
     assert payload["tool_calls"][0]["arguments"] == {"query": "A股"}
     json.dumps(payload, ensure_ascii=False)

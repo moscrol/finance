@@ -16,6 +16,7 @@ from intelligence.services import (
     agent_research,
     ask_blocks,
     kb_rag,
+    l3_evidence,
     market_technical,
     valuation_estimate,
 )
@@ -206,10 +207,49 @@ def build_episode_registry(
             result_count=len(evidence),
         )
 
+    def l3_runner(
+        query: str,
+        tool_context: agent_research.AgentToolContext,
+    ):
+        timeout = tool_context.deadline.stage_timeout(30.0)
+        if timeout <= 0.001:
+            raise TimeoutError("l3 lookup deadline expired")
+        bundle = l3_evidence.lookup_l3_company(
+            query,
+            config=l3_evidence.L3LookupConfig.from_env(
+                enabled=True,
+                timeout=max(1, int(timeout)),
+                limit=5,
+            ),
+        )
+        evidence = [
+            agent_research.AgentEvidence(
+                tool="l3_lookup",
+                title=item.title,
+                detail=item.summary,
+                source=item.citation or item.source_type,
+                evidence_tier="L3",
+                freshness="current",
+            )
+            for item in bundle.items
+        ]
+        providers = tuple(
+            dict.fromkeys(item.source_type for item in bundle.items)
+        )
+        return evidence, bundle.to_prompt_block(), ProviderTrace(
+            provider="+".join(providers) or "l3_lookup",
+            capability="l3_lookup",
+            status="success" if evidence else "empty",
+            detail="；".join(bundle.warnings) or "official disclosure lookup",
+            result_count=len(evidence),
+        )
+
     if "market_data" in context.contract.allowed_capabilities:
         tools["market_data"] = market_data_runner
     if "mainline_context" in context.contract.allowed_capabilities:
         tools["mainline_context"] = mainline_runner
+    if "l3_lookup" in context.contract.allowed_capabilities:
+        tools["l3_lookup"] = l3_runner
     return default_registry(tools)
 
 

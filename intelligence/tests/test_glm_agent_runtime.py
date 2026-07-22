@@ -115,6 +115,7 @@ def test_glm_client_returns_stable_error_for_unavailable_provider() -> None:
     (
         "LLM 调用失败（TimeoutError）",
         "LLM 调用失败（RemoteDisconnected）",
+        "LLM 调用失败（URLError）",
     ),
 )
 def test_glm_client_retries_one_transient_error_within_the_same_turn(
@@ -144,6 +145,7 @@ def test_glm_client_retries_one_transient_error_within_the_same_turn(
 
     assert turn.content == "done"
     assert turn.error == ""
+    assert turn.provider_attempts == 2
     assert len(calls) == 2
     assert calls[0]["messages"] == calls[1]["messages"] == messages
     assert calls[0]["tools"] == calls[1]["tools"] == tools
