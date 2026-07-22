@@ -379,6 +379,66 @@ def test_unknown_tool_error_returns_to_same_episode_without_runner_call() -> Non
     assert "unknown_or_unauthorized_tool" in second_messages[-1]["content"]
 
 
+def test_two_unauthorized_calls_keep_distinct_session_owned_gate_step_ids() -> None:
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            ModelTurn(
+                "",
+                (
+                    ModelToolCall(
+                        "forbidden-1",
+                        "shell_exec",
+                        {"query": "do not run"},
+                    ),
+                    ModelToolCall(
+                        "forbidden-2",
+                        "write_file",
+                        {"query": "do not run"},
+                    ),
+                ),
+                "scripted",
+                "",
+            ),
+            _finish_turn(
+                status="partial",
+                draft="未执行未授权工具，当前无法完成判断。",
+                hashes=(),
+                gap="未授权工具不能执行",
+            ),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.usage.tool_calls == 0
+    assert outcome.usage.invalid_actions == 2
+    assert [trace.step_id for trace in outcome.traces] == [
+        "episode-test:episode:tool:1",
+        "episode-test:episode:tool:2",
+    ]
+    assert len({trace.step_id for trace in outcome.traces}) == 2
+    assert all(trace.provider == "episode:tool_gate" for trace in outcome.traces)
+    assert all(trace.status == "disabled" for trace in outcome.traces)
+    assert all(trace.step_id != "episode-test:episode:gate" for trace in outcome.traces)
+    assert [
+        event.kind
+        for event in outcome.events
+        if event.kind in {"tool_request", "tool_result", "tool_error"}
+    ] == ["tool_request", "tool_error", "tool_request", "tool_error"]
+    tool_messages = [
+        message for message in model.calls[1]["messages"] if message["role"] == "tool"
+    ]
+    assert [message["tool_call_id"] for message in tool_messages] == [
+        "forbidden-1",
+        "forbidden-2",
+    ]
+
+
 def test_duplicate_normalized_query_is_rejected_without_second_execution() -> None:
     calls: list[str] = []
 

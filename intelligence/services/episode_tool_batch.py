@@ -103,6 +103,11 @@ class EpisodeToolBatchSession:
     ) -> ToolBatchResult:
         ordered_calls = tuple(calls)
         items: list[ToolCallResult | None] = [None] * len(ordered_calls)
+        step_ids = {
+            index: f"{context.trace_parent_id}:episode:tool:{self._next_call_sequence + index}"
+            for index in range(len(ordered_calls))
+        }
+        self._next_call_sequence += len(ordered_calls)
         authorized_specs = {
             spec.name: spec
             for spec in registry.authorized_specs(context.contract.allowed_capabilities)
@@ -117,6 +122,7 @@ class EpisodeToolBatchSession:
                     call,
                     "rejected",
                     error="duplicate_call_id",
+                    step_id=step_ids[index],
                 )
                 continue
             batch_call_ids.add(call.call_id)
@@ -127,6 +133,7 @@ class EpisodeToolBatchSession:
                     call,
                     "rejected",
                     error="unknown_or_unauthorized_tool",
+                    step_id=step_ids[index],
                 )
                 continue
             if set(call.arguments) != {"query"}:
@@ -134,6 +141,7 @@ class EpisodeToolBatchSession:
                     call,
                     "rejected",
                     error="invalid_arguments",
+                    step_id=step_ids[index],
                 )
                 continue
             query = call.arguments["query"]
@@ -142,6 +150,7 @@ class EpisodeToolBatchSession:
                     call,
                     "rejected",
                     error="invalid_query",
+                    step_id=step_ids[index],
                 )
                 continue
 
@@ -152,6 +161,7 @@ class EpisodeToolBatchSession:
                     call,
                     "rejected",
                     error="duplicate_query",
+                    step_id=step_ids[index],
                 )
                 continue
             batch_queries.add(key)
@@ -169,15 +179,10 @@ class EpisodeToolBatchSession:
                     candidate.call,
                     "rejected",
                     error="tool_budget_exhausted",
+                    step_id=step_ids[candidate.index],
                 )
 
         selected_in_model_order = tuple(sorted(selected, key=lambda item: item.index))
-        step_ids: dict[int, str] = {}
-        for candidate in selected_in_model_order:
-            step_ids[candidate.index] = (
-                f"{context.trace_parent_id}:episode:tool:{self._next_call_sequence}"
-            )
-            self._next_call_sequence += 1
         timeout = context.deadline.stage_timeout(30.0)
         if selected and timeout <= 0.0:
             for candidate in selected:

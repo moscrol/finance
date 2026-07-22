@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import json
 import re
 from typing import cast
@@ -18,7 +19,7 @@ from intelligence.services.agent_runtime import (
     OutputEvidenceBinding,
     public_agent_evidence,
 )
-from intelligence.services.episode_tool_batch import ToolBatchExecutor
+from intelligence.services.episode_tool_batch import ToolBatchExecutor, ToolBatchResult
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
@@ -53,6 +54,114 @@ class _EpisodeLedger:
         return event
 
 
+@dataclass
+class _EpisodeToolAccumulator:
+    messages: list[dict[str, object]]
+    ledger: _EpisodeLedger
+    evidence: list[AgentEvidence] = field(default_factory=list)
+    evidence_hashes: set[str] = field(default_factory=set)
+    traces: list[ProviderTrace] = field(default_factory=list)
+    gaps: list[str] = field(default_factory=list)
+
+    def consume(
+        self,
+        batch: ToolBatchResult,
+        context: ResearchRunContext,
+    ) -> int:
+        invalid_actions = 0
+        for result in batch.items:
+            call = result.call
+            self.ledger.add("tool_request", call.to_dict())
+
+            if result.status == "rejected":
+                invalid_actions += 1
+                if result.error == "unknown_or_unauthorized_tool":
+                    self.traces.append(
+                        ProviderTrace(
+                            provider="episode:tool_gate",
+                            capability=call.name,
+                            status="disabled",
+                            detail=result.error,
+                            parent_id=context.trace_parent_id,
+                            step_id=result.step_id,
+                        )
+                    )
+                self._append_tool_error(call, result.error)
+                continue
+
+            if result.status in {"error", "timeout"}:
+                public_error = (
+                    "tool_timeout" if result.status == "timeout" else "tool_exception"
+                )
+                self.traces.append(
+                    ProviderTrace(
+                        provider=f"agent:{call.name}",
+                        capability=call.name,
+                        status="request_error",
+                        detail=public_error,
+                        parent_id=context.trace_parent_id,
+                        step_id=result.step_id,
+                    )
+                )
+                self._append_tool_error(call, public_error)
+                continue
+
+            observation = result.observation
+            if observation is None:
+                raise RuntimeError(
+                    "successful tool batch result requires an observation"
+                )
+            self.traces.append(observation.trace)
+            self._extend_unique_gaps(observation.gaps)
+            for item in observation.evidence:
+                if item.content_hash in self.evidence_hashes:
+                    continue
+                self.evidence_hashes.add(item.content_hash)
+                self.evidence.append(item)
+            public_observation = {
+                "ok": True,
+                "tool": observation.tool,
+                "query": observation.query,
+                "observation": observation.observation,
+                "evidence": [
+                    public_agent_evidence(item) for item in observation.evidence
+                ],
+                "evidence_hashes": list(observation.evidence_hashes),
+                "gaps": list(observation.gaps),
+            }
+            self.ledger.add("tool_result", public_observation)
+            self.messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": call.call_id,
+                    "content": json.dumps(public_observation, ensure_ascii=False),
+                }
+            )
+        return invalid_actions
+
+    def _append_tool_error(self, call: ModelToolCall, error: str) -> None:
+        payload = {
+            "ok": False,
+            "tool": call.name,
+            "error": error,
+            "detail": "",
+        }
+        self.ledger.add("tool_error", payload)
+        self.messages.append(
+            {
+                "role": "tool",
+                "tool_call_id": call.call_id,
+                "content": json.dumps(payload, ensure_ascii=False),
+            }
+        )
+
+    def _extend_unique_gaps(self, values: tuple[str, ...]) -> None:
+        for value in values:
+            cleaned = str(value or "").strip()
+            if cleaned and cleaned not in self.gaps:
+                self.gaps.append(cleaned)
+
+
 class ContinuousAgentEpisode:
     """Run a task without rebuilding the model's observable message history."""
 
@@ -84,10 +193,6 @@ class ContinuousAgentEpisode:
             raise ValueError("research contract task frame hash mismatch")
 
         ledger = _EpisodeLedger(task_frame)
-        evidence: list[AgentEvidence] = []
-        evidence_hashes: set[str] = set()
-        traces: list[ProviderTrace] = []
-        gaps: list[str] = []
         llm_calls = 0
         tool_calls = 0
         invalid_actions = 0
@@ -102,6 +207,7 @@ class ContinuousAgentEpisode:
                 "content": self._task_prompt(task_frame, context),
             },
         ]
+        accumulator = _EpisodeToolAccumulator(messages=messages, ledger=ledger)
         definitions = registry.tool_definitions(context.contract.allowed_capabilities)
         finalization_started = False
         for _round in range(1, context.policy.max_steps + 2):
@@ -144,13 +250,13 @@ class ContinuousAgentEpisode:
             if timeout <= 0.001:
                 return self._stopped_outcome(
                     task_frame=task_frame,
-                    status="partial" if evidence else "failed",
+                    status="partial" if accumulator.evidence else "failed",
                     stop_reason="deadline_exhausted",
                     gap="研究截止时间已到，仍有必需输出未覆盖",
                     ledger=ledger,
-                    evidence=evidence,
-                    traces=traces,
-                    gaps=gaps,
+                    evidence=accumulator.evidence,
+                    traces=accumulator.traces,
+                    gaps=accumulator.gaps,
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
@@ -168,13 +274,13 @@ class ContinuousAgentEpisode:
                 ledger.add("model_error", {"reason": reason})
                 return self._stopped_outcome(
                     task_frame=task_frame,
-                    status="partial" if evidence else "failed",
+                    status="partial" if accumulator.evidence else "failed",
                     stop_reason="model_unavailable",
                     gap=reason,
                     ledger=ledger,
-                    evidence=evidence,
-                    traces=traces,
-                    gaps=gaps,
+                    evidence=accumulator.evidence,
+                    traces=accumulator.traces,
+                    gaps=accumulator.gaps,
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
@@ -186,13 +292,13 @@ class ContinuousAgentEpisode:
                 ledger.add("model_error", {"reason": turn.error})
                 return self._stopped_outcome(
                     task_frame=task_frame,
-                    status="partial" if evidence else "failed",
+                    status="partial" if accumulator.evidence else "failed",
                     stop_reason="model_unavailable",
                     gap=turn.error,
                     ledger=ledger,
-                    evidence=evidence,
-                    traces=traces,
-                    gaps=gaps,
+                    evidence=accumulator.evidence,
+                    traces=accumulator.traces,
+                    gaps=accumulator.gaps,
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
@@ -212,9 +318,9 @@ class ContinuousAgentEpisode:
                         stop_reason="invalid_model_finish",
                         gap="最终合成阶段仍尝试调用工具",
                         ledger=ledger,
-                        evidence=evidence,
-                        traces=traces,
-                        gaps=gaps,
+                        evidence=accumulator.evidence,
+                        traces=accumulator.traces,
+                        gaps=accumulator.gaps,
                         llm_calls=llm_calls,
                         tool_calls=tool_calls,
                         invalid_actions=invalid_actions,
@@ -226,96 +332,14 @@ class ContinuousAgentEpisode:
                     remaining_slots=context.policy.max_steps - tool_calls,
                 )
                 tool_calls += batch.executed_count
-                for result in batch.items:
-                    call = result.call
-                    ledger.add("tool_request", call.to_dict())
-
-                    if result.status == "rejected":
-                        invalid_actions += 1
-                        if result.error == "unknown_or_unauthorized_tool":
-                            traces.append(
-                                ProviderTrace(
-                                    provider="episode:tool_gate",
-                                    capability=call.name,
-                                    status="disabled",
-                                    detail=result.error,
-                                    parent_id=context.trace_parent_id,
-                                    step_id=(f"{context.trace_parent_id}:episode:gate"),
-                                )
-                            )
-                        self._append_tool_error(
-                            messages,
-                            ledger,
-                            call,
-                            result.error,
-                        )
-                        continue
-
-                    if result.status in {"error", "timeout"}:
-                        public_error = (
-                            "tool_timeout"
-                            if result.status == "timeout"
-                            else "tool_exception"
-                        )
-                        traces.append(
-                            ProviderTrace(
-                                provider=f"agent:{call.name}",
-                                capability=call.name,
-                                status="request_error",
-                                detail=public_error,
-                                parent_id=context.trace_parent_id,
-                                step_id=result.step_id or None,
-                            )
-                        )
-                        self._append_tool_error(
-                            messages,
-                            ledger,
-                            call,
-                            public_error,
-                        )
-                        continue
-
-                    observation = result.observation
-                    if observation is None:
-                        raise RuntimeError(
-                            "successful tool batch result requires an observation"
-                        )
-                    traces.append(observation.trace)
-                    self._extend_unique(gaps, observation.gaps)
-                    for item in observation.evidence:
-                        if item.content_hash in evidence_hashes:
-                            continue
-                        evidence_hashes.add(item.content_hash)
-                        evidence.append(item)
-                    public_observation = {
-                        "ok": True,
-                        "tool": observation.tool,
-                        "query": observation.query,
-                        "observation": observation.observation,
-                        "evidence": [
-                            public_agent_evidence(item) for item in observation.evidence
-                        ],
-                        "evidence_hashes": list(observation.evidence_hashes),
-                        "gaps": list(observation.gaps),
-                    }
-                    ledger.add("tool_result", public_observation)
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": call.call_id,
-                            "content": json.dumps(
-                                public_observation,
-                                ensure_ascii=False,
-                            ),
-                        }
-                    )
+                invalid_actions += accumulator.consume(batch, context)
                 continue
 
             try:
                 status, draft, final_gaps, bindings = self._parse_finish(
                     turn.content,
                     context=context,
-                    evidence_hashes=evidence_hashes,
+                    evidence_hashes=accumulator.evidence_hashes,
                 )
             except ValueError as exc:
                 finish_failures += 1
@@ -344,16 +368,19 @@ class ContinuousAgentEpisode:
                     stop_reason="invalid_model_finish",
                     gap="模型未能返回可验证的结构化终止结果",
                     ledger=ledger,
-                    evidence=evidence,
-                    traces=traces,
-                    gaps=gaps,
+                    evidence=accumulator.evidence,
+                    traces=accumulator.traces,
+                    gaps=accumulator.gaps,
                     llm_calls=llm_calls,
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
                 )
 
-            self._extend_unique(gaps, final_gaps)
-            self._extend_unique(gaps, tuple(item.gap for item in bindings))
+            self._extend_unique(accumulator.gaps, final_gaps)
+            self._extend_unique(
+                accumulator.gaps,
+                tuple(item.gap for item in bindings),
+            )
             ledger.add(
                 "finish",
                 {
@@ -367,9 +394,9 @@ class ContinuousAgentEpisode:
                 task_frame_hash=task_frame.task_frame_hash,
                 status=status,
                 draft=draft,
-                evidence=tuple(evidence),
-                traces=tuple(traces),
-                gaps=tuple(gaps),
+                evidence=tuple(accumulator.evidence),
+                traces=tuple(accumulator.traces),
+                gaps=tuple(accumulator.gaps),
                 stop_reason="model_finish",
                 events=tuple(ledger.events),
                 bindings=bindings,
@@ -382,9 +409,9 @@ class ContinuousAgentEpisode:
             stop_reason="step_exhausted",
             gap="研究预算已耗尽，仍有必需输出未覆盖",
             ledger=ledger,
-            evidence=evidence,
-            traces=traces,
-            gaps=gaps,
+            evidence=accumulator.evidence,
+            traces=accumulator.traces,
+            gaps=accumulator.gaps,
             llm_calls=llm_calls,
             tool_calls=tool_calls,
             invalid_actions=invalid_actions,
@@ -453,30 +480,6 @@ class ContinuousAgentEpisode:
                 for call in turn.tool_calls
             ]
         return message
-
-    @staticmethod
-    def _append_tool_error(
-        messages: list[dict[str, object]],
-        ledger: _EpisodeLedger,
-        call: ModelToolCall,
-        error: str,
-        *,
-        detail: str = "",
-    ) -> None:
-        payload = {
-            "ok": False,
-            "tool": call.name,
-            "error": error,
-            "detail": detail,
-        }
-        ledger.add("tool_error", payload)
-        messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": call.call_id,
-                "content": json.dumps(payload, ensure_ascii=False),
-            }
-        )
 
     @staticmethod
     def _parse_finish(

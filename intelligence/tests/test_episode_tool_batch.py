@@ -287,6 +287,15 @@ def test_duplicate_and_unauthorized_calls_never_reach_runners() -> None:
         "",
         "duplicate_query",
     ]
+    assert [item.step_id for item in result.items] == [
+        "tool-batch-test:episode:tool:2",
+        "tool-batch-test:episode:tool:3",
+        "tool-batch-test:episode:tool:4",
+        "tool-batch-test:episode:tool:5",
+        "tool-batch-test:episode:tool:6",
+        "tool-batch-test:episode:tool:7",
+    ]
+    assert len({result.items[index].step_id for index in (0, 1)}) == 2
     assert runner_calls == {"web_search": 0, "kb_search": 1, "market_data": 0}
     assert result.executed_count == 1
     assert result.normalized_queries == (("kb_search", "same kb"),)
@@ -392,6 +401,10 @@ def test_new_sessions_isolate_episode_seen_queries() -> None:
     ]
 
     assert [result.items[0].status for result in results] == ["success", "success"]
+    assert [result.items[0].step_id for result in results] == [
+        "tool-batch-test:episode:tool:1",
+        "tool-batch-test:episode:tool:1",
+    ]
     assert runner_calls == 2
 
 
@@ -426,6 +439,7 @@ def test_step_ids_are_monotonic_across_batches_in_original_model_order() -> None
     first = session.execute(
         (
             ModelToolCall("web-first", "web_search", {"query": "web"}),
+            ModelToolCall("rejected-second", "shell", {"query": "shell"}),
             ModelToolCall("market-second", "market_data", {"query": "market"}),
         ),
         registry=_registry(),
@@ -442,12 +456,18 @@ def test_step_ids_are_monotonic_across_batches_in_original_model_order() -> None
     assert [item.step_id for item in first.items] == [
         "tool-batch-test:episode:tool:1",
         "tool-batch-test:episode:tool:2",
+        "tool-batch-test:episode:tool:3",
     ]
-    assert [item.observation.trace.step_id for item in first.items] == [
-        item.step_id for item in first.items
+    assert first.items[1].status == "rejected"
+    assert first.items[1].error == "unknown_or_unauthorized_tool"
+    assert [
+        item.observation.trace.step_id for item in (first.items[0], first.items[2])
+    ] == [
+        first.items[0].step_id,
+        first.items[2].step_id,
     ]
     assert second.items[0].observation is not None
-    assert second.items[0].step_id == "tool-batch-test:episode:tool:3"
+    assert second.items[0].step_id == "tool-batch-test:episode:tool:4"
     assert second.items[0].observation.trace.step_id == second.items[0].step_id
 
 
@@ -504,11 +524,11 @@ def test_strict_arguments_and_duplicate_call_ids_are_rejected_before_dispatch() 
         "invalid_query",
     ]
     assert [item.step_id for item in result.items] == [
-        "",
-        "",
         "tool-batch-test:episode:tool:1",
-        "",
-        "",
+        "tool-batch-test:episode:tool:2",
+        "tool-batch-test:episode:tool:3",
+        "tool-batch-test:episode:tool:4",
+        "tool-batch-test:episode:tool:5",
     ]
     assert runner_calls == {"web_search": 0, "kb_search": 1, "market_data": 0}
 
@@ -682,8 +702,9 @@ def test_calls_beyond_budget_are_rejected_after_mandatory_priority_selection() -
     assert result.items[0].observation is not None
     assert result.items[0].observation.trace.step_id == "tool-batch-test:episode:tool:1"
     assert result.items[1].error == "tool_budget_exhausted"
+    assert result.items[1].step_id == "tool-batch-test:episode:tool:2"
     assert result.items[2].observation is not None
-    assert result.items[2].observation.trace.step_id == "tool-batch-test:episode:tool:2"
+    assert result.items[2].observation.trace.step_id == "tool-batch-test:episode:tool:3"
     assert result.executed_count == 2
     assert result.normalized_queries == (
         ("web_search", "public valuation"),
@@ -762,12 +783,18 @@ def test_exception_timeout_and_empty_result_keep_original_call_order() -> None:
         "empty-1",
     ]
     assert [item.status for item in result.items] == ["error", "timeout", "empty"]
+    assert [item.step_id for item in result.items] == [
+        "tool-batch-test:episode:tool:1",
+        "tool-batch-test:episode:tool:2",
+        "tool-batch-test:episode:tool:3",
+    ]
     assert result.items[0].error == "RuntimeError: provider exploded"
     assert result.items[0].observation is None
     assert result.items[1].error == "tool_timeout"
     assert result.items[1].observation is None
     assert result.items[2].error == ""
     assert result.items[2].observation is not None
+    assert result.items[2].observation.trace.step_id == result.items[2].step_id
     assert result.items[2].observation.observation == "no evidence"
     assert result.items[2].observation.evidence == ()
     assert completion_order[:2] == ["market_data", "web_search"]
