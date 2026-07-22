@@ -69,6 +69,7 @@ _EXPLICIT_DATE_RE = re.compile(
 class TaskFrame:
     raw_question: str
     user_goal: str
+    question_type: str
     subject: str | None
     subject_kind: str
     market_scope: str
@@ -79,20 +80,6 @@ class TaskFrame:
     clarification_question: str | None
     evidence_policy: str
     confidence: float
-
-    @property
-    def question_type(self) -> str:
-        """Compatibility projection; the policy is authored with the frame."""
-
-        if (
-            self.evidence_policy == "comparable_multi_source_evidence"
-            and "limits_of_analogy" in self.required_outputs
-        ):
-            return "comparison_analog"
-        return _QUESTION_TYPE_BY_POLICY.get(
-            self.evidence_policy,
-            "general_finance_qa",
-        )
 
     @property
     def task_frame_hash(self) -> str:
@@ -130,6 +117,17 @@ class TaskFrame:
             subject = value.get("subject")
             timeframe = value.get("timeframe")
             clarification = value.get("clarification_question")
+            evidence_policy = str(value["evidence_policy"])
+            raw_question_type = value.get("question_type")
+            question_type = (
+                raw_question_type.strip()
+                if isinstance(raw_question_type, str)
+                and raw_question_type.strip()
+                else _legacy_question_type(
+                    evidence_policy,
+                    tuple(required_outputs),
+                )
+            )
             if any(
                 item is not None and not isinstance(item, str)
                 for item in (subject, timeframe, clarification)
@@ -138,6 +136,7 @@ class TaskFrame:
             return cls(
                 raw_question=str(value["raw_question"]),
                 user_goal=str(value["user_goal"]),
+                question_type=question_type,
                 subject=subject,
                 subject_kind=str(value["subject_kind"]),
                 market_scope=str(value["market_scope"]),
@@ -146,7 +145,7 @@ class TaskFrame:
                 assumptions=tuple(assumptions),
                 ambiguities=tuple(ambiguities),
                 clarification_question=clarification,
-                evidence_policy=str(value["evidence_policy"]),
+                evidence_policy=evidence_policy,
                 confidence=max(0.0, min(1.0, float(value["confidence"]))),
             )
         except (KeyError, TypeError, ValueError):
@@ -209,6 +208,7 @@ def build_task_frame(
     frame = TaskFrame(
         raw_question=question,
         user_goal=_user_goal(question_type, question, envelope.decision_goal),
+        question_type=question_type,
         subject=subject,
         subject_kind=subject_kind,
         market_scope=market_scope,
@@ -293,6 +293,7 @@ def rebase_task_frame(
     )
     return replace(
         frame,
+        question_type=question_type,
         subject=_safe_subject(subject, frame.raw_question),
         subject_kind=subject_kind or frame.subject_kind,
         timeframe=timeframe if timeframe is not None else frame.timeframe,
@@ -569,3 +570,20 @@ def _default_required_outputs(question_type: str, question: str) -> tuple[str, .
 
 def _merge_strings(*groups: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(item for group in groups for item in group if item))
+
+
+def _legacy_question_type(
+    evidence_policy: str,
+    required_outputs: tuple[str, ...],
+) -> str:
+    """Infer old serialized frames that predate the explicit question type."""
+
+    if (
+        evidence_policy == "comparable_multi_source_evidence"
+        and "limits_of_analogy" in required_outputs
+    ):
+        return "comparison_analog"
+    return _QUESTION_TYPE_BY_POLICY.get(
+        evidence_policy,
+        "general_finance_qa",
+    )

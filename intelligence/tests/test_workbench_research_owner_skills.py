@@ -391,6 +391,7 @@ def test_owner_projects_followup_semantics_from_canonical_task_frame(
     frame = TaskFrame(
         raw_question="那它的客户和订单呢",
         user_goal="继续核验英维克的客户与订单证据",
+        question_type="stock_deep_dive",
         subject="英维克",
         subject_kind="company",
         market_scope="A股",

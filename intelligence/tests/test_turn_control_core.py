@@ -17,6 +17,7 @@ def _financial_frame() -> TaskFrame:
     return TaskFrame(
         raw_question="昨天的反弹能持续多久",
         user_goal="判断反弹持续性",
+        question_type="market_forecast",
         subject="A股市场",
         subject_kind="market_pattern",
         market_scope="A股",
@@ -339,25 +340,29 @@ def test_default_controller_rebases_injected_validated_route_row(
 
 
 @pytest.mark.parametrize(
-    ("evidence_policy", "required_outputs", "expected"),
+    ("question_type", "evidence_policy", "required_outputs", "expected"),
     (
-        ("current_fact_evidence", ("fact_value",), {"market_data"}),
+        ("quick_fact", "current_fact_evidence", ("fact_value",), {"market_data"}),
         (
+            "theme_track",
             "theme_tracking_evidence",
             ("change_summary",),
             {"graph_lookup", "news_search"},
         ),
         (
+            "kol_review",
             "source_critique_evidence",
             ("claim_summary",),
             {"evidence_lookup", "web_search"},
         ),
         (
+            "comparison_analog",
             "comparable_multi_source_evidence",
             ("limits_of_analogy",),
             {"kb_search", "graph_lookup", "evidence_lookup", "web_search"},
         ),
         (
+            "trade_advice",
             "conditional_thesis_evidence",
             ("conditional_thesis",),
             {"market_data", "evidence_lookup"},
@@ -365,6 +370,7 @@ def test_default_controller_rebases_injected_validated_route_row(
     ),
 )
 def test_runtime_capability_projection_uses_registry_namespace(
+    question_type: str,
     evidence_policy: str,
     required_outputs: tuple[str, ...],
     expected: set[str],
@@ -372,6 +378,7 @@ def test_runtime_capability_projection_uses_registry_namespace(
     frame = TaskFrame(
         raw_question="请给出当前金融判断",
         user_goal="形成直接判断",
+        question_type=question_type,
         subject="已验证主体",
         subject_kind="unknown",
         market_scope="A股",

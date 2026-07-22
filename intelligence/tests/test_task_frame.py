@@ -5,7 +5,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
-from intelligence.services.task_frame import build_task_frame
+from intelligence.services.task_frame import TaskFrame, build_task_frame
 
 
 def test_rebound_horizon_builds_stable_a_share_task_frame() -> None:
@@ -135,3 +135,49 @@ def test_route_table_types_keep_explicit_task_frame_semantics(
     assert frame.evidence_policy == evidence_policy
     assert required_outputs.issubset(frame.required_outputs)
     assert frame.question_type != "general_finance_qa"
+
+
+def test_task_frame_keeps_question_type_independent_from_shared_evidence_policy() -> None:
+    frame = TaskFrame(
+        raw_question="寻找历史类比",
+        user_goal="比较相似性与差异",
+        subject="AI行情",
+        subject_kind="theme",
+        market_scope="A股",
+        timeframe=None,
+        required_outputs=("comparison_dimensions",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="comparable_multi_source_evidence",
+        confidence=0.9,
+        question_type="comparison_analog",
+    )
+
+    restored = TaskFrame.from_dict(frame.to_dict())
+
+    assert frame.question_type == "comparison_analog"
+    assert restored is not None
+    assert restored.question_type == "comparison_analog"
+
+
+def test_task_frame_restores_legacy_payload_without_explicit_question_type() -> None:
+    frame = build_task_frame(
+        "2015互联网泡沫和现在AI行情有什么异同",
+        QueryEnvelope(
+            question_type="comparison_analog",
+            subject_kind="theme",
+            subject="AI行情",
+            decision_goal="比较历史类比",
+            timeframe=None,
+            matched_by="explicit",
+            confidence=0.9,
+        ),
+    )
+    legacy_payload = frame.to_dict()
+    legacy_payload.pop("question_type")
+
+    restored = TaskFrame.from_dict(legacy_payload)
+
+    assert restored is not None
+    assert restored.question_type == "comparison_analog"

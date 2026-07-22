@@ -2672,6 +2672,7 @@ def test_specialized_owner_uses_same_task_frame_fulfillment_gate(tmp_path) -> No
     frame = TaskFrame(
         raw_question=query,
         user_goal="继续核验英维克的客户与订单证据",
+        question_type="stock_deep_dive",
         subject="英维克",
         subject_kind="company",
         market_scope="A股",
