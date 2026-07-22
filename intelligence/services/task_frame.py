@@ -35,7 +35,12 @@ _POLICY_BY_QUESTION_TYPE: dict[str, str] = {
     "theme_analysis": "theme_multi_layer_evidence",
     "news_impact": "event_and_official_evidence",
     "financial_analysis": "company_financial_evidence",
+    "quick_fact": "current_fact_evidence",
+    "theme_track": "theme_tracking_evidence",
+    "kol_review": "source_critique_evidence",
+    "comparison_analog": "comparable_multi_source_evidence",
     "comparison": "comparable_multi_source_evidence",
+    "trade_advice": "conditional_thesis_evidence",
     "event_forecast": "event_scenario_evidence",
     "fact_check": "claim_verification_evidence",
     "general_knowledge": "current_public_knowledge",
@@ -79,6 +84,11 @@ class TaskFrame:
     def question_type(self) -> str:
         """Compatibility projection; the policy is authored with the frame."""
 
+        if (
+            self.evidence_policy == "comparable_multi_source_evidence"
+            and "limits_of_analogy" in self.required_outputs
+        ):
+            return "comparison_analog"
         return _QUESTION_TYPE_BY_POLICY.get(
             self.evidence_policy,
             "general_finance_qa",
@@ -504,6 +514,33 @@ def _default_required_outputs(question_type: str, question: str) -> tuple[str, .
         "theme_analysis": ("direct_assessment", "chain_mapping", "counterpoint"),
         "news_impact": ("event_facts", "impact_transmission", "counterpoint"),
         "financial_analysis": ("financial_assessment", "metric_evidence", "counterpoint"),
+        "quick_fact": ("fact_value", "as_of_date", "evidence_boundary"),
+        "theme_track": (
+            "change_summary",
+            "supporting_evidence",
+            "tracking_signals",
+            "evidence_boundary",
+        ),
+        "kol_review": (
+            "claim_summary",
+            "evidence_assessment",
+            "biases_and_gaps",
+            "counterpoint",
+        ),
+        "comparison_analog": (
+            "comparison_dimensions",
+            "analog_similarities",
+            "key_differences",
+            "limits_of_analogy",
+            "evidence_boundary",
+        ),
+        "trade_advice": (
+            "conditional_thesis",
+            "supporting_evidence",
+            "risk_signals",
+            "invalidation_conditions",
+            "evidence_boundary",
+        ),
         "general_knowledge": ("direct_answer", "evidence_boundary"),
         "general_finance_qa": ("direct_answer", "evidence_boundary"),
     }

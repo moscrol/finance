@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from intelligence.services.query_understanding import understand_query
+from intelligence.services.query_understanding import QueryEnvelope, understand_query
 from intelligence.services.task_frame import build_task_frame
 
 
@@ -81,3 +81,57 @@ def test_llm_alignment_cannot_append_unowned_required_output() -> None:
 
     assert "chain_mapping" in frame.required_outputs
     assert "llm_invented_output" not in frame.required_outputs
+
+
+@pytest.mark.parametrize(
+    ("question_type", "evidence_policy", "required_outputs"),
+    (
+        (
+            "quick_fact",
+            "current_fact_evidence",
+            {"fact_value", "as_of_date", "evidence_boundary"},
+        ),
+        (
+            "theme_track",
+            "theme_tracking_evidence",
+            {"change_summary", "supporting_evidence", "tracking_signals"},
+        ),
+        (
+            "kol_review",
+            "source_critique_evidence",
+            {"claim_summary", "evidence_assessment", "biases_and_gaps"},
+        ),
+        (
+            "comparison_analog",
+            "comparable_multi_source_evidence",
+            {"comparison_dimensions", "key_differences", "limits_of_analogy"},
+        ),
+        (
+            "trade_advice",
+            "conditional_thesis_evidence",
+            {"conditional_thesis", "risk_signals", "invalidation_conditions"},
+        ),
+    ),
+)
+def test_route_table_types_keep_explicit_task_frame_semantics(
+    question_type: str,
+    evidence_policy: str,
+    required_outputs: set[str],
+) -> None:
+    frame = build_task_frame(
+        "按这个问题给出直接判断",
+        QueryEnvelope(
+            question_type=question_type,
+            subject_kind="unknown",
+            subject=None,
+            decision_goal="回答用户的金融问题",
+            timeframe=None,
+            matched_by="explicit",
+            confidence=0.9,
+        ),
+    )
+
+    assert frame.question_type == question_type
+    assert frame.evidence_policy == evidence_policy
+    assert required_outputs.issubset(frame.required_outputs)
+    assert frame.question_type != "general_finance_qa"

@@ -9,6 +9,11 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass
 
+from intelligence.services.task_frame import (
+    TaskFrame,
+    task_frame_requires_retrieval,
+)
+
 
 @dataclass(frozen=True)
 class EvidenceRequirement:
@@ -49,6 +54,113 @@ _CURRENT_MARKERS = (
     "当前", "目前", "现在", "最新", "主线", "盘面", "市场结构", "成交", "涨停",
 )
 _HISTORICAL_MARKERS = ("2025", "2024", "历史上", "过去几年", "去年")
+
+_RUNTIME_CAPABILITY_FLOOR: dict[str, tuple[str, ...]] = {
+    "current_a_share_market": ("market_data", "mainline_context"),
+    "dated_a_share_market": ("market_data", "mainline_context"),
+    "current_market_scenarios": (
+        "market_data",
+        "mainline_context",
+        "news_search",
+        "web_search",
+    ),
+    "time_aligned_market_causal": (
+        "market_data",
+        "news_search",
+        "web_search",
+    ),
+    "structured_market_technical": ("market_data",),
+    "current_external_market": ("market_data", "news_search", "web_search"),
+    "company_multi_layer_evidence": (
+        "market_data",
+        "kb_search",
+        "graph_lookup",
+        "evidence_lookup",
+        "web_search",
+    ),
+    "company_valuation_evidence": (
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "web_search",
+    ),
+    "theme_multi_layer_evidence": (
+        "kb_search",
+        "graph_lookup",
+        "news_search",
+        "web_search",
+    ),
+    "event_and_official_evidence": (
+        "graph_lookup",
+        "evidence_lookup",
+        "news_search",
+        "web_search",
+        "l3_lookup",
+    ),
+    "company_financial_evidence": (
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "l3_lookup",
+    ),
+    "current_fact_evidence": (
+        "market_data",
+        "kb_search",
+        "evidence_lookup",
+        "web_search",
+    ),
+    "theme_tracking_evidence": (
+        "market_data",
+        "mainline_context",
+        "kb_search",
+        "graph_lookup",
+        "news_search",
+        "web_search",
+    ),
+    "source_critique_evidence": (
+        "kb_search",
+        "evidence_lookup",
+        "news_search",
+        "web_search",
+    ),
+    "comparable_multi_source_evidence": (
+        "kb_search",
+        "graph_lookup",
+        "evidence_lookup",
+        "web_search",
+    ),
+    "event_scenario_evidence": ("graph_lookup", "news_search", "web_search"),
+    "claim_verification_evidence": (
+        "kb_search",
+        "evidence_lookup",
+        "news_search",
+        "web_search",
+        "l3_lookup",
+    ),
+    "conditional_thesis_evidence": (
+        "market_data",
+        "kb_search",
+        "graph_lookup",
+        "evidence_lookup",
+        "news_search",
+        "web_search",
+    ),
+    "current_public_knowledge": ("news_search", "web_search"),
+    "general_finance_evidence": ("kb_search", "web_search"),
+}
+
+_PLAN_CAPABILITY_TO_RUNTIME: dict[str, str] = {
+    "market_data": "market_data",
+    "mainline_context": "mainline_context",
+    "market_timeseries": "market_data",
+    "market_midterm": "market_data",
+    "kb_search": "kb_search",
+    "graph_lookup": "graph_lookup",
+    "evidence_lookup": "evidence_lookup",
+    "news_search": "news_search",
+    "web_search": "web_search",
+    "l3_lookup": "l3_lookup",
+}
 
 
 def is_current_market_query(query: str) -> bool:
@@ -111,3 +223,31 @@ def resolve_evidence_plan(
             "current",
         )
     return EvidencePlan("general", (), freshness)
+
+
+def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
+    """Project task semantics into the continuous runtime's tool namespace."""
+
+    if not task_frame_requires_retrieval(frame):
+        return ()
+    plan = resolve_evidence_plan(
+        frame.raw_question,
+        question_type=frame.question_type,
+        freshness="current",
+    )
+    planned = tuple(
+        runtime_name
+        for item in plan.requirements
+        if (runtime_name := _PLAN_CAPABILITY_TO_RUNTIME.get(item.capability))
+    )
+    return tuple(
+        dict.fromkeys(
+            (
+                *_RUNTIME_CAPABILITY_FLOOR.get(
+                    frame.evidence_policy,
+                    ("kb_search", "web_search"),
+                ),
+                *planned,
+            )
+        )
+    )
