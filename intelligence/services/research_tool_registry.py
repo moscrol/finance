@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass, replace
 
 from intelligence.services import agent_research, query_ledger
@@ -133,14 +132,9 @@ class ResearchToolRegistry:
                 parent_id=context.trace_parent_id,
                 step_id=step_id,
             )
-            hashes = tuple(
-                hashlib.sha256(
-                    f"{item.tool}|{item.title}|{item.detail}|{item.source}".encode(
-                        "utf-8"
-                    )
-                ).hexdigest()[:16]
-                for item in evidence
-            )
+            # The content hash is the stable identifier carried into
+            # AgentOutcome/verifier. Do not mint a second observation-only ID.
+            hashes = tuple(item.content_hash for item in evidence)
             return ToolObservation(
                 tool=spec.name,
                 query=normalized,
