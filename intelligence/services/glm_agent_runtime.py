@@ -37,6 +37,7 @@ _SYNTHESIS_HEAVY_QUESTION_TYPES = frozenset(
     }
 )
 _BALANCED_SYNTHESIS_RESERVE = 60.0
+_UNCONFIGURED_PROVIDER_REASON = "未配置 LLM key，无法完成模型调用"
 
 
 class GLMModelClient:
@@ -46,8 +47,9 @@ class GLMModelClient:
     existing episode runtime.  The adapter itself is provider-neutral: when
     callers inject ``providers`` it owns one explicit, ordered chain and
     scopes each call with :func:`llm_refine.provider_override`.  The legacy
-    no-provider path remains available for older callers that already provide
-    their own adapter function.
+    injected-callback path remains available for older callers that already
+    provide their own adapter function; the real default adapter always uses
+    the resolved chain once.
     """
 
     def __init__(
@@ -58,9 +60,18 @@ class GLMModelClient:
         complete_fn: ChatWithTools | None = None,
     ) -> None:
         self._model = model
-        self._providers = tuple(providers) if providers is not None else None
+        if providers is not None:
+            self._providers = tuple(providers)
+        elif complete_fn is None:
+            # The real adapter already has provider fallback logic. Resolve
+            # that chain here so each physical call is scoped and counted once
+            # rather than repeating the whole internal chain on outer retry.
+            self._providers = tuple(llm_refine.detect_providers(model))
+        else:
+            # Explicit compatibility callbacks retain the historical singleton
+            # adapter semantics, including its bounded transient retry.
+            self._providers = None
         self._complete = complete_fn or llm_refine.chat_with_tools
-        self._provider_trace: tuple[dict[str, object], ...] = ()
 
     def complete(
         self,
@@ -119,20 +130,36 @@ class GLMModelClient:
                 # provider detection or HTTP. Keep usage and trace physical.
                 break
             attempts += 1
-            trace.append(
-                _provider_trace_entry(
-                    provider,
-                    status="success" if message is not None else "failed",
-                    reason=str(reason or ""),
+            parsed_turn: ModelTurn | None = None
+            parse_error = ""
+            if message is None:
+                trace.append(
+                    _provider_trace_entry(
+                        provider,
+                        status="failed",
+                        reason=str(reason or ""),
+                    )
                 )
-            )
+            else:
+                parsed_turn, parse_error = _turn_from_message(
+                    message,
+                    _provider_name(provider),
+                    attempts,
+                    reject_empty=False,
+                )
+                trace.append(
+                    _provider_trace_entry(
+                        provider,
+                        status="failed" if parse_error else "success",
+                        reason=parse_error,
+                    )
+                )
             if (
                 message is not None
                 or attempt == 1
                 or not _is_transient_provider_error(reason)
             ):
                 break
-        self._provider_trace = tuple(trace)
         provider_name = _provider_name(provider)
         if message is None:
             return self._with_provider_trace(
@@ -142,15 +169,17 @@ class GLMModelClient:
                     provider_name,
                     str(reason or "model_unavailable"),
                     provider_attempts=attempts,
-                )
+                ),
+                tuple(trace),
             )
-        turn, _error = _turn_from_message(
-            message,
-            provider_name,
-            attempts,
-            reject_empty=False,
-        )
-        return self._with_provider_trace(turn)
+        if parsed_turn is None:
+            parsed_turn, _error = _turn_from_message(
+                message,
+                provider_name,
+                attempts,
+                reject_empty=False,
+            )
+        return self._with_provider_trace(parsed_turn, tuple(trace))
 
     def _complete_provider_chain(
         self,
@@ -167,6 +196,18 @@ class GLMModelClient:
         trace: list[dict[str, object]] = []
         last_provider: object | None = None
         last_reason = "model deadline exhausted"
+
+        if not self._providers:
+            return self._with_provider_trace(
+                ModelTurn(
+                    "",
+                    (),
+                    "",
+                    _UNCONFIGURED_PROVIDER_REASON,
+                    provider_attempts=0,
+                ),
+                (),
+            )
 
         for provider in self._providers or ():
             remaining = max(0.0, expires_at - time.monotonic())
@@ -243,10 +284,8 @@ class GLMModelClient:
                     reason="",
                 )
             )
-            self._provider_trace = tuple(trace)
-            return self._with_provider_trace(turn)
+            return self._with_provider_trace(turn, tuple(trace))
 
-        self._provider_trace = tuple(trace)
         return self._with_provider_trace(
             ModelTurn(
                 "",
@@ -254,14 +293,19 @@ class GLMModelClient:
                 _provider_name(last_provider),
                 last_reason,
                 provider_attempts=attempts,
-            )
+            ),
+            tuple(trace),
         )
 
-    def _with_provider_trace(self, turn: ModelTurn) -> ModelTurn:
+    def _with_provider_trace(
+        self,
+        turn: ModelTurn,
+        trace: tuple[dict[str, object], ...],
+    ) -> ModelTurn:
         # ``ModelTurn`` is a frozen public value object. Keep adapter details
         # private and out of ``to_dict()`` while making them available to the
         # runtime/episode diagnostics when needed.
-        object.__setattr__(turn, "_provider_trace", self._provider_trace)
+        object.__setattr__(turn, "_provider_trace", trace)
         return turn
 
 

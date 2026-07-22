@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 
 import pytest
 
@@ -121,33 +122,118 @@ def test_runtime_forwards_one_turn_settings_to_each_provider() -> None:
     ]
 
 
-def test_real_adapter_without_explicit_providers_keeps_legacy_transient_retry(
+def test_real_adapter_without_explicit_providers_uses_one_explicit_chain(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    provider = _provider("glm")
-    calls: list[dict[str, object]] = []
+    providers = (_provider("glm"), _provider("openai"))
+    calls: list[str] = []
 
     def complete_fn(**kwargs):
-        calls.append(kwargs)
-        if len(calls) == 1:
-            return None, provider, "TimeoutError"
-        return {"content": "ok", "tool_calls": []}, provider, ""
+        del kwargs
+        configured = llm_refine.detect_providers()
+        for provider in configured:
+            calls.append(provider.name)
+            if provider.name == "glm":
+                continue
+            return {"content": "ok", "tool_calls": []}, provider, ""
+        return None, configured[0] if configured else None, "TimeoutError"
 
     monkeypatch.setattr(llm_refine, "chat_with_tools", complete_fn)
+
+    def detect_providers(_model=None):
+        overridden = llm_refine._PROVIDER_OVERRIDE.get()
+        return (overridden,) if overridden is not None else providers
+
     monkeypatch.setattr(
         llm_refine,
         "detect_providers",
-        lambda _model=None: pytest.fail(
-            "client composition must not auto-detect an explicit provider chain"
-        ),
+        detect_providers,
     )
 
     turn = GLMModelClient().complete(messages=[], tools=[], timeout=5)
 
     assert turn.content == "ok"
-    assert turn.provider_name == "glm"
+    assert turn.provider_name == "openai"
     assert turn.provider_attempts == 2
-    assert len(calls) == 2
+    assert calls == ["glm", "openai"]
+    assert [entry["provider"] for entry in turn._provider_trace] == calls
+
+
+def test_legacy_invalid_envelope_is_recorded_as_failed_trace() -> None:
+    provider = _provider("glm")
+    turn = GLMModelClient(
+        complete_fn=lambda **_kwargs: (
+            {"content": "invalid", "tool_calls": 0},
+            provider,
+            "",
+        )
+    ).complete(messages=[], tools=[], timeout=5)
+
+    assert turn.error == "invalid_tool_calls"
+    assert turn.provider_attempts == 1
+    assert turn._provider_trace == (
+        {
+            "provider": "glm",
+            "status": "failed",
+            "reason": "invalid_tool_calls",
+        },
+    )
+
+
+def test_provider_trace_is_scoped_to_each_concurrent_complete() -> None:
+    providers = (_provider("glm"), _provider("openai"))
+    synchronized_returns = threading.Barrier(2)
+    client = GLMModelClient(
+        providers=providers,
+        complete_fn=lambda **_kwargs: (
+            None,
+            llm_refine.detect_provider(),
+            f"TimeoutError:{threading.current_thread().name}",
+        )
+        if llm_refine.detect_provider().name == "glm"
+        else (
+            {
+                "content": threading.current_thread().name,
+                "tool_calls": [],
+            },
+            llm_refine.detect_provider(),
+            "",
+        ),
+    )
+    original_with_trace = client._with_provider_trace
+
+    def synchronized_with_trace(turn, trace):
+        synchronized_returns.wait(timeout=5)
+        return original_with_trace(turn, trace)
+
+    client._with_provider_trace = synchronized_with_trace
+    results: dict[str, object] = {}
+    errors: list[BaseException] = []
+
+    def run() -> None:
+        tag = threading.current_thread().name
+        try:
+            results[tag] = client.complete(messages=[], tools=[], timeout=5)
+        except BaseException as exc:  # pragma: no cover - assertion below
+            errors.append(exc)
+
+    threads = [
+        threading.Thread(target=run, name="turn-a"),
+        threading.Thread(target=run, name="turn-b"),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+
+    assert not errors
+    assert set(results) == {"turn-a", "turn-b"}
+    for tag, raw_turn in results.items():
+        turn = raw_turn
+        assert turn.content == tag
+        assert turn.provider_attempts == 2
+        assert turn._provider_trace[0]["reason"] == f"TimeoutError:{tag}"
+        assert turn._provider_trace[1]["provider"] == "openai"
 
 
 @pytest.mark.parametrize("timeout", (0.0, 0.001))
@@ -184,6 +270,18 @@ def test_runtime_budget_rejection_before_first_http_records_zero_attempts() -> N
     turn = client.complete(messages=[], tools=[], timeout=5)
 
     assert turn.provider_attempts == 0
+    assert turn._provider_trace == ()
+
+
+def test_runtime_empty_provider_tuple_is_honest_unconfigured_zero_attempts() -> None:
+    turn = GLMModelClient(providers=()).complete(
+        messages=[],
+        tools=[],
+        timeout=5,
+    )
+
+    assert turn.provider_attempts == 0
+    assert "未配置" in turn.error
     assert turn._provider_trace == ()
 
 
