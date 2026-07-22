@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from argparse import Namespace
 from pathlib import Path
+from typing import Mapping
 
 # When invoked as ``python scripts/semantic_acceptance.py`` Python places the
 # scripts directory (rather than the repository root) on sys.path.
@@ -26,6 +28,65 @@ DEFAULT_QUESTIONS = (
     "明天是反弹还是继续下跌，分别给出理由",
     "你觉得目前市场的主线是什么，给我你的判断依据",
 )
+
+
+def summarize_capability_monotonicity(
+    evidence: Mapping[str, object] | None,
+) -> dict[str, object]:
+    """Project an independent capability report without inventing evidence."""
+
+    if evidence is None:
+        return {
+            "status": "not_evaluated",
+            "evidence_present": False,
+            "passed": False,
+            "issues": ["monotonicity_evidence_missing"],
+        }
+    if evidence.get("gate") != "capability_monotonicity":
+        return {
+            "status": "invalid",
+            "evidence_present": True,
+            "passed": False,
+            "issues": ["monotonicity_evidence_invalid"],
+        }
+    passed = evidence.get("passed")
+    case_count = evidence.get("case_count")
+    evaluations = evidence.get("evaluations")
+    if (
+        not isinstance(passed, bool)
+        or not isinstance(case_count, int)
+        or case_count < 1
+        or not isinstance(evaluations, list)
+        or len(evaluations) < case_count
+    ):
+        return {
+            "status": "invalid",
+            "evidence_present": True,
+            "passed": False,
+            "issues": ["monotonicity_evidence_invalid"],
+        }
+    issues: list[str] = []
+    if not passed:
+        for evaluation in evaluations:
+            if not isinstance(evaluation, Mapping):
+                continue
+            for arm in ("current", "episode"):
+                comparison = evaluation.get(arm)
+                if not isinstance(comparison, Mapping):
+                    continue
+                for reason in comparison.get("failure_reasons") or ():
+                    reason_text = str(reason)
+                    if reason_text not in issues:
+                        issues.append(reason_text)
+        if not issues:
+            issues.append("capability_monotonicity_failed")
+    return {
+        "status": "passed" if passed else "failed",
+        "evidence_present": True,
+        "passed": passed,
+        "issues": issues,
+        "case_count": case_count,
+    }
 
 
 def validate_runtime_provenance(
@@ -65,6 +126,7 @@ def run_acceptance(
     output: Path,
     expected_revision: str | None = None,
     questions: tuple[str, ...] = DEFAULT_QUESTIONS,
+    capability_monotonicity_evidence: Mapping[str, object] | None = None,
 ) -> tuple[int, dict[str, object]]:
     health = _request_json(
         "GET",
@@ -86,6 +148,9 @@ def run_acceptance(
             "passed": not provenance_issues,
             "issues": provenance_issues,
         },
+        "capability_monotonicity": summarize_capability_monotonicity(
+            capability_monotonicity_evidence
+        ),
         "runs": [],
         "terminal_outcome": "protocol_error",
     }
@@ -133,6 +198,17 @@ def run_acceptance(
     elif semantic_failed:
         summary["terminal_outcome"] = "semantic_failed"
         exit_code = 1
+    elif (
+        summary["capability_monotonicity"]["evidence_present"]
+        and not summary["capability_monotonicity"]["passed"]
+    ):
+        issues = summary["capability_monotonicity"]["issues"]
+        summary["terminal_outcome"] = (
+            "capability_regression"
+            if "capability_regression" in issues
+            else "capability_monotonicity_failed"
+        )
+        exit_code = 1
     else:
         summary["terminal_outcome"] = "passed"
         exit_code = 0
@@ -149,21 +225,38 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--expected-revision")
+    parser.add_argument(
+        "--capability-monotonicity-report",
+        type=Path,
+        help="Optional independent three-arm capability report to enforce",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        capability_evidence = None
+        if args.capability_monotonicity_report is not None:
+            loaded = json.loads(
+                args.capability_monotonicity_report.read_text(encoding="utf-8")
+            )
+            if not isinstance(loaded, dict):
+                raise ValueError("capability report must be a JSON object")
+            capability_evidence = loaded
         code, summary = run_acceptance(
             base_url=args.base_url,
             user=args.user,
             timeout=args.timeout,
             output=args.output,
             expected_revision=args.expected_revision,
+            capability_monotonicity_evidence=capability_evidence,
         )
     except SmokeProtocolError as exc:
         print(f"semantic acceptance failed: {exc.stage}", file=sys.stderr)
+        return 2
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        print(f"semantic acceptance failed: capability report: {exc}", file=sys.stderr)
         return 2
     print(f"semantic acceptance outcome: {summary['terminal_outcome']}")
     return code

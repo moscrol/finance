@@ -1,13 +1,13 @@
 """Offline checks that constraints do not make an agent less capable.
 
-The production verifier answers a binary question: may this factual claim be
-shown?  This module answers a different, advisory question: after adding
-retrieval and verification, did the Workbench still answer the user's actual
-task and preserve a useful fallback?
+The five-dimension three-arm records are independent release evidence: after
+adding retrieval and verification, did the Workbench still answer the user's
+actual task?  Keyword checks remain a separate protocol gate.  The older
+deterministic answer-shape metrics at the bottom of this module remain advisory
+and are retained for API compatibility.
 
-All metrics are deterministic and side-effect free.  They are deliberately
-kept out of production prompts and gates; otherwise the evaluator would become
-another source of template pressure.
+This module is deterministic and side-effect free; it never calls an LLM or a
+runtime itself.
 """
 from __future__ import annotations
 
@@ -30,9 +30,440 @@ _CONTROL_PLANE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("internal_candidate", re.compile(r"候选来源|generic[_ ]theme|graph_only", re.I)),
 )
 
+CAPABILITY_SCORE_RUBRIC: Mapping[int, str] = {
+    0: "missing or wrong",
+    1: "materially inadequate",
+    2: "partial",
+    3: "substantially complete",
+    4: "fully satisfies the dimension",
+}
+
+
+def _integer_field(value: Mapping[str, Any], name: str) -> int:
+    item = value[name]
+    if isinstance(item, bool) or not isinstance(item, int):
+        raise ValueError(f"{name} must be an integer")
+    return item
+
+
+def _boolean_field(value: Mapping[str, Any], name: str) -> bool:
+    item = value[name]
+    if not isinstance(item, bool):
+        raise ValueError(f"{name} must be a boolean")
+    return item
+
 
 @dataclass(frozen=True)
 class CapabilityScore:
+    """Human-judged task capability on five 0..4 dimensions.
+
+    ``normalized_total`` is the arithmetic sum divided by the maximum possible
+    sum (``5 * 4``), so comparison thresholds use an unambiguous 0..1 scale.
+    """
+
+    directness: int
+    coverage: int
+    relevance: int
+    truth_boundary: int
+    usefulness: int
+
+    def __post_init__(self) -> None:
+        for name in (
+            "directness",
+            "coverage",
+            "relevance",
+            "truth_boundary",
+            "usefulness",
+        ):
+            value = getattr(self, name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or not 0 <= value <= 4
+            ):
+                raise ValueError(f"{name} must be an integer from 0 to 4")
+
+    @property
+    def normalized_total(self) -> float:
+        return round(
+            (
+                self.directness
+                + self.coverage
+                + self.relevance
+                + self.truth_boundary
+                + self.usefulness
+            )
+            / 20,
+            4,
+        )
+
+    def to_dict(self) -> dict[str, int | float]:
+        return {
+            "directness": self.directness,
+            "coverage": self.coverage,
+            "relevance": self.relevance,
+            "truth_boundary": self.truth_boundary,
+            "usefulness": self.usefulness,
+            "normalized_total": self.normalized_total,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "CapabilityScore":
+        return cls(
+            directness=_integer_field(value, "directness"),
+            coverage=_integer_field(value, "coverage"),
+            relevance=_integer_field(value, "relevance"),
+            truth_boundary=_integer_field(value, "truth_boundary"),
+            usefulness=_integer_field(value, "usefulness"),
+        )
+
+
+@dataclass(frozen=True)
+class ConversationMessage:
+    role: str
+    content: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {"role": self.role, "content": self.content}
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "ConversationMessage":
+        return cls(role=str(value["role"]), content=str(value["content"]))
+
+
+@dataclass(frozen=True)
+class CapabilityCase:
+    """Frozen inputs shared by all three evaluation arms."""
+
+    case_id: str
+    question: str
+    conversation_context: tuple[ConversationMessage, ...]
+    model: str
+    temperature: float
+    timeout: float
+    as_of: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "question": self.question,
+            "conversation_context": [
+                item.to_dict() for item in self.conversation_context
+            ],
+            "model": self.model,
+            "temperature": self.temperature,
+            "timeout": self.timeout,
+            "as_of": self.as_of,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "CapabilityCase":
+        return cls(
+            case_id=str(value["case_id"]),
+            question=str(value["question"]),
+            conversation_context=tuple(
+                ConversationMessage.from_dict(item)
+                for item in value.get("conversation_context") or ()
+            ),
+            model=str(value["model"]),
+            temperature=float(value["temperature"]),
+            timeout=float(value["timeout"]),
+            as_of=str(value["as_of"]),
+        )
+
+
+@dataclass(frozen=True)
+class CapabilityRunResult:
+    """One arm's answer, judgment, and cost metadata; latency is in seconds."""
+
+    case_id: str
+    arm: str
+    answer: str
+    score: CapabilityScore
+    latency: float
+    llm_calls: int
+    tool_calls: int
+    fallback_reason: str | None
+    protocol_passed: bool
+    protocol_issues: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.arm not in {"bare", "current", "episode"}:
+            raise ValueError("arm must be bare, current, or episode")
+        if not isinstance(self.protocol_passed, bool):
+            raise ValueError("protocol_passed must be a boolean")
+        for name in ("llm_calls", "tool_calls"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(f"{name} must be an integer")
+        if self.latency < 0 or self.llm_calls < 0 or self.tool_calls < 0:
+            raise ValueError("execution metrics cannot be negative")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "arm": self.arm,
+            "answer": self.answer,
+            "score": self.score.to_dict(),
+            "latency": self.latency,
+            "llm_calls": self.llm_calls,
+            "tool_calls": self.tool_calls,
+            "fallback_reason": self.fallback_reason,
+            "protocol_passed": self.protocol_passed,
+            "protocol_issues": list(self.protocol_issues),
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "CapabilityRunResult":
+        return cls(
+            case_id=str(value["case_id"]),
+            arm=str(value["arm"]),
+            answer=str(value.get("answer") or ""),
+            score=CapabilityScore.from_dict(value["score"]),
+            latency=float(value["latency"]),
+            llm_calls=_integer_field(value, "llm_calls"),
+            tool_calls=_integer_field(value, "tool_calls"),
+            fallback_reason=(
+                str(value["fallback_reason"])
+                if value.get("fallback_reason") is not None
+                else None
+            ),
+            protocol_passed=_boolean_field(value, "protocol_passed"),
+            protocol_issues=tuple(
+                str(item) for item in value.get("protocol_issues") or ()
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class BareComparison:
+    case_id: str
+    harness_arm: str
+    bare_score: float
+    harness_score: float
+    threshold: float
+    passed: bool
+    failure_reasons: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "harness_arm": self.harness_arm,
+            "bare_score": self.bare_score,
+            "harness_score": self.harness_score,
+            "threshold": self.threshold,
+            "passed": self.passed,
+            "failure_reasons": list(self.failure_reasons),
+        }
+
+
+def compare_with_bare(
+    bare: CapabilityRunResult,
+    harness: CapabilityRunResult,
+    *,
+    threshold: float = 0.2,
+) -> BareComparison:
+    """Compare one harness arm to bare on the normalized 0..1 scale."""
+
+    if bare.arm != "bare":
+        raise ValueError("the baseline result must use the bare arm")
+    if harness.arm not in {"current", "episode"}:
+        raise ValueError("the harness result must use current or episode")
+    if bare.case_id != harness.case_id:
+        raise ValueError("bare and harness results must belong to the same case")
+    if not 0 <= threshold <= 1:
+        raise ValueError("threshold must use the normalized 0..1 scale")
+    bare_score = bare.score.normalized_total
+    harness_score = harness.score.normalized_total
+    regression = harness_score + threshold < bare_score
+    failures: list[str] = []
+    if regression:
+        failures.append("capability_regression")
+    if not harness.protocol_passed:
+        failures.append("protocol_failed")
+    return BareComparison(
+        case_id=harness.case_id,
+        harness_arm=harness.arm,
+        bare_score=bare_score,
+        harness_score=harness_score,
+        threshold=threshold,
+        passed=not failures,
+        failure_reasons=tuple(failures),
+    )
+
+
+@dataclass(frozen=True)
+class ThreeArmRecord:
+    case: CapabilityCase
+    bare: CapabilityRunResult
+    current: CapabilityRunResult
+    episode: CapabilityRunResult
+
+    def __post_init__(self) -> None:
+        results = (self.bare, self.current, self.episode)
+        if tuple(item.arm for item in results) != ("bare", "current", "episode"):
+            raise ValueError(
+                "three-arm records require bare, current, and episode results"
+            )
+        if any(item.case_id != self.case.case_id for item in results):
+            raise ValueError("all results must match the case id")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case": self.case.to_dict(),
+            "bare": self.bare.to_dict(),
+            "current": self.current.to_dict(),
+            "episode": self.episode.to_dict(),
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "ThreeArmRecord":
+        return cls(
+            case=CapabilityCase.from_dict(value["case"]),
+            bare=CapabilityRunResult.from_dict(value["bare"]),
+            current=CapabilityRunResult.from_dict(value["current"]),
+            episode=CapabilityRunResult.from_dict(value["episode"]),
+        )
+
+
+@dataclass(frozen=True)
+class ThreeArmEvaluation:
+    case_id: str
+    current: BareComparison
+    episode: BareComparison
+
+    @property
+    def passed(self) -> bool:
+        return self.current.passed and self.episode.passed
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "passed": self.passed,
+            "current": self.current.to_dict(),
+            "episode": self.episode.to_dict(),
+        }
+
+
+def evaluate_three_arm_record(
+    record: ThreeArmRecord,
+    *,
+    threshold: float = 0.2,
+) -> ThreeArmEvaluation:
+    return ThreeArmEvaluation(
+        case_id=record.case.case_id,
+        current=compare_with_bare(record.bare, record.current, threshold=threshold),
+        episode=compare_with_bare(record.bare, record.episode, threshold=threshold),
+    )
+
+
+def summarize_three_arm_records(
+    records: Sequence[ThreeArmRecord],
+    *,
+    threshold: float = 0.2,
+) -> dict[str, Any]:
+    """Build the independent evidence document consumed by acceptance gates."""
+
+    evaluations = [
+        evaluate_three_arm_record(record, threshold=threshold) for record in records
+    ]
+    comparisons = [
+        comparison
+        for evaluation in evaluations
+        for comparison in (evaluation.current, evaluation.episode)
+    ]
+    return {
+        "schema_version": 1,
+        "gate": "capability_monotonicity",
+        "score_scale": {
+            "dimension_min": 0,
+            "dimension_max": 4,
+            "dimension_count": 5,
+            "normalization": "sum(dimensions) / 20",
+            "normalized_range": [0.0, 1.0],
+            "rubric": dict(CAPABILITY_SCORE_RUBRIC),
+        },
+        "threshold": threshold,
+        "evidence_present": bool(evaluations),
+        "passed": bool(evaluations) and all(item.passed for item in evaluations),
+        "case_count": len(evaluations),
+        "arm_comparison_count": len(comparisons),
+        "regression_count": sum(
+            "capability_regression" in item.failure_reasons for item in comparisons
+        ),
+        "failed_comparison_count": sum(not item.passed for item in comparisons),
+        "evaluations": [item.to_dict() for item in evaluations],
+    }
+
+
+DEFAULT_CAPABILITY_CASES: tuple[CapabilityCase, ...] = (
+    CapabilityCase(
+        case_id="rebound-duration",
+        question="昨天的反弹能持续多久",
+        conversation_context=(
+            ConversationMessage(
+                role="user",
+                content="只讨论 A 股整体市场，不讨论个股。",
+            ),
+        ),
+        model="glm-5.2",
+        temperature=0.0,
+        timeout=180.0,
+        as_of="2026-07-22",
+    ),
+    CapabilityCase(
+        case_id="current-mainline",
+        question="目前市场的主线是什么",
+        conversation_context=(),
+        model="glm-5.2",
+        temperature=0.0,
+        timeout=180.0,
+        as_of="2026-07-22",
+    ),
+    CapabilityCase(
+        case_id="unfamiliar-theme-without-skill",
+        question="一个没有现成 skill 的陌生题材怎么判断",
+        conversation_context=(
+            ConversationMessage(
+                role="user",
+                content="请先给判断方法，再说明实时证据缺口。",
+            ),
+        ),
+        model="glm-5.2",
+        temperature=0.0,
+        timeout=180.0,
+        as_of="2026-07-22",
+    ),
+)
+
+
+def build_fixture_document() -> dict[str, Any]:
+    """Return the offline fixture plus the execution contract for each arm."""
+
+    return {
+        "schema_version": 1,
+        "arm_contracts": {
+            "bare": "send only question; no tools or databases",
+            "current": "run the current Workbench",
+            "episode": "run the continuous AgentEpisode candidate",
+        },
+        "score_scale": {
+            "dimensions": [
+                "directness",
+                "coverage",
+                "relevance",
+                "truth_boundary",
+                "usefulness",
+            ],
+            "rubric": dict(CAPABILITY_SCORE_RUBRIC),
+            "normalization": "sum(dimensions) / 20",
+        },
+        "cases": [case.to_dict() for case in DEFAULT_CAPABILITY_CASES],
+    }
+
+
+@dataclass(frozen=True)
+class AdvisoryCapabilityScore:
     case_id: str
     directness: float
     task_coverage: float
@@ -50,8 +481,8 @@ class CapabilityScore:
 @dataclass(frozen=True)
 class CapabilityComparison:
     case_id: str
-    minimal: CapabilityScore
-    workbench: CapabilityScore
+    minimal: AdvisoryCapabilityScore
+    workbench: AdvisoryCapabilityScore
     deltas: Mapping[str, float]
     monotonic: bool
     regressions: tuple[str, ...] = ()
@@ -209,11 +640,11 @@ def fallback_fidelity_score(answer: str, decision_brief: Mapping[str, Any] | Non
     return round(sum(_phrase_coverage(anchor, answer) for anchor in anchors) / 2, 4)
 
 
-def evaluate_capability_case(case: Mapping[str, Any]) -> CapabilityScore:
+def evaluate_capability_case(case: Mapping[str, Any]) -> AdvisoryCapabilityScore:
     answer = str(case.get("answer") or "")
     coverage, missing = task_coverage_score(answer, case.get("requirements") or ())
     leak_score, leaks = control_plane_leak_score(answer)
-    return CapabilityScore(
+    return AdvisoryCapabilityScore(
         case_id=str(case.get("id") or "case"),
         directness=directness_score(
             str(case.get("question") or ""),
