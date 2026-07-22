@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass
+from decimal import Decimal
 from typing import Any, Mapping, Sequence
 
 from intelligence.eval.presentation_diversity import heading_sequence
@@ -84,18 +85,20 @@ class CapabilityScore:
                 raise ValueError(f"{name} must be an integer from 0 to 4")
 
     @property
-    def normalized_total(self) -> float:
-        return round(
-            (
-                self.directness
-                + self.coverage
-                + self.relevance
-                + self.truth_boundary
-                + self.usefulness
-            )
-            / 20,
-            4,
+    def total_units(self) -> int:
+        """Integer score units used by the regression gate (maximum 20)."""
+
+        return (
+            self.directness
+            + self.coverage
+            + self.relevance
+            + self.truth_boundary
+            + self.usefulness
         )
+
+    @property
+    def normalized_total(self) -> float:
+        return round(self.total_units / 20, 4)
 
     def to_dict(self) -> dict[str, int | float]:
         return {
@@ -142,6 +145,15 @@ class CapabilityCase:
     temperature: float
     timeout: float
     as_of: str
+
+    def __post_init__(self) -> None:
+        for name in ("case_id", "question", "model", "as_of"):
+            if not isinstance(getattr(self, name), str) or not getattr(
+                self, name
+            ).strip():
+                raise ValueError(f"{name} must be a non-empty string")
+        if self.temperature < 0 or self.timeout <= 0:
+            raise ValueError("temperature must be non-negative and timeout positive")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -215,23 +227,28 @@ class CapabilityRunResult:
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "CapabilityRunResult":
+        answer = value["answer"]
+        fallback_reason = value["fallback_reason"]
+        protocol_issues = value["protocol_issues"]
+        if not isinstance(answer, str):
+            raise ValueError("answer must be a string")
+        if fallback_reason is not None and not isinstance(fallback_reason, str):
+            raise ValueError("fallback_reason must be a string or null")
+        if not isinstance(protocol_issues, list) or not all(
+            isinstance(item, str) for item in protocol_issues
+        ):
+            raise ValueError("protocol_issues must be a list of strings")
         return cls(
             case_id=str(value["case_id"]),
             arm=str(value["arm"]),
-            answer=str(value.get("answer") or ""),
+            answer=answer,
             score=CapabilityScore.from_dict(value["score"]),
             latency=float(value["latency"]),
             llm_calls=_integer_field(value, "llm_calls"),
             tool_calls=_integer_field(value, "tool_calls"),
-            fallback_reason=(
-                str(value["fallback_reason"])
-                if value.get("fallback_reason") is not None
-                else None
-            ),
+            fallback_reason=fallback_reason,
             protocol_passed=_boolean_field(value, "protocol_passed"),
-            protocol_issues=tuple(
-                str(item) for item in value.get("protocol_issues") or ()
-            ),
+            protocol_issues=tuple(protocol_issues),
         )
 
 
@@ -267,6 +284,10 @@ def compare_with_bare(
 
     if bare.arm != "bare":
         raise ValueError("the baseline result must use the bare arm")
+    if bare.tool_calls != 0:
+        raise ValueError("bare arm must not call tools or databases")
+    if not bare.protocol_passed:
+        raise ValueError("bare arm protocol must pass")
     if harness.arm not in {"current", "episode"}:
         raise ValueError("the harness result must use current or episode")
     if bare.case_id != harness.case_id:
@@ -275,7 +296,11 @@ def compare_with_bare(
         raise ValueError("threshold must use the normalized 0..1 scale")
     bare_score = bare.score.normalized_total
     harness_score = harness.score.normalized_total
-    regression = harness_score + threshold < bare_score
+    threshold_units = Decimal(str(threshold)) * Decimal(20)
+    regression = (
+        Decimal(harness.score.total_units) + threshold_units
+        < Decimal(bare.score.total_units)
+    )
     failures: list[str] = []
     if regression:
         failures.append("capability_regression")
@@ -331,6 +356,7 @@ class ThreeArmEvaluation:
     case_id: str
     current: BareComparison
     episode: BareComparison
+    record: ThreeArmRecord
 
     @property
     def passed(self) -> bool:
@@ -342,6 +368,7 @@ class ThreeArmEvaluation:
             "passed": self.passed,
             "current": self.current.to_dict(),
             "episode": self.episode.to_dict(),
+            "record": self.record.to_dict(),
         }
 
 
@@ -354,6 +381,7 @@ def evaluate_three_arm_record(
         case_id=record.case.case_id,
         current=compare_with_bare(record.bare, record.current, threshold=threshold),
         episode=compare_with_bare(record.bare, record.episode, threshold=threshold),
+        record=record,
     )
 
 

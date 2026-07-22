@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from argparse import Namespace
 from pathlib import Path
@@ -22,6 +23,10 @@ from scripts.smoke_workbench_self_use import (
     _url,
     run_smoke,
 )
+from intelligence.eval.capability_monotonicity import (
+    ThreeArmRecord,
+    evaluate_three_arm_record,
+)
 
 DEFAULT_QUESTIONS = (
     "科创50现在的支撑位在哪里，失效条件是什么",
@@ -30,60 +35,144 @@ DEFAULT_QUESTIONS = (
 )
 
 
+def load_capability_monotonicity_report(path: Path) -> dict[str, object]:
+    """Load a JSON report; semantic validation happens in the summary seam."""
+
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise ValueError("capability report must be a JSON object")
+    return loaded
+
+
+def _capability_invalid(*, case_count: int | None = None) -> dict[str, object]:
+    result: dict[str, object] = {
+        "status": "failed",
+        "evidence_present": True,
+        "passed": False,
+        "issues": ["monotonicity_evidence_invalid"],
+    }
+    if case_count is not None:
+        result["case_count"] = case_count
+    return result
+
+
 def summarize_capability_monotonicity(
     evidence: Mapping[str, object] | None,
+    *,
+    requested: bool = False,
 ) -> dict[str, object]:
-    """Project an independent capability report without inventing evidence."""
+    """Validate and re-derive an independent capability report.
+
+    ``requested=False`` is the historical CLI path: it is explicitly marked
+    ``not_requested`` and can retain the old protocol smoke exit code, but it
+    can never claim capability monotonicity passed.
+    """
 
     if evidence is None:
         return {
-            "status": "not_evaluated",
+            "status": "not_evaluated" if requested else "not_requested",
             "evidence_present": False,
             "passed": False,
-            "issues": ["monotonicity_evidence_missing"],
+            "issues": (
+                ["monotonicity_evidence_missing"] if requested else []
+            ),
         }
     if evidence.get("gate") != "capability_monotonicity":
-        return {
-            "status": "invalid",
-            "evidence_present": True,
-            "passed": False,
-            "issues": ["monotonicity_evidence_invalid"],
-        }
-    passed = evidence.get("passed")
+        return _capability_invalid()
+    reported_passed = evidence.get("passed")
     case_count = evidence.get("case_count")
+    threshold = evidence.get("threshold")
     evaluations = evidence.get("evaluations")
     if (
-        not isinstance(passed, bool)
+        not isinstance(reported_passed, bool)
+        or isinstance(case_count, bool)
         or not isinstance(case_count, int)
         or case_count < 1
+        or not isinstance(threshold, (int, float))
+        or isinstance(threshold, bool)
+        or not math.isfinite(float(threshold))
+        or not 0 <= float(threshold) <= 1
         or not isinstance(evaluations, list)
-        or len(evaluations) < case_count
+        or len(evaluations) != case_count
     ):
+        return _capability_invalid(
+            case_count=case_count if isinstance(case_count, int) else None
+        )
+
+    issues: list[str] = []
+    derived_passed: list[bool] = []
+    derived_regressions = 0
+    reported_regressions = 0
+    for evaluation in evaluations:
+        if not isinstance(evaluation, Mapping):
+            return _capability_invalid(case_count=case_count)
+        case_id = evaluation.get("case_id")
+        record_payload = evaluation.get("record")
+        if not isinstance(case_id, str) or not isinstance(record_payload, Mapping):
+            return _capability_invalid(case_count=case_count)
+        try:
+            record = ThreeArmRecord.from_dict(record_payload)
+            if record.case.case_id != case_id:
+                return _capability_invalid(case_count=case_count)
+            derived = evaluate_three_arm_record(record, threshold=float(threshold))
+        except (KeyError, TypeError, ValueError):
+            return _capability_invalid(case_count=case_count)
+        if not isinstance(evaluation.get("passed"), bool):
+            return _capability_invalid(case_count=case_count)
+        for arm in ("current", "episode"):
+            comparison = evaluation.get(arm)
+            if not isinstance(comparison, Mapping):
+                return _capability_invalid(case_count=case_count)
+            if comparison.get("harness_arm") != arm:
+                return _capability_invalid(case_count=case_count)
+            if not isinstance(comparison.get("passed"), bool):
+                return _capability_invalid(case_count=case_count)
+            if not isinstance(comparison.get("failure_reasons"), list) or not all(
+                isinstance(reason, str)
+                for reason in comparison["failure_reasons"]
+            ):
+                return _capability_invalid(case_count=case_count)
+            if "capability_regression" in comparison["failure_reasons"]:
+                reported_regressions += 1
+        expected = derived.to_dict()
+        derived_passed.append(derived.passed)
+        for arm in ("current", "episode"):
+            expected_reasons = expected[arm]["failure_reasons"]
+            for reason in expected_reasons:
+                if reason not in issues:
+                    issues.append(reason)
+            if "capability_regression" in expected_reasons:
+                derived_regressions += 1
+
+    expected_passed = bool(derived_passed) and all(derived_passed)
+    if reported_regressions:
         return {
-            "status": "invalid",
+            "status": "failed",
             "evidence_present": True,
             "passed": False,
-            "issues": ["monotonicity_evidence_invalid"],
+            "issues": ["capability_regression"],
+            "case_count": case_count,
         }
-    issues: list[str] = []
-    if not passed:
-        for evaluation in evaluations:
-            if not isinstance(evaluation, Mapping):
-                continue
-            for arm in ("current", "episode"):
-                comparison = evaluation.get(arm)
-                if not isinstance(comparison, Mapping):
-                    continue
-                for reason in comparison.get("failure_reasons") or ():
-                    reason_text = str(reason)
-                    if reason_text not in issues:
-                        issues.append(reason_text)
-        if not issues:
+    if not isinstance(evidence.get("evidence_present"), bool):
+        return _capability_invalid(case_count=case_count)
+    if evidence["evidence_present"] is not True:
+        return _capability_invalid(case_count=case_count)
+    if reported_passed != expected_passed:
+        # A stale top-level boolean cannot override a result derived from arms.
+        if not expected_passed and not issues:
             issues.append("capability_monotonicity_failed")
+    for field, expected_value in (
+        ("arm_comparison_count", case_count * 2),
+        ("regression_count", derived_regressions),
+    ):
+        if evidence.get(field) != expected_value:
+            return _capability_invalid(case_count=case_count)
+    if not expected_passed and not issues:
+        issues.append("capability_monotonicity_failed")
     return {
-        "status": "passed" if passed else "failed",
+        "status": "passed" if expected_passed else "failed",
         "evidence_present": True,
-        "passed": passed,
+        "passed": expected_passed,
         "issues": issues,
         "case_count": case_count,
     }
@@ -127,7 +216,12 @@ def run_acceptance(
     expected_revision: str | None = None,
     questions: tuple[str, ...] = DEFAULT_QUESTIONS,
     capability_monotonicity_evidence: Mapping[str, object] | None = None,
+    capability_monotonicity_requested: bool = False,
 ) -> tuple[int, dict[str, object]]:
+    capability_requested = (
+        capability_monotonicity_requested
+        or capability_monotonicity_evidence is not None
+    )
     health = _request_json(
         "GET",
         _url(base_url, "/api/health"),
@@ -149,7 +243,8 @@ def run_acceptance(
             "issues": provenance_issues,
         },
         "capability_monotonicity": summarize_capability_monotonicity(
-            capability_monotonicity_evidence
+            capability_monotonicity_evidence,
+            requested=capability_requested,
         ),
         "runs": [],
         "terminal_outcome": "protocol_error",
@@ -198,10 +293,7 @@ def run_acceptance(
     elif semantic_failed:
         summary["terminal_outcome"] = "semantic_failed"
         exit_code = 1
-    elif (
-        summary["capability_monotonicity"]["evidence_present"]
-        and not summary["capability_monotonicity"]["passed"]
-    ):
+    elif capability_requested and summary["capability_monotonicity"]["status"] != "passed":
         issues = summary["capability_monotonicity"]["issues"]
         summary["terminal_outcome"] = (
             "capability_regression"
@@ -238,12 +330,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         capability_evidence = None
         if args.capability_monotonicity_report is not None:
-            loaded = json.loads(
-                args.capability_monotonicity_report.read_text(encoding="utf-8")
+            capability_evidence = load_capability_monotonicity_report(
+                args.capability_monotonicity_report
             )
-            if not isinstance(loaded, dict):
-                raise ValueError("capability report must be a JSON object")
-            capability_evidence = loaded
         code, summary = run_acceptance(
             base_url=args.base_url,
             user=args.user,
@@ -251,6 +340,9 @@ def main(argv: list[str] | None = None) -> int:
             output=args.output,
             expected_revision=args.expected_revision,
             capability_monotonicity_evidence=capability_evidence,
+            capability_monotonicity_requested=(
+                args.capability_monotonicity_report is not None
+            ),
         )
     except SmokeProtocolError as exc:
         print(f"semantic acceptance failed: {exc.stage}", file=sys.stderr)

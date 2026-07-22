@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from intelligence.eval.capability_monotonicity import (
     DEFAULT_CAPABILITY_CASES,
     CapabilityCase,
@@ -21,6 +23,7 @@ def _result(
     score: CapabilityScore,
     protocol_passed: bool = True,
     case_id: str = "rebound-duration",
+    tool_calls: int | None = None,
 ) -> CapabilityRunResult:
     return CapabilityRunResult(
         case_id=case_id,
@@ -31,7 +34,7 @@ def _result(
         score=score,
         latency=1.0,
         llm_calls=1,
-        tool_calls=0 if arm == "bare" else 3,
+        tool_calls=(0 if arm == "bare" else 3) if tool_calls is None else tool_calls,
         fallback_reason=None,
         protocol_passed=protocol_passed,
         protocol_issues=(),
@@ -73,6 +76,48 @@ def test_harness_passes_when_non_degraded_with_better_truth_boundary() -> None:
     assert comparison.passed is True
     assert comparison.failure_reasons == ()
     assert comparison.harness_score == 1.0
+
+
+def test_threshold_uses_exact_integer_score_units_at_point_two_boundary() -> None:
+    bare = _result(
+        arm="bare",
+        score=CapabilityScore(4, 4, 4, 2, 4),  # 18/20 = 0.9
+    )
+    exactly_allowed = _result(
+        arm="current",
+        score=CapabilityScore(3, 3, 3, 2, 3),  # 14/20 = 0.7
+    )
+    beyond_allowed = _result(
+        arm="episode",
+        score=CapabilityScore(3, 3, 3, 1, 3),  # 13/20 = 0.65
+    )
+
+    assert compare_with_bare(bare, exactly_allowed).passed is True
+    assert compare_with_bare(bare, beyond_allowed).failure_reasons == (
+        "capability_regression",
+    )
+
+
+def test_bare_baseline_requires_zero_tools_and_protocol_pass() -> None:
+    current = _result(
+        arm="current",
+        score=CapabilityScore(4, 4, 4, 4, 4),
+    )
+    with_tools = _result(
+        arm="bare",
+        score=CapabilityScore(4, 4, 4, 4, 4),
+        tool_calls=1,
+    )
+    with_protocol_failure = _result(
+        arm="bare",
+        score=CapabilityScore(4, 4, 4, 4, 4),
+        protocol_passed=False,
+    )
+
+    with pytest.raises(ValueError, match="bare arm must not call tools"):
+        compare_with_bare(with_tools, current)
+    with pytest.raises(ValueError, match="bare arm protocol must pass"):
+        compare_with_bare(with_protocol_failure, current)
 
 
 def test_default_fixture_fixes_inputs_for_three_required_questions() -> None:
