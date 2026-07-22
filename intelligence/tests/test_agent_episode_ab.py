@@ -121,11 +121,13 @@ def test_live_runner_records_bare_current_and_verified_episode(
     )
     output = tmp_path / "live.json"
     execution_order: list[str] = []
+    synthesis_reserves: list[float] = []
     real_build_context = episode_ab.build_episode_context
 
     class FakeRuntime:
         def run(self, *, task_frame, context, registry):
             execution_order.append("episode")
+            synthesis_reserves.append(context.policy.synthesis_reserve)
             del registry
             evidence = AgentEvidence(
                 tool="market_data",
@@ -220,6 +222,7 @@ def test_live_runner_records_bare_current_and_verified_episode(
     }
     assert len(case["episode"]["outcome"]["events"]) == 2
     assert execution_order == ["bare", "context", "episode"]
+    assert synthesis_reserves == [60.0]
 
 
 def test_deterministic_fast_path_is_not_sent_to_episode(

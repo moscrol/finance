@@ -20,12 +20,19 @@ from intelligence.services.task_frame import TaskFrame
 
 ChatWithTools = Callable[..., tuple[dict | None, object | None, str]]
 _TRANSIENT_PROVIDER_ERRORS = ("TimeoutError", "RemoteDisconnected")
-DEFAULT_GLM_LLM_TIMEOUT = 60.0
+DEFAULT_GLM_LLM_TIMEOUT = 75.0
 _GLM_SYNTHESIS_RESERVE = {
     "quick": 20.0,
-    "standard": 60.0,
-    "deep": 60.0,
+    "standard": 75.0,
+    "deep": 75.0,
 }
+_SYNTHESIS_HEAVY_QUESTION_TYPES = frozenset(
+    {
+        "market_cause",
+        "market_watch",
+    }
+)
+_BALANCED_SYNTHESIS_RESERVE = 60.0
 
 
 class GLMModelClient:
@@ -130,6 +137,22 @@ class GLMAgentRuntime:
             normalized,
             _GLM_SYNTHESIS_RESERVE["standard"],
         )
+
+    @staticmethod
+    def synthesis_reserve_for_task(
+        *,
+        tier: str,
+        question_type: str,
+    ) -> float:
+        """Allocate one fixed total budget by task shape, never by model choice."""
+
+        tier_reserve = GLMAgentRuntime.synthesis_reserve_for_tier(tier)
+        if str(tier or "").strip().lower() == "quick":
+            return tier_reserve
+        normalized_type = str(question_type or "").strip().lower()
+        if normalized_type in _SYNTHESIS_HEAVY_QUESTION_TYPES:
+            return tier_reserve
+        return min(tier_reserve, _BALANCED_SYNTHESIS_RESERVE)
 
     def run(
         self,

@@ -242,7 +242,10 @@ def main(argv: list[str] | None = None) -> int:
                 tier=args.tier,
                 timeout=case.timeout,
                 synthesis_reserve=(
-                    GLMAgentRuntime.synthesis_reserve_for_tier(args.tier)
+                    GLMAgentRuntime.synthesis_reserve_for_task(
+                        tier=args.tier,
+                        question_type=control.task_frame.question_type,
+                    )
                 ),
                 today=case.as_of,
                 latest_data_date=(None if args.dry_run else latest_market_date()),

@@ -266,4 +266,27 @@ def test_glm_runtime_runs_episode_through_provider_neutral_adapter() -> None:
 
 
 def test_glm_runtime_standard_profile_reserves_a_slow_final_turn() -> None:
-    assert GLMAgentRuntime.synthesis_reserve_for_tier("standard") == 60.0
+    assert GLMAgentRuntime.synthesis_reserve_for_tier("standard") == 75.0
+
+
+@pytest.mark.parametrize(
+    ("question_type", "expected"),
+    (
+        ("market_cause", 75.0),
+        ("market_watch", 75.0),
+        ("valuation_estimate", 60.0),
+        ("stock_deep_dive", 60.0),
+        ("market_forecast", 60.0),
+    ),
+)
+def test_glm_runtime_allocates_budget_by_task_shape(
+    question_type: str,
+    expected: float,
+) -> None:
+    assert (
+        GLMAgentRuntime.synthesis_reserve_for_task(
+            tier="standard",
+            question_type=question_type,
+        )
+        == expected
+    )

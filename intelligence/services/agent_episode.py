@@ -27,6 +27,7 @@ from intelligence.services.task_frame import TaskFrame
 
 
 DEFAULT_LLM_TIMEOUT = 20.0
+MIN_PLANNING_TURN_SECONDS = 8.0
 _FINISH_STATUSES = frozenset({"completed", "partial"})
 _FINAL_JSON_RE = re.compile(r"```(?:json)?\s*(\{.*\})\s*```", re.S | re.I)
 
@@ -110,14 +111,14 @@ class ContinuousAgentEpisode:
             should_finalize = (
                 finalization_started
                 or tool_calls >= context.policy.max_steps
-                or planning_timeout <= 0.001
+                or planning_timeout < MIN_PLANNING_TURN_SECONDS
                 or _round > context.policy.max_steps
             )
             if should_finalize and not finalization_started:
                 finalization_started = True
                 if tool_calls >= context.policy.max_steps:
                     finalization_reason = "tool_budget_exhausted"
-                elif planning_timeout <= 0.001:
+                elif planning_timeout < MIN_PLANNING_TURN_SECONDS:
                     finalization_reason = "retrieval_deadline_closed"
                 else:
                     finalization_reason = "model_round_budget_exhausted"
@@ -685,4 +686,8 @@ def _recover_finish_with_raw_draft(text: str) -> dict[str, object] | None:
     }
 
 
-__all__ = ["ContinuousAgentEpisode", "DEFAULT_LLM_TIMEOUT"]
+__all__ = [
+    "ContinuousAgentEpisode",
+    "DEFAULT_LLM_TIMEOUT",
+    "MIN_PLANNING_TURN_SECONDS",
+]

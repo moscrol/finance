@@ -504,8 +504,8 @@ def test_planning_turn_cannot_spend_the_reserved_finalization_budget() -> None:
     base_context = _context(frame, max_steps=1)
     context = ResearchRunContext(
         contract=base_context.contract,
-        deadline=ResearchDeadline.from_timeout(5.0, synthesis_reserve=4.0),
-        policy=ResearchPolicy("quick", 1, 5.0, 4.0),
+        deadline=ResearchDeadline.from_timeout(15.0, synthesis_reserve=4.0),
+        policy=ResearchPolicy("quick", 1, 15.0, 4.0),
         trace_parent_id=base_context.trace_parent_id,
     )
     model = ScriptedModel([_tool_turn("A股 最新行情"), _finish_turn()])
@@ -518,7 +518,34 @@ def test_planning_turn_cannot_spend_the_reserved_finalization_budget() -> None:
 
     assert outcome.status == "completed"
     assert len(model.calls) == 2
-    assert 0.0 < model.calls[0]["timeout"] <= 1.0
+    assert 0.0 < model.calls[0]["timeout"] <= 11.0
     assert model.calls[0]["tools"]
     assert model.calls[1]["timeout"] > 3.0
     assert model.calls[1]["tools"] == []
+
+
+def test_tiny_planning_window_skips_tools_and_starts_finalization() -> None:
+    frame = _frame()
+    base_context = _context(frame, max_steps=3)
+    context = ResearchRunContext(
+        contract=base_context.contract,
+        deadline=ResearchDeadline.from_timeout(6.0, synthesis_reserve=4.0),
+        policy=ResearchPolicy("quick", 3, 6.0, 4.0),
+        trace_parent_id=base_context.trace_parent_id,
+    )
+    model = ScriptedModel([_finish_turn(status="partial")])
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=context,
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.status == "partial"
+    assert len(model.calls) == 1
+    assert model.calls[0]["tools"] == []
+    assert model.calls[0]["timeout"] > 3.0
+    finalization = next(
+        event for event in outcome.events if event.kind == "finalization"
+    )
+    assert finalization.payload["reason"] == "retrieval_deadline_closed"
