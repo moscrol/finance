@@ -11,6 +11,7 @@ runtime itself.
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import asdict, dataclass
 from decimal import Decimal
@@ -69,8 +70,17 @@ def _boolean_field(value: Mapping[str, Any], name: str) -> bool:
     return item
 
 
+def _require_finite_number(value: object, name: str) -> None:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+    ):
+        raise ValueError(f"{name} must be a finite number")
+
+
 @dataclass(frozen=True)
-class CapabilityScore:
+class TaskCapabilityScore:
     """Human-judged task capability on five 0..4 dimensions.
 
     ``normalized_total`` is the arithmetic sum divided by the maximum possible
@@ -126,7 +136,7 @@ class CapabilityScore:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "CapabilityScore":
+    def from_dict(cls, value: Mapping[str, Any]) -> "TaskCapabilityScore":
         return cls(
             directness=_integer_field(value, "directness"),
             coverage=_integer_field(value, "coverage"),
@@ -167,6 +177,8 @@ class CapabilityCase:
                 self, name
             ).strip():
                 raise ValueError(f"{name} must be a non-empty string")
+        _require_finite_number(self.temperature, "temperature")
+        _require_finite_number(self.timeout, "timeout")
         if self.temperature < 0 or self.timeout <= 0:
             raise ValueError("temperature must be non-negative and timeout positive")
 
@@ -206,7 +218,7 @@ class CapabilityRunResult:
     case_id: str
     arm: str
     answer: str
-    score: CapabilityScore
+    score: TaskCapabilityScore
     latency: float
     llm_calls: int
     tool_calls: int
@@ -219,6 +231,7 @@ class CapabilityRunResult:
             raise ValueError("arm must be bare, current, or episode")
         if not isinstance(self.protocol_passed, bool):
             raise ValueError("protocol_passed must be a boolean")
+        _require_finite_number(self.latency, "latency")
         for name in ("llm_calls", "tool_calls"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int):
@@ -257,7 +270,7 @@ class CapabilityRunResult:
             case_id=str(value["case_id"]),
             arm=str(value["arm"]),
             answer=answer,
-            score=CapabilityScore.from_dict(value["score"]),
+            score=TaskCapabilityScore.from_dict(value["score"]),
             latency=float(value["latency"]),
             llm_calls=_integer_field(value, "llm_calls"),
             tool_calls=_integer_field(value, "tool_calls"),
@@ -506,7 +519,7 @@ def build_fixture_document() -> dict[str, Any]:
 
 
 @dataclass(frozen=True)
-class AdvisoryCapabilityScore:
+class CapabilityScore:
     case_id: str
     directness: float
     task_coverage: float
@@ -517,15 +530,30 @@ class AdvisoryCapabilityScore:
     missing_outputs: tuple[str, ...] = ()
     leak_kinds: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        for name in (
+            "directness",
+            "task_coverage",
+            "grounding",
+            "control_plane_leak_score",
+            "fallback_fidelity",
+        ):
+            _require_finite_number(getattr(self, name), name)
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+# Keep the descriptive name introduced by the three-arm work available without
+# taking the long-standing ``CapabilityScore`` public name away from callers.
+AdvisoryCapabilityScore = CapabilityScore
 
 
 @dataclass(frozen=True)
 class CapabilityComparison:
     case_id: str
-    minimal: AdvisoryCapabilityScore
-    workbench: AdvisoryCapabilityScore
+    minimal: CapabilityScore
+    workbench: CapabilityScore
     deltas: Mapping[str, float]
     monotonic: bool
     regressions: tuple[str, ...] = ()
@@ -683,11 +711,11 @@ def fallback_fidelity_score(answer: str, decision_brief: Mapping[str, Any] | Non
     return round(sum(_phrase_coverage(anchor, answer) for anchor in anchors) / 2, 4)
 
 
-def evaluate_capability_case(case: Mapping[str, Any]) -> AdvisoryCapabilityScore:
+def evaluate_capability_case(case: Mapping[str, Any]) -> CapabilityScore:
     answer = str(case.get("answer") or "")
     coverage, missing = task_coverage_score(answer, case.get("requirements") or ())
     leak_score, leaks = control_plane_leak_score(answer)
-    return AdvisoryCapabilityScore(
+    return CapabilityScore(
         case_id=str(case.get("id") or "case"),
         directness=directness_score(
             str(case.get("question") or ""),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 
 import pytest
 
@@ -8,7 +9,7 @@ from intelligence.eval.capability_monotonicity import (
     DEFAULT_CAPABILITY_CASES,
     CapabilityCase,
     CapabilityRunResult,
-    CapabilityScore,
+    TaskCapabilityScore,
     ThreeArmRecord,
     compare_with_bare,
     evaluate_three_arm_record,
@@ -20,7 +21,7 @@ from scripts import capability_monotonicity as capability_cli
 def _result(
     *,
     arm: str,
-    score: CapabilityScore,
+    score: TaskCapabilityScore,
     protocol_passed: bool = True,
     case_id: str = "rebound-duration",
     tool_calls: int | None = None,
@@ -44,11 +45,11 @@ def _result(
 def test_keywords_cannot_hide_current_capability_regression() -> None:
     bare = _result(
         arm="bare",
-        score=CapabilityScore(4, 4, 4, 2, 4),
+        score=TaskCapabilityScore(4, 4, 4, 2, 4),
     )
     current = _result(
         arm="current",
-        score=CapabilityScore(1, 1, 1, 4, 1),
+        score=TaskCapabilityScore(1, 1, 1, 4, 1),
     )
 
     comparison = compare_with_bare(bare, current)
@@ -63,11 +64,11 @@ def test_keywords_cannot_hide_current_capability_regression() -> None:
 def test_harness_passes_when_non_degraded_with_better_truth_boundary() -> None:
     bare = _result(
         arm="bare",
-        score=CapabilityScore(4, 4, 4, 2, 4),
+        score=TaskCapabilityScore(4, 4, 4, 2, 4),
     )
     episode = _result(
         arm="episode",
-        score=CapabilityScore(4, 4, 4, 4, 4),
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
     )
 
     comparison = compare_with_bare(bare, episode)
@@ -81,15 +82,15 @@ def test_harness_passes_when_non_degraded_with_better_truth_boundary() -> None:
 def test_threshold_uses_exact_integer_score_units_at_point_two_boundary() -> None:
     bare = _result(
         arm="bare",
-        score=CapabilityScore(4, 4, 4, 2, 4),  # 18/20 = 0.9
+        score=TaskCapabilityScore(4, 4, 4, 2, 4),  # 18/20 = 0.9
     )
     exactly_allowed = _result(
         arm="current",
-        score=CapabilityScore(3, 3, 3, 2, 3),  # 14/20 = 0.7
+        score=TaskCapabilityScore(3, 3, 3, 2, 3),  # 14/20 = 0.7
     )
     beyond_allowed = _result(
         arm="episode",
-        score=CapabilityScore(3, 3, 3, 1, 3),  # 13/20 = 0.65
+        score=TaskCapabilityScore(3, 3, 3, 1, 3),  # 13/20 = 0.65
     )
 
     assert compare_with_bare(bare, exactly_allowed).passed is True
@@ -101,11 +102,11 @@ def test_threshold_uses_exact_integer_score_units_at_point_two_boundary() -> Non
 def test_non_fixed_margin_cannot_relax_the_capability_gate() -> None:
     bare = _result(
         arm="bare",
-        score=CapabilityScore(4, 4, 4, 4, 4),
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
     )
     harness = _result(
         arm="current",
-        score=CapabilityScore(0, 0, 0, 0, 0),
+        score=TaskCapabilityScore(0, 0, 0, 0, 0),
     )
 
     for margin in (1.0, 0.1):
@@ -116,16 +117,16 @@ def test_non_fixed_margin_cannot_relax_the_capability_gate() -> None:
 def test_bare_baseline_requires_zero_tools_and_protocol_pass() -> None:
     current = _result(
         arm="current",
-        score=CapabilityScore(4, 4, 4, 4, 4),
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
     )
     with_tools = _result(
         arm="bare",
-        score=CapabilityScore(4, 4, 4, 4, 4),
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
         tool_calls=1,
     )
     with_protocol_failure = _result(
         arm="bare",
-        score=CapabilityScore(4, 4, 4, 4, 4),
+        score=TaskCapabilityScore(4, 4, 4, 4, 4),
         protocol_passed=False,
     )
 
@@ -133,6 +134,36 @@ def test_bare_baseline_requires_zero_tools_and_protocol_pass() -> None:
         compare_with_bare(with_tools, current)
     with pytest.raises(ValueError, match="bare arm protocol must pass"):
         compare_with_bare(with_protocol_failure, current)
+
+
+@pytest.mark.parametrize("non_finite", [math.nan, math.inf, -math.inf])
+def test_case_and_run_metrics_reject_non_finite_numbers(non_finite: float) -> None:
+    case = DEFAULT_CAPABILITY_CASES[0]
+
+    with pytest.raises(ValueError, match="finite"):
+        CapabilityCase(
+            case_id=case.case_id,
+            question=case.question,
+            conversation_context=case.conversation_context,
+            model=case.model,
+            temperature=non_finite,
+            timeout=case.timeout,
+            as_of=case.as_of,
+        )
+
+    with pytest.raises(ValueError, match="finite"):
+        CapabilityRunResult(
+            case_id=case.case_id,
+            arm="bare",
+            answer="直接回答。",
+            score=TaskCapabilityScore(4, 4, 4, 4, 4),
+            latency=non_finite,
+            llm_calls=1,
+            tool_calls=0,
+            fallback_reason=None,
+            protocol_passed=True,
+            protocol_issues=(),
+        )
 
 
 def test_default_fixture_fixes_inputs_for_three_required_questions() -> None:
@@ -155,17 +186,17 @@ def test_three_arm_record_round_trips_all_result_fields() -> None:
         case=case,
         bare=_result(
             arm="bare",
-            score=CapabilityScore(4, 4, 4, 2, 4),
+            score=TaskCapabilityScore(4, 4, 4, 2, 4),
             case_id=case.case_id,
         ),
         current=_result(
             arm="current",
-            score=CapabilityScore(4, 4, 4, 4, 4),
+            score=TaskCapabilityScore(4, 4, 4, 4, 4),
             case_id=case.case_id,
         ),
         episode=_result(
             arm="episode",
-            score=CapabilityScore(4, 4, 4, 4, 4),
+            score=TaskCapabilityScore(4, 4, 4, 4, 4),
             case_id=case.case_id,
         ),
     )
@@ -191,8 +222,8 @@ def test_three_arm_record_round_trips_all_result_fields() -> None:
 
 def test_three_arm_report_marks_capability_regression() -> None:
     case = DEFAULT_CAPABILITY_CASES[0]
-    strong = CapabilityScore(4, 4, 4, 2, 4)
-    weak = CapabilityScore(1, 1, 1, 4, 1)
+    strong = TaskCapabilityScore(4, 4, 4, 2, 4)
+    weak = TaskCapabilityScore(1, 1, 1, 4, 1)
     record = ThreeArmRecord(
         case=case,
         bare=_result(arm="bare", score=strong, case_id=case.case_id),
@@ -218,8 +249,8 @@ def test_cli_writes_offline_fixture_and_scores_saved_records(tmp_path) -> None:
     assert set(fixture["arm_contracts"]) == {"bare", "current", "episode"}
 
     case = DEFAULT_CAPABILITY_CASES[0]
-    strong = CapabilityScore(4, 4, 4, 2, 4)
-    weak = CapabilityScore(1, 1, 1, 4, 1)
+    strong = TaskCapabilityScore(4, 4, 4, 2, 4)
+    weak = TaskCapabilityScore(1, 1, 1, 4, 1)
     record = ThreeArmRecord(
         case=case,
         bare=_result(arm="bare", score=strong, case_id=case.case_id),

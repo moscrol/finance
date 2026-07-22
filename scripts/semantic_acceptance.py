@@ -129,6 +129,8 @@ def summarize_capability_monotonicity(
             return _capability_invalid(case_count=case_count)
         if not isinstance(evaluation.get("passed"), bool):
             return _capability_invalid(case_count=case_count)
+        reported_comparisons: dict[str, Mapping[str, object]] = {}
+        evaluation_reported_regression = False
         for arm in ("current", "episode"):
             comparison = evaluation.get(arm)
             if not isinstance(comparison, Mapping):
@@ -144,10 +146,20 @@ def summarize_capability_monotonicity(
                 return _capability_invalid(case_count=case_count)
             if "capability_regression" in comparison["failure_reasons"]:
                 reported_regressions += 1
+                evaluation_reported_regression = True
+            reported_comparisons[arm] = comparison
         expected = derived.to_dict()
+        if evaluation["passed"] != derived.passed:
+            if not evaluation_reported_regression:
+                return _capability_invalid(case_count=case_count)
         derived_passed.append(derived.passed)
         for arm in ("current", "episode"):
             expected_reasons = expected[arm]["failure_reasons"]
+            if dict(reported_comparisons[arm]) != expected[arm]:
+                if "capability_regression" not in reported_comparisons[arm][
+                    "failure_reasons"
+                ]:
+                    return _capability_invalid(case_count=case_count)
             for reason in expected_reasons:
                 if reason not in issues:
                     issues.append(reason)

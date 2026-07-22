@@ -57,7 +57,7 @@
 
 ```python
 @dataclass(frozen=True)
-class CapabilityScore:
+class TaskCapabilityScore:
     directness: int
     coverage: int
     relevance: int

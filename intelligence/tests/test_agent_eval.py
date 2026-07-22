@@ -15,6 +15,7 @@ from intelligence.eval.agent_eval import (
     score_turn,
 )
 from intelligence.eval.capability_monotonicity import (
+    CapabilityScore,
     compare_capability,
     evaluate_capability_case,
 )
@@ -85,6 +86,32 @@ class TestPureHelpers(unittest.TestCase):
 
 
 class TestCapabilityMonotonicity(unittest.TestCase):
+    def test_public_capability_score_constructor_remains_compatible(self):
+        score = CapabilityScore(
+            case_id="legacy-api",
+            directness=1.0,
+            task_coverage=0.9,
+            grounding=0.8,
+            control_plane_leak_score=0.0,
+            template_signature="legacy",
+            fallback_fidelity=1.0,
+        )
+
+        self.assertEqual(score.case_id, "legacy-api")
+        self.assertEqual(score.to_dict()["task_coverage"], 0.9)
+
+    def test_public_capability_score_rejects_non_finite_values(self):
+        with self.assertRaisesRegex(ValueError, "finite"):
+            CapabilityScore(
+                case_id="invalid-score",
+                directness=float("nan"),
+                task_coverage=1.0,
+                grounding=1.0,
+                control_plane_leak_score=0.0,
+                template_signature="legacy",
+                fallback_fidelity=1.0,
+            )
+
     def test_fixture_cases_expose_all_advisory_dimensions(self):
         fixture = Path(__file__).parent / "fixtures" / "capability_monotonicity_cases.json"
         cases = json.loads(fixture.read_text(encoding="utf-8"))["cases"]

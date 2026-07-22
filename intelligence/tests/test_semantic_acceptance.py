@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from intelligence.eval.capability_monotonicity import (
     DEFAULT_CAPABILITY_CASES,
     CapabilityRunResult,
-    CapabilityScore,
+    TaskCapabilityScore,
     ThreeArmRecord,
     summarize_three_arm_records,
 )
@@ -38,10 +39,10 @@ def test_explicitly_requested_but_missing_monotonicity_is_not_evaluated() -> Non
 
 
 def _valid_capability_report(
-    *, current_score: CapabilityScore | None = None
+    *, current_score: TaskCapabilityScore | None = None
 ) -> dict[str, object]:
     case = DEFAULT_CAPABILITY_CASES[0]
-    score = CapabilityScore(4, 4, 4, 4, 4)
+    score = TaskCapabilityScore(4, 4, 4, 4, 4)
     result = lambda arm: CapabilityRunResult(
         case_id=case.case_id,
         arm=arm,
@@ -68,7 +69,7 @@ def _valid_capability_report(
 
 def test_capability_summary_recomputes_each_three_arm_evaluation() -> None:
     report = _valid_capability_report(
-        current_score=CapabilityScore(1, 1, 1, 4, 1)
+        current_score=TaskCapabilityScore(1, 1, 1, 4, 1)
     )
     report["passed"] = True
 
@@ -112,6 +113,54 @@ def test_reported_comparison_regression_cannot_be_hidden_by_top_level_passed() -
     assert summary["issues"] == ["capability_regression"]
 
 
+def test_corrupt_protocol_comparison_cannot_be_hidden_by_top_level_passed(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        semantic_acceptance,
+        "_request_json",
+        lambda *args, **kwargs: {
+            "status": "healthy",
+            "runtime": {
+                "source_revision": "candidate",
+                "code_root": "/worktree",
+                "python_executable": "/venv/bin/python",
+                "dependency_fingerprint": "f" * 64,
+            },
+        },
+    )
+    monkeypatch.setattr(
+        semantic_acceptance,
+        "run_smoke",
+        lambda args: (
+            0,
+            {
+                "terminal_outcome": "completed",
+                "semantic": {"passed": True, "issues": []},
+                "run_id": args.question[:4],
+            },
+        ),
+    )
+    evidence = _valid_capability_report()
+    evidence["evaluations"][0]["current"]["passed"] = False
+    evidence["evaluations"][0]["current"]["failure_reasons"] = [
+        "protocol_failed"
+    ]
+    evidence["passed"] = True
+
+    code, summary = semantic_acceptance.run_acceptance(
+        base_url="http://127.0.0.1:8795",
+        user="test",
+        timeout=1,
+        output=tmp_path / "acceptance.json",
+        capability_monotonicity_evidence=evidence,
+    )
+
+    assert code == 1
+    assert summary["terminal_outcome"] == "capability_monotonicity_failed"
+    assert summary["capability_monotonicity"]["status"] == "failed"
+
+
 def test_report_threshold_cannot_override_fixed_capability_margin() -> None:
     report = _valid_capability_report()
     report["threshold"] = 1.0
@@ -120,6 +169,23 @@ def test_report_threshold_cannot_override_fixed_capability_margin() -> None:
 
     assert summary["status"] == "failed"
     assert summary["issues"] == ["capability_margin_invalid"]
+
+
+def test_capability_summary_rejects_non_finite_json_numbers() -> None:
+    for path, non_finite in (
+        (("current", "latency"), math.nan),
+        (("current", "score", "directness"), math.inf),
+    ):
+        report = _valid_capability_report()
+        target = report["evaluations"][0]["record"]
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = non_finite
+
+        summary = semantic_acceptance.summarize_capability_monotonicity(report)
+
+        assert summary["status"] == "failed"
+        assert summary["issues"] == ["monotonicity_evidence_invalid"]
 
 
 def test_cli_accepts_optional_capability_monotonicity_report(tmp_path: Path) -> None:
@@ -281,7 +347,7 @@ def test_run_acceptance_fails_on_independent_capability_regression(
         ),
     )
     evidence = _valid_capability_report(
-        current_score=CapabilityScore(1, 1, 1, 4, 1)
+        current_score=TaskCapabilityScore(1, 1, 1, 4, 1)
     )
 
     code, summary = semantic_acceptance.run_acceptance(
