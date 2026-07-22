@@ -275,12 +275,32 @@ def rebase_task_frame(
 ) -> TaskFrame:
     """Apply validated conversation inheritance before downstream projection."""
 
+    question_type_changed = question_type != frame.question_type
+    canonical_outputs = (
+        _default_required_outputs(question_type, frame.raw_question)
+        if question_type_changed
+        else ()
+    )
+    inherited_outputs = (
+        tuple(
+            item
+            for item in frame.required_outputs
+            if item
+            not in _default_required_outputs(frame.question_type, frame.raw_question)
+        )
+        if question_type_changed
+        else frame.required_outputs
+    )
     return replace(
         frame,
         subject=_safe_subject(subject, frame.raw_question),
         subject_kind=subject_kind or frame.subject_kind,
         timeframe=timeframe if timeframe is not None else frame.timeframe,
-        required_outputs=_merge_strings(frame.required_outputs, required_outputs),
+        required_outputs=_merge_strings(
+            inherited_outputs,
+            canonical_outputs,
+            required_outputs,
+        ),
         evidence_policy=_POLICY_BY_QUESTION_TYPE.get(
             question_type,
             _POLICY_BY_QUESTION_TYPE["general_finance_qa"],

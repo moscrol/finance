@@ -13,12 +13,14 @@ import inspect
 from typing import TYPE_CHECKING, Callable, Literal
 
 from intelligence.services.evidence_capabilities import (
+    resolve_evidence_plan,
     runtime_capabilities_for_frame,
 )
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.task_frame import (
     TaskFrame,
     build_task_frame,
+    rebase_task_frame,
     task_frame_requires_retrieval,
 )
 
@@ -27,6 +29,24 @@ if TYPE_CHECKING:
 
 TerminalKind = Literal["research", "non_research", "clarification"]
 LegacyDecide = Callable[..., "TurnDecision"]
+
+_LEGACY_CAPABILITY_TO_RUNTIME: dict[str, str] = {
+    "memory": "kb_search",
+    "market_quote": "market_data",
+    "market_news": "news_search",
+    "web_search": "web_search",
+    "web_fetch": "web_search",
+    "graph": "graph_lookup",
+    "filings": "l3_lookup",
+    "financials": "evidence_lookup",
+    "market_data": "market_data",
+    "mainline_context": "mainline_context",
+    "kb_search": "kb_search",
+    "graph_lookup": "graph_lookup",
+    "evidence_lookup": "evidence_lookup",
+    "news_search": "news_search",
+    "l3_lookup": "l3_lookup",
+}
 
 
 @dataclass(frozen=True)
@@ -81,7 +101,15 @@ class TurnControlCore:
 
         if decision.lane == "clarify" or clarification_questions:
             terminal_kind: TerminalKind = "clarification"
-        elif not task_frame_requires_retrieval(frame):
+        elif not (
+            decision.needs_retrieval
+            or task_frame_requires_retrieval(frame)
+            or resolve_evidence_plan(
+                frame.raw_question,
+                question_type=frame.question_type,
+                freshness="current",
+            ).requirements
+        ):
             terminal_kind = "non_research"
         else:
             terminal_kind = "research"
@@ -89,7 +117,21 @@ class TurnControlCore:
         contract_required = terminal_kind == "research"
         if terminal_kind == "research":
             needs_retrieval = True
-            capabilities = runtime_capabilities_for_frame(frame)
+            mapped_legacy_capabilities = tuple(
+                runtime_name
+                for capability in decision.capabilities
+                if (
+                    runtime_name := _LEGACY_CAPABILITY_TO_RUNTIME.get(capability)
+                )
+            )
+            capabilities = tuple(
+                dict.fromkeys(
+                    (
+                        *runtime_capabilities_for_frame(frame),
+                        *mapped_legacy_capabilities,
+                    )
+                )
+            )
             execution_route = frame.question_type
         else:
             needs_retrieval = False
@@ -147,6 +189,11 @@ class TurnControlCore:
             pending = TaskFrame.from_dict(decision.turn_intent.pending_task_frame)
             if pending is not None:
                 return pending
+            return TurnControlCore._frame_from_intent(
+                decision.turn_intent,
+                query,
+                confidence=decision.confidence,
+            )
         if decision.question_type is not None:
             return TurnControlCore._frame_from_decision(decision, query)
         if previous_frame is not None:
@@ -160,27 +207,7 @@ class TurnControlCore:
         from intelligence.services.query_understanding import QueryEnvelope
 
         question_type = decision.question_type or "general_finance_qa"
-        if question_type in {
-            "market_watch",
-            "dated_market_review",
-            "market_forecast",
-            "market_cause",
-            "market_technical",
-        }:
-            subject_kind = "market_pattern"
-        elif question_type == "external_market":
-            subject_kind = "external_market"
-        elif question_type in {"theme_analysis", "theme_track"}:
-            subject_kind = "theme"
-        elif question_type in {
-            "stock_deep_dive",
-            "valuation_estimate",
-            "financial_analysis",
-            "trade_advice",
-        }:
-            subject_kind = "company"
-        else:
-            subject_kind = "unknown"
+        subject_kind = TurnControlCore._subject_kind_for(question_type)
         envelope = QueryEnvelope(
             question_type=question_type,
             subject_kind=subject_kind,
@@ -191,3 +218,66 @@ class TurnControlCore:
             confidence=decision.confidence,
         )
         return build_task_frame(query, envelope)
+
+    @staticmethod
+    def _frame_from_intent(
+        intent: TurnIntent,
+        query: str,
+        *,
+        confidence: float,
+    ) -> TaskFrame:
+        from intelligence.services.query_understanding import QueryEnvelope
+
+        subject_kind = TurnControlCore._subject_kind_for(
+            intent.question_type,
+            answer_owner=intent.answer_owner,
+        )
+        envelope = QueryEnvelope(
+            question_type=intent.question_type,
+            subject_kind=subject_kind,
+            subject=intent.primary_subject,
+            decision_goal="继续已验证的用户研究任务",
+            timeframe=intent.timeframe,
+            matched_by="explicit" if intent.primary_subject is not None else "generic",
+            confidence=confidence,
+            required_outputs=intent.required_outputs,
+        )
+        frame = build_task_frame(query, envelope)
+        return rebase_task_frame(
+            frame,
+            question_type=intent.question_type,
+            subject=intent.primary_subject,
+            subject_kind=subject_kind,
+            timeframe=intent.timeframe,
+            required_outputs=intent.required_outputs,
+        )
+
+    @staticmethod
+    def _subject_kind_for(
+        question_type: str,
+        *,
+        answer_owner: str | None = None,
+    ) -> str:
+        if question_type in {
+            "market_watch",
+            "dated_market_review",
+            "market_forecast",
+            "market_cause",
+            "market_technical",
+        }:
+            return "market_pattern"
+        if question_type == "external_market":
+            return "external_market"
+        if (
+            question_type in {"theme_analysis", "theme_track"}
+            or answer_owner == "theme-research"
+        ):
+            return "theme"
+        if question_type in {
+            "stock_deep_dive",
+            "valuation_estimate",
+            "financial_analysis",
+            "trade_advice",
+        }:
+            return "company"
+        return "unknown"

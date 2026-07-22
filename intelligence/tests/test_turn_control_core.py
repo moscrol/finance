@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from intelligence.services.evidence_capabilities import (
     runtime_capabilities_for_frame,
 )
+from intelligence.services.research_contract import TurnIntent
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.turn_control_core import TurnControlCore
 from intelligence.services.turn_controller import TurnDecision
@@ -55,6 +58,15 @@ def test_stable_knowledge_is_non_research() -> None:
     assert result.capabilities == ()
 
 
+def test_definition_plus_current_market_fact_remains_research() -> None:
+    result = TurnControlCore().control("什么是双红，现在哪些板块双红")
+
+    assert result.task_frame.evidence_policy == "stable_knowledge"
+    assert result.terminal_kind == "research"
+    assert result.needs_retrieval is True
+    assert "mainline_context" in result.capabilities
+
+
 def test_financial_frame_cannot_be_downgraded_to_zero_retrieval() -> None:
     frame = _financial_frame()
 
@@ -76,6 +88,45 @@ def test_financial_frame_cannot_be_downgraded_to_zero_retrieval() -> None:
     assert result.contract_required is True
     assert result.terminal_kind == "research"
     assert {"market_data", "news_search"}.issubset(result.capabilities)
+
+
+def test_research_maps_legacy_capabilities_without_leaking_aliases() -> None:
+    frame = _financial_frame()
+    legacy_capabilities = (
+        "memory",
+        "market_quote",
+        "market_news",
+        "web_fetch",
+        "graph",
+        "filings",
+        "financials",
+    )
+
+    def fake_legacy(_query: str) -> TurnDecision:
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=True,
+            needs_template=True,
+            question_type=frame.question_type,
+            capabilities=legacy_capabilities,
+            task_frame=frame,
+        )
+
+    result = TurnControlCore(legacy_decide=fake_legacy).control(
+        frame.raw_question
+    )
+
+    assert {
+        "kb_search",
+        "market_data",
+        "news_search",
+        "web_search",
+        "graph_lookup",
+        "l3_lookup",
+        "evidence_lookup",
+    }.issubset(result.capabilities)
+    assert set(result.capabilities).isdisjoint(legacy_capabilities)
 
 
 def test_clarification_is_not_reported_as_completed_research() -> None:
@@ -115,6 +166,41 @@ def test_pending_turn_intent_clarifies_once_and_preserves_task_semantics() -> No
     assert resumed.turn_intent.pending_task_frame is None
     assert resumed.turn_intent.clarification_rounds == 1
     assert resumed.turn_intent.task_frame_hash == resumed.task_frame.task_frame_hash
+
+
+def test_intent_projection_wins_over_unrelated_previous_frame() -> None:
+    intent = TurnIntent(
+        primary_subject="光模块",
+        secondary_topics=(),
+        question_type="theme_track",
+        answer_owner="theme-research",
+        comparison_entities=(),
+        inherited_from_turn="msg-previous",
+        timeframe="近一个月",
+        required_outputs=("change_summary", "tracking_signals"),
+    )
+
+    def fake_legacy(_query: str) -> TurnDecision:
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=True,
+            needs_template=True,
+            turn_intent=intent,
+        )
+
+    result = TurnControlCore(legacy_decide=fake_legacy).control(
+        "继续跟踪它",
+        previous_frame=_financial_frame(),
+    )
+
+    assert result.task_frame.raw_question == "继续跟踪它"
+    assert result.task_frame.question_type == "theme_track"
+    assert result.task_frame.subject == "光模块"
+    assert result.task_frame.timeframe == "近一个月"
+    assert {"change_summary", "tracking_signals"}.issubset(
+        result.task_frame.required_outputs
+    )
 
 
 def test_adapter_type_error_is_not_retried_as_a_different_call() -> None:
@@ -172,6 +258,84 @@ def test_validated_route_projection_does_not_collapse_task_frame(
     assert result.task_frame.question_type == question_type
     assert result.task_frame.evidence_policy == evidence_policy
     assert result.execution_route == question_type
+
+
+@pytest.mark.parametrize(
+    ("query", "question_type", "required_output", "coarse_output"),
+    (
+        ("300750是哪家公司", "quick_fact", "fact_value", "direct_assessment"),
+        (
+            "光伏最近一个月有什么新变化",
+            "theme_track",
+            "change_summary",
+            "chain_mapping",
+        ),
+        (
+            "这份高盛AI算力研报核心假设站得住吗",
+            "kol_review",
+            "evidence_assessment",
+            "chain_mapping",
+        ),
+        (
+            "2015互联网泡沫和现在AI行情有什么异同",
+            "comparison_analog",
+            "limits_of_analogy",
+            "chain_mapping",
+        ),
+        (
+            "宁德时代要不要止损",
+            "trade_advice",
+            "conditional_thesis",
+            "direct_assessment",
+        ),
+    ),
+)
+def test_default_controller_preserves_fine_grained_route_frame(
+    query: str,
+    question_type: str,
+    required_output: str,
+    coarse_output: str,
+) -> None:
+    result = TurnControlCore().control(
+        query,
+        llm_complete=lambda _messages: pytest.fail(
+            "validated fine-grained route must not depend on controller LLM"
+        ),
+    )
+
+    assert result.task_frame.question_type == question_type
+    assert required_output in result.task_frame.required_outputs
+    assert coarse_output not in result.task_frame.required_outputs
+    assert result.execution_route == question_type
+    assert result.terminal_kind == "research"
+
+
+@pytest.mark.parametrize(
+    "question_type",
+    ("quick_fact", "theme_track", "kol_review", "comparison_analog", "trade_advice"),
+)
+def test_default_controller_rebases_injected_validated_route_row(
+    question_type: str,
+) -> None:
+    content = json.dumps(
+        {
+            "route_id": question_type,
+            "subject": "已验证主体",
+            "timeframe": "最新可用日期",
+            "confidence": 0.95,
+            "reason": "已验证路由行",
+        },
+        ensure_ascii=False,
+    )
+    result = TurnControlCore().control(
+        "请按已验证路由处理这个请求",
+        llm_complete=lambda _messages: (content, object(), "ok"),
+    )
+
+    assert result.task_frame.question_type == question_type
+    assert result.execution_route == question_type
+    assert result.task_frame.subject == "已验证主体"
+    assert result.task_frame.timeframe == "最新可用日期"
 
 
 @pytest.mark.parametrize(

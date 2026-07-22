@@ -228,13 +228,17 @@ def resolve_evidence_plan(
 def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
     """Project task semantics into the continuous runtime's tool namespace."""
 
-    if not task_frame_requires_retrieval(frame):
-        return ()
     plan = resolve_evidence_plan(
         frame.raw_question,
         question_type=frame.question_type,
         freshness="current",
     )
+    frame_requires_retrieval = task_frame_requires_retrieval(frame)
+    if not frame_requires_retrieval and not plan.requirements:
+        return ()
+    floor = _RUNTIME_CAPABILITY_FLOOR.get(frame.evidence_policy)
+    if floor is None:
+        floor = ("kb_search", "web_search") if frame_requires_retrieval else ()
     planned = tuple(
         runtime_name
         for item in plan.requirements
@@ -243,10 +247,7 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
     return tuple(
         dict.fromkeys(
             (
-                *_RUNTIME_CAPABILITY_FLOOR.get(
-                    frame.evidence_policy,
-                    ("kb_search", "web_search"),
-                ),
+                *floor,
                 *planned,
             )
         )

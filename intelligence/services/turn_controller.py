@@ -16,6 +16,7 @@ from intelligence.services.query_understanding import (
     project_task_frame,
 )
 from intelligence.services.evidence_capabilities import is_current_market_query
+from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.route_table import (
     ROUTE_TABLE,
     RouteRow,
@@ -119,6 +120,29 @@ _VERIFIED_SUBJECT_MATCHES = frozenset(
 _KNOWLEDGE_QUESTION_PATTERN = re.compile(
     r"(是什么|什么是|为什么|原理|如何工作|怎么理解|什么意思|区别|"
     r"介绍一下|解释一下)"
+)
+_QUICK_FACT_ROUTE_PATTERN = re.compile(
+    r"(?:(?<!\d)\d{6}(?!\d).{0,8}(?:是哪家公司|什么公司|代码对应)"
+    r"|(?:股价|市盈率|市净率|股票代码).{0,10}"
+    r"(?:多少|多少倍|是什么|是多少))"
+)
+_THEME_TRACK_ROUTE_PATTERN = re.compile(
+    r"(?:跟踪|近况)"
+    r"|(?:最近|近)(?:一|1|两|2|三|3)?(?:个)?(?:周|月|季度)"
+    r".{0,18}(?:变化|进展|进度|信号)"
+)
+_KOL_REVIEW_ROUTE_PATTERN = re.compile(
+    r"(?:KOL|专家|博主|研报|观点).{0,30}"
+    r"(?:假设|逻辑|立场|证据).{0,20}"
+    r"(?:站得住|漏洞|偏差|靠谱|对不对)"
+)
+_COMPARISON_ANALOG_ROUTE_PATTERN = re.compile(
+    r"(?:历史上.{0,24}(?:类似|类比|可比)"
+    r"|(?:19|20)\d{2}.{0,36}(?:现在|当前|如今).{0,20}(?:异同|类比|相似))"
+)
+_TRADE_ADVICE_ROUTE_PATTERN = re.compile(
+    r"(?:该不该买|要不要止损|要不要加仓|要不要减仓|"
+    r"能不能买|是否止损|是否加仓|是否减仓)"
 )
 
 
@@ -289,6 +313,16 @@ def _deterministic_decision(
         and not _FINANCE_PATTERN.search(cleaned)
     ):
         return _decision("meta", confidence=0.99, reason="明确系统或模型元问题")
+    fine_grained_row = _fine_grained_route_row(cleaned)
+    if fine_grained_row is not None:
+        return _decision_from_route_row(
+            fine_grained_row,
+            query=cleaned,
+            subject=envelope.subject,
+            timeframe=envelope.timeframe,
+            confidence=max(0.92, envelope.confidence),
+            reason="高置信词面命中细粒度路由",
+        )
     if _BROAD_MARKET_PATTERN.fullmatch(cleaned):
         if is_market_watch_query(cleaned):
             return _decision(
@@ -473,6 +507,21 @@ def _deterministic_decision(
             ),
         )
     return None
+
+
+def _fine_grained_route_row(query: str) -> RouteRow | None:
+    route_id: str | None = None
+    if _TRADE_ADVICE_ROUTE_PATTERN.search(query):
+        route_id = "trade_advice"
+    elif _KOL_REVIEW_ROUTE_PATTERN.search(query):
+        route_id = "kol_review"
+    elif parse_analog_intent(query) or _COMPARISON_ANALOG_ROUTE_PATTERN.search(query):
+        route_id = "comparison_analog"
+    elif _THEME_TRACK_ROUTE_PATTERN.search(query):
+        route_id = "theme_track"
+    elif _QUICK_FACT_ROUTE_PATTERN.search(query):
+        route_id = "quick_fact"
+    return route_by_id(route_id) if route_id is not None else None
 
 
 _MARKET_FLOOR_PATTERN = re.compile(r"(大盘|A股|美股|港股|股市|盘面)")
@@ -763,6 +812,34 @@ def _enforce_task_frame_route(
     )
 
 
+def _rebase_frame_for_decision(
+    task_frame: TaskFrame,
+    decision: TurnDecision,
+) -> TaskFrame:
+    """Project a validated route row back into the canonical semantic frame."""
+
+    if (
+        decision.question_type is None
+        or decision.question_type == task_frame.question_type
+    ):
+        return task_frame
+    return rebase_task_frame(
+        task_frame,
+        question_type=decision.question_type,
+        subject=(
+            decision.subject
+            if decision.subject is not None
+            else task_frame.subject
+        ),
+        subject_kind=task_frame.subject_kind,
+        timeframe=(
+            decision.timeframe
+            if decision.timeframe is not None
+            else task_frame.timeframe
+        ),
+    )
+
+
 def decide_turn(
     query: str,
     *,
@@ -931,6 +1008,7 @@ def decide_turn(
         selected_skill_ids=selected_skill_ids,
     )
     if deterministic is not None:
+        task_frame = _rebase_frame_for_decision(task_frame, deterministic)
         return _attach_turn_intent(deterministic, intent, task_frame=task_frame)
     complete = llm_refine.complete if llm_complete is None else llm_complete
     try:
@@ -983,6 +1061,7 @@ def decide_turn(
         if parsed is not None
         else _safe_fallback(effective_query, envelope)
     )
+    task_frame = _rebase_frame_for_decision(task_frame, decision)
     decision = _enforce_task_frame_route(decision, task_frame)
     return _attach_turn_intent(decision, intent, task_frame=task_frame)
 
