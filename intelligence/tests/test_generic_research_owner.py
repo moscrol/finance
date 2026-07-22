@@ -929,6 +929,57 @@ def test_registry_rejects_unregistered_tool() -> None:
         _registry().resolve("shell_exec")
 
 
+def test_registry_definitions_only_expose_authorized_capabilities() -> None:
+    def runner(query: str, _context: agent_research.AgentToolContext):
+        return [], query, ProviderTrace(
+            provider="test",
+            capability="test",
+            status="empty",
+        )
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                "market_data",
+                "market_data",
+                "结构化行情",
+                "local",
+                "current",
+                runner,
+            ),
+            ToolSpec(
+                "web_search",
+                "web_search",
+                "全网检索",
+                "external",
+                "current",
+                runner,
+            ),
+        )
+    )
+
+    definitions = registry.tool_definitions(("market_data",))
+
+    assert [item["function"]["name"] for item in definitions] == ["market_data"]
+    function = definitions[0]["function"]
+    assert function["description"] == "结构化行情"
+    assert function["parameters"] == {
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "required": ["query"],
+        "additionalProperties": False,
+    }
+
+
+def test_empty_capability_filter_exposes_registered_read_only_tools() -> None:
+    registry = _registry()
+
+    assert registry.authorized_specs(()) == (registry.resolve("web_search"),)
+    assert [
+        item["function"]["name"] for item in registry.tool_definitions(())
+    ] == ["web_search"]
+
+
 def test_registry_single_flight_dedupes_same_query_in_owner_context() -> None:
     calls = []
 

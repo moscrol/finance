@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, replace
-from typing import Any
 
 from intelligence.services import agent_research, query_ledger
 from intelligence.services.provider_observability import ProviderTrace
@@ -56,16 +55,43 @@ class ResearchToolRegistry:
     def capabilities(self) -> tuple[str, ...]:
         return tuple(dict.fromkeys(spec.capability for spec in self._specs.values()))
 
-    def prompt_block(self, allowed: tuple[str, ...] = ()) -> str:
+    def authorized_specs(self, allowed: tuple[str, ...] = ()) -> tuple[ToolSpec, ...]:
+        """Return registered tools whose declared capability is authorized."""
+
         allowed_set = set(allowed)
-        specs = [
+        return tuple(
             spec
             for spec in self._specs.values()
             if not allowed_set or spec.capability in allowed_set
+        )
+
+    def tool_definitions(
+        self,
+        allowed: tuple[str, ...] = (),
+    ) -> list[dict[str, object]]:
+        """Expose the authorized read-only tools as function-call schemas."""
+
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": spec.name,
+                    "description": spec.description,
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"query": {"type": "string"}},
+                        "required": ["query"],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+            for spec in self.authorized_specs(allowed)
         ]
+
+    def prompt_block(self, allowed: tuple[str, ...] = ()) -> str:
         return "\n".join(
             f"- {spec.name}（{spec.capability}，{spec.cost}，{spec.freshness}）：{spec.description}"
-            for spec in specs
+            for spec in self.authorized_specs(allowed)
         )
 
     def execute(
