@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
@@ -12,6 +12,7 @@ from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.market_midterm import parse_midterm_intent
 from intelligence.services.scenario_tree import parse_scenario_intent
+from intelligence.services.task_frame import TaskFrame, build_task_frame
 
 
 SubjectKind = Literal[
@@ -241,6 +242,8 @@ _MARKET_FORECAST_RE = re.compile(
     r"[^。？！]{0,8}(?:演绎|走势|怎么走|如何走)"
     r"|(?:明天|明日|次日|下个交易日)[^。？！]{0,20}"
     r"(?:反弹|上涨|下跌|走弱|走势|怎么走|如何走)"
+    r"|(?:反弹|修复)[^。？！]{0,12}"
+    r"(?:持续多久|能持续|持续性|延续多久|还能延续)"
 )
 _EVENT_FORECAST_RE = re.compile(
     r"(?:如果|若|假设)[^。？！]{0,48}"
@@ -389,12 +392,63 @@ class QueryEnvelope:
     time_horizon: TimeHorizon = "unspecified"
     operators: tuple[ResearchOperator, ...] = ()
     required_outputs: tuple[str, ...] = ()
+    task_frame: TaskFrame | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["operators"] = list(self.operators)
         payload["required_outputs"] = list(self.required_outputs)
+        payload["task_frame"] = (
+            self.task_frame.to_dict() if self.task_frame is not None else None
+        )
         return payload
+
+
+def project_task_frame(
+    frame: TaskFrame,
+    template: QueryEnvelope,
+) -> QueryEnvelope:
+    """Project canonical semantics into the legacy routing adapter."""
+
+    return replace(
+        template,
+        question_type=frame.question_type,
+        subject_kind=frame.subject_kind,
+        subject=frame.subject,
+        decision_goal=frame.user_goal,
+        timeframe=frame.timeframe,
+        confidence=frame.confidence,
+        required_outputs=frame.required_outputs,
+        task_frame=frame,
+    )
+
+
+def envelope_from_task_frame(
+    frame: TaskFrame,
+    *,
+    operators: tuple[ResearchOperator, ...] = (),
+    time_horizon: TimeHorizon = "unspecified",
+) -> QueryEnvelope:
+    """Create a legacy adapter without re-interpreting the raw question."""
+
+    return QueryEnvelope(
+        question_type=frame.question_type,
+        subject_kind=frame.subject_kind,  # type: ignore[arg-type]
+        subject=frame.subject,
+        decision_goal=frame.user_goal,
+        timeframe=frame.timeframe,
+        matched_by="explicit" if frame.subject is not None else "market_anchor",
+        confidence=frame.confidence,
+        research_mode=_research_mode(
+            frame.question_type,
+            frame.subject_kind,  # type: ignore[arg-type]
+            operators=operators,
+        ),
+        time_horizon=time_horizon,
+        operators=operators,
+        required_outputs=frame.required_outputs,
+        task_frame=frame,
+    )
 
 
 def is_dated_market_review(query: str, envelope: QueryEnvelope) -> bool:
@@ -794,7 +848,7 @@ def understand_query(
         matched_by: MatchedBy,
         confidence: float,
     ) -> QueryEnvelope:
-        return QueryEnvelope(
+        legacy = QueryEnvelope(
             question_type,
             subject_kind,
             subject,
@@ -811,6 +865,11 @@ def understand_query(
             operators=operators,
             required_outputs=required_outputs,
         )
+        frame = build_task_frame(text, legacy)
+        # ``QueryEnvelope`` remains a backwards-compatible adapter.  Its
+        # historical raw/date/operator fields stay byte-for-byte stable while
+        # all new consumers use the attached canonical frame.
+        return replace(legacy, task_frame=frame)
 
     timeframe_match = _DATE_RE.search(text)
     timeframe = (

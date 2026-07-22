@@ -67,6 +67,29 @@ def test_greeting_is_chat_without_tools_or_memory() -> None:
     assert decision.capabilities == ()
 
 
+def test_unrelated_new_turn_does_not_inherit_previous_subject() -> None:
+    previous = TurnIntent(
+        primary_subject="宁德时代",
+        secondary_topics=(),
+        question_type="stock_deep_dive",
+        answer_owner="stock-deep-dive",
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+
+    decision = decide_turn(
+        "你好",
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=_no_llm,
+    )
+
+    assert decision.lane == "chat"
+    assert decision.subject is None
+    assert decision.task_frame is not None
+    assert decision.task_frame.subject is None
+
+
 def test_model_question_is_meta_without_financial_routing() -> None:
     decision = decide_turn("你好，你是什么模型", llm_complete=_no_llm)
 
@@ -398,6 +421,76 @@ def test_explicit_market_outlook_routes_to_forecast_without_clarifying() -> None
     assert decision.clarification_questions == ()
 
 
+def test_rebound_horizon_keeps_task_frame_semantics_without_llm() -> None:
+    question = "昨天的反弹能持续多久"
+
+    decision = decide_turn(
+        question,
+        llm_complete=lambda _messages: pytest.fail(
+            "rebound-horizon head must not depend on the controller LLM"
+        ),
+    )
+
+    assert decision.lane == "research"
+    assert decision.question_type == "market_forecast"
+    assert decision.subject == "A股市场"
+    assert decision.timeframe == "最近交易日"
+    assert decision.task_frame is not None
+    assert decision.task_frame.raw_question == question
+    assert decision.turn_intent is not None
+    assert decision.turn_intent.task_frame_hash == decision.task_frame.task_frame_hash
+
+
+def test_unbound_rebound_reference_clarifies_once_without_llm() -> None:
+    decision = decide_turn(
+        "这个反弹还能持续多久",
+        llm_complete=lambda _messages: pytest.fail(
+            "blocking rule ambiguity must be resolved before the controller LLM"
+        ),
+    )
+
+    assert decision.lane == "clarify"
+    assert decision.subject is None
+    assert len(decision.clarification_questions) == 1
+    assert decision.task_frame is not None
+    assert decision.task_frame.raw_question == "这个反弹还能持续多久"
+    assert decision.task_frame.clarification_question == (
+        "你希望我围绕哪个明确主体继续判断？"
+    )
+    assert decision.clarification_questions == (
+        decision.task_frame.clarification_question,
+    )
+
+
+def test_rebound_reference_inherits_subject_without_rewriting_raw_question() -> None:
+    previous = TurnIntent(
+        primary_subject="科创50",
+        secondary_topics=(),
+        question_type="market_forecast",
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+    )
+    question = "这个反弹还能持续多久"
+
+    decision = decide_turn(
+        question,
+        previous_intent=previous,
+        previous_turn_id="msg-previous",
+        llm_complete=lambda _messages: pytest.fail(
+            "inherited rebound head must remain deterministic"
+        ),
+    )
+
+    assert decision.lane == "research"
+    assert decision.subject == "科创50"
+    assert decision.clarification_questions == ()
+    assert decision.task_frame is not None
+    assert decision.task_frame.raw_question == question
+    assert decision.task_frame.subject == "科创50"
+    assert decision.task_frame.subject_kind == "market_pattern"
+
+
 def test_company_valuation_uses_research_lane() -> None:
     decision = decide_turn("某公司估值怎么看", llm_complete=_no_llm)
 
@@ -724,6 +817,41 @@ def test_llm_decision_is_schema_validated_and_policy_constrained() -> None:
     assert decision.needs_memory is False
     assert decision.needs_template is False
     assert decision.capabilities == ()
+
+
+def test_controller_llm_supplements_task_frame_without_replacing_semantics() -> None:
+    content = json.dumps(
+        {
+            "route_id": "chat",
+            "confidence": 0.91,
+            "reason": "普通交流",
+            "user_goal": "判断产业趋势是否会改变市场持续性",
+            "required_outputs": ["trend_signal"],
+            "assumptions": ["先按未来五个交易日观察"],
+            "ambiguities": ["观察窗口未明确，先声明假设"],
+        },
+        ensure_ascii=False,
+    )
+    calls: list[list[dict[str, str]]] = []
+
+    def complete(messages: list[dict[str, str]]):
+        calls.append(messages)
+        return content, object(), ""
+
+    decision = decide_turn(
+        "帮我判断产业趋势",
+        llm_complete=complete,
+    )
+
+    assert len(calls) == 1
+    assert '"task_frame"' in calls[0][1]["content"]
+    assert decision.lane == "chat"
+    assert decision.task_frame is not None
+    assert decision.task_frame.market_scope == "A股"
+    assert decision.task_frame.subject != "帮我判断产业趋势"
+    assert decision.task_frame.user_goal == "判断产业趋势是否会改变市场持续性"
+    assert "trend_signal" in decision.task_frame.required_outputs
+    assert "先按未来五个交易日观察" in decision.task_frame.assumptions
 
 
 def test_llm_decision_rejects_route_id_outside_table() -> None:

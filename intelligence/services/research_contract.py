@@ -12,6 +12,7 @@ from intelligence.services.query_resolution import (
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
+from intelligence.services.task_frame import TaskFrame
 
 AnswerOwner: TypeAlias = Literal[
     "stock-deep-dive",
@@ -150,7 +151,8 @@ _CONTEXT_DEPENDENT_RESEARCH_PATTERN = re.compile(
     r"(?:原因|为什么|证伪|反证|弹性|赔率|空间|受益|一阶|二阶|"
     r"历史类似|历史类比|真实订单|订单|验证清单|验证路径|下周|"
     r"催化|风险|毛利率|净利率|收入|利润|现金流|兑现|替代标的|"
-    r"哪个更|分别是谁|怎么看|如何验证)"
+    r"哪个更|分别是谁|怎么看|如何验证|"
+    r"(?:这个|那个|这次|那次)(?:反弹|修复))"
 )
 _CONTEXT_DEPENDENT_RESEARCH_PREFIX_PATTERN = re.compile(
     r"^(?:毛利率|净利率|收入|营收|利润|现金流|原因|为什么|"
@@ -187,6 +189,7 @@ class TurnIntent:
     operators: tuple[str, ...] = ()
     required_outputs: tuple[str, ...] = ()
     timeframe: str | None = None
+    task_frame_hash: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -209,6 +212,7 @@ class TurnIntent:
             operators = value.get("operators", ())
             required_outputs = value.get("required_outputs", ())
             timeframe = value.get("timeframe")
+            task_frame_hash = value.get("task_frame_hash", "")
         except KeyError:
             return None
         if primary_subject is not None and not isinstance(primary_subject, str):
@@ -222,6 +226,8 @@ class TurnIntent:
         if not isinstance(time_horizon, str):
             return None
         if timeframe is not None and not isinstance(timeframe, str):
+            return None
+        if not isinstance(task_frame_hash, str):
             return None
         for items in (
             secondary_topics,
@@ -250,6 +256,7 @@ class TurnIntent:
             operators=tuple(operators),
             required_outputs=tuple(required_outputs),
             timeframe=timeframe,
+            task_frame_hash=task_frame_hash,
         )
 
 
@@ -268,6 +275,7 @@ class ResearchPlan:
     operators: tuple[str, ...] = ()
     required_outputs: tuple[str, ...] = ()
     timeframe: str | None = None
+    task_frame_hash: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -293,6 +301,7 @@ class ResearchPlan:
             operators=intent.operators,
             required_outputs=intent.required_outputs,
             timeframe=intent.timeframe,
+            task_frame_hash=intent.task_frame_hash,
         )
 
 
@@ -385,6 +394,7 @@ class ResearchTaskContract:
     timeframe: str | None = None
     evidence_plan: EvidencePlan = field(default_factory=EvidencePlan)
     contract_version: str = "1"
+    task_frame_hash: str = ""
 
     def __post_init__(self) -> None:
         # Backwards compatibility for callers that expand ``to_dict()`` into
@@ -441,6 +451,7 @@ class ResearchTaskContract:
             "timeframe": self.timeframe,
             "evidence_plan": self.evidence_plan.to_dict(),
             "contract_version": self.contract_version,
+            "task_frame_hash": self.task_frame_hash,
         }
 
     @classmethod
@@ -515,6 +526,7 @@ class ResearchTaskContract:
             ),
             evidence_plan=evidence_plan,
             contract_version=str(value.get("contract_version") or "1"),
+            task_frame_hash=str(value.get("task_frame_hash") or ""),
         )
 
 
@@ -715,6 +727,7 @@ def build_turn_intent(
     previous_intent: TurnIntent | None = None,
     previous_turn_id: str | None = None,
     resolution: QueryResolution | None = None,
+    task_frame: TaskFrame | None = None,
 ) -> TurnIntent:
     cleaned = query.strip()
     follow_up = is_contextual_follow_up(
@@ -765,6 +778,9 @@ def build_turn_intent(
             timeframe=envelope.timeframe,
             operators=envelope.operators,
             required_outputs=envelope.required_outputs,
+            task_frame_hash=(
+                task_frame.task_frame_hash if task_frame is not None else ""
+            ),
         )
 
     inherit = follow_up and not explicit_task_switch and not explicit_subject_switch
@@ -803,20 +819,39 @@ def build_turn_intent(
                 previous_intent.required_outputs,
                 envelope.required_outputs,
             ),
+            task_frame_hash=(
+                task_frame.task_frame_hash if task_frame is not None else ""
+            ),
         )
 
-    question_type = envelope.question_type
+    question_type = (
+        task_frame.question_type if task_frame is not None else envelope.question_type
+    )
     return TurnIntent(
-        primary_subject=envelope.subject,
-        secondary_topics=_secondary_topics(envelope, envelope.subject),
+        primary_subject=(
+            task_frame.subject if task_frame is not None else envelope.subject
+        ),
+        secondary_topics=_secondary_topics(
+            envelope,
+            task_frame.subject if task_frame is not None else envelope.subject,
+        ),
         question_type=question_type,
         answer_owner=answer_owner_for_question_type(question_type),
         comparison_entities=comparison_entities,
         inherited_from_turn=None,
         time_horizon=envelope.time_horizon,
-        timeframe=envelope.timeframe,
+        timeframe=(
+            task_frame.timeframe if task_frame is not None else envelope.timeframe
+        ),
         operators=envelope.operators,
-        required_outputs=envelope.required_outputs,
+        required_outputs=(
+            task_frame.required_outputs
+            if task_frame is not None
+            else envelope.required_outputs
+        ),
+        task_frame_hash=(
+            task_frame.task_frame_hash if task_frame is not None else ""
+        ),
     )
 
 

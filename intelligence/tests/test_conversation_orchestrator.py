@@ -869,6 +869,46 @@ def test_ambiguous_request_uses_clarify_lane_without_retrieval(tmp_path) -> None
     assert "看什么对象" in result.content
 
 
+def test_unbound_rebound_clarifies_before_route_or_retrieval(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "这个反弹还能持续多久"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=lambda *_: pytest.fail("clarify must not retrieve"),
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "clarify must not route"
+        ),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    assert "哪个明确主体" in result.content
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    assert report["task_type"] == "clarify"
+    assert report["task_frame"]["raw_question"] == query
+    assert report["task_frame"]["clarification_question"] is not None
+
+
 def test_static_knowledge_lane_uses_neutral_generator_without_retrieval(
     tmp_path,
 ) -> None:
@@ -1451,7 +1491,8 @@ def test_fresh_knowledge_retrieves_without_skill_router_or_memory(tmp_path) -> N
     assert len(calls) == 1
     assert calls[0].include_memory_block is False
     assert calls[0].include_recall_block is False
-    assert calls[0].question_type_override == "concept_definition"
+    assert calls[0].question_type_override == "news_impact"
+    assert calls[0].question_type_override != "concept_definition"
     route_step = next(
         step for step in run_store.load_trace(run_id) if step["name"] == "route_skills"
     )
@@ -3656,3 +3697,105 @@ def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.content == result.content
     assert "迟到片段" not in assistant.content
+
+
+def test_route_contract_and_verifier_share_rebound_task_frame(tmp_path) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "昨天的反弹能持续多久"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store,
+        run_store,
+        conversation.conversation_id,
+        query,
+    )
+    contracts = []
+
+    def answer_with_gap(options: AskOptions) -> AskResult:
+        assert options.question_type_override == "market_forecast"
+        assert options.research_task_contract is not None
+        contracts.append(options.research_task_contract)
+        result = _ask_result(
+            query,
+            synthesis="当前证据不足，仍缺少反弹持续时间的直接判断。",
+        )
+        result.business_status = "complete"
+        result.answer_spec = answer_model.finalize_answer_spec(
+            answer_model.AnswerSpec(
+                research_spec=answer_model.resolve_answer_profile(
+                    query,
+                    profile="forecast",
+                ),
+                summary=(
+                    answer_model.make_claim(
+                        claim_id="generic:summary",
+                        text="当前证据不足，仍缺少反弹持续时间的直接判断。",
+                        claim_type="summary",
+                        theme="A股市场",
+                        status=answer_model.ClaimStatus.MISSING,
+                    ),
+                ),
+                verified_facts=(),
+                company_table=(),
+                counter_evidence=(),
+                gaps=(),
+                triggers=(),
+                next_actions=(),
+                sources=(),
+                system_notices=(),
+                presentation_kind="generic_research",
+                presentation_profile="forecast",
+            )
+        )
+        return result
+
+    TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=answer_with_gap,
+        route_skills_fn=lambda *_args, **_kwargs: pytest.fail(
+            "deterministic rebound forecast must skip the skill router"
+        ),
+        skill_registry=SkillRegistry(),
+    ).run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    trace = run_store.load_trace(run_id)
+    controller = json.loads(
+        next(step for step in trace if step["name"] == "turn_controller")[
+            "output_summary"
+        ]
+    )
+    route = json.loads(
+        next(step for step in trace if step["name"] == "route_skills")[
+            "output_summary"
+        ]
+    )
+    verifier = json.loads(
+        next(step for step in trace if step["name"] == "task_fulfillment")[
+            "output_summary"
+        ]
+    )
+    report = json.loads(
+        (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
+    )
+    frame_hash = controller["task_frame_hash"]
+
+    assert controller["task_frame"]["raw_question"] == query
+    assert controller["task_frame"]["subject"] == "A股市场"
+    assert route["query_envelope"]["question_type"] == "market_forecast"
+    assert contracts[0].question == query
+    assert contracts[0].subject == "A股市场"
+    assert route["task_frame_hash"] == frame_hash
+    assert contracts[0].to_dict()["task_frame_hash"] == frame_hash
+    assert verifier["task_frame_hash"] == frame_hash
+    assert report["task_frame_hash"] == frame_hash
+    assert report["task_frame"]["raw_question"] == query

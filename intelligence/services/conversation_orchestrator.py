@@ -65,7 +65,11 @@ from intelligence.services.lane_generation import (
     render_knowledge_fallback,
 )
 from intelligence.services import perspective_lab
-from intelligence.services.query_understanding import understand_query
+from intelligence.services.query_understanding import (
+    envelope_from_task_frame,
+    project_task_frame,
+    understand_query,
+)
 from intelligence.services.evidence_capabilities import resolve_evidence_plan
 from intelligence.services.research_policy import (
     ResearchExecutionBudget,
@@ -81,10 +85,12 @@ from intelligence.services.research_contract import (
     TurnIntent,
     build_turn_intent,
     contextualize_intent_query,
+    is_contextual_follow_up,
 )
 from intelligence.services.run_store import RunStore, redact
 from intelligence.paths import default_paths
 from intelligence.services.turn_controller import TurnDecision, decide_turn
+from intelligence.services.task_frame import TaskFrame, build_task_frame
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -133,10 +139,12 @@ def _build_generic_research_contract(
     *,
     task_id: str,
     turn_intent: TurnIntent,
+    task_frame: TaskFrame | None = None,
 ) -> ResearchTaskContract:
     """为未命中专项 Owner 的问题生成保守、可审计的任务契约。"""
 
-    normalized = query.replace(" ", "")
+    semantic_query = task_frame.raw_question if task_frame is not None else query
+    normalized = semantic_query.replace(" ", "")
     tier = (
         "deep"
         if any(term in normalized for term in ("深挖", "深入", "系统研究"))
@@ -179,13 +187,17 @@ def _build_generic_research_contract(
     is_methodology = bool(
         re.search(
             r"(?:怎么做|如何做|为什么会|原理|架构|编排|RAG|BM25|Agent|模板化|质检)",
-            query,
+            semantic_query,
             re.IGNORECASE,
         )
     )
     evidence_plan = resolve_evidence_plan(
-        query,
-        question_type=turn_intent.question_type,
+        semantic_query,
+        question_type=(
+            task_frame.question_type
+            if task_frame is not None
+            else turn_intent.question_type
+        ),
         freshness="current",
     )
     is_current_mainline = evidence_plan.profile == "mainline_current" and not is_methodology
@@ -193,7 +205,7 @@ def _build_generic_research_contract(
     needs_l3 = bool(
         re.search(
             r"(?:客户|合作|订单|合同|中标|认证|定点|送样|导入|量产|供货|出货|收入占比|供应商)",
-            query,
+            semantic_query,
         )
     )
     if is_current_mainline:
@@ -496,14 +508,36 @@ def _build_generic_research_contract(
             "evidence_lookup",
             *(("l3_lookup",) if needs_l3 else ()),
         )
-    subject = turn_intent.primary_subject
+    contract_outputs = (
+        *required_outputs,
+        *(() if (is_market_forecast or is_event_forecast or is_comparison or is_relation_map) else (
+            RequiredOutput(
+                "counterpoint",
+                "反方或证据边界",
+                ("kb_search", "web_search", "news_search", "market_data"),
+                False,
+            ),
+        )),
+    )
+    if task_frame is not None:
+        contract_outputs = _merge_frame_outputs(
+            contract_outputs,
+            task_frame,
+            capabilities,
+        )
+    subject = (
+        task_frame.subject if task_frame is not None else turn_intent.primary_subject
+    )
     if (is_market_forecast or is_event_forecast) and not subject:
         subject = "A股市场"
     return ResearchTaskContract(
         task_id=task_id,
-        question=query,
+        question=semantic_query,
         subject=subject,
         subject_kind=(
+            task_frame.subject_kind
+            if task_frame is not None
+            else
             "market_pattern"
             if is_current_mainline or is_current_market_fact or is_market_cause or is_market_forecast
             else "event"
@@ -512,18 +546,12 @@ def _build_generic_research_contract(
             if is_relation_map
             else None
         ),
-        question_type=turn_intent.question_type,
-        required_outputs=(
-            *required_outputs,
-            *(() if (is_market_forecast or is_event_forecast or is_comparison or is_relation_map) else (
-                RequiredOutput(
-                    "counterpoint",
-                    "反方或证据边界",
-                    ("kb_search", "web_search", "news_search", "market_data"),
-                    False,
-                ),
-            )),
+        question_type=(
+            task_frame.question_type
+            if task_frame is not None
+            else turn_intent.question_type
         ),
+        required_outputs=contract_outputs,
         allowed_capabilities=capabilities,
         research_tier=tier,
         presentation_profile=(
@@ -544,9 +572,45 @@ def _build_generic_research_contract(
             else "general"
         ),
         freshness="current",
-        timeframe=turn_intent.timeframe,
+        timeframe=(
+            task_frame.timeframe if task_frame is not None else turn_intent.timeframe
+        ),
         evidence_plan=evidence_plan,
+        task_frame_hash=(
+            task_frame.task_frame_hash if task_frame is not None else ""
+        ),
     )
+
+
+def _merge_frame_outputs(
+    existing: tuple[RequiredOutput, ...],
+    frame: TaskFrame,
+    capabilities: tuple[str, ...],
+) -> tuple[RequiredOutput, ...]:
+    """Keep legacy execution slots while exposing every canonical frame slot."""
+
+    known = {item.output_id for item in existing}
+    legacy_aliases = {
+        "direct_answer": "direct_assessment",
+        "current_baseline": "direct_assessment",
+        "evidence_boundary": "counterpoint",
+        "continuation_conditions": "rebound_case",
+        "invalidation_conditions": "invalidation",
+        "scenario_paths": "rebound_case",
+    }
+    evidence_types = tuple(capabilities) or ("evidence_boundary",)
+    additions = tuple(
+        RequiredOutput(
+            output_id=output_id,
+            description=f"TaskFrame 要求的输出：{output_id}",
+            evidence_types=evidence_types,
+            required=True,
+        )
+        for output_id in frame.required_outputs
+        if output_id not in known
+        and legacy_aliases.get(output_id, output_id) not in known
+    )
+    return (*existing, *additions)
 
 
 def _generic_research_deadline(
@@ -1357,7 +1421,6 @@ class TurnOrchestrator:
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
             )
-            raw_envelope = understand_query(query)
             inherited_message = previous_turn_message(context)
             inherited_intent = (
                 TurnIntent.from_dict(inherited_message.turn_intent)
@@ -1389,11 +1452,49 @@ class TurnOrchestrator:
                 previous_turn_id=inherited_turn_id,
             )
             controller_question_type_supplied = decision.question_type is not None
+            task_frame = decision.task_frame
+            if task_frame is None:
+                # Compatibility boundary for injected/legacy controllers: turn
+                # their one decision into a TaskFrame once, then freeze it.
+                legacy_envelope = understand_query(query)
+                if decision.question_type is not None:
+                    legacy_envelope = replace(
+                        legacy_envelope,
+                        question_type=decision.question_type,
+                        subject=decision.subject,
+                        timeframe=decision.timeframe or legacy_envelope.timeframe,
+                    )
+                task_frame = build_task_frame(
+                    query,
+                    legacy_envelope,
+                    inherited_subject=(
+                        inherited_intent.primary_subject
+                        if inherited_intent is not None
+                        and is_contextual_follow_up(
+                            query,
+                            legacy_envelope,
+                            inherited_intent,
+                        )
+                        else None
+                    ),
+                )
+                raw_envelope = project_task_frame(task_frame, legacy_envelope)
+            else:
+                raw_envelope = envelope_from_task_frame(task_frame)
             turn_intent = decision.turn_intent or build_turn_intent(
                 query,
                 raw_envelope,
                 previous_intent=inherited_intent,
                 previous_turn_id=inherited_turn_id,
+                task_frame=task_frame,
+            )
+            turn_intent = replace(
+                turn_intent,
+                primary_subject=task_frame.subject,
+                question_type=task_frame.question_type,
+                timeframe=task_frame.timeframe,
+                required_outputs=task_frame.required_outputs,
+                task_frame_hash=task_frame.task_frame_hash,
             )
             research_plan = ResearchPlan.from_intent(turn_intent)
             # 单一事实源：controller 返回的 decision 已与 turn_intent 对齐
@@ -1406,6 +1507,7 @@ class TurnOrchestrator:
                     question_type=turn_intent.question_type,
                     subject=turn_intent.primary_subject,
                     turn_intent=turn_intent,
+                    task_frame=task_frame,
                 )
             contextual_query = contextualize_intent_query(query, turn_intent)
             inherited_answer_spec = (
@@ -1424,16 +1526,19 @@ class TurnOrchestrator:
                 inherited_answer_spec,
                 "research_evidence_atoms",
             )
-            routing_envelope = understand_query(contextual_query)
-            # controller 裁决优先：路由 envelope 只提供辅助特征（operators
-            # 等），question_type / subject 不得与 decision 分叉形成第二事实源。
-            if decision.question_type is not None:
-                routing_envelope = replace(
-                    routing_envelope,
-                    question_type=decision.question_type,
-                    subject=decision.subject or routing_envelope.subject,
-                )
+            # Route is an execution projection of the same frame.  In
+            # particular, never re-run semantic understanding on the contextual
+            # retrieval query: that query is allowed to add context, not to
+            # replace the user's original task.
+            routing_envelope = replace(
+                project_task_frame(task_frame, raw_envelope),
+                operators=turn_intent.operators,
+                required_outputs=task_frame.required_outputs,
+                time_horizon=turn_intent.time_horizon,
+            )
             report["task_type"] = decision.lane
+            report["task_frame"] = task_frame.to_dict()
+            report["task_frame_hash"] = task_frame.task_frame_hash
             legacy_lane = (
                 "knowledge"
                 if routing_envelope.question_type
@@ -1448,6 +1553,8 @@ class TurnOrchestrator:
                 "turn_controller",
                 {
                     "decision": decision.to_dict(),
+                    "task_frame": task_frame.to_dict(),
+                    "task_frame_hash": task_frame.task_frame_hash,
                     "turn_intent": turn_intent.to_dict(),
                     "research_plan": research_plan.to_dict(),
                     "legacy_query_envelope": routing_envelope.to_dict(),
@@ -1491,7 +1598,7 @@ class TurnOrchestrator:
                                 conversation_context=context.to_prompt_block(),
                                 include_memory_block=decision.needs_memory,
                                 include_recall_block=decision.needs_memory,
-                                question_type_override=QUESTION_CONCEPT_DEFINITION,
+                                question_type_override=turn_intent.question_type,
                                 deadline=research_deadline,
                             )
                         )
@@ -1702,6 +1809,7 @@ class TurnOrchestrator:
                     "relation_guard_requested": relation_guard_requested,
                     "controller_lane": decision.lane,
                     "query_envelope": routing_envelope.to_dict(),
+                    "task_frame_hash": task_frame.task_frame_hash,
                     "elapsed_ms": self._elapsed_ms(route_started),
                 },
             )
@@ -2131,14 +2239,13 @@ class TurnOrchestrator:
             )
             market_review_requested = (
                 turn_intent.question_type in {"market_watch", "dated_market_review"}
-                or plan_answer_question(contextual_query).question_type
-                == QUESTION_MARKET_REVIEW
             )
             generic_contract = (
                 _build_generic_research_contract(
                     contextual_query,
                     task_id=run_id,
                     turn_intent=turn_intent,
+                    task_frame=task_frame,
                 )
                 if generic_owner_requested
                 else None
@@ -2172,9 +2279,7 @@ class TurnOrchestrator:
                 include_memory_block=decision.needs_memory,
                 include_recall_block=decision.needs_memory,
                 question_type_override=(
-                    QUESTION_CONCEPT_DEFINITION
-                    if decision.lane == "knowledge"
-                    else QUESTION_MARKET_REVIEW
+                    QUESTION_MARKET_REVIEW
                     if turn_intent.question_type
                     in {"market_watch", "dated_market_review"}
                     else turn_intent.question_type
@@ -2432,13 +2537,16 @@ class TurnOrchestrator:
             answer_text = _sanitize_market_cause_answer_text(answer_text, query)
             if generic_contract is not None and result.answer_spec is not None:
                 fulfillment = task_fulfillment.evaluate_answer_spec_fulfillment(
-                    question=contextual_query,
+                    question=task_frame.raw_question,
                     required_outputs=generic_contract.required_outputs,
                     answer_text=answer_text,
                     answer_spec=result.answer_spec,
                 )
                 result.answer_status = fulfillment.status
                 result.fulfillment_report = fulfillment.to_dict()
+                result.fulfillment_report["task_frame_hash"] = (
+                    task_frame.task_frame_hash
+                )
                 report["task_fulfillment"] = result.fulfillment_report
                 self._trace(
                     run_id,

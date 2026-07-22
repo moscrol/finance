@@ -12,6 +12,7 @@ from intelligence.services.query_understanding import (
     QueryEnvelope,
     is_dated_market_review,
     is_market_watch_query,
+    project_task_frame,
 )
 from intelligence.services.evidence_capabilities import is_current_market_query
 from intelligence.services.route_table import (
@@ -25,6 +26,13 @@ from intelligence.services.research_contract import (
     answer_owner_for_question_type,
     build_turn_intent,
     contextualize_intent_query,
+    is_contextual_follow_up,
+)
+from intelligence.services.task_frame import (
+    TaskFrame,
+    align_task_frame,
+    build_task_frame,
+    rebase_task_frame,
 )
 
 TurnLane: TypeAlias = Literal[
@@ -125,9 +133,14 @@ class TurnDecision:
     capabilities: tuple[str, ...] = ()
     clarification_questions: tuple[str, ...] = ()
     turn_intent: TurnIntent | None = None
+    task_frame: TaskFrame | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        payload = asdict(self)
+        if self.task_frame is not None:
+            payload["task_frame"] = self.task_frame.to_dict()
+            payload["task_frame_hash"] = self.task_frame.task_frame_hash
+        return payload
 
 
 def _decision(
@@ -476,7 +489,11 @@ def _needs_retrieval_floor(query: str, envelope: QueryEnvelope) -> bool:
     )
 
 
-def _controller_messages(query: str, context: str) -> list[dict[str, str]]:
+def _controller_messages(
+    query: str,
+    context: str,
+    task_frame: TaskFrame,
+) -> list[dict[str, str]]:
     return [
         {
             "role": "system",
@@ -486,8 +503,10 @@ def _controller_messages(query: str, context: str) -> list[dict[str, str]]:
                 + render_route_table_prompt()
                 + "\n规则：不要因为工作台是金融产品就把普通问题往研究类路由；"
                 "拿不准时选 clarify；不得发明表外的 route_id。"
-                "严格输出一个 JSON 对象，键必须且只能是："
-                "route_id,subject,timeframe,confidence,reason。"
+                "TaskFrame 已锁定主体、市场、时间和任务类型，lane 不得覆盖这些语义。"
+                "严格输出一个 JSON 对象，键必须且只能是：route_id,confidence,reason,"
+                "user_goal,required_outputs,assumptions,ambiguities。后四项只能补充"
+                "TaskFrame，不得返回或修改主体、市场、时间、证据政策。"
             ),
         },
         {
@@ -496,6 +515,7 @@ def _controller_messages(query: str, context: str) -> list[dict[str, str]]:
                 {
                     "query": query,
                     "minimal_conversation_context": context,
+                    "task_frame": task_frame.to_dict(),
                 },
                 ensure_ascii=False,
             ),
@@ -521,8 +541,29 @@ def _parse_llm_decision(
         value = json.loads(text)
     except (json.JSONDecodeError, TypeError):
         return None
-    expected = {"route_id", "subject", "timeframe", "confidence", "reason"}
-    if not isinstance(value, dict) or set(value) != expected:
+    legacy_expected = {
+        "route_id",
+        "subject",
+        "timeframe",
+        "confidence",
+        "reason",
+    }
+    aligned_expected = {
+        "route_id",
+        "confidence",
+        "reason",
+        "user_goal",
+        "required_outputs",
+        "assumptions",
+        "ambiguities",
+    }
+    if not isinstance(value, dict):
+        return None
+    value_keys = frozenset(value)
+    if value_keys not in {
+        frozenset(legacy_expected),
+        frozenset(aligned_expected),
+    }:
         return None
     if not isinstance(value["route_id"], str):
         return None
@@ -535,14 +576,27 @@ def _parse_llm_decision(
         return None
     if not isinstance(value["reason"], str) or not value["reason"].strip():
         return None
-    for key in ("subject", "timeframe"):
-        if value[key] is not None and not isinstance(value[key], str):
+    if value_keys == frozenset(legacy_expected):
+        for key in ("subject", "timeframe"):
+            if value[key] is not None and not isinstance(value[key], str):
+                return None
+        subject = value["subject"]
+        timeframe = value["timeframe"]
+    else:
+        for key in ("required_outputs", "assumptions", "ambiguities"):
+            if not isinstance(value[key], list) or any(
+                not isinstance(item, str) for item in value[key]
+            ):
+                return None
+        if not isinstance(value["user_goal"], str):
             return None
+        subject = envelope.subject
+        timeframe = envelope.timeframe
     decision = _decision_from_route_row(
         row,
         query=query,
-        subject=value["subject"],
-        timeframe=value["timeframe"],
+        subject=subject,
+        timeframe=timeframe,
         confidence=max(0.0, min(1.0, float(value["confidence"]))),
         reason=value["reason"].strip(),
     )
@@ -655,14 +709,49 @@ def decide_turn(
         query,
         (resolver or QueryResolver()).resolve(query),
     )
-    envelope = resolution.envelope
+    inherit_subject = bool(
+        previous_intent is not None
+        and is_contextual_follow_up(
+            query,
+            resolution.envelope,
+            previous_intent,
+            resolution=resolution,
+        )
+    )
+    task_frame = build_task_frame(
+        query,
+        resolution.envelope,
+        inherited_subject=(
+            previous_intent.primary_subject
+            if inherit_subject and previous_intent is not None
+            else None
+        ),
+    )
+    envelope = project_task_frame(task_frame, resolution.envelope)
+    resolution = replace(resolution, envelope=envelope)
+    if task_frame.clarification_question is not None:
+        return replace(
+            _decision(
+                "clarify",
+                envelope=envelope,
+                confidence=task_frame.confidence,
+                reason="TaskFrame 存在会改变主体、工具或结论的歧义，追问一次",
+                clarification_questions=(task_frame.clarification_question,),
+            ),
+            task_frame=task_frame,
+        )
     if resolution.context_dependent and previous_intent is None:
-        return _decision(
-            "clarify",
-            envelope=envelope,
-            confidence=1.0,
-            reason="追问包含指代或省略，但当前对话没有可继承的研究主体",
-            clarification_questions=("你指的是哪家公司、题材或上一条研究逻辑？",),
+        return replace(
+            _decision(
+                "clarify",
+                envelope=envelope,
+                confidence=1.0,
+                reason="追问包含指代或省略，但当前对话没有可继承的研究主体",
+                clarification_questions=(
+                    "你指的是哪家公司、题材或上一条研究逻辑？",
+                ),
+            ),
+            task_frame=task_frame,
         )
     intent = build_turn_intent(
         query,
@@ -670,7 +759,39 @@ def decide_turn(
         previous_intent=previous_intent,
         previous_turn_id=previous_turn_id,
         resolution=resolution,
+        task_frame=task_frame,
     )
+    if intent.inherited_from_turn is not None:
+        inherited_kind = (
+            "company"
+            if intent.answer_owner in {
+                "stock-deep-dive",
+                "financial-analysis",
+                "news-impact",
+            }
+            else "theme"
+            if intent.answer_owner == "theme-research"
+            else "market_pattern"
+            if intent.question_type
+            in {
+                "market_watch",
+                "dated_market_review",
+                "market_forecast",
+                "market_cause",
+            }
+            else envelope.subject_kind
+        )
+        task_frame = rebase_task_frame(
+            task_frame,
+            question_type=intent.question_type,
+            subject=intent.primary_subject,
+            subject_kind=inherited_kind,
+            timeframe=intent.timeframe,
+            required_outputs=intent.required_outputs,
+        )
+        envelope = project_task_frame(task_frame, envelope)
+        resolution = replace(resolution, envelope=envelope)
+        intent = replace(intent, task_frame_hash=task_frame.task_frame_hash)
     effective_query = contextualize_intent_query(query, intent)
     deterministic = _deterministic_decision(
         effective_query,
@@ -679,16 +800,40 @@ def decide_turn(
         selected_skill_ids=selected_skill_ids,
     )
     if deterministic is not None:
-        return _attach_turn_intent(deterministic, intent)
+        return _attach_turn_intent(deterministic, intent, task_frame=task_frame)
     complete = llm_refine.complete if llm_complete is None else llm_complete
     try:
         content, _provider, _reason = complete(
-            _controller_messages(effective_query, context)
+            _controller_messages(effective_query, context, task_frame)
         )
     except Exception:
         content = None
     if content is None:
-        return _attach_turn_intent(_safe_fallback(effective_query, envelope), intent)
+        return _attach_turn_intent(
+            _safe_fallback(effective_query, envelope),
+            intent,
+            task_frame=task_frame,
+        )
+    task_frame = align_task_frame(task_frame, content)
+    envelope = project_task_frame(task_frame, envelope)
+    intent = replace(
+        intent,
+        timeframe=task_frame.timeframe,
+        required_outputs=task_frame.required_outputs,
+        task_frame_hash=task_frame.task_frame_hash,
+    )
+    if task_frame.clarification_question is not None:
+        return _attach_turn_intent(
+            _decision(
+                "clarify",
+                envelope=envelope,
+                confidence=task_frame.confidence,
+                reason="TaskFrame 存在会改变主体、工具或结论的歧义，追问一次",
+                clarification_questions=(task_frame.clarification_question,),
+            ),
+            intent,
+            task_frame=task_frame,
+        )
     parsed = _parse_llm_decision(
         content,
         query=effective_query,
@@ -699,13 +844,25 @@ def decide_turn(
         if parsed is not None
         else _safe_fallback(effective_query, envelope)
     )
-    return _attach_turn_intent(decision, intent)
+    return _attach_turn_intent(decision, intent, task_frame=task_frame)
 
 
 def _attach_turn_intent(
     decision: TurnDecision,
     intent: TurnIntent,
+    *,
+    task_frame: TaskFrame | None = None,
 ) -> TurnDecision:
+    if task_frame is not None:
+        intent = replace(
+            intent,
+            primary_subject=task_frame.subject,
+            question_type=task_frame.question_type,
+            answer_owner=answer_owner_for_question_type(task_frame.question_type),
+            timeframe=task_frame.timeframe,
+            required_outputs=task_frame.required_outputs,
+            task_frame_hash=task_frame.task_frame_hash,
+        )
     inherited_research_intent = (
         intent.answer_owner is not None
         or intent.question_type == "general_finance_qa"
@@ -718,9 +875,9 @@ def _attach_turn_intent(
         intent.inherited_from_turn is not None
         and inherited_research_intent
         and decision.lane in {
-        "chat",
-        "clarify",
-        "knowledge",
+            "chat",
+            "clarify",
+            "knowledge",
         }
     ):
         decision = replace(
@@ -741,7 +898,11 @@ def _attach_turn_intent(
     # （如 market_technical / market_forecast）被旧 understand_query 的
     # general_finance_qa 反向覆盖。现改为：decision 已给出 question_type
     # 时，把 intent 同步到 decision，保证下游 ResearchPlan / trace 一致。
-    if decision.question_type is not None and intent.inherited_from_turn is None:
+    if (
+        task_frame is None
+        and decision.question_type is not None
+        and intent.inherited_from_turn is None
+    ):
         intent = replace(
             intent,
             question_type=decision.question_type,
@@ -752,6 +913,8 @@ def _attach_turn_intent(
         decision,
         question_type=intent.question_type,
         subject=intent.primary_subject,
+        timeframe=intent.timeframe,
         capabilities=capabilities,
         turn_intent=intent,
+        task_frame=task_frame,
     )
