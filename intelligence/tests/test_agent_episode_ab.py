@@ -143,6 +143,58 @@ def test_current_results_must_cover_every_question(tmp_path) -> None:
     assert not output.exists()
 
 
+def test_current_results_preserve_available_runtime_metrics(tmp_path) -> None:
+    questions = _write_questions(
+        tmp_path,
+        [("rebound", "昨天的反弹能持续多久")],
+    )
+    current = tmp_path / "current.json"
+    current.write_text(
+        json.dumps(
+            {
+                "runtime_commit": "legacy-commit",
+                "cases": [
+                    {
+                        "case_id": "rebound",
+                        "answer": "旧工作台答案",
+                        "latency": 67.5,
+                        "llm_calls": 3,
+                        "tool_calls": 5,
+                        "terminal_outcome": "verified_fallback",
+                        "failure_stage": "synthesis_timeout",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dry.json"
+
+    code = episode_ab.main(
+        [
+            "--dry-run",
+            "--questions-file",
+            str(questions),
+            "--current-results",
+            str(current),
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert code == 0
+    saved = json.loads(output.read_text(encoding="utf-8"))["cases"][0][
+        "current"
+    ]
+    assert saved["answer"] == "旧工作台答案"
+    assert saved["latency"] == 67.5
+    assert saved["llm_calls"] == 3
+    assert saved["tool_calls"] == 5
+    assert saved["terminal_outcome"] == "verified_fallback"
+    assert saved["failure_stage"] == "synthesis_timeout"
+
+
 def test_live_runner_records_bare_current_and_verified_episode(
     tmp_path,
     monkeypatch,

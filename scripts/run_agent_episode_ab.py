@@ -92,35 +92,50 @@ def _load_questions(path: Path, *, model_override: str | None) -> list[ABQuestio
 def _load_current_results(
     path: Path | None,
     cases: list[ABQuestion],
-) -> dict[str, str]:
+) -> dict[str, dict[str, object]]:
     if path is None:
         return {}
     payload = json.loads(path.read_text(encoding="utf-8"))
-    answers: dict[str, str] = {}
+    results: dict[str, dict[str, object]] = {}
     if isinstance(payload, dict) and isinstance(payload.get("cases"), list):
         for raw in payload["cases"]:
             if not isinstance(raw, dict):
                 continue
             case_id = str(raw.get("case_id") or raw.get("id") or "").strip()
-            answer = raw.get("answer") or raw.get("current_answer")
-            if not answer and isinstance(raw.get("current"), dict):
-                answer = raw["current"].get("answer")
+            nested = raw.get("current") if isinstance(raw.get("current"), dict) else {}
+            answer = (
+                raw.get("answer")
+                or raw.get("current_answer")
+                or nested.get("answer")
+            )
             if case_id and isinstance(answer, str) and answer.strip():
-                answers[case_id] = answer.strip()
+                result: dict[str, object] = {"answer": answer.strip()}
+                for key in (
+                    "latency",
+                    "llm_calls",
+                    "tool_calls",
+                    "terminal_outcome",
+                    "failure_stage",
+                    "fallback_reason",
+                ):
+                    value = raw.get(key, nested.get(key))
+                    if value is not None and not isinstance(value, (dict, list)):
+                        result[key] = value
+                results[case_id] = result
     elif isinstance(payload, dict):
-        answers = {
-            str(key): value.strip()
+        results = {
+            str(key): {"answer": value.strip()}
             for key, value in payload.items()
             if isinstance(value, str) and value.strip()
         }
     else:
         raise ValueError("current results must be an object or cases document")
-    missing = [case.case_id for case in cases if case.case_id not in answers]
+    missing = [case.case_id for case in cases if case.case_id not in results]
     if missing:
         raise ValueError(
             "current results missing case answers: " + ",".join(missing)
         )
-    return answers
+    return results
 
 
 def _context_text(case: ABQuestion) -> str:
@@ -219,7 +234,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         cases = _load_questions(args.questions_file, model_override=args.model)
-        current_answers = _load_current_results(args.current_results, cases)
+        current_results = _load_current_results(args.current_results, cases)
     except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
         print(f"agent episode A/B failed: {exc}", file=sys.stderr)
         return 2
@@ -259,9 +274,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.dry_run:
             context = fresh_context()
             record = _base_case_payload(case, control, context)
-            if case.case_id in current_answers:
+            if case.case_id in current_results:
                 record["current"] = {
-                    "answer": current_answers[case.case_id],
+                    **current_results[case.case_id],
                     "source": str(args.current_results),
                 }
             record["execution_status"] = "planned"
@@ -271,9 +286,9 @@ def main(argv: list[str] | None = None) -> int:
         bare = _run_bare_arm(case)
         context = fresh_context()
         record = _base_case_payload(case, control, context)
-        if case.case_id in current_answers:
+        if case.case_id in current_results:
             record["current"] = {
-                "answer": current_answers[case.case_id],
+                **current_results[case.case_id],
                 "source": str(args.current_results),
             }
         record["bare"] = bare
