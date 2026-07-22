@@ -269,6 +269,18 @@ def plan_answer_question(
             query_envelope.question_type,
             query_envelope.confidence,
         )
+    elif query_envelope.question_type == "market_watch":
+        classified_type, classified_confidence = _classify_question_type(
+            raw_query,
+            q,
+        )
+        if classified_type == QUESTION_MARKET_REVIEW:
+            question_type, confidence = classified_type, classified_confidence
+        else:
+            question_type, confidence = (
+                QUESTION_GENERAL,
+                query_envelope.confidence,
+            )
     elif query_envelope.subject_kind == "market_pattern":
         question_type, confidence = QUESTION_GENERAL, query_envelope.confidence
     elif query_envelope.subject_kind == "company":
