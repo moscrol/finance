@@ -1107,6 +1107,34 @@ def test_episode_usage_counts_adapter_provider_attempts() -> None:
     assert outcome.usage.llm_calls == 2
 
 
+def test_episode_usage_preserves_zero_pre_adapter_attempts() -> None:
+    frame = _frame()
+    finish = _finish_turn(
+        status="partial",
+        hashes=(),
+        gap="模型预算在 provider 前耗尽",
+    )
+    model = ScriptedModel(
+        [
+            ModelTurn(
+                finish.content,
+                finish.tool_calls,
+                finish.provider_name,
+                finish.error,
+                provider_attempts=0,
+            )
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.usage.llm_calls == 0
+
+
 def test_multiple_tool_calls_cannot_bypass_total_step_budget() -> None:
     calls: list[str] = []
 

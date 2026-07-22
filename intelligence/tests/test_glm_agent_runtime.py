@@ -121,6 +121,112 @@ def test_runtime_forwards_one_turn_settings_to_each_provider() -> None:
     ]
 
 
+def test_real_adapter_without_explicit_providers_keeps_legacy_transient_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _provider("glm")
+    calls: list[dict[str, object]] = []
+
+    def complete_fn(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            return None, provider, "TimeoutError"
+        return {"content": "ok", "tool_calls": []}, provider, ""
+
+    monkeypatch.setattr(llm_refine, "chat_with_tools", complete_fn)
+    monkeypatch.setattr(
+        llm_refine,
+        "detect_providers",
+        lambda _model=None: pytest.fail(
+            "client composition must not auto-detect an explicit provider chain"
+        ),
+    )
+
+    turn = GLMModelClient().complete(messages=[], tools=[], timeout=5)
+
+    assert turn.content == "ok"
+    assert turn.provider_name == "glm"
+    assert turn.provider_attempts == 2
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("timeout", (0.0, 0.001))
+def test_runtime_deadline_before_first_provider_records_zero_attempts(
+    timeout: float,
+) -> None:
+    calls = 0
+
+    def complete_fn(**_kwargs):
+        nonlocal calls
+        calls += 1
+        return {"content": "unexpected", "tool_calls": []}, _provider("glm"), ""
+
+    turn = GLMModelClient(
+        providers=(_provider("glm"),),
+        complete_fn=complete_fn,
+    ).complete(messages=[], tools=[], timeout=timeout)
+
+    assert turn.provider_attempts == 0
+    assert calls == 0
+
+
+def test_runtime_budget_rejection_before_first_http_records_zero_attempts() -> None:
+    provider = _provider("glm")
+    client = GLMModelClient(
+        providers=(provider,),
+        complete_fn=lambda **_kwargs: (
+            None,
+            None,
+            "LLM 调用预算耗尽（本轮上限 0 次尝试），已拒发新调用并降级",
+        ),
+    )
+
+    turn = client.complete(messages=[], tools=[], timeout=5)
+
+    assert turn.provider_attempts == 0
+    assert turn._provider_trace == ()
+
+
+@pytest.mark.parametrize("raw_tool_calls", (0, "", {}))
+def test_runtime_falls_through_falsy_non_list_tool_calls(
+    raw_tool_calls: object,
+) -> None:
+    def complete_fn(**_kwargs):
+        provider = llm_refine.detect_provider()
+        assert provider is not None
+        if provider.name == "glm":
+            return {
+                "content": "invalid",
+                "tool_calls": raw_tool_calls,
+            }, provider, ""
+        return {"content": "ok", "tool_calls": []}, provider, ""
+
+    turn = GLMModelClient(
+        providers=(_provider("glm"), _provider("openai")),
+        complete_fn=complete_fn,
+    ).complete(messages=[], tools=[], timeout=5)
+
+    assert turn.content == "ok"
+    assert turn.provider_name == "openai"
+    assert turn.provider_attempts == 2
+
+
+def test_legacy_injected_callback_still_accepts_empty_envelope() -> None:
+    provider = _provider("glm")
+    turn = GLMModelClient(
+        complete_fn=lambda **_kwargs: (
+            {"content": "", "tool_calls": []},
+            provider,
+            "",
+        )
+    ).complete(messages=[], tools=[], timeout=5)
+
+    assert turn.provider_name == "glm"
+    assert turn.provider_attempts == 1
+    assert turn.content == ""
+    assert turn.error == ""
+
+
 def test_glm_client_converts_openai_tool_call_without_provider_leak() -> None:
     captured: dict[str, object] = {}
     provider = LLMProvider(

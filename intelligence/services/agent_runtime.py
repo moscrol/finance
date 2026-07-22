@@ -114,6 +114,8 @@ class ModelTurn:
     tool_calls: tuple[ModelToolCall, ...]
     provider_name: str = ""
     error: str = ""
+    # Physical provider/HTTP attempts. Zero is valid when deadline or budget
+    # rejects the turn before the adapter boundary.
     provider_attempts: int = 1
 
     def __post_init__(self) -> None:
@@ -126,9 +128,9 @@ class ModelTurn:
         if (
             isinstance(self.provider_attempts, bool)
             or not isinstance(self.provider_attempts, int)
-            or self.provider_attempts < 1
+            or self.provider_attempts < 0
         ):
-            raise ValueError("provider_attempts must be a positive integer")
+            raise ValueError("provider_attempts must be a non-negative integer")
         calls = tuple(self.tool_calls)
         if any(not isinstance(call, ModelToolCall) for call in calls):
             raise ValueError("tool_calls must contain ModelToolCall values")

@@ -22,7 +22,12 @@ def test_session_byok_is_scoped_and_secret_is_not_represented() -> None:
     assert settings.byok_provider("bob") is None
     assert provider.model == "glm-5.2"
     assert "glm-secret-value" not in repr(provider)
-    assert "glm-secret-value" not in repr(settings.describe("alice"))
+    description = settings.describe("alice")
+    serialized_description = repr(description)
+    assert "glm-secret-value" not in serialized_description
+    assert provider.base_url not in serialized_description
+    assert "api_key" not in description
+    assert "base_url" not in description
 
     settings.clear_byok("alice")
     assert settings.byok_provider("alice") is None

@@ -58,16 +58,7 @@ class GLMModelClient:
         complete_fn: ChatWithTools | None = None,
     ) -> None:
         self._model = model
-        if providers is not None:
-            self._providers = tuple(providers)
-        elif complete_fn is None:
-            # Runtime callers that use the real adapter get the detected chain
-            # by default.  An injected callback remains on the legacy path so
-            # existing test/compatibility seams keep their historical retry.
-            detected = tuple(llm_refine.detect_providers(model))
-            self._providers = detected or None
-        else:
-            self._providers = None
+        self._providers = tuple(providers) if providers is not None else None
         self._complete = complete_fn or llm_refine.chat_with_tools
         self._provider_trace: tuple[dict[str, object], ...] = ()
 
@@ -146,7 +137,7 @@ class GLMModelClient:
                     (),
                     provider_name,
                     str(reason or "model_unavailable"),
-                    provider_attempts=max(1, attempts),
+                    provider_attempts=attempts,
                 )
             )
         turn, _error = _turn_from_message(
@@ -258,7 +249,7 @@ class GLMModelClient:
                 (),
                 _provider_name(last_provider),
                 last_reason,
-                provider_attempts=max(1, attempts),
+                provider_attempts=attempts,
             )
         )
 
@@ -353,7 +344,6 @@ def _turn_from_message(
 ) -> tuple[ModelTurn, str]:
     """Validate and convert an adapter envelope without leaking raw payloads."""
 
-    attempts = max(1, attempts)
     if not isinstance(message, dict):
         return (
             ModelTurn(
@@ -383,8 +373,10 @@ def _turn_from_message(
             "invalid_model_content",
         )
 
-    raw_calls = message.get("tool_calls") or []
-    if not isinstance(raw_calls, list):
+    raw_calls = message.get("tool_calls")
+    if raw_calls is None:
+        raw_calls = []
+    elif not isinstance(raw_calls, list):
         return (
             ModelTurn(
                 content,

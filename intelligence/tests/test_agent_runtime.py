@@ -120,6 +120,22 @@ def test_model_turn_is_provider_neutral_and_json_safe() -> None:
     json.dumps(payload, ensure_ascii=False)
 
 
+def test_model_turn_allows_zero_physical_provider_attempts() -> None:
+    turn = ModelTurn(
+        content="",
+        tool_calls=(),
+        provider_name="",
+        error="model deadline exhausted",
+        provider_attempts=0,
+    )
+
+    assert turn.provider_attempts == 0
+    assert turn.to_dict()["provider_attempts"] == 0
+
+    with pytest.raises(ValueError, match="non-negative integer"):
+        ModelTurn("", (), provider_attempts=-1)
+
+
 def test_agent_outcome_serializes_only_public_evidence_and_trace_fields() -> None:
     evidence = AgentEvidence(
         tool="news_search",
