@@ -105,7 +105,6 @@ class GLMModelClient:
             )
             if remaining <= 0.001:
                 break
-            attempts += 1
             message, provider, reason = self._complete(
                 messages=messages,
                 tools=tools,
@@ -115,6 +114,11 @@ class GLMModelClient:
                 tool_choice="auto",
                 disable_thinking=True,
             )
+            if message is None and _is_call_budget_rejection(reason):
+                # The legacy adapter can reject at its public entry before
+                # provider detection or HTTP. Keep usage and trace physical.
+                break
+            attempts += 1
             trace.append(
                 _provider_trace_entry(
                     provider,

@@ -187,6 +187,17 @@ def test_runtime_budget_rejection_before_first_http_records_zero_attempts() -> N
     assert turn._provider_trace == ()
 
 
+def test_legacy_runtime_call_ledger_rejection_records_zero_attempts() -> None:
+    with llm_refine.call_ledger_scope(max_calls=0) as ledger:
+        turn = GLMModelClient().complete(messages=[], tools=[], timeout=5)
+
+    summary = ledger.summary()
+    assert turn.provider_attempts == 0
+    assert turn._provider_trace == ()
+    assert summary["call_count"] == 0
+    assert summary["reserved_count"] == 0
+
+
 @pytest.mark.parametrize("raw_tool_calls", (0, "", {}))
 def test_runtime_falls_through_falsy_non_list_tool_calls(
     raw_tool_calls: object,
