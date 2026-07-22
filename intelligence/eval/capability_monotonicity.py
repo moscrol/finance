@@ -38,6 +38,21 @@ CAPABILITY_SCORE_RUBRIC: Mapping[int, str] = {
     3: "substantially complete",
     4: "fully satisfies the dimension",
 }
+CAPABILITY_MARGIN = Decimal("0.2")
+
+
+def _fixed_capability_margin(value: float | Decimal | None) -> Decimal:
+    """Accept the legacy argument only when it equals the fixed 0.2 margin."""
+
+    if value is None:
+        return CAPABILITY_MARGIN
+    try:
+        candidate = Decimal(str(value))
+    except (ArithmeticError, ValueError):
+        raise ValueError("capability margin is fixed at 0.2") from None
+    if candidate != CAPABILITY_MARGIN:
+        raise ValueError("capability margin is fixed at 0.2")
+    return CAPABILITY_MARGIN
 
 
 def _integer_field(value: Mapping[str, Any], name: str) -> int:
@@ -278,7 +293,7 @@ def compare_with_bare(
     bare: CapabilityRunResult,
     harness: CapabilityRunResult,
     *,
-    threshold: float = 0.2,
+    threshold: float | Decimal | None = None,
 ) -> BareComparison:
     """Compare one harness arm to bare on the normalized 0..1 scale."""
 
@@ -292,11 +307,10 @@ def compare_with_bare(
         raise ValueError("the harness result must use current or episode")
     if bare.case_id != harness.case_id:
         raise ValueError("bare and harness results must belong to the same case")
-    if not 0 <= threshold <= 1:
-        raise ValueError("threshold must use the normalized 0..1 scale")
+    margin = _fixed_capability_margin(threshold)
     bare_score = bare.score.normalized_total
     harness_score = harness.score.normalized_total
-    threshold_units = Decimal(str(threshold)) * Decimal(20)
+    threshold_units = margin * Decimal(20)
     regression = (
         Decimal(harness.score.total_units) + threshold_units
         < Decimal(bare.score.total_units)
@@ -311,7 +325,7 @@ def compare_with_bare(
         harness_arm=harness.arm,
         bare_score=bare_score,
         harness_score=harness_score,
-        threshold=threshold,
+        threshold=float(CAPABILITY_MARGIN),
         passed=not failures,
         failure_reasons=tuple(failures),
     )
@@ -375,7 +389,7 @@ class ThreeArmEvaluation:
 def evaluate_three_arm_record(
     record: ThreeArmRecord,
     *,
-    threshold: float = 0.2,
+    threshold: float | Decimal | None = None,
 ) -> ThreeArmEvaluation:
     return ThreeArmEvaluation(
         case_id=record.case.case_id,
@@ -388,12 +402,13 @@ def evaluate_three_arm_record(
 def summarize_three_arm_records(
     records: Sequence[ThreeArmRecord],
     *,
-    threshold: float = 0.2,
+    threshold: float | Decimal | None = None,
 ) -> dict[str, Any]:
     """Build the independent evidence document consumed by acceptance gates."""
 
+    margin = _fixed_capability_margin(threshold)
     evaluations = [
-        evaluate_three_arm_record(record, threshold=threshold) for record in records
+        evaluate_three_arm_record(record, threshold=margin) for record in records
     ]
     comparisons = [
         comparison
@@ -411,7 +426,7 @@ def summarize_three_arm_records(
             "normalized_range": [0.0, 1.0],
             "rubric": dict(CAPABILITY_SCORE_RUBRIC),
         },
-        "threshold": threshold,
+        "threshold": float(CAPABILITY_MARGIN),
         "evidence_present": bool(evaluations),
         "passed": bool(evaluations) and all(item.passed for item in evaluations),
         "case_count": len(evaluations),

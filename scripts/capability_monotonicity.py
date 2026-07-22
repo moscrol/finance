@@ -37,12 +37,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Read JSON records containing human-assigned five-dimension scores",
     )
     parser.add_argument("--output", type=Path, help="Write the comparison report")
-    parser.add_argument(
-        "--threshold",
-        type=float,
-        default=0.2,
-        help="Allowed normalized harness deficit versus bare (default: 0.2)",
-    )
     return parser
 
 
@@ -65,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         ):
             raise ValueError("input must be a JSON object with a records list")
         records = [ThreeArmRecord.from_dict(item) for item in payload["records"]]
-        report = summarize_three_arm_records(records, threshold=args.threshold)
+        report = summarize_three_arm_records(records)
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         print(f"capability monotonicity failed: invalid input: {exc}", file=sys.stderr)
         return 2

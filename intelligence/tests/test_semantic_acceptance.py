@@ -112,6 +112,16 @@ def test_reported_comparison_regression_cannot_be_hidden_by_top_level_passed() -
     assert summary["issues"] == ["capability_regression"]
 
 
+def test_report_threshold_cannot_override_fixed_capability_margin() -> None:
+    report = _valid_capability_report()
+    report["threshold"] = 1.0
+
+    summary = semantic_acceptance.summarize_capability_monotonicity(report)
+
+    assert summary["status"] == "failed"
+    assert summary["issues"] == ["capability_margin_invalid"]
+
+
 def test_cli_accepts_optional_capability_monotonicity_report(tmp_path: Path) -> None:
     report = tmp_path / "capability.json"
 

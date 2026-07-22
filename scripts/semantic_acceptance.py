@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from argparse import Namespace
+from decimal import Decimal
 from pathlib import Path
 from typing import Mapping
 
@@ -24,6 +24,7 @@ from scripts.smoke_workbench_self_use import (
     run_smoke,
 )
 from intelligence.eval.capability_monotonicity import (
+    CAPABILITY_MARGIN,
     ThreeArmRecord,
     evaluate_three_arm_record,
 )
@@ -44,12 +45,14 @@ def load_capability_monotonicity_report(path: Path) -> dict[str, object]:
     return loaded
 
 
-def _capability_invalid(*, case_count: int | None = None) -> dict[str, object]:
+def _capability_invalid(
+    *, case_count: int | None = None, issue: str = "monotonicity_evidence_invalid"
+) -> dict[str, object]:
     result: dict[str, object] = {
         "status": "failed",
         "evidence_present": True,
         "passed": False,
-        "issues": ["monotonicity_evidence_invalid"],
+        "issues": [issue],
     }
     if case_count is not None:
         result["case_count"] = case_count
@@ -81,22 +84,29 @@ def summarize_capability_monotonicity(
         return _capability_invalid()
     reported_passed = evidence.get("passed")
     case_count = evidence.get("case_count")
-    threshold = evidence.get("threshold")
+    reported_threshold = evidence.get("threshold")
     evaluations = evidence.get("evaluations")
     if (
         not isinstance(reported_passed, bool)
         or isinstance(case_count, bool)
         or not isinstance(case_count, int)
         or case_count < 1
-        or not isinstance(threshold, (int, float))
-        or isinstance(threshold, bool)
-        or not math.isfinite(float(threshold))
-        or not 0 <= float(threshold) <= 1
         or not isinstance(evaluations, list)
         or len(evaluations) != case_count
     ):
         return _capability_invalid(
             case_count=case_count if isinstance(case_count, int) else None
+        )
+    try:
+        if Decimal(str(reported_threshold)) != CAPABILITY_MARGIN:
+            return _capability_invalid(
+                case_count=case_count,
+                issue="capability_margin_invalid",
+            )
+    except (ArithmeticError, ValueError):
+        return _capability_invalid(
+            case_count=case_count,
+            issue="capability_margin_invalid",
         )
 
     issues: list[str] = []
@@ -114,7 +124,7 @@ def summarize_capability_monotonicity(
             record = ThreeArmRecord.from_dict(record_payload)
             if record.case.case_id != case_id:
                 return _capability_invalid(case_count=case_count)
-            derived = evaluate_three_arm_record(record, threshold=float(threshold))
+            derived = evaluate_three_arm_record(record)
         except (KeyError, TypeError, ValueError):
             return _capability_invalid(case_count=case_count)
         if not isinstance(evaluation.get("passed"), bool):

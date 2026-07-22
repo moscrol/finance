@@ -98,6 +98,21 @@ def test_threshold_uses_exact_integer_score_units_at_point_two_boundary() -> Non
     )
 
 
+def test_non_fixed_margin_cannot_relax_the_capability_gate() -> None:
+    bare = _result(
+        arm="bare",
+        score=CapabilityScore(4, 4, 4, 4, 4),
+    )
+    harness = _result(
+        arm="current",
+        score=CapabilityScore(0, 0, 0, 0, 0),
+    )
+
+    for margin in (1.0, 0.1):
+        with pytest.raises(ValueError, match="fixed at 0.2"):
+            compare_with_bare(bare, harness, threshold=margin)
+
+
 def test_bare_baseline_requires_zero_tools_and_protocol_pass() -> None:
     current = _result(
         arm="current",
@@ -224,3 +239,16 @@ def test_cli_writes_offline_fixture_and_scores_saved_records(tmp_path) -> None:
 
     assert code == 1
     assert json.loads(output_path.read_text(encoding="utf-8"))["passed"] is False
+
+    with pytest.raises(SystemExit) as rejected:
+        capability_cli.main(
+            [
+                "--input",
+                str(input_path),
+                "--output",
+                str(output_path),
+                "--threshold",
+                "1.0",
+            ]
+        )
+    assert rejected.value.code == 2
