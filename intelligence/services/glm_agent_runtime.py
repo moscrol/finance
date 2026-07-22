@@ -60,6 +60,7 @@ class GLMModelClient:
         complete_fn: ChatWithTools | None = None,
     ) -> None:
         self._model = model
+        self._retry_single_real_provider = False
         if providers is not None:
             self._providers = tuple(providers)
         elif complete_fn is None:
@@ -67,6 +68,7 @@ class GLMModelClient:
             # that chain here so each physical call is scoped and counted once
             # rather than repeating the whole internal chain on outer retry.
             self._providers = tuple(llm_refine.detect_providers(model))
+            self._retry_single_real_provider = len(self._providers) == 1
         else:
             # Explicit compatibility callbacks retain the historical singleton
             # adapter semantics, including its bounded transient retry.
@@ -209,7 +211,11 @@ class GLMModelClient:
                 (),
             )
 
-        for provider in self._providers or ():
+        providers = self._providers or ()
+        provider_index = 0
+        single_retry_used = False
+        while provider_index < len(providers):
+            provider = providers[provider_index]
             remaining = max(0.0, expires_at - time.monotonic())
             if remaining <= 0.001:
                 break
@@ -259,6 +265,14 @@ class GLMModelClient:
                     )
                 )
                 last_reason = reason_text or "model_unavailable"
+                if (
+                    self._retry_single_real_provider
+                    and not single_retry_used
+                    and _is_transient_provider_error(reason_text)
+                ):
+                    single_retry_used = True
+                    continue
+                provider_index += 1
                 continue
 
             turn, parse_error = _turn_from_message(
@@ -275,6 +289,7 @@ class GLMModelClient:
                     )
                 )
                 last_reason = parse_error
+                provider_index += 1
                 continue
 
             trace.append(

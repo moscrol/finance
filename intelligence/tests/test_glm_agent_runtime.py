@@ -159,6 +159,59 @@ def test_real_adapter_without_explicit_providers_uses_one_explicit_chain(
     assert [entry["provider"] for entry in turn._provider_trace] == calls
 
 
+def test_real_default_single_provider_keeps_legacy_transient_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = _provider("glm")
+    calls: list[str] = []
+
+    def complete_fn(**kwargs):
+        del kwargs
+        selected = llm_refine.detect_provider()
+        assert selected is not None
+        calls.append(selected.name)
+        if len(calls) == 1:
+            return None, selected, "TimeoutError"
+        return {"content": "ok", "tool_calls": []}, selected, ""
+
+    monkeypatch.setattr(llm_refine, "chat_with_tools", complete_fn)
+
+    def detect_providers(_model=None):
+        overridden = llm_refine._PROVIDER_OVERRIDE.get()
+        return (overridden,) if overridden is not None else (provider,)
+
+    monkeypatch.setattr(llm_refine, "detect_providers", detect_providers)
+
+    turn = GLMModelClient().complete(messages=[], tools=[], timeout=5)
+
+    assert calls == ["glm", "glm"]
+    assert turn.content == "ok"
+    assert turn.provider_attempts == 2
+    assert [entry["status"] for entry in turn._provider_trace] == [
+        "failed",
+        "success",
+    ]
+
+
+def test_explicit_single_provider_does_not_retry_transient_failure() -> None:
+    provider = _provider("glm")
+    calls = 0
+
+    def complete_fn(**_kwargs):
+        nonlocal calls
+        calls += 1
+        return None, provider, "TimeoutError"
+
+    turn = GLMModelClient(
+        providers=(provider,),
+        complete_fn=complete_fn,
+    ).complete(messages=[], tools=[], timeout=5)
+
+    assert calls == 1
+    assert turn.provider_attempts == 1
+    assert [entry["status"] for entry in turn._provider_trace] == ["failed"]
+
+
 def test_legacy_invalid_envelope_is_recorded_as_failed_trace() -> None:
     provider = _provider("glm")
     turn = GLMModelClient(
