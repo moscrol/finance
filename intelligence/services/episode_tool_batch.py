@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from concurrent.futures import Executor, Future, ThreadPoolExecutor, wait
 from contextvars import copy_context
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 from threading import Lock
 from time import monotonic
@@ -23,6 +23,7 @@ from intelligence.services.research_tool_registry import (
 
 
 ToolCallStatus = Literal["success", "empty", "rejected", "timeout", "error"]
+_TOOL_CALL_STATUSES = frozenset({"success", "empty", "rejected", "timeout", "error"})
 MAX_BATCH_TOOL_CALLS = 4
 MAX_GLOBAL_TOOL_WORKERS = 8
 _SHARED_TOOL_EXECUTOR = ThreadPoolExecutor(
@@ -38,6 +39,10 @@ class ToolCallResult:
     observation: ToolObservation | None = None
     error: str = ""
     step_id: str = ""
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, str) or self.status not in _TOOL_CALL_STATUSES:
+            raise ValueError(f"unsupported tool call status: {self.status}")
 
 
 @dataclass(frozen=True)
@@ -324,6 +329,14 @@ class EpisodeToolBatchSession:
                         step_id=step_ids[candidate.index],
                     )
                     continue
+                observation = replace(
+                    observation,
+                    trace=replace(
+                        observation.trace,
+                        parent_id=context.trace_parent_id,
+                        step_id=step_ids[candidate.index],
+                    ),
+                )
                 items[candidate.index] = ToolCallResult(
                     candidate.call,
                     "success" if observation.evidence else "empty",

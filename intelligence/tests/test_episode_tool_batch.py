@@ -6,9 +6,11 @@ from contextvars import ContextVar
 from threading import Barrier, Event, Lock
 import time
 
+import pytest
+
 from intelligence.services import agent_research, episode_tool_batch, query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
-from intelligence.services.episode_tool_batch import ToolBatchExecutor
+from intelligence.services.episode_tool_batch import ToolBatchExecutor, ToolCallResult
 from intelligence.services.evidence_capabilities import (
     EvidencePlan,
     EvidenceRequirement,
@@ -21,7 +23,11 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
-from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry,
+    ToolObservation,
+    ToolSpec,
+)
 
 
 Runner = Callable[
@@ -36,6 +42,7 @@ def _context(
     mandatory: tuple[str, ...] = ("market_data",),
     timeout: float = 2.0,
     allowed: tuple[str, ...] = ("web_search", "kb_search", "market_data"),
+    trace_parent_id: str = "tool-batch-test",
 ) -> ResearchRunContext:
     contract = ResearchTaskContract(
         task_id="tool-batch-test",
@@ -58,7 +65,7 @@ def _context(
         contract=contract,
         deadline=ResearchDeadline.from_timeout(timeout),
         policy=ResearchPolicy("quick", 4, timeout, 0.0),
-        trace_parent_id="tool-batch-test",
+        trace_parent_id=trace_parent_id,
     )
 
 
@@ -227,6 +234,77 @@ def test_each_worker_has_a_distinct_copied_context_with_one_shared_query_ledger(
     assert observations["kb_search"][:2] == ("parent", "kb_search")
     assert observations["web_search"][2] is ledger
     assert observations["kb_search"][2] is ledger
+
+
+def test_query_ledger_cache_hit_rebinds_trace_to_current_batch_call() -> None:
+    runner_calls = 0
+
+    def runner(
+        query: str,
+        _context: agent_research.AgentToolContext,
+    ) -> tuple[list[agent_research.AgentEvidence], str, ProviderTrace]:
+        nonlocal runner_calls
+        runner_calls += 1
+        return _evidence_result("market_data", query)
+
+    registry = _registry(market_data=runner)
+    old_context = _context(trace_parent_id="old-parent")
+    current_context = _context(trace_parent_id="current-parent")
+
+    with query_ledger.query_ledger_scope():
+        cached = registry.execute(
+            "market_data",
+            "same query",
+            context=old_context,
+            step_id="old-parent:episode:tool:99",
+        )
+        result = (
+            ToolBatchExecutor()
+            .new_session()
+            .execute(
+                (
+                    ModelToolCall(
+                        "cache-hit",
+                        "market_data",
+                        {"query": "same query"},
+                    ),
+                ),
+                registry=registry,
+                context=current_context,
+                remaining_slots=1,
+            )
+        )
+
+    assert runner_calls == 1
+    assert cached.trace.parent_id == "old-parent"
+    assert cached.trace.step_id == "old-parent:episode:tool:99"
+    assert result.items[0].step_id == "current-parent:episode:tool:1"
+    assert result.items[0].observation is not None
+    assert result.items[0].observation.trace.parent_id == "current-parent"
+    assert result.items[0].observation.trace.step_id == result.items[0].step_id
+
+
+def test_tool_call_result_rejects_unknown_runtime_status() -> None:
+    with pytest.raises(ValueError, match="unsupported tool call status: corrupt"):
+        ToolCallResult(
+            call=ModelToolCall(
+                "corrupt-status",
+                "market_data",
+                {"query": "must not publish"},
+            ),
+            status="corrupt",  # type: ignore[arg-type]
+            observation=ToolObservation(
+                tool="market_data",
+                query="must not publish",
+                evidence=(),
+                observation="illegal observation",
+                trace=ProviderTrace(
+                    provider="illegal",
+                    capability="market_data",
+                    status="success",
+                ),
+            ),
+        )
 
 
 def test_duplicate_and_unauthorized_calls_never_reach_runners() -> None:
