@@ -236,7 +236,7 @@ class AgentUsage:
         }
 
 
-def _public_evidence(item: AgentEvidence) -> dict[str, object]:
+def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:
     return {
         "tool": item.tool,
         "title": item.title,
@@ -266,7 +266,10 @@ class AgentOutcome:
     usage: AgentUsage
 
     def __post_init__(self) -> None:
-        if not isinstance(self.task_frame_hash, str) or not self.task_frame_hash.strip():
+        if (
+            not isinstance(self.task_frame_hash, str)
+            or not self.task_frame_hash.strip()
+        ):
             raise ValueError("task frame hash must be non-empty")
         if self.status not in _EPISODE_STATUSES:
             raise ValueError("unsupported episode status")
@@ -323,7 +326,7 @@ class AgentOutcome:
             "task_frame_hash": self.task_frame_hash,
             "status": self.status,
             "draft": self.draft,
-            "evidence": [_public_evidence(item) for item in self.evidence],
+            "evidence": [public_agent_evidence(item) for item in self.evidence],
             "traces": [trace.to_dict() for trace in self.traces],
             "gaps": list(self.gaps),
             "stop_reason": self.stop_reason,
@@ -356,4 +359,5 @@ __all__ = [
     "ModelToolCall",
     "ModelTurn",
     "OutputEvidenceBinding",
+    "public_agent_evidence",
 ]

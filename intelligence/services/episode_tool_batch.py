@@ -37,6 +37,7 @@ class ToolCallResult:
     status: ToolCallStatus
     observation: ToolObservation | None = None
     error: str = ""
+    step_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -171,6 +172,12 @@ class EpisodeToolBatchSession:
                 )
 
         selected_in_model_order = tuple(sorted(selected, key=lambda item: item.index))
+        step_ids: dict[int, str] = {}
+        for candidate in selected_in_model_order:
+            step_ids[candidate.index] = (
+                f"{context.trace_parent_id}:episode:tool:{self._next_call_sequence}"
+            )
+            self._next_call_sequence += 1
         timeout = context.deadline.stage_timeout(30.0)
         if selected and timeout <= 0.0:
             for candidate in selected:
@@ -178,15 +185,10 @@ class EpisodeToolBatchSession:
                     candidate.call,
                     "timeout",
                     error="tool_timeout",
+                    step_id=step_ids[candidate.index],
                 )
             return self._result(items, executed_count=0, normalized_queries=())
 
-        step_ids: dict[int, str] = {}
-        for candidate in selected_in_model_order:
-            step_ids[candidate.index] = (
-                f"{context.trace_parent_id}:episode:tool:{self._next_call_sequence}"
-            )
-            self._next_call_sequence += 1
         self._seen_queries.update(candidate.key for candidate in selected)
         normalized_queries = tuple(
             candidate.key for candidate in selected_in_model_order
@@ -294,6 +296,7 @@ class EpisodeToolBatchSession:
                     candidate.call,
                     "timeout",
                     error="tool_timeout",
+                    step_id=step_ids[candidate.index],
                 )
             for future in completed:
                 candidate = future_candidates[future]
@@ -304,6 +307,7 @@ class EpisodeToolBatchSession:
                         candidate.call,
                         "timeout",
                         error="tool_timeout",
+                        step_id=step_ids[candidate.index],
                     )
                     continue
                 except Exception as exc:
@@ -312,12 +316,14 @@ class EpisodeToolBatchSession:
                         candidate.call,
                         "error",
                         error=detail,
+                        step_id=step_ids[candidate.index],
                     )
                     continue
                 items[candidate.index] = ToolCallResult(
                     candidate.call,
                     "success" if observation.evidence else "empty",
                     observation=observation,
+                    step_id=step_ids[candidate.index],
                 )
         finally:
             publish_guard.close()

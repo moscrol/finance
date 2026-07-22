@@ -439,14 +439,16 @@ def test_step_ids_are_monotonic_across_batches_in_original_model_order() -> None
         remaining_slots=1,
     )
 
-    assert [item.observation.trace.step_id for item in first.items] == [
+    assert [item.step_id for item in first.items] == [
         "tool-batch-test:episode:tool:1",
         "tool-batch-test:episode:tool:2",
     ]
+    assert [item.observation.trace.step_id for item in first.items] == [
+        item.step_id for item in first.items
+    ]
     assert second.items[0].observation is not None
-    assert second.items[0].observation.trace.step_id == (
-        "tool-batch-test:episode:tool:3"
-    )
+    assert second.items[0].step_id == "tool-batch-test:episode:tool:3"
+    assert second.items[0].observation.trace.step_id == second.items[0].step_id
 
 
 def test_strict_arguments_and_duplicate_call_ids_are_rejected_before_dispatch() -> None:
@@ -501,6 +503,13 @@ def test_strict_arguments_and_duplicate_call_ids_are_rejected_before_dispatch() 
         "duplicate_call_id",
         "invalid_query",
     ]
+    assert [item.step_id for item in result.items] == [
+        "",
+        "",
+        "tool-batch-test:episode:tool:1",
+        "",
+        "",
+    ]
     assert runner_calls == {"web_search": 0, "kb_search": 1, "market_data": 0}
 
 
@@ -528,7 +537,7 @@ def test_runner_timeout_error_maps_to_timeout_status() -> None:
     assert result.executed_count == 1
 
 
-def test_expired_deadline_does_not_submit_or_consume_query_and_step_id() -> None:
+def test_expired_deadline_does_not_submit_or_consume_query() -> None:
     runner_calls = 0
     release_runner = Event()
 
@@ -559,13 +568,13 @@ def test_expired_deadline_does_not_submit_or_consume_query_and_step_id() -> None
     )
 
     assert expired.items[0].status == "timeout"
+    assert expired.items[0].step_id == "tool-batch-test:episode:tool:1"
     assert expired.executed_count == 0
     assert expired.normalized_queries == ()
     assert retried.items[0].status == "success"
     assert retried.items[0].observation is not None
-    assert retried.items[0].observation.trace.step_id == (
-        "tool-batch-test:episode:tool:1"
-    )
+    assert retried.items[0].step_id == "tool-batch-test:episode:tool:2"
+    assert retried.items[0].observation.trace.step_id == retried.items[0].step_id
     assert runner_calls == 1
 
 

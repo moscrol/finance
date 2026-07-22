@@ -6,7 +6,6 @@ import json
 import re
 from typing import cast
 
-from intelligence.services import query_ledger
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
     AgentModelClient,
@@ -17,7 +16,9 @@ from intelligence.services.agent_runtime import (
     ModelToolCall,
     ModelTurn,
     OutputEvidenceBinding,
+    public_agent_evidence,
 )
+from intelligence.services.episode_tool_batch import ToolBatchExecutor
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_tool_registry import (
@@ -60,9 +61,13 @@ class ContinuousAgentEpisode:
         model: AgentModelClient,
         *,
         llm_timeout: float = DEFAULT_LLM_TIMEOUT,
+        tool_executor: ToolBatchExecutor | None = None,
     ) -> None:
         self._model = model
         self._llm_timeout = max(0.1, float(llm_timeout))
+        self._tool_executor = (
+            tool_executor if tool_executor is not None else ToolBatchExecutor()
+        )
 
     def run(
         self,
@@ -71,6 +76,7 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
     ) -> AgentOutcome:
+        tool_session = self._tool_executor.new_session()
         if (
             context.contract.task_frame_hash
             and context.contract.task_frame_hash != task_frame.task_frame_hash
@@ -82,7 +88,6 @@ class ContinuousAgentEpisode:
         evidence_hashes: set[str] = set()
         traces: list[ProviderTrace] = []
         gaps: list[str] = []
-        seen_queries: set[tuple[str, str]] = set()
         llm_calls = 0
         tool_calls = 0
         invalid_actions = 0
@@ -97,14 +102,7 @@ class ContinuousAgentEpisode:
                 "content": self._task_prompt(task_frame, context),
             },
         ]
-        definitions = registry.tool_definitions(
-            context.contract.allowed_capabilities
-        )
-        authorized_names = {
-            str(item["function"]["name"])
-            for item in definitions
-        }
-
+        definitions = registry.tool_definitions(context.contract.allowed_capabilities)
         finalization_started = False
         for _round in range(1, context.policy.max_steps + 2):
             planning_timeout = context.deadline.stage_timeout(self._llm_timeout)
@@ -221,83 +219,67 @@ class ContinuousAgentEpisode:
                         tool_calls=tool_calls,
                         invalid_actions=invalid_actions,
                     )
-                for call in turn.tool_calls:
+                batch = tool_session.execute(
+                    turn.tool_calls,
+                    registry=registry,
+                    context=context,
+                    remaining_slots=context.policy.max_steps - tool_calls,
+                )
+                tool_calls += batch.executed_count
+                for result in batch.items:
+                    call = result.call
                     ledger.add("tool_request", call.to_dict())
-                    query = call.arguments.get("query")
-                    if (
-                        call.name not in authorized_names
-                        or not isinstance(query, str)
-                        or not query.strip()
-                    ):
+
+                    if result.status == "rejected":
                         invalid_actions += 1
-                        error = "unknown_or_unauthorized_tool"
-                        trace = ProviderTrace(
-                            provider="episode:tool_gate",
-                            capability=call.name,
-                            status="disabled",
-                            detail=error,
-                            parent_id=context.trace_parent_id,
-                            step_id=f"{context.trace_parent_id}:episode:gate",
-                        )
-                        traces.append(trace)
+                        if result.error == "unknown_or_unauthorized_tool":
+                            traces.append(
+                                ProviderTrace(
+                                    provider="episode:tool_gate",
+                                    capability=call.name,
+                                    status="disabled",
+                                    detail=result.error,
+                                    parent_id=context.trace_parent_id,
+                                    step_id=(f"{context.trace_parent_id}:episode:gate"),
+                                )
+                            )
                         self._append_tool_error(
                             messages,
                             ledger,
                             call,
-                            error,
+                            result.error,
                         )
                         continue
 
-                    normalized = query_ledger.normalize_query(query)
-                    query_key = (call.name, normalized)
-                    if query_key in seen_queries:
-                        invalid_actions += 1
+                    if result.status in {"error", "timeout"}:
+                        public_error = (
+                            "tool_timeout"
+                            if result.status == "timeout"
+                            else "tool_exception"
+                        )
+                        traces.append(
+                            ProviderTrace(
+                                provider=f"agent:{call.name}",
+                                capability=call.name,
+                                status="request_error",
+                                detail=public_error,
+                                parent_id=context.trace_parent_id,
+                                step_id=result.step_id or None,
+                            )
+                        )
                         self._append_tool_error(
                             messages,
                             ledger,
                             call,
-                            "duplicate_query",
-                        )
-                        continue
-                    if tool_calls >= context.policy.max_steps:
-                        invalid_actions += 1
-                        self._append_tool_error(
-                            messages,
-                            ledger,
-                            call,
-                            "tool_budget_exhausted",
-                        )
-                        continue
-                    seen_queries.add(query_key)
-
-                    tool_calls += 1
-                    step_id = f"{context.trace_parent_id}:episode:{tool_calls}"
-                    try:
-                        observation = registry.execute(
-                            call.name,
-                            query,
-                            context=context,
-                            step_id=step_id,
-                        )
-                    except Exception as exc:
-                        trace = ProviderTrace(
-                            provider=f"agent:{call.name}",
-                            capability=call.name,
-                            status="request_error",
-                            detail=f"{type(exc).__name__}: {str(exc)[:160]}",
-                            parent_id=context.trace_parent_id,
-                            step_id=step_id,
-                        )
-                        traces.append(trace)
-                        self._append_tool_error(
-                            messages,
-                            ledger,
-                            call,
-                            "tool_exception",
-                            detail=trace.detail,
+                            public_error,
                         )
                         continue
 
+                    observation = result.observation
+                    if observation is None:
+                        raise RuntimeError(
+                            "successful tool batch result requires an observation"
+                        )
                     traces.append(observation.trace)
                     self._extend_unique(gaps, observation.gaps)
                     for item in observation.evidence:
@@ -311,8 +293,7 @@ class ContinuousAgentEpisode:
                         "query": observation.query,
                         "observation": observation.observation,
                         "evidence": [
-                            self._public_evidence(item)
-                            for item in observation.evidence
+                            public_agent_evidence(item) for item in observation.evidence
                         ],
                         "evidence_hashes": list(observation.evidence_hashes),
                         "gaps": list(observation.gaps),
@@ -525,16 +506,12 @@ class ContinuousAgentEpisode:
             not isinstance(item, str) for item in raw_gaps
         ):
             raise ValueError("finish gaps must be a string list")
-        gaps = tuple(
-            dict.fromkeys(item.strip() for item in raw_gaps if item.strip())
-        )
+        gaps = tuple(dict.fromkeys(item.strip() for item in raw_gaps if item.strip()))
         raw_bindings = value.get("bindings")
         if not isinstance(raw_bindings, list):
             raise ValueError("finish bindings must be a list")
         bindings: list[OutputEvidenceBinding] = []
-        allowed_outputs = {
-            item.output_id for item in context.contract.required_outputs
-        }
+        allowed_outputs = {item.output_id for item in context.contract.required_outputs}
         for raw in raw_bindings:
             if not isinstance(raw, dict):
                 raise ValueError("each finish binding must be an object")
@@ -570,26 +547,8 @@ class ContinuousAgentEpisode:
                 )
             ]
             if missing:
-                raise ValueError(
-                    "required output lacks evidence: " + ",".join(missing)
-                )
+                raise ValueError("required output lacks evidence: " + ",".join(missing))
         return cast(EpisodeStatus, status), draft, gaps, tuple(bindings)
-
-    @staticmethod
-    def _public_evidence(item: AgentEvidence) -> dict[str, object]:
-        return {
-            "tool": item.tool,
-            "title": item.title,
-            "detail": item.detail,
-            "source": item.source,
-            "source_date": item.source_date,
-            "evidence_tier": item.evidence_tier,
-            "supports": list(item.supports),
-            "contradicts": list(item.contradicts),
-            "independent_key": item.independent_key,
-            "freshness": item.freshness,
-            "content_hash": item.content_hash,
-        }
 
     @staticmethod
     def _extend_unique(target: list[str], values: tuple[str, ...]) -> None:
@@ -665,9 +624,7 @@ def _recover_finish_with_raw_draft(text: str) -> dict[str, object] | None:
     )
     if prefix is None:
         return None
-    separators = list(
-        re.finditer(r'"\s*,\s*(?="gaps"\s*:)', text)
-    )
+    separators = list(re.finditer(r'"\s*,\s*(?="gaps"\s*:)', text))
     if not separators:
         return None
     separator = separators[-1]

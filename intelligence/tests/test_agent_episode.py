@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import json
+from threading import Event, Lock
 
 from intelligence.services.agent_episode import ContinuousAgentEpisode
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
@@ -63,6 +64,7 @@ def _context(
     frame: TaskFrame,
     *,
     max_steps: int = 3,
+    allowed_capabilities: tuple[str, ...] = ("market_data",),
 ) -> ResearchRunContext:
     contract = ResearchTaskContract(
         task_id="episode-test",
@@ -74,7 +76,7 @@ def _context(
             RequiredOutput(item, item, ("market_data",), True)
             for item in frame.required_outputs
         ),
-        allowed_capabilities=("market_data",),
+        allowed_capabilities=allowed_capabilities,
         research_tier="quick",
         freshness="current",
         timeframe=frame.timeframe,
@@ -119,16 +121,22 @@ def _successful_runner(
         evidence_tier="L4",
         content_hash="evidence-1",
     )
-    return [evidence], "raw market observation", ProviderTrace(
-        provider="test:market",
-        capability="market_data",
-        status="success",
-        source_trade_date="2026-07-21",
-        result_count=1,
+    return (
+        [evidence],
+        "raw market observation",
+        ProviderTrace(
+            provider="test:market",
+            capability="market_data",
+            status="success",
+            source_trade_date="2026-07-21",
+            result_count=1,
+        ),
     )
 
 
-def _tool_turn(query: str, *, call_id: str = "call-1", name: str = "market_data") -> ModelTurn:
+def _tool_turn(
+    query: str, *, call_id: str = "call-1", name: str = "market_data"
+) -> ModelTurn:
     return ModelTurn(
         "",
         (ModelToolCall(call_id, name, {"query": query}),),
@@ -193,6 +201,123 @@ def test_second_model_turn_keeps_first_action_and_raw_tool_observation() -> None
         event.payload["task_frame_hash"] == frame.task_frame_hash
         for event in outcome.events
     )
+
+
+def test_tool_batch_completes_in_reverse_but_returns_original_transcript_order() -> (
+    None
+):
+    first_started = Event()
+    second_finished = Event()
+    completion_order: list[str] = []
+    completion_lock = Lock()
+
+    def result(tool: str, query: str, content_hash: str):
+        evidence = AgentEvidence(
+            tool=tool,
+            title=f"{tool} evidence",
+            detail=query,
+            source=f"test:{tool}",
+            content_hash=content_hash,
+        )
+        return (
+            [evidence],
+            f"{tool} observation",
+            ProviderTrace(
+                provider=f"test:{tool}",
+                capability=tool,
+                status="success",
+                result_count=1,
+            ),
+        )
+
+    def first_runner(query: str, _context: AgentToolContext):
+        first_started.set()
+        assert second_finished.wait(timeout=1.0)
+        with completion_lock:
+            completion_order.append("call-1")
+        return result("web_search", query, "web-evidence")
+
+    def second_runner(query: str, _context: AgentToolContext):
+        assert first_started.wait(timeout=1.0)
+        with completion_lock:
+            completion_order.append("call-2")
+        second_finished.set()
+        return result("market_data", query, "market-evidence")
+
+    registry = ResearchToolRegistry(
+        (
+            ToolSpec(
+                name="web_search",
+                capability="web_search",
+                description="网页检索",
+                cost="external",
+                freshness="current",
+                runner=first_runner,
+            ),
+            ToolSpec(
+                name="market_data",
+                capability="market_data",
+                description="结构化行情",
+                cost="local",
+                freshness="current",
+                runner=second_runner,
+            ),
+        )
+    )
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            ModelTurn(
+                "",
+                (
+                    ModelToolCall(
+                        "call-1",
+                        "web_search",
+                        {"query": "市场背景"},
+                    ),
+                    ModelToolCall(
+                        "call-2",
+                        "market_data",
+                        {"query": "市场行情"},
+                    ),
+                ),
+                "scripted",
+                "",
+            ),
+            _finish_turn(hashes=("market-evidence",)),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(
+            frame,
+            allowed_capabilities=("web_search", "market_data"),
+        ),
+        registry=registry,
+    )
+
+    assert completion_order == ["call-2", "call-1"]
+    second_messages = model.calls[1]["messages"]
+    tool_messages = second_messages[3:5]
+    assert [item["tool_call_id"] for item in tool_messages] == [
+        "call-1",
+        "call-2",
+    ]
+    assert json.loads(tool_messages[0]["content"])["tool"] == "web_search"
+    assert json.loads(tool_messages[1]["content"])["tool"] == "market_data"
+    assert [event.sequence for event in outcome.events] == list(
+        range(1, len(outcome.events) + 1)
+    )
+    assert all(
+        event.payload["task_frame_hash"] == frame.task_frame_hash
+        for event in outcome.events
+    )
+    assert [
+        event.kind
+        for event in outcome.events
+        if event.kind in {"tool_request", "tool_result", "tool_error"}
+    ] == ["tool_request", "tool_result", "tool_request", "tool_result"]
 
 
 def test_model_contract_separates_output_gaps_from_answer_caveats() -> None:
@@ -308,8 +433,86 @@ def test_tool_exception_is_traced_and_model_can_finish_same_episode() -> None:
     assert outcome.status == "partial"
     assert outcome.usage.tool_calls == 1
     assert outcome.traces[0].status == "request_error"
-    assert outcome.traces[0].step_id == "episode-test:episode:1"
+    assert outcome.traces[0].detail == "tool_exception"
+    assert outcome.traces[0].step_id == "episode-test:episode:tool:1"
     assert "tool_exception" in model.calls[1]["messages"][-1]["content"]
+    assert "provider unavailable" not in json.dumps(
+        {
+            "outcome": outcome.to_dict(),
+            "tool_message": model.calls[1]["messages"][-1],
+        },
+        ensure_ascii=False,
+    )
+
+
+def test_tool_timeout_uses_public_error_code_without_raw_exception_detail() -> None:
+    def timed_out_runner(_query: str, _context: AgentToolContext):
+        raise TimeoutError("RAW_TIMEOUT_EXCEPTION_SENTINEL")
+
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情"),
+            _finish_turn(
+                status="partial",
+                draft="行情工具超时，本轮只能报告证据缺口。",
+                hashes=(),
+                gap="行情工具暂不可用",
+            ),
+        ]
+    )
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(timed_out_runner),
+    )
+
+    assert outcome.usage.tool_calls == 1
+    assert outcome.traces[0].status == "request_error"
+    assert outcome.traces[0].detail == "tool_timeout"
+    assert outcome.traces[0].step_id == "episode-test:episode:tool:1"
+    tool_message = model.calls[1]["messages"][-1]
+    assert json.loads(tool_message["content"])["error"] == "tool_timeout"
+    assert "RAW_TIMEOUT_EXCEPTION_SENTINEL" not in json.dumps(
+        {
+            "outcome": outcome.to_dict(),
+            "tool_message": tool_message,
+        },
+        ensure_ascii=False,
+    )
+
+
+def test_reusing_episode_starts_a_fresh_tool_session_for_each_run() -> None:
+    calls: list[str] = []
+
+    def runner(query: str, context: AgentToolContext):
+        calls.append(query)
+        return _successful_runner(query, context)
+
+    frame = _frame()
+    model = ScriptedModel(
+        [
+            _tool_turn("A股 最新行情", call_id="first-run"),
+            _finish_turn(),
+            _tool_turn("A股 最新行情", call_id="second-run"),
+            _finish_turn(),
+        ]
+    )
+    episode = ContinuousAgentEpisode(model)
+
+    outcomes = [
+        episode.run(
+            task_frame=frame,
+            context=_context(frame),
+            registry=_market_registry(runner),
+        )
+        for _index in range(2)
+    ]
+
+    assert calls == ["A股 最新行情", "A股 最新行情"]
+    assert [outcome.usage.tool_calls for outcome in outcomes] == [1, 1]
+    assert [outcome.usage.invalid_actions for outcome in outcomes] == [0, 0]
 
 
 def test_invalid_completed_finish_gets_one_repair_turn_in_same_history() -> None:
@@ -328,9 +531,7 @@ def test_invalid_completed_finish_gets_one_repair_turn_in_same_history() -> None
         "scripted",
         "",
     )
-    model = ScriptedModel(
-        [_tool_turn("A股 最新行情"), invalid_finish, _finish_turn()]
-    )
+    model = ScriptedModel([_tool_turn("A股 最新行情"), invalid_finish, _finish_turn()])
 
     outcome = ContinuousAgentEpisode(model).run(
         task_frame=frame,
@@ -420,9 +621,7 @@ def test_tool_step_exhaustion_preserves_an_extra_finalization_turn() -> None:
 
 def test_model_unavailable_before_evidence_fails_honestly() -> None:
     frame = _frame()
-    model = ScriptedModel(
-        [ModelTurn("", (), "glm", "provider unavailable")]
-    )
+    model = ScriptedModel([ModelTurn("", (), "glm", "provider unavailable")])
 
     outcome = ContinuousAgentEpisode(model).run(
         task_frame=frame,
