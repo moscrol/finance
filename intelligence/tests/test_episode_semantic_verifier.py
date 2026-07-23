@@ -327,6 +327,74 @@ def test_unsupported_causality_is_removed_before_public_completion() -> None:
     assert "政策变化导致了下跌" not in result.public_answer
 
 
+def test_semantic_repair_cannot_remove_a_visible_required_output_marker() -> None:
+    frame = replace(
+        _frame(),
+        required_outputs=("direct_assessment", "continuation_conditions"),
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="A股市场快照",
+        detail="市场反弹但成交缩量",
+        source="行情快照",
+        content_hash="market-evidence",
+    )
+    contract = ResearchTaskContract(
+        task_id="repair-coverage-test",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+            RequiredOutput(
+                "continuation_conditions",
+                "继续成立条件",
+                ("market_data",),
+                True,
+            ),
+        ),
+        allowed_capabilities=("market_data",),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=(
+            "【当前判断】市场处于反弹修复。"
+            "【继续成立的条件】成交额达到99999亿元才成立。"
+        ),
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),),
+        bindings=(
+            OutputEvidenceBinding("direct_assessment", (evidence.content_hash,)),
+            OutputEvidenceBinding(
+                "continuation_conditions",
+                (evidence.content_hash,),
+            ),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    structural = verify_episode_outcome(contract, outcome)
+
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert result.status == "partial"
+    assert result.judge_status == "rejected"
+    assert (
+        "semantic repair removed required output: continuation_conditions"
+        in result.issues
+    )
+
+
 def test_shared_hash_semantics_are_rejected_only_by_semantic_judge() -> None:
     frame = replace(
         _frame(),

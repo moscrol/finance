@@ -35,7 +35,11 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.research_contract import (
+    ResearchDeadline,
+    ResearchTaskContract,
+)
+from intelligence.services.task_fulfillment import answer_has_output_marker
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -276,6 +280,7 @@ class SemanticEpisodeVerifier:
             structural,
         )
         if preflight_rejected:
+            before_repair = structural.outcome.draft
             preflight = self._repair(
                 frame=frame,
                 structural=structural,
@@ -294,6 +299,28 @@ class SemanticEpisodeVerifier:
                 )
             structural, _preflight_frame = preflight
             preflight_issues = (_NUMERIC_CONDITION_ISSUE,)
+            marker_loss = _lost_required_output_markers(
+                contract,
+                before_repair,
+                structural.outcome.draft,
+            )
+            if marker_loss:
+                return SemanticEpisodeOutcome(
+                    verified=structural,
+                    status="partial",
+                    public_answer=self._gap_answer(frame, structural),
+                    judge_status="rejected",
+                    issues=tuple(
+                        dict.fromkeys(
+                            (
+                                *structural.issues,
+                                *preflight_issues,
+                                *_marker_loss_issues(marker_loss),
+                            )
+                        )
+                    ),
+                    correlated_judge=False,
+                )
             if structural.verified_status != "completed":
                 return SemanticEpisodeOutcome(
                     verified=structural,
@@ -368,6 +395,30 @@ class SemanticEpisodeVerifier:
             )
 
         repaired_verified, _repaired_frame = repaired
+        marker_loss = _lost_required_output_markers(
+            contract,
+            structural.outcome.draft,
+            repaired_verified.outcome.draft,
+        )
+        if marker_loss:
+            issues = tuple(
+                dict.fromkeys(
+                    (
+                        *repaired_verified.issues,
+                        *preflight_issues,
+                        *first.report.issues,
+                        *_marker_loss_issues(marker_loss),
+                    )
+                )
+            )
+            return SemanticEpisodeOutcome(
+                verified=repaired_verified,
+                status="partial",
+                public_answer=self._gap_answer(frame, repaired_verified),
+                judge_status="rejected",
+                issues=issues,
+                correlated_judge=first.correlated,
+            )
         if repaired_verified.verified_status != "completed":
             issues = tuple(
                 dict.fromkeys(
@@ -971,6 +1022,29 @@ def _drop_rejected_sentences(
     for start, end in reversed(spans):
         source = f"{source[:start]}{source[end:]}"
     return source.strip()
+
+
+def _lost_required_output_markers(
+    contract: ResearchTaskContract,
+    before: str,
+    after: str,
+) -> tuple[str, ...]:
+    """Prevent sentence repair from silently deleting a visible answer slot."""
+
+    return tuple(
+        item.output_id
+        for item in contract.required_outputs
+        if item.required
+        and answer_has_output_marker(item.output_id, before)
+        and not answer_has_output_marker(item.output_id, after)
+    )
+
+
+def _marker_loss_issues(output_ids: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(
+        f"semantic repair removed required output: {output_id}"
+        for output_id in output_ids
+    )
 
 
 def _semantic_tool_status_registry(

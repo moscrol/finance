@@ -465,7 +465,11 @@ judge, preserving all accepted text and Markdown layout verbatim. Rebuild the
 outcome with the original evidence, bindings, gaps, status, events, traces,
 and usage unchanged, re-run the structural verifier, then judge once more.
 The repair cannot mint wording, evidence hashes, alter binding ownership, or
-upgrade status. If any step is unavailable/invalid/rejected, return `partial`
+upgrade status. Normalize literal newline escapes in the natural-language
+draft before sentence numbering. If preflight or repair removes a visible
+marker for a required output that existed before repair, return `partial`;
+evidence bindings alone cannot let a deleted answer slot remain completed.
+If any step is unavailable/invalid/rejected, return `partial`
 and a short question-specific evidence-gap answer assembled from the TaskFrame
 and verified completion gaps. Preserve rejected drafts only in the private
 outcome/artifact.

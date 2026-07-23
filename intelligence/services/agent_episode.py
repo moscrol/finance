@@ -816,6 +816,7 @@ class ContinuousAgentEpisode:
         draft = value.get("draft")
         if not isinstance(draft, str):
             raise ValueError("finish draft must be a string")
+        draft = _normalize_natural_language_layout(draft)
         if status == "completed" and not draft.strip():
             raise ValueError("completed finish draft must be non-empty")
         raw_gaps = value.get("gaps", [])
@@ -925,6 +926,18 @@ def _parse_json_object(content: str) -> dict[str, object] | None:
     except json.JSONDecodeError:
         value = _recover_finish_with_raw_draft(text)
     return value if isinstance(value, dict) else None
+
+
+def _normalize_natural_language_layout(value: str) -> str:
+    """Decode model-emitted newline literals in the answer-only draft field.
+
+    Some OpenAI-compatible models double-escape ``\n`` while still returning
+    an otherwise valid JSON envelope.  ``draft`` is contractually natural
+    language, never source code, so preserving those two visible characters
+    would corrupt both Markdown rendering and sentence-level verification.
+    """
+
+    return value.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n")
 
 
 def _recover_finish_with_raw_draft(text: str) -> dict[str, object] | None:

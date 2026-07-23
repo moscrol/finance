@@ -788,6 +788,41 @@ def test_finish_tolerates_unescaped_newlines_and_quotes_only_inside_draft() -> N
     assert outcome.bindings[0].gap == "仍缺市场数据"
 
 
+def test_finish_normalizes_literal_newline_escapes_in_natural_language_draft() -> (
+    None
+):
+    frame = _frame()
+    escaped_layout = ModelTurn(
+        json.dumps(
+            {
+                "status": "partial",
+                "draft": "第一段。\\n\\n【条件】\\n1）量能回升。",
+                "gaps": ["仍缺市场数据"],
+                "bindings": [
+                    {
+                        "output_id": "direct_assessment",
+                        "evidence_hashes": [],
+                        "gap": "仍缺市场数据",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        (),
+        "scripted",
+        "",
+    )
+    model = ScriptedModel([escaped_layout])
+
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame,
+        context=_context(frame),
+        registry=_market_registry(_successful_runner),
+    )
+
+    assert outcome.draft == "第一段。\n\n【条件】\n1）量能回升。"
+
+
 def test_tool_step_exhaustion_preserves_an_extra_finalization_turn() -> None:
     frame = _frame()
     model = ScriptedModel(

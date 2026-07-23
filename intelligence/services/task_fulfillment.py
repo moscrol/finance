@@ -118,8 +118,9 @@ _MARKERS: dict[str, tuple[str, ...]] = {
     "counterpoint": ("反证", "风险", "相反", "但", "除非"),
     # Canonical TaskFrame slots.  These stay semantic (what the answer must
     # contain) instead of being collapsed into a loosely related legacy slot.
-    "current_baseline": ("当前基准", "基准判断", "当前状态"),
+    "current_baseline": ("当前基准", "最新基线", "基准判断", "当前状态"),
     "duration_assessment": (
+        "反弹持续时间",
         "持续时间",
         "持续多久",
         "持续性",
@@ -127,12 +128,14 @@ _MARKERS: dict[str, tuple[str, ...]] = {
         "观察窗口",
     ),
     "continuation_conditions": (
+        "继续成立的条件",
         "延续条件",
         "继续条件",
         "成立条件",
         "触发条件",
     ),
     "invalidation_conditions": ("失效条件", "失效", "证伪"),
+    "evidence_boundary": ("证据边界", "数据边界", "证据覆盖"),
     "scenario_paths": ("情景路径", "情景", "路径"),
     "chain_mapping": ("产业链", "上游", "中游", "下游", "链条"),
     "financial_assessment": ("财务判断", "收入", "利润", "盈利", "现金流"),
@@ -251,6 +254,12 @@ def _has_output_marker(output_id: str, answer_text: str) -> bool:
     normalized = _normalise(answer_text)
     markers = _MARKERS.get(output_id, ())
     return any(marker in normalized for marker in markers)
+
+
+def answer_has_output_marker(output_id: str, answer_text: str) -> bool:
+    """Return whether a known required-output marker appears in public prose."""
+
+    return _has_output_marker(output_id, answer_text)
 
 
 def _gap_for_output(output_id: str, answer_text: str) -> bool:

@@ -254,6 +254,14 @@ empty metadata stay in the immutable audit ledger rather than consuming judge
 attention. This bounds latency without hiding any evidence that is legally
 capable of supporting the public answer.
 
+The final JSON parser normalizes model-emitted literal newline escapes only in
+the natural-language `draft` field. This keeps Markdown layout and
+sentence-level verification aligned without weakening the surrounding JSON,
+binding, or evidence-hash contract. A semantic repair is also monotonic over
+visible required-output markers: if deleting rejected sentences removes a
+required answer slot that was present before repair, the result is partial
+rather than a misleading completed answer.
+
 Gate behavior:
 
 1. Structural verification runs first and may only preserve or downgrade.
@@ -264,7 +272,8 @@ Gate behavior:
    removed; accepted text and Markdown layout remain verbatim. The original
    evidence, bindings, gaps, completion status, events, traces, and usage are
    copied unchanged into the repaired outcome before structural recheck. No
-   model receives wording authority during semantic repair.
+   model receives wording authority during semantic repair. Repair may not
+   delete a visible required-output marker and still report completion.
 4. Invalid/unavailable judge output in canary/on mode fails closed to partial.
    The public response is a short deterministic evidence-gap answer; the
    unverified draft remains in private artifacts for inspection.
