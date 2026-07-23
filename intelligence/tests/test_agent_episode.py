@@ -461,6 +461,8 @@ def test_model_contract_keeps_compact_reasoning_and_public_boundary_rules() -> N
     assert "每条被正文使用的观察事实" in system_prompt
     assert "直接证据哈希加入对应 output binding" in system_prompt
     assert "公开网页中的预测或观点" in system_prompt
+    assert "news_search 未返回同一时间窗口证据" in system_prompt
+    assert "不得用普通 web_search 摘要补成已核验因果" in system_prompt
     assert "不得为了耗尽步数调用非必需工具" in system_prompt
 
 

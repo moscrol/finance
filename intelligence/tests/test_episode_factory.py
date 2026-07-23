@@ -93,6 +93,25 @@ def test_episode_factory_rejects_unknown_runtime_capability() -> None:
         )
 
 
+def test_market_cause_requires_time_aligned_news_evidence() -> None:
+    control = TurnControlCore().control(
+        "这一周行情下跌的主要原因是什么",
+        llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+
+    context = build_episode_context(
+        control.task_frame,
+        task_id="market-cause-evidence-plan",
+        capabilities=control.capabilities,
+    )
+
+    assert context.contract.evidence_plan.profile == "time_aligned_market_causal"
+    assert set(context.contract.evidence_plan.mandatory_capabilities) == {
+        "market_data",
+        "news_search",
+    }
+
+
 def test_episode_timeout_override_cannot_inflate_policy_budget() -> None:
     control = TurnControlCore().control("昨天的反弹能持续多久")
     context = build_episode_context(

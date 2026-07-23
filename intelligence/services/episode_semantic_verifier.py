@@ -1116,7 +1116,12 @@ def _can_semantically_release_partial(
     if not verified.issues:
         return False
     return all(
-        issue.startswith("required output reports gap:")
+        issue.startswith(
+            (
+                "required output reports gap:",
+                "missing mandatory capability evidence:",
+            )
+        )
         for issue in verified.issues
     )
 

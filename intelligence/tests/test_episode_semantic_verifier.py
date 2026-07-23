@@ -18,7 +18,10 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerifier
 from intelligence.services.episode_verifier import verify_episode_outcome
-from intelligence.services.evidence_capabilities import EvidencePlan
+from intelligence.services.evidence_capabilities import (
+    EvidencePlan,
+    EvidenceRequirement,
+)
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
     RequiredOutput,
@@ -1746,6 +1749,59 @@ def test_mixed_structural_partial_can_release_judged_fulfilled_draft() -> None:
     assert len(judge.calls) == 1  # type: ignore[attr-defined]
     assert "本周实际上涨约3%" in result.public_answer
     assert "单日下跌诱因无法确认" in result.public_answer
+
+
+def test_missing_mandatory_news_can_release_judged_market_facts_as_partial() -> None:
+    frame, structural = _structural(
+        "直接判断：本周实际上涨约3%。证据缺口：单日诱因仍无法确认。"
+    )
+    contract = ResearchTaskContract(
+        task_id="semantic-missing-cause-news",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type="market_cause",
+        required_outputs=(
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+        ),
+        allowed_capabilities=("market_data", "news_search"),
+        evidence_plan=EvidencePlan(
+            profile="time_aligned_market_causal",
+            requirements=(
+                EvidenceRequirement(
+                    "MARKET_DAILY",
+                    "market_data",
+                    True,
+                    "current",
+                    "市场窗口",
+                ),
+                EvidenceRequirement(
+                    "CAUSE_NEWS",
+                    "news_search",
+                    True,
+                    "current",
+                    "时间对齐的原因证据",
+                ),
+            ),
+        ),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    partial = verify_episode_outcome(contract, structural.outcome)
+    judge = _judge(True)
+
+    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+        frame=frame,
+        structurally_verified=partial,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert partial.verified_status == "partial"
+    assert partial.issues == (
+        "missing mandatory capability evidence: news_search",
+    )
+    assert result.status == "partial"
+    assert result.judge_status == "passed"
+    assert "本周实际上涨约3%" in result.public_answer
 
 
 def test_missing_structural_contract_fails_closed_without_judge() -> None:

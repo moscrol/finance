@@ -570,6 +570,8 @@ class ContinuousAgentEpisode:
                     "必须把直接证据哈希放入对应 output binding，否则删去数字。"
                     "每条被正文使用的观察事实也必须把其直接证据哈希加入对应 "
                     "output binding；不得用同一次工具返回的另一条证据代替。"
+                    "原因归因若没有同一时间窗口的 news_search 证据，不得用普通 "
+                    "web_search 摘要补成已核验因果，应保留盘面事实并把原因写 gap。"
                     f"关闭原因：{reason}"
                 ),
             }
@@ -885,6 +887,9 @@ class ContinuousAgentEpisode:
             "不确定性。draft 中每个精确数字事实都必须由相应 required output 的"
             "binding 包含其直接 evidence_hash；不能绑定就省略该数字。公开网页中的"
             "预测或观点只能明确标作外部观点，不能冒充当前事实或历史概率。"
+            "对于原因归因题，news_search 未返回同一时间窗口证据时，不得用普通 "
+            "web_search 摘要补成已核验因果；应保留已核验盘面，把原因写为 gap "
+            "或明确标注为外部观点候选。"
             "每条被正文使用的观察事实都必须把直接证据哈希加入对应 output binding；"
             "不得用同一次工具返回的相邻证据代替，也不得正文使用后漏绑。"
             "必需输出"

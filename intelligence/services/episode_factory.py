@@ -92,6 +92,34 @@ def _episode_evidence_plan(frame: TaskFrame) -> EvidencePlan:
         question_type=frame.question_type,
         freshness="current",
     )
+    if frame.question_type == "market_cause":
+        return EvidencePlan(
+            profile="time_aligned_market_causal",
+            requirements=(
+                EvidenceRequirement(
+                    "MARKET_CAUSE_WINDOW",
+                    "market_data",
+                    True,
+                    "current",
+                    "指定市场窗口的结构化表现",
+                ),
+                EvidenceRequirement(
+                    "MARKET_CAUSE_NEWS",
+                    "news_search",
+                    True,
+                    "current",
+                    "与市场窗口时间对齐的原因证据",
+                ),
+                EvidenceRequirement(
+                    "MARKET_CAUSE_WEB",
+                    "web_search",
+                    False,
+                    "current",
+                    "明确标注为外部观点的竞争性解释",
+                ),
+            ),
+            freshness="current",
+        )
     if frame.question_type != "valuation_estimate":
         return plan
     requirements = tuple(
