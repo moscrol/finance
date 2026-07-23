@@ -54,6 +54,25 @@ def test_semantic_smoke_accepts_direct_mainline_judgment_heading() -> None:
     assert issues == []
 
 
+def test_semantic_smoke_accepts_quantified_mainline_evidence() -> None:
+    issues = semantic_answer_issues(
+        "目前市场的主线是什么",
+        {"answer_status": "complete"},
+        [
+            {
+                "role": "assistant",
+                "content": (
+                    "【主线判断】半导体与AI算力仍是持续性方向。"
+                    "全市场成交约21949.97亿元，涨停116家、跌停2家；"
+                    "半导体近20日出现15天，但当日缩量分歧。"
+                ),
+            }
+        ],
+    )
+
+    assert issues == []
+
+
 def test_semantic_smoke_accepts_forecast_required_outputs() -> None:
     issues = semantic_answer_issues(
         "明天是反弹还是继续下跌，分别给出理由",

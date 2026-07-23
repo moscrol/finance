@@ -138,6 +138,10 @@ PUBLIC_LEAK_PATTERNS = (
 )
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 LOOPBACK_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+QUANTIFIED_MARKET_OBSERVATION = re.compile(
+    r"(?:成交(?:额)?|涨停|跌停|上涨家数|下跌家数|涨跌幅|量比|"
+    r"近\s*\d+\s*日)[^。；;\n]{0,48}\d"
+)
 
 
 class SmokeProtocolError(RuntimeError):
@@ -189,9 +193,12 @@ def semantic_answer_issues(
             )
         ):
             issues.append("mainline_direct_assessment_missing")
-        if not any(
-            marker in assistant_text
-            for marker in ("依据", "证据", "数据", "盘面", "缺少")
+        if not (
+            any(
+                marker in assistant_text
+                for marker in ("依据", "证据", "数据", "盘面", "缺少")
+            )
+            or QUANTIFIED_MARKET_OBSERVATION.search(assistant_text)
         ):
             issues.append("mainline_evidence_missing")
     if "明天" in question and any(marker in question for marker in ("反弹", "下跌")):
