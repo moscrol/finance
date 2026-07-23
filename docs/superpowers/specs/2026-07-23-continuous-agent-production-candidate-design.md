@@ -226,13 +226,28 @@ Gate behavior:
 1. Structural verification runs first and may only preserve or downgrade.
 2. A structurally completed draft cannot become publicly completed until the
    semantic judge passes.
-3. Rejected sentences trigger one targeted finalizer repair using only the same
-   evidence and judge issues, followed by one rejudge.
+3. Rejected sentences trigger one targeted **draft-only** repair, followed by
+   one rejudge. The repair input contains the frozen original draft, rejected
+   sentence texts, judge issues, and required-output descriptions. It does not
+   receive authority to rewrite bindings or add evidence. Its only output is a
+   revised draft; the original evidence, bindings, gaps, and completion status
+   are copied unchanged into the repaired outcome before structural recheck.
 4. Invalid/unavailable judge output in canary/on mode fails closed to partial.
    The public response is a short deterministic evidence-gap answer; the
    unverified draft remains in private artifacts for inspection.
 5. Semantic verification never upgrades structural status and never adds
    evidence.
+
+The draft-only seam is deliberate. A 2026-07-23 real-GLM canary showed that
+reusing the full finalizer contract made semantic repair resend roughly 18K
+characters of evidence and regenerate every binding. It timed out at 20
+seconds; at 40 seconds it returned a long `partial` envelope with new arbitrary
+threshold language. Two rejected alternatives were therefore discarded:
+raising the timeout merely gives the over-broad rewrite more room, while
+deterministically deleting numbered sentences damages Markdown and can remove
+the direct answer. Draft-only repair keeps the truth plane frozen and gives the
+model only wording authority. A malformed, unavailable, or re-rejected repair
+still fails closed to the question-specific evidence-gap answer.
 
 Judge execution reuses the repository's independent `LLM_JUDGE_*` provider
 selection when configured. Without it, canary may use the primary model but
