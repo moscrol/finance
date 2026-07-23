@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import replace
+from uuid import UUID
+
+import pytest
+
 from intelligence.services import ask_synthesis
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
@@ -16,6 +21,7 @@ from intelligence.services.episode_verifier import (
     verify_episode_outcome,
 )
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import RequiredOutput
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.turn_control_core import TurnControlResult
 
@@ -72,6 +78,11 @@ def _raises(*_args, **_kwargs):
     raise AssertionError("dependency must not be called")
 
 
+class _SemanticThatRaises:
+    def verify(self, **_kwargs):
+        raise AssertionError("semantic verifier must not be called")
+
+
 def _scripted_episode_result(
     *,
     semantic_status: str,
@@ -81,6 +92,8 @@ def _scripted_episode_result(
     outcome_status: str = "completed",
     draft: str = "当前更接近条件化修复。",
     traces: tuple[ProviderTrace, ...] = (),
+    latest_data_date: str | None = None,
+    event_payload: dict[str, object] | None = None,
 ):
     frame = _frame()
     capabilities = tuple(dict.fromkeys(item.tool for item in evidence)) or (
@@ -92,6 +105,7 @@ def _scripted_episode_result(
         task_id="adapter-scripted",
         capabilities=control.capabilities,
         timeout=30.0,
+        latest_data_date=latest_data_date,
     )
     outcome = AgentOutcome(
         task_frame_hash=frame.task_frame_hash,
@@ -105,7 +119,7 @@ def _scripted_episode_result(
             EpisodeEvent(
                 1,
                 "task",
-                {"task_frame_hash": frame.task_frame_hash},
+                event_payload or {"task_frame_hash": frame.task_frame_hash},
             ),
         ),
         bindings=bindings,
@@ -147,12 +161,29 @@ def test_off_mode_always_declines_without_running_anything() -> None:
         registry_factory=_raises,
         fast_path_runner=_raises,
         structural_verifier=_raises,
-        semantic_verifier=_raises,
+        semantic_verifier=_SemanticThatRaises(),
     ).handle(frame=frame, control=_control(frame))
 
     assert result.handled is False
     assert result.answer == ""
     assert result.private_artifact is None
+
+
+def test_constructor_requires_callable_semantic_verifier() -> None:
+    with pytest.raises(TypeError):
+        ContinuousTurnAdapter(runtime=_RuntimeThatRaises())
+
+    with pytest.raises(TypeError, match="semantic verifier.*verify"):
+        ContinuousTurnAdapter(
+            runtime=_RuntimeThatRaises(),
+            semantic_verifier=None,
+        )
+
+    with pytest.raises(TypeError, match="semantic verifier.*verify"):
+        ContinuousTurnAdapter(
+            runtime=_RuntimeThatRaises(),
+            semantic_verifier=object(),
+        )
 
 
 def test_cross_frame_control_fails_closed_before_any_dependency() -> None:
@@ -192,6 +223,9 @@ def test_cross_frame_control_fails_closed_before_any_dependency() -> None:
     class Runtime:
         run = forbidden("runtime")
 
+    class Semantic:
+        verify = forbidden("semantic")
+
     result = ContinuousTurnAdapter(
         runtime=Runtime(),
         mode="on",
@@ -199,7 +233,7 @@ def test_cross_frame_control_fails_closed_before_any_dependency() -> None:
         registry_factory=forbidden("registry"),
         fast_path_runner=forbidden("fast_path"),
         structural_verifier=forbidden("structural"),
-        semantic_verifier=forbidden("semantic"),
+        semantic_verifier=Semantic(),
     ).handle(frame=market_frame, control=financial_control)
 
     assert dependency_calls == []
@@ -240,7 +274,7 @@ def test_clarification_returns_without_registry_model_or_retrieval() -> None:
         registry_factory=_raises,
         fast_path_runner=_raises,
         structural_verifier=_raises,
-        semantic_verifier=_raises,
+        semantic_verifier=_SemanticThatRaises(),
     ).handle(frame=frame, control=control)
 
     assert result.handled is True
@@ -285,7 +319,7 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
         registry_factory=_raises,
         fast_path_runner=run_fast_path,
         structural_verifier=_raises,
-        semantic_verifier=_raises,
+        semantic_verifier=_SemanticThatRaises(),
     ).handle(frame=frame, control=_control(frame))
 
     assert calls == ["fast_path"]
@@ -297,6 +331,46 @@ def test_market_technical_uses_zero_llm_fast_path() -> None:
     assert "RAW_PROVIDER_SENTINEL" not in str(result.events)
 
 
+@pytest.mark.parametrize(
+    "question_type",
+    ("external_market", "quick_fact", "dated_market_review"),
+)
+def test_legacy_deterministic_owner_types_are_declined_without_dependencies(
+    question_type: str,
+) -> None:
+    frame = _frame(question_type=question_type)
+    calls: list[str] = []
+
+    def forbidden(name):
+        def call(*_args, **_kwargs):
+            calls.append(name)
+            raise AssertionError(f"{name} must not be called")
+
+        return call
+
+    class Runtime:
+        run = forbidden("runtime")
+
+    class Semantic:
+        verify = forbidden("semantic")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        mode="on",
+        context_factory=forbidden("context"),
+        registry_factory=forbidden("registry"),
+        fast_path_runner=forbidden("fast_path"),
+        structural_verifier=forbidden("structural"),
+        semantic_verifier=Semantic(),
+    ).handle(frame=frame, control=_control(frame))
+
+    assert calls == []
+    assert result.handled is False
+    assert result.answer == ""
+    assert result.private_artifact is None
+    assert "支撑位或压力位" not in result.answer
+
+
 def test_market_technical_gap_hides_provider_diagnostic() -> None:
     frame = _frame(
         question_type="market_technical",
@@ -305,6 +379,7 @@ def test_market_technical_gap_hides_provider_diagnostic() -> None:
 
     result = ContinuousTurnAdapter(
         runtime=_RuntimeThatRaises(),
+        semantic_verifier=_SemanticThatRaises(),
         mode="on",
         fast_path_runner=lambda *_args, **_kwargs: {
             "status": "partial",
@@ -318,6 +393,35 @@ def test_market_technical_gap_hides_provider_diagnostic() -> None:
     assert result.status == "degraded"
     assert "provider" not in result.answer.casefold()
     assert "暂不能可靠给出支撑位或压力位" in result.answer
+
+
+def test_market_technical_as_of_uses_only_valid_iso_dates() -> None:
+    frame = _frame(
+        question_type="market_technical",
+        required_outputs=("technical_levels", "invalidation_conditions", "data_date"),
+    )
+
+    result = ContinuousTurnAdapter(
+        runtime=_RuntimeThatRaises(),
+        semantic_verifier=_SemanticThatRaises(),
+        mode="on",
+        fast_path_runner=lambda *_args, **_kwargs: {
+            "status": "completed",
+            "answer": "科创50支撑区间为 980~1000。",
+            "as_of": "Authorization: Bearer private-date-token",
+            "llm_calls": 0,
+            "tool_calls": 1,
+            "traces": [
+                {"source_trade_date": "2026-02-30"},
+                {"source_trade_date": "2026-07-21"},
+                {"source_trade_date": "2026-07-22"},
+            ],
+        },
+    ).handle(frame=frame, control=_control(frame))
+
+    assert result.status == "completed"
+    assert result.as_of == "2026-07-22"
+    assert "private-date-token" not in str(result)
 
 
 def test_long_tail_runs_gates_without_calling_legacy_presenter(
@@ -440,6 +544,157 @@ def test_long_tail_runs_gates_without_calling_legacy_presenter(
     assert "PRIVATE_HASH_SENTINEL" not in str(result.events)
 
 
+def test_structural_verifier_failure_degrades_from_bound_runtime_evidence() -> None:
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="adapter-structural-failure",
+        capabilities=control.capabilities,
+        timeout=30.0,
+        latest_data_date="2026-07-20",
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="A股市场总览",
+        detail="上涨家数增加，成交保持活跃",
+        source="本地行情",
+        source_date="2026-07-22",
+        content_hash="structural-failure-evidence",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前更接近条件化修复。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+        ),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("structural-failure-evidence",),
+            ),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            return outcome
+
+    class Semantic:
+        def verify(self, **_kwargs):
+            raise AssertionError("semantic verifier must not run")
+
+    def structural(*_args, **_kwargs):
+        raise RuntimeError("structural verifier unavailable")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        structural_verifier=structural,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "degraded"
+    assert result.answer
+    assert "A股市场" in result.answer
+    assert "直接回答用户问题" in result.answer
+    assert result.as_of is None
+    assert result.citations == ()
+    assert result.private_artifact is not None
+    assert result.private_artifact["failure"]["type"] == "RuntimeError"
+    assert result.private_artifact["outcome"]["draft"]
+    assert "structural_verifier" in result.private_artifact
+
+
+def test_semantic_verifier_failure_reuses_structural_contract_and_evidence() -> None:
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="adapter-semantic-failure",
+        capabilities=control.capabilities,
+        timeout=30.0,
+        latest_data_date="2026-07-20",
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="市场量能窗口",
+        detail="量能较前一交易日增加",
+        source="本地行情",
+        source_date="2026-07-21",
+        content_hash="semantic-failure-evidence",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前量能支持修复，但持续性待验证。",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+        ),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("semantic-failure-evidence",),
+            ),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            return outcome
+
+    class Semantic:
+        def verify(self, **_kwargs):
+            raise TimeoutError("semantic verifier timed out")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "degraded"
+    assert "A股市场" in result.answer
+    assert "直接回答用户问题" in result.answer
+    assert result.as_of == "2026-07-21"
+    assert result.citations == (
+        {
+            "title": "市场量能窗口",
+            "source": "本地行情",
+            "date": "2026-07-21",
+        },
+    )
+    assert result.private_artifact is not None
+    assert result.private_artifact["failure"]["type"] == "TimeoutError"
+    assert result.private_artifact["outcome"]["draft"]
+    assert result.private_artifact["structural_verifier"]["verified_status"] == (
+        "completed"
+    )
+
+
 def test_valuation_contract_requires_current_anchor_scenarios_and_assumptions() -> None:
     frame = TaskFrame(
         raw_question="瑞华泰的合理估值是多少",
@@ -471,6 +726,7 @@ def test_valuation_contract_requires_current_anchor_scenarios_and_assumptions() 
 
     result = ContinuousTurnAdapter(
         runtime=InspectingRuntime(),
+        semantic_verifier=_SemanticThatRaises(),
         mode="on",
         registry_factory=lambda *_args, **_kwargs: "registry",
     ).handle(frame=frame, control=control)
@@ -689,6 +945,652 @@ def test_public_projection_preserves_financial_hash_rate_language() -> None:
     )
 
 
+def test_public_projection_preserves_business_provider_language_only() -> None:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="Cloud service provider 行业月报",
+        detail="云基础设施需求同比增长",
+        source="Cloud service provider 行业协会",
+        source_date="2026-07-22",
+        content_hash="provider-business-evidence",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer=(
+            "Cloud service provider 行业需求保持增长。\n"
+            "provider=glm\n"
+            "provider_trace: retry\n"
+            "provider_attempts=2\n"
+            "endpoint=https://private.invalid"
+        ),
+        evidence=(evidence,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("provider-business-evidence",),
+            ),
+        ),
+    )
+
+    assert result.answer == "Cloud service provider 行业需求保持增长。"
+    assert result.citations == (
+        {
+            "title": "Cloud service provider 行业月报",
+            "source": "Cloud service provider 行业协会",
+            "date": "2026-07-22",
+        },
+    )
+    public = str((result.answer, result.citations))
+    for control_key in (
+        "provider=",
+        "provider_trace",
+        "provider_attempts",
+        "endpoint=",
+    ):
+        assert control_key not in public
+
+
+def test_public_projection_preserves_business_name_equal_to_trace_provider() -> None:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="OpenAI 行业跟踪",
+        detail="企业级需求保持增长",
+        source="OpenAI 公开材料",
+        source_date="2026-07-22",
+        content_hash="openai-business-evidence",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer="OpenAI 是本轮研究主体，Cloud service provider 需求仍在增长。",
+        evidence=(evidence,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("openai-business-evidence",),
+            ),
+        ),
+        traces=(
+            ProviderTrace(
+                provider="openai",
+                capability="llm",
+                status="success",
+            ),
+        ),
+    )
+
+    assert "OpenAI 是本轮研究主体" in result.answer
+    assert result.citations == (
+        {
+            "title": "OpenAI 行业跟踪",
+            "source": "OpenAI 公开材料",
+            "date": "2026-07-22",
+        },
+    )
+
+
+def test_public_and_private_projection_remove_complete_secret_values() -> None:
+    jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhYmMifQ.jwtSignature123"
+    secrets = (
+        "public-auth-token-123",
+        jwt,
+        "public-api-key-123",
+        "public-token-123",
+        "private-auth-token-123",
+        "private-api-key-123",
+        "private-keyed-token-123",
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="A股市场总览",
+        detail=(f"Authorization: Bearer {secrets[4]}\napi_key={secrets[5]}"),
+        source="本地行情",
+        source_date="2026-07-22",
+        content_hash="secret-redaction-evidence",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer=(
+            "可公开结论。\n"
+            f"Authorization: Bearer {secrets[0]}\n"
+            f"Bearer {secrets[1]}\n"
+            f"api_key={secrets[2]}\n"
+            f"token={secrets[3]}"
+        ),
+        evidence=(evidence,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("secret-redaction-evidence",),
+            ),
+        ),
+        draft=(f"Authorization: Bearer {secrets[4]}\napi_key={secrets[5]}"),
+        event_payload={
+            "task_frame_hash": _frame().task_frame_hash,
+            "token": secrets[6],
+        },
+    )
+
+    assert result.answer == "可公开结论。"
+    public = str((result.answer, result.citations, result.warnings, result.events))
+    private = str(result.private_artifact)
+    for secret in secrets:
+        assert secret not in public
+        assert secret not in private
+
+
+def test_episode_as_of_uses_only_bound_valid_iso_evidence_dates() -> None:
+    evidence = (
+        AgentEvidence(
+            tool="market_data",
+            title="绑定行情",
+            detail="有效绑定日期",
+            source="本地行情",
+            source_date="2026-07-20",
+            content_hash="bound-valid-date",
+        ),
+        AgentEvidence(
+            tool="market_data",
+            title="未绑定未来材料",
+            detail="不得影响 as_of",
+            source="外部材料",
+            source_date="2099-12-31",
+            content_hash="unbound-future-date",
+        ),
+        AgentEvidence(
+            tool="market_data",
+            title="绑定非法日期",
+            detail="不得影响 as_of",
+            source="错误材料",
+            source_date="2026-02-30",
+            content_hash="bound-invalid-date",
+        ),
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer="当前结论仅截至已绑定的有效行情日。",
+        evidence=evidence,
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("bound-valid-date", "bound-invalid-date"),
+            ),
+        ),
+        latest_data_date="2026-07-19",
+    )
+
+    assert result.as_of == "2026-07-20"
+
+
+def test_episode_as_of_falls_back_when_bound_dates_are_invalid() -> None:
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="日期异常材料",
+        detail="日期无法解析",
+        source="本地行情",
+        source_date="not-an-iso-date",
+        content_hash="bound-invalid-only",
+    )
+
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer="当前结论按上下文最新日期展示。",
+        evidence=(evidence,),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("bound-invalid-only",),
+            ),
+        ),
+        latest_data_date="2026-07-18",
+    )
+
+    assert result.as_of == "2026-07-18"
+
+
+def test_same_frame_uses_a_unique_default_task_id_for_each_turn() -> None:
+    frame = _frame()
+    control = _control(frame)
+    task_ids: list[str] = []
+
+    def context_factory(candidate, **kwargs):
+        task_ids.append(kwargs["task_id"])
+        return build_episode_context(candidate, **kwargs)
+
+    adapter = ContinuousTurnAdapter(
+        runtime=_RuntimeThatRaises(),
+        semantic_verifier=_SemanticThatRaises(),
+        mode="on",
+        context_factory=context_factory,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    )
+
+    first = adapter.handle(frame=frame, control=control)
+    second = adapter.handle(frame=frame, control=control)
+
+    assert first.status == "failed"
+    assert second.status == "failed"
+    assert len(task_ids) == 2
+    assert task_ids[0] != task_ids[1]
+    assert all(str(UUID(task_id)) == task_id for task_id in task_ids)
+    assert all(frame.task_frame_hash not in task_id for task_id in task_ids)
+
+
+def test_task_id_factory_can_inject_the_real_turn_identity() -> None:
+    frame = _frame()
+    captured: list[str] = []
+
+    def context_factory(candidate, **kwargs):
+        captured.append(kwargs["task_id"])
+        return build_episode_context(candidate, **kwargs)
+
+    result = ContinuousTurnAdapter(
+        runtime=_RuntimeThatRaises(),
+        semantic_verifier=_SemanticThatRaises(),
+        mode="on",
+        context_factory=context_factory,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        task_id_factory=lambda: "turn-run-identity-42",
+    ).handle(frame=frame, control=_control(frame))
+
+    assert result.status == "failed"
+    assert captured == ["turn-run-identity-42"]
+
+
+@pytest.mark.parametrize("bad_stage", ("runtime", "structural"))
+def test_wrong_dependency_result_type_fails_closed_without_secondary_exception(
+    bad_stage: str,
+) -> None:
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="bad-result-type",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    valid_outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="failed",
+        draft="",
+        evidence=(),
+        traces=(),
+        gaps=(),
+        stop_reason="invalid_fixture",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+        ),
+        bindings=(),
+        usage=AgentUsage(),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            return object() if bad_stage == "runtime" else valid_outcome
+
+    def structural(*_args, **_kwargs):
+        return object() if bad_stage == "structural" else _args[-1]
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=_SemanticThatRaises(),
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        structural_verifier=structural,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "failed"
+    assert result.answer == ""
+    assert result.private_artifact is not None
+    assert result.private_artifact["failure"]["type"] == "TypeError"
+
+
+def test_verification_failure_gap_passes_through_public_sanitizer() -> None:
+    frame = _frame()
+    control = _control(frame)
+    base_context = build_episode_context(
+        frame,
+        task_id="unsafe-contract-gap",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    unsafe_contract = replace(
+        base_context.contract,
+        required_outputs=(
+            RequiredOutput(
+                "unsafe_gap",
+                "api_key=LEAK_SENTINEL",
+                ("market_data",),
+                True,
+            ),
+        ),
+    )
+    context = replace(
+        base_context,
+        contract=unsafe_contract,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="安全标题",
+        detail="安全证据",
+        source="本地行情",
+        source_date="2026-07-22",
+        content_hash="safe-gap-evidence",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="候选结论",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+        ),
+        bindings=(OutputEvidenceBinding("unsafe_gap", ("safe-gap-evidence",)),),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            return outcome
+
+    class Semantic:
+        def verify(self, **_kwargs):
+            raise TimeoutError("judge timeout")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "degraded"
+    assert result.answer
+    assert "LEAK_SENTINEL" not in result.answer
+    assert "api_key" not in result.answer
+
+
+def test_structural_hash_mismatch_never_projects_cross_task_evidence() -> None:
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="cross-task-outcome",
+        capabilities=control.capabilities,
+        timeout=30.0,
+        latest_data_date="2026-07-22",
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="另一任务材料",
+        detail="不得进入公共投影",
+        source="wrong source",
+        source_date="2099-12-31",
+        content_hash="cross-task-evidence",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash="f" * 64,
+        status="completed",
+        draft="另一任务的结论",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": "f" * 64},
+            ),
+        ),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("cross-task-evidence",),
+            ),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            return outcome
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=_SemanticThatRaises(),
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "degraded"
+    assert result.answer
+    assert result.as_of is None
+    assert result.citations == ()
+    public = str((result.answer, result.as_of, result.citations, result.events))
+    assert "另一任务材料" not in public
+    assert "wrong source" not in public
+    assert "2099-12-31" not in public
+    assert result.private_artifact is not None
+    assert "另一任务材料" in str(result.private_artifact)
+
+
+@pytest.mark.parametrize("invalid_kind", ("unknown_binding", "wrong_evidence_type"))
+def test_structurally_invalid_bindings_never_project_public_evidence(
+    invalid_kind: str,
+) -> None:
+    frame = _frame()
+    control = _control(frame)
+    base_context = build_episode_context(
+        frame,
+        task_id=f"invalid-binding:{invalid_kind}",
+        capabilities=control.capabilities,
+        timeout=30.0,
+        latest_data_date="2026-07-22",
+    )
+    context = replace(
+        base_context,
+        contract=replace(
+            base_context.contract,
+            required_outputs=(
+                RequiredOutput(
+                    "direct_assessment",
+                    "直接判断",
+                    ("market_data",),
+                    True,
+                ),
+            ),
+        ),
+    )
+    evidence = AgentEvidence(
+        tool="kb_search" if invalid_kind == "wrong_evidence_type" else "market_data",
+        title="无效绑定材料",
+        detail="不得进入公共引用",
+        source="invalid source",
+        source_date="2099-12-31",
+        content_hash=f"invalid-binding-{invalid_kind}",
+    )
+    binding_output_id = (
+        "unknown_output" if invalid_kind == "unknown_binding" else "direct_assessment"
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="无效绑定结论",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+        ),
+        bindings=(
+            OutputEvidenceBinding(
+                binding_output_id,
+                (evidence.content_hash,),
+            ),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            return outcome
+
+    class Semantic:
+        def verify(self, **_kwargs):
+            raise TimeoutError("semantic verifier unavailable")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "degraded"
+    assert result.citations == ()
+    assert result.as_of == "2026-07-22"
+    public = str((result.answer, result.as_of, result.citations, result.events))
+    assert "无效绑定材料" not in public
+    assert "invalid source" not in public
+    assert "2099-12-31" not in public
+
+
+def test_foreign_structural_contract_never_contaminates_public_gap() -> None:
+    frame = _frame()
+    control = _control(frame)
+    context = build_episode_context(
+        frame,
+        task_id="current-contract-gap",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="当前任务候选材料",
+        detail="只用于触发证据保留降级",
+        source="本地行情",
+        source_date="2026-07-22",
+        content_hash="current-contract-evidence",
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft="当前任务候选结论",
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+        ),
+        bindings=(
+            OutputEvidenceBinding(
+                "direct_assessment",
+                ("current-contract-evidence",),
+            ),
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    foreign_frame = replace(
+        frame,
+        raw_question="白酒的另一任务怎么看",
+        user_goal="判断白酒",
+        subject="白酒",
+    )
+    foreign_context = build_episode_context(
+        foreign_frame,
+        task_id="foreign-contract-gap",
+        capabilities=control.capabilities,
+        timeout=30.0,
+    )
+    foreign_contract = replace(
+        foreign_context.contract,
+        required_outputs=(
+            RequiredOutput(
+                "foreign_output",
+                "另一任务白酒结论",
+                ("market_data",),
+                True,
+            ),
+        ),
+    )
+    foreign_outcome = AgentOutcome(
+        task_frame_hash=foreign_frame.task_frame_hash,
+        status="partial",
+        draft="",
+        evidence=(),
+        traces=(),
+        gaps=("缺少白酒证据",),
+        stop_reason="evidence_gap",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": foreign_frame.task_frame_hash},
+            ),
+        ),
+        bindings=(),
+        usage=AgentUsage(),
+    )
+    foreign_structural = verify_episode_outcome(
+        foreign_contract,
+        foreign_outcome,
+    )
+
+    class Runtime:
+        def run(self, **_kwargs):
+            return outcome
+
+    class Semantic:
+        def verify(self, **_kwargs):
+            raise TimeoutError("semantic verifier unavailable")
+
+    result = ContinuousTurnAdapter(
+        runtime=Runtime(),
+        semantic_verifier=Semantic(),
+        mode="on",
+        context_factory=lambda *_args, **_kwargs: context,
+        registry_factory=lambda *_args, **_kwargs: "registry",
+        structural_verifier=lambda *_args, **_kwargs: foreign_structural,
+    ).handle(frame=frame, control=control)
+
+    assert result.status == "degraded"
+    assert result.answer
+    assert "另一任务白酒结论" not in result.answer
+    assert "白酒" not in result.answer
+    assert "直接回答用户问题" in result.answer
+    assert result.citations == ()
+    assert result.as_of is None
+
+
 def test_canary_requires_isolated_runtime_identifier(
     monkeypatch,
 ) -> None:
@@ -698,6 +1600,7 @@ def test_canary_requires_isolated_runtime_identifier(
 
     result = ContinuousTurnAdapter(
         runtime=_RuntimeThatRaises(),
+        semantic_verifier=_SemanticThatRaises(),
         mode="canary",
     ).handle(frame=frame, control=_control(frame))
 
@@ -720,13 +1623,17 @@ def test_canary_handles_only_with_matching_environment_and_identifier(
 
     mismatched = ContinuousTurnAdapter(
         runtime=_RuntimeThatRaises(),
+        semantic_verifier=_SemanticThatRaises(),
         mode="canary",
     ).handle(frame=frame, control=control)
 
     assert mismatched.handled is False
 
     monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", "canary")
-    adapter = ContinuousTurnAdapter(runtime=_RuntimeThatRaises())
+    adapter = ContinuousTurnAdapter(
+        runtime=_RuntimeThatRaises(),
+        semantic_verifier=_SemanticThatRaises(),
+    )
     handled = adapter.handle(frame=frame, control=control)
 
     assert adapter.mode == "canary"
