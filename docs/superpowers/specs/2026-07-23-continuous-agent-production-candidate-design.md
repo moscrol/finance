@@ -178,6 +178,16 @@ Recovery rules:
   without an existing evidence hash.
 - If the attempt fails, return an honest partial outcome. Never render an
   unrelated template or the unverified raw draft.
+- The Workbench composition root injects the same task-shaped synthesis
+  reserve used by the isolated A/B runner. Under the 120-second turn budget, a
+  standard balanced task receives a 90-second Episode window with 60 seconds
+  reserved inside it for normal finalization, while 30 seconds remain outside
+  the Episode for semantic verification. The allocation changes ownership,
+  not the total deadline.
+- Budget policy is injected into `ContinuousTurnAdapter`; the provider-neutral
+  adapter does not import GLM-specific policy. This prevents the UI and
+  evaluation runner from silently constructing different `ResearchRunContext`
+  values.
 
 ### 5.3 Provider-chain model client
 

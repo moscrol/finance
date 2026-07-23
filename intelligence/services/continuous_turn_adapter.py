@@ -85,6 +85,7 @@ class ContinuousTurnAdapter:
         task_id_factory: Callable[[], str] = _new_task_id,
         timeout: float = 90.0,
         verification_reserve: float = DEFAULT_VERIFICATION_RESERVE_SECONDS,
+        synthesis_reserve_for_task: Callable[..., float] | None = None,
         tier: str = "standard",
         today: str | None = None,
         latest_data_date: str | None = None,
@@ -102,6 +103,10 @@ class ContinuousTurnAdapter:
             raise TypeError("semantic verifier must provide callable verify(...)")
         if not callable(task_id_factory):
             raise TypeError("task_id_factory must be callable")
+        if synthesis_reserve_for_task is not None and not callable(
+            synthesis_reserve_for_task
+        ):
+            raise TypeError("synthesis_reserve_for_task must be callable")
         self._runtime = runtime
         self._mode = cast(RuntimeMode, selected_mode)
         self._context_factory = context_factory
@@ -112,6 +117,7 @@ class ContinuousTurnAdapter:
         self._task_id_factory = task_id_factory
         self._timeout = max(0.0, float(timeout))
         self._verification_reserve = max(0.0, float(verification_reserve))
+        self._synthesis_reserve_for_task = synthesis_reserve_for_task
         self._tier = str(tier or "standard").strip()
         self._today = today
         self._latest_data_date = latest_data_date
@@ -326,15 +332,25 @@ class ContinuousTurnAdapter:
             task_id = str(self._task_id_factory() or "").strip()
             if not task_id:
                 raise ValueError("task_id_factory must return a non-empty identity")
-            context_candidate = self._context_factory(
-                frame,
-                task_id=task_id,
-                capabilities=control.capabilities,
-                tier=self._tier,
-                timeout=runtime_timeout,
-                today=self._today,
-                latest_data_date=self._latest_data_date,
-            )
+            context_kwargs: dict[str, object] = {
+                "task_id": task_id,
+                "capabilities": control.capabilities,
+                "tier": self._tier,
+                "timeout": runtime_timeout,
+                "today": self._today,
+                "latest_data_date": self._latest_data_date,
+            }
+            if self._synthesis_reserve_for_task is not None:
+                context_kwargs["synthesis_reserve"] = max(
+                    0.0,
+                    float(
+                        self._synthesis_reserve_for_task(
+                            tier=self._tier,
+                            question_type=frame.question_type,
+                        )
+                    ),
+                )
+            context_candidate = self._context_factory(frame, **context_kwargs)
             if not isinstance(context_candidate, ResearchRunContext):
                 raise TypeError("context factory must return ResearchRunContext")
             context = context_candidate

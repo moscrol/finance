@@ -142,6 +142,7 @@ def _build_continuous_turn_adapter(
         mode=_continuous_runtime_mode(),
         task_id_factory=lambda: task_id,
         timeout=timeout,
+        synthesis_reserve_for_task=GLMAgentRuntime.synthesis_reserve_for_task,
         is_cancelled=is_cancelled,
         deadline_expires_at=deadline_expires_at,
     )

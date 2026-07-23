@@ -467,6 +467,15 @@ verification deadline. Do not retry authentication/configuration, call-budget,
 cancellation, malformed-envelope, or tool-call failures; reduce provider
 diagnostics to stable private reason codes.
 
+- [ ] **Step 4a: Keep UI and A/B budget composition identical**
+
+Inject `GLMAgentRuntime.synthesis_reserve_for_task` at the Workbench
+composition root and forward the selected value through
+`ContinuousTurnAdapter` to `build_episode_context`. The adapter must accept a
+provider-neutral budget resolver rather than import GLM policy directly.
+Regression tests must prove `market_forecast` reaches the context factory with
+the same 60-second reserve used by `run_agent_episode_ab.py`.
+
 - [ ] **Step 5: Run and commit**
 
 ```bash

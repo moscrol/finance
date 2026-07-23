@@ -449,6 +449,13 @@ def test_production_continuous_adapter_shares_provider_client_across_gates() -> 
     assert 0 < adapter._remaining_timeout() <= 42.0
     assert adapter._timeout == 42.0
     assert adapter._task_id_factory() == "run-a:message-b"
+    assert (
+        adapter._synthesis_reserve_for_task(
+            tier="standard",
+            question_type="market_forecast",
+        )
+        == 60.0
+    )
 
 
 def test_conversation_worker_allocates_120_seconds_to_continuous_runtime(

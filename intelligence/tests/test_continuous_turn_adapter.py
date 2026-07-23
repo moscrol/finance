@@ -558,6 +558,7 @@ def test_episode_reserves_root_deadline_for_semantic_verification() -> None:
 
     def context_factory(candidate, **kwargs):
         captured["runtime_timeout"] = float(kwargs["timeout"])
+        captured["synthesis_reserve"] = float(kwargs["synthesis_reserve"])
         return build_episode_context(candidate, **kwargs)
 
     class Runtime:
@@ -611,12 +612,20 @@ def test_episode_reserves_root_deadline_for_semantic_verification() -> None:
         mode="on",
         context_factory=context_factory,
         registry_factory=lambda *_args, **_kwargs: "registry",
+        synthesis_reserve_for_task=(
+            lambda *, tier, question_type: (
+                60.0
+                if tier == "standard" and question_type == "market_forecast"
+                else 0.0
+            )
+        ),
         timeout=120.0,
         verification_reserve=30.0,
     ).handle(frame=frame, control=control)
 
     assert result.status == "completed"
     assert captured["runtime_timeout"] == pytest.approx(90.0, abs=0.1)
+    assert captured["synthesis_reserve"] == 60.0
     assert captured["semantic_remaining"] > 119.0
 
 
